@@ -33,6 +33,8 @@ export type PropuestaTarea = {
   dueno?: string; duenoEmail?: string; esDeOtro?: boolean;
   /** segundo de la grabación donde se dijo (para ir a escuchar ese momento). */
   minuto?: number;
+  /** TODOS los momentos en que se habló de esto (una tarea puede volver varias veces). */
+  minutos?: number[];
 };
 export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto' | 'comparacion';
 export type PropuestaPregunta = { pregunta: string; opciones: string[]; tipo: TipoPregunta };
@@ -65,6 +67,9 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     duenoEmail: o.duenoEmail ? str(o.duenoEmail).trim().toLowerCase().slice(0, 160) : undefined,
     esDeOtro: o.esDeOtro === true ? true : undefined,
     minuto: Number.isFinite(Number(o.minuto)) && Number(o.minuto) >= 0 ? Math.round(Number(o.minuto)) : undefined,
+    minutos: Array.isArray(o.minutos)
+      ? [...new Set((o.minutos as unknown[]).map((x) => Math.round(Number(x))).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b)
+      : undefined,
   };
 }
 function limpiarEliminar(e: unknown): PropuestaEliminar | null {
@@ -272,14 +277,17 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       const fuenteTipo = (['whatsapp', 'fathom', 'mako', 'archivo', 'claude-code'].includes(str((data as Row).origen)) ? str((data as Row).origen) : 'whatsapp') as FuenteTipo;
       const tituloFuente = prop?.fuenteTitulo?.trim() ?? '';
       const urlFuente = prop?.fuenteUrl?.trim() ?? '';
+      const reloj = (seg: number): string => (seg >= 3600
+        ? `${Math.floor(seg / 3600)}:${String(Math.floor((seg % 3600) / 60)).padStart(2, '0')}:${String(seg % 60).padStart(2, '0')}`
+        : `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`);
       const fuenteDe = (t: PropuestaTarea): Fuente => {
-        const seg = t.minuto;
-        const reloj = seg != null ? (seg >= 3600
-          ? `${Math.floor(seg / 3600)}:${String(Math.floor((seg % 3600) / 60)).padStart(2, '0')}:${String(seg % 60).padStart(2, '0')}`
-          : `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`) : '';
+        const todos = t.minutos?.length ? t.minutos : (t.minuto != null ? [t.minuto] : []);
+        const seg = todos[0];
+        // Varios momentos → la etiqueta los lista y el link abre el primero.
+        const relojTxt = todos.length ? todos.map(reloj).join(', ') : '';
         return {
           tipo: fuenteTipo,
-          etiqueta: [tituloFuente, reloj].filter(Boolean).join(' · ') || undefined,
+          etiqueta: [tituloFuente, relojTxt].filter(Boolean).join(' · ') || undefined,
           url: urlFuente ? (seg != null ? `${urlFuente}${urlFuente.includes('?') ? '&' : '?'}timestamp=${seg}` : urlFuente) : undefined,
         };
       };

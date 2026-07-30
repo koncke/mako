@@ -68,7 +68,7 @@ import {
   CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
   PROYECTO_SYSTEM_TEMPLATE, PROYECTO_USER_TEMPLATE,
 } from './checklist-coach';
-import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE } from './plan-fathom';
+import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE, PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE, PLAN_FATHOM_DEDUP_USER_TEMPLATE, PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
 import { CRUCE_SYSTEM_TEMPLATE, CRUCE_USER_TEMPLATE, RUTEAR_SYSTEM_TEMPLATE, RUTEAR_USER_TEMPLATE } from './mako-guardian';
 import { GATE_SYSTEM_TEMPLATE, GATE_USER_TEMPLATE } from './retro-gate';
@@ -728,6 +728,34 @@ export const REGISTRY: Group[] = [
         variables: [v('yo', 'quién mira el tablero (nombre + email)'), v('participantes', 'invitados de la reunión con nombre y email'), v('glosario', 'términos/nombres propios del negocio'), v('proyectos', 'lista de proyectos con id'), v('reunion', 'resumen + transcripción')], scope: 'full', sensitive: false,
         default: PLAN_FATHOM_USER_TEMPLATE,
         context: 'Le pasa quién mira el tablero (para el dueño de cada tarea), los participantes (para atribuirle a cada uno sus tareas por email), el glosario (para entender la jerga y corregir la transcripción), los proyectos y la reunión. No borres los slots {{yo}}/{{participantes}}/{{glosario}}/{{proyectos}}/{{reunion}}.',
+      },
+      {
+        key: 'plan-fathom.dedup.system', source: 'override',
+        label: 'Fusionar tareas repetidas (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE,
+        context: 'Segunda pasada sobre la lista YA extraída: agrupa las tareas que son la MISMA dicha en distintos momentos de la reunión (la fusionada se queda con todos los minutos). Ojo al aflojar las reglas duras: si agrupa de más, se pierden tareas reales.',
+      },
+      {
+        key: 'plan-fathom.dedup.user', source: 'override',
+        label: 'Lista de tareas a revisar (user)', kind: 'user', dynamic: true,
+        variables: [v('tareas', 'lista numerada con minuto, título y detalle')], scope: 'full', sensitive: false,
+        default: PLAN_FATHOM_DEDUP_USER_TEMPLATE,
+        context: 'La lista numerada que se revisa. No borres el slot {{tareas}}.',
+      },
+      {
+        key: 'plan-fathom.preguntas.system', source: 'override',
+        label: 'Preguntas de contexto de la reunión (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE,
+        context: 'Las preguntas CERRADAS que MaKo hace antes de cargar las tareas de una reunión. Regla que no se toca: nunca pregunta por prioridad (eso lo decide el Perro), solo hechos que no puede deducir.',
+      },
+      {
+        key: 'plan-fathom.preguntas.user', source: 'override',
+        label: 'Reunión + tareas para preguntar (user)', kind: 'user', dynamic: true,
+        variables: [v('reunion', 'título de la reunión'), v('tareas', 'lista de tareas propias')], scope: 'full', sensitive: false,
+        default: PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE,
+        context: 'No borres los slots {{reunion}}/{{tareas}}.',
       },
     ],
   },

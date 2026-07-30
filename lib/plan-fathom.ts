@@ -91,6 +91,12 @@ export type TareaCandidata = {
   esDeOtro: boolean;           // true = NO es del que mira el board (va a la tab de esa persona)
   /** segundo de la grabación donde se dijo — para ir a escucharlo. undefined si no se sabe. */
   minuto?: number;
+  /**
+   * TODOS los momentos donde se habló de esto. Una misma tarea vuelve tres veces en una
+   * reunión larga (se plantea, se discute, se cierra): en vez de tres tarjetas casi
+   * iguales, UNA con sus tres marcas de tiempo.
+   */
+  minutos?: number[];
 };
 
 /** "[01:23:45]" o "1:23:45" o "12:34" → segundos. undefined si no parsea. */
@@ -271,6 +277,7 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
         dueñoEmail: d.dueñoEmail,
         esDeOtro: d.esDeOtro,
         minuto: segundosDeTimestamp(o.minuto),
+        minutos: segundosDeTimestamp(o.minuto) != null ? [segundosDeTimestamp(o.minuto)!] : undefined,
       };
     })
     .filter((t) => t.titulo);
@@ -295,6 +302,179 @@ function coerceDudas(obj: Record<string, unknown>): DudaTermino[] {
 }
 
 export type ExtractOut = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo; participantes?: Participante[]; partes?: number };
+
+export const PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE = `Sos un revisor. Te paso las tareas que se sacaron de UNA reunión. En una charla larga, la MISMA tarea se habla varias veces (se plantea, se discute, se cierra), y por eso la lista trae tarjetas casi iguales dichas con otras palabras.
+
+Tu trabajo: agrupar SOLO las que son LA MISMA ACCIÓN. La prueba es simple: si hacés una, ¿ya hiciste la otra? Si sí, son la misma.
+
+⛔ REGLAS DURAS (romperlas arruina el plan):
+- MISMO TEMA NO ES LA MISMA TAREA. "Cambiar la foto de perfil" y "Reescribir la bio" son dos, aunque las dos sean del Instagram. "Rediseñar la landing" y "Sacar la palabra beta de la landing" son dos.
+- Una tarea GENÉRICA que engloba a otras específicas NO se agrupa con ellas: quedate con las específicas y dejá la genérica aparte.
+- Ante la duda, NO agrupes. Que sobre una tarjeta repetida es barato; perder una tarea real, no.
+- Todo índice que no esté en ningún grupo queda como está. NO tenés que devolver los que no agrupás.
+
+Para cada grupo devolvé el MEJOR título: el más específico y accionable de los que te pasé (podés tomar el de uno de ellos tal cual; no inventes uno nuevo más vago).
+
+{{jsonShape}}`;
+
+export const PLAN_FATHOM_DEDUP_USER_TEMPLATE = `TAREAS DE LA REUNIÓN (índice · minuto · título — detalle):
+{{tareas}}`;
+
+const DEDUP_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
+{
+  "grupos": [
+    { "indices": [3, 17], "titulo": "<el mejor título de los agrupados>", "motivo": "<en 6 palabras, por qué son la misma>" }
+  ]
+}
+Si no hay ninguna repetida, devolvé {"grupos": []}.`;
+
+/**
+ * Fusiona las tareas que son LA MISMA dicha en distintos momentos de la reunión.
+ *
+ * El dedup léxico (mismaTarea) solo agarra las que se parecen en palabras; "Definir el
+ * enfoque principal de comunicación" y "Definir la estrategia de posicionamiento" son
+ * la misma decisión y no comparten casi ninguna. Esto lo resuelve una pasada de IA
+ * SOBRE LA LISTA YA EXTRAÍDA — que es distinto de pedirle que "resuma": acá no puede
+ * perder nada, porque solo aplicamos AGRUPACIONES sobre índices que ya existen.
+ *
+ * La tarea fusionada se queda con TODOS los minutos: el contexto no se pierde, se suma.
+ */
+export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: string): Promise<{ tareas: TareaCandidata[]; fusionadas: number; usage?: UsageInfo }> {
+  if (tareas.length < 2) return { tareas, fusionadas: 0 };
+  const lista = tareas.map((t, i) => `${i} · ${t.minutos?.length ? relojCorto(t.minutos[0]) : '—'} · ${t.titulo}${t.detalle ? ` — ${t.detalle.slice(0, 140)}` : ''}`).join('\n');
+  const sys = await brandSystem(await renderPrompt('plan-fathom.dedup.system', PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE, { jsonShape: DEDUP_JSON_SHAPE }));
+  const user = await renderPrompt('plan-fathom.dedup.user', PLAN_FATHOM_DEDUP_USER_TEMPLATE, { tareas: contenidoNoConfiable(lista, 'tareas') });
+
+  let usage: UsageInfo | undefined;
+  let obj: Record<string, unknown>;
+  try {
+    const raw = await chatClaude(sys, [{ role: 'user', content: user }], {
+      // 12k igual que la extracción: con 4.000 la respuesta se cortaba a la mitad
+      // (el modelo gasta ~2.900 pensando) y el JSON no parseaba → cero fusiones, en
+      // silencio. Lo cazó el log de finish_reason.
+      effort: 'high', maxTokens: 12000, feature: 'plan-fathom',
+      motivo: usoMotivo || 'Fusionar tareas repetidas de la reunión', onUsage: (u) => { usage = u; },
+    });
+    obj = parseJsonObject(raw);
+  } catch (e) {
+    console.error(`[plan-fathom] dedup: ${e instanceof Error ? e.message : String(e)}`);
+    return { tareas, fusionadas: 0, usage };
+  }
+
+  const grupos = Array.isArray(obj.grupos) ? obj.grupos : [];
+  const yaUsado = new Set<number>();
+  const fusiones: Array<{ indices: number[]; titulo: string }> = [];
+  for (const g of grupos) {
+    const o = (g ?? {}) as Record<string, unknown>;
+    const idx = (Array.isArray(o.indices) ? o.indices : [])
+      .map((x) => Math.round(Number(x)))
+      .filter((n) => Number.isInteger(n) && n >= 0 && n < tareas.length && !yaUsado.has(n));
+    if (idx.length < 2) continue;                       // un grupo de uno no fusiona nada
+    if (new Set(idx.map((i) => tareas[i].esDeOtro ? 'otro' : 'mio')).size > 1) continue; // nunca mezclar dueños
+    idx.forEach((n) => yaUsado.add(n));
+    fusiones.push({ indices: idx, titulo: String(o.titulo ?? '').trim() });
+  }
+  if (!fusiones.length) return { tareas, fusionadas: 0, usage };
+
+  const fusionadaDe = new Map<number, TareaCandidata>();
+  for (const f of fusiones) {
+    // Base = la que más contexto trae; el título, el que eligió el revisor (si es uno
+    // de los que le pasamos) o el más largo de los agrupados.
+    const items = f.indices.map((i) => tareas[i]);
+    const base = items.reduce((a, b) => ((b.detalle?.length ?? 0) > (a.detalle?.length ?? 0) ? b : a));
+    const titulo = items.some((t) => normTitulo(t.titulo) === normTitulo(f.titulo)) && f.titulo
+      ? f.titulo
+      : items.reduce((a, b) => (b.titulo.length > a.titulo.length ? b : a)).titulo;
+    const minutos = [...new Set(items.flatMap((t) => t.minutos ?? (t.minuto != null ? [t.minuto] : [])))].sort((a, b) => a - b);
+    fusionadaDe.set(f.indices[0], { ...base, titulo, minutos, minuto: minutos[0] });
+  }
+  const quitar = new Set(fusiones.flatMap((f) => f.indices.slice(1)));
+  const out = tareas.map((t, i) => fusionadaDe.get(i) ?? t).filter((_, i) => !quitar.has(i));
+  console.log(`[plan-fathom] fusión: ${tareas.length} → ${out.length} (${quitar.size} repetidas absorbidas en ${fusiones.length} tareas)`);
+  return { tareas: out, fusionadas: quitar.size, usage };
+}
+
+export const PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE = `Sos el Perro Guardián de MaKo. Te paso las tareas que salieron de una reunión, tal como quedaron. Antes de priorizarlas necesitás CONTEXTO que la reunión no dejó claro.
+
+Tu trabajo: hacer las preguntas MÍNIMAS que cambian cómo se prioriza o se ejecuta esto.
+
+⛔ REGLAS DURAS:
+- NUNCA preguntes qué prioridad poner, qué urge más, ni en qué orden hacerlo. Ese es TU trabajo, no el del dueño (el dueño exagera y no sabe priorizar). Prohibido "¿qué prioridad?", "¿cuál primero?", "¿alta o media?".
+- Preguntá HECHOS que no podés deducir de las tareas: fechas duras que ya existen, de qué DEPENDE algo, quién tiene que estar, cuánta plata mueve, si un ítem es una tarea o varias, qué versión/herramienta se eligió.
+- Si la respuesta ya está en las tareas o en el detalle, NO la preguntes.
+- Si no cambia NADA de lo que va a pasar, no la hagas.
+- CERRADAS SIEMPRE: cada pregunta con 2-4 opciones concretas para tocar. Nada de preguntas abiertas.
+- Pocas y buenas: entre 0 y 4. Cero es una respuesta válida si la reunión quedó clara.
+
+Escribí como MaKo: rioplatense, corto, sin vueltas.
+
+{{jsonShape}}`;
+
+export const PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE = `REUNIÓN: {{reunion}}
+
+TAREAS QUE SALIERON:
+{{tareas}}`;
+
+const PREGUNTAS_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
+{
+  "preguntas": [
+    {
+      "pregunta": "<corta y concreta, sobre un HECHO>",
+      "tipo": "opcion" | "multi" | "escala" | "comparacion",
+      "opciones": ["<2-4 respuestas cortas y concretas>"]
+    }
+  ]
+}
+Si la reunión no dejó nada ambiguo, devolvé {"preguntas": []}.`;
+
+/**
+ * Las preguntas de contexto para un lote de tareas de reunión. CERRADAS (con opciones),
+ * como el resto de la app: el dueño toca y sigue.
+ *
+ * Existían solo para los borradores que arma MaKo por WhatsApp; los de reuniones se
+ * creaban sin ninguna, así que el Perro priorizaba a ciegas sobre 70 tareas.
+ */
+export async function preguntasDeContexto(
+  tareas: TareaCandidata[], reunion: string, usoMotivo?: string,
+): Promise<{ preguntas: Array<{ pregunta: string; tipo: string; opciones: string[] }>; usage?: UsageInfo }> {
+  const mias = tareas.filter((t) => !t.esDeOtro);
+  if (mias.length < 3) return { preguntas: [] };   // un lote chico no necesita ceremonia
+  const lista = mias.map((t, i) => `${i + 1}. ${t.titulo}${t.detalle ? ` — ${t.detalle.slice(0, 120)}` : ''}`).join('\n');
+  const sys = await brandSystem(await renderPrompt('plan-fathom.preguntas.system', PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, { jsonShape: PREGUNTAS_JSON_SHAPE }));
+  const user = await renderPrompt('plan-fathom.preguntas.user', PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE, {
+    reunion: reunion || '(sin título)',
+    tareas: contenidoNoConfiable(lista, 'tareas'),
+  });
+  let usage: UsageInfo | undefined;
+  try {
+    const raw = await chatClaude(sys, [{ role: 'user', content: user }], {
+      effort: 'high', maxTokens: 8000, feature: 'plan-fathom',
+      motivo: usoMotivo || 'Preguntas de contexto de la reunión', onUsage: (u) => { usage = u; },
+    });
+    const obj = parseJsonObject(raw);
+    const arr = Array.isArray(obj.preguntas) ? obj.preguntas : [];
+    const preguntas = arr
+      .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+      .map((o) => ({
+        pregunta: String(o.pregunta ?? '').trim().slice(0, 300),
+        tipo: ['opcion', 'multi', 'escala', 'comparacion'].includes(String(o.tipo)) ? String(o.tipo) : 'opcion',
+        opciones: (Array.isArray(o.opciones) ? o.opciones : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 4),
+      }))
+      .filter((p) => p.pregunta && (p.tipo === 'escala' || p.opciones.length >= 2))
+      .slice(0, 4);
+    return { preguntas, usage };
+  } catch (e) {
+    console.error(`[plan-fathom] preguntas: ${e instanceof Error ? e.message : String(e)}`);
+    return { preguntas: [], usage };
+  }
+}
+
+/** "12:34" / "1:03:40" — para listarle los momentos al revisor. */
+function relojCorto(seg?: number): string {
+  if (seg == null) return '—';
+  const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s = seg % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
 export type ExtractOpts = { glosario?: string; usoMotivo?: string; participantes?: Participante[] };
 
 // ── Troceado del transcript ──────────────────────────────────────────────────
@@ -455,13 +635,25 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
       if (!normTitulo(t.titulo)) continue;
       const i = fusionadas.findIndex((f) => mismaTarea(f.titulo, t.titulo));
       if (i < 0) { fusionadas.push(t); continue; }
-      if ((t.detalle?.length ?? 0) > (fusionadas[i].detalle?.length ?? 0)) fusionadas[i] = t;
+      // Repetida: se queda la que más contexto trae, pero los MINUTOS se suman (la
+      // misma tarea dicha dos veces son dos momentos para ir a escuchar).
+      const minutos = [...new Set([...(fusionadas[i].minutos ?? []), ...(t.minutos ?? [])])].sort((a, b) => a - b);
+      const mejor = (t.detalle?.length ?? 0) > (fusionadas[i].detalle?.length ?? 0) ? t : fusionadas[i];
+      fusionadas[i] = { ...mejor, minutos, minuto: minutos[0] ?? mejor.minuto };
     }
   }
   const dudas = coerceDudas({ dudas: salidas.flatMap((s) => s.dudas) });
   const total = salidas.reduce((s, x) => s + x.tareas.length, 0);
-  if (partes.length > 1) console.log(`[plan-fathom] ${partes.length} partes · ${total} tareas brutas → ${fusionadas.length} después de fusionar`);
-  return { tareas: fusionadas, dudas, usage: sumarUsage(salidas.map((s) => s.usage)), participantes, partes: partes.length };
+  if (partes.length > 1) console.log(`[plan-fathom] ${partes.length} partes · ${total} tareas brutas → ${fusionadas.length} tras el dedup léxico`);
+  // Última pasada: las que son la MISMA tarea dicha con otras palabras en otro momento
+  // de la charla. El parecido de palabras no las agarra ("definir el enfoque de
+  // comunicación" vs "definir la estrategia de posicionamiento" = la misma decisión).
+  const dedup = await fusionarDuplicadas(fusionadas, opts.usoMotivo);
+  return {
+    tareas: dedup.tareas, dudas,
+    usage: sumarUsage([...salidas.map((s) => s.usage), dedup.usage]),
+    participantes, partes: partes.length,
+  };
 }
 
 export async function extraerTareasDeReunion(recordingId: number, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {

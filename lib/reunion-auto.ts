@@ -19,7 +19,7 @@ import 'server-only';
 // negocio lee SU Fathom con SU key y escribe en SU tablero.
 // =============================================================================
 
-import { listReunionesRecientes, extraerTareasDeReunion, cacheKeyReunion, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
+import { listReunionesRecientes, extraerTareasDeReunion, preguntasDeContexto, cacheKeyReunion, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
 import { crearPropuesta, existePropuestaRef, type PropuestaTarea } from './plan-propuesta';
 import { glosarioTexto } from './glosario';
 import { getSetting, setSetting } from './settings';
@@ -189,8 +189,11 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         .map((p) => p.nombre || p.email.split('@')[0])
         .slice(0, 3).join(', ');
 
+      // Preguntas CERRADAS de contexto: lo que la reunión no dejó claro y el Perro
+      // necesita para priorizar bien. Se responden en el modal, antes de cargar.
+      const { preguntas } = await preguntasDeContexto(tareas, r.titulo, 'Preguntas de contexto (reunión nueva)').catch(() => ({ preguntas: [] }));
       await crearPropuesta({
-        ws, ref, tareas: propuestas, origen: 'fathom',
+        ws, ref, tareas: propuestas, preguntas, origen: 'fathom',
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${propuestas.length} ${propuestas.length === 1 ? 'compromiso' : 'compromisos'}.`,
       });

@@ -27,7 +27,13 @@ export type CandidataTarea = {
   dueño?: string; dueñoEmail?: string; esDeOtro?: boolean;
   /** segundo de la grabación donde se dijo — para ir a escuchar ese momento. */
   minuto?: number;
+  /** todos los momentos en que se habló de esto (la misma tarea vuelve en la charla). */
+  minutos?: number[];
 };
+
+/** Los momentos de una tarea, siempre como lista (compat con el campo viejo). */
+const momentosDe = (f: { minuto?: number; minutos?: number[] }): number[] =>
+  f.minutos?.length ? f.minutos : (f.minuto != null ? [f.minuto] : []);
 
 /** 4530 → "1:15:30" (o "12:34" si no llega a la hora). */
 function relojDe(seg?: number): string {
@@ -345,8 +351,7 @@ function TabBtn({ activo, onClick, label, n }: { activo: boolean; onClick: () =>
 function FilaCandidata({ f, onFila, url, personas }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null; personas: PersonaRef[] }) {
   const [editando, setEditando] = useState(false);
   const [reasignando, setReasignando] = useState(false);
-  const link = urlEnMinuto(url, f.minuto);
-  const reloj = relojDe(f.minuto);
+  const momentos = momentosDe(f);
   return (
     <div style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: `1px solid ${f.incluir ? 'var(--primary)' : 'var(--border)'}`, background: f.incluir ? 'var(--primary-bg)' : 'var(--surface-2)', opacity: f.incluir ? 1 : 0.6 }}>
       <button type="button" onClick={() => onFila({ incluir: !f.incluir })} aria-label="Incluir"
@@ -355,10 +360,15 @@ function FilaCandidata({ f, onFila, url, personas }: { f: FilaTarea; onFila: (p:
         {/* El minuto va PEGADO al título: es parte de "qué es esto", no una acción. */}
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
           {f.titulo}
-          {reloj && (link
-            ? <a href={link} target="_blank" rel="noreferrer" title="Escuchar este momento de la reunión"
-                style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {reloj}</a>
-            : <span style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {reloj}</span>)}
+          {/* TODOS los momentos: una tarea que se habló tres veces trae sus tres marcas
+              en vez de tres tarjetas casi iguales. */}
+          {momentos.map((seg) => {
+            const l = urlEnMinuto(url, seg);
+            return l
+              ? <a key={seg} href={l} target="_blank" rel="noreferrer" title="Escuchar este momento de la reunión"
+                  style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
+              : <span key={seg} style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {relojDe(seg)}</span>;
+          })}
         </div>
         {editando
           ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} rows={4}
@@ -474,10 +484,10 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
               {f.titulo}
-              {relojDe(f.minuto) && (
-                <a href={urlEnMinuto(reunion.url, f.minuto) ?? '#'} target="_blank" rel="noreferrer" title="Escuchar este momento"
-                  style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(f.minuto)}</a>
-              )}
+              {momentosDe(f).map((seg) => (
+                <a key={seg} href={urlEnMinuto(reunion.url, seg) ?? '#'} target="_blank" rel="noreferrer" title="Escuchar este momento"
+                  style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
+              ))}
             </div>
             {editando === idx
               ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila(idx, { detalle: e.target.value })} rows={4}
