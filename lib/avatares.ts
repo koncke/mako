@@ -190,9 +190,15 @@ export function parsePreguntasAvatares(text: string): PreguntaAvatar[] {
 // Fallback ESTÁTICO (sin IA) si la cascada no devuelve preguntas usables — mismo
 // criterio que entregable.ts: "MaKo siempre pregunta antes de proponer" no puede
 // depender de que un JSON anidado estricto le salga bien al modelo de turno.
+//
+// Sin jerga ("segmentos" no se entiende) y COMPARATIVAS de verdad — no "¿tenés
+// definido X?" (no alimenta nada), sino "entre A y B, ¿cuál...?" (fuerza a pensar
+// en un eje real de diferencia entre clientes, mismo espíritu que las preguntas
+// que arma la IA cuando funciona).
 const PREGUNTAS_AVATAR_FALLBACK: PreguntaAvatar[] = [
-  { pregunta: '¿Ya tienes definidos tus segmentos de cliente?', opciones: ['Sí, tengo 2-3 bien claros', 'Tengo una idea general', 'No, que MaKo los proponga'] },
-  { pregunta: '¿Qué más distingue a tus mejores clientes entre sí?', opciones: ['El tamaño de su negocio o presupuesto', 'La industria o el rubro', 'El problema puntual que tienen', 'Dónde están en el proceso de compra'] },
+  { pregunta: '¿Cuál de tus clientes te compra MÁS rápido: el que ya te conocía (referido, seguidor) o el que te descubre frío por un anuncio?', opciones: ['El que ya me conocía', 'El que llega frío', 'Compran parecido', 'No estoy seguro'] },
+  { pregunta: 'Pensando en tus 2-3 mejores clientes (los que más te compraron o mejor resultado tuvieron), ¿qué tienen MÁS en común?', opciones: ['El tamaño de su negocio o presupuesto', 'El problema puntual que les resolví', 'La urgencia con la que compraron', 'El canal por el que llegaron'] },
+  { pregunta: '¿Cuál te resulta MÁS fácil de cerrar hoy: alguien que recién nota el problema, o alguien que ya lo sufre hace tiempo y probó de todo?', opciones: ['El que recién lo nota', 'El que ya lo sufre hace rato', 'Los dos por igual', 'No estoy seguro'] },
 ];
 
 export async function generarPreguntasAvatares(): Promise<{ ok: true; preguntas: PreguntaAvatar[] } | { ok: false; error: string }> {

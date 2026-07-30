@@ -49,7 +49,9 @@ export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void }
   // Preguntas de segmentación (siempre antes de generar).
   const [preguntas, setPreguntas] = useState<Pregunta[] | null>(null);
   const [pregIdx, setPregIdx] = useState(0);
-  const [respuestas, setRespuestas] = useState<Array<{ pregunta: string; respuesta: string }>>([]);
+  // Por ÍNDICE (no por inserción): así "← Atrás" pisa la respuesta anterior aunque
+  // alguna pregunta de en medio se haya saltado.
+  const [respuestas, setRespuestas] = useState<Array<string | null>>([]);
   const [cargandoPreg, setCargandoPreg] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -79,12 +81,14 @@ export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void }
 
   const responderPreg = (respuesta: string | null) => {
     if (!preguntas) return;
-    const q = preguntas[pregIdx];
-    const rs = respuesta ? [...respuestas, { pregunta: q.pregunta, respuesta }] : respuestas;
-    setRespuestas(rs);
-    if (pregIdx + 1 >= preguntas.length) generar(rs);
-    else setPregIdx((i) => i + 1);
+    const arr = [...respuestas]; arr[pregIdx] = respuesta;
+    setRespuestas(arr);
+    if (pregIdx + 1 >= preguntas.length) {
+      const rs = preguntas.map((q, i) => ({ pregunta: q.pregunta, respuesta: arr[i] })).filter((x): x is { pregunta: string; respuesta: string } => !!x.respuesta);
+      generar(rs);
+    } else setPregIdx((i) => i + 1);
   };
+  const atrasPreg = () => setPregIdx((i) => Math.max(0, i - 1));
 
   const css = <style>{'@keyframes ava-spin{to{transform:rotate(360deg)}}'}</style>;
 
@@ -117,7 +121,10 @@ export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void }
               style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', lineHeight: 1.4 }}>{o}</button>
           ))}
         </div>
-        <div style={{ marginTop: 22 }}><button type="button" onClick={() => responderPreg(null)} style={linkBtn}>Saltar esta</button></div>
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 22, alignItems: 'center' }}>
+          {pregIdx > 0 && <button type="button" onClick={atrasPreg} style={linkBtn}>← Atrás</button>}
+          <button type="button" onClick={() => responderPreg(null)} style={linkBtn}>Saltar esta</button>
+        </div>
       </div>
     );
   }

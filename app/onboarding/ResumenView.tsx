@@ -64,7 +64,8 @@ function SeccionCard({ s, abiertoDefault }: { s: Seccion; abiertoDefault: boolea
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
       <button type="button" onClick={() => setAbierto((a) => !a)}
         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '15px 18px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS }}>
-        <span aria-hidden style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, background: 'var(--accent-soft)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{iconoDe(s.titulo)}</span>
+        {/* --accent-soft es amarillo fuerte: se funde con los emojis (mismo tono). Fondo neutro. */}
+        <span aria-hidden style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{iconoDe(s.titulo)}</span>
         <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{s.titulo}</span>
         <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 12, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
       </button>

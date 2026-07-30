@@ -471,7 +471,7 @@ export function OnboardingWizard() {
         ) : undefined}
         escenario={
           p.faseQ != null ? (
-            <FasePanel modo={p.faseQ >= 0 ? 'quiz' : 'result'} qIdx={p.faseQ} total={data.fasePreguntas.length} diag={faseDiag} />
+            <FasePanel modo={p.faseQ >= 0 ? 'quiz' : 'result'} diag={faseDiag} />
           ) : (
             <PanelMarketing
               servicioKey={p.servicio ?? 'landing'}
@@ -681,7 +681,7 @@ function PantallaRetro({ ext, onListo }: { ext: Extraction | null; onListo: (r: 
 
 // El aside negro del diagnóstico: durante el quiz muestra la escalera de fases;
 // en el resultado, la fase diagnosticada grande.
-function FasePanel({ modo, qIdx, total, diag }: { modo: 'quiz' | 'result'; qIdx: number; total: number; diag: Diagnostico | null }) {
+function FasePanel({ modo, diag }: { modo: 'quiz' | 'result'; diag: Diagnostico | null }) {
   if (modo === 'result' && diag) {
     const f = faseDef(diag.fase);
     return (
@@ -694,46 +694,49 @@ function FasePanel({ modo, qIdx, total, diag }: { modo: 'quiz' | 'result'; qIdx:
       </div>
     );
   }
-  const actual = Math.min(qIdx, 4);
-  const pct = Math.round(((qIdx + 1) / Math.max(total, 1)) * 100);
+  return <FaseLoopAnimado />;
+}
+
+// Animación en LOOP, autónoma — NO depende de qué pregunta esté respondiendo el
+// usuario (antes saltaba de contenido al llegar a la pregunta de canal, que no
+// tenía faseQ; ahora ni siquiera hace falta esa dependencia: el panel es el MISMO
+// en las 6 preguntas, solo recorre las 5 fases por su cuenta). Pedido de Martín:
+// "eliminar todo el resto de la banda negra" — queda solo el título y el loop.
+function FaseLoopAnimado() {
+  const [activo, setActivo] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setActivo((a) => (a + 1) % FASES.length), 2800);
+    return () => clearInterval(id);
+  }, []);
   return (
-    <div className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: 26, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)' }}>✦ Tu diagnóstico</div>
-        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', color: 'var(--on-sidebar)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 999, padding: '3px 9px', flex: 'none' }}>
-          {qIdx + 1} / {total}
-        </div>
-      </div>
-      <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,.1)', overflow: 'hidden', marginBottom: 18 }}>
-        <div style={{ height: '100%', width: `${pct}%`, borderRadius: 999, background: 'linear-gradient(90deg, #F6D365, #EF9F27)', transition: 'width .35s ease' }} />
-      </div>
-      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--on-sidebar)', lineHeight: 1.4, marginBottom: 20 }}>
-        En 6 preguntas sabés exactamente en qué fase estás — y qué priorizar hoy, no en teoría.
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 26, minWidth: 0 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 22 }}>✦ Diagnóstico del negocio</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {FASES.map((f, i) => {
-          const on = i === actual;
+          const on = i === activo;
           return (
             <div key={f.id} style={{
-              display: 'flex', alignItems: 'center', gap: 11, padding: on ? '9px 10px' : '9px 2px',
-              borderRadius: 11, background: on ? `${f.color}26` : 'transparent',
-              border: `1px solid ${on ? `${f.color}55` : 'transparent'}`,
-              opacity: on ? 1 : 0.4, transform: on ? 'scale(1.02)' : 'none', transition: 'all .25s ease',
+              borderRadius: 12, padding: on ? '12px 14px' : '9px 14px',
+              background: on ? `${f.color}22` : 'transparent',
+              border: `1px solid ${on ? `${f.color}50` : 'transparent'}`,
+              transition: 'background .5s ease, border-color .5s ease, padding .4s ease',
             }}>
-              <span style={{
-                flex: 'none', width: 30, height: 30, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: on ? f.color : 'rgba(255,255,255,.08)', color: on ? '#171511' : f.color,
-              }}><FaseIcono id={f.id} size={16} /></span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--on-sidebar)' }}>Fase {f.id} · {f.nombre}</div>
-                <div style={{ fontSize: 11, color: 'var(--sidebar-text)' }}>Cuello: {f.cuelloLabel}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                <span style={{
+                  flex: 'none', width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  background: on ? f.color : 'rgba(255,255,255,.08)', color: on ? '#171511' : f.color, transition: 'all .5s ease',
+                }}><FaseIcono id={f.id} size={17} /></span>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--on-sidebar)' }}>Fase {f.id} · {f.nombre}</div>
+              </div>
+              <div style={{
+                maxHeight: on ? 30 : 0, opacity: on ? 1 : 0, overflow: 'hidden',
+                transition: 'max-height .4s ease, opacity .3s ease', paddingLeft: 43,
+              }}>
+                <div style={{ fontSize: 12, color: 'var(--sidebar-text)', lineHeight: 1.4, marginTop: 6 }}>{f.subtitulo}</div>
               </div>
             </div>
           );
         })}
-      </div>
-      <div style={{ marginTop: 'auto', paddingTop: 18, fontSize: 11.5, color: 'var(--sidebar-text)', lineHeight: 1.5, borderTop: '1px solid rgba(255,255,255,.1)' }}>
-        Todos los negocios pasan por estas 5 etapas — lo que cambia es qué hacer primero en cada una.
       </div>
     </div>
   );

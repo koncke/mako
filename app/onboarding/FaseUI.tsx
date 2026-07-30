@@ -62,15 +62,15 @@ export const SeccionLabel = ({ children }: { children: ReactNode }) => (
 );
 
 // Ícono SVG por fase (1-5): una metáfora clara de cada etapa —
-// 1 Validación (brote) · 2 Conversión (embudo) · 3 Automatización (moneda) ·
-// 4 Equipo (cohete) · 5 Escala (corona).
+// 1 Validación (brote) · 2 Conversión (cohete) · 3 Automatización (moneda) ·
+// 4 Equipo (personas) · 5 Escala (corona).
 export function FaseIcono({ id, size = 22 }: { id: number; size?: number }) {
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none' as const, stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (id) {
     case 1: return <svg {...p}><path d="M12 21v-7.5" /><path d="M12 13.5c-.2-3 1.9-5.3 5.2-5.3.2 3.1-1.9 5.3-5.2 5.3z" /><path d="M12 15.5c.2-2.6-1.7-4.6-4.5-4.6-.2 2.7 1.7 4.7 4.5 4.6z" /></svg>;
-    case 2: return <svg {...p}><path d="M4 5h16l-6 7v6l-4-2v-4z" /></svg>;
+    case 2: return <svg {...p}><path d="M12 3c2.6 1.9 3.9 4.6 3.9 8 0 1.9-.5 3.3-1.3 4.5H9.4C8.6 14.3 8.1 12.9 8.1 11c0-3.4 1.3-6.1 3.9-8z" /><circle cx="12" cy="9.2" r="1.5" /><path d="M9.4 15.5l-1.9 2 2.2-.5M14.6 15.5l1.9 2-2.2-.5M12 15.5V21" /></svg>;
     case 3: return <svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.2v9.6" /><path d="M14.4 9.3c-.5-.8-1.4-1.3-2.4-1.3-1.4 0-2.5.8-2.5 2 0 2.7 5 1.4 5 4.1 0 1.2-1.1 2-2.5 2-1 0-1.9-.5-2.5-1.3" /></svg>;
-    case 4: return <svg {...p}><path d="M12 3c2.6 1.9 3.9 4.6 3.9 8 0 1.9-.5 3.3-1.3 4.5H9.4C8.6 14.3 8.1 12.9 8.1 11c0-3.4 1.3-6.1 3.9-8z" /><circle cx="12" cy="9.2" r="1.5" /><path d="M9.4 15.5l-1.9 2 2.2-.5M14.6 15.5l1.9 2-2.2-.5M12 15.5V21" /></svg>;
+    case 4: return <svg {...p}><circle cx="8.5" cy="8" r="3" /><path d="M3 20v-1.2c0-3 2.5-5.3 5.5-5.3s5.5 2.3 5.5 5.3V20" /><path d="M15.3 3.4a3 3 0 0 1 0 5.8" /><path d="M15.7 13.6c2.6.4 4.3 2.6 4.3 5.2V20" /></svg>;
     case 5: return <svg {...p}><path d="M5 18.5h14" /><path d="M4.8 8.4l3.7 2.9L12 5.8l3.5 5.5 3.7-2.9L17.6 18.5H6.4z" /></svg>;
     default: return null;
   }

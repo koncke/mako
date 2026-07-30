@@ -15,6 +15,10 @@ import {
   diagnosticar, faseDef, dimensionDeFase, repartoTexto,
   type CanalId, type Diagnostico,
 } from '@/lib/fase-diagnostico';
+// Mismo ícono que el onboarding (app/onboarding/FaseUI.tsx) — antes esta vista tenía
+// su propio set duplicado y quedaba desincronizado apenas cambiaba uno de los dos
+// lados (pedido de Martín: "que se vea igual el form que está ahí, todo igual").
+import { FaseIcono } from '../onboarding/FaseUI';
 import type { Curso } from './curso';
 
 export const CURSO_ANALISIS: Curso = {
@@ -28,19 +32,6 @@ export const CURSO_ANALISIS: Curso = {
   recursos: [],
   clases: [],
 };
-
-// ── Íconos de las 5 fases (line-icons, en vez de emojis) ─────────────────────
-function FaseIcono({ id, size = 22 }: { id: number; size?: number }) {
-  const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  switch (id) {
-    case 1: return <svg {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.4" /><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3" /></svg>; // diana: el primer ganador
-    case 2: return <svg {...p}><path d="M4 5h16l-6 7v7l-4-2v-5z" /></svg>; // embudo
-    case 3: return <svg {...p}><circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-1.9 1.9M7.5 16.5l-1.9 1.9M18.4 18.4l-1.9-1.9M7.5 7.5L5.6 5.6" /></svg>; // engranaje: la máquina
-    case 4: return <svg {...p}><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></svg>; // escala (trending up)
-    case 5: return <svg {...p}><path d="M3 21h4v-4h4v-4h4v-4h5" /></svg>; // escalera de valor
-    default: return null;
-  }
-}
 
 // ── Barras (estrategia de MaKo / mezcla de contenido de Andrea) ──────────────
 function Barras({ filas }: { filas: Array<[string, number, string]> }) {
@@ -88,6 +79,20 @@ function FaseDetalle({ idx, diag }: { idx: number; diag?: Diagnostico }) {
       <div className="an-fd-norte"><span className="an-l">Tu Norte</span>{f.objetivo}</div>
 
       <div className="an-fd-block">
+        <span className="an-l">Funnel sugerido{f.funnelSugerido.complejidad ? ` · ${f.funnelSugerido.complejidad}` : ''}</span>
+        <div className="an-funnel">
+          {f.funnelSugerido.pasos.map((paso, i) => (
+            <span key={paso} style={{ display: 'contents' }}>
+              {i > 0 && <span className="an-funnel-arrow">→</span>}
+              <span className="an-funnel-step">{paso}</span>
+            </span>
+          ))}
+          {f.funnelSugerido.retarget && <span className="an-funnel-step an-funnel-retarget">+ Retargeting</span>}
+        </div>
+        <p className="an-p an-p-dim" style={{ marginTop: 8 }}>{f.funnelSugerido.comoFunciona}</p>
+      </div>
+
+      <div className="an-fd-block">
         <span className="an-l">Estrategia de pauta</span>
         <Barras filas={barras} />
         <p className="an-p an-p-dim" style={{ marginTop: 8 }}>{f.estrategia.nota}</p>
@@ -111,9 +116,15 @@ function FaseDetalle({ idx, diag }: { idx: number; diag?: Diagnostico }) {
         </div>
       </div>
 
-      <div className="an-box an-box-lime"><span className="an-l">Hito para pasar a la siguiente fase</span>{f.hito}</div>
+      <div className="an-box an-box-lime">
+        <span className="an-l">Hito para pasar a la siguiente fase</span>
+        {f.hito}
+        <ul className="an-ul an-ul-sm" style={{ marginTop: 9 }}>{f.hitoCriterios.map((c, i) => <li key={i}>{c}</li>)}</ul>
+      </div>
       <div className="an-2col">
-        <div className="an-box an-box-red"><b>No hagas ahora:</b> {f.noHacer}</div>
+        <div className="an-box an-box-red"><b>No hagas ahora:</b>
+          <ul className="an-ul an-ul-sm" style={{ marginTop: 6 }}>{f.noHacer.map((n, i) => <li key={i}>{n}</li>)}</ul>
+        </div>
         <div className="an-box"><span className="an-l">Tu dimensión débil</span><div className="an-dimhead"><span>{dim.emoji}</span><b>{dim.nombre}</b></div><p className="an-p an-p-dim" style={{ marginTop: 4 }}>{dim.descripcion}</p></div>
       </div>
     </div>
@@ -385,6 +396,12 @@ const AN_CSS = `
 .cono .an-fd-norte{ background:var(--card-2); border:1.5px solid var(--ink-15); border-radius:12px; padding:13px 15px; font-size:15px; color:var(--ink); line-height:1.55; font-weight:500; }
 .cono .an-fd-block{ }
 .cono .an-2col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+
+/* Funnel sugerido: pasos conectados con flechas */
+.cono .an-funnel{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.cono .an-funnel-step{ font-family:var(--mono); font-size:11.5px; font-weight:700; color:var(--ink); background:var(--card-2); border:1.5px solid var(--ink-15); border-radius:999px; padding:6px 12px; }
+.cono .an-funnel-arrow{ color:var(--ink-40); font-size:13px; }
+.cono .an-funnel-retarget{ border-style:dashed; color:var(--ink-60); font-weight:600; }
 
 /* Barras */
 .cono .an-bars{ display:flex; flex-direction:column; gap:7px; }

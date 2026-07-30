@@ -211,7 +211,12 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
 // ─────────────────────────────────────────────────────────────────────────────
 export const VISION_CASCADE: ProvName[] = ['gemini', 'openai'];
 
-type DocOpts = { dataUrl: string; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number };
+// dataUrls (plural) es opcional: cuando viene, pisa a dataUrl y manda TODAS esas
+// imágenes en la MISMA llamada de visión — para que el modelo sintetice entre varias
+// fotos en vez de mirar solo una (bug real: la cara de marca solo analizaba la
+// primera foto que le funcionaba, y una sola conclusión sobre p.ej. la vestimenta
+// quedaba como si fuera válida para todas). Solo aplica al camino de imagen, no PDF.
+type DocOpts = { dataUrl: string; dataUrls?: string[]; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number };
 
 export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; provider: ProvName }> {
   const errores: string[] = [];
@@ -234,9 +239,10 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
 
 async function leerConOpenAI(key: string, o: DocOpts): Promise<string> {
   const model = process.env.OPENAI_VISION_MODEL || 'gpt-4o';
+  const imagenes = o.dataUrls && o.dataUrls.length ? o.dataUrls : [o.dataUrl];
   const content = o.isPdf
     ? [{ type: 'text', text: o.prompt }, { type: 'file', file: { filename: o.nombreArchivo.toLowerCase().endsWith('.pdf') ? o.nombreArchivo : 'contrato.pdf', file_data: o.dataUrl } }]
-    : [{ type: 'text', text: o.prompt }, { type: 'image_url', image_url: { url: o.dataUrl, detail: 'high' } }];
+    : [{ type: 'text', text: o.prompt }, ...imagenes.map((u) => ({ type: 'image_url', image_url: { url: u, detail: 'high' } }))];
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -253,14 +259,16 @@ async function leerConOpenAI(key: string, o: DocOpts): Promise<string> {
 async function leerConGemini(key: string, o: DocOpts): Promise<string> {
   // Endpoint NATIVO (no el OpenAI-compat): maneja PDF e imágenes vía inline_data.
   const model = process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
-  const m = o.dataUrl.match(/^data:([^;]+);base64,([\s\S]*)$/);
-  const mimeType = m?.[1] || (o.isPdf ? 'application/pdf' : 'image/jpeg');
-  const b64 = m?.[2] ?? '';
+  const imagenes = o.dataUrls && o.dataUrls.length ? o.dataUrls : [o.dataUrl];
+  const partesImagen = imagenes.map((u) => {
+    const m = u.match(/^data:([^;]+);base64,([\s\S]*)$/);
+    return { inline_data: { mime_type: m?.[1] || (o.isPdf ? 'application/pdf' : 'image/jpeg'), data: m?.[2] ?? '' } };
+  });
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: o.prompt }, { inline_data: { mime_type: mimeType, data: b64 } }] }],
+      contents: [{ parts: [{ text: o.prompt }, ...partesImagen] }],
       generationConfig: { temperature: 0, ...(o.json ? { response_mime_type: 'application/json' } : {}) },
     }),
     cache: 'no-store',

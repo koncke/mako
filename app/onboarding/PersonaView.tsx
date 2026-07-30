@@ -45,6 +45,26 @@ const ICONO_SECCION: Record<string, string> = {
   'MARCAS DISTINTIVAS': '✨', VESTIMENTA: '👔', ACTITUD: '🎭',
 };
 
+// Tarjeta desplegable — MISMO patrón que las secciones del Resumen del Archivero
+// (pedido explícito de Martín: "que sean como el RESUMEN que hicimos antes").
+function SeccionPersonaCard({ s, abiertoDefault }: { s: SeccionPersona; abiertoDefault: boolean }) {
+  const [abierto, setAbierto] = useState(abiertoDefault);
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+      <button type="button" onClick={() => setAbierto((a) => !a)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS }}>
+        {/* --accent-soft es amarillo fuerte: se funde con los emojis. Fondo neutro. */}
+        <span aria-hidden style={{ flex: 'none', width: 30, height: 30, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{ICONO_SECCION[s.titulo] ?? '📌'}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{s.titulo}</span>
+        <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 11, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+      </button>
+      {abierto && (
+        <div style={{ padding: '0 16px 14px 58px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>{s.texto}</div>
+      )}
+    </div>
+  );
+}
+
 function DescripcionSecciones({ texto }: { texto: string }) {
   const secciones = parsearDescripcion(texto);
   // Si el modelo no siguió el formato (texto viejo, o algo se coló), mostramos el
@@ -53,16 +73,8 @@ function DescripcionSecciones({ texto }: { texto: string }) {
     return <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>{texto}</div>;
   }
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 10 }}>
-      {secciones.map((s) => (
-        <div key={s.titulo} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <span aria-hidden style={{ flex: 'none', width: 28, height: 28, borderRadius: 8, background: 'var(--accent-soft)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{ICONO_SECCION[s.titulo] ?? '📌'}</span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: '.06em', color: 'var(--faint)', marginBottom: 3 }}>{s.titulo}</div>
-            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>{s.texto}</div>
-          </div>
-        </div>
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {secciones.map((s, i) => <SeccionPersonaCard key={s.titulo + i} s={s} abiertoDefault={i < 3} />)}
     </div>
   );
 }

@@ -54,6 +54,11 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const input: CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
 const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
 const btnGhost: CSSProperties = { padding: '12px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' };
+// Versiones chicas para filas de header con varios botones — las grandes (btnPrimary/
+// btnGhost a full padding) no entraban junto al toggle Resumen/Archivos y se rompían
+// a una segunda línea (pedido de Martín: "no debería pasar").
+const btnPrimarySm: CSSProperties = { padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', flex: 'none' };
+const btnGhostSm: CSSProperties = { padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none' };
 const link: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 const iconBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', padding: 0 };
@@ -342,6 +347,20 @@ export function Archivero({ onEstado, onListo, registro }: {
     );
   }
 
+  // Preparando las preguntas que faltan (desde "esto entendí" o desde "archivos"):
+  // antes esto pasaba SIN ningún indicador — la pantalla se quedaba quieta unos
+  // segundos y parecía trabada. Pantalla propia, cubre cualquier vista de origen.
+  if (cargandoPreg && vista !== 'huecos') {
+    return (
+      <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '96px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {keyframes}
+        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'arch-spin .8s linear infinite' }} />
+        <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', marginTop: 24 }}>MaKo está preparando tus preguntas</div>
+        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.6 }}>Para no proponerte nada sin antes preguntarte lo que falta.</div>
+      </div>
+    );
+  }
+
   // ── MASDOCS: "esto entendí" — el resumen por documento. Un solo botón de avanzar:
   //    el del footer del wizard (siguiente() lleva a las preguntas o a los archivos).
   if (vista === 'masdocs') {
@@ -394,7 +413,10 @@ export function Archivero({ onEstado, onListo, registro }: {
   if (vista === 'huecos') {
     const p = preguntas[gapIdx];
     if (!p) { setVista('archivos'); return null; }
-    const enOtro = otroKey === p.key;
+    // Fallback sin opciones (la IA no armó choices para este hueco): directo al
+    // textarea, no tiene sentido mostrar "volver a las opciones" si nunca hubo.
+    const sinOpciones = p.opciones.length === 0;
+    const enOtro = otroKey === p.key || sinOpciones;
     return (
       <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
         <div style={{ ...eyebrow, marginBottom: 18 }}>Pregunta {gapIdx + 1} de {preguntas.length}</div>
@@ -412,12 +434,12 @@ export function Archivero({ onEstado, onListo, registro }: {
           <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
             <textarea style={{ ...input, minHeight: 90, resize: 'vertical', lineHeight: 1.5 }} value={otroVal} autoFocus placeholder="Escríbelo con tus palabras…" onChange={(e) => setOtroVal(e.target.value)} />
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16 }}>
-              <button type="button" onClick={() => { setOtroKey(null); setOtroVal(''); }} style={btnGhost}>Volver a las opciones</button>
+              {!sinOpciones && <button type="button" onClick={() => { setOtroKey(null); setOtroVal(''); }} style={btnGhost}>Volver a las opciones</button>}
               <button type="button" onClick={() => responderGap(p.key, otroVal)} disabled={!otroVal.trim()} style={{ ...btnPrimary, opacity: otroVal.trim() ? 1 : 0.4 }}>Guardar y seguir</button>
             </div>
           </div>
         )}
-        {!enOtro && (
+        {otroKey !== p.key && (
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 22, alignItems: 'center' }}>
             {gapIdx > 0 && <button type="button" onClick={() => { setOtroKey(null); setGapIdx((i) => Math.max(0, i - 1)); }} style={link}>← Atrás</button>}
             <button type="button" onClick={() => responderGap(p.key, null)} style={link}>Saltar</button>
@@ -448,8 +470,8 @@ export function Archivero({ onEstado, onListo, registro }: {
             <button type="button" onClick={() => setArchTab('archivos')} style={subPill(archTab === 'archivos')}>Archivos{hayArchivos ? ` · ${est.files.length}` : ''}</button>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {!mostrarLink && <button type="button" onClick={() => setMostrarLink(true)} style={btnGhost}>🌐 Agregar web</button>}
-            <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
+            {!mostrarLink && <button type="button" onClick={() => setMostrarLink(true)} style={btnGhostSm}>🌐 Agregar web</button>}
+            <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnPrimarySm}><Ico d={I_SUBIR} size={14} /> Subir más</button>
           </div>
         </div>
         {/* Pegar una web (tu web/landing/IG) también desde acá — oculto detrás del botón
@@ -489,10 +511,13 @@ export function Archivero({ onEstado, onListo, registro }: {
       <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={(e) => { addCola(e.target.files); e.target.value = ''; }} />
 
       {algoEnCola ? (
-        // Con algo en la cola, el dropzone gigante desaparece → un botón compacto (P3).
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        // Con algo en la cola, el dropzone gigante desaparece → botones compactos (P3).
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ ...eyebrow }}>Vas a subir · {nCola}</div>
-          <button type="button" onClick={() => inputRef.current?.click()} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!mostrarLink && <button type="button" onClick={() => setMostrarLink(true)} style={btnGhostSm}>🌐 Agregar web</button>}
+            <button type="button" onClick={() => inputRef.current?.click()} style={btnPrimarySm}><Ico d={I_SUBIR} size={14} /> Subir más</button>
+          </div>
         </div>
       ) : (
         <div role="button" tabIndex={0}
@@ -507,12 +532,18 @@ export function Archivero({ onEstado, onListo, registro }: {
         </div>
       )}
 
-      {/* Pegar el link de una web (tu web, landing, Instagram): también se analiza (P2) */}
-      <div style={{ display: 'flex', gap: 8, marginTop: algoEnCola ? 12 : 14 }}>
-        <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink(); } }}
-          placeholder="O pega el link de tu web, landing o Instagram…" style={{ ...input, flex: 1 }} />
-        <button type="button" onClick={addLink} disabled={!linkUrl.trim()} style={{ ...btnGhost, flex: 'none', opacity: linkUrl.trim() ? 1 : 0.5 }}>Agregar</button>
-      </div>
+      {/* Pegar el link de una web (tu web, landing, Instagram): también se analiza (P2).
+          Con la cola ya compacta, el input queda oculto detrás del botón "Agregar web"
+          de arriba (mismo criterio que la vista de archivos) — antes de eso, mientras
+          está el dropzone grande, se muestra siempre: no hay nada más para tapar. */}
+      {(!algoEnCola || mostrarLink) && (
+        <div style={{ display: 'flex', gap: 8, marginTop: algoEnCola ? 12 : 14 }}>
+          <input value={linkUrl} autoFocus={algoEnCola} onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink(); } }}
+            placeholder="O pega el link de tu web, landing o Instagram…" style={{ ...input, flex: 1 }} />
+          <button type="button" onClick={addLink} disabled={!linkUrl.trim()} style={{ ...btnGhost, flex: 'none', opacity: linkUrl.trim() ? 1 : 0.5 }}>Agregar</button>
+          {algoEnCola && <button type="button" onClick={() => { setMostrarLink(false); setLinkUrl(''); }} aria-label="Cancelar" style={{ ...btnGhost, flex: 'none' }}>✕</button>}
+        </div>
+      )}
 
       {algoEnCola && (
         <div style={{ marginTop: 18 }}>

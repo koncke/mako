@@ -19,7 +19,7 @@ import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { getPanorama } from './archivero';
 import { getSetting, setSetting } from './settings';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA } from './ai-cheap';
 
 // Un entregable tangible:
 //  · tipo  = qué clase de elemento es (Dashboard, Excel, Documento, Metodología…).
@@ -168,6 +168,54 @@ export async function generarEntregables(respuestas?: Array<{ pregunta: string; 
     const entregables = parseEntregables(text);
     if (!entregables.length) return { ok: false, error: 'MaKo no devolvió entregables. Reintenta en un momento.' };
     return { ok: true, entregables, uso: null };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ── El dueño YA TIENE su entregable — MaKo solo le da forma ───────────────────
+// Escape hatch desde las preguntas ("Ya lo tengo, contámelo"): no inventamos nada,
+// solo lo formateamos (nombre corto, tipo, qué es, línea de FOMO) con el contexto
+// del negocio de fondo. Si mandó una imagen, la leemos primero y su descripción
+// entra como parte de "lo que contó".
+const ENTREGABLE_PROPIO_SYSTEM = `Sos MaKo. El dueño del negocio te contó CUÁL es su entregable tangible — no lo inventes, ya lo tiene, tu trabajo es solo darle FORMA para los anuncios:
+- "nombre": nombre corto y concreto del entregable, basado en lo que contó.
+- "tipo": UNO de: Dashboard, Planilla Excel, Documento, Metodología, Software, Checklist, Plantilla, Otro.
+- "queEs": qué es concretamente y qué resuelve, en 1-2 frases claras, fiel a lo que contó (no inventes funciones que no dijo).
+- "fomo": UNA línea estilo anuncio que use ESE entregable para generar CURIOSIDAD/FOMO, anclada en el negocio real.
+IDIOMA: español neutro/mexicano, de "tú". Devolvé EXCLUSIVAMENTE JSON: {"entregables":[{"nombre":"","tipo":"","queEs":"","fomo":""}]} (un solo elemento).`;
+const ENTREGABLE_PROPIO_USER = `LO QUE EL DUEÑO CONTÓ SOBRE SU ENTREGABLE:\n{{propio}}\n\nCONTEXTO DEL NEGOCIO:\n{{brief}}\n{{panorama}}\nDevolvé solo el JSON con ese entregable, ya formateado.`;
+
+export async function generarEntregablePropio(texto: string, imagenDataUrl?: string): Promise<GenResult> {
+  try {
+    let propio = texto.trim();
+    if (imagenDataUrl) {
+      try {
+        const { text: descImg } = await leerDocumentoIA({
+          dataUrl: imagenDataUrl, isPdf: imagenDataUrl.startsWith('data:application/pdf'), nombreArchivo: 'entregable-propio',
+          prompt: 'Describí en 2-4 frases qué muestra esta imagen (captura de pantalla, foto de un documento, etc.) — qué es, qué se ve, para qué serviría como entregable de un negocio. Español neutro.',
+          feature: 'entregable', motivo: 'Leer la imagen del entregable propio del dueño', timeoutMs: 25000,
+        });
+        if (descImg.trim()) propio = propio ? `${propio}\n\nLo que se ve en la imagen adjunta: ${descImg.trim()}` : `Lo que se ve en la imagen adjunta: ${descImg.trim()}`;
+      } catch { /* seguimos solo con el texto si la imagen no se pudo leer */ }
+    }
+    if (!propio) return { ok: false, error: 'Contame algo sobre tu entregable, o adjuntá una imagen.' };
+    const [brief, panorama] = await Promise.all([perfilNegocioTexto(), getPanorama()]);
+    const sys = await renderPrompt('entregable.propio.system', ENTREGABLE_PROPIO_SYSTEM, {});
+    const user = await renderPrompt('entregable.propio.user', ENTREGABLE_PROPIO_USER, {
+      propio, brief: brief.trim() || '(sin brief todavía)',
+      panorama: panorama.trim() ? `\nPANORAMA:\n${panorama.slice(0, 4000)}\n` : '',
+    });
+    const text = await chatCheapCascade({
+      system: sys, user, json: true, maxTokens: 1200,
+      feature: 'entregable', motivo: 'Formatear el entregable que el dueño ya tiene',
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneEntregables,
+    });
+    const entregables = text ? parseEntregables(text) : [];
+    if (entregables.length) return { ok: true, entregables, uso: null };
+    // Sin IA disponible: igual no perdemos lo que contó — lo guardamos tal cual,
+    // sin el formateo lindo, para que no tenga que escribirlo de nuevo después.
+    return { ok: true, entregables: [{ id: randomUUID(), nombre: propio.slice(0, 60), tipo: 'Otro', queEs: propio, fomo: '' }], uso: null };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

@@ -144,7 +144,29 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
 // ── Panorama libre: TODO lo que la IA entendió del negocio ────────────────────
 // No encajado en los campos fijos (eso limitaba). Es un resumen en prosa de todo
 // lo que dicen los documentos, para que el dueño vea el panorama y decida qué dejar.
-export const ARCHIVERO_PANORAMA_TEMPLATE = `Sos MaKo. A partir de los DOCUMENTOS del negocio de un cliente, escribí un PANORAMA claro y completo de TODO lo que entendés de su negocio: a qué se dedica, su oferta y precios, su avatar (quién es, qué le duele, qué desea, sus objeciones), su nicho/mercado, su tono y voz de marca, y cualquier cosa relevante que un buen estratega anotaría — aunque no entre en un campo. Escribí en español NEUTRO (de "tú", SIN voseo argentino — nada de "tenés/subí/acá"), en secciones cortas con un SUBTÍTULO EN MAYÚSCULA cada una. NO inventes: si algo no aparece en los documentos, no lo pongas. Sé concreto y usá las palabras del cliente. IMPORTANTE: NO expliques lo que vas a hacer, NO incluyas notas, análisis ni comentarios sobre la consigna. Empezá DIRECTO con el primer SUBTÍTULO EN MAYÚSCULA y el texto del panorama, nada antes.`;
+export const ARCHIVERO_PANORAMA_TEMPLATE = `Sos MaKo. A partir de los DOCUMENTOS del negocio de un cliente, escribí un PANORAMA claro y completo de todo lo que entendés de su negocio. Español NEUTRO (de "tú", SIN voseo argentino — nada de "tenés/subí/acá"). NO inventes: si algo no aparece en los documentos, no lo pongas.
+
+Usá SIEMPRE estas 6 secciones, en este orden, cada una con su SUBTÍTULO EN MAYÚSCULA exacto (aunque el material sea poco — si una sección no tiene con qué llenarse, escribí ahí mismo UNA línea: "Todavía no hay información suficiente sobre esto en los documentos."):
+
+IDENTIDAD Y POSICIONAMIENTO
+A qué se dedica el negocio y cómo se posiciona frente al mercado.
+
+OFERTA Y PRECIOS
+Qué vende concretamente, qué incluye, y sus precios o tickets si aparecen.
+
+AVATAR Y CLIENTE IDEAL
+Quién es su cliente, qué le duele, qué desea lograr, sus objeciones típicas.
+
+NICHO Y MERCADO
+El nicho o mercado específico en el que opera, y cómo se diferencia ahí.
+
+TONO Y VOZ DE MARCA
+Cómo habla la marca — formal/cercana, seria/divertida, con qué palabras propias.
+
+OTROS DATOS RELEVANTES
+Cualquier otra cosa útil que un buen estratega anotaría y no entra arriba.
+
+Sé concreto y usá las palabras del cliente. IMPORTANTE: NO expliques lo que vas a hacer, NO incluyas notas, análisis ni comentarios sobre la consigna. Empezá DIRECTO con "IDENTIDAD Y POSICIONAMIENTO", nada antes.`;
 
 // Un modelo "de razonamiento" (gemini-thinking, gpt-oss) a veces vuelca su
 // razonamiento (en inglés, comentando la consigna) en vez del panorama. Lo
@@ -200,6 +222,16 @@ export async function generarPreguntasCerradas(
     const pregunta = String(p.pregunta ?? '').trim();
     const opciones = Array.isArray(p.opciones) ? p.opciones.map((o) => String(o).trim()).filter(Boolean).slice(0, 5) : [];
     if (pregunta && opciones.length) res.push({ key, pregunta, opciones });
+  }
+  // La IA no devolvió preguntas usables para ninguno de los huecos (cascada agotada,
+  // json roto) — antes esto hacía saltar derecho al resumen SIN preguntar nada. Caemos
+  // a una pregunta abierta por dato faltante (sin opciones: el "✎ Otra" de la UI ya
+  // sabe mostrar un textarea) para que SIEMPRE se pregunte, aunque sea en su forma más
+  // simple.
+  const cubiertas = new Set(res.map((r) => r.key));
+  for (const f of faltantes) {
+    if (cubiertas.has(f.key)) continue;
+    res.push({ key: f.key, pregunta: `Contame: ${f.label}`, opciones: [] });
   }
   return res;
 }
