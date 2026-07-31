@@ -103,20 +103,21 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   }));
 }
 
-export type SecuenciaConStats = Secuencia & { inscriptos: number; enviados: number };
+export type SecuenciaConStats = Secuencia & { inscriptos: number; enviados: number; estrategia: unknown };
 
 // Todas las secuencias (activas y pausadas) + conteo de inscriptos y enviados.
-// Para la tab /whatsapp. Dos queries (no N+1): trae los ids y cuenta en JS.
+// Para la tab /whatsapp y /setting. Dos queries (no N+1): ids y cuenta en JS.
+// `estrategia` (jsonb, mig 0107) viaja crudo: el parser vive en setting-estrategia.
 export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia')
     .order('id', { ascending: true });
   if (error) throw new Error(`getSecuenciasConStats: ${error.message}`);
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
-    trigger_tipo: string; activa: boolean; pasos: unknown;
+    trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown;
   }>;
 
   const [insc, env] = await Promise.all([
@@ -142,6 +143,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     trigger_tipo: r.trigger_tipo,
     activa: r.activa,
     pasos: Array.isArray(r.pasos) ? (r.pasos as PasoSecuencia[]) : [],
+    estrategia: r.estrategia ?? null,
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
