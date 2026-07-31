@@ -4,14 +4,15 @@
 // MatrizView — la MATRIZ 3×3 (avatar × razón), con pop-up rico por celda
 // =============================================================================
 // La tabla: filas = avatares, columnas = las razones de ESE avatar. Cada celda es un
-// anuncio en potencia; al hacer clic se abre un modal con TABS internas: Contexto
-// (el copy/hook), Avatar, Razón de compra, Lead Magnet, Guiones (VARIOS por celda,
-// cada uno con su ángulo — testimonio, dolor, lead magnet…), Imagen y Video. Crear
-// un guion pasa por un mini-wizard: elegir el ÁNGULO → confirmar el siguiente paso
-// real del funnel (define el CTA) → nota opcional → generar. Es el primer tab del
-// hub: la salida de la fábrica de creativos. Lee /api/onboarding/razones.
+// anuncio en potencia; al hacer clic se abre un modal (tamaño FIJO, scroll interno)
+// con tabs: Contexto (copy + avatar + razón + lead magnet, todo desplegable),
+// Guiones, Imagen y Video. Crear un guion NUNCA pide redactar nada (pedido
+// explícito: "la IA facilita"): o MaKo lo hace SOLO en un clic (elige ángulo,
+// estructura y escribe), o el dueño "elige con MaKo" — la IA sugiere el ángulo y
+// convierte sus preguntas en CERRADAS con opciones ya escritas; solo se toca un
+// botón. Lee /api/onboarding/razones.
 
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { formatoPorId, type Medio } from '@/lib/angulos-data';
 import { SeccionCard, parsearSecciones, type Seccion } from '../components/SeccionCard';
 
@@ -21,11 +22,12 @@ const SANS = "'Geist', sans-serif";
 type GuionItem = { id: string; anguloId: string; anguloNombre: string; texto: string };
 type Avatar = { id: string; nombre: string; segmento: string; senalesMeta: string; situacion: string; dolor: string };
 type Celda = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guiones: GuionItem[]; imagenUrl: string; anguloImagen: string; anguloVideo: string };
-type AnguloGuionLite = { id: string; nombre: string; emoji: string; cuando: string; preguntas: string[]; estructuras: string[] };
+type AnguloGuionLite = { id: string; nombre: string; emoji: string; cuando: string; estructuras: string[] };
 type EstructuraLite = { id: string; nombre: string; emoji: string; cuando: string };
 type Estado = { razones: Celda[]; avatares: Avatar[]; tieneAvatares: boolean; tieneBrief: boolean; angulosGuion: AnguloGuionLite[]; estructurasGuion: EstructuraLite[]; siguientePasoDefault: string };
 type Entregable = { id: string; nombre: string; tipo: string; queEs: string; fomo: string };
-type TabModal = 'contexto' | 'avatar' | 'razon' | 'leadmagnet' | 'guiones' | 'imagen' | 'video';
+type TabModal = 'contexto' | 'guiones' | 'imagen' | 'video';
+type PreguntaCerrada = { pregunta: string; opciones: string[] };
 
 const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer' };
 const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
@@ -61,12 +63,12 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
   const [err, setErr] = useState<string | null>(null);
   const [abierta, setAbierta] = useState<string | null>(null);
   const [tabModal, setTabModal] = useState<TabModal>('contexto');
-  const [genGuion, setGenGuion] = useState(false);
+  const [genGuion, setGenGuion] = useState<false | 'auto' | 'manual'>(false);
   const [genAngulo, setGenAngulo] = useState<Medio | null>(null);
-  // Mini-wizard de "Nuevo guion" dentro de la tab Guiones. null = viendo la lista.
-  //  paso 'angulo' → elegir el enfoque; paso 'detalles' → estructura compatible +
-  //  preguntas propias del ángulo + CTA (siguiente paso real) + nota + Generar.
-  const [nuevo, setNuevo] = useState<{ paso: 'angulo' | 'detalles'; anguloId: string; estructuraId: string; respuestas: string[]; siguientePaso: string; nota: string } | null>(null);
+  // "Nuevo guion" en modo SUGERIDO. null = viendo la lista. Nunca hay campos
+  // abiertos: MaKo sugiere el ángulo (+ por qué), la estructura y preguntas
+  // CERRADAS con opciones ya escritas; el dueño solo toca botones.
+  const [nuevo, setNuevo] = useState<NuevoGuion | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
@@ -99,12 +101,39 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
     if (!est) return;
     guardar(est.razones.map((r) => (r.id === id ? { ...r, [campo]: v } : r)));
   };
-  const generarGuion = async (id: string, params: { anguloId: string; estructuraId: string; siguientePaso: string; nota: string; respuestasAngulo: Array<{ pregunta: string; respuesta: string }> }) => {
-    setGenGuion(true); setErr(null);
+  const generarGuion = async (id: string, params: { anguloId: string; estructuraId: string; siguientePaso: string; respuestasAngulo: Array<{ pregunta: string; respuesta: string }> }) => {
+    setGenGuion('manual'); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guion', id, ...params }) })).json();
       if (j.ok) { setEst(j as Estado); setNuevo(null); } else setErr(j.error || 'No se pudo generar el guion.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGenGuion(false); }
+  };
+  // "MaKo lo hace solo": un clic — la IA elige ángulo + estructura y escribe.
+  const generarGuionAuto = async (id: string) => {
+    setGenGuion('auto'); setErr(null); setNuevo(null);
+    try {
+      const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guion-auto', id }) })).json();
+      if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo generar el guion.');
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGenGuion(false); }
+  };
+  // "Elegir con MaKo": pide la sugerencia (ángulo + estructura + preguntas
+  // cerradas). Si anguloId viene, el dueño lo fijó a mano y solo se piden las
+  // preguntas cerradas de ESE ángulo. Si la IA falla, se degrada a elegir el
+  // ángulo a mano sin preguntas — nunca un dead-end ni un campo abierto.
+  const sugerirGuion = async (id: string, anguloId?: string) => {
+    setErr(null);
+    setNuevo({ fase: 'cargando', anguloId: anguloId ?? '', porQue: '', estructuraId: '', preguntas: [], elegidas: [], siguientePaso: est?.siguientePasoDefault ?? '', cambiandoAngulo: false });
+    try {
+      const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guion-sugerir', id, ...(anguloId ? { anguloId } : {}) }) })).json();
+      if (j.ok) {
+        const s = j.sugerencia as { anguloId: string; porQue: string; estructuraId: string; preguntas: PreguntaCerrada[] };
+        setNuevo({ fase: 'elegir', anguloId: s.anguloId, porQue: s.porQue, estructuraId: s.estructuraId, preguntas: s.preguntas, elegidas: s.preguntas.map(() => null), siguientePaso: est?.siguientePasoDefault ?? '', cambiandoAngulo: false });
+      } else {
+        setNuevo({ fase: 'elegir', anguloId: anguloId ?? '', porQue: '', estructuraId: '', preguntas: [], elegidas: [], siguientePaso: est?.siguientePasoDefault ?? '', cambiandoAngulo: !anguloId });
+      }
+    } catch {
+      setNuevo({ fase: 'elegir', anguloId: anguloId ?? '', porQue: '', estructuraId: '', preguntas: [], elegidas: [], siguientePaso: est?.siguientePasoDefault ?? '', cambiandoAngulo: !anguloId });
+    }
   };
   const elegirAngulo = async (id: string, medio: Medio) => {
     setGenAngulo(medio); setErr(null);
@@ -226,11 +255,13 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
       {celda && (() => {
         const av = avatarDe(celda.avatarId);
         const tabs: Array<{ k: TabModal; label: string }> = [
-          { k: 'contexto', label: 'Contexto' }, { k: 'avatar', label: 'Avatar' }, { k: 'razon', label: 'Razón de compra' }, { k: 'leadmagnet', label: 'Lead Magnet' }, { k: 'guiones', label: `Guiones${celda.guiones.length ? ` · ${celda.guiones.length}` : ''}` }, { k: 'imagen', label: 'Imagen' }, { k: 'video', label: 'Video' },
+          { k: 'contexto', label: 'Contexto' }, { k: 'guiones', label: `Guiones${celda.guiones.length ? ` · ${celda.guiones.length}` : ''}` }, { k: 'imagen', label: 'Imagen' }, { k: 'video', label: 'Video' },
         ];
         return (
           <div onClick={() => setAbierta(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ animation: 'mtz-in .18s ease-out', width: 'min(680px, 100%)', maxHeight: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: 16, boxShadow: '0 20px 60px rgba(18,21,27,.25)', overflow: 'hidden' }}>
+            {/* Alto FIJO (pedido explícito): el modal no cambia de tamaño según la
+                tab — el cuerpo scrollea por dentro. */}
+            <div onClick={(e) => e.stopPropagation()} style={{ animation: 'mtz-in .18s ease-out', width: 'min(680px, 100%)', height: 'min(640px, calc(100vh - 80px))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: 16, boxShadow: '0 20px 60px rgba(18,21,27,.25)', overflow: 'hidden' }}>
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '18px 22px 12px' }}>
                 <div style={{ minWidth: 0 }}>
@@ -250,34 +281,31 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
                   solo este bloque scrollea, sin importar cuán largo salga el contenido. */}
               <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 22px 22px' }}>
                 {tabModal === 'contexto' && (
-                  <Bloque label="Copy / hook del anuncio">
-                    <Edit valor={celda.copy} multiline onSave={(v) => editar(celda.id, 'copy', v)} style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.5, minHeight: 40 }} />
-                  </Bloque>
-                )}
-                {tabModal === 'avatar' && (
-                  <Bloque label="Avatar · a quién le hablas">
-                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{av?.nombre || '—'}</div>
-                    {av && <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, marginTop: 6 }}><b>Segmento:</b> {av.segmento}<br /><b>Situación:</b> {av.situacion}<br /><b>Dolor:</b> {av.dolor}{av.senalesMeta && <><br /><b>Señales en Meta:</b> {av.senalesMeta}</>}</div>}
-                  </Bloque>
-                )}
-                {tabModal === 'razon' && (
-                  <Bloque label="Razón de compra · la motivación">
-                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{celda.nombre}</div>
-                    <Edit valor={celda.descripcion} onSave={(v) => editar(celda.id, 'descripcion', v)} style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, marginTop: 6 }} />
-                  </Bloque>
-                )}
-                {tabModal === 'leadmagnet' && (
-                  <Bloque label="Lead magnet · el elemento tangible">
-                    {entregables.length
-                      ? entregables.map((e) => (
-                          <div key={e.id} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '12px 14px', marginBottom: 10 }}>
-                            <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--ink)' }}>{e.nombre} <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', marginLeft: 6 }}>{e.tipo}</span></div>
-                            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, marginTop: 4 }}>{e.queEs}</div>
-                            {e.fomo && <div style={{ fontSize: 12.5, fontStyle: 'italic', color: 'var(--ink)', lineHeight: 1.5, marginTop: 6 }}>“{e.fomo}”</div>}
-                          </div>
-                        ))
-                      : <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center', padding: '24px 0' }}>Todavía no definiste tu lead magnet — hazlo en la tab <b>Lead Magnet</b> del onboarding.</div>}
-                  </Bloque>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {/* Todo desplegable (pedido explícito): copy abierto, el resto cerrado. */}
+                    <SeccionCard s={{ titulo: 'Copy / hook del anuncio', texto: '' }} abiertoDefault icono="✍️" size="sm">
+                      <Edit valor={celda.copy} multiline onSave={(v) => editar(celda.id, 'copy', v)} style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.5, minHeight: 40 }} />
+                    </SeccionCard>
+                    <SeccionCard s={{ titulo: 'Avatar · a quién le hablas', texto: '' }} abiertoDefault={false} icono="👤" size="sm">
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{av?.nombre || '—'}</div>
+                      {av && <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, marginTop: 6 }}><b>Segmento:</b> {av.segmento}<br /><b>Situación:</b> {av.situacion}<br /><b>Dolor:</b> {av.dolor}{av.senalesMeta && <><br /><b>Señales en Meta:</b> {av.senalesMeta}</>}</div>}
+                    </SeccionCard>
+                    <SeccionCard s={{ titulo: 'Razón de compra · la motivación', texto: '' }} abiertoDefault={false} icono="🧠" size="sm">
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{celda.nombre}</div>
+                      <Edit valor={celda.descripcion} onSave={(v) => editar(celda.id, 'descripcion', v)} style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, marginTop: 6 }} />
+                    </SeccionCard>
+                    <SeccionCard s={{ titulo: 'Lead Magnet · el elemento tangible', texto: '' }} abiertoDefault={false} icono="🎁" size="sm">
+                      {entregables.length
+                        ? entregables.map((e) => (
+                            <div key={e.id} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '12px 14px', marginBottom: 10 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{e.nombre} <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', marginLeft: 6 }}>{e.tipo}</span></div>
+                              <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, marginTop: 4 }}>{e.queEs}</div>
+                              {e.fomo && <div style={{ fontSize: 12.5, fontStyle: 'italic', color: 'var(--ink)', lineHeight: 1.5, marginTop: 6 }}>“{e.fomo}”</div>}
+                            </div>
+                          ))
+                        : <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>Todavía no definiste tu lead magnet — hazlo en la tab <b>Lead Magnet</b> del onboarding.</div>}
+                    </SeccionCard>
+                  </div>
                 )}
                 {tabModal === 'guiones' && (
                   <GuionesTab
@@ -288,6 +316,8 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
                     nuevo={nuevo} setNuevo={setNuevo}
                     genGuion={genGuion}
                     copiado={copiado}
+                    onAuto={() => generarGuionAuto(celda.id)}
+                    onSugerir={(anguloId) => sugerirGuion(celda.id, anguloId)}
                     onGenerar={(params) => generarGuion(celda.id, params)}
                     onEditarGuion={(guionId, texto) => editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, texto } : g)))}
                     onBorrarGuion={(guionId) => editar(celda.id, 'guiones', celda.guiones.filter((g) => g.id !== guionId))}
@@ -315,18 +345,33 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
   );
 }
 
-// ── Tab Guiones: la lista + el mini-wizard de "Nuevo guion" ───────────────────
-type NuevoGuion = { paso: 'angulo' | 'detalles'; anguloId: string; estructuraId: string; respuestas: string[]; siguientePaso: string; nota: string };
-function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, nuevo, setNuevo, genGuion, copiado, onGenerar, onEditarGuion, onBorrarGuion, onCopiar, onDescargar }: {
+// ── Tab Guiones: la lista + "Nuevo guion" (MaKo solo, o elegir con MaKo) ──────
+// Regla dura (pedido explícito): acá NUNCA hay un campo de texto abierto. MaKo
+// sugiere el ángulo y la estructura; las preguntas del ángulo llegan CERRADAS
+// (opciones ya escritas con el negocio real) y el CTA se elige entre chips.
+type NuevoGuion = {
+  fase: 'cargando' | 'elegir';
+  anguloId: string;
+  porQue: string;
+  estructuraId: string;
+  preguntas: PreguntaCerrada[];
+  /** índice de la opción elegida por pregunta; null = que MaKo decida. */
+  elegidas: Array<number | null>;
+  siguientePaso: string;
+  cambiandoAngulo: boolean;
+};
+function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, nuevo, setNuevo, genGuion, copiado, onAuto, onSugerir, onGenerar, onEditarGuion, onBorrarGuion, onCopiar, onDescargar }: {
   celda: Celda;
   angulos: AnguloGuionLite[];
   estructuras: EstructuraLite[];
   siguientePasoDefault: string;
   nuevo: NuevoGuion | null;
   setNuevo: (n: NuevoGuion | null) => void;
-  genGuion: boolean;
+  genGuion: false | 'auto' | 'manual';
   copiado: string | null;
-  onGenerar: (params: { anguloId: string; estructuraId: string; siguientePaso: string; nota: string; respuestasAngulo: Array<{ pregunta: string; respuesta: string }> }) => void;
+  onAuto: () => void;
+  onSugerir: (anguloId?: string) => void;
+  onGenerar: (params: { anguloId: string; estructuraId: string; siguientePaso: string; respuestasAngulo: Array<{ pregunta: string; respuesta: string }> }) => void;
   onEditarGuion: (guionId: string, texto: string) => void;
   onBorrarGuion: (guionId: string) => void;
   onCopiar: (g: GuionItem) => void;
@@ -334,111 +379,120 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, nuevo, 
 }) {
   const [abiertoId, setAbiertoId] = useState<string | null>(celda.guiones[0]?.id ?? null);
 
-  if (genGuion) {
-    return (
-      <div style={{ textAlign: 'center', padding: '48px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'mtz-spin .8s linear infinite' }} />
-        <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', marginTop: 18 }}>MaKo está escribiendo el guion…</div>
-      </div>
-    );
-  }
+  const spinner = (texto: string) => (
+    <div style={{ textAlign: 'center', padding: '48px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'mtz-spin .8s linear infinite' }} />
+      <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', marginTop: 18 }}>{texto}</div>
+    </div>
+  );
+  if (genGuion) return spinner(genGuion === 'auto' ? 'MaKo está eligiendo el ángulo y escribiendo el guion…' : 'MaKo está escribiendo el guion…');
+  if (nuevo?.fase === 'cargando') return spinner('MaKo está preparando las opciones con tu negocio…');
 
-  // ── Mini-wizard: paso 1, elegir el ÁNGULO ──────────────────────────────────
-  if (nuevo?.paso === 'angulo') {
-    return (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
-          <div style={eyebrow}>Nuevo guion · 1. Elige el ángulo</div>
-          <button type="button" onClick={() => setNuevo(null)} style={btnMini}>✕ Cancelar</button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 9 }}>
-          {angulos.map((a) => (
-            <button key={a.id} type="button" className="mtz-angulo"
-              onClick={() => setNuevo({ ...nuevo, paso: 'detalles', anguloId: a.id, estructuraId: a.estructuras[0] ?? '', respuestas: a.preguntas.map(() => '') })}
-              style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', transition: 'all .12s' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span aria-hidden style={{ fontSize: 16 }}>{a.emoji}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{a.nombre}</span>
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45, marginTop: 5 }}>{a.cuando}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Mini-wizard: paso 2 — estructura + preguntas del ángulo + CTA → Generar ─
-  if (nuevo?.paso === 'detalles') {
+  // ── "Elegir con MaKo": todo sugerido, todo con botones ─────────────────────
+  if (nuevo) {
     const angulo = angulos.find((a) => a.id === nuevo.anguloId);
-    // Las estructuras COMPATIBLES con el ángulo (en su orden de mejor fit); si el
-    // catálogo cambió y ninguna matchea, se ofrecen todas las activas.
     const compatibles = (angulo?.estructuras ?? []).map((id) => estructuras.find((e) => e.id === id)).filter((e): e is EstructuraLite => !!e);
     const opcionesEstructura = compatibles.length ? compatibles : estructuras;
+    const chipCta = (o: string, on: boolean, onClick: () => void) => (
+      <button key={o} type="button" onClick={onClick}
+        style={{ fontFamily: SANS, fontSize: 11.5, padding: '6px 11px', borderRadius: 999, cursor: 'pointer', textAlign: 'left', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)', fontWeight: on ? 600 : 500 }}>
+        {o}
+      </button>
+    );
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <div style={eyebrow}>Nuevo guion · {angulo ? `${angulo.emoji} ${angulo.nombre}` : ''} · 2. Los detalles</div>
-          <button type="button" onClick={() => setNuevo({ ...nuevo, paso: 'angulo' })} style={btnMini}>← Cambiar ángulo</button>
+          <div style={eyebrow}>Nuevo guion · MaKo sugiere, tú confirmas</div>
+          <button type="button" onClick={() => setNuevo(null)} style={btnMini}>✕ Cancelar</button>
         </div>
-        {opcionesEstructura.length > 1 && (
+
+        {/* El ÁNGULO: sugerido por MaKo (con su por qué), cambiable con un clic. */}
+        {nuevo.cambiandoAngulo || !angulo ? (
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Con qué estructura lo contamos?</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {opcionesEstructura.map((e, i) => {
-                const on = nuevo.estructuraId === e.id || (!nuevo.estructuraId && i === 0);
-                return (
-                  <button key={e.id} type="button" onClick={() => setNuevo({ ...nuevo, estructuraId: e.id })} title={e.cuando}
-                    style={{ fontFamily: SANS, fontSize: 12, padding: '7px 12px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)', fontWeight: on ? 600 : 500 }}>
-                    {e.emoji} {e.nombre}{i === 0 ? ' · sugerida' : ''}
-                  </button>
-                );
-              })}
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Elige el ángulo{nuevo.porQue ? '' : ' (MaKo no pudo sugerir uno esta vez)'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 9 }}>
+              {angulos.map((a) => (
+                <button key={a.id} type="button" className="mtz-angulo" onClick={() => onSugerir(a.id)}
+                  style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, padding: '12px 14px', borderRadius: 12, border: `1px solid ${a.id === nuevo.anguloId ? 'var(--primary)' : 'var(--border-strong)'}`, background: 'var(--surface)', transition: 'all .12s' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span aria-hidden style={{ fontSize: 16 }}>{a.emoji}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{a.nombre}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45, marginTop: 5 }}>{a.cuando}</div>
+                </button>
+              ))}
             </div>
           </div>
+        ) : (
+          <div style={{ border: '1px solid var(--primary)', background: 'var(--primary-bg)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span aria-hidden style={{ fontSize: 18, flex: 'none' }}>{angulo.emoji}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{angulo.nombre} <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--primary)', marginLeft: 6 }}>sugerido por MaKo</span></div>
+              {nuevo.porQue && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 3 }}>{nuevo.porQue}</div>}
+            </div>
+            <button type="button" onClick={() => setNuevo({ ...nuevo, cambiandoAngulo: true })} style={{ ...btnMini, flex: 'none' }}>Cambiar</button>
+          </div>
         )}
-        {(angulo?.preguntas ?? []).map((p, i) => (
-          <div key={i}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{p} <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--faint)' }}>(opcional, 1 línea)</span></div>
-            <input value={nuevo.respuestas[i] ?? ''}
-              onChange={(e) => setNuevo({ ...nuevo, respuestas: nuevo.respuestas.map((r, j) => (j === i ? e.target.value : r)) })}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
-          </div>
-        ))}
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Qué ve o recibe la persona justo después de hacer clic?</div>
-          <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 9 }}>El CTA del guion invita EXACTAMENTE a esto — si primero ve un VSL, el CTA manda a ver el video, no a agendar.</div>
-          <textarea value={nuevo.siguientePaso} rows={2}
-            onChange={(e) => setNuevo({ ...nuevo, siguientePaso: e.target.value })}
-            placeholder="ej: ve un video de ventas (VSL) y después puede agendar una llamada"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical', outline: 'none' }} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 8 }}>
-            {[siguientePasoDefault, 've un video de ventas (VSL) y después puede agendar una llamada', 'recibe un recurso gratis por WhatsApp', 'recibe una cotización por WhatsApp', 'se registra a un webinar en vivo', 'compra directo en la página'].filter((o, i, arr) => o && arr.indexOf(o) === i).map((o) => (
-              <button key={o} type="button" onClick={() => setNuevo({ ...nuevo, siguientePaso: o })}
-                style={{ fontFamily: SANS, fontSize: 11.5, padding: '6px 11px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${nuevo.siguientePaso === o ? 'var(--primary)' : 'var(--border-strong)'}`, background: nuevo.siguientePaso === o ? 'var(--primary-bg)' : 'var(--surface)', color: nuevo.siguientePaso === o ? 'var(--primary)' : 'var(--dim)' }}>
-                {o}
-              </button>
+
+        {angulo && !nuevo.cambiandoAngulo && (
+          <>
+            {opcionesEstructura.length > 1 && (
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Con qué estructura lo contamos?</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {opcionesEstructura.map((e) => {
+                    const on = nuevo.estructuraId ? nuevo.estructuraId === e.id : e.id === opcionesEstructura[0].id;
+                    return (
+                      <button key={e.id} type="button" onClick={() => setNuevo({ ...nuevo, estructuraId: e.id })} title={e.cuando}
+                        style={{ fontFamily: SANS, fontSize: 12, padding: '7px 12px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)', fontWeight: on ? 600 : 500 }}>
+                        {e.emoji} {e.nombre}{e.id === nuevo.estructuraId && nuevo.porQue ? ' · sugerida' : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Las preguntas del ángulo, ya CERRADAS por MaKo: solo tocar un botón.
+                Volver a tocar la elegida la des-elige (= que MaKo decida). */}
+            {nuevo.preguntas.map((p, i) => (
+              <div key={i}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{p.pregunta} <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--faint)' }}>(si no eliges, MaKo decide)</span></div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {p.opciones.map((o, j) => {
+                    const on = nuevo.elegidas[i] === j;
+                    return (
+                      <button key={j} type="button"
+                        onClick={() => setNuevo({ ...nuevo, elegidas: nuevo.elegidas.map((e, k) => (k === i ? (on ? null : j) : e)) })}
+                        style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.45, textAlign: 'left', padding: '9px 13px', borderRadius: 11, cursor: 'pointer', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--ink)' : 'var(--dim)', fontWeight: on ? 600 : 500 }}>
+                        {o}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Algo puntual que quieras comunicar? <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--faint)' }}>(opcional)</span></div>
-          <textarea value={nuevo.nota} rows={2}
-            onChange={(e) => setNuevo({ ...nuevo, nota: e.target.value })}
-            placeholder="ej: mencionar que trabajamos solo con agencias, no tocar el precio…"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical', outline: 'none' }} />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" disabled={!nuevo.siguientePaso.trim()}
-            onClick={() => onGenerar({
-              anguloId: nuevo.anguloId,
-              estructuraId: nuevo.estructuraId || opcionesEstructura[0]?.id || '',
-              siguientePaso: nuevo.siguientePaso,
-              nota: nuevo.nota,
-              respuestasAngulo: (angulo?.preguntas ?? []).map((p, i) => ({ pregunta: p, respuesta: nuevo.respuestas[i] ?? '' })).filter((r) => r.respuesta.trim()),
-            })}
-            style={{ ...btnPrimary, opacity: nuevo.siguientePaso.trim() ? 1 : 0.5, cursor: nuevo.siguientePaso.trim() ? 'pointer' : 'default' }}>✦ Generar guion</button>
-        </div>
+
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Qué ve o recibe la persona justo después de hacer clic?</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {[siguientePasoDefault, 've un video de ventas (VSL) y después puede agendar una llamada', 'recibe un recurso gratis por WhatsApp', 'recibe una cotización por WhatsApp', 'se registra a un webinar en vivo', 'compra directo en la página'].filter((o, i, arr) => o && arr.indexOf(o) === i).map((o) =>
+                  chipCta(o, nuevo.siguientePaso === o, () => setNuevo({ ...nuevo, siguientePaso: o })))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button"
+                onClick={() => onGenerar({
+                  anguloId: nuevo.anguloId,
+                  estructuraId: nuevo.estructuraId || opcionesEstructura[0]?.id || '',
+                  siguientePaso: nuevo.siguientePaso || siguientePasoDefault,
+                  respuestasAngulo: nuevo.preguntas.map((p, i) => (nuevo.elegidas[i] == null ? null : { pregunta: p.pregunta, respuesta: p.opciones[nuevo.elegidas[i] as number] })).filter((r): r is { pregunta: string; respuesta: string } => !!r),
+                })}
+                style={btnPrimary}>✦ Generar guion</button>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -446,14 +500,17 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, nuevo, 
   // ── La lista de guiones de la celda ────────────────────────────────────────
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <div style={eyebrow}>Guiones · solo lo que se dice</div>
-        <button type="button" onClick={() => setNuevo({ paso: 'angulo', anguloId: '', estructuraId: '', respuestas: [], siguientePaso: siguientePasoDefault, nota: '' })} style={btnGhost}>✦ Nuevo guion</button>
+        <div style={{ display: 'flex', gap: 7, flex: 'none' }}>
+          <button type="button" onClick={() => onSugerir()} style={btnMini}>Elegir con MaKo</button>
+          <button type="button" onClick={onAuto} style={{ ...btnPrimary, padding: '7px 14px', fontSize: 12.5 }}>✦ MaKo lo hace solo</button>
+        </div>
       </div>
       {celda.guiones.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center', padding: '28px 0' }}>
-          Todavía no hay guiones. Crea el primero: eliges un <b>ángulo</b> (dolor, testimonio, lead magnet…) y MaKo lo escribe con tu tono.
-          <br />Puedes tener varios guiones por anuncio — uno por ángulo — y testearlos por separado.
+          Todavía no hay guiones. Con <b>✦ MaKo lo hace solo</b>, MaKo elige el ángulo y escribe el guion con tu voz, en un clic.
+          <br />Puedes tener varios por anuncio — uno por ángulo — y testearlos por separado.
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -498,14 +555,6 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, nuevo, 
   );
 }
 
-function Bloque({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>{label}</div>
-      {children}
-    </div>
-  );
-}
 // Tab Imagen/Video: el FORMATO elegido por la IA para ese medio, o el botón para
 // que MaKo lo elija de la biblioteca. La generación real de imagen/video llega después.
 function AnguloTab({ medio, formatoId, cargando, onElegir, nota }: { medio: Medio; formatoId: string; cargando: boolean; onElegir: () => void; nota: string }) {

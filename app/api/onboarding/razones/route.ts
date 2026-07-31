@@ -3,7 +3,9 @@
 // =============================================================================
 // GET  → { razones, avatares, tieneAvatares, tieneBrief, angulosGuion, siguientePasoDefault }
 // POST → 'generar' (MaKo arma las 3 motivaciones×avatar + copy) | 'guardar' (edición)
-//        | 'guion' {id, anguloId, siguientePaso, nota} (agrega UN guion nuevo a la celda).
+//        | 'guion-auto' {id} (MaKo elige ángulo+estructura y escribe, un clic)
+//        | 'guion-sugerir' {id, anguloId?} (sugerencia + preguntas CERRADAS)
+//        | 'guion' {id, anguloId, estructuraId, siguientePaso, respuestasAngulo} (genera).
 // Piso: admin del workspace; el dueño (sin impersonar) → OWNER_WS.
 
 import type { NextRequest } from 'next/server';
@@ -12,7 +14,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
 import { getAvatares } from '@/lib/avatares';
-import { generarRazones, getRazones, setRazones, generarGuion, siguientePasoDefault, type RazonCelda, type GuionItem } from '@/lib/razones';
+import { generarRazones, getRazones, setRazones, generarGuion, sugerirGuion, siguientePasoDefault, type RazonCelda, type GuionItem } from '@/lib/razones';
 import { getAngulosGuion } from '@/lib/guion-angulos-store';
 import { getEstructurasGuion } from '@/lib/guion-estructuras-store';
 import { elegirAngulo, formatoPorId, type Medio } from '@/lib/angulos-formatos';
@@ -33,9 +35,9 @@ async function estado() {
     tieneAvatares: avatares.length > 0,
     tieneBrief: Object.values(answers).some((v) => (v ?? '').trim()),
     // Las bibliotecas (solo lo activo) + el siguiente paso del funnel derivado del
-    // canal — el wizard de "Nuevo guion" arma sus pasos con esto: elegir ángulo,
-    // elegir estructura compatible, contestar las preguntas propias del ángulo.
-    angulosGuion: angulosGuion.filter((a) => a.activo).map(({ id, nombre, emoji, cuando, preguntas, estructuras }) => ({ id, nombre, emoji, cuando, preguntas, estructuras })),
+    // canal. Las preguntas de cada ángulo NO viajan: el cliente las recibe ya
+    // convertidas en CERRADAS por 'guion-sugerir' (nunca un campo abierto).
+    angulosGuion: angulosGuion.filter((a) => a.activo).map(({ id, nombre, emoji, cuando, estructuras }) => ({ id, nombre, emoji, cuando, estructuras })),
     estructurasGuion: estructurasGuion.filter((e) => e.activo).map(({ id, nombre, emoji, cuando }) => ({ id, nombre, emoji, cuando })),
     siguientePasoDefault: pasoDefault,
   };
@@ -79,6 +81,32 @@ export async function POST(req: NextRequest) {
           respuestasAngulo,
           nota: s(body.nota) || undefined,
           formatoVideoTexto: formatoTexto,
+          timeoutMs: 25000,
+        });
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        return Response.json({ ok: true, guionNuevo: r.guion, ...(await estado()) });
+      }
+      if (body.action === 'guion-sugerir') {
+        // MaKo prepara el "Nuevo guion": elige ángulo + estructura y convierte las
+        // preguntas del ángulo en CERRADAS con opciones del negocio real. Con
+        // anguloId viene fijado por el dueño (solo faltan sus preguntas cerradas).
+        const r = await sugerirGuion(s(body.id), { anguloId: s(body.anguloId) || undefined, timeoutMs: 25000 });
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        return Response.json({ ok: true, sugerencia: r.sugerencia });
+      }
+      if (body.action === 'guion-auto') {
+        // El botón "MaKo lo hace solo": elige ángulo + estructura y escribe el
+        // guion en un solo clic, sin preguntarle nada al dueño. Si la sugerencia
+        // falla, se genera igual con los defaults del catálogo (nunca dead-end).
+        const id = s(body.id);
+        const sug = await sugerirGuion(id, { timeoutMs: 25000 });
+        let anguloVideo = (await getRazones()).find((r) => r.id === id)?.anguloVideo || '';
+        if (!anguloVideo) { const a = await elegirAngulo(id, 'video', 15000); if (a.ok) anguloVideo = a.formatoId; }
+        const fmt = anguloVideo ? formatoPorId(anguloVideo) : undefined;
+        const r = await generarGuion(id, {
+          anguloId: sug.ok ? sug.sugerencia.anguloId : undefined,
+          estructuraId: sug.ok ? sug.sugerencia.estructuraId : undefined,
+          formatoVideoTexto: fmt ? `${fmt.nombre} — ${fmt.descripcion} (ej: ${fmt.ejemplo})` : undefined,
           timeoutMs: 25000,
         });
         if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });

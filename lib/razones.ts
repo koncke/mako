@@ -236,6 +236,110 @@ export async function siguientePasoDefault(): Promise<string> {
   return diag?.canal ? PASO_TXT[diag.canal] : 'no especificado — usa el CTA más genérico y verdadero posible (pedir más información), sin inventar activos';
 }
 
+// ── Sugerencia de guion: MaKo elige TODO (la IA facilita, no interroga) ──────
+// Pedido explícito del dueño: crear un guion se volvió "super complejo, me pide
+// muchas preguntas abiertas". La regla nueva: la IA sugiere el ángulo y la
+// estructura sola, y si el ángulo trae preguntas para el dueño, las convierte en
+// preguntas CERRADAS con opciones concretas sacadas del contexto real — el dueño
+// solo toca un botón. NUNCA una pregunta abierta.
+export type PreguntaCerrada = { pregunta: string; opciones: string[] };
+export type SugerenciaGuion = { anguloId: string; porQue: string; estructuraId: string; preguntas: PreguntaCerrada[] };
+
+export const SUGERIR_GUION_TEMPLATE = `Sos MaKo, PREPARANDO (todavia no escribiendo) el guion de un anuncio de video para Meta. Tu trabajo es que el dueño del negocio no tenga que pensar ni redactar NADA: vos elegis y el, como mucho, toca un boton.
+
+Te paso el contexto del negocio, el avatar y su motivacion de compra (la celda), la biblioteca de ANGULOS de guion y las ESTRUCTURAS disponibles.
+
+1. ANGULO{{anguloFijado}}
+- Elegi EL mejor angulo para ESTA celda, respetando los REQUISITOS de cada uno contra el contexto REAL: si el negocio no tiene testimonios/casos/resultados confirmados en el contexto, los angulos que los requieren NO se pueden elegir.
+- Si la celda ya tiene guiones de ciertos angulos, elegi uno DISTINTO (para testear enfoques diferentes).
+- "porQue": UNA frase simple de por que este angulo para esta celda (se la mostramos al dueño).
+
+2. ESTRUCTURA
+- De las estructuras COMPATIBLES del angulo elegido, la que mejor calza para este caso.
+
+3. PREGUNTAS CERRADAS (maximo 3, pueden ser 0)
+El angulo trae preguntas pensadas para sacarle material concreto al dueño. NO se las hagas abiertas: converti cada una en una pregunta CERRADA con 2 a 4 OPCIONES ya escritas por vos, con material REAL del contexto (SU negocio, SU avatar, SU motivacion). El dueño solo elige la que mas le suena.
+- Opciones cortas (maximo ~18 palabras), concretas, en primera persona del dueño cuando aplique.
+- Genuinamente DISTINTAS entre si, y TODAS verosimiles para ESTE negocio (nada generico, nada de "otro").
+- Si el contexto ya responde una pregunta de una sola manera obvia, NO la incluyas.
+- NO inventes datos duros (cifras, nombres de clientes, resultados) que no esten en el contexto.
+
+Devolve EXCLUSIVAMENTE un objeto JSON valido (sin markdown, sin texto afuera):
+{"anguloId":"","porQue":"","estructuraId":"","preguntas":[{"pregunta":"","opciones":["",""]}]}`;
+
+const preguntasCerradasDe = (v: unknown): PreguntaCerrada[] => {
+  if (!Array.isArray(v)) return [];
+  const out: PreguntaCerrada[] = [];
+  for (const raw of v.slice(0, 3)) {
+    const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    const pregunta = str(o.pregunta).slice(0, 200);
+    const opciones = (Array.isArray(o.opciones) ? o.opciones : []).map((x) => str(x).slice(0, 180)).filter(Boolean).slice(0, 4);
+    if (pregunta && opciones.length >= 2) out.push({ pregunta, opciones });
+  }
+  return out;
+};
+
+export async function sugerirGuion(celdaId: string, opts: { anguloId?: string; timeoutMs?: number } = {}): Promise<{ ok: true; sugerencia: SugerenciaGuion } | { ok: false; error: string }> {
+  try {
+    const razones = await getRazones();
+    const celda = razones.find((r) => r.id === celdaId);
+    if (!celda) return { ok: false, error: 'Celda no encontrada.' };
+    const [brief, avatares, entregables, angulos, estructuras] = await Promise.all([
+      perfilNegocioTexto(), getAvatares(), getEntregables(), getAngulosGuion(), getEstructurasGuion(),
+    ]);
+    const activos = angulos.filter((a) => a.activo);
+    const activas = estructuras.filter((e) => e.activo);
+    const fijado = opts.anguloId ? activos.find((a) => a.id === opts.anguloId) : undefined;
+    const candidatos = fijado ? [fijado] : activos;
+    if (!candidatos.length) return { ok: false, error: 'No hay ángulos de guion en la biblioteca.' };
+    const av = avatares.find((a) => a.id === celda.avatarId);
+
+    const sys = await renderPrompt('razones.sugerir', SUGERIR_GUION_TEMPLATE, {
+      anguloFijado: fijado ? ` — YA ELEGIDO: el dueño eligió "${fijado.nombre}" (anguloId "${fijado.id}"). Usá exactamente ese; no lo cambies.` : '',
+    });
+    const user = `NEGOCIO:
+${brief}
+${entregables.length ? `LEAD MAGNET: ${entregablesTexto(entregables)}\n` : ''}
+LA CELDA (este anuncio):
+- AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Situación: ${av.situacion}. Dolor: ${av.dolor}` : '(sin avatar)'}
+- MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
+- COPY/HOOK: ${celda.copy}
+${celda.guiones.length ? `- ÁNGULOS YA USADOS EN ESTA CELDA (elegí uno distinto): ${celda.guiones.map((g) => g.anguloNombre).join(', ')}\n` : ''}
+BIBLIOTECA DE ÁNGULOS:
+${candidatos.map((a) => `- anguloId "${a.id}" · ${a.nombre} · Cuándo: ${a.cuando} · Requisitos: ${a.requisitos || '(sin requisitos)'} · Estructuras compatibles: ${a.estructuras.join(', ') || '(cualquiera)'}${a.preguntas.length ? ` · Preguntas del ángulo para el dueño (convertilas en cerradas): ${a.preguntas.join(' | ')}` : ' · (sin preguntas: devolvé preguntas [])'}`).join('\n')}
+
+ESTRUCTURAS ACTIVAS:
+${activas.map((e) => `- estructuraId "${e.id}" · ${e.nombre} · Cuándo: ${e.cuando}`).join('\n')}
+
+Devolvé solo el JSON.`;
+
+    const parsear = (t: string): SugerenciaGuion | null => {
+      try {
+        const raw = parseJsonObject(t);
+        const angulo = candidatos.find((a) => a.id === str(raw.anguloId));
+        if (!angulo) return null;
+        const estructura =
+          activas.find((e) => e.id === str(raw.estructuraId) && (!angulo.estructuras.length || angulo.estructuras.includes(e.id))) ??
+          angulo.estructuras.map((id) => estructuraPorId(activas, id)).find(Boolean) ??
+          activas[0];
+        return { anguloId: angulo.id, porQue: str(raw.porQue).slice(0, 240), estructuraId: estructura?.id ?? '', preguntas: preguntasCerradasDe(raw.preguntas) };
+      } catch { return null; }
+    };
+
+    const text = await chatCheapCascade({
+      system: sys, user, json: true, maxTokens: 1400, timeoutMs: opts.timeoutMs,
+      feature: 'razones', motivo: fijado ? `Preguntas cerradas del ángulo ${fijado.nombre}` : 'Sugerencia de ángulo y estructura del guion',
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsear(t) !== null,
+    });
+    if (!text) return { ok: false, error: 'No hay IA para sugerir. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+    const sugerencia = parsear(text);
+    if (!sugerencia) return { ok: false, error: 'MaKo no pudo armar la sugerencia. Reintenta en un momento.' };
+    return { ok: true, sugerencia };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export type GenerarGuionOpts = {
   /** id del ángulo de guion elegido (lib/guion-angulos). */
   anguloId?: string;
