@@ -17,6 +17,7 @@
 import 'server-only';
 import { credWs } from './credenciales';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 
 type Cfg = { apiBase: string; token: string; inbox: number };
 
@@ -660,6 +661,188 @@ async function ensureTemplateSynced(c: Cfg, name: string): Promise<void> {
     await cwFetch(`${c.apiBase}/inboxes/${c.inbox}/sync_templates`, { method: 'POST' }, c.token);
     await new Promise((res) => setTimeout(res, 4000)); // darle tiempo al sync de Chatwoot
   } catch { /* si falla, intentamos enviar igual */ }
+}
+
+// =============================================================================
+// Salud del webhook Chatwoot → app (detección de respuestas del canal oficial)
+// =============================================================================
+// El webhook de Chatwoot es lo que le avisa a la app cuando un lead RESPONDE por
+// el WhatsApp oficial (pausa su nutrición, dispara avisos y flujos). Hasta ahora
+// se configuraba A MANO en la UI de Chatwoot: si faltaba, apuntaba a otro deploy
+// o tenía un secret viejo, el fallo era silencioso (la nutrición seguía
+// disparando sobre leads que ya habían contestado). Mismo patrón que el "espejo
+// de mensajes" de Evolution (lib/evolution.ts): ping E2E al propio receiver +
+// comparación de la config registrada + reparación en un clic desde /whatsapp.
+//
+// El secret va EN LA URL registrada (?secret=…) porque Chatwoot no firma sus
+// webhooks ni manda headers custom; en prod el receiver rechaza todo sin él
+// (fail-closed, app/api/webhooks/chatwoot/route.ts). OJO: CHATWOOT_WEBHOOK_SECRET
+// es de PLATAFORMA (un solo valor para todos los workspaces) y queda visible para
+// el admin del Chatwoot donde se registra — mismo trade-off ya documentado en
+// lib/evolution.ts (sinSecreto). Por eso acá también se recortan las URLs antes
+// de devolverlas: la UI solo usa `estado` y el secret jamás viaja al browser.
+
+const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+const CW_WEBHOOK_SECRET = process.env.CHATWOOT_WEBHOOK_SECRET || '';
+
+function chatwootWebhookUrl(): string {
+  const qs = CW_WEBHOOK_SECRET ? `?secret=${encodeURIComponent(CW_WEBHOOK_SECRET)}` : '';
+  return `${APP_BASE_URL}/api/webhooks/chatwoot${qs}`;
+}
+
+const sinQuery = (u: string) => u.split('?')[0];
+
+// Estados de salud, del más roto al más sano:
+//   sin_secret     → falta CHATWOOT_WEBHOOK_SECRET en ESTE server (no se puede registrar).
+//   secret_prod    → el deploy (APP_BASE_URL) rechaza nuestro secret (401): env de
+//                    Vercel desalineado — lo corrige el equipo técnico, no "reparar".
+//   url_distinta   → APP_BASE_URL no responde donde debería (dominio mal / caído).
+//   no_registrado  → receiver sano pero la cuenta de Chatwoot no tiene el webhook
+//                    (o con URL/secret viejo, o sin message_created) → "reparar" lo registra.
+//   sin_ruteo      → webhook puesto pero el account_id no mapea a este workspace en
+//                    webhook_routing: el receiver ignoraría los eventos → "reparar" lo reclama.
+//   ruteo_ocupado  → el account_id ya es de OTRO workspace (primer reclamante gana):
+//                    lo destraba el equipo técnico, no el botón.
+//   error          → la API de Chatwoot no respondió.
+export type ChatwootWebhookEstado =
+  | 'ok' | 'sin_secret' | 'secret_prod' | 'url_distinta'
+  | 'no_registrado' | 'sin_ruteo' | 'ruteo_ocupado' | 'error';
+export type ChatwootWebhookSalud = { estado: ChatwootWebhookEstado; urlActual: string | null; urlEsperada: string };
+
+// Webhook tal como lo devuelve la API de Chatwoot. El shape del listado varió
+// entre versiones (payload como array vs { webhooks: [...] }) → parseo defensivo,
+// igual que ContactsResp arriba.
+type CwWebhook = { id?: number; url?: string; subscriptions?: string[] };
+type WebhooksResp = CwWebhook[] | { payload?: CwWebhook[] | { webhooks?: CwWebhook[] } };
+
+async function listarWebhooks(c: Cfg): Promise<CwWebhook[]> {
+  const r = await cwFetch<WebhooksResp>(
+    `${c.apiBase}/webhooks`,
+    { method: 'GET', signal: AbortSignal.timeout(15000) },
+    c.token,
+  );
+  if (Array.isArray(r)) return r;
+  const p = r.payload;
+  if (Array.isArray(p)) return p;
+  return p?.webhooks ?? [];
+}
+
+// Los webhooks de la cuenta que apuntan a NUESTRO receiver (ignorando la query):
+// los que registramos nosotros o los que se pusieron a mano en su momento.
+function webhooksPropios(hooks: CwWebhook[], esperada: string): CwWebhook[] {
+  return hooks.filter((h) => h.url && sinQuery(h.url) === sinQuery(esperada));
+}
+
+// Verificación REAL de extremo a extremo: pingeamos NUESTRO receiver con el
+// secret actual. El receiver responde 200 a un evento benigno (event que no es
+// message_created se ignora antes de tocar datos) y 401 si el secret no coincide.
+// Detecta drift de secret entre deploys y APP_BASE_URL apuntando a otra app.
+async function pingReceiver(url: string): Promise<number> {
+  try {
+    const r = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'webhook.health' }),
+      signal: AbortSignal.timeout(6000),
+    });
+    return r.status;
+  } catch { return 0; }
+}
+
+export async function estadoWebhookChatwoot(): Promise<ChatwootWebhookSalud> {
+  const esperada = chatwootWebhookUrl();
+  const urlEsperada = sinQuery(esperada);
+  if (!CW_WEBHOOK_SECRET) return { estado: 'sin_secret', urlActual: null, urlEsperada };
+
+  // 1) ¿El deploy en APP_BASE_URL acepta nuestro secret? Si esto falla, "reparar"
+  //    no sirve: el problema está en el env de Vercel, no en Chatwoot.
+  const ping = await pingReceiver(esperada);
+  if (ping === 401) return { estado: 'secret_prod', urlActual: null, urlEsperada };
+  if (ping !== 200) return { estado: 'url_distinta', urlActual: null, urlEsperada };
+
+  try {
+    // 2) ¿La cuenta de Chatwoot tiene el webhook con la URL EXACTA (secret incluido)
+    //    y suscripto a message_created? La comparación va con query y todo: una URL
+    //    registrada con un secret viejo daría 401 en cada evento real, así que acá
+    //    cuenta como no_registrado (y "reparar" la actualiza).
+    const c = await cfg();
+    const propios = webhooksPropios(await listarWebhooks(c), esperada);
+    const urlActual = propios[0]?.url ? sinQuery(propios[0].url) : null;
+    const valido = propios.find(
+      (h) => h.url === esperada && (h.subscriptions ?? []).includes('message_created'),
+    );
+    if (!valido) return { estado: 'no_registrado', urlActual, urlEsperada };
+
+    // 3) ¿El account_id rutea a ESTE workspace? Sin fila en webhook_routing el
+    //    receiver descarta los eventos (fail-closed) aunque el webhook esté sano.
+    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+    const account = await credWs('CHATWOOT_ACCOUNT_ID', ws);
+    const dueno = await wsPorIdentificador('chatwoot', account);
+    if (dueno == null) return { estado: 'sin_ruteo', urlActual, urlEsperada };
+    if (dueno !== ws) return { estado: 'ruteo_ocupado', urlActual, urlEsperada };
+
+    return { estado: 'ok', urlActual, urlEsperada };
+  } catch (err) {
+    console.error(`[chatwoot] estadoWebhookChatwoot: ${err instanceof Error ? err.message : String(err)}`);
+    return { estado: 'error', urlActual: null, urlEsperada };
+  }
+}
+
+// (Re)registra el webhook en la cuenta de Chatwoot del workspace + reclama el
+// ruteo del account_id, y verifica que quedó. Lo usa el auto-registro al abrir
+// la tab /whatsapp y el botón "Registrar webhook" del chip.
+export async function repararWebhookChatwoot(): Promise<{ ok: boolean; estado: ChatwootWebhookEstado; error?: string }> {
+  if (!CW_WEBHOOK_SECRET) {
+    return { ok: false, estado: 'sin_secret', error: 'Falta el secret del webhook de Chatwoot en la configuración de la plataforma — avisá al equipo técnico.' };
+  }
+  try {
+    const c = await cfg();
+    const esperada = chatwootWebhookUrl();
+    const propios = webhooksPropios(await listarWebhooks(c), esperada);
+
+    if (!propios.length) {
+      await cwFetch(
+        `${c.apiBase}/webhooks`,
+        { method: 'POST', body: JSON.stringify({ webhook: { url: esperada, subscriptions: ['message_created'] } }), signal: AbortSignal.timeout(15000) },
+        c.token,
+      );
+    } else {
+      // Ya hay uno nuestro → actualizarlo (URL con el secret vigente + message_created
+      // sin pisar otras suscripciones que hayan configurado a mano).
+      const [principal, ...duplicados] = propios;
+      const subs = Array.from(new Set([...(principal.subscriptions ?? []), 'message_created']));
+      if (principal.url !== esperada || !(principal.subscriptions ?? []).includes('message_created')) {
+        await cwFetch(
+          `${c.apiBase}/webhooks/${principal.id}`,
+          { method: 'PATCH', body: JSON.stringify({ webhook: { url: esperada, subscriptions: subs } }), signal: AbortSignal.timeout(15000) },
+          c.token,
+        );
+      }
+      // Duplicados apuntando a nuestro receiver: se borran (cada evento llegaría
+      // N veces → avisos dobles al dueño). Best-effort.
+      for (const d of duplicados) {
+        if (d.id != null) {
+          await cwFetch(`${c.apiBase}/webhooks/${d.id}`, { method: 'DELETE', signal: AbortSignal.timeout(15000) }, c.token).catch(() => {});
+        }
+      }
+    }
+
+    // Reclamar el ruteo account_id → workspace. Primer reclamante gana (upsertRouting
+    // NO pisa a otro workspace); si está ocupado, la verificación lo reporta.
+    // El fallback a OWNER_WS es seguro acá: sin impersonar, credWs resuelve las
+    // credenciales del DUEÑO (env), así que se reclama su propio account_id.
+    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+    const account = await credWs('CHATWOOT_ACCOUNT_ID', ws);
+    if (account) await upsertRouting('chatwoot', account, ws);
+
+    const v = await estadoWebhookChatwoot();
+    return {
+      ok: v.estado === 'ok',
+      estado: v.estado,
+      error: v.estado === 'ok' ? undefined : 'El webhook se registró pero la verificación no dio OK.',
+    };
+  } catch (err) {
+    return { ok: false, estado: 'error', error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 // Manda un template aprobado al contacto (reusa su conversación). Sirve fuera
