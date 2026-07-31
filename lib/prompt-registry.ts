@@ -39,6 +39,7 @@ import {
   SCRIPT_VALORACION_USER_TEMPLATE,
 } from './ads-analyst';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
+import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE } from './setting-jugadas';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -337,6 +338,27 @@ export const REGISTRY: Group[] = [
         variables: [v('objetivo', 'cohorte / a quién apunta'), v('copy', 'el copy del paso a convertir')], scope: 'static-only', sensitive: false,
         default: NUTRI_PLANTILLA_USER_TEMPLATE,
         context: 'Le pasa a MaKo el copy del paso y el cohorte. No borres los slots {{objetivo}}/{{copy}} ni el formato JSON de salida.',
+      },
+    ],
+  },
+  {
+    group: 'Setting — wizard de jugadas',
+    icon: '🎯',
+    blurb: 'Sugerencias del wizard de la tab Setting: ganchos (lead magnet / oferta) y preguntas de cualificación por cohorte. Corren con la IA barata.',
+    entries: [
+      {
+        key: 'setting.gancho', source: 'override',
+        label: 'Sugerir ganchos (user)', kind: 'user', dynamic: true,
+        variables: [v('objetivo', 'objetivo de la jugada'), v('etapa', 'etapa del lead en el funnel'), v('perfil', 'perfil del negocio')], scope: 'static-only', sensitive: false,
+        default: SETTING_GANCHO_TEMPLATE,
+        context: 'Tres ganchos concretos derivados del perfil del negocio. No borres los slots {{objetivo}}/{{etapa}}/{{perfil}} ni el formato de salida (array JSON).',
+      },
+      {
+        key: 'setting.preguntas', source: 'override',
+        label: 'Sugerir preguntas de cualificación (user)', kind: 'user', dynamic: true,
+        variables: [v('objetivo', 'objetivo de la jugada'), v('etapa', 'etapa del lead en el funnel'), v('perfil', 'perfil del negocio')], scope: 'static-only', sensitive: false,
+        default: SETTING_PREGUNTAS_TEMPLATE,
+        context: 'Cuatro preguntas cerradas y cortas, en orden de setter. No borres los slots ni el formato de salida (array JSON).',
       },
     ],
   },

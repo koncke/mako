@@ -73,12 +73,12 @@ export async function crearSecuenciaJugada(etapa: string, nombre: string): Promi
 export const SETTING_GANCHO_TEMPLATE = `Sos MaKo armando una jugada de setting. El negocio: {{perfil}}.
 Objetivo de la jugada: {{objetivo}}. Etapa del lead: {{etapa}}.
 Proponé 3 GANCHOS concretos (lead magnet, oferta puntual, motivo de re-contacto) que este negocio puede ofrecer YA — nada genérico y nada de inventar recursos que no existen: derivalos del perfil. Máximo 15 palabras cada uno.
-Devolvé EXCLUSIVAMENTE un array JSON de 3 strings.`;
+Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "..."]}`;
 
 export const SETTING_PREGUNTAS_TEMPLATE = `Sos MaKo armando la cualificación por WhatsApp de una jugada de setting. El negocio: {{perfil}}.
 Objetivo: {{objetivo}}. Etapa del lead: {{etapa}}.
 Proponé 4 PREGUNTAS de cualificación cerradas y cortas (responderlas toma menos de 15 segundos), en el orden en que un setter las haría, que separen a un lead calificado de uno que no. Sin preguntas obvias ni invasivas.
-Devolvé EXCLUSIVAMENTE un array JSON de 4 strings.`;
+Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "...", "..."]}`;
 
 // ── Prueba en vivo ───────────────────────────────────────────────────────────
 

@@ -20,6 +20,7 @@ import { getSecuenciasConStats, setSecuenciaPasos, type PasoSecuencia } from '@/
 import { metodologiaDeArea } from '@/lib/mako-knowledge';
 import { ejemplosRelevantes } from '@/lib/copywriting-metodo';
 import { resumenFunnel } from '@/lib/mako-context';
+import { parseEstrategia } from '@/lib/setting-estrategia';
 
 const KEY_VOZ = 'mako.voz_guia';
 
@@ -266,6 +267,16 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   let system = `${persona}\n\n${nucleo}\n\n${systemBase}`.trim();
   if (perfil) system += `\n\nPERFIL DEL NEGOCIO:\n${perfil}`;
   if (funnelTxt) system += `\n\nFUNNEL REAL DEL NEGOCIO (así se mueve un lead acá — escribí coherente con estas etapas):\n${funnelTxt}`;
+  // La JUGADA de la tab Setting (si el dueño la definió): el copy se escribe al
+  // servicio del objetivo/gancho, y las preguntas de cualificación se siembran
+  // con naturalidad a lo largo de la secuencia (no como interrogatorio).
+  const jugada = parseEstrategia(sec.estrategia);
+  if (jugada) {
+    system += `\n\nJUGADA DE ESTA SECUENCIA (todo el copy trabaja para esto):
+- Objetivo: ${jugada.objetivo}
+- Gancho a ofrecer: ${jugada.gancho ?? '(sin gancho definido — no inventes uno)'}
+- Preguntas de cualificación a sembrar con naturalidad, de a una por mensaje: ${jugada.preguntas.length ? jugada.preguntas.join(' · ') : '(ninguna)'}`;
+  }
 
   const user = await renderPrompt('nutri.gen.user', NUTRI_GEN_USER_TEMPLATE, {
     nombre: sec.nombre,
