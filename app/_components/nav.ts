@@ -59,12 +59,16 @@ export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', hre
 // Shell de administración: lo ve un admin que NO está impersonando. Sin tabs de
 // marketing — solo gestión de clientes e integraciones.
 export const ADMIN_NAV: NavItem[] = [
-  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: starts('/admin') },
+  // /admin/guiones tiene su propio item — que "Clientes" no se marque también.
+  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) },
   { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
   // Canal propio de MaKo (SuperAdmin): WhatsApp del admin (canal + chat de grupos
   // + plantillas). NO es preview de ningún cliente. Su propia línea por QR.
   { key: 'agencia', label: 'WhatsApp de MaKo', href: '/agencia', icon: 'whatsapp', match: starts('/agencia') },
   { key: 'mako-admin', label: 'MaKo', href: '/admin?tab=copy', icon: 'mako', match: () => false },
+  // La fábrica de guiones: biblioteca de ÁNGULOS y ESTRUCTURAS que ven todos los
+  // clientes al crear un guion en la Matriz. Editable solo por el super-admin.
+  { key: 'guiones-admin', label: 'Guiones', href: '/admin/guiones', icon: 'graphics', match: starts('/admin/guiones') },
   { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
   { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },
   { key: 'modelos-ia', label: 'Modelos IA', href: '/modelos-ia', icon: 'mako', match: starts('/modelos-ia') },

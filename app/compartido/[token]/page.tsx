@@ -14,8 +14,10 @@ import { listarAssetsDeWorkspace } from '@/lib/branding';
 import { resolverToken, filtrarPorShare, registrarVisita } from '@/lib/shares';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
+import AnalisisCompartido from './AnalisisCompartido';
 import { CURSOS } from '@/app/conocimientos/curso';
 import { CURSO_VSL } from '@/app/conocimientos/curso-vsl';
+import { CURSO_ANALISIS } from '@/app/conocimientos/AnalisisNegocio';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -35,9 +37,13 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
   // sin el chrome de la app ni el botón de Compartir.
   if (acceso.share.recurso === 'curso') {
     const slug = acceso.share.recurso_id;
+    // El Análisis de Negocio es un curso INTERACTIVO (no clases de video): tiene
+    // su propia vista compartida, con el mismo contenido que ve el admin.
+    if (slug === CURSO_ANALISIS.slug) {
+      await registrarVisita(acceso);
+      return <AnalisisCompartido invitado={acceso.invitado?.email ?? null} />;
+    }
     const curso = [...CURSOS, CURSO_VSL].find((c) => c.slug === slug);
-    // Los cursos "interactivos" (Análisis, Branding) no son texto: no se
-    // comparten por esta vía todavía.
     if (!curso) notFound();
     await registrarVisita(acceso);
     return <CursoCompartido curso={curso} invitado={acceso.invitado?.email ?? null} />;

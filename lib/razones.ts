@@ -19,9 +19,11 @@ import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { faseNegocioTexto, getDiagnosticoFase } from './fase-store';
 import { type CanalId } from './fase-diagnostico';
-import { tonoNegocioTexto } from './tono-store';
-import { ESTRUCTURAS_GUION, anguloGuionPorId } from './guion-angulos';
+import { personalidadNegocioTexto } from './personalidad-store';
+import { anguloGuionPorId, instruccionesTexto } from './guion-angulos';
 import { getAngulosGuion } from './guion-angulos-store';
+import { estructuraPorId } from './guion-estructuras';
+import { getEstructurasGuion } from './guion-estructuras-store';
 import { getSetting, setSetting } from './settings';
 import { getAvatares, avataresTexto, type Avatar } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
@@ -237,8 +239,12 @@ export async function siguientePasoDefault(): Promise<string> {
 export type GenerarGuionOpts = {
   /** id del ángulo de guion elegido (lib/guion-angulos). */
   anguloId?: string;
+  /** id de la estructura elegida (lib/guion-estructuras); default = la sugerida del ángulo. */
+  estructuraId?: string;
   /** Qué ve/recibe la persona al hacer clic (definido por el dueño en el wizard). */
   siguientePaso?: string;
+  /** Respuestas del dueño a las preguntas propias del ángulo (van al prompt). */
+  respuestasAngulo?: Array<{ pregunta: string; respuesta: string }>;
   /** Nota libre del dueño: qué quiere comunicar puntualmente. */
   nota?: string;
   /** Formato de video elegido (biblioteca de formatos), si hay. */
@@ -251,29 +257,37 @@ export async function generarGuion(celdaId: string, opts: GenerarGuionOpts = {})
     const razones = await getRazones();
     const celda = razones.find((r) => r.id === celdaId);
     if (!celda) return { ok: false, error: 'Celda no encontrada.' };
-    const [avatares, entregables, tono, angulos] = await Promise.all([
-      getAvatares(), getEntregables(), tonoNegocioTexto(), getAngulosGuion(),
+    const [avatares, entregables, tono, angulos, estructuras] = await Promise.all([
+      getAvatares(), getEntregables(), personalidadNegocioTexto(), getAngulosGuion(), getEstructurasGuion(),
     ]);
     const angulo = (opts.anguloId ? anguloGuionPorId(angulos, opts.anguloId) : undefined) ?? angulos.find((a) => a.activo) ?? angulos[0];
     if (!angulo) return { ok: false, error: 'No hay ángulos de guion en la biblioteca.' };
-    const estructura = ESTRUCTURAS_GUION[angulo.estructura];
+    // La estructura elegida (si vino y existe activa), o la primera compatible del
+    // ángulo, o la primera activa del catálogo — nunca sin estructura.
+    const activas = estructuras.filter((e) => e.activo);
+    const estructura =
+      (opts.estructuraId ? activas.find((e) => e.id === opts.estructuraId) : undefined) ??
+      angulo.estructuras.map((id) => estructuraPorId(activas, id)).find(Boolean) ??
+      activas[0];
+    if (!estructura) return { ok: false, error: 'No hay estructuras de guion en la biblioteca.' };
     const siguientePaso = opts.siguientePaso?.trim() || (await siguientePasoDefault());
     const av = avatares.find((a) => a.id === celda.avatarId);
     const sys = await renderPrompt('razones.guion', GUION_SYSTEM_TEMPLATE, {
       anguloNombre: angulo.nombre,
-      anguloInstrucciones: angulo.instrucciones,
+      anguloInstrucciones: instruccionesTexto(angulo),
       estructuraNombre: estructura.nombre,
       estructuraGuia: estructura.guia,
       siguientePaso,
       etiquetas: estructura.etiquetas.join(' / '),
       tono: tono || '(sin definir — voz cercana y natural, de "tú")',
     });
+    const respAngulo = (opts.respuestasAngulo ?? []).filter((r) => r.respuesta.trim());
     const user = `AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Situación: ${av.situacion}. Dolor: ${av.dolor}` : '(sin avatar)'}
 MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 COPY/HOOK: ${celda.copy}
 SIGUIENTE PASO AL HACER CLIC: ${siguientePaso}
-${entregables.length ? `LEAD MAGNET: ${entregablesTexto(entregables)}\n` : ''}${opts.formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${opts.formatoVideoTexto}\n` : ''}${opts.nota?.trim() ? `NOTA DEL DUEÑO (qué quiere comunicar — respetala):\n${opts.nota.trim()}\n` : ''}
-Escribí el guion del video con el ángulo "${angulo.nombre}".`;
+${entregables.length ? `LEAD MAGNET: ${entregablesTexto(entregables)}\n` : ''}${opts.formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${opts.formatoVideoTexto}\n` : ''}${respAngulo.length ? `LO QUE EL DUEÑO PRECISÓ PARA ESTE ÁNGULO (úsalo, es el material concreto):\n${respAngulo.map((r) => `- ${r.pregunta} → ${r.respuesta.trim()}`).join('\n')}\n` : ''}${opts.nota?.trim() ? `NOTA DEL DUEÑO (qué quiere comunicar — respetala):\n${opts.nota.trim()}\n` : ''}
+Escribí el guion del video con el ángulo "${angulo.nombre}" y la estructura "${estructura.nombre}".`;
     const texto = await chatCheapCascade({
       system: sys, user, maxTokens: 2200, timeoutMs: opts.timeoutMs,
       feature: 'razones', motivo: `Guion de video (ángulo ${angulo.nombre})`,

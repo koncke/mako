@@ -61,7 +61,7 @@ export type OnboardingState = {
     entregable: { done: boolean };
     avatares: { done: boolean };
     persona: { done: boolean };
-    tono: { done: boolean };
+    personalidad: { done: boolean };
     angulos: { done: boolean };
     gemini: { done: boolean };
     fase: { done: boolean };
@@ -90,7 +90,7 @@ export function estadoInicial(status: OnboardingStatus = 'pending'): OnboardingS
       entregable: { done: false },
       avatares: { done: false },
       persona: { done: false },
-      tono: { done: false },
+      personalidad: { done: false },
       angulos: { done: false },
       gemini: { done: false },
       fase: { done: false },

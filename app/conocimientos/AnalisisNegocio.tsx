@@ -12,13 +12,14 @@
 import { useState } from 'react';
 import {
   FASES, PREGUNTAS, CANALES, VOLUMEN_POR_CANAL, DIMENSIONES,
-  diagnosticar, faseDef, dimensionDeFase, repartoTexto,
+  diagnosticar,
   type CanalId, type Diagnostico,
 } from '@/lib/fase-diagnostico';
-// Mismo ícono que el onboarding (app/onboarding/FaseUI.tsx) — antes esta vista tenía
-// su propio set duplicado y quedaba desincronizado apenas cambiaba uno de los dos
-// lados (pedido de Martín: "que se vea igual el form que está ahí, todo igual").
-import { FaseIcono } from '../onboarding/FaseUI';
+// MISMO componente que el onboarding (app/onboarding/FaseUI.tsx) — el detalle de
+// cada fase acá es EXACTAMENTE la pantalla "Tu diagnóstico" del wizard, no una
+// réplica que se desincroniza (pedido de Martín: "igual en diseño y copy").
+import { FaseIcono, FaseResultado } from '../onboarding/FaseUI';
+import Compartir from './Compartir';
 import type { Curso } from './curso';
 
 export const CURSO_ANALISIS: Curso = {
@@ -48,85 +49,17 @@ function Barras({ filas }: { filas: Array<[string, number, string]> }) {
   );
 }
 
-// ── El detalle de UNA fase de MaKo (visual, 2 columnas) ──────────────────────
-function FaseDetalle({ idx, diag }: { idx: number; diag?: Diagnostico }) {
-  const f = faseDef(idx);
-  const dim = dimensionDeFase(f.id);
-  const barras: Array<[string, number, string]> = [
-    ['Prospección', f.estrategia.prospeccion, '#7a9e1f'],
-    ['Retargeting y nutrición', f.estrategia.nutricion, '#c98a1a'],
-    ['Escala', f.estrategia.escala, '#2f7d4f'],
-  ];
+// ── El detalle de UNA fase: EXACTAMENTE la pantalla del onboarding ────────────
+// FaseResultado (el mismo componente del wizard), en una tarjeta blanca con los
+// tokens de la app — así el diseño y el copy no pueden desincronizarse jamás.
+// Para navegar una fase sin quiz, se sintetiza un Diagnóstico "puro" con la
+// función real (todas las respuestas en esa fase → consistencia 100%).
+const diagDeFase = (idx: number): Diagnostico => diagnosticar(new Array(PREGUNTAS.length).fill(idx));
+
+function FaseDetalleOnboarding({ diag }: { diag: Diagnostico }) {
   return (
-    <div className="an-fd">
-      <div className="an-fd-hd" style={{ borderColor: f.color }}>
-        <span className="an-fd-icon" style={{ color: f.color }}><FaseIcono id={f.id} size={30} /></span>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="an-fd-kicker">Fase {f.id}{diag ? ` · ${diag.consistencia}% consistencia` : ''}</div>
-          <div className="an-fd-name">{f.nombre}</div>
-          <div className="an-fd-sub">{f.subtitulo}</div>
-        </div>
-      </div>
-      <div className="an-fd-chips">
-        <span className="an-chip">{f.rango}</span>
-        <span className="an-chip" style={{ borderColor: f.color, color: f.color }}>Cuello: {f.cuelloLabel}</span>
-      </div>
-
-      {diag?.mixto && (
-        <div className="an-box an-box-warn"><span className="an-l">Diagnóstico mixto ({repartoTexto(diag.reparto)})</span>Avanzaste en una dimensión y te atrasaste en otra. Trabajá primero el cuello de tu fase más baja.</div>
-      )}
-
-      <div className="an-fd-norte"><span className="an-l">Tu Norte</span>{f.objetivo}</div>
-
-      <div className="an-fd-block">
-        <span className="an-l">Funnel sugerido{f.funnelSugerido.complejidad ? ` · ${f.funnelSugerido.complejidad}` : ''}</span>
-        <div className="an-funnel">
-          {f.funnelSugerido.pasos.map((paso, i) => (
-            <span key={paso} style={{ display: 'contents' }}>
-              {i > 0 && <span className="an-funnel-arrow">→</span>}
-              <span className="an-funnel-step">{paso}</span>
-            </span>
-          ))}
-          {f.funnelSugerido.retarget && <span className="an-funnel-step an-funnel-retarget">+ Retargeting</span>}
-        </div>
-        <p className="an-p an-p-dim" style={{ marginTop: 8 }}>{f.funnelSugerido.comoFunciona}</p>
-      </div>
-
-      <div className="an-fd-block">
-        <span className="an-l">Estrategia de pauta</span>
-        <Barras filas={barras} />
-        <p className="an-p an-p-dim" style={{ marginTop: 8 }}>{f.estrategia.nota}</p>
-      </div>
-
-      <div className="an-2col">
-        <div className="an-fd-block">
-          <span className="an-l">Síntomas</span>
-          <ul className="an-ul an-ul-sm">{f.sintomas.map((s, i) => <li key={i}>{s}</li>)}</ul>
-        </div>
-        <div className="an-fd-block">
-          <span className="an-l">Acciones clave</span>
-          <div className="an-acts">
-            {f.acciones.map((a, i) => (
-              <div key={i} className={`an-act ${a.critica ? 'an-act-key' : ''}`}>
-                <span className="an-act-tag">{a.critica ? 'CLAVE' : i + 1}</span>
-                <span>{a.texto}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="an-box an-box-lime">
-        <span className="an-l">Hito para pasar a la siguiente fase</span>
-        {f.hito}
-        <ul className="an-ul an-ul-sm" style={{ marginTop: 9 }}>{f.hitoCriterios.map((c, i) => <li key={i}>{c}</li>)}</ul>
-      </div>
-      <div className="an-2col">
-        <div className="an-box an-box-red"><b>No hagas ahora:</b>
-          <ul className="an-ul an-ul-sm" style={{ marginTop: 6 }}>{f.noHacer.map((n, i) => <li key={i}>{n}</li>)}</ul>
-        </div>
-        <div className="an-box"><span className="an-l">Tu dimensión débil</span><div className="an-dimhead"><span>{dim.emoji}</span><b>{dim.nombre}</b></div><p className="an-p an-p-dim" style={{ marginTop: 4 }}>{dim.descripcion}</p></div>
-      </div>
+    <div className="an-onb">
+      <FaseResultado diag={diag} />
     </div>
   );
 }
@@ -144,7 +77,7 @@ function DiagnosticoForm() {
   if (diag) return (
     <div className="an-result">
       <div className="an-l an-l-big">Tu fase</div>
-      <FaseDetalle idx={diag.fase} diag={diag} />
+      <FaseDetalleOnboarding diag={diag} />
       <div className="an-cta"><button type="button" className="an-btn an-btn-ghost" onClick={reiniciar}>↺ Empezar de nuevo</button></div>
     </div>
   );
@@ -254,17 +187,21 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'metodologia', label: '📖 La metodología' },
 ];
 
-export default function AnalisisNegocio({ back }: { back: () => void }) {
+export default function AnalisisNegocio({ back, compartible = true }: { back?: (() => void) | null; compartible?: boolean }) {
   const [tab, setTab] = useState<Tab>('probar');
   const [faseSel, setFaseSel] = useState(0);
   const [andreaSel, setAndreaSel] = useState(0);
   return (
     <div className="al-detail an-root">
       <style dangerouslySetInnerHTML={{ __html: AN_CSS }} />
-      <button type="button" className="al-back" onClick={back}>← Volver</button>
+      {back && <button type="button" className="al-back" onClick={back}>← Volver</button>}
 
       <div className="al-detail-hd">
-        <span className="al-rescard-badge">Método interno</span>
+        <div className="al-hero-top" style={{ width: '100%' }}>
+          <span className="al-rescard-badge">Método interno</span>
+          {/* El mismo botón de Compartir que el resto del portal — faltaba acá. */}
+          {compartible && <Compartir recurso="curso" recursoId={CURSO_ANALISIS.slug} etiqueta={CURSO_ANALISIS.titulo} />}
+        </div>
         <h1 className="al-h1 al-h1-sm">Análisis de Negocio — Las 5 Fases</h1>
       </div>
       <p className="al-sub al-sub-sm">El diagnóstico que le da el <b>Norte</b> a cada negocio: todos comparten los mismos problemas según en qué fase están.</p>
@@ -293,7 +230,7 @@ export default function AnalisisNegocio({ back }: { back: () => void }) {
               </button>
             ))}
           </div>
-          <FaseDetalle idx={faseSel} />
+          <FaseDetalleOnboarding diag={diagDeFase(faseSel)} />
         </section>
       )}
 
@@ -384,7 +321,12 @@ const AN_CSS = `
 .cono .an-jname{ font-family:var(--disp); font-weight:800; font-size:13px; color:var(--ink); }
 .cono .an-jsub{ font-size:11px; color:var(--ink-60); }
 
-/* Fase detalle */
+/* Fase detalle = el MISMO FaseResultado del onboarding, en tarjeta blanca de la
+   app (los tokens de la app cascadean desde :root; .cono solo pisa --ink, que es
+   prácticamente idéntico). No estilizar el contenido: es el componente real. */
+.cono .an-onb{ margin-top:16px; background:#FFFFFF; border:1.5px solid var(--ink-15); border-radius:18px; box-shadow:var(--shadow-paste); padding:26px 26px 28px; }
+
+/* Fase detalle (lo sigue usando la vista de Andrea) */
 .cono .an-fd{ border:1.5px solid var(--ink); border-radius:16px; background:var(--card); box-shadow:var(--shadow-paste); padding:20px 22px 22px; display:flex; flex-direction:column; gap:16px; }
 .cono .an-fd-hd{ display:flex; align-items:center; gap:14px; padding-left:14px; border-left:5px solid; }
 .cono .an-fd-icon{ flex:none; }

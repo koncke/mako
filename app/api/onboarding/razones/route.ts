@@ -14,6 +14,7 @@ import { getAnswers } from '@/lib/onboarding';
 import { getAvatares } from '@/lib/avatares';
 import { generarRazones, getRazones, setRazones, generarGuion, siguientePasoDefault, type RazonCelda, type GuionItem } from '@/lib/razones';
 import { getAngulosGuion } from '@/lib/guion-angulos-store';
+import { getEstructurasGuion } from '@/lib/guion-estructuras-store';
 import { elegirAngulo, formatoPorId, type Medio } from '@/lib/angulos-formatos';
 
 export const dynamic = 'force-dynamic';
@@ -24,16 +25,18 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
 async function estado() {
-  const [razones, avatares, answers, angulosGuion, pasoDefault] = await Promise.all([
-    getRazones(), getAvatares(), getAnswers(), getAngulosGuion(), siguientePasoDefault(),
+  const [razones, avatares, answers, angulosGuion, estructurasGuion, pasoDefault] = await Promise.all([
+    getRazones(), getAvatares(), getAnswers(), getAngulosGuion(), getEstructurasGuion(), siguientePasoDefault(),
   ]);
   return {
     razones, avatares,
     tieneAvatares: avatares.length > 0,
     tieneBrief: Object.values(answers).some((v) => (v ?? '').trim()),
-    // La biblioteca de ángulos de guion (solo los activos) + el siguiente paso del
-    // funnel derivado del canal — el wizard de "Nuevo guion" los usa para sus pasos.
-    angulosGuion: angulosGuion.filter((a) => a.activo).map(({ id, nombre, emoji, cuando }) => ({ id, nombre, emoji, cuando })),
+    // Las bibliotecas (solo lo activo) + el siguiente paso del funnel derivado del
+    // canal — el wizard de "Nuevo guion" arma sus pasos con esto: elegir ángulo,
+    // elegir estructura compatible, contestar las preguntas propias del ángulo.
+    angulosGuion: angulosGuion.filter((a) => a.activo).map(({ id, nombre, emoji, cuando, preguntas, estructuras }) => ({ id, nombre, emoji, cuando, preguntas, estructuras })),
+    estructurasGuion: estructurasGuion.filter((e) => e.activo).map(({ id, nombre, emoji, cuando }) => ({ id, nombre, emoji, cuando })),
     siguientePasoDefault: pasoDefault,
   };
 }
@@ -50,7 +53,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  let body: { action?: string; razones?: unknown; id?: unknown; medio?: unknown; anguloId?: unknown; siguientePaso?: unknown; nota?: unknown };
+  let body: { action?: string; razones?: unknown; id?: unknown; medio?: unknown; anguloId?: unknown; estructuraId?: unknown; siguientePaso?: unknown; nota?: unknown; respuestasAngulo?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   return runWithWorkspace(ws, async () => {
@@ -66,9 +69,14 @@ export async function POST(req: NextRequest) {
         if (!anguloVideo) { const a = await elegirAngulo(id, 'video', 15000); if (a.ok) anguloVideo = a.formatoId; }
         const fmt = anguloVideo ? formatoPorId(anguloVideo) : undefined;
         const formatoTexto = fmt ? `${fmt.nombre} — ${fmt.descripcion} (ej: ${fmt.ejemplo})` : undefined;
+        const respuestasAngulo = (Array.isArray(body.respuestasAngulo) ? body.respuestasAngulo : [])
+          .map((r) => { const o = (r ?? {}) as Record<string, unknown>; return { pregunta: s(o.pregunta), respuesta: s(o.respuesta) }; })
+          .filter((r) => r.pregunta && r.respuesta);
         const r = await generarGuion(id, {
           anguloId: s(body.anguloId) || undefined,
+          estructuraId: s(body.estructuraId) || undefined,
           siguientePaso: s(body.siguientePaso) || undefined,
+          respuestasAngulo,
           nota: s(body.nota) || undefined,
           formatoVideoTexto: formatoTexto,
           timeoutMs: 25000,

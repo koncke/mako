@@ -17,12 +17,15 @@ const SANS = "'Geist', sans-serif";
 // Avatar de una opción-persona: foto de perfil o iniciales. Se muestra cuando la
 // opción trae la prop `avatar` (string = foto · null = persona sin foto → iniciales).
 const optIniciales = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
-function OptAvatar({ url, name, size = 22 }: { url: string | null | undefined; name: string; size?: number }) {
+// `cuadrado` = imagen rectangular con esquinas apenas redondeadas (banderas de
+// país): una bandera recortada en círculo pierde la mitad del diseño.
+function OptAvatar({ url, name, size = 22, cuadrado = false }: { url: string | null | undefined; name: string; size?: number; cuadrado?: boolean }) {
+  const radio = cuadrado ? 3 : '50%';
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" width={size} height={size} style={{ borderRadius: '50%', display: 'block', flex: 'none', objectFit: 'cover' }} referrerPolicy="no-referrer" />;
+    return <img src={url} alt="" width={size} height={cuadrado ? Math.round(size * 0.75) : size} style={{ borderRadius: radio, display: 'block', flex: 'none', objectFit: 'cover' }} referrerPolicy="no-referrer" />;
   }
-  return <span aria-hidden style={{ width: size, height: size, borderRadius: '50%', flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(size * 0.42), fontWeight: 700, background: 'var(--primary)', color: '#fff' }}>{optIniciales(name)}</span>;
+  return <span aria-hidden style={{ width: size, height: size, borderRadius: radio, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(size * 0.42), fontWeight: 700, background: 'var(--primary)', color: '#fff' }}>{optIniciales(name)}</span>;
 }
 
 // Botón de una opción del menú (compartido por la lista plana y las columnas).
@@ -42,7 +45,7 @@ function renderOption(
       onMouseEnter={(e) => { if (!o.disabled && !on) e.currentTarget.style.background = 'var(--surface-2)'; }}
       onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent'; }}
       style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 11px', borderRadius: 8, border: 'none', cursor: o.disabled ? 'default' : 'pointer', background: on ? 'var(--surface-2)' : 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, opacity: o.disabled ? 0.45 : 1 }}>
-      {o.avatar !== undefined && <OptAvatar url={o.avatar} name={o.label} size={22} />}
+      {o.avatar !== undefined && <OptAvatar url={o.avatar} name={o.label} size={22} cuadrado={o.avatarCuadrado} />}
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
       <span style={{ minWidth: 0, flex: 1 }}>
         <span style={{ display: 'block', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
@@ -53,7 +56,7 @@ function renderOption(
   );
 }
 
-export type DropdownOption = { value: string; label: string; sub?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null };
+export type DropdownOption = { value: string; label: string; sub?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean };
 /** Grupo con título para menús en columnas (ver prop `columns`). */
 export type DropdownGroup = { title: string; options: DropdownOption[] };
 
@@ -166,7 +169,7 @@ export function Dropdown({
     <div ref={ref} style={{ position: 'relative', display: 'inline-block', width: width ?? 'auto' }}>
       <button type="button" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} aria-disabled={disabled} disabled={disabled} onClick={toggle} style={btn}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          {selected?.avatar !== undefined && <OptAvatar url={selected.avatar} name={selected.label} size={20} />}
+          {selected?.avatar !== undefined && <OptAvatar url={selected.avatar} name={selected.label} size={20} cuadrado={selected.avatarCuadrado} />}
           {selected?.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: selected.color, flex: 'none' }} />}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.label : placeholder}</span>
         </span>

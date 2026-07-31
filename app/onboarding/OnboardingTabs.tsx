@@ -18,7 +18,7 @@ import { DiagnosticoView } from './DiagnosticoView';
 import { CamposNegocio } from './CamposNegocio';
 import { EntregableView } from './EntregableView';
 import { PersonaView } from './PersonaView';
-import { TonoView } from './TonoView';
+import { PersonalidadView } from './PersonalidadView';
 import { AvataresView } from './AvataresView';
 import { RazonesView } from './RazonesView';
 import { FormatosView } from './FormatosView';
@@ -27,7 +27,7 @@ import { BrandDefs } from '../_components/ServicioVisual';
 import type { Slide } from '@/lib/servicio-slides';
 
 const SANS = "'Geist', sans-serif";
-type TabKey = 'matriz' | 'diagnostico' | 'archivero' | 'oferta' | 'entregable' | 'persona' | 'tono' | 'avatares' | 'razones' | 'angulos' | 'funnel';
+type TabKey = 'matriz' | 'diagnostico' | 'archivero' | 'oferta' | 'entregable' | 'persona' | 'personalidad' | 'avatares' | 'razones' | 'angulos' | 'funnel';
 
 const SLIDES_MATRIZ: Slide[] = [
   { t: 'Tu fábrica de anuncios', d: 'La matriz cruza tus avatares con sus razones de compra. Cada celda es un anuncio listo para producir.' },
@@ -50,7 +50,7 @@ const SLIDES_ENTREGABLE: Slide[] = [
   { t: 'El motor del FOMO', d: 'Ese lead magnet es lo que genera curiosidad en tus anuncios: "si no logras X, es porque te falta ESTO".' },
 ];
 const SLIDES_TONO: Slide[] = [
-  { t: 'Que suene a TI', d: 'Tu forma de hablar —directa o formal, con humor o en serio, tus muletillas— entra en cada guion que MaKo escribe.' },
+  { t: 'Que suene a TI', d: 'Un quiz corto con frases reales de anuncio: eliges la que dirias tu, y MaKo descubre tu voz.' },
   { t: 'Anuncios humanos', d: 'Un guion con tu voz no parece hecho por una IA: parece tuyo. Eso es lo que hace que la gente se quede a verlo.' },
 ];
 const SLIDES_PERSONA: Slide[] = [
@@ -98,7 +98,7 @@ export function OnboardingTabs({ funnelPanel }: { funnelPanel: ReactNode }) {
     { key: 'oferta', label: 'Oferta', panel: <OfertaFrame /> },
     { key: 'entregable', label: 'Lead Magnet', panel: <Marco slides={SLIDES_ENTREGABLE}><EntregableView /></Marco> },
     { key: 'persona', label: 'Persona', panel: <Marco slides={SLIDES_PERSONA}><PersonaView /></Marco> },
-    { key: 'tono', label: 'Tono', panel: <Marco slides={SLIDES_TONO}><TonoView /></Marco> },
+    { key: 'personalidad', label: 'Personalidad', panel: <Marco slides={SLIDES_TONO}><PersonalidadView /></Marco> },
     { key: 'avatares', label: 'Avatares', panel: <Marco slides={SLIDES_AVATARES}><AvataresView /></Marco> },
     { key: 'razones', label: 'Razones', panel: <Marco slides={SLIDES_RAZONES}><RazonesView /></Marco> },
     { key: 'angulos', label: 'Ángulos', panel: <Marco slides={SLIDES_ANGULOS}><FormatosView /></Marco> },

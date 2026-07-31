@@ -21,8 +21,9 @@ const SANS = "'Geist', sans-serif";
 type GuionItem = { id: string; anguloId: string; anguloNombre: string; texto: string };
 type Avatar = { id: string; nombre: string; segmento: string; senalesMeta: string; situacion: string; dolor: string };
 type Celda = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guiones: GuionItem[]; imagenUrl: string; anguloImagen: string; anguloVideo: string };
-type AnguloGuionLite = { id: string; nombre: string; emoji: string; cuando: string };
-type Estado = { razones: Celda[]; avatares: Avatar[]; tieneAvatares: boolean; tieneBrief: boolean; angulosGuion: AnguloGuionLite[]; siguientePasoDefault: string };
+type AnguloGuionLite = { id: string; nombre: string; emoji: string; cuando: string; preguntas: string[]; estructuras: string[] };
+type EstructuraLite = { id: string; nombre: string; emoji: string; cuando: string };
+type Estado = { razones: Celda[]; avatares: Avatar[]; tieneAvatares: boolean; tieneBrief: boolean; angulosGuion: AnguloGuionLite[]; estructurasGuion: EstructuraLite[]; siguientePasoDefault: string };
 type Entregable = { id: string; nombre: string; tipo: string; queEs: string; fomo: string };
 type TabModal = 'contexto' | 'avatar' | 'razon' | 'leadmagnet' | 'guiones' | 'imagen' | 'video';
 
@@ -31,8 +32,14 @@ const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border:
 const btnMini: CSSProperties = { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 
-// Ícono por sección del guion (las etiquetas salen de las 3 estructuras).
-const ICONO_GUION: Record<string, string> = { GANCHO: '🎣', HISTORIA: '📖', VALOR: '🎓', PROPUESTA: '💥', CTA: '👉' };
+// Ícono por sección del guion (las etiquetas salen de las estructuras del catálogo).
+const ICONO_GUION: Record<string, string> = {
+  GANCHO: '🎣', HISTORIA: '📖', VALOR: '🎓', PROPUESTA: '💥', CTA: '👉',
+  PROBLEMA: '😖', AGITACION: '🔥', SOLUCION: '💡',
+  ATENCION: '🧲', INTERES: '👀', DESEO: '✨',
+  ANTES: '⏮️', DESPUES: '⏭️', PUENTE: '🌉',
+  PROMESA: '🤝', PINTURA: '🖼️', PRUEBA: '✅',
+};
 // Reconstruye el guion completo tras editar UNA sección (las tarjetas son
 // independientes; el campo guardado sigue siendo un solo string con etiquetas).
 const reconstruirGuion = (secciones: Seccion[]) => secciones.map((s) => `${s.titulo}\n${s.texto}`).join('\n\n');
@@ -57,9 +64,9 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
   const [genGuion, setGenGuion] = useState(false);
   const [genAngulo, setGenAngulo] = useState<Medio | null>(null);
   // Mini-wizard de "Nuevo guion" dentro de la tab Guiones. null = viendo la lista.
-  //  paso 'angulo' → elegir el enfoque; paso 'detalles' → CTA (siguiente paso real
-  //  del funnel) + nota opcional + Generar.
-  const [nuevo, setNuevo] = useState<{ paso: 'angulo' | 'detalles'; anguloId: string; siguientePaso: string; nota: string } | null>(null);
+  //  paso 'angulo' → elegir el enfoque; paso 'detalles' → estructura compatible +
+  //  preguntas propias del ángulo + CTA (siguiente paso real) + nota + Generar.
+  const [nuevo, setNuevo] = useState<{ paso: 'angulo' | 'detalles'; anguloId: string; estructuraId: string; respuestas: string[]; siguientePaso: string; nota: string } | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
@@ -92,10 +99,10 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
     if (!est) return;
     guardar(est.razones.map((r) => (r.id === id ? { ...r, [campo]: v } : r)));
   };
-  const generarGuion = async (id: string, anguloId: string, siguientePaso: string, nota: string) => {
+  const generarGuion = async (id: string, params: { anguloId: string; estructuraId: string; siguientePaso: string; nota: string; respuestasAngulo: Array<{ pregunta: string; respuesta: string }> }) => {
     setGenGuion(true); setErr(null);
     try {
-      const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guion', id, anguloId, siguientePaso, nota }) })).json();
+      const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guion', id, ...params }) })).json();
       if (j.ok) { setEst(j as Estado); setNuevo(null); } else setErr(j.error || 'No se pudo generar el guion.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGenGuion(false); }
   };
@@ -276,11 +283,12 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
                   <GuionesTab
                     celda={celda}
                     angulos={est?.angulosGuion ?? []}
+                    estructuras={est?.estructurasGuion ?? []}
                     siguientePasoDefault={est?.siguientePasoDefault ?? ''}
                     nuevo={nuevo} setNuevo={setNuevo}
                     genGuion={genGuion}
                     copiado={copiado}
-                    onGenerar={(anguloId, paso, nota) => generarGuion(celda.id, anguloId, paso, nota)}
+                    onGenerar={(params) => generarGuion(celda.id, params)}
                     onEditarGuion={(guionId, texto) => editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, texto } : g)))}
                     onBorrarGuion={(guionId) => editar(celda.id, 'guiones', celda.guiones.filter((g) => g.id !== guionId))}
                     onCopiar={copiarGuion}
@@ -308,15 +316,17 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
 }
 
 // ── Tab Guiones: la lista + el mini-wizard de "Nuevo guion" ───────────────────
-function GuionesTab({ celda, angulos, siguientePasoDefault, nuevo, setNuevo, genGuion, copiado, onGenerar, onEditarGuion, onBorrarGuion, onCopiar, onDescargar }: {
+type NuevoGuion = { paso: 'angulo' | 'detalles'; anguloId: string; estructuraId: string; respuestas: string[]; siguientePaso: string; nota: string };
+function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, nuevo, setNuevo, genGuion, copiado, onGenerar, onEditarGuion, onBorrarGuion, onCopiar, onDescargar }: {
   celda: Celda;
   angulos: AnguloGuionLite[];
+  estructuras: EstructuraLite[];
   siguientePasoDefault: string;
-  nuevo: { paso: 'angulo' | 'detalles'; anguloId: string; siguientePaso: string; nota: string } | null;
-  setNuevo: (n: { paso: 'angulo' | 'detalles'; anguloId: string; siguientePaso: string; nota: string } | null) => void;
+  nuevo: NuevoGuion | null;
+  setNuevo: (n: NuevoGuion | null) => void;
   genGuion: boolean;
   copiado: string | null;
-  onGenerar: (anguloId: string, siguientePaso: string, nota: string) => void;
+  onGenerar: (params: { anguloId: string; estructuraId: string; siguientePaso: string; nota: string; respuestasAngulo: Array<{ pregunta: string; respuesta: string }> }) => void;
   onEditarGuion: (guionId: string, texto: string) => void;
   onBorrarGuion: (guionId: string) => void;
   onCopiar: (g: GuionItem) => void;
@@ -343,7 +353,8 @@ function GuionesTab({ celda, angulos, siguientePasoDefault, nuevo, setNuevo, gen
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 9 }}>
           {angulos.map((a) => (
-            <button key={a.id} type="button" className="mtz-angulo" onClick={() => setNuevo({ ...nuevo, paso: 'detalles', anguloId: a.id })}
+            <button key={a.id} type="button" className="mtz-angulo"
+              onClick={() => setNuevo({ ...nuevo, paso: 'detalles', anguloId: a.id, estructuraId: a.estructuras[0] ?? '', respuestas: a.preguntas.map(() => '') })}
               style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', transition: 'all .12s' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span aria-hidden style={{ fontSize: 16 }}>{a.emoji}</span>
@@ -357,15 +368,43 @@ function GuionesTab({ celda, angulos, siguientePasoDefault, nuevo, setNuevo, gen
     );
   }
 
-  // ── Mini-wizard: paso 2, el CTA (siguiente paso real) + nota → Generar ─────
+  // ── Mini-wizard: paso 2 — estructura + preguntas del ángulo + CTA → Generar ─
   if (nuevo?.paso === 'detalles') {
     const angulo = angulos.find((a) => a.id === nuevo.anguloId);
+    // Las estructuras COMPATIBLES con el ángulo (en su orden de mejor fit); si el
+    // catálogo cambió y ninguna matchea, se ofrecen todas las activas.
+    const compatibles = (angulo?.estructuras ?? []).map((id) => estructuras.find((e) => e.id === id)).filter((e): e is EstructuraLite => !!e);
+    const opcionesEstructura = compatibles.length ? compatibles : estructuras;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <div style={eyebrow}>Nuevo guion · {angulo ? `${angulo.emoji} ${angulo.nombre}` : ''} · 2. El CTA</div>
+          <div style={eyebrow}>Nuevo guion · {angulo ? `${angulo.emoji} ${angulo.nombre}` : ''} · 2. Los detalles</div>
           <button type="button" onClick={() => setNuevo({ ...nuevo, paso: 'angulo' })} style={btnMini}>← Cambiar ángulo</button>
         </div>
+        {opcionesEstructura.length > 1 && (
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Con qué estructura lo contamos?</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {opcionesEstructura.map((e, i) => {
+                const on = nuevo.estructuraId === e.id || (!nuevo.estructuraId && i === 0);
+                return (
+                  <button key={e.id} type="button" onClick={() => setNuevo({ ...nuevo, estructuraId: e.id })} title={e.cuando}
+                    style={{ fontFamily: SANS, fontSize: 12, padding: '7px 12px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)', fontWeight: on ? 600 : 500 }}>
+                    {e.emoji} {e.nombre}{i === 0 ? ' · sugerida' : ''}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {(angulo?.preguntas ?? []).map((p, i) => (
+          <div key={i}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{p} <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--faint)' }}>(opcional, 1 línea)</span></div>
+            <input value={nuevo.respuestas[i] ?? ''}
+              onChange={(e) => setNuevo({ ...nuevo, respuestas: nuevo.respuestas.map((r, j) => (j === i ? e.target.value : r)) })}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
+          </div>
+        ))}
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Qué ve o recibe la persona justo después de hacer clic?</div>
           <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 9 }}>El CTA del guion invita EXACTAMENTE a esto — si primero ve un VSL, el CTA manda a ver el video, no a agendar.</div>
@@ -390,7 +429,14 @@ function GuionesTab({ celda, angulos, siguientePasoDefault, nuevo, setNuevo, gen
             style={{ width: '100%', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical', outline: 'none' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" disabled={!nuevo.siguientePaso.trim()} onClick={() => onGenerar(nuevo.anguloId, nuevo.siguientePaso, nuevo.nota)}
+          <button type="button" disabled={!nuevo.siguientePaso.trim()}
+            onClick={() => onGenerar({
+              anguloId: nuevo.anguloId,
+              estructuraId: nuevo.estructuraId || opcionesEstructura[0]?.id || '',
+              siguientePaso: nuevo.siguientePaso,
+              nota: nuevo.nota,
+              respuestasAngulo: (angulo?.preguntas ?? []).map((p, i) => ({ pregunta: p, respuesta: nuevo.respuestas[i] ?? '' })).filter((r) => r.respuesta.trim()),
+            })}
             style={{ ...btnPrimary, opacity: nuevo.siguientePaso.trim() ? 1 : 0.5, cursor: nuevo.siguientePaso.trim() ? 'pointer' : 'default' }}>✦ Generar guion</button>
         </div>
       </div>
@@ -402,7 +448,7 @@ function GuionesTab({ celda, angulos, siguientePasoDefault, nuevo, setNuevo, gen
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
         <div style={eyebrow}>Guiones · solo lo que se dice</div>
-        <button type="button" onClick={() => setNuevo({ paso: 'angulo', anguloId: '', siguientePaso: siguientePasoDefault, nota: '' })} style={btnGhost}>✦ Nuevo guion</button>
+        <button type="button" onClick={() => setNuevo({ paso: 'angulo', anguloId: '', estructuraId: '', respuestas: [], siguientePaso: siguientePasoDefault, nota: '' })} style={btnGhost}>✦ Nuevo guion</button>
       </div>
       {celda.guiones.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center', padding: '28px 0' }}>

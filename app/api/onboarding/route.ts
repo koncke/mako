@@ -165,7 +165,7 @@ type Body = {
   canal?: string;
   geminiKey?: string;
   codigo?: string;
-  step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'tono' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+  step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'personalidad' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
   done?: boolean;
   retroId?: number | null;
   skip?: boolean;
