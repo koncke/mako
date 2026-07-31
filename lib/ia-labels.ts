@@ -30,6 +30,7 @@ export const IA_FEATURE_LABEL: Record<string, string> = {
   'campaign-suggest': 'Sugerir campaña',
   'wa-advisor': 'Asesor de WhatsApp',
   'nutricion-generator': 'Generar nutrición',
+  'post-llamada': 'Follow-up post-llamada',
   'ads-rename': 'Ordenar nombres de anuncios',
   // Voz / transcripción
   'stt-nota-voz': 'Transcripción de nota de voz',

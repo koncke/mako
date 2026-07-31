@@ -62,6 +62,7 @@ import {
   AD_COPY_ADJUST_USER_TEMPLATE,
 } from './ad-copy';
 import { NUTRI_VOZ_SYSTEM_TEMPLATE, NUTRI_VOZ_USER_TEMPLATE, NUTRI_GEN_SYSTEM_TEMPLATE, NUTRI_GEN_USER_TEMPLATE } from './nutricion-generator';
+import { POST_LLAMADA_SYSTEM_TEMPLATE, POST_LLAMADA_USER_TEMPLATE } from './post-llamada';
 import { NUTRI_PLANTILLA_SYSTEM_TEMPLATE, NUTRI_PLANTILLA_USER_TEMPLATE } from './nutricion-plantillas';
 import {
   CHECKLIST_ASK_SYSTEM_TEMPLATE, CHECKLIST_ASK_USER_TEMPLATE,
@@ -356,6 +357,27 @@ export const REGISTRY: Group[] = [
         variables: [v('metadatos', 'título/fecha/duración/host'), v('leadCtx', 'contexto del lead en el CRM'), v('summary', 'resumen de Fathom'), v('actions', 'action items'), v('transcript', 'transcript con segundos'), v('feedbackBlock', 'revisión humana (si la hay)')], scope: 'full', sensitive: false,
         default: CLOSING_USER_TEMPLATE,
         context: 'Arma el pedido con todo lo de la llamada. Si alguien revisa la llamada y deja un comentario, se inyecta en {{feedbackBlock}} para que MaKo reanalice. Conservá los slots; sin ellos MaKo pierde el contexto.',
+      },
+    ],
+  },
+  {
+    group: 'Follow-up post-llamada (MaKo)',
+    icon: '📲',
+    blurb: 'Cuando termina una llamada de venta, MaKo usa el análisis del Closing Analyst (dolores, objeciones, próximo paso) para redactar el follow-up en la voz del negocio y lo deja como borrador de WhatsApp: el setter lo revisa y lo envía con un clic. Nunca sale automático.',
+    entries: [
+      {
+        key: 'postllamada.followup.system', source: 'override',
+        label: 'Redactor del follow-up (system)', kind: 'system', dynamic: true,
+        variables: [v('voz', 'guía de voz destilada del negocio'), v('metodologia', 'metodología de mensajes (RAG área mensajes)')], scope: 'static-only', sensitive: false,
+        default: POST_LLAMADA_SYSTEM_TEMPLATE,
+        context: 'Pone a MaKo a escribir el WhatsApp post-llamada: corto, en la voz del negocio, retomando el dolor de la charla y la objeción que quedó abierta, con una sola CTA hacia el próximo paso real. No borres los slots {{voz}}/{{metodologia}} ni la regla de devolver solo el texto del mensaje.',
+      },
+      {
+        key: 'postllamada.followup.user', source: 'override',
+        label: 'Datos de la llamada (user)', kind: 'user', dynamic: true,
+        variables: [v('lead', 'nombre/empresa/estado del prospecto'), v('llamada', 'reunión (R1/R2) y fecha'), v('analisis', 'análisis del Closing Analyst: resumen, objeciones, próximo paso')], scope: 'static-only', sensitive: false,
+        default: POST_LLAMADA_USER_TEMPLATE,
+        context: 'Le pasa a MaKo el prospecto, la llamada y el análisis de la charla. No borres los slots {{lead}}/{{llamada}}/{{analisis}}.',
       },
     ],
   },

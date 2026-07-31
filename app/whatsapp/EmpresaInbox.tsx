@@ -39,6 +39,14 @@ type Conv = {
 type Msg = { id: number; fromMe: boolean; tipo: string | null; texto: string | null; mediaUrl: string | null; mediaMime: string | null; fecha: string | null; status: string | null };
 type Borr = { id: number; leadId: number | null; telefono: string; texto: string; origen: string; leadNombre: string | null; createdAt: string };
 
+// Quién generó el borrador, en cristiano (el slug crudo no se muestra).
+const ORIGEN_BORRADOR_LABEL: Record<string, string> = {
+  nutricion: 'Nutrición',
+  mako: 'MaKo',
+  manual: 'Manual',
+  post_llamada: 'Post-llamada · MaKo',
+};
+
 async function jget<T>(url: string): Promise<T> { const r = await fetch(url, { cache: 'no-store' }); return r.json() as Promise<T>; }
 async function jpost<T>(url: string, body: unknown): Promise<T> { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json() as Promise<T>; }
 
@@ -758,7 +766,7 @@ export function EmpresaInbox() {
                 <div key={b.id} style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', background: 'var(--surface-2)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
                     <span style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)' }}>{b.leadNombre || b.telefono}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace" }}>{b.origen}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace" }}>{ORIGEN_BORRADOR_LABEL[b.origen] ?? b.origen}</span>
                   </div>
                   <div style={{ fontSize: '13.5px', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginBottom: '10px' }}>{b.texto}</div>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>

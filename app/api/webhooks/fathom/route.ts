@@ -12,7 +12,7 @@
 // Inerte hasta registrar la URL en Fathom (Settings → API → Add Webhook).
 // =============================================================================
 
-import type { NextRequest } from 'next/server';
+import { after, type NextRequest } from 'next/server';
 import { verifyFathomSignature, externalInvitee, inviteeSpoke, webhookDurationMin, FathomSignatureError, type FathomWebhookPayload } from '@/lib/fathom';
 import { findLeadByContacto, applyFathomRecording } from '@/lib/leads';
 import { isoToFechaTijuana } from '@/lib/calendly';
@@ -20,8 +20,12 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 import { runWithWorkspace } from '@/lib/workspace';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
 
 export const dynamic = 'force-dynamic';
+// El follow-up post-llamada (Closing Analyst + redacción con Claude) corre en
+// background con after(); necesita margen más allá de la respuesta al webhook.
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   const tStart = Date.now();
@@ -101,6 +105,25 @@ export async function POST(request: NextRequest) {
       });
       // Flujos configurados por el dueño (editor de flujos): disparar 'reunion.ocurrio'.
       await dispararEvento('reunion.ocurrio', { leadId: lead.id, leadNombre: nombre, reunion });
+
+      // sc18_2 — Post-llamada: MaKo analiza la charla (Closing Analyst) y deja el
+      // follow-up como BORRADOR de WhatsApp para el setter — nunca envío automático
+      // directo a un lead caliente (regla anti-ban). En background con after():
+      // el análisis con Claude tarda más que el timeout de reintento de Svix, así
+      // que respondemos 200 ya y el trabajo sigue hasta maxDuration. Si el lead
+      // no asistió (attended=false), no hay charla que seguir: lo cubre la
+      // nutrición de no-show.
+      if (attended !== false) {
+        const shareUrl = body.share_url ?? null;
+        after(() => runWithWorkspace(ws, async () => {
+          try {
+            const r = await redactarFollowUpPostLlamada(lead.id, shareUrl, reunion);
+            console.log(`[webhook:fathom] follow-up post-llamada lead=${lead.id}: ${r.creado ? 'borrador creado' : `no (${r.motivo})`}`);
+          } catch (err2) {
+            console.error(`[webhook:fathom] follow-up post-llamada lead=${lead.id} falló: ${err2 instanceof Error ? err2.message : String(err2)}`);
+          }
+        }));
+      }
     }
 
     const ms = Date.now() - tStart;

@@ -63,6 +63,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'wa-advisor', label: 'Asesor de WhatsApp — sugerir respuesta a un lead', grupo: 'Copywriting', def: SONNET, pii: true, nota: 'Analiza la charla real y propone el próximo mensaje (datos del cliente).' },
   { feature: 'wa-advisor-chat', label: 'Asesor de WhatsApp — conversar con MaKo sobre el lead', grupo: 'Copywriting', def: SONNET, pii: true, nota: 'Ida y vuelta de preguntas sobre el lead (datos del cliente).' },
   { feature: 'wa-template', label: 'Generar plantilla de WhatsApp (asesor)', grupo: 'Copywriting', def: SONNET },
+  { feature: 'post-llamada', label: 'Follow-up post-llamada (borrador de WhatsApp)', grupo: 'Copywriting', def: SONNET, pii: true, nota: 'Redacta el WhatsApp post-llamada con el análisis del Closing Analyst, en la voz del negocio. Queda como borrador para el setter (nunca sale automático).' },
   { feature: 'nutri-destilar-voz', label: 'MaKo aprende tu voz (nutrición)', grupo: 'Copywriting', def: SONNET },
   { feature: 'nutri-generar', label: 'MaKo escribe la secuencia de nutrición', grupo: 'Copywriting', def: SONNET },
   { feature: 'email-generar', label: 'Escribir email de nutrición', grupo: 'Copywriting', def: SONNET },
