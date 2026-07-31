@@ -11,7 +11,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import {
   getJugadas, guardarEstrategia, crearSecuenciaJugada, probarSecuencia,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE,
@@ -38,10 +38,11 @@ export async function GET() {
     return Response.json({ ok: false, error: 'Sin acceso a Setting en este workspace.' }, { status: 403 });
   }
   try {
-    const [jugadas, funnel, leadMagnets] = await Promise.all([
+    const [jugadas, funnel, leadMagnets, wsRow] = await Promise.all([
       getJugadas(),
       getFunnel().catch(() => null),
       getEntregables().catch(() => []),
+      getWorkspace(ws).catch(() => null),
     ]);
     // Etapas elegibles para colgar una jugada: nutrición + pipeline (sin salidas).
     const etapas = (funnel?.stages ?? [])
@@ -50,6 +51,7 @@ export async function GET() {
     return Response.json({
       ok: true, jugadas, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
+      negocio: wsRow?.nombre ?? '',
     });
   } catch (e) {
     console.error(`[api:setting/jugadas GET] ${msg(e)}`);

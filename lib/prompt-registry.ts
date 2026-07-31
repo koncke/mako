@@ -40,6 +40,7 @@ import {
 } from './ads-analyst';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE } from './setting-jugadas';
+import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -359,6 +360,13 @@ export const REGISTRY: Group[] = [
         variables: [v('objetivo', 'objetivo de la jugada'), v('etapa', 'etapa del lead en el funnel'), v('perfil', 'perfil del negocio')], scope: 'static-only', sensitive: false,
         default: SETTING_PREGUNTAS_TEMPLATE,
         context: 'Cuatro preguntas cerradas y cortas, en orden de setter. No borres los slots ni el formato de salida (array JSON).',
+      },
+      {
+        key: 'setting.simulador', source: 'override',
+        label: 'Simulador — MaKo como setter (system)', kind: 'system', dynamic: true,
+        variables: [v('voz', 'guía de voz destilada del negocio'), v('jugada', 'objetivo + gancho + preguntas de la jugada')], scope: 'static-only', sensitive: false,
+        default: SETTING_SIMULADOR_SYSTEM_TEMPLATE,
+        context: 'El cerebro del setter en el simulador de /setting (y la base del Setter IA). No borres los slots {{voz}}/{{jugada}} ni las reglas de placeholders [tu link …].',
       },
     ],
   },

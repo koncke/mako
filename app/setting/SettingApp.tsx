@@ -10,7 +10,10 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { Dropdown } from '../components/Dropdown';
 import { JugadaWizard } from './JugadaWizard';
+import { SimuladorWhatsApp } from './SimuladorWhatsApp';
+import { SimuladorEmail } from './SimuladorEmail';
 import type { Estrategia, Objetivo } from '@/lib/setting-estrategia';
 import type { MetricasJugada } from '@/lib/setting-metricas';
 
@@ -61,7 +64,11 @@ export function SettingApp() {
   const [objetivos, setObjetivos] = useState<Opcion[]>([]);
   const [etapas, setEtapas] = useState<Opcion[]>([]);
   const [leadMagnets, setLeadMagnets] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Sub-tabs: los dos simuladores + el dashboard de métricas.
+  const [vista, setVista] = useState<'whatsapp' | 'email' | 'dashboard'>('whatsapp');
+  const [selJugadaId, setSelJugadaId] = useState<number | null>(null);
   // Wizard: null = cerrado; 'nueva' = jugada nueva; number = definir sobre esa secuencia.
   const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
 
@@ -72,6 +79,8 @@ export function SettingApp() {
       if (!j.ok) { setError(j.error || 'No se pudieron cargar las jugadas.'); setJugadas([]); return; }
       setJugadas(j.jugadas); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
+      setNegocio(j.negocio ?? '');
+      setSelJugadaId((prev) => (prev != null && (j.jugadas as JugadaDto[]).some((x) => x.id === prev) ? prev : ((j.jugadas as JugadaDto[])[0]?.id ?? null)));
       setError(null);
     } catch {
       setError('Sin conexión — recargá la página.'); setJugadas([]);
@@ -80,22 +89,33 @@ export function SettingApp() {
   useEffect(() => { void load(); }, [load]);
 
   const etiquetaEtapa = (key: string) => etapas.find((e) => e.value === key)?.label ?? ETAPA_LABEL[key] ?? key;
+  const jugadaSel = (jugadas ?? []).find((j) => j.id === selJugadaId) ?? null;
+
+  const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
+  const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
 
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto', padding: '30px 36px 40px' }}>
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 20 }}>
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 18 }}>
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: '0 0 7px', color: 'var(--ink)' }}>
             <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="tag" size={34} /></span>
             Setting
           </h1>
           <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>
-            Tus <strong style={{ color: 'var(--ink)' }}>jugadas</strong>: a quién le hablás, con qué objetivo y gancho, y cómo rinden.
+            Tus <strong style={{ color: 'var(--ink)' }}>jugadas</strong>: probalas en vivo, chateá como el lead y mirá cómo rinden.
           </div>
         </div>
-        {rolAdmin && (
-          <button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva jugada</button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 4, gap: 4 }}>
+            <button onClick={() => setVista('whatsapp')} style={vista === 'whatsapp' ? tabActive : tabIdle}>WhatsApp</button>
+            <button onClick={() => setVista('email')} style={vista === 'email' ? tabActive : tabIdle}>Email</button>
+            <button onClick={() => setVista('dashboard')} style={vista === 'dashboard' ? tabActive : tabIdle}>Dashboard</button>
+          </div>
+          {rolAdmin && (
+            <button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva jugada</button>
+          )}
+        </div>
       </header>
 
       {error && (
@@ -105,12 +125,43 @@ export function SettingApp() {
       {jugadas === null && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando jugadas…</div>}
 
       {jugadas !== null && jugadas.length === 0 && !error && (
-        <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
+        <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px', marginBottom: 14 }}>
           Todavía no hay secuencias en este workspace.{rolAdmin ? ' Arrancá con «+ Nueva jugada».' : ''}
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* ── Simuladores (WhatsApp / Email): selector de jugada + vista ── */}
+      {(vista === 'whatsapp' || vista === 'email') && jugadas !== null && jugadas.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', color: 'var(--faint)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600 }}>Jugada</span>
+            <Dropdown
+              value={selJugadaId != null ? String(selJugadaId) : ''}
+              onChange={(v) => setSelJugadaId(Number(v))}
+              width="320px"
+              ariaLabel="Elegir jugada"
+              options={jugadas.map((j) => ({ value: String(j.id), label: `${j.nombre} · ${etiquetaEtapa(j.etapa)}` }))}
+            />
+            {jugadaSel && !jugadaSel.estrategia && rolAdmin && (
+              <button onClick={() => setWizard(jugadaSel.id)} style={btnGhost}>⚑ Definir jugada</button>
+            )}
+            {jugadaSel?.estrategia && (
+              <span style={{ fontSize: '12.5px', color: 'var(--dim)' }}>
+                <strong style={{ color: 'var(--ink)' }}>{OBJETIVO_LABEL[jugadaSel.estrategia.objetivo]}</strong>
+                {jugadaSel.estrategia.gancho ? <> · {jugadaSel.estrategia.gancho}</> : null}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
+            {vista === 'whatsapp'
+              ? <SimuladorWhatsApp jugada={jugadaSel} nombreNegocio={negocio} />
+              : <SimuladorEmail jugada={jugadaSel} nombreNegocio={negocio} />}
+          </div>
+        </div>
+      )}
+
+      {/* ── Dashboard: la vista de jugadas + métricas ── */}
+      <div style={{ display: vista === 'dashboard' ? 'flex' : 'none', flexDirection: 'column', gap: 12 }}>
         {(jugadas ?? []).map((j) => (
           <div key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
             <div style={{ flex: '1 1 260px', minWidth: 0 }}>

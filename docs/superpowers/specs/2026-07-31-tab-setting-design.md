@@ -104,6 +104,16 @@ Los dos prompts nuevos (sugerir ganchos, sugerir preguntas) y la extensión del 
 - El typecheck del pre-push + prueba manual en preview (dev-login, ws de prueba) para wizard y prueba en vivo.
 - La prueba en vivo se valida en el workspace Pruebas antes de anunciarla.
 
+## Iteración 2 (mismo día, pedido de Martín): simulador interactivo con sub-tabs
+
+La tab pasa de "lista + wizard" a **tres sub-tabs**:
+
+1. **WhatsApp** — teléfono simulado estilo WhatsApp (tokens `--wa`/`--wa-bubble`): se ve la secuencia de la jugada "salir en vivo" (paso a paso con sus delays anotados), y abajo un input donde el dueño escribe COMO EL LEAD y **MaKo le responde en el rol de setter** (`POST /api/setting/simulador`): cualifica con las preguntas de la jugada, ofrece el gancho y lleva a agendar. Es el SANDBOX del Setter IA de la fase 2 — mismo cerebro, cero envíos reales.
+2. **Email** — cliente de correo simulado: remitente, asunto, preheader y cuerpo de cada paso de email, navegable.
+3. **Dashboard** — la vista de jugadas + métricas de la v1.
+
+El wizard "Nueva jugada" y la prueba en vivo real siguen igual. El simulador no persiste conversaciones ni toca ninguna tabla; prompt `setting.simulador` editable; modelo vía `chatClaude` feature `setting-simulador`.
+
 ### Orden de implementación sugerido
 
 1. Migración `estrategia` + lib de métricas + vista Jugadas (valor inmediato: números).
