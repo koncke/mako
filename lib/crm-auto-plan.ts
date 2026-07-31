@@ -7,14 +7,16 @@
 import type { EstadoLead } from './leads';
 import { pipelineStageOf } from './pipeline';
 
-// Umbrales del motor. Por ahora fijos; se harán configurables desde la tab Funnel
-// (funnel_config) para que cada negocio ajuste sus tiempos.
+// Umbrales del motor (defaults). Cada workspace puede pisarlos desde su funnel
+// (funnel_config.data.umbrales — ver umbralesDelWorkspace en lib/crm-auto.ts).
 //  - diasLeadSinAgenda:  a los N días sin agendar, el lead del Instant form pasa a
 //                        Nutrición - No Agenda (invitación a agendar; sigue "caliente").
 //  - diasSinAgendaFrio:  si NUNCA agendó y ya lleva N días, está FRÍO (capaz ni se
 //                        acuerda del servicio) → Nutrición - Reactivación, no No Agenda.
 //  - diasReactivacion:   No responde / Perdido enfriado N días → Reactivación.
 export const AUTO_UMBRALES = { diasLeadSinAgenda: 2, diasSinAgendaFrio: 7, diasReactivacion: 30, horasPostReunion: 3 };
+
+export type AutoUmbrales = typeof AUTO_UMBRALES;
 
 export type AutoReglaId = 'T1' | 'T2' | 'T3' | 'T6';
 
@@ -64,7 +66,7 @@ function diasEntre(hoyISO: string, isoAntes: string | null): number {
  * T1 dispara a las N horas EXACTAS después de la reunión cuando hay junta_*_at
  * (hora del webhook de Calendly); para leads viejos sin hora, cuando el día ya pasó.
  */
-export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.now()): AutoAccion[] {
+export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.now(), umbrales: AutoUmbrales = AUTO_UMBRALES): AutoAccion[] {
   const out: AutoAccion[] = [];
   const nombre = l.nombre?.trim() || `Lead ${l.id}`;
   const hoy = hoyISO.slice(0, 10);
@@ -74,7 +76,7 @@ export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.n
   // (junta_*_at) dispara a las N horas EXACTAS después; sin ella (leads viejos),
   // cuando el día de la reunión ya pasó.
   const reunionPasada = (fechaAt: string | null, fecha: string | null): boolean =>
-    fechaAt ? nowMs >= Date.parse(fechaAt) + AUTO_UMBRALES.horasPostReunion * 3600000
+    fechaAt ? nowMs >= Date.parse(fechaAt) + umbrales.horasPostReunion * 3600000
             : !!fecha && fecha.slice(0, 10) < hoy;
 
   if (l.estado_lead === 'abierto') {
@@ -98,12 +100,12 @@ export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.n
     // están en No Agenda hace mucho sin haber agendado nunca (los reclasifica).
     if ((stage === 'lead' || stage === 'nutri') && !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2) {
       const d = diasEntre(hoy, l.created_at);
-      if (d >= AUTO_UMBRALES.diasSinAgendaFrio) {
+      if (d >= umbrales.diasSinAgendaFrio) {
         out.push({
           regla: 'T2', tipo: 'lead_a_nutri', leadId: l.id, lead: nombre, confirmar: false, move: { to: 'reactivacion' },
           descripcion: `Lead sin agendar hace ${d} días (frío) → Nutrición - Reactivación`,
         });
-      } else if (stage === 'lead' && d >= AUTO_UMBRALES.diasLeadSinAgenda) {
+      } else if (stage === 'lead' && d >= umbrales.diasLeadSinAgenda) {
         out.push({
           regla: 'T2', tipo: 'lead_a_nutri', leadId: l.id, lead: nombre, confirmar: false, move: { to: 'nutri' },
           descripcion: `${d} días en Instant form sin agendar → Nutrición - No Agenda`,
@@ -123,7 +125,7 @@ export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.n
   // T6 — Reactivación de fríos (No responde / Perdido) tras un tiempo enfriados.
   if ((l.estado_lead === 'no_responde' || l.estado_lead === 'perdido') && l.pipeline_stage !== 'reactivacion') {
     const d = diasEntre(hoy, l.updated_at ?? l.created_at);
-    if (d >= AUTO_UMBRALES.diasReactivacion) {
+    if (d >= umbrales.diasReactivacion) {
       const et = l.estado_lead === 'no_responde' ? 'No responde' : 'Perdido';
       out.push({
         regla: 'T6', tipo: 'reactivacion', leadId: l.id, lead: nombre, confirmar: true, move: { to: 'reactivacion' },

@@ -928,7 +928,13 @@ function WhatsAppInner() {
   const sel = contactos.find((c) => c.id === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
   // Feature 5: filtro por etapa de las secuencias.
-  const ETAPA_SEQ_LABEL: Record<string, string> = { nutri: 'Nutrición', postagenda: 'Post-agenda', noshow: 'No-show', nopaga: 'No paga', manual: 'Manual' };
+  const ETAPA_SEQ_LABEL: Record<string, string> = {
+    nutri: 'Nutrición', postagenda: 'Post-agenda', noshow: 'No-show', nopaga: 'No paga', manual: 'Manual',
+    // Stage keys del funnel derivado (secuencias funnel-agnósticas, trigger etapa_actual).
+    noshow_r1: 'No Show R1', noshow_r2: 'No Show R2', noshow_r3: 'No Show R3',
+    nocompro: 'No Compró', nutridiaria: 'Nutrición diaria', reactivacion: 'Reactivación',
+    reunion_excepcional: 'Reunión excepcional',
+  };
   const seqEtapasPresentes = [...new Set(secuencias.map((s) => s.etapa).filter(Boolean))];
   const seqFiltradas = seqEtapaFiltro === 'todas' ? secuencias : secuencias.filter((s) => s.etapa === seqEtapaFiltro);
   const ventanaAbierta = sel?.ventanaAbierta ?? false;

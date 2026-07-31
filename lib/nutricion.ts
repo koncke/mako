@@ -13,6 +13,7 @@
 
 import { getTenantDb } from '@/lib/workspace';
 import { getVslEngagementMap } from '@/lib/leads';
+import { pipelineStageOf } from '@/lib/pipeline';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
@@ -177,11 +178,32 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
 }
 
 // ── Cohortes: qué leads dispara cada secuencia ───────────────────────────────
-export async function leadsDeCohorte(triggerTipo: string): Promise<number[]> {
+// Los 13 triggers "legacy" consultan columnas del funnel estándar. El trigger
+// 'etapa_actual' es el camino funnel-agnóstico (#34): la secuencia se cuelga de
+// una etapa del funnel derivado (nutricion_secuencias.etapa = stage key) y
+// enrola a los leads cuya etapa EFECTIVA (override manual o derivada) coincide —
+// sirve para cualquier funnel, incluidas etapas custom del editor.
+export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null): Promise<number[]> {
   const supabase = (await getTenantDb());
   const desde = haceDiasISO(VENTANA_DIAS);          // timestamp ISO, para created_at
   const hoy = ahoraISO().slice(0, 10);              // YYYY-MM-DD (UTC), para fechas futuras
   const fechaDesde45 = haceDiasISO(45).slice(0, 10); // YYYY-MM-DD, ventana de hitos recientes
+
+  if (triggerTipo === 'etapa_actual') {
+    if (!etapa) return [];
+    // Ventana de 90 días para no revivir cohortes muertas al colgar una
+    // secuencia de una etapa con leads viejos acumulados.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada')
+      .eq('estado_lead', 'abierto')
+      .gte('created_at', haceDiasISO(90));
+    if (error) throw new Error(`cohorte etapa_actual(${etapa}): ${error.message}`);
+    type LeadEtapa = { id: number; estado_lead: 'abierto'; pipeline_stage: string | null; fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; nutricion_realizada: boolean | null };
+    return ((data ?? []) as LeadEtapa[])
+      .filter((l) => pipelineStageOf({ ...l, nutricion_realizada: l.nutricion_realizada ?? undefined }) === etapa)
+      .map((l) => l.id);
+  }
 
   if (triggerTipo === 'instant_form_sin_agenda') {
     const { data, error } = await supabase
@@ -374,7 +396,7 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
   const plan: PlanInscripcion[] = [];
 
   for (const sec of secuencias) {
-    const candidatos = await leadsDeCohorte(sec.trigger_tipo);
+    const candidatos = await leadsDeCohorte(sec.trigger_tipo, sec.etapa);
     if (candidatos.length === 0) continue;
     const { data: yaInsc, error } = await supabase
       .from('nutricion_inscripciones')
@@ -399,7 +421,7 @@ export async function comprometerInscripciones(): Promise<number> {
   let creadas = 0;
 
   for (const sec of secuencias) {
-    const candidatos = await leadsDeCohorte(sec.trigger_tipo);
+    const candidatos = await leadsDeCohorte(sec.trigger_tipo, sec.etapa);
     if (candidatos.length === 0) continue;
     const { data: yaInsc } = await supabase
       .from('nutricion_inscripciones')

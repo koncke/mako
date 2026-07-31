@@ -19,13 +19,13 @@ import 'server-only';
 
 import { getLead, updateLead, setPipelineStage, applyFathomRecording, logLeadEvent } from './leads';
 import { pipelineStageOf, MAKO_SETTER } from './pipeline';
-import { getTenantDb, runWithWorkspace, listarWorkspaces, OWNER_WS } from './workspace';
+import { getTenantDb, runWithWorkspace, listarWorkspaces, getWorkspaceActual, OWNER_WS } from './workspace';
 import { hoyEnTijuana } from './date-utils';
 import { buscarReunionesAutomatico } from './auto-reuniones';
 import { contactoIdPorTelefono, getContactMessages } from './chatwoot';
 import { crearConfirmacion, type CrearConfirmacionInput } from './mako-confirmaciones';
 import { crmAutoHabilitado } from './envio-flags';
-import { AUTO_UMBRALES, planLeadAuto, type AutoAccion, type AutoLead, type AutoReglaId } from './crm-auto-plan';
+import { AUTO_UMBRALES, planLeadAuto, type AutoAccion, type AutoLead, type AutoReglaId, type AutoUmbrales } from './crm-auto-plan';
 
 // El planificador PURO (AUTO_UMBRALES/AutoAccion/AutoLead/planLeadAuto) vive en
 // crm-auto-plan.ts (sin server-only) para poder testearlo. Se re-exporta acá para
@@ -38,14 +38,41 @@ const AUTO_COLS =
 
 export type AutoEvalWs = { acciones: AutoAccion[]; totalLeads: number; porRegla: Record<string, number> };
 
+/**
+ * Umbrales efectivos del workspace ACTUAL: los defaults del motor pisados por
+ * funnel_config.data.umbrales (si el cliente ajustó sus tiempos). Tolerante:
+ * cualquier valor ausente o inválido cae al default.
+ */
+async function umbralesDelWorkspace(): Promise<AutoUmbrales> {
+  try {
+    const supabase = await getTenantDb();
+    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+    const { data } = await supabase.from('funnel_config').select('data').eq('workspace_id', ws).maybeSingle();
+    const u = (data?.data as { umbrales?: Partial<AutoUmbrales> } | null)?.umbrales;
+    if (!u || typeof u !== 'object') return AUTO_UMBRALES;
+    const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : d);
+    return {
+      diasLeadSinAgenda: num(u.diasLeadSinAgenda, AUTO_UMBRALES.diasLeadSinAgenda),
+      diasSinAgendaFrio: num(u.diasSinAgendaFrio, AUTO_UMBRALES.diasSinAgendaFrio),
+      diasReactivacion: num(u.diasReactivacion, AUTO_UMBRALES.diasReactivacion),
+      horasPostReunion: num(u.horasPostReunion, AUTO_UMBRALES.horasPostReunion),
+    };
+  } catch {
+    return AUTO_UMBRALES;
+  }
+}
+
 /** Evalúa el CRM automático para el workspace ACTUAL (dry-run puro, no escribe). */
 export async function evaluarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Promise<AutoEvalWs> {
   const supabase = await getTenantDb();
-  const { data, error } = await supabase.from('leads').select(AUTO_COLS);
+  const [{ data, error }, umbrales] = await Promise.all([
+    supabase.from('leads').select(AUTO_COLS),
+    umbralesDelWorkspace(),
+  ]);
   if (error) throw new Error(`crm-auto evaluar: ${error.message}`);
   const leads = (data ?? []) as AutoLead[];
   const nowMs = Date.now();
-  const acciones = leads.flatMap((l) => planLeadAuto(l, hoyISO, nowMs));
+  const acciones = leads.flatMap((l) => planLeadAuto(l, hoyISO, nowMs, umbrales));
   const porRegla = acciones.reduce<Record<string, number>>((a, x) => { a[x.regla] = (a[x.regla] ?? 0) + 1; return a; }, {});
   return { acciones, totalLeads: leads.length, porRegla };
 }

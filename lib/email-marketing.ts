@@ -177,13 +177,21 @@ export async function actualizarMetaEmailSecuencia(id: number, patch: { nombre?:
 // ── Catálogos para la UI (etapas + triggers) ─────────────────────────────────
 export type Opcion = { value: string; label: string; color?: string };
 
-// Etapas del funnel (mismas claves que nutricion_secuencias.etapa).
+// Etapas del funnel (mismas claves que nutricion_secuencias.etapa). Incluye las
+// legacy del seed viejo Y las stage keys del funnel derivado (generateFunnel),
+// que usan las secuencias funnel-agnósticas con trigger 'etapa_actual'.
 export const ETAPAS: Opcion[] = [
   { value: 'nutri', label: 'No Agenda', color: '#6A4BD8' },
   { value: 'nopaga', label: 'No Paga', color: '#C7417B' },
   { value: 'noshow', label: 'No Show', color: '#B5630A' },
   { value: 'postagenda', label: 'Post Agenda', color: '#9D4EDD' },
   { value: 'manual', label: 'Manual', color: '#4F5BD5' },
+  { value: 'noshow_r1', label: 'No Show R1', color: '#E8762B' },
+  { value: 'noshow_r2', label: 'No Show R2', color: '#E8762B' },
+  { value: 'noshow_r3', label: 'No Show R3', color: '#E8762B' },
+  { value: 'nocompro', label: 'No Compró', color: '#C7417B' },
+  { value: 'nutridiaria', label: 'Nutrición diaria (grupo)', color: '#1FA855' },
+  { value: 'reactivacion', label: 'Reactivación', color: '#7A5AF0' },
 ];
 
 // Triggers (cohorte que inscribe) — ver lib/nutricion.ts leadsDeCohorte.
@@ -202,6 +210,7 @@ export const TRIGGERS: Opcion[] = [
   { value: 'post_pago', label: 'Post pago (bienvenida)' },
   { value: 'reactivacion_viejo', label: 'Reactivación de lead frío' },
   { value: 'ultimo_intento_antes_noresp', label: 'Último intento' },
+  { value: 'etapa_actual', label: 'Está en la etapa de la secuencia (funnel)' },
 ];
 
 // ── Segmentos para broadcasts ─────────────────────────────────────────────────

@@ -13,6 +13,7 @@
 import 'server-only';
 
 import { getTenantDb } from './workspace';
+import { getFunnel } from './leads';
 import type { PasoSecuencia } from './nutricion';
 
 export type NutricionTemplate = { clave: string; nombre: string; etapa: string; trigger_tipo: string; pasos: PasoSecuencia[] };
@@ -21,6 +22,11 @@ const email = (orden: number, delay_horas: number, asunto: string, cuerpo: strin
   ({ orden, canal: 'email', delay_horas, asunto, cuerpo, template_wa: null });
 const wa = (orden: number, delay_horas: number, template_wa: string, cuerpo: string): PasoSecuencia =>
   ({ orden, canal: 'whatsapp', delay_horas, asunto: null, cuerpo, template_wa });
+// Paso de WhatsApp por el canal NO oficial (Evolution): no exige plantilla de
+// Meta y a leads calientes genera borrador para el setter — el default seguro
+// para etapas derivadas cuyo copy todavía no aprobó nadie.
+const waNo = (orden: number, delay_horas: number, cuerpo: string): PasoSecuencia =>
+  ({ orden, canal: 'whatsapp', delay_horas, asunto: null, cuerpo, proveedor: 'no_oficial', template_wa: null });
 
 export const NUTRITION_TEMPLATES: NutricionTemplate[] = [
   {
@@ -81,6 +87,74 @@ export async function seedNutricionTemplates(): Promise<number> {
     });
     if (!error) { creadas++; claves.add(t.clave); triggers.add(t.trigger_tipo); }
     else console.error(`[nutricion-templates] seed ${t.clave} falló: ${error.message}`);
+  }
+  // Además del set estándar, cubrir las etapas de nutrición que DERIVA el funnel
+  // real del workspace (funnel-agnóstico, #34) — no fatal si falla.
+  try { creadas += await seedNutricionDesdeFunnel(); }
+  catch (e) { console.error('[nutricion-templates] seed desde funnel falló:', e); }
+  return creadas;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Seed funnel-agnóstico (#34): una secuencia por etapa de NUTRICIÓN del funnel
+// derivado del workspace que no tenga cobertura, con trigger 'etapa_actual'
+// (enrola por etapa efectiva del lead, sea el funnel que sea).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Etapas derivadas que NO reciben secuencia automática: la nutrición manual es
+// del setter por definición y la reunión excepcional es un estacionamiento.
+const ETAPAS_SIN_SEED = new Set(['manual', 'reunion_excepcional']);
+
+// Qué stage keys del funnel derivado ya cubre cada trigger legacy. La cobertura
+// se decide por trigger (no por la columna etapa: sus valores viejos divergen
+// entre workspaces — ej. 'noshow' / 'postagenda' ya no existen como stage keys).
+const LEGACY_TRIGGER_CUBRE: Record<string, string[]> = {
+  instant_form_sin_agenda: ['nutri'],
+  vio_vsl_sin_agendar: ['nutri'],
+  vio_poco_vsl: ['nutri'],
+  no_show_j1: ['noshow_r1'],
+  no_show_j2: ['noshow_r2'],
+  confirmado_sin_pago: ['nopaga'],
+  post_j2_sin_cerrar: ['nocompro'],
+  reactivacion_viejo: ['reactivacion'],
+  ultimo_intento_antes_noresp: ['reactivacion'],
+};
+
+/**
+ * Crea las secuencias que faltan para las etapas de nutrición del funnel del
+ * workspace ACTUAL. Nacen PAUSADAS (activa=false) y con copy [placeholder]:
+ * MaKo las escribe y el cliente las prende al aprobar — así una etapa derivada
+ * nunca queda enviando texto genérico solo por existir. Idempotente por clave
+ * y por etapa cubierta. Devuelve cuántas creó.
+ */
+export async function seedNutricionDesdeFunnel(): Promise<number> {
+  const supabase = await getTenantDb();
+  const funnel = await getFunnel();
+  const etapasNutri = funnel.stages.filter((s) => s.band === 'nutricion' && !ETAPAS_SIN_SEED.has(s.key));
+  if (etapasNutri.length === 0) return 0;
+
+  const { data } = await supabase.from('nutricion_secuencias').select('clave, etapa, trigger_tipo');
+  const rows = (data ?? []) as Array<{ clave: string; etapa: string | null; trigger_tipo: string }>;
+  const claves = new Set(rows.map((r) => r.clave));
+  const cubiertas = new Set<string>();
+  for (const r of rows) {
+    if (r.etapa) cubiertas.add(r.etapa);
+    for (const k of LEGACY_TRIGGER_CUBRE[r.trigger_tipo] ?? []) cubiertas.add(k);
+  }
+
+  let creadas = 0;
+  for (const st of etapasNutri) {
+    const clave = `etapa-${st.key}`;
+    if (cubiertas.has(st.key) || claves.has(clave)) continue;
+    const pasos: PasoSecuencia[] = [
+      email(1, 24, `Seguimos en contacto`, `Hola 👋 Te escribo porque estás en la etapa "${st.label}". [Contale por qué vale la pena dar el siguiente paso y qué gana con eso]. Si te queda alguna duda, respondé este mail y lo vemos.`),
+      waNo(2, 48, `Hola, quería retomar contacto — [motivo puntual de esta etapa]. ¿Te queda alguna duda que pueda resolverte por acá?`),
+    ];
+    const { error } = await supabase.from('nutricion_secuencias').insert({
+      clave, nombre: `${st.label} — seguimiento`, etapa: st.key, trigger_tipo: 'etapa_actual', activa: false, pasos,
+    });
+    if (!error) { creadas++; claves.add(clave); cubiertas.add(st.key); }
+    else console.error(`[nutricion-templates] seed etapa ${st.key} falló: ${error.message}`);
   }
   return creadas;
 }
