@@ -11,7 +11,7 @@
 
 import 'server-only';
 import { updateTag } from 'next/cache';
-import { getTenantDb } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { TAG } from '@/lib/cache';
 
 const GRAPH = 'https://graph.facebook.com';
@@ -23,7 +23,9 @@ export type MetaWriteBody =
   | { level: 'campaign' | 'adset' | 'ad'; id: string; op: 'delete' };
 
 export type MetaWriteResult =
-  | { ok: true; id: string; applied: { status?: string; dailyBudgetMxn?: number; name?: string; deleted?: boolean }; status: 200 }
+  // `propagadas` = filas de marketing_metrics_daily actualizadas al renombrar
+  // (null = no aplica o falló). 0 con historia = escrito en Meta pero NO propagado.
+  | { ok: true; id: string; applied: { status?: string; dailyBudgetMxn?: number; name?: string; deleted?: boolean }; status: 200; propagadas?: number | null }
   | { ok: false; code?: number; error_subcode?: number; message: string; status: number };
 
 /** Muta una entidad de Meta. NO valida permisos (el caller ya gateó con esWorkspaceDueno). */
@@ -86,27 +88,55 @@ export async function metaWrite(body: MetaWriteBody): Promise<MetaWriteResult> {
 
     // Propagar el rename a NUESTROS datos en el acto (si no, el lead sigue
     // mostrando el nombre viejo hasta la próxima sincronización de métricas).
+    let propagadas: number | null = null;
     if (body.op === 'name' && applied.name) {
-      try {
-        const db = await getTenantDb();
-        const nombre = applied.name;
-        if (body.level === 'ad') {
-          await db.from('leads').update({ meta_ad_name: nombre }).eq('meta_ad_id', body.id);
-          await db.from('marketing_metrics_daily').update({ ad_name: nombre }).eq('ad_id', body.id);
-        } else if (body.level === 'campaign') {
-          await db.from('leads').update({ meta_campaign_name: nombre }).eq('utm_campaign', body.id);
-          await db.from('marketing_metrics_daily').update({ campaign_name: nombre }).eq('campaign_id', body.id);
-        } else if (body.level === 'adset') {
-          await db.from('marketing_metrics_daily').update({ adset_name: nombre }).eq('adset_id', body.id);
-        }
-        try { updateTag(TAG.leads); updateTag(TAG.marketing); } catch { /* la caché vence sola por TTL */ }
-      } catch (e) {
-        console.error('[meta-write] propagar rename a leads/métricas falló:', e instanceof Error ? e.message : String(e));
-      }
+      propagadas = await propagarRename(body.level, body.id, applied.name);
     }
-    return { ok: true, id: body.id, applied, status: 200 };
+    return { ok: true, id: body.id, applied, status: 200, propagadas };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : String(err), status: 502 };
+  }
+}
+
+/**
+ * Propaga el nombre nuevo a NUESTROS datos (leads + métricas). Sin esto el
+ * histórico queda partido en dos: la tabla de Ads Manager agrupa el gasto por
+ * NOMBRE, así que una campaña renombrada aparece dos veces y el rollup miente.
+ *
+ * OJO — por qué runWithWorkspace(OWNER_WS) y no getTenantDb() a secas: la cuenta
+ * de Meta es la GLOBAL del dueño, pero getTenantDb() resuelve el workspace de la
+ * SESIÓN. Un super-admin que no está impersonando cae a su propio workspace (o a
+ * null → wsId -1), el UPDATE no matchea ninguna fila y devuelve ok igual (0 filas
+ * no es error de Postgres). Resultado: fallaba en silencio. Se comprobó en la
+ * base: las únicas filas con updated_at > created_at son de un solo día, y hay 4
+ * campañas con dos nombres históricos que esconden ~MX$32.500 del rollup.
+ *
+ * Devuelve cuántas filas de métricas se tocaron (null si ni se intentó), para que
+ * la UI pueda avisar "se renombró en Meta pero no se propagó" en vez de callarse.
+ */
+async function propagarRename(level: 'campaign' | 'adset' | 'ad', id: string, nombre: string): Promise<number | null> {
+  try {
+    return await runWithWorkspace(OWNER_WS, async () => {
+      const db = await getTenantDb();
+      let filas = 0;
+      if (level === 'ad') {
+        await db.from('leads').update({ meta_ad_name: nombre }).eq('meta_ad_id', id);
+        const { count } = await db.from('marketing_metrics_daily').update({ ad_name: nombre }, { count: 'exact' }).eq('ad_id', id);
+        filas = count ?? 0;
+      } else if (level === 'campaign') {
+        await db.from('leads').update({ meta_campaign_name: nombre }).eq('utm_campaign', id);
+        const { count } = await db.from('marketing_metrics_daily').update({ campaign_name: nombre }, { count: 'exact' }).eq('campaign_id', id);
+        filas = count ?? 0;
+      } else {
+        const { count } = await db.from('marketing_metrics_daily').update({ adset_name: nombre }, { count: 'exact' }).eq('adset_id', id);
+        filas = count ?? 0;
+      }
+      try { updateTag(TAG.leads); updateTag(TAG.marketing); } catch { /* la caché vence sola por TTL */ }
+      return filas;
+    });
+  } catch (e) {
+    console.error('[meta-write] propagar rename a leads/métricas falló:', e instanceof Error ? e.message : String(e));
+    return null;
   }
 }
 
