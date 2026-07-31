@@ -9,12 +9,19 @@
 // la fuente de verdad; el CampaignSpec se deriva de ellas (MaKo solo escribe el
 // copy), así nada se pierde. Se crea en Meta SIEMPRE en PAUSA. El borrador se
 // conserva al cerrar.
+//
+// modo="existente" (botón "Subir creativos a una campaña"): mismo wizard pero los
+// anuncios van a una campaña que YA corre — campaña → conjunto → creativos →
+// destino → MaKo escribe el copy → revisión → se agregan en PAUSA vía el lote de
+// /api/ads-manager/ad-add. La campaña NO se toca (mismo id, público, presupuesto):
+// solo se le cuelgan anuncios nuevos al conjunto elegido.
 // =============================================================================
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon } from '@/lib/queries';
+import { colorDeSemaforo, type MetaHealth, type NodoEstado } from '@/lib/meta-health-ui';
 import {
   type CampaignSpec, type AdSpec, type Creative, type Targeting, type Objective, type AudienceRef,
   objetivoDef, CTA_OPCIONES,
@@ -35,7 +42,7 @@ const btnGhost: CSSProperties = { padding: '12px 18px', borderRadius: 12, border
 const pregunta: CSSProperties = { fontSize: 25, fontWeight: 600, color: 'var(--ink)', textAlign: 'center', letterSpacing: '-0.02em', lineHeight: 1.2, margin: 0 };
 const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: 'center', lineHeight: 1.5, margin: '10px 0 0', maxWidth: 440 };
 
-type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'ubicaciones' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
+type Step = 'campana' | 'conjunto' | 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'ubicaciones' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
 type AudTipo = 'page' | 'ig' | 'video' | 'pixel';
 type AudienceItem = AudienceRef & { count?: number | null };
@@ -109,8 +116,9 @@ function makeThumb(file: File): Promise<string | null> {
 // ── Borrador local ──
 const DRAFT_KEY = 'mako.nuevaCampana.draft.v2';
 type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
+const draftVacio = (): Draft => ({ step: 'creativos', tray: [], budgetUsd: null, objKey: null, estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null });
 function loadDraft(): Draft {
-  const vacio: Draft = { step: 'creativos', tray: [], budgetUsd: null, objKey: null, estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null };
+  const vacio = draftVacio();
   if (typeof window === 'undefined') return vacio;
   try {
     const raw = window.localStorage.getItem(DRAFT_KEY);
@@ -173,9 +181,16 @@ const STD_EVENTS: Record<string, { enum: string; label: string }> = {
   AddToWishlist: { enum: 'ADD_TO_WISHLIST', label: 'Que agreguen a deseos' },
 };
 
-export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; onClose: () => void; onPublished: () => void }) {
-  const [d0] = useState(loadDraft);
+export function NuevaCampanaModal({ senales, campaignCount, health = null, healthError = null, modo = 'nueva', onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; health?: MetaHealth | null; healthError?: string | null; modo?: 'nueva' | 'existente'; onClose: () => void; onPublished: () => void }) {
+  // modo 'existente' arranca SIEMPRE limpio (sin borrador): elegir campaña/conjunto
+  // es corto y mezclarlo con el borrador de "Nueva campaña" confundiría.
+  const existente = modo === 'existente';
+  const [d0] = useState<Draft>(() => (modo === 'existente' ? { ...draftVacio(), step: 'campana' } : loadDraft()));
   const [step, setStep] = useState<Step>(d0.step);
+  const [campSel, setCampSel] = useState<NodoEstado | null>(null);
+  const [adsetSel, setAdsetSel] = useState<NodoEstado | null>(null);
+  // Del conjunto elegido: si pide formulario o URL (GET /api/ads-manager/ad-add).
+  const [adsetInfo, setAdsetInfo] = useState<{ needsForm: boolean; optimization_goal: string } | null>(null);
   const [tray, setTray] = useState<TrayItem[]>(d0.tray);
   const [budgetUsd, setBudgetUsd] = useState<number | null>(d0.budgetUsd);
   const [objKey, setObjKey] = useState<ObjKey | null>(d0.objKey);
@@ -191,6 +206,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<{ campaign_id: string; ads: number } | null>(null);
   const trayCounter = useRef(d0.tray.reduce((mx, t) => { const m = /^up-(\d+)$/.exec(t.id); return m ? Math.max(mx, Number(m[1])) : mx; }, 0));
+  const adsetReqRef = useRef(0);
   const publishingRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -205,8 +221,9 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   // cache:'no-store' clave: sin esto el navegador cachea la 1ra respuesta (vacía) y
   // los públicos nunca aparecen aunque existan en la cuenta.
   const cargarPublicos = () => { setAudiencesAll(null); return fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.ok) setAudiencesAll(j.items); else { setAudiencesAll([]); setErr(`No pude traer tus públicos: ${j.error}`); } }).catch((e) => { setAudiencesAll([]); setErr(`No pude traer tus públicos: ${String(e)}`); }); };
-  useEffect(() => { cargarPublicos(); }, []);
-  useEffect(() => { if (objKey === 'lead_form' && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [objKey, leadForms]);
+  useEffect(() => { if (!existente) cargarPublicos(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const pideForm = existente ? !!adsetInfo?.needsForm : objKey === 'lead_form';
+  useEffect(() => { if (pideForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [pideForm, leadForms]);
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) fetch('/api/ads-manager/targeting?kind=conversions', { cache: 'no-store' }).then((r) => r.json()).then((j) => setConvs(j.ok ? j.items : [])).catch(() => setConvs([])); }, [objKey, convs]);
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) fetch('/api/ads-manager/targeting?kind=pixels', { cache: 'no-store' }).then((r) => r.json()).then((j) => setPixels(j.ok ? j.items : [])).catch(() => setPixels([])); }, [objKey, pixels]);
   // Si hay UN solo pixel, lo elegimos solos (el usuario igual lo ve, pero no tiene que tocar).
@@ -223,10 +240,10 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
     return () => { cancel = true; };
   }, [obj?.needsConv, pixelSel]);
 
-  // guardar borrador
+  // guardar borrador (solo "Nueva campaña"; el modo existente no persiste)
   useEffect(() => {
     try {
-      if (step === 'listo') return;
+      if (existente || step === 'listo') return;
       window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, estrategia, audiencias, placements, destino, analisis, spec, uso }));
     } catch { /* quota */ }
   }, [step, tray, budgetUsd, objKey, estrategia, audiencias, placements, destino, analisis, spec, uso]);
@@ -234,17 +251,27 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const usables = () => tray.filter((t) => !t.processing && (t.image_hash || t.video_id || t.source_ad_id));
 
   // ── flujo / navegación ──
-  const flow: Step[] = ['creativos', 'inversion', 'objetivo', 'estrategia', ...(estrategia === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino'];
+  // En 'existente', si TODOS los creativos son ganadores reusados no hay destino que
+  // pedir (cada ganador viaja con su propio copy y link): el paso desaparece solo.
+  const soloGanadores = existente && usables().length > 0 && usables().every((t) => t.kind === 'existing');
+  const flow: Step[] = existente
+    ? ['campana', 'conjunto', 'creativos', ...(soloGanadores ? [] : ['destino' as Step])]
+    : ['creativos', 'inversion', 'objetivo', 'estrategia', ...(estrategia === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino'];
   const idx = flow.indexOf(step);
   const puedeAvanzar = (): boolean => {
     switch (step) {
-      case 'creativos': return usables().length > 0;
+      case 'campana': return !!campSel;
+      case 'conjunto': return !!adsetSel;
+      // Con una subida a medias NO se avanza: armar() usa solo los creativos listos
+      // y el que se está subiendo se caería en silencio.
+      case 'creativos': return usables().length > 0 && !tray.some((t) => t.processing) && (!existente || !!adsetInfo);
       case 'inversion': return !!budgetUsd && budgetUsd > 0;
       case 'objetivo': return !!objKey;
       case 'estrategia': return !!estrategia;
       case 'publico': return audiencias.length > 0;
       case 'ubicaciones': return placements === null || placements.length > 0;
       case 'destino':
+        if (existente) return adsetInfo ? (adsetInfo.needsForm ? !!destino.lead_form_id : !!destino.url?.trim()) : false;
         if (obj?.needsForm) return !!destino.lead_form_id;
         if (obj?.needsConv) return !!destino.url?.trim() && !!destino.conv?.pixel_id && !!(destino.conv?.pixel_event || destino.conv?.custom_conversion_id);
         return !!destino.url?.trim();
@@ -253,11 +280,30 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   };
   const avanzar = () => {
     if (!puedeAvanzar()) return;
-    if (step === 'destino') return armar();
+    if (idx === flow.length - 1) return armar();
     const next = flow[idx + 1];
     if (next) setStep(next);
   };
-  const retroceder = () => { if (step === 'revision') { setStep('destino'); return; } if (idx > 0) setStep(flow[idx - 1]); else onClose(); };
+  const retroceder = () => { if (step === 'revision') { setStep(flow[flow.length - 1]); return; } if (idx > 0) setStep(flow[idx - 1]); else onClose(); };
+
+  // ── elegir campaña / conjunto (modo existente) ──
+  // Archivadas/borradas afuera: Meta rechaza crear anuncios ahí.
+  const elegible = (n: NodoEstado) => n.effectiveStatus !== 'ARCHIVED' && n.effectiveStatus !== 'DELETED';
+  const conjuntosDe = (campId: string | null): NodoEstado[] => (health?.adsets ?? []).filter((a) => a.parentId === campId && elegible(a));
+  function elegirCampana(c: NodoEstado) {
+    setCampSel(c); setAdsetSel(null); setAdsetInfo(null); setErr(null);
+    setStep('conjunto');
+  }
+  function elegirConjunto(a: NodoEstado) {
+    setAdsetSel(a); setAdsetInfo(null); setErr(null);
+    // Se avanza ya; el needsForm llega en el fondo (recién hace falta en "destino").
+    // El token descarta respuestas viejas si el usuario vuelve atrás y re-elige rápido.
+    const req = ++adsetReqRef.current;
+    fetch(`/api/ads-manager/ad-add?adset_id=${encodeURIComponent(a.id)}`, { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => { if (adsetReqRef.current !== req) return; if (j.ok) setAdsetInfo({ needsForm: !!j.adset.needsForm, optimization_goal: String(j.adset.optimization_goal ?? '') }); else setErr(`No pude leer el conjunto: ${j.error || 'error'}. Tocá ← Atrás y volvé a elegirlo para reintentar.`); })
+      .catch((e) => { if (adsetReqRef.current === req) setErr(`No pude leer el conjunto: ${String(e)}. Tocá ← Atrás y volvé a elegirlo para reintentar.`); });
+    setStep('creativos');
+  }
 
   // ── subir creativo ──
   async function subir(file: File) {
@@ -307,7 +353,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
     finally { setCreandoPublico(false); }
   }
 
-  // ── MaKo arma la campaña a partir de las respuestas ──
+  // ── MaKo arma la campaña (o los anuncios nuevos) a partir de las respuestas ──
   async function armar() {
     setStep('armando'); setErr(null);
     try {
@@ -317,15 +363,19 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
       if (paraVer.length) {
         try { const ar = await fetch('/api/ads-manager/analyze-creatives', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ creatives: paraVer }) }); const aj = await ar.json(); if (aj.ok && Array.isArray(aj.items)) { an = aj.items; setAnalisis(an); } } catch { /* best-effort */ }
       }
-      // 2) MaKo escribe el copy alineado al objetivo + estrategia.
-      const r = await fetch('/api/ads-manager/campaign-suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'suggest', prompt: promptDeRespuestas(an) }) });
-      const j = await r.json();
-      if (j.uso) setUso(j.uso);
-      const makoSpec: CampaignSpec | null = j.ok ? j.spec : null;
+      // 2) MaKo escribe el copy alineado al objetivo + estrategia (si hace falta:
+      //    los ganadores reusados viajan con su propio copy).
+      let makoSpec: CampaignSpec | null = null;
+      if (!existente || usables().some((t) => t.kind === 'upload')) {
+        const r = await fetch('/api/ads-manager/campaign-suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'suggest', prompt: existente ? promptExistente(an) : promptDeRespuestas(an) }) });
+        const j = await r.json();
+        if (j.uso) setUso(j.uso);
+        makoSpec = j.ok ? j.spec : null;
+      }
       // 3) construir el spec determinístico (respuestas = verdad; copy de MaKo).
-      setSpec(construirSpec(makoSpec));
+      setSpec(existente ? construirSpecExistente(makoSpec) : construirSpec(makoSpec));
       setStep('revision');
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setStep('destino'); }
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setStep(flow[flow.length - 1]); }
   }
 
   function promptDeRespuestas(an: Analisis): string {
@@ -341,6 +391,25 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
 ${desc}
 
 Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto principal potente, título corto y CTA), en la voz de la marca, alineado al objetivo y la estrategia, usando la descripción de cada creativo. Devolvé el JSON de la campaña con un conjunto y un anuncio por creativo (en el mismo orden de los creativos).`;
+  }
+
+  // Prompt del modo existente: la campaña ya está definida; MaKo SOLO escribe copy.
+  // Se describen ÚNICAMENTE los creativos subidos (los ganadores reusan su propio
+  // post), así el orden de los copies devueltos calza 1 a 1 con los subidos.
+  function promptExistente(an: Analisis): string {
+    // an[i] está indexado por paraVer (solo miniaturas data:) — mapeamos cada subido
+    // a SU análisis por posición en ese subconjunto, para no cruzar descripciones.
+    const conVer = usables().filter((t) => t.thumbnail_url?.startsWith('data:'));
+    const analisisDe = (t: TrayItem) => { const k = conVer.indexOf(t); return k >= 0 ? an[k] : undefined; };
+    const u = usables().filter((t) => t.kind === 'upload');
+    const desc = u.map((t, i) => { const a = analisisDe(t); return `Creativo ${i + 1} (${t.media_type ?? 'archivo'}): ${a?.descripcion || '(sin descripción)'}${a?.angulo ? ` [ángulo: ${a.angulo}]` : ''}`; }).join('\n');
+    return `El usuario va a AGREGAR anuncios nuevos a una campaña que YA existe y corre en Meta. NO propongas cambios de campaña, conjunto, presupuesto ni público: todo eso ya está definido y no se toca.
+- Campaña: ${campSel?.name ?? '—'}
+- Conjunto destino: ${adsetSel?.name ?? '—'}${adsetInfo?.optimization_goal ? ` (optimiza por ${adsetInfo.optimization_goal})` : ''}
+- Creativos nuevos (${u.length}):
+${desc}
+
+Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto principal potente, título corto y CTA), en la voz de la marca, coherente con esa campaña, usando la descripción de cada creativo. Devolvé el JSON de la campaña con un conjunto y un anuncio por creativo (en el mismo orden de los creativos).`;
   }
 
   function construirSpec(mako: CampaignSpec | null): CampaignSpec {
@@ -384,12 +453,79 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
     return aplicarNomenclatura(base, campaignCount + 1);
   }
 
+  // Spec del modo existente: pseudo-CampaignSpec SOLO para revisar/publicar los
+  // anuncios nuevos (la campaña y el conjunto reales no se tocan). Los nombres
+  // siguen la nomenclatura del conjunto (001.01.c, .d, …) continuando la letra
+  // del MÁXIMO anuncio existente, igual que el "+ anuncio" de la tabla.
+  function construirSpecExistente(mako: CampaignSpec | null): CampaignSpec {
+    const copies = mako ? mako.adsets.flatMap((s) => s.ads).map((a) => a.creative) : [];
+    const u = usables();
+    const needsForm = !!adsetInfo?.needsForm;
+    const code = (adsetSel?.name ?? '').split(/\s+/)[0] || '000';
+    let prox = proximaLetra((health?.ads ?? []).filter((a) => a.parentId === adsetSel?.id));
+    // Solo los subidos llevan copy de MaKo (los ganadores reusan su propio post).
+    let ci = 0;
+    const ads: AdSpec[] = u.map((t) => {
+      const esGanador = t.kind === 'existing';
+      const cp = esGanador ? ({} as Creative) : (copies[ci] ?? copies[0] ?? ({} as Creative));
+      if (!esGanador) ci++;
+      const creative: Creative = {
+        source: esGanador ? 'existing' : 'upload',
+        source_ad_id: esGanador ? t.source_ad_id ?? null : null,
+        media_type: t.media_type, image_hash: t.image_hash ?? null, video_id: t.video_id ?? null, thumbnail_url: t.thumbnail_url ?? null,
+        primary_text: cp.primary_text ?? '', headline: cp.headline ?? '', description: cp.description ?? '',
+        cta_type: cp.cta_type ?? (needsForm ? 'SIGN_UP' : 'LEARN_MORE'),
+      };
+      if (needsForm) { creative.lead_form_id = destino.lead_form_id ?? null; creative.lead_form_name = destino.lead_form_name ?? null; }
+      else creative.destination_url = destino.url ?? '';
+      return { name: `${code}.${letra(prox++)} Anuncio`, creative };
+    });
+    return {
+      name: campSel?.name ?? '', objective: 'OUTCOME_LEADS', special_ad_categories: [], budget_level: 'campaign', daily_budget_mxn: null,
+      adsets: [{ name: adsetSel?.name ?? '', daily_budget_mxn: null, optimization_goal: adsetInfo?.optimization_goal ?? '', billing_event: 'IMPRESSIONS', targeting: {}, ads }],
+      rationale: mako?.rationale ?? '',
+    };
+  }
+
   // ── publicar ──
   async function publicar() {
     if (!spec || publishingRef.current) return;
     publishingRef.current = true;
     setErr(null); setStep('publicando');
     try {
+      if (existente) {
+        // Anuncios nuevos al conjunto elegido (lote de ad-add). La campaña no se toca.
+        const adsSpec = spec.adsets[0]?.ads ?? [];
+        const ads = adsSpec.map((ad) => ({
+          name: ad.name,
+          // El ganador reusado viaja mínimo (source + source_ad_id), igual que el "+ anuncio" de la tabla.
+          creative: ad.creative.source === 'existing' ? ({ source: 'existing', source_ad_id: ad.creative.source_ad_id ?? null } as Creative) : ad.creative,
+        }));
+        const r = await fetch('/api/ads-manager/ad-add', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adset_id: adsetSel?.id, campaign_id: campSel?.id ?? null, campaign_name: campSel?.name ?? null, campaign_objective: campSel?.objective ?? null, adset_name: adsetSel?.name ?? null, ads, prompt: promptExistente(analisis), uso }),
+        });
+        // Sin JSON (timeout de la plataforma a mitad de lote): no sabemos cuántos entraron.
+        const j = await r.json().catch(() => null);
+        if (!j) throw new Error('El servidor no respondió (puede haberse cortado a mitad del lote). Mirá en la tabla cuáles anuncios ya se crearon antes de reintentar, para no duplicarlos.');
+        if (!j.ok) {
+          const base = j.error || 'No se pudieron agregar los anuncios';
+          const creados = Number(j.created ?? 0);
+          if (creados > 0) {
+            // Sacamos del spec los que SÍ entraron: reintentar agrega solo los que faltan.
+            // Y refrescamos la tabla ya, así un "Regenerar" ve los anuncios recién creados
+            // (si no, recalcularía las mismas letras sobre el health viejo).
+            setSpec({ ...spec, adsets: spec.adsets.map((a, i) => (i === 0 ? { ...a, ads: a.ads.slice(creados) } : a)) });
+            onPublished();
+            throw new Error(`${base} — Los primeros ${creados} de ${ads.length} SÍ se crearon (en pausa). Quedaron ${ads.length - creados} acá: reintentá y se agregan solo esos.`);
+          }
+          throw new Error(base);
+        }
+        setResult({ campaign_id: campSel?.id ?? '', ads: (j.ad_ids ?? []).length });
+        onPublished(); // refresca la tabla YA: si cierran con ✕, los anuncios (y sus letras) igual aparecen
+        setStep('listo');
+        return;
+      }
       const r = await fetch('/api/ads-manager/campaign-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spec, prompt: promptDeRespuestas(analisis), uso }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'No se pudo publicar');
@@ -402,16 +538,22 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
 
   // ── resumen vivo (chips) ──
   const resumen: string[] = [];
+  if (existente && campSel) resumen.push(`📂 ${campSel.name}`);
+  if (existente && adsetSel) resumen.push(`👥 ${adsetSel.name}`);
   if (usables().length) resumen.push(`${usables().length} creativo${usables().length === 1 ? '' : 's'}`);
   if (budgetUsd) resumen.push(`$${budgetUsd}/día`);
   if (objKey) resumen.push(OBJETIVO_UI.find((o) => o.value === objKey)?.label ?? '');
   if (estrategia) resumen.push(ESTRATEGIAS.find((e) => e.value === estrategia)?.label ?? '');
   if (placements && placements.length) resumen.push(`Ubicaciones: ${placements.length}`);
 
-  const enWizard = step === 'creativos' || step === 'inversion' || step === 'objetivo' || step === 'estrategia' || step === 'publico' || step === 'ubicaciones' || step === 'destino';
+  const enWizard = step === 'campana' || step === 'conjunto' || step === 'creativos' || step === 'inversion' || step === 'objetivo' || step === 'estrategia' || step === 'publico' || step === 'ubicaciones' || step === 'destino';
+  const pideConv = !existente && !!obj?.needsConv;
 
+  // Click en el fondo: nunca mientras MaKo arma/publica (hay un request en vuelo), y
+  // en modo existente solo donde no hay nada que perder (no persiste borrador).
+  const cierraPorFondo = step !== 'armando' && step !== 'publicando' && (!existente || step === 'campana' || step === 'listo');
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
+    <div onClick={cierraPorFondo ? onClose : undefined} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: step === 'revision' ? 640 : 600, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden' }}>
         {/* barra superior minimalista: marca + progreso + cerrar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', flexShrink: 0 }}>
@@ -427,6 +569,26 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          {step === 'campana' && (
+            <Paso titulo="¿A qué campaña le sumamos anuncios?" sub="La campaña queda como está (mismo público, presupuesto y configuración): solo se le agregan anuncios nuevos, en pausa.">
+              {!health && healthError ? (
+                <p style={{ fontSize: 13.5, color: 'var(--bad)', textAlign: 'center', margin: 0, lineHeight: 1.5, maxWidth: 420 }}>No se pudo leer el estado de Meta: {healthError}. Cerrá el pop-up, tocá «↻ Actualizar estado» y volvé a intentar.</p>
+              ) : (
+                <ListaEntidades items={health ? health.campaigns.filter(elegible) : null} sel={campSel?.id ?? null} onPick={elegirCampana}
+                  cargando="Cargando las campañas de tu cuenta de Meta…" vacio="No hay campañas en la cuenta. Creala con «Nueva campaña»."
+                  extra={(c) => { const n = conjuntosDe(c.id).length; return `${n} conjunto${n === 1 ? '' : 's'}`; }} />
+              )}
+            </Paso>
+          )}
+
+          {step === 'conjunto' && (
+            <Paso titulo="¿En qué conjunto van?" sub="Los anuncios nuevos heredan el público, la optimización y el destino de conversión de ese conjunto.">
+              <ListaEntidades items={campSel ? conjuntosDe(campSel.id) : []} sel={adsetSel?.id ?? null} onPick={elegirConjunto}
+                cargando="Cargando…" vacio="Esta campaña no tiene conjuntos. Agregale uno primero con «+ conjunto» en la tabla."
+                extra={(a) => { const n = (health?.ads ?? []).filter((x) => x.parentId === a.id).length; return `${n} anuncio${n === 1 ? '' : 's'}`; }} />
+            </Paso>
+          )}
+
           {step === 'creativos' && (
             <Paso titulo="¿Qué vas a promocionar?" sub="Subí tus imágenes o videos, o reusá un anuncio que ya te funciona. Podés cargar varios.">
               <CreativosPicker tray={tray} onQuitar={quitar} senales={senales} onGanador={agregarGanador} fileRef={fileRef} />
@@ -463,22 +625,28 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
             </Paso>
           )}
 
-          {step === 'destino' && (
-            <Paso titulo={obj?.needsForm ? '¿Qué formulario instantáneo usás?' : obj?.needsConv ? '¿Dónde captás la conversión?' : '¿A qué página llevamos a la gente?'}
-              sub={obj?.needsForm ? 'Elegí un formulario que ya tengas en la página.' : obj?.needsConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : 'La URL de tu VSL o landing.'}>
-              {obj?.needsForm ? (
+          {step === 'destino' && existente && !adsetInfo && (
+            <Paso titulo="Leyendo el conjunto…" sub="Un segundo: vemos si el conjunto pide formulario instantáneo o URL de destino." />
+          )}
+
+          {step === 'destino' && !(existente && !adsetInfo) && (
+            <Paso titulo={pideForm ? '¿Qué formulario instantáneo usás?' : pideConv ? '¿Dónde captás la conversión?' : '¿A qué página llevamos a la gente?'}
+              sub={pideForm ? 'Elegí un formulario que ya tengas en la página.' : pideConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : existente ? 'La URL de destino de los anuncios nuevos (tu VSL o landing).' : 'La URL de tu VSL o landing.'}>
+              {pideForm ? (
                 <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
                   <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadForms.length ? 'Elegí un formulario…' : 'No tenés formularios instantáneos'}
                     options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={(v) => setDestino((d) => ({ ...d, lead_form_id: v, lead_form_name: leadForms?.find((f) => f.id === v)?.name ?? null }))} width="100%" />
                   {leadForms !== null && leadForms.length === 0 && (
-                    <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Tocá <b>← Atrás</b> y elegí <b>“Leads / agendas en tu web”</b> para captar el lead en tu landing.</p>
+                    existente
+                      ? <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>El conjunto optimiza por formulario instantáneo pero no encontramos formularios en la página. Creá uno en Meta o elegí otro conjunto.</p>
+                      : <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Tocá <b>← Atrás</b> y elegí <b>“Leads / agendas en tu web”</b> para captar el lead en tu landing.</p>
                   )}
                 </div>
               ) : (
                 <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
                   <input value={destino.url ?? ''} onChange={(e) => setDestino((d) => ({ ...d, url: e.target.value }))} placeholder="https://tu-landing/vsl" autoFocus
                     style={{ width: '100%', padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', textAlign: 'center' }} />
-                  {obj?.needsConv && (
+                  {pideConv && (
                     <ConversionPicker pixels={pixels} convs={convs} pixelEvents={pixelEvents} destino={destino} setDestino={setDestino} />
                   )}
                 </div>
@@ -487,23 +655,31 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           )}
 
           {step === 'armando' && (
-            <MakoLoading pasos={['Mirando tus creativos…', 'Entendiendo tu objetivo y estrategia…', 'Escribiendo el copy de cada anuncio…', 'Armando la estructura de la campaña…']} />
+            <MakoLoading pasos={existente
+              ? ['Mirando tus creativos…', 'Leyendo la campaña elegida…', 'Escribiendo el copy de cada anuncio…']
+              : ['Mirando tus creativos…', 'Entendiendo tu objetivo y estrategia…', 'Escribiendo el copy de cada anuncio…', 'Armando la estructura de la campaña…']} />
           )}
 
           {step === 'revision' && spec && (
-            <Revision spec={spec} budgetUsd={budgetUsd} tray={tray} setSpec={setSpec} />
+            <Revision spec={spec} budgetUsd={budgetUsd} tray={tray} setSpec={setSpec} fijo={existente} />
           )}
 
           {step === 'publicando' && (
-            <MakoLoading pasos={['Creando la campaña…', 'Configurando el conjunto de anuncios…', obj?.needsConv ? 'Conectando el pixel y la conversión…' : estrategia === 'retargeting' ? 'Cargando tu público…' : 'Configurando el público…', 'Subiendo los anuncios y aplicando UTMs…', 'Publicando en Meta, en pausa…']} />
+            <MakoLoading pasos={existente
+              ? ['Subiendo los anuncios al conjunto…', 'Aplicando UTMs…', 'Publicando en Meta, en pausa…']
+              : ['Creando la campaña…', 'Configurando el conjunto de anuncios…', obj?.needsConv ? 'Conectando el pixel y la conversión…' : estrategia === 'retargeting' ? 'Cargando tu público…' : 'Configurando el público…', 'Subiendo los anuncios y aplicando UTMs…', 'Publicando en Meta, en pausa…']} />
           )}
 
           {step === 'listo' && result && (
             <div style={{ padding: '52px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
               <div style={{ width: 58, height: 58, borderRadius: '50%', background: 'var(--good-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>✓</div>
-              <h3 style={pregunta}>Campaña creada en pausa</h3>
-              <p style={ayuda}>Se creó con {result.ads} anuncio{result.ads === 1 ? '' : 's'}, todo en <b>PAUSA</b>. Activala con el toggle de la tabla cuando quieras.</p>
-              <button onClick={() => { onPublished(); onClose(); }} style={btnDark}>Ver en la tabla</button>
+              <h3 style={pregunta}>{existente ? 'Anuncios agregados en pausa' : 'Campaña creada en pausa'}</h3>
+              <p style={ayuda}>
+                {existente
+                  ? <>Se {result.ads === 1 ? 'agregó' : 'agregaron'} {result.ads} anuncio{result.ads === 1 ? '' : 's'} a <b>{campSel?.name ?? 'la campaña'}</b>, en <b>PAUSA</b>. La campaña quedó tal cual estaba; activá los anuncios con el toggle de la tabla cuando quieras.</>
+                  : <>Se creó con {result.ads} anuncio{result.ads === 1 ? '' : 's'}, todo en <b>PAUSA</b>. Activala con el toggle de la tabla cuando quieras.</>}
+              </p>
+              <button onClick={() => { if (!existente) onPublished(); onClose(); }} style={btnDark}>Ver en la tabla</button>
             </div>
           )}
         </div>
@@ -523,10 +699,10 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   {uso && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{fmtUso(uso)}</span>}
                   <button onClick={armar} style={btnGhost}>↻ Regenerar</button>
-                  <button onClick={publicar} style={{ ...btnDark, background: 'var(--good)' }}>Publicar en pausa</button>
+                  <button onClick={publicar} style={{ ...btnDark, background: 'var(--good)' }}>{existente ? 'Agregar en pausa' : 'Publicar en pausa'}</button>
                 </div>
               ) : (
-                step !== 'objetivo' && step !== 'estrategia' && <button onClick={avanzar} disabled={!puedeAvanzar()} style={{ ...btnDark, opacity: puedeAvanzar() ? 1 : 0.4, cursor: puedeAvanzar() ? 'pointer' : 'not-allowed' }}>Siguiente →</button>
+                step !== 'objetivo' && step !== 'estrategia' && step !== 'campana' && step !== 'conjunto' && <button onClick={avanzar} disabled={!puedeAvanzar()} style={{ ...btnDark, opacity: puedeAvanzar() ? 1 : 0.4, cursor: puedeAvanzar() ? 'pointer' : 'not-allowed' }}>Siguiente →</button>
               )}
             </div>
           </div>
@@ -539,7 +715,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
 }
 
 // ── wrapper de cada paso (centrado, aireado) ──
-function Paso({ titulo, sub, children }: { titulo: string; sub?: string; children: ReactNode }) {
+function Paso({ titulo, sub, children }: { titulo: string; sub?: string; children?: ReactNode }) {
   return (
     <div style={{ padding: '34px 30px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -565,6 +741,30 @@ function Opciones<T extends string>({ items, value, onPick }: { items: Array<{ v
             <span style={{ minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{it.label}</span>
               <span style={{ display: 'block', fontSize: 13, color: 'var(--dim)', marginTop: 1 }}>{it.desc}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── lista de campañas / conjuntos existentes (modo "agregar a campaña") ──
+function ListaEntidades({ items, sel, onPick, extra, cargando, vacio }: { items: NodoEstado[] | null; sel: string | null; onPick: (n: NodoEstado) => void; extra: (n: NodoEstado) => string; cargando: string; vacio: string }) {
+  if (items === null) return <p style={{ fontSize: 14, color: 'var(--dim)', textAlign: 'center', margin: 0 }}>{cargando}</p>;
+  if (items.length === 0) return <p style={{ fontSize: 14, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5, maxWidth: 400 }}>{vacio}</p>;
+  return (
+    <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 340, overflowY: 'auto', paddingRight: 2 }}>
+      {items.map((n) => {
+        const on = sel === n.id;
+        return (
+          <button key={n.id} type="button" onClick={() => onPick(n)}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '13px 15px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', cursor: 'pointer', transition: 'border-color .15s' }}
+            onMouseEnter={(e) => { if (!on) e.currentTarget.style.borderColor = 'var(--border-strong)'; }} onMouseLeave={(e) => { if (!on) e.currentTarget.style.borderColor = 'var(--border)'; }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: colorDeSemaforo(n.semaforo), flex: 'none' }} title={n.statusLabel} />
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.name}</span>
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1 }}>{n.statusLabel} · {extra(n)}</span>
             </span>
           </button>
         );
@@ -754,21 +954,29 @@ function UbicacionesPicker({ placements, setPlacements }: { placements: string[]
 }
 
 // ── revisión minimalista — los textos se editan EN LÍNEA (tocás y escribís) ──
-function Revision({ spec, budgetUsd, tray, setSpec }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; setSpec: (s: CampaignSpec) => void }) {
+// fijo=true (agregar a campaña existente): el nombre de la campaña NO se edita
+// (es la campaña real de Meta, no se toca) y no hay chip de presupuesto.
+function Revision({ spec, budgetUsd, tray, setSpec, fijo = false }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; setSpec: (s: CampaignSpec) => void; fijo?: boolean }) {
   const opt = spec.adsets[0]?.optimization_goal;
-  const objLabel = opt === 'LEAD_GENERATION' ? 'Leads (formulario FB)' : opt === 'OFFSITE_CONVERSIONS' ? 'Leads / ventas en tu web' : opt === 'LANDING_PAGE_VIEWS' ? 'Tráfico a la landing' : opt === 'REACH' ? 'Reconocimiento' : spec.objective;
+  const objLabel = opt === 'LEAD_GENERATION' ? 'Leads (formulario FB)' : opt === 'OFFSITE_CONVERSIONS' ? 'Leads / ventas en tu web' : opt === 'LANDING_PAGE_VIEWS' ? 'Tráfico a la landing' : opt === 'REACH' ? 'Reconocimiento' : (fijo ? opt || '' : spec.objective);
   const patchCreative = (ai: number, di: number, patch: Partial<Creative>) => setSpec({ ...spec, adsets: spec.adsets.map((a, i) => (i === ai ? { ...a, ads: a.ads.map((ad, j) => (j === di ? { ...ad, creative: { ...ad.creative, ...patch } } : ad)) } : a)) });
   const [verPorque, setVerPorque] = useState(false);
+  const chips = [...(objLabel ? [`🎯 ${objLabel}`] : []), ...(budgetUsd != null ? [`💰 $${budgetUsd}/día`] : []), ...spec.adsets.map((a) => `👥 ${a.name}`)];
   return (
     <div style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ textAlign: 'center' }}>
-        <input value={spec.name} onChange={(e) => setSpec({ ...spec, name: e.target.value })} style={{ width: '100%', border: 'none', borderBottom: '1px solid transparent', background: 'transparent', textAlign: 'center', fontFamily: SANS, fontSize: 20, fontWeight: 600, color: 'var(--ink)', outline: 'none', padding: '2px 0' }}
-          onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--border)'; }} onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'transparent'; }} />
+        {fijo ? (
+          <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 600, color: 'var(--ink)', padding: '2px 0' }}>{spec.name}</div>
+        ) : (
+          <input value={spec.name} onChange={(e) => setSpec({ ...spec, name: e.target.value })} style={{ width: '100%', border: 'none', borderBottom: '1px solid transparent', background: 'transparent', textAlign: 'center', fontFamily: SANS, fontSize: 20, fontWeight: 600, color: 'var(--ink)', outline: 'none', padding: '2px 0' }}
+            onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--border)'; }} onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'transparent'; }} />
+        )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
-          {[`🎯 ${objLabel}`, `💰 $${budgetUsd}/día`, ...spec.adsets.map((a) => `👥 ${a.name}`)].map((c, i) => (
+          {chips.map((c, i) => (
             <span key={i} style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 11px' }}>{c}</span>
           ))}
         </div>
+        {fijo && <p style={{ fontSize: 12, color: 'var(--faint)', margin: '8px 0 0' }}>Anuncios nuevos para esta campaña. Su configuración no se toca.</p>}
       </div>
       {spec.rationale && (
         <div style={{ textAlign: 'center' }}>
@@ -792,9 +1000,17 @@ function Revision({ spec, budgetUsd, tray, setSpec }: { spec: CampaignSpec; budg
                   : <span style={{ fontSize: 18 }}>{ad.creative.media_type === 'video' ? '🎬' : '🖼️'}</span>}
               </div>
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <InlineCopy value={ad.creative.primary_text ?? ''} onChange={(v) => patchCreative(ai, di, { primary_text: v })} placeholder="Escribí el texto del anuncio…" multiline fontSize={13.5} />
-                <InlineCopy value={ad.creative.headline ?? ''} onChange={(v) => patchCreative(ai, di, { headline: v })} placeholder="Título (opcional)" fontSize={12.5} bold />
-                <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4, padding: '0 7px' }}>▸ {CTA_OPCIONES.find((o) => o.value === (ad.creative.cta_type ?? 'LEARN_MORE'))?.label}{ad.creative.destination_url ? ` · ${ad.creative.destination_url}` : ad.creative.lead_form_name ? ` · ${ad.creative.lead_form_name}` : ''}</div>
+                {ad.creative.source === 'existing' ? (
+                  // El ganador reusa su post tal cual (Meta ignora cualquier copy nuevo):
+                  // no mostramos campos editables que después se descartarían en silencio.
+                  <p style={{ fontSize: 12.5, color: 'var(--dim)', margin: '4px 0 0', padding: '0 7px', lineHeight: 1.5 }}>★ Reusa el anuncio ganador tal cual: su copy y su destino originales.</p>
+                ) : (
+                  <>
+                    <InlineCopy value={ad.creative.primary_text ?? ''} onChange={(v) => patchCreative(ai, di, { primary_text: v })} placeholder="Escribí el texto del anuncio…" multiline fontSize={13.5} />
+                    <InlineCopy value={ad.creative.headline ?? ''} onChange={(v) => patchCreative(ai, di, { headline: v })} placeholder="Título (opcional)" fontSize={12.5} bold />
+                    <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4, padding: '0 7px' }}>▸ {CTA_OPCIONES.find((o) => o.value === (ad.creative.cta_type ?? 'LEARN_MORE'))?.label}{ad.creative.destination_url ? ` · ${ad.creative.destination_url}` : ad.creative.lead_form_name ? ` · ${ad.creative.lead_form_name}` : ''}</div>
+                  </>
+                )}
               </div>
             </div>
           );
@@ -934,6 +1150,20 @@ function analisisResumen(an: Analisis): string | undefined {
 
 function pad(n: number, w: number): string { return String(Math.max(0, Math.floor(n))).padStart(w, '0'); }
 function letra(n: number): string { let s = ''; while (n > 0) { n--; s = String.fromCharCode(97 + (n % 26)) + s; n = Math.floor(n / 26); } return s; }
+// Próxima letra de anuncio dentro de un conjunto: continúa desde el MÁXIMO sufijo
+// letra existente (001.01.c → d), igual que el "+ anuncio" de la tabla (espeja
+// nextSuffix de CampanasBrowser para no colisionar tras borrar un anuncio).
+const letraANum = (s: string): number => { let n = 0; for (const ch of s.toLowerCase()) n = n * 26 + (ch.charCodeAt(0) - 96); return n; };
+function proximaLetra(kids: Array<{ name: string }>): number {
+  let max = 0;
+  for (const k of kids) {
+    const seg = k.name.split(/\s+/)[0].split('.').pop() ?? '';
+    // Solo sufijos de 1-2 letras (a…zz): un anuncio llamado "Nuevo anuncio" creado a
+    // mano no cuenta como código, si no letraANum('nuevo') dispara letras basura.
+    if (/^[a-z]{1,2}$/i.test(seg)) max = Math.max(max, letraANum(seg));
+  }
+  return max + 1;
+}
 const stripNomenCode = (name: string): string => name.replace(/^\s*[0-9]+(?:\.[0-9]+)*(?:\.[a-zA-Z]+)?\s*[.\-)·]?\s*/, '').trim();
 function aplicarNomenclatura(spec: CampaignSpec, nextNumber: number): CampaignSpec {
   const nnn = pad(nextNumber, 3);

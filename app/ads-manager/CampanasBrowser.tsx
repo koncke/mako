@@ -164,6 +164,8 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
   const [entSel, setEntSel] = useState<{ node: NodoEstado; level: 'campaign' | 'adset'; cross: CrossData } | null>(null);
   const [recosOpen, setRecosOpen] = useState(false);
   const [nuevaOpen, setNuevaOpen] = useState(false);
+  // modo del wizard: campaña nueva vs subir creativos a una campaña existente
+  const [nuevaModo, setNuevaModo] = useState<'nueva' | 'existente'>('nueva');
   const [editCopyAd, setEditCopyAd] = useState<{ id: string; name: string } | null>(null);
   const [problemaSel, setProblemaSel] = useState<{ titulo: string; ads: ProblemAd[] } | null>(null);
   const [editPublicoAdset, setEditPublicoAdset] = useState<{ id: string; name: string } | null>(null);
@@ -531,9 +533,13 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
 
       {/* toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <button type="button" onClick={() => setNuevaOpen(true)} title="Crear una campaña nueva con MaKo"
+        <button type="button" onClick={() => { setNuevaModo('nueva'); setNuevaOpen(true); }} title="Crear una campaña nueva con MaKo"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(47,111,237,.25)' }}>
           <MakoStar size={13} color="#fff" /> Nueva campaña
+        </button>
+        <button type="button" onClick={() => { setNuevaModo('existente'); setNuevaOpen(true); }} title="Subir creativos como anuncios nuevos dentro de una campaña que ya existe (se agregan en pausa; la campaña no se toca)"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+          ⬆ Subir creativos a una campaña
         </button>
         <MakoMenu actions={[
           { label: 'Analizar con Meta', sub: 'Recomendaciones y oportunity score', onClick: () => setRecosOpen(true) },
@@ -643,7 +649,8 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
       {renameOpen && <RenameModal level={level} entities={renameEntities} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
-      {nuevaOpen && <NuevaCampanaModal senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
+      {/* key: si cambia el modo con el modal abierto, se remonta limpio (el estado inicial depende del modo) */}
+      {nuevaOpen && <NuevaCampanaModal key={nuevaModo} modo={nuevaModo} health={health} healthError={error} senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
       {problemaSel && <ProblemaModal ads={problemaSel.ads} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
       {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
