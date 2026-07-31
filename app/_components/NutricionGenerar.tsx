@@ -52,6 +52,12 @@ function fmtDelay(h: number): string {
   return d === 1 ? 'al día siguiente' : `a los ${d} días`;
 }
 
+// ¿El copy sigue con texto de relleno del seed? ([tu problema], [resultado]…).
+// Los [tu link …] no cuentan: esos son placeholders del sistema y quedan así.
+const RX_PLACEHOLDER = /\[(?!tu link)[^\]\n]{2,80}\]/i;
+const conPlaceholders = (s: Sec): boolean =>
+  s.pasos.some((p) => RX_PLACEHOLDER.test(p.cuerpo) || RX_PLACEHOLDER.test(p.asunto ?? ''));
+
 export function NutricionGenerar() {
   const [visible, setVisible] = useState(false);
   const [open, setOpen] = useState(false);
@@ -64,6 +70,7 @@ export function NutricionGenerar() {
   const [msg, setMsg] = useState<{ t: 'ok' | 'err'; x: string } | null>(null);
   const [estados, setEstados] = useState<Record<number, string>>({}); // orden → status plantilla
   const [submitting, setSubmitting] = useState<number | null>(null);   // orden en envío a Meta
+  const [cola, setCola] = useState<number[]>([]);                      // modo "todas": ids que faltan revisar
 
   const load = useCallback(async () => {
     try {
@@ -76,7 +83,19 @@ export function NutricionGenerar() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  function cerrar() { setOpen(false); setSel(null); setMsg(null); setVerAntes(null); }
+  function cerrar() { setOpen(false); setSel(null); setMsg(null); setVerAntes(null); setCola([]); }
+
+  // Modo "todas" (#46): MaKo escribe secuencia por secuencia y vos las revisás
+  // en cadena — genera la primera ya y encola el resto; al aprobar una, sigue
+  // sola con la próxima. Prioriza las que siguen con texto de relleno.
+  async function escribirTodas() {
+    if (!secs || ocupado) return;
+    const pendientes = secs.filter((s) => s.pasos.length && conPlaceholders(s));
+    const objetivo = pendientes.length ? pendientes : secs.filter((s) => s.pasos.length);
+    if (!objetivo.length) return;
+    setCola(objetivo.slice(1).map((s) => s.id));
+    await generar(objetivo[0]);
+  }
 
   async function generar(sec: Sec) {
     setBusy(sec.id); setMsg(null);
@@ -132,6 +151,13 @@ export function NutricionGenerar() {
       setSecs((prev) => prev?.map((s) => (s.id === sel.id ? { ...s, pasos: draft } : s)) ?? prev);
       setSel(null);
       setMsg({ t: 'ok', x: `Listo — «${sel.nombre}» quedó escrita por MaKo.` });
+      // Modo "todas": seguir con la próxima de la cola.
+      const [next, ...resto] = cola;
+      if (next != null) {
+        setCola(resto);
+        const prox = secs?.find((x) => x.id === next);
+        if (prox) { setBusy(null); await generar(prox); return; }
+      }
     } catch (e) { setMsg({ t: 'err', x: e instanceof Error ? e.message : String(e) }); }
     finally { setBusy(null); }
   }
@@ -165,9 +191,16 @@ export function NutricionGenerar() {
             {/* ── Modo LISTA: elegir secuencia ──────────────────────────────── */}
             {!sel && (
               <>
-                <div style={{ fontSize: '13.5px', color: 'var(--dim)', lineHeight: 1.5, margin: '8px 0 16px' }}>
+                <div style={{ fontSize: '13.5px', color: 'var(--dim)', lineHeight: 1.5, margin: '8px 0 12px' }}>
                   MaKo escribe el copy de cada secuencia en la voz de tu negocio, aplicando su metodología de copywriting. Lo revisás, ajustás y aprobás — no se manda nada hasta que vos quieras.
                 </div>
+                {!!secs?.length && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <button onClick={() => void escribirTodas()} disabled={ocupado} style={{ ...btnAccent, opacity: ocupado ? 0.6 : 1 }}>
+                      {busy !== null ? 'Escribiendo…' : (() => { const n = secs.filter((s) => s.pasos.length && conPlaceholders(s)).length; return n ? `✨ MaKo escribe las ${n} pendientes` : '✨ MaKo reescribe todas'; })()}
+                    </button>
+                  </div>
+                )}
                 {!secs ? (
                   <div style={{ color: 'var(--faint)', fontSize: '13px' }}>Cargando secuencias…</div>
                 ) : secs.length === 0 ? (
@@ -258,11 +291,14 @@ export function NutricionGenerar() {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '18px' }}>
-                  <button onClick={() => { setSel(null); setMsg(null); setVerAntes(null); }} disabled={ocupado} style={{ ...btnGhost, opacity: ocupado ? 0.6 : 1 }}>← Volver</button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginTop: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button onClick={() => { setSel(null); setMsg(null); setVerAntes(null); setCola([]); }} disabled={ocupado} style={{ ...btnGhost, opacity: ocupado ? 0.6 : 1 }}>← Volver</button>
+                    {cola.length > 0 && <span style={{ fontSize: '12px', color: 'var(--faint)' }}>quedan {cola.length} por revisar</span>}
+                  </div>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button onClick={() => void generar(sel)} disabled={ocupado} style={{ ...btnGhost, opacity: ocupado ? 0.6 : 1 }}>{busy === sel.id ? 'Reescribiendo…' : '↻ Reescribir'}</button>
-                    <button onClick={() => void aplicar()} disabled={ocupado} style={{ ...btnDark, opacity: ocupado ? 0.6 : 1 }}>{busy === 'apply' ? 'Guardando…' : 'Aprobar y guardar'}</button>
+                    <button onClick={() => void aplicar()} disabled={ocupado} style={{ ...btnDark, opacity: ocupado ? 0.6 : 1 }}>{busy === 'apply' ? 'Guardando…' : cola.length ? 'Aprobar y seguir →' : 'Aprobar y guardar'}</button>
                   </div>
                 </div>
               </>

@@ -48,7 +48,7 @@ async function resumenSecuencias(): Promise<string> {
 // fuente de verdad del proceso comercial ([[funnel-fuente-de-verdad]]). Aditivo y
 // resiliente: getFunnel cae a DEFAULT_PIPELINE si no hay fila, así que nunca queda
 // vacío; con el funnel por defecto, el bloque describe el embudo base de siempre.
-async function resumenFunnel(): Promise<string> {
+export async function resumenFunnel(): Promise<string> {
   const { getFunnel } = await import('./leads');
   const { BAND_LABEL } = await import('./pipeline');
   const funnel = await getFunnel().catch(() => null);

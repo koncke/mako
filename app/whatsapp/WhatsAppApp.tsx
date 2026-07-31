@@ -23,6 +23,7 @@ import { Icon } from '../_components/icons';
 import { PlantillasPanel } from './PlantillasPanel';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EvolutionConnect } from './EvolutionConnect';
+import { NutricionGenerar } from '@/app/_components/NutricionGenerar';
 import { EmpresaInbox } from './EmpresaInbox';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
 
@@ -937,6 +938,12 @@ function WhatsAppInner() {
   };
   const seqEtapasPresentes = [...new Set(secuencias.map((s) => s.etapa).filter(Boolean))];
   const seqFiltradas = seqEtapaFiltro === 'todas' ? secuencias : secuencias.filter((s) => s.etapa === seqEtapaFiltro);
+  // ¿Cuántas secuencias siguen con texto de relleno del seed? ([tu problema]…;
+  // los [tu link …] no cuentan: son placeholders del sistema). Dispara el banner
+  // de arranque "MaKo te arma toda la nutrición" (#46).
+  const seqConRelleno = secuencias.filter((s) =>
+    s.pasos.some((p) => /\[(?!tu link)[^\]\n]{2,80}\]/i.test(p.cuerpo) || /\[(?!tu link)[^\]\n]{2,80}\]/i.test(p.asunto ?? '')),
+  ).length;
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
   // Vencimiento de la ventana del chat abierto: 24h tras el último mensaje ENTRANTE
   // del hilo (exacto, aun si respondimos último); si no hay hilo, el del provider.
@@ -1261,10 +1268,20 @@ function WhatsAppInner() {
               {envioAdmin ? ' Se prende con el botón “Envío real” de arriba.' : ' Lo prende el admin del workspace.'}
             </div>
           )}
-          <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px' }}>
-            <button onClick={() => setSeqTab('secuencias')} style={seqTab === 'secuencias' ? tabActive : tabIdle}>Secuencias</button>
-            <button onClick={() => setSeqTab('plantillas')} style={seqTab === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>
-            <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Preguntá a MaKo</button>
+          {seqConRelleno > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: 'var(--dim)' }}>
+              <span>
+                <strong style={{ color: 'var(--ink)' }}>{seqConRelleno === 1 ? 'Una secuencia sigue' : `${seqConRelleno} secuencias siguen`} con texto de relleno</strong> — MaKo puede escribirlas todas en la voz de tu negocio y vos solo las aprobás (botón «✍️ Nutrición»).
+              </span>
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px' }}>
+              <button onClick={() => setSeqTab('secuencias')} style={seqTab === 'secuencias' ? tabActive : tabIdle}>Secuencias</button>
+              <button onClick={() => setSeqTab('plantillas')} style={seqTab === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>
+              <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Preguntá a MaKo</button>
+            </div>
+            <NutricionGenerar />
           </div>
 
           {seqTab === 'plantillas' && <PlantillasPanel initialSelect={plantillaTarget} makoSeed={plantillaSeed} onMakoSeedApplied={() => setPlantillaSeed(null)} />}

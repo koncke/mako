@@ -19,6 +19,7 @@ import { getPromptText, renderPrompt, contenidoNoConfiable } from '@/lib/prompt-
 import { getSecuenciasConStats, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 import { metodologiaDeArea } from '@/lib/mako-knowledge';
 import { ejemplosRelevantes } from '@/lib/copywriting-metodo';
+import { resumenFunnel } from '@/lib/mako-context';
 
 const KEY_VOZ = 'mako.voz_guia';
 
@@ -169,12 +170,22 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto ni markdown alrededor)
 Un objeto por paso, en el MISMO orden y con el MISMO canal que recibiste. Para email incluí asunto + preheader + cuerpo; para whatsapp solo cuerpo. No agregues ni quites pasos.`;
 
 // Glosa de cada cohorte para que MaKo sepa a quién le escribe (además de la etapa).
+// Cubre los 13 triggers legacy; las secuencias funnel-agnósticas (etapa_actual)
+// arman su glosa con la etapa real del funnel del workspace en generarSecuencia.
 export const COHORTE_GLOSS: Record<string, string> = {
   instant_form_sin_agenda: 'Dejó sus datos en el formulario/anuncio pero todavía no agendó la llamada.',
+  vio_vsl_sin_agendar: 'Vio buena parte del video de ventas pero no agendó: le interesa y algo lo frena.',
+  vio_poco_vsl: 'Entró a la página pero vio poco del video; todavía no conectó con la propuesta.',
+  agendado_sin_confirmar: 'Tiene la primera reunión (R1) agendada a futuro: confirmar asistencia y subir la expectativa.',
   no_show_j1: 'Tenía agendada la primera reunión (R1) y no se presentó.',
+  post_j1_sin_avanzar: 'Asistió a la primera reunión (R1) pero no avanzó: ni calificó ni agendó la segunda.',
+  post_j1_calificado_sin_j2: 'Calificó en la primera reunión pero todavía no agendó la segunda (R2).',
   no_show_j2: 'Tenía agendada la segunda reunión (R2) y no se presentó; estaba cerca de decidir.',
+  post_j2_sin_cerrar: 'Asistió a la segunda reunión (R2) y todavía no cerró: está decidiendo.',
   confirmado_sin_pago: 'Confirmó su lugar pero todavía no completó el pago.',
+  post_pago: 'Acaba de hacer su primer pago: darle la bienvenida y marcar los primeros pasos.',
   reactivacion_viejo: 'Mostró interés hace tiempo y se enfrió; hay que reabrir la conversación.',
+  ultimo_intento_antes_noresp: 'Hace meses que no responde: un último intento honesto y con salida digna.',
 };
 
 // Extrae el primer objeto JSON balanceado (tolera prosa alrededor y llaves {{...}}
@@ -214,6 +225,22 @@ export type GenerarSecuenciaResult =
   | { ok: true; secuenciaId: number; nombre: string; pasos: PasoSecuencia[]; previos: PasoSecuencia[]; uso?: { tokens: number; costUsd: number } }
   | { ok: false; error: string };
 
+/**
+ * Glosa del cohorte de una secuencia. Para las funnel-agnósticas (etapa_actual)
+ * se arma con la etapa REAL del funnel del workspace: MaKo sabe exactamente en
+ * qué punto del proceso está el lead, sea el funnel que sea.
+ */
+async function contextoDeSecuencia(sec: { nombre: string; etapa: string; trigger_tipo: string }): Promise<string> {
+  if (sec.trigger_tipo === 'etapa_actual') {
+    try {
+      const { getFunnel } = await import('./leads');
+      const st = (await getFunnel()).stages.find((s) => s.key === sec.etapa);
+      if (st) return `${sec.nombre}. Lead parado en la etapa "${st.label}" del funnel del negocio: el objetivo del mensaje es destrabarlo y que avance a la etapa siguiente.`;
+    } catch { /* cae a la glosa genérica */ }
+  }
+  return `${sec.nombre}. ${COHORTE_GLOSS[sec.trigger_tipo] ?? `Etapa: ${sec.etapa}.`}`;
+}
+
 /** MaKo escribe el copy de UNA secuencia. Devuelve preview (no persiste). */
 export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecuenciaResult> {
   const secs = await getSecuenciasConStats();
@@ -221,13 +248,14 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   if (!sec) return { ok: false, error: 'No encontré esa secuencia.' };
   if (!sec.pasos.length) return { ok: false, error: 'Esa secuencia no tiene pasos para escribir.' };
 
-  const contexto = `${sec.nombre}. ${COHORTE_GLOSS[sec.trigger_tipo] ?? `Etapa: ${sec.etapa}.`}`;
-  const [persona, perfil, metodologia, ejemplos, voz] = await Promise.all([
+  const contexto = await contextoDeSecuencia(sec);
+  const [persona, perfil, metodologia, ejemplos, voz, funnelTxt] = await Promise.all([
     getActivePersona().catch(() => ''),
     perfilNegocioTexto().catch(() => ''),
     metodologiaDeArea('mensajes', contexto).catch(() => ''),
     ejemplosRelevantes(contexto).catch(() => ''),
     getVozGuia(),
+    resumenFunnel().catch(() => ''),
   ]);
   const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
   const systemBase = await renderPrompt('nutri.gen.system', NUTRI_GEN_SYSTEM_TEMPLATE, {
@@ -237,6 +265,7 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
   });
   let system = `${persona}\n\n${nucleo}\n\n${systemBase}`.trim();
   if (perfil) system += `\n\nPERFIL DEL NEGOCIO:\n${perfil}`;
+  if (funnelTxt) system += `\n\nFUNNEL REAL DEL NEGOCIO (así se mueve un lead acá — escribí coherente con estas etapas):\n${funnelTxt}`;
 
   const user = await renderPrompt('nutri.gen.user', NUTRI_GEN_USER_TEMPLATE, {
     nombre: sec.nombre,
