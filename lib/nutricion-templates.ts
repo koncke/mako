@@ -8,7 +8,8 @@
 //
 // OJO: el copy debe quedar sincronizado con el backfill de la migración 0069
 // (que seedea los workspaces que YA existían). Esto es la fuente para los NUEVOS.
-// No creamos secuencias de recordatorio de reunión: eso lo maneja n8n hoy.
+// Los recordatorios de reunión viven ACÁ (secuencia 'recordatorio-r1' con pasos
+// anclados a la fecha de la reunión) — reemplazan la tanda de n8n apagada (#18).
 
 import 'server-only';
 
@@ -56,6 +57,16 @@ export const NUTRITION_TEMPLATES: NutricionTemplate[] = [
     pasos: [
       wa(1, 2, 'nutri_pago', 'Hola, quedó confirmado tu lugar pero todavía no vi el pago. ¿Necesitás que te reenvíe el link o coordinamos otra forma? Te ayudo por acá.'),
       email(2, 24, '¿Coordinamos el pago?', 'Para dejar tu lugar reservado solo falta el pago. Te dejo el link de nuevo 👉 [tu link de pago]. Si preferís otra modalidad (transferencia, cuotas), decime y lo vemos.'),
+    ],
+  },
+  {
+    // Recordatorio de reunión (#18): pasos ANCLADOS a la fecha de la R1 del lead
+    // (delay_horas = horas ANTES de la reunión). El WhatsApp va por el canal no
+    // oficial: a leads calientes queda como borrador que el setter manda con 1 clic.
+    clave: 'recordatorio-r1', nombre: 'Recordatorio de reunión — que llegue', etapa: 'postagenda', trigger_tipo: 'agendado_sin_confirmar',
+    pasos: [
+      { orden: 1, canal: 'email', delay_horas: 24, ancla: 'reunion', asunto: 'Mañana tenemos nuestra reunión', cuerpo: 'Hola 👋 Te escribo para confirmar nuestra reunión de mañana. Vamos a ver [tu problema] y salir con un plan concreto. Si se te complicó el horario, reagendá acá 👉 [tu link de agenda]. ¡Nos vemos!', template_wa: null },
+      { orden: 2, canal: 'whatsapp', delay_horas: 2, ancla: 'reunion', asunto: null, cuerpo: 'Hola, en un par de horas tenemos nuestra reunión. ¿Confirmamos que llegás bien? Cualquier cosa avisame por acá.', proveedor: 'no_oficial', template_wa: null },
     ],
   },
   {

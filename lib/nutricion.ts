@@ -31,6 +31,10 @@ export type PasoSecuencia = {
   orden: number;
   canal: CanalNutricion;
   delay_horas: number;
+  // Anclaje del paso (#18, recordatorios de reunión): sin ancla, delay_horas
+  // cuenta desde la inscripción/paso anterior; con ancla 'reunion', delay_horas
+  // son horas ANTES de la próxima reunión del lead (R1; R2 si la R1 ya pasó).
+  ancla?: 'reunion';
   asunto: string | null;
   preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
@@ -161,6 +165,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       orden: i + 1,
       canal: p.canal === 'email' ? 'email' : 'whatsapp',
       delay_horas: Math.max(0, Math.round(Number(p.delay_horas) || 0)),
+      ...(p.ancla === 'reunion' ? { ancla: 'reunion' as const } : {}),
       asunto: typeof p.asunto === 'string' ? p.asunto : null,
       preheader: typeof p.preheader === 'string' ? p.preheader : null,
       cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
@@ -386,6 +391,31 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   return [];
 }
 
+// ── Agenda de pasos ──────────────────────────────────────────────────────────
+type JuntasLead = { fecha_junta_1?: string | null; junta_1_at?: string | null; fecha_junta_2?: string | null; junta_2_at?: string | null };
+
+/**
+ * Cuándo toca un paso: delay relativo (default) o, si está anclado a la reunión
+ * (#18), delay_horas ANTES de la próxima reunión futura del lead (prefiere la
+ * hora exacta junta_*_at; fecha_junta_* solo-fecha cae a medianoche UTC y la
+ * ventana horaria del cron lo acomoda). Sin reunión futura → ASAP: si el lead ya
+ * no corresponde, la cohorte/pausa lo resuelve.
+ */
+function proximoEnvioDePaso(paso: PasoSecuencia | undefined, juntas: JuntasLead | null | undefined): string {
+  if (paso?.ancla === 'reunion') {
+    const candidatos = [juntas?.junta_1_at ?? juntas?.fecha_junta_1, juntas?.junta_2_at ?? juntas?.fecha_junta_2]
+      .filter((x): x is string => Boolean(x))
+      .map((x) => Date.parse(x))
+      .filter((ms) => Number.isFinite(ms) && ms > Date.now());
+    if (candidatos.length) {
+      const objetivo = Math.min(...candidatos) - (paso.delay_horas || 0) * 3600 * 1000;
+      return new Date(Math.max(objetivo, Date.now())).toISOString();
+    }
+    return ahoraISO();
+  }
+  return enHorasISO(paso?.delay_horas ?? 0);
+}
+
 // ── Inscripción ──────────────────────────────────────────────────────────────
 export type PlanInscripcion = { secuencia: string; lead_id: number; proximo_envio_at: string };
 
@@ -429,7 +459,20 @@ export async function comprometerInscripciones(): Promise<number> {
       .eq('secuencia_id', sec.id)
       .in('lead_id', candidatos);
     const inscriptos = new Set(((yaInsc ?? []) as Array<{ lead_id: number }>).map((r) => r.lead_id));
-    const delay0 = sec.pasos[0]?.delay_horas ?? 0;
+    const paso0 = sec.pasos[0];
+    // Paso inicial anclado a la reunión → el horario depende de la agenda de
+    // CADA lead: traemos sus juntas en una query batch.
+    let juntasMap = new Map<number, JuntasLead>();
+    if (paso0?.ancla === 'reunion') {
+      const pendientes = candidatos.filter((id) => !inscriptos.has(id));
+      if (pendientes.length) {
+        const { data: jl } = await supabase
+          .from('leads')
+          .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at')
+          .in('id', pendientes);
+        juntasMap = new Map(((jl ?? []) as Array<{ id: number } & JuntasLead>).map((l) => [l.id, l]));
+      }
+    }
     const nuevas = candidatos
       .filter((id) => !inscriptos.has(id))
       .map((lead_id) => ({
@@ -437,7 +480,7 @@ export async function comprometerInscripciones(): Promise<number> {
         secuencia_id: sec.id,
         paso_actual: 0,
         estado: 'activa',
-        proximo_envio_at: enHorasISO(delay0),
+        proximo_envio_at: proximoEnvioDePaso(paso0, juntasMap.get(lead_id)),
       }));
     if (nuevas.length === 0) continue;
     const { error } = await supabase.from('nutricion_inscripciones').insert(nuevas);
@@ -608,10 +651,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     const leadIds = [...new Set(due.map((d) => d.lead_id))];
     const { data: leadsData } = await supabase
       .from('leads')
-      .select('id, nombre, telefono, empresa, email, email_opt_out')
+      .select('id, nombre, telefono, empresa, email, email_opt_out, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at')
       .in('id', leadIds);
     const leadMap = new Map(
-      ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null }>).map((l) => [l.id, l]),
+      ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null } & JuntasLead>).map((l) => [l.id, l]),
     );
     // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
     const conEnvioReciente = await leadsConEnvioReciente(leadIds);
@@ -815,7 +858,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         .from('nutricion_inscripciones')
         .update({
           paso_actual: insc.paso_actual + 1,
-          proximo_envio_at: siguiente ? enHorasISO(siguiente.delay_horas) : null,
+          proximo_envio_at: siguiente ? proximoEnvioDePaso(siguiente, lead) : null,
           estado: siguiente ? 'activa' : 'completada',
           updated_at: ahoraISO(),
         })

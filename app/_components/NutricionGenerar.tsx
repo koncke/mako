@@ -148,9 +148,17 @@ export function NutricionGenerar() {
     try {
       const j = await jpost<{ ok: boolean; error?: string }>('/api/mako/nutricion', { action: 'aplicar', secuenciaId: sel.id, pasos: draft });
       if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
-      setSecs((prev) => prev?.map((s) => (s.id === sel.id ? { ...s, pasos: draft } : s)) ?? prev);
+      // Aprobar el copy PRENDE la secuencia (#18): es seguro — los pasos WA
+      // oficiales no salen hasta que Meta apruebe su plantilla (guard del motor)
+      // y el envío real sigue detrás del interruptor del workspace.
+      let activada = false;
+      if (!sel.activa) {
+        const act = await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: sel.id, activa: true }) }).then((r) => r.json()).catch(() => ({ ok: false }));
+        activada = Boolean(act?.ok);
+      }
+      setSecs((prev) => prev?.map((s) => (s.id === sel.id ? { ...s, pasos: draft, activa: s.activa || activada } : s)) ?? prev);
       setSel(null);
-      setMsg({ t: 'ok', x: `Listo — «${sel.nombre}» quedó escrita por MaKo.` });
+      setMsg({ t: 'ok', x: `Listo — «${sel.nombre}» quedó escrita por MaKo${activada ? ' y activada' : ''}.` });
       // Modo "todas": seguir con la próxima de la cola.
       const [next, ...resto] = cola;
       if (next != null) {
