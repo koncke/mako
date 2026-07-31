@@ -50,6 +50,8 @@ type Campo = {
   opcional: boolean;
   nota: string | null;
   host: boolean;
+  /** La app lo completa sola: no se pide, se muestra como resultado. */
+  auto?: boolean;
   configurado: boolean;
   origen: OrigenCampo;
   mask: string;
@@ -239,6 +241,10 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
   const [opciones, setOpciones] = useState<OpcionesMeta>({ cuentas: [], paginas: [], pixeles: [] });
   const [avisosMeta, setAvisosMeta] = useState<string[]>([]);
   const [eligiendo, setEligiendo] = useState<string | null>(null);
+  // "Cargarlos a mano": el escape hatch para los campos que normalmente completa
+  // la app. Cerrado por default — si estuviera abierto, volveríamos a la pantalla
+  // de seis inputs que este rediseño vino a sacar.
+  const [manual, setManual] = useState(false);
 
   const hayQueElegir = opciones.cuentas.length > 0 || opciones.paginas.length > 0 || opciones.pixeles.length > 0;
 
@@ -526,9 +532,13 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
       {/* Arriba de todo: qué pasa con lo que estás por pegar. */}
       <AvisoSeguridad abierto={segAbierto} onToggle={() => setSegAbierto((o) => !o)} />
 
-      {/* ── La lista COMPLETA de credenciales del servicio, una barra por campo ── */}
+      {/* ── Las credenciales que el cliente SÍ tiene que pegar ───────────────
+          Los campos `auto` (los que la app saca sola de otro campo: en Meta, 5
+          de 6) no se piden acá — salen abajo como resultado, y solo se pueden
+          editar a mano si el cliente abre "cargarlos a mano". Pedir seis tokens
+          cuando cinco se descubren solos era la fricción entera del paso. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {servicio.campos.map((c) => {
+        {servicio.campos.filter((c) => !c.auto || manual).map((c) => {
           const tipeado = !!(valores[c.env] ?? '').trim();
           const sem = semaforo(c, tipeado);
           const cerrada = estaCerrada(c);
@@ -634,6 +644,42 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
         })}
       </div>
 
+      {/* ── Lo que completó la app: resultado, no formulario ─────────────────
+          Una línea por campo `auto`, con su tilde. No hay inputs: si el cliente
+          quiere tocarlos, abre "cargarlos a mano" y recién ahí aparecen arriba. */}
+      {(() => {
+        const autos = servicio.campos.filter((c) => c.auto);
+        if (!autos.length || manual) return null;
+        const listos = autos.filter((c) => c.configurado && !c.ilegible);
+        return (
+          <div style={{ ...caja, padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>
+              Esto lo completa MaKo
+            </div>
+            {listos.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+                Al guardar {servicio.campos.find((c) => !c.auto)?.label.toLowerCase() ?? 'la credencial'}, MaKo busca el resto en tu cuenta y lo completa solo.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {autos.map((c) => {
+                  const ok = c.configurado && !c.ilegible;
+                  return (
+                    <div key={c.env} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                      <span aria-hidden style={{ flex: 'none', color: ok ? 'var(--good)' : 'var(--faint)' }}>{ok ? '✓' : '·'}</span>
+                      <span style={{ flex: 1, minWidth: 0, color: ok ? 'var(--ink)' : 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
+                      <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>
+                        {ok ? `••••${c.mask}` : (c.opcional ? 'no hace falta' : 'pendiente')}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── Meta: lo que la app completó sola, y lo único que hay que elegir ──
           Vive acá (y no en cada superficie) porque este componente es el mismo
           que usan /integraciones, el onboarding y el panel de activación. */}
@@ -674,6 +720,15 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
             </>
           )}
         </div>
+      )}
+
+      {/* El escape hatch, en chico y al final: quien QUIERA pegar los campos a
+          mano puede, pero no es el camino por default. */}
+      {servicio.campos.some((c) => c.auto) && (
+        <button type="button" onClick={() => setManual((m) => !m)}
+          style={{ alignSelf: 'flex-start', border: 0, background: 'none', padding: 0, color: 'var(--faint)', fontFamily: SANS, fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>
+          {manual ? 'Ocultar los campos que completa MaKo' : 'Prefiero cargarlos a mano'}
+        </button>
       )}
 
       {/* Reintento a mano: si el cliente arregla los permisos o asigna la página

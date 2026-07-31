@@ -105,6 +105,8 @@ async function estadoServicio(servicioKey: string, ws: number) {
       opcional: !!c.opcional,
       nota: c.nota ?? null,
       host: !!c.host,
+      // true → no se pide como campo: lo completa la app (ver CampoCredencial.auto).
+      auto: !!c.auto,
       // Cómo se consigue ESTE campo. El modal ya no muestra un tutorial por
       // servicio: cada credencial se saca de un lado distinto.
       ayuda: ayudaDeCampo(c.env),

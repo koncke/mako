@@ -26,6 +26,11 @@ export type CampoCredencial = {
    *  probar con un host provisto por el request, NO se rellenan secretos desde
    *  storage (evita exfiltrarlos a un host arbitrario). */
   host?: boolean;
+  /** true → la APP lo completa sola a partir de otra credencial del servicio.
+   *  La UI no lo pide como campo: lo muestra como resultado ("lo completó MaKo")
+   *  y solo deja editarlo a mano detrás de "cargar a mano". Meta es el caso: de
+   *  sus 6 credenciales, 5 salen del access token (ver lib/meta-descubrir.ts). */
+  auto?: boolean;
 };
 
 export type ServicioMetodo = {
@@ -60,11 +65,11 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'Campañas, gasto, resultados y salud de la cuenta publicitaria. Sin esto no hay métricas de ads ni Ads Manager.',
     campos: [
       { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'EAAG…', nota: 'Lo ÚNICO que tenés que pegar. Token de usuario de sistema (no expira) con los 8 permisos del tutorial: con eso MaKo completa el resto de los campos solo.' },
-      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', placeholder: 'act_1234567890', nota: 'Lo completa MaKo al pegar el token (te pregunta si tenés más de una cuenta).' },
-      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Lo deriva MaKo del token principal. Sirve para traer los datos de los leads de tus formularios (Lead Ads).' },
-      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token (te pregunta si tenés más de un píxel). Se usa para la Conversions API y el creador de campañas.' },
-      { env: 'META_CAPI_TOKEN', label: 'Token de Conversions API', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Avanzado: dejalo vacío. MaKo manda los eventos de CAPI con el token principal. Solo hace falta si el píxel vive en otro negocio que no podés asignar a tu usuario de sistema.' },
-      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Es lo que rutea los leads de tus formularios a tu cuenta.' },
+      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo completa MaKo al pegar el token (te pregunta si tenés más de una cuenta).' },
+      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Lo deriva MaKo del token principal. Sirve para traer los datos de los leads de tus formularios (Lead Ads).' },
+      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token (te pregunta si tenés más de un píxel). Se usa para la Conversions API y el creador de campañas.' },
+      { env: 'META_CAPI_TOKEN', label: 'Token de Conversions API', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Avanzado: dejalo vacío. MaKo manda los eventos de CAPI con el token principal. Solo hace falta si el píxel vive en otro negocio que no podés asignar a tu usuario de sistema.' },
+      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Es lo que rutea los leads de tus formularios a tu cuenta.' },
     ],
     tutorial: {
       url: 'https://business.facebook.com/settings/system-users',
