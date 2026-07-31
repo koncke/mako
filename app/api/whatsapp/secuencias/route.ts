@@ -8,15 +8,20 @@
 import type { NextRequest } from 'next/server';
 import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo } from '@/lib/workspace';
+import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
     const etapa = req.nextUrl.searchParams.get('etapa') || '';
-    const todas = await getSecuenciasConStats();
+    const [todas, envioWhatsapp, envioEmail] = await Promise.all([
+      getSecuenciasConStats(),
+      envioWhatsappHabilitado(),
+      envioEmailHabilitado(),
+    ]);
     const secuencias = etapa ? todas.filter((s) => s.etapa === etapa) : todas;
-    return Response.json({ ok: true, secuencias });
+    return Response.json({ ok: true, secuencias, envioWhatsapp, envioEmail });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[api:whatsapp/secuencias GET] ${msg}`);

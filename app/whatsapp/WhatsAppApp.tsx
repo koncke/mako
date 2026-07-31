@@ -312,6 +312,13 @@ function WhatsAppInner() {
   // Sub-secciones de "Secuencias automáticas": secuencias · plantillas · MaKo.
   const [seqTab, setSeqTab] = useState<'secuencias' | 'plantillas' | 'mako'>('secuencias');
   const [seqEtapaFiltro, setSeqEtapaFiltro] = useState('todas');
+
+  // Interruptor de envío real de WhatsApp del workspace (tarea #5). El estado
+  // del flag lo ve cualquiera (viene en el GET de secuencias); el toggle solo
+  // lo tiene el admin (/api/whatsapp/envio responde 403 al resto).
+  const [envioWaOn, setEnvioWaOn] = useState<boolean | null>(null);
+  const [envioAdmin, setEnvioAdmin] = useState(false);
+  const [envioBusy, setEnvioBusy] = useState(false);
   const [plantillaTarget, setPlantillaTarget] = useState<string | null>(null); // deep-link desde el pop-up de aprobación
   const [plantillaSeed, setPlantillaSeed] = useState<{ objetivo: string; etapa: string } | null>(null); // pre-carga el redactor de MaKo desde el asesor
   const [now, setNow] = useState(0); // reloj para el contador de la ventana de 24h (tick cada 30s)
@@ -332,6 +339,19 @@ function WhatsAppInner() {
   const appendDraft = (s: string) => { if (selId) setDrafts((d) => ({ ...d, [selId]: (d[selId] ?? '') + s })); };
   const setAdjunto = (f: File | null) => { if (selId) setAdjuntos((a) => ({ ...a, [selId]: f })); };
 
+  const toggleEnvioWa = async () => {
+    if (envioWaOn == null || envioBusy) return;
+    setEnvioBusy(true);
+    try {
+      const r = await fetch('/api/whatsapp/envio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: !envioWaOn }) });
+      const j = await r.json();
+      if (j.ok) setEnvioWaOn(Boolean(j.envioHabilitado));
+      else setSeqError(j.error || 'No se pudo cambiar el envío real');
+    } finally {
+      setEnvioBusy(false);
+    }
+  };
+
   // ── Carga inicial (secuencias + plantillas; los contactos vienen del provider) ──
   useEffect(() => {
     void (async () => {
@@ -340,6 +360,7 @@ function WhatsAppInner() {
         const j = await r.json();
         const list: Secuencia[] = j.ok ? j.secuencias : [];
         setSecuencias(list);
+        if (j.ok && typeof j.envioWhatsapp === 'boolean') setEnvioWaOn(j.envioWhatsapp);
         if (list[0]) setSelSeqId(list[0].id);
       } finally {
         setLoadingSeqs(false);
@@ -353,6 +374,14 @@ function WhatsAppInner() {
       } catch {
         /* sin templates */
       }
+    })();
+    void (async () => {
+      try {
+        const r = await fetch('/api/whatsapp/envio');
+        const j = await r.json();
+        if (j.ok) { setEnvioAdmin(true); setEnvioWaOn(Boolean(j.envioHabilitado)); }
+        // 403 = setter/closer: ven el estado pero sin toggle (config admin-only).
+      } catch { /* sin toggle */ }
     })();
   }, []);
 
@@ -929,6 +958,14 @@ function WhatsAppInner() {
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }}></span>API Oficial
             </span>
             <EvolutionConnect />
+            {envioAdmin && envioWaOn != null && (
+              <button onClick={() => void toggleEnvioWa()} disabled={envioBusy} aria-pressed={envioWaOn}
+                title={envioWaOn ? 'El motor manda WhatsApps reales — clic para pausar' : 'Las secuencias no envían: los pasos quedan esperando — clic para activar'}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, border: '1px solid ' + (envioWaOn ? 'var(--good)' : 'var(--border-strong)'), background: envioWaOn ? 'var(--good-bg)' : 'var(--surface)', color: envioWaOn ? 'var(--good)' : 'var(--dim)' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: envioWaOn ? 'var(--good)' : 'var(--faint)' }} />
+                Envío real: {envioWaOn ? 'ON' : 'OFF'}
+              </button>
+            )}
           </div>
         </div>
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
@@ -1212,6 +1249,12 @@ function WhatsAppInner() {
       {/* ============= SECUENCIAS AUTOMÁTICAS (3 sub-secciones) ============= */}
       {!isChats && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {envioWaOn === false && (
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-strong)', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: 'var(--dim)' }}>
+              El <strong style={{ color: 'var(--ink)' }}>envío real de WhatsApp está apagado</strong>: las secuencias no mandan nada y los pasos quedan esperando.
+              {envioAdmin ? ' Se prende con el botón “Envío real” de arriba.' : ' Lo prende el admin del workspace.'}
+            </div>
+          )}
           <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px' }}>
             <button onClick={() => setSeqTab('secuencias')} style={seqTab === 'secuencias' ? tabActive : tabIdle}>Secuencias</button>
             <button onClick={() => setSeqTab('plantillas')} style={seqTab === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>

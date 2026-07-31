@@ -18,6 +18,7 @@ import { OWNER_WS } from './auth-session';
 
 export const KEY_ENVIO_EMAIL = 'envio_email_enabled';
 export const KEY_ENVIO_WHATSAPP = 'envio_whatsapp_enabled';
+export const KEY_CRM_AUTO = 'crm_auto_enabled';
 
 async function flag(key: string, envDeploy: string | undefined): Promise<boolean> {
   const v = await getSetting(key);
@@ -39,10 +40,24 @@ export function envioWhatsappHabilitado(): Promise<boolean> {
   return flag(KEY_ENVIO_WHATSAPP, process.env.NUTRICION_SEND_ENABLED);
 }
 
+/**
+ * ¿Este workspace tiene habilitado el CRM automático (MaKo aplica de verdad)?
+ * Misma semántica que los canales: cliente sin setting = apagado (fail-closed);
+ * el dueño hereda el env CRM_AUTO_ENABLED del deploy. Consultarlo SIEMPRE dentro
+ * de runWithWorkspace en crons — fuera de contexto getSetting cae al dueño.
+ */
+export function crmAutoHabilitado(): Promise<boolean> {
+  return flag(KEY_CRM_AUTO, process.env.CRM_AUTO_ENABLED);
+}
+
 export async function setEnvioEmail(on: boolean): Promise<void> {
   await setSetting(KEY_ENVIO_EMAIL, on ? 'true' : 'false');
 }
 
 export async function setEnvioWhatsapp(on: boolean): Promise<void> {
   await setSetting(KEY_ENVIO_WHATSAPP, on ? 'true' : 'false');
+}
+
+export async function setCrmAuto(on: boolean): Promise<void> {
+  await setSetting(KEY_CRM_AUTO, on ? 'true' : 'false');
 }

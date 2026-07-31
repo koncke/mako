@@ -5,10 +5,10 @@
 // comportamiento del VSL (Camino 1). Canales: email (Resend) y whatsapp
 // (Chatwoot) — se enchufan en hitos siguientes.
 //
-// Hito 0: NO se envía por ningún canal. El cron corre en dry-run (preview, no
-// escribe); con ?commit=1 persiste inscripciones y avanza la máquina de estados
-// marcando los envíos como 'simulado'. El envío REAL quedará además detrás del
-// flag NUTRICION_SEND_ENABLED.
+// El envío REAL de cada canal se decide POR WORKSPACE (lib/envio-flags.ts).
+// Un paso cuyo canal está apagado ESPERA (no se envía ni avanza): si el cliente
+// prende el canal después, la cadencia sigue desde donde quedó. El ?commit=1
+// histórico del cron simula los canales apagados ('simulado', avanza).
 // =============================================================================
 
 import { getTenantDb } from '@/lib/workspace';
@@ -57,7 +57,7 @@ const VENTANA_DIAS = 30;
 
 // ── Rate-limiter / anti-baneo de WhatsApp (defaults conservadores; override por env) ──
 // El envío REAL de cada canal se decide POR WORKSPACE (lib/envio-flags.ts): un
-// canal apagado marca sus pasos como 'omitido' (avanza sin enviar ni contar).
+// canal apagado deja sus pasos ESPERANDO (reintento en 24h, sin enviar ni avanzar).
 const MAX_POR_DIA = Number(process.env.NUTRICION_MAX_POR_DIA ?? '40');        // tope en 24h móviles (por workspace)
 const MAX_POR_CORRIDA = Number(process.env.NUTRICION_MAX_POR_CORRIDA ?? '6'); // tope por corrida del cron
 const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h
@@ -518,6 +518,7 @@ export type ResultadoProceso = {
   enviados: number;
   simulados: number;
   omitidos: number;
+  esperando: number;
   borradores: number;
   fallos: number;
   detalle: Array<{ lead_id: number; canal: string; estado: string; nota?: string }>;
@@ -527,13 +528,15 @@ export type ResultadoProceso = {
 // tope diario (24h móviles), tope por corrida y guard de 20h por lead.
 // El envío REAL de cada canal se decide por workspace (envio-flags):
 //   · canal habilitado  → envío real (WhatsApp exige template aprobado).
-//   · canal apagado     → 'omitido': avanza el paso SIN enviar y sin contar en
-//     KPIs/guard/tope — el cliente eligió no usar ese canal y la cadencia sigue.
+//   · canal apagado     → el paso ESPERA: reintento en 24h, sin enviar ni
+//     avanzar. Antes se marcaba 'omitido' y avanzaba — quemaba la cadencia si
+//     el cliente prendía el canal después, sin reinscripción posible por el
+//     unique(lead, secuencia) (tarea #5).
 //   · opts.simularApagados → los canales apagados se marcan 'simulado' (modo
 //     prueba de la máquina, el ?commit=1 histórico).
 // Un 'fallo' NO avanza el paso (se reintenta), salvo condición terminal.
 export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean }): Promise<ResultadoProceso> {
-  const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, borradores: 0, fallos: 0, detalle: [] };
+  const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, detalle: [] };
   const [waOn, emailOn, sandbox, remitente, instEvo] = await Promise.all([
     envioWhatsappHabilitado(),
     envioEmailHabilitado(),
@@ -604,12 +607,21 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         continue;
       }
 
-      // ¿El canal de este paso está apagado para el workspace? → va directo a
-      // 'omitido' (no envía nada), así que el guard de 20h no aplica.
+      // ¿El canal de este paso está apagado para el workspace? → el paso ESPERA:
+      // reintento en 24h, sin enviar, sin avanzar y sin fila en nutricion_envios
+      // (patrón de la rama 'borrador pendiente'). Prender el canal después
+      // retoma la cadencia desde este mismo paso.
       const canalApagado = !opts?.simularApagados
         && ((paso.canal === 'whatsapp' && !waOn) || (paso.canal === 'email' && !emailOn));
+      if (canalApagado) {
+        res.esperando += 1;
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: `canal ${paso.canal} apagado` });
+        await supabase.from('nutricion_inscripciones')
+          .update({ proximo_envio_at: enHorasISO(24), updated_at: ahoraISO() }).eq('id', insc.id);
+        continue;
+      }
 
-      if (!canalApagado && conEnvioReciente.has(insc.lead_id)) {
+      if (conEnvioReciente.has(insc.lead_id)) {
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
         continue; // no avanzar; se reintenta en otra corrida
       }
@@ -627,10 +639,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // corrida). 4h para fallos transitorios; 24h para los casi-permanentes.
       let backoffHoras = 4;
 
-      if (canalApagado) {
-        estado = 'omitido';
-        nota = `canal ${paso.canal} apagado`;
-      } else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {
+      if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {
         // Canal EMPRESA (no oficial, Evolution). Regla dura del PDF: a leads
         // CALIENTES nunca automático directo → borrador para el setter; a CLIENTES
         // (ya pagaron, riesgo bajo) → envío automático con anti-ban.

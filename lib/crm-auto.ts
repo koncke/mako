@@ -24,6 +24,7 @@ import { hoyEnTijuana } from './date-utils';
 import { buscarReunionesAutomatico } from './auto-reuniones';
 import { contactoIdPorTelefono, getContactMessages } from './chatwoot';
 import { crearConfirmacion, type CrearConfirmacionInput } from './mako-confirmaciones';
+import { crmAutoHabilitado } from './envio-flags';
 import { AUTO_UMBRALES, planLeadAuto, type AutoAccion, type AutoLead, type AutoReglaId } from './crm-auto-plan';
 
 // El planificador PURO (AUTO_UMBRALES/AutoAccion/AutoLead/planLeadAuto) vive en
@@ -251,7 +252,7 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
   return 'skip';
 }
 
-export type AplicarResult = { ws: number; ok: boolean; error?: string; auto?: number; confirmaciones?: number; restantes?: number };
+export type AplicarResult = { ws: number; ok: boolean; modo?: 'commit' | 'off'; error?: string; auto?: number; confirmaciones?: number; restantes?: number };
 
 /** Aplica las acciones del CRM automático en el workspace ACTUAL (modo commit). */
 export async function aplicarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Promise<AplicarResult> {
@@ -279,19 +280,36 @@ export async function aplicarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Pro
   return { ws: 0, ok: true, auto, confirmaciones, restantes };
 }
 
-/** Aplica el CRM automático en TODOS los workspaces activos (modo commit del cron). */
-export async function aplicarAutoTodos(hoyISO: string = hoyEnTijuana()): Promise<AplicarResult[]> {
+/**
+ * Aplica el CRM automático en los workspaces activos. El commit se decide POR
+ * WORKSPACE con crmAutoHabilitado() (setting crm_auto_enabled; el dueño hereda
+ * el env CRM_AUTO_ENABLED; cliente sin setting = apagado): un workspace apagado
+ * se reporta modo 'off' sin tocar ningún lead.
+ *   opts.soloWs  → restringe la corrida a UN workspace (piloto).
+ *   opts.forzar  → ignora el flag (solo para el ?commit=1 manual del cron, que
+ *                  exige ws explícito — nunca fuerza a todos a la vez).
+ */
+export async function aplicarAutoTodos(
+  hoyISO: string = hoyEnTijuana(),
+  opts?: { soloWs?: number; forzar?: boolean },
+): Promise<AplicarResult[]> {
   let workspaces: Array<{ id: number; estado?: string }>;
   try {
     workspaces = (await listarWorkspaces()).filter((w) => w.estado === 'activo');
   } catch {
     workspaces = [{ id: OWNER_WS }];
   }
+  if (opts?.soloWs != null) workspaces = workspaces.filter((w) => w.id === opts.soloWs);
   const out: AplicarResult[] = [];
   for (const w of workspaces) {
     try {
-      const r = await runWithWorkspace(w.id, () => aplicarAutoWorkspace(hoyISO));
-      out.push({ ...r, ws: w.id });
+      const r = await runWithWorkspace(w.id, async (): Promise<AplicarResult> => {
+        // El flag se lee ADENTRO del contexto del workspace: afuera, getSetting
+        // cae al dueño y aplicaría su config a todos los clientes.
+        if (!opts?.forzar && !(await crmAutoHabilitado())) return { ws: w.id, ok: true, modo: 'off' };
+        return { ...(await aplicarAutoWorkspace(hoyISO)), ws: w.id, modo: 'commit' };
+      });
+      out.push(r);
     } catch (e) {
       out.push({ ws: w.id, ok: false, error: e instanceof Error ? e.message : String(e) });
     }
