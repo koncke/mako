@@ -10,7 +10,7 @@
 // (opcional) y el resumen de la voz descubierta, con opción de re-hacerlo.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { PERSONALIDAD_PREGUNTAS, personalidadCompleta, type Personalidad, type PersonalidadPregunta } from '@/lib/personalidad';
+import { PERSONALIDAD_PREGUNTAS, MULETILLAS_OPCIONES, personalidadCompleta, type Personalidad, type PersonalidadPregunta } from '@/lib/personalidad';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -23,7 +23,7 @@ const TOTAL = PERSONALIDAD_PREGUNTAS.length;
 export function PersonalidadView({ onListo }: { onListo?: (listo: boolean) => void } = {}) {
   const [pers, setPers] = useState<Personalidad | null>(null);
   const [idx, setIdx] = useState(0);
-  // 'quiz' → contestando; 'muletillas' → el campo libre final; 'listo' → resumen.
+  // 'quiz' → contestando; 'muletillas' → multi-select final (cerrado); 'listo' → resumen.
   const [etapa, setEtapa] = useState<'quiz' | 'muletillas' | 'listo'>('quiz');
   const [pregunta, setPregunta] = useState<PersonalidadPregunta | null>(null);
   const [cargandoPreg, setCargandoPreg] = useState(false);
@@ -132,17 +132,30 @@ export function PersonalidadView({ onListo }: { onListo?: (listo: boolean) => vo
     );
   }
 
-  // ── Muletillas (paso final, opcional) ──────────────────────────────────────
+  // ── Muletillas (paso final, opcional) — MULTI-SELECT, nunca campo libre ────
   if (etapa === 'muletillas') {
+    const elegidas = muletillas ? muletillas.split(' · ').filter(Boolean) : [];
+    const toggle = (m: string) => {
+      const nuevas = elegidas.includes(m) ? elegidas.filter((x) => x !== m) : [...elegidas, m];
+      setMuletillas(nuevas.join(' · '));
+    };
     return (
       <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center' }}>
         {css}
         <div style={{ ...eyebrow, marginBottom: 16 }}>Última — {TOTAL + 1} de {TOTAL + 1}</div>
-        <h2 style={{ fontSize: 21, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 8px', lineHeight: 1.3 }}>¿Muletillas o frases que SIEMPRE dices?</h2>
-        <div style={{ fontSize: 12.5, color: 'var(--faint)', marginBottom: 14 }}>Opcional — MaKo las mete en tus guiones de forma natural.</div>
-        <textarea value={muletillas} rows={2} placeholder={'ej: "ojo con esto", "te lo juro", "va de nuevo"…'}
-          onChange={(e) => setMuletillas(e.target.value)}
-          style={{ width: '100%', padding: '11px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, lineHeight: 1.5, resize: 'vertical', outline: 'none', textAlign: 'left' }} />
+        <h2 style={{ fontSize: 21, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 8px', lineHeight: 1.3 }}>¿Cuáles de estas frases SÍ dices seguido?</h2>
+        <div style={{ fontSize: 12.5, color: 'var(--faint)', marginBottom: 14 }}>Marca las que suenen a ti (las que quieras, o ninguna) — MaKo las mete en tus guiones de forma natural.</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center' }}>
+          {MULETILLAS_OPCIONES.map((m) => {
+            const on = elegidas.includes(m);
+            return (
+              <button key={m} type="button" onClick={() => toggle(m)}
+                style={{ fontFamily: SANS, fontSize: 12.5, padding: '8px 13px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)', fontWeight: on ? 600 : 500 }}>
+                {on ? '✓ ' : ''}{m}
+              </button>
+            );
+          })}
+        </div>
         <div style={{ marginTop: 16, display: 'flex', gap: 14, justifyContent: 'center', alignItems: 'center' }}>
           <button type="button" onClick={atras} style={linkBtn}>← Atrás</button>
           <button type="button" onClick={terminar} style={{ padding: '11px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Terminar →</button>

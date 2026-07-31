@@ -24,7 +24,7 @@ type Avatar = { id: string; nombre: string; segmento: string; senalesMeta: strin
 type Celda = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guiones: GuionItem[]; imagenUrl: string; anguloImagen: string; anguloVideo: string };
 type AnguloGuionLite = { id: string; nombre: string; emoji: string; cuando: string; estructuras: string[] };
 type EstructuraLite = { id: string; nombre: string; emoji: string; cuando: string };
-type Estado = { razones: Celda[]; avatares: Avatar[]; tieneAvatares: boolean; tieneBrief: boolean; angulosGuion: AnguloGuionLite[]; estructurasGuion: EstructuraLite[]; siguientePasoDefault: string };
+type Estado = { razones: Celda[]; avatares: Avatar[]; tieneAvatares: boolean; tieneBrief: boolean; angulosGuion: AnguloGuionLite[]; estructurasGuion: EstructuraLite[]; siguientePasoDefault: string; siguientePasoOpciones: string[] };
 type Entregable = { id: string; nombre: string; tipo: string; queEs: string; fomo: string };
 type TabModal = 'contexto' | 'guiones' | 'imagen' | 'video';
 type PreguntaCerrada = { pregunta: string; opciones: string[] };
@@ -126,8 +126,8 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
     try {
       const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guion-sugerir', id, ...(anguloId ? { anguloId } : {}) }) })).json();
       if (j.ok) {
-        const s = j.sugerencia as { anguloId: string; porQue: string; estructuraId: string; preguntas: PreguntaCerrada[] };
-        setNuevo({ fase: 'elegir', anguloId: s.anguloId, porQue: s.porQue, estructuraId: s.estructuraId, preguntas: s.preguntas, elegidas: s.preguntas.map(() => null), siguientePaso: est?.siguientePasoDefault ?? '', cambiandoAngulo: false });
+        const s = j.sugerencia as { anguloId: string; porQue: string; estructuraId: string; siguientePaso: string; preguntas: PreguntaCerrada[] };
+        setNuevo({ fase: 'elegir', anguloId: s.anguloId, porQue: s.porQue, estructuraId: s.estructuraId, preguntas: s.preguntas, elegidas: s.preguntas.map(() => null), siguientePaso: s.siguientePaso || est?.siguientePasoDefault || '', cambiandoAngulo: false });
       } else {
         setNuevo({ fase: 'elegir', anguloId: anguloId ?? '', porQue: '', estructuraId: '', preguntas: [], elegidas: [], siguientePaso: est?.siguientePasoDefault ?? '', cambiandoAngulo: !anguloId });
       }
@@ -313,6 +313,7 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
                     angulos={est?.angulosGuion ?? []}
                     estructuras={est?.estructurasGuion ?? []}
                     siguientePasoDefault={est?.siguientePasoDefault ?? ''}
+                    siguientePasoOpciones={est?.siguientePasoOpciones ?? []}
                     nuevo={nuevo} setNuevo={setNuevo}
                     genGuion={genGuion}
                     copiado={copiado}
@@ -360,11 +361,12 @@ type NuevoGuion = {
   siguientePaso: string;
   cambiandoAngulo: boolean;
 };
-function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, nuevo, setNuevo, genGuion, copiado, onAuto, onSugerir, onGenerar, onEditarGuion, onBorrarGuion, onCopiar, onDescargar }: {
+function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguientePasoOpciones, nuevo, setNuevo, genGuion, copiado, onAuto, onSugerir, onGenerar, onEditarGuion, onBorrarGuion, onCopiar, onDescargar }: {
   celda: Celda;
   angulos: AnguloGuionLite[];
   estructuras: EstructuraLite[];
   siguientePasoDefault: string;
+  siguientePasoOpciones: string[];
   nuevo: NuevoGuion | null;
   setNuevo: (n: NuevoGuion | null) => void;
   genGuion: false | 'auto' | 'manual';
@@ -476,7 +478,7 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, nuevo, 
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Qué ve o recibe la persona justo después de hacer clic?</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {[siguientePasoDefault, 've un video de ventas (VSL) y después puede agendar una llamada', 'recibe un recurso gratis por WhatsApp', 'recibe una cotización por WhatsApp', 'se registra a un webinar en vivo', 'compra directo en la página'].filter((o, i, arr) => o && arr.indexOf(o) === i).map((o) =>
+                {siguientePasoOpciones.map((o) =>
                   chipCta(o, nuevo.siguientePaso === o, () => setNuevo({ ...nuevo, siguientePaso: o })))}
               </div>
             </div>

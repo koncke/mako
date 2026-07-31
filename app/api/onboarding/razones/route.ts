@@ -14,7 +14,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
 import { getAvatares } from '@/lib/avatares';
-import { generarRazones, getRazones, setRazones, generarGuion, sugerirGuion, siguientePasoDefault, type RazonCelda, type GuionItem } from '@/lib/razones';
+import { generarRazones, getRazones, setRazones, generarGuion, sugerirGuion, siguientePasoDefault, siguientePasoOpciones, type RazonCelda, type GuionItem } from '@/lib/razones';
 import { getAngulosGuion } from '@/lib/guion-angulos-store';
 import { getEstructurasGuion } from '@/lib/guion-estructuras-store';
 import { elegirAngulo, formatoPorId, type Medio } from '@/lib/angulos-formatos';
@@ -27,8 +27,8 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
 async function estado() {
-  const [razones, avatares, answers, angulosGuion, estructurasGuion, pasoDefault] = await Promise.all([
-    getRazones(), getAvatares(), getAnswers(), getAngulosGuion(), getEstructurasGuion(), siguientePasoDefault(),
+  const [razones, avatares, answers, angulosGuion, estructurasGuion, pasoDefault, pasoOpciones] = await Promise.all([
+    getRazones(), getAvatares(), getAnswers(), getAngulosGuion(), getEstructurasGuion(), siguientePasoDefault(), siguientePasoOpciones(),
   ]);
   return {
     razones, avatares,
@@ -40,6 +40,7 @@ async function estado() {
     angulosGuion: angulosGuion.filter((a) => a.activo).map(({ id, nombre, emoji, cuando, estructuras }) => ({ id, nombre, emoji, cuando, estructuras })),
     estructurasGuion: estructurasGuion.filter((e) => e.activo).map(({ id, nombre, emoji, cuando }) => ({ id, nombre, emoji, cuando })),
     siguientePasoDefault: pasoDefault,
+    siguientePasoOpciones: pasoOpciones,
   };
 }
 
@@ -106,6 +107,9 @@ export async function POST(req: NextRequest) {
         const r = await generarGuion(id, {
           anguloId: sug.ok ? sug.sugerencia.anguloId : undefined,
           estructuraId: sug.ok ? sug.sugerencia.estructuraId : undefined,
+          // El siguiente paso lo sugiere la IA acorde al ÁNGULO (lead magnet →
+          // recibir el recurso, no una llamada); sin sugerencia cae al default.
+          siguientePaso: sug.ok && sug.sugerencia.siguientePaso ? sug.sugerencia.siguientePaso : undefined,
           formatoVideoTexto: fmt ? `${fmt.nombre} — ${fmt.descripcion} (ej: ${fmt.ejemplo})` : undefined,
           timeoutMs: 25000,
         });

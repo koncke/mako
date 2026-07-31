@@ -195,6 +195,7 @@ export const GUION_SYSTEM_TEMPLATE = `Sos MaKo, escribiendo el GUION de un anunc
 EL ANGULO DE ESTE GUION: {{anguloNombre}}
 {{anguloInstrucciones}}
 Todo el guion se juega a ESTE angulo. No lo mezcles con otros enfoques: un anuncio, un angulo, un mensaje.
+EL ANGULO MANDA: el bloque de APERTURA sale de los PATRONES DE HOOK del angulo de arriba (adaptado al negocio real) — no de la guia generica de la estructura ni del copy de la celda. Si chocan, gana el patron del angulo.
 
 ANTES DE ESCRIBIR: UN SOLO MENSAJE
 Un anuncio ganador cuelga de UNA sola idea. Regla de tijera: cada linea que escribas, pregunta "¿esto sirve al angulo y al unico mensaje, o es solo un dato que suena bien?". Si es lo segundo, se corta. No metas mecanismos, procesos internos, features secundarias, ni una segunda promesa "por las dudas". Test final: si alguien solo escucha la primera y la ultima frase, ¿ya entiende de que se trata y que tiene que hacer?
@@ -212,13 +213,14 @@ TONO Y PERSONALIDAD DEL CREADOR (escribi TODO el guion con esta voz — es SU an
 {{tono}}
 
 REGLAS
+- UN SOLO LEAD MAGNET / UNA SOLA COSA A VENDER. Si el contexto trae VARIOS lead magnets o recursos, elegi UNO SOLO (el que mejor calza con la motivacion de este anuncio) y el guion entero vende SOLO ese. Los demas NO EXISTEN en este guion: no los nombres, no los enumeres, no armes un "paquete" de varios. Y al nombrarlo, decilo en lenguaje simple (que es y que le resuelve), no con su nombre interno largo.
 - SOLO DIALOGO HABLADO. El guion es unicamente lo que la persona DICE en voz alta. No escribas direcciones de camara, acciones en pantalla, ni nada entre parentesis describiendo lo que se ve, se muestra o se hace. Nada de "(Accion: ...)", "(zoom a...)", "(pantalla muestra...)".
 - CERO JERGA INTERNA. Nunca digas en voz alta el nombre propio de un sistema, protocolo, matriz, dashboard o metodologia interna tal cual esta en el contexto. Traduci cualquier concepto interno a una descripcion simple, de la calle, que una persona sin ningun contexto entienda al primer escuchazo — como si se lo explicaras a un amigo, no como si presentaras un sistema interno a un empleado.
 - CERO CONTEXTO PREVIO ASUMIDO. Tiene que sonar a anuncio normal que cualquiera entiende, no a briefing interno ni a demo para el equipo.
 - Concreto, anclado en el dolor/deseo REAL del avatar. Sin relleno, sin promesas vacias, sin cifras ni garantias que no esten en el contexto.
 - Si el dueño te dejo una NOTA sobre que quiere comunicar, respetala — manda sobre cualquier default.
 - Marca las partes EXACTAMENTE con estas etiquetas, en mayusculas, cada una sola en su propia linea, sin texto extra en esa linea: {{etiquetas}}. No cambies el nombre, el orden ni el formato: la app las usa para separar el guion en tarjetas.
-- IDIOMA: espanol NEUTRO/MEXICANO, sin voseo argentino. Si el tono de arriba define tu/usted, respetalo; si no, de "tu".
+- IDIOMA: la voz de la PERSONALIDAD manda. Si define VOSEO, escribi TODO el guion de "vos" con las conjugaciones correctas (vos sabes/sabés, tenes/tenés, hace/hacé, mira/mirá); si define "tu" o "usted", respetalo en todo el guion. Solo si no hay personalidad definida: espanol neutro/mexicano de "tu".
 
 Devolve SOLO el texto del guion (sin JSON, sin explicaciones antes o despues).`;
 
@@ -236,6 +238,21 @@ export async function siguientePasoDefault(): Promise<string> {
   return diag?.canal ? PASO_TXT[diag.canal] : 'no especificado — usa el CTA más genérico y verdadero posible (pedir más información), sin inventar activos';
 }
 
+/** La LISTA CERRADA de siguientes pasos posibles (la del funnel primero). Es la
+ *  única fuente: los chips de la UI, la sugerencia de la IA y el modo auto
+ *  eligen SIEMPRE de acá — nunca un texto libre. */
+export async function siguientePasoOpciones(): Promise<string[]> {
+  const base = [
+    await siguientePasoDefault(),
+    've un video de ventas (VSL) y después puede agendar una llamada',
+    'recibe un recurso gratis por WhatsApp',
+    'recibe una cotización por WhatsApp',
+    'se registra a un webinar en vivo',
+    'compra directo en la página',
+  ];
+  return base.filter((o, i) => o && base.indexOf(o) === i);
+}
+
 // ── Sugerencia de guion: MaKo elige TODO (la IA facilita, no interroga) ──────
 // Pedido explícito del dueño: crear un guion se volvió "super complejo, me pide
 // muchas preguntas abiertas". La regla nueva: la IA sugiere el ángulo y la
@@ -243,7 +260,7 @@ export async function siguientePasoDefault(): Promise<string> {
 // preguntas CERRADAS con opciones concretas sacadas del contexto real — el dueño
 // solo toca un botón. NUNCA una pregunta abierta.
 export type PreguntaCerrada = { pregunta: string; opciones: string[] };
-export type SugerenciaGuion = { anguloId: string; porQue: string; estructuraId: string; preguntas: PreguntaCerrada[] };
+export type SugerenciaGuion = { anguloId: string; porQue: string; estructuraId: string; siguientePaso: string; preguntas: PreguntaCerrada[] };
 
 export const SUGERIR_GUION_TEMPLATE = `Sos MaKo, PREPARANDO (todavia no escribiendo) el guion de un anuncio de video para Meta. Tu trabajo es que el dueño del negocio no tenga que pensar ni redactar NADA: vos elegis y el, como mucho, toca un boton.
 
@@ -257,7 +274,10 @@ Te paso el contexto del negocio, el avatar y su motivacion de compra (la celda),
 2. ESTRUCTURA
 - De las estructuras COMPATIBLES del angulo elegido, la que mejor calza para este caso.
 
-3. PREGUNTAS CERRADAS (maximo 3, pueden ser 0)
+3. SIGUIENTE PASO (define el CTA)
+- De la LISTA CERRADA de siguientes pasos que te paso, elegi el que mejor calza con el ANGULO y el negocio. Ejemplo: con el angulo de Lead Magnet, el paso natural es el de recibir el recurso — no una llamada. Copia el texto EXACTO de la opcion elegida.
+
+4. PREGUNTAS CERRADAS (maximo 3, pueden ser 0)
 El angulo trae preguntas pensadas para sacarle material concreto al dueño. NO se las hagas abiertas: converti cada una en una pregunta CERRADA con 2 a 4 OPCIONES ya escritas por vos, con material REAL del contexto (SU negocio, SU avatar, SU motivacion). El dueño solo elige la que mas le suena.
 - Opciones cortas (maximo ~18 palabras), concretas, en primera persona del dueño cuando aplique.
 - Genuinamente DISTINTAS entre si, y TODAS verosimiles para ESTE negocio (nada generico, nada de "otro").
@@ -265,7 +285,7 @@ El angulo trae preguntas pensadas para sacarle material concreto al dueño. NO s
 - NO inventes datos duros (cifras, nombres de clientes, resultados) que no esten en el contexto.
 
 Devolve EXCLUSIVAMENTE un objeto JSON valido (sin markdown, sin texto afuera):
-{"anguloId":"","porQue":"","estructuraId":"","preguntas":[{"pregunta":"","opciones":["",""]}]}`;
+{"anguloId":"","porQue":"","estructuraId":"","siguientePaso":"","preguntas":[{"pregunta":"","opciones":["",""]}]}`;
 
 const preguntasCerradasDe = (v: unknown): PreguntaCerrada[] => {
   if (!Array.isArray(v)) return [];
@@ -284,8 +304,8 @@ export async function sugerirGuion(celdaId: string, opts: { anguloId?: string; t
     const razones = await getRazones();
     const celda = razones.find((r) => r.id === celdaId);
     if (!celda) return { ok: false, error: 'Celda no encontrada.' };
-    const [brief, avatares, entregables, angulos, estructuras] = await Promise.all([
-      perfilNegocioTexto(), getAvatares(), getEntregables(), getAngulosGuion(), getEstructurasGuion(),
+    const [brief, avatares, entregables, angulos, estructuras, pasos] = await Promise.all([
+      perfilNegocioTexto(), getAvatares(), getEntregables(), getAngulosGuion(), getEstructurasGuion(), siguientePasoOpciones(),
     ]);
     const activos = angulos.filter((a) => a.activo);
     const activas = estructuras.filter((e) => e.activo);
@@ -311,6 +331,9 @@ ${candidatos.map((a) => `- anguloId "${a.id}" · ${a.nombre} · Cuándo: ${a.cua
 ESTRUCTURAS ACTIVAS:
 ${activas.map((e) => `- estructuraId "${e.id}" · ${e.nombre} · Cuándo: ${e.cuando}`).join('\n')}
 
+SIGUIENTES PASOS POSIBLES (elegí UNO, copiá el texto exacto; el 1ro es el default del funnel):
+${pasos.map((p) => `- "${p}"`).join('\n')}
+
 Devolvé solo el JSON.`;
 
     const parsear = (t: string): SugerenciaGuion | null => {
@@ -322,7 +345,10 @@ Devolvé solo el JSON.`;
           activas.find((e) => e.id === str(raw.estructuraId) && (!angulo.estructuras.length || angulo.estructuras.includes(e.id))) ??
           angulo.estructuras.map((id) => estructuraPorId(activas, id)).find(Boolean) ??
           activas[0];
-        return { anguloId: angulo.id, porQue: str(raw.porQue).slice(0, 240), estructuraId: estructura?.id ?? '', preguntas: preguntasCerradasDe(raw.preguntas) };
+        // El siguiente paso tiene que ser UNO de la lista cerrada (si la IA lo
+        // parafraseó, se descarta y decide el default del funnel).
+        const siguientePaso = pasos.includes(str(raw.siguientePaso)) ? str(raw.siguientePaso) : '';
+        return { anguloId: angulo.id, porQue: str(raw.porQue).slice(0, 240), estructuraId: estructura?.id ?? '', siguientePaso, preguntas: preguntasCerradasDe(raw.preguntas) };
       } catch { return null; }
     };
 

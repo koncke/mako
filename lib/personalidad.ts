@@ -45,6 +45,7 @@ export const PERSONALIDAD_PREGUNTAS: PersonalidadPregunta[] = [
     opciones: [
       { texto: "Usted sabe lo difícil que es conseguir clientes constantes.", rasgo: "trato de usted, respetuoso y formal" },
       { texto: "Tú sabes lo difícil que es conseguir clientes constantes.", rasgo: "tuteo cercano, habla de igual a igual" },
+      { texto: "Vos sabés lo difícil que es conseguir clientes constantes.", rasgo: "voseo argentino/rioplatense — TODO el guion se escribe de vos (vos sabés, vos tenés, hacé, mirá)" },
     ],
   },
   {
@@ -115,6 +116,23 @@ export const PERSONALIDAD_PREGUNTAS: PersonalidadPregunta[] = [
       { texto: "Quiero explicarte con calma por qué esto es tan importante, porque cuando lo entiendas, todo lo demás va a hacer clic.", rasgo: "explicativo, oraciones largas y pausadas" },
     ],
   },
+];
+
+// Muletillas: paso final del quiz, MULTI-SELECT cerrado (regla dura: nunca un
+// campo libre en un formulario). El dueño marca las que de verdad dice; se
+// guardan unidas en `muletillas` (string), así el prompt y los datos viejos
+// escritos a mano siguen funcionando igual.
+export const MULETILLAS_OPCIONES: string[] = [
+  'Te soy honesto…',
+  'La verdad es que…',
+  'Ojo con esto.',
+  'Y esto es lo importante:',
+  'Te lo digo de frente:',
+  'Cero humo.',
+  'Es más simple de lo que parece.',
+  'No te compliques.',
+  'Al final del día…',
+  'Créeme / creeme:',
 ];
 
 /** ¿Contestó todas las preguntas del quiz? (muletillas es opcional). */
