@@ -72,7 +72,7 @@ function ChipEstadoUsuario({ estado }: { estado: Usuario['estado'] }) {
 // AdminView
 // =============================================================================
 export function AdminView() {
-  const [tab, setTab] = useState<'clientes' | 'superadmins' | 'copy'>('clientes');
+  const [tab, setTab] = useState<'clientes' | 'superadmins' | 'copy' | 'angulos'>('clientes');
 
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
@@ -110,7 +110,7 @@ export function AdminView() {
     </header>
   );
 
-  const tabBtn = (id: 'clientes' | 'superadmins' | 'copy'): CSSProperties => ({
+  const tabBtn = (id: 'clientes' | 'superadmins' | 'copy' | 'angulos'): CSSProperties => ({
     padding: '10px 2px', marginRight: 26, background: 'transparent', border: 'none', cursor: 'pointer',
     fontFamily: SANS, fontSize: 15, fontWeight: tab === id ? 600 : 500,
     color: tab === id ? 'var(--ink)' : 'var(--dim)',
@@ -121,6 +121,7 @@ export function AdminView() {
     <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
       <button style={tabBtn('clientes')} onClick={() => setTab('clientes')}>Clientes</button>
       <button style={tabBtn('superadmins')} onClick={() => setTab('superadmins')}>Super Admins</button>
+      <button style={tabBtn('angulos')} onClick={() => setTab('angulos')}>Ángulos de guion</button>
     </div>
   );
 
@@ -153,6 +154,7 @@ export function AdminView() {
         {tab === 'clientes' && <TabClientes workspaces={workspaces} usuarios={usuarios} recargar={cargar} />}
         {tab === 'superadmins' && <TabSuperAdmins usuarios={usuarios} sesion={sesion} recargar={cargar} />}
         {tab === 'copy' && <TabCopywriting />}
+        {tab === 'angulos' && <TabAngulosGuion />}
       </div>
     </main>
   );
@@ -741,6 +743,113 @@ function TabCopywriting() {
           onConfirm={() => { const ej = aBorrar; setABorrar(null); borrar(ej.id); }}
         />
       )}
+    </div>
+  );
+}
+
+// =============================================================================
+// TAB — Ángulos de guion (la biblioteca que alimenta "Nuevo guion" en la Matriz)
+// =============================================================================
+// Edita el catálogo GLOBAL (todos los workspaces): nombre, cuándo usarlo, las
+// instrucciones que recibe la IA (con los patrones de hook) y la estructura.
+// Guardar persiste el override completo; "Restaurar defaults" vuelve al catálogo
+// de código (lib/guion-angulos.ts).
+type AnguloGuionEd = { id: string; nombre: string; emoji: string; cuando: string; instrucciones: string; estructura: string; activo: boolean };
+
+const ESTRUCTURA_OPTS = [
+  { value: 'gancho-historia-cta', label: 'Gancho → Historia → CTA' },
+  { value: 'gancho-valor-cta', label: 'Gancho → Valor → CTA' },
+  { value: 'gancho-propuesta-cta', label: 'Gancho → Propuesta → CTA' },
+];
+
+function TabAngulosGuion() {
+  const [angulos, setAngulos] = useState<AnguloGuionEd[] | null>(null);
+  const [abierto, setAbierto] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/guion-angulos').then((r) => r.json()).then((j) => {
+      if (j.ok) setAngulos(j.angulos as AnguloGuionEd[]); else setError(j.error || 'No se pudo cargar.');
+    }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, []);
+
+  const editar = (id: string, patch: Partial<AnguloGuionEd>) => {
+    setAngulos((as) => (as ? as.map((a) => (a.id === id ? { ...a, ...patch } : a)) : as));
+    setMsg(null);
+  };
+  const agregar = () => {
+    const id = `angulo-${Date.now().toString(36)}`;
+    setAngulos((as) => ([...(as ?? []), { id, nombre: 'Nuevo ángulo', emoji: '🎬', cuando: '', instrucciones: '', estructura: 'gancho-historia-cta', activo: true }]));
+    setAbierto(id);
+    setMsg(null);
+  };
+  const borrarAngulo = (id: string) => { setAngulos((as) => (as ? as.filter((a) => a.id !== id) : as)); setMsg(null); };
+
+  const guardar = async (accion: 'guardar' | 'reset') => {
+    setGuardando(true); setError(null); setMsg(null);
+    try {
+      const body = accion === 'reset' ? { action: 'reset' } : { action: 'guardar', angulos };
+      const j = await (await fetch('/api/admin/guion-angulos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+      if (!j.ok) { setError(j.error || 'No se pudo guardar.'); return; }
+      setAngulos(j.angulos as AnguloGuionEd[]);
+      setMsg(accion === 'reset' ? 'Catálogo restaurado a los defaults.' : 'Catálogo guardado — ya está vivo para todos los clientes.');
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setGuardando(false); }
+  };
+
+  if (error && !angulos) return <div style={bannerError}>{error}</div>;
+  if (!angulos) return <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
+        La biblioteca de <b>ángulos de guion</b> que ven todos los clientes al crear un guion en la Matriz (dolor, testimonio, lead magnet…). Las <b>instrucciones</b> son lo que recibe la IA — incluye ahí los patrones de hook del ángulo.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {angulos.map((a) => {
+          const on = abierto === a.id;
+          return (
+            <div key={a.id} style={{ ...card, padding: 0, overflow: 'hidden', opacity: a.activo ? 1 : 0.55 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px' }}>
+                <button type="button" onClick={() => setAbierto(on ? null : a.id)} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS, padding: 0 }}>
+                  <span aria-hidden style={{ fontSize: 17, flex: 'none' }}>{a.emoji}</span>
+                  <span style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', flex: 'none' }}>{a.nombre}</span>
+                  <span style={{ fontSize: 12, color: 'var(--faint)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.cuando}</span>
+                  <span aria-hidden style={{ marginLeft: 'auto', flex: 'none', color: 'var(--faint)', fontSize: 12, transform: on ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+                </button>
+                <button type="button" onClick={() => editar(a.id, { activo: !a.activo })} style={{ ...btnGhost, padding: '6px 11px', fontSize: 12 }}>{a.activo ? 'Activo' : 'Apagado'}</button>
+                <button type="button" onClick={() => borrarAngulo(a.id)} aria-label="Borrar" style={{ ...btnGhost, padding: '6px 9px', fontSize: 12 }}>✕</button>
+              </div>
+              {on && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr 1fr', gap: 10 }}>
+                    <div><label style={labelStyle}>Emoji</label><input style={input} value={a.emoji} onChange={(e) => editar(a.id, { emoji: e.target.value })} /></div>
+                    <div><label style={labelStyle}>Nombre</label><input style={input} value={a.nombre} onChange={(e) => editar(a.id, { nombre: e.target.value })} /></div>
+                    <div>
+                      <label style={labelStyle}>Estructura</label>
+                      <Dropdown value={a.estructura} onChange={(v) => editar(a.id, { estructura: v })} width="100%" options={ESTRUCTURA_OPTS} />
+                    </div>
+                  </div>
+                  <div><label style={labelStyle}>Cuándo usarlo (1 frase, se ve en la card)</label><input style={input} value={a.cuando} onChange={(e) => editar(a.id, { cuando: e.target.value })} /></div>
+                  <div>
+                    <label style={labelStyle}>Instrucciones para la IA (incluye los patrones de hook)</label>
+                    <textarea rows={6} style={{ ...input, lineHeight: 1.55, resize: 'vertical' }} value={a.instrucciones} onChange={(e) => editar(a.id, { instrucciones: e.target.value })} />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <button type="button" onClick={agregar} style={btnGhost}>+ Agregar ángulo</button>
+        <button type="button" onClick={() => guardar('guardar')} disabled={guardando} style={{ ...btnDark, opacity: guardando ? 0.6 : 1 }}>{guardando ? 'Guardando…' : 'Guardar cambios'}</button>
+        <button type="button" onClick={() => guardar('reset')} disabled={guardando} style={btnGhost}>Restaurar defaults</button>
+        {msg && <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>{msg}</span>}
+        {error && <span style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600 }}>{error}</span>}
+      </div>
     </div>
   );
 }

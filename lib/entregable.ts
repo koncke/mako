@@ -57,11 +57,11 @@ export function entregablesTexto(gs: Entregable[]): string {
 }
 
 // ── Prompt (editable en /configuraciones) ────────────────────────────────────
-export const ENTREGABLE_SYSTEM_TEMPLATE = `Sos MaKo, encontrando el ENTREGABLE de un negocio: su elemento TANGIBLE y CONCRETO que hace que la oferta se entienda rápido y genere CURIOSIDAD/FOMO en los anuncios de Meta. NO es un sentimiento ni una promesa: es una COSA que el cliente entrega o usa (un dashboard, una planilla de Excel, un documento, una metodología CON NOMBRE, un software, un checklist, una plantilla).
+export const ENTREGABLE_SYSTEM_TEMPLATE = `Sos MaKo, encontrando el LEAD MAGNET de un negocio: su elemento TANGIBLE y CONCRETO que hace que la oferta se entienda rápido y genere CURIOSIDAD/FOMO en los anuncios de Meta. NO es un sentimiento ni una promesa: es una COSA que el cliente entrega o usa (un dashboard, una planilla de Excel, un documento, una metodología CON NOMBRE, un software, un checklist, una plantilla).
 
 Ejemplos del concepto: "instala un DASHBOARD de objetivos con cada cliente" → permite el copy "si tus empleados no cumplen sus objetivos es porque te falta ESTE dashboard". Una "metodología de 4 pasos con nombre propio" también sirve.
 
-Encontrá 1 a 3 ENTREGABLES candidatos para ESTE negocio (según lo que ya dice el brief). Si el negocio no menciona uno claro, PROPONÉ el más plausible que podría crear/mostrar (y decilo natural). Cada entregable:
+Encontrá 1 a 3 LEAD MAGNETS candidatos para ESTE negocio (según lo que ya dice el brief). Si el negocio no menciona uno claro, PROPONÉ el más plausible que podría crear/mostrar (y decilo natural). Cada entregable:
 - "nombre": el nombre del elemento tangible, corto y concreto (ej: "Dashboard de Objetivos por Empleado", "Planilla de Escala 90 días").
 - "tipo": qué clase de elemento es. UNO de: Dashboard, Planilla Excel, Documento, Metodología, Software, Checklist, Plantilla, Otro.
 - "queEs": qué es concretamente y qué resuelve, en 1-2 frases claras.
@@ -78,7 +78,7 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto afuera) 
 export const ENTREGABLE_USER_TEMPLATE = `CONTEXTO DEL NEGOCIO (datos reales del Archivero):
 {{brief}}
 {{panorama}}{{respuestas}}
-Encontrá 1-3 entregables tangibles. Devolvé solo el JSON.`;
+Encontrá 1-3 lead magnets tangibles. Devolvé solo el JSON.`;
 
 // ── Parseo ────────────────────────────────────────────────────────────────────
 export function parseEntregables(text: string): Entregable[] {
@@ -97,10 +97,10 @@ export function parseEntregables(text: string): Entregable[] {
 export type PreguntaDinamica = { pregunta: string; tipo: 'opciones' | 'archivo'; opciones: string[] };
 export type PasoHistorial = { pregunta: string; respuesta: string };
 
-const ENTREGABLE_SIGUIENTE_SYSTEM = `Sos MaKo, ayudando a un dueño de negocio a definir su ENTREGABLE tangible: el elemento CONCRETO que genera FOMO en los ads (un dashboard, una planilla, una metodología con nombre, un checklist, un software, una plantilla). Vas de a UNA pregunta cerrada por vez, adaptando la siguiente a lo que ya te contestó — nunca repitas algo que ya sabés.
+const ENTREGABLE_SIGUIENTE_SYSTEM = `Sos MaKo, ayudando a un dueño de negocio a definir su LEAD MAGNET: el elemento tangible y CONCRETO que genera FOMO en los ads. En tus preguntas llamalo siempre "lead magnet" (un dashboard, una planilla, una metodología con nombre, un checklist, un software, una plantilla). Vas de a UNA pregunta cerrada por vez, adaptando la siguiente a lo que ya te contestó — nunca repitas algo que ya sabés.
 
 REGLAS:
-- Si con lo que ya te contestó tenés suficiente para proponerle un entregable concreto con confianza, o ya van 3 preguntas, respondé {"terminado":true} — no sigas preguntando de más.
+- Si con lo que ya te contestó tenés suficiente para proponerle un lead magnet concreto con confianza, o ya van 3 preguntas, respondé {"terminado":true} — no sigas preguntando de más.
 - Si el dueño te dijo que YA TIENE algo concreto (ej: "una plantilla", "un dashboard que ya uso") y todavía no lo mostró, la siguiente pregunta puede ser tipo "archivo": invitalo a subir una imagen o captura de eso. Si en un paso anterior ya declinó subir algo, NO se lo vuelvas a pedir — seguí con preguntas de opciones.
 - Si no, hacé una pregunta tipo "opciones" con 3-4 opciones CONCRETAS y ACCIONABLES para ESTE negocio real (nunca genéricas de manual — usá el contexto de verdad).
 - Español neutro/mexicano, de "tú".
@@ -124,7 +124,7 @@ CONVERSACIÓN HASTA AHORA:
 // "le puse 'Sí lo tengo claro' y no me preguntó nada"). Con una fallback por posición,
 // esa garantía no depende de que la IA responda bien las dos veces seguidas.
 const FALLBACKS_ENT: PreguntaDinamica[] = [
-  { pregunta: '¿Ya tienes un entregable tangible específico en mente?', tipo: 'opciones', opciones: ['Sí, lo tengo muy claro', 'Tengo una idea, pero no está definida', 'No, que MaKo lo proponga'] },
+  { pregunta: '¿Ya tienes un lead magnet específico en mente?', tipo: 'opciones', opciones: ['Sí, lo tengo muy claro', 'Tengo una idea, pero no está definida', 'No, que MaKo lo proponga'] },
   { pregunta: '¿Puedes subir una foto o captura de eso que ya tienes?', tipo: 'archivo', opciones: [] },
 ];
 
@@ -192,7 +192,7 @@ export async function generarEntregables(respuestas?: Array<{ pregunta: string; 
   try {
     const [brief, panorama] = await Promise.all([perfilNegocioTexto(), getPanorama()]);
     if (!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20) {
-      return { ok: false, error: 'Primero carga tu negocio en El Archivero: de ahí sale el entregable.' };
+      return { ok: false, error: 'Primero carga tu negocio en El Archivero: de ahí sale el lead magnet.' };
     }
     const respTxt = respuestas && respuestas.length
       ? `\nRESPUESTAS DEL DUEÑO (úsalas para afinar el entregable):\n${respuestas.map((r) => `- ${r.pregunta} → ${r.respuesta}`).join('\n')}\n`
@@ -217,10 +217,10 @@ export async function generarEntregables(respuestas?: Array<{ pregunta: string; 
       const motivo = motivoDeErroresCascada(errores);
       return { ok: false, error: hayIA
         ? `Tu IA está conectada pero no pudo responder ahora mismo${motivo ? `: ${motivo}` : ' (puede ser un límite de uso momentáneo). Probá de nuevo en un momento.'}`
-        : 'No hay IA para detectar el entregable. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+        : 'No hay IA para detectar el lead magnet. Conecta tu API key de Gemini (gratis) en Integraciones.' };
     }
     const entregables = parseEntregables(text);
-    if (!entregables.length) return { ok: false, error: 'MaKo no devolvió entregables. Reintenta en un momento.' };
+    if (!entregables.length) return { ok: false, error: 'MaKo no devolvió lead magnets. Reintenta en un momento.' };
     return { ok: true, entregables, uso: null };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

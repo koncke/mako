@@ -28,6 +28,7 @@ import { Archivero } from './Archivero';
 import { AvataresView } from './AvataresView';
 import { EntregableView } from './EntregableView';
 import { PersonaView } from './PersonaView';
+import { TonoView } from './TonoView';
 import { MatrizView } from './MatrizView';
 import { WizardShell, wizardInput } from '../_components/WizardShell';
 import { BrandDefs } from '../_components/ServicioVisual';
@@ -40,7 +41,7 @@ import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
 import { Dropdown } from '../components/Dropdown';
-import { PAISES, PAIS_DEFAULT, flagEmoji } from '@/lib/paises';
+import { PAISES, PAIS_DEFAULT, flagUrl } from '@/lib/paises';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -49,7 +50,7 @@ const SANS = "'Geist', sans-serif";
 type Servicio = { key: string; nombre: string; requerido: boolean; conectada: boolean };
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
-type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'tono' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
 type BriefCampo = { key: string; label: string; type: 'text' | 'number' | 'textarea'; placeholder?: string; grupo: string };
 type Estado = {
   status: 'pending' | 'in_progress' | 'skipped' | 'done';
@@ -151,6 +152,7 @@ export function OnboardingWizard() {
   const [entregableListo, setEntregableListo] = useState(false);
   const [avataresListo, setAvataresListo] = useState(false);
   const [personaListo, setPersonaListo] = useState(false);
+  const [tonoListo, setTonoListo] = useState(false);
   const [angulosListo, setAngulosListo] = useState(false);
   const [contacto, setContacto] = useState({ nombre: '', email: '', telefono: '' });
   // Verificación del teléfono de reportes: 'form' → cargando el número; 'codigo' →
@@ -284,11 +286,13 @@ export function OnboardingWizard() {
     } else if (paso === 'archivero') {
       pantallas.push({ key: 'archivero', paso, pregunta: 'El Archivero', slides: SLIDES_MAKO });
     } else if (paso === 'entregable') {
-      pantallas.push({ key: 'entregable', paso, pregunta: 'Tu entregable tangible', slides: SLIDES_MAKO });
+      pantallas.push({ key: 'entregable', paso, pregunta: 'Tu lead magnet', slides: SLIDES_MAKO });
     } else if (paso === 'avatares') {
       pantallas.push({ key: 'avatares', paso, pregunta: 'Tus avatares', slides: SLIDES_MAKO });
     } else if (paso === 'persona') {
       pantallas.push({ key: 'persona', paso, pregunta: 'La cara de tu marca', slides: SLIDES_MAKO });
+    } else if (paso === 'tono') {
+      pantallas.push({ key: 'tono', paso, pregunta: 'Tu tono y personalidad', slides: SLIDES_MAKO });
     } else if (paso === 'angulos') {
       pantallas.push({ key: 'angulos', paso, pregunta: 'Tu matriz de anuncios', slides: SLIDES_MAKO });
     } else if (paso === 'gemini') {
@@ -395,6 +399,7 @@ export function OnboardingWizard() {
     : p.key === 'entregable' ? entregableListo
     : p.key === 'avatares' ? avataresListo
     : p.key === 'persona' ? personaListo
+    : p.key === 'tono' ? tonoListo // las 4 preguntas cerradas contestadas
     : p.key === 'angulos' ? angulosListo
     // Teléfono de reportes: tampoco pasa sin verificar (pedido explícito) — ni
     // el super-admin, para poder probar el flujo real de punta a punta.
@@ -491,7 +496,7 @@ export function OnboardingWizard() {
           if (p.key === 'archivero') { if (archiveroRef.current?.siguiente()) return; return avanzar(); }
           // Pasos self-contained (Entregable, Avatares, Persona, Matriz, Gemini):
           // persisten por su cuenta con sus propios endpoints; acá solo avanzamos.
-          if (['entregable', 'avatares', 'persona', 'angulos', 'gemini'].includes(p.key)) return avanzar();
+          if (['entregable', 'avatares', 'persona', 'tono', 'angulos', 'gemini'].includes(p.key)) return avanzar();
           // Contacto: 'form' manda el código (NO avanza, cambia de sub-etapa);
           // 'codigo' lo verifica y RECIÉN AHÍ avanza; 'listo' es un avance normal.
           if (p.key === 'contacto') {
@@ -565,6 +570,9 @@ export function OnboardingWizard() {
         {/* ── Persona: la cara de marca (fotos + descripción), self-contained ── */}
         {p.key === 'persona' && <PersonaView onListo={setPersonaListo} />}
 
+        {/* ── Tono y personalidad: la voz del creador (humaniza los guiones) ── */}
+        {p.key === 'tono' && <TonoView onListo={setTonoListo} />}
+
         {/* ── La matriz de anuncios (avatar × razón), self-contained ── */}
         {p.key === 'angulos' && <MatrizView onListo={setAngulosListo} />}
 
@@ -609,8 +617,10 @@ export function OnboardingWizard() {
                 <div>
                   <Label>WhatsApp</Label>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <Dropdown value={lada} onChange={setLada} width={122} ariaLabel="Código de país"
-                      options={PAISES.map((pais) => ({ value: pais.dial, label: `${flagEmoji(pais.iso2)} ${pais.dial}`, sub: pais.nombre }))} />
+                    {/* Bandera como IMAGEN vía el prop avatar del Dropdown: los emoji de
+                        bandera en Windows se ven como letras ("MX") — bug reportado. */}
+                    <Dropdown value={lada} onChange={setLada} width={128} ariaLabel="Código de país"
+                      options={PAISES.map((pais) => ({ value: pais.dial, label: pais.dial, sub: pais.nombre, avatar: flagUrl(pais.iso2) }))} />
                     <input style={{ ...wizardInput, flex: 1 }} value={numeroLocal} placeholder="686 123 4567" inputMode="tel"
                       onChange={(e) => setNumeroLocal(e.target.value.replace(/[^\d\s-]/g, ''))} />
                   </div>

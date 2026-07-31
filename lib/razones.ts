@@ -18,25 +18,50 @@ import { renderPrompt } from './prompt-render';
 import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { faseNegocioTexto, getDiagnosticoFase } from './fase-store';
-import { CANALES, type CanalId } from './fase-diagnostico';
+import { type CanalId } from './fase-diagnostico';
+import { tonoNegocioTexto } from './tono-store';
+import { ESTRUCTURAS_GUION, anguloGuionPorId } from './guion-angulos';
+import { getAngulosGuion } from './guion-angulos-store';
 import { getSetting, setSetting } from './settings';
 import { getAvatares, avataresTexto, type Avatar } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
 
+// Un guion de video de una celda. Una celda puede tener VARIOS (pedido
+// explícito): uno de testimonio, otro de lead magnet, otro de dolor… — cada uno
+// con su ÁNGULO DE GUION (lib/guion-angulos.ts) y listo para testear por separado.
+export type GuionItem = { id: string; anguloId: string; anguloNombre: string; texto: string };
+
 // Una celda: una motivación de compra de un avatar + su material de anuncio.
 //  · nombre      = la motivación en pocas palabras ("Un mejor salario").
 //  · descripcion = la motivación A FONDO (el deseo detrás + la situación concreta).
 //  · copy        = el hook/copy del anuncio para esa motivación.
-//  · guion       = el guion de video (a pedido; '' hasta generarlo).
+//  · guiones     = los guiones de video (a pedido; puede haber varios, por ángulo).
 //  · imagenUrl   = placeholder de la imagen generada (vacío hasta que existan).
-//  · anguloImagen/anguloVideo = el FORMATO elegido (id de la biblioteca de ángulos)
+//  · anguloImagen/anguloVideo = el FORMATO elegido (id de la biblioteca de formatos)
 //    para la imagen y el video de este anuncio ('' hasta que la IA lo elija).
-export type RazonCelda = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guion: string; imagenUrl: string; anguloImagen: string; anguloVideo: string };
+export type RazonCelda = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guiones: GuionItem[]; imagenUrl: string; anguloImagen: string; anguloVideo: string };
 export type Uso = { tokens: number; costUsd: number } | null;
 
 const SETTING_KEY = 'mako.razones';
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+function normalizarGuiones(o: Record<string, unknown>): GuionItem[] {
+  const out: GuionItem[] = [];
+  if (Array.isArray(o.guiones)) {
+    for (const raw of o.guiones) {
+      const g = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+      const texto = str(g.texto);
+      if (!texto) continue;
+      out.push({ id: str(g.id) || randomUUID(), anguloId: str(g.anguloId), anguloNombre: str(g.anguloNombre) || 'General', texto });
+    }
+  }
+  // Compat: las celdas guardadas ANTES del multi-guion tienen un solo string en
+  // `guion` — se adopta como primer guion "General" y no se pierde nada.
+  const legacy = str(o.guion);
+  if (legacy && !out.length) out.push({ id: randomUUID(), anguloId: '', anguloNombre: 'General', texto: legacy });
+  return out;
+}
 
 function normalizarRazon(v: unknown): RazonCelda {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
@@ -46,7 +71,7 @@ function normalizarRazon(v: unknown): RazonCelda {
     nombre: str(o.nombre),
     descripcion: str(o.descripcion),
     copy: str(o.copy),
-    guion: str(o.guion),
+    guiones: normalizarGuiones(o),
     imagenUrl: str(o.imagenUrl),
     anguloImagen: str(o.anguloImagen),
     anguloVideo: str(o.anguloVideo),
@@ -106,7 +131,7 @@ export function parseRazones(text: string, avatares: Avatar[]): RazonCelda[] {
       const o = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>;
       const nombre = str(o.nombre);
       if (!nombre) continue;
-      out.push({ id: randomUUID(), avatarId: av.id, nombre, descripcion: str(o.descripcion), copy: str(o.copy), guion: '', imagenUrl: '', anguloImagen: '', anguloVideo: '' });
+      out.push({ id: randomUUID(), avatarId: av.id, nombre, descripcion: str(o.descripcion), copy: str(o.copy), guiones: [], imagenUrl: '', anguloImagen: '', anguloVideo: '' });
     }
   }
   return out;
@@ -157,89 +182,111 @@ export async function generarRazones(): Promise<GenResult> {
 // negocio — la IA lo inventó. Investigación (frameworks Hook-Story-Offer/PAS,
 // principio "un anuncio, un mensaje" de Ogilvy/Todd Brown, taxonomía de CTA por
 // funnel, hook-system.md de skills.sh) resumida en la nota de racional del PR.
-export const GUION_SYSTEM_TEMPLATE = `Sos MaKo, escribiendo el GUION de un anuncio de VIDEO para Meta de TRAFICO FRIO (TOFU, gente que no te conoce y nunca escucho hablar del negocio). Te paso el avatar, su motivacion de compra (dolor o deseo), el copy/hook, el entregable tangible del negocio, el FUNNEL real por el que este negocio vende ({{funnel}}) y, si esta, el FORMATO de video elegido. Escribi un guion listo para grabar de 30 a 90 segundos, HABLADO, para que una persona lo lea a camara o narre sobre pantalla.
+// v3 (2026-07-31): el guion ya no fuerza UNA estructura fija — recibe el ÁNGULO
+// elegido (lib/guion-angulos.ts: dolor, testimonio, lead magnet, retargeting…) con
+// sus instrucciones y su ESTRUCTURA (Gancho-Historia/Valor/Propuesta-CTA, del doc
+// de referencia), el SIGUIENTE PASO real del funnel (lo que la persona recibe al
+// hacer clic — definido por el dueño en el wizard de creación, no adivinado), y el
+// TONO/personalidad del creador (para humanizar: que suene a él, no a una IA).
+export const GUION_SYSTEM_TEMPLATE = `Sos MaKo, escribiendo el GUION de un anuncio de VIDEO para Meta (gente que no conoce el negocio, salvo que el angulo diga lo contrario). Te paso el avatar, su motivacion de compra, el copy/hook, el lead magnet del negocio, el ANGULO del guion con sus instrucciones, el SIGUIENTE PASO real del funnel y el TONO del creador. Escribi un guion listo para grabar de 30 a 90 segundos, HABLADO, para que una persona lo lea a camara o narre sobre pantalla.
 
-ANTES DE ESCRIBIR: ELEGI UN SOLO MENSAJE
-Un anuncio ganador cuelga de UNA sola idea, no de una lista de cosas impresionantes. Antes de escribir una sola linea, decidi:
+EL ANGULO DE ESTE GUION: {{anguloNombre}}
+{{anguloInstrucciones}}
+Todo el guion se juega a ESTE angulo. No lo mezcles con otros enfoques: un anuncio, un angulo, un mensaje.
 
-- El EJE del guion es UNA sola cosa: o el DOLOR/DESEO del avatar (su situacion, lo que siente, lo que le esta costando) o el ENTREGABLE (la cosa concreta que le vas a mostrar/dar). Elegi uno. El otro puede aparecer de forma breve y subordinada, nunca como coprotagonista.
-- Si el dolor y el entregable pelean por el centro del guion, el espectador no retiene ninguno de los dos. Menos es mas: es mejor un guion que vende UNA idea con fuerza que uno que intenta cubrir todo el negocio.
-- Regla de tijera: cada linea que escribas, pregunta "¿esto sirve al UNICO mensaje que elegi, o es solo un dato que suena bien?". Si es lo segundo, se corta. No metas mecanismos, procesos internos, features secundarias, ni una segunda promesa "por las dudas".
-- Test final antes de entregar: si alguien solo escucha la primera y la ultima frase del guion, ¿ya entiende de que se trata y que tiene que hacer? Si no, sobra contenido en el medio.
+ANTES DE ESCRIBIR: UN SOLO MENSAJE
+Un anuncio ganador cuelga de UNA sola idea. Regla de tijera: cada linea que escribas, pregunta "¿esto sirve al angulo y al unico mensaje, o es solo un dato que suena bien?". Si es lo segundo, se corta. No metas mecanismos, procesos internos, features secundarias, ni una segunda promesa "por las dudas". Test final: si alguien solo escucha la primera y la ultima frase, ¿ya entiende de que se trata y que tiene que hacer?
 
-ESTRUCTURA — GANCHO / HISTORIA / CTA
-Usa esta estructura siempre, adaptando el contenido (no el orden ni las etiquetas) al formato si te lo doy.
+ESTRUCTURA — {{estructuraNombre}}
+{{estructuraGuia}}
 
-GANCHO (primeros 3-5 segundos, 1-2 frases)
-Una sola frase que haga que la persona correcta se detenga a escuchar. Nombra su situacion o su dolor/deseo en el lenguaje con el que ESA persona lo pensaria de si misma (no en el lenguaje del negocio). No expliques nada todavia, no vendas nada todavia: solo hace que quiera saber que sigue.
+EL CTA: EXACTAMENTE EL SIGUIENTE PASO REAL
+Lo que pasa cuando la persona hace clic en este anuncio es: {{siguientePaso}}.
+- El CTA invita EXACTAMENTE a eso, nombrando lo que la persona VE o RECIBE al hacer clic (el video, el recurso, el registro, la compra, la llamada) — no un paso generico ni uno distinto.
+- 1-2 frases, UNA sola accion con UN solo verbo. Nunca dos caminos ("agenda o escribinos").
+- NUNCA inventes un activo que no este confirmado en el contexto (nada de talleres, webinars, guias o descuentos que no te dieron).
 
-HISTORIA (cuerpo del guion, la mayor parte del tiempo)
-Desarrolla el UNICO mensaje que elegiste, en una linea narrativa simple: como es la vida/el problema ANTES, que fue lo que cambio (una sola razon, contada como algo que cualquiera entenderia al toque, no como una explicacion tecnica), y como se ve el DESPUES. Si usas el entregable, mencionalo como prueba de que esto es real y existe — una frase, no un catalogo de sus partes. No armes un tutorial de 3 pasos ni una lista de features: es UNA historia, contada como se la contarias a un amigo tomando un cafe.
-
-CTA (ultimos 5-10 segundos, 1-2 frases, no mas)
-Una sola instruccion, clara, corta, dicha en voz alta. Ver reglas de CTA abajo — el CTA tiene que corresponder EXACTAMENTE al funnel real del negocio.
-
-REGLAS DE CTA SEGUN EL FUNNEL (usa la que coincide con {{funnel}}; nunca mezcles ni inventes otra)
-- Si el funnel es "agenda una llamada de venta": invita a reservar un horario/llamada concreta. Ej: "Dale clic al boton de abajo y agenda tu llamada gratis." Nunca digas "contactanos" (es ambiguo) ni menciones un webinar.
-- Si el funnel es "vende por conversacion de WhatsApp/DM sin llamada": invita a escribir/mandar mensaje, no a agendar ni a comprar. Ej: "Escribinos por WhatsApp y te ayudamos a resolverlo." Nunca digas "agenda tu llamada" ni "compralo ahora".
-- Si el funnel es "vende directo por carrito/checkout sin hablar con nadie": invita a comprar/completar la compra ya. Ej: "Dale clic en comprar, el link esta abajo." Nunca impliques que primero va a hablar con alguien.
-- Si el funnel es "invita a un webinar": invita a registrarse a la sesion, PERO solo si el contexto que te dieron confirma que ese webinar existe y tiene fecha real. Ej: "Registrate gratis, el link esta abajo."
-- Si el funnel no esta claro o dice "no especificado", NUNCA inventes uno (nada de talleres, webinars ni recursos que no te confirmaron). Usa el CTA mas generico y verdadero posible: invitar a escribir por WhatsApp o a pedir mas informacion, nombrando solo lo que sabes que existe.
-- El CTA nombra UNA sola accion con UN solo verbo. Nunca ofrezcas dos caminos ("agenda una llamada o escribinos por WhatsApp").
+TONO Y PERSONALIDAD DEL CREADOR (escribi TODO el guion con esta voz — es SU anuncio, tiene que sonar a el, no a una IA):
+{{tono}}
 
 REGLAS
-- SOLO DIALOGO HABLADO. El guion es unicamente lo que la persona DICE en voz alta. No escribas direcciones de camara, acciones en pantalla, ni nada entre parentesis describiendo lo que se ve, se muestra o se hace. Nada de "(Accion: ...)", "(zoom a...)", "(pantalla muestra...)". Si te dan un FORMATO de video, dejalo influir el tono de lo que se dice, nunca agregues una descripcion visual.
-- CERO JERGA INTERNA. Nunca digas en voz alta el nombre propio de un sistema, protocolo, matriz, dashboard o metodologia interna tal cual esta en el contexto (ej.: nada de "Protocolo de Hand-off", "Matriz de Auditoria", "Dashboard Semaforizado de Salud de Clientes" dicho como nombre tecnico). Traduci cualquier concepto interno a una descripcion simple, de la calle, que una persona sin ningun contexto del negocio entienda al primer escuchazo — como si se lo explicaras a un amigo que jamas oyo hablar de esto, no como si le presentaras un sistema interno a un empleado.
-- CERO CONTEXTO PREVIO ASUMIDO. Escribi asumiendo que quien escucha nunca vio el negocio, no conoce su metodologia, y no le importa como se llaman las cosas por dentro. Tiene que sonar a anuncio normal que cualquiera entiende, no a briefing interno ni a demo de producto para el equipo.
-- Concreto, anclado en el dolor/deseo REAL del avatar que te pasaron. Sin relleno, sin promesas vacias, sin cifras ni garantias que no esten en el contexto que te dieron.
-- No repitas ni resumas el contexto que te pasaron: escribilo como guion natural, no como reporte.
-- Marca las tres partes EXACTAMENTE con estas etiquetas, en mayusculas, cada una sola en su propia linea, sin texto extra en esa linea: GANCHO / HISTORIA / CTA. No cambies el nombre, el orden ni el formato de las etiquetas: la app las usa para separar el guion en tarjetas.
-- IDIOMA: espanol NEUTRO/MEXICANO, de tu, sin voseo argentino.
+- SOLO DIALOGO HABLADO. El guion es unicamente lo que la persona DICE en voz alta. No escribas direcciones de camara, acciones en pantalla, ni nada entre parentesis describiendo lo que se ve, se muestra o se hace. Nada de "(Accion: ...)", "(zoom a...)", "(pantalla muestra...)".
+- CERO JERGA INTERNA. Nunca digas en voz alta el nombre propio de un sistema, protocolo, matriz, dashboard o metodologia interna tal cual esta en el contexto. Traduci cualquier concepto interno a una descripcion simple, de la calle, que una persona sin ningun contexto entienda al primer escuchazo — como si se lo explicaras a un amigo, no como si presentaras un sistema interno a un empleado.
+- CERO CONTEXTO PREVIO ASUMIDO. Tiene que sonar a anuncio normal que cualquiera entiende, no a briefing interno ni a demo para el equipo.
+- Concreto, anclado en el dolor/deseo REAL del avatar. Sin relleno, sin promesas vacias, sin cifras ni garantias que no esten en el contexto.
+- Si el dueño te dejo una NOTA sobre que quiere comunicar, respetala — manda sobre cualquier default.
+- Marca las partes EXACTAMENTE con estas etiquetas, en mayusculas, cada una sola en su propia linea, sin texto extra en esa linea: {{etiquetas}}. No cambies el nombre, el orden ni el formato: la app las usa para separar el guion en tarjetas.
+- IDIOMA: espanol NEUTRO/MEXICANO, sin voseo argentino. Si el tono de arriba define tu/usted, respetalo; si no, de "tu".
 
 Devolve SOLO el texto del guion (sin JSON, sin explicaciones antes o despues).`;
 
-/** El funnel real del negocio, en el mismo lenguaje que espera el prompt del guion
- *  (evita que la IA invente un CTA de un funnel que no existe — ej. un webinar
- *  cuando el negocio en realidad vende por WhatsApp). Sale del canal que el
- *  cliente ya eligió en el diagnóstico de fase; "no especificado" si no lo eligió
- *  todavía, para que el prompt caiga en su regla de CTA genérico sin inventar. */
-async function funnelTextoParaGuion(): Promise<string> {
-  const FUNNEL_TXT: Record<CanalId, string> = {
-    llamadas: 'agenda una llamada de venta',
-    conversaciones: 'vende por conversación de WhatsApp/DM sin llamada',
-    carrito: 'vende directo por carrito/checkout sin hablar con nadie',
-    webinar: 'invita a un webinar',
+/** El siguiente paso del funnel por default, si el dueño no lo definió en el
+ *  wizard: derivado del canal del diagnóstico, conservador (nunca inventa un
+ *  activo). El wizard de "Nuevo guion" pisa esto con lo que el dueño elija. */
+export async function siguientePasoDefault(): Promise<string> {
+  const PASO_TXT: Record<CanalId, string> = {
+    llamadas: 'agenda una llamada con el equipo',
+    conversaciones: 'abre una conversación de WhatsApp con el negocio',
+    carrito: 'llega al checkout y puede comprar directo',
+    webinar: 'llega a la página de registro del webinar',
   };
   const diag = await getDiagnosticoFase();
-  return diag?.canal ? FUNNEL_TXT[diag.canal] : 'no especificado';
+  return diag?.canal ? PASO_TXT[diag.canal] : 'no especificado — usa el CTA más genérico y verdadero posible (pedir más información), sin inventar activos';
 }
 
-export async function generarGuion(celdaId: string, formatoVideoTexto?: string, timeoutMs?: number): Promise<{ ok: true; guion: string } | { ok: false; error: string }> {
+export type GenerarGuionOpts = {
+  /** id del ángulo de guion elegido (lib/guion-angulos). */
+  anguloId?: string;
+  /** Qué ve/recibe la persona al hacer clic (definido por el dueño en el wizard). */
+  siguientePaso?: string;
+  /** Nota libre del dueño: qué quiere comunicar puntualmente. */
+  nota?: string;
+  /** Formato de video elegido (biblioteca de formatos), si hay. */
+  formatoVideoTexto?: string;
+  timeoutMs?: number;
+};
+
+export async function generarGuion(celdaId: string, opts: GenerarGuionOpts = {}): Promise<{ ok: true; guion: GuionItem } | { ok: false; error: string }> {
   try {
     const razones = await getRazones();
     const celda = razones.find((r) => r.id === celdaId);
     if (!celda) return { ok: false, error: 'Celda no encontrada.' };
-    const [avatares, entregables, funnel] = await Promise.all([getAvatares(), getEntregables(), funnelTextoParaGuion()]);
+    const [avatares, entregables, tono, angulos] = await Promise.all([
+      getAvatares(), getEntregables(), tonoNegocioTexto(), getAngulosGuion(),
+    ]);
+    const angulo = (opts.anguloId ? anguloGuionPorId(angulos, opts.anguloId) : undefined) ?? angulos.find((a) => a.activo) ?? angulos[0];
+    if (!angulo) return { ok: false, error: 'No hay ángulos de guion en la biblioteca.' };
+    const estructura = ESTRUCTURAS_GUION[angulo.estructura];
+    const siguientePaso = opts.siguientePaso?.trim() || (await siguientePasoDefault());
     const av = avatares.find((a) => a.id === celda.avatarId);
-    const sys = await renderPrompt('razones.guion', GUION_SYSTEM_TEMPLATE, { funnel });
+    const sys = await renderPrompt('razones.guion', GUION_SYSTEM_TEMPLATE, {
+      anguloNombre: angulo.nombre,
+      anguloInstrucciones: angulo.instrucciones,
+      estructuraNombre: estructura.nombre,
+      estructuraGuia: estructura.guia,
+      siguientePaso,
+      etiquetas: estructura.etiquetas.join(' / '),
+      tono: tono || '(sin definir — voz cercana y natural, de "tú")',
+    });
     const user = `AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Situación: ${av.situacion}. Dolor: ${av.dolor}` : '(sin avatar)'}
 MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 COPY/HOOK: ${celda.copy}
-FUNNEL REAL DEL NEGOCIO: ${funnel}
-${entregables.length ? `ENTREGABLE TANGIBLE: ${entregablesTexto(entregables)}\n` : ''}${formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${formatoVideoTexto}\n` : ''}
-Escribí el guion del video.`;
-    const guion = await chatCheapCascade({
-      system: sys, user, maxTokens: 2200, timeoutMs,
-      feature: 'razones', motivo: 'Guion de video de una celda de la matriz',
+SIGUIENTE PASO AL HACER CLIC: ${siguientePaso}
+${entregables.length ? `LEAD MAGNET: ${entregablesTexto(entregables)}\n` : ''}${opts.formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${opts.formatoVideoTexto}\n` : ''}${opts.nota?.trim() ? `NOTA DEL DUEÑO (qué quiere comunicar — respetala):\n${opts.nota.trim()}\n` : ''}
+Escribí el guion del video con el ángulo "${angulo.nombre}".`;
+    const texto = await chatCheapCascade({
+      system: sys, user, maxTokens: 2200, timeoutMs: opts.timeoutMs,
+      feature: 'razones', motivo: `Guion de video (ángulo ${angulo.nombre})`,
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => t.trim().length > 40,
     });
-    if (!guion.trim()) return { ok: false, error: 'No hay IA para el guion. Conecta tu API key de Gemini (gratis).' };
-    // Releer DESPUÉS de la llamada lenta: si el usuario editó otra celda (o el copy de
-    // esta) mientras se generaba, no lo pisamos — solo parcheamos el guion de esta celda.
+    if (!texto.trim()) return { ok: false, error: 'No hay IA para el guion. Conecta tu API key de Gemini (gratis).' };
+    const item: GuionItem = { id: randomUUID(), anguloId: angulo.id, anguloNombre: angulo.nombre, texto: texto.trim() };
+    // Releer DESPUÉS de la llamada lenta: si el usuario editó otra celda mientras
+    // se generaba, no lo pisamos — solo AGREGAMOS el guion nuevo a esta celda.
     const actuales = await getRazones();
-    const nuevas = actuales.map((r) => (r.id === celdaId ? { ...r, guion: guion.trim() } : r));
+    const nuevas = actuales.map((r) => (r.id === celdaId ? { ...r, guiones: [...r.guiones, item] } : r));
     await setRazones(nuevas);
-    return { ok: true, guion: guion.trim() };
+    return { ok: true, guion: item };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

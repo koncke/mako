@@ -14,7 +14,7 @@ const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
 type Avatar = { id: string; nombre: string; segmento: string; senalesMeta: string; situacion: string; dolor: string };
-type Razon = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guion: string; imagenUrl: string };
+type Razon = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; imagenUrl: string };
 type Estado = { razones: Razon[]; avatares: Avatar[]; tieneAvatares: boolean; tieneBrief: boolean };
 
 const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer' };

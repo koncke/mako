@@ -7,9 +7,13 @@
 
 export type Pais = { iso2: string; dial: string; nombre: string };
 
-/** Bandera emoji a partir del ISO 3166-1 alpha-2 (regional indicator symbols). */
-export function flagEmoji(iso2: string): string {
-  return String.fromCodePoint(...[...iso2.toUpperCase()].map((c) => 127397 + c.charCodeAt(0)));
+/**
+ * Bandera como IMAGEN (flagcdn). Los emoji de bandera NO se renderizan en
+ * Windows (Chrome/Edge los muestran como letras "MX" — bug real reportado):
+ * Microsoft nunca incluyó las banderas en Segoe UI Emoji. Imagen o nada.
+ */
+export function flagUrl(iso2: string): string {
+  return `https://flagcdn.com/w40/${iso2.toLowerCase()}.png`;
 }
 
 export const PAISES: Pais[] = [

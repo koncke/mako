@@ -65,7 +65,7 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
     setPreguntaActual(null); setGen(true); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generar', respuestas: rs }) })).json();
-      if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo detectar el entregable.');
+      if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo detectar el lead magnet.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGen(false); }
   };
 
@@ -134,7 +134,7 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
 
   const css = <style>{'@keyframes ent-spin{to{transform:rotate(360deg)}}.ent-edit:hover{background:var(--surface-2)}.ent-edit:focus{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-strong)}.ent-edit:empty:before{content:attr(data-ph);color:var(--faint)}'}</style>;
 
-  if (cargando) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>Cargando tu entregable…</div>;
+  if (cargando) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>Cargando tu lead magnet…</div>;
 
   const entregables = est?.entregables ?? [];
 
@@ -143,7 +143,7 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
       <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {css}
         <div style={{ width: 46, height: 46, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'ent-spin .8s linear infinite' }} />
-        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginTop: 22 }}>MaKo está buscando tu entregable</div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginTop: 22 }}>MaKo está buscando tu lead magnet</div>
       </div>
     );
   }
@@ -165,7 +165,7 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
     return (
       <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
         {css}
-        <div style={{ ...eyebrow, marginBottom: 18 }}>Para afinar tu entregable · pregunta {historial.length + 1} de hasta 4</div>
+        <div style={{ ...eyebrow, marginBottom: 18 }}>Para afinar tu lead magnet · pregunta {historial.length + 1} de hasta 4</div>
         <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 22px', lineHeight: 1.3 }}>{q.pregunta}</h2>
         {q.tipo === 'archivo' ? (
           <div style={{ maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -194,13 +194,13 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
       <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '40px 0' }}>
         {css}
         <div style={{ fontSize: 40, marginBottom: 12 }}>🧲</div>
-        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 20px', lineHeight: 1.25 }}>Tu entregable</h2>
+        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 20px', lineHeight: 1.25 }}>Tu lead magnet</h2>
         {est?.tieneBrief
           ? <button type="button" onClick={empezar} style={btnPrimary}>✦ Que MaKo lo detecte</button>
           : <div style={{ fontSize: 13.5, color: 'var(--warn)', lineHeight: 1.6 }}>Primero carga tu negocio en <b>El Archivero</b>.</div>}
         {/* Contexto: para qué es, siempre debajo del botón */}
         <div style={{ marginTop: 22, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
-          <div style={{ ...eyebrow, marginBottom: 7 }}>¿Qué es el entregable?</div>
+          <div style={{ ...eyebrow, marginBottom: 7 }}>¿Qué es el lead magnet?</div>
           <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6 }}>Es el elemento <b>tangible</b> de tu oferta —un dashboard, una planilla, una metodología con nombre— que se entiende al instante y genera <b>FOMO</b> en tus anuncios. MaKo te hace un par de preguntas y lo detecta desde tu negocio; después lo revisas.</div>
         </div>
         {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
@@ -212,7 +212,7 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
     <div>
       {css}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ ...eyebrow }}>Tu entregable · el elemento tangible</div>
+        <div style={{ ...eyebrow }}>Tu lead magnet · el elemento tangible</div>
         {est?.tieneBrief && <button type="button" onClick={empezar} style={btnGhost}>↺ Regenerar</button>}
       </div>
 
@@ -223,7 +223,7 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
               <Edit valor={g.tipo} ph="Tipo" onSave={(v) => editar(g.id, 'tipo', v)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px' }} />
               <button type="button" onClick={() => borrar(g.id)} aria-label="Quitar" style={{ border: 'none', background: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, padding: 2 }}>✕</button>
             </div>
-            <Edit valor={g.nombre} ph="Nombre del entregable" onSave={(v) => editar(g.id, 'nombre', v)} style={{ fontFamily: SANS, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.2 }} />
+            <Edit valor={g.nombre} ph="Nombre del lead magnet" onSave={(v) => editar(g.id, 'nombre', v)} style={{ fontFamily: SANS, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.2 }} />
             <Edit valor={g.queEs} ph="¿Qué es y qué resuelve?" onSave={(v) => editar(g.id, 'queEs', v)} style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }} />
             <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
               <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: '#C8870C', marginBottom: 4 }}>Gancho para el anuncio (FOMO)</div>

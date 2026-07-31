@@ -21,7 +21,7 @@
  * oferta, nicho, web/IG…) y MaKo los ordena en el brief. Es la versión DOER de
  * 'negocio' (que pregunta de a un campo): una capa usa uno u otro, no los dos.
  */
-export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'tono' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
 
 export type CapaId = 'pm' | 'completo' | 'superadmin';
 
@@ -105,11 +105,12 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     //  4. entregable → el elemento tangible de la oferta (FOMO); alimenta el copy.
     //  5. avatares   → los 3 segmentos (el "¿a quién?").
     //  6. persona    → la cara de marca (fotos + descripción) para los creativos.
-    //  7. angulos    → la MATRIZ (avatar × razón), la salida de la fábrica.
-    //  8. tabs       → cómo vendés (funnel simple).
-    //  9. integraciones (solo Meta) → AL FINAL (pedido de Mauricio: conectar Meta es lo
-    //     último; antes se ve toda la matriz). 10. retro → valoración/cierre (usa Meta).
-    onboarding: ['fase', 'gemini', 'archivero', 'entregable', 'avatares', 'persona', 'angulos', 'tabs', 'integraciones', 'retro'],
+    //  7. tono       → el tono/personalidad del creador (humaniza guiones y copy).
+    //  8. angulos    → la MATRIZ (avatar × razón), la salida de la fábrica.
+    //  9. tabs       → contacto de reportes + verificación de WhatsApp.
+    // 10. integraciones (solo Meta) → AL FINAL (pedido de Mauricio: conectar Meta es lo
+    //     último; antes se ve toda la matriz). 11. retro → valoración/cierre (usa Meta).
+    onboarding: ['fase', 'gemini', 'archivero', 'entregable', 'avatares', 'persona', 'tono', 'angulos', 'tabs', 'integraciones', 'retro'],
     // TODOS los grupos: El Archivero no pregunta de a uno, extrae de los docs y
     // muestra el brief entero (oferta + avatar + personaje de marca) editable en
     // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que
