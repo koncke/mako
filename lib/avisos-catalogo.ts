@@ -101,6 +101,12 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     disparador: 'effective_status = DISAPPROVED / WITH_ISSUES.',
     ejemplo: `🔴 Meta *rechazó* el anuncio "Testimonio Ana - v3" por política de contenido. No está entregando.\n\nEditá el creativo o el copy y mandalo de nuevo a revisión. ¿Querés que te diga qué suele disparar este rechazo? — MaKo`,
   },
+  {
+    id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo el anuncio esperando tu aprobación', categoria: 'aviso',
+    prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'issues_info con error_code 2446984 ("peer approval") tras publicar desde MaKo. OJO: NO es rechazo de políticas — es un control de identidad y Meta NO lo deja aprobar por API.',
+    ejemplo: `🟡 Publiqué *2 anuncios* en "029. Capta Dueños B2B" pero *Meta los retuvo*: por seguridad pide que un admin de la cuenta los apruebe a mano antes de que empiecen a correr.\n\nNo lo puedo hacer yo — Meta no lo permite por API. Son 30 segundos:\n\n👉 https://adsmanager.facebook.com/adsmanager/manage/ads?act=123&selected_ad_ids=456\n\nEntrás, tocás *Revisar y publicar* y confirmás. Si no, quedan sin entregar. — MaKo`,
+  },
 
   // ── ACCIONES SOBRE ADS (sugerencia + "¿lo hago?") ──────────────────────────
   {

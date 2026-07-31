@@ -22,6 +22,7 @@ import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon } from '@/lib/queries';
 import { colorDeSemaforo, linkAprobarEnMeta, type MetaHealth, type NodoEstado } from '@/lib/meta-health-ui';
+import { TutorialAprobacionMeta } from './TutorialAprobacionMeta';
 import {
   type CampaignSpec, type AdSpec, type Creative, type Targeting, type Objective, type AudienceRef,
   objetivoDef, CTA_OPCIONES,
@@ -493,13 +494,14 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
   // Tras publicar: ¿Meta retuvo los anuncios esperando aprobación manual? El issue
   // puede tardar unos segundos en aparecer, así que reintentamos un par de veces.
   // Best-effort puro: si falla, la pantalla de éxito queda como estaba.
-  async function chequearAprobacion(adIds: string[]) {
+  async function chequearAprobacion(adIds: string[], nombreCampana: string) {
     const ids = (adIds ?? []).filter(Boolean);
     if (ids.length === 0) return;
+    const qsCamp = nombreCampana ? `&campana=${encodeURIComponent(nombreCampana)}` : '';
     for (let intento = 0; intento < 3; intento++) {
       await new Promise((r) => setTimeout(r, intento === 0 ? 1200 : 3000));
       try {
-        const r = await fetch(`/api/ads-manager/ad-aprobacion?ids=${encodeURIComponent(ids.join(','))}`, { cache: 'no-store' });
+        const r = await fetch(`/api/ads-manager/ad-aprobacion?ids=${encodeURIComponent(ids.join(','))}${qsCamp}`, { cache: 'no-store' });
         const j = await r.json();
         if (!j.ok) return;
         if (j.pendientes?.length) { setAprobacion({ pendientes: j.pendientes, accountId: j.accountId ?? null }); return; }
@@ -544,7 +546,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
         setResult({ campaign_id: campSel?.id ?? '', ads: (j.ad_ids ?? []).length });
         onPublished(); // refresca la tabla YA: si cierran con ✕, los anuncios (y sus letras) igual aparecen
         setStep('listo');
-        chequearAprobacion(j.ad_ids ?? []);
+        chequearAprobacion(j.ad_ids ?? [], campSel?.name ?? '');
         return;
       }
       const r = await fetch('/api/ads-manager/campaign-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spec, prompt: promptDeRespuestas(analisis), uso }) });
@@ -553,7 +555,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
       try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
       setResult({ campaign_id: j.campaign_id, ads: (j.ad_ids ?? []).length });
       setStep('listo');
-      chequearAprobacion(j.ad_ids ?? []);
+      chequearAprobacion(j.ad_ids ?? [], spec.name ?? '');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setStep('revision'); }
     finally { publishingRef.current = false; }
   }
@@ -714,6 +716,8 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
                     style={{ ...btnDark, background: 'var(--warn-fill)', color: '#fff', fontSize: 14, padding: '10px 18px', alignSelf: 'flex-start', textDecoration: 'none' }}>
                     Aprobar en Meta ↗
                   </a>
+                  <p style={{ fontSize: 12, color: 'var(--faint)', margin: 0, lineHeight: 1.5 }}>Te lo mandé también por WhatsApp con el link, por si lo aprobás más tarde.</p>
+                  <TutorialAprobacionMeta />
                 </div>
               )}
               <button onClick={() => { if (!existente) onPublished(); onClose(); }} style={btnDark}>Ver en la tabla</button>

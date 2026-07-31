@@ -35,6 +35,7 @@ const EditarTextosModal = dynamic(() => import('./EditarTextosModal').then((m) =
 const EditarPublicoModal = dynamic(() => import('./EditarPublicoModal').then((m) => m.EditarPublicoModal), { ssr: false });
 const AgregarAnuncioModal = dynamic(() => import('./AgregarAnuncioModal').then((m) => m.AgregarAnuncioModal), { ssr: false });
 const AgregarConjuntoModal = dynamic(() => import('./AgregarConjuntoModal').then((m) => m.AgregarConjuntoModal), { ssr: false });
+const TutorialAprobacionMeta = dynamic(() => import('./TutorialAprobacionMeta').then((m) => m.TutorialAprobacionMeta), { ssr: false });
 
 const pad = (n: number, w: number): string => String(Math.max(0, Math.floor(n))).padStart(w, '0');
 const letraANum = (s: string): number => { let n = 0; for (const ch of s.toLowerCase()) n = n * 26 + (ch.charCodeAt(0) - 96); return n; };
@@ -849,6 +850,7 @@ function ProblemaModal({ ads, accountId, onClose, onEditAd }: { ads: ProblemAd[]
                   )}
                   <button type="button" onClick={() => onEditAd(ad.id, ad.name)} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✎ Editar textos</button>
                 </div>
+                {pendienteAprobar && <div style={{ marginTop: 10 }}><TutorialAprobacionMeta /></div>}
               </div>
             );
           })}
