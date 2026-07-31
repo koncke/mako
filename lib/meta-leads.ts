@@ -10,7 +10,6 @@
 import 'server-only';
 import { upsertLeadFromMeta } from './leads';
 import { credWs } from './credenciales';
-import { configWs } from './cron-workspaces';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import { META_PAGE_ID } from './config';
 
@@ -108,11 +107,25 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
   if (!token || token.startsWith('PENDING')) {
     throw new Error('META_PAGE_ACCESS_TOKEN no configurado');
   }
-  // meta_page_id: el fallback al env (página de Mauricio) es SOLO para el dueño;
-  // un cliente sin la setting queda fail-closed (jamás ingiere leads ajenos).
+  // El page id sale de la MISMA credencial del catálogo que el cliente carga en
+  // /integraciones (META_PAGE_ID), no de una setting aparte. Antes esto leía
+  // configWs('meta_page_id'): el cliente completaba el campo, el webhook andaba
+  // (usa webhook_routing) y este cron tiraba "no configurado" todos los días,
+  // porque eran DOS almacenes distintos y nada escribía el de la setting.
+  //
+  // La credencial es la fuente de verdad correcta porque guardarla pasa por
+  // guardarCredencial(), que reclama el identificador en webhook_routing y falla
+  // cerrado (IdentificadorOcupadoError) si ya es de otro workspace. setSetting
+  // también espeja el routing, pero IGNORA el resultado: un "ocupado" se tragaba
+  // en silencio y quedaba un page id guardado que no rutea a ningún lado.
+  //
+  // El fallback al literal (página de Mauricio) es SOLO para el dueño; un cliente
+  // sin la credencial queda fail-closed (jamás ingiere leads ajenos).
   const ws = await getWorkspaceActual();
-  const pageId = await configWs('meta_page_id', ws === OWNER_WS || ws == null ? META_PAGE_ID : null);
-  if (!pageId) throw new Error('meta_page_id no configurado para este workspace');
+  const pageId = (await credWs('META_PAGE_ID')) ?? (ws === OWNER_WS || ws == null ? META_PAGE_ID : null);
+  if (!pageId) {
+    throw new Error('META_PAGE_ID no configurado para este workspace (Integraciones → Meta Ads → "ID de tu página de Facebook")');
+  }
 
   const corteMs = Date.now() - Math.max(1, dias) * 86400_000;
 

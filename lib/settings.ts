@@ -58,10 +58,17 @@ export async function setSetting(key: string, value: string): Promise<void> {
   // Espejo al índice de routing: identificadores en claro que vienen en payloads
   // SIN sesión y deciden a qué workspace pertenece el evento. Mismo ws que usó el
   // setting. Best-effort (si falla el espejo, no se pierde el setting).
-  //   · meta_page_id  → rutea los leads entrantes de formularios de Meta.
   //   · landing_token → rutea el beacon de la landing (/api/track/vsl).
+  //
+  // OJO: acá NO va ningún identificador que el USUARIO pegue a mano. Este espejo
+  // ignora el resultado de upsertRouting, así que un 'ocupado' (el identificador
+  // ya es de otro workspace) se traga en silencio y queda un setting guardado que
+  // no rutea a ningún lado. Esos van por guardarCredencial() (lib/credenciales.ts),
+  // que falla cerrado con IdentificadorOcupadoError. Fue el caso de meta_page_id,
+  // que ya vive como credencial META_PAGE_ID.
+  // landing_token es seguro acá porque lo acuña el server (HMAC por workspace,
+  // ver lib/landing-token.ts): nadie lo elige ni puede colisionar con el de otro.
   const ROUTING_SETTINGS: Record<string, string> = {
-    meta_page_id: 'meta',
     landing_token: 'landing',
   };
   const servicio = ROUTING_SETTINGS[key];

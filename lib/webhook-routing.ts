@@ -9,7 +9,7 @@
 // patrón que evolution_instancias (instancia → workspace) para su webhook.
 //
 // Se puebla en el choke point de guardado de credenciales (lib/credenciales.ts)
-// y en setSetting('meta_page_id'). NO es data tenant: es un índice global, por
+// y en setSetting('landing_token'). NO es data tenant: es un índice global, por
 // eso usa getSupabaseServer() crudo (cross-workspace) — RLS on, solo
 // server-side. Todo best-effort: si la base falla no rompemos el guardado; la
 // lectura devuelve null y el webhook decide (fail-closed, no asume el dueño).

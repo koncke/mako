@@ -39,8 +39,13 @@ const SERVICIOS_CLIENTE = new Set(['meta', 'whatsapp', 'fathom', 'panda', 'youtu
 // no tiene nada que conectar.
 
 // Settings no-secretas que el wizard puede setear (whitelist).
+// OJO: el page id de Meta NO va acá. Es la credencial META_PAGE_ID del catálogo
+// (se carga en el paso de integraciones, como cualquier otro campo del servicio
+// 'meta'). Tenerlo además como setting creaba un segundo almacén que nadie leía:
+// el cron de Lead Ads buscaba la setting y reventaba aunque el cliente hubiera
+// completado el campo. Además, guardarlo por setSetting saltea el reclamo
+// fail-closed del identificador en webhook_routing (ver lib/credenciales.ts).
 const SETTINGS_WIZARD = new Set([
-  'meta_page_id',
   'youtube_vsl_video_id', 'youtube_thanks_video_id', 'youtube_thanks_prep_video_id',
   'panda_vsl_video_ids',
   'objetivo_cierres', 'objetivo_cash_usd',
@@ -85,14 +90,13 @@ export async function GET() {
   try {
     const sesion = await getUsuarioActual();
     const capa = capaDef(await getCapaActual());
-    const [estado, servicios, contacto, verifContacto, schema, briefAnswers, metaPageId, ytVsl, ytThanks, ytPrep, pandaIds, objCierres, objCash] = await Promise.all([
+    const [estado, servicios, contacto, verifContacto, schema, briefAnswers, ytVsl, ytThanks, ytPrep, pandaIds, objCierres, objCash] = await Promise.all([
       getEstadoOnboarding(),
       serviciosParaWizard(capa.integracionesRequeridas),
       getContactoReportes(),
       getEstadoVerificacionContacto(g.ws),
       getSchema(),
       getAnswers(),
-      getSetting('meta_page_id'),
       getSetting('youtube_vsl_video_id'),
       getSetting('youtube_thanks_video_id'),
       getSetting('youtube_thanks_prep_video_id'),
@@ -130,7 +134,6 @@ export async function GET() {
       fasePreguntas: PREGUNTAS,
       faseDiag: await getDiagnosticoFase(),
       settings: {
-        meta_page_id: metaPageId ?? '',
         youtube_vsl_video_id: ytVsl ?? '',
         youtube_thanks_video_id: ytThanks ?? '',
         youtube_thanks_prep_video_id: ytPrep ?? '',
