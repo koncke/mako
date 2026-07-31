@@ -22,6 +22,7 @@ import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError } from '@/lib/credenciales';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
+import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
 
 export const dynamic = 'force-dynamic';
@@ -135,7 +136,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-type Body = { action?: string; servicio?: string; valores?: Record<string, unknown>; env?: string };
+type Body = { action?: string; servicio?: string; valores?: Record<string, unknown>; env?: string; tipo?: string; id?: string };
 
 export async function POST(req: NextRequest) {
   const ctx = await resolverContexto();
@@ -180,6 +181,117 @@ export async function POST(req: NextRequest) {
       }
       const estado = await estadoServicio(servicio.key, ctx.ws);
       return NextResponse.json({ ok: true, guardadas, servicio: estado });
+    }
+
+    // Meta: con el token pegado, completar SOLO el resto de los campos. Antes le
+    // pedíamos al cliente seis credenciales de seis pantallas distintas de Business
+    // Manager (una de ellas le hacía abrir el Explorador de la API Graph a mano);
+    // cinco salen de cuatro GET con el token que ya pegó. Lo único que no se puede
+    // adivinar es CUÁL elegir si tiene varias: eso vuelve como `opciones`.
+    if (body.action === 'descubrir') {
+      const token = (await credWs('META_ACCESS_TOKEN')) ?? '';
+      const pegado = typeof body.valores?.META_ACCESS_TOKEN === 'string' ? body.valores.META_ACCESS_TOKEN.trim() : '';
+      const usar = pegado || token;
+      if (!usar || usar.startsWith('PENDING')) {
+        return NextResponse.json({ ok: false, error: 'Pegá primero tu access token de Meta.' }, { status: 400 });
+      }
+      const d = await descubrirMeta(usar);
+      if (!d.ok) return NextResponse.json({ ok: false, error: d.error }, { status: 422 });
+
+      // Se guarda SOLO lo inequívoco (una sola opción). Con varias, decide el dueño.
+      const aGuardar: Record<string, string> = {};
+      if (d.cuentas.length === 1) aGuardar.META_AD_ACCOUNT_ID = d.cuentas[0].id;
+      if (d.paginas.length === 1) {
+        aGuardar.META_PAGE_ID = d.paginas[0].id;
+        if (d.paginas[0].token) aGuardar.META_PAGE_ACCESS_TOKEN = d.paginas[0].token;
+      }
+      if (d.pixeles.length === 1) aGuardar.META_PIXEL_ID = d.pixeles[0].id;
+
+      // Campo por campo: que un identificador ya reclamado por otro workspace
+      // (META_PAGE_ID rutea leads) no tumbe TODO el descubrimiento.
+      const guardadas: string[] = [];
+      const conflictos: string[] = [];
+      for (const [env, valor] of Object.entries(aGuardar)) {
+        try {
+          await guardarCredencial(ctx.ws, env, valor, 'meta', ctx.autor);
+          await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
+          guardadas.push(env);
+        } catch (e) {
+          if (e instanceof IdentificadorOcupadoError) {
+            await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor, { permitido: false, motivo: 'identificador ya reclamado por otro workspace' });
+            conflictos.push(e.message);
+            continue;
+          }
+          throw e;
+        }
+      }
+
+      const estado = await estadoServicio('meta', ctx.ws);
+      return NextResponse.json({
+        ok: true,
+        servicio: estado,
+        guardadas,
+        titular: d.titular,
+        faltanScopes: d.faltanScopes,
+        permanente: d.permanente,
+        // Solo vuelven como "elegí" las que tienen MÁS de una opción.
+        opciones: {
+          cuentas: d.cuentas.length > 1 ? d.cuentas : [],
+          paginas: d.paginas.length > 1 ? d.paginas.map((p) => ({ id: p.id, nombre: p.nombre })) : [],
+          pixeles: d.pixeles.length > 1 ? d.pixeles : [],
+        },
+        avisos: [...d.avisos, ...conflictos],
+      });
+    }
+
+    // El cliente eligió entre varias opciones: guardar ESA. El token de la página
+    // no viaja al browser — se vuelve a pedir a Meta acá y se guarda junto al id.
+    if (body.action === 'elegir') {
+      const token = (await credWs('META_ACCESS_TOKEN')) ?? '';
+      if (!token || token.startsWith('PENDING')) return NextResponse.json({ ok: false, error: 'Falta el access token de Meta.' }, { status: 400 });
+      const tipo = body.tipo ?? '';
+      const id = typeof body.id === 'string' ? body.id.trim() : '';
+      if (!id) return NextResponse.json({ ok: false, error: 'falta el id elegido' }, { status: 400 });
+
+      const guardar = async (env: string, valor: string) => {
+        try {
+          await guardarCredencial(ctx.ws, env, valor, 'meta', ctx.autor);
+          await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
+          return null;
+        } catch (e) {
+          if (e instanceof IdentificadorOcupadoError) {
+            await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor, { permitido: false, motivo: 'identificador ya reclamado por otro workspace' });
+            return e.message;
+          }
+          throw e;
+        }
+      };
+
+      let conflicto: string | null = null;
+      let pixeles: Array<{ id: string; nombre: string }> = [];
+      if (tipo === 'cuenta') {
+        conflicto = await guardar('META_AD_ACCOUNT_ID', id.startsWith('act_') ? id : `act_${id}`);
+        // Los píxeles cuelgan de la cuenta: recién ahora se pueden listar.
+        pixeles = await pixelesDeCuenta(token, id);
+        if (pixeles.length === 1) await guardar('META_PIXEL_ID', pixeles[0].id);
+      } else if (tipo === 'pagina') {
+        const d = await descubrirMeta(token);
+        const pag = d.ok ? d.paginas.find((p) => p.id === id) : undefined;
+        conflicto = await guardar('META_PAGE_ID', id);
+        if (pag?.token) await guardar('META_PAGE_ACCESS_TOKEN', pag.token);
+      } else if (tipo === 'pixel') {
+        conflicto = await guardar('META_PIXEL_ID', id);
+      } else {
+        return NextResponse.json({ ok: false, error: 'tipo inválido' }, { status: 400 });
+      }
+
+      const estado = await estadoServicio('meta', ctx.ws);
+      return NextResponse.json({
+        ok: true,
+        servicio: estado,
+        opciones: { cuentas: [], paginas: [], pixeles: pixeles.length > 1 ? pixeles : [] },
+        avisos: conflicto ? [conflicto] : [],
+      });
     }
 
     if (body.action === 'borrar') {

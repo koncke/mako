@@ -64,13 +64,66 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     }
     // account_status 1 = activa; 3 = con restricción de pago (lib/meta-health).
     const activa = Number(body.account_status) === 1;
+    const facts: Fact[] = [
+      { k: 'Tu cuenta de ads', v: String(body.name ?? cuenta) },
+      { k: 'Estado', v: activa ? 'Activa' : 'Con restricción', c: activa ? 'var(--good)' : 'var(--warn)' },
+    ];
+
+    // Los campos OPCIONALES también se prueban de verdad. Antes solo se pingueaba
+    // la cuenta publicitaria: un token de página o un píxel mal pegados quedaban en
+    // verde y explotaban después — el de la página explota DENTRO del webhook, que
+    // igual devuelve 200, así que Meta no reintenta y el lead se pierde en silencio.
+    const avisos: string[] = [];
+
+    if (v.META_PAGE_ID) {
+      // El token de página (si lo hay) es el que tiene que poder leer la página.
+      const tokenPagina = v.META_PAGE_ACCESS_TOKEN || v.META_ACCESS_TOKEN;
+      const u = new URL(`https://graph.facebook.com/${ver}/${v.META_PAGE_ID}`);
+      u.searchParams.set('fields', 'name');
+      u.searchParams.set('access_token', tokenPagina);
+      const r = await fetchJson(u.toString());
+      const e = r.body.error as { message?: string } | undefined;
+      if (e) avisos.push(`la página (${v.META_PAGE_ID}) no responde: ${e.message ?? 'error'}`);
+      else facts.push({ k: 'Tu página', v: String(r.body.name ?? v.META_PAGE_ID) });
+    }
+
+    if (v.META_PIXEL_ID) {
+      const pixel = async (token: string) => {
+        const u = new URL(`https://graph.facebook.com/${ver}/${v.META_PIXEL_ID}`);
+        u.searchParams.set('fields', 'name,last_fired_time');
+        u.searchParams.set('access_token', token);
+        const r = await fetchJson(u.toString());
+        return { r, e: r.body.error as { message?: string } | undefined };
+      };
+      // Se prueba con el token que CAPI va a usar de verdad: el propio si lo
+      // cargaron, si no el principal (lib/meta-capi.ts hace el mismo fallback).
+      const propio = v.META_CAPI_TOKEN && v.META_CAPI_TOKEN !== v.META_ACCESS_TOKEN;
+      let { r, e } = await pixel(v.META_CAPI_TOKEN || v.META_ACCESS_TOKEN);
+      if (e && propio) {
+        // El token de CAPI cargado a mano no llega al píxel. Si el principal SÍ,
+        // el arreglo es de un clic — decirlo, en vez de dejar un error críptico.
+        const alt = await pixel(v.META_ACCESS_TOKEN);
+        if (!alt.e) {
+          avisos.push('el token de Conversions API que cargaste no llega a tu píxel; quitalo y MaKo usa el token principal, que sí funciona');
+          ({ r, e } = alt);
+        }
+      }
+      if (e) avisos.push(`el píxel (${v.META_PIXEL_ID}) no responde con ese token: ${e.message ?? 'error'}`);
+      else {
+        facts.push({ k: 'Tu píxel', v: String(r.body.name ?? v.META_PIXEL_ID) });
+        const ult = haceCuanto(r.body.last_fired_time as string | undefined);
+        if (ult) facts.push({ k: 'Último evento del píxel', v: ult });
+      }
+    }
+
+    // Un campo opcional roto NO tumba la conexión (ads sigue andando), pero se
+    // dice fuerte: el silencio es justo lo que hacía que se perdieran leads.
     return {
       ok: true,
-      detalle: `Cuenta "${String(body.name ?? cuenta)}" encontrada.`,
-      facts: [
-        { k: 'Tu cuenta de ads', v: String(body.name ?? cuenta) },
-        { k: 'Estado', v: activa ? 'Activa' : 'Con restricción', c: activa ? 'var(--good)' : 'var(--warn)' },
-      ],
+      detalle: avisos.length
+        ? `Cuenta "${String(body.name ?? cuenta)}" conectada, pero ${avisos.join(' y ')}.`
+        : `Cuenta "${String(body.name ?? cuenta)}" encontrada.`,
+      facts,
     };
   },
 

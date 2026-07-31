@@ -6,9 +6,9 @@
 // (no solo hacia el lead crudo), incluso si el usuario bloquea el pixel
 // client-side.
 //
-// Variables de entorno requeridas:
-//   - META_PIXEL_ID
-//   - META_CAPI_TOKEN
+// Credenciales:
+//   - META_PIXEL_ID     (requerida)
+//   - META_CAPI_TOKEN   (OPCIONAL — si no está, se usa META_ACCESS_TOKEN)
 //   - META_API_VERSION  (opcional, default 'v24.0' — matchea Marketing API)
 //
 // Regla de oro: CAPI NUNCA debe romper el flujo de negocio. Cualquier error
@@ -96,7 +96,13 @@ function hashPhone(phone: string | null): string | null {
  */
 export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<void> {
   const pixelId = await credWs('META_PIXEL_ID');
-  const accessToken = await credWs('META_CAPI_TOKEN');
+  // El token de CAPI dejó de ser obligatorio: el botón "Generar token de acceso"
+  // de Events Manager arma por detrás un token con ads_management sobre ese píxel
+  // — no es un tipo especial de credencial. El token principal sirve igual si el
+  // píxel está asignado al usuario de sistema (verificado contra la API real).
+  // META_CAPI_TOKEN queda como override para el píxel que vive en OTRO negocio.
+  const usado = await credWs('META_CAPI_TOKEN');
+  const accessToken = usado && !usado.startsWith('PENDING') ? usado : await credWs('META_ACCESS_TOKEN');
   const apiVersion = process.env.META_API_VERSION || 'v24.0';
 
   if (!pixelId || pixelId.startsWith('PENDING')) {
@@ -104,7 +110,7 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<void> 
     return;
   }
   if (!accessToken || accessToken.startsWith('PENDING')) {
-    console.error('[capi] skip: META_CAPI_TOKEN no configurado');
+    console.error('[capi] skip: no hay token para CAPI (ni META_CAPI_TOKEN ni META_ACCESS_TOKEN)');
     return;
   }
 

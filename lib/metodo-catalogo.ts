@@ -59,26 +59,26 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     core: true,
     paraQue: 'Campañas, gasto, resultados y salud de la cuenta publicitaria. Sin esto no hay métricas de ads ni Ads Manager.',
     campos: [
-      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'EAAG…', nota: 'Token de usuario de sistema (no expira). Permisos: ads_read, ads_management, business_management.' },
-      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', placeholder: 'act_1234567890', nota: 'Con el prefijo act_.' },
-      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Solo si usás Lead Ads: token de página con leads_retrieval, para traer los leads de tus formularios de Meta.' },
-      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, placeholder: '1234567890', nota: 'Solo si usás la Conversions API o el creador de campañas. Es el ID de tu píxel/dataset de eventos.' },
-      { env: 'META_CAPI_TOKEN', label: 'Token de Conversions API', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Solo si usás CAPI: manda eventos server-side (ej. Purchase) a Meta para optimizar mejor las campañas. Se genera en Administrador de eventos → tu píxel → Configuración → Conversions API.' },
-      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, placeholder: '1234567890', nota: 'ID de tu página de Facebook — se usa para rutear los leads entrantes de formularios al workspace correcto.' },
+      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'EAAG…', nota: 'Lo ÚNICO que tenés que pegar. Token de usuario de sistema (no expira) con los 8 permisos del tutorial: con eso MaKo completa el resto de los campos solo.' },
+      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', placeholder: 'act_1234567890', nota: 'Lo completa MaKo al pegar el token (te pregunta si tenés más de una cuenta).' },
+      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Lo deriva MaKo del token principal. Sirve para traer los datos de los leads de tus formularios (Lead Ads).' },
+      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token (te pregunta si tenés más de un píxel). Se usa para la Conversions API y el creador de campañas.' },
+      { env: 'META_CAPI_TOKEN', label: 'Token de Conversions API', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Avanzado: dejalo vacío. MaKo manda los eventos de CAPI con el token principal. Solo hace falta si el píxel vive en otro negocio que no podés asignar a tu usuario de sistema.' },
+      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Es lo que rutea los leads de tus formularios a tu cuenta.' },
     ],
     tutorial: {
       url: 'https://business.facebook.com/settings/system-users',
       urlLabel: 'Configuración del negocio → Usuarios del sistema',
       pasos: [
+        'Necesitás una app en developers.facebook.com (tipo Negocio). Si ya tenés una, usá esa.',
         'Entrá a Meta Business Suite → Configuración del negocio → Usuarios → Usuarios del sistema.',
         'Creá un usuario de sistema (rol Administrador) o elegí uno existente.',
-        'En "Agregar activos", asignale tu cuenta publicitaria con control total.',
+        'En "Agregar activos" asignale con control total TRES cosas: tu cuenta publicitaria, tu página de Facebook y tu píxel.',
         'Tocá "Generar token" y elegí tu app.',
-        'Marcá los permisos ads_read, ads_management y business_management.',
+        'Marcá los 8 permisos: ads_read, ads_management, business_management, pages_show_list, pages_read_engagement, pages_manage_ads, leads_retrieval y pages_manage_metadata.',
         'Poné expiración "Nunca".',
-        'Copiá el token y pegalo acá (empieza con EAAG…). Esto y el ID de cuenta son lo ÚNICO obligatorio.',
-        'El ID de la cuenta publicitaria está en Administrador de anuncios, arriba a la izquierda: el número que acompaña al nombre de la cuenta, con prefijo act_.',
-        'Los campos opcionales (píxel, token de CAPI, token de página) solo hacen falta si usás la Conversions API, el creador de campañas o los Lead Ads. Si no, dejalos vacíos.',
+        'Copiá el token y pegalo acá (empieza con EAA…). Es lo ÚNICO que tenés que cargar: MaKo busca tu cuenta publicitaria, tu página y tu píxel, y los completa solo.',
+        'Si tenés más de una cuenta, página o píxel, MaKo te muestra la lista para que elijas cuál.',
       ],
     },
   },
@@ -403,20 +403,27 @@ export const ENVS_METODO = new Set(
 // verificaste un paso contra la doc oficial, no lo escribas: un tutorial inventado
 // hace perder más tiempo que no tener tutorial.
 const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: string }> = {
+  // Este token es LA credencial de Meta: con los permisos y los activos completos,
+  // MaKo descubre solo la cuenta publicitaria, la página (y su token) y el píxel.
+  // Por eso el tutorial pide de una los 8 permisos y los 3 activos: si el cliente
+  // asigna solo la cuenta publicitaria (como pedía la versión vieja), /me/accounts
+  // vuelve vacío y hay que mandarlo de nuevo a Business Manager.
   META_ACCESS_TOKEN: {
     pasos: [
+      'Necesitás una app en developers.facebook.com (tipo Negocio). Si ya tenés una, seguí con la que está.',
       'Entrá a Meta Business Suite → Configuración del negocio → Usuarios → Usuarios del sistema.',
       'Creá un usuario de sistema con rol Administrador, o elegí uno que ya tengas.',
-      'En "Agregar activos", asignale tu cuenta publicitaria con control total.',
-      'Tocá "Generar token", elegí tu app y marcá ads_read, ads_management y business_management.',
-      'Poné expiración "Nunca", copiá el token (empieza con EAAG…) y pegalo acá.',
+      'En "Agregar activos" asignale TRES cosas con control total: tu cuenta publicitaria, tu página de Facebook y tu píxel.',
+      'Tocá "Generar token", elegí tu app y marcá los 8 permisos: ads_read, ads_management, business_management, pages_show_list, pages_read_engagement, pages_manage_ads, leads_retrieval y pages_manage_metadata.',
+      'Poné expiración "Nunca", copiá el token (empieza con EAA…) y pegalo acá: con esto solo, MaKo completa el resto de los campos por vos.',
     ],
     url: 'https://business.facebook.com/settings/system-users',
     urlLabel: 'Configuración del negocio → Usuarios del sistema',
   },
   META_AD_ACCOUNT_ID: {
     pasos: [
-      'Abrí el Administrador de anuncios con la cuenta que querés conectar.',
+      'Normalmente NO lo cargás a mano: al pegar el token de arriba, MaKo lista tus cuentas y la completa sola (si tenés varias, te pregunta cuál).',
+      'Si querés ponerla igual: abrí el Administrador de anuncios con la cuenta que querés conectar.',
       'Arriba a la izquierda, mirá el número que acompaña al nombre de la cuenta.',
       'Pegalo acá con el prefijo act_ (ej. act_1234567890).',
     ],
@@ -425,42 +432,40 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   META_PAGE_ACCESS_TOKEN: {
     pasos: [
-      'Solo si usás Lead Ads y querés que traigamos los leads de tus formularios. Si no, dejalo vacío.',
-      'En Configuración del negocio → Usuarios del sistema, abrí "Agregar activos" y sumale tu página de Facebook.',
-      'Tocá "Generar token" y marcá leads_retrieval, pages_show_list, pages_read_engagement y pages_manage_ads.',
-      'Con ese token, abrí el Explorador de la API Graph y hacé un GET a /me/accounts.',
-      'Buscá tu página en la respuesta y copiá su access_token — ese es el token de la página.',
+      'Este NO lo cargás a mano: MaKo lo deriva del token de arriba (la misma llamada que antes te pedíamos hacer en el Explorador de la API Graph).',
+      'Si viene vacío es porque tu usuario de sistema no tiene la página asignada, o al token le faltan los permisos de páginas.',
+      'Arreglo: Configuración del negocio → Usuarios del sistema → "Agregar activos" → sumá tu página, y regenerá el token con leads_retrieval, pages_show_list, pages_read_engagement y pages_manage_ads.',
     ],
     url: 'https://business.facebook.com/settings/system-users',
     urlLabel: 'Configuración del negocio → Usuarios del sistema',
   },
   META_PIXEL_ID: {
     pasos: [
-      'Solo si vas a usar la Conversions API o el creador de campañas. Si no, dejalo vacío.',
-      'Entrá al Administrador de eventos y elegí tu píxel en la lista de orígenes de datos.',
+      'Normalmente lo completa MaKo: al pegar el token lista los píxeles de tu cuenta (si tenés varios, te pregunta cuál).',
+      'Si querés ponerlo a mano: entrá al Administrador de eventos y elegí tu píxel en la lista de orígenes de datos.',
       'Copiá el número que figura junto al nombre del píxel — solo dígitos, sin comillas.',
-      'Guardá el mismo píxel a mano: de ahí sacás el token de Conversions API del campo de abajo.',
     ],
     url: 'https://business.facebook.com/events_manager2',
     urlLabel: 'Administrador de eventos',
   },
+  // CAPI: el botón "Generar token de acceso" de Events Manager arma por detrás un
+  // token con ads_management sobre ese píxel — no es un tipo especial de token.
+  // Por eso el token principal sirve, siempre que el píxel esté asignado al usuario
+  // de sistema. Este campo queda solo para el caso raro de un píxel de otro negocio.
   META_CAPI_TOKEN: {
     pasos: [
-      'Solo si usás CAPI para mandar eventos server-side (ej. Purchase). Si no, dejalo vacío.',
-      'Entrá al Administrador de eventos y elegí el mismo píxel del campo anterior.',
-      'Abrí la pestaña Configuración y bajá hasta la sección Conversions API.',
-      'En "Configurar manualmente", tocá "Generar token de acceso" y seguí el pop-up.',
-      'Copiá el token y pegalo acá. Si no ves el link, pedí rol de desarrollador en el negocio.',
+      'Dejalo VACÍO salvo que sepas que lo necesitás: MaKo manda los eventos de CAPI con el token principal.',
+      'Solo hace falta si el píxel vive en OTRO negocio y no lo podés asignar a tu usuario de sistema.',
+      'En ese caso: Administrador de eventos → tu píxel → Configuración → Conversions API → "Generar token de acceso".',
     ],
     url: 'https://business.facebook.com/events_manager2',
     urlLabel: 'Administrador de eventos',
   },
   META_PAGE_ID: {
     pasos: [
-      'Solo si usás Lead Ads: con esto ruteamos los leads de tus formularios a tu workspace.',
-      'Si ya sacaste el token de la página, la misma respuesta de /me/accounts trae el id de cada página.',
-      'Si no, abrí el Explorador de la API Graph y hacé un GET a /me/accounts.',
-      'Copiá el id de tu página y pegalo acá: solo dígitos, sin act_ ni comillas.',
+      'Normalmente lo completa MaKo con el token de arriba: es el id de la página cuyos leads entran a tu workspace.',
+      'Si tenés varias páginas, te pregunta cuál de ellas es la que usás para tus anuncios.',
+      'Solo a mano si hace falta: abrí el Explorador de la API Graph, hacé un GET a /me/accounts y copiá el id (solo dígitos).',
     ],
     url: 'https://developers.facebook.com/tools/explorer',
     urlLabel: 'Explorador de la API Graph',

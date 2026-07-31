@@ -23,6 +23,14 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Dropdown } from '../components/Dropdown';
+
+/** Lo que Meta devolvió y el cliente todavía tiene que elegir (si hay varias). */
+type OpcionesMeta = {
+  cuentas: Array<{ id: string; nombre: string; activa?: boolean; moneda?: string }>;
+  paginas: Array<{ id: string; nombre: string }>;
+  pixeles: Array<{ id: string; nombre: string }>;
+};
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -223,6 +231,17 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
   const seq = useRef(0);
   const ultimaAplicada = useRef(0);
 
+  // ── Meta: con el token pegado, la app completa el resto de los campos ──────
+  // Antes le pedíamos 6 credenciales de 6 pantallas distintas de Business Manager.
+  // Cinco salen del token. Lo único que no se puede adivinar es CUÁL elegir si el
+  // cliente tiene varias cuentas/páginas/píxeles: eso vuelve acá como `opciones`.
+  const [descubriendo, setDescubriendo] = useState(false);
+  const [opciones, setOpciones] = useState<OpcionesMeta>({ cuentas: [], paginas: [], pixeles: [] });
+  const [avisosMeta, setAvisosMeta] = useState<string[]>([]);
+  const [eligiendo, setEligiendo] = useState<string | null>(null);
+
+  const hayQueElegir = opciones.cuentas.length > 0 || opciones.paginas.length > 0 || opciones.pixeles.length > 0;
+
   const aplicar = (s: Servicio, n?: number) => {
     if (n !== undefined) {
       if (n < ultimaAplicada.current) return; // llegó tarde: ya hay algo más nuevo
@@ -399,10 +418,76 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
       if (j.ok && j.servicio) {
         aplicar(j.servicio as Servicio, n);
         setValores((val) => { const nv = { ...val }; delete nv[env]; return nv; });
+        // El token de Meta es el único campo que el cliente pega: apenas queda
+        // guardado, la app sale a buscar cuenta, página, token de página y píxel.
+        // (El mensaje lo pone descubrirMeta, que sabe cuántos campos completó.)
+        if (servicio.key === 'meta' && env === 'META_ACCESS_TOKEN') { void descubrirMeta(env); return; }
         ponerMsg(env, { ok: true, text: motivoSinProbar ? `Guardada. ${motivoSinProbar}` : 'Guardada y probada — funciona.' });
       } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo guardar.' });
     } catch { ponerMsg(env, { ok: false, text: 'No se pudo guardar. Probá de nuevo.' }); }
     finally { setGuardando(null); }
+  };
+
+  /**
+   * Meta: pide a la app que complete los campos que puede sacar sola del token.
+   * Se llama solo (al guardar el token) y también a mano desde el botón. Nunca
+   * rompe el flujo: si falla, el cliente sigue pudiendo cargar todo a mano.
+   */
+  const descubrirMeta = async (mostrarMsgEn?: string) => {
+    setDescubriendo(true);
+    try {
+      const n = ++seq.current;
+      const j = await fetch('/api/integraciones/credencial', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'descubrir' }),
+      }).then((r) => r.json());
+      if (!j.ok) {
+        if (mostrarMsgEn) ponerMsg(mostrarMsgEn, { ok: false, text: j.error ?? 'No se pudo leer tu cuenta de Meta.' });
+        return;
+      }
+      if (j.servicio) aplicar(j.servicio as Servicio, n);
+      setOpciones((j.opciones as OpcionesMeta) ?? { cuentas: [], paginas: [], pixeles: [] });
+      const avisos = Array.isArray(j.avisos) ? (j.avisos as string[]) : [];
+      // Un permiso que falta es lo ÚNICO que el cliente tiene que ir a arreglar a
+      // Meta, así que se nombra con su nombre exacto en vez de un error genérico.
+      const faltan = Array.isArray(j.faltanScopes) ? (j.faltanScopes as string[]) : [];
+      if (faltan.length) avisos.unshift(`A tu token le faltan permisos (${faltan.join(', ')}). Volvé a generarlo marcándolos y pegalo de nuevo.`);
+      setAvisosMeta(avisos);
+      if (mostrarMsgEn) {
+        const guardadas = Array.isArray(j.guardadas) ? j.guardadas.length : 0;
+        ponerMsg(mostrarMsgEn, {
+          ok: true,
+          text: guardadas
+            ? `Guardada. Completé ${guardadas} campo${guardadas === 1 ? '' : 's'} solo${guardadas === 1 ? '' : 's'} desde tu cuenta de Meta.`
+            : 'Guardada. Revisá los avisos de abajo para que pueda completar el resto.',
+        });
+      }
+    } catch {
+      if (mostrarMsgEn) ponerMsg(mostrarMsgEn, { ok: false, text: 'Guardada, pero no pude leer tu cuenta de Meta. Probá "Buscar mis datos".' });
+    } finally { setDescubriendo(false); }
+  };
+
+  /** El cliente eligió una de varias cuentas/páginas/píxeles. */
+  const elegirMeta = async (tipo: 'cuenta' | 'pagina' | 'pixel', id: string) => {
+    setEligiendo(tipo);
+    try {
+      const n = ++seq.current;
+      const j = await fetch('/api/integraciones/credencial', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'elegir', tipo, id }),
+      }).then((r) => r.json());
+      if (!j.ok) { setAvisosMeta([j.error ?? 'No se pudo guardar tu elección.']); return; }
+      if (j.servicio) aplicar(j.servicio as Servicio, n);
+      // Elegir la cuenta destraba los píxeles (cuelgan de ella): la respuesta trae
+      // los que haya, y se consume la lista del tipo que acaba de elegirse.
+      setOpciones((o) => ({
+        cuentas: tipo === 'cuenta' ? [] : o.cuentas,
+        paginas: tipo === 'pagina' ? [] : o.paginas,
+        pixeles: tipo === 'pixel' ? [] : ((j.opciones as OpcionesMeta | undefined)?.pixeles ?? o.pixeles),
+      }));
+      setAvisosMeta(Array.isArray(j.avisos) ? (j.avisos as string[]) : []);
+    } catch { setAvisosMeta(['No se pudo guardar tu elección. Probá de nuevo.']); }
+    finally { setEligiendo(null); }
   };
 
   const quitar = async (env: string) => {
@@ -484,7 +569,11 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
                     className="mk-key-input"
                     type={c.secreto ? 'password' : 'text'}
                     value={valores[c.env] ?? ''}
-                    placeholder={sem.placeholder}
+                    // El placeholder del catálogo (ej. "EAAG…", "act_1234567890")
+                    // es la pista de FORMATO que evita que peguen cualquier cosa.
+                    // Se pierde solo cuando el semáforo tiene algo más urgente que
+                    // decir (credencial ilegible: "volvé a pegarla").
+                    placeholder={!c.ilegible && c.placeholder ? c.placeholder : sem.placeholder}
                     autoComplete="off"
                     spellCheck={false}
                     aria-label={c.label}
@@ -529,6 +618,14 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
               )}
               {c.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6, lineHeight: 1.45 }}>Guardada pero ilegible (rotó la clave de cifrado) — volvé a pegarla.</div>}
 
+              {/* La nota del catálogo dice qué es ESTE campo y de dónde sale ("Lo
+                  completa MaKo", "Con el prefijo act_"). Solo mientras está por
+                  cargarse: con la credencial ya guardada sobra, y con la ayuda
+                  abierta la repetiría el tutorial. */}
+              {!cerrada && !ayudaAbierta[c.env] && c.nota && (
+                <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 6, lineHeight: 1.45 }}>{c.nota}</div>
+              )}
+
               {/* Ayuda de ESTA key. Solo mientras NO esté guardada: al guardar la
                   credencial (cerrada), el tutorial se cierra solo (no queda colgado). */}
               {!cerrada && ayudaAbierta[c.env] && <PasosAyuda ayuda={c.ayuda ?? servicio.tutorial} />}
@@ -536,6 +633,57 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
           );
         })}
       </div>
+
+      {/* ── Meta: lo que la app completó sola, y lo único que hay que elegir ──
+          Vive acá (y no en cada superficie) porque este componente es el mismo
+          que usan /integraciones, el onboarding y el panel de activación. */}
+      {servicio.key === 'meta' && (descubriendo || hayQueElegir || avisosMeta.length > 0) && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+          {descubriendo ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--dim)' }}>
+              <span aria-hidden style={{ width: 15, height: 15, borderRadius: '50%', border: '2px solid var(--border-strong)', borderTopColor: 'var(--primary)', animation: 'mk-spin .8s linear infinite', flex: 'none' }} />
+              Buscando tu cuenta, tu página y tu píxel en Meta…
+            </div>
+          ) : (
+            <>
+              {hayQueElegir && (
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                  Tenés más de una: elegí cuál usamos.
+                </div>
+              )}
+              {opciones.cuentas.length > 0 && (
+                <Elegir etiqueta="Cuenta publicitaria" cargando={eligiendo === 'cuenta'}
+                  opciones={opciones.cuentas.map((c) => ({ value: c.id, label: c.nombre, sub: `${c.id}${c.moneda ? ` · ${c.moneda}` : ''}${c.activa === false ? ' · con restricción' : ''}` }))}
+                  onElegir={(id) => elegirMeta('cuenta', id)} />
+              )}
+              {opciones.paginas.length > 0 && (
+                <Elegir etiqueta="Página de Facebook" cargando={eligiendo === 'pagina'}
+                  opciones={opciones.paginas.map((p) => ({ value: p.id, label: p.nombre, sub: p.id }))}
+                  onElegir={(id) => elegirMeta('pagina', id)} />
+              )}
+              {opciones.pixeles.length > 0 && (
+                <Elegir etiqueta="Píxel" cargando={eligiendo === 'pixel'}
+                  opciones={opciones.pixeles.map((p) => ({ value: p.id, label: p.nombre, sub: p.id }))}
+                  onElegir={(id) => elegirMeta('pixel', id)} />
+              )}
+              {avisosMeta.map((a, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.45 }}>
+                  <span style={{ flex: 'none' }}>!</span><span>{a}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Reintento a mano: si el cliente arregla los permisos o asigna la página
+          en Business Manager, no tiene que borrar y volver a pegar el token. */}
+      {servicio.key === 'meta' && !descubriendo && servicio.campos.some((c) => c.env === 'META_ACCESS_TOKEN' && c.configurado) && (
+        <button type="button" onClick={() => descubrirMeta('META_ACCESS_TOKEN')}
+          style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
+          ↻ Buscar mis datos en Meta
+        </button>
+      )}
 
       {/* zIndex 310: el modal de /integraciones va en 300 y el confirm tiene que
           quedar ARRIBA (el default de 120 lo dejaría invisible por debajo). */}
@@ -550,6 +698,33 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
           onConfirm={() => { const env = aBorrar.env; setABorrar(null); quitar(env); }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Un desplegable de "elegí cuál" para lo que MaKo encontró en Meta y no puede
+ * decidir solo (varias cuentas, páginas o píxeles). Elegir GUARDA en el acto:
+ * no hay un botón aparte, porque la elección ES la acción.
+ */
+function Elegir({ etiqueta, opciones, cargando, onElegir }: {
+  etiqueta: string;
+  opciones: Array<{ value: string; label: string; sub?: string }>;
+  cargando: boolean;
+  onElegir: (id: string) => void;
+}) {
+  const [sel, setSel] = useState('');
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 5 }}>{etiqueta}</div>
+      <Dropdown
+        value={sel}
+        onChange={(v) => { setSel(v); onElegir(v); }}
+        width="100%"
+        disabled={cargando}
+        placeholder={cargando ? 'Guardando…' : `Elegí tu ${etiqueta.toLowerCase()}`}
+        options={opciones}
+      />
     </div>
   );
 }
