@@ -27,7 +27,7 @@ import { getEstructurasGuion } from './guion-estructuras-store';
 import { getSetting, setSetting } from './settings';
 import { getAvatares, avataresTexto, type Avatar } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, motivoDeErroresCascada } from './ai-cheap';
 
 // Un guion de video de una celda. Una celda puede tener VARIOS (pedido
 // explícito): uno de testimonio, otro de lead magnet, otro de dolor… — cada uno
@@ -253,6 +253,23 @@ export async function siguientePasoOpciones(): Promise<string[]> {
   return base.filter((o, i) => o && base.indexOf(o) === i);
 }
 
+/**
+ * El mensaje de "no salió por la IA", con el motivo REAL. Si la cascada dejó
+ * errores, es que SÍ había keys y fallaron (cuota, key vencida, timeout) — decirle
+ * "conectá tu API key" a alguien que ya la tiene lo manda a buscar un problema que
+ * no existe. Si no hay errores, es que no había ningún proveedor configurado.
+ */
+export function errorDeIA(errores: string[]): string {
+  const motivo = motivoDeErroresCascada(errores);
+  // La salida tiene que coincidir con el motivo: a una key vencida no la arregla
+  // esperar, y a una cuota agotada no la arregla reintentar al toque.
+  if (motivo?.startsWith('Se quedó sin cuota')) return `${motivo} Esperá a que se reinicie (Gemini gratis reinicia cada día) o conectá otra API key acá abajo.`;
+  if (motivo?.startsWith('La API key')) return `${motivo} Pegá una nueva acá abajo.`;
+  if (motivo) return `${motivo} Probá de nuevo en un momento.`;
+  if (errores.length) return 'La IA no respondió esta vez. Probá de nuevo, o conectá otra API key acá abajo.';
+  return 'No hay ninguna IA conectada. Pegá tu API key de Gemini (es gratis) acá abajo.';
+}
+
 // ── Sugerencia de guion: MaKo elige TODO (la IA facilita, no interroga) ──────
 // Pedido explícito del dueño: crear un guion se volvió "super complejo, me pide
 // muchas preguntas abiertas". La regla nueva: la IA sugiere el ángulo y la
@@ -352,12 +369,14 @@ Devolvé solo el JSON.`;
       } catch { return null; }
     };
 
+    const errores: string[] = [];
     const text = await chatCheapCascade({
       system: sys, user, json: true, maxTokens: 1400, timeoutMs: opts.timeoutMs,
       feature: 'razones', motivo: fijado ? `Preguntas cerradas del ángulo ${fijado.nombre}` : 'Sugerencia de ángulo y estructura del guion',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsear(t) !== null,
+      erroresOut: errores,
     });
-    if (!text) return { ok: false, error: 'No hay IA para sugerir. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+    if (!text) return { ok: false, error: errorDeIA(errores) };
     const sugerencia = parsear(text);
     if (!sugerencia) return { ok: false, error: 'MaKo no pudo armar la sugerencia. Reintenta en un momento.' };
     return { ok: true, sugerencia };
@@ -418,12 +437,18 @@ COPY/HOOK: ${celda.copy}
 SIGUIENTE PASO AL HACER CLIC: ${siguientePaso}
 ${entregables.length ? `LEAD MAGNET: ${entregablesTexto(entregables)}\n` : ''}${opts.formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${opts.formatoVideoTexto}\n` : ''}${respAngulo.length ? `LO QUE EL DUEÑO PRECISÓ PARA ESTE ÁNGULO (úsalo, es el material concreto):\n${respAngulo.map((r) => `- ${r.pregunta} → ${r.respuesta.trim()}`).join('\n')}\n` : ''}${opts.nota?.trim() ? `NOTA DEL DUEÑO (qué quiere comunicar — respetala):\n${opts.nota.trim()}\n` : ''}
 Escribí el guion del video con el ángulo "${angulo.nombre}" y la estructura "${estructura.nombre}".`;
+    // Sin `erroresOut`, "no hay IA configurada" y "la IA falló" daban EXACTAMENTE
+    // el mismo mensaje: a un cliente con su key puesta le decíamos que la conecte
+    // (pasó en vivo, con la cuota agotada). El motivo real cambia qué tiene que
+    // hacer: esperar, o cargar otra key.
+    const errores: string[] = [];
     const texto = await chatCheapCascade({
       system: sys, user, maxTokens: 2200, timeoutMs: opts.timeoutMs,
       feature: 'razones', motivo: `Guion de video (ángulo ${angulo.nombre})`,
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => t.trim().length > 40,
+      erroresOut: errores,
     });
-    if (!texto.trim()) return { ok: false, error: 'No hay IA para el guion. Conecta tu API key de Gemini (gratis).' };
+    if (!texto.trim()) return { ok: false, error: errorDeIA(errores) };
     const item: GuionItem = { id: randomUUID(), anguloId: angulo.id, anguloNombre: angulo.nombre, texto: texto.trim() };
     // Releer DESPUÉS de la llamada lenta: si el usuario editó otra celda mientras
     // se generaba, no lo pisamos — solo AGREGAMOS el guion nuevo a esta celda.

@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { formatoPorId, type Medio } from '@/lib/angulos-data';
 import { SeccionCard, parsearSecciones, type Seccion } from '../components/SeccionCard';
+import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -45,6 +46,10 @@ const ICONO_GUION: Record<string, string> = {
 // Reconstruye el guion completo tras editar UNA sección (las tarjetas son
 // independientes; el campo guardado sigue siendo un solo string con etiquetas).
 const reconstruirGuion = (secciones: Seccion[]) => secciones.map((s) => `${s.titulo}\n${s.texto}`).join('\n\n');
+
+/** ¿El error viene de la IA (falta key, cuota, key vencida) y no de otra cosa?
+ *  Los textos los arma errorDeIA() en lib/razones.ts. */
+const esErrorDeIA = (e: string) => /API key|IA (no|conectada)|cuota|límite de uso|no respondió/i.test(e);
 
 function Edit({ valor, onSave, multiline, style }: { valor: string; onSave: (v: string) => void; multiline?: boolean; style?: CSSProperties }) {
   return (
@@ -336,7 +341,22 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
                     onElegir={() => elegirAngulo(celda.id, 'video')}
                     nota="Cada guion de la tab Guiones sigue este formato. Con eso, acá vas a generar el video (próximamente)." />
                 )}
-                {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 14, textAlign: 'center' }}>{err}</div>}
+                {err && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, textAlign: 'center', lineHeight: 1.5 }}>{err}</div>
+                    {/* Si lo que falló fue la IA (sin key, cuota agotada, key
+                        vencida), el arreglo se hace ACÁ: el mismo formulario de
+                        credenciales del onboarding, embebido. Mandarlo a
+                        /integraciones en medio del onboarding le hace perder el
+                        paso — y pasó en vivo con una clienta. */}
+                    {esErrorDeIA(err) && (
+                      <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '13px 15px' }}>
+                        <div style={{ ...eyebrow, marginBottom: 9 }}>Conectá otra API key y volvé a intentar</div>
+                        <ServicioConfigForm servicioKey="gemini" onEstado={(ok) => { if (ok) setErr(null); }} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
