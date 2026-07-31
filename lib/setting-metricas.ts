@@ -6,8 +6,8 @@
 //   nutricion_envios         → enviados por canal + abierto_at/clic_at (webhook Resend)
 //   nutricion_inscripciones  → activos / respondió (la pausa) / completados
 
-export type FilaEnvio = { secuencia_id: number | null; canal: string; estado: string; abierto_at: string | null; clic_at: string | null };
-export type FilaInsc = { secuencia_id: number | null; estado: string };
+export type FilaEnvio = { secuencia_id: number | null; canal: string; estado: string; abierto_at: string | null; clic_at: string | null; created_at?: string | null };
+export type FilaInsc = { secuencia_id: number | null; estado: string; updated_at?: string | null };
 
 export type MetricasJugada = {
   enviadosWa: number;
@@ -48,4 +48,39 @@ export function agregarMetricas(envios: FilaEnvio[], inscripciones: FilaInsc[]):
     else if (i.estado === 'completada') m.completados += 1;
   }
   return out;
+}
+
+// ── Serie diaria (para el gráfico del Dashboard) ─────────────────────────────
+
+export type PuntoSerie = { dia: string; enviadosWa: number; enviadosEmail: number; respuestas: number; abiertos: number };
+
+/**
+ * Serie de los últimos `dias` días terminando en `hoyISO` (YYYY-MM-DD, puro y
+ * testeable): envíos reales por canal (created_at), aperturas (abierto_at) y
+ * respuestas (updated_at de la inscripción cuando quedó 'respondio' — la fecha
+ * de la pausa, aproximación honesta sin tabla nueva).
+ */
+export function serieDiaria(envios: FilaEnvio[], inscripciones: FilaInsc[], hoyISO: string, dias = 30): PuntoSerie[] {
+  const buckets = new Map<string, PuntoSerie>();
+  const hoy = Date.parse(`${hoyISO.slice(0, 10)}T00:00:00Z`);
+  for (let i = dias - 1; i >= 0; i--) {
+    const dia = new Date(hoy - i * 86400 * 1000).toISOString().slice(0, 10);
+    buckets.set(dia, { dia, enviadosWa: 0, enviadosEmail: 0, respuestas: 0, abiertos: 0 });
+  }
+  const en = (fecha: string | null | undefined): PuntoSerie | undefined =>
+    fecha ? buckets.get(fecha.slice(0, 10)) : undefined;
+  for (const e of envios) {
+    if (e.estado === 'enviado') {
+      const b = en(e.created_at);
+      if (b) { if (e.canal === 'whatsapp') b.enviadosWa += 1; else if (e.canal === 'email') b.enviadosEmail += 1; }
+    }
+    const ba = en(e.abierto_at);
+    if (ba) ba.abiertos += 1;
+  }
+  for (const i of inscripciones) {
+    if (i.estado !== 'respondio') continue;
+    const b = en(i.updated_at);
+    if (b) b.respuestas += 1;
+  }
+  return [...buckets.values()];
 }

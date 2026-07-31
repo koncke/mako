@@ -11,7 +11,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
 import { parseEstrategia, type Estrategia } from './setting-estrategia';
-import { agregarMetricas, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasJugada } from './setting-metricas';
+import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasJugada, type PuntoSerie } from './setting-metricas';
 import { getContactoReportes } from './perfil';
 import { getInstanciaRow } from './evolution';
 import { enviarYEspejar } from './evolution-envio';
@@ -20,20 +20,28 @@ import { aplicarVariables, valoresVariablesLead } from './template-vars';
 
 export type Jugada = Omit<SecuenciaConStats, 'estrategia'> & { estrategia: Estrategia | null; metricas: MetricasJugada };
 
-export async function getJugadas(): Promise<Jugada[]> {
+/** Jugadas + métricas 30d + la serie diaria del workspace (una sola pasada). */
+export async function getSettingData(): Promise<{ jugadas: Jugada[]; serie: PuntoSerie[] }> {
   const supabase = await getTenantDb();
   const desde = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
   const [secs, envios, inscs] = await Promise.all([
     getSecuenciasConStats(),
-    supabase.from('nutricion_envios').select('secuencia_id, canal, estado, abierto_at, clic_at').gte('created_at', desde),
-    supabase.from('nutricion_inscripciones').select('secuencia_id, estado'),
+    supabase.from('nutricion_envios').select('secuencia_id, canal, estado, abierto_at, clic_at, created_at').gte('created_at', desde),
+    supabase.from('nutricion_inscripciones').select('secuencia_id, estado, updated_at'),
   ]);
-  const met = agregarMetricas((envios.data ?? []) as FilaEnvio[], (inscs.data ?? []) as FilaInsc[]);
-  return secs.map((s) => ({
+  const filasEnvio = (envios.data ?? []) as FilaEnvio[];
+  const filasInsc = (inscs.data ?? []) as FilaInsc[];
+  const met = agregarMetricas(filasEnvio, filasInsc);
+  const jugadas = secs.map((s) => ({
     ...s,
     estrategia: parseEstrategia(s.estrategia),
     metricas: met.get(s.id) ?? { ...METRICAS_CERO },
   }));
+  return { jugadas, serie: serieDiaria(filasEnvio, filasInsc, new Date().toISOString()) };
+}
+
+export async function getJugadas(): Promise<Jugada[]> {
+  return (await getSettingData()).jugadas;
 }
 
 export async function guardarEstrategia(secuenciaId: number, estrategia: Estrategia): Promise<void> {

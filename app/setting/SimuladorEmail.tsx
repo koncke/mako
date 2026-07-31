@@ -9,11 +9,12 @@
 import { useState, type CSSProperties } from 'react';
 import type { JugadaDto } from './SettingApp';
 
+// Tolera {{nombre}} y {nombre} (los seeds viejos de email usan llave simple).
 function conVars(s: string): string {
   return s
-    .replace(/\{\{\s*nombre\s*\}\}/gi, 'Juan')
-    .replace(/\{\{\s*apellido\s*\}\}/gi, 'Pérez')
-    .replace(/\{\{\s*empresa\s*\}\}/gi, 'Acme SRL');
+    .replace(/\{\{?\s*nombre\s*\}?\}/gi, 'Juan')
+    .replace(/\{\{?\s*apellido\s*\}?\}/gi, 'Pérez')
+    .replace(/\{\{?\s*empresa\s*\}?\}/gi, 'Acme SRL');
 }
 
 function fmtTiming(h: number): string {

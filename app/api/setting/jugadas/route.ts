@@ -13,7 +13,7 @@
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import {
-  getJugadas, guardarEstrategia, crearSecuenciaJugada, probarSecuencia,
+  getSettingData, guardarEstrategia, crearSecuenciaJugada, probarSecuencia,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE,
 } from '@/lib/setting-jugadas';
 import { parseEstrategia, OBJETIVOS } from '@/lib/setting-estrategia';
@@ -38,8 +38,8 @@ export async function GET() {
     return Response.json({ ok: false, error: 'Sin acceso a Setting en este workspace.' }, { status: 403 });
   }
   try {
-    const [jugadas, funnel, leadMagnets, wsRow] = await Promise.all([
-      getJugadas(),
+    const [{ jugadas, serie }, funnel, leadMagnets, wsRow] = await Promise.all([
+      getSettingData(),
       getFunnel().catch(() => null),
       getEntregables().catch(() => []),
       getWorkspace(ws).catch(() => null),
@@ -49,7 +49,7 @@ export async function GET() {
       .filter((s) => (s.band ?? 'pipeline') !== 'salidas')
       .map((s) => ({ value: s.key, label: s.label }));
     return Response.json({
-      ok: true, jugadas, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
+      ok: true, jugadas, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
       negocio: wsRow?.nombre ?? '',
     });

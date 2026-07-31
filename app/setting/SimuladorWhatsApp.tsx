@@ -1,166 +1,239 @@
 'use client';
 
 // =============================================================================
-// SimuladorWhatsApp — teléfono simulado de la tab /setting
+// SimuladorWhatsApp — jugadas COMO CHAT (réplica de PlantillasView de SuperAdmin)
 // =============================================================================
-// Dos cosas en el mismo chat: (1) "ver la secuencia en vivo" — los pasos de
-// WhatsApp de la jugada aparecen uno a uno como burbujas salientes, con su
-// timing anotado; (2) conversación: el dueño escribe COMO EL LEAD y MaKo
-// responde en el rol de setter (POST /api/setting/simulador). Sandbox puro.
+// Mismo diseño que app/agencia/PlantillasView.tsx: lista de jugadas como
+// CONTACTOS (300px) + ChatHilo compartido (burbujas + composer real con emoji,
+// adjuntar y nota de voz). "▶ Simular secuencia" reproduce los pasos como
+// mensajes entrantes del negocio (vos sos EL LEAD: tus mensajes van a la
+// derecha); escribís/mandás audio y MaKo responde como setter. La topbar /
+// Editar abre el PERFIL de la jugada (JugadaPerfil, cubre el chat).
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import type { JugadaDto } from './SettingApp';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
+import { JugadaPerfil } from './JugadaPerfil';
+import type { JugadaDto, Opcion } from './SettingApp';
+import type { Objetivo } from '@/lib/setting-estrategia';
 
-type Burbuja =
-  | { tipo: 'paso'; texto: string; timing: string }
-  | { tipo: 'negocio'; texto: string }
-  | { tipo: 'lead'; texto: string }
-  | { tipo: 'nota'; texto: string };
+export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
+export const emojiJugada = (j: JugadaDto): string => (j.estrategia ? EMOJI_OBJETIVO[j.estrategia.objetivo] : '⚑');
 
-// Variables de plantilla → valores de un lead de prueba (solo visual).
-function conVars(s: string): string {
-  return s
-    .replace(/\{\{\s*nombre\s*\}\}/gi, 'Juan')
-    .replace(/\{\{\s*apellido\s*\}\}/gi, 'Pérez')
-    .replace(/\{\{\s*empresa\s*\}\}/gi, 'Acme SRL');
-}
+// Variables de plantilla → lead de prueba (solo visual, espejo del motor).
+// Tolera {{nombre}} y {nombre} (los seeds viejos de email usan llave simple).
+const conVars = (s: string) => s
+  .replace(/\{\{?\s*nombre\s*\}?\}/gi, 'Juan')
+  .replace(/\{\{?\s*apellido\s*\}?\}/gi, 'Pérez')
+  .replace(/\{\{?\s*empresa\s*\}?\}/gi, 'Acme SRL');
 
 function fmtTiming(p: { delay_horas: number; ancla?: 'reunion' }): string {
   const h = p.delay_horas;
-  if (p.ancla === 'reunion') return h <= 1 ? '1h antes de la reunión' : h < 24 ? `${h}h antes de la reunión` : `${Math.round(h / 24)} día(s) antes de la reunión`;
+  if (p.ancla === 'reunion') return h < 24 ? `${h}h antes de la reunión` : `${Math.round(h / 24)} día(s) antes de la reunión`;
   if (h <= 1) return 'al entrar a la etapa';
   if (h < 24) return `a las ${h}h`;
   const d = Math.round(h / 24);
   return d === 1 ? 'al día siguiente' : `a los ${d} días`;
 }
 
-export function SimuladorWhatsApp({ jugada, nombreNegocio }: { jugada: JugadaDto | null; nombreNegocio: string }) {
-  const [burbujas, setBurbujas] = useState<Burbuja[]>([]);
-  const [reproduciendo, setReproduciendo] = useState(false);
-  const [texto, setTexto] = useState('');
-  const [pensando, setPensando] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const timers = useRef<number[]>([]);
+async function blobABase64(b: Blob): Promise<string> {
+  const buf = new Uint8Array(await b.arrayBuffer());
+  let bin = '';
+  const CH = 0x8000;
+  for (let i = 0; i < buf.length; i += CH) bin += String.fromCharCode(...buf.subarray(i, i + CH));
+  return btoa(bin);
+}
 
-  // Reset al cambiar de jugada + limpiar timers pendientes al desmontar.
+type Paso = { t: 'typing' } | { t: 'msg'; msg: HiloMsg };
+
+export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, rolAdmin, onWizard, onReload }: {
+  jugadas: JugadaDto[];
+  objetivos: Opcion[];
+  etiquetaEtapa: (key: string) => string;
+  negocio: string;
+  rolAdmin: boolean;
+  onWizard: (id: number | 'nueva') => void;
+  onReload: () => void;
+}) {
+  const [busq, setBusq] = useState('');
+  const [selId, setSelId] = useState<number | ''>('');
+  const [mensajes, setMensajes] = useState<HiloMsg[]>([]);
+  const [typing, setTyping] = useState<{ lado: 'left' | 'right'; autor?: string } | null>(null);
+  const [detalle, setDetalle] = useState(false);
+  const seq = useRef(0);
+
+  useEffect(() => { if (selId === '' && jugadas.length) setSelId(jugadas[0].id); }, [jugadas, selId]);
+
+  const lista = useMemo(() => {
+    const q = busq.trim().toLowerCase();
+    return jugadas.filter((j) => !q
+      || j.nombre.toLowerCase().includes(q)
+      || (j.estrategia?.gancho ?? '').toLowerCase().includes(q)
+      || etiquetaEtapa(j.etapa).toLowerCase().includes(q));
+  }, [jugadas, busq, etiquetaEtapa]);
+  const sel = jugadas.find((j) => j.id === selId);
+
+  // Cambiar de jugada limpia el hilo y los timers del guion (patrón PlantillasView).
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => {
-    setBurbujas([]); setErr(null); setReproduciendo(false);
-    const t = timers.current;
-    return () => { for (const id of t) window.clearTimeout(id); timers.current = []; };
-  }, [jugada?.id]);
+    timers.current.forEach(clearTimeout); timers.current = [];
+    setMensajes([]); setTyping(null); setDetalle(false);
+    return () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  }, [selId]);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [burbujas, pensando]);
+  const elegir = (id: number) => { setSelId(id); setDetalle(false); };
 
-  const pasosWa = (jugada?.pasos ?? []).filter((p) => p.canal === 'whatsapp');
-
+  // ▶ Reproduce la secuencia como mensajes ENTRANTES del negocio (vos = el lead).
   function simularSecuencia() {
-    if (!jugada || reproduciendo) return;
-    setErr(null); setReproduciendo(true);
-    setBurbujas([{ tipo: 'nota', texto: `Así le llega la secuencia a un lead que entra a la etapa` }]);
-    pasosWa.forEach((p, i) => {
-      const id = window.setTimeout(() => {
-        setBurbujas((prev) => [...prev, { tipo: 'paso', texto: conVars(p.cuerpo), timing: fmtTiming(p) }]);
-        if (i === pasosWa.length - 1) {
-          setBurbujas((prev) => [...prev, { tipo: 'nota', texto: 'Fin de la secuencia — ahora escribí abajo como si fueras el lead y mirá cómo responde MaKo' }]);
-          setReproduciendo(false);
-        }
-      }, 700 * (i + 1));
-      timers.current.push(id);
-    });
-    if (pasosWa.length === 0) {
-      setBurbujas((prev) => [...prev, { tipo: 'nota', texto: 'Esta jugada no tiene pasos de WhatsApp — igual podés chatear: escribí abajo como el lead' }]);
-      setReproduciendo(false);
+    if (!sel) return;
+    timers.current.forEach(clearTimeout); timers.current = [];
+    const pasosWa = sel.pasos.filter((p) => p.canal === 'whatsapp');
+    const guion: Paso[] = [];
+    for (const p of pasosWa) {
+      guion.push({ t: 'typing' });
+      guion.push({ t: 'msg', msg: { id: `sim-${sel.id}-${p.orden}-${++seq.current}`, fromMe: false, autor: `${negocio || 'Tu negocio'} · ⏱ ${fmtTiming(p)}`, texto: conVars(p.cuerpo), fecha: new Date().toISOString() } });
+    }
+    setMensajes([]); setTyping(null);
+    const acc0: HiloMsg[] = [];
+    let acc = 150;
+    for (const p of guion) {
+      if (p.t === 'typing') { timers.current.push(setTimeout(() => setTyping({ lado: 'left', autor: negocio || 'Tu negocio' }), acc)); acc += 600; }
+      else { acc0.push(p.msg); const snap = [...acc0]; timers.current.push(setTimeout(() => { setTyping(null); setMensajes(snap); }, acc)); acc += 350; }
     }
   }
 
-  async function enviar() {
-    const t = texto.trim();
-    if (!jugada || !t || pensando) return;
-    setTexto(''); setErr(null);
-    const nuevas: Burbuja[] = [...burbujas, { tipo: 'lead', texto: t }];
-    setBurbujas(nuevas);
-    setPensando(true);
+  const historialDe = (msgs: HiloMsg[]) => msgs
+    .filter((m) => m.autor !== 'Simulador') // los avisos de error no son parte de la charla
+    .map((m) => ({
+      de: m.fromMe ? 'lead' : 'negocio',
+      texto: m.texto || (m.tipo === 'audio' ? '(nota de voz)' : `[el lead mandó un archivo]`),
+    }));
+
+  async function pedirRespuesta(body: Record<string, unknown>, msgs: HiloMsg[]): Promise<{ respuesta?: string; transcript?: string } | null> {
+    setTyping({ lado: 'left', autor: negocio || 'Tu negocio' });
     try {
-      // El historial del simulador: pasos y respuestas del negocio = 'negocio'.
-      const historial = nuevas
-        .filter((b): b is Exclude<Burbuja, { tipo: 'nota' }> => b.tipo !== 'nota')
-        .map((b) => ({ de: b.tipo === 'lead' ? 'lead' : 'negocio', texto: b.texto }));
-      const r = await fetch('/api/setting/simulador', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secuenciaId: jugada.id, historial }),
-      });
+      const r = await fetch('/api/setting/simulador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json();
-      if (!j.ok) { setErr(j.error || 'MaKo no pudo responder.'); return; }
-      setBurbujas((prev) => [...prev, { tipo: 'negocio', texto: j.respuesta }]);
+      if (!j.ok) {
+        setMensajes([...msgs, { id: `err-${++seq.current}`, fromMe: false, autor: 'Simulador', texto: `⚠ ${j.error || 'MaKo no pudo responder.'}`, fecha: new Date().toISOString() }]);
+        return null;
+      }
+      return j;
     } catch {
-      setErr('Sin conexión — probá de nuevo.');
+      setMensajes([...msgs, { id: `err-${++seq.current}`, fromMe: false, autor: 'Simulador', texto: '⚠ Sin conexión — probá de nuevo.', fecha: new Date().toISOString() }]);
+      return null;
     } finally {
-      setPensando(false);
+      setTyping(null);
     }
   }
 
-  const burLead: CSSProperties = { alignSelf: 'flex-start', maxWidth: '78%', padding: '9px 13px', borderRadius: '14px 14px 14px 4px', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: '13.5px', lineHeight: 1.5, whiteSpace: 'pre-wrap' };
-  const burNegocio: CSSProperties = { alignSelf: 'flex-end', maxWidth: '78%', padding: '9px 13px', borderRadius: '14px 14px 4px 14px', background: 'var(--wa-bubble)', border: '1px solid var(--wa)', color: 'var(--ink)', fontSize: '13.5px', lineHeight: 1.5, whiteSpace: 'pre-wrap' };
+  async function enviarTexto(texto: string): Promise<boolean> {
+    if (!sel) return false;
+    const conLead = [...mensajes, { id: `lead-${++seq.current}`, fromMe: true, texto, fecha: new Date().toISOString() } as HiloMsg];
+    setMensajes(conLead);
+    const j = await pedirRespuesta({ secuenciaId: sel.id, historial: historialDe(conLead) }, conLead);
+    if (j?.respuesta) setMensajes([...conLead, { id: `mako-${++seq.current}`, fromMe: false, autor: negocio || 'Tu negocio', texto: j.respuesta, fecha: new Date().toISOString() }]);
+    return true;
+  }
+
+  async function enviarArchivo(blob: Blob, tipo: '' | 'audio', fileName: string, caption?: string): Promise<boolean> {
+    if (!sel) return false;
+    const url = URL.createObjectURL(blob);
+    if (tipo === 'audio') {
+      const audioId = `lead-audio-${++seq.current}`;
+      const conLead = [...mensajes, { id: audioId, fromMe: true, tipo: 'audio', mediaUrl: url, fecha: new Date().toISOString() } as HiloMsg];
+      setMensajes(conLead);
+      const j = await pedirRespuesta({ secuenciaId: sel.id, historial: historialDe(mensajes), audioBase64: await blobABase64(blob), audioMime: blob.type || 'audio/mpeg' }, conLead);
+      if (!j) return true;
+      // La transcripción vuelve del server: se pega al audio y llega la respuesta.
+      const conTranscript = conLead.map((m) => (m.id === audioId ? { ...m, texto: j.transcript ? `🎙 ${j.transcript}` : m.texto } : m));
+      setMensajes(j.respuesta
+        ? [...conTranscript, { id: `mako-${++seq.current}`, fromMe: false, autor: negocio || 'Tu negocio', texto: j.respuesta, fecha: new Date().toISOString() }]
+        : conTranscript);
+      return true;
+    }
+    const esImg = blob.type.startsWith('image/');
+    const conLead = [...mensajes, { id: `lead-file-${++seq.current}`, fromMe: true, tipo: esImg ? 'image' : 'document', mediaUrl: url, texto: caption || fileName, fecha: new Date().toISOString() } as HiloMsg];
+    setMensajes(conLead);
+    const historial = [...historialDe(mensajes), { de: 'lead', texto: `[el lead mandó un archivo: ${fileName}]${caption ? ` y escribió: ${caption}` : ''}` }];
+    const j = await pedirRespuesta({ secuenciaId: sel.id, historial }, conLead);
+    if (j?.respuesta) setMensajes([...conLead, { id: `mako-${++seq.current}`, fromMe: false, autor: negocio || 'Tu negocio', texto: j.respuesta, fecha: new Date().toISOString() }]);
+    return true;
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 430, height: 640, borderRadius: 26, border: '1px solid var(--border-strong)', background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
-      {/* Header estilo WhatsApp */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 16px', background: 'var(--wa)', color: '#fff' }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15 }}>
-          {(nombreNegocio || 'M').slice(0, 1).toUpperCase()}
+    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 12, height: 620 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border)' }}>
+          <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar jugada…"
+            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombreNegocio || 'Tu negocio'}</div>
-          <div style={{ fontSize: 11.5, opacity: 0.85 }}>{pensando ? 'escribiendo…' : 'en línea'}</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
+          {/* Crear nueva (contacto gris, arriba de todo — patrón PlantillasView) */}
+          {rolAdmin && (
+            <button type="button" onClick={() => onWizard('nueva')}
+              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85, fontFamily: 'inherit' }}>
+              <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'var(--faint)' }}>+</span>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva jugada</div>
+            </button>
+          )}
+
+          {lista.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna jugada coincide.</div>}
+          {lista.map((j) => {
+            const on = j.id === selId;
+            const snippet = j.estrategia?.gancho ?? j.pasos.find((p) => p.canal === 'whatsapp')?.cuerpo ?? j.pasos[0]?.cuerpo ?? '';
+            return (
+              <button key={j.id} type="button" onClick={() => elegir(j.id)}
+                style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, opacity: j.activa ? 1 : 0.5, fontFamily: 'inherit' }}>
+                <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{emojiJugada(j)}</span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.nombre}{!j.activa && <span style={{ color: 'var(--faint)', fontWeight: 500 }}> · pausada</span>}</div>
+                  <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{etiquetaEtapa(j.etapa)} · {snippet.replace(/[*_\n]/g, ' ').slice(0, 34)}</div>
+                </div>
+                <span title={j.activa ? 'Activa' : 'Pausada'} style={{ width: 8, height: 8, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
+                {!j.estrategia && <span style={{ flex: 'none', fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 5, padding: '1px 4px' }}>sin jugada</span>}
+              </button>
+            );
+          })}
         </div>
-        <button onClick={simularSecuencia} disabled={!jugada || reproduciendo}
-          style={{ padding: '6px 12px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: !jugada || reproduciendo ? 0.5 : 1 }}>
-          ▶ Simular secuencia
-        </button>
       </div>
 
-      {/* Chat */}
-      <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--surface-2)' }}>
-        {burbujas.length === 0 && (
-          <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.6, maxWidth: 280 }}>
-            {jugada
-              ? <>Tocá <strong style={{ color: 'var(--dim)' }}>▶ Simular secuencia</strong> para ver los mensajes salir en vivo, o escribí abajo como si fueras el lead.</>
-              : 'Elegí una jugada arriba para simularla.'}
-          </div>
-        )}
-        {burbujas.map((b, i) => {
-          if (b.tipo === 'nota') return (
-            <div key={i} style={{ alignSelf: 'center', padding: '5px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--faint)', fontSize: 11 }}>{b.texto}</div>
-          );
-          if (b.tipo === 'lead') return <div key={i} style={burLead}>{b.texto}</div>;
-          return (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-              {b.tipo === 'paso' && <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>⏱ {b.timing}</span>}
-              <div style={burNegocio}>{b.texto}</div>
+      {detalle && sel ? (
+        <JugadaPerfil jugada={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin}
+          onClose={() => setDetalle(false)} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
+      ) : sel ? (
+        <ChatHilo
+          accent="var(--wa)"
+          accentBubble="var(--wa-bubble)"
+          mensajes={mensajes}
+          typing={typing}
+          draftKey={`setting-sim-${sel.id}`}
+          placeholder="Escribí como el lead…"
+          onEnviarTexto={enviarTexto}
+          onEnviarArchivo={enviarArchivo}
+          vacio={(
+            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
+              Tocá <strong style={{ color: 'var(--dim)' }}>▶ Simular secuencia</strong> para ver los mensajes llegar como al lead,<br />o escribí abajo (texto, audio o archivo) y MaKo te responde como setter.
             </div>
-          );
-        })}
-        {pensando && <div style={{ ...burNegocio, color: 'var(--faint)' }}>···</div>}
-      </div>
-
-      {err && <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--bad)', background: 'var(--bad-bg)' }}>{err}</div>}
-
-      {/* Input del lead */}
-      <div style={{ display: 'flex', gap: 8, padding: '10px 12px', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <input
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') void enviar(); }}
-          placeholder={jugada ? 'Escribí como el lead…' : 'Elegí una jugada primero'}
-          disabled={!jugada || pensando}
-          style={{ flex: 1, padding: '10px 14px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }}
+          )}
+          header={(
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+              <button type="button" onClick={() => setDetalle(true)} title="Ver perfil / editar" style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiJugada(sel)}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(sel.etapa)}{sel.estrategia ? ` · ${objetivos.find((o) => o.value === sel.estrategia!.objetivo)?.label ?? sel.estrategia.objetivo}` : ' · sin jugada definida'} · toca para {rolAdmin ? 'editar' : 'ver'}</div>
+                </div>
+              </button>
+              <button type="button" onClick={simularSecuencia} title="Reproducir la secuencia como la ve el lead"
+                style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: 'none', background: 'var(--wa)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>▶ Simular secuencia</button>
+              <button type="button" onClick={() => setDetalle(true)} title="Perfil de la jugada"
+                style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
+            </div>
+          )}
         />
-        <button onClick={() => void enviar()} disabled={!jugada || pensando || !texto.trim()}
-          style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', fontSize: 16, cursor: 'pointer', opacity: !jugada || pensando || !texto.trim() ? 0.5 : 1 }}>➤</button>
-      </div>
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elegí una jugada.</div>
+      )}
     </div>
   );
 }
