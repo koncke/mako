@@ -36,6 +36,8 @@ export function CrmAutoToggle() {
       const j = await r.json();
       if (j.ok) setOn(Boolean(j.habilitado));
       else setErr(j.error || 'No se pudo cambiar');
+    } catch {
+      setErr('Sin conexión — probá de nuevo');
     } finally {
       setBusy(false);
     }

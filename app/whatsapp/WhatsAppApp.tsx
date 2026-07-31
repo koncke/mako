@@ -12,7 +12,7 @@
 //    El cuerpo de cada paso es una plantilla aprobada de Meta (solo lectura).
 // =============================================================================
 
-import { Fragment, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -320,6 +320,7 @@ function WhatsAppInner() {
   const [envioWaOn, setEnvioWaOn] = useState<boolean | null>(null);
   const [envioAdmin, setEnvioAdmin] = useState(false);
   const [envioBusy, setEnvioBusy] = useState(false);
+  const [envioErr, setEnvioErr] = useState<string | null>(null);
   const [plantillaTarget, setPlantillaTarget] = useState<string | null>(null); // deep-link desde el pop-up de aprobación
   const [plantillaSeed, setPlantillaSeed] = useState<{ objetivo: string; etapa: string } | null>(null); // pre-carga el redactor de MaKo desde el asesor
   const [now, setNow] = useState(0); // reloj para el contador de la ventana de 24h (tick cada 30s)
@@ -342,31 +343,40 @@ function WhatsAppInner() {
 
   const toggleEnvioWa = async () => {
     if (envioWaOn == null || envioBusy) return;
-    setEnvioBusy(true);
+    setEnvioBusy(true); setEnvioErr(null);
     try {
       const r = await fetch('/api/whatsapp/envio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: !envioWaOn }) });
       const j = await r.json();
       if (j.ok) setEnvioWaOn(Boolean(j.envioHabilitado));
-      else setSeqError(j.error || 'No se pudo cambiar el envío real');
+      else setEnvioErr(j.error || 'No se pudo cambiar el envío real');
+    } catch {
+      setEnvioErr('Sin conexión — probá de nuevo');
     } finally {
       setEnvioBusy(false);
     }
   };
 
   // ── Carga inicial (secuencias + plantillas; los contactos vienen del provider) ──
+  const reloadSecuencias = useCallback(async () => {
+    try {
+      const r = await fetch('/api/whatsapp/secuencias');
+      const j = await r.json();
+      const list: Secuencia[] = j.ok ? j.secuencias : [];
+      setSecuencias(list);
+      // seed-solo-si-null: /api/whatsapp/envio (GET/POST) es el único escritor
+      // autoritativo del toggle; este GET llena el estado inicial (setter y
+      // closer, cuyo GET /envio da 403 y no setea nada).
+      if (j.ok && typeof j.envioWhatsapp === 'boolean') setEnvioWaOn((prev) => (prev == null ? j.envioWhatsapp : prev));
+      setSelSeqId((prev) => (prev != null && list.some((s) => s.id === prev) ? prev : (list[0]?.id ?? null)));
+      // El copy pudo cambiar por afuera (MaKo aplicó): un borrador de edición
+      // abierto quedó viejo — se descarta para no pisar lo aprobado.
+      setEditPasos(null);
+    } finally {
+      setLoadingSeqs(false);
+    }
+  }, []);
   useEffect(() => {
-    void (async () => {
-      try {
-        const r = await fetch('/api/whatsapp/secuencias');
-        const j = await r.json();
-        const list: Secuencia[] = j.ok ? j.secuencias : [];
-        setSecuencias(list);
-        if (j.ok && typeof j.envioWhatsapp === 'boolean') setEnvioWaOn(j.envioWhatsapp);
-        if (list[0]) setSelSeqId(list[0].id);
-      } finally {
-        setLoadingSeqs(false);
-      }
-    })();
+    void reloadSecuencias();
     void (async () => {
       try {
         const r = await fetch('/api/whatsapp/templates');
@@ -384,7 +394,7 @@ function WhatsAppInner() {
         // 403 = setter/closer: ven el estado pero sin toggle (config admin-only).
       } catch { /* sin toggle */ }
     })();
-  }, []);
+  }, [reloadSecuencias]);
 
   // Al salir de /whatsapp, ningún chat queda "abierto" → el provider vuelve a
   // notificar TODOS los contactos (sin esto, el último chat abierto se silencia).
@@ -979,6 +989,7 @@ function WhatsAppInner() {
                 Envío real: {envioWaOn ? 'ON' : 'OFF'}
               </button>
             )}
+            {envioErr && <span style={{ fontSize: '12px', color: 'var(--bad)' }}>{envioErr}</span>}
           </div>
         </div>
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
@@ -1281,7 +1292,7 @@ function WhatsAppInner() {
               <button onClick={() => setSeqTab('plantillas')} style={seqTab === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>
               <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Preguntá a MaKo</button>
             </div>
-            <NutricionGenerar />
+            <NutricionGenerar onAplicado={() => void reloadSecuencias()} />
           </div>
 
           {seqTab === 'plantillas' && <PlantillasPanel initialSelect={plantillaTarget} makoSeed={plantillaSeed} onMakoSeedApplied={() => setPlantillaSeed(null)} />}

@@ -30,6 +30,7 @@ import {
   procesarEnvios,
 } from '@/lib/nutricion';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
+import { seedNutricionTemplates } from '@/lib/nutricion-templates';
 import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -100,6 +101,11 @@ export async function GET(request: NextRequest) {
     for (const w of objetivo) {
       try {
         const r = await runWithWorkspace(w.id, async (): Promise<ResultadoWs> => {
+          // Backfill de secuencias (idempotente por clave/trigger/etapa): los
+          // workspaces creados ANTES de un template nuevo o del seed derivado
+          // del funnel también las reciben. Nacen pausadas o con [relleno], así
+          // que sembrar acá nunca dispara un envío.
+          try { await seedNutricionTemplates(); } catch { /* no fatal */ }
           const [waOn, emailOn] = await Promise.all([envioWhatsappHabilitado(), envioEmailHabilitado()]);
           if (!waOn && !emailOn) return { ws: w.id, modo: 'off' };
           const inscriptas = await comprometerInscripciones();

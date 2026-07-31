@@ -52,6 +52,9 @@ export async function GET(request: NextRequest) {
     }
 
     const res = await aplicarAutoTodos(undefined, { soloWs, forzar });
+    if (soloWs && res.length === 0) {
+      return Response.json({ ok: false, error: `workspace ${soloWs} inexistente o pausado` }, { status: 404 });
+    }
     const auto = res.reduce((a, e) => a + (e.auto ?? 0), 0);
     const confirmaciones = res.reduce((a, e) => a + (e.confirmaciones ?? 0), 0);
     const errores = res.filter((r) => !r.ok).length;

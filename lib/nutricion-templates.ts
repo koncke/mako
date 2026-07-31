@@ -17,7 +17,7 @@ import { getTenantDb } from './workspace';
 import { getFunnel } from './leads';
 import type { PasoSecuencia } from './nutricion';
 
-export type NutricionTemplate = { clave: string; nombre: string; etapa: string; trigger_tipo: string; pasos: PasoSecuencia[] };
+export type NutricionTemplate = { clave: string; nombre: string; etapa: string; trigger_tipo: string; activa?: boolean; pasos: PasoSecuencia[] };
 
 const email = (orden: number, delay_horas: number, asunto: string, cuerpo: string): PasoSecuencia =>
   ({ orden, canal: 'email', delay_horas, asunto, cuerpo, template_wa: null });
@@ -48,14 +48,14 @@ export const NUTRITION_TEMPLATES: NutricionTemplate[] = [
   {
     clave: 'no-show-r2', nombre: 'No Show R2 — reagenda', etapa: 'noshow', trigger_tipo: 'no_show_j2',
     pasos: [
-      wa(1, 1, 'nutri_no_show', 'Nos quedó pendiente la segunda reunión — estabas muy cerca de decidir. Reagendemos y cerramos los últimos detalles 👉 [tu link de agenda].'),
+      wa(1, 1, 'nutri_no_show', 'Nos quedó pendiente la segunda reunión — estabas muy cerca de decidir sobre [tu oferta]. Reagendemos y cerramos los últimos detalles 👉 [tu link de agenda].'),
       email(2, 24, 'Terminemos lo que empezamos', 'Habíamos avanzado un montón. Reagendá la llamada acá 👉 [tu link de agenda] y resolvemos las dudas que te queden.'),
     ],
   },
   {
     clave: 'no-paga', nombre: 'No paga aún — recordatorio', etapa: 'nopaga', trigger_tipo: 'confirmado_sin_pago',
     pasos: [
-      wa(1, 2, 'nutri_pago', 'Hola, quedó confirmado tu lugar pero todavía no vi el pago. ¿Necesitás que te reenvíe el link o coordinamos otra forma? Te ayudo por acá.'),
+      wa(1, 2, 'nutri_pago', 'Hola, quedó confirmado tu lugar en [tu oferta] pero todavía no vi el pago. ¿Necesitás que te reenvíe el link o coordinamos otra forma? Te ayudo por acá.'),
       email(2, 24, '¿Coordinamos el pago?', 'Para dejar tu lugar reservado solo falta el pago. Te dejo el link de nuevo 👉 [tu link de pago]. Si preferís otra modalidad (transferencia, cuotas), decime y lo vemos.'),
     ],
   },
@@ -63,7 +63,8 @@ export const NUTRITION_TEMPLATES: NutricionTemplate[] = [
     // Recordatorio de reunión (#18): pasos ANCLADOS a la fecha de la R1 del lead
     // (delay_horas = horas ANTES de la reunión). El WhatsApp va por el canal no
     // oficial: a leads calientes queda como borrador que el setter manda con 1 clic.
-    clave: 'recordatorio-r1', nombre: 'Recordatorio de reunión — que llegue', etapa: 'postagenda', trigger_tipo: 'agendado_sin_confirmar',
+    // Nace PAUSADA: MaKo escribe el copy y aprobar la prende (flujo aprobar-activa).
+    clave: 'recordatorio-r1', nombre: 'Recordatorio de reunión — que llegue', etapa: 'postagenda', trigger_tipo: 'agendado_sin_confirmar', activa: false,
     pasos: [
       { orden: 1, canal: 'email', delay_horas: 24, ancla: 'reunion', asunto: 'Mañana tenemos nuestra reunión', cuerpo: 'Hola 👋 Te escribo para confirmar nuestra reunión de mañana. Vamos a ver [tu problema] y salir con un plan concreto. Si se te complicó el horario, reagendá acá 👉 [tu link de agenda]. ¡Nos vemos!', template_wa: null },
       { orden: 2, canal: 'whatsapp', delay_horas: 2, ancla: 'reunion', asunto: null, cuerpo: 'Hola, en un par de horas tenemos nuestra reunión. ¿Confirmamos que llegás bien? Cualquier cosa avisame por acá.', proveedor: 'no_oficial', template_wa: null },
@@ -94,7 +95,7 @@ export async function seedNutricionTemplates(): Promise<number> {
   for (const t of NUTRITION_TEMPLATES) {
     if (claves.has(t.clave) || triggers.has(t.trigger_tipo)) continue;
     const { error } = await supabase.from('nutricion_secuencias').insert({
-      clave: t.clave, nombre: t.nombre, etapa: t.etapa, trigger_tipo: t.trigger_tipo, activa: true, pasos: t.pasos,
+      clave: t.clave, nombre: t.nombre, etapa: t.etapa, trigger_tipo: t.trigger_tipo, activa: t.activa ?? true, pasos: t.pasos,
     });
     if (!error) { creadas++; claves.add(t.clave); triggers.add(t.trigger_tipo); }
     else console.error(`[nutricion-templates] seed ${t.clave} falló: ${error.message}`);

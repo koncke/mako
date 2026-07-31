@@ -196,16 +196,25 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'etapa_actual') {
     if (!etapa) return [];
-    // Ventana de 90 días para no revivir cohortes muertas al colgar una
-    // secuencia de una etapa con leads viejos acumulados.
+    // Ventana anti-revival de 90 días sobre el ÚLTIMO HITO del lead (no sobre su
+    // edad): un lead viejo con una transición fresca (agendó, tuvo reunión)
+    // entra; uno sin actividad en 90 días queda afuera.
     const { data, error } = await supabase
       .from('leads')
-      .select('id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada')
-      .eq('estado_lead', 'abierto')
-      .gte('created_at', haceDiasISO(90));
+      .select('id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada, created_at')
+      .eq('estado_lead', 'abierto');
     if (error) throw new Error(`cohorte etapa_actual(${etapa}): ${error.message}`);
-    type LeadEtapa = { id: number; estado_lead: 'abierto'; pipeline_stage: string | null; fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; nutricion_realizada: boolean | null };
+    type LeadEtapa = { id: number; estado_lead: 'abierto'; pipeline_stage: string | null; fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; nutricion_realizada: boolean | null; created_at: string };
+    const corte = Date.now() - 90 * 86400 * 1000;
+    const ultimoHito = (l: LeadEtapa): number => Math.max(
+      ...[l.created_at, l.fecha_agenda, l.fecha_junta_1, l.fecha_junta_2]
+        .filter((x): x is string => Boolean(x))
+        .map((x) => Date.parse(x))
+        .filter((ms) => Number.isFinite(ms)),
+      0,
+    );
     return ((data ?? []) as LeadEtapa[])
+      .filter((l) => ultimoHito(l) >= corte)
       .filter((l) => pipelineStageOf({ ...l, nutricion_realizada: l.nutricion_realizada ?? undefined }) === etapa)
       .map((l) => l.id);
   }
@@ -394,27 +403,50 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 // ── Agenda de pasos ──────────────────────────────────────────────────────────
 type JuntasLead = { fecha_junta_1?: string | null; junta_1_at?: string | null; fecha_junta_2?: string | null; junta_2_at?: string | null };
 
+// Offset horario de México en formato ISO (derivado de TZ_OFFSET_MX).
+const OFFSET_MX = `${TZ_OFFSET_MX < 0 ? '-' : '+'}${String(Math.abs(TZ_OFFSET_MX)).padStart(2, '0')}:00`;
+
+// fecha_junta_* es DATE ('YYYY-MM-DD'): parsearla directo daría medianoche UTC
+// (= la TARDE del día anterior en MX) y una reunión de hoy contaría como pasada.
+// Sin hora exacta (junta_*_at, Calendly) asumimos mediodía MX como hora default.
+function parseFechaJunta(x: string): number {
+  return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(x) ? `${x}T12:00:00${OFFSET_MX}` : x);
+}
+
+/** Timestamp (ms) de la próxima reunión FUTURA del lead, o null si no tiene. */
+function reunionFuturaMs(juntas: JuntasLead | null | undefined): number | null {
+  const candidatos = [juntas?.junta_1_at ?? juntas?.fecha_junta_1, juntas?.junta_2_at ?? juntas?.fecha_junta_2]
+    .filter((x): x is string => Boolean(x))
+    .map(parseFechaJunta)
+    .filter((ms) => Number.isFinite(ms) && ms > Date.now());
+  return candidatos.length ? Math.min(...candidatos) : null;
+}
+
 /**
  * Cuándo toca un paso: delay relativo (default) o, si está anclado a la reunión
  * (#18), delay_horas ANTES de la próxima reunión futura del lead (prefiere la
- * hora exacta junta_*_at; fecha_junta_* solo-fecha cae a medianoche UTC y la
- * ventana horaria del cron lo acomoda). Sin reunión futura → ASAP: si el lead ya
- * no corresponde, la cohorte/pausa lo resuelve.
+ * hora exacta junta_*_at; una fecha sin hora cuenta como mediodía MX). Sin
+ * reunión futura → ahora: procesarEnvios re-valida el ancla al enviar y cierra
+ * la inscripción si la reunión ya pasó.
  */
 function proximoEnvioDePaso(paso: PasoSecuencia | undefined, juntas: JuntasLead | null | undefined): string {
   if (paso?.ancla === 'reunion') {
-    const candidatos = [juntas?.junta_1_at ?? juntas?.fecha_junta_1, juntas?.junta_2_at ?? juntas?.fecha_junta_2]
-      .filter((x): x is string => Boolean(x))
-      .map((x) => Date.parse(x))
-      .filter((ms) => Number.isFinite(ms) && ms > Date.now());
-    if (candidatos.length) {
-      const objetivo = Math.min(...candidatos) - (paso.delay_horas || 0) * 3600 * 1000;
+    const reunion = reunionFuturaMs(juntas);
+    if (reunion != null) {
+      const objetivo = reunion - (paso.delay_horas || 0) * 3600 * 1000;
       return new Date(Math.max(objetivo, Date.now())).toISOString();
     }
     return ahoraISO();
   }
   return enHorasISO(paso?.delay_horas ?? 0);
 }
+
+// Copy que sigue con texto de relleno del seed ([tu problema], [resultado]…).
+// Los [tu link …] son placeholders del SISTEMA (se reemplazan al enviar) y no
+// cuentan. Espejo del heurístico de la UI (NutricionGenerar).
+const RX_RELLENO = /\[(?!tu link)[^\]\n]{2,80}\]/i;
+const pasoConRelleno = (p: PasoSecuencia): boolean =>
+  RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? '');
 
 // ── Inscripción ──────────────────────────────────────────────────────────────
 export type PlanInscripcion = { secuencia: string; lead_id: number; proximo_envio_at: string };
@@ -435,13 +467,32 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
       .in('lead_id', candidatos);
     if (error) throw new Error(`planificarInscripciones: ${error.message}`);
     const inscriptos = new Set(((yaInsc ?? []) as Array<{ lead_id: number }>).map((r) => r.lead_id));
-    const delay0 = sec.pasos[0]?.delay_horas ?? 0;
-    for (const lead_id of candidatos) {
-      if (inscriptos.has(lead_id)) continue;
-      plan.push({ secuencia: sec.clave, lead_id, proximo_envio_at: enHorasISO(delay0) });
+    const pendientes = candidatos.filter((id) => !inscriptos.has(id));
+    const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes);
+    for (const lead_id of pendientes) {
+      plan.push({ secuencia: sec.clave, lead_id, proximo_envio_at: horarios.get(lead_id) ?? enHorasISO(sec.pasos[0]?.delay_horas ?? 0) });
     }
   }
   return plan;
+}
+
+/**
+ * Horario del primer paso para cada lead pendiente de inscribir. Con paso 0
+ * anclado a la reunión (#18), trae la agenda de cada lead en una query batch;
+ * sin ancla, delay relativo. Compartido por el dry-run y el commit para que el
+ * preview no mienta sobre el horario.
+ */
+async function horariosDeInscripcion(paso0: PasoSecuencia | undefined, pendientes: number[]): Promise<Map<number, string>> {
+  let juntasMap = new Map<number, JuntasLead>();
+  if (paso0?.ancla === 'reunion' && pendientes.length) {
+    const supabase = (await getTenantDb());
+    const { data: jl } = await supabase
+      .from('leads')
+      .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at')
+      .in('id', pendientes);
+    juntasMap = new Map(((jl ?? []) as Array<{ id: number } & JuntasLead>).map((l) => [l.id, l]));
+  }
+  return new Map(pendientes.map((id) => [id, proximoEnvioDePaso(paso0, juntasMap.get(id))]));
 }
 
 // Persiste las inscripciones nuevas. Devuelve cuántas creó.
@@ -459,29 +510,15 @@ export async function comprometerInscripciones(): Promise<number> {
       .eq('secuencia_id', sec.id)
       .in('lead_id', candidatos);
     const inscriptos = new Set(((yaInsc ?? []) as Array<{ lead_id: number }>).map((r) => r.lead_id));
-    const paso0 = sec.pasos[0];
-    // Paso inicial anclado a la reunión → el horario depende de la agenda de
-    // CADA lead: traemos sus juntas en una query batch.
-    let juntasMap = new Map<number, JuntasLead>();
-    if (paso0?.ancla === 'reunion') {
-      const pendientes = candidatos.filter((id) => !inscriptos.has(id));
-      if (pendientes.length) {
-        const { data: jl } = await supabase
-          .from('leads')
-          .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at')
-          .in('id', pendientes);
-        juntasMap = new Map(((jl ?? []) as Array<{ id: number } & JuntasLead>).map((l) => [l.id, l]));
-      }
-    }
-    const nuevas = candidatos
-      .filter((id) => !inscriptos.has(id))
-      .map((lead_id) => ({
-        lead_id,
-        secuencia_id: sec.id,
-        paso_actual: 0,
-        estado: 'activa',
-        proximo_envio_at: proximoEnvioDePaso(paso0, juntasMap.get(lead_id)),
-      }));
+    const pendientes = candidatos.filter((id) => !inscriptos.has(id));
+    const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes);
+    const nuevas = pendientes.map((lead_id) => ({
+      lead_id,
+      secuencia_id: sec.id,
+      paso_actual: 0,
+      estado: 'activa',
+      proximo_envio_at: horarios.get(lead_id) ?? enHorasISO(sec.pasos[0]?.delay_horas ?? 0),
+    }));
     if (nuevas.length === 0) continue;
     const { error } = await supabase.from('nutricion_inscripciones').insert(nuevas);
     if (error) throw new Error(`comprometerInscripciones: ${error.message}`);
@@ -672,13 +709,48 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         continue;
       }
 
-      // ¿El canal de este paso está apagado para el workspace? → el paso ESPERA:
-      // reintento en 24h, sin enviar, sin avanzar y sin fila en nutricion_envios
-      // (patrón de la rama 'borrador pendiente'). Prender el canal después
-      // retoma la cadencia desde este mismo paso.
-      const canalApagado = !opts?.simularApagados
-        && ((paso.canal === 'whatsapp' && !waOn) || (paso.canal === 'email' && !emailOn));
-      if (canalApagado) {
+      const lead = leadMap.get(insc.lead_id);
+
+      // Pasos ANCLADOS a la reunión (#18): la agenda se re-valida AL MOMENTO de
+      // enviar, no solo al programar. (1) Sin reunión futura → la inscripción se
+      // cierra sin enviar (un recordatorio tardío es peor que ninguno). (2) Si el
+      // objetivo re-calculado quedó en el futuro (reagenda, drift por espera de
+      // canal), el paso se re-ancla y espera su hora.
+      if (paso.ancla === 'reunion') {
+        if (reunionFuturaMs(lead) == null) {
+          res.omitidos += 1;
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
+          await supabase.from('nutricion_inscripciones')
+            .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
+          continue;
+        }
+        const objetivo = proximoEnvioDePaso(paso, lead);
+        if (Date.parse(objetivo) > Date.now() + 5 * 60 * 1000) {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 're-anclado a la reunión' });
+          await supabase.from('nutricion_inscripciones')
+            .update({ proximo_envio_at: objetivo, updated_at: ahoraISO() }).eq('id', insc.id);
+          continue;
+        }
+      }
+
+      // Copy que sigue con texto de relleno del seed → NUNCA sale automático:
+      // espera (reintento 24h) a que MaKo lo escriba y alguien lo apruebe.
+      if (!opts?.simularApagados && pasoConRelleno(paso)) {
+        res.esperando += 1;
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'copy con [relleno] — escribilo con MaKo' });
+        await supabase.from('nutricion_inscripciones')
+          .update({ proximo_envio_at: enHorasISO(24), updated_at: ahoraISO() }).eq('id', insc.id);
+        continue;
+      }
+
+      // ¿El canal de este paso está apagado para el workspace? Si a la secuencia
+      // le queda algún paso posterior por un canal PRENDIDO, este paso se marca
+      // 'omitido' y la cadencia sigue (el cliente eligió no usar este canal). Si
+      // no queda nada enviable, el paso ESPERA (reintento 24h): prender el canal
+      // después retoma desde acá, sin quemar la cadencia (tarea #5).
+      const canalOn = (p: PasoSecuencia) => (p.canal === 'whatsapp' ? waOn : emailOn);
+      const canalApagado = !opts?.simularApagados && !canalOn(paso);
+      if (canalApagado && !sec.pasos.slice(insc.paso_actual + 1).some(canalOn)) {
         res.esperando += 1;
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: `canal ${paso.canal} apagado` });
         await supabase.from('nutricion_inscripciones')
@@ -686,12 +758,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         continue;
       }
 
-      if (conEnvioReciente.has(insc.lead_id)) {
+      if (!canalApagado && conEnvioReciente.has(insc.lead_id)) {
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
         continue; // no avanzar; se reintenta en otra corrida
       }
 
-      const lead = leadMap.get(insc.lead_id);
       let estado: 'enviado' | 'simulado' | 'omitido' | 'borrador' | 'fallo' = 'simulado';
       let nota: string | undefined;
       let proveedorId: string | null = null;
@@ -704,7 +775,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // corrida). 4h para fallos transitorios; 24h para los casi-permanentes.
       let backoffHoras = 4;
 
-      if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {
+      if (canalApagado) {
+        // Queda un paso posterior enviable → este se omite y la cadencia sigue.
+        estado = 'omitido';
+        nota = `canal ${paso.canal} apagado`;
+      } else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {
         // Canal EMPRESA (no oficial, Evolution). Regla dura del PDF: a leads
         // CALIENTES nunca automático directo → borrador para el setter; a CLIENTES
         // (ya pagaron, riesgo bajo) → envío automático con anti-ban.

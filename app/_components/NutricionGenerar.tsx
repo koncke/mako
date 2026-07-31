@@ -58,7 +58,7 @@ const RX_PLACEHOLDER = /\[(?!tu link)[^\]\n]{2,80}\]/i;
 const conPlaceholders = (s: Sec): boolean =>
   s.pasos.some((p) => RX_PLACEHOLDER.test(p.cuerpo) || RX_PLACEHOLDER.test(p.asunto ?? ''));
 
-export function NutricionGenerar() {
+export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {}) {
   const [visible, setVisible] = useState(false);
   const [open, setOpen] = useState(false);
   const [secs, setSecs] = useState<Sec[] | null>(null);
@@ -83,7 +83,12 @@ export function NutricionGenerar() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  function cerrar() { setOpen(false); setSel(null); setMsg(null); setVerAntes(null); setCola([]); }
+  function cerrar() {
+    // Con una operación en vuelo (generar/aplicar/submit a Meta) el modal no se
+    // cierra: la cadena "aprobar y seguir" no debe correr con el modal cerrado.
+    if (busy !== null || submitting !== null) return;
+    setOpen(false); setSel(null); setMsg(null); setVerAntes(null); setCola([]);
+  }
 
   // Modo "todas" (#46): MaKo escribe secuencia por secuencia y vos las revisás
   // en cadena — genera la primera ya y encola el resto; al aprobar una, sigue
@@ -155,8 +160,12 @@ export function NutricionGenerar() {
       if (!sel.activa) {
         const act = await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: sel.id, activa: true }) }).then((r) => r.json()).catch(() => ({ ok: false }));
         activada = Boolean(act?.ok);
+        // El copy ya quedó guardado (idempotente): si la activación falló, se
+        // corta con error visible — re-aprobar reintenta solo la activación.
+        if (!activada) throw new Error(`El copy de «${sel.nombre}» se guardó, pero la secuencia NO se pudo activar. Reintentá con Aprobar, o activala desde la lista de secuencias.`);
       }
       setSecs((prev) => prev?.map((s) => (s.id === sel.id ? { ...s, pasos: draft, activa: s.activa || activada } : s)) ?? prev);
+      onAplicado?.();
       setSel(null);
       setMsg({ t: 'ok', x: `Listo — «${sel.nombre}» quedó escrita por MaKo${activada ? ' y activada' : ''}.` });
       // Modo "todas": seguir con la próxima de la cola.
