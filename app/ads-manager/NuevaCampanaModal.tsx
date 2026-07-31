@@ -21,7 +21,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type Dispatch, 
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon } from '@/lib/queries';
-import { colorDeSemaforo, type MetaHealth, type NodoEstado } from '@/lib/meta-health-ui';
+import { colorDeSemaforo, linkAprobarEnMeta, type MetaHealth, type NodoEstado } from '@/lib/meta-health-ui';
 import {
   type CampaignSpec, type AdSpec, type Creative, type Targeting, type Objective, type AudienceRef,
   objetivoDef, CTA_OPCIONES,
@@ -205,6 +205,9 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   const [uso, setUso] = useState<Uso>(d0.uso);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<{ campaign_id: string; ads: number } | null>(null);
+  // Meta puede retener los anuncios recién publicados hasta que un admin los
+  // apruebe a mano (ver /api/ads-manager/ad-aprobacion). null = todavía chequeando.
+  const [aprobacion, setAprobacion] = useState<{ pendientes: Array<{ id: string; name: string }>; accountId: string | null } | null>(null);
   const trayCounter = useRef(d0.tray.reduce((mx, t) => { const m = /^up-(\d+)$/.exec(t.id); return m ? Math.max(mx, Number(m[1])) : mx; }, 0));
   const adsetReqRef = useRef(0);
   const publishingRef = useRef(false);
@@ -487,6 +490,23 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
     };
   }
 
+  // Tras publicar: ¿Meta retuvo los anuncios esperando aprobación manual? El issue
+  // puede tardar unos segundos en aparecer, así que reintentamos un par de veces.
+  // Best-effort puro: si falla, la pantalla de éxito queda como estaba.
+  async function chequearAprobacion(adIds: string[]) {
+    const ids = (adIds ?? []).filter(Boolean);
+    if (ids.length === 0) return;
+    for (let intento = 0; intento < 3; intento++) {
+      await new Promise((r) => setTimeout(r, intento === 0 ? 1200 : 3000));
+      try {
+        const r = await fetch(`/api/ads-manager/ad-aprobacion?ids=${encodeURIComponent(ids.join(','))}`, { cache: 'no-store' });
+        const j = await r.json();
+        if (!j.ok) return;
+        if (j.pendientes?.length) { setAprobacion({ pendientes: j.pendientes, accountId: j.accountId ?? null }); return; }
+      } catch { return; }
+    }
+  }
+
   // ── publicar ──
   async function publicar() {
     if (!spec || publishingRef.current) return;
@@ -524,6 +544,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
         setResult({ campaign_id: campSel?.id ?? '', ads: (j.ad_ids ?? []).length });
         onPublished(); // refresca la tabla YA: si cierran con ✕, los anuncios (y sus letras) igual aparecen
         setStep('listo');
+        chequearAprobacion(j.ad_ids ?? []);
         return;
       }
       const r = await fetch('/api/ads-manager/campaign-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spec, prompt: promptDeRespuestas(analisis), uso }) });
@@ -532,6 +553,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
       try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
       setResult({ campaign_id: j.campaign_id, ads: (j.ad_ids ?? []).length });
       setStep('listo');
+      chequearAprobacion(j.ad_ids ?? []);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setStep('revision'); }
     finally { publishingRef.current = false; }
   }
@@ -679,6 +701,21 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
                   ? <>Se {result.ads === 1 ? 'agregó' : 'agregaron'} {result.ads} anuncio{result.ads === 1 ? '' : 's'} a <b>{campSel?.name ?? 'la campaña'}</b>, en <b>PAUSA</b>. La campaña quedó tal cual estaba; activá los anuncios con el toggle de la tabla cuando quieras.</>
                   : <>Se creó con {result.ads} anuncio{result.ads === 1 ? '' : 's'}, todo en <b>PAUSA</b>. Activala con el toggle de la tabla cuando quieras.</>}
               </p>
+              {aprobacion && aprobacion.pendientes.length > 0 && (
+                // Sin esto la app canta "listo" y el anuncio nunca entrega: Meta lo
+                // retiene hasta que un admin lo aprueba a mano, y su mail dice
+                // "no tenés que hacer nada" justo a la persona que tiene que actuar.
+                <div style={{ width: '100%', maxWidth: 460, background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 14, padding: '14px 16px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>⚠ Meta pide que los apruebes</div>
+                  <p style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, margin: 0 }}>
+                    Por seguridad, Meta retuvo {aprobacion.pendientes.length === 1 ? 'este anuncio' : `${aprobacion.pendientes.length} de estos anuncios`} hasta que un admin de la cuenta {aprobacion.pendientes.length === 1 ? 'lo apruebe' : 'los apruebe'} a mano. Si la cuenta es tuya, ese admin sos vos: aprobalos en Ads Manager y recién ahí van a entregar. No se puede hacer desde acá porque Meta no lo permite por API.
+                  </p>
+                  <a href={linkAprobarEnMeta(aprobacion.accountId, aprobacion.pendientes[0]?.id)} target="_blank" rel="noopener noreferrer"
+                    style={{ ...btnDark, background: 'var(--warn-fill)', color: '#fff', fontSize: 14, padding: '10px 18px', alignSelf: 'flex-start', textDecoration: 'none' }}>
+                    Aprobar en Meta ↗
+                  </a>
+                </div>
+              )}
               <button onClick={() => { if (!existente) onPublished(); onClose(); }} style={btnDark}>Ver en la tabla</button>
             </div>
           )}

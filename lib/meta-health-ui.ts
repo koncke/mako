@@ -16,7 +16,36 @@ export type Reco = {
   semaforo: Semaforo;
 };
 
-export type Issue = { resumen: string; mensaje: string };
+// `code` = error_code de Meta (más fiable que matchear el texto, que viene en el
+// idioma de la cuenta y cambia). `mid` = el message id que Meta define justamente
+// para reportarle un caso a soporte: lo guardamos para poder citarlo.
+export type Issue = { resumen: string; mensaje: string; code?: number; mid?: string };
+
+// ── Aprobación de pares ("peer approval") ────────────────────────────────────
+// Meta retiene el anuncio recién publicado hasta que un "usuario de confianza" o
+// un admin del portfolio dueño lo apruebe A MANO en Ads Manager. NO es un rechazo
+// por políticas (eso es DISAPPROVED + ad_review_feedback): es un control de
+// identidad, y Meta NO lo expone por API — no hay endpoint para aprobar ni para
+// leer la configuración (probado contra la Graph API: /confirm, /approve, /review
+// y /appeal no existen). Lo único que puede hacer la app es detectarlo y guiar.
+export const META_ISSUE_APROBACION_PENDIENTE = 2446984;
+
+export function esAprobacionPendiente(it: Issue): boolean {
+  if (it.code === META_ISSUE_APROBACION_PENDIENTE) return true;
+  const t = `${it.resumen} ${it.mensaje}`.toLowerCase();
+  return /trusted user|owning business admin|really you publishing|approve these ads/.test(t);
+}
+
+/** Link a Ads Manager para aprobar el anuncio retenido. Con el id de la cuenta
+ * abre su Ads Manager; con el del anuncio lo deja seleccionado. */
+export function linkAprobarEnMeta(accountId?: string | null, adId?: string | null): string {
+  const act = (accountId ?? '').replace(/^act_/, '');
+  const qs = new URLSearchParams();
+  if (act) qs.set('act', act);
+  if (adId) qs.set('selected_ad_ids', adId);
+  const s = qs.toString();
+  return `https://adsmanager.facebook.com/adsmanager/manage/ads${s ? `?${s}` : ''}`;
+}
 
 export type NodoEstado = {
   id: string;
@@ -39,6 +68,8 @@ export type NodoEstado = {
 };
 
 export type MetaAccountHealth = {
+  /** act_<id> — para armar los links a Ads Manager (ver linkAprobarEnMeta). */
+  accountId: string | null;
   status: number;
   statusLabel: string;
   disableReason: number;
@@ -125,8 +156,14 @@ export function bgDeSemaforo(s: Semaforo): string {
 // Traduce un problema de Meta (issues_info en inglés) a español, por keywords.
 export function explicarIssueEs(it: Issue): { titulo: string; detalle: string } {
   const t = `${it.resumen} ${it.mensaje}`.toLowerCase();
+  // OJO con el copy: Meta cierra su mensaje con "you don't need to do anything else"
+  // porque asume que quien publica y quien aprueba son personas distintas. Acá el
+  // admin del portfolio SOS VOS, así que decirte "esperá" te deja el anuncio colgado
+  // para siempre. Hay que mandarte a aprobarlo.
+  if (esAprobacionPendiente(it))
+    return { titulo: 'Falta que lo apruebes en Meta', detalle: 'El anuncio se creó bien, pero Meta lo retiene por seguridad (“aprobación de pares”): antes de que corra, un usuario de confianza o un admin del portfolio dueño de la cuenta tiene que aprobarlo a mano. Si la cuenta es tuya, ese admin sos vos. Abrilo en Ads Manager con el botón de abajo, o buscá el mail de advertise-noreply@support.facebook.com. No se puede aprobar desde acá: Meta no lo expone por API.' };
   if (/approv|trusted|owning business admin|really you|not running yet|legitimate|notified them/.test(t))
-    return { titulo: 'Esperando aprobación del administrador', detalle: 'El anuncio se publicó y tus cambios se aplicaron, pero todavía no corre: por seguridad, Meta necesita que un administrador de la cuenta apruebe estos anuncios. Ya le avisó por email y en el Administrador de Anuncios. No tenés que hacer nada más, solo esperar la aprobación.' };
+    return { titulo: 'Esperando aprobación del administrador', detalle: 'El anuncio se publicó y tus cambios se aplicaron, pero todavía no corre: por seguridad, Meta necesita que un administrador de la cuenta apruebe estos anuncios. Ya le avisó por email y en el Administrador de Anuncios.' };
   if (/reject|disapprov|doesn.?t comply|not comply|polic|violat|prohibited/.test(t))
     return { titulo: 'Rechazado por las políticas de Meta', detalle: 'Meta rechazó el anuncio por sus políticas de publicidad. Revisá el texto y el creativo, editá los textos y guardá para volver a enviarlo a revisión.' };
   if (/in review|pending review|being reviewed|under review|in_review/.test(t))

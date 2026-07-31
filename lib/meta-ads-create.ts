@@ -682,10 +682,20 @@ export type AdEditData = {
   } | null;
 };
 
-function parseIssuesInfo(raw: unknown): Array<{ resumen: string; mensaje: string }> {
+function parseIssuesInfo(raw: unknown): Array<{ resumen: string; mensaje: string; code?: number; mid?: string }> {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((it) => { const o = (it ?? {}) as Record<string, unknown>; return { resumen: String(o.error_summary ?? o.error_type ?? 'Problema'), mensaje: String(o.error_message ?? '') }; })
+    .map((it) => {
+      const o = (it ?? {}) as Record<string, unknown>;
+      const code = Number(o.error_code);
+      const mid = o.mid != null ? String(o.mid) : undefined;
+      return {
+        resumen: String(o.error_summary ?? o.error_type ?? 'Problema'),
+        mensaje: String(o.error_message ?? ''),
+        ...(Number.isFinite(code) ? { code } : {}),
+        ...(mid ? { mid } : {}),
+      };
+    })
     .filter((x) => x.resumen || x.mensaje);
 }
 
@@ -869,6 +879,51 @@ export async function addAdsetToCampaign(campaignId: string, objective: Objectiv
     ad_ids.push(await createAd(adsetId, ad, creativeId));
   }
   return { adset_id: adsetId, ad_ids };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Estado de entrega de anuncios recién creados (aprobación de pares de Meta)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Código de "peer approval": Meta retiene el anuncio hasta que un usuario de
+ * confianza / admin del portfolio lo apruebe A MANO. No hay forma de aprobarlo
+ * por API (los edges /confirm, /approve, /review y /appeal no existen), así que
+ * lo único que se puede hacer es detectarlo y avisar. Espeja la constante de
+ * lib/meta-health-ui.ts (acá no se importa para no acoplar server↔UI). */
+const ISSUE_APROBACION_PENDIENTE = 2446984;
+
+/** Lee el estado de varios anuncios en UNA llamada (?ids=) y marca cuáles quedaron
+ * esperando la aprobación manual de Meta. Best-effort: si Graph falla, devuelve
+ * vacío — es un aviso, no puede tumbar el flujo de publicación. */
+export async function getAdsAprobacionPendiente(adIds: string[]): Promise<{ pendientes: Array<{ id: string; name: string; mid: string | null }>; leidos: number }> {
+  const ids = adIds.filter((id) => /^\d+$/.test(id)).slice(0, 50);
+  if (ids.length === 0) return { pendientes: [], leidos: 0 };
+  try {
+    const url = new URL(`${GRAPH_BASE}/${ver()}/`);
+    url.searchParams.set('ids', ids.join(','));
+    url.searchParams.set('fields', 'id,name,effective_status,issues_info');
+    url.searchParams.set('access_token', token());
+    const data = await graphGet(url.toString());
+    const pendientes: Array<{ id: string; name: string; mid: string | null }> = [];
+    let leidos = 0;
+    for (const raw of Object.values(data as Record<string, unknown>)) {
+      const ad = (raw ?? {}) as Record<string, unknown>;
+      if (!ad.id) continue;
+      leidos++;
+      const issues = Array.isArray(ad.issues_info) ? (ad.issues_info as Array<Record<string, unknown>>) : [];
+      const hit = issues.find((i) => Number(i.error_code) === ISSUE_APROBACION_PENDIENTE);
+      if (hit) pendientes.push({ id: String(ad.id), name: String(ad.name ?? ''), mid: hit.mid != null ? String(hit.mid) : null });
+    }
+    return { pendientes, leidos };
+  } catch (e) {
+    console.error('[ads-manager] no se pudo leer el estado de aprobación', e);
+    return { pendientes: [], leidos: 0 };
+  }
+}
+
+/** La cuenta publicitaria en uso (act_<id>), para armar links a Ads Manager. */
+export async function getAdAccountId(): Promise<string> {
+  return acct();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

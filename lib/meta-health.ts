@@ -199,6 +199,7 @@ function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
   else severidad = 'verde';
 
   return {
+    accountId: raw.id != null ? String(raw.id) : null,
     status,
     statusLabel: accountStatusLabel(status),
     disableReason,
@@ -318,7 +319,9 @@ function parseIssues(raw: unknown): Issue[] {
       const o = (it ?? {}) as Record<string, unknown>;
       const resumen = String(o.error_summary ?? o.error_type ?? 'Problema');
       const mensaje = String(o.error_message ?? '');
-      return { resumen, mensaje };
+      const code = Number(o.error_code);
+      const mid = o.mid != null ? String(o.mid) : undefined;
+      return { resumen, mensaje, ...(Number.isFinite(code) ? { code } : {}), ...(mid ? { mid } : {}) };
     })
     .filter((x) => x.resumen || x.mensaje);
 }

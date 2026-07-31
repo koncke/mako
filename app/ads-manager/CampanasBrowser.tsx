@@ -19,7 +19,7 @@ import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import { TIPO_DE_CAMBIO_USD_MXN, mxnAUsd } from '@/lib/config';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
-  colorDeSemaforo, bgDeSemaforo, explicarIssueEs,
+  colorDeSemaforo, bgDeSemaforo, explicarIssueEs, esAprobacionPendiente, linkAprobarEnMeta,
   statusLabel as metaStatusLabel, statusSemaforo as metaStatusSemaforo,
   type MetaHealth, type NodoEstado, type Semaforo, type Issue,
 } from '@/lib/meta-health-ui';
@@ -652,7 +652,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
       {/* key: si cambia el modo con el modal abierto, se remonta limpio (el estado inicial depende del modo) */}
       {nuevaOpen && <NuevaCampanaModal key={nuevaModo} modo={nuevaModo} health={health} healthError={error} senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
-      {problemaSel && <ProblemaModal ads={problemaSel.ads} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
+      {problemaSel && <ProblemaModal ads={problemaSel.ads} accountId={health?.account.accountId ?? null} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
       {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
       {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
       {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
@@ -816,7 +816,7 @@ function Pill({ semaforo, label, onClick }: { semaforo: Semaforo; label: string;
 }
 
 // ── modal: por qué "Con problemas" (en español) + arreglar desde ahí ──
-function ProblemaModal({ ads, onClose, onEditAd }: { ads: ProblemAd[]; onClose: () => void; onEditAd: (id: string, name: string) => void }) {
+function ProblemaModal({ ads, accountId, onClose, onEditAd }: { ads: ProblemAd[]; accountId: string | null; onClose: () => void; onEditAd: (id: string, name: string) => void }) {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 84, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden' }}>
@@ -826,7 +826,11 @@ function ProblemaModal({ ads, onClose, onEditAd }: { ads: ProblemAd[]; onClose: 
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {ads.length === 0 ? <p style={{ color: 'var(--dim)', fontSize: 13.5, textAlign: 'center' }}>Sin detalle disponible.</p> : ads.map((ad) => {
-            const exps = (ad.issues.length ? ad.issues : [{ resumen: ad.statusLabel, mensaje: '' }]).map(explicarIssueEs);
+            const issues = ad.issues.length ? ad.issues : [{ resumen: ad.statusLabel, mensaje: '' }];
+            const exps = issues.map(explicarIssueEs);
+            // Retenido por la aprobación de pares de Meta: no es un problema de
+            // textos, es un permiso. El botón útil es el que lleva a aprobarlo.
+            const pendienteAprobar = issues.some(esAprobacionPendiente);
             return (
               <div key={ad.id} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--surface-2)' }}>
                 <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--dim)', marginBottom: 8 }}>{ad.name}</div>
@@ -836,7 +840,15 @@ function ProblemaModal({ ads, onClose, onEditAd }: { ads: ProblemAd[]; onClose: 
                     <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, marginTop: 2 }}>{e.detalle}</div>
                   </div>
                 ))}
-                <button type="button" onClick={() => onEditAd(ad.id, ad.name)} style={{ marginTop: 4, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✎ Editar textos</button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                  {pendienteAprobar && (
+                    <a href={linkAprobarEnMeta(accountId, ad.id)} target="_blank" rel="noopener noreferrer"
+                      style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>
+                      Aprobar en Meta ↗
+                    </a>
+                  )}
+                  <button type="button" onClick={() => onEditAd(ad.id, ad.name)} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✎ Editar textos</button>
+                </div>
               </div>
             );
           })}
