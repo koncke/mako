@@ -11,7 +11,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo } from '@/lib/meta-ads-create';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { esDuenoAdmin } from '@/lib/workspace';
@@ -78,6 +78,9 @@ export async function POST(req: NextRequest) {
         const creativeId = await createAdCreative(ad.creative, ad.name);
         meta_creative_ids.push(creativeId);
         const adId = await createAd(adsetId, ad, creativeId);
+        // La transcripción ya se hizo al subir el video: la adoptamos con el ad_id
+        // para que el cron no vuelva a bajar el mp4 y pagar whisper de nuevo.
+        await adoptarTranscripcionDelCreativo(adId, ad.creative.video_id);
         meta_ad_ids.push(adId);
       }
       await persist({ meta_adset_ids, meta_ad_ids, meta_creative_ids });

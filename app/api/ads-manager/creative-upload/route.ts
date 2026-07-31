@@ -12,7 +12,8 @@ import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { uploadAdImage, uploadAdVideoByUrl, waitForVideoReady, metaErrorEnvelope, ADS_CREATIVES_BUCKET as BUCKET } from '@/lib/meta-ads-create';
 import type { UploadResult } from '@/lib/campaign-types';
-import { esDuenoAdmin } from '@/lib/workspace';
+import { esDuenoAdmin, getTenantDb } from '@/lib/workspace';
+import { transcribeMediaBuffer, structureTranscript } from '@/lib/transcribe';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // el procesado de video puede tardar
@@ -20,6 +21,52 @@ export const maxDuration = 300; // el procesado de video puede tardar
 const IMG = ['image/jpeg', 'image/png'];
 const VID = ['video/mp4', 'video/quicktime'];
 const MAX_IMG = 30 * 1024 * 1024; // Meta: imagen 30MB
+
+// Whisper no acepta más de 25 MB; arriba de eso ni bajamos el archivo.
+const MAX_TRANSCRIBIR = 25 * 1024 * 1024;
+
+/**
+ * Transcribe el video que TODAVÍA está en el staging y lo guarda por video_id.
+ * Best-effort de punta a punta: subir el creativo no puede fallar porque whisper
+ * tenga un mal día. Lo que quede sin transcribir lo levanta el cron como siempre.
+ */
+async function transcribirYGuardar(path: string, videoId: string, filename: string, mime: string): Promise<void> {
+  try {
+    const supabase = getSupabaseServer();
+    const { data, error } = await supabase.storage.from(BUCKET).download(path);
+    if (error || !data) return;
+    if (data.size > MAX_TRANSCRIBIR) {
+      await guardarTranscripcion(videoId, {
+        status: 'muy_grande', transcript: null, secciones: null, idioma: null, duracion_s: null,
+        model: null, error: `${(data.size / 1048576).toFixed(1)} MB > 25 MB (límite de OpenAI)`, filename,
+      });
+      return;
+    }
+    const t = await transcribeMediaBuffer(await data.arrayBuffer(), mime, filename);
+    const secciones = t.status === 'ok' && t.transcript ? await structureTranscript(t.transcript) : null;
+    await guardarTranscripcion(videoId, {
+      status: t.status, transcript: t.transcript, secciones, idioma: t.idioma,
+      duracion_s: t.duracion_s, model: t.status === 'ok' ? 'whisper-1+gpt-4o-mini' : null, error: t.error, filename,
+    });
+  } catch (e) {
+    console.error('[creative-upload] transcripción al subir falló (sigue el cron)', e);
+  }
+}
+
+async function guardarTranscripcion(
+  videoId: string,
+  row: { status: string; transcript: string | null; secciones: unknown; idioma: string | null; duracion_s: number | null; model: string | null; error: string | null; filename: string },
+): Promise<void> {
+  try {
+    const db = await getTenantDb();
+    await db.from('creative_transcripts').upsert(
+      { video_id: videoId, ...row, updated_at: new Date().toISOString() },
+      { onConflict: 'workspace_id,video_id' },
+    );
+  } catch (e) {
+    console.error('[creative-upload] no se pudo guardar la transcripción', e);
+  }
+}
 
 export async function POST(req: NextRequest) {
   // Fase 1: subir creativos empuja media a la cuenta de Meta global del dueño.
@@ -55,7 +102,14 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
     if (error || !data) throw new Error(error?.message ?? 'no se pudo firmar el archivo subido');
     const r = await uploadAdVideoByUrl(data.signedUrl, filename);
-    const estado = await waitForVideoReady(r.video_id, { timeoutMs: 150000 });
+    // Transcribimos MIENTRAS Meta procesa el video: el archivo ya está acá y en un
+    // rato lo borramos, así que es la única ventana en la que sale gratis. Si no,
+    // el cron tendría que volver a bajar el mp4 DESDE Meta al día siguiente (y el
+    // anuncio nacería sin texto con el que nombrarlo). En paralelo = sin latencia extra.
+    const [estado] = await Promise.all([
+      waitForVideoReady(r.video_id, { timeoutMs: 150000 }),
+      transcribirYGuardar(path, r.video_id, filename, ct),
+    ]);
     // Una vez procesado, Meta ya tiene su copia → limpiamos el staging.
     if (estado === 'ready') supabase.storage.from(BUCKET).remove([path]).catch(() => { /* best-effort */ });
     const out: UploadResult = { media_type: 'video', video_id: r.video_id, thumbnail_url: null, filename };

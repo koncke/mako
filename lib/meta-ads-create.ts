@@ -834,6 +834,7 @@ export async function getAdsetForAdd(adsetId: string): Promise<{ name: string; o
 export async function addAdToAdset(adsetId: string, creative: Creative, adName: string): Promise<{ ad_id: string; creative_id: string }> {
   const creativeId = await createAdCreative(creative, adName);
   const adId = await createAd(adsetId, { name: adName, creative }, creativeId);
+  await adoptarTranscripcionDelCreativo(adId, creative.video_id);
   return { ad_id: adId, creative_id: creativeId };
 }
 
@@ -876,9 +877,58 @@ export async function addAdsetToCampaign(campaignId: string, objective: Objectiv
   const ad_ids: string[] = [];
   for (const ad of adset.ads) {
     const creativeId = await createAdCreative(ad.creative, ad.name);
-    ad_ids.push(await createAd(adsetId, ad, creativeId));
+    const adId = await createAd(adsetId, ad, creativeId);
+    await adoptarTranscripcionDelCreativo(adId, ad.creative.video_id);
+    ad_ids.push(adId);
   }
   return { adset_id: adsetId, ad_ids };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Adoptar la transcripción hecha al subir el creativo
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Copia a ad_transcripts la transcripción que se hizo al SUBIR el video
+ * (creative_transcripts, indexada por video_id), ahora que el anuncio existe y
+ * tiene ad_id. Con la fila puesta, el cron transcribe-ads lo saltea: esa tabla
+ * usa "existe fila = ya está" — o sea que evita bajar el mp4 de Meta y pagar
+ * whisper una segunda vez por el mismo video.
+ *
+ * Best-effort: si algo falla, el cron lo transcribe mañana como siempre.
+ */
+export async function adoptarTranscripcionDelCreativo(adId: string, videoId: string | null | undefined): Promise<void> {
+  if (!adId || !videoId) return;
+  try {
+    const { getTenantDb } = await import('./workspace');
+    const db = await getTenantDb();
+    const { data } = await db
+      .from('creative_transcripts')
+      .select('transcript,secciones,idioma,duracion_s,model,status,error')
+      .eq('video_id', videoId)
+      .maybeSingle();
+    if (!data) return;
+    await db.from('ad_transcripts').upsert(
+      {
+        ad_id: adId,
+        video_id: videoId,
+        tipo: 'video',
+        status: data.status,
+        transcript: data.transcript,
+        secciones: data.secciones,
+        idioma: data.idioma,
+        duracion_s: data.duracion_s,
+        model: data.model,
+        error: data.error,
+        updated_at: new Date().toISOString(),
+      },
+      // La PK pasó a ser (workspace_id, ad_id) en la 0057: con 'ad_id' solo,
+      // Postgres rechaza el upsert por falta de constraint que matchee.
+      { onConflict: 'workspace_id,ad_id' },
+    );
+  } catch (e) {
+    console.error('[ads-manager] no se pudo adoptar la transcripción del creativo', e);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
