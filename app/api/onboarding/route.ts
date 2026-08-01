@@ -371,6 +371,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, conectados });
       }
 
+      // "Completar como Mauricio": el workspace de prueba arranca con el MISMO
+      // contexto de negocio del dueño (brief, funnel, avatares, fase,
+      // secuencias pausadas) en vez de rehacer el onboarding de cero. No copia
+      // contacto, grupos ni credenciales — ver lib/clonar-config.ts.
+      case 'clonar-dueno': {
+        if (!(await getSesionAdmin())) {
+          return NextResponse.json({ ok: false, error: 'Solo la agencia puede clonar la configuración.' }, { status: 403 });
+        }
+        if (ws === OWNER_WS) {
+          return NextResponse.json({ ok: false, error: 'Ya estás en el workspace del dueño: entrá a un workspace de prueba.' }, { status: 400 });
+        }
+        const { clonarConfigDelDueno } = await import('@/lib/clonar-config');
+        const r = await clonarConfigDelDueno(ws);
+        // El onboarding queda cerrado: el contexto ya está, no hay nada que preguntar.
+        await patchEstadoOnboarding((s) => {
+          s.status = 'done';
+          for (const k of Object.keys(s.steps)) s.steps[k as keyof typeof s.steps] = { done: true };
+        });
+        return NextResponse.json({ ok: true, ...r });
+      }
+
       default:
         return NextResponse.json({ ok: false, error: 'action inválida' }, { status: 400 });
     }

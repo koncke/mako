@@ -462,6 +462,19 @@ export function OnboardingWizard() {
     } finally { setPending(false); }
   };
 
+  // "Completar como Mauricio": el workspace de prueba se queda con el MISMO
+  // contexto de negocio del dueño y el onboarding cierra — así se prueba una tab
+  // sin rehacer el wizard de cero cada vez. No copia contacto ni credenciales
+  // (las pruebas tienen que llegarle a quien prueba, no a Mauricio).
+  const clonarDueno = async () => {
+    setPending(true);
+    try {
+      const j = await post('/api/onboarding', { action: 'clonar-dueno' });
+      if (!j.ok) { setError(String(j.error ?? 'No se pudo clonar la configuración.')); return; }
+      window.location.href = '/general';
+    } finally { setPending(false); }
+  };
+
   return (
     <>
       <BrandDefs />
@@ -521,8 +534,13 @@ export function OnboardingWizard() {
                 ✦ Usar las llaves de Mauricio
               </button>
             )}
+            <button type="button" onClick={clonarDueno} disabled={pending}
+              title="Copia el contexto de negocio de Mauricio (brief, funnel, avatares, fase, secuencias pausadas) y cierra el onboarding. NO copia su teléfono, sus grupos ni sus credenciales."
+              style={{ marginLeft: p.servicio && servicioReq && !conectadas[p.servicio] ? 0 : 'auto', padding: '7px 13px', borderRadius: 9, border: 'none', background: '#171511', color: '#F3F0E7', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
+              {pending ? 'Copiando…' : '⚡ Completar como Mauricio'}
+            </button>
             <button type="button" onClick={async () => { await fetch('/api/admin/impersonate', { method: 'DELETE' }); window.location.href = '/admin'; }}
-              style={{ marginLeft: p.servicio && servicioReq && !conectadas[p.servicio] ? 0 : 'auto', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+              style={{ padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
               Salir de la vista
             </button>
           </div>
