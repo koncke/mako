@@ -72,7 +72,13 @@ const VENTANA_DIAS = 30;
 // canal apagado deja sus pasos ESPERANDO (reintento en 24h, sin enviar ni avanzar).
 const MAX_POR_DIA = Number(process.env.NUTRICION_MAX_POR_DIA ?? '40');        // tope en 24h móviles (por workspace)
 const MAX_POR_CORRIDA = Number(process.env.NUTRICION_MAX_POR_CORRIDA ?? '6'); // tope por corrida del cron
-const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h
+const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h (prospección fría)
+// Excepción del guard anterior (reunión 31/07): con una reunión encima, la
+// cadencia de preparación exige toques cercanos ("si chateo dos veces y le mando
+// un audio, ya no falta"). El presupuesto anti-ban de una CONVERSACIÓN abierta o
+// de un lead con reunión próxima no es el de la prospección fría.
+const HS_MIN_PREPARACION = 3;
+const HS_REUNION_CERCA = 48;      // reunión dentro de este plazo → cadencia de preparación
 const TZ_OFFSET_MX = -6;          // ventana horaria evaluada en hora de México
 const VENTANA_INICIO = 9;
 const VENTANA_FIN = 21;
@@ -543,6 +549,71 @@ export async function comprometerInscripciones(): Promise<number> {
   return creadas;
 }
 
+// ── Enrolamiento por EVENTO (inmediatez — reunión 31/07) ─────────────────────
+// Regla del negocio: al lead que llena el formulario de Meta hay que escribirle
+// casi al instante ("si pasan días, nos van a tratar como extraños"). El cron
+// horario no alcanza: estos enganches enrolan y disparan el primer paso YA.
+//
+// La ventana horaria SÍ se respeta (no despertamos a nadie a las 3am): si el
+// evento cae fuera de 9-21 MX, la inscripción queda vencida y la levanta la
+// primera corrida del cron de la mañana.
+
+export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva';
+
+// Qué triggers responden a cada evento. Los cohortes siguen siendo la fuente de
+// verdad de A QUIÉN le toca: acá solo decidimos QUÉ secuencias mirar ya mismo.
+const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
+  lead_nuevo: ['instant_form_sin_agenda', 'vio_vsl_sin_agendar', 'vio_poco_vsl'],
+  agenda_nueva: ['agendado_sin_confirmar'],
+};
+
+/**
+ * Enrola a UN lead en las secuencias activas del evento y dispara su primer
+ * paso en el acto. Best-effort: nunca tira (lo llaman webhooks — si falla el
+ * enrolamiento, el lead igual quedó creado y el cron lo levanta después).
+ * Devuelve cuántas inscripciones creó.
+ */
+export async function enrolarPorEvento(leadId: number, evento: EventoNutricion): Promise<number> {
+  try {
+    const supabase = await getTenantDb();
+    const claves = TRIGGERS_POR_EVENTO[evento] ?? [];
+    if (!claves.length) return 0;
+    const secuencias = (await getSecuenciasActivas()).filter((s) => claves.includes(s.trigger_tipo));
+    if (!secuencias.length) return 0;
+
+    const { data: yaInsc } = await supabase
+      .from('nutricion_inscripciones')
+      .select('secuencia_id')
+      .eq('lead_id', leadId)
+      .in('secuencia_id', secuencias.map((s) => s.id));
+    const inscripto = new Set(((yaInsc ?? []) as Array<{ secuencia_id: number }>).map((r) => r.secuencia_id));
+
+    const nuevas = secuencias
+      .filter((s) => !inscripto.has(s.id))
+      .map((s) => ({
+        lead_id: leadId,
+        secuencia_id: s.id,
+        paso_actual: 0,
+        estado: 'activa',
+        // El primer paso de una secuencia disparada por evento sale YA: el
+        // delay configurado cuenta desde el evento, no desde el cron.
+        proximo_envio_at: proximoEnvioDePaso(s.pasos[0], null),
+      }));
+    if (!nuevas.length) return 0;
+
+    const { error } = await supabase.from('nutricion_inscripciones').insert(nuevas);
+    if (error) { console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId}: ${error.message}`); return 0; }
+
+    // Vía rápida: intentamos mandar el primer paso ahora mismo, solo de este lead.
+    try { await procesarEnvios({ soloLeadId: leadId }); }
+    catch (e) { console.error(`[nutricion] envío inmediato lead ${leadId} falló:`, e); }
+    return nuevas.length;
+  } catch (e) {
+    console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} falló:`, e);
+    return 0;
+  }
+}
+
 // ── Envíos vencidos ───────────────────────────────────────────────────────────
 type InscripcionVencida = {
   id: number;
@@ -620,13 +691,26 @@ async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
   if (leadIds.length === 0) return set;
   const supabase = (await getTenantDb());
   const desde = haceHorasISO(HS_MIN_ENTRE_MSGS);
-  const [nutri, bcast] = await Promise.all([
-    supabase.from('nutricion_envios').select('lead_id')
+  const desdeCorto = haceHorasISO(HS_MIN_PREPARACION);
+  const [nutri, bcast, enPreparacion] = await Promise.all([
+    supabase.from('nutricion_envios').select('lead_id, created_at')
       .in('lead_id', leadIds).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
     supabase.from('email_broadcast_envios').select('lead_id')
       .in('lead_id', leadIds).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
+    // Leads con reunión FUTURA cercana: están en cadencia de preparación.
+    supabase.from('leads').select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at').in('id', leadIds),
   ]);
-  for (const r of (nutri.data ?? []) as Array<{ lead_id: number }>) set.add(r.lead_id);
+  const prep = new Set<number>();
+  for (const l of (enPreparacion.data ?? []) as Array<{ id: number } & JuntasLead>) {
+    const ms = reunionFuturaMs(l);
+    if (ms != null && ms - Date.now() <= HS_REUNION_CERCA * 3600 * 1000) prep.add(l.id);
+  }
+  for (const r of (nutri.data ?? []) as Array<{ lead_id: number; created_at: string | null }>) {
+    // Con reunión encima, el guard baja de 20h a HS_MIN_PREPARACION: los toques
+    // de preparación son lo que baja el no-show y no son prospección fría.
+    if (prep.has(r.lead_id) && r.created_at && r.created_at < desdeCorto) continue;
+    set.add(r.lead_id);
+  }
   for (const r of (bcast.data ?? []) as Array<{ lead_id: number }>) set.add(r.lead_id);
   return set;
 }
@@ -653,7 +737,7 @@ export type ResultadoProceso = {
 //   · opts.simularApagados → los canales apagados se marcan 'simulado' (modo
 //     prueba de la máquina, el ?commit=1 histórico).
 // Un 'fallo' NO avanza el paso (se reintenta), salvo condición terminal.
-export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean }): Promise<ResultadoProceso> {
+export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number }): Promise<ResultadoProceso> {
   const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, detalle: [] };
   const [waOn, emailOn, sandbox, remitente, instEvo] = await Promise.all([
     envioWhatsappHabilitado(),
@@ -688,11 +772,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 
   while (res.enviados + res.simulados < cupo && rondas < 6) {
     rondas += 1;
-    const { data: dueRaw, error } = await supabase
+    let q = supabase
       .from('nutricion_inscripciones')
       .select('id, lead_id, secuencia_id, paso_actual')
       .eq('estado', 'activa')
-      .lte('proximo_envio_at', ahoraISO())
+      .lte('proximo_envio_at', ahoraISO());
+    // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
+    // (anti-ban, audio, borradores, gates) sin esperar la corrida del cron.
+    if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
+    const { data: dueRaw, error } = await q
       .order('proximo_envio_at', { ascending: true })
       .limit(LOTE);
     if (error) throw new Error(`procesarEnvios: ${error.message}`);

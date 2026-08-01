@@ -33,6 +33,7 @@ import { hoyEnTijuana } from '@/lib/date-utils';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
+import { enrolarPorEvento } from '@/lib/nutricion';
 import { runWithWorkspace } from '@/lib/workspace';
 import { credWs } from '@/lib/credenciales';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
@@ -292,6 +293,9 @@ export async function POST(request: NextRequest) {
         });
         // Flujos configurados por el dueño: disparar 'lead.agendo' (R1).
         await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: nombre, reunion: 'R1' });
+        // Nutrición de preparación (reunión 31/07): el audio de bienvenida sale
+        // al toque de agendar — es la palanca contra el no-show del 45%.
+        await enrolarPorEvento(lead.id, 'agenda_nueva');
 
         return Response.json({
           ok: true,

@@ -24,6 +24,7 @@ import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
+import { enrolarPorEvento } from '@/lib/nutricion';
 import { credWs } from '@/lib/credenciales';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -238,6 +239,9 @@ export async function POST(request: NextRequest) {
           });
           // Flujos configurados por el dueño: disparar 'lead.form_meta'.
           await dispararEvento('lead.form_meta', { leadId: lead.id, leadNombre: lead.nombre });
+          // Nutrición INMEDIATA (reunión 31/07): al que llena el formulario se
+          // le escribe casi al instante, no en la próxima corrida del cron.
+          await enrolarPorEvento(lead.id, 'lead_nuevo');
         }
       });
     } catch (err) {
