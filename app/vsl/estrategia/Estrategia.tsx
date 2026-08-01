@@ -249,7 +249,7 @@ export default function Estrategia() {
         <section className="s-sec">
           <h2 className="s-h2">El producto y a quién se le vende</h2>
           <div className="s-two">
-            <a href="/vsl" className="s-card s-card-accent s-card-link">
+            <a href="/" className="s-card s-card-accent s-card-link">
               <div className="s-card-ic"><Ic d={I.layers} /></div>
               <h3 className="s-card-h">¿Qué es MaKo?</h3>
               <span className="s-card-link-cta">Verlo en la landing <span className="s-arr">→</span></span>

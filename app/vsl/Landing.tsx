@@ -53,6 +53,23 @@ export default function Landing() {
     const secH = root.querySelector<HTMLElement>('#como-funciona h2');
     if (secH) secH.textContent = 'Todo lo que tu VSL Funnel necesita, en una sola app';
 
+    // ── "Iniciar sesión" en el header ────────────────────────────────────────
+    // Desde que la landing es la RAÍZ del dominio, esta es la única puerta de
+    // entrada visible a la app para un cliente que ya tiene cuenta. Va en runtime
+    // como el resto: landing-html.ts es auto-generado desde el diseño.
+    const barra = root.querySelector<HTMLElement>('.mk-hdr-cupos')?.parentElement;
+    if (barra && !barra.querySelector('#mk-hdr-login')) {
+      const login = document.createElement('a');
+      login.id = 'mk-hdr-login';
+      login.href = '/login';
+      login.textContent = 'Iniciar sesión';
+      login.style.cssText =
+        'font-size:14px;font-weight:600;color:#5B6472;text-decoration:none;padding:9px 4px;white-space:nowrap';
+      login.addEventListener('mouseenter', () => { login.style.color = '#171A21'; });
+      login.addEventListener('mouseleave', () => { login.style.color = '#5B6472'; });
+      barra.insertBefore(login, barra.firstChild);
+    }
+
     // (1) Fuera las secciones de detalle "abajo": ahora cada feature tiene su landing.
     root.querySelectorAll('.mk-deep[id^="m-"]').forEach((s) => s.remove());
 

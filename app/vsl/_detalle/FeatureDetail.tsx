@@ -135,7 +135,7 @@ export default function FeatureDetail({ slug }: { slug: string }) {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="mk-det-hdr">
         <div className="mk-det-hdr-in">
-          <a href="/vsl" className="mk-logo" aria-label="MaKo — volver a la landing">
+          <a href="/" className="mk-logo" aria-label="MaKo — volver a la landing">
             <span className="mk-logo-mark">
               <svg width="20" height="20" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg>
             </span>
@@ -284,13 +284,13 @@ export default function FeatureDetail({ slug }: { slug: string }) {
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <footer className="mk-foot">
         <div className="mk-foot-in">
-          <a href="/vsl" className="mk-logo">
+          <a href="/" className="mk-logo">
             <span className="mk-logo-mark"><svg width="20" height="20" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg></span>
             <span className="mk-logo-txt">MaKo</span>
           </a>
           <p className="mk-foot-tag">El software para vender High Ticket con VSL Funnel.</p>
           <div className="mk-foot-links">
-            <a href="/vsl">Funcionalidades</a>
+            <a href="/">Funcionalidades</a>
             <a href={CALENDLY}>Agenda tu llamada</a>
           </div>
           <div className="mk-foot-copy">© MaKo — Todos los derechos reservados.</div>
