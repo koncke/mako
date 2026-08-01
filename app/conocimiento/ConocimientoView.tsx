@@ -30,6 +30,8 @@ const AREAS = [
   { value: 'mensajes', label: 'Mensajes (WhatsApp / DM)' },
   { value: 'ads', label: 'Anuncios / creativos' },
   { value: 'general', label: 'General (todo el dashboard)' },
+  // Producto: cómo se construye ESTA app. Fuera del RAG que ve un cliente.
+  { value: 'producto', label: 'Producto (cómo construir la app)' },
 ];
 const areaLabel = (a: string) => AREAS.find((x) => x.value === a)?.label ?? a;
 const AREA_COLOR: Record<string, { bg: string; fg: string }> = {

@@ -27,6 +27,16 @@ export type KnowledgeArea = 'mensajes' | 'ads' | 'general';
 // metodología curada. Se retira del RAG general (searchKnowledge sin área) para no
 // contaminar a los consumidores que asumen que todo lo que traen es método.
 export const AREA_EJEMPLOS = 'ejemplos';
+
+// Área reservada al conocimiento de PRODUCTO (cómo se construye esta app: reglas
+// de diseño, metodología de onboarding, decisiones de arquitectura). Es material
+// del super-admin para MaKo cuando trabaja SOBRE el dashboard — no tiene nada que
+// ver con el marketing de un cliente, así que se retira del RAG general para no
+// contaminar lo que MaKo le responde a un dueño de negocio.
+export const AREA_PRODUCTO = 'producto';
+
+/** Áreas que NO entran al RAG general (solo se sirven pidiéndolas por área). */
+export const AREAS_RESERVADAS = [AREA_EJEMPLOS, AREA_PRODUCTO];
 export type KnowledgeEntry = {
   id: number; titulo: string; categoria: string | null; cuerpo: string;
   curso: string | null; autor: string | null; area: string; fuente: string;
@@ -150,7 +160,9 @@ export async function searchKnowledge(
       .eq('activo', true)
       .not('embedding', 'is', null);
     if (opts.area) sel = sel.eq('area', opts.area);
-    else sel = sel.neq('area', AREA_EJEMPLOS); // el swipe solo se sirve pidiéndolo por área
+    // El swipe y el conocimiento de producto solo se sirven pidiéndolos por área:
+    // ninguno es metodología de marketing para el chat de un cliente.
+    else sel = sel.not('area', 'in', `(${AREAS_RESERVADAS.join(',')})`);
     const { data, error } = await sel;
     if (error || !data || data.length === 0) return [];
     const qv = await embed(q);

@@ -113,6 +113,13 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   const funnelTxt = await resumenFunnel().catch(() => '');
   if (funnelTxt) base += `\n\nEL FUNNEL / PROCESO COMERCIAL DEL NEGOCIO (fuente de verdad, editable en /funnel):\n${funnelTxt}`;
 
+  // Tabs cuyo onboarding no está terminado (regla: toda tab tiene onboarding —
+  // ver .claude/skills/tab-onboarding). Sin esta señal MaKo propone optimizar lo
+  // que el cliente nunca configuró.
+  const { resumenOnboardingTabs } = await import('./tab-onboarding-state');
+  const tabsPendientes = await resumenOnboardingTabs().catch(() => '');
+  if (tabsPendientes) base += `\n\n${tabsPendientes}`;
+
   // Chat de secuencias de WhatsApp: sos consultor de deliverability. Cargás las
   // reglas de aprobación de Meta + las secuencias/plantillas reales del negocio.
   if (chartKey === 'whatsapp-secuencias') {
