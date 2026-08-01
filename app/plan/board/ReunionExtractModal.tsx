@@ -235,6 +235,16 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                             <span style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.titulo}</span>
+                                {/* CUÁNTAS esperan, en número y a la vista. El botón de
+                                    Fathom ya no te encierra en el borrador pendiente, así
+                                    que la lista tiene que decir de un vistazo cuál es la
+                                    reunión que te está esperando y con cuántas. */}
+                                {quedan > 0 && (
+                                  <span title={`${b!.pendientesMias} tuya${b!.pendientesMias === 1 ? '' : 's'} sin confirmar${b!.pendientesOtros ? ` · ${b!.pendientesOtros} de otras personas para repartir` : ''}`}
+                                    style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: '#fff', background: b!.pendientesMias > 0 ? 'var(--primary)' : 'var(--dim)', fontFamily: MONO }}>
+                                    {quedan} esperando
+                                  </span>
+                                )}
                                 <span title={`Clasificada como ${t.label} por los emails de los invitados`} style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: `var(--${t.tono})`, background: `var(--${t.tono}-bg, var(--surface-2))`, border: `1px solid var(--${t.tono})` }}>{t.label}</span>
                               </span>
                               <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{fmtFecha(r.fecha)}{r.durMin ? ` · ${r.durMin} min` : ''}</span>
@@ -242,11 +252,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                               {yaLeida && (
                                 <span style={{ display: 'block', fontSize: 11.5, color: 'var(--good)', fontWeight: 600, marginTop: 3 }}>
                                   ✓ {b.creadas > 0 ? `${b.creadas} ${b.creadas === 1 ? 'tarea' : 'tareas'} ya en tu plan` : 'MaKo ya la leyó'}
-                                  {quedan > 0 && <span style={{ color: 'var(--dim)', fontWeight: 500 }}> · {quedan} sin repartir</span>}
+                                  {b.pendientesMias > 0 && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · {b.pendientesMias} sin confirmar</span>}
+                                  {b.pendientesOtros > 0 && <span style={{ color: 'var(--dim)', fontWeight: 500 }}> · {b.pendientesOtros} para repartir</span>}
                                 </span>
                               )}
                             </span>
-                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>{yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}</span>
+                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>{quedan > 0 ? 'Confirmar →' : yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}</span>
                           </button>
                         );
                       })}

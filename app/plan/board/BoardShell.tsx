@@ -604,10 +604,15 @@ export function BoardShell({ board, scope }: {
               cerrar el modal era perderlo de vista sin forma de volver. */}
           {/* El badge cuenta TODO lo que espera (tuyo + de otros). El latido queda solo
               para lo tuyo: lo ajeno se ve, pero no te apura. */}
-          <button type="button" onClick={() => { if (nPendientes + nDeOtros > 0) { setPendientesCerradas(false); return; } setReunionArchivo(null); setExtraerReunion(true); }}
-            aria-label={nPendientes + nDeOtros > 0 ? `${pendientes.length} borrador(es) de reunión esperando` : 'Extraer tareas de una reunión de Fathom'}
-            title={nPendientes > 0 ? `Tenés ${nPendientes} tarea${nPendientes === 1 ? '' : 's'} de reunión esperando que las confirmes${nDeOtros ? ` (y ${nDeOtros} de otras personas para repartir)` : ''}`
-              : nDeOtros > 0 ? `Quedan ${nDeOtros} tarea${nDeOtros === 1 ? '' : 's'} de otras personas para repartir`
+          {/* SIEMPRE abre el selector de reuniones. Antes, si había un borrador
+              esperando, el botón te devolvía a ese borrador y no había forma de llegar
+              a la lista: con tareas pendientes quedabas encerrado en ellas, sin poder
+              mirar el resto de tus reuniones. El badge ya avisa cuántas esperan, y en
+              la lista cada reunión muestra las suyas: no hace falta bloquear nada. */}
+          <button type="button" onClick={() => { setReunionArchivo(null); setExtraerReunion(true); setPendientesCerradas(true); }}
+            aria-label={nPendientes + nDeOtros > 0 ? `Tus reuniones — ${pendientes.length} borrador(es) esperando` : 'Tus reuniones de Fathom'}
+            title={nPendientes > 0 ? `Tus reuniones — ${nPendientes} tarea${nPendientes === 1 ? '' : 's'} esperando que las confirmes${nDeOtros ? ` (y ${nDeOtros} de otras personas para repartir)` : ''}`
+              : nDeOtros > 0 ? `Tus reuniones — quedan ${nDeOtros} tarea${nDeOtros === 1 ? '' : 's'} de otras personas para repartir`
               : 'Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)'}
             style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', padding: 0, lineHeight: 0, borderRadius: 9, transition: 'opacity .12s', animation: nPendientes > 0 ? 'makoLatido 1.6s ease-in-out infinite' : undefined }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.82'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>
