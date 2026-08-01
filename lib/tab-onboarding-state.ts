@@ -32,6 +32,16 @@ export type TabOnboardingDef = {
   key: string;          // 'setting' — la key del nav
   titulo: string;       // "Dejemos tu setting listo"
   pasos: Array<{ key: string; label: string }>;
+  /**
+   * Tabs que DEPENDEN de esta: entrar ahí sin haber terminado este onboarding
+   * no tiene sentido, así que se las manda acá. Ej.: /whatsapp y /email no
+   * necesitan su propio onboarding — su configuración (canal probado, voz,
+   * secuencias) se hace entera en /setting. Una sola puerta de entrada en vez
+   * de tres recorridos que piden lo mismo.
+   */
+  cubre?: string[];
+  /** Href al que se manda (default `/${key}`). */
+  href?: string;
 };
 
 /**
@@ -50,10 +60,33 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'ensayo', label: 'Ensayo con MaKo' },
       { key: 'aprobar', label: 'Aprobar y prender' },
     ],
+    // WhatsApp y Email NO tienen onboarding propio: su configuración (conectar y
+    // probar el canal, la voz, las secuencias) se hace entera acá. Entrar a esas
+    // tabs sin esto hecho manda a /setting — una puerta, no tres recorridos que
+    // piden lo mismo.
+    cubre: ['whatsapp', 'email'],
   },
 };
 
 export const tabOnboardingDef = (key: string): TabOnboardingDef | null => TAB_ONBOARDINGS[key] ?? null;
+
+/**
+ * ¿A dónde tiene que ir el usuario antes de usar esta tab? Devuelve el href del
+ * onboarding que la cubre (propio o de la tab de la que depende), o null si ya
+ * está lista. Lo usan las pages en su guard.
+ */
+export async function onboardingRequeridoPara(tab: string): Promise<string | null> {
+  // Onboarding propio.
+  if (tabOnboardingDef(tab) && (await onboardingTabPendiente(tab))) {
+    return tabOnboardingDef(tab)!.href ?? `/${tab}`;
+  }
+  // Onboarding de otra tab que cubre a esta.
+  for (const def of Object.values(TAB_ONBOARDINGS)) {
+    if (!def.cubre?.includes(tab)) continue;
+    if (await onboardingTabPendiente(def.key)) return def.href ?? `/${def.key}`;
+  }
+  return null;
+}
 
 const keyDe = (tab: string) => `onboarding.tab.${tab}`;
 

@@ -111,6 +111,27 @@ al usuario de lead. Para el ensayo del onboarding hace falta **al revés** (MaKo
 cliente). Es cambio de prompt + del mapeo `lead=user/negocio=assistant`, no de
 arquitectura.
 
+## Tabs que dependen de otras
+
+No toda tab necesita SU PROPIO recorrido: varias comparten la misma
+configuración. En vez de hacer tres wizards que piden lo mismo, **una tab cubre a
+las otras** y las demás mandan ahí.
+
+Se declara en el catálogo con `cubre: ['whatsapp', 'email']`, y la page de la tab
+dependiente resuelve el destino con `onboardingRequeridoPara(tab)`:
+
+```ts
+const destino = await onboardingRequeridoPara('whatsapp');
+if (destino) redirect(destino);
+```
+
+Ejemplo real: `/whatsapp` y `/email` NO tienen onboarding propio. Su canal, su
+voz y sus secuencias se configuran enteros en `/setting`, así que entrar ahí sin
+eso hecho manda a Setting. Una sola puerta de entrada.
+
+Criterio para decidir: si el recorrido de la tab B le pediría al usuario lo mismo
+que ya le pidió la tab A, B no necesita onboarding — necesita depender de A.
+
 ## El contrato de estado
 
 Estado por tab en `app_settings` (per-workspace, sin tabla nueva):

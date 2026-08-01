@@ -6,7 +6,9 @@
 // lib/envio-flags.ts). El dominio se configura en la misma tab (DominioSetup).
 // =============================================================================
 
+import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
+import { onboardingRequeridoPara } from '@/lib/tab-onboarding-state';
 import { integracionConectada } from '@/lib/credenciales';
 import { PanelActivacion } from '../_components/PanelActivacion';
 import { tabActivacion } from '@/lib/tab-activacion';
@@ -17,5 +19,9 @@ export default async function Page() {
 
   const tabEmail = tabActivacion('email');
   if (tabEmail && !(await integracionConectada('email'))) return <PanelActivacion tab={tabEmail} />;
+  // Depende del onboarding de /setting (ahí se configuran canal, voz y
+  // secuencias — ver lib/tab-onboarding-state.ts, campo `cubre`).
+  const destino = await onboardingRequeridoPara('email');
+  if (destino) redirect(destino);
   return <EmailApp />;
 }
