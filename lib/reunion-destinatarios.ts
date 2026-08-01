@@ -29,8 +29,11 @@ import { sendEmail } from './resend';
 import { crearPropuesta, type PropuestaTarea } from './plan-propuesta';
 import { APP_BASE_URL as APP_URL } from './app-url';
 
-/** Una tarea que se le reparte a alguien (lo mínimo que viaja del modal al server). */
-export type TareaDeOtro = { titulo: string; detalle?: string; prioridad?: string; proyecto?: string };
+/** Una tarea que se le reparte a alguien (lo mínimo que viaja del modal al server).
+ *  `minuto`/`minutos` viajan para que la tarjeta que le queda a la otra persona abra
+ *  la grabación en el momento en que ella asumió el compromiso: sin eso recibe una
+ *  frase suelta y tiene que buscar el contexto a mano en dos horas de video. */
+export type TareaDeOtro = { titulo: string; detalle?: string; prioridad?: string; proyecto?: string; minuto?: number; minutos?: number[] };
 
 /** La reunión de la que salieron (para el encabezado del mensaje). */
 export type ReunionRef = { titulo: string; fecha?: string | null; url?: string | null };
@@ -183,6 +186,8 @@ export async function cargarTareasEnPlanDe(opts: {
     detalle: t.detalle,
     proyecto: t.proyecto,
     prioridad: (['alta', 'media', 'baja', 'futuro'].includes(String(t.prioridad)) ? t.prioridad : undefined) as PropuestaTarea['prioridad'],
+    minuto: t.minuto,
+    minutos: t.minutos,
   }));
   const f = fechaLinda(reunion.fecha);
   const id = await crearPropuesta({

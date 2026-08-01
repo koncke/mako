@@ -56,13 +56,13 @@ function PreguntaBody({ q, value, onChange }: { q: PropuestaPregunta; value: str
   return <ChoiceBody opciones={q.opciones} value={value} onChange={onChange} />;
 }
 
-function Mensaje({ texto, sub, ok }: { texto: string; sub?: string; ok?: boolean }) {
+function Mensaje({ texto, sub, ok, link }: { texto: string; sub?: string; ok?: boolean; link?: boolean }) {
   return (
     <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)', color: 'var(--ink)', fontFamily: SANS, padding: 24 }}>
       <div style={{ textAlign: 'center', padding: '26px 30px', background: ok ? 'var(--good-bg)' : 'var(--surface)', border: `1px solid ${ok ? '#BFE6CD' : 'var(--border)'}`, borderRadius: 16, maxWidth: 420 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: ok ? 'var(--good)' : 'var(--ink)' }}>{texto}</div>
-        {sub ? <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6 }}>{sub}</div>
-          : <a href="/plan" style={{ display: 'inline-block', marginTop: 14, padding: '9px 18px', borderRadius: 9, background: 'var(--ink)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, textDecoration: 'none' }}>Ir al plan</a>}
+        {sub && <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6 }}>{sub}</div>}
+        {(!sub || link) && <a href="/plan" style={{ display: 'inline-block', marginTop: 14, padding: '9px 18px', borderRadius: 9, background: 'var(--ink)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, textDecoration: 'none' }}>Ir al plan</a>}
       </div>
     </main>
   );
@@ -103,10 +103,17 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     try { localStorage.setItem(LS_KEY, JSON.stringify({ paso, resp, dynQs, dynResp, dynFetched })); } catch { /* ignore */ }
   }, [LS_KEY, paso, resp, dynQs, dynResp, dynFetched]);
   const irPlan = () => { window.location.href = '/plan'; };
-  const nT = prop.tareas.length;
+  // Las tareas que ESTE wizard va a crear son solo las MÍAS: el server descarta las de
+  // otras personas (aplicarPropuestas filtra esDeOtro), que viajan a SU tablero por su
+  // propio camino. Contarlas acá hacía que el botón prometiera "Crear 3" y el server
+  // contestara "No hay nada para crear ni borrar" — y como el wizard es bloqueante, la
+  // única salida que quedaba era descartar el borrador entero.
+  const mias = prop.tareas.filter((t) => !t.esDeOtro);
+  const nT = mias.length;
+  const nAjenas = prop.tareas.length - nT;
   // Cuántos proyectos abarcan las tareas (distintos nombres referenciados) — el dueño
   // quiere ver "N tareas en M proyectos", no solo las tareas.
-  const nP = new Set(prop.tareas.map((t) => (t.proyecto || '').trim()).filter(Boolean)).size;
+  const nP = new Set(mias.map((t) => (t.proyecto || '').trim()).filter(Boolean)).size;
   const enProy = nP ? ` en ${nP} proyecto${nP === 1 ? '' : 's'}` : '';
 
   const steps: Step[] = [
@@ -151,6 +158,12 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   };
 
   if (prop.estado !== 'pendiente') return <Mensaje texto={`Este borrador ya fue ${prop.estado}.`} />;
+  // Todo lo que queda es de OTRAS personas: no hay nada que crear acá. Se dice y se
+  // manda al plan, donde el modal de la reunión sí tiene el reparto por persona.
+  if (nT === 0 && !prop.eliminar.length) {
+    return <Mensaje ok texto={nAjenas ? `Acá no te queda nada para crear: ${nAjenas === 1 ? 'la tarea que quedaba es' : `las ${nAjenas} tareas que quedaban son`} de otras personas.` : 'Este borrador ya no tiene tareas.'}
+      sub="Repartilas desde tu plan: ahí MaKo te deja mandárselas a cada uno." link />;
+  }
   if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${nT} tarea${nT === 1 ? '' : 's'}${enProy}${elimSel.size ? ` y borré ${elimSel.size}` : ''}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
 
   const crearLabel = `Crear ${nT}${elimSel.size ? ` · borrar ${elimSel.size}` : ''}`;

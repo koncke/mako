@@ -495,7 +495,9 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
   const proyectoNombre = (id: string | null) => labels.find((l) => l.id === id)?.name;
   // Si el proyecto todavía no existe, viaja el NOMBRE propuesto: el server crea la
   // categoría al aplicar. Antes se mandaba undefined y la tarea le llegaba suelta.
-  const payload = filas.map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: proyectoNombre(f.proyectoId) ?? (f.proyectoNombre || undefined) }));
+  // minuto/minutos viajan también: la tarjeta que le queda a la otra persona abre la
+  // grabación justo donde ella asumió el compromiso, en vez de una frase sin contexto.
+  const payload = filas.map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: proyectoNombre(f.proyectoId) ?? (f.proyectoNombre || undefined), minuto: f.minuto, minutos: f.minutos }));
   // Enviar SIEMPRE se puede abrir: si faltan datos, se piden adentro. Antes el botón
   // quedaba gris y mudo cuando la persona no tenía cuenta — que es justo cuando más
   // falta mandarle las tareas por mail.

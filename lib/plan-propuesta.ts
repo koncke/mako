@@ -10,9 +10,10 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
-import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea } from '@/lib/plan-board';
-import { crearTarea, crearCategoria, listCategorias, borrarTarea, type Prioridad } from '@/lib/todo';
+import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, listPlanBoard } from '@/lib/plan-board';
+import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, type Prioridad } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
+import { mismaTarea } from '@/lib/plan-fathom';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
@@ -36,6 +37,19 @@ export type PropuestaTarea = {
   /** TODOS los momentos en que se habló de esto (una tarea puede volver varias veces). */
   minutos?: number[];
 };
+/**
+ * Los títulos de las tareas ABIERTAS del tablero del workspace actual, para no volver
+ * a crear algo que ya está. Solo las abiertas: si una se hizo y vuelve a aparecer en
+ * otra reunión, es un pedido nuevo, no un duplicado. Best-effort — si la lectura falla
+ * se devuelve vacío y el flujo sigue (peor un duplicado que perder la tarea).
+ */
+async function titulosDelTablero(usaPlanBoard: boolean): Promise<string[]> {
+  try {
+    if (usaPlanBoard) return (await listPlanBoard()).tareas.filter((t) => t.progress < 100).map((t) => t.title);
+    return (await listTareas()).filter((t) => t.progreso < 100).map((t) => t.titulo);
+  } catch (e) { console.error('[plan-propuesta] no pude leer el tablero para deduplicar', e); return []; }
+}
+
 /**
  * Una tarea del borrador que YA se creó. Queda guardada (mig 0105) para dos cosas:
  * no volver a ofrecerla cuando el borrador se reabre por las de otras personas, y
@@ -350,9 +364,19 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       // reintentar tras un corte) volvía a crear las mismas tareas. Lo ya aplicado
       // vive en `aplicadas`: se filtra por título normalizado.
       const yaHechas = new Set((prop?.aplicadas ?? []).map((a) => a.titulo.trim().toLowerCase()));
-      const base = baseCruda.filter((t) => !yaHechas.has(t.titulo.trim().toLowerCase()));
-      if (baseCruda.length !== base.length) {
-        console.warn(`[plan-propuesta] ${lote.id}: ${baseCruda.length - base.length} tarea(s) ya estaban cargadas de este borrador — no se duplican`);
+      const baseSinRepetir = baseCruda.filter((t) => !yaHechas.has(t.titulo.trim().toLowerCase()));
+      if (baseCruda.length !== baseSinRepetir.length) {
+        console.warn(`[plan-propuesta] ${lote.id}: ${baseCruda.length - baseSinRepetir.length} tarea(s) ya estaban cargadas de este borrador — no se duplican`);
+      }
+      // …y contra el TABLERO. `aplicadas` solo sabe de ESTE borrador: cuando la misma
+      // reunión se graba dos veces (un notetaker por participante) o cuando alguien ya
+      // cargó las tareas a mano desde el modal, el segundo borrador volvía a crear las
+      // mismas tarjetas. Se compara por parecido léxico contra lo que ya está abierto
+      // en el board, con el mismo criterio que usa la extracción para fusionar.
+      const abiertas = await titulosDelTablero(usaPlanBoard);
+      const base = baseSinRepetir.filter((t) => !abiertas.some((x) => mismaTarea(x, t.titulo)));
+      if (baseSinRepetir.length !== base.length) {
+        console.warn(`[plan-propuesta] ${lote.id}: ${baseSinRepetir.length - base.length} tarea(s) ya existían en el tablero — no se duplican`);
       }
       // Solo se borran los ids que el dueño/cliente CONFIRMÓ (subset de los que MaKo propuso).
       const propuestos = new Set((prop?.eliminar ?? []).map((e) => e.id));

@@ -574,7 +574,7 @@ const palabrasClave = (titulo: string): Set<string> =>
  * en vez de 95). Umbral alto: preferimos que se cuele un duplicado —que el usuario
  * destilda en un segundo— antes que perder una tarea real.
  */
-function mismaTarea(a: string, b: string): boolean {
+export function mismaTarea(a: string, b: string): boolean {
   const A = palabrasClave(a), B = palabrasClave(b);
   if (!A.size || !B.size) return false;
   let comunes = 0;

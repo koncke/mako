@@ -205,6 +205,12 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         dueno: t.dueño || undefined,
         duenoEmail: t.dueñoEmail || undefined,
         esDeOtro: t.esDeOtro || undefined,
+        // El MINUTO en que se dijo. Se perdía acá: la extracción lo trae, el borrador
+        // lo declara y aplicarPropuestas lo usa para armar el link a la grabación
+        // parada en ese segundo — pero este map no lo copiaba, así que toda tarea que
+        // venía del cron nacía sin el deep-link (25 de la reunión de Leila, sin reloj).
+        minuto: t.minuto,
+        minutos: t.minutos,
       }));
       const mias = propuestas.filter((t) => !t.esDeOtro).length;
       const conQuien = r.participantes
@@ -218,7 +224,10 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       await crearPropuesta({
         ws, ref, tareas: propuestas, preguntas, origen: 'fathom',
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
-        resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${propuestas.length} ${propuestas.length === 1 ? 'compromiso' : 'compromisos'}.`,
+        // El número que se promete es el de TUS compromisos, no el total: las de otras
+        // personas no se crean acá (viajan a su tablero), así que anunciar 34 y crear 13
+        // hace que la pantalla y el resultado no coincidan.
+        resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${mias} ${mias === 1 ? 'compromiso tuyo' : 'compromisos tuyos'}${propuestas.length > mias ? ` (y ${propuestas.length - mias} de otras personas, para repartir)` : ''}.`,
       });
       // RECIÉN ACÁ se cierra la reunión: el borrador ya está guardado. Antes esto
       // corría ANTES de crearPropuesta (con otra llamada de IA en el medio), así que

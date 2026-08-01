@@ -61,6 +61,8 @@ const tareasDe = (raw: unknown): TareaDeOtro[] =>
       detalle: t.detalle ? String(t.detalle).slice(0, 600) : undefined,
       prioridad: t.prioridad ? String(t.prioridad) : undefined,
       proyecto: t.proyecto ? String(t.proyecto).slice(0, 120) : undefined,
+      minuto: typeof t.minuto === 'number' ? t.minuto : undefined,
+      minutos: Array.isArray(t.minutos) ? t.minutos.filter((m): m is number => typeof m === 'number').slice(0, 12) : undefined,
     }))
     .filter((t) => t.titulo)
     .slice(0, 40);
