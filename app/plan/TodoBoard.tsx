@@ -49,7 +49,11 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId }: { tareas: Ta
       // origen preservado (al restaurar un borrado de una tarea de MaKo mantiene el ✦).
       // Todo lo que no escribió el usuario cae a 'mako': la base solo distingue
       // manual/mako/retro/experimento, y 'manual' diría que la creó el cliente.
-      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako' } });
+      // `fuente` va en el ALTA (no en el editar de abajo): así la tarjeta nace con su
+      // chip de origen y su link al minuto de la grabación. Antes se perdía entera —
+      // la ruta ni siquiera aceptaba el campo — y las tareas de una reunión quedaban
+      // indistinguibles de una escrita a mano.
+      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null } });
       if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear');
       let t = j.tarea;
       // si la tarjeta ya traía contenido (p.ej. restaurar un borrado), aplicá el resto

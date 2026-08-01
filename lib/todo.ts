@@ -248,7 +248,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null },
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null },
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -275,6 +275,9 @@ export async function editarTarea(
   if (patch.en_prioridad !== undefined) upd.en_prioridad = !!patch.en_prioridad;
   if (patch.score !== undefined) upd.score = Math.max(0, Math.min(100, Math.round(patch.score)));
   if (patch.score_razon !== undefined) upd.score_razon = patch.score_razon;
+  // De dónde salió (reunión + minuto). Faltaba: una tarea de Fathom se guardaba sin
+  // fuente y quedaba sin chip de origen ni link a la grabación.
+  if (patch.fuente !== undefined) upd.fuente = patch.fuente;
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').update(upd).eq('id', id).select(COLS).single();
   if (error) throw new Error(`editarTarea: ${error.message}`);

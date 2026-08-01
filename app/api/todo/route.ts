@@ -34,6 +34,11 @@ type TareaBody = {
   progreso?: number; deadline?: string | null; categorias?: number[];
   checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null;
   origen?: OrigenTarea; retro_id?: number | null; experimento_id?: number | null;
+  // DE DÓNDE SALIÓ la tarea (reunión de Fathom + minuto, archivo, WhatsApp). La tabla
+  // y lib/todo.ts siempre la soportaron, pero esta ruta no la declaraba ni la pasaba:
+  // por eso las tareas del cliente que venían de una reunión perdían el chip de origen
+  // y el link al minuto de la grabación, mientras que en el board del dueño sí salían.
+  fuente?: { tipo: string; etiqueta?: string; url?: string } | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -61,6 +66,9 @@ export async function POST(req: NextRequest) {
         titulo: t.titulo, detalle: t.detalle ?? null, prioridad: t.prioridad, estado: t.estado,
         progreso: t.progreso, deadline: t.deadline, categorias: t.categorias,
         origen: t.origen, retro_id: t.retro_id ?? null, experimento_id: t.experimento_id ?? null,
+        // La fuente va EN EL ALTA: si se escribiera en un editar posterior, la tarjeta
+        // nace sin chip y el Perro la puntúa sin saber de dónde salió.
+        fuente: t.fuente ?? null,
       }) });
     }
     if (action === 'crear-lote') {
@@ -83,6 +91,7 @@ export async function POST(req: NextRequest) {
         titulo: patch.titulo, detalle: patch.detalle, prioridad: patch.prioridad,
         progreso: patch.progreso, deadline: patch.deadline, categorias: patch.categorias,
         checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
+        fuente: patch.fuente,
       }) });
     }
     if (action === 'borrar') {
