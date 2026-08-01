@@ -11,7 +11,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import type { AudioSetting, JugadaDto, Opcion } from './SettingApp';
-import type { Objetivo } from '@/lib/setting-estrategia';
+import type { ModoJugada, Objetivo } from '@/lib/setting-estrategia';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
@@ -52,6 +52,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   const [objetivo, setObjetivo] = useState<Objetivo>(est?.objetivo ?? 'agendar');
   const [gancho, setGancho] = useState(est?.gancho ?? '');
   const [preguntas, setPreguntas] = useState((est?.preguntas ?? []).join('\n'));
+  const [modo, setModo] = useState<ModoJugada>(est?.modo ?? 'asistido');
   const [activa, setActiva] = useState(jugada.activa);
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
       estrategia: {
         objetivo, gancho: gancho.trim() || null, lead_magnet_id: est?.lead_magnet_id ?? null,
         preguntas: preguntas.split('\n').map((p) => p.trim()).filter(Boolean),
+        modo,
         notas: est?.notas ?? null, probada_at: est?.probada_at ?? null,
       },
     });
@@ -156,6 +158,20 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
             <div>
               <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Preguntas de cualificación — una por línea (el Setter y el simulador las usan en este orden):</div>
               <textarea value={preguntas} onChange={(e) => setPreguntas(e.target.value)} rows={5} placeholder={'¿Facturás más de …?\n¿Tenés equipo?'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Cuando el lead responde:</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {([
+                  { v: 'asistido' as const, t: '🙋 Te aviso y te dejo el borrador', d: 'MaKo redacta la respuesta y vos la aprobás con un clic' },
+                  { v: 'automatico' as const, t: '⏸ Solo pausar', d: 'La secuencia se frena y seguís por tu cuenta' },
+                ]).map((o) => (
+                  <button key={o.v} onClick={() => rolAdmin && setModo(o.v)} disabled={!rolAdmin} title={o.d}
+                    style={{ padding: '8px 13px', borderRadius: 10, cursor: rolAdmin ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, border: '1px solid ' + (modo === o.v ? 'var(--ink)' : 'var(--border-strong)'), background: modo === o.v ? 'var(--ink)' : 'var(--surface-2)', color: modo === o.v ? 'var(--on-sidebar)' : 'var(--dim)' }}>
+                    {o.t}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

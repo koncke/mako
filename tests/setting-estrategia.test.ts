@@ -20,7 +20,12 @@ test('estrategia: shape completa pasa y normaliza', () => {
   assert.equal(e?.lead_magnet_id, '7');                  // id del Entregable (string, tolera número)
 });
 
-test('estrategia: parciales rellenan defaults', () => {
+test('estrategia: parciales rellenan defaults (modo = asistido)', () => {
   const e = parseEstrategia({ objetivo: 'agendar' });
-  assert.deepEqual(e, { objetivo: 'agendar', gancho: null, lead_magnet_id: null, preguntas: [], notas: null, probada_at: null });
+  assert.deepEqual(e, { objetivo: 'agendar', gancho: null, lead_magnet_id: null, preguntas: [], modo: 'asistido', notas: null, probada_at: null });
+});
+
+test('estrategia: modo automatico se respeta, basura cae a asistido', () => {
+  assert.equal(parseEstrategia({ objetivo: 'agendar', modo: 'automatico' })?.modo, 'automatico');
+  assert.equal(parseEstrategia({ objetivo: 'agendar', modo: 'lo-que-sea' })?.modo, 'asistido');
 });

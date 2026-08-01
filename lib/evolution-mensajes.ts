@@ -176,7 +176,8 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
   // El lead RESPONDIÓ (mensaje entrante REAL, no reacción/protocolo) → pausar su
   // nutrición, como el webhook de Chatwoot. Solo en el insert (no re-entregas).
   if (!fromMe && leadId && tipo !== 'evento' && tipo !== 'otro') {
-    try { await pausarPorRespuesta(leadId); } catch { /* no fatal */ }
+    // El texto va para el modo asistido: MaKo redacta el borrador de respuesta.
+    try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined }); } catch { /* no fatal */ }
   }
 }
 

@@ -60,6 +60,8 @@ export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etap
     gancho: gancho.trim() || null,
     lead_magnet_id: leadMagnetId,
     preguntas,
+    // Arranque acordado en la reunión: semi-automático (MaKo deja el borrador).
+    modo: existente?.estrategia?.modo ?? 'asistido',
     notas: null,
     probada_at: existente?.estrategia?.probada_at ?? null,
   });

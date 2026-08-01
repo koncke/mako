@@ -7,11 +7,23 @@
 
 export type Objetivo = 'agendar' | 'reactivar' | 'cualificar' | 'confirmar_pago';
 
+/**
+ * Cómo se opera la jugada cuando el lead RESPONDE (reunión 31/07):
+ *  · 'asistido'   → el motor manda los primeros toques; al primer entrante frena,
+ *                   avisa al dueño y deja un borrador redactado por MaKo para
+ *                   aprobar con un clic. Es el arranque acordado ("aunque no esté
+ *                   perfecto"), sin esperar al Setter IA.
+ *  · 'automatico' → solo pausa la secuencia (comportamiento histórico); la
+ *                   conversación la sigue un humano por su cuenta.
+ */
+export type ModoJugada = 'asistido' | 'automatico';
+
 export type Estrategia = {
   objetivo: Objetivo;
   gancho: string | null;
   lead_magnet_id: string | null; // id del Entregable de la fábrica de creativos (lib/entregable.ts — ids string)
   preguntas: string[];           // cualificación — las hereda el Setter IA (fase 2)
+  modo: ModoJugada;
   notas: string | null;
   probada_at: string | null;     // última prueba en vivo OK
 };
@@ -38,6 +50,8 @@ export function parseEstrategia(raw: unknown): Estrategia | null {
     preguntas: Array.isArray(r.preguntas)
       ? r.preguntas.filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
       : [],
+    // Default 'asistido': lo acordado para arrancar es semi-automático.
+    modo: r.modo === 'automatico' ? 'automatico' : 'asistido',
     notas: typeof r.notas === 'string' && r.notas.trim() ? r.notas.trim() : null,
     probada_at: typeof r.probada_at === 'string' ? r.probada_at : null,
   };

@@ -129,7 +129,8 @@ export async function POST(req: NextRequest) {
     let leadId: number | null = null;
     try {
       leadId = await buscarLeadPorTelefono(digits(phone));
-      if (leadId) await pausarPorRespuesta(leadId);
+      // El texto va para el modo asistido: MaKo redacta el borrador de respuesta.
+      if (leadId) await pausarPorRespuesta(leadId, { texto: content });
     } catch (err) {
       console.error(`[webhook:chatwoot] pausa: ${err instanceof Error ? err.message : String(err)}`);
     }

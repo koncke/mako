@@ -1087,16 +1087,70 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   return res;
 }
 
-// Pausa la nutrición de un lead cuando responde (lo usará /api/webhooks/chatwoot
-// en el hito 2). Marca las inscripciones activas como 'respondio'.
-export async function pausarPorRespuesta(leadId: number): Promise<number> {
+// Pausa la nutrición de un lead cuando responde (webhook de Chatwoot y espejo
+// del no oficial). Marca las inscripciones activas como 'respondio'.
+//
+// MODO ASISTIDO (reunión 31/07): si la jugada que venía corriendo está en modo
+// 'asistido', además de pausar se avisa al dueño y MaKo deja un BORRADOR con la
+// respuesta sugerida para aprobar con un clic. Es la fase 1 acordada: se
+// automatizan los primeros audios y la conversación la sigue un humano.
+export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string }): Promise<number> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
     .update({ estado: 'respondio', proximo_envio_at: null, updated_at: ahoraISO() })
     .eq('lead_id', leadId)
     .eq('estado', 'activa')
-    .select('id');
+    .select('id, secuencia_id');
   if (error) throw new Error(`pausarPorRespuesta: ${error.message}`);
-  return ((data ?? []) as Array<{ id: number }>).length;
+  const pausadas = (data ?? []) as Array<{ id: number; secuencia_id: number }>;
+  if (pausadas.length) {
+    // Best-effort y en segundo plano conceptual: que un fallo del asistido NUNCA
+    // rompa el webhook (el lead ya quedó despausado, que es lo crítico).
+    try { await asistirRespuesta(leadId, pausadas.map((p) => p.secuencia_id), opts?.texto); }
+    catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
+  }
+  return pausadas.length;
+}
+
+/**
+ * Modo asistido: avisa al dueño que el lead respondió y le deja el borrador de
+ * respuesta que redactó MaKo con la jugada (mismo cerebro del simulador).
+ * Silencioso si ninguna de las secuencias pausadas es 'asistido'.
+ */
+async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string): Promise<void> {
+  const { parseEstrategia } = await import('@/lib/setting-estrategia');
+  const secs = await getSecuenciasConStats();
+  // La jugada asistida más específica que venía corriendo para este lead.
+  const jugada = secs.find((s) => secuenciaIds.includes(s.id) && parseEstrategia(s.estrategia)?.modo === 'asistido');
+  if (!jugada) return;
+
+  const supabase = await getTenantDb();
+  const { data: leadRow } = await supabase.from('leads').select('id, nombre, telefono').eq('id', leadId).maybeSingle();
+  const lead = leadRow as { id: number; nombre: string | null; telefono: string | null } | null;
+
+  // 1) MaKo redacta la respuesta (import dinámico: setting-simulador importa
+  //    este módulo, un import estático cerraría el ciclo).
+  let sugerida: string | null = null;
+  try {
+    const { responderSimulador } = await import('@/lib/setting-simulador');
+    const r = await responderSimulador(jugada.id, [{ de: 'lead', texto: texto?.trim() || '(el lead respondió sin texto)' }]);
+    if (r.ok) sugerida = r.respuesta;
+  } catch { /* sin sugerencia: igual avisamos */ }
+
+  // 2) Borrador para aprobar con un clic (misma bandeja que el resto).
+  if (sugerida && lead?.telefono) {
+    const { crearBorrador } = await import('@/lib/evolution-envio');
+    await crearBorrador({
+      leadId, telefono: lead.telefono, texto: sugerida,
+      origen: 'setter-asistido', secuenciaId: jugada.id, paso: null, inscripcionId: null,
+    });
+  }
+
+  // 3) Aviso al dueño — el único que pidió Mauricio: "avisame si responden".
+  const { emitirDelCatalogo } = await import('@/lib/avisos');
+  const quien = lead?.nombre?.trim() || `lead ${leadId}`;
+  await emitirDelCatalogo('wa-mensaje-entrante', {
+    texto: `💬 *${quien} respondió* a la jugada «${jugada.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${sugerida ? `\n\nTe dejé un borrador listo para aprobar:\n${sugerida.slice(0, 300)}` : ''}\n\n— MaKo`,
+  });
 }
