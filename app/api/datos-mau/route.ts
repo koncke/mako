@@ -34,7 +34,10 @@ async function wsDePrueba(): Promise<number | null> {
 }
 
 /** El catálogo, para que el panel global lo liste sin duplicar los nombres. */
-const CATALOGO = (Object.keys(AMBITOS) as AmbitoKey[]).map((k) => ({ key: k, label: AMBITOS[k].label, nota: AMBITOS[k].nota ?? null }));
+const CATALOGO = (Object.keys(AMBITOS) as AmbitoKey[]).map((k) => ({
+  key: k, titulo: AMBITOS[k].titulo, seccion: AMBITOS[k].seccion,
+  label: AMBITOS[k].label, nota: AMBITOS[k].nota ?? null,
+}));
 
 export async function GET() {
   const ws = await wsDePrueba();

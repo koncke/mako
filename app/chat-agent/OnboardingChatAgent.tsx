@@ -18,7 +18,6 @@ import { WizardShell } from '@/app/_components/WizardShell';
 import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
-import { DatosDeMau } from '@/app/_components/DatosDeMau';
 import { Icon } from '@/app/_components/icons';
 
 /**
@@ -123,7 +122,7 @@ const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
     ],
     recomendacion: {
       titulo: 'Conviene usar el número de la empresa',
-      texto: 'Al vincular un número, todas sus conversaciones quedan visibles dentro de MaKo, incluidas las personales. Además, ese número es el que tus contactos van a guardar de forma permanente. Por eso recomendamos vincular el número de la empresa. Si por ahora solo dispones del personal, puedes usarlo igual: es una recomendación, no un requisito.',
+      texto: 'El número que vincules es el que tus contactos van a guardar de forma permanente, y el que va a quedar asociado a tu actividad comercial. Por eso recomendamos usar el de la empresa: mantiene separado lo laboral de lo personal y te deja cambiar de equipo o delegar la atención sin arrastrar tu línea privada. Si por ahora solo dispones del personal, puedes usarlo igual: es una recomendación, no un requisito.',
     },
   },
 
@@ -460,7 +459,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>WhatsApp → Dispositivos vinculados → Vincular dispositivo</div>
             </>
           ) : (
-            <button onClick={() => void conectarEvo()} disabled={busyEvo !== null} style={{ ...btnDark, alignSelf: 'flex-start' }}>
+            <button onClick={() => void conectarEvo()} disabled={busyEvo !== null} style={btnDark}>
               {busyEvo === 'conectar' ? 'Generando el código…' : 'Generar código QR'}
             </button>
           )}
@@ -469,7 +468,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
 
       {/* VERIFICACIÓN — que el mensaje llegue de verdad */}
       {pasoKey === 'wa_no_oficial_prueba' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%' }}>
           {verificado ? (
             <div style={{ ...okBox, width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
               <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={17} /></span>
@@ -477,7 +476,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             </div>
           ) : !codigoEnviado ? (
             <button onClick={() => void enviarCodigo()} disabled={busy}
-              style={{ ...btnDark, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              style={{ ...btnDark, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               <span aria-hidden style={{ display: 'inline-flex' }}><Icon name="plug" size={16} /></span>
               {busy ? 'Enviando…' : 'Enviar código de verificación'}
             </button>
@@ -502,7 +501,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
                 Se conecta pegando un solo token de Meta en Configuraciones → Método; MaKo descubre el resto de los datos solo.
               </div>
-              <a href="/integraciones" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'flex-start', textDecoration: 'none', display: 'inline-block' }}>Abrir integraciones ↗</a>
+              <a href="/integraciones" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Abrir integraciones ↗</a>
             </div>
           )}
         </div>
@@ -533,7 +532,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       {/* ⑩ EMAIL — conectar */}
       {pasoKey === 'email_conectar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <a href="/email" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'flex-start', textDecoration: 'none', display: 'inline-block' }}>Configurar mi dominio ↗</a>
+          <a href="/email" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Configurar mi dominio ↗</a>
         </div>
       )}
 
@@ -579,7 +578,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                   );
                 })}
               </div>
-              <button onClick={() => void leerConversaciones()} disabled={busy || elegidos.size === 0} style={{ ...btnDark, alignSelf: 'flex-start', opacity: busy || !elegidos.size ? 0.55 : 1 }}>
+              <button onClick={() => void leerConversaciones()} disabled={busy || elegidos.size === 0} style={{ ...btnDark, alignSelf: 'center', opacity: busy || !elegidos.size ? 0.55 : 1 }}>
                 {busy ? 'Leyendo…' : `🔎 Leer ${elegidos.size || ''} ${elegidos.size === 1 ? 'conversación' : 'conversaciones'}`}
               </button>
               {busy && <Cargando texto="Leyendo tus chats y sacando tu patrón… puede tardar unos segundos" />}
@@ -593,7 +592,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           {parsearSecciones(contexto.resumen).map((s, i) => (
             <SeccionCard key={s.titulo} s={s} abiertoDefault={i === 0} icono="💬" size="sm" />
           ))}
-          <button onClick={() => { setContexto(null); setElegidos(new Set()); }} style={{ ...btn, alignSelf: 'flex-start', marginTop: 4 }}>↻ Elegir otras conversaciones</button>
+          <button onClick={() => { setContexto(null); setElegidos(new Set()); }} style={{ ...btn, alignSelf: 'center', marginTop: 4 }}>↻ Elegir otras conversaciones</button>
         </div>
       )}
 
@@ -639,13 +638,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         </div>
       )}
       {/* El contexto va SIEMPRE al final: explica sin interrumpir la acción. */}
-      {/* Atajo de la agencia: en un workspace de prueba, este paso se puede
-          llenar con lo que ya tiene Mau en vez de cargarlo a mano. */}
-      <DatosDeMau
-        ambito={AMBITO_DEL_PASO[pasoKey]}
-        variante="bloque"
-        onListo={() => { setCanales(null); setEvo(null); setContexto(null); }}
-      />
 
       <Ayuda paso={pasoKey} />
     </WizardShell>

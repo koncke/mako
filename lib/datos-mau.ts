@@ -32,7 +32,18 @@ import { OWNER_WS } from './auth-session';
 
 type TablaClon = {
   tabla: string;
-  /** Columnas que no viajan: identidad, FKs que se remapean, campos de auditoría. */
+  /**
+   * Columnas que no viajan.
+   *
+   * OJO CON `id`. Hay dos familias de tabla y confundirlas rompe el insert:
+   *  · id automático (bigserial / identity) y PK global → va en `omitir`, lo
+   *    genera la base. Ej.: nutricion_secuencias, leads, mako_knowledge.
+   *  · id de TEXTO sin default y PK compuesta (workspace_id, id) → NO se omite.
+   *    Omitirlo tira "null value in column id violates not-null". Preservarlo
+   *    además mantiene coherentes las referencias por id: el storage_path del
+   *    Archivero es `<ws>/<id>`, y plan_tareas.labels apunta a ids de proyecto.
+   *    Ej.: archivero_files, plan_proyectos, plan_tareas.
+   */
   omitir?: string[];
   /** Valores impuestos en el destino (ej. una secuencia llega siempre pausada). */
   forzar?: Record<string, unknown>;
@@ -44,6 +55,12 @@ type TablaClon = {
   limite?: number;
   /** Orden de traída (para que el límite se quede con lo más reciente). */
   ordenar?: { col: string; asc?: boolean };
+  /**
+   * Columna con UNIQUE por workspace: las filas cuyo valor ya exista en el
+   * destino se saltean en vez de reventar el insert entero. Pasa siempre que el
+   * destino ya sembró sus plantillas (nutricion_secuencias, por ejemplo).
+   */
+  dedupPor?: string;
   /** Tablas que apuntan a esta por FK: se copian remapeando el id nuevo. */
   hijos?: Array<{ tabla: string; fk: string; omitir?: string[]; limite?: number }>;
 };
@@ -52,7 +69,15 @@ export type AmbitoKey =
   | 'negocio' | 'archivero' | 'funnel' | 'creativos' | 'setting'
   | 'crm' | 'plan' | 'conocimiento' | 'prompts' | 'objetivos' | 'integraciones';
 
+/** Las secciones del panel de agencia: agrupan los ámbitos por recorrido. */
+export const SECCIONES = ['Onboarding principal', 'Canales', 'Chat Agent', 'Datos del negocio', 'Configuración'] as const;
+export type Seccion = (typeof SECCIONES)[number];
+
 type AmbitoDef = {
+  /** Nombre corto y visible del ámbito ("El Archivero", "Los leads"). */
+  titulo: string;
+  /** A qué grupo pertenece dentro del panel. */
+  seccion: Seccion;
   /** Lo que el botón promete, en una línea: "Completar con {label}". */
   label: string;
   settings?: string[];
@@ -69,6 +94,8 @@ type AmbitoDef = {
 
 export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
   negocio: {
+    titulo: 'Brief y diagnóstico',
+    seccion: 'Onboarding principal',
     label: 'el brief y el diagnóstico de Mau',
     settings: [
       'mako.onboarding.answers', 'negocio.fase.diagnostico',
@@ -76,19 +103,25 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     ],
   },
   archivero: {
+    titulo: 'El Archivero',
+    seccion: 'Onboarding principal',
     label: 'los documentos de Mau',
     settings: ['mako.archivero.manual', 'mako.archivero.panorama'],
-    tablas: [{ tabla: 'archivero_files', omitir: ['id'], limite: 200, ordenar: { col: 'created_at' } }],
+    tablas: [{ tabla: 'archivero_files', limite: 200, ordenar: { col: 'created_at' } }],
   },
   funnel: {
+    titulo: 'El funnel',
+    seccion: 'Onboarding principal',
     label: 'el funnel de Mau',
     settings: ['onboarding.funnel_tipos'],
-    tablas: [
-      { tabla: 'funnel_config', singleton: true },
-      { tabla: 'pipeline_stages', omitir: ['id'] },
-    ],
+    // pipeline_stages NO se copia: no tiene columna `id` y su PK es `key`
+    // GLOBAL, sin workspace_id — copiarla choca con la del dueño. Además quedó
+    // sin uso para el funnel (migración 0025).
+    tablas: [{ tabla: 'funnel_config', singleton: true }],
   },
   creativos: {
+    titulo: 'Avatares y ángulos',
+    seccion: 'Onboarding principal',
     label: 'los avatares y ángulos de Mau',
     settings: [
       'mako.avatares', 'mako.avatares.contexto', 'mako.razones', 'mako.entregable',
@@ -97,15 +130,19 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     ],
   },
   setting: {
+    titulo: 'Jugadas y voz',
+    seccion: 'Chat Agent',
     label: 'las jugadas y la voz de Mau',
     settings: ['mako.voz_guia'],
     tablas: [
       // Pausadas SIEMPRE: un workspace de prueba no arranca mandando solo.
-      { tabla: 'nutricion_secuencias', omitir: ['id'], forzar: { activa: false } },
+      { tabla: 'nutricion_secuencias', omitir: ['id'], forzar: { activa: false }, dedupPor: 'clave' },
       { tabla: 'setting_audios', omitir: ['id'], limite: 40, ordenar: { col: 'created_at' } },
     ],
   },
   crm: {
+    titulo: 'Leads del CRM',
+    seccion: 'Datos del negocio',
     label: 'los leads de Mau',
     tablas: [{
       tabla: 'leads',
@@ -124,26 +161,33 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
         email: (_f, i) => `lead${i}@prueba.local`,
         whatsapp: () => null,
         chat_jid: () => null,
+        // UNIQUE global, sin workspace_id (idx_leads_meta_lead_id): si viaja,
+        // el segundo workspace con el mismo lead de formulario no entra.
+        meta_lead_id: () => null,
       },
       hijos: [{ tabla: 'lead_respuestas', fk: 'lead_id', omitir: ['id'], limite: 1200 }],
     }],
     nota: 'Los leads llegan con el teléfono y el email neutralizados: ninguna prueba puede alcanzar a un cliente real.',
   },
   plan: {
+    titulo: 'El plan',
+    seccion: 'Datos del negocio',
     label: 'el plan de Mau',
     tablas: [
       { tabla: 'tarea_categorias', omitir: ['id'] },
-      {
-        tabla: 'plan_proyectos', omitir: ['id'], limite: 60, ordenar: { col: 'created_at' },
-        hijos: [{ tabla: 'plan_tareas', fk: 'proyecto_id', omitir: ['id'], limite: 600 }],
-      },
+      { tabla: 'plan_proyectos', limite: 60, ordenar: { col: 'created_at' } },
+      { tabla: 'plan_tareas', limite: 600, ordenar: { col: 'created_at' } },
     ],
   },
   conocimiento: {
+    titulo: 'Cursos y conocimiento',
+    seccion: 'Datos del negocio',
     label: 'los cursos y el conocimiento de Mau',
     tablas: [{ tabla: 'mako_knowledge', omitir: ['id'], limite: 400, ordenar: { col: 'created_at' } }],
   },
   prompts: {
+    titulo: 'Prompts y modelos',
+    seccion: 'Configuración',
     label: 'los prompts y modelos de Mau',
     settings: [
       'mako.prompts', 'mako.prompt-overrides', 'mako.modelos', 'mako.nucleo',
@@ -153,10 +197,14 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     ],
   },
   objetivos: {
+    titulo: 'Objetivos',
+    seccion: 'Onboarding principal',
     label: 'los objetivos de Mau',
     settings: ['objetivo_cash_usd', 'objetivo_cierres'],
   },
   integraciones: {
+    titulo: 'Credenciales',
+    seccion: 'Canales',
     label: 'las credenciales de Mau',
     credenciales: true,
     nota: 'No se copian el teléfono, el email ni los grupos de WhatsApp: las pruebas deben llegarte a ti, no al dueño.',
@@ -257,8 +305,17 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
   if (t.limite) q = q.limit(t.limite);
   const { data, error: eSel } = await q;
   if (eSel) { avisos.push(`${t.tabla}: ${eSel.message}`); return 0; }
-  const origen = (data ?? []) as Array<Record<string, unknown>>;
+  let origen = (data ?? []) as Array<Record<string, unknown>>;
   if (!origen.length) return 0;
+
+  // Lo que el destino ya tiene con esa clave no se vuelve a traer: un UNIQUE por
+  // workspace haría fallar el insert ENTERO, y con él todo el ámbito.
+  if (t.dedupPor) {
+    const { data: yaHay } = await sb.from(t.tabla).select(t.dedupPor).eq('workspace_id', destino);
+    const existentes = new Set(((yaHay ?? []) as unknown as Array<Record<string, unknown>>).map((r) => String(r[t.dedupPor!])));
+    origen = origen.filter((f) => !existentes.has(String(f[t.dedupPor!])));
+    if (!origen.length) return 0;
+  }
 
   const nuevas = origen.map((f, i) => prepararFila(f, t, destino, i));
   const { data: ins, error } = await sb.from(t.tabla).insert(nuevas).select('id');

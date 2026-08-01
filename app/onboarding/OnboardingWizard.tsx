@@ -398,16 +398,18 @@ export function OnboardingWizard() {
   const campoBrief = p.key.startsWith('brief:') ? data.brief.find((c) => c.key === p.key.slice(6)) : null;
   const servicioReq = p.servicio && data.requeridos.includes(p.servicio);
   const esFaseQuiz = p.faseQ != null && p.faseQ >= 0 && p.key !== 'fase:canal';
-  // El super-admin (impersonando un cliente de prueba) puede adelantar sin
-  // conectar: está recorriendo el flujo, no dando de alta un cliente real.
-  const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin))
+  // NINGUNA excepción para el super-admin: el onboarding se recorre igual que
+  // un cliente real, si no lo que se prueba no es lo que va a ver el cliente. Su
+  // único privilegio es traer los datos de Mauricio desde la barra de agencia,
+  // que llena el paso de verdad — no lo saltea.
+  const puedeAvanzar = servicioReq ? Boolean(conectadas[p.servicio!])
     : esFaseQuiz ? faseResp[p.faseQ!] >= 0
     // Gemini NO tiene excepción de admin (a diferencia de los demás): sin una key que
     // ande de verdad, Entregable/Avatares/Persona/Ángulos van a fallar con "no hay IA"
     // más adelante — mejor frenar acá, con el mensaje claro, que dejar pasar y que
     // truene 3 pantallas después.
     : p.key === 'gemini' ? geminiConectada
-    : p.key === 'archivero' ? (archiveroListo || Boolean(data.esAdmin)) // ≥1 doc analizado
+    : p.key === 'archivero' ? archiveroListo // ≥1 doc analizado
     // Entregable/Avatares/Persona/Ángulos: TAMPOCO admiten excepción de admin. Martín
     // (probando impersonado) pudo apretar Siguiente sin haber definido el entregable —
     // "NO debería poder avanzar jamás si lo anterior no está listo" (pedido explícito).
@@ -420,9 +422,9 @@ export function OnboardingWizard() {
     // el super-admin, para poder probar el flujo real de punta a punta.
     : p.key === 'contacto' ? (contactoEtapa === 'listo' ? true : contactoEtapa === 'form' ? numeroLocal.trim().length >= 6 : codigoInput.trim().length === 6)
     : true;
-  // Archivero sin documentos: el botón Siguiente ni aparece (no tiene sentido avanzar
-  // sin cargar nada). El super-admin queda exento para poder recorrer el flujo.
-  const hideSiguiente = p.key === 'archivero' && !archiveroListo && !data.esAdmin;
+  // Archivero sin documentos: el botón Siguiente ni aparece — no tiene sentido
+  // avanzar sin cargar nada, y eso vale también para el super-admin.
+  const hideSiguiente = p.key === 'archivero' && !archiveroListo;
 
   // Guardar el diagnóstico (recomputado en el server) al terminar las 6 preguntas.
   const guardarFase = async () => {

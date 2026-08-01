@@ -1,5 +1,4 @@
 'use client';
-import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 // =============================================================================
 // El Archivero — repositorio de documentos del negocio (v7: solo Archivos)
@@ -509,10 +508,6 @@ export function Archivero({ onEstado, onListo, registro }: {
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       {keyframes}
       <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={(e) => { addCola(e.target.files); e.target.value = ''; }} />
-
-      {/* Sin documentos no hay lista donde colgar el atajo, y es EXACTAMENTE el
-          caso donde hace falta: va acá, en la pantalla de arranque. */}
-      <DatosDeMau ambito="archivero" variante="bloque" onListo={() => window.location.reload()} />
 
       {algoEnCola ? (
         // Con algo en la cola, el dropzone gigante desaparece → botones compactos (P3).

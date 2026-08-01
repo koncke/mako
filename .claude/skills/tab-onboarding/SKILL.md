@@ -139,8 +139,8 @@ lo que rompe, no para lo que preferimos.
 
 ### Botones e íconos
 
-- Alineados a la **izquierda** (`alignSelf: 'flex-start'`), nunca centrados en
-  medio de un paso.
+- **CENTRADOS** (`alignSelf: 'center'`), nunca pegados al margen izquierdo. El
+  cuerpo del paso está centrado y un botón alineado a la izquierda rompe el eje.
 - Texto **descriptivo y neutro**: "Enviar código de verificación", no "Mandame
   el código".
 - **Íconos del set**, nunca emojis sueltos: `<Icon name="…" />` de
@@ -155,6 +155,17 @@ lo que rompe, no para lo que preferimos.
 
 Un solo `busy` compartido hace que apretar "Siguiente" ponga "Desconectando…" en
 otro botón. Estado por acción (`busyEvo`, `busy`, …), siempre.
+
+### El onboarding se ve IGUAL para todos
+
+Adentro del recorrido no va **ningún** atajo de agencia: ni botones de "completar
+con los datos de X", ni excepciones de `puedeAvanzar` para el super-admin. Si el
+admin puede saltear un paso, lo que prueba no es lo que el cliente va a ver, y
+los pasos rotos aparecen recién en producción.
+
+El único privilegio del admin vive en la **barra de agencia** de arriba
+(`app/_components/PanelAgencia.tsx`), fuera de la pieza: desde ahí trae los datos
+del dueño, que **llenan el paso de verdad** en lugar de saltearlo.
 
 ## El copy: español neutro y profesional
 

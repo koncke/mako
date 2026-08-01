@@ -87,9 +87,10 @@ export function WizardShell({
       <div style={{ fontSize: 12.5, color: 'var(--faint)', fontFamily: MONO, marginBottom: 8 }}>{titulo}</div>
       <h3 style={{ fontSize: 'clamp(20px,4vw,26px)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', fontFamily: SANS }}>{pregunta}</h3>
       {sub ? <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 18px', lineHeight: 1.55 }}>{sub}</p> : <div style={{ height: 12 }} />}
-      {/* Columna con aire: los pasos apilan acción + atajos + contexto, y sin
-          gap quedaban pegados uno contra otro (un botón besando la caja de
-          abajo). El gap va acá y no en cada paso para que nunca se olvide. */}
+      {/* Columna con aire: los pasos apilan acción + contexto, y sin gap quedaban
+          pegados uno contra otro. Se estira a lo ancho a propósito (la caja de
+          contexto y las listas ocupan todo); el CENTRADO de los botones lo pone
+          cada paso con alignSelf, que es la regla de la pieza. */}
       <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>{children}</div>
       {error && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{error}</div>}
     </div>

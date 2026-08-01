@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
+import { AvisoFlotante } from './AvisoFlotante';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -32,7 +33,7 @@ export function DatosDeMau({ ambito, label, onListo, variante = 'inline' }: Prop
   const [completado, setCompletado] = useState(false);
   const [busy, setBusy] = useState<null | 'completar' | 'eliminar'>(null);
   const [confirmando, setConfirmando] = useState(false);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ texto: string; tono: 'info' | 'error' } | null>(null);
 
   const oscuro = variante === 'oscuro';
   const chip: CSSProperties = {
@@ -64,17 +65,17 @@ export function DatosDeMau({ ambito, label, onListo, variante = 'inline' }: Prop
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, ambito }),
       })).json();
-      if (!j.ok) { setAviso(j.error || 'No se pudo completar.'); return; }
+      if (!j.ok) { setAviso({ texto: j.error || 'No se pudo completar.', tono: 'error' }); return; }
       if (action === 'completar') {
         const n = j.copiado ?? 0;
         // Los avisos se muestran SIEMPRE: acá viaja el detalle de lo que no se
         // pudo copiar. Descartarlos hacía que un fallo se leyera como "no hay
         // nada que traer" y el bug quedaba invisible.
         const detalle = (j.avisos ?? []) as string[];
-        setAviso([n ? `Listo: ${n} elementos.` : 'No hay nada cargado en ese ámbito.', ...detalle].join(' · '));
+        setAviso({ texto: [n ? `Listo: ${n} elementos.` : 'No hay nada cargado en ese ámbito.', ...detalle].join(' · '), tono: detalle.length ? 'error' : 'info' });
         setCompletado(n > 0);
       } else {
-        setAviso(`Eliminados: ${j.borrado ?? 0} elementos.`);
+        setAviso({ texto: `Eliminados: ${j.borrado ?? 0} elementos.`, tono: 'info' });
         setCompletado(false);
       }
       // Refresco suave: se vuelven a pedir los server components y la pantalla
@@ -83,7 +84,7 @@ export function DatosDeMau({ ambito, label, onListo, variante = 'inline' }: Prop
       if (onListo) onListo(); else router.refresh();
 
     } catch (e) {
-      setAviso(e instanceof Error ? e.message : 'No se pudo completar.');
+      setAviso({ texto: e instanceof Error ? e.message : 'No se pudo completar.', tono: 'error' });
     } finally { setBusy(null); }
   }
 
@@ -122,7 +123,7 @@ export function DatosDeMau({ ambito, label, onListo, variante = 'inline' }: Prop
         </span>
       )}
 
-      {aviso && <span style={{ fontSize: 12.5, color: oscuro ? 'rgba(243,240,231,.75)' : 'var(--dim)', ...(variante === 'bloque' ? { flexBasis: '100%', textAlign: 'center' } : { whiteSpace: 'nowrap' }) }}>{aviso}</span>}
+      {aviso && <AvisoFlotante mensaje={aviso.texto} tono={aviso.tono} onCerrar={() => setAviso(null)} />}
     </div>
   );
 }
