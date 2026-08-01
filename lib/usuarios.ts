@@ -128,6 +128,22 @@ export async function contarAdminsActivos(): Promise<number> {
 }
 
 /**
+ * El email del DUEÑO de un workspace (su admin-cliente, o el primer miembro si no
+ * hay ninguno marcado). Sirve para saber "de quién es el tablero que estoy mirando",
+ * que no es lo mismo que "quién está logueado" cuando un admin impersona.
+ */
+export async function emailDuenoWorkspace(ws: number | null): Promise<string> {
+  if (ws == null) return '';
+  const { data, error } = await getSupabaseServer()
+    .from('usuarios').select('email, rol_ws').eq('workspace_id', ws).neq('estado', 'suspendido')
+    .order('rol_ws', { ascending: true }).limit(20);
+  if (error) return '';
+  const filas = (data ?? []) as Array<{ email: string; rol_ws: string | null }>;
+  const admin = filas.find((f) => f.rol_ws === 'admin') ?? filas[0];
+  return (admin?.email ?? '').trim().toLowerCase();
+}
+
+/**
  * Admins-de-cliente NO suspendidos de un workspace. Guard análogo a
  * contarAdminsActivos pero por-negocio: evita dejar a un cliente sin un
  * admin-cliente (rol_ws='admin') al suspender/eliminar/degradar un miembro.

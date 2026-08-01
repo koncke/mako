@@ -42,6 +42,11 @@ export type PasoSecuencia = {
   // Meta. Sin tipo = 'texto' (todo lo anterior sigue igual).
   tipo?: 'texto' | 'audio';
   audio_id?: number | null;
+  // Condición para que el paso salga (reunión 31/07). 'respondio' = el lead ya
+  // contestó al menos una vez: es la regla del lead magnet ("¿lo querés? es
+  // gratis" y recién si contesta se manda). 'sin_respuesta' = el rezagado que
+  // nunca contestó — por ahí se degrada a email. Sin condición, siempre sale.
+  requiere?: 'respondio' | 'sin_respuesta';
   asunto: string | null;
   preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
@@ -186,6 +191,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       ...(p.tipo === 'audio' && Number(p.audio_id)
         ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) }
         : {}),
+      ...(p.requiere === 'respondio' || p.requiere === 'sin_respuesta' ? { requiere: p.requiere } : {}),
       asunto: typeof p.asunto === 'string' ? p.asunto : null,
       preheader: typeof p.preheader === 'string' ? p.preheader : null,
       cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
@@ -837,6 +843,20 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         }
       }
 
+      // Paso condicional que espera una respuesta que todavía no llegó: se
+      // saltea (la inscripción sigue activa; si el lead contesta, el destrabe de
+      // pausarPorRespuesta lo trae de vuelta).
+      if (paso.requiere === 'respondio') {
+        const siguienteLibre = sec.pasos.findIndex((p, i) => i > insc.paso_actual && p.requiere !== 'respondio');
+        await supabase.from('nutricion_inscripciones').update(
+          siguienteLibre >= 0
+            ? { paso_actual: siguienteLibre, proximo_envio_at: proximoEnvioDePaso(sec.pasos[siguienteLibre], lead), updated_at: ahoraISO() }
+            : { estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() },
+        ).eq('id', insc.id);
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'espera que el lead responda' });
+        continue;
+      }
+
       // Copy que sigue con texto de relleno del seed → NUNCA sale automático:
       // espera (reintento 24h) a que MaKo lo escriba y alguien lo apruebe.
       if (!opts?.simularApagados && pasoConRelleno(paso)) {
@@ -1104,6 +1124,34 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     .select('id, secuencia_id');
   if (error) throw new Error(`pausarPorRespuesta: ${error.message}`);
   const pausadas = (data ?? []) as Array<{ id: number; secuencia_id: number }>;
+
+  // PASOS CONDICIONALES (reunión 31/07): un paso con requiere='respondio' está
+  // esperando justamente esto — el caso del lead magnet ("¿lo querés? es gratis"
+  // y recién si contesta se manda). La respuesta lo DESTRABA: la inscripción
+  // vuelve a 'activa' apuntando a ese paso, en vez de quedar pausada para
+  // siempre. Los demás pasos condicionales se saltean al llegar el turno.
+  if (pausadas.length) {
+    try {
+      const secs = await getSecuenciasActivas();
+      const { data: detalle } = await supabase
+        .from('nutricion_inscripciones')
+        .select('id, secuencia_id, paso_actual')
+        .in('id', pausadas.map((p) => p.id));
+      for (const insc of (detalle ?? []) as Array<{ id: number; secuencia_id: number; paso_actual: number }>) {
+        const sec = secs.find((s) => s.id === insc.secuencia_id);
+        if (!sec) continue;
+        const idx = sec.pasos.findIndex((p, i) => i >= insc.paso_actual && p.requiere === 'respondio');
+        if (idx < 0) continue;
+        await supabase.from('nutricion_inscripciones').update({
+          estado: 'activa',
+          paso_actual: idx,
+          proximo_envio_at: proximoEnvioDePaso(sec.pasos[idx], null),
+          updated_at: ahoraISO(),
+        }).eq('id', insc.id);
+      }
+    } catch (e) { console.error('[nutricion] destrabe de pasos condicionales falló:', e); }
+  }
+
   if (pausadas.length) {
     // Best-effort y en segundo plano conceptual: que un fallo del asistido NUNCA
     // rompa el webhook (el lead ya quedó despausado, que es lo crítico).

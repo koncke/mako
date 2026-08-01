@@ -21,8 +21,9 @@ import 'server-only';
 // empujarle cosas al tablero de cualquiera.
 // =============================================================================
 
-import { buscarUsuarioPorEmail, telefonoDeUsuario, type Usuario } from './usuarios';
+import { buscarUsuarioPorEmail, telefonoDeUsuario, emailDuenoWorkspace, type Usuario } from './usuarios';
 import { getUsuarioActual } from './auth';
+import { estaImpersonando, getWorkspaceActual } from './workspace';
 import { findLeadByContacto } from './leads';
 import { enviarAPersonaMaKo } from './mako-grupo';
 import { sendEmail } from './resend';
@@ -60,7 +61,15 @@ const nombreDe = (u: Usuario | null, fallbackNombre: string, email: string): str
  */
 export async function resolverDestinatarios(personas: Array<{ email: string; nombre?: string }>): Promise<Destinatario[]> {
   const sesion = await getUsuarioActual();
-  const miEmail = (sesion?.email ?? '').trim().toLowerCase();
+  // De quién es el TABLERO que se está mirando. No es lo mismo que quién está
+  // logueado: cuando un admin impersona a un cliente, el board de la pantalla es el
+  // del cliente. Excluir siempre al de la sesión dejaba al admin fuera de la lista de
+  // destinatarios, así que desde la vista de un cliente NO podía mandarse a su propio
+  // plan los compromisos que él mismo asumió en la reunión — que es justo el caso más
+  // común, porque el que revisa la reunión del cliente es él.
+  const impersonando = await estaImpersonando().catch(() => false);
+  const dueno = impersonando ? await emailDuenoWorkspace(await getWorkspaceActual().catch(() => null)).catch(() => '') : '';
+  const miEmail = (dueno || sesion?.email || '').trim().toLowerCase();
 
   const out: Destinatario[] = [];
   const vistos = new Set<string>();

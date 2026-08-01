@@ -28,6 +28,12 @@ const wa = (orden: number, delay_horas: number, template_wa: string, cuerpo: str
 // para etapas derivadas cuyo copy todavía no aprobó nadie.
 const waNo = (orden: number, delay_horas: number, cuerpo: string): PasoSecuencia =>
   ({ orden, canal: 'whatsapp', delay_horas, asunto: null, cuerpo, proveedor: 'no_oficial', template_wa: null });
+// Paso que SOLO sale si el lead ya contestó (regla del lead magnet).
+const waSiResponde = (orden: number, delay_horas: number, cuerpo: string): PasoSecuencia =>
+  ({ ...waNo(orden, delay_horas, cuerpo), requiere: 'respondio' });
+// Rezagado que nunca contestó → email, para no quemar el WhatsApp.
+const emailRezagado = (orden: number, delay_horas: number, asunto: string, cuerpo: string): PasoSecuencia =>
+  ({ ...email(orden, delay_horas, asunto, cuerpo), requiere: 'sin_respuesta' });
 
 export const NUTRITION_TEMPLATES: NutricionTemplate[] = [
   {
@@ -71,6 +77,44 @@ export const NUTRITION_TEMPLATES: NutricionTemplate[] = [
     ],
   },
   {
+    // ═══ Las 3 secuencias acordadas en la reunión del 31/07 ═══
+    // ① POST-AGENDA — la urgencia declarada: bajar el no-show del 45% al 30%.
+    // El primer toque es un AUDIO del dueño (se cuelga desde la tab Audios; el
+    // copy acá es el guion de lo que dice). Nace PAUSADA: se graba, se aprueba
+    // y recién ahí se prende.
+    clave: 'setting-post-agenda', nombre: 'Post-agenda — que llegue y llegue listo', etapa: 'postagenda',
+    trigger_tipo: 'agendado_sin_confirmar', activa: false,
+    pasos: [
+      waNo(1, 0, 'Hola {{nombre}}, soy [tu nombre]. Vi que agendaste tu reunión — te dejo mi número por cualquier cosa. Contame rápido: ¿a qué se dedica tu negocio hoy?'),
+      waSiResponde(2, 20, '[Devolvele algo de valor sobre lo que contó — una observación concreta, no un halago]. Antes de la llamada te voy a pasar un video corto de preparación: sin eso la charla rinde la mitad.'),
+      waNo(3, 24, '{{nombre}}, te dejo el video de preparación: [tu link del video]. Cuando lo veas, avisame por acá 🙌'),
+    ],
+  },
+  {
+    // ② FORMULARIO SIN AGENDAR — misma apertura que ①, decisión explícita de la
+    // reunión ("se los trata exactamente igual"). Sale al instante por el
+    // enrolamiento por evento del webhook de Meta.
+    clave: 'setting-form-sin-agenda', nombre: 'Dejó el formulario y no agendó', etapa: 'nutri',
+    trigger_tipo: 'instant_form_sin_agenda', activa: false,
+    pasos: [
+      waNo(1, 0, 'Hola {{nombre}}, soy [tu nombre]. Me llegaron tus datos del anuncio. Te dejo mi número por cualquier consulta. Contame: ¿a qué se dedica tu negocio?'),
+      waSiResponde(2, 20, '[Aportá valor sobre lo que contó]. Si querés, lo vemos en una llamada corta y salís con un diagnóstico claro: [tu link de agenda].'),
+      emailRezagado(3, 72, 'Te quedó pendiente esto', 'Hola {{nombre}}, te escribí por WhatsApp y capaz se te traspapeló. [Recordale el problema que resolvés y por qué vale 30 minutos]. Si te sirve, agendá acá 👉 [tu link de agenda].'),
+    ],
+  },
+  {
+    // ③ REACTIVACIÓN DE BASE FRÍA — los ~500 del CRM que nunca contactaron. Son
+    // desconocidos: el gancho es un lead magnet gratis que SOLO se manda si
+    // contestan (regla dura de la reunión).
+    clave: 'setting-reactivacion-fria', nombre: 'Reactivación de la base fría (lead magnet)', etapa: 'reactivacion',
+    trigger_tipo: 'reactivacion_viejo', activa: false,
+    pasos: [
+      waNo(1, 0, 'Hola {{nombre}}, soy [tu nombre]. Hace un tiempo dejaste tus datos por [tu tema] y nunca llegamos a hablar — mi culpa. Armé [tu lead magnet] y te lo quiero dejar sin costo. ¿Te lo mando?'),
+      waSiResponde(2, 1, 'Va 👇 [acá se adjunta tu lead magnet]. Contame después qué te pareció, y si querés lo bajamos a tu caso concreto.'),
+      waSiResponde(3, 48, '¿Pudiste verlo, {{nombre}}? Si te resonó algo, en una llamada corta lo aterrizamos a tu negocio: [tu link de agenda].'),
+    ],
+  },
+  {
     clave: 'reactivacion', nombre: 'Reactivación de fríos', etapa: 'reactivacion', trigger_tipo: 'reactivacion_viejo',
     pasos: [
       email(1, 1, '¿Seguís buscando resolver esto?', 'Hace un tiempo mostraste interés y no seguimos en contacto. Si todavía estás buscando [resultado], me encantaría retomar. ¿Coordinamos una llamada corta? Respondé este mail o agendá acá 👉 [tu link de agenda].'),
@@ -93,7 +137,12 @@ export async function seedNutricionTemplates(): Promise<number> {
   const triggers = new Set(rows.map((r) => r.trigger_tipo));
   let creadas = 0;
   for (const t of NUTRITION_TEMPLATES) {
-    if (claves.has(t.clave) || triggers.has(t.trigger_tipo)) continue;
+    if (claves.has(t.clave)) continue;
+    // El dedup por cohorte existe para no DUPLICAR envíos. Una plantilla que
+    // nace pausada no envía nada, así que puede convivir con una secuencia vieja
+    // del mismo trigger: el dueño elige cuál prende (las 3 del setting entran
+    // por acá — la reunión del 31/07 las pidió aunque ya haya secuencias viejas).
+    if (t.activa !== false && triggers.has(t.trigger_tipo)) continue;
     const { error } = await supabase.from('nutricion_secuencias').insert({
       clave: t.clave, nombre: t.nombre, etapa: t.etapa, trigger_tipo: t.trigger_tipo, activa: t.activa ?? true, pasos: t.pasos,
     });
