@@ -248,12 +248,29 @@ function toolsParaRuta<T extends { name: string }>(motivo: string, todas: T[]): 
 export async function manejarEntranteDoer(instance: string, data: MsgIn): Promise<ResultadoDoer> {
   const jid = data.key?.remoteJid;
   if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
-  // Control de la agencia: ¿el doer está habilitado en este grupo?
-  if (!(await gruposDoer(OWNER_WS)).includes(jid)) return { engaged: false, skip: 'grupo no habilitado' };
-  // Aislamiento: los datos son del workspace que POSEE el grupo.
+
+  // Aislamiento PRIMERO: ¿de quién es este grupo? wsDeGrupoJid solo reconoce grupos
+  // creados por la app (el `mako.grupo_jid` de un workspace, el SuperAdmin, o los de
+  // prueba del dueño). Un grupo cualquiera devuelve null y no se contesta.
   const wsData = await wsDeGrupoJid(jid);
   if (wsData == null) return { engaged: false, skip: 'grupo sin dueño reconocido' };
+
+  // El grupo OFICIAL de MaKo de un cliente está habilitado por el hecho de existir:
+  // se lo creó el onboarding para hablar con MaKo, y exigir además que el dueño lo
+  // sumara a mano a su allowlist dejaba a los clientes hablándole a una pared —
+  // Mauricio (ws1) y Leila (ws11) escribieron y NADIE respondió, porque solo estaban
+  // habilitados el grupo de Martín y uno de pruebas. La allowlist queda para los
+  // grupos EXTRA (pruebas, equipos internos), no para los oficiales.
+  const suyo = await grupoOficialDe(wsData);
+  if (jid !== suyo && !(await gruposDoer(OWNER_WS)).includes(jid)) {
+    return { engaged: false, skip: 'grupo no habilitado' };
+  }
   return runWithWorkspace(wsData, () => procesarDoer(wsData, instance, data));
+}
+
+/** El JID del grupo de MaKo que el onboarding creó para ESE workspace ('' si no tiene). */
+async function grupoOficialDe(ws: number): Promise<string> {
+  return runWithWorkspace(ws, async () => (await getSetting(KEY_GRUPO_JID).catch(() => '')) ?? '');
 }
 
 async function procesarDoer(wsData: number, instance: string, data: MsgIn): Promise<ResultadoDoer> {
