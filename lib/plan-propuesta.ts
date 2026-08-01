@@ -344,7 +344,16 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       // Sin edición explícita entran TODAS menos las de OTRA persona: el plan de uno no se
       // llena con los compromisos ajenos que salieron de la misma reunión (esas viajan a
       // SU tablero por su propio camino).
-      const base = (lote.tareas ?? (prop?.tareas ?? []).filter((t) => !t.esDeOtro)).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+      const baseCruda = (lote.tareas ?? (prop?.tareas ?? []).filter((t) => !t.esDeOtro)).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+      // ANTI-DOBLE-ALTA: el borrador que conserva tareas de OTRAS personas queda
+      // 'pendiente', así que el guard de estado no alcanza — apretar dos veces (o
+      // reintentar tras un corte) volvía a crear las mismas tareas. Lo ya aplicado
+      // vive en `aplicadas`: se filtra por título normalizado.
+      const yaHechas = new Set((prop?.aplicadas ?? []).map((a) => a.titulo.trim().toLowerCase()));
+      const base = baseCruda.filter((t) => !yaHechas.has(t.titulo.trim().toLowerCase()));
+      if (baseCruda.length !== base.length) {
+        console.warn(`[plan-propuesta] ${lote.id}: ${baseCruda.length - base.length} tarea(s) ya estaban cargadas de este borrador — no se duplican`);
+      }
       // Solo se borran los ids que el dueño/cliente CONFIRMÓ (subset de los que MaKo propuso).
       const propuestos = new Set((prop?.eliminar ?? []).map((e) => e.id));
       const aBorrar = (lote.eliminarIds ?? [...propuestos]).map(String).filter((x) => propuestos.has(x));

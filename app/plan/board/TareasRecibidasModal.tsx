@@ -18,7 +18,7 @@
 // puntuándolas server-side —una sola pasada sobre todo el lote— igual que cualquier
 // otra tarea. "Ahora no" cierra sin descartar: siguen esperándote.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
@@ -54,7 +54,8 @@ const recordingDeRef = (ref?: string): number | undefined => {
 };
 
 /** Fila con la marca de a qué borrador pertenece, para aplicar cada uno por separado. */
-type FilaConProp = FilaTarea & { propId: string };
+/** `proyectoPropuesto` = el nombre que dijo MaKo, aunque ese proyecto no exista todavía. */
+type FilaConProp = FilaTarea & { propId: string; proyectoPropuesto?: string };
 
 export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, onDescartadas, onAbrirTarea, renderTaskCard, oculto }: {
   props: PropuestaPendiente[];
@@ -89,6 +90,10 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
       propId: p.id,
       titulo: t.titulo, detalle: t.detalle ?? '', prioridad: (t.prioridad ?? 'media') as Prio,
       proyectoId: t.proyecto ? idPorNombre.get(t.proyecto.trim().toLowerCase()) ?? null : null,
+      // El nombre CRUDO que propuso MaKo. Si ese proyecto todavía no existe en el
+      // tablero, `proyectoId` queda null y —sin guardar esto— el nombre se perdía al
+      // aplicar: la tarea entraba SIN proyecto aunque el server sabe crearlo por nombre.
+      proyectoPropuesto: (t.proyecto ?? '').trim(),
       dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro, minuto: t.minuto, minutos: t.minutos,
       incluir: !t.esDeOtro,
       // La fecha de la REUNIÓN. Si el borrador no la trae (lo dejó una versión vieja
@@ -131,9 +136,20 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
   // Mientras se aplica NO se puede cerrar ni salir: son N tareas creadas + el Perro
   // puntuándolas por tandas, y cortarlo a la mitad deja el board a medio armar. El
   // navegador avisa si intentás refrescar o cerrar la pestaña.
+  // …salvo cuando la que navega es la PROPIA app al terminar: `onListo()` recarga, y
+  // como el reload corre en el mismo bloque sincrónico que el setGuardando(''), React
+  // todavía no desmontó este listener → el navegador mostraba el cartel de "recargar /
+  // salir del sitio" JUSTO al cargar bien las tareas. Si el usuario lo cancelaba, el
+  // trabajo ya estaba hecho en el server pero el modal seguía mostrando todo igual.
+  // La bandera lo neutraliza solo para esa navegación nuestra (la identidad del handler
+  // no interviene, así que no hay forma de que el removeEventListener falle en silencio).
+  const saliendo = useRef(false);
   useEffect(() => {
     if (guardando !== 'aplicar') return;
-    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    const avisar = (e: BeforeUnloadEvent) => {
+      if (saliendo.current) return;
+      e.preventDefault(); e.returnValue = '';
+    };
     window.addEventListener('beforeunload', avisar);
     return () => window.removeEventListener('beforeunload', avisar);
   }, [guardando]);
@@ -153,7 +169,10 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
       id: p.id,
       contexto: [contextoDe(p), dichasDe(p.id)].filter(Boolean).join(' '),
       tareas: filas.filter((f) => f.propId === p.id && f.incluir && !f.esDeOtro)
-        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId), minuto: f.minuto, minutos: f.minutos })),
+        // Si no matcheó ningún proyecto existente, viaja el NOMBRE propuesto: el server
+        // crea la categoría si no la encuentra (lib/plan-propuesta.ts). Antes acá se
+        // mandaba undefined y la tarea nacía suelta.
+        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined), minuto: f.minuto, minutos: f.minutos })),
       // Lo que queda del lado de otras personas (con las reasignaciones que hiciste
       // recién): el borrador NO se cierra mientras haya algo para repartir.
       restantes: filas.filter((f) => f.propId === p.id && f.esDeOtro)
@@ -161,7 +180,7 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
     })).filter((l) => l.tareas.length > 0);
     const j = await api({ action: 'aplicar-lote', lotes });
     setGuardando('');
-    if (j.ok) onListo();
+    if (j.ok) { saliendo.current = true; onListo(); }
     // El error crudo puede ser una página de error del server (no JSON). Traducirlo:
     // "SyntaxError: Unexpected token 'A'" no le dice nada a nadie.
     else setErr(/JSON|Unexpected token/i.test(String(j.error ?? ''))
