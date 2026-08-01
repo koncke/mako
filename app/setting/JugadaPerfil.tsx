@@ -10,7 +10,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import type { JugadaDto, Opcion } from './SettingApp';
+import type { AudioSetting, JugadaDto, Opcion } from './SettingApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
@@ -38,11 +38,12 @@ async function api(body: unknown): Promise<{ ok: boolean; error?: string; enviad
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, onClose, onCambio, onWizard }: {
+export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audios, onClose, onCambio, onWizard }: {
   jugada: JugadaDto;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   rolAdmin: boolean;
+  audios: AudioSetting[];
   onClose: () => void;
   onCambio: () => void;
   onWizard: () => void;
@@ -88,6 +89,21 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, onClo
     else setErr(r.error || 'La prueba no salió.');
     setBusy(null);
   };
+
+  // Cada paso de WhatsApp puede ser TEXTO o una NOTA DE VOZ de la biblioteca
+  // (reunión 31/07). Se persiste con el PATCH de secuencias (mismo endpoint que
+  // el editor de /whatsapp): el motor fuerza no oficial para los audios.
+  async function setAudioDePaso(orden: number, audioId: number | null) {
+    setBusy('paso'); setErr(null);
+    try {
+      const pasos = jugada.pasos.map((p) => (p.orden !== orden ? p : (
+        audioId ? { ...p, canal: 'whatsapp' as const, tipo: 'audio' as const, audio_id: audioId } : { ...p, tipo: 'texto' as const, audio_id: null }
+      )));
+      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: jugada.id, pasos }) })).json();
+      if (r.ok) { flashOk(audioId ? 'Audio asignado ✓' : 'Vuelto a texto ✓'); onCambio(); } else setErr(r.error || 'No se pudo guardar el paso.');
+    } catch { setErr('Sin conexión — probá de nuevo.'); }
+    setBusy(null);
+  }
 
   const nPreg = preguntas.split('\n').filter((p) => p.trim()).length;
   const pasosWa = jugada.pasos.filter((p) => p.canal === 'whatsapp').length;
@@ -141,6 +157,46 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, onClo
               <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Preguntas de cualificación — una por línea (el Setter y el simulador las usan en este orden):</div>
               <textarea value={preguntas} onChange={(e) => setPreguntas(e.target.value)} rows={5} placeholder={'¿Facturás más de …?\n¿Tenés equipo?'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
             </div>
+          </div>
+
+          {/* Los mensajes: cada paso de WhatsApp puede ser texto o nota de voz */}
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '4px 0 8px' }}>Los mensajes</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {jugada.pasos.map((p) => {
+              const audio = p.tipo === 'audio' && p.audio_id ? audios.find((a) => a.id === p.audio_id) : null;
+              return (
+                <div key={p.orden} style={{ padding: '11px 13px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 7 }}>
+                    <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>
+                      {p.canal === 'email' ? '✉️ Email' : audio ? '🎙 Nota de voz' : '💬 WhatsApp'} · mensaje {p.orden}
+                    </span>
+                    {p.canal === 'whatsapp' && rolAdmin && (
+                      <span style={{ marginLeft: 'auto' }}>
+                        <Dropdown
+                          value={audio ? String(audio.id) : ''}
+                          onChange={(v) => void setAudioDePaso(p.orden, v ? Number(v) : null)}
+                          width={230}
+                          ariaLabel={`Audio del mensaje ${p.orden}`}
+                          buttonStyle={{ padding: '6px 10px', fontSize: 12 }}
+                          options={[{ value: '', label: '💬 Texto escrito' }, ...audios.map((a) => ({ value: String(a.id), label: `🎙 ${a.titulo}` }))]}
+                        />
+                      </span>
+                    )}
+                  </div>
+                  {audio ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      {audio.url && <audio controls src={audio.url} style={{ height: 34, maxWidth: 260 }} />}
+                      {audio.transcript && <span style={{ fontSize: 12, color: 'var(--faint)', flex: '1 1 180px' }}>{audio.transcript.slice(0, 120)}</span>}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{p.cuerpo.slice(0, 220)}{p.cuerpo.length > 220 ? '…' : ''}</div>
+                  )}
+                </div>
+              );
+            })}
+            {audios.length === 0 && rolAdmin && (
+              <div style={{ fontSize: 12, color: 'var(--faint)' }}>Grabá audios en la sub-tab «🎙 Audios» para poder colgarlos de un mensaje.</div>
+            )}
           </div>
 
           {err && <div style={{ marginBottom: 12, padding: '9px 12px', borderRadius: 9, fontSize: 13, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>}

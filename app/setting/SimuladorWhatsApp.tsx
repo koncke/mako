@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { JugadaPerfil } from './JugadaPerfil';
-import type { JugadaDto, Opcion } from './SettingApp';
+import type { AudioSetting, JugadaDto, Opcion } from './SettingApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
 
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
@@ -45,12 +45,13 @@ async function blobABase64(b: Blob): Promise<string> {
 
 type Paso = { t: 'typing' } | { t: 'msg'; msg: HiloMsg };
 
-export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, rolAdmin, onWizard, onReload }: {
+export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, onWizard, onReload }: {
   jugadas: JugadaDto[];
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   negocio: string;
   rolAdmin: boolean;
+  audios: AudioSetting[];
   onWizard: (id: number | 'nueva') => void;
   onReload: () => void;
 }) {
@@ -90,7 +91,14 @@ export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, 
     const guion: Paso[] = [];
     for (const p of pasosWa) {
       guion.push({ t: 'typing' });
-      guion.push({ t: 'msg', msg: { id: `sim-${sel.id}-${p.orden}-${++seq.current}`, fromMe: false, autor: `${negocio || 'Tu negocio'} · ⏱ ${fmtTiming(p)}`, texto: conVars(p.cuerpo), fecha: new Date().toISOString() } });
+      // Paso de NOTA DE VOZ: se ve y se escucha como el lead lo recibe.
+      const audio = p.tipo === 'audio' && p.audio_id ? audios.find((a) => a.id === p.audio_id) : null;
+      guion.push({
+        t: 'msg',
+        msg: audio
+          ? { id: `sim-${sel.id}-${p.orden}-${++seq.current}`, fromMe: false, autor: `${negocio || 'Tu negocio'} · ⏱ ${fmtTiming(p)}`, tipo: 'audio', mediaUrl: audio.url, texto: audio.transcript ? `🎙 ${audio.transcript}` : null, fecha: new Date().toISOString() }
+          : { id: `sim-${sel.id}-${p.orden}-${++seq.current}`, fromMe: false, autor: `${negocio || 'Tu negocio'} · ⏱ ${fmtTiming(p)}`, texto: conVars(p.cuerpo), fecha: new Date().toISOString() },
+      });
     }
     setMensajes([]); setTyping(null);
     const acc0: HiloMsg[] = [];
@@ -198,7 +206,7 @@ export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, 
       </div>
 
       {detalle && sel ? (
-        <JugadaPerfil jugada={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin}
+        <JugadaPerfil jugada={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios}
           onClose={() => setDetalle(false)} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
       ) : sel ? (
         <ChatHilo

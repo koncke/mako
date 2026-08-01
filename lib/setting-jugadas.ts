@@ -14,7 +14,8 @@ import { parseEstrategia, type Estrategia } from './setting-estrategia';
 import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasJugada, type PuntoSerie } from './setting-metricas';
 import { getContactoReportes } from './perfil';
 import { getInstanciaRow } from './evolution';
-import { enviarYEspejar } from './evolution-envio';
+import { enviarYEspejar, enviarAudioYEspejar } from './evolution-envio';
+import { getAudio, audioBase64 } from './setting-audios';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { aplicarVariables, valoresVariablesLead } from './template-vars';
 
@@ -119,6 +120,15 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
     if (paso.canal === 'whatsapp') {
       if (!contacto.telefono) { avisos.push(`Paso ${paso.orden}: sin teléfono en Perfil, no se probó.`); continue; }
       if (!evoConectada) { avisos.push('WhatsApp de empresa sin conectar: los pasos de WhatsApp no se probaron.'); continue; }
+      // Paso de nota de voz: te llega el audio de verdad, como al lead.
+      if (paso.tipo === 'audio' && Number(paso.audio_id) > 0) {
+        const audio = await getAudio(Number(paso.audio_id));
+        const b64 = audio ? await audioBase64(audio) : null;
+        if (!audio || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el audio «${audio?.titulo ?? paso.audio_id}».`); continue; }
+        const ra = await enviarAudioYEspejar({ telefono: contacto.telefono, base64: b64, mimetype: audio.media_mime });
+        if (ra.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (audio): ${ra.error ?? 'no salió'}`);
+        continue;
+      }
       const r = await enviarYEspejar({ telefono: contacto.telefono, texto: cuerpo });
       if (r.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (WhatsApp): ${r.error ?? 'no salió'}`);
     } else {

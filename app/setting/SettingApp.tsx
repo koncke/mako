@@ -15,6 +15,7 @@ import { JugadaWizard } from './JugadaWizard';
 import { SimuladorWhatsApp, emojiJugada } from './SimuladorWhatsApp';
 import { SimuladorEmail } from './SimuladorEmail';
 import { DashboardSetting } from './DashboardSetting';
+import { AudiosPanel } from './AudiosPanel';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasJugada, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -22,7 +23,9 @@ export type PasoJugada = {
   orden: number; canal: 'email' | 'whatsapp'; delay_horas: number;
   asunto: string | null; preheader?: string | null; cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
+  tipo?: 'texto' | 'audio'; audio_id?: number | null;
 };
+export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type JugadaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
   activa: boolean; pasos: PasoJugada[]; inscriptos: number; enviados: number;
@@ -50,7 +53,8 @@ export function SettingApp() {
   const [leadMagnets, setLeadMagnets] = useState<Array<{ id: string; nombre: string }>>([]);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [vista, setVista] = useState<'whatsapp' | 'email' | 'dashboard'>('whatsapp');
+  const [vista, setVista] = useState<'whatsapp' | 'email' | 'audios' | 'dashboard'>('whatsapp');
+  const [audios, setAudios] = useState<AudioSetting[]>([]);
   const [emailJugadaId, setEmailJugadaId] = useState<number | null>(null);
   // Wizard: null = cerrado; 'nueva' = jugada nueva; number = definir sobre esa secuencia.
   const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
@@ -69,6 +73,12 @@ export function SettingApp() {
     } catch {
       setError('Sin conexión — recargá la página.'); setJugadas([]);
     }
+    // Biblioteca de audios (admin-only: el 403 del setter deja la lista vacía).
+    try {
+      const ra = await fetch('/api/setting/audios', { cache: 'no-store' });
+      const ja = await ra.json();
+      if (ja.ok) setAudios(ja.audios ?? []);
+    } catch { /* sin audios */ }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -97,6 +107,7 @@ export function SettingApp() {
           <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 4, gap: 4 }}>
             <button onClick={() => setVista('whatsapp')} style={vista === 'whatsapp' ? tabActive : tabIdle}>WhatsApp</button>
             <button onClick={() => setVista('email')} style={vista === 'email' ? tabActive : tabIdle}>Email</button>
+            {rolAdmin && <button onClick={() => setVista('audios')} style={vista === 'audios' ? tabActive : tabIdle}>🎙 Audios</button>}
             <button onClick={() => setVista('dashboard')} style={vista === 'dashboard' ? tabActive : tabIdle}>Dashboard</button>
           </div>
           {rolAdmin && vista !== 'whatsapp' && (
@@ -118,12 +129,15 @@ export function SettingApp() {
         </div>
       )}
 
+      {/* La biblioteca de audios no depende de que existan jugadas. */}
+      {vista === 'audios' && rolAdmin && <AudiosPanel audios={audios} onCambio={() => void load()} />}
+
       {jugadas !== null && jugadas.length > 0 && (
         <>
           {vista === 'whatsapp' && (
             <SimuladorWhatsApp
               jugadas={jugadas} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa}
-              negocio={negocio} rolAdmin={rolAdmin}
+              negocio={negocio} rolAdmin={rolAdmin} audios={audios}
               onWizard={(id) => setWizard(id)} onReload={() => void load()}
             />
           )}

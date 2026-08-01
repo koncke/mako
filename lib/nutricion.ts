@@ -19,7 +19,8 @@ import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { getInstanciaRow } from '@/lib/evolution';
-import { esLeadCliente, enviarYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
+import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
+import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
 
@@ -35,6 +36,12 @@ export type PasoSecuencia = {
   // cuenta desde la inscripción/paso anterior; con ancla 'reunion', delay_horas
   // son horas ANTES de la próxima reunión del lead (R1; R2 si la R1 ya pasó).
   ancla?: 'reunion';
+  // Tipo del paso (reunión 31/07: el vehículo del setting son NOTAS DE VOZ del
+  // dueño). 'audio' exige audio_id de la biblioteca (lib/setting-audios.ts) y
+  // sale SIEMPRE por el canal no oficial: un audio no cabe en una plantilla de
+  // Meta. Sin tipo = 'texto' (todo lo anterior sigue igual).
+  tipo?: 'texto' | 'audio';
+  audio_id?: number | null;
   asunto: string | null;
   preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
@@ -165,13 +172,20 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
     .filter((p) => p && typeof p === 'object')
     .map((p, i) => ({
       orden: i + 1,
-      canal: p.canal === 'email' ? 'email' : 'whatsapp',
+      // Un paso de audio es de WhatsApp por definición (no hay nota de voz por email).
+      canal: p.canal === 'email' && p.tipo !== 'audio' ? 'email' : 'whatsapp',
       delay_horas: Math.max(0, Math.round(Number(p.delay_horas) || 0)),
       ...(p.ancla === 'reunion' ? { ancla: 'reunion' as const } : {}),
+      // Paso de nota de voz: exige audio de la biblioteca (si no, degrada a texto).
+      ...(p.tipo === 'audio' && Number(p.audio_id)
+        ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) }
+        : {}),
       asunto: typeof p.asunto === 'string' ? p.asunto : null,
       preheader: typeof p.preheader === 'string' ? p.preheader : null,
       cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
-      proveedor: p.proveedor === 'no_oficial' ? 'no_oficial' : 'oficial',
+      // Un audio SIEMPRE sale por el no oficial: Meta no aprueba plantillas con
+      // nota de voz, así que el proveedor no es elegible en ese caso.
+      proveedor: (p.tipo === 'audio' && Number(p.audio_id)) || p.proveedor === 'no_oficial' ? 'no_oficial' : 'oficial',
       template_wa: p.template_wa ?? null,
       template_categoria: p.template_categoria,
       template_idioma: p.template_idioma ?? 'es_MX',
@@ -786,12 +800,43 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // CALIENTES nunca automático directo → borrador para el setter; a CLIENTES
         // (ya pagaron, riesgo bajo) → envío automático con anti-ban.
         const cuerpoNO = aplicarVariables(paso.cuerpo, valoresVariablesLead(lead ?? {}));
+        // Paso de NOTA DE VOZ (reunión 31/07): el binario sale de la biblioteca
+        // del workspace. Si el audio no está o no se puede bajar, NO degradamos
+        // a texto en silencio (mandaría un mensaje que nadie escribió): falla y
+        // se reintenta al día siguiente.
+        const esAudio = paso.tipo === 'audio' && Number(paso.audio_id) > 0;
         if (!lead?.telefono) {
           estado = 'fallo'; nota = 'lead sin teléfono'; backoffHoras = 24;
         } else if (!evoConectado) {
           estado = 'fallo'; nota = 'WhatsApp de empresa no conectado'; backoffHoras = 24;
         } else if (await estaBloqueado(lead.telefono)) {
           estado = 'omitido'; nota = 'contacto bloqueado'; // no le mandamos por el no oficial
+        } else if (esAudio) {
+          const audio = await getAudio(Number(paso.audio_id));
+          const b64 = audio ? await audioBase64(audio) : null;
+          if (!audio || !b64) {
+            estado = 'fallo';
+            nota = audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe';
+            backoffHoras = 24;
+          } else if (await esLeadCliente(lead.id)) {
+            const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId: lead.id });
+            estado = r.ok ? 'enviado' : 'fallo';
+            if (!r.ok) nota = r.error;
+          } else if (await tieneBorradorNutriPendiente(lead.id)) {
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
+            await supabase.from('nutricion_inscripciones')
+              .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
+            continue;
+          } else {
+            // Lead caliente → el audio también pasa por el setter: queda como
+            // borrador con la transcripción para que sepa qué se manda.
+            await crearBorrador({
+              leadId: lead.id, telefono: lead.telefono,
+              texto: `🎙 Nota de voz: «${audio.titulo}»${audio.transcript ? `\n\n${audio.transcript}` : ''}`,
+              origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
+            });
+            estado = 'borrador';
+          }
         } else if (await esLeadCliente(lead.id)) {
           const r = await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id });
           estado = r.ok ? 'enviado' : 'fallo';
