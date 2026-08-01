@@ -48,6 +48,7 @@ import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
 import { Icon } from '../_components/icons';
+import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -494,6 +495,7 @@ export function CrmBoard({
           <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{filtered.length} de {total} leads</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <DatosDeMau ambito="crm" onListo={() => window.location.reload()} />
           <CrmAutoToggle />
           <Link href="/leads/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 19px', borderRadius: 11, background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>+ Nuevo lead</Link>
         </div>

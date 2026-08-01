@@ -1,4 +1,5 @@
 'use client';
+import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 // =============================================================================
 // ContextoTabs — Conocimiento (RAG) · Fases · Prompts
@@ -73,7 +74,10 @@ function KnowledgeTab() {
       {cargando ? (
         <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>
       ) : entries.length === 0 ? (
-        <div style={{ ...card, color: 'var(--faint)', fontSize: 14 }}>Todavía no hay conocimiento cargado.</div>
+        <div style={{ ...card, color: 'var(--faint)', fontSize: 14 }}>
+          Todavía no hay conocimiento cargado.
+          <DatosDeMau ambito="negocio" variante="bloque" onListo={() => window.location.reload()} />
+        </div>
       ) : entries.map((e) => (
         <div key={e.id} style={card}>
           {edit?.id === e.id ? (

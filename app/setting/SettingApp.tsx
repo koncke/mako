@@ -17,6 +17,7 @@ import { SimuladorEmail } from './SimuladorEmail';
 import { DashboardSetting } from './DashboardSetting';
 import { AudiosPanel } from './AudiosPanel';
 import { OnboardingSetting } from './OnboardingSetting';
+import { DatosDeMau } from '@/app/_components/DatosDeMau';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasJugada, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -155,6 +156,7 @@ export function SettingApp() {
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
           Todavía no hay secuencias en este workspace.{rolAdmin ? ' Arrancá con «+ Nueva jugada».' : ''}
           {rolAdmin && <div style={{ marginTop: 14 }}><button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva jugada</button></div>}
+          <DatosDeMau ambito="setting" onListo={() => void load()} />
         </div>
       )}
 

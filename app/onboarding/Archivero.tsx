@@ -1,4 +1,5 @@
 'use client';
+import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 // =============================================================================
 // El Archivero — repositorio de documentos del negocio (v7: solo Archivos)
@@ -493,6 +494,7 @@ export function Archivero({ onEstado, onListo, registro }: {
               </button>
             )}
             {hayArchivos ? listaArchivos : <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Todavía no subiste documentos.</div>}
+            <DatosDeMau ambito="archivero" variante="bloque" onListo={() => window.location.reload()} />
           </>
         )}
         {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, textAlign: 'center' }}>{err}</div>}

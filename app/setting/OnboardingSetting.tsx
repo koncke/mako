@@ -18,6 +18,7 @@ import { WizardShell } from '@/app/_components/WizardShell';
 import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
+import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 /**
  * Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda.
@@ -105,6 +106,15 @@ const AYUDA: Partial<Record<PasoKey, { titulo: string; puntos: string[]; ojo?: s
       'Mientras no esté verificado, los envíos quedan en modo simulado.',
     ],
   },
+};
+
+// Qué significa "completar con los datos de Mau" en cada paso: conectar trae
+// sus credenciales, el resto trae sus jugadas y su voz.
+const AMBITO_DEL_PASO: Record<PasoKey, string> = {
+  wa_no_oficial: 'integraciones', wa_no_oficial_prueba: 'integraciones',
+  wa_oficial: 'integraciones', wa_oficial_plantilla: 'integraciones', wa_oficial_prueba: 'integraciones',
+  email_conectar: 'integraciones', email_prueba: 'integraciones',
+  contexto: 'setting', voz: 'setting', ensayo: 'setting', aprobar: 'setting',
 };
 
 const btn: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
@@ -551,6 +561,14 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
         </div>
       )}
       {/* El contexto va SIEMPRE al final: explica sin interrumpir la acción. */}
+      {/* Atajo de la agencia: en un workspace de prueba, este paso se puede
+          llenar con lo que ya tiene Mau en vez de cargarlo a mano. */}
+      <DatosDeMau
+        ambito={AMBITO_DEL_PASO[pasoKey]}
+        variante="bloque"
+        onListo={() => { setCanales(null); setEvo(null); setContexto(null); }}
+      />
+
       <Ayuda paso={pasoKey} />
     </WizardShell>
   );

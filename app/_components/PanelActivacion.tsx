@@ -21,10 +21,20 @@ import { useState } from 'react';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 import { BrandDefs } from './ServicioVisual';
 import { PanelMarketing, type Fact } from './PanelMarketing';
+import { DatosDeMau } from './DatosDeMau';
 import type { TabActivacion } from '@/lib/tab-activacion';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
+
+// Qué trae "Completar con los datos de Mau" en las tabs que NO se prenden con
+// una credencial sino cargando datos. Si la tab tiene servicio, el bloqueo es la
+// llave, así que se traen las credenciales de Mau y no esto.
+const AMBITO_DE_TAB: Record<string, string> = {
+  leads: 'crm', crm: 'crm',
+  funnel: 'funnel', plan: 'plan', setting: 'setting',
+  contexto: 'negocio', conocimiento: 'conocimiento', angulos: 'creativos',
+};
 
 export function PanelActivacion({ tab, facts }: {
   tab: TabActivacion;
@@ -95,6 +105,14 @@ export function PanelActivacion({ tab, facts }: {
                 </a>
               )
             )}
+            {/* Atajo de la agencia en un workspace de prueba: esta pantalla es,
+                por definición, "el lugar donde falta algo". Trae lo que Mau ya
+                tiene para poder ver la tab prendida sin cargarlo a mano. */}
+            <DatosDeMau
+              ambito={tab.servicio ? 'integraciones' : (AMBITO_DE_TAB[tab.key] ?? 'integraciones')}
+              onListo={() => window.location.reload()}
+            />
+
             {tab.ademas && (
               <div style={{ marginTop: 16, background: 'var(--warn-bg)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>
                 {tab.ademas}
