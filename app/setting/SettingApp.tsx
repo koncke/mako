@@ -16,6 +16,7 @@ import { SimuladorWhatsApp, emojiJugada } from './SimuladorWhatsApp';
 import { SimuladorEmail } from './SimuladorEmail';
 import { DashboardSetting } from './DashboardSetting';
 import { AudiosPanel } from './AudiosPanel';
+import { OnboardingSetting } from './OnboardingSetting';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasJugada, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -58,6 +59,9 @@ export function SettingApp() {
   const [emailJugadaId, setEmailJugadaId] = useState<number | null>(null);
   // Wizard: null = cerrado; 'nueva' = jugada nueva; number = definir sobre esa secuencia.
   const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
+  // Onboarding de la tab (regla: toda tab tiene onboarding). null = todavía no
+  // sabemos; true = arranca en el recorrido; false = la tab normal.
+  const [enOnboarding, setEnOnboarding] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -79,6 +83,12 @@ export function SettingApp() {
       const ja = await ra.json();
       if (ja.ok) setAudios(ja.audios ?? []);
     } catch { /* sin audios */ }
+    // ¿La tab arranca en su onboarding? (403 del setter → la ve normal)
+    try {
+      const ro = await fetch('/api/setting/onboarding', { cache: 'no-store' });
+      const jo = await ro.json();
+      setEnOnboarding(jo.ok ? jo.estado?.status !== 'done' : false);
+    } catch { setEnOnboarding(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -90,6 +100,13 @@ export function SettingApp() {
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
   const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
+
+  // El onboarding cubre la tab entera (overlay fullscreen, mismo chrome que el
+  // onboarding global). Al terminarlo —o al elegir "lo configuro después"— se
+  // entra a la vista normal.
+  if (enOnboarding) {
+    return <OnboardingSetting onListo={() => { setEnOnboarding(false); void load(); }} />;
+  }
 
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto', padding: '30px 36px 40px' }}>

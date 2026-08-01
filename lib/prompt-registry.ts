@@ -41,6 +41,7 @@ import {
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-jugadas';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
+import { SETTING_ENSAYO_SYSTEM_TEMPLATE } from '@/app/api/setting/onboarding/ensayo/route';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -367,6 +368,13 @@ export const REGISTRY: Group[] = [
         variables: [v('perfil', 'perfil del negocio'), v('datos', 'leads ya calificados/cerrados del CRM con sus respuestas')], scope: 'static-only', sensitive: false,
         default: SETTING_CRITERIO_TEMPLATE,
         context: 'MaKo deduce qué separa a un cliente ideal mirando los leads YA evaluados. No borres los slots {{perfil}}/{{datos}}, la orden de no inventar umbrales, ni el formato de salida.',
+      },
+      {
+        key: 'setting.ensayo', source: 'override',
+        label: 'Onboarding — MaKo hace de CLIENTE (system)', kind: 'system', dynamic: true,
+        variables: [v('perfil', 'perfil del negocio'), v('funnel', 'proceso comercial del negocio')], scope: 'static-only', sensitive: false,
+        default: SETTING_ENSAYO_SYSTEM_TEMPLATE,
+        context: 'El ensayo del onboarding: MaKo se pone del lado del LEAD y el dueño responde. Es el INVERSO del simulador. No borres los slots ni las reglas de "escribís como escribe la gente por WhatsApp".',
       },
       {
         key: 'setting.simulador', source: 'override',
