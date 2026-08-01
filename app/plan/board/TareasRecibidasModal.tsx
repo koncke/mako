@@ -243,25 +243,39 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // Best-effort: si falla, quedan las marcas del léxico y no se bloquea nada.
   const cruzadoRef = useRef(false);
   useEffect(() => {
-    if (cruzadoRef.current || !(existentes?.length)) return;
+    if (cruzadoRef.current) return;
     const aCruzar = filas.filter((f) => !f.esDeOtro && !f.enriquece);
     if (!aCruzar.length) return;
     cruzadoRef.current = true;
     (async () => {
+      // Contra el tablero Y contra las tareas de los OTROS borradores. Lo segundo es
+      // el caso que más duele: la misma llamada grabada por dos personas llega como dos
+      // borradores y, si no se cruzan entre sí, se confirma dos veces el mismo trabajo.
+      // Los del borrador no tienen id de tarjeta, así que viajan con uno sintético.
+      const delBoard = (existentes ?? []).filter((t) => !t.hecha).map((t) => ({ id: t.id, titulo: t.titulo, detalle: '' }));
+      const otros = filas.filter((f) => !f.esDeOtro && !aCruzar.includes(f))
+        .map((f, k) => ({ id: `borrador:${k}`, titulo: f.titulo, detalle: f.detalle }));
+      const universo = [...delBoard, ...otros];
+      if (!universo.length) return;
       const j = await fetch('/api/plan-fathom', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'cruzar', uso: 'Cruzar tareas de reunión con el plan',
           candidatas: aCruzar.map((f) => ({ titulo: f.titulo, detalle: f.detalle })),
-          existentes: existentes.filter((t) => !t.hecha).map((t) => ({ id: t.id, titulo: t.titulo, detalle: '' })),
+          existentes: universo,
         }),
       }).then((r) => r.json()).catch(() => ({ ok: false }));
       if (!j?.ok || !Array.isArray(j.cruces) || !j.cruces.length) return;
       const porTitulo = new Map<string, { id: string; razon: string }>();
       for (const c of j.cruces as Array<{ i: number; idExistente?: string; razon?: string }>) {
         const cand = aCruzar[c.i];
-        const ya = existentes.find((t) => t.id === c.idExistente);
-        if (cand && ya) porTitulo.set(cand.titulo, { id: ya.id, razon: `ya está en tu plan como «${ya.titulo}»${c.razon ? ` — ${c.razon}` : ''}` });
+        const ya = universo.find((t) => t.id === c.idExistente);
+        if (!cand || !ya) continue;
+        const enBorrador = ya.id.startsWith('borrador:');
+        porTitulo.set(cand.titulo, {
+          id: enBorrador ? '' : ya.id,
+          razon: `${enBorrador ? 'la misma reunión ya la trae como' : 'ya está en tu plan como'} «${ya.titulo}»${c.razon ? ` — ${c.razon}` : ''}`,
+        });
       }
       if (!porTitulo.size) return;
       setFilas((prev) => prev.map((f) => {
