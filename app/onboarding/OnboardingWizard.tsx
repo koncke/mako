@@ -151,6 +151,8 @@ export function OnboardingWizard() {
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [pending, setPending] = useState(false);
+  // Cambia para remontar el form de credenciales tras copiar la key de Mau.
+  const [remonte, setRemonte] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // Respuestas en curso
@@ -463,17 +465,6 @@ export function OnboardingWizard() {
   // Simular con las llaves de Mauricio: copia sus credenciales al workspace de
   // prueba y arranca la extracción, para ver el WOW real (los facts, el histórico)
   // sin tener que pegar una key. Solo super-admin.
-  const simular = async () => {
-    setPending(true);
-    try {
-      const j = await post('/api/onboarding', { action: 'simular' });
-      if (!j.ok) { setError(String(j.error ?? 'No se pudo simular.')); return; }
-      const con = (j.conectados as string[]) ?? [];
-      setConectadas((c) => ({ ...c, ...Object.fromEntries(con.map((k) => [k, true])) }));
-      if (con.includes('meta')) arrancarExtraccion();
-      await cargar(); // refresca facts/estado de servicios
-    } finally { setPending(false); }
-  };
 
   // "Completar como Mauricio": el workspace de prueba se queda con el MISMO
   // contexto de negocio del dueño y el onboarding cierra — así se prueba una tab
@@ -537,24 +528,48 @@ export function OnboardingWizard() {
         onConfirmar={() => avanzar()}
         onClose={() => { /* bloqueante */ }}
         adminBar={data.esAdmin ? (
-          <div style={{ maxWidth: 980, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 8px 8px 16px' }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#5C4A17' }}>
-              Modo agencia · estás viendo el onboarding de {data.capa.nombre}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap',
+            padding: '9px 18px', background: '#14161B', color: '#F3F0E7',
+            borderBottom: '1px solid rgba(200,135,12,.4)', overflowX: 'auto',
+          }}>
+            <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent-soft)', flex: 'none' }} />
+            <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(243,240,231,.75)', whiteSpace: 'nowrap', flex: 'none' }}>
+              Modo agencia · {data.capa.nombre}
             </span>
-            {p.servicio && servicioReq && !conectadas[p.servicio] && (
-              <button type="button" onClick={simular} disabled={pending}
-                style={{ marginLeft: 'auto', padding: '7px 13px', borderRadius: 9, border: 'none', background: '#171511', color: '#F3F0E7', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-                ✦ Usar las llaves de Mauricio
-              </button>
+
+            <span style={{ flex: 1 }} />
+
+            {/* Los dos atajos hacen cosas DISTINTAS y el nombre tiene que
+                decirlo solo: uno llena el paso en el que estás y te deja
+                seguir; el otro llena el onboarding entero y lo cierra. */}
+            {AMBITO_PASO[p.paso] && (
+              <DatosDeMau
+                ambito={AMBITO_PASO[p.paso]} variante="oscuro" label="Completar este paso"
+                // Sin esto no se ve nada: router.refresh() no remonta un
+                // componente cliente, así que la tarjeta de la credencial seguía
+                // vacía y el paso seguía trabado aunque la copia hubiera salido
+                // bien. Se recarga la data del wizard y se remonta el form.
+                onListo={() => { void cargar(); setRemonte((n) => n + 1); }}
+              />
             )}
+
             <button type="button" onClick={clonarDueno} disabled={pending}
-              title="Copia el contexto de negocio de Mauricio (brief, funnel, avatares, fase, secuencias pausadas) y cierra el onboarding. NO copia su teléfono, sus grupos ni sus credenciales."
-              style={{ marginLeft: p.servicio && servicioReq && !conectadas[p.servicio] ? 0 : 'auto', padding: '7px 13px', borderRadius: 9, border: 'none', background: '#171511', color: '#F3F0E7', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
-              {pending ? 'Copiando…' : '⚡ Completar como Mauricio'}
+              title="Completa todos los pasos con la configuración de Mauricio y cierra el onboarding. No copia su teléfono, sus grupos ni sus credenciales."
+              style={{
+                flex: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.05em', textTransform: 'uppercase',
+                padding: '7px 12px', borderRadius: 8, border: 'none', background: 'var(--accent-soft)',
+                color: '#171511', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: pending ? 0.6 : 1,
+              }}>
+              {pending ? 'Completando…' : 'Completar todo y salir'}
             </button>
-            {AMBITO_PASO[p.paso] && <DatosDeMau ambito={AMBITO_PASO[p.paso]} onListo={() => window.location.reload()} />}
+
             <button type="button" onClick={async () => { await fetch('/api/admin/impersonate', { method: 'DELETE' }); window.location.href = '/admin'; }}
-              style={{ padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+              style={{
+                flex: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase',
+                padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(243,240,231,.3)',
+                background: 'transparent', color: '#F3F0E7', cursor: 'pointer', whiteSpace: 'nowrap',
+              }}>
               Salir de la vista
             </button>
           </div>
@@ -619,7 +634,7 @@ export function OnboardingWizard() {
         {/* ── Gemini: la MISMA credencial de /integraciones (ojito · probar · eliminar) ── */}
         {p.key === 'gemini' && (
           <div style={{ textAlign: 'left' }}>
-            <ServicioConfigForm servicioKey="gemini" onEstado={setGeminiConectada} />
+            <ServicioConfigForm key={`gemini-${remonte}`} servicioKey="gemini" onEstado={setGeminiConectada} />
             {geminiConectada ? (
               // Confirmación clara de que quedó cargada y funciona.
               <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'flex-start', background: 'var(--good-bg)', border: '1px solid var(--good)', borderRadius: 12, padding: '12px 14px' }}>

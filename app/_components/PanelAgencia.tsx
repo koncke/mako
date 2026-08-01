@@ -17,6 +17,7 @@
 // agencia, parado en un workspace que no es el del dueño).
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -29,6 +30,7 @@ const chip: CSSProperties = {
 };
 
 export function PanelAgencia({ cliente }: { cliente: string }) {
+  const router = useRouter();
   const [disponible, setDisponible] = useState(false);
   const [ambitos, setAmbitos] = useState<Ambito[]>([]);
   const [completados, setCompletados] = useState<string[]>([]);
@@ -67,11 +69,14 @@ export function PanelAgencia({ cliente }: { cliente: string }) {
         body: JSON.stringify({ action, ambito }),
       })).json();
       if (!j.ok) { setAviso(j.error || 'No se pudo.'); return; }
+      const detalle = (j.avisos ?? []) as string[];
       setAviso(action === 'completar'
-        ? (j.copiado ? `Traído: ${j.copiado} cosas.` : 'Mau no tiene nada cargado en ese ámbito.')
-        : `Borrado: ${j.borrado ?? 0} cosas.`);
+        ? [j.copiado ? `Traídos: ${j.copiado} elementos.` : 'No hay nada cargado en ese ámbito.', ...detalle].join(' · ')
+        : `Eliminados: ${j.borrado ?? 0} elementos.`);
       await mirar();
-      setTimeout(() => window.location.reload(), 900);
+      // Refresco suave, no recarga: recargar la página entera pierde el scroll
+      // y el estado del formulario, y se ve como si la app se hubiera caído.
+      router.refresh();
     } catch (e) {
       setAviso(e instanceof Error ? e.message : 'No se pudo.');
     } finally { setBusy(null); }
@@ -86,7 +91,7 @@ export function PanelAgencia({ cliente }: { cliente: string }) {
       })).json();
       if (!j.ok) { setAviso(j.error || 'No se pudo resetear.'); return; }
       const filas = Object.values((j.borrado ?? {}) as Record<string, number>).reduce((a, b) => a + b, 0);
-      setAviso(`Workspace vacío: ${filas} registros y ${j.archivos ?? 0} archivos.`);
+      setAviso(`Workspace vaciado: ${filas} registros y ${j.archivos ?? 0} archivos.`);
       // El navegador guarda borradores y marcas de leído sin distinguir
       // workspace: si no se limpian, el cliente "reseteado" sigue pareciendo
       // lleno y encima muestra restos de OTRO cliente.
@@ -109,10 +114,10 @@ export function PanelAgencia({ cliente }: { cliente: string }) {
 
       {confirmarReset ? (
         <>
-          <span style={{ fontSize: 12.5, color: '#F3F0E7' }}>¿Vaciar {cliente} por completo?</span>
+          <span style={{ fontSize: 12.5, color: '#F3F0E7' }}>¿Vaciar por completo {cliente}?</span>
           <button type="button" onClick={() => void resetear()} disabled={busy !== null}
             style={{ ...chip, borderColor: '#E5484D', color: '#FF9A9D' }}>
-            {busy === 'reset' ? 'Vaciando…' : 'Sí, borrar todo'}
+            {busy === 'reset' ? 'Vaciando…' : 'Sí, vaciar'}
           </button>
           <button type="button" onClick={() => setConfirmarReset(false)} style={chip}>No</button>
         </>
@@ -130,7 +135,7 @@ export function PanelAgencia({ cliente }: { cliente: string }) {
           boxShadow: '0 18px 44px rgba(23,21,17,.32)', padding: '10px 0', maxHeight: '70vh', overflowY: 'auto',
         }}>
           <div style={{ padding: '4px 14px 10px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, borderBottom: '1px solid var(--border)' }}>
-            Traé a <strong style={{ color: 'var(--ink)' }}>{cliente}</strong> solo el pedazo de Mau que quieras probar. «Quitar» se lleva lo que trajimos, no lo que hayas creado vos.
+            Trae a <strong style={{ color: 'var(--ink)' }}>{cliente}</strong> solo la parte de Mau que necesites probar. «Quitar» elimina lo que se trajo, no lo que hayas creado tú.
           </div>
           {ambitos.map((a) => {
             const hecho = completados.includes(a.key);

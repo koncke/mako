@@ -19,6 +19,7 @@ import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import { DatosDeMau } from '@/app/_components/DatosDeMau';
+import { Icon } from '@/app/_components/icons';
 
 /**
  * Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda.
@@ -35,6 +36,9 @@ function Cargando({ texto }: { texto: string }) {
   );
 }
 
+const SANS = "'Geist', sans-serif";
+const MONO = "'Geist Mono', monospace";
+
 type PasoKey =
   | 'contexto' | 'voz' | 'ensayo' | 'aprobar'
   | 'wa_no_oficial' | 'wa_no_oficial_prueba'
@@ -48,166 +52,123 @@ type Conversacion = { chatJid: string; nombre: string | null; telefono: string |
 // "Tu personalidad", "Tu diagnóstico"). El subtítulo dice EL OBJETIVO del paso
 // en una línea — qué se busca, no cómo funciona. Todo lo demás va en la caja de
 // contexto, ABAJO de la acción, para no interrumpir.
-const PREGUNTA: Record<PasoKey, { q: string; sub: string }> = {
-  wa_no_oficial: { q: 'Tu WhatsApp: Método NO Oficial', sub: 'El número desde el que ya le escribís a tus clientes.' },
-  wa_no_oficial_prueba: { q: 'Probemos que llega', sub: 'Un código a tu teléfono. Si no llega, no está conectado.' },
-  contexto: { q: 'Tu forma de escribir', sub: 'Leo tus chats para aprender tu tono, tus preguntas y cómo cerrás.' },
-  voz: { q: 'Tus audios', sub: 'Tu voz abre la conversación. Te paso el guion y grabás.' },
-  ensayo: { q: 'El ensayo', sub: 'Hago de lead y vos me respondés. De ahí salen tus mensajes.' },
-  aprobar: { q: 'Tus jugadas', sub: 'Esto quedó armado con lo que ensayamos.' },
-  wa_oficial: { q: 'Tu WhatsApp: Método Oficial', sub: 'Para escribirle primero a quien nunca te escribió. Opcional.' },
-  wa_oficial_plantilla: { q: 'Tu primera plantilla', sub: 'Meta aprueba los mensajes de apertura antes de dejarte usarlos.' },
-  wa_oficial_prueba: { q: 'Probemos el oficial', sub: 'Que te llegue igual que le llega a un lead.' },
-  email_conectar: { q: 'Tu email', sub: 'El canal para los que no contestan por WhatsApp.' },
-  email_prueba: { q: 'Probemos el email', sub: 'Un correo de prueba a tu casilla.' },
+const PREGUNTA: Record<PasoKey, { q: string; sub?: string }> = {
+  wa_no_oficial: { q: 'Tu WhatsApp: Método NO Oficial' },
+  wa_no_oficial_prueba: { q: 'Verificación de seguridad' },
+  contexto: { q: 'Tu forma de escribir', sub: 'Analizo tus conversaciones para aprender tu tono, tus preguntas y tu forma de cerrar.' },
+  voz: { q: 'Tus audios' },
+  ensayo: { q: 'Ensayo de conversación', sub: 'Simulo ser un lead y respondes como lo harías. De ahí salen tus mensajes.' },
+  aprobar: { q: 'Tus jugadas' },
+  wa_oficial: { q: 'Tu WhatsApp: Método Oficial' },
+  wa_oficial_plantilla: { q: 'Tu primera plantilla' },
+  wa_oficial_prueba: { q: 'Verificación del canal oficial' },
+  email_conectar: { q: 'Tu email' },
+  email_prueba: { q: 'Verificación del email' },
 };
 
 // Contexto: va ABAJO del todo, después de la acción. Nunca entre el título y el
-// botón (nadie lee un párrafo antes de poder hacer algo). Va en secciones
-// plegables: cerrado no estorba, y el que quiere entender abre la que le
-// importa en vez de comerse un muro de texto.
-type AyudaSeccion = { icono: string; titulo: string; puntos: string[] };
+// botón, porque nadie lee un párrafo antes de poder hacer algo.
+//
+// Molde: el mismo bloque gris de "¿Por qué debes colocar tu API de Gemini?"
+// (app/onboarding/OnboardingWizard.tsx) — fondo surface-2, borde, eyebrow mono
+// en mayúscula. Adentro va prosa cuando el contenido es una explicación, y lista
+// solo cuando de verdad son elementos paralelos. No todo es una lista.
+type AyudaSeccion = {
+  titulo: string;
+  /** Explicación en prosa. Se usa cuando el contenido NO es una enumeración. */
+  texto?: string;
+  /** Lista, solo cuando los elementos son realmente paralelos entre sí. */
+  puntos?: string[];
+};
 type AyudaDef = {
   titulo: string;
-  secciones: AyudaSeccion[];
-  /** Advertencia de verdad: lo que se PIERDE si se hace mal. No un consejo. */
-  advertencia?: { titulo: string; cuerpo: string[] };
+  /** Respuesta corta, visible sin desplegar nada. */
+  intro?: string;
+  secciones?: AyudaSeccion[];
+  /** Una recomendación, no una obligación: se sugiere y se explica el porqué. */
+  recomendacion?: { titulo: string; texto: string };
 };
 
 const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
   wa_no_oficial: {
-    titulo: '¿Por qué el Método NO Oficial?',
+    titulo: '¿Por qué el método no oficial?',
+    intro: 'Es tu propio número de WhatsApp, vinculado mediante un código QR. MaKo escribe desde ahí igual que lo harías tú: sin plantillas que aprobar y sin costo por mensaje.',
     secciones: [
       {
-        icono: '✅', titulo: 'Lo que ganás',
+        titulo: 'Ventajas frente al método oficial',
         puntos: [
-          'Escribís como escribís vos: sin plantillas, sin pedir permiso, sin esperar a que Meta apruebe nada.',
-          'Mandás notas de voz. Es el formato que más respuesta trae, y el Oficial directamente no lo permite.',
-          'El lead ve tu foto, tu nombre y tu estado: le está escribiendo una persona, no una marca.',
-          'Adjuntás lo que necesites — PDF, imagen, audio, ubicación — en la misma conversación.',
-          'Se conecta en dos minutos escaneando un QR: sin verificación de empresa, sin Business Manager, sin trámite.',
-          'No pagás por mensaje. El Oficial te cobra cada conversación que abrís.',
+          'Escribes con libertad: ningún mensaje necesita la aprobación previa de Meta.',
+          'Puedes enviar notas de voz, un formato que el método oficial no admite.',
+          'El destinatario ve tu foto y tu nombre. Le escribe una persona, no una marca.',
+          'Se conecta en dos minutos escaneando un código QR, sin verificación de empresa ni Business Manager.',
+          'No se paga por conversación.',
         ],
       },
       {
-        icono: '🔒', titulo: 'Lo que el Oficial te exige a cambio',
-        puntos: [
-          'Cada mensaje de apertura tiene que ser una plantilla aprobada por Meta, y la revisión tarda de horas a días.',
-          'Si después querés cambiarle una coma a esa plantilla, vuelve a la cola de revisión.',
-          'No podés mandar notas de voz: solo texto, imagen y documento dentro de lo aprobado.',
-          'Necesitás un número que NO esté activo en la app de WhatsApp, verificación de empresa y un Business Manager en regla.',
-          'Se paga por conversación, con precio distinto según el país y según si es marketing, servicio o utilidad.',
-        ],
+        titulo: 'Para qué sirve entonces el oficial',
+        texto: 'El método oficial usa un número verificado por Meta, pensado para volumen alto y campañas de tráfico frío. A cambio exige plantillas aprobadas para cada mensaje de apertura, no admite notas de voz y se cobra por conversación. Los dos conviven: el oficial para escalar, este para conversar.',
       },
       {
-        icono: '🚧', titulo: 'El límite honesto de este método',
+        titulo: 'Cómo se cuida el número',
+        texto: 'El envío está limitado a propósito para que WhatsApp no lo interprete como spam:',
         puntos: [
-          'Solo le podés escribir a alguien que ya te escribió alguna vez. Si nunca te habló, no hay manera de abrir la conversación.',
-          'Para un lead frío — el que llenó un formulario de Meta, o una lista vieja que nunca te contactó — hace falta el Oficial.',
-          'Por eso los dos conviven: el Oficial abre la puerta con una plantilla y, apenas el lead responde, la charla sigue por acá.',
-        ],
-      },
-      {
-        icono: '🛡️', titulo: 'Cómo cuidamos tu número',
-        puntos: [
-          'Nunca le escribimos a alguien que no te escribió antes: es la conducta que más rápido termina en bloqueo.',
-          'Hay tope de envíos por día y un máximo por tanda, para que no salga una ráfaga de mensajes iguales.',
-          'Se respeta una espera mínima entre dos mensajes al mismo contacto, y una pausa entre mensaje y mensaje en general.',
-          'Ventana horaria: solo entre las 9 y las 21 de tu huso. De madrugada no sale nada.',
-          'Cada mensaje se arma distinto. Nada de copiar y pegar el mismo texto a doscientas personas.',
-          'Si el lead responde, la secuencia se corta sola: insistirle a quien ya contestó es la queja que termina en reporte.',
-          'Si a un mensaje le quedó un hueco sin completar — un [nombre], un [link] —, no sale y te avisamos.',
-          'Con un lead caliente MaKo te deja el borrador y te avisa, en vez de mandar por su cuenta.',
+          'Un tope de mensajes por día y un máximo por tanda, para evitar ráfagas.',
+          'Una espera mínima entre dos mensajes al mismo contacto.',
+          'Ventana horaria: solo entre las 9 y las 21 de tu zona horaria.',
+          'Cada mensaje se redacta distinto, en lugar de repetir el mismo texto.',
+          'Si el contacto responde, la secuencia se detiene automáticamente.',
+          'Si a un mensaje le queda un dato sin completar, no se envía y recibes un aviso.',
         ],
       },
     ],
-    advertencia: {
-      titulo: 'Escaneá el número de la empresa, no el tuyo personal',
-      cuerpo: [
-        'Al escanear, ese número queda vinculado a la app: TODAS sus conversaciones — también las privadas — pasan a verse acá.',
-        'Tus leads van a tener ese número para siempre. El día que quieras separar lo laboral de lo personal, ya no vas a poder.',
-        'Y si WhatsApp llegara a restringir la cuenta, perdés ese número. Si es el personal, perdés también tus chats personales.',
-      ],
+    recomendacion: {
+      titulo: 'Conviene usar el número de la empresa',
+      texto: 'Al vincular un número, todas sus conversaciones quedan visibles dentro de MaKo, incluidas las personales. Además, ese número es el que tus contactos van a guardar de forma permanente. Por eso recomendamos vincular el número de la empresa. Si por ahora solo dispones del personal, puedes usarlo igual: es una recomendación, no un requisito.',
     },
   },
+
   wa_no_oficial_prueba: {
-    titulo: '¿Por qué te mando un código?',
-    secciones: [{
-      icono: '📲', titulo: 'Prueba de vida',
-      puntos: [
-        'Guardar la conexión no alcanza: un número puede figurar vinculado y no entregar un solo mensaje.',
-        'Recién cuando te llega un mensaje real sabemos que a tus leads también les va a llegar.',
-      ],
-    }],
+    titulo: 'Por qué se envía un código',
+    intro: 'Un número puede figurar como vinculado y aun así no entregar mensajes. El código confirma que el canal quedó operativo de punta a punta: si llega a tu teléfono, también llegará a tus contactos.',
   },
+
   contexto: {
-    titulo: '¿Qué busco en tus chats?',
+    titulo: 'Qué analizo de tus conversaciones',
+    intro: 'Busco tu manera de escribir, no el contenido de cada charla: cómo saludas, con qué preguntas averiguas si alguien encaja como cliente, cómo respondes a las objeciones y de qué forma propones el siguiente paso.',
     secciones: [
       {
-        icono: '🔎', titulo: 'Qué leo',
-        puntos: [
-          'Tu tono: cómo saludás, si tuteás, qué muletillas repetís.',
-          'Tus preguntas: con qué averiguás si alguien te sirve como cliente.',
-          'Tu forma de cerrar: cómo pasás de la charla a la reunión.',
-          'El patrón: cuántos mensajes te toma y en qué orden.',
-        ],
-      },
-      {
-        icono: '🔐', titulo: 'Qué NO hago',
-        puntos: [
-          'Solo leo las conversaciones que vos elegís, una por una.',
-          'Me quedo con tu forma de escribir, no con lo que dice cada cliente.',
-        ],
+        titulo: 'Privacidad',
+        texto: 'Solo se analizan las conversaciones que selecciones, una por una. El resultado es un resumen de tu estilo; el contenido de cada conversación no se guarda ni se reutiliza.',
       },
     ],
   },
+
   wa_oficial: {
-    titulo: '¿Por qué el Método Oficial?',
+    titulo: '¿Por qué el método oficial?',
+    intro: 'Es un número verificado por Meta a través de la API de WhatsApp Business. Está pensado para volumen alto y para campañas donde el número propio quedaría expuesto.',
     secciones: [
       {
-        icono: '✅', titulo: 'Lo que ganás',
+        titulo: 'Qué aporta',
         puntos: [
-          'Podés escribirle PRIMERO a alguien que nunca te escribió: el lead del formulario de Meta, la lista vieja, el contacto frío.',
-          'Es un número verificado por Meta: no lo bloquean por escribir en frío, que es justo lo que mata a un número común.',
-          'Aguanta volumen. Los límites suben a medida que tu calidad se mantiene alta.',
-          'Te da el tilde verde de empresa y el nombre comercial, con la confianza que eso agrega.',
+          'Un número verificado, con tilde de empresa y nombre comercial.',
+          'Límites de envío que suben a medida que se mantiene una buena calificación de calidad.',
+          'Aislamiento: si algo sale mal, no compromete tu número personal ni el de la empresa.',
         ],
       },
       {
-        icono: '🔒', titulo: 'Lo que te exige a cambio',
-        puntos: [
-          'El primer mensaje tiene que ser una plantilla aprobada por Meta: se manda a revisión y se espera.',
-          'No admite notas de voz, que es tu formato más fuerte.',
-          'El número que uses NO puede estar activo en la app de WhatsApp: si lo usás a diario, tiene que ser otro.',
-          'Se paga por conversación abierta, con tarifa según el país.',
-        ],
-      },
-      {
-        icono: '🤝', titulo: 'Cómo se combinan los dos',
-        puntos: [
-          'El Oficial abre la puerta con la plantilla aprobada.',
-          'Apenas el lead responde, la conversación sigue por el NO oficial: ahí ya podés mandar audios y hablar suelto.',
-          'Podés saltear este paso por ahora. Con tu número de empresa alcanza para arrancar.',
-        ],
+        titulo: 'Qué exige a cambio',
+        texto: 'Cada mensaje de apertura debe ser una plantilla aprobada por Meta, y la revisión puede tardar horas o días. No admite notas de voz, el número no puede estar activo en la aplicación de WhatsApp y se cobra por conversación según el país. Puedes omitir este paso por ahora: con tu número de empresa es suficiente para empezar.',
       },
     ],
   },
+
   email_conectar: {
-    titulo: '¿Por qué también email?',
+    titulo: 'Por qué también email',
+    intro: 'Es el canal para quien no responde por WhatsApp: permite insistir sin desgastar el número y llegar a bases antiguas donde escribir por WhatsApp sería arriesgado.',
     secciones: [
       {
-        icono: '✉️', titulo: 'Para qué sirve',
-        puntos: [
-          'Al que no contesta por WhatsApp se le escribe por mail: no le quema el número a nadie.',
-          'Es el canal de los rezagados y de las bases viejas, donde insistir por WhatsApp sería un riesgo.',
-        ],
-      },
-      {
-        icono: '⚙️', titulo: 'Qué hay que hacer',
-        puntos: [
-          'Damos de alta tu dominio nosotros; vos copiás tres registros al DNS.',
-          'Mientras no esté verificado, los envíos quedan en modo simulado: se ven acá pero no salen.',
-        ],
+        titulo: 'Qué hay que hacer',
+        texto: 'MaKo da de alta tu dominio; tú solo copias tres registros en la configuración DNS. Mientras la verificación no esté completa, los envíos quedan en modo simulado: se ven aquí, pero no salen.',
       },
     ],
   },
@@ -238,6 +199,10 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [canales, setCanales] = useState<{ oficialConectado: boolean; evolutionConectado: boolean; envioHabilitado: boolean } | null>(null);
   // WhatsApp de empresa: el QR se genera y se escanea ACÁ, sin mandar a otra tab.
   const [evo, setEvo] = useState<{ estado: string; numero: string | null } | null>(null);
+  // Estado propio: `busy` es el del wizard (marcar el paso y avanzar), y
+  // compartirlo hacía que al apretar "Siguiente" el botón de desconectar
+  // pasara a decir "Desconectando…". Cada acción muestra SU propio progreso.
+  const [busyEvo, setBusyEvo] = useState<null | 'conectar' | 'desconectar'>(null);
   const [qrEvo, setQrEvo] = useState<{ base64: string | null } | null>(null);
   const [codigo, setCodigo] = useState('');
   const [codigoEnviado, setCodigoEnviado] = useState(false);
@@ -336,22 +301,22 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   }, [pasoKey, qrEvo, evo?.estado, evoApi]);
 
   async function conectarEvo() {
-    setBusy(true); setErr(null);
+    setBusyEvo('conectar'); setErr(null);
     try {
       const j = await evoApi('conectar');
       if (!j.ok) { setErr(j.error || 'No se pudo generar el código.'); return; }
       if (j.estado) setEvo({ estado: j.estado, numero: j.numero ?? null });
       if (j.qr) setQrEvo(j.qr);
-    } finally { setBusy(false); }
+    } finally { setBusyEvo(null); }
   }
 
   async function desconectarEvo() {
-    setBusy(true); setErr(null);
+    setBusyEvo('desconectar'); setErr(null);
     try {
       const j = await evoApi('desconectar');
       if (!j.ok) { setErr(j.error || 'No se pudo desconectar.'); return; }
       setEvo({ estado: 'desconectado', numero: null }); setQrEvo(null);
-    } finally { setBusy(false); }
+    } finally { setBusyEvo(null); }
   }
 
   // ── Paso 1: prueba de vida ──
@@ -438,8 +403,8 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   })();
 
   const slides = [
-    { t: 'Tu voz, no una plantilla', d: 'El primer mensaje que recibe un lead es un audio tuyo. Eso es lo que hace que te contesten.' },
-    { t: 'Nada sale sin que lo apruebes', d: 'Armamos todo acá, lo probás en tu teléfono, y recién cuando vos digas se prende.' },
+    { t: 'Tu voz, no una plantilla', d: 'El primer mensaje que recibe un lead es un audio tuyo. Eso es lo que consigue que respondan.' },
+    { t: 'Nada sale sin tu aprobación', d: 'Se arma todo aquí, lo pruebas en tu teléfono y se activa solo cuando lo indiques.' },
   ];
 
   return (
@@ -465,56 +430,64 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       extraFooter={idx > 0 ? <button onClick={onListo} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Lo configuro después</button> : undefined}
       escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chat Agent" slides={slides} eyebrow="✦ Dejemos tu Chat Agent listo" />}
     >
-      {/* WHATSAPP NO OFICIAL — el QR vive ACÁ, no en otra tab */}
+      {/* WHATSAPP NO OFICIAL — el QR se genera y se escanea en este mismo paso */}
       {pasoKey === 'wa_no_oficial' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}>
           {evo === null ? (
-            <Cargando texto="Viendo si ya está conectado…" />
+            <Cargando texto="Comprobando la conexión…" />
           ) : evo.estado === 'conectado' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%' }}>
-              <div style={{ ...okBox, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}>
-                ✓ Conectado{evo.numero ? <> · <strong>{evo.numero}</strong></> : null}
-              </div>
-              <button onClick={() => void desconectarEvo()} disabled={busy} style={{ ...btn, color: 'var(--bad)', borderColor: 'var(--bad)' }}>
-                {busy ? 'Desconectando…' : 'Desconectar este número'}
+            // Confirmación + la acción destructiva como ícono al final de la
+            // misma fila: un botón de texto en rojo pesa más que el estado que
+            // acompaña, y acá lo importante es que quedó conectado.
+            <div style={{ ...okBox, width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={17} /></span>
+              <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                Número conectado{evo.numero ? <> · <strong>{evo.numero}</strong></> : null}
+              </span>
+              <button
+                type="button" onClick={() => void desconectarEvo()} disabled={busyEvo !== null}
+                title="Desconectar este número" aria-label="Desconectar este número"
+                style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'transparent', color: 'var(--bad)', cursor: busyEvo ? 'default' : 'pointer', opacity: busyEvo === 'desconectar' ? 0.5 : 1 }}
+              >
+                <Icon name="trash" size={16} />
               </button>
             </div>
           ) : qrEvo?.base64 ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrEvo.base64} alt="Código QR para vincular WhatsApp" style={{ width: 230, height: 230, borderRadius: 12, border: '1px solid var(--border)', background: '#fff' }} />
-              <Cargando texto="Esperando que lo escanees…" />
+              <Cargando texto="Esperando el escaneo…" />
               <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>WhatsApp → Dispositivos vinculados → Vincular dispositivo</div>
             </>
           ) : (
-            <button onClick={() => void conectarEvo()} disabled={busy} style={btnDark}>
-              {busy ? 'Generando el código…' : 'Generar el código QR'}
+            <button onClick={() => void conectarEvo()} disabled={busyEvo !== null} style={{ ...btnDark, alignSelf: 'flex-start' }}>
+              {busyEvo === 'conectar' ? 'Generando el código…' : 'Generar código QR'}
             </button>
           )}
         </div>
       )}
 
-      {/* ⑥ WHATSAPP NO OFICIAL — prueba de vida */}
+      {/* VERIFICACIÓN — que el mensaje llegue de verdad */}
       {pasoKey === 'wa_no_oficial_prueba' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {!verificado ? (
-            <>
-              <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-                Te mando un código de 6 dígitos a tu WhatsApp. Es la única forma de saber que el canal quedó de verdad conectado.
-              </div>
-              {!codigoEnviado ? (
-                <button onClick={() => void enviarCodigo()} disabled={busy} style={{ ...btnDark, alignSelf: 'flex-start' }}>{busy ? 'Mandando…' : '📲 Mandame el código'}</button>
-              ) : (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" inputMode="numeric"
-                    style={{ ...inp, width: 130, textAlign: 'center', letterSpacing: '.3em', fontFamily: "'Geist Mono', monospace" }} />
-                  <button onClick={() => void verificarCodigo()} disabled={busy || codigo.length < 4} style={{ ...btnDark, opacity: codigo.length < 4 ? 0.5 : 1 }}>Verificar</button>
-                  <button onClick={() => void enviarCodigo()} disabled={busy} style={btn}>Reenviar</button>
-                </div>
-              )}
-            </>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
+          {verificado ? (
+            <div style={{ ...okBox, width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+              <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={17} /></span>
+              Canal verificado. El mensaje llegó correctamente.
+            </div>
+          ) : !codigoEnviado ? (
+            <button onClick={() => void enviarCodigo()} disabled={busy}
+              style={{ ...btnDark, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span aria-hidden style={{ display: 'inline-flex' }}><Icon name="plug" size={16} /></span>
+              {busy ? 'Enviando…' : 'Enviar código de verificación'}
+            </button>
           ) : (
-            <div style={okBox}>✓ Llegó. Tu WhatsApp de empresa está conectado y probado.</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" inputMode="numeric" autoFocus
+                style={{ ...inp, width: 130, textAlign: 'center', letterSpacing: '.3em', fontFamily: MONO }} />
+              <button onClick={() => void verificarCodigo()} disabled={busy || codigo.length < 4} style={{ ...btnDark, opacity: codigo.length < 4 ? 0.5 : 1 }}>Verificar</button>
+              <button onClick={() => void enviarCodigo()} disabled={busy} style={btn}>Reenviar</button>
+            </div>
           )}
         </div>
       )}
@@ -551,9 +524,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       {pasoKey === 'wa_oficial_prueba' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Con la plantilla aprobada, probá una jugada desde su perfil («Probar de verdad»): te llega a vos exactamente como le llega al lead.
+            Con la plantilla aprobada, prueba una jugada desde su perfil («Probar de verdad»): te llega exactamente igual que al lead.
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Si todavía está en revisión, podés seguir: el resto de la tab funciona igual.</div>
+          <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Si aún está en revisión puedes continuar: el resto de la sección funciona igual.</div>
         </div>
       )}
 
@@ -649,7 +622,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             accentBubble="var(--wa-bubble)"
             mensajes={msgs}
             typing={typing}
-            placeholder="Contestale como le contestarías vos…"
+            placeholder="Responde como lo harías normalmente…"
             onEnviarTexto={responderComoNegocio}
             vacio={<div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13 }}>Preparando el escenario…</div>}
           />
@@ -662,7 +635,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
             Con lo que ensayamos armé tus jugadas. Están <strong style={{ color: 'var(--ink)' }}>pausadas</strong>: entrá al Chat Agent, escuchá cómo quedaron, probalas en tu teléfono y prendelas cuando estés listo.
           </div>
-          <div style={okBox}>Nada sale a un lead hasta que vos prendas el «Envío real».</div>
+          <div style={okBox}>No se envía nada a ningún lead hasta que actives «Envío real».</div>
         </div>
       )}
       {/* El contexto va SIEMPRE al final: explica sin interrumpir la acción. */}
@@ -681,58 +654,80 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
 
 /** El contexto del canal, DENTRO del paso: qué es, para qué sirve y qué cuidar. */
 /** Una sección del contexto: cerrada por default, se abre la que interese. */
-function AyudaSeccionCard({ s, abiertaDefault }: { s: AyudaSeccion; abiertaDefault: boolean }) {
-  const [abierta, setAbierta] = useState(abiertaDefault);
+/** Una fila plegable dentro del bloque de contexto. Sin card propia: el bloque
+ *  gris ya es el contenedor, anidar cards adentro ensucia la jerarquía. */
+function AyudaFila({ s, ultima }: { s: AyudaSeccion; ultima: boolean }) {
+  const [abierta, setAbierta] = useState(false);
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ borderTop: '1px solid var(--border)' }}>
       <button
         type="button" onClick={() => setAbierta((a) => !a)}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: "'Geist', sans-serif" }}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS }}
       >
-        <span aria-hidden style={{ flex: 'none', width: 27, height: 27, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>{s.icono}</span>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{s.titulo}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{s.titulo}</span>
         <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 11, transform: abierta ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
       </button>
       {abierta && (
-        <ul style={{ margin: 0, padding: '0 15px 13px 50px', display: 'flex', flexDirection: 'column', gap: 7, listStyle: 'none' }}>
-          {s.puntos.map((p, i) => (
-            <li key={i} style={{ position: 'relative', paddingLeft: 14, fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              <span aria-hidden style={{ position: 'absolute', left: 0, top: 7, width: 5, height: 5, borderRadius: 999, background: 'var(--border-strong)' }} />
-              {p}
-            </li>
-          ))}
-        </ul>
+        <div style={{ paddingBottom: ultima ? 2 : 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {s.texto && <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)', lineHeight: 1.65 }}>{s.texto}</p>}
+          {s.puntos && (
+            <ul style={{ margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6, listStyle: 'none' }}>
+              {s.puntos.map((x, i) => (
+                <li key={i} style={{ position: 'relative', paddingLeft: 14, fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+                  <span aria-hidden style={{ position: 'absolute', left: 0, top: 8, width: 4, height: 4, borderRadius: 999, background: 'var(--border-strong)' }} />
+                  {x}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
+/**
+ * El contexto del paso, en UN bloque gris. Mismo molde que la caja de la API de
+ * Gemini del onboarding global: fondo surface-2, borde, eyebrow mono. La
+ * respuesta corta se lee sin abrir nada; el detalle se despliega.
+ */
 function Ayuda({ paso }: { paso: PasoKey }) {
   const a = AYUDA[paso];
   if (!a) return null;
+  const secciones = a.secciones ?? [];
   return (
-    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 2 }}>{a.titulo}</div>
+    <div style={{ textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 7 }}>{a.titulo}</div>
 
-      {/* La primera abierta: si están todas cerradas parece que no hay nada. */}
-      {a.secciones.map((s, i) => <AyudaSeccionCard key={s.titulo} s={s} abiertaDefault={i === 0} />)}
+      {a.intro && (
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>{a.intro}</p>
+      )}
 
-      {a.advertencia && (
-        <div style={{ marginTop: 4, padding: '12px 14px', borderRadius: 12, background: 'var(--bad-bg)', border: '1px solid var(--bad)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-            <span aria-hidden style={{ fontSize: 14 }}>⚠️</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--bad)', letterSpacing: '-0.01em' }}>{a.advertencia.titulo}</span>
-          </div>
-          <ul style={{ margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6, listStyle: 'none' }}>
-            {a.advertencia.cuerpo.map((c, i) => (
-              <li key={i} style={{ position: 'relative', paddingLeft: 14, fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.6 }}>
-                <span aria-hidden style={{ position: 'absolute', left: 0, top: 7, width: 5, height: 5, borderRadius: 999, background: 'var(--bad)' }} />
-                {c}
-              </li>
-            ))}
-          </ul>
+      {secciones.length > 0 && (
+        <div style={{ marginTop: a.intro ? 10 : 0 }}>
+          {secciones.map((sec, i) => <AyudaFila key={sec.titulo} s={sec} ultima={i === secciones.length - 1 && !a.recomendacion} />)}
         </div>
       )}
+
+      {a.recomendacion && <Recomendacion r={a.recomendacion} />}
+    </div>
+  );
+}
+
+/** Una sugerencia con su porqué. Ámbar, no rojo: no es un error ni un bloqueo. */
+function Recomendacion({ r }: { r: { titulo: string; texto: string } }) {
+  const [abierta, setAbierta] = useState(false);
+  return (
+    <div style={{ borderTop: '1px solid var(--border)' }}>
+      <button
+        type="button" onClick={() => setAbierta((a) => !a)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 0 ' + (abierta ? '6px' : '2px'), background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS }}
+      >
+        <span aria-hidden style={{ flex: 'none', width: 18, height: 18, borderRadius: 999, background: 'var(--warn-bg)', border: '1px solid var(--warn)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--warn)', fontWeight: 700 }}>!</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{r.titulo}</span>
+        <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 11, transform: abierta ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+      </button>
+      {abierta && <p style={{ margin: '0 0 2px', paddingLeft: 27, fontSize: 13, color: 'var(--dim)', lineHeight: 1.65 }}>{r.texto}</p>}
     </div>
   );
 }

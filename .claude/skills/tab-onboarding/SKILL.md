@@ -85,27 +85,110 @@ real). **El ensayo es también la prueba de que la tab quedó lista.**
 ## Cómo se escribe un paso (regla de forma)
 
 ```
-Título corto           ← 2-4 palabras, como el resto del onboarding:
-                         "El Archivero", "Tu personalidad", "Tu diagnóstico",
-                         "Tu WhatsApp". Nunca una pregunta larga.
-Subtítulo de UNA línea ← EL OBJETIVO del paso: qué se busca, no cómo funciona.
+Título descriptivo     ← 2-5 palabras que se entienden solas y dicen QUÉ es esto:
+                         "Verificación de seguridad", "Diagnóstico de Negocio",
+                         "Tu Personalidad", "Tu WhatsApp: Método NO Oficial".
+                         NUNCA informal ("Probemos que llega", "El ensayo") ni
+                         una pregunta larga.
+Subtítulo (opcional)   ← SOLO si aporta el objetivo del paso en una línea. Si el
+                         título ya se explica solo, NO se pone. Un subtítulo de
+                         relleno es peor que ninguno.
 [la acción]            ← el botón / input / lista. Lo primero que puede tocar.
-…
-[caja de contexto]     ← AL FINAL de todo. Explica sin interrumpir.
+[bloque de contexto]   ← AL FINAL de todo. Explica sin interrumpir.
 ```
 
-**Nadie lee un párrafo antes de poder hacer algo.** Si hay que explicar, va en la
-caja de abajo: label mono en mayúsculas, 3-4 bullets cortos y, si corresponde,
-una advertencia. Nunca entre el título y el botón.
+**Nadie lee un párrafo antes de poder hacer algo.** Si hay que explicar, va en el
+bloque de abajo. Nunca entre el título y el botón.
 
-Y **el objetivo tiene que estar claro**: no alcanza con "voy a leer tus chats" —
+### El bloque de contexto (molde exacto)
+
+Uno solo, gris, envolviendo TODO el contexto del paso. El molde vivo es la caja
+"¿POR QUÉ DEBES COLOCAR TU API DE GEMINI?" de `app/onboarding/OnboardingWizard.tsx`:
+
+```
+contenedor  background: var(--surface-2); border: 1px solid var(--border);
+            borderRadius: 12; padding: '13px 15px'; textAlign: 'left'
+eyebrow     fontFamily MONO; fontSize 10; letterSpacing '.08em'; uppercase;
+            color var(--faint); marginBottom 7
+cuerpo      fontSize 13; color var(--dim); lineHeight 1.6
+```
+
+Dentro de ese bloque:
+
+- **Una respuesta corta en prosa, visible sin desplegar nada.** El que solo
+  quiere saber "¿por qué?" lo lee ahí y sigue.
+- **El detalle, en filas plegables** separadas por `borderTop: 1px var(--border)`.
+  Sin cards anidadas: el bloque gris YA es el contenedor.
+- **Al desplegar, la tarjeta del wizard NO crece: scrollea por dentro.** Lo
+  garantiza el `maxHeight: calc(100vh - 96px)` de `WizardShell`. Si un paso
+  nuevo hace crecer la card, el bug está en el shell, no en el paso.
+
+### Prosa o lista: se elige, no se pone todo en bullets
+
+Convertir todo en bullets es el error por defecto. La lista es para **elementos
+paralelos entre sí** (ventajas, medidas, pasos). Una explicación, una relación
+causa-efecto o un matiz van en **prosa**. Un bloque de contexto bien armado
+mezcla las dos cosas.
+
+### Recomendar, no obligar
+
+Cuando algo conviene pero no es obligatorio, es una **recomendación**: ámbar,
+plegable, con el título en positivo ("Conviene usar el número de la empresa") y
+el porqué adentro. Nada de cajas rojas ni de imperativos: la caja roja es para
+lo que rompe, no para lo que preferimos.
+
+### Botones e íconos
+
+- Alineados a la **izquierda** (`alignSelf: 'flex-start'`), nunca centrados en
+  medio de un paso.
+- Texto **descriptivo y neutro**: "Enviar código de verificación", no "Mandame
+  el código".
+- **Íconos del set**, nunca emojis sueltos: `<Icon name="…" />` de
+  `app/_components/icons.tsx`. Los útiles acá: `check` (confirmación), `trash`
+  (eliminar), `plug` (probar conexión), `whatsapp`, `x`. No hay ícono de candado
+  ni de enviar; si hace falta, se AGREGA a `PATHS`, no se mete un emoji.
+- La **acción destructiva** de un estado confirmado va como ícono al final de la
+  misma fila (una papelera), no como botón de texto en rojo: pesa más que el
+  estado que acompaña.
+
+### Cada acción muestra SU propio progreso
+
+Un solo `busy` compartido hace que apretar "Siguiente" ponga "Desconectando…" en
+otro botón. Estado por acción (`busyEvo`, `busy`, …), siempre.
+
+## El copy: español neutro y profesional
+
+El producto se usa en México. Los textos de la interfaz —títulos, subtítulos,
+botones, contexto, avisos— van en **español neutro**, con "tú" o impersonal:
+
+- **Sin voseo ni argentinismos**: nada de "podés", "tenés", "escribís", "acá",
+  "recién cuando vos digas".
+- **Sin informalidad**: "Enviar código de verificación", no "Mandame el código".
+  "Verificación de seguridad", no "Probemos que llega".
+- **Sin diminutivos ni guiños**: se explica, no se conversa.
+
+⚠️ Esto aplica a la INTERFAZ. La voz de MaKo cuando le escribe a un lead es otra
+cosa y se define en el onboarding con las conversaciones reales del cliente.
+
+**Y el copy tiene que ser CIERTO.** Un error factual en una caja de contexto
+destruye más confianza que un texto feo. Antes de escribir cómo funciona algo,
+verificalo contra el código. Ejemplo real de lo que NO hay que hacer: se afirmó
+que el WhatsApp no oficial "solo puede escribirle a quien ya te escribió". Es
+falso — por ese canal salen las nutriciones a quien nunca escribió, que es media
+funcionalidad del producto.
+
+## Otras reglas de forma
+
+**El objetivo tiene que estar claro**: no alcanza con "voy a leer tus chats" —
 hay que decir QUÉ se busca ahí (el tono, las preguntas de calificación, el
-patrón). Un objetivo vago produce un resultado vago; uno específico produce un
-análisis usable.
+patrón). Un objetivo vago produce un resultado vago.
 
-**Toda espera muestra un loader.** Cargar el estado del paso, llamar a la IA,
-traer una lista: si tarda, se dice. Nunca pintar una pantalla que un segundo
-después se reemplaza por otra (el flash se lee como que la app está rota).
+**Toda espera muestra un loader** que ocupa el ancho y respira. Nunca pintar una
+pantalla que un segundo después se reemplaza por otra.
+
+⚠️ En un `<main>` con `flex: 1`, `height: '100vh'` NO funciona: el `flex-basis: 0%`
+lo anula y el contenedor colapsa a la altura del contenido — el loader queda
+diminuto y pegado al techo. Va **`minHeight: '100vh'`**.
 
 **Los resultados largos van en secciones desplegables** (`SeccionCard` +
 `parsearSecciones`), nunca como un bloque de texto corrido.

@@ -20,7 +20,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { MakoLogo } from './MakoBrand';
-import { SvcIcon } from './ServicioVisual';
+import { SvcIcon, BrandDefs } from './ServicioVisual';
 import type { Slide } from '@/lib/servicio-slides';
 
 /** Un dato real del servicio conectado. `c` = color del valor (ej. rojo si adeuda). */
@@ -73,6 +73,11 @@ export function Carrusel({ slides, arriba }: { slides: Slide[]; arriba?: ReactNo
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}
       onMouseEnter={() => setPausa(true)} onMouseLeave={() => setPausa(false)}>
+      {/* Los <symbol> de las marcas los monta el propio panel. Antes dependía de
+          que los montara quien lo llamaba, y donde no lo hacían (el onboarding
+          del Chat Agent) el <use href="#ic-whatsapp"> no resolvía nada y quedaba
+          un cuadrado verde liso. Montarlos dos veces es inocuo. */}
+      <BrandDefs />
       {/* Vive en el aside NEGRO: los colores son los del sidebar, no los del tema claro. */}
       {/* El min-height va en .mk-svc-carrusel (globals.css), no acá: inline le
           ganaría al min-height:0 del modo apilado y lo volvería letra muerta. */}

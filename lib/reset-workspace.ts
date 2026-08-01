@@ -113,7 +113,7 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
     const { desconectar } = await import('./evolution');
     await runWithWorkspace(ws, () => desconectar());
   } catch (e) {
-    avisos.push(`WhatsApp no oficial: no se pudo cerrar la sesión (${msg(e)}). Si el QR no aparece, desconectá a mano desde la tab.`);
+    avisos.push(`WhatsApp no oficial: no se pudo cerrar la sesión (${msg(e)}). Si el código QR no aparece, desconecta el número manualmente desde la sección de WhatsApp.`);
   }
 
   // ── 2. Tablas, en pasadas: lo que falla por una FK se reintenta ──
@@ -149,7 +149,7 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   }
 
   // Lo que este botón NO puede limpiar, dicho de frente en vez de prometido.
-  avisos.push('La campanita y los borradores de campañas de Meta no guardan a qué workspace pertenecen, así que quedan como estaban: no son del cliente de prueba.');
+  avisos.push('Las notificaciones y los borradores de campañas de Meta no registran a qué workspace pertenecen, así que se conservan sin cambios.');
 
   return { borrado, archivos, avisos };
 }

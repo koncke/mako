@@ -127,7 +127,7 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
       },
       hijos: [{ tabla: 'lead_respuestas', fk: 'lead_id', omitir: ['id'], limite: 1200 }],
     }],
-    nota: 'Los leads llegan con el teléfono y el email neutralizados: nada de lo que pruebes acá puede llegarle a un cliente de Mau.',
+    nota: 'Los leads llegan con el teléfono y el email neutralizados: ninguna prueba puede alcanzar a un cliente real.',
   },
   plan: {
     label: 'el plan de Mau',
@@ -159,14 +159,23 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
   integraciones: {
     label: 'las credenciales de Mau',
     credenciales: true,
-    nota: 'No se copian el teléfono, el email ni los grupos de WhatsApp de Mau: las pruebas tienen que llegarte a VOS, no a él.',
+    nota: 'No se copian el teléfono, el email ni los grupos de WhatsApp: las pruebas deben llegarte a ti, no al dueño.',
   },
 };
 
 export type ResultadoMau = { copiado: number; detalle: Record<string, number>; avisos: string[] };
 
-/** Servicios que un cliente puede tener conectados (los de agencia no viajan). */
-const SERVICIOS_CLIENTE = new Set(['meta', 'whatsapp', 'fathom', 'panda', 'youtube', 'calendly']);
+/**
+ * Credenciales que NO viajan al workspace de prueba: son de la AGENCIA (las paga
+ * y las gestiona ella, son globales a la plataforma). Todo lo demás sí viaja.
+ *
+ * Va como lista NEGRA a propósito. Con lista blanca, cada servicio nuevo del
+ * catálogo quedaba afuera EN SILENCIO — así se perdió GEMINI_API_KEY, que el
+ * onboarding le pide al cliente en un paso propio y que lib/ai-cheap.ts resuelve
+ * por workspace. El modo de falla correcto es "copié de más", no "no copié nada".
+ */
+const SERVICIOS_AGENCIA = new Set(['anthropic', 'openai', 'email']);
+const credencialViaja = (servicioKey: string) => !SERVICIOS_AGENCIA.has(servicioKey);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El registro de lo que trajimos (para poder devolverlo intacto)
@@ -292,7 +301,7 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
 
 /** Trae al workspace `destino` los datos del dueño que corresponden a `ambito`. */
 export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: number): Promise<ResultadoMau> {
-  if (destino === OWNER_WS) throw new Error('Estás parado en el workspace de Mau: entrá a uno de prueba.');
+  if (destino === OWNER_WS) throw new Error('Estás en el workspace del dueño. Entra a uno de prueba.');
   const def = AMBITOS[ambito];
   if (!def) throw new Error(`Ámbito desconocido: ${ambito}`);
 
@@ -342,7 +351,7 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
     const { SERVICIOS_METODO } = await import('./metodo-catalogo');
     const { credWs, guardarCredencial, IdentificadorOcupadoError } = await import('./credenciales');
     for (const s of SERVICIOS_METODO) {
-      if (!SERVICIOS_CLIENTE.has(s.key)) continue;
+      if (!credencialViaja(s.key)) continue;
       for (const campo of s.campos) {
         const valor = await credWs(campo.env, OWNER_WS);
         if (!valor) continue;
@@ -362,7 +371,7 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
   }
 
   await guardarRecibo(destino, ambito, recibo);
-  if (def.nota) avisos.push(def.nota);
+  if (def.nota) avisos.unshift(def.nota);
   return { copiado, detalle, avisos };
 }
 
@@ -372,7 +381,7 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
 
 /** Borra del workspace `destino` exactamente lo que se trajo del dueño. */
 export async function eliminarDatosDelDueno(ambito: AmbitoKey, destino: number): Promise<{ borrado: number; detalle: Record<string, number> }> {
-  if (destino === OWNER_WS) throw new Error('Estás parado en el workspace de Mau: acá no se borra nada.');
+  if (destino === OWNER_WS) throw new Error('Estás en el workspace del dueño. Aquí no se borra nada.');
   const sb = getSupabaseServer();
   const recibo = await leerRecibo(destino, ambito);
   const detalle: Record<string, number> = {};

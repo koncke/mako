@@ -248,16 +248,16 @@ function ElegirRecorrido({ onElegir, onSaltar }: {
   onSaltar: () => void;
 }) {
   const OPCIONES: Array<{ k: 'setting' | 'whatsapp' | 'email'; icono: string; titulo: string; sub: string; detalle: string }> = [
-    { k: 'setting', icono: '✦', titulo: 'Todo', sub: 'El recorrido completo', detalle: 'Los dos WhatsApp, el email, tu forma de escribir, tus audios y las jugadas armadas.' },
-    { k: 'whatsapp', icono: '💬', titulo: 'Solo WhatsApp', sub: 'Conectar y probar el canal', detalle: 'Tu número de empresa, la prueba de que llega, y el oficial si lo querés.' },
-    { k: 'email', icono: '✉️', titulo: 'Solo Email', sub: 'Conectar y probar la casilla', detalle: 'Tu dominio y un correo de prueba a tu casilla.' },
+    { k: 'setting', icono: '✦', titulo: 'Todo', sub: 'Recorrido completo', detalle: 'Los dos métodos de WhatsApp, el email, tu forma de escribir, tus audios y las jugadas.' },
+    { k: 'whatsapp', icono: '💬', titulo: 'Solo WhatsApp', sub: 'Conectar y verificar el canal', detalle: 'Tu número de empresa, la verificación de entrega y el canal oficial si lo necesitas.' },
+    { k: 'email', icono: '✉️', titulo: 'Solo Email', sub: 'Conectar y verificar la bandeja', detalle: 'Tu dominio verificado y un correo de prueba a tu bandeja.' },
   ];
   return (
     <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
       <div style={{ width: '100%', maxWidth: 560, textAlign: 'center' }}>
         <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 12 }}>✦ Chat Agent</div>
         <h1 style={{ fontWeight: 700, fontSize: 30, letterSpacing: '-0.025em', color: 'var(--ink)', margin: '0 0 8px' }}>¿Por dónde arrancamos?</h1>
-        <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 26px', lineHeight: 1.55 }}>Podés configurar todo de una o ir por canal. Lo que hagas ahora no se vuelve a pedir después.</p>
+        <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 26px', lineHeight: 1.55 }}>Puedes configurarlo todo de una vez o avanzar canal por canal. Lo que completes ahora no se vuelve a pedir.</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {OPCIONES.map((o) => (
@@ -276,7 +276,7 @@ function ElegirRecorrido({ onElegir, onSaltar }: {
 
         <button type="button" onClick={onSaltar}
           style={{ marginTop: 20, background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>
-          Lo configuro después
+          Configurar más tarde
         </button>
       </div>
     </main>

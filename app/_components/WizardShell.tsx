@@ -126,27 +126,33 @@ export function WizardShell({
     // `minHeight` y no `height`: con `flex: 1` el flex-basis queda en 0% y anula
     // cualquier `height`, así que la pieza colapsaba contra el techo en vez de
     // centrarse. Mismo bug que tenía el loader de la tab.
+    // El contenedor NO lleva padding: la barra del admin tiene que ir a sangre,
+    // pegada arriba y de lado a lado. El aire se lo pone la zona de contenido.
     const contenedor: CSSProperties = embebido
-      ? { flex: 1, minWidth: 0, minHeight: '100vh', overflowY: 'auto', background: 'var(--bg)', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' }
-      : { position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', overflowY: 'auto', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' };
+      ? { flex: 1, minWidth: 0, minHeight: '100vh', background: 'var(--bg)', fontFamily: SANS, display: 'flex', flexDirection: 'column' }
+      : { position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', fontFamily: SANS, display: 'flex', flexDirection: 'column' };
     return (
       <div style={contenedor}>
         {/* Barra del admin: por encima del overlay (que si no tapa el banner de
             impersonación), para poder salir de la vista sin terminar el wizard. */}
-        {adminBar && <div style={{ flex: 'none', marginBottom: 14 }}>{adminBar}</div>}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+        {adminBar && <div style={{ flex: 'none' }}>{adminBar}</div>}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(12px,3vh,36px) 20px' }}>
           <div
             className={escenario ? 'mk-svc-modal' : undefined}
             style={{
               width: '100%', maxWidth: escenario ? 980 : 620,
               minHeight: escenario ? 560 : undefined,
+              // Techo fijo: al desplegar una sección de contexto la tarjeta NO
+              // crece (que empuja el footer fuera de la pantalla) — scrollea
+              // por dentro, que es lo que espera cualquiera que abra un acordeón.
+              maxHeight: 'calc(100vh - 96px)',
               background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: 18, overflow: 'hidden',
               ...(escenario ? {} : { display: 'flex', flexDirection: 'column' }),
             }}
           >
             {escenario}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
               {header}
               <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{cuerpo}</div>
               {footer}

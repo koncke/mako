@@ -56,24 +56,24 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // no se repiten, se comparten (ver PASOS_COMPARTIDOS).
   whatsapp: {
     key: 'whatsapp',
-    titulo: 'Dejemos tu WhatsApp listo',
+    titulo: 'Configuración de WhatsApp',
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
-      { key: 'wa_no_oficial_prueba', label: 'Probar el envío' },
+      { key: 'wa_no_oficial_prueba', label: 'Verificación' },
       // Lo que NO bloquea, al final: se puede dejar para después.
       { key: 'wa_oficial', label: 'WhatsApp oficial' },
       { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla' },
-      { key: 'wa_oficial_prueba', label: 'Probar el oficial' },
+      { key: 'wa_oficial_prueba', label: 'Verificación del oficial' },
     ],
   },
 
   // ── Email: el canal de los que no contestan por WhatsApp ──
   email: {
     key: 'email',
-    titulo: 'Dejemos tu email listo',
+    titulo: 'Configuración del email',
     pasos: [
       { key: 'email_conectar', label: 'Tu email' },
-      { key: 'email_prueba', label: 'Probar el email' },
+      { key: 'email_prueba', label: 'Verificación del email' },
     ],
   },
 
@@ -84,19 +84,19 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // nada que leer.
   setting: {
     key: 'setting',
-    titulo: 'Dejemos tu Chat Agent listo',
+    titulo: 'Configuración del Chat Agent',
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
-      { key: 'wa_no_oficial_prueba', label: 'Probar el envío' },
+      { key: 'wa_no_oficial_prueba', label: 'Verificación' },
       { key: 'contexto', label: 'Tu forma de escribir' },
       { key: 'voz', label: 'Tus audios' },
-      { key: 'ensayo', label: 'El ensayo' },
+      { key: 'ensayo', label: 'Ensayo de conversación' },
       { key: 'aprobar', label: 'Tus jugadas' },
       { key: 'wa_oficial', label: 'WhatsApp oficial' },
       { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla' },
-      { key: 'wa_oficial_prueba', label: 'Probar el oficial' },
+      { key: 'wa_oficial_prueba', label: 'Verificación del oficial' },
       { key: 'email_conectar', label: 'Tu email' },
-      { key: 'email_prueba', label: 'Probar el email' },
+      { key: 'email_prueba', label: 'Verificación del email' },
     ],
     href: '/chat-agent',
   },
