@@ -25,15 +25,18 @@ const ERRORES: Record<string, string> = {
 };
 
 /**
- * Destino post-login: SOLO rutas internas. '/' sí, '//evil.com' no
+ * Destino post-login: SOLO rutas internas. '/inicio' sí, '//evil.com' no
  * (protocol-relative → open redirect). Se rechazan los caracteres de control
  * (tab/LF/CR) porque el navegador los strippea y '/\t//evil.com' se escaparía a
  * un host externo. Mismo criterio que destinoSeguro() en lib/auth-session.ts.
+ *
+ * Sin ?next= se cae a /inicio, el repartidor por rol. NO a '/': la raíz es la
+ * landing de venta, y terminar ahí después de loguearse es quedarse afuera.
  */
 function destinoInterno(raw: string): string {
   const n = raw.replace(/\\/g, '/');
   const ok = !/[\x00-\x1f\x7f]/.test(raw) && n.startsWith('/') && !n.startsWith('//');
-  return ok ? n : '/';
+  return ok ? n : '/inicio';
 }
 
 export function LoginForm() {

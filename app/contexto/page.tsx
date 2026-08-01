@@ -12,6 +12,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ContextoPage() {
-  if (!(await getSesionAdmin())) redirect('/');
+  if (!(await getSesionAdmin())) redirect('/inicio');
   return <ContextoTabs />;
 }

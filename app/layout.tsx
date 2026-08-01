@@ -8,9 +8,13 @@ import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { IaUsageToast } from './_components/IaUsageToast';
 import { HideOnPublicLanding } from './_components/PublicRouteGate';
 
+// Título por defecto de las pantallas internas — es lo que se lee en la pestaña
+// del navegador, al lado del favicon. El producto es MaKo: acá decía "Marketing
+// OS — Mauricio Bustos", branding viejo de cuando era el dashboard interno de una
+// sola cuenta. La landing (app/page.tsx) pisa esto con su propio título.
 export const metadata: Metadata = {
-  title: 'Marketing OS — Mauricio Bustos',
-  description: 'CRM, marketing y comercial — Mauricio Bustos',
+  title: 'MaKo',
+  description: 'Marketing, CRM y ventas en una sola app.',
 };
 
 // Contenedor raíz: sidebar fijo + el <main> que aporta cada pantalla.

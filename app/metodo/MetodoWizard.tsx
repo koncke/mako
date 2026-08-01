@@ -182,7 +182,7 @@ export function MetodoWizard() {
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
             <Link href="/onboarding" style={{ ...btnDark, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Completar el perfil del negocio →</Link>
-            <Link href="/" style={{ ...btnGhost, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Volver al inicio</Link>
+            <Link href="/inicio" style={{ ...btnGhost, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Volver al inicio</Link>
           </div>
         </div>
       ) : (

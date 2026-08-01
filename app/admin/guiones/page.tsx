@@ -11,6 +11,6 @@ export const revalidate = 0;
 
 export default async function GuionesAdminPage() {
   const sesion = await getUsuarioActual();
-  if (!sesion || sesion.rol !== 'admin') redirect('/');
+  if (!sesion || sesion.rol !== 'admin') redirect('/inicio');
   return <GuionesAdminView />;
 }

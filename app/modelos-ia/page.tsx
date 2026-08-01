@@ -10,6 +10,6 @@ export const revalidate = 0;
 
 export default async function ModelosIAPage() {
   const admin = await getSesionAdmin();
-  if (!admin) redirect('/');
+  if (!admin) redirect('/inicio');
   return <ModelosIA />;
 }

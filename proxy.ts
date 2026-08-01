@@ -212,13 +212,15 @@ function denegar(req: NextRequest, pathname: string) {
   return NextResponse.redirect(url);
 }
 
-// Logueado pero sin rol: 403 para APIs, a la home para páginas.
+// Logueado pero sin rol: 403 para APIs, a su home para páginas. Va a /inicio (el
+// repartidor por rol), no a '/': la raíz es la landing de venta y dejar ahí a
+// alguien que YA está logueado es echarlo de la app.
 function denegarRol(req: NextRequest, pathname: string) {
   if (pathname.startsWith('/api/')) {
     return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   }
   const url = req.nextUrl.clone();
-  url.pathname = '/';
+  url.pathname = '/inicio';
   url.search = '';
   return NextResponse.redirect(url);
 }

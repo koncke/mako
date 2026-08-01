@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default async function ConocimientosPage() {
   const admin = await getSesionAdmin();
-  if (!admin) redirect('/');
+  if (!admin) redirect('/inicio');
   // useSearchParams (routing por URL en el client) necesita un Suspense boundary.
   return (
     <Suspense fallback={null}>

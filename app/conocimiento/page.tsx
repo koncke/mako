@@ -23,6 +23,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ConocimientoPage() {
-  if (!(await getSesionAdmin())) redirect('/');
+  if (!(await getSesionAdmin())) redirect('/inicio');
   return <ConocimientoView />;
 }

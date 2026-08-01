@@ -82,15 +82,15 @@ export function gateConfigurado(): boolean {
  * SIEMPRE empieza con una sola '/'.
  */
 export function destinoSeguro(next: string | undefined | null): string {
-  if (!next || typeof next !== 'string') return '/';
+  if (!next || typeof next !== 'string') return '/inicio';
   // Rechazar caracteres de control (tab/LF/CR y demás C0 + DEL): el parser
   // WHATWG los strippea, así que '/\t//evil.com' evadiría el check de '//' pero
   // new URL(next, origin) lo resolvería a un host externo (open redirect).
-  if (/[\x00-\x1f\x7f]/.test(next)) return '/';
+  if (/[\x00-\x1f\x7f]/.test(next)) return '/inicio';
   // Normalizar backslashes (Node los trata como '/' al parsear URLs).
   const limpio = next.replace(/\\/g, '/');
   // Debe empezar con '/' pero no con '//' (protocol-relative).
-  if (!limpio.startsWith('/') || limpio.startsWith('//')) return '/';
+  if (!limpio.startsWith('/') || limpio.startsWith('//')) return '/inicio';
   return limpio;
 }
 

@@ -14,6 +14,6 @@ export const revalidate = 0;
 
 export default async function MetodoPage() {
   const admin = await getSesionAdmin();
-  if (!admin) redirect('/');
+  if (!admin) redirect('/inicio');
   return <MetodoWizard />;
 }

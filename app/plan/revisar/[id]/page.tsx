@@ -16,7 +16,7 @@ export const revalidate = 0;
 
 export default async function RevisarPage({ params }: { params: Promise<{ id: string }> }) {
   const sesion = await getUsuarioActual();
-  if (!sesion) redirect('/');
+  if (!sesion) redirect('/inicio');
   const { id } = await params;
   const prop = await getPropuesta(id);
   if (!prop) notFound();
