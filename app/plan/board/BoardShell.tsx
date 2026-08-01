@@ -440,7 +440,7 @@ export function BoardShell({ board, scope }: {
   // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
   // sugerida; al cambiar la firma del plan, el guardián las re-puntúa solo (una corrida).
   // Deshacer = borrar las que se acaban de crear (fue una acción revisada, no un click suelto).
-  const crearDesdeReunion = async (cands: Array<{ titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; minuto?: number; minutos?: number[] }>, fuente?: Fuente) => {
+  const crearDesdeReunion = async (cands: Array<{ titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; proyectoNombre?: string; minuto?: number; minutos?: number[] }>, fuente?: Fuente) => {
     // origen = MaKo (la IA extrajo estas tarjetas) + fuente (Fathom/archivo) + un alta
     // que deja rastro de DE DÓNDE salió (feedback jul-19 / regla del historial).
     const altaText = fuente?.tipo === 'fathom' ? `Creó la tarjeta — de la reunión «${fuente.etiqueta ?? ''}» (Fathom)`
@@ -464,13 +464,33 @@ export function BoardShell({ board, scope }: {
       const url = fuente.url ? `${fuente.url}${fuente.url.includes('?') ? '&' : '?'}timestamp=${todos[0]}` : undefined;
       return { ...fuente, etiqueta: [fuente.etiqueta, todos.map(reloj).join(', ')].filter(Boolean).join(' · '), url };
     };
+    // Proyectos que la reunión pidió y que NO existen: se crean UNA vez y todas sus
+    // tareas cuelgan de ahí. Antes el modelo no podía proponerlos (o elegía de la
+    // lista, o null), así que un tema nuevo se repartía entre proyectos que no le
+    // correspondían — o caía entero en el primero.
+    const nuevosProy = new Map<string, string>(); // nombre normalizado → id creado
+    const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    for (const c of cands) {
+      const nom = (c.proyectoNombre ?? '').trim();
+      if (!nom || c.proyectoId || nuevosProy.has(norm(nom))) continue;
+      const yaEsta = labels.find((l) => norm(l.name) === norm(nom));
+      if (yaEsta) { nuevosProy.set(norm(nom), yaEsta.id); continue; }
+      const nuevoId = uid();
+      await board.createLabel({
+        id: nuevoId, emoji: '🏷', name: nom, color: SWATCHES[(labels.length + nuevosProy.size) % SWATCHES.length],
+        score: 50, detalle: '', historial: [{ id: uid(), ts: Date.now(), actor: 'ia', text: `Creó el proyecto — de la reunión «${fuente?.etiqueta ?? ''}»` }],
+      });
+      nuevosProy.set(norm(nom), nuevoId);
+    }
+
     const ids: string[] = [];
     for (const c of cands) {
       // el detalle va DENTRO del alta: si se escribiera después, el Perro server-side
       // podría leer la fila antes de que llegue y puntuar solo con el título.
       // `[]` explícito, NO undefined: si la IA no le encontró proyecto, la tarea queda
       // suelta y se ve como tal. Con undefined heredaba el primer proyecto del tablero.
-      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : [], { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle });
+      const proy = c.proyectoId ?? (c.proyectoNombre ? nuevosProy.get(norm(c.proyectoNombre)) ?? null : null);
+      const t = await board.create(c.titulo, c.prioridad, proy ? [proy] : [], { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle });
       if (!t) continue;
       ids.push(t.id);
     }

@@ -35,7 +35,7 @@ import {
 import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
 import { clasificarReunion, type TipoReunion } from './reunion-clasificar';
-import { resolverDueño } from './tarea-dueno';
+import { resolverDueño, normNombre } from './tarea-dueno';
 
 export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 
@@ -101,6 +101,10 @@ export type TareaCandidata = {
   detalle: string;
   prioridad: PlanPrioridad;
   proyectoId: string | null;   // id de un proyecto de la lista, o null
+  /** Nombre de un proyecto que NO existe y que la reunión pide crear ('' = ninguno).
+   *  Sin esto, el modelo estaba obligado a elegir de la lista o dejar null — y como
+   *  toda tarea sin proyecto caía en el primero, terminaba TODO en el mismo lado. */
+  proyectoNombre?: string;
   dueño: string;               // quién la asume (nombre/email), '' si no quedó claro
   dueñoEmail: string;          // email del dueño SI matchea un participante de la reunión ('' si no)
   esDeOtro: boolean;           // true = NO es del que mira el board (va a la tab de esa persona)
@@ -188,6 +192,7 @@ export const PLAN_FATHOM_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON v�
       "detalle": "<1-3 frases con el contexto que se dijo en la reunión — por qué, quién, cuándo si se mencionó>",
       "prioridad": "alta" | "media" | "baja" | "futuro",
       "proyectoId": "<id EXACTO de la lista de proyectos, o null si ninguno encaja claro>",
+      "proyectoNuevo": "<SOLO si proyectoId es null y varias tareas de esta reunión comparten un tema que NO está en la lista: el nombre corto del proyecto que habría que crear (2-4 palabras). '' en cualquier otro caso>",
       "dichoPor": "<quién LO DIJO (el que habla en la transcripción). Puede ser distinto del dueño: el que aconseja no es el que ejecuta>",
       "dueño": "<quién TIENE QUE HACERLA, o '' si no quedó claro>",
       "dueñoEmail": "<el email EXACTO de esa persona, copiado de la lista de PARTICIPANTES; '' si no podés atribuirla a ninguno>",
@@ -242,7 +247,7 @@ DUEÑO EMAIL (clave para repartirlas): te paso la lista de PARTICIPANTES con nom
 
 NO inventes nada que no se haya dicho, pero NO descartes un compromiso REAL solo porque está redactado informal. Devolvé vacío SOLO si de verdad no se habló de ningún próximo paso.
 
-PROYECTO: te paso la lista de proyectos del plan (con id). Asigná "proyectoId" SOLO cuando la tarea encaja claramente en uno; si dudás, dejá null. La PRIORIDAD es una primera estimación tuya (el perro guardián la re-puntúa después): alta = mueve la aguja/urgente, futuro = puede esperar.
+PROYECTO: te paso la lista de proyectos del plan (con id). Asigná "proyectoId" SOLO cuando la tarea encaja claramente en uno; si dudás, dejá null. NO METAS A LA FUERZA una tarea en el proyecto que menos mal le queda: es peor que dejarla suelta. Si VARIAS tareas de esta reunión son del mismo tema y ese tema NO existe en la lista, poneles a todas el MISMO "proyectoNuevo" (mismo texto exacto) y dejá proyectoId en null; si es una tarea suelta sin tema común, dejá los dos vacíos. La PRIORIDAD es una primera estimación tuya (el perro guardián la re-puntúa después): alta = mueve la aguja/urgente, futuro = puede esperar.
 
 GLOSARIO: te paso términos/nombres propios de este negocio con su significado. Usalos para entender la reunión y corregir errores de transcripción (ej: la transcripción dice "Clau" pero el glosario aclara que es "Claude"). No inventes definiciones que no estén en el glosario.
 
@@ -281,13 +286,18 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
     .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
     .map((o) => {
       const pid = typeof o.proyectoId === 'string' && ids.has(o.proyectoId) ? o.proyectoId : null;
+      // Proyecto nuevo: solo vale si NO cayó en uno existente. Si el nombre coincide
+      // (sin acentos ni mayúsculas) con uno que ya está, se usa ese en vez de duplicarlo.
+      const nuevoCrudo = !pid ? String(o.proyectoNuevo ?? '').trim().slice(0, 60) : '';
+      const igual = nuevoCrudo ? proyectos.find((p) => normNombre(p.nombre) === normNombre(nuevoCrudo)) : undefined;
       // Quién es el dueño y si es MÍA: regla propia y testeada (lib/tarea-dueno).
       const d = resolverDueño(o, yo, participantes);
       return {
         titulo: String(o.titulo ?? '').trim().slice(0, 160),
         detalle: String(o.detalle ?? '').trim().slice(0, 600),
         prioridad: prioridadOk(o.prioridad),
-        proyectoId: pid,
+        proyectoId: igual ? igual.id : pid,
+        proyectoNombre: igual ? '' : nuevoCrudo,
         dueño: d.dueño,
         dueñoEmail: d.dueñoEmail,
         esDeOtro: d.esDeOtro,
