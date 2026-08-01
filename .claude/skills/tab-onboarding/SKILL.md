@@ -16,7 +16,25 @@ dato de primera clase: lo lee el gate de la tab **y lo lee MaKo**. Cuando MaKo
 detecta algo a optimizar en una tab cuyo onboarding no está hecho, lo primero que
 dice es eso — no propone optimizar lo que nunca se configuró.
 
-## Las 3 etapas (siempre las mismas; cambia el contenido)
+## El orden: lo aburrido va AL FINAL
+
+**Regla dura**: conectar APIs, escanear QR, pegar tokens y verificar números es
+lo más aburrido y lo que más gente pierde. Va **al final** del recorrido, cuando
+el usuario ya vio de qué se trata y quiere que funcione.
+
+Primero se le muestra el valor (el contexto, lo que MaKo arma con eso, el ensayo)
+y recién después se le pide la plomería.
+
+**Única excepción**: lo que BLOQUEA de verdad al resto del recorrido va antes
+—y solo eso—. Ejemplo real: la API key de Gemini se pide al principio porque sin
+ella la IA no puede leer un documento ni proponer nada, así que el usuario
+chocaría tres pantallas después. Si algo se puede hacer sin la credencial, la
+credencial va al final.
+
+Test para decidir: *¿el usuario puede avanzar y ver valor sin esto?* Si sí, al
+final. Si no, al principio y con el copy explicando por qué se lo pedimos ahora.
+
+## Las 3 etapas (el contenido; el ORDEN lo manda la regla de arriba)
 
 ### ① CONECTAR — la plomería, con prueba de vida
 La credencial mínima para que la tab pueda operar. **No alcanza con guardar la
@@ -29,6 +47,18 @@ key: tiene que llegar algo de verdad.** El paso se cierra con evidencia:
 
 Si la tab tiene dos canales (WhatsApp + Email), cada uno se prueba por separado:
 uno conectado no implica el otro.
+
+**Un canal = tres pasos separados, nunca uno solo:**
+1. **Conectar** — con su tutorial/contexto arriba: qué es, para qué sirve, qué
+   precauciones tomar (ej. anti-ban del no oficial, límites de Meta). El contexto
+   va DENTRO del paso, no en una ayuda aparte.
+2. **Preparar** — lo que el canal necesite antes de poder mandar (el oficial:
+   crear la plantilla y mandarla a aprobar a Meta; si ya hay plantillas hechas
+   antes en el onboarding, se reusan en vez de pedir una nueva).
+3. **Probar** — el mensaje real al número/mail del dueño. Recién acá cierra.
+
+Y el orden entre canales va del más fácil al más burocrático: WhatsApp no oficial
+(QR, inmediato) → WhatsApp oficial (plantillas, aprobación de Meta) → email.
 
 ### ② CONTEXTO — lo que MaKo necesita saber
 Lo que la IA va a usar para trabajar en esa tab. **Nunca se le pide al usuario

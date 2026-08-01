@@ -53,12 +53,23 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   setting: {
     key: 'setting',
     titulo: 'Dejemos tu setting listo',
+    // ORDEN: primero el VALOR (contexto → ensayo → lo que quedó armado) y al
+    // final la plomería aburrida (conectar canales, verificar, plantillas).
+    // Regla en .claude/skills/tab-onboarding. Cada canal va en 3 pasos
+    // separados: conectar → preparar → probar.
     pasos: [
-      { key: 'canales', label: 'Conectar y probar' },
       { key: 'contexto', label: 'Cómo conversás' },
       { key: 'voz', label: 'Tus audios' },
       { key: 'ensayo', label: 'Ensayo con MaKo' },
-      { key: 'aprobar', label: 'Aprobar y prender' },
+      { key: 'aprobar', label: 'Lo que quedó armado' },
+      // ── de acá en adelante, la plomería ──
+      { key: 'wa_no_oficial', label: 'WhatsApp de empresa' },
+      { key: 'wa_no_oficial_prueba', label: 'Probar tu WhatsApp' },
+      { key: 'wa_oficial', label: 'WhatsApp oficial (Meta)' },
+      { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla' },
+      { key: 'wa_oficial_prueba', label: 'Probar el oficial' },
+      { key: 'email_conectar', label: 'Email' },
+      { key: 'email_prueba', label: 'Probar el email' },
     ],
     // WhatsApp y Email NO tienen onboarding propio: su configuración (conectar y
     // probar el canal, la voz, las secuencias) se hace entera acá. Entrar a esas

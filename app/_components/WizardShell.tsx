@@ -29,6 +29,7 @@ export function WizardShell({
   puedeAvanzar, enUltimo, confirmLabel, pending = false,
   atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false, hideAtras = false,
   fullscreen = false, escenario, siguienteLabel = 'Siguiente →', extraFooter, adminBar, hideSiguiente = false,
+  embebido = false,
 }: {
   titulo: string;            // línea mono arriba (ej. "Nutrición manual · Juan")
   total: number; idx: number;
@@ -55,6 +56,13 @@ export function WizardShell({
   extraFooter?: ReactNode;
   /** Barra fija arriba del overlay fullscreen (ej. "Salir de la vista" del admin). */
   adminBar?: ReactNode;
+  /**
+   * Solo con `fullscreen`: renderiza la misma pieza DENTRO del layout (sin
+   * position:fixed), así el sidebar sigue visible y se puede salir a otra tab.
+   * Es lo que usa el onboarding de una TAB; el onboarding global no lo usa
+   * porque es bloqueante a propósito.
+   */
+  embebido?: boolean;
 }) {
   const dots = (
     <div style={{ display: 'flex', gap: 6 }}>
@@ -107,8 +115,16 @@ export function WizardShell({
   // pieza (por eso su borde y su radio los pone .mk-svc-aside), y así el cliente
   // reconoce la MISMA pantalla en los tres lugares.
   if (fullscreen) {
+    // `embebido`: MISMA pieza de 2 columnas, pero SIN position:fixed — vive
+    // dentro del main de la tab y por lo tanto NO tapa el sidebar. Solo el
+    // onboarding GLOBAL (bloqueante, alta del cliente) se come la pantalla; el
+    // onboarding de una tab tiene que dejar salir a cualquier otra parte de la
+    // app (ver .claude/skills/tab-onboarding).
+    const contenedor: CSSProperties = embebido
+      ? { flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto', background: 'var(--bg)', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' }
+      : { position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', overflowY: 'auto', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' };
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', overflowY: 'auto', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' }}>
+      <div style={contenedor}>
         {/* Barra del admin: por encima del overlay (que si no tapa el banner de
             impersonación), para poder salir de la vista sin terminar el wizard. */}
         {adminBar && <div style={{ flex: 'none', marginBottom: 14 }}>{adminBar}</div>}
