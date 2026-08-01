@@ -7,7 +7,7 @@
 //
 // Chatwoot no firma sus webhooks. Opcional: CHATWOOT_WEBHOOK_SECRET → exige
 // ?secret=… en la URL del webhook. Configurá la URL en Chatwoot:
-//   https://dashboard-marketing-six.vercel.app/api/webhooks/chatwoot
+//   https://makodigital.app/api/webhooks/chatwoot
 // =============================================================================
 
 import crypto from 'node:crypto';

@@ -25,6 +25,7 @@ import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { contactoIdPorTelefono, contactoEnInboxWA, getContactMessages } from './chatwoot';
 import { buscarReunionesAutomatico } from './auto-reuniones';
+import { APP_BASE_URL as APP_URL } from './app-url';
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
 
@@ -255,7 +256,6 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       // PlanBoard, y sus links van a /plan/agencia. Los clientes van a la base (todo.ts)
       // y sus links a /plan. Incluimos el link armado para que MaKo lo copie tal cual.
       const ws = await getWorkspaceActual();
-      const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
       const esDueno = ws === OWNER_WS;
       const rutaPlan = esDueno ? '/plan/agencia' : '/plan';
       const linkTarea = (id: string) => `${APP_URL}${rutaPlan}?tarea=${id}`;

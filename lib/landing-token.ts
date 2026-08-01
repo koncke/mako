@@ -28,6 +28,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { getSetting, setSetting } from './settings';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { upsertRouting, wsPorIdentificador } from './webhook-routing';
+import { APP_BASE_URL } from './app-url';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
@@ -153,13 +154,6 @@ export async function landingUltimoEvento(): Promise<LandingEstado> {
     return { recibio: false, ultima: null };
   }
 }
-
-// URL absoluta de la app para el snippet (mismo patrón que lib/resend.ts).
-const APP_BASE_URL = (
-  process.env.APP_BASE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  'https://dashboard-marketing-six.vercel.app'
-).replace(/\/+$/, '');
 
 /**
  * El <script> que el usuario copia y pega en su landing. Autocontenido, sin

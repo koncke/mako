@@ -19,9 +19,8 @@ import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
 import { agregarTareasPlanOwner, priorizarNuevasOwner } from '@/lib/plan-board';
 import { crearPropuesta } from '@/lib/plan-propuesta';
-
 // Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
-const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
 const PRIOS: Prioridad[] = ['alta', 'media', 'baja', 'futuro'];
 const prioOk = (p: unknown): Prioridad => (PRIOS.includes(p as Prioridad) ? (p as Prioridad) : 'media');
 

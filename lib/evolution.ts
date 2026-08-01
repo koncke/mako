@@ -11,6 +11,7 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { APP_BASE_URL } from '@/lib/app-url';
 
 // Workspace del request, ESTRICTO: si es null (admin de agencia sin impersonar)
 // cortamos — nunca operar sobre la instancia del dueño por un fallback silencioso.
@@ -22,9 +23,8 @@ async function wsEstricto(): Promise<number> {
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
-// URL base del dashboard para el webhook (Evolution → nuestra app). En prod es
-// el dominio de Vercel; en local el webhook no llega (se usa polling de estado).
-const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+// La URL base del dashboard para el webhook (Evolution → nuestra app) sale de
+// lib/app-url. En local el webhook no llega (se usa polling de estado).
 const WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET || '';
 
 export function evolutionConfigurado(): boolean {

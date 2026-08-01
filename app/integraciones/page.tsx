@@ -14,16 +14,10 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { cuotasProveedores } from '@/lib/ia-cuotas';
 import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
+import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-// Misma forma de armar la URL absoluta que lib/landing-token.ts y lib/evolution.ts.
-const APP_URL = (
-  process.env.APP_BASE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  'https://dashboard-marketing-six.vercel.app'
-).replace(/\/+$/, '');
 
 export default async function IntegracionesPage() {
   await requireRolWs([], { nav: 'integraciones' });

@@ -22,15 +22,10 @@ import { runWithWorkspace, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { listPlanBoard } from '@/lib/plan-board';
 import { listTareas, listCategorias } from '@/lib/todo';
 import { crearPropuesta } from '@/lib/plan-propuesta';
+import { APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-const APP_BASE_URL = (
-  process.env.APP_BASE_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  'https://dashboard-marketing-six.vercel.app'
-).replace(/\/+$/, '');
 
 const noAutorizado = () =>
   NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });

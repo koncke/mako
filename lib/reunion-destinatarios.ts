@@ -27,8 +27,7 @@ import { findLeadByContacto } from './leads';
 import { enviarAPersonaMaKo } from './mako-grupo';
 import { sendEmail } from './resend';
 import { crearPropuesta, type PropuestaTarea } from './plan-propuesta';
-
-const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+import { APP_BASE_URL as APP_URL } from './app-url';
 
 /** Una tarea que se le reparte a alguien (lo mínimo que viaja del modal al server). */
 export type TareaDeOtro = { titulo: string; detalle?: string; prioridad?: string; proyecto?: string };

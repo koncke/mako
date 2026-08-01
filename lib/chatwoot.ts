@@ -18,6 +18,7 @@ import 'server-only';
 import { credWs } from './credenciales';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import { upsertRouting, wsPorIdentificador } from './webhook-routing';
+import { APP_BASE_URL } from './app-url';
 
 type Cfg = { apiBase: string; token: string; inbox: number };
 
@@ -682,7 +683,6 @@ async function ensureTemplateSynced(c: Cfg, name: string): Promise<void> {
 // lib/evolution.ts (sinSecreto). Por eso acá también se recortan las URLs antes
 // de devolverlas: la UI solo usa `estado` y el secret jamás viaja al browser.
 
-const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
 const CW_WEBHOOK_SECRET = process.env.CHATWOOT_WEBHOOK_SECRET || '';
 
 function chatwootWebhookUrl(): string {

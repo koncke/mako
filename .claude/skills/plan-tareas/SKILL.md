@@ -81,12 +81,12 @@ prioridad (exagera, se encariña, no sabe priorizar).
 armarlo a mano. Pasá **la URL COMPLETA**, y si podés, abrila directamente.
 
 ```js
-const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
-const link = `${APP_URL}/plan/revisar/${id}`;   // ← esto es lo que se entrega
+import { APP_BASE_URL } from '@/lib/app-url';
+const link = `${APP_BASE_URL}/plan/revisar/${id}`;   // ← esto es lo que se entrega
 ```
 
-(Es el mismo `APP_URL` que usa `lib/mako-doer-acciones.ts` para los links de WhatsApp:
-mantené UNA sola forma de armarlo.)
+(`lib/app-url.ts` es la ÚNICA fuente de la URL base — la misma que usa
+`lib/mako-doer-acciones.ts` para los links de WhatsApp. Nunca la rearmes a mano.)
 
 Él contesta de a una, aplica, y recién ahí el Perro puntúa, describe los proyectos nuevos
 y arma las checklists. **No insertes nada más.**

@@ -13,6 +13,7 @@ import 'server-only';
 import crypto from 'node:crypto';
 import { credWs } from './credenciales';
 import { getSetting } from './settings';
+import { APP_BASE_URL } from './app-url';
 
 const API_BASE = 'https://api.resend.com';
 const ENDPOINT = `${API_BASE}/emails`;
@@ -68,8 +69,8 @@ export function displayNameDe(remitente: string): string {
 }
 
 // URL base del dashboard (para armar links absolutos en emails que salen del cron,
-// donde no hay request). Fallback al dominio de prod conocido.
-export const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+// donde no hay request). Se re-exporta porque históricamente vivía acá.
+export { APP_BASE_URL };
 
 // ── Unsubscribe (baja con token firmado) ──────────────────────────────────────
 // Token = HMAC corto sobre el lead_id con un secreto estable; evita que alguien

@@ -30,8 +30,7 @@ import { tzDeWorkspace } from './timezone';
 import { fechaHoraEnTz } from './date-utils';
 import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
-
-const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+import { APP_BASE_URL as APP_URL } from './app-url';
 
 /**
  * Marca que YA miramos esta grabación, sin importar si dejó tareas o no.
