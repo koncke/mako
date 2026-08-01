@@ -130,7 +130,7 @@ export function PanelAgencia({ cliente }: { cliente: string }) {
           boxShadow: '0 18px 44px rgba(23,21,17,.32)', padding: '10px 0', maxHeight: '70vh', overflowY: 'auto',
         }}>
           <div style={{ padding: '4px 14px 10px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, borderBottom: '1px solid var(--border)' }}>
-            Traé de <strong style={{ color: 'var(--ink)' }}>{cliente}</strong> solo el pedazo que quieras probar. Borrar se lleva lo que trajimos, no lo que hayas creado vos.
+            Traé a <strong style={{ color: 'var(--ink)' }}>{cliente}</strong> solo el pedazo de Mau que quieras probar. «Quitar» se lleva lo que trajimos, no lo que hayas creado vos.
           </div>
           {ambitos.map((a) => {
             const hecho = completados.includes(a.key);

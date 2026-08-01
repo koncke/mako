@@ -14,6 +14,7 @@ import { getSupabaseServer } from './supabase';
 import { getSetting, setSetting } from './settings';
 import { getUsuarioActual } from './auth';
 import { buscarUsuarioPorEmail } from './usuarios';
+import { getWorkspaceActual } from './workspace';
 
 // ── Perfil personal (por usuario) ─────────────────────────────────────────────
 export type Perfil = {
@@ -38,16 +39,44 @@ type PerfilExtra = Pick<Perfil, 'telefono' | 'cargo' | 'empresa' | 'web' | 'bio'
 const EXTRA_KEYS: Array<keyof PerfilExtra> = ['telefono', 'cargo', 'empresa', 'web', 'bio', 'timezone'];
 
 /** Perfil de la PERSONA logueada. Sesiones sin fila real (legacy/dev/maestra) → defaults. */
+/**
+ * De quién es el perfil que se está mirando. Normalmente, el de la persona
+ * logueada. Pero un admin de agencia VIENDO COMO cliente está parado adentro de
+ * esa cuenta: ahí el perfil que corresponde es el del cliente, no el suyo. Ver
+ * su propia foto adentro de la cuenta ajena hace dudar de dónde estás parado, y
+ * peor: editarla escribiría sobre su propio usuario creyendo tocar el del cliente.
+ */
+type FilaPerfil = { id: number; nombre: string | null; email: string; foto_url: string | null; perfil?: unknown };
+
+async function usuarioDelPerfil(): Promise<FilaPerfil | null> {
+  const sesion = await getUsuarioActual();
+  if (!sesion || !sesion.email) return null;
+
+  const propio = await buscarUsuarioPorEmail(sesion.email).catch(() => null);
+  if (sesion.rol !== 'admin') return propio;
+
+  // Admin: si está parado en un workspace que NO es el suyo, es una vista de
+  // cliente. El perfil pasa a ser el del admin de ESE workspace.
+  const ws = await getWorkspaceActual();
+  if (ws == null || ws === propio?.workspace_id) return propio;
+  try {
+    const { data } = await getSupabaseServer()
+      .from('usuarios').select('id, nombre, email, foto_url, perfil, workspace_id, rol_ws')
+      .eq('workspace_id', ws).order('id', { ascending: true }).limit(20);
+    const filas = (data ?? []) as Array<{ id: number; nombre: string | null; email: string; foto_url: string | null; perfil?: unknown; rol_ws?: string | null }>;
+    return filas.find((u) => u.rol_ws === 'admin') ?? filas[0] ?? propio;
+  } catch { return propio; }
+}
+
 export async function getPerfil(): Promise<Perfil> {
   const sesion = await getUsuarioActual();
   if (!sesion || !sesion.email) return { ...DEFAULT_PERFIL };
-  let u;
-  try { u = await buscarUsuarioPorEmail(sesion.email); } catch { u = null; }
+  const u = await usuarioDelPerfil();
   if (!u) return { ...DEFAULT_PERFIL, nombre: sesion.nombre || '', email: sesion.email };
   const extra = ((u as { perfil?: Partial<PerfilExtra> }).perfil ?? {}) as Partial<PerfilExtra>;
   return {
     ...DEFAULT_PERFIL,
-    nombre: u.nombre || sesion.nombre || '',
+    nombre: u.nombre || '',
     email: u.email,
     avatarUrl: u.foto_url ?? '',
     telefono: extra.telefono ?? '',
@@ -61,10 +90,10 @@ export async function getPerfil(): Promise<Perfil> {
 
 /** Guarda el perfil de la PERSONA logueada en su fila usuarios. No toca el email de login. */
 export async function setPerfil(patch: Partial<Perfil>): Promise<Perfil> {
-  const sesion = await getUsuarioActual();
-  if (!sesion || !sesion.email) return getPerfil(); // break-glass: sin fila, no-op
-  const u = await buscarUsuarioPorEmail(sesion.email);
-  if (!u) return getPerfil();
+  // Escribe sobre el MISMO usuario que se está mirando: viendo como cliente, se
+  // edita el perfil del cliente. Si no, se vería uno y se editaría otro.
+  const u = await usuarioDelPerfil();
+  if (!u) return getPerfil(); // break-glass: sin fila, no-op
 
   const cols: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.nombre !== undefined) cols.nombre = String(patch.nombre).trim();
