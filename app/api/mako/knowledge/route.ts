@@ -18,7 +18,7 @@
 import type { NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import {
-  listKnowledge, createKnowledge, updateKnowledge, deleteKnowledge, reindexKnowledge,
+  listKnowledgeAgencia, createKnowledge, updateKnowledge, deleteKnowledge, reindexKnowledge,
   setCursoActivo, cursoExiste,
 } from '@/lib/mako-knowledge';
 import { CURATED_CURSOS, getCuratedCurso } from '@/lib/mako-knowledge-seed';
@@ -37,7 +37,9 @@ export async function GET() {
   const no = await soloAgencia();
   if (no) return no;
   try {
-    const entries = await listKnowledge();
+    // La vista es solo-agencia: mostramos también el conocimiento curado del
+    // dueño (el mismo que el RAG ya sirve a todos), marcado como no editable.
+    const entries = await listKnowledgeAgencia();
     // Cursos curados listos para importar (con flag de si ya se bajaron a tierra).
     const curados = await Promise.all(
       CURATED_CURSOS.map(async (c) => ({

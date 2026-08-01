@@ -23,6 +23,9 @@ type Entry = {
   id: number; titulo: string; categoria: string | null; cuerpo: string;
   curso: string | null; autor: string | null; area: string; fuente: string;
   activo: boolean; estado: Estado; error: string | null; updated_at: string;
+  // Curado de la agencia (workspace del dueño): se ve y lo usa el RAG, pero no
+  // se edita desde otro workspace (las mutaciones fallan cerrado por scope).
+  esDelDueno?: boolean;
 };
 type Curado = { clave: string; curso: string; autor: string; area: string; descripcion: string; cantidad: number; importado: boolean };
 
@@ -62,7 +65,7 @@ function AreaBadge({ area: a }: { area: string }) {
   return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: c.bg, color: c.fg }}>{areaLabel(a)}</span>;
 }
 
-type Grupo = { curso: string | null; nombre: string; autor: string | null; area: string; entries: Entry[]; activas: number };
+type Grupo = { curso: string | null; nombre: string; autor: string | null; area: string; entries: Entry[]; activas: number; delDueno: boolean };
 
 export function ConocimientoView() {
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -111,7 +114,7 @@ export function ConocimientoView() {
     for (const e of entries) {
       const key = e.curso ?? '__suelto__';
       let g = map.get(key);
-      if (!g) { g = { curso: e.curso, nombre: e.curso ?? 'Conocimiento suelto', autor: e.autor, area: e.area, entries: [], activas: 0 }; map.set(key, g); }
+      if (!g) { g = { curso: e.curso, nombre: e.curso ?? 'Conocimiento suelto', autor: e.autor, area: e.area, entries: [], activas: 0, delDueno: !!e.esDelDueno }; map.set(key, g); }
       g.entries.push(e);
       if (e.activo) g.activas++;
       if (!g.autor && e.autor) g.autor = e.autor;
@@ -187,6 +190,10 @@ export function ConocimientoView() {
                           <span style={{ fontSize: 11, color: 'var(--faint)' }}>{open ? '▾' : '▸'}</span>
                           <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{g.nombre}</span>
                           <AreaBadge area={g.area} />
+                          {g.delDueno && (
+                            <span title="Curado de la agencia: MaKo ya lo usa en todos los workspaces. Se edita desde el workspace del dueño."
+                              style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--accent)', border: '1px solid var(--accent)' }}>de la agencia</span>
+                          )}
                           <span style={{ fontSize: 11.5, color: 'var(--faint)', fontFamily: MONO }}>{g.entries.length} {g.entries.length === 1 ? 'lección' : 'lecciones'} · {g.activas} activas</span>
                         </div>
                         {g.autor && <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4, fontFamily: MONO, paddingLeft: 20 }}>{g.autor}</div>}

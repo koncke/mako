@@ -74,6 +74,28 @@ export async function listKnowledge(): Promise<KnowledgeEntry[]> {
   return (data ?? []) as KnowledgeEntry[];
 }
 
+/**
+ * Listado para la vista /conocimiento (solo-agencia): el conocimiento del
+ * workspace actual MÁS el curado del dueño, que es el que el RAG ya sirve a
+ * todos (wsParaRag). Sin esto, un miembro de la agencia que trabaja desde SU
+ * workspace no veía NINGÚN curso de la casa — solo lo suyo.
+ *
+ * `esDelDueno` marca los que no son editables desde acá: las mutaciones van por
+ * getTenantDb y fallan cerrado (getById no los encuentra), así que el flag es
+ * para que la UI lo diga en vez de dejar que el usuario intente y falle.
+ */
+export async function listKnowledgeAgencia(): Promise<Array<KnowledgeEntry & { esDelDueno: boolean }>> {
+  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const { data, error } = await getSupabaseServer()
+    .from('mako_knowledge')
+    .select(`${COLS}, workspace_id`)
+    .in('workspace_id', await wsParaRag())
+    .order('updated_at', { ascending: false });
+  if (error) throw new Error(`listKnowledgeAgencia: ${error.message}`);
+  return ((data ?? []) as Array<KnowledgeEntry & { workspace_id: number }>)
+    .map((r) => ({ ...r, esDelDueno: r.workspace_id !== ws }));
+}
+
 export type NewKnowledge = { titulo: string; categoria?: string | null; cuerpo: string; curso?: string | null; autor?: string | null; area?: string; fuente?: string; activo?: boolean };
 
 export async function createKnowledge(input: NewKnowledge): Promise<KnowledgeEntry | null> {
