@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { PanelAgencia } from './PanelAgencia';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -44,8 +45,12 @@ export function ImpersonationBanner() {
       <span style={{ fontSize: 13.5 }}>
         Estás viendo el dashboard de <b style={{ fontWeight: 700 }}>{cliente}</b> como administrador.
       </span>
+      {/* Los controles de la agencia sobre este cliente: traer datos de Mau y
+          resetear. Van acá porque es la única barra presente en TODAS las
+          pantallas, incluido el onboarding bloqueante. */}
+      <div style={{ marginLeft: 'auto' }}><PanelAgencia cliente={cliente} /></div>
       <button type="button" onClick={salir} disabled={saliendo}
-        style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 11.5, letterSpacing: '.06em', textTransform: 'uppercase',
+        style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.06em', textTransform: 'uppercase',
           padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(243,240,231,.3)', background: 'transparent',
           color: '#F3F0E7', cursor: saliendo ? 'default' : 'pointer', opacity: saliendo ? 0.6 : 1 }}>
         {saliendo ? 'Saliendo…' : 'Salir de la vista'}

@@ -33,13 +33,16 @@ async function wsDePrueba(): Promise<number | null> {
   return ws;
 }
 
+/** El catálogo, para que el panel global lo liste sin duplicar los nombres. */
+const CATALOGO = (Object.keys(AMBITOS) as AmbitoKey[]).map((k) => ({ key: k, label: AMBITOS[k].label, nota: AMBITOS[k].nota ?? null }));
+
 export async function GET() {
   const ws = await wsDePrueba();
-  if (ws == null) return NextResponse.json({ ok: true, disponible: false, completados: [] });
+  if (ws == null) return NextResponse.json({ ok: true, disponible: false, completados: [], ambitos: [] });
   try {
-    return NextResponse.json({ ok: true, disponible: true, completados: await ambitosCompletados(ws) });
+    return NextResponse.json({ ok: true, disponible: true, ws, ambitos: CATALOGO, completados: await ambitosCompletados(ws) });
   } catch {
-    return NextResponse.json({ ok: true, disponible: true, completados: [] });
+    return NextResponse.json({ ok: true, disponible: true, ws, ambitos: CATALOGO, completados: [] });
   }
 }
 
@@ -50,6 +53,18 @@ export async function POST(req: Request) {
   }
   let body: { action?: string; ambito?: string };
   try { body = (await req.json()) as typeof body; } catch { body = {}; }
+
+  // Reset: vaciar el workspace entero. No lleva ámbito — se lleva todo.
+  if (body.action === 'reset') {
+    try {
+      const { resetearWorkspace } = await import('@/lib/reset-workspace');
+      const r = await resetearWorkspace(ws);
+      return NextResponse.json({ ok: true, ...r });
+    } catch (e) {
+      console.error(`[api:datos-mau] reset ws=${ws}: ${msg(e)}`);
+      return NextResponse.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  }
 
   const ambito = body.ambito as AmbitoKey;
   if (!ambito || !(ambito in AMBITOS)) {

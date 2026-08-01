@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// DashboardSetting — métricas del setting con gráficos (tab Dashboard de /setting)
+// DashboardChatAgent — métricas del setting con gráficos (tab Dashboard de /setting)
 // =============================================================================
 // Mismo sistema de charts del repo (recharts, patrón de app/marketing/ad-charts):
 // KPIs arriba, serie diaria de envíos/respuestas/aperturas (30 días), y la
@@ -9,7 +9,7 @@
 
 import { useMemo, type CSSProperties } from 'react';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
-import type { JugadaDto, Opcion } from './SettingApp';
+import type { JugadaDto, Opcion } from './ChatAgentApp';
 import type { PuntoSerie } from '@/lib/setting-metricas';
 
 const MONO = "'Geist Mono', monospace";
@@ -32,7 +32,7 @@ function Kpi({ label, valor, sub }: { label: string; valor: string; sub?: string
   );
 }
 
-export function DashboardSetting({ jugadas, serie, etiquetaEtapa }: {
+export function DashboardChatAgent({ jugadas, serie, etiquetaEtapa }: {
   jugadas: JugadaDto[];
   serie: PuntoSerie[];
   etiquetaEtapa: (key: string) => string;

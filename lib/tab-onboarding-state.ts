@@ -50,14 +50,41 @@ export type TabOnboardingDef = {
  * un `if` desparramado).
  */
 export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
+  // ── WhatsApp: conectar y probar los dos métodos ──
+  // Vive en su tab porque es donde el cliente llega buscando WhatsApp. Los
+  // mismos pasos aparecen dentro del Chat Agent cuando elige "configurar todo":
+  // no se repiten, se comparten (ver PASOS_COMPARTIDOS).
+  whatsapp: {
+    key: 'whatsapp',
+    titulo: 'Dejemos tu WhatsApp listo',
+    pasos: [
+      { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
+      { key: 'wa_no_oficial_prueba', label: 'Probar el envío' },
+      // Lo que NO bloquea, al final: se puede dejar para después.
+      { key: 'wa_oficial', label: 'WhatsApp oficial' },
+      { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla' },
+      { key: 'wa_oficial_prueba', label: 'Probar el oficial' },
+    ],
+  },
+
+  // ── Email: el canal de los que no contestan por WhatsApp ──
+  email: {
+    key: 'email',
+    titulo: 'Dejemos tu email listo',
+    pasos: [
+      { key: 'email_conectar', label: 'Tu email' },
+      { key: 'email_prueba', label: 'Probar el email' },
+    ],
+  },
+
+  // ── Chat Agent: la cabeza. Necesita al menos un canal vivo ──
+  // ORDEN (regla en .claude/skills/tab-onboarding): lo aburrido al final,
+  // EXCEPTO lo que bloquea. El WhatsApp de empresa sí bloquea: el paso de
+  // contexto lee las conversaciones reales de ese número, así que sin él no hay
+  // nada que leer.
   setting: {
     key: 'setting',
-    titulo: 'Dejemos tu setting listo',
-    // ORDEN (regla en .claude/skills/tab-onboarding): lo aburrido al final,
-    // EXCEPTO lo que bloquea. Acá el WhatsApp de empresa sí bloquea: el paso de
-    // contexto lee las conversaciones reales de ese número, así que sin él no
-    // hay nada que leer. El oficial y el email no bloquean nada → al final.
-    // Cada canal en 3 pasos separados: conectar → preparar → probar.
+    titulo: 'Dejemos tu Chat Agent listo',
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
       { key: 'wa_no_oficial_prueba', label: 'Probar el envío' },
@@ -65,20 +92,40 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'voz', label: 'Tus audios' },
       { key: 'ensayo', label: 'El ensayo' },
       { key: 'aprobar', label: 'Tus jugadas' },
-      // ── de acá en adelante, lo que NO bloquea: se puede dejar para después ──
       { key: 'wa_oficial', label: 'WhatsApp oficial' },
       { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla' },
       { key: 'wa_oficial_prueba', label: 'Probar el oficial' },
       { key: 'email_conectar', label: 'Tu email' },
       { key: 'email_prueba', label: 'Probar el email' },
     ],
-    // WhatsApp y Email NO tienen onboarding propio: su configuración (conectar y
-    // probar el canal, la voz, las secuencias) se hace entera acá. Entrar a esas
-    // tabs sin esto hecho manda a /setting — una puerta, no tres recorridos que
-    // piden lo mismo.
-    cubre: ['whatsapp', 'email'],
+    href: '/chat-agent',
   },
 };
+
+/**
+ * Los pasos que aparecen en más de un onboarding. Conectar el WhatsApp desde la
+ * tab WhatsApp tiene que contar también adentro del Chat Agent: es el MISMO
+ * número, no dos configuraciones. Por eso, además del estado por tab, cada paso
+ * hecho se anota en un registro compartido del workspace y al leer se cruzan
+ * los dos. Sin esto, el cliente escanearía el mismo QR dos veces.
+ */
+const KEY_PASOS_COMPARTIDOS = 'onboarding.tab.pasos';
+
+async function pasosCompartidos(): Promise<Record<string, string>> {
+  try {
+    const raw = await getSetting(KEY_PASOS_COMPARTIDOS);
+    if (!raw) return {};
+    const p = JSON.parse(raw) as Record<string, string>;
+    return p && typeof p === 'object' ? p : {};
+  } catch { return {}; }
+}
+
+async function anotarPasoCompartido(paso: string, done: boolean): Promise<void> {
+  const actual = await pasosCompartidos();
+  if (done) actual[paso] = new Date().toISOString();
+  else delete actual[paso];
+  await setSetting(KEY_PASOS_COMPARTIDOS, JSON.stringify(actual));
+}
 
 export const tabOnboardingDef = (key: string): TabOnboardingDef | null => TAB_ONBOARDINGS[key] ?? null;
 
@@ -113,22 +160,31 @@ export async function getEstadoTab(tab: string): Promise<TabOnboardingState> {
   const def = tabOnboardingDef(tab);
   if (!def) return { v: 1, status: 'done', steps: {}, updated_at: new Date().toISOString() };
   const base = estadoInicial(def);
+  const compartidos = await pasosCompartidos();
+  let parsed: Partial<TabOnboardingState> = {};
   try {
     const raw = await getSetting(keyDe(tab));
-    if (!raw) return base;
-    const parsed = JSON.parse(raw) as Partial<TabOnboardingState>;
-    return {
-      ...base,
-      ...parsed,
-      v: 1,
-      status: parsed.status === 'done' ? 'done' : 'pendiente',
-      // Merge sobre el esqueleto: si se agregó un paso nuevo, aparece pendiente
-      // en vez de romper (y si se sacó uno, deja de contar).
-      steps: Object.fromEntries(def.pasos.map((p) => [p.key, parsed.steps?.[p.key] ?? { done: false }])),
-    };
-  } catch {
-    return base;
-  }
+    if (raw) parsed = JSON.parse(raw) as Partial<TabOnboardingState>;
+  } catch { /* estado ilegible: se arranca del esqueleto */ }
+
+  // Un paso vale si lo marcó ESTA tab o si ya lo hizo otra: es la misma
+  // configuración vista desde dos puertas.
+  const steps = Object.fromEntries(def.pasos.map((p) => {
+    const propio = parsed.steps?.[p.key];
+    if (propio?.done) return [p.key, propio];
+    const at = compartidos[p.key];
+    return [p.key, at ? { done: true, at } : { done: false }];
+  })) as TabOnboardingState['steps'];
+
+  const todo = def.pasos.every((p) => steps[p.key]?.done);
+  return {
+    ...base,
+    ...parsed,
+    v: 1,
+    // El status se RECALCULA: si otra tab completó lo que faltaba, esta ya está.
+    status: parsed.status === 'done' || todo ? 'done' : 'pendiente',
+    steps,
+  };
 }
 
 /** Marca un paso hecho (o deshecho). Cierra la tab cuando cae el último. */
@@ -136,6 +192,7 @@ export async function marcarPasoTab(tab: string, paso: string, done = true): Pro
   const def = tabOnboardingDef(tab);
   if (!def) throw new Error(`La tab "${tab}" no tiene onboarding definido.`);
   if (!def.pasos.some((p) => p.key === paso)) throw new Error(`Paso "${paso}" desconocido en la tab "${tab}".`);
+  await anotarPasoCompartido(paso, done);
   const s = await getEstadoTab(tab);
   s.steps[paso] = { done, at: new Date().toISOString() };
   s.status = def.pasos.every((p) => s.steps[p.key]?.done) ? 'done' : 'pendiente';
@@ -149,6 +206,11 @@ export async function reabrirOnboardingTab(tab: string): Promise<TabOnboardingSt
   const def = tabOnboardingDef(tab);
   if (!def) throw new Error(`La tab "${tab}" no tiene onboarding definido.`);
   const s = estadoInicial(def);
+  // También se sueltan los pasos compartidos de esta tab: rehacer el onboarding
+  // de WhatsApp tiene que volver a pedir el QR, no darlo por hecho.
+  const compartidos = await pasosCompartidos();
+  for (const p of def.pasos) delete compartidos[p.key];
+  await setSetting(KEY_PASOS_COMPARTIDOS, JSON.stringify(compartidos));
   await setSetting(keyDe(tab), JSON.stringify(s));
   return s;
 }

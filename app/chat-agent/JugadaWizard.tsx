@@ -11,7 +11,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import type { JugadaDto, Opcion, PasoJugada } from './SettingApp';
+import type { JugadaDto, Opcion, PasoJugada } from './ChatAgentApp';
 import type { Estrategia, Objetivo } from '@/lib/setting-estrategia';
 
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
@@ -21,7 +21,7 @@ const inp: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 
 const chipSel = (active: boolean): CSSProperties => ({ padding: '9px 15px', borderRadius: 11, cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), background: active ? 'var(--ink)' : 'var(--surface-2)', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
 
 async function jpost<T>(b: unknown): Promise<T> {
-  const r = await fetch('/api/setting/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+  const r = await fetch('/api/chat-agent/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
   return r.json() as Promise<T>;
 }
 

@@ -7,7 +7,7 @@
 // asunto, preheader y cuerpo. Navegable entre pasos, con el timing anotado.
 
 import { useState, type CSSProperties } from 'react';
-import type { JugadaDto } from './SettingApp';
+import type { JugadaDto } from './ChatAgentApp';
 
 // Tolera {{nombre}} y {nombre} (los seeds viejos de email usan llave simple).
 function conVars(s: string): string {

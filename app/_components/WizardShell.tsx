@@ -87,7 +87,10 @@ export function WizardShell({
       <div style={{ fontSize: 12.5, color: 'var(--faint)', fontFamily: MONO, marginBottom: 8 }}>{titulo}</div>
       <h3 style={{ fontSize: 'clamp(20px,4vw,26px)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', fontFamily: SANS }}>{pregunta}</h3>
       {sub ? <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 18px', lineHeight: 1.55 }}>{sub}</p> : <div style={{ height: 12 }} />}
-      <div style={{ maxWidth: 480, margin: '0 auto' }}>{children}</div>
+      {/* Columna con aire: los pasos apilan acción + atajos + contexto, y sin
+          gap quedaban pegados uno contra otro (un botón besando la caja de
+          abajo). El gap va acá y no en cada paso para que nunca se olvide. */}
+      <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>{children}</div>
       {error && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{error}</div>}
     </div>
   );
@@ -120,8 +123,11 @@ export function WizardShell({
     // onboarding GLOBAL (bloqueante, alta del cliente) se come la pantalla; el
     // onboarding de una tab tiene que dejar salir a cualquier otra parte de la
     // app (ver .claude/skills/tab-onboarding).
+    // `minHeight` y no `height`: con `flex: 1` el flex-basis queda en 0% y anula
+    // cualquier `height`, así que la pieza colapsaba contra el techo en vez de
+    // centrarse. Mismo bug que tenía el loader de la tab.
     const contenedor: CSSProperties = embebido
-      ? { flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto', background: 'var(--bg)', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' }
+      ? { flex: 1, minWidth: 0, minHeight: '100vh', overflowY: 'auto', background: 'var(--bg)', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' }
       : { position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', overflowY: 'auto', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' };
     return (
       <div style={contenedor}>

@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// SettingApp — la tab /setting: simulador de jugadas + dashboard
+// ChatAgentApp — la tab /setting: simulador de jugadas + dashboard
 // =============================================================================
 // Tres sub-tabs: WhatsApp (jugadas como CONTACTOS + chat simulado con MaKo-setter,
 // réplica del diseño de Plantillas en SuperAdmin), Email (bandeja simulada del
@@ -14,9 +14,9 @@ import { Dropdown } from '../components/Dropdown';
 import { JugadaWizard } from './JugadaWizard';
 import { SimuladorWhatsApp, emojiJugada } from './SimuladorWhatsApp';
 import { SimuladorEmail } from './SimuladorEmail';
-import { DashboardSetting } from './DashboardSetting';
+import { DashboardChatAgent } from './DashboardChatAgent';
 import { AudiosPanel } from './AudiosPanel';
-import { OnboardingSetting } from './OnboardingSetting';
+import { OnboardingChatAgent } from './OnboardingChatAgent';
 import { DatosDeMau } from '@/app/_components/DatosDeMau';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasJugada, PuntoSerie } from '@/lib/setting-metricas';
@@ -46,7 +46,7 @@ const ETAPA_LABEL: Record<string, string> = {
 
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
 
-export function SettingApp() {
+export function ChatAgentApp() {
   const [jugadas, setJugadas] = useState<JugadaDto[] | null>(null);
   const [serie, setSerie] = useState<PuntoSerie[]>([]);
   const [rolAdmin, setRolAdmin] = useState(false);
@@ -63,10 +63,15 @@ export function SettingApp() {
   // Onboarding de la tab (regla: toda tab tiene onboarding). null = todavía no
   // sabemos; true = arranca en el recorrido; false = la tab normal.
   const [enOnboarding, setEnOnboarding] = useState<boolean | null>(null);
+  // Qué recorrido eligió arrancar. Si nunca configuró NADA, primero se le
+  // pregunta en vez de meterlo de prepo en los 11 pasos: el que solo quiere
+  // WhatsApp no tiene por qué pasar por el email.
+  const [plan, setPlan] = useState<'setting' | 'whatsapp' | 'email' | null>(null);
+  const [preguntarPlan, setPreguntarPlan] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch('/api/setting/jugadas', { cache: 'no-store' });
+      const r = await fetch('/api/chat-agent/jugadas', { cache: 'no-store' });
       const j = await r.json();
       if (!j.ok) { setError(j.error || 'No se pudieron cargar las jugadas.'); setJugadas([]); return; }
       const lista = j.jugadas as JugadaDto[];
@@ -80,15 +85,21 @@ export function SettingApp() {
     }
     // Biblioteca de audios (admin-only: el 403 del setter deja la lista vacía).
     try {
-      const ra = await fetch('/api/setting/audios', { cache: 'no-store' });
+      const ra = await fetch('/api/chat-agent/audios', { cache: 'no-store' });
       const ja = await ra.json();
       if (ja.ok) setAudios(ja.audios ?? []);
     } catch { /* sin audios */ }
     // ¿La tab arranca en su onboarding? (403 del setter → la ve normal)
     try {
-      const ro = await fetch('/api/setting/onboarding', { cache: 'no-store' });
+      const ro = await fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' });
       const jo = await ro.json();
-      setEnOnboarding(jo.ok ? jo.estado?.status !== 'done' : false);
+      const falta = jo.ok ? jo.estado?.status !== 'done' : false;
+      setEnOnboarding(falta);
+      // Arrancar de cero = ni un paso hecho en todo el recorrido. Ahí se
+      // pregunta. Si ya venía a mitad de camino, se sigue donde quedó.
+      const pasos = (jo?.estado?.steps ?? {}) as Record<string, { done?: boolean }>;
+      const ningunoHecho = Object.values(pasos).every((x) => !x?.done);
+      setPreguntarPlan(falta && ningunoHecho);
     } catch { setEnOnboarding(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -105,11 +116,16 @@ export function SettingApp() {
   // Mientras no sabemos si va el onboarding o la tab, NO se pinta ninguna de
   // las dos: mostrar la tab y reemplazarla medio segundo después por el wizard
   // es un flash que hace sentir la app rota.
+  // OJO con `height: '100vh'` en este main: es hijo de una columna flex, y
+  // `flex: 1` implica `flex-basis: 0%`, que ANULA el height. El main colapsa a
+  // la altura del spinner y el `alignItems: center` no tiene nada que centrar →
+  // loader diminuto pegado al techo. Va `minHeight`, que sí manda.
   if (enOnboarding === null) {
     return (
-      <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
         <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
-        <span style={{ width: 30, height: 30, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+        <span style={{ width: 34, height: 34, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+        <span style={{ fontSize: 14, color: 'var(--dim)' }}>Abriendo tu Chat Agent…</span>
       </main>
     );
   }
@@ -117,8 +133,17 @@ export function SettingApp() {
   // El onboarding cubre la tab (mismo chrome que el global, pero embebido: el
   // sidebar sigue visible). Al terminarlo —o al elegir "lo configuro después"—
   // se entra a la vista normal.
+  if (enOnboarding && preguntarPlan && plan === null) {
+    return <ElegirRecorrido onElegir={(k) => { setPlan(k); setPreguntarPlan(false); }} onSaltar={() => setEnOnboarding(false)} />;
+  }
+
   if (enOnboarding) {
-    return <OnboardingSetting onListo={() => { setEnOnboarding(false); void load(); }} />;
+    return (
+      <OnboardingChatAgent
+        tab={plan ?? 'setting'}
+        onListo={() => { setEnOnboarding(false); setPlan(null); void load(); }}
+      />
+    );
   }
 
   return (
@@ -127,7 +152,7 @@ export function SettingApp() {
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: '0 0 7px', color: 'var(--ink)' }}>
             <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="tag" size={34} /></span>
-            Setting
+            Chat Agent
           </h1>
           <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>
             Tus <strong style={{ color: 'var(--ink)' }}>jugadas</strong>: probalas como el lead, chateá con MaKo-setter y mirá cómo rinden.
@@ -192,7 +217,7 @@ export function SettingApp() {
           )}
 
           {vista === 'dashboard' && (
-            <DashboardSetting jugadas={jugadas} serie={serie} etiquetaEtapa={etiquetaEtapa} />
+            <DashboardChatAgent jugadas={jugadas} serie={serie} etiquetaEtapa={etiquetaEtapa} />
           )}
         </>
       )}
@@ -208,6 +233,52 @@ export function SettingApp() {
           onDone={() => { setWizard(null); void load(); }}
         />
       )}
+    </main>
+  );
+}
+
+/**
+ * Primera pantalla del Chat Agent cuando no hay NADA configurado: en vez de
+ * empujar los 11 pasos, se pregunta por dónde arrancar. Cada opción es un
+ * recorrido real (lib/tab-onboarding-state.ts) y comparten los pasos, así que
+ * elegir "solo WhatsApp" hoy y "todo" mañana no repite lo ya hecho.
+ */
+function ElegirRecorrido({ onElegir, onSaltar }: {
+  onElegir: (k: 'setting' | 'whatsapp' | 'email') => void;
+  onSaltar: () => void;
+}) {
+  const OPCIONES: Array<{ k: 'setting' | 'whatsapp' | 'email'; icono: string; titulo: string; sub: string; detalle: string }> = [
+    { k: 'setting', icono: '✦', titulo: 'Todo', sub: 'El recorrido completo', detalle: 'Los dos WhatsApp, el email, tu forma de escribir, tus audios y las jugadas armadas.' },
+    { k: 'whatsapp', icono: '💬', titulo: 'Solo WhatsApp', sub: 'Conectar y probar el canal', detalle: 'Tu número de empresa, la prueba de que llega, y el oficial si lo querés.' },
+    { k: 'email', icono: '✉️', titulo: 'Solo Email', sub: 'Conectar y probar la casilla', detalle: 'Tu dominio y un correo de prueba a tu casilla.' },
+  ];
+  return (
+    <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
+      <div style={{ width: '100%', maxWidth: 560, textAlign: 'center' }}>
+        <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 12 }}>✦ Chat Agent</div>
+        <h1 style={{ fontWeight: 700, fontSize: 30, letterSpacing: '-0.025em', color: 'var(--ink)', margin: '0 0 8px' }}>¿Por dónde arrancamos?</h1>
+        <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 26px', lineHeight: 1.55 }}>Podés configurar todo de una o ir por canal. Lo que hagas ahora no se vuelve a pedir después.</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {OPCIONES.map((o) => (
+            <button key={o.k} type="button" onClick={() => onElegir(o.k)}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '15px 17px', borderRadius: 14, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>
+              <span aria-hidden style={{ flex: 'none', width: 40, height: 40, borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{o.icono}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 15.5, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{o.titulo}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: 'var(--faint)', marginTop: 2 }}>{o.sub}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.5 }}>{o.detalle}</span>
+              </span>
+              <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 15 }}>→</span>
+            </button>
+          ))}
+        </div>
+
+        <button type="button" onClick={onSaltar}
+          style={{ marginTop: 20, background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>
+          Lo configuro después
+        </button>
+      </div>
     </main>
   );
 }

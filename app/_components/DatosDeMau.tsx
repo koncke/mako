@@ -42,7 +42,12 @@ export function DatosDeMau({ ambito, onListo, variante = 'inline' }: Props) {
       const j = await (await fetch('/api/datos-mau', { cache: 'no-store' })).json();
       setDisponible(!!j.disponible);
       setCompletado(Array.isArray(j.completados) && j.completados.includes(ambito));
-    } catch { setDisponible(false); }
+    } catch (e) {
+      // Sin este rastro, "la API dijo que no" y "nunca se llamó" se ven igual:
+      // el componente desaparece en silencio y el bug parece de permisos.
+      console.warn('[datos-mau] no se pudo consultar', e);
+      setDisponible(false);
+    }
   }, [ambito]);
 
   useEffect(() => { void mirar(); }, [mirar]);

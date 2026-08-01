@@ -31,6 +31,7 @@ import { PersonaView } from './PersonaView';
 import { PersonalidadView } from './PersonalidadView';
 import { MatrizView } from './MatrizView';
 import { WizardShell, wizardInput } from '../_components/WizardShell';
+import { DatosDeMau } from '../_components/DatosDeMau';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
 import { GuardianIcon } from '../plan/board/GuardianIcon';
@@ -133,6 +134,18 @@ type Pantalla = {
 };
 
 // =============================================================================
+// Qué trae "los datos de Mau" en cada paso del alta. El botón grande de la
+// barra ("Completar como Mauricio") cierra el onboarding entero; este es el
+// acotado, para llenar SOLO el paso en el que estás y seguir el recorrido.
+const AMBITO_PASO: Record<string, string> = {
+  integraciones: 'integraciones', gemini: 'integraciones',
+  negocio: 'negocio', fase: 'negocio', tabs: 'negocio',
+  archivero: 'archivero',
+  entregable: 'creativos', avatares: 'creativos', persona: 'creativos',
+  personalidad: 'creativos', angulos: 'creativos',
+  funnel: 'funnel', plan: 'plan',
+};
+
 export function OnboardingWizard() {
   const [data, setData] = useState<WizardData | null>(null);
   const [errCarga, setErrCarga] = useState<string | null>(null);
@@ -539,6 +552,7 @@ export function OnboardingWizard() {
               style={{ marginLeft: p.servicio && servicioReq && !conectadas[p.servicio] ? 0 : 'auto', padding: '7px 13px', borderRadius: 9, border: 'none', background: '#171511', color: '#F3F0E7', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
               {pending ? 'Copiando…' : '⚡ Completar como Mauricio'}
             </button>
+            {AMBITO_PASO[p.paso] && <DatosDeMau ambito={AMBITO_PASO[p.paso]} onListo={() => window.location.reload()} />}
             <button type="button" onClick={async () => { await fetch('/api/admin/impersonate', { method: 'DELETE' }); window.location.href = '/admin'; }}
               style={{ padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
               Salir de la vista

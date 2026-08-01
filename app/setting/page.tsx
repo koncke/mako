@@ -1,14 +1,12 @@
 // =============================================================================
-// Setting — el cockpit del proceso de setting: jugadas con estrategia, prueba
-// en vivo y métricas. Spec: docs/superpowers/specs/2026-07-31-tab-setting-design.md
-// Sin gate de integración a propósito: las jugadas se diseñan ANTES de conectar
-// canales; los pasos de prueba/activación avisan qué falta.
+// /setting → /chat-agent
 // =============================================================================
+// La tab se llama Chat Agent desde el rename. Este redirect queda para que no
+// se rompan los links viejos: marcadores, avisos ya mandados por WhatsApp y
+// cualquier lugar donde todavía viva la ruta anterior.
 
-import { requireRolWs } from '@/lib/tab-access';
-import { SettingApp } from './SettingApp';
+import { redirect } from 'next/navigation';
 
-export default async function Page() {
-  await requireRolWs(['setter'], { nav: 'setting' });
-  return <SettingApp />;
+export default function Page() {
+  redirect('/chat-agent');
 }

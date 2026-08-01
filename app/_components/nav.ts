@@ -100,7 +100,9 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'chats', label: 'Chats', icon: 'chats', items: [
       // Setting = el cockpit del proceso (jugadas + métricas); WhatsApp/Email son los canales.
-      { key: 'setting', label: 'Setting', href: '/setting', icon: 'tag', rolesWs: ['setter'], match: starts('/setting') },
+      // La key sigue siendo 'setting': es la que está escrita en la base (estado
+      // del onboarding de la tab, capas). Lo que cambia es lo que se ve.
+      { key: 'setting', label: 'Chat Agent', href: '/chat-agent', icon: 'tag', rolesWs: ['setter'], match: starts('/chat-agent') },
       { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', badge: true, rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
       { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
       { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },

@@ -10,7 +10,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import type { AudioSetting, JugadaDto, Opcion } from './SettingApp';
+import type { AudioSetting, JugadaDto, Opcion } from './ChatAgentApp';
 import type { ModoJugada, Objetivo } from '@/lib/setting-estrategia';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
@@ -33,7 +33,7 @@ function Paso({ icono, titulo, detalle, tono = 'neutro' }: { icono: string; titu
 const Flecha = () => <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, margin: '2px 0' }}>↓</div>;
 
 async function api(body: unknown): Promise<{ ok: boolean; error?: string; enviadosWa?: number; enviadosEmail?: number; avisos?: string[] }> {
-  try { return await (await fetch('/api/setting/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false, error: 'sin conexión' }; }
+  try { return await (await fetch('/api/chat-agent/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false, error: 'sin conexión' }; }
 }
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
@@ -118,7 +118,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   async function sugerirCriterio() {
     setBusy('criterio'); setErr(null);
     try {
-      const r = await (await fetch('/api/setting/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'sugerir-criterio' }) })).json();
+      const r = await (await fetch('/api/chat-agent/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'sugerir-criterio' }) })).json();
       if (!r.ok) { setErr(r.error || 'MaKo no pudo deducir el criterio.'); return; }
       setCalifica((r.criterio?.califica ?? []).join('\n'));
       setDescalifica((r.criterio?.descalifica ?? []).join('\n'));

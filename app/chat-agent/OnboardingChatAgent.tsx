@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// OnboardingSetting — el recorrido que deja la tab Setting lista
+// OnboardingChatAgent — el recorrido que deja la tab Chat Agent lista
 // =============================================================================
 // Aplica la metodología de .claude/skills/tab-onboarding (Conectar → Contexto →
 // Ensayo) con el MISMO chrome que el onboarding global (WizardShell fullscreen +
@@ -63,47 +63,152 @@ const PREGUNTA: Record<PasoKey, { q: string; sub: string }> = {
 };
 
 // Contexto: va ABAJO del todo, después de la acción. Nunca entre el título y el
-// botón (nadie lee un párrafo antes de poder hacer algo).
-const AYUDA: Partial<Record<PasoKey, { titulo: string; puntos: string[]; ojo?: string }>> = {
+// botón (nadie lee un párrafo antes de poder hacer algo). Va en secciones
+// plegables: cerrado no estorba, y el que quiere entender abre la que le
+// importa en vez de comerse un muro de texto.
+type AyudaSeccion = { icono: string; titulo: string; puntos: string[] };
+type AyudaDef = {
+  titulo: string;
+  secciones: AyudaSeccion[];
+  /** Advertencia de verdad: lo que se PIERDE si se hace mal. No un consejo. */
+  advertencia?: { titulo: string; cuerpo: string[] };
+};
+
+const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
   wa_no_oficial: {
     titulo: '¿Por qué el Método NO Oficial?',
-    puntos: [
-      'A favor: el lead ve tu foto y tu nombre, podés mandar audios y archivos, y respondés lo que quieras sin plantillas.',
-      'El Oficial, en cambio, exige que cada mensaje de apertura lo apruebe Meta y no admite notas de voz.',
-      'Su límite: solo podés escribirle a quien ya te escribió alguna vez. Para tráfico frío hace falta el Oficial.',
-      'Cómo lo cuidamos: tope de mensajes por día, espera entre uno y otro, envío solo de 9 a 21, y a un lead caliente MaKo deja borrador en vez de mandar solo.',
+    secciones: [
+      {
+        icono: '✅', titulo: 'Lo que ganás',
+        puntos: [
+          'Escribís como escribís vos: sin plantillas, sin pedir permiso, sin esperar a que Meta apruebe nada.',
+          'Mandás notas de voz. Es el formato que más respuesta trae, y el Oficial directamente no lo permite.',
+          'El lead ve tu foto, tu nombre y tu estado: le está escribiendo una persona, no una marca.',
+          'Adjuntás lo que necesites — PDF, imagen, audio, ubicación — en la misma conversación.',
+          'Se conecta en dos minutos escaneando un QR: sin verificación de empresa, sin Business Manager, sin trámite.',
+          'No pagás por mensaje. El Oficial te cobra cada conversación que abrís.',
+        ],
+      },
+      {
+        icono: '🔒', titulo: 'Lo que el Oficial te exige a cambio',
+        puntos: [
+          'Cada mensaje de apertura tiene que ser una plantilla aprobada por Meta, y la revisión tarda de horas a días.',
+          'Si después querés cambiarle una coma a esa plantilla, vuelve a la cola de revisión.',
+          'No podés mandar notas de voz: solo texto, imagen y documento dentro de lo aprobado.',
+          'Necesitás un número que NO esté activo en la app de WhatsApp, verificación de empresa y un Business Manager en regla.',
+          'Se paga por conversación, con precio distinto según el país y según si es marketing, servicio o utilidad.',
+        ],
+      },
+      {
+        icono: '🚧', titulo: 'El límite honesto de este método',
+        puntos: [
+          'Solo le podés escribir a alguien que ya te escribió alguna vez. Si nunca te habló, no hay manera de abrir la conversación.',
+          'Para un lead frío — el que llenó un formulario de Meta, o una lista vieja que nunca te contactó — hace falta el Oficial.',
+          'Por eso los dos conviven: el Oficial abre la puerta con una plantilla y, apenas el lead responde, la charla sigue por acá.',
+        ],
+      },
+      {
+        icono: '🛡️', titulo: 'Cómo cuidamos tu número',
+        puntos: [
+          'Nunca le escribimos a alguien que no te escribió antes: es la conducta que más rápido termina en bloqueo.',
+          'Hay tope de envíos por día y un máximo por tanda, para que no salga una ráfaga de mensajes iguales.',
+          'Se respeta una espera mínima entre dos mensajes al mismo contacto, y una pausa entre mensaje y mensaje en general.',
+          'Ventana horaria: solo entre las 9 y las 21 de tu huso. De madrugada no sale nada.',
+          'Cada mensaje se arma distinto. Nada de copiar y pegar el mismo texto a doscientas personas.',
+          'Si el lead responde, la secuencia se corta sola: insistirle a quien ya contestó es la queja que termina en reporte.',
+          'Si a un mensaje le quedó un hueco sin completar — un [nombre], un [link] —, no sale y te avisamos.',
+          'Con un lead caliente MaKo te deja el borrador y te avisa, en vez de mandar por su cuenta.',
+        ],
+      },
     ],
-    ojo: 'Escaneá el número de la EMPRESA, no tu personal: es el número que va a hablar con tus leads.',
+    advertencia: {
+      titulo: 'Escaneá el número de la empresa, no el tuyo personal',
+      cuerpo: [
+        'Al escanear, ese número queda vinculado a la app: TODAS sus conversaciones — también las privadas — pasan a verse acá.',
+        'Tus leads van a tener ese número para siempre. El día que quieras separar lo laboral de lo personal, ya no vas a poder.',
+        'Y si WhatsApp llegara a restringir la cuenta, perdés ese número. Si es el personal, perdés también tus chats personales.',
+      ],
+    },
   },
   wa_no_oficial_prueba: {
     titulo: '¿Por qué te mando un código?',
-    puntos: ['Guardar la conexión no alcanza: recién cuando te llega un mensaje real sabemos que tus leads también lo van a recibir.'],
+    secciones: [{
+      icono: '📲', titulo: 'Prueba de vida',
+      puntos: [
+        'Guardar la conexión no alcanza: un número puede figurar vinculado y no entregar un solo mensaje.',
+        'Recién cuando te llega un mensaje real sabemos que a tus leads también les va a llegar.',
+      ],
+    }],
   },
   contexto: {
     titulo: '¿Qué busco en tus chats?',
-    puntos: [
-      'Tu tono: cómo saludás, si tuteás, qué muletillas usás.',
-      'Tus preguntas: con qué averiguás si alguien te sirve como cliente.',
-      'Tu forma de cerrar: cómo pasás de la charla a la reunión.',
-      'El patrón: cuántos mensajes te toma y en qué orden.',
+    secciones: [
+      {
+        icono: '🔎', titulo: 'Qué leo',
+        puntos: [
+          'Tu tono: cómo saludás, si tuteás, qué muletillas repetís.',
+          'Tus preguntas: con qué averiguás si alguien te sirve como cliente.',
+          'Tu forma de cerrar: cómo pasás de la charla a la reunión.',
+          'El patrón: cuántos mensajes te toma y en qué orden.',
+        ],
+      },
+      {
+        icono: '🔐', titulo: 'Qué NO hago',
+        puntos: [
+          'Solo leo las conversaciones que vos elegís, una por una.',
+          'Me quedo con tu forma de escribir, no con lo que dice cada cliente.',
+        ],
+      },
     ],
-    ojo: 'Solo leo las conversaciones que elijas. Me quedo con tu forma de escribir, no con lo que dice cada cliente.',
   },
   wa_oficial: {
-    titulo: '¿Cuándo lo vas a necesitar?',
-    puntos: [
-      'Para escribirle primero a alguien que nunca te escribió (el lead del formulario).',
-      'Es un número verificado: no lo pueden banear por escribir en frío.',
-      'A cambio, el primer mensaje tiene que ser una plantilla aprobada por Meta.',
+    titulo: '¿Por qué el Método Oficial?',
+    secciones: [
+      {
+        icono: '✅', titulo: 'Lo que ganás',
+        puntos: [
+          'Podés escribirle PRIMERO a alguien que nunca te escribió: el lead del formulario de Meta, la lista vieja, el contacto frío.',
+          'Es un número verificado por Meta: no lo bloquean por escribir en frío, que es justo lo que mata a un número común.',
+          'Aguanta volumen. Los límites suben a medida que tu calidad se mantiene alta.',
+          'Te da el tilde verde de empresa y el nombre comercial, con la confianza que eso agrega.',
+        ],
+      },
+      {
+        icono: '🔒', titulo: 'Lo que te exige a cambio',
+        puntos: [
+          'El primer mensaje tiene que ser una plantilla aprobada por Meta: se manda a revisión y se espera.',
+          'No admite notas de voz, que es tu formato más fuerte.',
+          'El número que uses NO puede estar activo en la app de WhatsApp: si lo usás a diario, tiene que ser otro.',
+          'Se paga por conversación abierta, con tarifa según el país.',
+        ],
+      },
+      {
+        icono: '🤝', titulo: 'Cómo se combinan los dos',
+        puntos: [
+          'El Oficial abre la puerta con la plantilla aprobada.',
+          'Apenas el lead responde, la conversación sigue por el NO oficial: ahí ya podés mandar audios y hablar suelto.',
+          'Podés saltear este paso por ahora. Con tu número de empresa alcanza para arrancar.',
+        ],
+      },
     ],
-    ojo: 'Podés saltearlo. Con tu número de empresa alcanza para arrancar.',
   },
   email_conectar: {
     titulo: '¿Por qué también email?',
-    puntos: [
-      'Al que no contesta por WhatsApp se le escribe por mail: no quema tu número.',
-      'Damos de alta tu dominio solos; vos copiás tres registros al DNS.',
-      'Mientras no esté verificado, los envíos quedan en modo simulado.',
+    secciones: [
+      {
+        icono: '✉️', titulo: 'Para qué sirve',
+        puntos: [
+          'Al que no contesta por WhatsApp se le escribe por mail: no le quema el número a nadie.',
+          'Es el canal de los rezagados y de las bases viejas, donde insistir por WhatsApp sería un riesgo.',
+        ],
+      },
+      {
+        icono: '⚙️', titulo: 'Qué hay que hacer',
+        puntos: [
+          'Damos de alta tu dominio nosotros; vos copiás tres registros al DNS.',
+          'Mientras no esté verificado, los envíos quedan en modo simulado: se ven acá pero no salen.',
+        ],
+      },
     ],
   },
 };
@@ -122,7 +227,7 @@ const btnDark: CSSProperties = { ...btn, border: 'none', background: 'var(--ink)
 const inp: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, outline: 'none' };
 const okBox: CSSProperties = { padding: '10px 13px', borderRadius: 10, border: '1px solid var(--good)', background: 'var(--good-bg)', color: 'var(--good)', fontSize: 13 };
 
-export function OnboardingSetting({ onListo }: { onListo: () => void }) {
+export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () => void; tab?: 'setting' | 'whatsapp' | 'email' }) {
   const [def, setDef] = useState<Def | null>(null);
   const [estado, setEstado] = useState<Estado | null>(null);
   const [idx, setIdx] = useState(0);
@@ -151,7 +256,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
 
   const cargar = useCallback(async () => {
     try {
-      const j = await (await fetch('/api/setting/onboarding', { cache: 'no-store' })).json();
+      const j = await (await fetch(`/api/chat-agent/onboarding?tab=${tab}`, { cache: 'no-store' })).json();
       if (!j.ok) { setErr(j.error || 'No se pudo cargar el onboarding.'); return; }
       setDef(j.def); setEstado(j.estado);
       // Retomar donde quedó: primer paso sin hacer.
@@ -166,7 +271,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
     if (def?.pasos[idx]?.key !== 'canales' || canales) return;
     void (async () => {
       try {
-        const j = await (await fetch('/api/setting/envio', { cache: 'no-store' })).json();
+        const j = await (await fetch('/api/chat-agent/envio', { cache: 'no-store' })).json();
         if (j.ok) setCanales({ oficialConectado: j.oficialConectado, evolutionConectado: j.evolutionConectado, envioHabilitado: j.envioHabilitado });
       } catch { /* sin datos */ }
     })();
@@ -184,9 +289,9 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
   async function marcarPaso() {
     setBusy(true); setErr(null);
     try {
-      const j = await (await fetch('/api/setting/onboarding', {
+      const j = await (await fetch('/api/chat-agent/onboarding', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'paso', paso: pasoKey }),
+        body: JSON.stringify({ action: 'paso', paso: pasoKey, tab }),
       })).json();
       if (!j.ok) { setErr(j.error || 'No se pudo guardar el avance.'); return; }
       setEstado(j.estado);
@@ -253,7 +358,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
   async function enviarCodigo() {
     setBusy(true); setErr(null);
     try {
-      const j = await (await fetch('/api/setting/onboarding/prueba', {
+      const j = await (await fetch('/api/chat-agent/onboarding/prueba', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'enviar' }),
       })).json();
       if (!j.ok) { setErr(j.error || 'No se pudo mandar el código.'); return; }
@@ -263,7 +368,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
   async function verificarCodigo() {
     setBusy(true); setErr(null);
     try {
-      const j = await (await fetch('/api/setting/onboarding/prueba', {
+      const j = await (await fetch('/api/chat-agent/onboarding/prueba', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verificar', codigo }),
       })).json();
       if (!j.ok) { setErr(j.error || 'El código no coincide.'); return; }
@@ -274,7 +379,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
   // ── Paso contexto: primero la lista de chats, después el análisis ──
   const cargarConvs = useCallback(async () => {
     try {
-      const j = await (await fetch('/api/setting/onboarding/conversaciones', { cache: 'no-store' })).json();
+      const j = await (await fetch('/api/chat-agent/onboarding/conversaciones', { cache: 'no-store' })).json();
       setConvs(j.ok ? (j.conversaciones ?? []) : []);
     } catch { setConvs([]); }
   }, []);
@@ -284,7 +389,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
     if (!elegidos.size) { setErr('Elegí al menos una conversación.'); return; }
     setBusy(true); setErr(null);
     try {
-      const j = await (await fetch('/api/setting/onboarding/contexto', {
+      const j = await (await fetch('/api/chat-agent/onboarding/contexto', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chats: [...elegidos] }),
       })).json();
@@ -297,7 +402,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
   const arrancarEnsayo = useCallback(async () => {
     setTyping({ lado: 'left' });
     try {
-      const j = await (await fetch('/api/setting/onboarding/ensayo', {
+      const j = await (await fetch('/api/chat-agent/onboarding/ensayo', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ historial: [] }),
       })).json();
       if (j.ok && j.mensaje) setMsgs([{ id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]);
@@ -311,7 +416,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
     setTyping({ lado: 'left' });
     try {
       const historial = conmigo.map((m) => ({ de: m.fromMe ? 'negocio' : 'lead', texto: m.texto ?? '' }));
-      const j = await (await fetch('/api/setting/onboarding/ensayo', {
+      const j = await (await fetch('/api/chat-agent/onboarding/ensayo', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ historial }),
       })).json();
       if (j.ok && j.mensaje) setMsgs([...conmigo, { id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]);
@@ -341,7 +446,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
     <WizardShell
       fullscreen
       embebido
-      titulo={def?.titulo ?? 'Setting'}
+      titulo={def?.titulo ?? 'Chat Agent'}
       total={def?.pasos.length ?? 5}
       idx={idx}
       pregunta={PREGUNTA[pasoKey]?.q ?? ''}
@@ -349,7 +454,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       error={err}
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
-      confirmLabel="Listo, entrar a Setting"
+      confirmLabel="Listo, entrar al Chat Agent"
       pending={busy}
       atrasLabel="Atrás"
       hideAtras={idx === 0}
@@ -358,7 +463,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       onConfirmar={() => void marcarPaso()}
       onClose={onListo}
       extraFooter={idx > 0 ? <button onClick={onListo} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Lo configuro después</button> : undefined}
-      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Setting" slides={slides} eyebrow="✦ Dejemos tu setting listo" />}
+      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chat Agent" slides={slides} eyebrow="✦ Dejemos tu Chat Agent listo" />}
     >
       {/* WHATSAPP NO OFICIAL — el QR vive ACÁ, no en otra tab */}
       {pasoKey === 'wa_no_oficial' && (
@@ -523,7 +628,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       {pasoKey === 'voz' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Grabá tus audios desde la sub-tab <strong style={{ color: 'var(--ink)' }}>🎙 Audios</strong> de Setting. Con uno alcanza para arrancar: el de bienvenida.
+            Grabá tus audios desde la sub-tab <strong style={{ color: 'var(--ink)' }}>🎙 Audios</strong> del Chat Agent. Con uno alcanza para arrancar: el de bienvenida.
           </div>
           <div style={{ padding: '13px 15px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.7 }}>
             <div style={{ fontWeight: 600, marginBottom: 6 }}>Guion del audio de bienvenida:</div>
@@ -555,7 +660,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       {pasoKey === 'aprobar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Con lo que ensayamos armé tus jugadas. Están <strong style={{ color: 'var(--ink)' }}>pausadas</strong>: entrá a Setting, escuchá cómo quedaron, probalas en tu teléfono y prendelas cuando estés listo.
+            Con lo que ensayamos armé tus jugadas. Están <strong style={{ color: 'var(--ink)' }}>pausadas</strong>: entrá al Chat Agent, escuchá cómo quedaron, probalas en tu teléfono y prendelas cuando estés listo.
           </div>
           <div style={okBox}>Nada sale a un lead hasta que vos prendas el «Envío real».</div>
         </div>
@@ -575,18 +680,57 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
 }
 
 /** El contexto del canal, DENTRO del paso: qué es, para qué sirve y qué cuidar. */
+/** Una sección del contexto: cerrada por default, se abre la que interese. */
+function AyudaSeccionCard({ s, abiertaDefault }: { s: AyudaSeccion; abiertaDefault: boolean }) {
+  const [abierta, setAbierta] = useState(abiertaDefault);
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      <button
+        type="button" onClick={() => setAbierta((a) => !a)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: "'Geist', sans-serif" }}
+      >
+        <span aria-hidden style={{ flex: 'none', width: 27, height: 27, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>{s.icono}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{s.titulo}</span>
+        <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 11, transform: abierta ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+      </button>
+      {abierta && (
+        <ul style={{ margin: 0, padding: '0 15px 13px 50px', display: 'flex', flexDirection: 'column', gap: 7, listStyle: 'none' }}>
+          {s.puntos.map((p, i) => (
+            <li key={i} style={{ position: 'relative', paddingLeft: 14, fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+              <span aria-hidden style={{ position: 'absolute', left: 0, top: 7, width: 5, height: 5, borderRadius: 999, background: 'var(--border-strong)' }} />
+              {p}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function Ayuda({ paso }: { paso: PasoKey }) {
   const a = AYUDA[paso];
   if (!a) return null;
   return (
-    <div style={{ padding: '13px 15px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>{a.titulo}</div>
-      <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {a.puntos.map((p, i) => <li key={i} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55 }}>{p}</li>)}
-      </ul>
-      {a.ojo && (
-        <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: 'var(--warn-bg)', border: '1px solid var(--warn)', color: 'var(--warn)', fontSize: 12.5, lineHeight: 1.55 }}>
-          ⚠ {a.ojo}
+    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 2 }}>{a.titulo}</div>
+
+      {/* La primera abierta: si están todas cerradas parece que no hay nada. */}
+      {a.secciones.map((s, i) => <AyudaSeccionCard key={s.titulo} s={s} abiertaDefault={i === 0} />)}
+
+      {a.advertencia && (
+        <div style={{ marginTop: 4, padding: '12px 14px', borderRadius: 12, background: 'var(--bad-bg)', border: '1px solid var(--bad)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+            <span aria-hidden style={{ fontSize: 14 }}>⚠️</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--bad)', letterSpacing: '-0.01em' }}>{a.advertencia.titulo}</span>
+          </div>
+          <ul style={{ margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6, listStyle: 'none' }}>
+            {a.advertencia.cuerpo.map((c, i) => (
+              <li key={i} style={{ position: 'relative', paddingLeft: 14, fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.6 }}>
+                <span aria-hidden style={{ position: 'absolute', left: 0, top: 7, width: 5, height: 5, borderRadius: 999, background: 'var(--bad)' }} />
+                {c}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

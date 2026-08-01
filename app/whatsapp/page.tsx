@@ -7,7 +7,8 @@
 
 import { redirect } from 'next/navigation';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
-import { onboardingRequeridoPara } from '@/lib/tab-onboarding-state';
+import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
+import { OnboardingCanalWhatsApp } from './OnboardingCanalWhatsApp';
 import { integracionConectada } from '@/lib/credenciales';
 import { PanelActivacion } from '../_components/PanelActivacion';
 import { tabActivacion } from '@/lib/tab-activacion';
@@ -24,10 +25,9 @@ export default async function WhatsAppPage() {
   const tabWa = tabActivacion('whatsapp');
   if (tabWa && !(await integracionConectada('whatsapp'))) return <PanelActivacion tab={tabWa} />;
   await guardOnboarding();
-  // Esta tab depende del onboarding de /setting (regla: toda tab tiene
-  // onboarding, y el de WhatsApp está cubierto por Setting — ver
-  // lib/tab-onboarding-state.ts). Sin eso hecho, el inbox no tiene qué mostrar.
-  const destino = await onboardingRequeridoPara('whatsapp');
-  if (destino) redirect(destino);
+  // WhatsApp tiene onboarding PROPIO (conectar y probar los dos métodos). Se
+  // renderiza acá mismo en vez de mandar a otra tab: los pasos se comparten con
+  // el Chat Agent, así que lo que se haga acá ya no se vuelve a pedir allá.
+  if (await onboardingTabPendiente('whatsapp')) return <OnboardingCanalWhatsApp />;
   return <WhatsAppApp />;
 }

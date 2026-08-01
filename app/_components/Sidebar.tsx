@@ -86,6 +86,7 @@ export function Sidebar() {
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
   const [impersonando, setImpersonando] = useState(false);
+  const [clienteNombre, setClienteNombre] = useState('');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -94,7 +95,6 @@ export function Sidebar() {
   const userTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { unreadTotal } = useNotifications();
 
-  const iniciales = perfilNombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
   const badgeFor = (item: NavItem) => (item.key === 'whatsapp' ? unreadTotal : item.key === 'crm' ? badge : 0);
 
   const desde = searchParams.get('desde');
@@ -124,6 +124,14 @@ export function Sidebar() {
     return () => { alive = false; };
   }, [pathname]);
 
+  // Viendo como cliente, la identidad de abajo es la DEL CLIENTE. Ver la foto y
+  // el nombre del admin adentro de la cuenta ajena rompe la ilusión y, peor,
+  // hace dudar de en qué workspace se está parado. La foto propia no se pisa
+  // con otra: se cae a las iniciales del cliente.
+  const nombreVisible = impersonando ? (clienteNombre || 'Cliente') : perfilNombre;
+  const avatarVisible = impersonando ? '' : perfilAvatar;
+  const iniciales = nombreVisible.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
+
   // Rol + impersonación de la sesión: deciden qué shell mostrar (admin vs cliente).
   useEffect(() => {
     let alive = true;
@@ -134,6 +142,7 @@ export function Sidebar() {
         setRolWs((j.rolWs as string) || '');
         setCapa((j.capa as string) || '');
         setImpersonando(Boolean(j.impersonando));
+        setClienteNombre((j.clienteNombre as string) || '');
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -306,16 +315,16 @@ export function Sidebar() {
           {!adminShell && puedeVer(MAKO_ITEM) && <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />}
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
             <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511', overflow: 'hidden' }}>
-              {perfilAvatar
+              {avatarVisible
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={perfilAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img src={avatarVisible} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : iniciales}
             </div>
             {open && (
               <>
                 <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--on-sidebar)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{perfilNombre}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 3 }}>Cuenta</div>
+                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--on-sidebar)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombreVisible}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 3 }}>{impersonando ? 'Cliente' : 'Cuenta'}</div>
                 </div>
                 <span style={{ color: 'var(--sidebar-text)', fontSize: 11, flex: 'none' }}>›</span>
               </>
@@ -346,7 +355,7 @@ export function Sidebar() {
           onMouseEnter={() => { if (userTimer.current) clearTimeout(userTimer.current); }}
           onMouseLeave={scheduleCloseUser}
           style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
-            {USER_NAV.filter((it) => (!it.adminOnly || rol === 'admin') && puedeVer(it)).map((it) => {
+            {USER_NAV.filter((it) => (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map((it) => {
               const on = it.match(pathname);
               return (
                 <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}

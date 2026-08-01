@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useVoiceRecorder, VoiceRecorderBar } from '../whatsapp/_shared/VoiceRecorder';
 import { IconMic, IconTrash } from '../whatsapp/_shared/composer-icons';
-import type { AudioSetting } from './SettingApp';
+import type { AudioSetting } from './ChatAgentApp';
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' };
 const inp: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, fontFamily: "'Geist', sans-serif", outline: 'none' };
@@ -51,7 +51,7 @@ export function AudiosPanel({ audios, onCambio }: { audios: AudioSetting[]; onCa
       const { blobToMp3 } = await import('../whatsapp/audio');
       const mp3 = await blobToMp3(pend);
       setFase('Subiendo y transcribiendo…');
-      const r = await fetch('/api/setting/audios', {
+      const r = await fetch('/api/chat-agent/audios', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titulo: titulo.trim() || 'Audio sin título', base64: await blobABase64(mp3), mime: 'audio/mpeg' }),
       });

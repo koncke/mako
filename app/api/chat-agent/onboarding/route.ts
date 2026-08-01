@@ -1,7 +1,9 @@
 // =============================================================================
-// API: onboarding de la tab Setting (regla: toda tab tiene onboarding)
+// API: onboarding de una tab (regla: toda tab tiene onboarding)
 // =============================================================================
-// GET  → { estado, def } — en qué paso quedó y cuáles son los pasos.
+// GET  ?tab=setting|whatsapp|email → { estado, def }: en qué paso quedó y
+//      cuáles son los pasos. El default es el Chat Agent, que es el recorrido
+//      completo; WhatsApp y Email piden solo su tramo.
 // POST → { action:'paso', paso, done? }   → marca un paso (cierra la tab en el último)
 //        { action:'reabrir' }             → rehacer el onboarding desde cero
 // Guard: admin del workspace (el onboarding configura envíos reales).
@@ -14,7 +16,9 @@ import { getEstadoTab, marcarPasoTab, reabrirOnboardingTab, tabOnboardingDef } f
 
 export const dynamic = 'force-dynamic';
 
-const TAB = 'setting';
+const TABS_VALIDAS = new Set(['setting', 'whatsapp', 'email']);
+/** El default es el recorrido completo del Chat Agent. */
+const tabDe = (v: string | null): string => (v && TABS_VALIDAS.has(v) ? v : 'setting');
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 async function guard(): Promise<Response | null> {
@@ -25,9 +29,10 @@ async function guard(): Promise<Response | null> {
   return null;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const g = await guard();
   if (g) return g;
+  const TAB = tabDe(new URL(req.url).searchParams.get('tab'));
   try {
     return Response.json({ ok: true, estado: await getEstadoTab(TAB), def: tabOnboardingDef(TAB) });
   } catch (e) {
@@ -39,8 +44,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const g = await guard();
   if (g) return g;
-  let body: { action?: string; paso?: unknown; done?: unknown };
+  let body: { action?: string; paso?: unknown; done?: unknown; tab?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+  const TAB = tabDe(typeof body.tab === 'string' ? body.tab : null);
 
   try {
     if (body.action === 'paso') {

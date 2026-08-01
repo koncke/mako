@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { JugadaPerfil } from './JugadaPerfil';
-import type { AudioSetting, JugadaDto, Opcion } from './SettingApp';
+import type { AudioSetting, JugadaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
 
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
@@ -119,7 +119,7 @@ export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, 
   async function pedirRespuesta(body: Record<string, unknown>, msgs: HiloMsg[]): Promise<{ respuesta?: string; transcript?: string } | null> {
     setTyping({ lado: 'left', autor: negocio || 'Tu negocio' });
     try {
-      const r = await fetch('/api/setting/simulador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const r = await fetch('/api/chat-agent/simulador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json();
       if (!j.ok) {
         setMensajes([...msgs, { id: `err-${++seq.current}`, fromMe: false, autor: 'Simulador', texto: `⚠ ${j.error || 'MaKo no pudo responder.'}`, fecha: new Date().toISOString() }]);
