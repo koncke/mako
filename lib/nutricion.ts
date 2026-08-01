@@ -1147,10 +1147,25 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
     });
   }
 
-  // 3) Aviso al dueño — el único que pidió Mauricio: "avisame si responden".
+  // 3) ¿Califica? (reunión 31/07: ninguna llamada con no calificados). Si hay
+  //    evidencia de descalificación, se marca el lead y se AVISA para cancelar
+  //    la reunión — cancelarla sola sería una acción externa irreversible.
+  let alertaDescalifica = '';
+  try {
+    const { evaluarCalificacion } = await import('@/lib/setting-simulador');
+    const ev = await evaluarCalificacion(jugada.id, [{ de: 'lead', texto: texto?.trim() || '' }]);
+    if (ev.califica === false) {
+      await supabase.from('leads').update({ calificado: false, updated_at: ahoraISO() }).eq('id', leadId);
+      const { logLeadEvent } = await import('@/lib/leads');
+      await logLeadEvent(leadId, 'Setting', `MaKo lo marcó NO calificado por la charla: ${ev.razon}`, 'MaKo');
+      alertaDescalifica = `\n\n⚠️ *No califica* (${ev.razon}). Lo marqué en el CRM. Si tiene reunión agendada, conviene cancelarla — te dejo la decisión a vos.`;
+    }
+  } catch { /* la calificación es un extra: nunca bloquea el aviso */ }
+
+  // 4) Aviso al dueño — el único que pidió Mauricio: "avisame si responden".
   const { emitirDelCatalogo } = await import('@/lib/avisos');
   const quien = lead?.nombre?.trim() || `lead ${leadId}`;
   await emitirDelCatalogo('wa-mensaje-entrante', {
-    texto: `💬 *${quien} respondió* a la jugada «${jugada.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${sugerida ? `\n\nTe dejé un borrador listo para aprobar:\n${sugerida.slice(0, 300)}` : ''}\n\n— MaKo`,
+    texto: `💬 *${quien} respondió* a la jugada «${jugada.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${sugerida ? `\n\nTe dejé un borrador listo para aprobar:\n${sugerida.slice(0, 300)}` : ''}${alertaDescalifica}\n\n— MaKo`,
   });
 }

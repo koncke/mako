@@ -84,10 +84,69 @@ Objetivo de la jugada: {{objetivo}}. Etapa del lead: {{etapa}}.
 Proponé 3 GANCHOS concretos (lead magnet, oferta puntual, motivo de re-contacto) que este negocio puede ofrecer YA — nada genérico y nada de inventar recursos que no existen: derivalos del perfil. Máximo 15 palabras cada uno.
 Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "..."]}`;
 
+export const SETTING_CRITERIO_TEMPLATE = `Sos MaKo deduciendo el CRITERIO DE CALIFICACIÓN de un negocio a partir de sus datos reales. El negocio: {{perfil}}.
+
+Esto es lo que pasó con los leads que ya fueron evaluados en su CRM (respuestas del formulario de agenda, si el dueño los marcó como calificados, y si cerraron):
+{{datos}}
+
+Deducí qué separa a un cliente ideal de uno que no sirve, y devolvelo como reglas que un setter pueda aplicar leyendo una conversación de WhatsApp.
+Reglas: basate SOLO en los patrones que ves en los datos y en el perfil del negocio — no inventes umbrales de facturación ni de tamaño que no aparezcan. Si los datos no alcanzan para una regla, no la escribas. Cada regla en una frase corta y verificable en un chat.
+Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"califica": ["...", "..."], "descalifica": ["...", "..."]}`;
+
 export const SETTING_PREGUNTAS_TEMPLATE = `Sos MaKo armando la cualificación por WhatsApp de una jugada de setting. El negocio: {{perfil}}.
 Objetivo: {{objetivo}}. Etapa del lead: {{etapa}}.
 Proponé 4 PREGUNTAS de cualificación cerradas y cortas (responderlas toma menos de 15 segundos), en el orden en que un setter las haría, que separen a un lead calificado de uno que no. Sin preguntas obvias ni invasivas.
 Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "...", "..."]}`;
+
+// ── Criterio de calificación: MaKo lo deduce de los datos reales ─────────────
+// En la reunión decidieron cancelar las llamadas de los no calificados, pero
+// NUNCA definieron el criterio: vive en la cabeza de Mauricio. Esto lo saca de
+// donde sí hay evidencia — los leads que el dueño YA marcó calificado/no, con
+// las respuestas de su formulario de agenda y el desenlace.
+
+export type MuestraCalificacion = {
+  calificado: boolean | null; cerro: boolean | null;
+  respuesta_facturacion: string | null; respuesta_colaboradores: string | null;
+  respuesta_objetivo: string | null; respuesta_inversion: string | null; respuesta_decisor: string | null;
+};
+
+/** Los leads ya evaluados del workspace, para que MaKo deduzca el patrón. */
+export async function muestraParaCriterio(limite = 60): Promise<MuestraCalificacion[]> {
+  const supabase = await getTenantDb();
+  const cols = 'calificado, cerro, respuesta_facturacion, respuesta_colaboradores, respuesta_objetivo, respuesta_inversion, respuesta_decisor';
+  const [evaluados, cerrados] = await Promise.all([
+    supabase.from('leads').select(cols).not('calificado', 'is', null).limit(limite),
+    // Los que cerraron son la evidencia más fuerte de "cliente ideal", aunque
+    // nadie los haya marcado a mano.
+    supabase.from('leads').select(cols).eq('cerro', true).limit(limite),
+  ]);
+  const filas = [...((evaluados.data ?? []) as MuestraCalificacion[]), ...((cerrados.data ?? []) as MuestraCalificacion[])];
+  // Dedup por combinación de respuestas + desenlace (sin id no hay clave mejor).
+  const vistos = new Set<string>();
+  return filas.filter((f) => {
+    const k = JSON.stringify(f);
+    if (vistos.has(k)) return false;
+    vistos.add(k);
+    return true;
+  });
+}
+
+/** Texto compacto de la muestra para el prompt (evita mandar JSON crudo enorme). */
+export function muestraATexto(filas: MuestraCalificacion[]): string {
+  if (!filas.length) return '(el CRM todavía no tiene leads marcados como calificados o cerrados)';
+  const linea = (f: MuestraCalificacion) => [
+    f.calificado === true ? 'CALIFICADO' : f.calificado === false ? 'NO CALIFICADO' : 'sin marcar',
+    f.cerro === true ? 'cerró' : f.cerro === false ? 'no cerró' : null,
+    f.respuesta_facturacion ? `factura: ${f.respuesta_facturacion}` : null,
+    f.respuesta_colaboradores ? `equipo: ${f.respuesta_colaboradores}` : null,
+    f.respuesta_inversion ? `inversión: ${f.respuesta_inversion}` : null,
+    f.respuesta_decisor ? `decisor: ${f.respuesta_decisor}` : null,
+    f.respuesta_objetivo ? `objetivo: ${String(f.respuesta_objetivo).slice(0, 90)}` : null,
+  ].filter(Boolean).join(' · ');
+  const si = filas.filter((f) => f.calificado === true).length;
+  const no = filas.filter((f) => f.calificado === false).length;
+  return `Resumen: ${si} calificados, ${no} no calificados, ${filas.filter((f) => f.cerro === true).length} cerraron.\n\n${filas.map((f) => `- ${linea(f)}`).join('\n')}`;
+}
 
 // ── Prueba en vivo ───────────────────────────────────────────────────────────
 

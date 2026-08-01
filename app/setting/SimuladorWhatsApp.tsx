@@ -16,7 +16,7 @@ import { JugadaPerfil } from './JugadaPerfil';
 import type { AudioSetting, JugadaDto, Opcion } from './SettingApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
 
-export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
+export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 export const emojiJugada = (j: JugadaDto): string => (j.estrategia ? EMOJI_OBJETIVO[j.estrategia.objetivo] : '⚑');
 
 // Variables de plantilla → lead de prueba (solo visual, espejo del motor).

@@ -14,10 +14,12 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import {
   getSettingData, guardarEstrategia, crearSecuenciaJugada, probarSecuencia,
-  SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE,
+  muestraParaCriterio, muestraATexto,
+  SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-jugadas';
-import { parseEstrategia, OBJETIVOS } from '@/lib/setting-estrategia';
+import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
 import { chatCheap } from '@/lib/ai-cheap';
+import { chatClaude } from '@/lib/anthropic';
 import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getFunnel } from '@/lib/leads';
@@ -92,6 +94,33 @@ export async function POST(req: NextRequest) {
       if (!etapa || !nombre) return Response.json({ ok: false, error: 'Faltan la etapa y el nombre de la jugada.' }, { status: 400 });
       const id = await crearSecuenciaJugada(etapa, nombre);
       return Response.json({ ok: true, secuenciaId: id });
+    }
+    if (body.action === 'sugerir-criterio') {
+      // MaKo deduce el criterio de calificación de los leads YA evaluados del
+      // CRM (respuestas del formulario + calificado + cierres). Propuesta para
+      // que el dueño corrija, no verdad revelada.
+      const filas = await muestraParaCriterio();
+      const perfil = await perfilNegocioTexto().catch(() => '');
+      const user = await renderPrompt('setting.criterio', SETTING_CRITERIO_TEMPLATE, {
+        perfil: perfil || '(sin perfil cargado)',
+        datos: muestraATexto(filas),
+      });
+      // Deducir un patrón de datos reales es ANÁLISIS → Claude, no la IA barata
+      // (Groq tampoco valida este JSON). Parseo tolerante: si viene con prosa
+      // alrededor, igual rescatamos el objeto.
+      const raw = await chatClaude(
+        'Sos MaKo. Devolvés EXCLUSIVAMENTE un objeto JSON {"califica":[...],"descalifica":[...]} con strings en español. Sin markdown ni texto alrededor.',
+        [{ role: 'user', content: user }],
+        { effort: 'medium', maxTokens: 900, feature: 'setting-criterio' },
+      );
+      let criterio = { califica: [] as string[], descalifica: [] as string[] };
+      try {
+        const limpio = raw.replace(/```(?:json)?/gi, '').trim();
+        const ini = limpio.indexOf('{');
+        const fin = limpio.lastIndexOf('}');
+        if (ini >= 0 && fin > ini) criterio = parseCriterio(JSON.parse(limpio.slice(ini, fin + 1)));
+      } catch { /* sin criterio: la UI lo dice */ }
+      return Response.json({ ok: true, criterio, muestra: filas.length });
     }
     if (body.action === 'sugerir-gancho' || body.action === 'sugerir-preguntas') {
       const [tpl, key] = body.action === 'sugerir-gancho'

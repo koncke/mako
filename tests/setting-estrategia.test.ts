@@ -20,9 +20,19 @@ test('estrategia: shape completa pasa y normaliza', () => {
   assert.equal(e?.lead_magnet_id, '7');                  // id del Entregable (string, tolera número)
 });
 
-test('estrategia: parciales rellenan defaults (modo = asistido)', () => {
+test('estrategia: parciales rellenan defaults (modo = asistido, criterio vacío)', () => {
   const e = parseEstrategia({ objetivo: 'agendar' });
-  assert.deepEqual(e, { objetivo: 'agendar', gancho: null, lead_magnet_id: null, preguntas: [], modo: 'asistido', notas: null, probada_at: null });
+  assert.deepEqual(e, {
+    objetivo: 'agendar', gancho: null, lead_magnet_id: null, preguntas: [],
+    criterio: { califica: [], descalifica: [] }, modo: 'asistido', notas: null, probada_at: null,
+  });
+});
+
+test('criterio: filtra basura y conserva las reglas reales', () => {
+  const e = parseEstrategia({ objetivo: 'cualificar', criterio: { califica: ['Tiene equipo', 42, '  '], descalifica: ['Recién arranca'] } });
+  assert.deepEqual(e?.criterio, { califica: ['Tiene equipo'], descalifica: ['Recién arranca'] });
+  // Criterio inválido → listas vacías, nunca rompe.
+  assert.deepEqual(parseEstrategia({ objetivo: 'cualificar', criterio: 'nada' })?.criterio, { califica: [], descalifica: [] });
 });
 
 test('estrategia: modo automatico se respeta, basura cae a asistido', () => {

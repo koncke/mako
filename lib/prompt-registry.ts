@@ -39,7 +39,7 @@ import {
   SCRIPT_VALORACION_USER_TEMPLATE,
 } from './ads-analyst';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
-import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE } from './setting-jugadas';
+import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-jugadas';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
@@ -360,6 +360,13 @@ export const REGISTRY: Group[] = [
         variables: [v('objetivo', 'objetivo de la jugada'), v('etapa', 'etapa del lead en el funnel'), v('perfil', 'perfil del negocio')], scope: 'static-only', sensitive: false,
         default: SETTING_PREGUNTAS_TEMPLATE,
         context: 'Cuatro preguntas cerradas y cortas, en orden de setter. No borres los slots ni el formato de salida (array JSON).',
+      },
+      {
+        key: 'setting.criterio', source: 'override',
+        label: 'Deducir el criterio de calificación (user)', kind: 'user', dynamic: true,
+        variables: [v('perfil', 'perfil del negocio'), v('datos', 'leads ya calificados/cerrados del CRM con sus respuestas')], scope: 'static-only', sensitive: false,
+        default: SETTING_CRITERIO_TEMPLATE,
+        context: 'MaKo deduce qué separa a un cliente ideal mirando los leads YA evaluados. No borres los slots {{perfil}}/{{datos}}, la orden de no inventar umbrales, ni el formato de salida.',
       },
       {
         key: 'setting.simulador', source: 'override',

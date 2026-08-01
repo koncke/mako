@@ -36,7 +36,7 @@ async function api(body: unknown): Promise<{ ok: boolean; error?: string; enviad
   try { return await (await fetch('/api/setting/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false, error: 'sin conexión' }; }
 }
 
-const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
+const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
 export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audios, onClose, onCambio, onWizard }: {
   jugada: JugadaDto;
@@ -53,6 +53,8 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   const [gancho, setGancho] = useState(est?.gancho ?? '');
   const [preguntas, setPreguntas] = useState((est?.preguntas ?? []).join('\n'));
   const [modo, setModo] = useState<ModoJugada>(est?.modo ?? 'asistido');
+  const [califica, setCalifica] = useState((est?.criterio?.califica ?? []).join('\n'));
+  const [descalifica, setDescalifica] = useState((est?.criterio?.descalifica ?? []).join('\n'));
   const [activa, setActiva] = useState(jugada.activa);
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -67,6 +69,10 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
       estrategia: {
         objetivo, gancho: gancho.trim() || null, lead_magnet_id: est?.lead_magnet_id ?? null,
         preguntas: preguntas.split('\n').map((p) => p.trim()).filter(Boolean),
+        criterio: {
+          califica: califica.split('\n').map((s) => s.trim()).filter(Boolean),
+          descalifica: descalifica.split('\n').map((s) => s.trim()).filter(Boolean),
+        },
         modo,
         notas: est?.notas ?? null, probada_at: est?.probada_at ?? null,
       },
@@ -103,6 +109,20 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
       )));
       const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: jugada.id, pasos }) })).json();
       if (r.ok) { flashOk(audioId ? 'Audio asignado ✓' : 'Vuelto a texto ✓'); onCambio(); } else setErr(r.error || 'No se pudo guardar el paso.');
+    } catch { setErr('Sin conexión — probá de nuevo.'); }
+    setBusy(null);
+  }
+
+  // MaKo deduce el criterio de los leads YA calificados del CRM. Es una
+  // propuesta para corregir: el criterio real vive en la cabeza del dueño.
+  async function sugerirCriterio() {
+    setBusy('criterio'); setErr(null);
+    try {
+      const r = await (await fetch('/api/setting/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'sugerir-criterio' }) })).json();
+      if (!r.ok) { setErr(r.error || 'MaKo no pudo deducir el criterio.'); return; }
+      setCalifica((r.criterio?.califica ?? []).join('\n'));
+      setDescalifica((r.criterio?.descalifica ?? []).join('\n'));
+      flashOk(`MaKo lo dedujo de ${r.muestra ?? 0} leads ya evaluados — revisalo y guardá`);
     } catch { setErr('Sin conexión — probá de nuevo.'); }
     setBusy(null);
   }
@@ -158,6 +178,26 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
             <div>
               <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Preguntas de cualificación — una por línea (el Setter y el simulador las usan en este orden):</div>
               <textarea value={preguntas} onChange={(e) => setPreguntas(e.target.value)} rows={5} placeholder={'¿Facturás más de …?\n¿Tenés equipo?'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--faint)' }}>Criterio de calificación — decide si la charla termina en llamada o en despedida:</span>
+                {rolAdmin && (
+                  <button onClick={() => void sugerirCriterio()} disabled={busy === 'criterio'} style={{ ...btnGhost, marginLeft: 'auto', padding: '5px 11px', fontSize: 11.5 }}>
+                    {busy === 'criterio' ? 'Deduciendo…' : '✨ Que MaKo lo deduzca del CRM'}
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11.5, color: 'var(--good)', fontWeight: 600, marginBottom: 4 }}>✓ Califica si…</div>
+                  <textarea value={califica} onChange={(e) => setCalifica(e.target.value)} rows={4} placeholder={'Tiene equipo a cargo\nQuiere escalar sin depender de él'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11.5, color: 'var(--bad)', fontWeight: 600, marginBottom: 4 }}>✕ No califica si…</div>
+                  <textarea value={descalifica} onChange={(e) => setDescalifica(e.target.value)} rows={4} placeholder={'Recién arranca, sin facturación\nBusca empleo, no consultoría'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
+                </div>
+              </div>
             </div>
             <div>
               <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Cuando el lead responde:</div>
