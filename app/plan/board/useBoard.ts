@@ -56,7 +56,13 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const create = async (title: string, priority: Prio, labelsIn?: string[], meta?: { origen?: Actor; fuente?: Fuente; altaText?: string; detalle?: string }): Promise<BoardTask | null> => {
     const v = title.trim(); if (!v) return null;
     const maxN = tasks.reduce((m, t) => Math.max(m, t.num), 0);
-    const labels0 = labelsIn && labelsIn.length ? labelsIn : (repo.labelMode === 'single' && labels[0] ? [labels[0].id] : []);
+    // `labelsIn` undefined = "no me dijeron proyecto" → hereda el primero (alta manual
+    // dentro de un tablero de un solo proyecto). `labelsIn` = [] es DISTINTO: es "esta
+    // tarea NO va a ningún proyecto", y hay que respetarlo. Sin esa diferencia, toda
+    // tarea que la IA dejó sin proyecto se apilaba en el primero de la lista — por eso
+    // terminaba TODO dentro de «Setup inicial de Maco», incluidas tareas de otras
+    // personas y de temas que no tenían nada que ver.
+    const labels0 = labelsIn ? labelsIn : (repo.labelMode === 'single' && labels[0] ? [labels[0].id] : []);
     // El emoji nace heredado del proyecto elegido (o 📌); editable después.
     const emoji0 = labels.find((l) => l.id === labels0[0])?.emoji || '📌';
     // origen + fuente + texto del alta: por default es una tarjeta del usuario, pero

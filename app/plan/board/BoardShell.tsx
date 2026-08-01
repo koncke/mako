@@ -288,12 +288,19 @@ export function BoardShell({ board, scope }: {
     if (tareasIn.length < 2) { repriorizando.current = false; return; }
     try {
       const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proyectos, tareas: tareasIn }) }).then((r) => r.json());
-      if (j.ok) {
+      // `ok:true` con listas vacías NO es éxito: es el Perro que no pudo puntuar (se le
+      // cortó la respuesta). Marcar esa firma como "ya corrida" la quemaba para toda la
+      // sesión: el foco y las prioridades se quedaban clavados y nadie se enteraba —
+      // exactamente lo que se veía como "las 3 prioridades no se actualizan solas".
+      const hubo = (j.tareas?.length ?? 0) + (j.proyectos?.length ?? 0) > 0;
+      if (j.ok && hubo) {
         board.applyGuardian(j.tareas || [], j.proyectos || []);
         showUsage(j.usage, 're-priorización del plan');
-        lastReprioSig.current = sigNow;
+        lastReprioSig.current = sigNow; // recién ACÁ se da por atendida
+      } else {
+        console.error('[board] el Perro no devolvió prioridades:', j.error ?? '(sin error explícito)');
       }
-    } catch { /* silencioso, es automático */ }
+    } catch (e) { console.error('[board] falló la re-priorización:', e instanceof Error ? e.message : String(e)); }
     repriorizando.current = false;
   };
   // Re-priorización: SOLO cuando el plan cambia DE VERDAD MIENTRAS lo usás (agregar/
@@ -461,7 +468,9 @@ export function BoardShell({ board, scope }: {
     for (const c of cands) {
       // el detalle va DENTRO del alta: si se escribiera después, el Perro server-side
       // podría leer la fila antes de que llegue y puntuar solo con el título.
-      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined, { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle });
+      // `[]` explícito, NO undefined: si la IA no le encontró proyecto, la tarea queda
+      // suelta y se ve como tal. Con undefined heredaba el primer proyecto del tablero.
+      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : [], { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle });
       if (!t) continue;
       ids.push(t.id);
     }

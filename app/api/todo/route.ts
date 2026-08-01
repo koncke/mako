@@ -12,9 +12,13 @@ import {
   listCategorias, crearCategoria, editarCategoria, borrarCategoria,
   type EstadoTarea, type Prioridad, type OrigenTarea, type ChecklistItem, type HistEntry,
 } from '@/lib/todo';
+import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// El Perro hace DOS llamadas de IA (puntuar + checklists) sobre varias tareas: con el
+// default se cortaba a la mitad y el board se quedaba esperando sin enterarse.
+export const maxDuration = 120;
 
 export async function GET() {
   try {
@@ -39,6 +43,17 @@ export async function POST(req: NextRequest) {
   const id = Number(body.id);
 
   try {
+    // El Perro Guardián para el board del CLIENTE. Antes esta acción no existía y el
+    // tablero del cliente no tenía forma de invocarlo: sus tareas entraban con el
+    // score que había adivinado la extracción, sin razón, sin detalle y sin checklist
+    // — que es justo lo que se veía en el tablero de Mauricio.
+    if (action === 'priorizar-nuevas') {
+      const ids = Array.isArray(body.ids) ? body.ids.map(Number).filter(Number.isFinite) : [];
+      if (!ids.length) return Response.json({ ok: false, error: 'sin ids' }, { status: 400 });
+      const contexto = typeof body.contexto === 'string' ? body.contexto : '';
+      const r = await priorizarNuevasCliente(ids, contexto);
+      return Response.json({ ok: true, n: r.n, patches: r.patches });
+    }
     if (action === 'crear') {
       const t = body.tarea as TareaBody | undefined;
       if (!t || !t.titulo) return Response.json({ ok: false, error: 'falta el título' }, { status: 400 });

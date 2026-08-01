@@ -458,8 +458,10 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           // Los proyectos nuevos se describen en la primera tanda nomás.
           await priorizarNuevasOwner(lote, i === 0 ? proyectosNuevos : [], nota).catch((e) => { console.error('[plan-propuesta] priorizar:', e instanceof Error ? e.message : String(e)); return null; });
         } else {
+          // Acá los patches se descartan a propósito: este camino (wizard de borradores)
+          // recarga el board después, no aplica parches en vivo como el tablero.
           await priorizarNuevasCliente(lote.map(Number).filter(Number.isFinite), nota)
-            .catch((e) => { console.error('[plan-propuesta] perro cliente:', e instanceof Error ? e.message : String(e)); return 0; });
+            .catch((e) => { console.error('[plan-propuesta] perro cliente:', e instanceof Error ? e.message : String(e)); return { n: 0, patches: [] }; });
         }
       }
     }

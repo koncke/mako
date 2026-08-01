@@ -9,7 +9,7 @@
 
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, prioFromScore, scoreFromPrio } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type GuardPatch, type Prio, prioFromScore, scoreFromPrio } from './board/types';
 import type { Tarea, Categoria } from '@/lib/todo';
 
 const toBoard = (t: Tarea): BoardTask => ({
@@ -26,7 +26,7 @@ const toBoard = (t: Tarea): BoardTask => ({
 });
 const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, detalle: c.detalle, historial: c.historial });
 
-async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; error?: string }> {
+async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; patches?: GuardPatch[]; error?: string }> {
   return fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -68,6 +68,20 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId }: { tareas: Ta
     },
     saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null } }); },
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
+    // El Perro server-side, igual que en el board del dueño. Sin esto, `usaServerPerro`
+    // era false y TODO lo que entraba por el tablero del cliente (reunión, archivo,
+    // alta manual) se quedaba con el score que adivinó la extracción: sin razón, sin
+    // detalle y sin checklist — y encima dependiendo de que dejara la pestaña abierta.
+    priorizarNuevas: async (ids, _proyectoIds, contexto) => {
+      if (demo) return null;
+      const j = await api({ action: 'priorizar-nuevas', ids: ids.map(Number), contexto: contexto ?? '' });
+      if (!j.ok) throw new Error(j.error || 'no se pudo priorizar');
+      const patches = (j.patches ?? []) as GuardPatch[];
+      // El conteo por columna sale de los propios patches (el board lo usa para el aviso).
+      const tareas: Record<Prio, number> = { alta: 0, media: 0, baja: 0, futuro: 0 };
+      for (const p of patches) if (p.priority) tareas[p.priority] += 1;
+      return { tareas, proyectos: 0, patches, proyectosPatch: [] };
+    },
   };
   const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo);
   // Scope del auto-load POR workspace: la preferencia del cliente X no se comparte con
