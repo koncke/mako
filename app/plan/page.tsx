@@ -7,10 +7,10 @@
 
 import { redirect } from 'next/navigation';
 import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/todo';
-import { seedTodoBoardSiVacio } from '@/lib/todo-seeds';
+import { seedTodoBoardSiVacio, autocompletarPorSenales } from '@/lib/todo-seeds';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, getWorkspace, estaImpersonando } from '@/lib/workspace';
+import { getWorkspaceActual, estaImpersonando } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
 
@@ -42,17 +42,20 @@ export default async function TodoPage() {
   try { tareas = await listTareas(); } catch { dbDown = true; }
   try { categorias = await listCategorias(); } catch { /* categorías arrancan vacías */ }
 
-  // G4: cliente nuevo con el board en blanco → sembrarle los 6 proyectos + las tareas
-  // de arranque (idempotente). Solo cuando NO hay ni tareas ni proyectos, para no
-  // re-sembrar si el cliente ya empezó su plan. Para Mauricio (slug 'mauricio') marca
-  // hechas las que ya tiene armadas.
+  // G4: cliente nuevo con el board en blanco → sembrarle su plan de arranque
+  // (idempotente). Solo cuando NO hay ni tareas ni proyectos, para no re-sembrar si
+  // ya empezó. El seed se personaliza solo: recorta por fase y canal del negocio y
+  // marca hecho lo que las señales ya dan por resuelto (lib/plan-senales.ts).
   if (!dbDown && categorias.length === 0 && tareas.length === 0) {
     try {
-      const wsId = await getWorkspaceActual();
-      const esMauricio = wsId != null && (await getWorkspace(wsId))?.slug === 'mauricio';
-      await seedTodoBoardSiVacio(esMauricio);
+      await seedTodoBoardSiVacio();
       [tareas, categorias] = await Promise.all([listTareas(), listCategorias()]);
     } catch (e) { console.error('[plan] seed board por defecto', e); }
+  } else if (!dbDown && tareas.length) {
+    // El board ya existe: cerrar solas las tarjetas del arranque cuyo trabajo ya
+    // está hecho (conectó Meta, cargó el funnel…). Sin candidatas no consulta nada.
+    try { if (await autocompletarPorSenales(tareas)) tareas = await listTareas(); }
+    catch (e) { console.error('[plan] autocompletar por señales', e); }
   }
 
   let demo = false;
