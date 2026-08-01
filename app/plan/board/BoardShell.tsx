@@ -118,7 +118,15 @@ export function BoardShell({ board, scope }: {
 
   // El guardián es dueño de la ubicación: la columna respeta la restricción
   // (Alta solo para el proyecto top / sin proyecto / emergencia).
-  const objetivoPrincipal = labels.length ? labels.slice().sort((a, b) => b.score - a.score)[0] : null;
+  //
+  // El Objetivo Principal es el proyecto de mayor score QUE TODAVÍA TIENE TRABAJO.
+  // Antes era, sin más, el de mayor score: cuando lo terminabas, el norte se quedaba
+  // clavado en un proyecto 100% hecho y la vista Prioridades se vaciaba en vez de
+  // pasar al siguiente. Si ya está TODO hecho, se muestra igual el de mayor score
+  // (para no dejar la card vacía), pero no hay nada que priorizar.
+  const porScore = labels.slice().sort((a, b) => b.score - a.score);
+  const tienePendientes = (id: string) => tasks.some((t) => t.progress < 100 && t.labels.includes(id));
+  const objetivoPrincipal = porScore.find((l) => tienePendientes(l.id)) ?? porScore[0] ?? null;
   const topProjectId = objetivoPrincipal?.id ?? null;
   // ── "Datos sin marcar" (feedback jul-19): deadline (opcional) + checklist (la ARMA
   // MaKo), en UN modal batch. Reemplaza al gauntlet card-by-card que auto-popeaba de a
@@ -343,11 +351,18 @@ export function BoardShell({ board, scope }: {
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
   // "En prioridad" = AUTOMÁTICO: las 3 tareas de mayor score del Objetivo Principal
-  // (no lo elige el usuario). Sin proyecto top, cae a las 3 de mayor score del plan.
-  const enPrio = tasks
-    .filter((t) => t.progress < 100 && (topProjectId ? t.labels.includes(topProjectId) : true))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, MAX_PRIORIDAD);
+  // (no lo elige el usuario). NUNCA se queda corta: si al proyecto top le quedan menos
+  // de 3 pendientes, se completa con lo mejor del resto del plan (por score del
+  // proyecto y después por score de la tarea). Antes, con el norte al 86%, la vista
+  // mostraba UNA sola tarjeta y el resto del plan quedaba invisible: el tablero decía
+  // "no hay nada más que hacer" con 20 tareas abiertas.
+  const scoreProy = (t: BoardTask) => Math.max(0, ...t.labels.map((id) => board.labelById(id)?.score ?? 0));
+  const pendientesTodas = tasks.filter((t) => t.progress < 100);
+  const delTop = topProjectId ? pendientesTodas.filter((t) => t.labels.includes(topProjectId)) : [];
+  const resto = pendientesTodas
+    .filter((t) => !topProjectId || !t.labels.includes(topProjectId))
+    .sort((a, b) => scoreProy(b) - scoreProy(a) || b.score - a.score);
+  const enPrio = [...delTop.sort((a, b) => b.score - a.score), ...resto].slice(0, MAX_PRIORIDAD);
   const prioAvg = enPrio.length ? Math.round(enPrio.reduce((s, t) => s + t.progress, 0) / enPrio.length) : 0;
   // agregado de proyectos (para el chip del header en la vista Proyectos)
   const projAgg = labels.map((l) => projProgress(tasks, l.id));
@@ -1003,12 +1018,18 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
           <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 Tareas prioritarias · {tasks.length}/{MAX_PRIORIDAD}</div>
           {tasks.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
-              <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>MaKo pone acá, solo, las {MAX_PRIORIDAD} tareas de mayor prioridad del Objetivo Principal. Todavía no hay ninguna.</div>
+              {/* Acá SOLO se llega con el plan entero terminado: la lista se completa con
+                  lo mejor del resto de los proyectos, así que si está vacía es que no
+                  queda ni una tarea abierta. Decirlo así y no "todavía no hay ninguna". */}
+              <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>No queda ninguna tarea abierta en todo el plan. Creá una nueva o sacá los pendientes de tu última reunión.</div>
             </div>
           )}
           {tasks.map((t, i) => {
             const clDone = t.checklist.filter((c) => c.done).length;
             const open = expand.has(t.id);
+            // Las tarjetas que NO son del Objetivo Principal entran para completar las 3:
+            // se dice de qué proyecto vienen, si no parecen puestas ahí porque sí.
+            const deOtro = objetivo && !t.labels.includes(objetivo.id) ? board.labelById(t.labels[0]) : null;
             return (
               <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
@@ -1018,6 +1039,10 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                   <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
                   <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
+                  {/* Sin repetir el emoji: el de la izquierda ya es el del proyecto. */}
+                  {deOtro && (
+                    <span title={`Entra para completar las ${MAX_PRIORIDAD}: viene de ${deOtro.name}`} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 9px', maxWidth: 210, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{deOtro.name}</span>
+                  )}
                   <span style={{ flex: 1 }} />
                   {(!t.deadline || t.checklist.length === 0) && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} size={16} />}
                   <ScoreBadge score={t.score} />
