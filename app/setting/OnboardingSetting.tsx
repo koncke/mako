@@ -19,12 +19,16 @@ import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 
-/** Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda. */
+/**
+ * Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda.
+ * Ocupa el ancho y respira: un spinner diminuto arriba a la izquierda no se lee
+ * como "la app está trabajando", se lee como un detalle perdido.
+ */
 function Cargando({ texto }: { texto: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--dim)', fontSize: 13 }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '34px 16px', color: 'var(--dim)', fontSize: 13.5, textAlign: 'center' }}>
       <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
-      <span style={{ width: 16, height: 16, border: '2px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+      <span style={{ width: 30, height: 30, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
       {texto}
     </div>
   );
@@ -44,13 +48,13 @@ type Conversacion = { chatJid: string; nombre: string | null; telefono: string |
 // en una línea — qué se busca, no cómo funciona. Todo lo demás va en la caja de
 // contexto, ABAJO de la acción, para no interrumpir.
 const PREGUNTA: Record<PasoKey, { q: string; sub: string }> = {
-  wa_no_oficial: { q: 'Tu WhatsApp', sub: 'El número desde el que ya le escribís a tus clientes.' },
+  wa_no_oficial: { q: 'Tu WhatsApp: Método NO Oficial', sub: 'El número desde el que ya le escribís a tus clientes.' },
   wa_no_oficial_prueba: { q: 'Probemos que llega', sub: 'Un código a tu teléfono. Si no llega, no está conectado.' },
   contexto: { q: 'Tu forma de escribir', sub: 'Leo tus chats para aprender tu tono, tus preguntas y cómo cerrás.' },
   voz: { q: 'Tus audios', sub: 'Tu voz abre la conversación. Te paso el guion y grabás.' },
   ensayo: { q: 'El ensayo', sub: 'Hago de lead y vos me respondés. De ahí salen tus mensajes.' },
   aprobar: { q: 'Tus jugadas', sub: 'Esto quedó armado con lo que ensayamos.' },
-  wa_oficial: { q: 'WhatsApp oficial', sub: 'Para escribirle primero a quien nunca te escribió. Opcional.' },
+  wa_oficial: { q: 'Tu WhatsApp: Método Oficial', sub: 'Para escribirle primero a quien nunca te escribió. Opcional.' },
   wa_oficial_plantilla: { q: 'Tu primera plantilla', sub: 'Meta aprueba los mensajes de apertura antes de dejarte usarlos.' },
   wa_oficial_prueba: { q: 'Probemos el oficial', sub: 'Que te llegue igual que le llega a un lead.' },
   email_conectar: { q: 'Tu email', sub: 'El canal para los que no contestan por WhatsApp.' },
@@ -61,13 +65,14 @@ const PREGUNTA: Record<PasoKey, { q: string; sub: string }> = {
 // botón (nadie lee un párrafo antes de poder hacer algo).
 const AYUDA: Partial<Record<PasoKey, { titulo: string; puntos: string[]; ojo?: string }>> = {
   wa_no_oficial: {
-    titulo: '¿Por qué este número?',
+    titulo: '¿Por qué el Método NO Oficial?',
     puntos: [
-      'El lead ve tu foto y tu nombre, no un número frío.',
-      'Sirve para conversar: responder, mandar audios, seguir el ida y vuelta.',
-      'Se conecta escaneando un QR, sin trámites con Meta.',
+      'A favor: el lead ve tu foto y tu nombre, podés mandar audios y archivos, y respondés lo que quieras sin plantillas.',
+      'El Oficial, en cambio, exige que cada mensaje de apertura lo apruebe Meta y no admite notas de voz.',
+      'Su límite: solo podés escribirle a quien ya te escribió alguna vez. Para tráfico frío hace falta el Oficial.',
+      'Cómo lo cuidamos: tope de mensajes por día, espera entre uno y otro, envío solo de 9 a 21, y a un lead caliente MaKo deja borrador en vez de mandar solo.',
     ],
-    ojo: 'Si usás este número también para lo personal, en el paso siguiente elegís qué conversaciones puedo leer — no toco el resto.',
+    ojo: 'Escaneá el número de la EMPRESA, no tu personal: es el número que va a hablar con tus leads.',
   },
   wa_no_oficial_prueba: {
     titulo: '¿Por qué te mando un código?',
@@ -116,6 +121,9 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
 
   // ── Paso canales ──
   const [canales, setCanales] = useState<{ oficialConectado: boolean; evolutionConectado: boolean; envioHabilitado: boolean } | null>(null);
+  // WhatsApp de empresa: el QR se genera y se escanea ACÁ, sin mandar a otra tab.
+  const [evo, setEvo] = useState<{ estado: string; numero: string | null } | null>(null);
+  const [qrEvo, setQrEvo] = useState<{ base64: string | null } | null>(null);
   const [codigo, setCodigo] = useState('');
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [verificado, setVerificado] = useState(false);
@@ -174,6 +182,60 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       setEstado(j.estado);
       if (j.estado.status === 'done') { onListo(); return; }
       setIdx((i) => Math.min((def?.pasos.length ?? 1) - 1, i + 1));
+    } finally { setBusy(false); }
+  }
+
+  // ── WhatsApp de empresa: estado, QR y detección automática del escaneo ──
+  const evoApi = useCallback(async (action: string) => {
+    const r = await fetch('/api/whatsapp/evolution', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+    return r.json() as Promise<{ ok: boolean; error?: string; estado?: string; numero?: string | null; qr?: { base64: string | null } }>;
+  }, []);
+
+  const pidiendoEvo = useRef(false);
+  useEffect(() => {
+    if (pasoKeyRef.current !== 'wa_no_oficial' || evo !== null || pidiendoEvo.current) return;
+    pidiendoEvo.current = true;
+    void (async () => {
+      try { const j = await evoApi('estado'); setEvo({ estado: j.estado ?? 'desconectado', numero: j.numero ?? null }); }
+      catch { setEvo({ estado: 'desconectado', numero: null }); }
+      finally { pidiendoEvo.current = false; }
+    })();
+  });
+
+  // Mientras hay un QR en pantalla, preguntamos solos si ya lo escaneó: el
+  // usuario no tiene que avisarnos con un botón.
+  useEffect(() => {
+    if (pasoKey !== 'wa_no_oficial' || !qrEvo || evo?.estado === 'conectado') return;
+    const t = setInterval(() => {
+      void (async () => {
+        try {
+          const j = await evoApi('estado');
+          if (j.ok && j.estado) {
+            setEvo({ estado: j.estado, numero: j.numero ?? null });
+            if (j.estado === 'conectado') setQrEvo(null);
+          }
+        } catch { /* reintenta */ }
+      })();
+    }, 3000);
+    return () => clearInterval(t);
+  }, [pasoKey, qrEvo, evo?.estado, evoApi]);
+
+  async function conectarEvo() {
+    setBusy(true); setErr(null);
+    try {
+      const j = await evoApi('conectar');
+      if (!j.ok) { setErr(j.error || 'No se pudo generar el código.'); return; }
+      if (j.estado) setEvo({ estado: j.estado, numero: j.numero ?? null });
+      if (j.qr) setQrEvo(j.qr);
+    } finally { setBusy(false); }
+  }
+
+  async function desconectarEvo() {
+    setBusy(true); setErr(null);
+    try {
+      const j = await evoApi('desconectar');
+      if (!j.ok) { setErr(j.error || 'No se pudo desconectar.'); return; }
+      setEvo({ estado: 'desconectado', numero: null }); setQrEvo(null);
     } finally { setBusy(false); }
   }
 
@@ -255,7 +317,7 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
     // email, plantillas) se puede completar después — trabar ahí pierde gente.
     if (pasoKey === 'contexto') return !!contexto?.leido || hecho('contexto');
     if (pasoKey === 'ensayo') return msgs.filter((m) => m.fromMe).length >= 2 || hecho('ensayo');
-    if (pasoKey === 'wa_no_oficial') return !!canales?.evolutionConectado || hecho('wa_no_oficial');
+    if (pasoKey === 'wa_no_oficial') return evo?.estado === 'conectado' || !!canales?.evolutionConectado || hecho('wa_no_oficial');
     if (pasoKey === 'wa_no_oficial_prueba') return verificado || hecho('wa_no_oficial_prueba');
     return true;
   })();
@@ -288,19 +350,31 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       extraFooter={idx > 0 ? <button onClick={onListo} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Lo configuro después</button> : undefined}
       escenario={<PanelMarketing servicioKey="whatsapp" nombre="Setting" slides={slides} eyebrow="✦ Dejemos tu setting listo" />}
     >
-      {/* WHATSAPP NO OFICIAL — conectar */}
+      {/* WHATSAPP NO OFICIAL — el QR vive ACÁ, no en otra tab */}
       {pasoKey === 'wa_no_oficial' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {canales?.evolutionConectado ? (
-            <div style={okBox}>✓ Ya está conectado. Seguí al siguiente paso para probarlo.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-                El QR se escanea desde la tab WhatsApp (ahí vive el conector). Abrila, escaneá, y volvé acá.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}>
+          {evo === null ? (
+            <Cargando texto="Viendo si ya está conectado…" />
+          ) : evo.estado === 'conectado' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%' }}>
+              <div style={{ ...okBox, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}>
+                ✓ Conectado{evo.numero ? <> · <strong>{evo.numero}</strong></> : null}
               </div>
-              <a href="/whatsapp" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'flex-start', textDecoration: 'none', display: 'inline-block' }}>Abrir WhatsApp para escanear ↗</a>
-              <button onClick={() => { setCanales(null); }} style={{ ...btn, alignSelf: 'flex-start' }}>Ya lo escaneé — verificar</button>
+              <button onClick={() => void desconectarEvo()} disabled={busy} style={{ ...btn, color: 'var(--bad)', borderColor: 'var(--bad)' }}>
+                {busy ? 'Desconectando…' : 'Desconectar este número'}
+              </button>
             </div>
+          ) : qrEvo?.base64 ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrEvo.base64} alt="Código QR para vincular WhatsApp" style={{ width: 230, height: 230, borderRadius: 12, border: '1px solid var(--border)', background: '#fff' }} />
+              <Cargando texto="Esperando que lo escanees…" />
+              <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>WhatsApp → Dispositivos vinculados → Vincular dispositivo</div>
+            </>
+          ) : (
+            <button onClick={() => void conectarEvo()} disabled={busy} style={btnDark}>
+              {busy ? 'Generando el código…' : 'Generar el código QR'}
+            </button>
           )}
         </div>
       )}
