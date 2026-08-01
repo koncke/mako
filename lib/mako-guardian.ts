@@ -24,7 +24,9 @@ import type { UsageInfo } from './anthropic-usage';
 export type GuardProjIn = { id: string; nombre: string };
 export type GuardTaskIn = { id: string; titulo: string; detalle?: string; proyecto?: string; deadline?: string; avance?: number; origen?: string; scoreActual?: number };
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
-export type GuardOut = { proyectos: GuardScore[]; tareas: GuardScore[]; usage?: UsageInfo };
+// `error` presente = el Perro NO pudo puntuar (no es "no había nada que cambiar").
+// Sin este campo, una corrida fallida y una sin cambios se veían exactamente igual.
+export type GuardOut = { proyectos: GuardScore[]; tareas: GuardScore[]; usage?: UsageInfo; error?: string };
 
 export const GUARDIAN_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA:
 {
@@ -398,9 +400,19 @@ export async function puntuarPlan(proyectos: GuardProjIn[], tareas: GuardTaskIn[
     plan: contenidoNoConfiable(plan, 'plan'),
   });
   let usage: UsageInfo | undefined;
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 8000, feature: 'mako-guardian', motivo: usoMotivo || 'Re-priorización del plan', onUsage: (u) => { usage = u; } });
+  // El techo era 8.000 y con un plan grande (cientos de tareas) la respuesta se
+  // cortaba SIEMPRE en el mismo punto: el JSON quedaba incompleto, el parse fallaba y
+  // devolvíamos {} en silencio. Resultado medido en producción: 13 corridas seguidas
+  // pagadas (US$2.74) sin una sola prioridad aplicada, y nadie se enteró porque el
+  // catch no distinguía "no pude" de "no hay nada que cambiar".
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 32000, feature: 'mako-guardian', motivo: usoMotivo || 'Re-priorización del plan', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
-  try { obj = parseJsonObject(raw); } catch { return { proyectos: [], tareas: [], usage }; }
+  try { obj = parseJsonObject(raw); }
+  catch (e) {
+    // Que se vea en los logs Y en el envelope: el caller decide si avisar.
+    console.error(`[guardian] la respuesta no es JSON (${raw.length} chars, probablemente cortada): ${e instanceof Error ? e.message : String(e)} · termina con: ${raw.slice(-120)}`);
+    return { proyectos: [], tareas: [], usage, error: 'El Perro no pudo terminar de puntuar (respuesta cortada). Probá de nuevo.' };
+  }
   // El modelo tiende a inflar/amontonar. Repartimos los proyectos en 1-10 sin empatar
   // y CURVAMOS las tareas a una pirámide sana (usando su ranking), para que de verdad
   // caigan cosas en Baja / A futuro y no quede todo en Alta/Media.

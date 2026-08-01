@@ -43,7 +43,7 @@ const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.ve
 const KEY_VISTA = (recordingId: number): string => `mako.reunion.auto.${recordingId}`;
 
 /** Una reunión ya procesada en esta corrida (para redactar el aviso al final). */
-type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number };
+type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number; partesFallidas?: number };
 
 /**
  * El mensaje al grupo. Dos formas: una reunión (frase suelta) o varias (viñetas con
@@ -138,6 +138,14 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
 
   const deEquipo = reuniones.filter((r) => r.tipo === 'equipo');
   out.deEquipo = deEquipo.length;
+  // Las que NO son de equipo se descartan — pero AHORA SE DICE CUÁLES y por qué. El
+  // log solo imprimía el total (`equipo=0`), así que una reunión de trabajo mal
+  // clasificada desaparecía sin dejar rastro y no había forma de notarlo.
+  const descartadas = reuniones.filter((r) => r.tipo !== 'equipo');
+  if (descartadas.length) {
+    console.log(`[reunion-auto] ws=${ws} descarté ${descartadas.length} reunión(es) por tipo: ` +
+      descartadas.map((r) => `${r.recordingId} «${r.titulo}» → ${r.tipo}`).join(' · '));
+  }
   if (!deEquipo.length) return out;
 
   const [proyectos, glosario] = await Promise.all([
@@ -159,11 +167,11 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     procesadas += 1;
     try {
       const yo = await resolverYo(r, ws);
-      const { tareas } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
+      const { tareas, partesFallidas = 0 } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
         glosario, participantes: r.participantes, usoMotivo: 'Reunión nueva → tareas al plan (automático)',
       });
-      // Quede o no algo, la reunión ya fue leída: que el próximo cron no la relea.
-      await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+      // Lectura PARCIAL: se leyó parte del transcript y otra parte se perdió.
+      const parcial = partesFallidas > 0;
       // El cache es también la lista blanca de a quién se le puede mandar algo de esta
       // reunión (/api/plan-reunion), y evita que re-abrirla en la app vuelva a cobrar.
       // SOLO si hubo tareas: cachear un resultado vacío le serviría ese vacío al botón
@@ -171,7 +179,23 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       if (tareas.length) {
         await setSetting(cacheKeyReunion(r.recordingId), JSON.stringify({ tareas, participantes: r.participantes, ts: Date.now() })).catch(() => {});
       }
-      if (!tareas.length) { console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: la IA no devolvió tareas`); continue; }
+
+      // "No devolvió tareas" NO es lo mismo que "no había compromisos": si algún tramo
+      // del transcript falló (429, timeout, JSON inválido), la lista sale vacía igual.
+      // Marcarla como vista ahí la quemaba PARA SIEMPRE — pasó de verdad ("no jaló la
+      // IA, no hubo de Esquer") y no había forma de enterarse. Ahora, si hubo fallas,
+      // la reunión NO se marca: el próximo cron la reintenta.
+      if (!tareas.length) {
+        if (parcial) {
+          out.errores += 1;
+          console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: la lectura FALLÓ (${partesFallidas} tramo(s) sin leer) — queda para reintentar`);
+        } else {
+          // Vacío legítimo: leída entera y sin compromisos. Esa sí se cierra.
+          await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+          console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: leída completa, sin compromisos`);
+        }
+        continue;
+      }
 
       const nombreProy = new Map(proyectos.map((p) => [p.id, p.nombre]));
       const propuestas: PropuestaTarea[] = tareas.map((t) => ({
@@ -197,9 +221,16 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${propuestas.length} ${propuestas.length === 1 ? 'compromiso' : 'compromisos'}.`,
       });
+      // RECIÉN ACÁ se cierra la reunión: el borrador ya está guardado. Antes esto
+      // corría ANTES de crearPropuesta (con otra llamada de IA en el medio), así que
+      // un error de base o un corte del serverless dejaba la reunión marcada como
+      // procesada y SIN borrador: las tareas se perdían para siempre, sin reintento
+      // ni aviso. El candado tiene que escribirse después del efecto que protege.
+      await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+      if (parcial) console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: borrador creado con ${partesFallidas} tramo(s) SIN leer — puede faltar contenido`);
       out.conTareas += 1;
       out.tareas += propuestas.length;
-      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias });
+      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias, partesFallidas });
     } catch (e) {
       out.errores += 1;
       console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${e instanceof Error ? e.message : String(e)}`);

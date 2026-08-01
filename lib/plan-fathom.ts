@@ -72,12 +72,27 @@ export type PaginaReuniones = { reuniones: ReunionMeta[]; nextCursor: string | n
 export function participantesDeReunion(m: FathomMeeting): Participante[] {
   const vistos = new Set<string>();
   const out: Participante[] = [];
-  for (const i of m.calendar_invitees ?? []) {
-    const email = (i.email ?? '').trim().toLowerCase();
-    if (!email || vistos.has(email)) continue;
-    vistos.add(email);
-    out.push({ nombre: (i.name || i.matched_speaker_display_name || '').trim(), email });
-  }
+  const sumar = (nombre: unknown, email: unknown) => {
+    const e = String(email ?? '').trim().toLowerCase();
+    if (!e || vistos.has(e)) return;
+    vistos.add(e);
+    out.push({ nombre: String(nombre ?? '').trim(), email: e });
+  };
+
+  for (const i of m.calendar_invitees ?? []) sumar(i.name || i.matched_speaker_display_name, i.email);
+
+  // FALLBACK — sin esto, una reunión sin evento de calendario (un Meet ad-hoc, el
+  // caso más común de una junta de trabajo) devolvía lista VACÍA: sin participantes
+  // no hay email de dueño, el reparto por persona queda mudo y el prompt recibe
+  // literalmente "(no tengo la lista de invitados)". Fathom igual sabe quién grabó y
+  // a quién le asignó cada action item: se usa eso.
+  const extra = m as unknown as {
+    recorded_by?: { name?: string; email?: string };
+    action_items?: Array<{ assignee?: { name?: string; email?: string } }>;
+  };
+  sumar(extra.recorded_by?.name, extra.recorded_by?.email);
+  for (const a of extra.action_items ?? []) sumar(a.assignee?.name, a.assignee?.email);
+
   return out;
 }
 
@@ -301,7 +316,10 @@ function coerceDudas(obj: Record<string, unknown>): DudaTermino[] {
   return out;
 }
 
-export type ExtractOut = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo; participantes?: Participante[]; partes?: number };
+// `partesFallidas` > 0 = el transcript se leyó A MEDIAS (algún tramo falló incluso
+// tras el reintento). Quien consume esto NO puede tratar el resultado como completo:
+// el cron no cierra la reunión y la UI avisa que puede faltar contenido.
+export type ExtractOut = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo; participantes?: Participante[]; partes?: number; partesFallidas?: number };
 
 export const PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE = `Sos un revisor. Te paso las tareas que se sacaron de UNA reunión. En una charla larga, la MISMA tarea se habla varias veces (se plantea, se discute, se cierra), y por eso la lista trae tarjetas casi iguales dichas con otras palabras.
 
@@ -600,7 +618,9 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
   const glosario = opts.glosario?.trim() || '(sin glosario cargado todavía)';
   const yoTxt = `${yo.nombre || 'el usuario'}${yo.email ? ` (${yo.email})` : ''}`;
 
-  const unaParte = async (parte: string, i: number): Promise<{ tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo }> => {
+  // `fallo` = este tramo NO se pudo leer (excepción o JSON inválido). Distinto de
+  // "se leyó y no había tareas": eso viene sin fallo y con la lista vacía.
+  const unaParte = async (parte: string, i: number): Promise<{ tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo; fallo?: boolean }> => {
     const cabecera = partes.length > 1
       ? `⚠️ Esto es la PARTE ${i + 1} de ${partes.length} de una reunión larga. Sacá los action items de ESTA parte (no te preocupes si algo se repite con otra parte: después fusionamos). NO resumas ni agrupes por ser un fragmento.\n\n`
       : '';
@@ -628,16 +648,33 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     try { obj = parseJsonObject(raw); }
     catch (e) {
       console.error(`[plan-fathom] parte ${i + 1}/${partes.length}: la IA no devolvió JSON válido (${raw.length} chars): ${e instanceof Error ? e.message : String(e)} · arranca con: ${raw.slice(0, 120)}`);
-      return { tareas: [], dudas: [], usage };
+      return { tareas: [], dudas: [], usage, fallo: true };
     }
     return { tareas: coerceCandidatas(obj, proyectos, yo, participantes), dudas: coerceDudas(obj), usage };
   };
 
   // En paralelo: son llamadas independientes y así una reunión de 2h no tarda 2 minutos.
-  const salidas = await Promise.all(partes.map((p, i) => unaParte(p, i).catch((e) => {
-    console.error(`[plan-fathom] parte ${i + 1}/${partes.length} falló: ${e instanceof Error ? e.message : String(e)}`);
-    return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined };
-  })));
+  // Con UN reintento por parte: cada parte son ~20 minutos de reunión, y un 429 o un
+  // timeout puntual los borraba del resultado sin dejar rastro — la lista salía más
+  // corta pero perfectamente creíble. La espera es escalonada por índice para no
+  // volver a pegarle a la API todas juntas.
+  const conReintento = async (p: string, i: number) => {
+    const primera = await unaParte(p, i).catch((e) => {
+      console.error(`[plan-fathom] parte ${i + 1}/${partes.length} falló: ${e instanceof Error ? e.message : String(e)}`);
+      return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined, fallo: true };
+    });
+    if (!primera.fallo) return primera;
+    await new Promise((r) => setTimeout(r, 1200 + i * 400));
+    return unaParte(p, i).catch((e) => {
+      console.error(`[plan-fathom] parte ${i + 1}/${partes.length} falló también en el reintento: ${e instanceof Error ? e.message : String(e)}`);
+      return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined, fallo: true };
+    });
+  };
+  const salidas = await Promise.all(partes.map((p, i) => conReintento(p, i)));
+  // Cuántos tramos se perdieron DE VERDAD: el caller decide si el resultado es
+  // confiable (el cron NO cierra una reunión leída a medias).
+  const partesFallidas = salidas.filter((s) => s.fallo).length;
+  if (partesFallidas) console.error(`[plan-fathom] ${partesFallidas} de ${partes.length} tramos no se pudieron leer — el resultado está INCOMPLETO`);
 
   // Fusión: el solape entre partes repite tareas (a veces con otras palabras). Ante
   // duplicado gana la que trae más detalle; el orden de la charla se conserva.
@@ -664,7 +701,7 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
   return {
     tareas: dedup.tareas, dudas,
     usage: sumarUsage([...salidas.map((s) => s.usage), dedup.usage]),
-    participantes, partes: partes.length,
+    participantes, partes: partes.length, partesFallidas,
   };
 }
 

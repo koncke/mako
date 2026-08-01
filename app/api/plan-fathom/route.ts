@@ -117,7 +117,13 @@ export async function POST(req: NextRequest) {
       // NO quedaba nada cacheado → volvía a cobrar). Re-abrir la misma reunión ya no gasta.
       // Los PARTICIPANTES van al cache a propósito: son la lista blanca contra la que
       // /api/plan-reunion valida a quién se le puede mandar algo de esta reunión.
-      await setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, participantes: out.participantes ?? [], ts: Date.now() })).catch(() => {});
+      // NUNCA se cachea un resultado vacío o leído a medias: ese cache se servía para
+      // siempre como "MaKo no encontró nada", escondiendo que la corrida había fallado
+      // (y la única salida era descubrir el botón "Volver a analizar (gasta tokens)").
+      // Mismo criterio que el cron (lib/reunion-auto.ts).
+      if (out.tareas.length && !out.partesFallidas) {
+        await setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, participantes: out.participantes ?? [], ts: Date.now() })).catch(() => {});
+      }
       // ACÁ NO SE MANDA NINGÚN WHATSAPP, a propósito. Antes esta ruta preguntaba
       // "saqué N compromisos, ¿los cargo?" — y era una pregunta al vacío: el usuario
       // está MIRANDO la lista en la app (la disparó él desde el modal), y la pregunta

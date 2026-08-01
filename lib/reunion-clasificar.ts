@@ -31,17 +31,45 @@ export function emailsInvitadosExternos(m: FathomMeeting): string[] {
     .filter(Boolean);
 }
 
+const mail = (v: unknown): string => (typeof v === 'string' ? v.trim().toLowerCase() : '');
+
+/**
+ * TODOS los emails que aparecen en la reunión, mire donde mire: invitados de
+ * calendario (externos o no), quien la grabó, y los dueños que Fathom ya asignó a
+ * sus action items.
+ *
+ * Antes se miraban SOLO los invitados externos, y eso dejaba ciega a la app en el
+ * caso más común de una reunión de trabajo: un Meet ad-hoc, sin evento de
+ * calendario. Sin invitados, `emails` quedaba vacío, la reunión caía en 'otra' y el
+ * cron la descartaba entera y en silencio — pasó con la reunión del 1-ago
+ * ("Impromptu Google Meet Meeting"), de la que no salió ni una tarea al plan.
+ */
+export function emailsDeLaReunion(m: FathomMeeting): string[] {
+  const out = new Set<string>();
+  for (const i of m.calendar_invitees ?? []) { const e = mail(i.email); if (e) out.add(e); }
+  const rec = m as unknown as { recorded_by?: { email?: string }; action_items?: Array<{ assignee?: { email?: string } }> };
+  const host = mail(rec.recorded_by?.email);
+  if (host) out.add(host);
+  for (const a of rec.action_items ?? []) { const e = mail(a.assignee?.email); if (e) out.add(e); }
+  return [...out];
+}
+
 export function clasificarReunion(
   m: FathomMeeting,
   leadsByEmail: Map<string, { estado_lead: string | null }>,
   equipoEmails: Set<string>,
 ): TipoReunion {
-  const emails = emailsInvitadosExternos(m);
-  for (const e of emails) {
+  // El lead sigue mandando (una llamada de venta NO es una reunión de plan), pero
+  // solo se lo busca entre los INVITADOS EXTERNOS: el host y los dueños de action
+  // items son de casa, y si alguno figura en el CRM no convierte la reunión en venta.
+  const externos = emailsInvitadosExternos(m);
+  for (const e of externos) {
     const lead = leadsByEmail.get(e);
     if (lead) return lead.estado_lead === 'ganado' ? 'entrega' : 'ventas';
   }
-  for (const e of emails) if (equipoEmails.has(e)) return 'equipo';
+  // Para "¿es del equipo?" se mira TODO: invitados (externos o no), quien grabó y
+  // los dueños de los action items.
+  for (const e of emailsDeLaReunion(m)) if (equipoEmails.has(e)) return 'equipo';
   return 'otra';
 }
 

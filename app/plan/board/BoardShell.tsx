@@ -101,6 +101,12 @@ export function BoardShell({ board, scope }: {
   // esto y no "hay borrador": un borrador al que solo le quedan tareas de otras personas
   // se queda abierto para siempre, y con él se quedaba tapado el resto de la cola.
   const nPendientes = pendientes.reduce((s, p) => s + (p.tareas?.filter((t) => !t.esDeOtro).length ?? 0), 0);
+  // Lo que espera algo de OTRA persona (repartir o mandárselo). No hace esperar a los
+  // demás pop-ups —no es trabajo tuyo— pero TIENE que verse: un borrador que solo
+  // conserva tareas ajenas quedaba completamente invisible (el modal nunca se abría
+  // y el botón no mostraba badge), y ahí murieron los 15 compromisos que Mauricio
+  // asumió en su reunión: existían en la base y nadie podía llegar a ellos.
+  const nDeOtros = pendientes.reduce((s, p) => s + (p.tareas?.filter((t) => t.esDeOtro).length ?? 0), 0);
   const pendientesRef = useRef(false);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
@@ -252,7 +258,7 @@ export function BoardShell({ board, scope }: {
   // tareas de otras personas sigue vivo (para repartirlas), pero saltarte encima en cada
   // entrada al plan sería un recordatorio de algo que ya resolviste: queda a un click,
   // dentro del selector de Fathom.
-  const hayRecibidas = !!borradorReunion || (pendientes.length > 0 && !pendientesCerradas && nPendientes > 0);
+  const hayRecibidas = !!borradorReunion || (pendientes.length > 0 && !pendientesCerradas && (nPendientes > 0 || nDeOtros > 0));
   // Espera su turno detrás de cualquier otro pop-up (y del detalle de una tarjeta), pero
   // SE ESCONDE, no se desmonta. Desmontarlo tiraba a la basura media revisión: los
   // destildes, las reasignaciones y las respuestas viven en su estado, y abrir una
@@ -533,15 +539,18 @@ export function BoardShell({ board, scope }: {
               se vea que hay algo). El selector de reuniones de siempre vuelve recién
               cuando no queda nada pendiente: o las cargaste, o las descartaste. Antes,
               cerrar el modal era perderlo de vista sin forma de volver. */}
-          <button type="button" onClick={() => { if (nPendientes > 0) { setPendientesCerradas(false); return; } setReunionArchivo(null); setExtraerReunion(true); }}
-            aria-label={nPendientes > 0 ? `${pendientes.length} borrador(es) de reunión esperando` : 'Extraer tareas de una reunión de Fathom'}
-            title={nPendientes > 0 ? `Tenés ${nPendientes} tarea${nPendientes === 1 ? '' : 's'} de reunión esperando que las confirmes`
+          {/* El badge cuenta TODO lo que espera (tuyo + de otros). El latido queda solo
+              para lo tuyo: lo ajeno se ve, pero no te apura. */}
+          <button type="button" onClick={() => { if (nPendientes + nDeOtros > 0) { setPendientesCerradas(false); return; } setReunionArchivo(null); setExtraerReunion(true); }}
+            aria-label={nPendientes + nDeOtros > 0 ? `${pendientes.length} borrador(es) de reunión esperando` : 'Extraer tareas de una reunión de Fathom'}
+            title={nPendientes > 0 ? `Tenés ${nPendientes} tarea${nPendientes === 1 ? '' : 's'} de reunión esperando que las confirmes${nDeOtros ? ` (y ${nDeOtros} de otras personas para repartir)` : ''}`
+              : nDeOtros > 0 ? `Quedan ${nDeOtros} tarea${nDeOtros === 1 ? '' : 's'} de otras personas para repartir`
               : 'Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)'}
             style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', padding: 0, lineHeight: 0, borderRadius: 9, transition: 'opacity .12s', animation: nPendientes > 0 ? 'makoLatido 1.6s ease-in-out infinite' : undefined }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.82'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>
             <SvcIcon k="fathom" size={22} box={38} radius={9} />
-            {nPendientes > 0 && (
-              <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontFamily: MONO, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{nPendientes}</span>
+            {nPendientes + nDeOtros > 0 && (
+              <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: nPendientes > 0 ? 'var(--primary)' : 'var(--dim)', color: '#fff', fontFamily: MONO, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{nPendientes + nDeOtros}</span>
             )}
           </button>
           {nPendientes > 0 && <style>{'@keyframes makoLatido{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(47,111,237,0))}50%{transform:scale(1.09);filter:drop-shadow(0 0 6px rgba(47,111,237,.65))}}'}</style>}
@@ -1418,10 +1427,16 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   const creTs = (l: Label) => (l.historial?.length ? Math.min(...l.historial.map((h) => h.ts)) : 0);
   const ordenados = labels.slice().sort((a, b) => (sortMode === 'creacion' ? dir * (creTs(a) - creTs(b)) : dir * (a.score - b.score)));
   const origenDe = (l: Label) => fuenteEfectiva({ origen: l.historial[l.historial.length - 1]?.actor ?? 'user', fuente: l.fuente }).tipo;
+  // Un proyecto pasa el filtro de ORIGEN si lo creó esa fuente O si TIENE tareas de
+  // esa fuente. Antes solo miraba el origen del proyecto en sí, y como los proyectos
+  // los crea uno a mano, filtrar por "Reunión · Fathom" devolvía la pantalla vacía
+  // aunque las tareas de la reunión estuvieran cargadas adentro — el motivo por el
+  // que pareció que una reunión entera no se había cargado.
+  const tieneTareasDe = (id: string) => tasks.some((t) => t.labels.includes(id) && fOrigen.has(fuenteEfectiva(t).tipo));
   const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id) }));
   const shown = withProg
     .filter(({ l }) => !needle || `${l.name} ${stripHtml(l.detalle ?? '')}`.toLowerCase().includes(needle))
-    .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)))
+    .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)) || tieneTareasDe(l.id))
     .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
