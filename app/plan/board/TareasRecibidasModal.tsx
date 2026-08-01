@@ -28,7 +28,7 @@ import { type Label, type Prio } from './types';
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number; minutos?: number[] };
+type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number; minutos?: number[]; incluir?: boolean };
 type PropPregunta = { pregunta: string; tipo?: string; opciones?: string[]; sobre?: string[] };
 
 /** Título comparable: sin acentos, sin puntuación, en minúscula. */
@@ -85,6 +85,14 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   const preguntasTodas = props.flatMap((p) => (p.preguntas ?? []).map((q) => ({ ...q, propId: p.id })));
   const [paso, setPaso] = useState<'tareas' | 'preguntas'>('tareas');
   const [respuestas, setRespuestas] = useState<Record<number, string>>({});
+  // Las preguntas se piden RECIÉN cuando el dueño terminó de elegir, y sobre las tareas
+  // que de verdad va a cargar. Antes venían del cron —armadas sobre TODO lo que sacó la
+  // reunión— y le preguntaban por trabajo que había destildado o pasado a otro; encima
+  // salían genéricas, porque una pregunta que habla de 40 tareas a la vez no puede ser
+  // concreta. Se muestran DE A UNA, como el resto de los formularios de la app.
+  const [preguntasIA, setPreguntasIA] = useState<PropPregunta[] | null>(null);
+  const [pensando, setPensando] = useState(false);
+  const [qIdx, setQIdx] = useState(0);
   // Init perezoso (el padre monta con una key que depende de los ids: si cambian, es
   // un componente nuevo y no hace falta re-sincronizar por efecto).
   const [filas, setFilas] = useState<FilaConProp[]>(() => {
@@ -112,7 +120,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       // aplicar: la tarea entraba SIN proyecto aunque el server sabe crearlo por nombre.
       proyectoPropuesto: (t.proyecto ?? '').trim(),
       dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro, minuto: t.minuto, minutos: t.minutos,
-      incluir: !t.esDeOtro,
+      // `incluir` viene del borrador si el dueño ya lo revisó antes (F5 / volver más
+      // tarde). Sin esto, cada recarga le devolvía el reparto que había adivinado MaKo.
+      incluir: t.incluir === false ? false : !t.esDeOtro,
       // ¿Esta ya está en el plan? La misma reunión se puede grabar dos veces (un
       // notetaker por participante) y el mismo compromiso puede volver en la junta
       // siguiente. Se marca y nace DESTILDADA: se ve por qué, y con un clic entra
@@ -184,8 +194,16 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     // justamente lo que la reunión no dejó claro.
     // Las respuestas viajan al Perro del borrador de ESA reunión, no al de todas: lo que
     // aclaraste de la reunión con Fran no es contexto de la reunión con Mauricio.
-    const dichasDe = (propId: string): string => preguntas
-      .map((q, i) => (q.propId === propId && respuestas[i] ? `${q.pregunta} → ${respuestas[i]}` : ''))
+    // El contexto para el Perro sale de las preguntas que el dueño REALMENTE contestó
+    // —`preguntasVivas`, que es la lista que vio en pantalla—, no de las guardadas en
+    // el borrador. Los índices de `respuestas` son de esa lista: mapearlos contra otra
+    // le pegaba la respuesta a la pregunta equivocada, o la perdía entera cuando las
+    // preguntas las había armado MaKo recién (esas no tienen propId).
+    const dichasDe = (propId: string): string => preguntasVivas
+      .map((q, i) => {
+        const suya = !('propId' in q) || (q as { propId?: string }).propId === propId;
+        return suya && respuestas[i] ? `${q.pregunta} → ${respuestas[i]}` : '';
+      })
       .filter(Boolean).join(' · ');
     const lotes = props.map((p) => ({
       id: p.id,
@@ -233,6 +251,29 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     : varias
       ? `${filas.length} compromisos en total: ${filas.length - nOtras} tuyos${nOtras ? ` y ${nOtras} de los demás` : ''}.`
       : (props[0]?.resumen || `${filas.length} compromisos de la reunión.`);
+
+  // AUTOSAVE de la revisión. Reasignar veinte tareas y corregirles el texto es trabajo
+  // real; vivía solo en el estado de este modal y un F5 —o cerrar y volver— lo borraba
+  // entero. Se guarda con retardo (no en cada tecla) y nunca durante el aplicado.
+  const primeraRef = useRef(true);
+  useEffect(() => {
+    if (primeraRef.current) { primeraRef.current = false; return; }
+    if (guardando) return;
+    const id = setTimeout(() => {
+      for (const p of props) {
+        const suyas = filas.filter((f) => f.propId === p.id);
+        if (!suyas.length) continue;
+        void api({ action: 'guardar', id: p.id, tareas: suyas.map((f) => ({
+          titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
+          proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined),
+          dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
+          minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
+        })) });
+      }
+    }, 900);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filas]);
 
   // EL PERRO CRUZA. El léxico solo agarra lo que se parece en palabras, y eso alcanza
   // para poco: medido contra un caso real (la misma llamada grabada por dos notetakers),
@@ -293,6 +334,30 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   const avisoRepetidas = nRepetidas
     ? `${textoRepetidas(nRepetidas)} — ${nRepetidas === 1 ? 'la dejé destildada' : 'las dejé destildadas'}${nForzadas ? `, y ${nForzadas} las volviste a tildar: esas las creo igual` : ''}.`
     : '';
+
+  // Las que se muestran: las que armó MaKo para lo elegido; si no pudo (sin IA, o
+  // decidió que no hace falta ninguna), caen las del borrador filtradas por `sobre`.
+  const preguntasVivas = preguntasIA ?? preguntas;
+  const qActual = preguntasVivas[qIdx];
+  const esUltimaQ = qIdx >= preguntasVivas.length - 1;
+
+  /** Terminó de elegir: MaKo mira SOLO lo elegido y arma las preguntas de eso. */
+  const irAPreguntas = async () => {
+    const elegidas = filas.filter((f) => f.incluir && !f.esDeOtro);
+    if (!elegidas.length) return;
+    setPensando(true);
+    const j = await api({
+      action: 'preguntar', id: props[0]?.id ?? '',
+      tareas: elegidas.map((f) => ({ titulo: f.titulo, detalle: f.detalle, proyecto: nombreProyecto(f.proyectoId) ?? f.proyectoPropuesto })),
+    });
+    setPensando(false);
+    const qs = (j?.ok && Array.isArray(j.preguntas) ? (j.preguntas as PropPregunta[]) : []);
+    // Sin preguntas (ni de MaKo ni del borrador) se carga derecho: no se inventa un paso.
+    const finales = qs.length ? qs : preguntas;
+    if (!finales.length) { void aplicar(); return; }
+    setPreguntasIA(qs.length ? qs : null);
+    setRespuestas({}); setQIdx(0); setPaso('preguntas');
+  };
 
   const aplicando = guardando === 'aplicar';
 
@@ -361,31 +426,46 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
           ))}
 
           {paso === 'preguntas' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
-                Antes de cargarlas, MaKo necesita un par de datos que la reunión no dejó claros. Son para que el perro priorice bien — <b>no</b> te va a preguntar qué es más urgente, eso lo decide él.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>
+                  {qIdx + 1} de {preguntasVivas.length}
+                </span>
+                <span style={{ flex: 1, height: 3, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
+                  <span style={{ display: 'block', height: '100%', width: `${((qIdx + 1) / Math.max(1, preguntasVivas.length)) * 100}%`, background: 'var(--primary)', transition: 'width .2s' }} />
+                </span>
               </div>
-              {preguntas.map((q, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '13px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>{q.pregunta}</div>
-                  {/* De qué tarea habla: sin esto, una pregunta suelta sobre 70 tareas es
-                      un acertijo ("¿de cuál de todas me está hablando?"). */}
-                  {!!q.sobre?.length && (
-                    <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4 }}>por: {q.sobre.map((t) => `«${t}»`).join(' · ')}</div>
+              <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
+                Es para que el perro priorice bien — <b>no</b> te va a preguntar qué es más urgente, eso lo decide él.
+              </div>
+              {qActual && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>{qActual.pregunta}</div>
+                  {/* De qué tarea habla: sin esto, una pregunta suelta es un acertijo. */}
+                  {!!qActual.sobre?.length && (
+                    <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.45 }}>por: {qActual.sobre.map((t) => `«${t}»`).join(' · ')}</div>
                   )}
-                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                    {(q.tipo === 'escala' ? ['1', '2', '3', '4', '5'] : (q.opciones ?? [])).map((op) => {
-                      const on = respuestas[i] === op;
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {(qActual.tipo === 'escala' ? ['1', '2', '3', '4', '5'] : (qActual.opciones ?? [])).map((op) => {
+                      const on = qActual.tipo === 'multi'
+                        ? (respuestas[qIdx] ?? '').split(' · ').filter(Boolean).includes(op)
+                        : respuestas[qIdx] === op;
                       return (
-                        <button key={op} type="button" onClick={() => setRespuestas((r) => ({ ...r, [i]: on ? '' : op }))}
-                          style={{ padding: '7px 13px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)', fontSize: 13, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: SANS }}>
+                        <button key={op} type="button" onClick={() => setRespuestas((r) => {
+                          if (qActual.tipo !== 'multi') return { ...r, [qIdx]: on ? '' : op };
+                          const ya = (r[qIdx] ?? '').split(' · ').filter(Boolean);
+                          const next = on ? ya.filter((x) => x !== op) : [...ya, op];
+                          return { ...r, [qIdx]: next.join(' · ') };
+                        })}
+                          style={{ padding: '9px 15px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)', fontSize: 13.5, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: SANS }}>
                           {op}
                         </button>
                       );
                     })}
                   </div>
+                  {qActual.tipo === 'multi' && <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Podés elegir varias.</div>}
                 </div>
-              ))}
+              )}
             </div>
           ) : (filas.length > 0 || yaCargadas.length > 0) && <ReunionTareas
             filas={filas}
@@ -402,15 +482,15 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flexWrap: 'wrap' }}>
           {/* Descartar es explícito y borra TODO lo que está en pantalla; cerrar con la
               ✕ las deja esperando para la próxima. */}
-          <button type="button" onClick={() => (paso === 'preguntas' ? setPaso('tareas') : void descartar())} disabled={!!guardando}
+          <button type="button" onClick={() => (paso === 'preguntas' ? (qIdx > 0 ? setQIdx((i) => i - 1) : setPaso('tareas')) : void descartar())} disabled={!!guardando}
             style={{ padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
             {paso === 'preguntas' ? '← Volver' : guardando === 'descartar' ? 'Descartando…'
               : (!hayMias && yaCargadas.length) ? 'Descartar lo que queda' : varias ? 'Descartar todo' : 'Descartar'}
           </button>
           {hayMias && (paso === 'tareas'
-            ? <button type="button" onClick={() => (preguntas.length ? setPaso('preguntas') : void aplicar())} disabled={nIncluidas === 0 || !!guardando}
+            ? <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando}
                 style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas && !guardando ? 'pointer' : 'default', fontFamily: SANS }}>
-                {guardando === 'aplicar' ? 'Cargando…' : nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
+                {guardando === 'aplicar' ? 'Cargando…' : pensando ? 'MaKo está mirando lo que elegiste…' : nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
               </button>
             : <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {/* Contestar es opcional: si no sabés, cargá igual. */}
@@ -418,9 +498,10 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
                   style={{ padding: '11px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', fontFamily: SANS }}>
                   Saltear
                 </button>
-                <button type="button" onClick={() => void aplicar()} disabled={!!guardando}
+                {/* De a UNA: se avanza hasta la última y recién ahí se carga. */}
+                <button type="button" onClick={() => (esUltimaQ ? void aplicar() : setQIdx((i) => i + 1))} disabled={!!guardando}
                   style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
-                  {guardando === 'aplicar' ? 'Cargando…' : `Cargar ${nIncluidas} al plan →`}
+                  {guardando === 'aplicar' ? 'Cargando…' : esUltimaQ ? `Cargar ${nIncluidas} al plan →` : 'Siguiente →'}
                 </button>
               </div>)}
         </div>

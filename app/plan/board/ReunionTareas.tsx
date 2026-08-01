@@ -447,9 +447,16 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
               : <span key={seg} style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {relojDe(seg)}</span>;
           })}
         </div>
+        {/* Corregir incluye el TÍTULO: es lo que se lee en la tarjeta y en la vista de
+            Prioridades, así que si la transcripción lo dejó torcido no alcanza con
+            arreglar el detalle — la tarjeta sigue diciendo cualquier cosa. */}
         {editando
-          ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} rows={4}
-              style={{ width: '100%', marginTop: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
+          ? <>
+              <input autoFocus value={f.titulo} onChange={(e) => onFila({ titulo: e.target.value })} placeholder="Título de la tarea"
+                style={{ width: '100%', marginTop: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, lineHeight: 1.35, outline: 'none', fontFamily: SANS }} />
+              <textarea value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} rows={4} placeholder="Contexto: qué se dijo, para qué es"
+                style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
+            </>
           : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
         {/* Ya existe: se NOMBRA la tarjeta entera (antes se cortaba a los 50 caracteres,
             a mitad de palabra y con la comilla sin cerrar, así que no se sabía cuál era)
@@ -469,7 +476,7 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={() => setEditando((v) => !v)}
             style={{ ...btnChico, ...(editando ? { color: 'var(--primary)' } : {}) }}>
-            {editando ? '✓ listo' : '✎ corregir contexto'}
+            {editando ? '✓ listo' : '✎ corregir título y contexto'}
           </button>
           {/* La transcripción de Fathom etiqueta MAL a quien habla (mezcla dos voces en
               un bloque), así que la atribución falla y no hay prompt que lo arregle. Se
@@ -579,15 +586,19 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
               ))}
             </div>
             {editando === idx
-              ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila(idx, { detalle: e.target.value })} rows={4}
-                  style={{ width: '100%', marginTop: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
+              ? <>
+                  <input autoFocus value={f.titulo} onChange={(e) => onFila(idx, { titulo: e.target.value })} placeholder="Título de la tarea"
+                    style={{ width: '100%', marginTop: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, lineHeight: 1.35, outline: 'none', fontFamily: SANS }} />
+                  <textarea value={f.detalle} onChange={(e) => onFila(idx, { detalle: e.target.value })} rows={4} placeholder="Contexto: qué se dijo, para qué es"
+                    style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
+                </>
               : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 7, flexWrap: 'wrap' }}>
               {/* Corregir el contexto también acá: esta tarea se la vas a MANDAR a
                   alguien, así que con más razón tiene que estar bien escrita. */}
               <button type="button" onClick={() => setEditando(editando === idx ? null : idx)}
                 style={{ ...btnChico, ...(editando === idx ? { color: 'var(--primary)' } : {}) }}>
-                {editando === idx ? '✓ listo' : '✎ corregir contexto'}
+                {editando === idx ? '✓ listo' : '✎ corregir título y contexto'}
               </button>
               {/* Si la transcripción se equivocó de hablante, se reasigna acá: a vos, a
                   otro de la reunión, o a alguien que cargás en el momento. */}

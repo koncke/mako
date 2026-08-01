@@ -13,7 +13,7 @@ import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_
 import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, listPlanBoard } from '@/lib/plan-board';
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, type Prioridad } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
-import { mismaTarea } from '@/lib/tareas-dedup';
+import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
@@ -38,6 +38,10 @@ export type PropuestaTarea = {
   minutos?: number[];
   /** el humano la confirmó A PESAR del aviso de "ya existe": su decisión gana. */
   forzar?: boolean;
+  /** ¿queda tildada para cargar? `false` = el dueño la destildó. undefined = sí (default).
+   *  Se persiste para que la revisión sobreviva a un F5: antes vivía solo en el estado
+   *  del modal y con recargar la página volvía todo al reparto que había adivinado MaKo. */
+  incluir?: boolean;
 };
 /**
  * Los títulos de las tareas ABIERTAS del tablero del workspace actual, para no volver
@@ -111,6 +115,7 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
       ? [...new Set((o.minutos as unknown[]).map((x) => Math.round(Number(x))).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b)
       : undefined,
     forzar: o.forzar === true ? true : undefined,
+    incluir: o.incluir === false ? false : undefined,
   };
 }
 function limpiarEliminar(e: unknown): PropuestaEliminar | null {
@@ -301,6 +306,55 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
   if (!raw) return [];
   let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
   return asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 40);
+}
+
+// ── Preguntas sobre LO QUE SE VA A CARGAR ────────────────────────────────────
+// Las preguntas del borrador las arma el cron cuando lee la reunión, sobre TODAS las
+// tareas que sacó. Pero entre que las arma y que el dueño confirma pasan horas: él
+// destilda la mitad y le pasa otras a un colaborador. Preguntarle entonces por trabajo
+// que no va a cargar (o que ya no es suyo) es hacerle perder el tiempo con preguntas
+// que además salen genéricas, porque hablan de un montón de cosas a la vez.
+const PREGUNTAS_SYSTEM = `Sos MaKo, cargando tareas al plan de un negocio. Te paso LAS TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (ya destildó lo que no va y repartió lo de otros). Tu trabajo: las preguntas de contexto que EL PERRO GUARDIÁN necesita para priorizarlas bien.
+CUÁNTAS: las MÍNIMAS. Que el dueño conteste 3 preguntas y cargue, no que rellene un formulario. Guía dura: hasta 5 tareas → 0 a 2 preguntas · hasta 15 → 2 a 4 · más de 15 → 3 a 6. NUNCA más de 6, y NUNCA varias preguntas sobre la misma tarea: elegí LA que más le cambia la decisión al Perro y descartá el resto.
+⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS: un deadline, una dependencia o bloqueo, un número de plata, un alcance ambiguo, quién lo hace, qué sería "listo".
+⛔ REGLA DURA: NADA de preguntas ABIERTAS. Siempre con opciones para tocar.
+CRITERIO — CADA PREGUNTA TIENE QUE SER CONCRETA Y DE ESTAS TAREAS. Nombralas: "¿Para cuándo tiene que estar el filtro por fecha del tablero de guiones?" y NO "¿qué impacto tienen estas correcciones?". Si una pregunta sirve igual para cualquier reunión, está mal.
+CRITERIO — que sume: si la respuesta es obvia o no cambia nada para el Perro, no la hagas.
+CRITERIO — elegí el TIPO por pregunta: "multi" si valen VARIAS a la vez (sin opción "Todas": que tilde varias) · "opcion" si es EXCLUYENTE · "escala" para intensidad 1-5 · "comparacion" para enfrentar DOS ítems. Para opcion/multi/comparacion pasá 2-6 "opciones" cortas.
+"sobre" = SOLO los títulos, tal cual te los pasé, sin el detalle ni el número (1-4 títulos).
+Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
+{ "preguntas": [ { "pregunta": "<corta y concreta>", "tipo": "opcion|multi|escala|comparacion", "opciones": ["...", "..."], "sobre": ["<título exacto>"] } ] }
+Español rioplatense. Si no hace falta ninguna, { "preguntas": [] }.`;
+
+/**
+ * Las preguntas de contexto para EXACTAMENTE las tareas que el dueño está por cargar.
+ * Devuelve [] si no hay IA configurada o si el modelo decide que no hace falta ninguna
+ * — en los dos casos el flujo sigue de largo y se cargan las tareas igual.
+ */
+export async function preguntasParaCargar(titulosYDetalles: Array<{ titulo: string; detalle?: string; proyecto?: string }>): Promise<PropuestaPregunta[]> {
+  const tareas = titulosYDetalles.filter((t) => t?.titulo?.trim()).slice(0, 80);
+  if (!tareas.length) return [];
+  const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${t.detalle}` : ''}`).join('\n');
+  const user = `TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (${tareas.length}):\n${lista}\n\nGenerá las preguntas de contexto que le hagan falta al Perro para priorizar ESTAS. JSON.`;
+  const raw = await chatCheapCascade({ system: PREGUNTAS_SYSTEM, user, maxTokens: 3000, feature: 'mako-doer-in', motivo: 'Preguntas de contexto (lo que se va a cargar)' }).catch(() => '');
+  if (!raw) return [];
+  let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
+  const qs = asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 6);
+  // `sobre` se normaliza al título REAL: el modelo tiende a devolver la línea entera
+  // que le pasamos ("3. Título — detalle"), y la pantalla la muestra entre comillas.
+  // Que el chip diga el título y nada más no se puede confiar al prompt.
+  const alTitulo = (cita: string): string | null => {
+    const c = normTitulo(cita);
+    if (!c) return null;
+    const exacta = tareas.find((t) => normTitulo(t.titulo) === c);
+    if (exacta) return exacta.titulo;
+    const contenida = tareas.find((t) => { const n = normTitulo(t.titulo); return n.length > 10 && (c.includes(n) || n.includes(c)); });
+    return contenida?.titulo ?? null;
+  };
+  return qs.map((q) => ({
+    ...q,
+    sobre: q.sobre?.length ? [...new Set(q.sobre.map(alTitulo).filter((x): x is string => !!x))] : undefined,
+  }));
 }
 
 export type LoteAplicar = {
@@ -507,6 +561,31 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       }
     }
     return { ok: true, ids: idsCreadas, borradas };
+  });
+}
+
+/**
+ * Guarda la REVISIÓN en curso de un borrador: el reparto (mío / de fulano), lo
+ * destildado y las correcciones de título y contexto. No aplica nada — solo deja el
+ * borrador como lo dejó el dueño.
+ *
+ * Existe porque la revisión de una reunión larga no se hace de una sentada: se
+ * reasignan veinte tareas, se corrige el texto de otras, y con un F5 (o cerrando el
+ * modal) se perdía TODO y volvía el reparto que había adivinado MaKo.
+ *
+ * Solo toca borradores PENDIENTES y nunca cambia el estado: si ya se aplicó o se
+ * descartó, no hay revisión que guardar.
+ */
+export async function guardarRevision(id: string, tareas: PropuestaTarea[]): Promise<boolean> {
+  return enWs(async () => {
+    const limpias = tareas.map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+    if (!limpias.length) return false;
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_propuestas').select('estado').eq('id', id).maybeSingle();
+    if (!data || str((data as Row).estado, 'pendiente') !== 'pendiente') return false;
+    const { error } = await db.from('plan_propuestas').update({ tareas: limpias }).eq('id', id);
+    if (error) { console.error(`[plan-propuesta] guardarRevision ${id}: ${error.message}`); return false; }
+    return true;
   });
 }
 

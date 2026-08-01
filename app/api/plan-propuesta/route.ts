@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, guardarRevision, preguntasParaCargar, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -100,6 +100,22 @@ export async function POST(req: NextRequest) {
         ? (body.respuestas as unknown[]).map((r) => { const o = (r ?? {}) as Record<string, unknown>; return { pregunta: String(o.pregunta ?? ''), respuesta: String(o.respuesta ?? '') }; })
         : [];
       const preguntas = await profundizarPropuesta(id, respuestas);
+      return NextResponse.json({ ok: true, preguntas });
+    }
+    if (action === 'guardar') {
+      // Guarda la revisión en curso (reparto + destildado + correcciones) sin aplicar
+      // nada. Es lo que hace que un F5 no borre veinte reasignaciones hechas a mano.
+      const tareas = Array.isArray(body.tareas) ? (body.tareas as PropuestaTarea[]) : [];
+      const ok = await guardarRevision(id, tareas);
+      return NextResponse.json({ ok });
+    }
+    if (action === 'preguntar') {
+      // Las preguntas de contexto para EXACTAMENTE lo que se va a cargar (no para todo
+      // lo que sacó la reunión: entre medio el dueño destildó y repartió).
+      const tareas = Array.isArray(body.tareas)
+        ? (body.tareas as unknown[]).map((t) => { const o = (t ?? {}) as Record<string, unknown>; return { titulo: String(o.titulo ?? ''), detalle: o.detalle ? String(o.detalle) : undefined, proyecto: o.proyecto ? String(o.proyecto) : undefined }; })
+        : [];
+      const preguntas = await preguntasParaCargar(tareas);
       return NextResponse.json({ ok: true, preguntas });
     }
     if (action === 'descartar') {
