@@ -53,22 +53,23 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   setting: {
     key: 'setting',
     titulo: 'Dejemos tu setting listo',
-    // ORDEN: primero el VALOR (contexto → ensayo → lo que quedó armado) y al
-    // final la plomería aburrida (conectar canales, verificar, plantillas).
-    // Regla en .claude/skills/tab-onboarding. Cada canal va en 3 pasos
-    // separados: conectar → preparar → probar.
+    // ORDEN (regla en .claude/skills/tab-onboarding): lo aburrido al final,
+    // EXCEPTO lo que bloquea. Acá el WhatsApp de empresa sí bloquea: el paso de
+    // contexto lee las conversaciones reales de ese número, así que sin él no
+    // hay nada que leer. El oficial y el email no bloquean nada → al final.
+    // Cada canal en 3 pasos separados: conectar → preparar → probar.
     pasos: [
-      { key: 'contexto', label: 'Cómo conversás' },
+      { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
+      { key: 'wa_no_oficial_prueba', label: 'Probar el envío' },
+      { key: 'contexto', label: 'Tu forma de escribir' },
       { key: 'voz', label: 'Tus audios' },
-      { key: 'ensayo', label: 'Ensayo con MaKo' },
-      { key: 'aprobar', label: 'Lo que quedó armado' },
-      // ── de acá en adelante, la plomería ──
-      { key: 'wa_no_oficial', label: 'WhatsApp de empresa' },
-      { key: 'wa_no_oficial_prueba', label: 'Probar tu WhatsApp' },
-      { key: 'wa_oficial', label: 'WhatsApp oficial (Meta)' },
+      { key: 'ensayo', label: 'El ensayo' },
+      { key: 'aprobar', label: 'Tus jugadas' },
+      // ── de acá en adelante, lo que NO bloquea: se puede dejar para después ──
+      { key: 'wa_oficial', label: 'WhatsApp oficial' },
       { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla' },
       { key: 'wa_oficial_prueba', label: 'Probar el oficial' },
-      { key: 'email_conectar', label: 'Email' },
+      { key: 'email_conectar', label: 'Tu email' },
       { key: 'email_prueba', label: 'Probar el email' },
     ],
     // WhatsApp y Email NO tienen onboarding propio: su configuración (conectar y

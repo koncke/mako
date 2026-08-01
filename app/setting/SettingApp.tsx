@@ -101,9 +101,21 @@ export function SettingApp() {
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
   const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
 
-  // El onboarding cubre la tab entera (overlay fullscreen, mismo chrome que el
-  // onboarding global). Al terminarlo —o al elegir "lo configuro después"— se
-  // entra a la vista normal.
+  // Mientras no sabemos si va el onboarding o la tab, NO se pinta ninguna de
+  // las dos: mostrar la tab y reemplazarla medio segundo después por el wizard
+  // es un flash que hace sentir la app rota.
+  if (enOnboarding === null) {
+    return (
+      <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
+        <span style={{ width: 30, height: 30, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+      </main>
+    );
+  }
+
+  // El onboarding cubre la tab (mismo chrome que el global, pero embebido: el
+  // sidebar sigue visible). Al terminarlo —o al elegir "lo configuro después"—
+  // se entra a la vista normal.
   if (enOnboarding) {
     return <OnboardingSetting onListo={() => { setEnOnboarding(false); void load(); }} />;
   }

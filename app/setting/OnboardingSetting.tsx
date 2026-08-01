@@ -17,6 +17,18 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { WizardShell } from '@/app/_components/WizardShell';
 import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
+import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
+
+/** Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda. */
+function Cargando({ texto }: { texto: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--dim)', fontSize: 13 }}>
+      <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
+      <span style={{ width: 16, height: 16, border: '2px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+      {texto}
+    </div>
+  );
+}
 
 type PasoKey =
   | 'contexto' | 'voz' | 'ensayo' | 'aprobar'
@@ -25,40 +37,60 @@ type PasoKey =
   | 'email_conectar' | 'email_prueba';
 type Estado = { status: 'pendiente' | 'done'; steps: Record<string, { done: boolean }> };
 type Def = { key: string; titulo: string; pasos: Array<{ key: string; label: string }> };
+type Conversacion = { chatJid: string; nombre: string | null; telefono: string | null; mensajes: number; muestra: string | null };
 
+// Títulos CORTOS y descriptivos, como el resto del onboarding ("El Archivero",
+// "Tu personalidad", "Tu diagnóstico"). El subtítulo dice EL OBJETIVO del paso
+// en una línea — qué se busca, no cómo funciona. Todo lo demás va en la caja de
+// contexto, ABAJO de la acción, para no interrumpir.
 const PREGUNTA: Record<PasoKey, { q: string; sub: string }> = {
-  contexto: { q: '¿Cómo conversás con tus clientes?', sub: 'No hace falta que me lo cuentes: si ya atendés por WhatsApp, lo leo de tus propias conversaciones.' },
-  voz: { q: 'Grabemos tus audios', sub: 'El primer mensaje que recibe un lead es tu voz, no un texto. Te dicto el guion y vos grabás.' },
-  ensayo: { q: 'Ensayemos: yo hago de cliente', sub: 'Te escribo como te escribiría un lead de verdad. Contestá como contestarías vos — de acá salen tus mensajes.' },
-  aprobar: { q: 'Esto quedó armado', sub: 'Ya tenés tus jugadas. Ahora conectemos por dónde salen — es lo último y lo más aburrido, pero sin esto no llega nada.' },
-  wa_no_oficial: { q: 'Conectá tu WhatsApp de empresa', sub: 'El número desde el que ya le escribís a tus clientes. Se conecta escaneando un QR, como WhatsApp Web.' },
-  wa_no_oficial_prueba: { q: 'Probemos que llega', sub: 'Te mando un código a ese número. Si no llega, no está conectado de verdad.' },
-  wa_oficial: { q: 'WhatsApp oficial de Meta (opcional)', sub: 'El número verificado para escribirle a alguien que nunca te escribió. Requiere plantillas aprobadas por Meta.' },
-  wa_oficial_plantilla: { q: 'Tu primera plantilla', sub: 'Meta tiene que aprobar cada mensaje de apertura. Mandamos una a revisión ahora para que esté lista cuando la necesites.' },
-  wa_oficial_prueba: { q: 'Probemos el oficial', sub: 'Cuando Meta apruebe la plantilla, te la mando a tu número para que veas cómo le llega al lead.' },
-  email_conectar: { q: 'Conectá tu email', sub: 'Para los que no contestan por WhatsApp. Damos de alta tu dominio y te digo qué poner en el DNS.' },
-  email_prueba: { q: 'Probemos el email', sub: 'Te mando un correo de prueba a tu casilla.' },
+  wa_no_oficial: { q: 'Tu WhatsApp', sub: 'El número desde el que ya le escribís a tus clientes.' },
+  wa_no_oficial_prueba: { q: 'Probemos que llega', sub: 'Un código a tu teléfono. Si no llega, no está conectado.' },
+  contexto: { q: 'Tu forma de escribir', sub: 'Leo tus chats para aprender tu tono, tus preguntas y cómo cerrás.' },
+  voz: { q: 'Tus audios', sub: 'Tu voz abre la conversación. Te paso el guion y grabás.' },
+  ensayo: { q: 'El ensayo', sub: 'Hago de lead y vos me respondés. De ahí salen tus mensajes.' },
+  aprobar: { q: 'Tus jugadas', sub: 'Esto quedó armado con lo que ensayamos.' },
+  wa_oficial: { q: 'WhatsApp oficial', sub: 'Para escribirle primero a quien nunca te escribió. Opcional.' },
+  wa_oficial_plantilla: { q: 'Tu primera plantilla', sub: 'Meta aprueba los mensajes de apertura antes de dejarte usarlos.' },
+  wa_oficial_prueba: { q: 'Probemos el oficial', sub: 'Que te llegue igual que le llega a un lead.' },
+  email_conectar: { q: 'Tu email', sub: 'El canal para los que no contestan por WhatsApp.' },
+  email_prueba: { q: 'Probemos el email', sub: 'Un correo de prueba a tu casilla.' },
 };
 
-// Contexto que va DENTRO del paso (qué es, para qué sirve, qué cuidar).
+// Contexto: va ABAJO del todo, después de la acción. Nunca entre el título y el
+// botón (nadie lee un párrafo antes de poder hacer algo).
 const AYUDA: Partial<Record<PasoKey, { titulo: string; puntos: string[]; ojo?: string }>> = {
   wa_no_oficial: {
-    titulo: '¿Qué es y para qué sirve?',
+    titulo: '¿Por qué este número?',
     puntos: [
-      'Es tu número de siempre: el lead ve tu foto y tu nombre, no un número frío.',
-      'Sirve para conversar — responder, mandar audios, seguir un ida y vuelta.',
-      'Se conecta en 10 segundos escaneando un QR, sin trámites con Meta.',
+      'El lead ve tu foto y tu nombre, no un número frío.',
+      'Sirve para conversar: responder, mandar audios, seguir el ida y vuelta.',
+      'Se conecta escaneando un QR, sin trámites con Meta.',
     ],
-    ojo: 'Cuidado: es tu número real. MaKo lo protege (topes por día, espera entre mensajes, ventana horaria y borradores en vez de envío automático a leads calientes), pero nunca lo uses para escribirle de golpe a cientos de desconocidos.',
+    ojo: 'Si usás este número también para lo personal, en el paso siguiente elegís qué conversaciones puedo leer — no toco el resto.',
+  },
+  wa_no_oficial_prueba: {
+    titulo: '¿Por qué te mando un código?',
+    puntos: ['Guardar la conexión no alcanza: recién cuando te llega un mensaje real sabemos que tus leads también lo van a recibir.'],
+  },
+  contexto: {
+    titulo: '¿Qué busco en tus chats?',
+    puntos: [
+      'Tu tono: cómo saludás, si tuteás, qué muletillas usás.',
+      'Tus preguntas: con qué averiguás si alguien te sirve como cliente.',
+      'Tu forma de cerrar: cómo pasás de la charla a la reunión.',
+      'El patrón: cuántos mensajes te toma y en qué orden.',
+    ],
+    ojo: 'Solo leo las conversaciones que elijas. Me quedo con tu forma de escribir, no con lo que dice cada cliente.',
   },
   wa_oficial: {
-    titulo: '¿Cuándo lo necesitás?',
+    titulo: '¿Cuándo lo vas a necesitar?',
     puntos: [
-      'Para escribirle PRIMERO a alguien que nunca te escribió (el lead que dejó el formulario).',
-      'Es un número verificado por Meta: no lo pueden banear por escribir en frío.',
+      'Para escribirle primero a alguien que nunca te escribió (el lead del formulario).',
+      'Es un número verificado: no lo pueden banear por escribir en frío.',
       'A cambio, el primer mensaje tiene que ser una plantilla aprobada por Meta.',
     ],
-    ojo: 'Podés saltearlo: con el número de empresa alcanza para arrancar, y lo conectás cuando tengas volumen de tráfico frío.',
+    ojo: 'Podés saltearlo. Con tu número de empresa alcanza para arrancar.',
   },
   email_conectar: {
     titulo: '¿Por qué también email?',
@@ -88,7 +120,10 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [verificado, setVerificado] = useState(false);
 
-  // ── Paso contexto ──
+  // ── Paso contexto: elegir QUÉ chats puede leer, y el resultado ──
+  const [convs, setConvs] = useState<Conversacion[] | null>(null);
+  const [elegidos, setElegidos] = useState<Set<string>>(new Set());
+  const [busq, setBusq] = useState('');
   const [contexto, setContexto] = useState<{ leido: boolean; resumen: string } | null>(null);
 
   // ── Paso ensayo ──
@@ -119,8 +154,14 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
     })();
   }, [def, idx, canales]);
 
-  const pasoKey = (def?.pasos[idx]?.key ?? 'canales') as PasoKey;
+  const pasoKey = (def?.pasos[idx]?.key ?? 'wa_no_oficial') as PasoKey;
   const enUltimo = !!def && idx === def.pasos.length - 1;
+  const pasoKeyRef = useRef<PasoKey>(pasoKey);
+  pasoKeyRef.current = pasoKey;
+  const convsFiltradas = (convs ?? []).filter((c) => {
+    const q = busq.trim().toLowerCase();
+    return !q || (c.nombre ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q);
+  });
 
   async function marcarPaso() {
     setBusy(true); setErr(null);
@@ -158,11 +199,23 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
     } finally { setBusy(false); }
   }
 
-  // ── Paso 2: leer sus conversaciones reales ──
+  // ── Paso contexto: primero la lista de chats, después el análisis ──
+  const cargarConvs = useCallback(async () => {
+    try {
+      const j = await (await fetch('/api/setting/onboarding/conversaciones', { cache: 'no-store' })).json();
+      setConvs(j.ok ? (j.conversaciones ?? []) : []);
+    } catch { setConvs([]); }
+  }, []);
+  useEffect(() => { if (pasoKeyRef.current === 'contexto' && convs === null) void cargarConvs(); });
+
   async function leerConversaciones() {
+    if (!elegidos.size) { setErr('Elegí al menos una conversación.'); return; }
     setBusy(true); setErr(null);
     try {
-      const j = await (await fetch('/api/setting/onboarding/contexto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })).json();
+      const j = await (await fetch('/api/setting/onboarding/contexto', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chats: [...elegidos] }),
+      })).json();
       if (!j.ok) { setErr(j.error || 'No pude leer tus conversaciones.'); return; }
       setContexto({ leido: true, resumen: j.resumen ?? '' });
     } finally { setBusy(false); }
@@ -235,10 +288,9 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       extraFooter={idx > 0 ? <button onClick={onListo} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Lo configuro después</button> : undefined}
       escenario={<PanelMarketing servicioKey="whatsapp" nombre="Setting" slides={slides} eyebrow="✦ Dejemos tu setting listo" />}
     >
-      {/* ⑤ WHATSAPP NO OFICIAL — conectar (con su contexto) */}
+      {/* WHATSAPP NO OFICIAL — conectar */}
       {pasoKey === 'wa_no_oficial' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Ayuda paso="wa_no_oficial" />
           {canales?.evolutionConectado ? (
             <div style={okBox}>✓ Ya está conectado. Seguí al siguiente paso para probarlo.</div>
           ) : (
@@ -281,7 +333,6 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       {/* ⑦ WHATSAPP OFICIAL — conectar */}
       {pasoKey === 'wa_oficial' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Ayuda paso="wa_oficial" />
           {canales?.oficialConectado ? (
             <div style={okBox}>✓ El oficial ya está conectado.</div>
           ) : (
@@ -320,7 +371,6 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
       {/* ⑩ EMAIL — conectar */}
       {pasoKey === 'email_conectar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Ayuda paso="email_conectar" />
           <a href="/email" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'flex-start', textDecoration: 'none', display: 'inline-block' }}>Configurar mi dominio ↗</a>
         </div>
       )}
@@ -334,26 +384,54 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
         </div>
       )}
 
-      {/* ② CONTEXTO */}
-      {pasoKey === 'contexto' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {!contexto?.leido ? (
-            <>
-              <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-                Voy a mirar tus últimas conversaciones de WhatsApp y sacar de ahí cómo abrís, cómo preguntás y cómo cerrás. No leo nada personal: me quedo con tu forma de escribir.
-              </div>
-              <button onClick={() => void leerConversaciones()} disabled={busy} style={{ ...btnDark, alignSelf: 'flex-start' }}>
-                {busy ? 'Leyendo tus chats…' : '🔎 Leer mis conversaciones'}
-              </button>
-            </>
+      {/* CONTEXTO — elegir chats → analizar → resultado en secciones */}
+      {pasoKey === 'contexto' && !contexto?.leido && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {convs === null ? (
+            <Cargando texto="Buscando tus conversaciones…" />
+          ) : convs.length === 0 ? (
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
+              Todavía no tengo conversaciones para leer. Podés seguir: voy a escribir con el perfil de tu negocio y ajusto cuando empieces a chatear.
+            </div>
           ) : (
             <>
-              <div style={{ fontSize: 12, color: 'var(--faint)', letterSpacing: '.06em', textTransform: 'uppercase' }}>Esto entendí de cómo conversás</div>
-              <div style={{ padding: '13px 15px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 260, overflowY: 'auto' }}>
-                {contexto.resumen || 'No encontré conversaciones suficientes todavía — igual puedo escribir con el perfil de tu negocio.'}
+              <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar contacto…" style={inp} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--faint)' }}>
+                <span>{elegidos.size} elegidas de {convs.length}</span>
+                <button onClick={() => setElegidos(new Set(convsFiltradas.map((c) => c.chatJid)))} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Elegir todas</button>
+                {elegidos.size > 0 && <button onClick={() => setElegidos(new Set())} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Ninguna</button>}
               </div>
+              <div style={{ maxHeight: 230, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-2)' }}>
+                {convsFiltradas.map((c) => {
+                  const on = elegidos.has(c.chatJid);
+                  return (
+                    <button key={c.chatJid} type="button"
+                      onClick={() => setElegidos((s) => { const n = new Set(s); if (n.has(c.chatJid)) n.delete(c.chatJid); else n.add(c.chatJid); return n; })}
+                      style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderBottom: '1px solid var(--border)', background: on ? 'var(--good-bg)' : 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      <span style={{ width: 16, height: 16, flex: 'none', borderRadius: 5, border: '1px solid ' + (on ? 'var(--good)' : 'var(--border-strong)'), background: on ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{on ? '✓' : ''}</span>
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre || c.telefono || 'Sin nombre'}</span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.mensajes} mensajes · {c.muestra ?? ''}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={() => void leerConversaciones()} disabled={busy || elegidos.size === 0} style={{ ...btnDark, alignSelf: 'flex-start', opacity: busy || !elegidos.size ? 0.55 : 1 }}>
+                {busy ? 'Leyendo…' : `🔎 Leer ${elegidos.size || ''} ${elegidos.size === 1 ? 'conversación' : 'conversaciones'}`}
+              </button>
+              {busy && <Cargando texto="Leyendo tus chats y sacando tu patrón… puede tardar unos segundos" />}
             </>
           )}
+        </div>
+      )}
+      {pasoKey === 'contexto' && contexto?.leido && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>Esto entendí</div>
+          {parsearSecciones(contexto.resumen).map((s, i) => (
+            <SeccionCard key={s.titulo} s={s} abiertoDefault={i === 0} icono="💬" size="sm" />
+          ))}
+          <button onClick={() => { setContexto(null); setElegidos(new Set()); }} style={{ ...btn, alignSelf: 'flex-start', marginTop: 4 }}>↻ Elegir otras conversaciones</button>
         </div>
       )}
 
@@ -398,6 +476,8 @@ export function OnboardingSetting({ onListo }: { onListo: () => void }) {
           <div style={okBox}>Nada sale a un lead hasta que vos prendas el «Envío real».</div>
         </div>
       )}
+      {/* El contexto va SIEMPRE al final: explica sin interrumpir la acción. */}
+      <Ayuda paso={pasoKey} />
     </WizardShell>
   );
 }

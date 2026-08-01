@@ -82,6 +82,34 @@ Es la diferencia entre pedirle a alguien que escriba una secuencia (fricción
 altísima, resultado pobre) y hacerlo jugar un rato (fricción cero, resultado
 real). **El ensayo es también la prueba de que la tab quedó lista.**
 
+## Cómo se escribe un paso (regla de forma)
+
+```
+Título corto           ← 2-4 palabras, como el resto del onboarding:
+                         "El Archivero", "Tu personalidad", "Tu diagnóstico",
+                         "Tu WhatsApp". Nunca una pregunta larga.
+Subtítulo de UNA línea ← EL OBJETIVO del paso: qué se busca, no cómo funciona.
+[la acción]            ← el botón / input / lista. Lo primero que puede tocar.
+…
+[caja de contexto]     ← AL FINAL de todo. Explica sin interrumpir.
+```
+
+**Nadie lee un párrafo antes de poder hacer algo.** Si hay que explicar, va en la
+caja de abajo: label mono en mayúsculas, 3-4 bullets cortos y, si corresponde,
+una advertencia. Nunca entre el título y el botón.
+
+Y **el objetivo tiene que estar claro**: no alcanza con "voy a leer tus chats" —
+hay que decir QUÉ se busca ahí (el tono, las preguntas de calificación, el
+patrón). Un objetivo vago produce un resultado vago; uno específico produce un
+análisis usable.
+
+**Toda espera muestra un loader.** Cargar el estado del paso, llamar a la IA,
+traer una lista: si tarda, se dice. Nunca pintar una pantalla que un segundo
+después se reemplaza por otra (el flash se lee como que la app está rota).
+
+**Los resultados largos van en secciones desplegables** (`SeccionCard` +
+`parsearSecciones`), nunca como un bloque de texto corrido.
+
 ## Principios de baja fricción (no negociables)
 
 Destilados de lo que el repo YA hace bien. Al diseñar cualquier paso, aplicalos:
