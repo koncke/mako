@@ -20,6 +20,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
+import { WizardShell } from '@/app/_components/WizardShell';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
 import { pareceLaMisma, textoRepetidas, type TareaEnTablero } from '@/lib/tareas-dedup';
@@ -361,6 +362,72 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
 
   const aplicando = guardando === 'aplicar';
 
+  // El paso de preguntas usa el MISMO chrome que todos los cuestionarios de la app
+  // (WizardShell: ✦ MAKO + puntitos + una pregunta grande y centrada + Atrás/Siguiente).
+  // Antes era una lista propia dentro de este modal y se veía como otra cosa; no hay
+  // razón para que el formulario de una reunión no se parezca al de un lead.
+  if (paso === 'preguntas' && preguntasVivas.length) {
+    const resp = respuestas[qIdx] ?? '';
+    const multi = qActual?.tipo === 'multi';
+    const opciones = qActual?.tipo === 'escala' ? ['1', '2', '3', '4', '5'] : (qActual?.opciones ?? []);
+    const elegidas = resp.split(' · ').filter(Boolean);
+    return (
+      <div style={{ display: oculto ? 'none' : 'block' }}>
+        <WizardShell
+          titulo={[props[0]?.fuenteTitulo, `${nIncluidas} ${nIncluidas === 1 ? 'tarea' : 'tareas'} para cargar`].filter(Boolean).join(' · ')}
+          total={preguntasVivas.length} idx={qIdx}
+          pregunta={qActual?.pregunta ?? ''}
+          sub={qActual?.sobre?.length
+            ? `Por: ${qActual.sobre.map((t) => `«${t}»`).join(' · ')}`
+            : 'Es para que el perro priorice bien — no te va a preguntar qué es más urgente, eso lo decide él.'}
+          puedeAvanzar={!guardando}
+          enUltimo={esUltimaQ}
+          confirmLabel={`Cargar ${nIncluidas} al plan`}
+          pending={!!guardando}
+          atrasLabel={qIdx > 0 ? 'Atrás' : 'Volver a las tareas'}
+          onAtras={() => (qIdx > 0 ? setQIdx((i) => i - 1) : setPaso('tareas'))}
+          onSiguiente={() => setQIdx((i) => i + 1)}
+          onConfirmar={() => void aplicar()}
+          onClose={onClose}
+          // Mientras carga NO se puede cerrar: son N tareas creadas + el Perro
+          // puntuándolas por tandas, y cortarlo a la mitad deja el board a medio armar.
+          bloqueante={!!guardando}
+          siguienteLabel={resp ? 'Siguiente →' : 'Saltear →'}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {opciones.map((op) => {
+              const on = multi ? elegidas.includes(op) : resp === op;
+              return (
+                <button key={op} type="button" onClick={() => setRespuestas((r) => {
+                  if (!multi) return { ...r, [qIdx]: on ? '' : op };
+                  const next = on ? elegidas.filter((x) => x !== op) : [...elegidas, op];
+                  return { ...r, [qIdx]: next.join(' · ') };
+                })}
+                  style={{
+                    width: '100%', padding: '13px 16px', borderRadius: 12, textAlign: 'left', fontFamily: SANS,
+                    border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
+                    background: on ? 'var(--primary-bg)' : 'var(--surface-2)',
+                    color: on ? 'var(--primary)' : 'var(--ink)',
+                    fontSize: 14.5, fontWeight: on ? 700 : 500, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 11, transition: 'border-color .12s, background .12s',
+                  }}>
+                  <span style={{
+                    width: 18, height: 18, flex: 'none', borderRadius: multi ? 5 : '50%',
+                    border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
+                    background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{on ? '✓' : ''}</span>
+                  {op}
+                </button>
+              );
+            })}
+            {multi && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'left' }}>Podés elegir varias.</div>}
+          </div>
+        </WizardShell>
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
@@ -425,49 +492,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             </a>
           ))}
 
-          {paso === 'preguntas' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>
-                  {qIdx + 1} de {preguntasVivas.length}
-                </span>
-                <span style={{ flex: 1, height: 3, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
-                  <span style={{ display: 'block', height: '100%', width: `${((qIdx + 1) / Math.max(1, preguntasVivas.length)) * 100}%`, background: 'var(--primary)', transition: 'width .2s' }} />
-                </span>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
-                Es para que el perro priorice bien — <b>no</b> te va a preguntar qué es más urgente, eso lo decide él.
-              </div>
-              {qActual && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>{qActual.pregunta}</div>
-                  {/* De qué tarea habla: sin esto, una pregunta suelta es un acertijo. */}
-                  {!!qActual.sobre?.length && (
-                    <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.45 }}>por: {qActual.sobre.map((t) => `«${t}»`).join(' · ')}</div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {(qActual.tipo === 'escala' ? ['1', '2', '3', '4', '5'] : (qActual.opciones ?? [])).map((op) => {
-                      const on = qActual.tipo === 'multi'
-                        ? (respuestas[qIdx] ?? '').split(' · ').filter(Boolean).includes(op)
-                        : respuestas[qIdx] === op;
-                      return (
-                        <button key={op} type="button" onClick={() => setRespuestas((r) => {
-                          if (qActual.tipo !== 'multi') return { ...r, [qIdx]: on ? '' : op };
-                          const ya = (r[qIdx] ?? '').split(' · ').filter(Boolean);
-                          const next = on ? ya.filter((x) => x !== op) : [...ya, op];
-                          return { ...r, [qIdx]: next.join(' · ') };
-                        })}
-                          style={{ padding: '9px 15px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)', fontSize: 13.5, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: SANS }}>
-                          {op}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {qActual.tipo === 'multi' && <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Podés elegir varias.</div>}
-                </div>
-              )}
-            </div>
-          ) : (filas.length > 0 || yaCargadas.length > 0) && <ReunionTareas
+          {(filas.length > 0 || yaCargadas.length > 0) && <ReunionTareas
             filas={filas}
             labels={labels}
             onFila={(i, patch) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)))}
@@ -482,28 +507,19 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flexWrap: 'wrap' }}>
           {/* Descartar es explícito y borra TODO lo que está en pantalla; cerrar con la
               ✕ las deja esperando para la próxima. */}
-          <button type="button" onClick={() => (paso === 'preguntas' ? (qIdx > 0 ? setQIdx((i) => i - 1) : setPaso('tareas')) : void descartar())} disabled={!!guardando}
+          {/* Este footer es SOLO el de la lista de tareas: el paso de preguntas se
+              dibuja con WizardShell, que trae su propio Atrás/Siguiente. */}
+          <button type="button" onClick={() => void descartar()} disabled={!!guardando}
             style={{ padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
-            {paso === 'preguntas' ? '← Volver' : guardando === 'descartar' ? 'Descartando…'
+            {guardando === 'descartar' ? 'Descartando…'
               : (!hayMias && yaCargadas.length) ? 'Descartar lo que queda' : varias ? 'Descartar todo' : 'Descartar'}
           </button>
-          {hayMias && (paso === 'tareas'
-            ? <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando}
-                style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas && !guardando ? 'pointer' : 'default', fontFamily: SANS }}>
-                {guardando === 'aplicar' ? 'Cargando…' : pensando ? 'MaKo está mirando lo que elegiste…' : nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
-              </button>
-            : <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {/* Contestar es opcional: si no sabés, cargá igual. */}
-                <button type="button" onClick={() => void aplicar()} disabled={!!guardando}
-                  style={{ padding: '11px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', fontFamily: SANS }}>
-                  Saltear
-                </button>
-                {/* De a UNA: se avanza hasta la última y recién ahí se carga. */}
-                <button type="button" onClick={() => (esUltimaQ ? void aplicar() : setQIdx((i) => i + 1))} disabled={!!guardando}
-                  style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
-                  {guardando === 'aplicar' ? 'Cargando…' : esUltimaQ ? `Cargar ${nIncluidas} al plan →` : 'Siguiente →'}
-                </button>
-              </div>)}
+          {hayMias && (
+            <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando}
+              style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
+              {guardando === 'aplicar' ? 'Cargando…' : pensando ? 'MaKo está mirando lo que elegiste…' : nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
+            </button>
+          )}
         </div>
       </div>
     </div>

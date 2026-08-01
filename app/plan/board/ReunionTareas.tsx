@@ -436,7 +436,9 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* El minuto va PEGADO al título: es parte de "qué es esto", no una acción. */}
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
-          {f.titulo}
+          {/* Mientras se edita, el título vive SOLO en el input: mostrarlo también acá
+              lo dejaba escrito dos veces, una arriba de la otra. */}
+          {!editando && f.titulo}
           {/* TODOS los momentos: una tarea que se habló tres veces trae sus tres marcas
               en vez de tres tarjetas casi iguales. */}
           {momentos.map((seg) => {
@@ -476,7 +478,7 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={() => setEditando((v) => !v)}
             style={{ ...btnChico, ...(editando ? { color: 'var(--primary)' } : {}) }}>
-            {editando ? '✓ listo' : '✎ corregir título y contexto'}
+            {editando ? '✓ listo' : '✎ corregir contexto'}
           </button>
           {/* La transcripción de Fathom etiqueta MAL a quien habla (mezcla dos voces en
               un bloque), así que la atribución falla y no hay prompt que lo arregle. Se
@@ -579,7 +581,8 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
           <span style={{ flex: 'none', marginTop: 2, fontSize: 13, color: 'var(--faint)', fontFamily: MONO }}>{i + 1}.</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
-              {f.titulo}
+              {/* Editando, el título vive solo en el input (si no, queda duplicado). */}
+              {editando !== idx && f.titulo}
               {momentosDe(f).map((seg) => (
                 <a key={seg} href={urlEnMinuto(reunion.url, seg) ?? '#'} target="_blank" rel="noreferrer" title="Escuchar este momento"
                   style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
@@ -598,7 +601,7 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
                   alguien, así que con más razón tiene que estar bien escrita. */}
               <button type="button" onClick={() => setEditando(editando === idx ? null : idx)}
                 style={{ ...btnChico, ...(editando === idx ? { color: 'var(--primary)' } : {}) }}>
-                {editando === idx ? '✓ listo' : '✎ corregir título y contexto'}
+                {editando === idx ? '✓ listo' : '✎ corregir contexto'}
               </button>
               {/* Si la transcripción se equivocó de hablante, se reasigna acá: a vos, a
                   otro de la reunión, o a alguien que cargás en el momento. */}
