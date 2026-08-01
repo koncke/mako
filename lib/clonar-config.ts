@@ -27,14 +27,20 @@ const KEYS_COPIABLES = [
   // El negocio
   'mako.onboarding.answers', 'mako.archivero.manual', 'mako.archivero.panorama',
   'negocio.fase.diagnostico', 'onboarding.funnel_tipos',
-  // La fábrica de creativos / contexto de IA
+  // La fábrica de creativos / contexto de IA. El entregable importa especialmente:
+  // las jugadas de setting cuelgan su lead magnet de ahí (estrategia.lead_magnet_id).
   'mako.avatares', 'mako.avatares.contexto', 'mako.razones', 'mako.voz_guia',
+  'mako.entregable', 'mako.persona', 'mako.personalidad', 'mako.formatos_recom',
+  // Clasificación de guiones (Scripts Analyst)
+  'script_avatares', 'script_angles',
+  // Prompts customizados desde /configuraciones (si no existen, el default de código aplica)
+  'mako.prompts', 'mako.prompt-overrides',
   // El norte por área
   'mako.fase.general', 'mako.fase.comercial', 'mako.fase.marketing', 'mako.fase.crm', 'mako.fase.closing',
-  // Objetivos del tablero
-  'objetivo_cash_usd', 'objetivo_cierres', 'objetivo_desde',
-  // Plantillas de avisos (catálogo, no envíos)
-  'mako.plantillas.store',
+  // Objetivos del tablero (la FECHA no: ver abajo)
+  'objetivo_cash_usd', 'objetivo_cierres',
+  // Plantillas de avisos (catálogo, no envíos) + huso horario
+  'mako.plantillas.store', 'mako.timezone',
 ] as const;
 
 /** Tablas de CONFIGURACIÓN que se clonan (no datos operativos). */
@@ -67,6 +73,12 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
   const filas = ((origen ?? []) as Array<{ key: string; value: string }>)
     .filter((r) => (r.value ?? '').trim().length > 0)
     .map((r) => ({ workspace_id: destino, key: r.key, value: r.value }));
+  // `objetivo_desde` NO se copia: es la fecha desde la que se cuentan los
+  // objetivos. Con la del dueño, el workspace de prueba compararía contra meses
+  // de historia que no tiene y todos los tableros arrancarían en rojo. Se
+  // siembra HOY, igual que al dar de alta un workspace nuevo.
+  filas.push({ workspace_id: destino, key: 'objetivo_desde', value: new Date().toISOString().slice(0, 10) });
+
   if (filas.length) {
     const { error } = await sb.from('app_settings').upsert(filas, { onConflict: 'workspace_id,key' });
     if (error) throw new Error(`clonar settings: ${error.message}`);
