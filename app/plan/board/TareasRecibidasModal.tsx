@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
+import { pareceLaMisma, textoRepetidas, type TareaEnTablero } from '@/lib/tareas-dedup';
 import { type Label, type Prio } from './types';
 
 const SANS = "'Geist', sans-serif";
@@ -57,9 +58,11 @@ const recordingDeRef = (ref?: string): number | undefined => {
 /** `proyectoPropuesto` = el nombre que dijo MaKo, aunque ese proyecto no exista todavía. */
 type FilaConProp = FilaTarea & { propId: string; proyectoPropuesto?: string };
 
-export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, onDescartadas, onAbrirTarea, renderTaskCard, oculto }: {
+export function TareasRecibidasModal({ props: todos, labels, existentes, onListo, onClose, onDescartadas, onAbrirTarea, renderTaskCard, oculto }: {
   props: PropuestaPendiente[];
   labels: Label[];
+  /** Lo que YA está en el tablero, para no volver a ofrecer lo que ya existe. */
+  existentes?: TareaEnTablero[];
   /** hay otro modal adelante: se esconde SIN desmontarse (para no perder la revisión). */
   oculto?: boolean;
   /** abrir la tarjeta de una tarea YA cargada (el modal se esconde detrás y vuelve al cerrarla). */
@@ -86,6 +89,20 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
   // un componente nuevo y no hace falta re-sincronizar por efecto).
   const [filas, setFilas] = useState<FilaConProp[]>(() => {
     const idPorNombre = new Map(labels.map((l) => [l.name.trim().toLowerCase(), l.id]));
+    const abiertas = (existentes ?? []).filter((t) => !t.hecha);
+    // Además del tablero, se cruza contra las tareas de los OTROS borradores de este
+    // mismo modal: la misma reunión grabada por dos personas llega como dos borradores
+    // distintos, con los mismos compromisos escritos con otras palabras. Se MARCA con
+    // el umbral bajo (pareceLaMisma) — nunca se descarta, porque a ese umbral el
+    // parecido a veces es solo parecido.
+    const deOtrosBorradores: TareaEnTablero[] = [];
+    const yaEnPlan = (titulo: string): { id: string; razon: string } | null => {
+      const enBoard = abiertas.find((x) => pareceLaMisma(x.titulo, titulo).si);
+      if (enBoard) return { id: enBoard.id, razon: `ya está en tu plan como «${enBoard.titulo}»` };
+      const enOtro = deOtrosBorradores.find((x) => pareceLaMisma(x.titulo, titulo).si);
+      if (enOtro) return { id: '', razon: `la misma reunión ya la trae como «${enOtro.titulo}»` };
+      return null;
+    };
     return props.flatMap((p) => p.tareas.map((t) => ({
       propId: p.id,
       titulo: t.titulo, detalle: t.detalle ?? '', prioridad: (t.prioridad ?? 'media') as Prio,
@@ -96,12 +113,17 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
       proyectoPropuesto: (t.proyecto ?? '').trim(),
       dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro, minuto: t.minuto, minutos: t.minutos,
       incluir: !t.esDeOtro,
+      // ¿Esta ya está en el plan? La misma reunión se puede grabar dos veces (un
+      // notetaker por participante) y el mismo compromiso puede volver en la junta
+      // siguiente. Se marca y nace DESTILDADA: se ve por qué, y con un clic entra
+      // igual si el usuario decide que no es la misma.
+      ...(yaEnPlan(t.titulo) ? { enriquece: yaEnPlan(t.titulo)!, incluir: false } : {}),
       // La fecha de la REUNIÓN. Si el borrador no la trae (lo dejó una versión vieja
       // del cron), va SIN fecha: caer a createdAt mostraba la hora a la que corrió el
       // cron como si fuera la hora de la reunión — "tuviste una reunión hoy" cuando la
       // reunión había sido tres semanas antes.
       reunion: { recordingId: recordingDeRef(p.ref), titulo: p.fuenteTitulo ?? '', fecha: p.fuenteFecha ?? null, url: p.fuenteUrl ?? null },
-    })));
+    })).map((fila) => { deOtrosBorradores.push({ id: '', titulo: fila.titulo, hecha: false }); return fila; }));
   });
 
   // Solo se pregunta por lo que REALMENTE vas a cargar. MaKo arma las preguntas cuando
@@ -172,7 +194,10 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
         // Si no matcheó ningún proyecto existente, viaja el NOMBRE propuesto: el server
         // crea la categoría si no la encuentra (lib/plan-propuesta.ts). Antes acá se
         // mandaba undefined y la tarea nacía suelta.
-        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined), minuto: f.minuto, minutos: f.minutos })),
+        // `forzar`: la fila venía marcada como repetida (nació destildada) y el usuario
+        // la volvió a tildar igual. Su decisión gana sobre el filtro — si no, el server
+        // la descartaba de nuevo y en silencio, y el botón "crearla igual" era mentira.
+        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined), minuto: f.minuto, minutos: f.minutos, forzar: !!f.enriquece })),
       // Lo que queda del lado de otras personas (con las reasignaciones que hiciste
       // recién): el borrador NO se cierra mientras haya algo para repartir.
       restantes: filas.filter((f) => f.propId === p.id && f.esDeOtro)
@@ -208,6 +233,52 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
     : varias
       ? `${filas.length} compromisos en total: ${filas.length - nOtras} tuyos${nOtras ? ` y ${nOtras} de los demás` : ''}.`
       : (props[0]?.resumen || `${filas.length} compromisos de la reunión.`);
+
+  // EL PERRO CRUZA. El léxico solo agarra lo que se parece en palabras, y eso alcanza
+  // para poco: medido contra un caso real (la misma llamada grabada por dos notetakers),
+  // de 17 compromisos repetidos el criterio léxico avisaba 5. "Montar la automatización
+  // del flujo post-agenda" y "Configurar la automatización del envío de audios
+  // post-agendamiento" son el mismo trabajo y comparten el 15% de las palabras: eso lo
+  // ve el Perro, no un Jaccard. Corre UNA vez al abrir, sobre lo que no marcó el léxico.
+  // Best-effort: si falla, quedan las marcas del léxico y no se bloquea nada.
+  const cruzadoRef = useRef(false);
+  useEffect(() => {
+    if (cruzadoRef.current || !(existentes?.length)) return;
+    const aCruzar = filas.filter((f) => !f.esDeOtro && !f.enriquece);
+    if (!aCruzar.length) return;
+    cruzadoRef.current = true;
+    (async () => {
+      const j = await fetch('/api/plan-fathom', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cruzar', uso: 'Cruzar tareas de reunión con el plan',
+          candidatas: aCruzar.map((f) => ({ titulo: f.titulo, detalle: f.detalle })),
+          existentes: existentes.filter((t) => !t.hecha).map((t) => ({ id: t.id, titulo: t.titulo, detalle: '' })),
+        }),
+      }).then((r) => r.json()).catch(() => ({ ok: false }));
+      if (!j?.ok || !Array.isArray(j.cruces) || !j.cruces.length) return;
+      const porTitulo = new Map<string, { id: string; razon: string }>();
+      for (const c of j.cruces as Array<{ i: number; idExistente?: string; razon?: string }>) {
+        const cand = aCruzar[c.i];
+        const ya = existentes.find((t) => t.id === c.idExistente);
+        if (cand && ya) porTitulo.set(cand.titulo, { id: ya.id, razon: `ya está en tu plan como «${ya.titulo}»${c.razon ? ` — ${c.razon}` : ''}` });
+      }
+      if (!porTitulo.size) return;
+      setFilas((prev) => prev.map((f) => {
+        const hit = !f.esDeOtro && !f.enriquece ? porTitulo.get(f.titulo) : undefined;
+        return hit ? { ...f, enriquece: hit, incluir: false } : f;
+      }));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Lo que MaKo detectó como ya existente: se dice ARRIBA, no después de crear. Si el
+  // usuario re-tilda alguna, deja de contarse (su decisión manda) y se crea igual.
+  const nRepetidas = filas.filter((f) => f.enriquece && !f.esDeOtro).length;
+  const nForzadas = filas.filter((f) => f.enriquece && f.incluir && !f.esDeOtro).length;
+  const avisoRepetidas = nRepetidas
+    ? `${textoRepetidas(nRepetidas)} — ${nRepetidas === 1 ? 'la dejé destildada' : 'las dejé destildadas'}${nForzadas ? `, y ${nForzadas} las volviste a tildar: esas las creo igual` : ''}.`
+    : '';
 
   const aplicando = guardando === 'aplicar';
 
@@ -246,6 +317,7 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
             {props.some((p) => p.origen === 'fathom') && <span style={{ flex: 'none' }}><SvcIcon k="fathom" size={17} box={28} radius={8} /></span>}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{sub}</div>
+              {!!avisoRepetidas && <div style={{ fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.5, marginTop: 4, fontWeight: 600 }}>⚠ {avisoRepetidas}</div>}
               {/* Con varias, el link a cada grabación va en el encabezado de SU bloque
                   (acá arriba sería el de una sola, elegida al azar). */}
               {!varias && props[0]?.fuenteUrl && (

@@ -50,6 +50,8 @@ export type Destinatario = {
   telefono: string;
   /** ¿se le puede dejar el borrador en SU plan? (cuenta activa con workspace propio). */
   puedeCargarPlan: boolean;
+  /** sos VOS mismo mirando el tablero de otro: el destino es tu propio plan. */
+  esVos?: boolean;
 };
 
 const nombreDe = (u: Usuario | null, fallbackNombre: string, email: string): string =>
@@ -98,6 +100,26 @@ export async function resolverDestinatarios(personas: Array<{ email: string; nom
       // la ruta. Un admin de plataforma sin workspace propio no tiene dónde recibirlo.
       puedeCargarPlan: activo && usuario?.workspace_id != null,
     });
+  }
+
+  // VOS MISMO, cuando mirás el tablero de otro. No es "reparto" —no le mandás nada a
+  // nadie—, es llevar a TU plan lo que vos asumiste en la reunión del cliente. Faltaba
+  // por dos motivos a la vez: el bucle de arriba excluye a quien mira la pantalla, y
+  // encima la grabación del cliente suele traer solo al cliente entre sus invitados,
+  // así que tu email no estaba ni en la lista. Sin esto, el modal mostraba tus 17
+  // compromisos con un "mandáselo" que no tenía a quién mandárselos.
+  if (impersonando && sesion?.email) {
+    const yo = sesion.email.trim().toLowerCase();
+    if (yo && yo !== miEmail && !vistos.has(yo)) {
+      const u = await buscarUsuarioPorEmail(yo).catch(() => null);
+      if (u && u.estado !== 'suspendido' && u.workspace_id != null) {
+        out.push({
+          email: yo, nombre: nombreDe(u, sesion.nombre ?? '', yo), registrado: true,
+          workspaceId: u.workspace_id, telefono: await telefonoDeUsuario(yo).catch(() => ''),
+          puedeCargarPlan: true, esVos: true,
+        });
+      }
+    }
   }
   return out;
 }

@@ -554,40 +554,11 @@ function trocear(texto: string): string[] {
   return partes;
 }
 
-/** Título normalizado (sin acentos, sin puntuación) — base del dedup. */
-const normTitulo = (s: string): string =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-
-// Palabras que no distinguen una tarea de otra (si dos títulos comparten solo estas,
-// no son la misma tarea).
-const VACIAS = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y', 'o', 'en', 'para', 'por', 'con', 'un', 'una', 'al', 'a', 'que', 'su', 'sus', 'lo', 'sobre', 'como']);
-const palabrasClave = (titulo: string): Set<string> =>
-  new Set(normTitulo(titulo).split(' ').filter((w) => w.length > 2 && !VACIAS.has(w)));
-
-/**
- * ¿Son la misma tarea dicha de dos formas? Pasa siempre por el SOLAPE entre partes:
- * "Estudiar el framework Epiphany Bridge de Russell Branson" y "Estudiar el framework
- * de historia de origen (Epiphany Bridge) de Russell Branson" son una sola.
- *
- * Jaccard sobre palabras con contenido (sin IA: es un juicio de parecido léxico, y una
- * pasada de IA de "consolidá lo parecido" es justo el mecanismo que producía 8 tareas
- * en vez de 95). Umbral alto: preferimos que se cuele un duplicado —que el usuario
- * destilda en un segundo— antes que perder una tarea real.
- */
-export function mismaTarea(a: string, b: string): boolean {
-  const A = palabrasClave(a), B = palabrasClave(b);
-  if (!A.size || !B.size) return false;
-  let comunes = 0;
-  for (const w of A) if (B.has(w)) comunes += 1;
-  const jaccard = comunes / (A.size + B.size - comunes);
-  if (jaccard >= 0.7) return true;
-  // Uno contenido en el otro y con al menos 3 palabras propias en común: mismo pedido
-  // dicho más corto ("Rediseñar la landing" vs "Rediseñar la landing page del VSL").
-  const chico = A.size <= B.size ? A : B, grande = A.size <= B.size ? B : A;
-  if (chico.size >= 3 && comunes === chico.size) return true;
-  void grande;
-  return false;
-}
+// El juicio de "es la misma tarea" vive en lib/tareas-dedup.ts: lo comparten la
+// extracción (fusionar lo que la reunión dijo dos veces), el alta desde el board y
+// el alta desde un borrador. Un solo criterio para todos los orígenes.
+export { mismaTarea, normTitulo, palabrasClave } from './tareas-dedup';
+import { mismaTarea, normTitulo } from './tareas-dedup';
 
 /** Suma el gasto de varias pasadas en un solo UsageInfo (para el panel de costo). */
 function sumarUsage(us: Array<UsageInfo | undefined>): UsageInfo | undefined {

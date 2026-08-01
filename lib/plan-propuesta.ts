@@ -13,7 +13,7 @@ import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_
 import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, listPlanBoard } from '@/lib/plan-board';
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, type Prioridad } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
-import { mismaTarea } from '@/lib/plan-fathom';
+import { mismaTarea } from '@/lib/tareas-dedup';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
@@ -36,6 +36,8 @@ export type PropuestaTarea = {
   minuto?: number;
   /** TODOS los momentos en que se habló de esto (una tarea puede volver varias veces). */
   minutos?: number[];
+  /** el humano la confirmó A PESAR del aviso de "ya existe": su decisión gana. */
+  forzar?: boolean;
 };
 /**
  * Los títulos de las tareas ABIERTAS del tablero del workspace actual, para no volver
@@ -108,6 +110,7 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     minutos: Array.isArray(o.minutos)
       ? [...new Set((o.minutos as unknown[]).map((x) => Math.round(Number(x))).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b)
       : undefined,
+    forzar: o.forzar === true ? true : undefined,
   };
 }
 function limpiarEliminar(e: unknown): PropuestaEliminar | null {
@@ -373,8 +376,13 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       // cargó las tareas a mano desde el modal, el segundo borrador volvía a crear las
       // mismas tarjetas. Se compara por parecido léxico contra lo que ya está abierto
       // en el board, con el mismo criterio que usa la extracción para fusionar.
+      // Lo que el humano forzó NO pasa por el filtro: él ya vio el aviso y dijo que no
+      // es la misma. Un filtro que le gana a una decisión explícita no es una red de
+      // seguridad, es un bug que borra trabajo sin decir nada.
       const abiertas = await titulosDelTablero(usaPlanBoard);
-      const base = baseSinRepetir.filter((t) => !abiertas.some((x) => mismaTarea(x, t.titulo)));
+      const forzadas = baseSinRepetir.filter((t) => t.forzar);
+      const filtrables = baseSinRepetir.filter((t) => !t.forzar);
+      const base = [...forzadas, ...filtrables.filter((t) => !abiertas.some((x) => mismaTarea(x, t.titulo)))];
       if (baseSinRepetir.length !== base.length) {
         console.warn(`[plan-propuesta] ${lote.id}: ${baseSinRepetir.length - base.length} tarea(s) ya existían en el tablero — no se duplican`);
       }

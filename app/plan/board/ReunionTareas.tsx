@@ -60,6 +60,8 @@ export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: s
 type Destinatario = {
   email: string; nombre: string; registrado: boolean;
   workspaceId: number | null; telefono: string; puedeCargarPlan: boolean;
+  /** sos VOS mirando el tablero de otro: el destino es tu propio plan, no un reparto. */
+  esVos?: boolean;
 };
 
 export const banda = (p: Prio): string => (p === 'alta' ? '#D0504A' : p === 'media' ? '#C8870C' : p === 'baja' ? '#1E9E57' : '#98A0AC');
@@ -250,6 +252,20 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
   // trae su propio mapa. Se piden solo cuando hay tareas de otros.
   const ridsConOtros = useMemo(() => [...new Set(conIdx.map((x) => x.r.recordingId).filter((x): x is number => !!x))].join(','), [conIdx]);
   const [dests, setDests] = useState<Record<number, Record<string, Destinatario>>>({});
+
+  // El destinatario del grupo abierto. La extracción NO siempre trae el email del
+  // dueño (hay borradores con `dueno` y sin `duenoEmail`), así que sin este fallback
+  // por nombre el panel se quedaba sin destinatario y el botón de cargar en el plan
+  // no se dibujaba nunca — que es el caso que reportó Martín con sus 17 tareas.
+  const normNom = (x: string) => x.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const destDe = (g: { email?: string; nombre: string; r: { recordingId?: number | null } } | null) => {
+    if (!g) return undefined;
+    const m2 = dests[g.r.recordingId ?? 0] ?? {};
+    if (g.email && m2[g.email]) return m2[g.email];
+    const n = normNom(g.nombre);
+    if (!n) return undefined;
+    return Object.values(m2).find((d) => normNom(d.nombre) === n || normNom(d.nombre).split(/\s+/)[0] === n.split(/\s+/)[0]);
+  };
   const [destsListos, setDestsListos] = useState(false);
   useEffect(() => {
     if (!ridsConOtros) return;
@@ -358,7 +374,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
                     </div>
                   )}
                   {g.items.map(({ f, i }) => (
-                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} personas={personasTodas} />
+                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} personas={personasTodas} onAbrirTarea={onAbrirTarea} />
                   ))}
                 </div>
               ))}
@@ -367,8 +383,8 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
         <PanelPersona
           key={activo.clave}
           nombre={activo.nombre}
-          dest={activo.email ? dests[activo.r.recordingId ?? 0]?.[activo.email] : undefined}
-          cargandoDest={!!activo.email && !destsListos && !!activo.r.recordingId}
+          dest={destDe(activo)}
+          cargandoDest={!destsListos && !!activo.r.recordingId}
           items={activo.items}
           labels={labels}
           reunion={activo.r}
@@ -409,7 +425,7 @@ function TabBtn({ activo, onClick, label, n }: { activo: boolean; onClick: () =>
  * app va a pisar dos segundos después). Lo que sí necesita mano humana es el DETALLE:
  * la IA escucha mal un número y queda escrito ("el grupal de $497" cuando son $1500).
  */
-function FilaCandidata({ f, onFila, url, personas }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null; personas: PersonaRef[] }) {
+function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null; personas: PersonaRef[]; onAbrirTarea?: (id: string) => void }) {
   const [editando, setEditando] = useState(false);
   const [reasignando, setReasignando] = useState(false);
   const momentos = momentosDe(f);
@@ -435,9 +451,17 @@ function FilaCandidata({ f, onFila, url, personas }: { f: FilaTarea; onFila: (p:
           ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} rows={4}
               style={{ width: '100%', marginTop: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
           : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
+        {/* Ya existe: se NOMBRA la tarjeta entera (antes se cortaba a los 50 caracteres,
+            a mitad de palabra y con la comilla sin cerrar, así que no se sabía cuál era)
+            y se ofrece abrirla. La fila nace destildada, no oculta: si el usuario decide
+            que no es la misma, la vuelve a tildar y se crea igual. */}
         {f.enriquece && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-            <span title={f.enriquece.razon} style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg, var(--surface))', border: '1px solid var(--warn)', borderRadius: 6, padding: '2px 7px' }}>⚠ ya existe en el plan · {f.enriquece.razon.slice(0, 50)}</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--warn)', background: 'var(--warn-bg, var(--surface))', border: '1px solid var(--warn)', borderRadius: 7, padding: '3px 9px', lineHeight: 1.45 }}>⚠ {f.enriquece.razon}</span>
+            {!!f.enriquece.id && onAbrirTarea && (
+              <button type="button" onClick={(e) => { e.stopPropagation(); onAbrirTarea(f.enriquece!.id); }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, padding: 0 }}>ver la tarjeta</button>
+            )}
           </div>
         )}
         {/* Editar a la izquierda; reasignar a la derecha, separados: son dos gestos
@@ -530,7 +554,7 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
     setCargando(false);
     if (j.ok) {
       setLinkPlan(String(j.link ?? ''));
-      setNota(`Listo: ${nombre} va a ver estas tareas la próxima vez que entre a su plan.`);
+      setNota(dest?.esVos ? 'Listo: te esperan en tu plan la próxima vez que entres.' : `Listo: ${nombre} va a ver estas tareas la próxima vez que entre a su plan.`);
     } else setErr(String(j.error ?? 'No pude cargárselas.'));
   };
 
@@ -621,9 +645,9 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
         {cargandoDest && <span style={{ fontSize: 12, color: 'var(--faint)', alignSelf: 'center' }}>Buscando su cuenta…</span>}
         {dest?.puedeCargarPlan && (
           <button type="button" onClick={() => void cargarEnSuPlan()} disabled={cargando || !!linkPlan}
-            title={`Le dejo estas tareas en su plan para que las confirme`}
+            title={dest.esVos ? 'Te las dejo como borrador en TU plan para que las confirmes' : 'Le dejo estas tareas en su plan para que las confirme'}
             style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: linkPlan ? 'var(--border)' : 'var(--ink)', color: linkPlan ? 'var(--faint)' : 'var(--surface)', fontSize: 13.5, fontWeight: 700, cursor: cargando || linkPlan ? 'default' : 'pointer', fontFamily: SANS }}>
-            {cargando ? 'Cargando…' : linkPlan ? '✓ En su plan' : `Cargar en el plan de ${nombre.split(' ')[0]}`}
+            {cargando ? 'Cargando…' : linkPlan ? (dest.esVos ? '✓ En tu plan' : '✓ En su plan') : dest.esVos ? 'Cargar en MI plan' : `Cargar en el plan de ${nombre.split(' ')[0]}`}
           </button>
         )}
       </div>

@@ -106,7 +106,14 @@ export async function POST(req: NextRequest) {
     // figura en el calendario (que es el caso de media consultoría).
     const email = String(body.email ?? '').trim().toLowerCase();
     const manual = body.manual === true;
+    // …y a VOS MISMO siempre, aunque no figures entre los invitados del calendario.
+    // Mandarte algo a tu propia cuenta no necesita lista blanca: el candado protege de
+    // emails inventados por la IA, no de vos escribiéndote. Sin esto, revisando la
+    // reunión de un cliente no podías llevarte a tu plan lo que vos asumiste ahí,
+    // porque la grabación del cliente suele traer solo al cliente entre sus invitados.
+    const esVos = !!sesion.email && email === sesion.email.trim().toLowerCase();
     const invitado = participantes.find((p) => p.email === email)
+      ?? (esVos ? { nombre: sesion.nombre ?? '', email } : undefined)
       ?? (manual && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? { nombre: '', email } : undefined);
     if (!invitado) return Response.json({ ok: false, error: 'Esa persona no estuvo en la reunión.' }, { status: 403 });
 

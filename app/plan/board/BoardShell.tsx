@@ -32,6 +32,7 @@ import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
 import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
+import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 
 const MONO = "'Geist Mono', monospace";
@@ -455,7 +456,20 @@ export function BoardShell({ board, scope }: {
   // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
   // sugerida; al cambiar la firma del plan, el guardián las re-puntúa solo (una corrida).
   // Deshacer = borrar las que se acaban de crear (fue una acción revisada, no un click suelto).
-  const crearDesdeReunion = async (cands: Array<{ titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; proyectoNombre?: string; minuto?: number; minutos?: number[] }>, fuente?: Fuente) => {
+  type CandReunion = { titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; proyectoNombre?: string; minuto?: number; minutos?: number[] };
+  const crearDesdeReunion = async (candsIn: CandReunion[], fuente?: Fuente, forzar = false) => {
+    // ÚLTIMA RED contra el duplicado. Los modales ya marcan lo que ya existe, pero esta
+    // función también la llaman otros caminos (archivo, reanálisis) y el usuario puede
+    // haber tildado igual. Es léxico y gratis: no gasta IA ni pide un viaje al server.
+    // Ante la duda NO filtra — perder un compromiso es peor que una tarjeta repetida, y
+    // por eso lo que se saltea SIEMPRE se avisa y se puede crear igual con "Deshacer".
+    const enTablero = tasks.map((t) => ({ id: t.id, titulo: t.title, hecha: t.progress >= 100 }));
+    const { nuevas, repetidas } = forzar ? { nuevas: candsIn, repetidas: [] as Array<{ tarea: CandReunion }> } : separarRepetidas(candsIn, enTablero);
+    const cands = nuevas;
+    if (!cands.length) {
+      if (repetidas.length) board.showUndo(`${textoRepetidas(repetidas.length)}: no las volví a crear.`, () => { void crearDesdeReunion(repetidas.map((r) => r.tarea), fuente, true); });
+      return;
+    }
     // origen = MaKo (la IA extrajo estas tarjetas) + fuente (Fathom/archivo) + un alta
     // que deja rastro de DE DÓNDE salió (feedback jul-19 / regla del historial).
     const altaText = fuente?.tipo === 'fathom' ? `Creó la tarjeta — de la reunión «${fuente.etiqueta ?? ''}» (Fathom)`
@@ -509,7 +523,10 @@ export function BoardShell({ board, scope }: {
       if (!t) continue;
       ids.push(t.id);
     }
-    if (ids.length) board.showUndo(`${ids.length} tarea${ids.length > 1 ? 's' : ''} de la reunión al plan`, () => ids.forEach((id) => board.removeSilent(id)));
+    if (ids.length) {
+      const extra = repetidas.length ? ` · ${textoRepetidas(repetidas.length)}, no las dupliqué` : '';
+      board.showUndo(`${ids.length} tarea${ids.length > 1 ? 's' : ''} de la reunión al plan${extra}`, () => ids.forEach((id) => board.removeSilent(id)));
+    }
     // UNIFICACIÓN (#1): el Perro server-side puntúa/describe estas tareas nuevas y les arma
     // checklist, igual que las de WhatsApp — y con el MISMO contexto (de dónde salieron),
     // que antes no le pasábamos: puntuaba "(sin brief adicional)".
@@ -642,6 +659,11 @@ export function BoardShell({ board, scope }: {
           key={borradorReunion ? borradorReunion.id : pendientes.map((p) => p.id).join('|')}
           props={borradorReunion ? [borradorReunion] : pendientes}
           labels={labels}
+          // Lo que YA está en el plan, para que el modal no vuelva a ofrecer lo que
+          // ya existe: la misma reunión leída dos veces (o el mismo compromiso en dos
+          // juntas) traía las tarjetas repetidas y el botón decía "Agregar 48" sin
+          // avisar que varias ya estaban.
+          existentes={tasks.map((t) => ({ id: t.id, titulo: t.title, hecha: t.progress >= 100 }))}
           onListo={() => window.location.reload()}
           onClose={() => { if (borradorReunion) setBorradorReunion(null); else setPendientesCerradas(true); }}
           onDescartadas={() => { setBorradorReunion(null); setPendientes([]); setPendientesCerradas(false); }}
