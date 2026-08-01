@@ -159,14 +159,16 @@ export async function searchKnowledge(
       .in('workspace_id', await wsParaRag())
       .eq('activo', true)
       .not('embedding', 'is', null);
-    if (opts.area) sel = sel.eq('area', opts.area);
     // El swipe y el conocimiento de producto solo se sirven pidiéndolos por área:
-    // ninguno es metodología de marketing para el chat de un cliente.
-    else sel = sel.not('area', 'in', `(${AREAS_RESERVADAS.join(',')})`);
+    // ninguno es metodología de marketing para el chat de un cliente. El filtro
+    // va en JS (encadenar .neq() acá dispara TS2589 en el tipo del builder).
+    if (opts.area) sel = sel.eq('area', opts.area);
     const { data, error } = await sel;
     if (error || !data || data.length === 0) return [];
     const qv = await embed(q);
-    return (data as Array<{ titulo: string; categoria: string | null; cuerpo: string; embedding: number[] }>)
+    return (data as Array<{ titulo: string; categoria: string | null; cuerpo: string; area: string; embedding: number[] }>)
+      // Sin área pedida, las reservadas quedan afuera del RAG general.
+      .filter((r) => (opts.area ? true : !AREAS_RESERVADAS.includes(r.area)))
       .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo, score: cosine(qv, r.embedding) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, k)
