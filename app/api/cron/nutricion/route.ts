@@ -29,6 +29,7 @@ import {
   comprometerInscripciones,
   procesarEnvios,
 } from '@/lib/nutricion';
+import { evaluarDesenlaces } from '@/lib/nutricion-desenlace';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 
@@ -104,11 +105,21 @@ export async function GET(request: NextRequest) {
           // borrarlas a mano no servía de nada: volvían solas. Ya no se siembra
           // nada — lo que falta se AVISA (lib/secuencias-huecos.ts), no se
           // inventa con copy de relleno que el dueño no escribió.
+          // Los desenlaces se evalúan SIEMPRE, incluso con el envío apagado: son
+          // secuencias que ya mandaron sus mensajes y hay que cerrarlas. Si
+          // dependiera del flag de envío, un cliente con el canal en pausa
+          // acumularía inscripciones abiertas para siempre.
+          const desenlaces = await evaluarDesenlaces().catch((e) => {
+            console.error(`[cron:nutricion] desenlaces ws ${w.id}:`, e);
+            return null;
+          });
+          const cerradas = desenlaces ? { logrados: desenlaces.logrados, fallidos: desenlaces.fallidos, movidos: desenlaces.movidos } : undefined;
+
           const [waOn, emailOn] = await Promise.all([envioWhatsappHabilitado(), envioEmailHabilitado()]);
-          if (!waOn && !emailOn) return { ws: w.id, modo: 'off' };
+          if (!waOn && !emailOn) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
           const inscriptas = await comprometerInscripciones();
           const proc = await procesarEnvios({ ignorarVentana });
-          return { ws: w.id, modo: `commit (wa:${waOn ? 'on' : 'off'} email:${emailOn ? 'on' : 'off'})`, inscriptas, ...proc };
+          return { ws: w.id, modo: `commit (wa:${waOn ? 'on' : 'off'} email:${emailOn ? 'on' : 'off'})`, inscriptas, ...proc, ...(cerradas ?? {}) };
         });
         resultados.push(r);
       } catch (err) {

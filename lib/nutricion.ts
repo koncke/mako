@@ -1218,6 +1218,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           paso_actual: insc.paso_actual + 1,
           proximo_envio_at: siguiente ? proximoEnvioDePaso(siguiente, lead) : null,
           estado: siguiente ? 'activa' : 'completada',
+          // El reloj del fallo por silencio se cuenta desde el ÚLTIMO mensaje,
+          // no desde que el lead se inscribió: una secuencia con pasos a los 30
+          // días se daría por fallida antes de terminar de mandarlos.
+          ultimo_paso_at: ahoraISO(),
           updated_at: ahoraISO(),
         })
         .eq('id', insc.id);
