@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     chats = Array.isArray(body.chats) ? body.chats.filter((c): c is string => typeof c === 'string' && !!c) : [];
   } catch { chats = []; }
   if (!chats.length) {
-    return Response.json({ ok: false, error: 'Elegí al menos una conversación para que pueda leerla.' }, { status: 400 });
+    return Response.json({ ok: false, error: 'Selecciona al menos una conversación para analizar.' }, { status: 400 });
   }
 
   try {

@@ -18,6 +18,9 @@ import {
 import { sincronizarDesdeEvolution, borrarEspejoNoOficial } from '@/lib/evolution-mensajes';
 
 export const dynamic = 'force-dynamic';
+// 'sincronizar' recorre hasta 100 chats con 60 mensajes cada uno contra
+// Evolution: con el default se corta a la mitad y deja el espejo incompleto.
+export const maxDuration = 300;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 

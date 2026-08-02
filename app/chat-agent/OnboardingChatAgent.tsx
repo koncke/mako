@@ -220,6 +220,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [convs, setConvs] = useState<Conversacion[] | null>(null);
   const [elegidos, setElegidos] = useState<Set<string>>(new Set());
   const [busq, setBusq] = useState('');
+  // Vincular el número NO trae el historial: el espejo de mensajes se llena
+  // con lo que va llegando por webhook. Las conversaciones que ya existen en
+  // el teléfono hay que pedirlas, y este paso las necesita para leer el estilo.
+  const [importando, setImportando] = useState(false);
+  const [yaImporto, setYaImporto] = useState(false);
   const [contexto, setContexto] = useState<{ leido: boolean; resumen: string } | null>(null);
 
   // ── Paso ensayo ──
@@ -366,6 +371,21 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     } catch { setConvs([]); }
   }, []);
   useEffect(() => { if (pasoKeyRef.current === 'contexto' && convs === null) void cargarConvs(); });
+
+  async function importarConversaciones() {
+    setImportando(true); setErr(null);
+    try {
+      const j = await (await fetch('/api/whatsapp/evolution', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'sincronizar' }),
+      })).json();
+      if (!j.ok) { setErr(j.error || 'No se pudieron traer las conversaciones.'); return; }
+      setYaImporto(true);
+      setConvs(null);
+      await cargarConvs();
+    } catch {
+      setErr('No se pudieron traer las conversaciones.');
+    } finally { setImportando(false); }
+  }
 
   async function leerConversaciones() {
     if (!elegidos.size) { setErr('Elegí al menos una conversación.'); return; }
@@ -590,9 +610,22 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {convs === null ? (
             <Cargando texto="Buscando tus conversaciones…" />
+          ) : importando ? (
+            <Cargando texto="Trayendo tus conversaciones del teléfono…" />
           ) : convs.length === 0 ? (
-            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-              Todavía no tengo conversaciones para leer. Podés seguir: voy a escribir con el perfil de tu negocio y ajusto cuando empieces a chatear.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+              <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center' }}>
+                {yaImporto
+                  ? 'No se encontraron conversaciones con suficiente ida y vuelta. Puedes continuar: se escribirá con el perfil de tu negocio y se ajustará cuando empieces a conversar.'
+                  : 'Vincular el número no trae el historial. Se importan las conversaciones del teléfono para poder leer tu estilo.'}
+              </div>
+              {!yaImporto && (
+                <button onClick={() => void importarConversaciones()} disabled={importando}
+                  style={{ ...btnDark, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <span aria-hidden style={{ display: 'inline-flex' }}><Icon name="whatsapp" size={16} /></span>
+                  Traer mis conversaciones
+                </button>
+              )}
             </div>
           ) : (
             <>
