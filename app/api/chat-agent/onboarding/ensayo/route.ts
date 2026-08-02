@@ -20,8 +20,8 @@
 
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
-import { chatClaude } from '@/lib/anthropic';
-import { getPromptText, renderPrompt } from '@/lib/prompt-render';
+import { chatCheapCascade, CASCADA_GRATIS } from '@/lib/ai-cheap';
+import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { resumenFunnel } from '@/lib/mako-context';
 import { escenarioPorId, bloqueEscenario } from '@/lib/chat-agent-escenarios';
@@ -98,20 +98,25 @@ export async function POST(req: NextRequest) {
       escenario: bloqueEscenario(esc),
     });
 
-    // MAPEO INVERTIDO respecto del simulador: acá el que "habla" es el LEAD, así
-    // que sus turnos son del assistant y los del negocio, del user.
-    const turnos = historial.slice(-24)
-      .map((t) => ({ role: t.de === 'negocio' ? ('user' as const) : ('assistant' as const), content: t.texto }))
-      .filter((t) => t.content.trim());
-    // La API rechaza un historial que arranca con `assistant`, y el ensayo SIEMPRE
-    // arranca con el audio del negocio y la semilla del lead. Sin esto, el primer
-    // turno del modelo reventaba y el catch lo tapaba en silencio.
-    while (turnos.length && turnos[0].role === 'assistant') turnos.shift();
+    const turnos = historial.slice(-24).filter((t) => t.texto.trim());
     if (!turnos.length) {
       return Response.json({ ok: false, error: 'Escribe tu respuesta para que el lead conteste.' }, { status: 400 });
     }
 
-    const mensaje = await chatClaude(system, turnos, { effort: 'medium', maxTokens: 200, feature: 'setting-ensayo' });
+    // La conversación va SERIALIZADA en el mensaje de usuario, no como turnos de
+    // la API: un ensayo son ~9 escenarios por varios mensajes cada uno, y hacerlo
+    // con el modelo caro costaba una fortuna por dueño. Un intercambio corto de
+    // rol es justo lo que un modelo barato hace bien.
+    const transcripcion = turnos
+      .map((t) => `${t.de === 'negocio' ? 'NEGOCIO' : 'TÚ (el lead)'}: ${t.texto}`)
+      .join('\n');
+
+    const mensaje = await chatCheapCascade({
+      system,
+      user: `${transcripcion}\n\nEscribe tu próximo mensaje como el lead. Solo el texto, nada más.`,
+      maxTokens: 200, feature: 'setting-ensayo', motivo: 'Ensayo del onboarding: MaKo hace de lead',
+      provs: CASCADA_GRATIS,
+    });
     if (!mensaje?.trim()) return Response.json({ ok: false, error: 'No salió el mensaje del lead. Vuelve a intentarlo.' }, { status: 400 });
     // El silencio no es una burbuja de chat: es la ausencia de una. Se devuelve
     // como estado para que la pantalla lo muestre como lo que es.
