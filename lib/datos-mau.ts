@@ -25,6 +25,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
+import { SERVICIOS_METODO } from './metodo-catalogo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Forma del registro
@@ -65,12 +66,15 @@ type TablaClon = {
   hijos?: Array<{ tabla: string; fk: string; omitir?: string[]; limite?: number }>;
 };
 
-export type AmbitoKey =
-  | 'negocio' | 'archivero' | 'funnel' | 'creativos' | 'setting'
-  | 'crm' | 'plan' | 'conocimiento' | 'prompts' | 'objetivos' | 'integraciones';
+/**
+ * String y no un union literal: además de los ámbitos fijos de abajo, hay uno
+ * POR CADA integración del catálogo (`cred_meta`, `cred_whatsapp`, …), generado
+ * dinámicamente — ver el loop después de AMBITOS.
+ */
+export type AmbitoKey = string;
 
 /** Las secciones del panel de agencia: agrupan los ámbitos por recorrido. */
-export const SECCIONES = ['Onboarding principal', 'Chat Agent', 'Datos del negocio', 'Configuración'] as const;
+export const SECCIONES = ['Onboarding principal', 'Integraciones', 'Chat Agent', 'Datos del negocio', 'Configuración'] as const;
 export type Seccion = (typeof SECCIONES)[number];
 
 type AmbitoDef = {
@@ -82,8 +86,10 @@ type AmbitoDef = {
   label: string;
   settings?: string[];
   tablas?: TablaClon[];
-  /** Copia las credenciales del dueño (integraciones). */
+  /** Copia credenciales del dueño. Sin `servicioFiltro`, copia TODAS las que no son de agencia. */
   credenciales?: boolean;
+  /** Con `credenciales: true`, restringe la copia a UN servicio del catálogo (ej. 'meta'). */
+  servicioFiltro?: string;
   /** Se muestra bajo los botones cuando hay algo que aclarar. */
   nota?: string;
 };
@@ -202,13 +208,13 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     label: 'los objetivos de Mau',
     settings: ['objetivo_cash_usd', 'objetivo_cierres'],
   },
+  // Bulk: todas las credenciales del dueño de una — el atajo que ya usaba
+  // /integraciones. Convive con las entradas individuales de abajo (una por
+  // servicio), que son las que el dueño pidió poder ver y traer una por una.
   integraciones: {
-    titulo: 'Credenciales y API keys',
-    // Va en el onboarding principal porque es DONDE SE PIDEN: el paso de la key
-    // de Gemini es parte del alta. Tenerlas en una sección aparte hacía que
-    // "traer todo el onboarding principal" dejara la key vacía.
-    seccion: 'Onboarding principal',
-    label: 'la key de Gemini y el resto de las conexiones',
+    titulo: 'Todas las integraciones',
+    seccion: 'Integraciones',
+    label: 'todas las conexiones de Mau de una sola vez',
     credenciales: true,
     nota: 'No se copian el teléfono, el email ni los grupos de WhatsApp: las pruebas deben llegarte a ti, no al dueño.',
   },
@@ -227,6 +233,21 @@ export type ResultadoMau = { copiado: number; detalle: Record<string, number>; a
  */
 const SERVICIOS_AGENCIA = new Set(['anthropic', 'openai', 'email']);
 const credencialViaja = (servicioKey: string) => !SERVICIOS_AGENCIA.has(servicioKey);
+
+// Una entrada POR INTEGRACIÓN del catálogo, no un solo botón que las trae todas
+// juntas y sin nombre. El dueño pidió ver cada conexión (Meta, WhatsApp,
+// Gemini…) y poder traerla una por una — acá vive el apartado.
+for (const s of SERVICIOS_METODO) {
+  if (!credencialViaja(s.key)) continue; // anthropic/openai/email: de agencia, no viajan
+  AMBITOS[`cred_${s.key}`] = {
+    titulo: s.nombre,
+    seccion: 'Integraciones',
+    label: `la conexión de ${s.nombre}`,
+    credenciales: true,
+    servicioFiltro: s.key,
+    nota: 'No se copian el teléfono, el email ni los grupos de WhatsApp: las pruebas deben llegarte a ti, no al dueño.',
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El registro de lo que trajimos (para poder devolverlo intacto)
@@ -408,10 +429,11 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
 
   // ── Credenciales (integraciones) ──
   if (def.credenciales) {
-    const { SERVICIOS_METODO } = await import('./metodo-catalogo');
     const { credWs, guardarCredencial, IdentificadorOcupadoError } = await import('./credenciales');
     for (const s of SERVICIOS_METODO) {
-      if (!credencialViaja(s.key)) continue;
+      // Con servicioFiltro (el caso normal: un ámbito = una integración) solo
+      // entra ESE servicio. Sin él, el ámbito trae todas las que no son de agencia.
+      if (def.servicioFiltro ? s.key !== def.servicioFiltro : !credencialViaja(s.key)) continue;
       for (const campo of s.campos) {
         const valor = await credWs(campo.env, OWNER_WS);
         if (!valor) continue;
