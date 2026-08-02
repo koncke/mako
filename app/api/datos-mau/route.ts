@@ -57,6 +57,36 @@ export async function POST(req: Request) {
   let body: { action?: string; ambito?: string };
   try { body = (await req.json()) as typeof body; } catch { body = {}; }
 
+  // Traer TODO: cada ámbito, y además dar el onboarding por terminado. Es el
+  // atajo de "dejame el cliente listo para mirar el dashboard": traer los datos
+  // sin cerrar el alta dejaría al admin igual de trabado en el wizard.
+  if (body.action === 'todo') {
+    try {
+      const detalle: Record<string, number> = {};
+      const avisos: string[] = [];
+      let copiado = 0;
+      for (const k of Object.keys(AMBITOS) as AmbitoKey[]) {
+        try {
+          const r = await completarConDatosDelDueno(k, ws);
+          copiado += r.copiado;
+          if (r.copiado) detalle[k] = r.copiado;
+          for (const a of r.avisos) if (!avisos.includes(a)) avisos.push(a);
+        } catch (e) {
+          avisos.push(`${k}: ${msg(e)}`);
+        }
+      }
+      const { patchEstadoOnboarding } = await import('@/lib/onboarding-state');
+      await patchEstadoOnboarding((s) => {
+        s.status = 'done';
+        for (const k of Object.keys(s.steps)) s.steps[k as keyof typeof s.steps] = { done: true };
+      });
+      return NextResponse.json({ ok: true, copiado, detalle, avisos });
+    } catch (e) {
+      console.error(`[api:datos-mau] todo ws=${ws}: ${msg(e)}`);
+      return NextResponse.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  }
+
   // Reset: vaciar el workspace entero. No lleva ámbito — se lleva todo.
   if (body.action === 'reset') {
     try {

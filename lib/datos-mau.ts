@@ -70,7 +70,7 @@ export type AmbitoKey =
   | 'crm' | 'plan' | 'conocimiento' | 'prompts' | 'objetivos' | 'integraciones';
 
 /** Las secciones del panel de agencia: agrupan los ámbitos por recorrido. */
-export const SECCIONES = ['Onboarding principal', 'Canales', 'Chat Agent', 'Datos del negocio', 'Configuración'] as const;
+export const SECCIONES = ['Onboarding principal', 'Chat Agent', 'Datos del negocio', 'Configuración'] as const;
 export type Seccion = (typeof SECCIONES)[number];
 
 type AmbitoDef = {
@@ -203,9 +203,12 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     settings: ['objetivo_cash_usd', 'objetivo_cierres'],
   },
   integraciones: {
-    titulo: 'Credenciales',
-    seccion: 'Canales',
-    label: 'las credenciales de Mau',
+    titulo: 'Credenciales y API keys',
+    // Va en el onboarding principal porque es DONDE SE PIDEN: el paso de la key
+    // de Gemini es parte del alta. Tenerlas en una sección aparte hacía que
+    // "traer todo el onboarding principal" dejara la key vacía.
+    seccion: 'Onboarding principal',
+    label: 'la key de Gemini y el resto de las conexiones',
     credenciales: true,
     nota: 'No se copian el teléfono, el email ni los grupos de WhatsApp: las pruebas deben llegarte a ti, no al dueño.',
   },

@@ -139,6 +139,24 @@ export function PanelAgencia({ cliente, onCambio }: {
     } finally { setBusy(null); }
   }
 
+  /** Trae absolutamente todo y da el alta por terminada: derecho al dashboard. */
+  async function traerTodo() {
+    setBusy('todo'); setAviso(null);
+    try {
+      const j = await (await fetch('/api/datos-mau', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'todo' }),
+      })).json();
+      if (!j.ok) { setAviso({ texto: j.error || 'No se pudo completar.', tono: 'error' }); return; }
+      setAviso({ texto: `Cliente listo: ${j.copiado ?? 0} elementos. Entrando al dashboard…`, tono: 'info' });
+      // Recarga dura y no router.refresh(): el onboarding pasó a 'done' y hay
+      // que volver a pedir la ruta para que el guard sirva el dashboard.
+      window.location.href = '/inicio';
+    } catch (e) {
+      setAviso({ texto: e instanceof Error ? e.message : 'No se pudo completar.', tono: 'error' });
+    } finally { setBusy(null); }
+  }
+
   async function resetear() {
     setBusy('reset'); setAviso(null); setConfirmarReset(false);
     try {
@@ -210,6 +228,30 @@ export function PanelAgencia({ cliente, onCambio }: {
           <div style={{ padding: '11px 14px 12px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, borderBottom: '1px solid var(--border)' }}>
             Trae a <strong style={{ color: 'var(--ink)' }}>{cliente}</strong> la parte de Mauricio que necesites probar. Eliminar quita lo que se trajo, no lo que hayas creado tú.
           </div>
+
+          <button
+            type="button" onClick={() => void traerTodo()} disabled={busy !== null}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '11px 14px', border: 0, borderBottom: '1px solid var(--border)',
+              background: 'var(--surface-2)', cursor: busy ? 'default' : 'pointer',
+              textAlign: 'left', fontFamily: SANS, opacity: busy && busy !== 'todo' ? 0.5 : 1,
+            }}
+          >
+            <span aria-hidden style={{ flex: 'none', width: 26, height: 26, borderRadius: 8, background: 'var(--accent-soft)', color: '#171511', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+              {busy === 'todo'
+                ? <span style={{ width: 12, height: 12, border: '2px solid rgba(23,21,17,.3)', borderTopColor: '#171511', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+                : '↓'}
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>
+                {busy === 'todo' ? 'Trayendo todo…' : 'Traer todo y entrar al dashboard'}
+              </span>
+              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4 }}>
+                Completa el onboarding y te lleva directo a la app
+              </span>
+            </span>
+          </button>
 
           {secciones.map((sec) => {
             const traidos = sec.items.filter((i) => completados.includes(i.key));
