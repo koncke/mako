@@ -24,10 +24,8 @@ import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getFunnel } from '@/lib/leads';
 import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-huecos';
+import { generarVariantes } from '@/lib/secuencias-variantes';
 import { getEntregables, setEntregables } from '@/lib/entregable';
-import { getSetting, setSetting } from '@/lib/settings';
-import { KEY_OBJETIVOS_CUSTOM } from '@/lib/etapas-contexto';
-import { OBJETIVOS as OBJ_CAT } from '@/lib/setting-estrategia';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -101,6 +99,16 @@ export async function POST(req: NextRequest) {
       if (!etapa || !nombre) return Response.json({ ok: false, error: 'Faltan la etapa y el nombre de la secuencia de mensajes.' }, { status: 400 });
       const id = await crearSecuenciaDesdeEtapa(etapa, nombre);
       return Response.json({ ok: true, secuenciaId: id });
+    }
+    if (body.action === 'variantes') {
+      // Se generan UNA vez, al terminar de armar la secuencia, y el motor
+      // sortea entre ellas en cada envío: mandar el mismo texto palabra por
+      // palabra a cientos de personas es lo que WhatsApp busca para restringir
+      // un número, y además se lee como un bot.
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
+      const r = await generarVariantes(id);
+      return Response.json({ ok: true, ...r });
     }
     if (body.action === 'crear-lead-magnet') {
       // El lead magnet se carga ACÁ, en el paso que lo pide. Mandarlo a otra

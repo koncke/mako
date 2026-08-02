@@ -26,6 +26,8 @@ export type PasoSecuenciaDto = {
   asunto: string | null; preheader?: string | null; cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
   tipo?: 'texto' | 'audio'; audio_id?: number | null;
+  /** Formas alternativas de decir lo mismo: el motor sortea una en cada envío. */
+  variantes?: string[];
 };
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {

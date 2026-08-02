@@ -57,6 +57,17 @@ export type PasoSecuencia = {
    * de apertura mutuamente excluyentes y sale exactamente uno.
    */
   requiere?: 'respondio' | 'sin_respuesta' | 'ya_contactado' | 'primer_contacto';
+  /**
+   * Formas distintas de decir lo MISMO. Las escribe MaKo una sola vez, al armar
+   * la secuencia, y el motor elige una al azar en cada envío.
+   *
+   * Existen por dos razones que empujan en la misma dirección: mandarle el mismo
+   * texto palabra por palabra a cientos de personas es el patrón que WhatsApp
+   * detecta para banear un número, y además se lee como un bot. Generarlas en
+   * cada envío costaría una llamada de IA por lead; generarlas una vez y sortear
+   * cuesta cero y evita las dos cosas.
+   */
+  variantes?: string[];
   asunto: string | null;
   preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
@@ -192,8 +203,39 @@ export async function setSecuenciaActiva(id: number, activa: boolean): Promise<v
   if (error) throw new Error(`setSecuenciaActiva: ${error.message}`);
 }
 
+/**
+ * El texto que sale en ESTE envío: una de las variantes del paso, al azar, o el
+ * cuerpo original si no tiene. El sorteo va acá y no en el que llama para que
+ * cualquier canal que mande texto lo herede sin acordarse.
+ */
+export function textoDelPaso(paso: Pick<PasoSecuencia, 'cuerpo' | 'variantes'>): string {
+  const vs = (paso.variantes ?? []).filter((v) => typeof v === 'string' && v.trim());
+  if (!vs.length) return paso.cuerpo;
+  // El cuerpo original entra al sorteo: es la versión que el dueño aprobó.
+  const pool = [paso.cuerpo, ...vs].filter((t) => t.trim());
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Promise<void> {
   const supabase = (await getTenantDb());
+
+  // Lo que ya está guardado, para MERGEAR los campos que ninguna pantalla edita.
+  //
+  // Esta función reconstruye cada paso campo por campo, así que lo que el cliente
+  // no mande se BORRA. Las variantes las genera MaKo una sola vez al armar la
+  // secuencia y no viven en ningún formulario: sin este merge, guardar el copy
+  // desde el wizard o desde el editor las borraba todas en silencio, y el motor
+  // volvía a mandar el mismo texto a todo el mundo sin que nadie se enterara.
+  const { data: previo } = await supabase
+    .from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
+  const antes = Array.isArray((previo as { pasos?: unknown } | null)?.pasos)
+    ? ((previo as { pasos: PasoSecuencia[] }).pasos)
+    : [];
+  const variantesPrevias = new Map<number, string[]>();
+  for (const p of antes) {
+    if (Array.isArray(p?.variantes) && p.variantes.length) variantesPrevias.set(Number(p.orden), p.variantes);
+  }
+
   // Normaliza el orden (1..n) y descarta basura.
   const limpio = pasos
     .filter((p) => p && typeof p === 'object')
@@ -220,6 +262,12 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       template_categoria: p.template_categoria,
       template_idioma: p.template_idioma ?? 'es_MX',
       template_param: p.template_param ?? 'nombre',
+      // Las variantes las manda el cliente solo si las está editando; si no,
+      // sobreviven las que ya había para ese orden.
+      ...(() => {
+        const vs = Array.isArray(p.variantes) && p.variantes.length ? p.variantes : variantesPrevias.get(i + 1);
+        return vs?.length ? { variantes: vs.filter((v) => typeof v === 'string' && v.trim()).slice(0, 8) } : {};
+      })(),
     }));
   const { error } = await supabase
     .from('nutricion_secuencias')
@@ -974,7 +1022,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // Canal EMPRESA (no oficial, Evolution). Regla dura del PDF: a leads
         // CALIENTES nunca automático directo → borrador para el setter; a CLIENTES
         // (ya pagaron, riesgo bajo) → envío automático con anti-ban.
-        const cuerpoNO = aplicarVariables(paso.cuerpo, valoresVariablesLead(lead ?? {}));
+        // Se sortea entre las variantes que MaKo escribió al armar la secuencia.
+        // Mandar el MISMO texto palabra por palabra a cientos de personas es el
+        // patrón que WhatsApp detecta para restringir un número — y además se
+        // lee como un bot. Sortear no cuesta nada; redactar por lead costaría
+        // una llamada de IA por mensaje.
+        const cuerpoNO = aplicarVariables(textoDelPaso(paso), valoresVariablesLead(lead ?? {}));
         // Paso de NOTA DE VOZ (reunión 31/07): el binario sale de la biblioteca
         // del workspace. Si el audio no está o no se puede bajar, NO degradamos
         // a texto en silencio (mandaría un mensaje que nadie escribió): falla y

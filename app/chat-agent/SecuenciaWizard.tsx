@@ -197,6 +197,13 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
     try {
       if (!(await guardarCopy(secuenciaId))) return;
       await jpost({ action: 'guardar-estrategia', secuenciaId, estrategia: estrategia() });
+      // Las variantes se generan ACÁ, una sola vez, con el copy ya aprobado. El
+      // motor sortea entre ellas en cada envío en vez de mandar siempre el mismo
+      // texto — que es lo que WhatsApp busca para restringir un número. Si falla,
+      // la secuencia se activa igual: sale el copy original, que es correcto.
+      setBusy('variantes');
+      await jpost({ action: 'variantes', secuenciaId }).catch(() => {});
+      setBusy('activar');
       const r = await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuenciaId, activa: true }) });
       const j = await r.json();
       if (!j.ok) { setErr(j.error || 'El copy quedó guardado pero no se pudo activar. Vuelve a intentarlo.'); return; }
@@ -248,7 +255,7 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
       error={err}
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
-      confirmLabel="Activar la secuencia"
+      confirmLabel={busy === 'variantes' ? 'Escribiendo variantes…' : 'Activar la secuencia'}
       pending={busy != null}
       atrasLabel="Atrás"
       hideAtras={idx === 0}

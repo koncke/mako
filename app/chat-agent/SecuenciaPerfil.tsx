@@ -10,8 +10,8 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
-import type { ModoRespuesta, Objetivo } from '@/lib/setting-estrategia';
+import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto } from './ChatAgentApp';
+import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
@@ -60,6 +60,14 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Sub-tabs: el detalle mezclaba estrategia, mensajes y ajustes en una columna
+  // larga, así que editar el mensaje 4 era scrollear a ciegas.
+  const [tab, setTab] = useState<'estrategia' | 'mensajes' | 'variantes'>('estrategia');
+  // Los pasos pasan a ser ESTADO: antes se pintaban en solo lectura y lo único
+  // editable era colgarles un audio.
+  const [pasos, setPasos] = useState<PasoSecuenciaDto[]>(secuencia.pasos);
+  const [pasoAbierto, setPasoAbierto] = useState(0);
+  const [desenlace, setDesenlace] = useState<Desenlace>(est?.desenlace ?? { ...DESENLACE_VACIO });
 
   const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2600); };
 
@@ -74,13 +82,55 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
           califica: califica.split('\n').map((s) => s.trim()).filter(Boolean),
           descalifica: descalifica.split('\n').map((s) => s.trim()).filter(Boolean),
         },
-        modo,
+        modo, desenlace,
+        usa_lead_magnet: est?.usa_lead_magnet ?? Boolean(est?.lead_magnet_id),
         notas: est?.notas ?? null, probada_at: est?.probada_at ?? null,
       },
     });
-    if (r.ok) { flashOk('Guardado ✓'); onCambio(); } else setErr(r.error || 'No se pudo guardar.');
+    if (!r.ok) { setErr(r.error || 'No se pudo guardar.'); setBusy(null); return; }
+    // Los mensajes van por su propio endpoint (el mismo que usa el editor de
+    // /whatsapp). setSecuenciaPasos mergea las variantes por orden, así que
+    // guardar acá no las borra.
+    try {
+      const rp = await (await fetch('/api/whatsapp/secuencias', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: secuencia.id, pasos }),
+      })).json();
+      if (!rp.ok) { setErr(rp.error || 'La estrategia se guardó, pero los mensajes no.'); setBusy(null); return; }
+    } catch { setErr('La estrategia se guardó, pero los mensajes no.'); setBusy(null); return; }
+    flashOk('Guardado ✓'); onCambio();
     setBusy(null);
   };
+
+  const editarPaso = (orden: number, campo: 'cuerpo' | 'asunto', val: string) =>
+    setPasos((prev) => prev.map((p) => (p.orden === orden ? { ...p, [campo]: val } : p)));
+
+  const editarVariante = (orden: number, i: number, val: string) =>
+    setPasos((prev) => prev.map((p) => (p.orden !== orden ? p : {
+      ...p, variantes: (p.variantes ?? []).map((v, k) => (k === i ? val : v)),
+    })));
+
+  const quitarVariante = (orden: number, i: number) =>
+    setPasos((prev) => prev.map((p) => (p.orden !== orden ? p : {
+      ...p, variantes: (p.variantes ?? []).filter((_, k) => k !== i),
+    })));
+
+  /** Un paso nuevo al final, de WhatsApp no oficial (el default seguro). */
+  const agregarPaso = () => setPasos((prev) => [...prev, {
+    orden: prev.length + 1, canal: 'whatsapp', delay_horas: 24, asunto: null, cuerpo: '',
+    proveedor: 'no_oficial', template_wa: null,
+  }]);
+
+  const quitarPaso = (orden: number) =>
+    setPasos((prev) => prev.filter((p) => p.orden !== orden).map((p, i) => ({ ...p, orden: i + 1 })));
+
+  /** MaKo escribe las variantes de todos los pasos, una sola vez. */
+  async function generarVariantes() {
+    setBusy('variantes'); setErr(null);
+    const r = await api({ action: 'variantes', secuenciaId: secuencia.id });
+    if (r.ok) { flashOk('Variantes escritas ✓'); onCambio(); } else setErr(r.error || 'No se pudieron generar.');
+    setBusy(null);
+  }
 
   const toggle = async () => {
     setBusy('toggle'); setErr(null);
@@ -104,12 +154,13 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   // el editor de /whatsapp): el motor fuerza no oficial para los audios.
   async function setAudioDePaso(orden: number, audioId: number | null) {
     setBusy('paso'); setErr(null);
+    const pasosRef = pasos;
     try {
-      const pasos = secuencia.pasos.map((p) => (p.orden !== orden ? p : (
+      const pasos = pasosRef.map((p) => (p.orden !== orden ? p : (
         audioId ? { ...p, canal: 'whatsapp' as const, tipo: 'audio' as const, audio_id: audioId } : { ...p, tipo: 'texto' as const, audio_id: null }
       )));
       const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, pasos }) })).json();
-      if (r.ok) { flashOk(audioId ? 'Audio asignado ✓' : 'Vuelto a texto ✓'); onCambio(); } else setErr(r.error || 'No se pudo guardar el paso.');
+      if (r.ok) { setPasos(pasos); flashOk(audioId ? 'Audio asignado ✓' : 'Vuelto a texto ✓'); onCambio(); } else setErr(r.error || 'No se pudo guardar el paso.');
     } catch { setErr('Sin conexión — prueba de nuevo.'); }
     setBusy(null);
   }
@@ -159,6 +210,22 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             </div>
           </div>
 
+          {/* Sub-tabs: antes todo vivía en una sola columna larga, así que editar
+              el mensaje 4 era scrollear a ciegas hasta encontrarlo. */}
+          <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 3, gap: 3, marginBottom: 16 }}>
+            {([
+              { k: 'estrategia' as const, t: 'Estrategia' },
+              { k: 'mensajes' as const, t: `Mensajes (${pasos.length})` },
+              { k: 'variantes' as const, t: 'Variantes' },
+            ]).map((o) => (
+              <button key={o.k} onClick={() => setTab(o.k)}
+                style={{ padding: '7px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, background: tab === o.k ? 'var(--surface)' : 'transparent', color: tab === o.k ? 'var(--ink)' : 'var(--dim)' }}>
+                {o.t}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'estrategia' && (<>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cómo juega?</div>
           <div style={{ marginBottom: 20 }}>
             <Paso icono="⚡" titulo="Se dispara cuando…" detalle={`El lead está parado en la etapa «${etiquetaEtapa(secuencia.etapa)}» de tu funnel.`} />
@@ -216,45 +283,121 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             </div>
           </div>
 
+          {/* Cuándo deja de hacer falta esta secuencia. Sin esto seguía mandando
+              pasos hasta quedarse sin pasos, y no había forma de encadenarla
+              con la siguiente. */}
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '4px 0 8px' }}>Cuándo termina</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--good)', fontWeight: 600, minWidth: 74 }}>Se logra si</span>
+              <Dropdown value={desenlace.logrado} onChange={(v) => setDesenlace((d) => ({ ...d, logrado: v as Desenlace['logrado'] }))} width={230} ariaLabel="Cuándo se logra"
+                options={[
+                  { value: 'respondio', label: 'Responde cualquier cosa' },
+                  { value: 'agendo', label: 'Agenda una reunión' },
+                  { value: 'pago', label: 'Paga' },
+                  { value: 'ninguno', label: 'No cierra sola' },
+                ]} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--warn)', fontWeight: 600, minWidth: 74 }}>Falla si</span>
+              <Dropdown value={String(desenlace.falloDias)} onChange={(v) => setDesenlace((d) => ({ ...d, falloDias: Number(v) }))} width={230} ariaLabel="Cuándo falla"
+                options={[
+                  { value: '0', label: 'Nunca: la dejo corriendo' },
+                  { value: '7', label: 'Pasan 7 días sin respuesta' },
+                  { value: '14', label: 'Pasan 14 días sin respuesta' },
+                  { value: '30', label: 'Pasan 30 días sin respuesta' },
+                ]} />
+            </div>
+          </div>
+          </>)}
+
+          {tab === 'mensajes' && (<>
           {/* Los mensajes: cada paso de WhatsApp puede ser texto o nota de voz */}
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '4px 0 8px' }}>Los mensajes</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {secuencia.pasos.map((p) => {
+            {pasos.map((p) => {
               const audio = p.tipo === 'audio' && p.audio_id ? audios.find((a) => a.id === p.audio_id) : null;
+              const abierto = pasoAbierto === p.orden;
               return (
-                <div key={p.orden} style={{ padding: '11px 13px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 7 }}>
-                    <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>
-                      {p.canal === 'email' ? '✉️ Email' : audio ? '🎙 Nota de voz' : '💬 WhatsApp'} · mensaje {p.orden}
+                <div key={p.orden} style={{ borderRadius: 11, background: 'var(--surface-2)', border: '1px solid ' + (abierto ? 'var(--border-strong)' : 'var(--border)'), overflow: 'hidden' }}>
+                  <button type="button" onClick={() => setPasoAbierto(abierto ? 0 : p.orden)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '11px 13px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+                    <span style={{ flex: 'none', fontSize: 11.5, color: 'var(--faint)' }}>
+                      {p.canal === 'email' ? '✉️ Email' : audio ? '🎙 Nota de voz' : '💬 WhatsApp'} · {p.orden}
                     </span>
-                    {p.canal === 'whatsapp' && rolAdmin && (
-                      <span style={{ marginLeft: 'auto' }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {audio ? audio.titulo : (p.cuerpo.slice(0, 70) || 'Sin texto todavía')}
+                    </span>
+                    {(p.variantes?.length ?? 0) > 0 && (
+                      <span style={{ flex: 'none', fontSize: 10.5, color: 'var(--good)', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 5px' }}>{p.variantes?.length} variantes</span>
+                    )}
+                    <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 11, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+                  </button>
+
+                  {abierto && (
+                    <div style={{ padding: '0 13px 13px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+                      {p.canal === 'whatsapp' && rolAdmin && (
                         <Dropdown
                           value={audio ? String(audio.id) : ''}
                           onChange={(v) => void setAudioDePaso(p.orden, v ? Number(v) : null)}
-                          width={230}
+                          width="100%"
                           ariaLabel={`Audio del mensaje ${p.orden}`}
-                          buttonStyle={{ padding: '6px 10px', fontSize: 12 }}
+                          buttonStyle={{ padding: '7px 11px', fontSize: 12.5 }}
                           options={[{ value: '', label: '💬 Texto escrito' }, ...audios.map((a) => ({ value: String(a.id), label: `🎙 ${a.titulo}` }))]}
                         />
-                      </span>
-                    )}
-                  </div>
-                  {audio ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      {audio.url && <audio controls src={audio.url} style={{ height: 34, maxWidth: 260 }} />}
-                      {audio.transcript && <span style={{ fontSize: 12, color: 'var(--faint)', flex: '1 1 180px' }}>{audio.transcript.slice(0, 120)}</span>}
+                      )}
+                      {audio ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          {audio.url && <audio controls src={audio.url} style={{ height: 34, maxWidth: 260 }} />}
+                          {audio.transcript && <span style={{ fontSize: 12, color: 'var(--faint)', flex: '1 1 180px' }}>{audio.transcript.slice(0, 120)}</span>}
+                        </div>
+                      ) : (
+                        <>
+                          {p.canal === 'email' && (
+                            <input value={p.asunto ?? ''} onChange={(e) => editarPaso(p.orden, 'asunto', e.target.value)} placeholder="Asunto" style={{ ...inp, fontWeight: 600 }} disabled={!rolAdmin} />
+                          )}
+                          <textarea value={p.cuerpo} onChange={(e) => editarPaso(p.orden, 'cuerpo', e.target.value)} rows={p.canal === 'email' ? 6 : 4}
+                            placeholder="Qué dice este mensaje…" style={{ ...inp, resize: 'vertical', lineHeight: 1.55 }} disabled={!rolAdmin} />
+                        </>
+                      )}
+                      {rolAdmin && pasos.length > 1 && (
+                        <button onClick={() => quitarPaso(p.orden)} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', alignSelf: 'flex-start', padding: 0, fontFamily: 'inherit' }}>Quitar este mensaje</button>
+                      )}
                     </div>
-                  ) : (
-                    <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{p.cuerpo.slice(0, 220)}{p.cuerpo.length > 220 ? '…' : ''}</div>
                   )}
                 </div>
               );
             })}
-            {audios.length === 0 && rolAdmin && (
-              <div style={{ fontSize: 12, color: 'var(--faint)' }}>Graba audios en la sub-tab «🎙 Audios» para poder colgarlos de un mensaje.</div>
-            )}
+            {rolAdmin && <button onClick={agregarPaso} style={{ ...btnGhost, alignSelf: 'flex-start' }}>+ Agregar un mensaje</button>}
           </div>
+          </>)}
+
+          {tab === 'variantes' && (<>
+          <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 12 }}>
+            El mismo mensaje dicho de formas distintas: el motor sortea una en cada envío. Mandarle el texto idéntico a cientos de personas es lo que WhatsApp busca para restringir un número, y además se lee como un bot.
+          </div>
+          {rolAdmin && (
+            <button onClick={() => void generarVariantes()} disabled={busy === 'variantes'} style={{ ...btnGhost, marginBottom: 14 }}>
+              {busy === 'variantes' ? 'MaKo está escribiendo…' : '✨ Que las escriba MaKo'}
+            </button>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+            {pasos.filter((p) => p.tipo !== 'audio').map((p) => (
+              <div key={p.orden} style={{ padding: '11px 13px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 6 }}>Mensaje {p.orden}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 9, opacity: 0.7 }}>{p.cuerpo.slice(0, 140)}{p.cuerpo.length > 140 ? '…' : ''}</div>
+                {(p.variantes ?? []).length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--faint)' }}>Sin variantes: este mensaje sale siempre igual.</div>
+                ) : (p.variantes ?? []).map((v, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', marginBottom: 7 }}>
+                    <textarea value={v} onChange={(e) => editarVariante(p.orden, i, e.target.value)} rows={2} style={{ ...inp, resize: 'vertical', lineHeight: 1.5, flex: 1 }} disabled={!rolAdmin} />
+                    {rolAdmin && <button onClick={() => quitarVariante(p.orden, i)} title="Quitar variante" style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 14, padding: '6px 2px' }}>✕</button>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          </>)}
 
           {err && <div style={{ marginBottom: 12, padding: '9px 12px', borderRadius: 9, fontSize: 13, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>}
 
