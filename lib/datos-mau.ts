@@ -222,23 +222,13 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
 
 export type ResultadoMau = { copiado: number; detalle: Record<string, number>; avisos: string[] };
 
-/**
- * Credenciales que NO viajan al workspace de prueba: son de la AGENCIA (las paga
- * y las gestiona ella, son globales a la plataforma). Todo lo demás sí viaja.
- *
- * Va como lista NEGRA a propósito. Con lista blanca, cada servicio nuevo del
- * catálogo quedaba afuera EN SILENCIO — así se perdió GEMINI_API_KEY, que el
- * onboarding le pide al cliente en un paso propio y que lib/ai-cheap.ts resuelve
- * por workspace. El modo de falla correcto es "copié de más", no "no copié nada".
- */
-const SERVICIOS_AGENCIA = new Set(['anthropic', 'openai', 'email']);
-const credencialViaja = (servicioKey: string) => !SERVICIOS_AGENCIA.has(servicioKey);
-
 // Una entrada POR INTEGRACIÓN del catálogo, no un solo botón que las trae todas
-// juntas y sin nombre. El dueño pidió ver cada conexión (Meta, WhatsApp,
-// Gemini…) y poder traerla una por una — acá vive el apartado.
+// juntas y sin nombre. El dueño pidió ver CADA conexión (Meta, WhatsApp, Claude,
+// Gemini…) y poder traerla una por una — incluidas las que paga la agencia
+// (anthropic/openai/email): copiarlas no cambia quién paga la llamada (ver
+// [[byok-ia-no-usa-key-del-cliente]]), solo enciende el estado "conectado" en
+// el workspace de prueba, que es justo lo que hace falta para probar esa tab.
 for (const s of SERVICIOS_METODO) {
-  if (!credencialViaja(s.key)) continue; // anthropic/openai/email: de agencia, no viajan
   AMBITOS[`cred_${s.key}`] = {
     titulo: s.nombre,
     seccion: 'Integraciones',
@@ -432,8 +422,8 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
     const { credWs, guardarCredencial, IdentificadorOcupadoError } = await import('./credenciales');
     for (const s of SERVICIOS_METODO) {
       // Con servicioFiltro (el caso normal: un ámbito = una integración) solo
-      // entra ESE servicio. Sin él, el ámbito trae todas las que no son de agencia.
-      if (def.servicioFiltro ? s.key !== def.servicioFiltro : !credencialViaja(s.key)) continue;
+      // entra ESE servicio. Sin él, el ámbito ("Todas las integraciones") las trae todas.
+      if (def.servicioFiltro && s.key !== def.servicioFiltro) continue;
       for (const campo of s.campos) {
         const valor = await credWs(campo.env, OWNER_WS);
         if (!valor) continue;

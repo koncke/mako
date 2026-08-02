@@ -123,7 +123,11 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
   if (chatJid.endsWith('@g.us') || chatJid.startsWith('status@')) return;
 
   const fromMe = !!key.fromMe;
-  const telefono = normalizarTelefono(jidToNumero(chatJid));
+  // Si la canonicalización de arriba no encontró el número real, chatJid sigue
+  // siendo un @lid (alias interno de Meta) — guardarlo como "teléfono" mostraba
+  // ese ID de 15 dígitos como si fuera un número de verdad, y ningún cruce por
+  // teléfono (lead, nombre de agenda, foto) lo iba a encontrar jamás.
+  const telefono = chatJid.endsWith('@lid') ? null : normalizarTelefono(jidToNumero(chatJid));
   const { tipo, texto, mediaMime, mediaBase64, ext } = extraerContenido(data);
 
   const supabase = await getTenantDb();
@@ -223,13 +227,27 @@ export type WaConversacion = {
 // el inbox de Chatwoot). Trae los últimos N y arma un hilo por contacto.
 export async function getConversacionesNoOficial(limite = 600, incluirOcultos = false): Promise<WaConversacion[]> {
   const supabase = await getTenantDb();
-  const { data } = await supabase
-    .from('wa_mensajes')
-    .select('chat_jid, telefono, push_name, texto, tipo, from_me, wa_timestamp, lead_id')
-    .neq('tipo', 'evento')   // reacciones/protocolo no cuentan como "último mensaje"
-    .order('wa_timestamp', { ascending: false })
-    .limit(limite);
-  const rows = (data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; texto: string | null; tipo: string | null; from_me: boolean; wa_timestamp: string | null; lead_id: number | null }>;
+  // `limite` es cuántas CONVERSACIONES devolver, no cuántos mensajes leer: un
+  // `.limit(limite)` sobre wa_mensajes solo ve las últimas `limite` FILAS, y con
+  // muchos contactos de poca frecuencia esas filas son un puñado de hilos muy
+  // activos una y otra vez — el resto de las conversaciones (la mayoría) queda
+  // afuera del todo, aunque tengan mensajes. Por eso el botón "abrir chat" desde
+  // otra pantalla casi siempre terminaba en el hilo más reciente: el jid pedido
+  // no estaba entre esas `limite` filas. Se pagina TODO el espejo (mismo patrón
+  // que la ruta de onboarding) y recién al final se corta a `limite` conversaciones.
+  type Fila = { chat_jid: string; telefono: string | null; push_name: string | null; texto: string | null; tipo: string | null; from_me: boolean; wa_timestamp: string | null; lead_id: number | null };
+  const rows: Fila[] = [];
+  for (let desde = 0; desde < 20000; desde += 1000) {
+    const { data } = await supabase
+      .from('wa_mensajes')
+      .select('chat_jid, telefono, push_name, texto, tipo, from_me, wa_timestamp, lead_id')
+      .neq('tipo', 'evento')   // reacciones/protocolo no cuentan como "último mensaje"
+      .order('wa_timestamp', { ascending: false })
+      .range(desde, desde + 999);
+    const pagina = (data ?? []) as Fila[];
+    rows.push(...pagina);
+    if (pagina.length < 1000) break;
+  }
 
   // Agrupamos por TELÉFONO (últimos 10 dígitos), NO por chat_jid exacto: Evolution
   // guarda entrantes/salientes bajo jids que a veces difieren (9 de AR, @lid vs
@@ -346,7 +364,11 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
   // Marcar contactos bloqueados (una sola query).
   const bloq = await telefonosBloqueados();
   if (bloq.size) for (const c of salida) if (c.telefono && bloq.has(c.telefono.replace(/\D/g, ''))) c.bloqueado = true;
-  return salida;
+
+  // El corte a `limite` va ACÁ (conversaciones, ya ordenadas por la más reciente),
+  // no en la lectura de wa_mensajes — ver comentario arriba.
+  salida.sort((a, b) => (b.ultimaFecha ?? '').localeCompare(a.ultimaFecha ?? ''));
+  return salida.slice(0, limite);
 }
 
 // Resumen liviano para el polling GLOBAL de notificaciones (corre en toda la app
@@ -569,7 +591,9 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
     if (ch.pushName || ch.profilePicUrl) {
       await upsertContacto(chatJid, ch.pushName ?? null, ch.profilePicUrl ?? null).catch(() => {});
     }
-    const telefono = normalizarTelefono(jidToNumero(chatJid));
+    // Mismo cuidado que en guardarMensajeUpsert: un chatJid que sigue en @lid no
+    // tiene número real conocido — guardar su ID como teléfono es peor que nada.
+    const telefono = chatJid.endsWith('@lid') ? null : normalizarTelefono(jidToNumero(chatJid));
     const leadId = telefono ? await matchLeadPorTelefono(telefono) : null;
     const filas: Record<string, unknown>[] = [];
     for (const rec of recs) {

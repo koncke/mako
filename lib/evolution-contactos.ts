@@ -14,7 +14,12 @@ const digs = (s: string | null) => (s || '').replace(/\D/g, '');
 // Upsert desde contacts.upsert. Solo pisamos con valores no vacíos (el evento a
 // veces trae solo el nombre o solo la foto).
 export async function upsertContacto(remoteJid: string, nombre: string | null, fotoUrl: string | null): Promise<void> {
-  if (!remoteJid || remoteJid.endsWith('@g.us') || remoteJid.startsWith('status@')) return;
+  // @lid es un alias interno de Meta para contactos no agendados (Android), NO
+  // un número: jidToNumero() le pela el "@lid" igual que a cualquier otro jid, y
+  // ese ID de 15 dígitos quedaba guardado como si fuera el teléfono — así
+  // aparecían "contactos" con un número que no existe y que ninguna búsqueda por
+  // teléfono real iba a encontrar nunca. Sin numero real, no hay fila que guardar.
+  if (!remoteJid || remoteJid.endsWith('@g.us') || remoteJid.startsWith('status@') || remoteJid.endsWith('@lid')) return;
   const tel = digs(normalizarTelefono(jidToNumero(remoteJid)) || jidToNumero(remoteJid));
   if (!tel) return;
   const nom = nombre && nombre !== 'Você' ? nombre : null;
@@ -36,7 +41,7 @@ export async function upsertContactosLote(
   const ahora = new Date().toISOString();
   const porTel = new Map<string, Record<string, unknown>>();
   for (const c of contactos) {
-    if (!c.remoteJid || c.remoteJid.endsWith('@g.us') || c.remoteJid.startsWith('status@')) continue;
+    if (!c.remoteJid || c.remoteJid.endsWith('@g.us') || c.remoteJid.startsWith('status@') || c.remoteJid.endsWith('@lid')) continue;
     const tel = digs(normalizarTelefono(jidToNumero(c.remoteJid)) || jidToNumero(c.remoteJid));
     if (!tel) continue;
     const nom = c.nombre && c.nombre !== 'Você' ? c.nombre : null;
