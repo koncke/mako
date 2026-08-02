@@ -15,6 +15,7 @@
 // agencia, parado en un workspace que no es el del dueño).
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Icon } from './icons';
 import { AvisoFlotante } from './AvisoFlotante';
@@ -68,6 +69,8 @@ export function PanelAgencia({ cliente, onCambio }: {
   const [ambitos, setAmbitos] = useState<Ambito[]>([]);
   const [completados, setCompletados] = useState<string[]>([]);
   const [abierto, setAbierto] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
   const [seccionAbierta, setSeccionAbierta] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [aviso, setAviso] = useState<{ texto: string; tono: 'info' | 'error' } | null>(null);
@@ -90,9 +93,21 @@ export function PanelAgencia({ cliente, onCambio }: {
 
   useEffect(() => {
     if (!abierto) return;
-    const fuera = (e: MouseEvent) => { if (!caja.current?.contains(e.target as Node)) setAbierto(false); };
+    const fuera = (e: MouseEvent) => {
+      if (caja.current?.contains(e.target as Node)) return;
+      if ((e.target as HTMLElement)?.closest?.('#panel-agencia-menu')) return;
+      setAbierto(false);
+    };
+    const cerrar = () => setAbierto(false);
     document.addEventListener('mousedown', fuera);
-    return () => document.removeEventListener('mousedown', fuera);
+    window.addEventListener('resize', cerrar);
+    // El scroll mueve el botón y la posición medida queda vieja: se cierra.
+    window.addEventListener('scroll', cerrar, true);
+    return () => {
+      document.removeEventListener('mousedown', fuera);
+      window.removeEventListener('resize', cerrar);
+      window.removeEventListener('scroll', cerrar, true);
+    };
   }, [abierto]);
 
   /** Corre la acción sobre uno o varios ámbitos y resume el total. */
@@ -158,7 +173,14 @@ export function PanelAgencia({ cliente, onCambio }: {
     <div ref={caja} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
       <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
 
-      <button type="button" onClick={() => setAbierto((a) => !a)} style={chip}>
+      <button
+        ref={btnRef} type="button" style={chip}
+        onClick={() => {
+          const r = btnRef.current?.getBoundingClientRect();
+          if (r) setPos({ top: Math.round(r.bottom + 8), right: Math.round(window.innerWidth - r.right) });
+          setAbierto((a) => !a);
+        }}
+      >
         Datos de Mauricio {abierto ? '▴' : '▾'}
       </button>
 
@@ -178,9 +200,9 @@ export function PanelAgencia({ cliente, onCambio }: {
         </button>
       )}
 
-      {abierto && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 300, width: 410,
+      {abierto && pos && createPortal(
+        <div id="panel-agencia-menu" style={{
+          position: 'fixed', top: pos.top, right: pos.right, zIndex: 3000, width: 410,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
           boxShadow: '0 18px 44px rgba(23,21,17,.32)', padding: '0 0 4px', maxHeight: '70vh', overflowY: 'auto',
           fontFamily: SANS,
@@ -247,7 +269,8 @@ export function PanelAgencia({ cliente, onCambio }: {
               </div>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
 
       {aviso && <AvisoFlotante mensaje={aviso.texto} tono={aviso.tono} onCerrar={() => setAviso(null)} />}
