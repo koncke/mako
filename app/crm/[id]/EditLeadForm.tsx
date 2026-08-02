@@ -306,7 +306,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
           {feedback && <span style={{ fontSize: 13, fontWeight: 600, color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button type="button" onClick={() => (onCancel ? onCancel() : router.push('/leads'))} style={btnGhost}>Cancelar</button>
+          <button type="button" onClick={() => (onCancel ? onCancel() : router.push('/crm'))} style={btnGhost}>Cancelar</button>
           <button type="button" onClick={guardar} disabled={pending} style={{ ...btnPrimary, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar cambios'}</button>
         </div>
       </div>

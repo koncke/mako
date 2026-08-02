@@ -13,7 +13,7 @@ import {
   saveIdentidadFiscalAction,
   deleteIdentidadFiscalAction,
   type IdentidadFiscal,
-} from '../leads/[id]/deal-actions';
+} from '../crm/[id]/deal-actions';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";

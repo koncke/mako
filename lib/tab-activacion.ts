@@ -150,11 +150,11 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     // arregle en código, el aviso se queda acá.
     ademas: 'Los event types de R1 y R2 figuran como opcionales pero NO lo son: sin ellos el webhook no sabe de quién es la reunión y la descarta sin avisar. El webhook lo crea y lo firma la agencia — la signing key no la ponés vos.',
     slides: [
-      // app/leads/StageMoveDialog.tsx + lib/stage-requirements.ts
+      // app/crm/StageMoveDialog.tsx + lib/stage-requirements.ts
       { t: 'El kanban con las reglas puestas', d: 'Arrastrás el lead a la etapa y si le falta un dato el asistente te lo pide ahí mismo: el closer, la grabación, el motivo, o las cuotas que tienen que cuadrar con el monto.' },
       // lib/auto-reuniones.ts buscarReunionesAutomatico (Calendly + Fathom matcheado)
       { t: 'Los datos se buscan solos', d: 'Antes de preguntarte nada, MaKo cruza Calendly con las grabaciones de Fathom ya matcheadas: si hay grabación, la reunión ocurrió.' },
-      // app/leads/LeadSheet.tsx + lib/journey.ts:47 buildJourney
+      // app/crm/LeadSheet.tsx + lib/journey.ts:47 buildJourney
       { t: 'La ficha entera del lead', d: 'Origen, recorrido paso a paso, respuestas de Calendly, chat de WhatsApp y cobranza en una sola pantalla, con el historial de quién tocó qué.' },
     ],
   },
@@ -198,7 +198,7 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     titulo: 'Comercial',
     // No se prende con una credencial: se prende cargando el plan de cobranza de
     // un lead cerrado. Por eso va CTA en vez de form.
-    cta: { label: 'Ir al CRM y cargar un cierre →', href: '/leads' },
+    cta: { label: 'Ir al CRM y cargar un cierre →', href: '/crm' },
     icono: 'landing',
     eyebrow: '✦ Con tus cierres cargados',
     queFalta: 'Esta vista sale de tus cierres y sus cobros. Cargá un lead ganado con su monto y su plan de cuotas, y el tablero se arma solo.',

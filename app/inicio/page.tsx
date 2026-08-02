@@ -23,7 +23,7 @@ export default async function Inicio() {
     if (ws == null) redirect('/admin');
   }
   const rolWs = await getRolWsEfectivo();
-  if (rolWs === 'closer' || rolWs === 'setter') redirect('/leads');
+  if (rolWs === 'closer' || rolWs === 'setter') redirect('/crm');
   if (await onboardingPendiente()) redirect('/onboarding');
   redirect('/general');
 }

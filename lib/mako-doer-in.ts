@@ -198,7 +198,7 @@ CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anot
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
 const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, dá el resumen corto y CERRÁ con un link para verlo (formato: "Mirá el detalle acá → URL"). No inventes rutas; usá estas (base ${APP_URL}):
-- Ficha 360 de un lead: ${APP_URL}/leads/{id}
+- Ficha 360 de un lead: ${APP_URL}/crm/{id}
 - Análisis de una llamada de ventas: ${APP_URL}/closing?call={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tenés, ${APP_URL}/closing.
 - WhatsApp con un lead: ${APP_URL}/whatsapp?lead={id}
 - Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager

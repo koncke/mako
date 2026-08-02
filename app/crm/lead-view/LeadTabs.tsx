@@ -4,7 +4,7 @@
 // LeadTabs — tabs del detalle del lead (texto con subrayado activo)
 // =============================================================================
 // Genérico: recibe la lista de tabs con su contenido (ReactNode, server
-// components incluidos). Lo usan la ruta /leads/[id] y el modal de preview.
+// components incluidos). Lo usan la ruta /crm/[id] y el modal de preview.
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
 

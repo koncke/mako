@@ -21,7 +21,7 @@ import dynamic from 'next/dynamic';
 
 // Code-split: la ficha del CRM (LeadDetail + server actions) NO entra al bundle
 // inicial de las tabs que usan Desglose; se baja al abrir la ficha.
-const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
+const LeadEditModal = dynamic(() => import('../crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";

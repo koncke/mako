@@ -30,7 +30,7 @@ import { useNotifications, type Contacto } from '../_components/NotificationsPro
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
 // Se carga on-demand (ssr:false) igual que en app/_components/Desglose.tsx.
-const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
+const LeadEditModal = dynamic(() => import('../crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -1244,7 +1244,7 @@ function WhatsAppInner() {
             {sel?.leadId ? (
               <button onClick={() => setDetalleLeadId(sel.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
             ) : (
-              <Link href="/leads" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
+              <Link href="/crm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
             )}
             {sel?.bloqueado && (
               <div style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--bad)' }}>⛔ Contacto bloqueado</div>

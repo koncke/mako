@@ -2249,7 +2249,7 @@ async function _getColaDeAccion(
       titulo: p.mensaje,
       detalle: p.tipo === 'A' ? 'Marcá si asistió a la R1.' : 'Marcá si asistió a la R2.',
       accion: 'Marcar asistencia',
-      link: `/leads/${p.lead_id}`,
+      link: `/crm/${p.lead_id}`,
       pendiente_tipo: p.tipo,
     });
   }
@@ -2266,7 +2266,7 @@ async function _getColaDeAccion(
       titulo: `Cobrá ${etiqueta} de ${fmtUSDcola(c.monto_usd)} a ${c.lead_nombre}`,
       detalle: c.dias === 0 ? 'Vence hoy.' : `Venció el ${fmtFechaPendiente(c.fecha_esperada)} (hace ${Math.abs(c.dias)} día${Math.abs(c.dias) === 1 ? '' : 's'}).`,
       accion: 'Registrar pago',
-      link: `/leads/${c.lead_id}`,
+      link: `/crm/${c.lead_id}`,
     });
   }
 
@@ -2280,7 +2280,7 @@ async function _getColaDeAccion(
       titulo: `Alguien agendó una R2 con ${r.email ?? 'email desconocido'} y no encontré su lead`,
       detalle: r.fecha_evento ? `Fecha de la R2: ${fmtFechaPendiente(r.fecha_evento)}. Buscá el lead y cargá la R2 a mano.` : 'Buscá el lead y cargá la R2 a mano.',
       accion: 'Resolver a mano',
-      link: '/leads',
+      link: '/crm',
     });
   }
 
@@ -2303,7 +2303,7 @@ async function _getColaDeAccion(
       titulo: `${r.nombre} no se presentó a la R1: recontactá`,
       detalle: `La R1 era el ${fmtFechaPendiente(r.fecha_junta_1)}. Mandale un mensaje para reagendar.`,
       accion: 'Recontactar',
-      link: `/leads/${r.id}`,
+      link: `/crm/${r.id}`,
     });
   }
 
@@ -2319,7 +2319,7 @@ async function _getColaDeAccion(
       titulo: p.mensaje,
       detalle: 'Agendá la R2 (Calendly) o marcá la resolución.',
       accion: 'Resolver',
-      link: `/leads/${p.lead_id}`,
+      link: `/crm/${p.lead_id}`,
       pendiente_tipo: 'B',
     });
   }

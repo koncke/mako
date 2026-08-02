@@ -66,7 +66,7 @@ export default function RootLayout({
                 </Suspense>
               </HideOnPublicLanding>
               {/* Modal bloqueante: MaKo pide confirmar los cambios automáticos del
-                  CRM al entrar a /leads. usePathname (no necesita Suspense). */}
+                  CRM al entrar a /crm. usePathname (no necesita Suspense). */}
               <MakoConfirmGate />
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y

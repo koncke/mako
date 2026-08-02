@@ -15,7 +15,7 @@ import {
   CATEGORY, TRIGGER, BAND_LABEL, generateFunnel, FUNNEL_TEMPLATES, AUTO_REGLAS,
   type Stage, type StageBand, type StageKind, type FunnelTransition, type TransitionTrigger,
 } from '@/lib/pipeline';
-import { saveFunnelAction } from '../leads/actions';
+import { saveFunnelAction } from '../crm/actions';
 import { Dropdown } from '../components/Dropdown';
 import { DatosDeMau } from '@/app/_components/DatosDeMau';
 

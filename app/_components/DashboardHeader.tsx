@@ -45,7 +45,7 @@ export async function DashboardHeader({
         <div className="flex items-center gap-3 flex-wrap">
           <FechaFiltroGlobal hoyReal={hoyReal} />
           <Link
-            href="/leads"
+            href="/crm"
             className="px-5 py-3 rounded-lg font-medium text-lg border"
             style={{
               background: 'transparent',

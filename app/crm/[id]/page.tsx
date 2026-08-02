@@ -1,5 +1,5 @@
 // =============================================================================
-// /leads/[id] — detalle del lead en tabs: Resumen / Editar / Cobranza / Actividad
+// /crm/[id] — detalle del lead en tabs: Resumen / Editar / Cobranza / Actividad
 // =============================================================================
 // Header fijo (etapa, nombre, cohorte, acciones rápidas) + tabs. La edición vive
 // en la tab Editar; el modal del CRM es solo preview y linkea acá con ?tab=.

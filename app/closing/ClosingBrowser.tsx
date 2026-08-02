@@ -672,7 +672,7 @@ function Detail({ sel, onRefresh }: { sel: ClosingAnalysisRow; onRefresh: () => 
           </div>
         </div>
         <div style={{ flex: 'none', display: 'flex', gap: 12, alignItems: 'center', paddingTop: 4 }}>
-          {sel.lead_id != null && <a href={`/leads/${sel.lead_id}`} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--faint)', textDecoration: 'none' }}>Lead →</a>}
+          {sel.lead_id != null && <a href={`/crm/${sel.lead_id}`} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--faint)', textDecoration: 'none' }}>Lead →</a>}
           <button onClick={() => setEditing((e) => !e)} title="Editar / revisar la valoración" style={{ fontSize: 11.5, fontWeight: 600, color: editing ? 'var(--primary)' : 'var(--faint)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>{editing ? 'Cerrar' : 'Revisar'}</button>
           <button onClick={reanalizar} disabled={reanalyzing} title="Re-analizar desde cero" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--faint)', background: 'transparent', border: 'none', cursor: reanalyzing ? 'default' : 'pointer', padding: 0 }}>{reanalyzing ? '…' : '↻'}</button>
         </div>

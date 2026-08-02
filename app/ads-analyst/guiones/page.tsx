@@ -23,7 +23,7 @@ const EMPTY: ScriptAnalystView = {
 };
 
 export default async function GuionesPage() {
-  await requireRolWs([], { nav: 'script' }); // solo admin-cliente/agencia; closer/setter → /leads
+  await requireRolWs([], { nav: 'script' }); // solo admin-cliente/agencia; closer/setter → /crm
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
   let angles: Angle[] = DEFAULT_ANGLES;

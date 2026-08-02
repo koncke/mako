@@ -49,6 +49,10 @@ const nextConfig: NextConfig = {
       { source: '/vsl/graphics', destination: '/vsl/dashboard', permanent: false },
       { source: '/script-analyst', destination: '/ads-analyst', permanent: false },
       { source: '/script-analyst/:path*', destination: '/ads-analyst/:path*', permanent: false },
+      // /leads se renombró a /crm. Deep-links ya enviados (WhatsApp del doer, cola
+      // de acción, notificaciones, bookmarks) siguen andando con este redirect.
+      { source: '/leads', destination: '/crm', permanent: false },
+      { source: '/leads/:path*', destination: '/crm/:path*', permanent: false },
     ];
   },
   // Cabeceras de seguridad globales (defense-in-depth). Subset SEGURO: no toca

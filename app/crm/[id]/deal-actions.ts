@@ -8,7 +8,7 @@
 // - Secciones del deal (fiscal / servicio / promesa / obligaciones): update
 //   PARCIAL del lead — solo pisa las claves presentes en el patch.
 // - Cuotas explícitas + marcar pago con hora/comprobante (migración 0060).
-// Toda mutación humana deja rastro en lead_audit (patrón de app/leads/actions).
+// Toda mutación humana deja rastro en lead_audit (patrón de app/crm/actions).
 
 import { revalidatePath, updateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
@@ -39,8 +39,8 @@ async function autorActual(): Promise<string> {
 }
 
 function revalidarLead(leadId: number) {
-  revalidatePath(`/leads/${leadId}`);
-  revalidatePath('/leads');
+  revalidatePath(`/crm/${leadId}`);
+  revalidatePath('/crm');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

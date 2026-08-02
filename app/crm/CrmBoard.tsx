@@ -345,7 +345,7 @@ export function CrmBoard({
   // Details + documentos + respuestas R2). El paso final ofrece ver la ficha o salir.
   const solucionarMarcar = (leadId: number) => {
     const l = leads.find((x) => x.id === leadId);
-    if (!l) { router.push(`/leads/${leadId}?solucionar=1`); return; }
+    if (!l) { router.push(`/crm/${leadId}?solucionar=1`); return; }
     openStageMove(l, { to: effStage(l) });
   };
 
@@ -499,7 +499,7 @@ export function CrmBoard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <DatosDeMau ambito="crm" onListo={() => window.location.reload()} />
           <CrmAutoToggle />
-          <Link href="/leads/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 19px', borderRadius: 11, background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>+ Nuevo lead</Link>
+          <Link href="/crm/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 19px', borderRadius: 11, background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>+ Nuevo lead</Link>
         </div>
       </header>
 
@@ -663,7 +663,7 @@ export function CrmBoard({
             completarDatos={esCompletar}
             faltantes={faltantesLead}
             equipo={equipo}
-            onVerDetalle={esCompletar ? () => router.push(`/leads/${l.id}`) : undefined}
+            onVerDetalle={esCompletar ? () => router.push(`/crm/${l.id}`) : undefined}
             onClose={() => setStageMove(null)}
             onDone={() => {
               setStageMove(null);

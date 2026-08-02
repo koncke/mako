@@ -25,7 +25,7 @@ export async function resolverConfirmacionAction(id: number, decision: string): 
   try {
     const autor = await autorActual();
     await resolverConfirmacion(id, decision, autor);
-    revalidatePath('/leads');
+    revalidatePath('/crm');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

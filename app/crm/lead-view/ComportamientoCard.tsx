@@ -2,7 +2,7 @@
 // ComportamientoCard — actividad del lead en la landing y el VSL (presentacional)
 // =============================================================================
 // Visitas a la landing, reproducciones del VSL y retención máxima con semáforo.
-// Compartido por el modal (LeadSheet) y la ruta /leads/[id].
+// Compartido por el modal (LeadSheet) y la ruta /crm/[id].
 
 import type { CSSProperties } from 'react';
 

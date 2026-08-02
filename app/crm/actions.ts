@@ -336,8 +336,8 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, autor);
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
-  revalidatePath(`/leads/${id}`);
+  revalidatePath('/crm');
+  revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
 }
 
@@ -354,7 +354,7 @@ function emptyToNullable<T extends FormDataEntryValue | null>(
 }
 
 /**
- * Crea un lead nuevo desde el form de /leads/new.
+ * Crea un lead nuevo desde el form de /crm/new.
  * Redirige a la vista detalle del lead creado.
  */
 export async function createLeadAction(formData: FormData): Promise<void> {
@@ -379,8 +379,8 @@ export async function createLeadAction(formData: FormData): Promise<void> {
   // todo lead con teléfono tenga su hilo de WhatsApp desde el día cero.
   if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono);
   bust(TAG.leads);
-  revalidatePath('/leads');
-  redirect(`/leads/${created.id}`);
+  revalidatePath('/crm');
+  redirect(`/crm/${created.id}`);
 }
 
 /**
@@ -392,7 +392,7 @@ export async function savePlanPagosAction(
 ): Promise<void> {
   await savePlanPagos(leadId, plan);
   bust(TAG.pagos, TAG.leads);
-  revalidatePath(`/leads/${leadId}`);
+  revalidatePath(`/crm/${leadId}`);
   revalidatePath('/comercial');
   revalidatePath('/general');
 }
@@ -415,7 +415,7 @@ export async function marcarPagoAction(
     await autorActual(),
   );
   bust(TAG.pagos, TAG.leads);
-  revalidatePath(`/leads/${leadId}`);
+  revalidatePath(`/crm/${leadId}`);
   revalidatePath('/comercial');
   revalidatePath('/general');
 }
@@ -426,8 +426,8 @@ export async function marcarPagoAction(
 export async function deleteLeadAction(id: number): Promise<void> {
   await deleteLead(id);
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
-  redirect('/leads');
+  revalidatePath('/crm');
+  redirect('/crm');
 }
 
 /**
@@ -437,7 +437,7 @@ export async function deleteLeadAction(id: number): Promise<void> {
 export async function deleteLeadInlineAction(id: number): Promise<void> {
   await deleteLead(id);
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
 }
 
@@ -479,7 +479,7 @@ export async function setLeadStageAction(
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
 }
 
@@ -533,7 +533,7 @@ export async function bulkFillLeadFieldAction(
   }
 
   bust(TAG.leads);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
   return { updated };
 }
@@ -557,7 +557,7 @@ export async function bulkIgnoreEmpresaAction(leadIds: number[]): Promise<{ upda
     } catch (e) { console.error('[bulk] ignorar empresa excepción:', e); }
   }
   bust(TAG.leads);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
   return { updated };
 }
@@ -574,7 +574,7 @@ export async function ignorarPendientesAction(leadId: number): Promise<void> {
   if (error) throw new Error(`No se pudo ignorar: ${error.message}`);
   await logLeadEvent(leadId, 'Datos sin marcar', 'ignorados', await autorActual()).catch(() => {});
   bust(TAG.leads);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
 }
 
@@ -594,7 +594,7 @@ export async function ignorarPendientesMasaAction(leadIds: number[]): Promise<{ 
     } catch (e) { console.error('[bulk] ignorar pendientes excepción:', e); }
   }
   bust(TAG.leads);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
   return { updated };
 }
@@ -606,7 +606,7 @@ export async function reactivarPendientesAction(leadId: number): Promise<void> {
   if (error) throw new Error(`No se pudo reactivar: ${error.message}`);
   await logLeadEvent(leadId, 'Datos sin marcar', 'reactivados', await autorActual()).catch(() => {});
   bust(TAG.leads);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
 }
 
@@ -617,7 +617,7 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
 }
 
 export type MiembroEquipo = { nombre: string; email: string; foto_url: string | null };
@@ -689,8 +689,8 @@ export async function undoStageMoveAction(
     if (error) console.error('[undo] limpiar rastro falló:', error.message);
   } catch { /* si falla, queda la historia — el undo igual se aplicó */ }
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
-  revalidatePath(`/leads/${id}`);
+  revalidatePath('/crm');
+  revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
 }
 
@@ -737,7 +737,7 @@ export async function addLeadNoteAction(id: number, texto: string): Promise<void
   if (!t) return;
   await logLeadEvent(id, 'Nota', t, await autorActual());
   bust(TAG.leads);
-  revalidatePath(`/leads/${id}`);
+  revalidatePath(`/crm/${id}`);
 }
 
 /**
@@ -788,8 +788,8 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
   const after = await getLead(leadId).catch(() => null);
   await logLeadChanges(leadId, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
-  revalidatePath(`/leads/${leadId}`);
+  revalidatePath('/crm');
+  revalidatePath(`/crm/${leadId}`);
   revalidatePath('/general');
 }
 
@@ -866,8 +866,8 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
     if (error) console.error('[revert] borrar rastro del historial falló:', error.message);
   } catch { /* si falla, el revert igual se aplicó */ }
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
-  revalidatePath(`/leads/${leadId}`);
+  revalidatePath('/crm');
+  revalidatePath(`/crm/${leadId}`);
   revalidatePath('/general');
 }
 
@@ -883,7 +883,7 @@ export async function markManualNutritionAction(id: number, motivo: string, dead
   const nota = [motivo.trim() || null, deadline ? `vence ${fmtDDMMYYYY(deadline)}` : null].filter(Boolean).join(' · ');
   if (nota) await logLeadEvent(id, 'Nutrición manual', nota, await autorActual());
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
 }
 
@@ -907,11 +907,11 @@ export async function markMeetingManualAction(
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/general');
 }
 
-/** Input del editor completo del lead (ruta /leads/[id]). */
+/** Input del editor completo del lead (ruta /crm/[id]). */
 export type LeadEditorInput = {
   stage: string;
   deadline: string | null;        // deadline de nutrición manual (solo si stage='manual')
@@ -938,7 +938,7 @@ export type LeadEditorInput = {
 };
 
 /**
- * Guarda TODO el editor del lead (ruta /leads/[id]) en una sola acción:
+ * Guarda TODO el editor del lead (ruta /crm/[id]) en una sola acción:
  *  1) updateLead: datos + estado_lead derivado de la etapa (invariantes + Meta CAPI),
  *  2) saveLeadMeta: closer/setter/fathom,
  *  3) setBoardStageOverride: columna del tablero (pipeline_stage) + deadline manual.
@@ -972,8 +972,8 @@ export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Prom
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
-  revalidatePath('/leads');
-  revalidatePath(`/leads/${id}`);
+  revalidatePath('/crm');
+  revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
 }
 
@@ -981,7 +981,7 @@ export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Prom
 export async function saveFunnelAction(pipeline: Stage[], suppressed: string[]): Promise<void> {
   await saveFunnel(pipeline, suppressed);
   bust(TAG.pipeline, TAG.leads);
-  revalidatePath('/leads');
+  revalidatePath('/crm');
   revalidatePath('/funnel');
 }
 

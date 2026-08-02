@@ -3,13 +3,13 @@
 // =============================================================================
 // MakoConfirmGate — modal bloqueante de confirmaciones del CRM automático
 // =============================================================================
-// Al entrar al CRM (/leads*), si MaKo hizo cambios automáticos "fuertes", este
+// Al entrar al CRM (/crm*), si MaKo hizo cambios automáticos "fuertes", este
 // modal NO cerrable los lista y pide confirmar / deshacer / elegir una opción.
 // Sale solo cuando resolvés todo. (Fuente: mako_confirmaciones.)
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { listConfirmacionesAction, resolverConfirmacionAction } from '../leads/mako-confirm-actions';
+import { listConfirmacionesAction, resolverConfirmacionAction } from '../crm/mako-confirm-actions';
 import type { MakoConfirmacion, ConfOpcion } from '@/lib/mako-confirmaciones';
 
 const SANS = "'Geist', sans-serif";
@@ -74,7 +74,7 @@ function ItemCard({ c, busy, bloqueado, error, onResolve }: { c: MakoConfirmacio
 export function MakoConfirmGate() {
   const pathname = usePathname();
   const router = useRouter();
-  const enCrm = pathname?.startsWith('/leads') ?? false;
+  const enCrm = pathname?.startsWith('/crm') ?? false;
   const [items, setItems] = useState<MakoConfirmacion[]>([]);
   const [busy, setBusy] = useState<number | null>(null);
   const [err, setErr] = useState<number | null>(null);

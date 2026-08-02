@@ -1,5 +1,5 @@
 // =============================================================================
-// /leads — CRM (rediseño Marketing OS): Kanban + Tabla + ficha en modal
+// /crm — CRM (rediseño Marketing OS): Kanban + Tabla + ficha en modal
 // =============================================================================
 
 import { listLeads, getPipelineStages, getFunnelTransitions, type Lead } from '@/lib/leads';

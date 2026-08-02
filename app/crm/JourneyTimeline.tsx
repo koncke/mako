@@ -2,7 +2,7 @@
 // JourneyTimeline — línea de tiempo del recorrido del lead (presentacional)
 // =============================================================================
 // Sin hooks ni 'use client': se usa tanto en el modal (cliente) como en la
-// ruta /leads/[id] (servidor). Recibe los pasos ya armados por buildJourney.
+// ruta /crm/[id] (servidor). Recibe los pasos ya armados por buildJourney.
 
 import type { JourneyState, JourneyStep } from '@/lib/journey';
 

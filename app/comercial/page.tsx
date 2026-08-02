@@ -846,7 +846,7 @@ function EmptyState() {
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)', textAlign: 'center' }}>
       <p style={{ fontSize: 18, color: 'var(--dim)', margin: '0 0 8px' }}>Aún no hay leads con fecha de Reunión 1.</p>
       <p style={{ fontSize: 14.5, color: 'var(--faint)', margin: 0 }}>
-        Cuando alguien agende vía Calendly o crees uno manual en /leads y le pongas fecha de R1, aparecerá agrupado en cohortes aquí.
+        Cuando alguien agende vía Calendly o crees uno manual en /crm y le pongas fecha de R1, aparecerá agrupado en cohortes aquí.
       </p>
     </section>
   );

@@ -11,7 +11,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import type { OutstandingLead } from '@/lib/pagos';
-import { marcarPagoAction } from '../leads/actions';
+import { marcarPagoAction } from '../crm/actions';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";

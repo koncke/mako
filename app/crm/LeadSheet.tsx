@@ -3,7 +3,7 @@
 // =============================================================================
 // LeadSheet — ficha del lead en modal: PREVIEW de solo lectura, organizada en tabs
 // =============================================================================
-// Tabs: Resumen / Cobranza / Actividad. La edición vive en /leads/[id] (botón
+// Tabs: Resumen / Cobranza / Actividad. La edición vive en /crm/[id] (botón
 // "Editar lead →"). Los movimientos del Kanban que exigen datos usan su propio
 // pop-up chico (StageMoveDialog), no esta ficha.
 
@@ -26,6 +26,7 @@ import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
 import { ChatCard } from './lead-view/ChatCard';
+import { NotasCard } from './lead-view/NotasCard';
 import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { TrackingTimelineCard } from './lead-view/TrackingTimelineCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
@@ -141,10 +142,10 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   // Cobranza; respuestas R2 → Meetings.
   const tab = tabDeSolucion(faltantes);
   const solucionarHref = hayPasoDeWizard(faltantes)
-    ? `/leads/${lead.id}?solucionar=1`
-    : tab === 'cobranza' ? `/leads/${lead.id}?edit=1&tab=cobranza&ia=1`
-    : tab === 'reuniones' ? `/leads/${lead.id}?edit=1&tab=reuniones`
-    : `/leads/${lead.id}?edit=1`;
+    ? `/crm/${lead.id}?solucionar=1`
+    : tab === 'cobranza' ? `/crm/${lead.id}?edit=1&tab=cobranza&ia=1`
+    : tab === 'reuniones' ? `/crm/${lead.id}?edit=1&tab=reuniones`
+    : `/crm/${lead.id}?edit=1`;
   // Nutrición positiva (derivada): el lead avanza dentro de su etapa.
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
 
@@ -173,7 +174,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   const tabCobranza = isGanado || pagos.length > 0 ? (
     <>
       <DealDetailsCard lead={lead} pagos={pagos} />
-      <Link href={`/leads/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar deal →</Link>
+      <Link href={`/crm/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar deal →</Link>
     </>
   ) : (
     <section style={card}>
@@ -217,6 +218,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             initial={initialTab}
             tabs={[
               { key: 'resumen', label: 'Overview', content: tabResumen },
+              { key: 'notas', label: 'Notas', content: <NotasCard leadId={lead.id} /> },
               { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adUrl={adUrl} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} /><TrackingTimelineCard eventos={tracking} /></> },
               { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
               { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
@@ -245,7 +247,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           <button onClick={() => setConfirmDelete(true)} disabled={pending} style={{ padding: '8px 6px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Borrar lead</button>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Cerrar</button>
-            <Link href={`/leads/${lead.id}?edit=1`} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'none' }}>Editar lead →</Link>
+            <Link href={`/crm/${lead.id}?edit=1`} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'none' }}>Editar lead →</Link>
           </div>
         </div>
       </div>

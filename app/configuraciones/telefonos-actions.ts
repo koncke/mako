@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { normalizarTelefono } from '@/lib/leads';
 import { chatwootConfigurado } from '@/lib/chatwoot';
-import { getEquipoAction, type MiembroEquipo } from '../leads/actions';
+import { getEquipoAction, type MiembroEquipo } from '../crm/actions';
 
 export type FuenteTelefono = 'chatwoot' | 'whatsapp_api' | 'personal';
 

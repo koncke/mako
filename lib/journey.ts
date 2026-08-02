@@ -3,7 +3,7 @@
 // =============================================================================
 // A partir de las fechas reales del lead (alta, R1/R2, confirmación, cierre)
 // arma los hitos del funnel en orden, con su estado. Compartido por el modal de
-// detalle (CrmLead) y la ruta /leads/[id] (Lead). Función pura.
+// detalle (CrmLead) y la ruta /crm/[id] (Lead). Función pura.
 
 import { fmtDDMMYYYY } from './date-utils';
 

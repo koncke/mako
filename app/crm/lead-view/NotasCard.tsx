@@ -55,10 +55,7 @@ export function NotasCard({ leadId }: { leadId: number }) {
 
   return (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 6 }}>Notas de seguimiento</div>
-      <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 14px', lineHeight: 1.5 }}>
-        Dejá acá cualquier apunte de tu seguimiento manual (WhatsApp, llamada, lo que hiciste). Sirve en cualquier etapa del lead y queda con fecha y autor.
-      </p>
+      <div style={{ ...sectLabel, marginBottom: 14 }}>Notas</div>
 
       <textarea
         value={texto}

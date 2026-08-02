@@ -1,7 +1,7 @@
 // =============================================================================
 // crm-map — Lead (Supabase) → CrmLead (view-model del CRM)
 // =============================================================================
-// Extraído de /leads/page.tsx para que tanto la página del CRM como la server
+// Extraído de /crm/page.tsx para que tanto la página del CRM como la server
 // action getCrmLeadAction (modal de edición in-place) armen el MISMO view-model.
 
 import { resolverNombreCampana } from '@/lib/queries';

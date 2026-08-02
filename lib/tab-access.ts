@@ -26,10 +26,10 @@ import type { RolWorkspace } from './auth-session';
 
 /**
  * Adónde mandar a alguien que pidió una tab que no le toca. Depende de la capa:
- * un cliente 'pm' no tiene /leads, así que su casa es el board.
+ * un cliente 'pm' no tiene /crm, así que su casa es el board.
  */
 export function homeDeCapa(capa: CapaId): string {
-  return capaDef(capa).navKeys?.includes('crm') === false ? '/plan' : '/leads';
+  return capaDef(capa).navKeys?.includes('crm') === false ? '/plan' : '/crm';
 }
 
 /**

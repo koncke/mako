@@ -26,7 +26,7 @@ import { useNotifications } from '../_components/NotificationsProvider';
 import { useConfirm } from '../_components/useConfirm';
 
 // La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
-const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
+const LeadEditModal = dynamic(() => import('../crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
 // Atajos: idénticos a los del inbox oficial (se pasan al panel de MaKo).
 const QUICK = ['Reagendar tu Diagnóstico', 'Te paso el link de pago', 'Te comparto el video de nuevo'];
 
@@ -673,7 +673,7 @@ export function EmpresaInbox() {
             {selConv.leadId ? (
               <button onClick={() => setDetalleLeadId(selConv.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
             ) : (
-              <Link href="/leads" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
+              <Link href="/crm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
             )}
             {selConv.bloqueado && <div style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--bad)' }}><IconBan size={14} /> Contacto bloqueado</div>}
             {selConv.telefono && (

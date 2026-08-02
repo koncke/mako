@@ -44,8 +44,8 @@ export function BackButton() {
         // puede re-caer en la MISMA URL con el param (y "no volver a ningún lado"):
         // en ese caso vamos derecho al tablero. Si no, historial normal.
         const params = new URLSearchParams(window.location.search);
-        if (params.has('solucionar') || params.has('edit')) { router.push('/leads'); return; }
-        if (window.history.length > 1) router.back(); else router.push('/leads');
+        if (params.has('solucionar') || params.has('edit')) { router.push('/crm'); return; }
+        if (window.history.length > 1) router.back(); else router.push('/crm');
       }}
       style={{ fontSize: 14, color: 'var(--dim)', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: SANS }}
     >← Volver</button>

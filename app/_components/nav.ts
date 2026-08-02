@@ -44,7 +44,7 @@ const starts = (p: string) => (pathname: string) =>
 // Items sueltos (arriba del divider).
 export const TOP_NAV: NavItem[] = [
   { key: 'general', label: 'General', href: '/general', icon: 'general', match: starts('/general') },
-  { key: 'crm', label: 'CRM', href: '/leads', icon: 'crm', badge: true, rolesWs: ['closer', 'setter'], match: starts('/leads') },
+  { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', badge: true, rolesWs: ['closer', 'setter'], match: starts('/crm') },
   { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
   { key: 'todo', label: 'Plan', href: '/plan', icon: 'todo', rolesWs: ['closer', 'setter'], match: (p) => starts('/plan')(p) || starts('/todo')(p) },
