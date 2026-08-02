@@ -539,7 +539,7 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
   for (const ch of orden) {
     if (Date.now() > limite) break;
     const rawJid = ch.remoteJid || '';
-    if (!rawJid || rawJid.endsWith('@g.us') || rawJid.startsWith('status@') || rawJid.includes('broadcast')) continue;
+    if (!rawJid || rawJid.endsWith('@g.us') || rawJid.endsWith('@newsletter') || rawJid.startsWith('status@') || rawJid.includes('broadcast')) continue;
     // Se saltea solo lo que ya está COMPLETO: sin mensajes nuevos Y con historia
     // suficiente guardada.
     //
@@ -560,7 +560,7 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
     // Canonical del chat: el número real de CUALQUIER mensaje (remoteJidAlt/senderPn).
     let chatJid = rawJid;
     for (const rec of recs) { const cj = jidCanonico(rec.key); if (cj && !cj.endsWith('@lid')) { chatJid = cj; break; } }
-    if (chatJid.endsWith('@g.us') || chatJid.startsWith('status@') || chatJid.includes('broadcast')) continue;
+    if (chatJid.endsWith('@g.us') || chatJid.endsWith('@newsletter') || chatJid.startsWith('status@') || chatJid.includes('broadcast')) continue;
     nChat += 1;
     // findChats YA devuelve el nombre y la foto del contacto: descartarlos
     // dejaba la lista mostrando números crudos, y obligaba a esperar a que el

@@ -112,7 +112,10 @@ export async function GET(req: Request) {
 
     const porChat = new Map<string, Conv>();
     for (const f of filas) {
-      if (f.chat_jid.endsWith('@g.us') || f.chat_jid.startsWith('status@') || f.chat_jid.includes('broadcast')) continue;
+      // @newsletter son los CANALES de WhatsApp: difusión de una vía a la que
+      // el dueño está suscripto, no conversaciones suyas. Entraban a la lista
+      // como contactos con un mensaje suelto.
+      if (f.chat_jid.endsWith('@g.us') || f.chat_jid.endsWith('@newsletter') || f.chat_jid.startsWith('status@') || f.chat_jid.includes('broadcast')) continue;
       const clave = claveTel(f.telefono, f.chat_jid);
       let c = porChat.get(clave);
       if (!c) {
