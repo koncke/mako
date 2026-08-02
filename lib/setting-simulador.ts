@@ -7,7 +7,6 @@
 // Setter IA (fase 2): mismo cerebro, cero envíos reales, nada se persiste.
 
 import 'server-only';
-import { chatClaude } from './anthropic';
 import { getActivePersona, MAKO_NUCLEO } from './mako-prompts';
 import { getPromptText, renderPrompt } from './prompt-render';
 import { perfilNegocioTexto } from './onboarding';
@@ -122,7 +121,23 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
     return { ok: false, error: 'El último mensaje tiene que ser del lead.' };
   }
 
-  const respuesta = await chatClaude(system, turnos, { effort: 'medium', maxTokens: 500, feature: 'setting-simulador' });
-  if (!respuesta || !respuesta.trim()) return { ok: false, error: 'MaKo no respondió. Probá de nuevo.' };
+  // MODELO BARATO POR DEFAULT, y no es un detalle de costo menor: esta función
+  // no la llama solo el simulador. La llama `asistirRespuesta` desde
+  // `pausarPorRespuesta`, que corre en el webhook de CADA mensaje entrante de
+  // CADA lead de CADA cliente — un bucle abierto contra el modelo caro. Para
+  // redactar una respuesta de dos líneas en un registro ya destilado, un modelo
+  // barato alcanza. La conversación va serializada porque es el contrato que
+  // admite chatCheapCascade.
+  const transcripcion = turnos
+    .map((t) => `${t.role === 'user' ? 'LEAD' : 'NEGOCIO'}: ${t.content}`)
+    .join('\n');
+  const { chatCheapCascade, CASCADA_GRATIS } = await import('./ai-cheap');
+  const respuesta = await chatCheapCascade({
+    system,
+    user: `${transcripcion}\n\nEscribe la respuesta del NEGOCIO al último mensaje del lead. Solo el texto del mensaje, nada más.`,
+    maxTokens: 500, feature: 'setting-simulador', motivo: 'Respuesta del setter',
+    provs: CASCADA_GRATIS,
+  });
+  if (!respuesta || !respuesta.trim()) return { ok: false, error: 'MaKo no respondió. Vuelve a intentarlo.' };
   return { ok: true, respuesta: respuesta.trim() };
 }

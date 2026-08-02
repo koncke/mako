@@ -11,7 +11,7 @@
 // histórico del cron simula los canales apagados ('simulado', avanza).
 // =============================================================================
 
-import { getTenantDb } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
@@ -1211,9 +1211,14 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
   } catch { /* la calificación es un extra: nunca bloquea el aviso */ }
 
   // 4) Aviso al dueño — el único que pidió Mauricio: "avisame si responden".
+  //
+  // El `ws` va EXPLÍCITO. Sin él, emitirAviso cae a OWNER_WS: el lead de un
+  // cliente respondía y el aviso le llegaba al grupo de la AGENCIA en vez de al
+  // del cliente — que además no se entera de que le contestaron.
   const { emitirDelCatalogo } = await import('@/lib/avisos');
   const quien = lead?.nombre?.trim() || `lead ${leadId}`;
   await emitirDelCatalogo('wa-mensaje-entrante', {
+    ws: (await getWorkspaceActual()) ?? undefined,
     texto: `💬 *${quien} respondió* a la jugada «${jugada.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${sugerida ? `\n\nTe dejé un borrador listo para aprobar:\n${sugerida.slice(0, 300)}` : ''}${alertaDescalifica}\n\n— MaKo`,
   });
 }
