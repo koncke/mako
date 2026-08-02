@@ -12,6 +12,7 @@ import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo } from '@/lib/plan-fathom';
 import { glosarioTexto, guardarTermino } from '@/lib/glosario';
+import { resolverClienteDeReunion, nombreProyectoCliente } from '@/lib/reunion-cliente';
 import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
 import { esFechaValida } from '@/lib/date-utils';
@@ -132,7 +133,13 @@ export async function POST(req: NextRequest) {
       // encontrara y creaba tareas de OTRO día (pasó: duplicó dos del 26/07).
       // El WhatsApp con lista y link lo manda el CRON (lib/reunion-auto), que es el que
       // sí necesita avisar de algo que el dueño no está viendo.
-      return Response.json({ ok: true, ...out });
+      // ¿La reunión es con un CLIENTE? Si lo es, TODAS sus tareas van a su proyecto:
+      // el tema de cada tarea deja de decidir dónde se archiva. Se resuelve acá (server,
+      // contra el CRM) y no en el prompt, porque el modelo ve un título y no el CRM —
+      // por eso repartía una misma llamada entre proyectos temáticos inventados.
+      const cli = await resolverClienteDeReunion({ participantes: out.participantes ?? [] }).catch(() => null);
+      const cliente = cli ? { nombre: cli.nombre, empresa: cli.empresa, proyecto: nombreProyectoCliente(cli), email: cli.email } : null;
+      return Response.json({ ok: true, ...out, cliente });
     }
     return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });
   } catch (e) {

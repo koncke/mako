@@ -30,7 +30,10 @@ type Fila = FilaTarea;
 /** Lo que YA salió de una reunión (borrador pendiente o ya aplicado). */
 export type ResumenBorrador = { id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; creadas: number; pendientesMias: number; pendientesOtros: number };
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; usage?: unknown; error?: string }> {
+/** El cliente de la reunión, resuelto por el server contra el CRM. */
+export type ClienteReunion = { nombre: string; empresa: string | null; proyecto: string; email: string };
+
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; usage?: unknown; error?: string }> {
   return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -59,6 +62,9 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   onAbrirRecibido?: (id: string) => void;
 }) {
   const [fase, setFase] = useState<'lista' | 'extrayendo' | 'validar' | 'revisar'>('lista');
+  // El cliente que el server reconoció en la reunión (por el email del invitado en el
+  // CRM). Si no reconoció ninguno se muestra igual, para que el dueño lo elija.
+  const [cliente, setCliente] = useState<ClienteReunion | null>(null);
   const [reuniones, setReuniones] = useState<ReunionMeta[] | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);   // nextCursor de Fathom
   const [cargandoMas, setCargandoMas] = useState(false);
@@ -110,8 +116,20 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   // Anota las candidatas: reparto mío/de-otro (viene del backend), y el cruce del
   // Perro contra el plan (dedup, punto 8). Las de otro NO se tildan nunca: van a la
   // tab de esa persona y se le mandan a ella.
-  const procesar = async (tareas: Candidata[], dudasIn: Duda[]) => {
-    const filasNuevas: Fila[] = tareas.map((t) => ({ ...t, incluir: !t.esDeOtro }));
+  const procesar = async (tareas: Candidata[], dudasIn: Duda[], cliente?: ClienteReunion | null) => {
+    // REUNIÓN CON CLIENTE → TODAS sus tareas al proyecto de ese cliente. El tema de
+    // cada tarea deja de decidir dónde se archiva: eso es lo que repartía una misma
+    // llamada entre proyectos temáticos inventados, y hasta metía trabajo de un
+    // cliente en el proyecto de otro. Lo resolvió el server contra el CRM (por el
+    // email del invitado), no el modelo leyendo títulos.
+    const delCliente = cliente?.proyecto ?? '';
+    const yaExiste = delCliente ? labels.find((l) => l.name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes(delCliente.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase())) : undefined;
+    const filasNuevas: Fila[] = tareas.map((t) => ({
+      ...t,
+      ...(delCliente ? { proyectoId: yaExiste?.id ?? null, proyectoNombre: yaExiste ? undefined : delCliente } : {}),
+      incluir: !t.esDeOtro,
+    }));
+    setCliente(cliente ?? null);
     // Dedup contra el plan (best-effort: apiFathom nunca lanza; si el server falla, ok:false).
     const jc = await apiFathom({ action: 'cruzar', candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle })), existentes, uso: 'Cruzar con el plan' });
     if (jc.ok && Array.isArray(jc.cruces)) {
@@ -130,7 +148,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     // misma reunión devuelve lo cacheado — NO cobra tokens (feedback jul-19).
     const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, proyectos, uso: 'Extraer tareas de reunión', reanalizar });
     if (j.usage) onUsage?.(j.usage);
-    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? []);
+    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null);
     else { setErr(j.error || 'MaKo no pudo leer la reunión.'); setFase('lista'); setElegida(null); }
   };
 
@@ -143,7 +161,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     fd.append('proyectos', JSON.stringify(labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }))));
     const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd }).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
     if (j.usage) onUsage?.(j.usage);
-    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? []);
+    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null);
     // Falló el archivo: mostramos el error y volvemos a la lista (que se carga sola,
     // porque el modo-archivo la había salteado) para que el usuario no quede colgado.
     else { setErr(j.error || 'No pude leer el archivo.'); volverALista(); }
@@ -331,6 +349,17 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                     ↻ Volver a analizar (gasta tokens)</button>}
                 </div>
               : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* A QUÉ CLIENTE va todo. Se dice arriba y una sola vez, no tarjeta por
+                      tarjeta: la decisión es de la REUNIÓN. Si MaKo no lo reconoció, se
+                      dice también — y el dueño reasigna con el selector de cada fila. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', borderRadius: 11, border: `1px solid ${cliente ? 'var(--good)' : 'var(--border-strong)'}`, background: cliente ? 'var(--good-bg, var(--surface-2))' : 'var(--surface-2)' }}>
+                    <span style={{ fontSize: 15, flex: 'none' }}>{cliente ? '🤝' : '📁'}</span>
+                    <div style={{ minWidth: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--dim)' }}>
+                      {cliente
+                        ? <>Es una reunión con <b style={{ color: 'var(--ink)' }}>{cliente.nombre}</b>: todas estas tareas van a <b style={{ color: 'var(--ink)' }}>«{cliente.proyecto}»</b>.{' '}<span style={{ color: 'var(--faint)' }}>Si alguna no es de este cliente, cambiásela abajo.</span></>
+                        : <>No reconocí a ningún cliente entre los invitados de esta reunión, así que <b style={{ color: 'var(--ink)' }}>las dejo donde MaKo propuso</b>. Si son de un cliente, elegí su proyecto abajo.</>}
+                    </div>
+                  </div>
                   {/* Freno del Perro por tipo de reunión (punto 8): ventas/entrega no son del plan */}
                   {freno && (
                     <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--warn)', background: 'var(--warn-bg, var(--surface-2))' }}>

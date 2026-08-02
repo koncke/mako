@@ -30,6 +30,7 @@ import { tzDeWorkspace } from './timezone';
 import { fechaHoraEnTz } from './date-utils';
 import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
+import { resolverClienteDeReunion, nombreProyectoCliente } from './reunion-cliente';
 import { APP_BASE_URL as APP_URL } from './app-url';
 
 /**
@@ -197,6 +198,18 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       }
 
       const nombreProy = new Map(proyectos.map((p) => [p.id, p.nombre]));
+      // ¿ESTA REUNIÓN ES CON UN CLIENTE? Si lo es, TODAS sus tareas van al proyecto de
+      // ese cliente y el tema de cada una deja de decidir dónde se archiva. Es la regla
+      // que pidió el dueño ("si proviene de una llamada con cliente, clasificala al
+      // cliente") y la que el modelo no puede aplicar: él ve un título, no el CRM.
+      const cliente = await resolverClienteDeReunion({
+        titulo: r.titulo,
+        participantes: r.participantes,
+        emails: [r.host?.email ?? ''].filter(Boolean),
+      }).catch(() => null);
+      const proyCliente = cliente ? nombreProyectoCliente(cliente) : '';
+      if (cliente) console.log(`[reunion-auto] «${r.titulo}» es con ${cliente.nombre} → todo va a «${proyCliente}»`);
+
       const propuestas: PropuestaTarea[] = tareas.map((t) => ({
         titulo: t.titulo,
         detalle: t.detalle || undefined,
@@ -204,7 +217,9 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // …o el nombre que PROPUSO el modelo cuando el proyecto todavía no existe. Se
         // descartaba acá, así que las tareas del cron nacían sueltas aunque la reunión
         // hubiera dicho a qué proyecto iban (el server sabe crearlo por nombre).
-        proyecto: t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined),
+        // Con cliente detectado MANDA el cliente: lo que haya elegido el modelo se
+        // ignora (es justo lo que repartía una misma llamada en proyectos temáticos).
+        proyecto: proyCliente || (t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined)),
         dueno: t.dueño || undefined,
         duenoEmail: t.dueñoEmail || undefined,
         esDeOtro: t.esDeOtro || undefined,
