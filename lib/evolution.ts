@@ -468,6 +468,19 @@ export async function fetchProfilePic(telefono: string): Promise<string | null> 
   if (!num) return null;
   const ws = await wsEstricto();
   const instance = instanceNameDeWs(ws);
+
+  // PRIMERO la que ya tenemos guardada. El importador la trae en lote junto con
+  // la agenda, así que para el que la tiene está a una query de distancia.
+  // Antes se empezaba por el endpoint en vivo, que —medido contra la instancia
+  // real— devolvió null en 15 de 15 contactos, incluidos 10 que SÍ tenían foto
+  // en el cache: o sea, una request perdida por avatar y, cuando tardaba, el
+  // <img> fallaba y quedaban las iniciales de alguien que sí tiene foto.
+  try {
+    const { getFotoContacto } = await import('./evolution-contactos');
+    const guardada = await getFotoContacto(num);
+    if (guardada) return guardada;
+  } catch { /* seguimos por Evolution */ }
+
   const r = await evFetch<{ profilePictureUrl?: string | null }>(
     `/chat/fetchProfilePictureUrl/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num }) },

@@ -486,6 +486,14 @@ function proxyMedia(waId: string | null, jid: string, fromMe: boolean): string |
 // contactos no agendados quedan bajo el número, no en un chat @lid aparte. Salta
 // grupos/status/broadcast. Bulk por chat (1 match de lead + 1 upsert) para no
 // timeoutear; ignoreDuplicates = no pisa lo que ya capturó el webhook.
+/**
+ * Debajo de esto se asume que la conversación se trajo con un tope viejo y hay
+ * que volver a pedirla. Por encima, ya tiene historia de sobra y se saltea.
+ * Las charlas realmente cortas se re-piden cada vez, pero cuestan una request
+ * chica y son minoría.
+ */
+const MINIMO_COMPLETO = 120;
+
 export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mensajes: number }> {
   const ws = await getWorkspaceActual();
   if (ws == null) return { chats: 0, mensajes: 0 };
@@ -510,14 +518,19 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
   // recorrido no entra en una sola request: sin esto, cada intento arrancaba
   // otra vez desde el más reciente y se quedaba siempre en la misma mitad — el
   // dueño apretaba el botón tres veces y no avanzaba nunca.
-  const yaEspejado = new Map<string, string>();
+  const yaEspejado = new Map<string, { ultimo: string; cuantos: number }>();
   try {
     for (let desde = 0; desde < 20000; desde += 1000) {
       const { data: prev } = await supabase
         .from('wa_mensajes').select('chat_jid, wa_timestamp')
         .order('wa_timestamp', { ascending: false }).range(desde, desde + 999);
       const filas = (prev ?? []) as Array<{ chat_jid: string; wa_timestamp: string | null }>;
-      for (const f of filas) if (!yaEspejado.has(f.chat_jid)) yaEspejado.set(f.chat_jid, f.wa_timestamp ?? '');
+      for (const f of filas) {
+        const e = yaEspejado.get(f.chat_jid);
+        // El primero que aparece es el más nuevo (viene ordenado desc).
+        if (e) e.cuantos += 1;
+        else yaEspejado.set(f.chat_jid, { ultimo: f.wa_timestamp ?? '', cuantos: 1 });
+      }
       if (filas.length < 1000) break;
     }
   } catch { /* sin espejo previo, se recorre todo */ }
@@ -527,10 +540,17 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
     if (Date.now() > limite) break;
     const rawJid = ch.remoteJid || '';
     if (!rawJid || rawJid.endsWith('@g.us') || rawJid.startsWith('status@') || rawJid.includes('broadcast')) continue;
-    // Sin novedades desde la última vez: se saltea y el tiempo se gasta en los
-    // que faltan. El upsert es idempotente igual, pero la request no es infinita.
+    // Se saltea solo lo que ya está COMPLETO: sin mensajes nuevos Y con historia
+    // suficiente guardada.
+    //
+    // Mirar únicamente la fecha fue un error caro: las conversaciones traídas
+    // con el tope viejo de 60 mensajes no tenían actividad nueva, así que se
+    // salteaban para siempre y nunca se expandían. Solo crecían las cuatro que
+    // habían recibido un mensaje después. El umbral las obliga a pasar una vez
+    // más por el importador, y de ahí en adelante quedan quietas.
     const visto = yaEspejado.get(rawJid);
-    if (visto && ch.updatedAt && new Date(String(ch.updatedAt)).toISOString() <= visto) continue;
+    const sinNovedad = visto && ch.updatedAt && new Date(String(ch.updatedAt)).toISOString() <= visto.ultimo;
+    if (sinNovedad && visto.cuantos >= MINIMO_COMPLETO) continue;
     // 60 era el número que dejaba el espejo en nada: hay chats con más de 2.000
     // mensajes en Evolution. Se traen los 300 más recientes y los 100 del
     // arranque, que es lo que el paso "Tu forma de escribir" necesita leer.

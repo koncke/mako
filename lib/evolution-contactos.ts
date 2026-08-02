@@ -56,6 +56,20 @@ export async function upsertContactosLote(
   return filas.length;
 }
 
+/** La foto guardada de UN teléfono (últimos 10 dígitos). */
+export async function getFotoContacto(telefono: string): Promise<string | null> {
+  const k = digs(telefono).slice(-10);
+  if (!k) return null;
+  const supabase = await getTenantDb();
+  const { data } = await supabase
+    .from('evolution_contactos').select('telefono, foto_url')
+    .not('foto_url', 'is', null)
+    .like('telefono', `%${k}`)
+    .limit(1);
+  const fila = ((data ?? []) as Array<{ foto_url: string | null }>)[0];
+  return fila?.foto_url ?? null;
+}
+
 /** Teléfonos (últimos 10) que TIENEN foto de perfil guardada. */
 export async function getFotosContacto(): Promise<Set<string>> {
   const supabase = await getTenantDb();
