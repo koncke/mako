@@ -11,6 +11,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto } from './ChatAgentApp';
+import { PasoAudioControl } from './PasoAudioControl';
 import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
@@ -38,12 +39,14 @@ async function api(body: unknown): Promise<{ ok: boolean; error?: string; enviad
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, onClose, onCambio, onWizard }: {
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, onAudioNuevo, onClose, onCambio, onWizard }: {
   secuencia: SecuenciaDto;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   rolAdmin: boolean;
   audios: AudioSetting[];
+  /** Un audio grabado desde un paso se suma a la biblioteca del padre. */
+  onAudioNuevo: (a: AudioSetting) => void;
   onClose: () => void;
   onCambio: () => void;
   onWizard: () => void;
@@ -336,30 +339,27 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
 
                   {abierto && (
                     <div style={{ padding: '0 13px 13px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+                      {/* Texto o nota de voz, y si es voz se graba acá mismo —
+                          la misma pieza que usa el wizard. */}
                       {p.canal === 'whatsapp' && rolAdmin && (
-                        <Dropdown
-                          value={audio ? String(audio.id) : ''}
-                          onChange={(v) => void setAudioDePaso(p.orden, v ? Number(v) : null)}
-                          width="100%"
-                          ariaLabel={`Audio del mensaje ${p.orden}`}
-                          buttonStyle={{ padding: '7px 11px', fontSize: 12.5 }}
-                          options={[{ value: '', label: '💬 Texto escrito' }, ...audios.map((a) => ({ value: String(a.id), label: `🎙 ${a.titulo}` }))]}
+                        <PasoAudioControl
+                          orden={p.orden}
+                          audios={audios}
+                          audioId={audio?.id ?? null}
+                          onElegir={(id) => void setAudioDePaso(p.orden, id)}
+                          onGrabado={onAudioNuevo}
+                          onError={setErr}
+                          disabled={busy != null}
                         />
                       )}
-                      {audio ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                          {audio.url && <audio controls src={audio.url} style={{ height: 34, maxWidth: 260 }} />}
-                          {audio.transcript && <span style={{ fontSize: 12, color: 'var(--faint)', flex: '1 1 180px' }}>{audio.transcript.slice(0, 120)}</span>}
-                        </div>
-                      ) : (
-                        <>
-                          {p.canal === 'email' && (
-                            <input value={p.asunto ?? ''} onChange={(e) => editarPaso(p.orden, 'asunto', e.target.value)} placeholder="Asunto" style={{ ...inp, fontWeight: 600 }} disabled={!rolAdmin} />
-                          )}
-                          <textarea value={p.cuerpo} onChange={(e) => editarPaso(p.orden, 'cuerpo', e.target.value)} rows={p.canal === 'email' ? 6 : 4}
-                            placeholder="Qué dice este mensaje…" style={{ ...inp, resize: 'vertical', lineHeight: 1.55 }} disabled={!rolAdmin} />
-                        </>
+                      {p.canal === 'email' && (
+                        <input value={p.asunto ?? ''} onChange={(e) => editarPaso(p.orden, 'asunto', e.target.value)} placeholder="Asunto" style={{ ...inp, fontWeight: 600 }} disabled={!rolAdmin} />
                       )}
+                      {/* Con audio, el texto es el PIE: lo que llega por escrito
+                          junto con la nota de voz. */}
+                      <textarea value={p.cuerpo} onChange={(e) => editarPaso(p.orden, 'cuerpo', e.target.value)} rows={p.canal === 'email' ? 6 : audio ? 2 : 4}
+                        placeholder={audio ? 'Opcional: algo por escrito junto al audio (un enlace, por ejemplo)' : 'Qué dice este mensaje…'}
+                        style={{ ...inp, resize: 'vertical', lineHeight: 1.55 }} disabled={!rolAdmin} />
                       {rolAdmin && pasos.length > 1 && (
                         <button onClick={() => quitarPaso(p.orden)} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', alignSelf: 'flex-start', padding: 0, fontFamily: 'inherit' }}>Quitar este mensaje</button>
                       )}

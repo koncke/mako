@@ -48,13 +48,14 @@ async function blobABase64(b: Blob): Promise<string> {
 
 type Paso = { t: 'typing' } | { t: 'msg'; msg: HiloMsg };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, onWizard, onReload }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, onAudioNuevo, onWizard, onReload }: {
   secuencias: SecuenciaDto[];
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   negocio: string;
   rolAdmin: boolean;
   audios: AudioSetting[];
+  onAudioNuevo: (a: AudioSetting) => void;
   onWizard: (id: number | 'nueva') => void;
   onReload: () => void;
 }) {
@@ -223,7 +224,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       </div>
 
       {detalle && sel ? (
-        <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios}
+        <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} onAudioNuevo={onAudioNuevo}
           onClose={() => setDetalle(false)} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
       ) : sel ? (
         <ChatHilo

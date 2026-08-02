@@ -3,10 +3,17 @@
 // =============================================================================
 // ChatAgentApp — la tab /setting: simulador de secuencias de mensajes + dashboard
 // =============================================================================
-// Tres sub-tabs: WhatsApp (secuencias como CONTACTOS + chat simulado con MaKo-setter,
-// réplica del diseño de Plantillas en SuperAdmin), Email (bandeja simulada del
-// lead) y Dashboard (KPIs + gráficos recharts). El wizard "Nueva secuencia de mensajes" define
-// la estrategia y MaKo redacta; el perfil de cada secuencia de mensajes se edita desde el chat.
+// Tres sub-tabs: WhatsApp (secuencias como CONTACTOS + chat simulado con
+// MaKo-setter, réplica del diseño de Plantillas en SuperAdmin), Email (bandeja
+// simulada del lead) y Dashboard (KPIs + gráficos).
+//
+// NO hay sub-tab de audios, y es a propósito: grabar una nota de voz es parte de
+// armar el mensaje, no un trámite aparte. Se decide y se graba DENTRO de cada
+// mensaje de la secuencia (PasoAudioControl). Antes había que salir del wizard,
+// ir a la biblioteca, grabar, volver y recién ahí colgarlo del paso — tres
+// pantallas para una decisión, y la mitad de la gente no volvía. La biblioteca
+// sigue existiendo por debajo: un audio grabado en una secuencia queda
+// disponible para las demás.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Icon } from '@/app/_components/icons';
@@ -15,7 +22,6 @@ import { SecuenciaWizard } from './SecuenciaWizard';
 import { SimuladorWhatsApp, emojiSecuencia } from './SimuladorWhatsApp';
 import { SimuladorEmail } from './SimuladorEmail';
 import { DashboardChatAgent } from './DashboardChatAgent';
-import { AudiosPanel } from './AudiosPanel';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
 import { OnboardingChatAgent } from './OnboardingChatAgent';
 import { DatosDeMau } from '@/app/_components/DatosDeMau';
@@ -64,7 +70,7 @@ export function ChatAgentApp() {
   const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [vista, setVista] = useState<'whatsapp' | 'email' | 'audios' | 'dashboard'>('whatsapp');
+  const [vista, setVista] = useState<'whatsapp' | 'email' | 'dashboard'>('whatsapp');
   const [audios, setAudios] = useState<AudioSetting[]>([]);
   const [emailSecuenciaId, setEmailSecuenciaId] = useState<number | null>(null);
   // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
@@ -191,7 +197,6 @@ export function ChatAgentApp() {
           <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 4, gap: 4 }}>
             <button onClick={() => setVista('whatsapp')} style={vista === 'whatsapp' ? tabActive : tabIdle}>WhatsApp</button>
             <button onClick={() => setVista('email')} style={vista === 'email' ? tabActive : tabIdle}>Email</button>
-            {rolAdmin && <button onClick={() => setVista('audios')} style={vista === 'audios' ? tabActive : tabIdle}>🎙 Audios</button>}
             <button onClick={() => setVista('dashboard')} style={vista === 'dashboard' ? tabActive : tabIdle}>Dashboard</button>
           </div>
           {/* Antes se escondía justo en la vista WhatsApp, que es la vista por
@@ -244,14 +249,13 @@ export function ChatAgentApp() {
       )}
 
       {/* La biblioteca de audios no depende de que existan secuencias. */}
-      {vista === 'audios' && rolAdmin && <AudiosPanel audios={audios} onCambio={() => void load()} />}
 
       {secuencias !== null && secuencias.length > 0 && (
         <>
           {vista === 'whatsapp' && (
             <SimuladorWhatsApp
               secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa}
-              negocio={negocio} rolAdmin={rolAdmin} audios={audios}
+              negocio={negocio} rolAdmin={rolAdmin} audios={audios} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
               onWizard={(id) => setWizard(id)} onReload={() => void load()}
             />
           )}
@@ -287,6 +291,8 @@ export function ChatAgentApp() {
           objetivos={objetivos}
           etapas={etapas}
           leadMagnets={leadMagnets}
+          audios={audios}
+          onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onClose={() => setWizard(null)}
           onDone={() => { setWizard(null); void load(); }}
         />

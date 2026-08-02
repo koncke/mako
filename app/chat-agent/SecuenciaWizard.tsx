@@ -27,7 +27,8 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { WizardShell } from '@/app/_components/WizardShell';
 import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { Dropdown } from '../components/Dropdown';
-import type { SecuenciaDto, Opcion, PasoSecuenciaDto } from './ChatAgentApp';
+import type { SecuenciaDto, Opcion, PasoSecuenciaDto, AudioSetting } from './ChatAgentApp';
+import { PasoAudioControl } from './PasoAudioControl';
 import { DESENLACE_VACIO, type Desenlace, type Estrategia } from '@/lib/setting-estrategia';
 import { contextoDe } from '@/lib/etapas-contexto';
 
@@ -57,12 +58,15 @@ const PREGUNTA: Record<PasoKey, { q: string; sub?: string }> = {
   activar: { q: 'Activar' },
 };
 
-export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos, etapas, leadMagnets, onClose, onDone }: {
+export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos, etapas, leadMagnets, audios, onAudioNuevo, onClose, onDone }: {
   secuenciaId: number | null;
   secuencias: SecuenciaDto[];
   objetivos: Opcion[];
   etapas: Opcion[];
   leadMagnets: Array<{ id: string; nombre: string }>;
+  audios: AudioSetting[];
+  /** Un audio grabado acá se suma a la biblioteca del padre. */
+  onAudioNuevo: (a: AudioSetting) => void;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -413,12 +417,42 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
           {draft?.map((p, i) => (
             <div key={i} style={{ ...caja }}>
               <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 8 }}>
-                {p.canal === 'email' ? '✉️ Email' : `💬 WhatsApp${p.proveedor === 'no_oficial' ? ' (no oficial)' : ''}`} · mensaje {p.orden}
+                {p.canal === 'email' ? '✉️ Email' : '💬 WhatsApp'} · mensaje {p.orden}
               </div>
+
+              {/* Texto o nota de voz, decidido MENSAJE POR MENSAJE y grabado
+                  acá mismo. El email no admite audio. */}
+              {p.canal === 'whatsapp' && (
+                <div style={{ marginBottom: 9 }}>
+                  <PasoAudioControl
+                    orden={p.orden}
+                    audios={audios}
+                    audioId={p.tipo === 'audio' ? (p.audio_id ?? null) : null}
+                    onElegir={(id) => setDraft((prev) => prev?.map((x, k) => (k === i
+                      ? (id
+                        ? { ...x, tipo: 'audio' as const, audio_id: id, proveedor: 'no_oficial' as const }
+                        : { ...x, tipo: 'texto' as const, audio_id: null })
+                      : x)) ?? prev)}
+                    onGrabado={onAudioNuevo}
+                    onError={setErr}
+                    disabled={busy != null}
+                  />
+                </div>
+              )}
+
               {p.canal === 'email' && (
                 <input value={p.asunto ?? ''} onChange={(e) => editPaso(i, 'asunto', e.target.value)} placeholder="Asunto" style={{ ...inp, fontWeight: 600, marginBottom: 8 }} />
               )}
-              <textarea value={p.cuerpo} onChange={(e) => editPaso(i, 'cuerpo', e.target.value)} rows={p.canal === 'email' ? 5 : 3} style={{ ...inp, resize: 'vertical' }} />
+
+              {/* Con audio, el texto pasa a ser el PIE: lo que le llega por
+                  escrito junto con la nota de voz (por ejemplo un enlace). */}
+              <textarea
+                value={p.cuerpo}
+                onChange={(e) => editPaso(i, 'cuerpo', e.target.value)}
+                rows={p.canal === 'email' ? 5 : 3}
+                placeholder={p.tipo === 'audio' ? 'Opcional: algo por escrito junto al audio (un enlace, por ejemplo)' : 'Qué dice este mensaje…'}
+                style={{ ...inp, resize: 'vertical' }}
+              />
             </div>
           ))}
           {draft && (
