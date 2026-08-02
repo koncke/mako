@@ -9,8 +9,9 @@
 // (confirmado) o cancelar se vuelve a la tab donde estaba el usuario.
 // "Volver" usa el historial del navegador (regresa al contexto exacto).
 
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { reactivarPendientesAction } from '../actions';
 import { deriveStageKey, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
 import { hayPasoDeWizard, type Step } from '@/lib/stage-requirements';
@@ -121,6 +122,12 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   // Ya no deriva a ninguna tab ni queda mudo.
   const solucionar = () => { setMoveTo(currentStage); };
 
+  // Avisos ignorados a mano (mig 0109): el aviso se muestra en tono suave y con
+  // opción de reactivar (vuelve a notificar en el worklist del CRM general).
+  const ignorado = !!lead.pendientes_ignorados;
+  const [, startReactivar] = useTransition();
+  const reactivar = () => { startReactivar(async () => { try { await reactivarPendientesAction(lead.id); router.refresh(); } catch { /* noop */ } }); };
+
   const editarBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
   // Selector de etapa: muestra la ETAPA ACTUAL; elegir otra abre el wizard.
@@ -155,10 +162,15 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           {/* Indicador rojo a la altura del nombre; el botón Solucionar vive en el
               cuadro "Datos sin marcar" (abajo, en todas las tabs). */}
           {faltantes.length > 0 && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid #EBBFBC' }}>
-              <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
-              {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar
-            </span>
+            ignorado
+              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--warn-bg)', color: 'var(--warn)', border: '1px solid #E7D6A6' }}>
+                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--warn)' }} />
+                  {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar · ignorado
+                </span>
+              : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid #EBBFBC' }}>
+                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
+                  {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar
+                </span>
           )}
         </div>
         <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{nombre}</h1>
@@ -179,7 +191,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           en edición el EditLeadForm muestra su propio banner). */}
       {!editing && faltantes.length > 0 && (
         <div style={{ marginBottom: 18 }}>
-          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} nota="Completá estos datos para tener la ficha al día." />
+          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} nota="Completá estos datos para tener la ficha al día." ignorado={ignorado} onReactivar={reactivar} />
         </div>
       )}
       {editing ? (

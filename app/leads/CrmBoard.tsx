@@ -36,6 +36,8 @@ import {
   markMeetingManualAction,
   bulkFillLeadFieldAction,
   bulkIgnoreEmpresaAction,
+  ignorarPendientesAction,
+  ignorarPendientesMasaAction,
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
 import { CrmAutoToggle } from './CrmAutoToggle';
@@ -835,6 +837,7 @@ function BulkHigiene({ marcar, equipo, onDone }: {
   const [flash, setFlash] = useState<string | null>(null);
   const [open, setOpen] = useState<{ field: 'setter' | 'closer'; label: string; ids: number[] } | null>(null);
   const [openEmpresa, setOpenEmpresa] = useState(false);
+  const [openIgnorar, setOpenIgnorar] = useState(false);
   const [sel, setSel] = useState('');
 
   const idsCon = (stepId: string) => marcar.filter((m) => m.faltantes?.some((f) => f.id === stepId)).map((m) => m.leadId);
@@ -843,8 +846,11 @@ function BulkHigiene({ marcar, equipo, onDone }: {
     { field: 'closer', label: 'Closer', ids: idsCon('closer') },
   ] as const).filter((g) => g.ids.length > 0);
   const idsEmpresa = idsCon('empresa');
+  // "Ignorar todos": los datos sin marcar de verdad (tipo A). La nutrición manual
+  // vencida (M) no se ignora en masa — tiene su propia resolución.
+  const idsIgnorar = marcar.filter((m) => m.tipo !== 'M').map((m) => m.leadId);
 
-  if (!grupos.length && !idsEmpresa.length) return null;
+  if (!grupos.length && !idsEmpresa.length && !idsIgnorar.length) return null;
 
   const abrir = (g: { field: 'setter' | 'closer'; label: string; ids: number[] }) => { setSel(''); setFlash(null); setOpen(g); };
 
@@ -854,6 +860,19 @@ function BulkHigiene({ marcar, equipo, onDone }: {
         const r = await bulkIgnoreEmpresaAction(idsEmpresa);
         setOpenEmpresa(false);
         setFlash(`✓ Empresa ignorada en ${r.updated} lead${r.updated === 1 ? '' : 's'} — ya no la pide el CRM (sigue en la ficha).`);
+        onDone();
+      } catch (e) {
+        setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
+      }
+    });
+  };
+
+  const ignorarTodos = () => {
+    startTransition(async () => {
+      try {
+        const r = await ignorarPendientesMasaAction(idsIgnorar);
+        setOpenIgnorar(false);
+        setFlash(`✓ ${r.updated} lead${r.updated === 1 ? '' : 's'} ignorado${r.updated === 1 ? '' : 's'} — salen del worklist (siguen con sus avisos en la ficha, reversible).`);
         onDone();
       } catch (e) {
         setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
@@ -899,6 +918,11 @@ function BulkHigiene({ marcar, equipo, onDone }: {
             Ignorar Empresa · {idsEmpresa.length}
           </button>
         )}
+        {idsIgnorar.length > 0 && (
+          <button type="button" onClick={() => { setFlash(null); setOpenIgnorar(true); }} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>
+            Ignorar todos · {idsIgnorar.length}
+          </button>
+        )}
       </div>
       {flash && <div style={{ marginTop: 10, fontSize: 13.5, fontWeight: 600, color: flash.startsWith('✓') ? 'var(--good)' : flash.startsWith('Sin cambios') ? 'var(--dim)' : 'var(--bad)' }}>{flash}</div>}
 
@@ -941,6 +965,21 @@ function BulkHigiene({ marcar, equipo, onDone }: {
           </div>
         </div>
       )}
+
+      {openIgnorar && (
+        <div onClick={() => !pending && setOpenIgnorar(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
+            <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 4px', color: 'var(--ink)' }}>Ignorar {idsIgnorar.length} lead{idsIgnorar.length === 1 ? '' : 's'}</h3>
+            <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 16px', lineHeight: 1.45 }}>
+              Estos leads salen del worklist “Datos sin marcar” y dejan de sumar al conteo. Los mismos avisos siguen apareciendo dentro de la ficha de cada lead, con opción de reactivarlos cuando quieras. Reversible.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" disabled={pending} onClick={() => setOpenIgnorar(false)} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>Cancelar</button>
+              <button type="button" disabled={pending} onClick={ignorarTodos} style={{ ...btn, background: 'var(--ink)', color: 'var(--surface)' }}>{pending ? 'Ignorando…' : `Ignorar los ${idsIgnorar.length}`}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -956,6 +995,17 @@ function SinMarcar({
   onBulkDone: () => void;
 }) {
   const btn: CSSProperties = { flex: 'none', padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
+  const ghost: CSSProperties = { flex: 'none', padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
+  const [ignorando, startIgnorar] = useTransition();
+  const [ignId, setIgnId] = useState<number | null>(null);
+  const ignorar = (leadId: number) => {
+    setIgnId(leadId);
+    startIgnorar(async () => {
+      try { await ignorarPendientesAction(leadId); onBulkDone(); }
+      catch { /* noop: se reintenta desde la ficha */ }
+      finally { setIgnId(null); }
+    });
+  };
   return (
     <div>
       <BulkHigiene marcar={marcar} equipo={equipo} onDone={onBulkDone} />
@@ -973,10 +1023,18 @@ function SinMarcar({
                 <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
               </div>
               {/* Solucionar abre el wizard de datos. La nutrición manual vencida
-                  pregunta "¿qué hacer ahora?" (elegir la etapa destino). */}
+                  pregunta "¿qué hacer ahora?" (elegir la etapa destino). "Ignorar"
+                  saca el lead del worklist (sigue con sus avisos en la ficha). */}
               {m.tipo === 'M'
                 ? <button type="button" style={{ ...btn, background: 'var(--warn-fill)' }} onClick={() => onQueHacer(m.leadId)}>¿Qué hacer ahora?</button>
-                : <button type="button" style={btn} onClick={() => onSolucionar(m.leadId)}>Solucionar</button>}
+                : (
+                  <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
+                    <button type="button" style={btn} onClick={() => onSolucionar(m.leadId)}>Solucionar</button>
+                    <button type="button" style={ghost} disabled={ignorando && ignId === m.leadId} onClick={() => ignorar(m.leadId)}>
+                      {ignorando && ignId === m.leadId ? 'Ignorando…' : 'Ignorar'}
+                    </button>
+                  </div>
+                )}
             </div>
           </div>
         ))}

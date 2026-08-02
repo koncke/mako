@@ -2034,6 +2034,10 @@ async function _getPendientesDeMarcar(
       }
       continue;
     }
+    // Lead con avisos ignorados a mano (mig 0109): no notifica ni suma al conteo
+    // del worklist. Los mismos faltantes siguen visibles en la ficha (recordatorio
+    // suave), que usa faltantesDeLead directo y ofrece "reactivar avisos".
+    if (l.pendientes_ignorados) continue;
     // Resto: el motor dice EXACTAMENTE qué datos posibles faltan para la etapa.
     const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline });
     // "Empresa" ignorada (empresa_omitido) NO notifica en el worklist del CRM general

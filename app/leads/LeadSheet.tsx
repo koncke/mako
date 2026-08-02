@@ -15,7 +15,7 @@ import { hayPasoDeWizard, tabDeSolucion } from '@/lib/stage-requirements';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { deleteLeadInlineAction, type LeadFullData } from './actions';
+import { deleteLeadInlineAction, reactivarPendientesAction, type LeadFullData } from './actions';
 import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { FathomLink } from '@/lib/leads';
@@ -49,6 +49,10 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
+  // Avisos ignorados a mano (mig 0109): tono suave + reactivar desde la ficha.
+  const ignorado = !!lead.pendientes_ignorados;
+  const [, startReactivar] = useTransition();
+  const reactivar = () => { startReactivar(async () => { try { await reactivarPendientesAction(lead.id); router.refresh(); } catch { /* noop */ } }); };
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -206,7 +210,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           {/* Datos sin marcar: arriba de las tabs → visible en TODAS. */}
           {faltantes.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} nota="Completá estos datos para tener la ficha al día." />
+              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} nota="Completá estos datos para tener la ficha al día." ignorado={ignorado} onReactivar={reactivar} />
             </div>
           )}
           <LeadTabs
