@@ -42,6 +42,7 @@ import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } 
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-jugadas';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
 import { SETTING_ENSAYO_SYSTEM_TEMPLATE } from '@/app/api/chat-agent/onboarding/ensayo/route';
+import { VOZ_SEGMENTAR_TEMPLATE, VOZ_ANALISIS_SYSTEM_TEMPLATE, VOZ_ANALISIS_USER_TEMPLATE, VOZ_PREGUNTAS_TEMPLATE } from './chat-agent-voz';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -368,6 +369,34 @@ export const REGISTRY: Group[] = [
         variables: [v('perfil', 'perfil del negocio'), v('datos', 'leads ya calificados/cerrados del CRM con sus respuestas')], scope: 'static-only', sensitive: false,
         default: SETTING_CRITERIO_TEMPLATE,
         context: 'MaKo deduce qué separa a un cliente ideal mirando los leads YA evaluados. No borres los slots {{perfil}}/{{datos}}, la orden de no inventar umbrales, ni el formato de salida.',
+      },
+      {
+        key: 'chatagent.voz.segmentar', source: 'override',
+        label: 'Onboarding — separar la etapa de venta del soporte (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: VOZ_SEGMENTAR_TEMPLATE,
+        context: 'Corta cada conversación donde termina la venta y empieza el soporte o la entrega. Sin esto, el análisis aprende a "vender" leyendo chats de posventa. No borres la regla de responder 0 ante la duda ni el formato JSON.',
+      },
+      {
+        key: 'chatagent.voz.analisis.system', source: 'override',
+        label: 'Onboarding — analizar cómo vende (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: VOZ_ANALISIS_SYSTEM_TEMPLATE,
+        context: 'Saca los 5 bloques de la voz. Lo más importante es la regla de devolver "hay": false cuando no hay evidencia, y las citas textuales: el código las VERIFICA contra el material y descarta el bloque si no aparecen. No borres ninguna de las dos ni el formato JSON.',
+      },
+      {
+        key: 'chatagent.voz.analisis.user', source: 'override',
+        label: 'Onboarding — analizar cómo vende (user)', kind: 'user', dynamic: true,
+        variables: [v('perfil', 'perfil del negocio'), v('material', 'los tramos de venta de las conversaciones elegidas')], scope: 'static-only', sensitive: false,
+        default: VOZ_ANALISIS_USER_TEMPLATE,
+        context: 'No borres los slots {{perfil}} ni {{material}}.',
+      },
+      {
+        key: 'chatagent.voz.preguntas', source: 'override',
+        label: 'Onboarding — preguntar lo que no se dedujo (system)', kind: 'system', dynamic: true,
+        variables: [v('conocido', 'lo que sí se dedujo de sus conversaciones'), v('faltantes', 'los bloques sin evidencia')], scope: 'static-only', sensitive: false,
+        default: VOZ_PREGUNTAS_TEMPLATE,
+        context: 'Cuando un bloque queda sin evidencia se pregunta en vez de inventarlo. La regla clave es que las opciones SEAN la frase que el dueño diría, no una descripción de su estilo: nadie reconoce "tono cercano", pero cualquiera reconoce su propia frase.',
       },
       {
         key: 'setting.ensayo', source: 'override',

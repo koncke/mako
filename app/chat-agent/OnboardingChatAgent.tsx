@@ -61,6 +61,18 @@ type Conversacion = {
   foto: boolean;
 };
 
+/** Un bloque de la voz que SÍ se pudo deducir, con las citas que lo respaldan. */
+type BloqueVoz = { key: string; titulo: string; estado: string; texto: string; citas: string[] };
+type PreguntaVoz = { key: string; pregunta: string; opciones: string[] };
+type VozResultado = {
+  deducido: BloqueVoz[];
+  /** Los bloques sin evidencia. Se preguntan; no se inventan. */
+  huecos: Array<{ key: string; label: string }>;
+  preguntas: PreguntaVoz[];
+  resumen: string;
+  evidencia: { convsElegidas: number; convsConVenta: number; descartadas: string[]; mensajesVenta: number } | null;
+};
+
 // Títulos CORTOS y descriptivos, como el resto del onboarding ("El Archivero",
 // "Tu personalidad", "Tu diagnóstico"). El subtítulo dice EL OBJETIVO del paso
 // en una línea — qué se busca, no cómo funciona. Todo lo demás va en la caja de
@@ -250,7 +262,14 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [porOcultar, setPorOcultar] = useState<string | null>(null);
   const [oculto, setOculto] = useState<{ conv: Conversacion; idx: number } | null>(null);
   const [yaImporto, setYaImporto] = useState(false);
-  const [contexto, setContexto] = useState<{ leido: boolean; resumen: string } | null>(null);
+  // El resultado del análisis. `huecos` son los bloques que NO se pudieron
+  // deducir: no se rellenan, se preguntan (mismo patrón que el Archivero).
+  const [voz, setVoz] = useState<VozResultado | null>(null);
+  // Por cuál de las preguntas de los huecos vamos. Al llegar al final se ve el
+  // resumen y recién ahí se puede avanzar.
+  const [pregIdx, setPregIdx] = useState(0);
+  const [otra, setOtra] = useState('');
+  const [escribiendoOtra, setEscribiendoOtra] = useState(false);
 
   // ── Paso ensayo ──
   const [msgs, setMsgs] = useState<HiloMsg[]>([]);
@@ -456,13 +475,39 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     try {
       const j = await (await fetch('/api/chat-agent/onboarding/contexto', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        // Se mandan todos los jids de cada charla elegida: una misma
-        // conversación puede estar guardada bajo dos o tres jids distintos.
-        body: JSON.stringify({ chats: (convs ?? []).filter((c) => elegidos.has(c.clave)).flatMap((c) => c.jids) }),
+        // Se manda cada charla con TODOS sus jids agrupados, no una lista plana:
+        // el análisis corta la etapa de venta por conversación, así que necesita
+        // saber qué jids son la misma charla.
+        body: JSON.stringify({
+          conversaciones: (convs ?? []).filter((c) => elegidos.has(c.clave))
+            .map((c) => ({ clave: c.clave, nombre: c.nombre || c.telefono || 'Sin nombre', jids: c.jids })),
+        }),
       })).json();
       if (!j.ok) { setErr(j.error || 'No pude leer tus conversaciones.'); return; }
-      setContexto({ leido: true, resumen: j.resumen ?? '' });
+      setVoz(j as VozResultado);
+      setPregIdx(0); setOtra(''); setEscribiendoOtra(false);
     } finally { setBusy(false); }
+  }
+
+  /** Guarda la respuesta de un hueco y pasa a la siguiente pregunta. */
+  async function responderHueco(key: string, valor: string) {
+    setBusy(true); setErr(null);
+    try {
+      const j = await (await fetch('/api/chat-agent/onboarding/contexto', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'responder', respuestas: { [key]: valor } }),
+      })).json();
+      // Se refrescan lo deducido y el resumen, pero NO la lista de preguntas:
+      // recalcularlas a mitad de camino reordenaría lo que se está contestando.
+      if (j.ok) setVoz((prev) => (prev ? { ...prev, deducido: j.deducido ?? prev.deducido, resumen: j.resumen ?? prev.resumen } : prev));
+      else setErr(j.error || 'No se pudo guardar la respuesta.');
+    } catch {
+      setErr('Sin conexión — vuelve a intentarlo.');
+    } finally {
+      setBusy(false);
+      setOtra(''); setEscribiendoOtra(false);
+      setPregIdx((i) => i + 1);
+    }
   }
 
   // ── Paso 4: MaKo hace de cliente ──
@@ -491,13 +536,21 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     } catch { return true; } finally { setTyping(null); }
   }
 
+  // Dentro del paso 'contexto' hay tres vistas: elegir las conversaciones,
+  // contestar los huecos de a una, y el resumen. Se resuelve en UN solo lugar
+  // para que la cabecera y el footer del shell no se contradigan entre sí.
+  const preguntaActual = voz && pregIdx < voz.preguntas.length ? voz.preguntas[pregIdx] : null;
+  const vistaContexto: 'elegir' | 'preguntas' | 'resumen' =
+    !voz ? 'elegir' : preguntaActual ? 'preguntas' : 'resumen';
+
   const hecho = (k: PasoKey) => !!estado?.steps?.[k]?.done;
   const puedeAvanzar = (() => {
     if (busy) return false;
     // Solo se traba lo que de verdad no tiene sentido saltear: leer el contexto,
     // ensayar un poco, y que el canal principal esté probado. El resto (oficial,
     // email, plantillas) se puede completar después — trabar ahí pierde gente.
-    if (pasoKey === 'contexto') return !!contexto?.leido || hecho('contexto');
+    // En 'preguntas' el avance lo manejan los botones de la propia tarjeta.
+    if (pasoKey === 'contexto') return vistaContexto === 'resumen' || hecho('contexto');
     if (pasoKey === 'ensayo') return msgs.filter((m) => m.fromMe).length >= 2 || hecho('ensayo');
     // El estado EN VIVO es la única prueba de que el número está vinculado. La
     // memoria de una vinculación pasada no lo es: con `hecho(...)` en el OR, el
@@ -520,8 +573,13 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       titulo={def?.titulo ?? 'Chat Agent'}
       total={def?.pasos.length ?? 5}
       idx={idx}
-      pregunta={PREGUNTA[pasoKey]?.q ?? ''}
-      sub={PREGUNTA[pasoKey]?.sub}
+      // En la vista de preguntas el título es la PREGUNTA: es lo que hay que
+      // contestar, y repetir "Tu forma de escribir" ahí no dice nada.
+      pregunta={vistaContexto === 'preguntas' && preguntaActual ? preguntaActual.pregunta : (PREGUNTA[pasoKey]?.q ?? '')}
+      sub={vistaContexto === 'preguntas' ? `Pregunta ${pregIdx + 1} de ${voz?.preguntas.length ?? 0}` : PREGUNTA[pasoKey]?.sub}
+      // La tarjeta de preguntas trae sus propios botones: sin esto quedarían dos
+      // "Siguiente" a la vez, uno adentro y otro en el footer.
+      hideSiguiente={vistaContexto === 'preguntas'}
       error={err}
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
@@ -676,8 +734,8 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         </div>
       )}
 
-      {/* CONTEXTO — elegir chats → analizar → resultado en secciones */}
-      {pasoKey === 'contexto' && !contexto?.leido && (
+      {/* CONTEXTO — elegir chats → analizar → contestar los huecos → resumen */}
+      {pasoKey === 'contexto' && vistaContexto === 'elegir' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {convs === null ? (
             <Cargando texto="Buscando tus conversaciones…" />
@@ -783,13 +841,82 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           )}
         </div>
       )}
-      {pasoKey === 'contexto' && contexto?.leido && (
+      {/* CONTEXTO · preguntas — lo que NO se pudo deducir se pregunta, de a una.
+          Las opciones no describen el estilo, SON la frase que el dueño diría:
+          nadie sabe describir su propia forma de escribir, pero cualquiera
+          reconoce su frase al leerla. */}
+      {pasoKey === 'contexto' && vistaContexto === 'preguntas' && preguntaActual && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>Esto entendí</div>
-          {parsearSecciones(contexto.resumen).map((s, i) => (
-            <SeccionCard key={s.titulo} s={s} abiertoDefault={i === 0} icono="💬" size="sm" />
+          {preguntaActual.opciones.map((o) => (
+            <button
+              key={o} disabled={busy}
+              onClick={() => void responderHueco(preguntaActual.key, o)}
+              style={{ ...btn, textAlign: 'left', lineHeight: 1.5, padding: '12px 14px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
+            >
+              {o}
+            </button>
           ))}
-          <button onClick={() => { setContexto(null); setElegidos(new Set()); }} style={{ ...btn, alignSelf: 'center', marginTop: 4 }}>↻ Elegir otras conversaciones</button>
+
+          {escribiendoOtra || !preguntaActual.opciones.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <textarea
+                value={otra} autoFocus rows={3}
+                onChange={(e) => setOtra(e.target.value)}
+                placeholder="Escríbelo con tus palabras…"
+                style={{ ...inp, resize: 'vertical', textAlign: 'left', fontFamily: SANS }}
+              />
+              <button
+                disabled={busy || !otra.trim()}
+                onClick={() => void responderHueco(preguntaActual.key, otra)}
+                style={{ ...btnDark, alignSelf: 'center', opacity: busy || !otra.trim() ? 0.55 : 1 }}
+              >
+                Guardar y seguir
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setEscribiendoOtra(true)} style={{ ...btn, alignSelf: 'center', fontSize: 13 }}>✎ Ninguna: lo escribo yo</button>
+          )}
+
+          {/* La salida existe a propósito: un hueco sin responder no se inventa,
+              simplemente no se escribe en la guía. */}
+          <button
+            onClick={() => { setOtra(''); setEscribiendoOtra(false); setPregIdx((i) => i + 1); }}
+            style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: 12.5, cursor: 'pointer', marginTop: 2 }}
+          >
+            Responder después
+          </button>
+        </div>
+      )}
+
+      {/* CONTEXTO · resumen — solo lo que se dedujo o se respondió. */}
+      {pasoKey === 'contexto' && vistaContexto === 'resumen' && voz && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {voz.evidencia && (
+            <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55, textAlign: 'left' }}>
+              Leí la etapa de venta de <strong style={{ color: 'var(--dim)' }}>{voz.evidencia.convsConVenta}</strong> de {voz.evidencia.convsElegidas} conversaciones.
+              {voz.evidencia.descartadas.length > 0 && ' En el resto no encontré una etapa de venta: eran soporte, entrega del servicio o coordinación, y de ahí no se puede aprender a vender.'}
+            </div>
+          )}
+
+          {voz.resumen.trim() ? (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginTop: 4 }}>Esto entendí</div>
+              {parsearSecciones(voz.resumen).map((s, i) => (
+                <SeccionCard key={s.titulo} s={s} abiertoDefault={i === 0} icono="💬" size="sm" />
+              ))}
+            </>
+          ) : (
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center', padding: '10px 0' }}>
+              No saqué conclusiones de estas conversaciones. Prefiero no inventarlas: escribiré con el perfil de tu negocio y lo iré ajustando cuando empieces a conversar.
+            </div>
+          )}
+
+          <button
+            onClick={() => { setVoz(null); setPregIdx(0); setElegidos(new Set()); }}
+            style={{ ...btn, alignSelf: 'center', marginTop: 4 }}
+          >
+            ↻ Elegir otras conversaciones
+          </button>
         </div>
       )}
 
