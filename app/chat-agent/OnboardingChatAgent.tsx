@@ -457,7 +457,14 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       setAudioAbierto(falta ? falta.clave : null);
     } catch { setAudios([]); }
   }, []);
-  useEffect(() => { if (pasoKeyRef.current === 'voz' && audios === null) void cargarAudios(); });
+  // Se cargan AL MONTAR, no solo estando en el paso de los audios.
+  //
+  // Antes la condición era `pasoKeyRef.current === 'voz'`, y eso rompía el
+  // ensayo: al reabrir el onboarding, `cargar()` aterriza en el primer paso sin
+  // hacer — con los audios ya grabados, ese paso ES el ensayo. Nunca se pasaba
+  // por 'voz', así que `audios` quedaba en null, el escenario abría sin URL y la
+  // burbuja se pintaba como "no disponible" aunque el archivo estuviera perfecto.
+  useEffect(() => { void cargarAudios(); }, [cargarAudios]);
 
   const audioDe = (clave: string): AudioGrabado | null => {
     const id = porClave[clave];
@@ -617,9 +624,15 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
 
   useEffect(() => {
     if (pasoKey !== 'ensayo' || !esc || msgs.length > 0) return;
+    // Se espera a que la biblioteca esté cargada ANTES de abrir el escenario.
+    // El escenario se abre una sola vez (lo protege `msgs.length > 0`), así que
+    // abrirlo mientras `audios` todavía es null dejaba la burbuja sin URL de
+    // forma permanente: los audios llegaban medio segundo después y ya nadie
+    // volvía a mirarlos.
+    if (audios === null) return;
     const a = audioDe(esc.audio);
     abrirEscenario(esc, a?.url ?? null);
-  }, [pasoKey, esc, msgs.length, abrirEscenario, audioDe]);
+  }, [pasoKey, esc, msgs.length, abrirEscenario, audioDe, audios]);
 
   async function responderComoNegocio(texto: string): Promise<boolean> {
     if (!esc) return true;

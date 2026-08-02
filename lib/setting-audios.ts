@@ -93,10 +93,23 @@ export async function audioBase64(a: Pick<AudioSetting, 'media_path'>): Promise<
 }
 
 /** URL firmada para escuchar el audio en la UI (1 hora). */
+/**
+ * URL para escuchar el audio en la app. Vive 12 horas y no una, y el motivo es
+ * concreto: la lista se pide UNA vez al abrir la pantalla y las URLs quedan en
+ * el DOM toda la sesión. Un onboarding real —grabar tres notas de voz y después
+ * recorrer nueve escenarios— pasa la hora sin esfuerzo, y ahí los audios dejaban
+ * de sonar sin ningún error visible: el archivo estaba perfecto, el link había
+ * vencido. Lo mismo al dejar la pestaña abierta y volver después de comer.
+ *
+ * El bucket sigue siendo privado; esto solo alarga la ventana de un link que ya
+ * es imposible de adivinar (lleva una firma HMAC del path).
+ */
+const HORAS_URL = 12;
+
 export async function audioUrlFirmada(path: string): Promise<string | null> {
   try {
     const supabase = await getTenantDb();
-    const { data } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, 3600);
+    const { data } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, HORAS_URL * 3600);
     return data?.signedUrl ?? null;
   } catch { return null; }
 }
