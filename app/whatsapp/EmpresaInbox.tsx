@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment, type CSSProperties, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EmojiPicker } from './EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, IconEye, IconEyeOff, IconDoc, IconBan, IconDraft, IconRefresh } from './_shared/composer-icons';
@@ -101,6 +101,10 @@ export function EmpresaInbox() {
   const { setOpenChatNoOficial } = useNotifications();
   const { confirm, confirmNode } = useConfirm();
   const router = useRouter();
+  const searchParamsEmpresa = useSearchParams();
+  // Recuerda el último ?chat= ya aplicado, para no reforzarlo si el usuario
+  // después elige otra conversación a mano (mismo patrón que WhatsAppApp).
+  const chatDeepLinkRef = useRef<string | null>(null);
   const [convs, setConvs] = useState<Conv[]>(convsCache);
   const [busqLeads, setBusqLeads] = useState<Conv[]>([]); // leads del CRM traídos por el buscador (#2)
   const [sel, setSel] = useState<string | null>(null);
@@ -183,9 +187,21 @@ export function EmpresaInbox() {
     finally { setLoadingConvs(false); }
   }, [verOcultos]);
 
-  // Auto-abrir la conversación más reciente al entrar (#1) — sin pisar una elección
-  // manual (solo si no hay nada seleccionado).
-  useEffect(() => { if (sel == null && convs.length) setSel(convs[0].chatJid); }, [convs, sel]);
+  // Auto-abrir un chat al entrar (#1) — sin pisar una elección manual (solo si
+  // no hay nada seleccionado). Prioridad: el deep-link `?chat=<jid>` (desde el
+  // paso "Tu forma de escribir" del onboarding, o desde un pop-up) si matchea
+  // una conversación real; si no, la más reciente. Antes este componente no
+  // leía el parámetro en absoluto, así que el link siempre abría la primera.
+  useEffect(() => {
+    if (sel != null || !convs.length) return;
+    const target = searchParamsEmpresa.get('chat');
+    if (target && chatDeepLinkRef.current !== target && convs.some((c) => c.chatJid === target)) {
+      chatDeepLinkRef.current = target;
+      setSel(target);
+      return;
+    }
+    setSel(convs[0].chatJid);
+  }, [convs, sel, searchParamsEmpresa]);
   useEffect(() => { void loadConvs(); const t = setInterval(() => void loadConvs(), 15000); return () => clearInterval(t); }, [loadConvs]);
 
   // Buscador server-side: tipear un nombre/empresa/teléfono trae CUALQUIER lead del

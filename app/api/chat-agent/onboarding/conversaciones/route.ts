@@ -203,9 +203,10 @@ export async function GET(req: Request) {
     // el paso lo pidió. Sin proveedor de IA la lista sale igual, sin clasificar.
     let pedidos = 0;
     if (clasificar) {
-      // Con un solo mensaje de texto ya se puede opinar; lo que no se puede es
-      // con ninguno (audios o imágenes sueltas), y esos quedan en 'no sé'.
-      const dudosos = convs.filter((c) => c.clase === 'no_se' && c.arranque.length >= 1).slice(0, 150);
+      // Con UN solo mensaje ("Hola, buenas tardes") no hay contexto para
+      // distinguir cliente de personal — sonaba "profesional" y el modelo lo
+      // marcaba 'cliente' de puro corto. Se pide ida y vuelta real (2+).
+      const dudosos = convs.filter((c) => c.clase === 'no_se' && c.arranque.length >= 2).slice(0, 150);
       pedidos = dudosos.length;
       if (dudosos.length) {
         const clases = await clasificarChats(dudosos.map((c) => ({
