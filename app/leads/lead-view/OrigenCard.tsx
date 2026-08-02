@@ -2,7 +2,10 @@
 // OrigenCard — de dónde vino el lead (presentacional, compartido)
 // =============================================================================
 // Canal + campaña/anuncio en minicards legibles. El comportamiento (VSL/landing)
-// vive en ComportamientoCard; acá solo la atribución.
+// vive en ComportamientoCard; acá solo la atribución. Cuando hay un anuncio de
+// Meta identificado, la minicard es un LINK directo a Ads Manager (deep-link al
+// anuncio → se ve su campaña y conjunto). El link lo arma el server (necesita el
+// id de la cuenta) y llega ya listo por prop `adUrl`.
 
 import type { CSSProperties } from 'react';
 import type { Lead, VslEngagement } from '@/lib/leads';
@@ -20,16 +23,28 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
   }
 }
 
-function Item({ label, value, color }: { label: string; value: string | null; color?: string }) {
-  return (
-    <div style={miniCard}>
-      <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>{label}</div>
-      <div style={{ fontSize: 14.5, color: value ? (color ?? 'var(--ink)') : 'var(--faint)', fontWeight: value ? 600 : 400, marginTop: 3, wordBreak: 'break-word' }}>{value ?? '—'}</div>
-    </div>
+function Item({ label, value, color, href }: { label: string; value: string | null; color?: string; href?: string | null }) {
+  const inner = (
+    <>
+      <div style={{ fontSize: 11.5, color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+        <span>{label}</span>
+        {href && <span aria-hidden style={{ color: 'var(--primary)', fontWeight: 700 }}>↗</span>}
+      </div>
+      <div style={{ fontSize: 14.5, color: value ? (href ? 'var(--primary)' : (color ?? 'var(--ink)')) : 'var(--faint)', fontWeight: value ? 600 : 400, marginTop: 3, wordBreak: 'break-word' }}>{value ?? '—'}</div>
+    </>
   );
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" title="Abrir en Meta Ads Manager"
+        style={{ ...miniCard, display: 'block', textDecoration: 'none', cursor: 'pointer', borderColor: 'var(--primary)', transition: 'background .12s' }}>
+        {inner}
+      </a>
+    );
+  }
+  return <div style={miniCard}>{inner}</div>;
 }
 
-export function OrigenCard({ lead, vslEng, campana, adNombre }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null }; adNombre?: string | null }) {
+export function OrigenCard({ lead, vslEng, campana, adNombre, adUrl }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null }; adNombre?: string | null; adUrl?: string | null }) {
   void vslEng;
   const anuncio = adNombre ?? lead.meta_ad_name ?? lead.meta_adset_name;
   const tieneAtribucion = lead.origen_lead || lead.meta_campaign_name || lead.meta_adset_name || lead.meta_ad_name || lead.utm_campaign || lead.utm_source;
@@ -44,15 +59,22 @@ export function OrigenCard({ lead, vslEng, campana, adNombre }: { lead: Lead; vs
   }
 
   const origen = labelOrigen(lead.origen_lead);
+  // El deep-link solo tiene sentido en un anuncio de Meta identificado (meta_ad_id).
+  const linkAnuncio = lead.meta_ad_id ? (adUrl ?? null) : null;
   return (
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 14 }}>Origen del lead</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
         <Item label="Canal de entrada" value={origen.texto} color={origen.color} />
-        <Item label="Campaña" value={lead.meta_campaign_name ?? campana.texto} />
-        {anuncio && <Item label="Anuncio" value={anuncio} />}
+        <Item label="Campaña" value={lead.meta_campaign_name ?? campana.texto} href={linkAnuncio} />
+        {anuncio && <Item label="Anuncio" value={anuncio} href={linkAnuncio} />}
         {lead.utm_source && <Item label="Fuente (UTM)" value={lead.utm_source === 'fb' ? 'Facebook' : lead.utm_source === 'ig' ? 'Instagram' : lead.utm_source} />}
       </div>
+      {linkAnuncio && (
+        <p style={{ fontSize: 12, color: 'var(--faint)', margin: '12px 0 0', lineHeight: 1.4 }}>
+          Tocá la campaña o el anuncio para abrirlo en Meta Ads Manager.
+        </p>
+      )}
     </section>
   );
 }

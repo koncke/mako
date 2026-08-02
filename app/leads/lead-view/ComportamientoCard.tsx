@@ -11,17 +11,26 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 const miniCard: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' };
 
-export function ComportamientoCard({ visitas, dias, plays, maxPct }: { visitas: number; dias: number; plays: number; maxPct: number | null }) {
+export function ComportamientoCard({ visitas, dias, plays, maxPct, tieneVisitor = false }: { visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean }) {
   const pctColor = maxPct == null ? 'var(--faint)' : maxPct >= 60 ? 'var(--good)' : maxPct >= 30 ? 'var(--accent)' : 'var(--bad)';
-  // Sin ningún dato: mensaje claro en vez de tres cuadros con rayas. Este dato
-  // es IMPOSIBLE de reconstruir (no se midió en su momento), por eso nunca se exige.
+  // Sin ningún dato: mensaje claro en vez de tres cuadros con rayas.
   if (!visitas && !plays && maxPct == null) {
     return (
       <section style={card}>
         <div style={{ ...sectLabel, marginBottom: 10 }}>Comportamiento</div>
-        <p style={{ fontSize: 14, color: 'var(--faint)' }}>
-          Sin tracking para este lead: entró antes de que existiera el tracking del VSL, o llegó por instant form sin pasar por la landing. No hay forma de reconstruirlo.
-        </p>
+        {tieneVisitor ? (
+          // Tiene identificador pero NO cruzó con ningún evento. NO afirmamos que
+          // "no vio": lo más común es que la landing no haya pasado bien su
+          // visitor_id (o que haya visto el VSL desde otro dispositivo/sesión).
+          <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>
+            Este lead tiene identificador, pero no cruzó con ningún evento de la landing ni del VSL. <b>No quiere decir que no lo haya visto</b>: casi siempre es que la landing no pasó bien su identificador al agendar, o que lo miró desde otro dispositivo. No se puede confirmar la retención.
+          </p>
+        ) : (
+          // Sin visitor_id: entró a mano o por instant form sin pasar por la landing.
+          <p style={{ fontSize: 14, color: 'var(--faint)', lineHeight: 1.5 }}>
+            Sin tracking para este lead: entró antes de que existiera el tracking del VSL, o llegó por instant form sin pasar por la landing. No hay forma de reconstruirlo.
+          </p>
+        )}
       </section>
     );
   }

@@ -44,7 +44,7 @@ function IconX() {
 }
 
 export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
-  const { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado } = data;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adUrl, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado } = data;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -217,7 +217,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             initial={initialTab}
             tabs={[
               { key: 'resumen', label: 'Overview', content: tabResumen },
-              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} /><TrackingTimelineCard eventos={tracking} /></> },
+              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adUrl={adUrl} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} /><TrackingTimelineCard eventos={tracking} /></> },
               { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
               { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
               {

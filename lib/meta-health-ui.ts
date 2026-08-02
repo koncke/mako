@@ -36,15 +36,24 @@ export function esAprobacionPendiente(it: Issue): boolean {
   return /trusted user|owning business admin|really you publishing|approve these ads/.test(t);
 }
 
-/** Link a Ads Manager para aprobar el anuncio retenido. Con el id de la cuenta
- * abre su Ads Manager; con el del anuncio lo deja seleccionado. */
-export function linkAprobarEnMeta(accountId?: string | null, adId?: string | null): string {
+/** Link a Ads Manager centrado en un anuncio. Con el id de la cuenta abre SU Ads
+ * Manager; con el del anuncio lo deja seleccionado (y, dentro, se ve su campaña y
+ * conjunto). Isomórfico: lo usan tanto la ficha del lead como el estado de Meta.
+ * Devuelve null si no hay nada con qué armar un link útil (sin cuenta ni anuncio). */
+export function linkAdsManager(accountId?: string | null, adId?: string | null): string | null {
   const act = (accountId ?? '').replace(/^act_/, '');
+  if (!act && !adId) return null;
   const qs = new URLSearchParams();
   if (act) qs.set('act', act);
   if (adId) qs.set('selected_ad_ids', adId);
   const s = qs.toString();
   return `https://adsmanager.facebook.com/adsmanager/manage/ads${s ? `?${s}` : ''}`;
+}
+
+/** Link a Ads Manager para aprobar el anuncio retenido (peer approval). Igual que
+ * linkAdsManager pero siempre devuelve una URL (cae al Ads Manager general). */
+export function linkAprobarEnMeta(accountId?: string | null, adId?: string | null): string {
+  return linkAdsManager(accountId, adId) ?? 'https://adsmanager.facebook.com/adsmanager/manage/ads';
 }
 
 export type NodoEstado = {

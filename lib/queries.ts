@@ -14,6 +14,7 @@ import { getSettingNum, getSetting } from './settings';
 import { lunesDeFecha, diasAntes, ayerEnTijuana } from './date-utils';
 import {
   getVslEngagementMap,
+  getVisitasLandingMap,
   estadoMadurezLead,
   faltantesDeLead,
   getPipelineStages,
@@ -2134,28 +2135,39 @@ async function _getJuntasProximas(
   if (error) throw new Error(`Query reuniones próximas falló: ${error.message}`);
 
   const leads = (data ?? []) as Lead[];
-  // VSL engagement de todos los visitors en UNA query (antes: N+1 en el loop).
-  // Semántica preservada: visitor null → sin_datos; visitor sin filas → sin_ver.
-  const vslMap = await getVslEngagementMap(leads.map((l) => l.visitor_id));
+  // VSL engagement + presencia en la landing de todos los visitors en 2 queries
+  // (antes: N+1 en el loop). Necesitamos AMBOS para no confundir "no vio" con
+  // "no cruzamos su identidad": un lead con visitor_id que no aparece en NINGÚN
+  // evento (ni landing ni VSL) NO probó no haber visto — la landing simplemente
+  // no pasó bien su identificador (caso mayoritario, ver scripts/diag-tracking).
+  const [vslMap, landingMap] = await Promise.all([
+    getVslEngagementMap(leads.map((l) => l.visitor_id)),
+    getVisitasLandingMap(leads.map((l) => l.visitor_id)),
+  ]);
   const juntas: JuntaProxima[] = [];
 
   for (const lead of leads) {
     const eng = !lead.visitor_id
       ? { plays: 0, max_pct: null, sin_datos: true }
       : vslMap.get(lead.visitor_id) ?? { plays: 0, max_pct: null, sin_datos: false };
+    const pisoLanding = !!lead.visitor_id && landingMap.has(lead.visitor_id);
     const candidatas: Array<{ tipo: 'J1' | 'J2'; fecha: string | null }> = [
       { tipo: 'J1', fecha: lead.fecha_junta_1 },
       { tipo: 'J2', fecha: lead.fecha_junta_2 },
     ];
     for (const c of candidatas) {
       if (!c.fecha || !fechasSet.has(c.fecha)) continue;
-      // Flag recalibrado (v3 Fase A): sin visitor_id → 'sin_datos' (no afirmar);
-      // con visitor pero 0 plays → 'sin_ver'; con plays → 'vio'.
-      const vsl_estado: JuntaProxima['vsl_estado'] = eng.sin_datos
-        ? 'sin_datos'
-        : eng.plays > 0
-        ? 'vio'
-        : 'sin_ver';
+      // Flag recalibrado (identidad-consciente): 'vio' si hay actividad de VSL
+      // (play o retención). 'sin_ver' SOLO si el lead pisó la landing pero no
+      // arrancó el VSL — ahí sí es real que "agendó sin verlo". Si NO cruzamos su
+      // identidad con ningún evento (ni landing ni VSL) → 'sin_datos': no afirmar
+      // que no vio, porque casi siempre es la landing que no pasó el visitor_id.
+      const vsl_estado: JuntaProxima['vsl_estado'] =
+        (eng.plays > 0 || eng.max_pct != null)
+          ? 'vio'
+          : pisoLanding
+          ? 'sin_ver'
+          : 'sin_datos';
       // ¿Ya pasó por HORA? Una reunión de HOY que ya terminó no debe decir "hoy tenés
       // la reunión" (mostraba solo el día). Usa junta_N_at (Calendly) + 1h de gracia.
       const at = c.tipo === 'J1' ? lead.junta_1_at : lead.junta_2_at;
