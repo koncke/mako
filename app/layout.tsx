@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Suspense, type CSSProperties } from 'react';
 import './globals.css';
 import { Sidebar } from './_components/Sidebar';
@@ -15,7 +15,15 @@ import { HideOnPublicLanding } from './_components/PublicRouteGate';
 export const metadata: Metadata = {
   title: 'MaKo',
   description: 'Marketing, CRM y ventas en una sola app.',
+  // Agregada a la pantalla de inicio del celular tiene que verse como una app, no
+  // como un marcador: sin esto el sistema pone la inicial del título en un cuadrado
+  // gris. `apple-web-app` además la abre SIN la barra del navegador en iOS.
+  appleWebApp: { capable: true, title: 'MaKo', statusBarStyle: 'black-translucent' },
 };
+
+// El color de la barra del sistema cuando la app corre desde la pantalla de inicio:
+// el mismo fondo del badge, así no aparece una franja blanca arriba del contenido.
+export const viewport: Viewport = { themeColor: '#171511' };
 
 // Contenedor raíz: sidebar fijo + el <main> que aporta cada pantalla.
 // Réplica del rootStyle del prototipo (display:flex; align-items:flex-start).
