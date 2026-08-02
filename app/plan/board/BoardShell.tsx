@@ -641,7 +641,7 @@ export function BoardShell({ board, scope }: {
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} />}
+        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
@@ -686,7 +686,7 @@ export function BoardShell({ board, scope }: {
           onAbrirTarea={(id) => setOpenId(id)}
           // La MISMA tarjeta del kanban para lo que ya está en el plan (no una lista de
           // texto): si ya es una tarea de verdad, tiene que verse como una tarea.
-          renderTaskCard={(id) => { const t = tasks.find((x) => x.id === id); return t ? <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} /> : null; }}
+          renderTaskCard={(id) => { const t = tasks.find((x) => x.id === id); return t ? <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} onOpenProj={setOpenProj} /> : null; }}
         />
       )}
       {cargandoBorrador && (
@@ -747,7 +747,7 @@ export function BoardShell({ board, scope }: {
       {/* Bienvenida "MaKo cargó tareas": PRIMERO al entrar (gatea el DatosModal). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
       {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects} proyNuevoIds={proyNuevoIds}
-        renderTaskCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} />}
+        renderTaskCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} onOpenProj={setOpenProj} />}
         renderProjCard={(l) => <ProyectoCardTile l={l} prog={projProgress(tasks, l.id)} isTop={l.id === topProjectId} onOpen={() => setOpenProj(l.id)} />}
         onClose={() => setWelcomeVisible(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
@@ -820,13 +820,8 @@ function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; t
 
 // Chip de proyecto. Si trae onOpen, es CLICKEABLE (feedback jul-19: el chip del header
 // del detalle también debe abrir el proyecto, igual que los del sidebar).
-// `sutil` = sin borde ni relleno, solo el color: para superficies densas (la card del
-// kanban mide 138px y ya está dentro de un recuadro; una cajita adentro de otra cajita
-// suma ruido y le pelea el peso visual al título, que es lo que hay que leer).
-function LabelChip({ l, cap = 190, onOpen, sutil = false }: { l: Label; cap?: number; onOpen?: (id: string) => void; sutil?: boolean }) {
-  const style: CSSProperties = sutil
-    ? { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, padding: 0, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none', fontFamily: SANS }
-    : { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none', fontFamily: SANS };
+function LabelChip({ l, cap = 190, onOpen }: { l: Label; cap?: number; onOpen?: (id: string) => void }) {
+  const style: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none', fontFamily: SANS };
   const inner = <><span style={{ flex: 'none' }}>{l.emoji}</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span></>;
   // stopPropagation: el chip vive dentro de contenedores que TAMBIÉN son clickeables
   // (la tarjeta abre la tarea). Sin esto, un click abría el proyecto y la tarea a la vez.
@@ -835,10 +830,10 @@ function LabelChip({ l, cap = 190, onOpen, sutil = false }: { l: Label; cap?: nu
 }
 // Chips de proyecto con tope: muestra `max` (truncados) + un "+N" si hay más. Evita
 // que las tareas con varios proyectos rompan el layout o le coman protagonismo al título.
-function LabelChips({ chips, max = 2, cap = 190, onOpen, sutil = false }: { chips: Label[]; max?: number; cap?: number; onOpen?: (id: string) => void; sutil?: boolean }) {
+function LabelChips({ chips, max = 2, cap = 190, onOpen }: { chips: Label[]; max?: number; cap?: number; onOpen?: (id: string) => void }) {
   const shown = chips.slice(0, max);
   const rest = chips.slice(max);
-  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} onOpen={onOpen} sutil={sutil} />)}{rest.length > 0 && <MasChip extra={rest} onOpen={onOpen} />}</>;
+  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} onOpen={onOpen} />)}{rest.length > 0 && <MasChip extra={rest} onOpen={onOpen} />}</>;
 }
 // "+N" con desplegable HOVER (diseño nuestro): muestra los proyectos ocultos con su
 // color + emoji. Se renderiza en un PORTAL (fixed) para que NO lo tape ni lo recorte
@@ -853,17 +848,39 @@ function MasChip({ extra, onOpen }: { extra: Label[]; onOpen?: (id: string) => v
   const abrir = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } const r = ref.current?.getBoundingClientRect(); if (r) setPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 320) }); };
   const cerrarPronto = () => { if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => setPos(null), 2000); };
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  // El mouseleave NO alcanza: vive en un PORTAL fijo fuera de la card, así que si el
+  // puntero nunca sale (se abrió una tarea encima, la columna scrolleó, la card se
+  // desmontó) el panel quedaba flotando para siempre — encima del detalle, incluido.
+  // Cualquier gesto que cambie lo que estás mirando lo cierra.
+  useEffect(() => {
+    if (!pos) return;
+    const cerrar = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } setPos(null); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') cerrar(); };
+    // capture: el scroll de una columna del kanban no burbujea hasta window.
+    document.addEventListener('mousedown', cerrar);
+    document.addEventListener('scroll', cerrar, true);
+    document.addEventListener('keydown', esc);
+    window.addEventListener('resize', cerrar);
+    window.addEventListener('blur', cerrar);
+    return () => {
+      document.removeEventListener('mousedown', cerrar);
+      document.removeEventListener('scroll', cerrar, true);
+      document.removeEventListener('keydown', esc);
+      window.removeEventListener('resize', cerrar);
+      window.removeEventListener('blur', cerrar);
+    };
+  }, [pos]);
   return (
     <span ref={ref} style={{ flex: 'none', display: 'inline-flex' }} onMouseEnter={abrir} onMouseLeave={cerrarPronto}>
       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: `1px solid ${pos ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 6, padding: '2px 6px', cursor: 'default' }}>+{extra.length}</span>
       {pos && createPortal(
-        <span onMouseEnter={abrir} onMouseLeave={cerrarPronto} style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 5, width: 300, maxWidth: '92vw', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.24)', padding: 8, fontFamily: SANS }}>
+        <span onMouseEnter={abrir} onMouseLeave={cerrarPronto} onMouseDown={(e) => e.stopPropagation()} style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 5, width: 300, maxWidth: '92vw', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.24)', padding: 8, fontFamily: SANS }}>
           <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '0 2px 2px' }}>También en</span>
           {extra.map((l) => {
             const est: CSSProperties = { display: 'inline-flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, borderRadius: 7, padding: '4px 9px', lineHeight: 1.35, textAlign: 'left', fontFamily: SANS };
             const cont = <><span style={{ flex: 'none' }}>{l.emoji}</span><span>{l.name}</span></>;
             return onOpen
-              ? <button key={l.id} type="button" onClick={() => { setPos(null); onOpen(l.id); }} title={`Abrir «${l.name}»`} style={{ ...est, cursor: 'pointer', width: '100%' }}>{cont}</button>
+              ? <button key={l.id} type="button" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setPos(null); onOpen(l.id); }} title={`Abrir «${l.name}»`} style={{ ...est, cursor: 'pointer', width: '100%' }}>{cont}</button>
               : <span key={l.id} style={est}>{cont}</span>;
           })}
         </span>,
@@ -979,8 +996,8 @@ function WarnMark({ title, onClick, size = 15, blink = true }: { title: string; 
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
 // píldora que agrandaba unas cards más que otras.
-function CardTile({ t, board, warn, onOpen, onWarn }: {
-  t: BoardTask; board: Board; warn: boolean; onOpen: (id: string) => void; onWarn: (id: string) => void;
+function CardTile({ t, board, warn, onOpen, onWarn, onOpenProj }: {
+  t: BoardTask; board: Board; warn: boolean; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
 }) {
   const done = t.progress >= 100;
   const clDone = t.checklist.filter((c) => c.done).length;
@@ -1000,7 +1017,7 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
           ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
               {/* Con más de un proyecto entra también el "+N": el chip cede ancho para
                   que #id, el aviso y el score no queden sin lugar en una card de 249px. */}
-              <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 88 : 110} sutil />
+              <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 74 : 96} onOpen={onOpenProj} />
             </span>
           : <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
         <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
@@ -1031,8 +1048,8 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
 }
 
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
-function Kanban({ tasks, board, topProjectId, sortMode, sortDir, onOpen, onNew, onWarn }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void;
+function Kanban({ tasks, board, topProjectId, sortMode, sortDir, onOpen, onNew, onWarn, onOpenProj }: {
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void;
 }) {
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
@@ -1049,7 +1066,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, onOpen, onNew, 
               <button onClick={() => onNew(p)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
               {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
-              {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onWarn={onWarn} />)}
+              {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} />)}
             </div>
           </section>
         );
@@ -1114,7 +1131,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, minWidth: 0 }}>
                   <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
                   {proys.length > 0
-                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proys} max={1} cap={240} /></span>
+                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proys} max={1} cap={240} onOpen={onOpenProj} /></span>
                     : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
                   <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
                   <span style={{ flex: 1, minWidth: 0 }} />
