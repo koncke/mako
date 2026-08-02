@@ -22,8 +22,6 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getPagosByLead } from '@/lib/pagos';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd } from '@/lib/queries';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
-import { credWs } from '@/lib/credenciales';
-import { linkAdsManager } from '@/lib/meta-health-ui';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
 import { DealDetailsCard } from './DealDetailsCard';
@@ -73,10 +71,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
   const adResuelto = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
-  // Deep-link a Ads Manager (solo con un anuncio de Meta identificado). El id de
-  // la cuenta se resuelve por workspace (credWs, con fallback a env del dueño).
-  const adAccountId = lead.meta_ad_id ? await credWs('META_AD_ACCOUNT_ID').catch(() => null) : null;
-  const adUrl = lead.meta_ad_id ? linkAdsManager(adAccountId, lead.meta_ad_id) : null;
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
 
   const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));
@@ -163,7 +157,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               key: 'comportamiento', label: 'Tracking',
               content: (
                 <>
-                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adUrl={adUrl} />
+                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} />
                   <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} />
                   <TrackingTimelineCard eventos={trackingEventos} />
                 </>

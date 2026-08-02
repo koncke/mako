@@ -59,8 +59,6 @@ import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } 
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
-import { credWs } from '@/lib/credenciales';
-import { linkAdsManager } from '@/lib/meta-health-ui';
 
 /**
  * Autor para el historial: el email del usuario logueado (se resuelve a nombre y
@@ -121,8 +119,6 @@ export type LeadFullData = {
   vslEng: VslEngagement;
   campana: { texto: string | null; tooltip: string | null };
   adNombre: string | null;
-  /** Deep-link a Meta Ads Manager para el anuncio del lead (null si no aplica). */
-  adUrl: string | null;
   visitas: { total_visitas: number; dias_distintos: number };
   insights: LeadInsightRow[];
   tracking: TrackingEvent[];
@@ -157,16 +153,12 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   const adNombre = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
-  // Deep-link a Ads Manager (solo con anuncio de Meta identificado); id de cuenta
-  // por workspace, con fallback a env del dueño.
-  const adAccountId = lead.meta_ad_id ? await credWs('META_AD_ACCOUNT_ID').catch(() => null) : null;
-  const adUrl = lead.meta_ad_id ? linkAdsManager(adAccountId, lead.meta_ad_id) : null;
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, campana, adNombre, adUrl, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
+  return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

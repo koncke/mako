@@ -1,13 +1,14 @@
 // =============================================================================
 // OrigenCard — de dónde vino el lead (presentacional, compartido)
 // =============================================================================
-// Canal + campaña/anuncio en minicards legibles. El comportamiento (VSL/landing)
-// vive en ComportamientoCard; acá solo la atribución. Cuando hay un anuncio de
-// Meta identificado, la minicard es un LINK directo a Ads Manager (deep-link al
-// anuncio → se ve su campaña y conjunto). El link lo arma el server (necesita el
-// id de la cuenta) y llega ya listo por prop `adUrl`.
+// Canal + campaña/conjunto/anuncio en minicards legibles. El comportamiento
+// (VSL/landing) vive en ComportamientoCard; acá solo la atribución. Cuando hay un
+// anuncio de Meta identificado (meta_ad_id), las minicards son un LINK al Ads
+// Manager de MaKo (ruta interna /ads-manager/<ad_id>) que abre el detalle de ese
+// anuncio — NO a Meta.
 
 import type { CSSProperties } from 'react';
+import Link from 'next/link';
 import type { Lead, VslEngagement } from '@/lib/leads';
 
 const MONO = "'Geist Mono', monospace";
@@ -28,23 +29,23 @@ function Item({ label, value, color, href }: { label: string; value: string | nu
     <>
       <div style={{ fontSize: 11.5, color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
         <span>{label}</span>
-        {href && <span aria-hidden style={{ color: 'var(--primary)', fontWeight: 700 }}>↗</span>}
+        {href && <span aria-hidden style={{ color: 'var(--primary)', fontWeight: 700 }}>→</span>}
       </div>
       <div style={{ fontSize: 14.5, color: value ? (href ? 'var(--primary)' : (color ?? 'var(--ink)')) : 'var(--faint)', fontWeight: value ? 600 : 400, marginTop: 3, wordBreak: 'break-word' }}>{value ?? '—'}</div>
     </>
   );
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" title="Abrir en Meta Ads Manager"
+      <Link href={href} title="Abrir en el Ads Manager de MaKo"
         style={{ ...miniCard, display: 'block', textDecoration: 'none', cursor: 'pointer', borderColor: 'var(--primary)', transition: 'background .12s' }}>
         {inner}
-      </a>
+      </Link>
     );
   }
   return <div style={miniCard}>{inner}</div>;
 }
 
-export function OrigenCard({ lead, vslEng, campana, adNombre, adUrl }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null }; adNombre?: string | null; adUrl?: string | null }) {
+export function OrigenCard({ lead, vslEng, campana, adNombre }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null }; adNombre?: string | null }) {
   void vslEng;
   // Jerarquía de Meta: Campaña → Conjunto (adset) → Anuncio. Mostramos las 3 para
   // saber EXACTAMENTE de qué anuncio vino. El anuncio siempre aparece si hay
@@ -65,8 +66,9 @@ export function OrigenCard({ lead, vslEng, campana, adNombre, adUrl }: { lead: L
   }
 
   const origen = labelOrigen(lead.origen_lead);
-  // El deep-link solo tiene sentido en un anuncio de Meta identificado (meta_ad_id).
-  const linkAnuncio = lead.meta_ad_id ? (adUrl ?? null) : null;
+  // Deep-link al Ads Manager de MaKo: /ads-manager/<meta_ad_id> abre el detalle de
+  // ese anuncio (con su campaña y conjunto). Solo con un anuncio de Meta identificado.
+  const linkAnuncio = lead.meta_ad_id ? `/ads-manager/${lead.meta_ad_id}` : null;
   return (
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 14 }}>Origen del lead</div>
@@ -79,7 +81,7 @@ export function OrigenCard({ lead, vslEng, campana, adNombre, adUrl }: { lead: L
       </div>
       {linkAnuncio && (
         <p style={{ fontSize: 12, color: 'var(--faint)', margin: '12px 0 0', lineHeight: 1.4 }}>
-          Tocá la campaña o el anuncio para abrirlo en Meta Ads Manager.
+          Tocá la campaña o el anuncio para abrirlo en tu Ads Manager.
         </p>
       )}
     </section>
