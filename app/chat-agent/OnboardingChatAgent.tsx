@@ -57,6 +57,8 @@ type Conversacion = {
   apta: boolean;
   clase: 'cliente' | 'personal' | 'no_se';
   razon: string; esLead: boolean;
+  /** Hay foto guardada: sin esto el avatar la pide igual y falla en silencio. */
+  foto: boolean;
 };
 
 // Títulos CORTOS y descriptivos, como el resto del onboarding ("El Archivero",
@@ -242,6 +244,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // El número dejó de estar vinculado: no hay conversaciones que mostrar y el
   // paso no se puede completar hasta que se vuelva a escanear.
   const [desvinculado, setDesvinculado] = useState(false);
+  // Ocultar saca el contacto de la lista Y de la tab de WhatsApp: pide confirmar
+  // en la propia fila, y deja deshacer, porque desaparecer sin aviso se lee como
+  // que la app perdió el contacto.
+  const [porOcultar, setPorOcultar] = useState<string | null>(null);
+  const [oculto, setOculto] = useState<{ conv: Conversacion; idx: number } | null>(null);
   const [yaImporto, setYaImporto] = useState(false);
   const [contexto, setContexto] = useState<{ leido: boolean; resumen: string } | null>(null);
 
@@ -409,6 +416,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
 
   async function ocultarConv(c: Conversacion) {
     if (!c.telefono) return;
+    setPorOcultar(null);
+    const idx = (convs ?? []).findIndex((x) => x.clave === c.clave);
+    setOculto({ conv: c, idx: Math.max(0, idx) });
     setConvs((prev) => (prev ?? []).filter((x) => x.clave !== c.clave));
     setElegidos((prev) => { const n = new Set(prev); n.delete(c.clave); return n; });
     try {
@@ -419,6 +429,19 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         body: JSON.stringify({ action: 'hide', telefono: c.telefono }),
       });
     } catch { /* si falla, vuelve a aparecer en la próxima carga */ }
+  }
+
+  async function deshacerOcultar() {
+    if (!oculto) return;
+    const { conv, idx } = oculto;
+    setOculto(null);
+    setConvs((prev) => { const n = [...(prev ?? [])]; n.splice(Math.min(idx, n.length), 0, conv); return n; });
+    try {
+      await fetch('/api/whatsapp/evolution/block', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unhide', telefono: conv.telefono }),
+      });
+    } catch { /* la próxima carga manda */ }
   }
 
   async function leerConversaciones() {
@@ -686,6 +709,14 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                 </button>
               </div>
 
+              {oculto && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 12.5, color: 'var(--dim)' }}>
+                  <span style={{ flex: 1, minWidth: 0 }}>Se ocultó <strong style={{ color: 'var(--ink)' }}>{oculto.conv.nombre || oculto.conv.telefono}</strong>.</span>
+                  <button type="button" onClick={() => void deshacerOcultar()}
+                    style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Deshacer</button>
+                </div>
+              )}
+
               <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-2)' }}>
                 {convsFiltradas.map((c) => {
                   const on = elegidos.has(c.clave);
@@ -699,7 +730,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                         {on ? '✓' : ''}
                       </button>
 
-                      <Avatar telefono={c.telefono} name={nombre} size={34} />
+                      <Avatar telefono={c.foto ? c.telefono : null} name={nombre} size={34} />
 
                       <button type="button"
                         onClick={() => setElegidos((prev) => { const n = new Set(prev); if (n.has(c.clave)) n.delete(c.clave); else n.add(c.clave); return n; })}
@@ -718,11 +749,21 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                         style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)' }}>
                         <Icon name="whatsapp" size={14} />
                       </a>
-                      <button type="button" onClick={() => void ocultarConv(c)}
-                        title="Ocultar este contacto" aria-label={`Ocultar ${nombre}`}
-                        style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer' }}>
-                        <Icon name="eye-off" size={14} />
-                      </button>
+                      {porOcultar === c.clave ? (
+                        <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap' }}>
+                          ¿Ocultar?
+                          <button type="button" onClick={() => void ocultarConv(c)}
+                            style={{ border: '1px solid var(--bad)', background: 'transparent', color: 'var(--bad)', borderRadius: 7, padding: '3px 8px', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit' }}>Sí</button>
+                          <button type="button" onClick={() => setPorOcultar(null)}
+                            style={{ border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)', borderRadius: 7, padding: '3px 8px', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit' }}>No</button>
+                        </span>
+                      ) : (
+                        <button type="button" onClick={() => setPorOcultar(c.clave)}
+                          title="Ocultar este contacto" aria-label={`Ocultar ${nombre}`}
+                          style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer' }}>
+                          <Icon name="eye-off" size={14} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}

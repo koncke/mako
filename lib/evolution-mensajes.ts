@@ -10,7 +10,8 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { OWNER_WS } from '@/lib/auth-session';
-import { jidToNumero, instanceNameDeWs, fetchMensajesEvolution, fetchChatsEvolution, fetchLidDeNumero, statusDeRecord, type EvRecord } from '@/lib/evolution';
+import { jidToNumero, instanceNameDeWs, fetchMensajesEvolution,
+  fetchConversacionEvolution, fetchChatsEvolution, fetchLidDeNumero, statusDeRecord, type EvRecord } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
@@ -530,7 +531,11 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
     // que faltan. El upsert es idempotente igual, pero la request no es infinita.
     const visto = yaEspejado.get(rawJid);
     if (visto && ch.updatedAt && new Date(String(ch.updatedAt)).toISOString() <= visto) continue;
-    const recs = await fetchMensajesEvolution(rawJid, 60).catch(() => [] as EvRecord[]);
+    // 60 era el número que dejaba el espejo en nada: hay chats con más de 2.000
+    // mensajes en Evolution. Se traen los 300 más recientes y los 100 del
+    // arranque, que es lo que el paso "Tu forma de escribir" necesita leer.
+    const { mensajes: recs } = await fetchConversacionEvolution(rawJid, { recientes: 300, arranque: 100 })
+      .catch(() => ({ mensajes: [] as EvRecord[], total: 0 }));
     if (!recs.length) continue;
     // Canonical del chat: el número real de CUALQUIER mensaje (remoteJidAlt/senderPn).
     let chatJid = rawJid;

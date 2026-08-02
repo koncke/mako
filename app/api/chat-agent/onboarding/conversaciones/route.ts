@@ -28,7 +28,7 @@
 
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { claveTel } from '@/lib/evolution-mensajes';
-import { getNombresContacto } from '@/lib/evolution-contactos';
+import { getNombresContacto, getFotosContacto } from '@/lib/evolution-contactos';
 import { telefonosOcultos } from '@/lib/evolution-block';
 import { clasificarChats, type ClaseChat } from '@/lib/chat-agent-clasificador';
 
@@ -61,6 +61,8 @@ type Conv = {
   apta: boolean;
   clase: ClaseChat;
   razon: string;
+  /** Hay foto de perfil guardada. Solo 1 de cada 6 contactos tiene. */
+  foto: boolean;
   arranque: Array<{ mio: boolean; texto: string }>;
 };
 
@@ -117,7 +119,7 @@ export async function GET(req: Request) {
         c = {
           clave, jids: [], nombre: null, pushName: null, telefono: f.telefono, mensajes: 0, propios: 0,
           ultimo: f.wa_timestamp, muestra: null, leadId: null, apta: false,
-          clase: 'no_se', razon: '', arranque: [],
+          clase: 'no_se', razon: '', foto: false, arranque: [],
         };
         porChat.set(clave, c);
       }
@@ -161,6 +163,13 @@ export async function GET(req: Request) {
         c.nombre = nombres.get(ult10(c.telefono) || ult10(c.jids[0] ?? '')) ?? c.pushName ?? null;
       }
     } catch { /* se queda el número */ }
+
+    // Foto: se marca cuáles TIENEN, para que el avatar no pida al vacío las que
+    // no existen (Evolution solo guarda foto de 1 de cada 6 contactos).
+    try {
+      const fotos = await getFotosContacto();
+      for (const c of convs) c.foto = fotos.has(ult10(c.telefono) || ult10(c.jids[0] ?? ''));
+    } catch { /* sin fotos, todas con iniciales */ }
 
     // Cruce con el CRM: da el nombre real y, sobre todo, la señal dura de que
     // ese teléfono ES un cliente — que vale más que cualquier clasificación.
@@ -209,7 +218,7 @@ export async function GET(req: Request) {
     const conversaciones = convs.slice(0, 300).map((c) => ({
       clave: c.clave, jids: c.jids, nombre: c.nombre, telefono: c.telefono,
       mensajes: c.mensajes, propios: c.propios, ultimo: c.ultimo, muestra: c.muestra,
-      apta: c.apta, clase: c.clase, razon: c.razon, esLead: c.leadId != null,
+      apta: c.apta, clase: c.clase, razon: c.razon, esLead: c.leadId != null, foto: c.foto,
     }));
 
     return Response.json({ ok: true, conversaciones, clasificado: clasificar, pedidos });

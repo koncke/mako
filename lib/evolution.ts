@@ -532,18 +532,84 @@ export type EvRecord = {
 
 // Mensajes de un chat, del más viejo al más nuevo (Evolution los da desc → los
 // invertimos). limite = tamaño de página (en findMessages, `offset` es el take).
+type PaginaMensajes = { records: EvRecord[]; total: number; pages: number };
+
+/**
+ * Una página cruda de findMessages. Devuelve además el TOTAL que informa
+ * Evolution, que es el dato que faltaba: sin él no había forma de saber que a
+ * un chat con 2.139 mensajes le estábamos pidiendo 60.
+ *
+ * Contrato verificado en vivo contra Evolution v2.3.7: `offset` es el tamaño de
+ * página y `page` avanza de verdad (page=2 devuelve ids distintos de page=1).
+ * Los records vienen del más nuevo al más viejo.
+ */
+async function paginaMensajes(instance: string, chatJid: string, offset: number, page: number): Promise<PaginaMensajes> {
+  const r = await evFetch<{ messages?: { records?: EvRecord[]; total?: number; pages?: number } } | EvRecord[]>(
+    `/chat/findMessages/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ where: { key: { remoteJid: chatJid } }, page, offset }) },
+  );
+  if (!r.ok) return { records: [], total: 0, pages: 0 };
+  const d = r.data as { messages?: { records?: EvRecord[]; total?: number; pages?: number } } | EvRecord[];
+  if (Array.isArray(d)) return { records: d, total: d.length, pages: 1 };
+  return {
+    records: Array.isArray(d?.messages?.records) ? d.messages.records : [],
+    total: Number(d?.messages?.total ?? 0),
+    pages: Number(d?.messages?.pages ?? 0),
+  };
+}
+
 export async function fetchMensajesEvolution(chatJid: string, limite = 300): Promise<EvRecord[]> {
   const ws = await getWorkspaceActual();
   if (ws == null || !evolutionConfigurado() || !chatJid) return [];
+  const { records } = await paginaMensajes(instanceNameDeWs(ws), chatJid, limite, 1);
+  return records.slice().reverse(); // desc → asc
+}
+
+/**
+ * Los mensajes que importan de una conversación: los ÚLTIMOS `recientes` y —si
+ * la charla es más larga— los PRIMEROS `arranque`.
+ *
+ * El arranque no es un capricho: es el tramo donde el contacto todavía era un
+ * desconocido y se le escribía vendiendo y calificando. Meses después el mismo
+ * chat es de un cliente (a veces un amigo) y el tono no se parece en nada, así
+ * que aprender solo de la cola enseña a escribirle a un lead nuevo como a un
+ * conocido. Antes era inalcanzable: findMessages devuelve del más nuevo al más
+ * viejo, y sin pedir la ÚLTIMA página el principio no existía.
+ *
+ * Devuelve en orden cronológico y sin repetidos.
+ */
+export async function fetchConversacionEvolution(
+  chatJid: string,
+  { recientes = 300, arranque = 100 }: { recientes?: number; arranque?: number } = {},
+): Promise<{ mensajes: EvRecord[]; total: number }> {
+  const ws = await getWorkspaceActual();
+  if (ws == null || !evolutionConfigurado() || !chatJid) return { mensajes: [], total: 0 };
   const instance = instanceNameDeWs(ws);
-  const r = await evFetch<{ messages?: { records?: EvRecord[] } } | EvRecord[]>(
-    `/chat/findMessages/${encodeURIComponent(instance)}`,
-    { method: 'POST', body: JSON.stringify({ where: { key: { remoteJid: chatJid } }, page: 1, offset: limite }) },
-  );
-  if (!r.ok) return [];
-  const d = r.data as { messages?: { records?: EvRecord[] } } | EvRecord[];
-  const records = Array.isArray(d) ? d : (d?.messages?.records ?? []);
-  return Array.isArray(records) ? records.slice().reverse() : []; // desc → asc
+
+  const p1 = await paginaMensajes(instance, chatJid, recientes, 1);
+  const vistos = new Set<string>();
+  const out: EvRecord[] = [];
+  const sumar = (rs: EvRecord[]) => {
+    for (const r of rs) {
+      const id = String(r?.key?.id ?? '');
+      if (!id || vistos.has(id)) continue;
+      vistos.add(id);
+      out.push(r);
+    }
+  };
+  sumar(p1.records);
+
+  // Solo si de verdad quedó historia afuera. La última página con tamaño
+  // `arranque` son los mensajes más viejos de la conversación.
+  if (p1.total > recientes) {
+    const ultima = Math.max(1, Math.ceil(p1.total / arranque));
+    const pn = await paginaMensajes(instance, chatJid, arranque, ultima);
+    sumar(pn.records);
+  }
+
+  // Vienen del más nuevo al más viejo: se ordena por timestamp ascendente.
+  out.sort((a, b) => Number(a?.messageTimestamp ?? 0) - Number(b?.messageTimestamp ?? 0));
+  return { mensajes: out, total: p1.total };
 }
 
 // Resuelve el @lid asociado a un número (WhatsApp direcciona a los contactos no
