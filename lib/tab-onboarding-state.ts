@@ -31,7 +31,13 @@ export type TabOnboardingState = {
 export type TabOnboardingDef = {
   key: string;          // 'setting' — la key del nav
   titulo: string;       // "Dejemos tu setting listo"
-  pasos: Array<{ key: string; label: string }>;
+  /**
+   * `opcional`: el paso se muestra y se puede hacer, pero NO bloquea la tab. El
+   * método oficial de WhatsApp y el email son mejoras, no requisitos — obligar a
+   * pasar por ellos dejaba a un cliente con su número ya vinculado sin poder
+   * entrar a su propio inbox.
+   */
+  pasos: Array<{ key: string; label: string; opcional?: boolean }>;
   /**
    * Tabs que DEPENDEN de esta: entrar ahí sin haber terminado este onboarding
    * no tiene sentido, así que se las manda acá. Ej.: /whatsapp y /email no
@@ -61,9 +67,9 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
       { key: 'wa_no_oficial_prueba', label: 'Verificación' },
       // Lo que NO bloquea, al final: se puede dejar para después.
-      { key: 'wa_oficial', label: 'WhatsApp oficial' },
-      { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla' },
-      { key: 'wa_oficial_prueba', label: 'Verificación del oficial' },
+      { key: 'wa_oficial', label: 'WhatsApp oficial', opcional: true },
+      { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla', opcional: true },
+      { key: 'wa_oficial_prueba', label: 'Verificación del oficial', opcional: true },
     ],
   },
 
@@ -71,6 +77,8 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   email: {
     key: 'email',
     titulo: 'Configuración del email',
+    // Acá NO son opcionales: son los únicos pasos de la tab. Lo son dentro del
+    // Chat Agent, donde el email es una mejora sobre un canal que ya funciona.
     pasos: [
       { key: 'email_conectar', label: 'Tu email' },
       { key: 'email_prueba', label: 'Verificación del email' },
@@ -92,11 +100,11 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'voz', label: 'Tus audios' },
       { key: 'ensayo', label: 'Ensayo de conversación' },
       { key: 'aprobar', label: 'Tus jugadas' },
-      { key: 'wa_oficial', label: 'WhatsApp oficial' },
-      { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla' },
-      { key: 'wa_oficial_prueba', label: 'Verificación del oficial' },
-      { key: 'email_conectar', label: 'Tu email' },
-      { key: 'email_prueba', label: 'Verificación del email' },
+      { key: 'wa_oficial', label: 'WhatsApp oficial', opcional: true },
+      { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla', opcional: true },
+      { key: 'wa_oficial_prueba', label: 'Verificación del oficial', opcional: true },
+      { key: 'email_conectar', label: 'Tu email', opcional: true },
+      { key: 'email_prueba', label: 'Verificación del email', opcional: true },
     ],
     href: '/chat-agent',
   },
@@ -176,7 +184,8 @@ export async function getEstadoTab(tab: string): Promise<TabOnboardingState> {
     return [p.key, at ? { done: true, at } : { done: false }];
   })) as TabOnboardingState['steps'];
 
-  const todo = def.pasos.every((p) => steps[p.key]?.done);
+  // Solo los pasos que bloquean deciden si la tab está lista.
+  const todo = def.pasos.filter((p) => !p.opcional).every((p) => steps[p.key]?.done);
   return {
     ...base,
     ...parsed,
@@ -195,7 +204,7 @@ export async function marcarPasoTab(tab: string, paso: string, done = true): Pro
   await anotarPasoCompartido(paso, done);
   const s = await getEstadoTab(tab);
   s.steps[paso] = { done, at: new Date().toISOString() };
-  s.status = def.pasos.every((p) => s.steps[p.key]?.done) ? 'done' : 'pendiente';
+  s.status = def.pasos.filter((p) => !p.opcional).every((p) => s.steps[p.key]?.done) ? 'done' : 'pendiente';
   s.updated_at = new Date().toISOString();
   await setSetting(keyDe(tab), JSON.stringify(s));
   return s;
@@ -235,7 +244,7 @@ export async function resumenOnboardingTabs(): Promise<string> {
     if (!pendientes.length) return '';
     const detalle = pendientes.map((e) => {
       const def = TAB_ONBOARDINGS[e.k];
-      const faltan = def.pasos.filter((p) => !e.s.steps[p.key]?.done).map((p) => p.label);
+      const faltan = def.pasos.filter((p) => !p.opcional && !e.s.steps[p.key]?.done).map((p) => p.label);
       return `- ${def.key}: falta ${faltan.join(', ')}`;
     }).join('\n');
     return `TABS SIN CONFIGURAR (su onboarding no está terminado). Si el usuario pregunta por mejorar algo de estas tabs, lo PRIMERO es que termine de configurarlas — no propongas optimizaciones sobre algo que todavía no está armado:\n${detalle}`;

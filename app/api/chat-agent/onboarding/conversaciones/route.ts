@@ -49,6 +49,8 @@ type Conv = {
   /** TODOS los jids de la charla: el análisis filtra por el conjunto. */
   jids: string[];
   nombre: string | null;
+  /** Nombre que el contacto se puso a sí mismo. Cede ante el de la agenda. */
+  pushName: string | null;
   telefono: string | null;
   mensajes: number;
   propios: number;
@@ -99,7 +101,7 @@ export async function GET(req: Request) {
       let c = porChat.get(clave);
       if (!c) {
         c = {
-          clave, jids: [], nombre: null, telefono: f.telefono, mensajes: 0, propios: 0,
+          clave, jids: [], nombre: null, pushName: null, telefono: f.telefono, mensajes: 0, propios: 0,
           ultimo: f.wa_timestamp, muestra: null, leadId: null, apta: false,
           clase: 'no_se', razon: '', arranque: [],
         };
@@ -110,15 +112,24 @@ export async function GET(req: Request) {
       if (f.from_me) c.propios += 1;
       if (!c.telefono && f.telefono) c.telefono = f.telefono;
       if (c.leadId == null && f.lead_id != null) c.leadId = f.lead_id;
-      // El push_name de un SALIENTE es el nombre del propio dueño: no sirve.
-      if (!c.nombre && !f.from_me && f.push_name && f.push_name !== 'Você') c.nombre = f.push_name;
+      // El push_name de un SALIENTE es el nombre del propio dueño: no sirve. Y
+      // el de un ENTRANTE muchas veces ES EL NÚMERO (WhatsApp lo rellena así
+      // cuando el contacto no se puso nombre): eso no es un nombre, y dejarlo
+      // ganar tapaba el de la agenda, que es el que el dueño reconoce.
+      if (!c.pushName && !f.from_me && f.push_name && f.push_name !== 'Você' && !/^[\d\s+()-]+$/.test(f.push_name)) {
+        c.pushName = f.push_name;
+      }
       if (!c.muestra && f.texto) c.muestra = f.texto.slice(0, 90);
       // Los mensajes vienen de más nuevo a más viejo, así que el arranque se
       // arma por delante: al terminar queda en orden cronológico.
       if (f.texto) c.arranque.unshift({ mio: f.from_me, texto: f.texto });
     }
 
-    let convs = [...porChat.values()];
+    // Un chat con UN solo mensaje no es una conversación: no tiene ida y vuelta,
+    // no enseña nada del estilo y no hay con qué clasificarlo. Son la mayoría de
+    // lo que trae el espejo (91 de 124 en el número de prueba) y son justo el
+    // ruido que hace que la lista se lea como basura. Fuera.
+    let convs = [...porChat.values()].filter((c) => c.mensajes >= 2);
 
     // Lo que el dueño ya ocultó desde la tab de WhatsApp no vuelve a aparecer.
     try {
@@ -129,8 +140,12 @@ export async function GET(req: Request) {
     // Nombre del contacto de WhatsApp (lo llena el importador y el webhook).
     try {
       const nombres = await getNombresContacto();
-      // El teléfono puede venir nulo en la fila: se saca del jid, que siempre está.
-      for (const c of convs) if (!c.nombre) c.nombre = nombres.get(ult10(c.telefono) || ult10(c.jids[0] ?? '')) ?? null;
+      // ORDEN: primero la agenda (el nombre que el DUEÑO le puso, el que
+      // reconoce), después el que el contacto se puso a sí mismo. El teléfono
+      // puede venir nulo en la fila: se saca del jid, que siempre está.
+      for (const c of convs) {
+        c.nombre = nombres.get(ult10(c.telefono) || ult10(c.jids[0] ?? '')) ?? c.pushName ?? null;
+      }
     } catch { /* se queda el número */ }
 
     // Cruce con el CRM: da el nombre real y, sobre todo, la señal dura de que
@@ -160,8 +175,12 @@ export async function GET(req: Request) {
 
     // La IA solo desempata sobre los que no matchearon ningún lead, y solo si
     // el paso lo pidió. Sin proveedor de IA la lista sale igual, sin clasificar.
+    let pedidos = 0;
     if (clasificar) {
-      const dudosos = convs.filter((c) => c.clase === 'no_se' && c.arranque.length >= 2).slice(0, 120);
+      // Con un solo mensaje de texto ya se puede opinar; lo que no se puede es
+      // con ninguno (audios o imágenes sueltas), y esos quedan en 'no sé'.
+      const dudosos = convs.filter((c) => c.clase === 'no_se' && c.arranque.length >= 1).slice(0, 150);
+      pedidos = dudosos.length;
       if (dudosos.length) {
         const clases = await clasificarChats(dudosos.map((c) => ({
           clave: c.clave, nombre: c.nombre || c.telefono || 'Sin nombre', arranque: c.arranque,
@@ -179,7 +198,7 @@ export async function GET(req: Request) {
       apta: c.apta, clase: c.clase, razon: c.razon, esLead: c.leadId != null,
     }));
 
-    return Response.json({ ok: true, conversaciones, clasificado: clasificar });
+    return Response.json({ ok: true, conversaciones, clasificado: clasificar, pedidos });
   } catch (e) {
     console.error(`[api:chat-agent/onboarding/conversaciones] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
