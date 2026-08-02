@@ -8,6 +8,7 @@ import type { NextRequest } from 'next/server';
 import { bloquearContacto, desbloquearContacto, ocultarContacto, mostrarContacto } from '@/lib/evolution-block';
 import { sincronizarChat, borrarChat } from '@/lib/evolution-mensajes';
 import { getUsuarioActual } from '@/lib/auth';
+import { getRolWsEfectivo } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -24,6 +25,13 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, ...r });
     }
     if (body.action === 'clear-chat') {
+      // Borrar el historial de una conversación es destructivo e irreversible:
+      // pide admin, igual que su ruta hermana. Ocultar y bloquear no, porque los
+      // usa cualquiera que atienda chats.
+      const rol = await getRolWsEfectivo();
+      if (rol !== 'admin') {
+        return Response.json({ ok: false, error: 'Solo el administrador puede borrar el historial de una conversación.' }, { status: 403 });
+      }
       const n = await borrarChat(chatJid);
       return Response.json({ ok: true, borrados: n });
     }

@@ -69,7 +69,11 @@ export async function resolverClienteDeReunion(r: {
     ...(r.participantes ?? []).map((p) => p.email ?? ''),
     ...(r.emails ?? []),
   ].map((e) => norm(e)).filter((e) => e.includes('@'));
-  if (!candidatos.length) return null;
+  // Sin un solo email del que agarrarse queda el título, que es la vía de la mitad de
+  // la agenda: Fathom devuelve como participante SOLO al que grabó en muchas
+  // grabaciones, y ahí la única señal es que la reunión se llama "Baja Teriyaki -
+  // Seguimiento". Es más débil que el email, por eso va última y nunca lo pisa.
+  if (!candidatos.length) return porTitulo(r.titulo);
 
   try {
     const db = await getTenantDb();
@@ -81,7 +85,8 @@ export async function resolverClienteDeReunion(r: {
     const unicos = new Map(leads.map((l) => [l.id, l]));
     if (unicos.size !== 1) {
       if (unicos.size > 1) console.warn(`[reunion-cliente] «${r.titulo ?? ''}»: ${unicos.size} clientes en la misma reunión — no asigno, que elija el dueño`);
-      return null;
+      // Con VARIOS no se elige nunca. Con NINGUNO todavía queda el título.
+      return unicos.size > 1 ? null : await porTitulo(r.titulo);
     }
     const l = [...unicos.values()][0];
     return {
@@ -93,6 +98,12 @@ export async function resolverClienteDeReunion(r: {
       confianza: 'alta',
     };
   } catch (e) { console.error('[reunion-cliente] resolver', e); return null; }
+}
+
+/** El cliente que NOMBRA el título de la reunión, cuando no hubo email que mirar. */
+async function porTitulo(titulo?: string | null): Promise<ClienteDeReunion | null> {
+  const t = (titulo ?? '').trim();
+  return t.length >= 4 ? clienteEnTexto(t).catch(() => null) : null;
 }
 
 /**
@@ -201,6 +212,48 @@ export async function proyectoNombradoEnTexto(texto: string): Promise<string | n
     });
     return hits.length === 1 ? hits[0].nombre : null;
   } catch { return null; }
+}
+
+/** Una opción de la pregunta "¿a qué cliente va esta reunión?". */
+export type OpcionCliente = { nombre: string; sub: string };
+
+/**
+ * Las opciones para PREGUNTAR cuando no hubo certeza. La regla del dueño es "si no
+ * estás seguro, preguntá" — pero preguntar con un campo abierto es pedirle que
+ * escriba un nombre nuevo, que es exactamente cómo aparecen los proyectos inventados.
+ * Así que la pregunta es cerrada y lo que se ofrece ya existe: primero quien estuvo
+ * en la llamada, después sus proyectos, después el resto de sus clientes.
+ *
+ * Devuelve [] cuando no hay nada que ofrecer: ahí no se pregunta al vacío.
+ */
+export async function opcionesDeCliente(r: {
+  participantes?: Array<{ nombre?: string; email?: string | null }>;
+  emails?: string[];
+}): Promise<OpcionCliente[]> {
+  const emails = [...(r.participantes ?? []).map((p) => p.email ?? ''), ...(r.emails ?? [])]
+    .map((e) => norm(e)).filter((e) => e.includes('@'));
+  const out: OpcionCliente[] = [];
+  const vistos = new Set<string>();
+  const sumar = (nombre: string, sub: string) => {
+    const n = norm(nombre);
+    if (!n || vistos.has(n)) return;
+    vistos.add(n); out.push({ nombre: nombre.trim().slice(0, 40), sub });
+  };
+  try {
+    const db = await getTenantDb();
+    const [enLlamada, clientes, cats] = await Promise.all([
+      emails.length
+        ? db.from('leads').select('nombre, empresa').in('email', [...new Set(emails)]).then((x) => x.data ?? [])
+        : Promise.resolve([]),
+      db.from('leads').select('nombre, empresa').eq('estado_lead', 'ganado').limit(200).then((x) => x.data ?? []),
+      listCategorias(),
+    ]);
+    type L = { nombre: string | null; empresa: string | null };
+    for (const l of enLlamada as L[]) sumar(l.empresa?.trim() || l.nombre?.trim() || '', 'Estuvo en la reunión');
+    for (const c of cats) if (!GENERICOS.some((g) => norm(c.nombre).includes(g))) sumar(c.nombre, 'Proyecto que ya existe');
+    for (const l of clientes as L[]) sumar(l.empresa?.trim() || l.nombre?.trim() || '', 'Cliente del CRM');
+  } catch (e) { console.error('[reunion-cliente] opcionesDeCliente', e); }
+  return out.slice(0, 14);
 }
 
 /** La línea que queda en el historial de la tarea. Nada de MaKo sin explicación. */

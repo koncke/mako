@@ -239,6 +239,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // Los personales quedan plegados, nunca escondidos: si la IA se equivoca, el
   // dueño tiene que poder encontrar igual su mejor conversación de ventas.
   const [verPersonales, setVerPersonales] = useState(false);
+  // El número dejó de estar vinculado: no hay conversaciones que mostrar y el
+  // paso no se puede completar hasta que se vuelva a escanear.
+  const [desvinculado, setDesvinculado] = useState(false);
   const [yaImporto, setYaImporto] = useState(false);
   const [contexto, setContexto] = useState<{ leido: boolean; resumen: string } | null>(null);
 
@@ -383,6 +386,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const cargarConvs = useCallback(async () => {
     try {
       const j = await (await fetch('/api/chat-agent/onboarding/conversaciones?clasificar=1', { cache: 'no-store' })).json();
+      setDesvinculado(Boolean(j.desvinculado));
       setConvs(j.ok ? (j.conversaciones ?? []) : []);
     } catch { setConvs([]); }
   }, []);
@@ -466,7 +470,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     // email, plantillas) se puede completar después — trabar ahí pierde gente.
     if (pasoKey === 'contexto') return !!contexto?.leido || hecho('contexto');
     if (pasoKey === 'ensayo') return msgs.filter((m) => m.fromMe).length >= 2 || hecho('ensayo');
-    if (pasoKey === 'wa_no_oficial') return evo?.estado === 'conectado' || !!canales?.evolutionConectado || hecho('wa_no_oficial');
+    // El estado EN VIVO es la única prueba de que el número está vinculado. La
+    // memoria de una vinculación pasada no lo es: con `hecho(...)` en el OR, el
+    // paso seguía dejando avanzar después de desvincular, mostrando el botón de
+    // generar QR y un "Siguiente" habilitado al mismo tiempo.
+    if (pasoKey === 'wa_no_oficial') return evo?.estado === 'conectado';
     if (pasoKey === 'wa_no_oficial_prueba') return verificado || hecho('wa_no_oficial_prueba');
     return true;
   })();
@@ -496,7 +504,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       onSiguiente={() => void marcarPaso()}
       onConfirmar={() => void marcarPaso()}
       onClose={onListo}
-      extraFooter={idx > 0 ? <button onClick={onListo} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Lo configuro después</button> : undefined}
+      // Siempre, incluso en el primer paso: si no, alguien que vuelve a un
+      // onboarding reabierto queda sin ninguna salida.
+      extraFooter={<button onClick={onListo} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Lo configuro después</button>}
       escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chat Agent" slides={slides} eyebrow="✦ Dejemos tu Chat Agent listo" />}
     >
       {/* WHATSAPP NO OFICIAL — el QR se genera y se escanea en este mismo paso */}
@@ -644,6 +654,10 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             <Cargando texto="Buscando tus conversaciones…" />
           ) : importando ? (
             <Cargando texto="Trayendo tus conversaciones del teléfono…" />
+          ) : desvinculado ? (
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center' }}>
+              Tu número no está vinculado. Vuelve al paso de conexión y escanea el código QR para poder leer tus conversaciones.
+            </div>
           ) : convs.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
               <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center' }}>

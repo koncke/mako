@@ -15,6 +15,7 @@ import { ReunionTareas, type CandidataTarea, type FilaTarea } from './ReunionTar
 import { type Label, type Fuente } from './types';
 import { TIPO_REUNION_UI, type TipoReunion } from '@/lib/reunion-clasificar';
 import { frenoDeScope, type FrenoScope } from '@/lib/reunion-gate';
+import { WizardShell } from '@/app/_components/WizardShell';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -32,8 +33,10 @@ export type ResumenBorrador = { id: string; estado: 'pendiente' | 'aplicada' | '
 
 /** El cliente de la reunión, resuelto por el server contra el CRM. */
 export type ClienteReunion = { nombre: string; empresa: string | null; proyecto: string; email: string };
+/** Lo que se ofrece cuando el server NO tuvo certeza (pregunta cerrada, una sola). */
+type OpcionCliente = { nombre: string; sub: string };
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; usage?: unknown; error?: string }> {
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; usage?: unknown; error?: string }> {
   return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -61,7 +64,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   recibidos?: Array<{ id: string; de: string; titulo: string; n: number }>;
   onAbrirRecibido?: (id: string) => void;
 }) {
-  const [fase, setFase] = useState<'lista' | 'extrayendo' | 'validar' | 'revisar'>('lista');
+  const [fase, setFase] = useState<'lista' | 'extrayendo' | 'cliente' | 'validar' | 'revisar'>('lista');
   // El cliente que el server reconoció en la reunión (por el email del invitado en el
   // CRM). Si no reconoció ninguno se muestra igual, para que el dueño lo elija.
   const [cliente, setCliente] = useState<ClienteReunion | null>(null);
@@ -116,29 +119,46 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   // Anota las candidatas: reparto mío/de-otro (viene del backend), y el cruce del
   // Perro contra el plan (dedup, punto 8). Las de otro NO se tildan nunca: van a la
   // tab de esa persona y se le mandan a ella.
-  const procesar = async (tareas: Candidata[], dudasIn: Duda[], cliente?: ClienteReunion | null) => {
-    // REUNIÓN CON CLIENTE → TODAS sus tareas al proyecto de ese cliente. El tema de
-    // cada tarea deja de decidir dónde se archiva: eso es lo que repartía una misma
-    // llamada entre proyectos temáticos inventados, y hasta metía trabajo de un
-    // cliente en el proyecto de otro. Lo resolvió el server contra el CRM (por el
-    // email del invitado), no el modelo leyendo títulos.
-    const delCliente = cliente?.proyecto ?? '';
-    const yaExiste = delCliente ? labels.find((l) => l.name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes(delCliente.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase())) : undefined;
-    const filasNuevas: Fila[] = tareas.map((t) => ({
-      ...t,
-      ...(delCliente ? { proyectoId: yaExiste?.id ?? null, proyectoNombre: yaExiste ? undefined : delCliente } : {}),
-      incluir: !t.esDeOtro,
-    }));
+  // REUNIÓN CON CLIENTE → TODAS sus tareas al proyecto de ese cliente. El tema de cada
+  // tarea deja de decidir dónde se archiva: eso es lo que repartía una misma llamada
+  // entre proyectos temáticos inventados, y hasta metía trabajo de un cliente en el
+  // proyecto de otro. Si el proyecto ya existe se REUSA (comparando sin acentos); solo
+  // se crea uno cuando de verdad no hay.
+  const aProyecto = (fs: Fila[], proyecto: string): Fila[] => {
+    if (!proyecto) return fs;
+    const n = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const ya = labels.find((l) => n(l.name).includes(n(proyecto)));
+    return fs.map((f) => ({ ...f, proyectoId: ya?.id ?? null, proyectoNombre: ya ? undefined : proyecto }));
+  };
+
+  const procesar = async (tareas: Candidata[], dudasIn: Duda[], cliente?: ClienteReunion | null, opciones?: OpcionCliente[]) => {
+    // Lo resolvió el server contra el CRM (por el email del invitado o por el nombre en
+    // el título), no el modelo leyendo títulos de tareas.
+    const filasNuevas: Fila[] = aProyecto(tareas.map((t) => ({ ...t, incluir: !t.esDeOtro })), cliente?.proyecto ?? '');
     setCliente(cliente ?? null);
     // Dedup contra el plan (best-effort: apiFathom nunca lanza; si el server falla, ok:false).
     const jc = await apiFathom({ action: 'cruzar', candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle })), existentes, uso: 'Cruzar con el plan' });
     if (jc.ok && Array.isArray(jc.cruces)) {
       for (const c of jc.cruces) if (filasNuevas[c.i]) filasNuevas[c.i] = { ...filasNuevas[c.i], enriquece: { id: c.idExistente!, razon: c.razon }, incluir: false };
     }
+    setFilas(filasNuevas); setDudas(dudasIn); setDefs({});
+    // SIN CERTEZA → se pregunta, una sola vez y cerrada. Es el paso que faltaba: sin él
+    // la duda se resolvía sola por el lado peor (cada tarea a donde el modelo quisiera).
+    if (!cliente && opciones?.length) { setOpciones(opciones); setFase('cliente'); return; }
     // Paso previo (punto 7): si MaKo no entendió algún término, que el usuario lo aclare
     // ANTES de revisar.
-    if (dudasIn.length > 0) { setFilas(filasNuevas); setDudas(dudasIn); setDefs({}); setFase('validar'); return; }
-    setFilas(filasNuevas); setFase('revisar');
+    setFase(dudasIn.length > 0 ? 'validar' : 'revisar');
+  };
+
+  // La respuesta a la pregunta: se aplica a TODAS las tareas de la reunión de una.
+  const [opciones, setOpciones] = useState<OpcionCliente[]>([]);
+  const [elegido, setElegido] = useState<string | null>(null);
+  const responderCliente = () => {
+    if (elegido) {
+      setCliente({ nombre: elegido, empresa: null, proyecto: elegido, email: '' });
+      setFilas((fs) => aProyecto(fs, elegido));
+    }
+    setFase(dudas.length > 0 ? 'validar' : 'revisar');
   };
 
   const extraer = async (r: ReunionMeta, reanalizar = false) => {
@@ -146,9 +166,9 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     const proyectos = labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }));
     // reanalizar: fuerza correr la IA de nuevo (ignora el cache). Sin esto, re-abrir la
     // misma reunión devuelve lo cacheado — NO cobra tokens (feedback jul-19).
-    const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, proyectos, uso: 'Extraer tareas de reunión', reanalizar });
+    const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, titulo: r.titulo, proyectos, uso: 'Extraer tareas de reunión', reanalizar });
     if (j.usage) onUsage?.(j.usage);
-    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null);
+    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? []);
     else { setErr(j.error || 'MaKo no pudo leer la reunión.'); setFase('lista'); setElegida(null); }
   };
 
@@ -161,7 +181,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     fd.append('proyectos', JSON.stringify(labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }))));
     const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd }).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
     if (j.usage) onUsage?.(j.usage);
-    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null);
+    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? []);
     // Falló el archivo: mostramos el error y volvemos a la lista (que se carga sola,
     // porque el modo-archivo la había salteado) para que el usuario no quede colgado.
     else { setErr(j.error || 'No pude leer el archivo.'); volverALista(); }
@@ -202,9 +222,46 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   // Volver a la lista de reuniones de Fathom. Si nunca se cargó (entramos por "subir
   // archivo", que la saltea), la trae ahora: si no, quedaría un spinner falso eterno.
   const volverALista = () => {
-    setFase('lista'); setElegida(null); setFilas([]); setFreno(null); setDudas([]);
+    setFase('lista'); setElegida(null); setFilas([]); setFreno(null); setDudas([]); setOpciones([]); setElegido(null); setCliente(null);
     if (reuniones == null && !cargandoMas) void cargar(true);
   };
+
+  // LA PREGUNTA, cuando no hubo certeza. Una sola, cerrada y con lo que YA existe: la
+  // regla es no inventar proyectos, así que acá no hay campo para escribir un nombre
+  // nuevo. Mismo chrome que el resto de los cuestionarios de la app (WizardShell).
+  // Cerrar o Atrás devuelven a la lista de reuniones, no cierran todo (regla de UX).
+  if (fase === 'cliente') {
+    const nMias = filas.filter((f) => !f.esDeOtro).length;
+    return (
+      <WizardShell
+        titulo={[elegida?.titulo ?? archivoNombre, `${nMias} ${nMias === 1 ? 'tarea' : 'tareas'}`].filter(Boolean).join(' · ')}
+        total={1} idx={0}
+        pregunta="¿De qué cliente es esta reunión?"
+        sub="Van todas a su proyecto. Prefiero preguntarte una vez antes que repartirlas por tema y ensuciar dos clientes."
+        puedeAvanzar={elegido !== null}
+        enUltimo confirmLabel="Seguir →"
+        atrasLabel="← Otra reunión"
+        onAtras={volverALista} onSiguiente={responderCliente}
+        onConfirmar={responderCliente} onClose={volverALista}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {[...opciones, { nombre: '', sub: 'Las dejo donde MaKo propuso' }].map((op) => {
+            const on = elegido === op.nombre;
+            return (
+              <button key={op.nombre || '__ninguno'} type="button" onClick={() => setElegido(on ? null : op.nombre)}
+                style={{ width: '100%', padding: '12px 15px', borderRadius: 12, textAlign: 'left', fontFamily: SANS, display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer', transition: 'border-color .12s, background .12s', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface-2)', color: on ? 'var(--primary)' : 'var(--ink)' }}>
+                <span style={{ width: 18, height: 18, flex: 'none', borderRadius: '50%', border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{on ? '✓' : ''}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 14.5, fontWeight: on ? 700 : 600 }}>{op.nombre || 'No es de un cliente'}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 1 }}>{op.sub}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </WizardShell>
+    );
+  }
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
@@ -357,7 +414,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                     <div style={{ minWidth: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--dim)' }}>
                       {cliente
                         ? <>Es una reunión con <b style={{ color: 'var(--ink)' }}>{cliente.nombre}</b>: todas estas tareas van a <b style={{ color: 'var(--ink)' }}>«{cliente.proyecto}»</b>.{' '}<span style={{ color: 'var(--faint)' }}>Si alguna no es de este cliente, cambiásela abajo.</span></>
-                        : <>No reconocí a ningún cliente entre los invitados de esta reunión, así que <b style={{ color: 'var(--ink)' }}>las dejo donde MaKo propuso</b>. Si son de un cliente, elegí su proyecto abajo.</>}
+                        : <>No es de un cliente: <b style={{ color: 'var(--ink)' }}>las dejo donde MaKo propuso</b>. Si alguna sí lo es, elegí su proyecto abajo.</>}
                     </div>
                   </div>
                   {/* Freno del Perro por tipo de reunión (punto 8): ventas/entrega no son del plan */}

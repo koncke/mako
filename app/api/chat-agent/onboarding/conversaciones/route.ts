@@ -72,6 +72,20 @@ export async function GET(req: Request) {
   const clasificar = new URL(req.url).searchParams.get('clasificar') === '1';
 
   try {
+    // Con el número desvinculado NO se listan sus conversaciones. El espejo
+    // sigue guardado —borrarlo al desconectar sería irreversible y un corte de
+    // red no puede costar el historial—, pero mostrarlo después de desvincular
+    // contradice lo que el dueño acaba de hacer.
+    const { getInstanciaRow } = await import('@/lib/evolution');
+    const inst = await getInstanciaRow().catch(() => null);
+    if (inst?.estado !== 'conectado') {
+      return Response.json({
+        ok: true, conversaciones: [], clasificado: false, pedidos: 0,
+        desvinculado: true,
+        guardadas: inst ? true : false,
+      });
+    }
+
     const supabase = await getTenantDb();
     // PAGINADO A MANO, y no es un detalle: `.limit(9000)` NO sube el techo del
     // servidor — PostgREST devuelve como mucho 1000 filas por request y el resto

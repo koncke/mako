@@ -283,8 +283,37 @@ export async function desconectar(): Promise<{ ok: boolean; error?: string }> {
   await evFetch(`/instance/logout/${encodeURIComponent(instance)}`, { method: 'DELETE' });
   const del = await evFetch(`/instance/delete/${encodeURIComponent(instance)}`, { method: 'DELETE' });
   await upsertInstancia({ estado: 'desconectado', numero: null, perfil_nombre: null, instance_id: null });
+  // Desvincular vuelve TODO atrás, no solo la fila. Sin esto, el onboarding
+  // seguía diciendo "conectado" para siempre y el motor seguía creyendo que
+  // tenía por dónde mandar.
+  await revertirEstadoNoOficial(ws).catch(() => {});
   // Idempotente: borrar algo que ya no existe (404) es el resultado deseado.
   return del.ok || del.status === 404 ? { ok: true } : { ok: false, error: del.error };
+}
+
+/**
+ * Suelta el estado que quedó como consecuencia de haber vinculado un número.
+ *
+ * Se llama SOLO desde la acción explícita de desvincular, nunca desde el
+ * webhook: Baileys emite `close` ante cualquier corte de red o reinicio del
+ * celular, y colgar la reversión de ese evento haría que un parpadeo de
+ * conexión reabra el onboarding del cliente.
+ *
+ * NO toca el paso de verificación por código: ese OTP sale por la línea de MaKo,
+ * no por el número del cliente, así que re-pedirlo sería fricción sin motivo.
+ */
+export async function revertirEstadoNoOficial(ws: number): Promise<void> {
+  // Imports dinámicos: evitan el ciclo evolution ↔ onboarding ↔ credenciales.
+  const { runWithWorkspace } = await import('./workspace');
+  const { desmarcarPasoEnTodasLasTabs } = await import('./tab-onboarding-state');
+  const { setEnvioWhatsapp } = await import('./envio-flags');
+  const { integracionConectada } = await import('./credenciales');
+  await runWithWorkspace(ws, async () => {
+    await desmarcarPasoEnTodasLasTabs('wa_no_oficial').catch(() => {});
+    // Si tampoco hay canal oficial no queda por dónde enviar: el flag baja, en
+    // vez de dejar la nutrición marcando "habilitado" contra un canal muerto.
+    try { if (!(await integracionConectada('whatsapp'))) await setEnvioWhatsapp(false); } catch { /* no fatal */ }
+  });
 }
 
 // ── Salud del "espejo de mensajes" (webhook) ─────────────────────────────────

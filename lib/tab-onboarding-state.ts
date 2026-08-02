@@ -210,6 +210,22 @@ export async function marcarPasoTab(tab: string, paso: string, done = true): Pro
   return s;
 }
 
+/**
+ * El INVERSO de marcarPasoTab, para cuando la condición que cerró un paso deja
+ * de ser cierta — el caso real: el cliente desvinculó su WhatsApp y el paso
+ * "conectá tu número" seguía en verde.
+ *
+ * Recorre TODAS las tabs que contienen el paso, no solo el registro compartido:
+ * `getEstadoTab` deja ganar al estado propio de cada tab, así que limpiar solo
+ * el compartido dejaba el paso vivo en la tab por la que el cliente configuró.
+ */
+export async function desmarcarPasoEnTodasLasTabs(paso: string): Promise<void> {
+  for (const def of Object.values(TAB_ONBOARDINGS)) {
+    if (!def.pasos.some((p) => p.key === paso)) continue;
+    await marcarPasoTab(def.key, paso, false);
+  }
+}
+
 /** Reabrir el onboarding de una tab (para rehacerlo desde la propia tab). */
 export async function reabrirOnboardingTab(tab: string): Promise<TabOnboardingState> {
   const def = tabOnboardingDef(tab);

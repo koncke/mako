@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo } from '@/lib/plan-fathom';
 import { glosarioTexto, guardarTermino } from '@/lib/glosario';
-import { resolverClienteDeReunion, nombreProyectoCliente } from '@/lib/reunion-cliente';
+import { resolverClienteDeReunion, nombreProyectoCliente, opcionesDeCliente } from '@/lib/reunion-cliente';
 import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
 import { esFechaValida } from '@/lib/date-utils';
@@ -31,6 +31,19 @@ const proyectosDe = (raw: unknown): ProyectoRef[] =>
   Array.isArray(raw)
     ? raw.filter((p): p is ProyectoRef => !!p && typeof (p as ProyectoRef).id === 'string').map((p) => ({ id: String(p.id), emoji: String(p.emoji ?? ''), nombre: String(p.nombre ?? '') }))
     : [];
+
+/**
+ * Responde la extracción diciendo A QUÉ CLIENTE va la reunión. Si no hay certeza
+ * manda las OPCIONES para que el modal pregunte una sola vez, en vez de dejar 15
+ * tareas repartidas por tema — que es lo que hacía el modelo cuando decidía él.
+ */
+async function conCliente(payload: Record<string, unknown>, titulo: string | null) {
+  const participantes = (payload.participantes ?? []) as Array<{ nombre?: string; email?: string | null }>;
+  const cli = await resolverClienteDeReunion({ titulo, participantes }).catch(() => null);
+  const cliente = cli ? { nombre: cli.nombre, empresa: cli.empresa, proyecto: nombreProyectoCliente(cli), email: cli.email } : null;
+  const opcionesCliente = cliente ? [] : await opcionesDeCliente({ participantes }).catch(() => []);
+  return Response.json({ ok: true, ...payload, cliente, opcionesCliente });
+}
 
 export async function POST(req: NextRequest) {
   // Cualquier usuario logueado puede extraer de SU Fathom: la key sale de
@@ -57,7 +70,9 @@ export async function POST(req: NextRequest) {
       const proyectos = proyectosDe(JSON.parse(String(form.get('proyectos') ?? '[]')));
       const glosario = await glosarioTexto().catch(() => '');
       const out = await extraerTareasDeTexto(texto, proyectos, yo, { glosario, usoMotivo: `Extraer tareas del archivo ${file.name}` });
-      return Response.json({ ok: true, ...out });
+      // Un archivo no trae invitados, así que la única señal del cliente es el nombre
+      // del archivo ("Baja Teriyaki - seguimiento.md"). Si no alcanza, el modal pregunta.
+      return conCliente(out as unknown as Record<string, unknown>, file.name.replace(/\.[a-z]+$/i, '').replace(/[_-]+/g, ' '));
     } catch (e) {
       console.error(`[api:plan-fathom] archivo: ${msg(e)}`);
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
@@ -99,6 +114,10 @@ export async function POST(req: NextRequest) {
       const recordingId = Number(body.recordingId);
       if (!Number.isFinite(recordingId)) return Response.json({ ok: false, error: 'Falta la reunión.' }, { status: 400 });
       const proyectos = proyectosDe(body.proyectos);
+      // El título viaja desde el modal porque es la SEGUNDA vía para reconocer al
+      // cliente (Fathom devuelve como participante solo al que grabó en media agenda) y
+      // porque desde el cache no hay de dónde sacarlo.
+      const titulo = typeof body.titulo === 'string' ? body.titulo : null;
       // CACHE por reunión (feedback jul-19): NO re-cobrar tokens si ya extrajimos esta
       // reunión (la transcripción no cambia). Guardamos el resultado y lo devolvemos con
       // `cached:true`. `body.reanalizar===true` fuerza volver a correr Claude si hace falta.
@@ -108,7 +127,10 @@ export async function POST(req: NextRequest) {
         if (raw) {
           try {
             const prev = JSON.parse(raw) as { tareas?: unknown; participantes?: unknown };
-            if (Array.isArray(prev.tareas)) return Response.json({ ok: true, tareas: prev.tareas, participantes: prev.participantes ?? [], cached: true });
+            // El cliente NO se cachea: se resuelve también acá. Cacheado se devolvía sin
+            // él, así que re-abrir una reunión ya leída decía "no reconocí a ningún
+            // cliente" para la misma llamada que la primera vez sí había reconocido.
+            if (Array.isArray(prev.tareas)) return conCliente({ tareas: prev.tareas, participantes: prev.participantes ?? [], cached: true }, titulo);
           } catch { /* cache corrupto → re-extrae */ }
         }
       }
@@ -137,9 +159,7 @@ export async function POST(req: NextRequest) {
       // el tema de cada tarea deja de decidir dónde se archiva. Se resuelve acá (server,
       // contra el CRM) y no en el prompt, porque el modelo ve un título y no el CRM —
       // por eso repartía una misma llamada entre proyectos temáticos inventados.
-      const cli = await resolverClienteDeReunion({ participantes: out.participantes ?? [] }).catch(() => null);
-      const cliente = cli ? { nombre: cli.nombre, empresa: cli.empresa, proyecto: nombreProyectoCliente(cli), email: cli.email } : null;
-      return Response.json({ ok: true, ...out, cliente });
+      return conCliente(out as unknown as Record<string, unknown>, titulo);
     }
     return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });
   } catch (e) {

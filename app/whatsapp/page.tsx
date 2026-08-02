@@ -30,11 +30,23 @@ export default async function WhatsAppPage() {
     integracionConectada('whatsapp'),
     getInstanciaRow().then((r) => r?.estado === 'conectado').catch(() => false),
   ]);
-  if (tabWa && !oficial && !noOficial) return <PanelActivacion tab={tabWa} />;
   await guardOnboarding();
-  // WhatsApp tiene onboarding PROPIO (conectar y probar los dos métodos). Se
-  // renderiza acá mismo en vez de mandar a otra tab: los pasos se comparten con
-  // el Chat Agent, así que lo que se haga acá ya no se vuelve a pedir allá.
-  if (await onboardingTabPendiente('whatsapp')) return <OnboardingCanalWhatsApp />;
+
+  // WhatsApp tiene onboarding PROPIO (conectar y probar los dos métodos), y se
+  // renderiza acá mismo: los pasos se comparten con el Chat Agent, así que lo
+  // que se haga acá no se vuelve a pedir allá.
+  const faltaOnboarding = await onboardingTabPendiente('whatsapp');
+
+  // ORDEN IMPORTANTE. Si no hay NINGÚN canal vivo, gana el onboarding —  que es
+  // donde vive el QR para re-vincular. Antes ganaba el PanelActivacion, que es
+  // un formulario de credenciales de Chatwoot: un cliente que desvinculaba su
+  // número quedaba sin ninguna forma de volver a escanear desde esta tab.
+  if (faltaOnboarding && !oficial && !noOficial) return <OnboardingCanalWhatsApp />;
+  if (tabWa && !oficial && !noOficial) return <PanelActivacion tab={tabWa} />;
+
+  // Con algún canal vivo, la tab se sirve igual aunque el onboarding se haya
+  // reabierto: reemplazarla entera dejaría al cliente sin su inbox oficial —
+  // que no tiene nada que ver con el número que desvinculó— y sin salida.
+  if (faltaOnboarding && !noOficial && !oficial) return <OnboardingCanalWhatsApp />;
   return <WhatsAppApp />;
 }
