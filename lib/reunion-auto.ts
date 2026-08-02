@@ -30,7 +30,7 @@ import { tzDeWorkspace } from './timezone';
 import { fechaHoraEnTz } from './date-utils';
 import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
-import { resolverClienteDeReunion, nombreProyectoCliente } from './reunion-cliente';
+import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-cliente';
 import { APP_BASE_URL as APP_URL } from './app-url';
 
 /**
@@ -207,7 +207,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         participantes: r.participantes,
         emails: [r.host?.email ?? ''].filter(Boolean),
       }).catch(() => null);
-      const proyCliente = cliente ? nombreProyectoCliente(cliente) : '';
+      const proyCliente = cliente ? await nombreDeProyectoPara(cliente) : '';
       if (cliente) console.log(`[reunion-auto] «${r.titulo}» es con ${cliente.nombre} → todo va a «${proyCliente}»`);
 
       const propuestas: PropuestaTarea[] = tareas.map((t) => ({

@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo } from '@/lib/plan-fathom';
 import { glosarioTexto, guardarTermino } from '@/lib/glosario';
-import { resolverClienteDeReunion, nombreProyectoCliente, opcionesDeCliente } from '@/lib/reunion-cliente';
+import { resolverClienteDeReunion, nombreDeProyectoPara, opcionesDeCliente } from '@/lib/reunion-cliente';
 import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
 import { esFechaValida } from '@/lib/date-utils';
@@ -40,7 +40,7 @@ const proyectosDe = (raw: unknown): ProyectoRef[] =>
 async function conCliente(payload: Record<string, unknown>, titulo: string | null) {
   const participantes = (payload.participantes ?? []) as Array<{ nombre?: string; email?: string | null }>;
   const cli = await resolverClienteDeReunion({ titulo, participantes }).catch(() => null);
-  const cliente = cli ? { nombre: cli.nombre, empresa: cli.empresa, proyecto: nombreProyectoCliente(cli), email: cli.email } : null;
+  const cliente = cli ? { nombre: cli.nombre, empresa: cli.empresa, proyecto: await nombreDeProyectoPara(cli), email: cli.email } : null;
   const opcionesCliente = cliente ? [] : await opcionesDeCliente({ participantes }).catch(() => []);
   return Response.json({ ok: true, ...payload, cliente, opcionesCliente });
 }

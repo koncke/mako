@@ -43,6 +43,19 @@ export type ClienteDeReunion = {
 const norm = (s: string): string =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
+/**
+ * ¿El proyecto «proy» es el de este cliente? Por PALABRAS, no por substring: el CRM
+ * lo tiene como "Teriyaki baja" y el proyecto se llama "Cliente Baja Teriyaki" —
+ * mismas palabras, otro orden, y un `includes` no los une. Sin esto se le creaba al
+ * cliente un segundo proyecto al lado del que ya tenía.
+ */
+const esElProyectoDe = (proy: string, cliente: string): boolean => {
+  const claves = norm(cliente).replace(/[^a-z0-9]+/g, ' ').split(/\s+/).filter((w) => w.length >= 3);
+  if (!claves.length) return false;
+  const p = ` ${norm(proy).replace(/[^a-z0-9]+/g, ' ')} `;
+  return claves.every((w) => p.includes(` ${w} `));
+};
+
 /** Nombre del proyecto de un cliente. Tope 40 (crearCategoria trunca ahí). */
 export const nombreProyectoCliente = (c: { empresa: string | null; nombre: string }): string =>
   (c.empresa?.trim() || c.nombre.trim()).slice(0, 40);
@@ -100,6 +113,22 @@ export async function resolverClienteDeReunion(r: {
   } catch (e) { console.error('[reunion-cliente] resolver', e); return null; }
 }
 
+/**
+ * Cómo se LLAMA el proyecto de este cliente: el que ya existe si existe, y recién si
+ * no, su nombre. Devolver el nombre crudo del CRM abría un proyecto nuevo al lado del
+ * que el dueño ya tenía —"Teriyaki baja" junto a "Cliente Baja Teriyaki"— porque los
+ * que crean la categoría buscan por nombre exacto.
+ */
+export async function nombreDeProyectoPara(c: { empresa: string | null; nombre: string }): Promise<string> {
+  const nombre = nombreProyectoCliente(c);
+  if (!nombre) return nombre;
+  try {
+    const cats = await listCategorias();
+    const ya = cats.find((x) => norm(x.nombre) === norm(nombre)) ?? cats.find((x) => esElProyectoDe(x.nombre, nombre));
+    return ya?.nombre ?? nombre;
+  } catch { return nombre; }
+}
+
 /** El cliente que NOMBRA el título de la reunión, cuando no hubo email que mirar. */
 async function porTitulo(titulo?: string | null): Promise<ClienteDeReunion | null> {
   const t = (titulo ?? '').trim();
@@ -124,7 +153,7 @@ export async function proyectoDeCliente(c: ClienteDeReunion): Promise<number | n
     // puso su nombre y no hay que crearle otro al lado.
     const n = norm(nombre);
     const ya = cats.find((x) => norm(x.nombre) === n)
-      ?? cats.find((x) => n.length > 4 && norm(x.nombre).includes(n));
+      ?? cats.find((x) => esElProyectoDe(x.nombre, nombre));
     if (ya) return ya.id;
     const nueva = await crearCategoria(nombre, '#0E9B8E');
     console.log(`[reunion-cliente] proyecto creado para el cliente: «${nombre}» (#${nueva.id})`);
@@ -181,7 +210,7 @@ export async function clienteEnTexto(texto: string): Promise<ClienteDeReunion | 
 export async function proyectoParaTarea(t: { titulo: string; detalle?: string | null; proyectoSugerido?: string }): Promise<{ nombre: string | undefined; cliente: ClienteDeReunion | null; porProyecto?: string }> {
   const texto = `${t.titulo} ${t.detalle ?? ''}`;
   const cliente = await clienteEnTexto(texto).catch(() => null);
-  if (cliente) return { nombre: nombreProyectoCliente(cliente), cliente };
+  if (cliente) return { nombre: await nombreDeProyectoPara(cliente), cliente };
   // Segunda vía: el texto nombra un proyecto que YA EXISTE. Es la señal más fuerte
   // de todas —el dueño ya decidió que ese cliente merece un proyecto y le puso el
   // nombre— y además es literalmente "usá los que hay en vez de inventar uno".
@@ -250,8 +279,15 @@ export async function opcionesDeCliente(r: {
     ]);
     type L = { nombre: string | null; empresa: string | null };
     for (const l of enLlamada as L[]) sumar(l.empresa?.trim() || l.nombre?.trim() || '', 'Estuvo en la reunión');
-    for (const c of cats) if (!GENERICOS.some((g) => norm(c.nombre).includes(g))) sumar(c.nombre, 'Proyecto que ya existe');
-    for (const l of clientes as L[]) sumar(l.empresa?.trim() || l.nombre?.trim() || '', 'Cliente del CRM');
+    const propios = cats.filter((c) => !GENERICOS.some((g) => norm(c.nombre).includes(g)));
+    for (const c of propios) sumar(c.nombre, 'Proyecto que ya existe');
+    // Un cliente que YA tiene proyecto no se ofrece dos veces: elegir "Teriyaki baja"
+    // (como está en el CRM) teniendo "Cliente Baja Teriyaki" abriría un segundo
+    // proyecto para el mismo cliente, que es justo lo que se vino a evitar.
+    for (const l of clientes as L[]) {
+      const nom = l.empresa?.trim() || l.nombre?.trim() || '';
+      if (nom && !propios.some((c) => esElProyectoDe(c.nombre, nom))) sumar(nom, 'Cliente del CRM');
+    }
   } catch (e) { console.error('[reunion-cliente] opcionesDeCliente', e); }
   return out.slice(0, 14);
 }
