@@ -32,6 +32,7 @@ import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { ChatCard } from '../lead-view/ChatCard';
+import { NotasCard } from '../lead-view/NotasCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
@@ -151,6 +152,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 </>
               ),
             },
+            { key: 'notas', label: 'Notas', content: <NotasCard leadId={lead.id} /> },
             {
               key: 'comportamiento', label: 'Tracking',
               content: (

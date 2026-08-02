@@ -666,6 +666,24 @@ export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]
   });
 }
 
+/** Notas de seguimiento MANUAL del lead (eventos 'Nota' del historial), con autor. */
+export async function getLeadNotasAction(id: number): Promise<LeadAuditRowFull[]> {
+  const rows = await getLeadAuditAction(id);
+  return rows.filter((r) => r.campo === 'Nota');
+}
+
+/**
+ * Agrega una nota de seguimiento manual al lead. Disponible en CUALQUIER etapa
+ * (WhatsApp/llamada/lo que sea): queda con fecha y autor en el historial.
+ */
+export async function addLeadNoteAction(id: number, texto: string): Promise<void> {
+  const t = texto.trim();
+  if (!t) return;
+  await logLeadEvent(id, 'Nota', t, await autorActual());
+  bust(TAG.leads);
+  revalidatePath(`/leads/${id}`);
+}
+
 /**
  * Deshace un cambio puntual del historial: vuelve el campo a su valor anterior.
  * Solo campos con mapeo 1:1 a una columna (REVERTIBLES). Queda registrado como
