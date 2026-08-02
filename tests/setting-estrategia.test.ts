@@ -33,7 +33,7 @@ test('estrategia: parciales rellenan defaults (modo = asistido, criterio vacío)
   const e = parseEstrategia({ objetivo: 'agendar' });
   assert.deepEqual(e, {
     objetivo: 'agendar', gancho: null, lead_magnet_id: null, usa_lead_magnet: false, preguntas: [],
-    criterio: { califica: [], descalifica: [] },
+    criterio: { califica: [], descalifica: [] }, escenarios: [],
     desenlace: { logrado: 'respondio', logradoEtapa: null, falloDias: 0, falloEtapa: null },
     modo: 'asistido', notas: null, probada_at: null,
   });
@@ -50,6 +50,7 @@ test('estrategia: el round-trip no pierde ningún campo', () => {
     objetivo: 'reactivar', gancho: 'Guía de 5 pasos', lead_magnet_id: 'lm-7', usa_lead_magnet: true,
     preguntas: ['¿Cuántas personas tienes en el equipo?'],
     criterio: { califica: ['más de 5 empleados'], descalifica: ['todavía no factura'] },
+    escenarios: [{ titulo: 'Pregunta el precio', cuando: 'pide el precio de una', comoResponder: 'devolver una pregunta antes de la cifra' }],
     desenlace: { logrado: 'agendo', logradoEtapa: 'agenda', falloDias: 14, falloEtapa: 'reactivacion' },
     modo: 'automatico', notas: 'nota', probada_at: '2026-08-02T10:00:00.000Z',
   };

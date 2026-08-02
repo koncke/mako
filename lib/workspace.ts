@@ -43,6 +43,7 @@ export function runWithWorkspace<T>(ws: number | null, fn: () => T): T {
 const TENANT_TABLES = new Set<string>([
   'archivero_files',
   'ad_transcripts', 'adset_budget_daily', 'anthropic_usage', 'chart_chats', 'chart_sessions',
+  'chat_agent_handoffs',
   'closing_analyses', 'creative_transcripts', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos', 'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'landing_visits', 'lead_audit', 'leads', 'marketing_metrics_daily',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_conv', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',

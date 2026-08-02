@@ -25,6 +25,7 @@ import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getFunnel } from '@/lib/leads';
 import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-huecos';
 import { generarVariantes } from '@/lib/secuencias-variantes';
+import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
 import { getEntregables, setEntregables } from '@/lib/entregable';
 
 export const dynamic = 'force-dynamic';
@@ -58,7 +59,7 @@ export async function GET() {
     return Response.json({
       ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
-      negocio: wsRow?.nombre ?? '', huecos,
+      negocio: wsRow?.nombre ?? '', huecos, handoffs: await handoffsPendientes().catch(() => []),
     });
   } catch (e) {
     console.error(`[api:setting/secuencias GET] ${msg(e)}`);
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar secuencias.' }, { status: 403 });
   }
-  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown };
+  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown; handoffId?: unknown; escenario?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
@@ -99,6 +100,17 @@ export async function POST(req: NextRequest) {
       if (!etapa || !nombre) return Response.json({ ok: false, error: 'Faltan la etapa y el nombre de la secuencia de mensajes.' }, { status: 400 });
       const id = await crearSecuenciaDesdeEtapa(etapa, nombre);
       return Response.json({ ok: true, secuenciaId: id });
+    }
+    if (body.action === 'resolver-handoff') {
+      // El dueño le enseñó el caso: el escenario se suma a la secuencia y la
+      // inscripción vuelve a correr.
+      const id = Number(body.handoffId);
+      const e = body.escenario as { titulo?: unknown; cuando?: unknown; comoResponder?: unknown } | undefined;
+      const titulo = String(e?.titulo ?? '').trim();
+      const cuando = String(e?.cuando ?? '').trim();
+      if (!Number.isFinite(id) || !titulo || !cuando) return Response.json({ ok: false, error: 'Falta el nombre del caso o cuándo aplica.' }, { status: 400 });
+      await resolverHandoff(id, { titulo, cuando, comoResponder: String(e?.comoResponder ?? '').trim() });
+      return Response.json({ ok: true });
     }
     if (body.action === 'variantes') {
       // Se generan UNA vez, al terminar de armar la secuencia, y el motor

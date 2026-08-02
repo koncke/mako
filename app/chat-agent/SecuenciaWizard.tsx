@@ -118,6 +118,9 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
     usa_lead_magnet: !!usaLm,
     preguntas,
     criterio: existente?.estrategia?.criterio ?? { califica: [], descalifica: [] },
+    // Los escenarios no se editan acá: se enseñan cuando un lead se sale del
+    // guion (ver el hand-off). Se conservan los que ya tenga.
+    escenarios: existente?.estrategia?.escenarios ?? [],
     desenlace,
     modo: existente?.estrategia?.modo ?? 'asistido',
     notas: null,

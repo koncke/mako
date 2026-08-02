@@ -57,6 +57,37 @@ export type Desenlace = {
 
 export const DESENLACE_VACIO: Desenlace = { logrado: 'respondio', logradoEtapa: null, falloDias: 0, falloEtapa: null };
 
+/**
+ * Un caso previsto: qué puede contestar el lead y cómo se le responde.
+ *
+ * Es lo que hace posible el hand-off. Si el mensaje del lead encaja en un
+ * escenario, MaKo sabe qué hacer. Si NO encaja en ninguno, es justamente la
+ * señal de que no debería improvisar: se calla, avisa, y el dueño enseña el
+ * caso nuevo. El sistema aprende agregando escenarios, no inventando.
+ */
+export type EscenarioSecuencia = {
+  /** Cómo se llama el caso: "Pregunta el precio", "Dice que ahora no puede". */
+  titulo: string;
+  /** Cuándo aplica, en las palabras del negocio. Es lo que lee el clasificador. */
+  cuando: string;
+  /** Qué contestar. Es la guía del borrador, no el texto literal. */
+  comoResponder: string;
+};
+
+const escenariosDe = (raw: unknown): EscenarioSecuencia[] => {
+  if (!Array.isArray(raw)) return [];
+  const out: EscenarioSecuencia[] = [];
+  for (const x of raw) {
+    if (!x || typeof x !== 'object') continue;
+    const o = x as Record<string, unknown>;
+    const titulo = typeof o.titulo === 'string' ? o.titulo.trim() : '';
+    const cuando = typeof o.cuando === 'string' ? o.cuando.trim() : '';
+    const comoResponder = typeof o.comoResponder === 'string' ? o.comoResponder.trim() : '';
+    if (titulo && cuando) out.push({ titulo, cuando, comoResponder });
+  }
+  return out.slice(0, 30);
+};
+
 const LOGRADO_SET = new Set<string>(['respondio', 'agendo', 'pago', 'ninguno']);
 
 export type Estrategia = {
@@ -73,6 +104,8 @@ export type Estrategia = {
   usa_lead_magnet: boolean;
   preguntas: string[];           // cualificación — las hereda el Setter IA (fase 2)
   criterio: CriterioCalificacion;
+  /** Los casos previstos. Un mensaje que no encaja en ninguno dispara el hand-off. */
+  escenarios: EscenarioSecuencia[];
   desenlace: Desenlace;
   modo: ModoRespuesta;
   notas: string | null;
@@ -123,6 +156,7 @@ export function parseEstrategia(raw: unknown): Estrategia | null {
       ? r.preguntas.filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
       : [],
     criterio: parseCriterio(r.criterio),
+    escenarios: escenariosDe(r.escenarios),
     desenlace: parseDesenlace(r.desenlace),
     // Default 'asistido': lo acordado para arrancar es semi-automático.
     modo: r.modo === 'automatico' ? 'automatico' : 'asistido',

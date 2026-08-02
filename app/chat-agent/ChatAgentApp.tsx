@@ -16,6 +16,7 @@ import { SimuladorWhatsApp, emojiSecuencia } from './SimuladorWhatsApp';
 import { SimuladorEmail } from './SimuladorEmail';
 import { DashboardChatAgent } from './DashboardChatAgent';
 import { AudiosPanel } from './AudiosPanel';
+import { HandoffsPanel, type Handoff } from './HandoffsPanel';
 import { OnboardingChatAgent } from './OnboardingChatAgent';
 import { DatosDeMau } from '@/app/_components/DatosDeMau';
 import type { Estrategia } from '@/lib/setting-estrategia';
@@ -58,6 +59,9 @@ export function ChatAgentApp() {
   // Etapas de nutrición sin ninguna secuencia que las cubra. Reemplaza al viejo
   // seed: en vez de inventar secuencias con copy de relleno, se avisa qué falta.
   const [huecos, setHuecos] = useState<Array<{ etapa: string; label: string }>>([]);
+  // Leads que escribieron algo fuera del guion: MaKo no contestó y espera que le
+  // enseñen el caso.
+  const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [vista, setVista] = useState<'whatsapp' | 'email' | 'audios' | 'dashboard'>('whatsapp');
@@ -101,7 +105,7 @@ export function ChatAgentApp() {
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setSerie(j.serie ?? []); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
-      setHuecos(j.huecos ?? []);
+      setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []);
       setNegocio(j.negocio ?? '');
       setEmailSecuenciaId((prev) => (prev != null && lista.some((x) => x.id === prev) ? prev : (lista.find((x) => x.pasos.some((p) => p.canal === 'email'))?.id ?? lista[0]?.id ?? null)));
       setError(null);
@@ -212,6 +216,8 @@ export function ChatAgentApp() {
       {/* Qué etapas de nutrición quedaron sin secuencia. MaKo conoce el funnel
           entero, así que puede decir exactamente qué falta — y eso es más útil
           que lo que hacía antes, que era rellenarlas con secuencias de mentira. */}
+      {rolAdmin && <HandoffsPanel handoffs={handoffs} onCambio={() => void load()} />}
+
       {rolAdmin && huecos.length > 0 && (
         <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '11px 15px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13.5, color: 'var(--ink)', flex: 1, minWidth: 240, lineHeight: 1.55 }}>

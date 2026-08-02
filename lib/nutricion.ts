@@ -1305,6 +1305,29 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
   const { data: leadRow } = await supabase.from('leads').select('id, nombre, telefono').eq('id', leadId).maybeSingle();
   const lead = leadRow as { id: number; nombre: string | null; telefono: string | null } | null;
 
+  // 0) HAND-OFF, y va PRIMERO: antes de redactar nada hay que saber si esto es
+  //    un caso que la secuencia sabe manejar. Si el lead planteó algo que no
+  //    está previsto, MaKo NO contesta — ni siquiera un borrador, porque un
+  //    borrador plausible es justo lo que alguien aprueba sin leer.
+  const estrategia = parseEstrategia(secuencia.estrategia);
+  const { clasificarEscenario, registrarHandoff } = await import('@/lib/chat-agent-handoff');
+  const clas = await clasificarEscenario(texto ?? '', estrategia?.escenarios ?? []);
+  if (!clas.encaja) {
+    // La inscripción queda en 'handoff': ni activa (no puede seguir mandando
+    // pasos encima de una conversación que no entiende) ni cerrada (ver el
+    // comentario del UNIQUE en lib/chat-agent-handoff.ts).
+    await supabase.from('nutricion_inscripciones')
+      .update({ estado: 'handoff', proximo_envio_at: null, updated_at: ahoraISO() })
+      .eq('lead_id', leadId).eq('secuencia_id', secuencia.id);
+    await registrarHandoff({
+      leadId, secuenciaId: secuencia.id,
+      mensaje: texto?.trim() || '(el lead respondió sin texto)',
+      motivo: clas.motivo,
+      leadNombre: lead?.nombre, secuenciaNombre: secuencia.nombre,
+    });
+    return;
+  }
+
   // 1) MaKo redacta la respuesta (import dinámico: setting-simulador importa
   //    este módulo, un import estático cerraría el ciclo).
   let sugerida: string | null = null;
