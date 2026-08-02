@@ -820,18 +820,25 @@ function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; t
 
 // Chip de proyecto. Si trae onOpen, es CLICKEABLE (feedback jul-19: el chip del header
 // del detalle también debe abrir el proyecto, igual que los del sidebar).
-function LabelChip({ l, cap = 190, onOpen }: { l: Label; cap?: number; onOpen?: (id: string) => void }) {
-  const style: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none', fontFamily: SANS };
+// `sutil` = sin borde ni relleno, solo el color: para superficies densas (la card del
+// kanban mide 138px y ya está dentro de un recuadro; una cajita adentro de otra cajita
+// suma ruido y le pelea el peso visual al título, que es lo que hay que leer).
+function LabelChip({ l, cap = 190, onOpen, sutil = false }: { l: Label; cap?: number; onOpen?: (id: string) => void; sutil?: boolean }) {
+  const style: CSSProperties = sutil
+    ? { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, padding: 0, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none', fontFamily: SANS }
+    : { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none', fontFamily: SANS };
   const inner = <><span style={{ flex: 'none' }}>{l.emoji}</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span></>;
-  if (onOpen) return <button type="button" title={`Abrir «${l.name}»`} onClick={() => onOpen(l.id)} style={{ ...style, cursor: 'pointer' }}>{inner}</button>;
+  // stopPropagation: el chip vive dentro de contenedores que TAMBIÉN son clickeables
+  // (la tarjeta abre la tarea). Sin esto, un click abría el proyecto y la tarea a la vez.
+  if (onOpen) return <button type="button" title={`Abrir «${l.name}»`} onClick={(e) => { e.stopPropagation(); onOpen(l.id); }} style={{ ...style, cursor: 'pointer' }}>{inner}</button>;
   return <span title={l.name} style={style}>{inner}</span>;
 }
 // Chips de proyecto con tope: muestra `max` (truncados) + un "+N" si hay más. Evita
 // que las tareas con varios proyectos rompan el layout o le coman protagonismo al título.
-function LabelChips({ chips, max = 2, cap = 190, onOpen }: { chips: Label[]; max?: number; cap?: number; onOpen?: (id: string) => void }) {
+function LabelChips({ chips, max = 2, cap = 190, onOpen, sutil = false }: { chips: Label[]; max?: number; cap?: number; onOpen?: (id: string) => void; sutil?: boolean }) {
   const shown = chips.slice(0, max);
   const rest = chips.slice(max);
-  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} onOpen={onOpen} />)}{rest.length > 0 && <MasChip extra={rest} onOpen={onOpen} />}</>;
+  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} onOpen={onOpen} sutil={sutil} />)}{rest.length > 0 && <MasChip extra={rest} onOpen={onOpen} />}</>;
 }
 // "+N" con desplegable HOVER (diseño nuestro): muestra los proyectos ocultos con su
 // color + emoji. Se renderiza en un PORTAL (fixed) para que NO lo tape ni lo recorte
@@ -990,7 +997,11 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
       {/* header: proyecto + #id + [aviso] + prioridad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
         {proys.length > 0
-          ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}><LabelChips chips={proys} max={1} cap={132} /></span>
+          ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
+              {/* Con más de un proyecto entra también el "+N": el chip cede ancho para
+                  que #id, el aviso y el score no queden sin lugar en una card de 249px. */}
+              <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 88 : 110} sutil />
+            </span>
           : <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
         <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
         <span style={{ flex: 1, minWidth: 0 }} />
@@ -1090,7 +1101,9 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
             // A qué proyecto pertenece. Antes solo se decía cuando la tarjeta NO era del
             // Objetivo Principal (entraba para completar las 3); ahora se dice siempre,
             // porque saber de qué parte del plan es una tarea no debería depender de
-            // abrirla. El chip es el mismo del detalle: color del proyecto.
+            // abrirla. El chip es el mismo del detalle: color del proyecto. UNO solo +
+            // "+N" (con su desplegable al pasar el mouse): con dos chips largos, el
+            // proyecto le ganaba en peso visual al título, que es lo que hay que leer.
             const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
             return (
               <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
@@ -1101,7 +1114,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, minWidth: 0 }}>
                   <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
                   {proys.length > 0
-                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proys} max={2} cap={190} onOpen={onOpenProj} /></span>
+                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proys} max={1} cap={240} /></span>
                     : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
                   <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
                   <span style={{ flex: 1, minWidth: 0 }} />
