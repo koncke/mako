@@ -49,7 +49,8 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   onWizard: () => void;
 }) {
   const est = secuencia.estrategia;
-  const [objetivo, setObjetivo] = useState<Objetivo>(est?.objetivo ?? 'agendar');
+  // string y no Objetivo: el dueño puede haber escrito el suyo con "Otro".
+  const [objetivo, setObjetivo] = useState<string>(est?.objetivo ?? 'agendar');
   const [gancho, setGancho] = useState(est?.gancho ?? '');
   const [preguntas, setPreguntas] = useState((est?.preguntas ?? []).join('\n'));
   const [modo, setModo] = useState<ModoRespuesta>(est?.modo ?? 'asistido');
@@ -142,7 +143,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         <div style={{ maxWidth: 560, margin: '0 auto' }}>
 
           <div style={{ display: 'flex', gap: 11, alignItems: 'center', minWidth: 0, marginBottom: 18 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{est ? EMOJI_OBJ[est.objetivo] : '⚑'}</div>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{secuencia.nombre}</div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(secuencia.etapa)} · {pasosWa} WhatsApp · {pasosEmail} email{est?.probada_at ? ' · probada ✓' : ''}</div>

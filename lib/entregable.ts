@@ -25,7 +25,14 @@ import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADis
 //  · tipo  = qué clase de elemento es (Dashboard, Excel, Documento, Metodología…).
 //  · queEs = qué es concretamente y qué resuelve.
 //  · fomo  = una línea estilo anuncio que usa el entregable para generar FOMO.
-export type Entregable = { id: string; nombre: string; tipo: string; queEs: string; fomo: string };
+export type Entregable = {
+  id: string; nombre: string; tipo: string; queEs: string; fomo: string;
+  /**
+   * Dónde está el material que se le manda al lead. Sin esto un lead magnet era
+   * puro texto: la secuencia prometía entregar algo que no tenía dónde estar.
+   */
+  enlace?: string;
+};
 export type Uso = { tokens: number; costUsd: number } | null;
 
 const SETTING_KEY = 'mako.entregable';
@@ -34,7 +41,13 @@ const tieneEntregables = (t: string): boolean => parseEntregables(t).length > 0;
 
 function normalizarEntregable(v: unknown): Entregable {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-  return { id: str(o.id) || randomUUID(), nombre: str(o.nombre), tipo: str(o.tipo), queEs: str(o.queEs) || str(o['que_es']), fomo: str(o.fomo) };
+  // OJO: lo que no se nombre acá se BORRA en silencio en la próxima escritura.
+  const enlace = str(o.enlace);
+  return {
+    id: str(o.id) || randomUUID(), nombre: str(o.nombre), tipo: str(o.tipo),
+    queEs: str(o.queEs) || str(o['que_es']), fomo: str(o.fomo),
+    ...(enlace ? { enlace } : {}),
+  };
 }
 
 // ── Persistencia (por workspace, vía runWithWorkspace del route) ──────────────

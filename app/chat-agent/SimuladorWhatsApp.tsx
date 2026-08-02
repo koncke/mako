@@ -17,7 +17,10 @@ import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
 
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
-export const emojiSecuencia = (j: SecuenciaDto): string => (j.estrategia ? EMOJI_OBJETIVO[j.estrategia.objetivo] : '⚑');
+// El objetivo puede ser uno del catálogo O uno que escribió el dueño: para esos
+// no hay emoji propio y cae al genérico.
+export const emojiSecuencia = (j: SecuenciaDto): string =>
+  (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
 
 // Variables de plantilla → lead de prueba (solo visual, espejo del motor).
 // Tolera {{nombre}} y {nombre} (los seeds viejos de email usan llave simple).

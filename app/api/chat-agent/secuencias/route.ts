@@ -24,7 +24,10 @@ import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getFunnel } from '@/lib/leads';
 import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-huecos';
-import { getEntregables } from '@/lib/entregable';
+import { getEntregables, setEntregables } from '@/lib/entregable';
+import { getSetting, setSetting } from '@/lib/settings';
+import { KEY_OBJETIVOS_CUSTOM } from '@/lib/etapas-contexto';
+import { OBJETIVOS as OBJ_CAT } from '@/lib/setting-estrategia';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar secuencias.' }, { status: 403 });
   }
-  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown };
+  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
@@ -98,6 +101,20 @@ export async function POST(req: NextRequest) {
       if (!etapa || !nombre) return Response.json({ ok: false, error: 'Faltan la etapa y el nombre de la secuencia de mensajes.' }, { status: 400 });
       const id = await crearSecuenciaDesdeEtapa(etapa, nombre);
       return Response.json({ ok: true, secuenciaId: id });
+    }
+    if (body.action === 'crear-lead-magnet') {
+      // El lead magnet se carga ACÁ, en el paso que lo pide. Mandarlo a otra
+      // pantalla a mitad del wizard es la forma más rápida de que no vuelva.
+      const nombre = String(body.nombre ?? '').trim();
+      const enlace = String(body.enlace ?? '').trim();
+      if (!nombre || !enlace) return Response.json({ ok: false, error: 'Falta el nombre o el enlace.' }, { status: 400 });
+      // Solo http(s): un enlace con otro esquema (javascript:, data:) termina
+      // pegado en un mensaje que sale a un desconocido.
+      if (!/^https?:\/\//i.test(enlace)) return Response.json({ ok: false, error: 'El enlace tiene que empezar con http:// o https://' }, { status: 400 });
+      const lista = await getEntregables();
+      const nuevoLm = { id: `lm-${Date.now().toString(36)}`, nombre, tipo: 'Lead magnet', queEs: '', fomo: '', enlace };
+      await setEntregables([...lista, nuevoLm]);
+      return Response.json({ ok: true, id: nuevoLm.id });
     }
     if (body.action === 'archivar') {
       // Sin ids = archivar TODAS las vigentes. Es la salida para el dueño que
