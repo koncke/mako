@@ -59,11 +59,21 @@ export async function upsertContactosLote(
 // Nombres de contacto por últimos-10 dígitos (para enriquecer la lista).
 export async function getNombresContacto(): Promise<Map<string, string>> {
   const supabase = await getTenantDb();
-  const { data } = await supabase.from('evolution_contactos').select('telefono, nombre').not('nombre', 'is', null);
   const m = new Map<string, string>();
-  for (const r of (data ?? []) as Array<{ telefono: string; nombre: string | null }>) {
-    const k = digs(r.telefono).slice(-10);
-    if (k && r.nombre && !m.has(k)) m.set(k, r.nombre);
+  // Paginado a mano: sin `range` PostgREST devuelve como mucho 1000 filas, y una
+  // agenda de WhatsApp pasa las 2000 fácil. El síntoma era mudo — la mitad de
+  // los contactos aparecía con el número crudo, como si no tuvieran nombre.
+  for (let desde = 0; desde < 20000; desde += 1000) {
+    const { data } = await supabase
+      .from('evolution_contactos').select('telefono, nombre')
+      .not('nombre', 'is', null)
+      .range(desde, desde + 999);
+    const filas = (data ?? []) as Array<{ telefono: string; nombre: string | null }>;
+    for (const r of filas) {
+      const k = digs(r.telefono).slice(-10);
+      if (k && r.nombre && !m.has(k)) m.set(k, r.nombre);
+    }
+    if (filas.length < 1000) break;
   }
   return m;
 }

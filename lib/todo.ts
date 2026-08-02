@@ -195,9 +195,11 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
   return rowTo(data);
 }
 
-/** Alta en lote (desde una Retro o un experimento). Devuelve cuántas creó. */
+/** Alta en lote (desde una Retro o un experimento). Devuelve cuántas creó.
+ *  `categorias` por ítem: sin esto el lote insertaba SIEMPRE `[]` hardcodeado, así que
+ *  todo lo que entra por acá nacía sin proyecto — y ninguna tarea debería. */
 export async function crearTareasDesde(
-  items: Array<{ titulo: string; detalle?: string | null; prioridad?: Prioridad }>,
+  items: Array<{ titulo: string; detalle?: string | null; prioridad?: Prioridad; categorias?: number[] }>,
   meta: { origen: OrigenTarea; retro_id?: number | null; experimento_id?: number | null },
 ): Promise<number> {
   const base = await ordenTope('por_hacer');
@@ -212,7 +214,7 @@ export async function crearTareasDesde(
     prioridad: prioridadOk(it.prioridad),
     progreso: 0,
     deadline: null,
-    categorias: [] as number[],
+    categorias: catsOk(it.categorias ?? []),
     checklist: [] as ChecklistItem[],
     historial: [{ id: 'h' + Date.now() + i, ts: Date.now(), actor: 'ia' as Actor, text: 'Creó la tarjeta' }] as HistEntry[],
     score: scoreDePrioridad(prioridadOk(it.prioridad)),

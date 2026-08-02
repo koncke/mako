@@ -34,9 +34,19 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?
 // patch completo de una tarea → payload de editar
 const editPatch = (d: BoardTask) => ({
   titulo: d.title, detalle: d.detalle || null, prioridad: d.priority, progreso: d.progress,
-  deadline: d.deadline || null, categorias: d.labels.map(Number).filter(Number.isFinite),
+  // Los ids de proyecto del cliente son NUMÉRICOS. Si llega uno que no lo es, es el id
+  // TEMPORAL de un proyecto recién creado que alguien no esperó — antes se descartaba en
+  // silencio y la tarea nacía huérfana. Se sigue filtrando (mandarlo rompería el insert)
+  // pero ahora deja rastro en consola en vez de desaparecer sin explicación.
+  deadline: d.deadline || null, categorias: catsNum(d.labels, d.title),
   checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score, score_razon: d.scoreRazon ?? null, fuente: d.fuente ?? null,
 });
+
+const catsNum = (labels: string[], titulo: string): number[] => {
+  const ok = labels.map(Number).filter(Number.isFinite);
+  if (ok.length !== labels.length) console.warn(`[todo] "${titulo}": ${labels.length - ok.length} proyecto(s) con id no numérico — se descartan (¿id temporal sin esperar al server?)`, labels);
+  return ok;
+};
 
 export function TodoBoard({ tareas, categorias, demo, user, wsId }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null }) {
   const repo: Repo = {

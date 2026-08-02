@@ -25,6 +25,10 @@ const genId = (p: string): string => p + Date.now().toString(36) + Math.random()
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
+// Nombre de proyecto comparable: sin acentos y en minúscula, igual que el board (NFD).
+// Sin esto, "Cuenta Vértice Industrial" y "Cuenta Vertice Industrial" son dos proyectos.
+const normNom = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+
 
 export type PropuestaTarea = {
   titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio;
@@ -485,13 +489,13 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         // CLIENTE: su board va por lib/todo (crea la categoría si falta). Ya estamos en su ws.
         if (base.length) {
           const cats = await listCategorias().catch(() => [] as Array<{ id: number; nombre: string }>);
-          const byName = new Map(cats.map((c) => [c.nombre.trim().toLowerCase(), c.id]));
+          const byName = new Map(cats.map((c) => [normNom(c.nombre), c.id]));
           for (const t of base) {
             try {
               let catId: number | undefined;
               if (t.proyecto) {
                 const nombre = t.proyecto.slice(0, 40).trim();
-                const k = nombre.toLowerCase();
+                const k = normNom(nombre);
                 catId = byName.get(k);
                 if (catId == null) { const c = await crearCategoria(nombre, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
               }

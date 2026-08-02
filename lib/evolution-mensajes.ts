@@ -499,7 +499,14 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
 
   const chats = await fetchChatsEvolution().catch(() => [] as Awaited<ReturnType<typeof fetchChatsEvolution>>);
   let nChat = 0, nMsg = 0;
-  for (const ch of chats.slice(0, 100)) {
+  // TODOS los chats, no los primeros 100: el número de prueba tenía 398 y se
+  // miraban 100, así que las tres cuartas partes no existían para MaKo. Se
+  // ordenan por actividad para que, si el tiempo se acaba, lo que entró sea lo
+  // más reciente y no lo que Evolution devolvió primero.
+  const orden = [...chats].sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
+  const limite = Date.now() + 240_000;
+  for (const ch of orden) {
+    if (Date.now() > limite) break;
     const rawJid = ch.remoteJid || '';
     if (!rawJid || rawJid.endsWith('@g.us') || rawJid.startsWith('status@') || rawJid.includes('broadcast')) continue;
     const recs = await fetchMensajesEvolution(rawJid, 60).catch(() => [] as EvRecord[]);

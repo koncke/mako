@@ -219,11 +219,16 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   };
 
   // ── etiquetas / PROYECTOS (con su propio change history) ──
-  const createLabel = async (draft: Label) => {
+  // DEVUELVE la canónica (la del server), no void. El id que pone la UI es temporal
+  // (`uid()`, alfanumérico) y el del server es NUMÉRICO: quien creaba un proyecto y le
+  // colgaba tareas usando el temporal las mandaba con un id que `Number()` convierte en
+  // NaN, se filtraba, y la tarea nacía SIN PROYECTO. Es la causa exacta de las tareas
+  // huérfanas del tablero. Quien crea un proyecto para usarlo tiene que esperar esto.
+  const createLabel = async (draft: Label): Promise<Label> => {
     const d: Label = { ...draft, historial: draft.historial?.length ? draft.historial : [{ id: uid(), ts: now(), actor: draft.score >= 1 ? 'user' : 'user', text: 'Creó el proyecto' }] };
     setLabels((ls) => [...ls, d]);
-    try { const canon = await repo.createLabel(d); setLabels((ls) => ls.map((l) => (l.id === d.id ? canon : l))); }
-    catch (e) { console.error('[board] createLabel', e); }
+    try { const canon = await repo.createLabel(d); setLabels((ls) => ls.map((l) => (l.id === d.id ? canon : l))); return canon; }
+    catch (e) { console.error('[board] createLabel', e); return d; }
   };
   const patchLabel = (id: string, fields: Partial<Label>) => {
     let next: Label | null = null;

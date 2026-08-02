@@ -201,7 +201,10 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         titulo: t.titulo,
         detalle: t.detalle || undefined,
         prioridad: t.prioridad,
-        proyecto: t.proyectoId ? nombreProy.get(t.proyectoId) : undefined,
+        // …o el nombre que PROPUSO el modelo cuando el proyecto todavía no existe. Se
+        // descartaba acá, así que las tareas del cron nacían sueltas aunque la reunión
+        // hubiera dicho a qué proyecto iban (el server sabe crearlo por nombre).
+        proyecto: t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined),
         dueno: t.dueño || undefined,
         duenoEmail: t.dueñoEmail || undefined,
         esDeOtro: t.esDeOtro || undefined,

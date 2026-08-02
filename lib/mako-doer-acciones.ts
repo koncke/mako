@@ -118,7 +118,9 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         // recorte como clave, si no un 2º lote con el mismo proyecto largo lo duplica.
         const cats = await listCategorias().catch(() => []);
         const catName = (p: string) => p.slice(0, 40).trim();
-        const byName = new Map(cats.map((c) => [c.nombre.trim().toLowerCase(), c.id]));
+        // sin acentos (NFD), igual que el board: si no, "Vértice" y "Vertice" son dos proyectos
+        const normNom = (x: string) => x.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+        const byName = new Map(cats.map((c) => [normNom(c.nombre), c.id]));
         const links: string[] = [];
         let fallidas = 0;
         for (const it of items) {
@@ -126,7 +128,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
             let catId: number | undefined;
             if (it.proyecto) {
               const nombreCat = catName(it.proyecto);
-              const k = nombreCat.toLowerCase();
+              const k = normNom(nombreCat);
               catId = byName.get(k);
               if (catId == null) { const c = await crearCategoria(nombreCat, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
             }

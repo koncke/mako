@@ -414,10 +414,12 @@ export function BoardShell({ board, scope }: {
     // (la escala es 1-100; el 5 viejo lo dejaba último siempre) y con alta en el historial,
     // igual que un proyecto creado desde WhatsApp.
     if (d.nuevoProyecto.trim()) {
-      const newId = uid();
-      void board.createLabel({ id: newId, emoji: d.nuevoProyEmoji || '🏷', name: d.nuevoProyecto.trim(), color: SWATCHES[labels.length % SWATCHES.length], score: 50, detalle: '', historial: [{ id: uid(), ts: Date.now(), actor: 'user', text: 'Creó el proyecto — alta manual' }] });
-      labelIds = [newId];
-      proyIds.push(newId);
+      // Se ESPERA el id canónico del server: con el temporal (`uid()`, alfanumérico) la
+      // tarea nacía sin proyecto, porque el board del cliente convierte los ids a número
+      // y descarta los NaN. Era la causa de las tareas huérfanas.
+      const canon = await board.createLabel({ id: uid(), emoji: d.nuevoProyEmoji || '🏷', name: d.nuevoProyecto.trim(), color: SWATCHES[labels.length % SWATCHES.length], score: 50, detalle: '', historial: [{ id: uid(), ts: Date.now(), actor: 'user', text: 'Creó el proyecto — alta manual' }] });
+      labelIds = [canon.id];
+      proyIds.push(canon.id);
     }
     const starter = d.userScore || 50;
     const t = await board.create(d.title, prioFromScore(starter), labelIds.length ? labelIds : undefined, { detalle: d.detalle });
@@ -512,12 +514,14 @@ export function BoardShell({ board, scope }: {
       if (!nom || c.proyectoId || nuevosProy.has(norm(nom))) continue;
       const yaEsta = labels.find((l) => norm(l.name) === norm(nom));
       if (yaEsta) { nuevosProy.set(norm(nom), yaEsta.id); continue; }
-      const nuevoId = uid();
-      await board.createLabel({
-        id: nuevoId, emoji: '🏷', name: nom, color: SWATCHES[(labels.length + nuevosProy.size) % SWATCHES.length],
+      // El id que vale es el CANÓNICO (el del server). Guardar el temporal acá era lo
+      // que dejaba las tareas de ese proyecto sin proyecto: viajaban con un id que
+      // `Number()` vuelve NaN y el board lo filtra sin decir nada.
+      const canon = await board.createLabel({
+        id: uid(), emoji: '🏷', name: nom, color: SWATCHES[(labels.length + nuevosProy.size) % SWATCHES.length],
         score: 50, detalle: '', historial: [{ id: uid(), ts: Date.now(), actor: 'ia', text: `Creó el proyecto — de la reunión «${fuente?.etiqueta ?? ''}»` }],
       });
-      nuevosProy.set(norm(nom), nuevoId);
+      nuevosProy.set(norm(nom), canon.id);
     }
 
     const ids: string[] = [];

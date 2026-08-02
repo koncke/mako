@@ -119,7 +119,8 @@ export async function GET(req: Request) {
     // Nombre del contacto de WhatsApp (lo llena el importador y el webhook).
     try {
       const nombres = await getNombresContacto();
-      for (const c of convs) if (!c.nombre) c.nombre = nombres.get(ult10(c.telefono) || '') ?? null;
+      // El teléfono puede venir nulo en la fila: se saca del jid, que siempre está.
+      for (const c of convs) if (!c.nombre) c.nombre = nombres.get(ult10(c.telefono) || ult10(c.jids[0] ?? '')) ?? null;
     } catch { /* se queda el número */ }
 
     // Cruce con el CRM: da el nombre real y, sobre todo, la señal dura de que

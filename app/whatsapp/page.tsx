@@ -10,6 +10,7 @@ import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import { OnboardingCanalWhatsApp } from './OnboardingCanalWhatsApp';
 import { integracionConectada } from '@/lib/credenciales';
+import { getInstanciaRow } from '@/lib/evolution';
 import { PanelActivacion } from '../_components/PanelActivacion';
 import { tabActivacion } from '@/lib/tab-activacion';
 import { WhatsAppApp } from './WhatsAppApp';
@@ -20,10 +21,16 @@ export const revalidate = 0;
 export default async function WhatsAppPage() {
   await requireCapa('whatsapp');
 
-  // Sin Chatwoot el inbox se renderiza entero y dice 'Sin conversaciones' — un
-  // error de config disfrazado de dato vacío, que le echa la culpa al dato.
+  // El gate mira los DOS canales, no solo Chatwoot. El inbox tiene una pestaña
+  // por método, y el no oficial (Evolution, por QR) funciona sin ninguna
+  // credencial: pedir Chatwoot para entrar dejaba fuera de la tab a un cliente
+  // que acababa de vincular su número y ya tenía sus conversaciones adentro.
   const tabWa = tabActivacion('whatsapp');
-  if (tabWa && !(await integracionConectada('whatsapp'))) return <PanelActivacion tab={tabWa} />;
+  const [oficial, noOficial] = await Promise.all([
+    integracionConectada('whatsapp'),
+    getInstanciaRow().then((r) => r?.estado === 'conectado').catch(() => false),
+  ]);
+  if (tabWa && !oficial && !noOficial) return <PanelActivacion tab={tabWa} />;
   await guardOnboarding();
   // WhatsApp tiene onboarding PROPIO (conectar y probar los dos métodos). Se
   // renderiza acá mismo en vez de mandar a otra tab: los pasos se comparten con
