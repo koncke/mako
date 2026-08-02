@@ -48,7 +48,7 @@ type PasoKey =
   | 'wa_oficial' | 'wa_oficial_plantilla' | 'wa_oficial_prueba'
   | 'email_conectar' | 'email_prueba';
 type Estado = { status: 'pendiente' | 'done'; steps: Record<string, { done: boolean }> };
-type Def = { key: string; titulo: string; pasos: Array<{ key: string; label: string }> };
+type Def = { key: string; titulo: string; pasos: Array<{ key: string; label: string; opcional?: boolean }> };
 type Conversacion = {
   /** Últimos 10 dígitos del teléfono: agrupa entrantes y salientes. */
   clave: string;
@@ -67,6 +67,11 @@ type Conversacion = {
 /** Un bloque de la voz que SÍ se pudo deducir, con las citas que lo respaldan. */
 type BloqueVoz = { key: string; titulo: string; estado: string; texto: string; citas: string[] };
 type PreguntaVoz = { key: string; pregunta: string; opciones: string[] };
+type PasoResumen = { orden: number; cuando: string; que: string; transcript: string | null; condicion: string | null; pie: string | null };
+type ResumenFinal = {
+  secuencias: Array<{ id: number; nombre: string; activa: boolean; pasos: PasoResumen[] }>;
+  huecos: Array<{ etapa: string; label: string }>;
+};
 type VozResultado = {
   deducido: BloqueVoz[];
   /** Los bloques sin evidencia. Se preguntan; no se inventan. */
@@ -280,6 +285,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [audioAbierto, setAudioAbierto] = useState<string | null>(null);
   const [linkVideo, setLinkVideo] = useState('');
 
+  // ── Paso final: qué secuencias quedaron armadas con los audios ──
+  const [resumen, setResumen] = useState<ResumenFinal | null>(null);
+
   // ── Paso ensayo ──
   const [msgs, setMsgs] = useState<HiloMsg[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right' } | null>(null);
@@ -323,6 +331,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
 
   const pasoKey = (def?.pasos[idx]?.key ?? 'wa_no_oficial') as PasoKey;
   const enUltimo = !!def && idx === def.pasos.length - 1;
+  const esOpcional = !!def?.pasos[idx]?.opcional;
   const pasoKeyRef = useRef<PasoKey>(pasoKey);
   pasoKeyRef.current = pasoKey;
   const convsFiltradas = (convs ?? []).filter((c) => {
@@ -340,8 +349,13 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       })).json();
       if (!j.ok) { setErr(j.error || 'No se pudo guardar el avance.'); return; }
       setEstado(j.estado);
-      if (j.estado.status === 'done') { onListo(); return; }
-      setIdx((i) => Math.min((def?.pasos.length ?? 1) - 1, i + 1));
+      // El recorrido avanza por ÍNDICE, no por `estado.status`. `status` pasa a
+      // 'done' cuando terminan los pasos NO OPCIONALES, así que mirarlo acá
+      // soltaba al dueño en medio del wizard —con varios pasos todavía a la
+      // vista— y lo dejaba caer en la tab de WhatsApp sin haber terminado. Solo
+      // se sale desde el último paso.
+      if (idx >= (def?.pasos.length ?? 1) - 1) { onListo(); return; }
+      setIdx((i) => i + 1);
     } finally { setBusy(false); }
   }
 
@@ -459,6 +473,18 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       });
     } catch { /* se reintenta al volver a salir del campo */ }
   }
+
+  // El paso final ARMA las secuencias con los audios grabados y devuelve lo que
+  // quedó. Antes era texto fijo prometiendo unas secuencias que nadie creaba.
+  useEffect(() => {
+    if (pasoKeyRef.current !== 'aprobar' || resumen !== null) return;
+    void (async () => {
+      try {
+        const j = await (await fetch('/api/chat-agent/onboarding/resumen', { cache: 'no-store' })).json();
+        setResumen(j.ok ? { secuencias: j.secuencias ?? [], huecos: j.huecos ?? [] } : { secuencias: [], huecos: [] });
+      } catch { setResumen({ secuencias: [], huecos: [] }); }
+    })();
+  });
 
   // ── Paso contexto: primero la lista de chats, después el análisis ──
   const cargarConvs = useCallback(async () => {
@@ -747,7 +773,20 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       onClose={onListo}
       // Siempre, incluso en el primer paso: si no, alguien que vuelve a un
       // onboarding reabierto queda sin ninguna salida.
-      extraFooter={<button onClick={onListo} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Lo configuro después</button>}
+      extraFooter={(
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={onListo} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Lo configuro después</button>
+          {/* Los pasos opcionales (oficial, email) se pueden saltear de a uno
+              sin abandonar el recorrido: antes la única salida era irse del
+              wizard entero, así que nadie llegaba al final. */}
+          {esOpcional && !enUltimo && (
+            <button
+              onClick={() => setIdx((i) => i + 1)}
+              style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: 13, cursor: 'pointer' }}
+            >Omitir por ahora</button>
+          )}
+        </div>
+      )}
       escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chat Agent" slides={slides} eyebrow="✦ Dejemos tu Chat Agent listo" />}
     >
       {/* WHATSAPP NO OFICIAL — el QR se genera y se escanea en este mismo paso */}
@@ -1199,13 +1238,49 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         </div>
       )}
 
-      {/* ⑤ APROBAR */}
+      {/* ⑤ APROBAR — el resumen de lo que quedó armado, no una promesa */}
       {pasoKey === 'aprobar' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Con lo que ensayamos armé tus secuencias de mensajes. Están <strong style={{ color: 'var(--ink)' }}>pausadas</strong>: entra al Chat Agent, escucha cómo quedaron, pruébalas en tu teléfono y actívalas cuando estés listo.
-          </div>
-          <div style={okBox}>No se envía nada a ningún lead hasta que actives «Envío real».</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {resumen === null ? (
+            <Cargando texto="Armando tus secuencias de mensajes…" />
+          ) : resumen.secuencias.length === 0 ? (
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center' }}>
+              Todavía no hay audios grabados, así que no armé ninguna secuencia. Vuelve al paso de los audios cuando quieras.
+            </div>
+          ) : (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', textAlign: 'left' }}>
+                Esto quedó armado
+              </div>
+              {resumen.secuencias.map((s, i) => (
+                <SeccionCard
+                  key={s.id}
+                  s={{
+                    titulo: s.nombre,
+                    texto: s.pasos.map((p) => {
+                      const cond = p.condicion ? ` — ${p.condicion}` : '';
+                      const pie = p.pie ? `\n   Y le llega por escrito: «${p.pie}»` : '';
+                      const dice = p.transcript ? `\n   Dice: «${p.transcript.slice(0, 160)}${p.transcript.length > 160 ? '…' : ''}»` : '';
+                      return `${p.orden}. ${p.cuando}: ${p.que}${cond}${pie}${dice}`;
+                    }).join('\n\n'),
+                  }}
+                  abiertoDefault={i === 0}
+                  icono="💬"
+                  size="sm"
+                />
+              ))}
+
+              <div style={okBox}>
+                Quedaron <strong>pausadas</strong>. No sale nada a ningún lead hasta que las actives desde el Chat Agent.
+              </div>
+
+              {resumen.huecos.length > 0 && (
+                <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55, textAlign: 'left' }}>
+                  Te faltan secuencias para {resumen.huecos.length === 1 ? 'la etapa' : 'las etapas'} {resumen.huecos.map((h) => h.label).join(', ')}. Las puedes armar desde el Chat Agent cuando quieras.
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
       {/* El contexto va SIEMPRE al final: explica sin interrumpir la acción. */}

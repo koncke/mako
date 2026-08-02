@@ -46,7 +46,17 @@ export type PasoSecuencia = {
   // contestó al menos una vez: es la regla del lead magnet ("¿lo querés? es
   // gratis" y recién si contesta se manda). 'sin_respuesta' = el rezagado que
   // nunca contestó — por ahí se degrada a email. Sin condición, siempre sale.
-  requiere?: 'respondio' | 'sin_respuesta';
+  /**
+   * Condición para que este paso salga.
+   *
+   * `ya_contactado` / `primer_contacto` existen para un caso muy concreto: dos
+   * leads que acaban de agendar caen en el MISMO cohorte, pero a uno ya le
+   * hablaste (recibió tu audio de bienvenida) y al otro no lo saludaste nunca.
+   * Mandarle "hola, soy Fulano" a alguien con quien ya venías conversando suena
+   * a robot al instante. Con este par, la secuencia post-agenda lleva DOS pasos
+   * de apertura mutuamente excluyentes y sale exactamente uno.
+   */
+  requiere?: 'respondio' | 'sin_respuesta' | 'ya_contactado' | 'primer_contacto';
   asunto: string | null;
   preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
@@ -197,7 +207,9 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       ...(p.tipo === 'audio' && Number(p.audio_id)
         ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) }
         : {}),
-      ...(p.requiere === 'respondio' || p.requiere === 'sin_respuesta' ? { requiere: p.requiere } : {}),
+      ...(p.requiere === 'respondio' || p.requiere === 'sin_respuesta' || p.requiere === 'ya_contactado' || p.requiere === 'primer_contacto'
+        ? { requiere: p.requiere as PasoSecuencia['requiere'] }
+        : {}),
       asunto: typeof p.asunto === 'string' ? p.asunto : null,
       preheader: typeof p.preheader === 'string' ? p.preheader : null,
       cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
@@ -698,6 +710,31 @@ async function enviosUltimas24h(): Promise<number> {
 // Set de lead_ids que ya recibieron un envío (nutrición o broadcast) en las
 // últimas HS_MIN_ENTRE_MSGS horas — calculado en 2 queries batch para TODOS los
 // leads de la corrida (antes eran 2 count-queries POR lead dentro del loop: N+1).
+/**
+ * Leads a los que el negocio YA les habló alguna vez por nutrición.
+ *
+ * Sirve para el par `ya_contactado` / `primer_contacto`: a alguien que acaba de
+ * agendar y ya recibió tu audio de bienvenida no se le manda "hola, soy Fulano"
+ * de nuevo — suena a robot al instante.
+ *
+ * La imprecisión que hay que aceptar: "recibió ALGO" no es idéntico a "recibió
+ * LA bienvenida". Cubre bien el caso real (el lead que entró por el formulario
+ * y después agendó) y solo se equivoca si recibió otra nutrición distinta antes.
+ * Distinguirlo de verdad exigiría rastrear qué secuencia mandó qué, y para la
+ * decisión que hay que tomar acá —presentarse o no— no cambia el resultado.
+ */
+async function leadsYaContactados(leadIds: number[]): Promise<Set<number>> {
+  const set = new Set<number>();
+  if (leadIds.length === 0) return set;
+  const supabase = (await getTenantDb());
+  const { data } = await supabase.from('nutricion_envios')
+    .select('lead_id').in('lead_id', leadIds).in('estado', ['enviado', 'simulado']);
+  for (const r of (data ?? []) as Array<{ lead_id: number | null }>) {
+    if (r.lead_id != null) set.add(r.lead_id);
+  }
+  return set;
+}
+
 async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
   const set = new Set<number>();
   if (leadIds.length === 0) return set;
@@ -811,6 +848,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     );
     // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
     const conEnvioReciente = await leadsConEnvioReciente(leadIds);
+    // Quién ya recibió algo alguna vez → decide cuál de los dos pasos de
+    // apertura sale (presentarse o retomar). También en batch.
+    const yaContactados = await leadsYaContactados(leadIds);
 
     for (const insc of due) {
       if (res.enviados + res.simulados >= cupo) break;
@@ -845,6 +885,27 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 're-anclado a la reunión' });
           await supabase.from('nutricion_inscripciones')
             .update({ proximo_envio_at: objetivo, updated_at: ahoraISO() }).eq('id', insc.id);
+          continue;
+        }
+      }
+
+      // Los dos pasos de APERTURA de la secuencia post-agenda son mutuamente
+      // excluyentes: uno se presenta (nunca le hablamos) y el otro retoma la
+      // conversación (ya recibió la bienvenida). Sale exactamente uno; el otro
+      // se saltea y la inscripción sigue de largo — a diferencia de
+      // `requiere:'respondio'`, acá NO hay nada que esperar: la condición ya
+      // está decidida y no va a cambiar.
+      if (paso.requiere === 'ya_contactado' || paso.requiere === 'primer_contacto') {
+        const yaLeHablamos = yaContactados.has(insc.lead_id);
+        const corresponde = paso.requiere === 'ya_contactado' ? yaLeHablamos : !yaLeHablamos;
+        if (!corresponde) {
+          const siguiente = insc.paso_actual + 1;
+          await supabase.from('nutricion_inscripciones').update(
+            siguiente < sec.pasos.length
+              ? { paso_actual: siguiente, proximo_envio_at: proximoEnvioDePaso(sec.pasos[siguiente], lead), updated_at: ahoraISO() }
+              : { estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() },
+          ).eq('id', insc.id);
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: paso.requiere === 'ya_contactado' ? 'es primer contacto' : 'ya le habíamos escrito' });
           continue;
         }
       }
@@ -936,6 +997,14 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId: lead.id });
             estado = r.ok ? 'enviado' : 'fallo';
             if (!r.ok) nota = r.error;
+            // PIE DEL AUDIO: el `cuerpo` de un paso de audio se descartaba, así
+            // que un audio que dice "te dejo el link abajo" prometía algo que
+            // nunca llegaba. Sale como segundo mensaje inmediato, en el mismo
+            // toque — no como paso aparte, que el guard anti-ban de 20h frenaría.
+            if (r.ok && cuerpoNO.trim()) {
+              await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id })
+                .catch(() => { /* el audio ya salió: el pie es un extra, no puede tumbar el envío */ });
+            }
           } else if (await tieneBorradorNutriPendiente(lead.id)) {
             res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
             await supabase.from('nutricion_inscripciones')
