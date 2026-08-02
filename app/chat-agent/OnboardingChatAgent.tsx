@@ -22,6 +22,7 @@ import { Icon } from '@/app/_components/icons';
 import { Avatar } from '../whatsapp/_shared/Avatar';
 import { GrabadorAudioPaso, type AudioGrabado } from './GrabadorAudioPaso';
 import { AUDIOS_PASO } from '@/lib/audios-paso';
+import { escenariosDe, type Escenario } from '@/lib/chat-agent-escenarios';
 
 /**
  * Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda.
@@ -84,7 +85,7 @@ const PREGUNTA: Record<PasoKey, { q: string; sub?: string }> = {
   wa_no_oficial_prueba: { q: 'Verificación de seguridad' },
   contexto: { q: 'Tu forma de escribir', sub: 'Analizo tus conversaciones para aprender tu tono, tus preguntas y tu forma de cerrar.' },
   voz: { q: 'Tus audios' },
-  ensayo: { q: 'Ensayo de conversación', sub: 'Simulo ser un lead y respondes como lo harías. De ahí salen tus mensajes.' },
+  ensayo: { q: 'Ensayo de conversación' },
   aprobar: { q: 'Tus jugadas' },
   wa_oficial: { q: 'Tu WhatsApp: Método Oficial' },
   wa_oficial_plantilla: { q: 'Tu primera plantilla' },
@@ -282,6 +283,13 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // ── Paso ensayo ──
   const [msgs, setMsgs] = useState<HiloMsg[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right' } | null>(null);
+  // Por cuál escenario va. Cada uno es una slide dentro del paso, no un paso
+  // propio: los nueve son la misma pregunta contada nueve veces, y como pasos
+  // reales multiplicarían los puntos del progreso por una sola decisión.
+  const [escIdx, setEscIdx] = useState(0);
+  // El lead no contestó a lo último que se le escribió. No es un error: es la
+  // respuesta más común, y verla es el punto del escenario de silencio.
+  const [sinRespuesta, setSinRespuesta] = useState(false);
   const seq = useRef(0);
 
   const cargar = useCallback(async () => {
@@ -548,30 +556,80 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     }
   }
 
-  // ── Paso 4: MaKo hace de cliente ──
-  const arrancarEnsayo = useCallback(async () => {
-    setTyping({ lado: 'left' });
-    try {
-      const j = await (await fetch('/api/chat-agent/onboarding/ensayo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ historial: [] }),
-      })).json();
-      if (j.ok && j.mensaje) setMsgs([{ id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]);
-    } catch { /* el usuario puede escribir igual */ } finally { setTyping(null); }
+  // ── Paso ensayo: un ESCENARIO por slide ──
+  // Los escenarios que hablan del video de preparación solo entran si el
+  // workspace configuró el link: ensayar cómo conseguir que vea un video que no
+  // existe no enseña nada.
+  const escenarios = escenariosDe(!!linkVideo.trim());
+  const esc = escenarios[escIdx] ?? escenarios[0] ?? null;
+
+  /** Abre el escenario: primero el audio del dueño, después la semilla del lead. */
+  const abrirEscenario = useCallback((e: Escenario, audioUrl: string | null) => {
+    // El audio del dueño va como PRIMER mensaje: es lo que de verdad recibe el
+    // lead antes de contestar, y ensayar sin él sería ensayar otra cosa. Se
+    // reproduce de verdad, con el archivo que se grabó en el paso anterior.
+    const abre: HiloMsg[] = [{
+      id: `a-${++seq.current}`, fromMe: true, autor: 'Tú',
+      tipo: 'audio',
+      mediaUrl: audioUrl,
+      mediaMime: 'audio/mpeg',
+      // Sin audio grabado la burbuja cae al "(no disponible)" que ChatHilo ya
+      // sabe pintar, con este texto — no se rompe el ensayo por eso.
+      texto: audioUrl ? null : 'Tu nota de voz',
+      fecha: new Date().toISOString(),
+    }];
+    // La semilla es LITERAL, no generada: el modelo narraba la situación en vez
+    // de encarnarla y salía siempre la misma frase explicativa.
+    const semilla = e.primerMensaje.length
+      ? e.primerMensaje[Math.floor(Math.random() * e.primerMensaje.length)]
+      : null;
+    if (semilla) {
+      abre.push({ id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: semilla, fecha: new Date().toISOString() });
+    }
+    setMsgs(abre);
   }, []);
-  useEffect(() => { if (pasoKey === 'ensayo' && msgs.length === 0) void arrancarEnsayo(); }, [pasoKey, msgs.length, arrancarEnsayo]);
+
+  useEffect(() => {
+    if (pasoKey !== 'ensayo' || !esc || msgs.length > 0) return;
+    const a = audioDe(esc.audio);
+    abrirEscenario(esc, a?.url ?? null);
+  }, [pasoKey, esc, msgs.length, abrirEscenario, audioDe]);
 
   async function responderComoNegocio(texto: string): Promise<boolean> {
+    if (!esc) return true;
     const conmigo: HiloMsg[] = [...msgs, { id: `y-${++seq.current}`, fromMe: true, texto, fecha: new Date().toISOString() }];
     setMsgs(conmigo);
     setTyping({ lado: 'left' });
     try {
-      const historial = conmigo.map((m) => ({ de: m.fromMe ? 'negocio' : 'lead', texto: m.texto ?? '' }));
+      const historial = conmigo
+        .map((m) => ({ de: m.fromMe ? 'negocio' : 'lead', texto: (m.texto ?? '').trim() }))
+        .filter((m) => m.texto);
       const j = await (await fetch('/api/chat-agent/onboarding/ensayo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ historial }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ escenario: esc.id, historial }),
       })).json();
-      if (j.ok && j.mensaje) setMsgs([...conmigo, { id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]);
+      if (j.ok && j.mensaje) {
+        setMsgs([...conmigo, { id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]);
+        setSinRespuesta(false);
+      } else if (j.ok && j.sinRespuesta) {
+        // No hay burbuja: el lead no contestó. Es la respuesta más común de
+        // todas y practicarla es justo el punto del escenario de silencio.
+        setSinRespuesta(true);
+      } else if (!j.ok && j.error) {
+        setErr(j.error);
+      }
       return true;
     } catch { return true; } finally { setTyping(null); }
+  }
+
+  /** Cuántas veces escribió el dueño en este escenario (el audio no cuenta). */
+  const misRespuestas = msgs.filter((m) => m.fromMe && (m.texto ?? '').trim()).length;
+
+  function siguienteEscenario() {
+    setErr(null);
+    setMsgs([]);
+    setSinRespuesta(false);
+    setEscIdx((i) => i + 1);
   }
 
   // Dentro del paso 'contexto' hay tres vistas: elegir las conversaciones,
@@ -594,7 +652,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     // sigue estando en "Lo configuro después" del pie — trabar el avance es lo
     // pedido; dejar el paso sin ninguna salida lo convertiría en una trampa.
     if (pasoKey === 'voz') return nGrabados === AUDIOS_PASO.length;
-    if (pasoKey === 'ensayo') return msgs.filter((m) => m.fromMe).length >= 2 || hecho('ensayo');
+    // El ensayo avanza por escenarios con su propio botón; el footer se habilita
+    // recién cuando se recorrieron todos.
+    if (pasoKey === 'ensayo') return escIdx >= escenarios.length || hecho('ensayo');
     // El estado EN VIVO es la única prueba de que el número está vinculado. La
     // memoria de una vinculación pasada no lo es: con `hecho(...)` en el OR, el
     // paso seguía dejando avanzar después de desvincular, mostrando el botón de
@@ -618,8 +678,18 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       idx={idx}
       // En la vista de preguntas el título es la PREGUNTA: es lo que hay que
       // contestar, y repetir "Tu forma de escribir" ahí no dice nada.
-      pregunta={vistaContexto === 'preguntas' && preguntaActual ? preguntaActual.pregunta : (PREGUNTA[pasoKey]?.q ?? '')}
-      sub={vistaContexto === 'preguntas' ? `Pregunta ${pregIdx + 1} de ${voz?.preguntas.length ?? 0}` : PREGUNTA[pasoKey]?.sub}
+      // En el ensayo el título es el ESCENARIO: es lo que define la slide, y
+      // repetir "Ensayo de conversación" nueve veces no dice nada.
+      pregunta={
+        vistaContexto === 'preguntas' && preguntaActual ? preguntaActual.pregunta
+          : pasoKey === 'ensayo' && esc ? esc.titulo
+            : (PREGUNTA[pasoKey]?.q ?? '')
+      }
+      sub={
+        vistaContexto === 'preguntas' ? `Pregunta ${pregIdx + 1} de ${voz?.preguntas.length ?? 0}`
+          : pasoKey === 'ensayo' && esc ? esc.objetivo
+            : PREGUNTA[pasoKey]?.sub
+      }
       // La tarjeta de preguntas trae sus propios botones: sin esto quedarían dos
       // "Siguiente" a la vez, uno adentro y otro en el footer.
       hideSiguiente={vistaContexto === 'preguntas'}
@@ -1024,18 +1094,63 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         </div>
       )}
 
-      {/* ④ ENSAYO — MaKo es el CLIENTE */}
-      {pasoKey === 'ensayo' && (
-        <div style={{ height: 380, display: 'flex', flexDirection: 'column' }}>
-          <ChatHilo
-            accent="var(--wa)"
-            accentBubble="var(--wa-bubble)"
-            mensajes={msgs}
-            typing={typing}
-            placeholder="Responde como lo harías normalmente…"
-            onEnviarTexto={responderComoNegocio}
-            vacio={<div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13 }}>Preparando el escenario…</div>}
-          />
+      {/* ④ ENSAYO — MaKo es el CLIENTE, un escenario por slide */}
+      {pasoKey === 'ensayo' && esc && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Progreso de los escenarios, con el mismo tamaño de punto que el
+              shell: el paso son varias slides y tiene que leerse como tal. */}
+          <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
+            {escenarios.map((e, i) => (
+              <span key={e.id} style={{ width: i === escIdx ? 20 : 7, height: 7, borderRadius: 999, background: i === escIdx ? 'var(--primary)' : i < escIdx ? 'var(--primary-weak, #B9CDF8)' : 'var(--border)', transition: 'width .2s' }} />
+            ))}
+          </div>
+
+          {/* El de silencio es el único donde el lead no escribe: se avisa, si
+              no el dueño se queda esperando una respuesta que no va a llegar. */}
+          {esc.silencio && (
+            <div style={{ padding: '9px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, textAlign: 'left' }}>
+              {esc.silencio.chips[Math.min(Math.max(misRespuestas - 1, 0), esc.silencio.chips.length - 1)]} Escribe lo que le mandarías.
+            </div>
+          )}
+
+          <div style={{ height: 340, display: 'flex', flexDirection: 'column' }}>
+            <ChatHilo
+              accent="var(--wa)"
+              accentBubble="var(--wa-bubble)"
+              mensajes={msgs}
+              typing={typing}
+              placeholder="Responde como lo harías normalmente…"
+              onEnviarTexto={responderComoNegocio}
+              vacio={<div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13 }}>Preparando el escenario…</div>}
+            />
+          </div>
+
+          {sinRespuesta && (
+            <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center', fontStyle: 'italic' }}>
+              No contestó. {esc.silencio ? 'Escribe el siguiente mensaje que le mandarías.' : 'Prueba con otra cosa.'}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={siguienteEscenario}
+              disabled={misRespuestas < esc.minRespuestas}
+              style={{ ...btnDark, opacity: misRespuestas < esc.minRespuestas ? 0.5 : 1, cursor: misRespuestas < esc.minRespuestas ? 'default' : 'pointer' }}
+            >
+              {escIdx >= escenarios.length - 1 ? 'Terminar el ensayo' : 'Siguiente escenario →'}
+            </button>
+            {misRespuestas < esc.minRespuestas && (
+              <span style={{ fontSize: 12, color: 'var(--faint)' }}>
+                {esc.minRespuestas - misRespuestas === 1 ? 'Falta una respuesta tuya' : `Faltan ${esc.minRespuestas - misRespuestas} respuestas tuyas`}
+              </span>
+            )}
+            {/* Los opcionales se pueden saltar: son variantes del mismo aprendizaje. */}
+            {!esc.obligatorio && misRespuestas < esc.minRespuestas && (
+              <button onClick={siguienteEscenario} style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: 12.5, cursor: 'pointer' }}>
+                Saltar este caso
+              </button>
+            )}
+          </div>
         </div>
       )}
 
