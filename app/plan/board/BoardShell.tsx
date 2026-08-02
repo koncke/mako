@@ -95,7 +95,7 @@ export function BoardShell({ board, scope }: {
   const [pendientes, setPendientes] = useState<PropuestaPendiente[]>([]);
   // Cerrar el modal con la ✕ NO descarta nada: solo lo esconde. Los borradores siguen
   // vivos y el botón de Fathom (que late) los vuelve a abrir.
-  const [pendientesCerradas, setPendientesCerradas] = useState(false);
+  // (ya no hace falta un flag de "lo cerré": el modal solo se abre a pedido)
   /** el borrador de UNA reunión, abierto desde el selector de Fathom ("ver lo que sacó"). */
   const [borradorReunion, setBorradorReunion] = useState<PropuestaPendiente | null>(null);
   const [cargandoBorrador, setCargandoBorrador] = useState(false);
@@ -613,7 +613,7 @@ export function BoardShell({ board, scope }: {
               a la lista: con tareas pendientes quedabas encerrado en ellas, sin poder
               mirar el resto de tus reuniones. El badge ya avisa cuántas esperan, y en
               la lista cada reunión muestra las suyas: no hace falta bloquear nada. */}
-          <button type="button" onClick={() => { setReunionArchivo(null); setExtraerReunion(true); setPendientesCerradas(true); }}
+          <button type="button" onClick={() => { setReunionArchivo(null); setExtraerReunion(true); }}
             aria-label={nPendientes + nDeOtros > 0 ? `Tus reuniones — ${pendientes.length} borrador(es) esperando` : 'Tus reuniones de Fathom'}
             title={nPendientes > 0 ? `Tus reuniones — ${nPendientes} tarea${nPendientes === 1 ? '' : 's'} esperando que las confirmes${nDeOtros ? ` (y ${nDeOtros} de otras personas para repartir)` : ''}`
               : nDeOtros > 0 ? `Tus reuniones — quedan ${nDeOtros} tarea${nDeOtros === 1 ? '' : 's'} de otras personas para repartir`
@@ -676,8 +676,8 @@ export function BoardShell({ board, scope }: {
           // avisar que varias ya estaban.
           existentes={tasks.map((t) => ({ id: t.id, titulo: t.title, hecha: t.progress >= 100 }))}
           onListo={() => window.location.reload()}
-          onClose={() => { if (borradorReunion) setBorradorReunion(null); else setPendientesCerradas(true); }}
-          onDescartadas={() => { setBorradorReunion(null); setPendientes([]); setPendientesCerradas(false); }}
+          onClose={() => setBorradorReunion(null)}
+          onDescartadas={() => { setBorradorReunion(null); setPendientes([]); }}
           // Abrir una que ya cargaste: el detalle se pone adelante y este modal espera
           // atrás (la condición de arriba lo apaga mientras haya una tarea abierta).
           onAbrirTarea={(id) => setOpenId(id)}
