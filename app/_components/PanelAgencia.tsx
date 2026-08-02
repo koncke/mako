@@ -99,14 +99,22 @@ export function PanelAgencia({ cliente, onCambio }: {
       setAbierto(false);
     };
     const cerrar = () => setAbierto(false);
+    // El scroll DENTRO del menú (la lista de ámbitos) también dispara este
+    // listener — un scroll no burbujea, pero sí pasa por la fase de captura de
+    // window, así que sin este filtro cualquier intento de scrollear la lista
+    // cerraba el menú al toque. Solo cierra un scroll de verdad AFUERA (el
+    // botón se desplaza y la posición medida queda vieja).
+    const cerrarPorScroll = (e: Event) => {
+      if ((e.target as HTMLElement)?.closest?.('#panel-agencia-menu')) return;
+      cerrar();
+    };
     document.addEventListener('mousedown', fuera);
     window.addEventListener('resize', cerrar);
-    // El scroll mueve el botón y la posición medida queda vieja: se cierra.
-    window.addEventListener('scroll', cerrar, true);
+    window.addEventListener('scroll', cerrarPorScroll, true);
     return () => {
       document.removeEventListener('mousedown', fuera);
       window.removeEventListener('resize', cerrar);
-      window.removeEventListener('scroll', cerrar, true);
+      window.removeEventListener('scroll', cerrarPorScroll, true);
     };
   }, [abierto]);
 
