@@ -277,7 +277,10 @@ export function BoardShell({ board, scope }: {
   // SE ESCONDE, no se desmonta. Desmontarlo tiraba a la basura media revisión: los
   // destildes, las reasignaciones y las respuestas viven en su estado, y abrir una
   // tarjeta ya cargada —ahora una grilla de tarjetas clickeables— lo desmontaba.
-  const recibidasOculto = !!(openId || openProj || peekProjId || extraerReunion || datosOpen || datosConfirm || cargandoBorrador);
+  // …salvo cuando el borrador se abrió DESDE el selector: ahí va encima de él, para
+  // poder volver a la lista al cerrarlo en vez de perder los dos de un saque.
+  const recibidasOculto = !!(openId || openProj || peekProjId || datosOpen || datosConfirm || cargandoBorrador
+    || (extraerReunion && !borradorReunion));
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
@@ -703,10 +706,14 @@ export function BoardShell({ board, scope }: {
         })).filter((r) => r.n > 0)}
         onAbrirRecibido={(id) => {
           const p = pendientes.find((x) => x.id === id);
-          if (p) { setExtraerReunion(false); setReunionArchivo(null); setBorradorReunion(p); }
+          if (p) { setReunionArchivo(null); setBorradorReunion(p); }
         }}
         onAbrirBorrador={(rid) => {
-          setExtraerReunion(false); setReunionArchivo(null); setCargandoBorrador(true);
+          // El selector NO se cierra: queda abierto DEBAJO (z-130 vs z-132). Cerrar el
+          // borrador te devuelve a la lista de reuniones, que es de donde entraste —
+          // cerrar un paso no puede cerrarte los dos. Y como no se desmonta, la lista
+          // no se vuelve a pedir a Fathom ni pierde el buscador y el filtro de fecha.
+          setReunionArchivo(null); setCargandoBorrador(true);
           void fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'por-reunion', recordingId: rid }) })
             .then((r) => r.json())
             .then((j) => { if (j?.ok && j.propuesta) setBorradorReunion(j.propuesta as PropuestaPendiente); })
