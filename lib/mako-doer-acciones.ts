@@ -16,6 +16,7 @@ import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mak
 import { getLead, setPipelineStage, getFunnel } from '@/lib/leads';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
+import { proyectoParaTarea } from './reunion-cliente';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
 import { agregarTareasPlanOwner, priorizarNuevasOwner } from '@/lib/plan-board';
 import { crearPropuesta } from '@/lib/plan-propuesta';
@@ -126,8 +127,13 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         for (const it of items) {
           try {
             let catId: number | undefined;
-            if (it.proyecto) {
-              const nombreCat = catName(it.proyecto);
+            // Mismo criterio que el resto: si la tarea nombra a un cliente, va a SU
+            // proyecto aunque MaKo haya sugerido otro. Por WhatsApp no hay reunión
+            // detrás, así que la señal es el nombre de la empresa en el texto.
+            const porCliente = await proyectoParaTarea({ titulo: it.titulo, detalle: it.detalle, proyectoSugerido: it.proyecto });
+            const proyFinal = (porCliente.cliente || porCliente.porProyecto) ? porCliente.nombre : it.proyecto;
+            if (proyFinal) {
+              const nombreCat = catName(proyFinal);
               const k = normNom(nombreCat);
               catId = byName.get(k);
               if (catId == null) { const c = await crearCategoria(nombreCat, '#2F6FED'); catId = c.id; byName.set(k, c.id); }

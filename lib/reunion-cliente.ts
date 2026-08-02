@@ -36,7 +36,7 @@ export type ClienteDeReunion = {
   empresa: string | null;
   /** email con el que se lo reconoció (para el rastro en el historial). */
   email: string;
-  via: 'email-invitado' | 'historial-reunion';
+  via: 'email-invitado' | 'historial-reunion' | 'nombre-en-texto';
   confianza: 'alta' | 'media';
 };
 
@@ -119,6 +119,88 @@ export async function proyectoDeCliente(c: ClienteDeReunion): Promise<number | n
     console.log(`[reunion-cliente] proyecto creado para el cliente: «${nombre}» (#${nueva.id})`);
     return nueva.id;
   } catch (e) { console.error('[reunion-cliente] proyectoDeCliente', e); return null; }
+}
+
+/**
+ * El cliente NOMBRADO en un texto (título + detalle de una tarea). Es la vía para
+ * los orígenes que NO son una reunión —WhatsApp, Claude Code, alta manual—, donde
+ * no hay email de invitado del que agarrarse.
+ *
+ * Solo matchea la EMPRESA o el nombre COMPLETO, como frase entera y de 4 letras
+ * para arriba. Nunca un nombre de pila suelto: "Adriana" matchea tres leads que no
+ * tienen nada que ver entre sí, y ahí el match no informa, inventa. Con más de un
+ * candidato devuelve null: que pregunte.
+ */
+export async function clienteEnTexto(texto: string): Promise<ClienteDeReunion | null> {
+  const t = ` ${norm(texto)} `;
+  if (t.trim().length < 4) return null;
+  try {
+    const db = await getTenantDb();
+    // Solo los CLIENTES, no todo el CRM. Un cliente es un lead GANADO; el resto son
+    // prospectos y no tienen proyecto en el plan. Y además es lo que hace viable la
+    // búsqueda: traer "los primeros 500 leads" sin orden es una lotería —en un CRM de
+    // cientos de filas los 9 clientes reales podían no entrar en esa página.
+    const { data } = await db.from('leads').select('id, nombre, empresa, email').eq('estado_lead', 'ganado').limit(200);
+    const leads = (data ?? []) as Array<{ id: number; nombre: string | null; empresa: string | null; email: string | null }>;
+    const hits = leads.filter((l) => {
+      // Empresa siempre; nombre de persona SOLO si es completo (tiene apellido).
+      const claves = [norm(l.empresa ?? ''), norm(l.nombre ?? '').includes(' ') ? norm(l.nombre ?? '') : '']
+        .filter((k) => k.length >= 4);
+      return claves.some((k) => t.includes(` ${k} `));
+    });
+    const unicos = new Map(hits.map((l) => [l.id, l]));
+    if (unicos.size !== 1) return null;
+    const l = [...unicos.values()][0];
+    return {
+      leadId: l.id,
+      nombre: (l.nombre ?? l.empresa ?? '').trim(),
+      empresa: l.empresa?.trim() || null,
+      email: (l.email ?? '').trim(),
+      via: 'nombre-en-texto',
+      confianza: 'media',
+    };
+  } catch (e) { console.error('[reunion-cliente] clienteEnTexto', e); return null; }
+}
+
+/**
+ * El proyecto que le toca a UNA tarea suelta (sin reunión detrás): el del cliente
+ * que nombra, y si no nombra a ninguno, el que venía sugerido. Devuelve también por
+ * qué, para el historial. Es el punto por el que pasan WhatsApp y Claude Code.
+ */
+export async function proyectoParaTarea(t: { titulo: string; detalle?: string | null; proyectoSugerido?: string }): Promise<{ nombre: string | undefined; cliente: ClienteDeReunion | null; porProyecto?: string }> {
+  const texto = `${t.titulo} ${t.detalle ?? ''}`;
+  const cliente = await clienteEnTexto(texto).catch(() => null);
+  if (cliente) return { nombre: nombreProyectoCliente(cliente), cliente };
+  // Segunda vía: el texto nombra un proyecto que YA EXISTE. Es la señal más fuerte
+  // de todas —el dueño ya decidió que ese cliente merece un proyecto y le puso el
+  // nombre— y además es literalmente "usá los que hay en vez de inventar uno".
+  // Cubre a los clientes que todavía no están marcados como ganados en el CRM.
+  const yaExiste = await proyectoNombradoEnTexto(texto).catch(() => null);
+  if (yaExiste) return { nombre: yaExiste, cliente: null, porProyecto: yaExiste };
+  return { nombre: t.proyectoSugerido?.trim() || undefined, cliente: null };
+}
+
+// Los proyectos del seed de arranque son de TEMAS, no de clientes: que una tarea diga
+// "seguimiento por whatsapp" no la hace del proyecto "Montar el seguimiento por
+// WhatsApp". Se excluyen del match por texto.
+const GENERICOS = ['setup inicial', 'anuncio ganador', 'primeros 10 clientes', 'validar el funnel',
+  'seguimiento por whatsapp', 'escalar la campa', 'banco de creativos', 'tablero de n'];
+
+/** El proyecto EXISTENTE que el texto nombra, si hay exactamente uno y no es genérico. */
+export async function proyectoNombradoEnTexto(texto: string): Promise<string | null> {
+  const t = ` ${norm(texto)} `;
+  try {
+    const cats = await listCategorias();
+    const hits = cats.filter((c) => {
+      const n = norm(c.nombre);
+      if (n.length < 5 || GENERICOS.some((g) => n.includes(g))) return false;
+      // El nombre completo, o el núcleo sin el prefijo que le puso el dueño
+      // ("Cuenta Grupo Esquer" → "grupo esquer", "Cliente Baja Teriyaki" → "baja teriyaki").
+      const nucleo = n.replace(/^(cuenta|cliente|proyecto)\s+/, '');
+      return t.includes(` ${n} `) || (nucleo.length >= 5 && t.includes(` ${nucleo} `));
+    });
+    return hits.length === 1 ? hits[0].nombre : null;
+  } catch { return null; }
 }
 
 /** La línea que queda en el historial de la tarea. Nada de MaKo sin explicación. */

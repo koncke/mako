@@ -14,6 +14,7 @@ import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, listPlan
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, type Prioridad } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
+import { proyectoParaTarea } from '@/lib/reunion-cliente';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
@@ -493,8 +494,14 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           for (const t of base) {
             try {
               let catId: number | undefined;
-              if (t.proyecto) {
-                const nombre = t.proyecto.slice(0, 40).trim();
+              // ¿La tarea NOMBRA a un cliente? Va a SU proyecto, aunque el que la
+              // propuso haya sugerido otro. Cubre los orígenes sin reunión detrás
+              // (WhatsApp, Claude Code): ahí no hay email de invitado, así que la
+              // señal es el nombre de la empresa en el texto — y solo si es UNO.
+              const porCliente = await proyectoParaTarea({ titulo: t.titulo, detalle: t.detalle, proyectoSugerido: t.proyecto });
+              const proyectoFinal = (porCliente.cliente || porCliente.porProyecto) ? porCliente.nombre : t.proyecto;
+              if (proyectoFinal) {
+                const nombre = proyectoFinal.slice(0, 40).trim();
                 const k = normNom(nombre);
                 catId = byName.get(k);
                 if (catId == null) { const c = await crearCategoria(nombre, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
