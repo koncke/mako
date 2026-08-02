@@ -71,19 +71,29 @@ export async function GET(req: Request) {
 
   try {
     const supabase = await getTenantDb();
-    const { data } = await supabase
-      .from('wa_mensajes')
-      // Sin `raw`: el cupo de filas se gasta en conversaciones, no en payloads.
-      .select('chat_jid, telefono, push_name, texto, from_me, wa_timestamp, tipo, lead_id')
-      .not('chat_jid', 'is', null)
-      // Las reacciones y el protocolo inflaban el contador y hacían pasar por
-      // "conversación" a chats sin una sola frase. El inbox ya los excluye.
-      .neq('tipo', 'evento')
-      .order('wa_timestamp', { ascending: false })
-      .limit(9000);
+    // PAGINADO A MANO, y no es un detalle: `.limit(9000)` NO sube el techo del
+    // servidor — PostgREST devuelve como mucho 1000 filas por request y el resto
+    // se pierde sin error. El espejo tenía 106 conversaciones y la lista mostraba
+    // 36 por esto: se leía la primera página y nada más.
+    const filas: Fila[] = [];
+    for (let desde = 0; desde < 20000; desde += 1000) {
+      const { data } = await supabase
+        .from('wa_mensajes')
+        // Sin `raw`: el cupo de filas se gasta en conversaciones, no en payloads.
+        .select('chat_jid, telefono, push_name, texto, from_me, wa_timestamp, tipo, lead_id')
+        .not('chat_jid', 'is', null)
+        // Las reacciones y el protocolo inflaban el contador y hacían pasar por
+        // "conversación" a chats sin una sola frase. El inbox ya los excluye.
+        .neq('tipo', 'evento')
+        .order('wa_timestamp', { ascending: false })
+        .range(desde, desde + 999);
+      const pagina = (data ?? []) as Fila[];
+      filas.push(...pagina);
+      if (pagina.length < 1000) break;
+    }
 
     const porChat = new Map<string, Conv>();
-    for (const f of (data ?? []) as Fila[]) {
+    for (const f of filas) {
       if (f.chat_jid.endsWith('@g.us') || f.chat_jid.startsWith('status@') || f.chat_jid.includes('broadcast')) continue;
       const clave = claveTel(f.telefono, f.chat_jid);
       let c = porChat.get(clave);

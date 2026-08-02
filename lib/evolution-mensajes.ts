@@ -504,11 +504,32 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
   // ordenan por actividad para que, si el tiempo se acaba, lo que entró sea lo
   // más reciente y no lo que Evolution devolvió primero.
   const orden = [...chats].sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
+
+  // Lo que YA está en el espejo, para no volver a pedirlo. Con 400 chats el
+  // recorrido no entra en una sola request: sin esto, cada intento arrancaba
+  // otra vez desde el más reciente y se quedaba siempre en la misma mitad — el
+  // dueño apretaba el botón tres veces y no avanzaba nunca.
+  const yaEspejado = new Map<string, string>();
+  try {
+    for (let desde = 0; desde < 20000; desde += 1000) {
+      const { data: prev } = await supabase
+        .from('wa_mensajes').select('chat_jid, wa_timestamp')
+        .order('wa_timestamp', { ascending: false }).range(desde, desde + 999);
+      const filas = (prev ?? []) as Array<{ chat_jid: string; wa_timestamp: string | null }>;
+      for (const f of filas) if (!yaEspejado.has(f.chat_jid)) yaEspejado.set(f.chat_jid, f.wa_timestamp ?? '');
+      if (filas.length < 1000) break;
+    }
+  } catch { /* sin espejo previo, se recorre todo */ }
+
   const limite = Date.now() + 240_000;
   for (const ch of orden) {
     if (Date.now() > limite) break;
     const rawJid = ch.remoteJid || '';
     if (!rawJid || rawJid.endsWith('@g.us') || rawJid.startsWith('status@') || rawJid.includes('broadcast')) continue;
+    // Sin novedades desde la última vez: se saltea y el tiempo se gasta en los
+    // que faltan. El upsert es idempotente igual, pero la request no es infinita.
+    const visto = yaEspejado.get(rawJid);
+    if (visto && ch.updatedAt && new Date(String(ch.updatedAt)).toISOString() <= visto) continue;
     const recs = await fetchMensajesEvolution(rawJid, 60).catch(() => [] as EvRecord[]);
     if (!recs.length) continue;
     // Canonical del chat: el número real de CUALQUIER mensaje (remoteJidAlt/senderPn).
