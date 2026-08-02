@@ -208,6 +208,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [busyEvo, setBusyEvo] = useState<null | 'conectar' | 'desconectar'>(null);
   const [qrEvo, setQrEvo] = useState<{ base64: string | null } | null>(null);
   const [codigo, setCodigo] = useState('');
+  // A dónde se manda el código. Se resuelve solo en el server (el número
+  // recién vinculado por QR); solo se pide si no hay ninguno.
+  const [destino, setDestino] = useState<string | null>(null);
+  const [pideNumero, setPideNumero] = useState(false);
+  const [telefono, setTelefono] = useState('');
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [verificado, setVerificado] = useState(false);
 
@@ -327,9 +332,18 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     setBusy(true); setErr(null);
     try {
       const j = await (await fetch('/api/chat-agent/onboarding/prueba', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'enviar' }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'enviar', telefono: telefono || undefined }),
       })).json();
-      if (!j.ok) { setErr(j.error || 'No se pudo mandar el código.'); return; }
+      if (!j.ok) {
+        // El único caso que necesita al usuario: no hay número por ningún lado.
+        // Se pide acá mismo, no en otra pantalla.
+        if (j.necesitaNumero) { setPideNumero(true); setErr(null); return; }
+        setErr(j.error || 'No se pudo enviar el código.');
+        return;
+      }
+      if (j.destino) setDestino(String(j.destino));
+      setPideNumero(false);
       setCodigoEnviado(true);
     } finally { setBusy(false); }
   }
@@ -479,13 +493,35 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               Canal verificado. El mensaje llegó correctamente.
             </div>
           ) : !codigoEnviado ? (
-            <button onClick={() => void enviarCodigo()} disabled={busy}
-              style={{ ...btnDark, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span aria-hidden style={{ display: 'inline-flex' }}><Icon name="plug" size={16} /></span>
-              {busy ? 'Enviando…' : 'Enviar código de verificación'}
-            </button>
+            <>
+              {pideNumero && (
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
+                  <label style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+                    ¿A qué número lo enviamos?
+                  </label>
+                  <input
+                    value={telefono} autoFocus inputMode="tel" placeholder="52 55 1234 5678"
+                    onChange={(e) => setTelefono(e.target.value.replace(/[^\d+ ]/g, ''))}
+                    style={{ ...inp, textAlign: 'center', letterSpacing: '.04em' }}
+                  />
+                </div>
+              )}
+              <button onClick={() => void enviarCodigo()} disabled={busy || (pideNumero && telefono.replace(/\D/g, '').length < 8)}
+                style={{ ...btnDark, display: 'inline-flex', alignItems: 'center', gap: 8, opacity: pideNumero && telefono.replace(/\D/g, '').length < 8 ? 0.5 : 1 }}>
+                <span aria-hidden style={{ display: 'inline-flex' }}><Icon name="plug" size={16} /></span>
+                {busy ? 'Enviando…' : 'Enviar código de verificación'}
+              </button>
+              {!pideNumero && (
+                <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Llega al número que acabas de vincular.</div>
+              )}
+            </>
           ) : (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+              {destino && (
+                <div style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>
+                  Enviado a <strong style={{ color: 'var(--dim)' }}>+{destino}</strong>
+                </div>
+              )}
               <input value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" inputMode="numeric" autoFocus
                 style={{ ...inp, width: 130, textAlign: 'center', letterSpacing: '.3em', fontFamily: MONO }} />
               <button onClick={() => void verificarCodigo()} disabled={busy || codigo.length < 4} style={{ ...btnDark, opacity: codigo.length < 4 ? 0.5 : 1 }}>Verificar</button>

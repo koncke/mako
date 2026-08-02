@@ -293,7 +293,7 @@ export async function enviarCodigoVerificacion(
   ws: number, telefono: string, nombreCliente: string,
 ): Promise<{ ok: true; yaVerificado: boolean } | { ok: false; error: string }> {
   const num = soloDigitos(telefono);
-  if (!num) return { ok: false, error: 'Ingresá un número válido.' };
+  if (!num) return { ok: false, error: 'El número no es válido.' };
 
   const actual = await getVerificacion(ws);
   if (actual?.verificado && soloDigitos(actual.telefono) === num) return { ok: true, yaVerificado: true };
@@ -304,7 +304,7 @@ export async function enviarCodigoVerificacion(
   const codigo = String(Math.floor(100000 + Math.random() * 900000));
   await guardarVerificacion(ws, { telefono: num, codigo, expira: Date.now() + MINUTOS_EXPIRA_CODIGO * 60_000, verificado: false });
 
-  const mensaje = `Tu código de verificación de MaKo es *${codigo}*. Vence en ${MINUTOS_EXPIRA_CODIGO} minutos — cargalo en el onboarding para confirmar este número.`;
+  const mensaje = `Tu código de verificación de MaKo es *${codigo}*. Vence en ${MINUTOS_EXPIRA_CODIGO} minutos — introdúcelo en la configuración para confirmar este número.`;
   const envio = await enviarAlGrupoMaKo(ws, mensaje);
   if (!envio.ok) return { ok: false, error: `No se pudo enviar el código por WhatsApp: ${envio.error}` };
   return { ok: true, yaVerificado: false };
@@ -313,8 +313,8 @@ export async function enviarCodigoVerificacion(
 /** Compara el código cargado contra el vigente; marca verificado si coincide y no venció. */
 export async function verificarCodigoContacto(ws: number, codigo: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const v = await getVerificacion(ws);
-  if (!v) return { ok: false, error: 'Todavía no pediste un código — cargá tu número primero.' };
-  if (Date.now() > v.expira) return { ok: false, error: 'El código venció. Pedí uno nuevo.' };
+  if (!v) return { ok: false, error: 'Todavía no se envió ningún código.' };
+  if (Date.now() > v.expira) return { ok: false, error: 'El código expiró. Solicita uno nuevo.' };
   if (codigo.trim() !== v.codigo) return { ok: false, error: 'El código no coincide.' };
   await guardarVerificacion(ws, { ...v, verificado: true });
   return { ok: true };
