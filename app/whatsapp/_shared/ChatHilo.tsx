@@ -74,12 +74,16 @@ export function ChatHilo({
   const prevKey = useRef(draftKey);
   // Reporta si el chat tiene ALGO en borrador (texto/adjunto/audio) → orden en la lista.
   const reportar = (key: string | undefined) => { if (key) onDraftChange?.(key, !!(draftStore.get(key) || adjuntoStore.get(key) || audioStore.get(key))); };
+  // El borrador se lleva TAMBIÉN en un ref, y el store se escribe FUERA del
+  // updater de estado. React puede invocar un updater dos veces (StrictMode) y
+  // `reportar` avisa al PADRE: hacerlo adentro dispara un efecto ajeno durante
+  // el render, y encima duplicado.
+  const draftRef = useRef(draft);
   const setDraft = (v: string | ((p: string) => string)) => {
-    setDraftState((prev) => {
-      const next = typeof v === 'function' ? (v as (p: string) => string)(prev) : v;
-      if (draftKey) { if (next) draftStore.set(draftKey, next); else draftStore.delete(draftKey); reportar(draftKey); }
-      return next;
-    });
+    const next = typeof v === 'function' ? (v as (p: string) => string)(draftRef.current) : v;
+    draftRef.current = next;
+    setDraftState(next);
+    if (draftKey) { if (next) draftStore.set(draftKey, next); else draftStore.delete(draftKey); reportar(draftKey); }
   };
   const setAdjunto = (f: File | null) => { setAdjuntoState(f); if (draftKey) { if (f) adjuntoStore.set(draftKey, f); else adjuntoStore.delete(draftKey); reportar(draftKey); } };
   const setAudioPend = (b: Blob | null) => { setAudioPendState(b); if (draftKey) { if (b) audioStore.set(draftKey, b); else audioStore.delete(draftKey); reportar(draftKey); } };
@@ -100,7 +104,9 @@ export function ChatHilo({
   useEffect(() => {
     if (prevKey.current === draftKey) return;
     prevKey.current = draftKey;
-    setDraftState(draftKey ? draftStore.get(draftKey) ?? '' : '');
+    const suyo = draftKey ? draftStore.get(draftKey) ?? '' : '';
+    draftRef.current = suyo; // el ref tiene que seguir al estado o el próximo envío usa el borrador viejo
+    setDraftState(suyo);
     setAdjuntoState(draftKey ? adjuntoStore.get(draftKey) ?? null : null);
     setAudioPendState(draftKey ? audioStore.get(draftKey) ?? null : null);
     setEmojiOpen(false); setSendErr(null);
@@ -114,33 +120,53 @@ export function ChatHilo({
     setAdjunto(f);
   }
   async function enviarTexto() {
-    if (!onEnviarTexto || !draft.trim()) return;
+    const texto = draft.trim();
+    // `sending` también corta acá: con Enter repetido se disparaban dos envíos
+    // y, donde el handler es un turno de IA, las dos respuestas se pisaban.
+    if (!onEnviarTexto || !texto || sending) return;
     setSending(true); setSendErr(null); stickRef.current = true;
-    try { if (await onEnviarTexto(draft.trim())) setDraft(''); else setSendErr('No se pudo enviar el mensaje.'); }
-    catch (e) { setSendErr('No se pudo enviar (' + (e instanceof Error ? e.message : 'error de red') + ').'); }
-    finally { setSending(false); }
+    // La barra se vacía ANTES de esperar. En el inbox real el handler es un POST
+    // de 300 ms y no se nota, pero en el simulador y en el ensayo espera un
+    // TURNO ENTERO de IA: el mensaje quedaba duplicado, la burbuja arriba y el
+    // mismo texto escrito abajo durante segundos. Si falla se devuelve, salvo
+    // que el usuario ya haya escrito otra cosa mientras tanto.
+    setDraft('');
+    try {
+      if (!(await onEnviarTexto(texto))) { setDraft((d) => d || texto); setSendErr('No se pudo enviar el mensaje.'); }
+    } catch (e) {
+      setDraft((d) => d || texto);
+      setSendErr('No se pudo enviar (' + (e instanceof Error ? e.message : 'error de red') + ').');
+    } finally { setSending(false); }
   }
   async function enviarComposer() {
+    if (sending) return;
     if (adjunto && onEnviarArchivo) {
+      const arch = adjunto; const cap = draft.trim();
       setSending(true); setSendErr(null); stickRef.current = true;
+      setAdjunto(null); setDraft(''); if (fileInput.current) fileInput.current.value = '';
       try {
-        const ok = await onEnviarArchivo(adjunto, '', adjunto.name, draft.trim() || undefined);
-        if (ok) { setAdjunto(null); setDraft(''); if (fileInput.current) fileInput.current.value = ''; }
-        else setSendErr('No se pudo enviar el archivo.');
+        if (!(await onEnviarArchivo(arch, '', arch.name, cap || undefined))) {
+          setAdjunto(arch); setDraft((d) => d || cap); setSendErr('No se pudo enviar el archivo.');
+        }
       } finally { setSending(false); }
     } else await enviarTexto();
   }
   // Al terminar de grabar NO se manda: queda como borrador para escucharlo antes.
   const enviarAudioBlob = async (blob: Blob) => { if (onEnviarArchivo) setAudioPend(blob); };
   const enviarAudioPend = async () => {
-    if (!audioPend || !onEnviarArchivo) return;
+    const pend = audioPend;
+    if (!pend || !onEnviarArchivo || sending) return;
     setSending(true); setSendErr(null); setAudioFase('Procesando audio…'); stickRef.current = true;
     let mp3: Blob;
-    try { const { blobToMp3 } = await import('../audio'); mp3 = await blobToMp3(audioPend); }
+    try { const { blobToMp3 } = await import('../audio'); mp3 = await blobToMp3(pend); }
     catch (e) { setSendErr('No se pudo procesar el audio (' + (e instanceof Error ? e.message : 'error') + ').'); setSending(false); setAudioFase(null); return; }
     setAudioFase('Enviando audio…');
-    const ok = await onEnviarArchivo(mp3, 'audio', 'nota-de-voz.mp3');
-    if (ok) setAudioPend(null);
+    // Mismo criterio que el texto: la burbuja del audio ya está arriba, así que
+    // la barra de preview no puede quedar abajo mostrando el mismo audio.
+    setAudioPend(null);
+    if (!(await onEnviarArchivo(mp3, 'audio', 'nota-de-voz.mp3'))) {
+      setAudioPend(pend); setSendErr('No se pudo enviar el audio.');
+    }
     setSending(false); setAudioFase(null);
   };
   const voz = useVoiceRecorder(enviarAudioBlob, setSendErr);
@@ -159,6 +185,15 @@ export function ChatHilo({
         )}
         {!cargando && mensajes.length === 0 && (vacio ?? <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5 }}>Sin mensajes.</div>)}
         {mensajes.map((m) => {
+          // Una línea de sistema NO es un mensaje de nadie: es lo que pasó en la
+          // conversación ("pasaron 3 días", "la secuencia se pausó porque
+          // respondió"). Va centrada y sin burbuja a propósito — si se pintara
+          // como burbuja, quien mira creería que el negocio le mandó ESO al lead.
+          if (m.tipo === 'sistema') return (
+            <div key={m.id} style={{ display: 'flex', justifyContent: 'center' }}>
+              <div style={{ maxWidth: '86%', padding: '6px 13px', borderRadius: 999, background: 'var(--surface)', border: '1px dashed var(--border-strong)', color: 'var(--faint)', fontSize: 11.5, lineHeight: 1.45, textAlign: 'center' }}>{m.texto}</div>
+            </div>
+          );
           const mine = m.fromMe;
           const esMedia = m.tipo === 'image' || m.tipo === 'audio' || m.tipo === 'video' || m.tipo === 'document' || m.tipo === 'sticker';
           const esPdf = (m.mediaMime || '').includes('pdf') || (m.texto || '').toLowerCase().endsWith('.pdf');
@@ -221,7 +256,7 @@ export function ChatHilo({
         <div style={{ borderTop: '1px solid var(--border)', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 4, opacity: 0.55, pointerEvents: 'none', userSelect: 'none' }}>
           <span style={iconComposer}><IconSmiley /></span>
           <span style={iconComposer}><IconClip /></span>
-          <div style={{ flex: 1, minHeight: 40, padding: '9px 16px', borderRadius: 21, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--faint)', fontSize: 14, display: 'flex', alignItems: 'center' }}>{placeholder ?? 'Escribí un mensaje…'}</div>
+          <div style={{ flex: 1, minHeight: 40, padding: '9px 16px', borderRadius: 21, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--faint)', fontSize: 14, display: 'flex', alignItems: 'center' }}>{placeholder ?? 'Escribe un mensaje…'}</div>
           <span style={iconComposer}><IconMic /></span>
         </div>
       )}
@@ -263,7 +298,7 @@ export function ChatHilo({
             {onEnviarArchivo && <button onClick={() => fileInput.current?.click()} disabled={sending} title="Adjuntar archivo" aria-label="Adjuntar archivo" style={iconComposer}><IconClip /></button>}
             <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void enviarComposer(); } }}
-              placeholder={adjunto ? 'Agregá un texto (opcional)…' : (placeholder ?? 'Escribí un mensaje…')} rows={1}
+              placeholder={adjunto ? 'Agrega un texto (opcional)…' : (placeholder ?? 'Escribe un mensaje…')} rows={1}
               style={{ flex: 1, minHeight: 40, maxHeight: 120, resize: 'none', padding: '9px 16px', borderRadius: 21, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, lineHeight: 1.35, outline: 'none' }} />
             {(draft.trim() || adjunto) ? (
               <button onClick={() => void enviarComposer()} disabled={sending} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: 42, height: 42, borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>

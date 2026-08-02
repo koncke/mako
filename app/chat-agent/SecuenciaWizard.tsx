@@ -130,7 +130,7 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
       if (!(await guardarCopy(secuenciaId))) return;
       const r = await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuenciaId, activa: true }) });
       const j = await r.json();
-      if (!j.ok) { setErr(j.error || 'El copy quedó guardado pero no se pudo activar. Probá de nuevo.'); return; }
+      if (!j.ok) { setErr(j.error || 'El copy quedó guardado pero no se pudo activar. Prueba de nuevo.'); return; }
       onDone();
     } finally { setBusy(null); }
   }
@@ -163,7 +163,7 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: '13px', color: 'var(--dim)' }}>La secuencia de mensajes se cuelga de una etapa de TU funnel: entra todo lead que esté parado ahí.</div>
             <Dropdown value={etapa} onChange={setEtapa} width="100%" ariaLabel="Etapa del funnel"
-              options={[{ value: '', label: 'Elegí la etapa…' }, ...etapas]} />
+              options={[{ value: '', label: 'Elige la etapa…' }, ...etapas]} />
           </div>
         )}
 

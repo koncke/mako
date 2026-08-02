@@ -7,7 +7,7 @@
 // CONTACTOS (300px) + ChatHilo compartido (burbujas + composer real con emoji,
 // adjuntar y nota de voz). "▶ Simular secuencia" reproduce los pasos como
 // mensajes entrantes del negocio (vos sos EL LEAD: tus mensajes van a la
-// derecha); escribís/mandás audio y MaKo responde como setter. La topbar /
+// derecha); escribes/mandás audio y MaKo responde como setter. La topbar /
 // Editar abre el PERFIL de la secuencia de mensajes (SecuenciaPerfil, cubre el chat).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -73,18 +73,32 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   }, [secuencias, busq, etiquetaEtapa]);
   const sel = secuencias.find((j) => j.id === selId);
 
-  // Cambiar de secuencia limpia el hilo y los timers del guion (patrón PlantillasView).
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Al ENTRAR a una secuencia se reproduce sola, sin botón: entrar a un contacto
+  // y ver llegar los mensajes ES la simulación. Un botón "▶ Simular" obligaba a
+  // pedir lo único que se puede hacer en esa pantalla.
+  //
+  // La dependencia es el ID y una huella de los pasos de WhatsApp, NO el objeto
+  // `sel` ni `audios`: cualquier recarga (guardar la estrategia, activar la
+  // secuencia) les cambia la identidad y volvería a reproducir el guion BORRANDO
+  // la conversación que el dueño tenga en curso.
+  const guionKey = useMemo(() => (sel
+    ? sel.pasos.filter((p) => p.canal === 'whatsapp').map((p) => `${p.orden}|${p.tipo ?? 'texto'}|${p.audio_id ?? ''}|${(p.cuerpo ?? '').length}`).join('~')
+    : ''), [sel]);
+
   useEffect(() => {
     timers.current.forEach(clearTimeout); timers.current = [];
     setMensajes([]); setTyping(null); setDetalle(false);
+    if (selId !== '' && guionKey) reproducirGuion();
     return () => { timers.current.forEach(clearTimeout); timers.current = []; };
-  }, [selId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selId, guionKey]);
 
   const elegir = (id: number) => { setSelId(id); setDetalle(false); };
 
-  // ▶ Reproduce la secuencia como mensajes ENTRANTES del negocio (vos = el lead).
-  function simularSecuencia() {
+  // Reproduce la secuencia como mensajes ENTRANTES del negocio (tú = el lead).
+  function reproducirGuion() {
     if (!sel) return;
     timers.current.forEach(clearTimeout); timers.current = [];
     const pasosWa = sel.pasos.filter((p) => p.canal === 'whatsapp');
@@ -127,7 +141,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       }
       return j;
     } catch {
-      setMensajes([...msgs, { id: `err-${++seq.current}`, fromMe: false, autor: 'Simulador', texto: '⚠ Sin conexión — probá de nuevo.', fecha: new Date().toISOString() }]);
+      setMensajes([...msgs, { id: `err-${++seq.current}`, fromMe: false, autor: 'Simulador', texto: '⚠ Sin conexión — prueba de nuevo.', fecha: new Date().toISOString() }]);
       return null;
     } finally {
       setTyping(null);
@@ -215,12 +229,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           mensajes={mensajes}
           typing={typing}
           draftKey={`setting-sim-${sel.id}`}
-          placeholder="Escribí como el lead…"
+          placeholder="Escribe como el lead…"
           onEnviarTexto={enviarTexto}
           onEnviarArchivo={enviarArchivo}
           vacio={(
             <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
-              Tocá <strong style={{ color: 'var(--dim)' }}>▶ Simular secuencia</strong> para ver los mensajes llegar como al lead,<br />o escribí abajo (texto, audio o archivo) y MaKo te responde como setter.
+              Esta secuencia todavía no tiene mensajes de WhatsApp.<br />Escribe abajo como el lead y MaKo te responde.
             </div>
           )}
           header={(
@@ -232,15 +246,19 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
                   <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(sel.etapa)}{sel.estrategia ? ` · ${objetivos.find((o) => o.value === sel.estrategia!.objetivo)?.label ?? sel.estrategia.objetivo}` : ' · sin secuencia definida'} · toca para {rolAdmin ? 'editar' : 'ver'}</div>
                 </div>
               </button>
-              <button type="button" onClick={simularSecuencia} title="Reproducir la secuencia como la ve el lead"
-                style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: 'none', background: 'var(--wa)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>▶ Simular secuencia</button>
+              {/* La secuencia ya se reprodujo sola al entrar. Esto es para
+                  volver a verla desde el principio después de haber chateado,
+                  no para arrancarla: por eso es un ícono discreto y no la
+                  acción principal de la pantalla. */}
+              <button type="button" onClick={reproducirGuion} title="Ver la secuencia otra vez desde el principio" aria-label="Ver la secuencia otra vez desde el principio"
+                style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
               <button type="button" onClick={() => setDetalle(true)} title="Perfil de la secuencia de mensajes"
                 style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
             </div>
           )}
         />
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elegí una secuencia de mensajes.</div>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elige una secuencia de mensajes.</div>
       )}
     </div>
   );

@@ -622,8 +622,49 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     } catch { return true; } finally { setTyping(null); }
   }
 
-  /** Cuántas veces escribió el dueño en este escenario (el audio no cuenta). */
-  const misRespuestas = msgs.filter((m) => m.fromMe && (m.texto ?? '').trim()).length;
+  /**
+   * Responder con una NOTA DE VOZ, que es como el dueño de verdad le contesta a
+   * un lead. El modelo no oye: el server la transcribe y usa ese texto. La
+   * burbuja muestra el audio reproducible con su transcripción debajo.
+   */
+  async function responderConAudio(blob: Blob): Promise<boolean> {
+    if (!esc) return false;
+    const url = URL.createObjectURL(blob);
+    const propio: HiloMsg = {
+      id: `y-${++seq.current}`, fromMe: true, tipo: 'audio',
+      mediaUrl: url, mediaMime: 'audio/mpeg', fecha: new Date().toISOString(),
+    };
+    const conmigo = [...msgs, propio];
+    setMsgs(conmigo);
+    setTyping({ lado: 'left' });
+    try {
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
+      const historial = conmigo
+        .map((m) => ({ de: m.fromMe ? 'negocio' : 'lead', texto: (m.texto ?? '').trim() }))
+        .filter((m) => m.texto);
+      const j = await (await fetch('/api/chat-agent/onboarding/ensayo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ escenario: esc.id, historial, audioBase64: btoa(bin), audioMime: 'audio/mpeg' }),
+      })).json();
+      if (!j.ok) { setErr(j.error || 'No se pudo enviar el audio.'); return false; }
+      // La transcripción queda pegada a la burbuja: sin eso, al releer el ensayo
+      // no se sabe qué se dijo, y es lo que el modelo efectivamente leyó.
+      const conTexto = conmigo.map((m) => (m.id === propio.id ? { ...m, texto: j.transcripta ?? null } : m));
+      setMsgs(j.mensaje
+        ? [...conTexto, { id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]
+        : conTexto);
+      setSinRespuesta(!!j.sinRespuesta);
+      return true;
+    } catch {
+      setErr('Sin conexión — vuelve a intentarlo.');
+      return false;
+    } finally { setTyping(null); }
+  }
+
+  /** Cuántas veces respondió el dueño en este escenario (el audio de apertura no cuenta). */
+  const misRespuestas = msgs.filter((m, i) => m.fromMe && i > 0).length;
 
   function siguienteEscenario() {
     setErr(null);
@@ -1121,6 +1162,10 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               typing={typing}
               placeholder="Responde como lo harías normalmente…"
               onEnviarTexto={responderComoNegocio}
+              // Poder contestar con una nota de voz: es como el dueno le responde de
+              // verdad a un lead, y ensayar solo escribiendo entrena otra cosa.
+              onEnviarArchivo={(blob, tipo) => (tipo === 'audio' ? responderConAudio(blob) : Promise.resolve(false))}
+              draftKey={`ensayo-${esc.id}`}
               vacio={<div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13 }}>Preparando el escenario…</div>}
             />
           </div>

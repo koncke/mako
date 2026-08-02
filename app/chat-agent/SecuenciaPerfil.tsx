@@ -86,7 +86,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
     try {
       const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa }) })).json();
       if (r.ok) { setActiva(!activa); flashOk(!activa ? 'Activada ✓' : 'Pausada ✓'); onCambio(); } else setErr(r.error || 'No se pudo cambiar.');
-    } catch { setErr('Sin conexión — probá de nuevo.'); }
+    } catch { setErr('Sin conexión — prueba de nuevo.'); }
     setBusy(null);
   };
 
@@ -109,7 +109,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
       )));
       const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, pasos }) })).json();
       if (r.ok) { flashOk(audioId ? 'Audio asignado ✓' : 'Vuelto a texto ✓'); onCambio(); } else setErr(r.error || 'No se pudo guardar el paso.');
-    } catch { setErr('Sin conexión — probá de nuevo.'); }
+    } catch { setErr('Sin conexión — prueba de nuevo.'); }
     setBusy(null);
   }
 
@@ -122,8 +122,8 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
       if (!r.ok) { setErr(r.error || 'MaKo no pudo deducir el criterio.'); return; }
       setCalifica((r.criterio?.califica ?? []).join('\n'));
       setDescalifica((r.criterio?.descalifica ?? []).join('\n'));
-      flashOk(`MaKo lo dedujo de ${r.muestra ?? 0} leads ya evaluados — revisalo y guardá`);
-    } catch { setErr('Sin conexión — probá de nuevo.'); }
+      flashOk(`MaKo lo dedujo de ${r.muestra ?? 0} leads ya evaluados — revisalo y guarda`);
+    } catch { setErr('Sin conexión — prueba de nuevo.'); }
     setBusy(null);
   }
 
@@ -177,7 +177,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             </div>
             <div>
               <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Preguntas de cualificación — una por línea (el Setter y el simulador las usan en este orden):</div>
-              <textarea value={preguntas} onChange={(e) => setPreguntas(e.target.value)} rows={5} placeholder={'¿Facturás más de …?\n¿Tenés equipo?'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
+              <textarea value={preguntas} onChange={(e) => setPreguntas(e.target.value)} rows={5} placeholder={'¿Facturás más de …?\n¿Tienes equipo?'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -203,7 +203,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
               <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Cuando el lead responde:</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {([
-                  { v: 'asistido' as const, t: '🙋 Te aviso y te dejo el borrador', d: 'MaKo redacta la respuesta y vos la aprobás con un clic' },
+                  { v: 'asistido' as const, t: '🙋 Te aviso y te dejo el borrador', d: 'MaKo redacta la respuesta y vos la apruebas con un clic' },
                   { v: 'automatico' as const, t: '⏸ Solo pausar', d: 'La secuencia se frena y seguís por tu cuenta' },
                 ]).map((o) => (
                   <button key={o.v} onClick={() => rolAdmin && setModo(o.v)} disabled={!rolAdmin} title={o.d}
@@ -251,7 +251,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
               );
             })}
             {audios.length === 0 && rolAdmin && (
-              <div style={{ fontSize: 12, color: 'var(--faint)' }}>Grabá audios en la sub-tab «🎙 Audios» para poder colgarlos de un mensaje.</div>
+              <div style={{ fontSize: 12, color: 'var(--faint)' }}>Graba audios en la sub-tab «🎙 Audios» para poder colgarlos de un mensaje.</div>
             )}
           </div>
 

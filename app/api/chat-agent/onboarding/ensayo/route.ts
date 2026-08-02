@@ -68,8 +68,22 @@ export async function POST(req: NextRequest) {
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede hacer el ensayo.' }, { status: 403 });
   }
-  let body: { historial?: unknown; escenario?: unknown };
+  let body: { historial?: unknown; escenario?: unknown; audioBase64?: unknown; audioMime?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+
+  // El dueño puede contestar con una NOTA DE VOZ, que es como de verdad va a
+  // responderle a un lead. El modelo no oye: se transcribe y se le pasa el texto,
+  // y de paso la transcripción vuelve para pintarla bajo la burbuja.
+  let transcripta: string | null = null;
+  if (typeof body.audioBase64 === 'string' && body.audioBase64) {
+    try {
+      const { transcribirAudio } = await import('@/lib/ai-cheap');
+      transcripta = (await transcribirAudio(body.audioBase64, typeof body.audioMime === 'string' ? body.audioMime : 'audio/mpeg')).trim() || null;
+    } catch { transcripta = null; }
+    if (!transcripta) {
+      return Response.json({ ok: false, error: 'No se entendió el audio. Vuelve a grabarlo o escríbelo.' }, { status: 400 });
+    }
+  }
 
   // El escenario llega por ID y se resuelve contra el catálogo: si llegara como
   // texto, cualquiera podría reescribirle el personaje al modelo desde el
@@ -98,7 +112,9 @@ export async function POST(req: NextRequest) {
       escenario: bloqueEscenario(esc),
     });
 
+    // Si vino un audio, su transcripción ES el último turno del negocio.
     const turnos = historial.slice(-24).filter((t) => t.texto.trim());
+    if (transcripta) turnos.push({ de: 'negocio', texto: transcripta });
     if (!turnos.length) {
       return Response.json({ ok: false, error: 'Escribe tu respuesta para que el lead conteste.' }, { status: 400 });
     }
@@ -121,9 +137,9 @@ export async function POST(req: NextRequest) {
     // El silencio no es una burbuja de chat: es la ausencia de una. Se devuelve
     // como estado para que la pantalla lo muestre como lo que es.
     if (SIN_RESPUESTA.test(mensaje.trim())) {
-      return Response.json({ ok: true, mensaje: null, sinRespuesta: true });
+      return Response.json({ ok: true, mensaje: null, sinRespuesta: true, transcripta });
     }
-    return Response.json({ ok: true, mensaje: mensaje.trim(), sinRespuesta: false });
+    return Response.json({ ok: true, mensaje: mensaje.trim(), sinRespuesta: false, transcripta });
   } catch (e) {
     console.error(`[api:chat-agent/onboarding/ensayo] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });

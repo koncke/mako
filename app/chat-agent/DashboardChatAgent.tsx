@@ -81,7 +81,7 @@ export function DashboardChatAgent({ secuencias, serie, etiquetaEtapa }: {
 
       {sinDatos && (
         <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6 }}>
-          Todavía no hay envíos registrados: los gráficos se llenan solos cuando prendas el <strong style={{ color: 'var(--ink)' }}>Envío real</strong> del canal y el motor empiece a mandar. Mientras, podés dejar las secuencias de mensajes listas y probadas desde las tabs WhatsApp y Email.
+          Todavía no hay envíos registrados: los gráficos se llenan solos cuando prendas el <strong style={{ color: 'var(--ink)' }}>Envío real</strong> del canal y el motor empiece a mandar. Mientras, puedes dejar las secuencias de mensajes listas y probadas desde las tabs WhatsApp y Email.
         </div>
       )}
 

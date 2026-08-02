@@ -155,7 +155,7 @@ export function ChatAgentApp() {
             Chat Agent
           </h1>
           <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>
-            Tus <strong style={{ color: 'var(--ink)' }}>secuencias</strong>: probalas como el lead, chateá con MaKo-setter y mirá cómo rinden.
+            Tus <strong style={{ color: 'var(--ink)' }}>secuencias</strong>: pruébalas como el lead, chatea con MaKo-setter y mira cómo rinden.
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

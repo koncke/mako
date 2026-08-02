@@ -51,7 +51,7 @@ export function SimuladorEmail({ secuencia, nombreNegocio }: { secuencia: Secuen
       </div>
 
       {!secuencia && (
-        <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5, padding: 30 }}>Elegí una secuencia de mensajes arriba para ver sus emails.</div>
+        <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5, padding: 30 }}>Elige una secuencia de mensajes arriba para ver sus emails.</div>
       )}
       {secuencia && !paso && (
         <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5, padding: 30 }}>Esta secuencia de mensajes no tiene pasos de email.</div>
