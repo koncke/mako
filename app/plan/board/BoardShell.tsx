@@ -268,7 +268,11 @@ export function BoardShell({ board, scope }: {
   // tareas de otras personas sigue vivo (para repartirlas), pero saltarte encima en cada
   // entrada al plan sería un recordatorio de algo que ya resolviste: queda a un click,
   // dentro del selector de Fathom.
-  const hayRecibidas = !!borradorReunion || (pendientes.length > 0 && !pendientesCerradas && (nPendientes > 0 || nDeOtros > 0));
+  // SOLO a pedido. Antes se abría solo al entrar al plan y era lo primero que veías
+  // cada vez, tapando el tablero por algo que ya sabías: el botón de Fathom late y
+  // lleva el número. Ahora se llega desde ahí — el selector muestra cuántas esperan
+  // por reunión y al entrar a una se abre su borrador.
+  const hayRecibidas = !!borradorReunion;
   // Espera su turno detrás de cualquier otro pop-up (y del detalle de una tarjeta), pero
   // SE ESCONDE, no se desmonta. Desmontarlo tiraba a la basura media revisión: los
   // destildes, las reasignaciones y las respuestas viven en su estado, y abrir una
@@ -689,6 +693,18 @@ export function BoardShell({ board, scope }: {
         </div>
       )}
       {extraerReunion && <ReunionExtractModal labels={labels} archivoInicial={reunionArchivo}
+        // Los borradores que te MANDÓ otra persona no tienen una reunión tuya en la
+        // lista de Fathom (esa grabación es de su cuenta), así que sin esta sección
+        // quedaban sin puerta desde que el modal dejó de abrirse solo.
+        recibidos={pendientes.filter((p) => !!p.enviadoPor).map((p) => ({
+          id: p.id, de: p.enviadoPor ?? '',
+          titulo: p.fuenteTitulo || p.resumen || 'Tareas para confirmar',
+          n: p.tareas?.filter((t) => !t.esDeOtro).length ?? 0,
+        })).filter((r) => r.n > 0)}
+        onAbrirRecibido={(id) => {
+          const p = pendientes.find((x) => x.id === id);
+          if (p) { setExtraerReunion(false); setReunionArchivo(null); setBorradorReunion(p); }
+        }}
         onAbrirBorrador={(rid) => {
           setExtraerReunion(false); setReunionArchivo(null); setCargandoBorrador(true);
           void fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'por-reunion', recordingId: rid }) })

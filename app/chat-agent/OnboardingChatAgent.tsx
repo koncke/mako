@@ -91,7 +91,7 @@ type AyudaDef = {
 const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
   wa_no_oficial: {
     titulo: '¿Por qué el método no oficial?',
-    intro: 'Es tu propio número de WhatsApp, vinculado mediante un código QR. MaKo escribe desde ahí igual que lo harías tú: sin plantillas que aprobar y sin costo por mensaje.',
+    intro: 'Es tu propio número de WhatsApp, vinculado mediante un código QR. MaKo escribe desde ahí igual que lo harías tú: sin plantillas que aprobar y sin costo por mensaje. A cambio, es un número común y WhatsApp puede restringirlo si detecta un patrón de spam; abajo está qué se hace para evitarlo.',
     secciones: [
       {
         titulo: 'Ventajas frente al método oficial',
@@ -108,8 +108,8 @@ const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
         texto: 'El método oficial usa un número verificado por Meta, pensado para volumen alto y campañas de tráfico frío. A cambio exige plantillas aprobadas para cada mensaje de apertura, no admite notas de voz y se cobra por conversación. Los dos conviven: el oficial para escalar, este para conversar.',
       },
       {
-        titulo: 'Cómo se cuida el número',
-        texto: 'El envío está limitado a propósito para que WhatsApp no lo interprete como spam:',
+        titulo: 'El riesgo de bloqueo, y cómo se reduce',
+        texto: 'Conviene decirlo claro: este método usa un número común, y WhatsApp puede restringirlo o bloquearlo si detecta un patrón que le parece spam. No hay forma de eliminar ese riesgo — solo de reducirlo, y eso es lo que hace el sistema:',
         puntos: [
           'Un tope de mensajes por día y un máximo por tanda, para evitar ráfagas.',
           'Una espera mínima entre dos mensajes al mismo contacto.',
@@ -118,6 +118,10 @@ const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
           'Si el contacto responde, la secuencia se detiene automáticamente.',
           'Si a un mensaje le queda un dato sin completar, no se envía y recibes un aviso.',
         ],
+      },
+      {
+        titulo: 'Qué pasa si aun así lo bloquean',
+        texto: 'La mayoría de los bloqueos empiezan con una restricción temporal, no con la baja definitiva: durante unas horas el número no puede enviar y después se recupera. Se puede apelar desde la propia aplicación de WhatsApp. Lo que no se recupera es la antigüedad del número, así que conviene no forzar el volumen los primeros días y dejar que el historial de conversaciones crezca solo. El método oficial existe justamente para el caso en que necesites volumen alto sin exponer un número común.',
       },
     ],
     recomendacion: {

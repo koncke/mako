@@ -31,7 +31,7 @@ import { PersonaView } from './PersonaView';
 import { PersonalidadView } from './PersonalidadView';
 import { MatrizView } from './MatrizView';
 import { WizardShell, wizardInput } from '../_components/WizardShell';
-import { DatosDeMau } from '../_components/DatosDeMau';
+import { PanelAgencia } from '../_components/PanelAgencia';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
 import { GuardianIcon } from '../plan/board/GuardianIcon';
@@ -134,18 +134,6 @@ type Pantalla = {
 };
 
 // =============================================================================
-// Qué trae "los datos de Mau" en cada paso del alta. El botón grande de la
-// barra ("Completar como Mauricio") cierra el onboarding entero; este es el
-// acotado, para llenar SOLO el paso en el que estás y seguir el recorrido.
-const AMBITO_PASO: Record<string, string> = {
-  integraciones: 'integraciones', gemini: 'integraciones',
-  negocio: 'negocio', fase: 'negocio', tabs: 'negocio',
-  archivero: 'archivero',
-  entregable: 'creativos', avatares: 'creativos', persona: 'creativos',
-  personalidad: 'creativos', angulos: 'creativos',
-  funnel: 'funnel', plan: 'plan',
-};
-
 export function OnboardingWizard() {
   const [data, setData] = useState<WizardData | null>(null);
   const [errCarga, setErrCarga] = useState<string | null>(null);
@@ -472,14 +460,6 @@ export function OnboardingWizard() {
   // contexto de negocio del dueño y el onboarding cierra — así se prueba una tab
   // sin rehacer el wizard de cero cada vez. No copia contacto ni credenciales
   // (las pruebas tienen que llegarle a quien prueba, no a Mauricio).
-  const clonarDueno = async () => {
-    setPending(true);
-    try {
-      const j = await post('/api/onboarding', { action: 'clonar-dueno' });
-      if (!j.ok) { setError(String(j.error ?? 'No se pudo clonar la configuración.')); return; }
-      window.location.href = '/general';
-    } finally { setPending(false); }
-  };
 
   return (
     <>
@@ -542,29 +522,14 @@ export function OnboardingWizard() {
 
             <span style={{ flex: 1 }} />
 
-            {/* Los dos atajos hacen cosas DISTINTAS y el nombre tiene que
-                decirlo solo: uno llena el paso en el que estás y te deja
-                seguir; el otro llena el onboarding entero y lo cierra. */}
-            {AMBITO_PASO[p.paso] && (
-              <DatosDeMau
-                ambito={AMBITO_PASO[p.paso]} variante="oscuro" label="Completar este paso"
-                // Sin esto no se ve nada: router.refresh() no remonta un
-                // componente cliente, así que la tarjeta de la credencial seguía
-                // vacía y el paso seguía trabado aunque la copia hubiera salido
-                // bien. Se recarga la data del wizard y se remonta el form.
-                onListo={() => { void cargar(); setRemonte((n) => n + 1); }}
-              />
-            )}
-
-            <button type="button" onClick={clonarDueno} disabled={pending}
-              title="Completa todos los pasos con la configuración de Mauricio y cierra el onboarding. No copia su teléfono, sus grupos ni sus credenciales."
-              style={{
-                flex: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.05em', textTransform: 'uppercase',
-                padding: '7px 12px', borderRadius: 8, border: 'none', background: 'var(--accent-soft)',
-                color: '#171511', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: pending ? 0.6 : 1,
-              }}>
-              {pending ? 'Completando…' : 'Completar todo y salir'}
-            </button>
+            {/* El MISMO panel que en el resto de la app: un solo control, y no
+                botones distintos según dónde estés parado. Al traer algo se
+                recarga la data del wizard y se remontan los pasos, para que el
+                resultado aparezca en la pantalla en vez de quedar invisible. */}
+            <PanelAgencia
+              cliente={data.capa.nombre}
+              onCambio={() => { void cargar(); setRemonte((n) => n + 1); }}
+            />
 
             <button type="button" onClick={async () => { await fetch('/api/admin/impersonate', { method: 'DELETE' }); window.location.href = '/admin'; }}
               style={{
@@ -608,22 +573,22 @@ export function OnboardingWizard() {
         )}
 
         {/* ── El Archivero: tirá tus docs, MaKo arma el perfil (self-contained) ── */}
-        {p.key === 'archivero' && <Archivero onEstado={setAnswers} onListo={setArchiveroListo} registro={archiveroRef} />}
+        {p.key === 'archivero' && <Archivero key={`arch-${remonte}`} onEstado={setAnswers} onListo={setArchiveroListo} registro={archiveroRef} />}
 
         {/* ── Entregable tangible de la oferta (self-contained) ── */}
-        {p.key === 'entregable' && <EntregableView onListo={setEntregableListo} />}
+        {p.key === 'entregable' && <EntregableView key={`ent-${remonte}`} onListo={setEntregableListo} />}
 
         {/* ── Avatares: MaKo propone 3 subnichos desde el brief (self-contained) ── */}
-        {p.key === 'avatares' && <AvataresView onListo={setAvataresListo} />}
+        {p.key === 'avatares' && <AvataresView key={`ava-${remonte}`} onListo={setAvataresListo} />}
 
         {/* ── Persona: la cara de marca (fotos + descripción), self-contained ── */}
-        {p.key === 'persona' && <PersonaView onListo={setPersonaListo} />}
+        {p.key === 'persona' && <PersonaView key={`per-${remonte}`} onListo={setPersonaListo} />}
 
         {/* ── Personalidad: el quiz de la voz del creador (humaniza los guiones) ── */}
-        {p.key === 'personalidad' && <PersonalidadView onListo={setPersonalidadListo} />}
+        {p.key === 'personalidad' && <PersonalidadView key={`pers-${remonte}`} onListo={setPersonalidadListo} />}
 
         {/* ── La matriz de anuncios (avatar × razón), self-contained ── */}
-        {p.key === 'angulos' && <MatrizView onListo={setAngulosListo} />}
+        {p.key === 'angulos' && <MatrizView key={`ang-${remonte}`} onListo={setAngulosListo} />}
 
         {/* ── Brief: una pregunta, un campo ── */}
         {campoBrief && (campoBrief.type === 'textarea'

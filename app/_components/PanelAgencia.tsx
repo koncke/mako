@@ -58,7 +58,11 @@ function BotonIcono({ icono, titulo, onClick, disabled, tono = 'neutro', cargand
   );
 }
 
-export function PanelAgencia({ cliente }: { cliente: string }) {
+export function PanelAgencia({ cliente, onCambio }: {
+  cliente: string;
+  /** Se llama tras traer o eliminar. Sin él, refresco de ruta a secas. */
+  onCambio?: () => void;
+}) {
   const router = useRouter();
   const [disponible, setDisponible] = useState(false);
   const [ambitos, setAmbitos] = useState<Ambito[]>([]);
@@ -112,8 +116,9 @@ export function PanelAgencia({ cliente }: { cliente: string }) {
       setAviso({ texto: [base, ...detalle].join(' · '), tono: detalle.length ? 'error' : 'info' });
       await mirar();
       // Refresco suave: recargar la página entera pierde el scroll y el estado
-      // del formulario, y se lee como si la app se hubiera caído.
-      router.refresh();
+      // del formulario, y se lee como si la app se hubiera caído. Quien monta el
+      // panel puede pedir su propio refresco (el wizard remonta sus pasos).
+      if (onCambio) onCambio(); else router.refresh();
     } catch (e) {
       setAviso({ texto: e instanceof Error ? e.message : 'No se pudo completar.', tono: 'error' });
     } finally { setBusy(null); }
@@ -132,7 +137,9 @@ export function PanelAgencia({ cliente }: { cliente: string }) {
       // El navegador guarda borradores y marcas de leído sin distinguir
       // workspace: sin limpiarlos, el cliente reseteado sigue pareciendo lleno.
       try { Object.keys(localStorage).filter((k) => k.toLowerCase().startsWith('mako')).forEach((k) => localStorage.removeItem(k)); } catch { /* modo privado */ }
-      setTimeout(() => { window.location.href = '/onboarding'; }, 1400);
+      // Vaciado el workspace, el onboarding vuelve a estar pendiente: se va
+      // derecho ahí, sin pasar por una pantalla que ya no tiene nada que mostrar.
+      window.location.href = '/onboarding';
     } catch (e) {
       setAviso({ texto: e instanceof Error ? e.message : 'No se pudo resetear.', tono: 'error' });
     } finally { setBusy(null); }

@@ -72,10 +72,15 @@ export async function requireSesion(): Promise<RolWorkspace> {
  * esto, un suspendido con la cookie viva las renderizaba: no veía datos de nadie
  * (el scoping resuelve ws null → 0 filas) pero entraba igual a la app.
  */
-export async function requireCapa(nav: string): Promise<void> {
+export async function requireCapa(nav: string, opts?: { gateOnboarding?: boolean }): Promise<void> {
   await requireSesion();
   const capa = await getCapaActual();
   if (!tabEnCapa(nav, capa)) redirect(homeDeCapa(capa));
+  // El onboarding se gatea ACÁ y no en cada página. Antes quedaba librado a que
+  // el autor se acordara de una segunda línea, y en 2 de las 7 páginas que usan
+  // este guard el `return <PanelActivacion/>` se colaba EN EL MEDIO: la tab se
+  // veía con el onboarding a medio hacer, que es justo lo que la regla prohíbe.
+  if (opts?.gateOnboarding !== false) await guardOnboarding();
 }
 
 /**
@@ -96,6 +101,6 @@ export async function requireRolWs(
 ): Promise<void> {
   const rol = await requireSesion();
   if (rol !== 'admin' && !permitidos.includes(rol)) redirect(homeDeCapa(await getCapaActual()));
-  if (opts?.nav) await requireCapa(opts.nav);
+  if (opts?.nav) await requireCapa(opts.nav, { gateOnboarding: opts?.gateOnboarding });
   if (opts?.gateOnboarding !== false) await guardOnboarding();
 }

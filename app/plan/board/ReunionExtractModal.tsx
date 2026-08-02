@@ -40,7 +40,7 @@ function fmtFecha(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; }
 }
 
-export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onUsage, onClose, onAbrirBorrador }: {
+export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onUsage, onClose, onAbrirBorrador, recibidos, onAbrirRecibido }: {
   labels: Label[];
   existentes: Existente[];               // tareas abiertas del plan, para el dedup del Perro (punto 8)
   archivoInicial?: File | null;          // si entró por el botón "subir archivo" del toolbar (punto 7)
@@ -49,6 +49,14 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   onClose: () => void;
   /** entrar a una reunión que YA fue leída: se muestra lo que salió, no se re-analiza. */
   onAbrirBorrador?: (recordingId: number) => void;
+  /**
+   * Borradores que NO salieron de una reunión tuya: te los mandó otra persona desde la
+   * suya. No aparecen en la lista de Fathom (esa grabación no es de tu cuenta), así que
+   * sin esta sección quedarían sin ninguna puerta desde que el modal dejó de abrirse
+   * solo. Van arriba de todo, que es donde se buscan.
+   */
+  recibidos?: Array<{ id: string; de: string; titulo: string; n: number }>;
+  onAbrirRecibido?: (id: string) => void;
 }) {
   const [fase, setFase] = useState<'lista' | 'extrayendo' | 'validar' | 'revisar'>('lista');
   const [reuniones, setReuniones] = useState<ReunionMeta[] | null>(null);
@@ -212,6 +220,23 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                   style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: desde ? 'var(--ink)' : 'var(--faint)', fontSize: 13, outline: 'none', fontFamily: SANS }} />
                 {desde && <button type="button" onClick={() => setDesde('')} title="Quitar el filtro de fecha" style={{ padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>}
               </div>
+
+              {!!recibidos?.length && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>Te mandaron tareas</div>
+                  {recibidos.map((r) => (
+                    <button key={r.id} type="button" onClick={() => onAbrirRecibido?.(r.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--primary)', background: 'var(--primary-bg)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS }}>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.titulo}</span>
+                        <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>{r.de ? `Te las mandó ${r.de}` : 'Para confirmar'}</span>
+                      </span>
+                      <span style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: '#fff', background: 'var(--primary)', fontFamily: MONO }}>{r.n} esperando</span>
+                      <span style={{ flex: 'none', fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>Confirmar →</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {reuniones == null
                 ? <Cargando texto="Buscando tus reuniones en Fathom…" />

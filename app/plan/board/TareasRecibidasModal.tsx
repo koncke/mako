@@ -429,8 +429,13 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
-      <div style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+    // Cerrar clickeando AFUERA, como cualquier modal de la app. Cerrar no descarta
+    // nada: el borrador sigue esperando y se vuelve desde el botón de Fathom. Lo único
+    // que no se puede interrumpir es el aplicado (ahí sí queda el board a medio armar).
+    <div onClick={() => { if (!guardando) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
         {/* Cargando: tapa TODO el modal. Crear N tareas + puntuarlas por tandas puede
             tardar más de un minuto, y hasta ahora no se veía nada pasar. */}
