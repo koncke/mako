@@ -8,10 +8,10 @@
 // PanelMarketing), para que se vea idéntico y no haya que aprender otra cosa.
 //
 // ① canales  — conectar Y PROBAR (que llegue el mensaje de verdad)
-// ② contexto — cómo conversás: se lee de tus chats reales, no se te pregunta
-// ③ voz      — tus audios, con MaKo dictándote el guion antes de grabar
-// ④ ensayo   — MaKo hace de CLIENTE y vos respondés: de ahí salen las secuencias
-// ⑤ aprobar  — mirás lo que quedó, lo probás y lo prendés
+// ② contexto — cómo vendés: se lee de tus chats reales, filtrando el soporte
+// ③ voz      — los 3 audios, grabados acá mismo con el guion en tu voz
+// ④ ensayo   — MaKo hace de CLIENTE y vos respondés: de ahí salen las jugadas
+// ⑤ aprobar  — se revisa lo que quedó, se prueba y se activa
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { WizardShell } from '@/app/_components/WizardShell';
@@ -20,6 +20,8 @@ import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import { Icon } from '@/app/_components/icons';
 import { Avatar } from '../whatsapp/_shared/Avatar';
+import { GrabadorAudioPaso, type AudioGrabado } from './GrabadorAudioPaso';
+import { AUDIOS_PASO } from '@/lib/audios-paso';
 
 /**
  * Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda.
@@ -271,6 +273,12 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [otra, setOtra] = useState('');
   const [escribiendoOtra, setEscribiendoOtra] = useState(false);
 
+  // ── Paso voz: los 3 audios ──
+  const [audios, setAudios] = useState<AudioGrabado[] | null>(null);
+  const [porClave, setPorClave] = useState<Record<string, number>>({});
+  const [audioAbierto, setAudioAbierto] = useState<string | null>(null);
+  const [linkVideo, setLinkVideo] = useState('');
+
   // ── Paso ensayo ──
   const [msgs, setMsgs] = useState<HiloMsg[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right' } | null>(null);
@@ -414,6 +422,36 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     } finally { setBusy(false); }
   }
 
+  // ── Paso voz: biblioteca + qué audio cubre cada situación ──
+  const cargarAudios = useCallback(async () => {
+    try {
+      const j = await (await fetch('/api/chat-agent/audios', { cache: 'no-store' })).json();
+      if (!j.ok) { setAudios([]); return; }
+      setAudios(j.audios ?? []);
+      setPorClave(j.porClave ?? {});
+      setLinkVideo(j.linkVideo ?? '');
+      // Se abre el primero que falte, para no tener que buscar por dónde seguir.
+      const falta = AUDIOS_PASO.find((d) => !(j.porClave ?? {})[d.clave]);
+      setAudioAbierto(falta ? falta.clave : null);
+    } catch { setAudios([]); }
+  }, []);
+  useEffect(() => { if (pasoKeyRef.current === 'voz' && audios === null) void cargarAudios(); });
+
+  const audioDe = (clave: string): AudioGrabado | null => {
+    const id = porClave[clave];
+    return id ? ((audios ?? []).find((a) => a.id === id) ?? null) : null;
+  };
+  const nGrabados = AUDIOS_PASO.filter((d) => !!porClave[d.clave]).length;
+
+  async function guardarLinkVideo() {
+    try {
+      await fetch('/api/chat-agent/audios', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkVideo }),
+      });
+    } catch { /* se reintenta al volver a salir del campo */ }
+  }
+
   // ── Paso contexto: primero la lista de chats, después el análisis ──
   const cargarConvs = useCallback(async () => {
     try {
@@ -551,6 +589,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     // email, plantillas) se puede completar después — trabar ahí pierde gente.
     // En 'preguntas' el avance lo manejan los botones de la propia tarjeta.
     if (pasoKey === 'contexto') return vistaContexto === 'resumen' || hecho('contexto');
+    // Los 3 audios son obligatorios y se comprueban EN VIVO, no con `hecho`: si
+    // el dueño borra uno después, el paso tiene que volver a pedirlo. La salida
+    // sigue estando en "Lo configuro después" del pie — trabar el avance es lo
+    // pedido; dejar el paso sin ninguna salida lo convertiría en una trampa.
+    if (pasoKey === 'voz') return nGrabados === AUDIOS_PASO.length;
     if (pasoKey === 'ensayo') return msgs.filter((m) => m.fromMe).length >= 2 || hecho('ensayo');
     // El estado EN VIVO es la única prueba de que el número está vinculado. La
     // memoria de una vinculación pasada no lo es: con `hecho(...)` en el OR, el
@@ -920,20 +963,64 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         </div>
       )}
 
-      {/* ③ VOZ */}
+      {/* ③ VOZ — los 3 audios, grabados acá mismo */}
       {pasoKey === 'voz' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Grabá tus audios desde la sub-tab <strong style={{ color: 'var(--ink)' }}>🎙 Audios</strong> del Chat Agent. Con uno alcanza para arrancar: el de bienvenida.
-          </div>
-          <div style={{ padding: '13px 15px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.7 }}>
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>Guion del audio de bienvenida:</div>
-            ① Saludá y decí tu nombre.<br />
-            ② Reconocé de dónde salió el dato («me llegaron tus datos del anuncio»).<br />
-            ③ Dejale tu número por si necesita algo.<br />
-            ④ Una sola pregunta abierta: a qué se dedica su negocio.
-          </div>
-          <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Podés seguir sin grabarlo: los mensajes salen en texto hasta que lo hagas.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {audios === null ? (
+            <Cargando texto="Buscando tus audios…" />
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+                <span>{nGrabados} de {AUDIOS_PASO.length} grabados</span>
+                <span style={{ flex: 1, height: 3, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
+                  <span style={{ display: 'block', height: '100%', width: `${(nGrabados / AUDIOS_PASO.length) * 100}%`, background: 'var(--good)', transition: 'width .25s' }} />
+                </span>
+              </div>
+
+              {AUDIOS_PASO.map((d) => (
+                <GrabadorAudioPaso
+                  key={d.clave}
+                  def={d}
+                  grabado={audioDe(d.clave)}
+                  abierto={audioAbierto === d.clave}
+                  onToggle={() => setAudioAbierto((a) => (a === d.clave ? null : d.clave))}
+                  onGrabado={(a, mapa) => {
+                    setAudios((prev) => [a, ...(prev ?? []).filter((x) => x.id !== a.id)]);
+                    setPorClave(mapa);
+                    // Al terminar uno, se abre el siguiente que falte: el paso se
+                    // recorre solo en vez de obligar a buscar cuál sigue.
+                    const falta = AUDIOS_PASO.find((x) => x.clave !== d.clave && !mapa[x.clave]);
+                    setAudioAbierto(falta ? falta.clave : null);
+                  }}
+                  onBorrado={(id) => {
+                    setAudios((prev) => (prev ?? []).filter((x) => x.id !== id));
+                    setPorClave((prev) => Object.fromEntries(Object.entries(prev).filter(([, v]) => v !== id)));
+                  }}
+                  onError={setErr}
+                />
+              ))}
+
+              {/* El link del video se PIDE, no se adivina: no hay ningún dato en
+                  la app que diga que el funnel es de video. Si está, el guion de
+                  la bienvenida suma la frase que lo ofrece; si no, ni se menciona
+                  — un audio que promete un link que no llega es peor que nada. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, textAlign: 'left' }}>
+                <label style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+                  Link de tu video de ventas <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>· opcional</span>
+                </label>
+                <input
+                  value={linkVideo}
+                  onChange={(e) => setLinkVideo(e.target.value)}
+                  onBlur={() => void guardarLinkVideo()}
+                  placeholder="https://…"
+                  style={{ ...inp, textAlign: 'left' }}
+                />
+                <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
+                  Si tu anuncio invita a ver un video, el audio de bienvenida se lo ofrece y el link le llega por escrito enseguida.
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -956,7 +1043,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       {pasoKey === 'aprobar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Con lo que ensayamos armé tus jugadas. Están <strong style={{ color: 'var(--ink)' }}>pausadas</strong>: entrá al Chat Agent, escuchá cómo quedaron, probalas en tu teléfono y prendelas cuando estés listo.
+            Con lo que ensayamos armé tus jugadas. Están <strong style={{ color: 'var(--ink)' }}>pausadas</strong>: entra al Chat Agent, escucha cómo quedaron, pruébalas en tu teléfono y actívalas cuando estés listo.
           </div>
           <div style={okBox}>No se envía nada a ningún lead hasta que actives «Envío real».</div>
         </div>

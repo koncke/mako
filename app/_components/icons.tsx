@@ -51,6 +51,8 @@ const PATHS: Record<string, ReactNode> = {
   trash: (<><path d="M4 6.5h16" /><path d="M9.5 6.5V5a1.3 1.3 0 0 1 1.3-1.3h2.4A1.3 1.3 0 0 1 14.5 5v1.5" /><path d="M6.6 6.5l.85 12.6a1.8 1.8 0 0 0 1.8 1.7h5.5a1.8 1.8 0 0 0 1.8-1.7l.85-12.6" /><path d="M10.4 10.5v6M13.6 10.5v6" /></>),
   // Tilde: guardar ESTA credencial (una por fila, sin botón global).
   check: (<path d="M4.5 12.5l5 5 10-11" />),
+  // Micrófono: grabar una nota de voz dentro del propio paso del onboarding.
+  mic: (<><rect x="9" y="2.8" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" /><path d="M12 18v3.2" /></>),
   // Interrogación: "¿cómo consigo ESTA key?" — la ayuda es por credencial, no
   // por servicio (no todas se sacan del mismo lado).
   help: (<><circle cx="12" cy="12" r="9.3" /><path d="M9.4 9.4a2.7 2.7 0 1 1 3.4 2.7c-.5.14-.8.6-.8 1.12v.68" /><path d="M12 17.1h.01" /></>),
