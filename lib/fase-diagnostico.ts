@@ -31,7 +31,7 @@
 
 export type CuelloId = 'oferta' | 'conversion' | 'sistema' | 'delegacion' | 'foco';
 
-/** Una jugada de la fase. `titulo` = el título corto del punto; las críticas van
+/** Una secuencia de mensajes de la fase. `titulo` = el título corto del punto; las críticas van
  *  marcadas (críticas primero, en orden). El ORDEN del array importa: es el orden
  *  en que hay que hacerlas (oferta → activo → invertir → creativos → medir → venta). */
 export type Accion = { titulo: string; texto: string; critica: boolean };
@@ -63,7 +63,7 @@ export type FaseDef = {
   sintomas: string[];
   /** El funnel recomendado para esta fase (según su nivel de complejidad). */
   funnelSugerido: FunnelSugerido;
-  /** Las jugadas de esta fase, EN ORDEN de ejecución. Las `critica:true` van primero. */
+  /** Las secuencias de mensajes de esta fase, EN ORDEN de ejecución. Las `critica:true` van primero. */
   acciones: Accion[];
   /** Cómo repartir el presupuesto+esfuerzo en esta fase. */
   estrategia: Estrategia;

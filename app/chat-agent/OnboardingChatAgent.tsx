@@ -10,7 +10,7 @@
 // ① canales  — conectar Y PROBAR (que llegue el mensaje de verdad)
 // ② contexto — cómo vendés: se lee de tus chats reales, filtrando el soporte
 // ③ voz      — los 3 audios, grabados acá mismo con el guion en tu voz
-// ④ ensayo   — MaKo hace de CLIENTE y vos respondés: de ahí salen las jugadas
+// ④ ensayo   — MaKo hace de CLIENTE y vos respondés: de ahí salen las secuencias de mensajes
 // ⑤ aprobar  — se revisa lo que quedó, se prueba y se activa
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -86,7 +86,7 @@ const PREGUNTA: Record<PasoKey, { q: string; sub?: string }> = {
   contexto: { q: 'Tu forma de escribir', sub: 'Analizo tus conversaciones para aprender tu tono, tus preguntas y tu forma de cerrar.' },
   voz: { q: 'Tus audios' },
   ensayo: { q: 'Ensayo de conversación' },
-  aprobar: { q: 'Tus jugadas' },
+  aprobar: { q: 'Tus secuencias de mensajes' },
   wa_oficial: { q: 'Tu WhatsApp: Método Oficial' },
   wa_oficial_plantilla: { q: 'Tu primera plantilla' },
   wa_oficial_prueba: { q: 'Verificación del canal oficial' },
@@ -207,7 +207,7 @@ const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
 };
 
 // Qué significa "completar con los datos de Mau" en cada paso: conectar trae
-// sus credenciales, el resto trae sus jugadas y su voz.
+// sus credenciales, el resto trae sus secuencias y su voz.
 const AMBITO_DEL_PASO: Record<PasoKey, string> = {
   wa_no_oficial: 'integraciones', wa_no_oficial_prueba: 'integraciones',
   wa_oficial: 'integraciones', wa_oficial_plantilla: 'integraciones', wa_oficial_prueba: 'integraciones',
@@ -813,10 +813,10 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       {pasoKey === 'wa_oficial_plantilla' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Meta revisa cada mensaje de apertura antes de dejarte usarlo (tarda de minutos a unas horas). Como ya escribiste tus jugadas, mando una de esas a aprobar en vez de inventar una nueva.
+            Meta revisa cada mensaje de apertura antes de dejarte usarlo (tarda de minutos a unas horas). Como ya escribiste tus secuencias de mensajes, mando una de esas a aprobar en vez de inventar una nueva.
           </div>
           <div style={{ padding: '12px 14px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Se manda desde la sub-tab <strong style={{ color: 'var(--ink)' }}>Plantillas</strong> de WhatsApp, o desde el paso de MaKo de cada jugada. Mientras Meta no apruebe, el motor no manda ese paso — nunca sale un mensaje que Meta rechazaría.
+            Se manda desde la sub-tab <strong style={{ color: 'var(--ink)' }}>Plantillas</strong> de WhatsApp, o desde el paso de MaKo de cada secuencia de mensajes. Mientras Meta no apruebe, el motor no manda ese paso — nunca sale un mensaje que Meta rechazaría.
           </div>
         </div>
       )}
@@ -825,7 +825,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       {pasoKey === 'wa_oficial_prueba' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Con la plantilla aprobada, prueba una jugada desde su perfil («Probar de verdad»): te llega exactamente igual que al lead.
+            Con la plantilla aprobada, prueba una secuencia de mensajes desde su perfil («Probar de verdad»): te llega exactamente igual que al lead.
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Si aún está en revisión puedes continuar: el resto de la sección funciona igual.</div>
         </div>
@@ -842,7 +842,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       {pasoKey === 'email_prueba' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Cuando el dominio esté verificado, prueba una jugada con pasos de email desde su perfil: te llega el correo a tu casilla, con tu remitente.
+            Cuando el dominio esté verificado, prueba una secuencia de mensajes con pasos de email desde su perfil: te llega el correo a tu casilla, con tu remitente.
           </div>
         </div>
       )}
@@ -1158,7 +1158,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       {pasoKey === 'aprobar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Con lo que ensayamos armé tus jugadas. Están <strong style={{ color: 'var(--ink)' }}>pausadas</strong>: entra al Chat Agent, escucha cómo quedaron, pruébalas en tu teléfono y actívalas cuando estés listo.
+            Con lo que ensayamos armé tus secuencias de mensajes. Están <strong style={{ color: 'var(--ink)' }}>pausadas</strong>: entra al Chat Agent, escucha cómo quedaron, pruébalas en tu teléfono y actívalas cuando estés listo.
           </div>
           <div style={okBox}>No se envía nada a ningún lead hasta que actives «Envío real».</div>
         </div>

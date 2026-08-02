@@ -1,9 +1,9 @@
 // =============================================================================
-// setting-jugadas — fetch, estrategia y prueba en vivo de la tab /setting
+// setting-secuencias — fetch, estrategia y prueba en vivo de la tab /setting
 // =============================================================================
-// La JUGADA (lib/setting-estrategia.ts) vive en nutricion_secuencias.estrategia.
-// Acá: getJugadas (secuencias + estrategia + métricas 30d), guardarEstrategia,
-// crearSecuenciaJugada (wizard paso 1) y probarSecuencia (paso 6 — manda TODOS
+// La ESTRATEGIA (lib/setting-estrategia.ts) vive en nutricion_secuencias.estrategia.
+// Acá: getSecuencias (secuencias + estrategia + métricas 30d), guardarEstrategia,
+// crearSecuenciaDesdeEtapa (wizard paso 1) y probarSecuencia (paso 6 — manda TODOS
 // los pasos al contacto del admin, marcados [PRUEBA], SIN tocar inscripciones
 // ni nutricion_envios: cero contaminación de KPIs y del guard anti-ban).
 
@@ -11,7 +11,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
 import { parseEstrategia, type Estrategia } from './setting-estrategia';
-import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasJugada, type PuntoSerie } from './setting-metricas';
+import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasSecuencia, type PuntoSerie } from './setting-metricas';
 import { getContactoReportes } from './perfil';
 import { getInstanciaRow } from './evolution';
 import { enviarYEspejar, enviarAudioYEspejar } from './evolution-envio';
@@ -19,10 +19,10 @@ import { getAudio, audioBase64 } from './setting-audios';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { aplicarVariables, valoresVariablesLead } from './template-vars';
 
-export type Jugada = Omit<SecuenciaConStats, 'estrategia'> & { estrategia: Estrategia | null; metricas: MetricasJugada };
+export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & { estrategia: Estrategia | null; metricas: MetricasSecuencia };
 
-/** Jugadas + métricas 30d + la serie diaria del workspace (una sola pasada). */
-export async function getSettingData(): Promise<{ jugadas: Jugada[]; serie: PuntoSerie[] }> {
+/** Secuencias + métricas 30d + la serie diaria del workspace (una sola pasada). */
+export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrategia[]; serie: PuntoSerie[] }> {
   const supabase = await getTenantDb();
   const desde = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
   const [secs, envios, inscs] = await Promise.all([
@@ -33,16 +33,16 @@ export async function getSettingData(): Promise<{ jugadas: Jugada[]; serie: Punt
   const filasEnvio = (envios.data ?? []) as FilaEnvio[];
   const filasInsc = (inscs.data ?? []) as FilaInsc[];
   const met = agregarMetricas(filasEnvio, filasInsc);
-  const jugadas = secs.map((s) => ({
+  const secuencias = secs.map((s) => ({
     ...s,
     estrategia: parseEstrategia(s.estrategia),
     metricas: met.get(s.id) ?? { ...METRICAS_CERO },
   }));
-  return { jugadas, serie: serieDiaria(filasEnvio, filasInsc, new Date().toISOString()) };
+  return { secuencias, serie: serieDiaria(filasEnvio, filasInsc, new Date().toISOString()) };
 }
 
-export async function getJugadas(): Promise<Jugada[]> {
-  return (await getSettingData()).jugadas;
+export async function getSecuencias(): Promise<SecuenciaConEstrategia[]> {
+  return (await getSettingData()).secuencias;
 }
 
 export async function guardarEstrategia(secuenciaId: number, estrategia: Estrategia): Promise<void> {
@@ -61,9 +61,9 @@ export async function guardarEstrategia(secuenciaId: number, estrategia: Estrate
  * agnóstica, trigger 'etapa_actual'). Nace PAUSADA con 2 pasos de esqueleto que
  * MaKo escribe en el paso 5; aprobar la prende.
  */
-export async function crearSecuenciaJugada(etapa: string, nombre: string): Promise<number> {
+export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): Promise<number> {
   const supabase = await getTenantDb();
-  const clave = `jugada-${etapa}-${Date.now().toString(36)}`;
+  const clave = `secuencia-${etapa}-${Date.now().toString(36)}`;
   const pasos = [
     { orden: 1, canal: 'email', delay_horas: 24, asunto: '[MaKo lo escribe]', cuerpo: '[MaKo lo escribe en el paso de redacción]', template_wa: null },
     { orden: 2, canal: 'whatsapp', delay_horas: 48, asunto: null, cuerpo: '[MaKo lo escribe en el paso de redacción]', proveedor: 'no_oficial', template_wa: null },
@@ -73,14 +73,14 @@ export async function crearSecuenciaJugada(etapa: string, nombre: string): Promi
     .insert({ clave, nombre, etapa, trigger_tipo: 'etapa_actual', activa: false, pasos })
     .select('id')
     .single();
-  if (error) throw new Error(`crearSecuenciaJugada: ${error.message}`);
+  if (error) throw new Error(`crearSecuenciaDesdeEtapa: ${error.message}`);
   return (data as { id: number }).id;
 }
 
 // ── Prompts del wizard (editables en /configuraciones vía prompt-registry) ────
 
-export const SETTING_GANCHO_TEMPLATE = `Sos MaKo armando una jugada de setting. El negocio: {{perfil}}.
-Objetivo de la jugada: {{objetivo}}. Etapa del lead: {{etapa}}.
+export const SETTING_GANCHO_TEMPLATE = `Sos MaKo armando una secuencia de mensajes de setting. El negocio: {{perfil}}.
+Objetivo de la secuencia de mensajes: {{objetivo}}. Etapa del lead: {{etapa}}.
 Proponé 3 GANCHOS concretos (lead magnet, oferta puntual, motivo de re-contacto) que este negocio puede ofrecer YA — nada genérico y nada de inventar recursos que no existen: derivalos del perfil. Máximo 15 palabras cada uno.
 Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "..."]}`;
 
@@ -93,7 +93,7 @@ Deducí qué separa a un cliente ideal de uno que no sirve, y devolvelo como reg
 Reglas: basate SOLO en los patrones que ves en los datos y en el perfil del negocio — no inventes umbrales de facturación ni de tamaño que no aparezcan. Si los datos no alcanzan para una regla, no la escribas. Cada regla en una frase corta y verificable en un chat.
 Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"califica": ["...", "..."], "descalifica": ["...", "..."]}`;
 
-export const SETTING_PREGUNTAS_TEMPLATE = `Sos MaKo armando la cualificación por WhatsApp de una jugada de setting. El negocio: {{perfil}}.
+export const SETTING_PREGUNTAS_TEMPLATE = `Sos MaKo armando la cualificación por WhatsApp de una secuencia de mensajes de setting. El negocio: {{perfil}}.
 Objetivo: {{objetivo}}. Etapa del lead: {{etapa}}.
 Proponé 4 PREGUNTAS de cualificación cerradas y cortas (responderlas toma menos de 15 segundos), en el orden en que un setter las haría, que separen a un lead calificado de uno que no. Sin preguntas obvias ni invasivas.
 Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "...", "..."]}`;
@@ -203,7 +203,7 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
     return { ok: false, error: `No se pudo enviar ningún paso de prueba. ${avisos.join(' ')}`.trim() };
   }
 
-  // Registrar la prueba SOLO si la secuencia ya tiene jugada definida (merge).
+  // Registrar la prueba SOLO si la secuencia ya tiene secuencia definida (merge).
   const est = parseEstrategia(sec.estrategia);
   if (est) {
     try { await guardarEstrategia(secuenciaId, { ...est, probada_at: new Date().toISOString() }); }

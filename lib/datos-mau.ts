@@ -158,9 +158,9 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     ],
   },
   setting: {
-    titulo: 'Jugadas y voz',
+    titulo: 'Secuencias de mensajes y voz',
     seccion: 'Chat Agent',
-    label: 'las jugadas y la voz de Mau',
+    label: 'las secuencias de mensajes y la voz de Mau',
     settings: ['mako.voz_guia'],
     tablas: [
       // Pausadas SIEMPRE: un workspace de prueba no arranca mandando solo.

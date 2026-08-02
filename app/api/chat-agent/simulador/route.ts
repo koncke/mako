@@ -2,9 +2,9 @@
 // API: simulador de conversación de /setting — MaKo responde como setter
 // =============================================================================
 // POST { secuenciaId, historial: [{ de: 'lead'|'negocio', texto }] } → { respuesta }
-// El dueño (o el setter) escribe como el lead y MaKo contesta con la jugada de
+// El dueño (o el setter) escribe como el lead y MaKo contesta con la secuencia de mensajes de
 // la secuencia. Sandbox puro: no envía nada, no persiste nada. Admin y setter
-// (el setter entrena con el simulador; no puede editar jugadas igual).
+// (el setter entrena con el simulador; no puede editar secuencias igual).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';

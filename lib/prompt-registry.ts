@@ -39,7 +39,7 @@ import {
   SCRIPT_VALORACION_USER_TEMPLATE,
 } from './ads-analyst';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
-import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-jugadas';
+import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
 import { SETTING_ENSAYO_SYSTEM_TEMPLATE } from '@/app/api/chat-agent/onboarding/ensayo/route';
 import { VOZ_SEGMENTAR_TEMPLATE, VOZ_ANALISIS_SYSTEM_TEMPLATE, VOZ_ANALISIS_USER_TEMPLATE, VOZ_PREGUNTAS_TEMPLATE } from './chat-agent-voz';
@@ -345,21 +345,21 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
-    group: 'Setting — wizard de jugadas',
+    group: 'Setting — wizard de secuencias de mensajes',
     icon: '🎯',
     blurb: 'Sugerencias del wizard de la tab Setting: ganchos (lead magnet / oferta) y preguntas de cualificación por cohorte. Corren con la IA barata.',
     entries: [
       {
         key: 'setting.gancho', source: 'override',
         label: 'Sugerir ganchos (user)', kind: 'user', dynamic: true,
-        variables: [v('objetivo', 'objetivo de la jugada'), v('etapa', 'etapa del lead en el funnel'), v('perfil', 'perfil del negocio')], scope: 'static-only', sensitive: false,
+        variables: [v('objetivo', 'objetivo de la secuencia de mensajes'), v('etapa', 'etapa del lead en el funnel'), v('perfil', 'perfil del negocio')], scope: 'static-only', sensitive: false,
         default: SETTING_GANCHO_TEMPLATE,
         context: 'Tres ganchos concretos derivados del perfil del negocio. No borres los slots {{objetivo}}/{{etapa}}/{{perfil}} ni el formato de salida (array JSON).',
       },
       {
         key: 'setting.preguntas', source: 'override',
         label: 'Sugerir preguntas de cualificación (user)', kind: 'user', dynamic: true,
-        variables: [v('objetivo', 'objetivo de la jugada'), v('etapa', 'etapa del lead en el funnel'), v('perfil', 'perfil del negocio')], scope: 'static-only', sensitive: false,
+        variables: [v('objetivo', 'objetivo de la secuencia de mensajes'), v('etapa', 'etapa del lead en el funnel'), v('perfil', 'perfil del negocio')], scope: 'static-only', sensitive: false,
         default: SETTING_PREGUNTAS_TEMPLATE,
         context: 'Cuatro preguntas cerradas y cortas, en orden de setter. No borres los slots ni el formato de salida (array JSON).',
       },
@@ -408,9 +408,9 @@ export const REGISTRY: Group[] = [
       {
         key: 'setting.simulador', source: 'override',
         label: 'Simulador — MaKo como setter (system)', kind: 'system', dynamic: true,
-        variables: [v('voz', 'guía de voz destilada del negocio'), v('jugada', 'objetivo + gancho + preguntas de la jugada')], scope: 'static-only', sensitive: false,
+        variables: [v('voz', 'guía de voz destilada del negocio'), v('secuencia', 'objetivo + gancho + preguntas de la secuencia de mensajes')], scope: 'static-only', sensitive: false,
         default: SETTING_SIMULADOR_SYSTEM_TEMPLATE,
-        context: 'El cerebro del setter en el simulador de /setting (y la base del Setter IA). No borres los slots {{voz}}/{{jugada}} ni las reglas de placeholders [tu link …].',
+        context: 'El cerebro del setter en el simulador de /setting (y la base del Setter IA). No borres los slots {{voz}}/{{secuencia}} ni las reglas de placeholders [tu link …].',
       },
     ],
   },

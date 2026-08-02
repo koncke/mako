@@ -2,7 +2,7 @@
 // setting-simulador — MaKo responde como SETTER en el simulador de /setting
 // =============================================================================
 // El dueño escribe COMO EL LEAD y MaKo contesta en el rol de setter del negocio,
-// usando la JUGADA de la secuencia (objetivo + gancho + preguntas de
+// usando la ESTRATEGIA de la secuencia (objetivo + gancho + preguntas de
 // cualificación), la voz destilada, el perfil y el funnel. Es el SANDBOX del
 // Setter IA (fase 2): mismo cerebro, cero envíos reales, nada se persiste.
 
@@ -20,23 +20,23 @@ export const SETTING_SIMULADOR_SYSTEM_TEMPLATE = `Sos MaKo actuando como el SETT
 VOZ DEL NEGOCIO (así escribís):
 {{voz}}
 
-LA JUGADA (tu guion estratégico):
-{{jugada}}
+LA SECUENCIA (tu guion estratégico):
+{{secuencia}}
 
 REGLAS DEL SETTER:
 - Mensajes CORTOS de WhatsApp: 1 a 4 líneas. Nunca un choclo.
-- Cualificá con las preguntas de la jugada DE A UNA, hiladas con naturalidad en la charla — jamás como interrogatorio ni encuesta.
-- Si el lead muestra interés o ya calificó, llevalo al objetivo de la jugada (agendar → ofrecé [tu link de agenda]; pago → [tu link de pago]). Los placeholders [tu link …] se dejan TAL CUAL.
+- Cualificá con las preguntas de la secuencia de mensajes DE A UNA, hiladas con naturalidad en la charla — jamás como interrogatorio ni encuesta.
+- Si el lead muestra interés o ya calificó, llevalo al objetivo de la secuencia de mensajes (agendar → ofrecé [tu link de agenda]; pago → [tu link de pago]). Los placeholders [tu link …] se dejan TAL CUAL.
 - Objeciones: validá primero, respondé corto, retomá el hilo. Sin presionar ni mendigar ("¿sigues interesado?" está prohibido).
 - Si el lead pide algo que no sabés (precio exacto, disponibilidad), no inventes: ofrecé resolverlo en la llamada o decí que lo confirmás.
 - Salida digna siempre: si el lead no quiere, cerrás bien la puerta queda abierta.
 
-CONTEXTO: esto es un SIMULADOR — el "lead" es el dueño del negocio probando la jugada antes de prenderla. Respondé exactamente como responderías a un lead real (no rompas el personaje ni menciones que es una prueba). Devolvé SOLO el texto del mensaje de WhatsApp, sin comillas ni preámbulo.`;
+CONTEXTO: esto es un SIMULADOR — el "lead" es el dueño del negocio probando la secuencia de mensajes antes de prenderla. Respondé exactamente como responderías a un lead real (no rompas el personaje ni menciones que es una prueba). Devolvé SOLO el texto del mensaje de WhatsApp, sin comillas ni preámbulo.`;
 
 export type TurnoSim = { de: 'lead' | 'negocio'; texto: string };
 
 /**
- * ¿Este lead califica según el criterio de la jugada? (reunión 31/07: "si no
+ * ¿Este lead califica según el criterio de la secuencia de mensajes? (reunión 31/07: "si no
  * son calificadas en chat, ya tenemos que cancelar las llamadas"). Clasificación
  * simple → IA barata. Devuelve null si no hay criterio cargado o no alcanza la
  * evidencia: NUNCA descalifica por las dudas.
@@ -46,7 +46,7 @@ export async function evaluarCalificacion(secuenciaId: number, historial: TurnoS
   const sec = secs.find((s) => s.id === secuenciaId);
   const est = sec ? parseEstrategia(sec.estrategia) : null;
   if (!est || (!est.criterio.califica.length && !est.criterio.descalifica.length)) {
-    return { califica: null, razon: 'la jugada todavía no tiene criterio de calificación' };
+    return { califica: null, razon: 'la secuencia de mensajes todavía no tiene criterio de calificación' };
   }
   const charla = historial.slice(-14).map((t) => `${t.de === 'lead' ? 'LEAD' : 'NEGOCIO'}: ${t.texto}`).join('\n');
   const { chatCheap } = await import('./ai-cheap');
@@ -80,7 +80,7 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
   if (!sec) return { ok: false, error: 'Esa secuencia no existe en este workspace.' };
 
   const est = parseEstrategia(sec.estrategia);
-  const jugada = [
+  const secuencia = [
     `Secuencia: ${sec.nombre} (etapa del lead: ${sec.etapa}).`,
     est ? `Objetivo: ${est.objetivo}.` : 'Objetivo: mover al lead a la siguiente etapa.',
     est?.objetivo === 'preparar'
@@ -106,7 +106,7 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
   const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
   const systemBase = await renderPrompt('setting.simulador', SETTING_SIMULADOR_SYSTEM_TEMPLATE, {
     voz: voz || '(sin guía de voz destilada: escribí cercano y profesional, sin sonar a bot)',
-    jugada,
+    secuencia,
   });
   let system = `${persona}\n\n${nucleo}\n\n${systemBase}`.trim();
   if (perfil) system += `\n\nPERFIL DEL NEGOCIO:\n${perfil}`;

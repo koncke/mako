@@ -1,7 +1,7 @@
 // =============================================================================
-// API: jugadas de setting (tab /setting)
+// API: secuencias de setting (tab /setting)
 // =============================================================================
-// GET  → { jugadas, rolAdmin, objetivos, etapas, leadMagnets } — admin y setter
+// GET  → { secuencias, rolAdmin, objetivos, etapas, leadMagnets } — admin y setter
 //        del workspace (setter solo lectura; el POST se lo niega).
 // POST → admin-only:
 //        { action:'crear', etapa, nombre }                → secuencia nueva (wizard paso 1)
@@ -13,10 +13,10 @@
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import {
-  getSettingData, guardarEstrategia, crearSecuenciaJugada, probarSecuencia,
+  getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia,
   muestraParaCriterio, muestraATexto,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
-} from '@/lib/setting-jugadas';
+} from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
 import { chatCheap } from '@/lib/ai-cheap';
 import { chatClaude } from '@/lib/anthropic';
@@ -33,30 +33,30 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export async function GET() {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
   if (ws == null && rol === 'admin') {
-    // Admin de agencia sin impersonar: no hay workspace del que leer jugadas.
+    // Admin de agencia sin impersonar: no hay workspace del que leer secuencias.
     return Response.json({ ok: false, error: 'Entrá al workspace de un cliente (impersonando) para ver su Setting.' }, { status: 400 });
   }
   if (ws == null || (rol !== 'admin' && rol !== 'setter')) {
     return Response.json({ ok: false, error: 'Sin acceso a Setting en este workspace.' }, { status: 403 });
   }
   try {
-    const [{ jugadas, serie }, funnel, leadMagnets, wsRow] = await Promise.all([
+    const [{ secuencias, serie }, funnel, leadMagnets, wsRow] = await Promise.all([
       getSettingData(),
       getFunnel().catch(() => null),
       getEntregables().catch(() => []),
       getWorkspace(ws).catch(() => null),
     ]);
-    // Etapas elegibles para colgar una jugada: nutrición + pipeline (sin salidas).
+    // Etapas elegibles para colgar una secuencia de mensajes: nutrición + pipeline (sin salidas).
     const etapas = (funnel?.stages ?? [])
       .filter((s) => (s.band ?? 'pipeline') !== 'salidas')
       .map((s) => ({ value: s.key, label: s.label }));
     return Response.json({
-      ok: true, jugadas, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
+      ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
       negocio: wsRow?.nombre ?? '',
     });
   } catch (e) {
-    console.error(`[api:setting/jugadas GET] ${msg(e)}`);
+    console.error(`[api:setting/secuencias GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
   }
 }
@@ -82,7 +82,7 @@ async function sugerir(template: string, key: string, objetivo: string, etapa: s
 export async function POST(req: NextRequest) {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
   if (ws == null || rol !== 'admin') {
-    return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar jugadas.' }, { status: 403 });
+    return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar secuencias.' }, { status: 403 });
   }
   let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
@@ -91,8 +91,8 @@ export async function POST(req: NextRequest) {
     if (body.action === 'crear') {
       const etapa = String(body.etapa ?? '').trim();
       const nombre = String(body.nombre ?? '').trim();
-      if (!etapa || !nombre) return Response.json({ ok: false, error: 'Faltan la etapa y el nombre de la jugada.' }, { status: 400 });
-      const id = await crearSecuenciaJugada(etapa, nombre);
+      if (!etapa || !nombre) return Response.json({ ok: false, error: 'Faltan la etapa y el nombre de la secuencia de mensajes.' }, { status: 400 });
+      const id = await crearSecuenciaDesdeEtapa(etapa, nombre);
       return Response.json({ ok: true, secuenciaId: id });
     }
     if (body.action === 'sugerir-criterio') {
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
   } catch (e) {
-    console.error(`[api:setting/jugadas POST] ${msg(e)}`);
+    console.error(`[api:setting/secuencias POST] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
   }
 }

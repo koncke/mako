@@ -3,11 +3,11 @@
 // =============================================================================
 // SimuladorEmail — cliente de correo simulado de la tab /setting
 // =============================================================================
-// Muestra cada paso de EMAIL de la jugada como lo vería el lead: remitente,
+// Muestra cada paso de EMAIL de la secuencia de mensajes como lo vería el lead: remitente,
 // asunto, preheader y cuerpo. Navegable entre pasos, con el timing anotado.
 
 import { useState, type CSSProperties } from 'react';
-import type { JugadaDto } from './ChatAgentApp';
+import type { SecuenciaDto } from './ChatAgentApp';
 
 // Tolera {{nombre}} y {nombre} (los seeds viejos de email usan llave simple).
 function conVars(s: string): string {
@@ -26,9 +26,9 @@ function fmtTiming(h: number): string {
 
 const chip: CSSProperties = { display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--dim)', fontSize: '11px', fontWeight: 600 };
 
-export function SimuladorEmail({ jugada, nombreNegocio }: { jugada: JugadaDto | null; nombreNegocio: string }) {
+export function SimuladorEmail({ secuencia, nombreNegocio }: { secuencia: SecuenciaDto | null; nombreNegocio: string }) {
   const [idx, setIdx] = useState(0);
-  const emails = (jugada?.pasos ?? []).filter((p) => p.canal === 'email');
+  const emails = (secuencia?.pasos ?? []).filter((p) => p.canal === 'email');
   const paso = emails[Math.min(idx, Math.max(0, emails.length - 1))] ?? null;
 
   return (
@@ -50,11 +50,11 @@ export function SimuladorEmail({ jugada, nombreNegocio }: { jugada: JugadaDto | 
         )}
       </div>
 
-      {!jugada && (
-        <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5, padding: 30 }}>Elegí una jugada arriba para ver sus emails.</div>
+      {!secuencia && (
+        <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5, padding: 30 }}>Elegí una secuencia de mensajes arriba para ver sus emails.</div>
       )}
-      {jugada && !paso && (
-        <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5, padding: 30 }}>Esta jugada no tiene pasos de email.</div>
+      {secuencia && !paso && (
+        <div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13.5, padding: 30 }}>Esta secuencia de mensajes no tiene pasos de email.</div>
       )}
 
       {paso && (

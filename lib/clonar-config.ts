@@ -28,7 +28,7 @@ const KEYS_COPIABLES = [
   'mako.onboarding.answers', 'mako.archivero.manual', 'mako.archivero.panorama',
   'negocio.fase.diagnostico', 'onboarding.funnel_tipos',
   // La fábrica de creativos / contexto de IA. El entregable importa especialmente:
-  // las jugadas de setting cuelgan su lead magnet de ahí (estrategia.lead_magnet_id).
+  // las secuencias de mensajes de setting cuelgan su lead magnet de ahí (estrategia.lead_magnet_id).
   'mako.avatares', 'mako.avatares.contexto', 'mako.razones', 'mako.voz_guia',
   'mako.entregable', 'mako.persona', 'mako.personalidad', 'mako.formatos_recom',
   // Clasificación de guiones (Scripts Analyst)

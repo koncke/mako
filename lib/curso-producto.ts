@@ -48,7 +48,7 @@ Y después de recibir algo, PRUEBA VISIBLE DE QUE LO LEYÓ: dos o tres frases de
     categoria: 'Método',
     cuerpo: `Antes de construir cualquier feature, definir en una frase cuál es el diferencial: qué hace esto que no hace "otro editor de X". Si no se puede decir en una frase, todavía no se entendió el problema.
 
-Ejemplo real: la tab de setting no era "otro editor de mensajes"; era "cada secuencia se convierte en una JUGADA con estrategia (a quién, con qué objetivo, con qué gancho, con qué preguntas), que se prueba en vivo antes de prender y que después rinde cuentas con números". Ese Norte decidió el modelo de datos, la UI y qué quedaba afuera.
+Ejemplo real: la tab de setting no era "otro editor de mensajes"; era "cada secuencia se convierte en una SECUENCIA DE MENSAJES con estrategia (a quién, con qué objetivo, con qué gancho, con qué preguntas), que se prueba en vivo antes de prender y que después rinde cuentas con números". Ese Norte decidió el modelo de datos, la UI y qué quedaba afuera.
 
 El proceso que funciona: explorar el código que ya existe → preguntar de a UNA cosa las decisiones que cambian el resultado → proponer 2-3 enfoques con recomendación → escribir la spec → recién ahí el plan y el código. Saltarse esto produce features que técnicamente andan y que nadie usa.`,
   },

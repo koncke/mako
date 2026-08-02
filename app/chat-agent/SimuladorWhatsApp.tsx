@@ -1,23 +1,23 @@
 'use client';
 
 // =============================================================================
-// SimuladorWhatsApp — jugadas COMO CHAT (réplica de PlantillasView de SuperAdmin)
+// SimuladorWhatsApp — secuencias COMO CHAT (réplica de PlantillasView de SuperAdmin)
 // =============================================================================
-// Mismo diseño que app/agencia/PlantillasView.tsx: lista de jugadas como
+// Mismo diseño que app/agencia/PlantillasView.tsx: lista de secuencias de mensajes como
 // CONTACTOS (300px) + ChatHilo compartido (burbujas + composer real con emoji,
 // adjuntar y nota de voz). "▶ Simular secuencia" reproduce los pasos como
 // mensajes entrantes del negocio (vos sos EL LEAD: tus mensajes van a la
 // derecha); escribís/mandás audio y MaKo responde como setter. La topbar /
-// Editar abre el PERFIL de la jugada (JugadaPerfil, cubre el chat).
+// Editar abre el PERFIL de la secuencia de mensajes (SecuenciaPerfil, cubre el chat).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
-import { JugadaPerfil } from './JugadaPerfil';
-import type { AudioSetting, JugadaDto, Opcion } from './ChatAgentApp';
+import { SecuenciaPerfil } from './SecuenciaPerfil';
+import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
 
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
-export const emojiJugada = (j: JugadaDto): string => (j.estrategia ? EMOJI_OBJETIVO[j.estrategia.objetivo] : '⚑');
+export const emojiSecuencia = (j: SecuenciaDto): string => (j.estrategia ? EMOJI_OBJETIVO[j.estrategia.objetivo] : '⚑');
 
 // Variables de plantilla → lead de prueba (solo visual, espejo del motor).
 // Tolera {{nombre}} y {nombre} (los seeds viejos de email usan llave simple).
@@ -45,8 +45,8 @@ async function blobABase64(b: Blob): Promise<string> {
 
 type Paso = { t: 'typing' } | { t: 'msg'; msg: HiloMsg };
 
-export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, onWizard, onReload }: {
-  jugadas: JugadaDto[];
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, onWizard, onReload }: {
+  secuencias: SecuenciaDto[];
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   negocio: string;
@@ -62,18 +62,18 @@ export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, 
   const [detalle, setDetalle] = useState(false);
   const seq = useRef(0);
 
-  useEffect(() => { if (selId === '' && jugadas.length) setSelId(jugadas[0].id); }, [jugadas, selId]);
+  useEffect(() => { if (selId === '' && secuencias.length) setSelId(secuencias[0].id); }, [secuencias, selId]);
 
   const lista = useMemo(() => {
     const q = busq.trim().toLowerCase();
-    return jugadas.filter((j) => !q
+    return secuencias.filter((j) => !q
       || j.nombre.toLowerCase().includes(q)
       || (j.estrategia?.gancho ?? '').toLowerCase().includes(q)
       || etiquetaEtapa(j.etapa).toLowerCase().includes(q));
-  }, [jugadas, busq, etiquetaEtapa]);
-  const sel = jugadas.find((j) => j.id === selId);
+  }, [secuencias, busq, etiquetaEtapa]);
+  const sel = secuencias.find((j) => j.id === selId);
 
-  // Cambiar de jugada limpia el hilo y los timers del guion (patrón PlantillasView).
+  // Cambiar de secuencia limpia el hilo y los timers del guion (patrón PlantillasView).
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => {
     timers.current.forEach(clearTimeout); timers.current = [];
@@ -172,7 +172,7 @@ export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, 
     <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 12, height: 620 }}>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border)' }}>
-          <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar jugada…"
+          <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar secuencia…"
             style={{ width: '100%', boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
@@ -181,24 +181,24 @@ export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, 
             <button type="button" onClick={() => onWizard('nueva')}
               style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85, fontFamily: 'inherit' }}>
               <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'var(--faint)' }}>+</span>
-              <div style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva jugada</div>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva secuencia de mensajes</div>
             </button>
           )}
 
-          {lista.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna jugada coincide.</div>}
+          {lista.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna secuencia de mensajes coincide.</div>}
           {lista.map((j) => {
             const on = j.id === selId;
             const snippet = j.estrategia?.gancho ?? j.pasos.find((p) => p.canal === 'whatsapp')?.cuerpo ?? j.pasos[0]?.cuerpo ?? '';
             return (
               <button key={j.id} type="button" onClick={() => elegir(j.id)}
                 style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, opacity: j.activa ? 1 : 0.5, fontFamily: 'inherit' }}>
-                <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{emojiJugada(j)}</span>
+                <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{emojiSecuencia(j)}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.nombre}{!j.activa && <span style={{ color: 'var(--faint)', fontWeight: 500 }}> · pausada</span>}</div>
                   <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{etiquetaEtapa(j.etapa)} · {snippet.replace(/[*_\n]/g, ' ').slice(0, 34)}</div>
                 </div>
                 <span title={j.activa ? 'Activa' : 'Pausada'} style={{ width: 8, height: 8, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
-                {!j.estrategia && <span style={{ flex: 'none', fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 5, padding: '1px 4px' }}>sin jugada</span>}
+                {!j.estrategia && <span style={{ flex: 'none', fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 5, padding: '1px 4px' }}>sin secuencia</span>}
               </button>
             );
           })}
@@ -206,7 +206,7 @@ export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, 
       </div>
 
       {detalle && sel ? (
-        <JugadaPerfil jugada={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios}
+        <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios}
           onClose={() => setDetalle(false)} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
       ) : sel ? (
         <ChatHilo
@@ -226,21 +226,21 @@ export function SimuladorWhatsApp({ jugadas, objetivos, etiquetaEtapa, negocio, 
           header={(
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
               <button type="button" onClick={() => setDetalle(true)} title="Ver perfil / editar" style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiJugada(sel)}</div>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiSecuencia(sel)}</div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(sel.etapa)}{sel.estrategia ? ` · ${objetivos.find((o) => o.value === sel.estrategia!.objetivo)?.label ?? sel.estrategia.objetivo}` : ' · sin jugada definida'} · toca para {rolAdmin ? 'editar' : 'ver'}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(sel.etapa)}{sel.estrategia ? ` · ${objetivos.find((o) => o.value === sel.estrategia!.objetivo)?.label ?? sel.estrategia.objetivo}` : ' · sin secuencia definida'} · toca para {rolAdmin ? 'editar' : 'ver'}</div>
                 </div>
               </button>
               <button type="button" onClick={simularSecuencia} title="Reproducir la secuencia como la ve el lead"
                 style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: 'none', background: 'var(--wa)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>▶ Simular secuencia</button>
-              <button type="button" onClick={() => setDetalle(true)} title="Perfil de la jugada"
+              <button type="button" onClick={() => setDetalle(true)} title="Perfil de la secuencia de mensajes"
                 style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
             </div>
           )}
         />
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elegí una jugada.</div>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elegí una secuencia de mensajes.</div>
       )}
     </div>
   );

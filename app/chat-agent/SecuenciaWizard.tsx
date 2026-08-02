@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// JugadaWizard — "Nueva jugada" de la tab /setting (7 pasos, preguntas cerradas)
+// SecuenciaWizard — "Nueva secuencia de mensajes" de la tab /setting (7 pasos, preguntas cerradas)
 // =============================================================================
 // ① a quién (etapa del funnel o secuencia existente) → ② objetivo → ③ gancho
 // (lead magnet del Entregable primero, sugerencias de MaKo, o libre) →
@@ -11,7 +11,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import type { JugadaDto, Opcion, PasoJugada } from './ChatAgentApp';
+import type { SecuenciaDto, Opcion, PasoSecuenciaDto } from './ChatAgentApp';
 import type { Estrategia, Objetivo } from '@/lib/setting-estrategia';
 
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
@@ -21,22 +21,22 @@ const inp: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 
 const chipSel = (active: boolean): CSSProperties => ({ padding: '9px 15px', borderRadius: 11, cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), background: active ? 'var(--ink)' : 'var(--surface-2)', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
 
 async function jpost<T>(b: unknown): Promise<T> {
-  const r = await fetch('/api/chat-agent/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+  const r = await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
   return r.json() as Promise<T>;
 }
 
 const TITULOS = ['', '¿A quién le hablamos?', '¿Qué buscamos?', '¿Con qué gancho?', 'Preguntas de cualificación', 'MaKo redacta', 'Probala en vivo', 'Aprobar y activar'];
 
-export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etapas, leadMagnets, onClose, onDone }: {
+export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos, etapas, leadMagnets, onClose, onDone }: {
   secuenciaId: number | null;
-  jugadas: JugadaDto[];
+  secuencias: SecuenciaDto[];
   objetivos: Opcion[];
   etapas: Opcion[];
   leadMagnets: Array<{ id: string; nombre: string }>;
   onClose: () => void;
   onDone: () => void;
 }) {
-  const existente = secInicial != null ? jugadas.find((j) => j.id === secInicial) ?? null : null;
+  const existente = secInicial != null ? secuencias.find((j) => j.id === secInicial) ?? null : null;
   const [paso, setPaso] = useState(existente ? 2 : 1);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etap
   const [sugerencias, setSugerencias] = useState<string[]>([]);
 
   // Redacción
-  const [draft, setDraft] = useState<PasoJugada[] | null>(null);
+  const [draft, setDraft] = useState<PasoSecuenciaDto[] | null>(null);
   const [prueba, setPrueba] = useState<{ enviadosWa: number; enviadosEmail: number; avisos: string[] } | null>(null);
 
   const estrategia = (): Estrategia => ({
@@ -73,7 +73,7 @@ export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etap
     let id = secuenciaId;
     if (id == null) {
       const label = etapas.find((e) => e.value === etapa)?.label ?? etapa;
-      const j = await jpost<{ ok: boolean; error?: string; secuenciaId?: number }>({ action: 'crear', etapa, nombre: `Jugada — ${label}` });
+      const j = await jpost<{ ok: boolean; error?: string; secuenciaId?: number }>({ action: 'crear', etapa, nombre: `Secuencia — ${label}` });
       if (!j.ok || !j.secuenciaId) { setErr(j.error || 'No se pudo crear la secuencia.'); return null; }
       id = j.secuenciaId; setSecuenciaId(id);
     }
@@ -100,7 +100,7 @@ export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etap
       const r = await fetch('/api/mako/nutricion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generar', secuenciaId: id }) });
       const j = await r.json();
       if (!j.ok) { setErr(j.error || 'MaKo no pudo redactar.'); return; }
-      setDraft(j.pasos as PasoJugada[]);
+      setDraft(j.pasos as PasoSecuenciaDto[]);
     } finally { setBusy(null); }
   }
 
@@ -151,7 +151,7 @@ export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etap
     <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 680, maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ fontSize: '12px', color: 'var(--faint)', letterSpacing: '.08em', textTransform: 'uppercase' }}>Jugada — paso {paso} de 7</div>
+          <div style={{ fontSize: '12px', color: 'var(--faint)', letterSpacing: '.08em', textTransform: 'uppercase' }}>Nueva secuencia de mensajes — paso {paso} de 7</div>
           <button onClick={onClose} disabled={busy != null} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--faint)', cursor: 'pointer', opacity: busy ? 0.4 : 1 }}>✕</button>
         </div>
         <div style={{ fontSize: '19px', fontWeight: 600, color: 'var(--ink)', marginBottom: 14 }}>{TITULOS[paso]}</div>
@@ -161,7 +161,7 @@ export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etap
         {/* ① a quién */}
         {paso === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: '13px', color: 'var(--dim)' }}>La jugada se cuelga de una etapa de TU funnel: entra todo lead que esté parado ahí.</div>
+            <div style={{ fontSize: '13px', color: 'var(--dim)' }}>La secuencia de mensajes se cuelga de una etapa de TU funnel: entra todo lead que esté parado ahí.</div>
             <Dropdown value={etapa} onChange={setEtapa} width="100%" ariaLabel="Etapa del funnel"
               options={[{ value: '', label: 'Elegí la etapa…' }, ...etapas]} />
           </div>
@@ -200,7 +200,7 @@ export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etap
                 ))}
               </div>
             )}
-            <input value={gancho} onChange={(e) => { setGancho(e.target.value); setLeadMagnetId(null); }} placeholder="Gancho de la jugada (ej: guía gratuita de 5 pasos)" style={inp} />
+            <input value={gancho} onChange={(e) => { setGancho(e.target.value); setLeadMagnetId(null); }} placeholder="Gancho de la secuencia de mensajes (ej: guía gratuita de 5 pasos)" style={inp} />
           </div>
         )}
 
@@ -281,10 +281,10 @@ export function JugadaWizard({ secuenciaId: secInicial, jugadas, objetivos, etap
         {paso === 7 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: '13.5px', color: 'var(--dim)', lineHeight: 1.6 }}>
-              Al activar, la jugada queda viva: el motor inscribe a los leads de la etapa y manda con el anti-ban de siempre.
+              Al activar, la secuencia de mensajes queda viva: el motor inscribe a los leads de la etapa y manda con el anti-ban de siempre.
               Los pasos de WhatsApp oficial no salen hasta que Meta apruebe su plantilla, y nada sale si el «Envío real» del canal está apagado.
             </div>
-            <button onClick={() => void activar()} disabled={busy != null} style={{ ...btnDark, alignSelf: 'flex-start' }}>{busy === 'activar' ? 'Activando…' : '✓ Aprobar y activar la jugada'}</button>
+            <button onClick={() => void activar()} disabled={busy != null} style={{ ...btnDark, alignSelf: 'flex-start' }}>{busy === 'activar' ? 'Activando…' : '✓ Aprobar y activar la secuencia de mensajes'}</button>
           </div>
         )}
 

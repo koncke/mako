@@ -99,7 +99,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'contexto', label: 'Tu forma de escribir' },
       { key: 'voz', label: 'Tus audios' },
       { key: 'ensayo', label: 'Ensayo de conversación' },
-      { key: 'aprobar', label: 'Tus jugadas' },
+      { key: 'aprobar', label: 'Tus secuencias de mensajes' },
       { key: 'wa_oficial', label: 'WhatsApp oficial', opcional: true },
       { key: 'wa_oficial_plantilla', label: 'Tu primera plantilla', opcional: true },
       { key: 'wa_oficial_prueba', label: 'Verificación del oficial', opcional: true },

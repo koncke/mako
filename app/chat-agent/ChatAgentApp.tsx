@@ -1,37 +1,37 @@
 'use client';
 
 // =============================================================================
-// ChatAgentApp — la tab /setting: simulador de jugadas + dashboard
+// ChatAgentApp — la tab /setting: simulador de secuencias de mensajes + dashboard
 // =============================================================================
-// Tres sub-tabs: WhatsApp (jugadas como CONTACTOS + chat simulado con MaKo-setter,
+// Tres sub-tabs: WhatsApp (secuencias como CONTACTOS + chat simulado con MaKo-setter,
 // réplica del diseño de Plantillas en SuperAdmin), Email (bandeja simulada del
-// lead) y Dashboard (KPIs + gráficos recharts). El wizard "Nueva jugada" define
-// la estrategia y MaKo redacta; el perfil de cada jugada se edita desde el chat.
+// lead) y Dashboard (KPIs + gráficos recharts). El wizard "Nueva secuencia de mensajes" define
+// la estrategia y MaKo redacta; el perfil de cada secuencia de mensajes se edita desde el chat.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { Dropdown } from '../components/Dropdown';
-import { JugadaWizard } from './JugadaWizard';
-import { SimuladorWhatsApp, emojiJugada } from './SimuladorWhatsApp';
+import { SecuenciaWizard } from './SecuenciaWizard';
+import { SimuladorWhatsApp, emojiSecuencia } from './SimuladorWhatsApp';
 import { SimuladorEmail } from './SimuladorEmail';
 import { DashboardChatAgent } from './DashboardChatAgent';
 import { AudiosPanel } from './AudiosPanel';
 import { OnboardingChatAgent } from './OnboardingChatAgent';
 import { DatosDeMau } from '@/app/_components/DatosDeMau';
 import type { Estrategia } from '@/lib/setting-estrategia';
-import type { MetricasJugada, PuntoSerie } from '@/lib/setting-metricas';
+import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
-export type PasoJugada = {
+export type PasoSecuenciaDto = {
   orden: number; canal: 'email' | 'whatsapp'; delay_horas: number;
   asunto: string | null; preheader?: string | null; cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
   tipo?: 'texto' | 'audio'; audio_id?: number | null;
 };
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
-export type JugadaDto = {
+export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
-  activa: boolean; pasos: PasoJugada[]; inscriptos: number; enviados: number;
-  estrategia: Estrategia | null; metricas: MetricasJugada;
+  activa: boolean; pasos: PasoSecuenciaDto[]; inscriptos: number; enviados: number;
+  estrategia: Estrategia | null; metricas: MetricasSecuencia;
 };
 export type Opcion = { value: string; label: string };
 
@@ -47,7 +47,7 @@ const ETAPA_LABEL: Record<string, string> = {
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
 
 export function ChatAgentApp() {
-  const [jugadas, setJugadas] = useState<JugadaDto[] | null>(null);
+  const [secuencias, setSecuencias] = useState<SecuenciaDto[] | null>(null);
   const [serie, setSerie] = useState<PuntoSerie[]>([]);
   const [rolAdmin, setRolAdmin] = useState(false);
   const [objetivos, setObjetivos] = useState<Opcion[]>([]);
@@ -57,8 +57,8 @@ export function ChatAgentApp() {
   const [error, setError] = useState<string | null>(null);
   const [vista, setVista] = useState<'whatsapp' | 'email' | 'audios' | 'dashboard'>('whatsapp');
   const [audios, setAudios] = useState<AudioSetting[]>([]);
-  const [emailJugadaId, setEmailJugadaId] = useState<number | null>(null);
-  // Wizard: null = cerrado; 'nueva' = jugada nueva; number = definir sobre esa secuencia.
+  const [emailSecuenciaId, setEmailSecuenciaId] = useState<number | null>(null);
+  // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
   const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
   // Onboarding de la tab (regla: toda tab tiene onboarding). null = todavía no
   // sabemos; true = arranca en el recorrido; false = la tab normal.
@@ -71,17 +71,17 @@ export function ChatAgentApp() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch('/api/chat-agent/jugadas', { cache: 'no-store' });
+      const r = await fetch('/api/chat-agent/secuencias', { cache: 'no-store' });
       const j = await r.json();
-      if (!j.ok) { setError(j.error || 'No se pudieron cargar las jugadas.'); setJugadas([]); return; }
-      const lista = j.jugadas as JugadaDto[];
-      setJugadas(lista); setSerie(j.serie ?? []); setRolAdmin(Boolean(j.rolAdmin));
+      if (!j.ok) { setError(j.error || 'No se pudieron cargar las secuencias de mensajes.'); setSecuencias([]); return; }
+      const lista = j.secuencias as SecuenciaDto[];
+      setSecuencias(lista); setSerie(j.serie ?? []); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
       setNegocio(j.negocio ?? '');
-      setEmailJugadaId((prev) => (prev != null && lista.some((x) => x.id === prev) ? prev : (lista.find((x) => x.pasos.some((p) => p.canal === 'email'))?.id ?? lista[0]?.id ?? null)));
+      setEmailSecuenciaId((prev) => (prev != null && lista.some((x) => x.id === prev) ? prev : (lista.find((x) => x.pasos.some((p) => p.canal === 'email'))?.id ?? lista[0]?.id ?? null)));
       setError(null);
     } catch {
-      setError('Sin conexión — recargá la página.'); setJugadas([]);
+      setError('Sin conexión — recargá la página.'); setSecuencias([]);
     }
     // Biblioteca de audios (admin-only: el 403 del setter deja la lista vacía).
     try {
@@ -108,7 +108,7 @@ export function ChatAgentApp() {
     (key: string) => etapas.find((e) => e.value === key)?.label ?? ETAPA_LABEL[key] ?? key,
     [etapas],
   );
-  const emailJugada = (jugadas ?? []).find((j) => j.id === emailJugadaId) ?? null;
+  const emailSecuencia = (secuencias ?? []).find((j) => j.id === emailSecuenciaId) ?? null;
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
   const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
@@ -155,7 +155,7 @@ export function ChatAgentApp() {
             Chat Agent
           </h1>
           <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>
-            Tus <strong style={{ color: 'var(--ink)' }}>jugadas</strong>: probalas como el lead, chateá con MaKo-setter y mirá cómo rinden.
+            Tus <strong style={{ color: 'var(--ink)' }}>secuencias</strong>: probalas como el lead, chateá con MaKo-setter y mirá cómo rinden.
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -166,7 +166,7 @@ export function ChatAgentApp() {
             <button onClick={() => setVista('dashboard')} style={vista === 'dashboard' ? tabActive : tabIdle}>Dashboard</button>
           </div>
           {rolAdmin && vista !== 'whatsapp' && (
-            <button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva jugada</button>
+            <button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva secuencia de mensajes</button>
           )}
         </div>
       </header>
@@ -175,24 +175,24 @@ export function ChatAgentApp() {
         <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', marginBottom: 14, color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>
       )}
 
-      {jugadas === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando jugadas…</div>}
+      {secuencias === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando secuencias…</div>}
 
-      {jugadas !== null && jugadas.length === 0 && !error && (
+      {secuencias !== null && secuencias.length === 0 && !error && (
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
-          Todavía no hay secuencias en este workspace.{rolAdmin ? ' Arrancá con «+ Nueva jugada».' : ''}
-          {rolAdmin && <div style={{ marginTop: 14 }}><button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva jugada</button></div>}
+          Todavía no hay secuencias en este workspace.{rolAdmin ? ' Arrancá con «+ Nueva secuencia de mensajes».' : ''}
+          {rolAdmin && <div style={{ marginTop: 14 }}><button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva secuencia de mensajes</button></div>}
           <DatosDeMau ambito="setting" onListo={() => void load()} />
         </div>
       )}
 
-      {/* La biblioteca de audios no depende de que existan jugadas. */}
+      {/* La biblioteca de audios no depende de que existan secuencias. */}
       {vista === 'audios' && rolAdmin && <AudiosPanel audios={audios} onCambio={() => void load()} />}
 
-      {jugadas !== null && jugadas.length > 0 && (
+      {secuencias !== null && secuencias.length > 0 && (
         <>
           {vista === 'whatsapp' && (
             <SimuladorWhatsApp
-              jugadas={jugadas} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa}
+              secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa}
               negocio={negocio} rolAdmin={rolAdmin} audios={audios}
               onWizard={(id) => setWizard(id)} onReload={() => void load()}
             />
@@ -201,31 +201,31 @@ export function ChatAgentApp() {
           {vista === 'email' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '12px', color: 'var(--faint)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600 }}>Jugada</span>
+                <span style={{ fontSize: '12px', color: 'var(--faint)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600 }}>Secuencia de mensajes</span>
                 <Dropdown
-                  value={emailJugadaId != null ? String(emailJugadaId) : ''}
-                  onChange={(v) => setEmailJugadaId(Number(v))}
+                  value={emailSecuenciaId != null ? String(emailSecuenciaId) : ''}
+                  onChange={(v) => setEmailSecuenciaId(Number(v))}
                   width="340px"
-                  ariaLabel="Elegir jugada"
-                  options={jugadas.map((j) => ({ value: String(j.id), label: `${emojiJugada(j)} ${j.nombre} · ${etiquetaEtapa(j.etapa)}` }))}
+                  ariaLabel="Elegir secuencia"
+                  options={secuencias.map((j) => ({ value: String(j.id), label: `${emojiSecuencia(j)} ${j.nombre} · ${etiquetaEtapa(j.etapa)}` }))}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
-                <SimuladorEmail jugada={emailJugada} nombreNegocio={negocio} />
+                <SimuladorEmail secuencia={emailSecuencia} nombreNegocio={negocio} />
               </div>
             </div>
           )}
 
           {vista === 'dashboard' && (
-            <DashboardChatAgent jugadas={jugadas} serie={serie} etiquetaEtapa={etiquetaEtapa} />
+            <DashboardChatAgent secuencias={secuencias} serie={serie} etiquetaEtapa={etiquetaEtapa} />
           )}
         </>
       )}
 
       {wizard !== null && (
-        <JugadaWizard
+        <SecuenciaWizard
           secuenciaId={wizard === 'nueva' ? null : wizard}
-          jugadas={jugadas ?? []}
+          secuencias={secuencias ?? []}
           objetivos={objetivos}
           etapas={etapas}
           leadMagnets={leadMagnets}
@@ -248,7 +248,7 @@ function ElegirRecorrido({ onElegir, onSaltar }: {
   onSaltar: () => void;
 }) {
   const OPCIONES: Array<{ k: 'setting' | 'whatsapp' | 'email'; icono: string; titulo: string; sub: string; detalle: string }> = [
-    { k: 'setting', icono: '✦', titulo: 'Todo', sub: 'Recorrido completo', detalle: 'Los dos métodos de WhatsApp, el email, tu forma de escribir, tus audios y las jugadas.' },
+    { k: 'setting', icono: '✦', titulo: 'Todo', sub: 'Recorrido completo', detalle: 'Los dos métodos de WhatsApp, el email, tu forma de escribir, tus audios y las secuencias de mensajes.' },
     { k: 'whatsapp', icono: '💬', titulo: 'Solo WhatsApp', sub: 'Conectar y verificar el canal', detalle: 'Tu número de empresa, la verificación de entrega y el canal oficial si lo necesitas.' },
     { k: 'email', icono: '✉️', titulo: 'Solo Email', sub: 'Conectar y verificar la bandeja', detalle: 'Tu dominio verificado y un correo de prueba a tu bandeja.' },
   ];

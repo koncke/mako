@@ -1,15 +1,15 @@
 // =============================================================================
-// setting-metricas — números de cada jugada (tab /setting)
+// setting-metricas — números de cada secuencia de mensajes (tab /setting)
 // =============================================================================
 // Agregador PURO (sin IO ni server-only: lo testean los units). El fetch por
-// workspace vive en lib/setting-jugadas.ts. Fuentes existentes:
+// workspace vive en lib/setting-secuencias.ts. Fuentes existentes:
 //   nutricion_envios         → enviados por canal + abierto_at/clic_at (webhook Resend)
 //   nutricion_inscripciones  → activos / respondió (la pausa) / completados
 
 export type FilaEnvio = { secuencia_id: number | null; canal: string; estado: string; abierto_at: string | null; clic_at: string | null; created_at?: string | null };
 export type FilaInsc = { secuencia_id: number | null; estado: string; updated_at?: string | null };
 
-export type MetricasJugada = {
+export type MetricasSecuencia = {
   enviadosWa: number;
   enviadosEmail: number;
   respuestas: number;
@@ -19,13 +19,13 @@ export type MetricasJugada = {
   completados: number;
 };
 
-export const METRICAS_CERO: MetricasJugada = {
+export const METRICAS_CERO: MetricasSecuencia = {
   enviadosWa: 0, enviadosEmail: 0, respuestas: 0, abiertos: 0, clics: 0, inscriptosActivos: 0, completados: 0,
 };
 
-export function agregarMetricas(envios: FilaEnvio[], inscripciones: FilaInsc[]): Map<number, MetricasJugada> {
-  const out = new Map<number, MetricasJugada>();
-  const de = (id: number): MetricasJugada => {
+export function agregarMetricas(envios: FilaEnvio[], inscripciones: FilaInsc[]): Map<number, MetricasSecuencia> {
+  const out = new Map<number, MetricasSecuencia>();
+  const de = (id: number): MetricasSecuencia => {
     let m = out.get(id);
     if (!m) { m = { ...METRICAS_CERO }; out.set(id, m); }
     return m;

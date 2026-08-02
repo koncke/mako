@@ -81,7 +81,7 @@ export function AudiosPanel({ audios, onCambio }: { audios: AudioSetting[]; onCa
       <div style={card}>
         <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>Grabá una nota de voz</div>
         <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 14 }}>
-          Con tu voz, un audio por situación (bienvenida, recordatorio, reactivación). Después lo colgás de un paso de la jugada y sale así, tal cual, a cada lead. MaKo lo transcribe para saber qué dice.
+          Con tu voz, un audio por situación (bienvenida, recordatorio, reactivación). Después lo colgás de un paso de la secuencia de mensajes y sale así, tal cual, a cada lead. MaKo lo transcribe para saber qué dice.
         </div>
 
         {err && <div style={{ marginBottom: 12, padding: '9px 12px', borderRadius: 9, fontSize: 13, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>}

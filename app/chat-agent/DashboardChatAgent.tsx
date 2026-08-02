@@ -5,11 +5,11 @@
 // =============================================================================
 // Mismo sistema de charts del repo (recharts, patrón de app/marketing/ad-charts):
 // KPIs arriba, serie diaria de envíos/respuestas/aperturas (30 días), y la
-// comparativa por jugada. Los datos vienen del GET de jugadas (serie incluida).
+// comparativa por secuencia. Los datos vienen del GET de secuencias de mensajes (serie incluida).
 
 import { useMemo, type CSSProperties } from 'react';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
-import type { JugadaDto, Opcion } from './ChatAgentApp';
+import type { SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { PuntoSerie } from '@/lib/setting-metricas';
 
 const MONO = "'Geist Mono', monospace";
@@ -32,20 +32,20 @@ function Kpi({ label, valor, sub }: { label: string; valor: string; sub?: string
   );
 }
 
-export function DashboardChatAgent({ jugadas, serie, etiquetaEtapa }: {
-  jugadas: JugadaDto[];
+export function DashboardChatAgent({ secuencias, serie, etiquetaEtapa }: {
+  secuencias: SecuenciaDto[];
   serie: PuntoSerie[];
   etiquetaEtapa: (key: string) => string;
   objetivos?: Opcion[];
 }) {
-  const tot = useMemo(() => jugadas.reduce((a, j) => ({
+  const tot = useMemo(() => secuencias.reduce((a, j) => ({
     wa: a.wa + j.metricas.enviadosWa,
     email: a.email + j.metricas.enviadosEmail,
     resp: a.resp + j.metricas.respuestas,
     abiertos: a.abiertos + j.metricas.abiertos,
     clics: a.clics + j.metricas.clics,
     activos: a.activos + j.metricas.inscriptosActivos,
-  }), { wa: 0, email: 0, resp: 0, abiertos: 0, clics: 0, activos: 0 }), [jugadas]);
+  }), { wa: 0, email: 0, resp: 0, abiertos: 0, clics: 0, activos: 0 }), [secuencias]);
   const enviados = tot.wa + tot.email;
 
   const serieData = useMemo(() => serie.map((p) => ({
@@ -56,7 +56,7 @@ export function DashboardChatAgent({ jugadas, serie, etiquetaEtapa }: {
     Aperturas: p.abiertos,
   })), [serie]);
 
-  const porJugada = useMemo(() => [...jugadas]
+  const porSecuencia = useMemo(() => [...secuencias]
     .map((j) => ({
       nombre: j.nombre.length > 22 ? `${j.nombre.slice(0, 21)}…` : j.nombre,
       etapa: etiquetaEtapa(j.etapa),
@@ -65,7 +65,7 @@ export function DashboardChatAgent({ jugadas, serie, etiquetaEtapa }: {
       Activos: j.metricas.inscriptosActivos,
     }))
     .sort((a, b) => (b.Enviados + b.Activos) - (a.Enviados + a.Activos))
-    .slice(0, 8), [jugadas, etiquetaEtapa]);
+    .slice(0, 8), [secuencias, etiquetaEtapa]);
 
   const sinDatos = enviados === 0 && tot.activos === 0;
 
@@ -76,12 +76,12 @@ export function DashboardChatAgent({ jugadas, serie, etiquetaEtapa }: {
         <Kpi label="Enviados (30d)" valor={String(enviados)} sub={`${tot.wa} WhatsApp · ${tot.email} email`} />
         <Kpi label="Respuestas" valor={String(tot.resp)} sub={`tasa ${pct(tot.resp, enviados)}`} />
         <Kpi label="Aperturas email" valor={String(tot.abiertos)} sub={`tasa ${pct(tot.abiertos, tot.email)} · ${tot.clics} clics`} />
-        <Kpi label="Leads en secuencia" valor={String(tot.activos)} sub={`${jugadas.filter((j) => j.activa).length} de ${jugadas.length} jugadas activas`} />
+        <Kpi label="Leads en secuencia" valor={String(tot.activos)} sub={`${secuencias.filter((j) => j.activa).length} de ${secuencias.length} secuencias activas`} />
       </div>
 
       {sinDatos && (
         <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6 }}>
-          Todavía no hay envíos registrados: los gráficos se llenan solos cuando prendas el <strong style={{ color: 'var(--ink)' }}>Envío real</strong> del canal y el motor empiece a mandar. Mientras, podés dejar las jugadas listas y probadas desde las tabs WhatsApp y Email.
+          Todavía no hay envíos registrados: los gráficos se llenan solos cuando prendas el <strong style={{ color: 'var(--ink)' }}>Envío real</strong> del canal y el motor empiece a mandar. Mientras, podés dejar las secuencias de mensajes listas y probadas desde las tabs WhatsApp y Email.
         </div>
       )}
 
@@ -104,12 +104,12 @@ export function DashboardChatAgent({ jugadas, serie, etiquetaEtapa }: {
         </div>
       </div>
 
-      {/* Comparativa por jugada */}
+      {/* Comparativa por secuencia */}
       <div style={card}>
-        <div style={sectLabel}>Por jugada · enviados, respuestas y leads activos</div>
-        <div style={{ width: '100%', height: Math.max(200, porJugada.length * 42) }}>
+        <div style={sectLabel}>Por secuencia · enviados, respuestas y leads activos</div>
+        <div style={{ width: '100%', height: Math.max(200, porSecuencia.length * 42) }}>
           <ResponsiveContainer>
-            <BarChart data={porJugada} layout="vertical" margin={{ top: 6, right: 12, bottom: 0, left: 0 }}>
+            <BarChart data={porSecuencia} layout="vertical" margin={{ top: 6, right: 12, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" horizontal={false} />
               <XAxis type="number" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} allowDecimals={false} />
               <YAxis type="category" dataKey="nombre" width={170} tick={{ fill: 'var(--text-dim)', fontSize: 11 }} />

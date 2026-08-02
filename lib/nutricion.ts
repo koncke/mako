@@ -1110,7 +1110,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // Pausa la nutrición de un lead cuando responde (webhook de Chatwoot y espejo
 // del no oficial). Marca las inscripciones activas como 'respondio'.
 //
-// MODO ASISTIDO (reunión 31/07): si la jugada que venía corriendo está en modo
+// MODO ASISTIDO (reunión 31/07): si la secuencia de mensajes que venía corriendo está en modo
 // 'asistido', además de pausar se avisa al dueño y MaKo deja un BORRADOR con la
 // respuesta sugerida para aprobar con un clic. Es la fase 1 acordada: se
 // automatizan los primeros audios y la conversación la sigue un humano.
@@ -1163,15 +1163,15 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
 
 /**
  * Modo asistido: avisa al dueño que el lead respondió y le deja el borrador de
- * respuesta que redactó MaKo con la jugada (mismo cerebro del simulador).
+ * respuesta que redactó MaKo con la secuencia de mensajes (mismo cerebro del simulador).
  * Silencioso si ninguna de las secuencias pausadas es 'asistido'.
  */
 async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string): Promise<void> {
   const { parseEstrategia } = await import('@/lib/setting-estrategia');
   const secs = await getSecuenciasConStats();
-  // La jugada asistida más específica que venía corriendo para este lead.
-  const jugada = secs.find((s) => secuenciaIds.includes(s.id) && parseEstrategia(s.estrategia)?.modo === 'asistido');
-  if (!jugada) return;
+  // La secuencia de mensajes asistida más específica que venía corriendo para este lead.
+  const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && parseEstrategia(s.estrategia)?.modo === 'asistido');
+  if (!secuencia) return;
 
   const supabase = await getTenantDb();
   const { data: leadRow } = await supabase.from('leads').select('id, nombre, telefono').eq('id', leadId).maybeSingle();
@@ -1182,7 +1182,7 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
   let sugerida: string | null = null;
   try {
     const { responderSimulador } = await import('@/lib/setting-simulador');
-    const r = await responderSimulador(jugada.id, [{ de: 'lead', texto: texto?.trim() || '(el lead respondió sin texto)' }]);
+    const r = await responderSimulador(secuencia.id, [{ de: 'lead', texto: texto?.trim() || '(el lead respondió sin texto)' }]);
     if (r.ok) sugerida = r.respuesta;
   } catch { /* sin sugerencia: igual avisamos */ }
 
@@ -1191,7 +1191,7 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
     const { crearBorrador } = await import('@/lib/evolution-envio');
     await crearBorrador({
       leadId, telefono: lead.telefono, texto: sugerida,
-      origen: 'setter-asistido', secuenciaId: jugada.id, paso: null, inscripcionId: null,
+      origen: 'setter-asistido', secuenciaId: secuencia.id, paso: null, inscripcionId: null,
     });
   }
 
@@ -1201,7 +1201,7 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
   let alertaDescalifica = '';
   try {
     const { evaluarCalificacion } = await import('@/lib/setting-simulador');
-    const ev = await evaluarCalificacion(jugada.id, [{ de: 'lead', texto: texto?.trim() || '' }]);
+    const ev = await evaluarCalificacion(secuencia.id, [{ de: 'lead', texto: texto?.trim() || '' }]);
     if (ev.califica === false) {
       await supabase.from('leads').update({ calificado: false, updated_at: ahoraISO() }).eq('id', leadId);
       const { logLeadEvent } = await import('@/lib/leads');
@@ -1219,6 +1219,6 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
   const quien = lead?.nombre?.trim() || `lead ${leadId}`;
   await emitirDelCatalogo('wa-mensaje-entrante', {
     ws: (await getWorkspaceActual()) ?? undefined,
-    texto: `💬 *${quien} respondió* a la jugada «${jugada.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${sugerida ? `\n\nTe dejé un borrador listo para aprobar:\n${sugerida.slice(0, 300)}` : ''}${alertaDescalifica}\n\n— MaKo`,
+    texto: `💬 *${quien} respondió* a la secuencia de mensajes «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${sugerida ? `\n\nTe dejé un borrador listo para aprobar:\n${sugerida.slice(0, 300)}` : ''}${alertaDescalifica}\n\n— MaKo`,
   });
 }

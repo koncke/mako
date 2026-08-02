@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// JugadaPerfil — perfil + edición de una jugada (réplica de TemplateDetalleModal)
+// SecuenciaPerfil — perfil + edición de una secuencia de mensajes (réplica de TemplateDetalleModal)
 // =============================================================================
 // Cubre TODO el chat (inline, como en SuperAdmin). Explica CÓMO JUEGA (diagrama
 // de pasos), deja editar la estrategia (objetivo/gancho/preguntas), activar/
@@ -10,8 +10,8 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import type { AudioSetting, JugadaDto, Opcion } from './ChatAgentApp';
-import type { ModoJugada, Objetivo } from '@/lib/setting-estrategia';
+import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
+import type { ModoRespuesta, Objetivo } from '@/lib/setting-estrategia';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
@@ -33,13 +33,13 @@ function Paso({ icono, titulo, detalle, tono = 'neutro' }: { icono: string; titu
 const Flecha = () => <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, margin: '2px 0' }}>↓</div>;
 
 async function api(body: unknown): Promise<{ ok: boolean; error?: string; enviadosWa?: number; enviadosEmail?: number; avisos?: string[] }> {
-  try { return await (await fetch('/api/chat-agent/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false, error: 'sin conexión' }; }
+  try { return await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false, error: 'sin conexión' }; }
 }
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audios, onClose, onCambio, onWizard }: {
-  jugada: JugadaDto;
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, onClose, onCambio, onWizard }: {
+  secuencia: SecuenciaDto;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   rolAdmin: boolean;
@@ -48,14 +48,14 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   onCambio: () => void;
   onWizard: () => void;
 }) {
-  const est = jugada.estrategia;
+  const est = secuencia.estrategia;
   const [objetivo, setObjetivo] = useState<Objetivo>(est?.objetivo ?? 'agendar');
   const [gancho, setGancho] = useState(est?.gancho ?? '');
   const [preguntas, setPreguntas] = useState((est?.preguntas ?? []).join('\n'));
-  const [modo, setModo] = useState<ModoJugada>(est?.modo ?? 'asistido');
+  const [modo, setModo] = useState<ModoRespuesta>(est?.modo ?? 'asistido');
   const [califica, setCalifica] = useState((est?.criterio?.califica ?? []).join('\n'));
   const [descalifica, setDescalifica] = useState((est?.criterio?.descalifica ?? []).join('\n'));
-  const [activa, setActiva] = useState(jugada.activa);
+  const [activa, setActiva] = useState(secuencia.activa);
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   const guardar = async () => {
     setBusy('save'); setErr(null);
     const r = await api({
-      action: 'guardar-estrategia', secuenciaId: jugada.id,
+      action: 'guardar-estrategia', secuenciaId: secuencia.id,
       estrategia: {
         objetivo, gancho: gancho.trim() || null, lead_magnet_id: est?.lead_magnet_id ?? null,
         preguntas: preguntas.split('\n').map((p) => p.trim()).filter(Boolean),
@@ -84,7 +84,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   const toggle = async () => {
     setBusy('toggle'); setErr(null);
     try {
-      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: jugada.id, activa: !activa }) })).json();
+      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa }) })).json();
       if (r.ok) { setActiva(!activa); flashOk(!activa ? 'Activada ✓' : 'Pausada ✓'); onCambio(); } else setErr(r.error || 'No se pudo cambiar.');
     } catch { setErr('Sin conexión — probá de nuevo.'); }
     setBusy(null);
@@ -92,7 +92,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
 
   const probar = async () => {
     setBusy('probar'); setErr(null);
-    const r = await api({ action: 'probar', secuenciaId: jugada.id });
+    const r = await api({ action: 'probar', secuenciaId: secuencia.id });
     if (r.ok) flashOk(`Prueba enviada ✓ (${r.enviadosWa ?? 0} WhatsApp · ${r.enviadosEmail ?? 0} email)${r.avisos?.length ? ` — ${r.avisos[0]}` : ''}`);
     else setErr(r.error || 'La prueba no salió.');
     setBusy(null);
@@ -104,10 +104,10 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   async function setAudioDePaso(orden: number, audioId: number | null) {
     setBusy('paso'); setErr(null);
     try {
-      const pasos = jugada.pasos.map((p) => (p.orden !== orden ? p : (
+      const pasos = secuencia.pasos.map((p) => (p.orden !== orden ? p : (
         audioId ? { ...p, canal: 'whatsapp' as const, tipo: 'audio' as const, audio_id: audioId } : { ...p, tipo: 'texto' as const, audio_id: null }
       )));
-      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: jugada.id, pasos }) })).json();
+      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, pasos }) })).json();
       if (r.ok) { flashOk(audioId ? 'Audio asignado ✓' : 'Vuelto a texto ✓'); onCambio(); } else setErr(r.error || 'No se pudo guardar el paso.');
     } catch { setErr('Sin conexión — probá de nuevo.'); }
     setBusy(null);
@@ -118,7 +118,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   async function sugerirCriterio() {
     setBusy('criterio'); setErr(null);
     try {
-      const r = await (await fetch('/api/chat-agent/jugadas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'sugerir-criterio' }) })).json();
+      const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'sugerir-criterio' }) })).json();
       if (!r.ok) { setErr(r.error || 'MaKo no pudo deducir el criterio.'); return; }
       setCalifica((r.criterio?.califica ?? []).join('\n'));
       setDescalifica((r.criterio?.descalifica ?? []).join('\n'));
@@ -128,8 +128,8 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
   }
 
   const nPreg = preguntas.split('\n').filter((p) => p.trim()).length;
-  const pasosWa = jugada.pasos.filter((p) => p.canal === 'whatsapp').length;
-  const pasosEmail = jugada.pasos.filter((p) => p.canal === 'email').length;
+  const pasosWa = secuencia.pasos.filter((p) => p.canal === 'whatsapp').length;
+  const pasosEmail = secuencia.pasos.filter((p) => p.canal === 'email').length;
 
   return (
     <div style={{ height: '100%', width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -144,8 +144,8 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
           <div style={{ display: 'flex', gap: 11, alignItems: 'center', minWidth: 0, marginBottom: 18 }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{est ? EMOJI_OBJ[est.objetivo] : '⚑'}</div>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{jugada.nombre}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(jugada.etapa)} · {pasosWa} WhatsApp · {pasosEmail} email{est?.probada_at ? ' · probada ✓' : ''}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{secuencia.nombre}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(secuencia.etapa)} · {pasosWa} WhatsApp · {pasosEmail} email{est?.probada_at ? ' · probada ✓' : ''}</div>
             </div>
             <div style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>{activa ? 'Activa' : 'Pausada'}</span>
@@ -160,9 +160,9 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
 
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cómo juega?</div>
           <div style={{ marginBottom: 20 }}>
-            <Paso icono="⚡" titulo="Se dispara cuando…" detalle={`El lead está parado en la etapa «${etiquetaEtapa(jugada.etapa)}» de tu funnel.`} />
+            <Paso icono="⚡" titulo="Se dispara cuando…" detalle={`El lead está parado en la etapa «${etiquetaEtapa(secuencia.etapa)}» de tu funnel.`} />
             <Flecha />
-            <Paso icono="💬" titulo={`MaKo le manda la secuencia (${jugada.pasos.length} mensajes)`} detalle="Con el anti-ban de siempre; los pasos de WhatsApp oficial esperan la plantilla aprobada por Meta." tono="mako" />
+            <Paso icono="💬" titulo={`MaKo le manda la secuencia (${secuencia.pasos.length} mensajes)`} detalle="Con el anti-ban de siempre; los pasos de WhatsApp oficial esperan la plantilla aprobada por Meta." tono="mako" />
             {nPreg > 0 && (<><Flecha /><Paso icono="❓" titulo={`Cualifica con ${nPreg} pregunta${nPreg === 1 ? '' : 's'}`} detalle="Sembradas con naturalidad en la charla — y la base del Setter IA." tono="mako" /></>)}
             <Flecha />
             <Paso icono="✅" titulo={objetivos.find((o) => o.value === objetivo)?.label ?? objetivo} detalle={gancho.trim() ? `Gancho: ${gancho.trim()}` : undefined} tono="dueno" />
@@ -171,7 +171,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>La estrategia</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 14 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Dropdown value={objetivo} onChange={(v) => setObjetivo(v as Objetivo)} width={230} ariaLabel="Objetivo de la jugada"
+              <Dropdown value={objetivo} onChange={(v) => setObjetivo(v as Objetivo)} width={230} ariaLabel="Objetivo de la secuencia de mensajes"
                 options={objetivos.map((o) => ({ value: o.value, label: `${EMOJI_OBJ[o.value as Objetivo] ?? ''} ${o.label}` }))} />
               <input value={gancho} onChange={(e) => setGancho(e.target.value)} placeholder="Gancho (lead magnet / oferta)…" style={{ ...inp, width: 'auto', flex: 1, minWidth: 180 }} disabled={!rolAdmin} />
             </div>
@@ -218,7 +218,7 @@ export function JugadaPerfil({ jugada, objetivos, etiquetaEtapa, rolAdmin, audio
           {/* Los mensajes: cada paso de WhatsApp puede ser texto o nota de voz */}
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '4px 0 8px' }}>Los mensajes</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {jugada.pasos.map((p) => {
+            {secuencia.pasos.map((p) => {
               const audio = p.tipo === 'audio' && p.audio_id ? audios.find((a) => a.id === p.audio_id) : null;
               return (
                 <div key={p.orden} style={{ padding: '11px 13px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>

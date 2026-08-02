@@ -1,7 +1,7 @@
 // =============================================================================
-// setting-estrategia — la JUGADA de una secuencia de nutrición (tab /setting)
+// setting-estrategia — la ESTRATEGIA de una secuencia de nutrición (tab /setting)
 // =============================================================================
-// Vive en nutricion_secuencias.estrategia (jsonb, mig 0107). null = sin jugada.
+// Vive en nutricion_secuencias.estrategia (jsonb, mig 0107). null = sin secuencia.
 // Parser TOLERANTE (patrón getSettingNum): basura → null, parciales → defaults.
 // Sin 'server-only': lo importan los tests y los tipos del client.
 
@@ -11,7 +11,7 @@
 export type Objetivo = 'agendar' | 'preparar' | 'reactivar' | 'cualificar' | 'confirmar_pago';
 
 /**
- * Cómo se opera la jugada cuando el lead RESPONDE (reunión 31/07):
+ * Cómo se opera la secuencia de mensajes cuando el lead RESPONDE (reunión 31/07):
  *  · 'asistido'   → el motor manda los primeros toques; al primer entrante frena,
  *                   avisa al dueño y deja un borrador redactado por MaKo para
  *                   aprobar con un clic. Es el arranque acordado ("aunque no esté
@@ -19,7 +19,7 @@ export type Objetivo = 'agendar' | 'preparar' | 'reactivar' | 'cualificar' | 'co
  *  · 'automatico' → solo pausa la secuencia (comportamiento histórico); la
  *                   conversación la sigue un humano por su cuenta.
  */
-export type ModoJugada = 'asistido' | 'automatico';
+export type ModoRespuesta = 'asistido' | 'automatico';
 
 /**
  * Reglas de decisión de la cualificación (reunión 31/07). Las `preguntas` dicen
@@ -38,7 +38,7 @@ export type Estrategia = {
   lead_magnet_id: string | null; // id del Entregable de la fábrica de creativos (lib/entregable.ts — ids string)
   preguntas: string[];           // cualificación — las hereda el Setter IA (fase 2)
   criterio: CriterioCalificacion;
-  modo: ModoJugada;
+  modo: ModoRespuesta;
   notas: string | null;
   probada_at: string | null;     // última prueba en vivo OK
 };
@@ -77,7 +77,7 @@ export function parseEstrategia(raw: unknown): Estrategia | null {
 const listaStrings = (x: unknown): string[] =>
   Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map((s) => s.trim()) : [];
 
-/** Criterio tolerante: cualquier basura → listas vacías (jugada sin criterio aún). */
+/** Criterio tolerante: cualquier basura → listas vacías (secuencia sin criterio aún). */
 export function parseCriterio(raw: unknown): CriterioCalificacion {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { califica: [], descalifica: [] };
   const r = raw as Record<string, unknown>;

@@ -1071,7 +1071,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "El modelo tiende a inflar y meter todo en Alta. Un post-procesado determinístico <strong>curva los scores por banda</strong>: ~15% Alta, ~25% Media, ~30% Baja, ~30% A futuro. Casi todo cae abajo, como debe ser.",
           "Los proyectos se reparten en toda la escala 1-100 <strong>sin empatar</strong>, para que siempre haya <strong>un único Objetivo Principal</strong> — no cinco prioridades número uno.",
-          "La vista Prioridades pinta ese objetivo grande a la izquierda y sus <strong>3 jugadas del día numeradas 1-2-3</strong>, elegidas automáticamente (las 3 de mayor score del proyecto top). Vos no las elegís: las ganan.",
+          "La vista Prioridades pinta ese objetivo grande a la izquierda y sus <strong>3 secuencias del día numeradas 1-2-3</strong>, elegidas automáticamente (las 3 de mayor score del proyecto top). Vos no las elegís: las ganan.",
           "Hay <strong>bypass de emergencia</strong>: una tarea con score ≥ 90 (Meta te suspendió la cuenta, se prende fuego algo) entra a Alta aunque no sea del objetivo principal.",
         ],
       },
@@ -1096,7 +1096,7 @@ export const FEATURES: Record<string, Feature> = {
     conecta: ["Claude (effort alto)", "Fathom", "Supabase (multi-tenant)", "Prompts editables", "Historial de gasto de IA"],
     quote: "Tu plan no necesita otra lista de pendientes. Necesita alguien que te diga que NO.",
     metaTitle: "Prioridades: la IA que te dice que NO | MaKo — El Perro Guardián",
-    metaDesc: "El Perro Guardián de MaKo puntúa todo tu plan con la regla 'más plata, más rápido, más fácil', te discute cuando priorizás por cariño y te deja un solo Objetivo Principal con 3 jugadas del día. Corre solo, en background, sobre Claude.",
+    metaDesc: "El Perro Guardián de MaKo puntúa todo tu plan con la regla 'más plata, más rápido, más fácil', te discute cuando priorizás por cariño y te deja un solo Objetivo Principal con 3 secuencias del día. Corre solo, en background, sobre Claude.",
   },
 
   'retro': {
@@ -1578,7 +1578,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Resuelto el dolor técnico que hace que casi nadie logre reportes por WhatsApp",
         bullets: [
-          "Meta prohíbe saltos de línea y textos largos en las plantillas, así que reportes multilínea por plantilla es imposible. La jugada: el diario manda UNA plantilla-apertura ('reporte_mako', botón 'Recibir reporte'); la tocás y se abre la ventana de servicio de 24h.",
+          "Meta prohíbe saltos de línea y textos largos en las plantillas, así que reportes multilínea por plantilla es imposible. La secuencia de mensajes: el diario manda UNA plantilla-apertura ('reporte_mako', botón 'Recibir reporte'); la tocás y se abre la ventana de servicio de 24h.",
           "Con la ventana abierta, el resto del día los reportes salen como texto libre multilínea vía Chatwoot, tal cual los leés en el panel. Sin recortes ni parámetros mutilados.",
           "Si la ventana está cerrada, el reporte no se pierde: queda pendiente y el cron horario lo reintenta solo (flushPendientesWhatsapp) apenas se reabre.",
           "La plantilla de Meta se da de alta desde la propia UI, idempotente: solo crea el borrador y lo manda a aprobar si no está ya aprobado o en revisión, y te muestra el estado real (Aprobada / En revisión / Rechazada, con motivo).",
