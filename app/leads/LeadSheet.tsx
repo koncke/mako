@@ -10,12 +10,15 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { CHIP, deriveStageKey, stageMeta, nutricionPositivaDe, type Stage } from '@/lib/pipeline';
+import { CHIP, BAND_LABEL, deriveStageKey, stageMeta, nutricionPositivaDe, type Stage, type StageBand } from '@/lib/pipeline';
 import { hayPasoDeWizard, tabDeSolucion } from '@/lib/stage-requirements';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { deleteLeadInlineAction, type LeadFullData } from './actions';
+import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
+import { Dropdown, type DropdownOption } from '../components/Dropdown';
+import type { FathomLink } from '@/lib/leads';
 import { JourneyTimeline } from './JourneyTimeline';
 import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
@@ -97,6 +100,30 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     hoyISO: new Date().toISOString().slice(0, 10),
   });
 
+  // Cambiar etapa desde el header (botón a la derecha). Elegir otra etapa abre el
+  // wizard con TODAS las validaciones (Ganado → form completo), igual que el Kanban.
+  const [moveTo, setMoveTo] = useState<string | null>(null);
+  const stageOptions: DropdownOption[] = (['pipeline', 'nutricion', 'salidas'] as StageBand[]).flatMap((b) =>
+    stages.filter((s) => (s.band ?? 'pipeline') === b).sort((a, c) => (a.col ?? 0) - (c.col ?? 0)).map((s) => ({ value: s.key, label: s.label, sub: BAND_LABEL[b], color: s.dot })),
+  );
+  const moveInfo: MoveLeadInfo = {
+    id: lead.id, name: lead.nombre,
+    fechaJ1: lead.fecha_junta_1, fechaJ2: lead.fecha_junta_2,
+    asistioJ1: lead.asistio_j1, asistioJ2: lead.asistio_j2, calificado: lead.calificado,
+    fathom: (lead.fathom_links ?? []) as FathomLink[],
+    monto: lead.monto_cierre_usd ?? null, motivo: lead.motivo_perdida,
+    setter: lead.setter ?? null, closer: lead.closer ?? null,
+    empresa: lead.empresa ?? null, telefono: lead.telefono ?? null,
+    tienePlan: pagos.length > 0,
+    sinR1: !!lead.sin_r1, sinR2: !!lead.sin_r2, fathomOmitido: !!lead.fathom_omitido,
+    email: lead.email ?? null, tieneContrato: !!lead.contrato_path,
+    dealServicioOk: !!lead.deal_servicio?.que_es?.trim(),
+    dealPromesaOk: !!lead.deal_promesa?.resultado?.trim(),
+    dealFiscalOk: !!lead.deal_fiscal?.razon?.trim(),
+    dealObligacionesOk: (lead.deal_obligaciones?.cliente?.length ?? 0) > 0 || (lead.deal_obligaciones?.prestador?.length ?? 0) > 0,
+  };
+  const pickStage = (k: string) => { if (k && k !== stageKey) setMoveTo(k); };
+
   const doDelete = () => {
     setConfirmDelete(false);
     startTransition(async () => {
@@ -168,7 +195,10 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--faint)', marginTop: 4 }}>Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}</div>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ flex: 'none', width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconX /></button>
+          <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+            <button onClick={onClose} aria-label="Cerrar" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconX /></button>
+            <Dropdown value={stageKey} options={stageOptions} onChange={pickStage} align="right" width={210} ariaLabel="Cambiar etapa" buttonStyle={{ fontSize: 13, fontWeight: 600 }} />
+          </div>
         </div>
 
         {/* tabs + cuerpo scrolleable */}
@@ -215,6 +245,17 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           </div>
         </div>
       </div>
+
+      {moveTo && (
+        <StageMoveDialog
+          lead={moveInfo}
+          stages={stages}
+          move={{ to: moveTo }}
+          equipo={equipo}
+          onClose={() => setMoveTo(null)}
+          onDone={() => { setMoveTo(null); router.refresh(); onClose(); }}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmDialog

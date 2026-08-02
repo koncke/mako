@@ -156,9 +156,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [motivo, setMotivo] = useState(lead.motivo ?? '');
   const [motivoDetalle, setMotivoDetalle] = useState('');
   const [cuotas, setCuotas] = useState<Array<{ monto: string; fecha: string }>>([{ monto: '', fecha: hoyISO }]);
-  // Higiene (solo se piden en "Completar datos").
-  const [setter, setSetter] = useState(lead.setter ?? '');
-  const [closer, setCloser] = useState(lead.closer ?? '');
+  // Higiene (solo se piden en "Completar datos"). Si el equipo es de UNA sola
+  // persona, se auto-asigna como setter y closer (no tiene sentido preguntarlo).
+  const soloUno = equipo.length === 1 ? equipo[0].nombre : '';
+  const [setter, setSetter] = useState(lead.setter ?? soloUno);
+  const [closer, setCloser] = useState(lead.closer ?? soloUno);
   const [empresa, setEmpresa] = useState(lead.empresa ?? '');
   const [telefono, setTelefono] = useState(lead.telefono ?? '');
   // Deal Details + documentos + Calendly R2 (pasada única de "Solucionar").
@@ -185,7 +187,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoReporte, setAutoReporte] = useState<string[] | null>(null);
   const [autoR2NoEncontrada, setAutoR2NoEncontrada] = useState(false);
-  const [resueltos, setResueltos] = useState<Set<PasoId>>(() => new Set());
+  const [resueltos, setResueltos] = useState<Set<PasoId>>(() => {
+    // Equipo de una sola persona → setter/closer ya resueltos (se auto-asignan).
+    const s = new Set<PasoId>();
+    if (equipo.length === 1) { s.add('setter'); s.add('closer'); }
+    return s;
+  });
 
   // Pasos que la etapa destino EXIGE con lo que el lead ya tiene (se calcula
   // UNA vez al montar — lazy useState, no depende de las respuestas del wizard).
