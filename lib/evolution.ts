@@ -111,7 +111,16 @@ async function setSettings(instance: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify({
       rejectCall: false, msgCall: '', groupsIgnore: true,
-      alwaysOnline: false, readMessages: false, readStatus: false, syncFullHistory: false,
+      alwaysOnline: false, readMessages: false, readStatus: false,
+      // El producto entero se apoya en leer el historial: aprender la forma de
+      // escribir del dueño, reconocer a los contactos por su nombre, y no
+      // arrancar una nutrición sobre un contacto con el que ya se venía
+      // hablando. Con `false`, Baileys guarda apenas lo que llega desde que se
+      // vincula, y el paso "Tu forma de escribir" se queda sin material.
+      //
+      // OJO: solo aplica al VINCULAR. Un número ya conectado no recupera su
+      // historial con este cambio — hay que desconectarlo y escanear de nuevo.
+      syncFullHistory: true,
     }),
   });
 }
@@ -126,7 +135,9 @@ export async function permitirGruposEnInstancia(instance: string): Promise<{ ok:
     method: 'POST',
     body: JSON.stringify({
       rejectCall: false, msgCall: '', groupsIgnore: false,
-      alwaysOnline: false, readMessages: false, readStatus: false, syncFullHistory: false,
+      // Mismo valor que setSettings: este endpoint PISA los ajustes enteros,
+      // así que dejarlo en false acá apagaría el historial por la ventana.
+      alwaysOnline: false, readMessages: false, readStatus: false, syncFullHistory: true,
     }),
   });
   return r.ok ? { ok: true } : { ok: false, error: r.error };
@@ -211,6 +222,10 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
 
   // Ya existe → pedir un QR fresco (re-vincular).
   await setWebhook(instance);
+  // Los settings se re-aplican también acá, no solo al crear: una instancia
+  // vieja se quedaba para siempre con los ajustes del día que nació, y cualquier
+  // cambio posterior era mudo para todos los clientes que ya existían.
+  await setSettings(instance).catch(() => {});
   const c = await evFetch<ConnectResp>(`/instance/connect/${encodeURIComponent(instance)}`);
   if (!c.ok) return { ok: false, error: c.error };
   await upsertInstancia({ estado: 'conectando' });
@@ -447,6 +462,27 @@ export async function fetchContactoPicUrl(telefono: string): Promise<string | nu
   );
   if (!r.ok || !Array.isArray(r.data)) return null;
   return r.data.find((c) => c.profilePicUrl)?.profilePicUrl ?? null;
+}
+
+/**
+ * La AGENDA completa, en UNA request. findChats devuelve `pushName` solo cuando
+ * el contacto se puso un nombre a sí mismo, que es la minoría — por eso la lista
+ * se veía llena de números. findContacts, en cambio, devuelve la libreta que el
+ * teléfono sincronizó, con el nombre que el dueño le puso a cada uno.
+ * Best-effort: [] ante cualquier fallo.
+ */
+export async function fetchContactosEvolution(): Promise<Array<{ remoteJid: string; nombre: string | null; fotoUrl: string | null }>> {
+  const ws = await getWorkspaceActual();
+  if (ws == null || !evolutionConfigurado()) return [];
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch<Array<{ remoteJid?: string; pushName?: string | null; name?: string | null; profilePicUrl?: string | null }>>(
+    `/chat/findContacts/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+  if (!r.ok || !Array.isArray(r.data)) return [];
+  return r.data
+    .filter((c) => c.remoteJid && !c.remoteJid.endsWith('@g.us'))
+    .map((c) => ({ remoteJid: c.remoteJid as string, nombre: c.name ?? c.pushName ?? null, fotoUrl: c.profilePicUrl ?? null }));
 }
 
 // ── Lectura EN VIVO desde Evolution (no depende del webhook) ─────────────────

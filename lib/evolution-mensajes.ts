@@ -17,6 +17,8 @@ import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
 import { derivarEtapa, type LeadEtapaFields } from '@/lib/wa-etapas';
 import { telefonosBloqueados, telefonosOcultos } from '@/lib/evolution-block';
 import { getNombresContacto } from '@/lib/evolution-contactos';
+import { upsertContacto, upsertContactosLote } from './evolution-contactos';
+import { fetchContactosEvolution } from './evolution';
 
 // ── Parseo del payload de Evolution ──────────────────────────────────────────
 type UpsertData = {
@@ -184,7 +186,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
 // ── Lectura para el inbox ────────────────────────────────────────────────────
 // Clave de agrupación de una conversación: los últimos 10 dígitos del teléfono
 // (robusto ante variaciones del jid); si no hay teléfono, el jid crudo.
-function claveTel(tel: string | null, jid: string): string {
+export function claveTel(tel: string | null, jid: string): string {
   const d = (tel || '').replace(/\D/g, '').slice(-10);
   return d.length >= 8 ? d : jid;
 }
@@ -488,6 +490,13 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
   if (ws == null) return { chats: 0, mensajes: 0 };
   const instance = instanceNameDeWs(ws);
   const supabase = await getTenantDb();
+  // La agenda primero, en UNA request: findChats casi no trae nombres (solo el
+  // que el contacto se puso a sí mismo), y sin esto la lista queda llena de
+  // números crudos. Best-effort — si falla, se sigue igual.
+  try {
+    await upsertContactosLote(await fetchContactosEvolution());
+  } catch { /* sin agenda */ }
+
   const chats = await fetchChatsEvolution().catch(() => [] as Awaited<ReturnType<typeof fetchChatsEvolution>>);
   let nChat = 0, nMsg = 0;
   for (const ch of chats.slice(0, 100)) {
@@ -500,6 +509,13 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
     for (const rec of recs) { const cj = jidCanonico(rec.key); if (cj && !cj.endsWith('@lid')) { chatJid = cj; break; } }
     if (chatJid.endsWith('@g.us') || chatJid.startsWith('status@') || chatJid.includes('broadcast')) continue;
     nChat += 1;
+    // findChats YA devuelve el nombre y la foto del contacto: descartarlos
+    // dejaba la lista mostrando números crudos, y obligaba a esperar a que el
+    // webhook de contacts.upsert disparara alguna vez. Best-effort, como el
+    // resto del importador.
+    if (ch.pushName || ch.profilePicUrl) {
+      await upsertContacto(chatJid, ch.pushName ?? null, ch.profilePicUrl ?? null).catch(() => {});
+    }
     const telefono = normalizarTelefono(jidToNumero(chatJid));
     const leadId = telefono ? await matchLeadPorTelefono(telefono) : null;
     const filas: Record<string, unknown>[] = [];

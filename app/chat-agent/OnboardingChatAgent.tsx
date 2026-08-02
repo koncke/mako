@@ -19,6 +19,7 @@ import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import { Icon } from '@/app/_components/icons';
+import { Avatar } from '../whatsapp/_shared/Avatar';
 
 /**
  * Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda.
@@ -45,7 +46,18 @@ type PasoKey =
   | 'email_conectar' | 'email_prueba';
 type Estado = { status: 'pendiente' | 'done'; steps: Record<string, { done: boolean }> };
 type Def = { key: string; titulo: string; pasos: Array<{ key: string; label: string }> };
-type Conversacion = { chatJid: string; nombre: string | null; telefono: string | null; mensajes: number; muestra: string | null };
+type Conversacion = {
+  /** Últimos 10 dígitos del teléfono: agrupa entrantes y salientes. */
+  clave: string;
+  /** Todos los jids de la charla — el análisis filtra por el conjunto. */
+  jids: string[];
+  nombre: string | null; telefono: string | null;
+  mensajes: number; propios: number; muestra: string | null;
+  /** Tiene ida y vuelta suficiente para aprender el estilo. */
+  apta: boolean;
+  clase: 'cliente' | 'personal' | 'no_se';
+  razon: string; esLead: boolean;
+};
 
 // Títulos CORTOS y descriptivos, como el resto del onboarding ("El Archivero",
 // "Tu personalidad", "Tu diagnóstico"). El subtítulo dice EL OBJETIVO del paso
@@ -224,6 +236,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // con lo que va llegando por webhook. Las conversaciones que ya existen en
   // el teléfono hay que pedirlas, y este paso las necesita para leer el estilo.
   const [importando, setImportando] = useState(false);
+  // Los personales quedan plegados, nunca escondidos: si la IA se equivoca, el
+  // dueño tiene que poder encontrar igual su mejor conversación de ventas.
+  const [verPersonales, setVerPersonales] = useState(false);
   const [yaImporto, setYaImporto] = useState(false);
   const [contexto, setContexto] = useState<{ leido: boolean; resumen: string } | null>(null);
 
@@ -260,6 +275,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const pasoKeyRef = useRef<PasoKey>(pasoKey);
   pasoKeyRef.current = pasoKey;
   const convsFiltradas = (convs ?? []).filter((c) => {
+    if (!verPersonales && c.clase === 'personal') return false;
     const q = busq.trim().toLowerCase();
     return !q || (c.nombre ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q);
   });
@@ -366,7 +382,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // ── Paso contexto: primero la lista de chats, después el análisis ──
   const cargarConvs = useCallback(async () => {
     try {
-      const j = await (await fetch('/api/chat-agent/onboarding/conversaciones', { cache: 'no-store' })).json();
+      const j = await (await fetch('/api/chat-agent/onboarding/conversaciones?clasificar=1', { cache: 'no-store' })).json();
       setConvs(j.ok ? (j.conversaciones ?? []) : []);
     } catch { setConvs([]); }
   }, []);
@@ -387,13 +403,29 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     } finally { setImportando(false); }
   }
 
+  async function ocultarConv(c: Conversacion) {
+    if (!c.telefono) return;
+    setConvs((prev) => (prev ?? []).filter((x) => x.clave !== c.clave));
+    setElegidos((prev) => { const n = new Set(prev); n.delete(c.clave); return n; });
+    try {
+      // El mismo endpoint que usa la tab WhatsApp: el contacto queda oculto
+      // ahí también, que es lo que el dueño espera al decir "esta no".
+      await fetch('/api/whatsapp/evolution/block', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'hide', telefono: c.telefono }),
+      });
+    } catch { /* si falla, vuelve a aparecer en la próxima carga */ }
+  }
+
   async function leerConversaciones() {
     if (!elegidos.size) { setErr('Elegí al menos una conversación.'); return; }
     setBusy(true); setErr(null);
     try {
       const j = await (await fetch('/api/chat-agent/onboarding/contexto', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chats: [...elegidos] }),
+        // Se mandan todos los jids de cada charla elegida: una misma
+        // conversación puede estar guardada bajo dos o tres jids distintos.
+        body: JSON.stringify({ chats: (convs ?? []).filter((c) => elegidos.has(c.clave)).flatMap((c) => c.jids) }),
       })).json();
       if (!j.ok) { setErr(j.error || 'No pude leer tus conversaciones.'); return; }
       setContexto({ leido: true, resumen: j.resumen ?? '' });
@@ -630,27 +662,58 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           ) : (
             <>
               <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar contacto…" style={inp} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--faint)' }}>
-                <span>{elegidos.size} elegidas de {convs.length}</span>
-                <button onClick={() => setElegidos(new Set(convsFiltradas.map((c) => c.chatJid)))} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Elegir todas</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--faint)', flexWrap: 'wrap' }}>
+                <span>{elegidos.size} de {convsFiltradas.length}</span>
+                <button onClick={() => setElegidos(new Set(convsFiltradas.filter((c) => c.apta).map((c) => c.clave)))} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Elegir todas</button>
                 {elegidos.size > 0 && <button onClick={() => setElegidos(new Set())} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>Ninguna</button>}
+                <span style={{ flex: 1 }} />
+                <button onClick={() => setVerPersonales((v) => !v)} style={{ ...btn, padding: '4px 10px', fontSize: 12 }}>
+                  {verPersonales ? 'Ocultar personales' : `Ver personales (${(convs ?? []).filter((c) => c.clase === 'personal').length})`}
+                </button>
               </div>
-              <div style={{ maxHeight: 230, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-2)' }}>
+
+              <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-2)' }}>
                 {convsFiltradas.map((c) => {
-                  const on = elegidos.has(c.chatJid);
+                  const on = elegidos.has(c.clave);
+                  const nombre = c.nombre || c.telefono || 'Sin nombre';
                   return (
-                    <button key={c.chatJid} type="button"
-                      onClick={() => setElegidos((s) => { const n = new Set(s); if (n.has(c.chatJid)) n.delete(c.chatJid); else n.add(c.chatJid); return n; })}
-                      style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderBottom: '1px solid var(--border)', background: on ? 'var(--good-bg)' : 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
-                      <span style={{ width: 16, height: 16, flex: 'none', borderRadius: 5, border: '1px solid ' + (on ? 'var(--good)' : 'var(--border-strong)'), background: on ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{on ? '✓' : ''}</span>
-                      <span style={{ minWidth: 0, flex: 1 }}>
-                        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre || c.telefono || 'Sin nombre'}</span>
-                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.mensajes} mensajes · {c.muestra ?? ''}</span>
-                      </span>
-                    </button>
+                    <div key={c.clave}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px 9px 12px', borderBottom: '1px solid var(--border)', background: on ? 'var(--good-bg)' : 'transparent' }}>
+                      <button type="button" aria-label={on ? `Quitar ${nombre}` : `Elegir ${nombre}`}
+                        onClick={() => setElegidos((prev) => { const n = new Set(prev); if (n.has(c.clave)) n.delete(c.clave); else n.add(c.clave); return n; })}
+                        style={{ flex: 'none', width: 17, height: 17, borderRadius: 5, border: '1px solid ' + (on ? 'var(--good)' : 'var(--border-strong)'), background: on ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                        {on ? '✓' : ''}
+                      </button>
+
+                      <Avatar telefono={c.telefono} name={nombre} size={34} />
+
+                      <button type="button"
+                        onClick={() => setElegidos((prev) => { const n = new Set(prev); if (n.has(c.clave)) n.delete(c.clave); else n.add(c.clave); return n; })}
+                        style={{ flex: 1, minWidth: 0, textAlign: 'left', border: 0, background: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</span>
+                          {c.esLead && <span style={{ flex: 'none', fontFamily: MONO, fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--good)', border: '1px solid var(--good)', borderRadius: 5, padding: '1px 5px' }}>CRM</span>}
+                        </span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {c.mensajes} mensajes{c.apta ? '' : ' · poca conversación'} · {c.muestra ?? ''}
+                        </span>
+                      </button>
+
+                      <a href={`/whatsapp?canal=empresa&chat=${encodeURIComponent(c.jids[0] ?? '')}`} target="_blank" rel="noreferrer"
+                        title="Abrir el chat" aria-label={`Abrir el chat con ${nombre}`}
+                        style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)' }}>
+                        <Icon name="whatsapp" size={14} />
+                      </a>
+                      <button type="button" onClick={() => void ocultarConv(c)}
+                        title="Ocultar este contacto" aria-label={`Ocultar ${nombre}`}
+                        style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer' }}>
+                        <Icon name="eye-off" size={14} />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
+
               <button onClick={() => void leerConversaciones()} disabled={busy || elegidos.size === 0} style={{ ...btnDark, alignSelf: 'center', opacity: busy || !elegidos.size ? 0.55 : 1 }}>
                 {busy ? 'Leyendo…' : `🔎 Leer ${elegidos.size || ''} ${elegidos.size === 1 ? 'conversación' : 'conversaciones'}`}
               </button>

@@ -977,15 +977,23 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
 }) {
   const done = t.progress >= 100;
   const clDone = t.checklist.filter((c) => c.done).length;
+  // A qué proyecto pertenece. El kanban agrupa por PRIORIDAD, así que sin esto una
+  // columna es una lista de tareas sueltas y hay que abrir cada una para saber de qué
+  // parte del plan es. Va en el lugar del emoji —que ya era el del proyecto, solo que
+  // mudo— para no gastar una fila: la card mide 138px fijos y el título necesita sus
+  // dos líneas. Mismo chip que el detalle (color del proyecto), no un estilo nuevo.
+  const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
   return (
     <div onClick={() => onOpen(t.id)}
       style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px', cursor: 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-      {/* header: emoji (del proyecto) + #id + [aviso] + prioridad */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
-        <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>
+      {/* header: proyecto + #id + [aviso] + prioridad */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
+        {proys.length > 0
+          ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}><LabelChips chips={proys} max={1} cap={132} /></span>
+          : <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
         <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
-        <span style={{ flex: 1 }} />
+        <span style={{ flex: 1, minWidth: 0 }} />
         {warn && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
         <ScoreBadge score={t.score} />
       </div>
@@ -1079,23 +1087,24 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
           {tasks.map((t, i) => {
             const clDone = t.checklist.filter((c) => c.done).length;
             const open = expand.has(t.id);
-            // Las tarjetas que NO son del Objetivo Principal entran para completar las 3:
-            // se dice de qué proyecto vienen, si no parecen puestas ahí porque sí.
-            const deOtro = objetivo && !t.labels.includes(objetivo.id) ? board.labelById(t.labels[0]) : null;
+            // A qué proyecto pertenece. Antes solo se decía cuando la tarjeta NO era del
+            // Objetivo Principal (entraba para completar las 3); ahora se dice siempre,
+            // porque saber de qué parte del plan es una tarea no debería depender de
+            // abrirla. El chip es el mismo del detalle: color del proyecto.
+            const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
             return (
               <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                {/* Como el proyecto de al lado (feedback jul-18): arriba ranking + emoji +
-                    #id + prioridad; el título abajo, en su línea. Sin tag de proyecto. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                {/* Como el proyecto de al lado (feedback jul-18): arriba ranking + proyecto
+                    + #id + prioridad; el título abajo, en su línea. El emoji suelto se fue:
+                    era el del proyecto, y ahora va DENTRO del chip en vez de repetido. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, minWidth: 0 }}>
                   <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
-                  <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>
+                  {proys.length > 0
+                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proys} max={2} cap={190} onOpen={onOpenProj} /></span>
+                    : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
                   <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
-                  {/* Sin repetir el emoji: el de la izquierda ya es el del proyecto. */}
-                  {deOtro && (
-                    <span title={`Entra para completar las ${MAX_PRIORIDAD}: viene de ${deOtro.name}`} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 9px', maxWidth: 210, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{deOtro.name}</span>
-                  )}
-                  <span style={{ flex: 1 }} />
+                  <span style={{ flex: 1, minWidth: 0 }} />
                   {(!t.deadline || t.checklist.length === 0) && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} size={16} />}
                   <ScoreBadge score={t.score} />
                 </div>

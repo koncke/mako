@@ -26,6 +26,36 @@ export async function upsertContacto(remoteJid: string, nombre: string | null, f
   await supabase.from('evolution_contactos').upsert(patch, { onConflict: 'workspace_id,telefono' });
 }
 
+/**
+ * La agenda entera en UN upsert. Uno por contacto era una request por fila: con
+ * una libreta de 500 la sincronización se iba a varios minutos.
+ */
+export async function upsertContactosLote(
+  contactos: Array<{ remoteJid: string; nombre: string | null; fotoUrl: string | null }>,
+): Promise<number> {
+  const ahora = new Date().toISOString();
+  const porTel = new Map<string, Record<string, unknown>>();
+  for (const c of contactos) {
+    if (!c.remoteJid || c.remoteJid.endsWith('@g.us') || c.remoteJid.startsWith('status@')) continue;
+    const tel = digs(normalizarTelefono(jidToNumero(c.remoteJid)) || jidToNumero(c.remoteJid));
+    if (!tel) continue;
+    const nom = c.nombre && c.nombre !== 'Você' ? c.nombre : null;
+    if (!nom && !c.fotoUrl) continue;
+    // Una fila por teléfono: el upsert falla si el lote trae la misma clave dos veces.
+    const prev = porTel.get(tel) ?? { telefono: tel, updated_at: ahora };
+    if (nom) prev.nombre = nom;
+    if (c.fotoUrl) prev.foto_url = c.fotoUrl;
+    porTel.set(tel, prev);
+  }
+  const filas = [...porTel.values()];
+  if (!filas.length) return 0;
+  const supabase = await getTenantDb();
+  for (let i = 0; i < filas.length; i += 500) {
+    await supabase.from('evolution_contactos').upsert(filas.slice(i, i + 500), { onConflict: 'workspace_id,telefono' });
+  }
+  return filas.length;
+}
+
 // Nombres de contacto por últimos-10 dígitos (para enriquecer la lista).
 export async function getNombresContacto(): Promise<Map<string, string>> {
   const supabase = await getTenantDb();
