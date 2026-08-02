@@ -46,8 +46,14 @@ function Item({ label, value, color, href }: { label: string; value: string | nu
 
 export function OrigenCard({ lead, vslEng, campana, adNombre, adUrl }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null }; adNombre?: string | null; adUrl?: string | null }) {
   void vslEng;
-  const anuncio = adNombre ?? lead.meta_ad_name ?? lead.meta_adset_name;
-  const tieneAtribucion = lead.origen_lead || lead.meta_campaign_name || lead.meta_adset_name || lead.meta_ad_name || lead.utm_campaign || lead.utm_source;
+  // Jerarquía de Meta: Campaña → Conjunto (adset) → Anuncio. Mostramos las 3 para
+  // saber EXACTAMENTE de qué anuncio vino. El anuncio siempre aparece si hay
+  // cualquier señal de Meta (nombre resuelto, nombre del lead, o el id crudo).
+  const anuncioNombre = adNombre ?? lead.meta_ad_name ?? null;
+  const conjunto = lead.meta_adset_name ?? null;
+  const hayAnuncio = !!(anuncioNombre || lead.meta_ad_id);
+  const anuncioMostrar = anuncioNombre ?? (lead.meta_ad_id ? `Anuncio ${lead.meta_ad_id}` : null);
+  const tieneAtribucion = lead.origen_lead || lead.meta_campaign_name || lead.meta_adset_name || lead.meta_ad_name || lead.meta_ad_id || lead.utm_campaign || lead.utm_source;
 
   if (!tieneAtribucion) {
     return (
@@ -67,7 +73,8 @@ export function OrigenCard({ lead, vslEng, campana, adNombre, adUrl }: { lead: L
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
         <Item label="Canal de entrada" value={origen.texto} color={origen.color} />
         <Item label="Campaña" value={lead.meta_campaign_name ?? campana.texto} href={linkAnuncio} />
-        {anuncio && <Item label="Anuncio" value={anuncio} href={linkAnuncio} />}
+        {conjunto && <Item label="Conjunto (adset)" value={conjunto} href={linkAnuncio} />}
+        {hayAnuncio && <Item label="Anuncio" value={anuncioMostrar} href={linkAnuncio} />}
         {lead.utm_source && <Item label="Fuente (UTM)" value={lead.utm_source === 'fb' ? 'Facebook' : lead.utm_source === 'ig' ? 'Instagram' : lead.utm_source} />}
       </div>
       {linkAnuncio && (
