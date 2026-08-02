@@ -18,9 +18,10 @@ export type VoiceRecorder = {
   start: () => Promise<void>; stop: (cancel: boolean) => void; pause: () => void; resume: () => void;
 };
 
-// onSend recibe el Blob grabado (mimeType nativo del navegador). onError superficia
-// los mensajes (sin micrófono / grabación vacía). Libera el micro al desmontar.
-export function useVoiceRecorder(onSend: (blob: Blob) => void | Promise<void>, onError?: (msg: string) => void): VoiceRecorder {
+// onSend recibe el Blob grabado (mimeType nativo del navegador) y los SEGUNDOS
+// que duró. onError superficia los mensajes (sin micrófono / grabación vacía).
+// Libera el micro al desmontar.
+export function useVoiceRecorder(onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void): VoiceRecorder {
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
   const [secs, setSecs] = useState(0);
@@ -30,14 +31,22 @@ export function useVoiceRecorder(onSend: (blob: Blob) => void | Promise<void>, o
   const cancelRef = useRef(false);
   const activeRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Espejo de `secs` en un ref: el onstop de abajo resetea el estado a 0 ANTES
+  // de entregar el blob, así que quien leyera `secs` desde onSend recibía
+  // siempre 0 — por eso duracion_s quedaba nulo en toda la biblioteca de audios.
+  const secsRef = useRef(0);
 
   const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
+  const arrancarTimer = () => {
+    if (timerRef.current) return;
+    timerRef.current = setInterval(() => setSecs((s) => { secsRef.current = s + 1; return s + 1; }), 1000);
+  };
 
   async function start() {
     if (recording || activeRef.current) return;
     let stream: MediaStream;
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch { onError?.('No se pudo acceder al micrófono. Revisá los permisos.'); return; }
+    catch { onError?.('No se pudo acceder al micrófono. Revisa los permisos.'); return; }
     let rec: MediaRecorder;
     try { rec = new MediaRecorder(stream); }
     catch { stream.getTracks().forEach((t) => t.stop()); onError?.('Tu navegador no permite grabar audio.'); return; }
@@ -53,15 +62,18 @@ export function useVoiceRecorder(onSend: (blob: Blob) => void | Promise<void>, o
       const cancelled = cancelRef.current || recRef.current !== thisRec;
       const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
       if (recRef.current === thisRec) recRef.current = null;
+      // La duración se lee ANTES de resetear el contador, y del ref (el estado
+      // acá dentro está congelado en el valor que tenía al crear la clausura).
+      const dur = secsRef.current;
       setRecording(false); setPaused(false); setSecs(0);
-      if (cancelled || !blob.size) { if (!cancelled) onError?.('La grabación quedó vacía, probá de nuevo.'); return; }
-      void onSend(blob);
+      if (cancelled || !blob.size) { if (!cancelled) onError?.('La grabación quedó vacía, vuelve a intentarlo.'); return; }
+      void onSend(blob, dur);
     };
     recRef.current = rec;
     activeRef.current = true;
     rec.start();
-    setRecording(true); setPaused(false); setSecs(0);
-    timerRef.current = setInterval(() => setSecs((s) => s + 1), 1000);
+    setRecording(true); setPaused(false); setSecs(0); secsRef.current = 0;
+    arrancarTimer();
   }
 
   function stop(cancel: boolean) {
@@ -76,7 +88,7 @@ export function useVoiceRecorder(onSend: (blob: Blob) => void | Promise<void>, o
   }
   function resume() {
     try { recRef.current?.resume(); } catch { /* noop */ }
-    if (!timerRef.current) timerRef.current = setInterval(() => setSecs((s) => s + 1), 1000);
+    arrancarTimer();
     setPaused(false);
   }
 

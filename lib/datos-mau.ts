@@ -90,6 +90,14 @@ type AmbitoDef = {
   credenciales?: boolean;
   /** Con `credenciales: true`, restringe la copia a UN servicio del catálogo (ej. 'meta'). */
   servicioFiltro?: string;
+  /**
+   * Copia el perfil del dueño (nombre, foto y campos del jsonb) PISANDO el
+   * usuario que el destino ya tiene. No es un setting ni una TablaClon:
+   * `usuarios` son cuentas de login y clonar una fila crearía un acceso nuevo
+   * con el email del dueño, que además es UNIQUE. Mismo patrón declarativo que
+   * `credenciales`: un flag, su bloque en la copia y su rama en el borrado.
+   */
+  perfil?: boolean;
   /** Se muestra bajo los botones cuando hay algo que aclarar. */
   nota?: string;
 };
@@ -99,6 +107,20 @@ type AmbitoDef = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
+  // Primera a propósito: el orden del objeto manda el orden del panel, y la
+  // identidad va antes que todo lo demás — es el nombre que firma cada audio y
+  // cada mensaje ("Hola, soy Mauricio Bustos").
+  // `user_nombre` viaja por la maquinaria de settings (es el nombre con el que
+  // sale el OTP); `user_email` y `user_telefono` NO: son los canales por los que
+  // una prueba terminaría alcanzando al Mauricio de verdad.
+  perfil: {
+    titulo: 'Nombre y foto',
+    seccion: 'Onboarding principal',
+    label: 'el nombre, la foto y el cargo de Mau',
+    perfil: true,
+    settings: ['user_nombre'],
+    nota: 'No se copian el email ni el teléfono: son los canales por los que una prueba llegaría al dueño.',
+  },
   negocio: {
     titulo: 'Brief y diagnóstico',
     seccion: 'Onboarding principal',
@@ -243,8 +265,93 @@ for (const s of SERVICIOS_METODO) {
 // El registro de lo que trajimos (para poder devolverlo intacto)
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Recibo = { settings: string[]; filas: Record<string, Array<string | number>> };
+/** Lo que el usuario del destino tenía ANTES de que el perfil de Mau lo pisara. */
+type PerfilPrevio = {
+  usuarioId: number;
+  nombre: string | null;
+  foto_url: string | null;
+  perfil: Record<string, unknown>;
+};
+
+type Recibo = {
+  settings: string[];
+  filas: Record<string, Array<string | number>>;
+  perfil?: PerfilPrevio;
+};
 const keyRecibo = (a: AmbitoKey) => `mako.datos_mau.${a}`;
+
+/**
+ * Campos del jsonb del perfil que viajan. `telefono` NO: se usa para mandar
+ * avisos por WhatsApp, así que copiarlo haría que una prueba del cliente de
+ * prueba le suene el celular a Mauricio. `email` tampoco está: es columna de
+ * login y UNIQUE.
+ */
+const PERFIL_EXTRA = ['cargo', 'empresa', 'web', 'bio', 'timezone'] as const;
+
+type FilaUsuario = {
+  id: number; nombre: string | null; foto_url: string | null;
+  perfil?: Record<string, unknown> | null; rol_ws?: string | null;
+};
+
+/**
+ * El admin-cliente del workspace, con fallback al primer miembro. Mismo criterio
+ * que usuarioDelPerfil() (lib/perfil.ts): si divergiera, /perfil mostraría una
+ * fila y esto escribiría en otra.
+ */
+async function usuarioAdminDe(ws: number): Promise<FilaUsuario | null> {
+  const { data } = await getSupabaseServer()
+    .from('usuarios').select('id, nombre, foto_url, perfil, rol_ws')
+    .eq('workspace_id', ws).neq('estado', 'suspendido')
+    .order('id', { ascending: true }).limit(20);
+  const filas = (data ?? []) as FilaUsuario[];
+  return filas.find((u) => u.rol_ws === 'admin') ?? filas[0] ?? null;
+}
+
+/**
+ * Trae nombre, foto y perfil de Mau PISANDO el usuario que el destino ya tiene.
+ *
+ * Se escribe con getSupabaseServer() y `.eq('workspace_id', destino)` a mano, NO
+ * con setPerfil(): setPerfil resuelve a quién escribe por la SESIÓN, y acá el
+ * destino llega por parámetro — un admin parado en el cliente A terminaría
+ * pisando el perfil de A creyendo tocar el de B.
+ *
+ * La foto viaja como URL, no duplicada: el bucket `avatars` es público y cada
+ * subida escribe un path nuevo con timestamp (nunca sobrescribe), así que la URL
+ * del dueño resuelve desde cualquier workspace. Duplicar el objeto dejaría
+ * basura que nadie limpia.
+ */
+async function copiarPerfilDelDueno(destino: number, recibo: Recibo, avisos: string[]): Promise<number> {
+  const [origen, dest] = await Promise.all([usuarioAdminDe(OWNER_WS), usuarioAdminDe(destino)]);
+  if (!origen) { avisos.push('El dueño no tiene un usuario con perfil cargado.'); return 0; }
+  if (!dest) { avisos.push('Este cliente no tiene ningún usuario: el nombre y la foto no se pudieron traer.'); return 0; }
+
+  // El respaldo se escribe SOLO la primera vez. Si se guardara en cada copia, la
+  // segunda anotaría los datos de Mau como "lo que había antes" y "Eliminar"
+  // dejaría el perfil del dueño pegado para siempre.
+  recibo.perfil ??= {
+    usuarioId: dest.id,
+    nombre: dest.nombre,
+    foto_url: dest.foto_url,
+    perfil: (dest.perfil ?? {}) as Record<string, unknown>,
+  };
+
+  // Merge, no reemplazo: lo que el destino tenga fuera de estas claves se respeta.
+  const extra: Record<string, unknown> = { ...(dest.perfil ?? {}) };
+  const oExtra = (origen.perfil ?? {}) as Record<string, unknown>;
+  for (const k of PERFIL_EXTRA) {
+    const val = oExtra[k];
+    if (typeof val === 'string' && val.trim()) extra[k] = val;
+  }
+
+  const { error } = await getSupabaseServer().from('usuarios').update({
+    nombre: origen.nombre ?? '',
+    foto_url: origen.foto_url ?? null,
+    perfil: extra,
+    updated_at: new Date().toISOString(),
+  }).eq('id', dest.id).eq('workspace_id', destino); // cinturón: nunca fuera del destino
+  if (error) { avisos.push(`perfil: ${error.message}`); return 0; }
+  return 1;
+}
 
 async function leerRecibo(ws: number, ambito: AmbitoKey): Promise<Recibo> {
   const sb = getSupabaseServer();
@@ -253,7 +360,13 @@ async function leerRecibo(ws: number, ambito: AmbitoKey): Promise<Recibo> {
   if (!raw) return { settings: [], filas: {} };
   try {
     const p = JSON.parse(raw) as Partial<Recibo>;
-    return { settings: Array.isArray(p.settings) ? p.settings : [], filas: p.filas && typeof p.filas === 'object' ? p.filas : {} };
+    return {
+      settings: Array.isArray(p.settings) ? p.settings : [],
+      filas: p.filas && typeof p.filas === 'object' ? p.filas : {},
+      // El recibo se reconstruye campo por campo: una clave que no se nombre acá
+      // desaparece en silencio, y con ella la única forma de revertir el perfil.
+      perfil: p.perfil && typeof p.perfil === 'object' ? (p.perfil as PerfilPrevio) : undefined,
+    };
   } catch { return { settings: [], filas: {} }; }
 }
 
@@ -277,7 +390,9 @@ export async function ambitosCompletados(ws: number): Promise<AmbitoKey[]> {
     try {
       const p = JSON.parse(r.value) as Recibo;
       const hayFilas = Object.values(p.filas ?? {}).some((v) => Array.isArray(v) && v.length > 0);
-      if ((p.settings ?? []).length || hayFilas) out.push(k);
+      // El perfil cuenta como traído aunque no escriba filas: si no, el ámbito se
+      // pinta apagado y el botón para devolverlo nunca aparece.
+      if ((p.settings ?? []).length || hayFilas || p.perfil) out.push(k);
     } catch { /* recibo ilegible: se ignora */ }
   }
   return out;
@@ -442,6 +557,16 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
     }
   }
 
+  // ── Perfil del dueño (nombre, foto, cargo) ──
+  if (def.perfil) {
+    try {
+      const n = await copiarPerfilDelDueno(destino, recibo, avisos);
+      if (n) { detalle.perfil = n; copiado += n; }
+    } catch (e) {
+      avisos.push(`perfil: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   await guardarRecibo(destino, ambito, recibo);
   if (def.nota) avisos.unshift(def.nota);
   return { copiado, detalle, avisos };
@@ -491,6 +616,20 @@ export async function eliminarDatosDelDueno(ambito: AmbitoKey, destino: number):
       try { await eliminarCredencial(destino, c); borrado += 1; } catch { /* ya no está */ }
     }
     detalle.credenciales = creds.length;
+  }
+
+  // El perfil no se BORRA: se devuelve. Borrarlo sería vaciarle el nombre a una
+  // cuenta de login que el cliente de prueba ya tenía. El recibo guardó lo que
+  // había antes de pisarlo, así que revertir es escribir eso de vuelta.
+  if (recibo.perfil) {
+    const p = recibo.perfil;
+    const { error } = await sb.from('usuarios').update({
+      nombre: p.nombre ?? '',
+      foto_url: p.foto_url,
+      perfil: p.perfil ?? {},
+      updated_at: new Date().toISOString(),
+    }).eq('id', p.usuarioId).eq('workspace_id', destino); // un recibo corrupto no puede tocar al dueño
+    if (!error) { detalle.perfil = 1; borrado += 1; }
   }
 
   await sb.from('app_settings').delete().eq('workspace_id', destino).eq('key', keyRecibo(ambito));

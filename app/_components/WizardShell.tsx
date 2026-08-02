@@ -98,9 +98,15 @@ export function WizardShell({
 
   const footer = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-      {hideAtras
-        ? <span>{extraFooter}</span>
-        : <button onClick={onAtras} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← {atrasLabel}</button>}
+      {/* Atrás y `extraFooter` CONVIVEN. Antes era un ternario: el extraFooter
+          solo aparecía cuando se ocultaba el Atrás, o sea únicamente en el paso
+          0. Como el extraFooter es la salida ("Lo configuro después"), a partir
+          del paso 1 el usuario se quedaba sin ella — y un paso que además exija
+          completar algo para avanzar se vuelve una trampa sin salida. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {!hideAtras && <button onClick={onAtras} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← {atrasLabel}</button>}
+        {extraFooter}
+      </div>
       {enUltimo ? (
         <button onClick={onConfirmar} disabled={pending || !puedeAvanzar} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: puedeAvanzar ? 'var(--primary)' : 'var(--border)', color: puedeAvanzar ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: puedeAvanzar && !pending ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : confirmLabel}</button>
       ) : hideSiguiente ? (

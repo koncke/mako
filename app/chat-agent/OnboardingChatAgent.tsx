@@ -265,13 +265,19 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       // Retomar donde quedó: primer paso sin hacer.
       const i = (j.def?.pasos ?? []).findIndex((p: { key: string }) => !j.estado?.steps?.[p.key]?.done);
       setIdx(i < 0 ? 0 : i);
-    } catch { setErr('Sin conexión — recargá la página.'); }
+    } catch { setErr('Sin conexión — recarga la página.'); }
   }, []);
   useEffect(() => { void cargar(); }, [cargar]);
 
-  // Estado de los canales al entrar al paso 1.
+  // Estado de los canales al entrar al paso del WhatsApp oficial — es el único
+  // que lo usa (para saber si ya está conectado).
+  //
+  // Antes comparaba contra 'canales', una clave que NO existe en PasoKey: quedó
+  // de una versión previa del wizard. El fetch no corría nunca, `canales` se
+  // quedaba en null y el paso wa_oficial mostraba SIEMPRE "no está conectado",
+  // aunque lo estuviera.
   useEffect(() => {
-    if (def?.pasos[idx]?.key !== 'canales' || canales) return;
+    if (def?.pasos[idx]?.key !== 'wa_oficial' || canales) return;
     void (async () => {
       try {
         const j = await (await fetch('/api/chat-agent/envio', { cache: 'no-store' })).json();
@@ -445,7 +451,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   }
 
   async function leerConversaciones() {
-    if (!elegidos.size) { setErr('Elegí al menos una conversación.'); return; }
+    if (!elegidos.size) { setErr('Elige al menos una conversación.'); return; }
     setBusy(true); setErr(null);
     try {
       const j = await (await fetch('/api/chat-agent/onboarding/contexto', {
@@ -665,7 +671,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       {pasoKey === 'email_prueba' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Cuando el dominio esté verificado, probá una jugada con pasos de email desde su perfil: te llega el correo a tu casilla, con tu remitente.
+            Cuando el dominio esté verificado, prueba una jugada con pasos de email desde su perfil: te llega el correo a tu casilla, con tu remitente.
           </div>
         </div>
       )}

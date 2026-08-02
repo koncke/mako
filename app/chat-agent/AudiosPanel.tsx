@@ -68,9 +68,12 @@ export function AudiosPanel({ audios, onCambio }: { audios: AudioSetting[]; onCa
   async function borrar(id: number) {
     setErr(null);
     try {
-      const j = await (await fetch(`/api/setting/audios?id=${id}`, { method: 'DELETE' })).json();
+      // /api/setting/ NO existe: quedó de cuando la tab se llamaba /setting. El
+      // 404 devolvía HTML, .json() reventaba y el catch mostraba "Sin conexión",
+      // así que borrar un audio fallaba en silencio con el mensaje equivocado.
+      const j = await (await fetch(`/api/chat-agent/audios?id=${id}`, { method: 'DELETE' })).json();
       if (j.ok) onCambio(); else setErr(j.error || 'No se pudo borrar.');
-    } catch { setErr('Sin conexión — probá de nuevo.'); }
+    } catch { setErr('Sin conexión — vuelve a intentarlo.'); }
   }
 
   return (
