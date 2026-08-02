@@ -53,6 +53,9 @@ export function ChatAgentApp() {
   const [objetivos, setObjetivos] = useState<Opcion[]>([]);
   const [etapas, setEtapas] = useState<Opcion[]>([]);
   const [leadMagnets, setLeadMagnets] = useState<Array<{ id: string; nombre: string }>>([]);
+  // Etapas de nutrición sin ninguna secuencia que las cubra. Reemplaza al viejo
+  // seed: en vez de inventar secuencias con copy de relleno, se avisa qué falta.
+  const [huecos, setHuecos] = useState<Array<{ etapa: string; label: string }>>([]);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [vista, setVista] = useState<'whatsapp' | 'email' | 'audios' | 'dashboard'>('whatsapp');
@@ -69,6 +72,25 @@ export function ChatAgentApp() {
   const [plan, setPlan] = useState<'setting' | 'whatsapp' | 'email' | null>(null);
   const [preguntarPlan, setPreguntarPlan] = useState(false);
 
+  // Archiva TODAS las secuencias vigentes: la salida para el dueño que se
+  // encontró con las sembradas y quiere arrancar de cero. No borra (las
+  // inscripciones y los envíos las referencian) y se puede deshacer.
+  const [archivando, setArchivando] = useState(false);
+  async function archivarTodas() {
+    if (archivando) return;
+    setArchivando(true);
+    try {
+      const r = await fetch('/api/chat-agent/secuencias', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'archivar' }),
+      });
+      const j = await r.json();
+      if (!j.ok) { setError(j.error || 'No se pudieron archivar.'); return; }
+      await load();
+    } catch { setError('Sin conexión — vuelve a intentarlo.'); }
+    finally { setArchivando(false); }
+  }
+
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/chat-agent/secuencias', { cache: 'no-store' });
@@ -77,6 +99,7 @@ export function ChatAgentApp() {
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setSerie(j.serie ?? []); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
+      setHuecos(j.huecos ?? []);
       setNegocio(j.negocio ?? '');
       setEmailSecuenciaId((prev) => (prev != null && lista.some((x) => x.id === prev) ? prev : (lista.find((x) => x.pasos.some((p) => p.canal === 'email'))?.id ?? lista[0]?.id ?? null)));
       setError(null);
@@ -165,11 +188,38 @@ export function ChatAgentApp() {
             {rolAdmin && <button onClick={() => setVista('audios')} style={vista === 'audios' ? tabActive : tabIdle}>🎙 Audios</button>}
             <button onClick={() => setVista('dashboard')} style={vista === 'dashboard' ? tabActive : tabIdle}>Dashboard</button>
           </div>
-          {rolAdmin && vista !== 'whatsapp' && (
+          {/* Antes se escondía justo en la vista WhatsApp, que es la vista por
+              defecto: había que irse a otra sub-tab para poder crear una. */}
+          {rolAdmin && (
             <button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva secuencia de mensajes</button>
+          )}
+          {/* Salida para quien se encontró con las secuencias que el sistema
+              sembraba solo: las saca de en medio sin borrarlas. */}
+          {rolAdmin && (secuencias?.length ?? 0) > 0 && (
+            <button
+              onClick={() => void archivarTodas()} disabled={archivando}
+              title="Las saca de la lista sin borrarlas: el historial de envíos se conserva"
+              style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: 12.5, cursor: archivando ? 'default' : 'pointer', textDecoration: 'underline' }}
+            >
+              {archivando ? 'Archivando…' : 'Archivar todas y empezar de cero'}
+            </button>
           )}
         </div>
       </header>
+
+      {/* Qué etapas de nutrición quedaron sin secuencia. MaKo conoce el funnel
+          entero, así que puede decir exactamente qué falta — y eso es más útil
+          que lo que hacía antes, que era rellenarlas con secuencias de mentira. */}
+      {rolAdmin && huecos.length > 0 && (
+        <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '11px 15px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13.5, color: 'var(--ink)', flex: 1, minWidth: 240, lineHeight: 1.55 }}>
+            {huecos.length === 1
+              ? <>La etapa <strong>{huecos[0].label}</strong> no tiene una secuencia de mensajes: los leads que caen ahí no reciben nada.</>
+              : <>Hay <strong>{huecos.length} etapas</strong> sin secuencia de mensajes: {huecos.map((h) => h.label).join(', ')}. Los leads que caen ahí no reciben nada.</>}
+          </span>
+          <button onClick={() => setWizard('nueva')} style={{ ...btnDark, flex: 'none' }}>Armar una</button>
+        </div>
+      )}
 
       {error && (
         <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', marginBottom: 14, color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>

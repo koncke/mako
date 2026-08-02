@@ -12,7 +12,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { setSetting } from '@/lib/settings';
 import { estadoInicial, setEstadoOnboarding } from '@/lib/onboarding-state';
 import { hoyEnTijuana } from '@/lib/date-utils';
-import { seedNutricionTemplates } from '@/lib/nutricion-templates';
+            // Un cliente nuevo ya NO arranca con secuencias sembradas.
 import { CAPA_DEFAULT, capaDef, esCapaValida } from '@/lib/capas';
 
 export const dynamic = 'force-dynamic';
@@ -70,11 +70,6 @@ export async function POST(req: NextRequest) {
               // objetivo_desde ancla el progreso del objetivo en /general; sin
               // esto usaría la fecha de arranque del dueño.
               await setSetting('objetivo_desde', hoyEnTijuana());
-            }
-            // La nutrición vive en las capas con canales. Sembrarla en una capa
-            // que no los tiene deja 5 secuencias muertas que nadie va a ver.
-            if (def.navKeys == null || def.navKeys.includes('whatsapp') || def.navKeys.includes('email')) {
-              await seedNutricionTemplates();
             }
           });
         } catch (e) {

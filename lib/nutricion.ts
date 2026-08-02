@@ -104,7 +104,9 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const { data, error } = await supabase
     .from('nutricion_secuencias')
     .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos')
-    .eq('activa', true);
+    .eq('activa', true)
+    // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
+    .is('archivada_at', null);
   if (error) throw new Error(`getSecuenciasActivas: ${error.message}`);
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
@@ -131,6 +133,10 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const { data, error } = await supabase
     .from('nutricion_secuencias')
     .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia')
+    // Las archivadas no se listan, no enrolan y no envían. No se borran porque
+    // las inscripciones y los envíos las referencian: borrarlas se llevaría
+    // puesto el historial de a quién se le escribió.
+    .is('archivada_at', null)
     .order('id', { ascending: true });
   if (error) throw new Error(`getSecuenciasConStats: ${error.message}`);
   const rows = (data ?? []) as Array<{

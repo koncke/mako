@@ -23,6 +23,7 @@ import { chatClaude } from '@/lib/anthropic';
 import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getFunnel } from '@/lib/leads';
+import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-huecos';
 import { getEntregables } from '@/lib/entregable';
 
 export const dynamic = 'force-dynamic';
@@ -40,11 +41,14 @@ export async function GET() {
     return Response.json({ ok: false, error: 'Sin acceso a Setting en este workspace.' }, { status: 403 });
   }
   try {
-    const [{ secuencias, serie }, funnel, leadMagnets, wsRow] = await Promise.all([
+    const [{ secuencias, serie }, funnel, leadMagnets, wsRow, huecos] = await Promise.all([
       getSettingData(),
       getFunnel().catch(() => null),
       getEntregables().catch(() => []),
       getWorkspace(ws).catch(() => null),
+      // Las etapas de nutrición que quedaron sin secuencia. Reemplaza al seed:
+      // antes se creaban solas con copy de relleno; ahora se avisa que faltan.
+      huecosDeSecuencias().catch(() => []),
     ]);
     // Etapas elegibles para colgar una secuencia de mensajes: nutrición + pipeline (sin salidas).
     const etapas = (funnel?.stages ?? [])
@@ -53,7 +57,7 @@ export async function GET() {
     return Response.json({
       ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
-      negocio: wsRow?.nombre ?? '',
+      negocio: wsRow?.nombre ?? '', huecos,
     });
   } catch (e) {
     console.error(`[api:setting/secuencias GET] ${msg(e)}`);
@@ -84,7 +88,7 @@ export async function POST(req: NextRequest) {
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar secuencias.' }, { status: 403 });
   }
-  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown };
+  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
@@ -94,6 +98,19 @@ export async function POST(req: NextRequest) {
       if (!etapa || !nombre) return Response.json({ ok: false, error: 'Faltan la etapa y el nombre de la secuencia de mensajes.' }, { status: 400 });
       const id = await crearSecuenciaDesdeEtapa(etapa, nombre);
       return Response.json({ ok: true, secuenciaId: id });
+    }
+    if (body.action === 'archivar') {
+      // Sin ids = archivar TODAS las vigentes. Es la salida para el dueño que
+      // se encontró con las secuencias sembradas y quiere empezar de cero.
+      const ids = Array.isArray(body.ids) ? (body.ids as unknown[]).map(Number).filter(Number.isFinite) : undefined;
+      const r = await archivarSecuencias(ids);
+      return Response.json({ ok: true, ...r });
+    }
+    if (body.action === 'desarchivar') {
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
+      await desarchivarSecuencia(id);
+      return Response.json({ ok: true });
     }
     if (body.action === 'sugerir-criterio') {
       // MaKo deduce el criterio de calificación de los leads YA evaluados del

@@ -20,7 +20,7 @@ import { verificarServicio } from '@/lib/metodo-verificar';
 import { getSetting, setSetting } from '@/lib/settings';
 import { saveFunnel } from '@/lib/leads';
 import { FUNNEL_TEMPLATES } from '@/lib/pipeline';
-import { seedNutricionTemplates } from '@/lib/nutricion-templates';
+        // Ya no se siembran secuencias: el dueño arranca con la pantalla limpia
 import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
 import { getAnswers, getSchema, saveAnswers } from '@/lib/onboarding';
 import { PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
@@ -246,13 +246,12 @@ export async function POST(req: NextRequest) {
         const diagnostico = await setDiagnosticoFase(resp, canal);
         // El canal ES el funnel (ya no hay un paso "¿cómo vendés?" aparte que lo
         // pida de nuevo): lo guardamos como funnel_tipos y aplicamos el pipeline
-        // default + sembramos nutrición, mismo efecto que tenía el viejo paso.
+        // default. Las secuencias las arma el dueño: ya no se siembran.
         if (canal) {
           try { await setSetting('onboarding.funnel_tipos', JSON.stringify([canal])); } catch { /* no fatal */ }
           const tpl = FUNNEL_TEMPLATES[0];
           if (tpl) {
             try { await saveFunnel(tpl.pipeline, []); } catch (e) { console.error('[onboarding] funnel default falló (no fatal):', e); }
-            try { await seedNutricionTemplates(); } catch (e) { console.error('[onboarding] seed nutrición falló (no fatal):', e); }
           }
         }
         return NextResponse.json({ ok: true, diagnostico });
@@ -275,9 +274,6 @@ export async function POST(req: NextRequest) {
         const tpl = FUNNEL_TEMPLATES.find((t) => t.id === body.templateId);
         if (!tpl) return NextResponse.json({ ok: false, error: 'plantilla inválida' }, { status: 400 });
         await saveFunnel(tpl.pipeline, []);
-        // Red de seguridad: dejar la nutrición seedeada (idempotente) por si el
-        // alta no la creó. No pisa lo que el cliente ya tenga.
-        try { await seedNutricionTemplates(); } catch (e) { console.error('[onboarding] seed nutrición falló (no fatal):', e); }
         return NextResponse.json({ ok: true });
       }
 
