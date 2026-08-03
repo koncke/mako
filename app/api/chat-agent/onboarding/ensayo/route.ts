@@ -14,8 +14,13 @@
 // OJO: es el INVERSO de lib/setting-simulador.ts (allá MaKo es el setter y el
 // usuario el lead). Acá el mapeo es al revés: negocio=user, lead=assistant.
 //
-// POST { escenario, historial: [{de:'lead'|'negocio', texto}] } → { mensaje }
-// Sandbox: no envía ni persiste nada.
+// POST { escenario, historial } → { mensaje }        el turno del lead
+// POST { action:'guardar', escenario, respuestas }    cierra ese caso y lo guarda
+// GET                                                 lo que ya se respondió
+//
+// No manda NADA a ningún lead: es un sandbox de conversación. Pero lo que el
+// dueño escribe SÍ se guarda — es la materia prima de sus secuencias, y perderlo
+// porque cerró la pestaña es hacerle repetir el trabajo más caro del onboarding.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -25,6 +30,7 @@ import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { resumenFunnel } from '@/lib/mako-context';
 import { escenarioPorId, bloqueEscenario } from '@/lib/chat-agent-escenarios';
+import { getSetting, setSetting } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -63,13 +69,53 @@ Devuelve SOLO el texto del mensaje del lead, sin comillas, sin tu nombre y sin n
 /** El modelo avisa que el lead no contesta. Se acepta con o sin adornos. */
 const SIN_RESPUESTA = /^[([]?\s*(sin respuesta|no contesta|no responde|silencio)\s*[)\]]?\.?$/i;
 
+/** Lo que el dueño ya respondió, por escenario. Vive por workspace. */
+const KEY_ENSAYO = 'chat_agent.ensayo';
+
+type EnsayoGuardado = { v: 1; hechos: Record<string, { respuestas: string[]; at: string }> };
+
+async function leerEnsayo(): Promise<EnsayoGuardado> {
+  const raw = await getSetting(KEY_ENSAYO);
+  if (!raw) return { v: 1, hechos: {} };
+  try {
+    const p = JSON.parse(raw) as EnsayoGuardado;
+    return p && typeof p.hechos === 'object' ? { v: 1, hechos: p.hechos } : { v: 1, hechos: {} };
+  } catch { return { v: 1, hechos: {} }; }
+}
+
+export async function GET() {
+  const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
+  if (ws == null || rol !== 'admin') return Response.json({ ok: true, hechos: {} });
+  try {
+    return Response.json({ ok: true, hechos: (await leerEnsayo()).hechos });
+  } catch { return Response.json({ ok: true, hechos: {} }); }
+}
+
 export async function POST(req: NextRequest) {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede hacer el ensayo.' }, { status: 403 });
   }
-  let body: { historial?: unknown; escenario?: unknown; audioBase64?: unknown; audioMime?: unknown };
+  let body: { historial?: unknown; escenario?: unknown; audioBase64?: unknown; audioMime?: unknown; action?: unknown; respuestas?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+
+  // Cerrar un caso: se guarda lo que el dueño escribió. Es lo que hace que
+  // salirse del onboarding no cueste rehacer el ensayo entero.
+  if (body.action === 'guardar') {
+    const id = String(body.escenario ?? '').trim();
+    if (!escenarioPorId(id)) return Response.json({ ok: false, error: 'Escenario desconocido.' }, { status: 400 });
+    const respuestas = Array.isArray(body.respuestas)
+      ? (body.respuestas as unknown[]).map((r) => String(r ?? '').trim()).filter(Boolean).slice(0, 20)
+      : [];
+    try {
+      const prev = await leerEnsayo();
+      prev.hechos[id] = { respuestas, at: new Date().toISOString() };
+      await setSetting(KEY_ENSAYO, JSON.stringify(prev));
+      return Response.json({ ok: true, hechos: prev.hechos });
+    } catch (e) {
+      return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  }
 
   // El dueño puede contestar con una NOTA DE VOZ, que es como de verdad va a
   // responderle a un lead. El modelo no oye: se transcribe y se le pasa el texto,

@@ -295,6 +295,13 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // propio: los nueve son la misma pregunta contada nueve veces, y como pasos
   // reales multiplicarían los puntos del progreso por una sola decisión.
   const [escIdx, setEscIdx] = useState(0);
+  // Los casos ya cerrados, traídos del server. Sin esto, salirse del onboarding
+  // borraba el ensayo entero y había que rehacerlo desde el primero.
+  const [guardado, setGuardado] = useState<Record<string, { respuestas: string[]; at: string }>>({});
+  const [ensayoCargado, setEnsayoCargado] = useState(false);
+  /** El caso recién cerrado, para confirmarlo arriba de la slide siguiente. */
+  const [cerrado, setCerrado] = useState<{ titulo: string; n: number } | null>(null);
+  const [cerrando, setCerrando] = useState(false);
   // El lead no contestó a lo último que se le escribió. No es un error: es la
   // respuesta más común, y verla es el punto del escenario de silencio.
   const [sinRespuesta, setSinRespuesta] = useState(false);
@@ -611,8 +618,33 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // hacía caer en el escenario 1 y el efecto lo reabría con otra semilla — el
   // dueño terminaba el ensayo y volvía a ver el primer caso, con los puntos de
   // progreso apagados y sin nada que dijera que había terminado.
+  // Se retoma en el primer caso SIN cerrar. Solo una vez: después manda lo que
+  // el dueño esté haciendo, no lo que había al abrir.
+  // `audios !== null` no es un detalle: de ahí sale también `linkVideo`, que es
+  // lo que decide si el caso del video entra en la lista. Retomar antes deja el
+  // índice apuntando a otro caso en cuanto la lista crece de 8 a 9.
+  const retomado = useRef(false);
+  useEffect(() => {
+    if (!ensayoCargado || audios === null || retomado.current || !escenarios.length) return;
+    retomado.current = true;
+    const i = escenarios.findIndex((e) => !guardado[e.id]);
+    setEscIdx(i < 0 ? escenarios.length : i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ensayoCargado, audios === null, escenarios.length]);
+
   const ensayoTerminado = escIdx >= escenarios.length;
   const esc = ensayoTerminado ? null : (escenarios[escIdx] ?? null);
+
+  // Lo que ya se respondió, para retomar donde quedó en vez de empezar de cero.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const j = await (await fetch('/api/chat-agent/onboarding/ensayo', { cache: 'no-store' })).json();
+        if (j.ok) setGuardado(j.hechos ?? {});
+      } catch { /* sin lo guardado, arranca del primero */ }
+      finally { setEnsayoCargado(true); }
+    })();
+  }, []);
 
   /** Abre el escenario: primero el audio del dueño, después la semilla del lead. */
   const abrirEscenario = useCallback((e: Escenario, audioUrl: string | null) => {
@@ -723,11 +755,48 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   /** Cuántas veces respondió el dueño en este escenario (el audio de apertura no cuenta). */
   const misRespuestas = msgs.filter((m, i) => m.fromMe && i > 0).length;
 
-  function siguienteEscenario() {
+  // La confirmación del caso anterior se va sola apenas el dueño empieza a
+  // responder este: ya dijo lo suyo y competir con el hilo la vuelve ruido.
+  useEffect(() => { if (misRespuestas > 0) setCerrado(null); }, [misRespuestas]);
+
+  /**
+   * Cierra el caso: GUARDA lo que el dueño escribió y pasa al siguiente.
+   *
+   * Guardar acá no es un extra. El ensayo es el trabajo más caro del onboarding
+   * —nueve conversaciones escritas a mano— y antes vivía solo en memoria: cerrar
+   * la pestaña lo borraba entero y había que rehacerlo desde el caso 1.
+   */
+  async function siguienteEscenario() {
+    if (!esc || cerrando) return;
     setErr(null);
+    setCerrando(true);
+    const respuestas = msgs.filter((m, i) => m.fromMe && i > 0 && (m.texto ?? '').trim()).map((m) => (m.texto ?? '').trim());
+    // El caso se cierra DENTRO del hilo, que es donde el dueño está mirando: una
+    // línea de sistema, como la que WhatsApp usa para lo que pasó en el chat.
+    // Un cartel fuera del hilo se lee como parte de la app; esto se lee como
+    // "esta conversación terminó y quedó registrada".
+    setMsgs((prev) => [...prev, {
+      id: `fin-${++seq.current}`, fromMe: false, tipo: 'sistema',
+      texto: respuestas.length
+        ? `Caso superado — guardé ${respuestas.length === 1 ? 'tu respuesta' : `tus ${respuestas.length} respuestas`}.`
+        : 'Caso saltado.',
+      fecha: new Date().toISOString(),
+    }]);
+    setGuardado((prev) => ({ ...prev, [esc.id]: { respuestas, at: new Date().toISOString() } }));
+    try {
+      await fetch('/api/chat-agent/onboarding/ensayo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'guardar', escenario: esc.id, respuestas }),
+      });
+    } catch { /* queda en pantalla como guardado; se reintenta al volver a cerrarlo */ }
+    // Un respiro para que la línea de cierre se alcance a leer antes de que el
+    // hilo se vacíe para el caso siguiente.
+    await new Promise((r) => setTimeout(r, 750));
+    setCerrado({ titulo: esc.titulo, n: respuestas.length });
     setMsgs([]);
     setSinRespuesta(false);
     setEscIdx((i) => i + 1);
+    setCerrando(false);
   }
 
   // Dentro del paso 'contexto' hay tres vistas: elegir las conversaciones,
@@ -739,7 +808,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
 
   const hecho = (k: PasoKey) => !!estado?.steps?.[k]?.done;
   const puedeAvanzar = (() => {
-    if (busy) return false;
+    if (busy || cerrando) return false;
     // Solo se traba lo que de verdad no tiene sentido saltear: leer el contexto,
     // ensayar un poco, y que el canal principal esté probado. El resto (oficial,
     // email, plantillas) se puede completar después — trabar ahí pierde gente.
@@ -750,9 +819,15 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     // sigue estando en "Lo configuro después" del pie — trabar el avance es lo
     // pedido; dejar el paso sin ninguna salida lo convertiría en una trampa.
     if (pasoKey === 'voz') return nGrabados === AUDIOS_PASO.length;
-    // El ensayo avanza por escenarios con su propio botón; el footer se habilita
-    // recién cuando se recorrieron todos.
-    if (pasoKey === 'ensayo') return escIdx >= escenarios.length || hecho('ensayo');
+    // El ensayo avanza CASO a caso con el MISMO botón del pie: mientras quede
+    // caso, el pie lo cierra y lo guarda; cuando no queda ninguno, pasa de paso.
+    // Se habilita con las respuestas que el caso pide — salvo los opcionales,
+    // que se pueden saltar sin escribir nada (son variantes del mismo aprendizaje).
+    if (pasoKey === 'ensayo') {
+      if (ensayoTerminado) return true;
+      if (!esc) return false;
+      return !esc.obligatorio || misRespuestas >= esc.minRespuestas;
+    }
     // El estado EN VIVO es la única prueba de que el número está vinculado. La
     // memoria de una vinculación pasada no lo es: con `hecho(...)` en el OR, el
     // paso seguía dejando avanzar después de desvincular, mostrando el botón de
@@ -797,11 +872,25 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
       confirmLabel="Listo, entrar al Chat Agent"
-      pending={busy}
+      // En el ensayo el pie no "pasa": CIERRA el caso y lo guarda. Decirlo es lo
+      // que evita que se lea como saltearlo.
+      siguienteLabel={
+        pasoKey === 'ensayo' && !ensayoTerminado
+          ? (escIdx >= escenarios.length - 1 ? 'Guardar y terminar el ensayo' : 'Guardar caso y seguir →')
+          : undefined
+      }
+      pending={busy || cerrando}
       atrasLabel="Atrás"
       hideAtras={idx === 0}
       onAtras={() => setIdx((i) => Math.max(0, i - 1))}
-      onSiguiente={() => void marcarPaso()}
+      onSiguiente={() => {
+        // El pie es el ÚNICO botón de avance. Mientras queden casos avanza el
+        // CASO; cuando no quedan, avanza el paso del wizard. Tener además un
+        // "Siguiente escenario" adentro era pedirle al dueño que eligiera entre
+        // dos botones que dicen lo mismo.
+        if (pasoKey === 'ensayo' && !ensayoTerminado) { void siguienteEscenario(); return; }
+        void marcarPaso();
+      }}
       onConfirmar={() => void marcarPaso()}
       onClose={onListo}
       // Siempre, incluso en el primer paso: si no, alguien que vuelve a un
@@ -1227,11 +1316,28 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* Progreso de los escenarios, con el mismo tamaño de punto que el
               shell: el paso son varias slides y tiene que leerse como tal. */}
+          {/* El punto se pinta por lo GUARDADO, no por la posición: así, al
+              volver al onboarding, se ve de un vistazo qué casos ya quedaron
+              hechos aunque el recorrido arranque en otro lado. */}
           <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
             {escenarios.map((e, i) => (
-              <span key={e.id} style={{ width: i === escIdx ? 20 : 7, height: 7, borderRadius: 999, background: i === escIdx ? 'var(--primary)' : i < escIdx ? 'var(--primary-weak, #B9CDF8)' : 'var(--border)', transition: 'width .2s' }} />
+              <span
+                key={e.id}
+                title={guardado[e.id] ? `${e.titulo} · guardado` : e.titulo}
+                style={{ width: i === escIdx ? 20 : 7, height: 7, borderRadius: 999, background: i === escIdx ? 'var(--primary)' : guardado[e.id] ? 'var(--good)' : 'var(--border)', transition: 'width .2s' }}
+              />
             ))}
           </div>
+
+          {/* Lo que se acaba de guardar, ya en la slide del caso siguiente: es la
+              prueba de que el caso anterior no se perdió. Se va sola en cuanto
+              el dueño empieza a responder este. */}
+          {cerrado && (
+            <div style={{ ...okBox, display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left' }}>
+              <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={15} /></span>
+              <span>Guardado: «{cerrado.titulo}»{cerrado.n ? '' : ' (saltado)'}</span>
+            </div>
+          )}
 
           {/* El de silencio es el único donde el lead no escribe: se avisa, si
               no el dueño se queda esperando una respuesta que no va a llegar. */}
@@ -1263,26 +1369,17 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={siguienteEscenario}
-              disabled={misRespuestas < esc.minRespuestas}
-              style={{ ...btnDark, opacity: misRespuestas < esc.minRespuestas ? 0.5 : 1, cursor: misRespuestas < esc.minRespuestas ? 'default' : 'pointer' }}
-            >
-              {escIdx >= escenarios.length - 1 ? 'Terminar el ensayo' : 'Siguiente escenario →'}
-            </button>
-            {misRespuestas < esc.minRespuestas && (
-              <span style={{ fontSize: 12, color: 'var(--faint)' }}>
-                {esc.minRespuestas - misRespuestas === 1 ? 'Falta una respuesta tuya' : `Faltan ${esc.minRespuestas - misRespuestas} respuestas tuyas`}
-              </span>
-            )}
-            {/* Los opcionales se pueden saltar: son variantes del mismo aprendizaje. */}
-            {!esc.obligatorio && misRespuestas < esc.minRespuestas && (
-              <button onClick={siguienteEscenario} style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: 12.5, cursor: 'pointer' }}>
-                Saltar este caso
-              </button>
-            )}
-          </div>
+          {/* Sin botón de avance acá: el «Siguiente» del pie cierra el caso y,
+              cuando no queda ninguno, pasa de paso. Dos botones que hacen lo
+              mismo obligaban a elegir entre ellos sin saber en qué se diferencian.
+              Lo único que queda es decir CUÁNTO falta para poder cerrarlo. */}
+          {misRespuestas < esc.minRespuestas && (
+            <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>
+              {esc.obligatorio
+                ? (esc.minRespuestas - misRespuestas === 1 ? 'Falta una respuesta tuya para cerrar el caso' : `Faltan ${esc.minRespuestas - misRespuestas} respuestas tuyas para cerrar el caso`)
+                : 'Puedes responder o saltarlo con «Siguiente»'}
+            </div>
+          )}
         </div>
       )}
 

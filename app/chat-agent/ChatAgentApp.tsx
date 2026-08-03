@@ -242,7 +242,7 @@ export function ChatAgentApp() {
 
       {secuencias !== null && secuencias.length === 0 && !error && (
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
-          Todavía no hay secuencias en este workspace.{rolAdmin ? ' Arrancá con «+ Nueva secuencia de mensajes».' : ''}
+          Todavía no hay secuencias en este workspace.{rolAdmin ? ' Empieza con «+ Nueva secuencia de mensajes».' : ''}
           {rolAdmin && <div style={{ marginTop: 14 }}><button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva secuencia de mensajes</button></div>}
           <DatosDeMau ambito="setting" onListo={() => void load()} />
         </div>

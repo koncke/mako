@@ -191,7 +191,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
       {/* Topbar fija (no scrollea) — patrón TemplateDetalleModal */}
       <div style={{ flex: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
         <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver al chat</button>
-        {rolAdmin && <button onClick={probar} disabled={busy === 'probar'} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'probar' ? 0.5 : 1 }}>{busy === 'probar' ? 'Enviando…' : '📲 Probar de verdad (te llega a vos)'}</button>}
+        {rolAdmin && <button onClick={probar} disabled={busy === 'probar'} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'probar' ? 0.5 : 1 }}>{busy === 'probar' ? 'Enviando…' : '📲 Probar de verdad (te llega a ti)'}</button>}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         <div style={{ maxWidth: 560, margin: '0 auto' }}>
@@ -274,7 +274,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
               <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Cuando el lead responde:</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {([
-                  { v: 'asistido' as const, t: '🙋 Te aviso y te dejo el borrador', d: 'MaKo redacta la respuesta y vos la apruebas con un clic' },
+                  { v: 'asistido' as const, t: '🙋 Te aviso y te dejo el borrador', d: 'MaKo redacta la respuesta y tú la apruebas con un clic' },
                   { v: 'automatico' as const, t: '⏸ Solo pausar', d: 'La secuencia se frena y seguís por tu cuenta' },
                 ]).map((o) => (
                   <button key={o.v} onClick={() => rolAdmin && setModo(o.v)} disabled={!rolAdmin} title={o.d}
