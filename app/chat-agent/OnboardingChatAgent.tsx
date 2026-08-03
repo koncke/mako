@@ -466,6 +466,18 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // burbuja se pintaba como "no disponible" aunque el archivo estuviera perfecto.
   useEffect(() => { void cargarAudios(); }, [cargarAudios]);
 
+  // Y se vuelven a pedir AL ENTRAR AL ENSAYO, porque las URLs de reproducción
+  // son firmadas y vencen. Al montar el wizard todavía faltan el escaneo del QR,
+  // la importación de conversaciones y el análisis con IA: minutos, a veces
+  // muchos. Refrescarlas acá cuesta una llamada y evita el caso más molesto de
+  // todos — el reproductor a la vista que no suena porque el link caducó.
+  const audiosRefrescados = useRef(false);
+  useEffect(() => {
+    if (pasoKey !== 'ensayo' || audiosRefrescados.current) return;
+    audiosRefrescados.current = true;
+    void cargarAudios();
+  }, [pasoKey, cargarAudios]);
+
   const audioDe = (clave: string): AudioGrabado | null => {
     const id = porClave[clave];
     return id ? ((audios ?? []).find((a) => a.id === id) ?? null) : null;
@@ -594,7 +606,13 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // workspace configuró el link: ensayar cómo conseguir que vea un video que no
   // existe no enseña nada.
   const escenarios = escenariosDe(!!linkVideo.trim());
-  const esc = escenarios[escIdx] ?? escenarios[0] ?? null;
+  // Terminado el último, `escIdx` queda FUERA de rango a propósito: es la señal
+  // de que se recorrieron todos. Sin este null explícito, un `?? escenarios[0]`
+  // hacía caer en el escenario 1 y el efecto lo reabría con otra semilla — el
+  // dueño terminaba el ensayo y volvía a ver el primer caso, con los puntos de
+  // progreso apagados y sin nada que dijera que había terminado.
+  const ensayoTerminado = escIdx >= escenarios.length;
+  const esc = ensayoTerminado ? null : (escenarios[escIdx] ?? null);
 
   /** Abre el escenario: primero el audio del dueño, después la semilla del lead. */
   const abrirEscenario = useCallback((e: Escenario, audioUrl: string | null) => {
@@ -762,12 +780,14 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       // repetir "Ensayo de conversación" nueve veces no dice nada.
       pregunta={
         vistaContexto === 'preguntas' && preguntaActual ? preguntaActual.pregunta
-          : pasoKey === 'ensayo' && esc ? esc.titulo
+          : pasoKey === 'ensayo' && ensayoTerminado ? 'Ensayo terminado'
+            : pasoKey === 'ensayo' && esc ? esc.titulo
             : (PREGUNTA[pasoKey]?.q ?? '')
       }
       sub={
         vistaContexto === 'preguntas' ? `Pregunta ${pregIdx + 1} de ${voz?.preguntas.length ?? 0}`
-          : pasoKey === 'ensayo' && esc ? esc.objetivo
+          : pasoKey === 'ensayo' && ensayoTerminado ? undefined
+            : pasoKey === 'ensayo' && esc ? esc.objetivo
             : PREGUNTA[pasoKey]?.sub
       }
       // La tarjeta de preguntas trae sus propios botones: sin esto quedarían dos
@@ -1188,6 +1208,21 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       )}
 
       {/* ④ ENSAYO — MaKo es el CLIENTE, un escenario por slide */}
+      {/* Ensayo TERMINADO: hay que decirlo. Antes el paso volvía a pintar el
+          primer caso, así que la única señal de haber llegado al final era que
+          el «Siguiente» del pie se habilitaba en silencio. */}
+      {pasoKey === 'ensayo' && ensayoTerminado && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+          <div style={{ ...okBox, width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+            <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={17} /></span>
+            Recorriste los {escenarios.length} casos. Con esto ya sé cómo respondes.
+          </div>
+          <button onClick={() => { setEscIdx(0); setMsgs([]); setSinRespuesta(false); }} style={btn}>
+            ↻ Volver a empezar el ensayo
+          </button>
+        </div>
+      )}
+
       {pasoKey === 'ensayo' && esc && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* Progreso de los escenarios, con el mismo tamaño de punto que el
