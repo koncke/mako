@@ -117,6 +117,14 @@ function limpiarAplicada(a: unknown): PropuestaAplicada | null {
   return { titulo, tareaId, minutos: minutos?.length ? minutos : undefined };
 }
 
+/** El detalle recortado SOLO para armar un prompt. Se guarda entero (6000) porque es el
+ *  contenido de la tarjeta, pero mandarlo entero a los prompts de PREGUNTAS es tirar
+ *  plata: 40 tareas x 6000 son ~60k tokens de entrada para decidir qué preguntar, y para
+ *  eso alcanza con saber de qué va cada una. Recortar al guardar sería perder contexto;
+ *  recortar acá no pierde nada. */
+const paraPrompt = (d?: string): string => (d ? d.replace(/\s+/g, ' ').trim().slice(0, 600) : '');
+
+
 function limpiarTarea(t: unknown): PropuestaTarea | null {
   if (!t || typeof t !== 'object') return null;
   const o = t as Record<string, unknown>;
@@ -444,7 +452,7 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
   if (!prop || prop.estado !== 'pendiente') return [];
   const respStr = (respuestas || []).filter((r) => r?.respuesta?.trim()).map((r) => `P: ${r.pregunta}\nR: ${r.respuesta}`).join('\n\n');
   if (!respStr.trim()) return []; // sin respuestas, no hay de dónde profundizar
-  const tareasStr = prop.tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${t.detalle}` : ''}`).join('\n');
+  const tareasStr = prop.tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${paraPrompt(t.detalle)}` : ''}`).join('\n');
   const user = `TAREAS QUE SE ESTÁN CARGANDO:\n${tareasStr}\n\nRESPUESTAS DE CONTEXTO YA DADAS:\n${respStr}\n\nGenerá 0-3 preguntas de SEGUIMIENTO (solo si una respuesta abre algo que vale aclarar). JSON.`;
   // maxTokens amplio: la IA decide cuántas preguntas hacen falta (no la limitamos a un
   // número). El slice(0, 40) es solo un tope de SEGURIDAD (respuesta rota), no un límite real.
@@ -517,7 +525,7 @@ Español rioplatense. Si no hace falta ninguna, { "preguntas": [] }.`;
 export async function preguntasParaCargar(titulosYDetalles: Array<{ titulo: string; detalle?: string; proyecto?: string }>): Promise<PropuestaPregunta[]> {
   const tareas = titulosYDetalles.filter((t) => t?.titulo?.trim()).slice(0, 80);
   if (!tareas.length) return [];
-  const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${t.detalle}` : ''}`).join('\n');
+  const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${paraPrompt(t.detalle)}` : ''}`).join('\n');
   // El techo se le dice explícito, además de la tabla del system: el modelo respeta un
   // número concreto mucho mejor que un rango, y con 40 tareas la diferencia entre 6 y 16
   // preguntas es la diferencia entre priorizar con datos y priorizar adivinando.

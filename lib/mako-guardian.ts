@@ -453,7 +453,7 @@ CÓMO DECIDIR:
 1. Leé la descripción de cada proyecto (el texto después del guion), no solo el nombre. Ahí dice qué entra.
 2. Preguntate QUÉ SE ESTÁ CONSTRUYENDO O MOVIENDO, no de qué habla la tarea. "Arreglar el filtro de fechas del tablero de guiones" no va a un proyecto de "fechas": va al proyecto de esa pantalla.
 3. Distinguí CONSTRUIR EL PRODUCTO de VENDER MAKO. La misma palabra cambia de lado: "conectar Instagram a la app" es producto; "escribir la bio de Instagram" es vender. "Agente que optimiza el gasto de ads" es producto; "prender la campaña de MaKo" es vender.
-4. El nombre del grupo que propuso el asistente es una PISTA, no una orden: si mezcla temas, repartí cada tarea por su cuenta.
+4. Si el grupo propuesto MEZCLA temas distintos, repartí cada tarea por su cuenta: la pista vale cuando es coherente, no cuando es un cajón de sastre.
 5. Si dos proyectos parecen calzar, elegí el que sea el LUGAR DONDE ALGUIEN LA IRÍA A BUSCAR.
 6. Antes de meter una tarea en un proyecto, leé su descripción de nuevo y preguntate: ¿esta tarea se resuelve ACÁ? Un trámite, un contrato o un impuesto no se resuelven en ninguna pantalla del producto.
 
@@ -511,7 +511,10 @@ export async function asignarTareasAProyectos(
   let usage: UsageInfo | undefined;
   // effort:'medium' + maxTokens generoso: es clasificación (no debate), y con poco
   // presupuesto el thinking se comía el JSON y salía vacío → no ruteaba (el bug).
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 4000, feature: 'mako-guardian', motivo: usoMotivo || 'Rutear tareas nuevas a proyectos', onUsage: (u) => { usage = u; } });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], // effort 'high' y no 'medium': lib/anthropic.ts traduce el esfuerzo al salir por
+  // Gemini y 'medium' se convertía en 'low' — la clasificación más difícil del pipeline
+  // corriendo con el menor razonamiento del modelo más barato.
+  { effort: 'high', maxTokens: 4000, feature: 'mako-guardian', motivo: usoMotivo || 'Rutear tareas nuevas a proyectos', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { asign: [], usage }; }
   // El nombre se acepta SIN acentos ni mayúsculas: el modelo copia bien el texto pero

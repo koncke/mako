@@ -254,9 +254,9 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             properties: {
               titulo: { type: 'string', description: 'qué hay que hacer, corto e imperativo.' },
               prioridad: { type: 'string', enum: ['alta', 'media', 'baja', 'futuro'], description: 'opcional; default media.' },
-              proyecto: { type: 'string', description: 'opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, poné su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica; si no existe, se crea uno nuevo con ese nombre.' },
+              proyecto: { type: 'string', description: 'opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, poné su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica. Si el tema NO tiene proyecto todavía, poné igual el nombre que le pondrías: es una PROPUESTA que revisa el Perro Guardián antes de crear nada. ⛔ NUNCA le digas al dueño en qué proyecto quedó la tarea: todavía no está decidido.' },
               deadline: { type: 'string', description: 'opcional; fecha límite YYYY-MM-DD.' },
-              detalle: { type: 'string', description: 'opcional; contexto extra que se dijo.' },
+              detalle: { type: 'string', description: 'EL CAMPO MÁS IMPORTANTE. Va TODO el contexto que dio el dueño, CON SUS PALABRAS: **Qué pidió** (cita textual entre « »), **Por qué**, **Detalles concretos** (lista con "- ": números, nombres, herramientas, LINKS TAL CUAL, lo que descartó y por qué), **Listo cuando**. Apuntá a ~500 caracteres si el mensaje da para eso. Lo que no escribas acá SE PERDIÓ: nadie vuelve a leer el WhatsApp, y el Perro decide el proyecto leyendo esto. Un detalle que repite el título con otras palabras es un detalle vacío. Si el mensaje fue corto, copiá textual lo que dijo — nunca resumas.' },
             },
             required: ['titulo'],
           },
@@ -428,7 +428,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const raw: unknown[] = Array.isArray((input as { tareas?: unknown }).tareas) ? (input as { tareas: unknown[] }).tareas : [];
         const tareas = raw
           .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-          .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), proyecto: x.proyecto ? String(x.proyecto).trim().slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 600) : undefined }))
+          .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), proyecto: x.proyecto ? String(x.proyecto).trim().slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 6000) : undefined }))
           .filter((t) => t.titulo);
         if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resolvé lo deducible con ver_plan; si falta info, ponela en "preguntas" — no preguntes por acá.' });
         // CANDADO: el mensaje era un "sí" pelado y no una lista → las tareas no salen
@@ -460,8 +460,12 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         try {
           const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), preguntas, eliminar, resumen, origen: 'whatsapp' });
           const link = `${APP_URL}/plan/revisar/${id}`;
-          const extras = [preguntas.length && `${preguntas.length} pregunta${preguntas.length === 1 ? '' : 's'}`, eliminar.length && `${eliminar.length} baja${eliminar.length === 1 ? '' : 's'} sugerida${eliminar.length === 1 ? '' : 's'}`].filter(Boolean).join(' y ');
-          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: preguntas.length, eliminar: eliminar.length, instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}${extras ? ` (${extras})` : ''}. Mandá UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" acá, NO repitas la lista): ${link}` });
+          // Los números van SIEMPRE, incluido el cero. Antes `extras` quedaba vacío cuando
+          // no había preguntas y el modelo rellenaba el hueco inventando: se midió en prod
+          // que anunciaba «y 3 preguntas» en los seis borradores de WhatsApp del día, y
+          // los seis tenían cero. Un hueco en la instrucción se llena solo.
+          const extras = `${preguntas.length} pregunta${preguntas.length === 1 ? '' : 's'} y ${eliminar.length} baja${eliminar.length === 1 ? '' : 's'} sugerida${eliminar.length === 1 ? '' : 's'}`;
+          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: preguntas.length, eliminar: eliminar.length, instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Mandá UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" acá, NO repitas la lista). ⛔ Si das un número, usá EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
         } catch (e) {
           return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
         }

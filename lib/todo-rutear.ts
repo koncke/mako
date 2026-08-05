@@ -95,23 +95,27 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
     'Rutear tareas nuevas del cliente a sus proyectos',
   ).catch((e) => { console.error('[todo-rutear] asignar:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string; razon: string }>, nuevos: [] as Array<{ nombre: string; que: string; porQue: string; tareas: number[] }> }; });
 
-  // Los proyectos que el Perro pidió abrir. El camino del cliente los TIRABA: tenía
-  // menos capacidad que el del dueño sin ninguna razón.
-  const nuevosPorNombre = new Map((r.nuevos ?? []).map((n) => [n.nombre, n]));
+  for (const a of r.asign) {
+    const idx = pendientes[a.i];
+    if (idx == null) continue;
+    const cat = delCatalogoTodo(a.destino);
+    out[idx] = { nombre: a.destino, razon: a.razon || 'lo eligió MaKo entre los proyectos que ya hay', color: cat?.color, emoji: cat?.emoji };
+  }
+
+  // Los proyectos que el Perro pidió abrir. El camino del cliente los TIRABA entero:
+  // tenía menos capacidad que el del dueño sin ninguna razón.
+  //
+  // ⚠️ VA DESPUÉS DE `asign`, NO ANTES (mismo orden que lib/plan-board.ts). Los índices
+  // que vienen con el proyecto nuevo MANDAN: si el modelo propuso «Mindset» para las
+  // tareas 0,1,2 pero en `asign` las mandó a tres lugares distintos, el que tiene razón
+  // es `nuevos`. Al revés —nuevos primero— `asign` lo pisaba y el proyecto nacía vacío,
+  // que es exactamente el bug que este bloque venía a cerrar.
   for (const n of (r.nuevos ?? [])) {
     for (const k of (n.tareas ?? [])) {
       const idx = pendientes[k];
       if (idx == null) continue;
       out[idx] = { nombre: n.nombre, razon: n.porQue.slice(0, 200) || 'MaKo lo abrió: ninguno de los que tenías lo cubría' };
     }
-  }
-
-  for (const a of r.asign) {
-    if (nuevosPorNombre.has(a.destino) && out[pendientes[a.i] ?? -1]?.nombre === a.destino) continue;
-    const idx = pendientes[a.i];
-    if (idx == null) continue;
-    const cat = delCatalogoTodo(a.destino);
-    out[idx] = { nombre: a.destino, razon: a.razon || 'lo eligió MaKo entre los proyectos que ya hay', color: cat?.color, emoji: cat?.emoji };
   }
   // ── 4: red. Lo que propuso quien la cargó, si el ruteo no la alcanzó.
   for (const i of pendientes) {
