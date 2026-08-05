@@ -29,6 +29,13 @@ export type AudioPasoDef = {
   guion: string[];
   /** Solo la bienvenida ofrece el video: es el único que llega desde el anuncio. */
   pideVideo?: boolean;
+  /**
+   * El audio le habla a alguien que AGENDÓ una reunión. Si el funnel del
+   * negocio no tiene ninguna etapa de reunión (venta directa, checkout), esa
+   * situación no existe: pedirle al dueño que grabe un audio para una llamada
+   * que nunca va a ocurrir traba el onboarding con una tarea imposible.
+   */
+  requiereReunion?: boolean;
 };
 
 export const AUDIOS_PASO: AudioPasoDef[] = [
@@ -43,7 +50,7 @@ export const AUDIOS_PASO: AudioPasoDef[] = [
     ],
   },
   {
-    clave: 'agenda_con_bienvenida', n: 2, titulo: 'Agendó después de tu bienvenida',
+    clave: 'agenda_con_bienvenida', n: 2, titulo: 'Agendó después de tu bienvenida', requiereReunion: true,
     situacion: 'Ya recibió tu audio de bienvenida y conversaron. Ahora agendó la reunión.',
     guion: [
       'No te presentes: ya sabe quién eres.',
@@ -54,7 +61,7 @@ export const AUDIOS_PASO: AudioPasoDef[] = [
     ],
   },
   {
-    clave: 'agenda_primer_contacto', n: 3, titulo: 'Agendó sin haber hablado contigo',
+    clave: 'agenda_primer_contacto', n: 3, titulo: 'Agendó sin haber hablado contigo', requiereReunion: true,
     situacion: 'Agendó directamente, sin contacto previo. Es el primer mensaje que recibe de ti.',
     guion: [
       'Saluda y di tu nombre completo: es la primera vez que te escucha.',
@@ -70,6 +77,10 @@ export const AUDIOS_PASO: AudioPasoDef[] = [
 // configuró el link. Un audio que dice "te dejo el link" sin link es una mentira
 // que sale a un desconocido.
 export const BULLET_VIDEO = 'Dile que le dejas el link del video por escrito, y en una frase por qué le conviene verlo antes de hablar.';
+
+/** Los audios que este negocio SÍ tiene que grabar, según su funnel. */
+export const audiosDe = (hayReunion: boolean): AudioPasoDef[] =>
+  AUDIOS_PASO.filter((a) => !a.requiereReunion || hayReunion);
 
 export const CLAVES_AUDIO = AUDIOS_PASO.map((a) => a.clave);
 export const defDeClave = (c: string): AudioPasoDef | null => AUDIOS_PASO.find((a) => a.clave === c) ?? null;

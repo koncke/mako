@@ -322,9 +322,18 @@ export const maxTurnosDe = (e: Escenario): number => e.evolucion.length;
 export const guionDelTurno = (e: Escenario, turno: number): string =>
   e.evolucion[Math.min(Math.max(turno, 0), e.evolucion.length - 1)];
 
-/** Los escenarios que corresponden a este workspace. */
-export function escenariosDe(hayVideo: boolean): Escenario[] {
-  return ESCENARIOS.filter((e) => !e.requiereVideo || hayVideo);
+/**
+ * Los escenarios que corresponden a este workspace. Los que arrancan de un audio
+ * de agendamiento se caen solos si el negocio no tiene reuniones en su funnel:
+ * ensayar cómo preparar una llamada que nunca ocurre no enseña nada, igual que
+ * el del video cuando no hay link.
+ */
+export function escenariosDe(hayVideo: boolean, hayReunion = true): Escenario[] {
+  return ESCENARIOS.filter((e) => {
+    if (e.requiereVideo && !hayVideo) return false;
+    if (!hayReunion && defDeClave(e.audio)?.requiereReunion) return false;
+    return true;
+  });
 }
 
 /**

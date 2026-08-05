@@ -15,7 +15,7 @@ import { armarSecuenciasDeAudios } from '@/lib/secuencias-audios';
 import { huecosDeSecuencias } from '@/lib/secuencias-huecos';
 import { getSecuenciasConStats } from '@/lib/nutricion';
 import { listAudios } from '@/lib/setting-audios';
-import { KEY_LINK_VIDEO, AUDIOS_PASO } from '@/lib/audios-paso';
+import { KEY_LINK_VIDEO, AUDIOS_PASO, audiosDe } from '@/lib/audios-paso';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -73,7 +73,12 @@ export async function GET() {
 
     // Qué audios grabó y cuáles no: si falta uno, su secuencia no existe y hay
     // que decirlo acá, no dejar que lo descubra cuando no salga nada.
-    const sinGrabar = AUDIOS_PASO
+    // Solo se reclama lo que este funnel realmente necesita: en una venta
+    // directa los dos audios de agendamiento no van, y listarlos como
+    // "faltantes" es pedirle al dueño algo que no tiene dónde usar.
+    const funnel = await import('@/lib/leads').then((m) => m.getFunnel()).catch(() => null);
+    const hayReunion = (funnel?.stages ?? []).some((s) => s.kind === 'reunion');
+    const sinGrabar = audiosDe(hayReunion)
       .filter((d) => !nuestras.some((s) => s.pasos.some((p) => porId.get(p.audio_id ?? 0)?.titulo === d.titulo)))
       .map((d) => tituloDe(d.clave));
 

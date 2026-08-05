@@ -21,7 +21,7 @@ import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import { Icon } from '@/app/_components/icons';
 import { Avatar } from '../whatsapp/_shared/Avatar';
 import { GrabadorAudioPaso, type AudioGrabado } from './GrabadorAudioPaso';
-import { AUDIOS_PASO } from '@/lib/audios-paso';
+import { audiosDe } from '@/lib/audios-paso';
 import { escenariosDe, type Escenario, type Desenlace } from '@/lib/chat-agent-escenarios';
 
 /**
@@ -303,6 +303,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [porClave, setPorClave] = useState<Record<string, number>>({});
   const [audioAbierto, setAudioAbierto] = useState<string | null>(null);
   const [linkVideo, setLinkVideo] = useState('');
+  const [hayReunion, setHayReunion] = useState(true);
 
   // ── Paso final: qué secuencias quedaron armadas con los audios ──
   const [resumen, setResumen] = useState<ResumenFinal | null>(null);
@@ -484,8 +485,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       setAudios(j.audios ?? []);
       setPorClave(j.porClave ?? {});
       setLinkVideo(j.linkVideo ?? '');
+      setHayReunion(j.hayReunion !== false);
       // Se abre el primero que falte, para no tener que buscar por dónde seguir.
-      const falta = AUDIOS_PASO.find((d) => !(j.porClave ?? {})[d.clave]);
+      const falta = audiosDe(j.hayReunion !== false).find((d) => !(j.porClave ?? {})[d.clave]);
       setAudioAbierto(falta ? falta.clave : null);
     } catch { setAudios([]); }
   }, []);
@@ -514,7 +516,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     const id = porClave[clave];
     return id ? ((audios ?? []).find((a) => a.id === id) ?? null) : null;
   };
-  const nGrabados = AUDIOS_PASO.filter((d) => !!porClave[d.clave]).length;
+  // Los audios que ESTE negocio tiene que grabar. `hayReunion` arranca en true
+  // (lo más común) para no esconder tarjetas mientras carga y hacerlas aparecer
+  // medio segundo después.
+  const misAudios = audiosDe(hayReunion);
+  const nGrabados = misAudios.filter((d) => !!porClave[d.clave]).length;
 
   async function guardarLinkVideo() {
     try {
@@ -668,7 +674,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // Los escenarios que hablan del video de preparación solo entran si el
   // workspace configuró el link: ensayar cómo conseguir que vea un video que no
   // existe no enseña nada.
-  const escenarios = escenariosDe(!!linkVideo.trim());
+  const escenarios = escenariosDe(!!linkVideo.trim(), hayReunion);
   // Terminado el último, `escIdx` queda FUERA de rango a propósito: es la señal
   // de que se recorrieron todos. Sin este null explícito, un `?? escenarios[0]`
   // hacía caer en el escenario 1 y el efecto lo reabría con otra semilla — el
@@ -896,6 +902,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const vistaContexto: 'elegir' | 'preguntas' | 'resumen' =
     !voz ? 'elegir' : preguntaActual ? 'preguntas' : 'resumen';
 
+  // La sub-vista solo manda cuando REALMENTE estamos en su paso. `voz` no se
+  // limpia al cambiar de paso, así que sin este ancla la cabecera y el pie
+  // seguían creyéndose en las preguntas del contexto desde cualquier otro lado.
+  const enPreguntas = pasoKey === 'contexto' && vistaContexto === 'preguntas';
+
   const hecho = (k: PasoKey) => !!estado?.steps?.[k]?.done;
   const puedeAvanzar = (() => {
     if (busy || cerrando) return false;
@@ -908,7 +919,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     // el dueño borra uno después, el paso tiene que volver a pedirlo. La salida
     // sigue estando en "Lo configuro después" del pie — trabar el avance es lo
     // pedido; dejar el paso sin ninguna salida lo convertiría en una trampa.
-    if (pasoKey === 'voz') return nGrabados === AUDIOS_PASO.length;
+    if (pasoKey === 'voz') return nGrabados === misAudios.length;
     // El ensayo avanza CASO a caso con el MISMO botón del pie: mientras quede
     // caso, el pie lo cierra y lo guarda; cuando no queda ninguno, pasa de paso.
     // Se habilita con las respuestas que el caso pide — salvo los opcionales,
@@ -954,20 +965,20 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       // En el ensayo el título es el ESCENARIO: es lo que define la slide, y
       // repetir "Ensayo de conversación" nueve veces no dice nada.
       pregunta={
-        vistaContexto === 'preguntas' && preguntaActual ? preguntaActual.pregunta
+        enPreguntas && preguntaActual ? preguntaActual.pregunta
           : pasoKey === 'ensayo' && ensayoTerminado ? 'Ensayo terminado'
             : pasoKey === 'ensayo' && esc ? esc.titulo
             : (PREGUNTA[pasoKey]?.q ?? '')
       }
       sub={
-        vistaContexto === 'preguntas' ? `Pregunta ${pregIdx + 1} de ${voz?.preguntas.length ?? 0}`
+        enPreguntas ? `Pregunta ${pregIdx + 1} de ${voz?.preguntas.length ?? 0}`
           : pasoKey === 'ensayo' && ensayoTerminado ? undefined
             : pasoKey === 'ensayo' && esc ? esc.objetivo
             : PREGUNTA[pasoKey]?.sub
       }
       // La tarjeta de preguntas trae sus propios botones: sin esto quedarían dos
       // "Siguiente" a la vez, uno adentro y otro en el footer.
-      hideSiguiente={vistaContexto === 'preguntas'}
+      hideSiguiente={enPreguntas}
       error={err}
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
@@ -991,7 +1002,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           setEscIdx((i) => i - 1); setMsgs([]); setSinRespuesta(false); setCerrado(null); setDesenlace(null);
           return;
         }
-        if (pasoKey === 'contexto' && vistaContexto === 'preguntas' && pregIdx > 0) {
+        if (enPreguntas && pregIdx > 0) {
           setPregIdx((i) => i - 1);
           return;
         }
@@ -1360,13 +1371,13 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>
-                <span>{nGrabados} de {AUDIOS_PASO.length} grabados</span>
+                <span>{nGrabados} de {misAudios.length} grabados</span>
                 <span style={{ flex: 1, height: 3, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
-                  <span style={{ display: 'block', height: '100%', width: `${(nGrabados / AUDIOS_PASO.length) * 100}%`, background: 'var(--good)', transition: 'width .25s' }} />
+                  <span style={{ display: 'block', height: '100%', width: `${(nGrabados / Math.max(1, misAudios.length)) * 100}%`, background: 'var(--good)', transition: 'width .25s' }} />
                 </span>
               </div>
 
-              {AUDIOS_PASO.map((d) => (
+              {misAudios.map((d) => (
                 <GrabadorAudioPaso
                   key={d.clave}
                   def={d}
@@ -1378,7 +1389,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                     setPorClave(mapa);
                     // Al terminar uno, se abre el siguiente que falte: el paso se
                     // recorre solo en vez de obligar a buscar cuál sigue.
-                    const falta = AUDIOS_PASO.find((x) => x.clave !== d.clave && !mapa[x.clave]);
+                    const falta = misAudios.find((x) => x.clave !== d.clave && !mapa[x.clave]);
                     setAudioAbierto(falta ? falta.clave : null);
                   }}
                   onBorrado={(id) => {

@@ -50,16 +50,22 @@ export async function GET() {
   const g = await guard();
   if (g) return g;
   try {
-    const [audios, porClave, linkVideo] = await Promise.all([
+    // `hayReunion` sale del funnel REAL del workspace (funnel_config), que es la
+    // fuente de verdad del proceso comercial. Un negocio de venta directa no
+    // tiene a quién mandarle un audio de "ya agendaste": pedírselo igual dejaba
+    // el paso trabado en 1 de 3 para siempre.
+    const [audios, porClave, linkVideo, funnel] = await Promise.all([
       listAudios(), getPorClave(), getSetting(KEY_LINK_VIDEO).catch(() => null),
+      import('@/lib/leads').then((m) => m.getFunnel()).catch(() => null),
     ]);
+    const hayReunion = (funnel?.stages ?? []).some((s) => s.kind === 'reunion');
     const conUrl = await Promise.all(audios.map(async (a) => ({ ...a, url: await audioUrlFirmada(a.media_path) })));
     // Un id que quedó en el mapa apuntando a un audio ya borrado se limpia acá:
     // si no, la pantalla mostraría "grabado" sobre algo que no existe.
     const vivos = new Set(conUrl.map((a) => a.id));
     const limpio: Record<string, number> = {};
     for (const [k, id] of Object.entries(porClave)) if (vivos.has(id)) limpio[k] = id;
-    return Response.json({ ok: true, audios: conUrl, porClave: limpio, linkVideo: linkVideo ?? '' });
+    return Response.json({ ok: true, audios: conUrl, porClave: limpio, linkVideo: linkVideo ?? '', hayReunion });
   } catch (e) {
     console.error(`[api:chat-agent/audios GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
