@@ -380,6 +380,25 @@ export async function createLeadAction(formData: FormData): Promise<void> {
 }
 
 /**
+ * Crea un lead desde una conversación de WhatsApp (plan #381): el contacto no
+ * estaba en el CRM. Usa la MISMA vía que el alta manual (createLead) + asegura el
+ * contacto en Chatwoot. Devuelve el id para abrir la ficha en el acto. La
+ * conversación se enlaza sola al lead por teléfono en la próxima carga.
+ */
+export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: string): Promise<number> {
+  const n = (nombre ?? '').trim();
+  const t = (telefono ?? '').trim();
+  if (!n) throw new Error('Falta el nombre del contacto.');
+  if (!t) throw new Error('Falta el teléfono del contacto.');
+  const created = await createLead({ nombre: n, telefono: t });
+  if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono).catch(() => {});
+  bust(TAG.leads);
+  revalidatePath('/crm');
+  revalidatePath('/whatsapp');
+  return created.id;
+}
+
+/**
  * Guarda el plan de pagos de un lead y regenera las cuotas no pagadas.
  */
 export async function savePlanPagosAction(
