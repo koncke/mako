@@ -87,9 +87,22 @@ export async function GET(request: NextRequest) {
       const ws = resolverManual();
       if (ws instanceof Response) return ws;
       const r = await runWithWorkspace(ws, async () => {
+        // Los desenlaces TAMBIÉN acá. Esta rama es la que usa una persona para
+        // probar un workspace a mano, y sin esto mentía por omisión: cerraba y
+        // enrolaba, pero nunca evaluaba si una secuencia terminó ni encadenaba
+        // a la siguiente — así que probar la cadena por acá daba "no funciona"
+        // cuando en la corrida real del cron funciona.
+        const desenlaces = await evaluarDesenlaces().catch((e) => {
+          console.error(`[cron:nutricion] desenlaces (commit) ws ${ws}:`, e);
+          return null;
+        });
         const inscriptas = await comprometerInscripciones();
         const proc = await procesarEnvios({ ignorarVentana, simularApagados: true });
-        return { inscriptas, ...proc };
+        return {
+          inscriptas,
+          ...proc,
+          ...(desenlaces ? { logrados: desenlaces.logrados, fallidos: desenlaces.fallidos, movidos: desenlaces.movidos, encadenados: desenlaces.encadenados } : {}),
+        };
       });
       return Response.json({ ok: true, ws, modo: 'commit (forzado, apagados=simulado)', ...r });
     }
