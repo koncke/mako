@@ -56,8 +56,8 @@ export const AUDIOS_PASO: AudioPasoDef[] = [
       'No te presentes: ya sabe quién eres.',
       'Retoma la conversación que tuvieron y confirma que viste la reunión agendada.',
       'Di qué van a ver en la reunión y con qué se va a quedar.',
-      'Pide una sola cosa concreta para llegar preparado.',
-      'Cierra ofreciéndote para cualquier duda antes de la reunión.',
+      'Pide una sola cosa concreta para llegar preparado, y que te la conteste por acá.',
+      'Cierra ofreciéndote para cualquier duda, natural y en corto.',
     ],
   },
   {
@@ -68,7 +68,11 @@ export const AUDIOS_PASO: AudioPasoDef[] = [
       'Menciona que viste su reunión agendada y que le escribes tú mismo.',
       'Deja tu número disponible para lo que necesite.',
       'Di qué van a ver en la reunión y con qué se va a quedar.',
-      'Cierra con una sola pregunta abierta: a qué se dedica su negocio.',
+      // Pedirle algo concreto ANTES de la reunión hace dos cosas a la vez: llega
+      // con el dato a mano y, sobre todo, contestar es la confirmación de que
+      // va a ir. El audio 2 ya lo pedía; el 3 se había quedado sin ese cierre.
+      'Pide una sola cosa concreta para llegar preparado, y que te la conteste por acá.',
+      'Cierra natural, como le hablarías a un conocido: nada de fórmulas ni de "quedo atento".',
     ],
   },
 ];
@@ -97,3 +101,27 @@ export function guionDe(def: AudioPasoDef, linkVideo: string | null): string[] {
 /** Dónde vive el mapa clave → id del audio grabado, y el link del video. */
 export const KEY_AUDIOS_CLAVE = 'chat_agent.audios_clave';
 export const KEY_LINK_VIDEO = 'chat_agent.link_video';
+
+/**
+ * A quién le habla el audio. No es un dato decorativo: en español cada
+ * adjetivo se marca en género, y un audio que dice "los que están cansados"
+ * a una audiencia de mujeres suena escrito para otra persona. Con "mixto"
+ * —el default— el guion se escribe sin marcar género, que es lo más difícil
+ * de lograr por accidente y lo que el modelo hace peor si nadie se lo pide.
+ */
+export const KEY_PUBLICO = 'chat_agent.publico';
+export type PublicoGenero = 'masculino' | 'femenino' | 'mixto';
+export const PUBLICOS: Array<{ v: PublicoGenero; label: string }> = [
+  { v: 'mixto', label: 'Mixto' },
+  { v: 'masculino', label: 'Sobre todo hombres' },
+  { v: 'femenino', label: 'Sobre todo mujeres' },
+];
+export const esPublico = (x: unknown): x is PublicoGenero =>
+  typeof x === 'string' && PUBLICOS.some((p) => p.v === x);
+
+/** La instrucción de género que entra al prompt del guion. */
+export function bloquePublico(p: PublicoGenero): string {
+  if (p === 'masculino') return 'A QUIÉN LE HABLAS: una audiencia mayormente de hombres. Puedes usar el masculino con naturalidad.';
+  if (p === 'femenino') return 'A QUIÉN LE HABLAS: una audiencia mayormente de mujeres. Usa el femenino con naturalidad; NO uses el masculino genérico.';
+  return 'A QUIÉN LE HABLAS: una audiencia mixta. Escribe SIN marcar género: reformula en vez de usar el masculino genérico y no uses "@" ni "x" ni "e" inclusivas, que en un audio no se pueden pronunciar.';
+}

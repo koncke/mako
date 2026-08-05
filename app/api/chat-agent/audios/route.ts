@@ -17,7 +17,7 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { listAudios, crearAudio, borrarAudio, audioUrlFirmada } from '@/lib/setting-audios';
 import { getSetting, setSetting } from '@/lib/settings';
-import { esClaveAudio, KEY_AUDIOS_CLAVE, KEY_LINK_VIDEO } from '@/lib/audios-paso';
+import { esClaveAudio, KEY_AUDIOS_CLAVE, KEY_LINK_VIDEO, KEY_PUBLICO, esPublico } from '@/lib/audios-paso';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -54,9 +54,10 @@ export async function GET() {
     // fuente de verdad del proceso comercial. Un negocio de venta directa no
     // tiene a quién mandarle un audio de "ya agendaste": pedírselo igual dejaba
     // el paso trabado en 1 de 3 para siempre.
-    const [audios, porClave, linkVideo, funnel] = await Promise.all([
+    const [audios, porClave, linkVideo, funnel, publico] = await Promise.all([
       listAudios(), getPorClave(), getSetting(KEY_LINK_VIDEO).catch(() => null),
       import('@/lib/leads').then((m) => m.getFunnel()).catch(() => null),
+      getSetting(KEY_PUBLICO).catch(() => null),
     ]);
     const hayReunion = (funnel?.stages ?? []).some((s) => s.kind === 'reunion');
     const conUrl = await Promise.all(audios.map(async (a) => ({ ...a, url: await audioUrlFirmada(a.media_path) })));
@@ -65,7 +66,7 @@ export async function GET() {
     const vivos = new Set(conUrl.map((a) => a.id));
     const limpio: Record<string, number> = {};
     for (const [k, id] of Object.entries(porClave)) if (vivos.has(id)) limpio[k] = id;
-    return Response.json({ ok: true, audios: conUrl, porClave: limpio, linkVideo: linkVideo ?? '', hayReunion });
+    return Response.json({ ok: true, audios: conUrl, porClave: limpio, linkVideo: linkVideo ?? '', hayReunion, publico: esPublico(publico) ? publico : 'mixto' });
   } catch (e) {
     console.error(`[api:chat-agent/audios GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
@@ -75,8 +76,20 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const g = await guard();
   if (g) return g;
-  let body: { titulo?: unknown; base64?: unknown; mime?: unknown; duracionS?: unknown; clave?: unknown; linkVideo?: unknown };
+  let body: { titulo?: unknown; base64?: unknown; mime?: unknown; duracionS?: unknown; clave?: unknown; linkVideo?: unknown; publico?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+
+  // Guardar a quien le habla el negocio (sin audio). Va por el mismo POST que
+  // el link del video: los dos son ajustes del paso, no grabaciones.
+  if (typeof body.publico === 'string' && body.base64 === undefined) {
+    if (!esPublico(body.publico)) return Response.json({ ok: false, error: 'Publico invalido.' }, { status: 400 });
+    try {
+      await setSetting(KEY_PUBLICO, body.publico);
+      return Response.json({ ok: true, publico: body.publico });
+    } catch (e) {
+      return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  }
 
   // Guardar solo el link del video (sin audio): el paso lo pide en la tarjeta 1.
   if (typeof body.linkVideo === 'string' && body.base64 === undefined) {

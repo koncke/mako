@@ -24,6 +24,7 @@ import { Dropdown } from '../components/Dropdown';
 import { ETAPA_COLOR, etapaChip } from '@/lib/wa-etapas';
 import { useNotifications } from '../_components/NotificationsProvider';
 import { useConfirm } from '../_components/useConfirm';
+import { AudioPlay } from './_shared/AudioPlay';
 
 // La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
 const LeadEditModal = dynamic(() => import('../crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
@@ -592,7 +593,7 @@ export function EmpresaInbox() {
                           <img src={m.mediaUrl} alt="adjunto" style={{ maxWidth: '240px', maxHeight: '280px', borderRadius: '10px', display: 'block' }} />
                         </button>
                       )}
-                      {m.mediaUrl && m.tipo === 'audio' && <audio controls src={m.mediaUrl} style={{ width: '240px', marginBottom: m.texto ? '6px' : 0 }} />}
+                      {m.mediaUrl && m.tipo === 'audio' && <AudioPlay src={m.mediaUrl} style={{ width: '240px', marginBottom: m.texto ? '6px' : 0 }} />}
                       {m.mediaUrl && m.tipo === 'video' && <video controls src={m.mediaUrl} style={{ maxWidth: '240px', borderRadius: '10px', marginBottom: m.texto ? '6px' : 0, display: 'block' }} />}
                       {m.mediaUrl && m.tipo === 'document' && (
                         // Se abre en pestaña nueva (no iframe: X-Frame-Options bloquea el embed).

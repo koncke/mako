@@ -21,7 +21,7 @@ import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import { Icon } from '@/app/_components/icons';
 import { Avatar } from '../whatsapp/_shared/Avatar';
 import { GrabadorAudioPaso, type AudioGrabado } from './GrabadorAudioPaso';
-import { audiosDe } from '@/lib/audios-paso';
+import { audiosDe, PUBLICOS, type PublicoGenero } from '@/lib/audios-paso';
 import { escenariosDe, type Escenario, type Desenlace } from '@/lib/chat-agent-escenarios';
 
 /**
@@ -304,6 +304,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [audioAbierto, setAudioAbierto] = useState<string | null>(null);
   const [linkVideo, setLinkVideo] = useState('');
   const [hayReunion, setHayReunion] = useState(true);
+  const [publico, setPublico] = useState<PublicoGenero>('mixto');
 
   // ── Paso final: qué secuencias quedaron armadas con los audios ──
   const [resumen, setResumen] = useState<ResumenFinal | null>(null);
@@ -403,8 +404,18 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     if (pasoKeyRef.current !== 'wa_no_oficial' || evo !== null || pidiendoEvo.current) return;
     pidiendoEvo.current = true;
     void (async () => {
-      try { const j = await evoApi('estado'); setEvo({ estado: j.estado ?? 'desconectado', numero: j.numero ?? null }); }
-      catch { setEvo({ estado: 'desconectado', numero: null }); }
+      // 'desconocido' NO es 'desconectado', y la diferencia es cara: cuando la
+      // comprobación fallaba (Evolution caído, sin credencial, red), esto decía
+      // «desconectado» y la pantalla ofrecía generar un QR nuevo. Escanear un QR
+      // sobre un número que YA está vinculado tumba la sesión que funcionaba: el
+      // onboarding rompía justo lo que venía a verificar.
+      try {
+        const j = await evoApi('estado');
+        setEvo(j.ok && j.estado
+          ? { estado: j.estado, numero: j.numero ?? null }
+          : { estado: 'desconocido', numero: null });
+      }
+      catch { setEvo({ estado: 'desconocido', numero: null }); }
       finally { pidiendoEvo.current = false; }
     })();
   });
@@ -486,6 +497,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       setPorClave(j.porClave ?? {});
       setLinkVideo(j.linkVideo ?? '');
       setHayReunion(j.hayReunion !== false);
+      if (j.publico) setPublico(j.publico as PublicoGenero);
       // Se abre el primero que falte, para no tener que buscar por dónde seguir.
       const falta = audiosDe(j.hayReunion !== false).find((d) => !(j.porClave ?? {})[d.clave]);
       setAudioAbierto(falta ? falta.clave : null);
@@ -521,6 +533,15 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // medio segundo después.
   const misAudios = audiosDe(hayReunion);
   const nGrabados = misAudios.filter((d) => !!porClave[d.clave]).length;
+
+  async function guardarPublico(v: PublicoGenero) {
+    try {
+      await fetch('/api/chat-agent/audios', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publico: v }),
+      });
+    } catch { /* la próxima carga manda */ }
+  }
 
   async function guardarLinkVideo() {
     try {
@@ -1058,6 +1079,21 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                 <Icon name="trash" size={16} />
               </button>
             </div>
+          ) : evo.estado === 'desconocido' ? (
+            // Sin saber si está conectado, lo que NO se hace es ofrecer un QR: el
+            // camino por defecto tiene que ser volver a preguntar, no re-vincular.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', width: '100%' }}>
+              <div style={{ padding: '10px 13px', borderRadius: 10, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 13, width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
+                No pudimos comprobar si tu número sigue conectado. Puede ser un corte momentáneo: no hace falta volver a vincularlo.
+              </div>
+              <button onClick={() => setEvo(null)} disabled={busyEvo !== null} style={btnDark}>Volver a comprobar</button>
+              <button
+                onClick={() => void conectarEvo()} disabled={busyEvo !== null}
+                style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: 12.5, cursor: 'pointer' }}
+              >
+                Nunca lo vinculé: generar el código QR
+              </button>
+            </div>
           ) : qrEvo?.base64 ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1417,6 +1453,35 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                 />
                 <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
                   Si tu anuncio invita a ver un video, el audio de bienvenida se lo ofrece y el link le llega por escrito enseguida.
+                </div>
+              </div>
+
+              {/* A quién le habla. En español cada adjetivo se marca en género:
+                  un audio que dice «los que están cansados» a una audiencia de
+                  mujeres suena escrito para otra persona. Con «Mixto» —el
+                  default— el guion se escribe sin marcar género, que es lo que
+                  el modelo hace peor si nadie se lo pide. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, textAlign: 'left' }}>
+                <label style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+                  Tu público es
+                </label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {PUBLICOS.map((o) => (
+                    <button
+                      key={o.v}
+                      onClick={() => { setPublico(o.v); void guardarPublico(o.v); }}
+                      style={{
+                        padding: '7px 13px', borderRadius: 999, fontSize: 13, cursor: 'pointer',
+                        border: `1px solid ${publico === o.v ? 'var(--primary)' : 'var(--border)'}`,
+                        background: publico === o.v ? 'var(--primary)' : 'var(--surface)',
+                        color: publico === o.v ? '#fff' : 'var(--dim)',
+                        fontWeight: publico === o.v ? 600 : 500,
+                      }}
+                    >{o.label}</button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
+                  Con «Mixto», los guiones se escriben sin marcar género.
                 </div>
               </div>
             </>

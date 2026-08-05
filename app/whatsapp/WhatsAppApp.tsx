@@ -26,7 +26,9 @@ import { EvolutionConnect } from './EvolutionConnect';
 import { ChatwootWebhookChip } from './ChatwootWebhookChip';
 import { NutricionGenerar } from '@/app/_components/NutricionGenerar';
 import { EmpresaInbox } from './EmpresaInbox';
+import { crearLeadDesdeWhatsappAction } from '../crm/actions';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
+import { AudioPlay } from './_shared/AudioPlay';
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
 // Se carga on-demand (ssr:false) igual que en app/_components/Desglose.tsx.
@@ -327,6 +329,8 @@ function WhatsAppInner() {
   const [now, setNow] = useState(0); // reloj para el contador de la ventana de 24h (tick cada 30s)
 
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null);
+  // Plan #381: crear el lead en el CRM desde una conversación sin lead vinculado.
+  const [creandoLead, setCreandoLead] = useState(false);
 
   // Borrador y adjunto POR conversación: cambiar de chat conserva lo que no se
   // envió (y un adjunto queda atado a SU chat, nunca se manda al equivocado).
@@ -1117,7 +1121,7 @@ function WhatsAppInner() {
                                     <img src={a.url} alt="adjunto" style={{ maxWidth: '240px', maxHeight: '280px', borderRadius: '10px', display: 'block' }} />
                                   </button>
                                 ) : a.tipo === 'audio' ? (
-                                  <audio key={ai} controls src={a.url} style={{ width: '240px' }} />
+                                  <AudioPlay key={ai} src={a.url} style={{ width: '240px' }} />
                                 ) : a.tipo === 'video' ? (
                                   <video key={ai} controls src={a.url} style={{ maxWidth: '240px', borderRadius: '10px' }} />
                                 ) : esPdf ? (
@@ -1243,6 +1247,25 @@ function WhatsAppInner() {
             {sel && etapaChip(sel.etapaKey, sel.etapaLabel) && (() => { const ch = etapaChip(sel.etapaKey, sel.etapaLabel)!; return <div style={{ marginTop: '10px' }}><span style={ch.style}><span style={ch.dot}></span>{ch.label}</span></div>; })()}
             {sel?.leadId ? (
               <button onClick={() => setDetalleLeadId(sel.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
+            ) : sel?.telefono ? (
+              // Plan #381: el contacto no está en el CRM → alta directa con nombre + teléfono.
+              <button
+                type="button"
+                disabled={creandoLead}
+                onClick={async () => {
+                  if (!sel?.telefono) return;
+                  setCreandoLead(true);
+                  try {
+                    const id = await crearLeadDesdeWhatsappAction(sel.contacto || 'Contacto', sel.telefono);
+                    setDetalleLeadId(id);
+                  } catch (e) {
+                    alert(`No se pudo agregar al CRM: ${e instanceof Error ? e.message : 'error'}`);
+                  } finally {
+                    setCreandoLead(false);
+                  }
+                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: creandoLead ? 'default' : 'pointer' }}
+              >{creandoLead ? 'Agregando…' : '+ Agregar al CRM'}</button>
             ) : (
               <Link href="/crm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
             )}

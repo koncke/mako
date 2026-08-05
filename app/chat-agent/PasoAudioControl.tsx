@@ -17,6 +17,7 @@ import { useVoiceRecorder, VoiceRecorderBar } from '../whatsapp/_shared/VoiceRec
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '@/app/_components/icons';
 import type { AudioSetting } from './ChatAgentApp';
+import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 
 const btn: CSSProperties = { padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer' };
 const btnOn: CSSProperties = { ...btn, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)' };
@@ -97,7 +98,7 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
             <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{fase ?? 'Guardando…'}</div>
           ) : audio ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-              {audio.url && <audio controls src={audio.url} style={{ flex: 1, minWidth: 180, height: 34 }} />}
+              {audio.url && <AudioPlay src={audio.url} style={{ flex: 1, minWidth: 180, height: 34 }} />}
               <button type="button" disabled={disabled} onClick={() => void voz.start()} style={btn}>Grabar otro</button>
             </div>
           ) : (

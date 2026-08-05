@@ -19,7 +19,8 @@ import { getVozGuia } from '@/lib/nutricion-generator';
 import { getPerfil } from '@/lib/perfil';
 import { getSetting } from '@/lib/settings';
 import { MAKO_NUCLEO } from '@/lib/mako-prompts';
-import { defDeClave, guionDe, KEY_LINK_VIDEO } from '@/lib/audios-paso';
+import { defDeClave, guionDe, KEY_LINK_VIDEO, KEY_PUBLICO, bloquePublico, esPublico } from '@/lib/audios-paso';
+import { getAvatares, avataresTexto } from '@/lib/avatares';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -41,6 +42,11 @@ CÓMO HABLA ESTA PERSONA (registro real, destilado de sus propias conversaciones
 
 CÓMO USAR ESA GUÍA: describe cómo VENDE esta persona. Toma de ahí el REGISTRO —el tono, las muletillas textuales, el ritmo, si tutea o vosea, si usa o no emojis— y escribe el audio en ese registro, aunque sea distinto del español neutro en el que está escrita esta instrucción. La INTENCIÓN la define el guion de más abajo: esto es un primer contacto comercial con un desconocido.
 
+QUIÉN ES LA PERSONA QUE LO ESCUCHA (el cliente real de este negocio):
+{{avatar}}
+
+{{publico}}
+
 LA SITUACIÓN DEL LEAD QUE VA A ESCUCHARLO:
 {{situacion}}
 
@@ -55,6 +61,7 @@ REGLAS DURAS:
 - Es HABLA, no texto: frases cortas, sin listas, sin viñetas, sin markdown, sin emojis (no se escuchan).
 - Una sola pregunta, y solo si el guion la pide. Nunca dos.
 - No inventes datos del negocio: ni cifras, ni precios, ni plazos, ni casos de éxito que no estén en el perfil.
+- Háblale al avatar de arriba, no a "un emprendedor" genérico: si nombras su situación, que sea la de ese perfil. Pero NUNCA le digas su rubro ni su tamaño como si lo supieras de él en particular — el mismo audio le llega a todos.
 - No escribas acotaciones ni etiquetas: nada de "(pausa)", "(sonríe)", ni corchetes de ningún tipo. Todo lo que devuelvas se lee en voz alta tal cual.
 
 Devuelve SOLO el texto hablado, en un párrafo, sin comillas, sin título y sin ninguna explicación alrededor.
@@ -76,17 +83,20 @@ export async function POST(req: Request) {
   if (!def) return Response.json({ ok: false, error: 'Audio desconocido.' }, { status: 400 });
 
   try {
-    const [perfil, funnel, voz, linkVideo, nucleo, perfilUsuario] = await Promise.all([
+    const [perfil, funnel, voz, linkVideo, nucleo, perfilUsuario, avatares, publicoRaw] = await Promise.all([
       perfilNegocioTexto().catch(() => ''),
       resumenFunnel().catch(() => ''),
       getVozGuia().catch(() => null),
       getSetting(KEY_LINK_VIDEO).catch(() => null),
       getPromptText('mako.nucleo', MAKO_NUCLEO),
       getPerfil().catch(() => null),
+      getAvatares().catch(() => []),
+      getSetting(KEY_PUBLICO).catch(() => null),
     ]);
 
     const bullets = guionDe(def, (linkVideo ?? '').trim() || null);
     const nombre = (perfilUsuario?.nombre ?? '').trim();
+    const publico = esPublico(publicoRaw) ? publicoRaw : 'mixto';
 
     const system = `${nucleo}\n\n${await renderPrompt('setting.guion_audio', SETTING_GUION_AUDIO_SYSTEM_TEMPLATE, {
       // Sin nombre cargado no se inventa uno: el hueco se deja marcado para que
@@ -98,6 +108,12 @@ export async function POST(req: Request) {
       // El slot puede llegar null O vacío: vacío es el caso nuevo y esperado —
       // el análisis de voz no escribe nada cuando no pudo deducir con evidencia.
       voz: (voz ?? '').trim() || '(todavía no sé cómo habla: escribe en un registro neutro, cálido y directo, sin sonar a plantilla de marketing)',
+      // El AVATAR es el aprendizaje que costó caro en el ensayo: sin él, el
+      // modelo le habla a "un emprendedor" genérico e inventa la situación de
+      // quien escucha. Con él, el audio le habla al cliente que este negocio
+      // busca de verdad.
+      avatar: avataresTexto(avatares.slice(0, 3)) || '(el negocio todavía no definió su avatar — háblale a su cliente ideal sin inventarle rubro ni tamaño)',
+      publico: bloquePublico(publico),
       situacion: def.situacion,
       guion: bullets.map((b, i) => `${i + 1}. ${b}`).join('\n'),
       video: def.pideVideo ? ((linkVideo ?? '').trim() ? VIDEO_CON : VIDEO_SIN) : VIDEO_SIN,

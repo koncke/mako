@@ -77,18 +77,56 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
     });
   }
 
+  // El pie de los audios de post-agenda. El audio pide algo para llegar
+  // preparado, pero un audio NO admite variables ni links: el link del video y
+  // el pedido de confirmación tienen que ir por escrito, pegados a la nota de
+  // voz. Sin esto la secuencia mandaba el audio con el pie VACÍO y nadie
+  // confirmaba nada.
+  const piePostAgenda = [
+    (linkVideo ?? '').trim() ? `Te dejo el video para que llegues con contexto: ${(linkVideo ?? '').trim()}` : '',
+    '¿Me confirmas por acá que te queda bien el horario?',
+  ].filter(Boolean).join('\n');
+
   // Los dos de post-agenda comparten secuencia. El orden importa: si el primero
   // no corresponde, el motor pasa al segundo en la misma corrida.
   const pasosAgenda: PasoSecuencia[] = [];
-  if (audios.agenda_con_bienvenida) pasosAgenda.push(pasoAudio(1, 1, audios.agenda_con_bienvenida, '', 'ya_contactado'));
-  if (audios.agenda_primer_contacto) pasosAgenda.push(pasoAudio(pasosAgenda.length + 1, 1, audios.agenda_primer_contacto, '', 'primer_contacto'));
+  if (audios.agenda_con_bienvenida) pasosAgenda.push(pasoAudio(1, 1, audios.agenda_con_bienvenida, piePostAgenda, 'ya_contactado'));
+  if (audios.agenda_primer_contacto) pasosAgenda.push(pasoAudio(pasosAgenda.length + 1, 1, audios.agenda_primer_contacto, piePostAgenda, 'primer_contacto'));
   if (pasosAgenda.length) {
+    // ESPERAR LA CONFIRMACIÓN antes de avanzar no necesita un temporizador
+    // propio: el motor ya pausa la inscripción en cuanto el lead escribe
+    // (pausarPorRespuesta la pasa a 'respondio' y borra el próximo envío). Así
+    // que un segundo paso a 24h le llega SOLO a quien no contestó — que es
+    // exactamente lo pedido. Con `sin_respuesta` queda dicho dos veces, y la
+    // segunda es la que sobrevive si alguien cambia el motor.
+    //
+    // Va como TEXTO y no como audio: repetir la misma nota de voz al día
+    // siguiente se lee como un bot, y acá lo único que falta es la confirmación.
+    // Las variantes existen para no mandar la misma frase palabra por palabra a
+    // cientos de personas (es el patrón que WhatsApp usa para banear).
+    //
+    // OJO CON EL REGISTRO: esto sale al lead, no a la app. Español NEUTRO y
+    // tuteo — el avatar de este negocio está en México, y un "che" o un "decime"
+    // suenan importados al instante. Es lo mismo que ya cuidan los escenarios
+    // del ensayo y el copy de la tab.
+    const recordatorio: PasoSecuencia = {
+      orden: pasosAgenda.length + 1, canal: 'whatsapp', delay_horas: 24,
+      tipo: 'texto', audio_id: null, requiere: 'sin_respuesta',
+      asunto: null,
+      cuerpo: 'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
+      variantes: [
+        'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
+        '{{nombre}}, ¿me confirmas la reunión? Si necesitas moverla, dime y lo acomodamos.',
+        'Hola {{nombre}}, ¿queda en pie lo que agendamos? Avísame y quedo tranquilo.',
+      ],
+      proveedor: 'no_oficial', template_wa: null,
+    };
     planos.push({
       clave: 'chat-agent-post-agenda',
       nombre: 'Agendó — confirmación y preparación',
       etapa: 'postagenda',
       trigger: 'agendado_sin_confirmar',
-      pasos: pasosAgenda.map((p, i) => ({ ...p, orden: i + 1 })),
+      pasos: [...pasosAgenda, recordatorio].map((p, i) => ({ ...p, orden: i + 1 })),
     });
   }
 

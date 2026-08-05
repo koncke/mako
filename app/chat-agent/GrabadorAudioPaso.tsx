@@ -21,6 +21,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { useVoiceRecorder, VoiceRecorderBar } from '../whatsapp/_shared/VoiceRecorder';
 import { Icon } from '@/app/_components/icons';
 import type { AudioPasoDef } from '@/lib/audios-paso';
+import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -152,7 +153,7 @@ export function GrabadorAudioPaso({ def, grabado, abierto, onToggle, onGrabado, 
             <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{fase ?? 'Guardando…'}</div>
           ) : grabado ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {grabado.url && <audio controls src={grabado.url} style={{ flex: 1, minWidth: 200, height: 36 }} />}
+              {grabado.url && <AudioPlay src={grabado.url} style={{ flex: 1, minWidth: 200, height: 36 }} />}
               <button type="button" onClick={() => void voz.start()} style={btn}>Grabar de nuevo</button>
               <button
                 type="button" onClick={() => void borrar()}

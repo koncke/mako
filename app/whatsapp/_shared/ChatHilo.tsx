@@ -14,6 +14,7 @@ import { EmojiPicker } from '../EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc, IconTrash } from './composer-icons';
 import { useVoiceRecorder, VoiceRecorderBar } from './VoiceRecorder';
 import { Ticks } from './Ticks';
+import { AudioPlay } from './AudioPlay';
 
 export type HiloMsg = {
   id: string | number;
@@ -221,7 +222,7 @@ export function ChatHilo({
                       <img src={m.mediaUrl} alt="adjunto" style={{ maxWidth: 240, maxHeight: 280, borderRadius: 10, display: 'block' }} />
                     </button>
                   )}
-                  {m.mediaUrl && m.tipo === 'audio' && <audio controls src={m.mediaUrl} style={{ width: 240, marginBottom: m.texto ? 6 : 0 }} />}
+                  {m.mediaUrl && m.tipo === 'audio' && <AudioPlay src={m.mediaUrl} style={{ width: 240, marginBottom: m.texto ? 6 : 0 }} />}
                   {m.mediaUrl && m.tipo === 'video' && <video controls src={m.mediaUrl} style={{ maxWidth: 240, borderRadius: 10, marginBottom: m.texto ? 6 : 0, display: 'block' }} />}
                   {m.mediaUrl && m.tipo === 'document' && (
                     <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', textDecoration: 'none', maxWidth: 240, marginBottom: m.texto ? 6 : 0 }}>
@@ -282,7 +283,7 @@ export function ChatHilo({
       {puedeComponer && !voz.recording && audioPend && (
         <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <button onClick={() => setAudioPend(null)} title="Descartar audio" aria-label="Descartar audio" style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--bad)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconTrash /></button>
-          {audioUrl && <audio controls src={audioUrl} style={{ flex: 1, height: 40 }} />}
+          {audioUrl && <AudioPlay src={audioUrl} style={{ flex: 1, height: 40 }} />}
           <button onClick={() => void enviarAudioPend()} disabled={sending} title="Enviar audio" aria-label="Enviar audio" style={{ flex: 'none', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
         </div>
       )}
