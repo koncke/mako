@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   useTransition,
+  type ChangeEvent,
   type CSSProperties,
 } from 'react';
 import {
@@ -39,6 +40,7 @@ import {
   ignorarPendientesAction,
   ignorarPendientesMasaAction,
   exportLeadsCsvAction,
+  importLeadsCsvAction,
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
 import { CrmAutoToggle } from './CrmAutoToggle';
@@ -51,7 +53,6 @@ import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
 import { Icon } from '../_components/icons';
-import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -455,6 +456,27 @@ export function CrmBoard({
     }
   });
 
+  // Importar leads desde CSV (plan #383): input oculto → lee el texto → la acción
+  // parsea, deduplica e inserta. Muestra el resumen y refresca.
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [importando, startImport] = useTransition();
+  const onArchivoCsv = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite re-subir el mismo archivo
+    if (!file) return;
+    startImport(async () => {
+      try {
+        const texto = await file.text();
+        const r = await importLeadsCsvAction(texto);
+        const extra = r.errores.length ? `\n\nAlgunos no se pudieron cargar:\n${r.errores.join('\n')}` : '';
+        alert(`Importación lista.\n\n✓ ${r.creados} leads nuevos\n– ${r.omitidos} omitidos (sin nombre/contacto o ya existían)${extra}`);
+        router.refresh();
+      } catch (err) {
+        alert(`No se pudo importar: ${err instanceof Error ? err.message : 'error'}`);
+      }
+    });
+  };
+
   // Una columna del Kanban (reutilizada por cada banda).
   const renderColumn = (c: Stage) => {
     const cards = filtered.filter((l) => effStage(l) === c.key);
@@ -518,8 +540,12 @@ export function CrmBoard({
           <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{filtered.length} de {total} leads</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <DatosDeMau ambito="crm" onListo={() => window.location.reload()} />
           <CrmAutoToggle />
+          <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={onArchivoCsv} style={{ display: 'none' }} />
+          <button type="button" onClick={() => importInputRef.current?.click()} disabled={importando} title="Cargar leads desde un CSV (Nombre, Email, Teléfono, Empresa)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 17px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14.5, fontWeight: 600, cursor: importando ? 'default' : 'pointer', fontFamily: SANS }}>
+            {importando ? 'Importando…' : '↑ Importar CSV'}
+          </button>
           <button type="button" onClick={exportarCsv} disabled={exportando} title="Descargar todos los leads en CSV"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 17px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14.5, fontWeight: 600, cursor: exportando ? 'default' : 'pointer', fontFamily: SANS }}>
             {exportando ? 'Exportando…' : '↓ Exportar CSV'}

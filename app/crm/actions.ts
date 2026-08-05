@@ -647,6 +647,88 @@ export async function exportLeadsCsvAction(): Promise<string> {
   return lineas.join('\r\n');
 }
 
+// ── Importar leads desde CSV (plan #383) ──
+// Parser CSV propio (RFC4180: comillas, comas y saltos dentro de campos). Mapea
+// columnas por nombre flexible, deduplica contra los leads existentes (email o
+// teléfono) e inserta por la MISMA vía que "+ Nuevo lead" (createLead, tenant-scoped).
+export type ImportLeadsResult = { creados: number; omitidos: number; errores: string[] };
+
+function parseCsv(text: string): string[][] {
+  const s = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let q = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) {
+      if (c === '"') { if (s[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') { q = true; }
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+export async function importLeadsCsvAction(csvText: string): Promise<ImportLeadsResult> {
+  const rows = parseCsv(csvText);
+  if (rows.length < 2) return { creados: 0, omitidos: 0, errores: ['El archivo no tiene filas de datos.'] };
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const idx = (names: string[]) => header.findIndex((h) => names.some((n) => h === n || h.includes(n)));
+  const iNombre = idx(['nombre', 'name']);
+  const iEmail = idx(['email', 'correo', 'e-mail', 'mail']);
+  const iTel = idx(['telefono', 'teléfono', 'whatsapp', 'celular', 'phone', 'tel']);
+  const iEmpresa = idx(['empresa', 'company', 'negocio']);
+  if (iNombre < 0) return { creados: 0, omitidos: 0, errores: ['No encontré una columna "Nombre" en el CSV. Encabezados esperados: Nombre, Email, Teléfono, Empresa.'] };
+
+  // Dedup: precargo emails y teléfonos existentes (paginado, supera el tope de 1000).
+  const db = await getTenantDb();
+  const soloDig = (v: string) => v.replace(/\D/g, '');
+  const emails = new Set<string>();
+  const tels = new Set<string>();
+  for (let d = 0; ; d += 1000) {
+    const { data } = await db.from('leads').select('email, telefono').range(d, d + 999);
+    const chunk = (data ?? []) as Array<{ email: string | null; telefono: string | null }>;
+    for (const r of chunk) {
+      if (r.email) emails.add(r.email.trim().toLowerCase());
+      if (r.telefono) { const dg = soloDig(r.telefono); if (dg) tels.add(dg); }
+    }
+    if (chunk.length < 1000) break;
+  }
+
+  let creados = 0;
+  let omitidos = 0;
+  const errores: string[] = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.every((c) => !c.trim())) continue;
+    const nombre = (row[iNombre] ?? '').trim();
+    const email = iEmail >= 0 ? (row[iEmail] ?? '').trim() : '';
+    const tel = iTel >= 0 ? (row[iTel] ?? '').trim() : '';
+    const empresa = iEmpresa >= 0 ? (row[iEmpresa] ?? '').trim() : '';
+    // Mismas reglas que el alta manual: nombre + al menos un contacto.
+    if (!nombre || (!email && !tel)) { omitidos++; continue; }
+    const emailK = email.toLowerCase();
+    const telK = soloDig(tel);
+    if ((emailK && emails.has(emailK)) || (telK && tels.has(telK))) { omitidos++; continue; }
+    try {
+      await createLead({ nombre, email: email || null, telefono: tel || null, empresa: empresa || null });
+      creados++;
+      if (emailK) emails.add(emailK);
+      if (telK) tels.add(telK);
+    } catch (e) {
+      errores.push(`${nombre}: ${e instanceof Error ? e.message : 'error'}`);
+    }
+  }
+  bust(TAG.leads);
+  revalidatePath('/crm');
+  revalidatePath('/general');
+  return { creados, omitidos, errores: errores.slice(0, 20) };
+}
+
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
 export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promise<void> {
   const before = await getLead(id).catch(() => null);
