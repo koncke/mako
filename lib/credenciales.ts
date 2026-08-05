@@ -149,19 +149,26 @@ export async function credWs(clave: string, ws?: number): Promise<string | null>
 //   · La CARRERA (la hidratación no terminó) → la barrera: esperás en vez de fallar.
 //   · El TIMEOUT/catch silencioso (la hidratación terminó pero sin traer nada) → el
 //     fallback a la base, que además se auto-repara.
-// Después del boot, `credencialesListas()` es una promesa ya resuelta: en el camino
-// feliz no agrega latencia.
-
-let bootCredenciales: Promise<void> | null = null;
+// Una vez que la hidratación del boot terminó, `credencialesListas()` devuelve una
+// promesa ya resuelta y no agrega latencia.
+//
+// La memo va en globalThis y NO en una variable de módulo, por el mismo motivo que
+// `hidratadas` unas líneas más arriba: Turbopack emite una COPIA de este módulo por
+// capa (instrumentation, app-route, ssr) y el cache deduplica por module id, así que
+// una variable de módulo daría una memo por capa. Con eso, el primer `envCred()` de
+// un route handler arrancaría una SEGUNDA hidratación completa (SELECT con timeout de
+// 4s + seedRoutingDelDueno + migrarEnvACredenciales) adentro del request — justo el
+// trabajo que la barrera venía a evitar.
+const gBoot = globalThis as typeof globalThis & { __makoBootCreds?: Promise<void> };
 
 /**
- * Espera a que la hidratación del boot haya terminado (una sola vez por instancia).
+ * Espera a que la hidratación del boot haya terminado (una sola vez por proceso).
  * La llama instrumentation.ts y la esperan los lectores de credenciales de plataforma.
  * Nunca rechaza: `hidratarCredenciales` ya traga sus propios errores, y un rechazo acá
  * quedaría cacheado en la promesa y explotaría en CADA request.
  */
 export function credencialesListas(): Promise<void> {
-  return (bootCredenciales ??= hidratarCredenciales());
+  return (gBoot.__makoBootCreds ??= hidratarCredenciales());
 }
 
 /**

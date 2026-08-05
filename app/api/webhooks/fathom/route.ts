@@ -43,9 +43,16 @@ export async function POST(request: NextRequest) {
   // el secreto que se prueba es el del workspace que el propio payload nombra.
 
   // 1) Parsear (todavía sin confiar en el contenido)
+  // El chequeo de objeto NO es de más: `JSON.parse('null')` no lanza, devuelve null, y
+  // el optional chaining de abajo protege el segundo nivel pero no el primero
+  // (`body.recorded_by` sobre null tira TypeError → 500 sin autenticar). Antes era
+  // inalcanzable porque la firma mataba el request primero.
   let body: FathomWebhookPayload;
-  try { body = JSON.parse(rawBody) as FathomWebhookPayload; }
-  catch { return Response.json({ ok: false, error: 'bad_json' }, { status: 400 }); }
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    if (parsed === null || typeof parsed !== 'object') throw new Error('no es un objeto');
+    body = parsed as FathomWebhookPayload;
+  } catch { return Response.json({ ok: false, error: 'bad_json' }, { status: 400 }); }
 
   // 2) Resolver el workspace por el email de la cuenta que grabó (recorded_by).
   //    Fail-CLOSED: sin mapeo (webhook_routing), NO tocamos datos — nunca cae al

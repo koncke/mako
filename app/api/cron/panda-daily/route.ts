@@ -39,7 +39,10 @@ export async function GET(request: NextRequest) {
   const workspaces = await correrPorWorkspace('panda', async () => {
     const videoIds = await getPandaVideoIds();
     if (videoIds.length === 0) {
-      return { error: 'PANDA_VSL_VIDEO_IDS vacío', resultados: [] };
+      // OMITIDO, no error: PANDA_VSL_VIDEO_IDS está marcado `opcional` en el catálogo
+      // y integracionConectada('panda') solo exige la API key, así que un workspace
+      // puede entrar acá legítimamente sin videos que mirar (hoy: ws9).
+      return { omitido: 'sin video ids', resultados: [] };
     }
 
     const supabase = await getTenantDb();
@@ -99,13 +102,20 @@ export async function GET(request: NextRequest) {
   // workspace con la config ilegible salía por `{ error: 'PANDA_VSL_VIDEO_IDS vacío' }`
   // y eso viajaba adentro de un 200 ok:true, así que la falta de datos era invisible
   // desde afuera. Le pasó a ws3 TODOS los días.
-  const conError = workspaces.filter((w) => !w.ok || (w.resultado as { error?: string } | undefined)?.error);
-  const ingestó = workspaces.some((w) => {
+  //
+  // Pero el 500 se reserva para "no entró NADA de lo que sí estaba configurado", que
+  // es la convención de los crons hermanos (nutricion:152 usa `todoFallo ? 500 : 200`).
+  // Si un workspace omitido contara como error, este cron respondería 500 todos los
+  // días por ws9 —que legítimamente no tiene videos— y la alarma nacería sonando:
+  // saturaría justo la señal que vino a recuperar. Los parciales viajan en `parcial`.
+  const configurados = workspaces.filter((w) => !(w.resultado as { omitido?: string } | undefined)?.omitido);
+  const conError = configurados.filter((w) => !w.ok || (w.resultado as { error?: string } | undefined)?.error);
+  const ingestó = configurados.some((w) => {
     const r = w.resultado as { resultados?: Array<{ status: string }> } | undefined;
     return (r?.resultados ?? []).some((x) => x.status === 'ok');
   });
-  const ok = conError.length === 0 && (workspaces.length === 0 || ingestó);
+  const ok = configurados.length === 0 || ingestó;
 
-  console.log(`[cron:panda-daily] fecha=${fecha} workspaces=${workspaces.length} conError=${conError.length} ingesto=${ingestó} ms=${ms}`);
-  return Response.json({ ok, fecha, workspaces, ms }, { status: ok ? 200 : 500 });
+  console.log(`[cron:panda-daily] fecha=${fecha} ws=${workspaces.length} configurados=${configurados.length} conError=${conError.length} ingesto=${ingestó} ms=${ms}`);
+  return Response.json({ ok, parcial: conError.length > 0, fecha, workspaces, ms }, { status: ok ? 200 : 500 });
 }

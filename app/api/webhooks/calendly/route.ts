@@ -71,9 +71,14 @@ export async function POST(request: NextRequest) {
   const signatureHeader = request.headers.get('calendly-webhook-signature');
 
   // 1) Parse JSON (todavía sin confiar en el contenido)
+  // El chequeo de objeto NO es de más: `JSON.parse('null')` no lanza, devuelve null, y
+  // `body.payload` sobre null tira TypeError → 500 sin autenticar. Antes era
+  // inalcanzable porque la firma mataba el request primero.
   let body: CalendlyWebhookPayload;
   try {
-    body = JSON.parse(rawBody) as CalendlyWebhookPayload;
+    const parsed: unknown = JSON.parse(rawBody);
+    if (parsed === null || typeof parsed !== 'object') throw new Error('no es un objeto');
+    body = parsed as CalendlyWebhookPayload;
   } catch {
     return Response.json(
       { ok: false, error: 'bad_json', message: 'Body no es JSON válido' },
