@@ -23,6 +23,11 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 const compInput: CSSProperties = { width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', textAlign: 'center' };
 
+/** Botón de opción del wizard (elegido = tinta llena). Para pasos de una elección. */
+function btnOpcion(activo: boolean): CSSProperties {
+  return { padding: '13px 18px', borderRadius: 12, fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, background: activo ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'), color: activo ? '#F3F5F8' : 'var(--ink)' };
+}
+
 /** ISO (yyyy-mm-dd) + n meses, conservando el día. Para las cuotas mensuales de una suscripción a plazo fijo. */
 function sumarMesesISO(iso: string, n: number): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -82,7 +87,7 @@ type PasoId =
   | 'auto'
   | 'huboR1' | 'motivoNoR1' | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'huboR2' | 'motivoNoR2' | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
-  | 'monto' | 'plan' | 'motivo' | 'motivoDetalle'
+  | 'ventaTipo' | 'monto' | 'susPlazo' | 'plan' | 'motivo' | 'motivoDetalle'
   | 'setter' | 'closer' | 'empresa' | 'telefono'
   // Deal Details + documentos + Calendly R2 (pasada única del "Solucionar").
   | 'dealAuto' | 'dealServicio' | 'dealPromesa' | 'dealFiscal' | 'dealObligaciones'
@@ -270,9 +275,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     if (requeridos.has('dealFiscal')) p.push('dealFiscal');
     if (requeridos.has('dealObligaciones')) p.push('dealObligaciones');
 
-    if (requeridos.has('monto')) p.push('monto');
-    // Suscripción: el monto mensual + el plazo se cargan en el paso 'monto'; no hay
-    // plan de cuotas fijo que deba cuadrar con un total, así que se saltea 'plan'.
+    // Una pregunta por slide: primero el tipo de venta, después el monto, y solo
+    // si es suscripción el plazo. El 'plan' (cuotas) queda solo para pago único.
+    if (requeridos.has('monto')) {
+      p.push('ventaTipo');
+      p.push('monto');
+      if (ventaTipo === 'suscripcion') p.push('susPlazo');
+    }
     if (requeridos.has('plan') && ventaTipo !== 'suscripcion') p.push('plan');
     if (requeridos.has('motivo')) { p.push('motivo'); p.push('motivoDetalle'); }
     // Higiene (Completar datos): setter/closer/empresa/teléfono.
@@ -325,7 +334,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       case 'asistenciaR2': return asistioJ2 != null;
       case 'calificado': return calificado != null;
       case 'fathomR1': case 'fathomR2': return fathomOmitido || fathom.some((f) => f.url.trim());
+      case 'ventaTipo': return true; // hay un default (pago único); se elige y se sigue
       case 'monto': return totalMonto > 0;
+      case 'susPlazo': return true;  // vacío = indefinida, es válido
       case 'plan': return cuotasCuadran;
       case 'motivo': return !!motivo.trim();
       case 'motivoDetalle': return !!motivoDetalle.trim();
@@ -617,31 +628,40 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         </div>
       );
       break;
-    case 'monto': {
-      const btnTipo = (activo: boolean): CSSProperties => ({ flex: 1, padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, background: activo ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'), color: activo ? '#F3F5F8' : 'var(--ink)' });
-      pregunta = esSuscripcion ? '¿De cuánto es la suscripción?' : '¿De cuánto fue el cierre?';
-      sub = esSuscripcion ? 'Importe MENSUAL, en USD.' : 'En USD.';
+    case 'ventaTipo':
+      pregunta = '¿Cómo se cobra este cliente?';
+      sub = 'Elegí el tipo de venta.';
       cuerpo = (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 320, margin: '0 auto' }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={() => setVentaTipo('unico')} style={btnTipo(!esSuscripcion)}>Pago único</button>
-            <button type="button" onClick={() => setVentaTipo('suscripcion')} style={btnTipo(esSuscripcion)}>Suscripción mensual</button>
-          </div>
-          <input inputMode="numeric" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" autoFocus style={{ ...compInput, maxWidth: 220, margin: '0 auto', display: 'block', fontSize: 22, fontWeight: 700 }} />
-          {esSuscripcion && (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 6 }}>Duración</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
-                <input inputMode="numeric" value={susMeses} onChange={(e) => setSusMeses(e.target.value.replace(/[^\d]/g, ''))} placeholder="meses" style={{ ...compInput, maxWidth: 110, textAlign: 'center' }} />
-                <button type="button" onClick={() => setSusMeses('')} style={btnTipo(!susMeses)}>Indefinida</button>
-              </div>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6 }}>{susMeses ? `${susMeses} meses a plazo fijo` : 'Mes a mes, hasta que cancele'}</div>
-            </div>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360, margin: '0 auto' }}>
+          <button type="button" onClick={() => setVentaTipo('unico')} style={{ ...btnOpcion(!esSuscripcion), textAlign: 'left' }}>
+            <div style={{ fontSize: 15 }}>Pago único</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: esSuscripcion ? 'var(--dim)' : 'rgba(255,255,255,.7)', marginTop: 2 }}>Un cierre high-ticket (con o sin cuotas).</div>
+          </button>
+          <button type="button" onClick={() => setVentaTipo('suscripcion')} style={{ ...btnOpcion(esSuscripcion), textAlign: 'left' }}>
+            <div style={{ fontSize: 15 }}>🔁 Suscripción mensual</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: esSuscripcion ? 'rgba(255,255,255,.7)' : 'var(--dim)', marginTop: 2 }}>Cliente recurrente que paga todos los meses.</div>
+          </button>
         </div>
       );
       break;
-    }
+    case 'monto':
+      pregunta = esSuscripcion ? '¿De cuánto es la suscripción?' : '¿De cuánto fue el cierre?';
+      sub = esSuscripcion ? 'Importe MENSUAL, en USD.' : 'En USD.';
+      cuerpo = <input inputMode="numeric" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" autoFocus style={{ ...compInput, maxWidth: 220, margin: '0 auto', display: 'block', fontSize: 22, fontWeight: 700 }} />;
+      break;
+    case 'susPlazo':
+      pregunta = '¿Qué duración tiene la suscripción?';
+      sub = 'A plazo fijo (una cantidad de meses) o indefinida (mes a mes).';
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 340, margin: '0 auto', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+            <input inputMode="numeric" value={susMeses} onChange={(e) => setSusMeses(e.target.value.replace(/[^\d]/g, ''))} placeholder="meses" autoFocus style={{ ...compInput, maxWidth: 120, textAlign: 'center' }} />
+            <button type="button" onClick={() => setSusMeses('')} style={btnOpcion(!susMeses)}>Indefinida</button>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>{susMeses ? `${susMeses} meses a plazo fijo · se generan ${susMeses} cuotas mensuales` : 'Mes a mes, hasta que cancele (sin cuotas fijas)'}</div>
+        </div>
+      );
+      break;
     case 'motivo':
       pregunta = esDescal ? '¿Por qué se descalificó?' : '¿Por qué se perdió?';
       sub = 'Elegí la categoría; en el próximo paso contás el detalle.';
