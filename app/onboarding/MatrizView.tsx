@@ -16,11 +16,11 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { formatoPorId, type Medio } from '@/lib/angulos-data';
 import { SeccionCard, parsearSecciones, type Seccion } from '../components/SeccionCard';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
+import { fechaGuion, type GuionItem, type EstadoGuion } from './guion-ui';
+import { EstadoChip } from './EstadoChip';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
-
-type GuionItem = { id: string; anguloId: string; anguloNombre: string; texto: string };
 type Avatar = { id: string; nombre: string; segmento: string; senalesMeta: string; situacion: string; dolor: string };
 type Celda = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guiones: GuionItem[]; imagenUrl: string; anguloImagen: string; anguloVideo: string };
 type AnguloGuionLite = { id: string; nombre: string; emoji: string; cuando: string; estructuras: string[] };
@@ -60,7 +60,16 @@ function Edit({ valor, onSave, multiline, style }: { valor: string; onSave: (v: 
   );
 }
 
-export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } = {}) {
+export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken }: {
+  onListo?: (listo: boolean) => void;
+  /** Celda a abrir apenas se monte/cambie (la usa "↗ Anuncio" de la vista global
+   *  de guiones para saltar del guion al anuncio del que salió). */
+  abrirCeldaId?: string | null;
+  onAbrioCelda?: () => void;
+  /** Cambiar este número fuerza una recarga desde la API: la vista global toca
+   *  los mismos guiones, y sin esto la matriz seguiría mostrando lo de antes. */
+  recargarToken?: number;
+} = {}) {
   const [est, setEst] = useState<Estado | null>(null);
   const [entregables, setEntregables] = useState<Entregable[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -86,8 +95,17 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
       if (je && Array.isArray(je.entregables)) setEntregables(je.entregables as Entregable[]);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargando(false); }
   }, []);
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { cargar(); }, [cargar, recargarToken]);
   useEffect(() => { onListo?.(!!est && est.razones.length > 0); }, [est, onListo]);
+  // Salto "guion → su anuncio": solo cuando la celda ya existe en lo cargado
+  // (si no, el modal quedaría en blanco esperando datos que aún no llegaron).
+  useEffect(() => {
+    if (!abrirCeldaId || !est?.razones.some((r) => r.id === abrirCeldaId)) return;
+    setAbierta(abrirCeldaId);
+    setTabModal('guiones');
+    setNuevo(null);
+    onAbrioCelda?.();
+  }, [abrirCeldaId, est, onAbrioCelda]);
 
   const generar = async () => {
     setGen(true); setErr(null);
@@ -206,7 +224,15 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
 
   const celda = abierta ? razones.find((r) => r.id === abierta) : null;
   const avatarDe = (id: string) => avatares.find((a) => a.id === id);
-  const abrir = (id: string) => { setAbierta(id); setTabModal('contexto'); setNuevo(null); };
+  // Abrir una celda NO tira el wizard a medias si es la MISMA celda: el dueño
+  // puede cerrar el modal para mirar otra cosa y volver sin perder las opciones
+  // que ya eligió. Cambiar de celda sí lo descarta (era de otro anuncio).
+  const abrir = (id: string) => {
+    const mismaCelda = id === abierta;
+    setAbierta(id);
+    if (mismaCelda && nuevo) setTabModal('guiones'); else setTabModal('contexto');
+    if (!mismaCelda) setNuevo(null);
+  };
 
   return (
     <div>
@@ -259,8 +285,13 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
       {/* ── MODAL con tabs internas ── */}
       {celda && (() => {
         const av = avatarDe(celda.avatarId);
+        // "Guiones ·" con un punto cuando hay un "Nuevo guion" a medias en otra
+        // tab: la señal de que el borrador sigue vivo y no se perdió.
+        const enCurso = !!nuevo && tabModal !== 'guiones';
         const tabs: Array<{ k: TabModal; label: string }> = [
-          { k: 'contexto', label: 'Contexto' }, { k: 'guiones', label: `Guiones${celda.guiones.length ? ` · ${celda.guiones.length}` : ''}` }, { k: 'imagen', label: 'Imagen' }, { k: 'video', label: 'Video' },
+          { k: 'contexto', label: 'Contexto' },
+          { k: 'guiones', label: `Guiones${celda.guiones.length ? ` · ${celda.guiones.length}` : ''}${enCurso ? ' •' : ''}` },
+          { k: 'imagen', label: 'Imagen' }, { k: 'video', label: 'Video' },
         ];
         return (
           <div onClick={() => setAbierta(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -279,7 +310,10 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '0 22px', borderBottom: '1px solid var(--border)' }}>
                 {tabs.map((t) => {
                   const on = tabModal === t.k;
-                  return <button key={t.k} type="button" onClick={() => { setTabModal(t.k); setNuevo(null); }} style={{ border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`, background: 'none', color: on ? 'var(--ink)' : 'var(--dim)', fontFamily: SANS, fontWeight: on ? 600 : 500, fontSize: 13, padding: '9px 10px', cursor: 'pointer', flex: 'none' }}>{t.label}</button>;
+                  // Cambiar de tab NO cancela el "Nuevo guion" a medias: ir a
+                  // Contexto a chequear el copy y volver es parte del flujo, y
+                  // perder las opciones ya elegidas obligaba a rehacerlo todo.
+                  return <button key={t.k} type="button" onClick={() => setTabModal(t.k)} style={{ border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`, background: 'none', color: on ? 'var(--ink)' : 'var(--dim)', fontFamily: SANS, fontWeight: on ? 600 : 500, fontSize: 13, padding: '9px 10px', cursor: 'pointer', flex: 'none' }}>{t.label}</button>;
                 })}
               </div>
               {/* Cuerpo — flex:1/minHeight:0 explícito: header y tabs SIEMPRE fijos arriba,
@@ -327,6 +361,7 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
                     onGenerar={(params) => generarGuion(celda.id, params)}
                     onEditarGuion={(guionId, texto) => editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, texto } : g)))}
                     onBorrarGuion={(guionId) => editar(celda.id, 'guiones', celda.guiones.filter((g) => g.id !== guionId))}
+                    onEstado={(guionId, estado) => editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, estado } : g)))}
                     onCopiar={copiarGuion}
                     onDescargar={(g) => descargarGuion(celda, g)}
                   />
@@ -381,7 +416,7 @@ type NuevoGuion = {
   siguientePaso: string;
   cambiandoAngulo: boolean;
 };
-function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguientePasoOpciones, nuevo, setNuevo, genGuion, copiado, onAuto, onSugerir, onGenerar, onEditarGuion, onBorrarGuion, onCopiar, onDescargar }: {
+function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguientePasoOpciones, nuevo, setNuevo, genGuion, copiado, onAuto, onSugerir, onGenerar, onEditarGuion, onBorrarGuion, onEstado, onCopiar, onDescargar }: {
   celda: Celda;
   angulos: AnguloGuionLite[];
   estructuras: EstructuraLite[];
@@ -396,6 +431,7 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguien
   onGenerar: (params: { anguloId: string; estructuraId: string; siguientePaso: string; respuestasAngulo: Array<{ pregunta: string; respuesta: string }> }) => void;
   onEditarGuion: (guionId: string, texto: string) => void;
   onBorrarGuion: (guionId: string) => void;
+  onEstado: (guionId: string, estado: EstadoGuion) => void;
   onCopiar: (g: GuionItem) => void;
   onDescargar: (g: GuionItem) => void;
 }) {
@@ -544,8 +580,10 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguien
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'var(--surface-2)', borderBottom: abierto ? '1px solid var(--border)' : 'none' }}>
                 <button type="button" onClick={() => setAbiertoId(abierto ? null : g.id)} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 9, background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS, padding: 0 }}>
                   <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 10px', flex: 'none' }}>{g.anguloNombre}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)', flex: 'none', whiteSpace: 'nowrap' }}>{fechaGuion(g.creadoEn)}{g.estructuraNombre ? ` · ${g.estructuraNombre}` : ''}</span>
                   <span aria-hidden style={{ marginLeft: 'auto', flex: 'none', color: 'var(--faint)', fontSize: 12, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
                 </button>
+                <EstadoChip estado={g.estado} onChange={(e) => onEstado(g.id, e)} />
                 <button type="button" onClick={() => onCopiar(g)} style={btnMini} title="Copiar todo el guion">{copiado === g.id ? '✓ Copiado' : '📋 Copiar'}</button>
                 <button type="button" onClick={() => onDescargar(g)} style={btnMini} title="Descargar como .md">⬇ .md</button>
                 <button type="button" onClick={() => onBorrarGuion(g.id)} aria-label="Borrar guion" style={{ ...btnMini, padding: '5px 8px' }}>✕</button>

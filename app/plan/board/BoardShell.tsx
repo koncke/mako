@@ -1572,7 +1572,7 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
   // Mismo criterio que el historial de un proyecto: una tarea que pasó por el Perro, por
   // una reunión y por dos scripts junta veinte entradas, y abajo del historial está el
   // resto del detalle.
-  const { visibles, boton } = useVerMas(t.historial, 8);
+  const { visibles, boton } = useVerMas(t.historial, { inicial: 8, tanda: 8, estilo: 'texto' });
   if (t.historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía. Los cambios van a aparecer acá.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1754,7 +1754,7 @@ function HistList({ historial, nombre, avatarUrl, onUndo }: { historial: BoardTa
   useEffect(() => { setNowMs(Date.now()); }, []);
   // Sin tope de ningún tipo: renderizaba el historial entero, y los proyectos que pasaron
   // por varios scripts de reordenamiento tienen decenas de entradas.
-  const { visibles, boton } = useVerMas(historial, 8);
+  const { visibles, boton } = useVerMas(historial, { inicial: 8, tanda: 8, estilo: 'texto' });
   if (historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
@@ -1791,7 +1791,7 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
     .flatMap((l) => l.historial.filter((h) => h.kind !== 'task').map((h) => ({ h, l })))
     .sort((a, b) => b.h.ts - a.h.ts)
     .slice(0, 200);
-  const { visibles: rows, boton } = useVerMas(todas, 8);
+  const { visibles: rows, boton } = useVerMas(todas, { inicial: 10, tanda: 10, estilo: 'texto' });
   if (todas.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad de proyectos todavía.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>

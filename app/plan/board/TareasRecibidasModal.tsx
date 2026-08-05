@@ -90,6 +90,11 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // lo rechaza con «la propuesta ya fue aplicada») y sin autosave (guardarRevision exige
   // 'pendiente' y devolvía false en silencio, así que cada corrección se tiraba al vacío).
   const cerrado = todos.length > 0 && todos.every((p) => p.estado === 'aplicada' || p.estado === 'descartada');
+  // DESCARTADO ≠ SIN NADA. Si de esta reunión salió aunque sea una tarea al plan, decir
+  // «la descartaste» a secas es falso: lo que se descartó fue lo que quedaba, no la
+  // reunión. Lo que se descartó se sigue viendo, tachado, para que se entienda qué pasó
+  // con cada cosa en vez de que desaparezca.
+  const descartadoConCargas = todos.some((p) => p.estado === 'descartada' && (p.aplicadas?.length ?? 0) > 0);
   // Pila de modales: abrir la tarjeta de una tarea desde acá esconde ESTE modal y al
   // cerrarla volvés al mismo lugar de la revisión, con el scroll donde estaba.
   const capa = useCapaModal(!oculto);
@@ -127,6 +132,10 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     };
     return props.flatMap((p) => p.tareas.map((t) => ({
       propId: p.id,
+      // El borrador se descartó: la fila se sigue viendo, TACHADA. Que lo que decidiste
+      // no hacer desaparezca de la pantalla es peor que verlo: al volver a la reunión no
+      // se entiende qué pasó con cada cosa.
+      descartada: p.estado === 'descartada',
       titulo: t.titulo, detalle: t.detalle ?? '', prioridad: (t.prioridad ?? 'media') as Prio,
       proyectoId: t.proyecto ? idPorNombre.get(t.proyecto.trim().toLowerCase()) ?? null : null,
       // El nombre CRUDO que propuso MaKo. Si ese proyecto todavía no existe en el
@@ -178,6 +187,30 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // Las que ya entraron al plan en una pasada anterior (el borrador quedó abierto por
   // las de los demás). No se re-cargan: se muestran con link a su tarjeta.
   const yaCargadas: TareaYaCargada[] = props.flatMap((p) => (p.aplicadas ?? []).map((a) => ({ ...a, url: p.fuenteUrl ?? null })));
+
+  // LAS HUÉRFANAS → FILAS NORMALES. El borrador las anotó como cargadas pero en el
+  // tablero no hay tarjeta con ese id. `renderTaskCard` devolviendo null es lo único que
+  // sabe eso de verdad. Se meten en `filas` como cualquier candidata (tildadas, marcadas
+  // con `faltante`) para que se vean con la MISMA fila que el resto: con su checkbox, su
+  // «no es mía» y su «corregir contexto». Antes tenían un contenedor propio que no dejaba
+  // corregir nada y un botón «ver la tarjeta →» que abría un modal vacío.
+  const yaInyectadas = useRef(false);
+  useEffect(() => {
+    if (yaInyectadas.current || !renderTaskCard) return;
+    const huerfanas = yaCargadas.filter((y) => !renderTaskCard(y.tareaId));
+    if (!huerfanas.length) { yaInyectadas.current = true; return; }
+    yaInyectadas.current = true;
+    setFilas((fs) => [
+      ...huerfanas
+        .filter((y) => !fs.some((f) => f.titulo === y.titulo))
+        .map((y): FilaConProp => ({
+          propId: props[0]?.id ?? '', titulo: y.titulo, detalle: '', prioridad: 'media',
+          proyectoId: null, incluir: true, esDeOtro: false, minutos: y.minutos, faltante: true,
+        })),
+      ...fs,
+    ]);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
 
   // Mientras se aplica NO se puede cerrar ni salir: son N tareas creadas + el Perro
   // puntuándolas por tandas, y cortarlo a la mitad deja el board a medio armar. El
@@ -534,13 +567,6 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             yaCargadas={yaCargadas}
             onAbrirTarea={onAbrirTarea}
             renderTaskCard={renderTaskCard}
-            // Volver a ofrecer una que el borrador daba por cargada y no está: entra
-            // como una candidata más, tildada, y se carga con el mismo botón que el
-            // resto. No hay un camino especial — es la misma puerta.
-            onRecuperar={(y) => setFilas((fs) => (fs.some((f) => f.titulo === y.titulo) ? fs : [...fs, {
-              propId: props[0]?.id ?? '', titulo: y.titulo, detalle: '', prioridad: 'media',
-              proyectoId: null, incluir: true, esDeOtro: false, minutos: y.minutos,
-            } as FilaConProp]))}
           />}
         </div>
 
@@ -555,7 +581,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               tu resto. Lo que corresponde ahí es mandárselos desde la tabla, no borrarlos. */}
           {cerrado ? (
             <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>
-              Esta reunión ya está cerrada: mirala todo lo que quieras. Para volver a trabajarla, extraela de nuevo desde la lista.
+              {descartadoConCargas
+                ? 'Lo que se cargó al plan está arriba; el resto lo descartaste. Para volver a trabajar esta reunión, extraela de nuevo desde la lista.'
+                : 'Esta reunión ya está cerrada: mirala todo lo que quieras. Para volver a trabajarla, extraela de nuevo desde la lista.'}
             </span>
           ) : hayMias ? (
             <button type="button" onClick={() => void descartar()} disabled={!!guardando}

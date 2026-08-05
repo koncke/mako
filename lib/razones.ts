@@ -29,10 +29,12 @@ import { getAvatares, avataresTexto, type Avatar } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, motivoDeErroresCascada } from './ai-cheap';
 
-// Un guion de video de una celda. Una celda puede tener VARIOS (pedido
-// explícito): uno de testimonio, otro de lead magnet, otro de dolor… — cada uno
-// con su ÁNGULO DE GUION (lib/guion-angulos.ts) y listo para testear por separado.
-export type GuionItem = { id: string; anguloId: string; anguloNombre: string; texto: string };
+// El shape del guion y su pipeline de producción viven en lib/guion-estado.ts
+// (sin 'server-only'): los componentes de cliente los necesitan igual, y una
+// copia del lado del cliente se desincroniza en silencio. Se re-exportan acá
+// para que quien ya importaba de razones.ts no tenga que cambiar.
+export { ESTADOS_GUION, ESTADO_GUION_LABEL, COLOR_ESTADO_GUION, esEstadoGuion, fechaGuion, type EstadoGuion, type GuionItem } from './guion-estado';
+import { esEstadoGuion, type EstadoGuion, type GuionItem } from './guion-estado';
 
 // Una celda: una motivación de compra de un avatar + su material de anuncio.
 //  · nombre      = la motivación en pocas palabras ("Un mejor salario").
@@ -48,20 +50,41 @@ export type Uso = { tokens: number; costUsd: number } | null;
 const SETTING_KEY = 'mako.razones';
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
+/** Un guion crudo (de la DB o del cliente) normalizado al shape actual. Los
+ *  guiones escritos antes de que existieran `creadoEn`/`estado` entran con
+ *  creadoEn 0 ("sin fecha") y estado 'borrador': no se les inventa una fecha. */
+export function normalizarGuion(raw: unknown): GuionItem | null {
+  const g = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const texto = str(g.texto);
+  if (!texto) return null;
+  const creadoEn = typeof g.creadoEn === 'number' && Number.isFinite(g.creadoEn) && g.creadoEn > 0 ? g.creadoEn : 0;
+  return {
+    id: str(g.id) || randomUUID(),
+    anguloId: str(g.anguloId),
+    anguloNombre: str(g.anguloNombre) || 'General',
+    texto,
+    creadoEn,
+    estado: esEstadoGuion(g.estado) ? g.estado : 'borrador',
+    estructuraId: str(g.estructuraId),
+    estructuraNombre: str(g.estructuraNombre),
+  };
+}
+
 function normalizarGuiones(o: Record<string, unknown>): GuionItem[] {
   const out: GuionItem[] = [];
   if (Array.isArray(o.guiones)) {
     for (const raw of o.guiones) {
-      const g = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-      const texto = str(g.texto);
-      if (!texto) continue;
-      out.push({ id: str(g.id) || randomUUID(), anguloId: str(g.anguloId), anguloNombre: str(g.anguloNombre) || 'General', texto });
+      const g = normalizarGuion(raw);
+      if (g) out.push(g);
     }
   }
   // Compat: las celdas guardadas ANTES del multi-guion tienen un solo string en
   // `guion` — se adopta como primer guion "General" y no se pierde nada.
   const legacy = str(o.guion);
-  if (legacy && !out.length) out.push({ id: randomUUID(), anguloId: '', anguloNombre: 'General', texto: legacy });
+  if (legacy && !out.length) {
+    const g = normalizarGuion({ anguloNombre: 'General', texto: legacy });
+    if (g) out.push(g);
+  }
   return out;
 }
 
@@ -385,6 +408,21 @@ Devolvé solo el JSON.`;
   }
 }
 
+/** Mueve un guion por el pipeline de producción (borrador → publicado). Es una
+ *  escritura mínima y quirúrgica a propósito: la vista global de guiones cambia
+ *  el estado de UNO sin mandar de vuelta la matriz entera (que pisaría cualquier
+ *  edición hecha en otra pestaña mientras tanto). */
+export async function setEstadoGuion(celdaId: string, guionId: string, estado: EstadoGuion): Promise<{ ok: true } | { ok: false; error: string }> {
+  const razones = await getRazones();
+  const celda = razones.find((r) => r.id === celdaId);
+  if (!celda) return { ok: false, error: 'Celda no encontrada.' };
+  if (!celda.guiones.some((g) => g.id === guionId)) return { ok: false, error: 'Guion no encontrado.' };
+  await setRazones(razones.map((r) => (
+    r.id === celdaId ? { ...r, guiones: r.guiones.map((g) => (g.id === guionId ? { ...g, estado } : g)) } : r
+  )));
+  return { ok: true };
+}
+
 export type GenerarGuionOpts = {
   /** id del ángulo de guion elegido (lib/guion-angulos). */
   anguloId?: string;
@@ -449,7 +487,11 @@ Escribí el guion del video con el ángulo "${angulo.nombre}" y la estructura "$
       erroresOut: errores,
     });
     if (!texto.trim()) return { ok: false, error: errorDeIA(errores) };
-    const item: GuionItem = { id: randomUUID(), anguloId: angulo.id, anguloNombre: angulo.nombre, texto: texto.trim() };
+    const item: GuionItem = {
+      id: randomUUID(), anguloId: angulo.id, anguloNombre: angulo.nombre, texto: texto.trim(),
+      creadoEn: Date.now(), estado: 'borrador',
+      estructuraId: estructura.id, estructuraNombre: estructura.nombre,
+    };
     // Releer DESPUÉS de la llamada lenta: si el usuario editó otra celda mientras
     // se generaba, no lo pisamos — solo AGREGAMOS el guion nuevo a esta celda.
     const actuales = await getRazones();

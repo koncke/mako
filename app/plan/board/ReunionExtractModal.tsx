@@ -454,7 +454,24 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
               {reuniones == null
                 ? <Cargando texto="Buscando tus reuniones en Fathom…" />
                 : visibles.length === 0
-                  ? <Vacio texto={q || desde ? 'Ninguna reunión coincide con el filtro.' : 'No encontré reuniones recientes en Fathom.'} />
+                  // NADA COINCIDE — pero eso NO quiere decir que no exista. La búsqueda es
+                  // local sobre lo que ya se trajo, así que la reunión que buscás puede
+                  // estar más atrás en Fathom. El botón tiene que estar acá: sin él, buscar
+                  // «Leila» y no verla se leía como «no existe», cuando era «todavía no la
+                  // traje». Recién cuando Fathom deja de devolver cursor se dice que no hay.
+                  ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                      <Vacio texto={q ? `Ninguna de las reuniones que traje coincide con «${q.slice(0, 24)}».` : desde ? 'Ninguna reunión coincide con el filtro.' : 'No encontré reuniones recientes en Fathom.'} />
+                      {cursor ? (
+                        <button type="button" onClick={() => void cargar(false)} disabled={cargandoMas}
+                          style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', fontSize: 13, fontWeight: 700, cursor: cargandoMas ? 'default' : 'pointer', fontFamily: SANS }}>
+                          {cargandoMas ? 'Buscando…' : q ? 'Buscar más atrás' : 'Traer más reuniones'}
+                        </button>
+                      ) : (
+                        <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>
+                          {q ? `Ya miré todas tus reuniones de Fathom y ninguna coincide con «${q.slice(0, 24)}».` : 'Esas son todas las reuniones que tenés en Fathom.'}
+                        </div>
+                      )}
+                    </div>
                   : <>
                       {visibles.map((r) => {
                         const t = TIPO_REUNION_UI[r.tipo];
@@ -495,17 +512,15 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                                     Fathom ya no te encierra en el borrador pendiente, así
                                     que la lista tiene que decir de un vistazo cuál es la
                                     reunión que te está esperando y con cuántas. */}
-                                {mias > 0 ? (
-                                  <span title={`${mias} tuya${mias === 1 ? '' : 's'} sin confirmar${otras ? ` · y ${otras} de otras personas para repartir` : ''}`}
+                                {/* Solo el chip de lo que TE espera. El de «N de otros» se
+                                    fue: la línea de abajo ya dice «· N de otras personas»,
+                                    así que era el mismo dato dos veces en la misma fila. */}
+                                {mias > 0 && (
+                                  <span title={`${mias} tuya${mias === 1 ? '' : 's'} sin cargar${otras ? ` · y ${otras} de otras personas` : ''}`}
                                     style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: '#fff', background: 'var(--primary)', fontFamily: MONO }}>
-                                    {mias} para confirmar
+                                    {mias} sin cargar
                                   </span>
-                                ) : otras > 0 ? (
-                                  <span title="Compromisos de otras personas de la reunión: falta mandárselos. A vos no te espera nada acá."
-                                    style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: '#fff', background: 'var(--dim)', fontFamily: MONO }}>
-                                    {otras} de otros
-                                  </span>
-                                ) : null}
+                                )}
                                 {/* El tipo se muestra SOLO cuando dice algo. «Equipo» es el
                                     default de la clasificación, así que aparecía en TODAS las
                                     reuniones y por lo tanto no distinguía ninguna: un chip que
@@ -519,9 +534,13 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                               {r.involucrados.length > 0 && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>👤 {r.involucrados.join(', ')}</span>}
                               {b && (
                                 <span style={{ display: 'block', fontSize: 11.5, color: b.estado === 'descartada' ? 'var(--faint)' : yaEnPlan > 0 ? 'var(--good)' : 'var(--dim)', fontWeight: 600, marginTop: 3 }}>
-                                  {b.estado === 'descartada'
-                                    ? (yaEnPlan > 0 ? `· la descartaste — ${yaEnPlan} habían entrado a tu plan` : '· la descartaste')
-                                    : yaEnPlan > 0 ? `✓ ${yaEnPlan} ${yaEnPlan === 1 ? 'tarea cargada' : 'tareas cargadas'} en tu plan` : '✓ MaKo ya la leyó'}
+                                  {/* Si de esta reunión salió aunque sea UNA tarea al plan, eso
+                                      es lo que se dice — aunque el borrador figure descartado.
+                                      «La descartaste» sobre una reunión que te dejó 31 tareas
+                                      es falso: lo descartado es lo que quedaba, no la reunión. */}
+                                  {yaEnPlan > 0
+                                    ? `✓ Cargaste ${yaEnPlan} ${yaEnPlan === 1 ? 'tarea' : 'tareas'} al plan`
+                                    : b.estado === 'descartada' ? '· la descartaste' : '✓ MaKo ya la leyó'}
                                   {b.estado !== 'descartada' && b.pendientesMias > 0 && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · {b.pendientesMias} sin cargar</span>}
                                   {b.estado !== 'descartada' && b.pendientesOtros > 0 && <span style={{ color: 'var(--dim)', fontWeight: 500 }}> · {b.pendientesOtros} de otras personas</span>}
                                 </span>

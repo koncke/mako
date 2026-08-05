@@ -61,7 +61,15 @@ export type ReunionRefUI = { recordingId?: number; titulo: string; fecha?: strin
 // que una repetida no se pueda volver a cargar) y solo se apaga si el dueño dice
 // explícitamente "no es la misma" — el cruce puede equivocarse y ahí perder la tarea
 // sería peor que duplicarla.
-export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: string; razon: string }; ampliar?: boolean; reunion?: ReunionRefUI };
+/** `faltante` = el borrador la da por cargada pero en el tablero no está (la borraron,
+ *  o la creación falló después de que el borrador ya la anotara). Se muestra ARRIBA de
+ *  todo y con la MISMA fila que el resto —con «no es mía» y «corregir contexto»—, porque
+ *  es una candidata más: lo único distinto es por qué llegó hasta acá. */
+export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: string; razon: string }; ampliar?: boolean; reunion?: ReunionRefUI; faltante?: boolean;
+  /** el borrador se descartó: la fila queda TACHADA en vez de desaparecer. Que una tarea
+   *  que se decidió no hacer se borre de la pantalla es peor que verla: al volver a la
+   *  reunión no se entiende qué se hizo con cada cosa. */
+  descartada?: boolean };
 
 type Destinatario = {
   email: string; nombre: string; registrado: boolean;
@@ -194,7 +202,7 @@ function descargarMd(nombre: string, filas: FilaTarea[], reunion: ReunionRefUI) 
 /** Una tarea de esta reunión que YA está en el plan (se cargó en una pasada anterior). */
 export type TareaYaCargada = { titulo: string; tareaId: string; minutos?: number[]; url?: string | null };
 
-export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard, onRecuperar }: {
+export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard }: {
   filas: FilaTarea[];
   labels: Label[];
   /** reunión por defecto, para cuando las filas no traen la suya (extracción manual). */
@@ -214,9 +222,6 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
    * cae a la fila de texto de siempre.
    */
   renderTaskCard?: (id: string) => ReactNode;
-  /** Volver a ofrecer una tarea que el borrador dice haber cargado pero que ya no está
-   *  en el tablero (la borraron, o la creación falló después de anotarla). */
-  onRecuperar?: (y: TareaYaCargada) => void;
 }) {
   // Índices originales, para que el patch vuelva a la fila correcta del padre.
   const conIdx = useMemo(() => filas.map((f, i) => ({ f, i, r: f.reunion ?? reunion })), [filas, reunion]);
@@ -227,23 +232,27 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
   // `renderTaskCard` devuelve null cuando el id no existe en el tablero, y eso es lo
   // único que sabe de verdad si está o no. Sin partirlas, esas huérfanas ofrecían
   // «ver la tarjeta →» y abrían un modal vacío que trababa la pantalla entera.
-  const { enElBoard, perdidas } = useMemo(() => {
-    if (!renderTaskCard) return { enElBoard: yaCargadas, perdidas: [] as TareaYaCargada[] };
-    const si: TareaYaCargada[] = []; const no: TareaYaCargada[] = [];
-    for (const y of yaCargadas) (renderTaskCard(y.tareaId) ? si : no).push(y);
-    return { enElBoard: si, perdidas: no };
-  }, [yaCargadas, renderTaskCard]);
+  const enElBoard = useMemo(
+    () => (renderTaskCard ? yaCargadas.filter((y) => !!renderTaskCard(y.tareaId)) : yaCargadas),
+    [yaCargadas, renderTaskCard],
+  );
+  // Las que el borrador da por cargadas y no están: llegan ya convertidas en filas
+  // normales (las marca TareasRecibidasModal, que es quien tiene la lista del tablero),
+  // así que acá solo se separan para ponerlas arriba.
+  const faltantes = useMemo(() => mias.filter((x) => x.f.faltante), [mias]);
+  const miasRestantes = useMemo(() => mias.filter((x) => !x.f.faltante), [mias]);
   // MIS tareas agrupadas por reunión (con varias esperando, saber de cuál salió cada
   // una es la mitad del sentido de la pantalla).
+  // Las faltantes salen ARRIBA, en su propio bloque: acá se agrupa solo el resto.
   const miasPorReunion = useMemo(() => {
     const m = new Map<string, { r: ReunionRefUI; items: typeof mias }>();
-    for (const x of mias) {
+    for (const x of miasRestantes) {
       const k = String(x.r.recordingId ?? x.r.titulo ?? '');
       const prev = m.get(k);
       if (prev) prev.items.push(x); else m.set(k, { r: x.r, items: [x] });
     }
     return [...m.values()];
-  }, [mias]);
+  }, [miasRestantes]);
   const grupos = useMemo(() => {
     const m = new Map<string, { clave: string; nombre: string; email: string; r: ReunionRefUI; items: Array<{ f: FilaTarea; i: number }> }>();
     for (const x of conIdx) {
@@ -348,26 +357,19 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
       {tab === 'mias' ? (
         <>
           {cabecera && mias.length > 0 && <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cabecera}</div>}
-          {/* LAS QUE NO ESTÁN. El borrador dice que se cargaron, pero en el tablero no
-              hay ninguna tarjeta con ese id: o la borraron, o la creación falló después
-              de que el borrador ya las anotara como cargadas. Antes igual se ofrecía
-              «ver la tarjeta →» y abría un modal vacío que dejaba la pantalla trabada.
-              Ahora se dicen primero, con su formato propio, y se pueden volver a cargar. */}
-          {perdidas.length > 0 && (
+          {/* LAS QUE NO ESTÁN, arriba de todo. El borrador las da por cargadas pero en el
+              tablero no hay ninguna tarjeta con ese id: o la borraron, o la creación
+              falló después de que el borrador ya las anotara. Van con la MISMA fila que
+              cualquier candidata —mismo alto, mismo checkbox, «no es mía» y «corregir
+              contexto»— porque son eso: candidatas. Un contenedor propio las hacía ver
+              como otra cosa y encima no dejaba corregirles nada. */}
+          {faltantes.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: '#C8870C' }}>
-                {perdidas.length === 1 ? 'Esta salió de la reunión y no está en tu plan' : `Estas ${perdidas.length} salieron de la reunión y no están en tu plan`}
+                {faltantes.length === 1 ? 'Aún no está en tu plan' : `Aún no están en tu plan (${faltantes.length})`}
               </div>
-              {perdidas.map((y) => (
-                <div key={y.tareaId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 12, border: '1px solid color-mix(in srgb, #C8870C 35%, var(--border))', background: 'color-mix(in srgb, #C8870C 6%, transparent)' }}>
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.4 }}>{y.titulo}</span>
-                  {onRecuperar && (
-                    <button type="button" onClick={() => onRecuperar(y)}
-                      style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-                      Cargarla
-                    </button>
-                  )}
-                </div>
+              {faltantes.map(({ f, i }) => (
+                <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={reunion.url} personas={personasTodas} onAbrirTarea={onAbrirTarea} />
               ))}
             </div>
           )}
@@ -378,7 +380,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
           {enElBoard.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--good)' }}>
-                ✓ Ya cargaste {enElBoard.length} {enElBoard.length === 1 ? 'tarea tuya' : 'tareas tuyas'} al plan
+                ✓ Cargaste {enElBoard.length} {enElBoard.length === 1 ? 'tarea' : 'tareas'} al plan
               </div>
               {/* Grilla de tarjetas REALES del board (misma medida que el kanban). Cuando
                   no hay con qué pintarlas —extracción manual, o la tarea se borró— cae a
@@ -491,7 +493,7 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
   const ampliando = !!f.enriquece && f.ampliar !== false;
   const activa = ampliando || f.incluir;
   return (
-    <div style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: `1px solid ${ampliando ? 'var(--ok, #1E9E57)' : f.incluir ? 'var(--primary)' : 'var(--border)'}`, background: ampliando ? 'var(--surface)' : f.incluir ? 'var(--primary-bg)' : 'var(--surface-2)', opacity: activa ? 1 : 0.6 }}>
+    <div style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: `1px solid ${f.descartada ? 'var(--border)' : ampliando ? 'var(--ok, #1E9E57)' : f.incluir ? 'var(--primary)' : 'var(--border)'}`, background: f.descartada ? 'var(--surface-2)' : ampliando ? 'var(--surface)' : f.incluir ? 'var(--primary-bg)' : 'var(--surface-2)', opacity: f.descartada ? 0.55 : activa ? 1 : 0.6, textDecoration: f.descartada ? 'line-through' : undefined }}>
       {ampliando ? (
         <span title="Ya está en el plan: se le suma este contexto a la tarjeta que existe"
           style={{ width: 20, height: 20, flex: 'none', marginTop: 1, borderRadius: 6, border: '1.5px solid var(--ok, #1E9E57)', background: 'var(--ok, #1E9E57)', color: '#fff', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⊕</span>

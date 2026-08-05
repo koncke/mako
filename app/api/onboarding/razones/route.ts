@@ -5,7 +5,8 @@
 // POST → 'generar' (MaKo arma las 3 motivaciones×avatar + copy) | 'guardar' (edición)
 //        | 'guion-auto' {id} (MaKo elige ángulo+estructura y escribe, un clic)
 //        | 'guion-sugerir' {id, anguloId?} (sugerencia + preguntas CERRADAS)
-//        | 'guion' {id, anguloId, estructuraId, siguientePaso, respuestasAngulo} (genera).
+//        | 'guion' {id, anguloId, estructuraId, siguientePaso, respuestasAngulo} (genera)
+//        | 'guion-estado' {id, guionId, estado} (mueve el guion por el pipeline).
 // Piso: admin del workspace; el dueño (sin impersonar) → OWNER_WS.
 
 import type { NextRequest } from 'next/server';
@@ -14,7 +15,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
 import { getAvatares } from '@/lib/avatares';
-import { generarRazones, getRazones, setRazones, generarGuion, sugerirGuion, siguientePasoDefault, siguientePasoOpciones, type RazonCelda, type GuionItem } from '@/lib/razones';
+import { generarRazones, getRazones, setRazones, generarGuion, sugerirGuion, siguientePasoDefault, siguientePasoOpciones, setEstadoGuion, normalizarGuion, ESTADOS_GUION, type RazonCelda, type GuionItem, type EstadoGuion } from '@/lib/razones';
 import { getAngulosGuion } from '@/lib/guion-angulos-store';
 import { getEstructurasGuion } from '@/lib/guion-estructuras-store';
 import { elegirAngulo, formatoPorId, type Medio } from '@/lib/angulos-formatos';
@@ -56,7 +57,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  let body: { action?: string; razones?: unknown; id?: unknown; medio?: unknown; anguloId?: unknown; estructuraId?: unknown; siguientePaso?: unknown; nota?: unknown; respuestasAngulo?: unknown };
+  let body: { action?: string; razones?: unknown; id?: unknown; medio?: unknown; anguloId?: unknown; estructuraId?: unknown; siguientePaso?: unknown; nota?: unknown; respuestasAngulo?: unknown; guionId?: unknown; estado?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   return runWithWorkspace(ws, async () => {
@@ -116,6 +117,15 @@ export async function POST(req: NextRequest) {
         if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
         return Response.json({ ok: true, guionNuevo: r.guion, ...(await estado()) });
       }
+      if (body.action === 'guion-estado') {
+        // Mover UN guion por el pipeline (borrador → aprobado → grabado →
+        // publicado) desde la vista global, sin reenviar toda la matriz.
+        const nuevoEstado = s(body.estado) as EstadoGuion;
+        if (!ESTADOS_GUION.includes(nuevoEstado)) return Response.json({ ok: false, error: 'Estado inválido.' }, { status: 400 });
+        const r = await setEstadoGuion(s(body.id), s(body.guionId), nuevoEstado);
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        return Response.json({ ok: true, ...(await estado()) });
+      }
       if (body.action === 'angulo') {
         const medio: Medio = body.medio === 'video' ? 'video' : 'imagen';
         const a = await elegirAngulo(s(body.id), medio);
@@ -127,9 +137,12 @@ export async function POST(req: NextRequest) {
         const limpio: RazonCelda[] = arr
           .map((a) => {
             const o = (a ?? {}) as Record<string, unknown>;
+            // normalizarGuion es la ÚNICA puerta de entrada del shape: si acá se
+            // arma el objeto a mano, cada campo nuevo del guion (creadoEn,
+            // estado, estructura) se pierde en silencio al guardar una edición.
             const guiones: GuionItem[] = (Array.isArray(o.guiones) ? o.guiones : [])
-              .map((g) => { const q = (g ?? {}) as Record<string, unknown>; return { id: s(q.id) || randomUUID(), anguloId: s(q.anguloId), anguloNombre: s(q.anguloNombre) || 'General', texto: s(q.texto) }; })
-              .filter((g) => g.texto);
+              .map(normalizarGuion)
+              .filter((g): g is GuionItem => g !== null);
             return { id: s(o.id) || randomUUID(), avatarId: s(o.avatarId), nombre: s(o.nombre), descripcion: s(o.descripcion), copy: s(o.copy), guiones, imagenUrl: s(o.imagenUrl), anguloImagen: s(o.anguloImagen), anguloVideo: s(o.anguloVideo) };
           })
           // No borrar la celda por vaciar solo el nombre: se conserva si tiene algún contenido.
