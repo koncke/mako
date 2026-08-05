@@ -70,7 +70,11 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
-  const adResuelto = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
+  // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
+  // si utm_content es un id numérico, lo resolvemos a nombre con el mapa de anuncios.
+  const utmC = lead.utm_content?.trim() || null;
+  const adIdCand = lead.meta_ad_id ?? (utmC && /^\d{6,}$/.test(utmC) ? utmC : null);
+  const adResuelto = resolverNombreAd(adIdCand, lead.meta_ad_name ?? (utmC && !/^\d{6,}$/.test(utmC) ? utmC : null), adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
 
   const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));

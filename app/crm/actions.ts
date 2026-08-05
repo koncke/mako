@@ -152,7 +152,11 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const [respuestas, insightGen, equipo] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction()]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
-  const adNombre = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
+  // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
+  // si utm_content es un id numérico, lo resolvemos a nombre con el mapa de anuncios.
+  const utmC = lead.utm_content?.trim() || null;
+  const adIdCand = lead.meta_ad_id ?? (utmC && /^\d{6,}$/.test(utmC) ? utmC : null);
+  const adNombre = resolverNombreAd(adIdCand, lead.meta_ad_name ?? (utmC && !/^\d{6,}$/.test(utmC) ? utmC : null), adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;

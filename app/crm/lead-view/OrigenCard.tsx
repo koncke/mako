@@ -48,13 +48,20 @@ function Item({ label, value, color, href }: { label: string; value: string | nu
 export function OrigenCard({ lead, vslEng, campana, adNombre }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null }; adNombre?: string | null }) {
   void vslEng;
   // Jerarquía de Meta: Campaña → Conjunto (adset) → Anuncio. Mostramos las 3 para
-  // saber EXACTAMENTE de qué anuncio vino. El anuncio siempre aparece si hay
-  // cualquier señal de Meta (nombre resuelto, nombre del lead, o el id crudo).
-  const anuncioNombre = adNombre ?? lead.meta_ad_name ?? null;
+  // saber EXACTAMENTE de qué anuncio vino.
+  //
+  // OJO: los leads de Calendly (la mayoría de los agendados) NO traen meta_ad_id ni
+  // meta_ad_name — el anuncio viaja en `utm_content` (ej. "029.01.g Anuncio" o el id
+  // numérico del anuncio). Por eso el anuncio se arma con ese fallback, y el
+  // deep-link usa el id numérico venga de meta_ad_id o de utm_content.
+  const utmContent = lead.utm_content?.trim() || null;
+  const utmEsId = !!utmContent && /^\d{6,}$/.test(utmContent);
+  const adId = lead.meta_ad_id ?? (utmEsId ? utmContent : null);
+  const anuncioNombre = adNombre ?? lead.meta_ad_name ?? (utmContent && !utmEsId ? utmContent : null);
   const conjunto = lead.meta_adset_name ?? null;
-  const hayAnuncio = !!(anuncioNombre || lead.meta_ad_id);
-  const anuncioMostrar = anuncioNombre ?? (lead.meta_ad_id ? `Anuncio ${lead.meta_ad_id}` : null);
-  const tieneAtribucion = lead.origen_lead || lead.meta_campaign_name || lead.meta_adset_name || lead.meta_ad_name || lead.meta_ad_id || lead.utm_campaign || lead.utm_source;
+  const hayAnuncio = !!(anuncioNombre || adId);
+  const anuncioMostrar = anuncioNombre ?? (adId ? `Anuncio ${adId}` : null);
+  const tieneAtribucion = lead.origen_lead || lead.meta_campaign_name || lead.meta_adset_name || lead.meta_ad_name || lead.meta_ad_id || lead.utm_campaign || lead.utm_content || lead.utm_source;
 
   if (!tieneAtribucion) {
     return (
@@ -66,9 +73,10 @@ export function OrigenCard({ lead, vslEng, campana, adNombre }: { lead: Lead; vs
   }
 
   const origen = labelOrigen(lead.origen_lead);
-  // Deep-link al Ads Manager de MaKo: /ads-manager/<meta_ad_id> abre el detalle de
-  // ese anuncio (con su campaña y conjunto). Solo con un anuncio de Meta identificado.
-  const linkAnuncio = lead.meta_ad_id ? `/ads-manager/${lead.meta_ad_id}` : null;
+  // Deep-link al Ads Manager de MaKo: /ads-manager/<ad_id> abre el detalle de ese
+  // anuncio (con su campaña y conjunto). El id sale de meta_ad_id o del utm_content
+  // numérico (Calendly). Si el anuncio solo vino como nombre, no hay a dónde linkear.
+  const linkAnuncio = adId ? `/ads-manager/${adId}` : null;
   return (
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 14 }}>Origen del lead</div>

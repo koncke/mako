@@ -54,11 +54,14 @@ export function ComportamientoCard({ visitas, dias, plays, maxPct, tieneVisitor 
         <div style={miniCard}>
           <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Retención del VSL</div>
           <div style={{ fontSize: 22, color: pctColor, fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{maxPct != null ? maxPct + '%' : '—'}</div>
-          {maxPct != null && (
+          {maxPct != null ? (
             <div style={{ height: 5, borderRadius: 999, background: 'var(--border)', marginTop: 7, overflow: 'hidden' }}>
               <div style={{ width: Math.min(100, maxPct) + '%', height: '100%', background: pctColor }} />
             </div>
-          )}
+          ) : plays > 0 ? (
+            // Reprodujo pero no llegó ningún hito de avance: NO es "0%", es "sin dato".
+            <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4, lineHeight: 1.35 }}>Reprodujo, sin dato de avance</div>
+          ) : null}
         </div>
       </div>
     </section>

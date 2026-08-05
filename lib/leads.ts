@@ -1113,7 +1113,15 @@ export async function getVslEngagement(visitorId: string | null): Promise<VslEng
   }
   const rows = (data ?? []) as Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null }>;
   const plays = rows.filter((r) => r.tipo_evento === 'play' || r.event === 'vsl_play').length;
-  const pcts = rows.map((r) => r.porcentaje).filter((p): p is number => typeof p === 'number');
+  // Retención = SOLO avance POSITIVO (hitos pNN o exit con % > 0). El 'play' guarda
+  // porcentaje:0 (centinela "arrancó") y un exit en 0% = arrancó y salió sin avanzar:
+  // ninguno es una medición real de retención. Contar el 0 hacía que un lead que
+  // reprodujo se viera como "reprodujo · 0%". Sin avance positivo → max_pct = null
+  // ("sin dato de avance"), nunca 0.
+  const pcts = rows
+    .filter((r) => r.tipo_evento !== 'play' && r.event !== 'vsl_play')
+    .map((r) => r.porcentaje)
+    .filter((p): p is number => typeof p === 'number' && p > 0);
   const max_pct = pcts.length > 0 ? Math.max(...pcts) : null;
   return { plays, max_pct, sin_datos: false };
 }
@@ -1146,7 +1154,11 @@ export async function getVslEngagementMap(
   }
   for (const [vid, rows] of porVisitor) {
     const plays = rows.filter((r) => r.tipo_evento === 'play' || r.event === 'vsl_play').length;
-    const pcts = rows.map((r) => r.porcentaje).filter((p): p is number => typeof p === 'number');
+    // Retención solo de avance POSITIVO (>0); el play (0) y el exit-en-0 no cuentan.
+    const pcts = rows
+      .filter((r) => r.tipo_evento !== 'play' && r.event !== 'vsl_play')
+      .map((r) => r.porcentaje)
+      .filter((p): p is number => typeof p === 'number' && p > 0);
     map.set(vid, { plays, max_pct: pcts.length > 0 ? Math.max(...pcts) : null, sin_datos: false });
   }
   return map;
