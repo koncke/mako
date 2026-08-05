@@ -89,7 +89,11 @@ export type GuardPatch = {
 };
 /** Ídem para un proyecto nuevo (emoji + descripción + score del Perro). */
 export type GuardProjPatch = { id: string; score: number; scoreRazon: string; impacto?: number; esfuerzo?: number; emoji: string; detalle: string };
-export type GuardResult = { tareas: Record<Prio, number>; proyectos: number; patches: GuardPatch[]; proyectosPatch: GuardProjPatch[] };
+// `sinPuntuar` es el número de tareas que el Perro NO alcanzó a puntuar. Tiene que
+// viajar hasta la pantalla: el 5/8 entraron 20 tareas con el score de fábrica (62), sin
+// razón y sin fecha, porque el JSON del modelo se cortó — y nadie se enteró hasta
+// mirar la base a mano. Un fallo silencioso en el Perro envenena todo el tablero.
+export type GuardResult = { tareas: Record<Prio, number>; proyectos: number; patches: GuardPatch[]; proyectosPatch: GuardProjPatch[]; sinPuntuar?: number };
 
 // Persistencia inyectada por cada parent. Todo async; useBoard es optimista.
 export type Repo = {

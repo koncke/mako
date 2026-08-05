@@ -36,7 +36,7 @@ export type ClienteReunion = { nombre: string; empresa: string | null; proyecto:
 /** Lo que se ofrece cuando el server NO tuvo certeza (pregunta cerrada, una sola). */
 type OpcionCliente = { nombre: string; sub: string };
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; usage?: unknown; error?: string }> {
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; borradorId?: string; usage?: unknown; error?: string }> {
   return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -124,6 +124,10 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   }, [q, reuniones]);
 
   const [freno, setFreno] = useState<FrenoScope>(null);   // aviso del Perro por tipo (punto 8)
+  // El borrador que el server acaba de crear/encontrar para esta reunión. Con esto (a)
+  // la lista queda marcada como leída sin recargar y (b) las correcciones del usuario
+  // se van guardando contra esa fila, así que salir del modal ya no las tira.
+  const [borradorId, setBorradorId] = useState('');
 
   // Anota las candidatas: reparto mío/de-otro (viene del backend), y el cruce del
   // Perro contra el plan (dedup, punto 8). Las de otro NO se tildan nunca: van a la
@@ -187,8 +191,18 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     // misma reunión devuelve lo cacheado — NO cobra tokens (feedback jul-19).
     const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, titulo: r.titulo, proyectos, uso: 'Extraer tareas de reunión', reanalizar });
     if (j.usage) onUsage?.(j.usage);
-    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? []);
-    else { setErr(j.error || 'MaKo no pudo leer la reunión.'); setFase('lista'); setElegida(null); }
+    if (j.ok && j.tareas) {
+      // La lista se entera ACÁ de que esta reunión ya está leída. Antes el mapa
+      // `borradores` solo se llenaba al cargar la lista (una vez, antes de extraer):
+      // al volver atrás la fila seguía diciendo «Extraer →» como si no hubiera pasado
+      // nada, y se leía como que la extracción no se había guardado.
+      setBorradorId(j.borradorId ?? '');
+      if (j.borradorId) {
+        const mias = j.tareas.filter((t) => !t.esDeOtro).length;
+        setBorradores((b) => ({ ...b, [r.recordingId]: { id: j.borradorId!, estado: 'pendiente', creadas: 0, pendientesMias: mias, pendientesOtros: j.tareas!.length - mias } }));
+      }
+      await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? []);
+    } else { setErr(j.error || 'MaKo no pudo leer la reunión.'); setFase('lista'); setElegida(null); }
   };
 
   // Subir un archivo (md/txt/transcript) → mismo pipeline (punto 5). Los archivos NUNCA
@@ -211,6 +225,31 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     if (archivoInicial) void subirArchivo(archivoInicial);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
+
+  // AUTOSAVE de la revisión. Todo lo que el usuario corrige acá —el título, el detalle,
+  // «no es mía», destildar— vivía SOLO en `filas`, y volverALista() hace setFilas([]).
+  // O sea: se perdía entero al mirar otra reunión. Ahora se guarda contra el borrador
+  // (mismo camino que ya usa el modal de tareas recibidas), con 900 ms de espera para
+  // no escribir en cada tecla.
+  useEffect(() => {
+    if (!borradorId || fase !== 'revisar' || !filas.length) return;
+    const t = setTimeout(() => {
+      void fetch('/api/plan-propuesta', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'guardar', id: borradorId,
+          tareas: filas.map((f) => ({
+            titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
+            proyecto: labels.find((l) => l.id === f.proyectoId)?.name ?? f.proyectoNombre,
+            dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
+            minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
+          })),
+        }),
+      }).catch(() => {});
+    }, 900);
+    return () => clearTimeout(t);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [filas, borradorId, fase]);
 
   // Guarda las definiciones que el usuario escribió (glosario) y pasa a la revisión.
   // Cuando hubo dudas NO auto-cargamos: había ambigüedad, mejor que las mire.
@@ -248,7 +287,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   // Volver a la lista de reuniones de Fathom. Si nunca se cargó (entramos por "subir
   // archivo", que la saltea), la trae ahora: si no, quedaría un spinner falso eterno.
   const volverALista = () => {
-    setFase('lista'); setElegida(null); setFilas([]); setFreno(null); setDudas([]); setOpciones([]); setElegido(null); setCliente(null);
+    setFase('lista'); setElegida(null); setFilas([]); setFreno(null); setDudas([]); setOpciones([]); setElegido(null); setCliente(null); setBorradorId('');
     if (reuniones == null && !cargandoMas) void cargar(true);
   };
 

@@ -21,7 +21,7 @@ import 'server-only';
 // empujarle cosas al tablero de cualquiera.
 // =============================================================================
 
-import { buscarUsuarioPorEmail, telefonoDeUsuario, emailDuenoWorkspace, type Usuario } from './usuarios';
+import { buscarUsuarioPorEmail, buscarUsuarioPorNombre, telefonoDeUsuario, emailDuenoWorkspace, type Usuario } from './usuarios';
 import { getUsuarioActual } from './auth';
 import { estaImpersonando, getWorkspaceActual } from './workspace';
 import { findLeadByContacto } from './leads';
@@ -76,7 +76,16 @@ export async function resolverDestinatarios(personas: Array<{ email: string; nom
   const out: Destinatario[] = [];
   const vistos = new Set<string>();
   for (const p of personas) {
-    const email = (p.email ?? '').trim().toLowerCase();
+    let email = (p.email ?? '').trim().toLowerCase();
+    // SIN EMAIL, POR NOMBRE. Media agenda son Meets improvisados: sin evento de
+    // calendario Fathom no devuelve invitados, y de la reunión solo queda el nombre con
+    // el que la persona habla en la transcripción. Sin esto, MaKo repartía 30 tareas a
+    // "Mauricio" y después no había forma de mandárselas: el botón no se dibujaba y no
+    // se decía por qué. Solo entra si el nombre matchea a UN usuario de la app.
+    if (!email && (p.nombre ?? '').trim()) {
+      const u = await buscarUsuarioPorNombre(p.nombre!).catch(() => null);
+      if (u?.email) email = u.email.trim().toLowerCase();
+    }
     if (!email || email === miEmail || vistos.has(email)) continue;
     vistos.add(email);
 

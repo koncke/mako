@@ -496,17 +496,24 @@ export function BoardShell({ board, scope }: {
     } catch (e) { console.warn('[reunion] ampliarTareas', e); }
   };
 
-  const crearDesdeReunion = async (candsIn: CandReunion[], fuente?: Fuente, forzar = false) => {
-    // ÚLTIMA RED contra el duplicado. Los modales ya marcan lo que ya existe, pero esta
-    // función también la llaman otros caminos (archivo, reanálisis) y el usuario puede
-    // haber tildado igual. Es léxico y gratis: no gasta IA ni pide un viaje al server.
-    // Ante la duda NO filtra — perder un compromiso es peor que una tarjeta repetida, y
-    // por eso lo que se saltea SIEMPRE se avisa y se puede crear igual con "Deshacer".
+  const crearDesdeReunion = async (candsIn: CandReunion[], fuente?: Fuente) => {
+    // ÚLTIMA RED contra el duplicado, y ahora sin salidas: lo que ya está en el tablero
+    // NO se vuelve a crear NUNCA — se le suma el contexto a la tarjeta que existe.
+    // Antes acá había un «Deshacer» que la creaba igual (forzar=true): esa era la puerta
+    // por la que entraban los duplicados que después había que fundir a mano.
     const enTablero = tasks.map((t) => ({ id: t.id, titulo: t.title, hecha: t.progress >= 100 }));
-    const { nuevas, repetidas } = forzar ? { nuevas: candsIn, repetidas: [] as Array<{ tarea: CandReunion }> } : separarRepetidas(candsIn, enTablero);
+    const { nuevas, repetidas } = separarRepetidas(candsIn, enTablero);
     const cands = nuevas;
+    // Las repetidas se amplían SIEMPRE (tengan o no tarea que crear al lado): el
+    // contexto de esta reunión —los números y las frases que se dijeron— entra igual.
+    const ampliables = repetidas
+      .filter((r) => r.existente.id && (r.tarea.detalle ?? '').trim())
+      .map((r) => ({ id: r.existente.id, detalle: (r.tarea.detalle ?? '').trim(), titulo: r.tarea.titulo }));
+    if (ampliables.length) await ampliarDesdeReunion(ampliables, fuente);
     if (!cands.length) {
-      if (repetidas.length) board.showUndo(`${textoRepetidas(repetidas.length)}: no las volví a crear.`, () => { void crearDesdeReunion(repetidas.map((r) => r.tarea), fuente, true); });
+      // Nada nuevo que crear. Si tampoco se pudo ampliar (repetidas dentro del mismo
+      // lote, que no traen id), al menos se dice — antes esto salía sin una palabra.
+      if (repetidas.length && !ampliables.length) board.showUndo(`${textoRepetidas(repetidas.length)}: no las dupliqué.`);
       return;
     }
     // origen = MaKo (la IA extrajo estas tarjetas) + fuente (Fathom/archivo) + un alta

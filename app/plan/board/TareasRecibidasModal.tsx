@@ -213,10 +213,11 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         // Si no matcheó ningún proyecto existente, viaja el NOMBRE propuesto: el server
         // crea la categoría si no la encuentra (lib/plan-propuesta.ts). Antes acá se
         // mandaba undefined y la tarea nacía suelta.
-        // `forzar`: la fila venía marcada como repetida (nació destildada) y el usuario
-        // la volvió a tildar igual. Su decisión gana sobre el filtro — si no, el server
-        // la descartaba de nuevo y en silencio, y el botón "crearla igual" era mentira.
-        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined), minuto: f.minuto, minutos: f.minutos, forzar: !!f.enriquece })),
+        // Las repetidas viajan IGUAL, sin ninguna marca de "creala aunque exista": el
+        // server las reconoce y le suma el contexto a la tarjeta que ya está en vez de
+        // duplicarla. `forzar` se borró — era la única vía por la que una decisión
+        // humana podía dejar la misma tarea escrita dos veces.
+        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined), minuto: f.minuto, minutos: f.minutos })),
       // Lo que queda del lado de otras personas (con las reasignaciones que hiciste
       // recién): el borrador NO se cierra mientras haya algo para repartir.
       restantes: filas.filter((f) => f.propId === p.id && f.esDeOtro)

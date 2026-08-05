@@ -74,9 +74,16 @@ export function participantesDeReunion(m: FathomMeeting): Participante[] {
   const out: Participante[] = [];
   const sumar = (nombre: unknown, email: unknown) => {
     const e = String(email ?? '').trim().toLowerCase();
-    if (!e || vistos.has(e)) return;
-    vistos.add(e);
-    out.push({ nombre: String(nombre ?? '').trim(), email: e });
+    const nom = String(nombre ?? '').trim();
+    // SIN EMAIL TAMBIÉN ENTRA, si tenemos el nombre. Un Meet improvisado no trae
+    // invitados de calendario y antes esa persona desaparecía de la lista: el modelo
+    // no la podía nombrar en el detalle («Mauricio lo pidió en el 12:40» era imposible
+    // de escribir) y el reparto no tenía a quién mandarle sus tareas. El email vacío
+    // no rompe nada: quien resuelve el destinatario lo busca por nombre.
+    const clave = e || `nombre:${nom.toLowerCase()}`;
+    if (!clave || clave === 'nombre:' || vistos.has(clave)) return;
+    vistos.add(clave);
+    out.push({ nombre: nom, email: e });
   };
 
   for (const i of m.calendar_invitees ?? []) sumar(i.name || i.matched_speaker_display_name, i.email);
@@ -525,7 +532,17 @@ function relojCorto(seg?: number): string {
   const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s = seg % 60;
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
 }
-export type ExtractOpts = { glosario?: string; usoMotivo?: string; participantes?: Participante[] };
+export type ExtractOpts = {
+  glosario?: string; usoMotivo?: string; participantes?: Participante[];
+  /**
+   * Contexto que se repite en TODAS las partes del troceado: el resumen de Fathom y
+   * sus action items con dueño. Iba pegado al principio del texto, así que solo entraba
+   * en la PARTE 1 — de la parte 2 en adelante el modelo leía transcripción cruda, sin
+   * saber de qué se trató la reunión ni a quién le había asignado Fathom cada cosa. Por
+   * eso las tareas de la segunda mitad salían cortas y sin nombrar a nadie.
+   */
+  cabecera?: string;
+};
 
 // ── Troceado del transcript ──────────────────────────────────────────────────
 // UNA sola llamada no puede con una reunión larga, y el síntoma es engañoso: no
@@ -612,9 +629,14 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
   // `fallo` = este tramo NO se pudo leer (excepción o JSON inválido). Distinto de
   // "se leyó y no había tareas": eso viene sin fallo y con la lista vacía.
   const unaParte = async (parte: string, i: number): Promise<{ tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo; fallo?: boolean }> => {
+    // El contexto de la reunión (resumen + action items de Fathom) va en TODAS las
+    // partes, no solo en la primera: de la parte 2 en adelante el modelo leía
+    // transcripción cruda, sin saber de qué se trató ni a quién le asignó Fathom cada
+    // cosa — y por eso las tareas de la segunda mitad salían pobres y sin dueño.
+    const contexto = opts.cabecera?.trim() ? `${opts.cabecera.trim()}\n\n` : '';
     const cabecera = partes.length > 1
-      ? `⚠️ Esto es la PARTE ${i + 1} de ${partes.length} de una reunión larga. Sacá los action items de ESTA parte (no te preocupes si algo se repite con otra parte: después fusionamos). NO resumas ni agrupes por ser un fragmento.\n\n`
-      : '';
+      ? `${contexto}⚠️ Esto es la PARTE ${i + 1} de ${partes.length} de una reunión larga. Arriba tenés el resumen y los action items de TODA la reunión: usalos como contexto, pero sacá los action items de ESTA parte (no te preocupes si algo se repite con otra: después fusionamos). NO resumas ni agrupes por ser un fragmento.\n\n`
+      : contexto;
     const user = await renderPrompt('plan-fathom.extraer.user', PLAN_FATHOM_USER_TEMPLATE, {
       yo: yoTxt,
       participantes: listaParticipantes,
@@ -727,11 +749,14 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
     .map((a) => `- ${a.description}${a.assignee?.name || a.assignee?.email ? ` → ${a.assignee?.name ?? a.assignee?.email}` : ''}`)
     .join('\n');
 
-  const contenido = [
-    resumen ? `RESUMEN:\n${resumen}` : '',
+  // El resumen y los action items de Fathom son CABECERA, no cuerpo: se repiten en cada
+  // parte del troceado. Antes iban pegados al principio del texto, así que se los comía
+  // la PARTE 1 y las demás leían transcripción cruda — sin saber de qué se trató la
+  // reunión ni a quién le había asignado Fathom cada compromiso.
+  const cabecera = [
+    resumen ? `RESUMEN DE LA REUNIÓN (contexto: vale para todas las partes):\n${resumen}` : '',
     dueñosFathom ? `ACTION ITEMS QUE FATHOM YA DETECTÓ (con su dueño):\n${dueñosFathom}` : '',
-    texto ? `TRANSCRIPCIÓN:\n${texto}` : '',
   ].filter(Boolean).join('\n\n');
 
-  return extraerTareasDeTexto(contenido, proyectos, yo, { ...opts, participantes, usoMotivo: opts.usoMotivo || 'Extraer tareas de reunión' });
+  return extraerTareasDeTexto(texto ? `TRANSCRIPCIÓN:\n${texto}` : '', proyectos, yo, { ...opts, participantes, cabecera, usoMotivo: opts.usoMotivo || 'Extraer tareas de reunión' });
 }

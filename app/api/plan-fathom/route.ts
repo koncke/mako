@@ -10,7 +10,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo } from '@/lib/plan-fathom';
+import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo, type TareaCandidata, type Participante } from '@/lib/plan-fathom';
 import { glosarioTexto, guardarTermino } from '@/lib/glosario';
 import { resolverClienteDeReunion, nombreDeProyectoPara, opcionesDeCliente } from '@/lib/reunion-cliente';
 import { getSetting, setSetting } from '@/lib/settings';
@@ -37,6 +37,43 @@ const proyectosDe = (raw: unknown): ProyectoRef[] =>
  * manda las OPCIONES para que el modal pregunte una sola vez, en vez de dejar 15
  * tareas repartidas por tema — que es lo que hacía el modelo cuando decidía él.
  */
+/**
+ * El BORRADOR de una reunión, creado SIEMPRE que haya tareas. Es lo que hace que la
+ * extracción quede guardada: sin esto vivía solo en el estado de React y al volver
+ * atrás no quedaba nada — había que darle a "cargar al plan" para que existiera.
+ *
+ * Se llama desde los DOS caminos (extracción fresca y cache) porque `crearPropuesta`
+ * es idempotente por `ref`: si ya hay una fila para esta grabación devuelve la que
+ * está, no crea una segunda. Devuelve el id (o '' si falló) para que el modal pueda
+ * marcar la reunión como leída y guardar las correcciones sobre esa misma fila.
+ */
+async function asegurarBorrador(
+  recordingId: number,
+  titulo: string | null,
+  proyectos: ProyectoRef[],
+  tareas: TareaCandidata[],
+  participantes: Participante[],
+): Promise<string> {
+  try {
+    const nombreProy = new Map(proyectos.map((pr) => [pr.id, pr.nombre]));
+    const cli = await resolverClienteDeReunion({ titulo, participantes }).catch(() => null);
+    const proyCliente = cli ? await nombreDeProyectoPara(cli).catch(() => '') : '';
+    const mias = tareas.filter((t) => !t.esDeOtro).length;
+    return await crearPropuesta({
+      ref: `fathom:${recordingId}`,
+      origen: 'fathom',
+      fuenteTitulo: titulo ?? undefined,
+      resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}.`,
+      tareas: tareas.map((t) => ({
+        titulo: t.titulo, detalle: t.detalle || undefined, prioridad: t.prioridad,
+        proyecto: proyCliente || (t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined)),
+        dueno: t.dueño || undefined, duenoEmail: t.dueñoEmail || undefined,
+        esDeOtro: t.esDeOtro || undefined, minuto: t.minuto, minutos: t.minutos,
+      })),
+    });
+  } catch (e) { console.error(`[api:plan-fathom] borrador: ${msg(e)}`); return ''; }
+}
+
 async function conCliente(payload: Record<string, unknown>, titulo: string | null) {
   const participantes = (payload.participantes ?? []) as Array<{ nombre?: string; email?: string | null }>;
   const cli = await resolverClienteDeReunion({ titulo, participantes }).catch(() => null);
@@ -130,7 +167,15 @@ export async function POST(req: NextRequest) {
             // El cliente NO se cachea: se resuelve también acá. Cacheado se devolvía sin
             // él, así que re-abrir una reunión ya leída decía "no reconocí a ningún
             // cliente" para la misma llamada que la primera vez sí había reconocido.
-            if (Array.isArray(prev.tareas)) return conCliente({ tareas: prev.tareas, participantes: prev.participantes ?? [], cached: true }, titulo);
+            if (Array.isArray(prev.tareas)) {
+              // El borrador se asegura TAMBIÉN acá. Antes esta rama volvía sin pasar por
+              // crearPropuesta, así que una reunión con cache y sin fila en
+              // plan_propuestas no se persistía NUNCA — por más veces que la extrajeras
+              // se veía la lista y al salir no quedaba nada. crearPropuesta es
+              // idempotente por `ref`, así que llamarla de más no duplica.
+              const borradorId = await asegurarBorrador(recordingId, titulo, proyectos, prev.tareas as TareaCandidata[], (prev.participantes ?? []) as Participante[]);
+              return conCliente({ tareas: prev.tareas, participantes: prev.participantes ?? [], cached: true, borradorId }, titulo);
+            }
           } catch { /* cache corrupto → re-extrae */ }
         }
       }
@@ -144,29 +189,15 @@ export async function POST(req: NextRequest) {
       // siempre como "MaKo no encontró nada", escondiendo que la corrida había fallado
       // (y la única salida era descubrir el botón "Volver a analizar (gasta tokens)").
       // Mismo criterio que el cron (lib/reunion-auto.ts).
+      // El CACHE solo si la corrida salió entera (uno a medias se serviría para siempre).
+      // El BORRADOR, en cambio, se guarda IGUAL: si un tramo del transcript falló, las
+      // tareas que sí salieron son reales y perderlas es peor que tenerlas incompletas.
       if (out.tareas.length && !out.partesFallidas) {
         await setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, participantes: out.participantes ?? [], ts: Date.now() })).catch(() => {});
-        // Y EL BORRADOR, igual que el cron. Sin esto, extraer a mano dejaba las tareas
-        // SOLO en el estado de React: cerrabas el modal y se perdían, y la reunión
-        // volvía a decir «Extraer →» como si nunca la hubieras leído (el selector mira
-        // plan_propuestas, no el cache). Mismo `ref` que el cron, así que si después
-        // pasa el cron no duplica: crearPropuesta devuelve el que ya está.
-        const nombreProy = new Map(proyectos.map((pr) => [pr.id, pr.nombre]));
-        const cli = await resolverClienteDeReunion({ titulo, participantes: out.participantes ?? [] }).catch(() => null);
-        const proyCliente = cli ? await nombreDeProyectoPara(cli).catch(() => '') : '';
-        const mias = out.tareas.filter((t) => !t.esDeOtro).length;
-        await crearPropuesta({
-          ref: `fathom:${recordingId}`,
-          origen: 'fathom',
-          fuenteTitulo: titulo ?? undefined,
-          resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}.`,
-          tareas: out.tareas.map((t) => ({
-            titulo: t.titulo, detalle: t.detalle || undefined, prioridad: t.prioridad,
-            proyecto: proyCliente || (t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined)),
-            dueno: t.dueño || undefined, duenoEmail: t.dueñoEmail || undefined,
-            esDeOtro: t.esDeOtro || undefined, minuto: t.minuto, minutos: t.minutos,
-          })),
-        }).catch((e) => console.error(`[api:plan-fathom] borrador: ${msg(e)}`));
+      }
+      let borradorId = '';
+      if (out.tareas.length) {
+        borradorId = await asegurarBorrador(recordingId, titulo, proyectos, out.tareas, out.participantes ?? []);
       }
       // ACÁ NO SE MANDA NINGÚN WHATSAPP, a propósito. Antes esta ruta preguntaba
       // "saqué N compromisos, ¿los cargo?" — y era una pregunta al vacío: el usuario
@@ -180,7 +211,10 @@ export async function POST(req: NextRequest) {
       // el tema de cada tarea deja de decidir dónde se archiva. Se resuelve acá (server,
       // contra el CRM) y no en el prompt, porque el modelo ve un título y no el CRM —
       // por eso repartía una misma llamada entre proyectos temáticos inventados.
-      return conCliente(out as unknown as Record<string, unknown>, titulo);
+      // `borradorId` viaja al modal: con eso la lista puede marcar la reunión como YA
+      // LEÍDA sin recargar y el modal puede ir guardando las correcciones del usuario
+      // sobre esa misma fila (autosave), que antes se perdían al volver atrás.
+      return conCliente({ ...(out as unknown as Record<string, unknown>), borradorId }, titulo);
     }
     return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });
   } catch (e) {

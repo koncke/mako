@@ -10,8 +10,8 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
-import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, listPlanBoard } from '@/lib/plan-board';
-import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, type Prioridad } from '@/lib/todo';
+import { agregarTareasPlanOwner, ampliarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, listPlanBoard } from '@/lib/plan-board';
+import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, ampliarTareasCliente, type Prioridad } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
 import { rutearTareasCliente } from '@/lib/todo-rutear';
@@ -41,8 +41,6 @@ export type PropuestaTarea = {
   minuto?: number;
   /** TODOS los momentos en que se habló de esto (una tarea puede volver varias veces). */
   minutos?: number[];
-  /** el humano la confirmó A PESAR del aviso de "ya existe": su decisión gana. */
-  forzar?: boolean;
   /** ¿queda tildada para cargar? `false` = el dueño la destildó. undefined = sí (default).
    *  Se persiste para que la revisión sobreviva a un F5: antes vivía solo en el estado
    *  del modal y con recargar la página volvía todo al reparto que había adivinado MaKo. */
@@ -54,10 +52,15 @@ export type PropuestaTarea = {
  * otra reunión, es un pedido nuevo, no un duplicado. Best-effort — si la lectura falla
  * se devuelve vacío y el flujo sigue (peor un duplicado que perder la tarea).
  */
-async function titulosDelTablero(usaPlanBoard: boolean): Promise<string[]> {
+/**
+ * Lo que ya está ABIERTO en el tablero, con su id — para poder AMPLIARLO. Antes esto
+ * devolvía solo los títulos y por eso la única jugada posible era descartar la tarea
+ * nueva: sin el id no hay a qué tarjeta sumarle el contexto.
+ */
+async function abiertasDelTablero(usaPlanBoard: boolean): Promise<Array<{ id: string; titulo: string }>> {
   try {
-    if (usaPlanBoard) return (await listPlanBoard()).tareas.filter((t) => t.progress < 100).map((t) => t.title);
-    return (await listTareas()).filter((t) => t.progreso < 100).map((t) => t.titulo);
+    if (usaPlanBoard) return (await listPlanBoard()).tareas.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title }));
+    return (await listTareas()).filter((t) => t.progreso < 100).map((t) => ({ id: String(t.id), titulo: t.titulo }));
   } catch (e) { console.error('[plan-propuesta] no pude leer el tablero para deduplicar', e); return []; }
 }
 
@@ -124,7 +127,6 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     minutos: Array.isArray(o.minutos)
       ? [...new Set((o.minutos as unknown[]).map((x) => Math.round(Number(x))).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b)
       : undefined,
-    forzar: o.forzar === true ? true : undefined,
     incluir: o.incluir === false ? false : undefined,
   };
 }
@@ -145,6 +147,42 @@ const TIPOS_PREGUNTA: TipoPregunta[] = ['opcion', 'multi', 'escala', 'texto', 'c
  */
 export const topePreguntas = (nTareas: number): number =>
   Math.max(2, Math.min(16, Math.ceil(nTareas / 3) + 1));
+
+/**
+ * ¿Las opciones son LA LISTA QUE LE PASAMOS en vez de una respuesta?
+ *
+ * Es el error concreto que apareció (y es el único de "pregunta sin sentido" que se
+ * puede detectar sin entender el significado):
+ *
+ *   «¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?»
+ *   opciones: [General renovado] [CRM] [Chats] [Plan] [Dashboard]
+ *
+ * El modelo tenía la lista de tareas en el prompt y la devolvió como opciones de un
+ * enunciado binario. Se reconoce sin adivinar: (a) el enunciado plantea DOS caminos
+ * («… A o B?»), (b) hay más de dos opciones, y (c) TODAS las opciones son texto que
+ * viene de la lista que le pasamos, no una respuesta.
+ *
+ * Intencionalmente estrecho. Una primera versión más ambiciosa —"ninguna opción
+ * comparte palabra con la disyuntiva"— descartó una pregunta perfectamente sana
+ * («¿hay alguien del equipo entrando, o son todos de un solo dueño?» con opciones
+ * «Todavía nadie…», «Sí, en el equipo de Mauricio»): perder una pregunta buena en
+ * silencio es peor que dejar pasar una mala, que el dueño puede saltear.
+ */
+const palabras = (s: string): Set<string> => new Set(
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[^a-z0-9ñ ]/gi, ' ').split(/\s+/).filter((w) => w.length >= 4),
+);
+export function opcionesSonLaLista(pregunta: string, opciones: string[], universo: string[]): boolean {
+  if (opciones.length <= 2 || !universo.length) return false;
+  if (!/\bo\b[^?]{6,90}\?\s*$/i.test(pregunta)) return false;   // no plantea dos caminos
+  const heno = ` ${universo.map((u) => u.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()).join(' | ')} `;
+  // TODAS tienen que venir de la lista: con que una sea una respuesta de verdad,
+  // la pregunta se respeta.
+  return opciones.every((op) => {
+    const ws = [...palabras(op)];
+    return ws.length > 0 && ws.every((w) => heno.includes(w));
+  });
+}
 
 function limpiarPregunta(p: unknown): PropuestaPregunta | null {
   if (typeof p === 'string') return p.trim() ? { pregunta: p.trim().slice(0, 300), opciones: [], tipo: 'texto' } : null;
@@ -316,9 +354,19 @@ const PROFUNDIZAR_SYSTEM = `Sos MaKo, cargando tareas al plan de un negocio. El 
 VOS decidís cuántas: pueden ser NINGUNA (si lo respondido ya alcanza), una, o las que de verdad hagan falta. No inventes por inventar ni te cortes por miedo a preguntar de más.
 ⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS que una respuesta previa recién abrió: un deadline que apareció, una dependencia o bloqueo, un número de plata, un alcance ambiguo, qué sería "listo".
 CRITERIO — cada pregunta tiene que TENER SENTIDO y sumar: si la respuesta es obvia, se contradice con lo ya dicho, o no cambia nada para el Perro, NO la hagas.
+
+⛔⛔ LA REGLA QUE MÁS SE ROMPE — CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Leé tu pregunta y leé tus opciones: si al elegir una opción la frase no queda contestada, está mal. Es el error más común y el que hace que el dueño abandone el formulario.
+  MAL (pasó de verdad): pregunta "¿los grupos propuestos (Hoy, Operar, Analizar, Crear, Administrar) son fijos o hay que validar si algún módulo no encaja?" con opciones ["General renovado", "CRM", "Chats", "Plan", "Dashboard"]. La pregunta es "¿A o B?" y las opciones son una lista de módulos: NINGUNA la contesta.
+  BIEN, dos salidas para esa misma pregunta:
+    · si de verdad querés saber A o B → tipo "opcion", opciones ["Los cinco grupos son fijos", "Hay que revisar si algún módulo no encaja"].
+    · si lo que querés saber es CUÁLES no encajan → cambiá el enunciado a "¿Qué módulos no encajan en ninguno de los cinco grupos?", tipo "multi", y ahí sí la lista de módulos.
+  Nunca dejes un enunciado binario con una lista de sustantivos abajo.
+
 CRITERIO — elegí el TIPO por pregunta (pensá cuál es el mejor): "multi" si pueden valer VARIAS respuestas a la vez (no agregues una opción "Ambas/Todas": que tilde varias) · "opcion" si es una elección EXCLUYENTE · "escala" para intensidad 1-5 · "comparacion" para enfrentar DOS ítems. NADA de preguntas ABIERTAS: siempre con opciones para tocar. Para opcion/multi/comparacion pasá 2-6 "opciones" cortas.
+La "escala" NO lleva opciones (el dueño ve 1 a 5), así que la pregunta TIENE que decir qué significa cada extremo: "(1 = es una idea, 5 = ya está comprometido)".
+"sobre" = el título EXACTO de la tarea (o hasta 4) de la que habla la pregunta, tal cual te lo pasé. Es lo que le muestra al dueño de qué le estás hablando: sin eso, una pregunta correcta sobre la tarea 14 de 20 se lee como una pregunta al azar.
 Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
-{ "preguntas": [ { "pregunta": "<corta, sobre un hecho>", "tipo": "opcion|multi|escala|comparacion", "opciones": ["...", "..."] } ] }
+{ "preguntas": [ { "pregunta": "<corta, sobre un hecho>", "tipo": "opcion|multi|escala|comparacion", "opciones": ["...", "..."], "sobre": ["<título exacto>"] } ] }
 Español rioplatense. Si no hace falta ninguna, { "preguntas": [] }.`;
 
 export async function profundizarPropuesta(id: string, respuestas: Array<{ pregunta: string; respuesta: string }>): Promise<PropuestaPregunta[]> {
@@ -333,7 +381,21 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
   const raw = await chatCheapCascade({ system: PROFUNDIZAR_SYSTEM, user, maxTokens: 3000, feature: 'mako-doer-in', motivo: 'Profundizar borrador (preguntas dinámicas)' }).catch(() => '');
   if (!raw) return [];
   let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
-  return asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 40);
+  // Filtro de la incoherencia que sí se puede reconocer: el modelo tiene la lista de
+  // tareas en el prompt y a veces la devuelve COMO OPCIONES de una pregunta binaria
+  // («¿son fijos o hay que revisarlos?» + [CRM] [Chats] [Plan]). Ahí ninguna opción
+  // contesta y la pregunta no se puede responder.
+  const universo = prop.tareas.map((t) => t.titulo);
+  return asArr<unknown>(obj.preguntas).map(limpiarPregunta)
+    .filter((p): p is PropuestaPregunta => {
+      if (!p) return false;
+      if (p.tipo !== 'escala' && p.tipo !== 'texto' && opcionesSonLaLista(p.pregunta, p.opciones, universo)) {
+        console.warn(`[plan-propuesta] pregunta descartada: las opciones son la lista de tareas, no una respuesta — «${p.pregunta.slice(0, 70)}»`);
+        return false;
+      }
+      return true;
+    })
+    .slice(0, 40);
 }
 
 // ── Preguntas sobre LO QUE SE VA A CARGAR ────────────────────────────────────
@@ -359,6 +421,11 @@ COBERTURA: repartí las preguntas por TODO el lote, no las amontones en las prim
 ⛔ REGLA DURA: NADA de preguntas ABIERTAS. Siempre con opciones para tocar.
 CRITERIO — CADA PREGUNTA TIENE QUE SER CONCRETA Y DE ESTAS TAREAS. Nombralas: "¿Para cuándo tiene que estar el filtro por fecha del tablero de guiones?" y NO "¿qué impacto tienen estas correcciones?". Si una pregunta sirve igual para cualquier reunión, está mal.
 CRITERIO — que sume: si la respuesta es obvia, ya está dicha en el detalle de la tarea, o no cambia NADA de lo que el Perro va a decidir, no la hagas. Una pregunta que no cambia nada es peor que ninguna: quema la paciencia del dueño y hace que conteste las que sí importan de cualquier manera.
+
+⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Leé tu enunciado y leé tus opciones: si al elegir una la frase no queda contestada, está mal.
+  MAL (pasó de verdad): "¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?" con opciones ["CRM", "Chats", "Plan", "Dashboard"]. El enunciado es "¿A o B?" y abajo hay una lista de sustantivos: ninguna opción lo contesta.
+  BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambiás el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
+  Nunca dejes un enunciado binario con una lista de nombres abajo.
 
 TIPO Y OPCIONES — tienen que ser COHERENTES entre sí (acá es donde más se falla):
 · "opcion" → elección EXCLUYENTE. Obligatorio: 2 a 6 opciones cortas y concretas.
@@ -452,6 +519,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     const cierre = new Map<string, { creadas: PropuestaAplicada[]; restantes: PropuestaTarea[] }>();
     const aplicados: string[] = [];
     let borradas = 0;
+    let ampliadas = 0;   // repetidas que en vez de duplicarse le sumaron contexto a la que ya estaba
     let ultimoError = '';
     let algunoExistia = false;
 
@@ -478,22 +546,39 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       // …y contra el TABLERO. `aplicadas` solo sabe de ESTE borrador: cuando la misma
       // reunión se graba dos veces (un notetaker por participante) o cuando alguien ya
       // cargó las tareas a mano desde el modal, el segundo borrador volvía a crear las
-      // mismas tarjetas. Se compara por parecido léxico contra lo que ya está abierto
-      // en el board, con el mismo criterio que usa la extracción para fusionar.
-      // Lo que el humano forzó NO pasa por el filtro: él ya vio el aviso y dijo que no
-      // es la misma. Un filtro que le gana a una decisión explícita no es una red de
-      // seguridad, es un bug que borra trabajo sin decir nada.
-      const abiertas = await titulosDelTablero(usaPlanBoard);
-      const forzadas = baseSinRepetir.filter((t) => t.forzar);
-      const filtrables = baseSinRepetir.filter((t) => !t.forzar);
-      const base = [...forzadas, ...filtrables.filter((t) => !abiertas.some((x) => mismaTarea(x, t.titulo)))];
-      if (baseSinRepetir.length !== base.length) {
-        console.warn(`[plan-propuesta] ${lote.id}: ${baseSinRepetir.length - base.length} tarea(s) ya existían en el tablero — no se duplican`);
+      // mismas tarjetas.
+      //
+      // ⛔ EL DUPLICADO NO SE PREGUNTA, SE RESUELVE. Regla del dueño, textual: «Si
+      // detecta que se está subiendo una tarea que ya está, simplemente debe procesarlo
+      // internamente y decidir si ignorarla o ampliar contexto de la que ya existía.
+      // Seguramente casi siempre decida ampliar contexto. Lo que JAMÁS debe hacer es
+      // crear una duplicada». Así que acá se parte en tres, sin pantalla de por medio:
+      //   · las que NO están en el tablero  → se crean;
+      //   · las que ya están y traen texto  → AMPLÍAN la tarjeta que existe (el caso normal);
+      //   · las que ya están y no aportan   → se ignoran, con log.
+      // El escape de `forzar` se murió con esto: era la única vía por la que una decisión
+      // humana podía dejar la misma tarea escrita dos veces.
+      const abiertas = await abiertasDelTablero(usaPlanBoard);
+      const base: PropuestaTarea[] = [];
+      const aAmpliar: Array<{ id: string; titulo: string; detalle: string }> = [];
+      let ignoradas = 0;
+      for (const t of baseSinRepetir) {
+        const ya = abiertas.find((x) => mismaTarea(x.titulo, t.titulo));
+        if (!ya) { base.push(t); continue; }
+        const texto = (t.detalle ?? '').trim();
+        if (texto) aAmpliar.push({ id: ya.id, titulo: t.titulo, detalle: texto });
+        else ignoradas++;
       }
-      // Solo se borran los ids que el dueño/cliente CONFIRMÓ (subset de los que MaKo propuso).
+      if (aAmpliar.length || ignoradas) {
+        console.warn(`[plan-propuesta] ${lote.id}: ${aAmpliar.length} tarea(s) ya existían y se AMPLÍAN, ${ignoradas} se ignoran — ninguna se duplica`);
+      }
+      // Las bajas ya NO se preguntan ni se ejecutan solas: el paso del checkbox se sacó
+      // del wizard y sin `eliminarIds` explícito no se borra nada. El default de antes
+      // (`?? [...propuestos]`) borraba TODO lo que la IA hubiera propuesto en cuanto el
+      // camino del board aplicaba el lote — sin mostrarlo y sin que nadie lo confirmara.
       const propuestos = new Set((prop?.eliminar ?? []).map((e) => e.id));
-      const aBorrar = (lote.eliminarIds ?? [...propuestos]).map(String).filter((x) => propuestos.has(x));
-      if (!base.length && !aBorrar.length) { ultimoError = 'No hay nada para crear ni borrar.'; continue; }
+      const aBorrar = (lote.eliminarIds ?? []).map(String).filter((x) => propuestos.has(x));
+      if (!base.length && !aAmpliar.length && !aBorrar.length) { ultimoError = 'No hay nada para crear ni borrar.'; continue; }
 
       // La FUENTE de cada tarea: de qué reunión salió y EN QUÉ MINUTO se dijo. Con eso,
       // el chip del detalle de la tarjeta abre la grabación parada en ese segundo — el
@@ -530,6 +615,15 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           // vacíos, y acá no hay ninguno): la tarea i quedó con el id i.
           r.ids.forEach((id, i) => { if (base[i]) anotar(base[i], id); });
         }
+        // Las repetidas: se le SUMA el contexto a la tarjeta que ya está. Y se anotan
+        // como "aplicadas" igual que las creadas — si no, el borrador se reabre y las
+        // vuelve a ofrecer para siempre.
+        if (aAmpliar.length) {
+          const r = await ampliarTareasPlanOwner(aAmpliar.map((a) => ({ id: a.id, detalle: a.detalle })), { tipo: fuenteTipo } as Fuente)
+            .catch((e) => { console.error('[plan-propuesta] ampliar owner:', e instanceof Error ? e.message : String(e)); return { n: 0, patches: [] }; });
+          ampliadas += r.n;
+          for (const a of aAmpliar) creadas.push({ titulo: a.titulo, tareaId: a.id });
+        }
         for (const eid of aBorrar) { await borrarPlanTarea(eid).catch((e) => console.error('[plan-propuesta] borrar owner:', e instanceof Error ? e.message : String(e))); borradas += 1; }
       } else {
         // CLIENTE: su board va por lib/todo (crea la categoría si falta). Ya estamos en su ws.
@@ -559,6 +653,12 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
               anotar(t, String(tarea.id));
             } catch (e) { console.error('[plan-propuesta] crearTarea cliente:', e instanceof Error ? e.message : String(e)); }
           }
+        }
+        if (aAmpliar.length) {
+          const n = await ampliarTareasCliente(aAmpliar.map((a) => ({ id: Number(a.id), detalle: a.detalle })), fuenteTipo === 'fathom' ? 'de la reunión' : 'MaKo')
+            .catch((e) => { console.error('[plan-propuesta] ampliar cliente:', e instanceof Error ? e.message : String(e)); return 0; });
+          ampliadas += n;
+          for (const a of aAmpliar) creadas.push({ titulo: a.titulo, tareaId: a.id });
         }
         for (const eid of aBorrar) { const n = Number(eid); if (Number.isFinite(n)) { await borrarTarea(n).catch((e) => console.error('[plan-propuesta] borrar cliente:', e instanceof Error ? e.message : String(e))); borradas += 1; } }
       }
@@ -600,11 +700,16 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     }
 
     // El Perro, POR TANDAS. Puntuar 69 tareas en una sola llamada no entra en el
-    // tiempo de la función (y encima el modelo se queda sin salida). De a 20 cada
-    // pasada compara lo nuevo contra el plan sin pasarse de tiempo.
+    // tiempo de la función (y encima el modelo se queda sin salida).
+    //
+    // 10 y no 20: con 20 tareas de detalle largo el JSON del modelo se corta a la mitad
+    // y el lote entero queda con el score de fábrica. Pasó el 5/8 con las 20 del
+    // documento de rediseño — 20 tarjetas con score 62, sin razón y sin fecha. El techo
+    // de salida ahora escala con el lote (topeSalidaPerro), pero una tanda más chica
+    // además ordena mejor: el modelo compara diez tareas entre sí, no veinte.
     if (idsCreadas.length) {
       const contexto = contextos.join(' ');
-      const TANDA = 20;
+      const TANDA = 10;
       for (let i = 0; i < idsCreadas.length; i += TANDA) {
         const lote = idsCreadas.slice(i, i + TANDA);
         const nota = idsCreadas.length > TANDA ? `${contexto} (tanda ${Math.floor(i / TANDA) + 1} de ${Math.ceil(idsCreadas.length / TANDA)})` : contexto;

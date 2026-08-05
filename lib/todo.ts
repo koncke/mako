@@ -286,6 +286,44 @@ export async function editarTarea(
   return rowTo(data);
 }
 
+/**
+ * AMPLIAR tarjetas que YA existen, en vez de crear una segunda igual. Gemelo de
+ * `ampliarTareasPlanOwner` (lib/plan-board.ts) para el tablero del cliente.
+ *
+ * Sin esto, "no duplicar" degradaba a "perder el contexto": `editarTarea` PISA el
+ * detalle, así que la única jugada segura era descartar la tarea nueva y con ella todo
+ * lo que se dijo en esa reunión. Acá el texto viejo manda y lo nuevo se suma abajo.
+ * NO se tocan score, prioridad, deadline ni proyecto: ampliar es agregar contexto, no
+ * volver a decidir la tarea.
+ */
+export async function ampliarTareasCliente(items: Array<{ id: number; detalle: string }>, desde = 'MaKo'): Promise<number> {
+  const validos = items.filter((it) => Number.isFinite(it.id) && (it.detalle || '').trim());
+  if (!validos.length) return 0;
+  const supabase = await getTenantDb();
+  const { data } = await supabase.from('experimento_tareas').select('id, detalle, historial').in('id', validos.map((v) => v.id));
+  const previas = new Map(((data ?? []) as Array<{ id: number; detalle: string | null; historial: unknown }>).map((r) => [r.id, r]));
+  const ahora = Date.now();
+  let n = 0;
+  for (const it of validos) {
+    const p = previas.get(it.id);
+    if (!p) { console.warn(`[todo] ampliar: la tarea ${it.id} no existe`); continue; }
+    const viejo = (p.detalle ?? '').trim();
+    const nuevo = it.detalle.trim();
+    // Lo viejo PRIMERO y nunca se pisa; si lo nuevo ya lo contiene, se queda lo nuevo.
+    const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const cabeza = norm(viejo).slice(0, 60);
+    const detalle = !viejo ? nuevo
+      : cabeza.length >= 20 && norm(nuevo).includes(cabeza) ? nuevo
+        : `${viejo}\n\n${nuevo}`;
+    if (detalle === viejo) continue;
+    const entrada: HistEntry = { id: `h${ahora}${it.id}`, ts: ahora, actor: 'ia', text: `MaKo le sumó contexto (no la duplicó) — ${desde}`.slice(0, 220) };
+    const historial = [entrada, ...(Array.isArray(p.historial) ? (p.historial as HistEntry[]) : [])].slice(0, 40);
+    try { await editarTarea(it.id, { detalle: detalle.slice(0, 6000), historial }); n++; }
+    catch (e) { console.error(`[todo] ampliar ${it.id}:`, e instanceof Error ? e.message : String(e)); }
+  }
+  return n;
+}
+
 export async function borrarTarea(id: number): Promise<void> {
   const supabase = (await getTenantDb());
   const { error } = await supabase.from('experimento_tareas').delete().eq('id', id);

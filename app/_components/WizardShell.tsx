@@ -170,12 +170,22 @@ export function WizardShell({
     );
   }
 
+  // MODAL. El techo y el scroll interno NO son un detalle: sin ellos la tarjeta crecía
+  // con el contenido (una pregunta larga, quince opciones) hasta pasarse de la pantalla,
+  // y como el footer va abajo de todo, el botón Siguiente terminaba fuera del viewport
+  // — con el backdrop `position:fixed` no hay scroll de página que lo rescate. La pieza
+  // quedaba literalmente sin salida.
+  //
+  // La receta es la misma que ya usa la rama fullscreen (línea 155-166): techo en vh,
+  // columna flex, y UN solo hijo elástico con minHeight:0 (sin eso el flex-item no se
+  // achica por debajo de su contenido y el overflow no se activa nunca).
   return (
     <div onClick={bloqueante ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
-        {header}
-        {cuerpo}
-        {footer}
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true"
+        style={{ width: '100%', maxWidth: 560, maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+        <div style={{ flex: 'none' }}>{header}</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{cuerpo}</div>
+        <div style={{ flex: 'none' }}>{footer}</div>
       </div>
     </div>
   );

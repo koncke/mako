@@ -29,6 +29,23 @@ function DynLoader({ texto = 'Analizando tus respuestas para profundizar…', su
 
 // Cuerpo de una pregunta según su FORMATO: opción (default), multi (varias), escala 1-5,
 // o texto libre. Así MaKo puede variar el tipo de pregunta, no solo multiple-choice.
+/**
+ * DE QUÉ TAREA HABLA. Sin esto, una pregunta perfectamente sana sobre la tarea 14 de un
+ * lote de 20 se lee como una pregunta al azar — y es la mitad de por qué las preguntas
+ * "no tienen sentido". El modal del board ya usaba `sobre` para filtrar; acá no se
+ * mostraba en ningún lado.
+ */
+function SobreQue({ sobre }: { sobre?: string[] }) {
+  if (!sobre?.length) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginBottom: 4 }}>
+      {sobre.slice(0, 4).map((t) => (
+        <span key={t} title={t} style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 10px' }}>{t}</span>
+      ))}
+    </div>
+  );
+}
+
 function PreguntaBody({ q, value, onChange }: { q: PropuestaPregunta; value: string; onChange: (v: string) => void }) {
   const box = (on: boolean): CSSProperties => ({ display: 'flex', gap: 9, alignItems: 'center', textAlign: 'left', width: '100%', background: on ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, color: 'var(--ink)' });
   const check = (on: boolean): CSSProperties => ({ width: 15, height: 15, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
@@ -69,12 +86,15 @@ function Mensaje({ texto, sub, ok, link }: { texto: string; sub?: string; ok?: b
   );
 }
 
-type Step = { kind: 'q'; i: number } | { kind: 'dyn'; i: number } | { kind: 'elim' } | { kind: 'confirm' };
+// Ya NO hay paso de bajas. La regla del dueño: «JAMÁS me debe preguntar si borrar una
+// tarea. Si detecta que se está subiendo una que ya está, debe procesarlo internamente
+// y decidir solo: ignorarla o ampliar el contexto de la que ya existe». Eso ahora pasa
+// en el server (aplicarPropuestas), sin pantalla y sin checkbox.
+type Step = { kind: 'q'; i: number } | { kind: 'dyn'; i: number } | { kind: 'confirm' };
 
 export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [paso, setPaso] = useState(0);
   const [resp, setResp] = useState<Record<number, string>>({});
-  const [elimSel, setElimSel] = useState<Set<string>>(new Set(prop.eliminar.map((e) => e.id)));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState<'' | 'aplicada' | 'descartada'>('');
@@ -120,7 +140,6 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const steps: Step[] = [
     ...prop.preguntas.map((_, i) => ({ kind: 'q' as const, i })),
     ...dynQs.map((_, i) => ({ kind: 'dyn' as const, i })),
-    ...(prop.eliminar.length ? [{ kind: 'elim' as const }] : []),
     { kind: 'confirm' as const },
   ];
   const cur = steps[Math.min(paso, steps.length - 1)];
@@ -149,7 +168,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
         ...prop.preguntas.map((q, i) => (resp[i]?.trim() ? `${q.pregunta} → ${resp[i].trim()}` : null)),
         ...dynQs.map((q, i) => (dynResp[i]?.trim() ? `${q.pregunta} → ${dynResp[i].trim()}` : null)),
       ].filter(Boolean).join('\n');
-      const body = action === 'aplicar' ? { action, id: prop.id, eliminarIds: [...elimSel], contexto } : { action, id: prop.id };
+      const body = action === 'aplicar' ? { action, id: prop.id, contexto } : { action, id: prop.id };
       const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((res) => res.json());
       if (!r.ok) { setError(r.error || 'No se pudo.'); setBusy(false); return; }
       try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ } // ya se aplicó/descartó
@@ -161,20 +180,18 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   if (prop.estado !== 'pendiente') return <Mensaje texto={`Este borrador ya fue ${prop.estado}.`} />;
   // Todo lo que queda es de OTRAS personas: no hay nada que crear acá. Se dice y se
   // manda al plan, donde el modal de la reunión sí tiene el reparto por persona.
-  if (nT === 0 && !prop.eliminar.length) {
+  if (nT === 0) {
     return <Mensaje ok texto={nAjenas ? `Acá no te queda nada para crear: ${nAjenas === 1 ? 'la tarea que quedaba es' : `las ${nAjenas} tareas que quedaban son`} de otras personas.` : 'Este borrador ya no tiene tareas.'}
       sub="Repartilas desde tu plan: ahí MaKo te deja mandárselas a cada uno." link />;
   }
-  if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${nT} tarea${nT === 1 ? '' : 's'}${enProy}${elimSel.size ? ` y borré ${elimSel.size}` : ''}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
+  if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${nT} tarea${nT === 1 ? '' : 's'}${enProy}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
 
-  const crearLabel = `Crear ${nT}${elimSel.size ? ` · borrar ${elimSel.size}` : ''}`;
+  const crearLabel = `Crear ${nT}`;
   const pregunta = cur.kind === 'q' ? (prop.preguntas[cur.i]?.pregunta || '…')
     : cur.kind === 'dyn' ? (dynQs[cur.i]?.pregunta || '…')
-    : cur.kind === 'elim' ? '¿Borro estas tareas?'
       : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
   const sub = cur.kind === 'q' ? 'Elegí una opción o escribí la tuya.'
     : cur.kind === 'dyn' ? 'MaKo profundiza según lo que respondiste — así el Perro prioriza mejor.'
-    : cur.kind === 'elim' ? 'MaKo las ve obsoletas o duplicadas. Destildá las que quieras conservar.'
       : 'El Perro Guardián las prioriza, las describe y les arma la checklist. La revisión final la ves en el plan.';
 
   return (
@@ -203,25 +220,18 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
            quedaba a la vista el link de descartar mientras ya estaba guardando. */
         <DynLoader texto="Creando las tareas y puntuándolas contra tu plan…" sub="El Perro las ubica en la pirámide y les arma la checklist. Puede tardar unos segundos." />
       ) : cur.kind === 'q' ? (
-        <PreguntaBody q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
+        <>
+          <SobreQue sobre={prop.preguntas[cur.i]?.sobre} />
+          <PreguntaBody q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
+        </>
       ) : cur.kind === 'dyn' ? (
-        <PreguntaBody q={dynQs[cur.i]} value={dynResp[cur.i] || ''} onChange={(v) => setDynResp((r) => ({ ...r, [cur.i]: v }))} />
-      ) : cur.kind === 'elim' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
-          {prop.eliminar.map((e) => (
-            <button key={e.id} type="button" onClick={() => setElimSel((s) => { const c = new Set(s); if (c.has(e.id)) c.delete(e.id); else c.add(e.id); return c; })}
-              style={{ display: 'flex', gap: 9, alignItems: 'flex-start', textAlign: 'left', background: elimSel.has(e.id) ? 'var(--warn-bg, #fdecea)' : 'var(--surface-2)', border: `1px solid ${elimSel.has(e.id) ? 'var(--warn, #d0504a)' : 'var(--border)'}`, borderRadius: 10, cursor: 'pointer', padding: '10px 12px', width: '100%', fontFamily: SANS }}>
-              <span style={{ width: 15, height: 15, borderRadius: 4, border: `1px solid ${elimSel.has(e.id) ? 'var(--warn, #d0504a)' : 'var(--border-strong)'}`, background: elimSel.has(e.id) ? 'var(--warn, #d0504a)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 1 }}>{elimSel.has(e.id) ? '✓' : ''}</span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--ink)', textDecoration: elimSel.has(e.id) ? 'line-through' : 'none' }}>{e.titulo || e.id}</span>
-                {e.motivo && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)' }}>{e.motivo}</span>}
-              </span>
-            </button>
-          ))}
-        </div>
+        <>
+          <SobreQue sobre={dynQs[cur.i]?.sobre} />
+          <PreguntaBody q={dynQs[cur.i]} value={dynResp[cur.i] || ''} onChange={(v) => setDynResp((r) => ({ ...r, [cur.i]: v }))} />
+        </>
       ) : (
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>{nT} tarea{nT === 1 ? '' : 's'}{enProy}{prop.eliminar.length && elimSel.size ? ` · ${elimSel.size} baja${elimSel.size === 1 ? '' : 's'}` : ''}.</div>
+          <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>{nT} tarea{nT === 1 ? '' : 's'}{enProy}.</div>
           <button onClick={() => enviar('descartar')} disabled={busy} style={{ marginTop: 14, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 12.5, cursor: busy ? 'default' : 'pointer', textDecoration: 'underline', fontFamily: SANS }}>o descartar este borrador</button>
         </div>
       )}

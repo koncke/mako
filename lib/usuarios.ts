@@ -45,6 +45,38 @@ export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | nu
 }
 
 /**
+ * El usuario que se llama así, cuando NO tenemos su email.
+ *
+ * Hace falta porque media agenda son Meets improvisados: sin evento de calendario,
+ * Fathom no devuelve invitados y lo único que queda es el nombre con el que habla en
+ * la transcripción ("Mauricio"). Sin esto, las 30 tareas que MaKo le atribuyó a
+ * Mauricio no se le podían mandar a Mauricio — el botón directamente no aparecía.
+ *
+ * REGLA DURA: solo si el match es ÚNICO. Con dos "Martín" en la base se devuelve null
+ * y el que llama pregunta o se calla: mandarle el trabajo de uno al tablero de otro es
+ * peor que no mandarlo. Compara el nombre completo y también el primer nombre, sin
+ * acentos ni mayúsculas.
+ */
+export async function buscarUsuarioPorNombre(nombre: string): Promise<Usuario | null> {
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+  const n = norm(nombre);
+  if (n.length < 3) return null;
+  const { data, error } = await getSupabaseServer().from('usuarios').select(COLS);
+  if (error) throw new Error(`usuarios: ${error.message}`);
+  const todos = (data ?? []) as Usuario[];
+  const exactos = todos.filter((u) => norm(u.nombre ?? '') === n);
+  if (exactos.length === 1) return exactos[0];
+  if (exactos.length > 1) return null;
+  // Por el PRIMER nombre: la transcripción dice "Mauricio", la cuenta "Mauricio Bustos
+  // Eguia". Solo vale si hay exactamente uno que empiece así.
+  const porPila = todos.filter((u) => {
+    const un = norm(u.nombre ?? '');
+    return !!un && (un === n || un.startsWith(`${n} `));
+  });
+  return porPila.length === 1 ? porPila[0] : null;
+}
+
+/**
  * Teléfono del perfil de un usuario (el jsonb `perfil`, mig 0056). Se usa para
  * mandarle por WhatsApp las tareas que asumió en una reunión. '' si no lo cargó.
  */

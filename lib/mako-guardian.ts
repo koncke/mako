@@ -700,13 +700,34 @@ export async function describirProyectosNuevos(
   return { proyectos, usage };
 }
 
-/** Puntúa SOLO las tareas nuevas contra el plan existente (sin re-puntuar ni curvar el resto). */
-export async function puntuarNuevas(nuevas: GuardTaskIn[], existentes: Array<{ titulo: string; score: number; deadline?: string }>, contexto = '', usoMotivo?: string): Promise<{ tareas: GuardScore[]; usage?: UsageInfo }> {
-  if (!nuevas.length) return { tareas: [] };
+/**
+ * Cuánta SALIDA necesita el Perro para puntuar N tareas. Cada una devuelve id, impacto,
+ * esfuerzo, score, razón (1-2 frases), deadline, su razón y haceloEn: ~130 tokens bien
+ * medidos, y el modelo se estira cuando la tarea trae contexto largo.
+ *
+ * ⚠️ Esto NO es una constante por gusto. Con `maxTokens: 3000` fijos, un lote de 20
+ * tareas cortaba el JSON a la mitad: `parseJsonObject` fallaba, `extraer` devolvía [],
+ * la cascada reintentaba con el MISMO techo y fallaba igual — y las 20 quedaban con el
+ * score que traían por defecto (62), sin razón y sin fecha, EN SILENCIO. Pasó de
+ * verdad el 5/8 con las 20 tareas del documento de rediseño.
+ */
+const topeSalidaPerro = (n: number): number => Math.min(16000, 1500 + n * 320);
+
+/**
+ * Puntúa SOLO las tareas nuevas contra el plan existente (sin re-puntuar ni curvar el
+ * resto). Devuelve también `faltantes`: las que el modelo NO puntuó. Que ese número no
+ * sea cero es un FALLO — quien llama tiene que poder decirlo en voz alta en vez de
+ * dejar tarjetas con un puntaje inventado.
+ */
+export async function puntuarNuevas(nuevas: GuardTaskIn[], existentes: Array<{ titulo: string; score: number; deadline?: string }>, contexto = '', usoMotivo?: string): Promise<{ tareas: GuardScore[]; faltantes: string[]; usage?: UsageInfo }> {
+  if (!nuevas.length) return { tareas: [], faltantes: [] };
   // Referencia: score | título de las abiertas, de mayor a menor, tope 120 (alcanza para
   // que el modelo entienda la distribución sin reventar el prompt).
   const ref = existentes.slice().sort((a, b) => b.score - a.score).slice(0, 120).map((e) => `[${e.score}] ${e.titulo}`).join('\n');
-  const nuevasStr = JSON.stringify(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle, proyecto: n.proyecto })));
+  // El detalle ENTRA recortado a 1500: el Perro estima impacto y esfuerzo, no necesita
+  // las 6000 que puede tener la tarjeta, y 20 detalles completos hacen un prompt que
+  // paga caro sin decidir mejor. El texto largo entero lo usa el checklist-coach.
+  const nuevasStr = JSON.stringify(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: (n.detalle ?? '').slice(0, 1500), proyecto: n.proyecto })));
   const sys = await brandSystem(await renderPrompt('guardian.nuevas.system', GUARDIAN_NUEVAS_SYSTEM_TEMPLATE, { jsonShape: GUARDIAN_NUEVAS_JSON_SHAPE }));
   const user = await renderPrompt('guardian.nuevas.user', GUARDIAN_NUEVAS_USER_TEMPLATE, {
     hoy: new Date().toISOString().slice(0, 10),
@@ -717,14 +738,25 @@ export async function puntuarNuevas(nuevas: GuardTaskIn[], existentes: Array<{ t
   });
   let usage: UsageInfo | undefined;
   const ids = new Set(nuevas.map((n) => n.id));
+  const maxTokens = topeSalidaPerro(nuevas.length);
   const extraer = (r: string): GuardScore[] => { try { return toScores(parseJsonObject(r).tareas, 1, 100).filter((s) => ids.has(s.id)); } catch { return []; } };
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: usoMotivo || 'Priorización de tareas nuevas', onUsage: (u) => { usage = u; } });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens, feature: 'mako-guardian', motivo: usoMotivo || 'Priorización de tareas nuevas', onUsage: (u) => { usage = u; } });
   let tareas = extraer(raw);
-  if (!tareas.length) {
+  // Reintenta si NO puntuó nada o si puntuó a medias (le faltan más de la cuarta parte):
+  // un JSON cortado a la mitad devuelve algunas tareas, y quedarse con eso deja al resto
+  // del lote con el score de fábrica sin que nadie se entere.
+  if (tareas.length < Math.ceil(nuevas.length * 0.75)) {
+    console.warn(`[mako-guardian] puntuarNuevas: ${tareas.length}/${nuevas.length} — reintento con la cascada barata`);
     // Gemini no devolvió scores usables → rotamos a otra IA barata (Groq → OpenAI), NUNCA
     // Claude. Si todas fallan, quedan con el score inicial (mejor eso que gastar Claude).
-    const raw2 = await chatCheapCascade({ system: sys, user, maxTokens: 3000, feature: 'mako-guardian', motivo: usoMotivo || 'Priorización de tareas nuevas' });
-    tareas = extraer(raw2);
+    const raw2 = await chatCheapCascade({ system: sys, user, maxTokens, feature: 'mako-guardian', motivo: usoMotivo || 'Priorización de tareas nuevas' });
+    const t2 = extraer(raw2);
+    // Se QUEDA con la mejor de las dos pasadas, no con la última: si el reintento salió
+    // peor, pisar lo que ya había sería perder scores buenos.
+    if (t2.length > tareas.length) tareas = t2;
   }
-  return { tareas, usage };
+  const puntuadas = new Set(tareas.map((t) => t.id));
+  const faltantes = [...ids].filter((id) => !puntuadas.has(id));
+  if (faltantes.length) console.error(`[mako-guardian] puntuarNuevas: quedaron SIN puntuar ${faltantes.length}/${nuevas.length} (${faltantes.slice(0, 5).join(', ')})`);
+  return { tareas, faltantes, usage };
 }

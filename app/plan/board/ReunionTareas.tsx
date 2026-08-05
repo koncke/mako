@@ -272,6 +272,11 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
     return Object.values(m2).find((d) => normNom(d.nombre) === n || normNom(d.nombre).split(/\s+/)[0] === n.split(/\s+/)[0]);
   };
   const [destsListos, setDestsListos] = useState(false);
+  // POR QUÉ no se puede. El server ya redacta el motivo («No tengo los participantes de
+  // esta reunión…») y acá se tiraba: el botón de mandar simplemente no se dibujaba y no
+  // había ninguna explicación en pantalla. Un botón que falta sin decir nada es peor que
+  // un botón deshabilitado con su motivo.
+  const [destErr, setDestErr] = useState<Record<number, string>>({});
   useEffect(() => {
     if (!ridsConOtros) return;
     const rids = ridsConOtros.split(',').map(Number);
@@ -279,8 +284,13 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
     void Promise.all(rids.map(async (rid) => {
       const j = await apiReunion({ action: 'destinatarios', recordingId: rid });
       const arr = (j.ok && Array.isArray(j.destinatarios) ? j.destinatarios : []) as Destinatario[];
-      return [rid, Object.fromEntries(arr.map((d) => [d.email, d]))] as const;
-    })).then((pares) => { if (vivo) { setDests(Object.fromEntries(pares)); setDestsListos(true); } });
+      return [rid, Object.fromEntries(arr.map((d) => [d.email, d])), j.ok ? '' : (j.error || 'No pude resolver a quién mandárselas.')] as const;
+    })).then((tri) => {
+      if (!vivo) return;
+      setDests(Object.fromEntries(tri.map(([rid, m]) => [rid, m])));
+      setDestErr(Object.fromEntries(tri.map(([rid, , e]) => [rid, e]).filter(([, e]) => e)));
+      setDestsListos(true);
+    });
     return () => { vivo = false; };
   }, [ridsConOtros]);
 
@@ -390,6 +400,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
           nombre={activo.nombre}
           dest={destDe(activo)}
           cargandoDest={!destsListos && !!activo.r.recordingId}
+          motivoSinDest={destsListos ? (destErr[activo.r.recordingId ?? 0] || '') : ''}
           items={activo.items}
           labels={labels}
           reunion={activo.r}
@@ -523,8 +534,10 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
 }
 
 /** Tab de una persona: sus tareas (solo lectura) + qué hacer con ellas. */
-function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFila, personas }: {
+function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels, reunion, onFila, personas }: {
   nombre: string; dest?: Destinatario; cargandoDest: boolean;
+  /** por qué NO se le puede mandar nada (lo redacta el server). '' = se puede. */
+  motivoSinDest?: string;
   items: Array<{ f: FilaTarea; i: number }>; labels: Label[]; reunion: ReunionRefUI;
   onFila: (i: number, patch: Partial<FilaTarea>) => void;
   personas: PersonaRef[];
@@ -681,6 +694,14 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
           ✉ Enviar
         </button>
         {cargandoDest && <span style={{ fontSize: 12, color: 'var(--faint)', alignSelf: 'center' }}>Buscando su cuenta…</span>}
+        {/* SIN destinatario: se DICE por qué. Antes el botón «Cargar en el plan de X»
+            simplemente no aparecía y no había forma de saber si era porque la persona
+            no tiene cuenta, porque la reunión no trajo invitados o porque falló algo. */}
+        {!cargandoDest && !dest && (
+          <span style={{ fontSize: 12, color: 'var(--dim)', alignSelf: 'center', lineHeight: 1.45 }}>
+            {motivoSinDest || `No encontré la cuenta de ${nombre.split(' ')[0]} en MaKo: puedo mandarle las tareas, pero no dejárselas en su plan.`}
+          </span>
+        )}
         {dest?.puedeCargarPlan && (
           <button type="button" onClick={() => void cargarEnSuPlan()} disabled={cargando || !!linkPlan}
             title={dest.esVos ? 'Te las dejo como borrador en TU plan para que las confirmes' : 'Le dejo estas tareas en su plan para que las confirme'}

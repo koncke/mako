@@ -435,7 +435,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
 
     // 3 llamadas al Perro en paralelo (score tareas · checklists · proyectos). Gemini gratis.
     const [scoreRes, checklistRes, proyRes] = await Promise.all([
-      nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string }[] }),
+      nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string }[], faltantes: [] as string[] }),
       nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), contexto, 'Descripción + checklists de tareas nuevas') : Promise.resolve({} as Record<string, { detalle: string; items: string[] }>),
       proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, brief, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
     ]);
@@ -499,7 +499,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       db.from('plan_proyectos').update({ score: p.score, score_razon: p.scoreRazon || null, impacto: p.impacto ?? null, esfuerzo: p.esfuerzo ?? null, emoji: p.emoji, detalle: p.detalle, updated_at: new Date().toISOString() }).eq('id', p.id).then(() => undefined),
     ));
 
-    return { tareas: cuenta, proyectos: proyectosPatch.length, patches, proyectosPatch };
+    return { tareas: cuenta, proyectos: proyectosPatch.length, patches, proyectosPatch, sinPuntuar: scoreRes.faltantes.length };
   });
 }
 

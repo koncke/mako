@@ -97,7 +97,7 @@ export function ExportarModal({ tasks, labels, titulo, onClose }: {
       </div>
     );
     if (actual === 'proyectos') return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: 340, overflowY: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <Opcion on={proys === null} titulo="Todos" sub={`los ${labels.length} proyectos`} onClick={() => setProys(null)} />
         {[...labels].sort((a, b) => b.score - a.score).map((l) => {
           const n = tasks.filter((t) => t.labels.includes(l.id) && t.progress < 100).length;
@@ -118,7 +118,7 @@ export function ExportarModal({ tasks, labels, titulo, onClose }: {
       </div>
     );
     if (actual === 'campos') return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: 340, overflowY: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {CAMPOS_EXTRA.map((c) => (
           <Opcion key={c.id} multi on={campos.includes(c.id)} titulo={c.label} sub={c.sub} onClick={() => setCampos((cs) => toggle(cs, c.id))} />
         ))}
