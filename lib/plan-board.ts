@@ -15,6 +15,7 @@ import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo } from '@/lib/plan-proyectos-catalogo';
+import { faseNegocioTexto } from '@/lib/fase-store';
 
 type Row = Record<string, unknown>;
 
@@ -330,6 +331,13 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
 export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] = [], contexto = ''): Promise<GuardResult | null> {
   return enPlan(async () => {
     if (!ids.length && !proyectoIds.length) return null;
+    // EL NORTE DEL NEGOCIO va SIEMPRE adelante del contexto. Sin esto el Perro puntúa
+    // (y ahora también fecha) mirando solo el resto del tablero, que es una referencia
+    // circular: ordena bien entre sí cosas que quizá no son de esta fase. El
+    // diagnóstico dice cuál es el cuello de hoy y qué lo destraba — es lo que distingue
+    // "importante" de "importante AHORA".
+    const norte = await faseNegocioTexto().catch(() => '');
+    const brief = [norte, contexto.trim()].filter(Boolean).join('\n\n');
     const db = await getTenantDb();
     const idSet = new Set(ids);
     const projSet = new Set(proyectoIds);
@@ -361,9 +369,9 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
 
     // 3 llamadas al Perro en paralelo (score tareas · checklists · proyectos). Gemini gratis.
     const [scoreRes, checklistRes, proyRes] = await Promise.all([
-      nuevas.length ? puntuarNuevas(nuevas, existentesT, contexto, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string }[] }),
+      nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string }[] }),
       nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), contexto, 'Descripción + checklists de tareas nuevas') : Promise.resolve({} as Record<string, { detalle: string; items: string[] }>),
-      proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, contexto, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
+      proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, brief, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
     ]);
 
     const cuenta: Record<Prio, number> = { alta: 0, media: 0, baja: 0, futuro: 0 };
