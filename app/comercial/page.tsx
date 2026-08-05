@@ -19,6 +19,7 @@ import {
   getResumenComercialMaduras,
   getTramosSCL,
   getRevenuePeriod,
+  getMrrActivo,
   getCACAcumulado,
   getFunnelMadurasLeads,
   getJ1Leads,
@@ -32,6 +33,7 @@ import {
   type ResumenComercialMaduras,
   type TramosSCL,
   type RevenuePeriod,
+  type MrrResumen,
   type CACAcumulado,
   type FunnelMadurasLeads,
   type FunnelLeadItem,
@@ -198,10 +200,11 @@ export default async function ComercialPage({
   let j1Leads: FunnelLeadItem[] = [];
   let sclLeads: SCLLeadItem[] = [];
   let revenueMensual: RevenueMensualPunto[] = [];
+  let mrr: MrrResumen = { mrr: 0, activas: 0 };
   let errorMsg: string | null = null;
 
   try {
-    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, j1Leads, sclLeads, revenueMensual] = await Promise.all([
+    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, j1Leads, sclLeads, revenueMensual, mrr] = await Promise.all([
       listCohortesSemanales(8),
       listCohortesMensuales(6),
       getSCL(),
@@ -217,6 +220,7 @@ export default async function ComercialPage({
       getJ1Leads(diasAntes(hoyReal, 370)),
       getSCLLeads(),
       getRevenueMensual(hoyReal, 18),
+      getMrrActivo(hoyReal),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -289,7 +293,7 @@ export default async function ComercialPage({
         <ErrorCard message={errorMsg} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-          {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} breakdowns={breakdowns} outSub={outSub} />}
+          {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} breakdowns={breakdowns} outSub={outSub} mrr={mrr} />}
 
           {revenueMensual.length > 0 && (
             <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
@@ -353,11 +357,13 @@ function RevenueSection({
   outstanding,
   breakdowns,
   outSub,
+  mrr,
 }: {
   revenue: RevenuePeriod;
   outstanding: { items: OutstandingLead[]; total: number; cuotas: RevItem[] };
   breakdowns: RevenueBreakdowns;
   outSub: string;
+  mrr: MrrResumen;
 }) {
   const cash = revenue.cash_collected_usd;
   // Outstanding del período: mismo número, desglose y tabla, todos de
@@ -400,6 +406,19 @@ function RevenueSection({
           { key: 'out', label: 'Outstanding', value: fmtUSD(out), color: 'var(--bad)', sub: outSub, fechaLabel: 'vence', items: outstanding.cuotas },
         ] satisfies RevCard[]}
       />
+
+      {/* MRR — ingreso recurrente de suscripciones activas (#363 F3), aparte del
+          high-ticket único. Solo se muestra si hay al menos una suscripción. */}
+      {mrr.activas > 0 && (
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 16px' }}>
+          <span style={{ fontSize: 22 }} aria-hidden>🔁</span>
+          <div>
+            <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>MRR · ingreso mensual recurrente</div>
+            <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(mrr.mrr)}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--dim)' }}> /mes</span></div>
+          </div>
+          <div style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--dim)' }}>{mrr.activas} suscripción{mrr.activas === 1 ? '' : 'es'} activa{mrr.activas === 1 ? '' : 's'}</div>
+        </div>
+      )}
 
       {/* A quién cobrarle */}
       {outstanding.items.length > 0 && (

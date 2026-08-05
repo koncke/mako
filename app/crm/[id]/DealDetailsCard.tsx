@@ -253,6 +253,9 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
   const setCuota = (i: number, patch: Partial<DraftCuota>) => setD((prev) => { if (!prev) return prev; const cuotas = prev.cuotas.slice(); cuotas[i] = { ...cuotas[i], ...patch }; return { ...prev, cuotas, cuotasDirty: true }; });
   const quitarCuota = (i: number) => setD((prev) => (prev ? { ...prev, cuotas: prev.cuotas.filter((_, j) => j !== i), cuotasDirty: true } : prev));
   const agregarCuota = () => setD((prev) => { if (!prev) return prev; const ultima = prev.cuotas[prev.cuotas.length - 1] ?? null; const nueva: DraftCuota = { key: nextKey.current--, id: null, numero: null, monto: '', fecha: unMesDespues(ultima?.fecha || null), pagado: false, fecha_pago: null }; return { ...prev, cuotas: [...prev.cuotas, nueva], cuotasDirty: true }; });
+  // #363 F2: mensualidad de una suscripción — igual que agregar cuota pero con el
+  // monto mensual precargado (para las indefinidas que se cobran mes a mes).
+  const agregarMensualidad = () => setD((prev) => { if (!prev) return prev; const ultima = prev.cuotas[prev.cuotas.length - 1] ?? null; const nueva: DraftCuota = { key: nextKey.current--, id: null, numero: null, monto: lead.suscripcion_monto_usd != null ? String(lead.suscripcion_monto_usd) : '', fecha: unMesDespues(ultima?.fecha || null), pagado: false, fecha_pago: null }; return { ...prev, cuotas: [...prev.cuotas, nueva], cuotasDirty: true }; });
 
   // ── Totales / semáforo ──
   const cuotasVista = d ? d.cuotas.map((c) => ({ monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado })) : pagos.map((p) => ({ monto: Number(p.monto_usd), fecha: p.fecha_esperada, pagado: p.pagado }));
@@ -507,7 +510,12 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: 10 }}><button type="button" style={dashedBtn} onClick={agregarCuota}>+ Agregar cuota</button></div>
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {lead.venta_tipo === 'suscripcion' && (
+                  <button type="button" style={dashedBtn} onClick={agregarMensualidad}>+ Registrar mensualidad cobrada ({fmtUSD(lead.suscripcion_monto_usd ?? 0)})</button>
+                )}
+                <button type="button" style={dashedBtn} onClick={agregarCuota}>+ Agregar cuota</button>
+              </div>
               {montoCierre > 0 && (
                 <div style={{ ...bannerStyle(cuadra ? 'ok' : 'err'), marginTop: 12, fontWeight: cuadra ? 600 : 500 }}>
                   {cuadra ? `Cuadra: las cuotas suman ${fmtUSD(sumaTodas)} y coinciden con el cierre de ${fmtUSD(montoCierre)}.` : `Las cuotas suman ${fmtUSD(sumaTodas)} y ${diff > 0 ? 'exceden' : 'no alcanzan'} el cierre de ${fmtUSD(montoCierre)} por ${fmtUSD(Math.abs(diff))}. Ajustá los montos.`}

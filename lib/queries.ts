@@ -729,6 +729,43 @@ export type RevenuePeriod = {
   roas_sold: number | null;      // Sold USD ÷ Spend USD — ratio válido
 };
 
+// ── MRR — ingreso recurrente de suscripciones activas (#363 F3) ──────────────
+// Se muestra APARTE del high-ticket único (los deals de suscripción NO tocan
+// monto_cierre_usd, así que NO están en el "sold"/"cash" de arriba). Activa =
+// ganado + venta_tipo='suscripcion' + (indefinida O aún dentro del plazo fijo).
+export type MrrResumen = { mrr: number; activas: number };
+
+/** yyyy-mm-dd + n meses (conserva el día lo mejor posible). Para el fin de plazo. */
+function isoMasMeses(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, (m - 1) + n, d));
+  return dt.toISOString().slice(0, 10);
+}
+
+export const getMrrActivo = cachedRead('getMrrActivo', _getMrrActivo, { tags: [TAG.leads], revalidate: TTL.user });
+async function _getMrrActivo(hoy: string = new Date().toISOString().slice(0, 10)): Promise<MrrResumen> {
+  const supabase = (await getTenantDb());
+  const { data, error } = await supabase
+    .from('leads')
+    .select('suscripcion_monto_usd, suscripcion_meses, fecha_cierre')
+    .eq('venta_tipo', 'suscripcion')
+    .eq('estado_lead', 'ganado');
+  if (error) throw new Error(`getMrrActivo falló: ${error.message}`);
+  let mrr = 0;
+  let activas = 0;
+  for (const r of (data ?? []) as Array<{ suscripcion_monto_usd: number | null; suscripcion_meses: number | null; fecha_cierre: string | null }>) {
+    const monto = r.suscripcion_monto_usd ?? 0;
+    if (monto <= 0) continue;
+    // Plazo fijo con fecha de cierre → activa mientras el fin del plazo sea >= hoy.
+    // Indefinida (o sin fecha de cierre) → activa.
+    const activa = r.suscripcion_meses && r.suscripcion_meses > 0 && r.fecha_cierre
+      ? isoMasMeses(r.fecha_cierre, r.suscripcion_meses) >= hoy
+      : true;
+    if (activa) { mrr += monto; activas++; }
+  }
+  return { mrr, activas };
+}
+
 // Cacheado por-request: se invoca 2x con el mismo rango en /comercial y /marketing.
 export const getRevenuePeriod = cachedRead('getRevenuePeriod', _getRevenuePeriod, { tags: [TAG.pagos, TAG.leads, TAG.marketing], revalidate: TTL.user });
 async function _getRevenuePeriod(
