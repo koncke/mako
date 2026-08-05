@@ -52,18 +52,21 @@ export async function POST(request: NextRequest) {
   //    dueño (evita matchear la grabación de un cliente contra leads ajenos).
   const hostEmail = body.recorded_by?.email ?? null;
   const ws = await wsPorIdentificador('fathom', hostEmail);
-  if (ws == null) {
-    console.warn(`[webhook:fathom] sin workspace para recorded_by=${hostEmail ?? '—'} — ignorado`);
-    return Response.json({ ok: true, ignored: 'sin workspace' });
-  }
 
   // 3) Verificar la firma con el secreto DE ESE workspace. Si el workspace no tiene
   //    el suyo cargado, se cae al de plataforma (compatibilidad: es lo que hacía
   //    antes para todos). Ese fallback es el que hay que ir vaciando: mientras se
   //    use, dos inquilinos comparten secreto.
-  const secretWs = await credWs('FATHOM_WEBHOOK_SECRET', ws);
+  //
+  //    Sin workspace se verifica igual, contra el de plataforma, y RECIÉN DESPUÉS se
+  //    ignora. Parece redundante y no lo es: si acá se cortara antes de la firma, el
+  //    código de respuesta delataría qué emails están dados de alta (200 = no está,
+  //    401 = sí está) y cualquiera podría enumerar la cartera de clientes mandando
+  //    payloads sin firmar. Verificando siempre, un request sin firma válida recibe
+  //    401 sin importar a quién nombre.
+  const secretWs = ws == null ? null : await credWs('FATHOM_WEBHOOK_SECRET', ws);
   const secret = secretWs ?? (await envCred('FATHOM_WEBHOOK_SECRET'));
-  if (!secretWs) {
+  if (ws != null && !secretWs) {
     console.warn(`[webhook:fathom] ws ${ws} sin FATHOM_WEBHOOK_SECRET propio — usando el de plataforma`);
   }
   try {
@@ -78,10 +81,17 @@ export async function POST(request: NextRequest) {
     );
   } catch (err) {
     if (err instanceof FathomSignatureError) {
-      console.warn(`[webhook:fathom] firma rechazada (ws ${ws}): ${err.message}`);
+      console.warn(`[webhook:fathom] firma rechazada (ws ${ws ?? '—'}): ${err.message}`);
       return Response.json({ ok: false, error: 'signature', message: err.message }, { status: 401 });
     }
     throw err;
+  }
+
+  // Firma válida pero sin ruteo: 200 para que Fathom no reintente eternamente algo
+  // que nunca vamos a poder atribuir. Fail-CLOSED igual — no se toca un solo dato.
+  if (ws == null) {
+    console.warn(`[webhook:fathom] sin workspace para recorded_by=${hostEmail ?? '—'} — ignorado`);
+    return Response.json({ ok: true, ignored: 'sin workspace' });
   }
 
   // 3) Matchear lead + aplicar — TODO confinado al workspace resuelto.

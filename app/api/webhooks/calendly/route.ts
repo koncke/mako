@@ -99,31 +99,39 @@ export async function POST(request: NextRequest) {
     const r = await wsPorIdentificador('calendly', c);
     if (r != null) { ws = r; break; }
   }
-  if (ws == null) {
-    console.warn(`[webhook:calendly] sin workspace para event_type=${candidatosWs[0] ?? '—'} evento=${body.event} — ignorado`);
-    return Response.json({ ok: true, event: body.event, ignored: 'sin workspace' });
-  }
 
   // 3) Verificar la firma con la key DE ESE workspace. Sin la suya cargada se cae a
   //    la de plataforma (compatibilidad con lo que hacía antes para todos), pero
   //    mientras se use ese fallback dos inquilinos comparten secreto y la vía de
   //    forja sigue abierta para ellos. Vaciar el fallback = cerrarla del todo.
-  const keyWs = await credWs('CALENDLY_WEBHOOK_SIGNING_KEY', ws);
+  //
+  //    Sin workspace se verifica igual, contra la de plataforma, y RECIÉN DESPUÉS se
+  //    ignora: si acá se cortara antes de la firma, el código de respuesta delataría
+  //    qué event types están dados de alta (200 = no, 401 = sí) y se podría enumerar
+  //    la cartera de clientes con payloads sin firmar.
+  const keyWs = ws == null ? null : await credWs('CALENDLY_WEBHOOK_SIGNING_KEY', ws);
   const signingKey = keyWs ?? (await envCred('CALENDLY_WEBHOOK_SIGNING_KEY'));
-  if (!keyWs) {
+  if (ws != null && !keyWs) {
     console.warn(`[webhook:calendly] ws ${ws} sin CALENDLY_WEBHOOK_SIGNING_KEY propia — usando la de plataforma`);
   }
   try {
     verifyCalendlySignature(rawBody, signatureHeader, signingKey ?? '');
   } catch (err) {
     if (err instanceof CalendlySignatureError) {
-      console.warn(`[webhook:calendly] firma rechazada (ws ${ws}): ${err.message}`);
+      console.warn(`[webhook:calendly] firma rechazada (ws ${ws ?? '—'}): ${err.message}`);
       return Response.json(
         { ok: false, error: 'signature', message: err.message },
         { status: 401 },
       );
     }
     throw err;
+  }
+
+  // Firma válida pero sin ruteo: 200 para que Calendly no reintente eternamente algo
+  // que nunca vamos a poder atribuir. Fail-CLOSED igual — no se toca un solo dato.
+  if (ws == null) {
+    console.warn(`[webhook:calendly] sin workspace para event_type=${candidatosWs[0] ?? '—'} evento=${body.event} — ignorado`);
+    return Response.json({ ok: true, event: body.event, ignored: 'sin workspace' });
   }
 
   // 4) Dispatch por tipo de evento — TODO confinado al workspace resuelto.
