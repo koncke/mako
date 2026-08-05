@@ -62,6 +62,25 @@ type TablaClon = {
    * destino ya sembró sus plantillas (nutricion_secuencias, por ejemplo).
    */
   dedupPor?: string;
+  /**
+   * Trae solo las filas donde esta columna es NULL. Existe por las secuencias
+   * ARCHIVADAS: viajaban igual, llegaban invisibles al destino (la lista las
+   * filtra), le ocupaban la `clave` —bloqueando el dedup de una copia futura—
+   * y su etapa volvía a contar como hueco. Ruido que nadie podía ver ni borrar.
+   */
+  soloNulo?: string;
+  /**
+   * Reescribe IDS DE FILAS que viven DENTRO de un jsonb. `campo` es la columna
+   * (un array de objetos), `clave` la propiedad con el id viejo y `desde` la
+   * tabla ya copiada de cuyo mapa viejo→nuevo se traduce.
+   *
+   * Sin esto, un paso de nota de voz llegaba apuntando al `audio_id` del dueño:
+   * como vive en un jsonb no hay FK que proteste, así que el insert entra limpio
+   * y la rotura es muda. En el mejor caso el motor falla («el audio del paso ya
+   * no existe») y reintenta para siempre; en el peor, ese id existe por
+   * casualidad en el destino y sale el audio EQUIVOCADO con la voz del dueño.
+   */
+  remapJson?: { campo: string; clave: string; desde: string };
   /** Tablas que apuntan a esta por FK: se copian remapeando el id nuevo. */
   hijos?: Array<{ tabla: string; fk: string; omitir?: string[]; limite?: number }>;
 };
@@ -98,6 +117,13 @@ type AmbitoDef = {
    * `credenciales`: un flag, su bloque en la copia y su rama en el borrado.
    */
   perfil?: boolean;
+  /**
+   * Settings cuyo VALOR guarda ids de filas: se copian tal cual y después se
+   * traducen con el mapa viejo→nuevo de la tabla `desde`. Copiarlos sin
+   * traducir es peor que no copiarlos: el destino se pinta configurado y
+   * apunta a filas que no son suyas.
+   */
+  settingsRemap?: Array<{ key: string; desde: string }>;
   /** Se muestra bajo los botones cuando hay algo que aclarar. */
   nota?: string;
 };
@@ -157,16 +183,50 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
       'script_avatares', 'script_angles', 'mako.guion_angulos', 'mako.guion_estructuras',
     ],
   },
+  // Trae TODO el recorrido del Chat Agent, no solo el resultado: la idea es
+  // poder rehacer el onboarding entero en la cuenta de prueba, y para eso
+  // hacen falta la voz destilada Y su evidencia, los tres audios con su mapa
+  // por clave, el link del video, lo respondido en el ensayo y los objetivos
+  // que el dueño escribió a mano.
   setting: {
-    titulo: 'Secuencias de mensajes y voz',
+    titulo: 'Chat Agent completo',
     seccion: 'Chat Agent',
-    label: 'las secuencias de mensajes y la voz de Mau',
-    settings: ['mako.voz_guia'],
-    tablas: [
-      // Pausadas SIEMPRE: un workspace de prueba no arranca mandando solo.
-      { tabla: 'nutricion_secuencias', omitir: ['id'], forzar: { activa: false }, dedupPor: 'clave' },
-      { tabla: 'setting_audios', omitir: ['id'], limite: 40, ordenar: { col: 'created_at' } },
+    label: 'los audios, la voz y las secuencias de mensajes de Mau',
+    settings: [
+      // Voz: el resumen que se muestra Y de dónde salió, si no la pantalla de
+      // voz llega llena pero sin nada que se pueda editar ni entender.
+      'mako.voz_guia', 'mako.chat_agent.voz.evidencia', 'mako.chat_agent.voz.manual',
+      // Audios y ensayo.
+      'chat_agent.audios_clave', 'chat_agent.link_video', 'chat_agent.ensayo',
+      // Los objetivos que el dueño escribió con la opción «Otro».
+      'chat_agent.objetivos_custom',
     ],
+    // `chat_agent.audios_clave` guarda IDS de setting_audios: copiado tal cual
+    // apunta a las filas del dueño. Se traduce con el mapa de la copia.
+    settingsRemap: [{ key: 'chat_agent.audios_clave', desde: 'setting_audios' }],
+    tablas: [
+      // LOS AUDIOS VAN PRIMERO, y no es cosmético: de esta copia sale el mapa
+      // viejo→nuevo con el que después se reescriben los `audio_id` de los
+      // pasos y el setting de arriba. Al revés, no habría nada que traducir.
+      // Dedup por `media_path`: el path viaja verbatim, así que identifica al
+      // mismo audio en los dos workspaces. Sin él, cada «Completar» sumaba tres
+      // audios más y el mapa de claves apuntaba a la última tanda mientras las
+      // secuencias seguían en la primera.
+      { tabla: 'setting_audios', omitir: ['id'], limite: 40, ordenar: { col: 'created_at' }, dedupPor: 'media_path' },
+      // Pausadas SIEMPRE: un workspace de prueba no arranca mandando solo.
+      // Los PASOS viajan con la fila (son la columna jsonb `pasos`, no una
+      // tabla hija), así que la secuencia no llega vacía — lo único que hay que
+      // arreglarles de adentro es a qué audio apuntan.
+      {
+        tabla: 'nutricion_secuencias',
+        omitir: ['id'],
+        forzar: { activa: false },
+        dedupPor: 'clave',
+        soloNulo: 'archivada_at',
+        remapJson: { campo: 'pasos', clave: 'audio_id', desde: 'setting_audios' },
+      },
+    ],
+    nota: 'Los audios se escuchan desde el archivo del dueño. Si borras uno aquí, se borra para él: para probar, graba los tuyos.',
   },
   crm: {
     titulo: 'Leads del CRM',
@@ -415,7 +475,26 @@ function prepararFila(fila: Record<string, unknown>, t: TablaClon, destino: numb
   return out;
 }
 
-async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos: string[]): Promise<number> {
+/** Mapa de id viejo (del dueño) → id nuevo (del destino), por tabla copiada. */
+type Mapas = Record<string, Map<string, string | number>>;
+
+/**
+ * Reescribe los ids que viven dentro de un jsonb (`pasos[].audio_id`). Lo que
+ * no encuentra en el mapa se pone en null: un id del dueño que sobrevive es
+ * peor que un hueco, porque el destino cree que tiene un audio y manda otro.
+ */
+function remapearJson(fila: Record<string, unknown>, r: NonNullable<TablaClon['remapJson']>, mapa: Map<string, string | number> | undefined): void {
+  const arr = fila[r.campo];
+  if (!Array.isArray(arr)) return;
+  fila[r.campo] = arr.map((it) => {
+    if (!it || typeof it !== 'object') return it;
+    const o = it as Record<string, unknown>;
+    if (o[r.clave] == null) return o;
+    return { ...o, [r.clave]: mapa?.get(String(o[r.clave])) ?? null };
+  });
+}
+
+async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos: string[], mapas: Mapas): Promise<number> {
   const sb = getSupabaseServer();
 
   if (t.singleton) {
@@ -430,6 +509,7 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
   }
 
   let q = sb.from(t.tabla).select('*').eq('workspace_id', OWNER_WS);
+  if (t.soloNulo) q = q.is(t.soloNulo, null);
   if (t.ordenar) q = q.order(t.ordenar.col, { ascending: t.ordenar.asc ?? false });
   if (t.limite) q = q.limit(t.limite);
   const { data, error: eSel } = await q;
@@ -440,18 +520,49 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
   // Lo que el destino ya tiene con esa clave no se vuelve a traer: un UNIQUE por
   // workspace haría fallar el insert ENTERO, y con él todo el ámbito.
   if (t.dedupPor) {
-    const { data: yaHay } = await sb.from(t.tabla).select(t.dedupPor).eq('workspace_id', destino);
-    const existentes = new Set(((yaHay ?? []) as unknown as Array<Record<string, unknown>>).map((r) => String(r[t.dedupPor!])));
+    const { data: yaHay } = await sb.from(t.tabla).select(`id, ${t.dedupPor}`).eq('workspace_id', destino);
+    // Clave → id QUE YA ESTÁ en el destino. No alcanza con saber cuáles
+    // saltear: lo que apunta a esas filas (un audio_id, un setting) necesita
+    // su id igual. Sin esto, copiar dos veces dejaba las secuencias apuntando
+    // a la tanda vieja y el mapa de audios a la nueva.
+    const existentes = new Map<string, string | number>();
+    for (const r of ((yaHay ?? []) as unknown as Array<Record<string, unknown>>)) {
+      existentes.set(String(r[t.dedupPor!]), r.id as string | number);
+    }
+    const yaEstaban = origen.filter((f) => existentes.has(String(f[t.dedupPor!])));
+    const salteadas = yaEstaban.map((f) => String(f[t.dedupPor!]));
+    const mapaPrevio = (mapas[t.tabla] ??= new Map());
+    for (const f of yaEstaban) {
+      const id = existentes.get(String(f[t.dedupPor!]));
+      if (id != null && f.id != null) mapaPrevio.set(String(f.id), id);
+    }
     origen = origen.filter((f) => !existentes.has(String(f[t.dedupPor!])));
+    // Antes se salteaban en silencio y el resultado decía «copiado: N» como si
+    // nada. Justo las dos secuencias del onboarding tienen clave fija, así que
+    // una cuenta de prueba que ya lo hubiera corrido a medias descartaba
+    // exactamente las versiones de Mauricio que se querían replicar.
+    if (salteadas.length) {
+      avisos.push(`${t.tabla}: ${salteadas.length} ya existían en este cliente y no se pisaron (${salteadas.slice(0, 4).join(', ')}${salteadas.length > 4 ? '…' : ''}). Bórralas primero si quieres las de Mau.`);
+    }
     if (!origen.length) return 0;
   }
 
   const nuevas = origen.map((f, i) => prepararFila(f, t, destino, i));
+  if (t.remapJson) {
+    const mapa = mapas[t.remapJson.desde];
+    if (!mapa) avisos.push(`${t.tabla}: no había mapa de ${t.remapJson.desde}, los ${t.remapJson.clave} quedan vacíos.`);
+    for (const f of nuevas) remapearJson(f, t.remapJson, mapa);
+  }
   const { data: ins, error } = await sb.from(t.tabla).insert(nuevas).select('id');
   if (error) { avisos.push(`${t.tabla}: ${error.message}`); return 0; }
 
   const ids = ((ins ?? []) as Array<{ id: string | number }>).map((r) => r.id);
   (recibo.filas[t.tabla] ??= []).push(...ids);
+  // El insert devuelve los ids EN EL MISMO ORDEN en que se enviaron, así que el
+  // mapa viejo→nuevo sale de aparear ambas listas por posición. Queda guardado
+  // para las tablas y los settings que referencian estas filas.
+  const mapaPropio = (mapas[t.tabla] ??= new Map());
+  origen.forEach((f, i) => { if (ids[i] != null && f.id != null) mapaPropio.set(String(f.id), ids[i]); });
 
   // Los hijos se copian remapeando el FK al id nuevo. El insert de arriba
   // devuelve los ids EN EL MISMO ORDEN que se enviaron, así que el mapeo viejo→
@@ -495,6 +606,10 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
   const recibo = await leerRecibo(destino, ambito);
   const avisos: string[] = [];
   const detalle: Record<string, number> = {};
+  // Los ids que va generando cada tabla copiada, para que lo que apunte a esas
+  // filas —un jsonb, un setting— pueda traducirse en vez de quedar apuntando
+  // a las filas del dueño.
+  const mapas: Mapas = {};
   let copiado = 0;
 
   // ── Settings ──
@@ -525,10 +640,40 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
   // ── Tablas ──
   for (const t of def.tablas ?? []) {
     try {
-      const n = await copiarTabla(t, destino, recibo, avisos);
+      const n = await copiarTabla(t, destino, recibo, avisos, mapas);
       if (n) { detalle[t.tabla] = n; copiado += n; }
     } catch (e) {
       avisos.push(`${t.tabla}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // ── Settings que guardaban ids de filas ──
+  // Va después de las tablas a propósito: el mapa viejo→nuevo recién existe
+  // cuando las filas ya se insertaron. Se reescribe sobre lo ya copiado.
+  for (const r of def.settingsRemap ?? []) {
+    const mapa = mapas[r.desde];
+    if (!mapa?.size) continue;
+    try {
+      const { data } = await sb.from('app_settings').select('value')
+        .eq('workspace_id', destino).eq('key', r.key).maybeSingle();
+      const raw = (data as { value?: string } | null)?.value;
+      if (!raw) continue;
+      // La forma es {clave: idViejo}: se traduce el VALOR. Lo que no esté en el
+      // mapa se descarta — dejar el id del dueño haría que el destino se
+      // pintara configurado apuntando a una fila ajena.
+      const obj = JSON.parse(raw) as Record<string, unknown>;
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) continue;
+      const traducido: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        const nuevo = mapa.get(String(v));
+        if (nuevo != null) traducido[k] = nuevo;
+      }
+      await sb.from('app_settings').upsert(
+        { workspace_id: destino, key: r.key, value: JSON.stringify(traducido) },
+        { onConflict: 'workspace_id,key' },
+      );
+    } catch (e) {
+      avisos.push(`${r.key}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 

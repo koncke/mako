@@ -67,12 +67,23 @@ export async function crearAudio(input: { titulo: string; base64: string; mime?:
 }
 
 export async function borrarAudio(id: number): Promise<void> {
+  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
   const supabase = await getTenantDb();
   const { data } = await supabase.from('setting_audios').select('media_path').eq('id', id).maybeSingle();
   const path = (data as { media_path?: string } | null)?.media_path;
   const { error } = await supabase.from('setting_audios').delete().eq('id', id);
   if (error) throw new Error(`borrarAudio: ${error.message}`);
-  if (path) { try { await supabase.storage.from(MEDIA_BUCKET).remove([path]); } catch { /* huérfano tolerable */ } }
+  // El binario se borra SOLO si vive bajo el prefijo de este workspace.
+  //
+  // El scoping por workspace intercepta `.from()`, no `.storage`: cualquier path
+  // llega al service_role sin filtro. Y "Completar con los datos de Mau" copia la
+  // fila de un audio con su `media_path` apuntando al prefijo del DUEÑO. Sin esta
+  // guarda, borrar ese audio desde el cliente de prueba borraba el archivo real
+  // de Mauricio y le dejaba la fila viva apuntando a la nada. La fila copiada sí
+  // se borra; el archivo del dueño no se toca.
+  if (path && path.startsWith(`${ws}/`)) {
+    try { await supabase.storage.from(MEDIA_BUCKET).remove([path]); } catch { /* huérfano tolerable */ }
+  }
 }
 
 /** Un audio del workspace actual por id (o null si no existe/es de otro ws). */

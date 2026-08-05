@@ -22,7 +22,7 @@ import { Icon } from '@/app/_components/icons';
 import { Avatar } from '../whatsapp/_shared/Avatar';
 import { GrabadorAudioPaso, type AudioGrabado } from './GrabadorAudioPaso';
 import { AUDIOS_PASO } from '@/lib/audios-paso';
-import { escenariosDe, type Escenario } from '@/lib/chat-agent-escenarios';
+import { escenariosDe, type Escenario, type Desenlace } from '@/lib/chat-agent-escenarios';
 
 /**
  * Loader estándar: cualquier espera se muestra, nunca se deja la pantalla muda.
@@ -225,6 +225,25 @@ const btnDark: CSSProperties = { ...btn, border: 'none', background: 'var(--ink)
 const inp: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, outline: 'none' };
 const okBox: CSSProperties = { padding: '10px 13px', borderRadius: 10, border: '1px solid var(--good)', background: 'var(--good-bg)', color: 'var(--good)', fontSize: 13 };
 
+/**
+ * El veredicto del caso, con las MISMAS palabras del catálogo que leyó el
+ * modelo. 'abierto' es el caso raro: se acabaron los turnos y el modelo no
+ * dejó veredicto — decirle al dueño que salió mal sin saberlo sería inventar.
+ */
+/** Cómo se lee el resultado de un caso ya cerrado, para el title del punto. */
+const RESULTADO: Record<string, string> = {
+  positivo: 'terminó bien',
+  negativo: 'terminó mal',
+  abierto: 'terminó sin definirse',
+  sin: 'guardado',
+};
+
+function textoDesenlace(e: Escenario, d: Desenlace): string {
+  if (d === 'positivo') return `Terminó bien: el lead ${e.desenlace.positivo}.`;
+  if (d === 'negativo') return `Terminó mal: el lead ${e.desenlace.negativo}.`;
+  return 'La conversación se agotó sin definirse. Este caso termina aquí.';
+}
+
 export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () => void; tab?: 'setting' | 'whatsapp' | 'email' }) {
   const [def, setDef] = useState<Def | null>(null);
   const [estado, setEstado] = useState<Estado | null>(null);
@@ -297,8 +316,14 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [escIdx, setEscIdx] = useState(0);
   // Los casos ya cerrados, traídos del server. Sin esto, salirse del onboarding
   // borraba el ensayo entero y había que rehacerlo desde el primero.
-  const [guardado, setGuardado] = useState<Record<string, { respuestas: string[]; at: string }>>({});
+  const [guardado, setGuardado] = useState<Record<string, { respuestas: string[]; at: string; desenlace?: Desenlace | null }>>({});
   const [ensayoCargado, setEnsayoCargado] = useState(false);
+  /**
+   * Cómo terminó el caso que está en pantalla. Mientras es null la conversación
+   * sigue viva; en cuanto tiene valor, el lead ya no vuelve a escribir. Antes no
+   * existía y por eso el ensayo era un intercambio de objeciones sin final.
+   */
+  const [desenlace, setDesenlace] = useState<Desenlace | null>(null);
   /** El caso recién cerrado, para confirmarlo arriba de la slide siguiente. */
   const [cerrado, setCerrado] = useState<{ titulo: string; n: number } | null>(null);
   const [cerrando, setCerrando] = useState(false);
@@ -669,6 +694,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     if (semilla) {
       abre.push({ id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: semilla, fecha: new Date().toISOString() });
     }
+    setDesenlace(null);
     setMsgs(abre);
   }, []);
 
@@ -684,27 +710,49 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     abrirEscenario(esc, a?.url ?? null);
   }, [pasoKey, esc, msgs.length, abrirEscenario, audioDe, audios]);
 
+  /**
+   * Si la conversación concluyó, deja el veredicto DENTRO del hilo y apaga el
+   * turno del lead. Se queda en pantalla: es lo último que el dueño lee del
+   * caso, y no el flash de 750 ms de la línea del cierre manual.
+   */
+  function conFin(hilo: HiloMsg[], d: unknown): HiloMsg[] {
+    if (!esc || (d !== 'positivo' && d !== 'negativo' && d !== 'abierto')) return hilo;
+    setDesenlace(d);
+    return [...hilo, {
+      id: `fin-${++seq.current}`, fromMe: false, tipo: 'sistema',
+      tono: d === 'positivo' ? 'ok' : d === 'negativo' ? 'bad' : null,
+      texto: textoDesenlace(esc, d),
+      fecha: new Date().toISOString(),
+    }];
+  }
+
   async function responderComoNegocio(texto: string): Promise<boolean> {
     if (!esc) return true;
     const conmigo: HiloMsg[] = [...msgs, { id: `y-${++seq.current}`, fromMe: true, texto, fecha: new Date().toISOString() }];
     setMsgs(conmigo);
     setTyping({ lado: 'left' });
     try {
-      const historial = conmigo
+      // `slice(1)` saca la burbuja de apertura (el audio del dueño). El server
+      // cuenta el TURNO por los mensajes del negocio, y sin esto la burbuja del
+      // audio contaba como uno más cada vez que no había archivo grabado y caía
+      // al texto de respaldo: el guion del lead arrancaba adelantado.
+      const historial = conmigo.slice(1)
         .map((m) => ({ de: m.fromMe ? 'negocio' : 'lead', texto: (m.texto ?? '').trim() }))
         .filter((m) => m.texto);
       const j = await (await fetch('/api/chat-agent/onboarding/ensayo', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ escenario: esc.id, historial }),
       })).json();
-      if (j.ok && j.mensaje) {
-        setMsgs([...conmigo, { id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]);
-        setSinRespuesta(false);
-      } else if (j.ok && j.sinRespuesta) {
-        // No hay burbuja: el lead no contestó. Es la respuesta más común de
-        // todas y practicarla es justo el punto del escenario de silencio.
-        setSinRespuesta(true);
-      } else if (!j.ok && j.error) {
+      if (j.ok) {
+        // Sin burbuja = el lead no contestó. Es la respuesta más común de todas
+        // y practicarla es justo el punto del escenario de silencio.
+        const hilo = j.mensaje
+          ? [...conmigo, { id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]
+          : conmigo;
+        setMsgs(conFin(hilo, j.desenlace));
+        // Con veredicto, el aviso de «no contestó» sobra: ya lo dice el cierre.
+        setSinRespuesta(!!j.sinRespuesta && !j.desenlace);
+      } else if (j.error) {
         setErr(j.error);
       }
       return true;
@@ -730,7 +778,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       const buf = new Uint8Array(await blob.arrayBuffer());
       let bin = '';
       for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
-      const historial = conmigo
+      // `slice(1)` saca la burbuja de apertura (el audio del dueño). El server
+      // cuenta el TURNO por los mensajes del negocio, y sin esto la burbuja del
+      // audio contaba como uno más cada vez que no había archivo grabado y caía
+      // al texto de respaldo: el guion del lead arrancaba adelantado.
+      const historial = conmigo.slice(1)
         .map((m) => ({ de: m.fromMe ? 'negocio' : 'lead', texto: (m.texto ?? '').trim() }))
         .filter((m) => m.texto);
       const j = await (await fetch('/api/chat-agent/onboarding/ensayo', {
@@ -741,10 +793,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       // La transcripción queda pegada a la burbuja: sin eso, al releer el ensayo
       // no se sabe qué se dijo, y es lo que el modelo efectivamente leyó.
       const conTexto = conmigo.map((m) => (m.id === propio.id ? { ...m, texto: j.transcripta ?? null } : m));
-      setMsgs(j.mensaje
+      const hilo = j.mensaje
         ? [...conTexto, { id: `c-${++seq.current}`, fromMe: false, autor: 'Lead', texto: j.mensaje, fecha: new Date().toISOString() }]
-        : conTexto);
-      setSinRespuesta(!!j.sinRespuesta);
+        : conTexto;
+      setMsgs(conFin(hilo, j.desenlace));
+      setSinRespuesta(!!j.sinRespuesta && !j.desenlace);
       return true;
     } catch {
       setErr('Sin conexión — vuelve a intentarlo.');
@@ -775,26 +828,32 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     // línea de sistema, como la que WhatsApp usa para lo que pasó en el chat.
     // Un cartel fuera del hilo se lee como parte de la app; esto se lee como
     // "esta conversación terminó y quedó registrada".
-    setMsgs((prev) => [...prev, {
-      id: `fin-${++seq.current}`, fromMe: false, tipo: 'sistema',
-      texto: respuestas.length
-        ? `Caso superado — guardé ${respuestas.length === 1 ? 'tu respuesta' : `tus ${respuestas.length} respuestas`}.`
-        : 'Caso saltado.',
-      fecha: new Date().toISOString(),
-    }]);
-    setGuardado((prev) => ({ ...prev, [esc.id]: { respuestas, at: new Date().toISOString() } }));
+    // Si la conversación ya cerró sola, su veredicto ya está en el hilo: acá
+    // solo se deja constancia de lo guardado, y sin evaluar al dueño («caso
+    // superado» sonaba a examen y encima contradecía un desenlace negativo).
+    if (!desenlace) {
+      setMsgs((prev) => [...prev, {
+        id: `fin-${++seq.current}`, fromMe: false, tipo: 'sistema',
+        texto: respuestas.length
+          ? `Guardé ${respuestas.length === 1 ? 'tu respuesta' : `tus ${respuestas.length} respuestas`}.`
+          : 'Caso saltado.',
+        fecha: new Date().toISOString(),
+      }]);
+    }
+    setGuardado((prev) => ({ ...prev, [esc.id]: { respuestas, at: new Date().toISOString(), desenlace } }));
     try {
       await fetch('/api/chat-agent/onboarding/ensayo', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'guardar', escenario: esc.id, respuestas }),
+        body: JSON.stringify({ action: 'guardar', escenario: esc.id, respuestas, desenlace }),
       });
     } catch { /* queda en pantalla como guardado; se reintenta al volver a cerrarlo */ }
     // Un respiro para que la línea de cierre se alcance a leer antes de que el
     // hilo se vacíe para el caso siguiente.
-    await new Promise((r) => setTimeout(r, 750));
+    await new Promise((r) => setTimeout(r, desenlace ? 250 : 750));
     setCerrado({ titulo: esc.titulo, n: respuestas.length });
     setMsgs([]);
     setSinRespuesta(false);
+    setDesenlace(null);
     setEscIdx((i) => i + 1);
     setCerrando(false);
   }
@@ -826,6 +885,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     if (pasoKey === 'ensayo') {
       if (ensayoTerminado) return true;
       if (!esc) return false;
+      // La conversación cerró: exigirle tres respuestas a un caso que ya
+      // terminó sería pedirle que le hable a alguien que se fue.
+      if (desenlace) return true;
       return !esc.obligatorio || misRespuestas >= esc.minRespuestas;
     }
     // El estado EN VIVO es la única prueba de que el número está vinculado. La
@@ -836,6 +898,13 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     if (pasoKey === 'wa_no_oficial_prueba') return verificado || hecho('wa_no_oficial_prueba');
     return true;
   })();
+
+  // La etiqueta del pie en el ensayo. Vive acá y no dentro del JSX porque el
+  // texto de ayuda de abajo la NOMBRA: escrita dos veces se desincronizaban, y
+  // en el último caso la ayuda mandaba a apretar un botón que no existía.
+  const labelEnsayo = escIdx >= escenarios.length - 1
+    ? 'Guardar y terminar el ensayo'
+    : desenlace ? 'Siguiente caso' : 'Guardar caso y seguir';
 
   const slides = [
     { t: 'Tu voz, no una plantilla', d: 'El primer mensaje que recibe un lead es un audio tuyo. Eso es lo que consigue que respondan.' },
@@ -874,15 +943,29 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       confirmLabel="Listo, entrar al Chat Agent"
       // En el ensayo el pie no "pasa": CIERRA el caso y lo guarda. Decirlo es lo
       // que evita que se lea como saltearlo.
-      siguienteLabel={
-        pasoKey === 'ensayo' && !ensayoTerminado
-          ? (escIdx >= escenarios.length - 1 ? 'Guardar y terminar el ensayo' : 'Guardar caso y seguir →')
-          : undefined
-      }
+      siguienteLabel={pasoKey === 'ensayo' && !ensayoTerminado ? labelEnsayo : undefined}
       pending={busy || cerrando}
       atrasLabel="Atrás"
       hideAtras={idx === 0}
-      onAtras={() => setIdx((i) => Math.max(0, i - 1))}
+      onAtras={() => {
+        // El pie AVANZA sub-pasos (los casos del ensayo, las preguntas del
+        // contexto), así que el Atrás tiene que DESANDARLOS. Cuando no los
+        // desandaba, volver desde «Tus secuencias de mensajes» te dejaba en
+        // «Tus audios» — salía del paso entero en vez de retroceder uno.
+        if (pasoKey === 'ensayo' && escIdx > 0) {
+          // El hilo se vacía a propósito: el efecto que reabre el caso está
+          // protegido por `msgs.length > 0` y sin esto el caso anterior
+          // quedaría en blanco. Lo escrito no se pierde (ChatHilo guarda el
+          // borrador por caso) y lo ya cerrado sigue en `guardado`.
+          setEscIdx((i) => i - 1); setMsgs([]); setSinRespuesta(false); setCerrado(null); setDesenlace(null);
+          return;
+        }
+        if (pasoKey === 'contexto' && vistaContexto === 'preguntas' && pregIdx > 0) {
+          setPregIdx((i) => i - 1);
+          return;
+        }
+        setIdx((i) => Math.max(0, i - 1));
+      }}
       onSiguiente={() => {
         // El pie es el ÚNICO botón de avance. Mientras queden casos avanza el
         // CASO; cuando no quedan, avanza el paso del wizard. Tener además un
@@ -1306,7 +1389,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={17} /></span>
             Recorriste los {escenarios.length} casos. Con esto ya sé cómo respondes.
           </div>
-          <button onClick={() => { setEscIdx(0); setMsgs([]); setSinRespuesta(false); }} style={btn}>
+          <button onClick={() => { setEscIdx(0); setMsgs([]); setSinRespuesta(false); setCerrado(null); setDesenlace(null); }} style={btn}>
             ↻ Volver a empezar el ensayo
           </button>
         </div>
@@ -1323,7 +1406,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             {escenarios.map((e, i) => (
               <span
                 key={e.id}
-                title={guardado[e.id] ? `${e.titulo} · guardado` : e.titulo}
+                // El color dice «lo hiciste», no «te fue bien»: cerrar bien con
+                // alguien que no califica es un resultado legítimo del ensayo, y
+                // pintarlo en rojo se leería como un error del dueño. El
+                // resultado se cuenta en el title.
+                title={guardado[e.id] ? `${e.titulo} · ${RESULTADO[guardado[e.id].desenlace ?? 'sin'] }` : e.titulo}
                 style={{ width: i === escIdx ? 20 : 7, height: 7, borderRadius: 999, background: i === escIdx ? 'var(--primary)' : guardado[e.id] ? 'var(--good)' : 'var(--border)', transition: 'width .2s' }}
               />
             ))}
@@ -1353,7 +1440,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               accentBubble="var(--wa-bubble)"
               mensajes={msgs}
               typing={typing}
-              placeholder="Responde como lo harías normalmente…"
+              // Cerrado el caso no hay a quién escribirle: el composer se apaga y
+              // en su lugar queda la barra muerta con este texto. Dejarlo vivo
+              // haría que el veredicto no significara nada.
+              readOnly={!!desenlace}
+              placeholder={desenlace ? 'Este caso terminó' : 'Responde como lo harías normalmente…'}
               onEnviarTexto={responderComoNegocio}
               // Poder contestar con una nota de voz: es como el dueno le responde de
               // verdad a un lead, y ensayar solo escribiendo entrena otra cosa.
@@ -1373,11 +1464,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               cuando no queda ninguno, pasa de paso. Dos botones que hacen lo
               mismo obligaban a elegir entre ellos sin saber en qué se diferencian.
               Lo único que queda es decir CUÁNTO falta para poder cerrarlo. */}
-          {misRespuestas < esc.minRespuestas && (
+          {!desenlace && misRespuestas < esc.minRespuestas && (
             <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>
               {esc.obligatorio
                 ? (esc.minRespuestas - misRespuestas === 1 ? 'Falta una respuesta tuya para cerrar el caso' : `Faltan ${esc.minRespuestas - misRespuestas} respuestas tuyas para cerrar el caso`)
-                : 'Puedes responder o saltarlo con «Siguiente»'}
+                : `Puedes responder o saltarlo con «${labelEnsayo}»`}
             </div>
           )}
         </div>

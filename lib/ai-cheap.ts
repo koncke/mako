@@ -183,11 +183,16 @@ export const CASCADA_GRATIS: ProvName[] = ['groq', 'cerebras', 'openrouter', 'mi
 // pasa un array, cada proveedor que falla empuja su motivo ahí — así quien llama puede
 // distinguir "sin key" de "con key pero la cascada falló" (cuota, rate-limit, timeout)
 // sin tener que cambiar cómo usa el string que ya devuelve chatCheapCascade.
-export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[] }): Promise<string> {
+// `temperature` es opcional y por default sigue siendo la de chatCheap (0.2), que
+// es la correcta para extraer y clasificar. Existe porque hay un caller que NO
+// hace eso: el ensayo del Chat Agent, donde el modelo interpreta a un lead. Con
+// 0.2 se pegaba a la salida más probable y repetía la misma objeción turno tras
+// turno, hasta copiar literalmente las frases de ejemplo del prompt.
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[] }): Promise<string> {
   // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
   const orden = await ordenarPorCuota((opts.provs ?? CASCADA_GRATIS).map(String)).catch(() => (opts.provs ?? CASCADA_GRATIS).map(String));
   for (const prov of orden as ProvName[]) {
-    const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs };
+    const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs };
     // Un reintento del MISMO proveedor si el fallo parece transitorio (429/5xx/timeout):
     // clave para un workspace con UN solo proveedor (ej. Gemini), donde no hay a quién caer.
     for (let intento = 0; intento <= 1; intento++) {

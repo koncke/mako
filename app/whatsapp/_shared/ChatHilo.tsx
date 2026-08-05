@@ -19,6 +19,8 @@ export type HiloMsg = {
   id: string | number;
   fromMe: boolean;
   tipo?: string | null;
+  /** Solo para `tipo: 'sistema'`: pinta la línea en verde o en rojo. */
+  tono?: 'ok' | 'bad' | null;
   texto?: string | null;
   mediaUrl?: string | null;
   mediaMime?: string | null;
@@ -189,11 +191,22 @@ export function ChatHilo({
           // conversación ("pasaron 3 días", "la secuencia se pausó porque
           // respondió"). Va centrada y sin burbuja a propósito — si se pintara
           // como burbuja, quien mira creería que el negocio le mandó ESO al lead.
-          if (m.tipo === 'sistema') return (
-            <div key={m.id} style={{ display: 'flex', justifyContent: 'center' }}>
-              <div style={{ maxWidth: '86%', padding: '6px 13px', borderRadius: 999, background: 'var(--surface)', border: '1px dashed var(--border-strong)', color: 'var(--faint)', fontSize: 11.5, lineHeight: 1.45, textAlign: 'center' }}>{m.texto}</div>
-            </div>
-          );
+          // El TONO se agrega por campo y no por un `tipo` nuevo: cualquier tipo
+          // desconocido cae al render de burbuja de acá abajo, y como estas
+          // líneas se crean con fromMe:false se pintarían del lado del lead —
+          // justo el malentendido que el párrafo de arriba evita.
+          if (m.tipo === 'sistema') {
+            const t = m.tono === 'ok'
+              ? { background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)' }
+              : m.tono === 'bad'
+                ? { background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }
+                : { background: 'var(--surface)', border: '1px dashed var(--border-strong)', color: 'var(--faint)' };
+            return (
+              <div key={m.id} style={{ display: 'flex', justifyContent: 'center' }}>
+                <div style={{ maxWidth: '86%', padding: '6px 13px', borderRadius: 999, ...t, fontSize: 11.5, lineHeight: 1.45, textAlign: 'center', fontWeight: m.tono ? 600 : 400 }}>{m.texto}</div>
+              </div>
+            );
+          }
           const mine = m.fromMe;
           const esMedia = m.tipo === 'image' || m.tipo === 'audio' || m.tipo === 'video' || m.tipo === 'document' || m.tipo === 'sticker';
           const esPdf = (m.mediaMime || '').includes('pdf') || (m.texto || '').toLowerCase().endsWith('.pdf');

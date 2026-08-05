@@ -12,10 +12,33 @@
 // IA recién toma el turno 2. Las semillas están escritas con el registro real:
 // minúsculas, sin tildes, sin punto final.
 //
+// ── Lo que cambió en la v2, y por qué ────────────────────────────────────────
+// El ensayo era un bucle infinito de objeciones. Tres causas, las tres acá:
+//
+//  1. `comoEvoluciona` era UNA línea estática que entraba idéntica en cada turno.
+//     "te resistes una vez y después aflojas" no tiene contador: el modelo la
+//     releía como si siempre fuera la primera vez, así que se resistía para
+//     siempre. Ahora la evolución es un GUION POR TURNO (`evolucion[]`) y la
+//     ruta inyecta solo el renglón del turno que toca.
+//  2. No existía ningún final. Ahora cada caso declara su `desenlace` y el
+//     ÚLTIMO renglón de `evolucion` es siempre el turno de cierre — de ahí sale
+//     el tope de turnos, así que no pueden contradecirse.
+//  3. Nada decía qué temas NO son de este caso, y el prompt encima le regalaba
+//     al modelo la frase textual a repetir («solo quiero saber el precio»). Por
+//     eso el caso de silencio terminaba hablando del precio. Ahora está
+//     `fueraDeTema`, y en el guion no hay ni una frase entrecomillada.
+//
 // Sin 'server-only': la ruta arma el prompt con esto y el cliente pinta los
 // títulos y las semillas (mismo motivo que lib/setting-estrategia.ts).
 
 import { type ClaveAudio, defDeClave } from './audios-paso';
+
+/**
+ * Cómo terminó un caso del ensayo. `abierto` es el borde: se acabaron los
+ * turnos y el modelo no dejó veredicto — decirle al dueño que salió mal sin
+ * saberlo sería inventarle un resultado.
+ */
+export type Desenlace = 'positivo' | 'negativo' | 'abierto';
 
 export type Escenario = {
   id: string;
@@ -25,11 +48,36 @@ export type Escenario = {
   objetivo: string;
   /** De cuál de los 3 audios arranca. Misma clave que lib/audios-paso.ts. */
   audio: ClaveAudio;
-  /** Para el prompt: quién es, qué le pasa, qué hace y cómo evoluciona. */
+  /** Para el prompt: quién es y qué le pasa. */
   quien: string;
   quePasa: string;
   queHace: string;
-  comoEvoluciona: string;
+  /**
+   * El guion del lead, UN RENGLÓN POR TURNO suyo. La ruta inyecta `evolucion[n]`
+   * y nada más, así el personaje AVANZA en vez de releer la misma instrucción.
+   *
+   * El ÚLTIMO renglón es siempre el turno de cierre: dice que esta conversación
+   * termina acá y cómo. De ahí sale `maxTurnosDe()`, y por eso el tope no puede
+   * quedar desalineado con el guion.
+   */
+  evolucion: string[];
+  /**
+   * Cómo termina bien y cómo termina mal, en TERCERA persona: el prompt lo usa
+   * como «el lead <positivo>» y la pantalla muestra ese mismo texto cuando el
+   * caso cierra. Una sola redacción del mismo hecho, en los dos lados.
+   */
+  desenlace: { positivo: string; negativo: string };
+  /**
+   * Temas que pertenecen a OTROS casos. Van al prompt como prohibición explícita:
+   * "no cambies de tema" es abstracto, "no preguntes el precio" es accionable.
+   */
+  fueraDeTema: string[];
+  /**
+   * 'avatar' → el lead ES el cliente ideal del workspace y sus cifras tienen que
+   * ser coherentes con él. 'fuera_del_avatar' → NO califica, y eso es el punto
+   * del caso: la incoherencia es deliberada, no un invento del modelo.
+   */
+  encarna: 'avatar' | 'fuera_del_avatar';
   /**
    * Semillas del PRIMER mensaje del lead: se elige una al azar en el cliente.
    * Vacío = el lead no escribe nada (escenario de silencio).
@@ -59,9 +107,19 @@ export const ESCENARIOS: Escenario[] = [
     quePasa: 'no te dio para contestar: no era prioridad, se te pasó, o todavía no decides si te interesa.',
     queHace: 'no contestas nada.',
     // El premio tiene que ser FIABLE, no una posibilidad remota: si el silencio
-    // gana siempre, el dueño no aprende qué funciona — solo se frustra. La regla
-    // se escribe como un interruptor, no como una tendencia.
-    comoEvoluciona: 'aplica esta regla en cada mensaje que te llegue, sin excepción. Si el mensaje SOLO insiste, saluda otra vez, pregunta si viste el anterior o repite lo mismo con otras palabras: NO contestas. Pero si el mensaje te da algo NUEVO y concreto —un dato que te sirve, un recurso sin compromiso, una observación puntual sobre tu tipo de negocio—, entonces SÍ contestas: corto, todavía desconfiado, pero contestas. No te quedes en silencio cuando te dieron algo de valor real.',
+    // gana siempre, el dueño no aprende qué funciona — solo se frustra.
+    evolucion: [
+      'sigues sin contestar, salvo que este mensaje te dé algo NUEVO y concreto: un dato que te sirva, un recurso sin compromiso, o una observación puntual sobre tu tipo de empresa. Si solo insiste, saluda otra vez o pregunta si viste el anterior, no contestas.',
+      'si te dieron algo de valor, contestas corto y todavía desconfiado. Si volvieron a insistir sin nada nuevo, sigues sin contestar.',
+      'último mensaje tuyo. Si en algún momento te dieron una razón concreta, contestas y aceptas hablar. Si nunca pasó de la insistencia, no contestas nunca más.',
+    ],
+    desenlace: {
+      positivo: 'rompe el silencio y acepta hablar',
+      // Cubre las dos formas de perderlo: el silencio y el "gracias, ahora no".
+      negativo: 'se va sin aceptar hablar',
+    },
+    fueraDeTema: ['preguntar el precio', 'pedir cambiar el día de una reunión', 'decir que no recuerdas haber dejado tus datos'],
+    encarna: 'avatar',
     primerMensaje: [],
     silencio: { chips: ['Pasaron 24 horas. Sigue sin responder.', 'Pasaron 3 días. Sigue sin responder.'] },
     minRespuestas: 3,
@@ -75,7 +133,17 @@ export const ESCENARIOS: Escenario[] = [
     quien: 'dejaste tus datos en un anuncio hace un rato y acabas de escuchar la nota de voz.',
     quePasa: 'no te interesa la charla: quieres saber cuánto cuesta y decidir rápido.',
     queHace: 'preguntas el precio de una, sin contestar lo que te preguntó el audio.',
-    comoEvoluciona: 'si te dan una cifra sin contexto, te enfrías y cortas. Si te devuelven una pregunta antes del precio, te resistes una vez («solo quiero saber el precio») y recién después aflojas.',
+    evolucion: [
+      'insistes con el número una sola vez. Si te devolvieron una pregunta, la esquivas y vuelves a pedir la cifra, pero con tus propias palabras.',
+      'aflojas: contestas lo que te preguntaron, aunque dejes claro que sigues queriendo saber cuánto cuesta. Ya no vuelves a insistir con el precio.',
+      'último mensaje tuyo. Si te dieron una razón concreta para hablar antes del número, aceptas la llamada. Si te tiraron una cifra pelada o te presionaron, cortas.',
+    ],
+    desenlace: {
+      positivo: 'acepta la llamada antes de saber el precio',
+      negativo: 'corta la conversación por el precio',
+    },
+    fueraDeTema: ['no acordarte de haber dejado tus datos', 'pedir cambiar el día de una reunión', 'decir que estás ocupado'],
+    encarna: 'avatar',
     primerMensaje: ['cuanto cuesta?', 'que precio manejas', 'y eso como cuanto sale'],
     minRespuestas: 2,
     obligatorio: true,
@@ -86,10 +154,20 @@ export const ESCENARIOS: Escenario[] = [
     objetivo: 'Define qué le aportas antes de proponerle la llamada.',
     audio: 'bienvenida',
     quien: 'dejaste tus datos en un anuncio y escuchaste la nota de voz.',
-    quePasa: 'tienes un negocio andando y algo que no te termina de funcionar, pero no lo tienes ordenado en la cabeza.',
+    quePasa: 'tienes una empresa andando y algo que no te termina de funcionar, pero no lo tienes ordenado en la cabeza.',
     queHace: 'contestas la pregunta del audio con poco detalle y desordenado.',
-    comoEvoluciona: 'si te responden algo genérico o te empujan a la llamada de una, te enfrías. Si te devuelven una observación concreta sobre lo que contaste, te abres y das un dato más.',
-    primerMensaje: ['tengo un taller mecanico aqui en hermosillo', 'una constructora chica, somos 9', 'vendo material de curacion, ya tengo como 3 años'],
+    evolucion: [
+      'si te devolvieron una observación concreta sobre lo que contaste, te abres y das un dato más. Si te respondieron algo genérico o te empujaron a la llamada de una, contestas seco.',
+      'si la conversación te está aportando algo, cuentas el problema de fondo. Si no, empiezas a despedirte.',
+      'último mensaje tuyo. Si entendiste que hablar te sirve, aceptas la reunión. Si sentiste que solo te querían vender, quedas en que lo piensas y no vuelves.',
+    ],
+    desenlace: {
+      positivo: 'acepta la reunión',
+      negativo: 'queda en pensarlo y no vuelve',
+    },
+    fueraDeTema: ['preguntar el precio', 'no acordarte de haber dejado tus datos', 'pedir cambiar el día de una reunión'],
+    encarna: 'avatar',
+    primerMensaje: ['tengo una firma de servicios aqui, somos como 30', 'una constructora, ya varios años', 'tenemos una empresa de software, unos 20 en el equipo'],
     minRespuestas: 2,
     obligatorio: true,
   },
@@ -100,9 +178,19 @@ export const ESCENARIOS: Escenario[] = [
     audio: 'agenda_primer_contacto',
     quien: 'agendaste una reunión directo desde el anuncio, nunca hablaste con esta persona.',
     quePasa: 'te interesa, pero llegas con dudas y con un problema concreto que te está costando dinero.',
-    queHace: 'confirmas la reunión y sueltas contexto de tu negocio, incluido lo que te duele.',
-    comoEvoluciona: 'si te hacen una sola pregunta buena, contestas con gusto. Si te hacen tres juntas o te mandan un texto largo, contestas en corto.',
-    primerMensaje: ['si ya quede para el jueves. tengo una clinica dental, somos 6', 'va. mira mi tema es que no logro pasar de los 300 al mes'],
+    queHace: 'confirmas la reunión y sueltas contexto de tu empresa, incluido lo que te duele.',
+    evolucion: [
+      'si te hicieron UNA sola pregunta buena, contestas con gusto y con detalle. Si te hicieron tres juntas o te mandaron un texto largo, contestas en corto.',
+      'das el dato más incómodo (números, tamaño del equipo, cuánto te está costando) solo si hasta acá te trataron bien.',
+      'último mensaje tuyo. Confirmas que llegas a la reunión y quedas en algo concreto, o dices que mejor lo dejas para más adelante.',
+    ],
+    desenlace: {
+      positivo: 'confirma la reunión y llega preparado',
+      negativo: 'deja la reunión para más adelante',
+    },
+    fueraDeTema: ['preguntar el precio', 'no acordarte de haber dejado tus datos'],
+    encarna: 'avatar',
+    primerMensaje: ['si ya quede para el jueves. tengo una firma de ingenieria, somos 35', 'va. mira mi tema es que todo me pasa por el escritorio'],
     minRespuestas: 2,
     obligatorio: true,
   },
@@ -114,7 +202,16 @@ export const ESCENARIOS: Escenario[] = [
     quien: 'dejaste tus datos y escuchaste la nota de voz en un mal momento.',
     quePasa: 'estás ocupado de verdad, pero tampoco te urge.',
     queHace: 'contestas que ahora no puedes y que escribes luego.',
-    comoEvoluciona: 'si te proponen un horario concreto, aceptas a medias. Si te mandan un texto largo, no vuelves a escribir.',
+    evolucion: [
+      'si te propusieron un horario concreto, aceptas a medias. Si te mandaron un texto largo o te dejaron la pelota a ti, contestas con una palabra.',
+      'último mensaje tuyo. Si hay un horario concreto sobre la mesa, lo confirmas. Si no, dices que tú escribes y no vuelves a escribir.',
+    ],
+    desenlace: {
+      positivo: 'confirma un horario concreto',
+      negativo: 'queda en escribir después y no vuelve',
+    },
+    fueraDeTema: ['preguntar el precio', 'contar tu problema de negocio en detalle'],
+    encarna: 'avatar',
     primerMensaje: ['ahorita ando ocupado, al rato te escribo', 'estoy en una junta, luego te marco', 'ando manejando'],
     minRespuestas: 1,
     obligatorio: false,
@@ -127,7 +224,16 @@ export const ESCENARIOS: Escenario[] = [
     quien: 'llenaste un formulario hace días y ya lo olvidaste.',
     quePasa: 'te llega una nota de voz de un desconocido y te incomoda.',
     queHace: 'preguntas quién es o de dónde sacó tu número.',
-    comoEvoluciona: 'si te reconocen el origen del dato con precisión, te relajas y sigues la charla. Si lo evaden o te venden algo, te molestas y cortas.',
+    evolucion: [
+      'si te reconocieron el origen del dato con precisión (dónde, cuándo, con qué anuncio), te relajas. Si lo evadieron o te empezaron a vender, te molestas.',
+      'último mensaje tuyo. Ya relajado, sigues la charla y preguntas de qué se trata. Molesto, pides que no te escriban más.',
+    ],
+    desenlace: {
+      positivo: 'se relaja y sigue la conversación',
+      negativo: 'pide que no le escriban más',
+    },
+    fueraDeTema: ['preguntar el precio', 'pedir cambiar el día de una reunión'],
+    encarna: 'avatar',
     primerMensaje: ['quien eres?', 'y esto que es? no recuerdo haber dejado mis datos', 'de donde sacaste mi numero'],
     minRespuestas: 1,
     obligatorio: false,
@@ -137,10 +243,21 @@ export const ESCENARIOS: Escenario[] = [
     titulo: 'Audio de bienvenida: no es tu cliente',
     objetivo: 'Define cómo cierras con quien no califica, sin regalarle una reunión.',
     audio: 'bienvenida',
-    quien: 'dejaste tus datos por curiosidad; no eres el cliente de este negocio.',
+    quien: 'dejaste tus datos por curiosidad. NO eres el cliente de este negocio y eso tiene que notarse en lo que cuentas.',
     quePasa: 'te interesa el tema pero no estás en posición de contratar nada.',
     queHace: 'cuentas tu situación real, que deja claro que no calificas.',
-    comoEvoluciona: 'si te empujan la llamada igual, la agendas y NO llegas. Si te explican con respeto que todavía no es para ti, agradeces y quedas bien.',
+    evolucion: [
+      'das el dato que te descalifica sin darte cuenta de que te descalifica: tu tamaño real, tu facturación real, o que la decisión no es tuya.',
+      'último mensaje tuyo. Si te empujaron la reunión igual, la agendas sin ganas y avisas que capaz no llegas. Si te explicaron con respeto que todavía no es para ti, agradeces y quedas bien.',
+    ],
+    desenlace: {
+      positivo: 'se va bien, entendiendo que todavía no es para su empresa',
+      negativo: 'agenda una reunión a la que no va a llegar',
+    },
+    fueraDeTema: ['preguntar el precio', 'pedir cambiar el día de una reunión'],
+    // El único caso que NO encarna al avatar, y es todo el punto: el dueño tiene
+    // que ver cómo cierra con alguien que está claramente fuera de su cliente.
+    encarna: 'fuera_del_avatar',
     primerMensaje: ['apenas voy a empezar mi negocio, todavia no facturo', 'soy estudiante, nomas quiero aprender', 'yo trabajo en una empresa, no soy el dueño'],
     minRespuestas: 1,
     obligatorio: false,
@@ -153,7 +270,16 @@ export const ESCENARIOS: Escenario[] = [
     quien: 'ya venías conversando y agendaste. Te acaban de pedir que veas un video antes.',
     quePasa: 'no tienes ganas de tarea previa; piensas que en la llamada te explican.',
     queHace: 'contestas en monosílabos y no ves el video.',
-    comoEvoluciona: 'si te vuelven a escribir sin un motivo nuevo, sigues en monosílabos. Si te dan una razón concreta (que sin el video la reunión rinde la mitad), preguntas cuánto dura.',
+    evolucion: [
+      'si te volvieron a escribir sin un motivo nuevo, sigues en monosílabos. Si te dieron una razón concreta (que sin el video la reunión rinde la mitad, o cuánto dura), preguntas algo.',
+      'último mensaje tuyo. Con una razón concreta, te comprometes a verlo antes. Sin ella, contestas «va» y no lo ves.',
+    ],
+    desenlace: {
+      positivo: 'se compromete a ver el video antes de la reunión',
+      negativo: 'contesta de compromiso y no lo ve',
+    },
+    fueraDeTema: ['preguntar el precio', 'no acordarte de haber dejado tus datos'],
+    encarna: 'avatar',
     primerMensaje: ['ok', 'va', '👍'],
     minRespuestas: 1,
     obligatorio: false,
@@ -167,7 +293,16 @@ export const ESCENARIOS: Escenario[] = [
     quien: 'agendaste y se te cruzó otra cosa.',
     quePasa: 'sigues interesado, pero si se complica lo dejas pasar.',
     queHace: 'pides mover la cita.',
-    comoEvoluciona: 'si te mandan solo el link de la agenda, no reprogramas nunca. Si te proponen dos horarios concretos, eliges uno.',
+    evolucion: [
+      'si te propusieron dos horarios concretos, eliges uno. Si te mandaron solo un link de agenda o te preguntaron cuándo puedes, contestas vago.',
+      'último mensaje tuyo. Con un horario concreto sobre la mesa, lo confirmas. Sin él, dices que después lo ves y no reprogramas nunca.',
+    ],
+    desenlace: {
+      positivo: 'elige un horario nuevo y queda confirmado',
+      negativo: 'no reprograma nunca',
+    },
+    fueraDeTema: ['preguntar el precio', 'no acordarte de haber dejado tus datos'],
+    encarna: 'avatar',
     primerMensaje: ['oye se me empalmo una junta, podemos otro dia?', 'puedo mover la cita?'],
     minRespuestas: 1,
     obligatorio: false,
@@ -175,6 +310,17 @@ export const ESCENARIOS: Escenario[] = [
 ];
 
 export const escenarioPorId = (id: string): Escenario | null => ESCENARIOS.find((e) => e.id === id) ?? null;
+
+/**
+ * Cuántos mensajes escribe el lead como MÁXIMO. Sale del guion, no de un número
+ * suelto: el último renglón de `evolucion` ES el turno de cierre, así que tope y
+ * guion no pueden contradecirse.
+ */
+export const maxTurnosDe = (e: Escenario): number => e.evolucion.length;
+
+/** El renglón del guion que toca en este turno (0-based). El último se sostiene. */
+export const guionDelTurno = (e: Escenario, turno: number): string =>
+  e.evolucion[Math.min(Math.max(turno, 0), e.evolucion.length - 1)];
 
 /** Los escenarios que corresponden a este workspace. */
 export function escenariosDe(hayVideo: boolean): Escenario[] {
@@ -185,14 +331,64 @@ export function escenariosDe(hayVideo: boolean): Escenario[] {
  * El slot {{escenario}} del prompt. Se arma SIEMPRE desde el catálogo: el
  * cliente manda un id, nunca texto libre — si mandara el texto, cualquiera
  * podría reescribirle el personaje al modelo desde el navegador.
+ *
+ * `turno` es cuántos mensajes lleva escritos el lead. De él salen el renglón del
+ * guion y, en el último, la orden de cerrar. Sin esto el modelo releía la misma
+ * instrucción para siempre y la conversación no avanzaba nunca.
  */
-export function bloqueEscenario(e: Escenario): string {
+export function bloqueEscenario(e: Escenario, turno: number, avatar: string): string {
   const audio = defDeClave(e.audio);
-  return [
+  const ultimo = turno >= maxTurnosDe(e) - 1;
+  const partes = [
     `LO QUE ACABA DE PASAR: el negocio te mandó una nota de voz. ${audio ? `Es su audio de «${audio.titulo}»: ${audio.situacion}` : ''}`,
+  ];
+
+  // El perfil real ancla las CIFRAS. Sin esto el modelo inventaba una
+  // facturación cualquiera (salió un lead de 3.000 USD al mes para un negocio
+  // cuyo cliente factura millones al año), y el ensayo dejaba de parecerse a
+  // los leads que de verdad le escriben al dueño.
+  if (avatar.trim()) {
+    partes.push(
+      e.encarna === 'avatar'
+        ? `TU PERFIL REAL — eres exactamente esta clase de cliente:\n${avatar}\nTu rubro, tu tamaño de equipo y tus números tienen que caer DENTRO de ese perfil. No inventes cifras fuera de ese rango.`
+        : `EL CLIENTE QUE ESTE NEGOCIO BUSCA (y que tú NO eres):\n${avatar}\nTú estás claramente por debajo o por fuera de eso, y es a propósito: los datos que sueltes tienen que dejarlo en evidencia.`,
+    );
+  }
+
+  partes.push(
     `QUIÉN ERES: ${e.quien}`,
     `QUÉ TE PASA: ${e.quePasa}`,
     `QUÉ HACES: ${e.queHace}`,
-    `CÓMO EVOLUCIONAS: ${e.comoEvoluciona}`,
-  ].join('\n');
+    `EN ESTE MENSAJE (es el número ${turno + 1} que escribes): ${guionDelTurno(e, turno)}`,
+    `CÓMO TERMINA ESTO — bien para el negocio: el lead ${e.desenlace.positivo}. Mal: el lead ${e.desenlace.negativo}.`,
+  );
+
+  if (e.fueraDeTema.length) {
+    partes.push(`LO QUE NUNCA HACES EN ESTE CASO (es el tema de otra conversación, no de esta): ${e.fueraDeTema.join('; ')}.`);
+  }
+
+  // El cierre ocurre SIEMPRE en el último turno y nunca antes. Dejar que el
+  // modelo cerrara "cuando llegara el final natural" salía peor que el bucle que
+  // vino a arreglar: cerraba en el turno 1 con un «ok, no me interesa» y el
+  // dueño no llegaba a practicar nada. Con el arco fijo, los turnos del guion se
+  // juegan enteros y el resultado se decide recién al final, cuando ya hay algo
+  // que juzgar.
+  // El marcador se define con el desenlace DE ESTE CASO, nunca con "aceptar".
+  // Escrito como "BIEN = aceptas lo que te proponen" quedaba INVERTIDO justo en
+  // el caso que más importa: en «no es tu cliente», aceptar la reunión es el mal
+  // resultado (el dueño regaló una reunión a alguien que no califica) y decir que
+  // no es el bueno. La app lo felicitaba en verde por el error y lo pintaba en
+  // rojo por el acierto.
+  partes.push(
+    ultimo
+      ? [
+        'ESTE ES TU ÚLTIMO MENSAJE. La conversación termina acá: no dejes nada abierto ni hagas una pregunta nueva.',
+        'Tu respuesta TERMINA con una línea que es exactamente [FIN:BIEN] o exactamente [FIN:MAL], y nada después.',
+        `Pones [FIN:BIEN] si el lead ${e.desenlace.positivo}.`,
+        `Pones [FIN:MAL] si el lead ${e.desenlace.negativo}.`,
+      ].join('\n')
+      : `Todavía NO cierres la conversación: te quedan ${maxTurnosDe(e) - turno - 1} mensajes después de este. No escribas ningún marcador.`,
+  );
+
+  return partes.join('\n');
 }
