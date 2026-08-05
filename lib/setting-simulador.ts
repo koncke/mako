@@ -14,6 +14,7 @@ import { resumenFunnel } from './mako-context';
 import { getVozGuia } from './nutricion-generator';
 import { getSecuenciasConStats } from './nutricion';
 import { parseEstrategia } from './setting-estrategia';
+import { insisteConLoMismo } from './conversacion-repeticion';
 
 export const SETTING_SIMULADOR_SYSTEM_TEMPLATE = `Sos MaKo actuando como el SETTER del negocio en una conversación de WhatsApp con un lead. Tu trabajo: cualificar y llevar al lead a dar el siguiente paso, como lo haría el mejor setter humano del equipo.
 
@@ -28,8 +29,18 @@ REGLAS DEL SETTER:
 - Cualificá con las preguntas de la secuencia de mensajes DE A UNA, hiladas con naturalidad en la charla — jamás como interrogatorio ni encuesta.
 - Si el lead muestra interés o ya calificó, llevalo al objetivo de la secuencia de mensajes (agendar → ofrecé [tu link de agenda]; pago → [tu link de pago]). Los placeholders [tu link …] se dejan TAL CUAL.
 - Objeciones: validá primero, respondé corto, retomá el hilo. Sin presionar ni mendigar ("¿sigues interesado?" está prohibido).
+- LA MISMA objeción se rebate DOS veces como mucho. Si el lead insiste una tercera con lo mismo, ya está: no hay nada nuevo que decirle. Cerrá con respeto, dejá la puerta abierta y no vuelvas a ofrecer nada. Seguir rebatiendo no es insistir bien, es no escuchar.
+- No repitas un argumento que ya usaste en esta conversación. Si tu idea es la misma, o la decís distinto o cerrás.
 - Si el lead pide algo que no sabés (precio exacto, disponibilidad), no inventes: ofrecé resolverlo en la llamada o decí que lo confirmás.
 - Salida digna siempre: si el lead no quiere, cerrás bien la puerta queda abierta.
+
+CÓMO TERMINA ESTA CONVERSACIÓN: no es infinita, pero el final lo marca EL LEAD, no vos. El marcador va en una línea aparte al final, sin nada después, y solo en estos dos casos:
+
+[FIN:BIEN] — SOLO si el ÚLTIMO mensaje del lead ACEPTA de verdad: dice que sí, elige un horario, confirma que va, o pide el link. Que vos hayas hecho una buena propuesta NO alcanza; proponer y marcar BIEN en el mismo mensaje está prohibido. Si todavía no contestó a tu propuesta, no hay marcador.
+
+[FIN:MAL] — si el lead dice que no le interesa, pide que no le escriban más, o vuelve por TERCERA vez con la misma objeción que ya le respondiste dos veces. Ahí no hay nada nuevo que decirle: cerrá con respeto, dejá la puerta abierta y no ofrezcas nada más.
+
+En cualquier otro caso NO escribas ningún marcador y seguí la conversación.
 
 CONTEXTO: esto es un SIMULADOR — el "lead" es el dueño del negocio probando la secuencia de mensajes antes de prenderla. Respondé exactamente como responderías a un lead real (no rompas el personaje ni menciones que es una prueba). Devolvé SOLO el texto del mensaje de WhatsApp, sin comillas ni preámbulo.`;
 
@@ -71,7 +82,25 @@ ${charla}
   }
 }
 
-export type SimularResult = { ok: true; respuesta: string } | { ok: false; error: string };
+const LOGRADO_TEXTO: Record<string, string> = {
+  respondio: 'el lead contesta cualquier cosa — con eso alcanza',
+  agendo: 'el lead agenda la reunión',
+  pago: 'el lead paga o confirma que va a pagar',
+  ninguno: 'esta secuencia no cierra sola: seguí hasta que el lead se vaya',
+};
+
+/**
+ * El marcador de cierre. Se saca del texto ANTES de devolverlo: esta función
+ * NO la usa solo el simulador — `asistirRespuesta` la llama desde el webhook
+ * de cada mensaje entrante para redactar el borrador que ve el dueño. Un
+ * `[FIN:BIEN]` colado ahí terminaría pegado en un mensaje real.
+ */
+const MARCA_FIN = /\[\s*FIN\s*:\s*(BIEN|MAL)\s*\]/i;
+
+export type DesenlaceSim = 'positivo' | 'negativo';
+export type SimularResult =
+  | { ok: true; respuesta: string; desenlace: DesenlaceSim | null }
+  | { ok: false; error: string };
 
 /** Respuesta de MaKo-setter al último mensaje del lead en el simulador. */
 export async function responderSimulador(secuenciaId: number, historial: TurnoSim[]): Promise<SimularResult> {
@@ -95,6 +124,10 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
     est?.criterio.descalifica.length
       ? `NO CALIFICA si: ${est.criterio.descalifica.join(' · ')}. Ante una señal de estas, NO empujes la llamada: cerrá con respeto explicando que no es para él y que preferís no hacerle perder el tiempo.`
       : '',
+    // El DESENLACE es lo que le dice al setter cuándo parar. Sin esto la
+    // conversación no tiene final y MaKo rebate objeciones para siempre.
+    est ? `SE CUMPLIÓ el objetivo cuando: ${LOGRADO_TEXTO[est.desenlace.logrado]}.` : '',
+    est ? 'NO se va a cumplir cuando: el lead dice que no le interesa, pide que no le escriban más, o repite la misma objeción después de que ya se la respondiste dos veces.' : '',
   ].filter(Boolean).join('\n');
 
   const [persona, voz, perfil, funnel] = await Promise.all([
@@ -139,5 +172,21 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
     provs: CASCADA_GRATIS,
   });
   if (!respuesta || !respuesta.trim()) return { ok: false, error: 'MaKo no respondió. Vuelve a intentarlo.' };
-  return { ok: true, respuesta: respuesta.trim() };
+  const marca = respuesta.match(MARCA_FIN);
+  const limpio = respuesta.replace(MARCA_FIN, '').trim();
+  if (!limpio) return { ok: false, error: 'MaKo no respondió. Vuelve a intentarlo.' };
+
+  // EL CORTE POR INSISTENCIA LO DECIDE EL SERVIDOR, no el modelo. Se le pidió en
+  // el prompt que cerrara a la tercera repetición de la misma objeción y siguió
+  // rebatiendo las cuatro: un modelo no lleva la cuenta de nada. Acá se cuenta.
+  const delLead = historial.filter((t) => t.de === 'lead').map((t) => t.texto);
+  const porInsistir = insisteConLoMismo(delLead);
+
+  return {
+    ok: true,
+    respuesta: limpio,
+    desenlace: marca
+      ? (marca[1].toUpperCase() === 'BIEN' ? 'positivo' : 'negativo')
+      : (porInsistir ? 'negativo' : null),
+  };
 }

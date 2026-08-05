@@ -217,6 +217,39 @@ export function parseEstrategia(raw: unknown): Estrategia | null {
   };
 }
 
+/**
+ * ¿El lead YA tiene hecho el trabajo que busca esta secuencia?
+ *
+ * Es lo que evita el error caro de encadenar: si la reactivación despierta a
+ * alguien que hace tres meses YA se cualificó, mandarlo de nuevo a Cualificación
+ * es hacerle repetir preguntas que ya contestó — y el lead lo lee como que nadie
+ * le prestó atención.
+ *
+ * El hito se DERIVA del CRM y no se guarda aparte a propósito: `leads` ya es la
+ * fuente de verdad y un status paralelo se despega en cuanto alguien edita la
+ * ficha a mano.
+ *
+ * `null` = no se puede saber (el objetivo no tiene un dato que lo represente).
+ * Ante la duda NO se saltea: es peor perderse una secuencia que repetirla.
+ */
+export function hitoYaHecho(objetivo: string, lead: Record<string, unknown>): boolean | null {
+  switch (objetivo) {
+    case 'cualificar':
+      // `calificado` es booleano en el CRM: true o false son los DOS un hito
+      // hecho — «descalificado» también es una respuesta, y volver a
+      // cualificarlo sería no haber escuchado.
+      return typeof lead.calificado === 'boolean' ? true : false;
+    case 'agendar':
+      return Boolean(lead.fecha_junta_1 || lead.junta_1_at || lead.fecha_agenda);
+    case 'confirmar_pago':
+      return Boolean(lead.fecha_primer_pago) || lead.cerro === true;
+    default:
+      // reactivar, preparar y los objetivos que escribió el dueño no tienen
+      // un dato del CRM que diga "esto ya se hizo".
+      return null;
+  }
+}
+
 /** Etiqueta legible de un objetivo, sea del catálogo o escrito por el dueño. */
 export const labelObjetivo = (o: string): string => OBJETIVOS.find((x) => x.value === o)?.label ?? o;
 

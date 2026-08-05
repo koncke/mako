@@ -20,13 +20,15 @@
 import 'server-only';
 
 import { getTenantDb } from './workspace';
-import { parseEstrategia, type Desenlace } from './setting-estrategia';
+import { parseEstrategia, hitoYaHecho, type Desenlace } from './setting-estrategia';
 
 export type ResultadoDesenlaces = {
   logrados: number;
   fallidos: number;
   movidos: number;
-  detalle: Array<{ leadId: number; secuencia: string; desenlace: 'logrado' | 'fallo'; etapa: string | null }>;
+  /** Cuántos leads arrancaron la secuencia que sigue. */
+  encadenados: number;
+  detalle: Array<{ leadId: number; secuencia: string; desenlace: 'logrado' | 'fallo'; etapa: string | null; siguiente?: string | null }>;
 };
 
 type FilaInsc = {
@@ -61,7 +63,7 @@ function seLogro(d: Desenlace, lead: Record<string, unknown>, estado: string): b
  */
 export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   const supabase = await getTenantDb();
-  const res: ResultadoDesenlaces = { logrados: 0, fallidos: 0, movidos: 0, detalle: [] };
+  const res: ResultadoDesenlaces = { logrados: 0, fallidos: 0, movidos: 0, encadenados: 0, detalle: [] };
 
   const { data: inscData } = await supabase
     .from('nutricion_inscripciones')
@@ -79,12 +81,52 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   const leadIds = [...new Set(inscs.map((i) => i.lead_id))];
   const { data: leadData } = await supabase
     .from('leads')
-    .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_primer_pago, cerro')
+    .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_agenda, fecha_primer_pago, cerro, calificado')
     .in('id', leadIds);
   const leads = new Map(((leadData ?? []) as Array<Record<string, unknown>>).map((l) => [Number(l.id), l]));
 
   const { setPipelineStage } = await import('./leads');
   const ahora = new Date().toISOString();
+
+  // Todas las secuencias del workspace por CLAVE: el encadenamiento apunta a la
+  // clave (estable y legible) y no al id (que cambia entre workspaces).
+  const { data: todasSec } = await supabase
+    .from('nutricion_secuencias').select('id, clave, nombre, activa, archivada_at, estrategia, pasos')
+    .is('archivada_at', null);
+  const porClave = new Map(((todasSec ?? []) as Array<{ id: number; clave: string; nombre: string; activa: boolean; estrategia: unknown; pasos: unknown }>).map((x) => [x.clave, x]));
+
+  /**
+   * Arranca la secuencia que sigue. Devuelve por qué NO arrancó, o null si sí.
+   *
+   * No hace falta guarda de tiempo acá: el motor ya no manda dos mensajes al
+   * mismo lead en menos de 20 horas ni fuera de la ventana horaria, y esas
+   * guardas viven en el ENVÍO — que es donde no se pueden saltear. Encadenar
+   * solo crea la inscripción; cuándo sale el primer mensaje lo sigue decidiendo
+   * el motor de siempre.
+   */
+  async function encadenar(clave: string | null, leadId: number, lead: Record<string, unknown>): Promise<string | null> {
+    if (!clave) return 'sin-siguiente';
+    const sig = porClave.get(clave);
+    if (!sig) return 'la-siguiente-no-existe';
+    if (!sig.activa) return 'la-siguiente-esta-pausada';
+    // ¿El trabajo de la siguiente YA está hecho? Entonces no se repite.
+    const estSig = parseEstrategia(sig.estrategia);
+    if (estSig && hitoYaHecho(estSig.objetivo, lead) === true) return `ya-hizo-${estSig.objetivo}`;
+    // Un lead no se re-inscribe en la misma secuencia: hay un unique
+    // (lead_id, secuencia_id) y además volver a empezar lo mismo es ruido.
+    const { data: ya } = await supabase
+      .from('nutricion_inscripciones').select('id').eq('lead_id', leadId).eq('secuencia_id', sig.id).maybeSingle();
+    if (ya) return 'ya-estuvo-en-la-siguiente';
+    const pasos = Array.isArray(sig.pasos) ? (sig.pasos as Array<{ delay_horas?: number }>) : [];
+    const delay = Number(pasos[0]?.delay_horas ?? 0) || 0;
+    const { error } = await supabase.from('nutricion_inscripciones').insert({
+      lead_id: leadId, secuencia_id: sig.id, paso_actual: 0, estado: 'activa',
+      proximo_envio_at: new Date(Date.now() + delay * 3_600_000).toISOString(),
+    });
+    if (error) { console.error(`[desenlace] encadenar ${clave}:`, error.message); return `error-${error.code ?? ""}`; }
+    res.encadenados += 1;
+    return null;
+  }
 
   for (const insc of inscs) {
     // Cancelada (por archivar la secuencia) o ya cerrada: no es un desenlace del
@@ -119,7 +161,8 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
           res.movidos += 1;
         } catch (e) { console.error(`[desenlace] mover lead ${insc.lead_id}:`, e); }
       }
-      res.detalle.push({ leadId: insc.lead_id, secuencia: sec.nombre, desenlace: 'logrado', etapa: d.logradoEtapa });
+      const motivo = await encadenar(d.logradoSecuencia, insc.lead_id, lead);
+      res.detalle.push({ leadId: insc.lead_id, secuencia: sec.nombre, desenlace: 'logrado', etapa: d.logradoEtapa, siguiente: motivo ?? d.logradoSecuencia });
       continue;
     }
 
@@ -144,7 +187,8 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
             res.movidos += 1;
           } catch (e) { console.error(`[desenlace] mover lead ${insc.lead_id}:`, e); }
         }
-        res.detalle.push({ leadId: insc.lead_id, secuencia: sec.nombre, desenlace: 'fallo', etapa: d.falloEtapa });
+        const motivo = await encadenar(d.falloSecuencia, insc.lead_id, lead);
+        res.detalle.push({ leadId: insc.lead_id, secuencia: sec.nombre, desenlace: 'fallo', etapa: d.falloEtapa, siguiente: motivo ?? d.falloSecuencia });
       }
     }
   }

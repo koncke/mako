@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     const r = await responderSimulador(id, historial);
     if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });
-    return Response.json({ ok: true, respuesta: r.respuesta, ...(transcript ? { transcript } : {}) });
+    return Response.json({ ok: true, respuesta: r.respuesta, desenlace: r.desenlace, ...(transcript ? { transcript } : {}) });
   } catch (e) {
     console.error(`[api:setting/simulador POST] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });

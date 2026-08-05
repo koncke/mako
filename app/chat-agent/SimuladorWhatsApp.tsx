@@ -63,10 +63,15 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const [selId, setSelId] = useState<number | ''>('');
   const [mensajes, setMensajes] = useState<HiloMsg[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right'; autor?: string } | null>(null);
+  // La prueba TERMINA cuando la secuencia cumple su objetivo o queda claro que
+  // no lo va a cumplir. Mientras es null la conversación sigue viva.
+  const [cerradaSim, setCerradaSim] = useState<'positivo' | 'negativo' | null>(null);
   const [detalle, setDetalle] = useState(false);
   const seq = useRef(0);
 
   useEffect(() => { if (selId === '' && secuencias.length) setSelId(secuencias[0].id); }, [secuencias, selId]);
+  // Otra secuencia = otra prueba: el cierre de la anterior no la puede trabar.
+  useEffect(() => { setCerradaSim(null); }, [selId]);
 
   const lista = useMemo(() => {
     const q = busq.trim().toLowerCase();
@@ -134,7 +139,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       texto: m.texto || (m.tipo === 'audio' ? '(nota de voz)' : `[el lead mandó un archivo]`),
     }));
 
-  async function pedirRespuesta(body: Record<string, unknown>, msgs: HiloMsg[]): Promise<{ respuesta?: string; transcript?: string } | null> {
+  async function pedirRespuesta(body: Record<string, unknown>, msgs: HiloMsg[]): Promise<{ respuesta?: string; transcript?: string; desenlace?: 'positivo' | 'negativo' | null } | null> {
     setTyping({ lado: 'left', autor: negocio || 'Tu negocio' });
     try {
       const r = await fetch('/api/chat-agent/simulador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -157,7 +162,24 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     const conLead = [...mensajes, { id: `lead-${++seq.current}`, fromMe: true, texto, fecha: new Date().toISOString() } as HiloMsg];
     setMensajes(conLead);
     const j = await pedirRespuesta({ secuenciaId: sel.id, historial: historialDe(conLead) }, conLead);
-    if (j?.respuesta) setMensajes([...conLead, { id: `mako-${++seq.current}`, fromMe: false, autor: negocio || 'Tu negocio', texto: j.respuesta, fecha: new Date().toISOString() }]);
+    if (j?.respuesta) {
+      const hilo: HiloMsg[] = [...conLead, { id: `mako-${++seq.current}`, fromMe: false, autor: negocio || 'Tu negocio', texto: j.respuesta, fecha: new Date().toISOString() }];
+      // La conversación TERMINA. Sin esto MaKo rebatía la misma objeción para
+      // siempre: no hay lead que insista cuatro veces con lo mismo, y probar
+      // una secuencia que nunca cierra no dice si la secuencia sirve.
+      if (j.desenlace) {
+        hilo.push({
+          id: `fin-${++seq.current}`, fromMe: false, tipo: 'sistema',
+          tono: j.desenlace === 'positivo' ? 'ok' : 'bad',
+          texto: j.desenlace === 'positivo'
+            ? 'La secuencia cumplió su objetivo con este lead.'
+            : 'Esta conversación no va a llegar al objetivo. La secuencia cierra acá.',
+          fecha: new Date().toISOString(),
+        });
+      }
+      setMensajes(hilo);
+      setCerradaSim(j.desenlace ?? null);
+    }
     return true;
   }
 
@@ -233,7 +255,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           mensajes={mensajes}
           typing={typing}
           draftKey={`setting-sim-${sel.id}`}
-          placeholder="Escribe como el lead…"
+          readOnly={!!cerradaSim}
+          placeholder={cerradaSim ? 'Esta prueba terminó' : 'Escribe como el lead…'}
           onEnviarTexto={enviarTexto}
           onEnviarArchivo={enviarArchivo}
           vacio={(
