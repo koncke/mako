@@ -18,6 +18,10 @@
       "schedule": "45 13 * * *"
     },
     {
+      "path": "/api/cron/tracking-vigilante",
+      "schedule": "50 13 * * *"
+    },
+    {
       "path": "/api/cron/transcribe-ads",
       "schedule": "0 14 * * *"
     },

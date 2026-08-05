@@ -53,7 +53,20 @@ export async function GET(request: NextRequest) {
   });
   const ms = Date.now() - tStart;
 
-  console.log(`[cron:youtube-daily] fecha=${fecha} workspaces=${resultados.length} ms=${ms}`);
+  // Mismo criterio que panda-daily (y que nutricion:152): un cron que no ingestó NADA
+  // de lo que SÍ estaba configurado no puede responder ok:true — así la falta de datos
+  // era invisible desde afuera. Un workspace con todo 'skipped' es config faltante, no
+  // un fallo: se omite del cálculo en vez de contarse como error, o el cron viviría en
+  // 500 por un cliente que legítimamente no cargó ningún video.
+  const configurados = resultados.filter((w) => {
+    const r = w.resultado as { total?: number; skipped?: number } | undefined;
+    return !!r && (r.total ?? 0) > (r.skipped ?? 0);
+  });
+  const conError = configurados.filter((w) => !w.ok || ((w.resultado as { errors?: number } | undefined)?.errors ?? 0) > 0);
+  const ingestó = configurados.some((w) => ((w.resultado as { processed?: number } | undefined)?.processed ?? 0) > 0);
+  const ok = configurados.length === 0 || ingestó;
 
-  return Response.json({ ok: true, fecha, workspaces: resultados, ms });
+  console.log(`[cron:youtube-daily] fecha=${fecha} ws=${resultados.length} configurados=${configurados.length} conError=${conError.length} ingesto=${ingestó} ms=${ms}`);
+
+  return Response.json({ ok, parcial: conError.length > 0, fecha, workspaces: resultados, ms }, { status: ok ? 200 : 500 });
 }

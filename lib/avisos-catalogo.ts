@@ -152,6 +152,18 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     ejemplo: `🔴 Che, tu cuenta está verde pero *no tenés ningún anuncio entregando* — todo está en pausa. Si no fue a propósito, estás perdiendo el día entero de leads. ¿Reactivo algo? — MaKo`,
   },
   {
+    id: 'tracking-apagado', titulo: 'La landing dejó de mandar datos', categoria: 'aviso',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    // Nace de un caso real: el tracking del VSL estuvo MUERTO 18 días
+    // (2026-07-15 → 08-03) con anuncios corriendo y 235 leads entrando a ritmo
+    // normal. Ninguna señal de negocio lo detectó, porque los leads seguían
+    // llegando por otras vías — lo que se perdió fue la atribución.
+    // Falla en silencio por diseño ajeno: el beacon hace fetch().catch(){} y el
+    // receptor responde 200 aunque descarte. Este cron es la ÚNICA señal.
+    disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
+    ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el código de la landing quedó apuntando a una dirección vieja. — MaKo`,
+  },
+  {
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Leads acumulados a esta hora muy por debajo del baseline horario.',

@@ -8,7 +8,7 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
-import { landingRecibioEventos } from './landing-token';
+import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
 import { getCapaActual, getWorkspaceActual } from './workspace';
@@ -69,15 +69,23 @@ const DEFS: Def[] = [
 
 const envGlobalReal = (k: string) => Boolean(process.env[k] && String(process.env[k]).trim());
 
-// Landing: no hay env que chequear. La señal HONESTA de "conectada" es que YA
-// hayan llegado eventos de esa landing: el token se autogenera para todos al
-// abrir /integraciones, así que "tiene token" no probaría nada. Un pageview
-// recibido sí prueba que el código está pegado y que el ruteo funciona.
+// Landing: no hay env que chequear. La señal HONESTA de "conectada" es que hayan
+// llegado eventos RECIENTES: el token se autogenera para todos al abrir
+// /integraciones, así que "tiene token" no probaría nada, y "alguna vez llegó algo"
+// tampoco — el snippet vive en una propiedad de un tercero (Lovable) y puede dejar
+// de mandar sin que nadie se entere. Por eso la ventana de LANDING_VENTANA_DIAS.
 async function estadoLanding(): Promise<Pick<Integracion, 'estado' | 'detalle'>> {
   const activa = await landingRecibioEventos();
   return activa
     ? { estado: 'conectada', detalle: 'Recibiendo eventos de tu landing.' }
-    : { estado: 'falta', detalle: 'Pegá el código en tu landing para empezar a medir.' };
+    : {
+        estado: 'falta',
+        // El copy distingue los dos casos, porque la acción es distinta: si nunca
+        // llegó nada hay que pegar el código; si dejó de llegar, hay que ir a ver
+        // qué se rompió (típico: el snippet quedó con una URL vieja al mudar el
+        // dominio — se copia congelado y no se entera de nada).
+        detalle: `Sin eventos en los últimos ${LANDING_VENTANA_DIAS} días. Si ya pegaste el código, revisá que el snippet siga apuntando acá.`,
+      };
 }
 
 // Google Calendar: tampoco hay env que chequear (la app OAuth es de la agencia y

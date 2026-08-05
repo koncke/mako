@@ -98,11 +98,15 @@ async function espejarSiHaceFalta(token: string, ws: number): Promise<void> {
   }
 }
 
+/** Días hacia atrás que definen "el tracking está VIVO". */
+export const LANDING_VENTANA_DIAS = 3;
+
 /**
- * ¿La landing de este workspace ya mandó al menos un evento? Es la señal HONESTA
- * de "conectada": el token existe para todos apenas abren /integraciones (se
- * genera solo), así que "tiene token" no prueba nada. Que haya llegado un
- * pageview sí prueba que el código está pegado y el ruteo funciona.
+ * ¿La landing de este workspace mandó eventos RECIENTES (últimos
+ * LANDING_VENTANA_DIAS días)? Es la señal HONESTA de "conectada": el token existe
+ * para todos apenas abren /integraciones (se genera solo), así que "tiene token"
+ * no prueba nada, y "llegó algo alguna vez" tampoco — el snippet vive en una
+ * propiedad de un tercero y puede dejar de mandar sin que nadie se entere.
  *
  * Barato: 1 fila con LIMIT 1 sobre un índice, sin COUNT y sin ORDER. Lo corre
  * CADA carga de /integraciones (el semáforo del board) → se mantiene así de
@@ -112,7 +116,14 @@ async function espejarSiHaceFalta(token: string, ws: number): Promise<void> {
 export async function landingRecibioEventos(): Promise<boolean> {
   try {
     const supabase = await getTenantDb(); // scopea landing_visits por workspace
-    const { data, error } = await supabase.from('landing_visits').select('id').limit(1);
+    // ⚠️ La VENTANA es lo que hace honesto al semáforo. Sin ella esto era un
+    // `select id limit 1` sobre toda la historia: con una sola fila de 2024, la
+    // landing quedaba en verde PARA SIEMPRE aunque el tracking estuviera muerto.
+    // No es hipotético — hubo un apagón de 18 días (2026-07-15 → 08-03) con
+    // anuncios corriendo, y este semáforo no podía detectarlo por construcción.
+    const desde = new Date(Date.now() - LANDING_VENTANA_DIAS * 86_400_000).toISOString();
+    const { data, error } = await supabase
+      .from('landing_visits').select('id').gte('created_at', desde).limit(1);
     if (error) {
       console.error(`[landing-token] chequeo de eventos falló: ${error.message}`);
       return false;
@@ -162,8 +173,17 @@ export async function landingUltimoEvento(): Promise<LandingEstado> {
  * El payload es EXACTAMENTE el que ya manda la landing hoy (ver
  * docs/lovable-tracking.md) + `t` (el token) — no inventamos contrato nuevo:
  *   · pageview → { tipo_evento:'pageview', landing_url, referrer }
- *   · VSL      → { tipo_evento:'play'|'pNN'|'exit', porcentaje, video_id, vsl_titulo }
+ *   · VSL      → { tipo_evento:'play'|'pNN'|'sNN'|'exit', porcentaje, segundos,
+ *                  video_id, vsl_titulo }
  *   · Camino 1 → `l` (?l=<meta_lead_id> del link de WhatsApp), si viene.
+ *
+ * `segundos` (mig 0121) es el dato CRUDO y el que manda: el player de Panda no
+ * le dice la duración al navegador en cada tick, así que el porcentaje se
+ * deriva server-side. Los hitos 'sNN' son la red de seguridad por tiempo.
+ *
+ * ⚠️ El snippet queda CONGELADO en el HTML de la landing con el APP_BASE_URL
+ * del día en que se copió: un arreglo acá NO llega solo a producción, hay que
+ * volver a pegarlo. Así se perdieron 18 días de medición (15/jul → 3/ago 2026).
  */
 export function landingSnippet(token: string): string {
   return `<script>
@@ -209,24 +229,53 @@ export function landingSnippet(token: string): string {
     for (var j = 0; j < f.length; j++) if (/pandavideo/i.test(f[j].src || '') && f[j].title) return f[j].title;
     return null;
   }
-  var yaPlay = false, hitos = {}, pct = 0, dur = 0, vid = null, tit = null;
+  // OJO — panda_timeupdate NO trae \`duration\`. Su payload es { message, video,
+  // currentTime, isMutedIndicator, isPreviousProgressLoaded } y nada más. Ese
+  // fue el bug que dejó la retención muerta del 15/jul al 5/ago de 2026: el
+  // código hacía \`if (!dur) return;\` y salía en TODOS los eventos.
+  // La duración solo llega por panda_allData, que el player emite cuando quiere
+  // y que NO se le puede pedir (los mensajes que acepta del padre son play,
+  // pause, currentTime, volume, speed, colors y fullscreen — ninguno de
+  // lectura). Por eso acá se mandan SIEMPRE los segundos absolutos y el % se
+  // deriva en el servidor con la duración que ya da la API de Panda.
+  var yaPlay = false, hitos = {}, seg = {}, pct = 0, dur = 0, segs = 0, vid = null, tit = null;
+  // Escalera de segundos: la red de seguridad cuando no se conoce la duración.
+  // Doce puntos hasta los 40 minutos — alcanza para reconstruir la curva
+  // server-side sin inundar el endpoint.
+  var ESCALERA = [15, 30, 60, 120, 180, 300, 420, 600, 900, 1200, 1800, 2400];
 
   window.addEventListener('message', function (ev) {
     var d = ev.data;
     if (!d || typeof d !== 'object' || String(d.message || '').indexOf('panda_') !== 0) return;
     if (d.video || d.videoId) { vid = d.video || d.videoId; tit = tituloVsl(vid) || tit; }
+    // Único mensaje que trae la duración. El guard > 0 es obligatorio: el player
+    // la emite una vez con duration 0 antes de tener metadata, y pisarla con 0
+    // reintroduce el bug entero.
+    if (d.message === 'panda_allData' && d.playerData && d.playerData.duration > 0) {
+      dur = d.playerData.duration;
+    }
     if (d.message === 'panda_play' && !yaPlay) {
       yaPlay = true;
-      enviar({ tipo_evento: 'play', porcentaje: 0, video_id: vid, vsl_titulo: tit });
+      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: tit });
     }
     if (d.message === 'panda_timeupdate' && d.currentTime != null) {
-      if (d.duration) dur = d.duration;
-      if (!dur) return;
-      pct = Math.min(100, Math.round((d.currentTime / dur) * 100));
-      var h = Math.floor(pct / 5) * 5; // hito de retención cada 5%
-      if (h >= 5 && !hitos[h]) {
-        hitos[h] = true;
-        enviar({ tipo_evento: 'p' + h, porcentaje: pct, video_id: vid, vsl_titulo: tit });
+      segs = d.currentTime;
+      if (dur > 0) {
+        pct = Math.min(100, Math.round((segs / dur) * 100));
+        var h = Math.floor(pct / 5) * 5; // hito de retención cada 5%
+        if (h >= 5 && !hitos[h]) {
+          hitos[h] = true;
+          enviar({ tipo_evento: 'p' + h, porcentaje: pct, segundos: segs, video_id: vid, vsl_titulo: tit });
+        }
+        return;
+      }
+      // Sin duración: se marca por TIEMPO. El servidor lo convierte a % después.
+      for (var i = 0; i < ESCALERA.length; i++) {
+        var s = ESCALERA[i];
+        if (segs >= s && !seg[s]) {
+          seg[s] = true;
+          enviar({ tipo_evento: 's' + s, segundos: segs, video_id: vid, vsl_titulo: tit });
+        }
       }
     }
   });
@@ -236,7 +285,8 @@ export function landingSnippet(token: string): string {
   function alSalir() {
     if (exitEnviado || !yaPlay) return;
     exitEnviado = true;
-    enviar({ tipo_evento: 'exit', porcentaje: pct, video_id: vid, vsl_titulo: tit });
+    // Los segundos van SIEMPRE; el % solo si se pudo calcular.
+    enviar({ tipo_evento: 'exit', porcentaje: dur > 0 ? pct : null, segundos: segs, video_id: vid, vsl_titulo: tit });
   }
   window.addEventListener('pagehide', alSalir);
   document.addEventListener('visibilitychange', function () {
