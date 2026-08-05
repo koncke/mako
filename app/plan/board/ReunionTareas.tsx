@@ -194,7 +194,7 @@ function descargarMd(nombre: string, filas: FilaTarea[], reunion: ReunionRefUI) 
 /** Una tarea de esta reunión que YA está en el plan (se cargó en una pasada anterior). */
 export type TareaYaCargada = { titulo: string; tareaId: string; minutos?: number[]; url?: string | null };
 
-export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard }: {
+export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard, onRecuperar }: {
   filas: FilaTarea[];
   labels: Label[];
   /** reunión por defecto, para cuando las filas no traen la suya (extracción manual). */
@@ -214,10 +214,25 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
    * cae a la fila de texto de siempre.
    */
   renderTaskCard?: (id: string) => ReactNode;
+  /** Volver a ofrecer una tarea que el borrador dice haber cargado pero que ya no está
+   *  en el tablero (la borraron, o la creación falló después de anotarla). */
+  onRecuperar?: (y: TareaYaCargada) => void;
 }) {
   // Índices originales, para que el patch vuelva a la fila correcta del padre.
   const conIdx = useMemo(() => filas.map((f, i) => ({ f, i, r: f.reunion ?? reunion })), [filas, reunion]);
   const mias = useMemo(() => conIdx.filter((x) => !x.f.esDeOtro), [conIdx]);
+
+  // El borrador anota como «cargadas» las que creó, pero la tarjeta puede no estar:
+  // la borraron a mano, o la creación falló DESPUÉS de que el borrador ya la anotara.
+  // `renderTaskCard` devuelve null cuando el id no existe en el tablero, y eso es lo
+  // único que sabe de verdad si está o no. Sin partirlas, esas huérfanas ofrecían
+  // «ver la tarjeta →» y abrían un modal vacío que trababa la pantalla entera.
+  const { enElBoard, perdidas } = useMemo(() => {
+    if (!renderTaskCard) return { enElBoard: yaCargadas, perdidas: [] as TareaYaCargada[] };
+    const si: TareaYaCargada[] = []; const no: TareaYaCargada[] = [];
+    for (const y of yaCargadas) (renderTaskCard(y.tareaId) ? si : no).push(y);
+    return { enElBoard: si, perdidas: no };
+  }, [yaCargadas, renderTaskCard]);
   // MIS tareas agrupadas por reunión (con varias esperando, saber de cuál salió cada
   // una es la mitad del sentido de la pantalla).
   const miasPorReunion = useMemo(() => {
@@ -333,19 +348,43 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
       {tab === 'mias' ? (
         <>
           {cabecera && mias.length > 0 && <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cabecera}</div>}
+          {/* LAS QUE NO ESTÁN. El borrador dice que se cargaron, pero en el tablero no
+              hay ninguna tarjeta con ese id: o la borraron, o la creación falló después
+              de que el borrador ya las anotara como cargadas. Antes igual se ofrecía
+              «ver la tarjeta →» y abría un modal vacío que dejaba la pantalla trabada.
+              Ahora se dicen primero, con su formato propio, y se pueden volver a cargar. */}
+          {perdidas.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#C8870C' }}>
+                {perdidas.length === 1 ? 'Esta salió de la reunión y no está en tu plan' : `Estas ${perdidas.length} salieron de la reunión y no están en tu plan`}
+              </div>
+              {perdidas.map((y) => (
+                <div key={y.tareaId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 12, border: '1px solid color-mix(in srgb, #C8870C 35%, var(--border))', background: 'color-mix(in srgb, #C8870C 6%, transparent)' }}>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.4 }}>{y.titulo}</span>
+                  {onRecuperar && (
+                    <button type="button" onClick={() => onRecuperar(y)}
+                      style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+                      Cargarla
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           {/* Lo que ya cargaste de esta reunión. No se vuelve a ofrecer, pero sigue a la
               vista: el borrador quedó abierto por las tareas de los demás y sin esto
-              parecía que las tuyas se habían perdido. Cada una abre su tarjeta real. */}
-          {yaCargadas.length > 0 && (
+              parecía que las tuyas se habían perdido. Cada una abre su tarjeta real.
+              VA ABAJO: arriba tiene que estar lo que falta hacer, no lo que ya está. */}
+          {enElBoard.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--good)' }}>
-                ✓ Ya cargaste {yaCargadas.length} {yaCargadas.length === 1 ? 'tarea tuya' : 'tareas tuyas'} al plan
+                ✓ Ya cargaste {enElBoard.length} {enElBoard.length === 1 ? 'tarea tuya' : 'tareas tuyas'} al plan
               </div>
               {/* Grilla de tarjetas REALES del board (misma medida que el kanban). Cuando
                   no hay con qué pintarlas —extracción manual, o la tarea se borró— cae a
                   la fila de texto de siempre. */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12, alignItems: 'start' }}>
-                {yaCargadas.map((y) => {
+                {enElBoard.map((y) => {
                   const card = renderTaskCard?.(y.tareaId);
                   return (
                     <div key={y.tareaId} style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>

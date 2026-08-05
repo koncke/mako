@@ -62,6 +62,8 @@ const recordingDeRef = (ref?: string): number | undefined => {
 /** `proyectoPropuesto` = el nombre que dijo MaKo, aunque ese proyecto no exista todavía. */
 type FilaConProp = FilaTarea & { propId: string; proyectoPropuesto?: string };
 
+import { useCapaModal } from '@/app/_components/pila-modales';
+
 export function TareasRecibidasModal({ props: todos, labels, existentes, onListo, onClose, onDescartadas, onAbrirTarea, renderTaskCard, oculto }: {
   props: PropuestaPendiente[];
   labels: Label[];
@@ -88,6 +90,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // lo rechaza con «la propuesta ya fue aplicada») y sin autosave (guardarRevision exige
   // 'pendiente' y devolvía false en silencio, así que cada corrección se tiraba al vacío).
   const cerrado = todos.length > 0 && todos.every((p) => p.estado === 'aplicada' || p.estado === 'descartada');
+  // Pila de modales: abrir la tarjeta de una tarea desde acá esconde ESTE modal y al
+  // cerrarla volvés al mismo lugar de la revisión, con el scroll donde estaba.
+  const capa = useCapaModal(!oculto);
   const props = todos.filter((p) => p.origen === 'fathom' || !p.preguntas?.length);
   const conPreguntas = todos.filter((p) => p.origen !== 'fathom' && !!p.preguntas?.length);
   // Las preguntas de los borradores que SÍ se confirman acá.
@@ -456,7 +461,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     // nada: el borrador sigue esperando y se vuelve desde el botón de Fathom. Lo único
     // que no se puede interrumpir es el aplicado (ahí sí queda el board a medio armar).
     <div onClick={() => { if (!guardando) onClose(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+      style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto || !capa.visible ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()}
         style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
@@ -529,6 +534,13 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             yaCargadas={yaCargadas}
             onAbrirTarea={onAbrirTarea}
             renderTaskCard={renderTaskCard}
+            // Volver a ofrecer una que el borrador daba por cargada y no está: entra
+            // como una candidata más, tildada, y se carga con el mismo botón que el
+            // resto. No hay un camino especial — es la misma puerta.
+            onRecuperar={(y) => setFilas((fs) => (fs.some((f) => f.titulo === y.titulo) ? fs : [...fs, {
+              propId: props[0]?.id ?? '', titulo: y.titulo, detalle: '', prioridad: 'media',
+              proyectoId: null, incluir: true, esDeOtro: false, minutos: y.minutos,
+            } as FilaConProp]))}
           />}
         </div>
 

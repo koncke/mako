@@ -16,6 +16,7 @@ import { type Label, type Fuente } from './types';
 import { TIPO_REUNION_UI, type TipoReunion } from '@/lib/reunion-clasificar';
 import { frenoDeScope, type FrenoScope } from '@/lib/reunion-gate';
 import { WizardShell } from '@/app/_components/WizardShell';
+import { useCapaModal } from '@/app/_components/pila-modales';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -30,6 +31,44 @@ type Fila = FilaTarea;
 
 /** Lo que YA salió de una reunión (borrador pendiente o ya aplicado). */
 export type ResumenBorrador = { id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; creadas: number; pendientesMias: number; pendientesOtros: number };
+
+
+// ── El caché de la lista ─────────────────────────────────────────────────────
+// Abrir el botón de Fathom pedía la lista entera a su API y tardaba varios segundos
+// con la pantalla en blanco, TODAS las veces — aunque la lista fuera la misma que
+// hace dos minutos y aunque de casi todas ya tuviéramos el borrador guardado. Ahora
+// lo último que se vio queda en sessionStorage y se pinta al instante; el refresco
+// corre por atrás y lo reemplaza cuando llega.
+//
+// sessionStorage (no localStorage): vive lo que dura la pestaña. Es una lista de
+// reuniones, no un dato del negocio: si el navegador se cierra, que se vuelva a pedir.
+const CACHE_KEY = 'mako.fathom.lista';
+const CACHE_TTL_MS = 30 * 60 * 1000;
+
+type CacheLista = { desde: string; ts: number; reuniones: ReunionMeta[]; cursor: string | null; borradores: Record<number, ResumenBorrador> };
+
+function leerCache(desde: string): CacheLista | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw) as CacheLista;
+    // El filtro de fecha cambia QUÉ lista es: un caché de otro filtro no sirve.
+    if (c.desde !== desde || !Array.isArray(c.reuniones) || !c.reuniones.length) return null;
+    if (Date.now() - (c.ts || 0) > CACHE_TTL_MS) return null;
+    return c;
+  } catch { return null; }
+}
+
+function guardarCache(desde: string, reuniones: ReunionMeta[], cursor: string | null, borradoresRaw: Record<string, ResumenBorrador>) {
+  try {
+    const borradores: Record<number, ResumenBorrador> = {};
+    for (const [ref, v] of Object.entries(borradoresRaw)) {
+      const n = Number(ref.replace('fathom:', ''));
+      if (Number.isFinite(n)) borradores[n] = v;
+    }
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ desde, ts: Date.now(), reuniones, cursor, borradores } satisfies CacheLista));
+  } catch { /* cuota llena o modo privado: que no se caiga por un caché */ }
+}
 
 /** El cliente de la reunión, resuelto por el server contra el CRM. */
 export type ClienteReunion = { nombre: string; empresa: string | null; proyecto: string; email: string };
@@ -93,17 +132,27 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   const [dudas, setDudas] = useState<Duda[]>([]);              // términos a aclarar (paso previo, punto 7)
   const [defs, setDefs] = useState<Record<number, string>>({}); // definiciones que va escribiendo el usuario
   const [err, setErr] = useState('');
+  // Cuando se abre la tarjeta de una tarea encima, ESTE modal se esconde y vuelve con
+  // su scroll intacto: la lista de reuniones puede tener 40 filas y volver arriba de
+  // todo después de mirar una tarjeta es perder el lugar.
+  const capa = useCapaModal(true);
 
   // Trae una página. `reset` = arranca de cero (cambió el filtro de fecha); si no,
   // agrega a lo que ya hay (botón "cargar más"). El cursor lo da Fathom.
-  const cargar = async (reset: boolean) => {
-    if (reset) { setReuniones(null); setCursor(null); }
-    setCargandoMas(!reset); // no limpiamos err acá: volverALista() puede querer conservar el error de un archivo que falló
+  //
+  // `reset` YA NO VACÍA LA PANTALLA si hay algo cacheado: la llamada a Fathom tarda
+  // varios segundos y borrar la lista para poner un spinner hacía que abrir el botón
+  // se sintiera como empezar de cero cada vez, cuando en realidad ya sabíamos casi
+  // todo. Ahora se pinta lo que había y el refresco corre por atrás.
+  const cargar = async (reset: boolean, silencioso = false) => {
+    if (reset && !silencioso) { setReuniones(null); setCursor(null); }
+    setCargandoMas(!reset || silencioso); // no limpiamos err acá: volverALista() puede querer conservar el error de un archivo que falló
     const j = await apiFathom({ action: 'reuniones', cursor: reset ? undefined : cursor ?? undefined, recordedAfter: desde || undefined });
     setCargandoMas(false);
     if (j.ok && j.reuniones) {
       setReuniones((prev) => (reset || !prev ? j.reuniones! : [...prev, ...j.reuniones!]));
       setCursor(j.nextCursor ?? null);
+      if (reset) guardarCache(desde, j.reuniones!, j.nextCursor ?? null, j.borradores ?? {});
       const porId: Record<number, ResumenBorrador> = {};
       for (const [ref, v] of Object.entries(j.borradores ?? {})) {
         const n = Number(ref.replace('fathom:', ''));
@@ -116,7 +165,16 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   // Lista de Fathom: solo si NO entró por "subir archivo" del toolbar. Recarga al
   // cambiar el filtro de fecha.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (archivoInicial) return; setErr(''); void cargar(true); }, [desde]);
+  useEffect(() => {
+    if (archivoInicial) return;
+    setErr('');
+    // Lo que ya sabíamos se pinta AL INSTANTE y después se refresca por atrás. La lista
+    // de Fathom cambia una vez por reunión, no una vez por segundo: hacerte esperar el
+    // round-trip completo para volver a ver lo mismo era el costo más caro del botón.
+    const cache = leerCache(desde);
+    if (cache) { setReuniones(cache.reuniones); setCursor(cache.cursor); setBorradores(cache.borradores); }
+    void cargar(true, !!cache);
+  }, [desde]);
 
   // Búsqueda client-side sobre título + emails de los involucrados.
   const visibles = useMemo(() => {
@@ -338,8 +396,13 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   }
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capa.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+      {/* ALTO FIJO, no «hasta 86vh». Con maxHeight el modal se estiraba y se encogía
+          solo: la lista con 8 reuniones era chiquita, con 40 llenaba la pantalla, y al
+          pasar a la revisión pegaba un salto. Un contenedor que cambia de tamaño según
+          lo que tiene adentro obliga a reubicarse en cada paso. Ahora la caja mide
+          siempre lo mismo y lo que scrollea es el cuerpo. */}
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, height: 'min(86vh, 760px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
         {/* header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
@@ -354,7 +417,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
         </div>
 
         {/* cuerpo */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 22px' }}>
+        <div ref={capa.refScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 22px' }}>
           {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginBottom: 12 }}>{err}</div>}
 
           {/* lista de reuniones */}
@@ -399,6 +462,11 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                         // en el plan y lo que quedó del lado de otras personas.
                         const b = borradores[r.recordingId];
                         const yaLeida = !!b && !!onAbrirBorrador;
+                        // Cuántas de esa reunión YA ESTÁN en el plan. Se dice siempre que
+                        // haya alguna: antes solo salía si el borrador seguía vivo, así que
+                        // una reunión con 32 tareas cargadas se veía igual que una que nunca
+                        // se tocó y había que entrar para enterarse.
+                        const yaEnPlan = b?.creadas ?? 0;
                         // Las TUYAS y las de OTROS son dos cosas distintas y el server ya las
                         // manda separadas: sumarlas acá era lo que hacía decir «13 esperando»
                         // cuando esas 13 son compromisos de otra persona y a vos no te espera nada.
@@ -411,8 +479,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                         const cerrada = b?.estado === 'aplicada' || b?.estado === 'descartada';
                         return (
                           <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId) : extraer(r))}
-                            style={{ display: 'flex', alignItems: 'flex-start', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}>
+                            // Sin leer = APAGADA. Lo que MaKo ya miró tiene que saltar a la
+                            // vista; lo que todavía no, se ve pero no compite. Una lista donde
+                            // todo pesa igual obliga a leer los 40 títulos.
+                            style={{ display: 'flex', alignItems: 'stretch', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS, opacity: yaLeida ? 1 : 0.62 }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.opacity = '1'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.opacity = yaLeida ? '1' : '0.62'; }}>
                             {/* logo de Fathom (punto 6): son grabaciones de Fathom, no un micrófono genérico */}
                             <span style={{ flex: 'none', marginTop: 1 }}><SvcIcon k="fathom" size={17} box={28} radius={8} /></span>
                             <span style={{ flex: 1, minWidth: 0 }}>
@@ -433,29 +505,57 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                                     {otras} de otros
                                   </span>
                                 ) : null}
-                                <span title={`Clasificada como ${t.label} por los emails de los invitados`} style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: `var(--${t.tono})`, background: `var(--${t.tono}-bg, var(--surface-2))`, border: `1px solid var(--${t.tono})` }}>{t.label}</span>
+                                {/* El tipo se muestra SOLO cuando dice algo. «Equipo» es el
+                                    default de la clasificación, así que aparecía en TODAS las
+                                    reuniones y por lo tanto no distinguía ninguna: un chip que
+                                    está siempre es ruido, no información. Quedan los dos que sí
+                                    cambian la lectura: Ventas y Entrega. */}
+                                {(r.tipo === 'ventas' || r.tipo === 'entrega') && (
+                                  <span title={`Clasificada como ${t.label} por los emails de los invitados`} style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: `var(--${t.tono})`, background: `var(--${t.tono}-bg, var(--surface-2))`, border: `1px solid var(--${t.tono})` }}>{t.label}</span>
+                                )}
                               </span>
                               <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{fmtFecha(r.fecha)}{r.durMin ? ` · ${r.durMin} min` : ''}</span>
                               {r.involucrados.length > 0 && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>👤 {r.involucrados.join(', ')}</span>}
-                              {yaLeida && (
-                                <span style={{ display: 'block', fontSize: 11.5, color: b.estado === 'descartada' ? 'var(--faint)' : 'var(--good)', fontWeight: 600, marginTop: 3 }}>
-                                  {b.estado === 'descartada' ? '· la descartaste' : `✓ ${b.creadas > 0 ? `${b.creadas} ${b.creadas === 1 ? 'tarea' : 'tareas'} ya en tu plan` : 'MaKo ya la leyó'}`}
-                                  {b.estado !== 'descartada' && b.pendientesMias > 0 && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · {b.pendientesMias} sin confirmar</span>}
-                                  {b.estado !== 'descartada' && b.pendientesOtros > 0 && <span style={{ color: 'var(--dim)', fontWeight: 500 }}> · {b.pendientesOtros} para repartir</span>}
-                                  {b.estado === 'descartada' && b.creadas > 0 && <span> · {b.creadas} habían entrado a tu plan</span>}
+                              {b && (
+                                <span style={{ display: 'block', fontSize: 11.5, color: b.estado === 'descartada' ? 'var(--faint)' : yaEnPlan > 0 ? 'var(--good)' : 'var(--dim)', fontWeight: 600, marginTop: 3 }}>
+                                  {b.estado === 'descartada'
+                                    ? (yaEnPlan > 0 ? `· la descartaste — ${yaEnPlan} habían entrado a tu plan` : '· la descartaste')
+                                    : yaEnPlan > 0 ? `✓ ${yaEnPlan} ${yaEnPlan === 1 ? 'tarea cargada' : 'tareas cargadas'} en tu plan` : '✓ MaKo ya la leyó'}
+                                  {b.estado !== 'descartada' && b.pendientesMias > 0 && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · {b.pendientesMias} sin cargar</span>}
+                                  {b.estado !== 'descartada' && b.pendientesOtros > 0 && <span style={{ color: 'var(--dim)', fontWeight: 500 }}> · {b.pendientesOtros} de otras personas</span>}
                                 </span>
                               )}
                             </span>
-                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>{cerrada ? 'Ver lo que sacó →' : mias > 0 ? 'Confirmar →' : otras > 0 ? 'Repartir →' : yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}</span>
+                            {/* DOS estados y nada más: o MaKo ya la leyó (entrás a ver lo que
+                                sacó) o no (la extrae). «Confirmar» y «Repartir» prometían
+                                acciones distintas y llevaban a la MISMA pantalla — y
+                                «Repartir» encima salía en reuniones donde no había nadie a
+                                quien repartirle. Va abajo, alineado con la última línea, para
+                                que arriba queden solo los chips. */}
+                            <span style={{ display: 'flex', alignItems: 'flex-end', flex: 'none' }}>
+                              <span style={{ fontSize: 13, color: yaLeida ? 'var(--primary)' : 'var(--dim)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                {yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}
+                              </span>
+                            </span>
                           </button>
                         );
                       })}
-                      {/* cargar más (punto 9): solo si Fathom devolvió cursor y no estás filtrando en local */}
-                      {cursor && !q && (
+                      {/* «Cargar más» NO desaparece al buscar. La búsqueda es LOCAL sobre lo
+                          que ya se trajo, así que esconderlo mientras buscás es esconder la
+                          única forma de encontrar una reunión más vieja: escribías «Leila»,
+                          no salía, y no quedaba manera de seguir buscando hacia atrás. */}
+                      {cursor && (
                         <button type="button" onClick={() => void cargar(false)} disabled={cargandoMas}
                           style={{ alignSelf: 'center', marginTop: 4, padding: '8px 18px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: cargandoMas ? 'default' : 'pointer', fontFamily: SANS }}>
-                          {cargandoMas ? 'Cargando…' : 'Cargar más reuniones'}
+                          {cargandoMas ? 'Cargando…' : q ? `Buscar «${q.slice(0, 18)}» más atrás` : 'Cargar más reuniones'}
                         </button>
+                      )}
+                      {/* Fathom ya no tiene más para dar: decirlo, para que buscar algo que
+                          no está no se sienta como que el botón dejó de funcionar. */}
+                      {!cursor && (reuniones?.length ?? 0) > 0 && (
+                        <div style={{ alignSelf: 'center', marginTop: 4, fontSize: 12.5, color: 'var(--faint)' }}>
+                          {q ? `No hay más reuniones con «${q.slice(0, 20)}» en Fathom.` : 'Esas son todas las reuniones que tenés en Fathom.'}
+                        </div>
                       )}
                     </>}
             </div>

@@ -273,13 +273,18 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
       ...CATALOGO_PROYECTOS.filter((c) => !yaEnTablero.has(c.nombre.toLowerCase())).map((c) => ({ nombre: c.nombre, que: c.que })),
     ];
     const ruteo: Record<number, string> = {}; // índice de tarea → NOMBRE del proyecto destino
+    const propuestosPorElPerro = new Map<string, { nombre: string; que: string; porQue: string }>();
     if (destinos.length) {
       const r = await asignarTareasAProyectos(
         validos.map((it) => ({ titulo: it.titulo.trim(), grupo: it.proyecto?.trim() })),
         destinos,
         'Rutear tareas nuevas a proyectos',
-      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string }> }; });
+      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string }>, nuevos: [] as Array<{ nombre: string; que: string; porQue: string }> }; });
       for (const a of r.asign) ruteo[a.i] = a.destino;
+      // Los proyectos que el Perro pidió abrir porque nada de la lista los cubría.
+      // Vienen con su descripción y su porqué: se guardan para que el proyecto nuevo
+      // nazca explicándose solo, igual que uno del catálogo.
+      for (const n of (r.nuevos ?? [])) propuestosPorElPerro.set(n.nombre.trim().toLowerCase(), n);
     }
 
     // 2. proyecto RESUELTO de cada tarea: el destino que eligió el Perro (o, si el ruteo
@@ -300,14 +305,21 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
       let nid = byName.get(k);
       if (!nid) {
         const cat = delCatalogo(nombre);
+        const delPerro = propuestosPorElPerro.get(k);
         nid = genId('p');
         byName.set(k, nid);
+        // El historial dice de dónde salió el proyecto, y en el caso más delicado —el
+        // que abrió el Perro— dice ADEMÁS por qué ninguno de los que había servía. Sin
+        // ese renglón, un proyecto nuevo es una decisión que nadie puede discutir.
+        const porQueNacio = cat ? `Creó el proyecto (está en el catálogo) — ${desde}`
+          : delPerro ? `MaKo abrió este proyecto: ${delPerro.porQue} — ${desde}`
+            : `Creó el proyecto — ${desde}`;
         nuevosProy.push({
-          id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? '📁', name: nombre.slice(0, 120),
-          color: '#2F6FED', score: 50, detalle: cat?.que ?? '', fuente: fu,
-          historial: [{ id: genId('h'), ts: ahora, actor, text: cat ? `Creó el proyecto (está en el catálogo) — ${desde}` : `Creó el proyecto — ${desde}` }],
+          id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? (delPerro ? '🗂' : '📁'), name: nombre.slice(0, 120),
+          color: '#2F6FED', score: 50, detalle: cat?.que ?? delPerro?.que ?? '', fuente: fu,
+          historial: [{ id: genId('h'), ts: ahora, actor, text: porQueNacio.slice(0, 300) }],
         });
-        if (!cat) console.warn(`[plan-board] proyecto FUERA del catálogo: «${nombre}» — ${desde}`);
+        if (!cat && !delPerro) console.warn(`[plan-board] proyecto FUERA del catálogo y sin justificar: «${nombre}» — ${desde}`);
       }
       return nid;
     });

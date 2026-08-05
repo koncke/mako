@@ -79,6 +79,11 @@ export const CATALOGO_PROYECTOS: ProyectoCatalogo[] = [
   { nombre: 'Diseño de la app', emoji: '✨', familia: 'transversal', que: 'Cómo se ve y se siente: identidad, modo simple, componentes, mobile, consistencia visual.' },
   { nombre: 'Infraestructura y versionado', emoji: '🧰', familia: 'transversal', que: 'Lo que sostiene la app: deploys, versiones, performance, costos, herramientas de desarrollo.' },
   { nombre: 'Avisos y reportes', emoji: '🔔', familia: 'transversal', que: 'Cómo MaKo avisa: notificaciones, reportes al dueño, señales de que algo pasó.' },
+  // Faltaba, y su ausencia se notó: sin un lugar para lo legal, el Perro repartía por
+  // palabra suelta — los Términos de Servicio cayeron en «Landing y VSL», la apertura
+  // de la LLC en «Cobros y planes» y el marco de responsabilidad en «Seguridad». Nada
+  // de eso se construye en esas pantallas: se firma, se registra o se paga.
+  { nombre: 'Legal y fiscal', emoji: '⚖️', familia: 'transversal', que: 'Los papeles del negocio: términos y condiciones, privacidad, contratos, licenciamiento y propiedad del código, estructura societaria, impuestos y facturación. NO es la pantalla de cobros (eso es Cobros y planes) ni el aislamiento entre clientes (eso es Seguridad).' },
 
   // ── Vender MaKo: el trabajo comercial, por canal ───────────────────────────
   { nombre: 'Vender MaKo: Oferta y precios', emoji: '🧅', familia: 'vender', que: 'Qué se vende y a cuánto: planes, capas, pricing, bonus, garantía, posicionamiento.' },

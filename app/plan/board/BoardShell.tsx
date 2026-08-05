@@ -23,6 +23,7 @@ import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
+import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
 import { TareasRecibidasModal, type PropuestaPendiente } from './TareasRecibidasModal';
@@ -1293,7 +1294,11 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
     <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: 'clamp(12px,1.6vw,18px) clamp(14px,2.4vw,30px) 40px' }}>
       <div className="mako-prio" style={{ width: '100%', maxWidth: 'min(1400px, 100%)', display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
         {/* IZQUIERDA — Objetivo Principal (card alto, clickeable) */}
-        <div className="mako-prio-obj" style={{ flex: '1 1 300px', maxWidth: 440, minWidth: 260, display: 'flex' }}>
+        {/* El objetivo es UN PROYECTO, así que ocupa lo mismo que un proyecto: la grilla
+            de Proyectos usa tarjetas de ~240-300px y esta se estiraba hasta 440, con lo
+            que en pantalla ancha parecía otra cosa. Se tiene que reconocer por el diseño
+            —borde de color arriba, emoji, P#, avance— sin leer una palabra. */}
+        <div className="mako-prio-obj" style={{ flex: '0 1 300px', maxWidth: 320, minWidth: 240, display: 'flex' }}>
           {objetivo ? <ObjetivoCard objetivo={objetivo} prog={projProgress(board.tasks, objetivo.id)} onOpen={() => onOpenProj(objetivo.id)} /> : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>Todavía no hay un Objetivo Principal. Creá un proyecto y el perro elige el norte.</div>
           )}
@@ -1365,7 +1370,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
 // proyecto. Solo emoji + nombre + score: el detalle y el porqué viven adentro.
 function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () => void; prog: { total: number; done: number; pct: number } }) {
   return (
-    <div onClick={onOpen} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderTop: `4px solid ${objetivo.color}`, borderRadius: 16, padding: '20px 22px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(18,21,27,.05)', transition: 'border-color .12s' }}
+    <div onClick={onOpen} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderTop: `4px solid ${objetivo.color}`, borderRadius: 14, padding: '16px 17px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(18,21,27,.05)', transition: 'border-color .12s' }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = objetivo.color; e.currentTarget.style.borderTopColor = objetivo.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = objetivo.color + '59'; e.currentTarget.style.borderTopColor = objetivo.color; }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: objetivo.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>
@@ -1374,10 +1379,10 @@ function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () 
       </div>
       {/* emoji + id (mismo tamaño/color que en el kanban) antes del nombre */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 26, lineHeight: 1 }}>{objetivo.emoji}</span>
+        <span style={{ fontSize: 22, lineHeight: 1 }}>{objetivo.emoji}</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{objetivo.pid}</span>
       </div>
-      <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.25 }}>{objetivo.name}</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.3 }}>{objetivo.name}</div>
       <span style={{ flex: 1 }} />
       {/* Barra de progreso del proyecto (feedback jul-17): igual que en la grilla. */}
       <div style={{ marginTop: 16 }}>
@@ -1560,6 +1565,10 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
   // Escape: si vino de un proyecto, VUELVE al proyecto; si no, cierra. (Blurea primero
   // para commitear el detalle.) No dispara con el submodal de MaKo abierto.
   const salir = onBack ?? onClose;
+  // Pila de modales: si esta tarjeta se abrió DESDE otro modal (la revisión de una
+  // reunión, por ejemplo), ese otro se esconde mientras esta está arriba y vuelve —con
+  // su scroll— al cerrarla. Antes esta se abría DETRÁS y no se veía.
+  const capa = useCapaModal(true);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !mako && !escDisabled) { (document.activeElement as HTMLElement)?.blur?.(); salir(); } };
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
@@ -1571,7 +1580,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 
   return (
-    <div onClick={salir} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
+    <div onClick={salir} style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: capa.visible ? 'flex' : 'none', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           {onBack && <button onClick={onBack} title="Volver al proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← Volver</button>}
@@ -1852,8 +1861,11 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
   const prog = projProgress(board.tasks, proj.id);
   const isTop = proj.id === topProjectId;
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
+  const capa = useCapaModal(true);
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: z, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
+    // `z` sigue existiendo como piso para el caso proyecto-debajo-de-tarea, pero quien
+    // manda es la pila: el de arriba se ve, los de abajo se esconden.
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: Math.max(z, capa.z), background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: capa.visible || taskAbierta ? 'flex' : 'none', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `4px solid ${proj.color}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>

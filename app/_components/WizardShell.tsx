@@ -24,6 +24,8 @@ const MONO = "'Geist Mono', monospace";
 /** Input estándar de los pasos del wizard (centrado). */
 export const wizardInput: CSSProperties = { width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', textAlign: 'center' };
 
+import { useCapaModal } from './pila-modales';
+
 export function WizardShell({
   titulo, total, idx, pregunta, sub, children, error,
   puedeAvanzar, enUltimo, confirmLabel, pending = false,
@@ -70,6 +72,7 @@ export function WizardShell({
    */
   ancho?: number;
 }) {
+  const capa = useCapaModal(!fullscreen);
   const dots = (
     <div style={{ display: 'flex', gap: 6 }}>
       {Array.from({ length: total }).map((_, i) => (
@@ -186,7 +189,9 @@ export function WizardShell({
   // columna flex, y UN solo hijo elástico con minHeight:0 (sin eso el flex-item no se
   // achica por debajo de su contenido y el overflow no se activa nunca).
   return (
-    <div onClick={bloqueante ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    // Pila de modales: si se abre otro encima, este se ESCONDE (no se desmonta) y al
+    // volver está con el scroll donde lo dejaste. Ver app/_components/pila-modales.ts.
+    <div onClick={bloqueante ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capa.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true"
         style={{ width: '100%', maxWidth: ancho, maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ flex: 'none' }}>{header}</div>
