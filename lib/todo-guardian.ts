@@ -54,7 +54,7 @@ export async function priorizarNuevasCliente(ids: number[], contexto = ''): Prom
 
   const [scoreRes, checklistRes] = await Promise.all([
     puntuarNuevas(nuevas, existentes, contexto, 'Priorización de tareas nuevas (cliente)'),
-    checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), 'Descripción + checklists de tareas nuevas (cliente)')
+    checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), contexto, 'Descripción + checklists de tareas nuevas (cliente)')
       .catch(() => ({} as Record<string, { detalle: string; items: string[] }>)),
   ]);
 
