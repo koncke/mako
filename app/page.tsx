@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Landing from './vsl/Landing';
 
 // La raíz es la landing de venta (antes vivía en /vsl). La ve CUALQUIERA, con
-// sesión o sin ella: es la cara pública de makodigital.app y tener que desloguearse
+// sesión o sin ella: es la cara pública del dominio y tener que desloguearse
 // para mirar el VSL no tiene sentido. El repartidor por rol —lo que antes vivía
 // acá— se mudó a /inicio, que es a donde va el login y el "Entrar" del header.
 export const metadata: Metadata = {

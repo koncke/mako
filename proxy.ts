@@ -44,20 +44,23 @@ const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'];
 // credenciales del workspace (tokens globales) — solo admins.
 const SOLO_ADMIN = ['/admin', '/api/admin', '/metodo', '/api/metodo'];
 
-// ── Mudanza a makodigital.app ────────────────────────────────────────────────
-// MaKo se sirve SOLO desde el dominio propio. A los *.vercel.app (el alias viejo
-// dashboard-marketing-six, el de la rama y los de cada deploy) no se entra más:
-// devuelven un cartel de mudanza que reenvía al mismo path del dominio bueno.
+// ── Mudanza al dominio propio ────────────────────────────────────────────────
+// MaKo se sirve SOLO desde HOST_CANONICO. Cualquier otro host —los *.vercel.app
+// originales y, desde este cambio, también makodigital.app (el dominio anterior
+// a este)— no responde más: recibe un cartel de mudanza que reenvía al mismo
+// path del dominio bueno. La lógica es genérica (cualquier host ≠ canónico
+// muda), así que un cambio de dominio futuro es solo pisar HOST_CANONICO acá +
+// lib/app-url.ts + las env vars de Vercel.
 //
 // Con dos excepciones que NO se pueden cortar, porque no las abre una persona:
 //   · /api/cron      — Vercel invoca los crons contra la URL del DEPLOY, no
 //                      contra el dominio. Bloquearlos apagaba todos los crons.
-//   · /api/webhooks  — Chatwoot y Evolution tienen registrada la URL vieja.
-//     /api/track       Cortarlas silenciaba WhatsApp hasta re-registrarlas.
+//   · /api/webhooks  — Chatwoot y Evolution pueden tener registrada una URL
+//     /api/track       vieja. Cortarlas silenciaba WhatsApp hasta re-registrarlas.
 // Ambas se autentican por firma/secret propio, así que abrirlas por host no
-// afloja nada. Cuando los webhooks queden re-registrados en makodigital.app,
+// afloja nada. Cuando los webhooks queden re-registrados en el dominio actual,
 // '/api/webhooks' y '/api/track' pueden salir de esta lista.
-const HOST_CANONICO = 'makodigital.app';
+const HOST_CANONICO = 'hola-mako.com';
 const EXENTAS_DE_HOST = ['/api/cron', '/api/webhooks', '/api/track'];
 
 function esHostCanonico(host: string): boolean {
@@ -81,7 +84,7 @@ function respuestaMudanza(req: NextRequest, pathname: string): NextResponse | nu
   // Las APIs no las mira nadie: 410 Gone y listo.
   if (pathname.startsWith('/api/')) {
     return NextResponse.json(
-      { ok: false, error: 'MaKo se mudó a https://makodigital.app', destino },
+      { ok: false, error: `MaKo se mudó a https://${HOST_CANONICO}`, destino },
       { status: 410 },
     );
   }
