@@ -408,15 +408,30 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
     } catch (e) { clearOpt(id, 'budgetMxn'); setToast(`Error de red: ${String(e)}`); }
     finally { setWriting((w) => { const n = new Set(w); n.delete(id); return n; }); }
   }
+  // Cuenta los que NO salieron y arma un aviso. Sin esto una pausa en lote podía
+  // fallar sin decir nada: seleccionabas 5 campañas, 2 no se pausaban, la tabla se
+  // recargaba mostrándolas ACTIVE (el estado no miente) y no aparecía ningún cartel
+  // — quedaban gastando y el usuario lo leía como "todavía no refrescó".
+  const avisarFallos = (results: PromiseSettledResult<{ ok: boolean; msg?: string }>[], verbo: string) => {
+    const fallidos = results.filter((r) => r.status === 'rejected' || !r.value.ok);
+    if (!fallidos.length) return;
+    const primero = fallidos.find((r): r is PromiseFulfilledResult<{ ok: boolean; msg?: string }> => r.status === 'fulfilled');
+    const detalle = primero?.value.msg ?? 'Meta rechazó el cambio';
+    setToast(fallidos.length === 1 ? `No se pudo ${verbo}: ${detalle}` : `No se pudieron ${verbo} ${fallidos.length} de ${results.length}: ${detalle}`);
+  };
   const bulkStatus = async (next: 'ACTIVE' | 'PAUSED') => {
     const seeds = [...selSet];
-    if (next === 'PAUSED') { await Promise.allSettled(seeds.map((id) => writeOneStatus(level, id, 'PAUSED'))); cargar(true); return; }
+    if (next === 'PAUSED') {
+      const results = await Promise.allSettled(seeds.map((id) => writeOneStatus(level, id, 'PAUSED')));
+      avisarFallos(results, 'pausar');
+      cargar(true);
+      return;
+    }
     // ACTIVAR en lote: unir los subárboles de todo lo seleccionado y postear cada id 1 vez.
     const all = new Set<string>();
     for (const id of seeds) for (const cid of statusCascadeIds(level, id)) all.add(cid);
     const results = await Promise.allSettled([...all].map((cid) => writeOneStatus(levelOf(cid), cid, 'ACTIVE')));
-    const fail = results.find((res): res is PromiseFulfilledResult<{ ok: boolean; msg?: string }> => res.status === 'fulfilled' && !res.value.ok);
-    if (fail) setToast(fail.value.msg ?? 'Meta rechazó activar parte del árbol');
+    avisarFallos(results, 'activar');
     cargar(true); // reconciliar con el estado EFECTIVO real de Meta (sin spinner)
   };
   // Eliminar (solo PAUSADAS, con confirmación). Borrar campaña cascadea conjuntos/anuncios.

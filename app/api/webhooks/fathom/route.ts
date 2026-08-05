@@ -20,6 +20,7 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 import { runWithWorkspace } from '@/lib/workspace';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { credWs, envCred } from '@/lib/credenciales';
 import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,40 @@ export async function POST(request: NextRequest) {
   const tStart = Date.now();
   const rawBody = await request.text();
 
-  // 1) Verificar firma (Svix)
+  // ORDEN: parsear → resolver workspace → verificar firma CON EL SECRETO DE ESE
+  // WORKSPACE. Antes se verificaba primero contra un secreto GLOBAL de process.env,
+  // y eso tenía un efecto que nadie veía: cada cliente registra el webhook en SU
+  // cuenta de Fathom y recibe SU propio `whsec_`, que jamás se leía. Su webhook
+  // devolvía 401 el 100% de las veces mientras la UI se lo pintaba en verde.
+  //
+  // Parsear antes de verificar es seguro: el JSON sin firmar solo se usa para elegir
+  // CONTRA QUÉ SECRETO validar. Un payload forjado sigue muriendo en la firma, porque
+  // el secreto que se prueba es el del workspace que el propio payload nombra.
+
+  // 1) Parsear (todavía sin confiar en el contenido)
+  let body: FathomWebhookPayload;
+  try { body = JSON.parse(rawBody) as FathomWebhookPayload; }
+  catch { return Response.json({ ok: false, error: 'bad_json' }, { status: 400 }); }
+
+  // 2) Resolver el workspace por el email de la cuenta que grabó (recorded_by).
+  //    Fail-CLOSED: sin mapeo (webhook_routing), NO tocamos datos — nunca cae al
+  //    dueño (evita matchear la grabación de un cliente contra leads ajenos).
+  const hostEmail = body.recorded_by?.email ?? null;
+  const ws = await wsPorIdentificador('fathom', hostEmail);
+  if (ws == null) {
+    console.warn(`[webhook:fathom] sin workspace para recorded_by=${hostEmail ?? '—'} — ignorado`);
+    return Response.json({ ok: true, ignored: 'sin workspace' });
+  }
+
+  // 3) Verificar la firma con el secreto DE ESE workspace. Si el workspace no tiene
+  //    el suyo cargado, se cae al de plataforma (compatibilidad: es lo que hacía
+  //    antes para todos). Ese fallback es el que hay que ir vaciando: mientras se
+  //    use, dos inquilinos comparten secreto.
+  const secretWs = await credWs('FATHOM_WEBHOOK_SECRET', ws);
+  const secret = secretWs ?? (await envCred('FATHOM_WEBHOOK_SECRET'));
+  if (!secretWs) {
+    console.warn(`[webhook:fathom] ws ${ws} sin FATHOM_WEBHOOK_SECRET propio — usando el de plataforma`);
+  }
   try {
     verifyFathomSignature(
       rawBody,
@@ -40,29 +74,14 @@ export async function POST(request: NextRequest) {
         timestamp: request.headers.get('webhook-timestamp'),
         signature: request.headers.get('webhook-signature'),
       },
-      process.env.FATHOM_WEBHOOK_SECRET ?? '',
+      secret ?? '',
     );
   } catch (err) {
     if (err instanceof FathomSignatureError) {
-      console.warn(`[webhook:fathom] firma rechazada: ${err.message}`);
+      console.warn(`[webhook:fathom] firma rechazada (ws ${ws}): ${err.message}`);
       return Response.json({ ok: false, error: 'signature', message: err.message }, { status: 401 });
     }
     throw err;
-  }
-
-  // 2) Parsear
-  let body: FathomWebhookPayload;
-  try { body = JSON.parse(rawBody) as FathomWebhookPayload; }
-  catch { return Response.json({ ok: false, error: 'bad_json' }, { status: 400 }); }
-
-  // 2.5) Resolver el workspace por el email de la cuenta que grabó (recorded_by).
-  //      Fail-CLOSED: sin mapeo (webhook_routing), NO tocamos datos — nunca cae al
-  //      dueño (evita matchear la grabación de un cliente contra leads ajenos).
-  const hostEmail = body.recorded_by?.email ?? null;
-  const ws = await wsPorIdentificador('fathom', hostEmail);
-  if (ws == null) {
-    console.warn(`[webhook:fathom] sin workspace para recorded_by=${hostEmail ?? '—'} — ignorado`);
-    return Response.json({ ok: true, ignored: 'sin workspace' });
   }
 
   // 3) Matchear lead + aplicar — TODO confinado al workspace resuelto.

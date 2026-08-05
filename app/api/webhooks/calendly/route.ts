@@ -35,7 +35,7 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 import { enrolarPorEvento } from '@/lib/nutricion';
 import { runWithWorkspace } from '@/lib/workspace';
-import { credWs } from '@/lib/credenciales';
+import { credWs, envCred } from '@/lib/credenciales';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 
 const KEYWORDS_TEL = ['tel', 'phone', 'celular', 'móvil', 'movil'];
@@ -55,26 +55,22 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   const tStart = Date.now();
 
-  // 1) Read raw body (necesario para verificar firma)
+  // ORDEN: parsear → resolver workspace → verificar firma CON LA KEY DE ESE
+  // WORKSPACE. Antes se verificaba primero contra una signing key GLOBAL de
+  // process.env, y eso abría una vía de ESCRITURA CROSS-TENANT: en Calendly la
+  // signing key la elige quien crea la suscripción, y la ayuda de /integraciones le
+  // pide al cliente que la comparta. Con esa key —y con el nombre del event type de
+  // otro inquilino, que es público en su página de reservas— se podían forjar
+  // eventos que entraban en runWithWorkspace(víctima) y le escribían leads, fechas
+  // de junta, CAPI al píxel y nutrición.
+  //
+  // Parsear antes de verificar es seguro: el JSON sin firmar solo elige CONTRA QUÉ
+  // KEY validar. Un payload forjado muere en la firma, porque la key que se prueba
+  // es la del workspace que el propio payload nombra.
   const rawBody = await request.text();
   const signatureHeader = request.headers.get('calendly-webhook-signature');
-  const signingKey = process.env.CALENDLY_WEBHOOK_SIGNING_KEY;
 
-  // 2) Verify signature
-  try {
-    verifyCalendlySignature(rawBody, signatureHeader, signingKey ?? '');
-  } catch (err) {
-    if (err instanceof CalendlySignatureError) {
-      console.warn(`[webhook:calendly] firma rechazada: ${err.message}`);
-      return Response.json(
-        { ok: false, error: 'signature', message: err.message },
-        { status: 401 },
-      );
-    }
-    throw err;
-  }
-
-  // 3) Parse JSON
+  // 1) Parse JSON (todavía sin confiar en el contenido)
   let body: CalendlyWebhookPayload;
   try {
     body = JSON.parse(rawBody) as CalendlyWebhookPayload;
@@ -87,13 +83,13 @@ export async function POST(request: NextRequest) {
 
   const ms = Date.now() - tStart;
 
-  // 3.5) Resolver el workspace por el event type del scheduled_event — el MISMO
-  //      campo que clasificarJunta usa para distinguir R1/R2. En webhook_routing el
-  //      identificador de calendly es el valor EXACTO de CALENDLY_EVENT_TYPE_J1/J2,
-  //      así que probamos event_type → name → uri contra el índice y tomamos el
-  //      primero que resuelva (J1 y J2 del mismo cliente apuntan al mismo ws).
-  //      Fail-CLOSED: sin mapeo, NO tocamos datos (nunca cae al dueño). Esto corta
-  //      que el Schedule de un cliente vaya al píxel/CRM del dueño.
+  // 2) Resolver el workspace por el event type del scheduled_event — el MISMO
+  //    campo que clasificarJunta usa para distinguir R1/R2. En webhook_routing el
+  //    identificador de calendly es el valor EXACTO de CALENDLY_EVENT_TYPE_J1/J2,
+  //    así que probamos event_type → name → uri contra el índice y tomamos el
+  //    primero que resuelva (J1 y J2 del mismo cliente apuntan al mismo ws).
+  //    Fail-CLOSED: sin mapeo, NO tocamos datos (nunca cae al dueño). Esto corta
+  //    que el Schedule de un cliente vaya al píxel/CRM del dueño.
   const scheduled = body.payload?.scheduled_event;
   const candidatosWs = [scheduled?.event_type, scheduled?.name, scheduled?.uri].filter(
     (c): c is string => !!c && c.trim() !== '',
@@ -106,6 +102,28 @@ export async function POST(request: NextRequest) {
   if (ws == null) {
     console.warn(`[webhook:calendly] sin workspace para event_type=${candidatosWs[0] ?? '—'} evento=${body.event} — ignorado`);
     return Response.json({ ok: true, event: body.event, ignored: 'sin workspace' });
+  }
+
+  // 3) Verificar la firma con la key DE ESE workspace. Sin la suya cargada se cae a
+  //    la de plataforma (compatibilidad con lo que hacía antes para todos), pero
+  //    mientras se use ese fallback dos inquilinos comparten secreto y la vía de
+  //    forja sigue abierta para ellos. Vaciar el fallback = cerrarla del todo.
+  const keyWs = await credWs('CALENDLY_WEBHOOK_SIGNING_KEY', ws);
+  const signingKey = keyWs ?? (await envCred('CALENDLY_WEBHOOK_SIGNING_KEY'));
+  if (!keyWs) {
+    console.warn(`[webhook:calendly] ws ${ws} sin CALENDLY_WEBHOOK_SIGNING_KEY propia — usando la de plataforma`);
+  }
+  try {
+    verifyCalendlySignature(rawBody, signatureHeader, signingKey ?? '');
+  } catch (err) {
+    if (err instanceof CalendlySignatureError) {
+      console.warn(`[webhook:calendly] firma rechazada (ws ${ws}): ${err.message}`);
+      return Response.json(
+        { ok: false, error: 'signature', message: err.message },
+        { status: 401 },
+      );
+    }
+    throw err;
   }
 
   // 4) Dispatch por tipo de evento — TODO confinado al workspace resuelto.

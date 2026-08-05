@@ -27,10 +27,39 @@ export type TranscribeResult = {
   error: string | null;
 };
 
+// Lector síncrono del entorno. Es válido SOLO después de `await asegurarCreds()`:
+// la hidratación de credenciales no está garantizada cuando entra un request
+// (ver credencialesListas() en lib/credenciales.ts).
 function env(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Env var ${name} no definida`);
   return v;
+}
+
+/**
+ * Barrera: espera la hidratación del boot y, si igual no dejó la key de OpenAI,
+ * la resuelve contra la base y la deja en el entorno para que `env()` la vea.
+ *
+ * No es defensivo de más: sin esto, un cold start a medio hidratar hacía que
+ * `transcribeAd` tirara "Env var OPENAI_API_KEY no definida", y el cron guardaba
+ * la fila con status 'error' — que hasta hoy contaba como "ya transcrito" y dejaba
+ * al anuncio sin texto PARA SIEMPRE. Pasó con 9 anuncios de ws1 y ws3 entre el
+ * 2026-07-29 y el 08-03.
+ *
+ * El import es DINÁMICO y con catch a propósito: este módulo se mantiene libre de
+ * `server-only` para que lo puedan usar los scripts CLI (backfill-transcripts), y
+ * lib/credenciales sí lo tiene. En un script no hay nada que hidratar — la key ya
+ * viene del .env — así que el catch es el camino esperado, no un error.
+ */
+async function asegurarCreds(): Promise<void> {
+  if (process.env.OPENAI_API_KEY) return;
+  try {
+    const { envCred } = await import('./credenciales');
+    const k = await envCred('OPENAI_API_KEY');
+    if (k) process.env.OPENAI_API_KEY = k;
+  } catch {
+    /* contexto sin server (script CLI): se sigue con lo que haya en el entorno */
+  }
 }
 
 // ── Meta: video y/o imagen del creativo ──────────────────────────────────────
@@ -96,6 +125,7 @@ export const STRUCTURE_SYSTEM_BASE = 'Eres un analista de anuncios. Divide el gu
 /** Divide un guion en secciones con títulos (Hook, Problema, Oferta, CTA…). */
 export async function structureTranscript(text: string, instruccion?: string, systemBase: string = STRUCTURE_SYSTEM_BASE): Promise<Seccion[] | null> {
   if (!text || text.trim().length < 20) return null;
+  await asegurarCreds();
   const oai = env('OPENAI_API_KEY');
   let sys = systemBase;
   if (instruccion) sys += `\nInstrucción adicional del usuario (priorízala): ${instruccion}`;
@@ -133,6 +163,7 @@ export async function transcribeMediaBuffer(
   if (buf.length > MAX_BYTES) {
     return { status: 'muy_grande', transcript: null, idioma: null, duracion_s: null, error: `${(buf.length / 1048576).toFixed(1)} MB > 25 MB (límite de OpenAI). Subí solo el audio o recortá el video.` };
   }
+  await asegurarCreds();
   try {
     const oai = env('OPENAI_API_KEY');
     const form = new FormData();
@@ -164,6 +195,7 @@ export const IMAGE_PROMPT_BASE = 'Analiza este creativo de anuncio (imagen). Tra
 
 /** Analiza la imagen de un anuncio: texto visible + descripción + secciones. */
 async function analyzeImage(imageUrl: string, instruccion?: string, promptBase: string = IMAGE_PROMPT_BASE): Promise<{ transcript: string; secciones: Seccion[] }> {
+  await asegurarCreds();
   const oai = env('OPENAI_API_KEY');
   const dataUrl = await toDataUrl(imageUrl);
   let prompt = promptBase;
@@ -208,6 +240,7 @@ export async function transcribeAd(
   // la ortografía con el glosario configurado (vacío → no se manda nada).
   const whisperHint = instruccion || (pr?.whisperGlossary?.trim() || undefined);
   const base: TranscribeResult = { ad_id: adId, video_id: null, tipo: null, status: 'ok', transcript: null, secciones: null, idioma: null, duracion_s: null, model: null, error: null };
+  await asegurarCreds();
   try {
     const ver = env('META_API_VERSION'), token = opts?.metaToken ?? env('META_ACCESS_TOKEN'), oai = env('OPENAI_API_KEY');
     const video = await getAdVideo(adId, ver, token);

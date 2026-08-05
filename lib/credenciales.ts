@@ -132,6 +132,59 @@ export async function credWs(clave: string, ws?: number): Promise<string | null>
   return null;
 }
 
+// ── La barrera de arranque y el resolver de credenciales de PLATAFORMA ───────
+// Problema que resuelven (medido en producción el 2026-08-05):
+// `hidratarCredenciales()` corre en instrumentation.ts, pero Next 16 invoca
+// `ensureInstrumentationRegistered(...)` SIN await dentro de prepare()
+// (node_modules/next/dist/server/route-modules/route-module.js:356, y así queda en
+// el runtime compilado que despliega Vercel). En el servidor largo da igual porque
+// base-server ya lo esperó; en el despliegue POR FUNCIÓN de Vercel no, y el request
+// puede entrar mientras la hidratación todavía va por la mitad.
+//
+// Medición: 3 de cada 10 requests al webhook de Calendly caían en una instancia sin
+// la clave y devolvían 401. Y el cron de transcripción envenenó 9 anuncios (quedaron
+// marcados como hechos, con transcript null, para siempre) por lo mismo.
+//
+// Dos mecanismos distintos, dos remedios:
+//   · La CARRERA (la hidratación no terminó) → la barrera: esperás en vez de fallar.
+//   · El TIMEOUT/catch silencioso (la hidratación terminó pero sin traer nada) → el
+//     fallback a la base, que además se auto-repara.
+// Después del boot, `credencialesListas()` es una promesa ya resuelta: en el camino
+// feliz no agrega latencia.
+
+let bootCredenciales: Promise<void> | null = null;
+
+/**
+ * Espera a que la hidratación del boot haya terminado (una sola vez por instancia).
+ * La llama instrumentation.ts y la esperan los lectores de credenciales de plataforma.
+ * Nunca rechaza: `hidratarCredenciales` ya traga sus propios errores, y un rechazo acá
+ * quedaría cacheado en la promesa y explotaría en CADA request.
+ */
+export function credencialesListas(): Promise<void> {
+  return (bootCredenciales ??= hidratarCredenciales());
+}
+
+/**
+ * Lee una credencial de PLATAFORMA (las del dueño, las que ~70 libs esperan en
+ * `process.env`). Reemplaza a `process.env.X` en los call-sites que no pueden usar
+ * `credWs` porque no saben de qué workspace están hablando.
+ *
+ * Para credenciales POR CLIENTE seguí usando `credWs(clave, ws)`: esta función
+ * resuelve siempre contra el workspace dueño.
+ */
+export async function envCred(clave: string): Promise<string | null> {
+  await credencialesListas();
+  if (esValorReal(process.env[clave])) return process.env[clave]!;
+  // Si llegamos acá la hidratación terminó y no dejó el valor: o falló, o la fila no
+  // existe. Vamos a la base — es el mismo lugar del que habría salido.
+  const v = await credDeBase(OWNER_WS, clave);
+  if (esValorReal(v)) {
+    console.warn(`[credenciales] MISS ${clave}: no estaba en el entorno tras el boot; resuelta contra la base`);
+    return v;
+  }
+  return null;
+}
+
 /** true si el workspace tiene conectada la integración `servicioKey` (todos sus campos requeridos). */
 export async function integracionConectada(servicioKey: string, ws?: number): Promise<boolean> {
   const s = servicioMetodo(servicioKey);

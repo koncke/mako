@@ -94,6 +94,18 @@ export async function GET(request: NextRequest) {
   });
 
   const ms = Date.now() - tStart;
-  console.log(`[cron:panda-daily] fecha=${fecha} workspaces=${workspaces.length} ms=${ms}`);
-  return Response.json({ ok: true, fecha, workspaces, ms });
+
+  // Un cron que no ingestó NADA no puede responder ok:true. Antes lo hacía: un
+  // workspace con la config ilegible salía por `{ error: 'PANDA_VSL_VIDEO_IDS vacío' }`
+  // y eso viajaba adentro de un 200 ok:true, así que la falta de datos era invisible
+  // desde afuera. Le pasó a ws3 TODOS los días.
+  const conError = workspaces.filter((w) => !w.ok || (w.resultado as { error?: string } | undefined)?.error);
+  const ingestó = workspaces.some((w) => {
+    const r = w.resultado as { resultados?: Array<{ status: string }> } | undefined;
+    return (r?.resultados ?? []).some((x) => x.status === 'ok');
+  });
+  const ok = conError.length === 0 && (workspaces.length === 0 || ingestó);
+
+  console.log(`[cron:panda-daily] fecha=${fecha} workspaces=${workspaces.length} conError=${conError.length} ingesto=${ingestó} ms=${ms}`);
+  return Response.json({ ok, fecha, workspaces, ms }, { status: ok ? 200 : 500 });
 }

@@ -15,7 +15,7 @@
 
 import 'server-only';
 import { runWithWorkspace, listarWorkspaces, getWorkspaceActual, OWNER_WS } from './workspace';
-import { integracionConectada } from './credenciales';
+import { integracionConectada, credWs } from './credenciales';
 import { getSetting } from './settings';
 
 export type ResultadoCronWs = { ws: number; ok: boolean; resultado?: unknown; error?: string };
@@ -59,15 +59,33 @@ export async function correrPorWorkspace(
 }
 
 /**
- * Config del workspace actual con fallback al env global SOLO PARA EL DUEÑO. Ej.:
+ * Config del workspace actual, buscando en los DOS almacenes. Ej.:
  *   const ids = await configWs('youtube_vsl_video_id', process.env.YOUTUBE_VSL_VIDEO_ID);
- * Para el dueño (sin la setting cargada) devuelve el env de siempre; para un
- * CLIENTE sin la setting devuelve null (fail-closed: jamás ingesta el video/página
- * de Mauricio en el workspace de otro negocio).
+ *
+ * Orden: `app_settings` → `credenciales` (misma clave en MAYÚSCULAS) → env global,
+ * este último SOLO para el dueño (fail-closed: jamás ingesta el video/página de
+ * Mauricio en el workspace de otro negocio).
+ *
+ * El paso por `credenciales` no es redundancia defensiva, arregla un bug real: estos
+ * valores se cargan desde /metodo, que los guarda como CREDENCIAL (guardarCredencial)
+ * y los verifica con credWs — pero acá solo se miraba `app_settings`, un almacén cuyo
+ * único escritor (`POST /api/onboarding action:'config'`) es código muerto, porque el
+ * wizard nunca emite esa action. Los dos lados nunca se tocaban.
+ *
+ * Consecuencia medida: ws3 tenía PANDA_VSL_VIDEO_IDS y YOUTUBE_VSL_VIDEO_ID cargados
+ * y en verde en /metodo, y sin embargo la ingesta devolvía null el 100% de los días
+ * — sin un solo error, dentro de una respuesta `ok:true`. Cero filas de panda/youtube
+ * en marketing_metrics_daily fuera de ws1.
  */
 export async function configWs(clave: string, envFallback?: string | null): Promise<string | null> {
   const v = await getSetting(clave);
   if (v !== null && v.trim()) return v;
+
+  // El almacén donde /metodo SÍ escribe. La convención de nombres entre los dos es
+  // la misma clave en distinto case (panda_vsl_video_ids ↔ PANDA_VSL_VIDEO_IDS).
   const ws = await getWorkspaceActual();
+  const cred = await credWs(clave.toUpperCase(), ws ?? undefined);
+  if (cred !== null && cred.trim()) return cred;
+
   return ws === OWNER_WS || ws == null ? envFallback ?? null : null;
 }

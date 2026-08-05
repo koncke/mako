@@ -8,6 +8,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { envCred } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -24,7 +25,9 @@ export async function POST(req: NextRequest) {
   const vacios = creatives.map(() => ({ descripcion: '', angulo: '' }));
   if (!creatives.length) return Response.json({ ok: true, items: [] });
 
-  const key = process.env.OPENAI_API_KEY;
+  // envCred, no process.env: espera la hidratación del boot y cae a la base si hace
+  // falta (ver credencialesListas() en lib/credenciales.ts).
+  const key = await envCred('OPENAI_API_KEY');
   if (!key) return Response.json({ ok: true, items: vacios });
 
   const sys = 'Sos un analista de creativos publicitarios. Mirás cada imagen (foto del anuncio o frame de un video) y describís, por cada una, QUÉ comunica y su ángulo/gancho. No inventes audio o texto que no ves. Sé breve y concreto.';

@@ -12,6 +12,7 @@
 import 'server-only';
 import { updateTag } from 'next/cache';
 import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { envCred } from '@/lib/credenciales';
 import { TAG } from '@/lib/cache';
 
 const GRAPH = 'https://graph.facebook.com';
@@ -30,8 +31,10 @@ export type MetaWriteResult =
 
 /** Muta una entidad de Meta. NO valida permisos (el caller ya gateó con esWorkspaceDueno). */
 export async function metaWrite(body: MetaWriteBody): Promise<MetaWriteResult> {
-  const ver = process.env.META_API_VERSION;
-  const token = process.env.META_ACCESS_TOKEN;
+  const ver = process.env.META_API_VERSION; // la fija instrumentation, no es secreto
+  // envCred, no process.env: espera la hidratación del boot y cae a la base si no
+  // dejó el valor (ver credencialesListas() en lib/credenciales.ts).
+  const token = await envCred('META_ACCESS_TOKEN');
   if (!ver || !token) return { ok: false, message: 'Meta no configurado', status: 500 };
 
   if (!body || typeof body.id !== 'string' || !/^\d+$/.test(body.id)) {
