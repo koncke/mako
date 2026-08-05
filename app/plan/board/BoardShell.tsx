@@ -36,6 +36,7 @@ import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 import { tareasACSV, proyectosACSV, tableroAMarkdown, descargar, nombreArchivo } from './exportar';
+import { capacidad } from '@/lib/mako-capacidades';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -880,6 +881,32 @@ function NotasBox({ valor, onGuardar }: { valor: string; onGuardar: (v: string) 
     </div>
   );
 }
+/**
+ * "Esto se hace acá adentro". Cuando el Perro reconoció que la tarea se resuelve en una
+ * tab de MaKo, la tarjeta deja de ser un deber y pasa a ser un botón: el nombre de la
+ * pantalla, los pasos, y el link. La lista de capacidades es cerrada y está escrita a
+ * mano (lib/mako-capacidades) — mandar a alguien a una pantalla que no hace lo que
+ * promete es peor que no decirle nada.
+ */
+function HaceloEnMaKo({ id }: { id?: string }) {
+  const cap = id ? capacidad(id) : undefined;
+  if (!cap) return null;
+  return (
+    <div style={{ border: '1px solid var(--accent-soft, var(--border-strong))', background: 'var(--surface-2)', borderRadius: 12, padding: '12px 13px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+        <MakoStar size={14} color="var(--accent)" />
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 700 }}>Esto se hace en MaKo</span>
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 8 }}>{cap.que}</div>
+      <ol style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6 }}>
+        {cap.como.map((paso) => <li key={paso}>{paso}</li>)}
+      </ol>
+      <a href={cap.ruta} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', fontFamily: SANS }}>
+        Ir a {cap.tab} →
+      </a>
+    </div>
+  );
+}
 function DownloadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>; }
 
 // Ícono de subir archivo (bandeja + flecha hacia arriba) para el botón del toolbar (punto 7).
@@ -1584,6 +1611,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
               </div>
               <button onClick={onAsignar} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>
             </div>
+            <HaceloEnMaKo id={t.haceloEn} />
             <NotasBox key={t.notas ?? ''} valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
