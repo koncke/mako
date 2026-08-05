@@ -25,6 +25,7 @@ function bust(...tags: string[]) {
 }
 import {
   createLead,
+  vendedorUnicoDelWorkspace,
   updateLead,
   deleteLead,
   setPipelineStage,
@@ -271,6 +272,13 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   if (d.closer !== undefined) meta.closer = d.closer;
   if (d.empresa !== undefined) meta.empresa = d.empresa;
   if (d.telefono !== undefined) meta.telefono = d.telefono;
+  // Auto-asignar setter/closer al ÚNICO vendedor del workspace (#2): si no se
+  // aportó y el lead no lo tenía, y hay una sola persona, se asigna sola.
+  const solo = await vendedorUnicoDelWorkspace();
+  if (solo) {
+    if (meta.setter === undefined && !before?.setter?.trim()) meta.setter = solo;
+    if (meta.closer === undefined && !before?.closer?.trim()) meta.closer = solo;
+  }
   if (Object.keys(meta).length) await saveLeadMeta(id, meta);
 
   // 2) Asistencias + calificado por updateLead (invariantes + CAPI: marcar
@@ -397,6 +405,7 @@ export async function createLeadAction(formData: FormData): Promise<void> {
   // Alta del chat: contacto + conversación en Chatwoot (silencioso) para que
   // todo lead con teléfono tenga su hilo de WhatsApp desde el día cero.
   if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono);
+  // (setter/closer se auto-asignan dentro de createLead si hay un único vendedor.)
   bust(TAG.leads);
   revalidatePath('/crm');
   redirect(`/crm/${created.id}`);

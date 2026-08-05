@@ -7,10 +7,11 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
+import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, FunnelTransition } from './pipeline';
-import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey } from './pipeline';
+import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, MAKO_SETTER } from './pipeline';
 import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
 import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
@@ -259,6 +260,28 @@ export async function getLead(id: number): Promise<Lead | null> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Nombre del ÚNICO vendedor del workspace, o null si hay 0 o más de 1 (#2:
+ * auto-asignar setter/closer cuando hay una sola persona). Excluye admin y MaKo,
+ * igual que getEquipoAction. Corre en el workspace actual (webhook o sesión).
+ */
+export async function vendedorUnicoDelWorkspace(): Promise<string | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return null;
+    const { data } = await getSupabaseServer()
+      .from('usuarios')
+      .select('nombre, email, rol, estado, workspace_id')
+      .eq('workspace_id', ws)
+      .neq('estado', 'suspendido');
+    const sellers = ((data ?? []) as Array<{ nombre: string | null; email: string; rol: string; workspace_id: number | null }>)
+      .filter((u) => u.rol !== 'admin' && u.workspace_id === ws && (u.nombre?.trim() || u.email))
+      .map((u) => u.nombre?.trim() || u.email)
+      .filter((n) => n && n !== MAKO_SETTER);
+    return sellers.length === 1 ? sellers[0] : null;
+  } catch { return null; }
+}
+
+/**
  * Crea un lead nuevo. Solo requiere nombre.
  */
 export async function createLead(input: LeadCreateInput): Promise<Lead> {
@@ -266,6 +289,7 @@ export async function createLead(input: LeadCreateInput): Promise<Lead> {
     throw new Error('Nombre es requerido');
   }
   const supabase = (await getTenantDb());
+  const solo = await vendedorUnicoDelWorkspace(); // #2: auto-asignar si hay 1 vendedor
   const { data, error } = await supabase
     .from('leads')
     .insert({
@@ -278,6 +302,7 @@ export async function createLead(input: LeadCreateInput): Promise<Lead> {
       empresa: input.empresa?.trim() || null,
       fecha_agenda: input.fecha_agenda || null,
       fecha_junta_1: input.fecha_junta_1 || null,
+      ...(solo ? { setter: solo, closer: solo } : {}),
     })
     .select('*')
     .single();
@@ -582,6 +607,7 @@ export async function upsertLeadFromMeta(input: {
   }
 
   // INSERT nuevo — fechas de agenda/J1 NULL (las pone Calendly al agendar)
+  const soloMeta = await vendedorUnicoDelWorkspace(); // #2: auto-asignar si hay 1 vendedor
   const { data, error } = await supabase
     .from('leads')
     .insert({
@@ -590,6 +616,7 @@ export async function upsertLeadFromMeta(input: {
       telefono: input.telefono?.trim() || null,
       empresa: input.empresa?.trim() || null,
       telefono_normalizado: telNorm,
+      ...(soloMeta ? { setter: soloMeta, closer: soloMeta } : {}),
       ...metaFields,
     })
     .select('*')
@@ -980,6 +1007,8 @@ export async function upsertLeadFromCalendly(
     return { created: false, lead: data as Lead };
   }
 
+  // #2: auto-asignar setter/closer al único vendedor (el que agendó/cerrará es él).
+  const soloCal = await vendedorUnicoDelWorkspace();
   // INSERT: incluimos todo aunque sean null (lead nuevo, no hay nada que pisar)
   const insertPayload = {
     ...basePayload,
@@ -995,6 +1024,8 @@ export async function upsertLeadFromCalendly(
     respuesta_inversion:      input.respuesta_inversion      ?? null,
     respuesta_decisor:        input.respuesta_decisor        ?? null,
     visitor_id:               input.visitor_id               ?? null,
+    setter:                   soloCal ?? null,
+    closer:                   soloCal ?? null,
     // Backdatear created_at SOLO en backfill, para reflejar cuándo agendó
     ...(opts?.fechaCreacion ? { created_at: opts.fechaCreacion } : {}),
   };
@@ -1461,6 +1492,9 @@ export function faltantesDeLead(
   const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
   const oblig = lead.deal_obligaciones;
   const tieneR2 = !!lead.fecha_junta_2 || lead.asistio_j2 != null;
+  // Un lead en NUTRICIÓN (no agendó / se enfrió / manual) es un contacto frío: no
+  // tiene sentido exigirle "Empresa" como dato sin marcar. undefined → se saltea.
+  const enNutricion = NUTRI_KEYS.includes(stage);
   return stepsForStage(stage, {
     fechaJ1: lead.fecha_junta_1,
     asistioJ1: lead.asistio_j1,
@@ -1473,7 +1507,7 @@ export function faltantesDeLead(
     setter: lead.setter,
     closer: lead.closer,
     telefono: lead.telefono,
-    empresa: lead.empresa,
+    empresa: enNutricion ? undefined : lead.empresa,
     // Deal Details desglosado (solo se evalúa en ganado).
     dealServicioOk: !!(lead.deal_servicio?.que_es?.trim()),
     dealPromesaOk: !!(lead.deal_promesa?.resultado?.trim()),
