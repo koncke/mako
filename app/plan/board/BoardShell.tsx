@@ -863,17 +863,18 @@ function ExportarMenu({ tasks, labels, titulo }: { tasks: BoardTask[]; labels: L
  */
 function NotasBox({ valor, onGuardar }: { valor: string; onGuardar: (v: string) => void }) {
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
+  // `key` en vez de un efecto que sincroniza: cuando cambia la nota de afuera (otra
+  // pestaña, el undo), el textarea se re-monta con el valor nuevo. Con un efecto había
+  // que decidir "¿piso lo que está escribiendo?" y la respuesta siempre era frágil.
   const [txt, setTxt] = useState(valor);
-  const [foco, setFoco] = useState(false);
-  useEffect(() => { if (!foco) setTxt(valor); }, [valor, foco]);
-  const guardar = () => { setFoco(false); if (txt !== valor) onGuardar(txt); };
+  const guardar = () => { if (txt !== valor) onGuardar(txt); };
   return (
     <div>
       <label style={{ ...rowLabel, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>Notas</span>
         {txt !== valor && <span style={{ fontSize: 10.5, color: 'var(--faint)', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>sin guardar</span>}
       </label>
-      <textarea value={txt} onChange={(e) => setTxt(e.target.value)} onFocus={() => setFoco(true)} onBlur={guardar} rows={3}
+      <textarea value={txt} onChange={(e) => setTxt(e.target.value)} onBlur={guardar} rows={3}
         placeholder="Lo tuyo: dónde quedaste, con quién hablaste, un link…"
         style={{ width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, lineHeight: 1.5, outline: 'none', resize: 'vertical' }} />
     </div>
@@ -1583,7 +1584,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
               </div>
               <button onClick={onAsignar} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>
             </div>
-            <NotasBox valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
+            <NotasBox key={t.notas ?? ''} valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
           </div>
@@ -1821,7 +1822,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
               <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
-            <NotasBox valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, v.trim() ? 'Escribió una nota' : 'Borró la nota', 'user')} />
+            <NotasBox key={proj.notas ?? ''} valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, v.trim() ? 'Escribió una nota' : 'Borró la nota', 'user')} />
             <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>
