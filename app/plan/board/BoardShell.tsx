@@ -23,6 +23,7 @@ import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
+import { useVerMas } from './VerMas';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
@@ -1524,10 +1525,14 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
   /* eslint-disable-next-line react-hooks/set-state-in-effect */
   useEffect(() => { setNowMs(Date.now()); }, []);
   const { nombre, avatarUrl } = board.user;
+  // Mismo criterio que el historial de un proyecto: una tarea que pasó por el Perro, por
+  // una reunión y por dos scripts junta veinte entradas, y abajo del historial está el
+  // resto del detalle.
+  const { visibles, boton } = useVerMas(t.historial, 8);
   if (t.historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía. Los cambios van a aparecer acá.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {t.historial.map((h, i) => {
+      {visibles.map((h, i) => {
         const { esCreacion, porque } = partirCreacion(h.text, 'Creó la tarjeta');
         return (
           <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -1542,6 +1547,7 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
           </div>
         );
       })}
+      {boton}
     </div>
   );
 }
@@ -1702,10 +1708,13 @@ function HistList({ historial, nombre, avatarUrl, onUndo }: { historial: BoardTa
   const [nowMs, setNowMs] = useState(0);
   /* eslint-disable-next-line react-hooks/set-state-in-effect */
   useEffect(() => { setNowMs(Date.now()); }, []);
+  // Sin tope de ningún tipo: renderizaba el historial entero, y los proyectos que pasaron
+  // por varios scripts de reordenamiento tienen decenas de entradas.
+  const { visibles, boton } = useVerMas(historial, 8);
   if (historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-      {historial.map((h, i) => {
+      {visibles.map((h, i) => {
         const { esCreacion, porque } = partirCreacion(h.text, 'Creó el proyecto');
         return (
           <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -1719,6 +1728,7 @@ function HistList({ historial, nombre, avatarUrl, onUndo }: { historial: BoardTa
           </div>
         );
       })}
+      {boton}
     </div>
   );
 }
@@ -1729,11 +1739,16 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
   const [nowMs, setNowMs] = useState(0);
   /* eslint-disable-next-line react-hooks/set-state-in-effect */
   useEffect(() => { setNowMs(Date.now()); }, []);
-  const rows = labels
+  // Es el historial de TODOS los proyectos junto: con 36 proyectos y hasta 40 entradas
+  // cada uno, el `.slice(0, 40)` de antes seguía dejando una tira de 40 filas con avatar
+  // y chip, y para llegar a lo que está debajo había que scrollear un rato largo. Ahora
+  // se muestran las últimas 8 y el resto queda detrás de un botón que dice cuántas son.
+  const todas = labels
     .flatMap((l) => l.historial.filter((h) => h.kind !== 'task').map((h) => ({ h, l })))
     .sort((a, b) => b.h.ts - a.h.ts)
-    .slice(0, 40);
-  if (rows.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad de proyectos todavía.</div>;
+    .slice(0, 200);
+  const { visibles: rows, boton } = useVerMas(todas, 8);
+  if (todas.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad de proyectos todavía.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
       {rows.map(({ h, l }) => {
@@ -1751,6 +1766,7 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
           </div>
         );
       })}
+      {boton}
     </div>
   );
 }
