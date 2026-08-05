@@ -132,16 +132,34 @@ function limpiarEliminar(e: unknown): PropuestaEliminar | null {
 }
 // Acepta {pregunta, opciones} o (compat) una nota-string suelta.
 const TIPOS_PREGUNTA: TipoPregunta[] = ['opcion', 'multi', 'escala', 'texto', 'comparacion'];
+/**
+ * El techo de preguntas según cuántas tareas se cargan: ~1 cada 3, con piso y techo.
+ * Antes era 6 SIEMPRE — cargar 2 tareas y cargar 40 hacían la misma cantidad de
+ * preguntas, que es justo lo que no cierra: con 40, 34 entraban sin que nadie
+ * preguntara nada y el Perro las puntuaba a ojo.
+ */
+export const topePreguntas = (nTareas: number): number =>
+  Math.max(2, Math.min(16, Math.ceil(nTareas / 3) + 1));
+
 function limpiarPregunta(p: unknown): PropuestaPregunta | null {
-  if (typeof p === 'string') return p.trim() ? { pregunta: p.trim().slice(0, 300), opciones: [], tipo: 'opcion' } : null;
+  if (typeof p === 'string') return p.trim() ? { pregunta: p.trim().slice(0, 300), opciones: [], tipo: 'texto' } : null;
   if (!p || typeof p !== 'object') return null;
   const o = p as Record<string, unknown>;
   const pregunta = str(o.pregunta).trim().slice(0, 300);
   if (!pregunta) return null;
   const opciones = asArr<unknown>(o.opciones).map((x) => str(x).trim()).filter(Boolean).slice(0, 6);
-  const tipo = TIPOS_PREGUNTA.includes(o.tipo as TipoPregunta) ? (o.tipo as TipoPregunta) : (opciones.length ? 'opcion' : 'texto');
+  let tipo = TIPOS_PREGUNTA.includes(o.tipo as TipoPregunta) ? (o.tipo as TipoPregunta) : (opciones.length ? 'opcion' : 'texto');
+  // COHERENCIA TIPO ↔ OPCIONES. El modelo manda "tipo": "opcion" y se olvida las
+  // opciones, y la pantalla dibujaba el enunciado con CERO botones: una pregunta que no
+  // se puede contestar ni saltear bien. Acá se degrada a lo que sí se puede responder.
+  if (tipo !== 'escala' && !opciones.length) tipo = 'texto';
+  // "comparacion" es enfrentar DOS: con una sola opción no hay comparación, y con tres
+  // la pantalla dibuja tres columnas para una pregunta que dice "¿cuál de los dos?".
+  if (tipo === 'comparacion' && opciones.length !== 2) tipo = opciones.length ? 'opcion' : 'texto';
   const sobre = asArr<unknown>(o.sobre).map((x) => str(x).trim().slice(0, 200)).filter(Boolean).slice(0, 8);
-  return { pregunta, opciones, tipo, sobre: sobre.length ? sobre : undefined };
+  // La escala NO usa opciones (se muestran 1..5): si el modelo mandó etiquetas, se
+  // tiran acá para que la pantalla no muestre dos cosas distintas a la vez.
+  return { pregunta, opciones: tipo === 'escala' ? [] : opciones, tipo, sobre: sobre.length ? sobre : undefined };
 }
 
 export type CrearPropuestaDraft = {
@@ -320,12 +338,30 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
 // que no va a cargar (o que ya no es suyo) es hacerle perder el tiempo con preguntas
 // que además salen genéricas, porque hablan de un montón de cosas a la vez.
 const PREGUNTAS_SYSTEM = `Sos MaKo, cargando tareas al plan de un negocio. Te paso LAS TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (ya destildó lo que no va y repartió lo de otros). Tu trabajo: las preguntas de contexto que EL PERRO GUARDIÁN necesita para priorizarlas bien.
-CUÁNTAS: las MÍNIMAS. Que el dueño conteste 3 preguntas y cargue, no que rellene un formulario. Guía dura: hasta 5 tareas → 0 a 2 preguntas · hasta 15 → 2 a 4 · más de 15 → 3 a 6. NUNCA más de 6, y NUNCA varias preguntas sobre la misma tarea: elegí LA que más le cambia la decisión al Perro y descartá el resto.
+
+CUÁNTAS — ESCALA CON EL TAMAÑO DEL LOTE. No es lo mismo cargar 2 tareas que 20: si son 20 y hacés 4 preguntas, 16 tareas entran a ciegas y el Perro las puntúa adivinando. La regla es aproximadamente UNA pregunta cada TRES tareas:
+· 1 a 3 tareas → 1 o 2 preguntas
+· 4 a 8 → 2 a 4
+· 9 a 15 → 4 a 6
+· 16 a 25 → 6 a 9
+· 26 a 40 → 9 a 13
+· más de 40 → 12 a 16
+Es una guía, no una cuota: si de verdad no hay nada que preguntar sobre un bloque de tareas, no inventes. Pero si quedan tareas grandes sobre las que no preguntaste nada, te faltaron preguntas.
+
+COBERTURA: repartí las preguntas por TODO el lote, no las amontones en las primeras tres tareas. Cuando son muchas, agrupá por proyecto o por tema y hacé una pregunta por grupo: una respuesta que sirve para cinco tareas del mismo proyecto vale por cinco. Podés hacer DOS preguntas sobre la misma tarea solo si es grande y las dos cambian cosas distintas.
+
 ⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS: un deadline, una dependencia o bloqueo, un número de plata, un alcance ambiguo, quién lo hace, qué sería "listo".
 ⛔ REGLA DURA: NADA de preguntas ABIERTAS. Siempre con opciones para tocar.
 CRITERIO — CADA PREGUNTA TIENE QUE SER CONCRETA Y DE ESTAS TAREAS. Nombralas: "¿Para cuándo tiene que estar el filtro por fecha del tablero de guiones?" y NO "¿qué impacto tienen estas correcciones?". Si una pregunta sirve igual para cualquier reunión, está mal.
-CRITERIO — que sume: si la respuesta es obvia o no cambia nada para el Perro, no la hagas.
-CRITERIO — elegí el TIPO por pregunta: "multi" si valen VARIAS a la vez (sin opción "Todas": que tilde varias) · "opcion" si es EXCLUYENTE · "escala" para intensidad 1-5 · "comparacion" para enfrentar DOS ítems. Para opcion/multi/comparacion pasá 2-6 "opciones" cortas.
+CRITERIO — que sume: si la respuesta es obvia, ya está dicha en el detalle de la tarea, o no cambia NADA de lo que el Perro va a decidir, no la hagas. Una pregunta que no cambia nada es peor que ninguna: quema la paciencia del dueño y hace que conteste las que sí importan de cualquier manera.
+
+TIPO Y OPCIONES — tienen que ser COHERENTES entre sí (acá es donde más se falla):
+· "opcion" → elección EXCLUYENTE. Obligatorio: 2 a 6 opciones cortas y concretas.
+· "multi" → pueden valer VARIAS a la vez. Obligatorio: 2 a 6 opciones. NO agregues "Todas" ni "Ambas": para eso tilda varias.
+· "comparacion" → enfrentar DOS ítems para ver cuál pesa más. Obligatorio: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
+· "escala" → intensidad de 1 a 5. NO lleva opciones: el dueño ve los números 1 a 5. Por eso la pregunta TIENE que decir qué significan los extremos, en la pregunta misma: "¿Qué tan firme es el 15 de agosto para la landing? (1 = es una idea, 5 = ya está comprometido con el cliente)". Una escala sin extremos explicados es una pregunta muerta.
+⛔ Una pregunta de tipo "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambiá la pregunta hasta que se te ocurran, o no la hagas.
+
 "sobre" = SOLO los títulos, tal cual te los pasé, sin el detalle ni el número (1-4 títulos).
 Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
 { "preguntas": [ { "pregunta": "<corta y concreta>", "tipo": "opcion|multi|escala|comparacion", "opciones": ["...", "..."], "sobre": ["<título exacto>"] } ] }
@@ -340,11 +376,15 @@ export async function preguntasParaCargar(titulosYDetalles: Array<{ titulo: stri
   const tareas = titulosYDetalles.filter((t) => t?.titulo?.trim()).slice(0, 80);
   if (!tareas.length) return [];
   const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${t.detalle}` : ''}`).join('\n');
-  const user = `TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (${tareas.length}):\n${lista}\n\nGenerá las preguntas de contexto que le hagan falta al Perro para priorizar ESTAS. JSON.`;
-  const raw = await chatCheapCascade({ system: PREGUNTAS_SYSTEM, user, maxTokens: 3000, feature: 'mako-doer-in', motivo: 'Preguntas de contexto (lo que se va a cargar)' }).catch(() => '');
+  // El techo se le dice explícito, además de la tabla del system: el modelo respeta un
+  // número concreto mucho mejor que un rango, y con 40 tareas la diferencia entre 6 y 16
+  // preguntas es la diferencia entre priorizar con datos y priorizar adivinando.
+  const techo = topePreguntas(tareas.length);
+  const user = `TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (${tareas.length}):\n${lista}\n\nSon ${tareas.length} tareas: hacé hasta ${techo} preguntas, repartidas por todo el lote (no solo sobre las primeras). Generá las preguntas de contexto que le hagan falta al Perro para priorizar ESTAS. JSON.`;
+  const raw = await chatCheapCascade({ system: PREGUNTAS_SYSTEM, user, maxTokens: 8000, feature: 'mako-doer-in', motivo: 'Preguntas de contexto (lo que se va a cargar)' }).catch(() => '');
   if (!raw) return [];
   let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
-  const qs = asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 6);
+  const qs = asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, techo);
   // `sobre` se normaliza al título REAL: el modelo tiende a devolver la línea entera
   // que le pasamos ("3. Título — detalle"), y la pantalla la muestra entre comillas.
   // Que el chip diga el título y nada más no se puede confiar al prompt.

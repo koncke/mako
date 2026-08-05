@@ -14,6 +14,7 @@ import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, Gu
 import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
+import { CATALOGO_PROYECTOS, delCatalogo } from '@/lib/plan-proyectos-catalogo';
 
 type Row = Record<string, unknown>;
 
@@ -184,6 +185,26 @@ function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
 
 // `fuente` POR TAREA: dos tareas del mismo lote pueden apuntar a MINUTOS distintos de
 // la misma reunión (…?timestamp=754), que es lo que hace clickeable el chip del detalle.
+/**
+ * El detalle final de una tarjeta: lo que escribió/dictó el dueño + lo que le agregó el
+ * Perro, sin perder nada. Tres casos, en este orden:
+ *   · no había nada del dueño → el del Perro;
+ *   · el Perro lo ABSORBIÓ (arranca igual) → el del Perro, que es el ampliado;
+ *   · el Perro escribió otra cosa → los dos, el del dueño PRIMERO.
+ * El chequeo es por el arranque normalizado, no por el texto entero: el modelo corrige
+ * una tilde o una coma y una comparación exacta diría "no lo absorbió" siempre.
+ */
+export function fusionarDetalle(original: string, delPerro: string): string {
+  const o = (original ?? '').trim();
+  const p = (delPerro ?? '').trim();
+  if (!p) return o;
+  if (!o) return p;
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  const cabeza = norm(o).slice(0, 60);
+  if (cabeza.length >= 20 && norm(p).includes(cabeza)) return p;
+  return `${o}\n\n${p}`;
+}
+
 export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente };
 
 /** MaKo agrega tareas al board del dueño DIRECTO a la DB (antes iban a la bandeja
@@ -206,43 +227,61 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const idsExist = new Set(proyectos.map((p) => p.id)); // MaKo a veces pasa el id/slug del proyecto existente
     const resolverProy = (nombre?: string): string | undefined => { const n = nombre?.trim(); if (!n) return undefined; return byName.get(n.toLowerCase()) ?? (idsExist.has(n) ? n : undefined); };
 
-    // 1a. RUTEO POR TAREA (el Perro, ANTES de crear). El dedupe por nombre EXACTO no
-    // alcanza: MaKo inventa nombres nuevos ("Onboarding & UX") y encima MEZCLA tareas de
-    // varios temas en un grupo. Acá el Perro decide, POR CADA TAREA, a qué proyecto
-    // EXISTENTE va (o null = trabajo nuevo → se respeta el grupo de MaKo). Así "Onboarding
-    // & UX" se reparte solo (modo simple→Diseño SIMPLE, onboarding→Arranque) y no nace un
-    // proyecto duplicado. Calibrado para NO forzar los ambiguos (mejor "nuevo").
-    const ruteo: Record<number, string> = {}; // índice de tarea → id de proyecto existente
-    if (proyectos.length) {
+    // 1a. RUTEO POR TAREA (el Perro, ANTES de crear), contra una lista CERRADA: los
+    // proyectos que ya están en el tablero + el catálogo de proyectos grandes
+    // (lib/plan-proyectos-catalogo.ts). El modelo ya no puede devolver "es nuevo": elige
+    // uno de la lista y listo. Antes el default era "nuevo" y en dos semanas nacieron 24
+    // proyectos, tres de ellos sobre Instagram.
+    const cuentaPorProy = new Map<string, number>();
+    {
+      const { data: tRows } = await db.from('plan_tareas').select('labels');
+      for (const r of (tRows ?? []) as Array<{ labels: unknown }>) {
+        for (const l of asArr<unknown>(r.labels).map(String)) cuentaPorProy.set(l, (cuentaPorProy.get(l) ?? 0) + 1);
+      }
+    }
+    // Un solo menú: lo que ya existe manda (con su descripción y su tamaño), y el catálogo
+    // aporta los que todavía no se crearon. Sin repetir el que ya está en el tablero.
+    const yaEnTablero = new Set(proyectos.map((p) => p.name.trim().toLowerCase()));
+    const destinos = [
+      ...proyectos.map((p) => ({ nombre: p.name, que: delCatalogo(p.name)?.que || p.detalle || '', n: cuentaPorProy.get(p.id) ?? 0 })),
+      ...CATALOGO_PROYECTOS.filter((c) => !yaEnTablero.has(c.nombre.toLowerCase())).map((c) => ({ nombre: c.nombre, que: c.que })),
+    ];
+    const ruteo: Record<number, string> = {}; // índice de tarea → NOMBRE del proyecto destino
+    if (destinos.length) {
       const r = await asignarTareasAProyectos(
         validos.map((it) => ({ titulo: it.titulo.trim(), grupo: it.proyecto?.trim() })),
-        proyectos.map((p) => ({ id: p.id, nombre: p.name })),
-        'Rutear tareas nuevas a proyectos existentes',
-      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; idExistente: string }> }; });
-      for (const a of r.asign) ruteo[a.i] = a.idExistente;
+        destinos,
+        'Rutear tareas nuevas a proyectos',
+      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string }> }; });
+      for (const a of r.asign) ruteo[a.i] = a.destino;
     }
 
-    // 2. proyecto RESUELTO de cada tarea: (a) el Perro la ruteó a un existente, o
-    // (b) por su grupo propuesto — existente exacto, o crear uno nuevo (dedup por nombre).
+    // 2. proyecto RESUELTO de cada tarea: el destino que eligió el Perro (o, si el ruteo
+    // falló entero, el grupo que propuso MaKo). Si ese destino todavía no está en el
+    // tablero se crea UNA vez, con el emoji y la descripción del catálogo.
     const nuevosProy: Label[] = [];
-    const ruteadasA = new Map<string, string[]>(); // idExistente → títulos ruteados (para el historial)
-    let siguientePid = maxPid(proyectos) + 1; // P# estable para cada proyecto nuevo (antes nacían sin id)
+    const ruteadasA = new Map<string, string[]>(); // id de proyecto existente → títulos ruteados
+    let siguientePid = maxPid(proyectos) + 1; // P# estable para cada proyecto nuevo
     const projDeTarea: (string | undefined)[] = validos.map((it, i) => {
-      const asignado = ruteo[i];
-      if (asignado) {
-        const l = ruteadasA.get(asignado) ?? []; l.push(it.titulo.trim()); ruteadasA.set(asignado, l);
-        return asignado;
-      }
-      const nombre = it.proyecto?.trim();
+      const nombre = (ruteo[i] || it.proyecto?.trim() || '').trim();
       if (!nombre) return undefined;
       const exist = resolverProy(nombre);
-      if (exist) return exist;
+      if (exist) {
+        const l = ruteadasA.get(exist) ?? []; l.push(it.titulo.trim()); ruteadasA.set(exist, l);
+        return exist;
+      }
       const k = nombre.toLowerCase();
       let nid = byName.get(k);
       if (!nid) {
+        const cat = delCatalogo(nombre);
         nid = genId('p');
         byName.set(k, nid);
-        nuevosProy.push({ id: nid, pid: `P${siguientePid++}`, emoji: '📁', name: nombre.slice(0, 120), color: '#2F6FED', score: 50, detalle: '', fuente: fu, historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó el proyecto — ${desde}` }] });
+        nuevosProy.push({
+          id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? '📁', name: nombre.slice(0, 120),
+          color: '#2F6FED', score: 50, detalle: cat?.que ?? '', fuente: fu,
+          historial: [{ id: genId('h'), ts: ahora, actor, text: cat ? `Creó el proyecto (está en el catálogo) — ${desde}` : `Creó el proyecto — ${desde}` }],
+        });
+        if (!cat) console.warn(`[plan-board] proyecto FUERA del catálogo: «${nombre}» — ${desde}`);
       }
       return nid;
     });
@@ -269,7 +308,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
       const projId = projDeTarea[i];
       return {
         id: genId('t'), num: start + i, emoji: '📌', title: it.titulo.trim().slice(0, 200),
-        detalle: it.detalle?.slice(0, 600) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
+        detalle: it.detalle?.slice(0, 6000) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
         deadline: it.deadline || '', labels: projId ? [projId] : [], checklist: [],
         historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó la tarjeta — ${desde}` }],
         origen: actor, fuente: it.fuente ?? fu, enPrioridad: false,
@@ -343,7 +382,13 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
         patch.score = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
         Object.assign(out, { score: g.score, scoreRazon: g.razon || '', impacto: g.impacto, esfuerzo: g.esfuerzo, priority: prio });
       }
-      if (enr?.detalle) { patch.detalle = enr.detalle; out.detalle = enr.detalle; } // descripción sólida del Perro (pisa la fina de MaKo)
+      // LO QUE DIJO EL DUEÑO NO SE PISA. Antes esto era `patch.detalle = enr.detalle`: el
+      // Perro veía 220 caracteres del audio, escribía 2-4 frases prolijas y REEMPLAZABA el
+      // contexto entero. El dueño mandaba tres minutos de audio y en la tarjeta le quedaba
+      // un párrafo genérico. Ahora el texto original manda; la versión del Perro solo entra
+      // si no había nada, y si la escribió sin absorber lo que ya estaba, se suma abajo.
+      const detalleFinal = fusionarDetalle(n.detalle, enr?.detalle ?? '');
+      if (detalleFinal && detalleFinal !== n.detalle) { patch.detalle = detalleFinal; out.detalle = detalleFinal; }
       if (enr?.items.length) {
         const checklist = enr.items.map((text): Check => ({ id: genId('c'), text, done: false }));
         patch.checklist = checklist; out.checklist = checklist;

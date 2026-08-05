@@ -395,6 +395,15 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
           siguienteLabel={resp ? 'Siguiente →' : 'Saltear →'}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {/* Una pregunta SIN opciones (tipo 'texto') acá no se podía contestar: se
+                dibujaba el enunciado y ni un botón ni un campo. La pantalla /plan/revisar
+                sí la renderiza con textarea desde siempre; este modal no, y es el que se
+                usa para confirmar lo que dejó una reunión. */}
+            {qActual?.tipo === 'texto' && (
+              <textarea value={resp} onChange={(e) => setRespuestas((r) => ({ ...r, [qIdx]: e.target.value }))} autoFocus rows={3}
+                placeholder="Escribí tu respuesta…"
+                style={{ width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', resize: 'vertical' }} />
+            )}
             {opciones.map((op) => {
               const on = multi ? elegidas.includes(op) : resp === op;
               return (
