@@ -23,6 +23,7 @@ import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
+import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
 import { TareasRecibidasModal, type PropuestaPendiente } from './TareasRecibidasModal';
 import { DatosModal, DatosConfirm, type FaltanteItem } from './DatosModal';
@@ -36,6 +37,7 @@ import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 import { ExportarModal } from './ExportarModal';
+import { NotasLista } from './NotasLista';
 import { capacidad } from '@/lib/mako-capacidades';
 
 const MONO = "'Geist Mono', monospace";
@@ -75,7 +77,8 @@ export function BoardShell({ board, scope }: {
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
   const [exportar, setExportar] = useState(false);             // bajarse el tablero (modal de a 1 pregunta)
-  const [reunionArchivo, setReunionArchivo] = useState<File | null>(null); // subir archivo (punto 7): entra al mismo modal
+  const [reunionArchivo, setReunionArchivo] = useState<File[] | null>(null); // los archivos elegidos en la bandeja → entran al modal de extracción
+  const [importar, setImportar] = useState(false);                           // la bandeja de importación
   // "Datos sin marcar" (feedback jul-19): UN modal batch para deadline + checklist, en
   // vez del gauntlet card-by-card. Ver DatosModal. El 2do pop-up (DatosConfirm) decide
   // si seguir recordándolo; aparece al CERRARSE este (nunca apilados).
@@ -687,13 +690,15 @@ export function BoardShell({ board, scope }: {
             )}
           </button>
           {nPendientes > 0 && <style>{'@keyframes makoLatido{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(47,111,237,0))}50%{transform:scale(1.09);filter:drop-shadow(0 0 6px rgba(47,111,237,.65))}}'}</style>}
-          <label aria-label="Subir un archivo de reunión (.md, .txt, transcript)" title="Subir un archivo de reunión (.md, .txt, transcript) y extraer tareas"
+          {/* Abre la BANDEJA, no el buscador de archivos del sistema. Elegir el
+              archivo es el paso 2, no el 1: así se ve qué se está por mandar, entran
+              varios y el que falla dice por qué sin llevarse a los otros. */}
+          <button type="button" aria-label="Importar archivos al plan" title="Importar: notas, transcripciones, PDFs, capturas o audios — MaKo saca las tareas"
+            onClick={() => setImportar(true)}
             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', color: 'var(--dim)' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>
             <UploadIcon />
-            <input type="file" accept=".md,.txt,.vtt,.srt" style={{ display: 'none' }}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) { setReunionArchivo(f); setExtraerReunion(true); } e.currentTarget.value = ''; }} />
-          </label>
+          </button>
         </>}
         {/* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
             igual en el tablero del dueño que en el del cliente, y baja al instante. */}
@@ -767,6 +772,8 @@ export function BoardShell({ board, scope }: {
           <style>{'@keyframes makoSpinBS{to{transform:rotate(360deg)}}'}</style>
         </div>
       )}
+      {importar && <ImportarModal onClose={() => setImportar(false)}
+        onListo={(files) => { setImportar(false); setReunionArchivo(files); setExtraerReunion(true); }} />}
       {extraerReunion && <ReunionExtractModal catalogo={repo.catalogo} labels={labels} archivoInicial={reunionArchivo}
         // Los borradores que te MANDÓ otra persona no tienen una reunión tuya en la
         // lista de Fathom (esa grabación es de su cuenta), así que sin esta sección
@@ -861,6 +868,15 @@ function ExportarBoton({ onAbrir }: { onAbrir: () => void }) {
  * Guarda al salir del campo, no en cada tecla: escribir una nota larga son cien
  * escrituras a la base y cien líneas de historial.
  */
+/**
+ * Línea entre secciones del detalle. Antes el modal apilaba título, detalle, avance,
+ * checklist e historial con un margin y nada más: se leía como UNA sola sección larga.
+ * Una línea y aire alcanzan — no hacen falta cajas.
+ */
+function Separador() {
+  return <div style={{ height: 1, background: 'var(--border)', margin: '26px 0 22px' }} />;
+}
+
 function NotasBox({ valor, onGuardar }: { valor: string; onGuardar: (v: string) => void }) {
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
   // `key` en vez de un efecto que sincroniza: cuando cambia la nota de afuera (otra
@@ -928,13 +944,43 @@ function PlanIcon({ size = 24 }: { size?: number }) {
 // cómo se referencian las tareas entre sí (y como las nombra MaKo cuando marca un
 // duplicado), así que tiene que ser buscable: sin esto el id no sirve para nada.
 // "#132" busca SOLO por número (exacto); "132" busca por número o por texto.
+/**
+ * Texto comparable: SIN acentos, sin etiquetas HTML y con los espacios normalizados.
+ *
+ * Sin el NFD, buscar «diseno» no encontraba «Diseño» y la pantalla quedaba vacía — que
+ * es lo que se ve como «busco sin acento y me filtra todo». Y sin sacar las etiquetas,
+ * el detalle (que se guarda como HTML) hacía que buscar «div» o «strong» matcheara
+ * media lista.
+ */
+const paraBuscar = (s: string): string =>
+  (s ?? '').replace(/<[^>]*>/g, ' ')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * ¿El texto contiene lo buscado? Por PALABRAS y en cualquier orden: «landing copy»
+ * encuentra «Reescribir el copy de la landing». Con `includes` a secas, invertir dos
+ * palabras devolvía cero.
+ */
+function coincide(heno: string, q: string): boolean {
+  const h = paraBuscar(heno);
+  const piezas = paraBuscar(q).split(' ').filter(Boolean);
+  return piezas.every((p) => h.includes(p));
+}
+
 function matchTexto(t: BoardTask, q: string): boolean {
   const s = q.trim().toLowerCase();
   if (!s) return true;
   const soloNum = /^#\s*(\d+)$/.exec(s);
   if (soloNum) return t.num === Number(soloNum[1]);
   if (/^\d+$/.test(s) && t.num === Number(s)) return true;
-  return (t.title + ' ' + t.detalle).toLowerCase().includes(s);
+  // El heno incluye la CHECKLIST y las notas: media búsqueda es «¿dónde anoté esto?»,
+  // y eso vive en un paso de la checklist o en el cuaderno, no en el título.
+  const heno = [
+    t.title, t.detalle, t.notas ?? '', t.scoreRazon ?? '',
+    ...(t.checklist ?? []).map((c) => c.text),
+  ].join(' ');
+  return coincide(heno, s);
 }
 
 // filtro por estado (2ª capa del botón Filtrar): Todas / Activas / Comenzadas / Completadas
@@ -1547,6 +1593,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
             <label style={rowLabel}>Detalle · doc</label>
             <div style={{ marginBottom: 22 }}><RichText value={t.detalle} onChange={(html) => board.setDetalle(t.id, html, t.detalle)} placeholder="El doc de esta tarea…" /></div>
 
+            <Separador />
             {/* Avance ARRIBA de la checklist (feedback #6). Siempre derivado (#17):
                 con checklist sale de ella; sin checklist, botón Completada (0↔100). */}
             <label style={rowLabel}>Avance · {t.progress}%{cl.length > 0 ? ' · lo maneja la checklist' : ''}</label>
@@ -1570,7 +1617,16 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
             </div>
             <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newItem.trim()) { setCl([...cl, { id: uid(), text: newItem.trim(), done: false }], `Agregó "${newItem.trim().slice(0, 30)}" al checklist`); setNewItem(''); } }} placeholder="+ ítem de checklist (Enter)" style={{ width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--ink)', fontSize: 13, outline: 'none', marginBottom: 24 }} />
 
-            <label style={rowLabel}>Change history</label>
+            {/* NOTAS y «se hace en MaKo» viven ACÁ, en la columna principal y ARRIBA del
+                historial. Estaban en la barra lateral, apretadas contra la prioridad y
+                el deadline: el cuaderno de la tarea es contenido, no metadata. */}
+            <Separador />
+            <NotasLista valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
+
+            {t.haceloEn && <><Separador /><HaceloEnMaKo id={t.haceloEn} /></>}
+
+            <Separador />
+            <label style={rowLabel}>Historial</label>
             <ChangeHistory t={t} board={board} ask={ask} />
           </div>
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
@@ -1617,8 +1673,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
               </div>
               <button onClick={onAsignar} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>
             </div>
-            <HaceloEnMaKo id={t.haceloEn} />
-            <NotasBox key={t.notas ?? ''} valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
+
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
           </div>
@@ -1725,7 +1780,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   const [verTodos, setVerTodos] = useState(false);
   const TOPE = 6; // feedback jul-18: al arranque, el "+" (cuenta como 1) + 5 proyectos reales; el resto tras "Ver más"
   const REALES = TOPE - 1;
-  const needle = q.trim().toLowerCase();
+  const needle = q.trim();
   // Orden por PRIORIDAD (score) o por CREACIÓN (ts más viejo del historial), en la
   // dirección elegida. dir=-1 → desc (mayor score / más nuevo primero); +1 → asc.
   const dir = sortDir === 'asc' ? 1 : -1;
@@ -1738,12 +1793,18 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   // aunque las tareas de la reunión estuvieran cargadas adentro — el motivo por el
   // que pareció que una reunión entera no se había cargado.
   const tieneTareasDe = (id: string) => tasks.some((t) => t.labels.includes(id) && fOrigen.has(fuenteEfectiva(t).tipo));
-  const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id) }));
+  const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id), ts: tasks.filter((t) => t.labels.includes(l.id)) }));
   const shown = withProg
     // El pid (P11) es el ID VISIBLE del proyecto y es como el dueño lo nombra: buscar
     // "11", "P11" o "#11" tiene que encontrarlo. Antes el heno era solo nombre +
     // detalle, así que el identificador que la propia UI muestra no servía para buscar.
-    .filter(({ l }) => !needle || `${l.pid ?? ''} ${(l.pid ?? '').replace(/^p/i, '')} ${l.name} ${stripHtml(l.detalle ?? '')}`.toLowerCase().includes(needle.replace(/^#/, '')))
+    // Mismo criterio que las tareas: sin acentos, por palabras, y adentro del detalle.
+    // Se suman las tareas del proyecto al heno — buscar «landing» tiene que traer el
+    // proyecto donde vive esa tarea, aunque el nombre del proyecto no la nombre.
+    .filter(({ l, ts }) => !needle || coincide(
+      `${l.pid ?? ''} ${(l.pid ?? '').replace(/^P/i, '')} ${l.name} ${l.detalle ?? ''} ${l.notas ?? ''} ${ts.map((t) => t.title).join(' ')}`,
+      needle.replace(/^#/, ''),
+    ))
     .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)) || tieneTareasDe(l.id))
     .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
@@ -1816,6 +1877,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
             <div style={{ marginBottom: 22 }}><RichText value={proj.detalle} onChange={(html) => { if (html !== proj.detalle) board.patchLabelLog(proj.id, { detalle: html }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" /></div>
 
             {/* AVANCE arriba de las tareas (#4) */}
+            <Separador />
             <label style={rowLabel}>Avance · {prog.pct}%{prog.total ? ` · ${prog.done}/${prog.total} tareas` : ''}</label>
             <span style={{ display: 'block', marginBottom: 20 }}><MiniBar v={prog.pct} /></span>
 
@@ -1839,7 +1901,11 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
               ))}
             </div>
 
-            <label style={rowLabel}>Change history del proyecto</label>
+            <Separador />
+            <NotasLista valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, 'Escribió una nota', 'user')} />
+
+            <Separador />
+            <label style={rowLabel}>Historial del proyecto</label>
             <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} onUndo={(h) => board.undoLabelHist(proj.id, h)} />
           </div>
           {/* sidebar */}
@@ -1859,7 +1925,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
               <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
-            <NotasBox key={proj.notas ?? ''} valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, v.trim() ? 'Escribió una nota' : 'Borró la nota', 'user')} />
+
             <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>

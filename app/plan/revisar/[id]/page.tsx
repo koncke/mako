@@ -6,10 +6,12 @@
 // Perro; cliente: su board lib/todo). Guard = cualquier sesión; getPropuesta scopea al
 // workspace del que mira (así un cliente solo ve SUS borradores).
 
-import { redirect, notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
-import { getPropuesta } from '@/lib/plan-propuesta';
+import { getPropuesta, duenoDePropuesta } from '@/lib/plan-propuesta';
+import { getCapaActual } from '@/lib/workspace';
 import { RevisarPropuesta } from './RevisarPropuesta';
+import { NoEsTuyo } from './NoEsTuyo';
 import { guardOnboarding } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +25,18 @@ export default async function RevisarPage({ params }: { params: Promise<{ id: st
   await guardOnboarding();
   const { id } = await params;
   const prop = await getPropuesta(id);
-  if (!prop) notFound();
-  return <RevisarPropuesta prop={prop} />;
+  if (prop) return <RevisarPropuesta prop={prop} />;
+
+  // NO ESTÁ EN TU WORKSPACE. Puede ser que el link no exista o que sea de otra persona,
+  // y hasta ahora las dos cosas daban el mismo 404 mudo de Next — que además se lee
+  // como "la app se rompió". Se distingue con una consulta que devuelve SOLO de qué
+  // cuenta es (nunca el contenido: el aislamiento no se toca).
+  //
+  // Y el link de salida depende de quién sos: el super-admin puede pasar a ver ese
+  // tablero (ya tiene esa potestad por la barra de impersonación); cualquier otro vuelve
+  // al suyo. Ofrecerle a un cliente un botón para entrar al plan de otro sería abrir por
+  // la UI justo lo que el scope cierra por atrás.
+  const dueno = await duenoDePropuesta(id).catch(() => null);
+  const capa = await getCapaActual().catch(() => null);
+  return <NoEsTuyo existe={!!dueno} deQuien={dueno?.nombre ?? ''} wsDestino={capa === 'superadmin' ? dueno?.workspaceId ?? null : null} />;
 }

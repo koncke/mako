@@ -198,15 +198,37 @@ function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
  * El chequeo es por el arranque normalizado, no por el texto entero: el modelo corrige
  * una tilde o una coma y una comparación exacta diría "no lo absorbió" siempre.
  */
-export function fusionarDetalle(original: string, delPerro: string): string {
-  const o = (original ?? '').trim();
-  const p = (delPerro ?? '').trim();
-  if (!p) return o;
-  if (!o) return p;
-  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-  const cabeza = norm(o).slice(0, 60);
-  if (cabeza.length >= 20 && norm(p).includes(cabeza)) return p;
-  return `${o}\n\n${p}`;
+import { fusionarDetalle } from './detalle-fusion';
+export { fusionarDetalle };
+
+/**
+ * Marca hecha una tarea del board del dueño SIN borrarla, dejando la evidencia.
+ * `parcial` = «está a medias»: no cierra, sube el avance a la mitad y suma la
+ * evidencia al detalle. Perder ese matiz —tratar «a medias» como «no»— tira a la
+ * basura el trabajo de verificar, y tratarlo como «sí» esconde lo que falta.
+ */
+export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcial = false): Promise<void> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_tareas').select('*').eq('id', id).limit(1);
+    const fila = (data ?? [])[0] as Row | undefined;
+    if (!fila) { console.warn(`[plan-board] cerrar: no existe ${id}`); return; }
+    const t = rowToTask(fila);
+    const texto = (parcial ? `MaKo la dejó a medias: ${evidencia}` : `MaKo la marcó hecha: ${evidencia}`).slice(0, 240);
+    const hist: Hist[] = [{ id: genId('h'), ts: Date.now(), actor: 'ia' as Actor, text: texto }, ...(t.historial ?? [])].slice(0, 40);
+    const patch: Row = { historial: hist, updated_at: new Date().toISOString() };
+    if (parcial) {
+      patch.progress = Math.max(50, t.progress);
+      patch.detalle = fusionarDetalle(t.detalle ?? '', evidencia);
+    } else {
+      patch.progress = 100;
+      // La checklist se tilda entera: dejar ítems abiertos en una tarjeta al 100%
+      // hace que el avance del proyecto y el de la tarjeta digan cosas distintas.
+      patch.checklist = (t.checklist ?? []).map((c) => ({ ...c, done: true }));
+    }
+    const { error } = await db.from('plan_tareas').update(patch).eq('id', id);
+    if (error) throw new Error(`cerrarPlanTareaOwner: ${error.message}`);
+  });
 }
 
 export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente };
@@ -435,7 +457,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
 
     // 3 llamadas al Perro en paralelo (score tareas · checklists · proyectos). Gemini gratis.
     const [scoreRes, checklistRes, proyRes] = await Promise.all([
-      nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string }[], faltantes: [] as string[] }),
+      nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas', { conCapacidades: false }) : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string }[], faltantes: [] as string[] }),
       nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), contexto, 'Descripción + checklists de tareas nuevas') : Promise.resolve({} as Record<string, { detalle: string; items: string[] }>),
       proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, brief, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
     ]);

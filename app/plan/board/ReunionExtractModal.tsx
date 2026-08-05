@@ -49,7 +49,7 @@ function fmtFecha(iso: string | null): string {
 export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onAmpliar, onUsage, onClose, onAbrirBorrador, recibidos, onAbrirRecibido, catalogo }: {
   labels: Label[];
   existentes: Existente[];               // tareas abiertas del plan, para el dedup del Perro (punto 8)
-  archivoInicial?: File | null;          // si entró por el botón "subir archivo" del toolbar (punto 7)
+  archivoInicial?: File[] | null;        // los archivos que salieron de la bandeja de importación
   onCrear: (cands: Candidata[], fuente?: Fuente) => void;
   /** Las que YA existen: en vez de crear una segunda, se le suma el contexto a la que está. */
   onAmpliar?: (items: Array<{ id: string; detalle: string; titulo: string }>, fuente?: Fuente) => void;
@@ -87,6 +87,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   const [desde, setDesde] = useState('');                      // filtro por fecha (YYYY-MM-DD)
   const [elegida, setElegida] = useState<ReunionMeta | null>(null);
   const [archivoNombre, setArchivoNombre] = useState(''); // nombre del archivo subido (para la fuente)
+  const [archivosSubiendo, setArchivosSubiendo] = useState<string[]>([]); // qué está leyendo, para no mostrar un spinner mudo
+  const [avisos, setAvisos] = useState<string[]>([]);     // los que no pudo leer (el resto igual sigue)
   const [filas, setFilas] = useState<Fila[]>([]);
   const [dudas, setDudas] = useState<Duda[]>([]);              // términos a aclarar (paso previo, punto 7)
   const [defs, setDefs] = useState<Record<number, string>>({}); // definiciones que va escribiendo el usuario
@@ -207,22 +209,29 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
 
   // Subir un archivo (md/txt/transcript) → mismo pipeline (punto 5). Los archivos NUNCA
   // auto-cargan (fuente=null): no hay clasificación, así que siempre pasan por revisión.
-  const subirArchivo = async (file: File) => {
-    setElegida(null); setArchivoNombre(file.name); setFase('extrayendo'); setErr(''); setFreno(null);
+  const subirArchivo = async (files: File[]) => {
+    if (!files.length) return;
+    setElegida(null);
+    setArchivoNombre(files.length === 1 ? files[0].name : `${files.length} archivos`);
+    setArchivosSubiendo(files.map((f) => f.name));
+    setFase('extrayendo'); setErr(''); setFreno(null); setAvisos([]);
     const fd = new FormData();
-    fd.append('file', file);
+    // MISMA clave repetida: del otro lado se lee con form.getAll('file').
+    for (const f of files) fd.append('file', f);
     fd.append('proyectos', JSON.stringify(labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }))));
     const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd }).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
     if (j.usage) onUsage?.(j.usage);
+    // Los que no se pudieron leer se dicen, aunque el resto haya salido bien.
+    if (Array.isArray(j.avisos) && j.avisos.length) setAvisos(j.avisos.map(String));
     if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? []);
-    // Falló el archivo: mostramos el error y volvemos a la lista (que se carga sola,
-    // porque el modo-archivo la había salteado) para que el usuario no quede colgado.
-    else { setErr(j.error || 'No pude leer el archivo.'); volverALista(); }
+    // Falló todo: mostramos el error y volvemos a la lista (que se carga sola, porque
+    // el modo-archivo la había salteado) para que el usuario no quede colgado.
+    else { setErr(j.error || 'No pude leer los archivos.'); volverALista(); }
   };
 
-  // Mount: si entró por "subir archivo", procesarlo directo.
+  // Mount: si entró por la bandeja de importación, procesarlos directo.
   useEffect(() => {
-    if (archivoInicial) void subirArchivo(archivoInicial);
+    if (archivoInicial?.length) void subirArchivo(archivoInicial);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
 
@@ -453,7 +462,24 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
           )}
 
           {/* extrayendo */}
-          {fase === 'extrayendo' && <Cargando texto="MaKo está sacando los action items del equipo…" grande />}
+          {fase === 'extrayendo' && (
+            <div>
+              <Cargando texto={archivosSubiendo.length > 1 ? `MaKo está leyendo ${archivosSubiendo.length} archivos y sacando las tareas…` : 'MaKo está sacando los action items del equipo…'} grande />
+              {/* Un spinner sin nombre no dice si se colgó o si está trabajando. Con la
+                  lista, se ve qué entró — y sobre todo qué NO entró, si faltó alguno. */}
+              {archivosSubiendo.length > 0 && (
+                <div style={{ maxWidth: 460, margin: '14px auto 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {archivosSubiendo.map((n) => (
+                    <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--dim)' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--primary)', flex: 'none', animation: 'makoPulso 1.4s ease-in-out infinite' }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n}</span>
+                    </div>
+                  ))}
+                  <style>{'@keyframes makoPulso{0%,100%{opacity:.25}50%{opacity:1}}'}</style>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* paso previo (punto 7): MaKo pregunta por lo que no entendió → glosario */}
           {fase === 'validar' && (
@@ -477,6 +503,17 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
           )}
 
           {/* revisar candidatos */}
+          {/* Lo que NO se pudo leer se dice acá arriba, con nombre y motivo. Tragarse
+              un archivo fallado y mostrar igual el resultado es peor que no importar:
+              el usuario cree que lo que ve es todo lo que subió. */}
+          {fase === 'revisar' && avisos.length > 0 && (
+            <div style={{ marginBottom: 12, padding: '10px 13px', borderRadius: 11, border: '1px solid color-mix(in srgb, #C8870C 35%, var(--border))', background: 'color-mix(in srgb, #C8870C 8%, transparent)' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+                {avisos.length === 1 ? 'Un archivo quedó afuera' : `${avisos.length} archivos quedaron afuera`}
+              </div>
+              {avisos.map((a, i) => <div key={i} style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>· {a}</div>)}
+            </div>
+          )}
           {fase === 'revisar' && (
             filas.length === 0
               ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>

@@ -40,11 +40,33 @@ const NINGUNA: Senales = {
   'nutricion-activa': false,
 };
 
-/** ¿Hay al menos UNA fila en esa tabla del workspace? (head:true = no trae datos). */
+/** ¿Hay al menos UNA fila en esa tabla del workspace? (head:true = no trae datos).
+ *
+ *  ⚠️ SOLO sirve para tablas que estén en TENANT_TABLES: el filtro por workspace lo
+ *  pone el proxy de getTenantDb, y para una tabla que no está en esa lista hace
+ *  passthrough (lib/workspace.ts) — o sea, cuenta las filas de TODOS los inquilinos.
+ *  Eso fue exactamente el bug de `funnel_config`: la tabla tenía 4 filas de otros
+ *  workspaces y la señal salía verde para los 6, así que todo cliente nuevo nacía
+ *  con «Cargar el funnel» y «Definir las métricas norte» ya tildadas y con la
+ *  evidencia mintiendo en el historial. Antes de agregar una señal nueva acá:
+ *  chequeá que la tabla esté en TENANT_TABLES, o usá `hayFilasWs`. */
 async function hayFilas(tabla: string): Promise<boolean> {
   try {
     const db = await getTenantDb();
     const { count, error } = await db.from(tabla).select('*', { count: 'exact', head: true }).limit(1);
+    return !error && (count ?? 0) > 0;
+  } catch { return false; }
+}
+
+/** Igual que `hayFilas` pero con el `.eq('workspace_id', …)` puesto a mano, para las
+ *  tablas que quedaron fuera de TENANT_TABLES a propósito. Falla CERRADO: sin
+ *  workspace devuelve false (una señal solo dice sí con evidencia positiva). */
+async function hayFilasWs(tabla: string): Promise<boolean> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return false;
+    const db = await getTenantDb();
+    const { count, error } = await db.from(tabla).select('*', { count: 'exact', head: true }).eq('workspace_id', ws).limit(1);
     return !error && (count ?? 0) > 0;
   } catch { return false; }
 }
@@ -73,7 +95,7 @@ export async function leerSenales(): Promise<Senales> {
       integracionConectada('calendly').catch(() => false),
       integracionConectada('whatsapp').catch(() => false),
       integracionConectada('fathom').catch(() => false),
-      hayFilas('funnel_config'),
+      hayFilasWs('funnel_config'),  // NO está en TENANT_TABLES: el filtro va a mano
       hayFilas('leads'),
       hayFilas('closing_analyses'),
       hayFilas('marketing_metrics_daily'),

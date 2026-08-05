@@ -80,6 +80,9 @@ export async function seedTodoBoardSiVacio(): Promise<Categoria[]> {
 // señales de las tarjetas del seed que siguen pendientes y las que ya están
 // resueltas se cierran solas, con la evidencia en el historial.
 
+import { emitirDelCatalogo } from './avisos';
+import { APP_BASE_URL } from './app-url';
+
 const MARCA_AUTO = 'MaKo la marcó hecha';
 
 /** Las tarjetas del seed que siguen pendientes y podrían cerrarse por señal.
@@ -107,6 +110,7 @@ export async function autocompletarPorSenales(tareas: Tarea[]): Promise<number> 
   if (!cerrar.length) return 0;
 
   let n = 0;
+  const cerradas: Array<{ tarea: Tarea; porQue: string }> = [];
   for (const { tarea, seed } of cerrar) {
     const porQue = (seed.listo ?? []).map((k) => EVIDENCIA_SENAL[k]).join(' y ');
     try {
@@ -115,9 +119,28 @@ export async function autocompletarPorSenales(tareas: Tarea[]): Promise<number> 
         checklist: tarea.checklist.map((c) => ({ ...c, done: true })),
         historial: [{ id: `auto${Date.now()}${tarea.id}`, ts: Date.now(), actor: 'ia', text: `MaKo la marcó hecha: ${porQue}` }, ...tarea.historial],
       });
-      n++;
+      n++; cerradas.push({ tarea, porQue });
     } catch (e) { console.error(`[plan-auto] no pude cerrar "${tarea.titulo}"`, e); }
   }
   if (n) console.log(`[plan-auto] ${n} tarea(s) cerradas solas por señales del negocio`);
+
+  // AVISAR. Cerrar una tarea sin decirlo es peor que no cerrarla: la persona entra al
+  // tablero, ve tres cosas menos y no sabe si las hizo, si se borraron o si la app se
+  // rompió. Un solo mensaje por día por workspace, agrupando todas (dedupTtlMin 1440);
+  // nunca uno por tarea. El texto va armado a mano —no generado— para que no cueste
+  // una llamada al modelo y para que el contrato del final sea literal.
+  if (n) {
+    const lista = cerradas.map(({ tarea, porQue }) => `• *${tarea.titulo}* — ${porQue}`).join('\n');
+    const enc = n === 1 ? 'Cerré *1 tarea* de tu plan que ya estaba hecha:' : `Cerré *${n} tareas* de tu plan que ya estaban hechas:`;
+    void emitirDelCatalogo('tareas-autocompletadas', {
+      texto: `✅ ${enc}
+
+${lista}
+
+Si alguna no está lista, abrila y reabrila: no la vuelvo a tocar.
+${APP_BASE_URL}/plan`,
+      dedupTtlMin: 1440,
+    }).catch((e) => console.error('[plan-auto] aviso:', e instanceof Error ? e.message : String(e)));
+  }
   return n;
 }

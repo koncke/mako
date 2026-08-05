@@ -29,6 +29,24 @@ import { CATALOGO_TODO, delCatalogoTodo, PREFIJO_CLIENTE } from './todo-proyecto
 const norm = (s: string): string =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
+/** ¿Este proyecto ES un cliente? (para dejarlo afuera del menú del Perro).
+ *
+ *  Antes esto era `norm(nombre).startsWith(norm(PREFIJO_CLIENTE))`, y estaba MUERTO:
+ *  `norm` no borra puntuación, así que el patrón buscado era literalmente «cliente:»
+ *  con los dos puntos, y ningún proyecto real del tablero de Mauricio se llama así
+ *  («Cuenta Grupo Esquer», «Cliente Baja Teriyaki», «Cuenta TEXX»…). Medido en prod:
+ *  excluía 0 de 15 proyectos en ws1 y 0 de 8 en ws11 — o sea que una tarea que no
+ *  nombra a NADIE podía caer en la cuenta de Grupo Esquer solo porque el tema se
+ *  parecía, que es exactamente lo que esta guarda existe para impedir.
+ *
+ *  Ahora se reconoce la familia de prefijos que el dueño usa de verdad (con o sin
+ *  dos puntos) Y el prefijo canónico que crea `nombreProyectoCliente`. Lo que no
+ *  lleva prefijo —un proyecto llamado con el nombre pelado del cliente— sigue sin
+ *  detectarse: para eso está el renombre. */
+export function esProyectoDeCliente(nombre: string): boolean {
+  return /^(cliente|cuenta)\s*:?\s+/.test(norm(nombre));
+}
+
 export type TareaARutear = { titulo: string; detalle?: string | null; proyectoSugerido?: string };
 export type DestinoTarea = {
   /** El NOMBRE del proyecto destino (o undefined si no hubo ninguno). */
@@ -63,7 +81,7 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
   // proyecto de un cliente cualquiera solo porque el tema se parece.
   const yaEstan = new Set(cats.map((c) => norm(c.nombre)));
   const destinos = [
-    ...cats.filter((c) => !norm(c.nombre).startsWith(norm(PREFIJO_CLIENTE)))
+    ...cats.filter((c) => !esProyectoDeCliente(c.nombre))
       .map((c) => ({ nombre: c.nombre, que: delCatalogoTodo(c.nombre)?.que ?? '' })),
     ...CATALOGO_TODO.filter((c) => !yaEstan.has(norm(c.nombre))).map((c) => ({ nombre: c.nombre, que: c.que })),
   ];

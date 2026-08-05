@@ -48,6 +48,46 @@ usá el cliente de la app (`runWithWorkspace` + `getTenantDb`, como
 - Si lo que vas a hacer **ya está** en la lista → NO dupliques: continuá esa tarea.
 - Si hay **ALTA** (score ≥ 75) o **vencidas** relacionadas con tu trabajo, mencionáselas.
 
+## 1.b Cerrá lo que ya hiciste (paso 0 de cada sesión)
+
+Si en esta sesión (o en los commits desde el último chequeo) quedó resuelto algo que
+sigue **abierto en el tablero**, no lo dejes ahí: proponé cerrarlo. Va en el MISMO
+borrador, en el array `cerrar`, y el dueño lo confirma de a una en `/plan/revisar`.
+
+```js
+// 1. qué se tocó
+//    git log --oneline <ultimo-check>..HEAD  y  git diff --stat
+// 2. cruzarlo con las abiertas del GET /api/agente/plan
+// 3. POR CADA CANDIDATA, ABRIR EL ARCHIVO Y VERIFICAR QUE ESTÉ ENCHUFADO
+//    (que exista no alcanza: que lo llame alguien, que no sea código muerto,
+//     que cubra la tarea ENTERA y no un hermano parecido)
+// 4. mandar SOLO las que sobreviven ese paso
+```
+
+```json
+{
+  "resumen": "…",
+  "tareas": [],
+  "cerrar": [
+    { "id": "<id de la tarea>", "titulo": "Ficha del lead: notas múltiples",
+      "evidencia": "commit d4a6958 · app/plan/board/NotasLista.tsx:59 — la lista de notas con fecha ya está montada en el modal y guarda contra el campo `notas`. Verificado: BoardShell.tsx:1204 la renderiza.",
+      "confianza": "alta" }
+  ]
+}
+```
+
+**Reglas duras del canal `cerrar`:**
+- `evidencia` es obligatoria y tiene que ser **verificable**: commit + `archivo:línea`,
+  o el dato concreto. «Ya lo hicimos» no es evidencia.
+- `confianza: 'alta'` **solo** si abriste el archivo y lo verificaste. Si lo dedujiste
+  del mensaje del commit, es `'media'`.
+- **Ante la duda, no la mandes.** La primera vez que se midió esto, de 17 tareas que la
+  IA afirmó hechas solo 8 lo estaban. Un cierre equivocado esconde trabajo real; una
+  tarea que queda abierta de más cuesta un clic.
+- Si cubriste **parte** de la tarea, mandala igual con la evidencia de lo que sí está: el
+  dueño tiene el botón «está a medias», que sube el avance sin cerrarla.
+- `cerrar` NO borra. Nunca uses `eliminar` para esto.
+
 ## 2. Proponé tareas nuevas (borrador + link)
 
 Insertá UNA fila en `plan_propuestas` y entregá el link `/plan/revisar/<id>`:

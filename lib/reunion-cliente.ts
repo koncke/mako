@@ -267,7 +267,11 @@ export async function proyectoNombradoEnTexto(texto: string): Promise<string | n
       if (n.length < 5 || GENERICOS.some((g) => n.includes(g))) return false;
       // El nombre completo, o el núcleo sin el prefijo que le puso el dueño
       // ("Cuenta Grupo Esquer" → "grupo esquer", "Cliente Baja Teriyaki" → "baja teriyaki").
-      const nucleo = n.replace(/^(cuenta|cliente|proyecto)\s+/, '');
+      // Los DOS PUNTOS son obligatorios acá: el prefijo canónico que crea
+      // `nombreProyectoCliente` es «Cliente: X», y sin contemplarlo el núcleo quedaba
+      // «cliente: grupo esquer» — o sea, esta vía se apagaba justo para los proyectos
+      // de cliente, que son los que más se nombran por texto.
+      const nucleo = n.replace(/^(cuenta|cliente|proyecto)\s*:?\s+/, '');
       return t.includes(` ${n} `) || (nucleo.length >= 5 && t.includes(` ${nucleo} `));
     });
     return hits.length === 1 ? hits[0].nombre : null;

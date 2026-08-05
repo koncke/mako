@@ -15,6 +15,7 @@ import 'server-only';
 import { listTareas, listCategorias, editarTarea, type Prioridad, type ChecklistItem, type HistEntry } from './todo';
 import { puntuarNuevas } from './mako-guardian';
 import { checklistsParaTareas } from './checklist-coach';
+import { fusionarDetalle } from './detalle-fusion';
 
 /** Columna que le corresponde a un score (misma escala que el board del dueño). */
 const prioridadDeScore = (s: number): Prioridad => (s >= 75 ? 'alta' : s >= 50 ? 'media' : s >= 25 ? 'baja' : 'futuro');
@@ -74,7 +75,11 @@ export async function priorizarNuevasCliente(ids: number[], contexto = ''): Prom
       patch.score_razon = g.razon || null;
       patch.prioridad = prioridadDeScore(g.score);
     }
-    if (enr?.detalle) patch.detalle = enr.detalle;
+    // LO QUE YA DECÍA NO SE PISA. El detalle de una tarea que salió de una reunión es
+    // contenido literal de la llamada, y el de una que editó el cliente es su decisión:
+    // el Perro SUMA contexto, nunca reemplaza. (Misma regla que el board del dueño.)
+    const detalleFusionado = enr?.detalle ? fusionarDetalle(actual?.detalle ?? '', enr.detalle) : '';
+    if (detalleFusionado && detalleFusionado !== (actual?.detalle ?? '')) patch.detalle = detalleFusionado;
     if (enr?.items.length) patch.checklist = enr.items.map((text, i): ChecklistItem => ({ id: `c${ahora}${i}`, text, done: false }));
     // Rastro obligatorio: la tarjeta tiene que decir que la tocó MaKo y por qué.
     const texto = g ? `MaKo la priorizó — score ${g.score} (${g.razon || 'sin razón'})`.slice(0, 220) : 'MaKo le escribió la descripción y la checklist';
@@ -87,7 +92,7 @@ export async function priorizarNuevasCliente(ids: number[], contexto = ''): Prom
       patches.push({
         id: nv.id,
         ...(g ? { score: g.score, scoreRazon: g.razon || '', priority: prioridadDeScore(g.score) } : {}),
-        ...(enr?.detalle ? { detalle: enr.detalle } : {}),
+        ...(patch.detalle != null ? { detalle: patch.detalle } : {}),
         ...(patch.checklist ? { checklist: patch.checklist } : {}),
         historialEntry: entrada,
       });

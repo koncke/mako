@@ -208,6 +208,19 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Mau <> Martín* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://tu-app/plan\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`,
   },
   {
+    id: 'tareas-autocompletadas', titulo: 'MaKo cerró tareas que ya estaban hechas', categoria: 'aviso',
+    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Corrida diaria de señales (cron tareas-verificar) + al abrir /plan. UN aviso por día por workspace, agrupando todas las que cerró — nunca uno por tarea.',
+    ejemplo: `✅ Cerré *3 tareas* de tu plan que ya estaban hechas:
+
+• *Conectar WhatsApp* — tu número ya está vinculado
+• *Conectar Fathom* — ya está conectado
+• *Cargar el funnel* — ya está cargado en MaKo
+
+Si alguna no está lista, abrila y reabrila: no la vuelvo a tocar.
+https://tu-app/plan — MaKo`,
+  },
+  {
     id: 'reunion-no-show', titulo: 'No-show → sugerir seguimiento', categoria: 'accion',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'junta_at pasada sin grabación Fathom ni asistencia marcada.',

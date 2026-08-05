@@ -60,6 +60,10 @@
     {
       "path": "/api/cron/doer-flush",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/tareas-verificar",
+      "schedule": "40 13 * * *"
     }
   ]
 }

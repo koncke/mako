@@ -10,8 +10,9 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
-import { agregarTareasPlanOwner, ampliarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, listPlanBoard } from '@/lib/plan-board';
-import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, ampliarTareasCliente, type Prioridad } from '@/lib/todo';
+import { getSupabaseServer } from '@/lib/supabase';
+import { agregarTareasPlanOwner, ampliarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard, fusionarDetalle } from '@/lib/plan-board';
+import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, editarTarea, ampliarTareasCliente, type Prioridad } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
 import { rutearTareasCliente } from '@/lib/todo-rutear';
@@ -77,9 +78,21 @@ export type PropuestaPregunta = {
   sobre?: string[];
 };
 export type PropuestaEliminar = { id: string; titulo?: string; motivo?: string };
+/** «Esta que ya tenés YA ESTÁ HECHA». CERRAR NO ES BORRAR: la tarjeta queda, con su
+ *  historial y su checklist, y se le suma la evidencia. Nunca se aplica sola —
+ *  la precisión medida de un «esto ya está hecho» dicho por IA es ~47%, así que
+ *  cada una se confirma de a una en /plan/revisar. */
+export type PropuestaCerrar = {
+  id: string;
+  /** POR QUÉ dice que está hecha, con la prueba: commit, archivo:línea, pantalla. */
+  evidencia: string;
+  /** 'alta' = lo verificó abriendo el código/dato. 'media' = lo dedujo. */
+  confianza?: 'alta' | 'media';
+  titulo?: string;
+};
 export type Propuesta = {
   id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; resumen: string; origen?: string;
-  tareas: PropuestaTarea[]; preguntas: PropuestaPregunta[]; eliminar: PropuestaEliminar[]; createdAt: string;
+  tareas: PropuestaTarea[]; preguntas: PropuestaPregunta[]; eliminar: PropuestaEliminar[]; cerrar: PropuestaCerrar[]; createdAt: string;
   /** quién se las mandó ('' = las sacó MaKo sola de una reunión tuya). */
   enviadoPor?: string;
   /** de dónde salieron: título + link de la reunión. */
@@ -136,6 +149,17 @@ function limpiarEliminar(e: unknown): PropuestaEliminar | null {
   const id = str(o.id).trim().slice(0, 80);
   if (!id) return null;
   return { id, titulo: o.titulo ? str(o.titulo).slice(0, 200) : undefined, motivo: o.motivo ? str(o.motivo).slice(0, 300) : undefined };
+}
+function limpiarCerrar(c: unknown): PropuestaCerrar | null {
+  if (!c || typeof c !== 'object') return null;
+  const o = c as Record<string, unknown>;
+  const id = str(o.id).trim().slice(0, 80);
+  const evidencia = str(o.evidencia).trim().slice(0, 400);
+  // SIN EVIDENCIA NO ENTRA. Un «ya está hecha» sin prueba no se puede confirmar ni
+  // discutir: es exactamente lo que hace que el tablero deje de ser confiable.
+  if (!id || evidencia.length < 10) return null;
+  const conf = str(o.confianza);
+  return { id, evidencia, confianza: conf === 'alta' ? 'alta' : 'media', titulo: o.titulo ? str(o.titulo).slice(0, 200) : undefined };
 }
 // Acepta {pregunta, opciones} o (compat) una nota-string suelta.
 const TIPOS_PREGUNTA: TipoPregunta[] = ['opcion', 'multi', 'escala', 'texto', 'comparacion'];
@@ -206,7 +230,7 @@ function limpiarPregunta(p: unknown): PropuestaPregunta | null {
 }
 
 export type CrearPropuestaDraft = {
-  tareas: PropuestaTarea[]; preguntas?: unknown[]; eliminar?: unknown[]; resumen?: string; origen?: string;
+  tareas: PropuestaTarea[]; preguntas?: unknown[]; eliminar?: unknown[]; cerrar?: unknown[]; resumen?: string; origen?: string;
   /** nombre de quien se las manda a esta persona ('' = MaKo sola). */
   enviadoPor?: string;
   /** reunión/archivo del que salieron, y cuándo ocurrió. */
@@ -225,6 +249,7 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
     const tareas = asArr<unknown>(draft.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     const preguntas = asArr<unknown>(draft.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 25);
     const eliminar = asArr<unknown>(draft.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e).slice(0, 30);
+    const cerrar = asArr<unknown>(draft.cerrar).map(limpiarCerrar).filter((c): c is PropuestaCerrar => !!c).slice(0, 40);
     const ref = draft.ref?.trim().slice(0, 120) || null;
     // Candado del cron: si esta reunión ya dejó su borrador acá, devolvemos el que hay.
     // Y si estaba DESCARTADO, lo revivimos: volver a extraer la reunión es decir «esto
@@ -245,7 +270,7 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
     const id = genId('prop');
     const { error } = await db.from('plan_propuestas').insert({
       id, estado: 'pendiente', origen: draft.origen ?? 'whatsapp', resumen: (draft.resumen ?? '').slice(0, 300),
-      tareas, notas: preguntas, eliminar, // `notas` guarda {pregunta,opciones}; `eliminar` = {id,titulo,motivo}
+      tareas, notas: preguntas, eliminar, cerrar, // `notas` guarda {pregunta,opciones}; `eliminar` = {id,titulo,motivo}; `cerrar` = {id,evidencia,confianza}
       ref, enviado_por: draft.enviadoPor?.slice(0, 120) ?? null,
       fuente_titulo: draft.fuenteTitulo?.slice(0, 200) ?? null, fuente_url: draft.fuenteUrl?.slice(0, 500) ?? null,
       fuente_fecha: draft.fuenteFecha ?? null,
@@ -262,6 +287,7 @@ function rowToPropuesta(r: Row): Propuesta {
     tareas: asArr<unknown>(r.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t),
     preguntas: asArr<unknown>(r.notas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p),
     eliminar: asArr<unknown>(r.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e),
+    cerrar: asArr<unknown>(r.cerrar).map(limpiarCerrar).filter((c): c is PropuestaCerrar => !!c),
     createdAt: str(r.created_at),
     enviadoPor: r.enviado_por ? str(r.enviado_por) : undefined,
     fuenteTitulo: r.fuente_titulo ? str(r.fuente_titulo) : undefined,
@@ -292,6 +318,28 @@ export async function getPropuesta(id: string): Promise<Propuesta | null> {
     const { data } = await db.from('plan_propuestas').select('*').eq('id', id).maybeSingle();
     return data ? rowToPropuesta(data as Row) : null;
   });
+}
+
+/**
+ * ¿De QUIÉN es este borrador? Solo el workspace y su nombre — NUNCA el contenido.
+ *
+ * Existe para poder distinguir «este link no existe» de «este link es de otra persona»
+ * sin aflojar el aislamiento: `getPropuesta` sigue scopeado al workspace del que mira,
+ * así que un borrador ajeno NUNCA se lee. Esto responde una sola pregunta binaria, con
+ * el cliente de servicio, y lo único que se puede aprender es que un id existe y de qué
+ * cuenta es. Es lo mínimo para poder decir «estas no son tus tareas» en vez de un 404
+ * mudo, que es lo que pidió el dueño.
+ *
+ * ⚠️ NO devolver desde acá ni las tareas, ni el resumen, ni las preguntas.
+ */
+export async function duenoDePropuesta(id: string): Promise<{ workspaceId: number; nombre: string } | null> {
+  const limpio = (id ?? '').trim().slice(0, 80);
+  if (!limpio) return null;
+  const { data } = await getSupabaseServer().from('plan_propuestas').select('workspace_id').eq('id', limpio).maybeSingle();
+  const ws = Number((data as { workspace_id?: unknown } | null)?.workspace_id);
+  if (!Number.isFinite(ws)) return null;
+  const w = await getWorkspace(ws).catch(() => null);
+  return { workspaceId: ws, nombre: (w?.nombre ?? '').trim() || `workspace ${ws}` };
 }
 
 /**
@@ -498,6 +546,12 @@ export async function preguntasParaCargar(titulosYDetalles: Array<{ titulo: stri
 
 export type LoteAplicar = {
   id: string; tareas?: PropuestaTarea[]; eliminarIds?: string[]; contexto?: string;
+  /** ids que el dueño CONFIRMÓ que ya están hechas (de `prop.cerrar`). Nada se cierra
+   *  sin pasar por acá: el borrador propone, la persona decide. */
+  cerrarIds?: string[];
+  /** las que dijo «está a medias»: no se cierran, se les sube el avance a la mitad y
+   *  se les suma la evidencia al detalle. Perder ese matiz es perder información. */
+  aMediasIds?: string[];
   /**
    * Lo que NO se carga y tiene que seguir esperando en el borrador: las tareas que
    * quedaron del lado de otras personas. Lo manda la pantalla porque ahí ya está el
@@ -506,13 +560,13 @@ export type LoteAplicar = {
    */
   restantes?: PropuestaTarea[];
 };
-export type ResultadoAplicar = { ok: boolean; ids: string[]; borradas: number; error?: string };
+export type ResultadoAplicar = { ok: boolean; ids: string[]; borradas: number; cerradas?: number; error?: string };
 
 /** Aplica el borrador: crea las tareas y marca 'aplicada'. Dueño → plan_tareas + Perro;
  *  cliente → su board (lib/todo). `tareasEditadas` = lo que quedó en la revisión. */
-export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTarea[], eliminarIds?: string[], contexto?: string): Promise<ResultadoAplicar | null> {
-  const r = await aplicarPropuestas([{ id, tareas: tareasEditadas, eliminarIds, contexto }]);
-  return r.noExiste ? null : { ok: r.ok, ids: r.ids, borradas: r.borradas, error: r.error };
+export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTarea[], eliminarIds?: string[], contexto?: string, cerrarIds?: string[], aMediasIds?: string[]): Promise<ResultadoAplicar | null> {
+  const r = await aplicarPropuestas([{ id, tareas: tareasEditadas, eliminarIds, contexto, cerrarIds, aMediasIds }]);
+  return r.noExiste ? null : { ok: r.ok, ids: r.ids, borradas: r.borradas, cerradas: r.cerradas, error: r.error };
 }
 
 /**
@@ -541,6 +595,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     const cierre = new Map<string, { creadas: PropuestaAplicada[]; restantes: PropuestaTarea[] }>();
     const aplicados: string[] = [];
     let borradas = 0;
+    let cerradas = 0;
     let ampliadas = 0;   // repetidas que en vez de duplicarse le sumaron contexto a la que ya estaba
     let ultimoError = '';
     let algunoExistia = false;
@@ -600,7 +655,16 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       // camino del board aplicaba el lote — sin mostrarlo y sin que nadie lo confirmara.
       const propuestos = new Set((prop?.eliminar ?? []).map((e) => e.id));
       const aBorrar = (lote.eliminarIds ?? []).map(String).filter((x) => propuestos.has(x));
-      if (!base.length && !aAmpliar.length && !aBorrar.length) { ultimoError = 'No hay nada para crear ni borrar.'; continue; }
+      // Los cierres siguen la MISMA regla que las bajas: solo se ejecuta lo que la
+      // persona confirmó explícitamente, cruzado contra lo que el borrador propuso.
+      // Un id que no estaba en la propuesta no se toca, venga de donde venga.
+      const propCerrar = new Map((prop?.cerrar ?? []).map((c) => [c.id, c] as const));
+      const confirmados = new Set((lote.cerrarIds ?? []).map(String));
+      const medios = new Set((lote.aMediasIds ?? []).map(String));
+      const aCerrar = [...confirmados, ...medios]
+        .filter((x) => propCerrar.has(x))
+        .map((x) => ({ id: x, evidencia: propCerrar.get(x)!.evidencia, parcial: medios.has(x) && !confirmados.has(x) }));
+      if (!base.length && !aAmpliar.length && !aBorrar.length && !aCerrar.length) { ultimoError = 'No hay nada para crear, cerrar ni borrar.'; continue; }
 
       // La FUENTE de cada tarea: de qué reunión salió y EN QUÉ MINUTO se dijo. Con eso,
       // el chip del detalle de la tarjeta abre la grabación parada en ese segundo — el
@@ -647,6 +711,15 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           for (const a of aAmpliar) creadas.push({ titulo: a.titulo, tareaId: a.id });
         }
         for (const eid of aBorrar) { await borrarPlanTarea(eid).catch((e) => console.error('[plan-propuesta] borrar owner:', e instanceof Error ? e.message : String(e))); borradas += 1; }
+        // CERRAR ≠ BORRAR: la tarjeta queda con su historial y su checklist, y se le
+        // suma la evidencia. Es la diferencia entre «esto se hizo, mirá dónde» y
+        // «esto no existió nunca».
+        for (const c of aCerrar) {
+          try {
+            await cerrarPlanTareaOwner(c.id, c.evidencia, c.parcial);
+            cerradas += 1;
+          } catch (e) { console.error('[plan-propuesta] cerrar owner:', e instanceof Error ? e.message : String(e)); }
+        }
       } else {
         // CLIENTE: su board va por lib/todo (crea la categoría si falta). Ya estamos en su ws.
         if (base.length) {
@@ -683,6 +756,19 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           for (const a of aAmpliar) creadas.push({ titulo: a.titulo, tareaId: a.id });
         }
         for (const eid of aBorrar) { const n = Number(eid); if (Number.isFinite(n)) { await borrarTarea(n).catch((e) => console.error('[plan-propuesta] borrar cliente:', e instanceof Error ? e.message : String(e))); borradas += 1; } }
+        for (const c of aCerrar) {
+          const n = Number(c.id);
+          if (!Number.isFinite(n)) continue;
+          try {
+            const actual = (await listTareas()).find((t) => t.id === n);
+            await editarTarea(n, {
+              progreso: c.parcial ? Math.max(50, actual?.progreso ?? 0) : 100,
+              detalle: c.parcial ? fusionarDetalle(actual?.detalle ?? '', c.evidencia) : (actual?.detalle ?? null),
+              historial: [{ id: `cerr${Date.now()}${n}`, ts: Date.now(), actor: 'ia', text: (c.parcial ? `MaKo la dejó a medias: ${c.evidencia}` : `MaKo la marcó hecha: ${c.evidencia}`).slice(0, 240) }, ...(actual?.historial ?? [])],
+            });
+            cerradas += 1;
+          } catch (e) { console.error('[plan-propuesta] cerrar cliente:', e instanceof Error ? e.message : String(e)); }
+        }
       }
       if (lote.contexto?.trim()) contextos.push(lote.contexto.trim());
       // Lo que le queda: por defecto, lo que está marcado como de otra persona.
@@ -694,7 +780,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
 
     if (!algunoExistia) return { ok: false, ids: [], borradas: 0, noExiste: true };
     if (!aplicados.length) return { ok: false, ids: [], borradas: 0, error: ultimoError || 'No se pudo aplicar.' };
-    if (!idsCreadas.length && !borradas) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ninguna tarea.' };
+    if (!idsCreadas.length && !borradas && !cerradas) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ninguna tarea.' };
 
     // El borrador se marca APLICADO acá, ANTES del Perro. El Perro es una mejora
     // (prioridad + checklist), no parte del alta: si tarda o se cae, las tareas ya
@@ -746,7 +832,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         }
       }
     }
-    return { ok: true, ids: idsCreadas, borradas };
+    return { ok: true, ids: idsCreadas, borradas, cerradas };
   });
 }
 

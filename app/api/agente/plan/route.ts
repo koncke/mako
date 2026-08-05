@@ -32,7 +32,12 @@ const noAutorizado = () =>
 
 /** ¿Este workspace usa el board rico (plan_tareas)? Mismo criterio que aplicarPropuesta. */
 async function usaPlanBoard(ws: number): Promise<boolean> {
-  return ws === OWNER_WS || (await getWorkspace(ws))?.capa === 'superadmin';
+  // SOLO por capa. Incluir `ws === OWNER_WS` era un bug heredado de cuando el dueño
+  // no tenía workspace propio: hoy el ws 1 es un CLIENTE (Mauricio), su tablero vive
+  // en experimento_tareas y plan_tareas está vacío para él. Con el criterio viejo, el
+  // GET le devolvía el board equivocado y cualquier id que volviera por el POST
+  // apuntaba a otra tabla. Mismo criterio que lib/plan-propuesta.ts.
+  return (await getWorkspace(ws))?.capa === 'superadmin';
 }
 
 /** Resuelve el ws del bearer o devuelve null. */
@@ -97,6 +102,12 @@ export async function POST(req: NextRequest) {
         }),
         preguntas: Array.isArray(body.preguntas) ? body.preguntas : [],
         eliminar: Array.isArray(body.eliminar) ? body.eliminar : [],
+        // «Estas ya están hechas»: el agente las PROPONE con su evidencia (commit,
+        // archivo:línea) y el dueño las confirma de a una en /plan/revisar. Nunca se
+        // cierran solas: la precisión medida de un «ya está hecho» dicho por IA fue
+        // 8 de 17 en la corrida real del 5/8 — sin confirmación humana, esto convierte
+        // el tablero en algo que no se puede creer.
+        cerrar: Array.isArray(body.cerrar) ? body.cerrar : [],
         resumen: String(body.resumen ?? ''),
         origen: 'claude-code',
       }),

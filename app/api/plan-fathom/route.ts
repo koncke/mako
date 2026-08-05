@@ -24,8 +24,9 @@ export const dynamic = 'force-dynamic';
 // 120 la función de Vercel moría antes de que la IA pudiera siquiera rendirse.
 export const maxDuration = 300;
 
+import { archivoATexto } from '@/lib/archivo-a-texto';
+
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const MAX_ARCHIVO = 2 * 1024 * 1024; // 2 MB de md/txt/transcript alcanza y sobra
 
 const proyectosDe = (raw: unknown): ProyectoRef[] =>
   Array.isArray(raw)
@@ -95,21 +96,43 @@ export async function POST(req: NextRequest) {
   if ((req.headers.get('content-type') ?? '').includes('multipart/form-data')) {
     try {
       const form = await req.formData();
-      const file = form.get('file');
-      if (!(file instanceof File)) return Response.json({ ok: false, error: 'Falta el archivo.' }, { status: 400 });
-      if (file.size > MAX_ARCHIVO) return Response.json({ ok: false, error: 'El archivo supera 2 MB.' }, { status: 400 });
-      const nombre = file.name.toLowerCase();
-      if (!/\.(md|txt|vtt|srt)$/.test(nombre)) return Response.json({ ok: false, error: 'Subí un .md, .txt, .vtt o .srt.' }, { status: 400 });
+      // VARIOS archivos, no uno. El modal manda `file` repetido (y acepta `file0..N`
+      // por compatibilidad con lo que ya estaba). Cada uno se lee con el lector
+      // compartido: .md/.txt/.vtt/.srt directo, .docx, .pdf (capa de texto y si no
+      // visión), imágenes por visión y audio/video transcripto.
+      const files = form.getAll('file').filter((f): f is File => f instanceof File);
+      if (!files.length) return Response.json({ ok: false, error: 'Falta el archivo.' }, { status: 400 });
+      if (files.length > 12) return Response.json({ ok: false, error: 'Máximo 12 archivos por vez.' }, { status: 400 });
+
+      // Los archivos se leen EN PARALELO pero la extracción es UNA SOLA sobre el texto
+      // pegado: son partes de un mismo asunto (la reunión, el brief, sus anexos), y
+      // extraer cada uno por separado devolvería la misma tarea repetida N veces.
+      const lecturas = await Promise.all(files.map(async (f) => ({ nombre: f.name, ...(await archivoATexto(f)) })));
+      const avisos = lecturas.filter((l) => l.warning).map((l) => l.warning!);
+      const conTexto = lecturas.filter((l) => l.texto.trim());
+      if (!conTexto.length) {
+        return Response.json({ ok: false, error: avisos[0] ?? 'No pude sacar texto de ninguno de esos archivos.' }, { status: 400 });
+      }
       // 250k chars ≈ 6 horas de transcript. Antes 60k: un .md de una reunión de 2 horas
       // (145k) se cortaba en el minuto 52 y se perdía la mitad de la charla EN SILENCIO.
       // El largo ya no lo resuelve el recorte sino el troceado (extraerTareasDeTexto).
-      const texto = (await file.text()).slice(0, 250000);
+      const texto = conTexto.map((l) => (conTexto.length > 1 ? `
+
+===== ${l.nombre} =====
+` : '') + l.texto).join('').slice(0, 250000);
       const proyectos = proyectosDe(JSON.parse(String(form.get('proyectos') ?? '[]')));
       const glosario = await glosarioTexto().catch(() => '');
-      const out = await extraerTareasDeTexto(texto, proyectos, yo, { glosario, usoMotivo: `Extraer tareas del archivo ${file.name}` });
+      const etiqueta = conTexto.length === 1 ? conTexto[0].nombre : `${conTexto.length} archivos`;
+      const out = await extraerTareasDeTexto(texto, proyectos, yo, { glosario, usoMotivo: `Extraer tareas de ${etiqueta}` });
       // Un archivo no trae invitados, así que la única señal del cliente es el nombre
       // del archivo ("Baja Teriyaki - seguimiento.md"). Si no alcanza, el modal pregunta.
-      return conCliente(out as unknown as Record<string, unknown>, file.name.replace(/\.[a-z]+$/i, '').replace(/[_-]+/g, ' '));
+      const pista = conTexto[0].nombre.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ');
+      const res = await conCliente(out as unknown as Record<string, unknown>, pista);
+      if (!avisos.length) return res;
+      // Los archivos que no se pudieron leer se DICEN, no se tragan: si alguien sube
+      // 4 y uno falla, tiene que enterarse de cuál y por qué.
+      const body = await res.json().catch(() => ({}));
+      return Response.json({ ...body, avisos, leidos: conTexto.map((l) => ({ nombre: l.nombre, via: l.via, chars: l.texto.length })) }, { status: res.status });
     } catch (e) {
       console.error(`[api:plan-fathom] archivo: ${msg(e)}`);
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });

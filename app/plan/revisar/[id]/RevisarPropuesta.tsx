@@ -14,6 +14,7 @@ import { ChoiceBody } from '../../board/guardian-form';
 import type { Propuesta, PropuestaPregunta } from '@/lib/plan-propuesta';
 
 const SANS = "'Geist', sans-serif";
+const MONO = "'Geist Mono', monospace";
 
 // Loader mientras MaKo genera las repreguntas dinámicas — un spinner, NO el input.
 function DynLoader({ texto = 'Analizando tus respuestas para profundizar…', sub }: { texto?: string; sub?: string }) {
@@ -90,7 +91,47 @@ function Mensaje({ texto, sub, ok, link }: { texto: string; sub?: string; ok?: b
 // tarea. Si detecta que se está subiendo una que ya está, debe procesarlo internamente
 // y decidir solo: ignorarla o ampliar el contexto de la que ya existe». Eso ahora pasa
 // en el server (aplicarPropuestas), sin pantalla y sin checkbox.
-type Step = { kind: 'q'; i: number } | { kind: 'dyn'; i: number } | { kind: 'confirm' };
+type Step = { kind: 'cerrar'; i: number } | { kind: 'q'; i: number } | { kind: 'dyn'; i: number } | { kind: 'confirm' };
+
+/** Un cierre propuesto: el título de la tarjeta, la evidencia, y las tres respuestas.
+ *  «Está a medias» existe porque es la respuesta REAL más frecuente: de 27 candidatas
+ *  de la primera corrida, 19 no eran ni un sí ni un no. Sin ese botón, ese matiz se
+ *  pierde y el trabajo de verificar se tira. */
+function CierrePaso({ item, valor, onElegir }: {
+  item: { id: string; evidencia: string; confianza?: 'alta' | 'media'; titulo?: string };
+  valor: 'si' | 'medias' | 'no' | undefined;
+  onElegir: (v: 'si' | 'medias' | 'no') => void;
+}) {
+  const OPS: Array<{ v: 'si' | 'medias' | 'no'; label: string; sub: string }> = [
+    { v: 'si', label: 'Sí, está hecha', sub: 'la cierro y le dejo la evidencia' },
+    { v: 'medias', label: 'Está a medias', sub: 'le subo el avance, no la cierro' },
+    { v: 'no', label: 'No', sub: 'la dejo como está' },
+  ];
+  return (
+    <div>
+      <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: 14 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 5 }}>
+          Lo que encontré{item.confianza === 'media' ? ' · lo deduje, no lo verifiqué' : ''}
+        </div>
+        <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6 }}>{item.evidencia}</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {OPS.map((o) => {
+          const on = valor === o.v;
+          return (
+            <button key={o.v} type="button" onClick={() => onElegir(o.v)}
+              style={{ textAlign: 'left', padding: '11px 14px', borderRadius: 11, cursor: 'pointer', fontFamily: SANS,
+                border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
+                background: on ? 'var(--primary-bg)' : 'var(--surface)' }}>
+              <div style={{ fontSize: 14, fontWeight: 650, color: on ? 'var(--primary)' : 'var(--ink)' }}>{o.label}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>{o.sub}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [paso, setPaso] = useState(0);
@@ -104,6 +145,9 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [dynResp, setDynResp] = useState<Record<number, string>>({});
   const [dynFetched, setDynFetched] = useState(false);
   const [dynLoading, setDynLoading] = useState(false);
+  /** Respuesta por cierre: 'si' cierra, 'medias' sube el avance y suma la evidencia,
+   *  'no' no toca nada. Sin responder = 'no': el default nunca cierra sola. */
+  const [cierreResp, setCierreResp] = useState<Record<number, 'si' | 'medias' | 'no'>>({});
   // Persistencia (#2): si te salís del form y volvés al link, retomás donde ibas
   // (respuestas + repreguntas dinámicas incluidas). Vive en localStorage por propuesta.
   const LS_KEY = `mako.revisar.${prop.id}`;
@@ -137,7 +181,13 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const nP = new Set(mias.map((t) => (t.proyecto || '').trim()).filter(Boolean)).size;
   const enProy = nP ? ` en ${nP} proyecto${nP === 1 ? '' : 's'}` : '';
 
+  // Los cierres van PRIMERO, uno por paso. Es lo más delicado del borrador: MaKo
+  // afirma que algo que ya está en el tablero ya está hecho, y acertó 8 de 17 la
+  // primera vez que se midió. Por eso no hay lista con checkboxes ni «aceptar todo»:
+  // se mira una, se lee la evidencia, se contesta, y recién ahí aparece la siguiente.
+  const cierres = prop.cerrar ?? [];
   const steps: Step[] = [
+    ...cierres.map((_, i) => ({ kind: 'cerrar' as const, i })),
     ...prop.preguntas.map((_, i) => ({ kind: 'q' as const, i })),
     ...dynQs.map((_, i) => ({ kind: 'dyn' as const, i })),
     { kind: 'confirm' as const },
@@ -168,7 +218,9 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
         ...prop.preguntas.map((q, i) => (resp[i]?.trim() ? `${q.pregunta} → ${resp[i].trim()}` : null)),
         ...dynQs.map((q, i) => (dynResp[i]?.trim() ? `${q.pregunta} → ${dynResp[i].trim()}` : null)),
       ].filter(Boolean).join('\n');
-      const body = action === 'aplicar' ? { action, id: prop.id, contexto } : { action, id: prop.id };
+      const cerrarIds = cierres.filter((_, i) => cierreResp[i] === 'si').map((c) => c.id);
+      const aMediasIds = cierres.filter((_, i) => cierreResp[i] === 'medias').map((c) => c.id);
+      const body = action === 'aplicar' ? { action, id: prop.id, contexto, cerrarIds, aMediasIds } : { action, id: prop.id };
       const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((res) => res.json());
       if (!r.ok) { setError(r.error || 'No se pudo.'); setBusy(false); return; }
       try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ } // ya se aplicó/descartó
@@ -187,10 +239,12 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${nT} tarea${nT === 1 ? '' : 's'}${enProy}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
 
   const crearLabel = `Crear ${nT}`;
-  const pregunta = cur.kind === 'q' ? (prop.preguntas[cur.i]?.pregunta || '…')
+  const pregunta = cur.kind === 'cerrar' ? `¿«${cierres[cur.i]?.titulo || 'esta tarea'}» ya está hecha?`
+    : cur.kind === 'q' ? (prop.preguntas[cur.i]?.pregunta || '…')
     : cur.kind === 'dyn' ? (dynQs[cur.i]?.pregunta || '…')
       : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
-  const sub = cur.kind === 'q' ? 'Elegí una opción o escribí la tuya.'
+  const sub = cur.kind === 'cerrar' ? 'La tengo en tu tablero abierta, pero encontré esto. Vos decidís.'
+    : cur.kind === 'q' ? 'Elegí una opción o escribí la tuya.'
     : cur.kind === 'dyn' ? 'MaKo profundiza según lo que respondiste — así el Perro prioriza mejor.'
       : 'El Perro Guardián las prioriza, las describe y les arma la checklist. La revisión final la ves en el plan.';
 
@@ -219,6 +273,8 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
            lo único que cambiaba era el título a «Creando…» — se veía colgado, y encima
            quedaba a la vista el link de descartar mientras ya estaba guardando. */
         <DynLoader texto="Creando las tareas y puntuándolas contra tu plan…" sub="El Perro las ubica en la pirámide y les arma la checklist. Puede tardar unos segundos." />
+      ) : cur.kind === 'cerrar' ? (
+        <CierrePaso item={cierres[cur.i]} valor={cierreResp[cur.i]} onElegir={(v) => setCierreResp((r) => ({ ...r, [cur.i]: v }))} />
       ) : cur.kind === 'q' ? (
         <>
           <SobreQue sobre={prop.preguntas[cur.i]?.sobre} />
