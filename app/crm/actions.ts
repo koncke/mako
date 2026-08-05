@@ -606,6 +606,47 @@ export async function reactivarPendientesAction(leadId: number): Promise<void> {
   revalidatePath('/general');
 }
 
+// ── Exportar leads a CSV (plan #364) ──
+// Trae TODOS los leads del workspace paginando con .range() — PostgREST corta en
+// 1000 filas y con .limit() no se sube el techo (hay >1000 leads). Devuelve el CSV
+// como texto; el navegador lo baja (ver CrmBoard). Columnas legibles, no crudas.
+const EXPORT_COLS: Array<[string, string]> = [
+  ['id', 'ID'], ['nombre', 'Nombre'], ['empresa', 'Empresa'], ['email', 'Email'],
+  ['telefono', 'Teléfono'], ['estado_lead', 'Estado'], ['pipeline_stage', 'Etapa'],
+  ['fecha_agenda', 'Fecha agenda'], ['fecha_junta_1', 'Fecha R1'], ['fecha_junta_2', 'Fecha R2'],
+  ['asistio_j1', 'Asistió R1'], ['asistio_j2', 'Asistió R2'], ['calificado', 'Calificado'],
+  ['closer', 'Closer'], ['setter', 'Setter'], ['monto_cierre_usd', 'Monto cierre USD'],
+  ['total_cobrado_usd', 'Cobrado USD'], ['origen_lead', 'Origen'],
+  ['meta_campaign_name', 'Campaña'], ['meta_ad_name', 'Anuncio'],
+  ['utm_campaign', 'UTM campaña'], ['utm_content', 'UTM contenido'], ['created_at', 'Creado'],
+];
+
+export async function exportLeadsCsvAction(): Promise<string> {
+  const db = await getTenantDb();
+  const cols = EXPORT_COLS.map(([k]) => k).join(', ');
+  const filas: Record<string, unknown>[] = [];
+  const PAGE = 1000;
+  for (let desde = 0; ; desde += PAGE) {
+    const { data, error } = await db
+      .from('leads')
+      .select(cols)
+      .order('created_at', { ascending: false })
+      .range(desde, desde + PAGE - 1);
+    if (error) throw new Error(`No se pudo exportar: ${error.message}`);
+    const chunk = (data ?? []) as unknown as Record<string, unknown>[];
+    filas.push(...chunk);
+    if (chunk.length < PAGE) break;
+  }
+  const esc = (v: unknown): string => {
+    if (v == null) return '';
+    const s = typeof v === 'boolean' ? (v ? 'sí' : 'no') : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lineas = [EXPORT_COLS.map(([, label]) => label).join(',')];
+  for (const f of filas) lineas.push(EXPORT_COLS.map(([k]) => esc(f[k])).join(','));
+  return lineas.join('\r\n');
+}
+
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
 export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promise<void> {
   const before = await getLead(id).catch(() => null);

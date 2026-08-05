@@ -38,6 +38,7 @@ import {
   bulkIgnoreEmpresaAction,
   ignorarPendientesAction,
   ignorarPendientesMasaAction,
+  exportLeadsCsvAction,
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
 import { CrmAutoToggle } from './CrmAutoToggle';
@@ -434,6 +435,26 @@ export function CrmBoard({
   const pendingLeadIds = new Set(marcar.map((m) => m.leadId));
   const KANBAN_BANDS: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
 
+  // Exportar TODOS los leads a CSV (plan #364): la acción pagina en el server y
+  // devuelve el texto; acá lo bajamos como archivo. BOM para que Excel lo abra bien.
+  const [exportando, startExport] = useTransition();
+  const exportarCsv = () => startExport(async () => {
+    try {
+      const csv = await exportLeadsCsvAction();
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(`No se pudo exportar: ${e instanceof Error ? e.message : 'error'}`);
+    }
+  });
+
   // Una columna del Kanban (reutilizada por cada banda).
   const renderColumn = (c: Stage) => {
     const cards = filtered.filter((l) => effStage(l) === c.key);
@@ -499,6 +520,10 @@ export function CrmBoard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <DatosDeMau ambito="crm" onListo={() => window.location.reload()} />
           <CrmAutoToggle />
+          <button type="button" onClick={exportarCsv} disabled={exportando} title="Descargar todos los leads en CSV"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 17px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14.5, fontWeight: 600, cursor: exportando ? 'default' : 'pointer', fontFamily: SANS }}>
+            {exportando ? 'Exportando…' : '↓ Exportar CSV'}
+          </button>
           <Link href="/crm/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 19px', borderRadius: 11, background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>+ Nuevo lead</Link>
         </div>
       </header>
