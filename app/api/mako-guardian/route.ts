@@ -7,7 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { puntuarPlan, debatirPrioridad, debatirProyecto, decidirEliminar, buscarDuplicados, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
+import { puntuarPlan, debatirPrioridad, debatirFecha, debatirProyecto, decidirEliminar, buscarDuplicados, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const sesion = await getUsuarioActual();
   if (!sesion) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
 
-  let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; proyecto?: string; scoreActual?: number; argumento?: string; plan?: string; tipo?: string; que?: string; motivo?: string; otras?: DupTarea[]; uso?: string };
+  let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; proyecto?: string; scoreActual?: number; argumento?: string; plan?: string; tipo?: string; que?: string; motivo?: string; otras?: DupTarea[]; fechaActual?: string; uso?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const uso = String(body.uso ?? '').trim() || undefined;   // razón legible para el historial de gasto
 
@@ -44,6 +44,14 @@ export async function POST(req: NextRequest) {
       const argumento = String(body.argumento ?? '').trim();
       if (!tarea || !argumento) return Response.json({ ok: false, error: 'Falta la tarea o el argumento.' }, { status: 400 });
       const out = await debatirPrioridad(tarea, Number(body.scoreActual) || 0, argumento, String(body.plan ?? ''), uso);
+      return Response.json({ ok: true, ...out });
+    }
+    // La FECHA se debate igual que el score: el dueño argumenta, el Perro decide.
+    if (body.action === 'debatir-fecha') {
+      const tarea = String(body.tarea ?? '').trim();
+      const argumento = String(body.argumento ?? '').trim();
+      if (!tarea || !argumento) return Response.json({ ok: false, error: 'Falta la tarea o el argumento.' }, { status: 400 });
+      const out = await debatirFecha(tarea, String(body.fechaActual ?? ''), Number(body.scoreActual) || 50, argumento, String(body.plan ?? ''), uso);
       return Response.json({ ok: true, ...out });
     }
     if (body.action === 'debatir-proyecto') {

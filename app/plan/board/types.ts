@@ -56,6 +56,9 @@ export type BoardTask = {
   priority: Prio;           // DERIVADA del score (prioFromScore); no la fija el usuario
   score: number;            // 1-100 (MaKo perro guardián). 0 = sin puntuar
   scoreRazon?: string;      // por qué el guardián le puso ese score (comparando con el resto)
+  deadlineRazon?: string;   // por qué el guardián puso ESA fecha (se debate igual que el score)
+  /** Notas libres del dueño. La IA nunca las escribe ni las pisa (mig 0114). */
+  notas?: string;
   impacto?: number;         // 1-100: cuánto mueve la aguja (dinero / métrica norte)
   esfuerzo?: number;        // 1-100: cuánto cuesta hacerla (menos esfuerzo = mejor)
   progress: number;         // 0-100
@@ -68,7 +71,7 @@ export type BoardTask = {
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
 };
 
-export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; historial: Hist[]; fuente?: Fuente };
+export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente };
 // El id VISIBLE de un proyecto (P1, P2…): distinto del #num de las tareas a propósito,
 // para que de un vistazo se sepa si un id es de tarea o de proyecto. Estable por orden.
 export const pidDe = (l: { pid?: string }, i: number) => l.pid || `P${i + 1}`;
@@ -78,7 +81,7 @@ export type BoardUser = { nombre: string; avatarUrl: string };
 // board lo aplique en el acto: si no vuelve, la UI sigue mostrando el score viejo y el
 // próximo saveTask (upsert de la fila entera) le pisa lo que el Perro acaba de escribir.
 export type GuardPatch = {
-  id: string; score?: number; scoreRazon?: string; impacto?: number; esfuerzo?: number;
+  id: string; score?: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string;
   priority?: Prio; detalle?: string; checklist?: Check[]; historialEntry?: Hist;
 };
 /** Ídem para un proyecto nuevo (emoji + descripción + score del Perro). */

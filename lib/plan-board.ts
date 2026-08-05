@@ -40,6 +40,7 @@ function rowToTask(r: Row): BoardTask {
     id: str(r.id), num: int(r.num), emoji: str(r.emoji, '📌'), title: str(r.title, 'Tarea'),
     detalle: str(r.detalle), priority: str(r.priority, 'media') as Prio,
     score: int(r.score), scoreRazon: r.score_razon ? str(r.score_razon) : undefined,
+    deadlineRazon: r.deadline_razon ? str(r.deadline_razon) : undefined, notas: str(r.notas),
     impacto: optInt(r.impacto), esfuerzo: optInt(r.esfuerzo),
     progress: int(r.progress), deadline: str(r.deadline),
     labels: asArr<unknown>(r.labels).map(String), checklist: asArr<Check>(r.checklist),
@@ -51,6 +52,7 @@ function taskToRow(t: BoardTask): Row {
   return {
     id: t.id, num: t.num, emoji: t.emoji || '📌', title: t.title || 'Tarea', detalle: t.detalle || '',
     priority: t.priority, score: int(t.score), score_razon: t.scoreRazon ?? null,
+    deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '',
     impacto: t.impacto ?? null, esfuerzo: t.esfuerzo ?? null, progress: int(t.progress),
     deadline: t.deadline || '', labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
     origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad,
@@ -63,14 +65,14 @@ function rowToLabel(r: Row): Label {
     name: str(r.name, 'Proyecto'), color: str(r.color, '#2F6FED'), score: int(r.score, 50),
     scoreRazon: r.score_razon ? str(r.score_razon) : undefined, impacto: optInt(r.impacto),
     esfuerzo: optInt(r.esfuerzo), deadline: r.deadline ? str(r.deadline) : undefined,
-    detalle: str(r.detalle), historial: asArr<Hist>(r.historial), fuente: optFuente(r.fuente),
+    detalle: str(r.detalle), notas: str(r.notas), historial: asArr<Hist>(r.historial), fuente: optFuente(r.fuente),
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
   return {
     id: l.id, pid: l.pid ?? null, emoji: l.emoji || '📁', name: l.name || 'Proyecto', color: l.color || '#2F6FED',
     score: int(l.score, 50), score_razon: l.scoreRazon ?? null, impacto: l.impacto ?? null, esfuerzo: l.esfuerzo ?? null,
-    deadline: l.deadline || '', detalle: l.detalle || '', historial: l.historial ?? [], fuente: l.fuente ?? null,
+    deadline: l.deadline || '', detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
     orden, updated_at: new Date().toISOString(),
   };
 }
@@ -332,10 +334,10 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     const idSet = new Set(ids);
     const projSet = new Set(proyectoIds);
     const [tRes, pRes] = await Promise.all([
-      db.from('plan_tareas').select('id, title, detalle, score, progress, labels, historial'),
+      db.from('plan_tareas').select('id, title, detalle, score, progress, labels, historial, deadline'),
       db.from('plan_proyectos').select('id, name, score'),
     ]);
-    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; progress: number; labels: unknown; historial: unknown }>;
+    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; progress: number; labels: unknown; historial: unknown; deadline: string | null }>;
     const filasP = (pRes.data ?? []) as Array<{ id: string; name: string; score: number }>;
     const nombreProy = new Map(filasP.map((p) => [p.id, str(p.name)]));
 
@@ -346,10 +348,10 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       return {
         id: r.id, titulo: str(r.title, 'Tarea'), detalle: str(r.detalle), proyectoId: pid,
         proyecto: pid ? (nombreProy.get(pid) ?? pid) : undefined,
-        historial: asArr<Hist>(r.historial),
+        deadline: str(r.deadline), historial: asArr<Hist>(r.historial),
       };
     });
-    const existentesT = filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score) }));
+    const existentesT = filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score), deadline: str(r.deadline) }));
     const proyNuevos = filasP.filter((p) => projSet.has(p.id)).map((p) => ({ id: p.id, nombre: str(p.name, 'Proyecto') }));
     const existentesP = filasP.filter((p) => !projSet.has(p.id)).map((p) => ({ nombre: str(p.name), score: int(p.score) }));
     const tareasPorProy = proyNuevos.map((p) => {
@@ -359,7 +361,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
 
     // 3 llamadas al Perro en paralelo (score tareas · checklists · proyectos). Gemini gratis.
     const [scoreRes, checklistRes, proyRes] = await Promise.all([
-      nuevas.length ? puntuarNuevas(nuevas, existentesT, contexto, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number }[] }),
+      nuevas.length ? puntuarNuevas(nuevas, existentesT, contexto, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string }[] }),
       nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), contexto, 'Descripción + checklists de tareas nuevas') : Promise.resolve({} as Record<string, { detalle: string; items: string[] }>),
       proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, contexto, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
     ]);
@@ -381,6 +383,14 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
         cuenta[prio]++;
         patch.score = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
         Object.assign(out, { score: g.score, scoreRazon: g.razon || '', impacto: g.impacto, esfuerzo: g.esfuerzo, priority: prio });
+        // LA FECHA la pone el Perro, pero NUNCA pisa una que ya esté: si la tarea vino
+        // con deadline (lo dijo la reunión, lo puso el dueño), esa manda. Una prioridad
+        // sin fecha es una intención — por eso la propone él y no se espera a que
+        // alguien la complete a mano.
+        if (g.deadline && !n.deadline) {
+          patch.deadline = g.deadline; patch.deadline_razon = g.deadlineRazon || null;
+          Object.assign(out, { deadline: g.deadline, deadlineRazon: g.deadlineRazon || '' });
+        }
       }
       // LO QUE DIJO EL DUEÑO NO SE PISA. Antes esto era `patch.detalle = enr.detalle`: el
       // Perro veía 220 caracteres del audio, escribía 2-4 frases prolijas y REEMPLAZABA el

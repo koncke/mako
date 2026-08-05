@@ -16,6 +16,7 @@ import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
 import { MakoChecklistModal } from './MakoChecklist';
 import { DebateModal } from './DebateModal';
+import { FechaDebateModal } from './FechaDebateModal';
 import { CrearTareaModal } from './CrearTareaModal';
 import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
@@ -69,6 +70,7 @@ export function BoardShell({ board, scope }: {
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
+  const [debateFechaId, setDebateFechaId] = useState<string | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
   const [reunionArchivo, setReunionArchivo] = useState<File | null>(null); // subir archivo (punto 7): entra al mismo modal
@@ -380,6 +382,7 @@ export function BoardShell({ board, scope }: {
   const hechosProj = projAgg.filter((p) => p.total > 0 && p.done === p.total).length;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
+  const debateFechaTask = tasks.find((t) => t.id === debateFechaId) ?? null;
   const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
   const peekProj = labels.find((l) => l.id === peekProjId) ?? null;
 
@@ -428,6 +431,11 @@ export function BoardShell({ board, scope }: {
     const partes: string[] = [];
     if (d.argumento) partes.push(d.argumento);
     if (!labelIds.length && d.motivoNinguno) partes.push(`Sin proyecto: ${d.motivoNinguno}.`);
+    // El número que movió el dueño en el slider viaja como SUGERENCIA declarada, no como
+    // ancla: el Perro tiene que puntuarla contra la pirámide del plan y puede ignorarla
+    // por completo. Decírselo explícito es lo que evita que la tome de punto de partida
+    // — un modelo al que le mostrás un número tiende a quedarse cerca de ese número.
+    partes.push(`(El dueño SUGIRIÓ ${starter}/100 al crearla. Es una sugerencia, no un dato: puntuala vos contra el resto del plan y, si no se sostiene, corregila sin problema.)`);
     const contexto = partes.join(' ');
 
     // UNIFICACIÓN: una tarea cargada a mano recibe EXACTAMENTE el mismo trato que una de
@@ -586,15 +594,25 @@ export function BoardShell({ board, scope }: {
             <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v === 'proyectos' ? repo.labelPlural : v}</button>
           ))}
         </div>
-        {/* de acá para la derecha, todo alineado a la derecha */}
+        {/* De acá a la derecha. DOS grupos, y el orden importa:
+            · el VARIABLE (progreso + buscar + filtrar) cambia según la vista;
+            · el FIJO (avisos, MaKo, Fathom, subir, exportar) va SIEMPRE último y en el
+              mismo orden, así ningún botón se te mueve de lugar al cambiar de tab.
+            Antes estaban todos mezclados: al pasar de Kanban a Prioridades desaparecían
+            el buscador y el filtro y los cuatro botones saltaban 250px a la izquierda. */}
         <span style={{ flex: 1 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         {view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
         {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
-        {view === 'kanban' && <>
+        {(view === 'kanban' || view === 'proyectos') && <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: '0 1 200px', minWidth: 90, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
-          <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
+          {view === 'kanban'
+            ? <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
+            : <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
         </>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>
         {/* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
             activo: es el único modo de REABRIR el modal (lo promete el 2do pop-up). Cuando
             está apagado no titila (queda gris), para no naguear. */}
@@ -613,10 +631,6 @@ export function BoardShell({ board, scope }: {
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>{welcomeTasks.length}</span>
           </button>
         )}
-        {view === 'proyectos' && <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: '0 1 200px', minWidth: 90, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
-          <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
-        </>}
         {/* Dos botones (feedback jul-18): el logo de Fathom (punto 6) abre la lista de
             reuniones; al lado, subir un archivo (punto 7) con ícono propio. */}
         {repo.fathomExtract && <>
@@ -656,6 +670,7 @@ export function BoardShell({ board, scope }: {
         {/* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
             igual en el tablero del dueño que en el del cliente, y baja al instante. */}
         <ExportarMenu tasks={tasks} labels={labels} titulo={repo.labelPlural === 'Proyectos' ? 'Plan' : repo.labelPlural} />
+        </div>
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -665,7 +680,7 @@ export function BoardShell({ board, scope }: {
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
-      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} onDebate={() => setDebateId(openTask.id)} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} onDebate={() => setDebateId(openTask.id)} onDebateFecha={() => setDebateFechaId(openTask.id)} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
         onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
       {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} z={130} onBack={() => setPeekProjId(null)}
@@ -681,6 +696,16 @@ export function BoardShell({ board, scope }: {
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
+      {debateFechaTask && <FechaDebateModal task={debateFechaTask}
+        otras={tasks.filter((x) => x.id !== debateFechaTask.id && x.deadline && x.progress < 100).map((x) => ({ titulo: x.title, deadline: x.deadline, score: x.score }))}
+        onUsage={(u) => showUsage(u, 'fecha')}
+        onApply={(deadline, razon) => {
+          const snap = debateFechaTask;
+          board.setDeadline(debateFechaTask.id, deadline, debateFechaTask.deadline);
+          board.patch(debateFechaTask.id, { deadlineRazon: razon });
+          board.showUndo(deadline ? `Fecha del #${snap.num} → ${deadline}` : `Le saqué la fecha al #${snap.num}`, () => { board.setDeadline(snap.id, snap.deadline, deadline); board.patch(snap.id, { deadlineRazon: snap.deadlineRazon ?? '' }); });
+        }}
+        onClose={() => setDebateFechaId(null)} />}
       {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => { const snap = debateProj; board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia'); board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap)); }} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {/* Lo que MaKo dejó esperando: tareas de una reunión tuya que leyó sola, o que te
@@ -824,6 +849,33 @@ function ExportarMenu({ tasks, labels, titulo }: { tasks: BoardTask[]; labels: L
           ))}
         </div>
       )}
+    </div>
+  );
+}
+/**
+ * NOTAS — el cuaderno del dueño. El `detalle` dice QUÉ hay que hacer y lo escribe (o
+ * lo amplía) el Perro; esto es de él y no lo toca nadie: dónde quedó, con quién habló,
+ * el link que le pasaron, por qué lo frenó. Antes todo eso terminaba metido en el
+ * detalle, donde la IA lo reescribe en la siguiente pasada.
+ *
+ * Guarda al salir del campo, no en cada tecla: escribir una nota larga son cien
+ * escrituras a la base y cien líneas de historial.
+ */
+function NotasBox({ valor, onGuardar }: { valor: string; onGuardar: (v: string) => void }) {
+  const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
+  const [txt, setTxt] = useState(valor);
+  const [foco, setFoco] = useState(false);
+  useEffect(() => { if (!foco) setTxt(valor); }, [valor, foco]);
+  const guardar = () => { setFoco(false); if (txt !== valor) onGuardar(txt); };
+  return (
+    <div>
+      <label style={{ ...rowLabel, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Notas</span>
+        {txt !== valor && <span style={{ fontSize: 10.5, color: 'var(--faint)', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>sin guardar</span>}
+      </label>
+      <textarea value={txt} onChange={(e) => setTxt(e.target.value)} onFocus={() => setFoco(true)} onBlur={guardar} rows={3}
+        placeholder="Lo tuyo: dónde quedaste, con quién hablaste, un link…"
+        style={{ width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, lineHeight: 1.5, outline: 'none', resize: 'vertical' }} />
     </div>
   );
 }
@@ -1410,8 +1462,8 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
-  t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean; onDebate: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
+function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDebateFecha, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
+  t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean; onDebate: () => void; onDebateFecha: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
@@ -1504,8 +1556,14 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
               )}
               <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
-            {/* #5: deadline en el sidebar */}
-            <div><label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 6 }}>Deadline {!t.deadline && <WarnMark title="Falta el deadline" size={13} />}</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
+            {/* La FECHA la decide el Perro igual que la prioridad: la propone al crear la
+                tarea, deja escrito por qué, y para moverla hay que discutírsela. */}
+            <div>
+              <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 6 }}>Deadline {!t.deadline && <WarnMark title="Falta el deadline" size={13} />}</label>
+              <input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} />
+              {t.deadlineRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, margin: '6px 0 8px', fontStyle: 'italic' }}>“{t.deadlineRazon}”</div>}
+              <button onClick={onDebateFecha} style={{ ...cambiarBtn, marginTop: t.deadlineRazon ? 0 : 8 }}><MakoStar size={15} color="var(--primary)" /> {t.deadline ? 'Cambiar la fecha' : 'Que MaKo le ponga fecha'}</button>
+            </div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>
               {/* Los chips ya no se sacan con una × acá: cambiar de proyecto pasa por el
@@ -1525,6 +1583,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
               </div>
               <button onClick={onAsignar} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>
             </div>
+            <NotasBox valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
           </div>
@@ -1762,6 +1821,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
               <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
+            <NotasBox valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, v.trim() ? 'Escribió una nota' : 'Borró la nota', 'user')} />
             <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>
