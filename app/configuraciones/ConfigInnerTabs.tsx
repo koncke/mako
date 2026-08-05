@@ -12,10 +12,11 @@ import Link from 'next/link';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
 import { IdentidadesFiscalesPanel } from './IdentidadesFiscalesPanel';
+import { ProductosPanel } from './ProductosPanel';
 
 const SANS = "'Geist', sans-serif";
 
-type TabKey = 'notif' | 'fiscal' | 'equipo';
+type TabKey = 'notif' | 'productos' | 'fiscal' | 'equipo';
 
 export function ConfigInnerTabs({ equipoPanel }: {
   /** Panel server-rendered embebido (data cargada en page.tsx). */
@@ -33,6 +34,7 @@ export function ConfigInnerTabs({ equipoPanel }: {
 
   const TABS: Array<{ key: TabKey; label: string; panel: ReactNode }> = [
     { key: 'notif', label: 'Notificaciones', panel: <NotificacionesPanel /> },
+    { key: 'productos', label: 'Productos', panel: <ProductosPanel /> },
     { key: 'fiscal', label: 'Identidades fiscales', panel: <IdentidadesFiscalesPanel /> },
     { key: 'equipo', label: 'Equipo', panel: equipoPanel },
   ];
