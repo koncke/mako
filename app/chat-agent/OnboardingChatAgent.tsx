@@ -230,6 +230,15 @@ const okBox: CSSProperties = { padding: '10px 13px', borderRadius: 10, border: '
  * modelo. 'abierto' es el caso raro: se acabaron los turnos y el modelo no
  * dejó veredicto — decirle al dueño que salió mal sin saberlo sería inventar.
  */
+/**
+ * Lo que se lee al cerrar un caso. Van variadas a propósito: la misma palabra
+ * nueve veces seguidas deja de significar algo a la tercera.
+ */
+const FELICITACION = [
+  '¡Listo!', '¡Muy bien!', '¡Ese salió redondo!', '¡Vas bien!', '¡Excelente!',
+  '¡Otro menos!', '¡Le agarraste la mano!', '¡Impecable!', '¡Último tramo!',
+];
+
 /** Cómo se lee el resultado de un caso ya cerrado, para el title del punto. */
 const RESULTADO: Record<string, string> = {
   positivo: 'terminó bien',
@@ -326,8 +335,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
    * existía y por eso el ensayo era un intercambio de objeciones sin final.
    */
   const [desenlace, setDesenlace] = useState<Desenlace | null>(null);
-  /** El caso recién cerrado, para confirmarlo arriba de la slide siguiente. */
-  const [cerrado, setCerrado] = useState<{ titulo: string; n: number } | null>(null);
   const [cerrando, setCerrando] = useState(false);
   // El lead no contestó a lo último que se le escribió. No es un error: es la
   // respuesta más común, y verla es el punto del escenario de silencio.
@@ -866,9 +873,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   /** Cuántas veces respondió el dueño en este escenario (el audio de apertura no cuenta). */
   const misRespuestas = msgs.filter((m, i) => m.fromMe && i > 0).length;
 
-  // La confirmación del caso anterior se va sola apenas el dueño empieza a
-  // responder este: ya dijo lo suyo y competir con el hilo la vuelve ruido.
-  useEffect(() => { if (misRespuestas > 0) setCerrado(null); }, [misRespuestas]);
 
   /**
    * Cierra el caso: GUARDA lo que el dueño escribió y pasa al siguiente.
@@ -908,7 +912,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     // Un respiro para que la línea de cierre se alcance a leer antes de que el
     // hilo se vacíe para el caso siguiente.
     await new Promise((r) => setTimeout(r, desenlace ? 250 : 750));
-    setCerrado({ titulo: esc.titulo, n: respuestas.length });
     setMsgs([]);
     setSinRespuesta(false);
     setDesenlace(null);
@@ -948,10 +951,14 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     if (pasoKey === 'ensayo') {
       if (ensayoTerminado) return true;
       if (!esc) return false;
-      // La conversación cerró: exigirle tres respuestas a un caso que ya
-      // terminó sería pedirle que le hable a alguien que se fue.
+      // El caso se cierra CUANDO SE CUMPLE SU OBJETIVO, no cuando se juntan N
+      // respuestas. Antes se podía avanzar a mitad de una conversación viva: el
+      // dueño se saltaba justo el tramo donde el lead decide, que es lo único
+      // que el ensayo viene a enseñar.
       if (desenlace) return true;
-      return !esc.obligatorio || misRespuestas >= esc.minRespuestas;
+      // Los opcionales siguen siendo salteables: son variantes del mismo
+      // aprendizaje y trabar ahí pierde gente.
+      return !esc.obligatorio;
     }
     // El estado EN VIVO es la única prueba de que el número está vinculado. La
     // memoria de una vinculación pasada no lo es: con `hecho(...)` en el OR, el
@@ -1020,7 +1027,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           // protegido por `msgs.length > 0` y sin esto el caso anterior
           // quedaría en blanco. Lo escrito no se pierde (ChatHilo guarda el
           // borrador por caso) y lo ya cerrado sigue en `guardado`.
-          setEscIdx((i) => i - 1); setMsgs([]); setSinRespuesta(false); setCerrado(null); setDesenlace(null);
+          setEscIdx((i) => i - 1); setMsgs([]); setSinRespuesta(false); setDesenlace(null);
           return;
         }
         if (enPreguntas && pregIdx > 0) {
@@ -1499,7 +1506,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={17} /></span>
             Recorriste los {escenarios.length} casos. Con esto ya sé cómo respondes.
           </div>
-          <button onClick={() => { setEscIdx(0); setMsgs([]); setSinRespuesta(false); setCerrado(null); setDesenlace(null); }} style={btn}>
+          <button onClick={() => { setEscIdx(0); setMsgs([]); setSinRespuesta(false); setDesenlace(null); }} style={btn}>
             ↻ Volver a empezar el ensayo
           </button>
         </div>
@@ -1526,15 +1533,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             ))}
           </div>
 
-          {/* Lo que se acaba de guardar, ya en la slide del caso siguiente: es la
-              prueba de que el caso anterior no se perdió. Se va sola en cuanto
-              el dueño empieza a responder este. */}
-          {cerrado && (
-            <div style={{ ...okBox, display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left' }}>
-              <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={15} /></span>
-              <span>Guardado: «{cerrado.titulo}»{cerrado.n ? '' : ' (saltado)'}</span>
-            </div>
-          )}
+
 
           {/* El de silencio es el único donde el lead no escribe: se avisa, si
               no el dueño se queda esperando una respuesta que no va a llegar. */}
@@ -1574,6 +1573,21 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               cuando no queda ninguno, pasa de paso. Dos botones que hacen lo
               mismo obligaban a elegir entre ellos sin saber en qué se diferencian.
               Lo único que queda es decir CUÁNTO falta para poder cerrarlo. */}
+          {/* EL CIERRE SE CELEBRA ACÁ, en la misma slide donde pasó. Antes el
+              aviso aparecía recién en el caso SIGUIENTE, así que el dueño leía
+              «guardado» sobre una conversación que todavía no había tenido. Y
+              es el momento de decirle que lo hizo bien: el ensayo es la parte
+              más larga del onboarding y terminar un caso tiene que sentirse. */}
+          {desenlace && (
+            <div style={{ ...okBox, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+              <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}><Icon name="check" size={17} /></span>
+              <span>
+                <strong>{FELICITACION[Math.min(escIdx, FELICITACION.length - 1)]}</strong>{' '}
+                Caso completado y guardado. Ya sé cómo respondes cuando {esc.titulo.toLowerCase().replace(/^[^:]*:s*/, '')}.
+              </span>
+            </div>
+          )}
+
           {!desenlace && misRespuestas < esc.minRespuestas && (
             <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>
               {esc.obligatorio
