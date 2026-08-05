@@ -6,6 +6,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { getSesionAdmin } from '@/lib/auth';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { getAllPrompts, savePromptByKey, restorePromptByKey, resetPromptByKey } from '@/lib/prompt-registry';
 
@@ -14,14 +15,19 @@ export const revalidate = 0;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-// Config del cerebro de MaKo: piso = admin del workspace (patrón /api/mako/voz).
-// Antes NO gateaba a nadie → un closer/setter podía reescribir cualquier prompt.
-// NOTA para Martín: el editor completo (/contexto) es SUPER-admin y estos prompts
-// son del sistema; si querés, endurecé a owner-only (esWorkspaceDueno) en vez de
-// admin-de-workspace. El piso admin ya cierra el agujero del closer/setter.
+// LOS PROMPTS DEL SISTEMA SON DE LA AGENCIA, NO DEL WORKSPACE.
+// El guard era `getRolWsEfectivo() !== 'admin'`, y eso NO alcanza: `rol_ws` vale
+// 'admin' para el dueño de CADA workspace (medido en prod: los 5 usuarios no-admin
+// lo tienen literalmente en 'admin'). O sea que cualquier cliente podía pedir este
+// GET y bajarse la biblioteca ENTERA de prompts de MaKo — que es el producto.
+//
+// Tampoco sirve `esDuenoAdmin()`: incluye `ws === OWNER_WS`, y OWNER_WS es 1, que hoy
+// es el workspace de un CLIENTE (Mauricio). El único guard correcto acá es
+// `getSesionAdmin()` (rol de plataforma 'admin'), que es el mismo que ya usa la
+// página que consume esta API.
 async function soloAdmin(): Promise<Response | null> {
-  if ((await getRolWsEfectivo()) !== 'admin') {
-    return Response.json({ error: 'Solo el admin del workspace puede tocar los prompts de MaKo.' }, { status: 403 });
+  if (!(await getSesionAdmin())) {
+    return Response.json({ error: 'Solo el equipo de MaKo puede ver o tocar estos prompts.' }, { status: 403 });
   }
   return null;
 }

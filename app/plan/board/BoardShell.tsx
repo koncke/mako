@@ -107,7 +107,10 @@ export function BoardShell({ board, scope }: {
   // (ya no hace falta un flag de "lo cerré": el modal solo se abre a pedido)
   /** el borrador de UNA reunión, abierto desde el selector de Fathom ("ver lo que sacó"). */
   const [borradorReunion, setBorradorReunion] = useState<PropuestaPendiente | null>(null);
-  const [cargandoBorrador, setCargandoBorrador] = useState(false);
+    // Lo que se sabe de la reunión MIENTRAS viaja el request: título y cuántas tareas.
+  // Los dos salen del conteo que el server ya mandó con la lista, así que el esqueleto
+  // no inventa nada. null = no hay nada abriéndose.
+  const [cargandoBorrador, setCargandoBorrador] = useState<{ titulo: string; fecha: string | null; n: number } | null>(null);
   // Lo que ESPERA ALGO TUYO. Es lo que hace esperar a los otros pop-ups — y tiene que ser
   // esto y no "hay borrador": un borrador al que solo le quedan tareas de otras personas
   // se queda abierto para siempre, y con él se quedaba tapado el resto de la cola.
@@ -749,7 +752,12 @@ export function BoardShell({ board, scope }: {
       {hayRecibidas && (
         <TareasRecibidasModal
           oculto={recibidasOculto}
-          key={borradorReunion ? borradorReunion.id : pendientes.map((p) => p.id).join('|')}
+          // HUELLA, no solo el id: `filas` se inicializa perezoso adentro del modal, así
+          // que un objeto nuevo con el mismo id no re-inicializaría nada y la
+          // revalidación no entraría nunca.
+          key={borradorReunion
+            ? `${borradorReunion.id}:${borradorReunion.estado ?? 'pendiente'}:${borradorReunion.tareas.length}:${borradorReunion.aplicadas?.length ?? 0}`
+            : pendientes.map((p) => p.id).join('|')}
           props={borradorReunion ? [borradorReunion] : pendientes}
           labels={labels}
           // Lo que YA está en el plan, para que el modal no vuelva a ofrecer lo que
@@ -768,9 +776,33 @@ export function BoardShell({ board, scope }: {
           renderTaskCard={(id) => { const t = tasks.find((x) => x.id === id); return t ? <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} onOpenProj={setOpenProj} /> : null; }}
         />
       )}
+      {/* El caso frío (una reunión vieja, ya aplicada) igual va al server. Mientras
+          viaja se pinta LA MISMA caja del modal con el título real de la reunión y la
+          cantidad exacta de tareas —los dos salen del conteo que el server ya mandó con
+          la lista, así que no se inventa nada— y filas fantasma del alto de una tarjeta.
+          Antes acá había un scrim negro con un spinner centrado y nada más: no decías ni
+          a qué reunión habías entrado. */}
       {cargandoBorrador && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 133, background: 'rgba(18,21,27,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ width: 30, height: 30, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', display: 'inline-block', animation: 'makoSpinBS .7s linear infinite' }} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 133, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+          <div style={{ width: '100%', maxWidth: 620, height: 'min(86vh, 760px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
+              <span style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', display: 'inline-block', animation: 'makoSpinBS .7s linear infinite', flex: 'none' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO · REUNIÓN → PLAN</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {cargandoBorrador.titulo || 'Abriendo lo que sacó MaKo…'}
+                </div>
+              </div>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {cargandoBorrador.n > 0 && (
+                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cargandoBorrador.n} {cargandoBorrador.n === 1 ? 'tarea' : 'tareas'} de esta reunión</div>
+              )}
+              {Array.from({ length: Math.max(3, Math.min(6, cargandoBorrador.n || 3)) }).map((_, i) => (
+                <div key={i} style={{ height: 62, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', opacity: 0.65 - i * 0.08 }} />
+              ))}
+            </div>
+          </div>
           <style>{'@keyframes makoSpinBS{to{transform:rotate(360deg)}}'}</style>
         </div>
       )}
@@ -789,17 +821,29 @@ export function BoardShell({ board, scope }: {
           const p = pendientes.find((x) => x.id === id);
           if (p) { setReunionArchivo(null); setBorradorReunion(p); }
         }}
-        onAbrirBorrador={(rid) => {
-          // El selector NO se cierra: queda abierto DEBAJO (z-130 vs z-132). Cerrar el
-          // borrador te devuelve a la lista de reuniones, que es de donde entraste —
-          // cerrar un paso no puede cerrarte los dos. Y como no se desmonta, la lista
-          // no se vuelve a pedir a Fathom ni pierde el buscador y el filtro de fecha.
-          setReunionArchivo(null); setCargandoBorrador(true);
+        onAbrirBorrador={(rid, meta) => {
+          // El selector NO se cierra: queda abierto DEBAJO. Cerrar el borrador te
+          // devuelve a la lista de reuniones, que es de donde entraste — cerrar un paso
+          // no puede cerrarte los dos. Y como no se desmonta, la lista no se vuelve a
+          // pedir a Fathom ni pierde el buscador y el filtro de fecha.
+          setReunionArchivo(null);
+          // EL BORRADOR YA ESTÁ ACÁ, casi siempre: `pendientes` se pide una vez al montar
+          // el board y trae las propuestas ENTERAS, con su `ref`. Fetchear igual era pagar
+          // ~300-800 ms de pantalla muerta para volver a traer lo que ya teníamos. Es el
+          // mismo atajo que usa onAbrirRecibido dos líneas más arriba.
+          const ya = pendientes.find((p) => p.ref === `fathom:${rid}`);
+          if (ya) setBorradorReunion(ya);
+          else { setCargandoBorrador(meta ?? { titulo: '', fecha: null, n: 0 }); }
+          // El fetch SIGUE, siempre: es la revalidación. Si alguien cargó las tareas en
+          // otra pestaña, el objeto de memoria diría 'pendiente' y el modal ofrecería
+          // «Agregar al plan» sobre tareas que ya están. La `key` de abajo lleva la huella
+          // del borrador, así que si la respuesta difiere el modal se remonta con lo
+          // fresco, y si es igual React no toca nada y no se ve ni un parpadeo.
           void fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'por-reunion', recordingId: rid }) })
             .then((r) => r.json())
             .then((j) => { if (j?.ok && j.propuesta) setBorradorReunion(j.propuesta as PropuestaPendiente); })
-            .catch(() => { /* si falla, simplemente no abre nada */ })
-            .finally(() => setCargandoBorrador(false));
+            .catch(() => { /* si falla, queda lo que ya habíamos pintado */ })
+            .finally(() => setCargandoBorrador(null));
         }}
         existentes={tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle }))}
         onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onAmpliar={ampliarDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}

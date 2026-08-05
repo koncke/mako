@@ -95,7 +95,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   onUsage?: (u: unknown) => void;
   onClose: () => void;
   /** entrar a una reunión que YA fue leída: se muestra lo que salió, no se re-analiza. */
-  onAbrirBorrador?: (recordingId: number) => void;
+  /** `meta` = lo que ya sabemos de la reunión, para pintar el esqueleto sin esperar. */
+  onAbrirBorrador?: (recordingId: number, meta?: { titulo: string; fecha: string | null; n: number }) => void;
   /**
    * Borradores que NO salieron de una reunión tuya: te los mandó otra persona desde la
    * suya. No aparecen en la lista de Fathom (esa grabación no es de tu cuenta), así que
@@ -478,7 +479,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                         // puede volver a mirar.
                         const cerrada = b?.estado === 'aplicada' || b?.estado === 'descartada';
                         return (
-                          <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId) : extraer(r))}
+                          <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId, { titulo: r.titulo, fecha: r.fecha, n: yaEnPlan + (b?.pendientesMias ?? 0) + (b?.pendientesOtros ?? 0) }) : extraer(r))}
                             // Sin leer = APAGADA. Lo que MaKo ya miró tiene que saltar a la
                             // vista; lo que todavía no, se ve pero no compite. Una lista donde
                             // todo pesa igual obliga a leer los 40 títulos.
