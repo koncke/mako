@@ -14,7 +14,7 @@ import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, listPlan
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, type Prioridad } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
-import { proyectoParaTarea } from '@/lib/reunion-cliente';
+import { rutearTareasCliente } from '@/lib/todo-rutear';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
@@ -110,7 +110,12 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     titulo,
     proyecto: o.proyecto ? str(o.proyecto).trim().slice(0, 120) : undefined,
     deadline: typeof o.deadline === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.deadline) ? o.deadline : undefined,
-    detalle: o.detalle ? str(o.detalle).slice(0, 600) : undefined,
+    // 6000, igual que `plan_tareas.detalle` (agregarTareasPlanOwner). Estaba en 600 y era
+    // el último cuello del contexto: el dueño manda tres minutos de audio, la extracción
+    // escribe un detalle rico… y el borrador lo cortaba a mitad de frase antes de que
+    // nadie lo leyera. Recortar acá es peor que en cualquier otro lado, porque es donde
+    // el texto ENTRA al sistema: lo que se pierde no se recupera después.
+    detalle: o.detalle ? str(o.detalle).slice(0, 6000) : undefined,
     prioridad: PRIOS.includes(o.prioridad as Prio) ? (o.prioridad as Prio) : undefined,
     dueno: o.dueno ? str(o.dueno).trim().slice(0, 80) : undefined,
     duenoEmail: o.duenoEmail ? str(o.duenoEmail).trim().toLowerCase().slice(0, 160) : undefined,
@@ -531,20 +536,23 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         if (base.length) {
           const cats = await listCategorias().catch(() => [] as Array<{ id: number; nombre: string }>);
           const byName = new Map(cats.map((c) => [normNom(c.nombre), c.id]));
-          for (const t of base) {
+          // RUTEO DE TODO EL LOTE, de una: ¿es de un cliente suyo? ¿nombra un proyecto
+          // que ya existe? y si no, ¿a qué ÁREA del catálogo va (lib/todo-proyectos-
+          // catalogo)? Antes el fallback era el nombre que se le hubiera ocurrido a
+          // quien la cargó, y así nacían cincuenta proyectos de una tarea cada uno.
+          const destinos = await rutearTareasCliente(base.map((t) => ({ titulo: t.titulo, detalle: t.detalle, proyectoSugerido: t.proyecto })))
+            .catch((e) => { console.error('[plan-propuesta] rutear cliente:', e instanceof Error ? e.message : String(e)); return base.map(() => ({ razon: '' } as { nombre?: string; razon: string; color?: string; emoji?: string })); });
+          for (let bi = 0; bi < base.length; bi++) {
+            const t = base[bi];
             try {
               let catId: number | undefined;
-              // ¿La tarea NOMBRA a un cliente? Va a SU proyecto, aunque el que la
-              // propuso haya sugerido otro. Cubre los orígenes sin reunión detrás
-              // (WhatsApp, Claude Code): ahí no hay email de invitado, así que la
-              // señal es el nombre de la empresa en el texto — y solo si es UNO.
-              const porCliente = await proyectoParaTarea({ titulo: t.titulo, detalle: t.detalle, proyectoSugerido: t.proyecto });
-              const proyectoFinal = (porCliente.cliente || porCliente.porProyecto) ? porCliente.nombre : t.proyecto;
+              const d = destinos[bi] ?? { razon: '' };
+              const proyectoFinal = d.nombre ?? t.proyecto;
               if (proyectoFinal) {
                 const nombre = proyectoFinal.slice(0, 40).trim();
                 const k = normNom(nombre);
                 catId = byName.get(k);
-                if (catId == null) { const c = await crearCategoria(nombre, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
+                if (catId == null) { const c = await crearCategoria(nombre, d.color ?? '#2F6FED'); catId = c.id; byName.set(k, c.id); }
               }
               const tarea = await crearTarea({ titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako', fuente: fuenteDe(t) });
               idsCreadas.push(String(tarea.id));

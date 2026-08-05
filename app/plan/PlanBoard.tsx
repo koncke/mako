@@ -757,6 +757,12 @@ export function PlanBoard({ user, tareas, proyectos, vacio }: { user: BoardUser;
       if (!j.ok) throw new Error(j.error || 'no se pudo priorizar');
       return { tareas: j.conteo?.tareas ?? { alta: 0, media: 0, baja: 0, futuro: 0 }, proyectos: j.conteo?.proyectos ?? 0, patches: j.patches ?? [], proyectosPatch: j.proyectosPatch ?? [] };
     },
+    // Sumarle contexto a una tarjeta que ya existe, en vez de crear la misma dos veces.
+    ampliarTareas: async (items, fuente) => {
+      const j = await apiPlan({ action: 'ampliar-tareas', items, fuente });
+      if (!j.ok) throw new Error(j.error || 'no se pudo ampliar');
+      return j.patches ?? [];
+    },
   };
   const board = useBoard(tareas, proyectos, user, repo);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.

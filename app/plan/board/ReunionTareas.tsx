@@ -55,7 +55,12 @@ export type ReunionRefUI = { recordingId?: number; titulo: string; fecha?: strin
 // pantalla mezcla tareas de todas y cada una tiene que saber de cuál salió (para
 // agruparlas, fecharlas y, si son de otra persona, mandárselas con el candado de ESA
 // grabación). Si falta, se usa la reunión única que pasa el modal de extracción.
-export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: string; razon: string }; reunion?: ReunionRefUI };
+// `ampliar` solo existe si `enriquece`: la tarea YA está en el plan y lo que se hace es
+// sumarle contexto a esa tarjeta, no crear una segunda. Arranca en true (el pedido es
+// que una repetida no se pueda volver a cargar) y solo se apaga si el dueño dice
+// explícitamente "no es la misma" — el cruce puede equivocarse y ahí perder la tarea
+// sería peor que duplicarla.
+export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: string; razon: string }; ampliar?: boolean; reunion?: ReunionRefUI };
 
 type Destinatario = {
   email: string; nombre: string; registrado: boolean;
@@ -429,10 +434,20 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
   const [editando, setEditando] = useState(false);
   const [reasignando, setReasignando] = useState(false);
   const momentos = momentosDe(f);
+  // Ya está en el plan y se va a AMPLIAR: no es una fila que se tilda, es una fila que
+  // ya tiene destino. Se pinta distinto (verde, con ⊕) para que no se lea como una
+  // tarea nueva a medio elegir, y su casilla no crea nada.
+  const ampliando = !!f.enriquece && f.ampliar !== false;
+  const activa = ampliando || f.incluir;
   return (
-    <div style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: `1px solid ${f.incluir ? 'var(--primary)' : 'var(--border)'}`, background: f.incluir ? 'var(--primary-bg)' : 'var(--surface-2)', opacity: f.incluir ? 1 : 0.6 }}>
-      <button type="button" onClick={() => onFila({ incluir: !f.incluir })} aria-label="Incluir"
-        style={{ width: 20, height: 20, flex: 'none', marginTop: 1, borderRadius: 6, border: `1.5px solid ${f.incluir ? 'var(--primary)' : 'var(--border-strong)'}`, background: f.incluir ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{f.incluir ? '✓' : ''}</button>
+    <div style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: `1px solid ${ampliando ? 'var(--ok, #1E9E57)' : f.incluir ? 'var(--primary)' : 'var(--border)'}`, background: ampliando ? 'var(--surface)' : f.incluir ? 'var(--primary-bg)' : 'var(--surface-2)', opacity: activa ? 1 : 0.6 }}>
+      {ampliando ? (
+        <span title="Ya está en el plan: se le suma este contexto a la tarjeta que existe"
+          style={{ width: 20, height: 20, flex: 'none', marginTop: 1, borderRadius: 6, border: '1.5px solid var(--ok, #1E9E57)', background: 'var(--ok, #1E9E57)', color: '#fff', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⊕</span>
+      ) : (
+        <button type="button" onClick={() => onFila({ incluir: !f.incluir })} aria-label="Incluir"
+          style={{ width: 20, height: 20, flex: 'none', marginTop: 1, borderRadius: 6, border: `1.5px solid ${f.incluir ? 'var(--primary)' : 'var(--border-strong)'}`, background: f.incluir ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{f.incluir ? '✓' : ''}</button>
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* El minuto va PEGADO al título: es parte de "qué es esto", no una acción. */}
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
@@ -462,15 +477,24 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
           : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
         {/* Ya existe: se NOMBRA la tarjeta entera (antes se cortaba a los 50 caracteres,
             a mitad de palabra y con la comilla sin cerrar, así que no se sabía cuál era)
-            y se ofrece abrirla. La fila nace destildada, no oculta: si el usuario decide
-            que no es la misma, la vuelve a tildar y se crea igual. */}
+            y se ofrece abrirla. Y NO se puede volver a cargar: lo que se hace es sumarle
+            este contexto a la que está. Cargar reuniones en serie sobre el mismo tema
+            dejaba la misma tarea escrita tres veces con tres scores distintos.
+            La salida de emergencia («no es la misma») sigue: el cruce se puede
+            equivocar y ahí perder el compromiso es peor que tener una repetida. */}
         {f.enriquece && (
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--warn)', background: 'var(--warn-bg, var(--surface))', border: '1px solid var(--warn)', borderRadius: 7, padding: '3px 9px', lineHeight: 1.45 }}>⚠ {f.enriquece.razon}</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: ampliando ? 'var(--ok, #1E9E57)' : 'var(--warn)', background: 'var(--surface)', border: `1px solid ${ampliando ? 'var(--ok, #1E9E57)' : 'var(--warn)'}`, borderRadius: 7, padding: '3px 9px', lineHeight: 1.45 }}>
+              {ampliando ? '⊕ ' : '⚠ '}{f.enriquece.razon}
+            </span>
             {!!f.enriquece.id && onAbrirTarea && (
               <button type="button" onClick={(e) => { e.stopPropagation(); onAbrirTarea(f.enriquece!.id); }}
                 style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, padding: 0 }}>ver la tarjeta</button>
             )}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onFila(ampliando ? { ampliar: false, incluir: true } : { ampliar: true, incluir: false }); }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--faint)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, padding: 0 }}>
+              {ampliando ? 'no es la misma, cargala aparte' : 'sí es la misma, ampliala'}
+            </button>
           </div>
         )}
         {/* Editar a la izquierda; reasignar a la derecha, separados: son dos gestos

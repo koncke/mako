@@ -11,6 +11,7 @@ import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
 import { type BoardTask, type Label, type Repo, type BoardUser, type GuardPatch, type Prio, prioFromScore, scoreFromPrio } from './board/types';
 import type { Tarea, Categoria } from '@/lib/todo';
+import { CATALOGO_TODO } from '@/lib/todo-proyectos-catalogo';
 
 const toBoard = (t: Tarea): BoardTask => ({
   // El board del cliente (experimento_tareas) todavía no persiste emoji por tarea:
@@ -54,6 +55,11 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId }: { tareas: Ta
     // es la persistencia (DB vs localStorage). Proyectos 1-a-1, mismo naming.
     labelMode: 'single', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
     fathomExtract: true, // extraer tareas de una reunión (usa la Fathom key del propio workspace)
+    // Las ÁREAS del negocio (lib/todo-proyectos-catalogo). Igual que en el tablero del
+    // dueño, la extracción de una reunión solo puede proponer proyectos de acá o los
+    // que ya existen — el proyecto de un CLIENTE lo resuelve aparte el server, contra
+    // el CRM. Sin esto, cada reunión abría un proyecto con el nombre de su tema.
+    catalogo: CATALOGO_TODO.map((c) => ({ nombre: c.nombre, emoji: c.emoji, que: c.que })),
     createTask: async (d) => {
       if (demo) return d;
       // origen preservado (al restaurar un borrado de una tarea de MaKo mantiene el ✦).

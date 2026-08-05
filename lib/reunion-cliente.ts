@@ -27,6 +27,7 @@ import 'server-only';
 
 import { getTenantDb } from './workspace';
 import { listCategorias, crearCategoria } from './todo';
+import { PREFIJO_CLIENTE, NOMBRES_TODO } from './todo-proyectos-catalogo';
 
 /** El cliente al que pertenece una reunión, con de dónde salió la certeza. */
 export type ClienteDeReunion = {
@@ -56,9 +57,24 @@ const esElProyectoDe = (proy: string, cliente: string): boolean => {
   return claves.every((w) => p.includes(` ${w} `));
 };
 
-/** Nombre del proyecto de un cliente. Tope 40 (crearCategoria trunca ahí). */
-export const nombreProyectoCliente = (c: { empresa: string | null; nombre: string }): string =>
-  (c.empresa?.trim() || c.nombre.trim()).slice(0, 40);
+/**
+ * Nombre del proyecto de un cliente. Tope 40 (crearCategoria trunca ahí).
+ *
+ * Va con el prefijo «Cliente: » a pedido del dueño: en un tablero donde el resto de
+ * los proyectos son áreas del negocio ("Anuncios", "Landing y web"), una fila que
+ * dice solo "Grupo Esquer" no se lee como lo que es. Los que YA existen sin prefijo
+ * NO se renombran: nombreDeProyectoPara/proyectoDeCliente buscan primero el que está.
+ */
+export const nombreProyectoCliente = (c: { empresa: string | null; nombre: string }): string => {
+  const base = nucleoCliente(c);
+  if (!base) return '';
+  return `${PREFIJO_CLIENTE}${base}`.slice(0, 40);
+};
+
+/** Cómo se llama el cliente SIN el prefijo — es con esto que se busca el proyecto que
+ *  ya existe (que puede llamarse "Grupo Esquer" a secas, o "Cuenta Grupo Esquer"). */
+export const nucleoCliente = (c: { empresa: string | null; nombre: string }): string =>
+  (c.empresa?.trim() || c.nombre.trim()).slice(0, 31);
 
 /**
  * ¿Esta reunión es con un cliente del workspace? Dos vías, las dos con evidencia:
@@ -121,10 +137,16 @@ export async function resolverClienteDeReunion(r: {
  */
 export async function nombreDeProyectoPara(c: { empresa: string | null; nombre: string }): Promise<string> {
   const nombre = nombreProyectoCliente(c);
+  const nucleo = nucleoCliente(c);
   if (!nombre) return nombre;
   try {
     const cats = await listCategorias();
-    const ya = cats.find((x) => norm(x.nombre) === norm(nombre)) ?? cats.find((x) => esElProyectoDe(x.nombre, nombre));
+    // La búsqueda va por el NÚCLEO (sin el prefijo "Cliente: "): el proyecto que ya
+    // tiene puede llamarse "Grupo Esquer" o "Cuenta Grupo Esquer", y exigirle la
+    // palabra "cliente" le abriría uno nuevo al lado del que ya está usando.
+    const ya = cats.find((x) => norm(x.nombre) === norm(nombre))
+      ?? cats.find((x) => norm(x.nombre) === norm(nucleo))
+      ?? cats.find((x) => esElProyectoDe(x.nombre, nucleo));
     return ya?.nombre ?? nombre;
   } catch { return nombre; }
 }
@@ -145,15 +167,19 @@ async function porTitulo(titulo?: string | null): Promise<ClienteDeReunion | nul
  */
 export async function proyectoDeCliente(c: ClienteDeReunion): Promise<number | null> {
   const nombre = nombreProyectoCliente(c);
+  const nucleo = nucleoCliente(c);
   if (!nombre) return null;
   try {
     const cats = await listCategorias();
     // Coincidencia exacta normalizada, o el proyecto cuyo nombre CONTIENE al del
     // cliente ("Cuenta Grupo Esquer" para el lead "Grupo Esquer"): el dueño ya le
-    // puso su nombre y no hay que crearle otro al lado.
+    // puso su nombre y no hay que crearle otro al lado. Se busca por el NÚCLEO, sin
+    // el prefijo "Cliente: " — si no, a cada cliente que ya tenía proyecto se le
+    // abriría un segundo con el nombre nuevo.
     const n = norm(nombre);
     const ya = cats.find((x) => norm(x.nombre) === n)
-      ?? cats.find((x) => esElProyectoDe(x.nombre, nombre));
+      ?? cats.find((x) => norm(x.nombre) === norm(nucleo))
+      ?? cats.find((x) => esElProyectoDe(x.nombre, nucleo));
     if (ya) return ya.id;
     const nueva = await crearCategoria(nombre, '#0E9B8E');
     console.log(`[reunion-cliente] proyecto creado para el cliente: «${nombre}» (#${nueva.id})`);
@@ -223,8 +249,13 @@ export async function proyectoParaTarea(t: { titulo: string; detalle?: string | 
 // Los proyectos del seed de arranque son de TEMAS, no de clientes: que una tarea diga
 // "seguimiento por whatsapp" no la hace del proyecto "Montar el seguimiento por
 // WhatsApp". Se excluyen del match por texto.
+// Y las ÁREAS del catálogo tampoco: que una tarea diga "anuncios" no la hace del
+// proyecto "Anuncios" por coincidencia de palabra — a qué área va lo decide el Perro
+// leyendo la tarea entera (lib/todo-rutear.ts). Esta función es solo para reconocer
+// el proyecto de un CLIENTE que el texto nombra.
 const GENERICOS = ['setup inicial', 'anuncio ganador', 'primeros 10 clientes', 'validar el funnel',
-  'seguimiento por whatsapp', 'escalar la campa', 'banco de creativos', 'tablero de n'];
+  'seguimiento por whatsapp', 'escalar la campa', 'banco de creativos', 'tablero de n',
+  ...NOMBRES_TODO.map((n) => norm(n))];
 
 /** El proyecto EXISTENTE que el texto nombra, si hay exactamente uno y no es genérico. */
 export async function proyectoNombradoEnTexto(texto: string): Promise<string | null> {

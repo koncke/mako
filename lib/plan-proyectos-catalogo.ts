@@ -43,7 +43,12 @@ export type ProyectoCatalogo = {
 
 export const CATALOGO_PROYECTOS: ProyectoCatalogo[] = [
   // ── Producto: una tab, un proyecto ─────────────────────────────────────────
-  { nombre: 'General', emoji: '🏠', familia: 'producto', que: 'La pantalla de inicio: el pulso del día, la vista Hoy, el semáforo de qué está bien y qué no.' },
+  { nombre: 'General', emoji: '🏠', familia: 'producto', que: 'La pantalla de inicio: el semáforo de qué está bien y qué no, y el diagnóstico del negocio que lo sostiene.' },
+  // «General» eran dos cosas distintas metidas en una: el semáforo que DIAGNOSTICA (te
+  // dice cómo estás) y el foco que MANDA (te dice qué hacer ahora). Se separan porque
+  // compiten: mientras el diagnóstico crecía, la acción de la semana quedaba enterrada
+  // entre métricas — que es justo el problema que venía a resolver.
+  { nombre: 'Foco', emoji: '🧭', familia: 'producto', que: 'Qué hacer AHORA: la acción de la semana, la vista Hoy, el briefing de la mañana, a quién llamar y el latido que te lo reclama.' },
   { nombre: 'CRM', emoji: '👥', familia: 'producto', que: 'Los leads: la ficha, las etapas, el avance automático, los recordatorios de reunión y el follow-up.' },
   { nombre: 'Dashboard', emoji: '📊', familia: 'producto', que: 'La analítica de marketing y comercial: métricas, gráficos, objetivos y salud del número.' },
   { nombre: 'Experiments', emoji: '🧪', familia: 'producto', que: 'Los experimentos: el único lugar donde se concluye qué funcionó y qué no.' },

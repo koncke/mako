@@ -16,7 +16,7 @@ import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mak
 import { getLead, setPipelineStage, getFunnel } from '@/lib/leads';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
-import { proyectoParaTarea } from './reunion-cliente';
+import { rutearTareasCliente } from './todo-rutear';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
 import { agregarTareasPlanOwner, priorizarNuevasOwner } from '@/lib/plan-board';
 import { crearPropuesta } from '@/lib/plan-propuesta';
@@ -124,19 +124,23 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         const byName = new Map(cats.map((c) => [normNom(c.nombre), c.id]));
         const links: string[] = [];
         let fallidas = 0;
-        for (const it of items) {
+        // Mismo criterio que el resto de los orígenes, y de una sola pasada para TODO el
+        // lote: cliente del CRM → proyecto que ya existe → área del catálogo. Ruteando
+        // de a una, dos tareas del mismo tema del mismo mensaje caían en proyectos
+        // distintos, porque cada llamada veía solo su tarea.
+        const destinos = await rutearTareasCliente(items.map((it) => ({ titulo: it.titulo, detalle: it.detalle, proyectoSugerido: it.proyecto })))
+          .catch((e) => { console.error('[mako-doer-acciones] rutear:', e instanceof Error ? e.message : String(e)); return items.map(() => ({ razon: '' } as { nombre?: string; razon: string; color?: string })); });
+        for (let ii = 0; ii < items.length; ii++) {
+          const it = items[ii];
           try {
             let catId: number | undefined;
-            // Mismo criterio que el resto: si la tarea nombra a un cliente, va a SU
-            // proyecto aunque MaKo haya sugerido otro. Por WhatsApp no hay reunión
-            // detrás, así que la señal es el nombre de la empresa en el texto.
-            const porCliente = await proyectoParaTarea({ titulo: it.titulo, detalle: it.detalle, proyectoSugerido: it.proyecto });
-            const proyFinal = (porCliente.cliente || porCliente.porProyecto) ? porCliente.nombre : it.proyecto;
+            const d = destinos[ii] ?? { razon: '' };
+            const proyFinal = d.nombre ?? it.proyecto;
             if (proyFinal) {
               const nombreCat = catName(proyFinal);
               const k = normNom(nombreCat);
               catId = byName.get(k);
-              if (catId == null) { const c = await crearCategoria(nombreCat, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
+              if (catId == null) { const c = await crearCategoria(nombreCat, d.color ?? '#2F6FED'); catId = c.id; byName.set(k, c.id); }
             }
             const tarea = await crearTarea({ titulo: it.titulo, prioridad: it.prioridad, deadline: it.deadline ?? null, detalle: it.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako' });
             links.push(`${APP_URL}/plan?tarea=${tarea.id}`);

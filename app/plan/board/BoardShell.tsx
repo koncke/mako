@@ -35,7 +35,7 @@ import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
-import { tareasACSV, proyectosACSV, tableroAMarkdown, descargar, nombreArchivo } from './exportar';
+import { ExportarModal } from './ExportarModal';
 import { capacidad } from '@/lib/mako-capacidades';
 
 const MONO = "'Geist Mono', monospace";
@@ -74,6 +74,7 @@ export function BoardShell({ board, scope }: {
   const [debateFechaId, setDebateFechaId] = useState<string | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
+  const [exportar, setExportar] = useState(false);             // bajarse el tablero (modal de a 1 pregunta)
   const [reunionArchivo, setReunionArchivo] = useState<File | null>(null); // subir archivo (punto 7): entra al mismo modal
   // "Datos sin marcar" (feedback jul-19): UN modal batch para deadline + checklist, en
   // vez del gauntlet card-by-card. Ver DatosModal. El 2do pop-up (DatosConfirm) decide
@@ -476,6 +477,25 @@ export function BoardShell({ board, scope }: {
   // sugerida; al cambiar la firma del plan, el guardián las re-puntúa solo (una corrida).
   // Deshacer = borrar las que se acaban de crear (fue una acción revisada, no un click suelto).
   type CandReunion = { titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; proyectoNombre?: string; minuto?: number; minutos?: number[] };
+  /**
+   * Las que YA estaban: en vez de crear una segunda tarjeta igual, se le SUMA a la que
+   * existe el contexto que trajo esta reunión (detalle + los pasos que dijo). Es lo
+   * que faltaba para poder cargar reuniones en serie: el mismo tema se habla en tres
+   * llamadas y antes la segunda y la tercera se descartaban enteras — con sus números
+   * y sus frases textuales adentro.
+   */
+  const ampliarDesdeReunion = async (items: Array<{ id: string; detalle: string; titulo: string }>, fuente?: Fuente) => {
+    const utiles = items.filter((it) => it.id && it.detalle.trim());
+    if (!utiles.length || !board.repo?.ampliarTareas) return;
+    try {
+      const patches = await board.repo.ampliarTareas(utiles.map(({ id, detalle }) => ({ id, detalle })), fuente);
+      if (patches.length) board.aplicarPerroServer(patches);
+      const n = patches.length;
+      if (n) board.showUndo(`${n === 1 ? 'Le sumé' : `Les sumé a ${n}`} el contexto de la reunión a ${n === 1 ? 'la tarjeta que ya estaba' : 'las tarjetas que ya estaban'}`);
+      else board.showUndo('Esas tareas ya tenían este contexto: no cambié nada.');
+    } catch (e) { console.warn('[reunion] ampliarTareas', e); }
+  };
+
   const crearDesdeReunion = async (candsIn: CandReunion[], fuente?: Fuente, forzar = false) => {
     // ÚLTIMA RED contra el duplicado. Los modales ya marcan lo que ya existe, pero esta
     // función también la llaman otros caminos (archivo, reanálisis) y el usuario puede
@@ -670,7 +690,7 @@ export function BoardShell({ board, scope }: {
         </>}
         {/* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
             igual en el tablero del dueño que en el del cliente, y baja al instante. */}
-        <ExportarMenu tasks={tasks} labels={labels} titulo={repo.labelPlural === 'Proyectos' ? 'Plan' : repo.labelPlural} />
+        <ExportarBoton onAbrir={() => setExportar(true)} />
         </div>
       </header>
 
@@ -766,7 +786,8 @@ export function BoardShell({ board, scope }: {
             .finally(() => setCargandoBorrador(false));
         }}
         existentes={tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle }))}
-        onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}
+        onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onAmpliar={ampliarDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}
+      {exportar && <ExportarModal tasks={tasks} labels={labels} titulo={repo.labelPlural === 'Proyectos' ? 'Plan' : repo.labelPlural} onClose={() => setExportar(false)} />}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
         otras={tasks.filter((t) => t.id !== eliminarTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, titulo: t.title, detalle: t.detalle, projColor: l?.color, projEmoji: l?.emoji }; })}
         plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar tarea')}
@@ -809,48 +830,19 @@ const cambiarBtn: CSSProperties = { display: 'flex', alignItems: 'center', justi
 
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
 /**
- * Exportar el tablero. Un botón chico con tres salidas, porque son tres usos:
- * las tareas en planilla, los proyectos en planilla, y todo junto como documento
- * para leer o mandar. Se cierra al elegir, al tocar afuera y con Escape.
+ * Exportar el tablero. Era un desplegable con tres salidas fijas —o te llevabas todo
+ * o nada, y sin el P# del proyecto, sin la justificación de prioridad y sin las notas—.
+ * Ahora abre el mismo formulario que el resto de la app: una pregunta por pantalla
+ * (qué · de qué proyectos · qué tareas · qué datos · qué formato) en ExportarModal.
  */
-function ExportarMenu({ tasks, labels, titulo }: { tasks: BoardTask[]; labels: Label[]; titulo: string }) {
-  const [abierto, setAbierto] = useState(false);
-  useEffect(() => {
-    if (!abierto) return;
-    const cerrar = () => setAbierto(false);
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
-    document.addEventListener('mousedown', cerrar);
-    document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('mousedown', cerrar); document.removeEventListener('keydown', esc); };
-  }, [abierto]);
-
-  const opciones: Array<{ label: string; sub: string; run: () => void }> = [
-    { label: 'Tareas (CSV)', sub: `${tasks.length} filas para la planilla`, run: () => descargar(nombreArchivo(titulo, 'tareas', 'csv'), tareasACSV(tasks, labels), 'text/csv') },
-    { label: 'Proyectos (CSV)', sub: `${labels.length} con su avance`, run: () => descargar(nombreArchivo(titulo, 'proyectos', 'csv'), proyectosACSV(labels, tasks), 'text/csv') },
-    { label: 'Todo (Markdown)', sub: 'para leer o mandar', run: () => descargar(nombreArchivo(titulo, 'completo', 'md'), tableroAMarkdown(tasks, labels, titulo), 'text/markdown') },
-  ];
-
+function ExportarBoton({ onAbrir }: { onAbrir: () => void }) {
+  const [hover, setHover] = useState(false);
   return (
-    <div style={{ position: 'relative', flex: 'none' }} onMouseDown={(e) => e.stopPropagation()}>
-      <button type="button" onClick={() => setAbierto((v) => !v)} aria-label="Exportar el tablero" title="Exportar las tareas y los proyectos"
-        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: `1px solid ${abierto ? 'var(--primary)' : 'var(--border-strong)'}`, background: 'var(--surface)', cursor: 'pointer', color: abierto ? 'var(--primary)' : 'var(--dim)', padding: 0 }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
-        onMouseLeave={(e) => { if (!abierto) { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; } }}>
-        <DownloadIcon />
-      </button>
-      {abierto && (
-        <div style={{ position: 'absolute', top: 44, right: 0, zIndex: 60, minWidth: 232, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: 5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {opciones.map((o) => (
-            <button key={o.label} type="button" onClick={() => { o.run(); setAbierto(false); }}
-              style={{ textAlign: 'left', border: 'none', background: 'transparent', borderRadius: 8, padding: '9px 11px', cursor: 'pointer', fontFamily: 'inherit' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{o.label}</span>
-              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', marginTop: 1 }}>{o.sub}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <button type="button" onClick={onAbrir} aria-label="Exportar el tablero" title="Exportar las tareas y los proyectos"
+      style={{ display: 'inline-flex', flex: 'none', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: `1px solid ${hover ? 'var(--primary)' : 'var(--border-strong)'}`, background: 'var(--surface)', cursor: 'pointer', color: hover ? 'var(--primary)' : 'var(--dim)', padding: 0 }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <DownloadIcon />
+    </button>
   );
 }
 /**

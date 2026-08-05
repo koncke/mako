@@ -11,12 +11,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const SANS = "'Geist', sans-serif";
 
-export type UndoState = { msg: string; onUndo: () => void } | null;
+// `onUndo` es OPCIONAL: hay avisos que no se pueden deshacer (por ejemplo sumarle
+// contexto a una tarjeta que ya existía, que fusiona texto y no se revierte prolijo).
+// Sin esto había que pasar un callback vacío y el cartel ofrecía un "Deshacer" que no
+// deshacía nada — peor que no ofrecerlo.
+export type UndoState = { msg: string; onUndo?: () => void } | null;
 
 export function useUndoToast(ms = 5000) {
   const [undo, setUndo] = useState<UndoState>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const show = useCallback((msg: string, onUndo: () => void) => setUndo({ msg, onUndo }), []);
+  const show = useCallback((msg: string, onUndo?: () => void) => setUndo({ msg, onUndo }), []);
   const clear = useCallback(() => setUndo(null), []);
   useEffect(() => {
     if (!undo) return;
@@ -32,7 +36,9 @@ export function UndoToast({ state, onClose }: { state: UndoState; onClose: () =>
   return (
     <div role="status" style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 200, display: 'flex', alignItems: 'center', gap: 14, background: '#14161B', color: '#F3F5F8', padding: '12px 16px', borderRadius: 12, boxShadow: '0 12px 32px rgba(18,21,27,.35)', fontFamily: SANS, fontSize: 14 }}>
       <span>{state.msg}</span>
-      <button type="button" onClick={() => { state.onUndo(); onClose(); }} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>
+      {state.onUndo && (
+        <button type="button" onClick={() => { state.onUndo!(); onClose(); }} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>
+      )}
       <button type="button" onClick={onClose} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,245,248,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
     </div>
   );

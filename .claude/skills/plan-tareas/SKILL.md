@@ -41,6 +41,10 @@ const proys  = await sql`select pid, name, score from plan_proyectos
                          where workspace_id = ${ws} order by score desc`;
 ```
 
+⚠️ En este entorno **`db.<ref>.supabase.co` NO resuelve**: si el postgres directo falla,
+usá el cliente de la app (`runWithWorkspace` + `getTenantDb`, como
+`scripts/probe-plan-superadmin.ts`), que va por HTTPS.
+
 - Si lo que vas a hacer **ya está** en la lista → NO dupliques: continuá esa tarea.
 - Si hay **ALTA** (score ≥ 75) o **vencidas** relacionadas con tu trabajo, mencionáselas.
 
@@ -54,12 +58,50 @@ await sql`insert into plan_propuestas (id, workspace_id, estado, origen, resumen
                   ${sql.json(tareas)}, ${sql.json(preguntas)}, ${sql.json([])})`;
 ```
 
-- `tareas`: `[{ titulo, proyecto, detalle, deadline? }]`. **No mandes `prioridad`**: la decide
-  el Perro. `proyecto` = el NOMBRE exacto de un proyecto existente (mirá `plan_proyectos`)
-  para no duplicarlo; si no existe, se crea con ese nombre.
+- `tareas`: `[{ titulo, proyecto, detalle }]`. **No mandes `prioridad` ni `deadline`**: las
+  decide el Perro (ver abajo).
+- `proyecto` = un nombre del **CATÁLOGO CERRADO** (`lib/plan-proyectos-catalogo.ts`). NO
+  inventes nombres. Los proyectos son GRANDES —del tamaño del nombre de una tab— y hay dos
+  familias: los de producto se llaman como la tab (`CRM`, `Dashboard`, `Onboarding`,
+  `WhatsApp`, `MaKo Doer`…) y el trabajo comercial va en `Vender MaKo: <canal>`. Más unos
+  pocos transversales (`Seguridad y multi-inquilino`, `Diseño de la app`, `Infraestructura
+  y versionado`, `Avisos y reportes`).
+
+  ⚠️ No es una convención suelta: en dos semanas la IA creó 24 proyectos basura (TRES de
+  Instagram, DOS "Ads Content Machine", varios con una sola tarea) y hubo que fundir 64 en
+  34 a mano. Si de verdad ninguno encaja, **decilo en el `resumen`** en vez de inventar uno.
+- `detalle`: **es el campo más importante y va LARGO** (4 a 8 frases). Contá el porqué, de
+  dónde salió, los nombres y números concretos, y qué sería "listo". Si sale de un documento
+  o de una reunión, **citá la frase textual entre comillas y decí quién lo dijo**. Una tarea
+  con detalle pobre es una que en tres semanas nadie sabe hacer — y el Perro estima el
+  ESFUERZO con lo que le des, así que escribir corto la hace parecer barata.
 - `notas` = las **preguntas** `[{ pregunta, tipo, opciones }]`. **Mandá al menos una**:
   sin preguntas el wizard aplica con `contexto=''` y el Perro puntúa a ciegas.
 - `eliminar`: `[{ id, motivo }]` si esta carga deja tareas viejas obsoletas o duplicadas.
+
+### Antes de mandar: ¿ya existe?
+
+El tablero tiene ~400 tareas y el dedup automático solo ve el parecido léxico (atrapa 5 de
+17 duplicados reales). **Buscá vos**: leé `plan_tareas` y compará por objetivo, no por
+palabras ("Modo Simple" y "vista simple por default" son la misma). Si ya existe, NO la
+mandes de nuevo: ponela en `eliminar` si la vieja quedó obsoleta, o mencionala en el
+`resumen` para que el dueño la amplíe. La misma tarea cargada dos veces con scores
+distintos destruye la confianza en todos los demás puntajes.
+
+### Qué decide el Perro con lo que le mandás (no lo decidas vos)
+
+Corre server-side al aplicar, en **Gemini Flash** (`mako-guardian` + `checklist-coach` en
+`lib/model-registry.ts`), y en una sola pasada define:
+
+| Decide | Cómo |
+|---|---|
+| **score 1-100** | contra la pirámide del plan y el diagnóstico de fase del negocio |
+| **deadline + su razón** | sale del score y del esfuerzo; vacío es respuesta válida. NUNCA pisa una fecha que ya venía |
+| **descripción + checklist** | AMPLÍA la tuya, no la reemplaza (`fusionarDetalle`) |
+| **el proyecto** | rutea contra el catálogo cerrado; ya no puede devolver "es trabajo nuevo" |
+| **`haceloEn`** | si la tarea se resuelve en una tab de MaKo (`lib/mako-capacidades.ts`) |
+
+Las **notas** de una tarjeta son del dueño: la IA no las toca nunca.
 
 ### Las preguntas (mismas reglas que MaKo)
 
@@ -70,10 +112,16 @@ prioridad (exagera, se encariña, no sabe priorizar).
 - ✅ Preguntá HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en plata y
   en cuánto, qué sería "listo", si es 1 tarea o varias.
 - Si la respuesta es obvia o se contradice con lo que ya sabés, **no la preguntes**.
+- **CUÁNTAS: escalá con el tamaño del lote**, ~1 cada 3 tareas (`topePreguntas` en
+  `lib/plan-propuesta.ts`). Con 20 tareas y 4 preguntas, 16 entran a ciegas.
 - **Variá el formato** eligiendo el mejor para cada una:
   `multi` (varias válidas a la vez — sin opción "Ambas/Todas", que tilde varias) ·
-  `opcion` (excluyente) · `escala` (1-5) · `comparacion` (A vs B).
-  **Nada de preguntas abiertas**: siempre con opciones para tocar.
+  `opcion` (excluyente) · `escala` (1-5) · `comparacion` (A vs B) · `texto` (último recurso).
+  **Nada de preguntas abiertas por descuido**: siempre con opciones para tocar.
+- ⚠️ **El tipo y las opciones tienen que ser coherentes**: una `opcion` sin `opciones` se
+  dibuja sin un solo botón y no se puede contestar. Una `escala` NO lleva opciones y la
+  pregunta tiene que explicar los extremos ("1 = es una idea, 5 = ya está comprometido").
+  Una `comparacion` lleva EXACTAMENTE dos.
 
 ## 3. Entregá el link ENTERO (o abrilo) y pará
 
@@ -97,6 +145,9 @@ y arma las checklists. **No insertes nada más.**
   borrá la propuesta después (`delete from plan_propuestas where id = ...`).
 - El **historial** es obligatorio para lo que toca la IA/el agente: la propuesta ya entra con
   `origen: 'claude-code'` y `aplicarPropuesta` estampa la fuente en cada tarjeta.
+- **Un lote grande NO se manda de a partes.** Una propuesta con las 20 tareas juntas, no
+  cinco propuestas de cuatro: cada corrida del Perro compara solo contra lo que ve, y en
+  lotes separados el mismo trabajo termina con scores distintos.
 - Para el board de un **cliente** (no el super-admin) el camino es `lib/todo`
   (`experimento_tareas`). Se aplica solo: `aplicarPropuesta` detecta el workspace y manda
   al board que corresponde, y desde jul-2026 el cliente TAMBIÉN recibe al Perro

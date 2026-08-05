@@ -46,11 +46,13 @@ function fmtFecha(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; }
 }
 
-export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onUsage, onClose, onAbrirBorrador, recibidos, onAbrirRecibido, catalogo }: {
+export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onAmpliar, onUsage, onClose, onAbrirBorrador, recibidos, onAbrirRecibido, catalogo }: {
   labels: Label[];
   existentes: Existente[];               // tareas abiertas del plan, para el dedup del Perro (punto 8)
   archivoInicial?: File | null;          // si entró por el botón "subir archivo" del toolbar (punto 7)
   onCrear: (cands: Candidata[], fuente?: Fuente) => void;
+  /** Las que YA existen: en vez de crear una segunda, se le suma el contexto a la que está. */
+  onAmpliar?: (items: Array<{ id: string; detalle: string; titulo: string }>, fuente?: Fuente) => void;
   onUsage?: (u: unknown) => void;
   onClose: () => void;
   /** entrar a una reunión que YA fue leída: se muestra lo que salió, no se re-analiza. */
@@ -146,7 +148,10 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     // Dedup contra el plan (best-effort: apiFathom nunca lanza; si el server falla, ok:false).
     const jc = await apiFathom({ action: 'cruzar', candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle })), existentes, uso: 'Cruzar con el plan' });
     if (jc.ok && Array.isArray(jc.cruces)) {
-      for (const c of jc.cruces) if (filasNuevas[c.i]) filasNuevas[c.i] = { ...filasNuevas[c.i], enriquece: { id: c.idExistente!, razon: c.razon }, incluir: false };
+      // `ampliar: true` es el default de una repetida: no se puede volver a cargar, se
+      // le suma el contexto a la tarjeta que ya está. Sin esto la fila solo nacía
+      // destildada y alcanzaba con tildarla para dejar la misma tarea dos veces.
+      for (const c of jc.cruces) if (filasNuevas[c.i]) filasNuevas[c.i] = { ...filasNuevas[c.i], enriquece: { id: c.idExistente!, razon: c.razon }, incluir: false, ampliar: !!c.idExistente };
     }
     setFilas(filasNuevas); setDudas(dudasIn); setDefs({});
     // SIN CERTEZA → se pregunta, una sola vez y cerrada. Es el paso que faltaba: sin él
@@ -220,7 +225,9 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   };
 
   // Solo MIS tareas tildadas: una tarea de otra persona jamás entra a mi plan.
-  const nIncluidas = useMemo(() => filas.filter((f) => f.incluir && !f.esDeOtro).length, [filas]);
+  const esAmpliar = (f: Fila): boolean => !!f.enriquece?.id && f.ampliar !== false && !f.esDeOtro;
+  const nIncluidas = useMemo(() => filas.filter((f) => f.incluir && !f.esDeOtro && !esAmpliar(f)).length, [filas]);
+  const nAmpliar = useMemo(() => filas.filter(esAmpliar).length, [filas]);
   const hayMias = useMemo(() => filas.some((f) => !f.esDeOtro), [filas]);
 
   const confirmar = () => {
@@ -228,7 +235,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     const fuente: Fuente | undefined = elegida ? { tipo: 'fathom', etiqueta: elegida.titulo, url: elegida.url ?? undefined }
       : archivoNombre ? { tipo: 'archivo', etiqueta: archivoNombre }
         : undefined;
-    onCrear(filas.filter((f) => f.incluir && !f.esDeOtro).map(({ incluir: _i, enriquece: _e, ...c }) => c), fuente);
+    // Dos destinos, un solo click: lo nuevo se crea y lo repetido AMPLÍA la tarjeta que
+    // ya está. Antes lo repetido solo se descartaba y el contexto de esa reunión —los
+    // números y las frases que se dijeron— se perdía entero.
+    const ampliar = filas.filter(esAmpliar).map((f) => ({ id: f.enriquece!.id, detalle: f.detalle ?? '', titulo: f.titulo }));
+    if (ampliar.length && onAmpliar) onAmpliar(ampliar, fuente);
+    onCrear(filas.filter((f) => f.incluir && !f.esDeOtro && !esAmpliar(f)).map(({ incluir: _i, enriquece: _e, ampliar: _a, ...c }) => c), fuente);
     onClose();
   };
   const setFila = (i: number, patch: Partial<Fila>) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)));
@@ -483,9 +495,14 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                 {/* Si NADA de la reunión es tuyo, el botón de cargar no tiene sentido:
                     lo único que queda es mandarle a cada uno lo suyo desde su tab. */}
                 {hayMias
-                  ? <button type="button" onClick={confirmar} disabled={nIncluidas === 0}
-                      style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas ? 'pointer' : 'default', fontFamily: SANS }}>
-                      {nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
+                  ? <button type="button" onClick={confirmar} disabled={nIncluidas + nAmpliar === 0}
+                      style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas + nAmpliar ? 'var(--primary)' : 'var(--border)', color: nIncluidas + nAmpliar ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas + nAmpliar ? 'pointer' : 'default', fontFamily: SANS }}>
+                      {/* El botón dice las DOS cosas que va a hacer: si solo hay repetidas,
+                          decir "Agregar 0 al plan" sería mentir sobre lo que pasa al tocarlo. */}
+                      {nIncluidas && nAmpliar ? `Agregar ${nIncluidas} y ampliar ${nAmpliar} →`
+                        : nIncluidas ? `Agregar ${nIncluidas} al plan →`
+                          : nAmpliar ? `Ampliar ${nAmpliar} que ya ${nAmpliar === 1 ? 'está' : 'están'} →`
+                            : 'Elegí al menos una'}
                     </button>
                   : <button type="button" onClick={onClose}
                       style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>

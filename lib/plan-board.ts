@@ -324,6 +324,71 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
   });
 }
 
+export type AmpliarTareaPlan = { id: string; titulo?: string; detalle?: string; fuente?: Fuente };
+
+/**
+ * AMPLIAR una tarjeta que YA EXISTE, en vez de crear una segunda igual.
+ *
+ * Es la salida al caso más común de cargar reuniones en serie: la misma tarea se habla
+ * en tres llamadas seguidas. Antes la fila que el Perro marcaba como repetida nacía
+ * destildada pero se podía tildar igual, así que el tablero terminaba con la misma
+ * tarea escrita tres veces y tres scores distintos. Ahora ese contexto no se pierde ni
+ * se duplica: se SUMA a la tarjeta que ya está.
+ *
+ * Lo que se toca:
+ *   · `detalle` → se fusiona (fusionarDetalle: lo viejo primero, nunca se pisa);
+ *   · `checklist` → se agregan solo los pasos que todavía no estaban;
+ *   · `historial` → queda el rastro con de qué reunión salió lo nuevo.
+ * Lo que NO se toca: score, prioridad, deadline, notas y proyecto. Amplíar es agregar
+ * contexto, no re-decidir la tarea — para eso está el debate con el Perro.
+ */
+export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?: Fuente): Promise<{ n: number; patches: GuardPatch[] }> {
+  return enPlan(async () => {
+    const validos = items.filter((it) => it.id && (it.detalle || '').trim());
+    if (!validos.length) return { n: 0, patches: [] };
+    const db = await getTenantDb();
+    const { actor, desde } = desdeDeFuente(fuente);
+    const ahora = Date.now();
+    const { data } = await db.from('plan_tareas').select('id, title, detalle, checklist, historial, fuente').in('id', validos.map((v) => v.id));
+    const filas = (data ?? []) as Array<{ id: string; title: string; detalle: string; checklist: unknown; historial: unknown; fuente: unknown }>;
+    const porId = new Map(filas.map((f) => [f.id, f]));
+
+    // Un paso de checklist no se repite: el mismo texto sin acentos ni signos ya está.
+    const claveCheck = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+    const patches: GuardPatch[] = [];
+    let n = 0;
+    for (const it of validos) {
+      const f = porId.get(it.id);
+      if (!f) { console.warn(`[plan-board] ampliar: la tarea ${it.id} no existe`); continue; }
+      const detalleFinal = fusionarDetalle(str(f.detalle), (it.detalle ?? '').trim());
+      const checkPrevia = asArr<Check>(f.checklist);
+      const vistas = new Set(checkPrevia.map((c) => claveCheck(c.text)));
+      // Pasos nuevos: SOLO las líneas que el texto nuevo trae como viñeta. Si el
+      // detalle es prosa (lo normal en una reunión), la checklist no se toca.
+      const nuevosPasos = (it.detalle ?? '').split('\n')
+        .filter((l) => /^\s*[-*·•]\s+\S/.test(l))
+        .map((l) => l.replace(/^\s*[-*·•]\s+/, '').trim())
+        .filter((l) => l.length > 6 && l.length < 160 && !vistas.has(claveCheck(l)))
+        .filter((l, i, arr) => arr.findIndex((x) => claveCheck(x) === claveCheck(l)) === i);
+      const checklist = nuevosPasos.length
+        ? [...checkPrevia, ...nuevosPasos.map((text): Check => ({ id: genId('c'), text, done: false }))]
+        : checkPrevia;
+
+      if (detalleFinal === str(f.detalle) && checklist.length === checkPrevia.length) continue;
+      const entrada: Hist = { id: genId('h'), ts: ahora, actor, text: `MaKo le sumó contexto (no la duplicó) — ${desde}`.slice(0, 220) };
+      const historial = [entrada, ...asArr<Hist>(f.historial)].slice(0, 40);
+      const { error } = await db.from('plan_tareas').update({
+        detalle: detalleFinal.slice(0, 6000), checklist, historial, updated_at: new Date().toISOString(),
+      }).eq('id', it.id);
+      if (error) { console.error(`[plan-board] ampliar ${it.id}: ${error.message}`); continue; }
+      n++;
+      patches.push({ id: it.id, detalle: detalleFinal.slice(0, 6000), checklist, historialEntry: entrada });
+    }
+    return { n, patches };
+  });
+}
+
 /** El Perro Guardián trabaja lo RECIÉN creado (server-side, no depende del navegador):
  *  (1) puntúa las tareas nuevas ubicándolas en la pirámide + les arma la checklist;
  *  (2) a los proyectos nuevos les pone emoji + descripción + score distinto (antes

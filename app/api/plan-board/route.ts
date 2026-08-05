@@ -13,9 +13,9 @@ import { getSesionAdmin } from '@/lib/auth';
 import {
   listPlanBoard, planVacio, crearPlanTarea, guardarPlanTarea, borrarPlanTarea,
   crearPlanProyecto, guardarPlanProyecto, borrarPlanProyecto, guardarPlanBulk,
-  priorizarNuevasOwner,
+  priorizarNuevasOwner, ampliarTareasPlanOwner,
 } from '@/lib/plan-board';
-import type { BoardTask, Label } from '@/app/plan/board/types';
+import type { BoardTask, Label, Fuente } from '@/app/plan/board/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -89,6 +89,18 @@ export async function POST(req: NextRequest) {
       // `patches` vuelve al board para que aplique score/razón/detalle/checklist sin
       // recargar (y no los pise con su estado viejo en el próximo guardado).
       return NextResponse.json({ ok: true, conteo: r, patches: r?.patches ?? [], proyectosPatch: r?.proyectosPatch ?? [] });
+    }
+    if (action === 'ampliar-tareas') {
+      // AMPLIAR lo que ya existe en vez de duplicarlo: cargar tres reuniones seguidas
+      // sobre el mismo tema dejaba la misma tarea escrita tres veces con tres scores.
+      const items = Array.isArray(body.items)
+        ? (body.items as Array<{ id?: unknown; detalle?: unknown }>)
+          .map((it) => ({ id: String(it.id ?? ''), detalle: String(it.detalle ?? '') }))
+          .filter((it) => it.id && it.detalle.trim())
+        : [];
+      if (!items.length) return NextResponse.json({ ok: false, error: 'faltan items' }, { status: 400 });
+      const r = await ampliarTareasPlanOwner(items, body.fuente as Fuente | undefined);
+      return NextResponse.json({ ok: true, n: r.n, patches: r.patches });
     }
     if (action === 'migrar') {
       const tareas = (body.tareas as BoardTask[] | undefined) ?? [];

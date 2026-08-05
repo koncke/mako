@@ -100,11 +100,12 @@ export type Repo = {
   // super-admin de la agencia (usa la Fathom key de la agencia).
   fathomExtract?: boolean;
   /**
-   * La lista CERRADA de proyectos grandes (lib/plan-proyectos-catalogo). Solo la trae
-   * el tablero del dueño: en el de un cliente los proyectos son SUS clientes, no las
-   * tabs del producto. Cuando está, la extracción de reuniones solo puede proponer
-   * proyectos de acá — que es lo que impide que una reunión abra un proyecto nuevo
-   * con el nombre que se le ocurra al modelo.
+   * La lista CERRADA de proyectos grandes. Cada tablero trae la suya: el del dueño las
+   * tabs del producto (lib/plan-proyectos-catalogo) y el de un cliente las ÁREAS de su
+   * marketing (lib/todo-proyectos-catalogo) — sus CLIENTES no van acá, los resuelve el
+   * server contra el CRM. Cuando está, la extracción de reuniones solo puede proponer
+   * proyectos de acá: es lo que impide que una reunión abra un proyecto nuevo con el
+   * nombre que se le ocurra al modelo.
    */
   catalogo?: Array<{ nombre: string; emoji: string; que: string }>;
   createTask(draft: BoardTask): Promise<BoardTask>;  // devuelve canónica (id puede cambiar)
@@ -118,6 +119,12 @@ export type Repo = {
   // dueño (plan_tareas); así Fathom/archivo/alta reciben el MISMO trato que WhatsApp.
   // El board del cliente no lo tiene (usa su Perro client-side) → opcional.
   priorizarNuevas?(ids: string[], proyectoIds?: string[], contexto?: string): Promise<GuardResult | null>;
+  /**
+   * AMPLIAR una tarjeta que ya existe en vez de crear una segunda igual. Es lo que
+   * pasa cuando se cargan varias reuniones seguidas: la misma tarea se habla en tres
+   * llamadas. Devuelve los patches para pintarlo sin recargar.
+   */
+  ampliarTareas?(items: Array<{ id: string; detalle: string }>, fuente?: Fuente): Promise<GuardPatch[]>;
 };
 
 export const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
