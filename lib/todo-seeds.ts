@@ -38,6 +38,18 @@ export { SEED_CATEGORIAS } from './todo-seeds-data';
  */
 export async function seedTodoBoardSiVacio(): Promise<Categoria[]> {
   if (!capaDef(await getCapaActual()).seedBoardVsl) return [];
+  // CANDADO ANTI-DOBLE-SIEMBRA. Si a este workspace ya se le generó un plan de arranque
+  // propio (lib/todo-seed-ia.ts), el seed fijo NO corre: sembrarlo encima dejaría el
+  // tablero con los 8 proyectos del seed MÁS las áreas del catálogo y ~60 tareas mitad
+  // repetidas. Y peor: el modal de confirmación descarta como «repetidas» las que ya
+  // estén en el tablero, así que las 15 tareas ancla del borrador desaparecerían justo
+  // antes de que el cliente pudiera aceptarlas.
+  // Vale en CUALQUIER estado del borrador —pendiente, aplicada o descartada—: si el
+  // cliente rechazó su plan generado, tampoco queremos caerle con el fijo.
+  // Va acá y no en app/plan/page.tsx para que cubra a cualquier llamador futuro.
+  const { getPropuestaPorRef } = await import('./plan-propuesta');
+  const { REF_PLAN_ARRANQUE } = await import('./todo-seed-ia');
+  if (await getPropuestaPorRef(REF_PLAN_ARRANQUE).catch(() => null)) return [];
   const supabase = await getTenantDb();
   const [{ data: cats0, error: e1 }, { data: tar0, error: e2 }] = await Promise.all([
     supabase.from('tarea_categorias').select('id').limit(1),

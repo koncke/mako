@@ -60,6 +60,11 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: CLAUDE(), recomendado: CLAUDE(), nota: 'El análisis más pesado del producto. Opus.' },
   { feature: 'ads-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: SONNET, nota: 'Lectura estructural creativa. Sonnet.' },
   { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: SONNET },
+  // Se agrega SOLO porque lib/todo-seed-ia.ts lee `overrideDeFeature('plan-seed-ia')` y
+  // le pasa el pin a chatCheapCascade (que por su cuenta NO mira este registro). Sin ese
+  // pin, la entrada sería un verde mudo: se elegiría un modelo acá y seguiría corriendo
+  // otro — el mismo antipatrón de la key BYOK que se pintaba conectada y no se usaba.
+  { feature: 'plan-seed-ia', label: 'Plan de arranque del cliente nuevo', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe el plan inicial desde el onboarding del cliente. Corre UNA vez por cliente, con la key del PROPIO cliente (cascada de IA barata), así que no le cuesta a la agencia.' },
   { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: SONNET, nota: 'El problema NO era el modelo sino que se cortaba el transcript (14k→completo): con la reunión entera, Sonnet saca los 16 action items reales igual que Opus, y más barato. 1 vez por reunión (cacheada).' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────

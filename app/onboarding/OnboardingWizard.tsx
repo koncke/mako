@@ -139,6 +139,9 @@ export function OnboardingWizard() {
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [pending, setPending] = useState(false);
+  // MaKo escribiendo el plan de arranque: tarda decenas de segundos y es lo último
+  // que pasa antes de entrar, así que el botón tiene que decir qué está haciendo.
+  const [armandoPlan, setArmandoPlan] = useState(false);
   // Cambia para remontar el form de credenciales tras copiar la key de Mau.
   const [remonte, setRemonte] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -377,8 +380,25 @@ export function OnboardingWizard() {
       }
       // Cerrar el paso cuando esta es la última pantalla que le pertenece.
       const ultimaDelPaso = pantallas.filter((x) => x.paso === p.paso).slice(-1)[0]?.key === p.key;
-      if (ultimaDelPaso) await post('/api/onboarding', { action: 'paso', step: p.paso, done: true });
-      if (enUltimo) { window.location.href = home; return; }
+      let destino = home;
+      if (ultimaDelPaso) {
+        // Este POST tiene que COMPLETAR antes de navegar: /plan/revisar/[id] llama a
+        // guardOnboarding(), y con el estado todavía en 'in_progress' rebota al wizard.
+        const j = await post('/api/onboarding', { action: 'paso', step: p.paso, done: true });
+        const cerrado = (j as { estado?: { status?: string } } | null)?.estado?.status === 'done';
+        if (cerrado) {
+          // TERMINÓ EL ONBOARDING → MaKo le escribe SU plan. Recién acá están guardados
+          // el diagnóstico, el archivero, los avatares, las razones y el lead magnet:
+          // es el primer momento en que se puede armar un plan que hable de su negocio
+          // y no una lista igual para todos. Si falla, no pasa nada: el cliente entra
+          // igual y la primera visita a /plan le siembra el piso de siempre.
+          setArmandoPlan(true);
+          const r = await post('/api/onboarding/plan-arranque', {}).catch(() => null) as { ok?: boolean; url?: string } | null;
+          if (r?.ok && r.url) destino = r.url;
+          setArmandoPlan(false);
+        }
+      }
+      if (enUltimo) { window.location.href = destino; return; }
       setIdx((i) => i + 1);
     } finally { setPending(false); }
   };
@@ -475,7 +495,7 @@ export function OnboardingWizard() {
         error={error}
         puedeAvanzar={puedeAvanzar}
         enUltimo={enUltimo}
-        confirmLabel={data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Ir a mi dashboard →'}
+        confirmLabel={armandoPlan ? 'MaKo está armando tu plan…' : data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Ver mi plan →'}
         siguienteLabel={
           p.key === 'retro' ? 'Seguir sin Retro →'
           : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →'
@@ -484,7 +504,7 @@ export function OnboardingWizard() {
           : 'Siguiente →'
         }
         hideSiguiente={hideSiguiente}
-        pending={pending}
+        pending={pending || armandoPlan}
         atrasLabel="Atrás"
         hideAtras={idx === 0}
         onAtras={() => setIdx((i) => Math.max(0, i - 1))}
