@@ -48,10 +48,20 @@ export async function GET(request: NextRequest) {
     if (adsErr) throw new Error(adsErr.message);
     const adIds = [...new Set((adsData ?? []).map((r) => r.ad_id as string))];
 
-    // Ya transcritos (cualquier status) → no reprocesar
-    const { data: doneData, error: doneErr } = await supabase.from('ad_transcripts').select('ad_id');
+    // Ya resueltos → no reprocesar. 'error' NO cuenta como resuelto: la fila se
+    // escribe igual cuando la transcripción falla, y si la excluyéramos también a
+    // ella el anuncio quedaría marcado como hecho PARA SIEMPRE con transcript null.
+    //
+    // No es hipotético: una hidratación de credenciales fallida (ver lib/credenciales.ts
+    // — corre best-effort en el cold start) dejaba a transcribeAd sin OPENAI_API_KEY,
+    // y así se envenenaron 9 anuncios entre el 2026-07-29 y el 08-03, en ws1 y ws3,
+    // sin ninguna señal. Un fallo transitorio no puede ser una condena permanente.
+    //
+    // 'muy_grande' sí es definitivo (el video excede lo que se puede transcribir):
+    // reintentarlo gastaría en cada corrida para volver a fallar igual.
+    const { data: doneData, error: doneErr } = await supabase.from('ad_transcripts').select('ad_id, status');
     if (doneErr) throw new Error(doneErr.message);
-    const done = new Set((doneData ?? []).map((r) => r.ad_id as string));
+    const done = new Set((doneData ?? []).filter((r) => r.status !== 'error').map((r) => r.ad_id as string));
 
     const pendientes = adIds.filter((id) => !done.has(id));
 
