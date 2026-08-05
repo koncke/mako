@@ -42,6 +42,7 @@ function rowToTask(r: Row): BoardTask {
     detalle: str(r.detalle), priority: str(r.priority, 'media') as Prio,
     score: int(r.score), scoreRazon: r.score_razon ? str(r.score_razon) : undefined,
     deadlineRazon: r.deadline_razon ? str(r.deadline_razon) : undefined, notas: str(r.notas),
+    haceloEn: r.hacelo_en ? str(r.hacelo_en) : undefined,
     impacto: optInt(r.impacto), esfuerzo: optInt(r.esfuerzo),
     progress: int(r.progress), deadline: str(r.deadline),
     labels: asArr<unknown>(r.labels).map(String), checklist: asArr<Check>(r.checklist),
@@ -53,7 +54,7 @@ function taskToRow(t: BoardTask): Row {
   return {
     id: t.id, num: t.num, emoji: t.emoji || '📌', title: t.title || 'Tarea', detalle: t.detalle || '',
     priority: t.priority, score: int(t.score), score_razon: t.scoreRazon ?? null,
-    deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '',
+    deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '', hacelo_en: t.haceloEn ?? null,
     impacto: t.impacto ?? null, esfuerzo: t.esfuerzo ?? null, progress: int(t.progress),
     deadline: t.deadline || '', labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
     origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad,
@@ -369,7 +370,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
 
     // 3 llamadas al Perro en paralelo (score tareas · checklists · proyectos). Gemini gratis.
     const [scoreRes, checklistRes, proyRes] = await Promise.all([
-      nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string }[] }),
+      nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string }[] }),
       nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), contexto, 'Descripción + checklists de tareas nuevas') : Promise.resolve({} as Record<string, { detalle: string; items: string[] }>),
       proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, brief, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
     ]);
@@ -395,6 +396,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
         // con deadline (lo dijo la reunión, lo puso el dueño), esa manda. Una prioridad
         // sin fecha es una intención — por eso la propone él y no se espera a que
         // alguien la complete a mano.
+        if (g.haceloEn) { patch.hacelo_en = g.haceloEn; Object.assign(out, { haceloEn: g.haceloEn }); }
         if (g.deadline && !n.deadline) {
           patch.deadline = g.deadline; patch.deadline_razon = g.deadlineRazon || null;
           Object.assign(out, { deadline: g.deadline, deadlineRazon: g.deadlineRazon || '' });

@@ -1706,7 +1706,10 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   const tieneTareasDe = (id: string) => tasks.some((t) => t.labels.includes(id) && fOrigen.has(fuenteEfectiva(t).tipo));
   const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id) }));
   const shown = withProg
-    .filter(({ l }) => !needle || `${l.name} ${stripHtml(l.detalle ?? '')}`.toLowerCase().includes(needle))
+    // El pid (P11) es el ID VISIBLE del proyecto y es como el dueño lo nombra: buscar
+    // "11", "P11" o "#11" tiene que encontrarlo. Antes el heno era solo nombre +
+    // detalle, así que el identificador que la propia UI muestra no servía para buscar.
+    .filter(({ l }) => !needle || `${l.pid ?? ''} ${(l.pid ?? '').replace(/^p/i, '')} ${l.name} ${stripHtml(l.detalle ?? '')}`.toLowerCase().includes(needle.replace(/^#/, '')))
     .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)) || tieneTareasDe(l.id))
     .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);

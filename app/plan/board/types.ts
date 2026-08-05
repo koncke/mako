@@ -59,6 +59,9 @@ export type BoardTask = {
   deadlineRazon?: string;   // por qué el guardián puso ESA fecha (se debate igual que el score)
   /** Notas libres del dueño. La IA nunca las escribe ni las pisa (mig 0114). */
   notas?: string;
+  /** id de lib/mako-capacidades: esta tarea se resuelve DENTRO de MaKo, en esa tab.
+   *  Vacío = se hace afuera, que es la mitad del trabajo de un negocio (mig 0115). */
+  haceloEn?: string;
   impacto?: number;         // 1-100: cuánto mueve la aguja (dinero / métrica norte)
   esfuerzo?: number;        // 1-100: cuánto cuesta hacerla (menos esfuerzo = mejor)
   progress: number;         // 0-100
@@ -81,7 +84,7 @@ export type BoardUser = { nombre: string; avatarUrl: string };
 // board lo aplique en el acto: si no vuelve, la UI sigue mostrando el score viejo y el
 // próximo saveTask (upsert de la fila entera) le pisa lo que el Perro acaba de escribir.
 export type GuardPatch = {
-  id: string; score?: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string;
+  id: string; score?: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string;
   priority?: Prio; detalle?: string; checklist?: Check[]; historialEntry?: Hist;
 };
 /** Ídem para un proyecto nuevo (emoji + descripción + score del Perro). */

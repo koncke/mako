@@ -16,12 +16,13 @@ import type { Propuesta, PropuestaPregunta } from '@/lib/plan-propuesta';
 const SANS = "'Geist', sans-serif";
 
 // Loader mientras MaKo genera las repreguntas dinámicas — un spinner, NO el input.
-function DynLoader() {
+function DynLoader({ texto = 'Analizando tus respuestas para profundizar…', sub }: { texto?: string; sub?: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '18px 0' }}>
       <style>{'@keyframes mkSpin{to{transform:rotate(360deg)}}'}</style>
       <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'mkSpin .8s linear infinite' }} />
-      <span style={{ fontSize: 13, color: 'var(--dim)' }}>Analizando tus respuestas para profundizar…</span>
+      <span style={{ fontSize: 13, color: 'var(--dim)' }}>{texto}</span>
+      {sub && <span style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5, maxWidth: 340, textAlign: 'center' }}>{sub}</span>}
     </div>
   );
 }
@@ -194,7 +195,13 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       onConfirmar={() => enviar('aplicar')}
     >
       {dynLoading ? (
-        <DynLoader />
+        <DynLoader texto="MaKo está mirando tus respuestas…" />
+      ) : busy ? (
+        /* El aplicado es LARGO de verdad: crea las tareas y después el Perro las
+           puntúa por tandas. Antes acá seguía dibujándose el cuerpo del último paso y
+           lo único que cambiaba era el título a «Creando…» — se veía colgado, y encima
+           quedaba a la vista el link de descartar mientras ya estaba guardando. */
+        <DynLoader texto="Creando las tareas y puntuándolas contra tu plan…" sub="El Perro las ubica en la pirámide y les arma la checklist. Puede tardar unos segundos." />
       ) : cur.kind === 'q' ? (
         <PreguntaBody q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
       ) : cur.kind === 'dyn' ? (

@@ -16,7 +16,7 @@ import { resolverClienteDeReunion, nombreDeProyectoPara, opcionesDeCliente } fro
 import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
 import { esFechaValida } from '@/lib/date-utils';
-import { resumenPropuestasPorRefs } from '@/lib/plan-propuesta';
+import { resumenPropuestasPorRefs, crearPropuesta } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 // 300s porque una reunión larga se extrae POR PARTES (lib/plan-fathom → trocear): son
@@ -146,6 +146,27 @@ export async function POST(req: NextRequest) {
       // Mismo criterio que el cron (lib/reunion-auto.ts).
       if (out.tareas.length && !out.partesFallidas) {
         await setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, participantes: out.participantes ?? [], ts: Date.now() })).catch(() => {});
+        // Y EL BORRADOR, igual que el cron. Sin esto, extraer a mano dejaba las tareas
+        // SOLO en el estado de React: cerrabas el modal y se perdían, y la reunión
+        // volvía a decir «Extraer →» como si nunca la hubieras leído (el selector mira
+        // plan_propuestas, no el cache). Mismo `ref` que el cron, así que si después
+        // pasa el cron no duplica: crearPropuesta devuelve el que ya está.
+        const nombreProy = new Map(proyectos.map((pr) => [pr.id, pr.nombre]));
+        const cli = await resolverClienteDeReunion({ titulo, participantes: out.participantes ?? [] }).catch(() => null);
+        const proyCliente = cli ? await nombreDeProyectoPara(cli).catch(() => '') : '';
+        const mias = out.tareas.filter((t) => !t.esDeOtro).length;
+        await crearPropuesta({
+          ref: `fathom:${recordingId}`,
+          origen: 'fathom',
+          fuenteTitulo: titulo ?? undefined,
+          resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}.`,
+          tareas: out.tareas.map((t) => ({
+            titulo: t.titulo, detalle: t.detalle || undefined, prioridad: t.prioridad,
+            proyecto: proyCliente || (t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined)),
+            dueno: t.dueño || undefined, duenoEmail: t.dueñoEmail || undefined,
+            esDeOtro: t.esDeOtro || undefined, minuto: t.minuto, minutos: t.minutos,
+          })),
+        }).catch((e) => console.error(`[api:plan-fathom] borrador: ${msg(e)}`));
       }
       // ACÁ NO SE MANDA NINGÚN WHATSAPP, a propósito. Antes esta ruta preguntaba
       // "saqué N compromisos, ¿los cargo?" — y era una pregunta al vacío: el usuario

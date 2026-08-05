@@ -339,7 +339,11 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                         // en el plan y lo que quedó del lado de otras personas.
                         const b = borradores[r.recordingId];
                         const yaLeida = !!b && !!onAbrirBorrador;
-                        const quedan = b ? b.pendientesMias + b.pendientesOtros : 0;
+                        // Las TUYAS y las de OTROS son dos cosas distintas y el server ya las
+                        // manda separadas: sumarlas acá era lo que hacía decir «13 esperando»
+                        // cuando esas 13 son compromisos de otra persona y a vos no te espera nada.
+                        const mias = b?.pendientesMias ?? 0;
+                        const otras = b?.pendientesOtros ?? 0;
                         return (
                           <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId) : extraer(r))}
                             style={{ display: 'flex', alignItems: 'flex-start', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS }}
@@ -353,12 +357,17 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                                     Fathom ya no te encierra en el borrador pendiente, así
                                     que la lista tiene que decir de un vistazo cuál es la
                                     reunión que te está esperando y con cuántas. */}
-                                {quedan > 0 && (
-                                  <span title={`${b!.pendientesMias} tuya${b!.pendientesMias === 1 ? '' : 's'} sin confirmar${b!.pendientesOtros ? ` · ${b!.pendientesOtros} de otras personas para repartir` : ''}`}
-                                    style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: '#fff', background: b!.pendientesMias > 0 ? 'var(--primary)' : 'var(--dim)', fontFamily: MONO }}>
-                                    {quedan} esperando
+                                {mias > 0 ? (
+                                  <span title={`${mias} tuya${mias === 1 ? '' : 's'} sin confirmar${otras ? ` · y ${otras} de otras personas para repartir` : ''}`}
+                                    style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: '#fff', background: 'var(--primary)', fontFamily: MONO }}>
+                                    {mias} para confirmar
                                   </span>
-                                )}
+                                ) : otras > 0 ? (
+                                  <span title="Compromisos de otras personas de la reunión: falta mandárselos. A vos no te espera nada acá."
+                                    style={{ flex: 'none', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: '#fff', background: 'var(--dim)', fontFamily: MONO }}>
+                                    {otras} de otros
+                                  </span>
+                                ) : null}
                                 <span title={`Clasificada como ${t.label} por los emails de los invitados`} style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: `var(--${t.tono})`, background: `var(--${t.tono}-bg, var(--surface-2))`, border: `1px solid var(--${t.tono})` }}>{t.label}</span>
                               </span>
                               <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{fmtFecha(r.fecha)}{r.durMin ? ` · ${r.durMin} min` : ''}</span>
@@ -371,7 +380,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                                 </span>
                               )}
                             </span>
-                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>{quedan > 0 ? 'Confirmar →' : yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}</span>
+                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>{mias > 0 ? 'Confirmar →' : otras > 0 ? 'Repartir →' : yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}</span>
                           </button>
                         );
                       })}

@@ -523,11 +523,16 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               ✕ las deja esperando para la próxima. */}
           {/* Este footer es SOLO el de la lista de tareas: el paso de preguntas se
               dibuja con WizardShell, que trae su propio Atrás/Siguiente. */}
-          <button type="button" onClick={() => void descartar()} disabled={!!guardando}
-            style={{ padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
-            {guardando === 'descartar' ? 'Descartando…'
-              : (!hayMias && yaCargadas.length) ? 'Descartar lo que queda' : varias ? 'Descartar todo' : 'Descartar'}
-          </button>
+          {/* DESCARTAR solo cuando queda algo TUYO. Si lo único pendiente son
+              compromisos de otras personas, este botón los tiraba a la basura sin
+              repartirlos — y encima se llamaba «Descartar lo que queda», como si fuera
+              tu resto. Lo que corresponde ahí es mandárselos desde la tabla, no borrarlos. */}
+          {hayMias ? (
+            <button type="button" onClick={() => void descartar()} disabled={!!guardando}
+              style={{ padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
+              {guardando === 'descartar' ? 'Descartando…' : varias ? 'Descartar todo' : 'Descartar'}
+            </button>
+          ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mandáselo desde la lista.</span>}
           {hayMias && (
             <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando}
               style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
