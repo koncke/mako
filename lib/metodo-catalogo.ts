@@ -11,6 +11,12 @@
 // que hidratamos a process.env: tiene que coincidir EXACTO con lo que leen las
 // libs (lib/integraciones.ts, lib/meta-ads.ts, etc.).
 
+// Seguro de importar acá aunque el módulo llegue al bundle del cliente:
+// lib/app-url no tiene `server-only` y, sin APP_BASE_URL (que es server-side),
+// cae a NEXT_PUBLIC_APP_URL, que Next inlinea en el build. Se usa para escribir
+// la URL real en los pasos que la piden (ver ayudaDeCampo).
+import { APP_BASE_URL } from './app-url';
+
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
   env: string;
@@ -594,11 +600,18 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   FATHOM_WEBHOOK_SECRET: {
     pasos: [
-      'Solo hace falta si registrás el webhook de Fathom, para que la asistencia a las reuniones se marque sola.',
-      'En fathom.video andá a User Settings → API Access → Manage → Add Webhook.',
-      'Poné como destino la URL de tu app: https://<tu-dominio>/api/webhooks/fathom',
-      'Activá include_transcript — la app lo usa para confirmar que el invitado habló.',
-      'Copiá el secret que Fathom te muestra al crear el webhook (empieza con whsec_).',
+      // Se dice ANTES que nada que es opcional y QUÉ cambia: sin esto igual se
+      // marca la asistencia y se adjunta la grabación (lo hace adjuntarFathomAuto
+      // con la API key, por cron y por evento). Lo que se gana es que pase EN EL
+      // MOMENTO en vez de en la próxima pasada: el aviso por WhatsApp, el disparo
+      // de flujos y el borrador de follow-up post-llamada.
+      'Es OPCIONAL. Sin esto igual traemos tus reuniones, pero en la pasada siguiente en vez de al instante: te perdés el aviso al toque y el borrador de seguimiento.',
+      'En fathom.video: User Settings → API Access → Manage → Add Webhook.',
+      // La URL REAL, no un placeholder: que el cliente tenga que deducir su propio
+      // dominio era la fricción principal de este paso.
+      'Pegá esta URL como destino: {{APP_URL}}/api/webhooks/fathom',
+      'Activá include_transcript — lo usamos para confirmar que el invitado habló.',
+      'Copiá el secret que Fathom te muestra al crear el webhook (empieza con whsec_) y pegalo acá.',
     ],
     url: 'https://fathom.video/customize#api-access-header',
     urlLabel: 'Fathom → API Access',
@@ -718,7 +731,17 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
 };
 
-/** Pasos para conseguir ESA credencial. null → la UI cae al tutorial del servicio. */
+/**
+ * Pasos para conseguir ESA credencial. null → la UI cae al tutorial del servicio.
+ *
+ * Los pasos pueden escribir `{{APP_URL}}` y acá se reemplaza por el dominio REAL.
+ * No es cosmético: cuando un paso pide pegar una URL NUESTRA en el panel de un
+ * tercero (el webhook de Fathom), un `https://<tu-dominio>/…` obliga al cliente a
+ * deducir cuál es su dominio, que es justo lo que no tiene por qué saber. Y al
+ * salir del literal, una mudanza de dominio ya no deja el instructivo mintiendo.
+ */
 export function ayudaDeCampo(env: string): { pasos: string[]; url?: string; urlLabel?: string } | null {
-  return AYUDA_CAMPO[env] ?? null;
+  const a = AYUDA_CAMPO[env];
+  if (!a) return null;
+  return { ...a, pasos: a.pasos.map((p) => p.replaceAll('{{APP_URL}}', APP_BASE_URL)) };
 }
