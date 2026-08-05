@@ -52,14 +52,25 @@ const SOLO_ADMIN = ['/admin', '/api/admin', '/metodo', '/api/metodo'];
 // muda), así que un cambio de dominio futuro es solo pisar HOST_CANONICO acá +
 // lib/app-url.ts + las env vars de Vercel.
 //
-// Con dos excepciones que NO se pueden cortar, porque no las abre una persona:
-//   · /api/cron      — Vercel invoca los crons contra la URL del DEPLOY, no
-//                      contra el dominio. Bloquearlos apagaba todos los crons.
-//   · /api/webhooks  — Chatwoot y Evolution pueden tener registrada una URL
-//     /api/track       vieja. Cortarlas silenciaba WhatsApp hasta re-registrarlas.
-// Ambas se autentican por firma/secret propio, así que abrirlas por host no
-// afloja nada. Cuando los webhooks queden re-registrados en el dominio actual,
-// '/api/webhooks' y '/api/track' pueden salir de esta lista.
+// Con tres excepciones que NO se pueden cortar, porque no las abre una persona.
+// Todas validan por firma/secret propio, así que abrirlas por host no afloja nada:
+//
+//   · /api/cron     — PERMANENTE. Vercel invoca los crons contra la URL del
+//                     DEPLOY (*.vercel.app), nunca contra el dominio. Sacarla
+//                     apaga los 14 crons. No es deuda: es cómo funciona Vercel.
+//   · /api/webhooks — Se puede sacar cuando TODOS los webhooks estén
+//                     re-registrados en el dominio actual (Chatwoot, las 4
+//                     instancias de Evolution, Calendly, Fathom, Meta, Resend).
+//                     Sacarla antes silencia WhatsApp y el alta de leads: el 410
+//                     es definitivo, no hay reintento que lo salve.
+//   · /api/track    — La landing NO es un webhook re-registrable por API: es HTML
+//                     de un tercero (Lovable) donde el snippet queda CONGELADO con
+//                     la URL del día que se copió, y hay que re-pegarlo en la
+//                     landing de CADA cliente. Solo se saca cuando ninguna
+//                     propiedad de terceros apunte a un host viejo — y eso se
+//                     comprueba con datos (¿entran filas nuevas en landing_visits?),
+//                     no suponiendo. Precedente: 18 días de tracking muerto sin
+//                     un solo error visible.
 const HOST_CANONICO = 'hola-mako.com';
 const EXENTAS_DE_HOST = ['/api/cron', '/api/webhooks', '/api/track'];
 

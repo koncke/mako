@@ -727,10 +727,25 @@ async function listarWebhooks(c: Cfg): Promise<CwWebhook[]> {
   return p?.webhooks ?? [];
 }
 
-// Los webhooks de la cuenta que apuntan a NUESTRO receiver (ignorando la query):
-// los que registramos nosotros o los que se pusieron a mano en su momento.
+// Los webhooks de la cuenta que apuntan a NUESTRO receiver: los que registramos
+// nosotros o los que se pusieron a mano en su momento.
+//
+// Se compara por PATH, ignorando host y query. Comparar la URL entera fue un bug
+// real: al cambiar de dominio, los webhooks viejos dejaban de "ser nuestros", así
+// que repararWebhookChatwoot() entraba por la rama de "no hay ninguno" y CREABA
+// uno nuevo en vez de actualizar el que había — y el borrado de duplicados nunca
+// los alcanzaba. Resultado medido tras la mudanza a makodigital.app: dos webhooks
+// vivos entregando el mismo message_created, o sea aviso duplicado al dueño y
+// turnos repetidos en la memoria del doer. Con el path alcanza: el receiver es
+// nuestro sin importar por qué dominio lo llamen.
 function webhooksPropios(hooks: CwWebhook[], esperada: string): CwWebhook[] {
-  return hooks.filter((h) => h.url && sinQuery(h.url) === sinQuery(esperada));
+  const pathEsperado = pathDe(esperada);
+  return hooks.filter((h) => h.url && pathDe(h.url) === pathEsperado);
+}
+
+/** Path de una URL, o null si no parsea (un webhook ajeno con URL rara no debe romper). */
+function pathDe(u: string): string | null {
+  try { return new URL(u).pathname; } catch { return null; }
 }
 
 // Verificación REAL de extremo a extremo: pingeamos NUESTRO receiver con el

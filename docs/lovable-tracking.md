@@ -66,6 +66,25 @@ No cambió, salvo el agregado de `t`:
 
 `Access-Control-Allow-Origin: *`, sin credenciales: cada cliente sirve su landing
 desde **su** dominio, así que no hay allowlist de origins que valga para todos.
-El token es el que identifica al workspace. `VSL_ALLOWED_ORIGINS` sigue
-existiendo pero **solo aplica a los beacons legacy sin token** (ver arriba):
-aplicárselo a un beacon con token bloquearía a todos los clientes.
+El token es lo único que identifica al workspace.
+
+No hay `VSL_ALLOWED_ORIGINS` ni ninguna otra allowlist por env — se quitó del
+código y este doc afirmaba lo contrario. Ver el comentario de
+`app/api/track/vsl/route.ts`: nada de esto se configura en el servidor.
+
+## Al cambiar el dominio de la app
+
+⚠️ **El snippet queda congelado con la URL del día que se copió.** Es HTML pegado
+en una propiedad de un tercero: no se entera nunca de una mudanza de dominio, y
+hay que re-pegarlo en la landing de **cada** cliente.
+
+Falla en silencio y de la peor forma: el beacon hace `fetch(...).catch(function(){})`
+y el receptor devuelve 200 aunque descarte el evento, así que no hay ni un error en
+consola. Precedente medido: **18 días de tracking muerto** (2026-07-15 → 08-03) con
+anuncios corriendo, sin que ninguna señal de negocio lo detectara.
+
+Pasos: `/integraciones` → tarjeta **Landing / VSL** → **Copiar código** → reemplazar
+el bloque `<script>` en la landing → publicar → verificar que entran filas nuevas
+(`SELECT max(created_at) FROM landing_visits WHERE workspace_id = <ws>`), no dar por
+hecho que anduvo. El `TOKEN` del snippet **no cambia** con la mudanza: mapea el
+workspace en `webhook_routing` y es independiente del dominio.
