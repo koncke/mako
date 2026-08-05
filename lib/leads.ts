@@ -69,6 +69,11 @@ export type Lead = {
   total_cuotas: number | null;    // 1..6
   dia_de_pago: number | null;     // 1..28
 
+  // Venta recurrente / suscripción (#363, mig 0115). 'unico' = pago único (default).
+  venta_tipo?: 'unico' | 'suscripcion' | null;
+  suscripcion_monto_usd?: number | null;   // importe MENSUAL (MRR)
+  suscripcion_meses?: number | null;        // plazo fijo en meses; null = indefinida
+
   adset_id_origen: string | null;
 
   // UTMs — vienen del webhook de Calendly (vía landing en Lovable)
@@ -220,6 +225,7 @@ const LISTA_COLS =
   'id, nombre, email, empresa, telefono, telefono_normalizado, created_at, estado_lead, pipeline_stage, nutricion_realizada, nutricion_manual_deadline, ' +
   'fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, fecha_confirmacion, fecha_primer_pago, fecha_cierre, ' +
   'monto_cierre_usd, total_cobrado_usd, closer, setter, fathom_links, motivo_perdida, visitor_id, ' +
+  'venta_tipo, suscripcion_monto_usd, suscripcion_meses, ' +
   'meta_ad_name, meta_campaign_name, meta_lead_id, meta_ad_id, utm_campaign, ' +
   'respuesta_objetivo, respuesta_facturacion, respuesta_colaboradores, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor';
 

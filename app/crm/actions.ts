@@ -200,6 +200,10 @@ export type StageMoveData = {
   comprobanteOmitido?: boolean;
   /** La R2 se agendó fuera de Calendly: motivo (satisface respuestas R2). */
   r2AgendaExternaMotivo?: string | null;
+  // ── Venta recurrente / suscripción (#363) ──
+  ventaTipo?: 'unico' | 'suscripcion' | null;
+  suscripcionMonto?: number | null;   // importe MENSUAL (MRR)
+  suscripcionMeses?: number | null;    // plazo fijo en meses; null = indefinida
 };
 
 /**
@@ -222,7 +226,11 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     monto: d.monto ?? before?.monto_cierre_usd ?? null,
     motivo: d.motivo ?? before?.motivo_perdida ?? null,
     // Higiene (setter/closer/empresa/deal/comprobante) NO gatea el movimiento.
-    tienePlan: to === 'ganado' ? (!!d.plan || !!d.cuotas?.length || pagosExistentes.length > 0) : undefined,
+    // Una suscripción (aunque sea indefinida y sin cuotas) es un plan válido: el
+    // monto mensual ES el plan, así que no se exige el plan de cuotas fijo.
+    tienePlan: to === 'ganado'
+      ? (!!d.plan || !!d.cuotas?.length || pagosExistentes.length > 0 || d.ventaTipo === 'suscripcion' || before?.venta_tipo === 'suscripcion')
+      : undefined,
     hoyISO: hoyEnTijuana(),
     // La excepción vale si se declara AHORA o si ya quedó persistida en el lead.
     sinR1: !!d.sinR1Motivo?.trim() || !!before?.sin_r1,
@@ -324,6 +332,21 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   if (Object.keys(omisiones).length) {
     const { error: omErr } = await (await getTenantDb()).from('leads').update(omisiones).eq('id', id);
     if (omErr) console.error(`[leads] guardar omisiones (¿falta migración 0069?): ${omErr.message}`);
+  }
+
+  // Venta recurrente / suscripción (#363, mig 0115): tipo + monto mensual + plazo.
+  // Update aparte para no tumbar lo de arriba si la migración aún no corrió.
+  if (d.ventaTipo !== undefined) {
+    const sub: Record<string, unknown> = { venta_tipo: d.ventaTipo ?? 'unico' };
+    if (d.ventaTipo === 'suscripcion') {
+      sub.suscripcion_monto_usd = d.suscripcionMonto ?? null;
+      sub.suscripcion_meses = d.suscripcionMeses ?? null;
+    } else {
+      sub.suscripcion_monto_usd = null;
+      sub.suscripcion_meses = null;
+    }
+    const { error: subErr } = await (await getTenantDb()).from('leads').update(sub).eq('id', id);
+    if (subErr) console.error(`[leads] guardar suscripción (¿falta migración 0115?): ${subErr.message}`);
   }
 
   // 5) Mover (updateLead sincroniza estado primero; override solo si OK).

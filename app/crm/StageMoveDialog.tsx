@@ -23,6 +23,13 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 const compInput: CSSProperties = { width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', textAlign: 'center' };
 
+/** ISO (yyyy-mm-dd) + n meses, conservando el día. Para las cuotas mensuales de una suscripción a plazo fijo. */
+function sumarMesesISO(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, (m - 1) + n, d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
 // "dd/mm/aaaa" (formato del extractor de contratos) → "aaaa-mm-dd" (input date). '' si no matchea.
 const dmyaIso = (s: string): string => {
   const m = (s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -62,6 +69,9 @@ export type MoveLeadInfo = {
   dealPromesaOk?: boolean;
   dealFiscalOk?: boolean;
   dealObligacionesOk?: boolean;
+  // Venta recurrente / suscripción (#363): para prefill al reabrir el wizard.
+  ventaTipo?: 'unico' | 'suscripcion' | null;
+  suscripcionMeses?: number | null;
 };
 
 export function leadToMoveInfo(l: CrmLead): MoveLeadInfo {
@@ -152,6 +162,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [fathom, setFathom] = useState<FathomLink[]>(() => (lead.fathom.length ? lead.fathom : [{ label: 'Llamada', url: '' }]));
   const [fathomOmitido, setFathomOmitido] = useState(false);
   const [monto, setMonto] = useState(lead.monto ? String(lead.monto) : '');
+  // Venta recurrente (#363): tipo + plazo. El monto mensual reusa el campo `monto`.
+  const [ventaTipo, setVentaTipo] = useState<'unico' | 'suscripcion'>(lead.ventaTipo === 'suscripcion' ? 'suscripcion' : 'unico');
+  const [susMeses, setSusMeses] = useState(lead.suscripcionMeses ? String(lead.suscripcionMeses) : '');
   // Motivo en 2 pasos: categoría (botón) + detalle específico (texto libre).
   const [motivo, setMotivo] = useState(lead.motivo ?? '');
   const [motivoDetalle, setMotivoDetalle] = useState('');
@@ -258,7 +271,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     if (requeridos.has('dealObligaciones')) p.push('dealObligaciones');
 
     if (requeridos.has('monto')) p.push('monto');
-    if (requeridos.has('plan')) p.push('plan');
+    // Suscripción: el monto mensual + el plazo se cargan en el paso 'monto'; no hay
+    // plan de cuotas fijo que deba cuadrar con un total, así que se saltea 'plan'.
+    if (requeridos.has('plan') && ventaTipo !== 'suscripcion') p.push('plan');
     if (requeridos.has('motivo')) { p.push('motivo'); p.push('motivoDetalle'); }
     // Higiene (Completar datos): setter/closer/empresa/teléfono.
     if (requeridos.has('setter')) p.push('setter');
@@ -279,7 +294,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       filtrados.unshift('auto');
     }
     return filtrados;
-  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte]);
+  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo]);
 
   // Índice actual + historial REAL de pasos visitados (para que Atrás vuelva
   // al paso anterior visitado, no al índice-1 cuando hubo saltos).
@@ -288,12 +303,14 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const paso = pasos[Math.min(idx, pasos.length - 1)];
 
   const totalMonto = parseFloat(monto) || 0;
+  const esSuscripcion = ventaTipo === 'suscripcion';
   const sumaCuotas = cuotas.reduce((s, c) => s + (parseFloat(c.monto) || 0), 0);
   // El plan debe cubrir el monto de cierre, pero se tolera una diferencia chica:
   // el deal se pacta en USD y los cobros suelen ser en MXN, así que al convertir
   // cada cuota quedan diferencias de redondeo (centavos a unos pocos dólares).
+  // Una SUSCRIPCIÓN no tiene total fijo (es mensual) → no se exige que cuadren.
   const tolCuotas = Math.max(1, totalMonto * 0.005);
-  const cuotasCuadran = requeridos.has('plan') ? Math.abs(sumaCuotas - totalMonto) <= tolCuotas && sumaCuotas > 0 : true;
+  const cuotasCuadran = esSuscripcion ? true : (requeridos.has('plan') ? Math.abs(sumaCuotas - totalMonto) <= tolCuotas && sumaCuotas > 0 : true);
 
   const respondido = (() => {
     switch (paso) {
@@ -351,7 +368,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     setErr(null);
     startTransition(async () => {
       try {
-        const cuotasPayload: StageMoveCuota[] = requeridos.has('plan')
+        const meses = parseInt(susMeses, 10) || 0;
+        // Suscripción a plazo fijo → N cuotas mensuales del monto mensual (dan cash
+        // tracking). Indefinida → sin cuotas (se registran mes a mes desde el Deal).
+        // Pago único → las cuotas cargadas a mano.
+        const cuotasPayload: StageMoveCuota[] = esSuscripcion
+          ? (meses > 0 ? Array.from({ length: meses }, (_, i) => ({ monto: totalMonto, fecha: sumarMesesISO(hoyISO, i + 1) })) : [])
+          : requeridos.has('plan')
           ? cuotas.filter((c) => parseFloat(c.monto) > 0).map((c) => ({ monto: parseFloat(c.monto), fecha: c.fecha || null }))
           : [];
         await completeStageMoveAction(lead.id, to, {
@@ -361,7 +384,14 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           ...(pide('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
           ...(pide('calificado') ? { calificado } : (to === 'ganado' ? { calificado: true } : {})),
           ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
-          ...(pide('monto') ? { monto: totalMonto || null } : {}),
+          // Suscripción: el monto NO va a monto_cierre_usd (no infla el revenue único);
+          // va como suscripcion_monto_usd (MRR) + el tipo y el plazo.
+          ...(pide('monto') ? {
+            monto: esSuscripcion ? null : (totalMonto || null),
+            ventaTipo,
+            suscripcionMonto: esSuscripcion ? (totalMonto || null) : null,
+            suscripcionMeses: esSuscripcion ? (meses || null) : null,
+          } : {}),
           ...(pide('motivo') ? { motivo: motivoFinal || null } : {}),
           ...(pide('setter') ? { setter: setter.trim() || null } : {}),
           ...(pide('closer') ? { closer: closer.trim() || null } : {}),
@@ -587,11 +617,31 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         </div>
       );
       break;
-    case 'monto':
-      pregunta = '¿De cuánto fue el cierre?';
-      sub = 'En USD.';
-      cuerpo = <input inputMode="numeric" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" autoFocus style={{ ...compInput, maxWidth: 220, margin: '0 auto', display: 'block', fontSize: 22, fontWeight: 700 }} />;
+    case 'monto': {
+      const btnTipo = (activo: boolean): CSSProperties => ({ flex: 1, padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, background: activo ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'), color: activo ? '#F3F5F8' : 'var(--ink)' });
+      pregunta = esSuscripcion ? '¿De cuánto es la suscripción?' : '¿De cuánto fue el cierre?';
+      sub = esSuscripcion ? 'Importe MENSUAL, en USD.' : 'En USD.';
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 320, margin: '0 auto' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={() => setVentaTipo('unico')} style={btnTipo(!esSuscripcion)}>Pago único</button>
+            <button type="button" onClick={() => setVentaTipo('suscripcion')} style={btnTipo(esSuscripcion)}>Suscripción mensual</button>
+          </div>
+          <input inputMode="numeric" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" autoFocus style={{ ...compInput, maxWidth: 220, margin: '0 auto', display: 'block', fontSize: 22, fontWeight: 700 }} />
+          {esSuscripcion && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 6 }}>Duración</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+                <input inputMode="numeric" value={susMeses} onChange={(e) => setSusMeses(e.target.value.replace(/[^\d]/g, ''))} placeholder="meses" style={{ ...compInput, maxWidth: 110, textAlign: 'center' }} />
+                <button type="button" onClick={() => setSusMeses('')} style={btnTipo(!susMeses)}>Indefinida</button>
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6 }}>{susMeses ? `${susMeses} meses a plazo fijo` : 'Mes a mes, hasta que cancele'}</div>
+            </div>
+          )}
+        </div>
+      );
       break;
+    }
     case 'motivo':
       pregunta = esDescal ? '¿Por qué se descalificó?' : '¿Por qué se perdió?';
       sub = 'Elegí la categoría; en el próximo paso contás el detalle.';
@@ -769,8 +819,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         }
       }
       if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
-      if (pide('monto')) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
-      if (pide('plan')) filas.push(['Cuotas', `${cuotas.filter((c) => parseFloat(c.monto) > 0).length} (suman $${sumaCuotas.toLocaleString('en-US')})`]);
+      if (pide('monto') && esSuscripcion) filas.push(['Suscripción', totalMonto ? `$${totalMonto.toLocaleString('en-US')}/mes · ${susMeses ? `${susMeses} meses` : 'indefinida'}` : '—']);
+      if (pide('monto') && !esSuscripcion) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
+      if (pide('plan') && !esSuscripcion) filas.push(['Cuotas', `${cuotas.filter((c) => parseFloat(c.monto) > 0).length} (suman $${sumaCuotas.toLocaleString('en-US')})`]);
       if (pide('motivo')) filas.push([esDescal ? 'Motivo de descalificación' : 'Motivo de pérdida', motivoFinal || '—']);
       if (pide('setter')) filas.push(['Setter', setter.trim() || '—']);
       if (pide('closer')) filas.push(['Closer', closer.trim() || '—']);

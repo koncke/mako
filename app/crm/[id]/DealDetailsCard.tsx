@@ -411,6 +411,11 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
                 Monto de cierre <b style={{ color: 'var(--ink)' }}>USD {fmtUSD(montoCierre)}</b>{lead.fecha_cierre ? ` · fecha de cierre ${fmtDDMMYYYY(lead.fecha_cierre)}` : ''}
               </div>
             )}
+            {lead.venta_tipo === 'suscripcion' && (
+              <div style={{ marginTop: 6, fontSize: 13, color: 'var(--dim)' }}>
+                🔁 Suscripción <b style={{ color: 'var(--ink)' }}>USD {fmtUSD(lead.suscripcion_monto_usd ?? 0)}/mes</b> · {lead.suscripcion_meses ? `${lead.suscripcion_meses} meses` : 'mes a mes (indefinida)'}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             <Semaforo tono={sem.tono} texto={sem.texto} />
