@@ -276,11 +276,17 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const propuestosPorElPerro = new Map<string, { nombre: string; que: string; porQue: string }>();
     if (destinos.length) {
       const r = await asignarTareasAProyectos(
-        validos.map((it) => ({ titulo: it.titulo.trim(), grupo: it.proyecto?.trim() })),
+        // El DETALLE va: sin él el ruteador ve una lista de títulos sueltos y manda
+        // «Diseñar el módulo de Diagnóstico» a Onboarding porque suena parecido.
+        validos.map((it) => ({ titulo: it.titulo.trim(), grupo: it.proyecto?.trim(), detalle: it.detalle })),
         destinos,
         'Rutear tareas nuevas a proyectos',
-      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string }>, nuevos: [] as Array<{ nombre: string; que: string; porQue: string }> }; });
+      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string }>, nuevos: [] as Array<{ nombre: string; que: string; porQue: string; tareas: number[] }> }; });
       for (const a of r.asign) ruteo[a.i] = a.destino;
+      // Los índices que vinieron con el proyecto nuevo MANDAN sobre `asign`: si el
+      // modelo propuso «Mindset» para las tareas 0,1,2 pero en `asign` las mandó a tres
+      // lugares distintos, el proyecto nacía vacío y las tareas se desparramaban igual.
+      for (const n of (r.nuevos ?? [])) for (const i of (n.tareas ?? [])) ruteo[i] = n.nombre;
       // Los proyectos que el Perro pidió abrir porque nada de la lista los cubría.
       // Vienen con su descripción y su porqué: se guardan para que el proyecto nuevo
       // nazca explicándose solo, igual que uno del catálogo.

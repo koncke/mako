@@ -435,11 +435,19 @@ POR QUÉ: cuando esto decidía "ante la duda, creá uno nuevo", el tablero termi
 PERO TAMPOCO METAS A LA FUERZA. Cerrar la lista del todo tuvo su propio costo: cuatro tareas legales y fiscales se repartieron por palabra suelta —los Términos de Servicio cayeron en "Landing y VSL", la apertura de la LLC en "Cobros y planes", el marco de responsabilidad en "Seguridad"— y ninguna de las tres pantallas tiene nada que ver: eso no se programa, se firma y se paga. Una tarea en el proyecto equivocado es peor que un proyecto de más: ensucia el avance del proyecto que la recibió Y esconde la que llegó.
 
 CUÁNDO SÍ PROPONER UNO NUEVO (en "nuevos"). Las CUATRO condiciones, juntas:
-  1. Al menos TRES tareas de este mismo lote comparten el tema.
+  1. Al menos TRES tareas de este mismo lote comparten el tema (o TODAS, si el lote es de menos de tres).
   2. NINGÚN proyecto de la lista lo cubre — no "no es el ideal": no lo cubre. Antes de decidirlo, releé la descripción de los tres que más se le parecen.
-  3. Es un ÁREA PERMANENTE del negocio, no un proyecto puntual. "Legal y fiscal" sí; "Migrar a Deepseek" no (eso va a Infraestructura). Preguntate: ¿dentro de un año va a seguir cayendo trabajo acá? Si la respuesta es no, entra en uno existente.
-  4. El nombre se entiende SOLO, en 1 a 3 palabras, como el nombre de una tab: "Legal y fiscal", "Soporte", "Contabilidad". Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
-Si dudás, NO lo propongas: la tarea entra en el mejor de la lista y listo. Un proyecto nuevo mal abierto tarda meses en notarse.
+  3. Es un LUGAR PERMANENTE donde va a seguir cayendo trabajo. Dos cosas califican: un área del negocio ("Legal y fiscal", "Soporte") y **una FUNCIONALIDAD NUEVA del producto** — una tab, un módulo, un agente que todavía no existe. Lo que NO califica es un proyecto puntual que se termina: "Migrar a Deepseek" no es un lugar, es una tarea (va a Infraestructura).
+  4. El nombre se entiende SOLO, en 1 a 4 palabras, como el nombre de una tab: "Legal y fiscal", "Soporte", "Mindset". Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
+
+DOS EJEMPLOS REALES, uno de cada lado:
+· SÍ. Cuatro tareas sobre facturación electrónica (la tab en el sidebar, el timbrado, la factura automática al cobrar, el reporte para el contador). El catálogo no tiene nada de eso: "Cobros y planes" es la pantalla de precios y "Legal y fiscal" son los papeles del negocio, no un módulo del producto. Es una tab nueva → "Facturación".
+· NO. Tres tareas sobre arreglar el filtro de fechas, el orden de las columnas y un botón del Ads Manager. Suena a un proyecto ("Mejoras del Ads Manager") y no lo es: ya existe "Ads Manager" y ahí es donde alguien las iría a buscar.
+
+CÓMO CORTAR LA DUDA, para los dos lados:
+· Si dudás entre dos proyectos DE LA LISTA → elegí el mejor de la lista, siempre.
+· Pero si lo que dudás es si el tema TIENE lugar en la lista, y las tareas hablan de algo que la app todavía no tiene, proponelo. Meter una funcionalidad nueva adentro de la tab que más se le parece ensucia el avance de esa tab Y esconde el trabajo nuevo: es peor que un proyecto de más.
+· El "grupo propuesto" que viene al lado de cada tarea es una PISTA FUERTE: si varias tareas comparten el mismo grupo y ese grupo no está en la lista, eso es exactamente la señal de que falta un proyecto. No lo ignores.
 
 CÓMO DECIDIR:
 1. Leé la descripción de cada proyecto (el texto después del guion), no solo el nombre. Ahí dice qué entra.
@@ -465,7 +473,11 @@ Devolvé el JSON: una asignación por CADA tarea, con el nombre exacto de su pro
 export type RuteoItem = { i: number; destino: string; razon: string };
 /** Un proyecto que el Perro pide abrir porque nada de la lista cubre el tema. Llega
  *  con el POR QUÉ para que se pueda discutir, no solo con el nombre. */
-export type RuteoNuevo = { nombre: string; que: string; porQue: string };
+export type RuteoNuevo = { nombre: string; que: string; porQue: string;
+  /** los índices de las tareas que van ahí. Se USAN: si el modelo propone bien el
+   *  proyecto pero se olvida de repetir el nombre en `asign`, el proyecto nacía vacío
+   *  y las tareas se desparramaban igual. */
+  tareas: number[] };
 export type RuteoOut = { asign: RuteoItem[]; nuevos?: RuteoNuevo[]; usage?: UsageInfo };
 
 /**
@@ -477,12 +489,20 @@ export type RuteoOut = { asign: RuteoItem[]; nuevos?: RuteoNuevo[]; usage?: Usag
  * devuelve SIEMPRE un nombre de la lista.
  */
 export async function asignarTareasAProyectos(
-  tareas: Array<{ titulo: string; grupo?: string }>,
+  tareas: Array<{ titulo: string; grupo?: string; detalle?: string }>,
   destinos: Array<{ nombre: string; que?: string; n?: number }>,
   usoMotivo?: string,
 ): Promise<RuteoOut> {
   if (!tareas.length || !destinos.length) return { asign: [] };
-  const tareasStr = tareas.map((t, i) => `[${i}] ${t.titulo}${t.grupo ? `  (grupo propuesto: "${t.grupo}")` : ''}`).join('\n');
+  // EL DETALLE VA. Antes el prompt eran CINCO LÍNEAS de títulos sueltos, y con eso
+  // «Diseñar módulo de Diagnóstico de Mindset» suena a Onboarding y «repositorio de
+  // ideas de contenido» suena a Instagram. El modelo no fallaba: no tenía con qué.
+  // Se recorta a 240 caracteres: alcanza para saber DE QUÉ ES la tarea sin volver el
+  // prompt un ladrillo (con 40 tareas, 240 × 40 son ~2.400 tokens).
+  const tareasStr = tareas.map((t, i) => {
+    const det = (t.detalle ?? '').replace(/\s+/g, ' ').trim().slice(0, 240);
+    return `[${i}] ${t.titulo}${t.grupo ? `  (grupo propuesto: "${t.grupo}")` : ''}${det ? `\n     ${det}` : ''}`;
+  }).join('\n');
   // El QUÉ ENTRA de cada proyecto va SIEMPRE: pasarle solo los nombres era pedirle que
   // adivinara qué significa "Cerebro & Analítica", y adivinando es como duplicaba.
   const plan = destinos.map((o) => `· ${o.nombre}${o.que ? ` — ${o.que}` : ''}${o.n ? ` (${o.n} tareas)` : ''}`).join('\n');
@@ -502,12 +522,17 @@ export async function asignarTareasAProyectos(
   // el prompt: un prompt es una intención, esto es el contrato. Sin las tres barreras
   // volvemos al tablero de 64 proyectos con uno por tarea.
   const nuevos: RuteoNuevo[] = (Array.isArray(obj.nuevos) ? (obj.nuevos as Record<string, unknown>[]) : [])
-    .map((n) => ({
-      nombre: String(n.nombre ?? '').trim().slice(0, 40),
-      que: String(n.que ?? '').trim().slice(0, 300),
-      porQue: String(n.porQue ?? '').trim().slice(0, 300),
-      cuantas: Array.isArray(n.tareas) ? n.tareas.length : 0,
-    }))
+    .map((n) => {
+      const idx = (Array.isArray(n.tareas) ? n.tareas : [])
+        .map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < tareas.length);
+      return {
+        nombre: String(n.nombre ?? '').trim().slice(0, 40),
+        que: String(n.que ?? '').trim().slice(0, 300),
+        porQue: String(n.porQue ?? '').trim().slice(0, 300),
+        tareas: idx,
+        cuantas: idx.length,
+      };
+    })
     .filter((n) => {
       if (!n.nombre || n.nombre.length < 4) return false;
       // Ya existe (con otra tilde o mayúscula): no es nuevo, es el mismo.
@@ -518,12 +543,29 @@ export async function asignarTareasAProyectos(
       if (/^(implementar|crear|armar|hacer|definir|revisar|migrar|configurar|montar|desarrollar|evaluar|investigar|redactar|diseñar)/i.test(n.nombre)) return false;
       // Un área permanente arrastra varias tareas. Una sola tarea nunca justifica un
       // proyecto: entra en el mejor de la lista y si el tema crece, ya se verá.
-      if (n.cuantas < 3) return false;
+      // ≥3 del mismo tema… salvo que el lote sea más chico que 3: un lote de 2 tareas
+      // de una feature nueva no puede cumplir un umbral de 3 nunca, y así el camino de
+      // WhatsApp (que manda lotes de 1 y 2) quedaba estructuralmente incapaz de abrir
+      // un proyecto. Con una sola tarea de un lote grande sigue siendo imposible, que es
+      // el abuso que había que frenar.
+      if (n.cuantas < Math.min(3, tareas.length)) return false;
       // Sin el porqué no se puede discutir la decisión, así que no se toma.
       return n.porQue.length >= 15;
     })
     .slice(0, 2)  // como mucho DOS por lote: si "faltan" cinco áreas, el problema es otro
-    .map(({ nombre, que, porQue }) => ({ nombre, que, porQue }));
+    .map(({ nombre, que, porQue, tareas: idx }) => ({ nombre, que, porQue, tareas: idx }));
+  // QUÉ SE DESCARTÓ Y POR QUÉ. El filtro era 100% silencioso: si el modelo proponía
+  // bien y el nombre tenía cinco palabras, no quedaba rastro de nada.
+  for (const n of (Array.isArray(obj.nuevos) ? (obj.nuevos as Record<string, unknown>[]) : [])) {
+    const nom = String(n.nombre ?? '').trim();
+    if (!nom || nuevos.some((x) => normNombre(x.nombre) === normNombre(nom))) continue;
+    const cuantas = (Array.isArray(n.tareas) ? n.tareas : []).length;
+    const motivo = canon.has(normNombre(nom)) ? 'ya existe'
+      : nom.split(/\s+/).filter(Boolean).length > 4 ? 'más de 4 palabras'
+      : cuantas < Math.min(3, tareas.length) ? `solo ${cuantas} tarea(s)`
+      : String(n.porQue ?? '').trim().length < 15 ? 'sin porqué' : 'otro';
+    console.warn(`[mako-guardian] proyecto nuevo DESCARTADO «${nom}»: ${motivo}`);
+  }
   for (const n of nuevos) canon.set(normNombre(n.nombre), n.nombre);
   if (nuevos.length) console.log(`[mako-guardian] proyecto(s) nuevo(s) propuestos: ${nuevos.map((n) => `«${n.nombre}» (${n.porQue})`).join(' · ')}`);
 

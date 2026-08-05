@@ -88,12 +88,26 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
   if (!destinos.length) return out;
 
   const r = await asignarTareasAProyectos(
-    pendientes.map((i) => ({ titulo: items[i].titulo, grupo: items[i].proyectoSugerido })),
+    // Con el DETALLE: el cliente también manda tareas de un tema que su tablero todavía
+    // no tiene, y con el título solo el ruteador no puede saberlo.
+    pendientes.map((i) => ({ titulo: items[i].titulo, grupo: items[i].proyectoSugerido, detalle: items[i].detalle ?? undefined })),
     destinos,
     'Rutear tareas nuevas del cliente a sus proyectos',
-  ).catch((e) => { console.error('[todo-rutear] asignar:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string; razon: string }> }; });
+  ).catch((e) => { console.error('[todo-rutear] asignar:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string; razon: string }>, nuevos: [] as Array<{ nombre: string; que: string; porQue: string; tareas: number[] }> }; });
+
+  // Los proyectos que el Perro pidió abrir. El camino del cliente los TIRABA: tenía
+  // menos capacidad que el del dueño sin ninguna razón.
+  const nuevosPorNombre = new Map((r.nuevos ?? []).map((n) => [n.nombre, n]));
+  for (const n of (r.nuevos ?? [])) {
+    for (const k of (n.tareas ?? [])) {
+      const idx = pendientes[k];
+      if (idx == null) continue;
+      out[idx] = { nombre: n.nombre, razon: n.porQue.slice(0, 200) || 'MaKo lo abrió: ninguno de los que tenías lo cubría' };
+    }
+  }
 
   for (const a of r.asign) {
+    if (nuevosPorNombre.has(a.destino) && out[pendientes[a.i] ?? -1]?.nombre === a.destino) continue;
     const idx = pendientes[a.i];
     if (idx == null) continue;
     const cat = delCatalogoTodo(a.destino);
