@@ -8,7 +8,9 @@ import 'server-only';
 //
 //   1) RESOLVER   — de un email de la reunión a una persona: ¿tiene cuenta en la
 //                   app?, ¿en qué workspace?, ¿tenemos su teléfono?
-//   2) MANDAR     — sus tareas por WhatsApp (voz de MaKo) y/o por mail (Resend).
+//   2) MANDAR     — sus tareas por WhatsApp y/o por mail (Resend). El WhatsApp
+//                   sale del NÚMERO DEL WORKSPACE que manda, no del de MaKo: el
+//                   que recibe es del equipo de esa persona y la tiene agendada.
 //   3) CARGAR     — si tiene cuenta, dejarle el BORRADOR en SU plan: la próxima vez
 //                   que entra ve "Martín te envió estas tareas de la reunión…" y
 //                   las confirma. Nunca se le escriben tareas a ciegas en su tablero.
@@ -26,6 +28,7 @@ import { getUsuarioActual } from './auth';
 import { estaImpersonando, getWorkspaceActual } from './workspace';
 import { findLeadByContacto } from './leads';
 import { enviarAPersonaMaKo } from './mako-grupo';
+import { enviarTexto } from './evolution';
 import { sendEmail } from './resend';
 import { crearPropuesta, type PropuestaTarea } from './plan-propuesta';
 import { APP_BASE_URL as APP_URL } from './app-url';
@@ -192,8 +195,27 @@ export async function enviarTareasAPersona(opts: {
     const tel = (opts.telefono || dest.telefono || '').trim();
     if (!tel) res.wa = { ok: false, error: 'no tengo su número de WhatsApp' };
     else {
-      const r = await enviarAPersonaMaKo(tel, textoWhatsapp(de, dest.nombre, tareas, reunion, opts.link));
-      res.wa = r.ok ? { ok: true } : { ok: false, error: r.error };
+      const texto = textoWhatsapp(de, dest.nombre, tareas, reunion, opts.link);
+      // SALE DEL NÚMERO DEL WORKSPACE, no del de MaKo.
+      //
+      // Este mensaje no es MaKo hablando: es el dueño de la cuenta mandándole a
+      // SU equipo las tareas de SU reunión, y el que las recibe lo conoce a él.
+      // Salía por `instanciaVoz()`, que es una sola para toda la plataforma (el
+      // número de Martín): a un colaborador de otro cliente le llegaban sus
+      // tareas desde un número desconocido, firmadas por alguien que no es su
+      // jefe. Con `enviarTexto` sale por la instancia `mako_ws<id>` de quien
+      // manda, que es el número que esa persona ya tiene agendado.
+      const r = await enviarTexto(tel, texto);
+      if (r.ok) res.wa = { ok: true };
+      else {
+        // El fallback existe para no perder el mensaje cuando el cliente todavía
+        // no vinculó su número: ahí sale por MaKo, que es mejor que no salir. Se
+        // avisa el motivo para que se entienda por qué llegó de otro número.
+        const alt = await enviarAPersonaMaKo(tel, texto);
+        res.wa = alt.ok
+          ? { ok: true, error: 'salió desde el número de MaKo: este cliente todavía no tiene su WhatsApp vinculado' }
+          : { ok: false, error: r.error };
+      }
     }
   }
   if (canales.email) {
