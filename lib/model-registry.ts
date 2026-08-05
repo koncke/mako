@@ -60,6 +60,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: CLAUDE(), recomendado: CLAUDE(), nota: 'El análisis más pesado del producto. Opus.' },
   { feature: 'ads-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: SONNET, nota: 'Lectura estructural creativa. Sonnet.' },
   { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: SONNET },
+  { feature: 'landing-analyst', label: 'Diagnosticar una landing', grupo: 'Análisis', def: SONNET, nota: 'Lee el copy de la página y lo cruza con el comportamiento medido (visitas, retención, agendas). Sin PII: la landing es pública y las métricas van agregadas. Sonnet.' },
   // Se agrega SOLO porque lib/todo-seed-ia.ts lee `overrideDeFeature('plan-seed-ia')` y
   // le pasa el pin a chatCheapCascade (que por su cuenta NO mira este registro). Sin ese
   // pin, la entrada sería un verde mudo: se elegiría un modelo acá y seguiría corriendo
@@ -70,6 +71,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: SONNET, nota: 'Estrategia + voz de marca. Sonnet.' },
   { feature: 'ads-writer', label: 'Escribir copy de anuncios', grupo: 'Copywriting', def: SONNET, recomendado: GEMINI(), nota: 'Copy sin datos de clientes → candidato a Gemini Flash (1M de contexto, gratis con la key del cliente).' },
+  { feature: 'landing-writer', label: 'Escribir la landing (Landing Generator)', grupo: 'Copywriting', def: SONNET, nota: 'Escribe la estructura y el copy de la página entera desde el funnel, el perfil y —si lo hay— el diagnóstico del Landing Analyst. Voz de marca sin PII → Sonnet.' },
   { feature: 'wa-advisor', label: 'Asesor de WhatsApp — sugerir respuesta a un lead', grupo: 'Copywriting', def: SONNET, pii: true, nota: 'Analiza la charla real y propone el próximo mensaje (datos del cliente).' },
   { feature: 'wa-advisor-chat', label: 'Asesor de WhatsApp — conversar con MaKo sobre el lead', grupo: 'Copywriting', def: SONNET, pii: true, nota: 'Ida y vuelta de preguntas sobre el lead (datos del cliente).' },
   { feature: 'wa-template', label: 'Generar plantilla de WhatsApp (asesor)', grupo: 'Copywriting', def: SONNET },

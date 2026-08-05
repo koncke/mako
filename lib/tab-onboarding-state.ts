@@ -108,6 +108,33 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     ],
     href: '/chat-agent',
   },
+
+  // ── Landing Analyst: la única tab que se configura USÁNDOLA ──
+  // No hay credencial que pedir ni contexto que redactar: el funnel y el perfil
+  // ya están cargados, y el "ensayo" ES el primer análisis. Por eso el paso que
+  // bloquea es analizar una página, y se marca solo desde analizarLanding().
+  // El seguimiento es opcional a propósito: sin él MaKo diagnostica el copy
+  // igual — lo que suma es poder cruzarlo con lo que hace la gente.
+  'landing-an': {
+    key: 'landing-an',
+    titulo: 'Configuración del Landing Analyst',
+    pasos: [
+      { key: 'analizar', label: 'Tu primera página analizada' },
+      { key: 'seguimiento', label: 'Seguimiento puesto en la landing', opcional: true },
+    ],
+    href: '/landing-analyst',
+  },
+
+  // ── Landing Generator: se prende escribiendo la primera página ──
+  'landing-writer': {
+    key: 'landing-writer',
+    titulo: 'Configuración del Landing Generator',
+    pasos: [
+      { key: 'generar', label: 'Tu primera versión escrita' },
+      { key: 'guardar', label: 'Una versión guardada', opcional: true },
+    ],
+    href: '/landing-writer',
+  },
 };
 
 /**

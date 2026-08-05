@@ -38,6 +38,13 @@ import {
   SCRIPT_VALORACION_SYSTEM_TEMPLATE,
   SCRIPT_VALORACION_USER_TEMPLATE,
 } from './ads-analyst';
+import { LANDING_ANALYZE_SYSTEM_TEMPLATE, LANDING_ANALYZE_USER_TEMPLATE } from './landing-analyst';
+import {
+  LANDING_SUGGEST_SYSTEM_TEMPLATE,
+  LANDING_SUGGEST_USER_TEMPLATE,
+  LANDING_ADJUST_SYSTEM_TEMPLATE,
+  LANDING_ADJUST_USER_TEMPLATE,
+} from './landing-writer';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
@@ -515,6 +522,61 @@ export const REGISTRY: Group[] = [
         variables: [v('duracion', 'duración estimada'), v('guion', 'el guion nuevo'), v('perfil', 'perfil real de la cuenta en JSON')], scope: 'full', sensitive: false,
         default: SCRIPT_VALORACION_USER_TEMPLATE,
         context: 'Le pasa a MaKo el guion nuevo y el perfil real de la cuenta en JSON, y le pide valorar uno contra el otro. Mantené los slots y el pedido final del JSON.',
+      },
+    ],
+  },
+  {
+    group: 'Diagnóstico de la landing (Landing Analyst)',
+    icon: '🌐',
+    blurb: 'MaKo baja tu landing, le lee el copy y lo cruza con el comportamiento real de esa página (visitas, retención del video, agendas) para decirte qué cambiar primero.',
+    entries: [
+      {
+        key: 'landing_analyst.analyze.system', source: 'override',
+        label: 'Instrucciones de diagnóstico de landing (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: LANDING_ANALYZE_SYSTEM_TEMPLATE,
+        context: 'El cerebro del Landing Analyst: las 5 dimensiones que puntúa (Claridad, Promesa, Prueba, Llamado a la acción, Fricción), la regla de que cada hallazgo va CITADO con texto literal de la página, la prohibición de inventar métricas y la forma EXACTA del JSON. Si cambiás los labels de las dimensiones o el esquema, la pantalla deja de poder leer el análisis.',
+      },
+      {
+        key: 'landing_analyst.analyze.user', source: 'override',
+        label: 'Página + comportamiento medido (user)', kind: 'user', dynamic: true,
+        variables: [v('meta', 'URL, título y meta descripción de la página'), v('comportamiento', 'visitas, visitantes, retención y agendas REALES de esa URL'), v('negocio', 'funnel + perfil del negocio'), v('copy', 'el copy de la página en orden de lectura')], scope: 'full', sensitive: false,
+        default: LANDING_ANALYZE_USER_TEMPLATE,
+        context: 'Le pasa a MaKo la página bajada y las métricas reales de esa misma URL. El bloque de comportamiento lo calcula el CÓDIGO (nunca la IA): es lo que le permite decir "la promesa se entiende pero el 70% se va antes del botón". Conservá los slots y la cláusula de seguridad del copy.',
+      },
+    ],
+  },
+  {
+    group: 'Escritor de landings (Landing Generator)',
+    icon: '✍️',
+    blurb: 'MaKo escribe la página entera —estructura y copy terminado— desde tu funnel, tu oferta y, si ya la analizaste, el diagnóstico de la landing actual.',
+    entries: [
+      {
+        key: 'landing_writer.suggest.system', source: 'override',
+        label: 'Propuesta de landing (system)', kind: 'system', dynamic: true,
+        variables: [v('metodologia', 'método de páginas de conversión'), v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: LANDING_SUGGEST_SYSTEM_TEMPLATE,
+        context: 'Pone a MaKo a escribir el copy terminado de la página, derivando el CTA del funnel. NO borres el bloque "PROHIBIDO INVENTAR": es lo que impide que salga una landing con testimonios y cifras falsas, que es un problema legal y no una sugerencia. Conservá los slots {{metodologia}}/{{jsonShape}} y el esquema del JSON o la pantalla de revisión no puede leer la propuesta.',
+      },
+      {
+        key: 'landing_writer.suggest.user', source: 'override',
+        label: 'Pedido + contexto + diagnóstico (user)', kind: 'user', dynamic: true,
+        variables: [v('pedido', 'lo que pidió el usuario'), v('objetivo', 'objetivo de la página y su criterio'), v('contexto', 'funnel + perfil + método'), v('diagnostico', 'diagnóstico del Landing Analyst si esa URL ya se analizó')], scope: 'full', sensitive: false,
+        default: LANDING_SUGGEST_USER_TEMPLATE,
+        context: 'Le pasa a MaKo el pedido y el contexto real del negocio. El slot {{diagnostico}} es el que cierra el loop analizar → reescribir: cuando la URL ya pasó por el Landing Analyst, entran sus hallazgos para que la versión nueva los resuelva. Conservá los slots.',
+      },
+      {
+        key: 'landing_writer.adjust.system', source: 'override',
+        label: 'Ajuste de la landing (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: LANDING_ADJUST_SYSTEM_TEMPLATE,
+        context: 'Cuando el usuario pide cambios sobre una propuesta, MaKo aplica SOLO lo pedido y conserva el resto palabra por palabra. Conservá el slot {{jsonShape}} y la regla de no reescribir bloques que no se pidieron.',
+      },
+      {
+        key: 'landing_writer.adjust.user', source: 'override',
+        label: 'Spec actual + cambio pedido (user)', kind: 'user', dynamic: true,
+        variables: [v('specActual', 'el LandingSpec actual en JSON'), v('instruccion', 'el cambio que pide el usuario'), v('contexto', 'contexto del negocio')], scope: 'full', sensitive: false,
+        default: LANDING_ADJUST_USER_TEMPLATE,
+        context: 'Le pasa a MaKo el spec actual y el cambio pedido. Mantené los slots y el pedido de devolver el JSON COMPLETO (si devuelve solo el bloque cambiado, se pierde el resto de la página).',
       },
     ],
   },

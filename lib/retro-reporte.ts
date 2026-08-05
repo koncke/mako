@@ -32,7 +32,7 @@ export const TOOL_LABEL: Record<ToolId, string> = {
 /** Ruta real de la app para "Ver en {tab} →" (null = todavía no existe la tab). */
 export const TOOL_HREF: Partial<Record<ToolId, string>> = {
   market: '/marketing', crm: '/crm', closing: '/closing', script: '/ads-analyst',
-  graphics: '/dashboard', todo: '/plan',
+  graphics: '/dashboard', todo: '/plan', landing: '/landing-analyst',
 };
 
 // ── Evidencia (el bloque visual del modal de hallazgo) ───────────────────────

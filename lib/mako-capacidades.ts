@@ -35,13 +35,23 @@ export const CAPACIDADES: Capacidad[] = [
   },
   {
     id: 'creativos', tab: 'Fábrica de creativos', ruta: '/onboarding',
-    que: 'Sacar avatares, razones de compra, la matriz de ángulos, el lead magnet y los guiones de los videos.',
-    como: ['Abrí la Fábrica de creativos', 'Elegí el avatar y la razón que querés atacar', 'Pedile el guion: MaKo elige el ángulo y la estructura', 'Bajá el guion y grabá'],
+    que: 'Sacar los avatares, las razones de compra, el lead magnet y la persona de marca — el material del que salen los anuncios.',
+    como: ['Abrí la Fábrica de creativos', 'Definí tus avatares', 'Dejá que MaKo saque las razones de compra de cada uno', 'Cargá tu lead magnet'],
   },
   {
     id: 'copy-ads', tab: 'Ads Writer', ruta: '/ads-writer',
-    que: 'Escribir el copy de un anuncio y sus variantes, en la voz del negocio.',
-    como: ['Entrá a Ads Writer', 'Decile qué anuncio querés y para qué avatar', 'Elegí la variante que más te cierra'],
+    que: 'Escribir los guiones de los anuncios de video, y seguirlos de borrador a publicado.',
+    como: ['Entrá a Ads Writer', 'En la Matriz, abrí el anuncio (avatar × razón) que querés atacar', 'Pedile el guion: MaKo elige el ángulo y la estructura solo', 'En Guiones los ves todos, los filtrás y los vas marcando grabado y publicado'],
+  },
+  {
+    id: 'landing-diagnosticar', tab: 'Landing Analyst', ruta: '/landing-analyst',
+    que: 'Diagnosticar una landing: MaKo la abre, le lee el mensaje y lo cruza con lo que hace la gente que llega (visitas, retención del video, agendas) para decir qué cambiar primero.',
+    como: ['Entrá a Landing Analyst', 'Pegá la dirección de tu página y tocá Analizar', 'Mirá los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
+  },
+  {
+    id: 'landing-escribir', tab: 'Landing Generator', ruta: '/landing-writer',
+    que: 'Escribir la landing entera —estructura y copy terminado— desde tu oferta y tu proceso comercial. Si la página ya se analizó, la escribe resolviendo esos hallazgos.',
+    como: ['Entrá a Landing Generator', 'Contale qué página necesitás y qué tiene que lograr', 'Elegí en "Sobre cuál" la página ya analizada para que arregle lo que falla', 'Pedile los cambios que quieras y copiá el texto listo'],
   },
   {
     id: 'crm-lead', tab: 'CRM', ruta: '/crm',

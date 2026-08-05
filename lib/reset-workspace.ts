@@ -44,6 +44,7 @@ const TABLAS_RESET = [
   'plan_tareas', 'plan_proyectos', 'plan_propuestas', 'tarea_categorias', 'retros', 'review_queue',
   // ── Análisis ──
   'closing_analyses', 'script_analyses', 'script_drafts',
+  'landing_analyses', 'landing_drafts',
   'ad_transcripts', 'creative_transcripts',
   // ── Métricas e ingesta ──
   'marketing_metrics_daily', 'adset_budget_daily', 'meta_health_history', 'service_incidents',
