@@ -46,14 +46,41 @@ que conviene hacer el cambio apenas deployás.
 
 ## Contrato del payload
 
-No cambió, salvo el agregado de `t`:
-
 | Evento | Payload |
 | --- | --- |
 | Visita | `{ t, visitor_id, tipo_evento:'pageview', landing_url, referrer }` |
-| Play | `{ t, visitor_id, tipo_evento:'play', porcentaje:0, video_id, vsl_titulo }` |
-| Retención | `{ t, visitor_id, tipo_evento:'p05'…'p100', porcentaje, video_id, vsl_titulo }` |
-| Abandono | `{ t, visitor_id, tipo_evento:'exit', porcentaje, video_id, vsl_titulo }` |
+| Play | `{ t, visitor_id, tipo_evento:'play', porcentaje:0, segundos:0, video_id, vsl_titulo }` |
+| Retención | `{ t, visitor_id, tipo_evento:'p05'…'p100', porcentaje, segundos, video_id, vsl_titulo }` |
+| Retención por tiempo | `{ t, visitor_id, tipo_evento:'s15'…'s2400', segundos, video_id, vsl_titulo }` |
+| Abandono | `{ t, visitor_id, tipo_evento:'exit', porcentaje, segundos, video_id, vsl_titulo }` |
+
+### Por qué `segundos` y por qué los hitos `sNN` (2026-08-05)
+
+El reproductor de Panda emite `panda_timeupdate`, pero su payload trae **solo**
+`{ message, video, currentTime, isMutedIndicator, isPreviousProgressLoaded }`:
+**no trae `duration`**. El snippet viejo hacía `if (!dur) return;` y por eso
+salía en *todos* los eventos — cero hitos de retención y el `exit` siempre en 0%.
+Fue la causa exacta del apagón del 15/jul al 5/ago de 2026.
+
+La duración solo llega por `panda_allData` (`playerData.duration`), que el player
+emite por su cuenta y que **no se le puede pedir**: los mensajes que acepta del
+padre son `play`, `pause`, `currentTime`, `volume`, `speed`, `colors` y
+`fullscreen` — ninguno de lectura.
+
+Por eso el navegador dejó de ser la autoridad del porcentaje:
+
+- manda **siempre** `segundos` (el `currentTime`, que Panda sí da siempre);
+- manda `pNN` cada 5% **si** llegó a conocer la duración;
+- y si no la conoce, marca por tiempo con `sNN` (15s, 30s, 60s, 120s, 180s,
+  300s, 420s, 600s, 900s, 1200s, 1800s, 2400s).
+
+El servidor deriva el % con la duración que ya trae la API de Panda
+(`lib/panda.ts` → `fetchPandaRetention`). Es retroactivo: los eventos guardados
+se pueden volver a porcentuar sin haber perdido nada.
+
+⚠️ Un `exit` sin `porcentaje` se guarda **NULL**, no 0. «No medido» y «no miró»
+son cosas distintas: confundirlas es lo que hizo que 18 días sin instrumentación
+parecieran 18 días de gente que abandonaba en el segundo cero.
 
 - `visitor_id`: UUID anónimo de la cookie `nqe_visitor_id` (1 año). El mismo UUID
   llega como `utm_term` al agendar en Calendly → así se cruza comportamiento por

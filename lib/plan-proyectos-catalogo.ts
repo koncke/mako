@@ -56,8 +56,15 @@ export const CATALOGO_PROYECTOS: ProyectoCatalogo[] = [
   { nombre: 'Ads Manager', emoji: '📣', familia: 'producto', que: 'Las campañas de Meta desde la app: crear, pausar, renombrar, presupuesto, y el agente que optimiza el gasto.' },
   { nombre: 'Fábrica de creativos', emoji: '🏭', familia: 'producto', que: 'Avatares, razones, matriz, lead magnet, personas, ángulos y guiones: la cadena que produce los creativos.' },
   { nombre: 'Ads Writer', emoji: '🖊️', familia: 'producto', que: 'La redacción de anuncios: copys, variantes y textos listos para publicar.' },
+  // Las dos del VSL faltaban, y la ausencia tenía el mismo costo que la de «Legal y
+  // fiscal»: sin destino propio, el Perro mandaba el trabajo del PRODUCTO a «Vender
+  // MaKo: Landing y VSL», que es el marketing propio de MaKo — otra pantalla, otro
+  // objetivo. Son tabs (nav.ts: 'vsl-writer' en Tools, 'vsl-an' en Analytics), así que
+  // van en la familia producto como sus hermanas de Ads.
+  { nombre: 'VSL Writer', emoji: '🖊️', familia: 'producto', que: 'El generador de guiones de VSL largo: estructuras de VSL, bloques del guion y las variantes a probar. NO es el VSL propio de MaKo (eso es «Vender MaKo: Landing y VSL»).' },
   { nombre: 'Closing Analyst', emoji: '📞', familia: 'producto', que: 'El analista de llamadas de venta: transcripciones, objeciones, y el copiloto en vivo.' },
   { nombre: 'Ads Analyst', emoji: '🎬', familia: 'producto', que: 'El analista de guiones y creativos: retención por cuartiles, qué gancho funciona.' },
+  { nombre: 'VSL Analyst', emoji: '🎥', familia: 'producto', que: 'El analista del VSL: en qué tramo se cae el espectador, contra qué parte del guion, y qué pasó después con ese lead en el CRM. NO es el VSL propio de MaKo (eso es «Vender MaKo: Landing y VSL»).' },
   { nombre: 'Market Analyst', emoji: '🕵️', familia: 'producto', que: 'El análisis de competencia: qué anuncia la competencia, qué ofertas hay en el mercado.' },
   { nombre: 'CS Analyst', emoji: '🩺', familia: 'producto', que: 'Retención y customer success: anticipar la baja de un cliente.' },
   { nombre: 'MaKo Doer', emoji: '🧠', familia: 'producto', que: 'MaKo que ACTÚA (no que opina): sus tools, el chat por WhatsApp con el dueño, las confirmaciones.' },

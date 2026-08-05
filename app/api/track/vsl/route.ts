@@ -2,8 +2,17 @@
 // Tracking del VSL — recibe eventos de la landing del CLIENTE (Lovable, etc.)
 // =============================================================================
 // La landing manda acá la visita y la profundidad de visualización del VSL:
-//   { t, visitor_id, tipo_evento: 'pageview'|'play'|'pNN'(cada 5%)|'exit', porcentaje, video_id }
-// 'exit' lleva el % EXACTO de abandono. Compat: payload viejo { event, play_count }.
+//   { t, visitor_id, tipo_evento: 'pageview'|'play'|'pNN'(cada 5%)|'sNN'|'exit',
+//     porcentaje, segundos, video_id }
+// 'exit' lleva el punto EXACTO de abandono. Compat: payload viejo { event, play_count }.
+//
+// PROFUNDIDAD (mig 0121): el player de Panda NO le dice la duración al navegador
+// en cada tick (panda_timeupdate trae currentTime y nada más), así que el dato
+// que manda es `segundos` y el % se deriva server-side con la duración de la API
+// de Panda. Los hitos 'sNN' son la red de seguridad por tiempo para cuando el
+// navegador nunca supo la duración. Un 'exit' sin porcentaje NO es 0%: es
+// desconocido, y se guarda NULL — confundir las dos cosas fue justamente lo que
+// hizo que 18 días sin medición parecieran 18 días de gente que no miraba.
 //
 // RUTEO (lo que hace multi-tenant a este beacon): `t` es el token público de
 // landing del workspace (mko_ + 32 hex), que el usuario copia de /integraciones
@@ -108,7 +117,8 @@ type Payload = {
   ws_token?: unknown;    // alias de `t`
   visitor_id?: unknown;
   tipo_evento?: unknown;
-  porcentaje?: unknown;
+  porcentaje?: unknown;  // % del video; puede faltar (el player no siempre da la duración)
+  segundos?: unknown;    // currentTime del player: el dato CRUDO del que se deriva el % (mig 0121)
   video_id?: unknown;    // id del video de Panda (pruebas A/B de VSL)
   vsl_titulo?: unknown;  // título del video de Panda, si la landing lo puede leer
   landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
@@ -202,13 +212,19 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
 
   if (!tipoEvento) tipoEvento = 'play';
 
-  // tipo_evento válido: 'play' | 'exit' | 'pNN' (1..100). 'pNN' = hito de
-  // retención al cruzar NN% (la landing los manda cada 5%); 'exit' = punto
-  // EXACTO de abandono (% preciso en payload.porcentaje). Lo desconocido →
-  // 'play' para no perder la señal de vista.
+  // tipo_evento válido: 'play' | 'exit' | 'pNN' (1..100) | 'sNN' (segundo NN).
+  // 'pNN' = hito de retención al cruzar NN% (la landing los manda cada 5%);
+  // 'sNN' = red de seguridad por TIEMPO, para cuando el navegador no pudo saber
+  // la duración del video (ver mig 0121): trae los segundos y el % se deriva
+  // server-side. 'exit' = punto EXACTO de abandono.
   const milestoneMatch = /^p(\d{1,3})$/.exec(tipoEvento);
-  if (tipoEvento !== 'play' && tipoEvento !== 'exit' && !milestoneMatch) {
-    tipoEvento = 'play';
+  const segundoMatch = /^s(\d{1,5})$/.exec(tipoEvento);
+  if (tipoEvento !== 'play' && tipoEvento !== 'exit' && !milestoneMatch && !segundoMatch) {
+    // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
+    // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un
+    // contrato que cambia del lado de la landing tiene que ser VISIBLE.
+    console.warn(`[track:vsl] tipo_evento desconocido: ${tipoEvento.slice(0, 40)}`);
+    tipoEvento = 'desconocido';
   }
 
   // porcentaje (0-100): del payload si viene (afinado, ej. exit=73); si no, del pNN.
@@ -220,6 +236,15 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   } else if (tipoEvento === 'play') {
     porcentaje = 0;
   }
+
+  // Segundos absolutos vistos (currentTime del player). Es el dato del que se
+  // deriva la retención cuando el navegador no conoce la duración — mig 0121.
+  const segundos =
+    typeof payload.segundos === 'number' && Number.isFinite(payload.segundos)
+      ? Math.max(0, Math.round(payload.segundos * 100) / 100)
+      : segundoMatch
+        ? Number(segundoMatch[1])
+        : null;
 
   // `event` legacy derivado para que contarVslPlays (event='vsl_play') siga sirviendo.
   const event = tipoEvento === 'play' ? 'vsl_play' : 'vsl_watch';
@@ -235,6 +260,7 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       event,
       tipo_evento: tipoEvento,
       porcentaje,
+      segundos,
       play_count: playCount,
       // Multi-VSL (pruebas A/B desde Panda): id del video + título si la landing
       // lo puede leer. Antes video_id llegaba en el payload y se descartaba.
@@ -260,7 +286,8 @@ export async function GET() {
     {
       ok: true,
       endpoint: 'vsl tracking',
-      usage: "POST { t: 'mko_…', visitor_id, tipo_evento: 'pageview'|'play'|'p10'..'p100', porcentaje, video_id }",
+      usage:
+        "POST { t: 'mko_…', visitor_id, tipo_evento: 'pageview'|'play'|'p10'..'p100'|'s30'..'s2400'|'exit', porcentaje, segundos, video_id }",
     },
     { headers: CORS_HEADERS },
   );
