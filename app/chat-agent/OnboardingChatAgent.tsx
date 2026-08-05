@@ -592,11 +592,24 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     } catch { /* la próxima carga manda */ }
   }
 
+  /**
+   * Analiza las conversaciones elegidas. Es la llamada MÁS LARGA del onboarding
+   * —lee hasta 8.000 mensajes, los segmenta con el modelo barato y recién ahí
+   * llama a Claude—, y era la única sin red de contención: sin `catch` y sin
+   * timeout.
+   *
+   * Los dos finales que dejaba, y que el dueño veía como "se colgó":
+   *  · la ruta se pasa de sus 120s → llega un 504 que NO es JSON, `.json()`
+   *    revienta, y como nadie atrapa el error la pantalla queda igual que antes,
+   *    sin spinner y sin explicación: parece que el botón no hizo nada.
+   *  · la conexión se queda esperando y el `fetch` nunca resuelve → el spinner
+   *    gira para siempre.
+   */
   async function leerConversaciones() {
     if (!elegidos.size) { setErr('Elige al menos una conversación.'); return; }
     setBusy(true); setErr(null);
     try {
-      const j = await (await fetch('/api/chat-agent/onboarding/contexto', {
+      const r = await fetch('/api/chat-agent/onboarding/contexto', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         // Se manda cada charla con TODOS sus jids agrupados, no una lista plana:
         // el análisis corta la etapa de venta por conversación, así que necesita
@@ -605,10 +618,28 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           conversaciones: (convs ?? []).filter((c) => elegidos.has(c.clave))
             .map((c) => ({ clave: c.clave, nombre: c.nombre || c.telefono || 'Sin nombre', jids: c.jids })),
         }),
-      })).json();
+        // Un poco por encima del maxDuration de la ruta (120s): así el corte lo
+        // da el navegador con un mensaje, y no un spinner eterno.
+        signal: AbortSignal.timeout(135_000),
+      });
+      // El cuerpo puede no ser JSON (504/502 devuelven HTML). Se lee como texto y
+      // se parsea a mano para poder contar QUÉ pasó en vez de romperse.
+      const crudo = await r.text();
+      let j: (VozResultado & { ok?: boolean; error?: string }) | null = null;
+      try { j = JSON.parse(crudo); } catch { /* no era JSON */ }
+      if (!j) {
+        setErr(r.status === 504 || r.status === 502
+          ? 'El análisis tardó demasiado. Elige menos conversaciones (con 8 a 10 alcanza) y vuelve a intentarlo.'
+          : `El servidor respondió ${r.status}. Vuelve a intentarlo en un momento.`);
+        return;
+      }
       if (!j.ok) { setErr(j.error || 'No pude leer tus conversaciones.'); return; }
       setVoz(j as VozResultado);
       setPregIdx(0); setOtra(''); setEscribiendoOtra(false);
+    } catch (e) {
+      setErr(e instanceof DOMException && e.name === 'TimeoutError'
+        ? 'El análisis tardó más de dos minutos y se cortó. Elige menos conversaciones y vuelve a intentarlo.'
+        : 'Se cortó la conexión mientras analizaba. Vuelve a intentarlo.');
     } finally { setBusy(false); }
   }
 
@@ -1234,7 +1265,10 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               <button onClick={() => void leerConversaciones()} disabled={busy || elegidos.size === 0} style={{ ...btnDark, alignSelf: 'center', opacity: busy || !elegidos.size ? 0.55 : 1 }}>
                 {busy ? 'Leyendo…' : `🔎 Leer ${elegidos.size || ''} ${elegidos.size === 1 ? 'conversación' : 'conversaciones'}`}
               </button>
-              {busy && <Cargando texto="Leyendo tus chats y sacando tu patrón… puede tardar unos segundos" />}
+              {/* «unos segundos» era mentira y por eso la espera se sentía como un
+                  cuelgue: son hasta dos minutos, y decirlo cambia esperar por
+                  pensar que se rompió. */}
+              {busy && <Cargando texto="Leyendo tus chats y sacando tu patrón… puede tardar hasta dos minutos" />}
             </>
           )}
         </div>
