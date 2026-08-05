@@ -24,7 +24,6 @@ import { SimuladorEmail } from './SimuladorEmail';
 import { DashboardChatAgent } from './DashboardChatAgent';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
 import { OnboardingChatAgent } from './OnboardingChatAgent';
-import { DatosDeMau } from '@/app/_components/DatosDeMau';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -244,7 +243,6 @@ export function ChatAgentApp() {
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
           Todavía no hay secuencias en este workspace.{rolAdmin ? ' Empieza con «+ Nueva secuencia de mensajes».' : ''}
           {rolAdmin && <div style={{ marginTop: 14 }}><button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva secuencia de mensajes</button></div>}
-          <DatosDeMau ambito="setting" onListo={() => void load()} />
         </div>
       )}
 

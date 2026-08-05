@@ -46,7 +46,7 @@ function fmtFecha(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; }
 }
 
-export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onUsage, onClose, onAbrirBorrador, recibidos, onAbrirRecibido }: {
+export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onUsage, onClose, onAbrirBorrador, recibidos, onAbrirRecibido, catalogo }: {
   labels: Label[];
   existentes: Existente[];               // tareas abiertas del plan, para el dedup del Perro (punto 8)
   archivoInicial?: File | null;          // si entró por el botón "subir archivo" del toolbar (punto 7)
@@ -63,6 +63,13 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
    */
   recibidos?: Array<{ id: string; de: string; titulo: string; n: number }>;
   onAbrirRecibido?: (id: string) => void;
+  /**
+   * La lista cerrada de proyectos grandes. Cuando viene, la reunión SOLO puede
+   * mandar tareas a un proyecto del tablero o a uno de estos: sin esto, el modelo
+   * proponía el nombre que se le ocurriera y el board lo creaba tal cual — así
+   * nacieron tres proyectos de Instagram en dos semanas.
+   */
+  catalogo?: Array<{ nombre: string; emoji: string; que: string }>;
 }) {
   const [fase, setFase] = useState<'lista' | 'extrayendo' | 'cliente' | 'validar' | 'revisar'>('lista');
   // El cliente que el server reconoció en la reunión (por el email del invitado en el
@@ -163,7 +170,14 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
 
   const extraer = async (r: ReunionMeta, reanalizar = false) => {
     setElegida(r); setFase('extrayendo'); setErr(''); setFreno(frenoDeScope(r.tipo));
-    const proyectos = labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }));
+    // Los del tablero + los del catálogo que todavía no existen. El id `cat:` le dice
+    // al board "este hay que crearlo, y se llama exactamente así".
+    const norm = (x: string) => x.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+    const yaEstan = new Set(labels.map((l) => norm(l.name)));
+    const proyectos = [
+      ...labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name })),
+      ...(catalogo ?? []).filter((c) => !yaEstan.has(norm(c.nombre))).map((c) => ({ id: `cat:${c.nombre}`, emoji: c.emoji, nombre: c.nombre })),
+    ];
     // reanalizar: fuerza correr la IA de nuevo (ignora el cache). Sin esto, re-abrir la
     // misma reunión devuelve lo cacheado — NO cobra tokens (feedback jul-19).
     const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, titulo: r.titulo, proyectos, uso: 'Extraer tareas de reunión', reanalizar });

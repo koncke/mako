@@ -25,7 +25,6 @@ import type { CuotaProv } from '@/lib/ia-cuotas';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { agenteSkillMarkdown, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
 import ServicioConfigForm from './ServicioConfigForm';
-import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -226,7 +225,6 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
         </div>
       </div>
 
-      <DatosDeMau ambito="integraciones" onListo={() => window.location.reload()} />
 
       {/* ═══ REQUIERE ATENCIÓN ═══ */}
       {atencion.length > 0 && (

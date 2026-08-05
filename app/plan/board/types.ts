@@ -93,6 +93,14 @@ export type Repo = {
   // Habilita "Extraer de una reunión" (G3): lee Fathom y crea tareas. Solo el
   // super-admin de la agencia (usa la Fathom key de la agencia).
   fathomExtract?: boolean;
+  /**
+   * La lista CERRADA de proyectos grandes (lib/plan-proyectos-catalogo). Solo la trae
+   * el tablero del dueño: en el de un cliente los proyectos son SUS clientes, no las
+   * tabs del producto. Cuando está, la extracción de reuniones solo puede proponer
+   * proyectos de acá — que es lo que impide que una reunión abra un proyecto nuevo
+   * con el nombre que se le ocurra al modelo.
+   */
+  catalogo?: Array<{ nombre: string; emoji: string; que: string }>;
   createTask(draft: BoardTask): Promise<BoardTask>;  // devuelve canónica (id puede cambiar)
   saveTask(task: BoardTask): Promise<void>;          // upsert de una tarea existente
   deleteTask(id: string): Promise<void>;

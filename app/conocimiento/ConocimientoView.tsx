@@ -1,5 +1,4 @@
 'use client';
-import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 // =============================================================================
 // ConocimientoView — Conocimiento de MaKo por CURSOS (bajar a tierra metodología)
@@ -178,7 +177,6 @@ export function ConocimientoView() {
           ) : grupos.length === 0 ? (
             <div style={{ ...card, color: 'var(--faint)', fontSize: 14 }}>
               Todavía no hay conocimiento cargado. Importá un curso arriba o agregá uno abajo.
-              <DatosDeMau ambito="conocimiento" variante="bloque" onListo={() => window.location.reload()} />
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

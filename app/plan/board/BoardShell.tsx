@@ -34,7 +34,7 @@ import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
-import { DatosDeMau } from '@/app/_components/DatosDeMau';
+import { tareasACSV, proyectosACSV, tableroAMarkdown, descargar, nombreArchivo } from './exportar';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -509,6 +509,13 @@ export function BoardShell({ board, scope }: {
     // correspondían — o caía entero en el primero.
     const nuevosProy = new Map<string, string>(); // nombre normalizado → id creado
     const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    // `cat:<nombre>` = un proyecto DEL CATÁLOGO que todavía no está en el tablero. Se
+    // pasa a proyectoNombre para que siga UN solo camino de creación, y así el nombre
+    // y el emoji salen del catálogo y no de lo que se le ocurrió al modelo.
+    const delCat = (n: string) => repo.catalogo?.find((c) => norm(c.nombre) === norm(n));
+    for (const c of cands) {
+      if (c.proyectoId?.startsWith('cat:')) { c.proyectoNombre = c.proyectoId.slice(4); c.proyectoId = null; }
+    }
     for (const c of cands) {
       const nom = (c.proyectoNombre ?? '').trim();
       if (!nom || c.proyectoId || nuevosProy.has(norm(nom))) continue;
@@ -517,9 +524,10 @@ export function BoardShell({ board, scope }: {
       // El id que vale es el CANÓNICO (el del server). Guardar el temporal acá era lo
       // que dejaba las tareas de ese proyecto sin proyecto: viajaban con un id que
       // `Number()` vuelve NaN y el board lo filtra sin decir nada.
+      const cat = delCat(nom);
       const canon = await board.createLabel({
-        id: uid(), emoji: '🏷', name: nom, color: SWATCHES[(labels.length + nuevosProy.size) % SWATCHES.length],
-        score: 50, detalle: '', historial: [{ id: uid(), ts: Date.now(), actor: 'ia', text: `Creó el proyecto — de la reunión «${fuente?.etiqueta ?? ''}»` }],
+        id: uid(), emoji: cat?.emoji ?? '🏷', name: cat?.nombre ?? nom, color: SWATCHES[(labels.length + nuevosProy.size) % SWATCHES.length],
+        score: 50, detalle: cat?.que ?? '', historial: [{ id: uid(), ts: Date.now(), actor: 'ia', text: `Creó el proyecto — de la reunión «${fuente?.etiqueta ?? ''}»` }],
       });
       nuevosProy.set(norm(nom), canon.id);
     }
@@ -561,26 +569,30 @@ export function BoardShell({ board, scope }: {
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
       {/* símbolos de marca (para el logo de Fathom del toolbar/modal) — una vez por página */}
       <BrandDefs />
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 16px', flexWrap: 'wrap' }}>
+      {/* UNA SOLA LÍNEA, siempre. Antes tenía flexWrap:'wrap' y los botones de acción se
+          caían a un segundo renglón, que además quedaba pegado al borde izquierdo y no
+          se leía como parte del header. Lo que hace que entre: nada crece de más
+          (flex:'none' en cada control) y lo único elástico es el buscador, que se
+          achica hasta 90px antes que empujar a nadie. */}
+      <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 16px', flexWrap: 'nowrap', minWidth: 0 }}>
         {/* logo (checklist) + Plan — mismo ícono que la sidebar (feedback #2) */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flex: 'none' }}>
           <PlanIcon size={38} />
           <span style={{ fontSize: 40, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.025em', lineHeight: 1 }}>Plan</span>
         </div>
         {/* tabs */}
-        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
+        <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
           {(['prioridades', 'kanban', 'proyectos', 'graphics'] as const).map((v) => (
             <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v === 'proyectos' ? repo.labelPlural : v}</button>
           ))}
         </div>
         {/* de acá para la derecha, todo alineado a la derecha */}
         <span style={{ flex: 1 }} />
-        <DatosDeMau ambito="plan" onListo={() => window.location.reload()} />
         {view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
         {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
         {view === 'kanban' && <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: '0 1 200px', minWidth: 90, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
         </>}
         {/* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
@@ -602,7 +614,7 @@ export function BoardShell({ board, scope }: {
           </button>
         )}
         {view === 'proyectos' && <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: '0 1 200px', minWidth: 90, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
         </>}
         {/* Dos botones (feedback jul-18): el logo de Fathom (punto 6) abre la lista de
@@ -641,6 +653,9 @@ export function BoardShell({ board, scope }: {
               onChange={(e) => { const f = e.target.files?.[0]; if (f) { setReunionArchivo(f); setExtraerReunion(true); } e.currentTarget.value = ''; }} />
           </label>
         </>}
+        {/* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
+            igual en el tablero del dueño que en el del cliente, y baja al instante. */}
+        <ExportarMenu tasks={tasks} labels={labels} titulo={repo.labelPlural === 'Proyectos' ? 'Plan' : repo.labelPlural} />
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -699,7 +714,7 @@ export function BoardShell({ board, scope }: {
           <style>{'@keyframes makoSpinBS{to{transform:rotate(360deg)}}'}</style>
         </div>
       )}
-      {extraerReunion && <ReunionExtractModal labels={labels} archivoInicial={reunionArchivo}
+      {extraerReunion && <ReunionExtractModal catalogo={repo.catalogo} labels={labels} archivoInicial={reunionArchivo}
         // Los borradores que te MANDÓ otra persona no tienen una reunión tuya en la
         // lista de Fathom (esa grabación es de su cuenta), así que sin esta sección
         // quedaban sin puerta desde que el modal dejó de abrirse solo.
@@ -767,6 +782,53 @@ const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', 
 const cambiarBtn: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '1px solid var(--primary-weak)', background: 'var(--surface)', color: 'var(--primary)', fontWeight: 700, fontSize: 13, padding: '9px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS };
 
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
+/**
+ * Exportar el tablero. Un botón chico con tres salidas, porque son tres usos:
+ * las tareas en planilla, los proyectos en planilla, y todo junto como documento
+ * para leer o mandar. Se cierra al elegir, al tocar afuera y con Escape.
+ */
+function ExportarMenu({ tasks, labels, titulo }: { tasks: BoardTask[]; labels: Label[]; titulo: string }) {
+  const [abierto, setAbierto] = useState(false);
+  useEffect(() => {
+    if (!abierto) return;
+    const cerrar = () => setAbierto(false);
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
+    document.addEventListener('mousedown', cerrar);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', cerrar); document.removeEventListener('keydown', esc); };
+  }, [abierto]);
+
+  const opciones: Array<{ label: string; sub: string; run: () => void }> = [
+    { label: 'Tareas (CSV)', sub: `${tasks.length} filas para la planilla`, run: () => descargar(nombreArchivo(titulo, 'tareas', 'csv'), tareasACSV(tasks, labels), 'text/csv') },
+    { label: 'Proyectos (CSV)', sub: `${labels.length} con su avance`, run: () => descargar(nombreArchivo(titulo, 'proyectos', 'csv'), proyectosACSV(labels, tasks), 'text/csv') },
+    { label: 'Todo (Markdown)', sub: 'para leer o mandar', run: () => descargar(nombreArchivo(titulo, 'completo', 'md'), tableroAMarkdown(tasks, labels, titulo), 'text/markdown') },
+  ];
+
+  return (
+    <div style={{ position: 'relative', flex: 'none' }} onMouseDown={(e) => e.stopPropagation()}>
+      <button type="button" onClick={() => setAbierto((v) => !v)} aria-label="Exportar el tablero" title="Exportar las tareas y los proyectos"
+        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: `1px solid ${abierto ? 'var(--primary)' : 'var(--border-strong)'}`, background: 'var(--surface)', cursor: 'pointer', color: abierto ? 'var(--primary)' : 'var(--dim)', padding: 0 }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
+        onMouseLeave={(e) => { if (!abierto) { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; } }}>
+        <DownloadIcon />
+      </button>
+      {abierto && (
+        <div style={{ position: 'absolute', top: 44, right: 0, zIndex: 60, minWidth: 232, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: 5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {opciones.map((o) => (
+            <button key={o.label} type="button" onClick={() => { o.run(); setAbierto(false); }}
+              style={{ textAlign: 'left', border: 'none', background: 'transparent', borderRadius: 8, padding: '9px 11px', cursor: 'pointer', fontFamily: 'inherit' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{o.label}</span>
+              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', marginTop: 1 }}>{o.sub}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+function DownloadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>; }
+
 // Ícono de subir archivo (bandeja + flecha hacia arriba) para el botón del toolbar (punto 7).
 function UploadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M17 8l-5-5-5 5" /><path d="M12 3v12" /></svg>; }
 // Logo del Plan: checklist relleno (mismo motivo que el ícono de la sidebar). Los

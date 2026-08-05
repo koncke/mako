@@ -46,8 +46,13 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'mako-doer-in', label: 'MaKo en WhatsApp (Hola MaKo)', grupo: 'MaKo', def: SONNET, pii: true, nota: 'Doer con herramientas. El router elige por turno: charla → barato, dato/acción → Sonnet, análisis → Opus.' },
   { feature: 'mako-doer', label: 'MaKo Doer — acciones en la web', grupo: 'MaKo', def: SONNET, nota: 'Agente con herramientas. Sonnet por default.' },
   { feature: 'mako-chat', label: 'MaKo — chat sobre un gráfico', grupo: 'MaKo', def: SONNET, nota: 'Chat sobre un dashboard. Sonnet alcanza.' },
-  { feature: 'mako-guardian', label: 'Perro Guardián — cerebro de priorización (/plan)', grupo: 'MaKo', def: SONNET, nota: 'Debate prioridades, re-prioriza el plan y detecta duplicados. Razonamiento fino en Claude (Sonnet).' },
-  { feature: 'checklist-coach', label: 'MaKo te ayuda (tareas y proyectos)', grupo: 'MaKo', def: SONNET, nota: 'Genera preguntas, optimiza la tarea y propone el proyecto en /plan.' },
+  // EL PERRO CORRE EN GEMINI. Es el proceso de IA que más se dispara del producto —
+  // cada lote de tareas lo llama tres veces (puntuar, describir+checklist, rutear) y
+  // un lote son 40 tareas — así que era el que más gastaba, y su trabajo es
+  // clasificar contra una rúbrica escrita, no razonar sobre datos de clientes.
+  // Además NO lleva PII: ve títulos y detalles de tareas del propio negocio.
+  { feature: 'mako-guardian', label: 'Perro Guardián — cerebro de priorización (/plan)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), nota: 'Puntúa, rutea a proyectos y detecta duplicados. Clasificación contra rúbrica, sin datos de clientes → Gemini Flash. Si alguna vez afloja el criterio, se vuelve a Sonnet desde acá sin tocar código.' },
+  { feature: 'checklist-coach', label: 'MaKo te ayuda (tareas y proyectos)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe la descripción y la checklist de cada tarea nueva. Es la llamada más voluminosa del Perro (una por lote, con todas las tareas adentro) → Gemini Flash.' },
 
   // ── Análisis pesado sobre datos reales → OPUS (los únicos que se quedan) ─────
   { feature: 'closing', label: 'Análisis de llamadas de venta', grupo: 'Análisis', def: CLAUDE(), pii: true, recomendado: CLAUDE(), nota: 'Transcript + decisión comercial sobre PII. El análisis insignia: Opus.' },

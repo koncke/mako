@@ -17,7 +17,6 @@ import {
 } from '@/lib/pipeline';
 import { saveFunnelAction } from '../crm/actions';
 import { Dropdown } from '../components/Dropdown';
-import { DatosDeMau } from '@/app/_components/DatosDeMau';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -220,7 +219,6 @@ export function FunnelEditor({
             <p style={{ fontSize: 14.5, color: 'var(--dim)', margin: '10px 0 0', maxWidth: 660, lineHeight: 1.5 }}>
               Editás solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros — quitá la nutrición que no uses.
             </p>
-            <DatosDeMau ambito="funnel" onListo={() => window.location.reload()} />
           </div>
         )}
         <button onClick={() => setShowTemplates(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>▦ Plantillas</button>
