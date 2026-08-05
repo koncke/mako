@@ -25,7 +25,7 @@ async function main() {
     const db = await getTenantDb();
     const { data: proys } = await db.from('plan_proyectos').select('*').order('orden');
     const { data: tars } = await db.from('plan_tareas').select('*').order('num');
-    type P = { id: string; pid: string; name: string; emoji: string | null; color: string | null; score: number | null; descripcion: string | null };
+    type P = { id: string; pid: string; name: string; emoji: string | null; color: string | null; score: number | null; detalle: string | null };
     type T = {
       id: string; num: number; title: string; detalle: string | null; score: number | null; priority: string | null;
       progress: number | null; deadline: string | null; labels: string[] | null; fuente: unknown; historial: unknown;
@@ -44,7 +44,7 @@ async function main() {
     for (const p of P) {
       const n = T.filter((t) => (t.labels ?? []).includes(p.id));
       const abiertas = n.filter((t) => (t.progress ?? 0) < 100).length;
-      console.log(`  ${(p.pid ?? p.id).padEnd(6)} ${(p.emoji ?? '·')} ${p.name.padEnd(42).slice(0, 42)} score=${String(p.score ?? '-').padStart(3)}  ${String(n.length).padStart(2)} tareas (${abiertas} abiertas)${p.descripcion ? '' : '   [SIN DESCRIPCIÓN]'}`);
+      console.log(`  ${(p.pid ?? p.id).padEnd(6)} ${(p.emoji ?? '·')} ${p.name.padEnd(42).slice(0, 42)} score=${String(p.score ?? '-').padStart(3)}  ${String(n.length).padStart(2)} tareas (${abiertas} abiertas)   det=${(p.detalle ?? '').length}`);
     }
 
     console.log(`\nTAREAS (${T.length} · ${T.filter((t) => (t.progress ?? 0) < 100).length} abiertas)`);
