@@ -1237,17 +1237,24 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
   const [expand, setExpand] = useState<Set<string>>(new Set());
   const toggleExp = (id: string) => setExpand((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
   return (
-    <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
-      <div className="mako-prio" style={{ width: '100%', maxWidth: 1060, display: 'flex', gap: 20, alignItems: 'stretch' }}>
-        <style>{`@media (max-width:840px){.mako-prio{flex-direction:column!important}.mako-prio-obj{flex:none!important;width:auto!important}}`}</style>
+    // FLUIDA, no de ancho fijo. Antes era `maxWidth: 1060` + una columna clavada en
+    // 336px y una media query a 840: con el zoom del navegador (que cambia el ancho en
+    // píxeles CSS) quedaba una isla del mismo tamaño en el medio de la pantalla —
+    // achicando el zoom sobraba medio monitor vacío, y agrandándolo saltaba de golpe a
+    // una sola columna. Ahora las dos columnas son elásticas con un mínimo y el corte
+    // lo hace el propio `flex-wrap` cuando de verdad no entran: acompaña cualquier zoom
+    // sin escalones.
+    <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: 'clamp(12px,1.6vw,18px) clamp(14px,2.4vw,30px) 40px' }}>
+      <div className="mako-prio" style={{ width: '100%', maxWidth: 'min(1400px, 100%)', display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
         {/* IZQUIERDA — Objetivo Principal (card alto, clickeable) */}
-        <div className="mako-prio-obj" style={{ flex: '0 0 336px', display: 'flex' }}>
+        <div className="mako-prio-obj" style={{ flex: '1 1 300px', maxWidth: 440, minWidth: 260, display: 'flex' }}>
           {objetivo ? <ObjetivoCard objetivo={objetivo} prog={projProgress(board.tasks, objetivo.id)} onOpen={() => onOpenProj(objetivo.id)} /> : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>Todavía no hay un Objetivo Principal. Creá un proyecto y el perro elige el norte.</div>
           )}
         </div>
-        {/* DERECHA — las 3 tareas en prioridad */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* DERECHA — las 3 tareas en prioridad. `flex: 2 1 380px`: crece el doble que
+            el objetivo cuando sobra lugar y se va abajo sola cuando no entra. */}
+        <div style={{ flex: '2 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 Tareas prioritarias · {tasks.length}/{MAX_PRIORIDAD}</div>
           {tasks.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>

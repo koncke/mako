@@ -29,7 +29,7 @@ export function WizardShell({
   puedeAvanzar, enUltimo, confirmLabel, pending = false,
   atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false, hideAtras = false,
   fullscreen = false, escenario, siguienteLabel = 'Siguiente →', extraFooter, adminBar, hideSiguiente = false,
-  embebido = false,
+  embebido = false, ancho = 560,
 }: {
   titulo: string;            // línea mono arriba (ej. "Nutrición manual · Juan")
   total: number; idx: number;
@@ -63,6 +63,12 @@ export function WizardShell({
    * porque es bloqueante a propósito.
    */
   embebido?: boolean;
+  /**
+   * Ancho de la tarjeta en modo modal (default 560). Los pasos que muestran una LISTA
+   * —elegir proyectos, elegir tareas— necesitan más aire: con 560 los títulos se
+   * cortan y la pieza se lee como una columna finita.
+   */
+  ancho?: number;
 }) {
   const dots = (
     <div style={{ display: 'flex', gap: 6 }}>
@@ -91,7 +97,7 @@ export function WizardShell({
           pegados uno contra otro. Se estira a lo ancho a propósito (la caja de
           contexto y las listas ocupan todo); el CENTRADO de los botones lo pone
           cada paso con alignSelf, que es la regla de la pieza. */}
-      <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>{children}</div>
+      <div style={{ maxWidth: fullscreen ? 480 : Math.max(480, ancho - 80), margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>{children}</div>
       {error && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{error}</div>}
     </div>
   );
@@ -182,7 +188,7 @@ export function WizardShell({
   return (
     <div onClick={bloqueante ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true"
-        style={{ width: '100%', maxWidth: 560, maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+        style={{ width: '100%', maxWidth: ancho, maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ flex: 'none' }}>{header}</div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{cuerpo}</div>
         <div style={{ flex: 'none' }}>{footer}</div>

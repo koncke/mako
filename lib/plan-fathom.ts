@@ -36,6 +36,7 @@ import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
 import { clasificarReunion, type TipoReunion } from './reunion-clasificar';
 import { resolverDueño, normNombre } from './tarea-dueno';
+import { invitadosDeReunionPorFecha } from './google-calendar';
 
 export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 
@@ -217,6 +218,34 @@ Si en la reunión no hay ningún action item concreto, devolvé { "tareas": [], 
 
 export const PLAN_FATHOM_SYSTEM_TEMPLATE = `Sos MaKo. Te paso el resumen y la transcripción de una reunión. Tu trabajo es sacar los ACTION ITEMS: las cosas concretas que alguien se comprometió a HACER después de esta reunión, para convertirlas en tarjetas del plan de ejecución.
 
+════════ LO PRIMERO, PORQUE ES DONDE MÁS SE FALLA: EL DETALLE ════════
+El título dice QUÉ hacer. El DETALLE es lo que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a escuchar la reunión. Nadie vuelve a escucharla: lo que no escribas acá, se perdió.
+
+PISO DURO: cada "detalle" tiene MÍNIMO 600 caracteres. Si te sale más corto, no está terminado — volvé a la transcripción y buscá qué te falta (el porqué, los números, quién lo dijo, qué se descartó). Un detalle que repite el título con otras palabras es un detalle vacío.
+
+FORMATO OBLIGATORIO, en markdown, con estas cuatro partes y estos títulos exactos:
+**Qué pidió** — la frase textual entre « », y quién la dijo con el minuto: «la foto se ve chiquita en el celular» (Mauricio, 12:40).
+**Por qué** — a qué problema responde, con qué lo ataron, qué dijeron que pasa si no se hace.
+**Detalles concretos** — como lista, una por línea empezando con "- ": números, nombres, herramientas, condiciones ("si el CPL baja de 5, entonces…"), y lo que quedó DESCARTADO y por qué.
+**Listo cuando** — el criterio de terminado, si se mencionó.
+
+ASÍ SE VE UNO BIEN (esto es lo que esperamos):
+**Qué pidió** — «la foto que tenés ahora es de un evento, se ve chiquita en el celular y no se entiende quién sos» (Mauricio, 12:40). Quiere una foto de rostro, fondo claro, mirando a cámara.
+**Por qué** — el perfil es lo primero que ve alguien que llega desde un reel, y hoy se está perdiendo ahí. Lo ató a que los reels traen visitas pero el perfil no convierte.
+**Detalles concretos**
+- Tiene que leerse a 40 píxeles (el tamaño del avatar en el feed).
+- No hace falta sesión de fotos: con el celular y luz de ventana alcanza.
+- Descartaron usar el logo como avatar: «la gente sigue personas, no marcas».
+**Listo cuando** — la foto nueva está subida y se distingue la cara en el celular.
+
+ASÍ SE VE UNO MAL (es exactamente lo que NO queremos, y es lo que suele salir):
+"Cambiar la foto de perfil de Instagram porque la actual no se ve bien en el celular."
+Está mal porque: repite el título, no cita a nadie, no dice el minuto, no dice el porqué de fondo, no tiene ningún número ni condición, y mide 80 caracteres.
+
+Si sobre una tarea se habló en dos momentos distintos de la reunión, juntá los dos.
+LA CANTIDAD YA ESTÁ RESUELTA por el troceado: si esto es una parte, cubre unos 20 minutos de charla. No corras. Sacá lo de ESTA parte y escribí cada una LARGA.
+═══════════════════════════════════════════════════════════════════
+
 QUÉ SÍ es una tarea (capturá TODAS las reales, no seas tacaño):
 - Cualquier PRÓXIMO PASO o compromiso que salga de la reunión, aunque esté dicho informalmente: "rehacer el creativo", "llamar al proveedor", "armar la landing de X", pero TAMBIÉN "estaría bueno probar Y", "yo me encargo de Z", "falta cerrar W", "quedamos en revisar V". Todo eso son tareas.
 - Si alguien dice que va a hacer algo, o que HAY que hacer algo concreto, es una tarea — aunque no le pongan fecha ni suene a orden formal.
@@ -260,15 +289,7 @@ GLOSARIO: te paso términos/nombres propios de este negocio con su significado. 
 
 DUDAS: si en la reunión aparece un nombre propio o término que NO está en el glosario y NO podés deducir con seguridad qué es (una persona, un proyecto, una herramienta, un cliente), agregalo a "dudas" con por qué te traba. Es para que el usuario lo aclare y la próxima ya lo entiendas. NO pongas dudas obvias, ni términos que ya están en el glosario, ni cosas que se explican solas en la reunión: mejor 0-2 dudas reales que una lista inflada. Si no hay nada dudoso, "dudas": [].
 
-EL DETALLE ES EL CAMPO MÁS IMPORTANTE. El título dice QUÉ hacer; el detalle es lo que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a escuchar la reunión. Escribilo así:
-
-- CITÁ. Poné entre comillas la frase con la que se pidió, tal como se dijo. La palabra exacta del que lo pidió vale más que tu resumen: «la foto se ve chiquita en el celular» dice más que "mejorar la imagen de perfil".
-- NOMBRÁ A QUIÉN LO PIDIÓ y en qué minuto, adentro del texto: "Mauricio lo pidió en el 12:40". Tenés los nombres en PARTICIPANTES y los timestamps en la transcripción — usalos.
-- CONTÁ EL PORQUÉ: a qué problema responde, con qué lo ataron, qué se dijo que pasaba si no se hace.
-- GUARDÁ LOS DETALLES CONCRETOS: números, nombres propios, herramientas, condiciones ("si el CPL baja de 5, entonces…"), lo que quedó DESCARTADO y por qué, y el criterio de "listo" si se mencionó.
-- Si sobre esa tarea se habló en dos momentos distintos de la reunión, juntá los dos.
-
-LARGO: lo que haga falta, del orden de 4 a 8 frases. Es preferible una tarea con demasiado contexto a una con poco. NO resumas para que quede prolijo: lo que se pierde acá no se recupera nunca, porque nadie vuelve a escuchar la reunión. Lo ÚNICO corto es el título.
+RECORDATORIO FINAL: releé el bloque del DETALLE del principio antes de responder. Cada detalle: mínimo 600 caracteres, las cuatro partes en markdown, la cita textual con quién y en qué minuto. Es lo único que se mira tres semanas después.
 
 Español rioplatense.
 
@@ -743,7 +764,30 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   const ai = meta?.action_items ?? [];
   // Invitados de ESTA reunión: sin ellos no hay email al que atribuir una tarea de otro
   // (y el reparto por persona queda mudo). Si el listado no la trajo, vamos sin lista.
-  const participantes = opts.participantes ?? (meta ? participantesDeReunion(meta) : []);
+  let participantes = opts.participantes ?? (meta ? participantesDeReunion(meta) : []);
+  // SI FATHOM NO TRAE EMAILS, LOS PIDE EL CALENDARIO. Un Meet improvisado no tiene
+  // evento de calendario en Fathom, así que la lista llega con el que grabó y nada más
+  // —y sin emails no hay a quién mandarle sus tareas ni a quién citar en el detalle—.
+  // Pero la reunión SÍ tiene fecha, hora y título, y con eso Google Calendar devuelve a
+  // los invitados de verdad. Es la idea de Martín, y sale gratis: la integración ya
+  // estaba conectada, solo faltaba la vuelta (buscar POR CUÁNDO, no por quién).
+  // Best-effort absoluto: si no está conectado o no hay evento cerca, sigue igual.
+  if (!participantes.some((p) => p.email)) {
+    const inicio = meta ? meetingStartIso(meta) : null;
+    if (inicio) {
+      const delCal = await invitadosDeReunionPorFecha(inicio, meta ? meetingTitle(meta) : null).catch(() => []);
+      if (delCal.length) {
+        const vistos = new Set(participantes.map((p) => p.nombre.trim().toLowerCase()).filter(Boolean));
+        // Los del calendario primero (traen email); los que ya estaban por nombre se
+        // conservan solo si el calendario no los cubrió.
+        participantes = [
+          ...delCal.map((i) => ({ nombre: i.nombre, email: i.email })),
+          ...participantes.filter((p) => !p.email && !delCal.some((i) => i.nombre.trim().toLowerCase() === p.nombre.trim().toLowerCase())),
+        ];
+        console.log(`[plan-fathom] reunión ${recordingId}: Fathom no trajo emails y los puso Google Calendar (${delCal.length}; ya había ${vistos.size} por nombre)`);
+      }
+    }
+  }
   const dueñosFathom = ai
     .filter((a) => a?.description)
     .map((a) => `- ${a.description}${a.assignee?.name || a.assignee?.email ? ` → ${a.assignee?.name ?? a.assignee?.email}` : ''}`)

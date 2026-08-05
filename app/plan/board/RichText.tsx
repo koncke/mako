@@ -30,6 +30,32 @@ export function stripHtml(html: string): string {
   return (d.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Markdown → HTML, solo para el texto que MaKo escribe.
+ *
+ * El campo guarda HTML (viene de contentEditable), pero la extracción de reuniones y el
+ * Perro escriben MARKDOWN: `**Qué pidió**`, bullets con `- `. Sin esto se veían los
+ * asteriscos crudos en la tarjeta. Se aplica SOLO si el texto no tiene ni una etiqueta:
+ * lo que ya es HTML —todo lo que escribió el dueño a mano— no se toca.
+ */
+export function mdAHtml(texto: string): string {
+  if (!texto || /<[a-z][\s\S]*>/i.test(texto)) return texto;
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (s: string) => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const out: string[] = [];
+  let lista: string[] = [];
+  const cerrar = () => { if (lista.length) { out.push(`<ul>${lista.map((li) => `<li>${li}</li>`).join('')}</ul>`); lista = []; } };
+  for (const raw of texto.split('\n')) {
+    const t = raw.trim();
+    if (/^[-*•]\s+/.test(t)) { lista.push(inline(t.replace(/^[-*•]\s+/, ''))); continue; }
+    cerrar();
+    if (!t) continue;
+    out.push(`<div>${inline(t)}</div>`);
+  }
+  cerrar();
+  return out.join('');
+}
+
 export function RichText({ value, onChange, placeholder, style }: {
   value: string; onChange: (html: string) => void; placeholder?: string; style?: CSSProperties;
 }) {
@@ -38,7 +64,8 @@ export function RichText({ value, onChange, placeholder, style }: {
 
   // set inicial (una vez) + cuando cambia value DESDE afuera y no está enfocado
   useEffect(() => {
-    if (ref.current && !focused && ref.current.innerHTML !== (value || '')) ref.current.innerHTML = value || '';
+    const html = mdAHtml(value || '');
+    if (ref.current && !focused && ref.current.innerHTML !== html) ref.current.innerHTML = html;
   }, [value, focused]);
 
   const commit = () => {
@@ -46,7 +73,11 @@ export function RichText({ value, onChange, placeholder, style }: {
     let html = ref.current?.innerHTML ?? '';
     if (html === '<br>' || html === '<div><br></div>') html = '';
     html = sanitizeHtml(html);
-    if (html !== value) onChange(html);
+    // Ojo con el markdown: al mostrarlo se convierte a HTML, así que si el dueño abre y
+    // cierra la tarjeta SIN tocar nada, `html` ya no es igual a `value` y se guardaría
+    // solo. Se compara contra la versión convertida para no ensuciar el historial con
+    // ediciones fantasma.
+    if (html !== value && html !== mdAHtml(value || '')) onChange(html);
   };
   const cmd = (c: string) => { document.execCommand(c, false); ref.current?.focus(); };
   const btn: CSSProperties = { width: 26, height: 24, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 12.5, fontFamily: SANS, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };

@@ -149,3 +149,69 @@ export async function buscarEventosGoogle(email: string | null, timeMin: string,
     return [];
   }
 }
+
+/** Un invitado del calendario: el email y el nombre que puso quien creó el evento. */
+export type InvitadoCal = { email: string; nombre: string };
+
+const normTxt = (s: string): string =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * LOS INVITADOS DE UNA REUNIÓN, buscando por CUÁNDO fue (y opcionalmente cómo se
+ * llamaba). Es la vuelta que faltaba: `buscarEventosGoogle` exige un email de entrada
+ * y lo usa como texto de búsqueda, así que solo sirve para confirmar a alguien que ya
+ * conocés. Acá es al revés — «esta grabación es del martes 2 a las 15:04, ¿quién estaba
+ * invitado?» — que es el caso real de un Meet improvisado: Fathom no devuelve invitados
+ * y la única forma de saber con quién hablaste es el calendario.
+ *
+ * Cómo elige el evento, en orden:
+ *   1. el que EMPIEZA más cerca del inicio de la grabación (tope: 90 minutos), y
+ *   2. si el título de la grabación se parece al del evento, ese gana.
+ * Devuelve [] si no está conectado, si falla o si no hay ningún evento cerca: es una
+ * fuente auxiliar y NUNCA puede romper la extracción.
+ */
+export async function invitadosDeReunionPorFecha(inicioIso: string, titulo?: string | null): Promise<InvitadoCal[]> {
+  const at = await accessTokenGoogle();
+  if (!at || !inicioIso) return [];
+  const t0 = Date.parse(inicioIso);
+  if (!Number.isFinite(t0)) return [];
+  const VENTANA_MS = 90 * 60 * 1000;
+  try {
+    const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
+    url.searchParams.set('timeMin', new Date(t0 - VENTANA_MS).toISOString());
+    url.searchParams.set('timeMax', new Date(t0 + VENTANA_MS).toISOString());
+    url.searchParams.set('singleEvents', 'true');
+    url.searchParams.set('orderBy', 'startTime');
+    url.searchParams.set('maxResults', '20');
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${at}` }, cache: 'no-store' });
+    if (!res.ok) return [];
+    const j = (await res.json()) as { items?: Array<{ summary?: string; start?: { dateTime?: string; date?: string }; attendees?: Array<{ email?: string; displayName?: string; resource?: boolean }> }> };
+    const items = (j.items ?? []).filter((e) => (e.attendees ?? []).length > 0);
+    if (!items.length) return [];
+
+    const tituloNorm = normTxt(titulo ?? '');
+    const puntaje = (e: { summary?: string; start?: { dateTime?: string; date?: string } }): number => {
+      const st = Date.parse(e.start?.dateTime ?? e.start?.date ?? '');
+      const cerca = Number.isFinite(st) ? Math.abs(st - t0) : VENTANA_MS;
+      // El título pesa: media hora de cercanía. Un «Mau <> Martin» que arranca 10
+      // minutos después le gana a otro evento que arranca justo pero se llama distinto.
+      const porTitulo = tituloNorm && normTxt(e.summary ?? '') && (normTxt(e.summary ?? '').includes(tituloNorm) || tituloNorm.includes(normTxt(e.summary ?? ''))) ? 30 * 60 * 1000 : 0;
+      return cerca - porTitulo;
+    };
+    const mejor = items.slice().sort((a, b) => puntaje(a) - puntaje(b))[0];
+    const vistos = new Set<string>();
+    const out: InvitadoCal[] = [];
+    for (const a of mejor.attendees ?? []) {
+      // Las salas y los recursos NO son personas.
+      if (a.resource) continue;
+      const email = (a.email ?? '').trim().toLowerCase();
+      if (!email || email.endsWith('.calendar.google.com') || vistos.has(email)) continue;
+      vistos.add(email);
+      out.push({ email, nombre: (a.displayName ?? '').trim() });
+    }
+    if (out.length) console.log(`[google-calendar] «${titulo ?? inicioIso}» → ${out.length} invitado(s) del evento «${mejor.summary ?? ''}»`);
+    return out;
+  } catch {
+    return [];
+  }
+}

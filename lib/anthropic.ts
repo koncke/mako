@@ -46,7 +46,12 @@ export async function chatClaude(
           // el plan, ~8000 tokens de salida) NO entra en 30s en Gemini Flash y abortaba →
           // fallback silencioso a Claude. Escalamos con maxTokens (piso 30s, techo 120s).
           const timeoutMs = Math.min(120000, Math.max(30000, (opts.maxTokens ?? 512) * 12));
-          return await chatCheap({ system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model, timeoutMs });
+          // El ESFUERZO viaja. Sin esto, cualquier feature con effort:'high' ruteada a
+          // Gemini corría en 'minimal' y el resultado salía pobre sin ninguna señal:
+          // la tab decía "Gemini" y el trabajo se hacía con la mitad del cerebro.
+          const esfuerzo = opts.effort === 'max' || opts.effort === 'xhigh' || opts.effort === 'high' ? 'medium'
+            : opts.effort === 'medium' ? 'low' : 'minimal';
+          return await chatCheap({ system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model, timeoutMs, esfuerzo });
         } catch (e) {
           // Falló la IA barata: caemos a Claude SONNET (no Opus) para no romper la tarea NI
           // disparar el costo. PERO lo dejamos VISIBLE: sin esto, la tab decía "Gemini" y el

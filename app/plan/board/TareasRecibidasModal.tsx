@@ -37,6 +37,9 @@ const normTit = (t: string): string =>
   t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 export type PropuestaPendiente = {
   id: string; resumen: string; origen?: string; tareas: PropTarea[]; createdAt: string;
+  /** El estado REAL de la fila. Una reunión ya aplicada o descartada se sigue pudiendo
+   *  abrir —lo que salió de esa charla no desaparece— pero en modo lectura. */
+  estado?: 'pendiente' | 'aplicada' | 'descartada';
   enviadoPor?: string; fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string; ref?: string;
   /** si trae preguntas, se confirma en el wizard /plan/revisar, no acá. */
   preguntas?: PropPregunta[];
@@ -80,6 +83,11 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // Los borradores de REUNIÓN traen sus preguntas cerradas y se responden acá, en el
   // paso previo a cargar. Los de WhatsApp (que además proponen bajas) siguen yendo al
   // wizard de /plan/revisar, que es donde se resuelven de a una.
+  // CERRADO = ya se aplicó entero o se descartó. La reunión igual se abre —lo que salió
+  // de una charla no desaparece— pero en modo LECTURA: sin «Agregar al plan» (el server
+  // lo rechaza con «la propuesta ya fue aplicada») y sin autosave (guardarRevision exige
+  // 'pendiente' y devolvía false en silencio, así que cada corrección se tiraba al vacío).
+  const cerrado = todos.length > 0 && todos.every((p) => p.estado === 'aplicada' || p.estado === 'descartada');
   const props = todos.filter((p) => p.origen === 'fathom' || !p.preguntas?.length);
   const conPreguntas = todos.filter((p) => p.origen !== 'fathom' && !!p.preguntas?.length);
   // Las preguntas de los borradores que SÍ se confirman acá.
@@ -235,7 +243,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
 
   const descartar = async () => {
     setGuardando('descartar');
-    for (const p of todos) await api({ action: 'descartar', id: p.id });
+    // Solo los que siguen vivos: descartar uno ya aplicado no hace nada y encima lo
+    // sacaba de la lista de reuniones leídas.
+    for (const p of todos.filter((x) => (x.estado ?? 'pendiente') === 'pendiente')) await api({ action: 'descartar', id: p.id });
     setGuardando('');
     onDescartadas();
   };
@@ -263,6 +273,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     if (guardando) return;
     const id = setTimeout(() => {
       for (const p of props) {
+        // Un borrador cerrado no acepta escrituras: guardarRevision exige 'pendiente' y
+        // devuelve false sin decir nada. Mejor no intentarlo que fingir que se guardó.
+        if ((p.estado ?? 'pendiente') !== 'pendiente') continue;
         const suyas = filas.filter((f) => f.propId === p.id);
         if (!suyas.length) continue;
         void api({ action: 'guardar', id: p.id, tareas: suyas.map((f) => ({
@@ -528,13 +541,17 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               compromisos de otras personas, este botón los tiraba a la basura sin
               repartirlos — y encima se llamaba «Descartar lo que queda», como si fuera
               tu resto. Lo que corresponde ahí es mandárselos desde la tabla, no borrarlos. */}
-          {hayMias ? (
+          {cerrado ? (
+            <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>
+              Esta reunión ya está cerrada: mirala todo lo que quieras. Para volver a trabajarla, extraela de nuevo desde la lista.
+            </span>
+          ) : hayMias ? (
             <button type="button" onClick={() => void descartar()} disabled={!!guardando}
               style={{ padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
               {guardando === 'descartar' ? 'Descartando…' : varias ? 'Descartar todo' : 'Descartar'}
             </button>
           ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mandáselo desde la lista.</span>}
-          {hayMias && (
+          {hayMias && !cerrado && (
             <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando}
               style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
               {guardando === 'aplicar' ? 'Cargando…' : pensando ? 'MaKo está mirando lo que elegiste…' : nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}

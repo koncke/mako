@@ -124,7 +124,23 @@ async function modelosDisponibles(p: Prov): Promise<string> {
  * LLM barato para tareas simples. Devuelve el texto (o el JSON crudo si json=true).
  * NO usar para copywriting con voz de marca ni razonamiento fino → eso es chatClaude.
  */
-export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; timeoutMs?: number }): Promise<string> {
+/**
+ * Cuánto puede PENSAR el modelo barato. Gemini es el único que entiende el campo.
+ *
+ * ⚠️ Esto no estaba y era un agujero silencioso: `chatClaude` delega acá cuando la
+ * feature está ruteada a un proveedor barato, pero TIRABA el `effort` del caller y
+ * chatCheap mandaba 'minimal' hardcodeado. O sea: una tarea configurada con
+ * `effort:'high'` —la extracción de reuniones, por ejemplo— corría con el mínimo
+ * esfuerzo posible, y nadie se enteraba. Explica por qué los detalles salían de 140
+ * caracteres cuando el prompt pide 4 a 8 frases.
+ *
+ * 'minimal' sigue siendo el DEFAULT cuando el caller no pide nada: es lo que arregló el
+ * panorama del Archivero, que se cortaba a la mitad porque el modelo gastaba todo el
+ * presupuesto pensando. No es un valor válido 'none' (400 Invalid argument, probado).
+ */
+export type EsfuerzoBarato = 'minimal' | 'low' | 'medium' | 'high';
+
+export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; timeoutMs?: number; esfuerzo?: EsfuerzoBarato }): Promise<string> {
   const p = await proveedor(opts.provider);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
@@ -153,7 +169,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
       // probado); 'minimal' sí, y da finish_reason "stop" — es el mínimo real que
       // acepta. Solo gemini entiende este campo: los demás proveedores tirarían 400
       // con un campo que no reconocen, así que se limita a gemini.
-      ...(p.nombre === 'gemini' ? { reasoning_effort: 'minimal' } : {}),
+      ...(p.nombre === 'gemini' ? { reasoning_effort: opts.esfuerzo ?? 'minimal' } : {}),
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(opts.timeoutMs ?? 30000),

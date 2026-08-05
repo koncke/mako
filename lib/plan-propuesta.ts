@@ -227,9 +227,20 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
     const eliminar = asArr<unknown>(draft.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e).slice(0, 30);
     const ref = draft.ref?.trim().slice(0, 120) || null;
     // Candado del cron: si esta reunión ya dejó su borrador acá, devolvemos el que hay.
+    // Y si estaba DESCARTADO, lo revivimos: volver a extraer la reunión es decir «esto
+    // sí me interesa». Sin esto, re-extraer devolvía el id de una fila muerta contra la
+    // que `guardarRevision` rechaza escribir (exige 'pendiente') — así que cada
+    // corrección que hacía el dueño se tiraba al vacío, en silencio.
     if (ref) {
-      const { data } = await db.from('plan_propuestas').select('id').eq('ref', ref).maybeSingle();
-      if (data) return str((data as Row).id);
+      const { data } = await db.from('plan_propuestas').select('id, estado').eq('ref', ref).maybeSingle();
+      if (data) {
+        const fila = data as Row;
+        if (str(fila.estado) === 'descartada') {
+          await db.from('plan_propuestas').update({ estado: 'pendiente' }).eq('id', str(fila.id));
+          console.log(`[plan-propuesta] borrador ${str(fila.id)} revivido: se volvió a extraer la reunión`);
+        }
+        return str(fila.id);
+      }
     }
     const id = genId('prop');
     const { error } = await db.from('plan_propuestas').insert({
@@ -284,16 +295,24 @@ export async function getPropuesta(id: string): Promise<Propuesta | null> {
 }
 
 /**
- * El borrador de UNA reunión, esté pendiente o ya aplicado (los descartados no: si lo
+ * El borrador de UNA reunión, EN CUALQUIER ESTADO. Es lo que deja volver a una reunión
+ * vieja desde el selector de Fathom y ver qué salió de ahí sin gastar un token.
+ *
+ * ⚠️ Antes acá había un `.neq('estado','descartada')` con este comentario: «si lo
  * tiraste a la basura, la reunión vuelve a ser una reunión sin leer y se puede
- * re-extraer). Es lo que deja volver a una reunión vieja desde el selector de Fathom y
- * ver qué salió de ahí sin gastar un solo token en releerla.
+ * re-extraer». Ese era el bug de diseño, y es el que hacía que la extracción
+ * DESAPARECIERA: cargabas 23 tareas, tocabas «Descartar» para sacarte el modal de
+ * encima, y la reunión volvía a decir «Extraer →» como si nunca la hubieras leído —
+ * con las 30 de la otra persona y el registro de las 23 adentro, invisibles para
+ * siempre. Lo que salió de una reunión es un HECHO: se puede haber terminado o
+ * descartado, pero no deja de haber pasado. Quien llama mira `estado` y decide qué
+ * mostrar.
  */
 export async function getPropuestaPorRef(ref: string): Promise<Propuesta | null> {
   return enWs(async () => {
     const db = await getTenantDb();
     const { data } = await db.from('plan_propuestas').select('*')
-      .eq('ref', ref).neq('estado', 'descartada').maybeSingle();
+      .eq('ref', ref).maybeSingle();
     return data ? rowToPropuesta(data as Row) : null;
   });
 }
@@ -306,8 +325,11 @@ export async function resumenPropuestasPorRefs(refs: string[]): Promise<Record<s
   if (!limpias.length) return {};
   return enWs(async () => {
     const db = await getTenantDb();
+    // TODOS los estados: la lista del selector tiene que poder decir «✓ 23 en tu plan ·
+    // 30 para repartir» o «la descartaste» — nunca volver a «Extraer →» como si la
+    // reunión no se hubiera leído nunca.
     const { data } = await db.from('plan_propuestas').select('id, ref, estado, tareas, aplicadas')
-      .in('ref', limpias).neq('estado', 'descartada');
+      .in('ref', limpias);
     const out: Record<string, ResumenPorRef> = {};
     for (const r of asArr<Row>(data)) {
       const ref = str(r.ref);

@@ -395,6 +395,11 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                         // cuando esas 13 son compromisos de otra persona y a vos no te espera nada.
                         const mias = b?.pendientesMias ?? 0;
                         const otras = b?.pendientesOtros ?? 0;
+                        // El estado del borrador manda sobre el CTA. Una reunión ya leída
+                        // NUNCA vuelve a decir «Extraer →»: aunque la hayas descartado o
+                        // cargado entera, lo que salió de esa charla sigue estando y se
+                        // puede volver a mirar.
+                        const cerrada = b?.estado === 'aplicada' || b?.estado === 'descartada';
                         return (
                           <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId) : extraer(r))}
                             style={{ display: 'flex', alignItems: 'flex-start', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS }}
@@ -424,14 +429,15 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                               <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{fmtFecha(r.fecha)}{r.durMin ? ` · ${r.durMin} min` : ''}</span>
                               {r.involucrados.length > 0 && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>👤 {r.involucrados.join(', ')}</span>}
                               {yaLeida && (
-                                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--good)', fontWeight: 600, marginTop: 3 }}>
-                                  ✓ {b.creadas > 0 ? `${b.creadas} ${b.creadas === 1 ? 'tarea' : 'tareas'} ya en tu plan` : 'MaKo ya la leyó'}
-                                  {b.pendientesMias > 0 && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · {b.pendientesMias} sin confirmar</span>}
-                                  {b.pendientesOtros > 0 && <span style={{ color: 'var(--dim)', fontWeight: 500 }}> · {b.pendientesOtros} para repartir</span>}
+                                <span style={{ display: 'block', fontSize: 11.5, color: b.estado === 'descartada' ? 'var(--faint)' : 'var(--good)', fontWeight: 600, marginTop: 3 }}>
+                                  {b.estado === 'descartada' ? '· la descartaste' : `✓ ${b.creadas > 0 ? `${b.creadas} ${b.creadas === 1 ? 'tarea' : 'tareas'} ya en tu plan` : 'MaKo ya la leyó'}`}
+                                  {b.estado !== 'descartada' && b.pendientesMias > 0 && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · {b.pendientesMias} sin confirmar</span>}
+                                  {b.estado !== 'descartada' && b.pendientesOtros > 0 && <span style={{ color: 'var(--dim)', fontWeight: 500 }}> · {b.pendientesOtros} para repartir</span>}
+                                  {b.estado === 'descartada' && b.creadas > 0 && <span> · {b.creadas} habían entrado a tu plan</span>}
                                 </span>
                               )}
                             </span>
-                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>{mias > 0 ? 'Confirmar →' : otras > 0 ? 'Repartir →' : yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}</span>
+                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>{cerrada ? 'Ver lo que sacó →' : mias > 0 ? 'Confirmar →' : otras > 0 ? 'Repartir →' : yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}</span>
                           </button>
                         );
                       })}

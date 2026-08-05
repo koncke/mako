@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { type Label, type Prio } from './types';
+import { DetalleDoc } from './DetalleDoc';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -485,7 +486,7 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
               <textarea value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} rows={4} placeholder="Contexto: qué se dijo, para qué es"
                 style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
             </>
-          : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
+          : f.detalle && <DetalleDoc texto={f.detalle} />}
         {/* Ya existe: se NOMBRA la tarjeta entera (antes se cortaba a los 50 caracteres,
             a mitad de palabra y con la comilla sin cerrar, así que no se sabía cuál era)
             y se ofrece abrirla. Y NO se puede volver a cargar: lo que se hace es sumarle
@@ -502,10 +503,6 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
               <button type="button" onClick={(e) => { e.stopPropagation(); onAbrirTarea(f.enriquece!.id); }}
                 style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, padding: 0 }}>ver la tarjeta</button>
             )}
-            <button type="button" onClick={(e) => { e.stopPropagation(); onFila(ampliando ? { ampliar: false, incluir: true } : { ampliar: true, incluir: false }); }}
-              style={{ background: 'transparent', border: 'none', color: 'var(--faint)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, padding: 0 }}>
-              {ampliando ? 'no es la misma, cargala aparte' : 'sí es la misma, ampliala'}
-            </button>
           </div>
         )}
         {/* Editar a la izquierda; reasignar a la derecha, separados: son dos gestos
@@ -515,6 +512,17 @@ function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTare
             style={{ ...btnChico, ...(editando ? { color: 'var(--primary)' } : {}) }}>
             {editando ? '✓ listo' : '✎ corregir contexto'}
           </button>
+          {/* La salida de emergencia del cruce: va ACÁ ABAJO, alineada con las otras
+              acciones y separada por el gap de la fila. Arriba, pegada al aviso, se leía
+              como una sola frase corrida con la razón — no parecía un botón. El texto es
+              corto a propósito: la explicación ya la da el chip de arriba. */}
+          {f.enriquece && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onFila(ampliando ? { ampliar: false, incluir: true } : { ampliar: true, incluir: false }); }}
+              style={{ ...btnChico, ...(ampliando ? {} : { color: 'var(--ok, #1E9E57)' }) }}
+              title={ampliando ? 'Crear una tarea nueva en vez de sumarle el contexto a la que ya está' : 'Volver a sumarle el contexto a la tarjeta que ya está'}>
+              {ampliando ? '↗ no es la misma' : '↺ deshacer'}
+            </button>
+          )}
           {/* La transcripción de Fathom etiqueta MAL a quien habla (mezcla dos voces en
               un bloque), así que la atribución falla y no hay prompt que lo arregle. Se
               corrige acá — pero PREGUNTANDO de quién es, no mandándola a ciegas. */}
@@ -632,7 +640,7 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
                   <textarea value={f.detalle} onChange={(e) => onFila(idx, { detalle: e.target.value })} rows={4} placeholder="Contexto: qué se dijo, para qué es"
                     style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
                 </>
-              : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
+              : f.detalle && <DetalleDoc texto={f.detalle} />}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 7, flexWrap: 'wrap' }}>
               {/* Corregir el contexto también acá: esta tarea se la vas a MANDAR a
                   alguien, así que con más razón tiene que estar bien escrita. */}

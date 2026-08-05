@@ -52,10 +52,20 @@ export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | nu
  * la transcripción ("Mauricio"). Sin esto, las 30 tareas que MaKo le atribuyó a
  * Mauricio no se le podían mandar a Mauricio — el botón directamente no aparecía.
  *
- * REGLA DURA: solo si el match es ÚNICO. Con dos "Martín" en la base se devuelve null
- * y el que llama pregunta o se calla: mandarle el trabajo de uno al tablero de otro es
- * peor que no mandarlo. Compara el nombre completo y también el primer nombre, sin
- * acentos ni mayúsculas.
+ * REGLA DURA: solo si el match es ÚNICO entre las cuentas a las que de verdad se les
+ * puede mandar algo. Mandarle el trabajo de uno al tablero de otro es peor que no
+ * mandarlo, así que con dos candidatos reales se devuelve null y el que llama avisa.
+ *
+ * Dos cosas que la primera versión hacía mal y por las que NO funcionaba en producción:
+ *
+ *  1. NO filtraba por estado. En la base hay dos filas con el nombre «Mauricio Bustos
+ *     Eguia»: su cuenta real (activa) y el usuario del workspace «Cliente de Prueba»
+ *     (invitado, nunca entró). Eran dos candidatos, así que devolvía null SIEMPRE. Se
+ *     miran primero las ACTIVAS: a una cuenta que nunca aceptó la invitación no se le
+ *     puede dejar un borrador igual.
+ *  2. Buscaba por PREFIJO. La cuenta de Leila se llama «Team Leila Fittipaldi», así
+ *     que "Leila" no empezaba el nombre y no matcheaba nada. Ahora el nombre buscado
+ *     tiene que aparecer como PALABRA COMPLETA adentro del nombre de la cuenta.
  */
 export async function buscarUsuarioPorNombre(nombre: string): Promise<Usuario | null> {
   const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
@@ -64,16 +74,27 @@ export async function buscarUsuarioPorNombre(nombre: string): Promise<Usuario | 
   const { data, error } = await getSupabaseServer().from('usuarios').select(COLS);
   if (error) throw new Error(`usuarios: ${error.message}`);
   const todos = (data ?? []) as Usuario[];
-  const exactos = todos.filter((u) => norm(u.nombre ?? '') === n);
-  if (exactos.length === 1) return exactos[0];
-  if (exactos.length > 1) return null;
-  // Por el PRIMER nombre: la transcripción dice "Mauricio", la cuenta "Mauricio Bustos
-  // Eguia". Solo vale si hay exactamente uno que empiece así.
-  const porPila = todos.filter((u) => {
-    const un = norm(u.nombre ?? '');
-    return !!un && (un === n || un.startsWith(`${n} `));
-  });
-  return porPila.length === 1 ? porPila[0] : null;
+
+  /** Las palabras del nombre buscado tienen que estar TODAS en el de la cuenta. */
+  const matchea = (u: Usuario): boolean => {
+    const un = ` ${norm(u.nombre ?? '').replace(/[^a-z0-9ñ]+/g, ' ')} `;
+    const piezas = n.replace(/[^a-z0-9ñ]+/g, ' ').split(/\s+/).filter((w) => w.length >= 3);
+    return piezas.length > 0 && piezas.every((w) => un.includes(` ${w} `));
+  };
+
+  // Primero entre las ACTIVAS; solo si ahí no hay ninguna se mira el resto (una cuenta
+  // invitada igual sirve para nombrarla, aunque no se le pueda dejar el borrador).
+  const activos = todos.filter((u) => u.estado === 'activo');
+  const porEstado = [activos, todos];
+  for (const grupo of porEstado) {
+    const exactos = grupo.filter((u) => norm(u.nombre ?? '') === n);
+    if (exactos.length === 1) return exactos[0];
+    if (exactos.length > 1) return null;      // dos cuentas con el MISMO nombre completo: no se elige
+    const parciales = grupo.filter(matchea);
+    if (parciales.length === 1) return parciales[0];
+    if (parciales.length > 1) return null;    // ambiguo de verdad: que el que llama avise
+  }
+  return null;
 }
 
 /**

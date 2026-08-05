@@ -47,16 +47,22 @@ const pidsDe = (t: BoardTask, labels: Label[]): string =>
  */
 export type CampoExtra = 'prioridad' | 'detalle' | 'razonScore' | 'deadline' | 'checklist' | 'notas' | 'origen' | 'haceloEn';
 
+// ORDEN = lo que más se usa primero. Con los ocho a la vista el paso se leía como una
+// pantalla de configuración; los cuatro de arriba son los que alguien quiere el 90% de
+// las veces (qué es, cuánto pesa, para cuándo) y el resto vive detrás de "Avanzado".
 export const CAMPOS_EXTRA: Array<{ id: CampoExtra; label: string; sub: string }> = [
-  { id: 'prioridad', label: 'Prioridad y score', sub: 'la columna y el puntaje del Perro' },
-  { id: 'razonScore', label: 'Por qué esa prioridad', sub: 'el argumento del Perro, textual' },
   { id: 'detalle', label: 'Descripciones', sub: 'el contexto completo de cada tarea' },
+  { id: 'prioridad', label: 'Prioridad y score', sub: 'la columna y el puntaje del Perro' },
   { id: 'deadline', label: 'Fecha y su razón', sub: 'para cuándo y por qué esa fecha' },
   { id: 'checklist', label: 'Checklist', sub: 'los pasos, con cuáles están hechos' },
+  { id: 'razonScore', label: 'Por qué esa prioridad', sub: 'el argumento del Perro, textual' },
   { id: 'notas', label: 'Tus notas', sub: 'el cuaderno tuyo de cada tarjeta' },
   { id: 'origen', label: 'De dónde salió', sub: 'quién la creó y de qué reunión' },
   { id: 'haceloEn', label: 'Dónde hacerla', sub: 'la tab de MaKo que la resuelve' },
 ];
+
+/** Los que vienen tildados y se muestran sin desplegar nada. */
+export const CAMPOS_HABITUALES: CampoExtra[] = ['detalle', 'prioridad', 'deadline', 'checklist'];
 
 export function tareasACSV(tasks: BoardTask[], labels: Label[], campos: CampoExtra[] = CAMPOS_EXTRA.map((c) => c.id)): string {
   const on = new Set(campos);
