@@ -12,16 +12,22 @@ import type { NextRequest } from 'next/server';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getPromptText } from '@/lib/prompt-render';
 import { RECEIPT_EXTRACT_DEFAULT } from '@/lib/prompt-defaults';
+import { leerDocumentoIA } from '@/lib/ai-cheap';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
-export async function POST(req: NextRequest) {
-  const oai = process.env.OPENAI_API_KEY;
-  if (!oai) return Response.json({ error: 'OPENAI_API_KEY no configurada' }, { status: 500 });
+// Parsea el JSON que devuelve la IA, tolerando cercas ```json o texto alrededor.
+function parseJsonLoose(text: string): Record<string, unknown> | null {
+  try { return JSON.parse(text) as Record<string, unknown>; } catch { /* sigue */ }
+  const m = text.match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]) as Record<string, unknown>; } catch { /* sigue */ } }
+  return null;
+}
 
+export async function POST(req: NextRequest) {
   let form: FormData;
   try { form = await req.formData(); } catch { return Response.json({ error: 'form inválido' }, { status: 400 }); }
   const file = form.get('file') as File | null;
@@ -60,31 +66,24 @@ export async function POST(req: NextRequest) {
   if (dbErr) return Response.json({ error: `pagos: ${dbErr.message}` }, { status: 500 });
 
   const prompt = await getPromptText('contracts.extract_receipt.user', RECEIPT_EXTRACT_DEFAULT);
-
-  // PDF → documento; imagen → visión (mismo patrón que extract-contract).
   const isPdf = mime.includes('pdf') || (file.name || '').toLowerCase().endsWith('.pdf');
-  const content = isPdf
-    ? [{ type: 'text', text: prompt }, { type: 'file', file: { filename: file.name || 'comprobante.pdf', file_data: dataUrl } }]
-    : [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } }];
 
+  // Lectura por cascade gratis (Gemini → OpenAI). El comprobante ya quedó subido
+  // arriba, así que si la IA falla igual devolvemos el nombre para no perderlo.
+  let text: string;
   try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${oai}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-4o', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'user', content }] }),
-    });
-    const j = await r.json();
-    if (j.error) return Response.json({ error: `openai: ${j.error.message}`, comprobante_nombre }, { status: 502 });
-    let parsed: Record<string, unknown> = {};
-    try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}'); } catch { return Response.json({ error: 'no se pudo parsear la respuesta', comprobante_nombre }, { status: 502 }); }
-    return Response.json({
-      monto_usd: typeof parsed.monto_usd === 'number' ? parsed.monto_usd : null,
-      fecha: typeof parsed.fecha === 'string' && parsed.fecha ? parsed.fecha : null,
-      hora: typeof parsed.hora === 'string' && parsed.hora ? parsed.hora : null,
-      nota: typeof parsed.nota === 'string' && parsed.nota ? parsed.nota : null,
-      comprobante_nombre,
-    });
+    const res = await leerDocumentoIA({ dataUrl, isPdf, nombreArchivo: file.name || 'comprobante', prompt, json: true, feature: 'extract_receipt' });
+    text = res.text;
   } catch (err) {
-    return Response.json({ error: err instanceof Error ? err.message : String(err), comprobante_nombre }, { status: 500 });
+    return Response.json({ error: err instanceof Error ? err.message : String(err), comprobante_nombre }, { status: 502 });
   }
+  const parsed = parseJsonLoose(text);
+  if (!parsed) return Response.json({ error: 'no se pudo parsear la respuesta', comprobante_nombre }, { status: 502 });
+  return Response.json({
+    monto_usd: typeof parsed.monto_usd === 'number' ? parsed.monto_usd : null,
+    fecha: typeof parsed.fecha === 'string' && parsed.fecha ? parsed.fecha : null,
+    hora: typeof parsed.hora === 'string' && parsed.hora ? parsed.hora : null,
+    nota: typeof parsed.nota === 'string' && parsed.nota ? parsed.nota : null,
+    comprobante_nombre,
+  });
 }
