@@ -56,6 +56,10 @@
     {
       "path": "/api/cron/reporte-semanal",
       "schedule": "20 14 * * 1"
+    },
+    {
+      "path": "/api/cron/doer-flush",
+      "schedule": "* * * * *"
     }
   ]
 }

@@ -46,7 +46,7 @@ const TENANT_TABLES = new Set<string>([
   'chat_agent_handoffs',
   'closing_analyses', 'creative_transcripts', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos', 'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'landing_visits', 'lead_audit', 'leads', 'marketing_metrics_daily',
-  'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_conv', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
+  'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_propuestas', 'plan_proyectos', 'plan_tareas', 'retros', 'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
   // Vistas de cohortes: getTenantDb NO scopea vistas por sí solo, pero estas

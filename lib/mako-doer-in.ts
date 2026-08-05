@@ -30,6 +30,7 @@ import { transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/
 import { ordenarPorCuota } from '@/lib/ia-cuotas';
 import { rutearDoer } from '@/lib/mako-router';
 import { overrideDeFeature } from '@/lib/model-registry';
+import { encolar, reclamar, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS } from '@/lib/mako-doer-buffer';
 
 // ── settings del doer ─────────────────────────────────────────────────────────
 const KEY_ACTIVO = 'mako.doer.activo';        // interruptor general (default: ON)
@@ -265,7 +266,95 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
   if (jid !== suyo && !(await gruposDoer(OWNER_WS)).includes(jid)) {
     return { engaged: false, skip: 'grupo no habilitado' };
   }
-  return runWithWorkspace(wsData, () => procesarDoer(wsData, instance, data));
+  return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, data));
+}
+
+/**
+ * EL CANDADO DEL LOTE. Antes, cada mensaje entrante corría el agente por su cuenta y
+ * en paralelo: el 5/8 entraron 16 mensajes en 4 segundos y salieron 16 borradores, 133
+ * tareas y 19 proyectos duplicados. El dueño lo pidió así: «si detecta que le estoy
+ * enviando muchos mensajes debería esperar y luego cargar TODAS las tareas al mismo
+ * tiempo».
+ *
+ * Todo mensaje se ENCOLA. Una sola invocación gana el candado del grupo, espera el
+ * silencio y contesta una vez por todo. Las otras encolan y se van calladas.
+ */
+async function bufferearYResponder(wsData: number, instance: string, data: MsgIn): Promise<ResultadoDoer> {
+  const jid = data.key?.remoteJid ?? '';
+  const msgId = data.key?.id ?? '';
+  const audio = audioDe(data);
+  const adjunto = adjuntoDe(data);
+  const texto = textoDe(data).trim();
+  if (!texto && !audio && !adjunto) return { engaged: false, skip: 'sin texto ni audio ni adjunto' };
+
+  // El eco de nuestra propia respuesta no entra a la cola (si no, MaKo se contesta sola).
+  if (data.key?.fromMe && msgId && (await idsEnviados(OWNER_WS, jid)).includes(msgId)) {
+    return { engaged: false, skip: 'eco de mi propia respuesta' };
+  }
+
+  const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: data as unknown });
+  if (!nuevo && msgId) return { engaged: false, skip: 'ya estaba en la cola (re-entrega)' };
+
+  const quien = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  if (!(await reclamar(jid, quien))) return { engaged: false, skip: 'encolado — ya hay alguien juntando' };
+
+  // "Escribiendo…" YA, aunque la respuesta tarde la ventana de silencio. Es lo que
+  // hace que la espera se sienta atención y no abandono, y no cuesta un mensaje.
+  void enviarPresencia(instance, jid, 'composing', 25000);
+
+  try {
+    // Un adjunto no espera: es un acto deliberado y se responde solo.
+    const cola = adjunto ? await pendientes(jid) : await esperarSilencio(jid, audio ? VENTANA_AUDIO_MS : VENTANA_MS);
+    if (!cola.length) return { engaged: false, skip: 'la cola quedó vacía' };
+
+    // UNO SOLO → el camino de siempre, sin tocar nada. Es el caso mayoritario y no
+    // tiene sentido meterle un rodeo: se procesa su payload tal cual llegó.
+    if (cola.length === 1) {
+      const r = await procesarDoer(wsData, instance, (cola[0].payload as MsgIn) ?? data);
+      await marcarProcesados(cola.map((m) => m.id));
+      return r;
+    }
+
+    // VARIOS → un solo turno con todo junto. Los audios se transcriben ahora (uno por
+    // uno) y el texto se arma numerado, para que el modelo entienda que fueron mensajes
+    // separados y que el último puede corregir al primero.
+    const textos: string[] = [];
+    for (const m of cola) {
+      const p = (m.payload as MsgIn) ?? {};
+      let t = m.texto.trim();
+      if (!t && audioDe(p)) t = await transcribirDeMensaje(instance, p);
+      if (t) textos.push(t);
+    }
+    if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
+    const ultimo = (cola[cola.length - 1].payload as MsgIn) ?? data;
+    const sintetico: MsgIn = {
+      key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe },
+      pushName: ultimo.pushName,
+      message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))) },
+    };
+    console.log(`[mako-doer-in] lote de ${cola.length} mensajes en ${jid} → una sola respuesta`);
+    const r = await procesarDoer(wsData, instance, sintetico);
+    await marcarProcesados(cola.map((m) => m.id));
+    return r;
+  } finally {
+    await soltar(jid, quien);
+  }
+}
+
+/** Transcribe la nota de voz de un mensaje ya encolado ('' si no se pudo). */
+async function transcribirDeMensaje(instance: string, m: MsgIn): Promise<string> {
+  const a = audioDe(m);
+  if (!a) return '';
+  let b64 = a.base64;
+  const id = m.key?.id ?? '';
+  if (!b64 && id) {
+    const media = await fetchMediaBase64EnInstancia(instance, m.key?.remoteJid ?? '', id, !!m.key?.fromMe);
+    if (media) b64 = media.base64;
+  }
+  if (!b64) return '';
+  try {
+    return (await transcribirAudio(b64, a.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz (lote)' })).trim();
+  } catch (e) { console.error('[mako-doer-in] STT lote:', e instanceof Error ? e.message : String(e)); return ''; }
 }
 
 /** El JID del grupo de MaKo que el onboarding creó para ESE workspace ('' si no tiene). */
@@ -514,4 +603,48 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     console.error('[mako-doer-in]', e instanceof Error ? e.message : String(e));
     return { engaged: false, skip: e instanceof Error ? e.message : String(e) };
   }
+}
+
+
+/**
+ * La red del cron: colas que quedaron sin nadie esperándolas (la invocación que
+ * hacía la espera se murió con la instancia). Sin esto, esos mensajes se pierden en
+ * silencio — el dueño escribió y MaKo nunca contestó.
+ */
+export async function flushHuerfanos(): Promise<{ grupos: number; procesados: number }> {
+  const pares = await huerfanosGlobal();
+  let procesados = 0;
+  for (const { ws, jid } of pares) {
+    try {
+      const r = await runWithWorkspace(ws, async () => {
+        const quien = `cron${Date.now().toString(36)}`;
+        if (!(await reclamar(jid, quien))) return false;
+        try {
+          const cola = await pendientes(jid);
+          if (!cola.length) return false;
+          const textos: string[] = [];
+          for (const m of cola) {
+            let t = m.texto.trim();
+            if (!t && audioDe((m.payload as MsgIn) ?? {})) t = await transcribirDeMensaje('', (m.payload as MsgIn) ?? {});
+            if (t) textos.push(t);
+          }
+          const ultimo = (cola[cola.length - 1].payload as MsgIn) ?? {};
+          const instancia = String((ultimo as { instance?: string }).instance ?? '');
+          if (textos.length) {
+            const sintetico: MsgIn = {
+              key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe },
+              pushName: ultimo.pushName,
+              message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))) },
+            };
+            console.log(`[mako-doer-in] cron: destrabando ${cola.length} mensaje(s) de ${jid}`);
+            await procesarDoer(ws, instancia, sintetico);
+          }
+          await marcarProcesados(cola.map((m) => m.id));
+          return true;
+        } finally { await soltar(jid, quien); }
+      });
+      if (r) procesados++;
+    } catch (e) { console.error('[mako-doer-in] flushHuerfanos:', e instanceof Error ? e.message : String(e)); }
+  }
+  return { grupos: pares.length, procesados };
 }
