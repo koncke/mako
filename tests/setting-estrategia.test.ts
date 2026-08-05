@@ -34,7 +34,7 @@ test('estrategia: parciales rellenan defaults (modo = asistido, criterio vacío)
   assert.deepEqual(e, {
     objetivo: 'agendar', gancho: null, lead_magnet_id: null, usa_lead_magnet: false, preguntas: [],
     criterio: { califica: [], descalifica: [] }, escenarios: [],
-    desenlace: { logrado: 'respondio', logradoEtapa: null, falloDias: 0, falloEtapa: null },
+    desenlace: { logrado: 'respondio', logradoEtapa: null, logradoSecuencia: null, falloHoras: 0, falloEtapa: null, falloSecuencia: null },
     modo: 'asistido', notas: null, probada_at: null,
   });
 });
@@ -51,7 +51,7 @@ test('estrategia: el round-trip no pierde ningún campo', () => {
     preguntas: ['¿Cuántas personas tienes en el equipo?'],
     criterio: { califica: ['más de 5 empleados'], descalifica: ['todavía no factura'] },
     escenarios: [{ titulo: 'Pregunta el precio', cuando: 'pide el precio de una', comoResponder: 'devolver una pregunta antes de la cifra' }],
-    desenlace: { logrado: 'agendo', logradoEtapa: 'agenda', falloDias: 14, falloEtapa: 'reactivacion' },
+    desenlace: { logrado: 'agendo', logradoEtapa: 'agenda', logradoSecuencia: 'chat-agent-cualificacion', falloHoras: 72, falloEtapa: 'reactivacion', falloSecuencia: 'chat-agent-seguimiento' },
     modo: 'automatico', notas: 'nota', probada_at: '2026-08-02T10:00:00.000Z',
   };
   const ida = parseEstrategia(completa);
@@ -60,10 +60,31 @@ test('estrategia: el round-trip no pierde ningún campo', () => {
 });
 
 test('desenlace: basura cae a defaults sin romper', () => {
-  const e = parseEstrategia({ objetivo: 'agendar', desenlace: { logrado: 'inventado', falloDias: -5, logradoEtapa: '   ' } });
+  const e = parseEstrategia({ objetivo: 'agendar', desenlace: { logrado: 'inventado', falloHoras: -5, logradoEtapa: '   ' } });
   assert.equal(e?.desenlace.logrado, 'respondio');
-  assert.equal(e?.desenlace.falloDias, 0);
+  assert.equal(e?.desenlace.falloHoras, 0);
   assert.equal(e?.desenlace.logradoEtapa, null);
+  assert.equal(e?.desenlace.logradoSecuencia, null);
+});
+
+/**
+ * El campo pasó de días a horas. Una secuencia guardada ANTES trae `falloDias`
+ * y no `falloHoras`: si el parser no lo convirtiera, volvería a "nunca falla" en
+ * silencio y esa secuencia dejaría de cerrarse sola para siempre.
+ */
+test('desenlace: los días viejos se leen como horas', () => {
+  const e = parseEstrategia({ objetivo: 'reactivar', desenlace: { falloDias: 14 } });
+  assert.equal(e?.desenlace.falloHoras, 14 * 24);
+});
+
+test('desenlace: si vienen los dos, manda el nuevo', () => {
+  const e = parseEstrategia({ objetivo: 'reactivar', desenlace: { falloDias: 30, falloHoras: 6 } });
+  assert.equal(e?.desenlace.falloHoras, 6);
+});
+
+test('desenlace: el tope sigue siendo un año, ahora en horas', () => {
+  const e = parseEstrategia({ objetivo: 'reactivar', desenlace: { falloHoras: 99999 } });
+  assert.equal(e?.desenlace.falloHoras, 365 * 24);
 });
 
 test('usa_lead_magnet: una secuencia vieja CON lead magnet se lee como que lo usa', () => {

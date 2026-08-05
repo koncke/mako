@@ -34,7 +34,8 @@ type FilaInsc = {
   ultimo_paso_at: string | null; inscripto_at: string;
 };
 
-const dias = (desde: string): number => (Date.now() - new Date(desde).getTime()) / 86_400_000;
+/** Horas transcurridas desde un ISO. El umbral del desenlace se mide acá. */
+const horas = (desde: string): number => (Date.now() - new Date(desde).getTime()) / 3_600_000;
 
 /** ¿Se cumplió lo que la secuencia buscaba? */
 function seLogro(d: Desenlace, lead: Record<string, unknown>, estado: string): boolean {
@@ -125,10 +126,13 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     // ── ¿Falló por silencio? ──
     // El reloj corre desde el ÚLTIMO mensaje enviado y solo mientras la
     // inscripción sigue activa. Una que quedó pausada o en hand-off no acumula
-    // días: nadie le está escribiendo.
-    if (d.falloDias > 0 && insc.estado === 'activa') {
+    // tiempo: nadie le está escribiendo.
+    //
+    // En HORAS y no en días: «confirmá la reunión de mañana» y «reactivación
+    // de un lead de hace tres meses» no pueden compartir umbral.
+    if (d.falloHoras > 0 && insc.estado === 'activa') {
       const desde = insc.ultimo_paso_at ?? insc.inscripto_at;
-      if (dias(desde) >= d.falloDias) {
+      if (horas(desde) >= d.falloHoras) {
         await supabase.from('nutricion_inscripciones').update({
           desenlace: 'fallo', desenlace_at: ahora, proximo_envio_at: null,
           estado: 'no_responde', updated_at: ahora,

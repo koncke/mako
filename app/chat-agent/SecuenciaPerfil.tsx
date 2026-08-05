@@ -303,12 +303,17 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: 'var(--warn)', fontWeight: 600, minWidth: 74 }}>Falla si</span>
-              <Dropdown value={String(desenlace.falloDias)} onChange={(v) => setDesenlace((d) => ({ ...d, falloDias: Number(v) }))} width={230} ariaLabel="Cuándo falla"
+              {/* En HORAS: no es lo mismo que no conteste en 2 horas a que no
+                  conteste en un mes, y el umbral correcto depende del objetivo. */}
+              <Dropdown value={String(desenlace.falloHoras)} onChange={(v) => setDesenlace((d) => ({ ...d, falloHoras: Number(v) }))} width={230} ariaLabel="Cuándo falla"
                 options={[
                   { value: '0', label: 'Nunca: la dejo corriendo' },
-                  { value: '7', label: 'Pasan 7 días sin respuesta' },
-                  { value: '14', label: 'Pasan 14 días sin respuesta' },
-                  { value: '30', label: 'Pasan 30 días sin respuesta' },
+                  { value: '2', label: 'Pasan 2 horas sin respuesta' },
+                  { value: '12', label: 'Pasan 12 horas sin respuesta' },
+                  { value: '24', label: 'Pasa 1 día sin respuesta' },
+                  { value: '72', label: 'Pasan 3 días sin respuesta' },
+                  { value: '168', label: 'Pasan 7 días sin respuesta' },
+                  { value: '720', label: 'Pasan 30 días sin respuesta' },
                 ]} />
             </div>
           </div>

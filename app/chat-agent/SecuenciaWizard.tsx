@@ -492,16 +492,19 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
           <div style={{ ...caja, display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--warn)' }}>Se da por fallida cuando…</div>
             <Dropdown
-              value={String(desenlace.falloDias)} onChange={(v) => setDesenlace((d) => ({ ...d, falloDias: Number(v) }))}
+              value={String(desenlace.falloHoras)} onChange={(v) => setDesenlace((d) => ({ ...d, falloHoras: Number(v) }))}
               width="100%" ariaLabel="Cuándo se da por fallida"
               options={[
                 { value: '0', label: 'Nunca: la dejo corriendo' },
-                { value: '7', label: 'Pasan 7 días sin respuesta' },
-                { value: '14', label: 'Pasan 14 días sin respuesta' },
-                { value: '30', label: 'Pasan 30 días sin respuesta' },
+                { value: '2', label: 'Pasan 2 horas sin respuesta' },
+                { value: '12', label: 'Pasan 12 horas sin respuesta' },
+                { value: '24', label: 'Pasa 1 día sin respuesta' },
+                { value: '72', label: 'Pasan 3 días sin respuesta' },
+                { value: '168', label: 'Pasan 7 días sin respuesta' },
+                { value: '720', label: 'Pasan 30 días sin respuesta' },
               ]}
             />
-            {desenlace.falloDias > 0 && (
+            {desenlace.falloHoras > 0 && (
               <Dropdown
                 value={desenlace.falloEtapa ?? ''} onChange={(v) => setDesenlace((d) => ({ ...d, falloEtapa: v || null }))}
                 width="100%" ariaLabel="Etapa al fallar"

@@ -49,13 +49,53 @@ export type Desenlace = {
   logrado: 'respondio' | 'agendo' | 'pago' | 'ninguno';
   /** A qué etapa se mueve el lead si se logró. null = se queda donde está. */
   logradoEtapa: string | null;
-  /** Días sin novedades tras el último paso para darla por fallida. 0 = nunca. */
-  falloDias: number;
+  /**
+   * La CLAVE de la secuencia que arranca cuando se logra el objetivo.
+   *
+   * Es lo que convierte una secuencia suelta en una cadena: «Reactivación»
+   * solo busca que el lead conteste algo, y en cuanto contesta el trabajo que
+   * sigue es otro («Cualificación»). Antes esto se intentaba por ETAPA, que es
+   * indirecto: si dos secuencias cubrían la etapa, o ninguna, el lead quedaba
+   * en el limbo sin que nadie avisara.
+   */
+  logradoSecuencia: string | null;
+  /**
+   * HORAS sin respuesta tras el último paso para darla por fallida. 0 = nunca.
+   *
+   * Estaba en DÍAS y no alcanzaba: no es lo mismo no contestar en 10 minutos
+   * que en 24 horas, y «confirmá la reunión de mañana» y «reactivación de un
+   * lead de hace tres meses» no pueden compartir umbral. Lo viejo se convierte
+   * solo (días × 24) al leerlo, así que ninguna secuencia guardada se rompe.
+   */
+  falloHoras: number;
   /** A qué etapa se mueve el lead si falló. null = se queda donde está. */
   falloEtapa: string | null;
+  /** La CLAVE de la secuencia que arranca cuando se da por fallida. */
+  falloSecuencia: string | null;
 };
 
-export const DESENLACE_VACIO: Desenlace = { logrado: 'respondio', logradoEtapa: null, falloDias: 0, falloEtapa: null };
+export const DESENLACE_VACIO: Desenlace = {
+  logrado: 'respondio', logradoEtapa: null, logradoSecuencia: null,
+  falloHoras: 0, falloEtapa: null, falloSecuencia: null,
+};
+
+/**
+ * Cuántas horas de silencio dan por fallida una secuencia, según su objetivo.
+ * Son el DEFAULT al crearla: el dueño lo ajusta solo si quiere. Salen de la
+ * urgencia real de cada trabajo — a quien tiene una reunión mañana se le
+ * pregunta de nuevo al otro día; a un lead frío de hace meses, no.
+ */
+export const HORAS_SIN_RESPUESTA: Record<Objetivo, number> = {
+  agendar: 24,
+  preparar: 12,
+  reactivar: 72,
+  cualificar: 24,
+  confirmar_pago: 12,
+};
+
+/** El default de horas para un objetivo, incluidos los que escribió el dueño. */
+export const horasSinRespuestaDe = (objetivo: string): number =>
+  HORAS_SIN_RESPUESTA[objetivo as Objetivo] ?? 24;
 
 /**
  * Un caso previsto: qué puede contestar el lead y cómo se le responde.
@@ -126,12 +166,24 @@ const OBJ_SET = new Set<string>(OBJETIVOS.map((o) => o.value));
 export function parseDesenlace(raw: unknown): Desenlace {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DESENLACE_VACIO };
   const r = raw as Record<string, unknown>;
+  // Compatibilidad con lo guardado antes de pasar a horas: si viene el campo
+  // viejo en días y no el nuevo, se convierte. Sin esto, cada secuencia ya
+  // configurada volvería a "nunca falla" en silencio.
+  const horas = Number(r.falloHoras);
   const dias = Number(r.falloDias);
+  const horasFinal = Number.isFinite(horas) && horas > 0
+    ? horas
+    : (Number.isFinite(dias) && dias > 0 ? dias * 24 : 0);
+  const clave = (x: unknown): string | null =>
+    typeof x === 'string' && x.trim() ? x.trim().slice(0, 120) : null;
   return {
     logrado: typeof r.logrado === 'string' && LOGRADO_SET.has(r.logrado) ? (r.logrado as Desenlace['logrado']) : 'respondio',
-    logradoEtapa: typeof r.logradoEtapa === 'string' && r.logradoEtapa.trim() ? r.logradoEtapa.trim() : null,
-    falloDias: Number.isFinite(dias) && dias > 0 ? Math.min(Math.round(dias), 365) : 0,
-    falloEtapa: typeof r.falloEtapa === 'string' && r.falloEtapa.trim() ? r.falloEtapa.trim() : null,
+    logradoEtapa: clave(r.logradoEtapa),
+    logradoSecuencia: clave(r.logradoSecuencia),
+    // Tope de un año, igual que antes, pero contado en horas.
+    falloHoras: horasFinal > 0 ? Math.min(Math.round(horasFinal), 365 * 24) : 0,
+    falloEtapa: clave(r.falloEtapa),
+    falloSecuencia: clave(r.falloSecuencia),
   };
 }
 
