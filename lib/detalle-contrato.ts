@@ -89,6 +89,40 @@ export const MOLDE_DETALLE = [
 /** La advertencia que acompaña al molde. Misma razón: una sola fuente. */
 export const MOLDE_ADVERTENCIA = 'Copiá esta forma EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.';
 
+// =============================================================================
+// El contrato del detalle de un PROYECTO — distinto al de una tarea
+// =============================================================================
+// Una tarea se ejecuta; un proyecto se entiende. Por eso las cuatro partes son otras:
+// nadie «termina» un proyecto, así que un «Listo cuando» ahí no significa nada.
+//
+// El problema medido: los 39 proyectos del tablero del dueño tienen entre 107 y 1.810
+// caracteres de prosa corrida SIN UN SOLO SALTO DE LÍNEA. El campo se pinta con
+// `RichText`, que convierte markdown a HTML (app/plan/board/RichText.tsx → mdAHtml),
+// así que un texto sin saltos termina en UN solo <div> de mil ochocientos caracteres.
+// El contenido era bueno; era ilegible igual.
+//
+// Y la forma YA estaba adentro de la prosa: casi todos siguen «Es …» → «ya está /
+// YA funcionan» → «Falta / Queda» → «Importa porque». Esto solo la saca a la superficie.
+export const PARTES_PROYECTO = ['Qué es', 'Qué ya está', 'Qué falta', 'Por qué importa'] as const;
+
+export const MOLDE_PROYECTO = [
+  '**Qué es**', 'De qué se trata el proyecto, en 1-2 frases.', '',
+  '**Qué ya está**', 'Lo construido, verificable: rutas, archivos, migraciones.', '',
+  '**Qué falta**', '- lo que queda, con el # de la tarea que lo cubre', '',
+  '**Por qué importa**', 'Qué se gana o qué se rompe según esté o no.',
+].join('\n');
+
+/** Mismo diagnóstico que `evaluarDetalle` pero con las partes del proyecto. */
+export function evaluarDetalleProyecto(d: string): EvalDetalle {
+  const t = (d ?? '').trim();
+  const n = norm(t);
+  const partes: string[] = [];
+  for (const p of PARTES_PROYECTO) {
+    if (n.includes(norm(`**${p}**`)) || n.includes(norm(`${p}\n`)) || n.includes(norm(`${p}:`))) partes.push(p);
+  }
+  return { chars: t.length, partes, faltan: PARTES_PROYECTO.filter((p) => !partes.includes(p)), conForma: partes.length >= 2 };
+}
+
 export type EvalDetalle = {
   chars: number;
   /** los títulos del contrato que SÍ están, en el orden en que aparecen. */

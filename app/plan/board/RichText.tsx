@@ -38,10 +38,24 @@ export function stripHtml(html: string): string {
  * asteriscos crudos en la tarjeta. Se aplica SOLO si el texto no tiene ni una etiqueta:
  * lo que ya es HTML —todo lo que escribió el dueño a mano— no se toca.
  */
+/** Las etiquetas que de verdad emite `contentEditable`. La detección vieja era
+ *  `/<[a-z][\s\S]*>/i` — CUALQUIER cosa entre `<` y `>` — y eso rompía feo con los
+ *  detalles que HABLAN de HTML: uno del rediseño dice «1.158 `<button>` sueltos», y con
+ *  eso el texto se daba por HTML, así que (a) el markdown no se convertía y se veían los
+ *  `**` crudos, y (b) ese `<button>` se renderizaba como un botón de verdad adentro de la
+ *  descripción. Ahora solo cuentan las etiquetas de formato; `<button>`, `<select>` o
+ *  `<input>` mencionados en un texto se escapan y se leen como lo que son: texto. */
+const ES_HTML = /<(div|p|br|ul|ol|li|strong|b|u|em|i|span|h[1-6]|a)[\s>/]/i;
+
 export function mdAHtml(texto: string): string {
-  if (!texto || /<[a-z][\s\S]*>/i.test(texto)) return texto;
+  if (!texto || ES_HTML.test(texto)) return texto;
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const inline = (s: string) => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // `codigo` → <code>. Los detalles técnicos están llenos de `archivo:linea` y de
+  // `style={{`, y sin esto se leían las comillas invertidas crudas. Va DESPUÉS del
+  // escapado, así que lo que quedó adentro ya es texto seguro.
+  const inline = (s: string) => esc(s)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
   const out: string[] = [];
   let lista: string[] = [];
   const cerrar = () => { if (lista.length) { out.push(`<ul>${lista.map((li) => `<li>${li}</li>`).join('')}</ul>`); lista = []; } };
@@ -84,7 +98,7 @@ export function RichText({ value, onChange, placeholder, style }: {
 
   return (
     <div>
-      <style>{`.mako-rt[contenteditable]:empty:before{content:attr(data-ph);color:var(--faint);pointer-events:none}.mako-rt b,.mako-rt strong{font-weight:700}.mako-rt u{text-decoration:underline}`}</style>
+      <style>{`.mako-rt[contenteditable]:empty:before{content:attr(data-ph);color:var(--faint);pointer-events:none}.mako-rt b,.mako-rt strong{font-weight:700}.mako-rt u{text-decoration:underline}.mako-rt code{font-family:'Geist Mono',monospace;font-size:.9em;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 5px}.mako-rt ul{margin:4px 0;padding-left:20px}.mako-rt li{margin:2px 0}`}</style>
       {/* mini toolbar: aparece al enfocar */}
       <div style={{ display: 'flex', gap: 5, height: focused ? 30 : 0, opacity: focused ? 1 : 0, overflow: 'hidden', transition: 'height .12s, opacity .12s', marginBottom: focused ? 6 : 0 }}>
         <button type="button" title="Negrita" onMouseDown={(e) => { e.preventDefault(); cmd('bold'); }} style={{ ...btn, fontWeight: 800 }}>B</button>
