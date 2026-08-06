@@ -1,0 +1,66 @@
+// =============================================================================
+// Quién ve qué integración — la regla que decidió mal dos veces seguidas
+// =============================================================================
+// 1º: metí GitHub en el catálogo del cliente. Le habría aparecido a Mauricio un campo
+//     para el token del repo de la agencia. Su capa es `completo`, y ahí
+//     `categoriasIntegraciones` es null — o sea, TODAS.
+// 2º: lo marqué `soloPlataforma` pero filtré por capa PRIMERO. GitHub está en la
+//     categoría 'Desarrollo' y la capa del super-admin solo lista Inteligencia, IA
+//     Generativa, Agentes, Reuniones y Datos: quedó invisible para TODO el mundo.
+//     El dueño lo vio: «aún no veo el github en integraciones de super admin».
+//
+// Y hay un tercer antecedente en el propio repo: lib/credenciales.ts cuenta que
+// GOOGLE_CLIENT_ID/SECRET quedaron como filas zombie «cuando Google figuraba como si
+// fuera una credencial de cliente».
+//
+// Tres veces la misma confusión. Por eso esto tiene test.
+// =============================================================================
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { defsVisibles, DEFS_TEST } from '../lib/integraciones-catalogo';
+
+const CAPA_SUPERADMIN = ['Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Datos'];
+const ve = (defs: ReturnType<typeof f>, key: string) => defs.some((d) => d.key === key);
+const f = (o: { cats: string[] | null; ocultas?: string[]; esSuper: boolean }) =>
+  defsVisibles(DEFS_TEST, { cats: o.cats, ocultas: new Set(o.ocultas ?? []), esSuper: o.esSuper });
+
+test('ERROR 1: un cliente NUNCA ve una credencial de la plataforma', () => {
+  // Mauricio: capa `completo` → cats null → ve todas las categorías del negocio.
+  const suyas = f({ cats: null, esSuper: false });
+  assert.equal(ve(suyas, 'github'), false, 'GitHub NO puede aparecerle a un cliente');
+  assert.equal(ve(suyas, 'meta'), true, '…pero sí las suyas');
+  assert.equal(ve(suyas, 'fathom'), true);
+});
+
+test('ERROR 2: el super-admin SÍ la ve, aunque su capa no liste esa categoría', () => {
+  const suyas = f({ cats: CAPA_SUPERADMIN, esSuper: true });
+  assert.equal(ve(suyas, 'github'), true, 'la capa NO puede tirar una credencial de plataforma');
+  // Y su capa sigue mandando sobre lo que SÍ es del negocio.
+  assert.equal(ve(suyas, 'meta'), false, 'Publicidad no está en su capa');
+  assert.equal(ve(suyas, 'anthropic'), true, 'Inteligencia sí');
+});
+
+test('las ocultas de la capa se respetan igual', () => {
+  const suyas = f({ cats: CAPA_SUPERADMIN, ocultas: ['youtube', 'calendly', 'google'], esSuper: true });
+  assert.equal(ve(suyas, 'youtube'), false);
+  assert.equal(ve(suyas, 'calendly'), false);
+  assert.equal(ve(suyas, 'panda'), true, 'Datos sin ocultar sigue visible');
+});
+
+test('una credencial de plataforma oculta a mano también desaparece', () => {
+  const suyas = f({ cats: null, ocultas: ['github'], esSuper: true });
+  assert.equal(ve(suyas, 'github'), false);
+});
+
+test('no se duplica ninguna: plataforma y negocio son conjuntos disjuntos', () => {
+  const suyas = f({ cats: null, esSuper: true });
+  const keys = suyas.map((d) => d.key);
+  assert.equal(keys.length, new Set(keys).size, 'hay una integración repetida');
+  assert.equal(keys.length, DEFS_TEST.length, 'el super-admin sin filtro de capa las ve todas');
+});
+
+test('el catálogo declara al menos una de plataforma, y GitHub es una', () => {
+  const plataforma = DEFS_TEST.filter((d) => d.soloPlataforma).map((d) => d.key);
+  assert.ok(plataforma.includes('github'), 'GitHub tiene que estar marcada soloPlataforma');
+});
