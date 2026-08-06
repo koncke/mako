@@ -6,17 +6,26 @@
 // «Tools», «Chats» y «Customer Success» — que describen qué ES cada cosa, no
 // para qué la abrís.
 //
-// Ahora son cinco familias, y cada una responde UNA pregunta (documento
+// Ahora son familias, y cada una responde UNA pregunta (documento
 // «Arquitectura de Información + App Shell», MaKo · Fase 1 · v1):
 //
-//   FOCUS    ¿qué es lo más importante que debo hacer ahora?
-//   OPERATE  ¿qué tengo que ejecutar hoy?
+//   OPERATE  ¿qué tengo que hacer y ejecutar hoy?
 //   ANALYZE  ¿qué está pasando y por qué?
 //   CREATE   ¿qué quiero construir o automatizar?
 //   (Profile, abajo)  ¿cómo configuro el contexto y la cuenta?
 //
+// El documento proponía además una familia FOCUS con un solo ítem. Martín la
+// sacó: «Hoy» es lo primero de Operate y punto — una familia entera para una
+// sola pantalla es una carpeta con un archivo adentro.
+//
 // Los nombres de familia van en INGLÉS por decisión del documento («cortos y
 // comprensibles»); los ítems conservan su nombre.
+//
+// Dentro de una familia hay dos niveles, y la diferencia importa:
+//   · `items`  — lo que se abre TODOS LOS DÍAS. Siempre a la vista.
+//   · `grupos` — colecciones que se consultan de a una (los siete Analysts, los
+//     tres canales de chat, los writers). Abren un desplegable al costado. Sin
+//     esto, Analyze eran nueve filas y la barra se volvía una lista de todo.
 //
 // Dos parejas que conviene no confundir, porque son la razón del reparto:
 //   · Ads Manager (Operate) EJECUTA · Ads Analyst (Analyze) COMPRENDE.
@@ -56,21 +65,27 @@ export type NavItem = {
   match: (pathname: string) => boolean;
 };
 
+/** Una colección dentro de una familia. Abre un desplegable al costado. */
+export type NavGrupo = { key: string; label: string; icon: string; items: NavItem[] };
+
 /**
  * Una familia de intención.
  *
- * `notifica` es la regla dura de los contadores: SOLO Focus y Operate llevan
- * número, «ya que son los 2 únicos que notifican». En el resto, un badge sería
- * ruido — y si todo tiene badge, nada tiene badge.
+ * `notifica` es la regla dura de los contadores: solo la familia que notifica
+ * lleva número. En el resto, un badge sería ruido — y si todo tiene badge, nada
+ * tiene badge.
  */
 export type NavFamilia = {
-  key: 'focus' | 'operate' | 'analyze' | 'create';
+  key: 'operate' | 'analyze' | 'create';
   label: string;
   /** La pregunta que responde. Se muestra como tooltip del rail. */
   pregunta: string;
   icon: string;
   notifica?: boolean;
+  /** Lo de uso diario: siempre a la vista dentro de la familia. */
   items: NavItem[];
+  /** Colecciones que se consultan de a una: abren desplegable al costado. */
+  grupos?: NavGrupo[];
 };
 
 const starts = (p: string) => (pathname: string) =>
@@ -78,31 +93,30 @@ const starts = (p: string) => (pathname: string) =>
 
 export const FAMILIAS: NavFamilia[] = [
   {
-    key: 'focus',
-    label: 'Focus',
-    pregunta: '¿Qué es lo más importante que debo hacer ahora?',
-    icon: 'general',
-    notifica: true,
-    items: [
-      // Hoy es /general. Cuando exista la pantalla Focus con sus seis campos
-      // (prioridad, razón, resultado esperado, responsable, progreso y próxima
-      // revisión), este item pasa a ser ella; la key `general` se queda.
-      { key: 'general', label: 'Hoy', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
-    ],
-  },
-  {
     key: 'operate',
     label: 'Operate',
-    pregunta: '¿Qué tengo que ejecutar hoy?',
+    pregunta: '¿Qué tengo que hacer y ejecutar hoy?',
     icon: 'crm',
     notifica: true,
     items: [
+      // «Hoy» es /general. Cuando exista la pantalla con sus seis campos
+      // (prioridad, razón, resultado esperado, responsable, progreso y próxima
+      // revisión, tarea #523), este item pasa a ser ella; la key `general` se
+      // queda porque está escrita en la base.
+      { key: 'general', label: 'Hoy', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
       { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
-      { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
-      { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
-      { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },
       { key: 'todo', label: 'Plan', href: '/plan', icon: 'todo', rolesWs: ['closer', 'setter'], match: (p) => starts('/plan')(p) || starts('/todo')(p) },
       { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
+    ],
+    grupos: [
+      {
+        key: 'chats', label: 'Chats', icon: 'chats',
+        items: [
+          { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
+          { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
+          { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },
+        ],
+      },
     ],
   },
   {
@@ -116,13 +130,20 @@ export const FAMILIAS: NavFamilia[] = [
       // Experiments, que es donde están la Retro y las conclusiones. Cuando se
       // separe, entra acá arriba (es el hero de esta familia).
       { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
-      { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
-      { key: 'script', label: 'Ads Analyst', href: '/ads-analyst', icon: 'notepencil', match: starts('/ads-analyst') },
-      { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', match: starts('/landing-analyst') },
-      { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
-      { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
-      { key: 'market-an', label: 'Market Analyst', href: '/market-analyst', icon: 'search', comingSoon: true, match: starts('/market-analyst') },
-      { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
+    ],
+    grupos: [
+      {
+        key: 'analysts', label: 'Analysts', icon: 'search',
+        items: [
+          { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
+          { key: 'script', label: 'Ads Analyst', href: '/ads-analyst', icon: 'notepencil', match: starts('/ads-analyst') },
+          { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', match: starts('/landing-analyst') },
+          { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
+          { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
+          { key: 'market-an', label: 'Market Analyst', href: '/market-analyst', icon: 'search', comingSoon: true, match: starts('/market-analyst') },
+          { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
+        ],
+      },
     ],
   },
   {
@@ -136,22 +157,31 @@ export const FAMILIAS: NavFamilia[] = [
       // llama. Está PRIMERO porque es el hero de esta familia: no es un bot de
       // plantillas, es el experto duplicado.
       { key: 'setting', label: 'Chat Agent', href: '/chat-agent', icon: 'tag', rolesWs: ['setter'], match: starts('/chat-agent') },
-      { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', match: starts('/ads-writer') },
-      { key: 'landing-writer', label: 'Landing Generator', href: '/landing-writer', icon: 'pen', match: starts('/landing-writer') },
-      { key: 'vsl-writer', label: 'VSL Writer', href: '/vsl-writer', icon: 'pen', comingSoon: true, match: starts('/vsl-writer') },
-      { key: 'dm-writer', label: 'DM Writer', href: '/dm-writer', icon: 'pen', comingSoon: true, match: starts('/dm-writer') },
+    ],
+    grupos: [
+      {
+        key: 'writers', label: 'Writers', icon: 'pen',
+        items: [
+          { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', match: starts('/ads-writer') },
+          { key: 'landing-writer', label: 'Landing Generator', href: '/landing-writer', icon: 'web', match: starts('/landing-writer') },
+          { key: 'vsl-writer', label: 'VSL Writer', href: '/vsl-writer', icon: 'video', comingSoon: true, match: starts('/vsl-writer') },
+        ],
+      },
     ],
   },
 ];
 
 /**
- * La zona de MaKo, abajo del todo y fuera de las familias: es una CAPACIDAD
- * GLOBAL, no un módulo más. El documento lo pide explícito — «Pregúntale a MaKo
- * debe entenderse como capacidad global, no solamente como una tab aislada».
+ * MaKo, abajo del todo y fuera de las familias: es una CAPACIDAD GLOBAL, no un
+ * módulo más. El documento lo pide explícito — «Pregúntale a MaKo debe
+ * entenderse como capacidad global, no solamente como una tab aislada».
+ *
+ * Es UNA sola entrada. /mako-doer existe como ruta pero salió de la barra:
+ * monta el MISMO MakoChat contra otro endpoint, así que para el usuario eran
+ * dos tabs que hacen lo mismo.
  */
 export const MAKO_NAV: NavItem[] = [
-  { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', rolesWs: ['closer', 'setter'], match: starts('/mako') },
-  { key: 'mako-doer', label: 'MaKo Doer', href: '/mako-doer', icon: 'mako', rolesWs: ['closer', 'setter'], match: starts('/mako-doer') },
+  { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', rolesWs: ['closer', 'setter'], match: (p) => starts('/mako')(p) || starts('/mako-doer')(p) },
 ];
 
 // Shell de administración: lo ve un admin que NO está impersonando. Sin tabs de
@@ -198,4 +228,7 @@ export const USER_NAV: NavItem[] = [
 ];
 
 /** Todos los ítems de producto, aplanados (para buscar por key o por ruta). */
-export const TODOS_LOS_ITEMS: NavItem[] = [...FAMILIAS.flatMap((f) => f.items), ...MAKO_NAV];
+export const TODOS_LOS_ITEMS: NavItem[] = [
+  ...FAMILIAS.flatMap((f) => [...f.items, ...(f.grupos ?? []).flatMap((g) => g.items)]),
+  ...MAKO_NAV,
+];

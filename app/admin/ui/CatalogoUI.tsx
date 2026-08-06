@@ -84,14 +84,21 @@ export function CatalogoUI() {
               <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.45, marginBottom: 10 }}>{f.pregunta}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                 {f.items.map((i) => <Tag key={i.key}>{i.label}</Tag>)}
+                {/* Las colecciones abren al costado: se muestran como una sola
+                    pieza porque en la barra ocupan una sola fila. */}
+                {(f.grupos ?? []).map((g) => (
+                  <Tag key={g.key} color="var(--primary)">{g.label} ({g.items.length}) ›</Tag>
+                ))}
               </div>
             </div>
           ))}
         </div>
         <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.5 }}>
-          El punto rojo marca las dos únicas familias que notifican. <strong>Preguntale a MaKo</strong> y{' '}
-          <strong>MaKo Doer</strong> viven fuera de las familias, abajo del todo: son una capacidad global, no un módulo.
-          Y la quinta familia del documento (Admin) no ocupa lugar en la barra — vive detrás del avatar.
+          En azul, las colecciones que abren al costado: ver los siete Analysts desplegados para entrar a uno es el
+          mismo inventario de antes. El punto rojo marca la única familia que notifica.{' '}
+          <strong>Preguntale a MaKo</strong> vive fuera de las familias, abajo del todo, porque es una capacidad
+          global y no un módulo. Y la familia Admin del documento no ocupa lugar en la barra: vive detrás del avatar,
+          junto con el saldo de IA.
         </p>
       </Seccion>
 
