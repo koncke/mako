@@ -95,7 +95,10 @@ async function main() {
           conForma: ev.conForma,
           proyectoIds: labels,
           proyecto: labels.map((l) => str((proys.find((p) => str(p.id) === l) ?? {}).name)).filter(Boolean).join(' + '),
-          hecha: !!t.done || str(t.estado) === 'hecha',
+          // OJO: los dos tableros marcan lo hecho distinto. El del dueño usa `done`;
+          // el de los clientes usa `progreso` y el del dueño la columna `progress`. Mirar solo `done`
+          // contaba como ABIERTAS 30 tareas de Mauricio que ya estaban al 100%.
+          hecha: !!t.done || str(t.estado) === 'hecha' || Number(t.progreso ?? t.progress ?? 0) >= 100,
           fuente: t.fuente ?? null,
           historial: arr<Record<string, unknown>>(t.historial).map((h) => str(h.text)).slice(0, 4),
           material: mat,
