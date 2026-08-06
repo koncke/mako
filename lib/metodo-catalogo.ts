@@ -83,6 +83,16 @@ export type ServicioMetodo = {
   soloServidor?: boolean;
   /** true → sin esto el dashboard pierde funciones núcleo. */
   core?: boolean;
+  /**
+   * true → es una credencial de LA PLATAFORMA, no del negocio del cliente. Solo la ve
+   * el super-admin.
+   *
+   * Existe porque metí GitHub como si fuera una integración de cliente y le habría
+   * aparecido a Mauricio y a Leila un campo para el token del repo de la agencia. Y hay
+   * precedente exacto en lib/credenciales.ts: GOOGLE_CLIENT_ID/SECRET quedaron como
+   * filas zombie «cuando Google figuraba como si fuera una credencial de cliente».
+   */
+  soloPlataforma?: boolean;
 };
 
 export const SERVICIOS_METODO: ServicioMetodo[] = [
@@ -298,6 +308,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'github',
     nombre: 'GitHub',
     categoria: 'Desarrollo',
+    soloPlataforma: true,
     // Es la ÚNICA integración del catálogo que no es del negocio del cliente sino del
     // producto: la carga la agencia, una vez, para su propio tablero. Está acá y no en
     // un env suelto para que se administre igual que el resto y se pueda rotar sin deploy.
@@ -457,6 +468,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
 
 /** Reemplaza `{{APP_URL}}` por el dominio real. Ver el porqué en ayudaDeCampo(). */
 const conUrlReal = (s: string): string => s.replaceAll('{{APP_URL}}', APP_BASE_URL);
+
+/** El catálogo que le corresponde ver a alguien. El super-admin ve todo; un cliente
+ *  NUNCA ve las credenciales de la plataforma — no son suyas y no puede hacer nada con
+ *  ellas más que confundirse o filtrarlas. */
+export const serviciosPara = (esSuperAdmin: boolean): ServicioMetodo[] =>
+  esSuperAdmin ? SERVICIOS_METODO : SERVICIOS_METODO.filter((s) => !s.soloPlataforma);
 
 export const servicioMetodo = (key: string): ServicioMetodo | undefined => {
   const s = SERVICIOS_METODO.find((x) => x.key === key);

@@ -13,6 +13,8 @@ import { googleCalendarConectado, googleCalendarDueno } from './google-calendar'
 import { capaDef } from './capas';
 import { getCapaActual, getWorkspaceActual } from './workspace';
 import { getAgenteToken } from './agente-token';
+// El super-admin es el único que administra las credenciales de la PLATAFORMA.
+import { getSesionAdmin } from './auth';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -30,7 +32,11 @@ export type Integracion = {
 // `global: true` = servicio de plataforma de la agencia (no per-cliente): siempre
 // disponible para todos los workspaces. El resto se chequea contra las
 // credenciales del workspace actual (credWs → dueño usa env, cliente su fila).
-type Def = { key: string; nombre: string; categoria: string; descripcion: string; envs: string[]; tieneDetalle?: boolean; global?: boolean };
+/** `soloPlataforma` = es una credencial de LA PLATAFORMA (el repo de la agencia, no el
+ *  negocio del cliente). Solo la ve el super-admin. Ver el mismo flag en
+ *  lib/metodo-catalogo.ts: los DOS catálogos tienen que declarar lo mismo o la UI de uno
+ *  la esconde y la del otro la muestra. */
+type Def = { key: string; nombre: string; categoria: string; descripcion: string; envs: string[]; tieneDetalle?: boolean; global?: boolean; soloPlataforma?: boolean };
 
 const DEFS: Def[] = [
   { key: 'meta', nombre: 'Meta Ads', categoria: 'Publicidad', descripcion: 'Campañas, insights y estado de la cuenta publicitaria.', envs: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'], tieneDetalle: true },
@@ -49,7 +55,7 @@ const DEFS: Def[] = [
   // OJO: esta lista y la de lib/metodo-catalogo.ts tienen que coincidir EXACTO en los
   // `env`. Si no, credWs() devuelve null en silencio y la integración se ve cargada pero
   // no funciona — es el error clásico que la skill add-provider-integration advierte.
-  { key: 'github', nombre: 'GitHub', categoria: 'Desarrollo', descripcion: 'Lee los commits de main para proponer cerrar las tareas de desarrollo ya hechas.', envs: ['GITHUB_TOKEN', 'GITHUB_REPO'] },
+  { key: 'github', nombre: 'GitHub', categoria: 'Desarrollo', descripcion: 'Lee los commits de main para proponer cerrar las tareas de desarrollo ya hechas.', envs: ['GITHUB_TOKEN', 'GITHUB_REPO'], soloPlataforma: true },
   { key: 'fathom', nombre: 'Fathom', categoria: 'Reuniones', descripcion: 'Grabaciones y transcripciones de llamadas (Closing).', envs: ['FATHOM_API_KEY'] },
   { key: 'calendly', nombre: 'Calendly', categoria: 'Reuniones', descripcion: 'Agenda de reuniones (R1/R2) y asistencia.', envs: ['CALENDLY_API_TOKEN'] },
   // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app
@@ -135,8 +141,13 @@ export async function getIntegraciones(): Promise<Integracion[]> {
   const cap = capaDef(await getCapaActual());
   const cats = cap.categoriasIntegraciones;
   const ocultas = new Set(cap.integracionesOcultas ?? []);
+  // Y el SUPER-ADMIN decide qué se ve de la plataforma. Una credencial como el token
+  // del repo no es del negocio de nadie: mostrársela a un cliente es pedirle que
+  // administre algo que no es suyo, y encima un campo secreto que no puede llenar.
+  const esSuper = !!(await getSesionAdmin().catch(() => null));
   const defs = (cats == null ? DEFS : DEFS.filter((d) => cats.includes(d.categoria)))
-    .filter((d) => !ocultas.has(d.key));
+    .filter((d) => !ocultas.has(d.key))
+    .filter((d) => esSuper || !d.soloPlataforma);
   return Promise.all(defs.map(async (d) => {
     if (d.key === 'landing') {
       return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };
