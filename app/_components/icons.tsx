@@ -67,14 +67,34 @@ const PATHS: Record<string, ReactNode> = {
   // llave de Create y del gráfico de Analyze: tres siluetas que no se confunden
   // ni en el rail plegado, que es donde el ícono tiene que trabajar solo.
   rayo: (<path d="M13.6 2.6 5.4 13.2h5.3l-1.3 8.2 8.2-10.6h-5.3l1.3-8.2Z" />),
-  // Cerebro: SECOND BRAIN. Dos lóbulos y el surco del medio. Antes era una red
-  // de nodos —conceptualmente correcta, porque el módulo conecta señales— pero
-  // a 19 px no se leía «cerebro», que es lo único que el nombre promete.
-  cerebro: (<>
-    <path d="M12 5.4v13.4" />
-    <path d="M12 6.2a2.7 2.7 0 0 0-4.8-1.4A2.6 2.6 0 0 0 4.5 8a2.7 2.7 0 0 0-.6 4.4 2.7 2.7 0 0 0 1 4.2A2.7 2.7 0 0 0 9 20.2 2.6 2.6 0 0 0 12 18" />
-    <path d="M12 6.2a2.7 2.7 0 0 1 4.8-1.4A2.6 2.6 0 0 1 19.5 8a2.7 2.7 0 0 1 .6 4.4 2.7 2.7 0 0 1-1 4.2A2.7 2.7 0 0 1 15 20.2 2.6 2.6 0 0 1 12 18" />
-    <path d="M9.2 9.6h1.4M13.4 12.4h1.5" />
+  // SECOND BRAIN: un cerebro dibujado como RED DE NODOS. El contorno da la
+  // silueta y los nodos dicen de qué está hecho — conectar señales sueltas es
+  // literalmente lo que hace el módulo. Los aros van con strokeWidth propio
+  // (1.4) porque a 19 px el 1.85 del set los cierra y quedan manchones.
+  cerebro: (<g strokeWidth="1.4">
+    <path d="M6.9 6 12.3 4.5M12.3 4.5 17.5 7.3M17.5 7.3 20 12.3M20 12.3 16.4 17.9M16.4 17.9 10.5 19.4M10.5 19.4 5 16.2M5 16.2 3.8 10.4M3.8 10.4 6.9 6" />
+    <path d="M7.8 7 8.6 8.6M12.4 6.5 11.9 8.3M5 11.4l2.2.4M12.3 11.3l1.3 1.1M16.6 8.9l-1.3 1.9M18.6 13.6l-2.3.5M15.4 15.6l.6 1.5M11.4 17l1.2 1.7M6.4 14.9l1.5-1.4" />
+    <circle cx="6.9" cy="6" r="1.25" /><circle cx="12.3" cy="4.5" r="1.25" /><circle cx="17.5" cy="7.3" r="1.25" />
+    <circle cx="20" cy="12.3" r="1.25" /><circle cx="16.4" cy="17.9" r="1.25" /><circle cx="10.5" cy="19.4" r="1.25" />
+    <circle cx="5" cy="16.2" r="1.25" /><circle cx="3.8" cy="10.4" r="1.25" />
+    <circle cx="9.7" cy="10.4" r="2.3" /><circle cx="14.9" cy="13.4" r="2.3" />
+  </g>),
+  // CHAT BOT: la burbuja con sus dos puntos y la chispa afuera, arriba a la
+  // derecha. La chispa es la de MaKo: dice que del otro lado no hay una persona.
+  chatbot: (<>
+    <path d="M18.1 12.2a7.3 7.3 0 0 1-10.7 6.5L3 20l1.4-4.7a7.3 7.3 0 1 1 13.7-3.1Z" />
+    <circle cx="8.3" cy="12" r="1.05" fill="currentColor" stroke="none" />
+    <circle cx="11.8" cy="12" r="1.05" fill="currentColor" stroke="none" />
+    <path d="M19.1 1.9l.95 2.3 2.3.95-2.3.95-.95 2.3-.95-2.3-2.3-.95 2.3-.95Z" />
+  </>),
+  // CONTENT MACHINE: el pincel y la lapicera cruzados, con la chispa. Las dos
+  // herramientas y no una: el módulo hace la pieza entera, no solo el texto.
+  creativos: (<>
+    <path d="M9.3 14.1 18.4 5a1.9 1.9 0 0 0-2.7-2.7L6.6 11.5" />
+    <path d="M6.6 11.5 4.3 13.8c-1 1-.7 2.5-1.4 3.4-.4.5-1 .8-1.6 1 1.9 1.4 4.5 1.2 6.1-.4 1-1 1.2-2.6.4-3.8" />
+    <path d="M5.6 4.4 14.5 13.3" />
+    <path d="M14.5 13.3 20.3 20l-2-6.3Z" />
+    <path d="M18.6 8.6l.65 1.6 1.6.65-1.6.65-.65 1.6-.65-1.6-1.6-.65 1.6-.65Z" />
   </>),
   // Boya / salvavidas: REPORTAR PROBLEMA. Es el ícono universal de ayuda y no
   // se pisa con el interrogante, que ya significa «cómo consigo esta key».

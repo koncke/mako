@@ -1,14 +1,8 @@
-// =============================================================================
-// Chat Agent — el cockpit del agente que conversa: secuencias con estrategia, prueba
-// en vivo y métricas. Spec: docs/superpowers/specs/2026-07-31-tab-setting-design.md
-// Sin gate de integración a propósito: las secuencias de mensajes se diseñan ANTES de conectar
-// canales; los pasos de prueba/activación avisan qué falta.
-// =============================================================================
+// Ruta vieja: la tab pasó a llamarse «Chat Bot» y se mudó a /chat-bot, para que
+// el nombre y la URL digan lo mismo. El redirect se queda porque /chat-agent
+// está escrito en tareas del plan y en mensajes que MaKo ya mandó.
+import { redirect } from 'next/navigation';
 
-import { requireRolWs } from '@/lib/tab-access';
-import { ChatAgentApp } from './ChatAgentApp';
-
-export default async function Page() {
-  await requireRolWs(['setter'], { nav: 'setting' });
-  return <ChatAgentApp />;
+export default function RedirectPage() {
+  redirect('/chat-bot');
 }

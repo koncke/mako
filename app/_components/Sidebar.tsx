@@ -167,23 +167,26 @@ function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, con
 }) {
   const activa = [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)].some((i) => i.match(pathname));
   return (
-    <div style={primera ? undefined : { marginTop: open ? 14 : 12, paddingTop: 12, borderTop: '1px solid var(--sidebar-2)' }}>
+    <div style={{ marginTop: primera ? 0 : 16 }}>
+      {/* El rótulo va AFUERA de la caja y más grande que las tabs. Es la
+          diferencia que faltaba: no es una fila más de la lista, es el título
+          de lo que viene abajo. */}
       <button type="button" className="mk-seccion"
         onClick={() => onToggle(f.key)}
         title={open ? undefined : `${f.label} · ${f.pregunta}`}
         aria-expanded={abiertaEsta}
         style={{
-          display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
           justifyContent: open ? 'flex-start' : 'center',
-          padding: open ? '0 10px 7px' : '0 0 8px',
+          padding: open ? '0 4px 8px' : '0 0 8px',
           border: 'none', background: 'transparent', cursor: 'pointer',
-          fontFamily: MONO, fontSize: 9.5, letterSpacing: '.15em',
-          textTransform: 'uppercase', fontWeight: 600,
+          fontFamily: MONO, fontSize: 11.5, letterSpacing: '.16em',
+          textTransform: 'uppercase', fontWeight: 700,
           color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
-          opacity: activa ? 0.85 : 0.55,
+          opacity: activa ? 1 : 0.6,
         }}>
         <span style={{ position: 'relative', display: 'flex', flex: 'none', color: 'inherit' }}>
-          <Icon name={f.icon} size={open ? 13 : 15} />
+          <Icon name={f.icon} size={open ? 15 : 17} />
           {/* Plegada, la sección igual avisa: es lo único que se ve de lo que
               no está desplegado. */}
           {!open && !abiertaEsta && <Contador n={contadorFamilia} compacto />}
@@ -193,21 +196,32 @@ function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, con
             a la tab que lo debe: si no, te dice que hay 14 cosas pendientes pero
             no cuál de las siete filas las tiene. */}
         {open && !abiertaEsta && <Contador n={contadorFamilia} />}
-        {open && <span style={{ flex: 'none', fontSize: 9, opacity: 0.8, transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>}
+        {open && <span style={{ flex: 'none', fontSize: 10, opacity: 0.75, transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>}
       </button>
       {abiertaEsta && (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        // Y las tabs van ADENTRO de una caja. El rótulo afuera + la caja adentro
+        // es lo que hace que se lean como dos cosas distintas sin depender del
+        // tamaño del texto ni del color, que era lo que se confundía.
+        <div style={{
+          display: 'flex', flexDirection: 'column',
+          background: 'rgba(255,255,255,.035)',
+          borderRadius: 'var(--r-lg)',
+          padding: open ? '5px 5px' : '5px 3px',
+        }}>
           {f.bloques.map((bloque, i) => (
-            // Los bloques de adentro de una familia se separan con aire. Una
-            // línea acá competiría con la que separa las familias.
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 1, ...(i > 0 ? { marginTop: 10 } : {}) }}>
+            // Los bloques de adentro de una familia se separan con una línea:
+            // adentro de la caja no compite con nada.
+            <div key={i} style={{
+              display: 'flex', flexDirection: 'column', gap: 1,
+              ...(i > 0 ? { marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,.06)' } : {}),
+            }}>
               {bloque.map((it) => (
                 <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)} />
               ))}
             </div>
           ))}
           {f.grupos.map((g) => (
-            <div key={g.key} style={{ marginTop: f.bloques.length ? 10 : 0 }}>
+            <div key={g.key} style={{ marginTop: f.bloques.length ? 6 : 0, paddingTop: f.bloques.length ? 6 : 0, borderTop: f.bloques.length ? '1px solid rgba(255,255,255,.06)' : undefined }}>
               <GrupoFila g={g} open={open} pathname={pathname} abierto={flyoutKey === g.key}
                 onAbrir={onAbrirFlyout} onCerrar={onCerrarFlyout} />
             </div>
@@ -238,6 +252,8 @@ export function Sidebar() {
   const [clienteNombre, setClienteNombre] = useState('');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
+  /** El panel que se ensancha. Se le consulta `:hover` antes de plegar. */
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -386,11 +402,31 @@ export function Sidebar() {
   };
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
-  // Al salir se pliega la barra, y NADA MÁS. La familia desplegada no se toca:
-  // que mover el mouse te cambiara de sección era el bug.
+
+  /**
+   * PLEGAR, PERO SOLO SI EL CURSOR SE FUE DE VERDAD.
+   *
+   * El `onMouseLeave` de React no alcanza como única señal: cuando un hijo se
+   * re-crea debajo del cursor, el navegador dispara un mouseout y React lo
+   * traduce a un mouseleave aunque el puntero no se haya movido ni un píxel. Y
+   * como después NO hay un mouseenter (nunca saliste), nada cancelaba el reloj
+   * y la barra se cerraba sola mientras la estabas usando.
+   *
+   * Antes de plegar, entonces, se le pregunta al DOM: `:hover` es la verdad del
+   * navegador y no depende de que los eventos hayan llegado bien. Si el cursor
+   * sigue sobre la barra o sobre alguno de sus menús, se reprograma en vez de
+   * cerrar.
+   */
   const programarPlegado = () => {
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    collapseTimer.current = setTimeout(() => setExpanded(false), 340);
+    const chequear = () => {
+      const encima = panelRef.current?.matches(':hover')
+        || document.getElementById('grp-flyout')?.matches(':hover')
+        || document.getElementById('user-menu')?.matches(':hover');
+      if (encima) { collapseTimer.current = setTimeout(chequear, 180); return; }
+      setExpanded(false);
+    };
+    collapseTimer.current = setTimeout(chequear, 340);
   };
   const onLeave = programarPlegado;
   useEffect(() => () => {
@@ -457,6 +493,7 @@ export function Sidebar() {
   return (
     <aside style={{ width: RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
+        ref={panelRef}
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         // Fin de la animación de ancho: recién acá la barra tiene su medida

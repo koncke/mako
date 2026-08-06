@@ -106,7 +106,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'email_conectar', label: 'Tu email', opcional: true },
       { key: 'email_prueba', label: 'Verificación del email', opcional: true },
     ],
-    href: '/chat-agent',
+    href: '/chat-bot',
   },
 
   // ── Landing Analyst: la única tab que se configura USÁNDOLA ──

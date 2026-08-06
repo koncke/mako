@@ -191,8 +191,8 @@ export const FAMILIAS: NavFamilia[] = [
         // y su propio código ya dice que el destino es /content-machine. Mover
         // la carpeta desde acá les arrancaba los archivos que están editando.
         // Cuando esa reescritura aterrice, esto es cambiar el `href`.
-        { key: 'ads-writer', label: 'Content Machine', href: '/ads-writer', icon: 'video', match: (p) => starts('/content-machine')(p) || starts('/ads-writer')(p) },
-        { key: 'setting', label: 'Chat Agent', href: '/chat-agent', icon: 'agente', rolesWs: ['setter'], match: starts('/chat-agent') },
+        { key: 'ads-writer', label: 'Content Machine', href: '/ads-writer', icon: 'creativos', match: (p) => starts('/content-machine')(p) || starts('/ads-writer')(p) },
+        { key: 'setting', label: 'Chat Bot', href: '/chat-bot', icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts('/chat-bot')(p) || starts('/chat-agent')(p) },
         { key: 'landing-writer', label: 'Landing Generator', href: '/landing-generator', icon: 'web', match: (p) => starts('/landing-generator')(p) || starts('/landing-writer')(p) },
         { key: 'vsl-writer', label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
       ],
