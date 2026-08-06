@@ -1523,7 +1523,15 @@ export function faltantesDeLead(
   tienePlan?: boolean,
   extra?: { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[] },
 ): Step[] {
-  const stage = (lead.pipeline_stage && lead.pipeline_stage.trim()) ? lead.pipeline_stage : deriveStageKey(lead);
+  // El override manual (pipeline_stage) vale SOLO si esa etapa sigue existiendo en
+  // el funnel del workspace; si no, se deriva del estado del lead — la misma regla
+  // que usa el board (crm-map). Sin este chequeo, un lead parado en una etapa que
+  // ya no existe se evaluaba contra una etapa fantasma y NO se le exigía nada:
+  // medido en ws1, 686 leads en 'reactivacion' / 'noshow_r1' (etapas que su funnel
+  // no tiene) quedaban fuera de "datos sin marcar" aunque el Kanban los mostrara.
+  const override = lead.pipeline_stage?.trim();
+  const vigente = !override || !extra?.pipeline || extra.pipeline.some((s) => s.key === override);
+  const stage = override && vigente ? override : deriveStageKey(lead);
   // Si el caller pasa el funnel del workspace, derivamos nivel/reuniones/venta de
   // SU pipeline (funnels no-default); si no, stepsForStage cae al funnel default.
   const info = extra?.pipeline ? funnelReqInfo(extra.pipeline, stage) : undefined;
