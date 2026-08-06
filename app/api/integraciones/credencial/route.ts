@@ -120,6 +120,9 @@ async function estadoServicio(servicioKey: string, ws: number) {
     paraQue: s.paraQue,
     soloServidor: !!s.soloServidor,
     tutorial: s.tutorial,
+    // Lo que el usuario tiene que pegar del OTRO lado (ver PasoExterno). Ya viene
+    // con la URL real resuelta desde servicioMetodo().
+    pasoExterno: s.pasoExterno ?? null,
     campos,
   };
 }

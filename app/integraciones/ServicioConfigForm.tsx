@@ -59,6 +59,8 @@ type Campo = {
   /** Cómo se consigue ESTA credencial. Si falta, cae al tutorial del servicio. */
   ayuda: Tutorial | null;
 };
+/** Lo que hay que pegar del OTRO lado. Ver PasoExterno en lib/metodo-catalogo. */
+type PasoExterno = { titulo: string; porque: string; valor: string; donde: string; ojo?: string[] };
 type Servicio = {
   key: string;
   nombre: string;
@@ -66,6 +68,7 @@ type Servicio = {
   paraQue: string;
   soloServidor: boolean;
   tutorial: Tutorial;
+  pasoExterno: PasoExterno | null;
   campos: Campo[];
 };
 type Msg = { ok: boolean; text: string };
@@ -144,6 +147,64 @@ function PasosAyuda({ ayuda }: { ayuda: Tutorial }) {
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12.5, fontWeight: 600, color: 'var(--primary-strong)', textDecoration: 'none' }}>
           {ayuda.urlLabel ?? 'Abrir'} ↗
         </a>
+      )}
+    </div>
+  );
+}
+
+/**
+ * El paso que va al REVÉS: algo que se copia de MaKo y se pega en la otra
+ * herramienta (hoy, la URL del webhook de Fathom).
+ *
+ * Es un bloque propio y no la ayuda de un campo, porque no es lo mismo pegar una
+ * key ACÁ que ir a pegar algo ALLÁ. Y a diferencia de un campo, esto tiene que
+ * poder verse SIEMPRE: no hay estado "ya guardado" que lo dé por hecho —el valor
+ * cambia si cambia el dominio, y del otro lado puede haber quedado el viejo sin
+ * que nada por acá lo delate.
+ */
+function PasoExternoBloque({ paso }: { paso: PasoExterno }) {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(paso.valor);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1800);
+    } catch { /* sin permiso de portapapeles: queda seleccionable a mano */ }
+  };
+  return (
+    <div style={{ ...caja, background: 'var(--warn-bg)', borderColor: 'var(--warn-fill)', padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{paso.titulo}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 4 }}>{paso.porque}</div>
+      </div>
+
+      {/* La URL, grande y monoespaciada, con el botón de copiar al lado. Es lo
+          único accionable del bloque: todo lo demás es contexto. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <code style={{
+          flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 12.5, color: 'var(--ink)',
+          background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 9,
+          padding: '9px 11px', overflowX: 'auto', whiteSpace: 'nowrap',
+        }}>{paso.valor}</code>
+        <button type="button" onClick={copiar}
+          style={{
+            flex: 'none', padding: '9px 14px', borderRadius: 9, border: 'none', background: 'var(--ink)',
+            color: 'var(--on-sidebar)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+          }}>
+          {copiado ? '¡Copiada!' : 'Copiar'}
+        </button>
+      </div>
+
+      <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+        <b style={{ color: 'var(--ink)' }}>Dónde va:</b> {paso.donde}
+      </div>
+
+      {!!paso.ojo?.length && (
+        <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {paso.ojo.map((o, i) => (
+            <li key={i} style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>{o}</li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -643,6 +704,14 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
           );
         })}
       </div>
+
+      {/* ── El paso que va al revés ──────────────────────────────────────────
+          Después de los campos porque primero se completa lo de acá y recién
+          después se sale a la otra herramienta. Se muestra SIEMPRE, aunque las
+          credenciales ya estén guardadas: que el secret esté cargado no prueba
+          que la URL del otro lado sea la correcta (después de una mudanza de
+          dominio, justamente, no lo es). */}
+      {servicio.pasoExterno && <PasoExternoBloque paso={servicio.pasoExterno} />}
 
       {/* ── Lo que completó la app: resultado, no formulario ─────────────────
           Una línea por campo `auto`, con su tilde. No hay inputs: si el cliente

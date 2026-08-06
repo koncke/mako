@@ -35,3 +35,28 @@ Reglas para cualquier agente que trabaje acá:
   `tsc --noEmit`, que solo valida los tipos generados de rutas si `.next/types` está fresco.
 - **Cada push cuesta ~US$0.09** en build. Agrupá commits y pusheá cuando haya algo que
   probar, no después de cada paso interno.
+
+⚠️ El hook hace DOS chequeos: los tipos y que las skills tengan el contrato del `detalle`
+al día (`node scripts/sync-contrato-detalle.mjs --check`). Si lo recreás, poné los dos.
+
+# Una cosa, un lugar
+
+Lo que gobierna a la IA —contratos, catálogos, criterios— vive en UN módulo y todos lo
+importan. **Si tenés que copiar la misma regla en dos archivos, el segundo se va a quedar
+viejo.** No es una hipótesis: pasó con el contrato del `detalle`. Se actualizó en el camino
+de Claude Code, nadie tocó el de WhatsApp, y desde WhatsApp siguió saliendo mal durante
+días sin que nada avisara. El dueño lo vio antes que nosotros.
+
+Los que hoy son fuente única:
+
+| Qué | Dónde vive | Quién lo consume |
+|---|---|---|
+| El contrato del `detalle` | `lib/detalle-contrato.ts` | `plan-fathom`, `mako-doer-acciones`, `checklist-coach`, `agente-skill` |
+| Los proyectos del tablero | `lib/plan-proyectos-catalogo.ts` (dueño) · `lib/todo-proyectos-catalogo.ts` (clientes) | el ruteo del Perro, los dos boards |
+| Qué modelo usa cada feature | `lib/model-registry.ts` | `chatClaude`/`chatCheap`, con override en /modelos-ia |
+| Cómo se funden dos descripciones | `lib/detalle-fusion.ts` | el board del dueño y el del cliente |
+
+Las skills son `.md` y no pueden importar nada. Para esas, el módulo se copia con un
+script y **el pre-push falla si quedaron viejas** — esa guarda es lo único que impide que
+el problema vuelva. Si agregás una skill que repite una de estas reglas, sumala a
+`DESTINOS` en `scripts/sync-contrato-detalle.mjs` en vez de copiar el texto.

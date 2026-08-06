@@ -13,6 +13,7 @@ import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, FunnelTransition } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, MAKO_SETTER } from './pipeline';
 import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
+import { avanceDe } from './vsl-retencion';
 import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
 import { actualizarEtiquetaLead } from './evolution-labels';
@@ -1137,29 +1138,64 @@ export async function contarVslPlays(visitorId: string | null): Promise<number> 
  */
 export type VslEngagement = { plays: number; max_pct: number | null; sin_datos: boolean };
 
+/**
+ * Duración de cada VSL en segundos, según lo que el cron de Panda ya guarda en
+ * marketing_metrics_daily (plataforma 'panda', raw_payload.duration_seconds).
+ *
+ * Es la pieza que faltaba para cerrar la mig 0121: el navegador manda `segundos`
+ * (el dato crudo, siempre disponible) y el % se deriva ACÁ. Sin esto, un evento
+ * medido en segundos no tenía con qué porcentuarse y la ficha mostraba "—".
+ */
+export async function getDuracionesVsl(): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const supabase = await getTenantDb();
+    const { data } = await supabase
+      .from('marketing_metrics_daily')
+      .select('video_id, raw_payload, fecha')
+      .eq('plataforma', 'panda')
+      .not('video_id', 'is', null)
+      .order('fecha', { ascending: false })
+      .limit(400);
+    for (const r of (data ?? []) as Array<{ video_id: string | null; raw_payload: { duration_seconds?: number } | null }>) {
+      const vid = r.video_id?.trim();
+      const dur = Number(r.raw_payload?.duration_seconds);
+      if (vid && !out.has(vid) && Number.isFinite(dur) && dur > 0) out.set(vid, dur);
+    }
+  } catch (e) {
+    console.error('[getDuracionesVsl] falló:', e instanceof Error ? e.message : e);
+  }
+  return out;
+}
+
+/** Duración a usar para un evento: la de SU video, o la única conocida si hay una sola. */
+function durDe(videoId: string | null | undefined, durs: Map<string, number>): number | null {
+  const v = videoId?.trim();
+  if (v && durs.has(v)) return durs.get(v)!;
+  return durs.size === 1 ? [...durs.values()][0] : null;
+}
+
 export async function getVslEngagement(visitorId: string | null): Promise<VslEngagement> {
   if (!visitorId) return { plays: 0, max_pct: null, sin_datos: true };
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('vsl_events')
-    .select('tipo_evento, porcentaje, event')
-    .eq('visitor_id', visitorId);
+  const [{ data, error }, durs] = await Promise.all([
+    supabase.from('vsl_events').select('tipo_evento, porcentaje, event, segundos, video_id').eq('visitor_id', visitorId),
+    getDuracionesVsl(),
+  ]);
   if (error) {
     console.error(`[getVslEngagement] falló: ${error.message}`);
     return { plays: 0, max_pct: null, sin_datos: true };
   }
-  const rows = (data ?? []) as Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null }>;
+  const rows = (data ?? []) as Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null }>;
   const plays = rows.filter((r) => r.tipo_evento === 'play' || r.event === 'vsl_play').length;
-  // Retención = SOLO avance POSITIVO (hitos pNN o exit con % > 0). El 'play' guarda
-  // porcentaje:0 (centinela "arrancó") y un exit en 0% = arrancó y salió sin avanzar:
-  // ninguno es una medición real de retención. Contar el 0 hacía que un lead que
-  // reprodujo se viera como "reprodujo · 0%". Sin avance positivo → max_pct = null
-  // ("sin dato de avance"), nunca 0.
-  const pcts = rows
+  // El avance sale de avanceDe(): usa el % si vino positivo y, si no, DERIVA el %
+  // con los segundos + la duración de Panda (mig 0121). El 'play' se excluye: su
+  // porcentaje 0 / segundos 0 es el centinela de "arrancó", no una medición.
+  const avances = rows
     .filter((r) => r.tipo_evento !== 'play' && r.event !== 'vsl_play')
-    .map((r) => r.porcentaje)
+    .map((r) => avanceDe({ visitor_id: visitorId, tipo_evento: r.tipo_evento, porcentaje: r.porcentaje, segundos: r.segundos, video_id: r.video_id }, durDe(r.video_id, durs)))
     .filter((p): p is number => typeof p === 'number' && p > 0);
-  const max_pct = pcts.length > 0 ? Math.max(...pcts) : null;
+  const max_pct = avances.length > 0 ? Math.max(...avances) : null;
   return { plays, max_pct, sin_datos: false };
 }
 
@@ -1175,28 +1211,30 @@ export async function getVslEngagementMap(
   const map = new Map<string, VslEngagement>();
   if (ids.length === 0) return map;
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('vsl_events')
-    .select('visitor_id, tipo_evento, porcentaje, event')
-    .in('visitor_id', ids);
+  const [{ data, error }, durs] = await Promise.all([
+    supabase.from('vsl_events').select('visitor_id, tipo_evento, porcentaje, event, segundos, video_id').in('visitor_id', ids),
+    getDuracionesVsl(),
+  ]);
   if (error) {
     console.error(`[getVslEngagementMap] falló: ${error.message}`);
     return map;
   }
-  const porVisitor = new Map<string, Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null }>>();
-  for (const r of (data ?? []) as Array<{ visitor_id: string; tipo_evento: string | null; porcentaje: number | null; event: string | null }>) {
+  type Fila = { tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null };
+  const porVisitor = new Map<string, Fila[]>();
+  for (const r of (data ?? []) as Array<Fila & { visitor_id: string }>) {
     const arr = porVisitor.get(r.visitor_id) ?? [];
     arr.push(r);
     porVisitor.set(r.visitor_id, arr);
   }
   for (const [vid, rows] of porVisitor) {
     const plays = rows.filter((r) => r.tipo_evento === 'play' || r.event === 'vsl_play').length;
-    // Retención solo de avance POSITIVO (>0); el play (0) y el exit-en-0 no cuentan.
-    const pcts = rows
+    // Igual que getVslEngagement: % directo si vino positivo, o derivado de los
+    // segundos con la duración de Panda. El play y el exit-en-0 no son medición.
+    const avances = rows
       .filter((r) => r.tipo_evento !== 'play' && r.event !== 'vsl_play')
-      .map((r) => r.porcentaje)
+      .map((r) => avanceDe({ visitor_id: vid, tipo_evento: r.tipo_evento, porcentaje: r.porcentaje, segundos: r.segundos, video_id: r.video_id }, durDe(r.video_id, durs)))
       .filter((p): p is number => typeof p === 'number' && p > 0);
-    map.set(vid, { plays, max_pct: pcts.length > 0 ? Math.max(...pcts) : null, sin_datos: false });
+    map.set(vid, { plays, max_pct: avances.length > 0 ? Math.max(...avances) : null, sin_datos: false });
   }
   return map;
 }
