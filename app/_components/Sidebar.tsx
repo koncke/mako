@@ -24,9 +24,14 @@ const MONO = "'Geist Mono', monospace";
 const RAIL = 74;
 const FULL = 252;
 
+// El ícono del item. El DORADO acá está reservado a MaKo: es lo único de la
+// barra que significa «esto es la inteligencia». El estado activo se marca con
+// contraste, no con color (ver la regla en globals.css y la tarea #518) —
+// pintar de dorado la tab abierta hacía que «activo» y «MaKo» fueran el mismo
+// color, y entonces ninguno de los dos decía nada.
 function ItemIcon({ item, active }: { item: NavItem; active: boolean }) {
-  if (item.icon === 'mako') return <MakoStar size={21} color="var(--accent-soft)" />;
-  const color = active ? 'var(--accent-soft)' : 'var(--sidebar-text)';
+  if (item.icon === 'mako') return <MakoStar size={21} color="var(--mako)" />;
+  const color = active ? 'var(--on-sidebar)' : 'var(--sidebar-text)';
   return <span style={{ color, display: 'flex' }}><Icon name={item.icon} size={21} /></span>;
 }
 
@@ -38,7 +43,10 @@ function NavLink({ item, active, badge, query, expanded, nested, onClick }: { it
     textDecoration: 'none', fontSize: nested ? 14.5 : 15,
     color: active ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
     fontWeight: active ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden',
-    ...(active ? { background: 'var(--sidebar-2)', boxShadow: expanded ? 'inset 3px 0 0 var(--accent-soft)' : 'none' } : {}),
+    // Las TRES señales de «estás acá», ninguna de ellas el color de marca:
+    // contraste de superficie (--sidebar-2), indicador lateral y peso 600.
+    // También plegado: en el rail el fondo solo casi no se distingue.
+    ...(active ? { background: 'var(--sidebar-2)', boxShadow: 'inset 3px 0 0 var(--on-sidebar)' } : {}),
   };
   const content = (
     <>
@@ -245,9 +253,9 @@ export function Sidebar() {
         onMouseLeave={scheduleCloseFlyout}
         title={open ? undefined : label}
         style={{ display: 'flex', alignItems: 'center', gap: 13, width: '100%', justifyContent: open ? 'flex-start' : 'center', padding: open ? '11px 12px' : '10px 0', borderRadius: 10, border: 'none', background: (isOpen || (!open && someActive)) ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer', color: someActive ? 'var(--on-sidebar)' : 'var(--sidebar-text)', fontWeight: someActive ? 600 : 500, fontSize: 15, fontFamily: 'inherit' }}>
-        <span style={{ position: 'relative', display: 'flex', color: someActive ? 'var(--accent-soft)' : 'var(--sidebar-text)' }}>
+        <span style={{ position: 'relative', display: 'flex', color: someActive ? 'var(--on-sidebar)' : 'var(--sidebar-text)' }}>
           <Icon name={icon} size={21} />
-          {!open && someActive && <span style={{ position: 'absolute', top: -4, right: -6, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-soft)' }} />}
+          {!open && someActive && <span style={{ position: 'absolute', top: -4, right: -6, width: 8, height: 8, borderRadius: '50%', background: 'var(--on-sidebar)' }} />}
         </span>
         {open && <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>}
         {open && <span style={{ flex: 'none', fontSize: 11, color: 'var(--sidebar-text)' }}>›</span>}
@@ -314,7 +322,9 @@ export function Sidebar() {
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 8px 8px' : '0 6px 8px' }} />
           {!adminShell && puedeVer(MAKO_ITEM) && <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />}
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
-            <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511', overflow: 'hidden' }}>
+            {/* Las iniciales van sobre AZUL, no sobre el dorado: una foto de
+                perfil es identidad, no una intervención de MaKo. */}
+            <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#fff', overflow: 'hidden' }}>
               {avatarVisible
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={avatarVisible} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -360,7 +370,7 @@ export function Sidebar() {
               return (
                 <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}
                   style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 15px', fontSize: 14, fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--dim)', textDecoration: 'none' }}>
-                  <span style={{ display: 'flex', color: on ? 'var(--accent)' : 'var(--faint)' }}><Icon name={it.icon} size={18} /></span>
+                  <span style={{ display: 'flex', color: on ? 'var(--primary)' : 'var(--faint)' }}><Icon name={it.icon} size={18} /></span>
                   {it.label}
                 </Link>
               );

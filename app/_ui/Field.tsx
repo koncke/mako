@@ -91,8 +91,11 @@ export function Textarea({ error, className, ...rest }: TextareaHTMLAttributes<H
  * El caso completo de un tirón: label + control + ayuda/error + contador, con el
  * id ya conectado. Es lo que vas a usar el 90% de las veces.
  */
+// `error` se re-declara como STRING (el mensaje), no como el boolean del Input:
+// acá el texto es obligatorio. Sin el Omit, la intersección de `boolean` y
+// `string` deja el tipo en `never` y no se puede pasar ningún error.
 export function TextField({ label, required, hint, error, maxLength, value, prefix, suffix, multiline, style, ...rest }:
-  Omit<InputProps, 'style'> & { label?: string; hint?: ReactNode; error?: string; multiline?: boolean; style?: React.CSSProperties }) {
+  Omit<InputProps, 'style' | 'error'> & { label?: string; hint?: ReactNode; error?: string; multiline?: boolean; style?: React.CSSProperties }) {
   const id = useId();
   const largo = typeof value === 'string' ? value.length : 0;
   const control = multiline

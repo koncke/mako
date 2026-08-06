@@ -15,7 +15,7 @@
 // globals.css). En particular: `mako` es para pedirle algo a la inteligencia,
 // nunca para navegar; y nunca hay dos `primary` compitiendo en la misma vista.
 
-import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type ComponentPropsWithRef, type ReactNode } from 'react';
 import Link from 'next/link';
 
 /**
@@ -96,7 +96,10 @@ function classes({ variant = 'primary', size = 'md', full, loading, ok, classNam
   ].filter(Boolean).join(' ');
 }
 
-export type ButtonProps = Base & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'>;
+// ComponentPropsWithRef y no ButtonHTMLAttributes: en React 19 el `ref` es una
+// prop más de un componente de función, así que llega solo con el spread y no
+// hace falta forwardRef.
+export type ButtonProps = Base & Omit<ComponentPropsWithRef<'button'>, 'className'>;
 
 export function Button({ variant, size, icon, iconRight, full, loading, ok, okLabel, className, children, disabled, type = 'button', ...rest }: ButtonProps) {
   const p = { children, variant, size, icon, iconRight, full, loading, ok, okLabel, className };

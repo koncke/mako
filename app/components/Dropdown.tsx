@@ -133,7 +133,10 @@ export function Dropdown({
   };
   const toggle = () => {
     if (disabled) return;
-    if (!open) place();
+    // El filtro se limpia AL ABRIR y no al cerrar: el menú solo existe abierto,
+    // y limpiarlo al cerrar obligaría a un setState por cada camino de cierre
+    // (click afuera, Escape, scroll, elegir una opción).
+    if (!open) { place(); setQ(''); }
     setOpen((v) => !v);
   };
 
@@ -175,11 +178,12 @@ export function Dropdown({
   const colsVisibles = columns?.map((col) => col.map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length));
   const sinResultados = q.trim().length > 0 && (columns ? !colsVisibles?.some((c) => c.length) : optsVisibles.length === 0);
 
-  // Al cerrar se limpia el filtro: reabrir y encontrarse la búsqueda anterior
-  // puesta hace parecer que faltan opciones.
+  // El foco entra solo en la búsqueda: con el menú abierto ya se puede escribir,
+  // sin tener que ir a buscar el campo con el mouse.
   useEffect(() => {
-    if (open) { const t = setTimeout(() => searchRef.current?.focus(), 0); return () => clearTimeout(t); }
-    setQ('');
+    if (!open) return;
+    const t = setTimeout(() => searchRef.current?.focus(), 0);
+    return () => clearTimeout(t);
   }, [open]);
 
   const btn: CSSProperties = {

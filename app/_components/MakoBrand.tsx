@@ -10,8 +10,15 @@
 
 import { useId, type ReactNode } from 'react';
 
-const GOLD_1 = '#F6D365';
-const GOLD_2 = '#EF9F27';
+// Los dos extremos del gradiente de marca. Salen del ÚNICO dorado del sistema
+// (--mako, #F2B01E, globals.css): antes este archivo definía sus propios hex
+// (#F6D365 y #EF9F27), y con el --accent y el --accent-soft de entonces la
+// marca tenía CUATRO dorados distintos. Un `var()` funciona igual dentro de un
+// stop-color de SVG, así que no hace falta duplicar nada.
+const GOLD_1 = 'var(--mako-lite)';
+const GOLD_2 = 'var(--mako)';
+/** El oscuro del wordmark y del badge. No es dorado: es el fondo de marca. */
+const INK = '#1A1813';
 
 // Chispa de 4 puntas centrada en el origen (0,0), radio ~11. Se reutiliza en
 // todas las piezas para que la marca sea coherente.
@@ -42,10 +49,17 @@ export function MakoStar({ size = 14, color }: { size?: number; color?: string }
   );
 }
 
-// ── Texto que brilla (las letras "MaKo" de los botones) ──────────────────────
-// Un destello dorado barre las letras cada par de segundos (mismo brillo que la
-// chispa). El color base es el del texto del botón.
-export function MakoWord({ children, base = '#F3F0E7' }: { children: ReactNode; base?: string }) {
+// ── Texto de marca ("MaKo") ──────────────────────────────────────────────────
+// Un destello dorado puede barrer las letras, PERO ya no por defecto. Regla del
+// documento de rediseño: «Reservar gradientes, destellos y barridos para
+// momentos puntuales de activación o proceso de MaKo». Un wordmark que brilla
+// para siempre en la barra lateral y adentro de cada modal deja de significar
+// «MaKo está haciendo algo» y pasa a ser decoración — y es justo el significado
+// que el rediseño le quiere devolver al dorado.
+//
+// Pasá `shimmer` solo cuando el barrido MARQUE un momento: la IA arrancando, un
+// resultado que acaba de llegar.
+export function MakoWord({ children, base = '#F3F0E7', shimmer = false }: { children: ReactNode; base?: string; shimmer?: boolean }) {
   const uid = `mkw${useId().replace(/[:]/g, '')}`;
   const css = `
     .${uid} {
@@ -53,9 +67,10 @@ export function MakoWord({ children, base = '#F3F0E7' }: { children: ReactNode; 
       background-size: 220% 100%;
       -webkit-background-clip: text; background-clip: text;
       -webkit-text-fill-color: transparent; color: transparent;
-      animation: ${uid}-sh 2.6s ease-in-out infinite;
+      ${shimmer ? `animation: ${uid}-sh 2.6s ease-in-out infinite;` : 'background-position: -30% 0;'}
     }
     @keyframes ${uid}-sh { 0% { background-position: 130% 0; } 55%, 100% { background-position: -30% 0; } }
+    @media (prefers-reduced-motion: reduce) { .${uid} { animation: none; background-position: -30% 0; } }
   `;
   return (
     <>
@@ -149,9 +164,9 @@ export function MakoIntro({ saludo, caption = 'Preparando tus números…' }: { 
         {saludo && <div className={`${uid}-saludo`}>{saludo}</div>}
         <div className={`${uid}-word`}>
           <span className={`${uid}-ltr ${uid}-l1`} style={{ color: GOLD_2 }}>M</span>
-          <span className={`${uid}-ltr ${uid}-l2`} style={{ color: '#1A1813' }}>a</span>
+          <span className={`${uid}-ltr ${uid}-l2`} style={{ color: INK }}>a</span>
           <span className={`${uid}-ltr ${uid}-l3`} style={{ color: GOLD_2 }}>K</span>
-          <span className={`${uid}-ltr ${uid}-l4`} style={{ color: '#1A1813' }}>o</span>
+          <span className={`${uid}-ltr ${uid}-l4`} style={{ color: INK }}>o</span>
         </div>
       </div>
       {caption && <div className={`${uid}-cap`}>{caption}</div>}
