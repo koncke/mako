@@ -381,6 +381,27 @@
 .mk-navrow:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); }
 .mk-navrow[data-activo='true']:hover { background: var(--sidebar-2); }
 
+/* El rótulo de una SECCIÓN. A propósito NO tiene fondo, ni en reposo ni al
+   pasar el cursor: una franja clara con texto es exactamente lo que hace una
+   tab activa, y por eso el intento anterior hacía que la sección pareciera la
+   tab seleccionada. Acá lo único que cambia es la opacidad. */
+.mk-seccion { transition: opacity .13s ease, color .13s ease; }
+.mk-seccion:hover { opacity: .95 !important; color: var(--on-sidebar); }
+.mk-seccion:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); border-radius: var(--r-sm); }
+
+/* La marca. Sin movimiento en reposo (regla del documento: los destellos son
+   para los momentos de MaKo, no para la decoración); al pasar el cursor la
+   insignia se levanta apenas y la palabra se enciende, que es lo que le faltaba
+   para no leerse como dos piezas sueltas puestas ahí arriba. */
+.mk-marca__logo { transition: transform .18s cubic-bezier(.34, 1.36, .64, 1); }
+.mk-marca__word { transition: opacity .18s ease; opacity: .92; }
+.mk-marca:hover .mk-marca__logo { transform: translateY(-1px) scale(1.05) rotate(-3deg); }
+.mk-marca:hover .mk-marca__word { opacity: 1; }
+.mk-marca:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary-weak); border-radius: var(--r-md); }
+@media (prefers-reduced-motion: reduce) {
+  .mk-marca:hover .mk-marca__logo { transform: none; }
+}
+
 /* Las mismas filas sobre superficie CLARA: los desplegables (perfil, Chats,
    Analysts, Writers) son blancos como el resto de los menús de la app. Un menú
    oscuro flotando sobre el contenido claro se leía como parte de la barra. */

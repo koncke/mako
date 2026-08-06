@@ -93,15 +93,19 @@ function filaStyle(activo: boolean, expandido: boolean, tema: Tema = 'oscuro'): 
   };
 }
 
-function NavLink({ item, active, expanded, tema = 'oscuro', size, onClick }: {
-  item: NavItem; active: boolean; expanded: boolean; tema?: Tema; size?: number; onClick?: () => void;
+function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onClick }: {
+  item: NavItem; active: boolean; expanded: boolean; tema?: Tema; size?: number; badge?: number; onClick?: () => void;
 }) {
   const base = filaStyle(active, expanded, tema);
   const cls = `mk-navrow${tema === 'claro' ? ' mk-navrow--claro' : ''}`;
   const content = (
     <>
-      <span style={{ position: 'relative', display: 'flex', flex: 'none' }}><ItemIcon item={item} size={size} /></span>
+      <span style={{ position: 'relative', display: 'flex', flex: 'none' }}>
+        <ItemIcon item={item} size={size} />
+        {!expanded && <Contador n={badge} compacto />}
+      </span>
       {expanded && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+      {expanded && <Contador n={badge} />}
       {expanded && item.comingSoon && (
         <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'currentColor', border: '1px solid currentColor', borderRadius: 5, padding: '1px 5px', opacity: 0.5 }}>pronto</span>
       )}
@@ -113,13 +117,118 @@ function NavLink({ item, active, expanded, tema = 'oscuro', size, onClick }: {
   return <Link href={item.href} onClick={onClick} {...props}>{content}</Link>;
 }
 
+/** Una familia ya filtrada por rol y capa (lo que el Sidebar arma para pintar). */
+type FamiliaVista = { key: string; label: string; pregunta: string; icon: string; notifica?: boolean; bloques: NavItem[][]; grupos: NavGrupo[] };
+
+/** La fila de una colección: abre su desplegable al costado. */
+function GrupoFila({ g, open, pathname, abierto, onAbrir, onCerrar }: {
+  g: NavGrupo; open: boolean; pathname: string; abierto: boolean;
+  onAbrir: (key: string, el: HTMLElement, largo: number) => void; onCerrar: () => void;
+}) {
+  const activo = g.items.some((i) => i.match(pathname));
+  return (
+    <button type="button" className="mk-navrow" data-activo={activo}
+      onClick={(e) => onAbrir(g.key, e.currentTarget, g.items.length)}
+      onMouseEnter={(e) => onAbrir(g.key, e.currentTarget, g.items.length)}
+      onMouseLeave={onCerrar}
+      title={open ? undefined : g.label}
+      style={{ ...filaStyle(activo, open), ...(abierto && !activo ? { background: 'var(--sidebar-2)' } : {}) }}>
+      <span style={{ display: 'flex', flex: 'none', color: 'inherit' }}>
+        <Icon name={g.icon} size={open ? ICO : ICO_HIJO} />
+      </span>
+      {open && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.label}</span>}
+      {open && <span style={{ flex: 'none', fontSize: 10, opacity: 0.7 }}>›</span>}
+    </button>
+  );
+}
+
+/**
+ * Una familia: su rótulo y, si está desplegada, sus destinos.
+ *
+ * CÓMO SE DISTINGUE DE UNA TAB. El intento anterior le puso una superficie
+ * propia al rótulo, y salió peor: una franja clara con texto es exactamente lo
+ * que hace un item ACTIVO, así que la sección parecía la tab seleccionada.
+ *
+ * Ahora al revés, que es lo que hacen Linear, Notion y Attio: el rótulo no es
+ * una fila, es un LETRERO. No tiene fondo, ni en reposo ni al pasar el cursor;
+ * es chico, tenue y en versalitas; y una línea fina lo separa de la sección de
+ * arriba. Los destinos son lo único con superficie, borde e indicador. La
+ * jerarquía queda al derecho: lo que orienta retrocede, lo que se toca manda.
+ *
+ * Plegada vale lo mismo: el ícono de la familia va tenue y chico, los de las
+ * tabs enteros, y la línea separa. Ninguna de las dos señales es el color.
+ */
+function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, contadorItem, onToggle, flyoutKey, onAbrirFlyout, onCerrarFlyout }: {
+  f: FamiliaVista; primera: boolean; open: boolean; pathname: string; abiertaEsta: boolean;
+  contadorFamilia: number; contadorItem: (key: string) => number;
+  onToggle: (key: string) => void;
+  flyoutKey: string | null;
+  onAbrirFlyout: (key: string, el: HTMLElement, largo: number) => void; onCerrarFlyout: () => void;
+}) {
+  const activa = [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)].some((i) => i.match(pathname));
+  return (
+    <div style={primera ? undefined : { marginTop: open ? 14 : 12, paddingTop: 12, borderTop: '1px solid var(--sidebar-2)' }}>
+      <button type="button" className="mk-seccion"
+        onClick={() => onToggle(f.key)}
+        title={open ? undefined : `${f.label} · ${f.pregunta}`}
+        aria-expanded={abiertaEsta}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+          justifyContent: open ? 'flex-start' : 'center',
+          padding: open ? '0 10px 7px' : '0 0 8px',
+          border: 'none', background: 'transparent', cursor: 'pointer',
+          fontFamily: MONO, fontSize: 9.5, letterSpacing: '.15em',
+          textTransform: 'uppercase', fontWeight: 600,
+          color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
+          opacity: activa ? 0.85 : 0.55,
+        }}>
+        <span style={{ position: 'relative', display: 'flex', flex: 'none', color: 'inherit' }}>
+          <Icon name={f.icon} size={open ? 13 : 15} />
+          {/* Plegada, la sección igual avisa: es lo único que se ve de lo que
+              no está desplegado. */}
+          {!open && !abiertaEsta && <Contador n={contadorFamilia} compacto />}
+        </span>
+        {open && <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}</span>}
+        {/* El número vive en la familia SOLO mientras está cerrada. Abierta, baja
+            a la tab que lo debe: si no, te dice que hay 14 cosas pendientes pero
+            no cuál de las siete filas las tiene. */}
+        {open && !abiertaEsta && <Contador n={contadorFamilia} />}
+        {open && <span style={{ flex: 'none', fontSize: 9, opacity: 0.8, transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>}
+      </button>
+      {abiertaEsta && (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {f.bloques.map((bloque, i) => (
+            // Los bloques de adentro de una familia se separan con aire. Una
+            // línea acá competiría con la que separa las familias.
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 1, ...(i > 0 ? { marginTop: 10 } : {}) }}>
+              {bloque.map((it) => (
+                <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)} />
+              ))}
+            </div>
+          ))}
+          {f.grupos.map((g) => (
+            <div key={g.key} style={{ marginTop: f.bloques.length ? 10 : 0 }}>
+              <GrupoFila g={g} open={open} pathname={pathname} abierto={flyoutKey === g.key}
+                onAbrir={onAbrirFlyout} onCerrar={onCerrarFlyout} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname() || '';
   const searchParams = useSearchParams();
   const [sinMarcar, setSinMarcar] = useState(0);
   const [userOpen, setUserOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
+  // El desplegable solo guarda QUÉ y a qué altura. El `left` NO se guarda: se
+  // calcula al pintar, del ancho final de la barra. Guardarlo era el bug —
+  // se medía con getBoundingClientRect() mientras el ancho estaba animándose
+  // de 68 a 244, así que el menú quedaba clavado encima de la barra.
+  const [flyout, setFlyout] = useState<{ key: string; top: number } | null>(null);
   const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
   const [perfilAvatar, setPerfilAvatar] = useState('');
   const [rol, setRol] = useState<string>('');
@@ -139,6 +248,28 @@ export function Sidebar() {
   const dateQuery = desde && hasta ? `?desde=${desde}&hasta=${hasta}` : '';
 
   const open = expanded || userOpen || !!flyout;
+
+  /**
+   * EN QUÉ ESTÁ LA BARRA. No alcanza con «abierta sí/no»: entre esos dos hay
+   * 200 ms de animación de ancho, y varias cosas que se miden durante ese rato
+   * salen mal —un desplegable posicionado a mitad de camino, un rect de 0 px—.
+   * `moviendo` marca ese intervalo y lo que dependa de la geometría espera.
+   */
+  const [openVisto, setOpenVisto] = useState(open);
+  const [moviendo, setMoviendo] = useState(false);
+  if (open !== openVisto) { setOpenVisto(open); setMoviendo(true); }
+  /** Quieta y con su ancho definitivo: recién acá se puede medir y desplegar. */
+  const barraQuieta = !moviendo;
+
+  // Red de seguridad del `transitionend`: ese evento NO llega si la animación se
+  // interrumpe, si la pestaña está en segundo plano o si el usuario pidió menos
+  // movimiento. Sin esto, `moviendo` se quedaba en true para siempre y los
+  // desplegables no volvían a abrir nunca — un cuelgue silencioso.
+  useEffect(() => {
+    if (!moviendo) return;
+    const t = setTimeout(() => setMoviendo(false), 260);
+    return () => clearTimeout(t);
+  }, [moviendo]);
 
   useEffect(() => {
     let alive = true;
@@ -204,15 +335,21 @@ export function Sidebar() {
   const todosDe = (f: typeof familias[number]) => [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)];
 
   /**
-   * El contador de cada familia: los mensajes sin leer de WhatsApp más los datos
-   * del CRM sin marcar. Son obligaciones concretas, no novedades — que es la
-   * única cosa que el documento acepta como badge.
+   * Lo que cada tab te debe. Son obligaciones concretas —mensajes sin leer,
+   * datos del CRM sin marcar—, no novedades: es lo único que el documento
+   * acepta como badge.
    */
-  const contadorDe = (f: typeof familias[number]) => {
-    if (!f.notifica) return 0;
-    const claves = todosDe(f).map((i) => i.key);
-    return (claves.includes('whatsapp') ? unreadTotal : 0) + (claves.includes('crm') ? sinMarcar : 0);
-  };
+  const contadorItem = (key: string) =>
+    key === 'whatsapp' ? unreadTotal : key === 'crm' ? sinMarcar : 0;
+
+  /**
+   * El de la familia es la SUMA de los de adentro, y solo se muestra cuando la
+   * sección está cerrada: es un resumen de lo que no estás viendo. Con la
+   * sección abierta el número tiene que estar en la tab que lo debe — si no,
+   * te dice que hay 14 cosas pero no cuál de las siete filas las tiene.
+   */
+  const contadorDe = (f: typeof familias[number]) =>
+    f.notifica ? todosDe(f).reduce((s, i) => s + contadorItem(i.key), 0) : 0;
 
   /**
    * QUÉ FAMILIA ESTÁ DESPLEGADA. Es estado, no algo derivado del cursor: si se
@@ -263,6 +400,10 @@ export function Sidebar() {
   }, []);
 
   const abrirFlyout = (key: string, el: HTMLElement, largo: number) => {
+    // Mientras la barra se está abriendo NO se despliega nada: el ancho todavía
+    // no es el final y el menú saldría en el lugar equivocado. Se abre cuando
+    // la barra terminó de moverse.
+    if (!barraQuieta) return;
     if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
     // El desplegable vive en un portal, o sea FUERA del <aside>: llevar el
     // cursor hasta él dispara el onMouseLeave de la barra. Sin cancelar el
@@ -271,7 +412,7 @@ export function Sidebar() {
     const r = el.getBoundingClientRect();
     const alto = 44 + largo * 38;
     setUserOpen(false);
-    setFlyout({ key, top: Math.min(r.top, Math.max(12, window.innerHeight - alto - 12)), left: r.right + 8 });
+    setFlyout({ key, top: Math.min(r.top, Math.max(12, window.innerHeight - alto - 12)) });
   };
   const cerrarFlyout = () => {
     if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
@@ -313,108 +454,14 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [userOpen]);
 
-  /** La fila de una colección: abre su desplegable al costado. */
-  const GrupoFila = ({ g }: { g: NavGrupo }) => {
-    const activo = g.items.some((i) => i.match(pathname));
-    const abierto = flyout?.key === g.key;
-    return (
-      <button type="button" className="mk-navrow" data-activo={activo}
-        onClick={(e) => abrirFlyout(g.key, e.currentTarget, g.items.length)}
-        onMouseEnter={(e) => abrirFlyout(g.key, e.currentTarget, g.items.length)}
-        onMouseLeave={cerrarFlyout}
-        title={open ? undefined : g.label}
-        style={{ ...filaStyle(activo, open), ...(abierto && !activo ? { background: 'var(--sidebar-2)' } : {}) }}>
-        <span style={{ display: 'flex', flex: 'none', color: 'inherit' }}>
-          <Icon name={g.icon} size={open ? ICO : ICO_HIJO} />
-        </span>
-        {open && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.label}</span>}
-        {open && <span style={{ flex: 'none', fontSize: 10, opacity: 0.7 }}>›</span>}
-      </button>
-    );
-  };
-
-  /**
-   * Una familia: su rótulo y, si está desplegada, sus destinos.
-   *
-   * CÓMO SE DISTINGUE DE UNA TAB, que es lo que antes no pasaba: la familia se
-   * apoya en una SUPERFICIE propia (una franja apenas más clara) y los destinos
-   * no. Ese contraste de fondo funciona igual desplegada y plegada —en el rail
-   * el ícono de familia queda dentro de una pastilla y los de las tabs van
-   * pelados— y no depende del tamaño ni del color del texto, que es lo que las
-   * hacía parecer lo mismo.
-   *
-   * Encima, el rótulo va en versalitas y mono, el mismo tratamiento que ya usa
-   * «ADMINISTRACIÓN». Es la regla de Linear: lo que orienta retrocede para que
-   * los destinos, que son lo que se toca, queden adelante.
-   */
-  const Familia = ({ f }: { f: typeof familias[number] }) => {
-    const activa = todosDe(f).some((i) => i.match(pathname));
-    const abiertaEsta = desplegada === f.key;
-    const n = contadorDe(f);
-    const chrome = 'rgba(255,255,255,.055)';
-    return (
-      <div style={{ marginBottom: open ? 12 : 8 }}>
-        <button type="button" className="mk-navrow"
-          onClick={() => { setExpanded(true); setAbierta((prev) => (prev === f.key && open ? null : f.key)); }}
-          title={open ? undefined : `${f.label} · ${f.pregunta}`}
-          aria-expanded={abiertaEsta}
-          style={{
-            ...filaStyle(false, open),
-            padding: open ? '6px 10px' : 0,
-            background: open ? chrome : 'transparent',
-            fontFamily: MONO,
-            fontSize: 10.5,
-            letterSpacing: '.13em',
-            textTransform: 'uppercase',
-            fontWeight: 700,
-            color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
-            justifyContent: open ? 'flex-start' : 'center',
-          }}>
-          {/* Plegada, la pastilla es lo que dice «esto es una sección y lo de
-              abajo son sus destinos». */}
-          <span style={{
-            position: 'relative', display: 'flex', flex: 'none',
-            alignItems: 'center', justifyContent: 'center', color: 'inherit',
-            ...(open ? {} : { width: 34, height: 34, borderRadius: 10, background: chrome }),
-          }}>
-            <Icon name={f.icon} size={open ? 14 : ICO} />
-            {!open && <Contador n={n} compacto />}
-          </span>
-          {open && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}</span>}
-          {open && <Contador n={n} />}
-          {open && <span style={{ flex: 'none', fontSize: 9, transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>}
-        </button>
-        {abiertaEsta && (
-          <div style={{ display: 'flex', flexDirection: 'column', marginTop: 3, ...(open ? { paddingLeft: 4 } : {}) }}>
-            {f.bloques.map((bloque, i) => (
-              <div key={i} style={{
-                display: 'flex', flexDirection: 'column', gap: 1,
-                // Los bloques de adentro de una familia se separan con aire, y
-                // solo en el rail con una línea: ahí no hay ancho para que el
-                // espacio se lea como agrupación.
-                ...(i > 0 ? (open
-                  ? { marginTop: 9 }
-                  : { marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--sidebar-2)' }) : {}),
-              }}>
-                {bloque.map((it) => (
-                  <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} size={open ? ICO : ICO_HIJO} />
-                ))}
-              </div>
-            ))}
-            {f.grupos.map((g) => (
-              <div key={g.key} style={{ marginTop: f.bloques.length ? 9 : 0 }}><GrupoFila g={g} /></div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <aside style={{ width: RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
+        // Fin de la animación de ancho: recién acá la barra tiene su medida
+        // final y lo que depende de la geometría (los desplegables) se habilita.
+        onTransitionEnd={(e) => { if (e.propertyName === 'width') setMoviendo(false); }}
         style={{
           position: 'absolute', top: 0, left: 0, bottom: 0, width: open ? FULL : RAIL,
           background: 'var(--sidebar)', display: 'flex', flexDirection: 'column',
@@ -423,17 +470,22 @@ export function Sidebar() {
           boxShadow: open ? '6px 0 30px rgba(23,21,17,.24)' : 'none',
         }}
       >
-        {/* Marca: el logo y la palabra, alineados entre sí y nada más. El
-            «Marketing OS» de abajo era una bajada que nadie lee y que
-            desalineaba el bloque. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: open ? '0 4px 18px' : '0 0 18px', justifyContent: open ? 'flex-start' : 'center', flex: 'none' }}>
-          <MakoLogo size={34} />
+        {/* Marca. Es un LINK a la pantalla de entrada, que es lo que todo el
+            mundo espera del logo de una app — y de paso le da al bloque una
+            razón de ser: antes eran dos cosas puestas ahí, sin función y sin
+            reaccionar a nada.
+            El movimiento vive en `.mk-marca` y solo pasa al pasar el cursor: la
+            insignia se levanta apenas y la palabra se enciende. Nada permanente,
+            que es la regla del documento para los destellos de marca. */}
+        <Link href="/general" className="mk-marca" title="Ir a General"
+          style={{ display: 'flex', alignItems: 'center', gap: 9, padding: open ? '2px 6px 20px' : '2px 0 20px', justifyContent: open ? 'flex-start' : 'center', flex: 'none', textDecoration: 'none' }}>
+          <span className="mk-marca__logo" style={{ display: 'flex', flex: 'none' }}><MakoLogo size={32} /></span>
           {open && (
-            <div style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1 }}>
+            <span className="mk-marca__word" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1 }}>
               <MakoWord base="#F3F0E7">MaKo</MakoWord>
-            </div>
+            </span>
           )}
-        </div>
+        </Link>
 
         {/* Navegación. Con una familia abierta puede pasarse de alto en pantallas
             bajas: scrollea acá adentro, nunca corta. */}
@@ -450,7 +502,14 @@ export function Sidebar() {
               ))}
             </>
           ) : (
-            familias.map((f) => <Familia key={f.key} f={f} />)
+            familias.map((f, i) => (
+              <Familia key={f.key} f={f} primera={i === 0} open={open} pathname={pathname}
+                abiertaEsta={desplegada === f.key}
+                contadorFamilia={contadorDe(f)} contadorItem={contadorItem}
+                onToggle={(k) => { setExpanded(true); setAbierta((prev) => (prev === k && open ? null : k)); }}
+                flyoutKey={flyout?.key ?? null}
+                onAbrirFlyout={abrirFlyout} onCerrarFlyout={cerrarFlyout} />
+            ))
           )}
         </nav>
 
@@ -491,7 +550,7 @@ export function Sidebar() {
         <div id="grp-flyout"
           onMouseEnter={() => { if (flyoutTimer.current) clearTimeout(flyoutTimer.current); }}
           onMouseLeave={cerrarFlyout}
-          style={{ position: 'fixed', top: flyout.top, left: flyout.left, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.28)', overflow: 'hidden', padding: 6 }}>
+          style={{ position: 'fixed', top: flyout.top, left: (open ? FULL : RAIL) + 8, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.28)', overflow: 'hidden', padding: 6 }}>
           <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', padding: '4px 10px 6px' }}>{grupoFlyout.label}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {grupoFlyout.items.map((it) => (

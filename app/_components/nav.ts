@@ -146,7 +146,7 @@ export const FAMILIAS: NavFamilia[] = [
         // El hero de la familia: «analiza todo tu negocio, conecta las señales y
         // encuentra qué mover». Va primero porque es de donde sale el criterio
         // con el que se leen los otros tres.
-        { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'red', match: starts('/second-brain') },
+        { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', match: starts('/second-brain') },
         { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
         // Salió de los Analysts: los otros seis analizan un activo PROPIO (una
         // oferta, un anuncio, una landing); éste vigila lo que hacen los demás.
@@ -165,6 +165,9 @@ export const FAMILIAS: NavFamilia[] = [
           { key: 'script', label: 'Ads Analyst', href: '/ads-analyst', icon: 'notepencil', match: starts('/ads-analyst') },
           { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', match: starts('/landing-analyst') },
           { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
+          // Va antes que Closing porque ése es el orden del embudo: primero la
+          // conversación que califica, después la llamada que cierra.
+          { key: 'chat-analyst', label: 'Chat Analyst', href: '/chat-analyst', icon: 'chats', comingSoon: true, rolesWs: ['setter'], match: starts('/chat-analyst') },
           { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
           { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
         ],
@@ -251,6 +254,11 @@ export const USER_NAV: NavItem[] = [
   { key: 'onboarding', label: 'Onboarding', href: '/onboarding', icon: 'contexto', match: (p) => starts('/onboarding')(p) || starts('/funnel')(p) },
   { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) },
   { key: 'admin', label: 'Admin', href: '/admin', icon: 'admin', adminOnly: true, match: starts('/admin') },
+  // Reportar un problema vive acá y no en la barra: no es un destino de trabajo,
+  // es a dónde vas cuando algo se rompió. Al lado de las tabs competiría todo el
+  // día con lo que sí estás haciendo; en el menú del perfil está donde todo el
+  // mundo lo busca, junto a la cuenta y arriba de «Cerrar sesión».
+  { key: 'tickets', label: 'Reportar problema', href: '/tickets', icon: 'soporte', comingSoon: true, rolesWs: ['closer', 'setter'], match: starts('/tickets') },
 ];
 
 /** Todos los ítems de producto, aplanados (para buscar por key o por ruta). */

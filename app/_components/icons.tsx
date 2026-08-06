@@ -67,9 +67,18 @@ const PATHS: Record<string, ReactNode> = {
   // llave de Create y del gráfico de Analyze: tres siluetas que no se confunden
   // ni en el rail plegado, que es donde el ícono tiene que trabajar solo.
   rayo: (<path d="M13.6 2.6 5.4 13.2h5.3l-1.3 8.2 8.2-10.6h-5.3l1.3-8.2Z" />),
-  // Red de nodos: SECOND BRAIN. El dibujo ES la promesa del módulo —conectar
-  // señales sueltas— y anticipa el grafo tipo Obsidian que le toca en la Fase 2.
-  red: (<><circle cx="12" cy="5" r="2.2" /><circle cx="5" cy="17" r="2.2" /><circle cx="19" cy="17" r="2.2" /><path d="M10.4 6.8 6.4 15M13.6 6.8l4 8.2M7.2 17h9.6" /></>),
+  // Cerebro: SECOND BRAIN. Dos lóbulos y el surco del medio. Antes era una red
+  // de nodos —conceptualmente correcta, porque el módulo conecta señales— pero
+  // a 19 px no se leía «cerebro», que es lo único que el nombre promete.
+  cerebro: (<>
+    <path d="M12 5.4v13.4" />
+    <path d="M12 6.2a2.7 2.7 0 0 0-4.8-1.4A2.6 2.6 0 0 0 4.5 8a2.7 2.7 0 0 0-.6 4.4 2.7 2.7 0 0 0 1 4.2A2.7 2.7 0 0 0 9 20.2 2.6 2.6 0 0 0 12 18" />
+    <path d="M12 6.2a2.7 2.7 0 0 1 4.8-1.4A2.6 2.6 0 0 1 19.5 8a2.7 2.7 0 0 1 .6 4.4 2.7 2.7 0 0 1-1 4.2A2.7 2.7 0 0 1 15 20.2 2.6 2.6 0 0 1 12 18" />
+    <path d="M9.2 9.6h1.4M13.4 12.4h1.5" />
+  </>),
+  // Boya / salvavidas: REPORTAR PROBLEMA. Es el ícono universal de ayuda y no
+  // se pisa con el interrogante, que ya significa «cómo consigo esta key».
+  soporte: (<><circle cx="12" cy="12" r="8.6" /><circle cx="12" cy="12" r="3.4" /><path d="M6 6l3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6" /></>),
   // Burbuja con chispa: CHAT AGENT. Antes usaba la etiqueta de precio, que no
   // decía nada del módulo. Esto sí: una conversación con inteligencia adentro.
   agente: (<><path d="M20.5 11.6a8 8 0 0 1-11.7 7.1L3.5 20l1.5-5.2a8 8 0 1 1 15.5-3.2Z" /><path d="M12 8.2 12.9 11l2.8.9-2.8.9-.9 2.8-.9-2.8-2.8-.9 2.8-.9Z" /></>),
