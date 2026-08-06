@@ -417,13 +417,20 @@ export async function resumenPropuestasPorRefs(refs: string[]): Promise<Record<s
  * tienen que VERSE: filtrarlos acá los volvía invisibles y pasó lo peor —MaKo mandó
  * "entrá al plan a confirmarlas", el dueño entró y no había nada—. El board los
  * muestra como una fila que linkea al wizard.
+ *
+ * Y volvió a pasar, con los CIERRES. El filtro decía `tareas.length > 0`, que era otra
+ * forma de escribir «un borrador sin tareas no existe» — y el bot que lee los commits
+ * produce exactamente eso: cero tareas nuevas, N tareas del tablero que ya están hechas.
+ * Su primera corrida real dejó 10 propuestas con evidencia y ninguna pantalla las
+ * mostraba. Un borrador está vacío cuando no tiene NADA que ofrecer, no cuando no tiene
+ * tareas nuevas.
  */
 export async function listPropuestasPendientes(limite = 8): Promise<Propuesta[]> {
   return enWs(async () => {
     const db = await getTenantDb();
     const { data } = await db.from('plan_propuestas').select('*')
       .eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(limite);
-    return (asArr<Row>(data)).map(rowToPropuesta).filter((p) => p.tareas.length > 0);
+    return (asArr<Row>(data)).map(rowToPropuesta).filter((p) => p.tareas.length > 0 || (p.cerrar?.length ?? 0) > 0);
   });
 }
 

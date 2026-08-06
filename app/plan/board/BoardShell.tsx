@@ -131,7 +131,10 @@ export function BoardShell({ board, scope }: {
   // Lo que ESPERA ALGO TUYO. Es lo que hace esperar a los otros pop-ups — y tiene que ser
   // esto y no "hay borrador": un borrador al que solo le quedan tareas de otras personas
   // se queda abierto para siempre, y con él se quedaba tapado el resto de la cola.
-  const nPendientes = pendientes.reduce((s, p) => s + (p.tareas?.filter((t) => !t.esDeOtro).length ?? 0), 0);
+  // Los CIERRES cuentan igual que las tareas: «revisá si estas 10 ya están hechas» es
+  // trabajo tuyo y de nadie más. Sin sumarlos, un borrador de puros cierres entraba a la
+  // lista y el badge seguía en cero — visible en el código, invisible en la pantalla.
+  const nPendientes = pendientes.reduce((s, p) => s + (p.tareas?.filter((t) => !t.esDeOtro).length ?? 0) + (p.cerrar?.length ?? 0), 0);
   // Lo que espera algo de OTRA persona (repartir o mandárselo). No hace esperar a los
   // demás pop-ups —no es trabajo tuyo— pero TIENE que verse: un borrador que solo
   // conserva tareas ajenas quedaba completamente invisible (el modal nunca se abría

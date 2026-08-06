@@ -69,6 +69,10 @@ export async function POST(req: NextRequest) {
             // abierto con ellas adentro para poder repartirlas después.
             restantes: Array.isArray(o.restantes) ? (o.restantes as PropuestaTarea[]) : undefined,
             contexto: typeof o.contexto === 'string' ? o.contexto : undefined,
+            // Mismo olvido que en `aplicar`: `LoteAplicar` ya declara los dos campos y
+            // acá no se leían, así que confirmar en lote tampoco cerraba nada.
+            cerrarIds: Array.isArray(o.cerrarIds) ? (o.cerrarIds as unknown[]).map(String) : undefined,
+            aMediasIds: Array.isArray(o.aMediasIds) ? (o.aMediasIds as unknown[]).map(String) : undefined,
           };
         })
         .filter((l) => l.id);
@@ -89,7 +93,15 @@ export async function POST(req: NextRequest) {
       const tareas = Array.isArray(body.tareas) ? (body.tareas as PropuestaTarea[]) : undefined;
       const eliminarIds = Array.isArray(body.eliminarIds) ? (body.eliminarIds as unknown[]).map(String) : undefined;
       const contexto = typeof body.contexto === 'string' ? body.contexto : undefined;
-      const r = await aplicarPropuesta(id, tareas, eliminarIds, contexto);
+      // LOS CIERRES. El wizard los venía mandando desde el día uno (RevisarPropuesta:
+      // «cerrarIds»/«aMediasIds») y acá se caían al piso sin ruido: la llamada pasaba
+      // cuatro argumentos y `aplicarPropuesta` toma seis. El motor de cierre estaba
+      // entero del otro lado — lo único que no llegaba nunca era la respuesta del dueño.
+      // Un borrador de puros cierres además moría con «No hay nada para crear, cerrar
+      // ni borrar», que era literalmente cierto: las listas llegaban vacías.
+      const cerrarIds = Array.isArray(body.cerrarIds) ? (body.cerrarIds as unknown[]).map(String) : undefined;
+      const aMediasIds = Array.isArray(body.aMediasIds) ? (body.aMediasIds as unknown[]).map(String) : undefined;
+      const r = await aplicarPropuesta(id, tareas, eliminarIds, contexto, cerrarIds, aMediasIds);
       if (!r) return NextResponse.json({ ok: false, error: 'No existe la propuesta.' }, { status: 404 });
       return NextResponse.json(r);
     }

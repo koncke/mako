@@ -43,6 +43,9 @@ export type PropuestaPendiente = {
   enviadoPor?: string; fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string; ref?: string;
   /** si trae preguntas, se confirma en el wizard /plan/revisar, no acá. */
   preguntas?: PropPregunta[];
+  /** las que MaKo dice que YA ESTÁN HECHAS. Igual que las preguntas: mandan al wizard,
+   *  porque cada una se mira de a una con su evidencia delante. */
+  cerrar?: Array<{ id: string; titulo?: string; evidencia: string; confianza?: string }>;
   /** las tuyas que ya cargaste: el borrador siguió abierto por las de los demás. */
   aplicadas?: Array<{ titulo: string; tareaId: string; minutos?: number[] }>;
 };
@@ -98,8 +101,14 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // Pila de modales: abrir la tarjeta de una tarea desde acá esconde ESTE modal y al
   // cerrarla volvés al mismo lugar de la revisión, con el scroll donde estaba.
   const capa = useCapaModal(!oculto);
-  const props = todos.filter((p) => p.origen === 'fathom' || !p.preguntas?.length);
-  const conPreguntas = todos.filter((p) => p.origen !== 'fathom' && !!p.preguntas?.length);
+  // Un borrador que propone CIERRES va al wizard sí o sí, aunque no traiga preguntas.
+  // No es una limitación: es la decisión de diseño del canal. Un cierre se mira de a uno,
+  // con su evidencia delante y tres respuestas posibles («sí» / «está a medias» / «no»),
+  // porque la precisión medida de un «ya está hecho» dicho por IA fue 8 de 17. Confirmarlo
+  // acá, en una lista con casillas, es exactamente la pantalla que no queremos.
+  const alWizard = (p: PropuestaPendiente) => (p.origen !== 'fathom' && !!p.preguntas?.length) || (p.cerrar?.length ?? 0) > 0;
+  const props = todos.filter((p) => !alWizard(p));
+  const conPreguntas = todos.filter(alWizard);
   // Las preguntas de los borradores que SÍ se confirman acá.
   const preguntasTodas = props.flatMap((p) => (p.preguntas ?? []).map((q) => ({ ...q, propId: p.id })));
   const [paso, setPaso] = useState<'tareas' | 'preguntas'>('tareas');
