@@ -20,22 +20,61 @@
 
 /** La familia decide CÓMO se lee, y cuánto cuesta. El orden importa poco; lo que
  *  importa es que sea la misma partición que usan las ramas de `archivoATexto`. */
-export type FamiliaArchivo = 'texto' | 'docx' | 'pdf' | 'imagen' | 'audio' | 'video' | 'desconocido';
+export type FamiliaArchivo =
+  | 'texto' | 'docx' | 'pdf' | 'imagen' | 'audio' | 'video'
+  | 'xlsx' | 'pptx' | 'opendocument'
+  | 'desconocido';
 
 /** Las extensiones de cada familia, sin el punto. */
 export const EXT_POR_FAMILIA: Record<Exclude<FamiliaArchivo, 'desconocido'>, string[]> = {
-  texto: ['txt', 'md', 'markdown', 'vtt', 'srt', 'csv', 'json', 'log', 'rtf'],
+  // Cualquier cosa que sea texto plano se lee gratis: agregar una extensión acá no
+  // cuesta nada y evita un rebote. `tsv`, `yaml`, `xml`, `html` y `svg` entraron por eso.
+  texto: ['txt', 'md', 'markdown', 'vtt', 'srt', 'csv', 'tsv', 'json', 'log', 'rtf', 'yaml', 'yml', 'xml', 'html', 'htm', 'svg', 'ini', 'conf', 'tex'],
   docx: ['docx'],
   pdf: ['pdf'],
-  imagen: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'heic', 'avif'],
-  audio: ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'aac', 'flac'],
-  video: ['mp4', 'mov', 'm4v', 'webm'],
+  // Planillas y decks: ZIP + XML, se leen sin IA (lib/office-a-texto). La lista de leads
+  // viene en planilla y la propuesta del cliente viene en deck: rebotarlos era raro.
+  xlsx: ['xlsx', 'xlsm'],
+  pptx: ['pptx'],
+  opendocument: ['odt', 'ods', 'odp'],
+  // Imágenes: las que aguantan Gemini y OpenAI, que son las dos que hacen la visión.
+  // `jfif` es un .jpg con otro nombre y `heif` es el hermano de `heic` (fotos de iPhone).
+  imagen: ['png', 'jpg', 'jpeg', 'jfif', 'webp', 'gif', 'bmp', 'heic', 'heif', 'avif'],
+  audio: ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'opus', 'aac', 'flac', 'aiff', 'aif'],
+  // Video: los contenedores que Gemini acepta para transcribir. `mkv` NO está a
+  // propósito: Gemini no lo toma y aceptarlo sería prometer algo que falla después.
+  video: ['mp4', 'mov', 'm4v', 'webm', 'mpeg', 'mpg', 'avi', 'wmv', 'flv', '3gp', '3gpp'],
 };
 
-/** Todas, con punto adelante, en el orden en que se le muestran al usuario. */
-export const EXTENSIONES_SOPORTADAS: string[] = (
-  ['texto', 'docx', 'pdf', 'imagen', 'audio', 'video'] as const
-).flatMap((f) => EXT_POR_FAMILIA[f].map((e) => `.${e}`));
+/**
+ * Formatos que MaKo NO puede abrir pero que alguien va a mandar igual, con la razón
+ * concreta y qué hacer. Un «no sé leer ese formato» a secas deja al usuario adivinando;
+ * «guardalo como .docx» lo resuelve en diez segundos.
+ */
+export const NO_SOPORTADOS: Record<string, string> = {
+  doc: 'es el Word viejo (97-2003) y necesita otra librería. Abrilo y guardalo como .docx.',
+  xls: 'es el Excel viejo (97-2003). Abrilo y guardalo como .xlsx.',
+  ppt: 'es el PowerPoint viejo (97-2003). Abrilo y guardalo como .pptx.',
+  pages: 'es de Pages (Apple) y es un formato cerrado. Exportalo a .docx o .pdf.',
+  numbers: 'es de Numbers (Apple) y es un formato cerrado. Exportalo a .xlsx o .csv.',
+  key: 'es de Keynote (Apple) y es un formato cerrado. Exportalo a .pptx o .pdf.',
+  zip: 'es un comprimido: no lo abro por seguridad. Mandame los archivos sueltos.',
+  rar: 'es un comprimido: no lo abro por seguridad. Mandame los archivos sueltos.',
+  '7z': 'es un comprimido: no lo abro por seguridad. Mandame los archivos sueltos.',
+  epub: 'es un libro electrónico y todavía no lo leo. Pasámelo a .pdf.',
+  mkv: 'es un contenedor de video que la transcripción no acepta. Pasalo a .mp4.',
+  tiff: 'es un formato de imagen que la visión no acepta. Pasalo a .png o .jpg.',
+  tif: 'es un formato de imagen que la visión no acepta. Pasalo a .png o .jpg.',
+};
+
+/** Si el formato no se puede leer PERO sabemos por qué, la explicación concreta. */
+export const porQueNoPuedo = (nombre: string): string =>
+  NO_SOPORTADOS[nombre.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? ''] ?? '';
+
+/** El orden en que se le muestran al usuario: de lo más común a lo más raro. */
+const ORDEN = ['texto', 'docx', 'pdf', 'xlsx', 'pptx', 'opendocument', 'imagen', 'audio', 'video'] as const;
+
+export const EXTENSIONES_SOPORTADAS: string[] = ORDEN.flatMap((f) => EXT_POR_FAMILIA[f].map((e) => `.${e}`));
 
 /** Para el `accept` de un `<input type="file">`. */
 export const ACCEPT_IMPORTAR = EXTENSIONES_SOPORTADAS.join(',');
@@ -53,12 +92,18 @@ const extDe = (nombre: string): string => (nombre.toLowerCase().match(/\.([a-z0-
  */
 export function familiaDeArchivo(nombre: string, mime = ''): FamiliaArchivo {
   const e = extDe(nombre);
-  for (const f of ['texto', 'docx', 'pdf', 'imagen', 'audio', 'video'] as const) {
+  for (const f of ORDEN) {
     if (EXT_POR_FAMILIA[f].includes(e)) return f;
   }
+  // Una extensión que sabemos que NO se puede no cae al mime: un .doc con mime
+  // `application/msword` no es un .docx, y tratarlo como tal daría un error críptico.
+  if (NO_SOPORTADOS[e]) return 'desconocido';
   const m = mime.split(';')[0].trim().toLowerCase();
   if (m === 'application/pdf') return 'pdf';
   if (m === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
+  if (m === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') return 'xlsx';
+  if (m === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') return 'pptx';
+  if (m.startsWith('application/vnd.oasis.opendocument.')) return 'opendocument';
   if (m.startsWith('text/')) return 'texto';
   if (m.startsWith('image/')) return 'imagen';
   if (m.startsWith('audio/')) return 'audio';
@@ -80,7 +125,9 @@ export function comoSeLee(nombre: string, mime = ''): string {
   switch (familiaDeArchivo(nombre, mime)) {
     case 'audio': case 'video': return 'lo transcribe';
     case 'imagen': return 'lee la imagen';
-    case 'pdf': case 'docx': return 'saca el texto';
+    case 'pdf': case 'docx': case 'opendocument': return 'saca el texto';
+    case 'xlsx': return 'lee la planilla';
+    case 'pptx': return 'lee las diapositivas';
     case 'texto': return 'texto directo';
     default: return 'no sé leerlo';
   }
@@ -93,7 +140,9 @@ export function iconoDeArchivo(nombre: string, mime = ''): string {
     case 'video': return '🎬';
     case 'imagen': return '🖼';
     case 'pdf': return '📕';
-    case 'docx': return '📄';
+    case 'docx': case 'opendocument': return '📄';
+    case 'xlsx': return '📊';
+    case 'pptx': return '📽';
     case 'texto': return '📝';
     default: return '❔';
   }

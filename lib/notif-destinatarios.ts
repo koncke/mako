@@ -26,7 +26,7 @@ import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { getWorkspaceActual, runWithWorkspace, OWNER_WS } from './workspace';
 import { getNumeroDueno, setNumeroDuenoYSync, agregarParticipanteGrupo, getGrupoJidMaKo } from './mako-grupo';
-import { normalizarDestinatarios, type Destinatarios } from './notif-catalogo';
+import { normalizarDestinatarios, soloDigitos, type Destinatarios } from './notif-catalogo';
 
 const KEY_TELEFONOS = 'notif_telefonos';
 const KEY_EMAILS = 'notif_emails';
@@ -44,12 +44,29 @@ function parseLista(raw: string | null): string[] | null {
 }
 
 /**
+ * ¿Son la misma persona? Compara por el final del número.
+ *
+ * Solo se usa al DERIVAR la lista de los settings viejos, donde los dos valores
+ * apuntaban al dueño por definición. Un caso real de la base: `user_telefono` era
+ * 526862168122 y `mako.numero_dueno` 5216862168122 — el mismo celular mexicano
+ * con y sin el "1" que WhatsApp usaba antes. Tomarlos como dos personas le manda
+ * cada reporte dos veces al mismo teléfono.
+ *
+ * En la lista que edita el usuario NO se aplica: ahí manda lo que él escribió, y
+ * fusionarle dos contactos que él distingue sería peor que el duplicado.
+ */
+function mismaPersona(a: string, b: string): boolean {
+  const fin = (s: string) => s.slice(-8);
+  return a.length >= 8 && b.length >= 8 && fin(a) === fin(b);
+}
+
+/**
  * Los destinatarios del workspace actual.
  *
  * Si todavía no se guardó la lista, se arma con lo que había suelto: así un
  * workspace de antes de este cambio sigue recibiendo sin que nadie entre a
- * reconfigurarlo. `mako.numero_dueno` entra como respaldo del teléfono porque
- * hubo una época en que solo se escribía ese.
+ * reconfigurarlo. `mako.numero_dueno` entra como respaldo porque hubo una época
+ * en que solo se escribía ese.
  */
 export async function getDestinatarios(): Promise<Destinatarios> {
   const ws = (await getWorkspaceActual()) ?? OWNER_WS;
@@ -60,9 +77,20 @@ export async function getDestinatarios(): Promise<Destinatarios> {
     getSetting('user_email'),
     getNumeroDueno(ws),
   ]);
-  const telefonos = parseLista(rawTel) ?? [telViejo ?? '', numeroGrupo ?? ''];
-  const emails = parseLista(rawMail) ?? [mailViejo ?? ''];
-  return normalizarDestinatarios({ telefonos, emails });
+
+  const guardados = parseLista(rawTel);
+  let telefonos: string[];
+  if (guardados) {
+    telefonos = guardados;
+  } else {
+    // Derivación de compatibilidad: el de los reportes primero, y el del grupo
+    // solo si de verdad es otra persona.
+    telefonos = [telViejo ?? ''].filter(Boolean);
+    const grupo = soloDigitos(numeroGrupo ?? '');
+    if (grupo && !telefonos.some((t) => mismaPersona(soloDigitos(t), grupo))) telefonos.push(grupo);
+  }
+
+  return normalizarDestinatarios({ telefonos, emails: parseLista(rawMail) ?? [mailViejo ?? ''] });
 }
 
 export type ResultadoGuardar = {

@@ -50,7 +50,6 @@ export function CanalToggle({ icono, label, estado, onChange, fila, motivoNoDisp
   motivoNoDisponible?: string;
 }) {
   const on = estado === 'on';
-  const inerte = estado === 'na' || estado === 'sin-conectar';
   const c = on ? (COLOR[icono] ?? COLOR.bell) : NEUTRO;
 
   const base: CSSProperties = {
@@ -72,16 +71,20 @@ export function CanalToggle({ icono, label, estado, onChange, fila, motivoNoDisp
   }
 
   if (estado === 'sin-conectar') {
+    const motivo = motivoNoDisponible ?? 'sin conectar';
     return (
+      // role="img" + aria-label: el lector lee UNA frase completa en vez de
+      // deletrear el ícono, la palabra y el signo por separado.
       <span
-        title={motivoNoDisponible ?? `${label} todavía no está conectado`}
+        role="img"
+        aria-label={`${label} para ${fila}: ${motivo}`}
+        title={motivo}
         style={{ ...base, border: '1px solid var(--warn)', background: 'var(--warn-bg)', color: 'var(--warn)', cursor: 'help' }}
       >
-        <Icon name={icono} size={15} />
-        {label}
-        <span aria-hidden style={{ fontSize: 13, lineHeight: 1, marginLeft: 1 }}>!</span>
-        <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
-          {`${label} para ${fila}: ${motivoNoDisponible ?? 'sin conectar'}`}
+        <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Icon name={icono} size={15} />
+          {label}
+          <span style={{ fontSize: 13, lineHeight: 1 }}>!</span>
         </span>
       </span>
     );
@@ -91,6 +94,7 @@ export function CanalToggle({ icono, label, estado, onChange, fila, motivoNoDisp
     <button
       type="button"
       role="switch"
+      data-estado={estado}
       aria-checked={on}
       aria-label={`${label} para ${fila}`}
       title={`${label}: ${on ? 'activado' : 'desactivado'}`}

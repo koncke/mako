@@ -31,7 +31,7 @@ import { transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
 import { archivoATexto } from '@/lib/archivo-a-texto';
-import { puedeLeerse, formatosLegibles } from '@/lib/formatos-archivo';
+import { puedeLeerse, formatosLegibles, porQueNoPuedo } from '@/lib/formatos-archivo';
 import { ordenarPorCuota } from '@/lib/ia-cuotas';
 import { rutearDoer } from '@/lib/mako-router';
 import { overrideDeFeature } from '@/lib/model-registry';
@@ -387,6 +387,16 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   }
 }
 
+/** Por qué no puedo abrir esto, y qué hacer. Si sabemos el motivo concreto («es el Word
+ *  viejo, guardalo como .docx») lo decimos: un «no sé leer ese formato» deja al dueño
+ *  adivinando con el archivo en la mano. */
+function noPuedoAbrir(nombre: string): string {
+  const motivo = porQueNoPuedo(nombre);
+  return motivo
+    ? `«${nombre}» ${motivo}`
+    : `«${nombre}» no lo puedo abrir. Sí puedo con: ${formatosLegibles()}.`;
+}
+
 /**
  * Lee el archivo de un mensaje y devuelve su contenido listo para entrar como texto.
  *
@@ -402,7 +412,7 @@ async function textoDeArchivo(instance: string, m: MsgIn): Promise<{ texto: stri
   const adj = adjuntoDe(m);
   if (!adj || adj.tipo !== 'texto') return null;
   if (!adj.soportado) {
-    return { texto: '', error: `«${adj.nombre}» no lo puedo abrir. Sí puedo con: ${formatosLegibles()}. Pasámelo en alguno de esos y lo leo.` };
+    return { texto: '', error: noPuedoAbrir(adj.nombre) };
   }
   let b64 = adj.base64;
   const id = m.key?.id ?? '';
@@ -553,7 +563,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       if (!adjunto.soportado) {
         // El aviso enumera lo que SÍ se puede, sacado de la misma lista que usa el
         // lector: si el lector aprende un formato, este mensaje se entera solo.
-        const aviso = `«${adjunto.nombre}» no lo puedo abrir. Sí puedo con: ${formatosLegibles()}. Pasámelo en alguno de esos y lo leo.`;
+        const aviso = noPuedoAbrir(adjunto.nombre);
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         return { engaged: true, reply: aviso };

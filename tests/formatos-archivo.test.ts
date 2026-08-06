@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   familiaDeArchivo, puedeLeerse, EXTENSIONES_SOPORTADAS, ACCEPT_IMPORTAR,
-  formatosLegibles, comoSeLee, iconoDeArchivo,
+  formatosLegibles, comoSeLee, iconoDeArchivo, porQueNoPuedo, NO_SOPORTADOS,
 } from '../lib/formatos-archivo';
 
 test('EL BUG: un .txt de WhatsApp se puede leer', () => {
@@ -35,10 +35,39 @@ test('cada formato cae en la familia que decide cómo se lee', () => {
   assert.equal(familiaDeArchivo('demo.mp4'), 'video');
 });
 
+test('planillas y decks se leen sin gastar IA', () => {
+  assert.equal(familiaDeArchivo('leads.xlsx'), 'xlsx');
+  assert.equal(comoSeLee('leads.xlsx'), 'lee la planilla');
+  assert.equal(familiaDeArchivo('propuesta.pptx'), 'pptx');
+  assert.equal(comoSeLee('propuesta.pptx'), 'lee las diapositivas');
+  assert.equal(familiaDeArchivo('acta.odt'), 'opendocument');
+  assert.equal(familiaDeArchivo('costos.ods'), 'opendocument');
+});
+
 test('lo que de verdad no se sabe leer, se dice', () => {
-  assert.equal(puedeLeerse('planilla.xlsx'), false);
   assert.equal(familiaDeArchivo('binario.exe'), 'desconocido');
-  assert.equal(comoSeLee('planilla.xlsx'), 'no sé leerlo');
+  assert.equal(comoSeLee('binario.exe'), 'no sé leerlo');
+});
+
+test('el formato viejo NO se confunde con el nuevo por el mime', () => {
+  // Un .doc con mime de Word cae en 'desconocido', no en 'docx': tratarlo como .docx
+  // daría un error críptico de mammoth en vez de «guardalo como .docx».
+  assert.equal(familiaDeArchivo('propuesta.doc', 'application/msword'), 'desconocido');
+  assert.equal(familiaDeArchivo('leads.xls', 'application/vnd.ms-excel'), 'desconocido');
+  assert.equal(familiaDeArchivo('deck.ppt', 'application/vnd.ms-powerpoint'), 'desconocido');
+});
+
+test('cuando no se puede, se dice POR QUÉ y qué hacer', () => {
+  assert.match(porQueNoPuedo('propuesta.doc'), /\.docx/);
+  assert.match(porQueNoPuedo('leads.xls'), /\.xlsx/);
+  assert.match(porQueNoPuedo('notas.pages'), /Apple/);
+  assert.match(porQueNoPuedo('todo.zip'), /sueltos/);
+  // Un formato del que no sabemos nada no inventa una explicación.
+  assert.equal(porQueNoPuedo('raro.xyz'), '');
+  // Y ninguno de los que tienen explicación puede estar TAMBIÉN en la lista de aceptados.
+  for (const ext of Object.keys(NO_SOPORTADOS)) {
+    assert.equal(puedeLeerse(`x.${ext}`), false, `.${ext} está en las dos listas a la vez`);
+  }
 });
 
 test('el accept del input sale de la misma lista', () => {

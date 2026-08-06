@@ -22,18 +22,18 @@ import 'server-only';
 // =============================================================================
 
 import { leerDocumentoIA, transcribirAudio } from './ai-cheap';
-import { familiaDeArchivo, MAX_ARCHIVO_BYTES } from './formatos-archivo';
+import { familiaDeArchivo, porQueNoPuedo, MAX_ARCHIVO_BYTES } from './formatos-archivo';
 
 // La lista de formatos vive en `formatos-archivo.ts` y se re-exporta desde acá para no
 // romper a quien ya la importaba. NO la copies: eso fue exactamente lo que hizo que un
 // .txt rebotara en WhatsApp durante semanas.
-export { EXTENSIONES_SOPORTADAS, ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, puedeLeerse, formatosLegibles, familiaDeArchivo } from './formatos-archivo';
+export { EXTENSIONES_SOPORTADAS, ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, puedeLeerse, formatosLegibles, familiaDeArchivo, porQueNoPuedo } from './formatos-archivo';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 const LEER_DOC = 'Transcribí TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describí también lo que se ve. Devolvé solo el texto.';
 
-export type LecturaArchivo = { texto: string; warning?: string; via: 'texto' | 'docx' | 'pdf' | 'pdf-vision' | 'imagen' | 'audio' | 'no-soportado' };
+export type LecturaArchivo = { texto: string; warning?: string; via: 'texto' | 'docx' | 'pdf' | 'pdf-vision' | 'imagen' | 'audio' | 'planilla' | 'diapositivas' | 'opendocument' | 'no-soportado' };
 
 export async function archivoATexto(file: File): Promise<LecturaArchivo> {
   const name = (file.name || '').toLowerCase();
@@ -58,6 +58,16 @@ export async function archivoATexto(file: File): Promise<LecturaArchivo> {
       const mammoth = (await import('mammoth')).default;
       return { texto: (await mammoth.extractRawText({ buffer: buf })).value, via: 'docx' };
     } catch (e) { return { texto: '', via: 'docx', warning: `No pude abrir «${file.name}»: ${msg(e)}` }; }
+  }
+
+  // Planillas, decks y OpenDocument: ZIP + XML, se leen sin gastar una sola llamada de
+  // IA. Un .xlsx de leads o un .pptx de propuesta antes rebotaban con «no sé leerlo».
+  if (familia === 'xlsx' || familia === 'pptx' || familia === 'opendocument') {
+    const via = familia === 'xlsx' ? 'planilla' : familia === 'pptx' ? 'diapositivas' : 'opendocument';
+    try {
+      const { officeATexto } = await import('./office-a-texto');
+      return { texto: await officeATexto(familia, buf, file.name), via };
+    } catch (e) { return { texto: '', via, warning: msg(e) }; }
   }
 
   if (familia === 'pdf') {
@@ -91,5 +101,8 @@ export async function archivoATexto(file: File): Promise<LecturaArchivo> {
     } catch (e) { return { texto: '', via: 'audio', warning: `No pude transcribir «${file.name}»: ${msg(e)}` }; }
   }
 
-  return { texto: '', via: 'no-soportado', warning: `«${file.name}»: no sé leer ese formato todavía.` };
+  // Si sabemos POR QUÉ no se puede, se dice —«es el Word viejo, guardalo como .docx»—
+  // en vez de dejar al usuario adivinando qué hacer con su archivo.
+  const porque = porQueNoPuedo(file.name);
+  return { texto: '', via: 'no-soportado', warning: porque ? `«${file.name}» ${porque}` : `«${file.name}»: no sé leer ese formato todavía.` };
 }

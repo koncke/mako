@@ -23,7 +23,7 @@
 //
 // La lista de qué existe NO se escribe acá: viene de lib/notif-catalogo.ts.
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   NOTIF_IN_APP, REPORTES, AVISOS_WA_EN_VIVO, inAppActivo,
   type NotifInApp, type ReporteKey,
@@ -154,24 +154,52 @@ export function NotificacionesPanel() {
   const [modalDest, setModalDest] = useState(false);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+
+  // Las tres lecturas que la pantalla NECESITA. Si cualquiera falla hay que
+  // decirlo: con un `.catch(() => {})` por fetch, un 500 pasajero o una recarga a
+  // destiempo dejaban el panel en "Cargando…" para siempre, sin error y sin forma
+  // de reintentar. Pasó en desarrollo y desde afuera parece la app colgada.
+  const cargar = useCallback(async () => {
+    setErrorCarga(null);
+    try {
+      const pedir = async (u: string) => {
+        const r = await fetch(u);
+        const j = await r.json();
+        if (!r.ok || !j?.ok) throw new Error(j?.error || `${u} respondió ${r.status}`);
+        return j;
+      };
+      const [jp, ji, jd] = await Promise.all([
+        pedir('/api/perfil'), pedir('/api/perfil/notif-inapp'), pedir('/api/perfil/destinatarios'),
+      ]);
+      const p = normalizarPrefs(jp.prefs as NotifPrefs);
+      setPrefs(p); setDraft(p);
+      setInApp(ji.inApp as NotifInApp); setInAppDraft(ji.inApp as NotifInApp);
+      setDest(jd.destinatarios as Destinatarios); setTieneGrupo(Boolean(jd.tieneGrupo));
+    } catch (e) {
+      setErrorCarga(e instanceof Error ? e.message : 'No se pudieron cargar tus preferencias');
+    }
+  }, []);
 
   useEffect(() => {
-    fetch('/api/perfil').then((r) => r.json()).then((j) => {
-      if (!j.ok) return;
-      const p = normalizarPrefs(j.prefs as NotifPrefs);
-      setPrefs(p); setDraft(p);
-    }).catch(() => {});
-    fetch('/api/perfil/notif-inapp').then((r) => r.json()).then((j) => {
-      if (!j.ok) return;
-      setInApp(j.inApp as NotifInApp); setInAppDraft(j.inApp as NotifInApp);
-    }).catch(() => {});
-    fetch('/api/perfil/destinatarios').then((r) => r.json()).then((j) => {
-      if (!j.ok) return;
-      setDest(j.destinatarios as Destinatarios); setTieneGrupo(Boolean(j.tieneGrupo));
-    }).catch(() => setDest({ telefonos: [], emails: [] }));
+    void cargar();
+    // El estado de la plantilla es informativo y consulta a Meta: que tarde o
+    // falle no puede impedir configurar el resto.
     fetch('/api/perfil/plantilla').then((r) => r.json())
       .then((j) => setPlantilla(j.estado ?? 'error')).catch(() => setPlantilla('error'));
-  }, []);
+  }, [cargar]);
+
+  if (errorCarga) {
+    return (
+      <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>No se pudieron cargar tus preferencias</div>
+          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3 }}>{errorCarga}</div>
+        </div>
+        <button type="button" onClick={() => void cargar()} style={btnDark}>Reintentar</button>
+      </div>
+    );
+  }
 
   if (!prefs || !draft || !inApp || !inAppDraft || !dest) {
     return <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
@@ -235,7 +263,9 @@ export function NotificacionesPanel() {
 
       {/* ── Franja de canales: qué es cada logo y a dónde llega ────────────── */}
       <div style={{ ...card, padding: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+        {/* 200px y no 240: con 240 el tercer tile se caía a una segunda fila y
+            dejaba un hueco al lado, justo en el ancho más común de esta pantalla. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
           <TileCanal
             icono="bell" color="var(--accent)" nombre="En la app"
             detalle="Pop-up y sonido en este navegador. Solo para vos."
