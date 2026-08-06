@@ -25,6 +25,7 @@ import type { CuotaProv } from '@/lib/ia-cuotas';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { agenteSkillMarkdown, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
 import ServicioConfigForm from './ServicioConfigForm';
+import { getGoogleCalendarStatusAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
 import { ProbarTracking } from './ProbarTracking';
 
 const MONO = "'Geist Mono', monospace";
@@ -953,8 +954,10 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
       { k: 'Consumo del mes', v: `${fmtTok(prov?.tokens ?? 0)} tok`, c: 'var(--ink)' },
     ];
   } else if (i.key === 'google') {
-    // El OAuth de Google Calendar es un redirect en la MISMA pestaña.
-    actions.push({ label: 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
+    // El OAuth de Google Calendar es un redirect en la MISMA pestaña. Estando ya
+    // conectada, el botón sigue sirviendo: es el camino para re-autorizar (p.ej.
+    // sumar el permiso de escritura que necesita "Reagendar").
+    actions.push({ label: i.estado === 'conectada' ? 'Reconectar Google Calendar' : 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
   }
 
   // La landing no se configura con credenciales: se configura copiando un código.
@@ -1022,6 +1025,8 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
             <SaldoEditor provider={i.key} gemini={i.key === 'gemini'} saldo={usage?.porProveedor?.find((p) => p.provider === i.key)?.saldo ?? null} restante={usage?.porProveedor?.find((p) => p.provider === i.key)?.restanteUsd ?? null} gastoMes={usage?.porProveedor?.find((p) => p.provider === i.key)?.costMesUsd ?? 0} onGuardado={onRefetchUsage} />
           )}
 
+          {i.key === 'google' && <PermisoGoogleCalendar conectada={i.estado === 'conectada'} />}
+
           {esAgente ? (
             <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
@@ -1031,7 +1036,11 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
             // sin esto el chip de acá arriba, el tile y el contador se quedaban en
             // "Por configurar" después de guardar, hasta que apretaras F5.
             <ServicioConfigForm servicioKey={i.key} onEstado={onCambio} />
-          ) : i.estado === 'falta' && (
+          ) : i.estado === 'falta' && i.key !== 'google' && (
+            // Google no lleva credenciales que copiar: se conecta por OAuth y su
+            // estado lo cuenta PermisoGoogleCalendar. Sin esta excepción, el chip
+            // de "falta configurar" mostraba la frase del detalle como si fuera
+            // el nombre de una variable de entorno.
             <div>
               <div style={{ ...capMono, fontSize: 10, letterSpacing: '.08em', marginBottom: 7 }}>Falta configurar</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -1057,6 +1066,56 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
         </div>
       </div>
     </ModalShell>
+  );
+}
+
+/**
+ * Qué permiso tiene HOY la agenda de Google, dentro del modal del servicio.
+ *
+ * Existe porque "conectada" dejó de ser una sola cosa: los refresh_token que se
+ * emitieron cuando solo pedíamos `calendar.readonly` siguen siendo de lectura, y
+ * desde afuera se ven idénticos a uno nuevo. Sin este bloque, la tarjeta queda en
+ * verde mientras "Reagendar" en el CRM no puede mover un solo evento — y el
+ * usuario se entera por el invitado que se presentó a la hora vieja.
+ *
+ * El chequeo pega contra Google (refresca el token para leer sus scopes), así que
+ * corre al abrir el modal y no al pintar la grilla de tarjetas.
+ */
+function PermisoGoogleCalendar({ conectada }: { conectada: boolean }) {
+  const [estado, setEstado] = useState<GoogleCalendarStatus | null>(null);
+  useEffect(() => {
+    if (!conectada) return;
+    let vivo = true;
+    getGoogleCalendarStatusAction().then((s) => { if (vivo) setEstado(s); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [conectada]);
+
+  if (!conectada) {
+    return (
+      <p style={{ margin: '0 0 4px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+        Conectá tu agenda para que las reuniones se detecten solas y para que, al reagendar desde el CRM, el evento se mueva y el invitado reciba el aviso.
+      </p>
+    );
+  }
+  // `puede` en false = esta sesión no administra la agenda: no tiene sentido
+  // mostrarle un permiso que no puede cambiar.
+  if (!estado || !estado.puede) return null;
+
+  if (estado.puedeMover) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 15, padding: '11px 13px', borderRadius: 11, background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 12.5, lineHeight: 1.5 }}>
+        <span>Permiso completo{estado.email ? ` sobre la agenda de ${estado.email}` : ''}: al reagendar una reunión desde el CRM, el evento se mueve y el invitado recibe el aviso.</span>
+      </div>
+    );
+  }
+  return (
+    <div style={{ marginBottom: 15, padding: '12px 14px', borderRadius: 11, background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)' }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>Permiso de solo lectura</div>
+      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+        Se leen tus reuniones{estado.email ? ` de ${estado.email}` : ''}, pero no se pueden modificar: «Reagendar» actualiza el CRM y no mueve el evento.
+        Reconectá la agenda (el botón de abajo) para habilitar mover reuniones.
+      </p>
+    </div>
   );
 }
 

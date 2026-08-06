@@ -9,9 +9,11 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
+import { getUsuarioActual } from './auth';
 import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, FunnelTransition } from './pipeline';
-import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, MAKO_SETTER } from './pipeline';
+import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
+import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
 import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
 import { avanceDe } from './vsl-retencion';
 import { hoyEnTijuana } from './date-utils';
@@ -112,6 +114,11 @@ export type Lead = {
   // Rediseño CRM (migración 0020) — opcionales por compatibilidad si la
   // migración aún no se aplicó.
   pipeline_stage?: string | null;   // override manual de la columna del Kanban
+  // Última etapa efectiva que el historial YA registró (migración 0122). No es
+  // la etapa del lead: es la memoria del historial, y existe porque la etapa que
+  // ve el usuario es derivada y puede cambiar sin que nadie escriba nada. Ver
+  // lib/etapa-historial.ts.
+  etapa_vista?: string | null;
   closer?: string | null;           // closer asignado (Datos comerciales)
   setter?: string | null;           // setter asignado (Nutrición - Manual)
   fathom_links?: FathomLink[] | null;
@@ -747,12 +754,16 @@ export async function applyFathomRecording(
 // ── Audit log (historial real de cambios por lead) ──────────────────────────
 export type LeadAuditRow = { id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string; created_at: string };
 
+// OJO: 'pipeline_stage' NO está en esta lista. La etapa se audita aparte (campo
+// 'Etapa', ver más abajo) porque lo que le importa al usuario es la etapa
+// EFECTIVA — el override si lo hay, y si no la derivada. Diffear la columna
+// cruda registraba "— → ganado" cuando el lead venía de "agenda", y no registraba
+// NADA cuando la etapa cambiaba por derivación (el caso del lead 1395).
 const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   { k: 'nombre', label: 'Nombre' },
   { k: 'email', label: 'Email' },
   { k: 'telefono', label: 'Teléfono' },
   { k: 'empresa', label: 'Empresa' },
-  { k: 'pipeline_stage', label: 'Etapa' },
   { k: 'estado_lead', label: 'Estado' },
   { k: 'fecha_agenda', label: 'Fecha de agendamiento' },
   { k: 'asistio_j1', label: 'Asistió R1' },
@@ -776,7 +787,26 @@ function auditVal(v: unknown): string | null {
   return String(v);
 }
 
-/** Inserta en lead_audit una fila por cada campo trackeado que cambió. No rompe la mutación si falla. */
+// Ventana del anti-duplicado. Un mismo movimiento pasa hoy por DOS capas que
+// auditan (setPipelineStage escribe su diff y el caller vuelve a llamar a
+// logLeadChanges con un `before` anterior a todo), así que la misma línea llega
+// dos veces con milisegundos de diferencia. 60s cubre de sobra un request y es
+// demasiado corto para tapar un cambio real repetido a mano.
+const DEDUP_MS = 60_000;
+
+/**
+ * Inserta en lead_audit una fila por cada campo trackeado que cambió. No rompe la
+ * mutación si falla.
+ *
+ * Dos cosas que no son obvias:
+ *  · La ETAPA se calcula, no se diffea: se compara la etapa efectiva (override o
+ *    derivada) contra `etapa_vista`, la última que el historial dio por
+ *    registrada. Así la línea sale una sola vez aunque la escritura pase por dos
+ *    capas, y sale con el valor anterior REAL en vez de un "—".
+ *  · Todas las filas entran en UN insert para que compartan created_at: la ficha
+ *    agrupa por instante para mostrar (y revertir) un movimiento completo —
+ *    Etapa + Estado + Monto juntos. Partirlo rompe el "Deshacer".
+ */
 export async function logLeadChanges(leadId: number, before: Lead | null, after: Lead | null, autor: string): Promise<void> {
   if (!before || !after) return;
   const rows = AUDIT_FIELDS.flatMap(({ k, label }) => {
@@ -784,12 +814,48 @@ export async function logLeadChanges(leadId: number, before: Lead | null, after:
     const b = auditVal(after[k]);
     return a === b ? [] : [{ lead_id: leadId, campo: label, valor_anterior: a, valor_nuevo: b, autor }];
   });
-  if (!rows.length) return;
+  if (!rows.length && !cambioDeEtapa(after, pipelineStageOf(before))) return;
   try {
-    const { error } = await (await getTenantDb()).from('lead_audit').insert(rows);
-    if (error) console.error(`[audit] insert falló: ${error.message}`);
+    const db = await getTenantDb();
+    // La etapa NO pasa por el anti-duplicado por ventana: ya tiene el suyo, exacto
+    // (etapa_vista). Si pasara, un lead movido A→B→A→B en el mismo minuto perdería
+    // la tercera línea por parecerse a la primera.
+    const nuevas = await sinRepetidas(db, leadId, rows);
+    // `after` viene de getLead (select *), así que trae la etapa_vista que ya
+    // escribió una capa anterior de esta misma mutación; si no la trae (lead
+    // armado a mano, o migración 0122 sin aplicar), cae a la etapa del `before`.
+    const etapa = cambioDeEtapa(after, pipelineStageOf(before));
+    if (etapa) nuevas.push({ lead_id: leadId, campo: CAMPO_ETAPA, valor_anterior: etapa.desde, valor_nuevo: etapa.hacia, autor });
+    if (!nuevas.length) return;
+    const { error } = await db.from('lead_audit').insert(nuevas);
+    if (error) { console.error(`[audit] insert falló: ${error.message}`); return; }
+    // La columna se mueve DESPUÉS de la línea: si esto falla, el peor caso es que
+    // la pasada de los pendientes vuelva a detectar el cambio (una línea de más),
+    // no que el cambio se pierda.
+    if (etapa) await marcarEtapaVista([leadId], etapa.hacia);
   } catch (e) {
     console.error('[audit] insert excepción', e);
+  }
+}
+
+type FilaAudit = { lead_id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string };
+
+/** Descarta las filas idénticas a una ya escrita hace segundos (mismo movimiento auditado dos veces). */
+async function sinRepetidas(db: Awaited<ReturnType<typeof getTenantDb>>, leadId: number, rows: FilaAudit[]): Promise<FilaAudit[]> {
+  if (!rows.length) return rows;
+  const clave = (r: { campo: string; valor_anterior: string | null; valor_nuevo: string | null }) =>
+    `${r.campo}|${r.valor_anterior ?? ''}|${r.valor_nuevo ?? ''}`;
+  try {
+    const { data, error } = await db
+      .from('lead_audit')
+      .select('campo, valor_anterior, valor_nuevo')
+      .eq('lead_id', leadId)
+      .gte('created_at', new Date(Date.now() - DEDUP_MS).toISOString());
+    if (error) return rows; // ante la duda, mejor una línea de más que perder el rastro
+    const ya = new Set((data ?? []).map((r) => clave(r as FilaAudit)));
+    return rows.filter((r) => !ya.has(clave(r)));
+  } catch {
+    return rows;
   }
 }
 
@@ -1416,17 +1482,43 @@ export async function getFunnelTransitions(): Promise<FunnelTransition[]> {
 }
 
 /**
+ * Quién firma un movimiento que no trae autor explícito: la persona logueada si
+ * hay sesión, y si no MaKo — porque entonces lo movió el sistema (cron, webhook,
+ * WhatsApp). Nunca lanza: en un cron no hay cookies que leer.
+ */
+async function autorDelMovimiento(explicito?: string): Promise<string> {
+  if (explicito?.trim()) return explicito.trim();
+  try {
+    const s = await getUsuarioActual();
+    return s?.email?.trim() || AUTOR_SISTEMA;
+  } catch {
+    return AUTOR_SISTEMA;
+  }
+}
+
+/**
  * Mueve un lead a una etapa del tablero. Persiste el override `pipeline_stage`
  * y, en desenlaces terminales, sincroniza estado_lead (vía updateLead) para que
  * Revenue/CAPI sigan correctos. Para "ganado" exige monto.
+ *
+ * TODO movimiento queda en el historial, lo haga quien lo haga: antes esto era un
+ * UPDATE mudo y los ocho callers (el motor automático, MaKo por WhatsApp, el
+ * desenlace de las nutriciones, el bloqueo de un contacto…) movían leads sin
+ * dejar una línea. Ahora audita acá, en el choke point, y no en cada caller.
  */
 export async function setPipelineStage(
   id: number,
   stageKey: string,
-  opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null; deadline?: string | null },
+  opts?: {
+    monto?: number | null; motivo?: string | null;
+    asistio_j1?: boolean | null; asistio_j2?: boolean | null; deadline?: string | null;
+    /** Quién lo movió. Sin esto se resuelve solo: sesión → persona, sin sesión → MaKo. */
+    autor?: string;
+  },
 ): Promise<void> {
   const supabase = (await getTenantDb());
   const estado = terminalEstadoFor(stageKey);
+  const antes = await getLead(id);
 
   // 1) Sincronizar PRIMERO el desenlace canónico (invariantes + Meta CAPI). Si
   //    falla (p.ej. monto inválido), propagamos el error y NO tocamos el override:
@@ -1459,6 +1551,13 @@ export async function setPipelineStage(
     .update(patch)
     .eq('id', id);
   if (error) throw new Error(`Error moviendo lead ${id} a ${stageKey}: ${error.message}`);
+
+  // 3) El rastro. Va el diff COMPLETO (etapa + estado + monto + motivo +
+  //    asistencias) en una sola escritura para que la ficha lo muestre —y lo
+  //    revierta— como un movimiento único. Si el caller vuelve a auditar después
+  //    con su propio `before`, logLeadChanges descarta lo repetido.
+  await logLeadChanges(id, antes, await getLead(id), await autorDelMovimiento(opts?.autor));
+
   void actualizarEtiquetaLead(id).catch(() => {}); // etiqueta WA por etapa (best-effort; cubre 'manual')
 }
 

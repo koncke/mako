@@ -37,7 +37,9 @@ import {
   ignorarPendientesAction,
   ignorarPendientesMasaAction,
   reagendarReunionAction,
+  permisoCalendarioAction,
 } from './actions';
+import type { ReagendarResultado } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
@@ -235,6 +237,12 @@ export function CrmBoard({
   const [queHacer, setQueHacer] = useState<{ leadId: number; name: string; tipo: 'M' | 'R'; cual: 'r1' | 'r2' } | null>(null);
   const [reagFecha, setReagFecha] = useState('');
   const [reagHora, setReagHora] = useState('');
+  // Qué puede hacer la agenda conectada (null = todavía no se sabe). Se consulta
+  // al abrir el modal: hay que poder AVISAR que el permiso es de solo lectura
+  // antes de reagendar, no después de que el invitado nunca se enteró.
+  const [reagCal, setReagCal] = useState<{ conectado: boolean; puedeMover: boolean } | null>(null);
+  // Qué pasó realmente con el evento del calendario, ya reagendado en el CRM.
+  const [reagOut, setReagOut] = useState<ReagendarResultado | null>(null);
   // modo 'pasada' = ya ocurrió (pide asistencia); 'futura' = ya está agendada
   // por fuera de Calendly pero todavía no se tuvo (solo fecha).
   const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2'; modo: 'pasada' | 'futura' } | null>(null);
@@ -281,6 +289,19 @@ export function CrmBoard({
       setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label, monto: lead?.monto || null, motivo: lead?.motivo || null });
     }
   };
+
+  // Abrir "¿Qué hacer ahora?" limpio. Para el pendiente de reunión (R) además
+  // pregunta si la agenda puede mover eventos: el chequeo pega contra Google, así
+  // que se hace acá (una vez, al abrir) y no en cada render de la lista.
+  const abrirQueHacer = (id: number) => {
+    const l = leads.find((x) => x.id === id);
+    const m = marcar.find((x) => x.leadId === id);
+    const tipo = m?.tipo === 'R' ? 'R' : 'M';
+    setReagFecha(''); setReagHora(''); setReagOut(null); setReagCal(null);
+    setQueHacer({ leadId: id, name: l?.name ?? 'lead', tipo, cual: l && effStage(l) === 'agendaj2' ? 'r2' : 'r1' });
+    if (tipo === 'R') void permisoCalendarioAction().then(setReagCal).catch(() => setReagCal(null));
+  };
+  const cerrarQueHacer = () => { setQueHacer(null); setReagOut(null); setReagCal(null); };
 
   // Revertir el último movimiento a su etapa anterior (ventana del toast, 5s).
   // No deja huella en el historial: un movimiento deshecho al instante es un
@@ -625,7 +646,7 @@ export function CrmBoard({
           marcar={marcar}
           equipo={equipo}
           onSolucionar={solucionarMarcar}
-          onQueHacer={(id) => { const l = leads.find((x) => x.id === id); const m = marcar.find((x) => x.leadId === id); setReagFecha(''); setReagHora(''); setQueHacer({ leadId: id, name: l?.name ?? 'lead', tipo: m?.tipo === 'R' ? 'R' : 'M', cual: l && effStage(l) === 'agendaj2' ? 'r2' : 'r1' }); }}
+          onQueHacer={(id) => abrirQueHacer(id)}
           onBulkDone={() => router.refresh()}
         />
       ) : view === 'kanban' ? (
@@ -757,52 +778,84 @@ export function CrmBoard({
         const l = leads.find((x) => x.id === queHacer.leadId);
         const opt = (band: 'pipeline' | 'salidas') => stages.filter((s) => (s.band ?? 'pipeline') === band && s.key !== 'lead').sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
         const stageBtn = (s: Stage) => (
-          <button key={s.key} type="button" onClick={() => { setQueHacer(null); if (l) openStageMove(l, { to: s.key }); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+          <button key={s.key} type="button" onClick={() => { cerrarQueHacer(); if (l) openStageMove(l, { to: s.key }); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
             <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: s.dot, flex: 'none' }} />{s.label}
           </button>
         );
         return (
-          <div onClick={() => setQueHacer(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={cerrarQueHacer} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
               <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 8 }}>✦ MAKO</div>
               <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>¿Qué hacer ahora? — {queHacer.name}</div>
               <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 16 }}>{queHacer.tipo === 'R' ? `La Reunión ${queHacer.cual === 'r2' ? 2 : 1} ya pasó y el lead sigue esperando. Elegí cómo sigue.` : 'Venció la nutrición manual sin resolverse. Elegí cómo sigue.'}</div>
-              {queHacer.tipo === 'R' ? (
+              {queHacer.tipo === 'R' && reagOut ? (
+                // Ya se reagendó: lo único que falta contar es qué pasó con el
+                // calendario. El CRM está guardado sí o sí — el resultado de Google
+                // no puede leerse como "falló el reagendado".
+                <div style={{ border: `1px solid ${reagOut.ok ? 'var(--good)' : 'var(--warn-fill)'}`, background: reagOut.ok ? 'var(--good-bg)' : 'var(--warn-bg)', borderRadius: 11, padding: '13px 15px', marginBottom: 14 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: reagOut.ok ? 'var(--good)' : 'var(--warn)', marginBottom: 4 }}>
+                    {/* "avisado al invitado" solo si REALMENTE había a quién avisarle:
+                        un lead sin email mueve el evento pero no notifica a nadie. */}
+                    {reagOut.ok
+                      ? `✓ Reunión ${reagOut.accion === 'creado' ? 'agendada' : 'movida'} en tu calendario${reagOut.invitado ? ' y avisado al invitado' : ''}`
+                      : 'El CRM quedó actualizado, pero no pude mover el evento'}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{reagOut.mensaje}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 11, flexWrap: 'wrap' }}>
+                    {reagOut.reconectar && (
+                      <button type="button" onClick={() => router.push('/integraciones')} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Reconectar Google Calendar</button>
+                    )}
+                    <button type="button" onClick={cerrarQueHacer} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
+                  </div>
+                </div>
+              ) : queHacer.tipo === 'R' ? (
                 // Reagendar es LA salida más común de una reunión que pasó: va primero
                 // y resuelve en el lugar, sin mandar al usuario a otra pantalla.
                 <div style={{ border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', borderRadius: 11, padding: '13px 15px', marginBottom: 14 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>📅 Reagendar la Reunión {queHacer.cual === 'r2' ? 2 : 1}</div>
-                  {/* Honestidad: Calendly NO deja reagendar por API (menos un evento
-                      que ya pasó) y el permiso de Google Calendar es de solo lectura.
-                      Esto deja el CRM en su nueva fecha y hora y lo anota en el
-                      historial; el evento del calendario lo movés vos. */}
+                  {/* Qué promete el botón depende del permiso REAL de la agenda:
+                      Calendly nunca sirvió para esto (no tiene reschedule por API), y
+                      el token de Google puede ser el viejo, de solo lectura. Prometer
+                      "lo movemos" sin poder hacerlo es peor que no ofrecerlo. */}
                   <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 10 }}>
-                    Actualiza la reunión en el CRM y queda en el historial. El evento del calendario hay que moverlo aparte: Calendly no permite reagendar una reunión que ya pasó.
+                    {reagCal && !reagCal.conectado
+                      ? 'Actualiza la reunión en el CRM y queda en el historial. Conectá tu Google Calendar para que además se mueva el evento y se le avise al invitado.'
+                      : reagCal && !reagCal.puedeMover
+                        ? 'Actualiza la reunión en el CRM y queda en el historial. Tu permiso de Google es de solo lectura: reconectalo para que además se mueva el evento.'
+                        : 'Actualiza la reunión en el CRM, mueve el evento en tu Google Calendar y le avisa al invitado. Todo queda en el historial.'}
                   </div>
+                  {reagCal && !reagCal.puedeMover && (
+                    <button type="button" onClick={() => router.push('/integraciones')} style={{ display: 'block', marginBottom: 10, padding: 0, border: 'none', background: 'none', color: 'var(--primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'underline' }}>
+                      {reagCal.conectado ? 'Reconectar para poder mover reuniones →' : 'Conectar Google Calendar →'}
+                    </button>
+                  )}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <input type="date" value={reagFecha} onChange={(e) => setReagFecha(e.target.value)} aria-label="Fecha nueva"
                       style={{ flex: '1 1 150px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
                     <input type="time" value={reagHora} onChange={(e) => setReagHora(e.target.value)} aria-label="Hora nueva"
                       style={{ flex: '0 1 120px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
-                    <button type="button" disabled={!reagFecha || !reagHora}
+                    <button type="button" disabled={!reagFecha || !reagHora || isPending}
                       onClick={() => {
                         const { leadId, cual } = queHacer;
                         const f = reagFecha;
                         // El ISO se arma en el navegador: así la hora queda en la zona
                         // horaria del que la carga y no hay que adivinar el huso.
                         const at = new Date(`${reagFecha}T${reagHora}`).toISOString();
-                        setQueHacer(null);
+                        // El modal NO se cierra acá: mover el evento en Google es la
+                        // mitad del trabajo y su resultado se muestra en este mismo
+                        // lugar. Cerrar antes dejaría al usuario sin saber si al
+                        // invitado le llegó el cambio.
                         startTransition(async () => {
-                          try { await reagendarReunionAction(leadId, cual, f, at); router.refresh(); }
+                          try { setReagOut(await reagendarReunionAction(leadId, cual, f, at)); router.refresh(); }
                           catch (e) { alert(e instanceof Error ? e.message : 'No se pudo reagendar'); }
                         });
                       }}
-                      style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: reagFecha && reagHora ? 'var(--warn-fill)' : 'var(--border)', color: reagFecha && reagHora ? '#fff' : 'var(--faint)', fontSize: 13.5, fontWeight: 700, cursor: reagFecha && reagHora ? 'pointer' : 'default', fontFamily: SANS }}>Reagendar</button>
+                      style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: reagFecha && reagHora ? 'var(--warn-fill)' : 'var(--border)', color: reagFecha && reagHora ? '#fff' : 'var(--faint)', fontSize: 13.5, fontWeight: 700, cursor: reagFecha && reagHora && !isPending ? 'pointer' : 'default', fontFamily: SANS }}>{isPending ? 'Reagendando…' : 'Reagendar'}</button>
                   </div>
                   <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7 }}>Vuelve a quedar pendiente recién a esa hora.</div>
                 </div>
               ) : (
-                <button type="button" onClick={() => { const id = queHacer.leadId; setQueHacer(null); openManualNutri(id); }} style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left', marginBottom: 14 }}>🔁 Seguir nutriendo — nuevo plazo</button>
+                <button type="button" onClick={() => { const id = queHacer.leadId; cerrarQueHacer(); openManualNutri(id); }} style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left', marginBottom: 14 }}>🔁 Seguir nutriendo — nuevo plazo</button>
               )}
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', marginBottom: 8 }}>o mover a otra etapa</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -810,7 +863,7 @@ export function CrmBoard({
                 {opt('salidas').map(stageBtn)}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                <button type="button" onClick={() => setQueHacer(null)} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+                <button type="button" onClick={cerrarQueHacer} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{reagOut ? 'Cerrar' : 'Cancelar'}</button>
               </div>
             </div>
           </div>

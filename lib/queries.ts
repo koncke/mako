@@ -24,6 +24,7 @@ import {
 } from './leads';
 import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
 import { adjuntarFathomAutoThrottled } from './fathom-auto';
+import { registrarEtapasDerivadas } from './etapa-historial';
 
 export type MarketingWindow = {
   // Rango
@@ -2044,6 +2045,16 @@ async function _getPendientesDeMarcar(
     conPlan.add(p.lead_id);
     if (p.pagado && !p.comprobante_path) comprobFaltPorLead.set(p.lead_id, (comprobFaltPorLead.get(p.lead_id) ?? 0) + 1);
   }
+  // El historial de la etapa DERIVADA se cierra ACÁ, y no en un cron, porque esta
+  // es la única pasada del sistema que ya tiene TODOS los leads en memoria. La
+  // etapa que ve el usuario se calcula al leer (deriveStageKey): cuando la R1
+  // pasa y asistio_j1 sigue en null el lead cambia de columna sin que nadie
+  // escriba nada, así que no hay mutación que interceptar — el lead 1395 llegó a
+  // moverse tres veces con cero líneas de historial. Comparar contra etapa_vista
+  // cuesta 0 queries si no cambió nada, y como la columna se actualiza junto con
+  // la línea, dos cargas seguidas del CRM no escriben dos veces.
+  await registrarEtapasDerivadas((data ?? []) as Lead[]);
+
   // Leads con respuestas del formulario de Calendly R2 (para el requisito r2Respuestas).
   const { data: respRows } = await supabase.from('lead_respuestas').select('lead_id, reunion').eq('reunion', 'R2');
   const conR2Resp = new Set((respRows ?? []).map((r) => (r as { lead_id: number }).lead_id));

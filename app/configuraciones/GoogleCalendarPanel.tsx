@@ -15,7 +15,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction } from './gcal-actions';
+import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type GoogleCalendarStatus } from './gcal-actions';
 
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
@@ -23,7 +23,7 @@ const primaryBtn: CSSProperties = { padding: '9px 16px', borderRadius: 10, borde
 const ghostBtn: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
 
 const MSG: Record<string, { kind: 'ok' | 'err'; txt: string }> = {
-  ok: { kind: 'ok', txt: 'Google Calendar conectado. Ya se usa como fuente en la búsqueda automática de reuniones.' },
+  ok: { kind: 'ok', txt: 'Google Calendar conectado. Ya se usa como fuente en la búsqueda automática de reuniones y para mover reuniones al reagendarlas.' },
   csrf: { kind: 'err', txt: 'La conexión falló por seguridad (CSRF). Reintentá.' },
   'sin-refresh': { kind: 'err', txt: 'Google no devolvió el token. Reintentá (te va a pedir el consentimiento de nuevo).' },
   config: { kind: 'err', txt: 'La conexión con Google no está disponible en este momento. Escribinos y lo resolvemos.' },
@@ -36,11 +36,11 @@ const mono: CSSProperties = { fontFamily: "'Geist Mono', monospace", fontSize: 1
 export function GoogleCalendarPanel() {
   const sp = useSearchParams();
   const gcal = sp.get('gcal');
-  const [estado, setEstado] = useState<{ conectado: boolean; puede: boolean; redirectUri: string } | null>(null);
+  const [estado, setEstado] = useState<GoogleCalendarStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
-  const cargar = () => { getGoogleCalendarStatusAction().then(setEstado).catch(() => setEstado({ conectado: false, puede: false, redirectUri: '' })); };
+  const cargar = () => { getGoogleCalendarStatusAction().then(setEstado).catch(() => setEstado({ conectado: false, puede: false, puedeMover: false, email: null, redirectUri: '' })); };
   useEffect(() => { cargar(); }, []);
 
   const desconectar = async () => { setBusy(true); try { await disconnectGoogleCalendarAction(); cargar(); } finally { setBusy(false); } };
@@ -56,16 +56,32 @@ export function GoogleCalendarPanel() {
         )}
         <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 14px', lineHeight: 1.55 }}>
           Con tu agenda conectada, la búsqueda automática de reuniones (en el wizard) cruza también tus eventos, además de Calendly y Fathom.
-          Entrar con Google ya la conecta; usá el botón solo si hace falta volver a autorizarla.
+          Y al reagendar una reunión desde el CRM, el evento se mueve en tu calendario y el invitado recibe el aviso.
         </p>
         {estado === null ? (
           <div style={{ fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>
         ) : estado.conectado ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, color: 'var(--good)' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--good)' }} /> Conectado
-            </span>
-            <button type="button" style={ghostBtn} disabled={busy} onClick={() => void desconectar()}>{busy ? 'Desconectando…' : 'Desconectar'}</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, color: estado.puedeMover ? 'var(--good)' : 'var(--warn)' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: estado.puedeMover ? 'var(--good)' : 'var(--warn)' }} />
+                {estado.puedeMover ? 'Conectado' : 'Conectado — solo lectura'}
+              </span>
+              {estado.email && <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{estado.email}</span>}
+              <button type="button" style={ghostBtn} disabled={busy} onClick={() => void desconectar()}>{busy ? 'Desconectando…' : 'Desconectar'}</button>
+            </div>
+            {/* El permiso viejo (solo lectura) se ve IGUAL de conectado que el nuevo:
+                si no se dice acá, el usuario reagenda creyendo que avisó al invitado
+                y el evento nunca se movió. Reconectar reemite el token con escritura. */}
+            {!estado.puedeMover && (
+              <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 11, padding: '11px 14px' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>La agenda se lee, pero no se puede modificar</div>
+                <p style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, margin: '0 0 10px' }}>
+                  Autorizaste tu calendario cuando solo pedíamos leerlo. Volvé a autorizarlo para que «Reagendar» mueva el evento y le avise al invitado.
+                </p>
+                <a href="/api/integraciones/google-calendar" style={primaryBtn}>Reconectar para poder mover reuniones</a>
+              </div>
+            )}
           </div>
         ) : (
           <a href="/api/integraciones/google-calendar" style={primaryBtn}>Conectar Google Calendar</a>

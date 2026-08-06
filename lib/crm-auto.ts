@@ -132,6 +132,27 @@ async function confirmarOCompensar(leadId: number, input: CrearConfirmacionInput
   return 'skip';
 }
 
+// Todo lo que mueve el motor lo firma MaKo. Se pasa EXPLÍCITO a setPipelineStage
+// (que si no resolvería la sesión del request) porque el cron corre sin nadie
+// logueado y, sobre todo, porque acá el actor real ES el sistema: el historial
+// tiene que decirlo aunque la corrida la haya disparado una persona a mano.
+const AUTOR = MAKO_SETTER;
+
+/** Deja la línea explicativa de la regla que movió al lead (el "por qué" del movimiento). */
+async function logRegla(leadId: number, regla: AutoReglaId, texto: string): Promise<void> {
+  await logLeadEvent(leadId, 'CRM automático', `${regla}: ${texto}`, AUTOR);
+}
+
+/** Asigna a MaKo como setter de una nutrición automática — y lo deja registrado. */
+async function asignarSetterMaKo(leadId: number, setterActual: string | null | undefined): Promise<void> {
+  if (setterActual?.trim()) return;
+  const { error } = await (await getTenantDb()).from('leads').update({ setter: MAKO_SETTER }).eq('id', leadId);
+  if (error) { console.error(`[crm-auto] setter MaKo en lead ${leadId} falló: ${error.message}`); return; }
+  // 'Setter' es un campo del historial (AUDIT_FIELDS): sin esta línea el lead
+  // aparecía con un setter que nadie le puso.
+  await logLeadEvent(leadId, 'Setter', MAKO_SETTER, AUTOR);
+}
+
 async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto' | 'confirma' | 'skip'> {
   const lead = await getLead(a.leadId);
   if (!lead) return 'skip';
@@ -149,11 +170,13 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     // el Instant form o desde No Agenda (reclasificar al que entró viejo).
     if (to === 'nutri' && cur !== 'lead') return 'skip';
     if (to === 'reactivacion' && cur !== 'lead' && cur !== 'nutri') return 'skip';
-    await setPipelineStage(a.leadId, to);
+    // El cambio de etapa lo audita setPipelineStage (campo 'Etapa'); acá se suma
+    // el POR QUÉ, que la línea de etapa sola no cuenta.
+    await setPipelineStage(a.leadId, to, { autor: AUTOR });
     // Nutrición automática la corre MaKo → setter='MaKo' si estaba vacío (nunca queda sin setter).
-    if (!lead.setter?.trim()) await (await getTenantDb()).from('leads').update({ setter: MAKO_SETTER }).eq('id', a.leadId);
+    await asignarSetterMaKo(a.leadId, lead.setter);
     const label = to === 'reactivacion' ? 'Nutrición - Reactivación' : 'Nutrición - No Agenda';
-    await logLeadEvent(a.leadId, 'CRM automático', `T2: → ${label} (${a.descripcion})`, 'MaKo');
+    await logRegla(a.leadId, 'T2', `→ ${label} (${a.descripcion})`);
     return 'auto';
   }
 
@@ -164,9 +187,10 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     const prevEstado = lead.estado_lead;
     const prevStage = lead.pipeline_stage ?? null;
     const prevMotivo = lead.motivo_perdida ?? null; // updateLead lo nulifica al reabrir → restaurarlo en el revert
-    await setPipelineStage(a.leadId, 'reactivacion');
+    await setPipelineStage(a.leadId, 'reactivacion', { autor: AUTOR });
     // Reactivación la corre MaKo → setter='MaKo' si estaba vacío.
-    if (!lead.setter?.trim()) await (await getTenantDb()).from('leads').update({ setter: MAKO_SETTER }).eq('id', a.leadId);
+    await asignarSetterMaKo(a.leadId, lead.setter);
+    await logRegla(a.leadId, 'T6', `→ Nutrición - Reactivación (${a.descripcion})`);
     return confirmarOCompensar(a.leadId, {
       leadId: a.leadId, leadNombre: lead.nombre, regla: 'T6', tipo: a.tipo, clave: 'T6',
       titulo: `Reactivación de ${lead.nombre ?? 'lead'}`,
@@ -197,7 +221,10 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
         const fechaR1 = auto.fechaJ1 ?? lead.fecha_agenda;
         if (fechaR1) { await updateLead(a.leadId, { fecha_junta_1: fechaR1 }); lead.fecha_junta_1 = fechaR1; }
       }
+      // applyFathomRecording audita el diff (asistencia + etapa) como 'Fathom' —
+      // la fuente del dato. Acá se agrega quién decidió mirar: el motor.
       const { addedLink } = await applyFathomRecording(lead, which, fathom.url, asistio);
+      await logRegla(a.leadId, 'T1', `asistencia a ${which === 'j1' ? 'R1' : 'R2'} tomada de la grabación de Fathom (${a.descripcion})`);
       const revert: Record<string, unknown> = { [asistField]: prevAsist, pipeline_stage: prevStage };
       if (which === 'j1' && prevFechaJ1 !== lead.fecha_junta_1) revert.fecha_junta_1 = prevFechaJ1;
       if (addedLink) revert.fathom_remove_url = fathom.url; // revert quirúrgico: quita solo este link, no pisa el array
@@ -213,7 +240,12 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       });
     }
     // Sin grabación → No Show.
-    await setPipelineStage(a.leadId, which === 'j1' ? 'noshow_r1' : 'noshow_r2', which === 'j1' ? { asistio_j1: false } : { asistio_j2: false });
+    await setPipelineStage(
+      a.leadId,
+      which === 'j1' ? 'noshow_r1' : 'noshow_r2',
+      { autor: AUTOR, ...(which === 'j1' ? { asistio_j1: false } : { asistio_j2: false }) },
+    );
+    await logRegla(a.leadId, 'T1', `→ No Show ${which === 'j1' ? 'R1' : 'R2'}: no apareció ninguna grabación en Fathom (${a.descripcion})`);
     return confirmarOCompensar(a.leadId, {
       leadId: a.leadId, leadNombre: lead.nombre, regla: 'T1', tipo: a.tipo, clave,
       titulo: `No Show ${which === 'j1' ? 'R1' : 'R2'} de ${lead.nombre ?? 'lead'}`,
@@ -250,7 +282,8 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       const prevStage = lead.pipeline_stage ?? null;
       const prevEstado = lead.estado_lead;
       const prevDeadline = lead.nutricion_manual_deadline ?? null;
-      await setPipelineStage(a.leadId, 'noresp');
+      await setPipelineStage(a.leadId, 'noresp', { autor: AUTOR });
+      await logRegla(a.leadId, 'T3', `→ No responde: venció la nutrición manual y hay ${inbound} mensaje(s) del lead en WhatsApp`);
       return confirmarOCompensar(a.leadId, {
         leadId: a.leadId, leadNombre: lead.nombre, regla: 'T3', tipo: a.tipo, clave: 'T3',
         titulo: `Nutrición manual vencida — ${lead.nombre ?? 'lead'}`,

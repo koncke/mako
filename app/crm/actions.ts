@@ -66,6 +66,7 @@ import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } from '@/lib/lead-insights';
+import { moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
@@ -1086,18 +1087,69 @@ export async function importLeadsCsvAction(csvText: string): Promise<ImportLeads
 }
 
 /**
+ * Lo que el modal de reagendar muestra DESPUÉS de guardar. El CRM ya quedó
+ * actualizado sí o sí (si esto vuelve, no hubo error de base): esto cuenta qué
+ * pasó *además* con el evento del calendario.
+ */
+export type ReagendarResultado = {
+  /** true = la reunión también se movió (o se creó) en Google Calendar. */
+  ok: boolean;
+  accion: 'movido' | 'creado' | 'nada';
+  /** Frase lista para mostrar. Vacía cuando no hay nada que aclarar. */
+  mensaje: string;
+  /** true = ofrecerle el link a /integraciones para reconectar la agenda. */
+  reconectar: boolean;
+  /** A quién avisó Google. null = el lead no tiene email, así que NO se avisó a nadie. */
+  invitado: string | null;
+};
+
+/**
+ * Mueve el evento en Google, best-effort. Devuelve SIEMPRE un resultado: el
+ * reagendado del CRM ya ocurrió y no puede caerse porque Google falle.
+ *
+ * Sin hora nueva no se intenta: mover un evento a "un día" no existe, y crear
+ * uno inventándole horario sería peor que no hacer nada.
+ */
+async function moverEnCalendario(lead: Lead | null, cual: 'r1' | 'r2', nuevoIso: string | null): Promise<ReagendarResultado> {
+  const n = cual === 'r2' ? 2 : 1;
+  if (!nuevoIso) return { ok: false, accion: 'nada', mensaje: 'Cargá también la hora si querés que se mueva el evento del calendario.', reconectar: false, invitado: null };
+  // Sin el lead no hay ancla (ni fecha vieja, ni email, ni nombre): el buscador no
+  // encontraría nada y terminaría CREANDO un evento vacío por una lectura fallida.
+  if (!lead) return { ok: false, accion: 'nada', mensaje: 'No se pudo leer el lead para ubicar el evento en el calendario.', reconectar: false, invitado: null };
+  const r = await moverEventoDeReunion({
+    nuevoInicioIso: nuevoIso,
+    // El ancla para encontrar el evento es dónde estaba ANTES de este cambio.
+    inicioAnteriorIso: cual === 'r2' ? lead.junta_2_at : lead.junta_1_at,
+    fechaAnterior: cual === 'r2' ? lead.fecha_junta_2 : lead.fecha_junta_1,
+    emailInvitado: lead.email,
+    // Para BUSCAR va el nombre pelado; el título largo solo se usa si hay que crear.
+    titulo: lead.nombre,
+    tituloSiSeCrea: lead.nombre?.trim() ? `Reunión ${n} · ${lead.nombre}` : `Reunión ${n}`,
+  });
+  return { ok: r.ok, accion: r.accion, mensaje: r.motivo, reconectar: r.codigo === 'sin-permiso' || r.codigo === 'sin-conexion', invitado: r.ok ? r.invitado : null };
+}
+
+/**
  * Reagenda una reunión desde el worklist ("¿Qué hacer ahora?" de una reunión que
  * ya pasó). Mueve la fecha y BORRA el timestamp de Calendly: ese `junta_N_at` es
  * la hora vieja y es justamente lo que hace que el lead siga marcado como vencido.
  * Sin limpiarlo, reagendar no sacaba al lead del pendiente.
+ *
+ * Y mueve el evento en Google Calendar, que es lo que hace que el invitado se
+ * entere. Calendly no sirve para esto (no tiene reschedule por API, menos sobre
+ * un evento pasado). Si Google falla, la fecha del CRM se guarda igual y el
+ * motivo vuelve a la UI y al historial: nada silencioso.
  */
-export async function reagendarReunionAction(leadId: number, cual: 'r1' | 'r2', fecha: string, atISO: string | null): Promise<void> {
+export async function reagendarReunionAction(leadId: number, cual: 'r1' | 'r2', fecha: string, atISO: string | null): Promise<ReagendarResultado> {
   const f = (fecha ?? '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) throw new Error('Fecha inválida.');
   // La HORA importa: el pendiente de "reunión pasada" se decide por junta_N_at, y
   // sin hora el lead volvía a marcarse vencido apenas cambiaba el día. Si no vino
   // hora se limpia el timestamp y se cae al día (comportamiento viejo).
   const at = atISO && !Number.isNaN(Date.parse(atISO)) ? new Date(atISO).toISOString() : null;
+  // ANTES del update: la fecha VIEJA es el ancla para reconocer el evento en la
+  // agenda. Si se lee después, ya la pisamos y el buscador miraría el día nuevo.
+  const antes = await getLead(leadId).catch(() => null);
   const db = await getTenantDb();
   const patch = cual === 'r2'
     ? { fecha_junta_2: f, junta_2_at: at, asistio_j2: null }
@@ -1107,11 +1159,36 @@ export async function reagendarReunionAction(leadId: number, cual: 'r1' | 'r2', 
   const cuando = at
     ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Tijuana' }).format(new Date(at))
     : f;
-  await logLeadEvent(leadId, cual === 'r2' ? 'Reunión 2 reagendada' : 'Reunión 1 reagendada', cuando, await autorActual()).catch(() => {});
+  const autor = await autorActual();
+  await logLeadEvent(leadId, cual === 'r2' ? 'Reunión 2 reagendada' : 'Reunión 1 reagendada', cuando, autor).catch(() => {});
+
+  // El calendario deja rastro SIEMPRE, salió bien o mal: si el invitado nunca se
+  // enteró, el historial tiene que decir por qué. Es el pedido explícito del dueño.
+  const cal = await moverEnCalendario(antes, cual, at).catch((e): ReagendarResultado => ({
+    ok: false, accion: 'nada', mensaje: e instanceof Error ? e.message : 'Error inesperado con Google Calendar.', reconectar: false, invitado: null,
+  }));
+  if (cal.mensaje) await logLeadEvent(leadId, 'Google Calendar', cal.ok ? cal.mensaje : `No se pudo mover el evento: ${cal.mensaje}`, autor).catch(() => {});
+
   bust(TAG.leads);
   revalidatePath('/crm');
   revalidatePath(`/crm/${leadId}`);
   revalidatePath('/general');
+  return cal;
+}
+
+/**
+ * ¿La agenda conectada alcanza para mover reuniones? Lo consulta el modal de
+ * reagendar al abrirse, para poder avisar ANTES —y no después de que el invitado
+ * no se enteró— que el permiso quedó en solo lectura. Nunca lanza: en la duda
+ * decimos que no se puede y ofrecemos reconectar.
+ */
+export async function permisoCalendarioAction(): Promise<{ conectado: boolean; puedeMover: boolean }> {
+  try {
+    const p = await permisoCalendarioGoogle();
+    return { conectado: p.conectado, puedeMover: p.puedeMover };
+  } catch {
+    return { conectado: false, puedeMover: false };
+  }
 }
 
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
