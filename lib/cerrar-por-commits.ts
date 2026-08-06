@@ -106,10 +106,9 @@ export async function proponerCierresPorCommits(opts: { desdeISO?: string; dry?:
       // medio («Expected ',' or ']' after array element»). La salida crece con lo que
       // encuentre — una evidencia citada por tarea.
       maxTokens: 8000,
-      // GEMINI PRIMERO, explícito. `chatCheapCascade` NO lee el registro de modelos: sin
-      // esto arranca por Groq, que tiene un techo de 8.000 tokens por minuto y rebota un
-      // prompt que lleva el tablero entero adentro. Gemini tiene 1M de contexto.
-      provs: ['gemini', 'openai', 'mistral'],
+      // Sin `provs`: la cascada mide el prompt sola y, como este lleva el tablero entero
+      // adentro, saltea a los que no lo pueden recibir y arranca por Gemini. Acá había una
+      // lista fija con Gemini primero — la misma regla escrita por tercera vez en el repo.
       feature: 'cerrar-por-commits', motivo: `Revisar ${commits.length} commits contra el tablero`,
     });
 

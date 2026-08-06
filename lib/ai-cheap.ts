@@ -195,6 +195,36 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
 // Orden por default: GRATIS primero (Groq, Cerebras, OpenRouter, Mistral) y OpenAI (barato)
 // al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
 export const CASCADA_GRATIS: ProvName[] = ['groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EL TECHO DE ENTRADA: por qué la cascada mira cuánto pesa el prompt
+// ─────────────────────────────────────────────────────────────────────────────
+// CASCADA_GRATIS arranca por Groq, y el plan gratis de Groq son 8.000 tokens POR
+// MINUTO. No es el contexto del modelo: es lo que la cuenta deja pasar. Un prompt más
+// grande que eso NO ENTRA NUNCA, por más que el modelo lo soporte.
+//
+// Eso convertía a la cascada en una trampa silenciosa: quien mandaba algo grande
+// —el tablero entero, un documento, sesenta commits— rebotaba en Groq, en Cerebras y
+// en OpenRouter, perdía ~9 segundos en el camino y terminaba atendido por el modelo
+// más chico que quedara. No fallaba: contestaba MAL. Medido el 6/8/2026 con la
+// búsqueda del plan (497 tareas, 48k tokens): 12,8 s y resultados que no tenían nada
+// que ver, contra 3,3 s y los 4 correctos cuando el mismo prompt fue a Gemini.
+//
+// Ahora la cascada lo resuelve sola. Ningún caller tiene que acordarse de pasar
+// `provs`: acordarse es exactamente lo que no pasó en ninguno de los doce.
+const TECHO_ENTRADA: Partial<Record<ProvName, number>> = {
+  groq: 7_000,        // 8k TPM del free tier, menos lo que reserva la salida
+  cerebras: 30_000,
+  openrouter: 30_000,
+  mistral: 100_000,
+  openai: 100_000,
+  gemini: 900_000,    // 1M de contexto: es el único que come el tablero entero
+};
+
+/** Tokens aproximados de un prompt. 3,5 caracteres por token es el número del español
+ *  (el inglés está más cerca de 4); se queda corto a propósito, porque pasarse de
+ *  optimista acá significa volver a mandarle a Groq algo que va a rebotar. */
+const tokensAprox = (texto: string): number => Math.ceil(texto.length / 3.5);
 // erroresOut es opcional y ADITIVO (no cambia qué devuelve la función): si el caller
 // pasa un array, cada proveedor que falla empuja su motivo ahí — así quien llama puede
 // distinguir "sin key" de "con key pero la cascada falló" (cuota, rate-limit, timeout)
@@ -205,8 +235,24 @@ export const CASCADA_GRATIS: ProvName[] = ['groq', 'cerebras', 'openrouter', 'mi
 // 0.2 se pegaba a la salida más probable y repetía la misma objeción turno tras
 // turno, hasta copiar literalmente las frases de ejemplo del prompt.
 export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[] }): Promise<string> {
+  // ¿Cuánto pesa esto? La salida cuenta: el techo de Groq es de tokens por minuto, y
+  // los que gasta contestando salen del mismo balde que los que gasta leyendo.
+  const pesa = tokensAprox(opts.system) + tokensAprox(opts.user) + (opts.maxTokens ?? 1_000);
+  // Si el caller no eligió proveedores y el prompt es grande, la lista por defecto pasa a
+  // ser la que INCLUYE Gemini. Es el único con contexto de verdad, y la alternativa —que
+  // cada caller se acuerde de pasar `provs`— ya se probó: ninguno de los doce se acordó.
+  const pedidos = opts.provs ?? (pesa > (TECHO_ENTRADA.groq ?? 7_000) ? CASCADA_DOCS : CASCADA_GRATIS);
+  // Y sacamos de la lista a los que no lo pueden recibir. No es una optimización: cada uno
+  // de esos es un viaje de ida y vuelta que termina en 413 y suma segundos a la espera.
+  const caben = pedidos.filter((p) => pesa <= (TECHO_ENTRADA[p] ?? Number.MAX_SAFE_INTEGER));
+  // Si no entra en NINGUNO, igual lo intentamos con todos: mejor que rebote de verdad y
+  // quede en el log a devolver '' sin haber preguntado. El techo es una estimación.
+  const candidatos = caben.length ? caben : pedidos;
+  if (caben.length < pedidos.length) {
+    console.info(`[ai-cheap] ~${pesa} tokens: salteo ${pedidos.filter((p) => !caben.includes(p)).join(', ')} (no les entra)`);
+  }
   // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
-  const orden = await ordenarPorCuota((opts.provs ?? CASCADA_GRATIS).map(String)).catch(() => (opts.provs ?? CASCADA_GRATIS).map(String));
+  const orden = await ordenarPorCuota(candidatos.map(String)).catch(() => candidatos.map(String));
   for (const prov of orden as ProvName[]) {
     const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs };
     // Un reintento del MISMO proveedor si el fallo parece transitorio (429/5xx/timeout):
