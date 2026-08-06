@@ -1091,16 +1091,23 @@ export async function importLeadsCsvAction(csvText: string): Promise<ImportLeads
  * la hora vieja y es justamente lo que hace que el lead siga marcado como vencido.
  * Sin limpiarlo, reagendar no sacaba al lead del pendiente.
  */
-export async function reagendarReunionAction(leadId: number, cual: 'r1' | 'r2', fecha: string): Promise<void> {
+export async function reagendarReunionAction(leadId: number, cual: 'r1' | 'r2', fecha: string, atISO: string | null): Promise<void> {
   const f = (fecha ?? '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) throw new Error('Fecha inválida.');
+  // La HORA importa: el pendiente de "reunión pasada" se decide por junta_N_at, y
+  // sin hora el lead volvía a marcarse vencido apenas cambiaba el día. Si no vino
+  // hora se limpia el timestamp y se cae al día (comportamiento viejo).
+  const at = atISO && !Number.isNaN(Date.parse(atISO)) ? new Date(atISO).toISOString() : null;
   const db = await getTenantDb();
   const patch = cual === 'r2'
-    ? { fecha_junta_2: f, junta_2_at: null, asistio_j2: null }
-    : { fecha_junta_1: f, junta_1_at: null, asistio_j1: null };
+    ? { fecha_junta_2: f, junta_2_at: at, asistio_j2: null }
+    : { fecha_junta_1: f, junta_1_at: at, asistio_j1: null };
   const { error } = await db.from('leads').update(patch).eq('id', leadId);
   if (error) throw new Error(`No se pudo reagendar: ${error.message}`);
-  await logLeadEvent(leadId, cual === 'r2' ? 'Reunión 2 reagendada' : 'Reunión 1 reagendada', f, await autorActual()).catch(() => {});
+  const cuando = at
+    ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Tijuana' }).format(new Date(at))
+    : f;
+  await logLeadEvent(leadId, cual === 'r2' ? 'Reunión 2 reagendada' : 'Reunión 1 reagendada', cuando, await autorActual()).catch(() => {});
   bust(TAG.leads);
   revalidatePath('/crm');
   revalidatePath(`/crm/${leadId}`);

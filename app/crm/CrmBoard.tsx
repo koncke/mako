@@ -234,6 +234,7 @@ export function CrmBoard({
   // copy y su salida rápida propia (nuevo plazo vs. reagendar la reunión).
   const [queHacer, setQueHacer] = useState<{ leadId: number; name: string; tipo: 'M' | 'R'; cual: 'r1' | 'r2' } | null>(null);
   const [reagFecha, setReagFecha] = useState('');
+  const [reagHora, setReagHora] = useState('');
   // modo 'pasada' = ya ocurrió (pide asistencia); 'futura' = ya está agendada
   // por fuera de Calendly pero todavía no se tuvo (solo fecha).
   const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2'; modo: 'pasada' | 'futura' } | null>(null);
@@ -624,7 +625,7 @@ export function CrmBoard({
           marcar={marcar}
           equipo={equipo}
           onSolucionar={solucionarMarcar}
-          onQueHacer={(id) => { const l = leads.find((x) => x.id === id); const m = marcar.find((x) => x.leadId === id); setReagFecha(''); setQueHacer({ leadId: id, name: l?.name ?? 'lead', tipo: m?.tipo === 'R' ? 'R' : 'M', cual: l && effStage(l) === 'agendaj2' ? 'r2' : 'r1' }); }}
+          onQueHacer={(id) => { const l = leads.find((x) => x.id === id); const m = marcar.find((x) => x.leadId === id); setReagFecha(''); setReagHora(''); setQueHacer({ leadId: id, name: l?.name ?? 'lead', tipo: m?.tipo === 'R' ? 'R' : 'M', cual: l && effStage(l) === 'agendaj2' ? 'r2' : 'r1' }); }}
           onBulkDone={() => router.refresh()}
         />
       ) : view === 'kanban' ? (
@@ -770,15 +771,35 @@ export function CrmBoard({
                 // Reagendar es LA salida más común de una reunión que pasó: va primero
                 // y resuelve en el lugar, sin mandar al usuario a otra pantalla.
                 <div style={{ border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', borderRadius: 11, padding: '13px 15px', marginBottom: 14 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--warn)', marginBottom: 9 }}>📅 Reagendar la Reunión {queHacer.cual === 'r2' ? 2 : 1}</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <input type="date" value={reagFecha} onChange={(e) => setReagFecha(e.target.value)}
-                      style={{ flex: '1 1 170px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
-                    <button type="button" disabled={!reagFecha}
-                      onClick={() => { const { leadId, cual } = queHacer; const f = reagFecha; setQueHacer(null); startTransition(async () => { try { await reagendarReunionAction(leadId, cual, f); router.refresh(); } catch (e) { alert(e instanceof Error ? e.message : 'No se pudo reagendar'); } }); }}
-                      style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: reagFecha ? 'var(--warn-fill)' : 'var(--border)', color: reagFecha ? '#fff' : 'var(--faint)', fontSize: 13.5, fontWeight: 700, cursor: reagFecha ? 'pointer' : 'default', fontFamily: SANS }}>Reagendar</button>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>📅 Reagendar la Reunión {queHacer.cual === 'r2' ? 2 : 1}</div>
+                  {/* Honestidad: Calendly NO deja reagendar por API (menos un evento
+                      que ya pasó) y el permiso de Google Calendar es de solo lectura.
+                      Esto deja el CRM en su nueva fecha y hora y lo anota en el
+                      historial; el evento del calendario lo movés vos. */}
+                  <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 10 }}>
+                    Actualiza la reunión en el CRM y queda en el historial. El evento del calendario hay que moverlo aparte: Calendly no permite reagendar una reunión que ya pasó.
                   </div>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7 }}>Queda pendiente de nuevo recién para esa fecha.</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input type="date" value={reagFecha} onChange={(e) => setReagFecha(e.target.value)} aria-label="Fecha nueva"
+                      style={{ flex: '1 1 150px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
+                    <input type="time" value={reagHora} onChange={(e) => setReagHora(e.target.value)} aria-label="Hora nueva"
+                      style={{ flex: '0 1 120px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
+                    <button type="button" disabled={!reagFecha || !reagHora}
+                      onClick={() => {
+                        const { leadId, cual } = queHacer;
+                        const f = reagFecha;
+                        // El ISO se arma en el navegador: así la hora queda en la zona
+                        // horaria del que la carga y no hay que adivinar el huso.
+                        const at = new Date(`${reagFecha}T${reagHora}`).toISOString();
+                        setQueHacer(null);
+                        startTransition(async () => {
+                          try { await reagendarReunionAction(leadId, cual, f, at); router.refresh(); }
+                          catch (e) { alert(e instanceof Error ? e.message : 'No se pudo reagendar'); }
+                        });
+                      }}
+                      style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: reagFecha && reagHora ? 'var(--warn-fill)' : 'var(--border)', color: reagFecha && reagHora ? '#fff' : 'var(--faint)', fontSize: 13.5, fontWeight: 700, cursor: reagFecha && reagHora ? 'pointer' : 'default', fontFamily: SANS }}>Reagendar</button>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7 }}>Vuelve a quedar pendiente recién a esa hora.</div>
                 </div>
               ) : (
                 <button type="button" onClick={() => { const id = queHacer.leadId; setQueHacer(null); openManualNutri(id); }} style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left', marginBottom: 14 }}>🔁 Seguir nutriendo — nuevo plazo</button>
