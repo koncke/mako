@@ -56,7 +56,7 @@
    chico se ve chico pero SE PUEDE TOCAR, que es lo que pide el documento. */
 .mk-btn--sm { min-height: calc(var(--touch) - 8px); padding: 0 12px; font-size: var(--fs-sm); }
 .mk-btn--md { min-height: var(--touch); padding: 0 16px; font-size: var(--fs-md); }
-.mk-btn--lg { min-height: calc(var(--touch) + 8px); padding: 0 22px; font-size: var(--fs-lg); }
+.mk-btn--lg { min-height: calc(var(--touch) + 8px); padding: 0 22px; font-size: var(--fs-card); }
 .mk-btn--full { width: 100%; }
 
 .mk-btn--primary { background: var(--primary); color: #fff; font-weight: 700; }
@@ -182,9 +182,9 @@
   margin-bottom: 6px;
 }
 .mk-req { color: var(--bad); margin-left: 2px; }
-.mk-hint { font-size: var(--fs-xs); color: var(--dim); line-height: 1.4; }
-.mk-err { font-size: var(--fs-xs); color: var(--bad); font-weight: 600; line-height: 1.4; }
-.mk-count { font-size: var(--fs-xs); color: var(--faint); font-variant-numeric: tabular-nums; }
+.mk-hint { font-size: var(--fs-meta); color: var(--dim); line-height: 1.4; }
+.mk-err { font-size: var(--fs-meta); color: var(--bad); font-weight: 600; line-height: 1.4; }
+.mk-count { font-size: var(--fs-meta); color: var(--faint); font-variant-numeric: tabular-nums; }
 .mk-count.is-over { color: var(--bad); font-weight: 600; }
 
 /* ── Casilla, radio y switch ───────────────────────────────────────────────
@@ -272,7 +272,7 @@
   padding: 3px 9px;
   border-radius: 999px;
   border: 1px solid transparent;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-meta);
   font-weight: 600;
   line-height: 1.5;
   white-space: nowrap;
@@ -348,7 +348,7 @@
   border-radius: 14px;
   margin-bottom: 2px;
 }
-.mk-state__t { font-size: var(--fs-lg); font-weight: 600; color: var(--ink); line-height: 1.3; }
+.mk-state__t { font-size: var(--fs-sect); font-weight: 600; color: var(--ink); line-height: 1.3; }
 .mk-state__d { font-size: var(--fs-sm); color: var(--dim); line-height: 1.55; }
 
 /* ── Tooltip ───────────────────────────────────────────────────────────────
@@ -363,7 +363,7 @@
   background: var(--sidebar);
   color: var(--on-sidebar);
   font-family: 'Geist', system-ui, sans-serif;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-meta);
   line-height: 1.45;
   pointer-events: none;
   box-shadow: 0 10px 28px rgba(18, 21, 27, .3);

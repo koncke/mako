@@ -14,27 +14,20 @@ import {
   Select, Checkbox, RadioGroup, Switch,
   Badge, Tag, Status, Tooltip, Avatar,
   Spinner, Progress, Skeleton, SkeletonLines, Divider,
-  EmptyState, NoResults, ErrorState, StaleData, PermissionState,
+  EmptyState, NoResults, ErrorState, StaleData, PermissionState, Banner, Alert,
   Confirm, useConfirm, Toast, useToast,
+  PageHeader, Section,
   MONO, type Tono,
 } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
+import { FAMILIAS } from '@/app/_components/nav';
 
 const TONOS: Tono[] = ['mako', 'info', 'good', 'warn', 'bad', 'neutral'];
 
+/** Envoltorio local: la Section del sistema, siempre con tarjeta. */
 function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: React.ReactNode }) {
-  return (
-    <section style={{ marginBottom: 'var(--sect-gap)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 600, color: 'var(--ink)' }}>{titulo}</h2>
-        {nota && <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)' }}>{nota}</span>}
-      </div>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: 'var(--card-pad)' }}>
-        {children}
-      </div>
-    </section>
-  );
+  return <Section titulo={titulo} nota={nota} card>{children}</Section>;
 }
 
 function Fila({ label, children }: { label: string; children: React.ReactNode }) {
@@ -45,6 +38,17 @@ function Fila({ label, children }: { label: string; children: React.ReactNode })
     </div>
   );
 }
+
+/** Los siete niveles del §18.3, con su tamaño real leído del token. */
+const ESCALA: { token: string; uso: string; desktop: string; mobile: string }[] = [
+  { token: '--fs-page', uso: 'Título de página', desktop: '30', mobile: '26' },
+  { token: '--fs-kpi', uso: 'KPI principal', desktop: '34', mobile: '30' },
+  { token: '--fs-sect', uso: 'Título de sección', desktop: '21', mobile: '20' },
+  { token: '--fs-card', uso: 'Título de tarjeta', desktop: '15.5', mobile: '16.5' },
+  { token: '--fs-md', uso: 'Texto base', desktop: '14', mobile: '16' },
+  { token: '--fs-sm', uso: 'Texto secundario', desktop: '13', mobile: '14.5' },
+  { token: '--fs-meta', uso: 'Metadata', desktop: '12', mobile: '13' },
+];
 
 export function CatalogoUI() {
   const [texto, setTexto] = useState('');
@@ -60,13 +64,57 @@ export function CatalogoUI() {
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: 'var(--card-pad)', maxWidth: 1100 }}>
-      <header style={{ marginBottom: 'var(--sect-gap)' }}>
-        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)' }}>Sistema de diseño</h1>
-        <p style={{ margin: '8px 0 0', fontSize: 'var(--fs-md)', color: 'var(--dim)', lineHeight: 1.55, maxWidth: 680 }}>
-          La biblioteca real, no una captura. Si algo se ve mal acá, se ve mal en toda la app.
-          Las reglas están en <code style={{ fontFamily: MONO, fontSize: 13 }}>app/_ui/LEEME.md</code>.
+      <PageHeader
+        titulo="Sistema de diseño"
+        proposito="La biblioteca real renderizada, no una captura: si algo se ve mal acá, se ve mal en toda la app."
+        estado={<Status tono="mako">Fase 1</Status>}
+        accion={<ButtonLink href="/general" variant="secondary">Ver la app →</ButtonLink>}
+      />
+
+      {/* ── Navegación ───────────────────────────────────────────────────── */}
+      <Seccion titulo="Navegación por intención" nota="cada familia responde UNA pregunta">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
+          {FAMILIAS.map((f) => (
+            <div key={f.key} style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 14, background: 'var(--surface-2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ display: 'flex', color: 'var(--dim)' }}><Icon name={f.icon} size={17} /></span>
+                <span style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>{f.label}</span>
+                {f.notifica && <Badge tono="bad">•</Badge>}
+              </div>
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.45, marginBottom: 10 }}>{f.pregunta}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {f.items.map((i) => <Tag key={i.key}>{i.label}</Tag>)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.5 }}>
+          El punto rojo marca las dos únicas familias que notifican. <strong>Preguntale a MaKo</strong> y{' '}
+          <strong>MaKo Doer</strong> viven fuera de las familias, abajo del todo: son una capacidad global, no un módulo.
+          Y la quinta familia del documento (Admin) no ocupa lugar en la barra — vive detrás del avatar.
         </p>
-      </header>
+      </Seccion>
+
+      {/* ── Tipografía ───────────────────────────────────────────────────── */}
+      <Seccion titulo="Escala tipográfica" nota="siete niveles; suben solos en pantalla chica">
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {ESCALA.map((e) => (
+            <div key={e.token} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 16, alignItems: 'baseline', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+              <span style={{ fontSize: `var(${e.token})`, fontWeight: e.token === '--fs-page' || e.token === '--fs-kpi' ? 700 : 500, color: 'var(--ink)', letterSpacing: '-0.01em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {e.uso}
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>
+                {e.token} · {e.desktop} → {e.mobile}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.5 }}>
+          No hay token por debajo de 12 px a propósito: el documento reserva el 10-11 para «información excepcionalmente
+          secundaria», y hoy hay 2.392 de 3.815 <code style={{ fontFamily: MONO }}>fontSize</code> en línea por debajo de 14.
+          Si existiera el token, se usaría.
+        </p>
+      </Seccion>
 
       {/* ── Color ────────────────────────────────────────────────────────── */}
       <Seccion titulo="Un significado por color" nota="Si el mismo color dice cinco cosas, no dice ninguna">
@@ -83,7 +131,7 @@ export function CatalogoUI() {
               <div style={{ height: 54, background: `var(${c.v})` }} />
               <div style={{ padding: '9px 11px' }}>
                 <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink)' }}>{c.n}</div>
-                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)', marginTop: 2 }}>{c.q}</div>
+                <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)', marginTop: 2 }}>{c.q}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4 }}>{c.v}</div>
               </div>
             </div>
@@ -152,7 +200,7 @@ export function CatalogoUI() {
           <Badge tono="good">12</Badge>
           <Badge tono="mako">1</Badge>
           <Badge>{148}</Badge>
-          <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--faint)' }}>si todo tiene badge, nada tiene badge</span>
+          <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>si todo tiene badge, nada tiene badge</span>
         </Fila>
         <Fila label="Tag">
           <Tag>Sin categoría</Tag>
@@ -187,9 +235,26 @@ export function CatalogoUI() {
       </Seccion>
 
       {/* ── Los estados que faltaban ─────────────────────────────────────── */}
+      <Seccion titulo="Cintas: Banner y Alert" nota="misma forma, distinto alcance">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
+          <Banner tono="bad" accion={{ label: 'Reconectar', onClick: () => show('Reconectando…') }}>
+            <strong>Meta se desconectó.</strong> Las campañas siguen corriendo, pero MaKo no ve los resultados desde ayer.
+          </Banner>
+          <Banner tono="mako" onCerrar={() => show('Aviso descartado.')}>
+            MaKo detectó que el show rate cayó 18% esta semana y ya preparó un experimento.
+          </Banner>
+          <Alert tono="warn">Esta campaña está en pausa desde el martes.</Alert>
+          <StaleData desde="6/8 a las 09:14" onActualizar={() => show('Actualizado.')} />
+        </div>
+        <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.5 }}>
+          <strong>Banner</strong> es de alcance global o de módulo y va arriba de todo. <strong>Alert</strong> va pegado a
+          lo que afecta. Es el mismo componente porque son la misma forma con distinto alcance — escribir dos habría sido
+          volver a la enfermedad que este sistema viene a curar.
+        </p>
+      </Seccion>
+
       <Seccion titulo="Estados de pantalla" nota="ninguna vista puede quedar en blanco sin decir qué pasó">
-        <StaleData desde="6/8 a las 09:14" onActualizar={() => show('Actualizado.')} />
-        <Divider style={{ margin: '18px 0' }} />
+        <Divider style={{ margin: '0 0 18px' }} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 8 }}>
           <EmptyState titulo="Todavía no hay experimentos"
             detalle="Acá vas a ver qué probaste, qué aprendiste y qué conviene repetir. Empezá por el cuello de botella que detectó MaKo."
@@ -213,7 +278,7 @@ export function CatalogoUI() {
           <Button variant="secondary" onClick={() => show('Guardado.')}>Toast simple</Button>
           <Button variant="secondary" onClick={() => show('Tarea archivada.', () => show('Restaurada.'))}>Con deshacer</Button>
         </Fila>
-        <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-xs)', color: 'var(--dim)', lineHeight: 1.5 }}>
+        <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.5 }}>
           Un toast <strong>no sustituye un registro de actividad</strong> cuando la acción importa: si tiene que poder
           consultarse mañana, va al historial.
         </p>

@@ -97,6 +97,17 @@ Los tres dicen cosas distintas y no son intercambiables:
 | `Progress` | «voy por acá» — solo si conocés el total |
 | `Skeleton` / `SkeletonLines` | «esto va a ser contenido» — primera carga |
 
+### Estructura de página
+
+| Pieza | Cuándo |
+|---|---|
+| `PageHeader` | va en casi todas las pantallas: título, **una línea de propósito**, estado, filtros y **UNA** acción primaria |
+| `Section` | agrupación por título y aire. La tarjeta es **opt-in** (`card`) — envolver todo produce padding sobre padding |
+| `Eyebrow` | la etiqueta en versalitas y mono que rotula un bloque |
+
+La línea de propósito dice **qué pregunta responde** la pantalla. No es la bajada
+decorativa que la regla de la casa prohíbe: si se deduce del título, dejala vacía.
+
 ### Los estados de pantalla (#519)
 
 Ninguna vista puede quedar en blanco sin decir qué pasó y qué hacer.
@@ -108,6 +119,8 @@ Ninguna vista puede quedar en blanco sin decir qué pasó y qué hacer.
 | `ErrorState` | falló. Qué pasó (en castellano) + reintentar |
 | `StaleData` | cinta sobre el contenido: esto es del *tal día a tal hora* |
 | `PermissionState` | existe pero no te toca (`rol` o `plan`) |
+| `Banner` | cinta de alcance **global o de módulo**, arriba de todo |
+| `Alert` | la misma cinta, pegada a **lo que afecta** |
 | `Confirm` / `useConfirm()` | acciones irreversibles. **Una sola** implementación en toda la app |
 | `Toast` / `useToast()` | aviso breve, con `Deshacer` si la acción es reversible |
 
@@ -123,8 +136,21 @@ Si tiene que poder consultarse mañana, va al historial.
 
 Está adentro del sistema, no es una capa posterior:
 
-- Tipografía por variable: `--fs-xs/sm/md/lg` **suben solos** a 13/14.5/16/18 en
+- Tipografía por variable: los siete niveles del §18.3 **suben solos** en
   pantallas de ≤820 px. Ninguna pantalla escribe una media query.
+
+  | Token | Uso | Desktop | Mobile |
+  |---|---|---|---|
+  | `--fs-page` | Título de página | 30 | 26 |
+  | `--fs-kpi` | KPI principal | 34 | 30 |
+  | `--fs-sect` | Título de sección | 21 | 20 |
+  | `--fs-card` | Título de tarjeta | 15.5 | 16.5 |
+  | `--fs-md` | **Texto base** | 14 | 16 |
+  | `--fs-sm` | Texto secundario | 13 | 14.5 |
+  | `--fs-meta` | Metadata | 12 | 13 |
+
+  No hay token por debajo de 12 px **a propósito**: el documento lo reserva para
+  «información excepcionalmente secundaria». Si existiera, se usaría.
 - Área táctil `--touch`: 40 px en desktop, **44 en mobile**. Todo lo clickeable
   la alcanza aunque el ícono sea de 16 (con padding, no agrandando el dibujo).
 - `.mk-scroll-x` para lo ancho (tablas, barras de filtros): scrollea **dentro**

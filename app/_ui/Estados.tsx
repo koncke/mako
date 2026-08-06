@@ -128,7 +128,7 @@ export function ErrorState({ titulo, detalle, onReintentar, detalleTecnico, inli
       accion={onReintentar ? { label: 'Reintentar', onClick: onReintentar } : undefined}
       extra={detalleTecnico ? (
         <details style={{ marginTop: 10, maxWidth: '100%' }}>
-          <summary style={{ cursor: 'pointer', fontSize: 'var(--fs-xs)', color: 'var(--faint)' }}>Detalle técnico</summary>
+          <summary style={{ cursor: 'pointer', fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>Detalle técnico</summary>
           <pre style={{ margin: '8px 0 0', padding: 10, background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', fontSize: 11.5, color: 'var(--dim)', textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{detalleTecnico}</pre>
         </details>
       ) : undefined} />
@@ -136,9 +136,60 @@ export function ErrorState({ titulo, detalle, onReintentar, detalleTecnico, inli
 }
 
 /**
- * Cinta de datos viejos. NO es un estado de pantalla completa: se pone ARRIBA
- * del contenido, que se sigue viendo. Un número viejo con su fecha vale más que
- * ningún número.
+ * Cinta a lo ancho: NO es un estado de pantalla, es un mensaje ARRIBA del
+ * contenido, que se sigue viendo. Sirve para las dos piezas que el documento
+ * separa (§19.5) y que solo se diferencian por su alcance:
+ *
+ *   Alert   — mensaje contextual DENTRO de una pantalla, pegado a lo que
+ *             afecta («esta campaña está pausada desde el martes»).
+ *   Banner  — estado GLOBAL o de módulo, arriba de todo («la conexión con
+ *             Meta se cayó», «estás viendo la cuenta de un cliente»).
+ *
+ * Es el mismo componente porque son la misma forma con distinto alcance;
+ * `alcance` es lo único que cambia. Escribir dos habría sido volver a la
+ * enfermedad que este sistema viene a curar.
+ */
+export function Banner({ tono = 'info', children, accion, onCerrar, ico, alcance = 'global' }: {
+  tono?: Tono;
+  children: ReactNode;
+  accion?: Accion;
+  /** Si se puede descartar. Sin esto, la cinta se queda hasta que el estado cambie. */
+  onCerrar?: () => void;
+  ico?: ReactNode;
+  /** `global` va arriba del contenido; `local` va pegado a lo que afecta. */
+  alcance?: 'global' | 'local';
+}) {
+  const t = TONO[tono];
+  return (
+    <div role={tono === 'bad' ? 'alert' : 'status'} style={{
+      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+      padding: alcance === 'global' ? '10px 14px' : '8px 12px',
+      borderRadius: 'var(--r-md)',
+      background: t.bg, border: `1px solid ${t.border}`, color: t.ink,
+      fontSize: 'var(--fs-sm)', lineHeight: 1.5,
+    }}>
+      {ico && <span style={{ display: 'flex', flex: 'none' }} aria-hidden>{ico}</span>}
+      <span style={{ flex: 1, minWidth: 160 }}>{children}</span>
+      {accion && <Boton a={accion} variant="secondary" />}
+      {onCerrar && (
+        <button type="button" onClick={onCerrar} aria-label="Descartar aviso"
+          style={{ flex: 'none', background: 'transparent', border: 'none', color: 'currentColor', opacity: 0.6, fontSize: 15, cursor: 'pointer', lineHeight: 1, padding: 4 }}>
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** El mismo Banner, con alcance local: el mensaje vive junto a lo que afecta. */
+export function Alert(p: Omit<Parameters<typeof Banner>[0], 'alcance'>) {
+  return <Banner {...p} alcance="local" />;
+}
+
+/**
+ * Datos viejos u offline. Es un Banner de tono `warn` con el texto ya resuelto:
+ * lo importante es que SIEMPRE diga desde cuándo. Un número viejo con su fecha
+ * vale más que ningún número; un número viejo sin fecha vale menos.
  */
 export function StaleData({ desde, onActualizar, offline }: {
   /** Cuándo se actualizó por última vez. Fecha o texto ya formateado. */
@@ -149,18 +200,10 @@ export function StaleData({ desde, onActualizar, offline }: {
 }) {
   const cuando = typeof desde === 'string' ? desde : desde.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   return (
-    <div role="status" style={{
-      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-      padding: '9px 14px', borderRadius: 'var(--r-md)',
-      background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)',
-      color: 'var(--warn)', fontSize: 'var(--fs-sm)', fontWeight: 600,
-    }}>
-      <span style={{ display: 'flex', flex: 'none' }} aria-hidden>{IcoReloj}</span>
-      <span style={{ flex: 1, minWidth: 160, fontWeight: 500 }}>
-        {offline ? 'Sin conexión. ' : ''}Estos datos son del <strong>{cuando}</strong>.
-      </span>
-      {onActualizar && !offline && <Button size="sm" variant="secondary" onClick={onActualizar}>Actualizar</Button>}
-    </div>
+    <Banner tono="warn" ico={IcoReloj}
+      accion={onActualizar && !offline ? { label: 'Actualizar', onClick: onActualizar } : undefined}>
+      {offline ? 'Sin conexión. ' : ''}Estos datos son del <strong>{cuando}</strong>.
+    </Banner>
   );
 }
 

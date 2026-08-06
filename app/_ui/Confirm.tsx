@@ -74,7 +74,7 @@ export function Confirm({
       style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'mkFade .12s ease' }}>
       <div onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true"
         style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-xl)', boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px', animation: 'mkPop .16s ease' }}>
-        {title && <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 600, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.3 }}>{title}</div>}
+        {title && <div style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.3 }}>{title}</div>}
         <div style={{ fontSize: 'var(--fs-md)', color: 'var(--dim)', lineHeight: 1.55 }}>{message}</div>
         <div className="mk-row mk-row--stack" style={{ justifyContent: 'flex-end', marginTop: 20 }}>
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={loading}>{cancelLabel}</Button>

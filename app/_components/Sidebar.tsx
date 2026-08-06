@@ -1,19 +1,31 @@
 'use client';
 
 // =============================================================================
-// Sidebar plegable (rediseño Marketing OS) — rail de íconos + hover para expandir
+// Sidebar — navegación por intención (rail de iconos ⇄ familias con sus ítems)
 // =============================================================================
-// Plegado a íconos por defecto; se despliega al pasar el cursor (overlay, sin
-// correr el contenido) y se pliega con delay al salir. NUNCA hace scroll. Los
-// grupos (Analytics/Tools/Chats/Customer Success) y el menú de la foto abren en
-// FLYOUT hacia la DERECHA (portal), no hacia abajo. MaKo va aparte, abajo del
-// todo, con su estrella dorada.
+// Plegado: un rail con el icono de cada FAMILIA y su pregunta como tooltip.
+// Expandido (al pasar el cursor): las cuatro familias con sus ítems adentro.
+//
+// El cambio de fondo respecto de la versión anterior no es cosmético. Antes los
+// grupos (Analytics, Tools, Chats, CS) abrían un FLYOUT hacia la derecha, y ahí
+// adentro vivían WhatsApp y Chat Agent — funciones de todos los días detrás de
+// un hover y un segundo nivel. El documento lo prohíbe explícito: «los grupos no
+// deben esconder funciones de uso diario en flyouts difíciles de descubrir» y
+// «las funciones de uso diario nunca se esconden en un tercer nivel de menú».
+// Ahora los ítems están a la vista dentro de su familia, sin flyout.
+//
+// Las tres señales del estado activo, y ninguna de ellas es el dorado (§6.1 del
+// anexo de arquitectura): contraste de superficie + indicador lateral + peso
+// tipográfico. El dorado quedó reservado para MaKo.
+//
+// Los contadores solo existen en Focus y Operate — «son los 2 únicos que
+// notifican». En el resto un badge sería ruido.
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { TOP_NAV, NAV_GROUPS, USER_NAV, MAKO_ITEM, ADS_MANAGER_ITEM, ADMIN_NAV, type NavItem } from './nav';
+import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_NAV, type NavItem, type NavFamilia } from './nav';
 import { tabEnCapa } from '@/lib/capas';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
@@ -24,47 +36,49 @@ const MONO = "'Geist Mono', monospace";
 const RAIL = 74;
 const FULL = 252;
 
-// El ícono del item. El DORADO acá está reservado a MaKo: es lo único de la
-// barra que significa «esto es la inteligencia». El estado activo se marca con
-// contraste, no con color (ver la regla en globals.css y la tarea #518) —
-// pintar de dorado la tab abierta hacía que «activo» y «MaKo» fueran el mismo
-// color, y entonces ninguno de los dos decía nada.
 function ItemIcon({ item, active }: { item: NavItem; active: boolean }) {
   if (item.icon === 'mako') return <MakoStar size={21} color="var(--mako)" />;
   const color = active ? 'var(--on-sidebar)' : 'var(--sidebar-text)';
   return <span style={{ color, display: 'flex' }}><Icon name={item.icon} size={21} /></span>;
 }
 
-function NavLink({ item, active, badge, query, expanded, nested, onClick }: { item: NavItem; active: boolean; badge: number; query: string; expanded: boolean; nested?: boolean; onClick?: () => void }) {
+/** El contador de una familia. Solo Focus y Operate lo tienen. */
+function Contador({ n, compacto }: { n: number; compacto?: boolean }) {
+  if (n <= 0) return null;
+  if (compacto) {
+    return <span style={{ position: 'absolute', top: -4, right: -6, width: 9, height: 9, borderRadius: '50%', background: 'var(--bad)', border: '2px solid var(--sidebar)' }} />;
+  }
+  return (
+    <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--bad)', color: '#fff', flex: 'none' }}>
+      {n > 99 ? '99+' : n}
+    </span>
+  );
+}
+
+function NavLink({ item, active, expanded, nested, onClick }: {
+  item: NavItem; active: boolean; expanded: boolean; nested?: boolean; onClick?: () => void;
+}) {
   const base: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 13,
     justifyContent: expanded ? 'flex-start' : 'center',
-    padding: expanded ? (nested ? '10px 12px' : '11px 12px') : '10px 0', borderRadius: 10,
-    textDecoration: 'none', fontSize: nested ? 14.5 : 15,
+    padding: expanded ? (nested ? '9px 12px 9px 14px' : '11px 12px') : '10px 0',
+    borderRadius: 'var(--r-sm)',
+    textDecoration: 'none', fontSize: nested ? 'var(--fs-sm)' : 'var(--fs-md)',
     color: active ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
     fontWeight: active ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden',
-    // Las TRES señales de «estás acá», ninguna de ellas el color de marca:
-    // contraste de superficie (--sidebar-2), indicador lateral y peso 600.
-    // También plegado: en el rail el fondo solo casi no se distingue.
     ...(active ? { background: 'var(--sidebar-2)', boxShadow: 'inset 3px 0 0 var(--on-sidebar)' } : {}),
   };
   const content = (
     <>
-      <span style={{ position: 'relative', display: 'flex' }}>
-        <ItemIcon item={item} active={active} />
-        {!expanded && item.badge && badge > 0 && (
-          <span style={{ position: 'absolute', top: -4, right: -6, width: 9, height: 9, borderRadius: '50%', background: item.key === 'whatsapp' ? 'var(--good)' : 'var(--bad)', border: '2px solid var(--sidebar)' }} />
-        )}
-      </span>
+      {(!nested || !expanded) && (
+        <span style={{ position: 'relative', display: 'flex' }}><ItemIcon item={item} active={active} /></span>
+      )}
       {expanded && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
-      {expanded && item.comingSoon && <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--sidebar-text)', border: '1px solid var(--sidebar-2)', borderRadius: 5, padding: '1px 5px', opacity: 0.7 }}>pronto</span>}
-      {expanded && item.badge && badge > 0 && (
-        <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: item.key === 'whatsapp' ? 'var(--good)' : 'var(--bad)', color: '#fff', ...(item.key === 'whatsapp' ? {} : { animation: 'pulseRed 1.6s infinite' }) }}>{badge}</span>
+      {expanded && item.comingSoon && (
+        <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--sidebar-text)', border: '1px solid var(--sidebar-2)', borderRadius: 5, padding: '1px 5px', opacity: 0.7 }}>pronto</span>
       )}
     </>
   );
-  // Tabs por-workspace en el shell de admin: entran como el dueño y navegan
-  // (el onClick lo maneja el Sidebar). Se renderizan como botón, no como Link.
   if (item.entrarComoDueno) {
     return (
       <button type="button" onClick={onClick} title={expanded ? undefined : item.label}
@@ -73,21 +87,19 @@ function NavLink({ item, active, badge, query, expanded, nested, onClick }: { it
       </button>
     );
   }
-  // Rutas que sirven HTML directo (ej. el grafo) abren en pestaña nueva.
   if (item.newTab) {
     return <a href={item.href} target="_blank" rel="noopener noreferrer" style={base} title={expanded ? undefined : item.label} onClick={onClick}>{content}</a>;
   }
-  return (
-    <Link href={item.href + query} style={base} title={expanded ? undefined : item.label} onClick={onClick}>{content}</Link>
-  );
+  return <Link href={item.href} style={base} title={expanded ? undefined : item.label} onClick={onClick}>{content}</Link>;
 }
 
 export function Sidebar() {
   const pathname = usePathname() || '';
   const searchParams = useSearchParams();
-  const [badge, setBadge] = useState(0);
+  const [sinMarcar, setSinMarcar] = useState(0);
   const [userOpen, setUserOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [abierta, setAbierta] = useState<string | null>(null);
   const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
   const [perfilAvatar, setPerfilAvatar] = useState('');
   const [rol, setRol] = useState<string>('');
@@ -96,26 +108,21 @@ export function Sidebar() {
   const [impersonando, setImpersonando] = useState(false);
   const [clienteNombre, setClienteNombre] = useState('');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
-  const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { unreadTotal } = useNotifications();
-
-  const badgeFor = (item: NavItem) => (item.key === 'whatsapp' ? unreadTotal : item.key === 'crm' ? badge : 0);
 
   const desde = searchParams.get('desde');
   const hasta = searchParams.get('hasta');
   const dateQuery = desde && hasta ? `?desde=${desde}&hasta=${hasta}` : '';
 
-  const open = expanded || userOpen || !!flyout;
-  const flyoutGroup = flyout ? NAV_GROUPS.find((g) => g.key === flyout.key) ?? null : null;
+  const open = expanded || userOpen;
 
   useEffect(() => {
     let alive = true;
     fetch('/api/datos-sin-marcar-count').then((r) => r.json())
-      .then((d) => { if (alive && typeof d?.total === 'number') setBadge(d.total); })
+      .then((d) => { if (alive && typeof d?.total === 'number') setSinMarcar(d.total); })
       .catch(() => {});
     return () => { alive = false; };
   }, [pathname]);
@@ -134,13 +141,11 @@ export function Sidebar() {
 
   // Viendo como cliente, la identidad de abajo es la DEL CLIENTE. Ver la foto y
   // el nombre del admin adentro de la cuenta ajena rompe la ilusión y, peor,
-  // hace dudar de en qué workspace se está parado. La foto propia no se pisa
-  // con otra: se cae a las iniciales del cliente.
+  // hace dudar de en qué workspace se está parado.
   const nombreVisible = impersonando ? (clienteNombre || 'Cliente') : perfilNombre;
   const avatarVisible = impersonando ? '' : perfilAvatar;
   const iniciales = nombreVisible.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
 
-  // Rol + impersonación de la sesión: deciden qué shell mostrar (admin vs cliente).
   useEffect(() => {
     let alive = true;
     fetch('/api/auth/me').then((r) => r.json())
@@ -156,23 +161,41 @@ export function Sidebar() {
     return () => { alive = false; };
   }, [pathname]);
 
-  // Un admin que NO está impersonando ve el shell de gestión (sin tabs de
-  // marketing). Impersonando o siendo usuario, ve el dashboard normal.
   const adminShell = rol === 'admin' && !impersonando;
 
   // Filtro de tabs, dos ejes independientes:
   //  · ROL  — closer/setter solo ven las tabs anotadas con su rol en nav.ts.
   //  · CAPA — qué compró el cliente (lib/capas.ts). Aplica a TODOS, incluido el
   //           admin-cliente: no es un permiso, es lo que contrató.
-  // Mientras `capa` carga vacío, capaDef() cae al default (completo) → se ve
-  // todo por un instante. Es cosmético: el gate real es requireCapa server-side.
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
   const puedeVer = (it: NavItem) =>
     (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
     && tabEnCapa(it.key, capa || undefined);
 
-  // Shell de admin: entrar como el workspace dueño (ws1) y abrir la tab. Reusa la
-  // impersonación firmada; el reload deja al Sidebar leer el nuevo estado.
+  const familias = FAMILIAS
+    .map((f) => ({ ...f, items: f.items.filter(puedeVer) }))
+    .filter((f) => f.items.length > 0);
+
+  /**
+   * El contador de cada familia. Hoy solo Operate tiene de dónde sacarlo: los
+   * mensajes sin leer de WhatsApp y los datos del CRM sin marcar. Focus va a
+   * contar la actividad del Perro Guardián cuando exista la pantalla Focus
+   * (tarea #523) — hasta entonces devuelve 0 en vez de inventar un número.
+   */
+  const contadorDe = (f: NavFamilia) => {
+    if (f.key === 'operate') {
+      const wa = f.items.some((i) => i.key === 'whatsapp') ? unreadTotal : 0;
+      const crm = f.items.some((i) => i.key === 'crm') ? sinMarcar : 0;
+      return wa + crm;
+    }
+    return 0;
+  };
+
+  // La familia que se muestra desplegada. Por defecto, la que contiene la ruta
+  // actual: entrar a la barra y ver dónde estás parado sin tener que abrir nada.
+  const familiaActiva = familias.find((f) => f.items.some((i) => i.match(pathname)))?.key ?? null;
+  const desplegada = abierta ?? familiaActiva;
+
   const entrarComoDuenoYNavegar = async (href: string) => {
     try {
       await fetch('/api/admin/impersonate', {
@@ -185,18 +208,15 @@ export function Sidebar() {
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
   const onLeave = () => {
-    // Delay al plegar (#13). No cerramos flyout/menú de perfil acá (sus overlays lo hacen).
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    collapseTimer.current = setTimeout(() => setExpanded(false), 340);
+    collapseTimer.current = setTimeout(() => { setExpanded(false); setAbierta(null); }, 340);
   };
-  useEffect(() => () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); if (flyoutTimer.current) clearTimeout(flyoutTimer.current); if (userTimer.current) clearTimeout(userTimer.current); }, []);
+  useEffect(() => () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); if (userTimer.current) clearTimeout(userTimer.current); }, []);
 
-  // El menú de la foto de perfil también abre AL PASAR EL CURSOR (además del clic).
   const openUserMenu = () => {
     if (userTimer.current) clearTimeout(userTimer.current);
     const r = userBtnRef.current?.getBoundingClientRect();
     if (r) setMenuPos({ left: r.right + 12, bottom: Math.max(12, window.innerHeight - r.bottom) });
-    setFlyout(null);
     setUserOpen(true);
   };
   const scheduleCloseUser = () => {
@@ -204,33 +224,6 @@ export function Sidebar() {
     userTimer.current = setTimeout(() => setUserOpen(false), 220);
   };
 
-  // Los grupos abren su flyout AL PASAR EL CURSOR (hover). El menú de perfil, no
-  // (ese sigue con clic).
-  const openFlyout = (key: string, el: HTMLElement) => {
-    if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
-    const r = el.getBoundingClientRect();
-    const estimado = 60 + (NAV_GROUPS.find((g) => g.key === key)?.items.length ?? 3) * 46;
-    const top = Math.min(r.top, Math.max(12, window.innerHeight - estimado - 12));
-    setUserOpen(false);
-    setFlyout({ key, top, left: r.right + 8 });
-  };
-  const scheduleCloseFlyout = () => {
-    if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
-    flyoutTimer.current = setTimeout(() => setFlyout(null), 220);
-  };
-
-  // Cerrar el flyout si se hace clic afuera (para touch; en desktop cierra al salir).
-  useEffect(() => {
-    if (!flyout) return;
-    const onDown = (e: MouseEvent) => {
-      if (document.getElementById('grp-flyout')?.contains(e.target as Node)) return;
-      setFlyout(null);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [flyout]);
-
-  // Cerrar el menú de perfil al hacer clic afuera.
   useEffect(() => {
     if (!userOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -242,24 +235,43 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [userOpen]);
 
-  const GroupHeader = ({ gKey, label, icon }: { gKey: string; label: string; icon: string }) => {
-    const g = NAV_GROUPS.find((x) => x.key === gKey)!;
-    const someActive = g.items.some((i) => i.match(pathname));
-    const isOpen = flyout?.key === gKey;
+  /** La cabecera de una familia: su icono, su nombre y su contador. */
+  const Familia = ({ f }: { f: NavFamilia }) => {
+    const activa = f.items.some((i) => i.match(pathname));
+    const abiertaEsta = desplegada === f.key;
+    const n = f.notifica ? contadorDe(f) : 0;
     return (
-      <button type="button"
-        onClick={(e) => openFlyout(gKey, e.currentTarget)}
-        onMouseEnter={(e) => openFlyout(gKey, e.currentTarget)}
-        onMouseLeave={scheduleCloseFlyout}
-        title={open ? undefined : label}
-        style={{ display: 'flex', alignItems: 'center', gap: 13, width: '100%', justifyContent: open ? 'flex-start' : 'center', padding: open ? '11px 12px' : '10px 0', borderRadius: 10, border: 'none', background: (isOpen || (!open && someActive)) ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer', color: someActive ? 'var(--on-sidebar)' : 'var(--sidebar-text)', fontWeight: someActive ? 600 : 500, fontSize: 15, fontFamily: 'inherit' }}>
-        <span style={{ position: 'relative', display: 'flex', color: someActive ? 'var(--on-sidebar)' : 'var(--sidebar-text)' }}>
-          <Icon name={icon} size={21} />
-          {!open && someActive && <span style={{ position: 'absolute', top: -4, right: -6, width: 8, height: 8, borderRadius: '50%', background: 'var(--on-sidebar)' }} />}
-        </span>
-        {open && <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>}
-        {open && <span style={{ flex: 'none', fontSize: 11, color: 'var(--sidebar-text)' }}>›</span>}
-      </button>
+      <div>
+        <button type="button"
+          onClick={() => { setAbierta(abiertaEsta && open ? null : f.key); setExpanded(true); }}
+          title={open ? undefined : `${f.label} · ${f.pregunta}`}
+          aria-expanded={abiertaEsta}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 13, width: '100%',
+            justifyContent: open ? 'flex-start' : 'center',
+            padding: open ? '11px 12px' : '10px 0', borderRadius: 'var(--r-sm)',
+            border: 'none', background: (!open && activa) ? 'var(--sidebar-2)' : 'transparent',
+            cursor: 'pointer', color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
+            fontWeight: activa ? 600 : 500, fontSize: 'var(--fs-md)', fontFamily: 'inherit',
+          }}>
+          <span style={{ position: 'relative', display: 'flex', color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)' }}>
+            <Icon name={f.icon} size={21} />
+            {!open && <Contador n={n} compacto />}
+          </span>
+          {open && <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}</span>}
+          {open && <Contador n={n} />}
+          {open && (
+            <span style={{ flex: 'none', fontSize: 10, color: 'var(--sidebar-text)', transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+          )}
+        </button>
+        {open && abiertaEsta && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, margin: '2px 0 6px', paddingLeft: 16, borderLeft: '1px solid var(--sidebar-2)', marginLeft: 21 }}>
+            {f.items.map((it) => (
+              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded nested />
+            ))}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -277,7 +289,7 @@ export function Sidebar() {
         }}
       >
         {/* Marca */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: open ? '2px 6px 22px' : '2px 0 22px', justifyContent: open ? 'flex-start' : 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: open ? '2px 6px 22px' : '2px 0 22px', justifyContent: open ? 'flex-start' : 'center', flex: 'none' }}>
           <MakoLogo size={40} />
           {open && (
             <div style={{ minWidth: 0 }}>
@@ -287,41 +299,30 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Navegación — el admin (sin impersonar) ve el shell de gestión. */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 3, minHeight: 0 }}>
+        {/* Navegación. Con una familia abierta puede pasarse de alto en pantallas
+            bajas: scrollea acá adentro, nunca corta. */}
+        <nav className="mk-scroll-x" style={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {adminShell ? (
             <>
               <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.6, padding: open ? '4px 12px 8px' : '4px 0 8px', textAlign: open ? 'left' : 'center' }}>{open ? 'Administración' : '·'}</div>
               {ADMIN_NAV.map((item) => (
-                <NavLink key={item.key} item={item} active={item.match(pathname)} badge={0} query="" expanded={open}
+                <NavLink key={item.key} item={item} active={item.match(pathname)} expanded={open}
                   onClick={item.entrarComoDueno ? () => entrarComoDuenoYNavegar(item.href) : undefined} />
               ))}
             </>
           ) : (
-            <>
-              {TOP_NAV.filter(puedeVer).map((item) => (
-                <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badgeFor(item)} query={dateQuery} expanded={open} />
-              ))}
-              {puedeVer(ADS_MANAGER_ITEM) && (
-                <>
-                  <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '10px 8px' : '10px 12px' }} />
-                  <NavLink item={ADS_MANAGER_ITEM} active={ADS_MANAGER_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
-                </>
-              )}
-              {NAV_GROUPS.filter((g) => g.items.some(puedeVer)).map((g) => (
-                <GroupHeader key={g.key} gKey={g.key} label={g.label} icon={g.icon} />
-              ))}
-            </>
+            familias.map((f) => <Familia key={f.key} f={f} />)
           )}
         </nav>
 
-        {/* MaKo (aparte) + Saldo IA + Usuario (abajo) */}
-        <div style={{ marginTop: 'auto', paddingTop: 14 }}>
-          {/* Saldo IA (Claude/OpenAI/Groq): lo ven el dueño y el admin de agencia. */}
+        {/* MaKo (capacidad global) + Saldo IA + Perfil */}
+        <div style={{ marginTop: 'auto', paddingTop: 14, flex: 'none' }}>
           {open && !rolCliente && <div style={{ padding: '0 6px' }}><SaldoMaKo /></div>}
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 8px 8px' : '0 6px 8px' }} />
-          {!adminShell && puedeVer(MAKO_ITEM) && <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />}
-          <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
+          {!adminShell && MAKO_NAV.filter(puedeVer).map((it) => (
+            <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
+          ))}
+          <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 'var(--r-md)', border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
             {/* Las iniciales van sobre AZUL, no sobre el dorado: una foto de
                 perfil es identidad, no una intervención de MaKo. */}
             <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#fff', overflow: 'hidden' }}>
@@ -333,7 +334,7 @@ export function Sidebar() {
             {open && (
               <>
                 <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--on-sidebar)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombreVisible}</div>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--fs-sm)', color: 'var(--on-sidebar)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombreVisible}</div>
                   <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 3 }}>{impersonando ? 'Cliente' : 'Cuenta'}</div>
                 </div>
                 <span style={{ color: 'var(--sidebar-text)', fontSize: 11, flex: 'none' }}>›</span>
@@ -343,33 +344,17 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Flyout de un grupo (a la derecha). */}
-      {flyout && flyoutGroup && createPortal(
-        <div id="grp-flyout"
-          onMouseEnter={() => { if (flyoutTimer.current) clearTimeout(flyoutTimer.current); }}
-          onMouseLeave={scheduleCloseFlyout}
-          style={{ position: 'fixed', top: flyout.top, left: flyout.left, zIndex: 2000, width: 226, background: 'var(--sidebar)', border: '1px solid var(--sidebar-2)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.4)', overflow: 'hidden', padding: 8 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.6, padding: '4px 10px 8px' }}>{flyoutGroup.label}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {flyoutGroup.items.filter(puedeVer).map((it) => (
-              <NavLink key={it.key} item={it} active={it.match(pathname)} badge={badgeFor(it)} query={dateQuery} expanded nested onClick={() => setFlyout(null)} />
-            ))}
-          </div>
-        </div>,
-        document.body,
-      )}
-
-      {/* Menú de la foto de perfil: al costado, desde la base (portal). */}
+      {/* Menú del perfil: la quinta familia (Admin) vive acá, no en la barra. */}
       {userOpen && menuPos && createPortal(
         <div id="user-menu"
           onMouseEnter={() => { if (userTimer.current) clearTimeout(userTimer.current); }}
           onMouseLeave={scheduleCloseUser}
-          style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
+          style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
             {USER_NAV.filter((it) => (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map((it) => {
               const on = it.match(pathname);
               return (
                 <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 15px', fontSize: 14, fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--dim)', textDecoration: 'none' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 15px', fontSize: 'var(--fs-md)', fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--dim)', textDecoration: 'none' }}>
                   <span style={{ display: 'flex', color: on ? 'var(--primary)' : 'var(--faint)' }}><Icon name={it.icon} size={18} /></span>
                   {it.label}
                 </Link>
@@ -377,7 +362,7 @@ export function Sidebar() {
             })}
             <button type="button"
               onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; }}
-              style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 11, padding: '10px 15px', fontSize: 14, fontWeight: 500, color: 'var(--dim)', background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
+              style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 11, padding: '10px 15px', fontSize: 'var(--fs-md)', fontWeight: 500, color: 'var(--dim)', background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
               <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="logout" size={18} /></span>
               Cerrar sesión
             </button>

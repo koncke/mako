@@ -37,19 +37,30 @@ export const radius = {
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
 /**
- * Tipografía. Los cuatro primeros son variables CSS: SUBEN SOLOS en mobile
- * (globals.css, media query de 820 px). Usalos para todo lo que sea texto de
- * interfaz; los literales quedan para casos puntuales (números gigantes).
+ * Tipografía: los SIETE niveles del §18.3 del documento de rediseño. Todos son
+ * variables CSS, así que SUBEN SOLOS en mobile (globals.css, media query de
+ * 820 px). Los nombres son el USO, no el tamaño: así el día que el título de
+ * sección pase de 21 a 20 px no queda un token llamado `xl` valiendo 20.
+ *
+ * No hay token por debajo de 12 px a propósito. El documento reserva el 10-11
+ * para «información excepcionalmente secundaria», y hoy hay 2.392 de 3.815
+ * `fontSize:` en línea por debajo de 14: si existiera el token, se usaría.
  */
 export const type = {
-  /** metadata, chips, timestamps · 12 → 13 en mobile */
-  xs: 'var(--fs-xs)',
-  /** texto secundario, ayudas, celdas densas · 13.5 → 14.5 */
+  /** metadata, chips, timestamps · 12 → 13 */
+  meta: 'var(--fs-meta)',
+  /** texto secundario, ayudas, celdas densas · 13 → 14.5 */
   sm: 'var(--fs-sm)',
-  /** texto base de la interfaz · 15 → 16 */
+  /** TEXTO BASE de la interfaz · 14 → 16 */
   md: 'var(--fs-md)',
-  /** títulos de bloque · 17 → 18 */
-  lg: 'var(--fs-lg)',
+  /** título de tarjeta · 15.5 → 16.5 */
+  card: 'var(--fs-card)',
+  /** título de sección · 21 → 20 */
+  sect: 'var(--fs-sect)',
+  /** título de página · 30 → 26 */
+  page: 'var(--fs-page)',
+  /** el número grande de un KPI · 34 → 30 */
+  kpi: 'var(--fs-kpi)',
 } as const;
 
 /** Pesos. 600 es «título/activo»; 700 se reserva para acciones y números. */

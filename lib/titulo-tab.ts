@@ -10,7 +10,7 @@
 //
 // Lógica pura y aparte del componente para poder probarla (tests/titulo-tab).
 
-import { TOP_NAV, NAV_GROUPS, ADMIN_NAV, USER_NAV, ADS_MANAGER_ITEM, MAKO_ITEM, type NavItem } from '@/app/_components/nav';
+import { TODOS_LOS_ITEMS, ADMIN_NAV, USER_NAV, type NavItem } from '@/app/_components/nav';
 
 export const MARCA = 'MaKo';
 
@@ -43,10 +43,8 @@ const EXTRA_KEYS = Object.keys(EXTRA).sort((a, b) => b.length - a.length);
 // excluirla y darle su propia entrada ("Guiones"). Con USER_NAV primero, ese
 // esfuerzo quedaba anulado y la fábrica de guiones se leía "Admin".
 const TODOS: NavItem[] = [
-  ...TOP_NAV,
-  ...NAV_GROUPS.flatMap((g) => g.items),
-  ADS_MANAGER_ITEM,
-  MAKO_ITEM,
+  // Las cuatro familias (Focus · Operate · Analyze · Create) más la zona de MaKo.
+  ...TODOS_LOS_ITEMS,
   ...ADMIN_NAV,
   ...USER_NAV,
 ];

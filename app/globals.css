@@ -89,14 +89,29 @@
   --sect-gap: 22px;
 
   /* ── Escala tipográfica y área táctil ─────────────────────────────────
-     (tarea #521: bases mobile DENTRO del sistema global)
-     Los primitives leen de acá, así que suben solos en pantalla chica sin
-     que ninguna pantalla escriba una media query. El documento pide base 16
-     en mobile (no 14), secundario 14-15 y metadata 13. */
-  --fs-xs: 12px;
-  --fs-sm: 13.5px;
-  --fs-md: 15px;
-  --fs-lg: 17px;
+     Los siete niveles del §18.3 del documento de rediseño, con sus valores
+     desktop; la media query de abajo los sube en mobile. Los primitives leen
+     de acá, así que ninguna pantalla escribe una media query propia.
+
+       nivel     desktop   mobile    para qué
+       --fs-meta   12        13      metadata, chips, timestamps
+       --fs-sm     13        14.5    texto secundario
+       --fs-md     14        16      TEXTO BASE de la interfaz
+       --fs-card   15.5      16.5    título de tarjeta
+       --fs-sect   21        20      título de sección
+       --fs-page   30        26      título de página
+       --fs-kpi    34        30      el número grande de un KPI
+
+     Ojo con el 10-11 px: el documento lo reserva para «información
+     excepcionalmente secundaria», y hoy hay 2.392 de 3.815 `fontSize:` en
+     línea por debajo de 14. No hay token para eso a propósito. */
+  --fs-meta: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-card: 15.5px;
+  --fs-sect: 21px;
+  --fs-page: 30px;
+  --fs-kpi: 34px;
   --touch: 40px;
 
   /* Anillo de foco: uno solo para toda la app (accesibilidad de teclado). */
@@ -138,10 +153,13 @@
    leen las variables, no las redeclaran. */
 @media (max-width: 820px) {
   :root {
-    --fs-xs: 13px;
+    --fs-meta: 13px;
     --fs-sm: 14.5px;
     --fs-md: 16px;
-    --fs-lg: 18px;
+    --fs-card: 16.5px;
+    --fs-sect: 20px;
+    --fs-page: 26px;
+    --fs-kpi: 30px;
     --touch: 44px;
     --card-pad: 18px;
     --sect-gap: 16px;
