@@ -166,6 +166,87 @@ export async function landingUltimoEvento(): Promise<LandingEstado> {
   }
 }
 
+// ── Probador del tracking (el "Test Events" de MaKo) ────────────────────────
+// El equivalente al Pixel Helper de Meta: el usuario pega el código, abre su
+// landing, reproduce unos segundos del VSL y acá ve LLEGAR los eventos en vivo.
+// Sin esto, "conectado" era un semáforo verde que solo probaba que ALGUNA VEZ
+// llegó algo — y de hecho estuvo en verde 3 semanas mientras el VSL no medía nada.
+
+export type EventoDiag = {
+  ts: string;
+  tipo: string;          // 'pageview' | 'play' | 'pNN' | 'sNN' | 'exit'
+  porcentaje: number | null;
+  segundos: number | null;
+  detalle: string | null; // url de la landing o título del video
+};
+
+export type ChequeoDiag = {
+  id: 'pageview' | 'play' | 'segundos' | 'profundidad';
+  label: string;
+  estado: 'ok' | 'falta' | 'viejo';
+  detalle: string;
+};
+
+export type LandingDiagnostico = {
+  eventos: EventoDiag[];
+  chequeos: ChequeoDiag[];
+  /** Resumen en una línea para el encabezado del panel. */
+  veredicto: string;
+  ultima: string | null;
+};
+
+/**
+ * Últimos eventos + los 4 chequeos que importan. La ventana es corta a propósito
+ * (24 h): "¿anda AHORA?" no se contesta con lo que llegó el mes pasado.
+ */
+export async function landingDiagnostico(): Promise<LandingDiagnostico> {
+  const db = await getTenantDb();
+  const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const [vsl, visitas] = await Promise.all([
+    db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo').gte('created_at', desde).order('created_at', { ascending: false }).limit(40),
+    db.from('landing_visits').select('created_at, landing_url').gte('created_at', desde).order('created_at', { ascending: false }).limit(20),
+  ]);
+
+  const eventos: EventoDiag[] = [
+    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null }>)
+      .map((r) => ({ ts: r.created_at, tipo: r.tipo_evento ?? 'evento', porcentaje: r.porcentaje, segundos: r.segundos, detalle: r.vsl_titulo })),
+    ...((visitas.data ?? []) as Array<{ created_at: string; landing_url: string | null }>)
+      .map((r) => ({ ts: r.created_at, tipo: 'pageview', porcentaje: null, segundos: null, detalle: r.landing_url })),
+  ].sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 25);
+
+  const hayPageview = eventos.some((e) => e.tipo === 'pageview');
+  const hayPlay = eventos.some((e) => e.tipo === 'play');
+  const conSegundos = eventos.filter((e) => e.tipo !== 'pageview' && e.segundos != null).length;
+  const soloVsl = eventos.filter((e) => e.tipo !== 'pageview').length;
+  const hayProfundidad = eventos.some((e) => /^[ps]\d+$/.test(e.tipo));
+
+  const chequeos: ChequeoDiag[] = [
+    { id: 'pageview', label: 'Llegan las visitas a la landing',
+      estado: hayPageview ? 'ok' : 'falta',
+      detalle: hayPageview ? 'El código está pegado y el ruteo funciona.' : 'No llegó ninguna visita en 24 h. Revisá que el código esté pegado y publicado.' },
+    { id: 'play', label: 'Se detecta el play del VSL',
+      estado: hayPlay ? 'ok' : 'falta',
+      detalle: hayPlay ? 'El reproductor está enganchado.' : 'Nadie reprodujo el video en 24 h (o el player no es el que el código escucha).' },
+    { id: 'segundos', label: 'El código es la versión nueva',
+      estado: soloVsl === 0 ? 'falta' : conSegundos > 0 ? 'ok' : 'viejo',
+      detalle: soloVsl === 0 ? 'Todavía no hay eventos del VSL para saberlo.'
+        : conSegundos > 0 ? 'Manda los segundos vistos: con eso se calcula el % aunque el player no diga la duración.'
+        : 'Los eventos llegan SIN segundos: la landing tiene el código viejo. Copiá el de arriba y reemplazalo.' },
+    { id: 'profundidad', label: 'Se mide cuánto del VSL ven',
+      estado: hayProfundidad ? 'ok' : soloVsl > 0 ? 'viejo' : 'falta',
+      detalle: hayProfundidad ? 'Llegan los hitos de avance: la retención por lead se puede calcular.'
+        : soloVsl > 0 ? 'Solo llega el arranque, no el avance. Con el código nuevo aparece al mirar más de 15 segundos.'
+        : 'Todavía sin datos.' },
+  ];
+
+  const okCount = chequeos.filter((c) => c.estado === 'ok').length;
+  const veredicto = okCount === 4 ? 'Todo funcionando'
+    : okCount === 0 ? 'No está llegando nada'
+    : `${okCount} de 4 chequeos OK`;
+
+  return { eventos, chequeos, veredicto, ultima: eventos[0]?.ts ?? null };
+}
+
 /**
  * El <script> que el usuario copia y pega en su landing. Autocontenido, sin
  * dependencias y con SU token embebido.

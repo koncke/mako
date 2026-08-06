@@ -16,10 +16,10 @@
 //
 // GET → { ok, recibio, ultima } — ultima = ISO del último evento, o null.
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, runWithWorkspace } from '@/lib/workspace';
-import { landingUltimoEvento } from '@/lib/landing-token';
+import { landingUltimoEvento, landingDiagnostico } from '@/lib/landing-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,11 +51,18 @@ async function resolverContexto(): Promise<Contexto | { error: string; status: n
   return { ws: wsActual };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const ctx = await resolverContexto();
   if ('error' in ctx) return NextResponse.json({ ok: false, error: ctx.error }, { status: ctx.status });
 
+  // ?diag=1 → el probador en vivo (últimos eventos + los 4 chequeos). El GET pelado
+  // sigue devolviendo el semáforo de siempre, que usa el board.
+  const diag = req.nextUrl.searchParams.get('diag') === '1';
   try {
+    if (diag) {
+      const d = await runWithWorkspace(ctx.ws, () => landingDiagnostico());
+      return NextResponse.json({ ok: true, ...d });
+    }
     const estado = await runWithWorkspace(ctx.ws, () => landingUltimoEvento());
     return NextResponse.json({ ok: true, ...estado });
   } catch (e) {

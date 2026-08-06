@@ -25,6 +25,7 @@ import type { CuotaProv } from '@/lib/ia-cuotas';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { agenteSkillMarkdown, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
 import ServicioConfigForm from './ServicioConfigForm';
+import { ProbarTracking } from './ProbarTracking';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -1020,7 +1021,7 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
           {esAgente ? (
             <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
-            <CodigoLanding snippet={snippetLanding ?? null} />
+            <><CodigoLanding snippet={snippetLanding ?? null} /><div style={{ marginTop: 14 }}><ProbarTracking /></div></>
           ) : mostrarForm ? (
             // onEstado avisa cuando el servicio pasó a conectado (o dejó de estarlo):
             // sin esto el chip de acá arriba, el tile y el contador se quedaban en
