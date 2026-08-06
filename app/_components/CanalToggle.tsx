@@ -94,6 +94,8 @@ export function CanalToggle({ icono, label, estado, onChange, fila, motivoNoDisp
     <button
       type="button"
       role="switch"
+      // Gancho para verificar el estado desde afuera sin depender del color: los
+      // estilos calculados no son fiables en una pestaña que no está pintando.
       data-estado={estado}
       aria-checked={on}
       aria-label={`${label} para ${fila}`}
