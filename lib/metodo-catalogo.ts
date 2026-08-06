@@ -315,7 +315,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'MaKo lee los commits que entran a main y te propone cerrar las tareas de desarrollo que ya están hechas. Sin esto, el tablero acumula tareas terminadas para siempre — en la última revisión aparecieron 62 de golpe.',
     campos: [
       { env: 'GITHUB_TOKEN', label: 'Token de acceso', secreto: true, placeholder: 'github_pat_…', nota: 'Fine-grained, SOLO lectura de contenido y SOLO sobre este repo. No puede escribir nada.' },
-      { env: 'GITHUB_REPO', label: 'Repositorio', placeholder: 'usuario/repo', nota: 'Opcional: por defecto usa el repo del producto.' },
+      { env: 'GITHUB_REPO', label: 'Repositorio', auto: true, nota: 'Lo completa MaKo al pegar el token: si el token ve uno solo lo pone, y si ve varios te los ofrece en una lista.' },
     ],
     tutorial: {
       url: 'https://github.com/settings/personal-access-tokens/new',
@@ -325,7 +325,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Ponele un nombre («MaKo — cerrar tareas») y una expiración. Anotá la fecha: cuando venza, MaKo deja de proponer cierres y no avisa solo.',
         'En "Repository access" elegí "Only select repositories" y marcá SOLO el repo del producto.',
         'En "Permissions" → "Repository permissions" → Contents: Read-only. Nada más. Con eso alcanza y el token no puede escribir.',
-        'Generá el token, copialo (se ve UNA sola vez) y pegalo acá.',
+        'Generá el token, copialo (se ve UNA sola vez) y pegalo acá. El repositorio NO hace falta escribirlo: MaKo lo saca del token.',
       ],
     },
   },

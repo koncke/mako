@@ -23,6 +23,7 @@ import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCred
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
+import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
 
 export const dynamic = 'force-dynamic';
@@ -193,6 +194,23 @@ export async function POST(req: NextRequest) {
     // Manager (una de ellas le hacía abrir el Explorador de la API Graph a mano);
     // cinco salen de cuatro GET con el token que ya pegó. Lo único que no se puede
     // adivinar es CUÁL elegir si tiene varias: eso vuelve como `opciones`.
+    // GitHub: el token fine-grained se emite CONTRA repos concretos, así que GitHub ya
+    // sabe cuáles son. Pedirle al dueño que escriba «usuario/repo» a mano era pedirle que
+    // adivine un dato que la API devuelve — y lo tuvo que adivinar.
+    if (body.action === 'descubrir-github') {
+      const guardado = (await credWs('GITHUB_TOKEN')) ?? '';
+      const pegado = typeof body.valores?.GITHUB_TOKEN === 'string' ? body.valores.GITHUB_TOKEN.trim() : '';
+      const usar = pegado || guardado;
+      if (!usar || usar.startsWith('PENDING')) {
+        return NextResponse.json({ ok: false, error: 'Pegá primero el token de GitHub.' }, { status: 400 });
+      }
+      const d = await descubrirGithub(usar);
+      if (!d.ok) return NextResponse.json({ ok: false, error: d.error }, { status: 422 });
+      // Uno solo = no hay nada que preguntar: se guarda y listo.
+      if (d.repo) await guardarCredencial(ctx.ws, 'GITHUB_REPO', d.repo, 'github', ctx.autor);
+      return NextResponse.json({ ok: true, repo: d.repo ?? '', opciones: d.opciones, mensaje: d.mensaje });
+    }
+
     if (body.action === 'descubrir') {
       const token = (await credWs('META_ACCESS_TOKEN')) ?? '';
       const pegado = typeof body.valores?.META_ACCESS_TOKEN === 'string' ? body.valores.META_ACCESS_TOKEN.trim() : '';

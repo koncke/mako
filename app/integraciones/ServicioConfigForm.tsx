@@ -309,6 +309,38 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
 
   const hayQueElegir = opciones.cuentas.length > 0 || opciones.paginas.length > 0 || opciones.pixeles.length > 0;
 
+  // GitHub: los repos que ve el token. El dueño tuvo que ADIVINAR «usuario/repo» la
+  // primera vez —«sería mucho más fácil si es un desplegable»— y tenía razón: el dato ya
+  // lo tiene GitHub, porque un token fine-grained se emite contra repos concretos.
+  const [repos, setRepos] = useState<Array<{ value: string; label: string }>>([]);
+  const [repoElegido, setRepoElegido] = useState('');
+
+  const descubrirGithub = async (mostrarMsgEn = 'GITHUB_TOKEN') => {
+    setDescubriendo(true);
+    try {
+      const n = ++seq.current;
+      const j = await fetch('/api/integraciones/credencial', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'descubrir-github' }),
+      }).then((r) => r.json());
+      if (!j.ok) { ponerMsg(mostrarMsgEn, { ok: false, text: j.error ?? 'No pude leer tus repos.' }); return; }
+      if (j.servicio) aplicar(j.servicio as Servicio, n);
+      setRepos((j.opciones as Array<{ value: string; label: string }>) ?? []);
+      if (j.repo) setRepoElegido(String(j.repo));
+      if (j.mensaje) ponerMsg(mostrarMsgEn, { ok: true, text: String(j.mensaje) });
+    } finally { setDescubriendo(false); }
+  };
+
+  const elegirRepo = async (valor: string) => {
+    setRepoElegido(valor);
+    const j = await fetch('/api/integraciones/credencial', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ servicio: 'github', valores: { GITHUB_REPO: valor } }),
+    }).then((r) => r.json());
+    if (j.ok) { setRepos([]); ponerMsg('GITHUB_TOKEN', { ok: true, text: `Listo: ${valor}.` }); }
+    else ponerMsg('GITHUB_TOKEN', { ok: false, text: j.error ?? 'No pude guardarlo.' });
+  };
+
   const aplicar = (s: Servicio, n?: number) => {
     if (n !== undefined) {
       if (n < ultimaAplicada.current) return; // llegó tarde: ya hay algo más nuevo
@@ -489,6 +521,8 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
         // guardado, la app sale a buscar cuenta, página, token de página y píxel.
         // (El mensaje lo pone descubrirMeta, que sabe cuántos campos completó.)
         if (servicio.key === 'meta' && env === 'META_ACCESS_TOKEN') { void descubrirMeta(env); return; }
+        // Mismo molde para GitHub: con el token pegado, el repo sale solo.
+        if (servicio.key === 'github' && env === 'GITHUB_TOKEN') { void descubrirGithub(); return; }
         ponerMsg(env, { ok: true, text: motivoSinProbar ? `Guardada. ${motivoSinProbar}` : 'Guardada y probada — funciona.' });
       } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo guardar.' });
     } catch { ponerMsg(env, { ok: false, text: 'No se pudo guardar. Probá de nuevo.' }); }
@@ -797,6 +831,36 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
         <button type="button" onClick={() => setManual((m) => !m)}
           style={{ alignSelf: 'flex-start', border: 0, background: 'none', padding: 0, color: 'var(--faint)', fontFamily: SANS, fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>
           {manual ? 'Ocultar los campos que completa MaKo' : 'Prefiero cargarlos a mano'}
+        </button>
+      )}
+
+      {/* GitHub: el repo se ELIGE, no se escribe. */}
+      {servicio.key === 'github' && (descubriendo || repos.length > 0 || repoElegido) && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {descubriendo ? (
+            <div style={{ fontFamily: SANS, fontSize: 13, color: 'var(--dim)' }}>Buscando tus repos…</div>
+          ) : repos.length > 0 ? (
+            <>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>¿Cuál es el repo de MaKo?</div>
+              <Dropdown
+                value={repoElegido}
+                onChange={(v) => void elegirRepo(String(v))}
+                options={repos.map((r) => ({ value: r.value, label: r.label }))}
+                placeholder="Elegí el repositorio…"
+              />
+            </>
+          ) : repoElegido ? (
+            <div style={{ fontFamily: SANS, fontSize: 13, color: 'var(--dim)' }}>
+              Repositorio: <strong style={{ color: 'var(--ink)' }}>{repoElegido}</strong>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {servicio.key === 'github' && !descubriendo && servicio.campos.some((c) => c.env === 'GITHUB_TOKEN' && c.configurado) && (
+        <button type="button" onClick={() => void descubrirGithub()}
+          style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
+          ↻ Buscar mis repos
         </button>
       )}
 
