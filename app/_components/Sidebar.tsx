@@ -28,7 +28,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_NAV, type NavItem, type NavFamilia, type NavGrupo } from './nav';
+import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_NAV, itemsDe, type NavItem, type NavGrupo } from './nav';
 import { tabEnCapa } from '@/lib/capas';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
@@ -119,7 +119,6 @@ export function Sidebar() {
   const [sinMarcar, setSinMarcar] = useState(0);
   const [userOpen, setUserOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [abierta, setAbierta] = useState<string | null>(null);
   const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
   const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
   const [perfilAvatar, setPerfilAvatar] = useState('');
@@ -197,12 +196,12 @@ export function Sidebar() {
   const familias = FAMILIAS
     .map((f) => ({
       ...f,
-      items: f.items.filter(puedeVer),
+      bloques: f.bloques.map((b) => b.filter(puedeVer)).filter((b) => b.length > 0),
       grupos: (f.grupos ?? []).map((g) => ({ ...g, items: g.items.filter(puedeVer) })).filter((g) => g.items.length > 0),
     }))
-    .filter((f) => f.items.length > 0 || f.grupos.length > 0);
+    .filter((f) => f.bloques.length > 0 || f.grupos.length > 0);
 
-  const todosDe = (f: NavFamilia) => [...f.items, ...(f.grupos ?? []).flatMap((g) => g.items)];
+  const todosDe = (f: typeof familias[number]) => [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)];
 
   /**
    * El contador de cada familia: los mensajes sin leer de WhatsApp más los datos
@@ -215,10 +214,25 @@ export function Sidebar() {
     return (claves.includes('whatsapp') ? unreadTotal : 0) + (claves.includes('crm') ? sinMarcar : 0);
   };
 
-  // La familia desplegada. La de tu ruta, y si no hay ninguna, Operate: entrar y
-  // ver lo que se usa todos los días sin tener que abrir nada.
-  const familiaActiva = familias.find((f) => todosDe(f).some((i) => i.match(pathname)))?.key ?? null;
-  const desplegada = abierta ?? familiaActiva ?? 'operate';
+  /**
+   * QUÉ FAMILIA ESTÁ DESPLEGADA. Es estado, no algo derivado del cursor: si se
+   * recalculara en cada render, abrir Analyze y mover el mouse la cerraba y
+   * volvía a Operate — que era exactamente el bug.
+   *
+   * La elección del usuario MANDA y se queda. Lo único que la pisa es navegar a
+   * una tab de otra familia: ahí se abre la familia donde estás parado, porque
+   * ya te fuiste de la otra. Es el patrón de React de «ajustar estado cuando
+   * cambia una prop», hecho en render y no en un efecto (un efecto pintaría un
+   * frame con la familia equivocada).
+   */
+  const familiaDeRuta = FAMILIAS.find((f) => itemsDe(f).some((i) => i.match(pathname)))?.key ?? null;
+  const [rutaVista, setRutaVista] = useState(familiaDeRuta);
+  const [abierta, setAbierta] = useState<string | null>(familiaDeRuta ?? 'operate');
+  if (familiaDeRuta && familiaDeRuta !== rutaVista) {
+    setRutaVista(familiaDeRuta);
+    setAbierta(familiaDeRuta);
+  }
+  const desplegada = abierta;
 
   const grupoFlyout = flyout
     ? familias.flatMap((f) => f.grupos).find((g) => g.key === flyout.key) ?? null
@@ -235,10 +249,13 @@ export function Sidebar() {
   };
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
-  const onLeave = () => {
+  // Al salir se pliega la barra, y NADA MÁS. La familia desplegada no se toca:
+  // que mover el mouse te cambiara de sección era el bug.
+  const programarPlegado = () => {
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    collapseTimer.current = setTimeout(() => { setExpanded(false); setAbierta(null); }, 340);
+    collapseTimer.current = setTimeout(() => setExpanded(false), 340);
   };
+  const onLeave = programarPlegado;
   useEffect(() => () => {
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
     if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
@@ -247,6 +264,10 @@ export function Sidebar() {
 
   const abrirFlyout = (key: string, el: HTMLElement, largo: number) => {
     if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
+    // El desplegable vive en un portal, o sea FUERA del <aside>: llevar el
+    // cursor hasta él dispara el onMouseLeave de la barra. Sin cancelar el
+    // plegado, la barra se cerraba abajo del menú que acabás de abrir.
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
     const r = el.getBoundingClientRect();
     const alto = 44 + largo * 38;
     setUserOpen(false);
@@ -254,7 +275,9 @@ export function Sidebar() {
   };
   const cerrarFlyout = () => {
     if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
-    flyoutTimer.current = setTimeout(() => setFlyout(null), 220);
+    // Al cerrarse el desplegable vuelve a correr el reloj del plegado. Si el
+    // cursor volvió a la barra, su onMouseEnter lo cancela.
+    flyoutTimer.current = setTimeout(() => { setFlyout(null); programarPlegado(); }, 220);
   };
 
   useEffect(() => {
@@ -313,39 +336,48 @@ export function Sidebar() {
   /**
    * Una familia: su rótulo y, si está desplegada, sus destinos.
    *
-   * El rótulo va en versalitas y mono — el mismo tratamiento que ya usa
-   * «ADMINISTRACIÓN» en el shell de admin. No es decoración: hace que las tres
-   * familias se lean como SECCIONES y no como tres tabs más entre las otras
-   * quince. Es la regla de Linear aplicada: lo que orienta tiene que retroceder
-   * para que los destinos, que son lo que se toca, queden adelante.
+   * CÓMO SE DISTINGUE DE UNA TAB, que es lo que antes no pasaba: la familia se
+   * apoya en una SUPERFICIE propia (una franja apenas más clara) y los destinos
+   * no. Ese contraste de fondo funciona igual desplegada y plegada —en el rail
+   * el ícono de familia queda dentro de una pastilla y los de las tabs van
+   * pelados— y no depende del tamaño ni del color del texto, que es lo que las
+   * hacía parecer lo mismo.
    *
-   * Plegada, la familia abierta igual muestra los íconos de sus destinos: en el
-   * rail hay lugar y sin ellos el modo plegado solo servía para volver a abrir.
+   * Encima, el rótulo va en versalitas y mono, el mismo tratamiento que ya usa
+   * «ADMINISTRACIÓN». Es la regla de Linear: lo que orienta retrocede para que
+   * los destinos, que son lo que se toca, queden adelante.
    */
   const Familia = ({ f }: { f: typeof familias[number] }) => {
     const activa = todosDe(f).some((i) => i.match(pathname));
     const abiertaEsta = desplegada === f.key;
     const n = contadorDe(f);
+    const chrome = 'rgba(255,255,255,.055)';
     return (
-      <div style={{ marginBottom: open ? 10 : 6 }}>
+      <div style={{ marginBottom: open ? 12 : 8 }}>
         <button type="button" className="mk-navrow"
-          onClick={() => { setAbierta(abiertaEsta && open ? null : f.key); setExpanded(true); }}
+          onClick={() => { setExpanded(true); setAbierta((prev) => (prev === f.key && open ? null : f.key)); }}
           title={open ? undefined : `${f.label} · ${f.pregunta}`}
           aria-expanded={abiertaEsta}
           style={{
             ...filaStyle(false, open),
-            padding: open ? '5px 10px' : '8px 0',
-            fontFamily: open ? MONO : 'inherit',
-            fontSize: open ? 10.5 : 'var(--fs-sm)',
-            letterSpacing: open ? '.13em' : undefined,
-            textTransform: open ? 'uppercase' : undefined,
-            fontWeight: 600,
+            padding: open ? '6px 10px' : 0,
+            background: open ? chrome : 'transparent',
+            fontFamily: MONO,
+            fontSize: 10.5,
+            letterSpacing: '.13em',
+            textTransform: 'uppercase',
+            fontWeight: 700,
             color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
-            opacity: activa ? 1 : 0.72,
-            background: (!open && activa) ? 'var(--sidebar-2)' : 'transparent',
+            justifyContent: open ? 'flex-start' : 'center',
           }}>
-          <span style={{ position: 'relative', display: 'flex', flex: 'none', color: 'inherit' }}>
-            <Icon name={f.icon} size={open ? 15 : ICO} />
+          {/* Plegada, la pastilla es lo que dice «esto es una sección y lo de
+              abajo son sus destinos». */}
+          <span style={{
+            position: 'relative', display: 'flex', flex: 'none',
+            alignItems: 'center', justifyContent: 'center', color: 'inherit',
+            ...(open ? {} : { width: 34, height: 34, borderRadius: 10, background: chrome }),
+          }}>
+            <Icon name={f.icon} size={open ? 14 : ICO} />
             {!open && <Contador n={n} compacto />}
           </span>
           {open && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}</span>}
@@ -353,14 +385,25 @@ export function Sidebar() {
           {open && <span style={{ flex: 'none', fontSize: 9, transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>}
         </button>
         {abiertaEsta && (
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2,
-            ...(open ? { paddingLeft: 8, marginLeft: 12, borderLeft: '1px solid var(--sidebar-2)' } : {}),
-          }}>
-            {f.items.map((it) => (
-              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} size={open ? ICO : ICO_HIJO} />
+          <div style={{ display: 'flex', flexDirection: 'column', marginTop: 3, ...(open ? { paddingLeft: 4 } : {}) }}>
+            {f.bloques.map((bloque, i) => (
+              <div key={i} style={{
+                display: 'flex', flexDirection: 'column', gap: 1,
+                // Los bloques de adentro de una familia se separan con aire, y
+                // solo en el rail con una línea: ahí no hay ancho para que el
+                // espacio se lea como agrupación.
+                ...(i > 0 ? (open
+                  ? { marginTop: 9 }
+                  : { marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--sidebar-2)' }) : {}),
+              }}>
+                {bloque.map((it) => (
+                  <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} size={open ? ICO : ICO_HIJO} />
+                ))}
+              </div>
             ))}
-            {f.grupos.map((g) => <GrupoFila key={g.key} g={g} />)}
+            {f.grupos.map((g) => (
+              <div key={g.key} style={{ marginTop: f.bloques.length ? 9 : 0 }}><GrupoFila g={g} /></div>
+            ))}
           </div>
         )}
       </div>

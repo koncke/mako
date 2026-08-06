@@ -69,6 +69,15 @@ export type NavItem = {
 export type NavGrupo = { key: string; label: string; icon: string; items: NavItem[] };
 
 /**
+ * Un bloque de destinos dentro de una familia. Se separan entre sí con aire y
+ * una línea fina, porque adentro de una familia igual hay AGRUPACIONES: en
+ * Operate, «lo mío» (General, Plan) no es lo mismo que «la máquina» (CRM, Ads
+ * Manager) ni que «las conversaciones». Sin la separación, seis filas seguidas
+ * vuelven a ser una lista.
+ */
+export type NavBloque = NavItem[];
+
+/**
  * Una familia de intención.
  *
  * `notifica` es la regla dura de los contadores: solo la familia que notifica
@@ -82,11 +91,15 @@ export type NavFamilia = {
   pregunta: string;
   icon: string;
   notifica?: boolean;
-  /** Lo de uso diario: siempre a la vista dentro de la familia. */
-  items: NavItem[];
+  /** Los destinos, en bloques separados visualmente. Siempre a la vista. */
+  bloques: NavBloque[];
   /** Colecciones que se consultan de a una: abren desplegable al costado. */
   grupos?: NavGrupo[];
 };
+
+/** Todos los destinos de una familia, incluidos los de sus colecciones. */
+export const itemsDe = (f: NavFamilia): NavItem[] =>
+  [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)];
 
 const starts = (p: string) => (pathname: string) =>
   pathname === p || pathname.startsWith(p + '/');
@@ -100,25 +113,27 @@ export const FAMILIAS: NavFamilia[] = [
     // rail plegado, donde trabajan solos y sin etiqueta: rayo · gráfico · llave.
     icon: 'rayo',
     notifica: true,
-    items: [
-      // Cuando exista la pantalla con sus seis campos (prioridad, razón,
-      // resultado esperado, responsable, progreso y próxima revisión, tarea
-      // #523) este item pasa a ser ella; la key `general` se queda porque está
-      // escrita en la base.
-      { key: 'general', label: 'General', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
-      { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
-      { key: 'todo', label: 'Plan', href: '/plan', icon: 'todo', rolesWs: ['closer', 'setter'], match: (p) => starts('/plan')(p) || starts('/todo')(p) },
-      { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
-    ],
-    grupos: [
-      {
-        key: 'chats', label: 'Chats', icon: 'chats',
-        items: [
-          { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
-          { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
-          { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },
-        ],
-      },
+    bloques: [
+      // Lo tuyo: dónde estás parado y qué te toca.
+      [
+        // Cuando exista la pantalla con sus seis campos (prioridad, razón,
+        // resultado esperado, responsable, progreso y próxima revisión, tarea
+        // #523) este item pasa a ser ella; la key `general` se queda porque está
+        // escrita en la base.
+        { key: 'general', label: 'General', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
+        { key: 'todo', label: 'Plan', href: '/plan', icon: 'todo', rolesWs: ['closer', 'setter'], match: (p) => starts('/plan')(p) || starts('/todo')(p) },
+      ],
+      // La máquina: lo que trae gente y lo que la mueve.
+      [
+        { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
+        { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
+      ],
+      // Las conversaciones. Sin desplegable: son tres, y son de todos los días.
+      [
+        { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
+        { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
+        { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },
+      ],
     ],
   },
   {
@@ -126,23 +141,31 @@ export const FAMILIAS: NavFamilia[] = [
     label: 'Analyze',
     pregunta: '¿Qué está pasando y por qué?',
     icon: 'analytics',
-    items: [
-      { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
-      // Second Brain todavía no existe como ruta propia: vive dentro de
-      // Experiments, que es donde están la Retro y las conclusiones. Cuando se
-      // separe, entra acá arriba (es el hero de esta familia).
-      { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
+    bloques: [
+      [
+        // El hero de la familia: «analiza todo tu negocio, conecta las señales y
+        // encuentra qué mover». Va primero porque es de donde sale el criterio
+        // con el que se leen los otros tres.
+        { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'red', match: starts('/second-brain') },
+        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
+        // Salió de los Analysts: los otros seis analizan un activo PROPIO (una
+        // oferta, un anuncio, una landing); éste vigila lo que hacen los demás.
+        { key: 'market-an', label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
+        { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
+      ],
     ],
     grupos: [
       {
+        // Ordenados por el CAMINO del negocio, no alfabético ni por antigüedad:
+        // primero la oferta, después lo que la trae (anuncio → landing → VSL) y
+        // al final lo que pasa con la persona (la llamada, el cliente).
         key: 'analysts', label: 'Analysts', icon: 'search',
         items: [
-          { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
+          { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
           { key: 'script', label: 'Ads Analyst', href: '/ads-analyst', icon: 'notepencil', match: starts('/ads-analyst') },
           { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', match: starts('/landing-analyst') },
-          { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
           { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
-          { key: 'market-an', label: 'Market Analyst', href: '/market-analyst', icon: 'search', comingSoon: true, match: starts('/market-analyst') },
+          { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
           { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
         ],
       },
@@ -153,22 +176,23 @@ export const FAMILIAS: NavFamilia[] = [
     label: 'Create',
     pregunta: '¿Qué quiero construir o automatizar?',
     icon: 'tools',
-    items: [
-      // La key sigue siendo 'setting': es la que está escrita en la base (estado
-      // del onboarding de la tab, capas). Lo que cambia es dónde vive y cómo se
-      // llama. Está PRIMERO porque es el hero de esta familia: no es un bot de
-      // plantillas, es el experto duplicado.
-      { key: 'setting', label: 'Chat Agent', href: '/chat-agent', icon: 'tag', rolesWs: ['setter'], match: starts('/chat-agent') },
-    ],
-    grupos: [
-      {
-        key: 'writers', label: 'Writers', icon: 'pen',
-        items: [
-          { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', match: starts('/ads-writer') },
-          { key: 'landing-writer', label: 'Landing Generator', href: '/landing-writer', icon: 'web', match: starts('/landing-writer') },
-          { key: 'vsl-writer', label: 'VSL Writer', href: '/vsl-writer', icon: 'video', comingSoon: true, match: starts('/vsl-writer') },
-        ],
-      },
+    bloques: [
+      [
+        // Las keys NO cambiaron (están escritas en la base: capas y estado del
+        // onboarding por tab). Lo que cambió es el nombre y la RUTA, para que
+        // digan lo mismo. Las rutas viejas redirigen.
+        //
+        // ⚠️ Content Machine es la excepción: sigue apuntando a /ads-writer
+        // porque ese módulo se está reescribiendo AHORA en otra sesión (están
+        // sacando el generador de copy suelto y dejando la fábrica de guiones),
+        // y su propio código ya dice que el destino es /content-machine. Mover
+        // la carpeta desde acá les arrancaba los archivos que están editando.
+        // Cuando esa reescritura aterrice, esto es cambiar el `href`.
+        { key: 'ads-writer', label: 'Content Machine', href: '/ads-writer', icon: 'video', match: (p) => starts('/content-machine')(p) || starts('/ads-writer')(p) },
+        { key: 'setting', label: 'Chat Agent', href: '/chat-agent', icon: 'agente', rolesWs: ['setter'], match: starts('/chat-agent') },
+        { key: 'landing-writer', label: 'Landing Generator', href: '/landing-generator', icon: 'web', match: (p) => starts('/landing-generator')(p) || starts('/landing-writer')(p) },
+        { key: 'vsl-writer', label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
+      ],
     ],
   },
 ];
@@ -230,7 +254,4 @@ export const USER_NAV: NavItem[] = [
 ];
 
 /** Todos los ítems de producto, aplanados (para buscar por key o por ruta). */
-export const TODOS_LOS_ITEMS: NavItem[] = [
-  ...FAMILIAS.flatMap((f) => [...f.items, ...(f.grupos ?? []).flatMap((g) => g.items)]),
-  ...MAKO_NAV,
-];
+export const TODOS_LOS_ITEMS: NavItem[] = [...FAMILIAS.flatMap(itemsDe), ...MAKO_NAV];

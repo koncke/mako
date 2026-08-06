@@ -82,13 +82,23 @@ export function CatalogoUI() {
                 {f.notifica && <Badge tono="bad">•</Badge>}
               </div>
               <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.45, marginBottom: 10 }}>{f.pregunta}</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {f.items.map((i) => <Tag key={i.key}>{i.label}</Tag>)}
-                {/* Las colecciones abren al costado: se muestran como una sola
-                    pieza porque en la barra ocupan una sola fila. */}
-                {(f.grupos ?? []).map((g) => (
-                  <Tag key={g.key} color="var(--primary)">{g.label} ({g.items.length}) ›</Tag>
+              {/* Un renglón por BLOQUE: así se ve la agrupación de adentro de
+                  la familia, que es lo que la barra separa con aire. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {f.bloques.map((bloque, i) => (
+                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {bloque.map((it) => <Tag key={it.key}>{it.label}</Tag>)}
+                  </div>
                 ))}
+                {/* Las colecciones abren al costado: una sola pieza, porque en
+                    la barra ocupan una sola fila. */}
+                {(f.grupos ?? []).length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {(f.grupos ?? []).map((g) => (
+                      <Tag key={g.key} color="var(--primary)">{g.label} ({g.items.length}) ›</Tag>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}

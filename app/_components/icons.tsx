@@ -67,6 +67,12 @@ const PATHS: Record<string, ReactNode> = {
   // llave de Create y del gráfico de Analyze: tres siluetas que no se confunden
   // ni en el rail plegado, que es donde el ícono tiene que trabajar solo.
   rayo: (<path d="M13.6 2.6 5.4 13.2h5.3l-1.3 8.2 8.2-10.6h-5.3l1.3-8.2Z" />),
+  // Red de nodos: SECOND BRAIN. El dibujo ES la promesa del módulo —conectar
+  // señales sueltas— y anticipa el grafo tipo Obsidian que le toca en la Fase 2.
+  red: (<><circle cx="12" cy="5" r="2.2" /><circle cx="5" cy="17" r="2.2" /><circle cx="19" cy="17" r="2.2" /><path d="M10.4 6.8 6.4 15M13.6 6.8l4 8.2M7.2 17h9.6" /></>),
+  // Burbuja con chispa: CHAT AGENT. Antes usaba la etiqueta de precio, que no
+  // decía nada del módulo. Esto sí: una conversación con inteligencia adentro.
+  agente: (<><path d="M20.5 11.6a8 8 0 0 1-11.7 7.1L3.5 20l1.5-5.2a8 8 0 1 1 15.5-3.2Z" /><path d="M12 8.2 12.9 11l2.8.9-2.8.9-.9 2.8-.9-2.8-2.8-.9 2.8-.9Z" /></>),
   dot: (<circle cx="12" cy="12" r="3" />),
 };
 

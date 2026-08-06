@@ -133,7 +133,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'generar', label: 'Tu primera versión escrita' },
       { key: 'guardar', label: 'Una versión guardada', opcional: true },
     ],
-    href: '/landing-writer',
+    href: '/landing-generator',
   },
 };
 

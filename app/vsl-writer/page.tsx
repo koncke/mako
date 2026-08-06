@@ -1,7 +1,9 @@
-import { ComingSoon } from '../_components/ComingSoon';
-import { requireRolWs } from '@/lib/tab-access';
+// Ruta vieja: el módulo se renombró a /vsl-generator para que el nombre de la tab y la
+// URL digan lo mismo. Queda el redirect porque el path viejo está escrito en
+// lugares que no se pueden editar de golpe: tareas del plan, mensajes que MaKo
+// ya mandó, marcadores del navegador.
+import { redirect } from 'next/navigation';
 
-export default async function VslWriterPage() {
-  await requireRolWs([], { nav: 'vsl-writer' });
-  return <ComingSoon title="VSL Writer" icon="pen" />;
+export default function RedirectPage() {
+  redirect('/vsl-generator');
 }
