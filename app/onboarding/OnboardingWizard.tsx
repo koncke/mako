@@ -27,6 +27,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { Archivero } from './Archivero';
 import { AvataresView } from './AvataresView';
 import { EntregableView } from './EntregableView';
+import { ProductosView } from './ProductosView';
 import { PersonaView } from './PersonaView';
 import { PersonalidadView } from './PersonalidadView';
 import { MatrizView } from './MatrizView';
@@ -51,7 +52,7 @@ const SANS = "'Geist', sans-serif";
 type Servicio = { key: string; nombre: string; requerido: boolean; conectada: boolean };
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
-type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'personalidad' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'productos' | 'entregable' | 'avatares' | 'persona' | 'personalidad' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
 type BriefCampo = { key: string; label: string; type: 'text' | 'number' | 'textarea'; placeholder?: string; grupo: string };
 type Estado = {
   status: 'pending' | 'in_progress' | 'skipped' | 'done';
@@ -156,6 +157,7 @@ export function OnboardingWizard() {
   // Los pasos self-contained reportan si ya tienen algo generado — sin esto el
   // Siguiente del footer dejaba avanzar aunque el paso estuviera vacío.
   const [entregableListo, setEntregableListo] = useState(false);
+  const [productosListo, setProductosListo] = useState(false); // ≥1 producto cargado
   const [avataresListo, setAvataresListo] = useState(false);
   const [personaListo, setPersonaListo] = useState(false);
   const [personalidadListo, setPersonalidadListo] = useState(false);
@@ -291,6 +293,8 @@ export function OnboardingWizard() {
       }
     } else if (paso === 'archivero') {
       pantallas.push({ key: 'archivero', paso, pregunta: 'El Archivero', slides: SLIDES_MAKO });
+    } else if (paso === 'productos') {
+      pantallas.push({ key: 'productos', paso, pregunta: 'Tus productos', slides: SLIDES_MAKO });
     } else if (paso === 'entregable') {
       pantallas.push({ key: 'entregable', paso, pregunta: 'Tu lead magnet', slides: SLIDES_MAKO });
     } else if (paso === 'avatares') {
@@ -421,6 +425,7 @@ export function OnboardingWizard() {
     // Entregable/Avatares/Persona/Ángulos: TAMPOCO admiten excepción de admin. Martín
     // (probando impersonado) pudo apretar Siguiente sin haber definido el entregable —
     // "NO debería poder avanzar jamás si lo anterior no está listo" (pedido explícito).
+    : p.key === 'productos' ? productosListo // ≥1 producto en el catálogo
     : p.key === 'entregable' ? entregableListo
     : p.key === 'avatares' ? avataresListo
     : p.key === 'persona' ? personaListo
@@ -515,7 +520,7 @@ export function OnboardingWizard() {
           if (p.key === 'archivero') { if (archiveroRef.current?.siguiente()) return; return avanzar(); }
           // Pasos self-contained (Entregable, Avatares, Persona, Matriz, Gemini):
           // persisten por su cuenta con sus propios endpoints; acá solo avanzamos.
-          if (['entregable', 'avatares', 'persona', 'personalidad', 'angulos', 'gemini'].includes(p.key)) return avanzar();
+          if (['productos', 'entregable', 'avatares', 'persona', 'personalidad', 'angulos', 'gemini'].includes(p.key)) return avanzar();
           // Contacto: 'form' manda el código (NO avanza, cambia de sub-etapa);
           // 'codigo' lo verifica y RECIÉN AHÍ avanza; 'listo' es un avance normal.
           if (p.key === 'contacto') {
@@ -594,6 +599,9 @@ export function OnboardingWizard() {
 
         {/* ── El Archivero: tirá tus docs, MaKo arma el perfil (self-contained) ── */}
         {p.key === 'archivero' && <Archivero key={`arch-${remonte}`} onEstado={setAnswers} onListo={setArchiveroListo} registro={archiveroRef} />}
+
+        {/* ── Productos/ofertas: MaKo los arma con el brief + El Archivero ── */}
+        {p.key === 'productos' && <ProductosView key={`prod-${remonte}`} onListo={setProductosListo} />}
 
         {/* ── Entregable tangible de la oferta (self-contained) ── */}
         {p.key === 'entregable' && <EntregableView key={`ent-${remonte}`} onListo={setEntregableListo} />}

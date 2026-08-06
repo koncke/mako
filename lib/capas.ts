@@ -21,7 +21,7 @@
  * oferta, nicho, web/IG…) y MaKo los ordena en el brief. Es la versión DOER de
  * 'negocio' (que pregunta de a un campo): una capa usa uno u otro, no los dos.
  */
-export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'personalidad' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'productos' | 'entregable' | 'avatares' | 'persona' | 'personalidad' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
 
 export type CapaId = 'pm' | 'completo' | 'superadmin';
 
@@ -110,7 +110,10 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     //  9. tabs       → contacto de reportes + verificación de WhatsApp.
     // 10. integraciones (solo Meta) → AL FINAL (pedido de Mauricio: conectar Meta es lo
     //     último; antes se ve toda la matriz). 11. retro → valoración/cierre (usa Meta).
-    onboarding: ['fase', 'gemini', 'archivero', 'entregable', 'avatares', 'persona', 'personalidad', 'angulos', 'tabs', 'integraciones', 'retro'],
+    // 'productos' va justo después del Archivero: para entonces MaKo ya leyó el
+    // brief y los documentos, así que puede ARMAR el catálogo en vez de preguntarlo.
+    // Y va antes del lead magnet y del avatar, que se definen contra la oferta.
+    onboarding: ['fase', 'gemini', 'archivero', 'productos', 'entregable', 'avatares', 'persona', 'personalidad', 'angulos', 'tabs', 'integraciones', 'retro'],
     // TODOS los grupos: El Archivero no pregunta de a uno, extrae de los docs y
     // muestra el brief entero (oferta + avatar + personaje de marca) editable en
     // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que
