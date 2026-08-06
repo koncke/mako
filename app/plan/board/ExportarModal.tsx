@@ -80,19 +80,36 @@ export function ExportarModal({ tasks, labels, titulo, onClose }: {
   const actual = pasos[Math.min(paso, pasos.length - 1)];
   const enUltimo = paso >= pasos.length - 1;
 
+  // Qué se eligió, en dos o tres palabras, para que el archivo se distinga en Descargas:
+  // «anuncios», «anuncios-y-2-mas», «12-tareas», «prioritarias».
+  const queElegi = useMemo((): string => {
+    const nProy = proys.size;
+    const todosLosProy = nProy === 0 || nProy === labels.length;
+    const partes: string[] = [];
+    if (!todosLosProy) {
+      const primero = labels.find((l) => proys.has(l.id))?.name ?? '';
+      partes.push(nProy === 1 ? primero : `${primero} y ${nProy - 1} mas`);
+    }
+    if (cuales === 'altas') partes.push('prioritarias');
+    else if (cuales === 'abiertas') partes.push('pendientes');
+    else if (cuales === 'mano') partes.push(`${aMano.size} elegidas`);
+    if (!partes.length) partes.push('todo');
+    return partes.join('-');
+  }, [proys, labels, cuales, aMano]);
+
   const bajar = () => {
     const cs = [...campos];
     if (formato === 'md') {
-      descargar(nombreArchivo(titulo, 'completo', 'md'), tableroAMarkdown(tareasOut, proyectosOut, titulo, cs), 'text/markdown');
+      descargar(nombreArchivo(titulo, 'completo', 'md', queElegi), tableroAMarkdown(tareasOut, proyectosOut, titulo, cs), 'text/markdown');
     } else if (que === 'proyectos') {
-      descargar(nombreArchivo(titulo, 'proyectos', 'csv'), proyectosACSV(proyectosOut, tasks, cs), 'text/csv');
+      descargar(nombreArchivo(titulo, 'proyectos', 'csv', queElegi), proyectosACSV(proyectosOut, tasks, cs), 'text/csv');
     } else if (que === 'tareas') {
-      descargar(nombreArchivo(titulo, 'tareas', 'csv'), tareasACSV(tareasOut, labels, cs), 'text/csv');
+      descargar(nombreArchivo(titulo, 'tareas', 'csv', queElegi), tareasACSV(tareasOut, labels, cs), 'text/csv');
     } else {
       // "Ambos" en planilla son DOS archivos: una hoja con tareas y proyectos mezclados
       // no se puede filtrar ni sumar, que es para lo único que sirve un CSV.
-      descargar(nombreArchivo(titulo, 'tareas', 'csv'), tareasACSV(tareasOut, labels, cs), 'text/csv');
-      setTimeout(() => descargar(nombreArchivo(titulo, 'proyectos', 'csv'), proyectosACSV(proyectosOut, tasks, cs), 'text/csv'), 400);
+      descargar(nombreArchivo(titulo, 'tareas', 'csv', queElegi), tareasACSV(tareasOut, labels, cs), 'text/csv');
+      setTimeout(() => descargar(nombreArchivo(titulo, 'proyectos', 'csv', queElegi), proyectosACSV(proyectosOut, tasks, cs), 'text/csv'), 400);
     }
     onClose();
   };

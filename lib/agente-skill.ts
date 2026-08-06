@@ -12,6 +12,8 @@
 // =============================================================================
 
 /** Ruta donde va el archivo dentro del proyecto del usuario. */
+import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle-contrato';
+
 export const AGENTE_SKILL_PATH = '.claude/skills/mako-plan/SKILL.md';
 
 /** El SKILL.md listo para pegar, con la URL y el token ya embebidos. */
@@ -75,10 +77,16 @@ curl -s -X POST "$BASE/api/agente/plan" \\
   el error más caro que se puede cometer acá: un tablero con 60 proyectos de una tarea
   cada uno no se puede priorizar. Si de verdad ninguno encaja, **decilo en el \`resumen\`**
   en vez de crear uno.
-- \`detalle\` es **el campo más importante y va LARGO** (4 a 8 frases): el porqué, de dónde
-  salió, los nombres y números concretos, y qué sería "listo". Si sale de una charla o de
-  un documento, **citá la frase textual y decí quién la dijo**. El Perro estima el ESFUERZO
-  con lo que le des: escribir corto hace que la tarea parezca barata y la hunde en la lista.
+- \`detalle\` es **el campo más importante**. Va con ESTA forma exacta (viene de
+  lib/detalle-contrato.ts, que es el único lugar donde vive: si cambia, cambia acá solo):
+
+\`\`\`
+${MOLDE_DETALLE}
+\`\`\`
+
+  ${MOLDE_ADVERTENCIA}
+  El Perro estima el ESFUERZO con lo que le des: escribir corto hace que la tarea parezca
+  barata y la hunde en la lista.
 - \`eliminar: [{ id, motivo }]\` si esta carga deja tareas viejas obsoletas.
 
 ### Antes de mandar: ¿ya existe?

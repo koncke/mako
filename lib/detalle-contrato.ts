@@ -71,6 +71,24 @@ Martín, el 5/8: «cuando apreto el botón, no me debe abrir el buscador de arch
 **Listo cuando**
 Se arrastran cuatro archivos de distinto tipo, se ve el peso y qué va a hacer con cada uno, y el que falla dice por qué sin llevarse a los otros.`;
 
+/** EL MOLDE, listo para meter adentro de un `description` de una sola línea.
+ *
+ *  Va adentro de la `description` de un campo de un JSON schema o de una tool, que
+ *  tiene que ser un string plano. Es LO QUE DE VERDAD FUNCIONÓ: describir las cuatro
+ *  partes en prosa daba detalles de 800 caracteres perfectos en contenido y en prosa
+ *  corrida, 0 de 6 con secciones. Con el molde literal adentro del campo, 5 de 5.
+ *
+ *  Si esto cambia, cambia para los cinco orígenes a la vez. Ese es el punto. */
+export const MOLDE_DETALLE = [
+  '**Qué hay que hacer**', 'La acción concreta, 1-2 frases.', '',
+  '**Por qué**', 'A qué problema responde. Si alguien lo pidió, la frase TEXTUAL entre « » con quién.', '',
+  '**Detalles concretos**', '- números, nombres, archivo:línea, LINKS TAL CUAL', '- lo que se descartó y por qué', '',
+  '**Listo cuando**', 'El criterio de terminado, verificable.',
+].join('\n');
+
+/** La advertencia que acompaña al molde. Misma razón: una sola fuente. */
+export const MOLDE_ADVERTENCIA = 'Copiá esta forma EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.';
+
 export type EvalDetalle = {
   chars: number;
   /** los títulos del contrato que SÍ están, en el orden en que aparecen. */

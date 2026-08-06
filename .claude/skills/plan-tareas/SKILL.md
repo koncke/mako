@@ -110,11 +110,34 @@ await sql`insert into plan_propuestas (id, workspace_id, estado, origen, resumen
   ⚠️ No es una convención suelta: en dos semanas la IA creó 24 proyectos basura (TRES de
   Instagram, DOS "Ads Content Machine", varios con una sola tarea) y hubo que fundir 64 en
   34 a mano. Si de verdad ninguno encaja, **decilo en el `resumen`** en vez de inventar uno.
-- `detalle`: **es el campo más importante y va LARGO** (4 a 8 frases). Contá el porqué, de
-  dónde salió, los nombres y números concretos, y qué sería "listo". Si sale de un documento
-  o de una reunión, **citá la frase textual entre comillas y decí quién lo dijo**. Una tarea
-  con detalle pobre es una que en tres semanas nadie sabe hacer — y el Perro estima el
-  ESFUERZO con lo que le des, así que escribir corto la hace parecer barata.
+- `detalle`: **es el campo más importante.**
+
+<!-- CONTRATO-DETALLE:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->
+
+El `detalle` va con ESTA forma exacta. Vive en `lib/detalle-contrato.ts` y se copia acá
+sola: si cambia allá, cambia acá. No la edites a mano.
+
+```
+**Qué hay que hacer**
+La acción concreta, 1-2 frases.
+
+**Por qué**
+A qué problema responde. Si alguien lo pidió, la frase TEXTUAL entre « » con quién.
+
+**Detalles concretos**
+- números, nombres, archivo:línea, LINKS TAL CUAL
+- lo que se descartó y por qué
+
+**Listo cuando**
+El criterio de terminado, verificable.
+```
+
+Copiá esta forma EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.
+
+<!-- CONTRATO-DETALLE:FIN -->
+
+  Una tarea con detalle pobre es una que en tres semanas nadie sabe hacer — y el Perro
+  estima el ESFUERZO con lo que le des, así que escribir corto la hace parecer barata.
 - `notas` = las **preguntas** `[{ pregunta, tipo, opciones }]`. **Mandá al menos una**:
   sin preguntas el wizard aplica con `contexto=''` y el Perro puntúa a ciegas.
 - `eliminar`: `[{ id, motivo }]` si esta carga deja tareas viejas obsoletas o duplicadas.

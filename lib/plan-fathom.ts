@@ -1,3 +1,4 @@
+import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle-contrato';
 import 'server-only';
 
 // =============================================================================
@@ -192,12 +193,16 @@ export async function listReunionesRecientes(opts: { limit?: number; cursor?: st
 }
 
 // ── Prompt (editable vía prompt-registry) ─────────────────────────────────────
+// El molde va DENTRO de un string JSON del ejemplo: los saltos tienen que viajar
+// escapados o el ejemplo deja de ser JSON valido y el modelo copia el error.
+const MOLDE_DETALLE_JSON = JSON.stringify(MOLDE_DETALLE).slice(1, -1);
+
 export const PLAN_FATHOM_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA (el array lleva TANTAS tareas como haya — los tres de abajo son solo para mostrarte la forma y el nivel de granularidad):
 {
   "tareas": [
     {
       "titulo": "<imperativo y corto, ej. 'Rehacer el creativo de la campaña X'>",
-      "detalle": "**Qué pidió**\n«la frase textual» (Quién, 12:40)\n\n**Por qué**\nA qué problema responde.\n\n**Detalles concretos**\n- número, nombre o condición\n- lo que se descartó y por qué\n\n**Listo cuando**\nEl criterio de terminado.   ← ESTA ES LA FORMA EXACTA, con los ** y los \n. NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve, por más largo y bien escrito que esté.",
+      "detalle": "${MOLDE_DETALLE_JSON}   <- ESTA ES LA FORMA EXACTA. ${MOLDE_ADVERTENCIA}",
       "prioridad": "alta" | "media" | "baja" | "futuro",
       "proyectoId": "<id EXACTO de la lista de proyectos, o null si ninguno encaja claro>",
       "proyectoNuevo": "<SOLO si proyectoId es null y varias tareas de esta reunión comparten un tema que NO está en la lista: el nombre corto del proyecto que habría que crear (2-4 palabras). '' en cualquier otro caso>",

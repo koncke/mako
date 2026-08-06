@@ -278,8 +278,18 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     // MISMA clave repetida: del otro lado se lee con form.getAll('file').
     for (const f of files) fd.append('file', f);
     fd.append('proyectos', JSON.stringify(labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }))));
-    const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd }).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+    // TIMEOUT EXPLÍCITO. Sin esto el spinner giraba PARA SIEMPRE: leer un archivo de
+    // 6 KB tarda ~2 minutos y la respuesta HTTP no siempre sobrevive tanto, así que el
+    // fetch quedaba colgado sin resolver ni rechazar. 4 minutos es el techo real de la
+    // función (maxDuration 300) con margen.
+    const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd, signal: AbortSignal.timeout(240_000) })
+      .then((r) => r.json())
+      .catch((e) => ({ ok: false, error: e instanceof Error && e.name === 'TimeoutError'
+        // El trabajo NO se perdió: el server guarda el borrador antes de responder.
+        ? 'Tardó más de lo que la conexión aguanta. MaKo igual lo terminó: cerrá y volvé a entrar, el borrador te está esperando en la lista.'
+        : String(e) }));
     if (j.usage) onUsage?.(j.usage);
+    if (j.borradorId) setBorradorId(String(j.borradorId));
     // Los que no se pudieron leer se dicen, aunque el resto haya salido bien.
     if (Array.isArray(j.avisos) && j.avisos.length) setAvisos(j.avisos.map(String));
     if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? []);
@@ -411,7 +421,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO · REUNIÓN → PLAN</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>
-              {fase === 'lista' ? 'Elegí una reunión' : fase === 'extrayendo' ? 'Leyendo la reunión…' : fase === 'validar' ? 'Antes de seguir, aclarame esto' : `Action items · ${elegida?.titulo.slice(0, 40) ?? ''}`}
+              {/* El título dice lo que está pasando DE VERDAD: decir «Leyendo la reunión»
+                  mientras alguien sube un .md es mentirle sobre lo que la app está haciendo. */}
+              {fase === 'lista' ? 'Elegí una reunión'
+                : fase === 'extrayendo' ? (archivosSubiendo.length ? (archivosSubiendo.length > 1 ? `Leyendo ${archivosSubiendo.length} archivos…` : 'Leyendo tu archivo…') : 'Leyendo la reunión…')
+                : fase === 'validar' ? 'Antes de seguir, aclarame esto'
+                : `Tareas · ${(elegida?.titulo ?? archivoNombre).slice(0, 40)}`}
             </div>
           </div>
           <button onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>
@@ -584,7 +599,9 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
           {/* extrayendo */}
           {fase === 'extrayendo' && (
             <div>
-              <Cargando texto={archivosSubiendo.length > 1 ? `MaKo está leyendo ${archivosSubiendo.length} archivos y sacando las tareas…` : 'MaKo está sacando los action items del equipo…'} grande />
+              <Cargando texto={archivosSubiendo.length
+                ? (archivosSubiendo.length > 1 ? `MaKo está leyendo ${archivosSubiendo.length} archivos y sacando las tareas…` : 'MaKo está leyendo tu archivo y sacando las tareas…')
+                : 'MaKo está sacando los action items de la reunión…'} grande />
               {/* Un spinner sin nombre no dice si se colgó o si está trabajando. Con la
                   lista, se ve qué entró — y sobre todo qué NO entró, si faltó alguno. */}
               {archivosSubiendo.length > 0 && (
@@ -596,6 +613,11 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                     </div>
                   ))}
                   <style>{'@keyframes makoPulso{0%,100%{opacity:.25}50%{opacity:1}}'}</style>
+                  {/* Decirlo ANTES de que se haga largo, no después: un archivo denso son
+                      dos minutos, y sin este renglón parece que se colgó. */}
+                  <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', marginTop: 6, lineHeight: 1.5 }}>
+                    Puede tardar un par de minutos. Si cerrás, MaKo lo termina igual y te deja el borrador en la lista.
+                  </div>
                 </div>
               )}
             </div>

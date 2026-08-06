@@ -24,6 +24,7 @@ export const dynamic = 'force-dynamic';
 // 120 la función de Vercel moría antes de que la IA pudiera siquiera rendirse.
 export const maxDuration = 300;
 
+import { createHash } from 'node:crypto';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -127,7 +128,36 @@ export async function POST(req: NextRequest) {
       // Un archivo no trae invitados, así que la única señal del cliente es el nombre
       // del archivo ("Baja Teriyaki - seguimiento.md"). Si no alcanza, el modal pregunta.
       const pista = conTexto[0].nombre.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ');
-      const res = await conCliente(out as unknown as Record<string, unknown>, pista);
+
+      // EL BORRADOR SE GUARDA ACÁ, ANTES DE RESPONDER. La extracción de un archivo de
+      // 6 KB tarda ~2 minutos: más de lo que la respuesta HTTP sobrevive en Vercel. Si
+      // el trabajo solo vive en la respuesta, una desconexión —o cerrar el modal— tira
+      // dos minutos de IA a la basura y el usuario ve un spinner para siempre. Ahora el
+      // trabajo queda del lado del server pase lo que pase, y el modal solo lo muestra.
+      //
+      // El `ref` es el hash del contenido: volver a subir el MISMO archivo devuelve el
+      // borrador que ya existe en vez de pagar la extracción de nuevo (mismo candado
+      // que usan las reuniones con fathom:<recordingId>).
+      const huella = createHash('sha1').update(texto).digest('hex').slice(0, 24);
+      let borradorId: string | null = null;
+      try {
+        const tareasOut = ((out as { tareas?: Array<Record<string, unknown>> }).tareas ?? [])
+          .filter((t) => !t.esDeOtro)
+          .map((t) => ({ titulo: String(t.titulo ?? ''), detalle: String(t.detalle ?? ''), prioridad: t.prioridad as never, proyecto: t.proyectoNombre ? String(t.proyectoNombre) : undefined }));
+        if (tareasOut.length) {
+          borradorId = await crearPropuesta({
+            tareas: tareasOut, origen: 'archivo', ref: `archivo:${huella}`,
+            resumen: conTexto.length === 1 ? `De «${conTexto[0].nombre}»` : `De ${conTexto.length} archivos`,
+            fuenteTitulo: etiqueta,
+          });
+        }
+      } catch (e) {
+        // Que falle el guardado NO puede tirar la extracción: el usuario igual ve sus
+        // tareas en la respuesta. Solo pierde la red de seguridad.
+        console.error(`[api:plan-fathom] no pude guardar el borrador del archivo: ${msg(e)}`);
+      }
+
+      const res = await conCliente({ ...(out as unknown as Record<string, unknown>), borradorId }, pista);
       if (!avisos.length) return res;
       // Los archivos que no se pudieron leer se DICEN, no se tragan: si alguien sube
       // 4 y uno falla, tiene que enterarse de cuál y por qué.

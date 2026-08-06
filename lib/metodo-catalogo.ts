@@ -39,6 +39,27 @@ export type CampoCredencial = {
   auto?: boolean;
 };
 
+/**
+ * Un paso que NO es una credencial: algo que se copia DE MaKo y se pega EN la otra
+ * herramienta. Va al revés que un campo, y por eso es un tipo aparte y no una nota.
+ *
+ * Meterlo como ayuda de un campo lo escondía: los campos se completan una vez y la
+ * UI les tapa la ayuda al guardarlos, mientras que ESTO hay que poder volver a
+ * verlo siempre — el valor cambia si cambia el dominio, y que la credencial esté
+ * guardada no dice nada sobre si del otro lado quedó bien pegado.
+ */
+export type PasoExterno = {
+  titulo: string;
+  /** Qué habilita, en una línea. Va antes del cómo. */
+  porque: string;
+  /** Lo que hay que copiar. Admite {{APP_URL}}. */
+  valor: string;
+  /** Dónde pegarlo, con el camino exacto de la otra herramienta. */
+  donde: string;
+  /** Detalles que se olvidan y rompen el paso en silencio. */
+  ojo?: string[];
+};
+
 export type ServicioMetodo = {
   key: string;
   nombre: string;
@@ -46,6 +67,8 @@ export type ServicioMetodo = {
   /** Qué hace en el dashboard (para decidir si conectarlo). */
   paraQue: string;
   campos: CampoCredencial[];
+  /** Lo que el usuario tiene que pegar del OTRO lado. Se muestra como un paso más. */
+  pasoExterno?: PasoExterno;
   tutorial: {
     /** Pasos numerados, en el orden real de la UI del proveedor. */
     pasos: string[];
@@ -310,6 +333,17 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       { env: 'FATHOM_HOST_EMAIL', label: 'Email de la cuenta que graba', placeholder: 'vos@tudominio.com', nota: 'El email con el que entrás a Fathom. Es lo que nos dice que esa grabación es TUYA: sin esto, tus reuniones llegan y se descartan.' },
       { env: 'FATHOM_WEBHOOK_SECRET', label: 'Secret del webhook', secreto: true, nota: 'Es lo que hace que la reunión llegue AL INSTANTE y no varias horas después. De eso depende poder mandarle el resumen al cliente mientras la charla está fresca.' },
     ],
+    pasoExterno: {
+      titulo: 'Pegá esta dirección dentro de Fathom',
+      porque: 'Es por donde Fathom nos avisa apenas cortás una llamada. Sin esto la reunión llega horas más tarde, cuando ya no sirve para escribirle al cliente en caliente.',
+      valor: '{{APP_URL}}/api/webhooks/fathom',
+      donde: 'fathom.video → User Settings → API Access → Manage → "Add Webhook", en el campo de la URL de destino.',
+      ojo: [
+        'Marcá "External Recordings" además de "My Recordings": si no, las llamadas que grabe otra persona de tu equipo no llegan.',
+        'Activá include_transcript — lo usamos para confirmar que el invitado habló y para analizar la llamada.',
+        'Al crear el webhook, Fathom te muestra un secret que empieza con whsec_: ese es el que va en el campo de arriba.',
+      ],
+    },
     tutorial: {
       url: 'https://fathom.video/customize/integrations',
       urlLabel: 'Fathom → Integrations',
@@ -403,11 +437,15 @@ const conUrlReal = (s: string): string => s.replaceAll('{{APP_URL}}', APP_BASE_U
 export const servicioMetodo = (key: string): ServicioMetodo | undefined => {
   const s = SERVICIOS_METODO.find((x) => x.key === key);
   if (!s) return undefined;
-  // Los pasos del tutorial también pueden escribir {{APP_URL}} (el de Fathom pide
-  // pegar NUESTRA URL en el panel de ellos). Se resuelve acá, en el único accessor,
-  // para que ninguna vista tenga que acordarse de hacerlo.
-  if (!s.tutorial?.pasos?.some((p) => p.includes('{{APP_URL}}'))) return s;
-  return { ...s, tutorial: { ...s.tutorial, pasos: s.tutorial.pasos.map(conUrlReal) } };
+  // Tanto los pasos del tutorial como el pasoExterno pueden escribir {{APP_URL}}.
+  // Se resuelve acá, en el único accessor, para que ninguna vista tenga que
+  // acordarse de hacerlo (y para que una mudanza de dominio no deje instructivos
+  // mintiendo en media app).
+  return {
+    ...s,
+    tutorial: { ...s.tutorial, pasos: s.tutorial.pasos.map(conUrlReal) },
+    ...(s.pasoExterno ? { pasoExterno: { ...s.pasoExterno, valor: conUrlReal(s.pasoExterno.valor) } } : {}),
+  };
 };
 
 /** Servicio (key) al que pertenece una env del catálogo. */

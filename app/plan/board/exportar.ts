@@ -179,5 +179,19 @@ export function descargar(nombre: string, contenido: string, mime: string): void
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export const nombreArchivo = (titulo: string, que: string, ext: string): string =>
-  `${titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${que}-${hoy()}.${ext}`;
+const slug = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+
+/**
+ * El nombre dice QUÉ te bajaste, no solo cuándo.
+ *
+ * Antes era `${titulo}-${que}-${fecha}`, o sea que TODO salía como
+ * «plan-completo-2026-08-06»: bajabas los anuncios, bajabas el plan entero y bajabas
+ * tres tareas sueltas, y los tres archivos se llamaban igual. En la carpeta de
+ * Descargas eso es un archivo que no se puede distinguir de otro sin abrirlo — y el
+ * segundo pisa al primero.
+ *
+ * `detalle` es lo que se eligió (los proyectos, el subconjunto, cuántas filas).
+ */
+export const nombreArchivo = (titulo: string, que: string, ext: string, detalle?: string): string =>
+  [slug(titulo), que, detalle ? slug(detalle) : '', hoy()].filter(Boolean).join('-') + `.${ext}`;

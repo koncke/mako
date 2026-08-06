@@ -9,7 +9,9 @@
 // Modelo de seguridad elegido: "Ejecuta con confirmación" + "pendiente con
 // vencimiento" — un "sí" viejo o de otra charla nunca dispara algo por accidente.
 
-import 'server-only';
+import 'server-only';import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle-contrato';
+
+
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mako-pendientes';
@@ -256,7 +258,11 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
               prioridad: { type: 'string', enum: ['alta', 'media', 'baja', 'futuro'], description: 'opcional; default media.' },
               proyecto: { type: 'string', description: 'opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, poné su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica. Si el tema NO tiene proyecto todavía, poné igual el nombre que le pondrías: es una PROPUESTA que revisa el Perro Guardián antes de crear nada. ⛔ NUNCA le digas al dueño en qué proyecto quedó la tarea: todavía no está decidido.' },
               deadline: { type: 'string', description: 'opcional; fecha límite YYYY-MM-DD.' },
-              detalle: { type: 'string', description: 'EL CAMPO MAS IMPORTANTE. Escribilo EXACTAMENTE con esta forma, con los asteriscos y los saltos de linea:\n\n**Que pidio**\n«la frase textual del dueno» (Martin)\n\n**Por que**\nA que problema responde y que pasa si no se hace.\n\n**Detalles concretos**\n- numeros, nombres, herramientas, LINKS TAL CUAL\n- lo que descarto y por que\n\n**Listo cuando**\nEl criterio de terminado.\n\nApunta a 600-1200 caracteres si el mensaje da para eso. NO escribas prosa corrida: sin estos cuatro titulos el detalle NO sirve por mas largo que este (medido: salian 800 caracteres perfectos en contenido y sin una sola seccion). NO rellenes ni supongas: si el material solo da para dos partes, escribi dos. Lo que no escribas aca SE PERDIO: nadie vuelve a leer el WhatsApp.' },
+              detalle: { type: 'string', description: `EL CAMPO MAS IMPORTANTE. ${MOLDE_ADVERTENCIA}
+
+${MOLDE_DETALLE}
+
+Lo que no escribas aca SE PERDIO: nadie vuelve a leer el WhatsApp, y el Perro decide el proyecto leyendo esto.` },
             },
             required: ['titulo'],
           },
