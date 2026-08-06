@@ -8,7 +8,7 @@
 // Lo que sale de acá al plan es SIEMPRE tuyo: las tareas de otras personas viven en
 // su propia tab (ReunionTareas) y se les mandan a ellas — no se pueden tildar.
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { GuardianIcon } from './GuardianIcon';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type CandidataTarea, type FilaTarea } from './ReunionTareas';
@@ -75,7 +75,7 @@ export type ClienteReunion = { nombre: string; empresa: string | null; proyecto:
 /** Lo que se ofrece cuando el server NO tuvo certeza (pregunta cerrada, una sola). */
 type OpcionCliente = { nombre: string; sub: string };
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; borradorId?: string; usage?: unknown; error?: string }> {
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; borradorId?: string; usage?: unknown; error?: string; estado?: string; resumen?: string; n?: number; yaEstaba?: boolean }> {
   return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -189,6 +189,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   // la lista queda marcada como leída sin recargar y (b) las correcciones del usuario
   // se van guardando contra esa fila, así que salir del modal ya no las tira.
   const [borradorId, setBorradorId] = useState('');
+  // true mientras la lectura corre del lado del server y el modal solo mira. Cambia el
+  // copy: el usuario tiene que SABER que puede cerrar sin perder nada.
+  const [enSegundoPlano, setEnSegundoPlano] = useState(false);
+  // Corta el sondeo cuando el modal se desmonta. No corta el trabajo: eso vive en el server.
+  const pararRef = useRef(false);
+  useEffect(() => () => { pararRef.current = true; }, []);
 
   // Anota las candidatas: reparto mío/de-otro (viene del backend), y el cruce del
   // Perro contra el plan (dedup, punto 8). Las de otro NO se tildan nunca: van a la
@@ -273,29 +279,66 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     setElegida(null);
     setArchivoNombre(files.length === 1 ? files[0].name : `${files.length} archivos`);
     setArchivosSubiendo(files.map((f) => f.name));
-    setFase('extrayendo'); setErr(''); setFreno(null); setAvisos([]);
+    setFase('extrayendo'); setErr(''); setFreno(null); setAvisos([]); setEnSegundoPlano(false);
     const fd = new FormData();
     // MISMA clave repetida: del otro lado se lee con form.getAll('file').
     for (const f of files) fd.append('file', f);
     fd.append('proyectos', JSON.stringify(labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }))));
-    // TIMEOUT EXPLÍCITO. Sin esto el spinner giraba PARA SIEMPRE: leer un archivo de
-    // 6 KB tarda ~2 minutos y la respuesta HTTP no siempre sobrevive tanto, así que el
-    // fetch quedaba colgado sin resolver ni rechazar. 4 minutos es el techo real de la
-    // función (maxDuration 300) con margen.
-    const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd, signal: AbortSignal.timeout(240_000) })
+
+    // La subida ya NO espera la lectura: el server copia los bytes, crea el borrador y
+    // contesta en segundos. Un minuto de techo alcanza y sobra para eso.
+    const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd, signal: AbortSignal.timeout(60_000) })
       .then((r) => r.json())
       .catch((e) => ({ ok: false, error: e instanceof Error && e.name === 'TimeoutError'
-        // El trabajo NO se perdió: el server guarda el borrador antes de responder.
-        ? 'Tardó más de lo que la conexión aguanta. MaKo igual lo terminó: cerrá y volvé a entrar, el borrador te está esperando en la lista.'
+        ? 'No pude subir los archivos (la conexión tardó demasiado). Probá de nuevo.'
         : String(e) }));
-    if (j.usage) onUsage?.(j.usage);
-    if (j.borradorId) setBorradorId(String(j.borradorId));
-    // Los que no se pudieron leer se dicen, aunque el resto haya salido bien.
-    if (Array.isArray(j.avisos) && j.avisos.length) setAvisos(j.avisos.map(String));
-    if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? []);
-    // Falló todo: mostramos el error y volvemos a la lista (que se carga sola, porque
-    // el modo-archivo la había salteado) para que el usuario no quede colgado.
-    else { setErr(j.error || 'No pude leer los archivos.'); volverALista(); }
+
+    if (!j.ok || !j.borradorId) { setErr(j.error || 'No pude leer los archivos.'); volverALista(); return; }
+    const id = String(j.borradorId);
+    setBorradorId(id);
+
+    // Si ese archivo ya se había leído (`yaEstaba`), el sondeo lo devuelve en la primera
+    // vuelta —mira antes de dormir— y no se paga la extracción de nuevo.
+    setEnSegundoPlano(!j.yaEstaba);
+    await esperarBorrador(id);
+  };
+
+  /**
+   * Pregunta por el borrador hasta que deje de estar 'procesando'.
+   *
+   * ESTO NO ES LO QUE MANTIENE VIVO EL TRABAJO: la lectura corre del lado del server y
+   * termina mire quien mire. Esto es solo la ventana. Si el usuario cierra el modal, se
+   * corta el `parar` y no pasa nada — el borrador aparece igual en la lista.
+   */
+  const esperarBorrador = async (id: string) => {
+    const arranque = Date.now();
+    // Cada 4 segundos: es una fila, no cuesta nada, y el techo de 6 minutos cubre el
+    // peor caso medido (122 s) con margen de sobra sin quedarse girando para siempre.
+    // Mira PRIMERO y duerme después: si el borrador ya estaba listo (mismo archivo
+    // subido dos veces), aparece al instante en vez de esperar cuatro segundos de gusto.
+    let primera = true;
+    while (!pararRef.current && Date.now() - arranque < 360_000) {
+      if (!primera) await new Promise((r) => setTimeout(r, 4000));
+      primera = false;
+      if (pararRef.current) return;
+      const e = await apiFathom({ action: 'estado-borrador', id }).catch(() => ({ ok: false } as Awaited<ReturnType<typeof apiFathom>>));
+      if (!e.ok || !e.estado || e.estado === 'procesando') { setEnSegundoPlano(true); continue; }
+      setEnSegundoPlano(false);
+      if (e.estado === 'fallado') { setErr(e.resumen || 'No pude leer esos archivos.'); volverALista(); return; }
+      if (e.estado === 'descartada' || !e.tareas?.length) {
+        setErr('MaKo leyó los archivos y no encontró ninguna tarea para cargar.');
+        volverALista(); return;
+      }
+      await procesar(e.tareas, [], null, []);
+      return;
+    }
+    // Se pasó del techo y sigue procesando: NO es un error, es que tarda. El borrador
+    // sigue trabajando; lo honesto es decir dónde va a aparecer, no fingir una falla.
+    if (!pararRef.current) {
+      setEnSegundoPlano(false);
+      setErr('Está tardando más de lo normal. MaKo lo sigue leyendo: el borrador te va a aparecer en la lista de pendientes.');
+      volverALista();
+    }
   };
 
   // Mount: si entró por la bandeja de importación, procesarlos directo.
@@ -419,7 +462,11 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
           <GuardianIcon size={34} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO · REUNIÓN → PLAN</div>
+            {/* El renglón chico también dice de dónde viene: con un .md abierto, «REUNIÓN
+                → PLAN» es la etiqueta equivocada. */}
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>
+              ✦ MAKO · {archivosSubiendo.length ? 'ARCHIVO' : 'REUNIÓN'} → PLAN
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>
               {/* El título dice lo que está pasando DE VERDAD: decir «Leyendo la reunión»
                   mientras alguien sube un .md es mentirle sobre lo que la app está haciendo. */}
@@ -615,8 +662,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                   <style>{'@keyframes makoPulso{0%,100%{opacity:.25}50%{opacity:1}}'}</style>
                   {/* Decirlo ANTES de que se haga largo, no después: un archivo denso son
                       dos minutos, y sin este renglón parece que se colgó. */}
+                  {/* Esto ya no es una promesa: el borrador EXISTE desde el segundo uno y
+                      la lectura corre del lado del server. Cerrar no cancela nada. */}
                   <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', marginTop: 6, lineHeight: 1.5 }}>
-                    Puede tardar un par de minutos. Si cerrás, MaKo lo termina igual y te deja el borrador en la lista.
+                    {enSegundoPlano
+                      ? 'Puede tardar un par de minutos. Podés cerrar: MaKo lo sigue leyendo y te deja el borrador en la lista de pendientes.'
+                      : 'Subiendo…'}
                   </div>
                 </div>
               )}

@@ -21,6 +21,9 @@ import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { spreadProjScores, curveTaskScores } from '../app/plan/board/types';
 import type { UsageInfo } from './anthropic-usage';
 import { capacidad, capacidadesParaPrompt } from './mako-capacidades';
+// La regla del nombre vive en el catálogo, no acá: la comparten el ruteo, la tool de
+// WhatsApp y la skill de Claude Code (ver «Una cosa, un lugar» en AGENTS.md).
+import { REGLA_NOMBRE_PROYECTO } from './plan-proyectos-catalogo';
 
 export type GuardProjIn = { id: string; nombre: string };
 export type GuardTaskIn = { id: string; titulo: string; detalle?: string; proyecto?: string; deadline?: string; avance?: number; origen?: string; scoreActual?: number };
@@ -438,10 +441,11 @@ CUÁNDO SÍ PROPONER UNO NUEVO (en "nuevos"). Las CUATRO condiciones, juntas:
   1. Al menos TRES tareas de este mismo lote comparten el tema (o TODAS, si el lote es de menos de tres).
   2. NINGÚN proyecto de la lista lo cubre — no "no es el ideal": no lo cubre. Antes de decidirlo, releé la descripción de los tres que más se le parecen.
   3. Es un LUGAR PERMANENTE donde va a seguir cayendo trabajo. Dos cosas califican: un área del negocio ("Legal y fiscal", "Soporte") y **una FUNCIONALIDAD NUEVA del producto** — una tab, un módulo, un agente que todavía no existe. Lo que NO califica es un proyecto puntual que se termina: "Migrar a Deepseek" no es un lugar, es una tarea (va a Infraestructura).
-  4. El nombre se entiende SOLO, en 1 a 4 palabras, como el nombre de una tab: "Legal y fiscal", "Soporte", "Mindset". Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
+  4. EL NOMBRE:
+{{reglaNombre}}
 
 DOS EJEMPLOS REALES, uno de cada lado:
-· SÍ. Cuatro tareas sobre facturación electrónica (la tab en el sidebar, el timbrado, la factura automática al cobrar, el reporte para el contador). El catálogo no tiene nada de eso: "Cobros y planes" es la pantalla de precios y "Legal y fiscal" son los papeles del negocio, no un módulo del producto. Es una tab nueva → "Facturación".
+· SÍ. Cuatro tareas sobre facturación electrónica (la tab en el sidebar, el timbrado, la factura automática al cobrar, el reporte para el contador). El catálogo no tiene nada de eso: "Cobros y planes" es la pantalla de precios y "Legal y fiscal" son los papeles del negocio, no un módulo del producto. Es una tab nueva → "Feature: Facturación".
 · NO. Tres tareas sobre arreglar el filtro de fechas, el orden de las columnas y un botón del Ads Manager. Suena a un proyecto ("Mejoras del Ads Manager") y no lo es: ya existe "Ads Manager" y ahí es donde alguien las iría a buscar.
 
 CÓMO CORTAR LA DUDA, para los dos lados:
@@ -506,7 +510,7 @@ export async function asignarTareasAProyectos(
   // El QUÉ ENTRA de cada proyecto va SIEMPRE: pasarle solo los nombres era pedirle que
   // adivinara qué significa "Cerebro & Analítica", y adivinando es como duplicaba.
   const plan = destinos.map((o) => `· ${o.nombre}${o.que ? ` — ${o.que}` : ''}${o.n ? ` (${o.n} tareas)` : ''}`).join('\n');
-  const sys = await brandSystem(await renderPrompt('guardian.rutear.system', RUTEAR_SYSTEM_TEMPLATE, { jsonShape: RUTEAR_JSON_SHAPE }));
+  const sys = await brandSystem(await renderPrompt('guardian.rutear.system', RUTEAR_SYSTEM_TEMPLATE, { jsonShape: RUTEAR_JSON_SHAPE, reglaNombre: REGLA_NOMBRE_PROYECTO }));
   const user = await renderPrompt('guardian.rutear.user', RUTEAR_USER_TEMPLATE, { tareas: contenidoNoConfiable(tareasStr, 'tareas'), plan });
   let usage: UsageInfo | undefined;
   // effort:'medium' + maxTokens generoso: es clasificación (no debate), y con poco

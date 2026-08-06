@@ -53,10 +53,12 @@ Los que hoy son fuente única:
 |---|---|---|
 | El contrato del `detalle` | `lib/detalle-contrato.ts` | `plan-fathom`, `mako-doer-acciones`, `checklist-coach`, `agente-skill` |
 | Los proyectos del tablero | `lib/plan-proyectos-catalogo.ts` (dueño) · `lib/todo-proyectos-catalogo.ts` (clientes) | el ruteo del Perro, los dos boards |
+| Cómo se llama un proyecto nuevo (`Feature: `, `Cliente: `) | `PREFIJO_FEATURE` + `REGLA_NOMBRE_PROYECTO` en `lib/plan-proyectos-catalogo.ts` · `PREFIJO_CLIENTE` en `lib/todo-proyectos-catalogo.ts` | el prompt de ruteo (`mako-guardian`), la skill `plan-tareas` |
 | Qué modelo usa cada feature | `lib/model-registry.ts` | `chatClaude`/`chatCheap`, con override en /modelos-ia |
 | Cómo se funden dos descripciones | `lib/detalle-fusion.ts` | el board del dueño y el del cliente |
 
 Las skills son `.md` y no pueden importar nada. Para esas, el módulo se copia con un
 script y **el pre-push falla si quedaron viejas** — esa guarda es lo único que impide que
-el problema vuelva. Si agregás una skill que repite una de estas reglas, sumala a
-`DESTINOS` en `scripts/sync-contrato-detalle.mjs` en vez de copiar el texto.
+el problema vuelva. `scripts/sync-contrato-detalle.mjs` copia hoy DOS cosas (el molde del
+`detalle` y la regla del nombre de un proyecto), cada una entre sus marcadores. Si agregás
+una skill que repite una de estas reglas, sumala a `DESTINOS` en vez de copiar el texto.

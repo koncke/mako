@@ -79,3 +79,16 @@ test('el login no anuncia sección', () => {
 test('una ruta sin entrada en el menú igual queda legible', () => {
   assert.equal(tituloDe('/algo-nuevo'), 'MaKo - Algo nuevo');
 });
+
+test('la marca no se repite cuando ya está en el nombre de la sección', () => {
+  // "MaKo - WhatsApp de MaKo" se leía dos veces el producto.
+  assert.equal(tituloDe('/mako'), 'Preguntale a MaKo');
+  assert.equal(tituloDe('/agencia'), 'WhatsApp de MaKo');
+});
+
+test('la fábrica de guiones no se come el título de Admin', () => {
+  // nav.ts excluye a mano /admin/guiones del item de Admin para darle el suyo;
+  // si USER_NAV se evalúa antes, ese esfuerzo queda anulado.
+  assert.equal(tituloDe('/admin/guiones'), 'MaKo - Guiones');
+  assert.notEqual(tituloDe('/admin'), tituloDe('/admin/guiones'));
+});

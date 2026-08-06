@@ -8,7 +8,7 @@
 // y alimenta el PlanBoard (localStorage). El transcript es contenido no confiable.
 // =============================================================================
 
-import type { NextRequest } from 'next/server';
+import { after, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo, type TareaCandidata, type Participante } from '@/lib/plan-fathom';
 import { glosarioTexto, guardarTermino } from '@/lib/glosario';
@@ -16,7 +16,9 @@ import { resolverClienteDeReunion, nombreDeProyectoPara, opcionesDeCliente } fro
 import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
 import { esFechaValida } from '@/lib/date-utils';
-import { resumenPropuestasPorRefs, crearPropuesta } from '@/lib/plan-propuesta';
+import { resumenPropuestasPorRefs, crearPropuesta, estadoDePropuesta } from '@/lib/plan-propuesta';
+import { completarBorradorDeArchivos } from '@/lib/importar-en-segundo-plano';
+import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 // 300s porque una reunión larga se extrae POR PARTES (lib/plan-fathom → trocear): son
@@ -98,78 +100,63 @@ export async function POST(req: NextRequest) {
     try {
       const form = await req.formData();
       // VARIOS archivos, no uno. El modal manda `file` repetido (y acepta `file0..N`
-      // por compatibilidad con lo que ya estaba). Cada uno se lee con el lector
-      // compartido: .md/.txt/.vtt/.srt directo, .docx, .pdf (capa de texto y si no
-      // visión), imágenes por visión y audio/video transcripto.
+      // por compatibilidad con lo que ya estaba).
       const files = form.getAll('file').filter((f): f is File => f instanceof File);
       if (!files.length) return Response.json({ ok: false, error: 'Falta el archivo.' }, { status: 400 });
       if (files.length > 12) return Response.json({ ok: false, error: 'Máximo 12 archivos por vez.' }, { status: 400 });
 
-      // Los archivos se leen EN PARALELO pero la extracción es UNA SOLA sobre el texto
-      // pegado: son partes de un mismo asunto (la reunión, el brief, sus anexos), y
-      // extraer cada uno por separado devolvería la misma tarea repetida N veces.
-      const lecturas = await Promise.all(files.map(async (f) => ({ nombre: f.name, ...(await archivoATexto(f)) })));
-      const avisos = lecturas.filter((l) => l.warning).map((l) => l.warning!);
-      const conTexto = lecturas.filter((l) => l.texto.trim());
-      if (!conTexto.length) {
-        return Response.json({ ok: false, error: avisos[0] ?? 'No pude sacar texto de ninguno de esos archivos.' }, { status: 400 });
-      }
-      // 250k chars ≈ 6 horas de transcript. Antes 60k: un .md de una reunión de 2 horas
-      // (145k) se cortaba en el minuto 52 y se perdía la mitad de la charla EN SILENCIO.
-      // El largo ya no lo resuelve el recorte sino el troceado (extraerTareasDeTexto).
-      const texto = conTexto.map((l) => (conTexto.length > 1 ? `
-
-===== ${l.nombre} =====
-` : '') + l.texto).join('').slice(0, 250000);
-      const proyectos = proyectosDe(JSON.parse(String(form.get('proyectos') ?? '[]')));
-      const glosario = await glosarioTexto().catch(() => '');
-      const etiqueta = conTexto.length === 1 ? conTexto[0].nombre : `${conTexto.length} archivos`;
-      const out = await extraerTareasDeTexto(texto, proyectos, yo, { glosario, usoMotivo: `Extraer tareas de ${etiqueta}` });
-      // Un archivo no trae invitados, así que la única señal del cliente es el nombre
-      // del archivo ("Baja Teriyaki - seguimiento.md"). Si no alcanza, el modal pregunta.
-      const pista = conTexto[0].nombre.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ');
-
-      // EL BORRADOR SE GUARDA ACÁ, ANTES DE RESPONDER. La extracción de un archivo de
-      // 6 KB tarda ~2 minutos: más de lo que la respuesta HTTP sobrevive en Vercel. Si
-      // el trabajo solo vive en la respuesta, una desconexión —o cerrar el modal— tira
-      // dos minutos de IA a la basura y el usuario ve un spinner para siempre. Ahora el
-      // trabajo queda del lado del server pase lo que pase, y el modal solo lo muestra.
+      // ── ACÁ NO SE LEE NADA. Leer un .md de 6 KB y extraerle las tareas tardó 122
+      // segundos MEDIDOS: más de lo que sobrevive la respuesta HTTP. Antes esto se
+      // hacía adentro del request y el modal giraba para siempre; si lo cerrabas,
+      // dos minutos de IA a la basura.
       //
-      // El `ref` es el hash del contenido: volver a subir el MISMO archivo devuelve el
-      // borrador que ya existe en vez de pagar la extracción de nuevo (mismo candado
-      // que usan las reuniones con fathom:<recordingId>).
-      const huella = createHash('sha1').update(texto).digest('hex').slice(0, 24);
-      let borradorId: string | null = null;
-      try {
-        const tareasOut = ((out as { tareas?: Array<Record<string, unknown>> }).tareas ?? [])
-          .filter((t) => !t.esDeOtro)
-          .map((t) => ({ titulo: String(t.titulo ?? ''), detalle: String(t.detalle ?? ''), prioridad: t.prioridad as never, proyecto: t.proyectoNombre ? String(t.proyectoNombre) : undefined }));
-        if (tareasOut.length) {
-          borradorId = await crearPropuesta({
-            tareas: tareasOut, origen: 'archivo', ref: `archivo:${huella}`,
-            resumen: conTexto.length === 1 ? `De «${conTexto[0].nombre}»` : `De ${conTexto.length} archivos`,
-            fuenteTitulo: etiqueta,
-          });
-        }
-      } catch (e) {
-        // Que falle el guardado NO puede tirar la extracción: el usuario igual ve sus
-        // tareas en la respuesta. Solo pierde la red de seguridad.
-        console.error(`[api:plan-fathom] no pude guardar el borrador del archivo: ${msg(e)}`);
+      // Ahora el request solo hace lo barato: copia los bytes, crea el borrador VACÍO
+      // en 'procesando' y devuelve su id. La lectura sigue en `after()`, después de que
+      // la respuesta ya salió, y cuando termina llena ese mismo borrador. El modal mira
+      // el borrador: puede cerrarse, volver más tarde o quedarse esperando.
+      //
+      // Los bytes se copian a un File nuevo a propósito: el File de `formData()` puede
+      // estar respaldado por el stream del request, que muere con la respuesta. Copiarlo
+      // cuesta memoria (hasta 18 MB, el techo del proxy) y compra que `after()` tenga
+      // qué leer.
+      const bytes = await Promise.all(files.map(async (f) => ({ nombre: f.name, buf: await f.arrayBuffer(), tipo: f.type })));
+      const archivos = bytes.map((b) => ({ nombre: b.nombre, file: new File([b.buf], b.nombre, { type: b.tipo }) }));
+
+      // El `ref` es el hash del CONTENIDO: volver a subir el mismo archivo devuelve el
+      // borrador que ya existe en vez de pagar la extracción otra vez (mismo candado que
+      // usan las reuniones con fathom:<recordingId>). Antes se hasheaba el texto ya
+      // extraído — o sea, después de pagar; hasheando los bytes el candado sirve.
+      const huella = createHash('sha1');
+      for (const b of bytes) huella.update(Buffer.from(b.buf));
+      const ref = `archivo:${huella.digest('hex').slice(0, 24)}`;
+
+      // Si ese archivo YA se leyó y quedó pendiente, no se vuelve a leer: se devuelve.
+      const yaEsta = (await resumenPropuestasPorRefs([ref]).catch(() => ({} as Record<string, never>)))[ref];
+      if (yaEsta && (yaEsta.estado === 'pendiente' || yaEsta.estado === 'aplicada')) {
+        return Response.json({ ok: true, borradorId: yaEsta.id, estado: yaEsta.estado, yaEstaba: true, n: yaEsta.creadas });
       }
 
-      const res = await conCliente({ ...(out as unknown as Record<string, unknown>), borradorId }, pista);
-      if (!avisos.length) return res;
-      // Los archivos que no se pudieron leer se DICEN, no se tragan: si alguien sube
-      // 4 y uno falla, tiene que enterarse de cuál y por qué.
-      const body = await res.json().catch(() => ({}));
-      return Response.json({ ...body, avisos, leidos: conTexto.map((l) => ({ nombre: l.nombre, via: l.via, chars: l.texto.length })) }, { status: res.status });
+      const proyectos = proyectosDe(JSON.parse(String(form.get('proyectos') ?? '[]')));
+      const etiqueta = archivos.length === 1 ? archivos[0].nombre : `${archivos.length} archivos`;
+      const borradorId = await crearPropuesta({
+        tareas: [], origen: 'archivo', ref, estado: 'procesando',
+        resumen: `Leyendo ${etiqueta}…`, fuenteTitulo: etiqueta,
+      });
+
+      // El ws se captura ACÁ: `after()` corre fuera del runWithWorkspace del request y
+      // el AsyncLocalStorage no viaja. Sin esto, el borrador se llenaría en el ws
+      // equivocado (o en ninguno).
+      const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+      after(() => completarBorradorDeArchivos({ ws, borradorId, archivos, proyectos, yo }));
+
+      return Response.json({ ok: true, borradorId, estado: 'procesando', procesando: true, archivos: archivos.map((a) => a.nombre) });
     } catch (e) {
       console.error(`[api:plan-fathom] archivo: ${msg(e)}`);
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }
   }
 
-  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string; titulo?: string; cursor?: string; recordedAfter?: string; termino?: string; definicion?: string; reanalizar?: boolean; candidatas?: Array<{ titulo?: string; detalle?: string }>; existentes?: Array<{ id?: string; titulo?: string; detalle?: string }> };
+  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string; titulo?: string; cursor?: string; recordedAfter?: string; termino?: string; definicion?: string; reanalizar?: boolean; candidatas?: Array<{ titulo?: string; detalle?: string }>; existentes?: Array<{ id?: string; titulo?: string; detalle?: string }>; id?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const uso = String(body.uso ?? '').trim() || undefined;
 
@@ -185,6 +172,19 @@ export async function POST(req: NextRequest) {
       // 61 tareas: el usuario paga tokens para que le muestren lo que ya tiene.
       const borradores = await resumenPropuestasPorRefs(reuniones.map((r) => `fathom:${r.recordingId}`)).catch(() => ({}));
       return Response.json({ ok: true, reuniones, nextCursor, borradores });
+    }
+    // ── ¿Ya terminó de leer? El modal pregunta cada pocos segundos mientras la lectura
+    // corre en segundo plano. Es barato (una fila) y NO hace trabajo: solo mira.
+    if (body.action === 'estado-borrador') {
+      const est = await estadoDePropuesta(String(body.id ?? ''));
+      if (!est) return Response.json({ ok: false, error: 'Ese borrador no existe.' }, { status: 404 });
+      // Las tareas viajan con la forma que espera el modal (proyectoNombre, no proyecto).
+      const tareas = est.tareas.map((t) => ({
+        titulo: t.titulo, detalle: t.detalle ?? '', prioridad: t.prioridad ?? 'media',
+        proyectoId: null, proyectoNombre: t.proyecto ?? '',
+        dueño: t.dueno ?? '', dueñoEmail: t.duenoEmail ?? '', esDeOtro: !!t.esDeOtro,
+      }));
+      return Response.json({ ok: true, estado: est.estado, n: est.n, resumen: est.resumen, tareas });
     }
     // Guardar un término del glosario (punto 7): la respuesta del usuario a "¿qué es X?".
     if (body.action === 'glosario-guardar') {

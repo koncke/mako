@@ -133,6 +133,8 @@ function CierrePaso({ item, valor, onElegir }: {
   );
 }
 
+import { ContextoDelBorrador } from './ContextoDelBorrador';
+
 export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [paso, setPaso] = useState(0);
   const [resp, setResp] = useState<Record<number, string>>({});
@@ -250,7 +252,10 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
 
   return (
     <WizardShell
-      titulo={prop.resumen || `Borrador · ${nT} tarea${nT === 1 ? '' : 's'}`}
+      // UNA LÍNEA. El `resumen` puede traer la investigación entera (3.000 caracteres) y
+      // acá se renderiza centrado y en mono, arriba de todo: era un muro de texto antes
+      // de poder leer la pregunta. El texto completo va abajo, en ContextoDelBorrador.
+      titulo={`Borrador · ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`}
       total={steps.length} idx={Math.min(paso, steps.length - 1)}
       pregunta={dynLoading ? 'MaKo está pensando…' : busy ? 'Creando…' : pregunta} sub={dynLoading || busy ? undefined : sub}
       puedeAvanzar={!busy && !dynLoading} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy || dynLoading}
@@ -274,11 +279,13 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
            quedaba a la vista el link de descartar mientras ya estaba guardando. */
         <DynLoader texto="Creando las tareas y puntuándolas contra tu plan…" sub="El Perro las ubica en la pirámide y les arma la checklist. Puede tardar unos segundos." />
       ) : cur.kind === 'cerrar' ? (
-        <CierrePaso item={cierres[cur.i]} valor={cierreResp[cur.i]} onElegir={(v) => setCierreResp((r) => ({ ...r, [cur.i]: v }))} />
+        <><CierrePaso item={cierres[cur.i]} valor={cierreResp[cur.i]} onElegir={(v) => setCierreResp((r) => ({ ...r, [cur.i]: v }))} />
+        <ContextoDelBorrador texto={prop.resumen} /></>
       ) : cur.kind === 'q' ? (
         <>
           <SobreQue sobre={prop.preguntas[cur.i]?.sobre} />
           <PreguntaBody q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
+          <ContextoDelBorrador texto={prop.resumen} />
         </>
       ) : cur.kind === 'dyn' ? (
         <>

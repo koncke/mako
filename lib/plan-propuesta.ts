@@ -247,6 +247,9 @@ export type CrearPropuestaDraft = {
   ref?: string;
   /** workspace destino. Por defecto el del request; se pasa explícito para MANDARLE tareas a otra persona. */
   ws?: number;
+  /** 'procesando' = la fila nace VACÍA y alguien la va a llenar después (la lectura de
+   *  archivos en segundo plano). No aparece en la lista de pendientes hasta que se llene. */
+  estado?: 'pendiente' | 'procesando';
 };
 
 /** Crea el borrador (por defecto en el workspace actual). Devuelve el id (link /plan/revisar/<id>). */
@@ -268,16 +271,17 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
       const { data } = await db.from('plan_propuestas').select('id, estado').eq('ref', ref).maybeSingle();
       if (data) {
         const fila = data as Row;
-        if (str(fila.estado) === 'descartada') {
-          await db.from('plan_propuestas').update({ estado: 'pendiente' }).eq('id', str(fila.id));
-          console.log(`[plan-propuesta] borrador ${str(fila.id)} revivido: se volvió a extraer la reunión`);
+        // 'fallado' también revive: volver a subir el archivo que falló ES el reintento.
+        if (str(fila.estado) === 'descartada' || str(fila.estado) === 'fallado') {
+          await db.from('plan_propuestas').update({ estado: draft.estado ?? 'pendiente' }).eq('id', str(fila.id));
+          console.log(`[plan-propuesta] borrador ${str(fila.id)} revivido: se volvió a extraer la fuente`);
         }
         return str(fila.id);
       }
     }
     const id = genId('prop');
     const { error } = await db.from('plan_propuestas').insert({
-      id, estado: 'pendiente', origen: draft.origen ?? 'whatsapp', resumen: (draft.resumen ?? '').slice(0, 300),
+      id, estado: draft.estado ?? 'pendiente', origen: draft.origen ?? 'whatsapp', resumen: (draft.resumen ?? '').slice(0, 300),
       tareas, notas: preguntas, eliminar, cerrar, // `notas` guarda {pregunta,opciones}; `eliminar` = {id,titulo,motivo}; `cerrar` = {id,evidencia,confianza}
       ref, enviado_por: draft.enviadoPor?.slice(0, 120) ?? null,
       fuente_titulo: draft.fuenteTitulo?.slice(0, 200) ?? null, fuente_url: draft.fuenteUrl?.slice(0, 500) ?? null,
@@ -856,6 +860,46 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
  * Solo toca borradores PENDIENTES y nunca cambia el estado: si ya se aplicó o se
  * descartó, no hay revisión que guardar.
  */
+/** El borrador pasa de 'procesando' a 'pendiente' con lo que salió. Es el final feliz
+ *  de la lectura en segundo plano: hasta acá la fila existía vacía. */
+export async function marcarProcesado(id: string, datos: { tareas: Array<Record<string, unknown>>; resumen?: string; avisos?: string[] }): Promise<void> {
+  return enWs(async () => {
+    const limpias = datos.tareas.map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+    const db = await getTenantDb();
+    const resumen = [datos.resumen ?? '', (datos.avisos ?? []).length ? `· ${(datos.avisos ?? []).length} archivo(s) no se pudieron leer` : ''].filter(Boolean).join(' ').slice(0, 300);
+    const { error } = await db.from('plan_propuestas')
+      .update({ estado: limpias.length ? 'pendiente' : 'descartada', tareas: limpias, resumen })
+      .eq('id', id);
+    if (error) console.error(`[plan-propuesta] marcarProcesado ${id}: ${error.message}`);
+  });
+}
+
+/** La lectura falló. El error queda EN la fila, no solo en el log: si no, el borrador se
+ *  queda en 'procesando' para siempre y nadie sabe por qué. */
+export async function marcarFallado(id: string, motivo: string): Promise<void> {
+  return enWs(async () => {
+    const db = await getTenantDb();
+    const { error } = await db.from('plan_propuestas')
+      .update({ estado: 'fallado', resumen: `No pude leerlo: ${motivo}`.slice(0, 300) })
+      .eq('id', id);
+    if (error) console.error(`[plan-propuesta] marcarFallado ${id}: ${error.message}`);
+  });
+}
+
+/** El estado de un borrador, para que el modal pueda esperar sin bloquear nada.
+ *  Devuelve las tareas también: cuando la lectura en segundo plano termina, el modal
+ *  tiene que poder mostrarlas sin una segunda vuelta. */
+export async function estadoDePropuesta(id: string): Promise<{ estado: string; n: number; resumen: string; tareas: PropuestaTarea[] } | null> {
+  return enWs(async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_propuestas').select('estado, tareas, resumen').eq('id', id).limit(1);
+    const fila = (data ?? [])[0] as Row | undefined;
+    if (!fila) return null;
+    const tareas = asArr<unknown>(fila.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+    return { estado: str(fila.estado, 'pendiente'), n: tareas.length, resumen: str(fila.resumen), tareas };
+  });
+}
+
 export async function guardarRevision(id: string, tareas: PropuestaTarea[]): Promise<boolean> {
   return enWs(async () => {
     const limpias = tareas.map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);

@@ -41,7 +41,24 @@ export type ProyectoCatalogo = {
   que: string;
 };
 
-export const CATALOGO_PROYECTOS: ProyectoCatalogo[] = [
+/**
+ * El prefijo de los proyectos que son una FEATURE del producto — o sea, una tab de la
+ * app que se está construyendo. Misma idea que `PREFIJO_CLIENTE` en el catálogo del
+ * cliente: que se lea de un vistazo qué clase de proyecto es sin tener que conocerlo.
+ *
+ * Dictado por el dueño: «revisa los nombres de los proyectos y les cambies el nombre a
+ * "Feature: NOMBRE" así se entiende bien». Y la otra mitad de la regla, igual de
+ * importante: **si no debe llevarlo, no se lo pongas.** Solo la familia `producto`. Un
+ * proyecto transversal (Seguridad, Diseño de la app) no es una feature: las cruza
+ * todas. Y «Vender MaKo: Ads» no se construye, se hace — su prefijo ya dice qué es.
+ *
+ * Se aplica SOLO acá, derivado de la familia, y nunca escrito a mano fila por fila: si
+ * estuviera copiado 28 veces, la entrada 29 se olvidaría de ponerlo.
+ */
+export const PREFIJO_FEATURE = 'Feature: ';
+
+/** El catálogo tal cual se escribe: `nombre` es el NÚCLEO, sin prefijo. */
+const CRUDO: ProyectoCatalogo[] = [
   // ── Producto: una tab, un proyecto ─────────────────────────────────────────
   { nombre: 'General', emoji: '🏠', familia: 'producto', que: 'La pantalla de inicio: el semáforo de qué está bien y qué no, y el diagnóstico del negocio que lo sostiene.' },
   // «General» eran dos cosas distintas metidas en una: el semáforo que DIAGNOSTICA (te
@@ -102,15 +119,46 @@ export const CATALOGO_PROYECTOS: ProyectoCatalogo[] = [
   { nombre: 'Vender MaKo: Referidos', emoji: '🤝', familia: 'vender', que: 'Que los clientes traigan clientes: programa de referidos, incentivos y su seguimiento.' },
 ];
 
+/** El catálogo de verdad: las features ya vienen con su prefijo puesto. */
+export const CATALOGO_PROYECTOS: ProyectoCatalogo[] = CRUDO.map((p) =>
+  p.familia === 'producto' ? { ...p, nombre: `${PREFIJO_FEATURE}${p.nombre}` } : p);
+
 export const NOMBRES_CATALOGO: string[] = CATALOGO_PROYECTOS.map((p) => p.nombre);
 
 const norm = (s: string): string =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
-const PORNOMBRE = new Map(CATALOGO_PROYECTOS.map((p) => [norm(p.nombre), p]));
+/**
+ * El núcleo del nombre, sin el prefijo. Es lo que hace que «CRM» y «Feature: CRM» sean
+ * el MISMO proyecto: las filas viejas del tablero no lo tienen, el modelo a veces lo
+ * va a omitir, y sin esto cada una de esas dos formas abriría un proyecto distinto —
+ * que es exactamente el desastre de 64 proyectos que este catálogo vino a cerrar.
+ */
+export const nucleo = (nombre: string): string =>
+  norm(nombre).replace(/^feature\s*:\s*/, '');
 
-/** ¿Este nombre es uno del catálogo? (sin acentos ni mayúsculas). */
-export const delCatalogo = (nombre: string): ProyectoCatalogo | undefined => PORNOMBRE.get(norm(nombre));
+const PORNOMBRE = new Map(CATALOGO_PROYECTOS.map((p) => [nucleo(p.nombre), p]));
+
+/** ¿Este nombre es uno del catálogo? (sin acentos, mayúsculas ni prefijo). */
+export const delCatalogo = (nombre: string): ProyectoCatalogo | undefined => PORNOMBRE.get(nucleo(nombre));
+
+/** El nombre CANÓNICO de un proyecto del catálogo: con su prefijo si le toca. Sirve para
+ *  normalizar lo que devuelve el modelo antes de que llegue al tablero. */
+export const canonNombre = (nombre: string): string => delCatalogo(nombre)?.nombre ?? nombre.trim();
+
+/**
+ * CÓMO SE LLAMA UN PROYECTO NUEVO. Fuente única: lo lee el ruteo del Perro, la tool de
+ * WhatsApp y la skill de Claude Code. Está acá y no copiado en los tres, porque copiado
+ * en tres lados el tercero se queda viejo — ya pasó con el contrato del `detalle`.
+ *
+ * El prefijo no es decorativo: es lo que hace que el tablero se lea de un vistazo. En un
+ * tablero de 34 proyectos mezclados, «Facturación» no dice si es una pantalla que hay
+ * que construir o un trámite que hay que hacer; «Feature: Facturación» sí.
+ */
+export const REGLA_NOMBRE_PROYECTO = `El nombre se entiende SOLO, en 1 a 4 palabras, como el nombre de una tab. Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
+
+EL PREFIJO, y es obligatorio: si el proyecto nuevo es una FUNCIONALIDAD del producto —una tab, un módulo, un agente de la app— se llama «${PREFIJO_FEATURE}NOMBRE»: «${PREFIJO_FEATURE}Facturación», igual que «${PREFIJO_FEATURE}CRM» o «${PREFIJO_FEATURE}Ads Manager».
+Si NO es una funcionalidad del producto va SIN prefijo: un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads"). Ponerle «${PREFIJO_FEATURE.trim()}» a algo que no se programa es peor que no ponérselo: dice que hay que construirlo cuando hay que firmarlo o pagarlo.`;
 
 /**
  * El catálogo como se lo pasamos a un modelo: nombre + qué entra. Va SIEMPRE con las
@@ -120,8 +168,11 @@ export function catalogoParaPrompt(): string {
   const bloque = (f: FamiliaProyecto, titulo: string) =>
     `${titulo}\n${CATALOGO_PROYECTOS.filter((p) => p.familia === f).map((p) => `· ${p.nombre} — ${p.que}`).join('\n')}`;
   return [
-    bloque('producto', 'CONSTRUIR EL PRODUCTO (cada uno es una tab de la app):'),
-    bloque('transversal', 'TRANSVERSALES (no son una tab, cruzan toda la app):'),
-    bloque('vender', 'VENDER MAKO (el trabajo comercial, por canal):'),
+    bloque('producto', `CONSTRUIR EL PRODUCTO (cada uno es una tab de la app, y por eso lleva el prefijo «${PREFIJO_FEATURE.trim()}»):`),
+    bloque('transversal', 'TRANSVERSALES (no son una tab, cruzan toda la app — SIN prefijo):'),
+    bloque('vender', 'VENDER MAKO (el trabajo comercial, por canal — SIN prefijo):'),
+    // La regla escrita, además de los 28 ejemplos: el modelo tiene que poder nombrar
+    // una feature que TODAVÍA no existe, y ahí no hay ningún ejemplo que copiar.
+    `CÓMO SE LLAMAN: una feature del producto se llama «${PREFIJO_FEATURE}NOMBRE DE LA TAB». Si proponés una feature nueva, ponele ese prefijo. Lo transversal y lo de vender NO lo llevan.`,
   ].join('\n\n');
 }

@@ -86,8 +86,12 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // El dueño puede apagar este aviso desde Configuraciones › Notificaciones. Se
     // apaga el WHATSAPP, no el registro: la fila del feed queda igual, así que
     // silenciar un aviso no borra la bitácora de que el evento pasó.
+    //
+    // NO se marca el dedup acá. La marca existe para "ya lo dije hace poco, no lo
+    // repito", y un aviso apagado nunca se dijo. Marcarlo envenenaba el interruptor:
+    // apagar y volver a prender dejaba el aviso mudo hasta que venciera el TTL —
+    // días, en los que tienen ventana larga— sin nada que lo explicara.
     if (!(await avisoWaActivo(ws, a.tipo))) {
-      if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo);
       return { ok: true, feedId, wa: false, deduped: false, apagado: true };
     }
 

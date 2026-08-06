@@ -216,6 +216,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // para no reiniciarse cada vez que alguien las cambia.
   const inAppRef = useRef<NotifInApp | null>(null);
   inAppRef.current = inApp;
+  const prefsPedidasRef = useRef(false);
   const dejaVer = (id: string) => inAppActivo(inAppRef.current, id, 'popup');
   const dejaSonar = (id: string) => inAppActivo(inAppRef.current, id, 'sonido');
   const noOfSnapRef = useRef<Map<string, number>>(new Map());   // chatJid → última actividad (ms) vista
@@ -328,20 +329,29 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   // Preferencias de pop-up/sonido de esta persona. Se recargan cuando las guarda
   // (evento del panel de Configuraciones) para que el cambio se note al instante.
+  //
+  // Depende de `pathname` y no de []: el provider vive en el layout raíz y no se
+  // desmonta nunca, así que con [] el efecto corría UNA vez y se quedaba con el
+  // pathname del arranque. Quien entraba por /login (o por la landing) se llevaba
+  // el `return` de la guarda y no volvía a intentarlo jamás: ya adentro de la app,
+  // `inApp` seguía en null y todo sonaba, hubiera apagado lo que hubiera apagado.
+  // El ref evita repetir el GET en cada navegación.
   useEffect(() => {
     if (pathname.startsWith('/login') || isPublicLandingPath(pathname)) return;
     let alive = true;
-    const cargar = () => {
+    const cargar = (forzar: boolean) => {
+      if (!forzar && prefsPedidasRef.current) return;
+      prefsPedidasRef.current = true;
       void fetch('/api/perfil/notif-inapp')
         .then((r) => r.json())
         .then((j) => { if (alive && j?.ok && j.inApp) setInApp(j.inApp as NotifInApp); })
-        .catch(() => {});
+        .catch(() => { if (alive) prefsPedidasRef.current = false; }); // que un fallo de red no lo deje mudo para siempre
     };
-    cargar();
-    window.addEventListener(EVENTO_PREFS_IN_APP, cargar);
-    return () => { alive = false; window.removeEventListener(EVENTO_PREFS_IN_APP, cargar); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const recargar = () => cargar(true);
+    cargar(false);
+    window.addEventListener(EVENTO_PREFS_IN_APP, recargar);
+    return () => { alive = false; window.removeEventListener(EVENTO_PREFS_IN_APP, recargar); };
+  }, [pathname]);
 
   // Desbloquear el audio en el primer gesto del usuario (autoplay policy).
   useEffect(() => {

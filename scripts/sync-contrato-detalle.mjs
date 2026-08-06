@@ -18,10 +18,13 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 const CHECK = process.argv.includes('--check');
 const FUENTE = 'lib/detalle-contrato.ts';
+const FUENTE_PROY = 'lib/plan-proyectos-catalogo.ts';
 const DESTINOS = ['.claude/skills/plan-tareas/SKILL.md'];
 
 const INICIO = '<!-- CONTRATO-DETALLE:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->';
 const FIN = '<!-- CONTRATO-DETALLE:FIN -->';
+const P_INICIO = '<!-- REGLA-NOMBRE-PROYECTO:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->';
+const P_FIN = '<!-- REGLA-NOMBRE-PROYECTO:FIN -->';
 
 /** Saca MOLDE_DETALLE y MOLDE_ADVERTENCIA del módulo sin importarlo (es TS + server-only). */
 function leerFuente() {
@@ -51,18 +54,54 @@ const bloque = [
   FIN,
 ].join('\n');
 
+/** La regla del nombre de un proyecto, del catálogo. Mismo motivo que el molde: si se
+ *  copia a mano al .md, la copia se queda vieja y desde ese camino sale mal. */
+function leerReglaProyecto() {
+  const src = readFileSync(FUENTE_PROY, 'utf8');
+  const mPref = src.match(/export const PREFIJO_FEATURE = '([^']*)';/);
+  const mRegla = src.match(/export const REGLA_NOMBRE_PROYECTO = `([\s\S]*?)`;/);
+  if (!mPref || !mRegla) throw new Error(`No pude leer PREFIJO_FEATURE/REGLA_NOMBRE_PROYECTO de ${FUENTE_PROY}`);
+  // La regla es un template literal con ${PREFIJO_FEATURE} adentro: se resuelve acá.
+  return mRegla[1]
+    .replace(/\$\{PREFIJO_FEATURE\.trim\(\)\}/g, mPref[1].trim())
+    .replace(/\$\{PREFIJO_FEATURE\}/g, mPref[1]);
+}
+
+const bloqueProy = [
+  P_INICIO,
+  '',
+  '**Cómo se llama un proyecto nuevo.** Vive en `lib/plan-proyectos-catalogo.ts` y se copia',
+  'acá sola: si cambia allá, cambia acá. No la edites a mano.',
+  '',
+  ...leerReglaProyecto().split('\n').map((l) => (l.trim() ? `> ${l}` : '>')),
+  '',
+  P_FIN,
+].join('\n');
+
+/** Reemplaza lo que hay entre dos marcadores. Devuelve null si faltan. */
+const entre = (txt, ini, fin, bloque) => {
+  const i = txt.indexOf(ini);
+  const j = txt.indexOf(fin);
+  if (i < 0 || j < 0) return null;
+  return txt.slice(0, i) + bloque + txt.slice(j + fin.length);
+};
+
 let sucio = 0;
 for (const d of DESTINOS) {
   if (!existsSync(d)) { console.warn(`  · ${d} no existe, salteado`); continue; }
   const txt = readFileSync(d, 'utf8');
-  const i = txt.indexOf(INICIO);
-  const j = txt.indexOf(FIN);
-  if (i < 0 || j < 0) {
+  const paso1 = entre(txt, INICIO, FIN, bloque);
+  if (paso1 === null) {
     console.error(`  ✗ ${d}: faltan los marcadores CONTRATO-DETALLE. Agregalos donde tenga que ir el contrato.`);
     sucio++;
     continue;
   }
-  const nuevo = txt.slice(0, i) + bloque + txt.slice(j + FIN.length);
+  const nuevo = entre(paso1, P_INICIO, P_FIN, bloqueProy);
+  if (nuevo === null) {
+    console.error(`  ✗ ${d}: faltan los marcadores REGLA-NOMBRE-PROYECTO. Agregalos donde tenga que ir la regla del nombre.`);
+    sucio++;
+    continue;
+  }
   if (nuevo === txt) { console.log(`  ✓ ${d} al día`); continue; }
   if (CHECK) { console.error(`  ✗ ${d} DESINCRONIZADO — corré: node scripts/sync-contrato-detalle.mjs`); sucio++; continue; }
   writeFileSync(d, nuevo);

@@ -14,7 +14,7 @@ import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, Gu
 import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
-import { CATALOGO_PROYECTOS, delCatalogo } from '@/lib/plan-proyectos-catalogo';
+import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
 import { faseNegocioTexto } from '@/lib/fase-store';
 
 type Row = Record<string, unknown>;
@@ -249,9 +249,12 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     // 1. proyectos existentes (resolver por nombre) + crear los que falten (dedupe).
     const { data: projRows } = await db.from('plan_proyectos').select('*');
     const proyectos = (projRows ?? []).map(rowToLabel);
-    const byName = new Map(proyectos.map((p) => [p.name.trim().toLowerCase(), p.id]));
+    // La clave es el NÚCLEO del nombre, no el nombre crudo: «CRM», «Feature: CRM» y
+    // «feature: crm» tienen que caer todos en el mismo proyecto. Con `.toLowerCase()`
+    // pelado, el primer ruteo que devolviera el nombre sin prefijo abría un gemelo.
+    const byName = new Map(proyectos.map((p) => [nucleo(p.name), p.id]));
     const idsExist = new Set(proyectos.map((p) => p.id)); // MaKo a veces pasa el id/slug del proyecto existente
-    const resolverProy = (nombre?: string): string | undefined => { const n = nombre?.trim(); if (!n) return undefined; return byName.get(n.toLowerCase()) ?? (idsExist.has(n) ? n : undefined); };
+    const resolverProy = (nombre?: string): string | undefined => { const n = nombre?.trim(); if (!n) return undefined; return byName.get(nucleo(n)) ?? (idsExist.has(n) ? n : undefined); };
 
     // 1a. RUTEO POR TAREA (el Perro, ANTES de crear), contra una lista CERRADA: los
     // proyectos que ya están en el tablero + el catálogo de proyectos grandes
@@ -267,10 +270,10 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     }
     // Un solo menú: lo que ya existe manda (con su descripción y su tamaño), y el catálogo
     // aporta los que todavía no se crearon. Sin repetir el que ya está en el tablero.
-    const yaEnTablero = new Set(proyectos.map((p) => p.name.trim().toLowerCase()));
+    const yaEnTablero = new Set(proyectos.map((p) => nucleo(p.name)));
     const destinos = [
       ...proyectos.map((p) => ({ nombre: p.name, que: delCatalogo(p.name)?.que || p.detalle || '', n: cuentaPorProy.get(p.id) ?? 0 })),
-      ...CATALOGO_PROYECTOS.filter((c) => !yaEnTablero.has(c.nombre.toLowerCase())).map((c) => ({ nombre: c.nombre, que: c.que })),
+      ...CATALOGO_PROYECTOS.filter((c) => !yaEnTablero.has(nucleo(c.nombre))).map((c) => ({ nombre: c.nombre, que: c.que })),
     ];
     const ruteo: Record<number, string> = {}; // índice de tarea → NOMBRE del proyecto destino
     const propuestosPorElPerro = new Map<string, { nombre: string; que: string; porQue: string }>();
@@ -290,7 +293,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
       // Los proyectos que el Perro pidió abrir porque nada de la lista los cubría.
       // Vienen con su descripción y su porqué: se guardan para que el proyecto nuevo
       // nazca explicándose solo, igual que uno del catálogo.
-      for (const n of (r.nuevos ?? [])) propuestosPorElPerro.set(n.nombre.trim().toLowerCase(), n);
+      for (const n of (r.nuevos ?? [])) propuestosPorElPerro.set(nucleo(n.nombre), n);
     }
 
     // 2. proyecto RESUELTO de cada tarea: el destino que eligió el Perro (o, si el ruteo
@@ -307,7 +310,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
         const l = ruteadasA.get(exist) ?? []; l.push(it.titulo.trim()); ruteadasA.set(exist, l);
         return exist;
       }
-      const k = nombre.toLowerCase();
+      const k = nucleo(nombre);
       let nid = byName.get(k);
       if (!nid) {
         const cat = delCatalogo(nombre);
@@ -321,7 +324,10 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
           : delPerro ? `MaKo abrió este proyecto: ${delPerro.porQue} — ${desde}`
             : `Creó el proyecto — ${desde}`;
         nuevosProy.push({
-          id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? (delPerro ? '🗂' : '📁'), name: nombre.slice(0, 120),
+          // El nombre que se GUARDA es el canónico del catálogo: si el modelo dijo
+          // «CRM», el proyecto se llama «Feature: CRM». El prefijo no depende de que
+          // el modelo se acuerde de escribirlo.
+          id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? (delPerro ? '🗂' : '📁'), name: canonNombre(nombre).slice(0, 120),
           color: '#2F6FED', score: 50, detalle: cat?.que ?? delPerro?.que ?? '', fuente: fu,
           historial: [{ id: genId('h'), ts: ahora, actor, text: porQueNacio.slice(0, 300) }],
         });

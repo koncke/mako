@@ -849,9 +849,9 @@ export const REGISTRY: Group[] = [
       {
         key: 'guardian.rutear.system', source: 'override',
         label: 'Rutear tareas nuevas a proyectos existentes (system)', kind: 'system', dynamic: true,
-        variables: [v('jsonShape', 'forma EXACTA del JSON')], scope: 'static-only', sensitive: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON'), v('reglaNombre', 'cómo se llama un proyecto nuevo (el prefijo «Feature: »)')], scope: 'static-only', sensitive: true,
         default: RUTEAR_SYSTEM_TEMPLATE,
-        context: 'Al cargar tareas, MaKo decide POR TAREA a qué proyecto EXISTENTE va cada una (o si es trabajo nuevo), así no crea proyectos duplicados. Es preferible "nuevo" antes que forzar una tarea a un proyecto sólo parecido. No borres el slot {{jsonShape}}.',
+        context: 'Al cargar tareas, MaKo decide POR TAREA a qué proyecto EXISTENTE va cada una (o si es trabajo nuevo), así no crea proyectos duplicados. Es preferible "nuevo" antes que forzar una tarea a un proyecto sólo parecido. No borres los slots {{jsonShape}}/{{reglaNombre}} — el segundo trae la regla del nombre, que vive en lib/plan-proyectos-catalogo.ts para que sea la misma acá, en WhatsApp y en la skill.',
       },
       {
         key: 'guardian.rutear.user', source: 'override',

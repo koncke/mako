@@ -102,10 +102,23 @@ await sql`insert into plan_propuestas (id, workspace_id, estado, origen, resumen
   decide el Perro (ver abajo).
 - `proyecto` = un nombre del **CATÁLOGO CERRADO** (`lib/plan-proyectos-catalogo.ts`). NO
   inventes nombres. Los proyectos son GRANDES —del tamaño del nombre de una tab— y hay dos
-  familias: los de producto se llaman como la tab (`CRM`, `Dashboard`, `Onboarding`,
-  `WhatsApp`, `MaKo Doer`…) y el trabajo comercial va en `Vender MaKo: <canal>`. Más unos
-  pocos transversales (`Seguridad y multi-inquilino`, `Diseño de la app`, `Infraestructura
-  y versionado`, `Avisos y reportes`).
+  familias: los de producto se llaman **`Feature: <la tab>`** (`Feature: CRM`,
+  `Feature: Dashboard`, `Feature: Onboarding`, `Feature: WhatsApp`, `Feature: MaKo Doer`…)
+  y el trabajo comercial va en `Vender MaKo: <canal>`. Más unos pocos transversales, que
+  NO llevan prefijo (`Seguridad y multi-inquilino`, `Diseño de la app`, `Infraestructura y
+  versionado`, `Avisos y reportes`).
+
+<!-- REGLA-NOMBRE-PROYECTO:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->
+
+**Cómo se llama un proyecto nuevo.** Vive en `lib/plan-proyectos-catalogo.ts` y se copia
+acá sola: si cambia allá, cambia acá. No la edites a mano.
+
+> El nombre se entiende SOLO, en 1 a 4 palabras, como el nombre de una tab. Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
+>
+> EL PREFIJO, y es obligatorio: si el proyecto nuevo es una FUNCIONALIDAD del producto —una tab, un módulo, un agente de la app— se llama «Feature: NOMBRE»: «Feature: Facturación», igual que «Feature: CRM» o «Feature: Ads Manager».
+> Si NO es una funcionalidad del producto va SIN prefijo: un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads"). Ponerle «Feature:» a algo que no se programa es peor que no ponérselo: dice que hay que construirlo cuando hay que firmarlo o pagarlo.
+
+<!-- REGLA-NOMBRE-PROYECTO:FIN -->
 
   ⚠️ No es una convención suelta: en dos semanas la IA creó 24 proyectos basura (TRES de
   Instagram, DOS "Ads Content Machine", varios con una sola tarea) y hubo que fundir 64 en
