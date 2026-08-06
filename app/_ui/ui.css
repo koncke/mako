@@ -1,0 +1,391 @@
+/* =============================================================================
+   ui.css — la forma y los estados de los primitives
+   =============================================================================
+   Todo lo que un estilo en línea NO puede hacer vive acá: :hover, :focus-visible,
+   :active, :disabled, ::placeholder, animaciones. Es la razón por la que la app
+   tiene hoy 1.158 botones que se ven distinto — un `style={{}}` no tiene hover,
+   así que cada pantalla lo resolvió a mano o no lo resolvió.
+
+   Se carga desde app/globals.css (un solo @import), así que estas clases están
+   disponibles en cualquier pantalla sin importar nada.
+
+   Prefijo `mk-` en todo, para no chocar con Tailwind ni con las clases sueltas
+   que ya existen (.mako-field, .lead-field, .mk-svc-modal…).
+
+   PARA CAMBIAR EL RADIO DE TODOS LOS BOTONES: --r-md en globals.css. Uno.
+   ========================================================================== */
+
+/* ── Botón ─────────────────────────────────────────────────────────────────
+   Cinco variantes, y cada una dice algo distinto:
+     primary    la acción principal de la pantalla (AZUL = vos actuás)
+     secondary  una acción real pero no la principal
+     tertiary   acción de bajo peso (se lee como texto hasta que la tocás)
+     danger     destruye algo (ROJO). Siempre con confirmación detrás.
+     mako       se la pedís a la inteligencia (DORADO). Nunca para navegar.
+   Nunca hay dos `primary` compitiendo en la misma vista. */
+.mk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  font-family: 'Geist', system-ui, sans-serif;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .14s ease, border-color .14s ease, color .14s ease, box-shadow .14s ease, transform .06s ease;
+}
+.mk-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.mk-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.mk-btn:disabled,
+.mk-btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+
+/* Tamaños. El alto mínimo es el área táctil (40 desktop / 44 mobile): el botón
+   chico se ve chico pero SE PUEDE TOCAR, que es lo que pide el documento. */
+.mk-btn--sm { min-height: calc(var(--touch) - 8px); padding: 0 12px; font-size: var(--fs-sm); }
+.mk-btn--md { min-height: var(--touch); padding: 0 16px; font-size: var(--fs-md); }
+.mk-btn--lg { min-height: calc(var(--touch) + 8px); padding: 0 22px; font-size: var(--fs-lg); }
+.mk-btn--full { width: 100%; }
+
+.mk-btn--primary { background: var(--primary); color: #fff; font-weight: 700; }
+.mk-btn--primary:hover:not(:disabled) { background: var(--primary-strong); }
+
+.mk-btn--secondary { background: var(--surface); color: var(--ink); border-color: var(--border-strong); }
+.mk-btn--secondary:hover:not(:disabled) { background: var(--surface-2); border-color: var(--dim); }
+
+.mk-btn--tertiary { background: transparent; color: var(--dim); }
+.mk-btn--tertiary:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+
+.mk-btn--danger { background: var(--bad); color: #fff; font-weight: 700; }
+.mk-btn--danger:hover:not(:disabled) { background: #B8433D; }
+
+/* La acción de MaKo. Dorado plano, no gradiente: el gradiente y el barrido se
+   reservan para el MOMENTO en que MaKo está pensando, no para el botón quieto. */
+.mk-btn--mako { background: var(--mako); color: #17140C; font-weight: 700; }
+.mk-btn--mako:hover:not(:disabled) { background: var(--mako-lite); }
+
+/* Éxito temporal: el botón confirma en el lugar y vuelve solo. Es lo que evita
+   el toast para acciones chicas («Guardado», «Copiado»). */
+.mk-btn--ok,
+.mk-btn--ok:hover:not(:disabled) {
+  background: var(--good) !important;
+  border-color: var(--good) !important;
+  color: #fff !important;
+}
+
+/* Cargando: el botón se bloquea pero NO se desvanece (un botón fantasma parece
+   roto). El spinner lo pone el componente. */
+.mk-btn.is-loading { cursor: progress; opacity: 0.8; }
+
+/* ── Botón de ícono ────────────────────────────────────────────────────────
+   Cuadrado, del área táctil completa aunque el ícono sea de 16. SIEMPRE lleva
+   `title` o `aria-label`: un ícono solo no se entiende. */
+.mk-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch);
+  height: var(--touch);
+  flex: none;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, box-shadow .14s ease;
+}
+.mk-iconbtn:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+.mk-iconbtn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-iconbtn:disabled { cursor: not-allowed; opacity: 0.4; }
+.mk-iconbtn--sm { width: calc(var(--touch) - 10px); height: calc(var(--touch) - 10px); border-radius: var(--r-sm); }
+.mk-iconbtn--danger:hover:not(:disabled) { background: var(--bad-bg); color: var(--bad); }
+
+/* ── Campos ────────────────────────────────────────────────────────────────
+   Un solo campo para toda la app. Antes eran tres (.mako-field del onboarding,
+   .lead-field de la ficha, y 269 <input> sueltos con su propio estilo). */
+.mk-input,
+.mk-textarea {
+  width: 100%;
+  min-height: var(--touch);
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  outline: none;
+  transition: border-color .14s ease, box-shadow .14s ease, background .14s ease;
+}
+.mk-input::placeholder,
+.mk-textarea::placeholder { color: var(--faint); }
+.mk-input:hover:not(:disabled):not(:read-only),
+.mk-textarea:hover:not(:disabled):not(:read-only) { border-color: var(--dim); }
+.mk-input:focus,
+.mk-textarea:focus { border-color: var(--primary); box-shadow: var(--focus-ring); }
+.mk-input:disabled,
+.mk-textarea:disabled { background: var(--surface-2); color: var(--faint); cursor: not-allowed; }
+.mk-textarea { min-height: 104px; resize: vertical; }
+
+/* Error: borde rojo Y el mensaje debajo. El color solo no alcanza — quien no
+   distingue rojo de gris se queda sin saber qué campo falló. */
+.mk-input.is-error,
+.mk-textarea.is-error { border-color: var(--bad); }
+.mk-input.is-error:focus,
+.mk-textarea.is-error:focus { box-shadow: 0 0 0 3px rgba(208, 80, 74, .22); }
+
+/* Campo con prefijo/sufijo (moneda, unidad, botón de revelar). El anillo de foco
+   lo pinta la CAJA, no el input: si no, se ve un campo adentro de otro campo. */
+.mk-inputwrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+  padding: 0 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  transition: border-color .14s ease, box-shadow .14s ease;
+}
+.mk-inputwrap:focus-within { border-color: var(--primary); box-shadow: var(--focus-ring); }
+.mk-inputwrap.is-error { border-color: var(--bad); }
+.mk-inputwrap > .mk-input {
+  flex: 1;
+  min-width: 0;
+  min-height: auto;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+}
+.mk-inputwrap > .mk-input:focus { box-shadow: none; }
+.mk-affix { flex: none; color: var(--faint); font-size: var(--fs-sm); white-space: nowrap; }
+
+.mk-label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.mk-req { color: var(--bad); margin-left: 2px; }
+.mk-hint { font-size: var(--fs-xs); color: var(--dim); line-height: 1.4; }
+.mk-err { font-size: var(--fs-xs); color: var(--bad); font-weight: 600; line-height: 1.4; }
+.mk-count { font-size: var(--fs-xs); color: var(--faint); font-variant-numeric: tabular-nums; }
+.mk-count.is-over { color: var(--bad); font-weight: 600; }
+
+/* ── Casilla, radio y switch ───────────────────────────────────────────────
+   Los tres son controles nativos estilados con accent-color: siguen siendo
+   navegables por teclado y anunciados por lector de pantalla, que es lo que se
+   pierde cuando alguien los dibuja con <div>. */
+.mk-check {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: var(--touch);
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  line-height: 1.4;
+}
+.mk-check input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  flex: none;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.mk-check input:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+.mk-check.is-disabled { cursor: not-allowed; opacity: 0.5; }
+
+.mk-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 42px;
+  height: 24px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--border-strong);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background .16s ease, box-shadow .14s ease;
+}
+.mk-switch::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(18, 21, 27, .3);
+  transition: transform .16s ease;
+}
+.mk-switch[aria-checked='true'] { background: var(--primary); }
+.mk-switch[aria-checked='true']::after { transform: translateX(18px); }
+.mk-switch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-switch:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Badge · Tag · Status ──────────────────────────────────────────────────
+   Tres cosas distintas que hoy se usan indistintamente:
+     badge   un CONTADOR o una novedad. Si todo tiene badge, nada tiene badge.
+     tag     una CATEGORÍA (proyecto, canal, etiqueta). Color libre, sin
+             significado de estado.
+     status  un ESTADO semántico, con punto. Es el único de los tres que puede
+             usar los colores de la regla. */
+.mk-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.mk-tag,
+.mk-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.mk-status .mk-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+
+/* ── Carga y progreso ──────────────────────────────────────────────────────
+   Cada uno comunica una cosa distinta y no son intercambiables:
+     spinner   «estoy trabajando y no sé cuánto falta»  → acciones cortas
+     progress  «voy por acá»                            → sabés el total
+     skeleton  «esto que ves va a ser contenido»        → primera carga */
+.mk-spin {
+  display: inline-block;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: spin .7s linear infinite;
+  flex: none;
+}
+.mk-progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.mk-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width .3s ease;
+}
+.mk-skel {
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--surface-2) 25%, #EDEFF3 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: mkShimmer 1.3s ease-in-out infinite;
+}
+@keyframes mkShimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+/* Quien pidió menos movimiento no recibe ni brillo ni giro. */
+@media (prefers-reduced-motion: reduce) {
+  .mk-skel { animation: none; }
+  .mk-spin { animation-duration: 2.4s; }
+}
+
+.mk-divider { height: 1px; background: var(--border); border: 0; margin: 0; }
+
+/* ── Estados de pantalla ───────────────────────────────────────────────────
+   El bloque centrado que usan EmptyState, NoResults, ErrorState y compañía.
+   Ninguna pantalla de la app puede quedar en blanco: si no hay nada que
+   mostrar, hay que decir qué pasó y qué hacer. */
+.mk-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 44px 24px;
+  max-width: 460px;
+  margin: 0 auto;
+}
+.mk-state--inline { padding: 20px 16px; }
+.mk-state__ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  margin-bottom: 2px;
+}
+.mk-state__t { font-size: var(--fs-lg); font-weight: 600; color: var(--ink); line-height: 1.3; }
+.mk-state__d { font-size: var(--fs-sm); color: var(--dim); line-height: 1.55; }
+
+/* ── Tooltip ───────────────────────────────────────────────────────────────
+   Explica un ícono o una métrica. NUNCA lleva información que no esté en otro
+   lado: en un teléfono no hay hover. */
+.mk-tooltip {
+  position: fixed;
+  z-index: 3000;
+  max-width: 260px;
+  padding: 7px 10px;
+  border-radius: var(--r-sm);
+  background: var(--sidebar);
+  color: var(--on-sidebar);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  pointer-events: none;
+  box-shadow: 0 10px 28px rgba(18, 21, 27, .3);
+  animation: mkFade .12s ease;
+}
+
+/* ── Ayudas de mobile ──────────────────────────────────────────────────────
+   Lo ancho (tablas, barras de filtros, diagramas) scrollea DENTRO de su caja.
+   El <body> nunca scrollea de costado. */
+.mk-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+/* Fila de acciones que se apila en pantalla chica en vez de comprimirse. */
+.mk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .mk-row--stack { flex-direction: column; align-items: stretch; }
+  .mk-row--stack > .mk-btn { width: 100%; }
+}

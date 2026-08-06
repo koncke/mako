@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* La biblioteca de primitives (app/_ui). Un solo import: las clases mk-* quedan
+   disponibles en cualquier pantalla sin que nadie importe nada. */
+@import "./_ui/ui.css";
 
 /*
   Rediseño "Marketing OS" — tema claro (Geist) exportado desde Claude Design.
@@ -7,10 +10,30 @@
 */
 
 :root {
-  /* ── Tokens del diseño (claro, alineado a la landing /vsl) ──
-     Regla de color: AZUL = acción (botones, activo, links, foco). DORADO = marca
-     (logo, chispa, MaKo, Saldo IA). Los neutros son fríos (blanco/gris azulado),
-     no cálidos, para el mismo look limpio de /vsl. */
+  /* ═══════════════════════════════════════════════════════════════════════
+     UN SOLO SIGNIFICADO POR COLOR  (tarea #518 del rediseño)
+     ───────────────────────────────────────────────────────────────────────
+     Cada color dice UNA cosa. Si el mismo color significa cinco cosas, no
+     significa ninguna. Esta es la regla completa, y no se negocia por pantalla:
+
+       DORADO  → MaKo. Marca (logo, chispa) Y «acá intervino la inteligencia»
+                 (detectó, analizó, recomienda, ejecutó). Nada más.
+       AZUL    → vos actuás. Botones, links, foco, selección, confirmar algo
+                 no destructivo.
+       VERDE   → resultado favorable o completado.
+       NARANJA → warning. Deliberadamente ANARANJADO para que NO se confunda
+                 con el dorado de marca (antes eran #A8770F/#E8B30B: dos golds).
+       ROJO    → riesgo, error o destrucción.
+
+     Corolarios que el código tiene que cumplir:
+     · El ESTADO ACTIVO de la navegación no depende del dorado. Usa contraste
+       de superficie + indicador lateral + peso tipográfico.
+     · Los colores de categoría (proyectos, etapas, canales) nunca compiten con
+       los estados semánticos: viven en --tag-*.
+     · Nadie define su propio hex dorado. Si lo necesitás, es var(--mako).
+
+     Los neutros son fríos (blanco/gris azulado), no cálidos, para el mismo
+     look limpio de la landing /vsl. */
   --bg: #F4F6F9;
   --surface: #FFFFFF;
   --surface-2: #F5F7FA;
@@ -30,20 +53,60 @@
   --primary-bg: #EAF1FE;
   --primary-weak: #9DBBF5;
 
-  /* ── Marca · dorado MaKo (se mantiene; ya NO es el color de acción) ── */
-  --line: #C8870C;
-  --accent: #C8870C;
-  --accent-soft: #F0C60A;
+  /* ── MaKo · el dorado maestro ─────────────────────────────────────────
+     UN solo hex: #F2B01E, el del logo entregado y el de la landing /vsl.
+     Antes había cuatro dorados para una misma marca (#C8870C del --accent,
+     #F0C60A del --accent-soft, y el par #F6D365/#EF9F27 que MakoBrand.tsx
+     definía por su cuenta). Los otros tres son ahora DERIVADOS de éste:
+       --mako-lite  el alto del gradiente de marca (chispa, wordmark, logo)
+       --mako-ink   el mismo dorado bajado de luminosidad para que se LEA
+                    sobre fondo claro (texto e íconos: 5.2:1 sobre blanco;
+                    #F2B01E sobre blanco da 2.0:1 y es ilegible)
+       --mako-bg / --mako-border  la superficie de un bloque «esto lo dijo MaKo» */
+  --mako: #F2B01E;
+  --mako-lite: #F8CB63;
+  --mako-ink: #8F6709;
+  --mako-bg: #FDF4DE;
+  --mako-border: #EFDCA9;
+
+  /* Alias heredados del dorado. `--accent` se usaba para TEXTO e íconos
+     dorados y `--accent-soft` para RELLENOS: conservan ese rol, apuntando al
+     único dorado. No agregues usos nuevos — usá --mako / --mako-ink. */
+  --line: var(--mako-ink);
+  --accent: var(--mako-ink);
+  --accent-soft: var(--mako);
 
   --good: #1E9E57;
   --good-bg: #E7F5EC;
-  --warn: #A8770F;
-  --warn-bg: #FBF0DA;
-  --warn-fill: #E8B30B;
+  /* Warning ANARANJADO, no dorado: la única forma de que «cuidado» no se lea
+     como «MaKo». --warn es el legible (texto/borde), --warn-fill el relleno. */
+  --warn: #B4530E;
+  --warn-bg: #FDEEE1;
+  --warn-fill: #EE7B1C;
   --bad: #D0504A;
   --bad-bg: #FBEAEA;
   --card-pad: 28px;
   --sect-gap: 22px;
+
+  /* ── Escala tipográfica y área táctil ─────────────────────────────────
+     (tarea #521: bases mobile DENTRO del sistema global)
+     Los primitives leen de acá, así que suben solos en pantalla chica sin
+     que ninguna pantalla escriba una media query. El documento pide base 16
+     en mobile (no 14), secundario 14-15 y metadata 13. */
+  --fs-xs: 12px;
+  --fs-sm: 13.5px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --touch: 40px;
+
+  /* Anillo de foco: uno solo para toda la app (accesibilidad de teclado). */
+  --focus-ring: 0 0 0 3px rgba(47, 111, 237, 0.28);
+
+  /* Radios: cambiarlos acá los cambia en los 1.158 botones, que es el punto. */
+  --r-sm: 8px;
+  --r-md: 11px;
+  --r-lg: 14px;
+  --r-xl: 18px;
 
   /* Acentos por etapa de WhatsApp/Email (burbujas) */
   --wa: #1E9E57;
@@ -70,7 +133,25 @@
   --font-dm-sans: 'Geist', system-ui, sans-serif;
 }
 
+/* Mobile: sube la escala entera y agranda el área táctil a los 44 px del
+   documento. Es la ÚNICA media query que necesita el sistema — los primitives
+   leen las variables, no las redeclaran. */
+@media (max-width: 820px) {
+  :root {
+    --fs-xs: 13px;
+    --fs-sm: 14.5px;
+    --fs-md: 16px;
+    --fs-lg: 18px;
+    --touch: 44px;
+    --card-pad: 18px;
+    --sect-gap: 16px;
+  }
+}
+
 @theme inline {
+  --color-mako: var(--mako);
+  --color-mako-ink: var(--mako-ink);
+  --color-mako-bg: var(--mako-bg);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);

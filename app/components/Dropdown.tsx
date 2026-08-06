@@ -74,6 +74,7 @@ export function Dropdown({
   resetAfterSelect = false,
   ariaLabel,
   disabled = false,
+  search,
 }: {
   value: string;
   options?: DropdownOption[];
@@ -93,11 +94,19 @@ export function Dropdown({
   ariaLabel?: string;
   /** Deshabilita TODO el desplegable (no se puede abrir): p.ej. mientras cargan las opciones. */
   disabled?: boolean;
+  /**
+   * Caja de búsqueda arriba del menú. Sin pasar nada aparece SOLA cuando hay más
+   * de 8 opciones — que es el punto en que scrollear deja de ser razonable y el
+   * documento de rediseño pide combobox. `false` la apaga a mano.
+   */
+  search?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
+  const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   // Calcula la posición fija del menú a partir del rect del botón. Abre hacia
   // arriba si abajo no hay lugar (sin empujar el layout). En coordenadas de
@@ -157,6 +166,22 @@ export function Dropdown({
   const flat = columns ? columns.flat().flatMap((g) => g.options) : (options ?? []);
   const selected = resetAfterSelect ? undefined : flat.find((o) => o.value === value);
 
+  // Búsqueda: aparece sola pasadas las 8 opciones. Filtra por título Y subtítulo
+  // (en las listas de personas el dato que uno recuerda suele ser el subtítulo).
+  const conBusqueda = search ?? flat.length > 8;
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  const coincide = (o: DropdownOption) => !q.trim() || norm(`${o.label} ${o.sub ?? ''}`).includes(norm(q.trim()));
+  const optsVisibles = (options ?? []).filter(coincide);
+  const colsVisibles = columns?.map((col) => col.map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length));
+  const sinResultados = q.trim().length > 0 && (columns ? !colsVisibles?.some((c) => c.length) : optsVisibles.length === 0);
+
+  // Al cerrar se limpia el filtro: reabrir y encontrarse la búsqueda anterior
+  // puesta hace parecer que faltan opciones.
+  useEffect(() => {
+    if (open) { const t = setTimeout(() => searchRef.current?.focus(), 0); return () => clearTimeout(t); }
+    setQ('');
+  }, [open]);
+
   const btn: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
     padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)',
@@ -177,9 +202,19 @@ export function Dropdown({
       </button>
       {open && pos && createPortal(
         <div ref={menuRef} role="listbox" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns ? undefined : 360, maxHeight: columns ? 'min(480px, calc(100dvh - 40px))' : 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
+          {conBusqueda && (
+            // Queda PEGADA arriba: en una lista larga el buscador tiene que
+            // seguir a la vista mientras se scrollea, o deja de servir.
+            <div style={{ position: 'sticky', top: -6, zIndex: 1, background: 'var(--surface)', padding: '2px 2px 6px', margin: '-2px -2px 0' }}>
+              <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar…" aria-label="Buscar opción" className="mk-input"
+                onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}
+                style={{ minHeight: 34, padding: '7px 10px', fontSize: 13.5, borderRadius: 9 }} />
+            </div>
+          )}
           {columns ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {columns.map((col, ci) => (
+              {(colsVisibles ?? columns).map((col, ci) => (
                 <div key={ci} style={{ flex: '1 1 190px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {col.map((g) => (
                     <div key={g.title}>
@@ -192,9 +227,17 @@ export function Dropdown({
             </div>
           ) : (
             <>
-              {(options ?? []).map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false))}
+              {optsVisibles.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false))}
               {(options ?? []).length === 0 && <div style={{ padding: '9px 11px', fontSize: 13, color: 'var(--faint)' }}>Sin opciones</div>}
             </>
+          )}
+          {/* «No hay resultados» NO es lo mismo que «no hay opciones»: acá hay
+              datos y el filtro no encontró nada. Confundirlos hace pensar que
+              la lista está vacía. */}
+          {sinResultados && (
+            <div style={{ padding: '10px 11px', fontSize: 13, color: 'var(--faint)', lineHeight: 1.5 }}>
+              Nada coincide con «{q.trim()}».
+            </div>
           )}
         </div>,
         document.body,

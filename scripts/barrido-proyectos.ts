@@ -33,7 +33,10 @@ const APLICAR = process.argv.includes('--apply');
 const PERMITIR_ACORTAR = process.argv.includes('--permitir-acortar');
 
 type Row = Record<string, unknown>;
-type Item = { id: string; detalle: string };
+/** `ws` opcional: sin él se asume el tablero del dueño. Los dos tableros guardan sus
+ *  proyectos en tablas distintas —`plan_proyectos` el del dueño, `tarea_categorias` el
+ *  de los clientes— y con nombres de columna distintos (`name` vs `nombre`). */
+type Item = { ws?: number; id: string; detalle: string };
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : v == null ? d : String(v));
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const uid = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -46,21 +49,26 @@ async function main() {
   const items = JSON.parse(readFileSync(ARCHIVO, 'utf8')) as Item[];
 
   let ok = 0, saltados = 0;
-  const backup: Array<{ id: string; detalle: string }> = [];
+  const backup: Array<{ ws: number; id: string; detalle: string }> = [];
 
-  await runWithWorkspace(9, async () => {
+  const porWs = new Map<number, Item[]>();
+  for (const i of items) { const w = i.ws ?? 9; porWs.set(w, [...(porWs.get(w) ?? []), i]); }
+
+  for (const [ws, lote] of porWs) {
+  await runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
-    const { data, error } = await db.from('plan_proyectos').select('id, name, detalle, historial').in('id', items.map((i) => i.id));
-    if (error) throw new Error(`leer plan_proyectos: ${error.message}`);
+    const tabla = ws === 9 ? 'plan_proyectos' : 'tarea_categorias';
+    const { data, error } = await db.from(tabla).select('*').in('id', lote.map((i) => i.id));
+    if (error) throw new Error(`leer ${tabla}: ${error.message}`);
     const actuales = new Map((data ?? []).map((r) => [str((r as Row).id), r as Row]));
 
-    for (const it of items) {
+    for (const it of lote) {
       const fila = actuales.get(it.id);
       if (!fila) { console.log(`  ✗ ${it.id}: no existe`); saltados++; continue; }
       const viejo = str(fila.detalle);
       const nuevo = it.detalle.trim();
       const ev = evaluarDetalleProyecto(nuevo);
-      const nombre = str(fila.name).slice(0, 40);
+      const nombre = str(fila.name ?? fila.nombre).slice(0, 40);
 
       if (!ev.conForma) { console.log(`  ✗ «${nombre}»: el detalle nuevo no tiene ni dos de las partes del proyecto`); saltados++; continue; }
       // Comparación por TEXTO, sin los asteriscos: lo que no puede perderse es contenido.
@@ -69,17 +77,18 @@ async function main() {
       }
       if (nuevo === viejo) { saltados++; continue; }
 
-      backup.push({ id: it.id, detalle: viejo });
+      backup.push({ ws, id: it.id, detalle: viejo });
       console.log(`  → ${nombre.padEnd(42)} ${viejo.length} → ${nuevo.length} chars · ${ev.partes.length}/4 partes`);
       if (!APLICAR) { ok++; continue; }
 
       const hist = arr<Row>(fila.historial);
       hist.push({ id: uid('h'), ts: new Date().toISOString(), actor: 'MaKo', text: 'MaKo le dio forma al detalle del proyecto' });
-      const { error: e2 } = await db.from('plan_proyectos').update({ detalle: nuevo, historial: hist.slice(-40) }).eq('id', it.id);
+      const { error: e2 } = await db.from(tabla).update({ detalle: nuevo, historial: hist.slice(-40) }).eq('id', it.id);
       if (e2) { console.error(`  ✗ ${it.id}: ${e2.message}`); saltados++; continue; }
       ok++;
     }
   });
+  }
 
   if (APLICAR && backup.length) {
     const key = `mako.backup.proyectos.${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}`;
