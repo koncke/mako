@@ -16,8 +16,8 @@ import {
   useRef,
   useState,
   useTransition,
-  type ChangeEvent,
   type CSSProperties,
+  type ReactNode,
 } from 'react';
 import {
   CHIP,
@@ -39,9 +39,9 @@ import {
   bulkIgnoreEmpresaAction,
   ignorarPendientesAction,
   ignorarPendientesMasaAction,
-  exportLeadsCsvAction,
-  importLeadsCsvAction,
 } from './actions';
+import { ImportarLeadsModal } from './ImportarLeadsModal';
+import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
 import { CrmAutoToggle } from './CrmAutoToggle';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
@@ -436,46 +436,12 @@ export function CrmBoard({
   const pendingLeadIds = new Set(marcar.map((m) => m.leadId));
   const KANBAN_BANDS: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
 
-  // Exportar TODOS los leads a CSV (plan #364): la acción pagina en el server y
-  // devuelve el texto; acá lo bajamos como archivo. BOM para que Excel lo abra bien.
-  const [exportando, startExport] = useTransition();
-  const exportarCsv = () => startExport(async () => {
-    try {
-      const csv = await exportLeadsCsvAction();
-      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert(`No se pudo exportar: ${e instanceof Error ? e.message : 'error'}`);
-    }
-  });
-
-  // Importar leads desde CSV (plan #383): input oculto → lee el texto → la acción
-  // parsea, deduplica e inserta. Muestra el resumen y refresca.
-  const importInputRef = useRef<HTMLInputElement | null>(null);
-  const [importando, startImport] = useTransition();
-  const onArchivoCsv = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // permite re-subir el mismo archivo
-    if (!file) return;
-    startImport(async () => {
-      try {
-        const texto = await file.text();
-        const r = await importLeadsCsvAction(texto);
-        const extra = r.errores.length ? `\n\nAlgunos no se pudieron cargar:\n${r.errores.join('\n')}` : '';
-        alert(`Importación lista.\n\n✓ ${r.creados} leads nuevos\n– ${r.omitidos} omitidos (sin nombre/contacto o ya existían)${extra}`);
-        router.refresh();
-      } catch (err) {
-        alert(`No se pudo importar: ${err instanceof Error ? err.message : 'error'}`);
-      }
-    });
-  };
+  // Importar / exportar leads: MISMO patrón que el board del plan — un botón de
+  // icono que abre un formulario de a una pregunta (nada de bajar todo de una ni
+  // de abrir el buscador de archivos del sistema sin avisar qué va a pasar).
+  const [exportar, setExportar] = useState(false);
+  const [importar, setImportar] = useState(false);
+  const [flashCsv, setFlashCsv] = useState<string | null>(null);
 
   // Una columna del Kanban (reutilizada por cada banda).
   const renderColumn = (c: Stage) => {
@@ -541,15 +507,8 @@ export function CrmBoard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <CrmAutoToggle />
-          <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={onArchivoCsv} style={{ display: 'none' }} />
-          <button type="button" onClick={() => importInputRef.current?.click()} disabled={importando} title="Cargar leads desde un CSV (Nombre, Email, Teléfono, Empresa)"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 17px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14.5, fontWeight: 600, cursor: importando ? 'default' : 'pointer', fontFamily: SANS }}>
-            {importando ? 'Importando…' : '↑ Importar CSV'}
-          </button>
-          <button type="button" onClick={exportarCsv} disabled={exportando} title="Descargar todos los leads en CSV"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 17px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14.5, fontWeight: 600, cursor: exportando ? 'default' : 'pointer', fontFamily: SANS }}>
-            {exportando ? 'Exportando…' : '↓ Exportar CSV'}
-          </button>
+          <IconoBoton onClick={() => setImportar(true)} label="Importar leads desde un CSV" title="Importar: un CSV con Nombre, Email, Teléfono y Empresa"><UploadIcon /></IconoBoton>
+          <IconoBoton onClick={() => setExportar(true)} label="Exportar los leads" title="Exportar los leads a planilla o documento"><DownloadIcon /></IconoBoton>
           <Link href="/crm/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 19px', borderRadius: 11, background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>+ Nuevo lead</Link>
         </div>
       </header>
@@ -558,6 +517,14 @@ export function CrmBoard({
         <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 13, padding: '14px 18px', marginBottom: 14, color: 'var(--bad)', fontSize: 14 }}>
           No se pudo leer Supabase: <span style={{ fontFamily: MONO }}>{errorMsg}</span>
         </div>
+      )}
+
+      {/* Resultado de la última importación (se cierra al tocarlo). */}
+      {flashCsv && (
+        <button type="button" onClick={() => setFlashCsv(null)}
+          style={{ display: 'block', width: '100%', textAlign: 'left', background: 'var(--good-bg)', border: '1px solid var(--good)', borderRadius: 13, padding: '13px 18px', marginBottom: 14, color: 'var(--good)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+          {flashCsv}
+        </button>
       )}
 
       {/* TUS JUNTAS */}
@@ -697,6 +664,10 @@ export function CrmBoard({
       {selected && (
         <LeadEditModal leadId={selected.id} seed={{ nombre: selected.name, empresa: selected.company }} onClose={closeDetail} />
       )}
+
+      {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
+      {importar && <ImportarLeadsModal onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
+      {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
 
       {/* Pop-up chico de completar movimiento (drag/worklist a etapa que pide datos) */}
       {stageMove && (() => {
@@ -1095,5 +1066,21 @@ function SinMarcar({
     </div>
   );
 }
+
+// ── Importar / exportar: el MISMO botón de icono del board del plan ──
+// 38×38, solo icono, borde que se tiñe de primary al pasar por encima. Se copia
+// el patrón (y no se inventa otro) para que las dos pantallas se sientan iguales.
+function IconoBoton({ onClick, label, title, children }: { onClick: () => void; label: string; title: string; children: ReactNode }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button type="button" onClick={onClick} aria-label={label} title={title}
+      style={{ display: 'inline-flex', flex: 'none', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: `1px solid ${hover ? 'var(--primary)' : 'var(--border-strong)'}`, background: 'var(--surface)', cursor: 'pointer', color: hover ? 'var(--primary)' : 'var(--dim)', padding: 0 }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      {children}
+    </button>
+  );
+}
+function DownloadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>; }
+function UploadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M17 8l-5-5-5 5" /><path d="M12 3v12" /></svg>; }
 
 // La gestión de etapas y transiciones vive ahora en la tab /funnel (FunnelEditor).

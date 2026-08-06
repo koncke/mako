@@ -51,7 +51,8 @@ import {
   type TrackingEvent,
   type RespuestaQA,
 } from '@/lib/leads';
-import { DEFAULT_STAGES, terminalEstadoFor, MAKO_SETTER, type Stage } from '@/lib/pipeline';
+import { DEFAULT_STAGES, terminalEstadoFor, MAKO_SETTER, NUTRI_KEYS, type Stage } from '@/lib/pipeline';
+import { CAMPOS_LEAD, COLUMNAS_POR_CAMPO, type AlcanceLeads, type CampoLead, type FormatoLeads } from './leads-exportar';
 import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
@@ -657,44 +658,66 @@ export async function reactivarPendientesAction(leadId: number): Promise<void> {
   revalidatePath('/general');
 }
 
-// ── Exportar leads a CSV (plan #364) ──
-// Trae TODOS los leads del workspace paginando con .range() — PostgREST corta en
-// 1000 filas y con .limit() no se sube el techo (hay >1000 leads). Devuelve el CSV
-// como texto; el navegador lo baja (ver CrmBoard). Columnas legibles, no crudas.
-const EXPORT_COLS: Array<[string, string]> = [
-  ['id', 'ID'], ['nombre', 'Nombre'], ['empresa', 'Empresa'], ['email', 'Email'],
-  ['telefono', 'Teléfono'], ['estado_lead', 'Estado'], ['pipeline_stage', 'Etapa'],
-  ['fecha_agenda', 'Fecha agenda'], ['fecha_junta_1', 'Fecha R1'], ['fecha_junta_2', 'Fecha R2'],
-  ['asistio_j1', 'Asistió R1'], ['asistio_j2', 'Asistió R2'], ['calificado', 'Calificado'],
-  ['closer', 'Closer'], ['setter', 'Setter'], ['monto_cierre_usd', 'Monto cierre USD'],
-  ['total_cobrado_usd', 'Cobrado USD'], ['origen_lead', 'Origen'],
-  ['meta_campaign_name', 'Campaña'], ['meta_ad_name', 'Anuncio'],
-  ['utm_campaign', 'UTM campaña'], ['utm_content', 'UTM contenido'], ['created_at', 'Creado'],
-];
+// ── Exportar leads (plan #364) ──
+// Mismo contrato que el export del plan: el usuario elige alcance, campos y
+// formato de a una pregunta (ver ExportarLeadsModal) y acá se arma el archivo.
+// Pagina con .range() porque PostgREST corta en 1000 filas y hay >1000 leads.
 
-export async function exportLeadsCsvAction(): Promise<string> {
+/** Cuántos leads saldrían con ese alcance — el contador que muestra el wizard. */
+export async function contarLeadsExportAction(alcance: AlcanceLeads): Promise<number> {
   const db = await getTenantDb();
-  const cols = EXPORT_COLS.map(([k]) => k).join(', ');
+  let q = db.from('leads').select('id', { count: 'exact', head: true });
+  q = aplicarAlcance(q, alcance);
+  const { count, error } = await q;
+  if (error) throw new Error(`No se pudo contar: ${error.message}`);
+  return count ?? 0;
+}
+
+// El alcance se traduce a filtros del pipeline/estado (NUTRI_KEYS = las etapas de
+// nutrición del funnel, misma fuente que usa el board).
+function aplicarAlcance<T extends { eq: (c: string, v: unknown) => T; in: (c: string, v: readonly unknown[]) => T; not: (c: string, op: string, v: unknown) => T }>(q: T, alcance: AlcanceLeads): T {
+  if (alcance === 'ganados') return q.eq('estado_lead', 'ganado');
+  if (alcance === 'nutricion') return q.in('pipeline_stage', NUTRI_KEYS);
+  if (alcance === 'activos') return q.eq('estado_lead', 'abierto').not('pipeline_stage', 'in', `(${NUTRI_KEYS.join(',')})`);
+  return q;
+}
+
+export async function exportLeadsAction(opts: {
+  alcance: AlcanceLeads;
+  campos: CampoLead[];
+  formato: FormatoLeads;
+}): Promise<string> {
+  const db = await getTenantDb();
+  // id y nombre van SIEMPRE; el resto según lo que se eligió.
+  const columnas: Array<[string, string]> = [['id', 'ID'], ['nombre', 'Nombre']];
+  for (const c of CAMPOS_LEAD.map((x) => x.id)) {
+    if (opts.campos.includes(c)) columnas.push(...COLUMNAS_POR_CAMPO[c]);
+  }
   const filas: Record<string, unknown>[] = [];
   const PAGE = 1000;
   for (let desde = 0; ; desde += PAGE) {
-    const { data, error } = await db
-      .from('leads')
-      .select(cols)
-      .order('created_at', { ascending: false })
-      .range(desde, desde + PAGE - 1);
+    let q = db.from('leads').select(columnas.map(([k]) => k).join(', '));
+    q = aplicarAlcance(q as never, opts.alcance) as typeof q;
+    const { data, error } = await q.order('created_at', { ascending: false }).range(desde, desde + PAGE - 1);
     if (error) throw new Error(`No se pudo exportar: ${error.message}`);
     const chunk = (data ?? []) as unknown as Record<string, unknown>[];
     filas.push(...chunk);
     if (chunk.length < PAGE) break;
   }
+
+  const val = (v: unknown): string => (v == null ? '' : typeof v === 'boolean' ? (v ? 'sí' : 'no') : String(v));
+  if (opts.formato === 'md') {
+    const head = `| ${columnas.map(([, l]) => l).join(' | ')} |`;
+    const sep = `| ${columnas.map(() => '---').join(' | ')} |`;
+    const body = filas.map((f) => `| ${columnas.map(([k]) => val(f[k]).replace(/\|/g, '\\|')).join(' | ')} |`);
+    return [`# Leads (${filas.length})`, '', head, sep, ...body].join('\n');
+  }
   const esc = (v: unknown): string => {
-    if (v == null) return '';
-    const s = typeof v === 'boolean' ? (v ? 'sí' : 'no') : String(v);
+    const s = val(v);
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const lineas = [EXPORT_COLS.map(([, label]) => label).join(',')];
-  for (const f of filas) lineas.push(EXPORT_COLS.map(([k]) => esc(f[k])).join(','));
+  const lineas = [columnas.map(([, l]) => l).join(',')];
+  for (const f of filas) lineas.push(columnas.map(([k]) => esc(f[k])).join(','));
   return lineas.join('\r\n');
 }
 
@@ -724,7 +747,20 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-export async function importLeadsCsvAction(csvText: string): Promise<ImportLeadsResult> {
+/** Lo que el wizard muestra ANTES de importar: cuántos entran y cuántos se saltean. */
+export type PreviewImportLeads = { total: number; nuevos: number; omitidos: number; error?: string };
+
+export async function previsualizarImportLeadsAction(csvText: string): Promise<PreviewImportLeads> {
+  const r = await importLeadsCsvAction(csvText, true);
+  return {
+    total: r.creados + r.omitidos,
+    nuevos: r.creados,
+    omitidos: r.omitidos,
+    error: r.errores[0],
+  };
+}
+
+export async function importLeadsCsvAction(csvText: string, soloContar = false): Promise<ImportLeadsResult> {
   const rows = parseCsv(csvText);
   if (rows.length < 2) return { creados: 0, omitidos: 0, errores: ['El archivo no tiene filas de datos.'] };
   const header = rows[0].map((h) => h.trim().toLowerCase());
@@ -765,6 +801,13 @@ export async function importLeadsCsvAction(csvText: string): Promise<ImportLeads
     const emailK = email.toLowerCase();
     const telK = soloDig(tel);
     if ((emailK && emails.has(emailK)) || (telK && tels.has(telK))) { omitidos++; continue; }
+    // En previsualización solo se cuenta: no se inserta nada.
+    if (soloContar) {
+      creados++;
+      if (emailK) emails.add(emailK);
+      if (telK) tels.add(telK);
+      continue;
+    }
     try {
       await createLead({ nombre, email: email || null, telefono: tel || null, empresa: empresa || null });
       creados++;
@@ -774,6 +817,7 @@ export async function importLeadsCsvAction(csvText: string): Promise<ImportLeads
       errores.push(`${nombre}: ${e instanceof Error ? e.message : 'error'}`);
     }
   }
+  if (soloContar) return { creados, omitidos, errores };
   bust(TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/general');
