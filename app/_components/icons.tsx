@@ -63,6 +63,10 @@ const PATHS: Record<string, ReactNode> = {
   // Ojo / ojo tachado: revelar y volver a ocultar una credencial guardada.
   eye: (<><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3.1" /></>),
   'eye-off': (<><path d="M10.7 6.7A7.9 7.9 0 0 1 12 6.6c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.9 3.7" /><path d="M6.4 7.9A16.9 16.9 0 0 0 2.5 13.1S6 19.6 12 19.6a8.9 8.9 0 0 0 3.8-.85" /><path d="M9.9 11a3.1 3.1 0 0 0 4.3 4.3" /><path d="M4 4l16 16" /></>),
+  // Rayo: la familia OPERATE — «ejecutar hoy». Es el más distinto que hay de la
+  // llave de Create y del gráfico de Analyze: tres siluetas que no se confunden
+  // ni en el rail plegado, que es donde el ícono tiene que trabajar solo.
+  rayo: (<path d="M13.6 2.6 5.4 13.2h5.3l-1.3 8.2 8.2-10.6h-5.3l1.3-8.2Z" />),
   dot: (<circle cx="12" cy="12" r="3" />),
 };
 

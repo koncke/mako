@@ -370,6 +370,32 @@
   animation: mkFade .12s ease;
 }
 
+/* ── Filas de la barra lateral ─────────────────────────────────────────────
+   El hover no puede vivir en un `style` en línea, y sin él la barra no se siente
+   navegable: no pasa nada hasta que hacés click, así que no queda claro que la
+   fila entera sea el objetivo. `data-activo` está para que el hover NO pise el
+   fondo del item abierto (si no, pasar el cursor por al lado hace parecer que
+   cambiaste de sección). */
+.mk-navrow { transition: background .13s ease, color .13s ease; }
+.mk-navrow:hover { background: rgba(255, 255, 255, .07); color: var(--on-sidebar); }
+.mk-navrow:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); }
+.mk-navrow[data-activo='true']:hover { background: var(--sidebar-2); }
+
+/* Las mismas filas sobre superficie CLARA: los desplegables (perfil, Chats,
+   Analysts, Writers) son blancos como el resto de los menús de la app. Un menú
+   oscuro flotando sobre el contenido claro se leía como parte de la barra. */
+.mk-navrow--claro { color: var(--dim); }
+.mk-navrow--claro:hover { background: var(--surface-2); color: var(--ink); }
+.mk-navrow--claro[data-activo='true'] { color: var(--ink); background: var(--primary-bg); }
+.mk-navrow--claro[data-activo='true']:hover { background: var(--primary-bg); }
+.mk-navrow--claro:focus-visible { box-shadow: inset 0 0 0 2px var(--primary); }
+
+/* Salir es la única acción destructiva del menú del perfil, y va en rojo: es la
+   que no querés tocar por error buscando Configuraciones. */
+.mk-salir { color: var(--bad); transition: background .13s ease; }
+.mk-salir:hover { background: var(--bad-bg); }
+.mk-salir:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--bad); }
+
 /* ── Ayudas de mobile ──────────────────────────────────────────────────────
    Lo ancho (tablas, barras de filtros, diagramas) scrollea DENTRO de su caja.
    El <body> nunca scrollea de costado. */

@@ -96,14 +96,16 @@ export const FAMILIAS: NavFamilia[] = [
     key: 'operate',
     label: 'Operate',
     pregunta: '¿Qué tengo que hacer y ejecutar hoy?',
-    icon: 'crm',
+    // Rayo = ejecutar. Los tres íconos de familia tienen que distinguirse en el
+    // rail plegado, donde trabajan solos y sin etiqueta: rayo · gráfico · llave.
+    icon: 'rayo',
     notifica: true,
     items: [
-      // «Hoy» es /general. Cuando exista la pantalla con sus seis campos
-      // (prioridad, razón, resultado esperado, responsable, progreso y próxima
-      // revisión, tarea #523), este item pasa a ser ella; la key `general` se
-      // queda porque está escrita en la base.
-      { key: 'general', label: 'Hoy', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
+      // Cuando exista la pantalla con sus seis campos (prioridad, razón,
+      // resultado esperado, responsable, progreso y próxima revisión, tarea
+      // #523) este item pasa a ser ella; la key `general` se queda porque está
+      // escrita en la base.
+      { key: 'general', label: 'General', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
       { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
       { key: 'todo', label: 'Plan', href: '/plan', icon: 'todo', rolesWs: ['closer', 'setter'], match: (p) => starts('/plan')(p) || starts('/todo')(p) },
       { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },

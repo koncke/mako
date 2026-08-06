@@ -39,14 +39,15 @@ const MONO = "'Geist Mono', monospace";
 const RAIL = 68;
 const FULL = 244;
 const ICO = 19;
+/** Los destinos de adentro de una familia, un punto más chicos: eso solo ya
+ *  dice «esto cuelga de aquello», sin necesidad de una línea que lo diga. */
+const ICO_HIJO = 17;
 
-function ItemIcon({ item, active }: { item: NavItem; active: boolean }) {
-  if (item.icon === 'mako') return <MakoStar size={ICO} color="var(--mako)" />;
-  return (
-    <span style={{ display: 'flex', color: active ? 'var(--on-sidebar)' : 'var(--sidebar-text)' }}>
-      <Icon name={item.icon} size={ICO} />
-    </span>
-  );
+function ItemIcon({ item, size = ICO }: { item: NavItem; size?: number }) {
+  if (item.icon === 'mako') return <MakoStar size={size} color="var(--mako)" />;
+  // El color lo hereda de la fila (currentColor): así el hover lo pinta también,
+  // sin que el ícono se quede apagado cuando el texto ya se encendió.
+  return <span style={{ display: 'flex', color: 'inherit' }}><Icon name={item.icon} size={size} /></span>;
 }
 
 /** El contador de una familia. Solo la que notifica lo tiene. */
@@ -62,48 +63,54 @@ function Contador({ n, compacto }: { n: number; compacto?: boolean }) {
   );
 }
 
+type Tema = 'oscuro' | 'claro';
+
 /**
- * El estilo de UNA fila de la barra, compartido por familias, ítems, grupos y
- * el shell de admin. `nivel` cambia densidad y tamaño de texto; el color lo
- * decide `activo` y nada más. Una sola función para que las cuatro clases de
- * fila no se desalineen entre sí — que es de dónde salía la sensación de ruido.
+ * El estilo de UNA fila, compartido por familias, ítems, grupos, desplegables y
+ * el shell de admin. Una sola función para que las cinco clases de fila no se
+ * desalineen entre sí — que es de dónde salía la sensación de ruido.
+ *
+ * El hover y el foco NO están acá: viven en `.mk-navrow` (ui.css), porque un
+ * `style` en línea no los tiene. Sin ellos la barra no se siente navegable.
  */
-function filaStyle(activo: boolean, nivel: 'familia' | 'item', expandido: boolean): CSSProperties {
+function filaStyle(activo: boolean, expandido: boolean, tema: Tema = 'oscuro'): CSSProperties {
+  const claro = tema === 'claro';
   return {
     display: 'flex', alignItems: 'center', gap: 11, width: '100%',
     justifyContent: expandido ? 'flex-start' : 'center',
-    padding: expandido ? (nivel === 'familia' ? '9px 10px' : '7px 10px') : '9px 0',
+    padding: expandido ? '7px 10px' : '8px 0',
     borderRadius: 'var(--r-sm)',
-    border: 'none', background: 'transparent', cursor: 'pointer',
+    border: 'none', cursor: 'pointer',
     fontFamily: 'inherit', textAlign: 'left', textDecoration: 'none',
-    fontSize: nivel === 'familia' ? 'var(--fs-md)' : 'var(--fs-sm)',
-    color: activo ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
+    fontSize: 'var(--fs-sm)',
+    color: claro ? (activo ? 'var(--ink)' : 'var(--dim)') : (activo ? 'var(--on-sidebar)' : 'var(--sidebar-text)'),
     fontWeight: activo ? 600 : 500,
     whiteSpace: 'nowrap', overflow: 'hidden',
-    ...(activo ? { background: 'var(--sidebar-2)', boxShadow: 'inset 3px 0 0 var(--on-sidebar)' } : {}),
+    background: activo ? (claro ? 'var(--primary-bg)' : 'var(--sidebar-2)') : 'transparent',
+    // El indicador lateral es una de las tres señales del activo. Sobre claro no
+    // hace falta: ahí el fondo azul ya lo dice sin competir con el texto.
+    ...(activo && !claro ? { boxShadow: 'inset 3px 0 0 var(--on-sidebar)' } : {}),
   };
 }
 
-function NavLink({ item, active, expanded, nivel = 'item', onClick }: {
-  item: NavItem; active: boolean; expanded: boolean; nivel?: 'familia' | 'item'; onClick?: () => void;
+function NavLink({ item, active, expanded, tema = 'oscuro', size, onClick }: {
+  item: NavItem; active: boolean; expanded: boolean; tema?: Tema; size?: number; onClick?: () => void;
 }) {
-  const base = filaStyle(active, nivel, expanded);
+  const base = filaStyle(active, expanded, tema);
+  const cls = `mk-navrow${tema === 'claro' ? ' mk-navrow--claro' : ''}`;
   const content = (
     <>
-      <span style={{ position: 'relative', display: 'flex', flex: 'none' }}><ItemIcon item={item} active={active} /></span>
+      <span style={{ position: 'relative', display: 'flex', flex: 'none' }}><ItemIcon item={item} size={size} /></span>
       {expanded && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
       {expanded && item.comingSoon && (
-        <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--sidebar-text)', border: '1px solid var(--sidebar-2)', borderRadius: 5, padding: '1px 5px', opacity: 0.65 }}>pronto</span>
+        <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'currentColor', border: '1px solid currentColor', borderRadius: 5, padding: '1px 5px', opacity: 0.5 }}>pronto</span>
       )}
     </>
   );
-  if (item.entrarComoDueno) {
-    return <button type="button" onClick={onClick} title={expanded ? undefined : item.label} style={base}>{content}</button>;
-  }
-  if (item.newTab) {
-    return <a href={item.href} target="_blank" rel="noopener noreferrer" style={base} title={expanded ? undefined : item.label} onClick={onClick}>{content}</a>;
-  }
-  return <Link href={item.href} style={base} title={expanded ? undefined : item.label} onClick={onClick}>{content}</Link>;
+  const props = { className: cls, 'data-activo': active, style: base, title: expanded ? undefined : item.label };
+  if (item.entrarComoDueno) return <button type="button" onClick={onClick} {...props}>{content}</button>;
+  if (item.newTab) return <a href={item.href} target="_blank" rel="noopener noreferrer" onClick={onClick} {...props}>{content}</a>;
+  return <Link href={item.href} onClick={onClick} {...props}>{content}</Link>;
 }
 
 export function Sidebar() {
@@ -288,51 +295,71 @@ export function Sidebar() {
     const activo = g.items.some((i) => i.match(pathname));
     const abierto = flyout?.key === g.key;
     return (
-      <button type="button"
+      <button type="button" className="mk-navrow" data-activo={activo}
         onClick={(e) => abrirFlyout(g.key, e.currentTarget, g.items.length)}
         onMouseEnter={(e) => abrirFlyout(g.key, e.currentTarget, g.items.length)}
         onMouseLeave={cerrarFlyout}
         title={open ? undefined : g.label}
-        style={{ ...filaStyle(activo, 'item', open), ...(abierto && !activo ? { background: 'var(--sidebar-2)' } : {}) }}>
-        <span style={{ display: 'flex', flex: 'none', color: activo ? 'var(--on-sidebar)' : 'var(--sidebar-text)' }}>
-          <Icon name={g.icon} size={ICO} />
+        style={{ ...filaStyle(activo, open), ...(abierto && !activo ? { background: 'var(--sidebar-2)' } : {}) }}>
+        <span style={{ display: 'flex', flex: 'none', color: 'inherit' }}>
+          <Icon name={g.icon} size={open ? ICO : ICO_HIJO} />
         </span>
         {open && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.label}</span>}
-        {open && <span style={{ flex: 'none', fontSize: 10, color: 'var(--sidebar-text)' }}>›</span>}
+        {open && <span style={{ flex: 'none', fontSize: 10, opacity: 0.7 }}>›</span>}
       </button>
     );
   };
 
-  /** La cabecera de una familia: su icono, su nombre y su contador. */
+  /**
+   * Una familia: su rótulo y, si está desplegada, sus destinos.
+   *
+   * El rótulo va en versalitas y mono — el mismo tratamiento que ya usa
+   * «ADMINISTRACIÓN» en el shell de admin. No es decoración: hace que las tres
+   * familias se lean como SECCIONES y no como tres tabs más entre las otras
+   * quince. Es la regla de Linear aplicada: lo que orienta tiene que retroceder
+   * para que los destinos, que son lo que se toca, queden adelante.
+   *
+   * Plegada, la familia abierta igual muestra los íconos de sus destinos: en el
+   * rail hay lugar y sin ellos el modo plegado solo servía para volver a abrir.
+   */
   const Familia = ({ f }: { f: typeof familias[number] }) => {
     const activa = todosDe(f).some((i) => i.match(pathname));
     const abiertaEsta = desplegada === f.key;
     const n = contadorDe(f);
     return (
-      <div>
-        <button type="button"
+      <div style={{ marginBottom: open ? 10 : 6 }}>
+        <button type="button" className="mk-navrow"
           onClick={() => { setAbierta(abiertaEsta && open ? null : f.key); setExpanded(true); }}
           title={open ? undefined : `${f.label} · ${f.pregunta}`}
           aria-expanded={abiertaEsta}
           style={{
-            ...filaStyle(false, 'familia', open),
-            background: (!open && activa) ? 'var(--sidebar-2)' : 'transparent',
+            ...filaStyle(false, open),
+            padding: open ? '5px 10px' : '8px 0',
+            fontFamily: open ? MONO : 'inherit',
+            fontSize: open ? 10.5 : 'var(--fs-sm)',
+            letterSpacing: open ? '.13em' : undefined,
+            textTransform: open ? 'uppercase' : undefined,
+            fontWeight: 600,
             color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
-            fontWeight: activa ? 600 : 500,
+            opacity: activa ? 1 : 0.72,
+            background: (!open && activa) ? 'var(--sidebar-2)' : 'transparent',
           }}>
-          <span style={{ position: 'relative', display: 'flex', flex: 'none', color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)' }}>
-            <Icon name={f.icon} size={ICO} />
+          <span style={{ position: 'relative', display: 'flex', flex: 'none', color: 'inherit' }}>
+            <Icon name={f.icon} size={open ? 15 : ICO} />
             {!open && <Contador n={n} compacto />}
           </span>
           {open && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}</span>}
           {open && <Contador n={n} />}
-          {open && (
-            <span style={{ flex: 'none', fontSize: 10, color: 'var(--sidebar-text)', transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
-          )}
+          {open && <span style={{ flex: 'none', fontSize: 9, transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>}
         </button>
-        {open && abiertaEsta && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, margin: '1px 0 4px', paddingLeft: 10, marginLeft: 19, borderLeft: '1px solid var(--sidebar-2)' }}>
-            {f.items.map((it) => <NavLink key={it.key} item={it} active={it.match(pathname)} expanded />)}
+        {abiertaEsta && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2,
+            ...(open ? { paddingLeft: 8, marginLeft: 12, borderLeft: '1px solid var(--sidebar-2)' } : {}),
+          }}>
+            {f.items.map((it) => (
+              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} size={open ? ICO : ICO_HIJO} />
+            ))}
             {f.grupos.map((g) => <GrupoFila key={g.key} g={g} />)}
           </div>
         )}
@@ -367,10 +394,13 @@ export function Sidebar() {
 
         {/* Navegación. Con una familia abierta puede pasarse de alto en pantallas
             bajas: scrollea acá adentro, nunca corta. */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+        {/* El separador entre familias es el ESPACIO (marginBottom de cada una),
+            no una línea: el documento pide que la elevación y los bordes sean
+            mínimos y que el aire y el contraste hagan el trabajo. */}
+        <nav style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {adminShell ? (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.55, padding: open ? '2px 10px 6px' : '2px 0 6px', textAlign: open ? 'left' : 'center' }}>{open ? 'Administración' : '·'}</div>
+              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.72, fontWeight: 600, padding: open ? '5px 10px 7px' : '2px 0 6px', textAlign: open ? 'left' : 'center' }}>{open ? 'Administración' : '·'}</div>
               {ADMIN_NAV.map((item) => (
                 <NavLink key={item.key} item={item} active={item.match(pathname)} expanded={open}
                   onClick={item.entrarComoDueno ? () => entrarComoDuenoYNavegar(item.href) : undefined} />
@@ -410,16 +440,19 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Desplegable de una colección (Chats, Analysts, Writers). */}
+      {/* Desplegable de una colección (Chats, Analysts, Writers). BLANCO, como
+          el del perfil y como el resto de los menús de la app: uno oscuro
+          flotando sobre el contenido claro se leía como parte de la barra, y
+          entonces no quedaba claro si te habías ido de la sección o no. */}
       {flyout && grupoFlyout && createPortal(
         <div id="grp-flyout"
           onMouseEnter={() => { if (flyoutTimer.current) clearTimeout(flyoutTimer.current); }}
           onMouseLeave={cerrarFlyout}
-          style={{ position: 'fixed', top: flyout.top, left: flyout.left, zIndex: 2000, width: 218, background: 'var(--sidebar)', border: '1px solid var(--sidebar-2)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.4)', overflow: 'hidden', padding: 6 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.55, padding: '4px 10px 6px' }}>{grupoFlyout.label}</div>
+          style={{ position: 'fixed', top: flyout.top, left: flyout.left, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.28)', overflow: 'hidden', padding: 6 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', padding: '4px 10px 6px' }}>{grupoFlyout.label}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {grupoFlyout.items.map((it) => (
-              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded onClick={() => setFlyout(null)} />
+              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded tema="claro" onClick={() => setFlyout(null)} />
             ))}
           </div>
         </div>,
@@ -432,28 +465,31 @@ export function Sidebar() {
         <div id="user-menu"
           onMouseEnter={() => { if (userTimer.current) clearTimeout(userTimer.current); }}
           onMouseLeave={scheduleCloseUser}
-          style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 230, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
+          style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 234, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.28)', overflow: 'hidden', padding: '5px 0' }}>
+            {/* El saldo va PRIMERO: es el único dato del menú, y un número que
+                hay que ir a buscar al final se mira menos que uno que ya está. */}
+            {!rolCliente && (
+              <>
+                <SaldoMaKo />
+                <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
+              </>
+            )}
             {USER_NAV.filter((it) => (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map((it) => {
               const on = it.match(pathname);
               return (
                 <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', fontSize: 'var(--fs-md)', fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--dim)', textDecoration: 'none' }}>
+                  className="mk-navrow mk-navrow--claro" data-activo={on}
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, fontSize: 'var(--fs-md)', fontWeight: on ? 600 : 500, textDecoration: 'none' }}>
                   <span style={{ display: 'flex', color: on ? 'var(--primary)' : 'var(--faint)' }}><Icon name={it.icon} size={17} /></span>
                   {it.label}
                 </Link>
               );
             })}
-            {!rolCliente && (
-              <>
-                <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
-                <SaldoMaKo />
-              </>
-            )}
             <div style={{ height: 1, background: 'var(--border)', margin: '5px 0 0' }} />
-            <button type="button"
+            <button type="button" className="mk-salir"
               onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; }}
-              style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', fontSize: 'var(--fs-md)', fontWeight: 500, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer' }}>
-              <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="logout" size={17} /></span>
+              style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', fontSize: 'var(--fs-md)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <span style={{ display: 'flex', color: 'currentColor' }}><Icon name="logout" size={17} /></span>
               Cerrar sesión
             </button>
         </div>,
