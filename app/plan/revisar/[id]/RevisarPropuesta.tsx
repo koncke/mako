@@ -188,6 +188,24 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   // primera vez que se midió. Por eso no hay lista con checkboxes ni «aceptar todo»:
   // se mira una, se lee la evidencia, se contesta, y recién ahí aparece la siguiente.
   const cierres = prop.cerrar ?? [];
+  // UN BORRADOR PUEDE NO TRAER NINGUNA TAREA NUEVA y ser igual de valioso: el bot que
+  // lee los commits (lib/cerrar-por-commits.ts) propone SOLO cierres, nunca crea nada.
+  // Su primera corrida real dejó 10 propuestas y esta pantalla contestó «Este borrador
+  // ya no tiene tareas» — el canal entero era inalcanzable desde la UI. Todo lo que
+  // sigue cuenta las dos cosas, no solo las tareas.
+  const nC = cierres.length;
+  const nSi = cierres.filter((_, i) => cierreResp[i] === 'si').length;
+  const nMedias = cierres.filter((_, i) => cierreResp[i] === 'medias').length;
+  /** Sin tareas que crear, TODA la pantalla habla de cierres. Prometer «Crear 0» y
+   *  después avisar «Creé 0 tareas» es peor que no mostrar nada. */
+  const soloCierres = nT === 0 && nC > 0;
+  /** «cierro 3 tareas y subo el avance de 1» — armado con lo que el dueño CONTESTÓ, no
+   *  con lo que MaKo propuso. Las que dijo que no ni se nombran: quedan como estaban. */
+  const fraseCierre = [
+    nSi ? `cierro ${nSi} tarea${nSi === 1 ? '' : 's'}` : '',
+    nMedias ? `subo el avance de ${nMedias}` : '',
+  ].filter(Boolean).join(' y ');
+
   const steps: Step[] = [
     ...cierres.map((_, i) => ({ kind: 'cerrar' as const, i })),
     ...prop.preguntas.map((_, i) => ({ kind: 'q' as const, i })),
@@ -234,20 +252,31 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   if (prop.estado !== 'pendiente') return <Mensaje texto={`Este borrador ya fue ${prop.estado}.`} />;
   // Todo lo que queda es de OTRAS personas: no hay nada que crear acá. Se dice y se
   // manda al plan, donde el modal de la reunión sí tiene el reparto por persona.
-  if (nT === 0) {
+  // Vacío de verdad = ni tareas ni cierres. Antes alcanzaba con no tener tareas.
+  if (nT === 0 && nC === 0) {
     return <Mensaje ok texto={nAjenas ? `Acá no te queda nada para crear: ${nAjenas === 1 ? 'la tarea que quedaba es' : `las ${nAjenas} tareas que quedaban son`} de otras personas.` : 'Este borrador ya no tiene tareas.'}
       sub="Repartilas desde tu plan: ahí MaKo te deja mandárselas a cada uno." link />;
   }
-  if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${nT} tarea${nT === 1 ? '' : 's'}${enProy}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
+  if (done) {
+    const hecho = soloCierres
+      ? (fraseCierre ? `✓ Listo: ${fraseCierre}` : '✓ No cambié nada en tu tablero')
+      : `✓ Creé ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
+    return <Mensaje ok texto={done === 'aplicada' ? hecho : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
+  }
 
-  const crearLabel = `Crear ${nT}`;
+  const crearLabel = !soloCierres ? `Crear ${nT}`
+    : nSi ? `Cerrar ${nSi}`
+    : nMedias ? `Guardar el avance de ${nMedias}`
+      : 'Listo';
   const pregunta = cur.kind === 'cerrar' ? `¿«${cierres[cur.i]?.titulo || 'esta tarea'}» ya está hecha?`
     : cur.kind === 'q' ? (prop.preguntas[cur.i]?.pregunta || '…')
     : cur.kind === 'dyn' ? (dynQs[cur.i]?.pregunta || '…')
+    : soloCierres ? (fraseCierre ? `Listo — ${fraseCierre}` : 'No queda nada para cerrar')
       : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
   const sub = cur.kind === 'cerrar' ? 'La tengo en tu tablero abierta, pero encontré esto. Vos decidís.'
     : cur.kind === 'q' ? 'Elegí una opción o escribí la tuya.'
     : cur.kind === 'dyn' ? 'MaKo profundiza según lo que respondiste — así el Perro prioriza mejor.'
+    : soloCierres ? 'Las que dijiste que no, quedan abiertas tal cual estaban.'
       : 'El Perro Guardián las prioriza, las describe y les arma la checklist. La revisión final la ves en el plan.';
 
   return (
@@ -255,9 +284,9 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       // UNA LÍNEA. El `resumen` puede traer la investigación entera (3.000 caracteres) y
       // acá se renderiza centrado y en mono, arriba de todo: era un muro de texto antes
       // de poder leer la pregunta. El texto completo va abajo, en ContextoDelBorrador.
-      titulo={`Borrador · ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`}
+      titulo={soloCierres ? `Borrador · ${nC} para revisar` : `Borrador · ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`}
       total={steps.length} idx={Math.min(paso, steps.length - 1)}
-      pregunta={dynLoading ? 'MaKo está pensando…' : busy ? 'Creando…' : pregunta} sub={dynLoading || busy ? undefined : sub}
+      pregunta={dynLoading ? 'MaKo está pensando…' : busy ? (soloCierres ? 'Guardando…' : 'Creando…') : pregunta} sub={dynLoading || busy ? undefined : sub}
       puedeAvanzar={!busy && !dynLoading} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy || dynLoading}
       atrasLabel={paso === 0 ? 'Cancelar' : 'Atrás'} siguienteLabel="Siguiente →"
       error={error || undefined}
@@ -277,7 +306,9 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
            puntúa por tandas. Antes acá seguía dibujándose el cuerpo del último paso y
            lo único que cambiaba era el título a «Creando…» — se veía colgado, y encima
            quedaba a la vista el link de descartar mientras ya estaba guardando. */
-        <DynLoader texto="Creando las tareas y puntuándolas contra tu plan…" sub="El Perro las ubica en la pirámide y les arma la checklist. Puede tardar unos segundos." />
+        <DynLoader
+          texto={soloCierres ? 'Actualizando tu tablero…' : 'Creando las tareas y puntuándolas contra tu plan…'}
+          sub={soloCierres ? 'Marco las que confirmaste y dejo el resto como estaba.' : 'El Perro las ubica en la pirámide y les arma la checklist. Puede tardar unos segundos.'} />
       ) : cur.kind === 'cerrar' ? (
         <><CierrePaso item={cierres[cur.i]} valor={cierreResp[cur.i]} onElegir={(v) => setCierreResp((r) => ({ ...r, [cur.i]: v }))} />
         <ContextoDelBorrador texto={prop.resumen} /></>
@@ -294,7 +325,11 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
         </>
       ) : (
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>{nT} tarea{nT === 1 ? '' : 's'}{enProy}.</div>
+          <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>
+            {soloCierres
+              ? (fraseCierre ? `De ${nC} que revisaste, ${fraseCierre}.` : `Revisaste ${nC} y no confirmaste ninguna.`)
+              : `${nT} tarea${nT === 1 ? '' : 's'}${enProy}.`}
+          </div>
           <button onClick={() => enviar('descartar')} disabled={busy} style={{ marginTop: 14, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 12.5, cursor: busy ? 'default' : 'pointer', textDecoration: 'underline', fontFamily: SANS }}>o descartar este borrador</button>
         </div>
       )}
