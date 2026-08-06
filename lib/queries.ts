@@ -2072,15 +2072,20 @@ async function _getPendientesDeMarcar(
       }
       continue;
     }
-    // Lead con avisos ignorados a mano (mig 0109): no notifica ni suma al conteo
-    // del worklist. Los mismos faltantes siguen visibles en la ficha (recordatorio
-    // suave), que usa faltantesDeLead directo y ofrece "reactivar avisos".
-    if (l.pendientes_ignorados) continue;
-    // Resto: el motor dice EXACTAMENTE qué datos posibles faltan para la etapa.
+    // El motor dice EXACTAMENTE qué datos posibles faltan para la etapa.
     const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline });
     // "Empresa" ignorada (empresa_omitido) NO notifica en el worklist del CRM general
     // (sigue visible como recordatorio suave en la ficha, que usa faltantesDeLead directo).
-    const faltan = l.empresa_omitido ? faltanRaw.filter((f) => f.id !== 'empresa') : faltanRaw;
+    const faltanSinEmpresa = l.empresa_omitido ? faltanRaw.filter((f) => f.id !== 'empresa') : faltanRaw;
+
+    // Una reunión que YA PASÓ y sigue sin resolverse NO se puede ignorar. Es el
+    // único pendiente que no es "dato lindo de tener": el lead está parado en R1/R2
+    // esperando que alguien diga qué ocurrió, y silenciarlo lo deja colgado para
+    // siempre. Todo lo demás sí respeta el "ignorar" del lead (mig 0109).
+    const NO_IGNORABLES = new Set(['asistenciaR1', 'asistenciaR2']);
+    const faltan = l.pendientes_ignorados
+      ? faltanSinEmpresa.filter((f) => NO_IGNORABLES.has(f.id))
+      : faltanSinEmpresa;
     if (faltan.length === 0) continue;
     const fecha = (l.fecha_junta_2 && l.fecha_junta_2 < hoy) ? l.fecha_junta_2 : (l.fecha_junta_1 ?? l.fecha_agenda ?? hoy);
     const solTab: PendienteItem['solTab'] = hayPasoDeWizard(faltan) ? 'wizard' : (tabDeSolucion(faltan) ?? 'edit');

@@ -166,6 +166,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [calificado, setCalificado] = useState<boolean | null>(lead.calificado);
   const [fathom, setFathom] = useState<FathomLink[]>(() => (lead.fathom.length ? lead.fathom : [{ label: 'Llamada', url: '' }]));
   const [fathomOmitido, setFathomOmitido] = useState(false);
+  // Reprogramar: la tercera salida del paso de asistencia. Vacío = no se reprograma.
+  const [reprogR1, setReprogR1] = useState('');
+  const [reprogR2, setReprogR2] = useState('');
   const [monto, setMonto] = useState(lead.monto ? String(lead.monto) : '');
   // Venta recurrente (#363): tipo + plazo. El monto mensual reusa el campo `monto`.
   const [ventaTipo, setVentaTipo] = useState<'unico' | 'suscripcion'>(lead.ventaTipo === 'suscripcion' ? 'suscripcion' : 'unico');
@@ -330,8 +333,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       case 'motivoNoR2': return !!motivoNoR2.trim();
       case 'fechaJ1': return !!fechaJ1;
       case 'fechaJ2': return !!fechaJ2;
-      case 'asistenciaR1': return asistioJ1 != null;
-      case 'asistenciaR2': return asistioJ2 != null;
+      case 'asistenciaR1': return asistioJ1 != null || !!reprogR1;
+      case 'asistenciaR2': return asistioJ2 != null || !!reprogR2;
       case 'calificado': return calificado != null;
       case 'fathomR1': case 'fathomR2': return fathomOmitido || fathom.some((f) => f.url.trim());
       case 'ventaTipo': return true; // hay un default (pago único); se elige y se sigue
@@ -389,10 +392,17 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           ? cuotas.filter((c) => parseFloat(c.monto) > 0).map((c) => ({ monto: parseFloat(c.monto), fecha: c.fecha || null }))
           : [];
         await completeStageMoveAction(lead.id, to, {
-          ...(pide('fechaJ1') && huboR1 !== false ? { fechaJ1: fechaJ1 || null } : {}),
-          ...(pide('fechaJ2') && huboR2 !== false ? { fechaJ2: fechaJ2 || null } : {}),
-          ...(pide('asistenciaR1') ? { asistioJ1 } : { asistioJ1: move.asistioJ1 }),
-          ...(pide('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
+          // Reprogramar gana sobre todo lo demás de esa reunión: mueve la fecha y
+          // deja la asistencia SIN marcar (todavía no pasó), así el lead vuelve a
+          // quedar pendiente recién para la fecha nueva.
+          ...(reprogR1 ? { fechaJ1: reprogR1, asistioJ1: null } : {
+            ...(pide('fechaJ1') && huboR1 !== false ? { fechaJ1: fechaJ1 || null } : {}),
+            ...(pide('asistenciaR1') ? { asistioJ1 } : { asistioJ1: move.asistioJ1 }),
+          }),
+          ...(reprogR2 ? { fechaJ2: reprogR2, asistioJ2: null } : {
+            ...(pide('fechaJ2') && huboR2 !== false ? { fechaJ2: fechaJ2 || null } : {}),
+            ...(pide('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
+          }),
           ...(pide('calificado') ? { calificado } : (to === 'ganado' ? { calificado: true } : {})),
           ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
           // Suscripción: el monto NO va a monto_cierre_usd (no infla el revenue único);
@@ -596,14 +606,45 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       pregunta = '¿Cuándo es (o fue) la Reunión 2?';
       cuerpo = <input type="date" value={fechaJ2} onChange={(e) => setFechaJ2(e.target.value)} autoFocus style={{ ...compInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />;
       break;
+    // Asistencia con TRES salidas. La reunión que ya pasó y sigue sin resolver es
+    // el pendiente que no se puede ignorar, así que el form tiene que ofrecer la
+    // salida real que faltaba: no siempre "asistió o no asistió" — muchas veces se
+    // reprograma, y sin esta opción el lead quedaba trabado pidiendo un dato que
+    // no existe.
     case 'asistenciaR1':
-      pregunta = '¿Asistió a la Reunión 1?';
-      cuerpo = boolStep(asistioJ1, setAsistioJ1, 'Sí, asistió', 'No asistió');
+    case 'asistenciaR2': {
+      const esR1 = paso === 'asistenciaR1';
+      const val = esR1 ? asistioJ1 : asistioJ2;
+      const setVal = esR1 ? setAsistioJ1 : setAsistioJ2;
+      const nuevaFecha = esR1 ? reprogR1 : reprogR2;
+      const setNuevaFecha = esR1 ? setReprogR1 : setReprogR2;
+      const fechaOriginal = esR1 ? fechaJ1 : fechaJ2;
+      pregunta = `¿Asistió a la Reunión ${esR1 ? 1 : 2}?`;
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <BigChoice
+            value={nuevaFecha ? 'reprog' : val == null ? null : String(val)}
+            onPick={(v) => {
+              if (v === 'reprog') { setVal(null); setNuevaFecha(fechaOriginal || hoyISO); return; }
+              setNuevaFecha('');
+              setVal(v === 'true');
+            }}
+            options={[{ v: 'true', label: 'Sí, asistió' }, { v: 'false', label: 'No asistió' }, { v: 'reprog', label: 'Se reprogramó' }]}
+          />
+          {nuevaFecha && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 6 }}>¿Para cuándo quedó?</div>
+              <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} autoFocus
+                style={{ ...compInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
+              <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6 }}>
+                Se mueve la fecha de la reunión y queda pendiente de nuevo para esa fecha.
+              </div>
+            </div>
+          )}
+        </div>
+      );
       break;
-    case 'asistenciaR2':
-      pregunta = '¿Asistió a la Reunión 2?';
-      cuerpo = boolStep(asistioJ2, setAsistioJ2, 'Sí, asistió', 'No asistió');
-      break;
+    }
     case 'calificado':
       pregunta = '¿Era un lead calificado?';
       sub = 'Este dato entrena las campañas de Meta (CAPI): marcalo siempre.';
@@ -827,6 +868,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       const filas: Array<[string, string]> = [];
       if (huboR1 === false) filas.push(['Sin R1', motivoNoR1]);
       else {
+        if (reprogR1) filas.push(['Reunión 1', `reprogramada para el ${reprogR1}`]);
+        if (reprogR2) filas.push(['Reunión 2', `reprogramada para el ${reprogR2}`]);
         if (pide('fechaJ1')) filas.push(['Fecha R1', fechaJ1 || '—']);
         if (pide('asistenciaR1')) filas.push(['Asistió R1', asistioJ1 ? 'Sí' : 'No']);
         if (pide('calificado')) filas.push(['Calificado', calificado ? 'Sí' : 'No']);
