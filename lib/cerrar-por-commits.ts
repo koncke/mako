@@ -35,7 +35,7 @@ import { chatCheapCascade } from './ai-cheap';
 import { parseJsonObject } from './campaign-structurer';
 import { contenidoNoConfiable } from './prompt-render';
 import { crearPropuesta, type PropuestaCerrar } from './plan-propuesta';
-import { commitsDesde, commitParaPrompt, REPO } from './github-commits';
+import { commitsDesde, commitParaPrompt } from './github-commits';
 
 /** Desde cuándo mirar. Se guarda en el ws del dueño, que es donde vive su tablero. */
 const KEY_ULTIMO = 'mako.cerrar-commits.ultimo';
@@ -78,7 +78,7 @@ export type ResultadoCierre = { propuestas: number; borradorId: string; motivo: 
 export async function proponerCierresPorCommits(opts: { desdeISO?: string; dry?: boolean } = {}): Promise<ResultadoCierre> {
   return runWithWorkspace(await wsSuperAdmin(), async () => {
     const ultimo = opts.desdeISO ?? (await getSetting(KEY_ULTIMO).catch(() => '')) ?? '';
-    const { commits, motivo } = await commitsDesde(ultimo);
+    const { commits, motivo, repo } = await commitsDesde(ultimo);
     if (!commits.length) return { propuestas: 0, borradorId: '', motivo };
 
     const db = await getTenantDb();
@@ -139,7 +139,7 @@ export async function proponerCierresPorCommits(opts: { desdeISO?: string; dry?:
       // El `ref` con la fecha hace el candado: si el cron corre dos veces el mismo día
       // —un reintento de Vercel, una corrida a mano— no aparecen dos borradores iguales.
       ref: `commits:${nuevoUltimo.slice(0, 10)}`,
-      resumen: `Revisé ${commits.length} commits de ${REPO} y encontré ${cerrar.length} tarea${cerrar.length === 1 ? '' : 's'} que ya está${cerrar.length === 1 ? '' : 'n'} hecha${cerrar.length === 1 ? '' : 's'}.`,
+      resumen: `Revisé ${commits.length} commits de ${repo} y encontré ${cerrar.length} tarea${cerrar.length === 1 ? '' : 's'} que ya está${cerrar.length === 1 ? '' : 'n'} hecha${cerrar.length === 1 ? '' : 's'}.`,
       fuenteTitulo: `${commits.length} commits`,
     });
 

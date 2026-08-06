@@ -24,8 +24,22 @@ import { wsSuperAdmin } from './workspace';
 const API = 'https://api.github.com';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** El repo del producto. No es por-workspace: hay UN repo y es el de la agencia. */
-export const REPO = process.env.GITHUB_REPO || 'mbustos-digital/dashboard-marketing';
+/** El repo del producto si nadie eligió ninguno. No es por-workspace: hay UN repo y es
+ *  el de la agencia. */
+export const REPO_DEFAULT = process.env.GITHUB_REPO || 'mbustos-digital/dashboard-marketing';
+
+/**
+ * El repo que se está mirando. Sale de la CREDENCIAL, que es lo que guarda el
+ * desplegable de Integraciones.
+ *
+ * Antes esto era una constante leída de `process.env`, así que el desplegable escribía
+ * `GITHUB_REPO` en la base y nadie lo leía nunca: elegir otro repo no cambiaba nada.
+ * Pasó desapercibido porque el default acertaba justo el repo correcto.
+ */
+export async function repoActual(): Promise<string> {
+  const r = await credWs('GITHUB_REPO', await wsSuperAdmin()).catch(() => null);
+  return (r || '').trim() || REPO_DEFAULT;
+}
 
 export type Commit = {
   sha: string;
@@ -62,14 +76,15 @@ async function gh(ruta: string, tk: string): Promise<unknown> {
  * Devuelve [] y lo explica en el log si no hay token — nunca lanza por eso. Un cron que
  * se cae por una credencial que falta deja de correr lo demás.
  */
-export async function commitsDesde(desdeISO: string, tope = 60): Promise<{ commits: Commit[]; motivo: string }> {
+export async function commitsDesde(desdeISO: string, tope = 60): Promise<{ commits: Commit[]; motivo: string; repo: string }> {
+  const repo = await repoActual();
   const tk = await token();
-  if (!tk) return { commits: [], motivo: 'No hay GITHUB_TOKEN cargado (Integraciones → GitHub). Sin eso no puedo leer los commits.' };
+  if (!tk) return { commits: [], repo, motivo: 'No hay GITHUB_TOKEN cargado (Integraciones → GitHub). Sin eso no puedo leer los commits.' };
 
   const desde = desdeISO || new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   try {
-    const lista = await gh(`/repos/${REPO}/commits?sha=main&since=${encodeURIComponent(desde)}&per_page=${Math.min(tope, 100)}`, tk) as Array<Record<string, unknown>>;
-    if (!Array.isArray(lista) || !lista.length) return { commits: [], motivo: 'sin commits nuevos' };
+    const lista = await gh(`/repos/${repo}/commits?sha=main&since=${encodeURIComponent(desde)}&per_page=${Math.min(tope, 100)}`, tk) as Array<Record<string, unknown>>;
+    if (!Array.isArray(lista) || !lista.length) return { commits: [], repo, motivo: 'sin commits nuevos' };
 
     // Los archivos NO vienen en el listado: hay que pedir cada commit. Por eso el tope —
     // son N llamadas, y con 60 commits ya se tiene el panorama de una semana larga.
@@ -82,15 +97,15 @@ export async function commitsDesde(desdeISO: string, tope = 60): Promise<{ commi
       const mensaje = String(cm.message ?? '');
       let archivos: string[] = [];
       try {
-        const det = await gh(`/repos/${REPO}/commits/${sha}`, tk) as { files?: Array<{ filename?: string }> };
+        const det = await gh(`/repos/${repo}/commits/${sha}`, tk) as { files?: Array<{ filename?: string }> };
         archivos = (det.files ?? []).map((f) => String(f.filename ?? '')).filter(Boolean).slice(0, 40);
       } catch (e) { console.warn(`[github] no pude leer los archivos de ${sha.slice(0, 8)}: ${msg(e)}`); }
       commits.push({ sha, fecha, autor, mensaje, archivos });
     }
-    return { commits, motivo: `${commits.length} commits desde ${desde.slice(0, 10)}` };
+    return { commits, repo, motivo: `${commits.length} commits desde ${desde.slice(0, 10)}` };
   } catch (e) {
     console.error(`[github] ${msg(e)}`);
-    return { commits: [], motivo: msg(e) };
+    return { commits: [], repo, motivo: msg(e) };
   }
 }
 
