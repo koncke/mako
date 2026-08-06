@@ -224,6 +224,28 @@ export async function listarWorkspaces(): Promise<Workspace[]> {
   return (data ?? []) as Workspace[];
 }
 
+/**
+ * El workspace del SUPER-ADMIN, resuelto por su capa y no por un número.
+ *
+ * OJO CON `OWNER_WS`: vale 1 y ese es **Mauricio, un cliente** — el nombre engaña y ya
+ * se llevó puestas varias cosas. El tablero de desarrollo, las credenciales de la
+ * plataforma y el catálogo de proyectos del producto viven en el workspace con
+ * `capa: 'superadmin'`, que hoy es el 9.
+ *
+ * Se resuelve por capa a propósito: si mañana ese id cambia, esto sigue andando, y el
+ * que lo lee entiende POR QUÉ es ese y no otro.
+ */
+let cacheSuper: number | null = null;
+export async function wsSuperAdmin(): Promise<number> {
+  if (cacheSuper != null) return cacheSuper;
+  const { data } = await getSupabaseServer()
+    .from('workspaces').select('id').eq('capa', 'superadmin').order('id').limit(1).maybeSingle();
+  // Sin fila con esa capa el fallback es 9, que es el que existe hoy: es preferible
+  // eso a devolver OWNER_WS y terminar leyendo las credenciales de un cliente.
+  cacheSuper = Number((data as { id?: unknown } | null)?.id ?? 9);
+  return cacheSuper;
+}
+
 export async function getWorkspace(id: number): Promise<Workspace | null> {
   const { data, error } = await getSupabaseServer()
     .from('workspaces').select(WS_COLS).eq('id', id).maybeSingle();

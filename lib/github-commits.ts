@@ -19,7 +19,7 @@ import 'server-only';
 // =============================================================================
 
 import { credWs } from './credenciales';
-import { OWNER_WS } from './workspace';
+import { wsSuperAdmin } from './workspace';
 
 const API = 'https://api.github.com';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -37,9 +37,11 @@ export type Commit = {
   archivos: string[];
 };
 
-/** El token vive donde el resto de las credenciales, en el workspace de la agencia. */
+/** El token vive en el workspace del SUPER-ADMIN. Ojo: NO es `OWNER_WS` — esa
+ *  constante vale 1 y ese workspace es de un cliente. La primera versión de esto leía
+ *  de ahí y el bot decía «no hay token» con el token cargado y visible en pantalla. */
 async function token(): Promise<string | null> {
-  const t = await credWs('GITHUB_TOKEN', OWNER_WS).catch(() => null);
+  const t = await credWs('GITHUB_TOKEN', await wsSuperAdmin()).catch(() => null);
   return t || process.env.GITHUB_TOKEN || null;
 }
 
@@ -95,8 +97,8 @@ export async function commitsDesde(desdeISO: string, tope = 60): Promise<{ commi
 /** El commit como se lo damos a un modelo: mensaje entero (ahí está el porqué) + los
  *  archivos. El mensaje se recorta a 1200 porque los de este repo son largos a propósito
  *  y con seis commits ya se llenaría el prompt. */
-export const commitParaPrompt = (c: Commit): string => [
+export const commitParaPrompt = (c: Commit, tope = 1200): string => [
   `--- ${c.sha.slice(0, 8)} · ${c.fecha.slice(0, 10)} · ${c.autor}`,
-  c.mensaje.trim().slice(0, 1200),
+  c.mensaje.trim().slice(0, tope),
   c.archivos.length ? `Archivos: ${c.archivos.join(', ')}` : '',
 ].filter(Boolean).join('\n');

@@ -29,7 +29,7 @@ import 'server-only';
 // de las tareas abiertas y los commits del día. Cero si no hubo commits.
 // =============================================================================
 
-import { runWithWorkspace, getTenantDb, OWNER_WS } from './workspace';
+import { runWithWorkspace, getTenantDb, wsSuperAdmin } from './workspace';
 import { getSetting, setSetting } from './settings';
 import { chatCheapCascade } from './ai-cheap';
 import { parseJsonObject } from './campaign-structurer';
@@ -39,8 +39,9 @@ import { commitsDesde, commitParaPrompt, REPO } from './github-commits';
 
 /** Desde cuándo mirar. Se guarda en el ws del dueño, que es donde vive su tablero. */
 const KEY_ULTIMO = 'mako.cerrar-commits.ultimo';
-/** El tablero del dueño es el único con tareas de desarrollo. */
-const WS = 9;
+// El tablero de desarrollo vive en el workspace del super-admin. Se resuelve por capa
+// (wsSuperAdmin) en vez de escribir un 9: el mismo número hardcodeado en dos archivos
+// distintos es cómo se desincronizan.
 
 type Row = Record<string, unknown>;
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : v == null ? d : String(v));
@@ -75,7 +76,7 @@ export type ResultadoCierre = { propuestas: number; borradorId: string; motivo: 
  * NUNCA cierra nada: deja un borrador que el dueño confirma.
  */
 export async function proponerCierresPorCommits(opts: { desdeISO?: string; dry?: boolean } = {}): Promise<ResultadoCierre> {
-  return runWithWorkspace(WS, async () => {
+  return runWithWorkspace(await wsSuperAdmin(), async () => {
     const ultimo = opts.desdeISO ?? (await getSetting(KEY_ULTIMO).catch(() => '')) ?? '';
     const { commits, motivo } = await commitsDesde(ultimo);
     if (!commits.length) return { propuestas: 0, borradorId: '', motivo };
@@ -90,12 +91,25 @@ export async function proponerCierresPorCommits(opts: { desdeISO?: string; dry?:
     // 260 caracteres de detalle: el «Qué hay que hacer» entero. Con 400 tareas, mandar el
     // detalle completo son 400k de prompt y el modelo pierde el hilo antes del final.
     const lista = tareas.map((t) => `[${str(t.id)}] #${t.num} ${str(t.title)} — ${str(t.detalle).replace(/\s+/g, ' ').slice(0, 260)}`).join('\n');
-    const cs = commits.map(commitParaPrompt).join('\n\n');
+    // Los mensajes de commit de este repo son largos A PROPÓSITO (20-30 líneas con el
+    // porqué). Con 60 commits eso son ~70.000 caracteres y el prompt se fue a 62k tokens
+    // en la primera corrida: Groq lo rechazó por su tope de 8k por minuto. El recorte
+    // escala con la cantidad — pocos commits, mensaje entero; muchos, el encabezado.
+    const porCommit = commits.length > 25 ? 400 : commits.length > 10 ? 800 : 1600;
+    const cs = commits.map((c) => commitParaPrompt(c, porCommit)).join('\n\n');
 
     const raw = await chatCheapCascade({
       system: SYSTEM,
       user: `${contenidoNoConfiable(cs, 'commits')}\n\n${contenidoNoConfiable(lista, 'tareas')}\n\n¿Cuáles de esas tareas cierran estos commits? Devolvé el JSON.`,
-      json: true, maxTokens: 3000,
+      json: true,
+      // 8000, no 3000: la primera corrida se cortó por largo y devolvió un JSON partido al
+      // medio («Expected ',' or ']' after array element»). La salida crece con lo que
+      // encuentre — una evidencia citada por tarea.
+      maxTokens: 8000,
+      // GEMINI PRIMERO, explícito. `chatCheapCascade` NO lee el registro de modelos: sin
+      // esto arranca por Groq, que tiene un techo de 8.000 tokens por minuto y rebota un
+      // prompt que lleva el tablero entero adentro. Gemini tiene 1M de contexto.
+      provs: ['gemini', 'openai', 'mistral'],
       feature: 'cerrar-por-commits', motivo: `Revisar ${commits.length} commits contra el tablero`,
     });
 
