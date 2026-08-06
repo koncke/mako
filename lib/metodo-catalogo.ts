@@ -294,21 +294,32 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'fathom',
     nombre: 'Fathom',
     categoria: 'Reuniones',
-    paraQue: 'Grabaciones y transcripciones de llamadas de venta para el Closing Analyst.',
+    paraQue: 'Apenas termina una llamada de venta, MaKo la tiene: la analiza, actualiza el CRM y puede escribirle al cliente en caliente.',
+    // Los TRES campos son obligatorios, y el webhook dejó de ser opcional a
+    // propósito. Con solo la API key las reuniones igual entran, pero en la pasada
+    // siguiente del cron: llegan tarde para lo único que de verdad importa acá, que
+    // es hacer algo MIENTRAS la llamada está fresca (mandarle el resumen al lead,
+    // disparar el seguimiento, avisarle al closer). Ofrecerlo como "opcional" hacía
+    // que la mayoría lo saltee y después la función quedara a medias sin que se
+    // entienda por qué.
+    // FATHOM_HOST_EMAIL también es obligatorio: es lo que rutea la grabación a este
+    // workspace. Sin él, el webhook llega y se descarta EN SILENCIO — el peor de los
+    // mundos, porque el cliente lo configuró y cree que quedó andando.
     campos: [
-      { env: 'FATHOM_API_KEY', label: 'API key', secreto: true },
-      { env: 'FATHOM_HOST_EMAIL', label: 'Email de la cuenta que graba', opcional: true, placeholder: 'vos@tudominio.com', nota: 'Email de la cuenta de Fathom que graba (recorded_by) — rutea las grabaciones entrantes a tu workspace.' },
-      { env: 'FATHOM_WEBHOOK_SECRET', label: 'Secret del webhook', secreto: true, opcional: true, nota: 'Secret del webhook de Fathom, si configurás el tuyo.' },
+      { env: 'FATHOM_API_KEY', label: 'API key', secreto: true, nota: 'Con esto traemos tus grabaciones y transcripciones.' },
+      { env: 'FATHOM_HOST_EMAIL', label: 'Email de la cuenta que graba', placeholder: 'vos@tudominio.com', nota: 'El email con el que entrás a Fathom. Es lo que nos dice que esa grabación es TUYA: sin esto, tus reuniones llegan y se descartan.' },
+      { env: 'FATHOM_WEBHOOK_SECRET', label: 'Secret del webhook', secreto: true, nota: 'Es lo que hace que la reunión llegue AL INSTANTE y no varias horas después. De eso depende poder mandarle el resumen al cliente mientras la charla está fresca.' },
     ],
     tutorial: {
       url: 'https://fathom.video/customize/integrations',
       urlLabel: 'Fathom → Integrations',
       pasos: [
-        'Entrá a fathom.video con tu cuenta (la que graba las llamadas).',
-        'Andá a Settings → Integrations → API Access (requiere plan Team Edition o superior).',
-        'Generá una API key y copiala.',
-        'Opcional: el email de la cuenta que graba (recorded_by) sirve para rutear las grabaciones entrantes al workspace correcto.',
-        'Opcional: el secret del webhook, solo si configurás el tuyo.',
+        'Para qué sirve: cuando cortás una llamada de venta, MaKo la escucha, la resume, marca la asistencia y actualiza el CRM. Sin que toques nada.',
+        'Entrá a fathom.video con la cuenta que graba las llamadas.',
+        'Andá a Settings → API Access (requiere plan Team Edition o superior) y generá una API key.',
+        'En la misma pantalla tocá "Add Webhook" y pegá esta URL: {{APP_URL}}/api/webhooks/fathom',
+        'Activá include_transcript y copiá el secret que te muestra (empieza con whsec_).',
+        'Pegá acá las tres cosas: la API key, el email de tu cuenta de Fathom y el secret del webhook.',
       ],
     },
   },
@@ -386,8 +397,18 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // como "Google Calendar", medido por señal real (el refresh token del ws).
 ];
 
-export const servicioMetodo = (key: string): ServicioMetodo | undefined =>
-  SERVICIOS_METODO.find((s) => s.key === key);
+/** Reemplaza `{{APP_URL}}` por el dominio real. Ver el porqué en ayudaDeCampo(). */
+const conUrlReal = (s: string): string => s.replaceAll('{{APP_URL}}', APP_BASE_URL);
+
+export const servicioMetodo = (key: string): ServicioMetodo | undefined => {
+  const s = SERVICIOS_METODO.find((x) => x.key === key);
+  if (!s) return undefined;
+  // Los pasos del tutorial también pueden escribir {{APP_URL}} (el de Fathom pide
+  // pegar NUESTRA URL en el panel de ellos). Se resuelve acá, en el único accessor,
+  // para que ninguna vista tenga que acordarse de hacerlo.
+  if (!s.tutorial?.pasos?.some((p) => p.includes('{{APP_URL}}'))) return s;
+  return { ...s, tutorial: { ...s.tutorial, pasos: s.tutorial.pasos.map(conUrlReal) } };
+};
 
 /** Servicio (key) al que pertenece una env del catálogo. */
 export const servicioDeEnv = (env: string): string | undefined =>
@@ -592,7 +613,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   FATHOM_HOST_EMAIL: {
     pasos: [
-      'Solo hace falta si vas a registrar el webhook: sin este email las grabaciones entrantes se ignoran y no llegan a tu workspace.',
+      'Es lo que nos dice que una grabación es TUYA. Sin esto tus reuniones llegan y se descartan, sin ningún error a la vista.',
       'Usá el email de la cuenta de Fathom que graba las llamadas — el mismo con el que entrás a fathom.video.',
       'Si graban varias personas, cargá el de la cuenta dueña de la grabación (la que Fathom reporta como recorded_by).',
       'Pegalo tal cual, sin espacios — se compara en minúscula contra el recorded_by de cada webhook.',
@@ -600,17 +621,17 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   FATHOM_WEBHOOK_SECRET: {
     pasos: [
-      // Se dice ANTES que nada que es opcional y QUÉ cambia: sin esto igual se
-      // marca la asistencia y se adjunta la grabación (lo hace adjuntarFathomAuto
-      // con la API key, por cron y por evento). Lo que se gana es que pase EN EL
-      // MOMENTO en vez de en la próxima pasada: el aviso por WhatsApp, el disparo
-      // de flujos y el borrador de follow-up post-llamada.
-      'Es OPCIONAL. Sin esto igual traemos tus reuniones, pero en la pasada siguiente en vez de al instante: te perdés el aviso al toque y el borrador de seguimiento.',
-      'En fathom.video: User Settings → API Access → Manage → Add Webhook.',
+      // El PRIMER paso es el beneficio, no la instrucción. Este campo es el que más
+      // se saltea si no se explica: pide salir de MaKo, entrar a otra herramienta y
+      // volver. Cuesta poco decir para qué sirve, y sin eso el usuario lo lee como
+      // burocracia nuestra.
+      'Qué te da: sin esto tus reuniones llegan horas después; con esto llegan apenas cortás. Esa diferencia es la que permite mandarle el resumen al cliente mientras la charla está fresca, y no al día siguiente.',
+      'En fathom.video: User Settings → API Access → Manage → "Add Webhook".',
       // La URL REAL, no un placeholder: que el cliente tenga que deducir su propio
       // dominio era la fricción principal de este paso.
       'Pegá esta URL como destino: {{APP_URL}}/api/webhooks/fathom',
-      'Activá include_transcript — lo usamos para confirmar que el invitado habló.',
+      'Marcá "External Recordings" además de "My Recordings": si no, las llamadas que grabe otra persona de tu equipo no llegan.',
+      'Activá include_transcript — lo usamos para confirmar que el invitado habló y para analizar la llamada.',
       'Copiá el secret que Fathom te muestra al crear el webhook (empieza con whsec_) y pegalo acá.',
     ],
     url: 'https://fathom.video/customize#api-access-header',
@@ -743,5 +764,5 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
 export function ayudaDeCampo(env: string): { pasos: string[]; url?: string; urlLabel?: string } | null {
   const a = AYUDA_CAMPO[env];
   if (!a) return null;
-  return { ...a, pasos: a.pasos.map((p) => p.replaceAll('{{APP_URL}}', APP_BASE_URL)) };
+  return { ...a, pasos: a.pasos.map(conUrlReal) };
 }
