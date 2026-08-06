@@ -30,10 +30,21 @@ export const maxDuration = 60;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : v == null ? d : String(v));
 
-/** Cuánto detalle entra por tarea. 340 caracteres es el «Qué hay que hacer» más el
- *  arranque del «Por qué» — que es donde vive el tema de la tarea. El resto es
- *  ejecución y no ayuda a decidir si esta tarea es la que el dueño está buscando. */
-const TOPE_DETALLE = 340;
+/**
+ * Cuánto detalle entra por tarea. 120 caracteres: el «Qué hay que hacer» y nada más.
+ *
+ * Era 340 por un razonamiento que sonaba bien —«que entre también el arranque del Por
+ * qué»— y que resultó falso al medirlo. Con las 497 tareas del tablero, contra tres
+ * preguntas reales:
+ *
+ *     340 → 58.000 tokens · 7 resultados para «trabado por Meta», uno de ellos de más
+ *     120 → 28.000 tokens · los 6 correctos, y encima apareció el que a 340 se le escapó
+ *       0 → 10.600 tokens · 4: alcanza para lo obvio, pierde lo que solo dice el detalle
+ *
+ * Menos texto no es solo más barato: el modelo lee los 497 títulos con más atención
+ * cuando no tiene que atravesar un párrafo por tarea para llegar al siguiente.
+ */
+const TOPE_DETALLE = 120;
 /** Techo de tareas en un prompt. Arriba de esto conviene trocear, pero el tablero más
  *  grande hoy tiene 497: si algún día se pasa, esto avisa en el log en vez de mentir. */
 const TOPE_TAREAS = 600;
