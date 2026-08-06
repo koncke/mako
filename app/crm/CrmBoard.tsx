@@ -889,7 +889,9 @@ function BulkHigiene({ marcar, equipo, onDone }: {
   const idsEmpresa = idsCon('empresa');
   // "Ignorar todos": los datos sin marcar de verdad (tipo A). La nutrición manual
   // vencida (M) no se ignora en masa — tiene su propia resolución.
-  const idsIgnorar = marcar.filter((m) => m.tipo !== 'M').map((m) => m.leadId);
+  // Ni la nutrición manual vencida (M) ni la reunión pasada sin desenlace (R) se
+  // pueden ignorar: son leads TRABADOS esperando una decisión, no datos de más.
+  const idsIgnorar = marcar.filter((m) => m.tipo !== 'M' && m.tipo !== 'R').map((m) => m.leadId);
 
   if (!grupos.length && !idsEmpresa.length && !idsIgnorar.length) return null;
 
