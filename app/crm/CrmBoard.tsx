@@ -8,7 +8,6 @@
 // y borrar lead (server actions). Plan de pagos / cuotas / nutrición se editan
 // en sesión (no se persisten en esta iteración).
 
-import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   useEffect,
@@ -17,12 +16,10 @@ import {
   useState,
   useTransition,
   type CSSProperties,
-  type ReactNode,
 } from 'react';
 import {
   CHIP,
   CATEGORY,
-  BAND_LABEL,
   bandToCategory,
   stageMeta as findStage,
   type Stage,
@@ -53,6 +50,21 @@ import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
 import { Icon } from '../_components/icons';
+import {
+  AccionesHeader,
+  BandasToggle,
+  Buscador,
+  ConteoLeads,
+  CrmFilterMenu,
+  CrmToolbarStyles,
+  DivisorHeader,
+  FiltroChips,
+  SinResultados,
+  VistaSelector,
+  type CrmVista,
+  type FiltroAbierto,
+  type FiltroCat,
+} from './CrmToolbar';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -160,18 +172,29 @@ export function CrmBoard({
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
   const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(['pipeline', 'nutricion', 'salidas']));
   const [search, setSearch] = useState('');
-  const [stageFilter, setStageFilter] = useState('todos');
-  const [originFilter, setOriginFilter] = useState('todos');
+  // Multi-selección: el set VACÍO significa "todas" (no hay valor centinela 'todos').
+  const [stageFilter, setStageFilter] = useState<Set<string>>(() => new Set());
+  const [originFilter, setOriginFilter] = useState<Set<string>>(() => new Set());
+  const [filtroAbierto, setFiltroAbierto] = useState<FiltroAbierto>(null);
   // ?pendientes=1 mantiene el worklist abierto: al volver de una ficha (Solucionar)
   // se restaura la vista de "Datos sin marcar" con su scroll (restauración de Next).
   const [showSinMarcar, setShowSinMarcar] = useState(sp.get('pendientes') === '1');
-  const toggleSinMarcar = () => {
-    const abrir = !showSinMarcar;
+  // "Pendientes" es una VISTA más (reemplaza el tablero entero), así que vive en el
+  // mismo selector que Kanban/Tabla. El query param se mantiene: es el que hace que
+  // volver de una ficha te devuelva al worklist y no al tablero.
+  const irSinMarcar = (abrir: boolean) => {
+    if (abrir === showSinMarcar) return;
     setShowSinMarcar(abrir);
     const params = new URLSearchParams(sp.toString());
     if (abrir) params.set('pendientes', '1'); else params.delete('pendientes');
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+  const vista: CrmVista = showSinMarcar ? 'pendientes' : view === 'kanban' ? 'kanban' : 'tabla';
+  const cambiarVista = (v: CrmVista) => {
+    if (v === 'pendientes') { irSinMarcar(true); return; }
+    irSinMarcar(false);
+    setView(v === 'kanban' ? 'kanban' : 'table');
   };
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [stageMove, setStageMove] = useState<{ leadId: number; move: StageMoveTarget } | null>(null);   // pop-up chico de completar movimiento
@@ -291,8 +314,14 @@ export function CrmBoard({
   }, [undoInfo]);
 
   // Mostrar/ocultar una banda del Kanban (multi-selección) + limpiar drag.
+  // La ÚLTIMA banda encendida no se puede apagar: quedaba el tablero sin una sola
+  // columna y nada en pantalla explicaba por qué — un estado muerto del que había
+  // que adivinar cómo salir.
   const toggleBand = (band: StageBand) => {
-    setActiveBands((prev) => { const n = new Set(prev); if (n.has(band)) n.delete(band); else n.add(band); return n; });
+    setActiveBands((prev) => {
+      if (prev.has(band) && prev.size === 1) return prev;
+      const n = new Set(prev); if (n.has(band)) n.delete(band); else n.add(band); return n;
+    });
     setDragId(null); setDragOverCol(null);
   };
 
@@ -395,40 +424,24 @@ export function CrmBoard({
   };
 
   // ── Filtro ──
+  // Cada categoría es un Set: vacío = sin filtrar (todas). Con valores, el lead pasa
+  // si coincide con CUALQUIERA de los elegidos (OR dentro de la categoría, AND entre
+  // categorías) — es lo que espera cualquiera que marque tres etapas a la vez.
   const matches = (l: CrmLead) => {
     const q = search.trim().toLowerCase();
     if (q && !(l.name.toLowerCase().includes(q) || l.company.toLowerCase().includes(q) || l.email.toLowerCase().includes(q))) return false;
-    if (stageFilter !== 'todos' && effStage(l) !== stageFilter) return false;
-    if (originFilter !== 'todos' && l.origin !== originFilter) return false;
+    if (stageFilter.size > 0 && !stageFilter.has(effStage(l))) return false;
+    if (originFilter.size > 0 && !originFilter.has(l.origin)) return false;
     return true;
   };
   const filtered = leads.filter(matches);
-  const originOptions = useMemo(() => [...new Set(leads.map((l) => l.origin))], [leads]);
+  const originOptions = useMemo(() => [...new Set(leads.map((l) => l.origin))].filter(Boolean).sort((a, b) => a.localeCompare(b)), [leads]);
+  const hayFiltros = stageFilter.size > 0 || originFilter.size > 0 || search.trim().length > 0;
+  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setSearch(''); };
+  const abrirFiltro = (cat: FiltroCat) => setFiltroAbierto(cat);
 
   // ── worklist "datos sin marcar" ──
   const marcarPending = marcar.length;
-
-  // ── estilos de tabs/botones ──
-  const tabActive: CSSProperties = { padding: '7px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 14, fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
-  const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
-  // Búsqueda (crece) con lupa interior
-  const searchWrap: CSSProperties = { position: 'relative', flex: 1, minWidth: 240, display: 'flex', alignItems: 'center' };
-  const searchInput: CSSProperties = { width: '100%', padding: '11px 16px 11px 42px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, outline: 'none' };
-  const gearBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' };
-
-  const btnBase: CSSProperties = { padding: '11px 17px', borderRadius: 11, cursor: 'pointer', fontFamily: SANS, fontSize: 14, fontWeight: 600 };
-  let sinMarcarBtnStyle: CSSProperties;
-  let sinMarcarBtnLabel: string;
-  if (showSinMarcar) {
-    sinMarcarBtnStyle = { ...btnBase, border: '1px solid var(--bad)', background: 'var(--bad)', color: '#fff' };
-    sinMarcarBtnLabel = '✕ Cerrar';
-  } else if (marcarPending > 0) {
-    sinMarcarBtnStyle = { ...btnBase, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', animation: 'pulseRed 1.6s infinite' };
-    sinMarcarBtnLabel = '⚠ ' + marcarPending + ' datos sin marcar';
-  } else {
-    sinMarcarBtnStyle = { ...btnBase, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 500 };
-    sinMarcarBtnLabel = '✓ Datos al día';
-  }
 
   const selected = selectedId != null ? leads.find((l) => l.id === selectedId) ?? null : null;
 
@@ -498,18 +511,22 @@ export function CrmBoard({
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', display: 'flex', flexDirection: 'column' }}>
-      {/* HEADER */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="crm" size={34} /></span>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>CRM</h1>
-          <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{filtered.length} de {total} leads</span>
+      <CrmToolbarStyles />
+
+      {/* HEADER — título a la izquierda, UN solo clúster de acciones a la derecha.
+          El conteo "N de M" se fue a la barra: es el resultado de los filtros, no
+          parte del nombre de la pantalla. */}
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <span style={{ display: 'inline-flex', flex: 'none', color: 'var(--accent)' }}><Icon name="crm" size={34} /></span>
+          {/* clamp(): los estilos inline no tienen @media, y a 46px fijos el título se
+              salía de la pantalla en mobile. */}
+          <h1 style={{ fontWeight: 600, fontSize: 'clamp(30px, 6vw, 46px)', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>CRM</h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <CrmAutoToggle />
-          <IconoBoton onClick={() => setImportar(true)} label="Importar leads desde un CSV" title="Importar: un CSV con Nombre, Email, Teléfono y Empresa"><UploadIcon /></IconoBoton>
-          <IconoBoton onClick={() => setExportar(true)} label="Exportar los leads" title="Exportar los leads a planilla o documento"><DownloadIcon /></IconoBoton>
-          <Link href="/crm/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 19px', borderRadius: 11, background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>+ Nuevo lead</Link>
+          <DivisorHeader />
+          <AccionesHeader total={total} onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} />
         </div>
       </header>
 
@@ -556,44 +573,45 @@ export function CrmBoard({
         </section>
       )}
 
-      {/* TOOLBAR — vista · búsqueda | filtros | acciones */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-        {/* Vista */}
-        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>
-          <button onClick={() => setView('kanban')} style={view === 'kanban' ? tabActive : tabIdle}>Kanban</button>
-          <button onClick={() => setView('table')} style={view === 'table' ? tabActive : tabIdle}>Tabla</button>
-        </div>
-
-        {/* Búsqueda */}
-        <div style={searchWrap}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ position: 'absolute', left: 15, pointerEvents: 'none' }}>
-            <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
-          </svg>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, empresa o email…" style={searchInput} />
-        </div>
-
-        {/* Filtros */}
-        <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
-          <Dropdown
-            value={stageFilter}
-            onChange={setStageFilter}
-            ariaLabel="Filtrar por etapa"
-            options={[{ value: 'todos', label: 'Etapa: todas' }, ...stages.map((s) => ({ value: s.key, label: s.label, color: s.dot }))]}
+      {/* TOOLBAR — fila 1: vista · buscar · filtrar ····· bandas · conteo.
+          nowrap + flex:'none' en cada control + UN solo elástico. Nada de
+          marginLeft:'auto' acá: al envolver deja un hueco del ancho de la fila. */}
+      <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16 }}>
+        <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
+        {/* Buscar, filtrar y el conteo describen la LISTA de leads. En "Pendientes" no
+            hay lista de leads sino un worklist con su propia lógica: dejarlos ahí era
+            ofrecer controles que no hacían nada. */}
+        {vista !== 'pendientes' && <>
+          <Buscador value={search} onChange={setSearch} />
+          <CrmFilterMenu
+            stages={stages}
+            etapas={stageFilter} setEtapas={setStageFilter}
+            origenes={originOptions} origen={originFilter} setOrigen={setOriginFilter}
+            abierto={filtroAbierto} setAbierto={setFiltroAbierto}
           />
-          <Dropdown
-            value={originFilter}
-            onChange={setOriginFilter}
-            ariaLabel="Filtrar por origen"
-            options={[{ value: 'todos', label: 'Origen: todos' }, ...originOptions.map((o) => ({ value: o, label: o }))]}
+        </>}
+        <span className="crm-tb-elastico" style={{ flex: 1 }} />
+        {/* Las bandas son una propiedad del KANBAN (qué columnas se ven), no un filtro
+            de datos: solo existen en esa vista y por eso no viven en el menú. */}
+        {vista === 'kanban' && (
+          <BandasToggle
+            bandas={activeBands}
+            onToggle={toggleBand}
+            conteo={(band) => filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length}
           />
-        </div>
-
-        {/* Acciones */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-          <Link href="/funnel" title="Editar el funnel (etapas y flechas)" style={{ ...gearBtn, textDecoration: 'none' }}>✎ Funnel</Link>
-          <button onClick={toggleSinMarcar} style={sinMarcarBtnStyle}>{sinMarcarBtnLabel}</button>
-        </div>
+        )}
+        {vista !== 'pendientes' && <ConteoLeads visibles={filtered.length} total={total} />}
       </div>
+
+      {/* Fila 2 — solo si hay filtros activos (el buscador no genera chip). */}
+      {vista !== 'pendientes' && (
+        <FiltroChips
+          stages={stages}
+          etapas={stageFilter} setEtapas={setStageFilter}
+          origen={originFilter} setOrigen={setOriginFilter}
+          onAbrir={abrirFiltro}
+        />
+      )}
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
@@ -606,31 +624,20 @@ export function CrmBoard({
         />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Bandas (multi-selección): mostrá las que quieras a la vez */}
-          <div style={{ display: 'inline-flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-            {KANBAN_BANDS.map((band) => {
-              const on = activeBands.has(band);
-              const accent = CATEGORY[bandToCategory(band)].c;
-              const n = filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length;
-              return (
-                <button key={band} onClick={() => toggleBand(band)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 11, border: '1px solid ' + (on ? accent : 'var(--border-strong)'), background: on ? accent : 'var(--surface)', color: on ? '#fff' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: on ? '#fff' : accent }} />
-                  {BAND_LABEL[band]}
-                  <span style={{ fontSize: 12.5, fontWeight: 600, opacity: 0.85 }}>{n}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div ref={boardScrollRef} onDragOver={onBoardDragOver} onDrop={stopAutoScroll} style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
-              {stages
-                .filter((s) => activeBands.has(s.band ?? 'pipeline'))
-                .sort((a, b) => (KANBAN_BANDS.indexOf(a.band ?? 'pipeline') - KANBAN_BANDS.indexOf(b.band ?? 'pipeline')) || ((a.col ?? 0) - (b.col ?? 0)))
-                .map((c) => renderColumn(c))}
+          {/* Sin resultados el kanban quedaba mudo (solo la tabla avisaba): se veían
+              las columnas vacías y no había forma de saber que era por un filtro. */}
+          {filtered.length === 0 ? (
+            <SinResultados hayFiltros={hayFiltros} onLimpiar={limpiarTodo} />
+          ) : (
+            <div ref={boardScrollRef} onDragOver={onBoardDragOver} onDrop={stopAutoScroll} style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
+                {stages
+                  .filter((s) => activeBands.has(s.band ?? 'pipeline'))
+                  .sort((a, b) => (KANBAN_BANDS.indexOf(a.band ?? 'pipeline') - KANBAN_BANDS.indexOf(b.band ?? 'pipeline')) || ((a.col ?? 0) - (b.col ?? 0)))
+                  .map((c) => renderColumn(c))}
+              </div>
             </div>
-          </div>
-          {activeBands.size === 0 && <div style={{ padding: 30, color: 'var(--dim)', fontSize: 14 }}>Elegí al menos una banda arriba para ver el tablero.</div>}
+          )}
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
@@ -656,7 +663,19 @@ export function CrmBoard({
             );
           })}
           {filtered.length === 0 && (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--dim)', fontSize: 14.5 }}>Sin resultados para los filtros actuales.</div>
+            <div style={{ padding: 40, textAlign: 'center' }}>
+              <div style={{ color: 'var(--dim)', fontSize: 14.5 }}>
+                {hayFiltros ? 'Sin resultados para estos filtros' : 'Todavía no hay leads para mostrar'}
+              </div>
+              {/* Misma salida que en el kanban: el aviso sin el botón deja al usuario
+                  buscando a mano cuál de los filtros fue el que vació la lista. */}
+              {hayFiltros && (
+                <button type="button" onClick={limpiarTodo}
+                  style={{ marginTop: 14, padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -1067,20 +1086,6 @@ function SinMarcar({
   );
 }
 
-// ── Importar / exportar: el MISMO botón de icono del board del plan ──
-// 38×38, solo icono, borde que se tiñe de primary al pasar por encima. Se copia
-// el patrón (y no se inventa otro) para que las dos pantallas se sientan iguales.
-function IconoBoton({ onClick, label, title, children }: { onClick: () => void; label: string; title: string; children: ReactNode }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <button type="button" onClick={onClick} aria-label={label} title={title}
-      style={{ display: 'inline-flex', flex: 'none', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: `1px solid ${hover ? 'var(--primary)' : 'var(--border-strong)'}`, background: 'var(--surface)', cursor: 'pointer', color: hover ? 'var(--primary)' : 'var(--dim)', padding: 0 }}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      {children}
-    </button>
-  );
-}
-function DownloadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>; }
-function UploadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M17 8l-5-5-5 5" /><path d="M12 3v12" /></svg>; }
-
-// La gestión de etapas y transiciones vive ahora en la tab /funnel (FunnelEditor).
+// Los controles del header y de la barra (acciones, vista, buscador, filtros y
+// bandas) viven en ./CrmToolbar. La gestión de etapas y transiciones vive en la
+// tab /funnel (FunnelEditor), a la que se llega desde el menú "···".

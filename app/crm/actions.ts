@@ -50,9 +50,17 @@ import {
   type VslEngagement,
   type TrackingEvent,
   type RespuestaQA,
+  type EstadoLead,
 } from '@/lib/leads';
-import { DEFAULT_STAGES, terminalEstadoFor, MAKO_SETTER, NUTRI_KEYS, type Stage } from '@/lib/pipeline';
-import { CAMPOS_LEAD, COLUMNAS_POR_CAMPO, type AlcanceLeads, type CampoLead, type FormatoLeads } from './leads-exportar';
+import { DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
+import {
+  CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
+  alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
+  type CampoFechaLeads, type FiltrosLeads, type OrdenLeads,
+} from './leads-exportar';
+import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
+import { MAX_FILAS_IMPORT, filasDesdeCsv, type FilaImport } from './leads-importar';
+import { marcarExistentes } from './importar-server';
 import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
@@ -660,170 +668,421 @@ export async function reactivarPendientesAction(leadId: number): Promise<void> {
   revalidatePath('/general');
 }
 
-// ── Exportar leads (plan #364) ──
-// Mismo contrato que el export del plan: el usuario elige alcance, campos y
-// formato de a una pregunta (ver ExportarLeadsModal) y acá se arma el archivo.
-// Pagina con .range() porque PostgREST corta en 1000 filas y hay >1000 leads.
+// ─────────────────────────────────────────────────────────────────────────────
+// Exportar leads (plan #364)
+// ─────────────────────────────────────────────────────────────────────────────
+// El usuario arma el filtro de a una pregunta (ver ExportarLeadsModal) y acá se
+// resuelve contra la base.
+//
+// ⚠️ EL BUG QUE ARREGLA ESTA SECCIÓN: antes la etapa se filtraba con
+// `.in('pipeline_stage', …)`. Esa columna es un OVERRIDE MANUAL y está en NULL en
+// la mayoría de los leads — la etapa real del CRM es `pipeline_stage ?? deriveStageKey`.
+// Consecuencia medida: el alcance "nutrición" devolvía CERO leads mientras el Kanban
+// mostraba cientos, y "activos" dejaba entrar leads que en el tablero estaban en
+// nutrición. Ahora se traen las columnas que necesita la derivación y se filtra EN
+// MEMORIA con la MISMA etapa efectiva que pinta el board (ver app/crm/crm-map.ts).
+//
+// El precio de filtrar en memoria es traer la tabla: se pagina con .range() porque
+// PostgREST corta en 1000 filas pase lo que pase (.limit() no sube ese techo).
 
-/** Cuántos leads saldrían con ese alcance — el contador que muestra el wizard. */
-export async function contarLeadsExportAction(alcance: AlcanceLeads): Promise<number> {
-  const db = await getTenantDb();
-  let q = db.from('leads').select('id', { count: 'exact', head: true });
-  q = aplicarAlcance(q, alcance);
-  const { count, error } = await q;
-  if (error) throw new Error(`No se pudo contar: ${error.message}`);
-  return count ?? 0;
+type FilaLead = Record<string, unknown>;
+
+/**
+ * Columnas que SIEMPRE se traen: las que necesita derivar la etapa (lib/pipeline →
+ * deriveStageKey) más las que miran los filtros de fecha, dinero, persona y origen.
+ * Sin estas, el filtro es adivinanza.
+ */
+const COLS_FILTRO: string[] = [
+  'id', 'nombre',
+  'estado_lead', 'pipeline_stage', 'asistio_j1', 'asistio_j2',
+  'fecha_agenda', 'fecha_junta_1', 'fecha_junta_2', 'nutricion_realizada',
+  'created_at', 'fecha_cierre', 'fecha_primer_pago',
+  'monto_cierre_usd', 'total_cobrado_usd', 'venta_tipo',
+  'closer', 'setter',
+  'meta_campaign_name', 'utm_campaign', 'origen_lead',
+];
+
+const sTxt = (v: unknown): string | null => { const t = v == null ? '' : String(v).trim(); return t || null; };
+const nNum = (v: unknown): number => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+const bTri = (v: unknown): boolean | null => (v === true ? true : v === false ? false : null);
+const diaDe = (v: unknown): string | null => { const t = sTxt(v); return t ? t.slice(0, 10) : null; };
+
+/**
+ * Etapa efectiva del lead, igual que el board: el override manual SOLO si esa etapa
+ * sigue existiendo en el funnel del workspace; si quedó huérfana (se borró del
+ * funnel), se ignora y vale la derivada.
+ */
+function etapaEfectivaDe(l: FilaLead, validas: Set<string>): string {
+  const d: StageDerivable = {
+    estado_lead: (sTxt(l.estado_lead) ?? 'abierto') as EstadoLead,
+    pipeline_stage: sTxt(l.pipeline_stage),
+    fecha_agenda: diaDe(l.fecha_agenda),
+    fecha_junta_1: diaDe(l.fecha_junta_1),
+    fecha_junta_2: diaDe(l.fecha_junta_2),
+    asistio_j1: bTri(l.asistio_j1),
+    asistio_j2: bTri(l.asistio_j2),
+    nutricion_realizada: l.nutricion_realizada === true,
+  };
+  const derivada = deriveStageKey(d);
+  return d.pipeline_stage && validas.has(d.pipeline_stage) ? d.pipeline_stage : derivada;
 }
 
-// El alcance se traduce a filtros del pipeline/estado (NUTRI_KEYS = las etapas de
-// nutrición del funnel, misma fuente que usa el board).
-function aplicarAlcance<T extends { eq: (c: string, v: unknown) => T; in: (c: string, v: readonly unknown[]) => T; not: (c: string, op: string, v: unknown) => T }>(q: T, alcance: AlcanceLeads): T {
-  if (alcance === 'ganados') return q.eq('estado_lead', 'ganado');
-  if (alcance === 'nutricion') return q.in('pipeline_stage', NUTRI_KEYS);
-  if (alcance === 'activos') return q.eq('estado_lead', 'abierto').not('pipeline_stage', 'in', `(${NUTRI_KEYS.join(',')})`);
-  return q;
+/** Origen a nivel CAMPAÑA: es el corte con el que se piensa "de dónde vino esta gente". */
+function origenDeFila(l: FilaLead): string {
+  const camp = sTxt(l.meta_campaign_name) ?? sTxt(l.utm_campaign);
+  if (camp) return camp;
+  const o = sTxt(l.origen_lead);
+  if (o === 'instant_form') return 'Meta · sin campaña';
+  if (o === 'calendly') return 'Calendly · sin campaña';
+  return o ?? 'Directo / orgánico';
 }
 
-export async function exportLeadsAction(opts: {
-  alcance: AlcanceLeads;
-  campos: CampoLead[];
-  formato: FormatoLeads;
-}): Promise<string> {
-  const db = await getTenantDb();
-  // id y nombre van SIEMPRE; el resto según lo que se eligió.
-  const columnas: Array<[string, string]> = [['id', 'ID'], ['nombre', 'Nombre']];
-  for (const c of CAMPOS_LEAD.map((x) => x.id)) {
-    if (opts.campos.includes(c)) columnas.push(...COLUMNAS_POR_CAMPO[c]);
+/** Qué fecha mira el filtro por período (la eligió el usuario en el paso 6). */
+function fechaDeFiltro(l: FilaLead, campo: CampoFechaLeads): string | null {
+  switch (campo) {
+    case 'r1': return diaDe(l.fecha_junta_1) ?? diaDe(l.fecha_agenda);
+    case 'cierre': return diaDe(l.fecha_cierre);
+    case 'primer-pago': return diaDe(l.fecha_primer_pago);
+    default: return diaDe(l.created_at);
   }
-  const filas: Record<string, unknown>[] = [];
+}
+
+function pasaFiltros(
+  l: FilaLead, f: FiltrosLeads, etapa: string, banda: StageBand,
+  rango: { desde: string; hasta: string } | null,
+): boolean {
+  if (f.banda === 'elegir') { if (!f.etapas.includes(etapa)) return false; }
+  else if (f.banda !== 'todo' && banda !== f.banda) return false;
+
+  const on = new Set(f.acotar);
+
+  if (on.has('fecha') && rango) {
+    // Un lead sin esa fecha queda AFUERA a propósito: "los que cerraron este mes"
+    // no puede incluir a los que nunca cerraron.
+    const d = fechaDeFiltro(l, f.campoFecha);
+    if (!d || d < rango.desde || d > rango.hasta) return false;
+  }
+
+  if (on.has('origen') && f.origenes.length && !f.origenes.includes(origenDeFila(l))) return false;
+
+  if (on.has('persona') && f.personas.length) {
+    const closer = sTxt(l.closer);
+    const setter = sTxt(l.setter);
+    // Matchea closer O setter: "los de Juan" son los que él agendó y los que cerró.
+    const ok = f.personas.some((p) => (p === SIN_ASIGNAR ? !closer && !setter : p === closer || p === setter));
+    if (!ok) return false;
+  }
+
+  if (on.has('dinero') && f.dinero !== 'no-importa') {
+    const vendido = nNum(l.monto_cierre_usd);
+    const cobrado = nNum(l.total_cobrado_usd);
+    switch (f.dinero) {
+      case 'con-monto': if (!(vendido > 0)) return false; break;
+      case 'con-cobro': if (!(cobrado > 0)) return false; break;
+      case 'debe': if (!(vendido - cobrado > 0)) return false; break;
+      case 'suscripcion': if (sTxt(l.venta_tipo) !== 'suscripcion') return false; break;
+      case 'ganado-sin-monto': if (sTxt(l.estado_lead) !== 'ganado' || vendido > 0) return false; break;
+    }
+  }
+  return true;
+}
+
+/** Trae los leads del workspace paginando (PostgREST corta en 1000 filas). */
+async function traerLeads(columnas: string[]): Promise<FilaLead[]> {
+  const db = await getTenantDb();
+  const sel = [...new Set(columnas.filter((c) => !esColumnaDerivada(c)))].join(', ');
+  const filas: FilaLead[] = [];
   const PAGE = 1000;
-  for (let desde = 0; ; desde += PAGE) {
-    let q = db.from('leads').select(columnas.map(([k]) => k).join(', '));
-    q = aplicarAlcance(q as never, opts.alcance) as typeof q;
-    const { data, error } = await q.order('created_at', { ascending: false }).range(desde, desde + PAGE - 1);
-    if (error) throw new Error(`No se pudo exportar: ${error.message}`);
-    const chunk = (data ?? []) as unknown as Record<string, unknown>[];
+  // Ordenado por id y no por created_at: con empates de timestamp el .range()
+  // repite o saltea filas entre páginas (el orden deja de ser estable).
+  for (let desde = 0; desde < 200_000; desde += PAGE) {
+    const { data, error } = await db.from('leads').select(sel).order('id', { ascending: true }).range(desde, desde + PAGE - 1);
+    if (error) throw new Error(`No se pudieron leer los leads: ${error.message}`);
+    const chunk = (data ?? []) as unknown as FilaLead[];
     filas.push(...chunk);
     if (chunk.length < PAGE) break;
   }
+  return filas;
+}
 
-  const val = (v: unknown): string => (v == null ? '' : typeof v === 'boolean' ? (v ? 'sí' : 'no') : String(v));
-  if (opts.formato === 'md') {
-    const head = `| ${columnas.map(([, l]) => l).join(' | ')} |`;
-    const sep = `| ${columnas.map(() => '---').join(' | ')} |`;
-    const body = filas.map((f) => `| ${columnas.map(([k]) => val(f[k]).replace(/\|/g, '\\|')).join(' | ')} |`);
-    return [`# Leads (${filas.length})`, '', head, sep, ...body].join('\n');
+function ordenarLeads(filas: FilaLead[], orden: OrdenLeads, ordenEtapas: string[]): void {
+  const idx = (k: unknown) => { const i = ordenEtapas.indexOf(String(k)); return i < 0 ? ordenEtapas.length : i; };
+  const monto = (l: FilaLead) => nNum(l.monto_cierre_usd);
+  const nombre = (l: FilaLead) => String(l.nombre ?? '');
+  // '￿' y no 'zzz': quien no tiene closer va al final sin depender del alfabeto.
+  const closer = (l: FilaLead) => sTxt(l.closer) ?? '￿';
+  filas.sort((a, b) => {
+    switch (orden) {
+      case 'monto': return monto(b) - monto(a) || nombre(a).localeCompare(nombre(b));
+      case 'fecha': return String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''));
+      case 'closer': return closer(a).localeCompare(closer(b)) || monto(b) - monto(a);
+      default: return idx(a['#etapaKey']) - idx(b['#etapaKey']) || monto(b) - monto(a);
+    }
+  });
+}
+
+/**
+ * El corazón del export: trae, deriva la etapa, filtra en memoria y ordena.
+ * `columnasExtra` son las columnas de los grupos que el usuario eligió llevarse.
+ */
+async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[]): Promise<{ filas: FilaLead[]; stages: Stage[]; ordenEtapas: string[] }> {
+  const stagesRaw = await getPipelineStages().catch(() => DEFAULT_STAGES);
+  const stages = (stagesRaw.length ? stagesRaw : DEFAULT_STAGES).map(withLayout);
+  const validas = new Set(stages.map((s) => s.key));
+  const ordenEtapas = stages.map((s) => s.key);
+  const rango = f.acotar.includes('fecha') ? rangoDePeriodo(f.periodo, hoyEnTijuana()) : null;
+
+  const todas = await traerLeads([...COLS_FILTRO, ...columnasExtra]);
+  const filas: FilaLead[] = [];
+  for (const l of todas) {
+    const key = etapaEfectivaDe(l, validas);
+    // stageMeta resuelve también las keys legacy que el funnel ya no genera
+    // (noshow_r1, postagenda…), así no salen etiquetadas con la primera etapa.
+    const meta = withLayout(stageMeta(stages, key));
+    const banda: StageBand = meta.band ?? 'nutricion';
+    if (!pasaFiltros(l, f, key, banda, rango)) continue;
+    l['#etapaKey'] = key;
+    l['#etapa'] = meta.label ?? key;
+    l['#falta'] = Math.max(0, nNum(l.monto_cierre_usd) - nNum(l.total_cobrado_usd));
+    l['#origen'] = origenDeFila(l);
+    filas.push(l);
   }
+  ordenarLeads(filas, f.orden, ordenEtapas);
+  return { filas, stages, ordenEtapas };
+}
+
+/** Cuántos leads saldrían con estos filtros — el contador que muestra el wizard. */
+export async function contarLeadsExportAction(f: FiltrosLeads): Promise<number> {
+  const { filas } = await leadsFiltrados(f, []);
+  return filas.length;
+}
+
+/** Lo que el wizard necesita para preguntar: etapas del funnel, orígenes reales y equipo. */
+export type OpcionesExport = {
+  etapas: Array<{ key: string; label: string; band: StageBand; dot: string; n: number }>;
+  origenes: Array<{ valor: string; n: number }>;
+  equipo: MiembroEquipo[];
+  /** Cuántos leads no tienen closer NI setter (la opción "Sin asignar"). */
+  sinAsignar: number;
+};
+
+/**
+ * Un solo viaje para llenar los pasos condicionales. Los orígenes y los conteos por
+ * etapa salen de la base, no de una lista fija: preguntar "¿de qué origen?" con
+ * opciones que no existen en el CRM del cliente es peor que no preguntar.
+ */
+export async function getOpcionesExportAction(): Promise<OpcionesExport> {
+  const stagesRaw = await getPipelineStages().catch(() => DEFAULT_STAGES);
+  const stages = (stagesRaw.length ? stagesRaw : DEFAULT_STAGES).map(withLayout);
+  const validas = new Set(stages.map((s) => s.key));
+  const [todas, equipo] = await Promise.all([traerLeads(COLS_FILTRO), getEquipoAction()]);
+
+  const porEtapa = new Map<string, number>();
+  const porOrigen = new Map<string, number>();
+  let sinAsignar = 0;
+  for (const l of todas) {
+    const key = etapaEfectivaDe(l, validas);
+    porEtapa.set(key, (porEtapa.get(key) ?? 0) + 1);
+    const o = origenDeFila(l);
+    porOrigen.set(o, (porOrigen.get(o) ?? 0) + 1);
+    if (!sTxt(l.closer) && !sTxt(l.setter)) sinAsignar++;
+  }
+
+  // Las etapas van en el orden del funnel; las derivadas que ya no están en el
+  // funnel (overrides viejos) se agregan al final para que se puedan elegir igual.
+  const etapas: OpcionesExport['etapas'] = stages.map((s) => ({
+    key: s.key, label: s.label, band: s.band ?? 'nutricion', dot: s.dot, n: porEtapa.get(s.key) ?? 0,
+  }));
+  for (const [key, n] of porEtapa) {
+    if (validas.has(key)) continue;
+    const meta = withLayout(stageMeta(stages, key));
+    etapas.push({ key, label: meta.label ?? key, band: meta.band ?? 'nutricion', dot: meta.dot, n });
+  }
+
+  return {
+    etapas,
+    origenes: [...porOrigen.entries()].map(([valor, n]) => ({ valor, n })).sort((a, b) => b.n - a.n || a.valor.localeCompare(b.valor)),
+    equipo,
+    sinAsignar,
+  };
+}
+
+/** Una fila cruda → la ficha que imprime el documento. */
+function filaALeadDoc(l: FilaLead): LeadDoc {
+  return {
+    id: Number(l.id),
+    nombre: String(l.nombre ?? ''),
+    empresa: sTxt(l.empresa),
+    etapaKey: String(l['#etapaKey'] ?? ''),
+    etapaLabel: String(l['#etapa'] ?? ''),
+    email: sTxt(l.email),
+    telefono: sTxt(l.telefono),
+    estado: sTxt(l.estado_lead),
+    calificado: bTri(l.calificado),
+    monto: l.monto_cierre_usd == null ? null : nNum(l.monto_cierre_usd),
+    cobrado: l.total_cobrado_usd == null ? null : nNum(l.total_cobrado_usd),
+    ventaTipo: sTxt(l.venta_tipo),
+    suscripcionMonto: l.suscripcion_monto_usd == null ? null : nNum(l.suscripcion_monto_usd),
+    suscripcionMeses: l.suscripcion_meses == null ? null : nNum(l.suscripcion_meses),
+    fechaR1: diaDe(l.fecha_junta_1) ?? diaDe(l.fecha_agenda),
+    asistioR1: bTri(l.asistio_j1),
+    fechaR2: diaDe(l.fecha_junta_2),
+    asistioR2: bTri(l.asistio_j2),
+    closer: sTxt(l.closer),
+    setter: sTxt(l.setter),
+    origen: sTxt(l['#origen']),
+    anuncio: sTxt(l.meta_ad_name),
+    campana: sTxt(l.meta_campaign_name),
+    utmCampaign: sTxt(l.utm_campaign),
+    utmContent: sTxt(l.utm_content),
+    creado: diaDe(l.created_at),
+    agenda: diaDe(l.fecha_agenda),
+    cierre: diaDe(l.fecha_cierre),
+    primerPago: diaDe(l.fecha_primer_pago),
+    visitorId: sTxt(l.visitor_id),
+    respuestas: PREGUNTAS_FORM.map(([col, q]) => ({ q, a: sTxt(l[col]) ?? '' })).filter((r) => r.a),
+    motivoPerdida: sTxt(l.motivo_perdida),
+  };
+}
+
+/** Dentro de cada etapa el documento respeta el orden que el usuario eligió. */
+function comparadorDoc(orden: OrdenLeads): (a: LeadDoc, b: LeadDoc) => number {
+  const monto = (l: LeadDoc) => nNum(l.monto);
+  switch (orden) {
+    case 'fecha': return (a, b) => String(b.creado ?? '').localeCompare(String(a.creado ?? ''));
+    case 'closer': return (a, b) => (a.closer ?? '￿').localeCompare(b.closer ?? '￿') || monto(b) - monto(a);
+    default: return (a, b) => monto(b) - monto(a) || a.nombre.localeCompare(b.nombre);
+  }
+}
+
+export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
+  // id y nombre van SIEMPRE; el resto según los grupos elegidos.
+  const columnas: Array<[string, string]> = [['id', 'ID'], ['nombre', 'Nombre']];
+  for (const c of CAMPOS_LEAD.map((x) => x.id)) {
+    if (f.campos.includes(c)) columnas.push(...COLUMNAS_POR_CAMPO[c]);
+  }
+  // El documento necesita empresa y montos aunque no se hayan tildado: el resumen
+  // por etapa y la línea de identidad son la columna vertebral del formato.
+  const extraDoc = f.formato === 'md' ? ['empresa', 'monto_cierre_usd', 'total_cobrado_usd'] : [];
+  const { filas, stages, ordenEtapas } = await leadsFiltrados(f, [...columnas.map(([k]) => k), ...extraDoc]);
+
+  if (f.formato === 'md') {
+    const etapasRef = stages.map((s) => ({ key: s.key, label: s.label, band: s.band ?? ('nutricion' as StageBand) }));
+    return leadsAMarkdown(
+      filas.map(filaALeadDoc),
+      f.campos,
+      {
+        alcance: alcanceLegible(f, etapasRef),
+        filtros: filtrosLegibles(f),
+        incluye: incluyeLegible(f),
+        hoyISO: hoyEnTijuana(),
+      },
+      ordenEtapas,
+      comparadorDoc(f.orden),
+    );
+  }
+
+  const val = (v: unknown): string => (v == null ? '' : typeof v === 'boolean' ? (v ? 'Sí' : 'No') : String(v));
   const esc = (v: unknown): string => {
     const s = val(v);
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lineas = [columnas.map(([, l]) => l).join(',')];
-  for (const f of filas) lineas.push(columnas.map(([k]) => esc(f[k])).join(','));
-  return lineas.join('\r\n');
+  for (const fila of filas) lineas.push(columnas.map(([k]) => esc(fila[k])).join(','));
+  // BOM: sin él Excel abre el CSV en Windows-1252 y los acentos salen rotos
+  // («Diseño» → «DiseÃ±o»). Un export ilegible no es un export.
+  return `﻿${lineas.join('\r\n')}`;
 }
 
-// ── Importar leads desde CSV (plan #383) ──
-// Parser CSV propio (RFC4180: comillas, comas y saltos dentro de campos). Mapea
-// columnas por nombre flexible, deduplica contra los leads existentes (email o
-// teléfono) e inserta por la MISMA vía que "+ Nuevo lead" (createLead, tenant-scoped).
+// ─────────────────────────────────────────────────────────────────────────────
+// Importar leads (plan #383)
+// ─────────────────────────────────────────────────────────────────────────────
+// El archivo lo lee /api/crm/importar-leads (route: el body de una server action
+// tope en 1 MB y acá suben PDFs y fotos). Acá vive el paso que CREA los leads, y
+// vuelve a validar todo: lo que manda el cliente es una propuesta, no la verdad.
+// Un lead pudo entrar por el webhook de Calendly o Meta entre la revisión y el OK,
+// y el navegador no tiene forma de saberlo.
 export type ImportLeadsResult = { creados: number; omitidos: number; errores: string[] };
 
-function parseCsv(text: string): string[][] {
-  const s = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let q = false;
-  for (let i = 0; i < s.length; i++) {
-    const c = s[i];
-    if (q) {
-      if (c === '"') { if (s[i + 1] === '"') { field += '"'; i++; } else q = false; }
-      else field += c;
-    } else if (c === '"') { q = true; }
-    else if (c === ',') { row.push(field); field = ''; }
-    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-    else field += c;
+/** Crea los leads de las filas ya revisadas y tildadas por el usuario. */
+export async function importarLeadsRevisadosAction(filas: FilaImport[]): Promise<ImportLeadsResult> {
+  if (!Array.isArray(filas) || !filas.length) return { creados: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
+  if (filas.length > MAX_FILAS_IMPORT) {
+    return { creados: 0, omitidos: 0, errores: [`Son ${filas.length} filas y el tope por importación es ${MAX_FILAS_IMPORT}. Partí el archivo en dos.`] };
   }
-  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
-  return rows;
+
+  // Sanitizar ANTES de mirar nada: el cliente pudo mandar cualquier cosa en cada
+  // campo (o un `motivo` en null para colar una fila que en realidad se descarta).
+  const limpias: FilaImport[] = filas.map((f, i) => ({
+    id: String(f?.id ?? `r${i}`),
+    nombre: String(f?.nombre ?? '').trim().slice(0, 200),
+    email: String(f?.email ?? '').trim().slice(0, 200),
+    telefono: String(f?.telefono ?? '').trim().slice(0, 60),
+    empresa: String(f?.empresa ?? '').trim().slice(0, 200),
+    incluir: f?.incluir === true,
+    yaExiste: false,
+    bajaConfianza: f?.bajaConfianza === true,
+  }));
+
+  // El motivo lo recalcula el SERVER contra la base de ahora (marcarExistentes
+  // vuelve a consultar los duplicados y corre las mismas reglas que vio el usuario).
+  const validadas = await marcarExistentes(limpias);
+
+  let creados = 0;
+  let omitidos = 0;
+  const errores: string[] = [];
+  const emailsNuevos = new Set<string>();
+  const telsNuevos = new Set<string>();
+
+  for (const f of validadas) {
+    const email = f.email.toLowerCase();
+    const tel = f.telefono.replace(/\D/g, '');
+    // Además del motivo, se chequea contra lo insertado EN ESTA MISMA corrida:
+    // marcarExistentes miró la base antes de empezar y no ve lo que vamos creando.
+    const chocaAcá = (!!email && emailsNuevos.has(email)) || (!!tel && telsNuevos.has(tel));
+    if (!f.incluir || f.motivo || chocaAcá) { omitidos++; continue; }
+    try {
+      await createLead({
+        nombre: f.nombre,
+        email: f.email || null,
+        telefono: f.telefono || null,
+        empresa: f.empresa || null,
+      });
+      creados++;
+      if (email) emailsNuevos.add(email);
+      if (tel) telsNuevos.add(tel);
+    } catch (e) {
+      omitidos++;
+      errores.push(`${f.nombre}: ${e instanceof Error ? e.message : 'error'}`);
+    }
+  }
+
+  bust(TAG.leads);
+  revalidatePath('/crm');
+  revalidatePath('/general');
+  return { creados, omitidos, errores: errores.slice(0, 20) };
 }
 
 /** Lo que el wizard muestra ANTES de importar: cuántos entran y cuántos se saltean. */
 export type PreviewImportLeads = { total: number; nuevos: number; omitidos: number; error?: string };
 
+/**
+ * Previsualización de un CSV pegado como texto. Queda para los callers que solo
+ * tienen el texto (no un File) y no pasan por el modal: cuenta sin insertar nada.
+ */
 export async function previsualizarImportLeadsAction(csvText: string): Promise<PreviewImportLeads> {
-  const r = await importLeadsCsvAction(csvText, true);
-  return {
-    total: r.creados + r.omitidos,
-    nuevos: r.creados,
-    omitidos: r.omitidos,
-    error: r.errores[0],
-  };
+  const { filas, error } = filasDesdeCsv(csvText);
+  if (error) return { total: 0, nuevos: 0, omitidos: 0, error };
+  const validadas = await marcarExistentes(filas);
+  const nuevos = validadas.filter((f) => !f.motivo).length;
+  return { total: validadas.length, nuevos, omitidos: validadas.length - nuevos };
 }
 
-export async function importLeadsCsvAction(csvText: string, soloContar = false): Promise<ImportLeadsResult> {
-  const rows = parseCsv(csvText);
-  if (rows.length < 2) return { creados: 0, omitidos: 0, errores: ['El archivo no tiene filas de datos.'] };
-  const header = rows[0].map((h) => h.trim().toLowerCase());
-  const idx = (names: string[]) => header.findIndex((h) => names.some((n) => h === n || h.includes(n)));
-  const iNombre = idx(['nombre', 'name']);
-  const iEmail = idx(['email', 'correo', 'e-mail', 'mail']);
-  const iTel = idx(['telefono', 'teléfono', 'whatsapp', 'celular', 'phone', 'tel']);
-  const iEmpresa = idx(['empresa', 'company', 'negocio']);
-  if (iNombre < 0) return { creados: 0, omitidos: 0, errores: ['No encontré una columna "Nombre" en el CSV. Encabezados esperados: Nombre, Email, Teléfono, Empresa.'] };
-
-  // Dedup: precargo emails y teléfonos existentes (paginado, supera el tope de 1000).
-  const db = await getTenantDb();
-  const soloDig = (v: string) => v.replace(/\D/g, '');
-  const emails = new Set<string>();
-  const tels = new Set<string>();
-  for (let d = 0; ; d += 1000) {
-    const { data } = await db.from('leads').select('email, telefono').range(d, d + 999);
-    const chunk = (data ?? []) as Array<{ email: string | null; telefono: string | null }>;
-    for (const r of chunk) {
-      if (r.email) emails.add(r.email.trim().toLowerCase());
-      if (r.telefono) { const dg = soloDig(r.telefono); if (dg) tels.add(dg); }
-    }
-    if (chunk.length < 1000) break;
-  }
-
-  let creados = 0;
-  let omitidos = 0;
-  const errores: string[] = [];
-  for (let r = 1; r < rows.length; r++) {
-    const row = rows[r];
-    if (!row || row.every((c) => !c.trim())) continue;
-    const nombre = (row[iNombre] ?? '').trim();
-    const email = iEmail >= 0 ? (row[iEmail] ?? '').trim() : '';
-    const tel = iTel >= 0 ? (row[iTel] ?? '').trim() : '';
-    const empresa = iEmpresa >= 0 ? (row[iEmpresa] ?? '').trim() : '';
-    // Mismas reglas que el alta manual: nombre + al menos un contacto.
-    if (!nombre || (!email && !tel)) { omitidos++; continue; }
-    const emailK = email.toLowerCase();
-    const telK = soloDig(tel);
-    if ((emailK && emails.has(emailK)) || (telK && tels.has(telK))) { omitidos++; continue; }
-    // En previsualización solo se cuenta: no se inserta nada.
-    if (soloContar) {
-      creados++;
-      if (emailK) emails.add(emailK);
-      if (telK) tels.add(telK);
-      continue;
-    }
-    try {
-      await createLead({ nombre, email: email || null, telefono: tel || null, empresa: empresa || null });
-      creados++;
-      if (emailK) emails.add(emailK);
-      if (telK) tels.add(telK);
-    } catch (e) {
-      errores.push(`${nombre}: ${e instanceof Error ? e.message : 'error'}`);
-    }
-  }
-  if (soloContar) return { creados, omitidos, errores };
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  revalidatePath('/general');
-  return { creados, omitidos, errores: errores.slice(0, 20) };
+/** Importa un CSV entero sin revisión previa (todo lo importable entra). */
+export async function importLeadsCsvAction(csvText: string): Promise<ImportLeadsResult> {
+  const { filas, error } = filasDesdeCsv(csvText);
+  if (error) return { creados: 0, omitidos: 0, errores: [error] };
+  return importarLeadsRevisadosAction(filas);
 }
 
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
