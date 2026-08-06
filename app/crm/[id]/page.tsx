@@ -20,7 +20,7 @@ import {
 import { deriveStageKey, stageMeta, DEFAULT_STAGES, nutricionPositivaDe, type Stage } from '@/lib/pipeline';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getPagosByLead } from '@/lib/pagos';
-import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd } from '@/lib/queries';
+import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
@@ -70,11 +70,11 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
-  // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
-  // si utm_content es un id numérico, lo resolvemos a nombre con el mapa de anuncios.
+  // El anuncio puede venir por meta_ad_id (instant form), por utm_content numérico
+  // o por el NOMBRE en utm_content (Calendly) — adIdDeLead resuelve los tres casos.
   const utmC = lead.utm_content?.trim() || null;
-  const adIdCand = lead.meta_ad_id ?? (utmC && /^\d{6,}$/.test(utmC) ? utmC : null);
-  const adResuelto = resolverNombreAd(adIdCand, lead.meta_ad_name ?? (utmC && !/^\d{6,}$/.test(utmC) ? utmC : null), adMap);
+  const adIdCand = adIdDeLead(lead.meta_ad_id, utmC, adMap);
+  const adResuelto = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
 
   const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));
@@ -161,7 +161,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               key: 'comportamiento', label: 'Tracking',
               content: (
                 <>
-                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} />
+                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
                   <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} />
                   <TrackingTimelineCard eventos={trackingEventos} />
                 </>

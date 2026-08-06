@@ -2933,3 +2933,35 @@ export function resolverNombreAd(
   if (id && map[id]) return map[id];
   return fallback ?? null;
 }
+
+/**
+ * NOMBRE de anuncio → ad_id, usando el mismo mapa al revés.
+ *
+ * Por qué hace falta: los leads de Calendly no traen meta_ad_id — el anuncio les
+ * llega en `utm_content`, y a veces es el id numérico pero a veces es el NOMBRE
+ * ("029.01.g Anuncio"). Sin esto, esos leads no podían linkear al Ads Manager.
+ *
+ * Solo resuelve si el nombre es ÚNICO en la cuenta: hay nombres repetidos entre
+ * anuncios distintos (medido: "LA VENTA SE PIERDE EN EL SEGUIMIENTO" está en 4),
+ * y mandar al anuncio equivocado es peor que no linkear.
+ */
+export function resolverAdIdPorNombre(nombre: string | null, map: Record<string, string>): string | null {
+  const n = nombre?.trim().toLowerCase();
+  if (!n) return null;
+  const ids = Object.entries(map).filter(([, name]) => name.trim().toLowerCase() === n).map(([id]) => id);
+  return ids.length === 1 ? ids[0] : null;
+}
+
+/** El ad_id del lead venga como venga: meta_ad_id, utm_content numérico, o el nombre. */
+export function adIdDeLead(
+  metaAdId: string | null | undefined,
+  utmContent: string | null | undefined,
+  adMap: Record<string, string>,
+): string | null {
+  const directo = metaAdId?.trim();
+  if (directo) return directo;
+  const uc = utmContent?.trim();
+  if (!uc) return null;
+  if (/^\d{6,}$/.test(uc)) return uc;          // el id vino en utm_content
+  return resolverAdIdPorNombre(uc, adMap);      // vino el nombre → buscarlo
+}

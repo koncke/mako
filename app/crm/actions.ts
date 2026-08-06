@@ -75,7 +75,7 @@ async function autorActual(): Promise<string> {
   }
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd } from '@/lib/queries';
+import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
 import { type VisitasMap } from './crm-map';
 
@@ -121,6 +121,8 @@ export type LeadFullData = {
   vslEng: VslEngagement;
   campana: { texto: string | null; tooltip: string | null };
   adNombre: string | null;
+  /** ad_id resuelto (meta_ad_id, utm_content numérico o por nombre) para el deep-link. */
+  adId: string | null;
   visitas: { total_visitas: number; dias_distintos: number };
   insights: LeadInsightRow[];
   tracking: TrackingEvent[];
@@ -157,14 +159,14 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
   // si utm_content es un id numérico, lo resolvemos a nombre con el mapa de anuncios.
   const utmC = lead.utm_content?.trim() || null;
-  const adIdCand = lead.meta_ad_id ?? (utmC && /^\d{6,}$/.test(utmC) ? utmC : null);
-  const adNombre = resolverNombreAd(adIdCand, lead.meta_ad_name ?? (utmC && !/^\d{6,}$/.test(utmC) ? utmC : null), adMap);
+  const adIdCand = adIdDeLead(lead.meta_ad_id, utmC, adMap);
+  const adNombre = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
+  return { lead, stages, pagos, vslEng, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
