@@ -238,6 +238,34 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida — MaKo puede rotar a OpenRouter.', facts };
   },
 
+  // La verificación NO puede mentir: pega contra el repo de verdad. Si el token venció
+  // o no tiene permiso, se entera acá y no tres semanas después, cuando nadie note que
+  // dejaron de llegar propuestas de cierre.
+  async github(v) {
+    const tk = v.GITHUB_TOKEN;
+    if (!tk) return { ok: false, error: 'Falta el token.' };
+    const repo = v.GITHUB_REPO || 'mbustos-digital/dashboard-marketing';
+    try {
+      const r = await fetch(`https://api.github.com/repos/${repo}/commits?sha=main&per_page=1`, {
+        headers: { Authorization: `Bearer ${tk}`, Accept: 'application/vnd.github+json' },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (r.status === 401) return { ok: false, error: 'El token no es válido o venció.' };
+      if (r.status === 403) return { ok: false, error: 'El token es válido pero no tiene permiso de lectura sobre ese repo.' };
+      if (r.status === 404) return { ok: false, error: `No encuentro el repo «${repo}». Revisá el nombre y que el token lo tenga seleccionado.` };
+      if (!r.ok) return { ok: false, error: `GitHub respondió ${r.status}.` };
+      const j = await r.json() as Array<{ sha?: string; commit?: { message?: string; author?: { date?: string } } }>;
+      const c = j[0];
+      const facts = c ? [
+        { k: 'Repo', v: repo, c: 'ok' as const },
+        { k: 'Último commit', v: `${String(c.sha ?? '').slice(0, 8)} — ${String(c.commit?.message ?? '').split('\n')[0].slice(0, 60)}`, c: 'ok' as const },
+      ] : [];
+      return { ok: true, facts };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  },
+
   async elevenlabs(v) {
     // ElevenLabs: la key va en el header xi-api-key. /v1/user trae datos lindos (plan +
     // caracteres) PERO exige el permiso "user_read": una key ACOTADA a solo TTS lo

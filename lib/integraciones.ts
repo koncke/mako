@@ -46,6 +46,10 @@ const DEFS: Def[] = [
   { key: 'mistral', nombre: 'Mistral AI', categoria: 'Inteligencia', descripcion: 'IA europea con free tier, otra gratis para rotar sin gastar.', envs: ['MISTRAL_API_KEY'] },
   { key: 'openrouter', nombre: 'OpenRouter', categoria: 'Inteligencia', descripcion: 'Una key para decenas de modelos, varios gratis (sufijo ":free").', envs: ['OPENROUTER_API_KEY'] },
   { key: 'elevenlabs', nombre: 'ElevenLabs', categoria: 'IA Generativa', descripcion: 'Voz por IA: locuciones y audio generativo con tu propia key.', envs: ['ELEVENLABS_API_KEY'] },
+  // OJO: esta lista y la de lib/metodo-catalogo.ts tienen que coincidir EXACTO en los
+  // `env`. Si no, credWs() devuelve null en silencio y la integración se ve cargada pero
+  // no funciona — es el error clásico que la skill add-provider-integration advierte.
+  { key: 'github', nombre: 'GitHub', categoria: 'Desarrollo', descripcion: 'Lee los commits de main para proponer cerrar las tareas de desarrollo ya hechas.', envs: ['GITHUB_TOKEN', 'GITHUB_REPO'] },
   { key: 'fathom', nombre: 'Fathom', categoria: 'Reuniones', descripcion: 'Grabaciones y transcripciones de llamadas (Closing).', envs: ['FATHOM_API_KEY'] },
   { key: 'calendly', nombre: 'Calendly', categoria: 'Reuniones', descripcion: 'Agenda de reuniones (R1/R2) y asistencia.', envs: ['CALENDLY_API_TOKEN'] },
   // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app

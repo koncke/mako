@@ -295,6 +295,30 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
+    key: 'github',
+    nombre: 'GitHub',
+    categoria: 'Desarrollo',
+    // Es la ÚNICA integración del catálogo que no es del negocio del cliente sino del
+    // producto: la carga la agencia, una vez, para su propio tablero. Está acá y no en
+    // un env suelto para que se administre igual que el resto y se pueda rotar sin deploy.
+    paraQue: 'MaKo lee los commits que entran a main y te propone cerrar las tareas de desarrollo que ya están hechas. Sin esto, el tablero acumula tareas terminadas para siempre — en la última revisión aparecieron 62 de golpe.',
+    campos: [
+      { env: 'GITHUB_TOKEN', label: 'Token de acceso', secreto: true, placeholder: 'github_pat_…', nota: 'Fine-grained, SOLO lectura de contenido y SOLO sobre este repo. No puede escribir nada.' },
+      { env: 'GITHUB_REPO', label: 'Repositorio', placeholder: 'usuario/repo', nota: 'Opcional: por defecto usa el repo del producto.' },
+    ],
+    tutorial: {
+      url: 'https://github.com/settings/personal-access-tokens/new',
+      urlLabel: 'GitHub → Fine-grained tokens',
+      pasos: [
+        'Entrá a github.com/settings/personal-access-tokens/new (Settings → Developer settings → Personal access tokens → Fine-grained).',
+        'Ponele un nombre («MaKo — cerrar tareas») y una expiración. Anotá la fecha: cuando venza, MaKo deja de proponer cierres y no avisa solo.',
+        'En "Repository access" elegí "Only select repositories" y marcá SOLO el repo del producto.',
+        'En "Permissions" → "Repository permissions" → Contents: Read-only. Nada más. Con eso alcanza y el token no puede escribir.',
+        'Generá el token, copialo (se ve UNA sola vez) y pegalo acá.',
+      ],
+    },
+  },
+  {
     key: 'elevenlabs',
     nombre: 'ElevenLabs',
     categoria: 'IA Generativa',
