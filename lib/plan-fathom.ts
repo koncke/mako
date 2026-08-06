@@ -197,7 +197,7 @@ export const PLAN_FATHOM_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON v�
   "tareas": [
     {
       "titulo": "<imperativo y corto, ej. 'Rehacer el creativo de la campaña X'>",
-      "detalle": "<TODO el contexto que se dijo, con las palabras de la reunión. Ver abajo: es el campo más importante>",
+      "detalle": "**Qué pidió**\n«la frase textual» (Quién, 12:40)\n\n**Por qué**\nA qué problema responde.\n\n**Detalles concretos**\n- número, nombre o condición\n- lo que se descartó y por qué\n\n**Listo cuando**\nEl criterio de terminado.   ← ESTA ES LA FORMA EXACTA, con los ** y los \n. NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve, por más largo y bien escrito que esté.",
       "prioridad": "alta" | "media" | "baja" | "futuro",
       "proyectoId": "<id EXACTO de la lista de proyectos, o null si ninguno encaja claro>",
       "proyectoNuevo": "<SOLO si proyectoId es null y varias tareas de esta reunión comparten un tema que NO está en la lista: el nombre corto del proyecto que habría que crear (2-4 palabras). '' en cualquier otro caso>",
