@@ -74,7 +74,7 @@ export default async function GeneralPage() {
 
   const objetivo = objR.status === 'fulfilled' ? objR.value : null;
   const comparativo = compR.status === 'fulfilled' ? compR.value : null;
-  const pendientes: Pendientes = pendR.status === 'fulfilled' ? pendR.value : { items: [], total: 0, porTipo: { A: 0, B: 0, C: 0, M: 0 } };
+  const pendientes: Pendientes = pendR.status === 'fulfilled' ? pendR.value : { items: [], total: 0, porTipo: { A: 0, B: 0, C: 0, M: 0, R: 0 } };
   const maduras = madR.status === 'fulfilled' ? madR.value : null;
   const fatiga = fatR.status === 'fulfilled' ? fatR.value : [];
   const tramo = tramoR.status === 'fulfilled' ? tramoR.value : { promedio: null, n: 0 };

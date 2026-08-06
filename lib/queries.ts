@@ -1972,7 +1972,7 @@ async function _getVslSerie(dias = 56): Promise<VslSerie> {
 // cualquier veredicto.
 // =============================================================================
 
-export type TipoPendiente = 'A' | 'B' | 'C' | 'M';
+export type TipoPendiente = 'A' | 'B' | 'C' | 'M' | 'R';
 
 export type PendienteItem = {
   lead_id: number;
@@ -1992,7 +1992,7 @@ export type PendienteItem = {
 export type Pendientes = {
   items: PendienteItem[];
   total: number;
-  porTipo: { A: number; B: number; C: number; M: number };
+  porTipo: { A: number; B: number; C: number; M: number; R: number };
 };
 
 function fmtFechaPendiente(yyyy_mm_dd: string): string {
@@ -2072,6 +2072,35 @@ async function _getPendientesDeMarcar(
       }
       continue;
     }
+    // R) La reunión YA PASÓ y el lead sigue parado en su etapa de agenda. Sus datos
+    //    pueden estar todos marcados (asistió, calificado, Fathom) y aun así no hay
+    //    nada que hacer con él: falta la DECISIÓN de qué sigue. Sin esta regla el
+    //    lead quedaba invisible — el caso real: R1 de hoy 18:00, asistió, calificado
+    //    marcado, y a las 19:30 no aparecía en ningún lado esperando su próximo paso.
+    //    No se puede ignorar (ver el filtro de abajo): es el lead trabado, no un dato
+    //    lindo de tener.
+    if (l.estado_lead === 'abierto' && (l.pipeline_stage === 'agenda' || l.pipeline_stage === 'agendaj2')) {
+      const esJ2 = l.pipeline_stage === 'agendaj2';
+      const fechaReu = esJ2 ? l.fecha_junta_2 : l.fecha_junta_1;
+      const atReu = esJ2 ? l.junta_2_at : l.junta_1_at;
+      // "Ya pasó" mira la hora real de Calendly cuando está (con 1h de gracia para
+      // no molestar mientras la reunión todavía puede estar en curso).
+      const atMs = atReu ? Date.parse(atReu) : NaN;
+      const paso = Number.isFinite(atMs) ? Date.now() >= atMs + 60 * 60_000 : !!fechaReu && fechaReu < hoy;
+      if (paso && fechaReu) {
+        items.push({
+          lead_id: l.id,
+          lead_nombre: l.nombre,
+          tipo: 'R',
+          mensaje: `La Reunión ${esJ2 ? 2 : 1} del ${fmtFechaPendiente(fechaReu)} ya pasó y el lead sigue en esta etapa — definí qué sigue`,
+          fecha: fechaReu,
+          soloEdit: false,
+          solTab: 'wizard',
+          faltantes: [],
+        });
+        continue;
+      }
+    }
     // El motor dice EXACTAMENTE qué datos posibles faltan para la etapa.
     const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline });
     // "Empresa" ignorada (empresa_omitido) NO notifica en el worklist del CRM general
@@ -2102,6 +2131,7 @@ async function _getPendientesDeMarcar(
   }
 
   const porTipo = {
+    R: items.filter((i) => i.tipo === 'R').length,
     A: items.filter((i) => i.tipo === 'A').length,
     B: 0,
     C: 0,

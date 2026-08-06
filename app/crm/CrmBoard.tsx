@@ -124,7 +124,7 @@ export type CrmMarcar = {
   name: string;
   company: string;
   message: string;
-  tipo: 'A' | 'B' | 'C' | 'M';   // A=¿asistió J1?  B=tuvo J1, falta J2/resolución  C=¿asistió J2?  M=nutrición manual vencida
+  tipo: 'A' | 'B' | 'C' | 'M' | 'R';   // A=faltan datos  M=nutrición manual vencida  R=reunión pasada sin desenlace
   /** true = solo faltan datos estáticos (tel/empresa/detalle): se editan, no wizard. */
   soloEdit?: boolean;
   /** Dónde resolver: wizard, Deal Details (cobranza), Meetings, o Editar. */
@@ -1066,7 +1066,7 @@ function SinMarcar({
               {/* Solucionar abre el wizard de datos. La nutrición manual vencida
                   pregunta "¿qué hacer ahora?" (elegir la etapa destino). "Ignorar"
                   saca el lead del worklist (sigue con sus avisos en la ficha). */}
-              {m.tipo === 'M'
+              {m.tipo === 'M' || m.tipo === 'R'
                 ? <button type="button" style={{ ...btn, background: 'var(--warn-fill)' }} onClick={() => onQueHacer(m.leadId)}>¿Qué hacer ahora?</button>
                 : (
                   <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
