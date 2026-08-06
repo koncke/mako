@@ -28,6 +28,10 @@ const PATHS: Record<string, ReactNode> = {
   config: (<><path d="M4 7h9M17 7h3" /><circle cx="15" cy="7" r="2" /><path d="M4 12h3M11 12h9" /><circle cx="9" cy="12" r="2" /><path d="M4 17h9M17 17h3" /><circle cx="15" cy="17" r="2" /></>),
   logout: (<><path d="M15 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8" /><path d="M17 15l3-3-3-3" /><path d="M20 12H9" /></>),
   bell: (<><path d="M6 9a6 6 0 0 1 12 0c0 4.5 1.8 5.6 2 5.9H4c.2-.3 2-1.4 2-5.9Z" /><path d="M10 20a2 2 0 0 0 4 0" /></>),
+  // Parlante con dos ondas. `ads` es el mismo parlante con una sola onda, pero ese
+  // ya significa "Ads" en el sidebar: reusarlo haría que el mismo dibujo quisiera
+  // decir dos cosas. La segunda onda lo separa y además lee más como "volumen".
+  sonido: (<><path d="M4 10v4h3l7 4V6l-7 4H4Z" /><path d="M16.5 9.5a3.5 3.5 0 0 1 0 5" /><path d="M19 7a7 7 0 0 1 0 10" /></>),
   funnel: (<path d="M3 5h18l-6.5 8v5.5l-5-2.5V13L3 5Z" />),
   onboarding: (<><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9.5 4V3h5v1" /><path d="M9 11.5l2 2 4-4" /></>),
   analytics: (<><path d="M4 5v14h16" /><path d="m7 14 3-3 2.5 2 4.5-5.5" /></>),

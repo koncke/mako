@@ -22,30 +22,18 @@ import 'server-only';
 // =============================================================================
 
 import { leerDocumentoIA, transcribirAudio } from './ai-cheap';
+import { familiaDeArchivo, MAX_ARCHIVO_BYTES } from './formatos-archivo';
+
+// La lista de formatos vive en `formatos-archivo.ts` y se re-exporta desde acá para no
+// romper a quien ya la importaba. NO la copies: eso fue exactamente lo que hizo que un
+// .txt rebotara en WhatsApp durante semanas.
+export { EXTENSIONES_SOPORTADAS, ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, puedeLeerse, formatosLegibles, familiaDeArchivo } from './formatos-archivo';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-/** 25 MB: el techo del Archivero. Un transcript de 6 horas pesa kilobytes; lo que
- *  llega a este tamaño es un PDF escaneado o un audio, y los dos ya son caros. */
-export const MAX_ARCHIVO_BYTES = 25 * 1024 * 1024;
 
 const LEER_DOC = 'Transcribí TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describí también lo que se ve. Devolvé solo el texto.';
 
 export type LecturaArchivo = { texto: string; warning?: string; via: 'texto' | 'docx' | 'pdf' | 'pdf-vision' | 'imagen' | 'audio' | 'no-soportado' };
-
-const RE_TEXTO = /\.(txt|md|markdown|vtt|srt|csv|json|log|rtf)$/i;
-const RE_IMG = /\.(png|jpe?g|webp|gif|bmp|heic|avif)$/i;
-const RE_AUDIO = /\.(mp3|m4a|wav|ogg|opus|aac|flac|webm|mp4|mov|m4v)$/i;
-
-/** Los formatos que el importador puede aceptar, para el `accept` del input y para el
- *  texto que se le muestra al usuario. Uno solo: la lista y el lector no se separan. */
-export const EXTENSIONES_SOPORTADAS = [
-  '.txt', '.md', '.markdown', '.vtt', '.srt', '.csv', '.json', '.log', '.rtf',
-  '.docx', '.pdf',
-  '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.heic', '.avif',
-  '.mp3', '.m4a', '.wav', '.ogg', '.opus', '.aac', '.flac', '.webm', '.mp4', '.mov', '.m4v',
-];
-export const ACCEPT_IMPORTAR = EXTENSIONES_SOPORTADAS.join(',');
 
 export async function archivoATexto(file: File): Promise<LecturaArchivo> {
   const name = (file.name || '').toLowerCase();
@@ -53,22 +41,26 @@ export async function archivoATexto(file: File): Promise<LecturaArchivo> {
   if (file.size > MAX_ARCHIVO_BYTES) {
     return { texto: '', via: 'no-soportado', warning: `«${file.name}» pesa más de 25 MB. Es demasiado para leerlo de una.` };
   }
+  // Una sola clasificación, la misma que usan el `accept` del importador y el webhook
+  // de WhatsApp. Antes cada rama de acá tenía su propio regex y la lista de afuera era
+  // otra cosa: por eso podían divergir sin que nada avisara.
+  const familia = familiaDeArchivo(name, mime);
 
   // Texto plano — la vía barata, y la más común (transcripts, notas, exportes).
-  if (RE_TEXTO.test(name) || mime.startsWith('text/')) {
+  if (familia === 'texto') {
     return { texto: await file.text(), via: 'texto' };
   }
 
   const buf = Buffer.from(await file.arrayBuffer());
 
-  if (name.endsWith('.docx')) {
+  if (familia === 'docx') {
     try {
       const mammoth = (await import('mammoth')).default;
       return { texto: (await mammoth.extractRawText({ buffer: buf })).value, via: 'docx' };
     } catch (e) { return { texto: '', via: 'docx', warning: `No pude abrir «${file.name}»: ${msg(e)}` }; }
   }
 
-  if (name.endsWith('.pdf') || mime === 'application/pdf') {
+  if (familia === 'pdf') {
     try {
       // pdfjs (dentro de unpdf) usa Math.sumPrecise, que no existe en Node < 22.
       const M = Math as unknown as { sumPrecise?: (a: number[]) => number };
@@ -84,14 +76,14 @@ export async function archivoATexto(file: File): Promise<LecturaArchivo> {
     } catch (e) { return { texto: '', via: 'pdf-vision', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }
 
-  if (RE_IMG.test(name) || mime.startsWith('image/')) {
+  if (familia === 'imagen') {
     try {
       const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'Importar al plan', motivo: `Leer «${file.name}»` });
       return { texto: text, via: 'imagen' };
     } catch (e) { return { texto: '', via: 'imagen', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }
 
-  if (RE_AUDIO.test(name) || mime.startsWith('audio/') || mime.startsWith('video/')) {
+  if (familia === 'audio' || familia === 'video') {
     try {
       const texto = await transcribirAudio(buf.toString('base64'), mime || 'audio/mpeg', { motivo: `Transcribir «${file.name}»` });
       if (!texto.trim()) return { texto: '', via: 'audio', warning: `«${file.name}» se transcribió vacío: puede que no tenga voz.` };

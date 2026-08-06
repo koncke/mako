@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   NOTIF_IN_APP, AVISOS_WA_EN_VIVO, REPORTES, DEFAULT_IN_APP,
-  inAppActivo, normalizarInApp,
+  inAppActivo, normalizarInApp, normalizarDestinatarios,
 } from '../lib/notif-catalogo';
 import { tituloDe } from '../lib/titulo-tab';
 
@@ -54,6 +54,35 @@ test('el default no apaga nada', () => {
 test('no hay ids repetidos en el mapa de notificaciones', () => {
   const ids = [...NOTIF_IN_APP.map((n) => n.id), ...AVISOS_WA_EN_VIVO.map((a) => a.id), ...REPORTES.map((r) => r.key)];
   assert.equal(new Set(ids).size, ids.length);
+});
+
+// ── Destinatarios (varios números y varios emails por negocio) ───────────────
+test('el mismo número escrito de dos formas entra una sola vez', () => {
+  // "+54 9 376 467-3479" y "5493764673479" son la misma persona: si entraran dos
+  // veces, recibiría cada reporte duplicado.
+  const d = normalizarDestinatarios({ telefonos: ['+54 9 376 467-3479', '5493764673479'] });
+  assert.deepEqual(d.telefonos, ['5493764673479']);
+});
+
+test('el orden se conserva: el primero es el principal', () => {
+  // Con el primero se crea el grupo de WhatsApp, así que no se puede reordenar.
+  const d = normalizarDestinatarios({ telefonos: ['5491100000000', '5493764673479'] });
+  assert.equal(d.telefonos[0], '5491100000000');
+});
+
+test('lo inválido se descarta en vez de guardarse roto', () => {
+  const d = normalizarDestinatarios({ telefonos: ['123', ''], emails: ['no-es-mail', 'a@b'] });
+  assert.deepEqual(d.telefonos, []);
+  assert.deepEqual(d.emails, []);
+});
+
+test('los emails se comparan sin mayúsculas ni espacios', () => {
+  const d = normalizarDestinatarios({ emails: ['  Hola@Mako.com ', 'hola@mako.com'] });
+  assert.deepEqual(d.emails, ['hola@mako.com']);
+});
+
+test('sin destinatarios no explota', () => {
+  assert.deepEqual(normalizarDestinatarios({}), { telefonos: [], emails: [] });
 });
 
 // ── Título de la pestaña ──────────────────────────────────────────────────────

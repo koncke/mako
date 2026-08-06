@@ -25,37 +25,24 @@ import { WizardShell } from '@/app/_components/WizardShell';
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-/** Duplicado a propósito del server (lib/archivo-a-texto.ts): el navegador no puede
- *  importar un módulo `server-only`. Si allá se agrega un formato, se agrega acá. */
-const ACCEPT = '.txt,.md,.markdown,.vtt,.srt,.csv,.json,.log,.rtf,.docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.heic,.avif,.mp3,.m4a,.wav,.ogg,.opus,.aac,.flac,.webm,.mp4,.mov,.m4v';
+import { ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, iconoDeArchivo, comoSeLee, puedeLeerse } from '@/lib/formatos-archivo';
+
+// La lista YA NO se copia acá. Vivía duplicada del server con un comentario que decía
+// «si allá se agrega un formato, se agrega acá», y eso es exactamente lo que se olvidó
+// hacer en el tercer lugar (WhatsApp), donde un .txt rebotaba. `lib/formatos-archivo.ts`
+// no tiene `server-only` justamente para que el navegador pueda importarla.
+const ACCEPT = ACCEPT_IMPORTAR;
 const MAX_ARCHIVOS = 12;
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = MAX_ARCHIVO_BYTES;
 /** El proxy corta el body a 20 MB (next.config.ts). Mandar 21 MB no falla con un
  *  mensaje: falla con un 413 crudo, así que el tope se avisa ACÁ, antes de subir. */
 const MAX_TOTAL = 18 * 1024 * 1024;
 
 const peso = (n: number): string => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
-const iconoDe = (nombre: string): string => {
-  const n = nombre.toLowerCase();
-  if (/\.(mp3|m4a|wav|ogg|opus|aac|flac)$/.test(n)) return '🎧';
-  if (/\.(mp4|mov|m4v|webm)$/.test(n)) return '🎬';
-  if (/\.(png|jpe?g|webp|gif|bmp|heic|avif)$/.test(n)) return '🖼';
-  if (n.endsWith('.pdf')) return '📕';
-  if (n.endsWith('.docx')) return '📄';
-  return '📝';
-};
-
-/** Qué va a tener que hacer MaKo con cada uno — se dice de entrada porque no cuesta
- *  lo mismo: un .md se lee gratis y un audio hay que transcribirlo. */
-const comoSeLee = (nombre: string): string => {
-  const n = nombre.toLowerCase();
-  if (/\.(mp3|m4a|wav|ogg|opus|aac|flac|mp4|mov|m4v|webm)$/.test(n)) return 'lo transcribe';
-  if (/\.(png|jpe?g|webp|gif|bmp|heic|avif)$/.test(n)) return 'lee la imagen';
-  if (n.endsWith('.pdf')) return 'saca el texto';
-  if (n.endsWith('.docx')) return 'saca el texto';
-  return 'texto directo';
-};
+// El ícono y el «qué va a hacer con esto» también salen del clasificador compartido:
+// eran dos listas más que podían quedarse viejas cada una por su cuenta.
+const iconoDe = iconoDeArchivo;
 
 type Item = { id: string; file: File; error?: string };
 
@@ -83,7 +70,14 @@ export function ImportarModal({ onListo, onClose }: {
     for (const f of Array.from(fl)) {
       if (items.some((i) => i.file.name === f.name && i.file.size === f.size)) continue; // ya está
       if (items.length + nuevos.length >= MAX_ARCHIVOS) break;
-      nuevos.push({ id: `${f.name}-${f.size}-${nuevos.length}`, file: f, error: f.size > MAX_BYTES ? 'pesa más de 25 MB' : undefined });
+      // El formato se chequea ACÁ, con el mismo clasificador que usa el server. El
+      // `accept` del input solo filtra el diálogo del sistema: arrastrando entra
+      // cualquier cosa, y hasta ahora un .xlsx viajaba entero para que el server
+      // contestara «no sé leer ese formato». Decirlo antes de subir 18 MB es gratis.
+      const error = f.size > MAX_BYTES ? 'pesa más de 25 MB'
+        : !puedeLeerse(f.name, f.type) ? 'no sé leer ese formato'
+          : undefined;
+      nuevos.push({ id: `${f.name}-${f.size}-${nuevos.length}`, file: f, error });
     }
     if (nuevos.length) setItems((xs) => [...xs, ...nuevos]);
   };

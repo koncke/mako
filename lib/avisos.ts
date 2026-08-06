@@ -15,7 +15,7 @@ import { crearNotificacion, type NotifSeveridad } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
 import { getSetting, setSetting } from './settings';
 import { avisoWaActivo } from './perfil';
-import { runWithWorkspace, OWNER_WS } from './workspace';
+import { runWithWorkspace, getWorkspaceActual, OWNER_WS } from './workspace';
 import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-catalogo';
 import { CATALOGO_AVISOS } from './avisos-catalogo';
 
@@ -34,7 +34,10 @@ export type EmitirAvisoInput = {
   link?: string;
   /** no repetir el mismo `tipo` dentro de esta ventana (minutos). */
   dedupTtlMin?: number;
-  /** workspace del aviso. Default OWNER_WS (dueño → grupo SuperAdmin). */
+  /**
+   * Workspace del aviso. Si no se pasa, se toma el del contexto en el que ya se
+   * está corriendo, y recién si no hay ninguno se cae al dueño.
+   */
   ws?: number;
   /** forzar el canal del dueño (grupo SuperAdmin) aunque ws no sea OWNER_WS. */
   alDueno?: boolean;
@@ -68,7 +71,18 @@ async function marcarAvisado(ws: number, tipo: string): Promise<void> {
  * debe tumbar el cron/webhook que lo dispara).
  */
 export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResult> {
-  const ws = a.ws ?? OWNER_WS;
+  // El default era OWNER_WS a secas, y eso ignoraba el workspace en el que la
+  // llamada YA estaba corriendo. Ocho avisos (Calendly, Fathom, Chatwoot, Meta
+  // Leads, la retro, las tareas autocompletadas) se emiten sin `ws` desde adentro
+  // de un `runWithWorkspace(cliente)`, así que caían al 1 y arrastraban con ellos
+  // las TRES cosas que dependen de este valor: a qué grupo se manda, contra qué
+  // workspace se dedupea y de quién se lee el interruptor. El resultado era que el
+  // evento de un cliente sonaba en el grupo del dueño, que dos clientes con el
+  // mismo aviso se pisaban el dedup entre sí, y que apagar el aviso en la
+  // configuración del cliente no hacía nada.
+  //
+  // Cae al dueño solo cuando de verdad no hay contexto (crons, sistema).
+  const ws = a.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
   try {
     if (a.dedupTtlMin && (await avisadoReciente(ws, a.tipo, a.dedupTtlMin))) {
       return { ok: true, feedId: null, wa: false, deduped: true };

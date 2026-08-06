@@ -1,21 +1,27 @@
 'use client';
 
 // =============================================================================
-// NotificacionesPanel — todo lo que MaKo puede avisar, y por dónde
+// NotificacionesPanel — qué avisa MaKo, y por dónde
 // =============================================================================
-// Vive en /configuraciones. Tres bloques, en este orden:
+// Vive en /configuraciones. Una matriz evento × canal: cada fila es algo que pasa
+// en el negocio y a la derecha están los canales por los que puede salir, como
+// cápsulas que se prenden y se apagan.
 //
-//   1. DENTRO DE LA APP  — pop-up y sonido, cada uno por su lado. Es preferencia
-//      de la PERSONA (pasa en su navegador): se guarda en su fila de usuarios.
-//   2. POR WHATSAPP      — reportes + avisos sueltos. Es del NEGOCIO: la leen los
-//      crons, que corren sin sesión, así que vive en app_settings del workspace.
-//   3. POR EMAIL         — los reportes que salen por Resend.
+// ── Por qué así ──────────────────────────────────────────────────────────────
+// La versión anterior tenía los reportes DOS veces (una en el bloque de WhatsApp
+// y otra en el de email), porque agrupaba por canal en vez de por evento. Eso es
+// justo lo que la matriz arregla: el "Resumen diario" es UNA cosa y se configura
+// en UN lugar.
 //
-// La lista de qué existe NO se escribe acá: viene de lib/notif-catalogo.ts, que
-// es el único lugar donde está el mapa (ver AGENTS.md, "una cosa, un lugar").
+// Las cápsulas llevan el logo Y la palabra a propósito — ver CanalToggle, que
+// explica por qué el logo pelado no alcanza.
 //
-// Los dos destinos se guardan con el mismo botón, pero son dos llamadas
-// distintas: bajar el volumen no le baja el volumen a todo el equipo.
+// Tres bloques, en orden de cuán tuyo es lo que configuran:
+//   1. Dentro de la app  → pop-up y sonido. Es de la PERSONA (pasa en su navegador).
+//   2. Reportes          → del NEGOCIO: los manda el cron a los destinatarios.
+//   3. Avisos            → del NEGOCIO, evento por evento.
+//
+// La lista de qué existe NO se escribe acá: viene de lib/notif-catalogo.ts.
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
@@ -23,6 +29,9 @@ import {
   type NotifInApp, type ReporteKey,
 } from '@/lib/notif-catalogo';
 import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
+import { CanalToggle, type EstadoCanal } from '../_components/CanalToggle';
+import { Icon } from '../_components/icons';
+import { DestinatariosModal, type Destinatarios } from './DestinatariosModal';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -37,167 +46,76 @@ type NotifPrefs = {
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
+const btnLink: CSSProperties = { border: 0, background: 'transparent', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
 
 // ── Piezas ────────────────────────────────────────────────────────────────────
-function Switch({ on, onChange, disabled, aria }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean; aria?: string }) {
-  return (
-    <button type="button" onClick={() => onChange(!on)} aria-pressed={on} aria-label={aria} disabled={disabled}
-      style={{ width: 44, height: 25, borderRadius: 999, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', padding: 2, background: on ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .15s', flex: 'none', opacity: disabled ? 0.4 : 1 }}>
-      <span style={{ display: 'block', width: 21, height: 21, borderRadius: '50%', background: '#fff', transform: on ? 'translateX(19px)' : 'none', transition: 'transform .15s' }} />
-    </button>
-  );
-}
-
 function Chip({ label, on, onChange }: { label: string; on: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button type="button" onClick={() => onChange(!on)}
-      style={{ padding: '6px 13px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'var(--accent-soft)' : 'var(--surface)', color: on ? '#171511' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+    <button type="button" onClick={() => onChange(!on)} aria-pressed={on}
+      style={{ padding: '6px 13px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.12)' : 'var(--surface)', color: on ? 'var(--accent)' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
       {on ? '✓ ' : ''}{label}
     </button>
   );
 }
 
-function Titulo({ children }: { children: ReactNode }) {
-  return <div style={{ ...labelStyle, marginBottom: 10 }}>{children}</div>;
+function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
+  return (
+    <section>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+        <span style={{ ...labelStyle, marginBottom: 0 }}>{titulo}</span>
+        {nota && <span style={{ fontSize: 12, color: 'var(--faint)' }}>{nota}</span>}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-/** Una fila con N interruptores a la derecha, alineados en columnas fijas. */
-function Fila({ titulo, sub, cols, primera }: {
-  titulo: string; sub?: string; cols: ReactNode[]; primera?: boolean;
+/** Una fila de la matriz: el evento a la izquierda, sus canales a la derecha. */
+function Fila({ titulo, sub, canales, primera, pie }: {
+  titulo: string; sub?: string; canales: ReactNode; primera?: boolean; pie?: ReactNode;
 }) {
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: `1fr repeat(${cols.length}, 78px)`, alignItems: 'center', gap: 8,
-      paddingTop: primera ? 0 : 13, marginTop: primera ? 0 : 13,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+      paddingTop: primera ? 0 : 14, marginTop: primera ? 0 : 14,
       borderTop: primera ? 'none' : '1px solid var(--border)',
     }}>
-      <div style={{ minWidth: 0, paddingRight: 12 }}>
+      <div style={{ minWidth: 220, flex: '1 1 300px' }}>
         <div style={{ fontSize: 14.5, color: 'var(--ink)', fontWeight: 600 }}>{titulo}</div>
         {sub && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
+        {pie}
       </div>
-      {cols.map((c, i) => <div key={i} style={{ display: 'flex', justifyContent: 'center' }}>{c}</div>)}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 'none' }}>{canales}</div>
     </div>
   );
 }
 
-/** Encabezado de columnas (Pop-up / Sonido), para no repetir la palabra en cada fila. */
-function Encabezado({ cols }: { cols: string[] }) {
+/** Tile de la franja de arriba: identifica un canal y dice a dónde llega. */
+function TileCanal({ icono, color, nombre, detalle, accion, alerta }: {
+  icono: string; color: string; nombre: string; detalle: string;
+  accion?: { label: string; onClick: () => void }; alerta?: boolean;
+}) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `1fr repeat(${cols.length}, 78px)`, gap: 8, marginBottom: 12 }}>
-      <span />
-      {cols.map((c) => (
-        <span key={c} style={{ ...labelStyle, marginBottom: 0, textAlign: 'center' }}>{c}</span>
-      ))}
-    </div>
-  );
-}
-
-// ── Cards de WhatsApp que ya existían ────────────────────────────────────────
-function NumeroDuenoCard() {
-  const [numero, setNumero] = useState('');
-  const [orig, setOrig] = useState('');
-  const [tieneGrupo, setTieneGrupo] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [flash, setFlash] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/perfil').then((r) => r.json()).then((j) => {
-      if (j?.ok) { setNumero((j.numeroDueno as string) || ''); setOrig((j.numeroDueno as string) || ''); setTieneGrupo(Boolean(j.tieneGrupo)); }
-    }).catch(() => {}).finally(() => setCargando(false));
-  }, []);
-
-  const soloDig = (s: string) => s.replace(/\D/g, '');
-  const dirty = soloDig(numero) !== soloDig(orig) && soloDig(numero).length >= 8;
-
-  const guardar = async () => {
-    setBusy(true); setFlash(null);
-    try {
-      const j = await (await fetch('/api/perfil', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'numero_dueno', numero }),
-      })).json();
-      if (j.ok) {
-        setOrig(numero); setTieneGrupo(true);
-        setFlash(j.accion === 'grupo_creado' ? 'Grupo de MaKo creado ✓' : j.accion === 'numero_agregado' ? 'Número agregado al grupo ✓' : 'Guardado ✓');
-        setTimeout(() => setFlash(null), 2600);
-      } else setFlash(j.error || 'No se pudo guardar');
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <div style={card}>
-      <div style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>Tu WhatsApp</div>
-      <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4, lineHeight: 1.5, maxWidth: 560 }}>
-        Es el número donde MaKo arma el grupo y deja los avisos.
-        {tieneGrupo ? ' Ya hay grupo: si cambiás el número, se suma el nuevo al grupo.' : ' Al guardarlo, MaKo crea el grupo y manda la bienvenida.'}
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px',
+      borderRadius: 12, background: 'var(--surface-2)',
+      border: `1px solid ${alerta ? 'var(--warn)' : 'var(--border)'}`,
+    }}>
+      <span style={{ display: 'flex', color, flex: 'none', marginTop: 1 }}><Icon name={icono} size={19} /></span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{nombre}</div>
+        <div style={{ fontSize: 12, color: alerta ? 'var(--warn)' : 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>
+        {accion && <button type="button" onClick={accion.onClick} style={{ ...btnLink, marginTop: 6 }}>{accion.label}</button>}
       </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input value={numero} onChange={(e) => setNumero(e.target.value)} inputMode="tel"
-          placeholder="+54 9 3764 67-3479" disabled={cargando || busy}
-          style={{ flex: 1, minWidth: 220, padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontFamily: SANS }} />
-        <button style={{ ...btnDark, opacity: busy || !dirty ? 0.5 : 1 }} disabled={busy || !dirty} onClick={guardar}>
-          {busy ? 'Guardando…' : tieneGrupo ? 'Actualizar' : 'Crear grupo'}
-        </button>
-      </div>
-      {flash && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 600, color: flash.includes('✓') ? 'var(--good)' : 'var(--bad)' }}>{flash}</div>}
-    </div>
-  );
-}
-
-function PlantillaCard() {
-  const [estado, setEstado] = useState<string>('…');
-  const [motivo, setMotivo] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const cargar = async () => {
-    try { const j = await (await fetch('/api/perfil/plantilla')).json(); setEstado(j.estado ?? 'error'); setMotivo(j.motivo ?? null); } catch { setEstado('error'); }
-  };
-  useEffect(() => { cargar(); }, []);
-
-  const enviar = async () => {
-    setBusy(true);
-    try { const j = await (await fetch('/api/perfil/plantilla', { method: 'POST' })).json(); if (j.error) setMotivo(j.error); await cargar(); }
-    finally { setBusy(false); }
-  };
-
-  const mapa: Record<string, { t: string; bg: string; fg: string }> = {
-    approved: { t: 'Aprobada', bg: 'var(--good-bg)', fg: 'var(--good)' },
-    pending: { t: 'En revisión de Meta', bg: 'var(--warn-bg)', fg: 'var(--warn)' },
-    rejected: { t: 'Rechazada', bg: 'var(--bad-bg)', fg: 'var(--bad)' },
-    ausente: { t: 'Sin crear', bg: 'var(--surface-2)', fg: 'var(--faint)' },
-    error: { t: 'No se pudo consultar', bg: 'var(--bad-bg)', fg: 'var(--bad)' },
-    '…': { t: 'Cargando…', bg: 'var(--surface-2)', fg: 'var(--faint)' },
-  };
-  const badge = mapa[estado] ?? mapa.error;
-  const puedeEnviar = estado === 'ausente' || estado === 'rejected' || estado === 'error';
-
-  return (
-    <div style={card}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>Plantilla de WhatsApp</div>
-          <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4, lineHeight: 1.5, maxWidth: 520 }}>
-            Meta pide una plantilla aprobada para escribir fuera de la ventana de 24 h. <b>reporte_mako</b> llega a la mañana con un botón: al tocarlo se abre la ventana y el resto del día los mensajes llegan como texto normal.
-          </div>
-        </div>
-        <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 11px', borderRadius: 999, background: badge.bg, color: badge.fg, whiteSpace: 'nowrap' }}>{badge.t}</span>
-      </div>
-      {motivo && estado !== 'approved' && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--bad)' }}>{motivo}</div>}
-      {puedeEnviar && (
-        <div style={{ marginTop: 14 }}>
-          <button style={{ ...btnDark, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={enviar}>{busy ? 'Enviando…' : 'Crear y enviar a Meta'}</button>
-        </div>
-      )}
     </div>
   );
 }
 
 // ── Normalización de los reportes ────────────────────────────────────────────
-// `activo` es el interruptor que miran los crons y `wa`/`email` los canales. Acá
-// se muestra un solo interruptor por canal, así que `activo` pasa a ser derivado:
-// el reporte está prendido si sale por algún lado. Se normaliza al cargar para que
-// un estado viejo (activo=false con wa=true) no muestre prendido algo que no sale.
+// `activo` es lo que miran los crons y `wa`/`email` los canales. Acá se muestra
+// una cápsula por canal, así que `activo` pasa a ser derivado: el reporte está
+// prendido si sale por algún lado. Se normaliza al cargar para que un estado viejo
+// (activo=false con wa=true) no muestre prendido algo que no sale.
 function normalizarCanal(c: CanalPrefs): CanalPrefs {
   const wa = c.activo && c.wa;
   const email = c.activo && c.email;
@@ -217,12 +135,23 @@ function conCanal(c: CanalPrefs, k: 'wa' | 'email', v: boolean): CanalPrefs {
   return { ...next, activo: next.wa || next.email };
 }
 
+const ESTADO_PLANTILLA: Record<string, string> = {
+  pending: 'La plantilla está en revisión de Meta',
+  rejected: 'Meta rechazó la plantilla',
+  ausente: 'Falta crear la plantilla de Meta',
+  error: 'No se pudo consultar la plantilla',
+};
+
 // ── Panel ─────────────────────────────────────────────────────────────────────
 export function NotificacionesPanel() {
   const [prefs, setPrefs] = useState<NotifPrefs | null>(null);
   const [draft, setDraft] = useState<NotifPrefs | null>(null);
   const [inApp, setInApp] = useState<NotifInApp | null>(null);
   const [inAppDraft, setInAppDraft] = useState<NotifInApp | null>(null);
+  const [dest, setDest] = useState<Destinatarios | null>(null);
+  const [tieneGrupo, setTieneGrupo] = useState(false);
+  const [plantilla, setPlantilla] = useState<string>('…');
+  const [modalDest, setModalDest] = useState(false);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -236,11 +165,21 @@ export function NotificacionesPanel() {
       if (!j.ok) return;
       setInApp(j.inApp as NotifInApp); setInAppDraft(j.inApp as NotifInApp);
     }).catch(() => {});
+    fetch('/api/perfil/destinatarios').then((r) => r.json()).then((j) => {
+      if (!j.ok) return;
+      setDest(j.destinatarios as Destinatarios); setTieneGrupo(Boolean(j.tieneGrupo));
+    }).catch(() => setDest({ telefonos: [], emails: [] }));
+    fetch('/api/perfil/plantilla').then((r) => r.json())
+      .then((j) => setPlantilla(j.estado ?? 'error')).catch(() => setPlantilla('error'));
   }, []);
 
-  if (!prefs || !draft || !inApp || !inAppDraft) {
+  if (!prefs || !draft || !inApp || !inAppDraft || !dest) {
     return <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
   }
+
+  const hayWa = dest.telefonos.length > 0;
+  const hayMail = dest.emails.length > 0;
+  const plantillaOk = plantilla === 'approved';
 
   const prefsDirty = JSON.stringify(draft) !== JSON.stringify(prefs);
   const inAppDirty = JSON.stringify(inAppDraft) !== JSON.stringify(inApp);
@@ -251,10 +190,12 @@ export function NotificacionesPanel() {
     setDraft((d) => (d ? { ...d, [k]: conCanal(d[k], canal, v) } : d));
   const setAviso = (id: string, v: boolean) =>
     setDraft((d) => (d ? { ...d, avisos: { ...d.avisos, [id]: v } } : d));
-  const setMaestro = (canal: 'popup' | 'sonido', v: boolean) =>
-    setInAppDraft((p) => (p ? { ...p, [canal]: v } : p));
   const setItem = (id: string, canal: 'popup' | 'sonido', v: boolean) =>
     setInAppDraft((p) => (p ? { ...p, items: { ...p.items, [id]: { ...(p.items[id] ?? { popup: true, sonido: true }), [canal]: v } } } : p));
+
+  /** El canal de WhatsApp solo puede entregar si hay número. */
+  const estadoWa = (on: boolean): EstadoCanal => (hayWa ? (on ? 'on' : 'off') : 'sin-conectar');
+  const estadoMail = (on: boolean): EstadoCanal => (hayMail ? (on ? 'on' : 'off') : 'sin-conectar');
 
   const guardar = async () => {
     setBusy(true);
@@ -273,15 +214,13 @@ export function NotificacionesPanel() {
           body: JSON.stringify({ inApp: inAppDraft }),
         })).json();
         if (!j.ok) throw new Error(j.error || 'no se pudo guardar');
-        // Sesión sin cuenta propia (contraseña maestra, acceso de desarrollo): el
-        // resto sí se guardó, pero esto no tiene dónde. Vale decirlo.
         if (j.guardado === false) {
-          setFlash('Lo de WhatsApp y email quedó guardado. Pop-up y sonido no: esta sesión no tiene cuenta propia.');
+          setFlash('Lo del negocio quedó guardado. Pop-up y sonido no: esta sesión no tiene cuenta propia.');
           return;
         }
         setInApp(inAppDraft);
-        // El provider está montado en el layout y ya cargó las preferencias:
-        // sin este aviso el sonido que acabás de apagar sigue sonando hasta recargar.
+        // El provider vive en el layout y ya cargó las preferencias: sin este
+        // aviso, el sonido que acabás de apagar sigue sonando hasta recargar.
         window.dispatchEvent(new Event(EVENTO_PREFS_IN_APP));
       }
       setFlash('Guardado ✓');
@@ -292,103 +231,122 @@ export function NotificacionesPanel() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
 
-      {/* ── 1. Dentro de la app ─────────────────────────────────────────── */}
-      <section>
-        <Titulo>Dentro de la app</Titulo>
-        <div style={{ ...card, paddingTop: 16 }}>
-          <Encabezado cols={['Pop-up', 'Sonido']} />
-          <Fila
-            primera
-            titulo="Todas las notificaciones de la app"
-            sub="El interruptor general. Apagarlo silencia todo lo de abajo sin perder cada ajuste."
-            cols={[
-              <Switch key="p" aria="Todos los pop-up" on={inAppDraft.popup} onChange={(v) => setMaestro('popup', v)} />,
-              <Switch key="s" aria="Todos los sonidos" on={inAppDraft.sonido} onChange={(v) => setMaestro('sonido', v)} />,
-            ]}
+      {/* ── Franja de canales: qué es cada logo y a dónde llega ────────────── */}
+      <div style={{ ...card, padding: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          <TileCanal
+            icono="bell" color="var(--accent)" nombre="En la app"
+            detalle="Pop-up y sonido en este navegador. Solo para vos."
           />
-          {NOTIF_IN_APP.map((n) => (
+          <TileCanal
+            icono="whatsapp" color={hayWa ? 'var(--wa)' : 'var(--warn)'} nombre="WhatsApp"
+            alerta={!hayWa}
+            detalle={hayWa
+              ? `${tieneGrupo ? 'Al grupo de MaKo · ' : ''}${dest.telefonos.length === 1 ? '1 número' : `${dest.telefonos.length} números`}`
+              : 'Sin conectar — MaKo no puede avisar por acá'}
+            accion={{ label: hayWa ? 'Gestionar' : 'Conectar', onClick: () => setModalDest(true) }}
+          />
+          <TileCanal
+            icono="email" color={hayMail ? 'var(--primary)' : 'var(--warn)'} nombre="Email"
+            alerta={!hayMail}
+            detalle={hayMail
+              ? (dest.emails.length === 1 ? dest.emails[0] : `${dest.emails.length} direcciones`)
+              : 'Sin conectar — falta una dirección'}
+            accion={{ label: hayMail ? 'Gestionar' : 'Agregar', onClick: () => setModalDest(true) }}
+          />
+        </div>
+      </div>
+
+      {/* ── 1. Dentro de la app (personal) ─────────────────────────────────── */}
+      <Seccion titulo="Dentro de la app" nota="Solo para vos — no cambia lo que ve el resto del equipo">
+        <div style={card}>
+          {NOTIF_IN_APP.map((n, i) => (
             <Fila
-              key={n.id}
-              titulo={n.titulo}
-              sub={n.sub}
-              cols={[
-                <Switch key="p" aria={`Pop-up de ${n.titulo}`}
-                  disabled={!inAppDraft.popup}
-                  on={inAppActivo(inAppDraft, n.id, 'popup')}
-                  onChange={(v) => setItem(n.id, 'popup', v)} />,
-                n.sonido ? (
-                  <Switch key="s" aria={`Sonido de ${n.titulo}`}
-                    disabled={!inAppDraft.sonido}
-                    on={inAppActivo(inAppDraft, n.id, 'sonido')}
-                    onChange={(v) => setItem(n.id, 'sonido', v)} />
-                ) : (
-                  <span key="s" aria-hidden style={{ color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>—</span>
-                ),
-              ]}
+              key={n.id} primera={i === 0} titulo={n.titulo} sub={n.sub}
+              canales={<>
+                <CanalToggle
+                  icono="bell" label="Pop-up" fila={n.titulo}
+                  estado={inAppActivo(inAppDraft, n.id, 'popup') ? 'on' : 'off'}
+                  onChange={(v) => setItem(n.id, 'popup', v)}
+                />
+                <CanalToggle
+                  icono="sonido" label="Sonido" fila={n.titulo}
+                  estado={n.sonido ? (inAppActivo(inAppDraft, n.id, 'sonido') ? 'on' : 'off') : 'na'}
+                  onChange={(v) => setItem(n.id, 'sonido', v)}
+                />
+              </>}
             />
           ))}
         </div>
-        <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, lineHeight: 1.5 }}>
-          Estas preferencias son tuyas: no cambian lo que ve el resto del equipo.
-        </div>
-      </section>
+      </Seccion>
 
-      {/* ── 2. Por WhatsApp ─────────────────────────────────────────────── */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Titulo>Por WhatsApp</Titulo>
-        <NumeroDuenoCard />
-        <PlantillaCard />
-
-        <div style={{ ...card, paddingTop: 16 }}>
-          <Encabezado cols={['Enviar']} />
-          {REPORTES.map((r, i) => (
-            <Fila key={r.key} primera={i === 0} titulo={r.titulo} sub={r.sub}
-              cols={[
-                <Switch key="w" aria={`${r.titulo} por WhatsApp`}
-                  on={draft[r.key].wa} onChange={(v) => setReporte(r.key, 'wa', v)} />,
-              ]} />
-          ))}
-        </div>
-
-        <div style={{ ...card, paddingTop: 16 }}>
-          <Encabezado cols={['Enviar']} />
-          {AVISOS_WA_EN_VIVO.map((a, i) => (
-            <Fila key={a.id} primera={i === 0} titulo={a.titulo} sub={a.sub}
-              cols={[
-                <Switch key="w" aria={a.titulo}
-                  on={draft.avisos[a.id] !== false} onChange={(v) => setAviso(a.id, v)} />,
-              ]} />
-          ))}
-        </div>
-      </section>
-
-      {/* ── 3. Por email ────────────────────────────────────────────────── */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Titulo>Por email</Titulo>
-        <div style={{ ...card, paddingTop: 16 }}>
-          <Encabezado cols={['Enviar']} />
-          {REPORTES.map((r, i) => (
-            <Fila key={r.key} primera={i === 0} titulo={r.titulo} sub={r.sub}
-              cols={[
-                <Switch key="e" aria={`${r.titulo} por email`}
-                  on={draft[r.key].email} onChange={(v) => setReporte(r.key, 'email', v)} />,
-              ]} />
-          ))}
-        </div>
-
+      {/* ── 2. Reportes (del negocio) ──────────────────────────────────────── */}
+      <Seccion titulo="Reportes" nota="Los recibe todo el equipo que esté en la lista">
         <div style={card}>
-          <div style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)', marginBottom: 4 }}>Qué incluir en los reportes</div>
-          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 12 }}>Aplica a los reportes de WhatsApp y de email.</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Chip label="Semáforo" on={draft.secciones.semaforo} onChange={(v) => setSec('semaforo', v)} />
-            <Chip label="Ads" on={draft.secciones.ads} onChange={(v) => setSec('ads', v)} />
-            <Chip label="Wins" on={draft.secciones.wins} onChange={(v) => setSec('wins', v)} />
-            <Chip label="Pendientes" on={draft.secciones.pendientes} onChange={(v) => setSec('pendientes', v)} />
+          {REPORTES.map((r, i) => {
+            // El reporte diario abre la ventana de 24h con una plantilla de Meta.
+            // Sin plantilla aprobada no sale, y antes eso se explicaba en una card
+            // aparte que ya nadie relacionaba con esta fila.
+            const trabaPlantilla = r.key === 'diario' && hayWa && !plantillaOk;
+            return (
+              <Fila
+                key={r.key} primera={i === 0} titulo={r.titulo} sub={r.sub}
+                pie={trabaPlantilla ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span>{ESTADO_PLANTILLA[plantilla] ?? ESTADO_PLANTILLA.error}.</span>
+                    <a href="/whatsapp?stab=plantillas&tpl=reporte_mako" style={{ ...btnLink, textDecoration: 'none' }}>Resolver →</a>
+                  </div>
+                ) : undefined}
+                canales={<>
+                  <CanalToggle
+                    icono="whatsapp" label="WhatsApp" fila={r.titulo}
+                    estado={estadoWa(draft[r.key].wa)}
+                    motivoNoDisponible="No hay ningún número cargado"
+                    onChange={(v) => setReporte(r.key, 'wa', v)}
+                  />
+                  <CanalToggle
+                    icono="email" label="Email" fila={r.titulo}
+                    estado={estadoMail(draft[r.key].email)}
+                    motivoNoDisponible="No hay ninguna dirección cargada"
+                    onChange={(v) => setReporte(r.key, 'email', v)}
+                  />
+                </>}
+              />
+            );
+          })}
+
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 10 }}>Qué incluir en los reportes</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Chip label="Semáforo" on={draft.secciones.semaforo} onChange={(v) => setSec('semaforo', v)} />
+              <Chip label="Ads" on={draft.secciones.ads} onChange={(v) => setSec('ads', v)} />
+              <Chip label="Wins" on={draft.secciones.wins} onChange={(v) => setSec('wins', v)} />
+              <Chip label="Pendientes" on={draft.secciones.pendientes} onChange={(v) => setSec('pendientes', v)} />
+            </div>
           </div>
         </div>
-      </section>
+      </Seccion>
+
+      {/* ── 3. Avisos sueltos (del negocio) ────────────────────────────────── */}
+      <Seccion titulo="Avisos" nota="Cuando pasa algo, en el momento">
+        <div style={card}>
+          {AVISOS_WA_EN_VIVO.map((a, i) => (
+            <Fila
+              key={a.id} primera={i === 0} titulo={a.titulo} sub={a.sub}
+              canales={
+                <CanalToggle
+                  icono="whatsapp" label="WhatsApp" fila={a.titulo}
+                  estado={estadoWa(draft.avisos[a.id] !== false)}
+                  motivoNoDisponible="No hay ningún número cargado"
+                  onChange={(v) => setAviso(a.id, v)}
+                />
+              }
+            />
+          ))}
+        </div>
+      </Seccion>
 
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end',
@@ -400,6 +358,14 @@ export function NotificacionesPanel() {
           {busy ? 'Guardando…' : 'Guardar preferencias'}
         </button>
       </div>
+
+      {modalDest && (
+        <DestinatariosModal
+          inicial={dest}
+          onCerrar={() => setModalDest(false)}
+          onGuardado={(d) => { setDest(d); if (d.telefonos.length > 0) setTieneGrupo(true); }}
+        />
+      )}
     </div>
   );
 }

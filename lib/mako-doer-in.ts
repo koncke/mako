@@ -27,6 +27,11 @@ import { runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
 import { transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+// El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
+// de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
+// un lugar").
+import { archivoATexto } from '@/lib/archivo-a-texto';
+import { puedeLeerse, formatosLegibles } from '@/lib/formatos-archivo';
 import { ordenarPorCuota } from '@/lib/ia-cuotas';
 import { rutearDoer } from '@/lib/mako-router';
 import { overrideDeFeature } from '@/lib/model-registry';
@@ -125,24 +130,51 @@ function audioDe(m: MsgIn): { base64: string | null; mime: string } | null {
   return { base64: b64, mime: a.mimetype || 'audio/ogg' };
 }
 
-/** ¿Trae una IMAGEN (captura, foto) o un PDF? Claude los lee nativo. Otros documentos
- *  (docx/xlsx) no se soportan → se devuelven con soportado:false. */
-function adjuntoDe(m: MsgIn): { tipo: 'image' | 'document'; base64: string | null; mime: string; caption: string; soportado: boolean } | null {
+/**
+ * ¿Trae un archivo? Tres caminos, y el tercero es el que faltaba:
+ *
+ *  · IMAGEN → va NATIVA a Claude (una captura se entiende mirándola, no describiéndola).
+ *  · PDF    → va NATIVO a Claude (mantiene el layout: tablas, columnas, orden de lectura).
+ *  · CUALQUIER OTRO archivo → se LEE con `archivoATexto`, el mismo lector que usa el
+ *    importador del tablero. .txt, .md, .vtt, .srt, .csv, .docx, audio, video…
+ *
+ * ANTES ACÁ SOLO ENTRABAN IMÁGENES Y PDF: todo lo demás rebotaba con «ese tipo de
+ * archivo todavía no», incluido un .txt — que es texto plano y es EL formato más fácil
+ * de leer que existe. Martín mandó uno por WhatsApp para cargarlo al plan y le rebotó.
+ *
+ * La lista de lo que se puede leer NO se escribe acá: sale de `lib/formatos-archivo.ts`.
+ * Si mañana el lector aprende un formato nuevo, WhatsApp lo acepta solo — que es
+ * exactamente lo que no pasó la primera vez.
+ */
+function adjuntoDe(m: MsgIn): { tipo: 'image' | 'document' | 'texto'; base64: string | null; mime: string; caption: string; nombre: string; soportado: boolean } | null {
   const msg = m.message ?? {};
   const img = msg.imageMessage as { base64?: string; mimetype?: string; caption?: string } | undefined;
   if (img) {
     const mime = (img.mimetype || 'image/jpeg').split(';')[0];
     const ok = /^image\/(jpeg|png|gif|webp)$/.test(mime);
-    return { tipo: 'image', base64: m.base64 || img.base64 || null, mime: ok ? mime : 'image/jpeg', caption: img.caption || '', soportado: true };
+    return { tipo: 'image', base64: m.base64 || img.base64 || null, mime: ok ? mime : 'image/jpeg', caption: img.caption || '', nombre: 'captura.jpg', soportado: true };
   }
   const doc = msg.documentMessage as { base64?: string; mimetype?: string; caption?: string; fileName?: string } | undefined;
   if (doc) {
     const mime = (doc.mimetype || '').split(';')[0];
-    const esPdf = /pdf/i.test(mime) || /\.pdf$/i.test(doc.fileName || '');
-    return { tipo: 'document', base64: m.base64 || doc.base64 || null, mime: 'application/pdf', caption: doc.caption || doc.fileName || '', soportado: esPdf };
+    const nombre = doc.fileName || 'archivo';
+    const caption = doc.caption || nombre;
+    if (/pdf/i.test(mime) || /\.pdf$/i.test(nombre)) {
+      return { tipo: 'document', base64: m.base64 || doc.base64 || null, mime: 'application/pdf', caption, nombre, soportado: true };
+    }
+    // Todo lo demás va por el lector compartido. `soportado` lo decide la extensión que
+    // ese lector declara: no hay una segunda lista acá que se pueda quedar vieja.
+    return { tipo: 'texto', base64: m.base64 || doc.base64 || null, mime, caption, nombre, soportado: puedeLeerse(nombre, mime) };
   }
   return null;
 }
+
+
+
+/** Cuánto texto de un archivo entra en un turno de WhatsApp. 200.000 caracteres son
+ *  unas 6 horas de transcripción: más que eso no es una charla, es una importación
+ *  (para eso está el importador del tablero, que trocea). Lo que se corta SE DICE. */
+const TOPE_ARCHIVO_WA = 200_000;
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 /** ¿El mensaje interpela a MaKo? (lo nombra al principio o lo menciona). */
@@ -324,6 +356,19 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       const p = (m.payload as MsgIn) ?? {};
       let t = m.texto.trim();
       if (!t && audioDe(p)) t = await transcribirDeMensaje(instance, p);
+      // El ARCHIVO gana sobre el texto suelto del mensaje: `textoDeArchivo` ya mete
+      // adentro el pedido («mako, cargá esto») junto al contenido, así que usar `t` acá
+      // perdería el archivo — que es justo lo que pasaba.
+      const arch = await textoDeArchivo(instance, p);
+      if (arch) t = arch.texto || arch.error || t;
+      // Una imagen o un PDF NO entran en un lote: el turno sintético es texto plano y
+      // los bloques nativos no viajan. Antes desaparecían sin dejar rastro — mandabas
+      // la captura junto a un mensaje y MaKo contestaba como si no existiera. Ahora al
+      // menos se nombra, así MaKo puede pedirla de nuevo en vez de ignorarla.
+      const otro = adjuntoDe(p);
+      if (otro && otro.tipo !== 'texto') {
+        t = `${t ? `${t}\n` : ''}(en este mensaje mandé ${otro.tipo === 'image' ? 'una imagen' : 'un PDF'}${otro.caption ? `: «${otro.caption}»` : ''}, pero llegó junto a otros mensajes y no la pudiste mirar — pedímela suelta si la necesitás)`;
+      }
       if (t) textos.push(t);
     }
     if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
@@ -340,6 +385,59 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   } finally {
     await soltar(jid, quien);
   }
+}
+
+/**
+ * Lee el archivo de un mensaje y devuelve su contenido listo para entrar como texto.
+ *
+ * Vive acá afuera —y no adentro de procesarDoer— porque hay DOS caminos que reciben
+ * mensajes: el de uno solo y el del LOTE (cuando llegan varios en ráfaga). El lote
+ * transcribía los audios pero no leía los archivos, así que un .txt mandado junto a
+ * «mako, cargá esto» se caía en silencio: el mensaje sintético se armaba sin él.
+ *
+ * Devuelve null si el mensaje no trae un archivo de texto. Si trae uno que no se puede
+ * abrir, devuelve el motivo en `error` para que quien llama se lo diga al dueño.
+ */
+async function textoDeArchivo(instance: string, m: MsgIn): Promise<{ texto: string; error: string } | null> {
+  const adj = adjuntoDe(m);
+  if (!adj || adj.tipo !== 'texto') return null;
+  if (!adj.soportado) {
+    return { texto: '', error: `«${adj.nombre}» no lo puedo abrir. Sí puedo con: ${formatosLegibles()}. Pasámelo en alguno de esos y lo leo.` };
+  }
+  let b64 = adj.base64;
+  const id = m.key?.id ?? '';
+  if (!b64 && id) {
+    const media = await fetchMediaBase64EnInstancia(instance, m.key?.remoteJid ?? '', id, !!m.key?.fromMe);
+    if (media) b64 = media.base64;
+  }
+  if (!b64) { console.error(`[mako-doer-in] «${adj.nombre}» sin base64`); return { texto: '', error: '' }; }
+
+  // Un .txt/.md/.docx/.vtt NO va como media block: mandárselo a Claude en base64 es la
+  // vía cara para algo que se resuelve con file.text(). Se lee y su contenido ES el texto.
+  const file = new File([Buffer.from(b64, 'base64')], adj.nombre, { type: adj.mime || 'text/plain' });
+  const lect = await archivoATexto(file).catch((e) => ({ texto: '', via: 'no-soportado' as const, warning: e instanceof Error ? e.message : String(e) }));
+  const contenido = (lect.texto || '').trim();
+  if (!contenido) {
+    return { texto: '', error: lect.warning
+      ? `Me llegó «${adj.nombre}» pero no lo pude leer: ${lect.warning}`
+      : `Me llegó «${adj.nombre}» pero salió vacío — no tiene texto que yo pueda sacar.` };
+  }
+  // El corte se DICE, no se traga: un archivo cortado en silencio son la mitad de las
+  // tareas perdidas sin que nadie se entere.
+  const cortado = contenido.length > TOPE_ARCHIVO_WA;
+  const cuerpo = cortado ? `${contenido.slice(0, TOPE_ARCHIVO_WA)}\n\n[…corté acá: el archivo sigue, pero no entra entero en un mensaje]` : contenido;
+  const pedido = textoDe(m).trim() || (adj.caption && adj.caption !== adj.nombre ? adj.caption : '');
+  console.log(`[mako-doer-in] archivo «${adj.nombre}» leído por ${lect.via}: ${contenido.length} chars${cortado ? ' (CORTADO)' : ''}`);
+  return {
+    texto: [
+      pedido || `Te mando «${adj.nombre}». Leelo y decime qué hacemos con esto.`,
+      '',
+      `<<<ARCHIVO «${adj.nombre}»>>>`,
+      cuerpo,
+      '<<<FIN DEL ARCHIVO>>>',
+    ].join('\n'),
+    error: '',
+  };
 }
 
 /** Transcribe la nota de voz de un mensaje ya encolado ('' si no se pudo). */
@@ -447,26 +545,44 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       }
     }
 
-    // Adjunto (imagen/PDF): Claude lo lee nativo. Armamos bloques de contenido.
+    // Adjunto. Imagen y PDF van NATIVOS a Claude; cualquier otro archivo se LEE con el
+    // mismo lector del importador y su contenido entra como texto, igual que la
+    // transcripción de una nota de voz.
     let mediaBlocks: Array<{ type: string } & Record<string, unknown>> | null = null;
     if (!audio && adjunto) {
       if (!adjunto.soportado) {
-        const aviso = 'Por ahora solo puedo leer imágenes (capturas) y PDFs. Ese tipo de archivo todavía no. Pasámelo como PDF o captura y lo miro.';
+        // El aviso enumera lo que SÍ se puede, sacado de la misma lista que usa el
+        // lector: si el lector aprende un formato, este mensaje se entera solo.
+        const aviso = `«${adjunto.nombre}» no lo puedo abrir. Sí puedo con: ${formatosLegibles()}. Pasámelo en alguno de esos y lo leo.`;
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         return { engaged: true, reply: aviso };
       }
-      let b64 = adjunto.base64;
-      if (!b64 && msgId) {
-        const m = await fetchMediaBase64EnInstancia(instance, jid, msgId, !!key?.fromMe);
-        if (m) { b64 = m.base64; }
+      // El archivo de texto se resuelve PRIMERO: `textoDeArchivo` se trae los bytes él
+      // solo, así que bajarlos acá también sería pedirle el mismo adjunto dos veces a
+      // Evolution. La descarga de abajo es solo para lo que va nativo.
+      if (adjunto.tipo === 'texto') {
+        const leido = await textoDeArchivo(instance, data);
+        if (!leido || !leido.texto) {
+          const aviso = leido?.error || `Me llegó «${adjunto.nombre}» pero no lo pude abrir.`;
+          const env = await enviarAGrupoJid(jid, aviso);
+          if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+          return { engaged: true, reply: aviso };
+        }
+        texto = leido.texto;
+      } else {
+        let b64 = adjunto.base64;
+        if (!b64 && msgId) {
+          const m = await fetchMediaBase64EnInstancia(instance, jid, msgId, !!key?.fromMe);
+          if (m) { b64 = m.base64; }
+        }
+        if (!b64) { console.error('[mako-doer-in] adjunto sin base64'); return { engaged: false, skip: 'adjunto sin base64' }; }
+        const source = { type: 'base64', media_type: adjunto.tipo === 'image' ? adjunto.mime : 'application/pdf', data: b64 };
+        const prompt = textoDirecto || adjunto.caption || (adjunto.tipo === 'image' ? 'Mirá esta imagen y decime qué ves y qué hago.' : 'Leé este PDF y decime lo importante.');
+        mediaBlocks = [{ type: adjunto.tipo, source }, { type: 'text', text: prompt }];
+        // Para la memoria guardamos un placeholder de texto.
+        texto = `(envió ${adjunto.tipo === 'image' ? 'una imagen' : 'un PDF'}${adjunto.caption ? `: ${adjunto.caption}` : ''})${textoDirecto ? ` — ${textoDirecto}` : ''}`;
       }
-      if (!b64) { console.error('[mako-doer-in] adjunto sin base64'); return { engaged: false, skip: 'adjunto sin base64' }; }
-      const source = { type: 'base64', media_type: adjunto.tipo === 'image' ? adjunto.mime : 'application/pdf', data: b64 };
-      const prompt = textoDirecto || adjunto.caption || (adjunto.tipo === 'image' ? 'Mirá esta imagen y decime qué ves y qué hago.' : 'Leé este PDF y decime lo importante.');
-      mediaBlocks = [{ type: adjunto.tipo, source }, { type: 'text', text: prompt }];
-      // Para la memoria guardamos un placeholder de texto.
-      texto = `(envió ${adjunto.tipo === 'image' ? 'una imagen' : 'un PDF'}${adjunto.caption ? `: ${adjunto.caption}` : ''})${textoDirecto ? ` — ${textoDirecto}` : ''}`;
     }
 
     // Historial (memoria) + system — TODO scopeado al workspace del grupo (wsData).

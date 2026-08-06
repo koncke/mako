@@ -98,6 +98,32 @@ export function normalizarInApp(raw: unknown): NotifInApp {
   };
 }
 
+// ── Destinatarios: a QUIÉNES les llega (del negocio, no de la persona) ───────
+// El tipo y la normalización viven acá —y no en lib/notif-destinatarios, que es
+// `server-only`— para que el formulario del navegador valide con la MISMA regla
+// con la que el server guarda. Si se duplicara, la pantalla aceptaría cosas que
+// el server después descarta en silencio.
+export type Destinatarios = { telefonos: string[]; emails: string[] };
+
+export const soloDigitos = (s: string) => (s || '').replace(/\D/g, '');
+export const telefonoValido = (s: string) => soloDigitos(s).length >= 8;
+export const emailValido = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((s || '').trim());
+
+/** Normaliza y deduplica conservando el orden: el primero es el principal. */
+export function normalizarDestinatarios(d: Partial<Destinatarios>): Destinatarios {
+  const telefonos: string[] = [];
+  for (const t of d.telefonos ?? []) {
+    const n = soloDigitos(t);
+    if (n.length >= 8 && !telefonos.includes(n)) telefonos.push(n);
+  }
+  const emails: string[] = [];
+  for (const e of d.emails ?? []) {
+    const n = (e || '').trim().toLowerCase();
+    if (emailValido(n) && !emails.includes(n)) emails.push(n);
+  }
+  return { telefonos, emails };
+}
+
 // ── 2 y 3. Reportes (van por WhatsApp y/o por email) ─────────────────────────
 export type ReporteKey = 'horario' | 'diario' | 'semanal';
 

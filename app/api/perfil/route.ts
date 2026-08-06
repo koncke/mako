@@ -1,32 +1,33 @@
 // =============================================================================
-// /api/perfil — leer/guardar perfil del usuario + preferencias de notificaciones
+// /api/perfil — perfil de la persona + preferencias de reportes del workspace
 // =============================================================================
-// También expone el "número del dueño" del workspace (destinatario del grupo de
-// MaKo): al setearlo/cambiarlo se crea o se sincroniza el grupo (lib/mako-grupo).
+// Dos cosas que NO viven acá, cada una con su ruta propia:
+//   ./notif-inapp     → pop-up y sonido. Son de la PERSONA y los pide el provider
+//                       del layout en cada pantalla: no puede pagar las lecturas
+//                       de este GET en cada carga de página.
+//   ./destinatarios   → a quiénes les llega. Antes era la acción `numero_dueno`
+//                       de acá, que manejaba un solo teléfono.
 
 import type { NextRequest } from 'next/server';
 import { getPerfil, setPerfil, getNotifPrefs, setNotifPrefs, type NotifPrefs, type Perfil } from '@/lib/perfil';
-import { getWorkspaceActual, getWorkspace } from '@/lib/workspace';
-import { getNumeroDueno, getGrupoJidMaKo, setNumeroDuenoYSync } from '@/lib/mako-grupo';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Pop-up y sonido NO viven acá: son de la persona, los pide el provider del
-// layout en cada pantalla y tienen su propia ruta liviana (./notif-inapp).
 export async function GET() {
   const ws = await getWorkspaceActual();
-  const [perfil, prefs, numeroDueno, grupoJid] = await Promise.all([
+  const [perfil, prefs, grupoJid] = await Promise.all([
     getPerfil(),
     getNotifPrefs(),
-    ws != null ? getNumeroDueno(ws) : Promise.resolve(null),
     ws != null ? getGrupoJidMaKo(ws) : Promise.resolve(null),
   ]);
-  return Response.json({ ok: true, perfil, prefs, numeroDueno, tieneGrupo: Boolean(grupoJid) });
+  return Response.json({ ok: true, perfil, prefs, tieneGrupo: Boolean(grupoJid) });
 }
 
 export async function POST(req: NextRequest) {
-  let body: { action?: string; perfil?: Partial<Perfil>; prefs?: NotifPrefs; numero?: string };
+  let body: { action?: string; perfil?: Partial<Perfil>; prefs?: NotifPrefs };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -40,13 +41,6 @@ export async function POST(req: NextRequest) {
     if (body.action === 'prefs' && body.prefs) {
       await setNotifPrefs(body.prefs);
       return Response.json({ ok: true });
-    }
-    if (body.action === 'numero_dueno') {
-      const ws = await getWorkspaceActual();
-      if (ws == null) return Response.json({ ok: false, error: 'Elegí un cliente para configurar su número.' }, { status: 400 });
-      const wsRow = await getWorkspace(ws);
-      const r = await setNumeroDuenoYSync(ws, body.numero ?? '', wsRow?.nombre ?? 'tu negocio');
-      return Response.json(r, { status: r.ok ? 200 : 500 });
     }
     return Response.json({ ok: false, error: 'acción no reconocida' }, { status: 400 });
   } catch (err) {
