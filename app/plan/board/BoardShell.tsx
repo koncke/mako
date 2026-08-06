@@ -9,7 +9,7 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
@@ -34,6 +34,8 @@ import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
 import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
+import { BuscadorTareas } from './BuscadorTareas';
+import { matchTarea, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/lib/buscar-tareas';
 import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
@@ -66,6 +68,21 @@ export function BoardShell({ board, scope }: {
   const [makoHintId, setMakoHintId] = useState<string | null>(null); // tarea recién creada → sugerir "MaKo te ayuda"
   const [makoProjId, setMakoProjId] = useState<string | null>(null); // "MaKo te ayuda" para un proyecto
   const [q, setQ] = useState('');
+  // DÓNDE busca la barra. Por defecto SOLO el título: buscar una palabra y recibir media
+  // lista porque la palabra estaba en el detalle de treinta tareas es lo que hacía antes.
+  const [campos, setCampos] = useState<CampoBusqueda[]>(CAMPOS_POR_DEFECTO);
+  // La búsqueda con MaKo devuelve IDS, no un texto: se filtra por pertenencia, no por
+  // coincidencia. `ids === null` = no hay búsqueda con IA activa.
+  const [ia, setIa] = useState<{ pensando: boolean; ids: string[] | null; explico: string }>({ pensando: false, ids: null, explico: '' });
+  const idsIA = useMemo(() => (ia.ids ? new Set(ia.ids) : null), [ia.ids]);
+
+  const buscarConIA = async (texto: string) => {
+    setIa({ pensando: true, ids: null, explico: '' });
+    const j = await fetch('/api/plan-buscar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q: texto }), signal: AbortSignal.timeout(60_000) })
+      .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+    if (!j.ok) { setIa({ pensando: false, ids: null, explico: '' }); alert(j.error || 'No pude buscar.'); return; }
+    setIa({ pensando: false, ids: (j.ids ?? []).map(String), explico: String(j.explico ?? '') });
+  };
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
   const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado (kanban)
   const [fOrigen, setFOrigen] = useState<Set<string>>(new Set());  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
@@ -367,7 +384,7 @@ export function BoardShell({ board, scope }: {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayWelcome]);
-  const passes = (t: BoardTask) => (!q || matchTexto(t, q)) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && pasaEstado(t.progress, doneFilter);
+  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
@@ -642,7 +659,13 @@ export function BoardShell({ board, scope }: {
         {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
         {(view === 'kanban' || view === 'proyectos') && <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: '0 1 200px', minWidth: 90, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <BuscadorTareas
+            q={q} onQ={setQ}
+            campos={campos} onCampos={setCampos}
+            ia={ia}
+            onBuscarIA={buscarConIA}
+            onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
+          />
           {view === 'kanban'
             ? <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
             : <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
@@ -1014,20 +1037,6 @@ function coincide(heno: string, q: string): boolean {
   return piezas.every((p) => h.includes(p));
 }
 
-function matchTexto(t: BoardTask, q: string): boolean {
-  const s = q.trim().toLowerCase();
-  if (!s) return true;
-  const soloNum = /^#\s*(\d+)$/.exec(s);
-  if (soloNum) return t.num === Number(soloNum[1]);
-  if (/^\d+$/.test(s) && t.num === Number(s)) return true;
-  // El heno incluye la CHECKLIST y las notas: media búsqueda es «¿dónde anoté esto?»,
-  // y eso vive en un paso de la checklist o en el cuaderno, no en el título.
-  const heno = [
-    t.title, t.detalle, t.notas ?? '', t.scoreRazon ?? '',
-    ...(t.checklist ?? []).map((c) => c.text),
-  ].join(' ');
-  return coincide(heno, s);
-}
 
 // filtro por estado (2ª capa del botón Filtrar): Todas / Activas / Comenzadas / Completadas
 type DoneFilter = 'all' | 'activas' | 'comenzadas' | 'hechas';
