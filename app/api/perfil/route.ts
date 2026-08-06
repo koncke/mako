@@ -12,6 +12,8 @@ import { getNumeroDueno, getGrupoJidMaKo, setNumeroDuenoYSync } from '@/lib/mako
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// Pop-up y sonido NO viven acá: son de la persona, los pide el provider del
+// layout en cada pantalla y tienen su propia ruta liviana (./notif-inapp).
 export async function GET() {
   const ws = await getWorkspaceActual();
   const [perfil, prefs, numeroDueno, grupoJid] = await Promise.all([

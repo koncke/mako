@@ -7,11 +7,16 @@ import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { IaUsageToast } from './_components/IaUsageToast';
 import { HideOnPublicLanding } from './_components/PublicRouteGate';
+import { TituloTab } from './_components/TituloTab';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
 // del navegador, al lado del favicon. El producto es MaKo: acá decía "Marketing
 // OS — Mauricio Bustos", branding viejo de cuando era el dashboard interno de una
 // sola cuenta. La landing (app/page.tsx) pisa esto con su propio título.
+//
+// Este es el título de ARRANQUE. Ya en el navegador, <TituloTab /> le agrega la
+// sección donde estás parado ("MaKo - CRM"), para poder distinguir una pestaña de
+// otra sin entrar a cada una.
 export const metadata: Metadata = {
   title: 'MaKo',
   description: 'Marketing, CRM y ventas en una sola app.',
@@ -54,6 +59,10 @@ export default function RootLayout({
         />
         {/* Notificaciones de WhatsApp a nivel app: badge del sidebar + sonido +
             pop-up, corriendo en cualquier sección. */}
+        {/* Nombre de la sección en la pestaña del navegador. */}
+        <Suspense fallback={null}>
+          <TituloTab />
+        </Suspense>
         <NotificationsProvider>
           <div style={rootStyle}>
             {/* Sidebar usa useSearchParams (propaga el filtro de fecha); Suspense

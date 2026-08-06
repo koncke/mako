@@ -14,6 +14,7 @@ import 'server-only';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
 import { getSetting, setSetting } from './settings';
+import { avisoWaActivo } from './perfil';
 import { runWithWorkspace, OWNER_WS } from './workspace';
 import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-catalogo';
 import { CATALOGO_AVISOS } from './avisos-catalogo';
@@ -42,7 +43,11 @@ export type EmitirAvisoInput = {
 // `wa:false` con `waError` = el aviso NO llegó a WhatsApp (línea desconectada, grupo
 // sin JID, Evolution caído). Antes solo existía el booleano y nadie lo miraba: la voz
 // de MaKo podía estar muerta días sin que nada lo dijera. Los callers (crons) lo logean.
-export type EmitirAvisoResult = { ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string };
+export type EmitirAvisoResult = {
+  ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string;
+  /** el dueño apagó este aviso en Configuraciones › Notificaciones. */
+  apagado?: boolean;
+};
 
 const keyLast = (tipo: string) => `mako.aviso.last.${tipo}`;
 
@@ -78,6 +83,14 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       payload: { texto: a.texto, categoria: a.categoria ?? null, semaforo: a.semaforo ?? 'na' },
       origen: `aviso:${a.tipo}`,
     });
+    // El dueño puede apagar este aviso desde Configuraciones › Notificaciones. Se
+    // apaga el WHATSAPP, no el registro: la fila del feed queda igual, así que
+    // silenciar un aviso no borra la bitácora de que el evento pasó.
+    if (!(await avisoWaActivo(ws, a.tipo))) {
+      if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo);
+      return { ok: true, feedId, wa: false, deduped: false, apagado: true };
+    }
+
     // Ruteo: al grupo del CLIENTE (su "MaKo <> cliente") por default. El grupo de
     // SuperAdmin es SOLO para avisos de agencia (cross-cliente) marcados alDueno.
     // Así los eventos de un cliente (aunque corran en OWNER_WS) NO caen en el grupo

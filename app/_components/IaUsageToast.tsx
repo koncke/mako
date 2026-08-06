@@ -19,6 +19,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MakoStar } from './MakoBrand';
+import { useNotifications } from './NotificationsProvider';
+import { inAppActivo } from '@/lib/notif-catalogo';
 import { procesoLegible, proveedorLegible, modeloLegible } from '@/lib/ia-labels';
 
 const SANS = "'Geist', sans-serif";
@@ -39,6 +41,7 @@ const safeSet = (v: string): void => { try { localStorage.setItem(LS_KEY, v); } 
 
 export function IaUsageToast() {
   const router = useRouter();
+  const { inApp } = useNotifications();
   const [queue, setQueue] = useState<ToastItem[]>([]);
   const lastSeen = useRef<string | null>(null);
   const inited = useRef(false);
@@ -114,6 +117,10 @@ export function IaUsageToast() {
   }, [current]);
 
   if (!current) return null;
+  // Apagado en Configuraciones › Notificaciones. El polling sigue corriendo igual:
+  // es lo que mantiene la baseline al día, y sin eso volver a prenderlo dispararía
+  // de golpe todas las operaciones que pasaron mientras estaba en silencio.
+  if (!inAppActivo(inApp, 'ia-uso', 'popup')) return null;
 
   const go = () => { setQueue([]); router.push('/integraciones?ops=1#saldo-ia'); };
 

@@ -14,7 +14,8 @@ import { getSupabaseServer } from './supabase';
 import { getSetting, setSetting } from './settings';
 import { getUsuarioActual } from './auth';
 import { buscarUsuarioPorEmail } from './usuarios';
-import { getWorkspaceActual } from './workspace';
+import { getWorkspaceActual, runWithWorkspace } from './workspace';
+import { DEFAULT_IN_APP, normalizarInApp, type NotifInApp } from './notif-catalogo';
 
 // ── Perfil personal (por usuario) ─────────────────────────────────────────────
 export type Perfil = {
@@ -99,8 +100,11 @@ export async function setPerfil(patch: Partial<Perfil>): Promise<Perfil> {
   if (patch.nombre !== undefined) cols.nombre = String(patch.nombre).trim();
   if (patch.avatarUrl !== undefined) cols.foto_url = String(patch.avatarUrl).trim();
 
-  const extraPrev = ((u as { perfil?: Partial<PerfilExtra> }).perfil ?? {}) as Partial<PerfilExtra>;
-  const extra: Partial<PerfilExtra> = { ...extraPrev };
+  // Se reescribe el jsonb entero, así que hay que arrancar de lo que ya había:
+  // adentro no viven solo los campos del formulario (también `notifInApp`), y
+  // partir de {} los borraría sin que nada avise.
+  const extraPrev = ((u as { perfil?: Record<string, unknown> }).perfil ?? {}) as Record<string, unknown>;
+  const extra: Record<string, unknown> = { ...extraPrev };
   for (const k of EXTRA_KEYS) if (patch[k] !== undefined) extra[k] = String(patch[k] ?? '').trim();
   cols.perfil = extra;
 
@@ -148,6 +152,12 @@ export type NotifPrefs = {
     wins: boolean;
     pendientes: boolean;
   };
+  /**
+   * Avisos sueltos de WhatsApp (id del catálogo → sale / no sale). Ausente = sale:
+   * un aviso recién cableado tiene que llegar sin que nadie lo prenda a mano, y así
+   * olvidarse de sumarlo a AVISOS_WA_EN_VIVO no lo silencia.
+   */
+  avisos: Record<string, boolean>;
 };
 
 export const DEFAULT_PREFS: NotifPrefs = {
@@ -155,6 +165,7 @@ export const DEFAULT_PREFS: NotifPrefs = {
   diario: { activo: true, wa: true, email: true },
   semanal: { activo: true, wa: true, email: true },
   secciones: { semaforo: true, ads: true, wins: true, pendientes: true },
+  avisos: {},
 };
 
 const PREFS_KEY = 'notification_prefs';
@@ -178,6 +189,10 @@ export async function getNotifPrefs(): Promise<NotifPrefs> {
     return DEFAULT_PREFS;
   }
   const sec = (parsed.secciones ?? {}) as Partial<NotifPrefs['secciones']>;
+  const avisos: Record<string, boolean> = {};
+  if (parsed.avisos && typeof parsed.avisos === 'object') {
+    for (const [k, v] of Object.entries(parsed.avisos)) if (typeof v === 'boolean') avisos[k] = v;
+  }
   return {
     horario: mergeCanal(DEFAULT_PREFS.horario, parsed.horario),
     diario: mergeCanal(DEFAULT_PREFS.diario, parsed.diario),
@@ -188,9 +203,70 @@ export async function getNotifPrefs(): Promise<NotifPrefs> {
       wins: sec.wins ?? DEFAULT_PREFS.secciones.wins,
       pendientes: sec.pendientes ?? DEFAULT_PREFS.secciones.pendientes,
     },
+    avisos,
   };
 }
 
 export async function setNotifPrefs(prefs: NotifPrefs): Promise<void> {
   await setSetting(PREFS_KEY, JSON.stringify(prefs));
+}
+
+/**
+ * ¿Este aviso sale por WhatsApp en este workspace? Lo consulta el choke point
+ * (lib/avisos.ts) antes de despachar. Ausente = sí: ver el comentario del campo.
+ */
+export async function avisoWaActivo(ws: number, tipo: string): Promise<boolean> {
+  try {
+    const prefs = await runWithWorkspace(ws, () => getNotifPrefs());
+    return prefs.avisos[tipo] !== false;
+  } catch {
+    return true; // un fallo leyendo la preferencia no puede silenciar un aviso
+  }
+}
+
+// ── Notificaciones dentro de la app (por USUARIO) ─────────────────────────────
+// Pop-up y sonido pasan en el navegador de UNA persona: si viviera en
+// app_settings, el que baja el volumen se lo baja a todo su equipo. Vive en el
+// jsonb `perfil` de su fila de usuarios, junto al resto de lo suyo.
+//
+// A diferencia del perfil visible, acá NO se aplica el "viendo como cliente":
+// el sonido es de quien está frente al teclado, no de la cuenta que está mirando.
+const IN_APP_KEY = 'notifInApp';
+
+async function filaPropia(): Promise<{ id: number; perfil: Record<string, unknown> } | null> {
+  const sesion = await getUsuarioActual();
+  if (!sesion?.email) return null;
+  const { data, error } = await getSupabaseServer()
+    .from('usuarios').select('id, perfil').eq('email', sesion.email.trim().toLowerCase()).maybeSingle();
+  if (error || !data) return null;
+  const fila = data as { id: number; perfil: unknown };
+  return { id: fila.id, perfil: (fila.perfil && typeof fila.perfil === 'object' ? fila.perfil : {}) as Record<string, unknown> };
+}
+
+export async function getNotifInApp(): Promise<NotifInApp> {
+  try {
+    const u = await filaPropia();
+    if (!u) return { ...DEFAULT_IN_APP };
+    return normalizarInApp(u.perfil[IN_APP_KEY]);
+  } catch {
+    return { ...DEFAULT_IN_APP };
+  }
+}
+
+/**
+ * Guarda las preferencias in-app del usuario logueado.
+ *
+ * `guardado:false` = la sesión no tiene fila propia en `usuarios` (dev-login,
+ * contraseña maestra, sesiones legacy). Se devuelve en vez de tragárselo: la
+ * pantalla necesita poder decir "no se guardó" en lugar de mostrar un tilde verde
+ * sobre algo que se pierde al recargar.
+ */
+export async function setNotifInApp(v: NotifInApp): Promise<{ inApp: NotifInApp; guardado: boolean }> {
+  const u = await filaPropia();
+  if (!u) return { inApp: normalizarInApp(v), guardado: false };
+  const perfil = { ...u.perfil, [IN_APP_KEY]: normalizarInApp(v) };
+  const { error } = await getSupabaseServer()
+    .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
+  return { inApp: normalizarInApp(perfil[IN_APP_KEY]), guardado: true };
 }

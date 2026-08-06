@@ -14,6 +14,14 @@ import {
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { isPublicLandingPath } from './PublicRouteGate';
+import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
+
+/**
+ * Aviso de que alguien acaba de guardar sus preferencias en Configuraciones ›
+ * Notificaciones. Sin esto habría que recargar para que el cambio se note, y
+ * apagar un sonido que sigue sonando parece que no funcionó.
+ */
+export const EVENTO_PREFS_IN_APP = 'mako:notif-inapp';
 
 export interface Contacto {
   id: string;
@@ -52,6 +60,8 @@ interface NotifCtx {
   noOficialUnread: number;
   marcarLeidoNoOficial: (chatJid: string) => void;
   setOpenChatNoOficial: (chatJid: string | null) => void;
+  /** Preferencias de pop-up/sonido de esta persona (null = todavía cargando). */
+  inApp: NotifInApp | null;
 }
 
 const Ctx = createContext<NotifCtx | null>(null);
@@ -201,6 +211,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<{ gid: string; nombre: string; avatar: string | null; canal?: 'empresa' } | null>(null);
   const [tplToast, setTplToast] = useState<{ tipo: 'ok' | 'rej'; name: string; motivo?: string } | null>(null);
   const [noOficialUnread, setNoOficialUnread] = useState(0);
+  const [inApp, setInApp] = useState<NotifInApp | null>(null);
+  // Los pollings se montan una sola vez (deps []); leen las preferencias por ref
+  // para no reiniciarse cada vez que alguien las cambia.
+  const inAppRef = useRef<NotifInApp | null>(null);
+  inAppRef.current = inApp;
+  const dejaVer = (id: string) => inAppActivo(inAppRef.current, id, 'popup');
+  const dejaSonar = (id: string) => inAppActivo(inAppRef.current, id, 'sonido');
   const noOfSnapRef = useRef<Map<string, number>>(new Map());   // chatJid → última actividad (ms) vista
   const noOfLeidoRef = useRef<Map<string, number>>(new Map());  // chatJid → leído hasta (ms)
   const noOfConvsRef = useRef<ConvNoOf[]>([]);                  // última lista (para recomputar unread)
@@ -309,6 +326,23 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Preferencias de pop-up/sonido de esta persona. Se recargan cuando las guarda
+  // (evento del panel de Configuraciones) para que el cambio se note al instante.
+  useEffect(() => {
+    if (pathname.startsWith('/login') || isPublicLandingPath(pathname)) return;
+    let alive = true;
+    const cargar = () => {
+      void fetch('/api/perfil/notif-inapp')
+        .then((r) => r.json())
+        .then((j) => { if (alive && j?.ok && j.inApp) setInApp(j.inApp as NotifInApp); })
+        .catch(() => {});
+    };
+    cargar();
+    window.addEventListener(EVENTO_PREFS_IN_APP, cargar);
+    return () => { alive = false; window.removeEventListener(EVENTO_PREFS_IN_APP, cargar); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Desbloquear el audio en el primer gesto del usuario (autoplay policy).
   useEffect(() => {
     const unlock = () => unlockAudio();
@@ -343,8 +377,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         // el rechazo se queda 9s (hay que leer el motivo); la aprobación 6s.
         tplToastTimerRef.current = setTimeout(() => setTplToast(null), tipo === 'rej' ? 9000 : 6000);
       };
-      if (nuevaOk) { playApproval(); mostrar('ok', nuevaOk); }
-      else if (nuevaRej) { playRejected(); mostrar('rej', nuevaRej, tpls.find((t) => t.name === nuevaRej)?.motivo ?? undefined); }
+      const suena = dejaSonar('wa-plantilla');
+      const seVe = dejaVer('wa-plantilla');
+      if (nuevaOk) { if (suena) playApproval(); if (seVe) mostrar('ok', nuevaOk); }
+      else if (nuevaRej) {
+        if (suena) playRejected();
+        if (seVe) mostrar('rej', nuevaRej, tpls.find((t) => t.name === nuevaRej)?.motivo ?? undefined);
+      }
     } catch { /* ignore */ }
   };
 
@@ -378,10 +417,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         }
         if (entrante) {
           const e = entrante as Contacto;
-          playBeep();
-          setToast({ gid: e.id, nombre: e.contacto, avatar: e.avatar });
-          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-          toastTimerRef.current = setTimeout(() => setToast(null), 5000);
+          if (dejaSonar('wa-mensaje')) playBeep();
+          if (dejaVer('wa-mensaje')) {
+            setToast({ gid: e.id, nombre: e.contacto, avatar: e.avatar });
+            if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+            toastTimerRef.current = setTimeout(() => setToast(null), 5000);
+          }
         }
 
         // Merge en la lista (preserva los que no vienen en página 1) y recalcula el
@@ -442,10 +483,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           }
         }
         if (entrante) {
-          playBeep();
-          setToast({ gid: entrante.chatJid, nombre: entrante.nombre, avatar: null, canal: 'empresa' });
-          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-          toastTimerRef.current = setTimeout(() => setToast(null), 5000);
+          if (dejaSonar('wa-mensaje-empresa')) playBeep();
+          if (dejaVer('wa-mensaje-empresa')) {
+            setToast({ gid: entrante.chatJid, nombre: entrante.nombre, avatar: null, canal: 'empresa' });
+            if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+            toastTimerRef.current = setTimeout(() => setToast(null), 5000);
+          }
         }
         recomputeNoOf();
       } catch { /* ignore */ }
@@ -456,7 +499,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <Ctx.Provider value={{ contactos, setContactos, unreadTotal, loadingConvs, openChatRef, setOpenChat, marcarLeido, goToChat, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial }}>
+    <Ctx.Provider value={{ contactos, setContactos, unreadTotal, loadingConvs, openChatRef, setOpenChat, marcarLeido, goToChat, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial, inApp }}>
       {children}
       {!isPublicLandingPath(pathname) && toast && (
         <button

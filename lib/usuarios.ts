@@ -26,9 +26,18 @@ export type Usuario = {
   workspace_id: number | null;
   /** rol dentro del negocio del cliente ('admin'|'closer'|'setter'); null = admin de agencia. */
   rol_ws: RolWorkspace | null;
+  /**
+   * Todo lo demás de la persona (teléfono, cargo, bio, sus preferencias de
+   * notificaciones dentro de la app…). Ver lib/perfil.ts.
+   *
+   * Estuvo fuera de este SELECT y nadie lo notó porque falla en silencio: getPerfil
+   * leía `u.perfil` (undefined → todo vacío) y setPerfil reescribía el jsonb desde
+   * ese vacío, así que guardar el perfil borraba lo que no venía en el formulario.
+   */
+  perfil?: Record<string, unknown> | null;
 };
 
-const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id, rol_ws';
+const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id, rol_ws, perfil';
 
 export async function listarUsuarios(): Promise<Usuario[]> {
   const { data, error } = await getSupabaseServer()
