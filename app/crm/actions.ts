@@ -1085,6 +1085,28 @@ export async function importLeadsCsvAction(csvText: string): Promise<ImportLeads
   return importarLeadsRevisadosAction(filas);
 }
 
+/**
+ * Reagenda una reunión desde el worklist ("¿Qué hacer ahora?" de una reunión que
+ * ya pasó). Mueve la fecha y BORRA el timestamp de Calendly: ese `junta_N_at` es
+ * la hora vieja y es justamente lo que hace que el lead siga marcado como vencido.
+ * Sin limpiarlo, reagendar no sacaba al lead del pendiente.
+ */
+export async function reagendarReunionAction(leadId: number, cual: 'r1' | 'r2', fecha: string): Promise<void> {
+  const f = (fecha ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) throw new Error('Fecha inválida.');
+  const db = await getTenantDb();
+  const patch = cual === 'r2'
+    ? { fecha_junta_2: f, junta_2_at: null, asistio_j2: null }
+    : { fecha_junta_1: f, junta_1_at: null, asistio_j1: null };
+  const { error } = await db.from('leads').update(patch).eq('id', leadId);
+  if (error) throw new Error(`No se pudo reagendar: ${error.message}`);
+  await logLeadEvent(leadId, cual === 'r2' ? 'Reunión 2 reagendada' : 'Reunión 1 reagendada', f, await autorActual()).catch(() => {});
+  bust(TAG.leads);
+  revalidatePath('/crm');
+  revalidatePath(`/crm/${leadId}`);
+  revalidatePath('/general');
+}
+
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
 export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promise<void> {
   const before = await getLead(id).catch(() => null);

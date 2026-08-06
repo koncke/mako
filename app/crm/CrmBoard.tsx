@@ -36,6 +36,7 @@ import {
   bulkIgnoreEmpresaAction,
   ignorarPendientesAction,
   ignorarPendientesMasaAction,
+  reagendarReunionAction,
 } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
@@ -228,7 +229,11 @@ export function CrmBoard({
   const [manualMotivo, setManualMotivo] = useState('');
   const [manualDeadline, setManualDeadline] = useState('');
   const [manualNutriPaso, setManualNutriPaso] = useState(0);   // wizard: 0=motivo, 1=fecha límite
-  const [queHacer, setQueHacer] = useState<{ leadId: number; name: string } | null>(null);   // manual vencida: "¿qué hacer ahora?"
+  // "¿Qué hacer ahora?": lo usan DOS pendientes distintos — la nutrición manual
+  // vencida (M) y la reunión que ya pasó sin desenlace (R). Cada uno necesita su
+  // copy y su salida rápida propia (nuevo plazo vs. reagendar la reunión).
+  const [queHacer, setQueHacer] = useState<{ leadId: number; name: string; tipo: 'M' | 'R'; cual: 'r1' | 'r2' } | null>(null);
+  const [reagFecha, setReagFecha] = useState('');
   // modo 'pasada' = ya ocurrió (pide asistencia); 'futura' = ya está agendada
   // por fuera de Calendly pero todavía no se tuvo (solo fecha).
   const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2'; modo: 'pasada' | 'futura' } | null>(null);
@@ -619,7 +624,7 @@ export function CrmBoard({
           marcar={marcar}
           equipo={equipo}
           onSolucionar={solucionarMarcar}
-          onQueHacer={(id) => { const l = leads.find((x) => x.id === id); setQueHacer({ leadId: id, name: l?.name ?? 'lead' }); }}
+          onQueHacer={(id) => { const l = leads.find((x) => x.id === id); const m = marcar.find((x) => x.leadId === id); setReagFecha(''); setQueHacer({ leadId: id, name: l?.name ?? 'lead', tipo: m?.tipo === 'R' ? 'R' : 'M', cual: l && effStage(l) === 'agendaj2' ? 'r2' : 'r1' }); }}
           onBulkDone={() => router.refresh()}
         />
       ) : view === 'kanban' ? (
@@ -760,8 +765,24 @@ export function CrmBoard({
             <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
               <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 8 }}>✦ MAKO</div>
               <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>¿Qué hacer ahora? — {queHacer.name}</div>
-              <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 16 }}>Venció la nutrición manual sin resolverse. Elegí cómo sigue.</div>
-              <button type="button" onClick={() => { const id = queHacer.leadId; setQueHacer(null); openManualNutri(id); }} style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left', marginBottom: 14 }}>🔁 Seguir nutriendo — nuevo plazo</button>
+              <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 16 }}>{queHacer.tipo === 'R' ? `La Reunión ${queHacer.cual === 'r2' ? 2 : 1} ya pasó y el lead sigue esperando. Elegí cómo sigue.` : 'Venció la nutrición manual sin resolverse. Elegí cómo sigue.'}</div>
+              {queHacer.tipo === 'R' ? (
+                // Reagendar es LA salida más común de una reunión que pasó: va primero
+                // y resuelve en el lugar, sin mandar al usuario a otra pantalla.
+                <div style={{ border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', borderRadius: 11, padding: '13px 15px', marginBottom: 14 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--warn)', marginBottom: 9 }}>📅 Reagendar la Reunión {queHacer.cual === 'r2' ? 2 : 1}</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input type="date" value={reagFecha} onChange={(e) => setReagFecha(e.target.value)}
+                      style={{ flex: '1 1 170px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
+                    <button type="button" disabled={!reagFecha}
+                      onClick={() => { const { leadId, cual } = queHacer; const f = reagFecha; setQueHacer(null); startTransition(async () => { try { await reagendarReunionAction(leadId, cual, f); router.refresh(); } catch (e) { alert(e instanceof Error ? e.message : 'No se pudo reagendar'); } }); }}
+                      style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: reagFecha ? 'var(--warn-fill)' : 'var(--border)', color: reagFecha ? '#fff' : 'var(--faint)', fontSize: 13.5, fontWeight: 700, cursor: reagFecha ? 'pointer' : 'default', fontFamily: SANS }}>Reagendar</button>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7 }}>Queda pendiente de nuevo recién para esa fecha.</div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => { const id = queHacer.leadId; setQueHacer(null); openManualNutri(id); }} style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left', marginBottom: 14 }}>🔁 Seguir nutriendo — nuevo plazo</button>
+              )}
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', marginBottom: 8 }}>o mover a otra etapa</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {opt('pipeline').map(stageBtn)}
