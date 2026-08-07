@@ -57,6 +57,11 @@ Reglas que salen de eso:
   que sobrevive.
 - **Dos sesiones no editan la misma skill ni el mismo prompt a la vez.** Se pisan igual
   que el código, pero el efecto aparece días después y en otro lado.
+- **Cerrá cada commit con el trailer `Claude-Cuenta: claude1` o `claude2`.** Las dos
+  cuentas commitean con el mismo autor sobre el mismo clon, así que git no las distingue
+  y sin el trailer no hay forma de saber a cuál preguntarle por una decisión. Lo leen
+  `/admin/docs` (la ficha de cada documento) y el Change History de `/admin/ui`; donde
+  falta muestran «—», que es lo correcto: no se inventa.
 
 El protocolo completo —qué comparten las dos cuentas y qué no, cuándo usar worktrees y
 las tres cosas que hay que recrear a mano en uno— está en

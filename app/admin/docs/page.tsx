@@ -25,6 +25,8 @@ import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { Pagina, PageHeader, ErrorState } from '@/app/_ui';
 import { DocsView, type Doc } from './DocsView';
+import { CATALOGO } from './catalogo';
+import { metaDeDocs } from './git-meta';
 
 // Se leen del disco en cada request: así un `git pull` en el server se ve sin
 // rebuild, y el costo es leer archivos de un filesystem local.
@@ -42,12 +44,20 @@ function cargar(): { docs: Doc[]; error?: string } {
 
     archivos.unshift({ slug: 'AGENTS', ruta: join(raiz, 'AGENTS.md'), rel: 'AGENTS.md' });
 
+    const meta = metaDeDocs();
+
     const docs: Doc[] = archivos.map(({ slug, ruta, rel }) => {
       const texto = readFileSync(ruta, 'utf8');
       // El título sale del primer `# ` del documento; el nombre del archivo es
       // el respaldo para uno que todavía no lo tenga.
       const h1 = texto.match(/^#\s+(.+)$/m);
-      return { slug, rel, titulo: h1 ? h1[1].trim() : slug, texto, lineas: texto.split('\n').length };
+      return {
+        slug, rel, texto,
+        titulo: h1 ? h1[1].trim() : slug,
+        lineas: texto.split('\n').length,
+        ficha: CATALOGO[slug] ?? null,
+        meta: meta[slug] ?? null,
+      };
     });
 
     const peso = (s: string) => {
@@ -98,6 +108,8 @@ export default async function DocsPage({ searchParams }: { searchParams: Promise
       slug: doc.slug,
       titulo: doc.titulo,
       lineas: doc.lineas,
+      grupo: doc.ficha?.grupo ?? 'Referencia',
+      tabs: doc.ficha?.tabs ?? [],
       hits: busca ? doc.texto.toLowerCase().split(busca).length - 1 : 0,
     }))
     .filter((x) => !busca || x.hits > 0);

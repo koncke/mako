@@ -265,12 +265,26 @@ export function ancla(texto: string) {
     .replace(/\s/g, '-');
 }
 
-/** El sumario de un documento: sus títulos de nivel 1 y 2. */
+/**
+ * El sumario de un documento: sus títulos de nivel 1 y 2.
+ *
+ * SALTEA LOS BLOQUES DE CÓDIGO. Un `# comentario` de bash adentro de un ```
+ * parece un título para un regex suelto, y el cuerpo —que sí entiende los
+ * fences— nunca le crea el id: el sumario quedaba con una entrada de más que
+ * al hacerle clic no llevaba a ningún lado. Pasó con el `# por cada uno:
+ * comparar sus export…` de hallazgos-infra.md.
+ */
 export function sumario(texto: string) {
-  return texto.split('\n')
-    .map((l) => l.trim().match(/^(#{1,2})\s+(.*)$/))
-    .filter((m): m is RegExpMatchArray => !!m)
-    .map((m) => ({ nivel: m[1].length, texto: m[2].replace(/[`*]/g, ''), id: ancla(m[2]) }));
+  const out: { nivel: number; texto: string; id: string }[] = [];
+  let dentroDeCodigo = false;
+  for (const linea of texto.split('\n')) {
+    const t = linea.trim();
+    if (t.startsWith('```')) { dentroDeCodigo = !dentroDeCodigo; continue; }
+    if (dentroDeCodigo) continue;
+    const m = t.match(/^(#{1,2})\s+(.*)$/);
+    if (m) out.push({ nivel: m[1].length, texto: m[2].replace(/[`*]/g, ''), id: ancla(m[2]) });
+  }
+  return out;
 }
 
 // ------------------------------------------------------------------ estilo --

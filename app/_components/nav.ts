@@ -267,9 +267,19 @@ export const MAKO_NAV: NavItem[] = [
 // marketing — solo gestión de clientes e integraciones. Es un shell aparte a
 // propósito: «las rutas administrativas y de producto no deben mezclarse
 // visualmente cuando el usuario está operando un negocio».
-export const ADMIN_NAV: NavItem[] = [
+/**
+ * El shell de administración, en dos secciones.
+ *
+ * «Dev» son los REGISTROS de construcción: por cada área del producto, qué se
+ * decidió, qué se rompió y qué falta. El de UX/UI es el que ya existe y sirve de
+ * molde; los otros nacen vacíos a propósito y se llenan igual que aquél, a
+ * medida que se trabaja cada tab. Es lo que hace que cambiar, mejorar o
+ * debuguear una tab no arranque de cero cada vez.
+ */
+export const ADMIN_SECCIONES: { titulo: string; items: NavItem[] }[] = [
+  { titulo: 'Administración', items: [
   // /admin/guiones tiene su propio item — que "Clientes" no se marque también.
-  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/docs')(p) },
+  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/docs')(p) && !starts('/admin/dev')(p) },
   { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
   // Canal propio de MaKo (SuperAdmin): WhatsApp del admin (canal + chat de grupos
   // + plantillas). NO es preview de ningún cliente. Su propia línea por QR.
@@ -281,15 +291,27 @@ export const ADMIN_NAV: NavItem[] = [
   { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
   { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },
   { key: 'modelos-ia', label: 'Modelos IA', href: '/modelos-ia', icon: 'mako', match: starts('/modelos-ia') },
-  // El catálogo vivo del sistema de diseño (app/_ui) Y el registro del rediseño,
-  // en una sola tab con sub-tabs. Herramienta de construcción, no producto.
-  { key: 'ui', label: 'Sistema de diseño', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
   // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
   { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
-  // AGENTS.md + docs/*.md renderizados desde el REPO, no copiados: la fuente
-  // única sigue siendo el archivo. Herramienta de construcción, no producto.
-  { key: 'docs', label: 'Documentación', href: '/admin/docs', icon: 'contexto', match: starts('/admin/docs') },
+  ] },
+
+  { titulo: 'Dev', items: [
+    // AGENTS.md + docs/*.md renderizados desde el REPO, no copiados: la fuente
+    // única sigue siendo el archivo.
+    { key: 'docs', label: 'Documentación', href: '/admin/docs', icon: 'contexto', match: starts('/admin/docs') },
+    // El catálogo vivo de app/_ui Y el registro del rediseño, en una sola tab
+    // con sub-tabs. OJO: la key sigue siendo 'ui' aunque el label cambió a
+    // «MaKo UX/UI» — las keys de nav.ts son contrato con la base.
+    { key: 'ui', label: 'MaKo UX/UI', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
+    { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
+    { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
+    { key: 'dev-chatbot', label: 'Chatbot', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },
+    { key: 'dev-ads-generator', label: 'Ads Generator', href: '/admin/dev/ads-generator', icon: 'config', match: starts('/admin/dev/ads-generator') },
+  ] },
 ];
+
+/** Plano, para el título de la pestaña y cualquier búsqueda por key. */
+export const ADMIN_NAV: NavItem[] = ADMIN_SECCIONES.flatMap((s) => s.items);
 
 /**
  * El menú de la foto de perfil: la quinta familia (ADMIN) del documento, que

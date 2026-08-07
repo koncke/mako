@@ -93,7 +93,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
   return (
     <Pagina>
       <PageHeader
-        titulo="Sistema de diseño"
+        titulo="MaKo UX/UI"
         estado={<Status tono="mako">Fase 1</Status>}
         accion={<ButtonLink href="/general" variant="secondary">Ver la app →</ButtonLink>}
       />

@@ -28,7 +28,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_NAV, itemsDe, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_SECCIONES, itemsDe, type NavItem, type NavGrupo } from './nav';
 import { tabEnCapa } from '@/lib/capas';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
@@ -595,10 +595,14 @@ export function Sidebar() {
         <nav style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {adminShell ? (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.72, fontWeight: 600, padding: open ? '5px 10px 7px' : '2px 0 6px', textAlign: open ? 'left' : 'center' }}>{open ? 'Administración' : '·'}</div>
-              {ADMIN_NAV.map((item) => (
-                <NavLink key={item.key} item={item} active={item.match(pathname)} expanded={open}
-                  onClick={item.entrarComoDueno ? () => entrarComoDuenoYNavegar(item.href) : undefined} />
+              {ADMIN_SECCIONES.map((sec, i) => (
+                <div key={sec.titulo} style={{ marginTop: i === 0 ? 0 : 14 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.72, fontWeight: 600, padding: open ? '5px 10px 7px' : '2px 0 6px', textAlign: open ? 'left' : 'center' }}>{open ? sec.titulo : '·'}</div>
+                  {sec.items.map((item) => (
+                    <NavLink key={item.key} item={item} active={item.match(pathname)} expanded={open}
+                      onClick={item.entrarComoDueno ? () => entrarComoDuenoYNavegar(item.href) : undefined} />
+                  ))}
+                </div>
               ))}
             </>
           ) : (

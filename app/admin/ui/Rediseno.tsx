@@ -8,6 +8,9 @@
 // barra, los íconos, las piezas— se monta de los componentes de verdad.
 
 import { Section, MONO } from '@/app/_ui';
+// El mismo «ver más» del historial de Proyectos del plan. Vive ahí y no en
+// app/_ui porque nació ahí; se importa en vez de escribir un segundo.
+import { useVerMas } from '@/app/plan/board/VerMas';
 import { BITACORA, PARTES, CUENTAS } from './bitacora';
 
 /** `**negrita**` y `` `código` `` — lo mínimo para que el historial se lea. */
@@ -59,13 +62,22 @@ const COLOR_CUENTA: Record<keyof typeof CUENTAS, string> = {
 };
 
 export function ChangeHistory() {
+  // El array se mantiene en orden cronológico —se agrega al final, que es lo
+  // natural al escribirlo— pero se LEE al revés: lo último que pasó va arriba.
+  // Un historial que obliga a scrollear hasta el fondo para ver el último
+  // cambio está al revés de para qué se abre.
+  const recientes = [...BITACORA].reverse();
+  const { visibles, boton } = useVerMas(recientes, { inicial: 5, tanda: 5, estilo: 'texto' });
+
   return (
     <Section titulo="Change History">
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {BITACORA.map((h, i) => {
+        {visibles.map((h, i) => {
           const cuenta = CUENTAS[h.cuenta];
           const color = COLOR_CUENTA[h.cuenta];
-          const ultimo = i === BITACORA.length - 1;
+          // La línea de tiempo se corta en el último VISIBLE, no en el último
+          // del array: si no, cuelga en el aire cuando hay entradas plegadas.
+          const ultimo = i === visibles.length - 1;
           return (
             <li key={h.titulo + i} className="mk-hist">
               {/* Columna de metadata: cuándo, en qué chat y desde qué cuenta.
@@ -98,6 +110,7 @@ export function ChangeHistory() {
           );
         })}
       </ol>
+      {boton}
     </Section>
   );
 }
