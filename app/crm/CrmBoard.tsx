@@ -16,6 +16,7 @@ import {
   useState,
   useTransition,
   type CSSProperties,
+  type ReactNode,
 } from 'react';
 import {
   CHIP,
@@ -45,11 +46,14 @@ import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
 import { CrmAutoToggle } from './CrmAutoToggle';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
+import { SelectorHora, horaLegible } from './SelectorHora';
 import type { Step } from '@/lib/stage-requirements';
 import type { MiembroEquipo } from './actions';
 import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
+import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { sectionForStage } from './edit-logic';
 import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
+import { coincideBusqueda } from '@/lib/buscar-texto';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
 import { Icon } from '../_components/icons';
@@ -137,6 +141,33 @@ export type CrmMarcar = {
 };
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
+
+/** Una confirmación pendiente: qué se va a cambiar, dicho concreto. */
+type Confirmacion = {
+  titulo: string;
+  mensaje: ReactNode;
+  confirmLabel: string;
+  /** `primary` para lo que avanza el pipeline; `danger` para lo que silencia o pierde. */
+  tono?: 'danger' | 'primary';
+  onOk: () => void;
+};
+
+/** Las salidas del form "¿Qué hacer ahora?" (una por opción del primer paso). */
+type QhOpcion = 'reprog' | 'noasistio' | 'mover' | 'perdido' | 'nutrir';
+
+/** Resumen "dato → valor" de un paso de confirmación. El mismo en todos los wizards. */
+function ResumenFilas({ filas }: { filas: Array<[string, string]> }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {filas.map(([k, v]) => (
+        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13.5, padding: '10px 13px', background: 'var(--surface-2)', borderRadius: 10, textAlign: 'left' }}>
+          <span style={{ color: 'var(--dim)' }}>{k}</span>
+          <span style={{ color: 'var(--ink)', fontWeight: 600, textAlign: 'right' }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function chipStyle(tone: Stage['tone']): CSSProperties {
   const c = CHIP[tone] || CHIP.neutral;
@@ -233,8 +264,12 @@ export function CrmBoard({
   const [manualNutriPaso, setManualNutriPaso] = useState(0);   // wizard: 0=motivo, 1=fecha límite
   // "¿Qué hacer ahora?": lo usan DOS pendientes distintos — la nutrición manual
   // vencida (M) y la reunión que ya pasó sin desenlace (R). Cada uno necesita su
-  // copy y su salida rápida propia (nuevo plazo vs. reagendar la reunión).
+  // copy y sus salidas propias (nuevo plazo vs. reagendar la reunión).
   const [queHacer, setQueHacer] = useState<{ leadId: number; name: string; tipo: 'M' | 'R'; cual: 'r1' | 'r2' } | null>(null);
+  const [qhPaso, setQhPaso] = useState(0);
+  const [qhOpcion, setQhOpcion] = useState<QhOpcion | null>(null);
+  const [qhEtapa, setQhEtapa] = useState('');     // etapa destino (mover / no asistió)
+  const [qhPlazo, setQhPlazo] = useState('');     // nuevo deadline de nutrición manual
   const [reagFecha, setReagFecha] = useState('');
   const [reagHora, setReagHora] = useState('');
   // Qué puede hacer la agenda conectada (null = todavía no se sabe). Se consulta
@@ -251,6 +286,14 @@ export function CrmBoard({
   const [mmNota, setMmNota] = useState('');   // por qué se agendó fuera de Calendly (excepción)
   const [mmPaso, setMmPaso] = useState(0);    // wizard: 0=fecha, 1=asistencia (pasada) / motivo (futura)
   const [meetingChoice, setMeetingChoice] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
+
+  // ── Confirmación única del tablero ──────────────────────────────────────────
+  // Pedido textual del dueño: «siempre tiene que saltar una confirmación, y más
+  // si se le va a cambiar algo a un lead». Todo lo que MODIFICA un lead sin pasar
+  // por un wizard (arrastrar una card, ignorar, las acciones en lote) entra por
+  // acá. El texto dice el cambio CONCRETO — "Mover a Ganado a Alan Grza" —, no un
+  // "¿Estás seguro?" que no informa nada y se clickea sin leer.
+  const [confirmacion, setConfirmacion] = useState<Confirmacion | null>(null);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const firstKey = stages[0]?.key ?? 'lead';
@@ -272,14 +315,25 @@ export function CrmBoard({
   // Movimiento directo (etapas que no piden completar datos). Optimista + revert.
   const persistStage = (id: number, key: string, from?: string, tr?: FunnelTransition) => {
     setLocalStage((m) => ({ ...m, [id]: key }));
+    const revertir = () => {
+      setLocalStage((m) => { const n = { ...m }; if (from) n[id] = from; else delete n[id]; return n; });
+      setUndoInfo(null);
+    };
     startTransition(async () => {
       try {
-        await setLeadStageAction(id, key, { asistio_j1: tr?.asistioJ1, asistio_j2: tr?.asistioJ2 });
+        const r = await setLeadStageAction(id, key, { asistio_j1: tr?.asistioJ1, asistio_j2: tr?.asistioJ2 });
+        // El server ve datos faltantes que el board no vio (una edición en otra
+        // pestaña, un funnel que cambió). Antes esto era un throw y la card volvía
+        // sola sin explicación: ahora se revierte y se abre el wizard que los pide.
+        if (!r.ok) {
+          revertir();
+          const lead = leads.find((l) => l.id === id);
+          if (lead) openStageMove(lead, { to: key, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
+        }
       } catch {
-        // El server rechazó el movimiento (invariante): revertir el optimista y
-        // limpiar el toast de deshacer. router.refresh() resincroniza con la verdad.
-        setLocalStage((m) => { const n = { ...m }; if (from) n[id] = from; else delete n[id]; return n; });
-        setUndoInfo(null);
+        // Falla real (red/permisos): revertir el optimista y limpiar el toast de
+        // deshacer. router.refresh() resincroniza con la verdad.
+        revertir();
       }
       router.refresh();
     });
@@ -298,10 +352,11 @@ export function CrmBoard({
     const m = marcar.find((x) => x.leadId === id);
     const tipo = m?.tipo === 'R' ? 'R' : 'M';
     setReagFecha(''); setReagHora(''); setReagOut(null); setReagCal(null);
+    setQhPaso(0); setQhOpcion(null); setQhEtapa(''); setQhPlazo(''); setQhError(null);
     setQueHacer({ leadId: id, name: l?.name ?? 'lead', tipo, cual: l && effStage(l) === 'agendaj2' ? 'r2' : 'r1' });
     if (tipo === 'R') void permisoCalendarioAction().then(setReagCal).catch(() => setReagCal(null));
   };
-  const cerrarQueHacer = () => { setQueHacer(null); setReagOut(null); setReagCal(null); };
+  const cerrarQueHacer = () => { setQueHacer(null); setReagOut(null); setReagCal(null); setQhOpcion(null); setQhPaso(0); };
 
   // Revertir el último movimiento a su etapa anterior (ventana del toast, 5s).
   // No deja huella en el historial: un movimiento deshecho al instante es un
@@ -394,8 +449,19 @@ export function CrmBoard({
     if (calendlyUrlFor(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
-    if (needsFicha(lead, stageKey)) openStageMove(lead, { to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
-    else persistStage(id, stageKey, from, tr);
+    if (needsFicha(lead, stageKey)) { openStageMove(lead, { to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 }); return; }
+    // Arrastrar una card es el gesto más fácil de hacer sin querer del tablero, y
+    // hasta acá cambiaba la etapa del lead al soltar, sin preguntar nada. Ahora
+    // pasa por la confirmación, que dice el movimiento exacto.
+    const destino = findStage(stages, stageKey).label;
+    const origen = findStage(stages, from).label;
+    setConfirmacion({
+      titulo: `Mover a ${destino} a ${lead.name}`,
+      mensaje: <>Pasa de <b>{origen}</b> a <b>{destino}</b>. Queda registrado en el historial del lead y vas a poder deshacerlo.</>,
+      confirmLabel: `Mover a ${destino}`,
+      tono: 'primary',
+      onOk: () => persistStage(id, stageKey, from, tr),
+    });
   };
 
   // "Solucionar" un dato sin marcar → abre el wizard IN-PLACE (pop-up), sin salir
@@ -422,6 +488,84 @@ export function CrmBoard({
     setManualNutri(null);
     setLocalStage((m) => ({ ...m, [leadId]: 'manual' }));
     startTransition(async () => { await markManualNutritionAction(leadId, manualMotivo.trim(), deadline); router.refresh(); });
+  };
+
+  // ── "¿Qué hacer ahora?" — el form de a UNA pregunta ─────────────────────────
+  // Era un modal armado a mano: una caja de reagendar arriba, una fila de chips de
+  // etapas abajo y un "Cancelar" perdido — tres decisiones distintas en la misma
+  // pantalla, con un aspecto que no se parecía a ningún otro formulario de la app.
+  // Ahora es el mismo WizardShell del resto: qué pasó → el dato que haga falta →
+  // confirmar. Las opciones son botones grandes; no se tipea nada evitable.
+  const [qhError, setQhError] = useState<string | null>(null);
+
+  /** ISO + n días (para los plazos de un toque de la nutrición). */
+  const masDiasISO = (iso: string, d: number) => {
+    const t = new Date(`${iso}T00:00:00Z`);
+    t.setUTCDate(t.getUTCDate() + d);
+    return t.toISOString().slice(0, 10);
+  };
+
+  // Etapas a las que se puede mandar el lead: el pipeline primero, las salidas
+  // después. La nutrición queda afuera: tiene su propia opción ("seguir nutriendo").
+  const etapasDestino = useMemo(() => {
+    const orden = (b: StageBand) => (b === 'pipeline' ? 0 : b === 'salidas' ? 1 : 2);
+    return stages
+      .filter((s) => s.key !== 'lead' && (s.band ?? 'pipeline') !== 'nutricion')
+      .sort((a, b) => orden(a.band ?? 'pipeline') - orden(b.band ?? 'pipeline') || ((a.col ?? 0) - (b.col ?? 0)));
+  }, [stages]);
+  const hayPerdido = stages.some((s) => s.key === 'perdido');
+
+  const qhPasos: Array<'que' | 'detalle' | 'resumen'> =
+    ['que', ...(qhOpcion && qhOpcion !== 'perdido' ? (['detalle'] as const) : []), 'resumen'];
+  const qhPasoId = qhPasos[Math.min(qhPaso, qhPasos.length - 1)];
+  const qhPuede =
+    qhPasoId === 'que' ? qhOpcion != null
+    : qhPasoId === 'detalle'
+      ? (qhOpcion === 'reprog' ? !!reagFecha && !!reagHora : qhOpcion === 'nutrir' ? !!qhPlazo : !!qhEtapa)
+      : true;
+
+  const confirmarQueHacer = () => {
+    if (!queHacer || !qhOpcion) return;
+    setQhError(null);
+    const { leadId, cual } = queHacer;
+    const l = leads.find((x) => x.id === leadId);
+
+    // Reagendar: el modal NO se cierra — mover el evento en Google es la mitad del
+    // trabajo y su resultado se cuenta acá mismo, en el paso siguiente.
+    if (qhOpcion === 'reprog') {
+      // El ISO se arma en el navegador: la hora queda en la zona horaria del que
+      // la carga y no hay que adivinar el huso.
+      const at = new Date(`${reagFecha}T${reagHora}`).toISOString();
+      startTransition(async () => {
+        try { setReagOut(await reagendarReunionAction(leadId, cual, reagFecha, at)); router.refresh(); }
+        catch (e) { setQhError(e instanceof Error ? e.message : 'No se pudo reagendar.'); }
+      });
+      return;
+    }
+
+    if (qhOpcion === 'nutrir') {
+      const plazo = qhPlazo;
+      cerrarQueHacer();
+      setLocalStage((m) => ({ ...m, [leadId]: 'manual' }));
+      startTransition(async () => {
+        await markManualNutritionAction(leadId, 'Se extendió el plazo de la nutrición manual', plazo);
+        router.refresh();
+      });
+      return;
+    }
+
+    // Mover / no asistió / se perdió: el destino lo resuelve el wizard de etapa,
+    // que ya sabe pedir lo que falte (motivo, monto, asistencias) y confirma solo.
+    const destino = qhOpcion === 'perdido' ? 'perdido' : qhEtapa;
+    cerrarQueHacer();
+    if (!l || !destino) return;
+    const tr = transitionFor(effStage(l), destino);
+    const move: StageMoveTarget = { to: destino, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 };
+    // "No asistió" es un dato del lead, no solo un movimiento: viaja con la move.
+    if (qhOpcion === 'noasistio') {
+      if (cual === 'r2') move.asistioJ2 = false; else move.asistioJ1 = false;
+    }
+    openStageMove(l, move);
   };
 
   // Reunión (R1/R2) sin Calendly: 'pasada' = ya ocurrió (fecha + asistencia);
@@ -455,8 +599,9 @@ export function CrmBoard({
   // si coincide con CUALQUIERA de los elegidos (OR dentro de la categoría, AND entre
   // categorías) — es lo que espera cualquiera que marque tres etapas a la vez.
   const matches = (l: CrmLead) => {
-    const q = search.trim().toLowerCase();
-    if (q && !(l.name.toLowerCase().includes(q) || l.company.toLowerCase().includes(q) || l.email.toLowerCase().includes(q))) return false;
+    // Buscar como busca una persona (sin acentos, por palabras sueltas, por #id):
+    // la regla vive en lib/buscar-texto, no acá — ver «Una cosa, un lugar».
+    if (!coincideBusqueda([l.id, l.name, l.company, l.email, l.phone], search)) return false;
     if (stageFilter.size > 0 && !stageFilter.has(effStage(l))) return false;
     if (originFilter.size > 0 && !originFilter.has(l.origin)) return false;
     return true;
@@ -745,128 +890,205 @@ export function CrmBoard({
         );
       })()}
 
-      {/* Nutrición manual — wizard de 2 pasos (motivo + fecha límite) */}
+      {/* Nutrición manual — motivo · fecha límite · confirmación */}
       {manualNutri && (
         <WizardShell
           titulo={`Nutrición manual · ${manualNutri.name}`}
-          total={2}
+          total={3}
           idx={manualNutriPaso}
-          pregunta={manualNutriPaso === 0 ? '¿Por qué pasa a nutrición manual?' : '¿Hasta cuándo la seguís?'}
+          pregunta={manualNutriPaso === 0 ? '¿Por qué pasa a nutrición manual?' : manualNutriPaso === 1 ? '¿Hasta cuándo la seguís?' : 'Revisá y confirmá'}
           sub={manualNutriPaso === 0
             ? 'Contá el motivo del parking. Queda en el historial del lead.'
-            : 'Poné una fecha límite: si llega sin que el lead avance, vuelve a «datos sin marcar» en rojo.'}
+            : manualNutriPaso === 1
+              ? 'Poné una fecha límite: si llega sin que el lead avance, vuelve a «datos sin marcar» en rojo.'
+              : 'Esto es lo que va a pasar cuando confirmes.'}
           puedeAvanzar={manualNutriPaso === 0 ? !!manualMotivo.trim() : !!manualDeadline}
-          enUltimo={manualNutriPaso === 1}
+          enUltimo={manualNutriPaso === 2}
           confirmLabel="Guardar nutrición manual"
           pending={isPending}
           atrasLabel={manualNutriPaso === 0 ? 'Cancelar' : 'Atrás'}
           onClose={() => setManualNutri(null)}
-          onAtras={() => (manualNutriPaso === 0 ? setManualNutri(null) : setManualNutriPaso(0))}
-          onSiguiente={() => setManualNutriPaso(1)}
+          onAtras={() => (manualNutriPaso === 0 ? setManualNutri(null) : setManualNutriPaso(manualNutriPaso - 1))}
+          onSiguiente={() => setManualNutriPaso(manualNutriPaso + 1)}
           onConfirmar={confirmManualNutri}
         >
           {manualNutriPaso === 0 ? (
             <textarea value={manualMotivo} onChange={(e) => setManualMotivo(e.target.value)} autoFocus placeholder="Ej: pidió que lo contactemos en 2 meses; está cerrando presupuesto…" style={{ ...wizardInput, minHeight: 96, textAlign: 'left', lineHeight: 1.5 }} />
-          ) : (
+          ) : manualNutriPaso === 1 ? (
             <input type="date" value={manualDeadline} min={hoy} onChange={(e) => setManualDeadline(e.target.value)} autoFocus style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
+          ) : (
+            <ResumenFilas filas={[
+              ['Lead', manualNutri.name],
+              ['Etapa', 'Nutrición - Manual'],
+              ['Motivo', manualMotivo.trim() || '—'],
+              ['Vence', manualDeadline || '—'],
+            ]} />
           )}
         </WizardShell>
       )}
 
-      {/* Manual vencida: "¿qué hacer ahora?" — seguir nutriendo o mover de etapa */}
-      {queHacer && (() => {
-        const l = leads.find((x) => x.id === queHacer.leadId);
-        const opt = (band: 'pipeline' | 'salidas') => stages.filter((s) => (s.band ?? 'pipeline') === band && s.key !== 'lead').sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
-        const stageBtn = (s: Stage) => (
-          <button key={s.key} type="button" onClick={() => { cerrarQueHacer(); if (l) openStageMove(l, { to: s.key }); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-            <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: s.dot, flex: 'none' }} />{s.label}
-          </button>
-        );
-        return (
-          <div onClick={cerrarQueHacer} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 8 }}>✦ MAKO</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>¿Qué hacer ahora? — {queHacer.name}</div>
-              <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 16 }}>{queHacer.tipo === 'R' ? `La Reunión ${queHacer.cual === 'r2' ? 2 : 1} ya pasó y el lead sigue esperando. Elegí cómo sigue.` : 'Venció la nutrición manual sin resolverse. Elegí cómo sigue.'}</div>
-              {queHacer.tipo === 'R' && reagOut ? (
-                // Ya se reagendó: lo único que falta contar es qué pasó con el
-                // calendario. El CRM está guardado sí o sí — el resultado de Google
-                // no puede leerse como "falló el reagendado".
-                <div style={{ border: `1px solid ${reagOut.ok ? 'var(--good)' : 'var(--warn-fill)'}`, background: reagOut.ok ? 'var(--good-bg)' : 'var(--warn-bg)', borderRadius: 11, padding: '13px 15px', marginBottom: 14 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: reagOut.ok ? 'var(--good)' : 'var(--warn)', marginBottom: 4 }}>
-                    {/* "avisado al invitado" solo si REALMENTE había a quién avisarle:
-                        un lead sin email mueve el evento pero no notifica a nadie. */}
-                    {reagOut.ok
-                      ? `✓ Reunión ${reagOut.accion === 'creado' ? 'agendada' : 'movida'} en tu calendario${reagOut.invitado ? ' y avisado al invitado' : ''}`
-                      : 'El CRM quedó actualizado, pero no pude mover el evento'}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{reagOut.mensaje}</div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 11, flexWrap: 'wrap' }}>
-                    {reagOut.reconectar && (
-                      <button type="button" onClick={() => router.push('/integraciones')} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Reconectar Google Calendar</button>
-                    )}
-                    <button type="button" onClick={cerrarQueHacer} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
-                  </div>
-                </div>
-              ) : queHacer.tipo === 'R' ? (
-                // Reagendar es LA salida más común de una reunión que pasó: va primero
-                // y resuelve en el lugar, sin mandar al usuario a otra pantalla.
-                <div style={{ border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', borderRadius: 11, padding: '13px 15px', marginBottom: 14 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>📅 Reagendar la Reunión {queHacer.cual === 'r2' ? 2 : 1}</div>
-                  {/* Qué promete el botón depende del permiso REAL de la agenda:
-                      Calendly nunca sirvió para esto (no tiene reschedule por API), y
-                      el token de Google puede ser el viejo, de solo lectura. Prometer
-                      "lo movemos" sin poder hacerlo es peor que no ofrecerlo. */}
-                  <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 10 }}>
-                    {reagCal && !reagCal.conectado
-                      ? 'Actualiza la reunión en el CRM y queda en el historial. Conectá tu Google Calendar para que además se mueva el evento y se le avise al invitado.'
-                      : reagCal && !reagCal.puedeMover
-                        ? 'Actualiza la reunión en el CRM y queda en el historial. Tu permiso de Google es de solo lectura: reconectalo para que además se mueva el evento.'
-                        : 'Actualiza la reunión en el CRM, mueve el evento en tu Google Calendar y le avisa al invitado. Todo queda en el historial.'}
-                  </div>
-                  {reagCal && !reagCal.puedeMover && (
-                    <button type="button" onClick={() => router.push('/integraciones')} style={{ display: 'block', marginBottom: 10, padding: 0, border: 'none', background: 'none', color: 'var(--primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'underline' }}>
-                      {reagCal.conectado ? 'Reconectar para poder mover reuniones →' : 'Conectar Google Calendar →'}
-                    </button>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <input type="date" value={reagFecha} onChange={(e) => setReagFecha(e.target.value)} aria-label="Fecha nueva"
-                      style={{ flex: '1 1 150px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
-                    <input type="time" value={reagHora} onChange={(e) => setReagHora(e.target.value)} aria-label="Hora nueva"
-                      style={{ flex: '0 1 120px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
-                    <button type="button" disabled={!reagFecha || !reagHora || isPending}
-                      onClick={() => {
-                        const { leadId, cual } = queHacer;
-                        const f = reagFecha;
-                        // El ISO se arma en el navegador: así la hora queda en la zona
-                        // horaria del que la carga y no hay que adivinar el huso.
-                        const at = new Date(`${reagFecha}T${reagHora}`).toISOString();
-                        // El modal NO se cierra acá: mover el evento en Google es la
-                        // mitad del trabajo y su resultado se muestra en este mismo
-                        // lugar. Cerrar antes dejaría al usuario sin saber si al
-                        // invitado le llegó el cambio.
-                        startTransition(async () => {
-                          try { setReagOut(await reagendarReunionAction(leadId, cual, f, at)); router.refresh(); }
-                          catch (e) { alert(e instanceof Error ? e.message : 'No se pudo reagendar'); }
-                        });
-                      }}
-                      style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: reagFecha && reagHora ? 'var(--warn-fill)' : 'var(--border)', color: reagFecha && reagHora ? '#fff' : 'var(--faint)', fontSize: 13.5, fontWeight: 700, cursor: reagFecha && reagHora && !isPending ? 'pointer' : 'default', fontFamily: SANS }}>{isPending ? 'Reagendando…' : 'Reagendar'}</button>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7 }}>Vuelve a quedar pendiente recién a esa hora.</div>
-                </div>
-              ) : (
-                <button type="button" onClick={() => { const id = queHacer.leadId; cerrarQueHacer(); openManualNutri(id); }} style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left', marginBottom: 14 }}>🔁 Seguir nutriendo — nuevo plazo</button>
+      {/* "¿Qué hacer ahora?" — reunión que ya pasó (R) o nutrición vencida (M).
+          Un WizardShell de a una pregunta: qué pasó → el dato que haga falta →
+          confirmación con el resumen. */}
+      {queHacer && reagOut && (
+        // Ya se reagendó: lo único que falta contar es qué pasó con el calendario.
+        // El CRM está guardado sí o sí — el resultado de Google no puede leerse
+        // como "falló el reagendado".
+        <div onClick={cerrarQueHacer} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 480, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 10 }}>✦ MAKO</div>
+            <div style={{ fontSize: 15.5, fontWeight: 700, color: reagOut.ok ? 'var(--good)' : 'var(--warn)', marginBottom: 5 }}>
+              {/* "avisado al invitado" solo si REALMENTE había a quién avisarle: un
+                  lead sin email mueve el evento pero no notifica a nadie. */}
+              {reagOut.ok
+                ? `✓ Reunión ${reagOut.accion === 'creado' ? 'agendada' : 'movida'} en tu calendario${reagOut.invitado ? ' y avisado al invitado' : ''}`
+                : 'El CRM quedó actualizado, pero no pude mover el evento'}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55 }}>{reagOut.mensaje}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {reagOut.reconectar && (
+                <button type="button" onClick={() => router.push('/integraciones')} style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--primary)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Reconectar Google Calendar</button>
               )}
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', marginBottom: 8 }}>o mover a otra etapa</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {opt('pipeline').map(stageBtn)}
-                {opt('salidas').map(stageBtn)}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                <button type="button" onClick={cerrarQueHacer} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{reagOut ? 'Cerrar' : 'Cancelar'}</button>
-              </div>
+              <button type="button" onClick={cerrarQueHacer} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {queHacer && !reagOut && (() => {
+        const esR = queHacer.tipo === 'R';
+        const nR = queHacer.cual === 'r2' ? 2 : 1;
+        const etiquetaEtapa = (k: string) => findStage(stages, k).label;
+
+        // Paso 1 — las salidas reales de cada pendiente, como botones grandes.
+        const opciones: Array<{ v: QhOpcion; label: string; sub: string }> = esR
+          ? [
+              { v: 'reprog', label: 'Se reprogramó', sub: 'Quedó para otro día y hora' },
+              { v: 'noasistio', label: 'No asistió', sub: 'No se presentó a la reunión' },
+              { v: 'mover', label: 'Ya avanzó, moverlo de etapa', sub: 'La reunión ocurrió y el lead sigue' },
+              ...(hayPerdido ? [{ v: 'perdido' as const, label: 'Se perdió', sub: 'No sigue: se registra el motivo' }] : []),
+            ]
+          : [
+              { v: 'nutrir', label: 'Seguir nutriendo', sub: 'Le doy un plazo nuevo' },
+              { v: 'mover', label: 'Moverlo de etapa', sub: 'Se reactivó y avanza' },
+              ...(hayPerdido ? [{ v: 'perdido' as const, label: 'Darlo por perdido', sub: 'No sigue: se registra el motivo' }] : []),
+            ];
+
+        const pregunta = qhPasoId === 'que'
+          ? '¿Qué pasó?'
+          : qhPasoId === 'resumen'
+            ? 'Revisá y confirmá'
+            : qhOpcion === 'reprog' ? `¿Para cuándo quedó la Reunión ${nR}?`
+            : qhOpcion === 'nutrir' ? '¿Hasta cuándo la seguís?'
+            : qhOpcion === 'noasistio' ? '¿A qué etapa pasa?'
+            : '¿A qué etapa lo movés?';
+
+        const sub = qhPasoId === 'que'
+          ? (esR
+              ? `La Reunión ${nR} ya pasó y el lead sigue esperando una decisión.`
+              : 'Venció la nutrición manual sin resolverse.')
+          : qhPasoId === 'resumen' ? 'Esto es lo que va a pasar cuando confirmes.'
+          : qhOpcion === 'reprog'
+            ? (reagCal && !reagCal.conectado
+                ? 'Se actualiza en el CRM y queda en el historial. Conectá tu Google Calendar para que además se mueva el evento y se le avise al invitado.'
+                : reagCal && !reagCal.puedeMover
+                  ? 'Se actualiza en el CRM y queda en el historial. Tu permiso de Google es de solo lectura: reconectalo para que además se mueva el evento.'
+                  : 'Se actualiza en el CRM, se mueve el evento en tu Google Calendar y se le avisa al invitado.')
+          : qhOpcion === 'nutrir' ? 'Si llega esa fecha sin que el lead avance, vuelve a aparecer acá en rojo.'
+          : qhOpcion === 'noasistio' ? `Se marca que no asistió a la Reunión ${nR} y el lead pasa a la etapa que elijas.`
+          : 'Después te vamos a pedir solo los datos que falten para esa etapa.';
+
+        // Resumen: la frase concreta de lo que se va a hacer.
+        const resumenFilas: Array<[string, string]> =
+          qhOpcion === 'reprog' ? [['Reunión ' + nR, `pasa al ${reagFecha} a las ${horaLegible(reagHora)}`], ['Asistencia', 'queda sin marcar hasta esa fecha']]
+          : qhOpcion === 'nutrir' ? [['Nutrición manual', `nuevo plazo hasta el ${qhPlazo}`]]
+          : qhOpcion === 'noasistio' ? [[`Reunión ${nR}`, 'no asistió'], ['Etapa', etiquetaEtapa(qhEtapa)]]
+          : qhOpcion === 'perdido' ? [['Etapa', etiquetaEtapa('perdido')], ['Motivo', 'te lo pedimos en el paso siguiente']]
+          : [['Etapa', qhEtapa ? etiquetaEtapa(qhEtapa) : '—']];
+
+        const btnOpcion = (activo: boolean): CSSProperties => ({
+          width: '100%', textAlign: 'left', padding: '13px 16px', borderRadius: 12, fontFamily: SANS, cursor: 'pointer',
+          background: activo ? 'var(--ink)' : 'var(--surface)',
+          border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'),
+          color: activo ? '#F3F5F8' : 'var(--ink)',
+        });
+
+        return (
+          <WizardShell
+            titulo={`¿Qué hacer ahora? · ${queHacer.name}`}
+            total={qhPasos.length}
+            idx={Math.min(qhPaso, qhPasos.length - 1)}
+            pregunta={pregunta}
+            sub={sub}
+            error={qhError}
+            puedeAvanzar={qhPuede}
+            enUltimo={qhPasoId === 'resumen'}
+            confirmLabel={qhOpcion === 'reprog' ? 'Reagendar' : qhOpcion === 'nutrir' ? 'Guardar el nuevo plazo' : 'Continuar'}
+            pending={isPending}
+            atrasLabel={qhPaso === 0 ? 'Cancelar' : 'Atrás'}
+            onClose={cerrarQueHacer}
+            onAtras={() => (qhPaso === 0 ? cerrarQueHacer() : setQhPaso(qhPaso - 1))}
+            onSiguiente={() => { setQhError(null); setQhPaso(qhPaso + 1); }}
+            onConfirmar={confirmarQueHacer}
+            ancho={560}
+          >
+            {qhPasoId === 'que' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {opciones.map((o) => (
+                  <button key={o.v} type="button" onClick={() => { setQhOpcion(o.v); setQhPaso(1); }} style={btnOpcion(qhOpcion === o.v)}>
+                    <div style={{ fontSize: 15, fontWeight: 700 }}>{o.label}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 500, marginTop: 2, color: qhOpcion === o.v ? 'rgba(255,255,255,.72)' : 'var(--dim)' }}>{o.sub}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {qhPasoId === 'detalle' && qhOpcion === 'reprog' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {reagCal && !reagCal.puedeMover && (
+                  <button type="button" onClick={() => router.push('/integraciones')} style={{ alignSelf: 'center', padding: 0, border: 'none', background: 'none', color: 'var(--primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'underline' }}>
+                    {reagCal.conectado ? 'Reconectar para poder mover reuniones →' : 'Conectar Google Calendar →'}
+                  </button>
+                )}
+                <input type="date" value={reagFecha} min={hoy} onChange={(e) => setReagFecha(e.target.value)} aria-label="Fecha nueva" autoFocus
+                  style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
+                {/* La hora se ELIGE de la grilla: ver app/crm/SelectorHora.tsx. */}
+                <SelectorHora value={reagHora} onChange={setReagHora} ariaLabel="Hora nueva" />
+                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Vuelve a quedar pendiente recién a esa hora.</div>
+              </div>
+            )}
+
+            {qhPasoId === 'detalle' && qhOpcion === 'nutrir' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {([['1 semana', 7], ['2 semanas', 14], ['1 mes', 30]] as const).map(([lbl, d]) => {
+                    const iso = masDiasISO(hoy, d);
+                    return (
+                      <button key={lbl} type="button" onClick={() => setQhPlazo(iso)}
+                        style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: qhPlazo === iso ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhPlazo === iso ? 'var(--ink)' : 'var(--border-strong)'), color: qhPlazo === iso ? '#F3F5F8' : 'var(--ink)' }}>
+                        + {lbl}
+                      </button>
+                    );
+                  })}
+                </div>
+                <input type="date" value={qhPlazo} min={hoy} onChange={(e) => setQhPlazo(e.target.value)} aria-label="Nuevo plazo"
+                  style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
+              </div>
+            )}
+
+            {qhPasoId === 'detalle' && (qhOpcion === 'mover' || qhOpcion === 'noasistio') && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+                {etapasDestino.map((s) => (
+                  <button key={s.key} type="button" onClick={() => setQhEtapa(s.key)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 14px', borderRadius: 11, fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', textAlign: 'left', background: qhEtapa === s.key ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhEtapa === s.key ? 'var(--ink)' : 'var(--border-strong)'), color: qhEtapa === s.key ? '#F3F5F8' : 'var(--ink)' }}>
+                    <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: s.dot, flex: 'none' }} />{s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {qhPasoId === 'resumen' && <ResumenFilas filas={[['Lead', queHacer.name], ...resumenFilas]} />}
+          </WizardShell>
         );
       })()}
 
@@ -907,46 +1129,75 @@ export function CrmBoard({
         </div>
       )}
 
-      {/* Marcar/Registrar reunión (R1/R2) a mano — wizard de 2 pasos */}
+      {/* Marcar/Registrar reunión (R1/R2) a mano — fecha · asistencia/motivo · confirmación */}
       {manualMeeting && (() => {
         const esPasada = manualMeeting.modo === 'pasada';
         const rLabel = manualMeeting.which === 'agenda' ? 'R1' : 'R2';
-        const puede = mmPaso === 0 ? !!mmFecha : (esPasada ? true : !!mmNota.trim());
+        const puede = mmPaso === 0 ? !!mmFecha : mmPaso === 1 ? (esPasada ? true : !!mmNota.trim()) : true;
         return (
           <WizardShell
             titulo={`${esPasada ? 'Marcar' : 'Registrar'} ${rLabel} · ${manualMeeting.name}`}
-            total={2}
+            total={3}
             idx={mmPaso}
             pregunta={mmPaso === 0
               ? (esPasada ? `¿Cuándo fue la ${rLabel}?` : `¿Para cuándo está agendada la ${rLabel}?`)
-              : (esPasada ? `¿Asistió a la ${rLabel}?` : '¿Por qué se agendó fuera de Calendly?')}
+              : mmPaso === 1
+                ? (esPasada ? `¿Asistió a la ${rLabel}?` : '¿Por qué se agendó fuera de Calendly?')
+                : 'Revisá y confirmá'}
             sub={mmPaso === 0
               ? (esPasada ? 'La reunión ya ocurrió: registrala a mano (sin Calendly) para avanzar el lead.' : 'Ya está agendada por fuera de Calendly. Cargá la fecha; la asistencia se marca cuando ocurra.')
-              : (esPasada ? undefined : 'Es una excepción: todas las reuniones deberían agendarse por Calendly.')}
+              : mmPaso === 1
+                ? (esPasada ? undefined : 'Es una excepción: todas las reuniones deberían agendarse por Calendly.')
+                : 'Esto es lo que va a pasar cuando confirmes.'}
             puedeAvanzar={puede}
-            enUltimo={mmPaso === 1}
+            enUltimo={mmPaso === 2}
             confirmLabel="Guardar reunión"
             pending={isPending}
             atrasLabel={mmPaso === 0 ? 'Cancelar' : 'Atrás'}
             onClose={() => setManualMeeting(null)}
-            onAtras={() => (mmPaso === 0 ? setManualMeeting(null) : setMmPaso(0))}
-            onSiguiente={() => setMmPaso(1)}
+            onAtras={() => (mmPaso === 0 ? setManualMeeting(null) : setMmPaso(mmPaso - 1))}
+            onSiguiente={() => setMmPaso(mmPaso + 1)}
             onConfirmar={confirmManualMeeting}
           >
             {mmPaso === 0 ? (
               <input type="date" value={mmFecha} min={esPasada ? undefined : hoy} max={esPasada ? hoy : undefined} onChange={(e) => setMmFecha(e.target.value)} autoFocus style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
-            ) : esPasada ? (
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                {([['si', 'Sí, asistió'], ['no', 'No asistió'], ['', 'No sé']] as const).map(([v, lbl]) => (
-                  <button key={lbl} onClick={() => setMmAsistio(v)} style={{ minWidth: 120, padding: '12px 16px', borderRadius: 12, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? '#F3F5F8' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
-                ))}
-              </div>
+            ) : mmPaso === 1 ? (
+              esPasada ? (
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                  {([['si', 'Sí, asistió'], ['no', 'No asistió'], ['', 'No sé']] as const).map(([v, lbl]) => (
+                    <button key={lbl} onClick={() => setMmAsistio(v)} style={{ minWidth: 120, padding: '12px 16px', borderRadius: 12, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? '#F3F5F8' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
+                  ))}
+                </div>
+              ) : (
+                <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)} autoFocus placeholder="Contá el motivo de la excepción…" style={{ ...wizardInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />
+              )
             ) : (
-              <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)} autoFocus placeholder="Contá el motivo de la excepción…" style={{ ...wizardInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />
+              <ResumenFilas filas={[
+                ['Lead', manualMeeting.name],
+                ['Reunión', rLabel],
+                ['Fecha', mmFecha || '—'],
+                ...(esPasada
+                  ? ([['Asistió', mmAsistio === 'si' ? 'Sí' : mmAsistio === 'no' ? 'No' : 'Sin marcar']] as Array<[string, string]>)
+                  : ([['Motivo de la excepción', mmNota.trim() || '—']] as Array<[string, string]>)),
+                ['Etapa', findStage(stages, manualMeeting.which).label],
+              ]} />
             )}
           </WizardShell>
         );
       })()}
+
+      {/* LA confirmación del tablero (app/_ui/Confirm). Va sobre la pila de modales:
+          preguntar «¿seguro?» tapando lo que estás por cambiar sería absurdo. */}
+      {confirmacion && (
+        <ConfirmDialog
+          title={confirmacion.titulo}
+          message={confirmacion.mensaje}
+          confirmLabel={confirmacion.confirmLabel}
+          tone={confirmacion.tono ?? 'danger'}
+          onConfirm={() => { const c = confirmacion; setConfirmacion(null); c.onOk(); }}
+          onCancel={() => setConfirmacion(null)}
+        />
+      )}
 
       {/* Toast Deshacer (5s) tras mover una card en el tablero */}
       {undoInfo && (
@@ -975,6 +1226,9 @@ function BulkHigiene({ marcar, equipo, onDone }: {
   const [openEmpresa, setOpenEmpresa] = useState(false);
   const [openIgnorar, setOpenIgnorar] = useState(false);
   const [sel, setSel] = useState('');
+  // Confirmación del "asignar en lote": guarda el valor elegido para poder
+  // nombrarlo en la pregunta ("Asignar Setter «Mauricio» a 12 leads").
+  const [aAsignar, setAAsignar] = useState<{ field: 'setter' | 'closer'; label: string; value: string; ids: number[] } | null>(null);
 
   const idsCon = (stepId: string) => marcar.filter((m) => m.faltantes?.some((f) => f.id === stepId)).map((m) => m.leadId);
   const grupos = ([
@@ -1000,6 +1254,8 @@ function BulkHigiene({ marcar, equipo, onDone }: {
         setFlash(`✓ Empresa ignorada en ${r.updated} lead${r.updated === 1 ? '' : 's'} — ya no la pide el CRM (sigue en la ficha).`);
         onDone();
       } catch (e) {
+        // Cerrar también al fallar: si no, el aviso queda tapado por el backdrop.
+        setOpenEmpresa(false);
         setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
       }
     });
@@ -1013,24 +1269,27 @@ function BulkHigiene({ marcar, equipo, onDone }: {
         setFlash(`✓ ${r.updated} lead${r.updated === 1 ? '' : 's'} ignorado${r.updated === 1 ? '' : 's'} — salen del worklist (siguen con sus avisos en la ficha, reversible).`);
         onDone();
       } catch (e) {
+        setOpenIgnorar(false);
         setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
       }
     });
   };
 
   const confirmar = () => {
-    if (!open || !sel.trim()) return;
-    const { field, ids, label } = open;
-    const value = sel.trim();
+    if (!aAsignar) return;
+    const { field, ids, label, value } = aAsignar;
     startTransition(async () => {
       try {
         const r = await bulkFillLeadFieldAction(field, value, ids);
+        setAAsignar(null);
         setOpen(null);
         setFlash(r.updated === 0
           ? `Sin cambios: esos leads ya tenían ${label} cargado.`
           : `✓ ${label} «${value}» asignado a ${r.updated} lead${r.updated === 1 ? '' : 's'}.`);
         onDone();
       } catch (e) {
+        setAAsignar(null);
+        setOpen(null);
         setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
       }
     });
@@ -1080,7 +1339,7 @@ function BulkHigiene({ marcar, equipo, onDone }: {
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button type="button" disabled={pending} onClick={() => setOpen(null)} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>Cancelar</button>
-              <button type="button" disabled={pending || !sel.trim()} onClick={confirmar}
+              <button type="button" disabled={pending || !sel.trim()} onClick={() => setAAsignar({ ...open, value: sel.trim() })}
                 style={{ ...btn, background: sel.trim() && !pending ? 'var(--primary)' : 'var(--surface-2)', color: sel.trim() && !pending ? '#fff' : 'var(--faint)' }}>
                 {pending ? 'Asignando…' : `Asignar a los ${open.ids.length}`}
               </button>
@@ -1089,34 +1348,43 @@ function BulkHigiene({ marcar, equipo, onDone }: {
         </div>
       )}
 
+      {/* Las dos acciones en lote que TOCAN leads pasan por LA confirmación de la
+          app, con el número exacto en el título — no por un modal propio. */}
       {openEmpresa && (
-        <div onClick={() => !pending && setOpenEmpresa(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-            <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 4px', color: 'var(--ink)' }}>Ignorar Empresa en {idsEmpresa.length} lead{idsEmpresa.length === 1 ? '' : 's'}</h3>
-            <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 16px', lineHeight: 1.45 }}>
-              Muchas veces no tenés la empresa. Al ignorarla, deja de contar como “dato sin marcar” en el CRM general — pero sigue apareciendo como recordatorio suave dentro de la ficha de cada lead. Reversible.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button type="button" disabled={pending} onClick={() => setOpenEmpresa(false)} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>Cancelar</button>
-              <button type="button" disabled={pending} onClick={ignorarEmpresa} style={{ ...btn, background: 'var(--ink)', color: 'var(--surface)' }}>{pending ? 'Ignorando…' : `Ignorar en los ${idsEmpresa.length}`}</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={`Ignorar Empresa en ${idsEmpresa.length} lead${idsEmpresa.length === 1 ? '' : 's'}`}
+          message="Muchas veces no tenés la empresa. Al ignorarla deja de contar como “dato sin marcar” en el CRM general, pero sigue apareciendo como recordatorio suave dentro de la ficha de cada lead. Reversible."
+          confirmLabel={`Ignorar en los ${idsEmpresa.length}`}
+          loading={pending}
+          onConfirm={ignorarEmpresa}
+          onCancel={() => setOpenEmpresa(false)}
+        />
       )}
 
       {openIgnorar && (
-        <div onClick={() => !pending && setOpenIgnorar(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-            <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 4px', color: 'var(--ink)' }}>Ignorar {idsIgnorar.length} lead{idsIgnorar.length === 1 ? '' : 's'}</h3>
-            <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 16px', lineHeight: 1.45 }}>
-              Estos leads salen del worklist “Datos sin marcar” y dejan de sumar al conteo. Los mismos avisos siguen apareciendo dentro de la ficha de cada lead, con opción de reactivarlos cuando quieras. Reversible.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button type="button" disabled={pending} onClick={() => setOpenIgnorar(false)} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>Cancelar</button>
-              <button type="button" disabled={pending} onClick={ignorarTodos} style={{ ...btn, background: 'var(--ink)', color: 'var(--surface)' }}>{pending ? 'Ignorando…' : `Ignorar los ${idsIgnorar.length}`}</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={`Ignorar los datos sin marcar de ${idsIgnorar.length} lead${idsIgnorar.length === 1 ? '' : 's'}`}
+          message="Salen del worklist “Datos sin marcar” y dejan de sumar al conteo. Los mismos avisos siguen apareciendo dentro de la ficha de cada lead, con opción de reactivarlos cuando quieras. Reversible."
+          confirmLabel={`Ignorar los ${idsIgnorar.length}`}
+          loading={pending}
+          onConfirm={ignorarTodos}
+          onCancel={() => setOpenIgnorar(false)}
+        />
+      )}
+
+      {/* Asignar en lote ya se explica solo en su form (dice el campo y a cuántos
+          leads), pero el paso final vuelve a decirlo CON el valor elegido: es un
+          write sobre decenas de fichas y el nombre recién se sabe acá. */}
+      {aAsignar && (
+        <ConfirmDialog
+          title={`Asignar ${aAsignar.label} «${aAsignar.value}» a ${aAsignar.ids.length} lead${aAsignar.ids.length === 1 ? '' : 's'}`}
+          message="Solo se rellenan los que están vacíos: nunca pisa un valor cargado a mano. Cada asignación queda en el historial del lead."
+          confirmLabel={`Asignar a los ${aAsignar.ids.length}`}
+          tone="primary"
+          loading={pending}
+          onConfirm={confirmar}
+          onCancel={() => setAAsignar(null)}
+        />
       )}
     </div>
   );
@@ -1136,6 +1404,9 @@ function SinMarcar({
   const ghost: CSSProperties = { flex: 'none', padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
   const [ignorando, startIgnorar] = useTransition();
   const [ignId, setIgnId] = useState<number | null>(null);
+  // Ignorar cambia el lead (lo saca del worklist): pasa por confirmación, y el
+  // texto nombra al lead y a los datos concretos que se van a silenciar.
+  const [aIgnorar, setAIgnorar] = useState<CrmMarcar | null>(null);
   const ignorar = (leadId: number) => {
     setIgnId(leadId);
     startIgnorar(async () => {
@@ -1168,7 +1439,7 @@ function SinMarcar({
                 : (
                   <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
                     <button type="button" style={btn} onClick={() => onSolucionar(m.leadId)}>Solucionar</button>
-                    <button type="button" style={ghost} disabled={ignorando && ignId === m.leadId} onClick={() => ignorar(m.leadId)}>
+                    <button type="button" style={ghost} disabled={ignorando && ignId === m.leadId} onClick={() => setAIgnorar(m)}>
                       {ignorando && ignId === m.leadId ? 'Ignorando…' : 'Ignorar'}
                     </button>
                   </div>
@@ -1179,6 +1450,22 @@ function SinMarcar({
         {marcar.length === 0 && <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>}
       </div>
       </div>
+
+      {aIgnorar && (
+        <ConfirmDialog
+          title={`Ignorar los datos sin marcar de ${aIgnorar.name}`}
+          message={
+            <>
+              Sale del worklist y deja de sumar al conteo
+              {aIgnorar.faltantes?.length ? <>: <b>{aIgnorar.faltantes.map((f) => f.label).join(', ')}</b></> : null}.
+              Los mismos avisos siguen apareciendo dentro de su ficha, y podés reactivarlos cuando quieras.
+            </>
+          }
+          confirmLabel="Ignorar"
+          onConfirm={() => { const id = aIgnorar.leadId; setAIgnorar(null); ignorar(id); }}
+          onCancel={() => setAIgnorar(null)}
+        />
+      )}
     </div>
   );
 }

@@ -216,6 +216,13 @@ export function VistaSelector({ vista, onVista, pendientes }: {
   );
 }
 
+// El input NO filtra: solo reporta lo tipeado. El filtrado vive en CrmBoard y usa
+// `coincideBusqueda` de lib/buscar-texto.ts — misma regla que el board del plan:
+// sin acentos, por palabras sueltas en cualquier orden, y «#412» / «412» como
+// pedido EXACTO del lead por su número. El placeholder tiene que DECIRLO: nadie
+// prueba escribir un # en un campo que dice «Buscar…».
+const BUSCAR_AYUDA = 'Buscar por nombre, empresa, email o teléfono. Para un lead puntual, su número: #412 (no distingue mayúsculas ni acentos).';
+
 export function Buscador({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="crm-tb-buscar" style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '0 1 260px', minWidth: 110 }}>
@@ -223,9 +230,9 @@ export function Buscador({ value, onChange }: { value: string; onChange: (v: str
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Buscar…"
-        aria-label="Buscar por nombre, empresa o email"
-        title="Buscar por nombre, empresa o email"
+        placeholder="Buscar o #número de lead"
+        aria-label={BUSCAR_AYUDA}
+        title={BUSCAR_AYUDA}
         style={{ width: '100%', height: CTRL_H, padding: value ? '0 34px 0 36px' : '0 14px 0 36px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }}
       />
       {value && (
@@ -438,7 +445,9 @@ export function SinResultados({ hayFiltros, onLimpiar }: { hayFiltros: boolean; 
         {hayFiltros ? 'Sin resultados para estos filtros' : 'Todavía no hay leads para mostrar'}
       </div>
       <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5 }}>
-        {hayFiltros ? 'Probá con menos filtros o cambiá la búsqueda.' : 'Importá un CSV o cargá tu primer lead para empezar.'}
+        {/* El momento en que uno está trabado es EL momento para contar que se puede
+            buscar por número: decirlo solo en el placeholder llega tarde. */}
+        {hayFiltros ? 'Probá con menos filtros, otras palabras sueltas, o el número del lead (#412).' : 'Importá un CSV o cargá tu primer lead para empezar.'}
       </div>
       {hayFiltros && (
         <button type="button" onClick={onLimpiar}

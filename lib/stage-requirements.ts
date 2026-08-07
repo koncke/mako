@@ -202,6 +202,39 @@ export function missingForStage(stageKey: string, v: StageReqValues): string[] {
 }
 
 /**
+ * Orden canónico de los pasos — el MISMO que produce `stepsForStage`.
+ *
+ * Existe para poder FUSIONAR dos listas de faltantes (la que trae el worklist y la
+ * que el server va a exigir al confirmar) sin que el wizard quede preguntando en
+ * un orden raro: primero la reunión, después la venta, la higiene al final.
+ */
+const ORDEN: StepId[] = [
+  'fechaJ1', 'asistenciaR1', 'calificado', 'fathomR1', 'closer',
+  'fechaJ2', 'asistenciaR2', 'fathomR2',
+  'monto', 'plan',
+  'dealServicio', 'dealPromesa', 'dealFiscal', 'dealFiscalDoc', 'dealObligaciones', 'comprobante',
+  'r2Respuestas', 'motivo', 'setter', 'empresa', 'telefono',
+];
+
+/**
+ * Une varias listas de pasos en UNA sola, sin repetidos y en el orden canónico.
+ *
+ * El wizard tiene que pedir TODO lo que el server va a exigir. Cuando las dos
+ * listas se calculan por caminos distintos (el worklist filtra por
+ * `pendientes_ignorados`, el server no) la única salida sana es preguntar la
+ * UNIÓN: pedir de más se resuelve contestando; pedir de menos termina en un
+ * error críptico después de completar todo el formulario.
+ */
+export function unirPasos(...listas: Array<readonly Step[] | null | undefined>): Step[] {
+  const porId = new Map<StepId, Step>();
+  for (const lista of listas) {
+    for (const s of lista ?? []) if (!porId.has(s.id)) porId.set(s.id, s);
+  }
+  const idx = (id: StepId) => { const i = ORDEN.indexOf(id); return i === -1 ? ORDEN.length : i; };
+  return [...porId.values()].sort((a, b) => idx(a.id) - idx(b.id));
+}
+
+/**
  * Steps que el wizard "Solucionar" (StageMoveDialog en modo "Completar datos")
  * resuelve en UNA sola pasada: reunión/venta + higiene + Deal Details (manual o
  * con IA) + documento fiscal (subir/omitir) + comprobante (omitir) + Respuestas

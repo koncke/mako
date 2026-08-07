@@ -61,7 +61,7 @@ import {
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, filasDesdeCsv, type FilaImport } from './leads-importar';
 import { marcarExistentes } from './importar-server';
-import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
+import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
@@ -220,15 +220,28 @@ export type StageMoveData = {
 };
 
 /**
- * Completa un movimiento de etapa (wizard del Kanban/ficha): guarda los datos
- * aportados y mueve, en una sola acción. Valida los requisitos ACUMULATIVOS
- * server-side (fuente única: lib/stage-requirements).
+ * FUENTE ÚNICA de "qué pide la etapa `to` para este lead".
+ *
+ * Lo consumen los DOS lados del wizard: `requisitosDeEtapaAction` (lo que el
+ * formulario tiene que PREGUNTAR) y `completeStageMoveAction` (lo que el server
+ * VALIDA al confirmar), con `d` = lo que el usuario acaba de contestar.
+ *
+ * Que sean la misma función no es cosmético: mientras fueron dos listas armadas
+ * por caminos distintos, el wizard preguntaba cinco cosas y el server exigía
+ * otras cuatro que nunca aparecieron en pantalla — el usuario completaba todo el
+ * formulario y recién al confirmar se comía un error de Server Components. Si
+ * cambiás una condición acá, cambia en los dos lados a la vez. Ese es el punto.
  */
-export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<void> {
-  const before = await getLead(id).catch(() => null);
-  const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
-  const faltan = missingForStage(to, {
+function valoresDeRequisitos(
+  to: string,
+  before: Lead | null,
+  pagosExistentes: Pago[],
+  stagesMove: Stage[],
+  d: StageMoveData = {},
+): StageReqValues {
+  return {
+    // El funnel del WORKSPACE (no el default): un funnel de 1 reunión no puede
+    // exigir una R2 que no existe. El wizard mira este mismo pipeline.
     ...funnelReqInfo(stagesMove, to),
     fechaJ1: d.fechaJ1 ?? before?.fecha_junta_1 ?? null,
     fechaJ2: d.fechaJ2 ?? before?.fecha_junta_2 ?? null,
@@ -245,12 +258,59 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
       ? (!!d.plan || !!d.cuotas?.length || pagosExistentes.length > 0 || d.ventaTipo === 'suscripcion' || before?.venta_tipo === 'suscripcion')
       : undefined,
     hoyISO: hoyEnTijuana(),
+    // Hora real de Calendly: una reunión de HOY que ya terminó sí exige su Fathom.
+    // Sin esto el server y el worklist (que sí las mira) discrepaban por un día.
+    atJ1: before?.junta_1_at ?? null,
+    atJ2: before?.junta_2_at ?? null,
     // La excepción vale si se declara AHORA o si ya quedó persistida en el lead.
     sinR1: !!d.sinR1Motivo?.trim() || !!before?.sin_r1,
     sinR2: !!d.sinR2Motivo?.trim() || !!before?.sin_r2,
     fathomOmitido: !!d.fathomOmitido || !!before?.fathom_omitido,
-  });
-  if (faltan.length) throw new Error(`Falta: ${faltan.join(', ')}`);
+  };
+}
+
+/**
+ * Qué datos va a EXIGIR el server para mover este lead a `to`, tal cual, hoy.
+ *
+ * El wizard la llama al abrirse y funde el resultado con lo que ya sabía, así la
+ * lista de preguntas nunca queda corta contra la validación. Es de solo lectura.
+ */
+export async function requisitosDeEtapaAction(id: number, to: string): Promise<Step[]> {
+  const before = await getLead(id).catch(() => null);
+  const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
+  const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
+  return stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove));
+}
+
+/**
+ * Resultado de un movimiento de etapa. NO es `void` ni una excepción a propósito:
+ * "faltan datos" es una respuesta esperable del negocio, no una falla del sistema.
+ * Cuando salía como `throw`, Next lo mostraba como «An error occurred in the
+ * Server Components render…» — un cartel rojo en inglés que no dice qué falta ni
+ * cómo salir. Ahora vuelve tipado y el modal lo pinta en español, con los campos.
+ */
+export type StageMoveResultado =
+  | { ok: true }
+  | { ok: false; faltan: Step[]; mensaje: string };
+
+/**
+ * Completa un movimiento de etapa (wizard del Kanban/ficha): guarda los datos
+ * aportados y mueve, en una sola acción. Valida los requisitos ACUMULATIVOS
+ * server-side (fuente única: `valoresDeRequisitos` + lib/stage-requirements).
+ */
+export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<StageMoveResultado> {
+  const before = await getLead(id).catch(() => null);
+  const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
+  const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
+  const faltan = stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d));
+  if (faltan.length) {
+    const etapa = stageMeta(stagesMove, to)?.label ?? to;
+    return {
+      ok: false,
+      faltan,
+      mensaje: `Para pasar a ${etapa} todavía falta cargar: ${faltan.map((f) => f.label).join(', ')}.`,
+    };
+  }
 
   // Excepciones declaradas: evento en el historial (auditable) + flag persistente
   // en el lead — sin el flag, cada re-validación (gate de Insights, backstop de
@@ -378,6 +438,7 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   revalidatePath('/crm');
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
+  return { ok: true };
 }
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
@@ -509,37 +570,38 @@ export async function setLeadStageAction(
   id: number,
   stageKey: string,
   opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null },
-): Promise<void> {
+): Promise<StageMoveResultado> {
   const before = await getLead(id).catch(() => null);
   // Backstop server-side: mover a una etapa exige sus datos obligatorios (los
   // "posibles de conseguir": fechas de reunión, Fathom solo si la reunión ya
   // pasó, monto para Ganado, motivo para perdidos). La UI ya lo exige; esto lo
-  // garantiza para cualquier caller (MaKo, API). Se evalúa con el dato de la
-  // move o el ya cargado en el lead.
+  // garantiza para cualquier caller (MaKo, API). Se evalúa con el MISMO builder
+  // que el wizard (`valoresDeRequisitos`), no con una copia paralela.
   const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
-  const faltanMove = missingForStage(stageKey, {
-    ...funnelReqInfo(stagesMove, stageKey),
-    fechaJ1: before?.fecha_junta_1 ?? null,
-    fechaJ2: before?.fecha_junta_2 ?? null,
-    asistioJ1: opts?.asistio_j1 ?? before?.asistio_j1 ?? null,
-    asistioJ2: opts?.asistio_j2 ?? before?.asistio_j2 ?? null,
-    calificado: before?.calificado ?? null,
-    hasFathomUrl: (before?.fathom_links ?? []).some((f) => f.url?.trim()),
-    monto: opts?.monto ?? before?.monto_cierre_usd ?? null,
-    motivo: opts?.motivo ?? before?.motivo_perdida ?? null,
-    setter: before?.setter ?? null,
-    hoyISO: hoyEnTijuana(),
-    sinR1: !!before?.sin_r1,
-    sinR2: !!before?.sin_r2,
-    fathomOmitido: !!before?.fathom_omitido,
-  });
-  if (faltanMove.length) throw new Error(`Para mover falta: ${faltanMove.join(', ')}`);
+  const pagosExistentes = stageKey === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
+  const faltanMove = stepsForStage(stageKey, valoresDeRequisitos(stageKey, before, pagosExistentes, stagesMove, {
+    asistioJ1: opts?.asistio_j1,
+    asistioJ2: opts?.asistio_j2,
+    monto: opts?.monto,
+    motivo: opts?.motivo,
+  }));
+  // Faltar datos no es una excepción: el board lo usa para abrir el wizard en vez
+  // de tragarse el error y revertir la card en silencio.
+  if (faltanMove.length) {
+    const etapa = stageMeta(stagesMove, stageKey)?.label ?? stageKey;
+    return {
+      ok: false,
+      faltan: faltanMove,
+      mensaje: `Para pasar a ${etapa} todavía falta cargar: ${faltanMove.map((f) => f.label).join(', ')}.`,
+    };
+  }
   await setPipelineStage(id, stageKey, opts);
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
   revalidatePath('/general');
+  return { ok: true };
 }
 
 /**

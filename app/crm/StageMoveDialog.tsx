@@ -9,11 +9,11 @@
 // omitible si la reunión no se grabó, y el plan de pagos son cuotas explícitas
 // (primera cuota + "Agregar cuota") que deben cuadrar con el monto de cierre.
 
-import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { stageMeta, type Stage } from '@/lib/pipeline';
-import { stepsForStage, funnelReqInfo, type Step } from '@/lib/stage-requirements';
+import { stepsForStage, funnelReqInfo, unirPasos, type Step, type StepId } from '@/lib/stage-requirements';
 import type { FathomLink } from '@/lib/leads';
-import { completeStageMoveAction, type StageMoveCuota } from './actions';
+import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota } from './actions';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
@@ -96,6 +96,10 @@ type PasoId =
 
 // Pasos de datos de reunión que la búsqueda automática puede resolver.
 const AUTO_RESOLUBLES: PasoId[] = ['fechaJ1', 'asistenciaR1', 'fathomR1', 'fechaJ2', 'asistenciaR2', 'fathomR2'];
+
+/** Requisito (StepId) → paso del wizard que lo resuelve. Solo los que no coinciden. */
+const PASO_DE_STEP: Partial<Record<StepId, PasoId>> = { r2Respuestas: 'r2Motivo' };
+const pasoDeStep = (id: StepId): PasoId => (PASO_DE_STEP[id] ?? id) as PasoId;
 
 function BigChoice({ options, value, onPick }: { options: Array<{ v: string; label: string; sub?: string }>; value: string | null; onPick: (v: string) => void }) {
   return (
@@ -215,13 +219,26 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     return s;
   });
 
-  // Pasos que la etapa destino EXIGE con lo que el lead ya tiene (se calcula
-  // UNA vez al montar — lazy useState, no depende de las respuestas del wizard).
-  // "Solucionar" pasa la lista autoritativa `faltantes` (incluye Deal Details,
-  // documentos y respuestas R2) para resolver TODO en una sola pasada.
-  const [requeridos] = useState(() => {
-    if (faltantes) return new Set(faltantes.map((s) => s.id));
-    return new Set(stepsForStage(to, {
+  // ── Qué pide este wizard (LA lista de preguntas) ────────────────────────────
+  //
+  // Tiene que ser un SUPERCONJUNTO de lo que el server va a exigir al confirmar.
+  // Cuando no lo era, el usuario completaba las cinco preguntas que sí veía y al
+  // confirmar el server pedía otras cuatro que nunca aparecieron (caso real: un
+  // lead en Ganado sin fechas de reunión, con `pendientes_ignorados` puesto — el
+  // worklist recorta su lista de faltantes y el server no). Se resuelve pidiendo
+  // la UNIÓN de tres fuentes, no eligiendo una:
+  //
+  //   1. `faltantes` — lo que el worklist ya calculó server-side (incluye Deal
+  //      Details, documentos y respuestas R2: la pasada única de "Solucionar").
+  //   2. `reqServer` — lo que `completeStageMoveAction` va a VALIDAR, calculado
+  //      por el MISMO builder del server y con el MISMO funnel del workspace.
+  //   3. `faltanServer` — lo que el server igual reclamó al confirmar (última red).
+  //
+  // Mientras (2) viaja se muestra un cálculo local como placeholder, para que el
+  // pop-up abra al instante en vez de quedarse en blanco.
+  const [placeholder] = useState<Step[]>(() => {
+    if (faltantes) return faltantes;
+    return stepsForStage(to, {
       ...funnelReqInfo(stages, to),
       fechaJ1: lead.fechaJ1, fechaJ2: lead.fechaJ2,
       asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
@@ -233,8 +250,29 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       tienePlan: to === 'ganado' ? (lead.tienePlan ?? false) : undefined,
       hoyISO,
       sinR1: lead.sinR1, sinR2: lead.sinR2, fathomOmitido: lead.fathomOmitido,
-    }).map((s) => s.id));
+    });
   });
+  const [reqServer, setReqServer] = useState<Step[] | null>(null);
+  const [faltanServer, setFaltanServer] = useState<Step[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+    requisitosDeEtapaAction(lead.id, to)
+      .then((r) => { if (vivo) setReqServer(r); })
+      // Si la consulta falla seguimos con lo local: es preferible un wizard que
+      // pregunte de menos a un pop-up que no abre.
+      .catch(() => { if (vivo) setReqServer([]); });
+    return () => { vivo = false; };
+  }, [lead.id, to]);
+
+  const cargandoReq = reqServer === null;
+  // `placeholder` entra también en la unión final: cuando el caller no pasó
+  // `faltantes` es la ÚNICA fuente de la higiene (setter/closer/empresa/teléfono)
+  // y del Deal, que el server a propósito no gatea pero "Completar datos" sí pide.
+  const requeridos = useMemo(
+    () => new Set((cargandoReq ? placeholder : unirPasos(placeholder, reqServer, faltanServer)).map((s) => s.id)),
+    [cargandoReq, placeholder, reqServer, faltanServer],
+  );
 
   // ── Flujo DINÁMICO: la lista de pasos visibles depende de las respuestas ──
   const pasos = useMemo<PasoId[]>(() => {
@@ -314,6 +352,17 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [visitados, setVisitados] = useState<PasoId[]>([]);
   const paso = pasos[Math.min(idx, pasos.length - 1)];
 
+  // Cuando el server reclama datos, la lista de pasos CRECE y el índice viejo
+  // pasaría a apuntar a una pregunta nueva, sin el aviso que explica por qué.
+  // Se re-ancla en el resumen (siempre el último) una sola vez, para que el
+  // usuario lea qué faltó y decida desde ahí.
+  const anclarResumen = useRef(false);
+  useEffect(() => {
+    if (!anclarResumen.current) return;
+    anclarResumen.current = false;
+    setIdx(pasos.length - 1);
+  }, [pasos]);
+
   const totalMonto = parseFloat(monto) || 0;
   const esSuscripcion = ventaTipo === 'suscripcion';
   const sumaCuotas = cuotas.reduce((s, c) => s + (parseFloat(c.monto) || 0), 0);
@@ -378,6 +427,15 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // Un dato "se pidió" si tuvo paso propio O lo resolvió la búsqueda automática.
   const pide = (id: PasoId) => pasos.includes(id) || resueltos.has(id);
 
+  /** Salta al primer paso que resuelve un requisito que el server reclamó. */
+  const irAFaltante = (steps: Step[]) => {
+    setErr(null);
+    for (const s of steps) {
+      const i = pasos.indexOf(pasoDeStep(s.id));
+      if (i >= 0) { setVisitados((v) => [...v, paso]); setIdx(i); return; }
+    }
+  };
+
   const confirmar = () => {
     setErr(null);
     startTransition(async () => {
@@ -391,7 +449,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           : requeridos.has('plan')
           ? cuotas.filter((c) => parseFloat(c.monto) > 0).map((c) => ({ monto: parseFloat(c.monto), fecha: c.fecha || null }))
           : [];
-        await completeStageMoveAction(lead.id, to, {
+        const r = await completeStageMoveAction(lead.id, to, {
           // Reprogramar gana sobre todo lo demás de esa reunión: mueve la fecha y
           // deja la asistencia SIN marcar (todavía no pasó), así el lead vuelve a
           // quedar pendiente recién para la fecha nueva.
@@ -431,6 +489,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           sinR2Motivo: huboR1 !== false && huboR2 === false ? motivoNoR2.trim() : null,
           fathomOmitido,
         });
+        // El server puede seguir viendo faltantes (un dato cargado en otra pestaña,
+        // un funnel que cambió). Eso NO es un error del sistema: se suman esos
+        // pasos al wizard y se ofrece ir a completarlos, en español y sin perder
+        // nada de lo ya contestado.
+        if (!r.ok) { anclarResumen.current = true; setFaltanServer(r.faltan); setErr(r.mensaje); return; }
         // Solucionar (completar datos) → paso final "¿Ver detalle o salir?".
         // Mover de etapa (drag-drop) → cierra directo (mantiene el toast de undo).
         if (completarDatos) setGuardado(true); else onDone();
@@ -905,9 +968,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   }
 
   const enResumen = paso === 'resumen';
-  // Mientras MaKo lee el contrato / busca en Calendly, se bloquea todo (no avanzar,
-  // no volver, no cerrar) y se muestra un loader que tapa el pop-up.
-  const busy = dealBusy || autoBusy;
+  // Mientras MaKo lee el contrato / busca en Calendly / confirma con el server qué
+  // datos exige la etapa, se bloquea todo (no avanzar, no volver, no cerrar) y se
+  // muestra un loader que tapa el pop-up. La consulta de requisitos entra acá a
+  // propósito: arrancar a contestar sobre una lista que en 200ms puede crecer es
+  // exactamente el problema que este wizard vino a resolver.
+  const busy = dealBusy || autoBusy || cargandoReq;
 
   // Paso final tras guardar (P8): ver detalle o salir. No re-cierra solo.
   if (guardado) {
@@ -935,7 +1001,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         {busy && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 10, background: 'rgba(255,255,255,.78)', backdropFilter: 'blur(1.5px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
             <span aria-hidden style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', boxSizing: 'border-box', animation: 'spin .7s linear infinite' }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', fontFamily: SANS }}>{dealBusy ? 'Leyendo el contrato…' : 'Buscando en Calendly y Fathom…'}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', fontFamily: SANS }}>{dealBusy ? 'Leyendo el contrato…' : autoBusy ? 'Buscando en Calendly y Fathom…' : 'Revisando qué datos faltan…'}</span>
           </div>
         )}
 
@@ -957,7 +1023,25 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           {sub && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 18px' }}>{sub}</p>}
           {!sub && <div style={{ height: 12 }} />}
           <div style={{ maxWidth: 520, margin: '0 auto' }}>{cuerpo}</div>
-          {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{err}</div>}
+          {/* Aviso de datos que el server reclamó: en español, con los campos que
+              faltan y con la salida al paso que los resuelve. Nunca un cartel
+              rojo de "Server Components render" que no dice ni qué ni cómo. */}
+          {err && (
+            <div style={{ maxWidth: 520, margin: '14px auto 0', textAlign: 'left', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '13px 15px' }}>
+              <div style={{ fontSize: 13.5, color: 'var(--bad)', fontWeight: 700, lineHeight: 1.5 }}>{err}</div>
+              {faltanServer.length > 0 && (
+                <>
+                  <ul style={{ margin: '9px 0 0', paddingLeft: 18, fontSize: 13, color: 'var(--ink)', lineHeight: 1.6 }}>
+                    {faltanServer.map((f) => <li key={f.id}>{f.label}</li>)}
+                  </ul>
+                  <button type="button" onClick={() => irAFaltante(faltanServer)}
+                    style={{ marginTop: 11, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+                    Completar lo que falta →
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

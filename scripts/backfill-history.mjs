@@ -15,6 +15,43 @@ const AUTOR = 'MaKo · histórico';
 
 const hito = (fecha, campo, valor) => (fecha ? { fecha: new Date(fecha), campo, valor } : null);
 
+// El sub-tab "Status" de la ficha SOLO muestra campo='Etapa'/'Estado' (ver
+// STATUS_FIELDS en AuditHistory). Reconstruir hitos informativos no llena esa
+// pestaña: hay que reconstruir el RECORRIDO de etapas, transición por transición.
+const LABEL = { lead: 'Lead (Instant form)', agenda: 'Agenda R1', agendaj2: 'Agenda R2',
+  noshow: 'Nutrición No Show R1', noshow_r2: 'Nutrición No Show R2', ganado: 'Ganado',
+  perdido: 'Perdido', descal: 'Descalificado', nutri: 'Nutrición No Agenda' };
+
+/** Secuencia (fecha, etapa) deducida de las fechas reales del lead. */
+function recorridoDe(l) {
+  const paso = [];
+  const add = (f, k) => { if (f && k) paso.push({ fecha: new Date(f), etapa: k }); };
+  add(l.created_at, l.fecha_agenda ? 'agenda' : 'lead');
+  add(l.fecha_agenda, 'agenda');
+  const r1 = l.junta_1_at || l.fecha_junta_1;
+  if (r1) {
+    if (l.asistio_j1 === false) add(r1, 'noshow');
+    else if (l.asistio_j1 === true && (l.junta_2_at || l.fecha_junta_2)) add(r1, 'agendaj2');
+  }
+  const r2 = l.junta_2_at || l.fecha_junta_2;
+  if (r2) { if (l.asistio_j2 === false) add(r2, 'noshow_r2'); else add(r2, 'agendaj2'); }
+  if (l.fecha_cierre) {
+    const fin = l.estado_lead === 'ganado' ? 'ganado' : l.estado_lead === 'perdido' ? 'perdido'
+      : l.estado_lead === 'descalificado' ? 'descal' : null;
+    add(l.fecha_cierre, fin);
+  }
+  paso.sort((a, b) => a.fecha - b.fecha);
+  // Solo las TRANSICIONES: si dos hitos seguidos son la misma etapa, no hubo cambio.
+  const out = [];
+  let previa = null;
+  for (const p of paso) {
+    if (p.etapa === previa) continue;
+    out.push({ fecha: p.fecha, de: previa, a: p.etapa });
+    previa = p.etapa;
+  }
+  return out;
+}
+
 function hitosDe(l) {
   const h = [
     hito(l.created_at, 'Lead creado', l.origen_lead || 'manual'),
@@ -41,14 +78,20 @@ try {
 
   let nuevas = 0, tocados = 0;
   for (const l of leads) {
-    const pend = hitosDe(l).filter((x) => !clave.has(`${l.id}|${x.campo}|${x.valor}`));
+    const etapas = recorridoDe(l).map((t) => ({
+      fecha: t.fecha, campo: 'Etapa',
+      valor: LABEL[t.a] ?? t.a, anterior: t.de ? (LABEL[t.de] ?? t.de) : null,
+    }));
+    const pend = [...hitosDe(l), ...etapas]
+      .filter((x) => !clave.has(`${l.id}|${x.campo}|${x.valor}`))
+      .sort((a, b) => a.fecha - b.fecha);
     if (!pend.length) continue;
     tocados++; nuevas += pend.length;
-    if (SOLO) for (const x of pend) console.log(`  ${x.fecha.toISOString().slice(0,16)} | ${x.campo} → ${x.valor}`);
+    if (SOLO) for (const x of pend) console.log(`  ${x.fecha.toISOString().slice(0,16)} | ${x.campo}: ${x.anterior ? x.anterior + ' → ' : ''}${x.valor}`);
     if (APPLY) {
       await sql`insert into lead_audit ${sql(pend.map((x) => ({
         lead_id: l.id, workspace_id: l.workspace_id, campo: x.campo,
-        valor_anterior: null, valor_nuevo: x.valor, autor: AUTOR, created_at: x.fecha,
+        valor_anterior: x.anterior ?? null, valor_nuevo: x.valor, autor: AUTOR, created_at: x.fecha,
       })))}`;
     }
   }

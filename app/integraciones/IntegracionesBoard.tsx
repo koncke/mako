@@ -26,6 +26,7 @@ import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { agenteSkillMarkdown, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
 import ServicioConfigForm from './ServicioConfigForm';
 import { getGoogleCalendarStatusAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
+import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import { ProbarTracking } from './ProbarTracking';
 
 const MONO = "'Geist Mono', monospace";
@@ -138,6 +139,35 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
+  // ── Google Calendar: "hay token" NO es "está conectado" ────────────────────
+  // El server solo sabe que existe un refresh_token. Si ese token es de los VIEJOS
+  // (se emitió cuando pedíamos únicamente `calendar.readonly`) la agenda se lee,
+  // pero «Reagendar» del CRM no mueve un solo evento. Pintado en verde, eso es una
+  // mentira: el dueño lo dijo tal cual — «necesitaba más permisos, en ese caso debe
+  // aparecer como DESCONECTADO».
+  //
+  // El permiso real solo lo sabe Google (hay que refrescar el token para leer sus
+  // scopes), así que se pregunta UNA vez al abrir la pantalla — nunca por tile.
+  const googleConToken = integraciones.some((i) => i.key === 'google' && i.estado === 'conectada');
+  const [gcal, setGcal] = useState<GoogleCalendarStatus | null>(null);
+  useEffect(() => {
+    if (!googleConToken) { setGcal(null); return; }
+    let vivo = true;
+    getGoogleCalendarStatusAction().then((s) => { if (vivo) setGcal(s); }).catch(() => { /* sin respuesta = no degradamos el estado */ });
+    return () => { vivo = false; };
+  }, [googleConToken]);
+
+  // Hay agenda, pero el permiso no alcanza para lo que se prometió → NO conectada.
+  // `puede` en false = esta sesión no administra la agenda: desde ahí no sabemos
+  // nada del permiso y no vamos a degradar el estado por ignorancia.
+  const gcalIncompleta = !!gcal?.puede && gcal.conectado && !gcal.puedeMover;
+
+  // Cómo salió el último paso por Google. El callback del OAuth vuelve SIEMPRE acá
+  // con ?gcal=…, y hasta ahora nadie leía ese parámetro en esta pantalla: si el
+  // re-consent fallaba (Google no reemitió el refresh_token, o saltó el CSRF), la
+  // pantalla se recargaba idéntica y el usuario apretaba "Conectar" en loop.
+  const gcalMsg = GCAL_MSG[searchParams.get('gcal') ?? ''] ?? null;
+
   // El toast global (y el chip de la sidebar) linkean con ?ops=1 → abrimos el
   // historial de operaciones. Consumimos el flag al instante (router.replace) para
   // que un segundo click del toast (mismo ?ops=1) vuelva a ser un cambio '' → 'ops=1'
@@ -159,13 +189,18 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   const total = integraciones.length;
 
   // Severidad efectiva de un servicio: Meta usa su semáforo en vivo (o 'bad' si el
-  // token está presente pero la lectura en vivo falló); el resto, conectada (verde)
-  // vs falta de config (ámbar "Por configurar", NO rojo: todavía no es un incidente).
+  // token está presente pero la lectura en vivo falló); Google, su PERMISO real; el
+  // resto, conectada (verde) vs falta de config (ámbar "Por configurar", NO rojo:
+  // todavía no es un incidente).
   const sevOf = (i: Integracion): 'good' | 'warn' | 'bad' => {
     if (i.key === 'meta') {
       if (metaSev) return metaSev === 'verde' ? 'good' : metaSev === 'ambar' ? 'warn' : 'bad';
       if (metaError) return 'bad';
     }
+    // Verde SOLO con el permiso completo. Media conexión se ve igual que ninguna:
+    // así el contador "N/M conectados", el medidor y el punto del tile dicen lo
+    // mismo que el modal, en vez de dejarlo en una nota al pie que nadie abre.
+    if (i.key === 'google' && gcalIncompleta) return 'warn';
     return i.estado === 'conectada' ? 'good' : 'warn';
   };
   const dotColor = (s: 'good' | 'warn' | 'bad') => (s === 'good' ? 'var(--good)' : s === 'warn' ? 'var(--warn-fill)' : 'var(--bad)');
@@ -177,7 +212,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // ── Requiere atención: servicios en falta + Meta si no está verde ──
   // (Sin useMemo: el React Compiler memoiza; el useMemo manual con el closure
   // sevOf le impedía optimizar.)
-  const atencion: Array<{ i: Integracion; sev: 'warn' | 'bad'; motivo: string }> = [];
+  const atencion: Array<{ i: Integracion; sev: 'warn' | 'bad'; motivo: string; accion?: string }> = [];
   for (const i of integraciones) {
     const s = sevOf(i);
     if (s === 'good') continue;
@@ -187,12 +222,18 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // (sería ruido para un cliente que ni programa).
     if (i.key === 'agente') continue;
     let motivo = i.estado === 'falta' ? i.detalle : 'Requiere atención';
+    let accion: string | undefined;
     if (i.key === 'meta') {
       motivo = health
         ? (health.account.entregaFrenada ? 'Entrega frenada' : (health.account.disableReasonLabel || health.account.statusLabel || 'Requiere atención'))
         : 'No se pudo leer el estado de Meta';
+    } else if (i.key === 'google' && gcalIncompleta) {
+      // El motivo dice QUÉ falta (no "Requiere atención", que no orienta a nadie) y
+      // el botón dice el verbo que resuelve: volver a pasar por el consentimiento.
+      motivo = 'Falta permiso para mover reuniones';
+      accion = 'Conectar';
     }
-    atencion.push({ i, sev: s === 'bad' ? 'bad' : 'warn', motivo });
+    atencion.push({ i, sev: s === 'bad' ? 'bad' : 'warn', motivo, accion });
   }
 
   // ── Servicios por categoría ──
@@ -232,6 +273,17 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       </div>
 
 
+      {/* Resultado del OAuth de Google (?gcal=…). Va arriba de todo porque es la
+          respuesta a lo último que hizo el usuario antes de volver a esta pantalla. */}
+      {/* El "conectado ✓" se calla si el permiso igual quedó a medias (se destildó la
+          casilla de escritura en la pantalla de Google): festejar ahí sería el mismo
+          verde mentiroso que estamos sacando. La tarjeta de "Falta permiso" lo cuenta. */}
+      {gcalMsg && !(gcalMsg.kind === 'ok' && gcalIncompleta) && (
+        <div role="status" style={{ marginTop: 22, borderRadius: 12, padding: '12px 17px', fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, background: gcalMsg.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: gcalMsg.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
+          {gcalMsg.txt}
+        </div>
+      )}
+
       {/* ═══ REQUIERE ATENCIÓN ═══ */}
       {atencion.length > 0 && (
         <section style={{ marginTop: 30 }}>
@@ -241,14 +293,14 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 21, height: 21, padding: '0 7px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', fontFamily: MONO, fontSize: 12, fontWeight: 600 }}>{atencion.length}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14 }}>
-            {atencion.map(({ i, sev, motivo }) => (
+            {atencion.map(({ i, sev, motivo, accion }) => (
               <div key={i.key} style={{ ...card, borderLeft: `4px solid ${sev === 'bad' ? 'var(--bad)' : 'var(--warn-fill)'}`, padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <SvcIcon k={i.key} box={44} radius={12} size={26} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: sev === 'bad' ? 'var(--bad)' : 'var(--warn)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{motivo}</div>
                   <div style={{ fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em', color: 'var(--ink)' }}>{i.nombre}</div>
                 </div>
-                <button type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ flex: 'none', border: sev === 'bad' ? 0 : '1px solid var(--border-strong)', borderRadius: 10, background: sev === 'bad' ? 'var(--primary)' : 'var(--surface)', color: sev === 'bad' ? '#fff' : 'var(--ink)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{sev === 'bad' ? 'Resolver' : 'Configurar'}</button>
+                <button type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ flex: 'none', border: sev === 'bad' ? 0 : '1px solid var(--border-strong)', borderRadius: 10, background: sev === 'bad' ? 'var(--primary)' : 'var(--surface)', color: sev === 'bad' ? '#fff' : 'var(--ink)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{accion ?? (sev === 'bad' ? 'Resolver' : 'Configurar')}</button>
               </div>
             ))}
           </div>
@@ -309,6 +361,11 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
         <ServicioModal
           i={svcByKey(modal.key)!}
           sev={sevOf(svcByKey(modal.key)!)}
+          // El chip repite la palabra del estado. Con permiso incompleto, "Por
+          // configurar" (lo que diría el ámbar por defecto) manda al usuario a
+          // buscar una credencial que no existe: acá lo que falta es un permiso.
+          chipWord={modal.key === 'google' && gcalIncompleta ? 'Falta permiso' : undefined}
+          gcal={gcal}
           health={health} metaError={metaError} usage={usage}
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
           snippetLanding={snippetLanding}
@@ -899,12 +956,18 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   );
 }
 
-function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
-  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
+function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
+  i: Integracion; sev: 'good' | 'warn' | 'bad';
+  /** Reemplaza la palabra del chip cuando el estado tiene un nombre propio ("Falta permiso"). */
+  chipWord?: string;
+  /** Permiso real de la agenda de Google (lo pide el board una vez, ver arriba). */
+  gcal: GoogleCalendarStatus | null;
+  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
-  const chip = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
+  const base = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
     : { bg: 'var(--bad-bg)', fg: 'var(--bad)', word: 'Requiere atención' };
+  const chip = { ...base, word: chipWord ?? base.word };
 
   // BYOK: si el servicio está en el catálogo de /metodo y NO es soloServidor,
   // embebemos el form de pegar/guardar/probar (reemplaza la lista de envs crudos).
@@ -954,10 +1017,16 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
       { k: 'Consumo del mes', v: `${fmtTok(prov?.tokens ?? 0)} tok`, c: 'var(--ink)' },
     ];
   } else if (i.key === 'google') {
-    // El OAuth de Google Calendar es un redirect en la MISMA pestaña. Estando ya
-    // conectada, el botón sigue sirviendo: es el camino para re-autorizar (p.ej.
-    // sumar el permiso de escritura que necesita "Reagendar").
-    actions.push({ label: i.estado === 'conectada' ? 'Reconectar Google Calendar' : 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
+    // El OAuth de Google Calendar es un redirect en la MISMA pestaña, y sirve tanto
+    // para conectar como para re-autorizar (la ruta manda prompt=consent +
+    // include_granted_scopes, así que reemite el refresh_token sumando lo que falta
+    // sin perder lo ya otorgado).
+    //
+    // "Reconectar" solo cuando la conexión está COMPLETA: con el permiso a medias, el
+    // verbo tiene que ser el mismo que vería alguien sin agenda —«Conectar»— porque el
+    // estado que mostramos también es el mismo (no conectada).
+    const completa = !!gcal?.conectado && gcal.puedeMover;
+    actions.push({ label: completa ? 'Reconectar Google Calendar' : 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
   }
 
   // La landing no se configura con credenciales: se configura copiando un código.
@@ -1025,7 +1094,7 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
             <SaldoEditor provider={i.key} gemini={i.key === 'gemini'} saldo={usage?.porProveedor?.find((p) => p.provider === i.key)?.saldo ?? null} restante={usage?.porProveedor?.find((p) => p.provider === i.key)?.restanteUsd ?? null} gastoMes={usage?.porProveedor?.find((p) => p.provider === i.key)?.costMesUsd ?? 0} onGuardado={onRefetchUsage} />
           )}
 
-          {i.key === 'google' && <PermisoGoogleCalendar conectada={i.estado === 'conectada'} />}
+          {i.key === 'google' && <PermisoGoogleCalendar conectada={i.estado === 'conectada'} estado={gcal} />}
 
           {esAgente ? (
             <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
@@ -1074,22 +1143,15 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
  *
  * Existe porque "conectada" dejó de ser una sola cosa: los refresh_token que se
  * emitieron cuando solo pedíamos `calendar.readonly` siguen siendo de lectura, y
- * desde afuera se ven idénticos a uno nuevo. Sin este bloque, la tarjeta queda en
- * verde mientras "Reagendar" en el CRM no puede mover un solo evento — y el
- * usuario se entera por el invitado que se presentó a la hora vieja.
+ * desde afuera se ven idénticos a uno nuevo.
  *
- * El chequeo pega contra Google (refresca el token para leer sus scopes), así que
- * corre al abrir el modal y no al pintar la grilla de tarjetas.
+ * Ya NO hace el fetch: el estado lo pide el board una sola vez al abrir la pantalla
+ * (ver `gcal` allá arriba). Tenía que subir, porque de este permiso depende el punto
+ * del tile, el contador de conectados y el chip — no solo este párrafo. Mientras el
+ * chequeo vivió acá adentro, la tarjeta quedaba verde en la grilla y la verdad
+ * aparecía recién al abrir el modal.
  */
-function PermisoGoogleCalendar({ conectada }: { conectada: boolean }) {
-  const [estado, setEstado] = useState<GoogleCalendarStatus | null>(null);
-  useEffect(() => {
-    if (!conectada) return;
-    let vivo = true;
-    getGoogleCalendarStatusAction().then((s) => { if (vivo) setEstado(s); }).catch(() => {});
-    return () => { vivo = false; };
-  }, [conectada]);
-
+function PermisoGoogleCalendar({ conectada, estado }: { conectada: boolean; estado: GoogleCalendarStatus | null }) {
   if (!conectada) {
     return (
       <p style={{ margin: '0 0 4px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
@@ -1110,10 +1172,11 @@ function PermisoGoogleCalendar({ conectada }: { conectada: boolean }) {
   }
   return (
     <div style={{ marginBottom: 15, padding: '12px 14px', borderRadius: 11, background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>Permiso de solo lectura</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>Faltan permisos para mover reuniones</div>
       <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-        Se leen tus reuniones{estado.email ? ` de ${estado.email}` : ''}, pero no se pueden modificar: «Reagendar» actualiza el CRM y no mueve el evento.
-        Reconectá la agenda (el botón de abajo) para habilitar mover reuniones.
+        La agenda{estado.email ? ` de ${estado.email}` : ''} se autorizó cuando solo pedíamos leerla: tus reuniones se detectan, pero «Reagendar»
+        actualiza el CRM y no mueve el evento ni le avisa al invitado. Por eso figura como <b>no conectada</b>.
+        Tocá «Conectar Google Calendar» acá abajo y Google te va a pedir el permiso que falta.
       </p>
     </div>
   );
