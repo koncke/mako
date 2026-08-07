@@ -351,3 +351,148 @@ De este frente en particular: `SelectorHora.tsx`, `CrmBoard.tsx`, `funnel-etapas
 `google-calendar.ts` dieron errores transitorios que **no eran de quien los veía**
 (`TS2552: Cannot find name 'Opcion'` / `'Stage'`, refactors a medio terminar). **El verde
 se toma con el árbol estable.**
+
+---
+
+## Cosecha retroactiva (2026-08-07)
+
+Rescatado de los journals de las 261 corridas multi-agente de junio a agosto de 2026:
+**134 de 260 nunca habían escrito nada en el repo**. El registro completo de las corridas
+está en [corridas-multiagente.md](corridas-multiagente.md).
+
+⚠️ **Es material de segunda mano.** Sale de lo que devolvieron los subagentes en su
+momento, no de una relectura del código de hoy. Cada entrada dice de qué corrida y de qué
+fecha viene. **Antes de actuar sobre una, verificá contra el código**: varias ya están
+arregladas, y donde el rescate lo sabía, lo dice.
+
+### Trampas: el diagnóstico obvio era el equivocado
+
+#### Un fallo de Chatwoot se escribe como señal de negocio y quema el único intento automático
+
+En T3, si Chatwoot falla (rate limit, timeout, 5xx) el catch pone `inbound = -1`. Ese -1 no entra por `if (inbound > 0)` y cae al else, que crea igual la confirmación con clave 'T3'; lo único que distingue «no pudimos leer» de «no hay mensajes» es el texto de la nota. Y como `existeConfirmacion` filtra SOLO por (lead_id, clave) sin mirar el estado, la corrida siguiente devuelve 'skip' para siempre aunque Chatwoot ya se haya recuperado. T3 es el único camino automático que reclasifica un lead en 'manual', así que el error transitorio quema el único intento y el lead queda en nutrición manual vencida indefinidamente. Regla: un no-resultado no puede compartir la clave anti-loop con un resultado.
+
+**Vive en:** lib/crm-auto.ts:250-298; lib/mako-confirmaciones.ts:57-66 (existeConfirmacion) · *2026-07-05 · ~review-adversarial-crm-automatico*
+
+#### COHORTE_DIAS_* son env vars que no lee nadie: el umbral real está hardcodeado en cuatro lugares que no se hablan
+
+`COHORTE_DIAS_MADURA` y `COHORTE_DIAS_MADURANDO` tienen cero ocurrencias en todo el repo y ni siquiera están en el catálogo, así que el boot no las hidrata: alguien creyó que configuraba la madurez de las cohortes y nunca se cableó. Los umbrales de verdad (14 y 5 días) viven repetidos en la migración 0084 (dentro del CASE de las vistas `v_cohortes_*`), en lib/leads.ts y en lib/queries.ts. Y como el filtro `.eq('estado_madurez','madura')` se resuelve EN SQL contra la vista, volverlo configurable por cliente no es mover un env: es una migración que saca el CASE de las vistas más un refactor de las queries que hoy filtran server-side.
+
+**Vive en:** supabase/migrations/0084_cohortes_workspace.sql:45-46 y :81-82, lib/leads.ts:1019-1020, lib/queries.ts:922-923 · *2026-07-16 ~auditoria-env-vars*
+
+#### Desbloquear un contacto no es «volver a abrirlo»: machaca el estado real del lead
+
+El unblock hace `updateLead({ estado_lead:'abierto', motivo_perdida:null })` y `pipeline_stage = null` sin condición. Si el lead estaba 'ganado', 'perdido', en R2, no-show, o tenía una columna puesta a mano en el Kanban, todo eso se pierde — y el bloqueo tampoco persistió el estado anterior, así que el round-trip bloquear→desbloquear es lossy por diseño e irrecuperable. Regla: revertir una acción es restaurar lo que había, no escribir el default; si no guardaste el estado previo, condicioná la reversión a que la acción siga siendo la que causó el estado actual (`estado_lead === 'descalificado' && motivo_perdida === 'Bloqueado en WhatsApp'`).
+
+**Vive en:** app/api/whatsapp/contacts/[id]/block/route.ts:47-48; lib/leads.ts:1117 · *2026-06-23 ~auditoria-inbox-whatsapp-chatwoot*
+
+#### Los event types de Calendly figuran `opcional: true` y NO lo son: la tab se pinta conectada y el webhook tira las reuniones con 200 OK
+
+Síntoma clásico del cliente: conecta Calendly, ve el tilde verde y no entra ni una reunión, sin un solo error en ningún lado. Causa real: `CALENDLY_EVENT_TYPE_J1/J2` están marcados opcionales en el catálogo, así que `integracionConectada` los ignora y la tab se prende; pero el webhook resuelve el workspace comparando el event type contra ESOS valores, y sin match responde 200 OK con `ignored`, para que Calendly no reintente. Un campo que el catálogo llama opcional y el ruteo trata como obligatorio produce exactamente un all-clear falso. Hoy el hueco está documentado solo en el copy que ve el usuario (`ademas` en lib/tab-activacion.ts:151), no en el código que decide. Regla: `opcional: true` significa «el servicio funciona sin esto» — si algún camino lo necesita para no descartar datos, no es opcional. La corrida más reciente (2026-08-06) confirma que sigue abierto; lo que sí se cerró es la signing key, que ahora se lee por workspace con `credWs`.
+
+**Vive en:** lib/metodo-catalogo.ts:445-447 · app/api/webhooks/calendly/route.ts (resolución de ws + `ignored`) · lib/tab-activacion.ts:151 · *2026-08-06 ~verificar-tareas-ya-hechas*
+
+#### `pipeline_stages` es una tabla muerta que se sigue arrastrando
+
+Ningún archivo de lib/ ni de app/ la lee: el pipeline real vive en funnel_config.data.pipeline. Encima su PK es (key) GLOBAL, así que clonarla a otro workspace revienta con duplicate key. Hoy sigue viva en TENANT_TABLES y en las listas de copia/reset (verificado: solo aparece en lib/workspace.ts, lib/datos-mau.ts y lib/reset-workspace.ts). No migrarle nada, no clonarla, y si se toca alguna personalización vieja, llevarla a funnel_config.
+
+**Vive en:** supabase/migrations/0020-0025 · lib/workspace.ts (TENANT_TABLES) · lib/reset-workspace.ts · *2026-08-01 · mapa-clonar-workspace*
+
+#### Importar leads por CSV tiene tres formas de fallar sin dar un solo error
+
+(1) `f.text()` NUNCA falla sobre binario: un PDF o un XLSX devuelve mojibake, habilita el botón y el usuario termina leyendo «No encontré una columna Nombre en el CSV» — el problema es el formato, no la columna, y nadie lo dice. (2) El delimitador `;` (el Excel en español) hace que toda la fila sea UN campo, y como el match de encabezados es por substring, `iNombre`, `iEmail` e `iTel` resuelven todos al índice 0: se crean leads con `nombre = "Juan Pérez;juan@x.com;+54911…"` y ese mismo string en email y teléfono, que además envenena el dedup. (3) Los contadores del paso 2 mienten (`total = creados + omitidos`, las filas vacías se saltean con `continue`). Reglas: sniffear el delimitador y ABORTAR si dos campos caen en el mismo índice; decodificar con `TextDecoder('utf-8',{fatal:true})` y caer a windows-1252; y que el preview devuelva filas con estado, no números. De paso: `createLead` declara `origen_lead` en su input pero el insert no lo escribe, así que un lead importado es indistinguible de uno cargado a mano.
+
+**Vive en:** app/crm/actions.ts:724-825 (parseCsv/previsualizar/importar) + app/crm/ImportarLeadsModal.tsx + lib/leads.ts:172,295-306 · *2026-08-06 crm-tracking-import-export-audit*
+
+#### El CSV que exporta Excel en español usa `;` y viene en Windows-1252
+
+El parser de importación tenía la coma hardcodeada, sin detección de delimitador. Con el encabezado "nombre;email;telefono;empresa" el matching flexible `h.includes(n)` resuelve TODOS los campos al índice 0: cada lead se crea con la fila entera como nombre, como email, como teléfono y como empresa, pasa la validación, pasa el dedup y reporta "✓ N leads nuevos". No es un error: es corrupción silenciosa, y no hay preview ni deshacer. Del mismo par: `file.text()` decodifica UTF-8 mientras que ese CSV sale en ANSI/1252, así que los acentos llegan rotos sin aviso; y en el sentido inverso, al exportar hay que agregarle el BOM o Excel lo abre en Windows-1252 y rompe los acentos. Regla: detectar el delimitador y FALLAR si el encabezado no resuelve coherente (dos campos al mismo índice = abortar), en vez de importar basura.
+
+**Vive en:** app/crm/actions.ts (parseCsv, EXPORT_COLS), app/crm/leads-importar.ts · *2026-08-06 ~crm-toolbar-e-importar-exportar*
+
+#### Google Calendar: ampliar el scope no re-consiente solo, y `calendar.events` no alcanza
+
+Al sumar la escritura (mover el evento al reagendar) aparecieron tres trampas. (1) `calendar.events` NO cubre `calendars.get`, de donde sale el email del calendario: el scope pedido tiene que ser la UNIÓN de `calendar.readonly` + `calendar.events`, no el reemplazo. (2) Los que ya habían conectado conservan el scope viejo en su refresh_token y quedan en solo lectura sin enterarse — hay que detectarlo con los scopes que devuelve el propio refresh (`j.scope`, sin request extra a /tokeninfo) y pedir reconectar en la UI; `puedeEscribir()` es optimista si Google no informa scopes, porque la certeza real la da el 403. (3) Sin `prompt=consent` Google NO reemite refresh_token para quien ya había aceptado, así que el botón «Reconectar» no haría nada; y hace falta `include_granted_scopes=true` para no perder lo ya otorgado. PENDIENTE de acción manual: agregar `https://www.googleapis.com/auth/calendar.events` a la lista de scopes de la pantalla de consentimiento en Google Cloud Console, o Google puede devolver `invalid_scope` (es «sensible», el mismo tier que el readonly que ya se pedía: no cambia el estado de verificación).
+
+**Vive en:** lib/google-calendar.ts:32-49 (GCAL_SCOPE) y :182 (puedeEscribir) · app/api/integraciones/google-calendar/route.ts:35-42 · *2026-08-06 · gcal-write-y-history-completo*
+
+#### «Se perdió» escribía «asistió a la reunión» sin que nadie lo dijera
+
+El pendiente 'R' del worklist existe justamente porque nadie sabe si la reunión que ya pasó ocurrió. Elegir «Se perdió» copiaba `transitionFor(etapa,'perdido')`, y esa transición del funnel generado trae `asistioJ1: true` (`...asist(p.key, true)`); como el paso `asistenciaR1` no estaba en la lista de requisitos, `StageMoveDialog` caía en la rama `{ asistioJ1: move.asistioJ1 }` y el server lo persistía. Resultado: el CRM registraba «asistió» a una reunión cuyo desenlace nadie conocía — el dato exacto que el pendiente existía para averiguar —, y después `updateLead` forzaba `calificado = null` por incoherencia. El fix invierte la lógica: la asistencia se declara primero como HECHO y `salidasDeEtapa` FUERZA el flag a false en las salidas aunque la transición del funnel diga lo contrario. Eso queda comentado en el código a propósito: el próximo que lea `transitionFor` va a pensar que es un bug y lo va a «arreglar» de vuelta.
+
+**Vive en:** lib/pipeline.ts (asist/DEFAULT_TRANSITIONS y salidasDeEtapa) · app/crm/StageMoveDialog.tsx · app/crm/CrmBoard.tsx (confirmarQueHacer) · *2026-08-06 ~wizard-que-hacer-ahora-y-horarios-de-google*
+
+#### La pregunta que decía «es la última vez que te lo podemos preguntar» era la única que no persistía
+
+`updateLead` tiene una regla de coherencia: `if (merged.asistio_j1 !== true) merged.calificado = null`. En un pendiente de R2 (lead con `fecha_junta_2` cargada por Calendly, `asistio_j1` en null porque nadie marcó la R1), el wizard mandaba `{ asistioJ2: true, calificado }` — nunca toca `asistio_j1` — así que la regla borraba el `calificado` recién contestado, en silencio. Y el lead se iba a Perdido, donde `stepsForStage` corta y `faltantesDeLead` devuelve `[]` para siempre: nadie lo vuelve a ver, y se pierde también el evento de CAPI que la pregunta existía para alimentar. La regla que queda: antes de PREGUNTAR un campo, verificar que el camino de escritura no lo vaya a descartar por una coherencia aguas arriba — el fix fue un guard `qhCalificadoPersiste` que solo muestra la pantalla cuando el dato va a sobrevivir, sin tocar la regla de leads.ts (que gobierna todas las escrituras del repo).
+
+**Vive en:** lib/leads.ts:381-383 (regla de coherencia) · app/crm/CrmBoard.tsx (qhCalificadoPersiste) · app/crm/actions.ts (completeStageMoveAction) · *2026-08-06 ~wizard-que-hacer-ahora-y-horarios-de-google*
+
+#### Leer huecos y mover el evento son permisos distintos, y el traductor de errores decía lo contrario de lo que pasaba
+
+Dos trampas del mismo módulo. (1) `POST /freeBusy` funciona con `calendar.readonly`: los horarios disponibles andan HOY con el token viejo de solo lectura que tiene el dueño. Si `horariosLibresDeGoogle` copiaba el guard `puedeEscribir()` de `moverEventoDeReunion`, le negaba los horarios justo al único caso vivo — está comentado en el código para que nadie lo «arregle». (2) `leerFallo` estaba escrito para el camino de ESCRITURA: reusado en el de lectura, un 403 por falta de scope de lectura devolvía «El permiso de Google es de solo lectura: reconectá la agenda para poder MOVER reuniones», o sea mandaba a diagnosticar exactamente al revés, y encima clasificaba como `sin-conexion` una agenda conectada. Regla: un traductor de errores hereda el contexto para el que fue escrito; al reusarlo en otro camino hay que revisar cada mensaje.
+
+**Vive en:** lib/google-calendar.ts (GCAL_SCOPE_LECTURA, horariosLibresDeGoogle, puedeEscribir, leerFallo) · *2026-08-06 ~wizard-que-hacer-ahora-y-horarios-de-google*
+
+#### «Eliminar los datos de Mau» no devuelve lo que pisó: lo borra
+
+El ámbito `setting` pasó de copiar 1 clave a copiar 7 (`chat_agent.ensayo`, `chat_agent.audios_clave`, la voz destilada…). La copia es un upsert ciego que no guarda el valor previo, y el borrado es un DELETE por clave, no una restauración. Un workspace que ya hizo su propio onboarding del Chat Agent pierde su ensayo entero (9 casos escritos a mano), su mapa de audios y su voz; después «Eliminar los datos de Mau» le borra esas claves en vez de devolverle las suyas y queda sin nada. Rompe la regla escrita en la cabecera del propio archivo: «Borrar borra lo que TRAJIMOS, no lo que hay». El ámbito `perfil` sí guarda el valor anterior en el recibo y lo restaura: ese es el patrón a copiar. Variante peor: `settingsRemap` corre aunque el bloque de settings no haya copiado esa clave, lee el valor del DESTINO, lo traduce contra un mapa de ids del DUEÑO (que nunca matchean, porque `setting_audios.id` es bigserial global) y lo deja en `{}` — y como la clave nunca entró al recibo, «Eliminar» tampoco la restaura.
+
+**Vive en:** lib/datos-mau.ts:200-229, :599-661 y :754 · *2026-08-02 ~ensayo-chat-agent-y-datos-mau*
+
+#### Una llamada de coaching entraba al CRM como Reunión 2
+
+`buscarReunionesAutomatico` elegía la grabación por fecha y match de email, sin filtrar `category`. El dueño usa Fathom para TODO: solo ~10-40 de ~196 grabaciones son de ventas, así que una sesión de entrega de servicio quedaba cargada como la R2 del lead, con su link y su asistencia marcada. Hoy filtra `category='venta'`; la limpieza histórica se hizo con scripts/audit-fathom-links.mjs. Regla general: cuando la fuente externa mezcla varios usos, el filtro por tipo es parte del contrato, no una optimización.
+
+**Vive en:** lib/auto-reuniones.ts · *2026-08-07 contexto-mako-md*
+
+#### Guardar las cuotas marca el lead como ganado
+
+`saveCuotasAction` hereda de `saveLeadPlanManual`, que además de reemplazar las cuotas no pagadas setea `estado_lead='ganado'` y `cerro=true`. Por eso la UI de Deal Details solo la llama si `cuotasDirty`: tocar el plan de pagos de un lead que todavía no cerró lo cierra sin preguntar. Cualquier caller nuevo tiene que saberlo antes de usarla como un simple «guardar cuotas».
+
+**Vive en:** app/leads/[id]/deal-actions.ts (saveCuotasAction) · lib/leads.ts (saveLeadPlanManual) · *2026-07-03 ~deal-details-contrato-y-comprobante*
+
+
+### Reglas que quedan
+
+#### El revert guarda tus intenciones, no el estado del lead
+
+El «Deshacer» de las confirmaciones de MaKo aplica `.update(c.revert)` crudo con el patch que vos armaste al aplicar. El problema es que `setPipelineStage` → `updateLead` toca columnas DE REBOTE que no están en tu patch: al reabrir un lead perdido borra `motivo_perdida` (y no vuelve nunca: dato de negocio destruido pese a que el humano rechazó), deriva `cerro` del estado nuevo, y estampa `nutricion_realizada=true` en las etapas de NUTRI_KEYS. Regla: el revert tiene que snapshotear las columnas que la función que llamás puede tocar, no las que vos escribiste. Y para columnas array el patch es un overwrite last-write-wins: revertir `fathom_links` con el snapshot viejo borra el link que otro agregó en la ventana (que son horas o días, no un race exótico) — ahí el revert tiene que ser quirúrgico (sacar la url que agregó MaKo), no un set. Aparte, el orden: se aplica el efecto ANTES de insertar la confirmación, y `crearConfirmacion` se traga cualquier error del insert y devuelve false sin que nadie lo mire; si falla, el lead queda mutado sin fila para deshacer y los guards impiden que se vuelva a proponer — el cambio huérfano es permanente.
+
+**Vive en:** lib/crm-auto.ts:204-212 (T6), :229-246 (T1), :272-298 (T3); lib/mako-confirmaciones.ts:94-99 y :145-150; lib/leads.ts:304-325 y :1341-1343 · *2026-07-05 · ~review-adversarial-crm-automatico*
+
+
+### Decisiones tomadas, y por qué
+
+#### El funnel del cliente no dice nada de su negocio: el onboarding le aplica siempre la plantilla 0
+
+app/api/onboarding/route.ts aplica FUNNEL_TEMPLATES[0] hardcodeada, sin mirar el canal declarado. Verificado en prod: ws1, ws3, ws10 y ws11 tienen EXACTAMENTE el mismo pipeline (lead | Agenda R1 | Agenda R2 | Facturando | Ganado). Consecuencia práctica: usar funnel_config como evidencia de cómo vende un cliente («tiene etapa Agenda R2, entonces hace dos llamadas») es un falso positivo — le cayó por default. Para saber cómo vende hay que mirar negocio.fase.diagnostico (canal) y el panorama del Archivero.
+
+**Vive en:** app/api/onboarding/route.ts (aplicación de FUNNEL_TEMPLATES[0]) · funnel_config · *2026-08-01 · ~poda-board-leila-ws11*
+
+#### El filtro en JS de getObjetivoProgreso es load-bearing: no lo empujes a SQL
+
+Parece el candidato obvio de una auditoría de eficiencia (trae filas y filtra en memoria), pero es un falso positivo: (a) incluye fecha_cierre NULL, o sea los ganados sin fecha, que un .gte excluiría; y (b) calcula DOS ventanas sobre las mismas filas (desde y últimos 30 días), así que empujar el `desde` a SQL rompe cierres_30d cuando desde > hace30. Una sola query más filtro en JS ES el diseño eficiente acá. Descartado a propósito.
+
+**Vive en:** lib/queries.ts (getObjetivoProgreso) · *2026-07-13 · plan-autonomo-tanda2*
+
+
+### Lo que quedó sin hacer
+
+#### Los flujos con paso 'esperar' se cortan en la primera espera
+
+`lib/flujos.ts:43` hace `break` cuando el paso es de tipo 'esperar': falta el cron drenador. O sea que una automatización «cuando pase X, hacé Y» que tenga un «esperar N horas» ejecuta hasta ahí y muere sin error ni rastro, con la mitad de los pasos sin correr. Está anotado en dos comentarios del propio archivo y en ningún doc. Consecuencia de producto: la capacidad se puede nombrar como «lo que viene», pero no filmar una demo mostrándola correr.
+
+**Vive en:** lib/flujos.ts:7 y :43 · *2026-07-26 · ~catalogo-de-features-de-la-landing*
+
+#### El progreso del objetivo arranca en la fecha de Mauricio para cualquier workspace sin la setting
+
+`OBJETIVO_DESDE_DEFAULT = '2025-12-08'` es la fecha de arranque del dueño y es el fallback cuando el workspace no tiene `objetivo_desde` en app_settings. A un cliente nuevo le cuenta todo su histórico contra una fecha que no significa nada para él, y no avisa: es un default que inventa un dato. La causa de fondo es que `crearWorkspace` solo inserta la fila en `workspaces` — no seedea app_settings ni funnel_config ni las secuencias de nutrición (que se insertaron por migración pre-multi-tenant y por eso solo existen en el ws 1), así que todo el arranque de un cliente nuevo depende de fallbacks del código. Corresponde seedear `objetivo_desde` con la fecha de alta del ws; las metas pueden quedar en null, que es honesto (la card muestra progreso sin meta).
+
+**Vive en:** lib/queries.ts:2620 (OBJETIVO_DESDE_DEFAULT) · lib/workspace.ts (crearWorkspace) · supabase/migrations/0034_nutricion.sql:81 · *2026-07-02 ~mapa-onboarding-extraccion-retro*
+
+#### La ayuda de horarios nació owner-only: solo ws1 puede tener Google Calendar conectado
+
+Conectar la agenda está gateado por `esDuenoAdmin()` en los DOS route handlers del OAuth de Google Calendar. La lectura de horarios sí es workspace-aware (el refresh token vive en `app_settings` bajo `google.calendar.refresh_token`, cifrado, y `getSetting` filtra por el workspace de la sesión), pero como ningún workspace que no sea el 1 puede completar el OAuth, para todos los demás `horariosLibresDeGoogle` devuelve `sin-conexion` siempre y la grilla sale neutra. Degrada bien —reagendar sigue funcionando— pero la feature nace owner-only de hecho, contra la regla «nunca owner-only, todo workspace-aware». Del mismo flujo quedó vivo: `moverEnCalendario` no chequea que el evento exista antes de prometer en el resumen que se va a mover.
+
+**Vive en:** app/api/integraciones/google-calendar/route.ts y su callback (guard esDuenoAdmin) · lib/google-calendar.ts · *2026-08-06 ~wizard-que-hacer-ahora-y-horarios-de-google*
+

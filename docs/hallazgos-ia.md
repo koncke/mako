@@ -83,3 +83,256 @@ en `lib/mako-*` se trata igual que una card.
 |---|---|---|
 | **No hay tool que escriba `fechaJ1`, `asistenciaR1/R2`, `calificado`, `fathom*` ni los `deal*`** | `lib/mako-doer-acciones.ts` (input_schema de las 11 tools) | Mientras no exista, mover a una etapa de reunión o de cierre desde WhatsApp se registra con `{ omitir }`: pasa, pero declarando qué quedó sin cargar. Si se agrega la tool, **sumar el `StepId` a `REQUISITOS_PEDIBLES` en el mismo commit** — si no, el canal sabe cargarlo y sigue sin pedirlo. |
 | **`faltantesParaMover` decide con `hoyEnTijuana()` fijo** | `lib/leads.ts:1570` | Acá no es una cohorte persistida sino **gating**: decide si una reunión "ya pasó" y por lo tanto si se exige asistencia/Fathom. Para un workspace en Madrid el borde del día está ~9 h corrido, y eso hoy **bloquea o destraba a MaKo** un día antes o después. Ver [hallazgos-infra.md](hallazgos-infra.md) §2. |
+
+---
+
+## Cosecha retroactiva (2026-08-07)
+
+Rescatado de los journals de las 261 corridas multi-agente de junio a agosto de 2026:
+**134 de 260 nunca habían escrito nada en el repo**. El registro completo de las corridas
+está en [corridas-multiagente.md](corridas-multiagente.md).
+
+⚠️ **Es material de segunda mano.** Sale de lo que devolvieron los subagentes en su
+momento, no de una relectura del código de hoy. Cada entrada dice de qué corrida y de qué
+fecha viene. **Antes de actuar sobre una, verificá contra el código**: varias ya están
+arregladas, y donde el rescate lo sabía, lo dice.
+
+### Trampas: el diagnóstico obvio era el equivocado
+
+#### Si la Retro va justa de tiempo, publica sin verificar y no lo dice
+
+El pipeline de la Retro son 8 fases con ~9 llamadas a Opus; la última es una verificación que re-chequea los números del borrador del «cerebro». Cuando la corrida se acerca al límite de 500s, esa fase se SALTA y el borrador se publica igual, sin ninguna marca de que no pasó el doble-chequeo. Un informe con la fuga en dólares que nadie verificó se lee exactamente igual que uno verificado. Regla: si se saltea la verificación, el resultado se rotula; un degradado silencioso en la pieza que dicta la tesis del negocio es peor que fallar.
+
+**Vive en:** lib/retro.ts, lib/retro-reporte.ts (presupuesto de 500s) · *2026-07-19 ~landing-24-features-auditoria*
+
+#### Fathom ignora el filtro por recording_id, y los action items siempre llegan vacíos
+
+Dos trampas de la API de Fathom en el Closing Analyst. (1) El filtro por `recording_id` lo ignora Fathom del lado servidor (está comentado en `analyzeOne`): re-analizar UNA llamada obliga al barrido completo paginado de toda la cuenta. (2) `syncClosingCalls` llama `fetchAllMeetings` sin `includeActionItems` y `fetchMeetingContent` tampoco los trae, así que el slot de action items del prompt recibe **siempre** «(ninguno)» — el tipo `FathomActionItem` existe en la lib y no se llena nunca, y Claude concluye que no hubo compromisos en la llamada. Regla: un slot de prompt que llega siempre vacío es indistinguible de un dato real vacío; o se loguea, o no se pone.
+
+**Vive en:** lib/closing.ts (analyzeOne, syncClosingCalls), lib/fathom-api.ts (FathomActionItem) · *2026-07-02 audit-automatizaciones-lead*
+
+#### El Closing Analyst tiene el equipo de Mauricio hardcodeado
+
+Los emails y dominios que marcan una llamada como «interna» están escritos a mano en el código (martinkoncke@gmail.com, tejadomartin@gmail.com, elevate.com.mx) y no son configurables por workspace: en cualquier otro cliente la clasificación venta-vs-interna se equivoca en silencio y contamina los promedios de score. En la misma línea, el prompt de análisis está afinado a un negocio concreto — consultoría/coaching que vende mentoría, método SPIN, entrega 4DX/OKR, voz rioplatense — no es un analizador de ventas genérico out-of-the-box. Regla: toda lista de «los nuestros» sale de la config del workspace, no del archivo.
+
+**Vive en:** lib/closing.ts:117-121 (internos) y SYSTEM_ANALISIS:215 (prompt) · *2026-07-19 ~landing-24-features-auditoria*
+
+#### El paso anterior del onboarding fabrica el dato que la Retro después denuncia
+
+El wizard llama `seedNutricionTemplates()` en el paso 'funnel', y esas 5 secuencias nacen con `activa:true` y 0 inscriptos (verificado en el ws3 de prod). Dos pasos después, la Retro las lee y emite el finding «N secuencias activas con 0 inscriptos y 0 enviados» como anomalía del negocio del cliente — un problema que creamos nosotros mismos, minutos antes, en el mismo wizard. Y encima la regla 2 de cobertura («Nutrición sin secuencias activas») queda SUPRIMIDA justamente porque las seedeadas están activas: el hueco real ni se declara. Regla: un dato sembrado por default no puede alimentar un diagnóstico; o nace apagado, o el diagnóstico lo distingue.
+
+**Vive en:** app/api/onboarding/route.ts:179 (seedNutricionTemplates); lib/retro-datos.ts:399-435 (detectarCobertura) · *2026-07-16 · mako-onboarding-solo-meta*
+
+#### La cascada de ai-cheap no falla rápido: un slot sin key vuelve a pegarle al mismo proveedor lento
+
+`chatCheapCascade` recorre los 6 proveedores de CASCADA_DOCS y `chatCheap` usa `AbortSignal.timeout(opts.timeoutMs ?? 30000)` — 30s por proveedor si el call-site no pasa timeout. La amplificación que nadie ve: `proveedor()` NO corta rápido cuando un slot no tiene key, cae a groq/openai, así que si groq está lento-colgado, los slots de cerebras/openrouter/mistral vuelven a pegarle al MISMO groq y queman 30s cada uno: una sola cascada puede llegar a 150s. La acción 'guion' del onboarding encadena DOS cascadas en serie (elegirAngulo + generarGuion) contra un `maxDuration=120` → 504 de Vercel y el guion generado se pierde porque solo se persiste al final.
+
+**Vive en:** lib/ai-cheap.ts:67-70, :84, :141, :159-172; app/api/onboarding/razones/route.ts:51-55 · *2026-07-29 · review-onboarding-resto*
+
+#### La confirmación del doer no cruzaba turnos: el modelo proponía y confirmaba solo
+
+El mecanismo «MaKo propone, el dueño confirma» existía en la prosa del preámbulo, no en el código. proponer_* y confirmar_accion viven en el MISMO loop de tool-use (maxSteps 8): el paso 0 creaba la pendiente en la base y el paso 1 la leía con pendientesVigentes y la ejecutaba, sin ninguna guarda de edad mínima ni de turno distinto. Lo que el TTL y el scope por grupo_jid sí garantizaban era que un «sí» viejo o de otra charla no dispare nada — pero no que hubiera un humano. Importa porque el doer ingiere contenido inyectable (notas de leads, historial de WhatsApp, PDFs e imágenes que entran como bloques nativos) en el mismo loop que tiene meta_presupuesto, que es gasto real de la cuenta. La regla: toda tool de confirmación tiene que rechazar la pendiente creada en el turno actual; hoy el guard compara createdAt contra el turnStart con 1,5 s de margen.
+
+**Vive en:** lib/mako-doer-acciones.ts (case 'confirmar_accion') · lib/mako-pendientes.ts · lib/anthropic.ts (chatClaudeTools) · *2026-07-19 · ~review-tareas-de-whatsapp-al-plan*
+
+#### La letra chica de los free tiers de la cascada, que no avisa cuando muerde
+
+Research de julio-2026 sobre los proveedores que usa lib/ai-cheap.ts. Cuatro cosas que no están en ninguna doc del repo: (1) el free tier de Gemini ENTRENA con tus datos y tiene revisión humana, y la excepción EEA/CH/UK no aplica a MX ni AR — mandar PII de un CRM por ahí es un problema, y el «billing trap» es que al prender billing en el proyecto el free tier desaparece; (2) los límites de Gemini son POR PROYECTO, no por API key: repartir más keys NO multiplica la cuota, lo que importa para BYOK; (3) Cerebras en free capa el contexto a 8.192 tokens FLAT — un prompt largo no se degrada, falla; (4) los modelos :free de OpenRouter exigen activar el toggle de logging/entrenamiento, y sin eso responden «No endpoints found matching your data policy». Groq y Cloudflare son los limpios en privacidad (no entrenan), pero el pool de 10.000 neurons/día de Cloudflare es COMPARTIDO entre LLM y STT: transcribir mucho audio se come el presupuesto de las clasificaciones.
+
+**Vive en:** lib/ai-cheap.ts (chatCheapCascade, transcribirAudio y las constantes de cascada) · *2026-07-14 · research-free-ai-apis*
+
+#### Un contrato que "no se cumple" puede que nunca haya corrido
+
+Todo el diagnóstico de «Fathom ignora su propio piso de 600 caracteres» se hizo sobre tareas extraídas ANTES de que el contrato existiera: el piso y el formato de 4 partes entraron el 5/8 a las 14:58 y la última extracción real en prod había sido el 3/8 a las 20:43. Los 77-226 chars medidos venían de corridas con el override a gemini-flash-latest y el reasoning_effort minimal, las dos causas ya arregladas en ese mismo commit. Antes de reescribir un prompt por incumplimiento: comparar la fecha del último dato de producción con la del commit que creó la regla, y recién después mirar qué modelo la corrió de verdad. Corolario para esa medición: la sonda barata (re-extraer una reunión ya cacheada con reanalizar:true) decide si hace falta construir el reintento o no.
+
+**Vive en:** lib/plan-fathom.ts:224 (piso) y :226 (formato); cachés en app_settings `mako.fathom.cache.<recordingId>` · *2026-08-06 · contexto-de-todas-las-tareas*
+
+#### A un modelo rápido no lo atás con más prompt: el candado va en la tool
+
+Con el pin de `mako-doer-in` a gemini-flash-latest, Flash cumple el CUÁNTO y no el CÓMO: el detalle subió a 649 chars de mediana y el formato de 4 partes salió en 0 de 5 tareas (escribió «Cita: …» en prosa). Y el fix que había intentado atarlo desde adentro del resultado de la tool falló en producción tres horas después del deploy: MaKo volvió a anunciar «3 preguntas» sobre un borrador que tenía cero. El único patrón de ese archivo que demostró atar al modelo es devolver `{ok:false, error:'…'}` desde la tool y dejar que reintente (el candado `pareceConfirmacion`), con tope de un reintento para no colgar el turno. Dónde NO ponerlo: en el preámbulo del doer — ya está ahí y ya se ignora.
+
+**Vive en:** lib/mako-doer-acciones.ts:438 (el molde que sí ata) y :467 · lib/mako-doer-in.ts (el pin no-anthropic descarta el modelo Y el effort que eligió el router) · *2026-08-06 · contexto-de-todas-las-tareas*
+
+#### Un texto de fallback de la UI se cuela en el historial que ve el modelo
+
+Cuando faltaba el audio, la burbuja de apertura se armaba con `texto: 'Tu nota de voz'`, y el historial que se le manda al modelo se construye con `msgs.map(m => m.texto).filter(Boolean)`: el primer turno que veía el lead simulado era literalmente «Tu nota de voz», una frase que nadie dijo. En el camino bueno `texto` es `null` y se filtra solo. O sea: un bug de reproducción degradaba también la calidad de la IA, sin que nada lo mostrara. Regla: marcá los mensajes de chrome/fallback y excluilos SIEMPRE del historial del prompt; no dependas de que el camino feliz los deje en null.
+
+**Vive en:** app/chat-agent/OnboardingChatAgent.tsx:604-613 y :643-645 · *2026-08-02 ~diagnostico-audio-ensayo-chat-agent*
+
+#### El override de /modelos-ia no re-rutea nada para las features que corren por la cascada barata
+
+`modeloDeFeature()` lo consulta `lib/anthropic.ts` (chatClaude) y nadie más: `chatCheapCascade` NO lo lee. Una entrada nueva en `CATALOGO_MODELOS` para una feature que corre por la cascada es decorativa — se pinta en la pantalla y no cambia a dónde va la llamada. Matiz que agregó la verificación: `chatClaude(..., {feature})` SÍ re-rutea un ref no-anthropic a `chatCheap` con fallback a Sonnet (así corren hoy mako-guardian y checklist-coach en Gemini), así que hay dos caminos y solo uno respeta el registry; el precedente para pinear el modelo en la cascada es `overrideDeFeature` en lib/mako-doer-in.ts:529. Segundo filo del mismo módulo: `costFor()` devuelve 0 para gemini/groq/cerebras/mistral/openrouter por estar en PROVEEDORES_GRATIS, así que esas llamadas se registran a costo cero aunque el tier sea pago.
+
+**Vive en:** lib/model-registry.ts:99; lib/ai-cheap.ts:207; lib/anthropic-usage.ts:68 · *2026-08-05 cierre-ronda-mako*
+
+#### El `validar` de la cascada acepta un JSON vacío y corta la fila de proveedores gratis
+
+Síntoma: «MaKo no armó preguntas» aunque el proveedor siguiente de la cascada hubiera funcionado. Causa real: `chatCheapCascade` corta apenas `validar(t)` devuelve true (lib/ai-cheap.ts), y el validador estaba escrito sobre la FORMA, no sobre el CONTENIDO: `(t) => Array.isArray(parseJsonLoose(t).preguntas)` da true para `{"preguntas":[]}`. El primer proveedor devuelve un array vacío, la cascada lo da por bueno, no prueba a nadie más, y el consumidor filtra y se queda sin nada. Regla: el `validar` de una cascada tiene que exigir el mínimo utilizable (`arr.length > 0` y los campos que el consumidor va a leer), no que el JSON parsee. Ya se corrigió en lib/avatares.ts:150 (`tieneAvatares`); sigue vivo en `generarPreguntasCerradas` de El Archivero.
+
+**Vive en:** lib/onboarding.ts:233 (sigue vivo) · lib/ai-cheap.ts (chatCheapCascade) · lib/avatares.ts:150 (patrón correcto) · *2026-07-28 ~review-tanda-avatares*
+
+#### `mako.voz_guia` tiene dos escritores que se pisan sin merge
+
+La guía de voz es un solo string en `app_settings` que cinco consumidores inyectan entero en sus prompts (nutrición, plantillas, simulador, post-llamada, el editor manual). Pero la escriben DOS caminos que no se conocen: `destilarVoz()` (que la deriva de las transcripciones de anuncios, disparada desde /api/mako/voz) y el paso «Tu forma de escribir» del onboarding del Chat Agent (que la compone desde la evidencia de los chats más lo que contestó el dueño). El último que corre borra el trabajo del otro, sin aviso y sin historial. Regla: si un slot de `app_settings` tiene más de un escritor, o se define cuál gana o se guarda la estructura en una key aparte y se DERIVA la prosa final (el patrón de `mako.archivero.manual`); y si alguna vez se guarda JSON en `mako.voz_guia`, se rompen los cinco consumidores y el editor manual de una.
+
+**Vive en:** lib/nutricion-generator.ts:95 (setVozGuia) y :122 (destilarVoz) · app/api/chat-agent/onboarding/contexto/route.ts:79 y :158 · app/api/mako/voz/route.ts:58 · *2026-08-02 ~investigar-onboarding-chat-agent*
+
+#### El prompt que leés en el archivo NO es el que recibe el modelo: brandSystem le antepone MAKO_NUCLEO
+
+brandSystem() arma `[persona, MAKO_NUCLEO, rendered]`, así que las reglas de CHAT («Markdown: negritas, viñetas», «Nada de muros de texto», «el PRIMER mensaje 2-4 líneas», «NUNCA termines con una pregunta») van en posición de máxima autoridad delante de ~20 llamadas que esperan JSON estricto (mako-guardian, checklist-coach, plan-fathom, retro-gate, post-llamada, ad-copy, email/generar, campaign-suggest). Contradice de frente al «Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown)» del propio prompt, y el costo ya se paga: parseJsonObject tiene que limpiar ```json a mano y plan-fathom loguea «la IA no devolvió JSON válido» con reintento. El verificador refutó que esto explique la brevedad de las respuestas, pero confirmó la contradicción de formato como problema real y sistémico. Fix proporcionado: partir el núcleo en reglas de sustancia (siempre) y de formato conversacional (solo chat), con un brandSystemJson.
+
+**Vive en:** lib/mako-prompts.ts (MAKO_NUCLEO) · lib/campaign-structurer.ts:200 · lib/landing-writer.ts:139 · *2026-08-05 · ~fathom-preguntas-lote-whatsapp-forense*
+
+#### Editar el template en el repo no cambia el prompt si hay un override guardado en la base
+
+Las entradas del registro declaradas con `source: 'override'` se resuelven con getPromptText(key, fallbackTpl): el texto guardado en app_settings['mako.prompt-overrides'] GANA sobre el default del código. Si en prod hay un override, tocar el template y pushear no cambia nada y no hay ningún aviso. Excepción a tener presente: el slot {{jsonShape}} se rellena SIEMPRE con la constante del código, así que el esquema JSON sí se puede cambiar desde el repo. Antes de dar por hecho un fix de prompt, hay que mirar el store. Corolario que sale del mismo lote: renombrar una key de prompt hace que el override y sus hasta 30 versiones de historial queden huérfanos y la IA vuelva al texto de fábrica EN SILENCIO.
+
+**Vive en:** lib/prompt-registry.ts · lib/prompt-render.ts (getPromptText) · app_settings['mako.prompt-overrides'] · *2026-08-05 · ~fathom-preguntas-lote-whatsapp-forense*
+
+#### Cuando un texto generado sale pobre, el culpable no es el prompt que lo genera: es el último que lo escribe
+
+La queja era «Fathom resume demasiado y no cita a los invitados». Tres agentes independientes le apuntaron a lib/plan-fathom.ts (el «1-3 frases» del JSON_SHAPE, los ejemplos con detalle:'…', los slice(0,600)). Los verificadores lo tumbaron: ese detalle NUNCA llega al tablero. Apenas se crean las tarjetas corre el Perro, y checklistsParaTareas REESCRIBÍA el detalle desde cero pisando el de MaKo, viendo como insumo solo los primeros 220 caracteres. O sea: el eslabón corto no era el que se medía y arreglar el prompt de extracción no habría cambiado nada visible. Regla: seguí la cadena hasta lo que se PERSISTE, y medí sobre la tabla final, no sobre la salida del primer modelo. (El fix ya está en el código: fusionarDetalle + ventana de 4000, con el comentario «4000, no 220: ACÁ estaba el cuello».)
+
+**Vive en:** lib/plan-board.ts · lib/todo-guardian.ts · lib/checklist-coach.ts (checklistsParaTareas) · lib/plan-fathom.ts · *2026-08-05 · ~fathom-preguntas-lote-whatsapp-forense*
+
+#### El tag de `feature` es la unidad del override de modelo, y hay dos procesos compartiendo uno
+
+`lib/retro-gate.ts:126` (`debatirGate`, el gate de fase de Retro) llama con `feature: 'mako-guardian'` en vez de una feature propia: cambiar el modelo del Perro Guardián desde /modelos-ia mueve también, sin que nadie lo pida, el debate del gate de fase. El error clásico documentado es el inverso (un tag que no existe en el catálogo y hace que el override no aplique nunca); este es el que sí aplica, al proceso equivocado. Y el override no es por cliente: `leerOverrides`/`setModeloFeature` (`lib/model-registry.ts:86-115`) envuelven todo en `runWithWorkspace(OWNER_WS, …)`, así que `mako.modelos` es un ajuste GLOBAL de plataforma aunque la tab se vea dentro de un workspace.
+
+**Vive en:** lib/retro-gate.ts:126 + lib/model-registry.ts:86-115 · *2026-07-22 audit-ia-routing*
+
+#### Un validador de cascada que acepta el vacío corta el fallback al proveedor siguiente
+
+`tieneAvatares` hacía sólo `Array.isArray(parseJsonObject(t).avatares)`, que es true para `{"avatares":[]}` y para items sin `nombre`. Como el guard de `chatCheapCascade` es `if (t.trim() && (!opts.validar || opts.validar(t))) return t;`, esa respuesta inútil se aceptaba y la cascada NO probaba Groq/Cerebras: después `parseAvatares` filtraba todo y el usuario recibía «MaKo no devolvió avatares» en vez del fallback automático — exactamente lo que `validar` existe para rescatar. La regla: el `validar` de una cascada tiene que usar el MISMO parser que consume el resultado (`parseAvatares(t).length > 0`), no una comprobación de forma. Un JSON que parsea pero es inútil debe caer al próximo proveedor.
+
+**Vive en:** lib/avatares.ts tieneAvatares + lib/ai-cheap.ts chatCheapCascade · *2026-07-28 ~review-avatares-angulos-onboarding*
+
+#### El override de modelo del dueño gobierna a TODOS los workspaces (y el del cliente no se lee nunca)
+
+`leerOverrides()` (lib/model-registry.ts:98-102) hace `runWithWorkspace(OWNER_WS, () => getSetting('mako.modelos'))`: SIEMPRE lee el override del workspace dueño, sin importar quién esté corriendo. Consecuencia medida: `plan-fathom` figuraba como Sonnet en el catálogo y las 25 llamadas del ws 9 habían corrido en gemini-flash-latest, porque el ws 1 tenía el override. Además existía una fila de override en el ws 3 que NUNCA se lee. Regla: el modelo efectivo de una feature NO se deduce del catálogo ni del workspace que corre — hay que mirar `mako.modelos` del OWNER_WS. Y si algún día se quiere modelo por cliente, esa línea es el bloqueo.
+
+**Vive en:** lib/model-registry.ts:98 (leerOverrides) / setting app_settings 'mako.modelos' · *2026-08-05 · ~borrador-reunion-fathom-frentes*
+
+#### El saldo y el gasto de IA son globales a ws1 aunque la key sea BYOK por workspace
+
+Síntoma: Mauricio (ws1) ve el saldo de Gemini y el historial de cargas que hizo Martín desde ws9, en una tarjeta que a la vez dice "Por configurar". El sospechoso obvio —la credencial de Gemini— está bien: `credWs('GEMINI_API_KEY')` sí resuelve por workspace. La falla es la CONTABILIDAD: `getSaldo/setSaldo/agregarCarga` usan el cliente crudo y clavan `.eq('workspace_id', OWNER_WS)` con una key que lleva el proveedor pero no el workspace (existe UNA sola fila `saldo.gemini` en todo el sistema), y `getUsageSummary` lee `anthropic_usage` sin filtro de workspace aunque esa tabla SÍ esté en TENANT_TABLES — el archivo saltea getTenantDb a propósito, con comentario. Es el mundo pre-BYOK: "una agencia, un pool de keys, dueño = ws1". Regla: cuando una key pasa a ser por-cliente, su LIBRO (saldo, uso, cuotas) migra con ella; Anthropic puede seguir global mientras sea la única prepaga de la agencia, así que el scoping es por proveedor, no ciego.
+
+**Vive en:** lib/anthropic-usage.ts:65-73, :135-188, :205-213; lib/ia-cuotas.ts:44-48; app/integraciones/IntegracionesBoard.tsx:934,1011 · *2026-07-23 trace-gemini-leak-ws*
+
+#### chatCheapCascade disfraza de "el proveedor falló" dos problemas que son nuestros
+
+Cuando una llamada de la cascada termina en "tu IA está conectada pero no pudo responder ahora mismo (puede ser un límite de uso)", casi nunca es el proveedor. Primero: `chatCheap` usa `AbortSignal.timeout(opts.timeoutMs ?? 30000)` fijo, mientras que chatClaude SÍ escala el timeout con el pedido (`min(120000, max(30000, maxTokens*12))`) — una respuesta grande aborta a los 30s y la cascada lo anota como fallo del proveedor y prueba el siguiente. Segundo: si la respuesta se corta por maxTokens, `parseJsonObject` hace JSON.parse estricto y LANZA adentro de `validar`, que corre dentro del try del bucle de la cascada: el throw del parser es indistinguible de un error de red y hasta dispara el reintento. La única señal real de truncación es un console.warn con `finish_reason`. Regla: propagar finish_reason='length' hasta el envelope con un error que diga "se cortó, bajá la cantidad", y usar un parser tolerante (ya existe: parseJsonLoose en lib/secuencias-variantes.ts).
+
+**Vive en:** lib/ai-cheap.ts:175, :187-188, :207-235; lib/anthropic.ts:48; lib/campaign-structurer.ts:205-210 · *2026-08-06 ~fabrica-creativos-y-ads-writer-research*
+
+#### Tres formas de perder trabajo escrito en la fábrica de creativos
+
+(1) `preservarIds` empareja avatares viejos con nuevos POR ÍNDICE: si se regeneran en otro orden, las razones no quedan huérfanas —quedan colgando del avatar equivocado, que es peor porque nadie lo nota. (2) "Regenerar" la matriz borra todos los guiones ya escritos, porque el route pisa `setRazones(r.razones)` con celdas nuevas que traen `guiones: []`. (3) Los routes de onboarding reconstruyen el objeto campo por campo al guardar en vez de llamar a la normalizadora del módulo, así que cualquier campo que no esté nombrado ahí se borra en la próxima escritura: ya está pasando con `enlace` del lead magnet, que crea el wizard del Chat Agent y editar desde EntregableView le borra. Regla: guardar con la función normalizadora del módulo (hay que exportarla) y emparejar por id, nunca por posición.
+
+**Vive en:** app/api/onboarding/entregable/route.ts:47, avatares/route.ts:86, razones/route.ts:146; lib/entregable.ts:34,44-50 · *2026-08-06 ~fabrica-creativos-y-ads-writer-research*
+
+#### `effort: 'low'` NO apaga el razonamiento de Claude: el único knob es `thinking: false`
+
+Se elige `effort:'low'` creyendo que así la llamada sale rápida y barata, y el modelo sigue razonando igual. En `chatClaude` el esfuerzo solo baja cuando thinking ya está apagado: `thinkingOn = opts.thinking ?? true` y `effort = thinkingOn ? (opts.effort ?? DEFAULT_EFFORT) : 'low'`; con thinkingOn se manda `payload.thinking = { type: 'adaptive' }` SIEMPRE y el `max_tokens` por defecto salta a 16000. O sea: bajar el effort no reduce el pensamiento, y el pensamiento se come el presupuesto de salida. Para una tarea chica (un título, una clasificación) hay que pasar `thinking: false`, que además fuerza effort 'low' y `max_tokens: 512`. Verificado vivo en el código de hoy.
+
+**Vive en:** lib/anthropic.ts:76-89 (chatClaude) · *2026-07-16 · ~perro-ataja-duplicados-al-crear*
+
+#### El shape de la celda de la matriz está duplicado en cuatro archivos y ya divergió
+
+`RazonCelda` no vive en un solo lugar: se repite como object-literal en la acción 'guardar' del route de razones y como `type` local en MatrizView, RazonesView y las vistas del ads-writer. La trampa concreta: si agregás un campo al tipo pero no lo sumás al object-literal de la acción 'guardar', el campo se pierde EN SILENCIO cada vez que el usuario edita y guarda — el server reconstruye la celda campo por campo. Verificado el 7/8/2026: ya divergieron, `RazonesView.tsx:17` sigue sin `guiones`, `anguloImagen` ni `anguloVideo`, que lib/razones.ts sí tiene. Al tocar el shape hay que actualizar los cuatro en el mismo commit, o mejor, importar el tipo en vez de re-declararlo.
+
+**Vive en:** lib/razones.ts:47 (RazonCelda) + normalizarRazon + parseRazones · app/api/onboarding/razones/route.ts (acción 'guardar') · app/onboarding/MatrizView.tsx:37 · app/onboarding/RazonesView.tsx:17 · *2026-07-28 mapear-onboarding-ajustes*
+
+#### La cascada de proveedores de IA barata no cae a otro lado: pedir uno sin key devuelve Groq, y el log miente
+
+`chatCheapCascade` recorre `provs` y llama a `chatCheap({ provider: prov })`; `proveedor(pref)` hace `if (pref) { const p = await provDe(pref); if (p) return p; } return provDe('groq') ?? provDe('openai')` — o sea, si el proveedor pedido NO tiene key, no falla ni se saltea: corre en Groq. Con `CASCADA_GRATIS = ['groq','cerebras','openrouter','mistral','openai']` y solo GROQ/OPENAI/GEMINI cargadas, la cascada real es groq, groq, groq, groq, openai: cuatro intentos contra el mismo modelo, con el mismo prompt y (salvo que el caller pase `temperature`) la misma salida. No hay diversidad de reintento donde el código promete fallback. Peor para el diagnóstico: el `motivo` que queda en el registro de uso es `«… · fallback mistral»` aunque nunca se haya llamado a Mistral, y si el caller pasó `modelos: { mistral: 'x' }` ese nombre de modelo se le manda a Groq. Regla: antes de suponer que un fallback probó otro proveedor, chequeá que la key exista; y la cascada debería saltear los proveedores sin key en vez de colapsarlos en el default.
+
+**Vive en:** lib/ai-cheap.ts:70-73 (`proveedor`), :143-144 (`chatCheap`), :237-257 (`chatCheapCascade`) · *2026-08-02 · ~chat-agent-ensayo-y-secuencias*
+
+
+### Reglas que quedan
+
+#### «No tiró» no es «hay dato»: los ceros estructurales entran al prompt como catástrofe
+
+Con solo Meta conectado, la Retro no sale flaca: sale mentirosa. Las áreas se omiten cuando su query tira o devuelve null — pero `getRevenuePeriod` y `getFunnelEtapas` no explotan con `leads`/`pagos` vacíos: devuelven CEROS. `textoRevenue` marca `hayAlgo=true` apenas la query no explota y `roas_cash = spend>0 ? cash/spend : null` da 0, no null. Resultado garantizado para un cliente nuevo: «ROAS cash 0.00x: gastaste $X y facturaste $0» y «CUELLO del funnel: Formulario → Agenda 0.0%», que con MIN_MUESTRA=3 gana el cuello siempre con severidad 1.0. La Fase 6 de verificación NO lo atrapa: su regla es «un número citado que no sale de datos», y el 0 SÍ está en datos. El mecanismo de honestidad ya existe y está desconectado: `getFunnelEtapas` acepta un `sourceMap` para marcar `fuente_pendiente` y `retro-fuentes` simplemente no se lo pasa. Regla: el gate de un área es la FUENTE conectada, no que la query no reviente. Corolario: el catálogo de métricas que ve el cerebro tampoco se filtra por fuente, así que pare experimentos sobre métricas estructuralmente nulas que jamás pueden concluir (la Retro real #6 creó uno con metrica=vsl_views y objetivo 0).
+
+**Vive en:** lib/retro-fuentes.ts:238 y :363; lib/queries.ts:794 y :1278; lib/retro-pipeline.ts:440 (recolectarDatos no recibe `areas`) · *2026-07-16 · mako-onboarding-solo-meta*
+
+#### El maxDuration de un route tiene que cubrir la cascada ENTERA de proveedores, no una sola pierna
+
+Síntoma: el usuario tocaba «Que MaKo la describa» y recibía un 504 pelado en vez del mensaje amable que el código tenía escrito para ese caso. Causa real: `generarDescripcionPersona` llamaba a `leerDocumentoIA` sin pasar `timeoutMs`, y cada pierna de `VISION_CASCADE` se auto-asigna 100s por defecto; las piernas corren SECUENCIALMENTE, así que con Gemini colgado y OpenAI de respaldo el peor caso rondaba los 200s contra un `maxDuration` de 120 — Vercel mataba la función antes de que el `{ ok: false, error }` llegara al cliente. El camino feliz nunca lo mostraba, y por eso no se veía. La regla: si un route llama a una cascada, su presupuesto tiene que ser mayor que N × timeoutMs, y el timeout se pasa EXPLÍCITO desde el caller (como ya hacían extract-deal-fiscal y extract-contract). Un timeout por-proveedor sin presupuesto total no acota nada: degrada un error controlado en una caída dura, que es peor que el fallo que intentabas manejar.
+
+**Vive en:** lib/ai-cheap.ts (`leerDocumentoIA` / `VISION_CASCADE`, default de 100s por proveedor) y todo route que la llame — el caso testigo fue app/api/onboarding/persona/route.ts + lib/persona.ts · *2026-07-29 · ~audit-onboarding-persona*
+
+#### Cambiar la forma del modelo bajo la MISMA setting key es una migración silenciosa
+
+El Avatar pasó de `{nombre,descripcion,dolor,deseo}` a `{nombre,segmento,senalesMeta,situacion,dolor}` manteniendo `SETTING_KEY='mako.avatares'`, y `getAvatares` seguía haciendo `(arr as Avatar[]).filter(a => a?.nombre)` sin normalizar. Verificado contra prod: ws1 tenía 3 avatares guardados con la forma vieja, así que los campos nuevos volvían `undefined` y se interpolaban al prompt de ángulos como texto literal «Segmento: undefined · Situación: undefined», contaminando la entrada de Claude; además el editor inline reventaba con TypeError al hacer `valor.trim()` sobre undefined. tsc no lo caza porque el dato entra por un cast desde JSON. La regla: si cambiás la forma de lo que guarda una key de `app_settings`, o cambiás la key o normalizás al leer, con `''` por defecto para cada campo. El cast `as T[]` no es una validación.
+
+**Vive en:** lib/avatares.ts getAvatares/avataresTexto + app/onboarding/AvataresView.tsx + lib/angulos-venta.ts · *2026-07-28 ~review-avatares-angulos-onboarding*
+
+#### El tope está escrito dos veces: en el `.slice()` y en el texto del prompt
+
+Subir el `.slice(0, 3)` no cambia nada porque el modelo sigue devolviendo 3: el número está literal en el system, en el user, en el ejemplo de forma del JSON y hasta en las reglas conceptuales ("los 3 tienen que ser genuinamente DISTINTOS"), además de los comentarios de cabecera que quedan mintiendo. Y hay un corte que no está donde parece: en razones el slice es POR AVATAR, adentro del bucle de filas, no sobre el total. Encima ninguno de esos prompts (`avatares.system`, `razones.system`, `entregable.system`, `formatos.system`) está dado de alta en lib/prompt-registry.ts, así que no hay perilla en /configuraciones — y peor, `renderPrompt` igual honra un override guardado en app_settings, así que un prompt viejo con el 3 le ganaría al código nuevo. Regla: la cantidad va como constante exportada y como slot `{{cuantos}}` del template, nunca como literal duplicado.
+
+**Vive en:** lib/avatares.ts:99,107,118,124; lib/razones.ts:122,132,141,155; lib/entregable.ts:77,94,100; lib/prompt-registry.ts · *2026-08-06 ~fabrica-creativos-y-ads-writer-research*
+
+#### Sin fuente conectada el dato no es 0: la IA lee el cero estructural como un hecho
+
+Con solo Meta conectado, Conversión y Revenue entran igual al prompt de la Retro con ceros estructurales y el modelo concluye "ROAS 0.00x" y cuello de botella garantizado. El mismo agujero está en /general: con cero fuentes comerciales el veredicto del semáforo cae al else final y certifica "el negocio está sano, sin focos activos", cuando en realidad no sabe nada — y eso es lo primero que ve un cliente en su primer login. La distinción ya existe en el código (`lib/sources.ts` separa conectada-y-fresca, conectada-sin-datos-recientes y desconectada), pero ni los prompts ni el semáforo la usan. Regla: todo consumidor de métricas necesita el cuarto estado "sin datos suficientes para opinar, conectá esto"; nunca dejar que un 0 por falta de fuente entre a un prompt como si fuera una medición.
+
+**Vive en:** lib/sources.ts, lib/retro-pipeline.ts (armado del prompt), app/general (semáforo) · *2026-08-05 ~verificar-commits-contra-el-board*
+
+
+### Decisiones tomadas, y por qué
+
+#### NVIDIA build.nvidia.com queda descartado como proveedor de IA, y por qué
+
+Se evaluó como capa gratis para ai-cheap. Los LLM son OpenAI-compatibles (baseURL integrate.api.nvidia.com/v1 + key nvapi-) y entrarían casi drop-in, pero hay dos frenos duros: los Trial ToS dicen que NVIDIA puede usar tus inputs y outputs para entrenar y PROHIBEN explícitamente subir PII —que es exactamente lo que procesa la app: leads y notas de voz de clientes—, y es un trial declarado «not intended for production», con 40 RPM (~2.400 requests/día) y sin SLA. Además el STT NO es drop-in: los ASR hosteados (parakeet, canary, whisper) corren por gRPC/Riva, no por /audio/transcriptions, así que habría que reescribir `transcribirAudio` o meter un puente. La única vía privada, self-hostear NIM, exige GPU y deja de ser gratis. Decisión: Groq sigue siendo el default para todo lo productivo; NVIDIA, a lo sumo, como laboratorio para benchmarkear modelos con datos que NO sean de clientes.
+
+**Vive en:** lib/ai-cheap.ts (resolución de proveedor por env) · *2026-07-14 research-nvidia-nim*
+
+#### Transcribir cursos largos: audio y no video, tier pago, y trozos de 10 minutos
+
+Research para bajar cientos de horas de cursos de Drive; no está implementado (hoy /conocimiento transcribe con Whisper de OpenAI, tope 25 MB). Lo que decide el diseño si alguna vez se construye: (1) mandar el AUDIO extraído, nunca el video — 32 tokens/segundo contra ~300, casi 10x, y el video además topea en ~1h de contexto mientras el audio llega a 9,5h; Gemini downsamplea a 16 kbps mono igual, así que codificar mono/16k no pierde nada (~7 MB por hora). (2) El modelo RESUME o limpia el habla si no se le prohíbe explícitamente: hay que pedir verbatim, con muletillas y sin corregir gramática. (3) Los timestamps en audios largos NO son de fiar (bug del foro oficial, 2026: deriva de hasta -157s en Flash) y arriba de ~15 min aparecen repeticiones y alucinaciones: trozos de 10 min con 30s de solape bajan la deriva a 5-10s y evitan el costo casi-cuadrático. (4) La Files API NO acepta URLs remotas y un link de Drive redirige al intersticial de virus-scan: hay que bajar los bytes, y para cientos de archivos conviene la Drive API v3 `files.get?alt=media` con service account en vez de scrapear el `confirm`. (5) Tier PAGO, no free — eso ya está escrito en la memoria de IA barata (el free entrena con tu contenido); el costo con Flash-Lite es ~US$0,04/hora.
+
+**Vive en:** lib/ai-cheap.ts (transcribirAudio, MAX_INLINE_GEMINI=14MB) · app/api/mako/knowledge/transcribe/route.ts (lo que hay hoy) · *2026-07-21 ~research-transcribir-cursos-con-gemini*
+
+
+### Lo que quedó sin hacer
+
+#### Dos STT hardcodeados a whisper-1 no pasan por el choke point y no se abaratan con la key de Groq
+
+`lib/ai-cheap.ts` ya elige proveedor por env (Groq whisper-large-v3-turbo si hay `GROQ_API_KEY`, si no OpenAI), así que casi todo el STT se abarata sin tocar código. Pero `transcribeMediaBuffer` (clases del portal de conocimiento) y `transcribeAd` (video de cada anuncio de Meta) arman su propio form con `model: 'whisper-1'` y no llaman a `transcribirAudio`: quedan clavados en OpenAI. Justo el de ads es el de más volumen, porque corre en cron y en backfill sobre cientos de anuncios. Al migrarlos hay que conservar el tope de 25 MB y `response_format: verbose_json` (se usa `duration` para calcular el costo).
+
+**Vive en:** lib/transcribe.ts:171 y :257 · *2026-07-15 ~ruteo-ia-por-tarea*
+
+#### Quedan dos call-sites que colapsan el avance del VSL de NULL a 0
+
+La regla «no medido ≠ no miró» ya está escrita y `getVslEngagement`/`getVslEngagementMap` se arreglaron, pero la auditoría dejó dos consumidores sin tocar y ninguno avisa: `lib/lead-insights.ts:267` hace `Math.max(0, ...eventos.map(e => e.porcentaje ?? 0))` y le dice a la IA «retención máxima 0%» — es el único lugar donde el número se convierte en prosa; y `lib/nutricion.ts:340,358` usa `(max_pct ?? 0) >= 50`, así que mientras faltó el dato NADIE cayó en la rama «vio el VSL» y toda la nutrición clasificó mal. Sumar: `lib/vsl-retencion.ts` (`curvaRetencion`, `histogramaAbandono`) sigue sin un solo call-site, y `landingRecibioEventos` (`lib/landing-token.ts:116`) mira `landing_visits`, que estaba sano, por eso /integraciones pintaba verde con la retención muerta.
+
+**Vive en:** lib/lead-insights.ts:267 · lib/nutricion.ts:340,358 · lib/vsl-retencion.ts · lib/landing-token.ts:116 · *2026-08-06 crm-tracking-import-export-audit*
+
+#### Los pasos de acción de un flujo son afordancia viva con dispatcher muerto
+
+`crear_tarea` / `inscribir_nutricion` / `marcar_lead` existen como `AccionFlujo` (lib/flujos-tipos.ts:34), se eligen HOY desde un dropdown de la UI (app/agencia/FlujoEditor.tsx) y `lib/flujos.ts:75` encola un pendiente con `tipo: \`flujo_${paso.accion}\`` (más `flujo_wa_lead` en la línea 62). Pero `ejecutarAccion` (lib/mako-doer-acciones.ts) solo tiene los casos `lead_etapa`, `nutricion_toggle`, `meta_nombre|presupuesto|estado` y `tareas_plan`: ningún `flujo_*` matchea. O sea que el dueño confirma por WhatsApp y recibe «❌ No se pudo: Acción desconocida: flujo_crear_tarea». La cañería proponer→confirmar-por-WhatsApp→ejecutar ya está construida y probada; falta un `case`, no una arquitectura.
+
+**Vive en:** lib/flujos.ts:62 y :75 vs el switch de ejecutarAccion en lib/mako-doer-acciones.ts:100-170 · *2026-07-16 · perro-guardian-captura*
+
+#### Los prompts de la matriz de razones y de los ángulos nunca se registraron: corre el fallback y /configuraciones no los ve
+
+`razones.system`, `razones.user`, `razones.guion`, `formatos.system` y `formatos.user` se resuelven con `renderPrompt(key, TEMPLATE_DEFAULT)`, o sea que están escritos como si fueran editables, pero ninguna de esas keys existe en lib/prompt-registry.ts (grep verificado vacío el 7/8/2026). Resultado: lo que corre es siempre el template hardcodeado y el usuario no los ve ni los puede tocar. Es el caso «prompt no listado» que caza la skill verify-prompt-registry-sync. Registrarlos es aditivo y no cambia comportamiento (el default es el mismo template).
+
+**Vive en:** lib/razones.ts:121-122,152 (GUION_SYSTEM_TEMPLATE) · lib/angulos-formatos.ts:120-150 · lib/prompt-registry.ts · *2026-07-28 mapear-onboarding-ajustes*
+
+#### El ensayo del onboarding del Chat Agent es de SOLO ESCRITURA: lo que contesta el dueño no alimenta nada
+
+El propio comentario de la ruta lo llama «el trabajo más caro del onboarding», y lo que el dueño escribe practicando contra los casos se guarda en el setting `chat_agent.ensayo`. Grep en todo el repo: las únicas referencias son la constante, el read y el write dentro de esa misma ruta (más el barrido de datos-mau). Nadie más lo lee. Las secuencias las arma `armarSecuenciasDeAudios` desde los AUDIOS, y las respuestas del ensayo no entran ahí — o sea que el paso termina existiendo solo para pintar los puntitos verdes de progreso. El circuito natural está a la vista: el caso «silencio» ES la secuencia de seguimiento y el caso «precio» ES la respuesta a la objeción de precio; con el desenlace por caso ya se puede además priorizar las respuestas que cerraron bien y descartar las que enfriaron al lead.
+
+**Vive en:** app/api/chat-agent/onboarding/ensayo/route.ts:96-139 (KEY_ENSAYO / leerEnsayo) · consumidor esperado: lib/secuencias-audios.ts (armarSecuenciasDeAudios), llamado desde app/api/chat-agent/onboarding/resumen/route.ts · *2026-08-02 · ~chat-agent-ensayo-y-secuencias*
+
+#### La Biblioteca de objeciones del Closing sigue bloqueada: `objections[].type` nunca se agregó
+
+En el port de la vista «Métricas» del Closing Analyst se dejó explícitamente fuera de v1 el único bloque que no era derivable: agrupar las objeciones por tipo (`socio | pensarlo | precio | presupuesto | tiempo | ya_intente`) para mostrar cuántas veces apareció cada una y qué porcentaje se resolvió. Verificado hoy: `ClosingObjection` sigue siendo `{ quote, t_seconds, handled, note }`, sin `type`. Mientras falte ese campo tampoco se pueden computar los insights que dependen de él («lo voy a pensar 3× y perdió las 3», «decisor faltante sin trabajar»). Para habilitarlo hay tres pasos y uno cuesta plata: (a) agregar `type` al tipo y al schema de `SYSTEM_ANALISIS`, (b) mapearlo en `analyzedRow`, (c) re-analizar el histórico. La alternativa barata —tipificar por regex sobre `quote`— se descartó a propósito en esa corrida: es el modelo el que ya está leyendo la llamada.
+
+**Vive en:** lib/closing.ts:54 (ClosingObjection) y el schema de SYSTEM_ANALISIS + analyzedRow en el mismo archivo · app/closing/ClosingBrowser.tsx (el bloque del panorama que quedó sin renderizar) · *2026-06-25 · ~closing-panorama-port*
+
