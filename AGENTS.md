@@ -87,6 +87,27 @@ el problema vuelva. `scripts/sync-contrato-detalle.mjs` copia hoy DOS cosas (el 
 `detalle` y la regla del nombre de un proyecto), cada una entre sus marcadores. Si agregás
 una skill que repite una de estas reglas, sumala a `DESTINOS` en vez de copiar el texto.
 
+# El `<main>` de una pantalla es `Pagina`
+
+Una pantalla **no elige su propio ancho**. Síntoma repetido: se agrega una vista y no
+llega al borde, queda una franja vacía a la derecha que nadie puso a propósito.
+
+No había ninguna regla escondida, y ese era el problema: cada pantalla escribía su
+propio `<main>`, así que cada una elegía su `maxWidth` por separado — 16 con el mismo
+padding, 7 variantes sueltas más, y topes de 1000, 1100 y 1200 según quién la escribió.
+Copiar la pantalla de al lado propagaba el número.
+
+```tsx
+import { Pagina } from '@/app/_ui';
+<Pagina>…</Pagina>          // densidad="compacta" para tableros y bandejas
+```
+
+El `style` de `Pagina` está tipado `Omit<CSSProperties, 'maxWidth' | 'width'>`: el
+compilador rechaza el ancho. Si lo que necesita tope es **texto**, el tope va en el
+párrafo (`Lectura`, 70ch), nunca en la página — un `maxWidth` en el `<main>` también
+angosta las tablas y los grids. El resto del sistema, en
+[app/_ui/LEEME.md](app/_ui/LEEME.md); el catálogo vivo, en `/admin/ui`.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que
