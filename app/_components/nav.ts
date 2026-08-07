@@ -269,7 +269,7 @@ export const MAKO_NAV: NavItem[] = [
 // visualmente cuando el usuario está operando un negocio».
 export const ADMIN_NAV: NavItem[] = [
   // /admin/guiones tiene su propio item — que "Clientes" no se marque también.
-  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) },
+  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/rediseno')(p) },
   { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
   // Canal propio de MaKo (SuperAdmin): WhatsApp del admin (canal + chat de grupos
   // + plantillas). NO es preview de ningún cliente. Su propia línea por QR.
@@ -284,6 +284,8 @@ export const ADMIN_NAV: NavItem[] = [
   // El catálogo vivo del sistema de diseño (app/_ui). Herramienta de
   // construcción, no producto.
   { key: 'ui', label: 'Sistema de diseño', href: '/admin/ui', icon: 'config', match: starts('/admin/ui') },
+  // El registro del rediseño: qué se cambió, por qué, y cómo quedó la barra.
+  { key: 'rediseno', label: 'Rediseño', href: '/admin/rediseno', icon: 'creativos', match: starts('/admin/rediseno') },
   // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
   { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
 ];
