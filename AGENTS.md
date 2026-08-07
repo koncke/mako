@@ -63,3 +63,30 @@ script y **el pre-push falla si quedaron viejas** — esa guarda es lo único qu
 el problema vuelva. `scripts/sync-contrato-detalle.mjs` copia hoy DOS cosas (el molde del
 `detalle` y la regla del nombre de un proyecto), cada una entre sus marcadores. Si agregás
 una skill que repite una de estas reglas, sumala a `DESTINOS` en vez de copiar el texto.
+
+# La cosecha: lo que aprende un subagente no vuelve solo
+
+Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que
+devuelven**. Todo lo que leyeron y razonaron se queda afuera. Las transcripciones sí
+quedan en disco (`~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<runId>/`),
+pero son megas de crudo que nadie va a abrir y que la próxima sesión ni sabe que
+existen. En la práctica: lo que no se escribe, se pierde.
+
+No es hipotético. Una corrida de 14 agentes sobre el formulario "¿Qué hacer ahora?"
+encontró 13 problemas reales; los 5 que quedaron fuera de alcance sobrevivieron
+únicamente porque se escribieron.
+
+**Regla: toda corrida con subagentes termina escribiendo en `docs/hallazgos-crm.md`.**
+
+Qué va ahí:
+
+| Sí | No |
+|---|---|
+| Síntoma visto → causa real → dónde vive → la regla que queda | El changelog de lo que se hizo (ya está en el commit) |
+| Las trampas del entorno: una API que devuelve vacío en vez de error, un límite que corta en silencio, un default que inventa un dato | Resúmenes de la corrida |
+| **Cuándo el diagnóstico obvio era el equivocado** — lo que más tiempo ahorra después | Relleno |
+| Lo que quedó SIN hacer, con el archivo donde vive | |
+
+Una entrada por tema, se integra sin duplicar, se lee en 5 minutos. Si la lección
+gobierna código nuevo (no es un hallazgo sino una regla), va acá en `AGENTS.md`, que
+es lo que todos leen antes de escribir.
