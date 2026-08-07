@@ -11,20 +11,22 @@
 import { useEffect, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { addLeadNoteAction, getLeadNotasAction, type LeadAuditRowFull } from '../actions';
+import { useTzWorkspace } from './useTzWorkspace';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-const fmtFecha = (iso: string) => {
+const fmtFecha = (iso: string, tz: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }).format(d);
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: tz }).format(d);
 };
 
 export function NotasCard({ leadId }: { leadId: number }) {
   const router = useRouter();
+  const tz = useTzWorkspace();
   const [notas, setNotas] = useState<LeadAuditRowFull[]>([]);
   const [cargando, setCargando] = useState(true);
   const [texto, setTexto] = useState('');
@@ -84,7 +86,7 @@ export function NotasCard({ leadId }: { leadId: number }) {
               {n.autor_foto && <img src={n.autor_foto} alt="" width={18} height={18} style={{ borderRadius: '50%', objectFit: 'cover' }} />}
               <span style={{ fontWeight: 600, color: 'var(--dim)' }}>{n.autor_nombre}</span>
               <span>·</span>
-              <span style={{ fontFamily: MONO }}>{fmtFecha(n.created_at)}</span>
+              <span style={{ fontFamily: MONO }}>{fmtFecha(n.created_at, tz)}</span>
             </div>
           </div>
         ))}

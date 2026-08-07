@@ -17,6 +17,7 @@ import type { Step } from '@/lib/stage-requirements';
 import { generateLeadInsightAction, analizarLlamadaLeadAction, leadTieneLlamadaAction } from '../insights-actions';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useTzWorkspace } from './useTzWorkspace';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -27,8 +28,8 @@ const miniLabel: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpaci
 
 export type LlamadaRef = { tipo: string | null; fecha: string | null; url: string | null };
 
-const fmtCuando = (iso: string) =>
-  new Date(iso).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+const fmtCuando = (iso: string, tz: string) =>
+  new Date(iso).toLocaleString('es-MX', { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 
 function Chips({ items, tono }: { items: string[]; tono: 'good' | 'bad' }) {
   if (!items.length) return null;
@@ -51,6 +52,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
   llamadas: LlamadaRef[];
 }) {
   const router = useRouter();
+  const tz = useTzWorkspace();
   const [pending, startTransition] = useTransition();
   const [insight, setInsight] = useState<LeadInsightGen | null>(inicial);
   const [faltantes, setFaltantes] = useState<Step[]>(faltantesIniciales);
@@ -248,7 +250,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
 
             {/* Footer: cuándo + llamadas base */}
             <div style={{ fontSize: 12, color: 'var(--faint)', borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-              {insight && <span>Generado el {fmtCuando(insight.created_at)}</span>}
+              {insight && <span>Generado el {fmtCuando(insight.created_at, tz)}</span>}
               <span>·</span>
               <span>Basado en {llamadas.length} llamada{llamadas.length === 1 ? '' : 's'}</span>
               {llamadas.filter((l) => l.url).map((l, i) => (

@@ -14,17 +14,18 @@ import { stageMetaOpt, type Stage } from '@/lib/pipeline';
 import { normalizar as normTxt } from '@/lib/buscar-texto';
 import { getLeadAuditAction, revertMoveAction, type LeadAuditRowFull } from '../actions';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useTzWorkspace } from './useTzWorkspace';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-const fmtAuditDate = (iso: string) => {
+const fmtAuditDate = (iso: string, tz: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   // Formato corto 24h — entra en una línea, sin "a.m./p.m." colgando.
-  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Tijuana' }).format(d).replace(',', '');
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(d).replace(',', '');
 };
 
 /** Nombres legibles del estado canónico. */
@@ -71,6 +72,7 @@ function Autor({ row }: { row: LeadAuditRowFull }) {
 
 export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stage[] }) {
   const router = useRouter();
+  const tz = useTzWorkspace();
 
   // Resuelve el valor guardado de una etapa. Acepta la KEY (lo correcto) y también
   // la ETIQUETA (historial reconstruido viejo). Si no la reconoce devuelve undefined
@@ -228,7 +230,7 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
                 <span style={{ position: 'absolute', left: -5.5, top: 15, width: 10, height: 10, borderRadius: '50%', background: puntoDe(g), border: '2px solid var(--surface)', boxSizing: 'border-box' }} />
               </span>
               <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, flexWrap: 'wrap' }}>
-              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{fmtAuditDate(head.created_at)}</span>
+              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{fmtAuditDate(head.created_at, tz)}</span>
               <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--ink)', display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {g.map((a) => {
                   const t = tramoPorFila.get(a.id);

@@ -176,7 +176,18 @@ export async function resolverConfirmacion(id: number, decision: string, autor: 
     const key = decision.slice(3);
     const op = (c.opciones ?? []).find((o) => o.key === key);
     if (!op) throw new Error('Opción inválida');
-    if (op.stage) await setPipelineStage(c.lead_id, op.stage, { motivo: op.motivo ?? null });
+    if (op.stage) {
+      // El botón del modal no abre ningún formulario: si la opción no trae motivo
+      // (las de "Marcar Perdido" no lo traen), el lead terminaba en una salida con
+      // el motivo de una pérdida ANTERIOR o sin motivo, algo que el wizard del CRM
+      // jamás habría dejado pasar. El motivo lo pone la propuesta que el humano
+      // acaba de aceptar: la regla + su título es exactamente el porqué.
+      const motivo = op.motivo?.trim() || `${c.regla}: ${c.titulo}`;
+      // Y se valida con la misma fuente que el CRM: si aun así falta un dato, el
+      // movimiento no se hace y la confirmación queda pendiente (el modal muestra
+      // el error y el humano puede resolverlo desde la ficha).
+      await setPipelineStage(c.lead_id, op.stage, { motivo, requisitos: 'validar' });
+    }
     nota = `MaKo (${c.regla}): "${op.label}" por ${autor}`;
   } else {
     nota = `MaKo (${c.regla}): confirmado por ${autor}`;

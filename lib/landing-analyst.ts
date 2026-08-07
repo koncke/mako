@@ -20,6 +20,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { leerTodo } from './supabase-paginado';
 import { chatClaude } from './anthropic';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import { getFunnel } from './leads';
@@ -118,25 +119,13 @@ const ANALYSIS_VERSION = 1;
 
 /**
  * PostgREST corta en 1000 filas y `.limit()` NO sube ese techo: hay que paginar
- * con `.range()` o los datos se pierden SIN error. Este helper es el único lugar
- * donde se lee tracking crudo, así que la paginación vive acá.
+ * o los datos se pierden SIN error. El bucle vive en lib/supabase-paginado.ts
+ * (era una copia privada de acá); esto solo le pasa el cliente del inquilino.
+ * `landing_visits`, `vsl_events` y `landing_analyses` tienen `id` como PK, que
+ * es el orden por defecto del helper y el único que garantiza páginas coherentes.
  */
-async function leerTodo<T>(tabla: string, cols: string, pagina = 1000): Promise<T[]> {
-  const supabase = (await getTenantDb());
-  const out: T[] = [];
-  for (let desde = 0; ; desde += pagina) {
-    // `.order('id')` NO es decorativo: sin ORDER BY, Postgres no garantiza el
-    // mismo orden entre dos consultas, así que el offset de la página 2 se
-    // aplica sobre un orden distinto al de la página 1 → filas repetidas y filas
-    // salteadas, sin ningún error. Con la tabla escribiéndose en vivo (el beacon
-    // inserta todo el tiempo) es la norma, no el caso raro.
-    const { data, error } = await supabase.from(tabla).select(cols).order('id', { ascending: true }).range(desde, desde + pagina - 1);
-    if (error) throw new Error(`Error leyendo ${tabla}: ${error.message}`);
-    const filas = (data ?? []) as unknown as T[];
-    out.push(...filas);
-    if (filas.length < pagina) break;
-  }
-  return out;
+async function leerTabla<T>(tabla: string, cols: string): Promise<T[]> {
+  return leerTodo<T>(await getTenantDb(), tabla, cols);
 }
 
 /** Host+path de un referrer, para agrupar sin la basura del querystring. */
@@ -162,7 +151,7 @@ export async function getComportamiento(url: string): Promise<LandingComportamie
 
   let visitas: Visita[];
   try {
-    visitas = await leerTodo<Visita>('landing_visits', 'visitor_id, landing_url, referrer, created_at');
+    visitas = await leerTabla<Visita>('landing_visits', 'visitor_id, landing_url, referrer, created_at');
   } catch { return vacio; }
 
   // La URL guardada por el beacon trae utm/fbclid: se compara NORMALIZADA contra
@@ -188,7 +177,7 @@ export async function getComportamiento(url: string): Promise<LandingComportamie
   let plays = 0, medidos = 0;
   let mitad: number | null = null, final: number | null = null;
   try {
-    const eventos = await leerTodo<EventoVsl>('vsl_events', 'visitor_id, tipo_evento, porcentaje, segundos, video_id');
+    const eventos = await leerTabla<EventoVsl>('vsl_events', 'visitor_id, tipo_evento, porcentaje, segundos, video_id');
     const mios = eventos.filter((e) => e.visitor_id && visitantes.has(e.visitor_id));
     // La duración sale de Panda y no siempre se puede pedir acá (no todo
     // workspace lo tiene conectado). Con `null`, avanceDe solo cuenta los
@@ -238,7 +227,7 @@ export async function getComportamiento(url: string): Promise<LandingComportamie
 export async function urlsDescubiertas(): Promise<Array<{ url: string; visitas: number }>> {
   type Visita = { landing_url: string | null };
   let visitas: Visita[];
-  try { visitas = await leerTodo<Visita>('landing_visits', 'landing_url'); } catch { return []; }
+  try { visitas = await leerTabla<Visita>('landing_visits', 'landing_url'); } catch { return []; }
   const cuenta = new Map<string, number>();
   for (const v of visitas) {
     if (!v.landing_url) continue;
@@ -725,7 +714,7 @@ export async function syncLandings(opts: { max?: number; timeBudgetMs?: number; 
 
   // Paginado: con >1000 landings, un select suelto devolvía las primeras 1000 y
   // el resto quedaba invisible para el sync.
-  const filas = await leerTodo<{ url: string; status: string; updated_at: string | null }>(
+  const filas = await leerTabla<{ url: string; status: string; updated_at: string | null }>(
     'landing_analyses', 'url, status, updated_at',
   );
 

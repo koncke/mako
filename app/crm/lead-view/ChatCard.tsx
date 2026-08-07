@@ -9,6 +9,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useTzWorkspace } from './useTzWorkspace';
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -34,13 +35,16 @@ type Estado =
   | { fase: 'sin-chat' }
   | { fase: 'ok'; contactId: number; mensajes: Mensaje[] };
 
-const TZ = 'America/Tijuana';
-const fmtDia = (ts: number) =>
-  new Date(ts * 1000).toLocaleDateString('es-MX', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' });
-const fmtHora = (ts: number) =>
-  new Date(ts * 1000).toLocaleTimeString('es-MX', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+// La hora del hilo va en la zona del WORKSPACE, no en la del dueño: el
+// separador de día también depende de ella (a las 23:30 en TJ ya es otro día en
+// Madrid, y los mensajes quedaban agrupados bajo la fecha equivocada).
+const fmtDia = (ts: number, tz: string) =>
+  new Date(ts * 1000).toLocaleDateString('es-MX', { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' });
+const fmtHora = (ts: number, tz: string) =>
+  new Date(ts * 1000).toLocaleTimeString('es-MX', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
 
 export function ChatCard({ leadId }: { leadId: number }) {
+  const tz = useTzWorkspace();
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -130,9 +134,9 @@ export function ChatCard({ leadId }: { leadId: number }) {
       ) : (
         <div ref={scrollRef} style={{ maxHeight: 480, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
           {mensajes.map((m, i) => {
-            const dia = m.fecha ? fmtDia(m.fecha) : '';
+            const dia = m.fecha ? fmtDia(m.fecha, tz) : '';
             const anterior = mensajes[i - 1];
-            const diaAnterior = anterior?.fecha ? fmtDia(anterior.fecha) : '';
+            const diaAnterior = anterior?.fecha ? fmtDia(anterior.fecha, tz) : '';
             const conSeparador = !!dia && dia !== diaAnterior;
             return (
               <div key={m.id} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -150,7 +154,7 @@ export function ChatCard({ leadId }: { leadId: number }) {
                     </a>
                   ))}
                   <div style={{ fontSize: 10.5, opacity: 0.7, marginTop: 4, textAlign: 'right', fontFamily: MONO }}>
-                    {m.fecha ? fmtHora(m.fecha) : ''}
+                    {m.fecha ? fmtHora(m.fecha, tz) : ''}
                     {m.saliente && m.status === 'failed' && <span style={{ marginLeft: 6, fontWeight: 700 }}>✕ no llegó</span>}
                   </div>
                 </div>

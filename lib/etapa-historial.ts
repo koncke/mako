@@ -78,6 +78,38 @@ export function cambioDeEtapa(
   return desde === hacia ? null : { desde, hacia };
 }
 
+/**
+ * Qué habría que grabar en `etapa_vista` para que el lead quede coherente con la
+ * etapa que HOY muestra. null = ya está alineado (no hay nada que escribir).
+ *
+ * Es la misma comparación que hace la pasada masiva, expuesta aparte para el caso
+ * que no pasa por ella: DESHACER un movimiento. Deshacer no deja línea nueva
+ * («un cambio deshecho no es historia»), así que tampoco puede dejar la memoria
+ * apuntando a la etapa que se deshizo — si la deja, la próxima pasada ve
+ * `vista !== etapa` y escribe, firmada por MaKo, la línea que el deshacer
+ * justamente eliminó.
+ */
+export function etapaVistaPendiente(lead: LeadConEtapa): string | null {
+  const hacia = pipelineStageOf(lead);
+  return etapaVistaDe(lead) === hacia ? null : hacia;
+}
+
+/**
+ * Deja `etapa_vista` igual a la etapa efectiva del lead SIN escribir historial.
+ * Para el que deshace: aplicá los cambios, releé el lead y pasalo por acá.
+ *
+ * Sirve para cualquier deshacer, no solo el de la columna: revertir 'Asistió R1'
+ * o 'Estado' mueve la etapa DERIVADA aunque no haya fila 'Etapa' en el grupo.
+ *
+ * @returns true si quedó alineada (incluido el caso "ya lo estaba", 0 escrituras).
+ */
+export async function alinearEtapaVista(lead: LeadConEtapa | null | undefined): Promise<boolean> {
+  if (!lead) return false;
+  const etapa = etapaVistaPendiente(lead);
+  if (!etapa) return true;
+  return marcarEtapaVista([lead.id], etapa);
+}
+
 // PostgREST manda el filtro `in` en la query string: con ~800 ids la URL se
 // vuelve impracticable. 200 por trozo deja la URL en el orden de 1 KB.
 const TROZO = 200;

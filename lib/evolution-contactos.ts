@@ -6,6 +6,7 @@
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
+import { leerTodo } from '@/lib/supabase-paginado';
 import { jidToNumero } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
 
@@ -77,38 +78,34 @@ export async function getFotoContacto(telefono: string): Promise<string | null> 
 
 /** Teléfonos (últimos 10) que TIENEN foto de perfil guardada. */
 export async function getFotosContacto(): Promise<Set<string>> {
-  const supabase = await getTenantDb();
   const out = new Set<string>();
-  for (let desde = 0; desde < 20000; desde += 1000) {
-    const { data } = await supabase
-      .from('evolution_contactos').select('telefono, foto_url')
-      .not('foto_url', 'is', null)
-      .range(desde, desde + 999);
-    const filas = (data ?? []) as Array<{ telefono: string; foto_url: string | null }>;
-    for (const r of filas) { const k = digs(r.telefono).slice(-10); if (k) out.add(k); }
-    if (filas.length < 1000) break;
-  }
+  const filas = await leerTodo<{ telefono: string; foto_url: string | null }>(
+    await getTenantDb(), 'evolution_contactos', 'telefono, foto_url',
+    { filtros: (q) => q.not('foto_url', 'is', null) },
+  );
+  for (const r of filas) { const k = digs(r.telefono).slice(-10); if (k) out.add(k); }
   return out;
 }
 
 // Nombres de contacto por últimos-10 dígitos (para enriquecer la lista).
 export async function getNombresContacto(): Promise<Map<string, string>> {
-  const supabase = await getTenantDb();
   const m = new Map<string, string>();
-  // Paginado a mano: sin `range` PostgREST devuelve como mucho 1000 filas, y una
-  // agenda de WhatsApp pasa las 2000 fácil. El síntoma era mudo — la mitad de
-  // los contactos aparecía con el número crudo, como si no tuvieran nombre.
-  for (let desde = 0; desde < 20000; desde += 1000) {
-    const { data } = await supabase
-      .from('evolution_contactos').select('telefono, nombre')
-      .not('nombre', 'is', null)
-      .range(desde, desde + 999);
-    const filas = (data ?? []) as Array<{ telefono: string; nombre: string | null }>;
-    for (const r of filas) {
-      const k = digs(r.telefono).slice(-10);
-      if (k && r.nombre && !m.has(k)) m.set(k, r.nombre);
-    }
-    if (filas.length < 1000) break;
+  // Paginado: sin él PostgREST devuelve como mucho 1000 filas, y una agenda de
+  // WhatsApp pasa las 2000 fácil. El síntoma era mudo — la mitad de los
+  // contactos aparecía con el número crudo, como si no tuvieran nombre.
+  //
+  // El bucle que había acá paginaba SIN ORDER BY, que es la otra mitad del bug y
+  // no la arreglaba: con dos requests sin orden garantizado, la página 2 podía
+  // repetir contactos de la 1 y saltearse otros — los salteados volvían a
+  // aparecer con el número crudo, exactamente el síntoma que se creía resuelto.
+  // El helper ordena por `id` (PK de evolution_contactos) en todas las páginas.
+  const filas = await leerTodo<{ telefono: string; nombre: string | null }>(
+    await getTenantDb(), 'evolution_contactos', 'telefono, nombre',
+    { filtros: (q) => q.not('nombre', 'is', null) },
+  );
+  for (const r of filas) {
+    const k = digs(r.telefono).slice(-10);
+    if (k && r.nombre && !m.has(k)) m.set(k, r.nombre);
   }
   return m;
 }

@@ -1,11 +1,24 @@
 // =============================================================================
-// Helpers de fecha en zona America/Tijuana
+// Helpers de fecha: los que reciben `tz`, y los legacy anclados a Tijuana
 // =============================================================================
-// Toda la lógica de "ayer", "hoy", etc. del dashboard se ancla a Tijuana
-// (donde vive Mauricio), NO a UTC ni a la zona del server. Razón: los crons
-// corren en UTC en Vercel, pero la fecha "calendarizada" del negocio es TJ.
+// Los crons corren en UTC en Vercel, así que ninguna fecha "calendarizada" del
+// negocio puede salir de la zona del server: siempre hay que nombrar una zona.
+//
+// Los helpers *EnTijuana son los VIEJOS, de cuando el único cliente vivía en TJ.
+// Con multi-inquilino la zona sale del workspace (lib/timezone.ts): para lo que
+// ve un usuario usá hoyEnWorkspace()/tzActual() y las variantes *EnTz de acá.
+// Este módulo NO tiene 'server-only' a propósito — los componentes de cliente
+// necesitan el literal de la zona por defecto para su primer render.
 
-const TIJUANA = 'America/Tijuana';
+/**
+ * La zona por defecto del producto (donde vive el primer cliente). Es la MISMA
+ * que TZ_DEFAULT de lib/timezone.ts, que la importa de acá: el literal vive en
+ * un solo lugar porque lib/timezone.ts es `server-only` y el cliente no puede
+ * importarlo.
+ */
+export const TZ_TIJUANA = 'America/Tijuana';
+
+const TIJUANA = TZ_TIJUANA;
 
 /**
  * Fecha en una zona horaria arbitraria, formato 'YYYY-MM-DD'. Base multi-tenant:

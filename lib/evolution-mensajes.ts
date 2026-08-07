@@ -9,6 +9,7 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { OWNER_WS } from '@/lib/auth-session';
 import { jidToNumero, instanceNameDeWs, fetchMensajesEvolution,
   fetchConversacionEvolution, fetchChatsEvolution, fetchLidDeNumero, statusDeRecord, type EvRecord } from '@/lib/evolution';
@@ -223,6 +224,28 @@ export type WaConversacion = {
   ultimoEntrante: boolean; total: number; bloqueado: boolean;
 };
 
+/**
+ * Orden del barrido del espejo: del mensaje más nuevo al más viejo. Los dos
+ * lectores de abajo dependen de eso (el primero que aparece por chat ES el
+ * último mensaje), así que vive en un solo lugar.
+ *
+ * El desempate por `id` NO es adorno: `wa_timestamp` se repite (WhatsApp entrega
+ * ráfagas con el mismo segundo, y el importador vuelca chats enteros de golpe).
+ * Con un orden que empata, Postgres puede acomodar las filas empatadas distinto
+ * en cada request, y el OFFSET de la página siguiente se aplica sobre ese otro
+ * reparto → mensajes repetidos y mensajes salteados, sin ningún error.
+ */
+const ORDEN_ESPEJO = [{ col: 'wa_timestamp', asc: false }, { col: 'id', asc: false }] as const;
+
+/**
+ * Tope explícito del barrido: 20 páginas = 20.000 mensajes, los MÁS RECIENTES
+ * (por el orden de arriba). Es el mismo techo que tenía el bucle a mano; la
+ * diferencia es que ahora se lee en el call-site en vez de estar escondido en un
+ * `desde < 20000`. Un espejo más grande que eso no entra en el presupuesto de un
+ * request, y quedarse con lo más nuevo es la pérdida menos mala.
+ */
+const TOPE_PAGINAS_ESPEJO = 20;
+
 // Conversaciones del canal no oficial: agrupa wa_mensajes por chat (en JS, como
 // el inbox de Chatwoot). Trae los últimos N y arma un hilo por contacto.
 export async function getConversacionesNoOficial(limite = 600, incluirOcultos = false): Promise<WaConversacion[]> {
@@ -237,17 +260,13 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
   // que la ruta de onboarding) y recién al final se corta a `limite` conversaciones.
   type Fila = { chat_jid: string; telefono: string | null; push_name: string | null; texto: string | null; tipo: string | null; from_me: boolean; wa_timestamp: string | null; lead_id: number | null };
   const rows: Fila[] = [];
-  for (let desde = 0; desde < 20000; desde += 1000) {
-    const { data } = await supabase
-      .from('wa_mensajes')
-      .select('chat_jid, telefono, push_name, texto, tipo, from_me, wa_timestamp, lead_id')
-      .neq('tipo', 'evento')   // reacciones/protocolo no cuentan como "último mensaje"
-      .order('wa_timestamp', { ascending: false })
-      .range(desde, desde + 999);
-    const pagina = (data ?? []) as Fila[];
-    rows.push(...pagina);
-    if (pagina.length < 1000) break;
-  }
+  await leerPorPaginas<Fila>(
+    supabase, 'wa_mensajes',
+    'chat_jid, telefono, push_name, texto, tipo, from_me, wa_timestamp, lead_id',
+    (pagina, nro) => { rows.push(...pagina); return nro < TOPE_PAGINAS_ESPEJO; },
+    // reacciones/protocolo no cuentan como "último mensaje"
+    { orden: ORDEN_ESPEJO, filtros: (q) => q.neq('tipo', 'evento') },
+  );
 
   // Agrupamos por TELÉFONO (últimos 10 dígitos), NO por chat_jid exacto: Evolution
   // guarda entrantes/salientes bajo jids que a veces difieren (9 de AR, @lid vs
@@ -318,7 +337,10 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
 
   // Nombre del contacto de WhatsApp (evolution_contactos, del evento contacts.upsert)
   // para las convs que quedaron solo con el número (sin lead ni push_name entrante).
-  const nombresContacto = await getNombresContacto();
+  // Con `catch`: la agenda es un ADORNO del inbox (sin ella se ve el número), y
+  // desde que la lectura pasó a paginar de verdad puede lanzar. Una agenda que
+  // no se pudo leer no puede dejar al dueño sin inbox.
+  const nombresContacto = await getNombresContacto().catch(() => new Map<string, string>());
   if (nombresContacto.size) for (const c of convs) {
     if (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, '') || c.nombre === 'Você') {
       const n = nombresContacto.get((c.telefono || '').replace(/\D/g, '').slice(-10));
@@ -542,19 +564,21 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
   // dueño apretaba el botón tres veces y no avanzaba nunca.
   const yaEspejado = new Map<string, { ultimo: string; cuantos: number }>();
   try {
-    for (let desde = 0; desde < 20000; desde += 1000) {
-      const { data: prev } = await supabase
-        .from('wa_mensajes').select('chat_jid, wa_timestamp')
-        .order('wa_timestamp', { ascending: false }).range(desde, desde + 999);
-      const filas = (prev ?? []) as Array<{ chat_jid: string; wa_timestamp: string | null }>;
-      for (const f of filas) {
-        const e = yaEspejado.get(f.chat_jid);
-        // El primero que aparece es el más nuevo (viene ordenado desc).
-        if (e) e.cuantos += 1;
-        else yaEspejado.set(f.chat_jid, { ultimo: f.wa_timestamp ?? '', cuantos: 1 });
-      }
-      if (filas.length < 1000) break;
-    }
+    // Por página y no `leerTodo`: de cada mensaje solo sobrevive un contador en
+    // el Map, no hay motivo para tener 20.000 filas vivas a la vez.
+    await leerPorPaginas<{ chat_jid: string; wa_timestamp: string | null }>(
+      supabase, 'wa_mensajes', 'chat_jid, wa_timestamp',
+      (filas, nro) => {
+        for (const f of filas) {
+          const e = yaEspejado.get(f.chat_jid);
+          // El primero que aparece es el más nuevo (viene ordenado desc).
+          if (e) e.cuantos += 1;
+          else yaEspejado.set(f.chat_jid, { ultimo: f.wa_timestamp ?? '', cuantos: 1 });
+        }
+        return nro < TOPE_PAGINAS_ESPEJO;
+      },
+      { orden: ORDEN_ESPEJO },
+    );
   } catch { /* sin espejo previo, se recorre todo */ }
 
   const limite = Date.now() + 240_000;

@@ -22,6 +22,7 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import { writeFileSync } from 'node:fs';
 import { runWithWorkspace, getTenantDb } from '../lib/workspace';
+import { leerTodo } from '../lib/supabase-paginado';
 import { evaluarDetalle } from '../lib/detalle-contrato';
 
 const SALIDA = process.argv[2] || '.';
@@ -31,16 +32,19 @@ type Row = Record<string, unknown>;
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : v == null ? d : String(v));
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
-/** PostgREST corta en 1000 filas pase lo que pase: hay que paginar con .range(). */
+/**
+ * PostgREST corta en 1000 filas pase lo que pase: hay que paginar
+ * (lib/supabase-paginado.ts). El bucle que había acá lo hacía SIN ORDER BY, así
+ * que en un tablero de más de 1000 tareas la foto podía traer tareas repetidas y
+ * perder otras — y esta foto es justamente lo que se usa para reescribir los
+ * detalles a mano: lo que no aparece acá, no se reescribe nunca.
+ *
+ * Las cuatro tablas (plan_tareas, experimento_tareas, plan_proyectos,
+ * plan_propuestas) tienen `id` y es único DENTRO del workspace, que es el único
+ * ámbito que ve el cliente de getTenantDb(). Alcanza como orden estable.
+ */
 async function todas(db: Awaited<ReturnType<typeof getTenantDb>>, tabla: string, cols: string): Promise<Row[]> {
-  const out: Row[] = [];
-  for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await db.from(tabla).select(cols).range(desde, desde + 999);
-    if (error) throw new Error(`${tabla}: ${error.message}`);
-    const f = (data ?? []) as unknown as Row[];
-    out.push(...f);
-    if (f.length < 1000) return out;
-  }
+  return leerTodo<Row>(db, tabla, cols);
 }
 
 async function main() {

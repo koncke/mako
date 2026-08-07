@@ -3,11 +3,15 @@
 // =============================================================================
 // StageMoveDialog — wizard progresivo para completar un movimiento de etapa
 // =============================================================================
-// Diseño tipo asistente MaKo: logo, dots de progreso, una pregunta grande por
-// paso, botones grandes y footer Cancelar/Siguiente. El flujo es dinámico:
-// "¿Hubo R1?" (cierres sin reunión piden el motivo y saltan lo demás), Fathom
-// omitible si la reunión no se grabó, y el plan de pagos son cuotas explícitas
-// (primera cuota + "Agregar cuota") que deben cuadrar con el monto de cierre.
+// El chrome (logo, puntitos, una pregunta grande por paso, footer) es el de la
+// casa: `app/_components/WizardShell.tsx`. Acá vive SOLO el flujo, que es
+// dinámico: "¿Hubo R1?" (cierres sin reunión piden el motivo y saltan lo demás),
+// Fathom omitible si la reunión no se grabó, y el plan de pagos son cuotas
+// explícitas (primera cuota + "Agregar cuota") que deben cuadrar con el monto.
+//
+// Es el wizard con más ramas de la app, así que le pasa a WizardShell el MAPA
+// (`pasos` + `pasoActual`) y no `total`/`idx`: la lista de preguntas se rearma
+// con cada respuesta y una cuenta suelta no la puede seguir.
 
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { stageMeta, type Stage } from '@/lib/pipeline';
@@ -19,6 +23,8 @@ import type { CrmLead } from './CrmBoard';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { esMaKo, MAKO_STAR_URI } from './mako-setter';
 import { motivosDeSalida, motivoFinalDe } from './motivos-salida';
+import { WizardShell } from '@/app/_components/WizardShell';
+import { useCapaModal } from '@/app/_components/pila-modales';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -227,6 +233,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [dealBusy, setDealBusy] = useState(false);
   const [dealReporte, setDealReporte] = useState<string[] | null>(null);
   const [guardado, setGuardado] = useState(false); // tras confirmar → paso final ver/salir
+  // El cartel final es OTRO modal, y también entra en la pila de la casa. Cuando
+  // se pintaba con un z-index propio (100) quedaba por DEBAJO de cualquier modal
+  // de la app (la pila arranca en 130): el usuario confirmaba, la pantalla no se
+  // movía y no había nada que explicara por qué.
+  const capaFinal = useCapaModal(guardado);
   const esDescal = to === 'descal';
   const motivoFinal = motivoFinalDe(motivo, motivoDetalle);
 
@@ -1020,13 +1031,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // datos exige la etapa, se bloquea todo (no avanzar, no volver, no cerrar) y se
   // muestra un loader que tapa el pop-up. La consulta de requisitos entra acá a
   // propósito: arrancar a contestar sobre una lista que en 200ms puede crecer es
-  // exactamente el problema que este wizard vino a resolver.
+  // exactamente el problema que este wizard vino a resolver. El loader lo pinta
+  // WizardShell (prop `cargando`): dentro de la tarjeta, con el z-index de la
+  // pila — antes tenía uno propio y con dos modales abiertos no se veía.
   const busy = dealBusy || autoBusy || cargandoReq;
+  const textoCargando = dealBusy ? 'Leyendo el contrato…' : autoBusy ? 'Buscando en Calendly y Fathom…' : 'Revisando qué datos faltan…';
 
   // Paso final tras guardar (P8): ver detalle o salir. No re-cierra solo.
   if (guardado) {
     return (
-      <div onClick={onDone} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={onDone} style={{ position: 'fixed', inset: 0, zIndex: capaFinal.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capaFinal.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '30px clamp(20px,6vw,40px)', textAlign: 'center' }}>
           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 14 }}>✦ MAKO</div>
           <div aria-hidden style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--good-bg)', color: 'var(--good)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, marginBottom: 12 }}>✓</div>
@@ -1041,67 +1055,55 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     );
   }
 
+  // Chrome de la casa (header ✦ MAKO + puntitos + cuerpo + footer): WizardShell.
+  // Este wizard era el ÚNICO con ramas de verdad y tenía el chrome forkeado, así
+  // que sus puntitos eran los viejos —uno por elemento de una lista que cambia
+  // sola— y mentían justo donde más se nota. Se le pasa el MAPA (`pasos` +
+  // `pasoActual`) en vez de `total`/`idx`: la posición sale de buscar el paso en
+  // la lista real y la cola deja de prometer una cantidad en cuanto el mapa se
+  // mueve. Lo que NO se movió de acá: qué se pregunta y en qué orden (`pasos`),
+  // el historial de `visitados` para el Atrás, y el paso final tras guardar.
   return (
-    <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ position: 'relative', width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
-
-        {/* Loader que BLOQUEA todo mientras lee el contrato / busca reuniones */}
-        {busy && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 10, background: 'rgba(255,255,255,.78)', backdropFilter: 'blur(1.5px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-            <span aria-hidden style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', boxSizing: 'border-box', animation: 'spin .7s linear infinite' }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', fontFamily: SANS }}>{dealBusy ? 'Leyendo el contrato…' : autoBusy ? 'Buscando en Calendly y Fathom…' : 'Revisando qué datos faltan…'}</span>
-          </div>
-        )}
-
-        {/* Header: logo · dots de progreso · cerrar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px' }}>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {pasos.map((p, i) => (
-              <span key={p + i} style={{ width: i === idx ? 22 : 8, height: 8, borderRadius: 999, background: i === idx ? 'var(--primary)' : i < idx ? 'var(--primary-weak, #B9CDF8)' : 'var(--border)', transition: 'width .2s' }} />
-            ))}
-          </div>
-          <button onClick={busy ? undefined : onClose} aria-label="Cerrar" disabled={busy} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.4 : 1, fontSize: 14, fontFamily: SANS }}>✕</button>
-        </div>
-
-        {/* Cuerpo centrado: una pregunta por paso */}
-        <div style={{ padding: '26px clamp(20px,6vw,56px) 30px', textAlign: 'center' }}>
-          <div style={{ fontSize: 12.5, color: 'var(--faint)', fontFamily: MONO, marginBottom: 8 }}>{titulo ?? `Mover a ${label}`} · {lead.name}</div>
-          <h3 style={{ fontSize: 'clamp(20px,4vw,26px)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', fontFamily: SANS }}>{pregunta}</h3>
-          {sub && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 18px' }}>{sub}</p>}
-          {!sub && <div style={{ height: 12 }} />}
-          <div style={{ maxWidth: 520, margin: '0 auto' }}>{cuerpo}</div>
-          {/* Aviso de datos que el server reclamó: en español, con los campos que
-              faltan y con la salida al paso que los resuelve. Nunca un cartel
-              rojo de "Server Components render" que no dice ni qué ni cómo. */}
-          {err && (
-            <div style={{ maxWidth: 520, margin: '14px auto 0', textAlign: 'left', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '13px 15px' }}>
-              <div style={{ fontSize: 13.5, color: 'var(--bad)', fontWeight: 700, lineHeight: 1.5 }}>{err}</div>
-              {faltanServer.length > 0 && (
-                <>
-                  <ul style={{ margin: '9px 0 0', paddingLeft: 18, fontSize: 13, color: 'var(--ink)', lineHeight: 1.6 }}>
-                    {faltanServer.map((f) => <li key={f.id}>{f.label}</li>)}
-                  </ul>
-                  <button type="button" onClick={() => irAFaltante(faltanServer)}
-                    style={{ marginTop: 11, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-                    Completar lo que falta →
-                  </button>
-                </>
-              )}
-            </div>
+    <WizardShell
+      titulo={`${titulo ?? `Mover a ${label}`} · ${lead.name}`}
+      pasos={pasos}
+      pasoActual={paso}
+      pregunta={pregunta}
+      sub={sub || undefined}
+      puedeAvanzar={respondido}
+      enUltimo={enResumen}
+      confirmLabel="Confirmar y mover"
+      pending={pending}
+      cargando={busy ? textoCargando : null}
+      atrasLabel={visitados.length === 0 ? 'Cancelar' : 'Atrás'}
+      onAtras={atras}
+      onSiguiente={avanzar}
+      onConfirmar={confirmar}
+      onClose={onClose}
+      ancho={640}
+    >
+      {cuerpo}
+      {/* Aviso de datos que el server reclamó: en español, con los campos que
+          faltan y con la salida al paso que los resuelve. Nunca un cartel
+          rojo de "Server Components render" que no dice ni qué ni cómo.
+          Va en el CUERPO y no en el prop `error` de la pieza porque no es una
+          línea de texto: lista los campos y trae el botón que lleva a ellos. */}
+      {err && (
+        <div style={{ textAlign: 'left', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '13px 15px' }}>
+          <div style={{ fontSize: 13.5, color: 'var(--bad)', fontWeight: 700, lineHeight: 1.5 }}>{err}</div>
+          {faltanServer.length > 0 && (
+            <>
+              <ul style={{ margin: '9px 0 0', paddingLeft: 18, fontSize: 13, color: 'var(--ink)', lineHeight: 1.6 }}>
+                {faltanServer.map((f) => <li key={f.id}>{f.label}</li>)}
+              </ul>
+              <button type="button" onClick={() => irAFaltante(faltanServer)}
+                style={{ marginTop: 11, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+                Completar lo que falta →
+              </button>
+            </>
           )}
         </div>
-
-        {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <button onClick={atras} disabled={busy} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, fontFamily: SANS }}>← {visitados.length === 0 ? 'Cancelar' : 'Atrás'}</button>
-          {enResumen ? (
-            <button onClick={confirmar} disabled={pending || busy} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, opacity: pending || busy ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Confirmar y mover'}</button>
-          ) : (
-            <button onClick={avanzar} disabled={!respondido || busy} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: respondido && !busy ? 'var(--primary)' : 'var(--border)', color: respondido && !busy ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: respondido && !busy ? 'pointer' : 'default', fontFamily: SANS }}>Siguiente →</button>
-          )}
-        </div>
-      </div>
-    </div>
+      )}
+    </WizardShell>
   );
 }

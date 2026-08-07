@@ -10,9 +10,12 @@
 import 'server-only';
 import { getSetting, setSetting } from '@/lib/settings';
 import { getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
-import { hoyEnTz } from '@/lib/date-utils';
+import { hoyEnTz, TZ_TIJUANA } from '@/lib/date-utils';
 
-export const TZ_DEFAULT = 'America/Tijuana';
+// El literal vive en date-utils (que NO es server-only): los componentes de
+// cliente necesitan la zona por defecto para su primer render y no pueden
+// importar este módulo. Duplicarlo era garantizar que un día se separen.
+export const TZ_DEFAULT = TZ_TIJUANA;
 export const KEY_TIMEZONE = 'mako.timezone';
 
 /** Zona horaria del workspace (setting mako.timezone) con fallback al default. */

@@ -30,6 +30,7 @@ import {
 import { enqueueJ2SinMatch } from '@/lib/review-queue';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { hoyEnTijuana } from '@/lib/date-utils';
+import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
@@ -40,13 +41,15 @@ import { wsPorIdentificador } from '@/lib/webhook-routing';
 
 const KEYWORDS_TEL = ['tel', 'phone', 'celular', 'móvil', 'movil'];
 
-// Formatea un ISO UTC como "jueves 16 a las 11:00" en zona Tijuana (es-MX), para
-// la voz de los avisos al dueño.
-function fmtFechaHoraTijuana(iso: string): string {
+// Formatea un ISO UTC como "jueves 16 a las 11:00" (es-MX) para la voz de los
+// avisos. Estaba clavado a 'America/Tijuana': el aviso le decía a un cliente de
+// otro huso la hora del DUEÑO, y encima el nombre del día podía ser el
+// equivocado. La zona la manda el WORKSPACE al que se ruteó el evento.
+function fmtFechaHoraLocal(iso: string, tz: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  const fecha = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Tijuana', weekday: 'long', day: 'numeric' }).format(d).replace(',', '');
-  const hora = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Tijuana', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  const fecha = new Intl.DateTimeFormat('es-MX', { timeZone: tz, weekday: 'long', day: 'numeric' }).format(d).replace(',', '');
+  const hora = new Intl.DateTimeFormat('es-MX', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
   return `${fecha} a las ${hora}`;
 }
 
@@ -146,6 +149,9 @@ export async function POST(request: NextRequest) {
      j1: await credWs('CALENDLY_EVENT_TYPE_J1', ws),
      j2: await credWs('CALENDLY_EVENT_TYPE_J2', ws),
    };
+   // Zona del inquilino, SOLO para el texto de los avisos. Nunca lanza: un
+   // setting roto no puede tirar un webhook que ya validó firma.
+   const tzWs = await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
    switch (body.event) {
     case 'invitee.created': {
       const payload = body.payload;
@@ -170,6 +176,8 @@ export async function POST(request: NextRequest) {
           );
         }
         try {
+          // Clave de cohorte persistida, NO display: queda en TJ a propósito
+          // (el porqué, en el JSDoc de isoToFechaTijuana).
           const fechaJ2 = isoToFechaTijuana(startTimeIso);
           const lead = await findLeadByContacto(emailJ2, telefonoJ2);
           if (lead) {
@@ -180,7 +188,7 @@ export async function POST(request: NextRequest) {
             await saveLeadRespuestas(lead.id, 'R2', payload.questions_and_answers, fechaJ2);
             // Aviso al dueño: el lead agendó su R2 (best-effort, no bloquea).
             await emitirDelCatalogo('reunion-nuevo-agendado', {
-              texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraTijuana(startTimeIso)}*. Ya quedó en su ficha del CRM. — MaKo`,
+              texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*. Ya quedó en su ficha del CRM. — MaKo`,
             });
             // Flujos configurados por el dueño: disparar 'lead.agendo' (R2).
             await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2' });
@@ -320,7 +328,7 @@ export async function POST(request: NextRequest) {
         // Aviso al dueño: nuevo lead que agendó una R1 (best-effort, no bloquea).
         const anuncio = utm_campaign ? ` Vino del anuncio "${utm_campaign}".` : '';
         await emitirDelCatalogo('reunion-nuevo-agendado', {
-          texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraTijuana(startTimeIso)}*.${anuncio} La ficha ya quedó armada en el CRM. — MaKo`,
+          texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.${anuncio} La ficha ya quedó armada en el CRM. — MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.agendo' (R1).
         await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: nombre, reunion: 'R1' });
@@ -359,12 +367,15 @@ export async function POST(request: NextRequest) {
           console.log(`[webhook:calendly] cancelación sin lead/fecha (email=${email ?? '—'}) — ignorada`);
           return Response.json({ ok: true, event: body.event, ignored: true, reason: 'sin match o sin fecha' });
         }
+        // Los DOS en zona TJ, y tienen que seguir juntos: acá se compara la
+        // fecha de la junta contra "hoy". Mezclar zonas entre el dato guardado y
+        // el hoy es justo lo que rompe los bordes del día (ver isoToFechaTijuana).
         const fechaCancelada = isoToFechaTijuana(startTimeIso);
         const cambio = await cancelarJuntaEnLead(lead, fechaCancelada, hoyEnTijuana());
         // Aviso al dueño: reunión cancelada → sugerir reagendar (best-effort).
         const tipoCancelada = clasificarJunta(payload.scheduled_event, cfgJuntas) === 'j2' ? 'R2' : 'R1';
         await emitirDelCatalogo('reunion-cancelada', {
-          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} que era para el ${fmtFechaHoraTijuana(startTimeIso)} y todavía no reagendó. ¿Le mando un WhatsApp para conseguir otro horario antes de que se enfríe? — MaKo`,
+          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} que era para el ${fmtFechaHoraLocal(startTimeIso, tzWs)} y todavía no reagendó. ¿Le mando un WhatsApp para conseguir otro horario antes de que se enfríe? — MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.cancelo'.
         await dispararEvento('lead.cancelo', { leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada });

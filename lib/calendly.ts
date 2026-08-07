@@ -162,7 +162,21 @@ export function clasificarJunta(
 
 /**
  * Convierte un ISO timestamp UTC a fecha YYYY-MM-DD en zona Tijuana.
- * Las cohortes están ancladas a "fecha en TJ", consistente con el resto.
+ *
+ * NO MIGRAR A LA ZONA DEL WORKSPACE por sí sola. Esto no es display: es la CLAVE
+ * DE COHORTE que se persiste (fecha_agenda, fecha_junta_1/2, fecha de la llamada
+ * en closing). Sus lectores —crm-auto, lib/reportes, lib/experimentos,
+ * lib/leads— siguen calculando "hoy" con hoyEnTijuana(). Si la escritura pasara
+ * a la zona del inquilino y la lectura siguiera en TJ, los bordes del día
+ * quedarían desfasados: una R1 agendada para hoy dejaría de contar como de hoy,
+ * y el No Show automático se dispararía un día antes o después.
+ *
+ * Se migra escritura y lectura EN EL MISMO COMMIT, o no se migra. Mientras
+ * tanto no se pierde precisión: junta_1_at guarda el instante ISO exacto, y es
+ * lo que usa el motor de No Show.
+ *
+ * Lo que SÍ se migró es lo que el usuario LEE (avisos de la ficha y del webhook):
+ * ver fmtFechaHoraLocal en app/api/webhooks/calendly/route.ts.
  */
 export function isoToFechaTijuana(iso: string): string {
   const d = new Date(iso);

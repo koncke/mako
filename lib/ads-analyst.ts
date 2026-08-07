@@ -26,6 +26,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { leerPorPaginas, leerTodo, type OrdenPaginado } from './supabase-paginado';
 import { chatClaude } from './anthropic';
 import { TIPO_DE_CAMBIO_USD_MXN } from './config';
 import { getAngles, type Angle } from './script-angles';
@@ -451,25 +452,27 @@ type TranscriptRow = {
   secciones: Seccion[] | null;
 };
 
-const PAGE = 1000;
+/**
+ * Orden de los barridos de marketing_metrics_daily. El `id` del final NO es
+ * adorno: hay UNA fila por anuncio POR DÍA, así que ni `ad_id` ni `fecha` (ni
+ * los dos juntos, si un ad_id llegara repetido en el día) son únicos, y un orden
+ * con empates deja que Postgres reparta las filas empatadas distinto en cada
+ * request → el OFFSET de la página 2 se aplica sobre otro orden y hay filas
+ * repetidas y filas salteadas, sin ningún error. Eso acá no es cosmético: son
+ * spend y conversiones que se suman de más o de menos.
+ */
+const ORDEN_METRICAS_RECIENTE: OrdenPaginado = [{ col: 'fecha', asc: false }, { col: 'ad_id' }, { col: 'id' }];
+const ORDEN_METRICAS_CRONO: OrdenPaginado = [{ col: 'ad_id' }, { col: 'fecha' }, { col: 'id' }];
 
 /** Trae los transcripts de video utilizables (status='ok', con texto). Paginado. */
 async function getVideoTranscripts(): Promise<TranscriptRow[]> {
-  const supabase = (await getTenantDb());
-  const out: TranscriptRow[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from('ad_transcripts')
-      .select('ad_id, video_id, status, tipo, idioma, duracion_s, transcript, secciones')
-      .eq('status', 'ok')
-      .order('ad_id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`Error leyendo ad_transcripts: ${error.message}`);
-    const rows = (data ?? []) as Omit<TranscriptRow, 'ad_name'>[];
-    for (const r of rows) out.push({ ...r, ad_name: null });
-    if (rows.length < PAGE) break;
-  }
-  return out;
+  // `ad_id` es la PK de ad_transcripts (mig 0025): único, sirve como orden estable.
+  const rows = await leerTodo<Omit<TranscriptRow, 'ad_name'>>(
+    await getTenantDb(), 'ad_transcripts',
+    'ad_id, video_id, status, tipo, idioma, duracion_s, transcript, secciones',
+    { orden: 'ad_id', eq: { status: 'ok' } },
+  );
+  return rows.map((r) => ({ ...r, ad_name: null }));
 }
 
 /** Nombre del anuncio (más reciente) por ad_id, para denormalizar en la fila. */
@@ -479,24 +482,18 @@ async function getAdNames(adIds: string[]): Promise<Map<string, string>> {
   const supabase = (await getTenantDb());
   for (let i = 0; i < adIds.length; i += 300) {
     const chunk = adIds.slice(i, i + 300);
-    // Paginado + orden estable (fecha desc, ad_id) para no truncar en el tope de
-    // 1000 filas de PostgREST: el nombre más reciente gana por el first-wins.
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase
-        .from('marketing_metrics_daily')
-        .select('ad_id, ad_name, fecha')
-        .eq('plataforma', 'meta')
-        .in('ad_id', chunk)
-        .order('fecha', { ascending: false })
-        .order('ad_id', { ascending: true })
-        .range(from, from + PAGE - 1);
-      if (error) throw new Error(`Error leyendo nombres de anuncios: ${error.message}`);
-      const rows = (data ?? []) as Array<{ ad_id: string; ad_name: string | null }>;
-      for (const r of rows) {
-        if (r.ad_id && r.ad_name && !map.has(r.ad_id)) map.set(r.ad_id, r.ad_name);
-      }
-      if (rows.length < PAGE) break;
-    }
+    // Fecha desc: el nombre más reciente gana por el first-wins de abajo.
+    // Por página y no `leerTodo`: de cada fila solo sobrevive una entrada del
+    // Map, y esta tabla tiene una fila por anuncio y por día.
+    await leerPorPaginas<{ ad_id: string; ad_name: string | null }>(
+      supabase, 'marketing_metrics_daily', 'ad_id, ad_name, fecha',
+      (rows) => {
+        for (const r of rows) {
+          if (r.ad_id && r.ad_name && !map.has(r.ad_id)) map.set(r.ad_id, r.ad_name);
+        }
+      },
+      { orden: ORDEN_METRICAS_RECIENTE, eq: { plataforma: 'meta' }, filtros: (q) => q.in('ad_id', chunk) },
+    );
   }
   return map;
 }
@@ -622,51 +619,56 @@ async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string)
   const ids = new Set(adIds);
   for (let i = 0; i < adIds.length; i += 200) {
     const chunk = adIds.slice(i, i + 200);
-    for (let from = 0; ; from += PAGE) {
-      let q = supabase
-        .from('marketing_metrics_daily')
-        .select('ad_id, ad_name, fecha, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency, video_p25, video_p50, video_p75, video_p100, campaign_name, adset_name, ad_thumbnail_url, ad_permalink, ad_creative_sin_enlace')
-        .eq('plataforma', 'meta')
-        .in('ad_id', chunk);
-      if (desde) q = q.gte('fecha', desde);
-      if (hasta) q = q.lte('fecha', hasta);
-      const { data, error } = await q
-        .order('ad_id', { ascending: true })
-        .order('fecha', { ascending: true })
-        .range(from, from + PAGE - 1);
-      if (error) throw new Error(`Error leyendo métricas de anuncios: ${error.message}`);
-      const rows = (data ?? []) as Array<Record<string, string | number | boolean | null>>;
-      for (const row of rows) {
-        const id = String(row.ad_id ?? '');
-        if (!ids.has(id)) continue;
-        const m = map.get(id) ?? { adName: null, lastFecha: null, thumbnail: null, permalink: null, creativeSinEnlace: false, campana: null, adset: null, spendUsd: 0, impressions: 0, leads: 0, agendas: 0, linkClicks: 0, v3s: 0, thru: 0, p25: 0, p50: 0, p75: 0, p100: 0, freqSum: 0, freqN: 0, dias: new Set<string>() };
-        const spendMxn = Number(row.spend ?? 0);
-        m.spendUsd += spendMxn / TIPO_DE_CAMBIO_USD_MXN;
-        m.impressions += Number(row.impressions ?? 0);
-        m.leads += Number(row.leads_count ?? 0);
-        m.agendas += Number(row.agendas_meta ?? 0);
-        m.linkClicks += Number(row.link_clicks ?? 0);
-        m.v3s += Number(row.video_3s_views ?? 0);
-        m.thru += Number(row.video_thruplay ?? 0);
-        m.p25 += Number(row.video_p25 ?? 0);
-        m.p50 += Number(row.video_p50 ?? 0);
-        m.p75 += Number(row.video_p75 ?? 0);
-        m.p100 += Number(row.video_p100 ?? 0);
-        const f = row.frequency == null ? null : Number(row.frequency);
-        if (f != null && Number.isFinite(f) && f > 0) { m.freqSum += f; m.freqN++; } // paridad con getSenalesRecon: excluye 0/null
-        const fecha = String(row.fecha ?? '');
-        if (spendMxn > 0 && fecha) m.dias.add(fecha);
-        if (fecha && (!m.lastFecha || fecha > m.lastFecha)) { m.lastFecha = fecha; if (row.ad_name) m.adName = String(row.ad_name); }
-        // Creativo + campaña/adset: el valor no-nulo más reciente (rows ordenadas por fecha asc).
-        if (row.ad_thumbnail_url != null) m.thumbnail = String(row.ad_thumbnail_url);
-        if (row.ad_permalink != null) m.permalink = String(row.ad_permalink);
-        if (row.ad_creative_sin_enlace != null) m.creativeSinEnlace = row.ad_creative_sin_enlace === true;
-        if (row.campaign_name != null) m.campana = String(row.campaign_name);
-        if (row.adset_name != null) m.adset = String(row.adset_name);
-        map.set(id, m);
-      }
-      if (rows.length < PAGE) break;
-    }
+    // Por página y no `leerTodo`: cada fila se agrega al Map y se tira. Un año de
+    // 200 anuncios son ~73.000 filas de 20 columnas para terminar con 200 claves;
+    // materializarlas todas es memoria pura dentro de un request de Vercel.
+    await leerPorPaginas<Record<string, string | number | boolean | null>>(
+      supabase, 'marketing_metrics_daily',
+      'ad_id, ad_name, fecha, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency, video_p25, video_p50, video_p75, video_p100, campaign_name, adset_name, ad_thumbnail_url, ad_permalink, ad_creative_sin_enlace',
+      (rows) => {
+        for (const row of rows) {
+          const id = String(row.ad_id ?? '');
+          if (!ids.has(id)) continue;
+          const m = map.get(id) ?? { adName: null, lastFecha: null, thumbnail: null, permalink: null, creativeSinEnlace: false, campana: null, adset: null, spendUsd: 0, impressions: 0, leads: 0, agendas: 0, linkClicks: 0, v3s: 0, thru: 0, p25: 0, p50: 0, p75: 0, p100: 0, freqSum: 0, freqN: 0, dias: new Set<string>() };
+          const spendMxn = Number(row.spend ?? 0);
+          m.spendUsd += spendMxn / TIPO_DE_CAMBIO_USD_MXN;
+          m.impressions += Number(row.impressions ?? 0);
+          m.leads += Number(row.leads_count ?? 0);
+          m.agendas += Number(row.agendas_meta ?? 0);
+          m.linkClicks += Number(row.link_clicks ?? 0);
+          m.v3s += Number(row.video_3s_views ?? 0);
+          m.thru += Number(row.video_thruplay ?? 0);
+          m.p25 += Number(row.video_p25 ?? 0);
+          m.p50 += Number(row.video_p50 ?? 0);
+          m.p75 += Number(row.video_p75 ?? 0);
+          m.p100 += Number(row.video_p100 ?? 0);
+          const f = row.frequency == null ? null : Number(row.frequency);
+          if (f != null && Number.isFinite(f) && f > 0) { m.freqSum += f; m.freqN++; } // paridad con getSenalesRecon: excluye 0/null
+          const fecha = String(row.fecha ?? '');
+          if (spendMxn > 0 && fecha) m.dias.add(fecha);
+          if (fecha && (!m.lastFecha || fecha > m.lastFecha)) { m.lastFecha = fecha; if (row.ad_name) m.adName = String(row.ad_name); }
+          // Creativo + campaña/adset: el valor no-nulo más reciente (rows ordenadas por fecha asc).
+          if (row.ad_thumbnail_url != null) m.thumbnail = String(row.ad_thumbnail_url);
+          if (row.ad_permalink != null) m.permalink = String(row.ad_permalink);
+          if (row.ad_creative_sin_enlace != null) m.creativeSinEnlace = row.ad_creative_sin_enlace === true;
+          if (row.campaign_name != null) m.campana = String(row.campaign_name);
+          if (row.adset_name != null) m.adset = String(row.adset_name);
+          map.set(id, m);
+        }
+      },
+      {
+        // Cronológico ascendente: varias reglas de arriba dependen de que la
+        // última fila que pisa el valor sea la MÁS reciente (thumbnail, campaña…).
+        orden: ORDEN_METRICAS_CRONO,
+        eq: { plataforma: 'meta' },
+        filtros: (q) => {
+          let f = q.in('ad_id', chunk);
+          if (desde) f = f.gte('fecha', desde);
+          if (hasta) f = f.lte('fecha', hasta);
+          return f;
+        },
+      },
+    );
   }
   return map;
 }
@@ -678,45 +680,34 @@ async function getCierresByAd(adIds: string[]): Promise<Map<string, number>> {
   const supabase = (await getTenantDb());
   for (let i = 0; i < adIds.length; i += 200) {
     const chunk = adIds.slice(i, i + 200);
-    // Paginado con orden estable (id, único) — hay 1 fila por lead 'ganado' y
+    // Orden estable por `id` (PK de leads) — hay 1 fila por lead 'ganado' y
     // crecen con el tiempo: sin paginar, PostgREST truncaría a 1000 y subcontaría.
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('meta_ad_id')
-        .in('meta_ad_id', chunk)
-        .eq('estado_lead', 'ganado')
-        .order('id', { ascending: true })
-        .range(from, from + PAGE - 1);
-      if (error) throw new Error(`Error leyendo cierres: ${error.message}`);
-      const rows = (data ?? []) as Array<{ meta_ad_id: string | null }>;
-      for (const r of rows) {
-        const id = String(r.meta_ad_id ?? '');
-        if (id) map.set(id, (map.get(id) ?? 0) + 1);
-      }
-      if (rows.length < PAGE) break;
-    }
+    await leerPorPaginas<{ meta_ad_id: string | null }>(
+      supabase, 'leads', 'meta_ad_id',
+      (rows) => {
+        for (const r of rows) {
+          const id = String(r.meta_ad_id ?? '');
+          if (id) map.set(id, (map.get(id) ?? 0) + 1);
+        }
+      },
+      { orden: 'id', eq: { estado_lead: 'ganado' }, filtros: (q) => q.in('meta_ad_id', chunk) },
+    );
   }
   return map;
 }
 
 /** Todos los ad_id de Meta con métricas (para el contador de cobertura). */
 async function getAllMetaAdIds(): Promise<Set<string>> {
-  const supabase = (await getTenantDb());
   const set = new Set<string>();
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from('marketing_metrics_daily')
-      .select('ad_id')
-      .eq('plataforma', 'meta')
-      .not('ad_id', 'is', null)
-      .order('ad_id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`Error leyendo ad_ids: ${error.message}`);
-    const rows = (data ?? []) as Array<{ ad_id: string | null }>;
-    for (const r of rows) if (r.ad_id) set.add(r.ad_id);
-    if (rows.length < PAGE) break;
-  }
+  // Ojo con el orden: esto paginaba por `ad_id` a secas, que en esta tabla se
+  // REPITE (una fila por anuncio y por día). Con empates el reparto entre páginas
+  // no está garantizado y se salteaban ad_ids enteros — el contador de cobertura
+  // decía que faltaban anuncios por analizar que ya estaban, o al revés.
+  await leerPorPaginas<{ ad_id: string | null }>(
+    await getTenantDb(), 'marketing_metrics_daily', 'ad_id',
+    (rows) => { for (const r of rows) if (r.ad_id) set.add(r.ad_id); },
+    { orden: [{ col: 'ad_id' }, { col: 'id' }], eq: { plataforma: 'meta' }, filtros: (q) => q.not('ad_id', 'is', null) },
+  );
   return set;
 }
 

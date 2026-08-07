@@ -20,7 +20,8 @@ import { chatClaude } from './anthropic';
 import { renderPrompt, getPromptText, contenidoNoConfiable } from './prompt-render';
 import { type Step } from './stage-requirements';
 import { deriveStageKey } from './pipeline';
-import { hoyEnTijuana } from './date-utils';
+import { hoyEnTz } from './date-utils';
+import { tzActual } from './timezone';
 import { getLead, getLeadRespuestas, getTrackingEvents, faltantesDeLead, type Lead, type FathomLink, type RespuestaQA, type TrackingEvent } from './leads';
 import { getPagosByLead, type Pago } from './pagos';
 import { contactoIdPorTelefono, getContactMessages, type ChatwootMessage } from './chatwoot';
@@ -241,9 +242,12 @@ function bloqueLlamadas(rows: AnalisisRow[]): string {
   return contenidoNoConfiable(partes.join('\n\n'), 'llamadas_fathom');
 }
 
-const TZ_FMT = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-
-function bloqueChat(msgs: ChatwootMessage[]): string {
+// El formateador se arma por llamada porque la zona sale del WORKSPACE (antes
+// era un const de módulo clavado a Tijuana). Le fechaba el chat de un cliente de
+// otro huso con las horas del dueño, y el modelo razonaba sobre esas horas:
+// "escribió de madrugada", "contestó al otro día" salían mal.
+function bloqueChat(msgs: ChatwootMessage[], tz: string): string {
+  const fmt = new Intl.DateTimeFormat('es-MX', { timeZone: tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   // Sin actividades de sistema (type 2); las plantillas (type 3) son NUESTRAS,
   // no del lead — atribuirlas mal contamina dolor/señales/objeciones.
   const conTexto = msgs.filter((m) => m.messageType !== 2 && ((m.texto && m.texto.trim()) || m.adjuntos.length));
@@ -251,7 +255,7 @@ function bloqueChat(msgs: ChatwootMessage[]): string {
   const ultimos = conTexto.slice(-150);
   const lineas = ultimos.map((m) => {
     const quien = m.saliente || m.messageType === 3 ? 'NOSOTROS' : 'LEAD';
-    const cuando = m.fecha ? TZ_FMT.format(new Date(m.fecha * 1000)) : '';
+    const cuando = m.fecha ? fmt.format(new Date(m.fecha * 1000)) : '';
     const texto = m.texto?.trim() || `[adjunto: ${m.adjuntos.map((a) => a.tipo).join(', ')}]`;
     return `[${cuando}] ${quien}: ${texto}`;
   });
@@ -343,6 +347,9 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
 
     const etapa = etapaDe(lead);
     const supabase = (await getTenantDb());
+    // Zona del workspace: manda tanto en el "hoy" con el que el modelo mide
+    // antigüedades como en las horas del chat que lee.
+    const tz = await tzActual();
 
     // Fuentes en paralelo (cada una tolera fallo individual).
     const [respuestas, pagos, analisis, tracking, chatMsgs, adTranscript] = await Promise.all([
@@ -406,13 +413,13 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
     const trackingTxt = bloqueTracking(tracking);
     const system = await getPromptText('lead_insights.system', LEAD_INSIGHTS_SYSTEM_TEMPLATE);
     const user = await renderPrompt('lead_insights.user', LEAD_INSIGHTS_USER_TEMPLATE, {
-      hoy: hoyEnTijuana(),
+      hoy: hoyEnTz(tz),
       etapa,
       ficha: contenidoNoConfiable(bloqueFicha(lead, etapa), 'ficha_crm'),
       reuniones: bloqueReuniones(lead),
       respuestas: bloqueRespuestas(respuestas),
       llamadas: bloqueLlamadas(analisis),
-      chat: bloqueChat(chatMsgs),
+      chat: bloqueChat(chatMsgs, tz),
       anuncio: adTranscript ? contenidoNoConfiable(adTranscript, 'anuncio_transcript') : SIN,
       tracking: trackingTxt === SIN ? trackingTxt : contenidoNoConfiable(trackingTxt, 'tracking_web'),
       deal: bloqueDeal(lead, pagos),

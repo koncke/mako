@@ -24,25 +24,42 @@ import 'server-only';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { CASCADA_DOCS, MODELO_DOCS, chatCheapCascade } from '@/lib/ai-cheap';
 import { getTenantDb } from '@/lib/workspace';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
 import {
   MAX_FILAS_IMPORT, esCsv, esPlanilla, filasDesdeCsv, MENSAJE_PLANILLA, recalcular, soloDigitos,
   type FilaImport,
 } from './leads-importar';
 
-/** Índice de lo que YA está en el CRM (tenant-scoped). Paginado: PostgREST corta en 1000. */
+/**
+ * Índice de lo que YA está en el CRM (tenant-scoped). Paginado: PostgREST corta
+ * en 1000 y `.limit()` no sube ese techo (lib/supabase-paginado.ts).
+ *
+ * Por página y no `leerTodo`: acá solo se arman dos Sets de strings, así que no
+ * hay razón para tener medio millón de filas de `leads` vivas al mismo tiempo.
+ *
+ * El bucle que había acá paginaba SIN ORDER BY. Eso no es cosmético en ESTA
+ * lectura: sin orden garantizado, la página 2 se puede saltear leads que la 1 no
+ * trajo, y un lead que falta en el índice es un DUPLICADO que se crea igual —
+ * el importador decía "nuevo" sobre alguien que ya estaba en el CRM.
+ */
 export async function indiceContactos(): Promise<{ emails: Set<string>; tels: Set<string> }> {
   const db = await getTenantDb();
   const emails = new Set<string>();
   const tels = new Set<string>();
-  for (let d = 0; d < 200_000; d += 1000) {
-    const { data, error } = await db.from('leads').select('email, telefono').range(d, d + 999);
-    if (error) throw new Error(`No se pudo revisar los duplicados: ${error.message}`);
-    const chunk = (data ?? []) as Array<{ email: string | null; telefono: string | null }>;
-    for (const r of chunk) {
-      if (r.email) emails.add(r.email.trim().toLowerCase());
-      if (r.telefono) { const dg = soloDigitos(r.telefono); if (dg) tels.add(dg); }
-    }
-    if (chunk.length < 1000) break;
+  try {
+    await leerPorPaginas<{ email: string | null; telefono: string | null }>(
+      db, 'leads', 'email, telefono',
+      (chunk) => {
+        for (const r of chunk) {
+          if (r.email) emails.add(r.email.trim().toLowerCase());
+          if (r.telefono) { const dg = soloDigitos(r.telefono); if (dg) tels.add(dg); }
+        }
+      },
+    );
+  } catch (e) {
+    // Se relanza con contexto: un índice a medias no se puede usar (ver arriba),
+    // así que esto NUNCA degrada a "no hay duplicados".
+    throw new Error(`No se pudo revisar los duplicados: ${e instanceof Error ? e.message : String(e)}`);
   }
   return { emails, tels };
 }
