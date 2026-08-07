@@ -203,6 +203,12 @@ const PATHS: Record<string, ReactNode> = {
   </g>),
 };
 
+/**
+ * Todos los nombres del set. Lo consume el catálogo de /admin/ui: si se lista a
+ * mano allá, el día que se agregue un ícono acá el catálogo dice que no existe.
+ */
+export const NOMBRES_ICONO = Object.keys(PATHS);
+
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.85} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none' }}>

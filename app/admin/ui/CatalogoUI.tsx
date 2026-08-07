@@ -22,8 +22,9 @@ import {
 } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
-import { FAMILIAS } from '@/app/_components/nav';
-import { Partes, Bitacora, LaBarra } from './Rediseno';
+import { Partes, ChangeHistory } from './Rediseno';
+import { LaSidebar, LosIconos } from './Barra';
+import { LaMarca } from './Marca';
 
 const TONOS: Tono[] = ['mako', 'info', 'good', 'warn', 'bad', 'neutral'];
 
@@ -33,7 +34,9 @@ const TONOS: Tono[] = ['mako', 'info', 'good', 'warn', 'bad', 'neutral'];
  */
 const TABS: Tab[] = [
   { id: 'rediseno', label: 'Rediseño' },
-  { id: 'barra', label: 'La barra' },
+  { id: 'sidebar', label: 'Sidebar' },
+  { id: 'iconos', label: 'Íconos' },
+  { id: 'marca', label: 'Marca' },
   { id: 'fundamentos', label: 'Fundamentos' },
   { id: 'piezas', label: 'Piezas' },
   { id: 'estados', label: 'Estados' },
@@ -91,19 +94,20 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
     <Pagina>
       <PageHeader
         titulo="Sistema de diseño"
-        proposito="Las piezas y el porqué de cada una. Todo se renderiza de la biblioteca real, no de capturas: si algo se ve mal acá, se ve mal en toda la app."
         estado={<Status tono="mako">Fase 1</Status>}
         accion={<ButtonLink href="/general" variant="secondary">Ver la app →</ButtonLink>}
       />
 
       <Tabs tabs={TABS} activa={tab} onCambio={irA} />
 
-      {tab === 'rediseno' && <><Partes /><Bitacora /></>}
-      {tab === 'barra' && <LaBarra />}
+      {tab === 'rediseno' && <><Partes /><ChangeHistory /></>}
+      {tab === 'sidebar' && <LaSidebar />}
+      {tab === 'iconos' && <LosIconos />}
+      {tab === 'marca' && <LaMarca />}
 
       {tab === 'fundamentos' && (<>
       {/* ── Tipografía ───────────────────────────────────────────────────── */}
-      <Seccion titulo="Escala tipográfica" nota="siete niveles; suben solos en pantalla chica">
+      <Seccion titulo="Escala tipográfica" nota="suben solas en pantalla chica">
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {ESCALA.map((e) => (
             <div key={e.token} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 16, alignItems: 'baseline', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
@@ -124,7 +128,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
       </Seccion>
 
       {/* ── Color ────────────────────────────────────────────────────────── */}
-      <Seccion titulo="Un significado por color" nota="Si el mismo color dice cinco cosas, no dice ninguna">
+      <Seccion titulo="Un significado por color">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))', gap: 12 }}>
           {[
             { n: 'MaKo', v: '--mako', q: 'marca + intervino la IA' },
@@ -232,7 +236,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
       </Seccion>
 
       {/* ── Espera ───────────────────────────────────────────────────────── */}
-      <Seccion titulo="Espera" nota="spinner ≠ progress ≠ skeleton">
+      <Seccion titulo="Espera">
         <Fila label="Spinner"><Spinner /><span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>no sé cuánto falta</span></Fila>
         <Fila label="Progress">
           <div style={{ flex: 1, minWidth: 220 }}><Progress value={62} label="Onboarding" /></div>
@@ -248,7 +252,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
 
       {tab === 'estados' && (<>
       {/* ── Los estados que faltaban ─────────────────────────────────────── */}
-      <Seccion titulo="Cintas: Banner y Alert" nota="misma forma, distinto alcance">
+      <Seccion titulo="Cintas: Banner y Alert">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
           <Banner tono="bad" accion={{ label: 'Reconectar', onClick: () => show('Reconectando…') }}>
             <strong>Meta se desconectó.</strong> Las campañas siguen corriendo, pero MaKo no ve los resultados desde ayer.
@@ -261,8 +265,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
         </div>
         <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.5 }}>
           <strong>Banner</strong> es de alcance global o de módulo y va arriba de todo. <strong>Alert</strong> va pegado a
-          lo que afecta. Es el mismo componente porque son la misma forma con distinto alcance — escribir dos habría sido
-          volver a la enfermedad que este sistema viene a curar.
+          lo que afecta. Es el mismo componente: misma forma, distinto alcance.
         </p>
       </Seccion>
 
@@ -280,7 +283,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
       </Seccion>
 
       {/* ── Confirmación y avisos ────────────────────────────────────────── */}
-      <Seccion titulo="Confirmar y avisar" nota="una sola confirmación en toda la app (antes había dos)">
+      <Seccion titulo="Confirmar y avisar" nota="una sola confirmación en toda la app">
         <Fila label="Confirmación">
           <Button variant="danger" onClick={() => setConfirmando(true)}>Eliminar campaña</Button>
           <Button variant="secondary" onClick={async () => { if (await confirm('¿Eliminar los 3 leads seleccionados?')) show('3 leads eliminados.', () => show('Restaurados.')); }}>

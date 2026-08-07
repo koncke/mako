@@ -87,6 +87,9 @@
   --bad-bg: #FBEAEA;
   --card-pad: 28px;
   --sect-gap: 22px;
+  /* Hasta dónde crece una pantalla antes de centrarse. Lo lee `Pagina` y nadie
+     más: una pantalla no elige su ancho, y si el tope cambia, cambia acá. */
+  --pagina-max: 1280px;
 
   /* ── Escala tipográfica y área táctil ─────────────────────────────────
      Los siete niveles del §18.3 del documento de rediseño, con sus valores
@@ -410,10 +413,6 @@ textarea.mako-field {
 .mk-key-input:read-only {
   cursor: default;
 }
-
-/* Fila de tabs de la ficha: scroll horizontal sin barra visible (una sola fila). */
-.lead-tabs-scroll { scrollbar-width: none; -ms-overflow-style: none; }
-.lead-tabs-scroll::-webkit-scrollbar { display: none; }
 
 /* Campo compacto del modal de detalle del lead: misma identidad de foco que
    .mako-field pero con densidad chica (no rompe el layout de la ficha). */

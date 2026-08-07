@@ -5,20 +5,26 @@
 // ahí salía el problema de siempre: una queda angosta, otra con más aire que la
 // de al lado, otra sin `minWidth: 0` y con una tabla que desborda el layout.
 // Medido sobre app/: dieciséis pantallas usan `padding: '34px 44px 60px'` y el
-// resto usa siete variantes distintas, más algún `maxWidth` suelto que deja la
-// pantalla flotando en el medio.
+// resto usa siete variantes distintas, más algún `maxWidth` suelto.
 //
 // No había ninguna «regla escondida» achicando nada: el ancho lo achicaba quien
-// escribía la pantalla, sin querer. Esto lo saca de la mesa.
+// escribía la pantalla, sin querer.
 //
-// LA REGLA: una pantalla ocupa TODO el ancho que le deja la barra. Si algo
-// adentro necesita ser más angosto —un párrafo largo, un formulario— se limita
-// ESE bloque, no la pantalla entera. Un `maxWidth` en el <main> deja la mitad
-// derecha vacía en un monitor grande y no hay forma de recuperarla desde adentro.
+// LA REGLA, en dos partes:
+//
+//  1. Una pantalla NO elige su ancho. El tope es un token de la casa
+//     (`--pagina-max`), igual para todas. Si cambia, cambia en un lugar.
+//  2. Si el contenido no llega al tope, va CENTRADO. Lo que está mal —y era lo
+//     que se veía— es un `maxWidth` pegado a la izquierda: en un monitor ancho
+//     deja una franja muerta a la derecha que nadie puso a propósito.
+//
+// Para las pantallas que sí piden todo el ancho —una tabla de anuncios, un
+// tablero de columnas— está `ancho="completo"`. Es un conjunto cerrado de dos
+// opciones, no un número libre: ahí es donde empezaba la deriva.
 
 import type { CSSProperties, ReactNode } from 'react';
 
-export function Pagina({ children, densidad = 'normal', style }: {
+export function Pagina({ children, densidad = 'normal', ancho = 'medida', style }: {
   children: ReactNode;
   /**
    * `normal` es lo que usa casi toda la app. `compacta` es para pantallas que
@@ -26,8 +32,14 @@ export function Pagina({ children, densidad = 'normal', style }: {
    * de abajo.
    */
   densidad?: 'normal' | 'compacta';
+  /**
+   * `medida` (lo normal) topea en `--pagina-max` y centra.
+   * `completo` es para lo que de verdad necesita cada píxel: tablas anchas,
+   * tableros de columnas, lienzos.
+   */
+  ancho?: 'medida' | 'completo';
   /** Para lo puntual —`position: relative`, un `display` propio—, nunca ancho. */
-  style?: Omit<CSSProperties, 'maxWidth' | 'width'>;
+  style?: Omit<CSSProperties, 'maxWidth' | 'width' | 'margin' | 'marginLeft' | 'marginRight' | 'marginInline'>;
 }) {
   return (
     <main style={{
@@ -37,6 +49,11 @@ export function Pagina({ children, densidad = 'normal', style }: {
       // aparece scroll horizontal en toda la página.
       flex: 1,
       minWidth: 0,
+      width: '100%',
+      maxWidth: ancho === 'completo' ? 'none' : 'var(--pagina-max)',
+      // Lo que centra. Solo hace algo cuando el maxWidth llegó a topar; por
+      // debajo de eso el <main> ya ocupa todo y el auto no tiene qué repartir.
+      marginInline: 'auto',
       padding: densidad === 'compacta' ? '24px 28px 20px' : '34px 44px 60px',
       ...style,
     }}>
@@ -47,8 +64,8 @@ export function Pagina({ children, densidad = 'normal', style }: {
 
 /**
  * Un bloque de texto largo con medida de lectura. ESTO es lo que lleva un ancho
- * máximo — no la pantalla. Alrededor de 70 caracteres por renglón es donde el
- * ojo deja de perder el renglón siguiente.
+ * máximo propio — no la pantalla. Alrededor de 70 caracteres por renglón es
+ * donde el ojo deja de perder el renglón siguiente.
  */
 export function Lectura({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return <div style={{ maxWidth: '70ch', ...style }}>{children}</div>;

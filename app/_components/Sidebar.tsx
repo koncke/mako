@@ -36,8 +36,8 @@ import { Icon } from './icons';
 import { SaldoMaKo } from './SaldoMaKo';
 
 const MONO = "'Geist Mono', monospace";
-const RAIL = 68;
-const FULL = 244;
+export const RAIL = 68;
+export const FULL = 244;
 const ICO = 19;
 /** Los destinos de adentro de una familia, un punto más chicos: eso solo ya
  *  dice «esto cuelga de aquello», sin necesidad de una línea que lo diga. */
@@ -90,7 +90,82 @@ function filaStyle(expandido: boolean): CSSProperties {
   };
 }
 
-function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onClick }: {
+/**
+ * La caja oscura que se ensancha. La comparten la barra de verdad y su vista
+ * previa en /admin/ui: si el aire o el color cambian acá, cambian en las dos.
+ * Lo que NO está en esta función es el `transition` y la sombra, que dependen de
+ * si la barra se puede mover — la vista previa no se mueve.
+ */
+export function panelStyle(open: boolean): CSSProperties {
+  return {
+    width: open ? FULL : RAIL,
+    background: 'var(--sidebar)', display: 'flex', flexDirection: 'column',
+    padding: open ? '20px 14px' : '20px 10px', overflow: 'hidden',
+  };
+}
+
+/**
+ * La marca. Es un LINK a la pantalla de entrada, que es lo que todo el mundo
+ * espera del logo de una app — y de paso le da al bloque una razón de ser:
+ * antes eran dos cosas puestas ahí, sin función y sin reaccionar a nada.
+ * El movimiento vive en `.mk-marca` y solo pasa al pasar el cursor: la insignia
+ * se levanta apenas y la palabra se enciende. Nada permanente, que es la regla
+ * del documento para los destellos de marca.
+ */
+export function Marca({ open }: { open: boolean }) {
+  return (
+    <Link href="/general" className="mk-marca" title="Ir a General"
+      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: open ? '2px 6px 20px' : '2px 0 20px', justifyContent: open ? 'flex-start' : 'center', flex: 'none', textDecoration: 'none' }}>
+      <span className="mk-marca__logo" style={{ display: 'flex', flex: 'none' }}><MakoLogo size={32} /></span>
+      {open && (
+        <span className="mk-marca__word" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1 }}>
+          <MakoWord base="#F3F0E7">MaKo</MakoWord>
+        </span>
+      )}
+    </Link>
+  );
+}
+
+/** El botón de identidad del pie. Geometría compartida con la vista previa. */
+export function identidadStyle(open: boolean, activo: boolean): CSSProperties {
+  return {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 10, marginTop: 4,
+    padding: open ? '7px 8px' : '7px 0',
+    justifyContent: open ? 'flex-start' : 'center',
+    borderRadius: 'var(--r-md)', border: 'none',
+    background: activo ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer',
+  };
+}
+
+/** Lo que va ADENTRO de ese botón: la foto (o las iniciales) y el nombre. */
+export function Identidad({ open, nombre, avatar, subrotulo }: {
+  open: boolean; nombre: string; avatar?: string; subrotulo: string;
+}) {
+  const iniciales = nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
+  return (
+    <>
+      {/* Las iniciales van sobre AZUL, no sobre el dorado: una foto de perfil
+          es identidad, no una intervención de MaKo. */}
+      <div style={{ width: 34, height: 34, flex: 'none', borderRadius: 9, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13.5, color: '#fff', overflow: 'hidden' }}>
+        {avatar
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : iniciales}
+      </div>
+      {open && (
+        <>
+          <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+            <div style={{ fontWeight: 600, fontSize: 'var(--fs-sm)', color: 'var(--on-sidebar)', lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</div>
+            <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 2 }}>{subrotulo}</div>
+          </div>
+          <span style={{ color: 'var(--sidebar-text)', fontSize: 11, flex: 'none' }}>›</span>
+        </>
+      )}
+    </>
+  );
+}
+
+export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onClick }: {
   item: NavItem; active: boolean; expanded: boolean; tema?: Tema; size?: number; badge?: number; onClick?: () => void;
 }) {
   const base = filaStyle(expanded);
@@ -115,7 +190,7 @@ function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onC
 }
 
 /** Una familia ya filtrada por rol y capa (lo que el Sidebar arma para pintar). */
-type FamiliaVista = { key: string; label: string; pregunta: string; icon: string; notifica?: boolean; bloques: NavItem[][]; grupos: NavGrupo[] };
+export type FamiliaVista = { key: string; label: string; pregunta: string; icon: string; notifica?: boolean; bloques: NavItem[][]; grupos: NavGrupo[] };
 
 /** La fila de una colección: abre su desplegable al costado. */
 function GrupoFila({ g, open, pathname, abierto, onAbrir, onCerrar }: {
@@ -156,7 +231,7 @@ function GrupoFila({ g, open, pathname, abierto, onAbrir, onCerrar }: {
  * Plegada vale lo mismo: el ícono de la familia va tenue y chico, los de las
  * tabs enteros, y la línea separa. Ninguna de las dos señales es el color.
  */
-function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, contadorItem, onToggle, flyoutKey, onAbrirFlyout, onCerrarFlyout }: {
+export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, contadorItem, onToggle, flyoutKey, onAbrirFlyout, onCerrarFlyout }: {
   f: FamiliaVista; primera: boolean; open: boolean; pathname: string; abiertaEsta: boolean;
   contadorFamilia: number; contadorItem: (key: string) => number;
   onToggle: (key: string) => void;
@@ -317,7 +392,6 @@ export function Sidebar() {
   // hace dudar de en qué workspace se está parado.
   const nombreVisible = impersonando ? (clienteNombre || 'Cliente') : perfilNombre;
   const avatarVisible = impersonando ? '' : perfilAvatar;
-  const iniciales = nombreVisible.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
 
   useEffect(() => {
     let alive = true;
@@ -505,29 +579,13 @@ export function Sidebar() {
         // final y lo que depende de la geometría (los desplegables) se habilita.
         onTransitionEnd={(e) => { if (e.propertyName === 'width') setMoviendo(false); }}
         style={{
-          position: 'absolute', top: 0, left: 0, bottom: 0, width: open ? FULL : RAIL,
-          background: 'var(--sidebar)', display: 'flex', flexDirection: 'column',
-          padding: open ? '20px 14px' : '20px 10px', overflow: 'hidden',
+          position: 'absolute', top: 0, left: 0, bottom: 0,
+          ...panelStyle(open),
           transition: 'width .2s ease, padding .2s ease',
           boxShadow: open ? '6px 0 30px rgba(23,21,17,.24)' : 'none',
         }}
       >
-        {/* Marca. Es un LINK a la pantalla de entrada, que es lo que todo el
-            mundo espera del logo de una app — y de paso le da al bloque una
-            razón de ser: antes eran dos cosas puestas ahí, sin función y sin
-            reaccionar a nada.
-            El movimiento vive en `.mk-marca` y solo pasa al pasar el cursor: la
-            insignia se levanta apenas y la palabra se enciende. Nada permanente,
-            que es la regla del documento para los destellos de marca. */}
-        <Link href="/general" className="mk-marca" title="Ir a General"
-          style={{ display: 'flex', alignItems: 'center', gap: 9, padding: open ? '2px 6px 20px' : '2px 0 20px', justifyContent: open ? 'flex-start' : 'center', flex: 'none', textDecoration: 'none' }}>
-          <span className="mk-marca__logo" style={{ display: 'flex', flex: 'none' }}><MakoLogo size={32} /></span>
-          {open && (
-            <span className="mk-marca__word" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1 }}>
-              <MakoWord base="#F3F0E7">MaKo</MakoWord>
-            </span>
-          )}
-        </Link>
+        <Marca open={open} />
 
         {/* Navegación. Con una familia abierta puede pasarse de alto en pantallas
             bajas: scrollea acá adentro, nunca corta. */}
@@ -562,24 +620,8 @@ export function Sidebar() {
             <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
           ))}
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, padding: open ? '7px 8px' : '7px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 'var(--r-md)', border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
-            {/* Las iniciales van sobre AZUL, no sobre el dorado: una foto de
-                perfil es identidad, no una intervención de MaKo. */}
-            <div style={{ width: 34, height: 34, flex: 'none', borderRadius: 9, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13.5, color: '#fff', overflow: 'hidden' }}>
-              {avatarVisible
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={avatarVisible} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : iniciales}
-            </div>
-            {open && (
-              <>
-                <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--fs-sm)', color: 'var(--on-sidebar)', lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombreVisible}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 2 }}>{impersonando ? 'Cliente' : 'Cuenta'}</div>
-                </div>
-                <span style={{ color: 'var(--sidebar-text)', fontSize: 11, flex: 'none' }}>›</span>
-              </>
-            )}
+            style={identidadStyle(open, userOpen)}>
+            <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
           </button>
         </div>
       </div>

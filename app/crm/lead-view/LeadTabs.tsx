@@ -42,10 +42,14 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
 
   return (
     <div>
-      {/* Fila única: las tabs scrollean en horizontal si no entran (nunca doble
-          fila) y las acciones (dropdown de etapa) quedan en la MISMA línea. */}
+      {/* Las tabs BAJAN de renglón si no entran; no scrollean.
+          Antes scrolleaban de costado y encima con la barra de scroll oculta por
+          CSS (`.lead-tabs-scroll`), así que las últimas tabs del lead no tenían
+          ni una pista de que existían. Una barra de navegación no esconde
+          destinos detrás de un gesto: si no entran, se ven en dos renglones.
+          Las acciones (el dropdown de etapa) siguen en la misma línea. */}
       <div style={{ borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div role="tablist" className="lead-tabs-scroll" style={{ display: 'flex', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
+        <div role="tablist" style={{ display: 'flex', flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
         {tabs.map((t) => {
           const active = tab === t.key;
           return (

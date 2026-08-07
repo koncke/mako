@@ -117,28 +117,45 @@ vacía a la derecha. Nadie la puso ahí a propósito.
 
 No hay ninguna regla escondida, y ese es justamente el problema: **cada pantalla
 escribía su propio `<main>`**, así que cada una elegía su padding y su `maxWidth`
-por separado. Medido sobre `app/` antes de arreglarlo: 16 pantallas con
-`padding: '34px 44px 60px'`, 7 variantes sueltas más, y `maxWidth` de 1000, 1100 y
-1200 según quién la escribió. Copiar la pantalla de al lado propagaba el número.
-
-Ahora el `<main>` lo pone `Pagina`, y su prop `style` está tipada
-`Omit<CSSProperties, 'maxWidth' | 'width'>`: una pantalla **no puede** fijarse el
-ancho aunque quiera — el compilador lo rechaza. La regla la sostiene `tsc`, no la
-memoria de quien edita.
+por separado. Medido sobre `app/`: 16 pantallas con `padding: '34px 44px 60px'`,
+7 variantes sueltas más, y topes de 720, 980, 1000, 1100 y 1200 según quién la
+escribió. Copiar la pantalla de al lado propagaba el número.
 
 ```tsx
-<Pagina>                     {/* ocupa todo lo que le deja el shell */}
+<Pagina>                     {/* topea en --pagina-max y se CENTRA */}
   <PageHeader … />
   <Section …>…</Section>
 </Pagina>
 ```
 
-- `densidad="compacta"` para las pantallas de trabajo denso (tableros, bandejas).
-- Si lo que necesita tope es **texto**, el tope va en el párrafo (`Lectura`), no en
-  la página: un `maxWidth` en el `<main>` también angosta las tablas y los grids,
-  que es lo contrario de lo que se quería.
-- Una pantalla que de verdad necesite otra caja (un canvas, un split), que use
-  `flex`/`grid` adentro de `Pagina`, no un ancho fijo afuera.
+Dos partes:
+
+1. El tope es un **token** (`--pagina-max`, hoy 1280 px), no un número por
+   pantalla. El `style` de `Pagina` está tipado sin `maxWidth`, `width` ni
+   `margin`: una pantalla **no puede** fijarse el ancho aunque quiera. La regla la
+   sostiene `tsc`, no la memoria de quien edita.
+2. Si el contenido no llega al tope, va **centrado**. Un `maxWidth` pegado a la
+   izquierda es lo que deja la franja muerta.
+
+- `ancho="completo"` para lo que sí necesita cada píxel: una tabla de anuncios, un
+  tablero de columnas, un lienzo. Es un conjunto cerrado de dos opciones.
+- `densidad="compacta"` para las pantallas de trabajo denso (bandejas, tableros).
+- Si lo que necesita tope es **texto**, el tope va en el párrafo (`Lectura`, 70ch),
+  no en la página: un `maxWidth` en el `<main>` también angosta las tablas.
+
+#### Una barra de navegación no lleva scroll horizontal
+
+Va en contra del §19.2 del documento («las tabs deben soportar scroll horizontal en
+mobile») y gana la regla de la casa: **esconder destinos detrás de un gesto lateral
+es esconderlos**. Si no entran, bajan de renglón — `Tabs` usa `flex-wrap`.
+
+El caso que lo probó: las tabs de la ficha del lead scrolleaban de costado *y*
+tenían la barra de scroll oculta por CSS, así que las últimas no daban ni una pista
+de existir.
+
+El scroll lateral sigue siendo correcto donde lo que se corre es **contenido** —una
+tabla, una fila de filtros, un bloque de código—, no el mapa de a dónde se puede ir.
+Para eso está `.mk-scroll-x`.
 
 ### Los estados de pantalla (#519)
 

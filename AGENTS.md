@@ -87,26 +87,40 @@ el problema vuelva. `scripts/sync-contrato-detalle.mjs` copia hoy DOS cosas (el 
 `detalle` y la regla del nombre de un proyecto), cada una entre sus marcadores. Si agregás
 una skill que repite una de estas reglas, sumala a `DESTINOS` en vez de copiar el texto.
 
-# El `<main>` de una pantalla es `Pagina`
+# Dos reglas de layout que se rompen solas
 
-Una pantalla **no elige su propio ancho**. Síntoma repetido: se agrega una vista y no
-llega al borde, queda una franja vacía a la derecha que nadie puso a propósito.
+**1. El `<main>` de una pantalla es `Pagina`.** Una pantalla no elige su propio ancho.
+Síntoma repetido: se agrega una vista y no llega al borde, queda una franja vacía a la
+derecha que nadie puso a propósito.
 
 No había ninguna regla escondida, y ese era el problema: cada pantalla escribía su
 propio `<main>`, así que cada una elegía su `maxWidth` por separado — 16 con el mismo
-padding, 7 variantes sueltas más, y topes de 1000, 1100 y 1200 según quién la escribió.
-Copiar la pantalla de al lado propagaba el número.
+padding, 7 variantes sueltas más, y topes de 720, 980, 1000, 1100 y 1200 según quién la
+escribió. Copiar la pantalla de al lado propagaba el número.
 
 ```tsx
 import { Pagina } from '@/app/_ui';
-<Pagina>…</Pagina>          // densidad="compacta" para tableros y bandejas
+<Pagina>…</Pagina>   // topea en --pagina-max y CENTRA
+                     // ancho="completo" para tablas/tableros · densidad="compacta"
 ```
 
-El `style` de `Pagina` está tipado `Omit<CSSProperties, 'maxWidth' | 'width'>`: el
-compilador rechaza el ancho. Si lo que necesita tope es **texto**, el tope va en el
-párrafo (`Lectura`, 70ch), nunca en la página — un `maxWidth` en el `<main>` también
-angosta las tablas y los grids. El resto del sistema, en
-[app/_ui/LEEME.md](app/_ui/LEEME.md); el catálogo vivo, en `/admin/ui`.
+El `style` de `Pagina` está tipado sin `maxWidth`, `width` ni `margin`: el compilador
+rechaza el ancho. Y si el contenido no llega al tope, va **centrado** — un `maxWidth`
+pegado a la izquierda es lo que deja la franja muerta. Si lo que necesita tope es
+**texto**, va en el párrafo (`Lectura`, 70ch), nunca en la página: un `maxWidth` en el
+`<main>` también angosta las tablas.
+
+**2. Una barra de navegación NO lleva scroll horizontal.** Esconder destinos detrás de
+un gesto lateral es esconderlos. Si no entran, bajan de renglón (`flex-wrap`). Esto va
+en contra del §19.2 del documento de rediseño, y gana esta regla. El caso que lo probó:
+las tabs de la ficha del lead scrolleaban de costado *y* tenían la barra de scroll
+oculta por CSS, así que las últimas no daban ni una pista de existir.
+
+El scroll lateral sigue bien donde lo que se corre es **contenido** —una tabla, una
+fila de filtros, un bloque de código—: para eso está `.mk-scroll-x`.
+
+El resto del sistema, en [app/_ui/LEEME.md](app/_ui/LEEME.md); el catálogo vivo, en
+`/admin/ui`, que además lleva el historial de por qué cada cosa quedó así.
 
 # La cosecha: lo que aprende un subagente no vuelve solo
 

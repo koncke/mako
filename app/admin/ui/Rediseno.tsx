@@ -1,27 +1,17 @@
 'use client';
 
 // =============================================================================
-// Las secciones del registro del rediseño, dentro de /admin/ui
+// Las nueve partes y el Change History
 // =============================================================================
-// LA BARRA Y LOS ÍCONOS NO ESTÁN ESCRITOS ACÁ: se leen de app/_components/nav.ts
-// y se pintan con el mismo <Icon> del Sidebar. Es la única forma de que esto no
-// mienta — si mañana se renombra una tab y nadie toca este archivo, acá se ve el
-// nombre nuevo.
-//
-// Lo único escrito a mano es la BITÁCORA (bitacora.ts), que es lo que ningún
-// código puede deducir: el porqué de cada cambio.
+// Es lo ÚNICO de esta pantalla que está escrito a mano, porque es lo único que
+// ningún código puede deducir: el porqué de cada cambio. Todo lo demás —la
+// barra, los íconos, las piezas— se monta de los componentes de verdad.
 
-import { FAMILIAS, MAKO_NAV, USER_NAV, type NavItem } from '@/app/_components/nav';
-import { Icon } from '@/app/_components/icons';
 import { Section, MONO } from '@/app/_ui';
-import { BITACORA, PARTES } from './bitacora';
+import { BITACORA, PARTES, CUENTAS } from './bitacora';
 
-const NAV = '#14161B';
-const NAV_TEXT = '#949CAA';
-const ON_NAV = '#F3F5F8';
-
-/** `**negrita**` y `` `código` `` — lo mínimo para que la bitácora se lea. */
-function texto(s: string) {
+/** `**negrita**` y `` `código` `` — lo mínimo para que el historial se lea. */
+export function texto(s: string) {
   return s.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).map((p, k) => {
     if (p.startsWith('**')) return <strong key={k} style={{ color: 'var(--ink)', fontWeight: 600 }}>{p.slice(2, -2)}</strong>;
     if (p.startsWith('`')) return <code key={k} style={{ fontFamily: MONO, fontSize: '.9em', color: 'var(--ink)' }}>{p.slice(1, -1)}</code>;
@@ -38,7 +28,7 @@ const CHIP = {
 // ── Las nueve partes ─────────────────────────────────────────────────────────
 export function Partes() {
   return (
-    <Section titulo="Las nueve partes" nota="las 21 tareas del board (#516–#535 y #538), agrupadas por lo que entregan">
+    <Section titulo="Las nueve partes">
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
         {PARTES.map((p, i) => {
           const c = CHIP[p.estado];
@@ -57,120 +47,57 @@ export function Partes() {
           );
         })}
       </ol>
-      <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.55 }}>
-        El orden lo fija el documento: «el rediseño no debe comenzar corrigiendo pantallas aisladas».
-        Sin la biblioteca, cada tab vuelve a resolver localmente los mismos problemas.
-      </p>
     </Section>
   );
 }
 
-// ── La bitácora ──────────────────────────────────────────────────────────────
-export function Bitacora() {
+// ── Change History ───────────────────────────────────────────────────────────
+/** Un color por cuenta. Es CATEGORÍA, no estado: por eso no usa los semánticos. */
+const COLOR_CUENTA: Record<keyof typeof CUENTAS, string> = {
+  claude1: '#7C5CE0',
+  claude2: '#0E9AA7',
+};
+
+export function ChangeHistory() {
   return (
-    <Section titulo="Qué se fue cambiando" nota="en orden, con el porqué — los errores también">
+    <Section titulo="Change History">
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {BITACORA.map((h, i) => (
-          <li key={h.titulo + i} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', gap: 16 }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', paddingTop: 20, fontVariantNumeric: 'tabular-nums' }}>{String(i + 1).padStart(2, '0')}</span>
-            <div style={{ borderLeft: `1px solid ${i === BITACORA.length - 1 ? 'transparent' : 'var(--border)'}`, padding: '16px 0 16px 18px', position: 'relative' }}>
-              <span style={{ position: 'absolute', left: -4.5, top: 22, width: 8, height: 8, borderRadius: '50%', background: 'var(--mako)' }} />
-              <div style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                {h.titulo}
-                <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', fontWeight: 400 }}>{h.fecha}</span>
+        {BITACORA.map((h, i) => {
+          const cuenta = CUENTAS[h.cuenta];
+          const color = COLOR_CUENTA[h.cuenta];
+          const ultimo = i === BITACORA.length - 1;
+          return (
+            <li key={h.titulo + i} className="mk-hist">
+              {/* Columna de metadata: cuándo, en qué chat y desde qué cuenta.
+                  Va a la izquierda y en mono para que las diez entradas se
+                  puedan barrer en vertical sin leer ninguna. */}
+              <div style={{ paddingTop: 15, textAlign: 'right' }}>
+                <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{h.fecha}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums', marginTop: 1 }}>{h.hora}</div>
+                <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', marginTop: 9, lineHeight: 1.35 }}>{h.chat}</div>
+                <div title={`${h.cuenta} · config ${cuenta.config} · ventana ${cuenta.ventana}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 11, color: 'var(--dim)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 8px', cursor: 'help' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flex: 'none' }} />
+                  {cuenta.nombre}
+                </div>
               </div>
-              <ul style={{ margin: '10px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {h.puntos.map((p, k) => (
-                  <li key={k} style={{ position: 'relative', paddingLeft: 16, fontSize: 'var(--fs-sm)', lineHeight: 1.55, color: 'var(--dim)' }}>
-                    <span style={{ position: 'absolute', left: 1, top: '.62em', width: 5, height: 5, borderRadius: '50%', background: 'var(--faint)' }} />
-                    {texto(p)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </li>
-        ))}
+
+              <div style={{ borderLeft: `1px solid ${ultimo ? 'transparent' : 'var(--border)'}`, padding: '15px 0 22px 20px', position: 'relative' }}>
+                <span style={{ position: 'absolute', left: -4.5, top: 20, width: 8, height: 8, borderRadius: '50%', background: color }} />
+                <div style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>{h.titulo}</div>
+                <ul style={{ margin: '10px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {h.puntos.map((p, k) => (
+                    <li key={k} style={{ position: 'relative', paddingLeft: 16, fontSize: 'var(--fs-sm)', lineHeight: 1.55, color: 'var(--dim)' }}>
+                      <span style={{ position: 'absolute', left: 1, top: '.62em', width: 5, height: 5, borderRadius: '50%', background: 'var(--faint)' }} />
+                      {texto(p)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </li>
+          );
+        })}
       </ol>
-      <p style={{ margin: '16px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--faint)', lineHeight: 1.55 }}>
-        Se escribe en <code style={{ fontFamily: MONO }}>app/admin/ui/bitacora.ts</code>. Todo lo demás
-        de esta pantalla se lee del código.
-      </p>
-    </Section>
-  );
-}
-
-// ── La barra ─────────────────────────────────────────────────────────────────
-/** Una fila de la barra, igual que se ve, con su ruta al lado. */
-function Fila({ item }: { item: NavItem }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '7px 10px', borderRadius: 'var(--r-sm)', fontSize: 13, color: NAV_TEXT }}>
-      <span style={{ display: 'flex', flex: 'none', color: NAV_TEXT }}><Icon name={item.icon} size={19} /></span>
-      <span style={{ color: ON_NAV, fontWeight: 500, flex: 'none' }}>{item.label}</span>
-      <code style={{ fontFamily: MONO, fontSize: 11, opacity: 0.7 }}>{item.href}</code>
-      {item.comingSoon && (
-        <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 8.5, letterSpacing: '.06em', textTransform: 'uppercase', border: '1px solid currentColor', borderRadius: 5, padding: '1px 5px', opacity: 0.5 }}>pronto</span>
-      )}
-    </div>
-  );
-}
-
-const caja = { background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 'var(--r-lg)', padding: 5 } as const;
-const rotulo = { fontFamily: MONO, fontSize: 12, letterSpacing: '.17em', textTransform: 'uppercase', fontWeight: 700 } as const;
-
-export function LaBarra() {
-  const destinos = FAMILIAS.reduce(
-    (n, f) => n + f.bloques.flat().length + (f.grupos ?? []).reduce((m, g) => m + g.items.length, 0), 0,
-  );
-  return (
-    <Section titulo="La barra, tal como quedó" nota={`${FAMILIAS.length} secciones · ${destinos} destinos · sale de nav.ts`}>
-      <div style={{ background: NAV, borderRadius: 18, padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {FAMILIAS.map((f) => (
-          <section key={f.key}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 2px 8px', color: ON_NAV, flexWrap: 'wrap' }}>
-              <span style={{ display: 'flex', flex: 'none' }}><Icon name={f.icon} size={17} /></span>
-              <span style={rotulo}>{f.label}</span>
-              <span style={{ fontSize: 12, color: NAV_TEXT }}>{f.pregunta}</span>
-            </div>
-            <div style={caja}>
-              {f.bloques.map((b, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 1, ...(i ? { marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,.06)' } : {}) }}>
-                  {b.map((it) => <Fila key={it.key} item={it} />)}
-                </div>
-              ))}
-              {(f.grupos ?? []).map((g) => (
-                <div key={g.key} style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,.06)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '7px 10px', fontSize: 13, color: NAV_TEXT }}>
-                    <span style={{ display: 'flex', flex: 'none' }}><Icon name={g.icon} size={19} /></span>
-                    <span style={{ color: ON_NAV, fontWeight: 500 }}>{g.label}</span>
-                    <span style={{ marginLeft: 'auto', opacity: 0.6 }}>›</span>
-                  </div>
-                  <div style={{ margin: '2px 0 0 22px', paddingLeft: 12, borderLeft: '1px solid rgba(255,255,255,.09)', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {g.items.map((it) => <Fila key={it.key} item={it} />)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-
-        <section>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 2px 8px', color: ON_NAV }}>
-            <span style={rotulo}>Fuera de las familias</span>
-          </div>
-          <div style={caja}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {MAKO_NAV.map((it) => <Fila key={it.key} item={it} />)}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,.06)' }}>
-              {USER_NAV.map((it) => <Fila key={it.key} item={it} />)}
-            </div>
-          </div>
-        </section>
-      </div>
-      <p style={{ margin: '12px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.5 }}>
-        Arriba de todo, la capacidad global de MaKo. Abajo, lo que vive detrás del avatar — más el
-        saldo de IA. Los grupos con <span style={{ opacity: 0.7 }}>›</span> abren un desplegable al costado.
-      </p>
     </Section>
   );
 }
