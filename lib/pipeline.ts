@@ -383,10 +383,19 @@ export const CHIP: Record<StageTone, ChipColor> = {
   magenta: { bg: 'rgba(157,78,221,.12)', fg: '#8B3FC9', bd: 'rgba(157,78,221,.30)' },
 };
 
+/**
+ * Igual que stageMeta pero SIN inventar: si la key no existe devuelve undefined.
+ * Es lo que necesita el historial — ahí caer a la 1ª etapa no es "un default",
+ * es mostrar un dato falso (pintaba todo el recorrido como "Lead (Instant form)").
+ */
+export function stageMetaOpt(stages: Stage[], key: string): Stage | undefined {
+  // Cae a las libs para resolver el label de keys legacy (noshow_r1/postagenda/…)
+  // que el funnel del workspace ya no lista.
+  return stages.find((s) => s.key === key) || DEFAULT_STAGES.find((s) => s.key === key) || NUTRI_EXTRA[key];
+}
+
 export function stageMeta(stages: Stage[], key: string): Stage {
-  // Cae a las libs para resolver el label de keys legacy (noshow/postagenda/…)
-  // que el funnel ya no genera, en vez de mostrar la 1ª etapa (mal etiquetado).
-  return stages.find((s) => s.key === key) || DEFAULT_STAGES.find((s) => s.key === key) || NUTRI_EXTRA[key] || stages[0];
+  return stageMetaOpt(stages, key) || stages[0];
 }
 
 // Subconjunto de Lead que necesita la derivación (evita acoplar al tipo completo).

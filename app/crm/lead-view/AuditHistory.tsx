@@ -10,7 +10,8 @@
 
 import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { stageMeta, type Stage } from '@/lib/pipeline';
+import { stageMetaOpt, type Stage } from '@/lib/pipeline';
+import { normalizar as normTxt } from '@/lib/buscar-texto';
 import { getLeadAuditAction, revertMoveAction, type LeadAuditRowFull } from '../actions';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 
@@ -37,6 +38,18 @@ const STATUS_FIELDS = new Set(['Etapa', 'Estado', 'Nutrición manual', 'Auditor�
 
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
+
+// Chip de etapa/estado: el punto lleva el color del funnel, así el recorrido se lee
+// de un vistazo sin tener que comparar textos largos.
+function ChipEtapa({ texto, dot }: { texto: string; dot?: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--ink)', whiteSpace: 'nowrap' }}>
+      {dot && <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flex: 'none' }} />}
+      {texto}
+    </span>
+  );
+}
+
 function Autor({ row }: { row: LeadAuditRowFull }) {
   const esUsuario = row.autor.includes('@');
   if (!esUsuario) {
@@ -59,16 +72,22 @@ function Autor({ row }: { row: LeadAuditRowFull }) {
 export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stage[] }) {
   const router = useRouter();
 
-  // Valores legibles: keys de etapa → label del funnel; estados → label; chips.
+  // Resuelve el valor guardado de una etapa. Acepta la KEY (lo correcto) y también
+  // la ETIQUETA (historial reconstruido viejo). Si no la reconoce devuelve undefined
+  // y se muestra el texto crudo: acá NO se puede usar stageMeta, que ante un valor
+  // desconocido cae a la 1ª etapa y pintaba todo el historial "Lead (Instant form)".
+  const resolverStage = (v: string): Stage | undefined =>
+    stageMetaOpt(stages ?? [], v) ?? stages?.find((s) => normTxt(s.label) === normTxt(v));
+
+  // Valores legibles: keys de etapa → chip con el color del funnel; estados → label.
   const legible = (campo: string, v: string | null): ReactNode => {
     if (v == null || v === '') return <span style={{ color: 'var(--faint)' }}>—</span>;
-    let txt = v;
-    if (campo === 'Etapa' && stages?.length) txt = stageMeta(stages, v)?.label ?? v;
-    if (campo === 'Estado') txt = ESTADO_LABEL[v] ?? v;
-    if (campo === 'Etapa' || campo === 'Estado') {
-      return <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--ink)' }}>{txt}</span>;
+    if (campo === 'Etapa') {
+      const s = resolverStage(v);
+      return <ChipEtapa texto={s?.label ?? v} dot={s?.dot} />;
     }
-    return <span>{txt}</span>;
+    if (campo === 'Estado') return <ChipEtapa texto={ESTADO_LABEL[v] ?? v} />;
+    return <span>{v}</span>;
   };
   const [pending, startTransition] = useTransition();
   const [audit, setAudit] = useState<LeadAuditRowFull[]>([]);
@@ -123,9 +142,12 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
     ? etapaEvents.map((e, i) => {
         const from = new Date(e.created_at).getTime();
         const to = i + 1 < etapaEvents.length ? new Date(etapaEvents[i + 1].created_at).getTime() : now;
-        return { stage: e.valor_nuevo as string, ms: Math.max(0, to - from), actual: i + 1 === etapaEvents.length };
+        return { id: e.id, stage: e.valor_nuevo as string, ms: Math.max(0, to - from), actual: i + 1 === etapaEvents.length };
       })
     : [];
+  // Cada tramo se muestra en SU línea del recorrido (no en una lista aparte).
+  const tramoPorFila = new Map(tramos.map((t) => [t.id, t]));
+  const actual = tramos.find((t) => t.actual);
   const fmtDur = (ms: number) => {
     const d = Math.floor(ms / 86400000);
     if (d >= 1) return `${d} día${d === 1 ? '' : 's'}`;
@@ -133,7 +155,12 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
     if (h >= 1) return `${h} h`;
     return `${Math.max(1, Math.floor(ms / 60000))} min`;
   };
-  const etapaLabel = (k: string) => (stages?.length ? stageMeta(stages, k)?.label ?? k : k);
+
+  // El punto del riel toma el color de la etapa a la que se MOVIO el lead.
+  const puntoDe = (g: LeadAuditRowFull[]) => {
+    const et = g.find((r) => r.campo === 'Etapa' && r.valor_nuevo);
+    return (et && resolverStage(et.valor_nuevo as string)?.dot) || 'var(--border-strong)';
+  };
 
   // Un "movimiento" = todas las filas escritas en el mismo instante por el mismo
   // autor (un drag Ganado→Lead escribe Etapa+Estado+Monto a la vez). Se agrupan
@@ -172,18 +199,13 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
 
       {revertErr && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginBottom: 10 }}>{revertErr}</div>}
 
-      {/* Tiempo sin resolver en cada etapa (solo en el sub-tab Status). */}
-      {subTab === 'status' && tramos.length > 0 && (
-        <div style={{ marginBottom: 12, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 }}>
-          <div style={{ ...sectLabel, marginBottom: 9 }}>Tiempo en cada etapa</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {tramos.map((t, i) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, padding: '4px 11px', borderRadius: 999, background: t.actual ? 'var(--accent-soft, #FBF3DE)' : 'var(--surface)', border: '1px solid ' + (t.actual ? '#EBD9A8' : 'var(--border-strong)'), color: 'var(--ink)' }}>
-                <b style={{ fontWeight: 600 }}>{etapaLabel(t.stage)}</b>
-                <span style={{ color: 'var(--dim)', fontFamily: MONO, fontSize: 11.5 }}>{fmtDur(t.ms)}{t.actual ? ' · actual' : ''}</span>
-              </span>
-            ))}
-          </div>
+      {/* Dónde está HOY y hace cuánto. El tiempo de cada etapa anterior va en su
+          propia línea del recorrido, para no repetir dos veces la misma lista. */}
+      {subTab === 'status' && actual && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', marginBottom: 14, padding: '10px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 }}>
+          <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Ahora en</span>
+          <ChipEtapa texto={resolverStage(actual.stage)?.label ?? actual.stage} dot={resolverStage(actual.stage)?.dot} />
+          <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>hace {fmtDur(actual.ms)}</span>
         </div>
       )}
 
@@ -199,19 +221,37 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
           // Ambos revierten Y borran el rastro (un cambio deshecho no es historia).
           const reciente = now > 0 && now - new Date(head.created_at).getTime() < 10 * 60_000;
           return (
-            <div key={head.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, flexWrap: 'wrap' }}>
+            <div key={head.id} style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+              {/* Riel de la línea de tiempo: el punto marca el movimiento y la
+                  línea lo une con el anterior. Se corta en el más viejo. */}
+              <span aria-hidden style={{ flex: 'none', width: 9, marginLeft: 4, position: 'relative', borderLeft: gi === grupos.length - 1 ? 'none' : '1.5px solid var(--border)' }}>
+                <span style={{ position: 'absolute', left: -5.5, top: 15, width: 10, height: 10, borderRadius: '50%', background: puntoDe(g), border: '2px solid var(--surface)', boxSizing: 'border-box' }} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, flexWrap: 'wrap' }}>
               <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{fmtAuditDate(head.created_at)}</span>
-              <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--ink)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {g.map((a) => (
-                  <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <b style={{ fontWeight: 600 }}>{a.campo}:</b> {legible(a.campo, a.valor_anterior)} <span style={{ color: 'var(--faint)' }}>→</span> {legible(a.campo, a.valor_nuevo)}
+              <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--ink)', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {g.map((a) => {
+                  const t = tramoPorFila.get(a.id);
+                  return (
+                  <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                    {/* En Status el campo es siempre la etapa: repetir "Etapa:" en
+                        cada línea es ruido. Sin valor anterior no hay flecha. */}
+                    {!(a.campo === 'Etapa' && subTab === 'status') && <b style={{ fontWeight: 600 }}>{a.campo}:</b>}
+                    {a.valor_anterior ? (
+                      <>{legible(a.campo, a.valor_anterior)} <span style={{ color: 'var(--faint)' }}>→</span> {legible(a.campo, a.valor_nuevo)}</>
+                    ) : (
+                      <>{a.campo === 'Etapa' && <span style={{ color: 'var(--dim)', fontSize: 12.5 }}>Entró a</span>} {legible(a.campo, a.valor_nuevo)}</>
+                    )}
+                    {t && !t.actual && <span style={{ color: 'var(--faint)', fontSize: 12 }}>· {fmtDur(t.ms)} acá</span>}
                   </span>
-                ))}
+                  );
+                })}
               </span>
               <Autor row={head} />
               {revertible && (
                 <button type="button" onClick={() => setConfirmRevert({ createdAt: head.created_at, reciente })} disabled={pending} title={reciente ? 'Deshacer este movimiento (borra el rastro del historial)' : 'Volver al estado anterior (borra el rastro del historial)'} style={{ flex: 'none', padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>↶ {reciente ? 'Deshacer' : 'Restaurar'}</button>
               )}
+              </div>
             </div>
           );
         })}

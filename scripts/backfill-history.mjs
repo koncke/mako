@@ -18,9 +18,6 @@ const hito = (fecha, campo, valor) => (fecha ? { fecha: new Date(fecha), campo, 
 // El sub-tab "Status" de la ficha SOLO muestra campo='Etapa'/'Estado' (ver
 // STATUS_FIELDS en AuditHistory). Reconstruir hitos informativos no llena esa
 // pestaña: hay que reconstruir el RECORRIDO de etapas, transición por transición.
-const LABEL = { lead: 'Lead (Instant form)', agenda: 'Agenda R1', agendaj2: 'Agenda R2',
-  noshow: 'Nutrición No Show R1', noshow_r2: 'Nutrición No Show R2', ganado: 'Ganado',
-  perdido: 'Perdido', descal: 'Descalificado', nutri: 'Nutrición No Agenda' };
 
 /** Secuencia (fecha, etapa) deducida de las fechas reales del lead. */
 function recorridoDe(l) {
@@ -30,7 +27,7 @@ function recorridoDe(l) {
   add(l.fecha_agenda, 'agenda');
   const r1 = l.junta_1_at || l.fecha_junta_1;
   if (r1) {
-    if (l.asistio_j1 === false) add(r1, 'noshow');
+    if (l.asistio_j1 === false) add(r1, 'noshow_r1');
     else if (l.asistio_j1 === true && (l.junta_2_at || l.fecha_junta_2)) add(r1, 'agendaj2');
   }
   const r2 = l.junta_2_at || l.fecha_junta_2;
@@ -80,7 +77,9 @@ try {
   for (const l of leads) {
     const etapas = recorridoDe(l).map((t) => ({
       fecha: t.fecha, campo: 'Etapa',
-      valor: LABEL[t.a] ?? t.a, anterior: t.de ? (LABEL[t.de] ?? t.de) : null,
+      // Se guarda la KEY, no la etiqueta: la ficha resuelve key->label contra el
+      // funnel del workspace. Con la etiqueta no la reconoce y pinta la 1a etapa.
+      valor: t.a, anterior: t.de ?? null,
     }));
     const pend = [...hitosDe(l), ...etapas]
       .filter((x) => !clave.has(`${l.id}|${x.campo}|${x.valor}`))
