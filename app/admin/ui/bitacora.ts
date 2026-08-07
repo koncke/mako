@@ -88,9 +88,19 @@ export const BITACORA: Hito[] = [
     fecha: '7 ago',
     titulo: 'Esta página',
     puntos: [
-      'El registro dejó de ser un HTML publicado afuera y pasó a vivir acá, en `/admin/rediseno`.',
-      'La barra y los íconos de abajo **no están escritos**: salen de `nav.ts` e `icons.tsx` en cada carga. Una página así, escrita a mano, envejece en silencio — se renombra una tab, nadie toca el HTML, y sigue mostrando la barra de anteayer con cara de estar al día.',
-      'Lo único que se escribe es esta bitácora, en `app/admin/rediseno/bitacora.ts`.',
+      'El registro dejó de ser un HTML publicado afuera y pasó a vivir acá, adentro de **Sistema de diseño**. Las piezas y el porqué de cada una son la misma cosa mirada de dos maneras; en tabs separadas obligaban a saltar de una a otra.',
+      'La barra y los íconos de «La barra» **no están escritos**: salen de `nav.ts` e `icons.tsx` en cada carga. Una página así, escrita a mano, envejece en silencio — se renombra una tab, nadie toca el HTML, y sigue mostrando la barra de anteayer con cara de estar al día.',
+      'Lo único que se escribe es esta bitácora, en `app/admin/ui/bitacora.ts`.',
+      'La sub-tab activa viaja en la URL (`?tab=barra`) para poder mandar el link a una sección en vez de decir «y bajá hasta…».',
+    ],
+  },
+  {
+    fecha: '7 ago',
+    titulo: 'El ancho, de una vez',
+    puntos: [
+      'La pantalla no llegaba al borde. No había ninguna regla escondida: **cada pantalla escribe su propio `<main>`** y ahí cada una eligió su `maxWidth` — 16 pantallas con el mismo padding y 7 variantes sueltas más.',
+      'Ahora el `<main>` lo pone el primitive `Pagina`, y su prop `style` está tipada `Omit<…, \'maxWidth\' | \'width\'>`: una pantalla **no puede** fijarse el ancho aunque quiera. La regla la sostiene el compilador, no la memoria de quien edita.',
+      'Para el texto largo, que sí necesita tope, está `Lectura` (70ch) — el tope va en el párrafo, no en la página.',
     ],
   },
 ];

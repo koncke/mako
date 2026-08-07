@@ -101,12 +101,44 @@ Los tres dicen cosas distintas y no son intercambiables:
 
 | Pieza | Cuándo |
 |---|---|
+| `Pagina` | **el `<main>` de la pantalla.** Siempre. Es lo primero que se abre y lo último que se cierra |
+| `Lectura` | adentro de `Pagina`, para el texto largo: le pone tope de 70 caracteres por línea |
 | `PageHeader` | va en casi todas las pantallas: título, **una línea de propósito**, estado, filtros y **UNA** acción primaria |
 | `Section` | agrupación por título y aire. La tarjeta es **opt-in** (`card`) — envolver todo produce padding sobre padding |
 | `Eyebrow` | la etiqueta en versalitas y mono que rotula un bloque |
 
 La línea de propósito dice **qué pregunta responde** la pantalla. No es la bajada
 decorativa que la regla de la casa prohíbe: si se deduce del título, dejala vacía.
+
+#### El ancho: una pantalla no elige el suyo
+
+Síntoma repetido: se agrega una pantalla y **no llega al borde**, queda una franja
+vacía a la derecha. Nadie la puso ahí a propósito.
+
+No hay ninguna regla escondida, y ese es justamente el problema: **cada pantalla
+escribía su propio `<main>`**, así que cada una elegía su padding y su `maxWidth`
+por separado. Medido sobre `app/` antes de arreglarlo: 16 pantallas con
+`padding: '34px 44px 60px'`, 7 variantes sueltas más, y `maxWidth` de 1000, 1100 y
+1200 según quién la escribió. Copiar la pantalla de al lado propagaba el número.
+
+Ahora el `<main>` lo pone `Pagina`, y su prop `style` está tipada
+`Omit<CSSProperties, 'maxWidth' | 'width'>`: una pantalla **no puede** fijarse el
+ancho aunque quiera — el compilador lo rechaza. La regla la sostiene `tsc`, no la
+memoria de quien edita.
+
+```tsx
+<Pagina>                     {/* ocupa todo lo que le deja el shell */}
+  <PageHeader … />
+  <Section …>…</Section>
+</Pagina>
+```
+
+- `densidad="compacta"` para las pantallas de trabajo denso (tableros, bandejas).
+- Si lo que necesita tope es **texto**, el tope va en el párrafo (`Lectura`), no en
+  la página: un `maxWidth` en el `<main>` también angosta las tablas y los grids,
+  que es lo contrario de lo que se quería.
+- Una pantalla que de verdad necesite otra caja (un canvas, un split), que use
+  `flex`/`grid` adentro de `Pagina`, no un ancho fijo afuera.
 
 ### Los estados de pantalla (#519)
 
@@ -167,4 +199,8 @@ Está adentro del sistema, no es una capa posterior:
 3. Los estilos que necesitan `:hover`, `:focus-visible`, `:disabled` o animación
    van a `ui.css`. Un `style={{}}` no los tiene, y por eso la app terminó con
    1.158 botones que se ven distinto.
-4. Catálogo vivo en **`/admin/ui`**: si agregás una pieza, agregala ahí.
+4. **El `<main>` de una pantalla es `Pagina`.** Ninguna pantalla escribe su propio
+   ancho ni su propio padding de página.
+5. Catálogo vivo en **`/admin/ui`**: si agregás una pieza, agregala ahí — y si la
+   decisión tiene un porqué que no se deduce del código, va a la bitácora
+   (`app/admin/ui/bitacora.ts`), que es la sub-tab «Rediseño».

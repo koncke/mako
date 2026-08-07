@@ -269,7 +269,7 @@ export const MAKO_NAV: NavItem[] = [
 // visualmente cuando el usuario está operando un negocio».
 export const ADMIN_NAV: NavItem[] = [
   // /admin/guiones tiene su propio item — que "Clientes" no se marque también.
-  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/rediseno')(p) },
+  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) },
   { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
   // Canal propio de MaKo (SuperAdmin): WhatsApp del admin (canal + chat de grupos
   // + plantillas). NO es preview de ningún cliente. Su propia línea por QR.
@@ -281,11 +281,9 @@ export const ADMIN_NAV: NavItem[] = [
   { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
   { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },
   { key: 'modelos-ia', label: 'Modelos IA', href: '/modelos-ia', icon: 'mako', match: starts('/modelos-ia') },
-  // El catálogo vivo del sistema de diseño (app/_ui). Herramienta de
-  // construcción, no producto.
-  { key: 'ui', label: 'Sistema de diseño', href: '/admin/ui', icon: 'config', match: starts('/admin/ui') },
-  // El registro del rediseño: qué se cambió, por qué, y cómo quedó la barra.
-  { key: 'rediseno', label: 'Rediseño', href: '/admin/rediseno', icon: 'creativos', match: starts('/admin/rediseno') },
+  // El catálogo vivo del sistema de diseño (app/_ui) Y el registro del rediseño,
+  // en una sola tab con sub-tabs. Herramienta de construcción, no producto.
+  { key: 'ui', label: 'Sistema de diseño', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
   // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
   { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
 ];

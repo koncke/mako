@@ -8,6 +8,7 @@
 // nada — que es exactamente el criterio de «listo» de la tarea #516.
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Button, ButtonLink, IconButton, useOkFlash,
   TextField,
@@ -16,14 +17,27 @@ import {
   Spinner, Progress, Skeleton, SkeletonLines, Divider,
   EmptyState, NoResults, ErrorState, StaleData, PermissionState, Banner, Alert,
   Confirm, useConfirm, Toast, useToast,
-  PageHeader, Section,
+  PageHeader, Section, Pagina, Tabs, type Tab,
   MONO, type Tono,
 } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { FAMILIAS } from '@/app/_components/nav';
+import { Partes, Bitacora, LaBarra } from './Rediseno';
 
 const TONOS: Tono[] = ['mako', 'info', 'good', 'warn', 'bad', 'neutral'];
+
+/**
+ * Las cinco vistas de esta pantalla. Son hermanas de verdad —ninguna es el
+ * detalle de otra—, que es la condición para que sean tabs y no navegación.
+ */
+const TABS: Tab[] = [
+  { id: 'rediseno', label: 'Rediseño' },
+  { id: 'barra', label: 'La barra' },
+  { id: 'fundamentos', label: 'Fundamentos' },
+  { id: 'piezas', label: 'Piezas' },
+  { id: 'estados', label: 'Estados' },
+];
 
 /** Envoltorio local: la Section del sistema, siempre con tarjeta. */
 function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: React.ReactNode }) {
@@ -50,7 +64,7 @@ const ESCALA: { token: string; uso: string; desktop: string; mobile: string }[] 
   { token: '--fs-meta', uso: 'Metadata', desktop: '12', mobile: '13' },
 ];
 
-export function CatalogoUI() {
+export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
   const [texto, setTexto] = useState('');
   const [conError, setConError] = useState('sin-arroba');
   const [sel, setSel] = useState('crm');
@@ -62,56 +76,32 @@ export function CatalogoUI() {
   const { confirm, confirmNode } = useConfirm();
   const { toast, show, clear } = useToast();
 
+  // La tab también viaja en la URL, para poder mandar el link a una sección
+  // concreta ("mirá /admin/ui?tab=barra") en vez de decir "y bajá hasta…".
+  // El estado manda y la URL lo acompaña —no al revés—: así la primera pintura
+  // ya sale del servidor con la tab correcta.
+  const router = useRouter();
+  const [tab, setTab] = useState(() => (TABS.some((t) => t.id === tabInicial) ? tabInicial! : 'rediseno'));
+  const irA = (id: string) => {
+    setTab(id);
+    router.replace(id === 'rediseno' ? '/admin/ui' : `/admin/ui?tab=${id}`, { scroll: false });
+  };
+
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: 'var(--card-pad)', maxWidth: 1100 }}>
+    <Pagina>
       <PageHeader
         titulo="Sistema de diseño"
-        proposito="La biblioteca real renderizada, no una captura: si algo se ve mal acá, se ve mal en toda la app."
+        proposito="Las piezas y el porqué de cada una. Todo se renderiza de la biblioteca real, no de capturas: si algo se ve mal acá, se ve mal en toda la app."
         estado={<Status tono="mako">Fase 1</Status>}
         accion={<ButtonLink href="/general" variant="secondary">Ver la app →</ButtonLink>}
       />
 
-      {/* ── Navegación ───────────────────────────────────────────────────── */}
-      <Seccion titulo="Navegación por intención" nota="cada familia responde UNA pregunta">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
-          {FAMILIAS.map((f) => (
-            <div key={f.key} style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 14, background: 'var(--surface-2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ display: 'flex', color: 'var(--dim)' }}><Icon name={f.icon} size={17} /></span>
-                <span style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>{f.label}</span>
-                {f.notifica && <Badge tono="bad">•</Badge>}
-              </div>
-              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.45, marginBottom: 10 }}>{f.pregunta}</div>
-              {/* Un renglón por BLOQUE: así se ve la agrupación de adentro de
-                  la familia, que es lo que la barra separa con aire. */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {f.bloques.map((bloque, i) => (
-                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {bloque.map((it) => <Tag key={it.key}>{it.label}</Tag>)}
-                  </div>
-                ))}
-                {/* Las colecciones abren al costado: una sola pieza, porque en
-                    la barra ocupan una sola fila. */}
-                {(f.grupos ?? []).length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {(f.grupos ?? []).map((g) => (
-                      <Tag key={g.key} color="var(--primary)">{g.label} ({g.items.length}) ›</Tag>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.5 }}>
-          En azul, las colecciones que abren al costado: ver los siete Analysts desplegados para entrar a uno es el
-          mismo inventario de antes. El punto rojo marca la única familia que notifica.{' '}
-          <strong>Preguntale a MaKo</strong> vive fuera de las familias, abajo del todo, porque es una capacidad
-          global y no un módulo. Y la familia Admin del documento no ocupa lugar en la barra: vive detrás del avatar,
-          junto con el saldo de IA.
-        </p>
-      </Seccion>
+      <Tabs tabs={TABS} activa={tab} onCambio={irA} />
 
+      {tab === 'rediseno' && <><Partes /><Bitacora /></>}
+      {tab === 'barra' && <LaBarra />}
+
+      {tab === 'fundamentos' && (<>
       {/* ── Tipografía ───────────────────────────────────────────────────── */}
       <Seccion titulo="Escala tipográfica" nota="siete niveles; suben solos en pantalla chica">
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -156,6 +146,9 @@ export function CatalogoUI() {
         </div>
       </Seccion>
 
+      </>)}
+
+      {tab === 'piezas' && (<>
       {/* ── Botones ──────────────────────────────────────────────────────── */}
       <Seccion titulo="Botones" nota="nunca dos primary compitiendo en la misma vista">
         <Fila label="Variantes">
@@ -251,6 +244,9 @@ export function CatalogoUI() {
         </Fila>
       </Seccion>
 
+      </>)}
+
+      {tab === 'estados' && (<>
       {/* ── Los estados que faltaban ─────────────────────────────────────── */}
       <Seccion titulo="Cintas: Banner y Alert" nota="misma forma, distinto alcance">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
@@ -301,6 +297,8 @@ export function CatalogoUI() {
         </p>
       </Seccion>
 
+      </>)}
+
       {confirmando && (
         <Confirm title="¿Eliminar la campaña «Frío · VSL · Julio»?"
           message="Se va a pausar en Meta y a borrar de MaKo. Los resultados históricos se conservan."
@@ -309,6 +307,6 @@ export function CatalogoUI() {
       )}
       {confirmNode}
       <Toast state={toast} onClose={clear} />
-    </main>
+    </Pagina>
   );
 }
