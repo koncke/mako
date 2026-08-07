@@ -17,7 +17,7 @@
 
 import 'server-only';
 
-import { getLead, updateLead, setPipelineStage, applyFathomRecording, logLeadEvent } from './leads';
+import { getLead, updateLead, moverLeadAuto, applyFathomRecording, logLeadEvent } from './leads';
 import { pipelineStageOf, MAKO_SETTER } from './pipeline';
 import { getTenantDb, runWithWorkspace, listarWorkspaces, getWorkspaceActual, OWNER_WS } from './workspace';
 import { hoyEnTijuana } from './date-utils';
@@ -143,6 +143,31 @@ async function logRegla(leadId: number, regla: AutoReglaId, texto: string): Prom
   await logLeadEvent(leadId, 'CRM automático', `${regla}: ${texto}`, AUTOR);
 }
 
+/**
+ * Mueve un lead desde el motor, con los MISMOS requisitos que el wizard del CRM.
+ *
+ * El motor solo mueve a nutrición y a salidas (No Agenda, Reactivación, No Show,
+ * No responde): etapas sin requisitos, así que hoy validar no rechaza nada. Se
+ * valida igual porque el funnel es configurable por workspace — el día que una de
+ * esas etapas tenga requisitos, el motor no puede ser el único camino que los
+ * ignora.
+ *
+ * La regla de "validá, y si falta algo no muevas pero escribí por qué" es la
+ * MISMA que necesita el desenlace de las nutriciones, así que vive en un solo
+ * lugar (`moverLeadAuto`, lib/leads.ts) y acá solo se le pone el nombre con el
+ * que este motor firma el historial.
+ *
+ * Devuelve false = no se movió (el caller corta y no crea la confirmación, que
+ * anunciaría un cambio que nunca pasó).
+ */
+async function moverAuto(
+  leadId: number,
+  to: string,
+  extra?: { asistio_j1?: boolean | null; asistio_j2?: boolean | null },
+): Promise<boolean> {
+  return moverLeadAuto(leadId, to, { canal: 'CRM automático', autor: AUTOR, ...extra });
+}
+
 /** Asigna a MaKo como setter de una nutrición automática — y lo deja registrado. */
 async function asignarSetterMaKo(leadId: number, setterActual: string | null | undefined): Promise<void> {
   if (setterActual?.trim()) return;
@@ -172,7 +197,7 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     if (to === 'reactivacion' && cur !== 'lead' && cur !== 'nutri') return 'skip';
     // El cambio de etapa lo audita setPipelineStage (campo 'Etapa'); acá se suma
     // el POR QUÉ, que la línea de etapa sola no cuenta.
-    await setPipelineStage(a.leadId, to, { autor: AUTOR });
+    if (!(await moverAuto(a.leadId, to))) return 'skip';
     // Nutrición automática la corre MaKo → setter='MaKo' si estaba vacío (nunca queda sin setter).
     await asignarSetterMaKo(a.leadId, lead.setter);
     const label = to === 'reactivacion' ? 'Nutrición - Reactivación' : 'Nutrición - No Agenda';
@@ -187,7 +212,7 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     const prevEstado = lead.estado_lead;
     const prevStage = lead.pipeline_stage ?? null;
     const prevMotivo = lead.motivo_perdida ?? null; // updateLead lo nulifica al reabrir → restaurarlo en el revert
-    await setPipelineStage(a.leadId, 'reactivacion', { autor: AUTOR });
+    if (!(await moverAuto(a.leadId, 'reactivacion'))) return 'skip';
     // Reactivación la corre MaKo → setter='MaKo' si estaba vacío.
     await asignarSetterMaKo(a.leadId, lead.setter);
     await logRegla(a.leadId, 'T6', `→ Nutrición - Reactivación (${a.descripcion})`);
@@ -240,11 +265,12 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       });
     }
     // Sin grabación → No Show.
-    await setPipelineStage(
+    const movido = await moverAuto(
       a.leadId,
       which === 'j1' ? 'noshow_r1' : 'noshow_r2',
-      { autor: AUTOR, ...(which === 'j1' ? { asistio_j1: false } : { asistio_j2: false }) },
+      which === 'j1' ? { asistio_j1: false } : { asistio_j2: false },
     );
+    if (!movido) return 'skip';
     await logRegla(a.leadId, 'T1', `→ No Show ${which === 'j1' ? 'R1' : 'R2'}: no apareció ninguna grabación en Fathom (${a.descripcion})`);
     return confirmarOCompensar(a.leadId, {
       leadId: a.leadId, leadNombre: lead.nombre, regla: 'T1', tipo: a.tipo, clave,
@@ -282,7 +308,7 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       const prevStage = lead.pipeline_stage ?? null;
       const prevEstado = lead.estado_lead;
       const prevDeadline = lead.nutricion_manual_deadline ?? null;
-      await setPipelineStage(a.leadId, 'noresp', { autor: AUTOR });
+      if (!(await moverAuto(a.leadId, 'noresp'))) return 'skip';
       await logRegla(a.leadId, 'T3', `→ No responde: venció la nutrición manual y hay ${inbound} mensaje(s) del lead en WhatsApp`);
       return confirmarOCompensar(a.leadId, {
         leadId: a.leadId, leadNombre: lead.nombre, regla: 'T3', tipo: a.tipo, clave: 'T3',

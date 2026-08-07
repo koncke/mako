@@ -489,12 +489,18 @@ export function OnboardingWizard() {
   return (
     <>
       <BrandDefs />
+      {/* Progreso con el MAPA (`pasos`+`pasoActual`), no con dos números: con
+          `total`+`idx` había que repetir acá el `pasos.indexOf(...)` que la pieza
+          ya sabe hacer, y una cuenta duplicada es la que se queda vieja. Ojo con
+          el grano: el mapa son las SECCIONES y las pantallas son más (varias por
+          sección), así que el punto no se mueve dentro de una sección — a
+          propósito, y por eso la pieza pinta "faltan pasos" en la última. */}
       <WizardShell
         fullscreen
         bloqueante
         titulo={data.capa.nombre}
-        total={data.pasos.length}
-        idx={Math.max(0, data.pasos.indexOf(p.paso))}
+        pasos={data.pasos}
+        pasoActual={p.paso}
         pregunta={p.pregunta}
         sub={p.sub}
         error={error}

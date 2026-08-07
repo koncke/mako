@@ -9,7 +9,7 @@
 
 import type { NextRequest } from 'next/server';
 import { blockContact, contactoEnInboxWA } from '@/lib/chatwoot';
-import { setPipelineStage, updateLead } from '@/lib/leads';
+import { moverLeadAuto, updateLead } from '@/lib/leads';
 import { getTenantDb } from '@/lib/workspace';
 import { integracionConectada } from '@/lib/credenciales';
 
@@ -63,7 +63,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           // Solo descalificamos si el lead estaba ABIERTO (en juego). No pisamos
           // ganados/perdidos/descalificados ni su motivo histórico.
           if (estado === 'abierto') {
-            await setPipelineStage(leadId, 'descal', { motivo });
+            // Con validación, como el resto de los movimientos sin formulario.
+            // Hoy no rechaza nada (lo único que 'descal' exige es el motivo, y
+            // acá siempre viaja uno), pero si algún día no se pudiera mover, el
+            // porqué queda en el historial del lead en vez de en un console.error
+            // que nadie lee — que es lo que pasaba antes con cualquier fallo.
+            await moverLeadAuto(leadId, 'descal', { canal: 'WhatsApp', motivo });
           }
         } else if (estado === 'descalificado') {
           // Desbloquear: lo devolvemos a "abierto" (el bloqueo es lo que descalifica acá).

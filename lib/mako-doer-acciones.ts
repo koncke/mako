@@ -15,7 +15,9 @@ import 'server-only';import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mako-pendientes';
-import { getLead, setPipelineStage, getFunnel } from '@/lib/leads';
+import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes } from '@/lib/leads';
+import type { Step, StepId } from '@/lib/stage-requirements';
+import { tzDeWorkspace } from '@/lib/timezone';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
@@ -38,10 +40,52 @@ function str(input: Record<string, unknown>, key: string): string {
   const v = input[key];
   return typeof v === 'string' ? v.trim() : '';
 }
-function fmtFecha(iso: string): string {
+/** Fecha para mostrar en el chat, en la zona del WORKSPACE (no la del dueño). */
+function fmtFecha(iso: string, tz: string): string {
   try {
-    return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' });
+    return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: tz });
   } catch { return iso; }
+}
+
+// ── requisitos de etapa por WhatsApp: qué se pide y qué se declara sin cargar ──
+
+/**
+ * Los requisitos que MaKo PUEDE conseguir preguntando por el chat: son
+ * exactamente los dos que su tool sabe recibir (`monto` y `motivo`).
+ *
+ * Todo lo demás —la fecha de una reunión, la asistencia, el link de Fathom, los
+ * Deal Details— vive en Calendly / Fathom / la ficha, y NINGUNA de las 11 tools
+ * del doer lo escribe. Exigirlos por este canal era un CALLEJÓN SIN SALIDA: el
+ * dueño pedía «mové a Juan a Agendado», MaKo contestaba «falta la Fecha de la
+ * Reunión 1, pedí ese dato», el dueño la decía… y MaKo no tenía dónde
+ * escribirla, así que volvía a rebotar para siempre. Un movimiento que la
+ * pantalla sí permite (el wizard del CRM la carga en el mismo paso) quedaba
+ * imposible por WhatsApp.
+ *
+ * La regla que queda: se PIDE lo que este canal puede cargar; lo que no puede
+ * cargar no bloquea, pero tampoco se calla — se mueve con `{ omitir }`, que deja
+ * en el historial del lead qué quedó sin cargar y por qué (lib/leads.ts).
+ */
+const REQUISITOS_PEDIBLES: ReadonlySet<StepId> = new Set<StepId>(['monto', 'motivo']);
+
+const etiquetasDe = (pasos: readonly Step[]): string => pasos.map((p) => p.label).join(', ');
+
+type VeredictoRequisitos =
+  | { ok: false; pedir: Step[] }
+  | { ok: true; requisitos: 'validar' | { omitir: string }; sinCargar: Step[] };
+
+/** Qué hacer con lo que falta para mover: pedirlo, o moverse declarándolo. */
+function veredictoRequisitos(faltan: Step[]): VeredictoRequisitos {
+  const pedir = faltan.filter((f) => REQUISITOS_PEDIBLES.has(f.id));
+  if (pedir.length) return { ok: false, pedir };
+  // Nada que falte → 'validar', que revalida contra la base en el mismo momento
+  // de escribir (entre la propuesta y el "sí" pasan horas y el dato pudo irse).
+  if (!faltan.length) return { ok: true, requisitos: 'validar', sinCargar: [] };
+  return {
+    ok: true,
+    sinCargar: faltan,
+    requisitos: { omitir: `Movido desde WhatsApp con el OK del dueño. Sigue sin cargar: ${etiquetasDe(faltan)} (no hay forma de cargarlo por ese canal).` },
+  };
 }
 
 // ── dispatcher de la escritura REAL (se corre al confirmar) ───────────────────
@@ -58,8 +102,38 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         const etapa = String(payload.etapa);
         const monto = payload.monto != null ? Number(payload.monto) : undefined;
         const motivo = payload.motivo != null ? String(payload.motivo) : undefined;
-        await setPipelineStage(leadId, etapa, { monto: monto ?? null, motivo: motivo ?? null });
-        return { ok: true, resumen: `Lead #${leadId} movido a la etapa '${etapa}'.` };
+        // MaKo mueve con los MISMOS requisitos que el wizard del CRM. Sin esto, un
+        // "sí" por WhatsApp dejaba un Ganado sin monto o un Perdido sin motivo: una
+        // etapa que la pantalla nunca habría permitido, y el lead volvía al worklist.
+        // Se revalida acá (y no solo al proponer) porque entre la propuesta y el "sí"
+        // pasan horas: el dato pudo cargarse o borrarse en el medio.
+        //
+        // El reparto es el mismo que al proponer (REQUISITOS_PEDIBLES): si falta
+        // algo que este canal NO puede cargar, el movimiento igual pasa —
+        // declarándolo en el historial— porque bloquearlo no le deja al dueño
+        // ninguna salida. Esto además destraba las pendientes creadas ANTES de que
+        // existiera la validación: sin el reparto, un "sí" sobre una propuesta que
+        // el propio dueño pidió rebotaba.
+        const lead = await getLead(leadId).catch(() => null);
+        const stages = (await getFunnel().catch(() => null))?.stages ?? null;
+        // Sin poder leer el lead no hay nada contra qué decidir: 'validar' hace que
+        // setPipelineStage falle cerrado en vez de mover a ciegas.
+        const v: VeredictoRequisitos = lead
+          ? veredictoRequisitos(faltantesParaMover(lead, etapa, stages, { monto, motivo: motivo ?? null }))
+          : { ok: true, requisitos: 'validar', sinCargar: [] };
+        if (!v.ok) {
+          return { ok: false, resumen: `No moví el lead #${leadId} a '${etapa}': falta cargar ${etiquetasDe(v.pedir)}.` };
+        }
+        try {
+          await setPipelineStage(leadId, etapa, { monto: monto ?? null, motivo: motivo ?? null, requisitos: v.requisitos });
+        } catch (e) {
+          if (esRequisitosFaltantes(e)) {
+            return { ok: false, resumen: `No moví el lead #${leadId} a '${etapa}': falta cargar ${etiquetasDe(e.faltan)}.` };
+          }
+          throw e;
+        }
+        const cola = v.sinCargar.length ? ` Quedó sin cargar: ${etiquetasDe(v.sinCargar)} — se completa en la ficha del lead.` : '';
+        return { ok: true, resumen: `Lead #${leadId} movido a la etapa '${etapa}'.${cola}` };
       }
       case 'nutricion_toggle': {
         const id = Number(payload.secuenciaId);
@@ -385,19 +459,38 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const leadId = num(input, 'leadId');
         const etapa = str(input, 'etapa');
         if (leadId == null || !etapa) return JSON.stringify({ ok: false, error: 'Faltan leadId o etapa.' });
-        const { lead, label } = await runWithWorkspace(ws, async () => {
+        const { lead, label, stages } = await runWithWorkspace(ws, async () => {
           const l = await getLead(leadId).catch(() => null);
           const f = await getFunnel().catch(() => null);
           const lbl = f?.stages?.find((s) => s.key === etapa)?.label ?? etapa;
-          return { lead: l, label: lbl };
+          return { lead: l, label: lbl, stages: f?.stages ?? null };
         });
         if (!lead) return JSON.stringify({ ok: false, error: `No existe el lead #${leadId} en este workspace.` });
         const monto = num(input, 'monto');
         const motivo = str(input, 'motivo');
+        // Los requisitos se chequean YA, al proponer: si falta el monto o el motivo,
+        // MaKo lo pide en la misma respuesta en vez de proponer un movimiento que va
+        // a rebotar recién después del "sí" del dueño.
+        //
+        // Pero SOLO se pide lo que este canal sabe cargar (ver REQUISITOS_PEDIBLES):
+        // pedir una fecha de reunión o un link de Fathom por acá es pedir algo que
+        // MaKo no tiene dónde escribir, y la conversación entra en bucle.
+        const v = veredictoRequisitos(faltantesParaMover(lead, etapa, stages, { monto, motivo: motivo || null }));
+        if (!v.ok) {
+          return JSON.stringify({
+            ok: false,
+            faltan: v.pedir.map((f) => f.label),
+            error: `Para mover a "${label}" falta cargar: ${etiquetasDe(v.pedir)}. Pedí ese dato antes de proponer el movimiento.`,
+          });
+        }
         const payload: Record<string, unknown> = { leadId, etapa };
         if (monto != null) payload.monto = monto;
         if (motivo) payload.motivo = motivo;
-        return proponer('lead_etapa', payload, `Mover a ${lead.nombre ?? `lead #${leadId}`} → etapa "${label}"${monto != null ? ` ($${monto})` : ''}${motivo ? ` (motivo: ${motivo})` : ''}`);
+        // Lo que va a quedar sin cargar viaja EN EL RESUMEN, que es lo que el dueño
+        // lee antes de decir que sí: un movimiento que deja el lead incompleto no
+        // puede anunciarse como si estuviera todo en orden.
+        const pendiente = v.sinCargar.length ? ` — queda sin cargar: ${etiquetasDe(v.sinCargar)}` : '';
+        return proponer('lead_etapa', payload, `Mover a ${lead.nombre ?? `lead #${leadId}`} → etapa "${label}"${monto != null ? ` ($${monto})` : ''}${motivo ? ` (motivo: ${motivo})` : ''}${pendiente}`);
       }
 
       case 'proponer_toggle_nutricion': {
@@ -480,7 +573,10 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
       case 'listar_pendientes': {
         const vig = await pendientesVigentes(ws, grupoJid);
         if (!vig.length) return 'No hay acciones pendientes de confirmar en este grupo.';
-        return JSON.stringify(vig.map((p) => ({ id: p.id, resumen: p.resumen, vence: fmtFecha(p.venceAt) })));
+        // La hora se muestra en la zona del workspace: con Tijuana fijo, a un cliente
+        // en Montevideo le decíamos que su acción vencía 4 h antes de lo que vence.
+        const tz = await tzDeWorkspace(ws);
+        return JSON.stringify(vig.map((p) => ({ id: p.id, resumen: p.resumen, vence: fmtFecha(p.venceAt, tz) })));
       }
 
       case 'confirmar_accion':

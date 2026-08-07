@@ -5,6 +5,10 @@
 // (CrmBoard). Las funciones que tocan Supabase viven en lib/leads.ts.
 
 import type { EstadoLead } from './leads';
+// Quién es reunión y cuál es su slot (R1/R2) lo decide UN solo módulo. El ciclo
+// de imports entre los dos está documentado en la cabecera de funnel-etapas.ts:
+// es inocuo porque acá solo se usan DENTRO de generateFunnel, nunca al cargar.
+import { reunionesDe, slotPorIndice } from './funnel-etapas';
 
 export type StageTone =
   | 'neutral' | 'accent' | 'good' | 'bad' | 'warn' | 'info'
@@ -356,11 +360,16 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
   // "Nutrición - Manual": catch-all manual SIEMPRE presente (opción del worklist).
   const manualDef = lib('manual'); if (manualDef) place(manualDef, 'nutricion');
 
-  const meetings = pipeline.filter((p) => p.kind === 'reunion');
-  const firstMeeting = meetings[0]?.key;
+  // Keys de las reuniones, en orden. `reunionesDe` (no `etapasDeReunion`): acá NO
+  // se cae al funnel por defecto — un pipeline sin reuniones no tiene ninguna, y
+  // heredar 'agenda'/'agendaj2' le inventaría a este funnel un firstMeeting y sus
+  // transiciones de recuperación.
+  const meetings = reunionesDe(pipeline);
+  const firstMeeting = meetings[0];
   const asist = (mKey: string, attended: boolean): Partial<FunnelTransition> => {
-    const i = meetings.findIndex((m) => m.key === mKey);
-    return i === 0 ? { asistioJ1: attended } : i === 1 ? { asistioJ2: attended } : {};
+    const slot = slotPorIndice(meetings.indexOf(mKey));
+    if (!slot) return {};  // de la 3ª reunión en adelante no hay columnas donde marcar
+    return slot.cual === 'r1' ? { asistioJ1: attended } : { asistioJ2: attended };
   };
   // Agrega nutrición from→nutriKey (si no está suprimida) + opcional recuperación.
   const nut = (from: string, nutriKey: string, label: string, trigger: TransitionTrigger, recover?: { to: string; label: string }, extra?: Partial<FunnelTransition>) => {
@@ -401,7 +410,7 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
         // Nutrición POSITIVA (post-agenda / post-reunión) NO es etapa: es una
         // ventana derivada mientras el lead avanza (ver nutricionPositivaDe). Acá
         // solo se generan las nutriciones NEGATIVAS (el lead NO avanzó).
-        const mi = meetings.findIndex((m) => m.key === p.key);
+        const mi = meetings.indexOf(p.key);
         const rn = Math.min(mi + 1, 3);
         // No Show separado por reunión: R1 / R2 / R3.
         nut(p.key, `noshow_r${rn}`, `No Show R${rn}`, 'asistencia', firstMeeting ? { to: p.key, label: 'Reagenda' } : undefined, asist(p.key, false));

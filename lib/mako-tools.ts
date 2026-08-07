@@ -25,6 +25,7 @@ import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { contactoIdPorTelefono, contactoEnInboxWA, getContactMessages } from './chatwoot';
 import { buscarReunionesAutomatico } from './auto-reuniones';
+import { tzActual } from './timezone';
 import { APP_BASE_URL as APP_URL } from './app-url';
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
@@ -226,6 +227,11 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       const desde = Date.now() - dias * 86_400_000;
       const hasta = Date.now() + 7 * 86_400_000; // incluye las próximas 1 semana
       const leads = await listLeads();
+      // La hora va en la zona del WORKSPACE, no en la del dueño: MaKo le repite
+      // este dato al cliente por WhatsApp, y con Tijuana fijo a un negocio en
+      // Montevideo le anunciaba su reunión 4 h antes. Se resuelve UNA vez para
+      // todo el listado, no por fila.
+      const tz = await tzActual();
       type R = { leadId: number; nombre: string | null; empresa: string | null; reunion: 'R1' | 'R2'; fecha: string; hora: string | null; asistio: boolean | null; ya_paso: boolean; tiene_fathom: boolean };
       const rs: R[] = [];
       for (const l of leads) {
@@ -240,7 +246,7 @@ export const runMakoTool: ToolRunner = async (name, input) => {
           if (!Number.isFinite(ms) || ms < desde || ms > hasta) continue;
           rs.push({
             leadId: l.id, nombre: l.nombre, empresa: l.empresa, reunion: j.r, fecha: j.fecha,
-            hora: j.at ? new Date(j.at).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }) : null,
+            hora: j.at ? new Date(j.at).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: tz }) : null,
             asistio: j.asis, ya_paso: Number.isFinite(ms) ? Date.now() >= ms + 60 * 60_000 : false,
             tiene_fathom: fathom,
           });

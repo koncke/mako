@@ -31,6 +31,9 @@ import {
   type StageBand,
   type FunnelTransition,
 } from '@/lib/pipeline';
+// Sin 'server-only' a propósito (ver su cabecera): es la fuente única del mapeo
+// etapa→R1/R2, y la usa también este componente de cliente.
+import { slotDeReunion } from '@/lib/funnel-etapas';
 import type { EstadoLead, FathomLink } from '@/lib/leads';
 import {
   setLeadStageAction,
@@ -426,6 +429,16 @@ export function CrmBoard({
     setReagSlots(null); setReagSlotsCargando(false); setReagSlotsNota(''); setReagTz('');
     setReagRango(normalizarRango());
   };
+  /**
+   * Cuál de las dos reuniones es la etapa del lead, cuando el pendiente no lo
+   * trae. Sale del FUNNEL del workspace, no de comparar contra 'agendaj2': esa
+   * key es la del funnel por defecto, así que un cliente cuyas reuniones se
+   * llamen distinto caía siempre en 'r1' — el mismo mapeo índice→R1/R2 que ya
+   * vive en lib/funnel-etapas, copiado a mano acá (ver "una cosa, un lugar").
+   */
+  const cualDeEtapa = (stageKey: string | undefined): 'r1' | 'r2' =>
+    slotDeReunion(stages, stageKey)?.cual ?? 'r1';
+
   const abrirQueHacer = (id: number) => {
     const l = leads.find((x) => x.id === id);
     const m = marcar.find((x) => x.leadId === id);
@@ -438,7 +451,7 @@ export function CrmBoard({
       leadId: id,
       name: l?.name ?? 'lead',
       tipo,
-      cual: m?.cual ?? (l && l.stage === 'agendaj2' ? 'r2' : 'r1'),
+      cual: m?.cual ?? cualDeEtapa(l?.stage),
       // La etapa de ORIGEN viene del mismo lugar que `cual` y por el mismo
       // motivo: `effStage` lee el estado optimista, así que entre un drag y el
       // router.refresh() el wizard ofrecía los desenlaces de una etapa en la que
@@ -454,7 +467,7 @@ export function CrmBoard({
       // hora: así el viaje a Google ocurre mientras el usuario elige la fecha y no
       // se le suma a la espera de la grilla. Cuando llega, el efecto de los
       // horarios se vuelve a disparar solo (depende de queHacer.duracionMin).
-      const cualR = m?.cual ?? (l && l.stage === 'agendaj2' ? 'r2' : 'r1');
+      const cualR = m?.cual ?? cualDeEtapa(l?.stage);
       void duracionReunionAction(id, cualR)
         .then((min) => setQueHacer((q) => (q && q.leadId === id && min > 0 && min !== q.duracionMin ? { ...q, duracionMin: min } : q)))
         .catch(() => {});

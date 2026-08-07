@@ -16,6 +16,7 @@
 // =============================================================================
 
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { setVozGuia } from '@/lib/nutricion-generator';
 import {
@@ -107,22 +108,25 @@ export async function POST(req: Request) {
     const todosLosJids = [...new Set(convs.flatMap((c) => c.jids))];
 
     // UNA query para todas las conversaciones (no una por chat): 40 round-trips
-    // secuenciales se comían el presupuesto de la función. Se pagina a mano
-    // porque PostgREST corta en 1000 filas sin avisar.
+    // secuenciales se comían el presupuesto de la función. Se pagina porque
+    // PostgREST corta en 1000 filas sin avisar (lib/supabase-paginado).
+    //
+    // El desempate por `id` NO es cosmético: `wa_timestamp` se REPITE (una ráfaga
+    // de mensajes comparte segundo, y un volcado del importador comparte varios),
+    // y con empates Postgres puede repartir las filas empatadas distinto en cada
+    // request → la página 2 repite unas y saltea otras, sin error. Es el mismo
+    // bug que ya se arregló en lib/evolution-mensajes.
     const filas: Fila[] = [];
-    for (let desde = 0; desde < 8000; desde += 1000) {
-      const { data } = await supabase
-        .from('wa_mensajes')
-        .select('chat_jid, texto, from_me, wa_timestamp')
-        .in('chat_jid', todosLosJids)
-        .not('texto', 'is', null)
-        .neq('tipo', 'evento')
-        .order('wa_timestamp', { ascending: true })
-        .range(desde, desde + 999);
-      const pagina = (data ?? []) as Fila[];
-      filas.push(...pagina);
-      if (pagina.length < 1000) break;
-    }
+    await leerPorPaginas<Fila>(
+      supabase, 'wa_mensajes', 'chat_jid, texto, from_me, wa_timestamp',
+      // Tope explícito de 8 páginas (8000 mensajes), el mismo que tenía el bucle
+      // a mano: es material para un prompt, no un export.
+      (pagina, nro) => { filas.push(...pagina); return nro < 8; },
+      {
+        orden: [{ col: 'wa_timestamp' }, { col: 'id' }],
+        filtros: (q) => q.in('chat_jid', todosLosJids).not('texto', 'is', null).neq('tipo', 'evento'),
+      },
+    );
 
     const porJid = new Map<string, string>(); // jid → clave de conversación
     for (const c of convs) for (const j of c.jids) porJid.set(j, c.clave);

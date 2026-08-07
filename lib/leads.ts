@@ -15,6 +15,10 @@ import type { Stage, FunnelTransition } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
 import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
+// La etapa de ORIGEN de un movimiento se deriva con la MISMA función que usa la
+// ficha (override chequeado contra el funnel vigente): con el override crudo, el
+// validador y la pantalla discrepan justo en los leads con etapas huérfanas.
+import { etapaVigenteDe } from './funnel-etapas';
 import { avanceDe } from './vsl-retencion';
 import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
@@ -1496,6 +1500,104 @@ async function autorDelMovimiento(explicito?: string): Promise<string> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Requisitos de un movimiento SIN formulario (MaKo, motor automático)
+// ─────────────────────────────────────────────────────────────────────────────
+// El wizard del CRM no deja mover un lead a una etapa cuyos requisitos no están
+// cargados. Los callers que mueven sin pantalla (MaKo por WhatsApp, el motor del
+// CRM automático, las opciones del modal de confirmaciones) no pasaban por ahí:
+// dejaban leads en etapas con datos incompletos que la UI jamás habría permitido
+// —un "Ganado" sin monto, un "Perdido" sin motivo— y esos leads reaparecían en el
+// worklist sin que nadie supiera quién los movió.
+//
+// Acá vive lo que necesita ese caller: los faltantes calculados SOLO con el lead.
+
+/** Datos que el caller aporta EN ESTE movimiento (los que todavía no están en la fila). */
+export type AportadoAlMover = {
+  monto?: number | null;
+  /** Motivo de ESTE movimiento (el `motivo_perdida` guardado puede ser de una pérdida anterior). */
+  motivo?: string | null;
+  asistioJ1?: boolean | null;
+  asistioJ2?: boolean | null;
+  hoyISO?: string;
+};
+
+/**
+ * Qué le falta a este lead para poder MOVERSE a `stageKey`.
+ *
+ * Misma fuente que el CRM (`stepsForStage`), evaluada con la etapa DESTINO y la
+ * etapa de origen VIGENTE — no con la etapa actual, que es lo que mira
+ * `faltantesDeLead`. La higiene (setter/closer/empresa/teléfono) va en undefined
+ * a propósito: nunca gatea un movimiento, ni acá ni en el wizard.
+ *
+ * `pipeline` son las etapas GENERADAS del workspace (getPipelineStages / los
+ * `stages` del funnel), no el pipeline crudo: el nivel de requisitos se deriva de
+ * `kind`, y una lista de etapas sin kind hace pasar cualquier movimiento.
+ *
+ * PENDIENTE (una cosa, un lugar): `valoresDeRequisitos` en app/crm/actions.ts es
+ * el superset de esto —los mismos valores más lo que el wizard acaba de tipear y
+ * los pagos ya cargados— y debería construirse sobre esta función. Quedó fuera
+ * del alcance de este cambio: tocarla es tocar el camino que usa toda la UI.
+ */
+export function faltantesParaMover(
+  lead: Lead,
+  stageKey: string,
+  pipeline?: readonly Stage[] | null,
+  aportado: AportadoAlMover = {},
+): Step[] {
+  const stages = pipeline && pipeline.length ? pipeline : undefined;
+  const info = stages ? funnelReqInfo(stages as Stage[], stageKey) : undefined;
+  const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url?.trim());
+  return stepsForStage(stageKey, {
+    nivel: info?.nivel,
+    numReuniones: info?.numReuniones,
+    esVenta: info?.esVenta,
+    fechaJ1: lead.fecha_junta_1,
+    fechaJ2: lead.fecha_junta_2,
+    asistioJ1: aportado.asistioJ1 ?? lead.asistio_j1,
+    asistioJ2: aportado.asistioJ2 ?? lead.asistio_j2,
+    calificado: lead.calificado,
+    hasFathomUrl: links.length > 0,
+    monto: aportado.monto ?? lead.monto_cierre_usd,
+    // Partido en dos: el guardado puede ser de una pérdida ANTERIOR y no da por
+    // contestada la de ahora. Quien decide es stepsForStage con `etapaActual`.
+    motivo: lead.motivo_perdida,
+    motivoNuevo: aportado.motivo ?? null,
+    // De dónde viene: la etapa EFECTIVA (override chequeado contra el funnel),
+    // la misma que usa la ficha. Con el override crudo, los cientos de leads
+    // apuntando a etapas que su funnel ya no tiene se evalúan contra un fantasma.
+    etapaActual: etapaVigenteDe(lead, stages),
+    hoyISO: aportado.hoyISO ?? hoyEnTijuana(),
+    atJ1: lead.junta_1_at,
+    atJ2: lead.junta_2_at,
+    sinR1: !!lead.sin_r1,
+    sinR2: !!lead.sin_r2,
+    fathomOmitido: !!lead.fathom_omitido,
+    // `tienePlan` queda undefined (= no se exige): las cuotas viven en otro
+    // módulo y este camino no las lee. El gate duro de una venta es el monto.
+  });
+}
+
+/**
+ * El movimiento no se hizo porque faltan datos. NO es un fallo del sistema: es una
+ * respuesta esperable del negocio, y por eso viaja tipada (con la lista de pasos)
+ * en vez de como un Error genérico que el caller solo puede loguear.
+ */
+export class RequisitosFaltantesError extends Error {
+  readonly leadId: number;
+  readonly stageKey: string;
+  readonly faltan: Step[];
+  constructor(leadId: number, stageKey: string, faltan: Step[]) {
+    super(`Faltan datos para mover el lead ${leadId} a "${stageKey}": ${faltan.map((f) => f.label).join(', ')}.`);
+    this.name = 'RequisitosFaltantesError';
+    this.leadId = leadId;
+    this.stageKey = stageKey;
+    this.faltan = faltan;
+  }
+}
+
+export const esRequisitosFaltantes = (e: unknown): e is RequisitosFaltantesError => e instanceof RequisitosFaltantesError;
+
 /**
  * Mueve un lead a una etapa del tablero. Persiste el override `pipeline_stage`
  * y, en desenlaces terminales, sincroniza estado_lead (vía updateLead) para que
@@ -1514,11 +1616,42 @@ export async function setPipelineStage(
     asistio_j1?: boolean | null; asistio_j2?: boolean | null; deadline?: string | null;
     /** Quién lo movió. Sin esto se resuelve solo: sesión → persona, sin sesión → MaKo. */
     autor?: string;
+    /**
+     * Qué hacer con los requisitos de la etapa destino. Los movimientos que vienen
+     * de un formulario NO lo mandan: el wizard del CRM ya validó con los datos que
+     * la persona acaba de tipear (y revalidar acá pediría de nuevo lo que todavía
+     * no está persistido). Un movimiento SIN formulario tiene que elegir:
+     *   · 'validar'          → si falta algo, NO mueve: lanza RequisitosFaltantesError.
+     *   · { omitir: motivo } → mueve igual y el motivo queda en el historial. Es para
+     *     los movimientos automáticos legítimos (nadie a quien preguntarle), nunca
+     *     para tapar un requisito: si se saltea, se saltea DICIÉNDOLO.
+     */
+    requisitos?: 'validar' | { omitir: string };
   },
 ): Promise<void> {
   const supabase = (await getTenantDb());
   const estado = terminalEstadoFor(stageKey);
   const antes = await getLead(id);
+
+  // 0) Requisitos. Va ANTES de cualquier escritura: un movimiento rechazado no
+  //    puede dejar el estado_lead ya sincronizado con la etapa a la que no llegó.
+  // Un salteo SIN motivo no es un salteo declarado: se valida igual (fail closed).
+  // Si no, `{ omitir: '' }` sería el mismo agujero de antes, pero con tipos.
+  const omitido = typeof opts?.requisitos === 'object' ? opts.requisitos.omitir.trim() : '';
+  if (opts?.requisitos && !omitido) {
+    // Sin poder leer el lead no hay nada contra qué validar: cortamos. Mover a
+    // ciegas es justamente lo que este parámetro existe para impedir.
+    if (!antes) throw new Error(`No se pudo leer el lead ${id} para validar los requisitos de "${stageKey}".`);
+    // Las etapas GENERADAS (las mismas que mira el wizard): son las que traen
+    // `kind`, y sin kind no hay nivel de requisitos — una lista pelada dejaría
+    // pasar cualquier movimiento sin que nada avise.
+    const stages = await getPipelineStages().catch(() => generateFunnel(DEFAULT_PIPELINE, []).stages);
+    const faltan = faltantesParaMover(antes, stageKey, stages, {
+      monto: opts.monto, motivo: opts.motivo,
+      asistioJ1: opts.asistio_j1, asistioJ2: opts.asistio_j2,
+    });
+    if (faltan.length) throw new RequisitosFaltantesError(id, stageKey, faltan);
+  }
 
   // 1) Sincronizar PRIMERO el desenlace canónico (invariantes + Meta CAPI). Si
   //    falla (p.ej. monto inválido), propagamos el error y NO tocamos el override:
@@ -1556,9 +1689,64 @@ export async function setPipelineStage(
   //    asistencias) en una sola escritura para que la ficha lo muestre —y lo
   //    revierta— como un movimiento único. Si el caller vuelve a auditar después
   //    con su propio `before`, logLeadChanges descarta lo repetido.
-  await logLeadChanges(id, antes, await getLead(id), await autorDelMovimiento(opts?.autor));
+  const autor = await autorDelMovimiento(opts?.autor);
+  await logLeadChanges(id, antes, await getLead(id), autor);
+
+  // 4) Si el movimiento se salteó los requisitos, el POR QUÉ va al historial junto
+  //    al movimiento. Sin esta línea el salteo es indistinguible de un movimiento
+  //    validado y el lead reaparece incompleto sin que nadie sepa por qué.
+  if (omitido) {
+    await logLeadEvent(id, 'Etapa sin validar', `Movido a "${stageKey}" sin validar los requisitos: ${omitido}`, autor);
+  }
 
   void actualizarEtiquetaLead(id).catch(() => {}); // etiqueta WA por etapa (best-effort; cubre 'manual')
+}
+
+/**
+ * Mover un lead desde un proceso AUTOMÁTICO — el motor del CRM (`lib/crm-auto`)
+ * y el desenlace de las nutriciones (`lib/nutricion-desenlace`). Los dos son
+ * crons: nadie está mirando y no hay a quién preguntarle si falta un dato.
+ *
+ * La regla es UNA sola para los dos, y por eso vive acá y no copiada en cada
+ * cron: si falta algo, NO se mueve y el porqué queda escrito en el historial del
+ * lead. Un movimiento automático que falla en silencio es lo peor de los dos
+ * mundos — el desenlace se registró (la inscripción quedó sellada como
+ * lograda/fallida) pero el lead se quedó en una etapa que ya no describe su
+ * situación, y no hay una línea que lo explique. En el desenlace ese error se
+ * iba a un `console.error` que no lee nadie.
+ *
+ * Se valida aunque hoy casi ningún destino automático tenga requisitos: el
+ * funnel es configurable por workspace, y el día que un cliente le ponga un
+ * requisito a una de esas etapas, el cron no puede ser el único camino que los
+ * ignora.
+ *
+ * Devuelve false = no se movió, y el caller NO puede anunciar el cambio.
+ */
+export async function moverLeadAuto(
+  leadId: number,
+  to: string,
+  opts: {
+    /** Con qué nombre aparece el proceso en la línea del historial ("CRM automático", "Nutrición"). */
+    canal: string;
+    /** Autor del movimiento. Sin esto se resuelve solo (sin sesión → MaKo). */
+    autor?: string;
+    motivo?: string | null;
+    asistio_j1?: boolean | null;
+    asistio_j2?: boolean | null;
+  },
+): Promise<boolean> {
+  const { canal, ...resto } = opts;
+  try {
+    await setPipelineStage(leadId, to, { ...resto, requisitos: 'validar' });
+    return true;
+  } catch (e) {
+    // Solo "faltan datos" es un desenlace esperable del negocio. Cualquier otro
+    // error (red, permisos, invariante rota) se propaga: confundirlos dejaría un
+    // fallo real disfrazado de "le faltaba el monto".
+    if (!esRequisitosFaltantes(e)) throw e;
+    await logLeadEvent(leadId, canal, `No lo moví a "${to}": falta cargar ${e.faltan.map((f) => f.label).join(', ')}`, opts.autor);
+    return false;
+  }
 }
 
 /** Campos editables desde la ficha del rediseño (Closer/Setter/Fathom/motivo/fechas). */

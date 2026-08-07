@@ -27,6 +27,7 @@
 // =============================================================================
 
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { claveTel } from '@/lib/evolution-mensajes';
 import { getNombresContacto, getFotosContacto } from '@/lib/evolution-contactos';
 import { telefonosOcultos } from '@/lib/evolution-block';
@@ -89,26 +90,31 @@ export async function GET(req: Request) {
     }
 
     const supabase = await getTenantDb();
-    // PAGINADO A MANO, y no es un detalle: `.limit(9000)` NO sube el techo del
-    // servidor — PostgREST devuelve como mucho 1000 filas por request y el resto
-    // se pierde sin error. El espejo tenía 106 conversaciones y la lista mostraba
-    // 36 por esto: se leía la primera página y nada más.
+    // PAGINADO, y no es un detalle: `.limit(9000)` NO sube el techo del servidor
+    // — PostgREST devuelve como mucho 1000 filas por request y el resto se pierde
+    // sin error. El espejo tenía 106 conversaciones y la lista mostraba 36 por
+    // esto: se leía la primera página y nada más.
+    //
+    // El desempate por `id` tampoco es cosmético: `wa_timestamp` se REPITE (las
+    // ráfagas comparten segundo y un volcado del importador comparte varios), y
+    // con empates el reparto entre páginas no está garantizado → filas repetidas
+    // y filas salteadas, otra vez sin error. Mismo bug que ya se cerró en
+    // lib/evolution-mensajes.
     const filas: Fila[] = [];
-    for (let desde = 0; desde < 20000; desde += 1000) {
-      const { data } = await supabase
-        .from('wa_mensajes')
-        // Sin `raw`: el cupo de filas se gasta en conversaciones, no en payloads.
-        .select('chat_jid, telefono, push_name, texto, from_me, wa_timestamp, tipo, lead_id')
-        .not('chat_jid', 'is', null)
+    await leerPorPaginas<Fila>(
+      supabase, 'wa_mensajes',
+      // Sin `raw`: el cupo de filas se gasta en conversaciones, no en payloads.
+      'chat_jid, telefono, push_name, texto, from_me, wa_timestamp, tipo, lead_id',
+      // Tope explícito de 20 páginas (los 20.000 mensajes MÁS RECIENTES, por el
+      // orden descendente), el mismo que tenía el bucle a mano.
+      (pagina, nro) => { filas.push(...pagina); return nro < 20; },
+      {
+        orden: [{ col: 'wa_timestamp', asc: false }, { col: 'id', asc: false }],
         // Las reacciones y el protocolo inflaban el contador y hacían pasar por
         // "conversación" a chats sin una sola frase. El inbox ya los excluye.
-        .neq('tipo', 'evento')
-        .order('wa_timestamp', { ascending: false })
-        .range(desde, desde + 999);
-      const pagina = (data ?? []) as Fila[];
-      filas.push(...pagina);
-      if (pagina.length < 1000) break;
-    }
+        filtros: (q) => q.not('chat_jid', 'is', null).neq('tipo', 'evento'),
+      },
+    );
 
     const porChat = new Map<string, Conv>();
     for (const f of filas) {

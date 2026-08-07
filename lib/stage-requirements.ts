@@ -13,6 +13,10 @@
 //
 // Devuelve PASOS ordenados (para el wizard progresivo: una pregunta por vez).
 
+// Cuáles etapas son reuniones (y en qué orden) NO se decide acá: es la misma
+// pregunta que responden generateFunnel y el worklist, y vive en un solo módulo.
+import { reunionesDe, type EtapaLite } from './funnel-etapas';
+
 export type StepId =
   | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'fechaJ2' | 'asistenciaR2' | 'fathomR2' | 'r2Respuestas'
@@ -100,7 +104,9 @@ const NIVEL: Record<string, number> = {
   ganado: 5,
 };
 
-export type PipelineStageLite = { key: string; kind?: string };
+/** La vista liviana del pipeline que necesita este módulo — el mismo tipo que
+ *  usa funnel-etapas, no una copia (se conserva el nombre por los call-sites). */
+export type PipelineStageLite = EtapaLite;
 
 /**
  * Deriva del funnel del WORKSPACE (su fila de "Activo") el nivel de requisitos de
@@ -112,11 +118,14 @@ export type PipelineStageLite = { key: string; kind?: string };
  * → nivel 0 (solo higiene), igual que antes.
  */
 export function funnelReqInfo(pipeline: PipelineStageLite[], stageKey: string): { nivel: number; numReuniones: number; esVenta: boolean } {
-  const reuniones = pipeline.filter((s) => s.kind === 'reunion');
+  // `reunionesDe` y no `etapasDeReunion`: acá el pipeline es el del workspace tal
+  // cual, y uno sin reuniones tiene que dar numReuniones = 0 (si cayera al funnel
+  // por defecto, el worklist pediría una R1/R2 que ese funnel no tiene).
+  const reuniones = reunionesDe(pipeline);
   const numReuniones = reuniones.length;
   const s = pipeline.find((p) => p.key === stageKey);
   if (!s) return { nivel: NIVEL[stageKey] ?? 0, numReuniones, esVenta: stageKey === 'ganado' };
-  if (s.kind === 'reunion') return { nivel: 2 * reuniones.findIndex((r) => r.key === stageKey) + 1, numReuniones, esVenta: false };
+  if (s.kind === 'reunion') return { nivel: 2 * reuniones.indexOf(stageKey) + 1, numReuniones, esVenta: false };
   if (s.kind === 'pago') return { nivel: 2 * numReuniones, numReuniones, esVenta: false };
   if (s.kind === 'cierre') return { nivel: 2 * numReuniones + 1, numReuniones, esVenta: true };
   return { nivel: 0, numReuniones, esVenta: false };

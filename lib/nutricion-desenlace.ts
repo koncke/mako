@@ -85,7 +85,13 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     .in('id', leadIds);
   const leads = new Map(((leadData ?? []) as Array<Record<string, unknown>>).map((l) => [Number(l.id), l]));
 
-  const { setPipelineStage } = await import('./leads');
+  // `moverLeadAuto` y no `setPipelineStage` pelado: acá no hay formulario ni
+  // nadie a quien preguntarle, y `logradoEtapa`/`falloEtapa` las CONFIGURA cada
+  // workspace — un cliente que apunte el logro a su etapa de cierre escribía la
+  // venta sin monto, justo lo que el resto de los caminos ya no deja pasar. El
+  // helper valida, y si falta un dato no mueve y lo deja escrito en el historial
+  // (antes ese fallo se iba a un console.error que no lee nadie).
+  const { moverLeadAuto } = await import('./leads');
   const ahora = new Date().toISOString();
 
   // Todas las secuencias del workspace por CLAVE: el encadenamiento apunta a la
@@ -157,8 +163,7 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
       res.logrados += 1;
       if (d.logradoEtapa) {
         try {
-          await setPipelineStage(insc.lead_id, d.logradoEtapa, { motivo: `Logró el objetivo de «${sec.nombre}»` });
-          res.movidos += 1;
+          if (await moverLeadAuto(insc.lead_id, d.logradoEtapa, { canal: 'Nutrición', motivo: `Logró el objetivo de «${sec.nombre}»` })) res.movidos += 1;
         } catch (e) { console.error(`[desenlace] mover lead ${insc.lead_id}:`, e); }
       }
       const motivo = await encadenar(d.logradoSecuencia, insc.lead_id, lead);
@@ -183,8 +188,7 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
         res.fallidos += 1;
         if (d.falloEtapa) {
           try {
-            await setPipelineStage(insc.lead_id, d.falloEtapa, { motivo: `No respondió a «${sec.nombre}»` });
-            res.movidos += 1;
+            if (await moverLeadAuto(insc.lead_id, d.falloEtapa, { canal: 'Nutrición', motivo: `No respondió a «${sec.nombre}»` })) res.movidos += 1;
           } catch (e) { console.error(`[desenlace] mover lead ${insc.lead_id}:`, e); }
         }
         const motivo = await encadenar(d.falloSecuencia, insc.lead_id, lead);

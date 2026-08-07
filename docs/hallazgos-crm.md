@@ -4,8 +4,18 @@ Lo que hay que saber antes de tocar el wizard "¿Qué hacer ahora?", el selector
 horarios, el worklist de pendientes y los requisitos de etapa. **No es un changelog**:
 es lo que no se deduce leyendo el código.
 
-Origen: corrida multi-agente de 08/2026 (selector de horas + 5 bugs del CRM). Regla de
-la cosecha en `AGENTS.md`.
+Origen: corridas multi-agente de 08/2026 (selector de horas + 5 bugs del CRM; después,
+requisitos de etapa y fuente única del funnel). Regla de la cosecha en `AGENTS.md`.
+
+**Acá va solo lo que vive en código del CRM** (`app/crm/**`, `lib/leads.ts`,
+`lib/pipeline.ts`, `lib/funnel-etapas.ts`, `lib/stage-requirements.ts`, `lib/queries.ts`,
+`lib/crm-auto.ts`). Lo que se aprendió en estos mismos frentes pero vive en otro lado está
+en su documento: paginado, zonas horarias y tests en
+[hallazgos-infra.md](hallazgos-infra.md); `WizardShell` y la pila de modales en
+[hallazgos-ui.md](hallazgos-ui.md); MaKo moviendo etapas en
+[hallazgos-ia.md](hallazgos-ia.md); el desenlace de las nutriciones en
+[hallazgos-comunicacion.md](hallazgos-comunicacion.md). El índice es
+[hallazgos.md](hallazgos.md).
 
 ---
 
@@ -106,12 +116,12 @@ y con Google vivo otra. Importá de ahí. **`slots: null` ≠ `[]`**: `null` es 
 | **`freeBusy` devuelve `busy: []` cuando el calendario trae `errors`** — se lee como "día entero libre" | `lib/google-calendar.ts:848` | Chequear `cal.errors?.length` **antes** que `busy`. Ya está, no lo saques. |
 | **Transparentes y rechazados no llegan en `busy`** (correcto), pero un **all-day marcado Ocupado sí llega como intervalo de 24 h** y pisa la grilla entera | mismo | Hay test. Es comportamiento de Google, no bug. |
 | **Solo se consulta `primary`** | mismo | Un ocupado en otro calendario del dueño **no** bloquea. Limitación conocida y escrita. |
-| **PostgREST corta en 1000 filas** — `.limit()` no sube el techo del servidor | `lib/supabase-paginado.ts` | Usar `leerTodo()`. Ordena por `id` siempre: sin `ORDER BY`, el offset de la página 2 lee otro orden. |
 | **`stageMeta` cae a `stages[0]`** y pinta un dato falso | `lib/pipeline.ts:533` | Usar **`stageMetaOpt`** y guardar la KEY, no el label. |
-| **`server-only` tira al importarse desde el runner de tests** | `lib/etapa-historial.ts` y cía. | Parchear `Module._load` antes del `import()` dinámico (funciona porque tsx compila los tests a CJS). |
-| **Los guards de texto leen de más en Windows** | `tests/*.test.ts` | Normalizar CRLF: sin eso el corte por `'\n}\n'` no encuentra el fin de la función. Costó un falso positivo. |
+| **`funnelReqInfo` deriva el nivel de `kind`, y `kind` solo lo traen las etapas GENERADAS** | `lib/stage-requirements.ts:118` | Pasarle `DEFAULT_STAGES` "pelado" da nivel 0 a todo y **cualquier movimiento pasa sin que nada avise**. El fallback correcto es `generateFunnel(DEFAULT_PIPELINE, []).stages`. Lo encontró un test, no la revisión. |
 | **Un componente declarado dentro del render remonta todo** | `SelectorHora.tsx` | Las opciones se generan con una **función que devuelve el elemento**. Como componente anidado, React remontaba las 61 filas con cada tecla y tiraba el scroll al principio. |
-| **`getComputedStyle` con la pane oculta devuelve valores viejos** | UI general | Verificar por el style inline o un `data-*`. |
+| **Paginado, topes de lectura y zonas horarias** | `lib/supabase-paginado.ts`, `lib/date-utils.ts` | Las trampas están en [hallazgos-infra.md](hallazgos-infra.md) §1 y §2. Resumen: `leerTodo()`/`leerPorPaginas()`, y el orden de un bucle paginado tiene que ser **único**. |
+| **Tests: `server-only`, CRLF en los guards de texto** | `tests/*.test.ts` | [hallazgos-infra.md](hallazgos-infra.md) §3. |
+| **`getComputedStyle` con la pane oculta, z-index de modales** | UI general | [hallazgos-ui.md](hallazgos-ui.md) §2. |
 
 ---
 
@@ -213,51 +223,131 @@ es el punto, "un cambio deshecho no es historia". La decisión (`etapaVistaPendi
 está separada de la escritura para poder testearla. Cubre también el grupo sin fila
 `'Etapa'`: revertir `'Asistió R1'` mueve la etapa **derivada**.
 
-### Los dots del WizardShell mienten si `total` no es confiable
+### El fallback de una función es parte de su contrato
 
-`app/_components/WizardShell.tsx` ya no deriva la fila de `total` a secas: la posición
-actual siempre es verdad, y la cola **solo existe si se puede contar**. `futuros = -1`
-(faltan, cantidad desconocida) pinta tres puntitos de 4px, no puntos-paso. Colapsa cuatro
-casos: `total` desconocido, `idx >= total`, `enUltimo` con `total` mayor (la única señal
-confiable de "no hay más" es `enUltimo`), y **salto hacia adelante** — si el wizard se
-saltea pantallas, `total` deja de servir y el estado se marca **en render**, no con
-`useEffect`: con efecto, el primer frame del salto sigue mostrando la fila vieja, que es
-justo la mentira.
+**Casi entra un bug de datos al unificar el mapeo índice→R1/R2 en una sola función.**
+`etapasDeReunion(stages?)` cae a `DEFAULT_PIPELINE` cuando no le pasan funnel, y eso es
+correcto para quien **consulta** ("¿esta etapa es una reunión?"). Es veneno para quien
+**construye o mide** el funnel: con esa versión, `generateFunnel` sobre un pipeline vacío o
+sin reuniones heredaría `firstMeeting = 'agenda'` del funnel por defecto y le pintaría a
+ese workspace transiciones "Recupera" / "Reagenda" hacia una etapa **que no tiene**. Lo
+mismo `funnelReqInfo`: le pediría al worklist una R1/R2 inexistente.
+
+**Dónde:** `lib/funnel-etapas.ts` expone las dos, y la diferencia es el fallback —
+`reunionesDe(stages)` estricta (la que usan `generateFunnel` en `lib/pipeline.ts` y
+`funnelReqInfo` en `lib/stage-requirements.ts`) y `etapasDeReunion(stages?)` tolerante (la
+que usan los consultores). `slotPorIndice(i)` devuelve `null` desde el índice 2: `leads`
+tiene **dos** pares de columnas de reunión, y de ahí sale el `{}` de la tercera.
+
+**Regla:** al unificar N copias en una función, el fallback de la copia más tolerante se lo
+lleva todo el mundo. Si dos callers necesitan respuestas distintas ante "no hay datos", son
+**dos funciones**, y la estricta es la que se usa para escribir.
+
+**La última copia estaba en el cliente**: `app/crm/CrmBoard.tsx` decidía R1/R2 con
+`l.stage === 'agendaj2' ? 'r2' : 'r1'` — la key del funnel **por defecto** hardcodeada en
+una pantalla que se le muestra a cualquier workspace. Un `grep` del `kind === 'reunion'`
+no la encontraba: la duplicación no siempre se parece al original.
+
+### Quién revalida al mover un lead, y quién no
+
+`setPipelineStage` acepta `requisitos?: 'validar' | { omitir: motivo }`, y **el default es
+no validar**. No es pereza:
+
+- **Sin el parámetro** (los que vienen de un formulario: el wizard del CRM,
+  `app/crm/actions.ts`, `createLead`, los upserts de Meta/Calendly). El CRM ya validó con
+  lo que la persona **acaba de tipear**, y eso todavía no está persistido: revalidar contra
+  la base le volvería a pedir el dato que está escribiendo.
+- **`'validar'`** (motor automático, MaKo, el desenlace de nutriciones, el bloqueo de un
+  contacto): chequea **antes de escribir nada**. El orden importa — un movimiento rechazado
+  no puede dejar `estado_lead` sincronizado con una etapa a la que el lead nunca llegó.
+- **`{ omitir }`**: mueve y deja en `lead_audit` una línea `'Etapa sin validar'` con el
+  porqué. **Fail closed**: `omitir` vacío vuelve a validar, y sin poder leer el lead no
+  mueve.
+
+**Regla:** "¿este caller valida?" no se contesta por caller, se contesta por **de dónde
+sale el dato**. Si el dato está en la pantalla y no en la base, validar contra la base es
+un falso negativo.
+
+**Costo, para que nadie lo descubra en un incidente:** `'validar'` agrega una lectura de
+`funnel_config` por movimiento y no está cacheada. Irrelevante de a uno; en una corrida del
+cron con muchos T2 son N queries de una fila. La salida es memoizar `getFunnel` por
+request, **no** aflojar la validación.
+
+### La ficha del lead vive en dos árboles
+
+`app/crm/LeadSheet.tsx` (cliente, modal) y `app/crm/[id]/page.tsx` (server). Las mismas
+cards se montan en los dos, y eso decide cómo les llega la configuración del workspace: la
+zona horaria entra por un **hook** (`useTzWorkspace`, con memo a nivel de módulo: una
+llamada por carga, no una por card) y no por prop, porque un prop hay que enhebrarlo por
+los dos árboles y deja el agujero abierto para el tercer lugar donde se monte una card.
+
+**La trampa:** el primer render **tiene que** usar el mismo fallback de los dos lados
+(`TZ_TIJUANA`). `GeneratedInsightCard` y `TrackingTimelineCard` pintan timestamps ya en el
+SSR de `/crm/[id]`; si el valor inicial fuera la zona del navegador —que el server no
+conoce— revienta la hidratación. El memo solo se escribe **desde el efecto**, que nunca
+corre en el server: llenarlo durante el SSR le pasaría la zona de un inquilino al
+siguiente.
+
+**Colateral que se ve poco:** en `ChatCard`, el **separador de día** también dependía de la
+zona. A las 23:30 en Tijuana ya es otro día en Madrid, y los mensajes se agrupaban bajo la
+fecha equivocada. Una zona horaria no solo cambia una hora impresa: cambia **agrupaciones**.
+
+---
+
+### Tres lecciones de este frente viven en otro documento
+
+Salieron trabajando el CRM, pero el código no es del CRM y la regla que dejan gobierna a
+todos sus llamadores. **Van linkeadas, no copiadas** (una entrada, un lugar):
+
+- **Un validador hereda las capacidades del canal donde lo ponés.** MaKo exigía por
+  WhatsApp requisitos que ninguna de sus tools sabe cargar: el dueño quedaba en un bucle
+  infinito de "pedí ese dato". → [hallazgos-ia.md](hallazgos-ia.md) §1.
+- **Un tope nuevo es un truncado nuevo.** Unificar seis bucles `.range()` metió un
+  `MAX_PAGINAS` más bajo que el de tres de ellos, y el `throw` cayó en catches que
+  degradaban. → [hallazgos-infra.md](hallazgos-infra.md) §1.
+- **Dos modos de la misma pieza tienen que contestar igual.** El progreso de `WizardShell`
+  decía "Último paso" con un "Siguiente →" abajo. → [hallazgos-ui.md](hallazgos-ui.md) §1.
 
 ---
 
 ## 4. Lo que quedó sin hacer
 
+Cerrado en la última corrida y **sacado de esta lista**: el chrome forkeado del wizard, el
+mapeo índice→R1/R2 (las tres copias más la del cliente en `CrmBoard.tsx`), los hardcodes de
+`America/Tijuana` en display de la ficha, los callers de `setPipelineStage` sin validación
+y los bucles `.range()` a mano. Los residuales de otras áreas se cerraron también y están
+anotados en sus documentos.
+
+Lo que sigue abierto **en código del CRM**:
+
 | Qué | Dónde | Por qué |
 |---|---|---|
-| **El wizard con ramas de verdad no usa `WizardShell`** — forkeó el chrome entero (header + dots + cuerpo + footer) con su propia máquina de `visitados` | `app/crm/StageMoveDialog.tsx` (~1038-1080) | Migrarlo exige aceptar `pasos: readonly string[]` + `pasoActual` como modo alternativo. Sus puntitos siguen siendo los viejos. Revisar también el z-index de su loader, que no pasa por `useCapaModal`. |
-| **El mapeo índice→R1/R2 sigue duplicado** en tres lugares | `lib/pipeline.ts:359` (`asist()`) y `lib/stage-requirements.ts:106` deberían consumir `lib/funnel-etapas.ts` | Deuda contra "una cosa, un lugar", anotada como PENDIENTE en la cabecera del módulo. |
-| **12 hardcodes de `America/Tijuana`** en display | `lead-view/*` (5), `lib/calendly.ts`, `lib/date-utils.ts`, `lib/lead-insights.ts`, `lib/mako-*.ts`, `webhooks/calendly` | `hoyEnWorkspace()` / `tzActual()` (`lib/timezone.ts`) ya existen para migrarlos. Violan "nada owner-only". |
-| **Callers que van directo a `setPipelineStage`, sin validación** | `lib/mako-doer-acciones.ts:61`, `lib/mako-confirmaciones.ts:179`, crm-auto | Cerrarlos exige tocar `lib/leads.ts`. |
-| **`leerTodo` privado + 6 bucles `.range()` copiados a mano** | `lib/landing-analyst.ts:124`, `evolution-contactos`, `evolution-mensajes`, `ads-analyst`, `importar-server`, `barrido-dump` | Ahora hay un lugar al que migrarlos: `lib/supabase-paginado.ts`. |
 | **`moverEnCalendario` y la duración real** | `app/crm/actions.ts` | Ya propaga `duracionMin`, pero la duración de un evento **existente** la sigue definiendo el evento. |
+| **`faltantesParaMover` decide con `hoyEnTijuana()` fijo** | `lib/leads.ts:1570` | Alimenta `yaPaso()`: si una reunión "ya pasó" y por lo tanto si se exige asistencia/Fathom. No es una cohorte persistida sino **gating**, y desde que MaKo valida, además **traba o destraba un movimiento** un día antes o después para un workspace lejos de TJ. Es la punta de la migración de las primitivas de fecha ([hallazgos-infra.md](hallazgos-infra.md) §5). |
+| **`valoresDeRequisitos` es el superset de `faltantesParaMover`** y debería construirse sobre ella | `app/crm/actions.ts:276` | Los mismos valores más lo que el wizard acaba de tipear y los pagos. Hoy son dos listas que hay que mantener iguales a mano — exactamente "una cosa, dos lugares". Tocarla es tocar el camino que usa toda la UI; queda un `PENDIENTE` en el comentario. |
+| **El camino de "marcar reunión a mano" está muerto salvo para el dueño** | `setMeetingManual` (`lib/leads.ts:690`), `markMeetingManualAction`, `app/crm/calendly-widget.ts:10` | Tipan `which: 'agenda' \| 'agendaj2'` y `CrmBoard:543` castea una stage key arbitraria a esas dos: en un funnel custom, el `else` escribiría `fecha_junta_2` para la PRIMERA reunión. Hoy no explota porque los dos call-sites están gateados por `calendlyUrlFor()`, cuya tabla tiene **dos URLs de Calendly personales hardcodeadas** — o sea, es la misma violación de "nada owner-only" con otra cara. |
+| **`sinR2Motivo` se puede perder en silencio** | `app/crm/StageMoveDialog.tsx`, `confirmar()` | Se manda solo si `huboR1 !== false`; si se escribe el motivo y después se cambia `huboR1` a `false`, el texto queda escrito y no viaja. |
+| **El wizard de etapa se monta dentro del backdrop de la ficha** | `app/crm/LeadSheet.tsx:187` (`onClick={onClose}`) y `:254` | Un click en el backdrop del wizard **cierra los dos**: se pierde lo tipeado y también la ficha. Preexistente, no lo trajo la migración a `WizardShell`. |
+| **`app/crm/actions.ts:916` repite el bucle del helper** | ídem | Ordena por `id` y tiene su comentario: es duplicación, no bug. |
 
 ### Descartado a propósito (no volver a "arreglarlo")
 
+- **Los items 'R' permanentes y no ignorables**: decisión de producto, ver §3.
+- **Revalidar los requisitos en los callers que vienen de un formulario.** Parece el cierre
+  natural del frente y **no lo es**: el wizard valida con lo que la persona acaba de
+  tipear, que todavía no está en la base. Ver §3, "Quién revalida al mover un lead".
 - **Aprender el techo real de PostgREST desde la primera página corta.** Se implementó y se
-  **revirtió**: una página corta es indistinguible del final de la tabla, así que la única
-  detección honesta cuesta un request extra en **cada** lectura chica (3 por carga del CRM,
-  +100-180 ms) para blindar una configuración que este proyecto no tiene. `PAGINA_POSTGREST
-  = 1000` es el default de Supabase. **Si se baja `db-max-rows`, se baja la constante en el
-  mismo commit** — está escrito en el módulo.
-- **Los items 'R' permanentes y no ignorables**: decisión de producto, ver arriba.
+  revirtió; el motivo completo está en [hallazgos-infra.md](hallazgos-infra.md) §5.
 
 ---
 
 ## 5. Nota de proceso
 
-Con **sesiones paralelas**, el typecheck rompe por archivos que no son tuyos: durante esta
-corrida `SelectorHora.tsx` y `CrmBoard.tsx` dieron errores transitorios ajenos
-(`TS2552: Cannot find name 'Opcion'`, y un refactor a medio terminar en
-`google-calendar.ts` con imports en conflicto contra copias locales todavía vivas). **El
-verde se toma con el árbol estable**, y conviene commitear seguido y explícito: `git add
--A` se lleva los archivos a medias de la otra sesión.
+Las lecciones de trabajar con **varias sesiones en el mismo árbol** (typecheck ajeno,
+`git add -A`, reportes que se contradicen, y el documento que nadie toca porque los cuatro
+agentes se cedieron el paso) están en [hallazgos-infra.md](hallazgos-infra.md) §4.
 
-Un agente reportó como "arreglado" algo que otro seguía editando, y dos reportes se
-contradecían sobre el mismo archivo. **Verificá contra el código, no contra el resumen del
-agente anterior.**
+De este frente en particular: `SelectorHora.tsx`, `CrmBoard.tsx`, `funnel-etapas.ts` y
+`google-calendar.ts` dieron errores transitorios que **no eran de quien los veía**
+(`TS2552: Cannot find name 'Opcion'` / `'Stage'`, refactors a medio terminar). **El verde
+se toma con el árbol estable.**
