@@ -1,38 +1,425 @@
-# Hallazgos de la UI compartida
+# Hallazgos de la UI
 
-Las piezas de `app/_components` y `app/components` las usan **todas** las tabs: un cambio
-acá tiene 20+ llamadores. Esto es lo que hay que saber antes de tocar `WizardShell`, la
-pila de modales o el progreso de un formulario. **No es un changelog.**
+Las piezas de `app/_ui`, `app/_components` y `app/components` las usan **todas** las tabs:
+un cambio acá tiene 20+ llamadores. Esto es lo que hay que saber antes de tocar
+`WizardShell`, la pila de modales, el `Dropdown` propio o el progreso de un formulario.
+**No es un changelog.** Acá también viven las reglas de UI que el dueño repitió hasta
+cansarse: si una pantalla nueva las rompe, vuelve rebotada.
 
-Origen: corridas multi-agente de 08/2026 (wizard del CRM + onboarding). Regla de la
-cosecha en `AGENTS.md`.
+⚠️ **Parte de este material es de segunda mano.** Sale de los journals de las 261 corridas
+multi-agente de junio a agosto de 2026 —134 de 260 nunca escribieron nada en el repo— y de
+minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dice de qué
+corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
+están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
+
+## Lo que más muerde acá
+
+- Un overlay que elige su propio `zIndex` queda **debajo** del backdrop: confirmás y la
+  pantalla no se mueve, sin error ni spinner → [Modales y capas](#modales-y-capas).
+- `.mk-scroll-x` clipea en los **dos** ejes: cualquier popover `absolute` adentro es
+  invisible para todo usuario, en cualquier ancho → [Primitives y sistema visual](#primitives-y-sistema-visual).
+- El `Dropdown` de la casa **no** hace clickeable al `placeholder`: migrar un `<select>`
+  con `<option value="">` pierde la opción de vaciar → [Primitives y sistema visual](#primitives-y-sistema-visual).
+- `router.refresh()` no remonta componentes cliente ni re-corre sus efectos: la pantalla
+  se queda vieja y el wizard trabado → [Estado y datos en el cliente](#estado-y-datos-en-el-cliente).
+- Una pieza que acepta dos formas de recibir el mismo dato contesta distinto en cada modo:
+  "Último paso (7)" con el botón diciendo "Siguiente →" → [Wizards y formularios](#wizards-y-formularios).
+- Un `<Icon name>` mal escrito o un `<use>` sin su `<symbol>` **no rompen**: pintan un
+  puntito gris o un cuadrado liso, sin error, sin warning → [Primitives y sistema visual](#primitives-y-sistema-visual).
 
 ---
 
-## 1. WizardShell y el progreso
+## Primitives y sistema visual
+
+### ⚠️ `.mk-scroll-x` recorta en los DOS ejes: ningún popover `absolute` puede vivir adentro
+
+**Síntoma:** en /ads-writer, tab «Guiones», tocás «Filtrar» y no aparece nada (a lo sumo
+asoma una scrollbar vertical en la barra). Los filtros de ángulo, avatar y fecha quedan
+inalcanzables para todo usuario, en cualquier ancho.
+
+**Causa:** `.mk-scroll-x` declara solo `overflow-x: auto` y deja `overflow-y` en `visible`;
+por spec, si un eje es `auto` el otro `visible` computa a `auto`, así que la caja clipea en
+los dos. Medido en navegador real: `getComputedStyle(scroller).overflowY === 'auto'`,
+`clientHeight=41px` contra `scrollHeight=308px`, y el popover (`top: calc(100% + 6px)`)
+arranca 1px debajo del content box: cero píxeles visibles. El `zIndex` no salva nada — el
+clipping de overflow no se saltea con z-index. `overflow-x: clip` sí preservaría
+`overflow-y: visible`, pero mata el scroll táctil, que es para lo que existe la clase.
+
+**Regla:** cualquier menú dentro de `.mk-scroll-x` (incluido el slot `filtros` de
+`PageHeader`) va en portal `fixed` posicionado por `getBoundingClientRect()` — que es
+exactamente lo que hace `app/components/Dropdown.tsx` y por lo que existe.
+
+**Vive en:** app/_ui/ui.css:445-449 (`.mk-scroll-x`) · app/ads-writer/GuionesGlobal.tsx:156,348-352 · patrón correcto en app/components/Dropdown.tsx:114-133 · *2026-08-06 ~review-adversarial-content-machine*
+
+### ⚠️ El placeholder del Dropdown no es una opción: por eso no se puede des-asignar nada
+
+**Síntoma:** en /admin no había manera de dejar a un usuario sin workspace. En el picker de
+plantilla de WhatsApp, una vez elegida una plantilla ya no había forma de volver a «sin
+plantilla», solo cambiar a otra. Mismo bug, dos pantallas.
+
+**Causa:** el diagnóstico obvio («el backend no soporta null») era el equivocado —
+`actualizarUsuario` acepta `workspace_id: null` y la columna es nullable a propósito (mig
+0054). La causa real es el `Dropdown` propio: solo emite valores presentes en `options`, y
+el `placeholder` es **texto del botón** cuando `value` no matchea, NUNCA un ítem
+clickeable. Al migrar un `<select>` nativo que tenía `<option value="">Elegí…</option>`,
+esa opción de limpiar se pierde en silencio. Y aunque llegara vacío, `Number('') === 0`
+pasa el chequeo `typeof body.workspace_id === 'number'` del route y escribiría workspace 0.
+
+**Regla:** si un campo admite «vacío», va como opción explícita `{ value: '', label: '…' }`
+y el onChange manda `v ? Number(v) : null`.
+
+**Vive en:** app/components/Dropdown.tsx:112,121 · app/admin/AdminView.tsx:429-435 · app/api/admin/usuarios/route.ts:121 · app/whatsapp/WhatsAppApp.tsx (picker de plantilla) · *2026-07-02 map-admin-clientes + 2026-07-13 ~review-commits-funnel-dropdowns*
+
+### ⚠️ Un ícono que no existe no rompe: pinta un puntito gris o un cuadrado de color
+
+**Síntoma (a):** un nombre mal escrito en `<Icon name>` se ve como un círculo de 3px y
+nadie se entera. **Síntoma (b):** en el onboarding del Chat Agent, el ícono de WhatsApp era
+un cuadrado verde liso.
+
+**Causa:** `Icon` resuelve `PATHS[name] ?? PATHS.dot`, sin error ni warning. Para (b) la
+hipótesis natural era el gradiente o el CSS, y era falsa: el símbolo usa `fill="#fff"`
+plano. Lo que pasaba es que nadie montaba `<BrandDefs />` en ese árbol, así que el
+`<symbol id="ic-whatsapp">` no existía en el documento, el `<use href="#ic-whatsapp">` de
+`SvcIcon` no resolvía a nada, y lo único pintado era el `<span>` contenedor con background
+`#25D366`. El mecanismo no es «gradiente ausente → color plano», es **«símbolo ausente → no
+se dibuja NADA y se ve el fondo del tile»**. Falla 100% silenciosa: sin error de tipos, sin
+warning de React, sin consola.
+
+**Regla:** el componente que consume íconos de marca monta sus propios defs en vez de
+esperar que lo haga el llamador (montarlo dos veces no rompe: el `<use>` toma el primero);
+`PanelMarketing.tsx` ya lo hace. Hoy montan `BrandDefs` /integraciones, /onboarding y el
+board del plan; **Configuraciones NO**. Detalle de contrato: `Icon` no acepta `color`,
+`className` ni `style` — el color se hereda, hay que envolverlo en un `<span style={{color}}>`.
+
+**Vive en:** app/_components/icons.tsx:209 · app/_components/ServicioVisual.tsx (BrandDefs + SvcIcon) · app/_components/PanelMarketing.tsx · *2026-08-01 mako-onboarding-copy-y-bugs + 2026-08-06 rediseno-notificaciones*
+
+### ⚠️ El dorado de MaKo no admite texto blanco
+
+Blanco sobre el gradiente `#F2A516 → #E0870A` da **2,06:1 y 2,75:1** — no llega ni al piso
+de 3:1, y los labels son de 10,5-14 px (uppercase/bold), o sea texto chico que necesita
+4,5:1. Verificado recalculando la luminancia. El resto del documento ya usa la solución
+correcta (ámbar oscuro sobre dorado claro: `#C77E08` sobre `#FBEBCB`, `#9A6207` sobre
+`#FEF6E4`), así que los badges blancos son el outlier. Oscurecer el gradiente **no
+alcanza** (el extremo claro queda en ~3,3:1): la salida que pasa AA es texto casi negro
+ámbar (`#3A2604`, ~5,2:1 y ~7:1) manteniendo el dorado brillante.
+
+**Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-tier-ribbon, .s-diff-seg-3, .s-ch-lever .s-ch-id, .s-rung-1 .s-rung-n) · *2026-07-19 ~revision-landing-estrategia-vsl*
+
+### ⚠️ `nota` y `placeholder` del catálogo de credenciales son texto muerto
+
+`ServicioConfigForm` trae `nota` del API y la tipa (l.46) pero **no la pinta en ningún
+lado**, y el `placeholder={sem.placeholder}` (l.488) no sale del catálogo: sale de
+`semaforo()` (l.93), que devuelve 'Pendiente' / 'Opcional' / '••••1234'. O sea que «Con el
+prefijo act_», «Token de usuario de sistema (no expira). Permisos: ads_read,
+ads_management, business_management» y las demás notas de `metodo-catalogo.ts` NUNCA se ven
+en la pantalla donde se pega la credencial: las pistas de formato solo existen si el
+cliente abre el '?'. Costo real: el cliente pega el ad account sin `act_` y el guardado
+falla. Es el mismo patrón que las features de la landing — un campo del catálogo que nadie
+renderiza.
+
+**Vive en:** app/integraciones/ServicioConfigForm.tsx (nota 46, semaforo 93, placeholder 488) · lib/metodo-catalogo.ts (nota/placeholder por servicio) · *2026-07-31 auditoria-tokens-meta*
+
+### En un grid, el eje vertical también necesita `minmax(0,1fr)`
+
+Ponerle alto fijo a un modal de dos columnas y `overflow:auto` a la columna que scrollea
+**no alcanza**: si el grid no declara `grid-template-rows`, la fila implícita es `auto` con
+`min-height:auto`, o sea que no deja que los hijos se achiquen por debajo de su contenido —
+la fila crece, desborda el alto fijo y el `overflow:auto` no hace absolutamente nada. Hay
+que agregar `grid-template-rows: minmax(0,1fr)` y `height:100%` en el grid (un hijo grid no
+hereda el alto de un padre `display:block`). Es el mismo truco que ya está en el eje
+horizontal de `.mk-svc-modal` y que todos olvidan replicar en el vertical. Ojo también con
+el media query de apilado: al pasar a 1 columna se generan 2 filas implícitas y hay que
+resetear el `grid-template-rows`.
+
+**Vive en:** app/globals.css:205-208 (.mk-svc-modal) y :214-227 · app/integraciones/IntegracionesBoard.tsx:492-493 (ModalShell) · *2026-07-16 integraciones-modal-v2-investigar*
+
+### `flex:none` + `width:100%` junto a un label `nowrap` desborda siempre
+
+En una fila flex con gap, una barra con `flex:none` y `width:100%` inline se come todo el
+ancho del contenedor y no puede encogerse; el label hermano tiene `white-space:nowrap`, así
+que su min-content es el texto entero y tampoco encoge. Barra(100 %) + gap + label excede
+la fila **siempre** — es independiente del ancho real de la card. Solo desbordaba el primer
+paso del embudo (los de 50 % y 24 % dejaban lugar), y el `overflow-x:hidden` de la raíz lo
+escondía cortando justo el número. Arreglo: la barra va dentro de un track `flex:1;
+min-width:0` y el label `flex:none`, para que el `width:X%` se mida contra el espacio que
+sobra.
+
+**Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-fbar-row / .s-fbar / .s-fbar-lbl) · *2026-07-19 ~revision-landing-estrategia-vsl*
+
+### El placeholder animado no cuesta renders: cuesta el NOMBRE del control
+
+La pregunta natural ante un placeholder que se escribe y se borra es «¿cuánto cuesta un
+setState por letra?». Se midió en navegador real: escribir el atributo `placeholder` cuesta
+**1,2 µs**, o sea nada. El diagnóstico obvio era el equivocado. El daño real es otro: el
+algoritmo de nombre accesible cae al placeholder como ÚLTIMO recurso, así que un input sin
+label toma su nombre del placeholder, y rotarlo cada 3 segundos le cambia el nombre al
+control cada 3 segundos — rompe el control por voz (el usuario dice «hacé clic en X» y para
+cuando termina la frase ya es otro) y JAWS/NVDA siguen anunciando el viejo.
+
+**Regla:** animar el placeholder solo es aceptable si el input YA tiene un nombre accesible
+fijo que no sea el placeholder (label real conectado por `htmlFor`, como documenta
+`app/_ui/Field.tsx`). Dato empírico del mismo barrido: v0, Perplexity, Claude y Linear NO
+rotan el placeholder — ponen la animación en el titular y los ejemplos como chips
+clickeables.
+
+**Vive en:** app/_ui/Field.tsx (el label conectado por id) · aplica a cualquier input nuevo de captura (/ideas) · *2026-08-07 ideas-content-machine*
+
+### Un componente declarado DENTRO del render remonta todo el subárbol en cada tecla
+
+**Síntoma:** un input dentro de una lista perdía el scroll y el foco con cada tecla, y las
+61 opciones se volvían a montar enteras — parecía un problema de virtualización o de `key`.
+**Causa:** el componente estaba declarado dentro del render del padre, así que React lo
+trata como un TIPO nuevo en cada pasada y remonta el subárbol completo. **Solución:** una
+función que devuelve el elemento, no un componente anidado.
+
+**Vive en:** app/crm/SelectorHora.tsx · *2026-08-07 contexto-mako-md*
+
+### `getComputedStyle` con la pane oculta devuelve valores viejos
+
+Verificar por el style inline o por un `data-*`, nunca por el estilo computado de algo que
+todavía no se mostró.
+
+**Vive en:** UI general · *cosecha 08/2026*
+
+### Regla: antes de inventar un componente, copiar el molde que ya existe
+
+El dueño lo pidió una y otra vez, y siempre por el mismo motivo: lo reescrito a mano sale
+peor y con features faltantes. Vale para el contenedor, el modal, el pop-up de detalle, el
+filtro, la barra de búsqueda, el chat de clientes, el resumen del archivero y el botón azul
+de subir.
+
+- «debería ser EXACTAMENTE igual al contenedor que ya hicimos… Esa lógica ya la construiste
+  en el detail, copiala tal cual» (2026-08-05)
+- «NO debe ser un detalle diferente al de siempre, debe ser exactamente el mismo pop-up»
+  (2026-06-23)
+- «No construyas nada nuevo, replica todo… Cuando construyes un chat nuevo, hay muchas
+  cosas que te saltas y omites» (2026-07-14)
+- Al replicar una vista para otro rol o ruta: se copia la vista **completa**, no un
+  resumen, ni se reconstruye la funcionalidad de nuevo. «Debería ser igual, y con el mismo
+  diseño que está en super admin. Solo tienes que copiar lo mismo, no inventar nada nuevo»
+  (2026-07-29)
+- Al replicar una sección/vista/curso: **tal cual**, mismo orden, mismo copy, misma
+  animación. «Tampoco los copy están exactamente iguales… Les agregaste cosas innecesarias»
+  (2026-07-23)
+- Si pasa una imagen de referencia, se copia hasta que sea igual, no se aproxima. «La llave
+  sigue sin parecerse. Copiala bien» (2026-07-01)
+- Y antes de construir de cero algo grande, buscar un open source que ya lo tenga y
+  copiarle diseño y features: «podemos COPIAR código de proyectos open source como este:
+  github.com/TryGhost/Ghost… Eso nos ahorrará muuucho trabajo» (2026-08-06)
+
+**Vive en:** app/_ui (el catálogo vivo está en /admin/ui) · [app/_ui/LEEME.md](../app/_ui/LEEME.md)
+
+### Regla: los desplegables son el `Dropdown` propio, con su comportamiento
+
+Nada de `<select>` nativo ni de listas planas. El comportamiento pedido, junto:
+
+- Diseño propio, no plano; se abre al pasar el cursor y se cierra solo al elegir una opción
+  («trabaja en el diseño de todos los desplegables… Que esté así de plano es muy feo»,
+  2026-06-22).
+- Se abren **a la derecha**, no hacia abajo («Prefiero que todos los desplegables se abran
+  a la derecha», 2026-07-01).
+- Ninguno empuja la app hacia abajo ni se corta en la topbar: si no entra, **abre hacia
+  arriba** («ningún desplegable debería comportarse de esa manera, en donde desplaza a toda
+  la app hacia abajo» / «El desplegable se pone solo en la top bar y no se puede ver, omg,
+  es básico eso», 2026-06-29).
+- En listas de bloques desplegables, **el primero viene abierto y el resto plegados**
+  (2026-07-30).
+
+**Vive en:** app/components/Dropdown.tsx · *memoria [[dropdown-custom]]*
+
+### Regla: filtros y ordenamiento tienen una sola forma
+
+- Los filtros y las opciones múltiples van **siempre en un desplegable** (con capas si hace
+  falta), a la derecha de la searchbar. Nunca botones acumulados uno al lado del otro,
+  nunca filtros debajo. «los filtros deberían ser un desplegable, como siempre… como ya
+  habíamos dicho antes» (2026-07-13).
+- Si son muchos, se **agrupan** detrás de un solo botón, no se apilan en una lista con
+  scroll: «hay que hacer un scroll muy grande para ir abajo del todo. Tienes que agruparlos
+  en 4» (2026-07-26).
+- El ordenamiento es el clásico de **dos clicks** (asc/desc) y va **antes** que el resto de
+  los controles: «apretás una vez se ordena para atrás, apretás otra vez, se ordena para
+  adelante. Más simple» (2026-07-26).
+- Si él ya definió una forma de ver los filtros, se respeta tal cual: «Diseñé a propósito
+  una forma de ver los filtros y lo hiciste como quisiste…» (2026-07-15).
+
+**Vive en:** el slot `filtros` de `PageHeader` (ojo con `.mk-scroll-x`, ver arriba)
+
+### Regla: editar es hacer click sobre el texto
+
+Sin botón de editar, sin que cambie la disposición y sin que aparezca un recuadro
+(«Prefiero que no exista el botón de editar… que no cambie en nada la disposición»,
+2026-07-27). Cuando sí hace falta un botón, hay **uno solo por pantalla**: nada de un botón
+de editar adentro de otro botón de editar («solo hay 1 botón de editar y es el mismo
+siempre», 2026-07-04). Y una **preview es preview**: se ve linda y de solo lectura, nada
+editable por default; si se puede editar, va un botón de editar/guardar **por caja** («NO
+debería ser editable el texto», sobre avatares y razones, 2026-07-27).
+
+---
+
+## Modales y capas
+
+### ⚠️ Un `zIndex` literal en una pieza que se apila queda debajo del backdrop
+
+**Síntoma:** confirmás, la pantalla **no se mueve** y nada explica por qué. Ni error, ni
+spinner, ni cartel.
+
+**Causa:** el loader y el cartel final «Datos actualizados» tenían `zIndex: 100`
+hardcodeado, y la pila de modales (`useCapaModal`) arranca en **130**. Estaban pintados,
+debajo del backdrop. Dos síntomas idénticos, dos literales distintos, el mismo error.
+
+**Regla:** una pieza que se monta apilada **no elige su z**: lo hereda de la capa
+(`capa.z`), o se pinta **dentro** de la tarjeta con `position: absolute` sobre un
+contenedor `relative` — así hereda el z que la capa ya le dio. Un número literal en un
+overlay es una apuesta contra el orden de montaje. Del mismo arreglo: la cortina del loader
+usa `var(--surface)` en una capa propia y no un `rgba(255,255,255,.78)` fijo, que en tema
+oscuro era un flash blanco. **Ningún color fijo en un overlay.**
+
+**Vive en:** app/_components/pila-modales.ts (`useCapaModal`) · app/_components/WizardShell.tsx
+
+### El loader tiene que tapar también el header y el footer
+
+Es donde están los botones que no hay que tocar: ✕, Atrás, Siguiente/Confirmar y el click
+en el backdrop. Tapar solo el cuerpo deja la salida abierta a mitad de una escritura. El
+dueño lo pidió más fuerte todavía: toda operación larga **bloquea** el cierre del modal, la
+navegación y el refresh, con aviso — «NO debería dejarme cerrar ese modal ni hacer nada.
+Incluso si me quiero salir de la tab o refrescar, impedírmelo con un aviso» (2026-07-30).
+
+**Vive en:** app/_components/WizardShell.tsx
+
+### Regla: el modal tiene largo fijo y scrollea por dentro — nunca crece
+
+Jamás se agranda según el contenido ni según la tab, y jamás se sale de la pantalla:
+aparece scroll adentro. Desplegar un bloque de contexto tampoco lo agranda.
+
+- «jamás se debe agrandar el modal, debe aparecer un scroll… Se rompe y no se puede leer ni
+  apretar el botón de siguiente» (2026-08-05)
+- «está muy largo, se sale de la pantalla. Debería tener scroll, pero no salirse»
+  (2026-07-15)
+
+**Vive en:** app/_components/WizardShell.tsx · el `ModalShell` de app/integraciones/IntegracionesBoard.tsx:492-493
+
+### Regla: nunca dos modales visibles a la vez, y cerrar devuelve al anterior
+
+Hay un orden. El de abajo **se esconde** y vuelve al cerrarse el de arriba; cerrar el de
+arriba **no cierra la pila entera**. Y un modal de trabajo se cierra solo por la ✕, no por
+click afuera.
+
+- «había otros atrás, es muy molesto ver 2 modales al mismo tiempo. Siempre tiene que haber
+  un orden» (2026-07-19)
+- «Te pedí explícitamente que los pop-up no se superpongan y sí lo hacen…» (2026-07-22)
+- «no me debe cerrar todo, me debe volver al modal de todas las reuniones, eso como regla
+  siempre, es experiencia de usuario» (2026-08-02)
+- **Un solo pop-up por flujo:** nada de un modal que abre otro modal para completar el
+  mismo paso. «Sigue saltando un pop-up previo donde hay que subir los creativos. No quiero
+  que hayan 2 pop-up. Quiero que sea uno solo» (2026-06-30)
+
+**Vive en:** app/_components/pila-modales.ts · *memoria [[pila-de-modales]], [[cerrar-vuelve-al-anterior]]*
+
+### Regla: cerrar un modal no descarta el trabajo a medias
+
+Al salir de un pop-up o de un flujo, el borrador se conserva —incluidos adjuntos y audios
+grabados sin enviar—, el modal se vuelve a abrir por el mismo botón, y lo ya extraído queda
+guardado para siempre. Si hay un proceso corriendo, sigue corriendo o queda en borrador:
+nunca obligarlo a re-analizar ni a reescribir.
+
+- «Al salir del pop-up, debo conservar el borrador, porque sino tengo que empezar todo
+  nuevamente» (2026-06-30)
+- «si una importación está pendiente y yo cierro el modal, eso debería seguir trabajando
+  allí o quedándose en borrador» (2026-08-06)
+
+### Regla: confirmar es un modal de la app que PREVISUALIZA lo que va a pasar
+
+Nunca el `confirm()` nativo del navegador («nunca el típico de HTML que salta arriba,
+siempre un pop-up nativo», 2026-07-12). Y toda acción irreversible o generada por IA pasa
+por ese modal mostrando exactamente el resultado: «antes me confirmes que hay un modal de
+"confirmación" en donde pueda previsualizar todas las tareas que le está por mandar a
+evaluar con el perro. Porque de lo contrario, se van a crear muchas tareas que pueden estar
+mal» (2026-07-17).
+
+### Un «no volver a mostrar» nunca puede esconder su propia vía de reapertura
+
+`DatosConfirm` decía textual «Podés reabrirlo cuando quieras desde el ícono ⚠ del plan», y
+el botón que lo reabría estaba gateado por `!datosOff` — o sea que desaparecía exactamente
+cuando el usuario aceptaba apagarlo, dejando la feature de deadlines/checklists inalcanzable
+para siempre hasta limpiar localStorage. Agravante del mismo caso: el auto-open era
+agnóstico de vista, pero el botón de reapertura solo se renderizaba en kanban, y la vista
+por defecto es 'prioridades'.
+
+**Regla:** el copy de un diálogo es un **contrato**; si promete una vía de vuelta, esa vía
+tiene que existir en TODAS las vistas donde el diálogo puede aparecer.
+
+**Vive en:** app/plan/board/BoardShell.tsx · app/plan/board/DatosModal.tsx · *2026-07-19 ~review-datosmodal-plan-board*
+
+---
+
+## Wizards y formularios
+
+### ⚠️ `WizardShell` llama a `useCapaModal` pero nunca engancha `capa.refScroll`
+
+La pila de modales promete que al cerrar el de arriba, el de abajo vuelve con el scroll
+exactamente donde estaba. **En los wizards no funciona en ninguno:** `WizardShell` usa
+`useCapaModal` para el z-index y la visibilidad, pero no le pasa `capa.refScroll` al
+contenedor que scrollea. Volvés de un modal apilado y estás arriba de todo. Engancharlo es
+un cambio de comportamiento para los **24 llamadores**: merece su propia pasada.
+
+Esto rompe además una regla del dueño que vale para toda la app: volver atrás **por
+cualquier vía** devuelve al punto exacto donde estabas (scroll incluido) y a la pantalla
+anterior, no a la raíz de la tab («Si vuelvo para atrás de la manera que sea, me tiene que
+deslizar al punto en el que estaba antes», 2026-07-22).
+
+**Vive en:** app/_components/WizardShell.tsx · app/_components/pila-modales.ts · *2026-08-07 contexto-mako-md*
+
+### ⚠️ Una pregunta tipo 'escala' con opciones de texto se contesta con un 3 que no significa nada
+
+Los dos renderers pintan 1..5 pelados cuando `tipo==='escala'` y **descartan** `q.opciones`
+(verificado en `TareasRecibidasModal.tsx:433`). Y no es un mistype raro: el prompt de
+reuniones ordena «CERRADAS SIEMPRE: cada pregunta con 2-4 opciones concretas» y mete
+'escala' en el enum **sin definir nunca qué significa**, así que
+`{tipo:'escala', opciones:['Landing nueva','Arreglar el checkout']}` es la salida ESPERADA.
+El validador la deja pasar y al Perro le llega «la pregunta → 3». Bug hermano en el mismo
+renderer: no hay rama para tipo 'texto' ni para tipos con opciones vacías — se pinta el
+enunciado y CERO controles, solo queda «Saltear».
+
+**Fix en origen:** degradar escala-con-opciones a 'opcion', y filtrar toda pregunta que pida
+opciones y venga con menos de 2 antes de que llegue a la pantalla.
+
+**Vive en:** app/plan/board/TareasRecibidasModal.tsx:433 · app/plan/revisar/[id]/RevisarPropuesta.tsx · lib/plan-propuesta.ts (limpiarPregunta) · lib/plan-fathom.ts (preguntasDeContexto) · *2026-08-05 ~fathom-preguntas-lote-whatsapp-forense*
+
+### ⚠️ Un `?? lista[0]` para un índice fuera de rango convierte «terminaste» en «volvé a empezar»
+
+`const esc = escenarios[escIdx] ?? escenarios[0]`. Al apretar «Terminar el ensayo»,
+`siguienteEscenario()` deja `escIdx === escenarios.length`, el `??` cae en el escenario 0 y
+el efecto lo **reabre** con semilla nueva, con todos los puntos de progreso apagados y sin
+cartel de cierre — la única pista de que terminó es que el «Siguiente» del footer se
+habilitó en silencio.
+
+**Regla:** el fallback de un índice fuera de rango es `null` (y una pantalla de cierre),
+nunca el primer elemento.
+
+**Vive en:** app/chat-agent/OnboardingChatAgent.tsx:597 y :1237 · *2026-08-02 ~diagnostico-audio-ensayo-chat-agent*
 
 ### Dos modos de la misma pieza tienen que contestar igual
 
-**Síntoma:** el wizard pinta **"Último paso (7)"** y justo abajo el botón dice
-**"Siguiente →"**.
+**Síntoma:** el wizard pinta **«Último paso (7)»** y justo abajo el botón dice
+**«Siguiente →»**.
 
 **Causa:** `WizardShell` acepta el progreso de dos formas —`pasos` + `pasoActual` (el mapa)
-o `total` + `idx` (dos números)— y respondían **distinto al mismo estado**. Con la cuenta
-en cero y `enUltimo` en `false`, el modo `total` decía "faltan pasos" (bien) y el modo
-`pasos` se creía en el final.
+o `total` + `idx` (dos números)— y respondían **distinto al mismo estado**. Con la cuenta en
+cero y `enUltimo` en `false`, el modo `total` decía «faltan pasos» (bien) y el modo `pasos`
+se creía en el final.
 
 **El diagnóstico obvio era el equivocado.** Parecía inalcanzable: en el único llamador del
 modo nuevo, el resumen siempre era el último del mapa. Se volvió alcanzable **al migrar el
 onboarding**, cuyo mapa son **secciones** y tiene varias pantallas por sección. O sea: el
-bug latente lo activa la migración siguiente, no el código que lo contiene. El orden de
-las dos tareas importaba y nadie lo había mirado.
-
-**Dónde:** la aritmética se mudó a `app/_components/wizard-progreso.ts` (pura, con tests).
+bug latente lo activa la migración siguiente, no el código que lo contiene. El orden de las
+dos tareas importaba y nadie lo había mirado.
 
 **Regla escrita ahí: `enUltimo` gana en las dos direcciones.** Si dice que es el último, no
-hay cola; si dice que no lo es y la cuenta da cero, la que miente es **la cuenta**. Y
-cuando una pieza acepta dos formas de recibir lo mismo, la aritmética vive en **una**
-función pura que las dos llaman — si no, el segundo modo es el que se queda viejo.
+hay cola; si dice que no lo es y la cuenta da cero, la que miente es **la cuenta**. Y cuando
+una pieza acepta dos formas de recibir lo mismo, la aritmética vive en **una** función pura
+que las dos llaman — si no, el segundo modo es el que se queda viejo.
+
+**Vive en:** app/_components/wizard-progreso.ts (la aritmética, pura y con tests) · app/_components/WizardShell.tsx
 
 ### Los dots mienten si `total` no es confiable
 
@@ -41,312 +428,835 @@ La posición actual siempre es verdad; la **cola solo existe si se puede contar*
 Colapsa cuatro casos: `total` desconocido, `idx >= total`, `enUltimo` con `total` mayor, y
 **salto hacia adelante** — si el wizard se saltea pantallas, `total` deja de servir.
 
-Ese estado se marca **en render, no con `useEffect`**: con efecto, el primer frame del
-salto sigue mostrando la fila vieja, que es justo la mentira que se quería sacar.
+Ese estado se marca **en render, no con `useEffect`**: con efecto, el primer frame del salto
+sigue mostrando la fila vieja, que es justo la mentira que se quería sacar.
 
 En el modo `pasos` la cuenta es **exacta** mientras el mapa no se mueva; si el mapa cambia
-estando a la vista, pasa a "faltan pasos" y se queda ahí (pegajoso). **Los cambios de mapa
-mientras la pieza está trabada por `cargando` no cuentan**: ahí el mapa se está armando y
-el usuario no pudo leer ninguna promesa. La comparación mira también el `trabado` del
-render **anterior**, porque la respuesta que apaga el loader trae el mapa nuevo en el mismo
-commit.
+estando a la vista, pasa a «faltan pasos» y se queda ahí (pegajoso). **Los cambios de mapa
+mientras la pieza está trabada por `cargando` no cuentan**: ahí el mapa se está armando y el
+usuario no pudo leer ninguna promesa. La comparación mira también el `trabado` del render
+**anterior**, porque la respuesta que apaga el loader trae el mapa nuevo en el mismo commit.
+
+**Vive en:** app/_components/wizard-progreso.ts
 
 ### El chrome forkeado es donde vuelven los bugs ya arreglados
 
 El wizard con ramas de verdad (`app/crm/StageMoveDialog.tsx`) tenía su **propia copia** del
-header, los puntitos, el footer y el loader — ~60 líneas. Ahí vivía un bug de z-index que
-la pieza compartida no tiene, y ahí no llegaba ninguna mejora del progreso.
+header, los puntitos, el footer y el loader — ~60 líneas. Ahí vivía un bug de z-index que la
+pieza compartida no tiene, y ahí no llegaba ninguna mejora del progreso.
 
 **Regla:** el marco se importa; lo que se queda en el llamador es el **contenido** y la
-**navegación** (qué pasos hay, cuándo se puede avanzar). Si el llamador necesita algo que
-el marco no da, se le agrega al marco como modo — con la aritmética compartida, ver arriba.
+**navegación** (qué pasos hay, cuándo se puede avanzar). Si el llamador necesita algo que el
+marco no da, se le agrega al marco como modo — con la aritmética compartida.
 
-Detalle de contrato que se descubrió al migrar: el prop `error` es **una línea de texto**.
-Una lista de faltantes con un botón "Completar lo que falta →" va como último hijo del
-cuerpo, no ahí.
+**Detalle de contrato** que se descubrió al migrar: el prop `error` es **una línea de
+texto**. Una lista de faltantes con un botón «Completar lo que falta →» va como último hijo
+del cuerpo, no ahí.
 
----
+**Vive en:** app/crm/StageMoveDialog.tsx · app/_components/WizardShell.tsx
 
-## 2. La pila de modales
+### Un fetch gateado por paso muere cuando el wizard REANUDA en un paso posterior
 
-### Un `zIndex` literal en una pieza que se apila queda debajo del backdrop
+El ensayo pintaba «Tu nota de voz (no disponible)» con los 3 audios grabados. Causa: la
+biblioteca de audios se hidrataba solo con `pasoKeyRef.current === 'voz'`, y `cargar()`
+aterriza en el **primer paso no hecho** — con 'voz' ya completo eso es 'ensayo', así que
+nunca se pasaba por 'voz'. En el recorrido secuencial NO fallaba: el bug aparece solo al
+**retomar**, que es lo que hace todo el que no termina de una sentada. Y el fix obvio no
+alcanzaba: mover la carga al montaje solo convertía la falla determinista en una carrera,
+porque el escenario se abre UNA sola vez (`msgs.length > 0`) y nadie vuelve a mirar los
+audios — hizo falta además `if (audios === null) return;` con `audios` en las deps.
 
-**Síntoma:** confirmás, la pantalla **no se mueve** y nada explica por qué. Ni error, ni
-spinner, ni cartel.
-
-**Causa:** el loader y el cartel final "Datos actualizados" tenían `zIndex: 100`
-hardcodeado, y la pila de modales (`useCapaModal`) arranca en **130**. Estaban pintados,
-debajo del backdrop. Dos síntomas idénticos, dos literales distintos, el mismo error.
-
-**Regla:** una pieza que se monta apilada **no elige su z**: lo hereda de la capa
-(`capa.z`), o se pinta **dentro** de la tarjeta con `position: absolute` sobre un
-contenedor `relative` — así hereda el z que la capa ya le dio. Un número literal en un
-overlay es una apuesta contra el orden de montaje.
-
-Del mismo arreglo: la cortina del loader usa `var(--surface)` en una capa propia y no un
-`rgba(255,255,255,.78)` fijo, que en tema oscuro era un flash blanco. **Ningún color fijo
-en un overlay.**
-
-### El loader tiene que tapar también el header y el footer
-
-Es donde están los botones que no hay que tocar: ✕, Atrás, Siguiente/Confirmar y el click
-en el backdrop. Tapar solo el cuerpo deja la salida abierta a mitad de una escritura.
-
-| Trampa | Dónde | Qué hacer |
-|---|---|---|
-| **`getComputedStyle` con la pane oculta devuelve valores viejos** | UI general | Verificar por el style inline o un `data-*`. |
-| **Un componente declarado dentro del render remonta todo** | visto en `app/crm/SelectorHora.tsx` | Generar las filas con una **función que devuelve el elemento**. Como componente anidado, React remontaba las 61 opciones con cada tecla y tiraba el scroll al principio. |
-
----
-
-## 3. Lo que quedó sin hacer
-
-| Qué | Dónde | Por qué |
-|---|---|---|
-| **`WizardShell` llama a `useCapaModal` pero nunca engancha `capa.refScroll`** al contenedor que scrollea | `app/_components/WizardShell.tsx` | La restauración de scroll al volver de un modal apilado **no funciona en ningún wizard**. Engancharlo es un cambio de comportamiento para los 24 llamadores: merece su propia pasada. |
-| **21 llamadores siguen en el modo `total`/`idx`** | `app/**` | No es deuda por sí sola (ver descartado), pero cada uno que tenga el mapa en la mano y lo aplane a dos números es un `indexOf` duplicado. |
-
-### Descartado a propósito (no volver a "arreglarlo")
-
-- **Migrar `app/chat-bot/SecuenciaWizard.tsx` al modo `pasos`.** Se revisó y **no duplica
-  nada**: su `idx` es un índice de estado real, no un `pasos.indexOf(...)` recalculado. Es
-  exactamente el caso para el que existe `total`/`idx`. El criterio para migrar es *"¿el
-  llamador tiene el mapa y está recalculando la posición?"*, no *"¿existe un mapa?"*.
-
----
-
-## Cosecha retroactiva (2026-08-07)
-
-Rescatado de los journals de las 261 corridas multi-agente de junio a agosto de 2026:
-**134 de 260 nunca habían escrito nada en el repo**. El registro completo de las corridas
-está en [corridas-multiagente.md](corridas-multiagente.md).
-
-⚠️ **Es material de segunda mano.** Sale de lo que devolvieron los subagentes en su
-momento, no de una relectura del código de hoy. Cada entrada dice de qué corrida y de qué
-fecha viene. **Antes de actuar sobre una, verificá contra el código**: varias ya están
-arregladas, y donde el rescate lo sabía, lo dice.
-
-### Trampas: el diagnóstico obvio era el equivocado
-
-#### El placeholder del Dropdown no es una opción: por eso no se podía des-asignar un cliente
-
-Síntoma: en /admin no había manera de dejar a un usuario sin workspace. El diagnóstico obvio («el backend no soporta null») era el equivocado — `actualizarUsuario` acepta `workspace_id: null` y la columna es nullable a propósito (mig 0054). La causa real es el `Dropdown` propio: solo emite valores presentes en `options`, y el `placeholder` es texto del botón cuando `value` no matchea, NUNCA un ítem clickeable. Y aunque llegara vacío, `Number('') === 0` pasa el chequeo `typeof body.workspace_id === 'number'` del route y escribiría workspace 0. Regla: si un campo admite «vacío», va como opción explícita `{ value: '', label: '…' }` y el onChange manda `v ? Number(v) : null`.
-
-**Vive en:** app/components/Dropdown.tsx:112,121; app/admin/AdminView.tsx:429-435; app/api/admin/usuarios/route.ts:121 · *2026-07-02 map-admin-clientes*
-
-#### Sin ninguna fuente conectada, /general declara «El negocio está sano»
-
-El semáforo arma `alertas = []` cuando no hay datos y cae al `else` final, que dice «El negocio está sano · Sin focos activos. Buen momento para empujar volumen». La card de pendientes con 0 leads afirma «datos al día — el tablero es confiable». Un cliente que gastó plata en ads y ve luz verde con 0 cierres se lleva un tablero que no sabe de qué habla. Falta el cuarto estado, el gris: «sin datos suficientes para opinar». El sistema para distinguir off de 0 ya existe (`lib/sources.ts`, se usa internamente en /marketing) y el componente que lo mostraría, `SourceStrip`, existe pero está desmontado: ninguna página monta `DashboardHeader`.
-
-**Vive en:** app/general/page.tsx:411-415, :441-442 y :477; lib/sources.ts; app/_components/DashboardHeader.tsx (sin consumidores) · *2026-07-16 · mako-onboarding-solo-meta*
-
-#### En un grid, el eje vertical también necesita minmax(0,1fr)
-
-Ponerle alto fijo a un modal de dos columnas y `overflow:auto` a la columna que scrollea NO alcanza: si el grid no declara `grid-template-rows`, la fila implícita es `auto` con `min-height:auto`, o sea que no deja que los hijos se achiquen por debajo de su contenido — la fila crece, desborda el alto fijo y el `overflow:auto` no hace absolutamente nada. Hay que agregar `grid-template-rows: minmax(0,1fr)` y `height:100%` en el grid (un hijo grid no hereda el alto de un padre `display:block`). Es el mismo truco que ya está en el eje horizontal de `.mk-svc-modal` y que todos olvidan replicar en el vertical. Ojo también con el media query de apilado: al pasar a 1 columna se generan 2 filas implícitas y hay que resetear el `grid-template-rows`.
-
-**Vive en:** app/globals.css:205-208 (.mk-svc-modal) y :214-227; app/integraciones/IntegracionesBoard.tsx:492-493 (ModalShell) · *2026-07-16 · integraciones-modal-v2-investigar*
-
-#### El placeholder animado no cuesta renders: cuesta el NOMBRE del control
-
-La pregunta natural ante un placeholder que se escribe y se borra es «¿cuánto cuesta un setState por letra?». Se midió en navegador real: escribir el atributo placeholder cuesta 1,2 µs, o sea nada. El diagnóstico obvio era el equivocado. El daño real es otro: el algoritmo de nombre accesible cae al placeholder como ÚLTIMO recurso, así que un input sin label toma su nombre del placeholder, y rotarlo cada 3 segundos le cambia el nombre al control cada 3 segundos — rompe el control por voz (el usuario dice «hacé clic en X» y para cuando termina la frase ya es otro) y JAWS/NVDA siguen anunciando el viejo. La regla que queda: animar el placeholder solo es aceptable si el input YA tiene un nombre accesible fijo que no sea el placeholder (label real conectado por htmlFor, como documenta app/_ui/Field.tsx). Dato empírico del mismo barrido: v0, Perplexity, Claude y Linear NO rotan el placeholder — ponen la animación en el titular y los ejemplos como chips clickeables.
-
-**Vive en:** app/_ui/Field.tsx (el label conectado por id) · aplica a cualquier input nuevo de captura (/ideas) · *2026-08-07 · ideas-content-machine*
-
-#### El cuadrado verde liso: un <use> sin su <symbol> no dibuja nada y no avisa
-
-En el onboarding del Chat Agent el ícono de WhatsApp se veía como un cuadrado verde liso. La hipótesis natural era el gradiente o el CSS, y era falsa: el símbolo usa fill="#fff" plano. Lo que pasaba es que nadie montaba <BrandDefs /> en ese árbol, así que el <symbol id="ic-whatsapp"> no existía en el documento, el <use href="#ic-whatsapp"> de SvcIcon no resolvía a nada y lo único pintado era el <span> contenedor con background '#25D366'. El mecanismo no es «gradiente ausente → color plano», es «símbolo ausente → no se dibuja NADA y se ve el fondo del tile». La falla es 100% silenciosa: no hay error de tipos, ni warning de React, ni consola. La regla que quedó: el componente que consume íconos de marca monta sus propios defs en vez de esperar que lo haga el llamador (montarlo dos veces no rompe, el <use> toma el primero); hoy PanelMarketing.tsx ya lo hace.
-
-**Vive en:** app/_components/ServicioVisual.tsx (BrandDefs + SvcIcon) · app/_components/PanelMarketing.tsx · *2026-08-01 · mako-onboarding-copy-y-bugs*
-
-#### router.refresh() no vuelve a correr los efectos de los componentes cliente
-
-El mismo bug de Gemini tenía una segunda causa que el diagnóstico no vio y que hacía insuficiente el parche: aunque la copia funcionara, la pantalla no se enteraba. DatosDeMau se montaba SIN prop `onListo`, y sin ella hace router.refresh(), que re-renderiza server components pero NO remonta componentes cliente ni re-corre sus efectos. La tarjeta del servicio carga su estado en un useEffect con deps [servicioKey] (una vez por montaje), así que seguía vacía, `geminiConectada` seguía false y `puedeAvanzar` dejaba el wizard trabado. La regla: si el dato que cambiaste lo lee un fetch dentro de un useEffect de un componente cliente, refrescar la ruta no alcanza — hay que llamar al recargador explícito o remontar con un `key` que cambie.
-
-**Vive en:** app/_components/DatosDeMau.tsx · app/onboarding/OnboardingWizard.tsx · app/integraciones/ServicioConfigForm.tsx · *2026-08-01 · mako-onboarding-copy-y-bugs*
-
-#### El error normal viene en JSON; el 504 de la plataforma viene en HTML, y ahí revienta el `.json()`
-
-En el paso Archivero del onboarding, el route de preguntas devuelve `{ok:false}` ante un error normal y el cliente lo manejaba bien. Lo que trababa al usuario era el otro camino: la ruta llama a la IA con `maxDuration 60`, y un timeout de plataforma devuelve una página HTML de error, así que `res.json()` LANZA y cae al catch — que solo hacía `setVista('archivos')` sin marcar `huecosRevisados`. Como el guard de «Siguiente» es `if (gaps.length > 0 && !huecosRevisados) return true`, cada click se consumía y el usuario quedaba encerrado en el paso para siempre. Regla: el catch de un `await (await fetch()).json()` dentro de un wizard tiene que ser fail-open (marcar revisado + avisar), porque ahí no estás atrapando el error del backend sino el de la infraestructura.
-
-**Vive en:** app/onboarding/Archivero.tsx:259-262 (ya corregido con fail-open explícito) · *2026-07-29 ~auditoria-archivero-onboarding*
-
-#### Un `<Icon name>` que no existe no rompe: pinta un puntito gris
-
-`Icon` resuelve `PATHS[name] ?? PATHS.dot`, así que un nombre mal escrito no tira error ni warning: se ve un círculo de 3px y nadie se entera. Tampoco acepta color, className ni style — el color se hereda, hay que envolverlo en un `<span style={{color}}>`. Y el hermano de marca, `SvcIcon`, exige que `<BrandDefs />` esté montado una vez en la página (hoy lo montan /integraciones, /onboarding y el board del plan; Configuraciones NO): sin eso el glifo sale vacío, también sin error.
-
-**Vive en:** app/_components/icons.tsx:209 · app/_components/ServicioVisual.tsx (SvcIcon/BrandDefs) · *2026-08-06 · rediseno-notificaciones*
-
-#### Un efecto con deps `[]` que lee `pathname` deja las preferencias en null para toda la sesión
-
-El efecto que carga las prefs in-app tiene `deps: []` pero adentro hace `if (pathname.startsWith('/login') || isPublicLandingPath(pathname)) return;`. Si el provider monta con /login (bookmark, URL tipeada), sale antes del fetch y antes de registrar el listener, y como el root layout no se desmonta en navegaciones soft (verificado contra Next 16.2.6: el router sigue el 307 sin caer a MPA), nunca vuelve a correr. `inAppActivo(null,…)` es fail-open, así que el sonido y los toasts salen aunque estén apagados, y guardar en Configuraciones no cambia nada hasta un F5. Regla: si la guarda de un efecto lee algo, ese algo va en las deps — o derivá un booleano (`enPublico`) y usalo como dep.
-
-**Vive en:** app/_components/NotificationsProvider.tsx:331-344 (y el efecto gemelo de :301) · *2026-08-06 ~auditoria-notificaciones-y-titulo-de-pestana*
-
-#### En una lista de matchers, el genérico que va primero anula el trabajo de exclusión del específico
-
-`nav.ts` se toma el trabajo explícito de separar 'Clientes' (matchea /admin pero NO /admin/guiones) de 'Guiones' (matchea /admin/guiones). `titulo-tab.ts` arma `TODOS` con `...USER_NAV` ANTES que `...ADMIN_NAV`, y USER_NAV tiene un `starts('/admin')` a secas: `TODOS.find()` corta ahí y las dos pestañas dicen «MaKo - Admin», que es justo lo que el módulo existe para evitar. Verificado ejecutando el módulo real. Segundo filo del mismo archivo: el fallback `desdeLaRuta()` capitaliza el primer segmento sin validar nada, así que un 404 (/crmm, /graficos) pinta «MaKo - Crmm» e inventa una sección que no existe.
-
-**Vive en:** lib/titulo-tab.ts:45-46 y :50 · *2026-08-06 ~auditoria-notificaciones-y-titulo-de-pestana*
-
-#### Un fetch gateado por paso muere cuando el wizard REANUDA en un paso posterior
-
-El ensayo pintaba «Tu nota de voz (no disponible)» con los 3 audios grabados. Causa: la biblioteca de audios se hidrataba solo con `pasoKeyRef.current === 'voz'`, y `cargar()` aterriza en el primer paso NO hecho — con 'voz' ya completo eso es 'ensayo', así que nunca se pasaba por 'voz'. En el recorrido secuencial NO fallaba: el bug aparece solo al retomar, que es lo que hace todo el que no termina de una sentada. Y el fix obvio no alcanzaba: mover la carga al montaje solo convertía la falla determinista en una carrera, porque el escenario se abre UNA sola vez (`msgs.length > 0`) y nadie vuelve a mirar los audios — hizo falta además `if (audios === null) return;` con `audios` en las deps. Antes de gatear un loader por paso, preguntá en qué paso puede montar la pantalla.
+**Regla:** antes de gatear un loader por paso, preguntá **en qué paso puede montar la
+pantalla**.
 
 **Vive en:** app/chat-agent/OnboardingChatAgent.tsx:460 (viejo), :467 y :632 · *2026-08-02 ~diagnostico-audio-ensayo-chat-agent*
 
-#### Una URL firmada guardada en el estado se rompe de dos formas opuestas, y ninguna avisa
+### El error normal viene en JSON; el 504 de la plataforma viene en HTML, y ahí revienta el `.json()`
 
-Dos corridas distintas encontraron los dos extremos del mismo patrón. (a) Congelada: `abrirEscenario` mete la URL firmada dentro de `msgs` y nadie la refresca; subir el TTL de 1 h a 12 h corre el acantilado, no lo saca — pasado el plazo el navegador pinta un reproductor inerte en 0:00. (b) Refrescada de más: la bandeja de empresa re-firma cada media en cada poll de 8 s, así que la URL cambia de identidad, las imágenes se re-descargan y reasignar `src` en `<audio>`/`<video>` RESETEA la reproducción — una nota de voz de más de 8 s es imposible de escuchar. En los dos casos el síntoma es mudo: `ChatHilo` no tiene `onError` en `<audio>`, `<img>` ni `<video>`, así que una URL muerta es indistinguible de un archivo roto. Regla: la URL firmada se resuelve al renderizar (o se mergea por id preservando la anterior), nunca se persiste en estado; y todo medio servido por URL firmada lleva `onError`.
+En el paso Archivero del onboarding, el route de preguntas devuelve `{ok:false}` ante un
+error normal y el cliente lo manejaba bien. Lo que trababa al usuario era el otro camino: la
+ruta llama a la IA con `maxDuration 60`, y un timeout de plataforma devuelve una **página
+HTML** de error, así que `res.json()` LANZA y cae al catch — que solo hacía
+`setVista('archivos')` sin marcar `huecosRevisados`. Como el guard de «Siguiente» es
+`if (gaps.length > 0 && !huecosRevisados) return true`, cada click se consumía y el usuario
+quedaba **encerrado en el paso para siempre**.
 
-**Vive en:** app/whatsapp/_shared/ChatHilo.tsx:208-212, lib/setting-audios.ts:107, lib/evolution-mensajes.ts:191, app/whatsapp/EmpresaInbox.tsx:64-69 · *2026-08-02 ~diagnostico-audio-ensayo-chat-agent + 2026-07-09 ~auditoria-espejo-evolution-inbox*
+**Regla:** el catch de un `await (await fetch()).json()` dentro de un wizard tiene que ser
+**fail-open** (marcar revisado + avisar), porque ahí no estás atrapando el error del backend
+sino el de la infraestructura.
 
-#### Un `?? lista[0]` para un índice fuera de rango convierte «terminaste» en «volvé a empezar»
+**Vive en:** app/onboarding/Archivero.tsx:259-262 (ya corregido con fail-open explícito) · *2026-07-29 ~auditoria-archivero-onboarding*
 
-`const esc = escenarios[escIdx] ?? escenarios[0]`. Al apretar «Terminar el ensayo», `siguienteEscenario()` deja `escIdx === escenarios.length`, el `??` cae en el escenario 0 y el efecto lo REABRE con semilla nueva, con todos los puntos de progreso apagados y sin cartel de cierre — la única pista de que terminó es que el «Siguiente» del footer se habilitó en silencio. Regla: el fallback de un índice fuera de rango es `null` (y una pantalla de cierre), nunca el primer elemento.
+### Regla: una pregunta por pantalla, cerrada, sin «Saltar» y con vuelta atrás
 
-**Vive en:** app/chat-agent/OnboardingChatAgent.tsx:597 y :1237 · *2026-08-02 ~diagnostico-audio-ensayo-chat-agent*
+Es la regla que más veces repitió —al menos cinco entre julio y agosto— y la que más veces
+se rompió. Si un form no está así, se modifica antes de seguir.
 
-#### `flex:none` + `width:100%` junto a un label `nowrap` desborda siempre, sin importar el ancho
+- **Una sola pregunta por slide**, minimalista y centrada. Nunca dos preguntas en el mismo
+  paso, nunca todas juntas en una pantalla. «Prefiero preguntas concretas, mejor si es 1
+  sola pregunta, en el medio de la pantalla, modo minimalista» (2026-06-21) · «hoy viven las
+  2 preguntas dentro del mismo paso, cuando dijimos que los formularios se crean de a 1
+  pregunta por slide» (2026-08-05) · «JAMÁS debes crear formularios como el que hiciste,
+  todas las preguntas juntas en lugar de 1 por slide, y lo peor son las preguntas abiertas»
+  (2026-08-05)
+- **Preguntas cerradas con opciones pre-escritas.** Las abiertas son el último recurso, y en
+  MaKo están directamente prohibidas: si hace falta un dato libre, se convierte en opción
+  múltiple o multi-select. «vi que la personalidad al final me dio una pregunta abierta,
+  cuando dijimos que está prohibido. Si quiere preguntarme de muletillas, me puede poner
+  múltiples opciones con multiple select» (2026-07-31)
+- **Variar el formato** según lo que se pregunta: multi-select, escala lineal, puntuación
+  1..X, comparación. No todo multiple choice. «TODAS las preguntas siguen siendo multiple
+  choice…» (2026-07-22)
+- **Sin botón «Saltar».** «Elimina la opción de 'Saltar' de toooodos los formularios. Que no
+  exista esa opción nunca» (2026-07-30)
+- **Siempre se puede volver atrás** a corregir una respuesta ya dada (2026-07-30).
+- **Se guarda dónde ibas.** «Me salí del form y al volver a entrar estaba en la pregunta 1,
+  debe guardar el historial» (2026-07-23)
+- **Primero archivos, después preguntas:** un solo botón para que suelten TODO, la IA
+  rellena internamente, y solo lo que ningún doc resolvió se pregunta. «el archivero es
+  TOTALMENTE lo contrario a simple… Lo llenaste de preguntas abiertas, es una tremenda
+  fricción… debería ser UN solo botón como siempre hacemos en nuestros forms… Y que rellene
+  INTERNAMENTE esas preguntas… ahí sí se le pregunta, DE A 1 PREGUNTA» (2026-07-26)
+- **Preguntá hechos, no acciones:** la pantalla 1 es el hecho real; la etapa se **deriva**
+  del funnel, no se pregunta. *memoria [[form-preguntar-hechos-no-acciones]]*
 
-En una fila flex con gap, una barra con `flex:none` y `width:100%` inline se come todo el ancho del contenedor y no puede encogerse; el label hermano tiene `white-space:nowrap`, así que su min-content es el texto entero y tampoco encoge. Barra(100 %) + gap + label excede la fila siempre — es independiente del ancho real de la card. Solo desbordaba el primer paso del embudo (los de 50 % y 24 % dejaban lugar), y el `overflow-x:hidden` de la raíz lo escondía cortando justo el número. Arreglo: la barra va dentro de un track `flex:1; min-width:0` y el label `flex:none`, para que el `width:X%` se mida contra el espacio que sobra.
+**Vive en:** app/_components/WizardShell.tsx (el molde) · app/onboarding/* · *memoria [[minimizar-config-usuario]]*
 
-**Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-fbar-row / .s-fbar / .s-fbar-lbl) · *2026-07-19 ~revision-landing-estrategia-vsl*
+### Regla: el «Siguiente» se bloquea si el paso anterior no está completo
 
-#### El componente hermano ya resolvió esto: la bandeja de empresa no copió sus dos guardas
+«aún puedo darle al botón "Siguiente" sin haber definido el entregable, revisa MUY BIEN eso,
+NO debería poder avanzar jamás si lo anterior no está listo» (2026-07-30). Ojo con la
+contracara: un guard que se traba por un error de infraestructura encierra al usuario (ver
+el 504 del Archivero, arriba).
 
-`EmpresaInbox` y `WhatsAppApp` son las dos bandejas de la misma pantalla, y la segunda ya tiene resueltos dos peligros que la primera no. (1) Race: `loadMsgs` hace `setMsgs(j.mensajes)` sin verificar que el chat siga seleccionado — un fetch en vuelo del chat A resuelve después de cambiar al B y pinta los mensajes privados de un lead bajo el nombre de otro; WhatsAppApp lo evita con `if (selIdRef.current === selId)`. (2) Autoscroll: el efecto `[msgs]` fuerza scroll al fondo en cada poll de 8 s (el array es nuevo aunque el contenido sea idéntico), así que leer historial es imposible; WhatsAppApp lo gatea con `stickBottomRef`. Cuando existan dos componentes que hacen lo mismo, la revisión empieza por diffear sus guardas.
+### Regla: cada paso declara PARA QUÉ existe
 
-**Vive en:** app/whatsapp/EmpresaInbox.tsx:56-71 vs app/whatsapp/page.tsx (WhatsAppApp):447-450 y :501 · *2026-07-09 ~auditoria-espejo-evolution-inbox*
+No alcanza con decir qué hace. «No puede ser simplemente "Leeré tus conversaciones" pero
+¿PARA QUÉ?» (2026-08-01). Lo mismo antes de pedir un dato: contextualizá por qué se lo pedís,
+y al recibir un archivo demostrá que lo analizaste antes de pedir más — «primero me debe
+decir "Veo que este documento trata de X cosa" y ser detallista, para que se note que se
+analizó» (2026-07-27). El resultado se muestra en secciones desplegables, como en el resto
+de la app.
 
-#### Un MediaRecorder pausado no está 'recording': el cleanup lo deja colgado con el micrófono abierto
+### El molde de los modales y formularios tiene que estar escrito
 
-El cleanup al cambiar de chat solo cancela `if (mediaRecRef.current.state === 'recording')`, pero `pauseRec()` deja el recorder en `'paused'`. Grabar → pausar → cambiar de chat saltea la cancelación: el stream del micrófono no se libera (el indicador del navegador queda prendido), `recording` sigue en true y `startRec()` hace early-return, así que no se puede grabar de nuevo hasta desmontar la página. Y el `onstop` capturó el destino del chat ORIGINAL en el closure, así que si de algún modo se reanuda, el audio se manda al contacto equivocado. La condición correcta es `state !== 'inactive'` (un recorder pausado igual emite `onstop` al llamar `.stop()`).
+No es un detalle: el dueño se cansó de repetirlo ronda tras ronda. «No sé cómo hacer que
+guardes los registros de cómo armamos estos modales para que lo hagas bien» (2026-08-01).
+Este documento es ese registro — si aparece una variante nueva del molde, se escribe acá
+antes de mergearla.
 
-**Vive en:** app/whatsapp/page.tsx:387 · *2026-06-23 ~auditoria-inbox-whatsapp-chatwoot*
+---
 
-#### Poner una `nota` en un ámbito de Datos de Mau pinta el toast de ÉXITO en rojo
+## Onboarding
 
-Síntoma: los ámbitos con `nota` (perfil, setting, crm, integraciones, whatsapp) muestran SIEMPRE el aviso en tono error aunque la copia haya salido perfecta. Causa real: el cliente empuja al mismo array `detalle` los errores reales Y los `avisos` informativos que devuelve el server (`avisos.unshift(def.nota)`), y después decide el tono con `tono: detalle.length ? 'error' : 'info'`. Un texto explicativo se cuenta como si fuera una falla. Regla: no mezclar canales — un aviso informativo y un error tienen que viajar en campos distintos, o el tono se decide por el `ok` de cada llamada, nunca por el largo de una lista que acumula las dos cosas. Mientras no se arregle, agregar un ámbito nuevo con `nota` es garantizar que su toast salga rojo.
+### ⚠️ `marcarPasoTab` pisa la pegajosidad: una tab terminada vuelve a «pendiente»
 
-**Vive en:** app/_components/PanelAgencia.tsx:134-139 · app/_components/DatosDeMau.tsx:68-78 · lib/datos-mau.ts (las 5 entradas con `nota`) · *2026-08-02 ~investigar-onboarding-chat-agent*
+**Síntoma:** un cliente que ya había cerrado el onboarding de una tab reabre el wizard, toca
+cualquier paso y queda encerrado otra vez.
 
-#### `marcarPasoTab` pisa la pegajosidad del onboarding: una tab terminada vuelve a «pendiente»
+**Causa:** `getEstadoTab` respeta el estado guardado
+(`parsed.status === 'done' || todo ? 'done' : 'pendiente'`) justamente para que agregar
+pasos no re-encierre a nadie, pero `marcarPasoTab` **recalcula duro contra el catálogo
+actual y persiste el resultado**: si el catálogo ganó un paso obligatorio nuevo, el `done`
+viejo se pierde para siempre en el primer clic.
 
-Síntoma: un cliente que ya había cerrado el onboarding de una tab reabre el wizard, toca cualquier paso y queda encerrado otra vez. Causa real: `getEstadoTab` respeta el estado guardado (`parsed.status === 'done' || todo ? 'done' : 'pendiente'`) justamente para que agregar pasos no re-encierre a nadie, pero `marcarPasoTab` recalcula duro contra el catálogo actual y PERSISTE el resultado: si el catálogo ganó un paso obligatorio nuevo, el `done` viejo se pierde para siempre en el primer clic. Regla: si agregás un paso NO opcional a `TAB_ONBOARDINGS`, asumí que todos los workspaces que ya la tenían cerrada vuelven a pendiente — decidilo antes de desplegar, no con clientes adentro. Y no renombres una key existente: el wizard retoma en el primer paso incompleto, así que una key nueva aterriza en ese paso a todo el que ya había terminado.
+**Regla:** si agregás un paso NO opcional a `TAB_ONBOARDINGS`, asumí que todos los
+workspaces que ya la tenían cerrada vuelven a pendiente — decidilo antes de desplegar, no
+con clientes adentro. Y **no renombres una key existente**: el wizard retoma en el primer
+paso incompleto, así que una key nueva aterriza en ese paso a todo el que ya había terminado.
 
 **Vive en:** lib/tab-onboarding-state.ts:214-236 (getEstadoTab vs marcarPasoTab) · *2026-08-02 ~investigar-onboarding-chat-agent*
 
-#### Una pregunta tipo 'escala' con opciones de texto se contesta con un 3 que no significa nada
+### ⚠️ El server responde `ok:true` y descarta en silencio: dos formas de perder datos
 
-Los dos renderers pintan 1..5 pelados cuando tipo==='escala' y DESCARTAN q.opciones (verificado hoy en TareasRecibidasModal.tsx:433). Y no es un mistype raro: el prompt de reuniones ordena «CERRADAS SIEMPRE: cada pregunta con 2-4 opciones concretas» y mete 'escala' en el enum sin definir nunca qué significa, así que {tipo:'escala', opciones:['Landing nueva','Arreglar el checkout']} es la salida ESPERADA. El validador la deja pasar y al Perro le llega «la pregunta → 3». Bug hermano en el mismo renderer: no hay rama para tipo 'texto' ni para tipos con opciones vacías — se pinta el enunciado y CERO controles, solo queda «Saltear». Fix en origen: degradar escala-con-opciones a 'opcion', y filtrar toda pregunta que pida opciones y venga con menos de 2 antes de que llegue a la pantalla.
+**(1)** El route de fotos salta cualquier archivo >15 MB, acumula el motivo en `warnings` y
+responde igual `{ ok: true, warnings, ...estado }`; el cliente hace `if (j.ok) setEst(j)` y
+**nunca lee warnings**, así que la foto no aparece y no hay ningún mensaje. Encima el filtro
+del cliente solo mira `type.startsWith('image/')`, no el tamaño, así que el archivo SÍ se
+sube.
 
-**Vive en:** app/plan/board/TareasRecibidasModal.tsx:433 · app/plan/revisar/[id]/RevisarPropuesta.tsx · lib/plan-propuesta.ts (limpiarPregunta) · lib/plan-fathom.ts (preguntasDeContexto) · *2026-08-05 · ~fathom-preguntas-lote-whatsapp-forense*
+**(2)** Los routes de entregables y razones hacen `.filter(x => x.nombre)` al guardar: si el
+usuario selecciona-todo el nombre para reescribirlo y hace blur antes de tipear, el update
+optimista mantiene la tarjeta un instante y la respuesta del server **la borra entera**, con
+su `queEs`/`fomo` o su copy y guion. Sin confirmación, sin undo y sin recuperación (el
+getter reaplica el mismo filtro).
 
-#### Las preferencias en localStorage sangran entre inquilinos: el origin es el mismo
+**Regla:** si el server descarta algo, o falla, o el cliente TIENE que pintar el warning.
 
-Al impersonar clientes en el mismo navegador, las keys sin namespace muestran datos del anterior: borradores de WhatsApp, el wizard de Nueva Campaña a medio llenar, marcas de leído, drafts del plan y el board v9. Son 12 keys ('mako-wa-drafts', 'mako-wa-empresa-drafts/leido', 'mako-wa-leido', 'mako.nuevaCampana.draft.v2', 'mako.adsTable.cols.*', 'mako_draft_proyecto', 'mako_draft_tarea', 'mako.revisar.*', 'mako_ia_last_seen_at', 'mako-wa-tpl-*', 'mako_plan_v9'). BoardShell ya lo resolvió con dlKey(base)=`${base}_${scope}` — verificado hoy que las suyas están scopeadas y que 'mako-wa-drafts' sigue pelada. Es el patrón a copiar; además, tras cualquier reset de workspace hay que barrer las keys 'mako*' del navegador o la app sigue pareciendo llena.
+**Vive en:** app/api/onboarding/persona/route.ts + app/onboarding/PersonaView.tsx · app/api/onboarding/entregable/route.ts + EntregableView.tsx · app/api/onboarding/razones/route.ts + RazonesView.tsx · *2026-07-28 ~review-onboarding-fabrica-creativos*
 
-**Vive en:** app/whatsapp/WhatsAppApp.tsx:280 · app/plan/board/BoardShell.tsx (dlKey, el patrón correcto) · app/ads-manager/NuevaCampanaModal.tsx · *2026-08-01 · mako-cliente-prueba-diagnostico*
+### ⚠️ Sin ninguna fuente conectada, /general declara «El negocio está sano»
 
-#### El progreso de una tarea es DERIVADO de la checklist: generarla pisa el avance a 0
+El semáforo arma `alertas = []` cuando no hay datos y cae al `else` final, que dice «El
+negocio está sano · Sin focos activos. Buen momento para empujar volumen». La card de
+pendientes con 0 leads afirma «datos al día — el tablero es confiable». Un cliente que gastó
+plata en ads y ve luz verde con 0 cierres se lleva un tablero que no sabe de qué habla.
 
-setChecklist recalcula progress = round(hechos/total*100) cada vez que la lista no está vacía. Una tarea 'alta' con 70% puesto a mano y sin checklist califica para el botón «MaKo arma la checklist» (el filtro solo pide checklist.length===0 && progress<100), y al generarla todos los ítems nacen en done:false → el 70% se va a 0 sin aviso. Y el undo es lossy: la entrada de historial 'ia' solo captura la checklist, así que deshacer restaura checklist=[] y deja progress en 0. Regla: si un campo es derivado, cualquier acción que reescriba la fuente tiene que capturar el derivado en el snapshot de undo.
+Falta el **cuarto estado, el gris**: «sin datos suficientes para opinar». El sistema para
+distinguir *apagado* de *cero* ya existe (`lib/sources.ts`, se usa internamente en
+/marketing) y el componente que lo mostraría, `SourceStrip`, existe pero está **desmontado**:
+ninguna página monta `DashboardHeader`. Esto es la contracara de la regla del dueño: una tab
+que depende de una conexión **no muestra pantalla vacía ni datos inventados**, muestra el
+onboarding partido pidiendo esos datos («al entrar NO debería mostrar nada, debería salir la
+misma pantalla dividida del onboarding y pedirle esos datos», 2026-07-17).
 
-**Vive en:** app/plan/board/useBoard.ts (setChecklist / undoHist) · app/plan/board/BoardShell.tsx (generarChecklist) · *2026-07-19 · ~review-datosmodal-plan-board*
+**Vive en:** app/general/page.tsx:411-415, :441-442 y :477 · lib/sources.ts · app/_components/DashboardHeader.tsx (sin consumidores) · *2026-07-16 mako-onboarding-solo-meta*
 
-#### El server responde ok:true y descarta en silencio: dos formas de perder datos en el onboarding
+### Nada del onboarding puede asumir que los pasos son los de la capa `completo`
 
-(1) El route de fotos salta cualquier archivo >15 MB, acumula el motivo en `warnings` y responde igual `{ ok: true, warnings, ...estado }`; el cliente hace `if (j.ok) setEst(j)` y nunca lee warnings, así que la foto no aparece y no hay ningún mensaje. Encima el filtro del cliente solo mira type.startsWith('image/'), no el tamaño, así que el archivo SÍ se sube. (2) Los routes de entregables y razones hacen `.filter(x => x.nombre)` al guardar: si el usuario selecciona-todo el nombre para reescribirlo y hace blur antes de tipear, el update optimista mantiene la tarjeta un instante y la respuesta del server la borra entera, con su queEs/fomo o su copy y guion. Sin confirmación, sin undo y sin recuperación (el getter reaplica el mismo filtro). Regla: si el server descarta algo, o falla, o el cliente TIENE que pintar el warning.
+El status 'done' del wizard estuvo clavado a `body.step === 'retro'`. Cualquier capa que no
+termine en retro quedaba `in_progress` para siempre y `guardOnboarding` devolvía al usuario
+al wizard en **loop infinito**, aunque lo hubiera terminado. El último paso sale de
+`pasosDeCapaActual()`, nunca de un literal.
 
-**Vive en:** app/api/onboarding/persona/route.ts + app/onboarding/PersonaView.tsx · app/api/onboarding/entregable/route.ts + EntregableView.tsx · app/api/onboarding/razones/route.ts + RazonesView.tsx · *2026-07-28 · ~review-onboarding-fabrica-creativos*
-
-#### El placeholder del Dropdown de la casa NO es una opción seleccionable
-
-En app/components/Dropdown.tsx el placeholder se usa solo como label del botón cuando no hay selección; los únicos ítems clickeables salen de `options`. Al migrar un `<select>` nativo que tenía `<option value="">Elegí…</option>`, esa opción de limpiar la selección se pierde: en el picker de plantilla de WhatsApp, una vez elegida una plantilla ya no había forma de volver a «sin plantilla», solo cambiar a otra. Si el select migrado tenía una opción vacía, hay que agregarla explícitamente a `options` o resetear el estado por otro camino.
-
-**Vive en:** app/components/Dropdown.tsx · app/whatsapp/WhatsAppApp.tsx (picker de plantilla) · *2026-07-13 · ~review-commits-funnel-dropdowns*
-
-#### Un callback opcional que nadie pasa es código muerto que el typecheck no ve — y un route handler por fetch no revalida el server component
-
-`ServicioConfigForm` declaraba `onEstado?: (conectada: boolean) => void` y lo invocaba en cada carga y en cada guardado; el único call-site del repo lo montaba sin la prop. Con optional chaining eso es un no-op silencioso: `calcConectada()` se calculaba y el booleano se tiraba, sin error de compilación. El síntoma era que la app se contradecía a sí misma en un solo viewport: la fila decía «✓ Guardada» en verde y, a centímetros, el chip del mismo modal seguía en «Por configurar», el tile ámbar y el contador quieto. El fondo es de Next: el array `integraciones` baja como prop de un server component y el POST va por `fetch` a un route handler — no es Server Action, no vuelve payload RSC, y `force-dynamic`/`revalidate = 0` rigen el render del servidor, no el estado del cliente ya montado. Hace falta un `router.refresh()` explícito (hoy cableado como `onCambio`).
-
-**Vive en:** app/integraciones/ServicioConfigForm.tsx:260-262 y :351 · app/integraciones/IntegracionesBoard.tsx:1107 y :381 · *2026-07-16 · ~auditoria-refactor-integraciones*
-
-#### `.mk-scroll-x` recorta en los DOS ejes: ningún popover `absolute` puede vivir adentro
-
-Síntoma: en /ads-writer tab «Guiones» tocás «Filtrar» y no aparece nada (a lo sumo asoma una scrollbar vertical en la barra); los filtros de ángulo, avatar y fecha quedan inalcanzables para todo usuario, en cualquier ancho. Causa: `.mk-scroll-x` declara solo `overflow-x: auto` y deja `overflow-y` en `visible`; por spec, si un eje es `auto` el otro `visible` computa a `auto`, así que la caja clipea en los dos. Medido en navegador real: `getComputedStyle(scroller).overflowY === 'auto'`, `clientHeight=41px` contra `scrollHeight=308px`, y el popover (`top: calc(100% + 6px)`) arranca 1px debajo del content box: cero píxeles visibles. El `zIndex` no salva nada — el clipping de overflow no se saltea con z-index. `overflow-x: clip` sí preservaría `overflow-y: visible`, pero mata el scroll táctil que es para lo que existe la clase. Regla: cualquier menú dentro de `.mk-scroll-x` (incluido el slot `filtros` de PageHeader) va en portal `fixed` posicionado por `getBoundingClientRect()`, que es exactamente lo que hace `app/components/Dropdown.tsx` y por lo que existe.
-
-**Vive en:** app/_ui/ui.css:445-449 (`.mk-scroll-x`) · app/ads-writer/GuionesGlobal.tsx:156,348-352 · patrón correcto en app/components/Dropdown.tsx:114-133 · *2026-08-06 · ~review-adversarial-content-machine*
-
-#### Dos copias del mismo estado + un guardado que postea el documento ENTERO = borrado silencioso
-
-Síntoma: escribís un guion desde la matriz, se ve bien; después editás o borrás CUALQUIER otro guion desde la galería y el primero desaparece de la base, sin error y sin aviso. Causa: `MatrizView` tiene su propio estado y guarda contra la API sin avisarle al padre, mientras el shell `AdsWriterApp` carga UNA sola vez (`useCallback` con deps `[]`) y sus mutaciones postean el array `celdas` capturado en el closure como la matriz COMPLETA (`action:'guardar'`), y el route hace `setRazones(limpio)` reemplazando todo. La sincronización quedó de una sola dirección (galería→matriz), así que la copia vieja pisa la nueva. Regla: si un endpoint reemplaza el documento entero, ningún componente puede tener una segunda copia del estado sin un canal hijo→padre; y las mutaciones postean desde el updater funcional (`setX(prev => …)`), nunca desde el array del closure. Efecto secundario del mismo bug: el contador de cobertura y «Escribir el próximo guion» siguen viendo la celda como vacía y generan un duplicado.
-
-**Vive en:** app/ads-writer/AdsWriterApp.tsx:49-61,118-127 · app/onboarding/MatrizView.tsx:74,120-124 · app/api/onboarding/razones/route.ts:135-151 · *2026-08-06 · ~review-adversarial-content-machine*
-
-#### Un componente declarado DENTRO del render remonta todo el subárbol en cada tecla
-
-Síntoma: un input dentro de una lista perdía el scroll y el foco con cada tecla y las 61 opciones se volvían a montar enteras — parecía un problema de virtualización o de `key`. Causa: el componente estaba declarado dentro del render del padre, así que React lo trata como un TIPO nuevo en cada pasada y remonta el subárbol completo. Solución: una función que devuelve el elemento, no un componente anidado.
-
-**Vive en:** app/crm/SelectorHora.tsx · *2026-08-07 contexto-mako-md*
-
-#### `nota` y `placeholder` del catálogo de credenciales son texto muerto: el cliente lee «Pendiente» en el input
-
-`ServicioConfigForm` trae `nota` del API y la tipa (l.46) pero no la pinta en ningún lado, y el `placeholder={sem.placeholder}` (l.488) no sale del catálogo: sale de `semaforo()` (l.93), que devuelve 'Pendiente' / 'Opcional' / '••••1234'. O sea que «Con el prefijo act_», «Token de usuario de sistema (no expira). Permisos: ads_read, ads_management, business_management» y las otras notas de metodo-catalogo.ts NUNCA se ven en la pantalla donde se pega la credencial: las pistas de formato solo existen si el cliente abre el '?'. Es el mismo patrón que el matiz honesto de las features de la landing — un campo del catálogo que nadie renderiza — pero acá el costo es que el cliente pega el ad account sin `act_` y el guardado falla.
-
-**Vive en:** dashboard-marketing/app/integraciones/ServicioConfigForm.tsx (nota 46, semaforo 93, placeholder 488) + lib/metodo-catalogo.ts (nota/placeholder por servicio) · *2026-07-31 auditoria-tokens-meta*
-
-
-### Reglas que quedan
-
-#### El dorado de MaKo no admite texto blanco
-
-Blanco sobre el gradiente `#F2A516 → #E0870A` da 2,06:1 y 2,75:1 — no llega ni al piso de 3:1, y los labels son de 10,5-14 px (uppercase/bold), o sea texto chico que necesita 4,5:1. Verificado recalculando la luminancia. El resto del documento ya usa la solución correcta (ámbar oscuro sobre dorado claro: `#C77E08` sobre `#FBEBCB`, `#9A6207` sobre `#FEF6E4`), así que los badges blancos son el outlier. Oscurecer el gradiente NO alcanza (el extremo claro queda en ~3,3:1): la salida que pasa AA es texto casi negro ámbar (`#3A2604`, ~5,2:1 y ~7:1) manteniendo el dorado brillante.
-
-**Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-tier-ribbon, .s-diff-seg-3, .s-ch-lever .s-ch-id, .s-rung-1 .s-rung-n) · *2026-07-19 ~revision-landing-estrategia-vsl*
-
-#### Un «no volver a mostrar» nunca puede esconder su propia vía de reapertura
-
-El DatosConfirm decía textual «Podés reabrirlo cuando quieras desde el ícono ⚠ del plan», y el botón que lo reabría estaba gateado por `!datosOff` — o sea que desaparecía exactamente cuando el usuario aceptaba apagarlo, dejando la feature de deadlines/checklists inalcanzable para siempre hasta limpiar localStorage. Agravante del mismo caso: el auto-open era agnóstico de vista pero el botón de reapertura solo se renderizaba en kanban, y la vista por defecto es 'prioridades'. La regla: el copy de un diálogo es un contrato; si promete una vía de vuelta, esa vía tiene que existir en TODAS las vistas donde el diálogo puede aparecer.
-
-**Vive en:** app/plan/board/BoardShell.tsx · app/plan/board/DatosModal.tsx · *2026-07-19 · ~review-datosmodal-plan-board*
-
-#### Nada del onboarding puede asumir que los pasos son los de la capa `completo`
-
-El status 'done' del wizard estuvo clavado a `body.step === 'retro'`. Cualquier capa que no termine en retro quedaba `in_progress` para siempre y `guardOnboarding` devolvía al usuario al wizard en loop infinito, aunque lo hubiera terminado. El último paso sale de `pasosDeCapaActual()`, nunca de un literal. Gemelo del mismo subsistema: el escape del onboarding de una tab apuntaba a `router.refresh()`, que re-corre el guard del server y devuelve el mismo wizard — un onboarding de tab se cierra con estado de CLIENTE. Antes de reabrir un onboarding, verificá que tenga salida.
+Gemelo del mismo subsistema: el escape del onboarding de una tab apuntaba a
+`router.refresh()`, que re-corre el guard del server y devuelve el mismo wizard — un
+onboarding de tab se cierra con **estado de cliente**. Antes de reabrir un onboarding,
+verificá que tenga salida.
 
 **Vive en:** app/api/onboarding/route.ts · lib/onboarding-state.ts · lib/tab-onboarding-state.ts · *2026-08-07 contexto-mako-md*
 
+### Poner una `nota` en un ámbito de Datos de Mau pinta el toast de ÉXITO en rojo
 
-### Lo que quedó sin hacer
+**Síntoma:** los ámbitos con `nota` (perfil, setting, crm, integraciones, whatsapp) muestran
+SIEMPRE el aviso en tono error aunque la copia haya salido perfecta.
 
-#### El feed de notificaciones existe en la base y no lo muestra nadie
+**Causa real:** el cliente empuja al mismo array `detalle` los errores reales Y los `avisos`
+informativos que devuelve el server (`avisos.unshift(def.nota)`), y después decide el tono
+con `tono: detalle.length ? 'error' : 'info'`. Un texto explicativo se cuenta como si fuera
+una falla.
 
-La tabla `notificaciones` se llena y `/api/notificaciones` responde, pero ningún componente lo consume: el badge del sidebar viene de WhatsApp/Evolution, no de este feed. Y cada reporte que se despacha escribe un link a `/perfil?tab=notificaciones`, una tab que ya no existe. Es el mismo modo de falla que el resto de este lote — se escribe bien y no se lee. Ojo que esto contradice lo que dice la memoria perfil-notificaciones-reportes sobre la campanita in-app: al 2026-07-19 el feed está escrito y no se ve en ninguna pantalla.
+**Regla:** no mezclar canales — un aviso informativo y un error viajan en campos distintos, o
+el tono se decide por el `ok` de cada llamada, nunca por el largo de una lista que acumula
+las dos cosas. Mientras no se arregle, agregar un ámbito nuevo con `nota` es garantizar que
+su toast salga rojo.
 
-**Vive en:** app/api/notificaciones, lib/reportes.ts (link a /perfil?tab=notificaciones) · *2026-07-19 ~landing-24-features-auditoria*
+**Vive en:** app/_components/PanelAgencia.tsx:134-139 · app/_components/DatosDeMau.tsx:68-78 · lib/datos-mau.ts (las 5 entradas con `nota`) · *2026-08-02 ~investigar-onboarding-chat-agent*
 
-#### La tab Teléfonos de /configuraciones no existe: el panel está escrito y nunca se montó
+### Decisiones de producto del onboarding
 
-`app/configuraciones/TelefonosPanel.tsx` no lo importa nadie: `ConfigInnerTabs` solo lista notif · fiscal · equipo. Esto DEROGA lo que dice la memoria [[telefonos-workspace]], que la da por viva junto con Integraciones. En la misma pasada: `/api/admin/mako-grupo` no tiene ningún caller en la UI, y `ConfigInnerTabs` arranca fijo en 'notif' sin leer query params — el link `?tab=notif` que usan todos los avisos funciona por coincidencia con el default, y el día que cambie el default se rompen los 49 avisos a la vez.
+- **Toda tab, sin excepción, arranca con un onboarding propio** (Conectar → Contexto →
+  Ensayo), y su estado (hecho / no hecho) alimenta a MaKo: si algo no se optimizó, MaKo sabe
+  que fue por onboarding incompleto. «sin excepción, todas las tabs van a requerir cierta
+  configuración» (2026-08-01). Se dispara al entrar por primera vez a WhatsApp, Email,
+  Closing Analyst, etc.; hay tabs que dependen de otras (Email/WhatsApp mandan a Setting).
+- **Es bloqueante y sin atajos:** ningún usuario sin el onboarding completo entra al
+  dashboard, ni siquiera el super admin (solo puede rellenar con los datos de Mauricio desde
+  la topbar), y el wizard tiene que verse EXACTAMENTE igual que el del cliente para poder
+  probarlo de verdad (2026-07-21, 2026-08-01). Al resetear el cliente de prueba se lo manda
+  directo al onboarding.
+- **Solo el onboarding principal va sin sidebar**; todas las demás tabs la conservan. «Si
+  por error entré ahí no tengo forma de salir» (2026-08-01).
+- **Dos pantallas:** form simple a la derecha, carrusel de animaciones «wow» a la izquierda.
+  Durante el onboarding MaKo usa la API de Groq del super admin para dar el efecto WOW antes
+  de que el usuario conecte las suyas — conectar Claude/Groq es la fricción real; escanear un
+  QR no lo es (2026-07-16).
+- **Lo aburrido va al final:** conectar APIs y configuración se dejan para el cierre; solo se
+  adelanta lo que bloquea el avance (2026-08-01). Onboarding general **corto** +
+  mini-onboardings por tab: «quiero el efecto WOW lo antes posible» (2026-07-16).
+- **Se llena subiendo un template** descargable (Oferta, Avatar, Personaje de Marca) que la
+  IA lee y completa; si faltan campos, no deja avanzar. «Normalmente los infoproductores
+  completan templates así todo el tiempo» (2026-06-21).
+- **Bajar la fricción con soluciones creativas nuestras:** pedir ejemplos, capturas o
+  conectar su WhatsApp en vez de hacerle escribir todo; MaKo propone las secuencias y simula
+  escenarios tipo chat. «como regla siempre buscamos soluciones creativas nosotros, para que
+  al usuario no le cueste cargar todo eso» (2026-08-01).
+- **Todo se configura con prompts y botones**, nada de configuración manual en ninguna
+  feature: el usuario no tiene que aprender a configurar un software (2026-06-30).
+- **Si el sistema puede detectarlo solo, no se pregunta** ni se pide confirmar: verificar el
+  QR, disparar la simulación, resolver un dato faltante. «Elimina la parte de "ya lo escaneé,
+  verificar", eso debería hacerlo automático» (2026-08-01). Y el paso se resuelve **donde
+  está**: nada de mandar al usuario a otra tab («NO me debe redireccionar a otra tab, la de
+  WhatsApp… Me debe aparecer directamente allí el botón para generar el QR», 2026-08-01).
+- **Ningún dato cargado a mano es ley:** si llega un documento con mejor data, se sobrescribe
+  (2026-07-27).
 
-**Vive en:** app/configuraciones/TelefonosPanel.tsx · app/configuraciones/ConfigInnerTabs.tsx:18 y :24 · lib/avisos.ts:81 · *2026-08-06 · rediseno-notificaciones*
+**Vive en:** lib/capas.ts · lib/onboarding-state.ts · lib/tab-onboarding-state.ts · app/onboarding/* · skill `tab-onboarding` · *memoria [[regla-onboarding-por-tab]], [[onboarding-cliente-wizard]]*
 
-#### Entregable y Persona funcionan en el hub de onboarding pero son huérfanos del wizard
+---
 
-Los dos tienen su View, su route (GET/POST/DELETE) y aparecen como tabs del hub — pero el hub vive en /onboarding y solo se desbloquea cuando el onboarding está 'done', así que un cliente nuevo, durante el alta bloqueante, nunca los ve. No es un flag apagado: no están cableados. Falta (a) sumarlos al union `PasoOnboarding` de lib/capas.ts, que es la fuente de verdad de qué pasos existen, (b) meterlos en el array `onboarding` de la capa 'completo', (c) actualizar el `type Paso` LOCAL del wizard, que duplica el union y hay que tocar en paralelo, y (d) agregarles rama en el builder de pantallas: sin la rama, aunque estén en el array de la capa no se genera ninguna pantalla y el paso desaparece en silencio. Ojo: el hub NO está en /configuraciones (esa ruta no tiene nada de onboarding).
+## Estado y datos en el cliente
+
+### ⚠️ `router.refresh()` no vuelve a correr los efectos de los componentes cliente
+
+El bug de Gemini tenía una segunda causa que el diagnóstico no vio y que hacía insuficiente
+el parche: aunque la copia funcionara, **la pantalla no se enteraba**. `DatosDeMau` se
+montaba SIN prop `onListo`, y sin ella hace `router.refresh()`, que re-renderiza server
+components pero **no remonta componentes cliente ni re-corre sus efectos**. La tarjeta del
+servicio carga su estado en un `useEffect` con deps `[servicioKey]` (una vez por montaje),
+así que seguía vacía, `geminiConectada` seguía false y `puedeAvanzar` dejaba el wizard
+trabado.
+
+**Regla:** si el dato que cambiaste lo lee un fetch dentro de un `useEffect` de un componente
+cliente, refrescar la ruta no alcanza — hay que llamar al recargador explícito o remontar con
+un `key` que cambie. (Y del lado del dueño, la regla es más simple: **nunca hace falta
+recargar la página** para ver el estado nuevo; refrescar toda la página es un bug de UX, no
+una solución — 2026-08-01.)
+
+**Vive en:** app/_components/DatosDeMau.tsx · app/onboarding/OnboardingWizard.tsx · app/integraciones/ServicioConfigForm.tsx · *2026-08-01 mako-onboarding-copy-y-bugs*
+
+### ⚠️ Un callback opcional que nadie pasa es código muerto que el typecheck no ve
+
+`ServicioConfigForm` declaraba `onEstado?: (conectada: boolean) => void` y lo invocaba en
+cada carga y en cada guardado; el único call-site del repo lo montaba **sin la prop**. Con
+optional chaining eso es un no-op silencioso: `calcConectada()` se calculaba y el booleano se
+tiraba, sin error de compilación.
+
+**Síntoma:** la app se contradecía a sí misma en un solo viewport — la fila decía «✓
+Guardada» en verde y, a centímetros, el chip del mismo modal seguía en «Por configurar», el
+tile ámbar y el contador quieto.
+
+**El fondo es de Next:** el array `integraciones` baja como prop de un server component y el
+POST va por `fetch` a un route handler — no es Server Action, no vuelve payload RSC, y
+`force-dynamic`/`revalidate = 0` rigen el render **del servidor**, no el estado del cliente
+ya montado. Hace falta un `router.refresh()` explícito (hoy cableado como `onCambio`).
+
+**Vive en:** app/integraciones/ServicioConfigForm.tsx:260-262 y :351 · app/integraciones/IntegracionesBoard.tsx:1107 y :381 · *2026-07-16 ~auditoria-refactor-integraciones*
+
+### ⚠️ Un efecto con deps `[]` que lee `pathname` deja las preferencias en null para toda la sesión
+
+El efecto que carga las prefs in-app tiene `deps: []` pero adentro hace
+`if (pathname.startsWith('/login') || isPublicLandingPath(pathname)) return;`. Si el provider
+monta con /login (bookmark, URL tipeada), sale **antes** del fetch y **antes** de registrar
+el listener, y como el root layout no se desmonta en navegaciones soft (verificado contra
+Next 16.2.6: el router sigue el 307 sin caer a MPA), nunca vuelve a correr.
+`inAppActivo(null,…)` es fail-open, así que el sonido y los toasts salen aunque estén
+apagados, y guardar en Configuraciones no cambia nada hasta un F5.
+
+**Regla:** si la guarda de un efecto lee algo, ese algo va en las deps — o derivá un booleano
+(`enPublico`) y usalo como dep.
+
+**Vive en:** app/_components/NotificationsProvider.tsx:331-344 (y el efecto gemelo de :301) · *2026-08-06 ~auditoria-notificaciones-y-titulo-de-pestana*
+
+### ⚠️ Las preferencias en localStorage sangran entre inquilinos: el origin es el mismo
+
+Al impersonar clientes en el mismo navegador, las keys sin namespace muestran datos del
+anterior: borradores de WhatsApp, el wizard de Nueva Campaña a medio llenar, marcas de leído,
+drafts del plan y el board v9. Son **12 keys**: `mako-wa-drafts`,
+`mako-wa-empresa-drafts/leido`, `mako-wa-leido`, `mako.nuevaCampana.draft.v2`,
+`mako.adsTable.cols.*`, `mako_draft_proyecto`, `mako_draft_tarea`, `mako.revisar.*`,
+`mako_ia_last_seen_at`, `mako-wa-tpl-*`, `mako_plan_v9`.
+
+`BoardShell` ya lo resolvió con ``dlKey(base) = `${base}_${scope}` `` — verificado que las
+suyas están scopeadas y que `mako-wa-drafts` sigue pelada. Ese es el patrón a copiar. Además,
+tras cualquier reset de workspace hay que **barrer las keys `mako*` del navegador** o la app
+sigue pareciendo llena.
+
+**Vive en:** app/whatsapp/WhatsAppApp.tsx:280 · app/plan/board/BoardShell.tsx (dlKey, el patrón correcto) · app/ads-manager/NuevaCampanaModal.tsx · *2026-08-01 mako-cliente-prueba-diagnostico*
+
+### ⚠️ Dos copias del mismo estado + un guardado que postea el documento ENTERO = borrado silencioso
+
+**Síntoma:** escribís un guion desde la matriz, se ve bien; después editás o borrás CUALQUIER
+otro guion desde la galería y el primero desaparece de la base, sin error y sin aviso.
+
+**Causa:** `MatrizView` tiene su propio estado y guarda contra la API sin avisarle al padre,
+mientras el shell `AdsWriterApp` carga UNA sola vez (`useCallback` con deps `[]`) y sus
+mutaciones postean el array `celdas` **capturado en el closure** como la matriz COMPLETA
+(`action:'guardar'`), y el route hace `setRazones(limpio)` reemplazando todo. La
+sincronización quedó de una sola dirección (galería→matriz), así que la copia vieja pisa la
+nueva.
+
+**Regla:** si un endpoint reemplaza el documento entero, ningún componente puede tener una
+segunda copia del estado sin un canal hijo→padre; y las mutaciones postean desde el updater
+funcional (`setX(prev => …)`), nunca desde el array del closure. Efecto secundario del mismo
+bug: el contador de cobertura y «Escribir el próximo guion» siguen viendo la celda como vacía
+y generan un duplicado.
+
+**Vive en:** app/ads-writer/AdsWriterApp.tsx:49-61,118-127 · app/onboarding/MatrizView.tsx:74,120-124 · app/api/onboarding/razones/route.ts:135-151 · *2026-08-06 ~review-adversarial-content-machine*
+
+### ⚠️ El progreso de una tarea es DERIVADO de la checklist: generarla pisa el avance a 0
+
+`setChecklist` recalcula `progress = round(hechos/total*100)` cada vez que la lista no está
+vacía. Una tarea 'alta' con 70% puesto a mano y sin checklist califica para el botón «MaKo
+arma la checklist» (el filtro solo pide `checklist.length===0 && progress<100`), y al
+generarla todos los ítems nacen en `done:false` → el 70% se va a 0 sin aviso. Y el undo es
+**lossy**: la entrada de historial 'ia' solo captura la checklist, así que deshacer restaura
+`checklist=[]` y deja `progress` en 0.
+
+**Regla:** si un campo es derivado, cualquier acción que reescriba la fuente tiene que
+capturar el derivado en el snapshot de undo.
+
+**Vive en:** app/plan/board/useBoard.ts (setChecklist / undoHist) · app/plan/board/BoardShell.tsx (generarChecklist) · *2026-07-19 ~review-datosmodal-plan-board*
+
+### ⚠️ Una URL firmada guardada en el estado se rompe de dos formas opuestas, y ninguna avisa
+
+Dos corridas distintas encontraron los dos extremos del mismo patrón.
+
+**(a) Congelada:** `abrirEscenario` mete la URL firmada dentro de `msgs` y nadie la refresca;
+subir el TTL de 1 h a 12 h corre el acantilado, no lo saca — pasado el plazo el navegador
+pinta un reproductor inerte en 0:00.
+**(b) Refrescada de más:** la bandeja de empresa re-firma cada media en cada poll de **8 s**,
+así que la URL cambia de identidad, las imágenes se re-descargan y reasignar `src` en
+`<audio>`/`<video>` **resetea la reproducción** — una nota de voz de más de 8 s es imposible
+de escuchar.
+
+En los dos casos el síntoma es mudo: `ChatHilo` no tiene `onError` en `<audio>`, `<img>` ni
+`<video>`, así que una URL muerta es indistinguible de un archivo roto.
+
+**Regla:** la URL firmada se resuelve al renderizar (o se mergea por id preservando la
+anterior), **nunca se persiste en estado**; y todo medio servido por URL firmada lleva
+`onError`.
+
+**Vive en:** app/whatsapp/_shared/ChatHilo.tsx:208-212 · lib/setting-audios.ts:107 · lib/evolution-mensajes.ts:191 · app/whatsapp/EmpresaInbox.tsx:64-69 · *2026-08-02 ~diagnostico-audio-ensayo-chat-agent + 2026-07-09 ~auditoria-espejo-evolution-inbox*
+
+### ⚠️ El componente hermano ya resolvió esto: la bandeja de empresa no copió sus dos guardas
+
+`EmpresaInbox` y `WhatsAppApp` son las dos bandejas de la misma pantalla, y la segunda ya
+tiene resueltos dos peligros que la primera no.
+
+1. **Race:** `loadMsgs` hace `setMsgs(j.mensajes)` sin verificar que el chat siga
+   seleccionado — un fetch en vuelo del chat A resuelve después de cambiar al B y pinta los
+   mensajes privados de un lead bajo el nombre de otro. `WhatsAppApp` lo evita con
+   `if (selIdRef.current === selId)`.
+2. **Autoscroll:** el efecto `[msgs]` fuerza scroll al fondo en cada poll de 8 s (el array es
+   nuevo aunque el contenido sea idéntico), así que leer historial es imposible.
+   `WhatsAppApp` lo gatea con `stickBottomRef`.
+
+**Regla:** cuando existan dos componentes que hacen lo mismo, la revisión **empieza por
+diffear sus guardas**.
+
+**Vive en:** app/whatsapp/EmpresaInbox.tsx:56-71 vs app/whatsapp/page.tsx (WhatsAppApp):447-450 y :501 · *2026-07-09 ~auditoria-espejo-evolution-inbox*
+
+### ⚠️ Un MediaRecorder pausado no está 'recording': el cleanup lo deja colgado con el micrófono abierto
+
+El cleanup al cambiar de chat solo cancela `if (mediaRecRef.current.state === 'recording')`,
+pero `pauseRec()` deja el recorder en `'paused'`. Grabar → pausar → cambiar de chat saltea la
+cancelación: el stream del micrófono **no se libera** (el indicador del navegador queda
+prendido), `recording` sigue en true y `startRec()` hace early-return, así que no se puede
+grabar de nuevo hasta desmontar la página. Y el `onstop` capturó el destino del chat
+**original** en el closure, así que si de algún modo se reanuda, el audio se manda al contacto
+equivocado. La condición correcta es `state !== 'inactive'` (un recorder pausado igual emite
+`onstop` al llamar `.stop()`).
+
+**Vive en:** app/whatsapp/page.tsx:387 · *2026-06-23 ~auditoria-inbox-whatsapp-chatwoot*
+
+### Regla: todo cambio persiste solo, avisa, se puede deshacer 5 segundos y queda en el historial
+
+Las cuatro cosas van juntas y no tienen excepción:
+
+- **No hay botón «Guardar»:** cada cambio persiste solo y se avisa con el toast. «la
+  metodología de guardar está bien, pero esa confirmación de guardar se debe dar en cada
+  cambio» (2026-06-21).
+- **Cartel de modificación + pop-up de 5 segundos para deshacer**, en toda acción destructiva
+  o cambio de estado. «TODOS estos cambios debe saltar el botón de deshacer de 5 segundos,
+  siempre» (2026-07-13) · «Tiene que salir un cartel de modificación como siempre, y el
+  pop-up de los 5 segundos para deshacer» (2026-07-12).
+- **Historial de cambios siempre**, sin demora y con el actor: si lo hizo la IA, firma
+  **MaKo** con ícono de IA, no con foto de usuario ni «vos». «has marcado como check de
+  finalizado, pero no aparece en el historial, debería aparecer, y que justamente la IA o
+  MaKo hizo esos cambios» (2026-07-14) · «No actualizaste el HISTORIAL de cambios en cada
+  tarea o proyecto… Eso es muy grave… Eso tiene que ser regla siempre» (2026-07-17).
+
+**Vive en:** *memoria [[historial-mako-siempre]]*
+
+### Regla: el estado sobrevive al cambio de pestaña
+
+Borradores escritos y datos ya cargados no se pierden ni se recargan al ir y volver. «si
+escribo un mensaje largo y me voy de pestaña y vuelvo, ese mensaje que había escrito ya no
+está más» (2026-06-23). Y todo el feedback y los aprendizajes se guardan para reusarlos en
+las próximas piezas y en todos los orígenes; no se pierden en el chat (2026-07-22).
+
+### Regla: «Ver más» carga un lote más, nunca todo de golpe
+
+Él lo dijo con la palabra *regla*: «siempre debe cargar una cierta cantidad más, no
+absolutamente todo» (2026-08-05). Las previews muestran pocos ítems con «Ver más» u otra
+ruta; nunca una lista con scroll infinito («haz que se cargue un "Ver más" en el historial de
+la tab de proyectos… Que sino, tiene un scroll infinito», 2026-08-05).
+
+### Regla: si MaKo puede resolverlo, lo resuelve
+
+Solo pregunta cuando NO encuentra la respuesta: «Si lo puede hacer MaKo, siempre debería,
+solo me debe preguntar en caso de NO encontrar respuesta» (2026-07-19). Y el server decide
+crear/ampliar/ignorar por su cuenta — *memoria [[nunca-duplicar-nunca-preguntar-bajas]]*.
+
+---
+
+## Layout, sidebar y tabs
+
+### ⚠️ En una lista de matchers, el genérico que va primero anula la exclusión del específico
+
+`nav.ts` se toma el trabajo explícito de separar 'Clientes' (matchea `/admin` pero **no**
+`/admin/guiones`) de 'Guiones' (matchea `/admin/guiones`). `titulo-tab.ts` arma `TODOS` con
+`...USER_NAV` **antes** que `...ADMIN_NAV`, y USER_NAV tiene un `starts('/admin')` a secas:
+`TODOS.find()` corta ahí y las dos pestañas dicen «MaKo - Admin», que es justo lo que el
+módulo existe para evitar. Verificado ejecutando el módulo real.
+
+**Segundo filo del mismo archivo:** el fallback `desdeLaRuta()` capitaliza el primer segmento
+sin validar nada, así que un 404 (`/crmm`, `/graficos`) pinta «MaKo - Crmm» e inventa una
+sección que no existe.
+
+**Vive en:** lib/titulo-tab.ts:45-46 y :50 · *2026-08-06 ~auditoria-notificaciones-y-titulo-de-pestana*
+
+### El `<main>` de una pantalla es `Pagina`, y una pantalla no elige su ancho
+
+Está escrito en [AGENTS.md](../AGENTS.md) y se repite acá porque es el error de layout más
+copiado: cada pantalla escribía su propio `<main>` con su `maxWidth` (16 con el mismo padding,
+7 variantes sueltas, topes de 1000, 1100 y 1200 según quién la escribió), y copiar la pantalla
+de al lado propagaba el número. El `style` de `Pagina` está tipado
+`Omit<CSSProperties, 'maxWidth' | 'width'>`: el compilador rechaza el ancho. Si lo que necesita
+tope es **texto**, el tope va en el párrafo (`Lectura`, 70ch), nunca en la página.
+
+**Vive en:** app/_ui (Pagina, Lectura) · [app/_ui/LEEME.md](../app/_ui/LEEME.md) · catálogo vivo en /admin/ui
+
+### Regla: la sidebar JAMÁS se scrollea
+
+Si no entra, se resuelve de otra forma —reorganizando o plegando—, nunca con scroll. Está
+inspirada en la de Meta, y las notificaciones salen de ahí.
+
+- «La sidebar se puede scrollear, eso NO debe ser posible NUNCA. Jamás se debe poder
+  scrollear en la sidebar» (2026-07-01)
+- «Ya hay muchas tabs, no debo scrollear en la barra lateral» (2026-07-01)
+
+Las **secciones** de la sidebar no pueden tener el mismo diseño que las tabs: jerarquías
+distintas se ven distintas de un vistazo, para que sea intuitivo.
+
+**Vive en:** lib/nav.ts (fuente de verdad de la navegación) · *memoria [[sidebar-nav-estructura]]*
+
+### Regla: las tabs van en UNA fila, sin scroll y sin reacomodar la topbar
+
+- «las tabs se desplazan en doble fila, no debería pasar» / «Las tabs cuando se genera el
+  guion tienen SCROLL, no pueden tener scroll las tabs» (2026-07-04). Si no entran, se
+  **reorganiza la información**, no se apila ni se scrollea.
+- Los botones y controles de una topbar **se quedan en el mismo lugar** al cambiar de tab: si
+  en una tab hay buscador o filtro, no se reacomoda todo lo demás. «hay tabs donde aparece la
+  barra de búsqueda o el filtro y se desorganizan los botones. Haz que tenga coherencia»
+  (2026-08-05).
+
+### Regla: nada desparejo, nada en segunda línea, nada flotando
+
+- Tarjetas del mismo alto, cuadros comparativos a la misma altura, **botones nunca en segunda
+  línea**: «Hay botones que se van abajo, en la segunda línea, no debería pasar, todo siempre
+  arriba» (2026-08-05).
+- **Grillas parejas:** nunca 3+1 ni 5+1. «si hay 3 en una fila y 1 debajo, mejor que sean 2 y
+  2. Y mucho peor si hay 5 en una fila y 1 en otra» (2026-07-04). Y los datos van **dentro**
+  del recuadro gris, nunca flotando.
+- Los **botones de acción van centrados**, nunca alineados a la izquierda: «debería estar en
+  el medio. No alineado a la izquierda, ya te lo dije, y como regla» (2026-08-01).
+- Las **jerarquías se ven distintas**: proyectos altos, tareas planas y anchas. «las task son
+  más planas y anchas, y los proyectos son más altos. Es fácil diferenciarlos» (2026-07-19).
+- ⚠️ `flex:1` mata `height:100vh` en el `<main>`: el contenedor colapsa y el loader queda
+  diminuto. *memoria [[layout-flex-height-100vh]]*
+
+### Regla: sin opciones ni caminos redundantes
+
+El camino normal es el **default** y no se duplica una acción que ya existe en otro lado de la
+misma pantalla: «No debe existir la opción de "completar", normalmente todas las personas
+entran en "completar"» (2026-06-21). Lo mismo a nivel navegación: **no se crea una tab o un
+chat nuevo para algo que ya existe** — la IA vive DENTRO de la tab donde se trabaja, como
+funcionalidad, no como pantalla aparte («una nueva tab con un nuevo chat, cuando ya existía un
+"Pregúntale a MaKo"», 2026-07-10).
+
+### Decisiones de navegación
+
+- **Sidebar en tres secciones** (Operate / Create / Analyze), con renombres: *Content Machine*
+  reemplaza a *Ads Writer*, se agrega *Second Brain*, y *Market Analyst* pasa a *Competitor
+  Spy*. La ruta **siempre coincide con el nombre**. Las secciones tienen que distinguirse
+  visualmente de las tabs (2026-08-06).
+- En el sidebar rediseñado, **«Create» pasa a «Sales Machine»**: Landing/VSL/Lead Magnet
+  Generator · Chatbot/Sales Email/Newsletters · Closing Script/Sales Roleplay (2026-08-07).
+- **«Graphich» pasa a llamarse «Dashboard»** en sidebar, título, landing y ruta: «Dashboard es
+  como normalmente todo el mundo conoce ese tablero de métricas». Las features de la landing
+  quedan sueltas, no agrupadas en 5 categorías (2026-07-26).
+- **Se agrega «Reportar problema»** con ruta `/tickets`, y un **«Chat Analyst»** antes de
+  Closing Analyst (2026-08-06).
+- **Se elimina Teléfonos y Etiquetas**; Funnel + Archivero + Ángulos y avatares se mudan a una
+  tab «Onboarding» accesible desde la foto de perfil — agrupar la configuración fuera del uso
+  diario (2026-07-26).
+- **Perfil y Notificaciones viven dentro de Configuraciones**, con reportes diarios/por hora
+  de lo urgente por WhatsApp y semanales por WhatsApp y email: quiere enterarse de lo que pasa
+  sin entrar a mirar (2026-06-30). **Telegram se saca de toda la app** (2026-07-26).
+- **La app arranca en modo simple por defecto**, con un botón «Encender modo Avanzado» que
+  devuelve todas las tabs y gráficos actuales. El usuario es un infoproductor que ejecuta: «es
+  probable que como está hoy la app, no usen el 80% de funcionalidades. NO porque no estén
+  buenas, sino porque es mucho» (2026-07-09).
+- **/conocimientos se puede compartir por link público**, sin login: «que yo le pueda pasar un
+  link a cualquiera y pueda acceder a eso» (2026-07-27).
+- La estética general de la app se alinea a la de la landing `/vsl` (2026-07-01).
+
+**Vive en:** lib/nav.ts · *memoria [[sidebar-nav-estructura]], [[rediseno-direccion-estetica]]*
+
+---
+
+## El texto de la UI
+
+### Regla: cero texto de más — sin subtítulos, sin bajadas, sin relleno
+
+Es la corrección que más repitió. Título corto y descriptivo, como mucho un subtítulo corto.
+**NUNCA un párrafo explicativo debajo del título**: el contexto va abajo del todo, sin
+interrumpir la acción. Él mismo lo llamó regla.
+
+- «es un texto aburrido de leer, que nadie lo lee… va abajo del todo, no interrumpiendo la
+  acción» (2026-08-01)
+- «no metas texto de más, te lo pedí explícitamente» (2026-07-19)
+- «SIEMPRE… NO pongas subtítulos innecesarios» (2026-06-23) · «En general elimina todos los
+  subtítulos, todos» (2026-07-23)
+- «Elimina "¿Por qué este número?", eso es texto paja» (2026-08-01)
+- Ni dos títulos que dicen lo mismo. **Auditá los textos antes de entregar.**
+
+**Vive en:** toda la UI · *memoria [[no-subtitulos-innecesarios]]*
+
+### Regla: nombres explícitos, cero jerga interna
+
+El nombre se entiende **solo**, sin contexto. Nada de apodos nuestros, tecnicismos ni
+identificadores de código visibles al usuario. Y no se inventan nombres: se usa el que ya
+existe, y el nombre de la tab coincide con la ruta.
+
+- «Es muy importante no caer en jerga interna que solo entendemos nosotros y ningún usuario
+  sin contexto entiende… Eso como REGLA… Porque eso vuelve MUY junior la app» (2026-07-26)
+- «los textos como 'mako-doer-in' no tienen sentido para el usuario, el cliente jamás
+  entenderá qué significa eso» (2026-07-15)
+- «Que no ponga "La fábrica de creativos"» · «"Vieron tus videos", nuevamente no se entiende.
+  ¿Qué videos? ¿mis reels? ¿mis ads? Sería: vieron tus **anuncios**» · «Baja a tierra a un
+  lenguaje simple… no quiero tecnicismos como la matriz 3x3» (2026-06-30)
+- «no inventes nombres de etapas, simplemente pon los nombres exactos… No inventes nuevos
+  nombres, vamos a confundir» (2026-06-22)
+- Los títulos son **descriptivos y neutros**, no informales ni preguntas coloquiales: «El
+  título no debería ser ese, debería ser "Verificación de seguridad", un título descriptivo,
+  no informal» (2026-08-01)
+
+**Vive en:** toda la UI · *memoria [[nombres-explicitos-sin-jerga]], [[copy-neutro-y-modales]]*
+
+### Regla: íconos profesionales y logos reales, nunca emojis
+
+Las acciones (renombrar, pinear, archivar, eliminar) se nombran por **texto**.
+
+- «no quiero EMOJIS, siempre utiliza iconos, que se vean profesionales, no un mono…»
+  (2026-07-10) · «Recuerda no utilizar emojis, mejor los íconos que tenemos en el otro
+  WhatsApp» (2026-07-10)
+- «con un emoji horrible en lugar de usar un ícono elegante… Ponle correctamente los logos
+  siempre» (2026-08-01)
+- **Logos reales de la marca** (Fathom, WhatsApp, Meta, Calendly, Panda Video, Resend), sin
+  fondo y del mismo tamaño óptico, nunca inventados: «Tienen que ser los mismos logos de la
+  empresa, no los inventes» · «es importante que ningún logo tenga fondo… O le sacas el fondo
+  o buscas el logo sin fondo por la web» (2026-07-16)
+- El **logo de MaKo es solo la estrella**, sin ningún agregado (2026-07-01).
+
+**Vive en:** app/_components/icons.tsx · app/_components/ServicioVisual.tsx (BrandDefs)
+
+### Regla: simple y visual — nunca un bloque de texto plano
+
+Los datos se presentan con contenedores, negritas, bullets y gráficos. Pero **no todo bullet
+points**: se varían los recursos con criterio, y el contexto secundario va englobado en un
+bloque gris desplegable (que al abrirse **no agranda el modal**: aparece scroll).
+
+- «que se vea simple, que se vea visual, que se entienda rápido, que no sea un texto enorme
+  aburrido de leer. Ya sabes esto» (2026-07-30)
+- «lo peor es que ahora hiciste que TODO sea bullet points, cuando podés ir variando»
+  (2026-08-01)
+- «Recuerda nuestro lema para todo: que se vea SIMPLE, entendible… Si quiero acceder a más
+  info, sí se debería poder, pero en una primera instancia, siempre SIMPLE» (2026-07-01)
+- **Estado vacío = mensaje que explica**, nunca un cuadro con los campos vacíos: «qué feo se
+  ven los cuadros de Comportamiento… cuando NO hay datos que traer… en lugar de dejar eso,
+  poner un mensaje correspondiente» (2026-07-03)
+- **El error sale debajo del campo que lo causó**, no apilado al final de la pantalla: «no
+  deben salir al final del todo, deben salir abajo de esa misma key» (2026-07-16)
+- **Saltos de línea en los chats de MaKo** — pedido de 2026-06-24, sin cerrar.
+
+### Regla: todo lo que tarda muestra loader, y el loader cuenta qué está haciendo
+
+La UI **nunca** queda inmóvil, nunca muestra la pantalla vieja antes de cargar, nunca un botón
+que cambia de texto sin spinner, nunca un estado 'desconectado' mientras carga, nunca una
+preview fea antes de tener datos.
+
+- «SIEMPRE un loader… No se tiene que quedar inmóvil nunca, eso da la sensación de que algo
+  falló» (2026-08-01)
+- «siempre debe aparecer un loader ahí y en todas esas secciones de IA o lo que sea que tarde,
+  porque si no, parece que se trabó» (2026-07-30)
+- El loader va **describiendo/variando** lo que está haciendo, y en operaciones largas bloquea
+  el cierre (ver [Modales y capas](#modales-y-capas)).
+
+### Regla: MaKo tiene acento argentino solo cuando ASESORA
+
+Todo lo que produce **para** el cliente —guiones, copy de anuncios, textos de la app,
+onboarding— va en **español plano**. «Está bien que MaKo tenga el acento argentino al asesorar,
+pero no al crear cosas para el cliente» · «Cambia todos los textos a español plano, no
+argentino. No pongas "¿Tenés algún otro documento para sumar?"» · «No utilices acento
+argentino, a veces no se te entiende… ¿A qué te referís con que los tableros "banquen"?»
+(2026-06-30). En el chat con el dueño: español neutro, sin voseo (*memoria
+[[hablar-espanol-neutro]]*).
+
+### Gráficos y datos: claridad antes que creatividad
+
+- **Un gráfico NUNCA lleva título** (2026-07-23). Los principios completos, en *memoria
+  [[graficos-claridad-principios]]*.
+- Las **tendencias se miden hasta el día anterior a hoy y por mes**, no por semana: el dato de
+  hoy suele estar en 0 no porque sea 0 sino porque todavía no cargó, y eso ensucia la
+  tendencia (2026-06-20).
+- Antes de llenar una vista con datos reales se hace un **TEMPLATE** de cómo debería verse: el
+  diseño venía saliendo mal cuando se armaba sobre la marcha con el análisis ya hecho
+  (2026-07-01).
+- **Nunca se maquilla un dato.** Si queda feo o sesgado, se revisa el parámetro de medición:
+  «(Pero tampoco quiero mentir con los datos.)» (2026-06-25).
+- **No poner límites arbitrarios:** ni horas de agenda, ni ventana de días de un público, ni
+  cantidad de resultados. El tope lo pone la API, no nosotros. «no limites las horas, que se
+  pueda agendar a la madrugada si quieren» (2026-08-07).
+- En vez de muchos gráficos por tab, mostrar la **conclusión/insight** que corre un prompt
+  sobre toda la tab, y automatizar lo que hoy depende de que el usuario apriete ejecutar: la
+  app quedó «Thinker» y tiene que ser «Doer» (2026-07-09). *memoria [[doer-rediseno-norte]]*
+- **Experiments** se estructura en Retro → Experiments → Conclusions / Planning, con MaKo
+  leyendo todas las demás tabs para generar la Retro — replicar el método SIMPLE de «Nueva
+  campaña»; «hoy parece una app barata y mal desarrollada» (2026-07-01).
+
+---
+
+## Entregar una pantalla
+
+### Regla: todo lo que se construye para el dueño se construye para los clientes, en la misma pasada
+
+La vista de super admin y la del cliente son **la misma pantalla**. Nunca razonar «esto es
+solo para el dueño».
+
+- «todo esto tiene que modificarse también para los clientes, que les aparezca lo mismo; hoy
+  en los clientes sigue igual que antes» (2026-07-12)
+- «los cambios que hacemos tienen que impactar siempre para clientes también» (2026-07-22)
+- «no entiendo por qué la vista de superadmin y cliente son diferentes en la tab de Plan,
+  deben ser lo mismo» (2026-07-13)
+
+*memoria [[cambios-impactan-clientes]]*
+
+### Regla: verificá en el navegador antes de decir que está listo
+
+No se declara hecho lo que no se ve en la app. Hay **permiso permanente de preview** (Chrome /
+Claude in Chrome): usalo.
+
+- «no veo que se haya marcado el progreso en la app. Eso no lo hiciste… revisa porque el fallo
+  está de tu lado» (2026-07-14) — si él dice que falla, el fallo es nuestro hasta que se
+  pruebe lo contrario.
+- «Hay muchos gráficos que están mal, te invito a que hagas Claude in Chrome para verificarlo»
+  (2026-07-19)
+- «El botón de desconectar está muy pegado a la sección… Nuevamente fallo en el diseño, no sé
+  por qué no lo revisas antes de publicar» · «El loader sigue viéndose arriba del todo,
+  exactamente como la captura anterior… No puede ser que no sepas solucionar esto»
+  (2026-08-01)
+- **Probá vos**, no le devuelvas la prueba al usuario: mandá los mensajes, mové un lead y
+  devolvelo, cambiá el nombre de una campaña pausada. «No funciona… Por favor, prueba tú»
+  (2026-07-20)
+- Las pruebas que salgan hacia afuera van **siempre** a martinkoncke@gmail.com y
+  **+5493764673479** (2026-07-14).
+
+### Regla: resolver en una pasada, con multiagente si hace falta
+
+Gastar tokens sin arreglar lo pedido es la queja que más se repite al final del período.
+Prefiere que gastes recursos antes que entregar algo a medias.
+
+- «Realmente no entiendo en qué te estás gastando tantos tokens y aún no solucionas las cosas
+  que te pedí… ¿cuántos prompts más para que lo arregles?» (2026-08-07)
+- «si tienes que correr 10000 mil multi agentes para hacer esto bien, o de la manera que se te
+  ocurra, pero hazlo bien» (2026-07-22)
+- «ya dimos muchas vueltas, no sé qué tengas que hacer, si tienes que lanzar multi agente o lo
+  que sea, pero soluciónalo» (2026-07-30) — cuando algo ya se corrigió dos veces y sigue mal,
+  no vuelvas con otro parche.
+- «corre un multi agente y haz bien esta vista… puedes utilizar la preview de Chrome, los
+  multi agentes, todo» (2026-06-30)
+- Antes de construir algo grande, **contale cómo lo vas a presentar** para que lo apruebe:
+  «antes de hacer el onboarding, dime cómo lo piensas presentar, así te lo apruebo»
+  (2026-07-10). Decisión relacionada: instalar skills que obliguen a pensar antes de
+  desarrollar —brainstorming, writing-plans, grill-me— porque «no creo que estemos haciendo
+  las cosas bien doer o simples» (2026-07-10).
+
+### Regla: la documentación se escribe para que la lea ÉL
+
+No solo para otro agente: depurada, con títulos, ordenada y visible en super admin
+(`/admin/docs`). «si yo lo puedo entender fácil, eso me habilita a darle mejores prompts al
+otro Claude» (2026-08-07). Este documento se rige por eso.
+
+---
+
+## Pendientes
+
+Cosas escritas y no cableadas, o pedidas y no hechas. Verificá contra el código antes de
+tomar una: algunas pueden haberse cerrado.
+
+### ⚠️ El feed de notificaciones existe en la base y no lo muestra nadie
+
+La tabla `notificaciones` se llena y `/api/notificaciones` responde, pero **ningún componente
+lo consume**: el badge del sidebar viene de WhatsApp/Evolution, no de este feed. Y cada
+reporte que se despacha escribe un link a `/perfil?tab=notificaciones`, una tab que ya no
+existe. Es el mismo modo de falla que el resto de este lote: se escribe bien y no se lee.
+Contradice lo que dice la memoria [[perfil-notificaciones-reportes]] sobre la campanita
+in-app: al 2026-07-19 el feed está escrito y no se ve en ninguna pantalla.
+
+Pendiente relacionado del dueño: **mapear todas las notificaciones existentes** en
+Configuraciones → Notificaciones para activarlas/desactivarlas por canal (in-app pop-up y
+sonido **por separado**, WhatsApp, email) — 2026-08-06.
+
+**Vive en:** app/api/notificaciones · lib/reportes.ts (link a /perfil?tab=notificaciones) · *2026-07-19 ~landing-24-features-auditoria*
+
+### ⚠️ La tab Teléfonos de /configuraciones no existe: el panel está escrito y nunca se montó
+
+`app/configuraciones/TelefonosPanel.tsx` no lo importa nadie: `ConfigInnerTabs` solo lista
+notif · fiscal · equipo. Esto **deroga** lo que dice la memoria [[telefonos-workspace]], que
+la da por viva junto con Integraciones. En la misma pasada: `/api/admin/mako-grupo` no tiene
+ningún caller en la UI, y `ConfigInnerTabs` arranca fijo en 'notif' **sin leer query params** —
+el link `?tab=notif` que usan todos los avisos funciona por coincidencia con el default, y el
+día que cambie el default se rompen los 49 avisos a la vez.
+
+**Vive en:** app/configuraciones/TelefonosPanel.tsx · app/configuraciones/ConfigInnerTabs.tsx:18 y :24 · lib/avisos.ts:81 · *2026-08-06 rediseno-notificaciones*
+
+### ⚠️ Entregable y Persona funcionan en el hub de onboarding pero son huérfanos del wizard
+
+Los dos tienen su View, su route (GET/POST/DELETE) y aparecen como tabs del hub — pero el hub
+vive en `/onboarding` y solo se desbloquea cuando el onboarding está 'done', así que un
+cliente nuevo, durante el alta bloqueante, **nunca los ve**. No es un flag apagado: no están
+cableados. Falta (a) sumarlos al union `PasoOnboarding` de `lib/capas.ts`, que es la fuente de
+verdad de qué pasos existen; (b) meterlos en el array `onboarding` de la capa 'completo'; (c)
+actualizar el `type Paso` **local** del wizard, que duplica el union y hay que tocar en
+paralelo; y (d) agregarles rama en el builder de pantallas — sin la rama, aunque estén en el
+array de la capa no se genera ninguna pantalla y el paso desaparece en silencio. Ojo: el hub
+**no** está en /configuraciones (esa ruta no tiene nada de onboarding).
 
 **Vive en:** lib/capas.ts:24 y :110 · app/onboarding/OnboardingWizard.tsx:48, :243-299, :484-491 · lib/onboarding-state.ts:56-67,82-93 · app/onboarding/OnboardingTabs.tsx:89-100 (el orden canónico) · *2026-07-28 mapear-onboarding-ajustes*
 
-#### WizardShell llama a useCapaModal pero nunca engancha `capa.refScroll`
+### ⚠️ El título de la pestaña del navegador siempre dice «MaKo»
 
-La pila de modales promete que al cerrar el de arriba el de abajo vuelve con el scroll exactamente donde estaba. En los wizards no funciona en NINGUNO: `WizardShell` usa `useCapaModal` para el z-index y la visibilidad pero no le pasa `capa.refScroll` al contenedor que scrollea. Volvés de un modal apilado y estás arriba de todo. Nota del mismo archivo: el prop `error` es UNA LÍNEA de texto — una lista de faltantes con botón va como último hijo del cuerpo, no ahí.
+Debería decir «MaKo - CRM» o el nombre de la tab donde está parado (2026-08-06). Ojo que el
+módulo que lo resuelve tiene los dos bugs de matchers descritos en
+[Layout, sidebar y tabs](#layout-sidebar-y-tabs).
 
-**Vive en:** app/_components/WizardShell.tsx · app/_components/pila-modales.ts · *2026-08-07 contexto-mako-md*
+**Vive en:** lib/titulo-tab.ts
 
-#### La ficha del lead tiene una TERCERA copia, en /whatsapp, y es de solo lectura
+### La ficha del lead tiene una TERCERA copia, en /whatsapp, y es de solo lectura
 
-docs/hallazgos-crm.md dice que la ficha vive en dos árboles (el modal `LeadDetail` del CRM y la página `/leads/[id]`). Hay un tercero: `/whatsapp` no reusa ninguno de los dos — tiene su propio pop-up inline (page.tsx 777-881) alimentado por `/api/whatsapp/lead/[id]`, que devuelve un resumen liviano (getLead + getVslEngagement) distinto del `CrmLead`. Resultado: desde el inbox la ficha es SOLO LECTURA y con secciones propias, y su footer manda a `/leads/{id}` para poder editar. El wrapper reusable ya existe y no hace falta tocar `LeadDetail` (que es controlado): `LeadEditModal` se monta solo con `leadId` y ya está probado montado dinámico con ssr:false en app/_components/Desglose.tsx:24.
+[hallazgos-crm.md](hallazgos-crm.md) dice que la ficha vive en dos árboles (el modal
+`LeadDetail` del CRM y la página `/leads/[id]`). Hay un tercero: `/whatsapp` no reusa ninguno
+de los dos — tiene su propio pop-up inline (page.tsx 777-881) alimentado por
+`/api/whatsapp/lead/[id]`, que devuelve un resumen liviano (`getLead` + `getVslEngagement`)
+distinto del `CrmLead`. Resultado: desde el inbox la ficha es SOLO LECTURA y con secciones
+propias, y su footer manda a `/leads/{id}` para poder editar. El wrapper reusable ya existe y
+no hace falta tocar `LeadDetail` (que es controlado): `LeadEditModal` se monta solo con
+`leadId` y ya está probado montado dinámico con `ssr:false` en `app/_components/Desglose.tsx:24`.
 
-**Vive en:** dashboard-marketing/app/whatsapp/page.tsx (fichaOpen/abrirFicha 207-210 y 454-469, markup 777-881) + app/api/whatsapp/lead/[id]/route.ts + app/leads/LeadEditModal.tsx · *2026-06-23 wa-inbox-recon*
+**Vive en:** app/whatsapp/page.tsx (fichaOpen/abrirFicha 207-210 y 454-469, markup 777-881) · app/api/whatsapp/lead/[id]/route.ts · app/leads/LeadEditModal.tsx · *2026-06-23 wa-inbox-recon*
 
+### 21 llamadores siguen en el modo `total`/`idx` de `WizardShell`
+
+No es deuda por sí sola (ver el descarte de abajo), pero cada uno que tenga el mapa en la mano
+y lo aplane a dos números es un `indexOf` duplicado.
+
+**Vive en:** app/** · app/_components/WizardShell.tsx
+
+### Pedidos del dueño sin cerrar
+
+- **Los 5 puntos que él mismo listó como faltantes** (2026-07-01): anidar Onboarding /
+  Notificaciones / Funnel dentro de Configuraciones · mover el editor de prompts a «Contexto
+  de MaKo» · Perfil con más campos y foto · historial de estados negativos de Meta ·
+  recomendaciones de Meta en español.
+- **Ruta propia (deep link) para cada entidad que hoy vive en sub-tabs**: cada llamada de
+  ventas analizada, cada anuncio ganador, cada retro, cada task/proyecto. Pidió mapear todo lo
+  que se está quedando sin ruta (2026-07-15).
+- **/conocimientos:** que un recurso ligado a una clase aparezca en la vista general, y que
+  los embeds de video de Drive salgan **verticales** (hoy salen horizontales y cortados) —
+  2026-07-21.
+- **En la vista de Mauricio siguen apareciendo tabs que deberían estar ocultas** cuando está
+  todo vacío (2026-07-28).
+- **Los íconos tardan en cargar** cada vez que entra a la app (2026-06-29).
+- **El botón «Completar con los datos de Mau» sigue apareciendo** en el modal del onboarding
+  «cuando ya dijimos que no debe estar ahí» (2026-08-02).
+- **Saltos de línea en los chats de MaKo** (2026-06-24).
+
+### Descartado a propósito (no volver a «arreglarlo»)
+
+- **Migrar `app/chat-bot/SecuenciaWizard.tsx` al modo `pasos`.** Se revisó y **no duplica
+  nada**: su `idx` es un índice de estado real, no un `pasos.indexOf(...)` recalculado. Es
+  exactamente el caso para el que existe `total`/`idx`. El criterio para migrar es *«¿el
+  llamador tiene el mapa y está recalculando la posición?»*, no *«¿existe un mapa?»*.

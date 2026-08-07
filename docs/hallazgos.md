@@ -14,9 +14,9 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 | Área | Documento | Qué cubre |
 |---|---|---|
 | CRM | [hallazgos-crm.md](hallazgos-crm.md) | Leads, funnel, etapas y requisitos, worklist de datos sin marcar, agenda y horarios, historial |
-| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | Paginado y límites de Supabase/PostgREST, zonas horarias, trampas del runner de tests, trabajar con sesiones paralelas |
+| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | Supabase (paginado, upserts, settings), aislamiento multi-inquilino, credenciales/BYOK, webhooks, crons, topes de Next, migraciones, build y deploy, zonas horarias, storage, tests y sesiones paralelas |
 | UI compartida | [hallazgos-ui.md](hallazgos-ui.md) | `app/_components`: `WizardShell` y el progreso, la pila de modales y los z-index |
-| MaKo (IA) | [hallazgos-ia.md](hallazgos-ia.md) | Doer, tools y confirmaciones diferidas: qué puede cargar cada canal, qué se valida y cuándo |
+| MaKo (IA) | [hallazgos-ia.md](hallazgos-ia.md) | Modelos y ruteo, la cascada barata, prompts y overrides, topes de salida, gasto y saldo, el doer, cómo pregunta y responde MaKo |
 | Comunicación | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) | Espejo de WhatsApp (Evolution), onboarding del Chat Agent, desenlace de nutriciones |
 | Ads | [hallazgos-ads.md](hallazgos-ads.md) | `ads-analyst` y las lecturas de `marketing_metrics_daily` |
 | Landing / VSL | [hallazgos-landing.md](hallazgos-landing.md) | `landing-analyst`, `landing_visits` y `vsl_events` |
@@ -37,23 +37,41 @@ Documentos que todavía no existen y hay que crear cuando aparezca el primer hal
 `hallazgos-email.md`, si lo de Resend crece lo suficiente como para salir de
 `hallazgos-comunicacion.md`.
 
-## La cosecha retroactiva del 2026-08-07
-
-Se leyeron los journals de las **261 corridas multi-agente** de junio a agosto de 2026
-(3.340 subagentes) para rescatar lo que nunca se había escrito. El resultado:
-**134 de 260 corridas no habían dejado nada en el repo**, y de ahí salieron 337 hallazgos
-que ahora viven en la sección «Cosecha retroactiva» de cada documento de área.
-
-Ese material es **de segunda mano**: sale de lo que devolvieron los agentes en su momento,
-no de una relectura del código de hoy. Cada entrada dice de qué corrida y de qué fecha
-viene. Antes de actuar sobre una, verificá contra el código.
-
-Es también la mejor evidencia de por qué existe la regla: sin una fase final que escriba,
-más de la mitad del trabajo de los agentes se evapora.
-
 Al crear uno, sumar su fila acá **en el mismo commit**: un documento que no está en el
 índice es un documento que nadie va a abrir.
 
 Cuando un hallazgo cruza áreas va **donde vive el código** y se enlaza desde la otra, sin
 copiarlo. El caso vivo es el paginado: la trampa está en `hallazgos-infra.md` y la citan
 CRM, Ads, Landing y Comunicación con su síntoma propio.
+
+## Cómo está armado cada documento
+
+Todos siguen la misma forma, para que se pueda saltar al punto exacto sin leerlos enteros:
+
+1. **«Lo que más muerde acá»** al principio: las 3 a 6 trampas que más tiempo costaron en
+   esa área, cada una con un salto a su sección. Si tenés dos minutos, leé eso.
+2. **Secciones por subsistema**, no por tipo de hallazgo. La pregunta que responden es
+   «voy a tocar X, ¿qué sabemos de X?».
+3. Dentro de cada sección: **lo que está vivo y roto primero**, marcado con ⚠️; después las
+   trampas; al final las decisiones y lo histórico.
+4. Cada entrada tiene un título que **dice la lección** y un cuerpo de
+   **Síntoma → Causa → Regla**, cerrado con la línea `Vive en:` con las rutas.
+
+Esa última línea es lo que hace barato el corpus para un agente: **antes de tocar un
+archivo, se grepea su ruta acá** en vez de abrir el documento entero. La regla está en
+[AGENTS.md](../AGENTS.md) → «Y para leerlos». Con los ojos, lo mismo se lee en `/admin/docs`.
+
+## De dónde salió este material
+
+Tres fuentes, y conviene saber cuál es cuál porque no valen lo mismo:
+
+| Origen | Qué aporta | Confianza |
+|---|---|---|
+| Trabajo de sesión | El hallazgo se escribió al resolverlo, con el código delante | Alta |
+| **Los journals de 261 corridas multi-agente** (jun–ago 2026, 3.340 subagentes) | 337 hallazgos que estaban perdidos: **134 de 260 corridas nunca habían escrito nada en el repo** | **De segunda mano** — es lo que devolvió un agente en su momento, no una relectura del código de hoy. Verificá antes de actuar |
+| Los 1.038 mensajes del dueño en 48 sesiones | Las reglas que pidió, las decisiones con su porqué y lo que quedó sin hacer | Alta: son sus palabras, citadas |
+
+El registro de qué se corrió y cuándo está en
+[corridas-multiagente.md](corridas-multiagente.md). Y el número de arriba es la mejor
+evidencia de por qué existe la regla de la cosecha: sin una fase final que escriba en el
+repo, más de la mitad del trabajo de los agentes se evapora.

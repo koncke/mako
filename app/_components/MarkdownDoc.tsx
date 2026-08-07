@@ -246,12 +246,23 @@ export function MarkdownDoc({ texto, hrefDoc: onDoc }: Props) {
   return <>{out}</>;
 }
 
-/** El id de un título, para poder enlazarlo desde el sumario. */
+/**
+ * El id de un título. Replica el slug de GitHub —minúsculas, se cae todo lo
+ * que no sea letra, número, espacio o guion, y los espacios pasan a guiones—
+ * porque los documentos ya traen 93 links internos escritos a mano con ESA
+ * convención (`[Landing Analyst](#landing-analyst)`).
+ *
+ * Detalle que importa: NO se recorta el guion del principio. Un título que
+ * arranca con ⚠️ pierde el emoji pero conserva el espacio que lo seguía, y
+ * GitHub lo convierte en un guion inicial — «⚠️ El selector…» es
+ * `#-el-selector…`. Recortarlo rompía justo los títulos marcados, que son los
+ * bugs vivos y por lo tanto los más enlazados.
+ */
 export function ancla(texto: string) {
-  return 'h-' + texto.toLowerCase()
-    .replace(/[`*[\]()]/g, '')
-    .replace(/[^a-z0-9áéíóúñü]+/g, '-')
-    .replace(/^-|-$/g, '');
+  return texto
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N} -]/gu, '')
+    .replace(/\s/g, '-');
 }
 
 /** El sumario de un documento: sus títulos de nivel 1 y 2. */
