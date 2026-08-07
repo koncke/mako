@@ -175,18 +175,33 @@ export const FAMILIAS: NavFamilia[] = [
     ],
   },
   {
+    // Todo lo que construye la máquina de VENDER, en el orden del embudo: lo que
+    // captura · lo que conversa · lo que cierra. Los tres bloques son esas tres
+    // etapas, y por eso van separados.
     key: 'create',
-    label: 'Create',
-    pregunta: '¿Qué quiero construir o automatizar?',
-    icon: 'tools',
+    label: 'Sales Machine',
+    pregunta: '¿Qué necesito para vender?',
+    icon: 'sales',
     bloques: [
+      // Capturar: las piezas que traen y convierten al lead.
       [
         // Las keys NO cambiaron (están escritas en la base: capas y estado del
         // onboarding por tab). Lo que cambió es el nombre y la RUTA, para que
         // digan lo mismo. Las rutas viejas redirigen.
-        { key: 'setting', label: 'Chat Bot', href: '/chat-bot', icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts('/chat-bot')(p) || starts('/chat-agent')(p) },
         { key: 'landing-writer', label: 'Landing Generator', href: '/landing-generator', icon: 'web', match: (p) => starts('/landing-generator')(p) || starts('/landing-writer')(p) },
         { key: 'vsl-writer', label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
+        { key: 'lead-magnet-generator', label: 'Lead Magnet Generator', href: '/lead-magnet-generator', icon: 'leadmagnet', comingSoon: true, match: starts('/lead-magnet-generator') },
+      ],
+      // Conversar: lo que le habla al lead una vez que entró.
+      [
+        { key: 'setting', label: 'Chatbot', href: '/chatbot', icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts('/chatbot')(p) || starts('/chat-bot')(p) || starts('/chat-agent')(p) },
+        { key: 'sales-email', label: 'Sales Email', href: '/sales-email', icon: 'salesemail', comingSoon: true, match: starts('/sales-email') },
+        { key: 'newsletters', label: 'Newsletters', href: '/newsletters', icon: 'newsletter', comingSoon: true, match: starts('/newsletters') },
+      ],
+      // Cerrar: lo que usa la persona que atiende la llamada.
+      [
+        { key: 'closing-script', label: 'Closing Script', href: '/closing-script', icon: 'closingscript', comingSoon: true, rolesWs: ['closer'], match: starts('/closing-script') },
+        { key: 'sales-roleplay', label: 'Sales Roleplay', href: '/sales-roleplay', icon: 'roleplay', comingSoon: true, rolesWs: ['closer', 'setter'], match: starts('/sales-roleplay') },
       ],
     ],
   },
@@ -211,24 +226,24 @@ export const FAMILIAS: NavFamilia[] = [
         // /content-machine como destino. Cuando aterrice, esto es cambiar el href.
         key: 'ads', label: 'Ads', icon: 'meta',
         items: [
-          { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
-          { key: 'image-generator', label: 'Image Generator', href: '/image-generator', icon: 'creativos', comingSoon: true, match: starts('/image-generator') },
-          { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'video', comingSoon: true, match: starts('/video-generator') },
+          { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
+          { key: 'image-generator', label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
+          { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', comingSoon: true, match: starts('/video-generator') },
         ],
       },
       {
         key: 'ig-formatos', label: 'Instagram', icon: 'instagram',
         items: [
-          { key: 'reels', label: 'Reels', href: '/reels', icon: 'video', comingSoon: true, match: starts('/reels') },
-          { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'grid', comingSoon: true, match: starts('/carousels') },
-          { key: 'stories', label: 'Stories', href: '/stories', icon: 'instagram', comingSoon: true, match: starts('/stories') },
+          { key: 'reels', label: 'Reels', href: '/reels', icon: 'videogen', comingSoon: true, match: starts('/reels') },
+          { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', comingSoon: true, match: starts('/carousels') },
+          { key: 'stories', label: 'Stories', href: '/stories', icon: 'stories', comingSoon: true, match: starts('/stories') },
         ],
       },
       {
         key: 'yt-formatos', label: 'YouTube', icon: 'youtube',
         items: [
-          { key: 'youtube-writer', label: 'YouTube Writer', href: '/youtube-writer', icon: 'pen', comingSoon: true, match: starts('/youtube-writer') },
-          { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'creativos', comingSoon: true, match: starts('/thumbnails') },
+          { key: 'youtube-writer', label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
+          { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
         ],
       },
     ],

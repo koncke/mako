@@ -8,7 +8,7 @@
 // también lo deja hecho adentro del Chat Agent.
 
 import { useRouter } from 'next/navigation';
-import { OnboardingChatAgent } from '../chat-bot/OnboardingChatAgent';
+import { OnboardingChatAgent } from '../chatbot/OnboardingChatAgent';
 
 export function OnboardingCanalEmail() {
   const router = useRouter();

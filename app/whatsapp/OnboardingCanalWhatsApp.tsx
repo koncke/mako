@@ -9,7 +9,7 @@
 // comparten, así que escanear el QR acá lo da por hecho también allá.
 
 import { useState } from 'react';
-import { OnboardingChatAgent } from '../chat-bot/OnboardingChatAgent';
+import { OnboardingChatAgent } from '../chatbot/OnboardingChatAgent';
 import { WhatsAppApp } from './WhatsAppApp';
 
 export function OnboardingCanalWhatsApp() {
