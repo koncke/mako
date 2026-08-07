@@ -5,14 +5,14 @@
 // que es `server-only` y habla con Google — o sea, intesteable. Se movió al módulo
 // puro del contrato, que es el mismo que importa el cliente para dibujar la grilla
 // cuando la agenda no se pudo leer. Estos tests son el candado de las tres reglas
-// que el dueño pidió de frente: el día entero (no hasta las 19), los cuartos de
+// que el dueño pidió de frente: el día entero de 24 h (00:00-23:45), los cuartos de
 // hora, y que un hueco solo sirva si la reunión entra ENTERA.
 // Correr: npm test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   construirGrilla, filtrarPasados, marcarOcupados, normalizarRango, horaAMinutos, hhmm,
-  HORA_DESDE_DEFECTO, HORA_HASTA_DEFECTO, PASO_MIN_DEFECTO, DURACION_DEFECTO_MIN, MARGEN_MIN_DEFECTO,
+  HORA_DESDE_DEFECTO, HORA_HASTA_DEFECTO, MINUTO_HASTA_DEFECTO, PASO_MIN_DEFECTO, DURACION_DEFECTO_MIN, MARGEN_MIN_DEFECTO,
   type Ocupado,
 } from '../app/crm/horarios-respuesta';
 
@@ -23,19 +23,22 @@ const rango = normalizarRango();
 
 // ── El rango ────────────────────────────────────────────────────────────────────
 
-test('la jornada por defecto NO se corta a las 19:00', () => {
-  // El pedido textual: "dame todos los horarios disponibles, no solo hasta las 7 PM".
-  assert.ok(HORA_HASTA_DEFECTO > 19, 'el tope de las 19 es exactamente lo que se rechazó');
+test('el dia entero: la grilla va de 00:00 a 23:45', () => {
+  // El pedido, textual y repetido dos veces: "No pongas limitacion, abrilo a 24 hs
+  // te lo habia dicho". Se habia recortado a 07:00-22:00 con el argumento de que la
+  // madrugada es ruido; el dueno lo rechazo. Este CRM atiende husos que no son el
+  // suyo, y una lista que no ofrece una hora vuelve IMPOSIBLE lo que era infrecuente.
+  assert.equal(HORA_DESDE_DEFECTO, 0);
+  assert.equal(HORA_HASTA_DEFECTO, 23);
   const g = construirGrilla(DIA, TZ, rango);
-  assert.ok(g.some((s) => s.hora === '20:00'), 'las 8 de la noche tienen que existir');
-  assert.equal(g[g.length - 1].hora, hhmm(HORA_HASTA_DEFECTO * 60));
-});
-
-test('la jornada tampoco arranca de madrugada: ofrecer las 3 AM es ruido', () => {
-  assert.ok(HORA_DESDE_DEFECTO >= 5 && HORA_DESDE_DEFECTO <= 9);
-  const g = construirGrilla(DIA, TZ, rango);
-  assert.equal(g[0].hora, hhmm(HORA_DESDE_DEFECTO * 60));
-  assert.ok(!g.some((s) => s.hora < hhmm(HORA_DESDE_DEFECTO * 60)));
+  assert.equal(g[0].hora, '00:00', 'el dia arranca a medianoche');
+  assert.equal(g[g.length - 1].hora, '23:45', 'y el ultimo cuarto tambien se puede agendar');
+  for (const h of ['03:00', '06:30', '20:00', '23:00']) {
+    assert.ok(g.some((s2) => s2.hora === h), `${h} tiene que existir`);
+  }
+  // 24 h con paso de 15' = 96 horarios. Lo que hace usable el desplegable no es
+  // recortarlo (ver ANCLA_DEFECTO y que los ocupados no se listan).
+  assert.equal(g.length, 96);
 });
 
 test('existen los cuartos de hora', () => {
@@ -83,7 +86,7 @@ test('normalizarRango sin nada devuelve los defaults del contrato', () => {
   const r = normalizarRango();
   assert.deepEqual(r, {
     desdeMin: HORA_DESDE_DEFECTO * 60,
-    hastaMin: HORA_HASTA_DEFECTO * 60,
+    hastaMin: HORA_HASTA_DEFECTO * 60 + MINUTO_HASTA_DEFECTO,
     pasoMin: PASO_MIN_DEFECTO,
     duracionMin: DURACION_DEFECTO_MIN,
     margenMin: MARGEN_MIN_DEFECTO,

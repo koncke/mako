@@ -575,7 +575,9 @@ export function SelectorHora({
         onMouseEnter={() => { if (i >= 0) setActivo(i); }}
         style={filaOpcion(act, sel)}
       >
-        <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none', width: 42 }}>{h}</span>
+        {/* UN solo formato. Cada fila mostraba "09:00" en mono Y "9:00 AM" al lado:
+            la columna de 24h era ruido y obligaba a leer dos veces lo mismo. Se
+            SIGUE aceptando 24h al escribir (18:15), pero mostrado hay uno solo. */}
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block' }}>{extraFila ? `Usar ${horaLegible(h)}` : horaLegible(h)}</span>
           {c && c.tipo === 'ocupado' && (
@@ -602,7 +604,9 @@ export function SelectorHora({
   const estado: { texto: string; tono: 'warn' | 'dim' } | null = (() => {
     if (cargando) return null;
     if (texto != null && consulta && !tipeadaHora) {
-      return { texto: `No entiendo «${consulta}». Probá 6:15, 18:15, 6:15 pm o «6 y cuarto».`, tono: 'warn' };
+      // Los ejemplos van en AM/PM, el único formato que la UI muestra. El parseo
+      // sigue aceptando 24h ("18:15") — no hace falta anunciarlo y mezclar formatos.
+      return { texto: `No entiendo «${consulta}». Probá 6:15 pm, 9 am o «6 y cuarto».`, tono: 'warn' };
     }
     // El ECO de lo entendido, con el choque incluido: la ambigüedad de "6:15" y el
     // "ese horario ya está tomado" se resuelven en la misma línea, mientras se

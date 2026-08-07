@@ -142,17 +142,21 @@ export function motivoLegible(status: number, crudo: string): string {
  * LA JORNADA OFRECIBLE. El tope de las 19:00 lo rechazó el dueño de frente ("dame
  * todos los horarios disponibles, no solo hasta las 7 PM"), pero el otro extremo
  * tampoco sirve: una grilla de 00:00 a 23:45 son 96 opciones y ofrecer las 3 de la
- * mañana es ruido que hace inusable el desplegable.
+ * mañana NO es ruido: es una hora que alguien puede necesitar.
  *
- * El criterio: 07:00–22:00 cubre el día entero de trabajo real —el que arranca
- * temprano, el que cierra de noche, y los husos vecinos, que es de donde salen las
- * llamadas raras— y deja afuera SOLO la franja donde no se agenda nunca. Lo que
- * recorta la lista de verdad no es este rango sino la agenda: los ocupados no se
- * muestran. Y si alguna vez hace falta una hora fuera de esto, el rango es
- * configurable por `opts` (y por query string en /api/crm/horarios).
+ * Se probó recortar a 07:00-22:00 con el argumento de que la madrugada no se agenda
+ * nunca. El dueño lo rechazó dos veces, y tiene razón: este CRM atiende husos que no
+ * son el suyo, y una lista que no ofrece una hora vuelve IMPOSIBLE lo que solo era
+ * infrecuente. El día entero, entonces — 00:00 a 23:45.
+ *
+ * Lo que hace usable un desplegable de 96 opciones no es recortarlo: es que abra en
+ * el ancla (ver ANCLA_DEFECTO), que los ocupados no se listen, y que se pueda
+ * escribir la hora en vez de scrollear.
  */
-export const HORA_DESDE_DEFECTO = 7;
-export const HORA_HASTA_DEFECTO = 22;
+export const HORA_DESDE_DEFECTO = 0;
+export const HORA_HASTA_DEFECTO = 23;
+/** Minuto tope del último horario del día: con paso de 15', 23:45. */
+export const MINUTO_HASTA_DEFECTO = 45;
 
 /**
  * El paso baja de 30 a 15 para que existan los cuartos de hora ("¿qué pasa si se
@@ -206,7 +210,9 @@ const acotar = (v: unknown, min: number, max: number, def: number): number => {
  */
 export function normalizarRango(o?: Partial<RangoGrilla> | null): RangoGrilla {
   const desdeMin = acotar(o?.desdeMin, 0, MIN_POR_DIA - 1, HORA_DESDE_DEFECTO * 60);
-  const hastaMin = acotar(o?.hastaMin, 0, MIN_POR_DIA - 1, HORA_HASTA_DEFECTO * 60);
+  // El tope por defecto es 23:45, no 23:00: con paso de 15' el ultimo cuarto del
+  // dia tambien es un horario agendable.
+  const hastaMin = acotar(o?.hastaMin, 0, MIN_POR_DIA - 1, HORA_HASTA_DEFECTO * 60 + MINUTO_HASTA_DEFECTO);
   return {
     desdeMin,
     // Un `hasta` por debajo del `desde` no vacía la grilla: deja exactamente un
