@@ -166,7 +166,63 @@ de carga con tests en archivos separados.
 
 ---
 
-## 5. Lo que quedó sin hacer
+## 5. Pushear no es desplegar
+
+**Síntoma:** el dueño abre el CRM y ve la versión vieja de una feature que se le
+reportó como terminada dos veces. Ni el selector de horas nuevo ni la búsqueda
+avanzada estaban en vivo, y las dos estaban en `origin/main`.
+
+**Causa real:** el build de Vercel fallaba desde hacía una hora, y producción seguía
+servida por el último build exitoso — de hacía tres. Vercel **no revierte ni avisa**:
+deja el deploy anterior en pie y el sitio funciona, con el código viejo.
+
+```
+./app/crm/actions.ts:65
+Export alinearEtapaVista doesn't exist in target module
+```
+
+`app/crm/actions.ts` se commiteó; `lib/etapa-historial.ts`, que define esa función,
+no. Y lo que hace que esto sea difícil de ver: **las tres redes de seguridad lo dejan
+pasar**, porque las tres miran el árbol de trabajo, donde el archivo SÍ está.
+
+| Red | Por qué no lo agarra |
+|---|---|
+| `npm run build` local | Compila el árbol de trabajo, con el archivo sin commitear ahí |
+| `npm test` | Ídem |
+| El hook `pre-push` (`tsc --noEmit`) | Ídem — chequea lo que tenés, no lo que subís |
+
+**Por qué se llegó a eso:** con varias sesiones en el mismo árbol hay que commitear
+archivo por archivo (`git add -A` se lleva el trabajo a medias de la otra sesión, ver
+§4). Al hacerlo a mano es fácil subir el que **importa** y dejarse el que **define**.
+
+**Las reglas que quedan:**
+
+1. **Verificá el deploy, no el push.** Un push no es una entrega:
+   ```bash
+   npx vercel ls --yes --scope mbustos-4239s-projects
+   ```
+   La primera fila tiene que decir `● Ready`. Si dice `● Error`, producción está
+   sirviendo código viejo AHORA MISMO. El log del build:
+   `npx vercel inspect <url> --logs --scope mbustos-4239s-projects`
+2. **Confirmá que lo desplegado te incluye.** Con sesiones paralelas, el deploy que
+   ves puede ser de la otra: `git merge-base --is-ancestor <tu-sha> origin/main`, y el
+   commit desplegado sale del log (`Cloning … Commit: <sha>`).
+3. **Antes de pushear, buscá los símbolos huérfanos**: exportaciones que existen en tu
+   árbol pero no en `origin/main`, y que ya usa código subido. Es el modo de falla
+   exacto de este incidente:
+   ```bash
+   git status --porcelain | grep -E "^( M|\?\?)" | awk '{print $2}' | grep -E "\.tsx?$"
+   # por cada uno: comparar sus `export` contra `git show origin/main:<archivo>`
+   ```
+
+**El diagnóstico obvio era el equivocado:** con la captura del dueño delante, todo
+apuntaba a que el código estaba mal o se había perdido en un merge. Estaba bien y
+estaba pusheado. Antes de volver a escribir una feature que "no aparece",
+**comprobá que lo que el usuario mira es lo que vos escribiste**.
+
+---
+
+## 6. Lo que quedó sin hacer
 
 | Qué | Dónde | Por qué |
 |---|---|---|
