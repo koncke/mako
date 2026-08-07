@@ -73,8 +73,11 @@ type Tema = 'oscuro' | 'claro';
  * El hover y el foco NO están acá: viven en `.mk-navrow` (ui.css), porque un
  * `style` en línea no los tiene. Sin ellos la barra no se siente navegable.
  */
-function filaStyle(activo: boolean, expandido: boolean, tema: Tema = 'oscuro'): CSSProperties {
-  const claro = tema === 'claro';
+function filaStyle(expandido: boolean): CSSProperties {
+  // Solo GEOMETRÍA. El color, el fondo, el peso y el indicador del activo viven
+  // en `.mk-navrow` (ui.css) porque un estilo en línea le gana a cualquier regla
+  // de hoja: mientras acá decía `background: transparent`, el `:hover` de la
+  // clase no se veía nunca y las tabs parecían muertas.
   return {
     display: 'flex', alignItems: 'center', gap: 11, width: '100%',
     justifyContent: expandido ? 'flex-start' : 'center',
@@ -83,21 +86,15 @@ function filaStyle(activo: boolean, expandido: boolean, tema: Tema = 'oscuro'): 
     border: 'none', cursor: 'pointer',
     fontFamily: 'inherit', textAlign: 'left', textDecoration: 'none',
     fontSize: 'var(--fs-sm)',
-    color: claro ? (activo ? 'var(--ink)' : 'var(--dim)') : (activo ? 'var(--on-sidebar)' : 'var(--sidebar-text)'),
-    fontWeight: activo ? 600 : 500,
     whiteSpace: 'nowrap', overflow: 'hidden',
-    background: activo ? (claro ? 'var(--primary-bg)' : 'var(--sidebar-2)') : 'transparent',
-    // El indicador lateral es una de las tres señales del activo. Sobre claro no
-    // hace falta: ahí el fondo azul ya lo dice sin competir con el texto.
-    ...(activo && !claro ? { boxShadow: 'inset 3px 0 0 var(--on-sidebar)' } : {}),
   };
 }
 
 function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onClick }: {
   item: NavItem; active: boolean; expanded: boolean; tema?: Tema; size?: number; badge?: number; onClick?: () => void;
 }) {
-  const base = filaStyle(active, expanded, tema);
-  const cls = `mk-navrow${tema === 'claro' ? ' mk-navrow--claro' : ''}`;
+  const base = filaStyle(expanded);
+  const cls = `mk-navrow${tema === 'claro' ? ' mk-navrow--claro' : ''}${active ? ' is-activo' : ''}`;
   const content = (
     <>
       <span style={{ position: 'relative', display: 'flex', flex: 'none' }}>
@@ -111,7 +108,7 @@ function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onC
       )}
     </>
   );
-  const props = { className: cls, 'data-activo': active, style: base, title: expanded ? undefined : item.label };
+  const props = { className: cls, style: base, title: expanded ? undefined : item.label };
   if (item.entrarComoDueno) return <button type="button" onClick={onClick} {...props}>{content}</button>;
   if (item.newTab) return <a href={item.href} target="_blank" rel="noopener noreferrer" onClick={onClick} {...props}>{content}</a>;
   return <Link href={item.href} onClick={onClick} {...props}>{content}</Link>;
@@ -126,13 +123,14 @@ function GrupoFila({ g, open, pathname, abierto, onAbrir, onCerrar }: {
   onAbrir: (key: string, el: HTMLElement, largo: number) => void; onCerrar: () => void;
 }) {
   const activo = g.items.some((i) => i.match(pathname));
+  const cls = `mk-navrow${activo ? ' is-activo' : abierto ? ' is-abierto' : ''}`;
   return (
-    <button type="button" className="mk-navrow" data-activo={activo}
+    <button type="button" className={cls}
       onClick={(e) => onAbrir(g.key, e.currentTarget, g.items.length)}
       onMouseEnter={(e) => onAbrir(g.key, e.currentTarget, g.items.length)}
       onMouseLeave={onCerrar}
       title={open ? undefined : g.label}
-      style={{ ...filaStyle(activo, open), ...(abierto && !activo ? { background: 'var(--sidebar-2)' } : {}) }}>
+      style={filaStyle(open)}>
       <span style={{ display: 'flex', flex: 'none', color: 'inherit' }}>
         <Icon name={g.icon} size={open ? ICO : ICO_HIJO} />
       </span>
@@ -176,14 +174,16 @@ function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, con
         title={open ? undefined : `${f.label} · ${f.pregunta}`}
         aria-expanded={abiertaEsta}
         style={{
-          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+          display: 'flex', alignItems: 'center', gap: 9, width: '100%',
           justifyContent: open ? 'flex-start' : 'center',
-          padding: open ? '0 4px 8px' : '0 0 8px',
+          padding: open ? '0 2px 7px' : '0 0 7px',
           border: 'none', background: 'transparent', cursor: 'pointer',
-          fontFamily: MONO, fontSize: 11.5, letterSpacing: '.16em',
+          fontFamily: MONO, fontSize: 12, letterSpacing: '.17em',
           textTransform: 'uppercase', fontWeight: 700,
-          color: activa ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
-          opacity: activa ? 1 : 0.6,
+          // El rótulo va CLARO y las tabs tenues: al revés de lo que tenía
+          // antes. Es el título de lo que viene abajo, no una fila apagada.
+          color: 'var(--on-sidebar)',
+          opacity: activa ? 1 : 0.78,
         }}>
         <span style={{ position: 'relative', display: 'flex', flex: 'none', color: 'inherit' }}>
           <Icon name={f.icon} size={open ? 15 : 17} />
@@ -202,11 +202,16 @@ function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, con
         // Y las tabs van ADENTRO de una caja. El rótulo afuera + la caja adentro
         // es lo que hace que se lean como dos cosas distintas sin depender del
         // tamaño del texto ni del color, que era lo que se confundía.
+        // La caja tiene que VERSE. El 3,5% de blanco de antes era invisible
+        // sobre el #14161B de la barra, así que el «englobar» no se leía. Con
+        // fondo al 6% y un borde al 8% el bloque existe, y el rótulo de arriba
+        // queda claramente afuera de él.
         <div style={{
           display: 'flex', flexDirection: 'column',
-          background: 'rgba(255,255,255,.035)',
+          background: 'rgba(255,255,255,.06)',
+          border: '1px solid rgba(255,255,255,.08)',
           borderRadius: 'var(--r-lg)',
-          padding: open ? '5px 5px' : '5px 3px',
+          padding: open ? 5 : '5px 3px',
         }}>
           {f.bloques.map((bloque, i) => (
             // Los bloques de adentro de una familia se separan con una línea:

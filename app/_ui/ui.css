@@ -376,10 +376,31 @@
    fila entera sea el objetivo. `data-activo` está para que el hover NO pise el
    fondo del item abierto (si no, pasar el cursor por al lado hace parecer que
    cambiaste de sección). */
-.mk-navrow { transition: background .13s ease, color .13s ease; }
-.mk-navrow:hover { background: rgba(255, 255, 255, .07); color: var(--on-sidebar); }
+/* ⚠️ EL COLOR Y EL FONDO DE ESTAS FILAS VIVEN ACÁ, NO EN UN `style` EN LÍNEA.
+   No es preferencia: un estilo en línea le gana a cualquier regla de hoja sin
+   !important, así que mientras el componente escribía `background:transparent`
+   inline, este :hover no se veía NUNCA. Las tabs parecían muertas y las
+   secciones no, y la única diferencia era que el hover de la sección cambiaba
+   `opacity` con !important. Si volvés a poner un color acá desde el componente,
+   rompés el hover otra vez. */
+.mk-navrow {
+  color: var(--sidebar-text);
+  background: transparent;
+  font-weight: 500;
+  transition: background .13s ease, color .13s ease;
+}
+.mk-navrow:hover { background: rgba(255, 255, 255, .085); color: var(--on-sidebar); }
 .mk-navrow:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); }
-.mk-navrow[data-activo='true']:hover { background: var(--sidebar-2); }
+.mk-navrow.is-activo {
+  color: var(--on-sidebar);
+  background: var(--sidebar-2);
+  box-shadow: inset 3px 0 0 var(--on-sidebar);
+  font-weight: 600;
+}
+.mk-navrow.is-activo:hover { background: var(--sidebar-2); }
+/* Un grupo con su desplegable abierto se marca, pero SIN el indicador lateral:
+   no estás en él, lo estás mirando. */
+.mk-navrow.is-abierto { background: var(--sidebar-2); color: var(--on-sidebar); }
 
 /* El rótulo de una SECCIÓN. A propósito NO tiene fondo, ni en reposo ni al
    pasar el cursor: una franja clara con texto es exactamente lo que hace una
@@ -404,11 +425,12 @@
 
 /* Las mismas filas sobre superficie CLARA: los desplegables (perfil, Chats,
    Analysts, Writers) son blancos como el resto de los menús de la app. Un menú
-   oscuro flotando sobre el contenido claro se leía como parte de la barra. */
-.mk-navrow--claro { color: var(--dim); }
+   oscuro flotando sobre el contenido claro se leía como parte de la barra.
+   Van DESPUÉS a propósito: misma especificidad, gana la última. */
+.mk-navrow--claro { color: var(--dim); background: transparent; }
 .mk-navrow--claro:hover { background: var(--surface-2); color: var(--ink); }
-.mk-navrow--claro[data-activo='true'] { color: var(--ink); background: var(--primary-bg); }
-.mk-navrow--claro[data-activo='true']:hover { background: var(--primary-bg); }
+.mk-navrow--claro.is-activo { color: var(--ink); background: var(--primary-bg); box-shadow: none; }
+.mk-navrow--claro.is-activo:hover { background: var(--primary-bg); }
 .mk-navrow--claro:focus-visible { box-shadow: inset 0 0 0 2px var(--primary); }
 
 /* Salir es la única acción destructiva del menú del perfil, y va en rojo: es la
@@ -436,3 +458,4 @@
   .mk-row--stack { flex-direction: column; align-items: stretch; }
   .mk-row--stack > .mk-btn { width: 100%; }
 }
+

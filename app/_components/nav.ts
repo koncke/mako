@@ -85,7 +85,7 @@ export type NavBloque = NavItem[];
  * tiene badge.
  */
 export type NavFamilia = {
-  key: 'operate' | 'analyze' | 'create';
+  key: 'operate' | 'analyze' | 'create' | 'content';
   label: string;
   /** La pregunta que responde. Se muestra como tooltip del rail. */
   pregunta: string;
@@ -184,18 +184,53 @@ export const FAMILIAS: NavFamilia[] = [
         // Las keys NO cambiaron (están escritas en la base: capas y estado del
         // onboarding por tab). Lo que cambió es el nombre y la RUTA, para que
         // digan lo mismo. Las rutas viejas redirigen.
-        //
-        // ⚠️ Content Machine es la excepción: sigue apuntando a /ads-writer
-        // porque ese módulo se está reescribiendo AHORA en otra sesión (están
-        // sacando el generador de copy suelto y dejando la fábrica de guiones),
-        // y su propio código ya dice que el destino es /content-machine. Mover
-        // la carpeta desde acá les arrancaba los archivos que están editando.
-        // Cuando esa reescritura aterrice, esto es cambiar el `href`.
-        { key: 'ads-writer', label: 'Content Machine', href: '/ads-writer', icon: 'creativos', match: (p) => starts('/content-machine')(p) || starts('/ads-writer')(p) },
         { key: 'setting', label: 'Chat Bot', href: '/chat-bot', icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts('/chat-bot')(p) || starts('/chat-agent')(p) },
         { key: 'landing-writer', label: 'Landing Generator', href: '/landing-generator', icon: 'web', match: (p) => starts('/landing-generator')(p) || starts('/landing-writer')(p) },
         { key: 'vsl-writer', label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
       ],
+    ],
+  },
+  {
+    // La fábrica de piezas. Es familia propia y no un item de Create porque no
+    // es UNA herramienta: es un taller con secciones por canal, y cada canal
+    // tiene sus formatos. Metida adentro de Create habría sido una fila con
+    // ocho cosas colgando.
+    key: 'content',
+    label: 'Content Machine',
+    pregunta: '¿Qué pieza necesito hacer?',
+    icon: 'creativos',
+    bloques: [
+      // Antes de la pieza está de qué hablar. Por eso Ideas va suelto arriba y
+      // no adentro de un canal: no es de Meta ni de Instagram ni de YouTube.
+      [{ key: 'ideas', label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') }],
+    ],
+    grupos: [
+      {
+        // ⚠️ «Ads Writer» sigue apuntando a /ads-writer: ese módulo se está
+        // reescribiendo AHORA en otra sesión y su propio código ya declara
+        // /content-machine como destino. Cuando aterrice, esto es cambiar el href.
+        key: 'ads', label: 'Ads', icon: 'meta',
+        items: [
+          { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
+          { key: 'image-generator', label: 'Image Generator', href: '/image-generator', icon: 'creativos', comingSoon: true, match: starts('/image-generator') },
+          { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'video', comingSoon: true, match: starts('/video-generator') },
+        ],
+      },
+      {
+        key: 'ig-formatos', label: 'Instagram', icon: 'instagram',
+        items: [
+          { key: 'reels', label: 'Reels', href: '/reels', icon: 'video', comingSoon: true, match: starts('/reels') },
+          { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'grid', comingSoon: true, match: starts('/carousels') },
+          { key: 'stories', label: 'Stories', href: '/stories', icon: 'instagram', comingSoon: true, match: starts('/stories') },
+        ],
+      },
+      {
+        key: 'yt-formatos', label: 'YouTube', icon: 'youtube',
+        items: [
+          { key: 'youtube-writer', label: 'YouTube Writer', href: '/youtube-writer', icon: 'pen', comingSoon: true, match: starts('/youtube-writer') },
+          { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'creativos', comingSoon: true, match: starts('/thumbnails') },
+        ],
+      },
     ],
   },
 ];
