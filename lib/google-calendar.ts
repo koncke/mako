@@ -18,6 +18,9 @@ import { cifrarSecreto, descifrarSecreto } from './credenciales';
 import { getSetting, setSetting } from './settings';
 import { esTzValida, TZ_DEFAULT, tzDeWorkspace } from './timezone';
 import { getWorkspaceActual } from './workspace';
+// La traducción de los fallos de Google vive en el módulo puro del contrato de
+// horarios (testeable: este archivo es server-only y no se puede importar en tests).
+import { motivoLegible } from '../app/crm/horarios-respuesta';
 
 export const GCAL_SCOPE_LECTURA = 'https://www.googleapis.com/auth/calendar.readonly';
 /**
@@ -816,7 +819,11 @@ export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHor
           ? 'El permiso de Google no alcanza para leer tu agenda: reconectala desde Integraciones.'
           : f.motivo);
       }
-      return falla('api', f.motivo);
+      // El texto de Google NUNCA va a pantalla: son párrafos en inglés con el id
+      // del proyecto y una URL de la consola de desarrolladores. El usuario del CRM
+      // no puede hacer nada con eso; el dueño sí, pero desde Integraciones.
+      console.error(`[google-calendar] freeBusy ${res.status}: ${f.motivo}`);
+      return falla('api', motivoLegible(res.status, f.motivo));
     }
 
     const j = (await res.json()) as {

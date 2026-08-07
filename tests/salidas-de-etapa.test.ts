@@ -152,3 +152,34 @@ test('el motivo se exige por DESTINO, y la nutrición de No Show no lo pide', ()
   assert.equal(pideMotivo('descal'), true);
   assert.equal(pideMotivo('noresp'), false, 'No responde no pide motivo server-side');
 });
+
+// El dueño: "también debes poner los casos de que se ganó directamente o
+// facturando". El funnel solo modela el camino de a un paso (agenda → agendaj2 →
+// facturando), así que cerrar EN la R1 no se podía elegir y había que mover el
+// lead dos veces inventando una R2 que nunca existió.
+test('cerró en la R1: se ofrecen las etapas de cierre salteando la R2', () => {
+  const r = salidasDeEtapa(DEFAULT_STAGES, DEFAULT_TRANSITIONS, 'agenda', { asistio: true, cual: 'r1' });
+  const keys = r.map((o) => o.to);
+  assert.ok(keys.includes('agendaj2'), 'el camino normal sigue estando');
+  assert.ok(keys.includes('facturando'), 'cerró y pasa a facturar, sin R2');
+  assert.ok(keys.includes('ganado'), 'cerró y pagó en la misma reunión');
+  // Van agrupadas con los avances, antes de las negativas.
+  assert.equal(r.find((o) => o.to === 'ganado')?.category, 'avanza');
+});
+
+test('sin asistencia NO se puede cerrar una venta', () => {
+  // No se cierra un trato en una reunión que nadie tuvo: si el destino apareciera,
+  // el lead quedaría en Ganado con `asistio_j1 = false`.
+  const keys = salidasDeEtapa(DEFAULT_STAGES, DEFAULT_TRANSITIONS, 'agenda', { asistio: false, cual: 'r1' }).map((o) => o.to);
+  assert.ok(!keys.includes('ganado'));
+  assert.ok(!keys.includes('facturando'));
+});
+
+test('desde la R2 las etapas de cierre no se duplican', () => {
+  // 'facturando' y 'ganado' ya tienen transición propia desde agendaj2: el agregado
+  // de cierre directo no puede volver a empujarlas con otro sub.
+  const r = salidasDeEtapa(DEFAULT_STAGES, DEFAULT_TRANSITIONS, 'agendaj2', { asistio: true, cual: 'r2' });
+  for (const k of ['facturando', 'ganado']) {
+    assert.equal(r.filter((o) => o.to === k).length, 1, `${k} aparece una sola vez`);
+  }
+});

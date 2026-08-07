@@ -9,7 +9,7 @@
 // Correr: npm test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { leerRespuestaHorarios, AVISO_SIN_AGENDA } from '../app/crm/horarios-respuesta';
+import { leerRespuestaHorarios, motivoLegible, AVISO_SIN_AGENDA } from '../app/crm/horarios-respuesta';
 
 const slot = (hora: string) => ({ hora, inicioIso: `2026-08-10T${hora}:00.000Z`, libre: true });
 
@@ -38,12 +38,18 @@ test('slots vacío NO es "no se sabe": se devuelve la lista vacía, no null', ()
   assert.notEqual(r.slots, null);
 });
 
-test('fallo de Google: la grilla llega igual y el aviso lo explica', () => {
+test('fallo de Google: la grilla NO se da por verificada, y el aviso lo explica', () => {
+  // Antes esto devolvía los slots del server tal cual. Parecía inofensivo —"perder
+  // la ayuda no puede impedir reagendar"— pero esos slots vienen TODOS en
+  // `libre: true`, así que la pantalla los pintaba como agenda verificada y el sub
+  // prometía "los ocupados se ven tachados" sobre una agenda que nunca se leyó.
+  // Con null se sigue pudiendo elegir la hora (SelectorHora arma su propia grilla),
+  // pero sin afirmar nada sobre la disponibilidad.
   const r = leerRespuestaHorarios({
     ok: true, codigo: 'api', tz: 'America/Tijuana', slots: [slot('09:00')],
     motivo: 'No pude leer tu agenda (notFound): los horarios de abajo no están verificados.',
   });
-  assert.equal(r.slots?.length, 1, 'perder la ayuda no puede impedir reagendar');
+  assert.equal(r.slots, null, 'sin verificar no se presenta como grilla real');
   assert.match(r.nota, /no están verificados/);
 });
 
@@ -68,4 +74,35 @@ test('respuesta rota o vacía no explota', () => {
     assert.equal(r.slots, null);
     assert.equal(r.nota, AVISO_SIN_AGENDA);
   }
+});
+
+// La captura de producción: la API de Calendar no estaba habilitada en el proyecto
+// de Google Cloud y el párrafo en inglés de Google, con el id del proyecto y un link
+// a la consola de desarrolladores, se imprimió arriba de la grilla de horarios.
+test('el parrafo crudo de Google no llega nunca a la pantalla', () => {
+  const crudo = 'Google Calendar API has not been used in project 118392241323 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project=118392241323 then retry.';
+  const m = motivoLegible(403, crudo);
+  assert.ok(!m.includes('118392241323'), 'no puede filtrar el id del proyecto');
+  assert.ok(!m.includes('console.developers.google.com'), 'no puede filtrar la URL de la consola');
+  assert.ok(m.includes('habilitar la API de Google Calendar'), 'tiene que decir qué falta hacer');
+});
+
+test('con un codigo de error la grilla NO se da por verificada', () => {
+  // El server manda la grilla igual (todos libre:true) para que el paso sea usable.
+  // Leerla como verificada es lo que prometía "los ocupados se ven tachados" sobre
+  // una agenda que nunca se pudo leer.
+  const r = leerRespuestaHorarios({
+    ok: true, codigo: 'api', motivo: 'No pude leer tu agenda.', tz: 'America/Tijuana',
+    slots: [{ hora: '09:00', inicioIso: '2026-08-07T16:00:00.000Z', libre: true }],
+  });
+  assert.equal(r.slots, null, 'sin verificar = null, no una grilla de libres');
+  assert.equal(r.nota, 'No pude leer tu agenda.');
+});
+
+test('sin conexion con Google tampoco se dan slots verificados', () => {
+  const r = leerRespuestaHorarios({
+    ok: true, codigo: 'sin-conexion', motivo: 'No hay una agenda de Google conectada a este espacio.',
+    slots: [{ hora: '09:00', inicioIso: '2026-08-07T16:00:00.000Z', libre: true }],
+  });
+  assert.equal(r.slots, null);
 });

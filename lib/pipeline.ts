@@ -215,6 +215,25 @@ export function salidasDeEtapa(
     vistos.add(t.to);
     out.push({ to: t.to, label: meta.label, sub: t.label, category: t.category, ...flags });
   }
+  // ── Cierre directo: cerró en esta misma reunión, sin la siguiente ──
+  // El funnel solo modela el camino de a un paso (agenda → agendaj2 → facturando),
+  // así que "cerró en la R1" no era ofrecible y el usuario tenía que mover el lead
+  // dos veces inventando una R2 que nunca existió. Se agregan las etapas de Activo
+  // que están MÁS DE UN PASO adelante: son, por definición, las que se saltean una
+  // reunión. Solo con asistencia declarada — no se cierra una venta en una reunión
+  // que no ocurrió. El motivo de por qué no hubo R2 lo pide el server después
+  // (StageMoveDialog: huboR2 → motivoNoR2), que es donde ya vive esa pregunta.
+  if (asistio === true) {
+    const colFrom = colDe(from);
+    for (const s of stages) {
+      if ((s.band ?? 'pipeline') !== 'pipeline') continue;
+      if ((s.col ?? 0) <= colFrom + 1) continue;
+      if (vistos.has(s.key) || s.key === from) continue;
+      vistos.add(s.key);
+      out.push({ to: s.key, label: s.label, sub: 'Cerró en esta reunión, sin la siguiente', category: 'avanza', ...flags });
+    }
+  }
+
   if (out.length) {
     out.sort((a, b) => ORDEN_CATEGORIA[a.category] - ORDEN_CATEGORIA[b.category] || colDe(a.to) - colDe(b.to));
     return out;
