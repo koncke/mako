@@ -854,6 +854,42 @@ jugadas duplicadas sin que nadie haya tocado nada.
 
 ## Build, deploy y entrega
 
+### ⚠️ El otro «pushear no es desplegar»: el build nunca ARRANCA
+
+**Síntoma:** el dueño no ve los cambios en la app. El commit está en `origin/main`, el
+`pre-push` pasó, no hay ningún build fallado — y el deploy más nuevo de Vercel tiene dos
+horas. No es que el build falló: **no existe**.
+
+**Causa:** el webhook de GitHub → Vercel dejó de disparar, en silencio. Media hora antes
+había funcionado dos veces seguidas. No hay error en ningún lado porque no hubo intento:
+`vercel ls` simplemente no lista nada nuevo.
+
+**Cómo se distingue del otro caso** (el de acá abajo, donde el build sí corre y falla):
+mirá la EDAD del deploy más nuevo, no su estado. `● Ready` de hace dos horas con un push
+de hace diez minutos es este problema. `● Error` es el otro.
+
+**Qué lo destraba:** un commit vacío. Si el enganche solo se trabó, vuelve a disparar.
+
+```bash
+git commit --allow-empty -m "Redisparar el deploy" && git push origin main
+```
+
+**Regla:** después de pushear, no alcanza con ver `● Ready` — hay que confirmar que ese
+deploy sea **el tuyo**. La prueba definitiva es el commit del log de clonado:
+
+```bash
+npx vercel inspect <url> --logs --scope mbustos-4239s-projects | grep Cloning
+# → Cloning github.com/… (Branch: main, Commit: ed5c587)
+```
+
+Y no sirve probar desde afuera si una ruta nueva «existe»: `proxy.ts` gatea **antes** de
+rutear, así que `/admin/dev/onboarding` y `/ruta-inventada-xyz` devuelven los dos un 307 a
+`/login`. El código de respuesta no dice nada sobre si la ruta está en el build.
+
+**Vive en:** el enganche de GitHub del proyecto `dashboard-marketing` (scope
+`mbustos-4239s-projects`) · `proxy.ts` (la lista `PUBLICOS`) · *2026-08-07, sesión de la
+tab de documentación*
+
 ### ⚠️ Pushear no es desplegar: el build falla y producción sigue sirviendo la versión vieja
 
 **Síntoma:** el dueño abre el CRM y ve la versión vieja de una feature que se le reportó como
