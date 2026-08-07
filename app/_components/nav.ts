@@ -269,7 +269,7 @@ export const MAKO_NAV: NavItem[] = [
 // visualmente cuando el usuario está operando un negocio».
 export const ADMIN_NAV: NavItem[] = [
   // /admin/guiones tiene su propio item — que "Clientes" no se marque también.
-  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) },
+  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/docs')(p) },
   { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
   // Canal propio de MaKo (SuperAdmin): WhatsApp del admin (canal + chat de grupos
   // + plantillas). NO es preview de ningún cliente. Su propia línea por QR.
@@ -286,6 +286,9 @@ export const ADMIN_NAV: NavItem[] = [
   { key: 'ui', label: 'Sistema de diseño', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
   // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
   { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
+  // AGENTS.md + docs/*.md renderizados desde el REPO, no copiados: la fuente
+  // única sigue siendo el archivo. Herramienta de construcción, no producto.
+  { key: 'docs', label: 'Documentación', href: '/admin/docs', icon: 'contexto', match: starts('/admin/docs') },
 ];
 
 /**

@@ -21,6 +21,17 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // /admin/docs renderiza los .md del repo (AGENTS.md + docs/*.md) en vez de
+  // tener una copia propia. Para que la función serverless los encuentre, los
+  // archivos tienen que viajar en SU bundle: el tracing automático solo sigue
+  // imports, y un readFileSync no es un import.
+  //
+  // Sin esto la pantalla anda en local y aparece vacía en producción, que es
+  // justo lo que le pasa a /api/admin/graph. Si alguna vez se agrega un .md a
+  // docs/, entra solo: el patrón es un glob.
+  outputFileTracingIncludes: {
+    '/admin/docs': ['./docs/**/*.md', './AGENTS.md'],
+  },
   experimental: {
     // El middleware (proxy) bufferea el body con tope 10MB por defecto y, si se
     // pasa, TRUNCA el archivo en silencio (no falla) → un adjunto >10MB llegaría

@@ -143,3 +143,21 @@ Qué va ahí:
 Una entrada por tema, se integra sin duplicar, se lee en 5 minutos. Si la lección
 gobierna código nuevo (no es un hallazgo sino una regla), va acá en `AGENTS.md`, que
 es lo que todos leen antes de escribir.
+
+## Y para leerlos: grepeá la ruta, no abras el documento
+
+**Antes de tocar un archivo, `Grep` su ruta en `docs/`.** Cada hallazgo trae adentro
+la línea `**Vive en:** <archivo>`, así que buscar `lib/nutricion.ts` te lleva directo a
+los tres que importan.
+
+No es una preferencia de estilo, es plata: `docs/hallazgos-comunicacion.md` pasó las 500
+líneas y abrirlo entero para encontrar una cosa son ~17.000 tokens, multiplicados por
+cada vez que se abre el documento equivocado. Grepear la ruta cuesta dos órdenes de
+magnitud menos y no falla por elegir mal el área.
+
+Por la misma razón **no existe un índice inverso**: sería un segundo lugar donde vive el
+mismo dato, y se quedaría viejo. La ruta ya está adentro de cada entrada — `Grep` **es**
+el índice.
+
+Los mismos documentos se leen con los ojos en `/admin/docs`, que los renderiza desde el
+repo (no tiene copia propia, por la regla de arriba).
