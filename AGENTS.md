@@ -39,6 +39,29 @@ Reglas para cualquier agente que trabaje acá:
 ⚠️ El hook hace DOS chequeos: los tipos y que las skills tengan el contrato del `detalle`
 al día (`node scripts/sync-contrato-detalle.mjs --check`). Si lo recreás, poné los dos.
 
+# Hay dos cuentas de Claude trabajando sobre este repo
+
+No estás solo en este clon. Hay **dos cuentas** (`claude1` / `claude2` en el `$PROFILE`)
+con cuotas desfasadas: una corre miércoles a viernes, la otra sábado a martes. En
+principio no coinciden, pero pueden.
+
+Reglas que salen de eso:
+
+- **Antes de tocar nada, `git status`.** Si hay archivos modificados que no son tuyos,
+  son de la otra sesión: dejalos donde están.
+- **Nunca `git add -A`.** Commiteá por ruta explícita. El día que coincidan, `add -A` se
+  lleva el trabajo a medias de la otra sesión adentro de tu commit y nadie se entera
+  hasta que rompe.
+- **La sesión que cierra deja escrito dónde quedó** — en `docs/hallazgos-<área>.md`, en
+  el board `/plan` o en una memoria. Si la cuota corta a mitad de camino, eso es lo único
+  que sobrevive.
+- **Dos sesiones no editan la misma skill ni el mismo prompt a la vez.** Se pisan igual
+  que el código, pero el efecto aparece días después y en otro lado.
+
+El protocolo completo —qué comparten las dos cuentas y qué no, cuándo usar worktrees y
+las tres cosas que hay que recrear a mano en uno— está en
+[docs/dos-cuentas.md](docs/dos-cuentas.md).
+
 # Una cosa, un lugar
 
 Lo que gobierna a la IA —contratos, catálogos, criterios— vive en UN módulo y todos lo

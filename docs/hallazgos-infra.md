@@ -164,6 +164,29 @@ de carga con tests en archivos separados.
   siguiente, cinco frentes cerrados seguían abiertos. Un `.md` no es código: el conflicto
   se resuelve leyendo. **Si sos el que cierra, cerrá también el documento.**
 
+### Separar las cuentas por `CLAUDE_CONFIG_DIR` también separa la memoria
+
+Para tener cuota los 7 días hay **dos cuentas** de Claude Code sobre este clon, aisladas
+con `CLAUDE_CONFIG_DIR` (`~\.claude` y `~\.claude-martin`). El protocolo completo está en
+[dos-cuentas.md](dos-cuentas.md); acá va solo la trampa.
+
+**El diagnóstico obvio era el equivocado.** La documentación del esquema decía que los
+directorios separados aíslan la sesión pero no los settings del proyecto, «que es lo que
+querés». Es cierto y es la mitad: **las 159 memorias viven DENTRO del config dir**
+(`<config>\projects\<clave>\memory\`), igual que el `CLAUDE.md` global. La cuenta nueva no
+arranca con menos permisos: arranca **ciega**, sin nada de lo aprendido, y no hay ningún
+error que lo indique — simplemente no sabe.
+
+Lo que sí comparten las dos es todo lo **versionado**: `AGENTS.md`, `docs/`, las skills de
+`.claude/skills`. Por eso el canal de traspaso entre cuentas son estos documentos, no las
+memorias.
+
+Se resolvió con **junctions de NTFS**, no con copias: `mklink /J` desde cada ruta a la
+carpeta real. Una copia se bifurca en silencio y en dos semanas hay dos verdades. Ojo con
+un detalle que multiplica las rutas: la clave de proyecto sale del **cwd**, así que abrir
+la sesión desde la carpeta padre o desde el repo genera dos claves distintas y cada una
+busca su propia `memory/`.
+
 ---
 
 ## 5. Pushear no es desplegar

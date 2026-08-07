@@ -22,6 +22,14 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 | Landing / VSL | [hallazgos-landing.md](hallazgos-landing.md) | `landing-analyst`, `landing_visits` y `vsl_events` |
 | Aislamiento | [auditoria-aislamiento-workspace.md](auditoria-aislamiento-workspace.md) | Multi-inquilino: qué se scopea por workspace y qué no |
 
+Dos documentos de esta carpeta **no son hallazgos** sino contexto de arranque, y se leen
+antes que todo lo demás:
+
+| Documento | Para qué |
+|---|---|
+| [mapa-del-proyecto.md](mapa-del-proyecto.md) | Qué es MaKo, cómo está armado y en qué estado está cada pieza. Lo que una sesión nueva necesita saber y no está en el código |
+| [dos-cuentas.md](dos-cuentas.md) | El protocolo de las dos cuentas de Claude sobre este clon: qué comparten, los dos modos de trabajo y el traspaso |
+
 Documentos que todavía no existen y hay que crear cuando aparezca el primer hallazgo:
 `hallazgos-plan.md` (board, Perro Guardián, reuniones), `hallazgos-email.md` si lo de
 Resend crece lo suficiente como para salir de `hallazgos-comunicacion.md`.
