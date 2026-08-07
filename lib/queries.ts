@@ -25,6 +25,8 @@ import {
 import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
 import { adjuntarFathomAutoThrottled } from './fathom-auto';
 import { registrarEtapasDerivadas } from './etapa-historial';
+import { etapaVigenteDe, slotDeReunion } from './funnel-etapas';
+import { leerTodo } from './supabase-paginado';
 
 export type MarketingWindow = {
   // Rango
@@ -1990,13 +1992,16 @@ export type PendienteItem = {
   faltantes: Step[];
   /**
    * Solo tipo 'R': CUÁL de las dos reuniones es la que ya pasó. Viaja desde acá
-   * porque es el server el que la decidió (mirando `pipeline_stage`). El board lo
-   * re-derivaba de su etapa local, que un drag optimista o un movimiento previo
-   * ya pudieron cambiar — y entonces reagendar pisaba la R1 en vez de la R2.
+   * porque es el server el que la decidió — y lo hace ubicando la etapa del lead
+   * entre las reuniones del funnel del workspace (lib/funnel-etapas), no por el
+   * nombre de la etapa. El board lo re-derivaba de su etapa local, que un drag
+   * optimista o un movimiento previo ya pudieron cambiar — y entonces reagendar
+   * pisaba la R1 en vez de la R2.
    */
   cual?: 'r1' | 'r2';
   /**
-   * La etapa REAL del lead cuando se calculó el pendiente (`pipeline_stage`).
+   * La etapa EFECTIVA del lead cuando se calculó el pendiente: el override
+   * (`pipeline_stage`) si sigue existiendo en el funnel, y si no la derivada.
    * Viaja por la misma razón que `cual`: el board la re-derivaba de su estado
    * optimista (`effStage`), así que un drag sin refrescar hacía que el wizard
    * ofreciera los desenlaces de una etapa en la que el lead todavía no está.
@@ -2008,6 +2013,13 @@ export type Pendientes = {
   items: PendienteItem[];
   total: number;
   porTipo: { A: number; B: number; C: number; M: number; R: number };
+  /**
+   * Qué NO se pudo leer al armar la lista ('' = se leyó todo). Existe porque el
+   * peor estado de esta pantalla no es una fila mal redactada: es la lista vacía
+   * con el ✓ verde de "todo al día" cuando en realidad falló una lectura. Si viene
+   * con texto, la UI tiene que decirlo en vez de afirmar que no hay nada que hacer.
+   */
+  aviso?: string;
 };
 
 function fmtFechaPendiente(yyyy_mm_dd: string): string {
@@ -2029,10 +2041,50 @@ function diasEntreISO(a: string, b: string): number {
 }
 
 /**
+ * Columnas que consume ESTA pasada, y solo esas. Antes era select('*'): ~60
+ * columnas por lead (payloads crudos de Meta, cobranza, contratos, los jsonb de
+ * Deal Details) traídas enteras en cada carga de /crm y /general para leer 30.
+ *
+ * OJO: si le agregás un campo del lead a faltantesDeLead (lib/leads.ts) o a
+ * StageDerivable, sumalo acá. No hay error si falta: llega `undefined` y el
+ * requisito se evalúa contra un dato que no existe — exactamente el tipo de
+ * falla silenciosa que esta función tiene que evitar.
+ */
+const PENDIENTES_COLS =
+  // Identidad + etapa (deriveStageKey / etapa-historial)
+  'id, nombre, estado_lead, pipeline_stage, etapa_vista, nutricion_realizada, nutricion_manual_deadline, ' +
+  // Reuniones: fecha del día + timestamp real de Calendly (el "ya pasó" mira la hora)
+  'fecha_agenda, fecha_junta_1, fecha_junta_2, junta_1_at, junta_2_at, asistio_j1, asistio_j2, calificado, ' +
+  // Datos comerciales que el motor de requisitos exige
+  'telefono, empresa, setter, closer, fathom_links, monto_cierre_usd, motivo_perdida, ' +
+  // Deal Details (solo se evalúan en la etapa de cierre)
+  'deal_servicio, deal_promesa, deal_fiscal, deal_obligaciones, ' +
+  // Excepciones y omisiones declaradas: eximen requisitos de forma persistente
+  'sin_r1, sin_r2, fathom_omitido, deal_fiscal_doc_omitido, comprobante_omitido, empresa_omitido, pendientes_ignorados, r2_agenda_externa_motivo';
+
+/**
+ * Los leads de la pasada, paginados. Si la lista de columnas explícita falla
+ * porque el esquema todavía no tiene alguna (migración pendiente en un entorno
+ * viejo), se reintenta con '*': el CRM entero no puede caerse por una columna
+ * nueva — antes de acotar las columnas, select('*') toleraba ese caso solo.
+ */
+async function leerLeadsDePendientes(db: Awaited<ReturnType<typeof getTenantDb>>): Promise<Lead[]> {
+  try {
+    return await leerTodo<Lead>(db, 'leads', PENDIENTES_COLS);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/does not exist/i.test(msg)) throw e;
+    console.error(`[pendientes] columna faltante en PENDIENTES_COLS, releyendo con '*' (¿falta una migración?): ${msg}`);
+    return await leerTodo<Lead>(db, 'leads', '*');
+  }
+}
+
+/**
  * Leads con "Datos sin marcar": TODO lo que la etapa actual del lead adeuda,
  * calculado con el motor de requisitos acumulativos (faltantesDeLead). Un item
- * por lead, con el detalle de qué falta. Caso especial:
+ * por lead, con el detalle de qué falta. Casos especiales:
  *   M) Aparcado en "Nutrición - Manual" y venció el deadline sin resolverse.
+ *   R) Su reunión ya pasó y sigue parado en esa etapa: falta la DECISIÓN.
  * El resto (tipo 'A' = genérico) se resuelve con el mismo wizard de la ficha.
  */
 export const getPendientesDeMarcar = cachedRead('getPendientesDeMarcar', _getPendientesDeMarcar, { tags: [TAG.leads, TAG.pagos], revalidate: TTL.user });
@@ -2046,16 +2098,33 @@ async function _getPendientesDeMarcar(
   void adjuntarFathomAutoThrottled();
 
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('leads')
-    .select('*');
-  if (error) throw new Error(`Query pendientes de marcar falló: ${error.message}`);
+  // Las TRES lecturas de acá van paginadas. PostgREST corta en 1000 filas SIN
+  // error: con select('*') pelado, el lead 1001 en adelante simplemente no
+  // existía para el worklist — y un pendiente que no se ve es peor que uno mal
+  // redactado. `pagos` es el que revienta primero (varias cuotas por lead), y su
+  // corte no se nota: el wizard de Ganado pide un plan de pagos que ya existe.
+  const data = await leerLeadsDePendientes(supabase);
+
+  // Lo que no se pudo leer, para que la pantalla NO diga "todo al día" sobre una
+  // lista incompleta. `leerTodo` lanza cuando la página falla (bien: el corte
+  // silencioso era el bug original), pero estas dos lecturas son ACCESORIAS y
+  // dejarlas propagar cambiaba un worklist con un dato de menos por un worklist
+  // VACÍO con un ✓ verde — que es peor: el falso all-clear en el lugar que el
+  // producto trata como autoridad. La lectura de `leads` sí sigue rompiendo fuerte:
+  // sin leads no hay worklist que valga.
+  const avisos: string[] = [];
 
   // Plan de pagos + comprobantes faltantes (cuotas pagadas sin comprobante) por lead.
-  const { data: pagosRows } = await supabase.from('pagos').select('lead_id, pagado, comprobante_path');
+  const pagosRows = await leerTodo<{ lead_id: number; pagado: boolean; comprobante_path: string | null }>(
+    supabase, 'pagos', 'lead_id, pagado, comprobante_path',
+  ).catch((e) => {
+    console.error(`[pendientes] no se pudo leer pagos: ${e instanceof Error ? e.message : String(e)}`);
+    avisos.push('el plan de pagos');
+    return [] as Array<{ lead_id: number; pagado: boolean; comprobante_path: string | null }>;
+  });
   const conPlan = new Set<number>();
   const comprobFaltPorLead = new Map<number, number>();
-  for (const p of (pagosRows ?? []) as Array<{ lead_id: number; pagado: boolean; comprobante_path: string | null }>) {
+  for (const p of pagosRows) {
     conPlan.add(p.lead_id);
     if (p.pagado && !p.comprobante_path) comprobFaltPorLead.set(p.lead_id, (comprobFaltPorLead.get(p.lead_id) ?? 0) + 1);
   }
@@ -2067,18 +2136,22 @@ async function _getPendientesDeMarcar(
   // moverse tres veces con cero líneas de historial. Comparar contra etapa_vista
   // cuesta 0 queries si no cambió nada, y como la columna se actualiza junto con
   // la línea, dos cargas seguidas del CRM no escriben dos veces.
-  await registrarEtapasDerivadas((data ?? []) as Lead[]);
+  await registrarEtapasDerivadas(data);
 
   // Leads con respuestas del formulario de Calendly R2 (para el requisito r2Respuestas).
-  const { data: respRows } = await supabase.from('lead_respuestas').select('lead_id, reunion').eq('reunion', 'R2');
-  const conR2Resp = new Set((respRows ?? []).map((r) => (r as { lead_id: number }).lead_id));
+  const respRows = await leerTodo<{ lead_id: number }>(supabase, 'lead_respuestas', 'lead_id', { eq: { reunion: 'R2' } })
+    .catch((e) => {
+      console.error(`[pendientes] no se pudo leer lead_respuestas: ${e instanceof Error ? e.message : String(e)}`);
+      avisos.push('las respuestas del formulario de R2');
+      return [] as Array<{ lead_id: number }>;
+    });
+  const conR2Resp = new Set(respRows.map((r) => r.lead_id));
   // Funnel del workspace (una vez): requisitos correctos para funnels no-default.
   const funnelPipeline = await getPipelineStages().catch(() => undefined);
 
   const items: PendienteItem[] = [];
 
-  for (const raw of (data ?? []) as Lead[]) {
-    const l = raw;
+  for (const l of data) {
     // M) Nutrición - Manual: si venció el deadline y sigue abierto, vuelve a
     //    "datos sin marcar" con su mensaje propio. Si no venció, está esperando.
     if (l.pipeline_stage === 'manual') {
@@ -2098,38 +2171,33 @@ async function _getPendientesDeMarcar(
       }
       continue;
     }
-    // R) La reunión YA PASÓ y el lead sigue parado en su etapa de agenda. Sus datos
+    // R) La reunión YA PASÓ y el lead sigue parado en su etapa de reunión. Sus datos
     //    pueden estar todos marcados (asistió, calificado, Fathom) y aun así no hay
     //    nada que hacer con él: falta la DECISIÓN de qué sigue. Sin esta regla el
     //    lead quedaba invisible — el caso real: R1 de hoy 18:00, asistió, calificado
     //    marcado, y a las 19:30 no aparecía en ningún lado esperando su próximo paso.
     //    No se puede ignorar (ver el filtro de abajo): es el lead trabado, no un dato
     //    lindo de tener.
-    if (l.estado_lead === 'abierto' && (l.pipeline_stage === 'agenda' || l.pipeline_stage === 'agendaj2')) {
-      const esJ2 = l.pipeline_stage === 'agendaj2';
-      const fechaReu = esJ2 ? l.fecha_junta_2 : l.fecha_junta_1;
-      const atReu = esJ2 ? l.junta_2_at : l.junta_1_at;
-      // "Ya pasó" mira la hora real de Calendly cuando está (con 1h de gracia para
-      // no molestar mientras la reunión todavía puede estar en curso).
-      const atMs = atReu ? Date.parse(atReu) : NaN;
-      const paso = Number.isFinite(atMs) ? Date.now() >= atMs + 60 * 60_000 : !!fechaReu && fechaReu < hoy;
-      if (paso && fechaReu) {
-        items.push({
-          lead_id: l.id,
-          lead_nombre: l.nombre,
-          tipo: 'R',
-          mensaje: `La Reunión ${esJ2 ? 2 : 1} del ${fmtFechaPendiente(fechaReu)} ya pasó y el lead sigue en esta etapa — definí qué sigue`,
-          fecha: fechaReu,
-          soloEdit: false,
-          solTab: 'wizard',
-          faltantes: [],
-          cual: esJ2 ? 'r2' : 'r1',
-          etapa: l.pipeline_stage,
-        });
-        continue;
-      }
-    }
-    // El motor dice EXACTAMENTE qué datos posibles faltan para la etapa.
+    //
+    //    DOS cosas se miraban mal acá (y por eso la regla casi no corría):
+    //    1) Las etapas de reunión NO son 'agenda'/'agendaj2' fijas — el funnel es
+    //       configurable por workspace y una reunión se marca con kind:'reunion'
+    //       (lib/funnel-etapas). Un funnel con 'discovery' nunca producía el aviso.
+    //    2) Se miraba `pipeline_stage` CRUDO, que es un override y solo se escribe
+    //       cuando alguien mueve el lead a mano. El webhook de Calendly setea
+    //       fecha_junta_N y NUNCA pipeline_stage, así que para el flujo natural del
+    //       producto —el único que existe— el pendiente no se disparaba jamás. Va
+    //       la etapa EFECTIVA, la misma que evalúa faltantesDeLead unas líneas
+    //       abajo; si no, las dos mitades de esta función hablan de leads distintos.
+    const etapaLead = etapaVigenteDe(l, funnelPipeline);
+
+    // Los faltantes se calculan ANTES de decidir el tipo de item, y no después.
+    // Cuando la rama 'R' cortaba primero con `faltantes: []`, todo lead con la
+    // reunión pasada se caía de dos cosas a la vez: de BulkHigiene (que arma sus
+    // lotes con `m.faltantes`, así que "asignar Setter a 400 leads" perdía justo
+    // los que más lo necesitan) y de su propio detalle en la fila, que pasaba de
+    // "Faltan: Setter · Empresa" a una frase que no dice qué cargar. Con la etapa
+    // efectiva, esa población dejó de ser marginal.
     const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline });
     // "Empresa" ignorada (empresa_omitido) NO notifica en el worklist del CRM general
     // (sigue visible como recordatorio suave en la ficha, que usa faltantesDeLead directo).
@@ -2143,6 +2211,34 @@ async function _getPendientesDeMarcar(
     const faltan = l.pendientes_ignorados
       ? faltanSinEmpresa.filter((f) => NO_IGNORABLES.has(f.id))
       : faltanSinEmpresa;
+
+    const slot = l.estado_lead === 'abierto' ? slotDeReunion(funnelPipeline, etapaLead) : null;
+    if (slot) {
+      const fechaReu = l[slot.colFecha];
+      const atReu = l[slot.colAt];
+      // "Ya pasó" mira la hora real de Calendly cuando está (con 1h de gracia para
+      // no molestar mientras la reunión todavía puede estar en curso).
+      const atMs = atReu ? Date.parse(atReu) : NaN;
+      const paso = Number.isFinite(atMs) ? Date.now() >= atMs + 60 * 60_000 : !!fechaReu && fechaReu < hoy;
+      if (paso && fechaReu) {
+        const detalle = faltan.length ? ` · faltan: ${faltan.map((f) => f.label).join(' · ')}` : '';
+        items.push({
+          lead_id: l.id,
+          lead_nombre: l.nombre,
+          tipo: 'R',
+          mensaje: `La Reunión ${slot.numero} del ${fmtFechaPendiente(fechaReu)} ya pasó y el lead sigue en esta etapa — definí qué sigue${detalle}`,
+          fecha: fechaReu,
+          soloEdit: false,
+          solTab: 'wizard',
+          // Viajan igual que en un item 'A': la decisión la pide el wizard, pero lo
+          // que falta se puede seguir resolviendo en lote.
+          faltantes: faltan,
+          cual: slot.cual,
+          etapa: etapaLead,
+        });
+        continue;
+      }
+    }
     if (faltan.length === 0) continue;
     const fecha = (l.fecha_junta_2 && l.fecha_junta_2 < hoy) ? l.fecha_junta_2 : (l.fecha_junta_1 ?? l.fecha_agenda ?? hoy);
     const solTab: PendienteItem['solTab'] = hayPasoDeWizard(faltan) ? 'wizard' : (tabDeSolucion(faltan) ?? 'edit');
@@ -2166,7 +2262,12 @@ async function _getPendientesDeMarcar(
     M: items.filter((i) => i.tipo === 'M').length,
   };
 
-  return { items, total: items.length, porTipo };
+  return {
+    items,
+    total: items.length,
+    porTipo,
+    aviso: avisos.length ? `No se pudo leer ${avisos.join(' ni ')}: esta lista puede estar incompleta.` : '',
+  };
 }
 
 // =============================================================================

@@ -62,11 +62,15 @@ import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, filasDesdeCsv, type FilaImport } from './leads-importar';
 import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
+import { alinearEtapaVista } from '@/lib/etapa-historial';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } from '@/lib/lead-insights';
-import { moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
+import { duracionDeReunionEnAgendaMin, moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
+import { etapaVigenteDe } from '@/lib/funnel-etapas';
+import { DURACION_DEFECTO_MIN, instanteDeLocal } from './horarios-respuesta';
+import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
@@ -250,7 +254,26 @@ function valoresDeRequisitos(
     calificado: d.calificado ?? before?.calificado ?? null,
     hasFathomUrl: (d.fathom ?? before?.fathom_links ?? []).some((f) => f.url?.trim()),
     monto: d.monto ?? before?.monto_cierre_usd ?? null,
-    motivo: d.motivo ?? before?.motivo_perdida ?? null,
+    // El motivo va PARTIDO en dos porque no valen lo mismo: al mover un lead a
+    // perdido/descal, el `motivo_perdida` que ya trae es el de una pérdida
+    // anterior y no puede dar por contestada la de ahora. Quien decide es
+    // stepsForStage con `etapaActual` — acá solo se le dan los tres datos.
+    motivo: before?.motivo_perdida ?? null,
+    motivoNuevo: d.motivo ?? null,
+    // De DÓNDE viene el lead: la etapa efectiva de hoy (override o derivada).
+    //
+    // Va etapaVigenteDe y NO pipelineStageOf: este último devuelve el override
+    // CRUDO, y en ws1 hay cientos de leads apuntando a etapas que su funnel ya no
+    // tiene. La ficha decide en qué etapa estás con la regla de vigencia
+    // (LeadDetailBody), así que con el override crudo las dos mitades discrepaban
+    // justo en esos leads: uno con pipeline_stage='reactivacion' (etapa muerta) y
+    // estado 'perdido' abría "Completar datos" hacia perdido, acá se calculaba
+    // 'reactivacion' ≠ 'perdido' → "estás ENTRANDO" → se exigía un motivo nuevo y
+    // el guardado quedaba bloqueado sin salida.
+    //
+    // Sin `before` (lead que no se pudo leer) queda null = "no sé", y el corte se
+    // comporta como antes.
+    etapaActual: before ? etapaVigenteDe(before, stagesMove) : null,
     // Higiene (setter/closer/empresa/deal/comprobante) NO gatea el movimiento.
     // Una suscripción (aunque sea indefinida y sin cuotas) es un plan válido: el
     // monto mensual ES el plan, así que no se exige el plan de cuotas fijo.
@@ -1206,7 +1229,7 @@ export type ReagendarResultado = {
  * Sin hora nueva no se intenta: mover un evento a "un día" no existe, y crear
  * uno inventándole horario sería peor que no hacer nada.
  */
-async function moverEnCalendario(lead: Lead | null, cual: 'r1' | 'r2', nuevoIso: string | null): Promise<ReagendarResultado> {
+async function moverEnCalendario(lead: Lead | null, cual: 'r1' | 'r2', nuevoIso: string | null, duracionMin?: number): Promise<ReagendarResultado> {
   const n = cual === 'r2' ? 2 : 1;
   if (!nuevoIso) return { ok: false, accion: 'nada', mensaje: 'Cargá también la hora si querés que se mueva el evento del calendario.', reconectar: false, invitado: null };
   // Sin el lead no hay ancla (ni fecha vieja, ni email, ni nombre): el buscador no
@@ -1221,6 +1244,11 @@ async function moverEnCalendario(lead: Lead | null, cual: 'r1' | 'r2', nuevoIso:
     // Para BUSCAR va el nombre pelado; el título largo solo se usa si hay que crear.
     titulo: lead.nombre,
     tituloSiSeCrea: lead.nombre?.trim() ? `Reunión ${n} · ${lead.nombre}` : `Reunión ${n}`,
+    // La MISMA duración con la que se calcularon los huecos. Solo pesa cuando hay
+    // que CREAR el evento (o no se pudo leer el original): si no, un evento nuevo
+    // duraba 45' fijos mientras la grilla había reservado 60 y el hueco siguiente
+    // quedaba libre de mentira.
+    duracionMin,
   });
   return { ok: r.ok, accion: r.accion, mensaje: r.motivo, reconectar: r.codigo === 'sin-permiso' || r.codigo === 'sin-conexion', invitado: r.ok ? r.invitado : null };
 }
@@ -1240,18 +1268,41 @@ export async function reagendarReunionAction(
   leadId: number,
   cual: 'r1' | 'r2',
   fecha: string,
-  atISO: string | null,
+  hora: string | null,
   opts: {
     /** El lead NO se presentó y por eso se reagenda. Se registra ANTES del update. */
     noShowPrevio?: boolean;
+    /** Cuánto dura la reunión: la MISMA con la que la UI calculó los huecos. */
+    duracionMin?: number;
   } = {},
 ): Promise<ReagendarResultado> {
   const f = (fecha ?? '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) throw new Error('Fecha inválida.');
+
+  // ── LA HORA SE RESUELVE ACÁ, EN LA ZONA DEL WORKSPACE ──────────────────────
+  // El cliente manda 'HH:MM' pelado y NUNCA un instante. Antes mandaba el ISO ya
+  // armado y solo el camino con slot verificado estaba bien: sin Google conectado
+  // (o con el token vencido, un 403, un timeout…) `slots` llega en null y el
+  // navegador hacía `new Date('YYYY-MM-DDTHH:mm')`, que por spec es hora LOCAL DEL
+  // NAVEGADOR. O sea: en todo workspace sin agenda conectada, el 100% de los
+  // reagendados se guardaba en el huso del closer. Con el negocio en Montevideo y
+  // la laptop en Ciudad de México, elegir las 18:00 guardaba las 21:00 — el CRM
+  // decía una hora, `junta_N_at` otra, `fecha_junta_N` podía caer en OTRO DÍA, y
+  // el mail de Google (sendUpdates=all) le llegaba al invitado con la hora mala.
+  //
+  // La zona del negocio solo la sabe el server, así que la conversión vive acá y
+  // usa el MISMO instanteDeLocal que arma la grilla: el instante que se guarda es
+  // idéntico al `inicioIso` del slot que el usuario vio.
+  const wsActual = await getWorkspaceActual();
+  const tzWs = wsActual != null ? await tzDeWorkspace(wsActual).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
+  const mHora = /^(\d{1,2}):(\d{2})$/.exec((hora ?? '').trim());
+  const minDelDia = mHora ? Number(mHora[1]) * 60 + Number(mHora[2]) : NaN;
   // La HORA importa: el pendiente de "reunión pasada" se decide por junta_N_at, y
   // sin hora el lead volvía a marcarse vencido apenas cambiaba el día. Si no vino
   // hora se limpia el timestamp y se cae al día (comportamiento viejo).
-  const at = atISO && !Number.isNaN(Date.parse(atISO)) ? new Date(atISO).toISOString() : null;
+  const at = Number.isFinite(minDelDia) && minDelDia >= 0 && minDelDia < 24 * 60
+    ? instanteDeLocal(f, minDelDia, tzWs)
+    : null;
   // ANTES del update: la fecha VIEJA es el ancla para reconocer el evento en la
   // agenda. Si se lee después, ya la pisamos y el buscador miraría el día nuevo.
   const antes = await getLead(leadId).catch(() => null);
@@ -1273,15 +1324,18 @@ export async function reagendarReunionAction(
     : { fecha_junta_1: f, junta_1_at: at, asistio_j1: null };
   const { error } = await db.from('leads').update(patch).eq('id', leadId);
   if (error) throw new Error(`No se pudo reagendar: ${error.message}`);
+  // El historial se escribe en la zona del WORKSPACE, no en un 'America/Tijuana'
+  // fijo: con el negocio en Uruguay, la línea decía 14:00 sobre una reunión de las
+  // 19:00 y quien la leía después no tenía cómo saber que estaba corrida.
   const cuando = at
-    ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Tijuana' }).format(new Date(at))
+    ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'short', timeStyle: 'short', timeZone: tzWs }).format(new Date(at))
     : f;
   const autor = await autorActual();
   await logLeadEvent(leadId, cual === 'r2' ? 'Reunión 2 reagendada' : 'Reunión 1 reagendada', cuando, autor).catch(() => {});
 
   // El calendario deja rastro SIEMPRE, salió bien o mal: si el invitado nunca se
   // enteró, el historial tiene que decir por qué. Es el pedido explícito del dueño.
-  const cal = await moverEnCalendario(antes, cual, at).catch((e): ReagendarResultado => ({
+  const cal = await moverEnCalendario(antes, cual, at, opts.duracionMin).catch((e): ReagendarResultado => ({
     ok: false, accion: 'nada', mensaje: e instanceof Error ? e.message : 'Error inesperado con Google Calendar.', reconectar: false, invitado: null,
   }));
   if (cal.mensaje) await logLeadEvent(leadId, 'Google Calendar', cal.ok ? cal.mensaje : `No se pudo mover el evento: ${cal.mensaje}`, autor).catch(() => {});
@@ -1291,6 +1345,27 @@ export async function reagendarReunionAction(
   revalidatePath(`/crm/${leadId}`);
   revalidatePath('/general');
   return cal;
+}
+
+/**
+ * Cuánto dura DE VERDAD esa reunión, en minutos, según el evento que ya está en la
+ * agenda. Cae a DURACION_DEFECTO_MIN cuando no se puede saber.
+ *
+ * Lo pide el wizard de reagendar al ABRIRSE (no en el paso de la hora) para que la
+ * consulta a Google no se sume a la espera de la grilla. Con ese número, los huecos
+ * se calculan con la duración real en vez de 45' fijos: una R1 de 60' ya no se
+ * ofrece a las 18:30 teniendo algo agendado a las 19:15.
+ */
+export async function duracionReunionAction(leadId: number, cual: 'r1' | 'r2'): Promise<number> {
+  const lead = await getLead(leadId).catch(() => null);
+  if (!lead) return DURACION_DEFECTO_MIN;
+  const min = await duracionDeReunionEnAgendaMin({
+    inicioAnteriorIso: cual === 'r2' ? lead.junta_2_at : lead.junta_1_at,
+    fechaAnterior: cual === 'r2' ? lead.fecha_junta_2 : lead.fecha_junta_1,
+    emailInvitado: lead.email,
+    titulo: lead.nombre,
+  }).catch(() => null);
+  return min && min > 0 ? min : DURACION_DEFECTO_MIN;
 }
 
 /**
@@ -1554,6 +1629,23 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   else if (deadline.set) {
     const { error } = await (await getTenantDb()).from('leads').update({ nutricion_manual_deadline: deadline.value }).eq('id', leadId);
     if (error) throw new Error(error.message);
+  }
+
+  // 4) La MEMORIA del historial (`etapa_vista`) también vuelve atrás.
+  //    Acá no pasamos por logLeadChanges (que la mueve solo) porque este camino
+  //    escribe con setBoardStageOverride/updateLead, que no auditan. Sin esto, la
+  //    columna quedaba apuntando a la etapa post-movimiento y la próxima pasada de
+  //    registrarEtapasDerivadas (cada carga de /crm o /general) veía
+  //    `vista !== etapa` y escribía "Etapa: <deshecha> → <restaurada>" firmada por
+  //    MaKo: el deshacer reaparecía como un movimiento del sistema, justo lo que el
+  //    borrado de abajo quiere evitar. Va también cuando el grupo NO traía fila
+  //    'Etapa': revertir 'Asistió R1'/'Estado' cambia la etapa DERIVADA igual.
+  //    Best-effort como el borrado de abajo: el revert ya se aplicó y no puede
+  //    quedar a medias por esto (el peor caso vuelve a ser una línea de más).
+  try {
+    await alinearEtapaVista(await getLead(leadId).catch(() => null));
+  } catch (e) {
+    console.error('[revert] alinear etapa_vista falló:', e);
   }
 
   // El deshacer/restaurar NO deja un cambio nuevo: se borra el rastro de ESTE

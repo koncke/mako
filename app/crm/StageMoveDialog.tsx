@@ -193,7 +193,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // Si el wizard anterior ya lo pidió, llega el texto FINAL ya concatenado y
   // `motivoDetalle` queda vacío: `motivoFinal` los une con filter(Boolean), así
   // que sale igual y no se agrega un guion suelto.
-  const [motivo, setMotivo] = useState(move.yaRespondido?.motivo ?? lead.motivo ?? '');
+  //
+  // `lead.motivo` (el motivo_perdida YA persistido) solo precarga en "Completar
+  // datos", donde el lead YA ESTÁ en la salida y lo que se hace es rellenar lo que
+  // falta. Al MOVER a perdido/descal la pregunta tiene que llegar en blanco: el
+  // validador repregunta el motivo de esta pérdida (stage-requirements, corte por
+  // `etapaActual`), pero si el paso abría con la categoría vieja ya seleccionada,
+  // `puede('motivo')` daba true de entrada y el resultado terminaba siendo
+  // "<categoría de la pérdida anterior> - <detalle nuevo>". La herencia que el fix
+  // del server ataca sobrevivía acá, disfrazada de respuesta.
+  const [motivo, setMotivo] = useState(move.yaRespondido?.motivo ?? (completarDatos ? lead.motivo ?? '' : ''));
   const [motivoDetalle, setMotivoDetalle] = useState('');
   const [cuotas, setCuotas] = useState<Array<{ monto: string; fecha: string }>>([{ monto: '', fecha: hoyISO }]);
   // Higiene (solo se piden en "Completar datos"). Si el equipo es de UNA sola
@@ -264,7 +273,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
       calificado: move.yaRespondido?.calificado ?? lead.calificado,
       hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
-      monto: lead.monto, motivo: move.yaRespondido?.motivo ?? lead.motivo,
+      monto: lead.monto,
+      // El motivo va PARTIDO, igual que en el server (valoresDeRequisitos). El
+      // persistido solo cuenta en "Completar datos", donde el lead YA está en esa
+      // etapa; MOVIENDO a perdido/descal se está entrando ahora y el motivo de la
+      // pérdida anterior no puede dar por contestada la de hoy. Sin esto el
+      // placeholder no pedía el paso y la pantalla parpadeaba cuando el server
+      // —que sí lo pide— contestaba.
+      motivo: completarDatos ? lead.motivo : null,
+      motivoNuevo: move.yaRespondido?.motivo ?? null,
+      etapaActual: completarDatos ? to : null,
       // Higiene: solo se pide en "Completar datos" (Solucionar), NUNCA al mover de etapa.
       ...(completarDatos ? { setter: lead.setter, closer: lead.closer, empresa: lead.empresa, telefono: lead.telefono } : {}),
       tienePlan: to === 'ganado' ? (lead.tienePlan ?? false) : undefined,

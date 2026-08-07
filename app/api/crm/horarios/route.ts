@@ -1,12 +1,18 @@
 // =============================================================================
 // /api/crm/horarios — los horarios de un día con su disponibilidad real
 // =============================================================================
-// GET ?fecha=YYYY-MM-DD[&duracion=45][&desde=9][&hasta=19][&paso=30]
-//   → 200 { ok:true, codigo, motivo, tz, slots:[{hora, inicioIso, libre}] }
+// GET ?fecha=YYYY-MM-DD[&duracion=45][&desde=7][&hasta=22][&paso=15][&margen=30]
+//   → 200 { ok:true, codigo, motivo, tz, slots:[{hora, inicioIso, libre}], rango }
 //
 // Lo consume el paso "¿A qué hora?" del wizard de reagendado del CRM: la grilla
 // de horas se pintaba a ciegas y el usuario elegía encima de reuniones que ya
 // tenía en la agenda.
+//
+// Los cinco parámetros de grilla son OPCIONALES y tienen default en el contrato
+// (app/crm/horarios-respuesta.ts). Existen para que un caller pueda pedir algo
+// distinto —una jornada más corta, media hora de paso— sin tocar código, pero el
+// cliente hoy no manda ninguno salvo `duracion`: el default es el rango bueno.
+// `desde`/`hasta` admiten fracciones (8.5 = 8:30).
 //
 // Dos decisiones que no son obvias:
 //
@@ -64,8 +70,12 @@ export async function GET(req: NextRequest) {
       desdeHora: num(p.get('desde')),
       hastaHora: num(p.get('hasta')),
       pasoMin: num(p.get('paso')),
+      margenMin: num(p.get('margen')),
     });
-    return Response.json({ ok: true, codigo: r.codigo, motivo: r.motivo, tz: r.tz, slots: r.slots });
+    // `rango` viaja siempre: es con lo que el cliente arma la grilla por su cuenta
+    // cuando la agenda no se pudo verificar. Sin esto, un fallo de Google le hacía
+    // pintar un rango distinto del que ofrece el server cuando anda.
+    return Response.json({ ok: true, codigo: r.codigo, motivo: r.motivo, tz: r.tz, slots: r.slots, rango: r.rango });
   } catch (e) {
     // horariosLibresDeGoogle no lanza; si llegamos acá se rompió otra cosa.
     console.error(`[api:crm/horarios GET] ${msg(e)}`);

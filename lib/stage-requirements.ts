@@ -32,7 +32,16 @@ export interface StageReqValues {
   /** Un solo set de links por lead: cubre R1 y R2 (etiquetados). */
   hasFathomUrl?: boolean;
   monto?: number | null;
+  /** Motivo YA persistido en el lead (`motivo_perdida`). Puede ser el de una
+   *  pérdida ANTERIOR: ver `etapaActual` en el corte de perdido/descal. */
   motivo?: string | null;
+  /** Motivo aportado EN ESTE movimiento (lo que la persona acaba de contestar).
+   *  Se separa del anterior a propósito: es el único que vale al ENTRAR a una salida. */
+  motivoNuevo?: string | null;
+  /** Etapa donde el lead está AHORA (el origen del movimiento). Solo la sabe quien
+   *  está MOVIENDO el lead; los callers que evalúan la etapa actual (el worklist
+   *  "Datos sin marcar") la dejan en undefined a propósito. */
+  etapaActual?: string | null;
   /** Datos operativos (higiene): se exigen SIEMPRE en la ficha, nunca gatean mover. */
   setter?: string | null;
   closer?: string | null;
@@ -122,7 +131,22 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
 
   // Salidas terminales: perdido/descal piden motivo; noresp no pide nada.
   if (stageKey === 'perdido' || stageKey === 'descal') {
-    if (!v.motivo?.trim()) {
+    // `motivo_perdida` es UNA columna y un lead se puede perder DOS veces (se
+    // recupera, vuelve al pipeline, se vuelve a perder). Mientras el corte miró
+    // solo "¿hay texto?", la segunda pérdida se registraba con el motivo de la
+    // primera: nadie repreguntaba y el dato viejo pasaba por nuevo.
+    //
+    // La distinción no está en el valor sino en el MOVIMIENTO, y por eso hace
+    // falta la etapa de origen:
+    //   · ENTRA ahora a la salida (etapaActual ≠ stageKey) → el motivo tiene que
+    //     ser el de AHORA (`motivoNuevo`); el heredado no cuenta.
+    //   · YA estaba ahí (o el caller no sabe de dónde viene: `etapaActual`
+    //     undefined) → el motivo cargado alcanza. Esto es lo que mantiene a
+    //     "Completar datos" (faltantesDeLead, que evalúa la etapa ACTUAL y no
+    //     pasa etapaActual) sin reclamarle el motivo a todo lead ya perdido.
+    const entrando = !!v.etapaActual && v.etapaActual !== stageKey;
+    const motivoValido = entrando ? v.motivoNuevo : (v.motivoNuevo ?? v.motivo);
+    if (!motivoValido?.trim()) {
       steps.push({ id: 'motivo', label: stageKey === 'perdido' ? 'Motivo de la pérdida' : 'Motivo de la descalificación' });
     }
     return steps;

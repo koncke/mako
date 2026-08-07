@@ -43,6 +43,7 @@ import {
   ignorarPendientesMasaAction,
   reagendarReunionAction,
   permisoCalendarioAction,
+  duracionReunionAction,
   requisitosDeEtapaAction,
   resolverQueHacerAction,
 } from './actions';
@@ -52,9 +53,12 @@ import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
 import { CrmAutoToggle } from './CrmAutoToggle';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
-import { SelectorHora, horaLegible } from './SelectorHora';
+import { SelectorHora, horaLegible, ANCLA_DEFECTO } from './SelectorHora';
 import { motivosDeSalida, motivoFinalDe, pideMotivo } from './motivos-salida';
-import { leerRespuestaHorarios, AVISO_SIN_AGENDA, type RespuestaHorarios, type SlotAgenda } from './horarios-respuesta';
+import {
+  leerRespuestaHorarios, normalizarRango, hhmm, instanteDeLocal, AVISO_SIN_AGENDA,
+  DURACION_DEFECTO_MIN, type RespuestaHorarios, type SlotAgenda, type RangoGrilla,
+} from './horarios-respuesta';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Step } from '@/lib/stage-requirements';
 import type { MiembroEquipo } from './actions';
@@ -149,6 +153,14 @@ export type CrmMarcar = {
   faltantes?: Step[];
   /** Solo tipo 'R': cuál de las dos reuniones pasó. Lo decidió el server. */
   cual?: 'r1' | 'r2';
+  /**
+   * Cuánto dura ESA reunión, en minutos, si se sabe (sale del evento del
+   * calendario). Es lo que decide si un hueco sirve: con 45' fijos, una R1 de 60'
+   * se ofrecía a las 18:30 teniendo algo a las 19:15 y se pisaba.
+   * Opcional a propósito: mientras el view-model no lo traiga se cae al default
+   * del server (DURACION_DEFECTO_MIN), que es el mismo que usa el alta del evento.
+   */
+  duracionMin?: number;
   /** La etapa REAL del lead al calcularse el pendiente (no la optimista del board). */
   etapa?: string;
 };
@@ -215,6 +227,7 @@ export function CrmBoard({
   stages,
   juntas,
   marcar,
+  marcarAviso = '',
   transitions,
   total,
   errorMsg,
@@ -225,6 +238,8 @@ export function CrmBoard({
   stages: Stage[];
   juntas: CrmJunta[];
   marcar: CrmMarcar[];
+  /** Por qué la lista de arriba puede estar incompleta ('' = está entera). */
+  marcarAviso?: string;
   transitions: FunnelTransition[];
   total: number;
   errorMsg: string | null;
@@ -298,7 +313,7 @@ export function CrmBoard({
   // "¿Qué hacer ahora?": lo usan DOS pendientes distintos — la nutrición manual
   // vencida (M) y la reunión que ya pasó sin desenlace (R). Cada uno necesita su
   // copy y sus salidas propias (nuevo plazo vs. reagendar la reunión).
-  const [queHacer, setQueHacer] = useState<{ leadId: number; name: string; tipo: 'M' | 'R'; cual: 'r1' | 'r2'; etapa: string } | null>(null);
+  const [queHacer, setQueHacer] = useState<{ leadId: number; name: string; tipo: 'M' | 'R'; cual: 'r1' | 'r2'; etapa: string; duracionMin: number } | null>(null);
   const [qhPaso, setQhPaso] = useState(0);
   const [qhVisitados, setQhVisitados] = useState<QhPasoId[]>([]);   // Atrás vuelve al paso VISITADO
   const [qhOpcion, setQhOpcion] = useState<QhOpcion | null>(null);
@@ -318,6 +333,11 @@ export function CrmBoard({
   const [reagSlotsCargando, setReagSlotsCargando] = useState(false);
   const [reagSlotsNota, setReagSlotsNota] = useState<string>('');
   const [reagTz, setReagTz] = useState<string>('');
+  // Con qué números armó el server la grilla (jornada, paso, duración). Se lo pasa
+  // al selector: cuando la agenda NO se pudo verificar el selector dibuja la grilla
+  // por su cuenta y tiene que ofrecer EL MISMO rango, o el usuario ve una jornada
+  // distinta según si Google contestó o no.
+  const [reagRango, setReagRango] = useState<RangoGrilla>(() => normalizarRango());
   // El no-show ya ocurrió y por eso se reagenda: hay que dejarlo en el historial
   // ANTES del update (reagendar pone asistio_jN en null).
   const [qhNoShowPrevio, setQhNoShowPrevio] = useState(false);
@@ -404,6 +424,7 @@ export function CrmBoard({
     setQhFaltan(null); setQhError(null); setQhNoShowPrevio(false);
     setReagFecha(''); setReagHora(''); setReagOut(null); setReagCal(null);
     setReagSlots(null); setReagSlotsCargando(false); setReagSlotsNota(''); setReagTz('');
+    setReagRango(normalizarRango());
   };
   const abrirQueHacer = (id: number) => {
     const l = leads.find((x) => x.id === id);
@@ -423,8 +444,21 @@ export function CrmBoard({
       // router.refresh() el wizard ofrecía los desenlaces de una etapa en la que
       // el lead todavía no está (y el resumen prometía un movimiento falso).
       etapa: m?.etapa ?? l?.stage ?? 'agenda',
+      // La duración REAL de la reunión, cuando el pendiente la trae. Viaja al
+      // server al pedir los horarios: es la que define si el hueco alcanza.
+      duracionMin: m?.duracionMin && m.duracionMin > 0 ? m.duracionMin : DURACION_DEFECTO_MIN,
     });
-    if (tipo === 'R') void permisoCalendarioAction().then(setReagCal).catch(() => setReagCal(null));
+    if (tipo === 'R') {
+      void permisoCalendarioAction().then(setReagCal).catch(() => setReagCal(null));
+      // La duración REAL del evento se pide ACÁ, al abrir, y no en el paso de la
+      // hora: así el viaje a Google ocurre mientras el usuario elige la fecha y no
+      // se le suma a la espera de la grilla. Cuando llega, el efecto de los
+      // horarios se vuelve a disparar solo (depende de queHacer.duracionMin).
+      const cualR = m?.cual ?? (l && l.stage === 'agendaj2' ? 'r2' : 'r1');
+      void duracionReunionAction(id, cualR)
+        .then((min) => setQueHacer((q) => (q && q.leadId === id && min > 0 && min !== q.duracionMin ? { ...q, duracionMin: min } : q)))
+        .catch(() => {});
+    }
   };
   const cerrarQueHacer = () => { setQueHacer(null); limpiarQueHacer(); };
 
@@ -708,24 +742,65 @@ export function CrmBoard({
   const qhHayHandoff = (qhFaltan?.length ?? 0) > 0;
 
   /**
-   * El instante que se guardaría con la fecha y la hora elegidas. Sale del SLOT
-   * cuando lo hay (lo calculó el server en la zona del workspace) y solo se
-   * recalcula en el navegador para la hora tipeada a mano.
+   * El instante que se guardaría con la fecha y la hora elegidas — SOLO para el
+   * aviso de "esa hora ya pasó". El que se guarda de verdad lo calcula el server
+   * (ver reagendarReunionAction): acá no hay forma de saber la zona del negocio.
+   *
+   * Tres fuentes, de más a menos confiable:
+   *   1. el `inicioIso` del slot, que el server ya calculó en la zona correcta;
+   *   2. `reagTz` + instanteDeLocal — la MISMA función que arma la grilla, así que
+   *      da exactamente el mismo instante para una hora tipeada a mano;
+   *   3. el reloj del navegador, último recurso cuando no se sabe ni la zona. Acá
+   *      el aviso puede errarle por el huso, pero es solo un aviso.
    */
   const reagInstante = (): number => {
     const slot = reagSlots?.find((s) => s.hora === reagHora);
-    return slot ? Date.parse(slot.inicioIso) : Date.parse(`${reagFecha}T${reagHora}`);
+    if (slot) return Date.parse(slot.inicioIso);
+    const m = /^(\d{1,2}):(\d{2})$/.exec(reagHora);
+    if (m && reagTz) {
+      const iso = instanteDeLocal(reagFecha, Number(m[1]) * 60 + Number(m[2]), reagTz);
+      if (iso) return Date.parse(iso);
+    }
+    return Date.parse(`${reagFecha}T${reagHora}`);
   };
   /**
    * Reagendar hacia atrás es el bucle más tonto del worklist: el lead vuelve a
    * quedar pendiente en el mismo render (y encima con la asistencia recién
    * borrada). El server filtra los horarios pasados, pero cuando Google no
-   * contesta la grilla se pinta entera y "Otro horario" siempre deja tipear.
+   * contesta se ofrece el día entero — y el campo del selector SIEMPRE deja
+   * escribir una hora que no está en la lista. Este es el único freno duro.
    */
   const reagHoraPasada = (() => {
     if (!reagFecha || !reagHora) return false;
     const ms = reagInstante();
     return Number.isFinite(ms) && ms <= Date.now();
+  })();
+
+  /** Cuántos horarios quedan REALMENTE para elegir (null = agenda no verificada). */
+  const reagLibres = reagSlots ? reagSlots.filter((s) => s.libre).length : null;
+  /**
+   * Dónde ABRE el desplegable. Para otro día, la mañana. Para HOY, el primer
+   * horario que el server dejó en pie (ya descontó lo pasado y el margen, y lo
+   * hizo en la zona del WORKSPACE, que es la que vale).
+   *
+   * Sin agenda verificada se usa el reloj del navegador PERO leído en la zona del
+   * workspace cuando se la conoce (`reagTz` llega también en las respuestas de
+   * error). El ancla es solo dónde arranca el scroll: equivocarse cuesta un
+   * scroll, no una reunión mal agendada.
+   */
+  const reagAncla = (() => {
+    if (reagFecha !== hoy) return ANCLA_DEFECTO;
+    if (reagSlots && reagSlots.length) return reagSlots[0].hora;
+    const d = new Date(Date.now() + 60 * 60_000);
+    if (reagTz) {
+      try {
+        const p = new Intl.DateTimeFormat('en-GB', { timeZone: reagTz, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+        const g = (t: string) => Number(p.find((x) => x.type === t)?.value);
+        const min = (g('hour') % 24) * 60 + g('minute');
+        if (Number.isFinite(min)) return hhmm(min);
+      } catch { /* zona rota: se cae al reloj del navegador */ }
+    }
+    return hhmm(d.getHours() * 60 + d.getMinutes());
   })();
 
   const qhPuede = (() => {
@@ -781,10 +856,14 @@ export function CrmBoard({
     if (qhPasoId !== 'hora' || !reagFecha) return;
     let vivo = true;
     setReagSlotsCargando(true); setReagSlotsNota('');
+    // La DURACIÓN es lo único que se manda: la jornada y el paso los decide el
+    // server (horarios-respuesta.ts es la fuente única) y vuelven en `rango`.
+    // Mandar acá un `desde`/`hasta` propio era volver a tener dos verdades.
+    const duracion = queHacer?.duracionMin ?? DURACION_DEFECTO_MIN;
     // Con timeout propio: una red que acepta la conexión y no responde nunca
     // (proxy, captive portal, VPN a medio caer) dejaba el `cargando` prendido
     // para siempre, y con él TODA la grilla deshabilitada.
-    fetch(`/api/crm/horarios?fecha=${encodeURIComponent(reagFecha)}&duracion=45`, { signal: AbortSignal.timeout(9000) })
+    fetch(`/api/crm/horarios?fecha=${encodeURIComponent(reagFecha)}&duracion=${duracion}`, { signal: AbortSignal.timeout(9000) })
       .then((r) => r.json())
       .then((j: RespuestaHorarios) => {
         if (!vivo) return;
@@ -793,13 +872,23 @@ export function CrmBoard({
         const r = leerRespuestaHorarios(j);
         if (r.errorTecnico) console.error('[crm/horarios]', r.errorTecnico);
         setReagSlots(r.slots);
-        if (r.slots) setReagTz(r.tz);
+        // La zona se guarda SIEMPRE, también sin slots (el server la manda igual
+        // cuando Google falla). Antes solo se pisaba con `r.slots`: si un día
+        // resolvía bien y el siguiente fallaba, quedaba pegada la zona vieja y la
+        // pantalla afirmaba "Horarios en America/Montevideo" justo debajo de
+        // "Agenda sin verificar" — la única vez que no se leyó ninguna.
+        setReagTz(r.tz);
         setReagSlotsNota(r.nota);
+        setReagRango(r.rango);
       })
-      .catch(() => { if (vivo) { setReagSlots(null); setReagSlotsNota(AVISO_SIN_AGENDA); } })
+      // Ni siquiera el camino de error se queda sin rango: el selector va a tener
+      // que dibujar la grilla solo, que es justo cuando más lo necesita.
+      // Ni el `tz` se hereda del día anterior: si esta consulta ni salió, no se
+      // sabe en qué zona se están leyendo los horarios y no se puede afirmar una.
+      .catch(() => { if (vivo) { setReagSlots(null); setReagTz(''); setReagSlotsNota(AVISO_SIN_AGENDA); setReagRango(normalizarRango({ duracionMin: duracion })); } })
       .finally(() => { if (vivo) setReagSlotsCargando(false); });
     return () => { vivo = false; };
-  }, [qhPasoId, reagFecha]);
+  }, [qhPasoId, reagFecha, queHacer?.duracionMin]);
 
   /**
    * Elegir una opción del primer paso: limpia lo contestado en la rama anterior.
@@ -888,15 +977,16 @@ export function CrmBoard({
     // Reagendar: el modal NO se cierra — mover el evento en Google es la mitad del
     // trabajo y su resultado se cuenta acá mismo, en el paso siguiente.
     if (qhOpcion === 'reprog') {
-      // Se manda el `inicioIso` QUE VINO CON EL SLOT: los huecos se calculan en la
-      // zona del workspace y recalcular en el navegador desincroniza al closer que
-      // esté en otro huso. La única excepción es "Otro horario" (tipeado a mano),
-      // que no tiene slot y se convierte acá.
-      const slot = reagSlots?.find((s) => s.hora === reagHora);
-      const at = slot ? slot.inicioIso : new Date(`${reagFecha}T${reagHora}`).toISOString();
+      // Viaja la hora PELADA ('HH:MM'), nunca un instante armado acá. El navegador
+      // no sabe en qué zona vive el negocio: `new Date('2026-08-10T18:00')` es hora
+      // local del navegador por spec, así que un closer en otro huso guardaba un
+      // momento distinto del que eligió — y con `sendUpdates=all` el invitado
+      // recibía el mail con esa hora. La conversión la hace el server, que sí
+      // conoce la zona del workspace, con la misma función que armó la grilla.
       const noShowPrevio = qhNoShowPrevio;
+      const duracionMin = queHacer.duracionMin;
       startTransition(async () => {
-        try { setReagOut(await reagendarReunionAction(leadId, cual, reagFecha, at, { noShowPrevio })); router.refresh(); }
+        try { setReagOut(await reagendarReunionAction(leadId, cual, reagFecha, reagHora, { noShowPrevio, duracionMin })); router.refresh(); }
         catch (e) { setQhError(e instanceof Error ? e.message : 'No se pudo reagendar.'); }
       });
       return;
@@ -1191,6 +1281,7 @@ export function CrmBoard({
       {showSinMarcar ? (
         <SinMarcar
           marcar={marcar}
+          aviso={marcarAviso}
           equipo={equipo}
           onSolucionar={solucionarMarcar}
           onQueHacer={(id) => abrirQueHacer(id)}
@@ -1430,13 +1521,16 @@ export function CrmBoard({
           },
           hora: {
             q: '¿A qué hora?',
-            // El sub NO puede prometer que los ocupados están tachados si no se
-            // pudo leer la agenda: convivía con la nota de error justo debajo y
-            // el usuario leía "no hay nada tachado, entonces tengo el día libre".
+            // El sub describe LO QUE SE ESTÁ MOSTRANDO, y nada más. Prometía que
+            // "los ocupados se ven tachados" incluso cuando la agenda no se había
+            // podido leer: el usuario no veía nada tachado y concluía que tenía el
+            // día libre. Ahora los ocupados directamente no se listan, así que lo
+            // que hay que decir es otra cosa — cuántos quedan y que se puede
+            // escribir una hora que no esté en la lista.
             sub: reagSlotsCargando ? 'Leyendo los horarios libres de tu agenda…'
-              : reagSlots && reagSlots.length ? `Horarios${reagTz ? ` en ${reagTz}` : ''}. Los ocupados se ven tachados: se pueden elegir igual.`
-              : reagSlots ? 'No quedan horarios para ese día: volvé atrás y elegí otro, o cargá la hora a mano.'
-              : 'No pudimos verificar tu agenda: elegí la hora igual.',
+              : reagLibres ? `${reagLibres} horarios libres${reagTz ? ` en ${reagTz}` : ''}. Podés escribir cualquier otra hora, aunque no esté en la lista.`
+              : reagSlots ? 'No quedan horarios libres ese día: volvé atrás y elegí otro, o escribí la hora igual.'
+              : 'No pudimos verificar tu agenda: se ofrece el día entero y no se oculta nada.',
           },
           plazo: {
             q: '¿Hasta cuándo le das tiempo?',
@@ -1641,15 +1735,20 @@ export function CrmBoard({
             {qhPasoId === 'hora' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {/* Los horarios salen de la agenda REAL (freeBusy). Si Google no
-                    contesta llegan en null y el selector se comporta como siempre:
-                    perder la ayuda no puede impedir reagendar. */}
+                    contesta llegan en null y el selector ofrece el día entero sin
+                    ocultar nada: perder la ayuda no puede impedir reagendar. */}
                 <SelectorHora
                   value={reagHora}
                   onChange={setReagHora}
                   ariaLabel="Hora nueva"
                   slots={reagSlots}
                   cargando={reagSlotsCargando}
-                  nota={reagSlotsNota || (reagTz ? `Horarios en ${reagTz}.` : null)}
+                  rango={reagRango}
+                  ancla={reagAncla}
+                  // La zona ya la dice el sub del paso cuando hay horarios; acá va
+                  // solo el motivo del server, para no repetir la misma frase dos
+                  // veces una debajo de la otra.
+                  nota={reagSlotsNota || (reagTz && !reagLibres ? `Horarios en ${reagTz}.` : null)}
                 />
                 {reagHoraPasada ? (
                   <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.45 }}>
@@ -1996,9 +2095,11 @@ function BulkHigiene({ marcar, equipo, onDone }: {
 
 // ── Datos sin marcar (worklist) ──
 function SinMarcar({
-  marcar, equipo, onSolucionar, onQueHacer, onBulkDone,
+  marcar, aviso = '', equipo, onSolucionar, onQueHacer, onBulkDone,
 }: {
   marcar: CrmMarcar[];
+  /** Texto de "esta lista puede estar incompleta". Vacío = se leyó todo. */
+  aviso?: string;
   equipo: MiembroEquipo[];
   onSolucionar: (leadId: number) => void;
   onQueHacer: (leadId: number) => void;
@@ -2027,6 +2128,11 @@ function SinMarcar({
         <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
       </div>
+      {aviso && marcar.length > 0 && (
+        <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 10, background: 'var(--warn-fill)', border: '1px solid var(--warn)', color: 'var(--ink)', fontSize: 13, lineHeight: 1.45 }}>
+          {aviso}
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {marcar.map((m) => (
           <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
@@ -2051,7 +2157,12 @@ function SinMarcar({
             </div>
           </div>
         ))}
-        {marcar.length === 0 && <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>}
+        {/* El ✓ verde es una AFIRMACIÓN, y solo se puede hacer si la lista se pudo
+            calcular entera. Con una lectura caída la lista también llega vacía, y
+            celebrar ahí es el peor final posible: el usuario deja de mirar. */}
+        {marcar.length === 0 && (aviso
+          ? <div style={{ padding: 28, textAlign: 'center', color: 'var(--warn)', fontSize: 14.5, fontWeight: 600, lineHeight: 1.5 }}>{aviso}<br /><span style={{ fontWeight: 500, color: 'var(--dim)', fontSize: 13 }}>Recargá en un momento: no se puede afirmar que no haya nada pendiente.</span></div>
+          : <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>)}
       </div>
       </div>
 

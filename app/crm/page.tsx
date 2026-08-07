@@ -11,7 +11,7 @@ import {
   type JuntaProxima,
   type PendienteItem,
 } from '@/lib/queries';
-import { hoyEnTijuana } from '@/lib/date-utils';
+import { hoyEnWorkspace } from '@/lib/timezone';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { integracionConectada } from '@/lib/credenciales';
 import { PanelActivacion } from '../_components/PanelActivacion';
@@ -40,12 +40,22 @@ export default async function LeadsPage() {
     return <PanelActivacion tab={tabCrm} />;
   }
   await guardOnboarding();
-  const hoy = hoyEnTijuana();
+  // "Hoy" en la zona del WORKSPACE, no en Tijuana fija. Este `hoy` gobierna el
+  // `min` del selector de fecha, los chips de reagendado y el guard de "esa fecha
+  // ya pasó" — y del otro lado /api/crm/horarios filtra los horarios pasados en la
+  // zona del workspace. Con las dos mitades en zonas distintas, un negocio en
+  // Madrid podía elegir a las 03:00 un día que para el server ya estaba vencido.
+  const hoy = await hoyEnWorkspace();
 
   let leads: Lead[] = [];
   let campMap: Record<string, string> = {};
   let juntasRaw: JuntaProxima[] = [];
   let pendientesRaw: PendienteItem[] = [];
+  // Por qué la lista de pendientes puede no ser completa ('' = está entera). El
+  // `.catch(() => [])` de abajo convertía CUALQUIER falla en una lista vacía, y la
+  // pantalla la celebraba con "✓ Todo marcado — datos al día": el peor final
+  // posible para el worklist, porque el usuario deja de mirar.
+  let pendientesAviso = '';
   let stages: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
   let transitions: FunnelTransition[] = generateFunnel(DEFAULT_PIPELINE).transitions;
   let errorMsg: string | null = null;
@@ -54,14 +64,21 @@ export default async function LeadsPage() {
     // getPipelineStages ahora va en la misma ola (antes serializaba al frente).
     let stagesRaw: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
     let transitionsRaw: FunnelTransition[] | undefined;
-    [leads, campMap, juntasRaw, pendientesRaw, stagesRaw, transitionsRaw] = await Promise.all([
+    let pendRaw: { items: PendienteItem[]; aviso: string };
+    [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw] = await Promise.all([
       listLeads(),
       getCampaignNameMap().catch(() => ({}) as Record<string, string>),
       getJuntasProximas(hoy, 3).catch(() => [] as JuntaProxima[]),
-      getPendientesDeMarcar(hoy).then((p) => p.items).catch(() => [] as PendienteItem[]),
+      getPendientesDeMarcar(hoy)
+        .then((p) => ({ items: p.items, aviso: p.aviso ?? '' }))
+        // La lista vacía se sigue devolviendo (el CRM no se cae por el worklist),
+        // pero ahora VIENE DICHO que no se pudo calcular.
+        .catch((e) => ({ items: [] as PendienteItem[], aviso: `No se pudieron calcular los datos sin marcar: ${e instanceof Error ? e.message : String(e)}` })),
       getPipelineStages().catch(() => undefined),
       getFunnelTransitions().catch(() => undefined),
     ]);
+    pendientesRaw = pendRaw.items;
+    pendientesAviso = pendRaw.aviso;
     stages = stagesRaw;
     if (transitionsRaw) transitions = transitionsRaw;
   } catch (err) {
@@ -110,6 +127,7 @@ export default async function LeadsPage() {
       stages={stages}
       juntas={juntas}
       marcar={marcar}
+      marcarAviso={pendientesAviso}
       transitions={transitions}
       total={leads.length}
       errorMsg={errorMsg}

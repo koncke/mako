@@ -18,9 +18,16 @@ import { cifrarSecreto, descifrarSecreto } from './credenciales';
 import { getSetting, setSetting } from './settings';
 import { esTzValida, TZ_DEFAULT, tzDeWorkspace } from './timezone';
 import { getWorkspaceActual } from './workspace';
-// La traducción de los fallos de Google vive en el módulo puro del contrato de
-// horarios (testeable: este archivo es server-only y no se puede importar en tests).
-import { motivoLegible } from '../app/crm/horarios-respuesta';
+// La traducción de los fallos de Google y TODA la construcción de la grilla viven
+// en el módulo puro del contrato de horarios: este archivo es server-only y no se
+// puede importar en tests, y además la grilla la tiene que poder armar igual el
+// cliente cuando la agenda no se pudo leer. Una cosa, un lugar.
+import {
+  construirGrilla, esDiaValido, filtrarPasados, horaAMinutos, marcarOcupados,
+  motivoLegible, normalizarRango,
+  DURACION_DEFECTO_MIN,
+  type Ocupado, type RangoGrilla, type SlotAgenda,
+} from '../app/crm/horarios-respuesta';
 
 export const GCAL_SCOPE_LECTURA = 'https://www.googleapis.com/auth/calendar.readonly';
 /**
@@ -360,9 +367,12 @@ export type ResultadoCalendario = {
   invitado: string | null;
 };
 
-export type PedidoMoverEvento = {
-  /** Cuándo pasa a ser la reunión (ISO). */
-  nuevoInicioIso: string;
+/**
+ * Cómo se RECONOCE el evento de una reunión en la agenda. Va aparte del pedido de
+ * mover porque también se usa para una consulta de solo lectura (cuánto dura),
+ * donde no hay fecha nueva ni título de creación que pasar.
+ */
+export type AnclaEvento = {
   /** Cuándo ESTABA (ISO con hora, de Calendly). Es el ancla para encontrar el evento. */
   inicioAnteriorIso?: string | null;
   /** Fallback si no había hora: el día (YYYY-MM-DD) en que estaba la reunión. */
@@ -375,13 +385,16 @@ export type PedidoMoverEvento = {
    * matchearía contra un evento que se llama «Llamada con Juan Pérez».
    */
   titulo?: string | null;
+};
+
+export type PedidoMoverEvento = AnclaEvento & {
+  /** Cuándo pasa a ser la reunión (ISO). */
+  nuevoInicioIso: string;
   /** Título del evento NUEVO, si hay que crearlo. Acá sí conviene que sea descriptivo. */
   tituloSiSeCrea?: string | null;
   /** Solo se usa si no se pudo deducir cuánto duraba el evento original. */
   duracionMin?: number;
 };
-
-const DURACION_DEFECTO_MIN = 45;
 
 /**
  * Traduce un error de la Calendar API a algo que el usuario pueda leer y accionar.
@@ -425,7 +438,7 @@ async function leerFallo(res: Response): Promise<{ codigo: CodigoCalendario; mot
  *   · el título se parece al que traemos, o
  *   · arranca prácticamente a la misma hora que la reunión vieja (±10 min).
  */
-async function buscarEventoDeReunion(at: string, p: PedidoMoverEvento): Promise<EventoCrudo | null> {
+async function buscarEventoDeReunion(at: string, p: AnclaEvento): Promise<EventoCrudo | null> {
   const email = (p.emailInvitado ?? '').trim().toLowerCase();
   const anclaHora = Date.parse(p.inicioAnteriorIso ?? '');
   const tieneHora = Number.isFinite(anclaHora);
@@ -481,6 +494,35 @@ function duracionMs(e: EventoCrudo): number | null {
   // Acotado: una duración absurda (evento de varios días marcado con hora) haría
   // que la reunión reagendada le tape la agenda entera al dueño.
   return d >= 5 * 60 * 1000 && d <= 8 * 60 * 60 * 1000 ? d : null;
+}
+
+/**
+ * CUÁNTO DURA DE VERDAD la reunión que ya está en la agenda, en minutos.
+ *
+ * Existe porque leer y escribir usaban duraciones distintas y nadie lo notaba: la
+ * grilla de horarios calculaba los huecos con 45' fijos, pero al mover, el PATCH
+ * CONSERVA la duración real del evento (`duracionMs`). Con una R1 de Calendly de
+ * 60' y algo agendado a las 19:15, el server marcaba 18:30 como LIBRE (18:30+45'
+ * = 19:15, justo no se pisa), el selector lo ofrecía, y el evento terminaba
+ * 18:30–19:30 ENCIMA de la otra reunión. Un ocupado listado como libre.
+ *
+ * Nunca lanza y devuelve null cuando no se sabe (sin agenda, sin evento, evento de
+ * día completo): el caller cae a DURACION_DEFECTO_MIN, que es el comportamiento de
+ * siempre. Cuesta un `events.list` sobre una ventana de 3 h — el mismo request que
+ * ya hace moverEventoDeReunion, y se pide al ABRIR el wizard, no en el camino
+ * crítico del paso de la hora.
+ */
+export async function duracionDeReunionEnAgendaMin(ancla: AnclaEvento): Promise<number | null> {
+  try {
+    const tk = await tokenGoogle();
+    if (!tk) return null;
+    const evento = await buscarEventoDeReunion(tk.access, ancla);
+    if (!evento) return null;
+    const ms = duracionMs(evento);
+    return ms == null ? null : Math.round(ms / 60_000);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -579,9 +621,11 @@ export async function moverEventoDeReunion(p: PedidoMoverEvento): Promise<Result
 // =============================================================================
 // LEER HUECOS — qué horarios de un día están libres en la agenda
 // =============================================================================
-// Para qué: al reagendar, la grilla de horas se generaba a ciegas (9:00→19:00 por
-// constantes, app/crm/SelectorHora.tsx) y el usuario elegía encima de reuniones
-// que ya tenía. Esto lee la agenda y marca cuáles están ocupados.
+// Para qué: al reagendar, la grilla de horas se generaba a ciegas por constantes
+// (app/crm/SelectorHora.tsx) y el usuario elegía encima de reuniones que ya tenía.
+// Esto lee la agenda y marca cuáles están ocupados. La grilla en sí (rango, paso,
+// solapamiento) vive en app/crm/horarios-respuesta.ts; acá está SOLO lo que necesita
+// hablar con Google.
 //
 // ⚠️ Lo importante de esta parte del módulo: usa freeBusy, que Google acepta con
 // `calendar.readonly`. Es decir, LOS HORARIOS FUNCIONAN CON PERMISO DE SOLO
@@ -590,52 +634,67 @@ export async function moverEventoDeReunion(p: PedidoMoverEvento): Promise<Result
 // todos los tokens viejos. "No poder mover el evento" y "no poder leer la agenda"
 // son dos permisos distintos y acá solo hace falta el segundo.
 //
-// Por qué freeBusy y no listarEventos: respeta `transparency: 'transparent'` (los
-// eventos marcados "disponible" no bloquean) e ignora los que el dueño rechazó —
-// dos cosas que EventoCrudo ni siquiera modela. Si algún día freeBusy diera 403,
-// listarEventos() ya está probado en prod y permite derivar lo mismo con menos
-// precisión.
+// ⚠️ QUÉ CUENTA COMO OCUPADO — verificado contra la respuesta de freeBusy, porque
+// de esto depende que no se ofrezca un horario que ya está tomado (ni al revés):
+//
+//  · Eventos "transparentes" (disponibilidad = Libre): freeBusy NO los devuelve, así
+//    que quedan LIBRES. Es lo correcto: un recordatorio de "tomar agua" no bloquea.
+//  · Eventos rechazados por el dueño: tampoco vienen. También correcto.
+//  · Eventos de DÍA COMPLETO: si están marcados como Ocupado, Google SÍ los devuelve
+//    como un intervalo que cubre el día entero, y acá se tratan como cualquier otro
+//    (se parsean start/end y pisan todos los slots). O sea que un día bloqueado deja
+//    la grilla entera en `libre:false` — no se cuela como día libre. Los de día
+//    completo que Calendar crea por defecto son transparentes (Libre) y por eso un
+//    cumpleaños o un "viaje" no te borran la agenda.
+//  · Solo se consulta el calendario 'primary'. Un evento ocupado que vive en OTRO
+//    calendario del dueño (uno compartido, por ejemplo) NO bloquea. Es una limitación
+//    conocida, no un descuido: la conexión es de una cuenta y su agenda principal.
+//  · La trampa real está más abajo: cuando el calendario viene con `errors`, `busy`
+//    llega VACÍO. Eso se chequea explícitamente, porque leerlo como "todo libre" es
+//    exactamente el bug que esta función existe para evitar.
+//
+// Por qué freeBusy y no listarEventos: los dos primeros puntos EventoCrudo ni
+// siquiera los modela. Si algún día freeBusy diera 403, listarEventos() ya está
+// probado en prod y permite derivar lo mismo con menos precisión.
 
 const FREEBUSY_URL = 'https://www.googleapis.com/calendar/v3/freeBusy';
 
 /**
- * Jornada laboral por defecto y paso de la grilla. Son los MISMOS valores que
- * app/crm/SelectorHora.tsx (HORA_DESDE / HORA_HASTA / PASO_MIN): ese componente es
- * de cliente y este módulo es `server-only`, así que no se pueden compartir sin
- * un tercer módulo puro. Mientras tanto, la regla es que la UI PINTE LA GRILLA QUE
- * DEVUELVE ESTA FUNCIÓN en vez de generar la suya y cruzarla — así, aunque las
- * constantes se separen, no hay chips sin slot ni slots sin chip.
+ * Un horario de la grilla, con su estado real según la agenda.
+ *
+ * Es el MISMO tipo que consume el cliente (SlotAgenda): antes estaban declarados dos
+ * veces, uno acá y otro en el contrato, y solo la casualidad los mantenía iguales.
+ * El alias queda para no romper a quien importe el nombre viejo.
+ *
+ * `hora` es 'HH:MM' en la zona del workspace, e `inicioIso` es el instante absoluto
+ * — es el que la UI tiene que MANDAR al reagendar: si lo recalcula con
+ * `new Date(\`${fecha}T${hora}\`)` usa la zona del navegador, y un closer en otro
+ * huso vería un slot y guardaría otro momento.
  */
-const HORA_DESDE_DEFECTO = 9;
-const HORA_HASTA_DEFECTO = 19;
-const PASO_MIN_DEFECTO = 30;
-
-/** Un horario de la grilla, con su estado real según la agenda. */
-export type SlotHorario = {
-  /** 'HH:MM' en la zona del workspace — el mismo formato que maneja SelectorHora. */
-  hora: string;
-  /**
-   * El instante absoluto de ese horario (ISO UTC). Es lo que la UI tiene que MANDAR
-   * al reagendar: si lo recalcula con `new Date(\`${fecha}T${hora}\`)` usa la zona
-   * del navegador, y un closer en otro huso vería un slot y guardaría otro momento.
-   */
-  inicioIso: string;
-  /** false = hay algo en la agenda que se pisa con la reunión completa. */
-  libre: boolean;
-};
+export type SlotHorario = SlotAgenda;
 
 export type OpcionesHorarios = {
   /** Zona IANA. Si no viene, se resuelve con tzDeWorkspace del workspace actual. */
   tz?: string;
-  /** Jornada laboral local (hora entera). Default 9 y 19, inclusive las dos puntas. */
+  /**
+   * Jornada ofrecible, en hora local. Admite fracciones (8.5 = 8:30). Default
+   * 7 y 22, inclusive las dos puntas — ver HORA_DESDE_DEFECTO en el contrato para
+   * el porqué de ese rango.
+   */
   desdeHora?: number;
   hastaHora?: number;
-  /** Paso de la grilla en minutos. Default 30. */
+  /** Paso de la grilla en minutos. Default 15 (existen los cuartos de hora). */
   pasoMin?: number;
   /** Cuánto dura la reunión: el hueco solo sirve si entra ENTERA. Default 45. */
   duracionMin?: number;
   /** No ofrecer horarios ya pasados cuando la fecha es hoy. Default true. */
   ocultarPasados?: boolean;
+  /**
+   * Anticipación mínima sobre "ahora" para los horarios de hoy, en minutos.
+   * Default 30: sin esto, a las 10:14 se ofrecen las 10:15. Solo aplica si
+   * `ocultarPasados` está activo.
+   */
+  margenMin?: number;
   /** Solo para tests: qué momento se considera "ahora". */
   ahora?: Date;
 };
@@ -665,6 +724,11 @@ export type ResultadoHorarios = {
   slots: SlotHorario[];
   /** La zona en la que se interpretaron las horas, para que la UI la pueda decir. */
   tz: string;
+  /**
+   * Con qué números se armó la grilla, ya acotados. Viaja para que el cliente pinte
+   * EL MISMO rango cuando tiene que armarla solo (agenda no verificada).
+   */
+  rango: RangoGrilla;
 };
 
 /** Zona del workspace actual. Nunca lanza: una zona rota no puede tirar la pantalla. */
@@ -676,63 +740,6 @@ async function tzParaHorarios(pedida?: string): Promise<string> {
     return TZ_DEFAULT;
   }
 }
-
-/**
- * Cuánto está corrida `tz` respecto de UTC en ESE instante (ms). Se calcula
- * formateando el instante en la zona y volviendo a leer las partes como si fueran
- * UTC: la diferencia es el offset real, con DST incluido.
- */
-function offsetTzMs(tz: string, tsUtc: number): number {
-  const p = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).formatToParts(new Date(tsUtc));
-  const g = (t: string): number => Number(p.find((x) => x.type === t)?.value);
-  // Algunos runtimes devuelven "24" en vez de "00" a medianoche con hour12:false.
-  const h = g('hour') % 24;
-  return Date.UTC(g('year'), g('month') - 1, g('day'), h, g('minute'), g('second')) - tsUtc;
-}
-
-/**
- * Día local ('YYYY-MM-DD') + minutos desde medianoche + zona → instante UTC.
- * Es el INVERSO de fechaHoraEnTz (lib/date-utils) y no existía en el repo; el
- * único precedente era un offset fijo -6 en lib/nutricion.ts, que ignora DST y por
- * eso NO se copia.
- *
- * Dos pasadas: la primera estima el offset del día suponiendo la hora en UTC, y la
- * segunda lo recalcula ya parado en el instante estimado. Sin eso, el día del
- * cambio de horario queda corrido una hora.
- *
- * Las dos horas patológicas del cambio de horario están cubiertas sin caso
- * especial: la que NO existe (2:00 el día que adelanta) cae en la hora real más
- * cercana y la que se repite toma la primera vuelta. Ninguna de las dos entra en
- * la jornada laboral por defecto, y en cualquier caso el instante devuelto existe.
- */
-function instanteDeLocal(fechaISO: string, minutosDelDia: number, tz: string): string | null {
-  const [y, m, d] = fechaISO.split('-').map(Number);
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-  try {
-    const local = Date.UTC(y, m - 1, d) + minutosDelDia * 60_000;
-    let ts = local - offsetTzMs(tz, local);
-    ts = local - offsetTzMs(tz, ts);
-    return Number.isFinite(ts) ? new Date(ts).toISOString() : null;
-  } catch {
-    return null;
-  }
-}
-
-const hhmm = (min: number): string => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-
-/** Igual que esFechaValida de lib/date-utils, pero acá no se puede importar cliente-code. */
-function esDiaValido(fecha: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return false;
-  const [y, m, d] = fecha.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
-}
-
-/** Un intervalo ocupado, ya parseado a milisegundos. */
-type Ocupado = { ini: number; fin: number };
 
 /**
  * LOS HORARIOS DE UNA FECHA CON SU DISPONIBILIDAD REAL, leídos de Google.
@@ -748,41 +755,39 @@ type Ocupado = { ini: number; fin: number };
 export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHorarios = {}): Promise<ResultadoHorarios> {
   const tz = await tzParaHorarios(opts.tz);
   const fecha = (fechaISO ?? '').trim();
+  // El rango se normaliza antes que nada: viaja en TODAS las respuestas, también en
+  // la de fecha inválida, porque el cliente lo usa para dibujar su grilla.
+  const rango = normalizarRango({
+    desdeMin: opts.desdeHora != null ? horaAMinutos(opts.desdeHora) : undefined,
+    hastaMin: opts.hastaHora != null ? horaAMinutos(opts.hastaHora) : undefined,
+    pasoMin: opts.pasoMin,
+    duracionMin: opts.duracionMin,
+    margenMin: opts.margenMin,
+  });
   if (!esDiaValido(fecha)) {
-    return { codigo: 'sin-fecha', motivo: 'La fecha no es válida.', slots: [], tz };
+    return { codigo: 'sin-fecha', motivo: 'La fecha no es válida.', slots: [], tz, rango };
   }
-
-  // Parámetros acotados: un `hastaHora` de 99 o un paso de 0 generarían una grilla
-  // infinita y el request moriría por timeout en vez de devolver algo usable.
-  const desde = Math.min(23, Math.max(0, Math.trunc(opts.desdeHora ?? HORA_DESDE_DEFECTO)));
-  const hasta = Math.min(23, Math.max(desde, Math.trunc(opts.hastaHora ?? HORA_HASTA_DEFECTO)));
-  const paso = Math.min(180, Math.max(5, Math.trunc(opts.pasoMin ?? PASO_MIN_DEFECTO)));
-  const duracionMs = Math.min(8 * 60, Math.max(5, Math.trunc(opts.duracionMin ?? DURACION_DEFECTO_MIN))) * 60_000;
 
   // La grilla se arma ANTES de hablar con Google: es la respuesta de todos los
   // caminos de error, así que no puede depender de que la consulta salga bien.
-  const grilla: SlotHorario[] = [];
-  for (let min = desde * 60; min <= hasta * 60; min += paso) {
-    const inicioIso = instanteDeLocal(fecha, min, tz);
-    if (!inicioIso) continue;
-    grilla.push({ hora: hhmm(min), inicioIso, libre: true });
-  }
+  const grilla = construirGrilla(fecha, tz, rango);
 
   // Un horario que ya pasó no es una opción: ofrecerlo solo genera el error de
-  // agendar en el pasado. Se van de la grilla, no se marcan "ocupados" (ocupado
-  // significa "hay otra cosa ahí", que es distinto).
+  // agendar en el pasado. Y uno que arranca en 2 minutos tampoco: por eso el corte
+  // no es "ahora" sino "ahora + margen". Se van de la grilla, no se marcan
+  // "ocupados" (ocupado significa "hay otra cosa ahí", que es distinto).
   const ahora = (opts.ahora ?? new Date()).getTime();
-  const slots = (opts.ocultarPasados ?? true) ? grilla.filter((s) => Date.parse(s.inicioIso) > ahora) : grilla;
+  const slots = (opts.ocultarPasados ?? true) ? filtrarPasados(grilla, ahora, rango.margenMin) : grilla;
 
   if (!slots.length) {
     // Sin slots no hay nada que consultar: nos ahorramos el request a Google.
     const motivo = grilla.length
       ? 'Ya pasaron todos los horarios de hoy: elegí otro día o cargá la hora a mano.'
       : 'No hay horarios configurados para ese día.';
-    return { codigo: 'ok', motivo, slots: [], tz };
+    return { codigo: 'ok', motivo, slots: [], tz, rango };
   }
 
-  const falla = (codigo: CodigoHorarios, motivo: string): ResultadoHorarios => ({ codigo, motivo, slots, tz });
+  const falla = (codigo: CodigoHorarios, motivo: string): ResultadoHorarios => ({ codigo, motivo, slots, tz, rango });
 
   try {
     const tk = await tokenGoogle();
@@ -792,10 +797,17 @@ export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHor
     if (!tk) return falla('sin-conexion', 'No hay una agenda de Google conectada a este espacio.');
 
     // La ventana cubre desde el primer slot hasta el final de la reunión que
-    // arrancaría en el último: un evento que empieza a las 19:20 tiene que pisar
-    // el slot de las 19:00 si la reunión dura 45 minutos.
+    // arrancaría en el último: un evento que empieza a las 22:20 tiene que pisar
+    // el slot de las 22:00 si la reunión dura 45 minutos.
+    //
+    // COSTO: la jornada pasó de 10 a 15 horas y el paso de 30' a 15', o sea casi el
+    // triple de horarios — pero el gasto NO cambia. freeBusy toma timeMin/timeMax y
+    // devuelve los intervalos ocupados de toda la ventana en UNA respuesta; los
+    // slots se cruzan después, en memoria. Nunca hay un request por horario, y una
+    // ventana más ancha del mismo día no mueve la cuota (el quota unit es por
+    // llamada, no por hora consultada).
     const timeMin = slots[0].inicioIso;
-    const timeMax = new Date(Date.parse(slots[slots.length - 1].inicioIso) + duracionMs).toISOString();
+    const timeMax = new Date(Date.parse(slots[slots.length - 1].inicioIso) + rango.duracionMin * 60_000).toISOString();
 
     const res = await fetch(FREEBUSY_URL, {
       method: 'POST',
@@ -843,20 +855,26 @@ export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHor
       return falla('api', `No pude leer tu agenda (${razon}): los horarios de abajo no están verificados.`);
     }
 
+    // Cada intervalo de `busy` es un evento que Google YA consideró ocupado (los
+    // transparentes y los rechazados no llegan hasta acá). Un evento de día completo
+    // marcado como Ocupado viene como un intervalo de 24 h y se trata igual que
+    // cualquier otro: pisa la grilla entera, que es justo lo que se espera de un día
+    // bloqueado.
     const ocupados: Ocupado[] = (cal.busy ?? [])
       .map((b) => ({ ini: Date.parse(b.start ?? ''), fin: Date.parse(b.end ?? '') }))
       .filter((b) => Number.isFinite(b.ini) && Number.isFinite(b.fin) && b.fin > b.ini);
 
-    const marcados = slots.map((s) => {
-      const ini = Date.parse(s.inicioIso);
-      const fin = ini + duracionMs;
-      // El hueco sirve solo si la reunión entra ENTERA: se solapa si algo empieza
-      // antes de que termine y termina después de que empieza.
-      const choca = ocupados.some((b) => b.ini < fin && b.fin > ini);
-      return { ...s, libre: !choca };
-    });
+    const marcados = marcarOcupados(slots, ocupados, rango.duracionMin);
 
-    return { codigo: 'ok', motivo: '', slots: marcados, tz };
+    // Con la agenda VERIFICADA y cero huecos hay que decirlo: la UI esconde los
+    // ocupados, así que sin este aviso el usuario ve una lista vacía y no puede
+    // distinguirla de "se rompió algo". Pasa de verdad con un día completo marcado
+    // como Ocupado.
+    const motivo = marcados.some((s) => s.libre)
+      ? ''
+      : 'Ese día está ocupado de punta a punta en tu agenda: elegí otro día o cargá la hora a mano.';
+
+    return { codigo: 'ok', motivo, slots: marcados, tz, rango };
   } catch (e) {
     const msg = e instanceof Error && e.name === 'TimeoutError'
       ? 'Google no respondió a tiempo: los horarios de abajo no están verificados.'
