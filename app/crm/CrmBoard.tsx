@@ -22,7 +22,11 @@ import {
   CHIP,
   CATEGORY,
   bandToCategory,
+  etapaNoShowDe,
+  salidasDeEtapa,
   stageMeta as findStage,
+  stageMetaOpt,
+  type OpcionSalida,
   type Stage,
   type StageBand,
   type FunnelTransition,
@@ -39,14 +43,19 @@ import {
   ignorarPendientesMasaAction,
   reagendarReunionAction,
   permisoCalendarioAction,
+  requisitosDeEtapaAction,
+  resolverQueHacerAction,
 } from './actions';
-import type { ReagendarResultado } from './actions';
+import type { ReagendarResultado, StageMoveData } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
 import { CrmAutoToggle } from './CrmAutoToggle';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
 import { SelectorHora, horaLegible } from './SelectorHora';
+import { motivosDeSalida, motivoFinalDe, pideMotivo } from './motivos-salida';
+import { leerRespuestaHorarios, AVISO_SIN_AGENDA, type RespuestaHorarios, type SlotAgenda } from './horarios-respuesta';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Step } from '@/lib/stage-requirements';
 import type { MiembroEquipo } from './actions';
 import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
@@ -138,6 +147,10 @@ export type CrmMarcar = {
   solTab?: 'wizard' | 'cobranza' | 'reuniones' | 'edit';
   /** Lista exacta de datos faltantes (para el wizard in-place, pasada única). */
   faltantes?: Step[];
+  /** Solo tipo 'R': cuál de las dos reuniones pasó. Lo decidió el server. */
+  cual?: 'r1' | 'r2';
+  /** La etapa REAL del lead al calcularse el pendiente (no la optimista del board). */
+  etapa?: string;
 };
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
@@ -152,8 +165,28 @@ type Confirmacion = {
   onOk: () => void;
 };
 
-/** Las salidas del form "¿Qué hacer ahora?" (una por opción del primer paso). */
-type QhOpcion = 'reprog' | 'noasistio' | 'mover' | 'perdido' | 'nutrir';
+/**
+ * Las salidas del form "¿Qué hacer ahora?".
+ *
+ * Para el pendiente de reunión (R) la primera pregunta ya no es qué ACCIÓN de CRM
+ * querés hacer, sino qué HECHO ocurrió con la reunión que pasó: ese pendiente
+ * existe justamente porque nadie sabe si el lead se presentó. Con el hecho
+ * declarado, la consecuencia se deriva del funnel y ya no se puede dar por
+ * perdido un lead marcándole en silencio que asistió.
+ *
+ *  R · hecha        — "Sí, la tuvimos"      → asistió = true, se elige el desenlace
+ *  R · noshow       — "No se presentó"      → asistió = false, la etapa se DEDUCE
+ *  R · noshowcierra — salida secundaria del no-show: cerrar sin reintentar
+ *  R · reprog       — "Se reprogramó"       → fecha, horarios reales, sin tocar la etapa
+ *  M · avanza / nodecide / sinresp / cierra — la nutrición manual vencida
+ */
+type QhOpcion =
+  | 'hecha' | 'noshow' | 'noshowcierra' | 'reprog'
+  | 'avanza' | 'nodecide' | 'sinresp' | 'cierra';
+
+/** Los pasos posibles del form. La rama decide CUÁLES y en qué orden. */
+type QhPasoId = 'que' | 'salida' | 'noshowEtapa' | 'calificado' | 'motivo' | 'motivoDetalle' | 'fecha' | 'hora' | 'plazo' | 'resumen';
+
 
 /** Resumen "dato → valor" de un paso de confirmación. El mismo en todos los wizards. */
 function ResumenFilas({ filas }: { filas: Array<[string, string]> }) {
@@ -265,13 +298,29 @@ export function CrmBoard({
   // "¿Qué hacer ahora?": lo usan DOS pendientes distintos — la nutrición manual
   // vencida (M) y la reunión que ya pasó sin desenlace (R). Cada uno necesita su
   // copy y sus salidas propias (nuevo plazo vs. reagendar la reunión).
-  const [queHacer, setQueHacer] = useState<{ leadId: number; name: string; tipo: 'M' | 'R'; cual: 'r1' | 'r2' } | null>(null);
+  const [queHacer, setQueHacer] = useState<{ leadId: number; name: string; tipo: 'M' | 'R'; cual: 'r1' | 'r2'; etapa: string } | null>(null);
   const [qhPaso, setQhPaso] = useState(0);
+  const [qhVisitados, setQhVisitados] = useState<QhPasoId[]>([]);   // Atrás vuelve al paso VISITADO
   const [qhOpcion, setQhOpcion] = useState<QhOpcion | null>(null);
-  const [qhEtapa, setQhEtapa] = useState('');     // etapa destino (mover / no asistió)
+  const [qhEtapa, setQhEtapa] = useState('');     // etapa destino elegida (o deducida)
+  const [qhCalificado, setQhCalificado] = useState<boolean | null>(null);
+  const [qhMotivoCat, setQhMotivoCat] = useState('');   // categoría del motivo de salida
+  const [qhMotivoDet, setQhMotivoDet] = useState('');   // detalle concreto
   const [qhPlazo, setQhPlazo] = useState('');     // nuevo deadline de nutrición manual
+  // Lo que el server va a exigir para el destino elegido, consultado al entrar al
+  // resumen con las respuestas ya dadas. null = todavía viajando.
+  const [qhFaltan, setQhFaltan] = useState<Step[] | null>(null);
   const [reagFecha, setReagFecha] = useState('');
   const [reagHora, setReagHora] = useState('');
+  // Horarios del día elegido leídos de Google. null = no se sabe (SelectorHora
+  // se comporta como siempre: grilla completa, todo elegible).
+  const [reagSlots, setReagSlots] = useState<SlotAgenda[] | null>(null);
+  const [reagSlotsCargando, setReagSlotsCargando] = useState(false);
+  const [reagSlotsNota, setReagSlotsNota] = useState<string>('');
+  const [reagTz, setReagTz] = useState<string>('');
+  // El no-show ya ocurrió y por eso se reagenda: hay que dejarlo en el historial
+  // ANTES del update (reagendar pone asistio_jN en null).
+  const [qhNoShowPrevio, setQhNoShowPrevio] = useState(false);
   // Qué puede hacer la agenda conectada (null = todavía no se sabe). Se consulta
   // al abrir el modal: hay que poder AVISAR que el permiso es de solo lectura
   // antes de reagendar, no después de que el invitado nunca se enteró.
@@ -347,16 +396,37 @@ export function CrmBoard({
   // Abrir "¿Qué hacer ahora?" limpio. Para el pendiente de reunión (R) además
   // pregunta si la agenda puede mover eventos: el chequeo pega contra Google, así
   // que se hace acá (una vez, al abrir) y no en cada render de la lista.
+  /** Deja el wizard en cero. Lo llaman abrir Y cerrar: si limpia uno solo, la
+   *  respuesta de una sesión anterior se filtra a la siguiente. */
+  const limpiarQueHacer = () => {
+    setQhPaso(0); setQhVisitados([]); setQhOpcion(null); setQhEtapa('');
+    setQhCalificado(null); setQhMotivoCat(''); setQhMotivoDet(''); setQhPlazo('');
+    setQhFaltan(null); setQhError(null); setQhNoShowPrevio(false);
+    setReagFecha(''); setReagHora(''); setReagOut(null); setReagCal(null);
+    setReagSlots(null); setReagSlotsCargando(false); setReagSlotsNota(''); setReagTz('');
+  };
   const abrirQueHacer = (id: number) => {
     const l = leads.find((x) => x.id === id);
     const m = marcar.find((x) => x.leadId === id);
     const tipo = m?.tipo === 'R' ? 'R' : 'M';
-    setReagFecha(''); setReagHora(''); setReagOut(null); setReagCal(null);
-    setQhPaso(0); setQhOpcion(null); setQhEtapa(''); setQhPlazo(''); setQhError(null);
-    setQueHacer({ leadId: id, name: l?.name ?? 'lead', tipo, cual: l && effStage(l) === 'agendaj2' ? 'r2' : 'r1' });
+    limpiarQueHacer();
+    // `cual` viene del PENDIENTE (lo decidió el server mirando pipeline_stage), no
+    // de la etapa local: un drag optimista o un movimiento previo la pudieron
+    // cambiar y entonces reagendábamos la reunión equivocada.
+    setQueHacer({
+      leadId: id,
+      name: l?.name ?? 'lead',
+      tipo,
+      cual: m?.cual ?? (l && l.stage === 'agendaj2' ? 'r2' : 'r1'),
+      // La etapa de ORIGEN viene del mismo lugar que `cual` y por el mismo
+      // motivo: `effStage` lee el estado optimista, así que entre un drag y el
+      // router.refresh() el wizard ofrecía los desenlaces de una etapa en la que
+      // el lead todavía no está (y el resumen prometía un movimiento falso).
+      etapa: m?.etapa ?? l?.stage ?? 'agenda',
+    });
     if (tipo === 'R') void permisoCalendarioAction().then(setReagCal).catch(() => setReagCal(null));
   };
-  const cerrarQueHacer = () => { setQueHacer(null); setReagOut(null); setReagCal(null); setQhOpcion(null); setQhPaso(0); };
+  const cerrarQueHacer = () => { setQueHacer(null); limpiarQueHacer(); };
 
   // Revertir el último movimiento a su etapa anterior (ventana del toast, 5s).
   // No deja huella en el historial: un movimiento deshecho al instante es un
@@ -505,24 +575,309 @@ export function CrmBoard({
     return t.toISOString().slice(0, 10);
   };
 
-  // Etapas a las que se puede mandar el lead: el pipeline primero, las salidas
-  // después. La nutrición queda afuera: tiene su propia opción ("seguir nutriendo").
-  const etapasDestino = useMemo(() => {
-    const orden = (b: StageBand) => (b === 'pipeline' ? 0 : b === 'salidas' ? 1 : 2);
-    return stages
-      .filter((s) => s.key !== 'lead' && (s.band ?? 'pipeline') !== 'nutricion')
-      .sort((a, b) => orden(a.band ?? 'pipeline') - orden(b.band ?? 'pipeline') || ((a.col ?? 0) - (b.col ?? 0)));
-  }, [stages]);
-  const hayPerdido = stages.some((s) => s.key === 'perdido');
+  // ── El árbol del form, derivado del FUNNEL del workspace ────────────────────
+  // Nada de listas de etapas armadas a mano acá: `salidasDeEtapa` (lib/pipeline)
+  // es la fuente única. Filtra por el hecho ya declarado, así nunca se ofrece un
+  // destino que contradiga la asistencia que el usuario acaba de contestar.
+  const qhEtapaActual = queHacer?.etapa ?? 'agenda';
+  const qhCual = queHacer?.cual ?? 'r1';
 
-  const qhPasos: Array<'que' | 'detalle' | 'resumen'> =
-    ['que', ...(qhOpcion && qhOpcion !== 'perdido' ? (['detalle'] as const) : []), 'resumen'];
-  const qhPasoId = qhPasos[Math.min(qhPaso, qhPasos.length - 1)];
-  const qhPuede =
-    qhPasoId === 'que' ? qhOpcion != null
-    : qhPasoId === 'detalle'
-      ? (qhOpcion === 'reprog' ? !!reagFecha && !!reagHora : qhOpcion === 'nutrir' ? !!qhPlazo : !!qhEtapa)
-      : true;
+  /** Desenlaces cuando la reunión SÍ se tuvo. Los negativos van al final, separados. */
+  const salidasAsistio = useMemo(
+    () => (queHacer?.tipo === 'R' ? salidasDeEtapa(stages, transitions, qhEtapaActual, { asistio: true, cual: qhCual }) : []),
+    [stages, transitions, qhEtapaActual, qhCual, queHacer?.tipo],
+  );
+  /** Cerrar el lead tras un no-show: solo pérdidas, con la asistencia FORZADA a false. */
+  const salidasNoShowCierre = useMemo(
+    () => salidasDeEtapa(stages, transitions, qhEtapaActual, { asistio: false, cual: qhCual }).filter((o) => o.category === 'perdida'),
+    [stages, transitions, qhEtapaActual, qhCual],
+  );
+  /** Nutrición manual vencida: a dónde vuelve / cómo se cierra. Sin tocar asistencias. */
+  const salidasManual = useMemo(() => salidasDeEtapa(stages, transitions, qhEtapaActual), [stages, transitions, qhEtapaActual]);
+  const salidasManualAvanza = useMemo(() => salidasManual.filter((o) => o.category !== 'perdida'), [salidasManual]);
+  const salidasManualCierre = useMemo(() => salidasManual.filter((o) => o.category === 'perdida'), [salidasManual]);
+
+  /** La etapa de No Show que dicta el funnel (null = este funnel no la modela). */
+  const qhEtapaNoShow = useMemo(
+    () => (queHacer?.tipo === 'R' ? etapaNoShowDe(stages, transitions, qhEtapaActual, qhCual) : null),
+    [stages, transitions, qhEtapaActual, qhCual, queHacer?.tipo],
+  );
+  /**
+   * PANTALLA DE EXCEPCIÓN: el funnel del workspace no tiene etapa de No Show para
+   * esta reunión. No aparece nunca en el funnel default ni en ninguno generado.
+   * Se ofrecen SOLO nutrición y salidas — nunca una etapa de avance, que
+   * contradiría el no-show que se acaba de declarar.
+   */
+  const salidasNoShowExcepcion = useMemo(() => {
+    const todas = salidasDeEtapa(stages, transitions, qhEtapaActual, { asistio: false, cual: qhCual });
+    const sinAvance = todas.filter((o) => o.category !== 'avanza');
+    // Nunca vacía: si el funnel no deja ni una, mejor todas que una pantalla muerta.
+    return sinAvance.length ? sinAvance : todas;
+  }, [stages, transitions, qhEtapaActual, qhCual]);
+
+  /** Las opciones que se le ofrecen al paso `salida` de la rama en curso. */
+  const qhSalidas: OpcionSalida[] =
+    qhOpcion === 'hecha' ? salidasAsistio
+    : qhOpcion === 'noshowcierra' ? salidasNoShowCierre
+    : qhOpcion === 'avanza' ? salidasManualAvanza
+    : qhOpcion === 'cierra' ? salidasManualCierre
+    : [];
+  const qhSalidaElegida = qhSalidas.find((o) => o.to === qhEtapa) ?? null;
+
+  // El destino REAL: el elegido, o el que dicta el funnel en la rama de no-show.
+  // Todo lo que dependa del destino (motivo, chips, verbo del botón) se calcula
+  // sobre ESTO y nunca sobre `qhEtapa`: en la rama de no-show `qhEtapa` está
+  // vacía, y con un funnel cuyo no-show apunta a Perdido el wizard cerraba el
+  // lead sin pedir el motivo — el mismo agujero, por otra puerta.
+  const qhDestino = qhOpcion === 'noshow' ? (qhEtapaNoShow ?? qhEtapa) : qhEtapa;
+
+  /** El destino es una etapa de agenda: la reunión se AGENDA, no se "mueve". */
+  const qhVaACalendly = qhOpcion === 'avanza' && !!qhDestino && !!calendlyUrlFor(qhDestino);
+
+  // ¿El destino saca al lead del juego? Se pregunta SIEMPRE el motivo, aunque el
+  // lead ya tenga uno viejo: `stepsForStage` devuelve [] cuando `motivo_perdida`
+  // trae cualquier texto, y por eso la pérdida NUEVA se quedaba con el motivo de
+  // la anterior. La decisión de repreguntar es de ESTE wizard, no del validador —
+  // tocarlo allá haría que "Completar datos" repregunte el motivo de todo lead ya
+  // perdido, para siempre.
+  const qhPideMotivo = pideMotivo(qhDestino);
+  const qhEsSalida = qhPideMotivo || (!!qhDestino && (stageMetaOpt(stages, qhDestino)?.band ?? 'pipeline') === 'salidas');
+  // "¿Era calificado?" solo cuando el lead asistió Y se va por una salida: es la
+  // ÚLTIMA vez que alguien mira este lead. `stepsForStage` corta en perdido/descal
+  // y solo pide el motivo, y una vez en Perdido el worklist ya no lo vuelve a
+  // listar nunca — el dato de CAPI se perdía para siempre. En cualquier otro
+  // destino lo pide StageMoveDialog con su propio gate; preguntarlo acá sería
+  // alargar el wizard por nada.
+  const qhLead = queHacer ? leads.find((x) => x.id === queHacer.leadId) ?? null : null;
+  // ⚠️ Y solo si la respuesta se va a poder GUARDAR. `updateLead` tiene una regla
+  // de coherencia dura: sin `fecha_junta_1` o con `asistio_j1 !== true` fuerza
+  // `calificado = null` (lib/leads.ts). En un pendiente de R2 con la R1 nunca
+  // marcada, el wizard preguntaba —diciendo encima "es la última vez que te lo
+  // podemos preguntar"— y el server tiraba la respuesta en silencio. Si el dato
+  // no va a sobrevivir, la pregunta no se hace.
+  const qhCalificadoPersiste = !!qhLead?.fechaJ1 && (qhCual === 'r1' || qhLead?.asistioJ1 === true);
+  const qhPideCalificado = qhOpcion === 'hecha' && qhEsSalida && qhLead?.calificado == null && qhCalificadoPersiste;
+
+  const qhMotivoFinal = motivoFinalDe(qhMotivoCat, qhMotivoDet);
+
+  /** Los pasos de la rama en curso, en orden. Ids literales, nunca números. */
+  const qhPasos: QhPasoId[] = useMemo(() => {
+    if (!qhOpcion) return ['que'];
+    const p: QhPasoId[] = ['que'];
+    switch (qhOpcion) {
+      case 'hecha':
+        p.push('salida');
+        if (qhPideCalificado) p.push('calificado');
+        if (qhPideMotivo) p.push('motivo', 'motivoDetalle');
+        break;
+      case 'noshow':
+        // CERO preguntas: la etapa la dicta el funnel. Solo si este funnel no la
+        // modela hay que preguntarla (pantalla de excepción).
+        if (!qhEtapaNoShow) p.push('noshowEtapa');
+        // Y si esa etapa de excepción resulta ser una salida (Perdido/Descal), el
+        // motivo se pide igual que en cualquier otro cierre: sin esto el lead se
+        // cerraba heredando el `motivo_perdida` de la pérdida anterior.
+        if (qhPideMotivo) p.push('motivo', 'motivoDetalle');
+        break;
+      case 'noshowcierra':
+      case 'cierra':
+        p.push('salida');
+        if (qhPideMotivo) p.push('motivo', 'motivoDetalle');
+        break;
+      case 'avanza':
+        p.push('salida');
+        break;
+      case 'reprog':
+        p.push('fecha', 'hora');
+        break;
+      case 'nodecide':
+      case 'sinresp':
+        p.push('plazo');
+        break;
+    }
+    p.push('resumen');
+    return p;
+  }, [qhOpcion, qhPideCalificado, qhPideMotivo, qhEtapaNoShow]);
+
+  /** ¿Esta rama termina moviendo al lead de etapa? (reagendar y los plazos no.) */
+  const qhMueveEtapa = (op: QhOpcion | null): boolean =>
+    op === 'hecha' || op === 'noshow' || op === 'noshowcierra' || op === 'avanza' || op === 'cierra';
+
+  const qhPasoId: QhPasoId = qhPasos[Math.min(qhPaso, qhPasos.length - 1)];
+  /** El movimiento pasa por otro wizard porque el server todavía pide datos. */
+  const qhHayHandoff = (qhFaltan?.length ?? 0) > 0;
+
+  /**
+   * El instante que se guardaría con la fecha y la hora elegidas. Sale del SLOT
+   * cuando lo hay (lo calculó el server en la zona del workspace) y solo se
+   * recalcula en el navegador para la hora tipeada a mano.
+   */
+  const reagInstante = (): number => {
+    const slot = reagSlots?.find((s) => s.hora === reagHora);
+    return slot ? Date.parse(slot.inicioIso) : Date.parse(`${reagFecha}T${reagHora}`);
+  };
+  /**
+   * Reagendar hacia atrás es el bucle más tonto del worklist: el lead vuelve a
+   * quedar pendiente en el mismo render (y encima con la asistencia recién
+   * borrada). El server filtra los horarios pasados, pero cuando Google no
+   * contesta la grilla se pinta entera y "Otro horario" siempre deja tipear.
+   */
+  const reagHoraPasada = (() => {
+    if (!reagFecha || !reagHora) return false;
+    const ms = reagInstante();
+    return Number.isFinite(ms) && ms <= Date.now();
+  })();
+
+  const qhPuede = (() => {
+    switch (qhPasoId) {
+      case 'que': return qhOpcion != null;
+      case 'salida': case 'noshowEtapa': return !!qhEtapa;
+      case 'calificado': return qhCalificado != null;
+      case 'motivo': return !!qhMotivoCat.trim();
+      case 'motivoDetalle': return !!qhMotivoDet.trim();
+      // El `min` del input es una restricción BLANDA (el onChange dispara igual):
+      // una fecha de ayer tipeada a mano volvía al worklist al instante.
+      case 'fecha': return !!reagFecha && reagFecha >= hoy;
+      case 'hora': return !!reagHora && !reagHoraPasada;
+      case 'plazo': return !!qhPlazo && qhPlazo >= hoy;
+      // El resumen espera a saber si el server pide algo más: hasta entonces el
+      // botón no puede prometer ni "listo" ni "faltan 2 datos".
+      case 'resumen': return qhMueveEtapa(qhOpcion) && !qhVaACalendly ? qhFaltan !== null : true;
+      default: return true;
+    }
+  })();
+
+  /** Lo que el usuario ya contestó, en el formato que entiende el server. */
+  const qhDatos = (): StageMoveData => ({
+    ...(qhOpcion === 'noshow' ? (qhCual === 'r2' ? { asistioJ2: false } : { asistioJ1: false }) : {}),
+    ...(qhSalidaElegida?.asistioJ1 != null ? { asistioJ1: qhSalidaElegida.asistioJ1 } : {}),
+    ...(qhSalidaElegida?.asistioJ2 != null ? { asistioJ2: qhSalidaElegida.asistioJ2 } : {}),
+    ...(qhCalificado != null ? { calificado: qhCalificado } : {}),
+    ...(qhMotivoFinal ? { motivo: qhMotivoFinal } : {}),
+  });
+
+  // Al entrar al resumen: preguntarle al server qué falta para ese destino CON lo
+  // ya contestado. De eso dependen el verbo del botón y si el wizard termina el
+  // trabajo o se lo pasa a StageMoveDialog — y así el resumen deja de prometer
+  // "esto es lo que va a pasar" para después abrir otro formulario de 5 preguntas.
+  useEffect(() => {
+    if (!queHacer || qhPasoId !== 'resumen' || !qhMueveEtapa(qhOpcion) || !qhDestino || qhVaACalendly) return;
+    let vivo = true;
+    setQhFaltan(null);
+    const datos = qhDatos();
+    requisitosDeEtapaAction(queHacer.leadId, qhDestino, datos)
+      .then((r) => { if (vivo) setQhFaltan(r); })
+      // Si la consulta falla no se bloquea el movimiento: se intenta y, si el
+      // server reclama algo, el handoff lo resuelve igual.
+      .catch(() => { if (vivo) setQhFaltan([]); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queHacer?.leadId, qhPasoId, qhOpcion, qhDestino, qhCalificado, qhMotivoFinal]);
+
+  // Los horarios reales del día elegido. Se piden al ENTRAR al paso de la hora
+  // (no al elegir la fecha): así la pantalla de fecha responde al instante y la
+  // consulta se hace una sola vez, cuando de verdad hace falta.
+  useEffect(() => {
+    if (qhPasoId !== 'hora' || !reagFecha) return;
+    let vivo = true;
+    setReagSlotsCargando(true); setReagSlotsNota('');
+    // Con timeout propio: una red que acepta la conexión y no responde nunca
+    // (proxy, captive portal, VPN a medio caer) dejaba el `cargando` prendido
+    // para siempre, y con él TODA la grilla deshabilitada.
+    fetch(`/api/crm/horarios?fecha=${encodeURIComponent(reagFecha)}&duracion=45`, { signal: AbortSignal.timeout(9000) })
+      .then((r) => r.json())
+      .then((j: RespuestaHorarios) => {
+        if (!vivo) return;
+        // Cómo se lee la respuesta vive en su módulo (y tiene tests): acá solo
+        // se reparte en el estado.
+        const r = leerRespuestaHorarios(j);
+        if (r.errorTecnico) console.error('[crm/horarios]', r.errorTecnico);
+        setReagSlots(r.slots);
+        if (r.slots) setReagTz(r.tz);
+        setReagSlotsNota(r.nota);
+      })
+      .catch(() => { if (vivo) { setReagSlots(null); setReagSlotsNota(AVISO_SIN_AGENDA); } })
+      .finally(() => { if (vivo) setReagSlotsCargando(false); });
+    return () => { vivo = false; };
+  }, [qhPasoId, reagFecha]);
+
+  /**
+   * Elegir una opción del primer paso: limpia lo contestado en la rama anterior.
+   *
+   * Antes el click no limpiaba nada, y volver atrás para cambiar de opción dejaba
+   * la respuesta vieja seleccionada y el botón de confirmar habilitado: se podía
+   * confirmar una etapa elegida contestando OTRA pregunta.
+   */
+  const elegirQhOpcion = (v: QhOpcion) => {
+    setQhOpcion(v);
+    setQhEtapa(''); setQhCalificado(null); setQhMotivoCat(''); setQhMotivoDet('');
+    setQhPlazo(''); setQhFaltan(null); setQhError(null); setQhNoShowPrevio(false);
+    setReagFecha(''); setReagHora(''); setReagSlots(null); setReagSlotsNota('');
+    setQhVisitados(['que']);
+    setQhPaso(1);
+  };
+
+  /**
+   * Elegir el DESTINO: limpia lo que se contestó para el destino anterior.
+   *
+   * Sin esto, volver atrás y cambiar de destino arrastraba la respuesta vieja:
+   * los chips de motivo de Descalificado se pintaban sin ninguno seleccionado
+   * (la categoría "Precio" no está en esa lista) pero el botón seguía habilitado
+   * porque `qhMotivoCat` no estaba vacío, y el lead se guardaba con el motivo de
+   * la otra pérdida. Igual con "calificado", que viajaba a un destino que ya no
+   * lo pedía.
+   */
+  const elegirQhEtapa = (to: string) => {
+    if (to === qhEtapa) return;
+    setQhEtapa(to);
+    setQhCalificado(null); setQhMotivoCat(''); setQhMotivoDet(''); setQhFaltan(null);
+  };
+
+  const qhAvanzar = () => {
+    setQhError(null);
+    setQhVisitados((v) => [...v, qhPasoId]);
+    setQhPaso((i) => Math.min(i + 1, qhPasos.length - 1));
+  };
+  const qhAtras = () => {
+    setQhError(null);
+    const prev = qhVisitados[qhVisitados.length - 1];
+    if (!prev) { cerrarQueHacer(); return; }
+    setQhVisitados((v) => v.slice(0, -1));
+    const i = qhPasos.indexOf(prev);
+    setQhPaso(i >= 0 ? i : Math.max(0, qhPaso - 1));
+  };
+
+  /** Saltar a otra rama desde el resumen del no-show (las dos salidas secundarias). */
+  const qhSaltarA = (op: QhOpcion, paso: QhPasoId) => {
+    setQhError(null);
+    setQhOpcion(op);
+    setQhFaltan(null);
+    // Se limpia lo de la rama vieja: si el funnel no tenía etapa de No Show, el
+    // usuario ya eligió una en la pantalla de excepción y esa key no pertenece a
+    // la lista de la rama nueva.
+    setQhEtapa(''); setQhMotivoCat(''); setQhMotivoDet(''); setQhCalificado(null);
+    // Atrás vuelve a la primera pregunta: es la única que sigue siendo válida en
+    // las dos ramas (volver al resumen de un no-show que ya no se está marcando
+    // sería mostrar un resumen de algo que el usuario descartó).
+    setQhVisitados(['que']);
+    // El paso se resuelve contra la lista NUEVA recién en el próximo render:
+    // hasta entonces alcanza con el índice que le toca en esa rama.
+    const nuevos: QhPasoId[] = op === 'reprog' ? ['que', 'fecha', 'hora', 'resumen'] : ['que', 'salida', 'resumen'];
+    setQhPaso(Math.max(1, nuevos.indexOf(paso)));
+  };
+
+  /** La frase que queda en el historial: por qué se movió, en castellano llano. */
+  const qhFrase = (destinoLabel: string): string => {
+    const nR = qhCual === 'r2' ? 2 : 1;
+    switch (qhOpcion) {
+      case 'hecha': return `La Reunión ${nR} se hizo — pasa a ${destinoLabel}${qhMotivoFinal ? ` (${qhMotivoFinal})` : ''}`;
+      case 'noshow': return `No se presentó a la Reunión ${nR} — pasa a ${destinoLabel}`;
+      case 'noshowcierra': return `No se presentó a la Reunión ${nR} y no vuelve a intentarse — pasa a ${destinoLabel}${qhMotivoFinal ? ` (${qhMotivoFinal})` : ''}`;
+      case 'avanza': return `Contestó la nutrición manual y vuelve a ${destinoLabel}`;
+      case 'cierra': return `Venció la nutrición manual — pasa a ${destinoLabel}${qhMotivoFinal ? ` (${qhMotivoFinal})` : ''}`;
+      default: return '';
+    }
+  };
 
   const confirmarQueHacer = () => {
     if (!queHacer || !qhOpcion) return;
@@ -533,39 +888,86 @@ export function CrmBoard({
     // Reagendar: el modal NO se cierra — mover el evento en Google es la mitad del
     // trabajo y su resultado se cuenta acá mismo, en el paso siguiente.
     if (qhOpcion === 'reprog') {
-      // El ISO se arma en el navegador: la hora queda en la zona horaria del que
-      // la carga y no hay que adivinar el huso.
-      const at = new Date(`${reagFecha}T${reagHora}`).toISOString();
+      // Se manda el `inicioIso` QUE VINO CON EL SLOT: los huecos se calculan en la
+      // zona del workspace y recalcular en el navegador desincroniza al closer que
+      // esté en otro huso. La única excepción es "Otro horario" (tipeado a mano),
+      // que no tiene slot y se convierte acá.
+      const slot = reagSlots?.find((s) => s.hora === reagHora);
+      const at = slot ? slot.inicioIso : new Date(`${reagFecha}T${reagHora}`).toISOString();
+      const noShowPrevio = qhNoShowPrevio;
       startTransition(async () => {
-        try { setReagOut(await reagendarReunionAction(leadId, cual, reagFecha, at)); router.refresh(); }
+        try { setReagOut(await reagendarReunionAction(leadId, cual, reagFecha, at, { noShowPrevio })); router.refresh(); }
         catch (e) { setQhError(e instanceof Error ? e.message : 'No se pudo reagendar.'); }
       });
       return;
     }
 
-    if (qhOpcion === 'nutrir') {
+    // Nutrición manual: el motivo NO se pregunta, se DEDUCE de la opción elegida.
+    // Antes iba una frase fija ("Se extendió el plazo…") pasara lo que pasara, y
+    // eso era lo que quedaba en el historial.
+    if (qhOpcion === 'nodecide' || qhOpcion === 'sinresp') {
       const plazo = qhPlazo;
+      const motivo = qhOpcion === 'nodecide'
+        ? 'Sigue interesado pero no decide — se extiende el plazo'
+        : 'No respondió — se extiende el plazo de la nutrición manual';
       cerrarQueHacer();
       setLocalStage((m) => ({ ...m, [leadId]: 'manual' }));
       startTransition(async () => {
-        await markManualNutritionAction(leadId, 'Se extendió el plazo de la nutrición manual', plazo);
+        await markManualNutritionAction(leadId, motivo, plazo);
         router.refresh();
       });
       return;
     }
 
-    // Mover / no asistió / se perdió: el destino lo resuelve el wizard de etapa,
-    // que ya sabe pedir lo que falte (motivo, monto, asistencias) y confirma solo.
-    const destino = qhOpcion === 'perdido' ? 'perdido' : qhEtapa;
-    cerrarQueHacer();
+    const destino = qhDestino;
     if (!l || !destino) return;
-    const tr = transitionFor(effStage(l), destino);
-    const move: StageMoveTarget = { to: destino, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 };
-    // "No asistió" es un dato del lead, no solo un movimiento: viaja con la move.
-    if (qhOpcion === 'noasistio') {
-      if (cual === 'r2') move.asistioJ2 = false; else move.asistioJ1 = false;
+
+    // Volver al pipeline desde la nutrición: si el destino es una etapa de
+    // agenda, la reunión hay que AGENDARLA. Pasa por la misma intercepción que
+    // el drag (¿ya ocurrió o la vas a agendar?) en vez de mover la card a mano.
+    // Sin esto el lead aterrizaba en Agenda R1 con la fecha vieja de la reunión
+    // que ya pasó, y volvía al worklist como pendiente en el render siguiente.
+    // Solo en esta rama: en las de reunión el usuario acaba de declarar una
+    // asistencia y mandarlo a Calendly perdería ese hecho.
+    if (qhOpcion === 'avanza' && calendlyUrlFor(destino)) {
+      cerrarQueHacer();
+      scheduleViaCalendly(l, destino);
+      return;
     }
-    openStageMove(l, move);
+
+    const destinoLabel = stageMetaOpt(stages, destino)?.label ?? destino;
+    const datos = qhDatos();
+    const move: StageMoveTarget = {
+      to: destino,
+      asistioJ1: datos.asistioJ1,
+      asistioJ2: datos.asistioJ2,
+      yaRespondido: { calificado: qhCalificado, motivo: qhMotivoFinal || null },
+    };
+
+    // Falta algo que este wizard no pregunta (fechas, Fathom, Deal Details): se lo
+    // pasa a StageMoveDialog con TODO lo contestado precargado. El resumen ya lo
+    // anunció con nombre y apellido; no es una sorpresa al confirmar.
+    if (qhHayHandoff) { cerrarQueHacer(); openStageMove(l, move); return; }
+
+    // No falta nada: este wizard TERMINA el trabajo. Es la diferencia con el
+    // "Continuar" de antes, que cerraba y abría otro formulario de 5 preguntas.
+    const from = effStage(l);
+    startTransition(async () => {
+      try {
+        const r = await resolverQueHacerAction(leadId, destino, datos, qhFrase(destinoLabel));
+        // El server ve algo que el resumen no vio (otro usuario editó el lead entre
+        // medio). NO es un error rojo: se abre el diálogo con lo ya contestado.
+        if (!r.ok) { cerrarQueHacer(); openStageMove(l, move); return; }
+        cerrarQueHacer();
+        setLocalStage((m) => ({ ...m, [leadId]: destino }));
+        if (from !== destino) {
+          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, monto: l.monto || null, motivo: l.motivo || null });
+        }
+        router.refresh();
+      } catch (e) {
+        setQhError(e instanceof Error ? e.message : 'No se pudo guardar.');
+      }
+    });
   };
 
   // Reunión (R1/R2) sin Calendly: 'pasada' = ya ocurrió (fecha + asistencia);
@@ -957,54 +1359,143 @@ export function CrmBoard({
 
       {queHacer && !reagOut && (() => {
         const esR = queHacer.tipo === 'R';
-        const nR = queHacer.cual === 'r2' ? 2 : 1;
-        const etiquetaEtapa = (k: string) => findStage(stages, k).label;
+        const nR = qhCual === 'r2' ? 2 : 1;
+        const etiqueta = (k: string) => stageMetaOpt(stages, k)?.label ?? k;
+        const etapaLabel = etiqueta(qhEtapaActual);
+        const destinoLabel = qhDestino ? etiqueta(qhDestino) : '—';
 
-        // Paso 1 — las salidas reales de cada pendiente, como botones grandes.
+        // Paso 1 — la primera pregunta es un HECHO, no una acción de CRM.
+        //
+        // Este pendiente existe porque nadie sabe si la reunión que ya pasó
+        // ocurrió. Preguntar "¿ya avanzó / se perdió?" era pedir la consecuencia
+        // antes que la causa: por eso "Se perdió" terminaba marcando en silencio
+        // que el lead había asistido. Con el hecho primero, la consecuencia se
+        // deriva del funnel y nunca puede contradecirlo.
+        //
+        // El orden (lo bueno → la falla normal → la excepción) es el mismo que ya
+        // usa el paso de asistencia de StageMoveDialog: no se inventa nada.
         const opciones: Array<{ v: QhOpcion; label: string; sub: string }> = esR
           ? [
-              { v: 'reprog', label: 'Se reprogramó', sub: 'Quedó para otro día y hora' },
-              { v: 'noasistio', label: 'No asistió', sub: 'No se presentó a la reunión' },
-              { v: 'mover', label: 'Ya avanzó, moverlo de etapa', sub: 'La reunión ocurrió y el lead sigue' },
-              ...(hayPerdido ? [{ v: 'perdido' as const, label: 'Se perdió', sub: 'No sigue: se registra el motivo' }] : []),
+              { v: 'hecha', label: 'Sí, la tuvimos', sub: 'Se presentó y la reunión ocurrió' },
+              { v: 'noshow', label: 'No se presentó', sub: 'No apareció, o canceló y no volvió a agendar' },
+              { v: 'reprog', label: 'Se reprogramó', sub: 'No se hizo: quedó para otro día y hora' },
             ]
           : [
-              { v: 'nutrir', label: 'Seguir nutriendo', sub: 'Le doy un plazo nuevo' },
-              { v: 'mover', label: 'Moverlo de etapa', sub: 'Se reactivó y avanza' },
-              ...(hayPerdido ? [{ v: 'perdido' as const, label: 'Darlo por perdido', sub: 'No sigue: se registra el motivo' }] : []),
+              { v: 'avanza', label: 'Contestó y avanza', sub: 'Se reactivó: vuelve al pipeline' },
+              { v: 'nodecide', label: 'Contestó, pero todavía no decide', sub: 'Sigue interesado: le doy más tiempo' },
+              { v: 'sinresp', label: 'Sigue sin responder', sub: 'Le doy un plazo más antes de cerrarlo' },
+              { v: 'cierra', label: 'No sigue: cerrarlo', sub: 'Sale del pipeline y se registra el motivo' },
             ];
 
-        const pregunta = qhPasoId === 'que'
-          ? '¿Qué pasó?'
-          : qhPasoId === 'resumen'
-            ? 'Revisá y confirmá'
-            : qhOpcion === 'reprog' ? `¿Para cuándo quedó la Reunión ${nR}?`
-            : qhOpcion === 'nutrir' ? '¿Hasta cuándo la seguís?'
-            : qhOpcion === 'noasistio' ? '¿A qué etapa pasa?'
-            : '¿A qué etapa lo movés?';
+        // Los textos en un mapa y no en una escalera de ternarios: es el patrón
+        // limpio del repo (ver ExportarLeadsModal) y el único que se sigue
+        // leyendo cuando la rama tiene cinco pantallas.
+        const PREGUNTAS: Record<QhPasoId, { q: string; sub: string }> = {
+          que: {
+            q: esR ? `¿Qué pasó con la Reunión ${nR}?` : '¿Qué pasó con este lead?',
+            sub: esR
+              ? `La Reunión ${nR} ya pasó y nadie marcó cómo salió.`
+              : 'Venció la nutrición manual sin resolverse.',
+          },
+          salida: {
+            q: qhOpcion === 'hecha' ? `¿Cómo salió la Reunión ${nR}?`
+              : qhOpcion === 'avanza' ? '¿A dónde vuelve?'
+              : '¿Cómo lo cerrás?',
+            sub: qhOpcion === 'hecha'
+              ? `Ya queda registrado que asistió a la Reunión ${nR}. Elegí qué sigue.`
+              : qhOpcion === 'avanza' ? 'Solo las etapas a las que tu funnel deja avanzar desde acá.'
+              : 'El lead sale del pipeline. Después te pedimos el motivo.',
+          },
+          noshowEtapa: {
+            q: '¿A qué etapa pasa?',
+            sub: 'Tu funnel no tiene una etapa de No Show para esta reunión: elegí a dónde va.',
+          },
+          calificado: {
+            q: '¿Era un lead calificado?',
+            sub: 'Este dato entrena las campañas de Meta (CAPI) y es la última vez que te lo podemos preguntar.',
+          },
+          motivo: {
+            q: qhDestino === 'descal' ? '¿Por qué se descalificó?' : '¿Por qué se perdió?',
+            sub: 'Elegí la categoría. En la pantalla siguiente contás el caso concreto.',
+          },
+          motivoDetalle: {
+            q: 'Sé específico: ¿qué pasó?',
+            sub: `Categoría: ${qhMotivoCat || '—'}. Agregá el detalle concreto — es lo que se lee en el historial.`,
+          },
+          fecha: {
+            q: `¿Para qué día quedó la Reunión ${nR}?`,
+            sub: reagCal && !reagCal.conectado
+              ? 'Se actualiza en el CRM y queda en el historial. Conectá tu Google Calendar para que además se mueva el evento.'
+              : 'Elegí el día. En la pantalla siguiente te traemos los horarios libres de tu agenda.',
+          },
+          hora: {
+            q: '¿A qué hora?',
+            // El sub NO puede prometer que los ocupados están tachados si no se
+            // pudo leer la agenda: convivía con la nota de error justo debajo y
+            // el usuario leía "no hay nada tachado, entonces tengo el día libre".
+            sub: reagSlotsCargando ? 'Leyendo los horarios libres de tu agenda…'
+              : reagSlots && reagSlots.length ? `Horarios${reagTz ? ` en ${reagTz}` : ''}. Los ocupados se ven tachados: se pueden elegir igual.`
+              : reagSlots ? 'No quedan horarios para ese día: volvé atrás y elegí otro, o cargá la hora a mano.'
+              : 'No pudimos verificar tu agenda: elegí la hora igual.',
+          },
+          plazo: {
+            q: '¿Hasta cuándo le das tiempo?',
+            sub: 'Si llega esa fecha sin que el lead avance, vuelve a aparecer acá en rojo.',
+          },
+          resumen: {
+            q: 'Revisá y confirmá',
+            sub: qhVaACalendly
+              ? 'La reunión hay que agendarla: seguimos ahí.'
+              : qhMueveEtapa(qhOpcion) && qhFaltan === null
+              ? 'Revisando qué datos faltan para esa etapa…'
+              : qhHayHandoff
+                ? 'Falta cargar un par de datos: seguimos en el formulario que los pide, con esto ya cargado.'
+                : 'Esto es lo que va a pasar cuando confirmes.',
+          },
+        };
 
-        const sub = qhPasoId === 'que'
-          ? (esR
-              ? `La Reunión ${nR} ya pasó y el lead sigue esperando una decisión.`
-              : 'Venció la nutrición manual sin resolverse.')
-          : qhPasoId === 'resumen' ? 'Esto es lo que va a pasar cuando confirmes.'
-          : qhOpcion === 'reprog'
-            ? (reagCal && !reagCal.conectado
-                ? 'Se actualiza en el CRM y queda en el historial. Conectá tu Google Calendar para que además se mueva el evento y se le avise al invitado.'
-                : reagCal && !reagCal.puedeMover
-                  ? 'Se actualiza en el CRM y queda en el historial. Tu permiso de Google es de solo lectura: reconectalo para que además se mueva el evento.'
-                  : 'Se actualiza en el CRM, se mueve el evento en tu Google Calendar y se le avisa al invitado.')
-          : qhOpcion === 'nutrir' ? 'Si llega esa fecha sin que el lead avance, vuelve a aparecer acá en rojo.'
-          : qhOpcion === 'noasistio' ? `Se marca que no asistió a la Reunión ${nR} y el lead pasa a la etapa que elijas.`
-          : 'Después te vamos a pedir solo los datos que falten para esa etapa.';
+        // ── Resumen: la frase concreta de lo que se va a hacer ──
+        const filas: Array<[string, string]> = [['Lead', queHacer.name]];
+        if (qhOpcion === 'reprog') {
+          filas.push([`Reunión ${nR}`, `pasa al ${fmtDDMMYYYY(reagFecha)} a las ${horaLegible(reagHora)}`]);
+          filas.push(['Asistencia', 'queda sin marcar hasta esa fecha']);
+          // `reagCal` en null es "todavía no sé" (la consulta viaja o falló), y
+          // no "sí se mueve": prometerlo era afirmar algo que no se puede saber.
+          filas.push(['Google Calendar', !reagCal
+            ? 'si tu agenda está conectada, se mueve el evento (te lo confirmamos al terminar)'
+            : !reagCal.conectado
+              ? 'no hay agenda conectada: solo se actualiza el CRM'
+              : !reagCal.puedeMover
+                ? 'no se va a mover: tu permiso es de solo lectura, reconectalo'
+                : 'se mueve el evento y se le avisa al invitado']);
+          if (qhNoShowPrevio) filas.push([`Reunión ${nR} anterior`, 'queda registrado que no se presentó']);
+        } else if (qhOpcion === 'nodecide' || qhOpcion === 'sinresp') {
+          filas.push(['Nutrición manual', `nuevo plazo hasta el ${fmtDDMMYYYY(qhPlazo)}`]);
+          filas.push(['Si llega esa fecha', 'vuelve a aparecer acá en rojo']);
+        } else {
+          if (esR) filas.push([`Reunión ${nR}`, qhOpcion === 'hecha' ? 'sí, asistió' : 'no se presentó']);
+          filas.push(['Etapa', `${etapaLabel} → ${destinoLabel}`]);
+          if (qhVaACalendly) filas.push(['La reunión', 'te preguntamos si ya ocurrió o la agendás por Calendly']);
+          if (qhOpcion === 'noshow') filas.push(['La etapa', 'la define tu funnel: se activa la secuencia de recuperación de No Show']);
+          if (qhCalificado != null) filas.push(['Calificado', qhCalificado ? 'sí' : 'no']);
+          if (qhMotivoFinal) filas.push(['Motivo', qhMotivoFinal]);
+          if (qhHayHandoff) filas.push(['Falta cargar', (qhFaltan ?? []).map((f) => f.label).join(' · ')]);
+        }
 
-        // Resumen: la frase concreta de lo que se va a hacer.
-        const resumenFilas: Array<[string, string]> =
-          qhOpcion === 'reprog' ? [['Reunión ' + nR, `pasa al ${reagFecha} a las ${horaLegible(reagHora)}`], ['Asistencia', 'queda sin marcar hasta esa fecha']]
-          : qhOpcion === 'nutrir' ? [['Nutrición manual', `nuevo plazo hasta el ${qhPlazo}`]]
-          : qhOpcion === 'noasistio' ? [[`Reunión ${nR}`, 'no asistió'], ['Etapa', etiquetaEtapa(qhEtapa)]]
-          : qhOpcion === 'perdido' ? [['Etapa', etiquetaEtapa('perdido')], ['Motivo', 'te lo pedimos en el paso siguiente']]
-          : [['Etapa', qhEtapa ? etiquetaEtapa(qhEtapa) : '—']];
+        // El botón dice el VERBO de lo que hace. "Continuar" a secas era el tell de
+        // que el wizard no terminaba el trabajo.
+        const nFaltan = qhFaltan?.length ?? 0;
+        const confirmLabel =
+          qhOpcion === 'reprog' ? 'Reagendar'
+          : qhOpcion === 'nodecide' || qhOpcion === 'sinresp' ? 'Guardar el nuevo plazo'
+          : qhVaACalendly ? `Agendar ${destinoLabel} →`
+          : qhFaltan === null ? 'Revisando qué datos faltan…'
+          : nFaltan > 0 ? `Continuar: falta${nFaltan === 1 ? '' : 'n'} ${nFaltan} dato${nFaltan === 1 ? '' : 's'} →`
+          : qhOpcion === 'noshow' ? `Marcar el no-show y pasar a ${destinoLabel}`
+          : qhDestino === 'perdido' ? 'Dar por perdido'
+          : qhDestino === 'descal' ? 'Descalificarlo'
+          : qhDestino === 'noresp' ? 'Marcar como No responde'
+          : `Mover a ${destinoLabel}`;
 
         const btnOpcion = (activo: boolean): CSSProperties => ({
           width: '100%', textAlign: 'left', padding: '13px 16px', borderRadius: 12, fontFamily: SANS, cursor: 'pointer',
@@ -1013,29 +1504,75 @@ export function CrmBoard({
           color: activo ? '#F3F5F8' : 'var(--ink)',
         });
 
+        /** Grilla de desenlaces con el separador "No sigue" antes de los negativos. */
+        const listaSalidas = (ops: OpcionSalida[]) => {
+          let separado = false;
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {ops.map((o) => {
+                // El negativo no puede leerse como una opción más de la misma lista:
+                // ese fue el reclamo de "ya avanzó y me ofrecés Perdido".
+                const primeroNegativo = o.category === 'perdida' && !separado && ops.some((x) => x.category !== 'perdida');
+                if (primeroNegativo) separado = true;
+                const activo = qhEtapa === o.to;
+                return (
+                  <div key={o.to} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {primeroNegativo && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 0' }}>
+                        <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' }}>No sigue</span>
+                        <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                      </div>
+                    )}
+                    <button type="button" onClick={() => elegirQhEtapa(o.to)} style={btnOpcion(activo)}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14.5, fontWeight: 700 }}>
+                        <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: stageMetaOpt(stages, o.to)?.dot ?? CATEGORY[o.category].c }} />
+                        {o.label}
+                      </div>
+                      {o.sub && o.sub !== o.label && (
+                        <div style={{ fontSize: 12.5, fontWeight: 500, marginTop: 2, marginLeft: 18, color: activo ? 'rgba(255,255,255,.72)' : 'var(--dim)' }}>{o.sub}</div>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        };
+
+        /** Link de texto: las salidas secundarias del resumen del no-show. */
+        const linkSalida = (texto: string, onClick: () => void) => (
+          <button type="button" onClick={onClick}
+            style={{ alignSelf: 'flex-start', padding: 0, border: 'none', background: 'none', color: 'var(--primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left' }}>
+            {texto}
+          </button>
+        );
+
         return (
           <WizardShell
             titulo={`¿Qué hacer ahora? · ${queHacer.name}`}
-            total={qhPasos.length}
+            // En la primera pantalla el largo de la rama TODAVÍA no se sabe: los
+            // dots decían "1 paso" y saltaban a 3 al elegir. Sin dots es honesto.
+            total={qhOpcion ? qhPasos.length : 0}
             idx={Math.min(qhPaso, qhPasos.length - 1)}
-            pregunta={pregunta}
-            sub={sub}
+            pregunta={PREGUNTAS[qhPasoId].q}
+            sub={PREGUNTAS[qhPasoId].sub}
             error={qhError}
             puedeAvanzar={qhPuede}
             enUltimo={qhPasoId === 'resumen'}
-            confirmLabel={qhOpcion === 'reprog' ? 'Reagendar' : qhOpcion === 'nutrir' ? 'Guardar el nuevo plazo' : 'Continuar'}
+            confirmLabel={confirmLabel}
             pending={isPending}
             atrasLabel={qhPaso === 0 ? 'Cancelar' : 'Atrás'}
             onClose={cerrarQueHacer}
-            onAtras={() => (qhPaso === 0 ? cerrarQueHacer() : setQhPaso(qhPaso - 1))}
-            onSiguiente={() => { setQhError(null); setQhPaso(qhPaso + 1); }}
+            onAtras={qhAtras}
+            onSiguiente={qhAvanzar}
             onConfirmar={confirmarQueHacer}
             ancho={560}
           >
             {qhPasoId === 'que' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {opciones.map((o) => (
-                  <button key={o.v} type="button" onClick={() => { setQhOpcion(o.v); setQhPaso(1); }} style={btnOpcion(qhOpcion === o.v)}>
+                  <button key={o.v} type="button" onClick={() => elegirQhOpcion(o.v)} style={btnOpcion(qhOpcion === o.v)}>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{o.label}</div>
                     <div style={{ fontSize: 12.5, fontWeight: 500, marginTop: 2, color: qhOpcion === o.v ? 'rgba(255,255,255,.72)' : 'var(--dim)' }}>{o.sub}</div>
                   </button>
@@ -1043,22 +1580,88 @@ export function CrmBoard({
               </div>
             )}
 
-            {qhPasoId === 'detalle' && qhOpcion === 'reprog' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {(qhPasoId === 'salida' || qhPasoId === 'noshowEtapa') && listaSalidas(
+              qhPasoId === 'noshowEtapa' ? salidasNoShowExcepcion : qhSalidas,
+            )}
+
+            {qhPasoId === 'calificado' && (
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {([[true, 'Sí, calificado'], [false, 'No calificado']] as const).map(([v, lbl]) => (
+                  <button key={lbl} type="button" onClick={() => setQhCalificado(v)}
+                    style={{ minWidth: 160, padding: '13px 22px', borderRadius: 12, fontFamily: SANS, fontSize: 14.5, fontWeight: 700, cursor: 'pointer', background: qhCalificado === v ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhCalificado === v ? 'var(--ink)' : 'var(--border-strong)'), color: qhCalificado === v ? '#F3F5F8' : 'var(--ink)' }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {qhPasoId === 'motivo' && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                {motivosDeSalida(qhDestino).map((s) => (
+                  <button key={s} type="button" onClick={() => setQhMotivoCat(s)}
+                    style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: qhMotivoCat === s ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhMotivoCat === s ? 'var(--ink)' : 'var(--border-strong)'), color: qhMotivoCat === s ? '#F3F5F8' : 'var(--ink)' }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {qhPasoId === 'motivoDetalle' && (
+              <textarea value={qhMotivoDet} onChange={(e) => setQhMotivoDet(e.target.value)} autoFocus
+                placeholder="Ej: pidió la mitad del precio y no hubo margen; se fue con la agencia de un conocido…"
+                style={{ ...wizardInput, minHeight: 96, textAlign: 'left', lineHeight: 1.5 }} />
+            )}
+
+            {qhPasoId === 'fecha' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Opciones antes que tipear: los tres días que cubren casi todo. */}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {([['Mañana', 1], ['En 3 días', 3], ['La semana que viene', 7]] as const).map(([lbl, d]) => {
+                    const iso = masDiasISO(hoy, d);
+                    return (
+                      <button key={lbl} type="button" onClick={() => { setReagFecha(iso); setReagHora(''); }}
+                        style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: reagFecha === iso ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (reagFecha === iso ? 'var(--ink)' : 'var(--border-strong)'), color: reagFecha === iso ? '#F3F5F8' : 'var(--ink)' }}>
+                        {lbl}
+                      </button>
+                    );
+                  })}
+                </div>
+                <input type="date" value={reagFecha} min={hoy} onChange={(e) => { setReagFecha(e.target.value); setReagHora(''); }} aria-label="Fecha nueva"
+                  style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
+                {/* Conectar la agenda va ACÁ y no en la pantalla de horarios: ahí ya
+                    sería tarde para que sirva de algo. */}
                 {reagCal && !reagCal.puedeMover && (
                   <button type="button" onClick={() => router.push('/integraciones')} style={{ alignSelf: 'center', padding: 0, border: 'none', background: 'none', color: 'var(--primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'underline' }}>
                     {reagCal.conectado ? 'Reconectar para poder mover reuniones →' : 'Conectar Google Calendar →'}
                   </button>
                 )}
-                <input type="date" value={reagFecha} min={hoy} onChange={(e) => setReagFecha(e.target.value)} aria-label="Fecha nueva" autoFocus
-                  style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
-                {/* La hora se ELIGE de la grilla: ver app/crm/SelectorHora.tsx. */}
-                <SelectorHora value={reagHora} onChange={setReagHora} ariaLabel="Hora nueva" />
-                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Vuelve a quedar pendiente recién a esa hora.</div>
               </div>
             )}
 
-            {qhPasoId === 'detalle' && qhOpcion === 'nutrir' && (
+            {qhPasoId === 'hora' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Los horarios salen de la agenda REAL (freeBusy). Si Google no
+                    contesta llegan en null y el selector se comporta como siempre:
+                    perder la ayuda no puede impedir reagendar. */}
+                <SelectorHora
+                  value={reagHora}
+                  onChange={setReagHora}
+                  ariaLabel="Hora nueva"
+                  slots={reagSlots}
+                  cargando={reagSlotsCargando}
+                  nota={reagSlotsNota || (reagTz ? `Horarios en ${reagTz}.` : null)}
+                />
+                {reagHoraPasada ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.45 }}>
+                    Esa hora ya pasó: el lead volvería a quedar pendiente al instante. Elegí otra hora o cambiá el día.
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Vuelve a quedar pendiente recién a esa hora.</div>
+                )}
+              </div>
+            )}
+
+            {qhPasoId === 'plazo' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                   {([['1 semana', 7], ['2 semanas', 14], ['1 mes', 30]] as const).map(([lbl, d]) => {
@@ -1076,18 +1679,19 @@ export function CrmBoard({
               </div>
             )}
 
-            {qhPasoId === 'detalle' && (qhOpcion === 'mover' || qhOpcion === 'noasistio') && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
-                {etapasDestino.map((s) => (
-                  <button key={s.key} type="button" onClick={() => setQhEtapa(s.key)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 14px', borderRadius: 11, fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', textAlign: 'left', background: qhEtapa === s.key ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhEtapa === s.key ? 'var(--ink)' : 'var(--border-strong)'), color: qhEtapa === s.key ? '#F3F5F8' : 'var(--ink)' }}>
-                    <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: s.dot, flex: 'none' }} />{s.label}
-                  </button>
-                ))}
+            {qhPasoId === 'resumen' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <ResumenFilas filas={filas} />
+                {/* Las dos salidas del no-show que NO merecen una pregunta extra
+                    para los otros noventa casos: van acá, donde el usuario mira. */}
+                {qhOpcion === 'noshow' && (
+                  <>
+                    {linkSalida('Ya tengo la fecha nueva →', () => { setQhNoShowPrevio(true); qhSaltarA('reprog', 'fecha'); })}
+                    {salidasNoShowCierre.length > 0 && linkSalida('No vuelve a intentarse: cerrarlo →', () => qhSaltarA('noshowcierra', 'salida'))}
+                  </>
+                )}
               </div>
             )}
-
-            {qhPasoId === 'resumen' && <ResumenFilas filas={[['Lead', queHacer.name], ...resumenFilas]} />}
           </WizardShell>
         );
       })()}

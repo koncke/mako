@@ -142,6 +142,123 @@ export function transitionsFrom(transitions: FunnelTransition[], from: string): 
   return transitions.filter((t) => t.from === from);
 }
 
+// ── Desenlaces posibles de una etapa (fuente única de "¿a dónde puede ir?") ──
+//
+// Antes cada pantalla armaba su propia lista filtrando `stages` a mano. Eso es lo
+// que producía las dos quejas del dueño sobre el form "¿Qué hacer ahora?": la
+// opción "ya avanzó" ofrecía Perdido / Descalificado / No responde, y la de "no
+// asistió" NO ofrecía la nutrición No Show — la única respuesta correcta— porque
+// el filtro sacaba la banda entera de nutrición. El funnel del workspace ya sabe
+// las dos cosas; lo que faltaba era preguntárselo.
+
+/** Un desenlace posible: la etapa destino + qué implica para la asistencia. */
+export type OpcionSalida = {
+  to: string;
+  /** Label de la ETAPA destino (lo que el usuario reconoce en el tablero). */
+  label: string;
+  /** Label de la TRANSICIÓN ("Avanza", "Se perdió"): el matiz, como subtítulo. */
+  sub: string;
+  category: TransitionCategory;
+  asistioJ1?: boolean;
+  asistioJ2?: boolean;
+};
+
+const ORDEN_CATEGORIA: Record<TransitionCategory, number> = { avanza: 0, nutricion: 1, perdida: 2 };
+
+/**
+ * Los desenlaces que el funnel del workspace contempla para `from`, ordenados
+ * avanza → nutrición → pérdida.
+ *
+ * `opts.asistio` es el HECHO que el humano ya declaró sobre la reunión que acaba
+ * de pasar, y filtra la lista para que nunca se pueda elegir un destino que lo
+ * contradiga:
+ *   - `true`  → se sacan las transiciones de no-show; el flag viaja en true.
+ *   - `false` → quedan las que no implican asistencia (no-show) más las salidas,
+ *     con el flag FORZADO a false. Esto contradice a propósito lo que dice el
+ *     funnel: `generateFunnel` marca `Se perdió` con `asist(p.key, true)` (línea
+ *     ~273), y copiar ese flag es lo que hacía que dar por perdido un lead
+ *     escribiera "asistió" a la reunión que nadie sabe si ocurrió. NO lo
+ *     "arregles" volviendo a leer la transición.
+ *   - `null`/ausente → no se toca la asistencia (pendientes que no vienen de una
+ *     reunión, como la nutrición manual vencida).
+ *
+ * NUNCA devuelve []: si el funnel no tiene aristas salientes (pasa con 'manual'
+ * en todo funnel generado) cae al layout — pipeline hacia adelante + salidas.
+ */
+export function salidasDeEtapa(
+  stages: Stage[],
+  transitions: FunnelTransition[],
+  from: string,
+  opts: { asistio?: boolean | null; cual?: 'r1' | 'r2' } = {},
+): OpcionSalida[] {
+  const asistio = opts.asistio ?? null;
+  const cual = opts.cual ?? 'r1';
+  const flagDe = (t: FunnelTransition) => (cual === 'r2' ? t.asistioJ2 : t.asistioJ1);
+  // El hecho declarado gana sobre lo que diga la transición.
+  const flags: Pick<OpcionSalida, 'asistioJ1' | 'asistioJ2'> =
+    asistio == null ? {} : cual === 'r2' ? { asistioJ2: asistio } : { asistioJ1: asistio };
+  const colDe = (k: string) => stageMetaOpt(stages, k)?.col ?? 0;
+
+  const out: OpcionSalida[] = [];
+  const vistos = new Set<string>();
+  for (const t of transitionsFrom(transitions, from)) {
+    // La nutrición que corre sola (Post Agenda, diaria) no es una decisión humana.
+    if (t.auto) continue;
+    if (t.to === from) continue;
+    if (asistio === true && flagDe(t) === false) continue;
+    if (asistio === false && flagDe(t) === true && t.category !== 'perdida') continue;
+    // stageMetaOpt y no stageMeta: una key que el funnel ya no lista caería en
+    // stages[0] y pintaríamos una etapa falsa.
+    const meta = stageMetaOpt(stages, t.to);
+    if (!meta) continue;
+    if (vistos.has(t.to)) continue;
+    vistos.add(t.to);
+    out.push({ to: t.to, label: meta.label, sub: t.label, category: t.category, ...flags });
+  }
+  if (out.length) {
+    out.sort((a, b) => ORDEN_CATEGORIA[a.category] - ORDEN_CATEGORIA[b.category] || colDe(a.to) - colDe(b.to));
+    return out;
+  }
+
+  // Fallback por layout. Sin esto, un funnel custom sin transiciones cargadas
+  // dejaría la pantalla sin una sola opción — el mismo agujero que la regla
+  // "Prioridades nunca vacía" prohíbe en el board.
+  const desde = stageMetaOpt(stages, from);
+  const desdePipeline = (desde?.band ?? 'pipeline') === 'pipeline';
+  return stages
+    .filter((s) => {
+      if (s.key === from || s.key === 'lead') return false;
+      const band = s.band ?? 'pipeline';
+      if (band === 'pipeline') return !desdePipeline || (s.col ?? 0) > (desde?.col ?? 0);
+      return band === 'salidas';
+    })
+    .sort((a, b) => {
+      const ca = ORDEN_CATEGORIA[bandToCategory(a.band)];
+      const cb = ORDEN_CATEGORIA[bandToCategory(b.band)];
+      return ca - cb || (a.col ?? 0) - (b.col ?? 0);
+    })
+    .map((s) => ({ to: s.key, label: s.label, sub: '', category: bandToCategory(s.band), ...flags }));
+}
+
+/**
+ * La etapa a la que va un lead que NO se presentó, según el funnel del workspace.
+ * null = el funnel no la modela (hay que preguntar).
+ *
+ * Se deduce por la TRANSICIÓN y nunca por una key literal: el grafo default usa
+ * 'noshow' y todo funnel generado usa 'noshow_r1'/'noshow_r2'. Hardcodear
+ * cualquiera de las dos rompe la otra.
+ */
+export function etapaNoShowDe(
+  stages: Stage[],
+  transitions: FunnelTransition[],
+  from: string,
+  cual: 'r1' | 'r2',
+): string | null {
+  const flagDe = (t: FunnelTransition) => (cual === 'r2' ? t.asistioJ2 : t.asistioJ1);
+  const t = transitionsFrom(transitions, from).find((x) => flagDe(x) === false && !!stageMetaOpt(stages, x.to));
+  return t ? t.to : null;
+}
+
 // ── CRM automático — reglas de auto-transición (metadata legible) ────────────
 // El MOTOR vive en lib/crm-auto.ts (server). Acá solo la descripción para la tab
 // Funnel: qué mueve un lead solo, con qué señal, y si pide confirmación humana.

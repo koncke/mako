@@ -1988,6 +1988,20 @@ export type PendienteItem = {
   solTab: 'wizard' | 'cobranza' | 'reuniones' | 'edit';
   /** Lista exacta de datos faltantes (para abrir el wizard in-place con TODO). */
   faltantes: Step[];
+  /**
+   * Solo tipo 'R': CUÁL de las dos reuniones es la que ya pasó. Viaja desde acá
+   * porque es el server el que la decidió (mirando `pipeline_stage`). El board lo
+   * re-derivaba de su etapa local, que un drag optimista o un movimiento previo
+   * ya pudieron cambiar — y entonces reagendar pisaba la R1 en vez de la R2.
+   */
+  cual?: 'r1' | 'r2';
+  /**
+   * La etapa REAL del lead cuando se calculó el pendiente (`pipeline_stage`).
+   * Viaja por la misma razón que `cual`: el board la re-derivaba de su estado
+   * optimista (`effStage`), así que un drag sin refrescar hacía que el wizard
+   * ofreciera los desenlaces de una etapa en la que el lead todavía no está.
+   */
+  etapa?: string;
 };
 
 export type Pendientes = {
@@ -2079,6 +2093,7 @@ async function _getPendientesDeMarcar(
           soloEdit: false,
           solTab: 'wizard',
           faltantes: [],
+          etapa: l.pipeline_stage ?? 'manual',
         });
       }
       continue;
@@ -2108,6 +2123,8 @@ async function _getPendientesDeMarcar(
           soloEdit: false,
           solTab: 'wizard',
           faltantes: [],
+          cual: esJ2 ? 'r2' : 'r1',
+          etapa: l.pipeline_stage,
         });
         continue;
       }

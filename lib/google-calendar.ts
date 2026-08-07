@@ -16,6 +16,7 @@ import 'server-only';
 import { OWNER_WS } from './auth-session';
 import { cifrarSecreto, descifrarSecreto } from './credenciales';
 import { getSetting, setSetting } from './settings';
+import { esTzValida, TZ_DEFAULT, tzDeWorkspace } from './timezone';
 import { getWorkspaceActual } from './workspace';
 
 export const GCAL_SCOPE_LECTURA = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -569,5 +570,291 @@ export async function moverEventoDeReunion(p: PedidoMoverEvento): Promise<Result
     const msg = e instanceof Error && e.name === 'TimeoutError' ? 'Google no respondió a tiempo.' : 'No se pudo contactar a Google Calendar.';
     console.error('[google-calendar] mover evento:', e);
     return nada('api', msg);
+  }
+}
+
+// =============================================================================
+// LEER HUECOS — qué horarios de un día están libres en la agenda
+// =============================================================================
+// Para qué: al reagendar, la grilla de horas se generaba a ciegas (9:00→19:00 por
+// constantes, app/crm/SelectorHora.tsx) y el usuario elegía encima de reuniones
+// que ya tenía. Esto lee la agenda y marca cuáles están ocupados.
+//
+// ⚠️ Lo importante de esta parte del módulo: usa freeBusy, que Google acepta con
+// `calendar.readonly`. Es decir, LOS HORARIOS FUNCIONAN CON PERMISO DE SOLO
+// LECTURA — que es justo lo que tiene hoy el token del dueño. Por eso NO pasa por
+// puedeEscribir(): copiar el guard de moverEventoDeReunion le negaría los huecos a
+// todos los tokens viejos. "No poder mover el evento" y "no poder leer la agenda"
+// son dos permisos distintos y acá solo hace falta el segundo.
+//
+// Por qué freeBusy y no listarEventos: respeta `transparency: 'transparent'` (los
+// eventos marcados "disponible" no bloquean) e ignora los que el dueño rechazó —
+// dos cosas que EventoCrudo ni siquiera modela. Si algún día freeBusy diera 403,
+// listarEventos() ya está probado en prod y permite derivar lo mismo con menos
+// precisión.
+
+const FREEBUSY_URL = 'https://www.googleapis.com/calendar/v3/freeBusy';
+
+/**
+ * Jornada laboral por defecto y paso de la grilla. Son los MISMOS valores que
+ * app/crm/SelectorHora.tsx (HORA_DESDE / HORA_HASTA / PASO_MIN): ese componente es
+ * de cliente y este módulo es `server-only`, así que no se pueden compartir sin
+ * un tercer módulo puro. Mientras tanto, la regla es que la UI PINTE LA GRILLA QUE
+ * DEVUELVE ESTA FUNCIÓN en vez de generar la suya y cruzarla — así, aunque las
+ * constantes se separen, no hay chips sin slot ni slots sin chip.
+ */
+const HORA_DESDE_DEFECTO = 9;
+const HORA_HASTA_DEFECTO = 19;
+const PASO_MIN_DEFECTO = 30;
+
+/** Un horario de la grilla, con su estado real según la agenda. */
+export type SlotHorario = {
+  /** 'HH:MM' en la zona del workspace — el mismo formato que maneja SelectorHora. */
+  hora: string;
+  /**
+   * El instante absoluto de ese horario (ISO UTC). Es lo que la UI tiene que MANDAR
+   * al reagendar: si lo recalcula con `new Date(\`${fecha}T${hora}\`)` usa la zona
+   * del navegador, y un closer en otro huso vería un slot y guardaría otro momento.
+   */
+  inicioIso: string;
+  /** false = hay algo en la agenda que se pisa con la reunión completa. */
+  libre: boolean;
+};
+
+export type OpcionesHorarios = {
+  /** Zona IANA. Si no viene, se resuelve con tzDeWorkspace del workspace actual. */
+  tz?: string;
+  /** Jornada laboral local (hora entera). Default 9 y 19, inclusive las dos puntas. */
+  desdeHora?: number;
+  hastaHora?: number;
+  /** Paso de la grilla en minutos. Default 30. */
+  pasoMin?: number;
+  /** Cuánto dura la reunión: el hueco solo sirve si entra ENTERA. Default 45. */
+  duracionMin?: number;
+  /** No ofrecer horarios ya pasados cuando la fecha es hoy. Default true. */
+  ocultarPasados?: boolean;
+  /** Solo para tests: qué momento se considera "ahora". */
+  ahora?: Date;
+};
+
+/**
+ * Por qué salió como salió. Es un subconjunto de CodigoCalendario a propósito:
+ * 'sin-permiso' y 'no-organizador' no aplican a leer huecos, y un token revocado
+ * se informa como 'sin-conexion' porque la salida del usuario es la misma
+ * (reconectar la agenda), no reintentar.
+ */
+export type CodigoHorarios = Extract<CodigoCalendario, 'ok' | 'sin-conexion' | 'sin-fecha' | 'api'>;
+
+export type ResultadoHorarios = {
+  codigo: CodigoHorarios;
+  /**
+   * Frase lista para mostrar, o '' si no hay nada que aclarar. Con codigo distinto
+   * de 'ok' SIEMPRE viene con texto (por qué no se pudo leer la agenda); con 'ok'
+   * puede venir con un aviso igual (ej: hoy ya no quedan horarios).
+   */
+  motivo: string;
+  /**
+   * La grilla ENTERA del día: libres y ocupados. No se filtran los ocupados a
+   * propósito — si el horario habitual del usuario desaparece sin explicación no
+   * entiende por qué, y el layout salta. La UI los pinta apagados.
+   * Vacía solo si la fecha es inválida o si ya pasaron todos los horarios de hoy.
+   */
+  slots: SlotHorario[];
+  /** La zona en la que se interpretaron las horas, para que la UI la pueda decir. */
+  tz: string;
+};
+
+/** Zona del workspace actual. Nunca lanza: una zona rota no puede tirar la pantalla. */
+async function tzParaHorarios(pedida?: string): Promise<string> {
+  if (pedida && esTzValida(pedida)) return pedida;
+  try {
+    return await tzDeWorkspace((await getWorkspaceActual()) ?? OWNER_WS);
+  } catch {
+    return TZ_DEFAULT;
+  }
+}
+
+/**
+ * Cuánto está corrida `tz` respecto de UTC en ESE instante (ms). Se calcula
+ * formateando el instante en la zona y volviendo a leer las partes como si fueran
+ * UTC: la diferencia es el offset real, con DST incluido.
+ */
+function offsetTzMs(tz: string, tsUtc: number): number {
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(new Date(tsUtc));
+  const g = (t: string): number => Number(p.find((x) => x.type === t)?.value);
+  // Algunos runtimes devuelven "24" en vez de "00" a medianoche con hour12:false.
+  const h = g('hour') % 24;
+  return Date.UTC(g('year'), g('month') - 1, g('day'), h, g('minute'), g('second')) - tsUtc;
+}
+
+/**
+ * Día local ('YYYY-MM-DD') + minutos desde medianoche + zona → instante UTC.
+ * Es el INVERSO de fechaHoraEnTz (lib/date-utils) y no existía en el repo; el
+ * único precedente era un offset fijo -6 en lib/nutricion.ts, que ignora DST y por
+ * eso NO se copia.
+ *
+ * Dos pasadas: la primera estima el offset del día suponiendo la hora en UTC, y la
+ * segunda lo recalcula ya parado en el instante estimado. Sin eso, el día del
+ * cambio de horario queda corrido una hora.
+ *
+ * Las dos horas patológicas del cambio de horario están cubiertas sin caso
+ * especial: la que NO existe (2:00 el día que adelanta) cae en la hora real más
+ * cercana y la que se repite toma la primera vuelta. Ninguna de las dos entra en
+ * la jornada laboral por defecto, y en cualquier caso el instante devuelto existe.
+ */
+function instanteDeLocal(fechaISO: string, minutosDelDia: number, tz: string): string | null {
+  const [y, m, d] = fechaISO.split('-').map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  try {
+    const local = Date.UTC(y, m - 1, d) + minutosDelDia * 60_000;
+    let ts = local - offsetTzMs(tz, local);
+    ts = local - offsetTzMs(tz, ts);
+    return Number.isFinite(ts) ? new Date(ts).toISOString() : null;
+  } catch {
+    return null;
+  }
+}
+
+const hhmm = (min: number): string => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+/** Igual que esFechaValida de lib/date-utils, pero acá no se puede importar cliente-code. */
+function esDiaValido(fecha: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return false;
+  const [y, m, d] = fecha.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+/** Un intervalo ocupado, ya parseado a milisegundos. */
+type Ocupado = { ini: number; fin: number };
+
+/**
+ * LOS HORARIOS DE UNA FECHA CON SU DISPONIBILIDAD REAL, leídos de Google.
+ *
+ * NUNCA lanza y NUNCA bloquea: si no hay agenda conectada, el token no abre o
+ * Google falla, devuelve la grilla COMPLETA con todo en `libre:true` y un `codigo`
+ * distinto de 'ok' para que la UI muestre el aviso y siga dejando elegir la hora a
+ * mano. Perder la ayuda no puede impedir reagendar — mismo criterio que
+ * moverEventoDeReunion.
+ *
+ * @param fechaISO día local 'YYYY-MM-DD' (el mismo valor del <input type="date">).
+ */
+export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHorarios = {}): Promise<ResultadoHorarios> {
+  const tz = await tzParaHorarios(opts.tz);
+  const fecha = (fechaISO ?? '').trim();
+  if (!esDiaValido(fecha)) {
+    return { codigo: 'sin-fecha', motivo: 'La fecha no es válida.', slots: [], tz };
+  }
+
+  // Parámetros acotados: un `hastaHora` de 99 o un paso de 0 generarían una grilla
+  // infinita y el request moriría por timeout en vez de devolver algo usable.
+  const desde = Math.min(23, Math.max(0, Math.trunc(opts.desdeHora ?? HORA_DESDE_DEFECTO)));
+  const hasta = Math.min(23, Math.max(desde, Math.trunc(opts.hastaHora ?? HORA_HASTA_DEFECTO)));
+  const paso = Math.min(180, Math.max(5, Math.trunc(opts.pasoMin ?? PASO_MIN_DEFECTO)));
+  const duracionMs = Math.min(8 * 60, Math.max(5, Math.trunc(opts.duracionMin ?? DURACION_DEFECTO_MIN))) * 60_000;
+
+  // La grilla se arma ANTES de hablar con Google: es la respuesta de todos los
+  // caminos de error, así que no puede depender de que la consulta salga bien.
+  const grilla: SlotHorario[] = [];
+  for (let min = desde * 60; min <= hasta * 60; min += paso) {
+    const inicioIso = instanteDeLocal(fecha, min, tz);
+    if (!inicioIso) continue;
+    grilla.push({ hora: hhmm(min), inicioIso, libre: true });
+  }
+
+  // Un horario que ya pasó no es una opción: ofrecerlo solo genera el error de
+  // agendar en el pasado. Se van de la grilla, no se marcan "ocupados" (ocupado
+  // significa "hay otra cosa ahí", que es distinto).
+  const ahora = (opts.ahora ?? new Date()).getTime();
+  const slots = (opts.ocultarPasados ?? true) ? grilla.filter((s) => Date.parse(s.inicioIso) > ahora) : grilla;
+
+  if (!slots.length) {
+    // Sin slots no hay nada que consultar: nos ahorramos el request a Google.
+    const motivo = grilla.length
+      ? 'Ya pasaron todos los horarios de hoy: elegí otro día o cargá la hora a mano.'
+      : 'No hay horarios configurados para ese día.';
+    return { codigo: 'ok', motivo, slots: [], tz };
+  }
+
+  const falla = (codigo: CodigoHorarios, motivo: string): ResultadoHorarios => ({ codigo, motivo, slots, tz });
+
+  try {
+    const tk = await tokenGoogle();
+    // OJO: acá NO va puedeEscribir(). freeBusy anda con calendar.readonly y ese es
+    // justo el token que hoy tiene el dueño; gatearlo dejaría la feature muerta
+    // para quien más la necesita.
+    if (!tk) return falla('sin-conexion', 'No hay una agenda de Google conectada a este espacio.');
+
+    // La ventana cubre desde el primer slot hasta el final de la reunión que
+    // arrancaría en el último: un evento que empieza a las 19:20 tiene que pisar
+    // el slot de las 19:00 si la reunión dura 45 minutos.
+    const timeMin = slots[0].inicioIso;
+    const timeMax = new Date(Date.parse(slots[slots.length - 1].inicioIso) + duracionMs).toISOString();
+
+    const res = await fetch(FREEBUSY_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tk.access}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timeMin, timeMax, timeZone: tz, items: [{ id: 'primary' }] }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      const f = await leerFallo(res);
+      // 'sin-permiso' acá significa token revocado/vencido (freeBusy no necesita
+      // scope de escritura): para el usuario es lo mismo que no tener agenda, y la
+      // salida es reconectar, no reintentar.
+      //
+      // El motivo NO se reenvía tal cual: `leerFallo` está escrito para el camino
+      // de ESCRITURA y para un 403 de scope dice "el permiso es de solo lectura,
+      // reconectá para poder MOVER reuniones" — exactamente al revés de lo que
+      // pasó acá (lo que faltó es el permiso de LEER, y mover anda).
+      if (f.codigo === 'sin-permiso') {
+        return falla('sin-conexion', res.status === 403
+          ? 'El permiso de Google no alcanza para leer tu agenda: reconectala desde Integraciones.'
+          : f.motivo);
+      }
+      return falla('api', f.motivo);
+    }
+
+    const j = (await res.json()) as {
+      calendars?: Record<string, { busy?: Array<{ start?: string; end?: string }>; errors?: Array<{ reason?: string }> }>;
+    };
+    // Google devuelve el calendario bajo la clave que pediste ('primary'); tomamos
+    // la primera entrada por si algún día responde con el email resuelto.
+    const cal = j.calendars?.primary ?? Object.values(j.calendars ?? {})[0];
+
+    // ⚠️ LA TRAMPA DE freeBusy: cuando el calendario trae `errors`, `busy` viene
+    // VACÍO. Si no se chequea, la respuesta se lee como "el día entero está libre"
+    // y el usuario agenda encima de otra reunión sin que nada avise. Un error tiene
+    // que decir que NO SE PUDO LEER, nunca que está todo disponible.
+    if (!cal || cal.errors?.length) {
+      const razon = cal?.errors?.[0]?.reason ?? 'respuesta incompleta';
+      console.error(`[google-calendar] freeBusy sin datos (${razon})`);
+      return falla('api', `No pude leer tu agenda (${razon}): los horarios de abajo no están verificados.`);
+    }
+
+    const ocupados: Ocupado[] = (cal.busy ?? [])
+      .map((b) => ({ ini: Date.parse(b.start ?? ''), fin: Date.parse(b.end ?? '') }))
+      .filter((b) => Number.isFinite(b.ini) && Number.isFinite(b.fin) && b.fin > b.ini);
+
+    const marcados = slots.map((s) => {
+      const ini = Date.parse(s.inicioIso);
+      const fin = ini + duracionMs;
+      // El hueco sirve solo si la reunión entra ENTERA: se solapa si algo empieza
+      // antes de que termine y termina después de que empieza.
+      const choca = ocupados.some((b) => b.ini < fin && b.fin > ini);
+      return { ...s, libre: !choca };
+    });
+
+    return { codigo: 'ok', motivo: '', slots: marcados, tz };
+  } catch (e) {
+    const msg = e instanceof Error && e.name === 'TimeoutError'
+      ? 'Google no respondió a tiempo: los horarios de abajo no están verificados.'
+      : 'No se pudo contactar a Google Calendar: los horarios de abajo no están verificados.';
+    console.error('[google-calendar] horarios libres:', e);
+    return falla('api', msg);
   }
 }

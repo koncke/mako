@@ -274,12 +274,18 @@ function valoresDeRequisitos(
  *
  * El wizard la llama al abrirse y funde el resultado con lo que ya sabía, así la
  * lista de preguntas nunca queda corta contra la validación. Es de solo lectura.
+ *
+ * `d` = lo que el usuario YA contestó en la pantalla anterior. Sin ese parámetro
+ * el server calculaba con `before` a secas y volvía a reclamar la asistencia que
+ * el humano acababa de declarar: el worklist preguntaba "¿no se presentó?" y el
+ * segundo wizard abría con "¿Asistió a la Reunión 1?". Es de solo lectura: sirve
+ * para armar PREGUNTAS, nunca para decidir permisos.
  */
-export async function requisitosDeEtapaAction(id: number, to: string): Promise<Step[]> {
+export async function requisitosDeEtapaAction(id: number, to: string, d: StageMoveData = {}): Promise<Step[]> {
   const before = await getLead(id).catch(() => null);
   const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
   const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
-  return stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove));
+  return stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d));
 }
 
 /**
@@ -439,6 +445,34 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
   return { ok: true };
+}
+
+/**
+ * "¿Qué hacer ahora?" resuelto de una: mueve el lead y deja la DECISIÓN en el
+ * historial, no solo sus efectos.
+ *
+ * Es un envoltorio fino a propósito. `completeStageMoveAction` sigue siendo el
+ * único que valida y el único que escribe; acá no hay ni una regla nueva. Lo que
+ * agrega es la frase en castellano de por qué se movió ("No se presentó a la
+ * Reunión 1 — pasa a Nutrición No Show R1"), que es lo que después se lee en la
+ * ficha. `logLeadChanges` cuenta qué campos cambiaron; esto cuenta el motivo.
+ *
+ * El `{ ok:false, faltan }` vuelve INTACTO: el wizard lo usa para abrir el
+ * diálogo de completar datos con lo ya contestado, no para pintar un error rojo.
+ * Por eso el evento se escribe solo cuando el movimiento salió bien — si no,
+ * quedaría historia de algo que no pasó.
+ */
+export async function resolverQueHacerAction(
+  leadId: number,
+  to: string,
+  datos: StageMoveData,
+  frase: string,
+): Promise<StageMoveResultado> {
+  const r = await completeStageMoveAction(leadId, to, datos);
+  if (r.ok && frase.trim()) {
+    await logLeadEvent(leadId, 'Datos sin marcar', frase.trim(), await autorActual()).catch(() => {});
+  }
+  return r;
 }
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
@@ -1202,7 +1236,16 @@ async function moverEnCalendario(lead: Lead | null, cual: 'r1' | 'r2', nuevoIso:
  * un evento pasado). Si Google falla, la fecha del CRM se guarda igual y el
  * motivo vuelve a la UI y al historial: nada silencioso.
  */
-export async function reagendarReunionAction(leadId: number, cual: 'r1' | 'r2', fecha: string, atISO: string | null): Promise<ReagendarResultado> {
+export async function reagendarReunionAction(
+  leadId: number,
+  cual: 'r1' | 'r2',
+  fecha: string,
+  atISO: string | null,
+  opts: {
+    /** El lead NO se presentó y por eso se reagenda. Se registra ANTES del update. */
+    noShowPrevio?: boolean;
+  } = {},
+): Promise<ReagendarResultado> {
   const f = (fecha ?? '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) throw new Error('Fecha inválida.');
   // La HORA importa: el pendiente de "reunión pasada" se decide por junta_N_at, y
@@ -1212,6 +1255,18 @@ export async function reagendarReunionAction(leadId: number, cual: 'r1' | 'r2', 
   // ANTES del update: la fecha VIEJA es el ancla para reconocer el evento en la
   // agenda. Si se lee después, ya la pisamos y el buscador miraría el día nuevo.
   const antes = await getLead(leadId).catch(() => null);
+  // El no-show se anota ANTES del update y no después: el patch pone
+  // `asistio_jN = null` y hay UN solo par de campos por reunión, no un registro
+  // por intento. Si no queda acá, el hecho de que no se presentó desaparece.
+  if (opts.noShowPrevio) {
+    const fechaVieja = cual === 'r2' ? antes?.fecha_junta_2 : antes?.fecha_junta_1;
+    await logLeadEvent(
+      leadId,
+      cual === 'r2' ? 'Reunión 2 — no asistió' : 'Reunión 1 — no asistió',
+      fechaVieja ? `No se presentó a la reunión del ${fmtDDMMYYYY(fechaVieja)} — se reagenda` : 'No se presentó — se reagenda',
+      await autorActual(),
+    ).catch(() => {});
+  }
   const db = await getTenantDb();
   const patch = cual === 'r2'
     ? { fecha_junta_2: f, junta_2_at: at, asistio_j2: null }

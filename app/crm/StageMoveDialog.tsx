@@ -18,6 +18,7 @@ import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { esMaKo, MAKO_STAR_URI } from './mako-setter';
+import { motivosDeSalida, motivoFinalDe } from './motivos-salida';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -41,7 +42,18 @@ const dmyaIso = (s: string): string => {
   return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
 };
 
-export type StageMoveTarget = { to: string; asistioJ1?: boolean | null; asistioJ2?: boolean | null };
+export type StageMoveTarget = {
+  to: string;
+  asistioJ1?: boolean | null;
+  asistioJ2?: boolean | null;
+  /**
+   * Lo que el usuario YA contestó en el wizard anterior ("¿Qué hacer ahora?").
+   * No es un prefill cosmético: estos pasos se marcan como resueltos, así que no
+   * se vuelven a preguntar pero SÍ viajan en el payload al confirmar. Sin esto el
+   * handoff era pedirle dos veces lo mismo a la misma persona.
+   */
+  yaRespondido?: { calificado?: boolean | null; motivo?: string | null };
+};
 
 export type MoveLeadInfo = {
   id: number;
@@ -167,7 +179,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [fechaJ2, setFechaJ2] = useState(lead.fechaJ2 ?? '');
   const [asistioJ1, setAsistioJ1] = useState<boolean | null>(move.asistioJ1 ?? lead.asistioJ1);
   const [asistioJ2, setAsistioJ2] = useState<boolean | null>(move.asistioJ2 ?? lead.asistioJ2);
-  const [calificado, setCalificado] = useState<boolean | null>(lead.calificado);
+  const [calificado, setCalificado] = useState<boolean | null>(move.yaRespondido?.calificado ?? lead.calificado);
   const [fathom, setFathom] = useState<FathomLink[]>(() => (lead.fathom.length ? lead.fathom : [{ label: 'Llamada', url: '' }]));
   const [fathomOmitido, setFathomOmitido] = useState(false);
   // Reprogramar: la tercera salida del paso de asistencia. Vacío = no se reprograma.
@@ -178,7 +190,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [ventaTipo, setVentaTipo] = useState<'unico' | 'suscripcion'>(lead.ventaTipo === 'suscripcion' ? 'suscripcion' : 'unico');
   const [susMeses, setSusMeses] = useState(lead.suscripcionMeses ? String(lead.suscripcionMeses) : '');
   // Motivo en 2 pasos: categoría (botón) + detalle específico (texto libre).
-  const [motivo, setMotivo] = useState(lead.motivo ?? '');
+  // Si el wizard anterior ya lo pidió, llega el texto FINAL ya concatenado y
+  // `motivoDetalle` queda vacío: `motivoFinal` los une con filter(Boolean), así
+  // que sale igual y no se agrega un guion suelto.
+  const [motivo, setMotivo] = useState(move.yaRespondido?.motivo ?? lead.motivo ?? '');
   const [motivoDetalle, setMotivoDetalle] = useState('');
   const [cuotas, setCuotas] = useState<Array<{ monto: string; fecha: string }>>([{ monto: '', fecha: hoyISO }]);
   // Higiene (solo se piden en "Completar datos"). Si el equipo es de UNA sola
@@ -204,7 +219,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [dealReporte, setDealReporte] = useState<string[] | null>(null);
   const [guardado, setGuardado] = useState(false); // tras confirmar → paso final ver/salir
   const esDescal = to === 'descal';
-  const motivoFinal = [motivo.trim(), motivoDetalle.trim()].filter(Boolean).join(' — ');
+  const motivoFinal = motivoFinalDe(motivo, motivoDetalle);
 
   // "Automático primero": antes de preguntar datos de reuniones se ofrece
   // buscarlos en Calendly + Fathom; lo resuelto no se vuelve a preguntar.
@@ -216,6 +231,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     // Equipo de una sola persona → setter/closer ya resueltos (se auto-asignan).
     const s = new Set<PasoId>();
     if (equipo.length === 1) { s.add('setter'); s.add('closer'); }
+    // Lo que el wizard anterior ya preguntó. `resueltos` es exactamente el
+    // mecanismo que hace falta: saca el paso de la lista pero deja `pide()` en
+    // true, así el valor igual viaja en el payload al confirmar.
+    if (move.yaRespondido?.calificado != null) s.add('calificado');
+    if (move.yaRespondido?.motivo?.trim()) { s.add('motivo'); s.add('motivoDetalle'); }
     return s;
   });
 
@@ -242,9 +262,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       ...funnelReqInfo(stages, to),
       fechaJ1: lead.fechaJ1, fechaJ2: lead.fechaJ2,
       asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
-      calificado: lead.calificado,
+      calificado: move.yaRespondido?.calificado ?? lead.calificado,
       hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
-      monto: lead.monto, motivo: lead.motivo,
+      monto: lead.monto, motivo: move.yaRespondido?.motivo ?? lead.motivo,
       // Higiene: solo se pide en "Completar datos" (Solucionar), NUNCA al mover de etapa.
       ...(completarDatos ? { setter: lead.setter, closer: lead.closer, empresa: lead.empresa, telefono: lead.telefono } : {}),
       tienePlan: to === 'ganado' ? (lead.tienePlan ?? false) : undefined,
@@ -255,15 +275,25 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [reqServer, setReqServer] = useState<Step[] | null>(null);
   const [faltanServer, setFaltanServer] = useState<Step[]>([]);
 
+  // Lo que el wizard anterior ya contestó viaja en la consulta: si no, el server
+  // calcula con los valores viejos del lead y reclama la asistencia (o el motivo)
+  // que la persona acaba de declarar en la pantalla previa.
+  const yaCalificado = move.yaRespondido?.calificado;
+  const yaMotivo = move.yaRespondido?.motivo;
   useEffect(() => {
     let vivo = true;
-    requisitosDeEtapaAction(lead.id, to)
+    requisitosDeEtapaAction(lead.id, to, {
+      ...(move.asistioJ1 != null ? { asistioJ1: move.asistioJ1 } : {}),
+      ...(move.asistioJ2 != null ? { asistioJ2: move.asistioJ2 } : {}),
+      ...(yaCalificado != null ? { calificado: yaCalificado } : {}),
+      ...(yaMotivo?.trim() ? { motivo: yaMotivo } : {}),
+    })
       .then((r) => { if (vivo) setReqServer(r); })
       // Si la consulta falla seguimos con lo local: es preferible un wizard que
       // pregunte de menos a un pop-up que no abre.
       .catch(() => { if (vivo) setReqServer([]); });
     return () => { vivo = false; };
-  }, [lead.id, to]);
+  }, [lead.id, to, move.asistioJ1, move.asistioJ2, yaCalificado, yaMotivo]);
 
   const cargandoReq = reqServer === null;
   // `placeholder` entra también en la unión final: cuando el caller no pasó
@@ -505,9 +535,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 
   // ── Render del paso ──
   // Categorías según el desenlace: perder ≠ descalificar (motivos distintos).
-  const sugerencias = esDescal
-    ? ['No calificado', 'Fuera de perfil', 'Sin presupuesto', 'No es quien decide', 'Otro']
-    : ['Precio', 'Timing', 'Eligió a otro', 'Fantasma', 'No respondió', 'Otro'];
+  // La lista vive en motivos-salida.ts porque el wizard del worklist también la
+  // usa: copiada en dos lados, la segunda copia se queda vieja.
+  const sugerencias = motivosDeSalida(esDescal ? 'descal' : 'perdido');
   let pregunta = '';
   let sub = '';
   let cuerpo: ReactNode = null;

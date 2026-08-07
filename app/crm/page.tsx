@@ -22,6 +22,13 @@ import { getEquipoAction, type MiembroEquipo } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// Los server actions de esta página heredan este techo (route segment config).
+// Reagendar es el más caro de todos: escribe el CRM y DESPUÉS habla con Google
+// (refresh del token + buscar el evento + moverlo, hasta ~28s en el peor caso).
+// Con el default corto, el corte llegaba con la fila YA guardada y el usuario
+// veía "No se pudo reagendar" en rojo sobre algo que sí se hizo, y reagendaba
+// dos veces.
+export const maxDuration = 60;
 
 export default async function LeadsPage() {
   await requireCapa('crm');
@@ -91,6 +98,8 @@ export default async function LeadsPage() {
     soloEdit: p.soloEdit,
     solTab: p.solTab,
     faltantes: p.faltantes,
+    cual: p.cual,
+    etapa: p.etapa,
   }));
 
   const equipo = await getEquipoAction().catch(() => [] as MiembroEquipo[]);
