@@ -26,10 +26,115 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
   "Último paso (7)" con el botón diciendo "Siguiente →" → [Wizards y formularios](#wizards-y-formularios).
 - Un `<Icon name>` mal escrito o un `<use>` sin su `<symbol>` **no rompen**: pintan un
   puntito gris o un cuadrado liso, sin error, sin warning → [Primitives y sistema visual](#primitives-y-sistema-visual).
+- Una fila de tabs con `overflowX: auto` **y** la scrollbar escondida por CSS borra los
+  últimos destinos sin dejar ni una pista → [Primitives y sistema visual](#primitives-y-sistema-visual).
+- Que una pantalla no llegue al borde no lo causa ninguna regla: de 44 `<main>`, **solo 3
+  centraban** y había 5 topes distintos → [Primitives y sistema visual](#primitives-y-sistema-visual).
 
 ---
 
 ## Primitives y sistema visual
+
+### ⚠️ Una barra de navegación con scroll horizontal esconde destinos, y la scrollbar oculta los borra
+
+**Síntoma:** en la ficha del lead, las últimas tabs no existen para el usuario. No hay
+flecha, no hay corte visible, no hay barra de scroll: la fila simplemente termina.
+
+**Causa:** dos decisiones que por separado parecen razonables. `LeadTabs` ponía
+`overflowX: 'auto'` en el `role="tablist"` («las tabs scrollean en horizontal si no
+entran, nunca doble fila»), y `globals.css` escondía la barra por estética
+(`.lead-tabs-scroll { scrollbar-width: none }`). Juntas, el único indicio de que hay más
+tabs desaparece.
+
+**Regla de la casa:** una barra de **navegación** no lleva scroll horizontal. Si no
+entran, bajan de renglón (`flex-wrap: wrap`). Esto contradice al §19.2 del documento de
+rediseño («las tabs deben soportar scroll horizontal en mobile») y gana la regla de la
+casa: esconder destinos detrás de un gesto lateral es esconderlos. El scroll lateral
+sigue siendo correcto donde lo que se corre es **contenido** —una tabla, una fila de
+filtros, un bloque de código—, no el mapa de a dónde se puede ir; para eso está
+`.mk-scroll-x`.
+
+**Sin arreglar:** `app/whatsapp/EmojiPicker.tsx:261` (las pestañas de categoría) y
+`app/onboarding/OnboardingWizard.tsx:544` (la barra superior del modo agencia, donde el
+botón «Salir de la vista» puede quedar detrás del scroll).
+
+**Vive en:** app/_ui/Tabs.tsx · app/crm/lead-view/LeadTabs.tsx:47 (usada por
+app/crm/[id]/LeadDetailBody.tsx, app/crm/[id]/EditLeadForm.tsx y app/crm/LeadSheet.tsx) ·
+regla en AGENTS.md y app/_ui/LEEME.md · *2026-08-07 ~ui-tab-siete-puntos*
+
+### ⚠️ El ancho de una pantalla no lo achica ninguna regla: lo achica quien la escribe
+
+**Síntoma:** una pantalla nueva «no llega al borde» y queda una franja muerta a la
+derecha. Se busca la regla que la está achicando y no existe.
+
+**Causa:** cada pantalla escribía su propio `<main>`, así que cada una elegía su tope por
+separado. Medido sobre `app/`: de 44 `<main>`, **solo 3 centraban**; 16 valores de
+padding distintos; topes de 720, 980, 1000, 1100 y 1200 según quién la escribió. Copiar
+la pantalla de al lado propagaba el número. No hay nada que «arreglar» en el layout: hay
+que sacar la decisión de la mano de cada pantalla.
+
+**Regla:** el `<main>` es `Pagina` (`app/_ui/Pagina.tsx`), el tope es el token
+`--pagina-max` y el contenido va **centrado** — un `maxWidth` pegado a la izquierda es lo
+que deja la franja. Su prop `style` está tipada sin `maxWidth`, `width` ni `margin`: el
+compilador rechaza el ancho, así que la regla no depende de que alguien se acuerde.
+`ancho="completo"` para tablas y tableros. Si lo que necesita tope es **texto**, va en el
+párrafo (`Lectura`, 70ch), nunca en la página: un `maxWidth` en el `<main>` también
+angosta las tablas.
+
+**Vive en:** app/_ui/Pagina.tsx · app/globals.css (`--pagina-max`) · *2026-08-07 ~ui-tab-siete-puntos*
+
+### ⚠️ Un catálogo que DIBUJA la pieza en vez de montarla no sirve para revisar nada
+
+**Síntoma:** la sección «la barra» de `/admin/ui` no se parecía a la barra de la app. El
+dueño lo dijo así: «no se ve para nada igual».
+
+**Causa:** estaba dibujada a mano — una lista de divs que imitaba el aspecto. Dos códigos
+distintos para la misma cosa: no había forma de que coincidieran, y cualquier cambio en la
+barra real las separaba más.
+
+**Regla:** en el catálogo se **monta** la pieza, no se dibuja. Si el componente real no se
+puede montar tal cual, se extraen sus partes y las comparten los dos. Acá el `Sidebar`
+entero no se puede montar y **el motivo no es el obvio**: no es que `usePathname()`
+devuelva la ruta equivocada (eso también), es que `adminShell = rol === 'admin' &&
+!impersonando` hace que para el super-admin la barra pinte `ADMIN_NAV` en vez de las
+familias. O sea: la tab que documenta la barra mostraría otra barra.
+
+**Vive en:** app/_components/BarraPreview.tsx (usa `Marca`, `Familia`, `NavLink`,
+`Identidad`, `panelStyle` exportados de app/_components/Sidebar.tsx) · *2026-08-07 ~ui-tab-siete-puntos*
+
+### ⚠️ «Branding MaKo» no es un manual de marca, y las reglas que sí existen están en cinco lugares
+
+**El diagnóstico obvio era el equivocado.** Buscar el material de marca en
+`/conocimientos → Branding MaKo` parece lo correcto por el nombre. No hay nada ahí: es una
+**galería de archivos descargables** (logos, gráficos, animaciones, íconos, videos) que
+vive en el bucket privado `branding` de Storage, con el catálogo en la tabla
+`branding_assets` (migraciones 0098 y 0100). Cero líneas sobre color, tipografía o voz.
+
+**Dónde están de verdad:** el dorado y los neutros en `app/globals.css`; el logo y el
+wordmark en `app/_components/MakoBrand.tsx`; la voz de la IA en `lib/mako-persona.ts` +
+`lib/mako-prompts.ts`; las reglas de copy de la UI en `docs/mapa-del-proyecto.md`; cómo
+firma la IA en `lib/pipeline.ts` (`MAKO_SETTER`) y `lib/etapa-historial.ts`.
+
+**Lo que quedó SIN hacer** (está listado en `/admin/ui` → Marca → «Lo que todavía no cierra»):
+
+- `lib/mako-grupo.ts:55` todavía pinta la marca con los dos dorados que `globals.css`
+  declara eliminados (`#F6D365`/`#EF9F27`). Genera SVG como string en el servidor, así que
+  no puede usar `var()`: necesita importar los hex de un módulo único.
+- `MakoBrand.tsx` define seis neutros **cálidos** propios que no son tokens
+  (`#1A1813`, `#F3F0E7`, `#2A251C`, `#171511`, `#A39E91`, `#6B675C`), y `globals.css` dice
+  que los neutros de la app son fríos.
+- El wordmark grande usa Georgia serif, que no es la tipografía de la app ni un token.
+- La alternancia de color letra por letra (M dorada, a oscura, K dorada, o oscura) es una
+  regla de marca que solo vive en un render.
+- `lib/branding.ts:17` — el tipo `BrandingSeccion` no incluye `'marca'`, que es la sección
+  que abre por defecto. No rompe hoy porque hay un `as`, pero cualquier `switch` exhaustivo
+  va a estar incompleto.
+- `public/mako.svg` es el logo **viejo** y además no es vector de verdad: lleva PNG en
+  base64 adentro. El logo vivo es SVG en línea en `MakoBrand.tsx`.
+- Los archivos originales del material de marca **no están versionados**: los scripts los
+  leían del escritorio. Storage es la única copia durable.
+
+**Vive en:** app/admin/ui/Marca.tsx · *2026-08-07 ~ui-tab-siete-puntos*
 
 ### ⚠️ `.mk-scroll-x` recorta en los DOS ejes: ningún popover `absolute` puede vivir adentro
 

@@ -15,7 +15,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 |---|---|---|
 | CRM | [hallazgos-crm.md](hallazgos-crm.md) | Leads, funnel, etapas y requisitos, worklist de datos sin marcar, agenda y horarios, historial |
 | Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | Supabase (paginado, upserts, settings), aislamiento multi-inquilino, credenciales/BYOK, webhooks, crons, topes de Next, migraciones, build y deploy, zonas horarias, storage, tests y sesiones paralelas |
-| UI compartida | [hallazgos-ui.md](hallazgos-ui.md) | `app/_components`: `WizardShell` y el progreso, la pila de modales y los z-index |
+| UI compartida | [hallazgos-ui.md](hallazgos-ui.md) | `app/_ui` y `app/_components`: el ancho y el scroll de las barras de navegación, `WizardShell`, la pila de modales y los z-index, dónde vive de verdad la marca |
 | MaKo (IA) | [hallazgos-ia.md](hallazgos-ia.md) | Modelos y ruteo, la cascada barata, prompts y overrides, topes de salida, gasto y saldo, el doer, cómo pregunta y responde MaKo |
 | Comunicación | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) | Espejo de WhatsApp (Evolution), onboarding del Chat Agent, desenlace de nutriciones |
 | Ads | [hallazgos-ads.md](hallazgos-ads.md) | `ads-analyst` y las lecturas de `marketing_metrics_daily` |
