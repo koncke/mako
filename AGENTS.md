@@ -76,7 +76,16 @@ No es hipotético. Una corrida de 14 agentes sobre el formulario "¿Qué hacer a
 encontró 13 problemas reales; los 5 que quedaron fuera de alcance sobrevivieron
 únicamente porque se escribieron.
 
-**Regla: toda corrida con subagentes termina escribiendo en `docs/hallazgos-crm.md`.**
+**Regla: toda corrida con subagentes termina escribiendo en `docs/hallazgos-<área>.md`.**
+
+Un documento **por área**, no uno solo: `hallazgos-crm.md`, `hallazgos-plan.md`,
+`hallazgos-ia.md`, `hallazgos-ads.md`, `hallazgos-landing.md`,
+`hallazgos-comunicacion.md` (WhatsApp/email), `hallazgos-infra.md` (build, deploy,
+Supabase, auth). El área es **dónde vive el código**, no de qué hablaba la tarea. Si
+el hallazgo cruza áreas, va donde vive el código y se enlaza desde la otra.
+
+Si el área todavía no tiene documento, se crea. `docs/hallazgos.md` es el índice: una
+línea por documento, y se actualiza en el mismo commit.
 
 Qué va ahí:
 
