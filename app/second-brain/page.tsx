@@ -12,16 +12,22 @@
 // dirección: «debe vivir dentro de Second Brain, ya que justamente el second
 // brain se alimenta de esa info que el usuario le carga de su negocio».
 //
-// LO QUE FALTA (tareas #522 y #525): el selector de contexto (negocio ·
-// producto · oferta · funnel) y el Grafo de Conocimiento estilo Obsidian, que
-// el documento marca como «el elemento visual más diferencial del módulo».
-// Hasta entonces esto es el contenido real, no un placeholder.
+// EL GRAFO ya vive acá (`Grafo.tsx` + `lib/cerebro-grafo.ts`): es el mapa del
+// negocio del CLIENTE, no el de graphify sobre el código de MaKo — ver la
+// advertencia en la cabecera de lib/cerebro-grafo.ts y docs/hallazgos-onboarding.md.
+// Se construyó primero acá y suelto, a pedido de Martín, para diseñarlo sin la
+// presión del wizard; dónde entra en el onboarding se decide mirándolo andar.
+//
+// LO QUE FALTA (tarea #522): el selector de contexto (negocio · producto ·
+// oferta · funnel), que según su decisión vive adentro de Second Brain.
 
 import { Icon } from '../_components/icons';
 import { OnboardingTabs } from '../onboarding/OnboardingTabs';
 import { FunnelEditor } from '../funnel/FunnelEditor';
+import { Grafo } from './Grafo';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
+import { construirCerebro } from '@/lib/cerebro-grafo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -29,7 +35,7 @@ export const revalidate = 0;
 export default async function SecondBrainPage() {
   await requireRolWs([], { nav: 'second-brain' });
 
-  const { pipeline, suppressed } = await getFunnel();
+  const [{ pipeline, suppressed }, cerebro] = await Promise.all([getFunnel(), construirCerebro()]);
   const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
 
   return (
@@ -43,6 +49,9 @@ export default async function SecondBrainPage() {
           Todo lo que MaKo sabe de tu negocio. De acá salen las señales que conecta para encontrar qué mover.
         </p>
       </header>
+      <section style={{ marginBottom: 34 }}>
+        <Grafo cerebro={cerebro} />
+      </section>
       <OnboardingTabs funnelPanel={funnelPanel} />
     </main>
   );
