@@ -39,12 +39,15 @@ export type NodoFisico = {
   fy?: number | null;
   casaX: number;
   casaY: number;
+  /** El radio DIBUJADO del nodo. La colisión del cliente se calcula con esto. */
+  r: number;
 };
 
 export type Simulacion = {
   nodos: NodoFisico[];
-  /** Empieza a mover el nodo `id` y despierta la simulación. */
-  agarrar: (id: string) => void;
+  /** Empieza a mover el nodo `id`. `x`/`y` son el punto del mundo donde se lo agarró:
+   *  se guarda el desfase para que el nodo NO salte al cursor. */
+  agarrar: (id: string, x: number, y: number) => void;
   /** Mueve el nodo agarrado a una posición del mundo. */
   mover: (x: number, y: number) => void;
   /** Suelta el nodo. Todo vuelve a su casa y la simulación se duerme sola. */
@@ -54,12 +57,18 @@ export type Simulacion = {
 };
 
 export const FISICA = {
-  /** El mismo radio que usa la colisión del servidor: si divergen, al soltar los
-   *  nodos se reacomodan a un espaciado distinto del que tenían. */
-  colisionRadio: 60,
-  /** Medido: con 0,7 la separación mínima entre centros no baja de 94 unidades y,
-   *  con radios dibujados de 8 a 11,6, el hueco visible nunca baja de ~71. No se
-   *  rozan jamás. Con 0,4 caía a 84. */
+  /** ⚠️ NO es el radio 60 de la colisión del SERVIDOR, y no puede serlo. El servidor
+   *  usa `strength 0.5`, que es blanda: en el layout final la separación mínima real
+   *  entre centros es de 37 unidades, MENOS que 60. Con radio 60 acá, la colisión
+   *  considera que en su propia casa los nodos están mal puestos y los empuja para
+   *  siempre — y como `forceCollide` NO está escalada por alpha y el resorte a casa
+   *  SÍ, la colisión gana. Medido con Playwright: 128 px de desvío que nunca se
+   *  corregían. Lo que hay que evitar acá es el solape VISUAL, así que el radio sale
+   *  del nodo dibujado (8 a 11,6) más un poco de aire.
+   *  El aire tiene TECHO: dos nodos chocan si la distancia baja de r1+r2+2·pad, y en
+   *  reposo la separación mínima es 37. Con radios de 8 y pad 8 da 32 < 37, que entra
+   *  justo. Subirlo a 12 da 40 y el problema vuelve. */
+  colisionPad: 8,
   colisionFuerza: 0.7,
   colisionIter: 1,
   /** El resorte a casa. Con 0,30 el mapa queda quieto en 62 ticks (~1,03 s) y el
@@ -81,23 +90,28 @@ export const FISICA = {
  */
 export async function crearSimulacion(
   posiciones: Record<string, Punto>,
+  radios: Record<string, number>,
   alRedibujar: (nodos: NodoFisico[]) => void,
 ): Promise<Simulacion> {
   const { forceSimulation, forceCollide, forceX, forceY } = await import('d3-force');
 
   const nodos: NodoFisico[] = Object.entries(posiciones).map(([id, p]) => ({
-    id, x: p.x, y: p.y, casaX: p.x, casaY: p.y,
+    id, x: p.x, y: p.y, casaX: p.x, casaY: p.y, r: radios[id] ?? 8,
   }));
   const porId = new Map(nodos.map((n) => [n.id, n]));
 
   const sim = forceSimulation<NodoFisico>(nodos)
-    .force('colision', forceCollide<NodoFisico>(FISICA.colisionRadio).strength(FISICA.colisionFuerza).iterations(FISICA.colisionIter))
+    .force('colision', forceCollide<NodoFisico>((d) => d.r + FISICA.colisionPad).strength(FISICA.colisionFuerza).iterations(FISICA.colisionIter))
     .force('casaX', forceX<NodoFisico>((d) => d.casaX).strength(FISICA.casaFuerza))
     .force('casaY', forceY<NodoFisico>((d) => d.casaY).strength(FISICA.casaFuerza))
     .stop();
 
   let raf: number | null = null;
   let agarrado: NodoFisico | null = null;
+  // Cuánto había entre el centro del nodo y el punto donde lo agarraste. Sin esto el
+  // nodo se teletransporta bajo el cursor en el primer movimiento, que es el defecto
+  // clásico de un drag mal hecho: se siente que lo arrancaste, no que lo agarraste.
+  let desfase = { x: 0, y: 0 };
 
   const quieto = (): boolean => {
     if (agarrado) return false;
@@ -109,6 +123,12 @@ export async function crearSimulacion(
   };
 
   const latir = () => {
+    // ⚠️ PISO DE ALPHA. d3 escala TODA fuerza por alpha (`vx += (x - node.x) * strength
+    // * alpha`), así que cuando alpha decae el resorte a casa se apaga y el nodo queda
+    // a mitad de camino: medido con Playwright, 123 px de desvío que no se corregían
+    // ni esperando 4 segundos. No era tiempo de asentado, era que la fuerza valía
+    // cero. Mientras la simulación esté despierta, alpha no baja de acá.
+    if (sim.alpha() < 0.06) sim.alpha(0.06);
     sim.tick();
     alRedibujar(nodos);
     // Se duerme sola. Sin esto el rAF corre para siempre y la pestaña nunca entra en
@@ -127,17 +147,18 @@ export async function crearSimulacion(
 
   return {
     nodos,
-    agarrar(id) {
+    agarrar(id, x, y) {
       const n = porId.get(id);
       if (!n) return;
       agarrado = n;
+      desfase = { x: n.x - x, y: n.y - y };
       n.fx = n.x; n.fy = n.y;
       sim.alpha(0.35);
       despertar();
     },
     mover(x, y) {
       if (!agarrado) return;
-      agarrado.fx = x; agarrado.fy = y;
+      agarrado.fx = x + desfase.x; agarrado.fy = y + desfase.y;
       sim.alpha(0.35);
       despertar();
     },

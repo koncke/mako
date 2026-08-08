@@ -173,9 +173,10 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     if (simRef.current) return simRef.current;
     const { crearSimulacion } = await import('./fisica');
     if (simRef.current) return simRef.current;   // por si dos gestos entraron a la vez
-    simRef.current = await crearSimulacion(posiciones, pintarFisica);
+    const radios = Object.fromEntries(nodos.map((n) => [n.id, radioMundo(n)]));
+    simRef.current = await crearSimulacion(posiciones, radios, pintarFisica);
     return simRef.current;
-  }, [posiciones, pintarFisica]);
+  }, [posiciones, pintarFisica, nodos, radioMundo]);
 
   // ── Zoom y paneo ───────────────────────────────────────────────────────────
   const aplicar = useCallback(() => {
@@ -305,9 +306,16 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   };
 
   const agarrarNodo = (id: string) => (e: React.PointerEvent) => {
-    e.stopPropagation();
+    // ⚠️ SIN `stopPropagation`. Es lo que rompía el arrastre entero: cortaba la
+    // burbuja antes de que el `onPointerDown` del <svg> registrara el puntero, así
+    // que `onPointerMove` salía por la guarda de `punteros` y no se movía nada.
+    // El orden de React ya es el correcto — el nodo dispara ANTES que el lienzo —,
+    // así que cuando el <svg> arma el gesto, `arrastrando` ya está puesto.
     arrastrando.current = id;
-    void asegurarSim().then((s) => { if (arrastrando.current === id) s?.agarrar(id); });
+    const p = aMundoReal(e.clientX, e.clientY);
+    void asegurarSim().then((s) => {
+      if (arrastrando.current === id && p) s?.agarrar(id, p.x, p.y);
+    });
   };
 
   const clicNodo = (id: string) => (e: React.MouseEvent) => {
@@ -341,9 +349,16 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
 
         /* LA FLOTACIÓN. Va en su propio grupo porque una animación CSS sobre transform
            le gana al transform que escribe la física: en el mismo elemento, el nodo
-           quedaría clavado en su keyframe. Dos ejes con períodos que no son múltiplos
-           entre sí, para que la órbita no se cierre y no se lea mecánica. */
-        .cbg .cbg-flota { animation: cbg-fx 4.3s ease-in-out infinite alternate, cbg-fy 6.7s ease-in-out infinite alternate; }
+           quedaría clavado en su keyframe.
+           ⚠️ Y son DOS grupos, uno por eje, por la misma razón de cascada: las dos
+           animaciones animan la MISMA propiedad (transform), así que puestas en el
+           mismo elemento la segunda pisa a la primera y el nodo se mueve en un solo
+           eje. Medido con Playwright: con las dos juntas el desplazamiento real era
+           de 0,03 px, o sea ninguno.
+           Períodos que no son múltiplos entre sí: la órbita no se cierra y no se lee
+           mecánica. */
+        .cbg .cbg-flota-x { animation: cbg-fx 4.3s ease-in-out infinite alternate; }
+        .cbg .cbg-flota-y { animation: cbg-fy 6.7s ease-in-out infinite alternate; }
         @keyframes cbg-fx { from { transform: translateX(calc(-1 * var(--fl))); } to { transform: translateX(var(--fl)); } }
         @keyframes cbg-fy { from { transform: translateY(var(--fl)); } to { transform: translateY(calc(-1 * var(--fl))); } }
 
@@ -362,7 +377,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
         .cbg .cbg-et { font-size: calc(12px / var(--k, 1)); fill: var(--on-sidebar); pointer-events: none; }
 
         @media (prefers-reduced-motion: reduce) {
-          .cbg .cbg-flota, .cbg .cbg-pop { animation: none; }
+          .cbg .cbg-flota-x, .cbg .cbg-flota-y, .cbg .cbg-pop { animation: none; }
           .cbg .cbg-cuerpo, .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et { transition: none; }
           .cbg .cbg-nodo:hover .cbg-cuerpo, .cbg .cbg-nodo.cbg-sel .cbg-cuerpo { transform: none; }
         }
@@ -439,14 +454,15 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                     onClick={clicNodo(n.id)}
                   >
                     <g
-                      className="cbg-flota"
+                      className="cbg-flota-x"
                       style={{
                         ['--fl' as string]: `${flote}px`,
                         // Retardo NEGATIVO: arranca a mitad de ciclo YA, sin espera. Y
                         // sale del hash del id, así que el nodo flota igual cada visita.
-                        animationDelay: `-${h % 4300}ms, -${(h >>> 7) % 6700}ms`,
+                        animationDelay: `-${h % 4300}ms`,
                       }}
                     >
+                    <g className="cbg-flota-y" style={{ ['--fl' as string]: `${flote}px`, animationDelay: `-${(h >>> 7) % 6700}ms` }}>
                       <g className="cbg-pop" style={{ animationDelay: `${Math.min(i * 12, 700)}ms` }}>
                         <g className="cbg-cuerpo">
                           <circle r={Math.max(r + 8 / kr, 16 / kr)} fill="transparent" />
@@ -467,6 +483,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                           </text>
                         )}
                       </g>
+                    </g>
                     </g>
                   </g>
                 );
