@@ -115,8 +115,13 @@ acá sola: si cambia allá, cambia acá. No la edites a mano.
 
 > El nombre se entiende SOLO, en 1 a 4 palabras, como el nombre de una tab. Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
 >
-> EL PREFIJO, y es obligatorio: si el proyecto nuevo es una FUNCIONALIDAD del producto —una tab, un módulo, un agente de la app— se llama «Feature: NOMBRE»: «Feature: Facturación», igual que «Feature: CRM» o «Feature: Ads Manager».
-> Si NO es una funcionalidad del producto va SIN prefijo: un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads"). Ponerle «Feature:» a algo que no se programa es peor que no ponérselo: dice que hay que construirlo cuando hay que firmarlo o pagarlo.
+> EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUTA SOLO, se VENDE, o CRUZA todo?
+> · «Feature: NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «Feature: Facturación», igual que «Feature: CRM» o «Feature: Ads Manager». Los analistas y los generadores van acá aunque usen IA: los disparás vos.
+> · «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abrís y lo usás, es feature.
+> · SIN prefijo → un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads").
+>
+> ⚠️ Ponerle «Feature:» a algo que no se programa es peor que no ponérselo: dice que hay que construirlo cuando hay que firmarlo o pagarlo.
+> ⚠️ Y la confusión que más se repite: **la pantalla y el agente que vive adentro NO son el mismo proyecto.** El tablero es «Feature: Plan»; el cerebro que puntúa es «${PREFIJO_AGENTE}Perro Guardián». Mejorar la vista Kanban va a la primera; cambiar cómo decide una prioridad va al segundo.
 
 <!-- REGLA-NOMBRE-PROYECTO:FIN -->
 
@@ -203,7 +208,7 @@ sola: si cambia allá, cambia acá. No la edites a mano.
 > · "comparacion" → enfrentar DOS ítems para ver cuál pesa más. OBLIGATORIO: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
 > · "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Podés sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
 > · "escala" → intensidad de 1 a 5, y NADA MÁS. NO lleva opciones: el dueño ve los números pelados. Por eso la pregunta TIENE que decir qué significan los dos extremos, dentro del enunciado mismo: "¿Qué tan firme es esa fecha? (1 = es una idea, 5 = ya está comprometida con el cliente)".
-> · "texto" → último recurso, solo si de verdad no hay forma de cerrarla.
+> · "texto" → un campo abierto. ⛔⛔ **CASI NUNCA.** La regla del dueño es NUNCA campos abiertos: un textarea vacío es la pregunta que más se saltea. Usalo solo si de verdad no existe ningún otro campo que la conteste, y antes de usarlo intentá dos veces convertirla en "opcion" o en "fecha". Si mandás cualquier otro tipo sin las opciones que ese tipo exige, la pregunta **se descarta entera** — no se convierte en un campo abierto.
 >
 > ⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntás cuándo, el tipo es "fecha"; si preguntás cuánto, dale opciones con rangos concretos.
 > ⛔ Una "escala" sin los extremos explicados en el enunciado es una pregunta muerta.
