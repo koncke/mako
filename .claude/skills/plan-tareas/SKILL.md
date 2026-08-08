@@ -190,14 +190,31 @@ prioridad (exagera, se encariña, no sabe priorizar).
 - Si la respuesta es obvia o se contradice con lo que ya sabés, **no la preguntes**.
 - **CUÁNTAS: escalá con el tamaño del lote**, ~1 cada 3 tareas (`topePreguntas` en
   `lib/plan-propuesta.ts`). Con 20 tareas y 4 preguntas, 16 entran a ciegas.
-- **Variá el formato** eligiendo el mejor para cada una:
-  `multi` (varias válidas a la vez — sin opción "Ambas/Todas", que tilde varias) ·
-  `opcion` (excluyente) · `escala` (1-5) · `comparacion` (A vs B) · `texto` (último recurso).
-  **Nada de preguntas abiertas por descuido**: siempre con opciones para tocar.
-- ⚠️ **El tipo y las opciones tienen que ser coherentes**: una `opcion` sin `opciones` se
-  dibuja sin un solo botón y no se puede contestar. Una `escala` NO lleva opciones y la
-  pregunta tiene que explicar los extremos ("1 = es una idea, 5 = ya está comprometido").
-  Una `comparacion` lleva EXACTAMENTE dos.
+- **Variá el formato** eligiendo el mejor para cada una, según el catálogo de acá abajo.
+
+<!-- CONTRATO-PREGUNTAS:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->
+
+**Los tipos de pregunta y su campo.** Vive en `lib/preguntas-contrato.ts` y se copia acá
+sola: si cambia allá, cambia acá. No la edites a mano.
+
+> TIPO Y OPCIONES — TIENEN QUE SER COHERENTES ENTRE SÍ. Es donde más se falla, y una pregunta incoherente es una pregunta que el dueño no puede contestar:
+> · "opcion" → una sola respuesta, excluyente. OBLIGATORIO: 2 a 6 opciones cortas y concretas.
+> · "multi" → pueden valer VARIAS a la vez. OBLIGATORIO: 2 a 6 opciones. NO agregues "Todas" ni "Ambas": para eso tilda varias.
+> · "comparacion" → enfrentar DOS ítems para ver cuál pesa más. OBLIGATORIO: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
+> · "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Podés sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
+> · "escala" → intensidad de 1 a 5, y NADA MÁS. NO lleva opciones: el dueño ve los números pelados. Por eso la pregunta TIENE que decir qué significan los dos extremos, dentro del enunciado mismo: "¿Qué tan firme es esa fecha? (1 = es una idea, 5 = ya está comprometida con el cliente)".
+> · "texto" → último recurso, solo si de verdad no hay forma de cerrarla.
+>
+> ⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntás cuándo, el tipo es "fecha"; si preguntás cuánto, dale opciones con rangos concretos.
+> ⛔ Una "escala" sin los extremos explicados en el enunciado es una pregunta muerta.
+> ⛔ Una "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambiá la pregunta hasta que se te ocurran, o no la hagas.
+>
+> ⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Leé tu enunciado y leé tus opciones: si al elegir una la frase no queda contestada, está mal.
+>   MAL (pasó de verdad): "¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?" con opciones ["CRM", "Chats", "Plan", "Dashboard"]. El enunciado es "¿A o B?" y abajo hay una lista de sustantivos: ninguna opción lo contesta.
+>   BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambiás el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
+>   Nunca dejes un enunciado binario con una lista de nombres abajo.
+
+<!-- CONTRATO-PREGUNTAS:FIN -->
 
 ## 3. Entregá el link ENTERO (o abrilo) y pará
 

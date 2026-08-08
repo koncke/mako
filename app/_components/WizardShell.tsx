@@ -72,8 +72,13 @@ export function WizardShell({
    * final. Mientras esté puesto no se avanza, no se vuelve y no se cierra: si
    * el mapa de preguntas todavía puede cambiar, contestar sobre él es tirar
    * trabajo a la basura.
+   *
+   * Acepta nodos, no solo un string: las esperas LARGAS (crear veinte tareas y
+   * puntuarlas con el Perro tarda minutos) necesitan una segunda línea que diga
+   * qué está pasando y que no se cierre. Con una sola línea en negrita, esa
+   * explicación no entra y el usuario lee un cuelgue.
    */
-  cargando?: string | null;
+  cargando?: ReactNode;
   atrasLabel: string;        // "Cancelar" (primer paso) o "Atrás"
   onAtras: () => void; onSiguiente: () => void; onConfirmar: () => void; onClose: () => void;
   bloqueante?: boolean;      // true → no se puede cerrar (sin ✕, backdrop no cierra)
@@ -222,7 +227,7 @@ export function WizardShell({
           blanco fijo: en tema oscuro un blanco al 80% es un flash. */}
       <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'var(--surface)', opacity: 0.88, backdropFilter: 'blur(1.5px)' }} />
       <span aria-hidden style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', boxSizing: 'border-box', animation: 'spin .7s linear infinite' }} />
-      <span style={{ position: 'relative', fontSize: 14, fontWeight: 600, color: 'var(--ink)', fontFamily: SANS, textAlign: 'center', padding: '0 20px' }}>{cargando}</span>
+      <div style={{ position: 'relative', fontSize: 14, fontWeight: 600, color: 'var(--ink)', fontFamily: SANS, textAlign: 'center', padding: '0 20px' }}>{cargando}</div>
     </div>
   ) : null;
 

@@ -10,7 +10,8 @@
 
 import { useState, useEffect, type CSSProperties } from 'react';
 import { WizardShell } from '../../../_components/WizardShell';
-import { ChoiceBody } from '../../board/guardian-form';
+import { PreguntaCampo } from '../../board/guardian-form';
+import { ayudaDePregunta } from '@/lib/preguntas-contrato';
 import type { Propuesta, PropuestaPregunta } from '@/lib/plan-propuesta';
 
 const SANS = "'Geist', sans-serif";
@@ -28,8 +29,6 @@ function DynLoader({ texto = 'Analizando tus respuestas para profundizar…', su
   );
 }
 
-// Cuerpo de una pregunta según su FORMATO: opción (default), multi (varias), escala 1-5,
-// o texto libre. Así MaKo puede variar el tipo de pregunta, no solo multiple-choice.
 /**
  * DE QUÉ TAREA HABLA. Sin esto, una pregunta perfectamente sana sobre la tarea 14 de un
  * lote de 20 se lee como una pregunta al azar — y es la mitad de por qué las preguntas
@@ -47,33 +46,9 @@ function SobreQue({ sobre }: { sobre?: string[] }) {
   );
 }
 
-function PreguntaBody({ q, value, onChange }: { q: PropuestaPregunta; value: string; onChange: (v: string) => void }) {
-  const box = (on: boolean): CSSProperties => ({ display: 'flex', gap: 9, alignItems: 'center', textAlign: 'left', width: '100%', background: on ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, color: 'var(--ink)' });
-  const check = (on: boolean): CSSProperties => ({ width: 15, height: 15, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
-  if (q.tipo === 'escala') {
-    return <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>{[1, 2, 3, 4, 5].map((n) => (
-      <button key={n} type="button" onClick={() => onChange(String(n))} style={{ width: 46, height: 46, borderRadius: 11, border: `1px solid ${value === String(n) ? 'var(--primary)' : 'var(--border-strong)'}`, background: value === String(n) ? 'var(--primary)' : 'var(--surface)', color: value === String(n) ? '#fff' : 'var(--ink)', fontSize: 16, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{n}</button>
-    ))}</div>;
-  }
-  if (q.tipo === 'multi') {
-    const sel = new Set(value ? value.split(' · ') : []);
-    const toggle = (o: string) => { const c = new Set(sel); if (c.has(o)) c.delete(o); else c.add(o); onChange([...c].join(' · ')); };
-    return <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{q.opciones.map((o) => (
-      <button key={o} type="button" onClick={() => toggle(o)} style={box(sel.has(o))}><span style={check(sel.has(o))}>{sel.has(o) ? '✓' : ''}</span>{o}</button>
-    ))}</div>;
-  }
-  if (q.tipo === 'texto') {
-    return <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder="Escribí tu respuesta…" rows={3} style={{ width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', resize: 'vertical' }} />;
-  }
-  if (q.tipo === 'comparacion') {
-    // Dos (o más) ítems ENFRENTADos: el dueño marca cuál pesa más; es una SEÑAL para el
-    // Perro, no una orden (el Perro compara y decide con su propio criterio).
-    return <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(2, q.opciones.length)}, 1fr)`, gap: 10, alignItems: 'stretch' }}>{q.opciones.map((o) => (
-      <button key={o} type="button" onClick={() => onChange(o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: 76, padding: '12px 14px', borderRadius: 12, cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, background: value === o ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1.5px solid ${value === o ? 'var(--primary)' : 'var(--border)'}`, color: value === o ? 'var(--primary)' : 'var(--ink)', lineHeight: 1.35 }}>{o}</button>
-    ))}</div>;
-  }
-  return <ChoiceBody opciones={q.opciones} value={value} onChange={onChange} />;
-}
+// El cuerpo de la pregunta lo dibuja `PreguntaCampo` (app/plan/board/guardian-form.tsx),
+// el MISMO componente que usa el modal de reuniones del board. Antes cada pantalla tenía
+// su propia versión y la misma pregunta se veía distinta según por dónde entraras.
 
 function Mensaje({ texto, sub, ok, link }: { texto: string; sub?: string; ok?: boolean; link?: boolean }) {
   return (
@@ -273,9 +248,13 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     : cur.kind === 'dyn' ? (dynQs[cur.i]?.pregunta || '…')
     : soloCierres ? (fraseCierre ? `Listo — ${fraseCierre}` : 'No queda nada para cerrar')
       : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
+  // La ayuda de abajo del enunciado SALE DEL TIPO. Estaba hardcodeada en «Elegí una
+  // opción o escribí la tuya» y se mostraba igual sobre una escala del 1 al 5, donde no
+  // hay ni opciones ni dónde escribir: el renglón que explica cómo contestar decía una
+  // cosa y el campo mostraba otra.
+  const qActual = cur.kind === 'q' ? prop.preguntas[cur.i] : cur.kind === 'dyn' ? dynQs[cur.i] : undefined;
   const sub = cur.kind === 'cerrar' ? 'La tengo en tu tablero abierta, pero encontré esto. Vos decidís.'
-    : cur.kind === 'q' ? 'Elegí una opción o escribí la tuya.'
-    : cur.kind === 'dyn' ? 'MaKo profundiza según lo que respondiste — así el Perro prioriza mejor.'
+    : qActual ? ayudaDePregunta(qActual.tipo, qActual.opciones.length > 0)
     : soloCierres ? 'Las que dijiste que no, quedan abiertas tal cual estaban.'
       : 'El Perro Guardián las prioriza, las describe y les arma la checklist. La revisión final la ves en el plan.';
 
@@ -315,13 +294,13 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       ) : cur.kind === 'q' ? (
         <>
           <SobreQue sobre={prop.preguntas[cur.i]?.sobre} />
-          <PreguntaBody q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
+          <PreguntaCampo q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
           <ContextoDelBorrador texto={prop.resumen} />
         </>
       ) : cur.kind === 'dyn' ? (
         <>
           <SobreQue sobre={dynQs[cur.i]?.sobre} />
-          <PreguntaBody q={dynQs[cur.i]} value={dynResp[cur.i] || ''} onChange={(v) => setDynResp((r) => ({ ...r, [cur.i]: v }))} />
+          <PreguntaCampo q={dynQs[cur.i]} value={dynResp[cur.i] || ''} onChange={(v) => setDynResp((r) => ({ ...r, [cur.i]: v }))} />
         </>
       ) : (
         <div style={{ textAlign: 'center' }}>

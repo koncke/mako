@@ -19,6 +19,7 @@ import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { credWs } from '@/lib/credenciales';
 import { ordenarPorCuota } from '@/lib/ia-cuotas';
+import { corregirMarca } from '@/lib/mako-gramatica';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: ProvName };
@@ -234,7 +235,7 @@ const tokensAprox = (texto: string): number => Math.ceil(texto.length / 3.5);
 // hace eso: el ensayo del Chat Agent, donde el modelo interpreta a un lead. Con
 // 0.2 se pegaba a la salida más probable y repetía la misma objeción turno tras
 // turno, hasta copiar literalmente las frases de ejemplo del prompt.
-export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[] }): Promise<string> {
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato }): Promise<string> {
   // ¿Cuánto pesa esto? La salida cuenta: el techo de Groq es de tokens por minuto, y
   // los que gasta contestando salen del mismo balde que los que gasta leyendo.
   const pesa = tokensAprox(opts.system) + tokensAprox(opts.user) + (opts.maxTokens ?? 1_000);
@@ -254,7 +255,9 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
   const orden = await ordenarPorCuota(candidatos.map(String)).catch(() => candidatos.map(String));
   for (const prov of orden as ProvName[]) {
-    const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs };
+    // El ESFUERZO viaja por toda la cascada. Sin esto, una feature con effort alto
+    // ruteada a la IA barata corría en 'minimal' apenas cambiaba de proveedor.
+    const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs, esfuerzo: opts.esfuerzo };
     // Un reintento del MISMO proveedor si el fallo parece transitorio (429/5xx/timeout):
     // clave para un workspace con UN solo proveedor (ej. Gemini), donde no hay a quién caer.
     for (let intento = 0; intento <= 1; intento++) {
@@ -591,7 +594,12 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
           ? await sttGemini(p, base64, buf, mime, o)
           : await sttWhisper(p, buf, mime, o);
         alguienEscuchó = true;
-        if (texto) return texto;
+        // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper
+        // escucha "MaKo" y escribe «Maco», esa cadena termina siendo el TÍTULO de una
+        // tarea y desde ahí el Perro la repite en su razón y en el deadline. Corregirlo
+        // después es perseguir el texto por diez lugares; en la puerta de entrada es
+        // una línea. Ver `corregirMarca` en lib/mako-gramatica.ts.
+        if (texto) return corregirMarca(texto);
         break; // respondió vacío: no insistas con el mismo, probá el próximo
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);

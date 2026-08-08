@@ -33,6 +33,35 @@ sus palabras, con la fecha en que las dijo.
 
 ## Modelos y ruteo
 
+### ✅ Un 429 de Gemini era suficiente para pagarle a Claude: el fallback saltaba cuatro proveedores gratis
+
+**Síntoma (reportado con la pantalla de Operaciones de IA, 2026-08-08):** «el Perro
+Guardián sigue cobrando dinero de Claude cuando ya había pedido que sea de Gemini para
+ahorrar». Dos corridas seguidas — `Perro Guardián · priorización`, **Claude · Sonnet 5**,
+US$0,162 y US$0,089, las dos con el motivo `⚠ fallback: gemini falló (chatCheap(gemini):
+HTTP 429)`.
+
+**El diagnóstico obvio era el equivocado.** No estaba mal configurado: `mako-guardian` está
+ruteado a Gemini en `lib/model-registry.ts` desde hace meses, y `def` y `recomendado` son
+los dos GEMINI. Lo que fallaba era el **fallback**, y fallaba de la peor forma posible: ante
+un **HTTP 429** —o sea la cuota del minuto, el error más transitorio que existe y el más
+previsible cuando el Perro corre en tandas— `chatClaude` hacía **un solo intento** y se iba
+derecho a Sonnet. Sin reintentar Gemini, y sin probar los otros cuatro proveedores gratis
+que estaban configurados y ociosos.
+
+Lo irónico: la lógica correcta ya existía a un archivo de distancia. `chatCheapCascade`
+reintenta el mismo proveedor ante 429/5xx, saltea a los que no les entra el prompt por su
+techo de entrada y ordena por cuota disponible — pero el override de `chatClaude` llamaba a
+`chatCheap` (singular). Ahora recorre la cascada entera, con el proveedor del registro
+primero, y sólo paga si **ninguno** contestó (y ahí el motivo lo dice: «fallback pago:
+fallaron los N proveedores gratis»).
+
+De paso: el `esfuerzo` no viajaba dentro de la cascada, así que una feature con effort alto
+que cambiara de proveedor corría en `minimal`. Mismo bug que [[effort-se-pierde-en-gemini]],
+un nivel más abajo.
+
+**Vive en:** lib/anthropic.ts (el bloque de override en `chatClaude`) · lib/ai-cheap.ts (`chatCheapCascade`, ahora con `esfuerzo`) · *2026-08-08*
+
 ### ⚠️ El override de modelo del dueño gobierna a TODOS los workspaces, y el del cliente no se lee nunca
 
 **Síntoma:** `plan-fathom` figuraba como Sonnet en el catálogo y las 25 llamadas del ws 9
@@ -295,6 +324,24 @@ app/api/mako/knowledge/transcribe/route.ts (lo que hay hoy) · *2026-07-21
 ~research-transcribir-cursos-con-gemini*
 
 ---
+
+### ⚠️ «MaKo» entra al sistema escrito «Maco», por la puerta del audio
+
+El dueño manda una nota de voz por WhatsApp, Whisper transcribe **«Maco»** —que es como
+suena—, esa cadena se convierte en el TÍTULO de una tarea («Configurar plantillas de funnels
+por tipo (TOFU) en Maco») y desde ahí el Perro la repite en su razón de puntaje y en la
+justificación del deadline. **Una marca mal escrita se propaga sola porque cada eslabón copia
+el texto del anterior**, y para cuando se ve en pantalla ya está en cinco lugares.
+
+Por eso hacen falta las dos capas: `REGLA_MARCA` en `MAKO_NUCLEO` (para lo que la IA escribe
+de cero) y `corregirMarca()` determinista en la **entrada** — la transcripción y el saneo del
+título/detalle de la tarea. El prompt no llega a lo que entra transcripto.
+
+⚠️ La lista de variantes es CERRADA (`maco|mako|macko|makko`, palabra completa) y **«Marco» no
+está**: es un nombre de persona, y convertir el nombre de alguien en el de la marca es peor
+que dejar un «Maco» suelto.
+
+**Vive en:** lib/mako-gramatica.ts (`corregirMarca`, `REGLA_MARCA`) · lib/ai-cheap.ts (`transcribirAudio`) · lib/plan-propuesta.ts (`limpiarTarea`) · *2026-08-08*
 
 ## Prompts
 

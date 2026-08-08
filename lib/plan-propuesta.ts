@@ -18,6 +18,8 @@ import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
 import { rutearTareasCliente } from '@/lib/todo-rutear';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
+import { sanearPregunta, avisoSaneo, apuntarSobre, CONTRATO_TIPOS_PREGUNTA, JSON_PREGUNTAS, type Pregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
+import { corregirMarca } from '@/lib/mako-gramatica';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
 
 type Row = Record<string, unknown>;
@@ -71,12 +73,12 @@ async function abiertasDelTablero(usaPlanBoard: boolean): Promise<Array<{ id: st
  * poder abrir la tarjeta REAL desde el modal (?tarea=<id>).
  */
 export type PropuestaAplicada = { titulo: string; tareaId: string; minutos?: number[] };
-export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto' | 'comparacion';
-export type PropuestaPregunta = {
-  pregunta: string; opciones: string[]; tipo: TipoPregunta;
-  /** títulos de las tareas de las que habla (para no hacerla si ya no son tuyas). */
-  sobre?: string[];
-};
+// El contrato de las preguntas (tipos + saneo + el texto que leen los modelos) vive
+// en lib/preguntas-contrato.ts, que NO es server-only porque también lo necesitan los
+// renderizadores. Acá se re-exporta con los nombres de siempre para no romper a los
+// que ya importaban de este módulo.
+export type { TipoPregunta };
+export type PropuestaPregunta = Pregunta;
 export type PropuestaEliminar = { id: string; titulo?: string; motivo?: string };
 /** «Esta que ya tenés YA ESTÁ HECHA». CERRAR NO ES BORRAR: la tarjeta queda, con su
  *  historial y su checklist, y se le suma la evidencia. Nunca se aplica sola —
@@ -128,7 +130,10 @@ const paraPrompt = (d?: string): string => (d ? d.replace(/\s+/g, ' ').trim().sl
 function limpiarTarea(t: unknown): PropuestaTarea | null {
   if (!t || typeof t !== 'object') return null;
   const o = t as Record<string, unknown>;
-  const titulo = str(o.titulo).trim().slice(0, 200);
+  // El nombre de la marca se corrige al ENTRAR, igual que en la transcripción: el
+  // título de la tarea es lo que después copian el Perro (su razón de puntaje), el
+  // ruteo a proyectos y la checklist. Si entra «Maco», sale «Maco» en cinco lugares.
+  const titulo = corregirMarca(str(o.titulo).trim()).slice(0, 200);
   if (!titulo) return null;
   return {
     titulo,
@@ -139,7 +144,7 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     // escribe un detalle rico… y el borrador lo cortaba a mitad de frase antes de que
     // nadie lo leyera. Recortar acá es peor que en cualquier otro lado, porque es donde
     // el texto ENTRA al sistema: lo que se pierde no se recupera después.
-    detalle: o.detalle ? str(o.detalle).slice(0, 6000) : undefined,
+    detalle: o.detalle ? corregirMarca(str(o.detalle)).slice(0, 6000) : undefined,
     prioridad: PRIOS.includes(o.prioridad as Prio) ? (o.prioridad as Prio) : undefined,
     dueno: o.dueno ? str(o.dueno).trim().slice(0, 80) : undefined,
     duenoEmail: o.duenoEmail ? str(o.duenoEmail).trim().toLowerCase().slice(0, 160) : undefined,
@@ -169,8 +174,6 @@ function limpiarCerrar(c: unknown): PropuestaCerrar | null {
   const conf = str(o.confianza);
   return { id, evidencia, confianza: conf === 'alta' ? 'alta' : 'media', titulo: o.titulo ? str(o.titulo).slice(0, 200) : undefined };
 }
-// Acepta {pregunta, opciones} o (compat) una nota-string suelta.
-const TIPOS_PREGUNTA: TipoPregunta[] = ['opcion', 'multi', 'escala', 'texto', 'comparacion'];
 /**
  * El techo de preguntas según cuántas tareas se cargan: ~1 cada 3, con piso y techo.
  * Antes era 6 SIEMPRE — cargar 2 tareas y cargar 40 hacían la misma cantidad de
@@ -216,26 +219,13 @@ export function opcionesSonLaLista(pregunta: string, opciones: string[], univers
   });
 }
 
-function limpiarPregunta(p: unknown): PropuestaPregunta | null {
-  if (typeof p === 'string') return p.trim() ? { pregunta: p.trim().slice(0, 300), opciones: [], tipo: 'texto' } : null;
-  if (!p || typeof p !== 'object') return null;
-  const o = p as Record<string, unknown>;
-  const pregunta = str(o.pregunta).trim().slice(0, 300);
-  if (!pregunta) return null;
-  const opciones = asArr<unknown>(o.opciones).map((x) => str(x).trim()).filter(Boolean).slice(0, 6);
-  let tipo = TIPOS_PREGUNTA.includes(o.tipo as TipoPregunta) ? (o.tipo as TipoPregunta) : (opciones.length ? 'opcion' : 'texto');
-  // COHERENCIA TIPO ↔ OPCIONES. El modelo manda "tipo": "opcion" y se olvida las
-  // opciones, y la pantalla dibujaba el enunciado con CERO botones: una pregunta que no
-  // se puede contestar ni saltear bien. Acá se degrada a lo que sí se puede responder.
-  if (tipo !== 'escala' && !opciones.length) tipo = 'texto';
-  // "comparacion" es enfrentar DOS: con una sola opción no hay comparación, y con tres
-  // la pantalla dibuja tres columnas para una pregunta que dice "¿cuál de los dos?".
-  if (tipo === 'comparacion' && opciones.length !== 2) tipo = opciones.length ? 'opcion' : 'texto';
-  const sobre = asArr<unknown>(o.sobre).map((x) => str(x).trim().slice(0, 200)).filter(Boolean).slice(0, 8);
-  // La escala NO usa opciones (se muestran 1..5): si el modelo mandó etiquetas, se
-  // tiran acá para que la pantalla no muestre dos cosas distintas a la vez.
-  return { pregunta, opciones: tipo === 'escala' ? [] : opciones, tipo, sobre: sobre.length ? sobre : undefined };
-}
+/**
+ * El saneo vive en lib/preguntas-contrato.ts (`sanearPregunta`): es la ÚNICA
+ * definición de qué tipo se corresponde con qué campo, y la comparten este módulo,
+ * plan-fathom y las dos pantallas. Antes cada lado tenía la suya y por eso una
+ * pregunta de fecha podía terminar dibujada como una escala del 1 al 5.
+ */
+const limpiarPregunta = (p: unknown): PropuestaPregunta | null => sanearPregunta(p, avisoSaneo('plan-propuesta'));
 
 export type CrearPropuestaDraft = {
   tareas: PropuestaTarea[]; preguntas?: unknown[]; eliminar?: unknown[]; cerrar?: unknown[]; resumen?: string; origen?: string;
@@ -441,22 +431,18 @@ export async function listPropuestasPendientes(limite = 8): Promise<Propuesta[]>
 // profundizar, devuelve lista vacía y el wizard sigue de largo.
 const PROFUNDIZAR_SYSTEM = `Sos MaKo, cargando tareas al plan de un negocio. El dueño ya respondió unas preguntas de contexto. Tu trabajo: decidir si hace falta PROFUNDIZAR con PREGUNTAS DE SEGUIMIENTO para que EL PERRO GUARDIÁN pueda decidir la prioridad con buen criterio.
 VOS decidís cuántas: pueden ser NINGUNA (si lo respondido ya alcanza), una, o las que de verdad hagan falta. No inventes por inventar ni te cortes por miedo a preguntar de más.
-⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS que una respuesta previa recién abrió: un deadline que apareció, una dependencia o bloqueo, un número de plata, un alcance ambiguo, qué sería "listo".
+⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS que una respuesta previa recién abrió: un deadline que apareció (tipo "fecha"), una dependencia o bloqueo, un alcance ambiguo, qué sería "listo".
+⛔ REGLA DURA: la pregunta tiene que salir DE ESTAS TAREAS, no de un formulario de consultoría. Antes de escribirla, releé la tarea de la que hablás y preguntate si el dueño podría contestarla mirando SU trabajo. Si la pregunta le serviría igual a cualquier negocio del mundo, está mal.
+  MAL (pasó de verdad): sobre «Capacitar al equipo en la nueva estructura de funnels», preguntar "¿Cuál es el presupuesto asignado para la capacitación del equipo?" con opciones de plata. Es el equipo propio y la capacita él mismo: no hay ningún presupuesto, y la pregunta suena a plantilla.
+  De PLATA preguntá solo cuando la plata es REAL y del negocio —lo que factura un cliente, lo que se le paga a un proveedor, cuánto se va a invertir en pauta—, nunca un presupuesto interno que nadie asignó.
 CRITERIO — cada pregunta tiene que TENER SENTIDO y sumar: si la respuesta es obvia, se contradice con lo ya dicho, o no cambia nada para el Perro, NO la hagas.
+CRITERIO — MEJOR NINGUNA QUE UNA DE RELLENO. Estas preguntas son EXTRA: el dueño ya contestó las de contexto. Si lo que respondió no abrió nada nuevo, devolvé { "preguntas": [] } y listo. No hay ninguna cuota que cumplir.
 
-⛔⛔ LA REGLA QUE MÁS SE ROMPE — CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Leé tu pregunta y leé tus opciones: si al elegir una opción la frase no queda contestada, está mal. Es el error más común y el que hace que el dueño abandone el formulario.
-  MAL (pasó de verdad): pregunta "¿los grupos propuestos (Hoy, Operar, Analizar, Crear, Administrar) son fijos o hay que validar si algún módulo no encaja?" con opciones ["General renovado", "CRM", "Chats", "Plan", "Dashboard"]. La pregunta es "¿A o B?" y las opciones son una lista de módulos: NINGUNA la contesta.
-  BIEN, dos salidas para esa misma pregunta:
-    · si de verdad querés saber A o B → tipo "opcion", opciones ["Los cinco grupos son fijos", "Hay que revisar si algún módulo no encaja"].
-    · si lo que querés saber es CUÁLES no encajan → cambiá el enunciado a "¿Qué módulos no encajan en ninguno de los cinco grupos?", tipo "multi", y ahí sí la lista de módulos.
-  Nunca dejes un enunciado binario con una lista de sustantivos abajo.
+${CONTRATO_TIPOS_PREGUNTA}
 
-CRITERIO — elegí el TIPO por pregunta (pensá cuál es el mejor): "multi" si pueden valer VARIAS respuestas a la vez (no agregues una opción "Ambas/Todas": que tilde varias) · "opcion" si es una elección EXCLUYENTE · "escala" para intensidad 1-5 · "comparacion" para enfrentar DOS ítems. NADA de preguntas ABIERTAS: siempre con opciones para tocar. Para opcion/multi/comparacion pasá 2-6 "opciones" cortas.
-La "escala" NO lleva opciones (el dueño ve 1 a 5), así que la pregunta TIENE que decir qué significa cada extremo: "(1 = es una idea, 5 = ya está comprometido)".
 "sobre" = el título EXACTO de la tarea (o hasta 4) de la que habla la pregunta, tal cual te lo pasé. Es lo que le muestra al dueño de qué le estás hablando: sin eso, una pregunta correcta sobre la tarea 14 de 20 se lee como una pregunta al azar.
-Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
-{ "preguntas": [ { "pregunta": "<corta, sobre un hecho>", "tipo": "opcion|multi|escala|comparacion", "opciones": ["...", "..."], "sobre": ["<título exacto>"] } ] }
-Español rioplatense. Si no hace falta ninguna, { "preguntas": [] }.`;
+${JSON_PREGUNTAS}
+Español rioplatense.`;
 
 export async function profundizarPropuesta(id: string, respuestas: Array<{ pregunta: string; respuesta: string }>): Promise<PropuestaPregunta[]> {
   const prop = await getPropuesta(id);
@@ -478,12 +464,17 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
   return asArr<unknown>(obj.preguntas).map(limpiarPregunta)
     .filter((p): p is PropuestaPregunta => {
       if (!p) return false;
-      if (p.tipo !== 'escala' && p.tipo !== 'texto' && opcionesSonLaLista(p.pregunta, p.opciones, universo)) {
+      if (p.opciones.length > 2 && opcionesSonLaLista(p.pregunta, p.opciones, universo)) {
         console.warn(`[plan-propuesta] pregunta descartada: las opciones son la lista de tareas, no una respuesta — «${p.pregunta.slice(0, 70)}»`);
         return false;
       }
       return true;
     })
+    // El chip «Por: …» se verifica contra las tareas REALES del lote. Acá no se hacía
+    // nada (a diferencia de preguntasParaCargar) y salía tal cual lo mandaba el modelo:
+    // una pregunta sobre la capacitación del equipo con el chip de la tarea de rediseñar
+    // funnels se lee como una pregunta al azar, aunque la pregunta sea pertinente.
+    .map((p) => ({ ...p, sobre: apuntarSobre(p.pregunta, p.sobre, universo) }))
     .slice(0, 40);
 }
 
@@ -506,27 +497,16 @@ Es una guía, no una cuota: si de verdad no hay nada que preguntar sobre un bloq
 
 COBERTURA: repartí las preguntas por TODO el lote, no las amontones en las primeras tres tareas. Cuando son muchas, agrupá por proyecto o por tema y hacé una pregunta por grupo: una respuesta que sirve para cinco tareas del mismo proyecto vale por cinco. Podés hacer DOS preguntas sobre la misma tarea solo si es grande y las dos cambian cosas distintas.
 
-⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS: un deadline, una dependencia o bloqueo, un número de plata, un alcance ambiguo, quién lo hace, qué sería "listo".
-⛔ REGLA DURA: NADA de preguntas ABIERTAS. Siempre con opciones para tocar.
-CRITERIO — CADA PREGUNTA TIENE QUE SER CONCRETA Y DE ESTAS TAREAS. Nombralas: "¿Para cuándo tiene que estar el filtro por fecha del tablero de guiones?" y NO "¿qué impacto tienen estas correcciones?". Si una pregunta sirve igual para cualquier reunión, está mal.
+⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS: un deadline (tipo "fecha"), una dependencia o bloqueo, un número de plata, un alcance ambiguo, quién lo hace, qué sería "listo".
+⛔ REGLA DURA: NADA de preguntas ABIERTAS. Siempre con un campo concreto para tocar (opciones, o el calendario de "fecha").
+CRITERIO — CADA PREGUNTA TIENE QUE SER CONCRETA Y DE ESTAS TAREAS. Nombralas: "¿Para cuándo tiene que estar el filtro por fecha del tablero de guiones?" (tipo "fecha") y NO "¿qué impacto tienen estas correcciones?". Si una pregunta sirve igual para cualquier reunión, está mal.
 CRITERIO — que sume: si la respuesta es obvia, ya está dicha en el detalle de la tarea, o no cambia NADA de lo que el Perro va a decidir, no la hagas. Una pregunta que no cambia nada es peor que ninguna: quema la paciencia del dueño y hace que conteste las que sí importan de cualquier manera.
 
-⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Leé tu enunciado y leé tus opciones: si al elegir una la frase no queda contestada, está mal.
-  MAL (pasó de verdad): "¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?" con opciones ["CRM", "Chats", "Plan", "Dashboard"]. El enunciado es "¿A o B?" y abajo hay una lista de sustantivos: ninguna opción lo contesta.
-  BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambiás el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
-  Nunca dejes un enunciado binario con una lista de nombres abajo.
-
-TIPO Y OPCIONES — tienen que ser COHERENTES entre sí (acá es donde más se falla):
-· "opcion" → elección EXCLUYENTE. Obligatorio: 2 a 6 opciones cortas y concretas.
-· "multi" → pueden valer VARIAS a la vez. Obligatorio: 2 a 6 opciones. NO agregues "Todas" ni "Ambas": para eso tilda varias.
-· "comparacion" → enfrentar DOS ítems para ver cuál pesa más. Obligatorio: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
-· "escala" → intensidad de 1 a 5. NO lleva opciones: el dueño ve los números 1 a 5. Por eso la pregunta TIENE que decir qué significan los extremos, en la pregunta misma: "¿Qué tan firme es el 15 de agosto para la landing? (1 = es una idea, 5 = ya está comprometido con el cliente)". Una escala sin extremos explicados es una pregunta muerta.
-⛔ Una pregunta de tipo "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambiá la pregunta hasta que se te ocurran, o no la hagas.
+${CONTRATO_TIPOS_PREGUNTA}
 
 "sobre" = SOLO los títulos, tal cual te los pasé, sin el detalle ni el número (1-4 títulos).
-Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
-{ "preguntas": [ { "pregunta": "<corta y concreta>", "tipo": "opcion|multi|escala|comparacion", "opciones": ["...", "..."], "sobre": ["<título exacto>"] } ] }
-Español rioplatense. Si no hace falta ninguna, { "preguntas": [] }.`;
+${JSON_PREGUNTAS}
+Español rioplatense.`;
 
 /**
  * Las preguntas de contexto para EXACTAMENTE las tareas que el dueño está por cargar.
@@ -545,22 +525,25 @@ export async function preguntasParaCargar(titulosYDetalles: Array<{ titulo: stri
   const raw = await chatCheapCascade({ system: PREGUNTAS_SYSTEM, user, maxTokens: 8000, feature: 'mako-doer-in', motivo: 'Preguntas de contexto (lo que se va a cargar)' }).catch(() => '');
   if (!raw) return [];
   let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
-  const qs = asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, techo);
-  // `sobre` se normaliza al título REAL: el modelo tiende a devolver la línea entera
-  // que le pasamos ("3. Título — detalle"), y la pantalla la muestra entre comillas.
-  // Que el chip diga el título y nada más no se puede confiar al prompt.
-  const alTitulo = (cita: string): string | null => {
-    const c = normTitulo(cita);
-    if (!c) return null;
-    const exacta = tareas.find((t) => normTitulo(t.titulo) === c);
-    if (exacta) return exacta.titulo;
-    const contenida = tareas.find((t) => { const n = normTitulo(t.titulo); return n.length > 10 && (c.includes(n) || n.includes(c)); });
-    return contenida?.titulo ?? null;
-  };
-  return qs.map((q) => ({
-    ...q,
-    sobre: q.sobre?.length ? [...new Set(q.sobre.map(alTitulo).filter((x): x is string => !!x))] : undefined,
-  }));
+  // El filtro de "las opciones son la lista de tareas que le pasamos, no una respuesta"
+  // corre TAMBIÉN acá. Vivía solo en `profundizarPropuesta`, y este generador —que es el
+  // que se dispara al confirmar una reunión, o sea el que más preguntas produce— tiene
+  // exactamente el mismo riesgo: la lista de tareas está en su prompt.
+  const universo = tareas.map((t) => t.titulo);
+  const qs = asArr<unknown>(obj.preguntas).map(limpiarPregunta)
+    .filter((p): p is PropuestaPregunta => {
+      if (!p) return false;
+      if (p.opciones.length > 2 && opcionesSonLaLista(p.pregunta, p.opciones, universo)) {
+        console.warn(`[plan-propuesta] pregunta descartada: las opciones son la lista de tareas, no una respuesta — «${p.pregunta.slice(0, 70)}»`);
+        return false;
+      }
+      return true;
+    })
+    .slice(0, techo);
+  // `sobre` se normaliza al título REAL y se verifica que la pregunta hable DE ESA
+  // tarea (lib/preguntas-contrato.ts). El modelo tiende a devolver la línea entera que
+  // le pasamos ("3. Título — detalle") y a veces apunta a la tarea equivocada del lote.
+  return qs.map((q) => ({ ...q, sobre: apuntarSobre(q.pregunta, q.sobre, universo) }));
 }
 
 export type LoteAplicar = {

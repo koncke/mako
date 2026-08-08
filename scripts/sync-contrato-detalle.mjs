@@ -19,12 +19,16 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 const CHECK = process.argv.includes('--check');
 const FUENTE = 'lib/detalle-contrato.ts';
 const FUENTE_PROY = 'lib/plan-proyectos-catalogo.ts';
+const FUENTE_PREG = 'lib/preguntas-contrato.ts';
 const DESTINOS = ['.claude/skills/plan-tareas/SKILL.md'];
 
-const INICIO = '<!-- CONTRATO-DETALLE:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->';
-const FIN = '<!-- CONTRATO-DETALLE:FIN -->';
-const P_INICIO = '<!-- REGLA-NOMBRE-PROYECTO:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->';
-const P_FIN = '<!-- REGLA-NOMBRE-PROYECTO:FIN -->';
+const marca = (nombre) => [
+  `<!-- ${nombre}:INICIO — generado por scripts/sync-contrato-detalle.mjs, NO editar a mano -->`,
+  `<!-- ${nombre}:FIN -->`,
+];
+const [INICIO, FIN] = marca('CONTRATO-DETALLE');
+const [P_INICIO, P_FIN] = marca('REGLA-NOMBRE-PROYECTO');
+const [Q_INICIO, Q_FIN] = marca('CONTRATO-PREGUNTAS');
 
 /** Saca MOLDE_DETALLE y MOLDE_ADVERTENCIA del módulo sin importarlo (es TS + server-only). */
 function leerFuente() {
@@ -78,6 +82,27 @@ const bloqueProy = [
   P_FIN,
 ].join('\n');
 
+/** El catálogo de tipos de pregunta del Perro. Mismo motivo que los otros dos: la skill
+ *  lo tenía copiado a mano y se quedó vieja — decía que existía `escala` pero no `fecha`,
+ *  o sea que desde Claude Code se seguían pidiendo deadlines con una escala del 1 al 5. */
+function leerContratoPreguntas() {
+  const src = readFileSync(FUENTE_PREG, 'utf8');
+  const m = src.match(/export const CONTRATO_TIPOS_PREGUNTA = `([\s\S]*?)`;/);
+  if (!m) throw new Error(`No pude leer CONTRATO_TIPOS_PREGUNTA de ${FUENTE_PREG}`);
+  return m[1];
+}
+
+const bloquePreg = [
+  Q_INICIO,
+  '',
+  '**Los tipos de pregunta y su campo.** Vive en `lib/preguntas-contrato.ts` y se copia acá',
+  'sola: si cambia allá, cambia acá. No la edites a mano.',
+  '',
+  ...leerContratoPreguntas().split('\n').map((l) => (l.trim() ? `> ${l}` : '>')),
+  '',
+  Q_FIN,
+].join('\n');
+
 /** Reemplaza lo que hay entre dos marcadores. Devuelve null si faltan. */
 const entre = (txt, ini, fin, bloque) => {
   const i = txt.indexOf(ini);
@@ -86,22 +111,29 @@ const entre = (txt, ini, fin, bloque) => {
   return txt.slice(0, i) + bloque + txt.slice(j + fin.length);
 };
 
+// Los bloques que se copian. Agregar uno es sumar una fila acá, no otro `if` encadenado.
+const BLOQUES = [
+  { nombre: 'CONTRATO-DETALLE', ini: INICIO, fin: FIN, texto: bloque },
+  { nombre: 'REGLA-NOMBRE-PROYECTO', ini: P_INICIO, fin: P_FIN, texto: bloqueProy },
+  { nombre: 'CONTRATO-PREGUNTAS', ini: Q_INICIO, fin: Q_FIN, texto: bloquePreg },
+];
+
 let sucio = 0;
 for (const d of DESTINOS) {
   if (!existsSync(d)) { console.warn(`  · ${d} no existe, salteado`); continue; }
   const txt = readFileSync(d, 'utf8');
-  const paso1 = entre(txt, INICIO, FIN, bloque);
-  if (paso1 === null) {
-    console.error(`  ✗ ${d}: faltan los marcadores CONTRATO-DETALLE. Agregalos donde tenga que ir el contrato.`);
-    sucio++;
-    continue;
+  let nuevo = txt;
+  let faltan = false;
+  for (const b of BLOQUES) {
+    const paso = entre(nuevo, b.ini, b.fin, b.texto);
+    if (paso === null) {
+      console.error(`  ✗ ${d}: faltan los marcadores ${b.nombre}. Agregalos donde tenga que ir ese bloque.`);
+      faltan = true;
+      break;
+    }
+    nuevo = paso;
   }
-  const nuevo = entre(paso1, P_INICIO, P_FIN, bloqueProy);
-  if (nuevo === null) {
-    console.error(`  ✗ ${d}: faltan los marcadores REGLA-NOMBRE-PROYECTO. Agregalos donde tenga que ir la regla del nombre.`);
-    sucio++;
-    continue;
-  }
+  if (faltan) { sucio++; continue; }
   if (nuevo === txt) { console.log(`  ✓ ${d} al día`); continue; }
   if (CHECK) { console.error(`  ✗ ${d} DESINCRONIZADO — corré: node scripts/sync-contrato-detalle.mjs`); sucio++; continue; }
   writeFileSync(d, nuevo);

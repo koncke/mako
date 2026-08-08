@@ -531,21 +531,49 @@ deslizar al punto en el que estaba antes», 2026-07-22).
 
 **Vive en:** app/_components/WizardShell.tsx · app/_components/pila-modales.ts · *2026-08-07 contexto-mako-md*
 
-### ⚠️ Una pregunta tipo 'escala' con opciones de texto se contesta con un 3 que no significa nada
+### ✅ Una pregunta tipo 'escala' con opciones de texto se contesta con un 3 que no significa nada
 
-Los dos renderers pintan 1..5 pelados cuando `tipo==='escala'` y **descartan** `q.opciones`
-(verificado en `TareasRecibidasModal.tsx:433`). Y no es un mistype raro: el prompt de
-reuniones ordena «CERRADAS SIEMPRE: cada pregunta con 2-4 opciones concretas» y mete
-'escala' en el enum **sin definir nunca qué significa**, así que
-`{tipo:'escala', opciones:['Landing nueva','Arreglar el checkout']}` es la salida ESPERADA.
-El validador la deja pasar y al Perro le llega «la pregunta → 3». Bug hermano en el mismo
-renderer: no hay rama para tipo 'texto' ni para tipos con opciones vacías — se pinta el
-enunciado y CERO controles, solo queda «Saltear».
+**RESUELTO el 2026-08-08.** Se documentó acá el 2026-08-05, con el fix correcto ya escrito
+abajo, nadie lo ejecutó, y volvió a la pantalla del dueño tres días después: «¿Cuál es el
+deadline para tener los ángulos listos?» con botones del 1 al 5. *Eso* es lo que hay que
+recordar de esta entrada — **un hallazgo escrito y no ejecutado no protege de nada**.
 
-**Fix en origen:** degradar escala-con-opciones a 'opcion', y filtrar toda pregunta que pida
-opciones y venga con menos de 2 antes de que llegue a la pantalla.
+Lo que pasaba: los dos renderers pintaban 1..5 pelados cuando `tipo==='escala'` y
+**descartaban** `q.opciones`. Y no era un mistype raro: el prompt de reuniones ordenaba
+«CERRADAS SIEMPRE: cada pregunta con 2-4 opciones concretas» y metía 'escala' en el enum
+**sin definir nunca qué significa**, así que `{tipo:'escala', opciones:['15 de agosto','Fin
+de mes']}` era la salida ESPERADA. El saneo se quedaba con el token y tiraba las fechas; al
+Perro le llegaba «la pregunta → 3».
 
-**Vive en:** app/plan/board/TareasRecibidasModal.tsx:433 · app/plan/revisar/[id]/RevisarPropuesta.tsx · lib/plan-propuesta.ts (limpiarPregunta) · lib/plan-fathom.ts (preguntasDeContexto) · *2026-08-05 ~fathom-preguntas-lote-whatsapp-forense*
+Cómo se cerró: el contrato entero (tipos + saneo + el texto que leen los modelos) se mudó a
+`lib/preguntas-contrato.ts`, los dos renderizadores se fusionaron en `PreguntaCampo`, y hay
+16 tests. La causa de fondo no era el prompt sino que **no existía código que lo validara**
+— ver «Una regla en un prompt no es una regla» en AGENTS.md. Detalle completo en
+[hallazgos-plan.md](hallazgos-plan.md).
+
+**Vive en:** lib/preguntas-contrato.ts · app/plan/board/guardian-form.tsx (PreguntaCampo) · tests/preguntas-contrato.test.ts · *2026-08-05 ~fathom-preguntas-lote-whatsapp-forense · resuelto 2026-08-08*
+
+### ⚠️ El loader de un paso de WizardShell va en la PIEZA: un overlay propio queda por debajo
+
+`TareasRecibidasModal` tiene dos `return`. El overlay con el spinner y el «no cierres ni
+refresques» estaba en el segundo (la lista de tareas); cuando `paso === 'preguntas'` la
+función corta antes y **no se renderiza nunca**. O sea que al confirmar desde la última
+pregunta —el camino normal de una reunión de Fathom— lo único que pasaba en pantalla era
+que el botón cambiaba a «Guardando…», con el cuerpo de la pregunta intacto detrás. Crear
+las tareas y que el Perro las puntúe tarda minutos: se lee como que la app se colgó.
+
+La salida NO es mover el overlay: uno con z-index propio queda **por debajo** del modal
+cuando hay dos abiertos (ya está documentado en el loader de `WizardShell`, que va
+`position:absolute` dentro de la tarjeta justo por eso). Para esto existe la prop
+`cargando`, que además traba Atrás y el cierre mientras dura; se amplió de `string` a
+`ReactNode` para que entrara la segunda línea que explica la espera.
+
+Dos vicios más del mismo overlay, los dos contra reglas que el propio `WizardShell`
+documenta: el velo era `rgba(255,255,255,.86)` —un flash en tema oscuro— y estaba aplicado
+con `opacity` sobre el contenedor, que apaga también el spinner y el texto. El velo va en
+su propia capa y sale de `--surface`.
+
+**Vive en:** app/plan/board/TareasRecibidasModal.tsx (rama `paso === 'preguntas'`) · app/_components/WizardShell.tsx (prop `cargando`) · *2026-08-08*
 
 ### ⚠️ Un `?? lista[0]` para un índice fuera de rango convierte «terminaste» en «volvé a empezar»
 

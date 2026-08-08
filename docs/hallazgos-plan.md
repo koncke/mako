@@ -20,8 +20,94 @@ La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La 
 - **Lo que ves andar en el board del dueño puede estar muerto en el del cliente**: impacto/esfuerzo, `hacelo_en` y el auto-cierre corren sobre tablas distintas → [El board](#el-board-plan) y [Señales y auto-cierre](#señales-y-auto-cierre).
 - **El Perro no puede atajar un duplicado**: no ve las tareas al 100% y no recibe los ids para nombrar la que encontró; y el cruce anti-duplicados falla mudo → [Dedup](#dedup-nunca-duplicar-siempre-ampliar).
 - **Un 404 de Fathom no significa que la grabación no exista**: el call-id y el recording-id son dos espacios de ids distintos → [De la reunión a la tarea](#de-la-reunión-a-la-tarea-fathom).
+- **Las preguntas rotas del Perro no están en la base**: se generan al confirmar y no se persisten, así que dumpear `notas` muestra sólo las buenas y el bug parece no existir → [Las preguntas del Perro](#las-preguntas-del-perro-contrato-tipo--campo).
 
 ---
+
+## Las preguntas del Perro (contrato tipo ↔ campo)
+
+### ✅ «¿Cuál es el deadline?» con botones del 1 al 5: el diagnóstico obvio era el equivocado, dos veces
+
+Síntoma: preguntas cuyo campo de respuesta no contesta lo que preguntan. Dos capturas del
+dueño el 2026-08-08 — «¿Cuál es el deadline para tener los ángulos listos?» y «¿Para cuándo
+se necesita el video de bienvenida?», las dos dibujadas como una escala 1-5.
+
+**Los dos diagnósticos obvios eran falsos, y descartarlos fue la mitad del trabajo:**
+
+1. *«El modelo barato tipea mal»*. Se corrieron los dos generadores vivos
+   (`preguntasParaCargar` y `profundizarPropuesta`) con el prompt real contra Groq, Gemini
+   y OpenAI: **13 preguntas, 2 escalas, las dos con los extremos bien explicados y ninguna
+   pidiendo una fecha**. El modelo acierta casi siempre. El problema no era la tasa de
+   error sino que **no había ninguna red abajo**.
+2. *«Está mal lo que hay guardado»*. Se dumpeó `plan_propuestas.notas` entero: **132
+   preguntas, 86% `opcion`, sólo 2 `escala`, y las 10 que piden fecha son todas `opcion`
+   con opciones sanas** («Esta semana» / «Próximos 15 días» / «Sin fecha fija»). El
+   borrador de la captura («Leila con Martin Konke») tenía 4 preguntas y las 4 estaban
+   bien. Las rotas **no estaban en la base**: se generan al vuelo al confirmar y no se
+   persisten en ningún lado, que es también por qué nadie las había podido revisar antes.
+
+Las tres causas reales, todas en el saneo y ninguna en el modelo:
+
+- **`escala` era el único tipo EXENTO del chequeo de coherencia.** El saneo decía
+  `if (tipo !== 'escala' && !opciones.length) tipo = 'texto'`. Al no tener ningún requisito
+  propio, se volvió el imán de toda pregunta que el modelo no supiera tipear.
+- **Ante `{tipo:'escala', opciones:[fechas]}` ganaba el token y se TIRABAN las fechas**
+  (`opciones: tipo === 'escala' ? [] : opciones`). Esas respuestas no quedaban en ningún
+  lado: ni en la base, ni en la pantalla, ni en el log. Y era la salida *esperada* del
+  prompt de reuniones, que exigía opciones para toda pregunta y ofrecía `escala` en el enum
+  **sin definirla nunca**.
+- **No existía ningún tipo capaz de contestar «¿para cuándo?»**, mientras los prompts
+  ordenaban preguntar deadlines y prohibían las preguntas abiertas. El modelo quedaba
+  acorralado y elegía el menos malo.
+
+Cómo quedó: `lib/preguntas-contrato.ts` es fuente única (tipos + `sanearPregunta` + el texto
+que leen los cinco generadores), hay un tipo **`fecha`** con calendario, y un solo
+renderizador `PreguntaCampo`. La regla que gobierna código nuevo está en AGENTS.md («Una
+regla en un prompt no es una regla»).
+
+**Vive en:** lib/preguntas-contrato.ts · lib/plan-propuesta.ts (limpiarPregunta, los dos prompts) · lib/plan-fathom.ts (preguntasDeContexto) · app/plan/board/guardian-form.tsx · tests/preguntas-contrato.test.ts · *2026-08-08*
+
+### ⚠️ El chip «Por: …» apuntaba a la tarea equivocada, y eso solo ya hace que una pregunta buena se lea al azar
+
+Reporte del dueño: «¿Cuál es el presupuesto asignado para la capacitación del equipo?» sobre
+la tarea «Rediseñar estructura de funnels». Parece una alucinación y **no lo es**: en el
+mismo lote (borrador `propmskgpno0rxldp`, ws9) la tercera tarea era «Capacitar al equipo en
+la nueva estructura de funnels y productos». La pregunta era pertinente; **el chip la hacía
+ilegible**.
+
+`profundizarPropuesta` mostraba el `sobre` tal cual lo mandaba el modelo. `preguntasParaCargar`
+sí lo normalizaba contra los títulos reales — otra vez la misma regla escrita en un solo lado
+de dos caminos gemelos. Ahora los dos pasan por `apuntarSobre`, que además **re-apunta** el
+chip cuando el título citado no comparte ni una palabra con la pregunta y hay otro que
+comparte dos o más (el recorte de raíz a 6 letras es lo que hace que «capacitación» y
+«Capacitar» sean la misma palabra), y lo **borra** si no puede atribuirlo a ninguna tarea:
+sin chip se lee mejor que con uno que miente.
+
+Queda vivo un problema distinto y sin resolver: la pregunta igual era floja (nadie asignó un
+presupuesto para capacitar a su propio equipo). Se endureció `PROFUNDIZAR_SYSTEM` con la
+regla de «si le serviría igual a cualquier negocio del mundo, está mal» y se acotó el
+disparador de «un número de plata», pero **eso es prosa y por lo tanto no es una garantía**.
+
+**Vive en:** lib/preguntas-contrato.ts (apuntarSobre) · lib/plan-propuesta.ts (profundizarPropuesta, PROFUNDIZAR_SYSTEM) · *2026-08-08*
+
+### Lo que quedó SIN hacer en las preguntas
+
+Confirmado por la auditoría del 2026-08-08 (30 hallazgos verificados) y deliberadamente
+fuera del alcance de ese arreglo:
+
+- **Las respuestas del modal del board no se persisten en ningún lado.** Cerrar el modal las
+  tira, y «Volver a las tareas» borra todas las respuestas *y* vuelve a pagar la llamada de
+  IA que armó las preguntas. El wizard de /plan/revisar sí guarda en localStorage, pero **no
+  las respuestas de los cierres**: un F5 descarta los «sí, está hecha». → `app/plan/board/TareasRecibidasModal.tsx` (`irAPreguntas`, el autosave) · `app/plan/revisar/[id]/RevisarPropuesta.tsx` (`LS_KEY`).
+- **La respuesta de una `escala` llega al Perro como un número pelado** («la pregunta → 3»),
+  sin decirle que es una escala 1-5 ni qué significan los extremos. Y una pregunta salteada
+  desaparece, así que no puede distinguir «no contestó» de «no se preguntó». → `lib/mako-guardian.ts`.
+- **El board del CLIENTE tira el deadline que calcula el Perro** (`priorizarNuevasCliente`
+  aplica score, razón, detalle y checklist, pero no deadline): una respuesta con fecha nunca
+  llega a la tarea del cliente. Es el mismo patrón que `hacelo_en`. → `lib/todo-guardian.ts:72`.
+- **Los dos generadores vivos se facturan como `feature: 'mako-doer-in'`** (WhatsApp), así
+  que su costo y su modelo se atribuyen a otra cosa y el override de /modelos-ia no los
+  alcanza. → `lib/plan-propuesta.ts`.
 
 ## El board `/plan`
 

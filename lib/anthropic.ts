@@ -7,6 +7,7 @@
 import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs } from './credenciales';
+import type { ProvName } from './ai-cheap';
 
 // Opus 4.8: el modelo más pensante disponible.
 const MODEL = 'claude-opus-4-8';
@@ -39,28 +40,44 @@ export async function chatClaude(
       const { modeloDeFeature } = await import('@/lib/model-registry');
       const ref = await modeloDeFeature(opts.feature);
       if (ref && ref.provider !== 'anthropic') {
-        try {
-          const { chatCheap } = await import('@/lib/ai-cheap');
-          const user = messages.map((m) => m.content).join('\n\n');
-          // Timeout proporcional al trabajo: una llamada grande (el Perro puntuando TODO
-          // el plan, ~8000 tokens de salida) NO entra en 30s en Gemini Flash y abortaba →
-          // fallback silencioso a Claude. Escalamos con maxTokens (piso 30s, techo 120s).
-          const timeoutMs = Math.min(120000, Math.max(30000, (opts.maxTokens ?? 512) * 12));
-          // El ESFUERZO viaja. Sin esto, cualquier feature con effort:'high' ruteada a
-          // Gemini corría en 'minimal' y el resultado salía pobre sin ninguna señal:
-          // la tab decía "Gemini" y el trabajo se hacía con la mitad del cerebro.
-          const esfuerzo = opts.effort === 'max' || opts.effort === 'xhigh' || opts.effort === 'high' ? 'medium'
-            : opts.effort === 'medium' ? 'low' : 'minimal';
-          return await chatCheap({ system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model, timeoutMs, esfuerzo });
-        } catch (e) {
-          // Falló la IA barata: caemos a Claude SONNET (no Opus) para no romper la tarea NI
-          // disparar el costo. PERO lo dejamos VISIBLE: sin esto, la tab decía "Gemini" y el
-          // historial mostraba "Claude" sin explicación (el reclamo de Martín). Ahora el
-          // motivo dice por qué, así la tab sigue siendo la fuente de verdad.
-          modeloOverride = 'claude-sonnet-5';
-          fallbackNota = ` · ⚠ fallback: ${ref.provider} falló (${e instanceof Error ? e.message.slice(0, 90) : 'error'})`;
-          console.warn(`[anthropic] override ${opts.feature}→${ref.provider} falló, uso Claude Sonnet: ${e instanceof Error ? e.message : String(e)}`);
-        }
+        // ⚠️ CLAUDE ES EL ÚLTIMO RECURSO, NO EL SEGUNDO.
+        //
+        // Acá había UN solo intento: si el proveedor del registro fallaba, se caía
+        // derecho a Claude Sonnet y se cobraba. El error más común de todos —el que
+        // trajo el reclamo— es un **HTTP 429 de Gemini**, o sea la cuota del minuto:
+        // el error más transitorio que existe, y el más previsible cuando el Perro
+        // corre en tandas. Dos corridas de priorización con 429 costaron US$0.25 con
+        // otros CUATRO proveedores gratis configurados y sin usar.
+        //
+        // Ahora se recorre la cascada barata ENTERA (reintenta el mismo proveedor una
+        // vez ante 429/5xx, saltea a los que no les entra el prompt por su techo de
+        // entrada, y ordena por cuota disponible). Recién si NINGUNO contesta se paga.
+        const { chatCheapCascade, CASCADA_DOCS } = await import('@/lib/ai-cheap');
+        const user = messages.map((m) => m.content).join('\n\n');
+        // Timeout proporcional al trabajo: una llamada grande (el Perro puntuando TODO
+        // el plan, ~8000 tokens de salida) NO entra en 30s en Gemini Flash y abortaba →
+        // fallback silencioso a Claude. Escalamos con maxTokens (piso 30s, techo 120s).
+        const timeoutMs = Math.min(120000, Math.max(30000, (opts.maxTokens ?? 512) * 12));
+        // El ESFUERZO viaja. Sin esto, cualquier feature con effort:'high' ruteada a
+        // Gemini corría en 'minimal' y el resultado salía pobre sin ninguna señal:
+        // la tab decía "Gemini" y el trabajo se hacía con la mitad del cerebro.
+        const esfuerzo = opts.effort === 'max' || opts.effort === 'xhigh' || opts.effort === 'high' ? 'medium'
+          : opts.effort === 'medium' ? 'low' : 'minimal';
+        // El del registro va PRIMERO y el resto detrás, sin repetir. CASCADA_DOCS es la
+        // lista larga (la que incluye Gemini) porque estas llamadas son las grandes.
+        const provs = [ref.provider as ProvName, ...CASCADA_DOCS.filter((p) => p !== ref.provider)];
+        const errores: string[] = [];
+        const salida = await chatCheapCascade({
+          system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
+          provs, modelos: { [ref.provider as ProvName]: ref.model }, timeoutMs, esfuerzo, erroresOut: errores,
+        });
+        if (salida.trim()) return salida;
+        // Toda la cascada gratis falló: recién ACÁ se paga, con Sonnet (no Opus) y
+        // dejando VISIBLE por qué. Sin esta nota la tab decía "Gemini" y el historial
+        // mostraba "Claude" sin explicación (el reclamo original de Martín).
+        modeloOverride = 'claude-sonnet-5';
+        fallbackNota = ` · ⚠ fallback pago: fallaron los ${provs.length} proveedores gratis (${errores.join(' · ').slice(0, 160) || 'sin respuesta'})`;
+        console.warn(`[anthropic] ${opts.feature}: la cascada barata (${provs.join(', ')}) no contestó, pago Claude Sonnet — ${errores.join(' · ')}`);
       } else if (ref) {
         modeloOverride = ref.model;
       }

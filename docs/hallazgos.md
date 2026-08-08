@@ -20,7 +20,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 | Comunicación | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) | Espejo de WhatsApp (Evolution), onboarding del Chat Agent, desenlace de nutriciones |
 | Ads | [hallazgos-ads.md](hallazgos-ads.md) | `ads-analyst` y las lecturas de `marketing_metrics_daily` |
 | Landing / VSL | [hallazgos-landing.md](hallazgos-landing.md) | `landing-analyst`, `landing_visits` y `vsl_events` |
-| Plan | [hallazgos-plan.md](hallazgos-plan.md) | El board, el Perro Guardián, el pipeline reunión → tareas y el reparto por proyecto |
+| Plan | [hallazgos-plan.md](hallazgos-plan.md) | El board, el Perro Guardián, el contrato de sus preguntas (tipo ↔ campo), el pipeline reunión → tareas y el reparto por proyecto |
 | Seguridad | [hallazgos-seguridad.md](hallazgos-seguridad.md) | Aislamiento, cifrado de credenciales, firma de webhooks, superficie expuesta |
 | Aislamiento | [auditoria-aislamiento-workspace.md](auditoria-aislamiento-workspace.md) | Multi-inquilino: qué se scopea por workspace y qué no |
 

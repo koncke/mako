@@ -86,6 +86,8 @@ Los que hoy son fuente única:
 | Qué modelo usa cada feature | `lib/model-registry.ts` | `chatClaude`/`chatCheap`, con override en /modelos-ia |
 | Cómo se funden dos descripciones | `lib/detalle-fusion.ts` | el board del dueño y el del cliente |
 | Cómo se llama y se ve cada estado de la IA, y el Semáforo | `lib/mako-gramatica.ts` | la primitive `<Mako>`, `meta-health-ui`, `avisos-catalogo` |
+| Cómo se escribe **MaKo** (`corregirMarca`, `REGLA_MARCA`) | `lib/mako-gramatica.ts` | `transcribirAudio` (STT), `limpiarTarea`, `MAKO_NUCLEO` |
+| Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | `plan-propuesta`, `plan-fathom`, `mako-doer-acciones`, `PreguntaCampo` |
 
 ⚠️ **El rótulo de un estado de MaKo no es un prop.** Sale de `GRAMATICA` y no se puede
 pasar por parámetro, a propósito. El día que se pueda, tres pantallas escriben
@@ -98,6 +100,39 @@ script y **el pre-push falla si quedaron viejas** — esa guarda es lo único qu
 el problema vuelva. `scripts/sync-contrato-detalle.mjs` copia hoy DOS cosas (el molde del
 `detalle` y la regla del nombre de un proyecto), cada una entre sus marcadores. Si agregás
 una skill que repite una de estas reglas, sumala a `DESTINOS` en vez de copiar el texto.
+
+# Una regla en un prompt no es una regla
+
+Si una regla sólo vive en la prosa de un prompt, **no se cumple**: se cumple casi
+siempre, que es otra cosa. El contrato de las preguntas del Perro decía desde hacía
+meses «una escala sin extremos explicados es una pregunta muerta» y «el tipo y las
+opciones tienen que ser coherentes» — en cinco prompts distintos, con cinco redacciones
+distintas — y no había **una sola línea de código** que lo mirara. El resultado llegó a
+la pantalla del dueño: «¿Cuál es el deadline?» con botones del 1 al 5.
+
+La regla que queda: **toda regla que gobierne la salida de un modelo necesita las dos
+capas.** El texto en el prompt (para que el modelo acierte) y una validación
+determinista en el saneo (para cuando no acierte). Si la segunda no se puede escribir,
+la regla es una expresión de deseo y hay que decirlo en el comentario.
+
+Y cuando el saneo tenga que elegir entre dos señales que se contradicen, **gana la más
+cara de producir**. Un `tipo` es un token que el modelo tira sin pensar; una lista de
+opciones concretas sólo se escribe sabiendo qué contesta la pregunta. El saneo viejo
+hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con el token y
+tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
+pantalla, ni en el log.
+
+# Claude es el ÚLTIMO recurso, no el segundo
+
+Cuando una feature está ruteada a IA barata en `/modelos-ia` y el proveedor falla, se
+recorre **toda la cascada gratis** antes de pagar (`chatCheapCascade` en `lib/anthropic.ts`).
+Nunca un solo intento y a Claude.
+
+El caso que lo probó: el Perro Guardián está en Gemini desde hace meses, Gemini devolvió
+**HTTP 429** —la cuota del minuto, el error más transitorio y más previsible cuando el
+Perro corre en tandas— y el código caía derecho a Sonnet. Dos corridas de priorización
+costaron US$0,25 con otros cuatro proveedores gratis configurados y sin usar. Un fallback
+que cobra tiene que ser la excepción rara y ruidosa, no la reacción al primer 429.
 
 # Dos reglas de layout que se rompen solas
 

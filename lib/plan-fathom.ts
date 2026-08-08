@@ -19,6 +19,7 @@ import 'server-only';
 // =============================================================================
 
 import { chatClaude } from './anthropic';
+import { sanearPregunta, avisoSaneo, CONTRATO_TIPOS_PREGUNTA, type Pregunta } from './preguntas-contrato';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import type { UsageInfo } from './anthropic-usage';
@@ -471,12 +472,14 @@ Tu trabajo: hacer las preguntas MÍNIMAS que cambian cómo se prioriza o se ejec
 
 ⛔ REGLAS DURAS:
 - NUNCA preguntes qué prioridad poner, qué urge más, ni en qué orden hacerlo. Ese es TU trabajo, no el del dueño (el dueño exagera y no sabe priorizar). Prohibido "¿qué prioridad?", "¿cuál primero?", "¿alta o media?".
-- Preguntá HECHOS que no podés deducir de las tareas: fechas duras que ya existen, de qué DEPENDE algo, quién tiene que estar, cuánta plata mueve, si un ítem es una tarea o varias, qué versión/herramienta se eligió.
+- Preguntá HECHOS que no podés deducir de las tareas: fechas duras que ya existen (esas van con tipo "fecha"), de qué DEPENDE algo, quién tiene que estar, cuánta plata mueve, si un ítem es una tarea o varias, qué versión/herramienta se eligió.
 - Si la respuesta ya está en las tareas o en el detalle, NO la preguntes.
 - Si no cambia NADA de lo que va a pasar, no la hagas.
-- CERRADAS SIEMPRE: cada pregunta con 2-4 opciones concretas para tocar. Nada de preguntas abiertas.
+- CERRADAS SIEMPRE: nada de preguntas abiertas. Cada pregunta con un campo concreto para tocar — 2-4 opciones, o el calendario de "fecha". Cómo elegir el campo, abajo.
 - CADA PREGUNTA DECLARA DE QUÉ TAREAS HABLA: en "sobre" va el título de cada una, copiado TAL CUAL de entre las comillas « » de la lista (sin el detalle que va después del guion). Si no podés atribuirla a ninguna tarea concreta de la lista, NO la hagas: es una pregunta sobre la reunión en general, y eso no lo necesitamos.
 - HACÉ LAS QUE HAGAN FALTA, ni una más. Si la reunión dejó 9 cosas ambiguas, son 9 preguntas; si no dejó ninguna, devolvé cero. Lo que NO vale es inventar preguntas para llenar, ni comerte una que de verdad cambia la ejecución.
+
+{{contratoTipos}}
 
 Escribí como MaKo: rioplatense, corto, sin vueltas.
 
@@ -487,13 +490,18 @@ export const PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE = `REUNIÓN: {{reunion}}
 TAREAS QUE SALIERON:
 {{tareas}}`;
 
+// El enum sale del contrato compartido y ya no se escribe a mano acá. La versión
+// vieja ofrecía "escala" sin explicarla NUNCA en todo el prompt y exigía opciones
+// para TODA pregunta: un modelo al que le ofrecen un valor sin definírselo lo usa
+// de comodín, y así una pregunta de deadline salía como {tipo:'escala', opciones:
+// [fechas]} — el saneo tiraba las fechas y en pantalla quedaban cinco números.
 const PREGUNTAS_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
 {
   "preguntas": [
     {
       "pregunta": "<corta y concreta, sobre un HECHO>",
-      "tipo": "opcion" | "multi" | "escala" | "comparacion",
-      "opciones": ["<2-4 respuestas cortas y concretas>"],
+      "tipo": "opcion" | "multi" | "fecha" | "escala" | "comparacion" | "texto",
+      "opciones": ["<2-4 respuestas cortas y concretas — vacío si el tipo no las lleva>"],
       "sobre": ["<el título de cada tarea afectada, copiado tal cual de entre las « » de la lista>"]
     }
   ]
@@ -509,13 +517,13 @@ Si la reunión no dejó nada ambiguo, devolvé {"preguntas": []}.`;
  */
 export async function preguntasDeContexto(
   tareas: TareaCandidata[], reunion: string, usoMotivo?: string,
-): Promise<{ preguntas: Array<{ pregunta: string; tipo: string; opciones: string[]; sobre: string[] }>; usage?: UsageInfo }> {
+): Promise<{ preguntas: Pregunta[]; usage?: UsageInfo }> {
   const mias = tareas.filter((t) => !t.esDeOtro);
   if (mias.length < 3) return { preguntas: [] };   // un lote chico no necesita ceremonia
   // El título entre « » para que el modelo lo cite EXACTO en `sobre` sin arrastrar el
   // detalle: eso es lo que después deja filtrar las preguntas que ya no te tocan.
   const lista = mias.map((t, i) => `${i + 1}. «${t.titulo}»${t.detalle ? ` — ${t.detalle.slice(0, 120)}` : ''}`).join('\n');
-  const sys = await brandSystem(await renderPrompt('plan-fathom.preguntas.system', PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, { jsonShape: PREGUNTAS_JSON_SHAPE }));
+  const sys = await brandSystem(await renderPrompt('plan-fathom.preguntas.system', PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, { contratoTipos: CONTRATO_TIPOS_PREGUNTA, jsonShape: PREGUNTAS_JSON_SHAPE }));
   const user = await renderPrompt('plan-fathom.preguntas.user', PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE, {
     reunion: reunion || '(sin título)',
     tareas: contenidoNoConfiable(lista, 'tareas'),
@@ -530,18 +538,17 @@ export async function preguntasDeContexto(
     });
     const obj = parseJsonObject(raw);
     const arr = Array.isArray(obj.preguntas) ? obj.preguntas : [];
+    // El saneo es el MISMO que usan el borrador y las dos pantallas
+    // (lib/preguntas-contrato.ts). Antes acá había un segundo normalizador, parecido
+    // pero distinto en tres cosas —un tipo desconocido caía en 'opcion' en vez de
+    // degradarse, el tope de opciones era 4 y no 6, y no tenía ninguna regla para la
+    // escala—, así que la MISMA pregunta quedaba distinta según por qué puerta entró.
+    // Ya no hace falta el filtro que había («o es escala o tiene 2+ opciones»): ese
+    // DESCARTABA en silencio lo que ahora se arregla, y encima dejaba pasar cualquier
+    // escala. `sanearPregunta` devuelve siempre un tipo que se puede contestar.
     const preguntas = arr
-      .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-      .map((o) => ({
-        pregunta: String(o.pregunta ?? '').trim().slice(0, 300),
-        tipo: ['opcion', 'multi', 'escala', 'comparacion'].includes(String(o.tipo)) ? String(o.tipo) : 'opcion',
-        opciones: (Array.isArray(o.opciones) ? o.opciones : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 4),
-        // De qué tareas habla. Es lo que después permite NO preguntártela si esa tarea
-        // terminó siendo de otra persona: las preguntas se generan cuando MaKo lee la
-        // reunión, y vos reasignás recién al confirmar, horas después.
-        sobre: (Array.isArray(o.sobre) ? o.sobre : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 8),
-      }))
-      .filter((p) => p.pregunta && (p.tipo === 'escala' || p.opciones.length >= 2))
+      .map((o) => sanearPregunta(o, avisoSaneo('plan-fathom')))
+      .filter((p): p is NonNullable<typeof p> => !!p)
       // Tope alto y solo de seguridad (que un modelo desbocado no devuelva 200): la
       // cantidad la decide la reunión, no un número que elegimos nosotros.
       .slice(0, 25);

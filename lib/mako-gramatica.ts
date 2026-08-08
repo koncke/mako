@@ -204,3 +204,37 @@ export const DESCRIPCIONES = {
     que_hace: 'Vigila riesgos, compromisos y resultados para que nada importante se pierda.',
   },
 } as const;
+
+// ── Cómo se escribe el nombre ────────────────────────────────────────────────
+// **MaKo**: M mayúscula, a minúscula, K MAYÚSCULA, o minúscula. Y no se traduce,
+// ni se declina, ni se le pone acento.
+//
+// No es una preocupación estética: el nombre entra al sistema por la puerta de
+// atrás. El dueño manda un audio por WhatsApp, Whisper transcribe «Maco» —que es
+// como suena—, esa cadena se convierte en el TÍTULO de una tarea («Configurar
+// plantillas de funnels por tipo (TOFU) en Maco»), y desde ahí el Perro la repite
+// en su razón de puntaje y en el deadline. Una marca mal escrita se propaga sola
+// porque cada eslabón copia el texto del anterior.
+//
+// Por eso hay dos capas y las dos hacen falta: la REGLA en el prompt (para lo que
+// la IA escribe de cero) y esta corrección DETERMINISTA (para lo que entra
+// transcripto, donde el prompt no llega).
+
+export const MARCA = 'MaKo';
+
+/** La regla, para los prompts. Va dentro de MAKO_NUCLEO, que lo lee toda la IA. */
+export const REGLA_MARCA = `CÓMO SE ESCRIBE LA MARCA: **MaKo** — M mayúscula, K MAYÚSCULA en el medio. Nunca "Maco", "Mako", "MAKO" ni "Macko". Si te llega escrito de otra forma (una transcripción de audio suele dejar "Maco"), corregilo al escribirlo vos.`;
+
+/**
+ * Corrige las variantes del nombre en un texto. Palabra completa y sin importar
+ * mayúsculas: `maco`, `mako`, `macko`, `makko` → `MaKo`.
+ *
+ * ⚠️ La lista es CERRADA y las palabras van completas, a propósito. "Marco" no
+ * está —es un nombre de persona, y convertir el nombre de alguien en el de la
+ * marca es peor que dejar un "Maco" suelto— y sin los límites de palabra se
+ * romperían "makoto" o cualquier cosa que empiece igual.
+ */
+export function corregirMarca(texto: string): string {
+  if (!texto) return texto;
+  return texto.replace(/\b(maco|mako|macko|makko)\b/gi, MARCA);
+}

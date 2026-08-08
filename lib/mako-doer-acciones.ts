@@ -13,6 +13,7 @@ import 'server-only';import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle
 
 
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
+import { CONTRATO_TIPOS_PREGUNTA } from '@/lib/preguntas-contrato';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mako-pendientes';
 import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes } from '@/lib/leads';
@@ -343,13 +344,26 @@ Lo que no escribas aca SE PERDIO: nadie vuelve a leer el WhatsApp, y el Perro de
         },
         preguntas: {
           type: 'array',
-          description: 'Preguntas para SACARLE CONTEXTO al dueño y que EL PERRO GUARDIÁN decida la prioridad. ⛔ REGLA DURA: NUNCA le preguntes qué prioridad poner ni qué le urge más — ese es el trabajo del Perro (el dueño exagera y no sabe priorizar). PROHIBIDO "¿qué prioridad?", "¿cuál te urge?", "¿alta/media/baja?". Preguntá HECHOS que el Perro no puede deducir: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en PLATA y en cuánto, qué sería "listo", si es 1 tarea o varias.\n\nCRITERIO — CADA pregunta tiene que TENER SENTIDO y SUMAR:\n1) Si la respuesta es OBVIA o ya se sabe por las tareas, NO la preguntes. No preguntes cosas que se contradicen con lo dicho (ej: si los leads entran por Ads de Meta, no preguntes "¿por qué canal entran?").\n2) Si no cambia NADA para el Perro, no la hagas.\n\nCRITERIO — ELEGÍ EL TIPO según la pregunta (pensá cuál es el mejor para CADA una):\n· ¿Pueden ser válidas VARIAS respuestas a la vez? → "multi" (ej. "¿qué canales de pago vas a integrar?"). NO agregues una opción "Ambas/Todas": que tilde varias.\n· ¿Es una elección EXCLUYENTE (una sola)? → "opcion".\n· ¿Intensidad/grado? → "escala" (1-5, ej. "¿qué tan firme es el deadline?").\n· ¿Enfrentar DOS ítems para ver cuál pesa más? → "comparacion" (opciones = los dos ítems).\nNO uses preguntas ABIERTAS (sin "texto"): siempre dale opciones para tocar. HACÉ LAS QUE HAGAN FALTA (lista larga → varias). Para opcion/multi/comparacion pasá 2-6 "opciones" cortas y CONCRETAS.',
+          // El catálogo de tipos NO se escribe acá: sale de lib/preguntas-contrato.ts,
+          // igual que en los otros generadores. La versión que vivía en este string
+          // enseñaba justo el mapeo equivocado — «¿Intensidad/grado? → escala (ej. ¿qué
+          // tan firme es el deadline?)»— y era el ÚNICO ejemplo de escala que veía el
+          // modelo: de ahí a tipear «¿cuál es el deadline?» como escala hay un paso.
+          description: `Preguntas para SACARLE CONTEXTO al dueño y que EL PERRO GUARDIÁN decida la prioridad. ⛔ REGLA DURA: NUNCA le preguntes qué prioridad poner ni qué le urge más — ese es el trabajo del Perro (el dueño exagera y no sabe priorizar). PROHIBIDO "¿qué prioridad?", "¿cuál te urge?", "¿alta/media/baja?". Preguntá HECHOS que el Perro no puede deducir: deadlines duros (tipo "fecha"), qué BLOQUEA o de qué DEPENDE, qué mueve en PLATA y en cuánto, qué sería "listo", si es 1 tarea o varias.
+
+CRITERIO — CADA pregunta tiene que TENER SENTIDO y SUMAR:
+1) Si la respuesta es OBVIA o ya se sabe por las tareas, NO la preguntes. No preguntes cosas que se contradicen con lo dicho (ej: si los leads entran por Ads de Meta, no preguntes "¿por qué canal entran?").
+2) Si no cambia NADA para el Perro, no la hagas.
+
+HACÉ LAS QUE HAGAN FALTA (lista larga → varias).
+
+${CONTRATO_TIPOS_PREGUNTA}`,
           items: {
             type: 'object',
             properties: {
               pregunta: { type: 'string', description: 'la pregunta, corta y concreta. Sobre HECHOS/CONTEXTO, no sobre qué prioridad poner. Que tenga sentido para las tareas.' },
-              tipo: { type: 'string', enum: ['opcion', 'multi', 'escala', 'comparacion'], description: 'ELEGÍ el mejor: multi (varias válidas) / opcion (una excluyente) / escala (1-5) / comparacion (A vs B). Sin abiertas.' },
-              opciones: { type: 'array', description: '2-6 respuestas cortas (opcion/multi); los DOS ítems a enfrentar (comparacion). Escala no la necesita.', items: { type: 'string' } },
+              tipo: { type: 'string', enum: ['opcion', 'multi', 'fecha', 'escala', 'comparacion', 'texto'], description: 'ELEGÍ el mejor: multi (varias válidas) / opcion (una excluyente) / fecha (¿para cuándo? → calendario) / escala (intensidad 1-5, con los extremos explicados en el enunciado) / comparacion (A vs B). NUNCA escala para preguntar cuándo.' },
+              opciones: { type: 'array', description: '2-6 respuestas cortas (opcion/multi); los DOS ítems a enfrentar (comparacion); 2-4 atajos opcionales (fecha). Escala y texto no la llevan.', items: { type: 'string' } },
             },
             required: ['pregunta', 'tipo'],
           },

@@ -23,6 +23,8 @@ import { GuardianIcon } from './GuardianIcon';
 import { WizardShell } from '@/app/_components/WizardShell';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
+import { PreguntaCampo } from './guardian-form';
+import { ayudaDePregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
 import { pareceLaMisma, textoRepetidas, type TareaEnTablero } from '@/lib/tareas-dedup';
 import { type Label, type Prio } from './types';
 
@@ -30,7 +32,10 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number; minutos?: number[]; incluir?: boolean };
-type PropPregunta = { pregunta: string; tipo?: string; opciones?: string[]; sobre?: string[] };
+// El `tipo` es el del contrato, NO un `string` suelto: mientras fue string, el
+// compilador no podía avisar que esta pantalla y la de /plan/revisar dibujaban cosas
+// distintas para el mismo valor (y de hecho lo hacían).
+type PropPregunta = { pregunta: string; tipo?: TipoPregunta; opciones?: string[]; sobre?: string[] };
 
 /** Título comparable: sin acentos, sin puntuación, en minúscula. */
 const normTit = (t: string): string =>
@@ -429,22 +434,42 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // razón para que el formulario de una reunión no se parezca al de un lead.
   if (paso === 'preguntas' && preguntasVivas.length) {
     const resp = respuestas[qIdx] ?? '';
-    const multi = qActual?.tipo === 'multi';
-    const opciones = qActual?.tipo === 'escala' ? ['1', '2', '3', '4', '5'] : (qActual?.opciones ?? []);
-    const elegidas = resp.split(' · ').filter(Boolean);
     return (
       <div style={{ display: oculto ? 'none' : 'block' }}>
         <WizardShell
           titulo={[props[0]?.fuenteTitulo, `${nIncluidas} ${nIncluidas === 1 ? 'tarea' : 'tareas'} para cargar`].filter(Boolean).join(' · ')}
           total={preguntasVivas.length} idx={qIdx}
           pregunta={qActual?.pregunta ?? ''}
-          sub={qActual?.sobre?.length
-            ? `Por: ${qActual.sobre.map((t) => `«${t}»`).join(' · ')}`
-            : 'Es para que el perro priorice bien — no te va a preguntar qué es más urgente, eso lo decide él.'}
+          // De qué tarea habla + CÓMO se contesta. Lo segundo sale del tipo
+          // (lib/preguntas-contrato.ts): decir «elegí una opción» sobre un calendario
+          // o sobre una escala de 1 a 5 es contradecir el campo que está abajo.
+          sub={[
+            qActual?.sobre?.length ? `Por: ${qActual.sobre.map((t) => `«${t}»`).join(' · ')}` : '',
+            qActual ? ayudaDePregunta((qActual.tipo ?? 'opcion') as TipoPregunta, (qActual.opciones?.length ?? 0) > 0) : '',
+          ].filter(Boolean).join(' — ')}
           puedeAvanzar={!guardando}
           enUltimo={esUltimaQ}
           confirmLabel={`Cargar ${nIncluidas} al plan`}
           pending={!!guardando}
+          // El loader del aplicado tiene que estar ACÁ. El overlay lindo que dibuja este
+          // modal (más abajo, con el spinner y el «no cierres ni refresques») vive en el
+          // OTRO return: cuando `paso === 'preguntas'` esta rama corta antes y no se
+          // renderiza nunca. O sea que al confirmar desde la última pregunta —que es el
+          // camino normal de una reunión de Fathom— lo único que pasaba en pantalla era
+          // que el botón cambiaba a «Guardando…», con el cuerpo de la pregunta intacto
+          // detrás. Crear las tareas y que el Perro las puntúe tarda minutos: sin loader
+          // se lee como que la app se colgó. Va por `cargando` de la pieza y no por un
+          // overlay propio a propósito — uno con z-index propio queda POR DEBAJO del
+          // modal (ver el comentario del loader en WizardShell).
+          cargando={aplicando ? (
+            <>
+              <div>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dim)', lineHeight: 1.5, marginTop: 6, maxWidth: 380 }}>
+                El Perro las está puntuando contra tu plan y armando las checklists. Con muchas tareas puede tardar un par de minutos.
+                <br /><b>No cierres ni refresques</b> hasta que termine.
+              </div>
+            </>
+          ) : null}
           atrasLabel={qIdx > 0 ? 'Atrás' : 'Volver a las tareas'}
           onAtras={() => (qIdx > 0 ? setQIdx((i) => i - 1) : setPaso('tareas'))}
           onSiguiente={() => setQIdx((i) => i + 1)}
@@ -455,44 +480,12 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
           bloqueante={!!guardando}
           siguienteLabel={resp ? 'Siguiente →' : 'Saltear →'}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {/* Una pregunta SIN opciones (tipo 'texto') acá no se podía contestar: se
-                dibujaba el enunciado y ni un botón ni un campo. La pantalla /plan/revisar
-                sí la renderiza con textarea desde siempre; este modal no, y es el que se
-                usa para confirmar lo que dejó una reunión. */}
-            {qActual?.tipo === 'texto' && (
-              <textarea value={resp} onChange={(e) => setRespuestas((r) => ({ ...r, [qIdx]: e.target.value }))} autoFocus rows={3}
-                placeholder="Escribí tu respuesta…"
-                style={{ width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', resize: 'vertical' }} />
-            )}
-            {opciones.map((op) => {
-              const on = multi ? elegidas.includes(op) : resp === op;
-              return (
-                <button key={op} type="button" onClick={() => setRespuestas((r) => {
-                  if (!multi) return { ...r, [qIdx]: on ? '' : op };
-                  const next = on ? elegidas.filter((x) => x !== op) : [...elegidas, op];
-                  return { ...r, [qIdx]: next.join(' · ') };
-                })}
-                  style={{
-                    width: '100%', padding: '13px 16px', borderRadius: 12, textAlign: 'left', fontFamily: SANS,
-                    border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
-                    background: on ? 'var(--primary-bg)' : 'var(--surface-2)',
-                    color: on ? 'var(--primary)' : 'var(--ink)',
-                    fontSize: 14.5, fontWeight: on ? 700 : 500, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 11, transition: 'border-color .12s, background .12s',
-                  }}>
-                  <span style={{
-                    width: 18, height: 18, flex: 'none', borderRadius: multi ? 5 : '50%',
-                    border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
-                    background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>{on ? '✓' : ''}</span>
-                  {op}
-                </button>
-              );
-            })}
-            {multi && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'left' }}>Podés elegir varias.</div>}
-          </div>
+          {/* El MISMO campo que dibuja /plan/revisar. Antes esta pantalla tenía su
+              propia versión y no coincidían: una 'escala' salía como una lista de
+              radios con las etiquetas "1".."5" —idéntica a un multiple choice, pero
+              con números en vez de respuestas—, no había campo de fecha, ni forma de
+              escribir una respuesta propia, ni rama para 'comparacion'. */}
+          {qActual && <PreguntaCampo q={qActual} value={resp} onChange={(v) => setRespuestas((r) => ({ ...r, [qIdx]: v }))} autoFocus />}
         </WizardShell>
       </div>
     );
@@ -502,22 +495,40 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     // Cerrar clickeando AFUERA, como cualquier modal de la app. Cerrar no descarta
     // nada: el borrador sigue esperando y se vuelve desde el botón de Fathom. Lo único
     // que no se puede interrumpir es el aplicado (ahí sí queda el board a medio armar).
-    <div onClick={() => { if (!guardando) onClose(); }}
+    <div onClick={() => { if (!guardando && !pensando) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto || !capa.visible ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()}
         style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
         {/* Cargando: tapa TODO el modal. Crear N tareas + puntuarlas por tandas puede
-            tardar más de un minuto, y hasta ahora no se veía nada pasar. */}
-        {aplicando && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 5, background: 'rgba(255,255,255,.86)', backdropFilter: 'blur(3px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
-            <span style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', display: 'inline-block', animation: 'makoSpinTR .7s linear infinite' }} />
+            tardar más de un minuto, y hasta ahora no se veía nada pasar.
+            Tapa también mientras MaKo arma las preguntas (`pensando`): es la MISMA
+            espera larga detrás del MISMO botón, un paso antes, y sin el velo lo único
+            que cambiaba era el texto del botón. */}
+        {(aplicando || pensando) && (
+          <div role="status" aria-live="polite" style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
+            {/* El velo va en SU capa: un `opacity` sobre el contenedor apagaría también
+                el spinner y el texto. Y sale de --surface, no de un blanco fijo — en
+                tema oscuro un blanco al 86% es un flash. */}
+            <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'var(--surface)', opacity: 0.94, backdropFilter: 'blur(3px)' }} />
+            <span style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', boxSizing: 'border-box', display: 'inline-block', animation: 'makoSpinTR .7s linear infinite' }} />
             <style>{'@keyframes makoSpinTR{to{transform:rotate(360deg)}}'}</style>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
-            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
-              El perro las está puntuando contra tu plan y armando las checklists. Con muchas tareas puede tardar un par de minutos.
-              <br /><b>No cierres ni refresques</b> hasta que termine.
-            </div>
+            {pensando ? (
+              <>
+                <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>MaKo está mirando lo que elegiste…</div>
+                <div style={{ position: 'relative', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
+                  Prepara las preguntas de contexto sobre estas {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'}, para que el Perro las priorice con criterio.
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
+                <div style={{ position: 'relative', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
+                  El Perro las está puntuando contra tu plan y armando las checklists. Con muchas tareas puede tardar un par de minutos.
+                  <br /><b>No cierres ni refresques</b> hasta que termine.
+                </div>
+              </>
+            )}
           </div>
         )}
 

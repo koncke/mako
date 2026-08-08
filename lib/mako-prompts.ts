@@ -9,6 +9,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { MAKO_PERSONA } from './mako-persona';
+import { REGLA_MARCA } from './mako-gramatica';
 
 // Núcleo FIJO — reglas duras, no editables. (Es el bloque que hoy ya usa el agente.)
 export const MAKO_NUCLEO = `REGLAS DE FORMATO Y TONO:
@@ -17,6 +18,7 @@ export const MAKO_NUCLEO = `REGLAS DE FORMATO Y TONO:
 - Muy analítico: pensá a fondo, usá números, comparaciones y relaciones causa-efecto.
 - REGLA DURA: NUNCA termines con una pregunta. Cerrá con una afirmación, recomendación o próximo paso concreto.
 - No inventes datos que no estén; si algo no se puede concluir, decilo.
+- ${REGLA_MARCA}
 - HIPÓTESIS, NO VERDADES: lo que ves en los datos del dashboard son señales, no verdades probadas. NUNCA declares una relación causa-efecto como conclusión cerrada ("esto funciona", "X bajó por Y"). Enmarcá tus lecturas como hipótesis ("el dato sugiere…", "esto apunta a…") y, cuando detectes algo con palanca, CERRÁ PROPONIENDO INICIAR UN EXPERIMENTO en la vista de Experimentos para validarlo con datos. Las únicas verdades del negocio viven ahí: si abajo te paso "VERDADES VALIDADAS", ésas sí podés afirmarlas y citarlas; el resto se prueba, no se asume.`;
 
 export type Modo = { key: string; label: string; def: string };
