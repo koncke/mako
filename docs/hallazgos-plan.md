@@ -21,6 +21,7 @@ La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La 
 - **El Perro no puede atajar un duplicado**: no ve las tareas al 100% y no recibe los ids para nombrar la que encontró; y el cruce anti-duplicados falla mudo → [Dedup](#dedup-nunca-duplicar-siempre-ampliar).
 - **Un 404 de Fathom no significa que la grabación no exista**: el call-id y el recording-id son dos espacios de ids distintos → [De la reunión a la tarea](#de-la-reunión-a-la-tarea-fathom).
 - **Las preguntas rotas del Perro no están en la base**: se generan al confirmar y no se persisten, así que dumpear `notas` muestra sólo las buenas y el bug parece no existir → [Las preguntas del Perro](#las-preguntas-del-perro-contrato-tipo--campo).
+- **El texto del SEED de `PlanBoard.tsx` describe el pasado, no el presente**: un agente que lo grepea lee «el board vive en localStorage con el Repo en no-op» y lo reporta como estado actual, tres meses después de que dejó de ser cierto → [El board](#el-board-plan).
 
 ---
 
@@ -271,6 +272,26 @@ fuera del alcance de ese arreglo:
   alcanza. → `lib/plan-propuesta.ts`.
 
 ## El board `/plan`
+
+### ⚠️ El SEED de `PlanBoard.tsx` es un archivo histórico, y un agente lo lee como documentación
+
+Una corrida de siete agentes reportó como su hallazgo más caro que «el tablero del dueño vive en localStorage con el Repo en no-op, así que el agente que marque tareas completadas no puede escribirle». Suena grave y estaba verificado: la cita es literal y está en `app/plan/PlanBoard.tsx`. **Es falso desde hace meses.** Lo que el agente leyó es el `detalle` de la tarea **#177** dentro del array del SEED — o sea, el texto que alguien escribió describiendo el problema *cuando existía*. Cincuenta líneas más abajo, el `Repo` real (línea 742) llama a `/api/plan-board` en los seis métodos, con el comentario «Ya NO hay localStorage / bandeja / ops / snapshot». La contra-prueba es de un segundo: leer `plan_tareas` en Supabase devuelve las 438 tareas abiertas.
+
+El SEED es la trampa perfecta para un grep: son ~200 tareas con descripciones largas, en prosa afirmativa y en tiempo presente, dentro de un `.tsx` — indistinguibles de un comentario técnico para cualquiera que busque por palabra clave. Y describen el estado del mundo **en el momento en que se escribió cada tarea**, que es justamente el estado que después se arregló.
+
+**Regla:** una afirmación sobre el estado del sistema no se toma de una cadena de texto, ni siquiera de una que está en el código. Se toma del código que corre (el `Repo`, la ruta, la tabla) o de la base. Si la única evidencia de un hallazgo es prosa, no es evidencia: es historia.
+
+**Vive en:** app/plan/PlanBoard.tsx:294-296 (SEED) vs app/plan/PlanBoard.tsx:739-750 (el Repo real) · *2026-08-08 barrido-superficies-dev*
+
+### ⚠️ Buscar «CAC» traía media lista: `includes` cae en el medio de las palabras
+
+El dueño escribió `CAC ` en la barra y volvió casi todo el tablero. La primera lectura fue que el espacio final rompía algo — y el espacio **sí** era una señal, pero no la causa. La causa es que `coincide` hacía `heno.includes(termino)` a secas, y «cac» vive adentro de notifi·**cac**·iones, autenti·**cac**·ión, publi·**cac**·ión, apli·**cac**·ión, cualifi·**cac**·ión y planifi·**cac**·ión. En español, un término corto adentro de una palabra larga no es un caso raro: es el caso típico. Un término tiene que **empezar** una palabra.
+
+El espacio quedó como lo que el usuario esperaba que fuera: `CAC` a medias sigue trayendo «cacheo», `CAC ` —cerrado— pide la palabra entera (tolerando el plural, que es la misma palabra). Se decide mirando el texto **crudo**, porque el normalizador hace `.trim()` y borra la señal.
+
+Y de paso apareció el motivo por el que el bug era difícil de ver: había **dos buscadores** en la misma pantalla. `BoardShell.tsx` tenía su propia copia de `coincide`/`paraBuscar` para el filtro de proyectos; una sacaba la puntuación y la otra no, una sacaba las etiquetas HTML y la otra no. Probar en la barra de tareas y en el selector de proyectos daba resultados distintos para la misma consulta. Ahora las dos importan `lib/buscar-tareas`.
+
+**Vive en:** lib/buscar-tareas.ts (`coincide`, `terminos`, `paraBuscar`), tests/buscar-tareas.test.ts, app/plan/board/BoardShell.tsx:1889 · *2026-08-08*
 
 ### ⚠️ El impacto/esfuerzo que calcula el Perro se pierde en cada reload — solo para los clientes
 

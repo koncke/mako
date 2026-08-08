@@ -14,6 +14,7 @@ habilita a darle mejores prompts al otro Claude».
 - Un `200` en un webhook es un **acuse de recibo**: el proveedor no reintenta y el evento se pierde para siempre → [Webhooks](#webhooks-recibir-sin-perder-eventos).
 - Un push no es una entrega: el build de Vercel falla, **producción sigue sirviendo la versión vieja** y nadie avisa → [Build, deploy y entrega](#build-deploy-y-entrega).
 - La tabla `notificaciones` **no existe en producción** desde siempre y el escritor se traga el error → [Migraciones](#migraciones).
+- Hay features **terminadas, con migración y API propias, que ninguna página monta**: compilan y no existen → [Código construido que ninguna página monta](#código-construido-que-ninguna-página-monta).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -670,6 +671,39 @@ pero el chequeo **sigue siendo solo al tope del loop**.
 quedan son WhatsApp y email.
 
 ---
+
+## Código construido que ninguna página monta
+
+### ⚠️ Hay features terminadas —con migración y API propias— que no tienen puerta
+
+Un barrido de la superficie del producto (7 agentes, agosto 2026) buscaba áreas faltantes para
+`/admin/dev` y encontró de refilón algo peor: **componentes completos que nadie renderiza**.
+No son restos ni experimentos: tienen su tabla, su migración, sus rutas y su UI escrita.
+
+Los dos más caros, los dos en `app/configuraciones/`:
+
+- **`EtiquetasWhatsAppPanel.tsx`** — mapea cada etapa del funnel a una etiqueta de WhatsApp del
+  número no oficial, para que mover un lead en el CRM le cambie la etiqueta en el celular del
+  setter. Backend completo: `lib/evolution-labels.ts`, `lib/wa-etapas.ts`,
+  `app/api/whatsapp/evolution/labels/route.ts`. `ConfigInnerTabs` no lo monta.
+- **`TelefonosPanel.tsx`** — los teléfonos del workspace, **con migración propia (0065)**.
+  Tampoco lo monta nadie.
+
+En los dos casos `grep -rl <Componente> app lib` devuelve **una sola línea: su propia
+definición**. Es el patrón que hay que buscar, y es barato: un componente cuyo único archivo
+es él mismo está muerto.
+
+De la misma familia, del otro lado: **redirects que apuntan a una pantalla que ya no existe en
+el mapa**. `app/marketing/salud/page.tsx` redirige a `/integraciones` porque «Estado de Meta» se
+renombró — pero el inventario de piezas seguía teniendo una entrada con `ruta=/marketing/salud`,
+o sea documentación apuntando a un cartel de mudanza.
+
+**Regla:** una feature no está terminada cuando compila, sino cuando **hay una ruta que la
+monta**. Y al renombrar o mudar una pantalla, el redirect es el paso 1 de 2: el paso 2 es
+corregir lo que la nombraba. Antes de dar por construida un área, correr el grep del párrafo
+anterior sobre sus componentes.
+
+**Vive en:** app/configuraciones/EtiquetasWhatsAppPanel.tsx, app/configuraciones/TelefonosPanel.tsx, app/marketing/salud/page.tsx · *2026-08-08 barrido-superficies-dev*
 
 ## Next.js: los topes de la plataforma
 
