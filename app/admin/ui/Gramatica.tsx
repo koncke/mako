@@ -20,6 +20,7 @@
 // piezas**. Regla de la casa: título corto y nada de prosa debajo salvo pedido
 // explícito.
 
+import { useState } from 'react';
 import { Mako, Section, Status } from '@/app/_ui';
 import { ESTADOS, DESCRIPCIONES, type EstadoMako } from '@/lib/mako-gramatica';
 
@@ -102,21 +103,28 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
 };
 
 export function LaGramatica() {
+  // Arranca en «recomienda» porque es el más cargado: si ese entra bien en el
+  // ancho, los otros ocho también.
+  const [visto, setVisto] = useState<EstadoMako>('recomienda');
   return (
     <>
+      {/* ⚠️ UNO A LA VEZ, no los nueve apilados.
+          Las nueve tarjetas completas una debajo de otra son un muro de texto —y
+          además mienten sobre el producto, donde NUNCA se ven dos juntas: se ve
+          una, adentro de una pantalla. Los chips hacen de selector, así que de
+          paso dejan de ser decoración y se prueban solos: son la variante que va
+          en una fila de tabla. */}
       <Section titulo="Los nueve estados" card>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {ESTADOS.map((e) => <Mako key={e} {...EJEMPLOS[e]} />)}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>
+          {ESTADOS.map((e) => (
+            <button key={e} type="button" onClick={() => setVisto(e)}
+              aria-pressed={visto === e}
+              style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', borderRadius: 999, opacity: visto === e ? 1 : 0.5 }}>
+              <Mako estado={e} compacto />
+            </button>
+          ))}
         </div>
-      </Section>
-
-      {/* Los mismos nueve, en chip. Sin título de ejemplo: en el catálogo obligaba
-          a inventar «esta campaña» nueve veces, y ese relleno era lo único que se
-          leía. Solos y del mismo largo se ven como lo que son, un juego. */}
-      <Section titulo="En una línea" card>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-          {ESTADOS.map((e) => <Mako key={e} estado={e} compacto />)}
-        </div>
+        <Mako {...EJEMPLOS[visto]} />
       </Section>
 
       <Section titulo="Second Brain y Perro Guardián" card>
