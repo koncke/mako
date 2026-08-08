@@ -74,7 +74,7 @@ export const FISICA = {
    *  Solo aplica mientras dura el gesto, así que no entra en conflicto con el techo del
    *  aire en reposo (ver `colisionPad`): al soltar vuelve a su radio normal y todos
    *  regresan a su casa. */
-  colisionRadioArrastre: 150,
+  colisionRadioArrastre: 380,
   colisionFuerza: 0.7,
   colisionIter: 1,
   /** El resorte a casa. Con 0,30 el mapa queda quieto en 62 ticks (~1,03 s) y el

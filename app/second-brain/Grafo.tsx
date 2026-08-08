@@ -44,6 +44,10 @@ const ARRASTRE2 = 25;
 const ATENUADO = 0.2;
 /** El «todavía no existe»: mismo círculo relleno, más apagado. Nunca un aro punteado. */
 const PENDIENTE = 0.5;
+/** Amplitud de la flotación, en unidades de mundo. Con 3 el recorrido era de ~2 px de
+ *  pantalla y no se leía como flotar: se leía como que el texto TEMBLABA. 16 da un
+ *  movimiento intencional. Va en unidades de mundo, así que el zoom lo escala solo. */
+const FLOTE = 16;
 
 type Vista = { k: number; x: number; y: number };
 
@@ -72,7 +76,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   const [activo, setActivo] = useState<string | null>(null);
   const [fijado, setFijado] = useState<string | null>(null);
   const [areaFoco, setAreaFoco] = useState<AreaId | null>(null);
-  const [colorear, setColorear] = useState(true);
+
 
   const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
 
@@ -121,7 +125,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     if (n.id === 'raiz') return 'var(--on-sidebar)';
     if (n.alerta) return 'var(--warn-fill)';
     if (n.destacado) return 'var(--mako)';
-    if (colorear) return colorArea(n.area);
+    return colorArea(n.area);
     return 'var(--sidebar-text)';
   };
 
@@ -139,13 +143,46 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   const aristaRefs = useRef(new Map<number, SVGLineElement | null>());
   const arrastrando = useRef<string | null>(null);
 
-  /** Escribe las posiciones en el DOM. NO pasa por React: un setState por frame
-   *  durante un arrastre son 60 renders por segundo de 50 nodos. */
-  const pintarFisica = useCallback((fisicos: NodoFisico[]) => {
-    const pos = new Map(fisicos.map((f) => [f.id, f]));
+  /** La posición BASE de cada nodo: la del servidor, o la que mueve la física mientras
+   *  dura un arrastre. Encima de esto se suman los desplazamientos de animación. */
+  const baseRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const t0 = useRef(0);
+  const animRef = useRef<number | null>(null);
+
+  /** Escribe TODO en el DOM: los nodos y los extremos de cada arista. NO pasa por React
+   *  —un setState por frame durante un arrastre son 60 renders de 50 nodos— y sobre todo
+   *  es UN SOLO lugar.
+   *
+   *  ⚠️ POR QUÉ ACÁ Y NO EN CSS. La flotación y la entrada vivían como animaciones CSS
+   *  sobre grupos anidados. Funcionaban para los nodos y dejaban las ARISTAS clavadas:
+   *  una línea es un <line> con cuatro coordenadas y no tiene forma de enterarse de que
+   *  el `transform` de un grupo movió sus puntas. Se veían líneas colgando en el aire
+   *  durante la entrada, y sin seguir a los nodos mientras flotaban. La única forma de
+   *  que las líneas acompañen es que el mismo bucle que mueve los nodos recalcule sus
+   *  extremos — o sea, que la animación sea JS y no CSS. */
+  const pintar = useCallback((tMs: number) => {
+    const base = baseRef.current;
+    const pos = new Map<string, { x: number; y: number }>();
+    for (const n of nodos) {
+      const b = base.get(n.id) ?? posiciones[n.id];
+      if (!b) continue;
+      const h = hashDe(n.id);
+      // FLOTACIÓN: dos senoides de períodos que no son múltiplos entre sí, con fase
+      // derivada del hash del id — el nodo flota igual en cada visita.
+      const fx = FLOTE * Math.sin((tMs / 7100) * Math.PI * 2 + (h % 6283) / 1000);
+      const fy = FLOTE * Math.sin((tMs / 11300) * Math.PI * 2 + ((h >>> 7) % 6283) / 1000);
+      // ENTRADA: nace desplazado hacia afuera y el desvío decae hasta cero.
+      const demora = Math.min((ordenEntrada.get(n.id) ?? 0) * 12, 700);
+      const u = Math.min(1, Math.max(0, (tMs - demora) / 900));
+      // Lo que QUEDA del desvío: 1 al empezar, 0 al llegar, con desaceleración larga.
+      const resto = (1 - u) ** 3;
+      const d = Math.hypot(b.x, b.y) || 1;
+      const lejos = (260 + (h % 220)) * resto;
+      pos.set(n.id, { x: b.x + fx + (b.x / d) * lejos, y: b.y + fy + (b.y / d) * lejos });
+    }
     for (const [id, g] of nodoRefs.current) {
       const f = pos.get(id);
-      if (g && f) g.setAttribute('transform', `translate(${f.x} ${f.y})`);
+      if (g && f) g.setAttribute('transform', `translate(${f.x.toFixed(2)} ${f.y.toFixed(2)})`);
     }
     aristas.forEach((e, i) => {
       const l = aristaRefs.current.get(i);
@@ -159,12 +196,25 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
       const d = Math.hypot(dx, dy) || 1;
       const ra = radioMundo(nb);
       const rb = radioMundo(na);
-      l.setAttribute('x1', String(a.x + (dx / d) * ra));
-      l.setAttribute('y1', String(a.y + (dy / d) * ra));
-      l.setAttribute('x2', String(b.x - (dx / d) * rb));
-      l.setAttribute('y2', String(b.y - (dy / d) * rb));
+      l.setAttribute('x1', (a.x + (dx / d) * ra).toFixed(2));
+      l.setAttribute('y1', (a.y + (dy / d) * ra).toFixed(2));
+      l.setAttribute('x2', (b.x - (dx / d) * rb).toFixed(2));
+      l.setAttribute('y2', (b.y - (dy / d) * rb).toFixed(2));
     });
-  }, [aristas, porId, radioMundo]);
+  }, [aristas, porId, radioMundo, nodos, posiciones, ordenEntrada]);
+
+  // El bucle. Corre siempre salvo que el usuario pida movimiento reducido, en cuyo caso
+  // se pinta UNA vez en las posiciones finales y no se enciende nada.
+  useEffect(() => {
+    baseRef.current = new Map(Object.entries(posiciones));
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { pintar(99_999); return; }
+    t0.current = performance.now();
+    const latir = () => { pintar(performance.now() - t0.current); animRef.current = requestAnimationFrame(latir); };
+    animRef.current = requestAnimationFrame(latir);
+    return () => { if (animRef.current != null) cancelAnimationFrame(animRef.current); animRef.current = null; };
+  }, [posiciones, pintar]);
 
   useEffect(() => () => { simRef.current?.destruir(); simRef.current = null; }, []);
 
@@ -174,9 +224,13 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     const { crearSimulacion } = await import('./fisica');
     if (simRef.current) return simRef.current;   // por si dos gestos entraron a la vez
     const radios = Object.fromEntries(nodos.map((n) => [n.id, radioMundo(n)]));
-    simRef.current = await crearSimulacion(posiciones, radios, pintarFisica);
+    simRef.current = await crearSimulacion(posiciones, radios, (fisicos: NodoFisico[]) => {
+      // La física NO dibuja: mueve la base y el bucle de arriba se encarga. Si dibujara
+      // ella también, habría dos escritores del mismo atributo peleándose por frame.
+      for (const f of fisicos) baseRef.current.set(f.id, { x: f.x, y: f.y });
+    });
     return simRef.current;
-  }, [posiciones, pintarFisica, nodos, radioMundo]);
+  }, [posiciones, nodos, radioMundo]);
 
   // ── Zoom y paneo ───────────────────────────────────────────────────────────
   const aplicar = useCallback(() => {
@@ -327,11 +381,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
 
   const areaDe = (id: AreaId) => AREAS.find((a) => a.id === id)!;
   const vb = `${encuadre.x} ${encuadre.y} ${encuadre.lado} ${encuadre.lado}`;
-  /** Amplitud de la flotación, en unidades de mundo. Con 3 el recorrido era de ~2 px
-   *  de pantalla y no se leía como flotar: se leía como que el texto TEMBLABA, porque
-   *  a esa escala el desplazamiento sub-pixel hace que la tipografía se re-rasterice
-   *  en cada frame. Con 16 el movimiento es intencional y el texto viaja con él. */
-  const flote = 16 / kr;
+
 
   return (
     <div className="cbg">
@@ -360,22 +410,16 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
            de 0,03 px, o sea ninguno.
            Períodos que no son múltiplos entre sí: la órbita no se cierra y no se lee
            mecánica. */
-        .cbg .cbg-flota-x { animation: cbg-fx 7.1s ease-in-out infinite alternate; }
-        .cbg .cbg-flota-y { animation: cbg-fy 11.3s ease-in-out infinite alternate; }
+
         /* will-change promueve el grupo a su propia capa del compositor. Sin esto el
            navegador re-rasteriza el TEXTO en cada frame y se ve tembloroso, que es
            distinto de flotar. Con la capa, el texto se mueve como una imagen. */
-        .cbg .cbg-flota-x, .cbg .cbg-flota-y { will-change: transform; }
-        @keyframes cbg-fx { from { transform: translateX(calc(-1 * var(--fl))); } to { transform: translateX(var(--fl)); } }
-        @keyframes cbg-fy { from { transform: translateY(var(--fl)); } to { transform: translateY(calc(-1 * var(--fl))); } }
 
         /* LA LLEGADA. El nodo no nace en su lugar: nace MÁS AFUERA, en la dirección
            que lo aleja del centro, y viaja hasta su posición. Va en su propio grupo
            porque también anima transform y pisaría al pop. Curva de desaceleración
            larga (sin overshoot): el que rebota es el pop, y dos rebotes encimados se
            leen como un error. */
-        .cbg .cbg-llega { animation: cbg-viene .9s cubic-bezier(.16,1,.3,1) backwards; }
-        @keyframes cbg-viene { from { transform: translate(var(--dx), var(--dy)); } to { transform: translate(0,0); } }
 
         /* EL POP. easeOutBack sobrepasa ~1,10 y vuelve. Nunca desde scale(0): eso se
            lee como glitch y esconde el área de toque. */
@@ -392,7 +436,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
         .cbg .cbg-et { font-size: calc(12px / var(--k, 1)); fill: var(--on-sidebar); pointer-events: none; }
 
         @media (prefers-reduced-motion: reduce) {
-          .cbg .cbg-flota-x, .cbg .cbg-flota-y, .cbg .cbg-pop, .cbg .cbg-llega { animation: none; }
+          .cbg .cbg-pop { animation: none; }
           .cbg .cbg-cuerpo, .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et { transition: none; }
           .cbg .cbg-nodo:hover .cbg-cuerpo, .cbg .cbg-nodo.cbg-sel .cbg-cuerpo { transform: none; }
         }
@@ -467,27 +511,6 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                     onMouseLeave={() => setActivo(null)}
                     onPointerDown={agarrarNodo(n.id)}
                   >
-                    <g
-                      className="cbg-flota-x"
-                      style={{
-                        ['--fl' as string]: `${flote}px`,
-                        // Retardo NEGATIVO: arranca a mitad de ciclo YA, sin espera. Y
-                        // sale del hash del id, así que el nodo flota igual cada visita.
-                        animationDelay: `-${h % 7100}ms`,
-                      }}
-                    >
-                    <g className="cbg-flota-y" style={{ ['--fl' as string]: `${flote}px`, animationDelay: `-${(h >>> 7) % 11300}ms` }}>
-                      <g
-                        className="cbg-llega"
-                        style={{
-                          // Desvío inicial: hacia AFUERA del centro del encuadre, con
-                          // una distancia que varía por nodo para que no lleguen todos
-                          // en formación. El centro del mapa es (0,0) del mundo.
-                          ['--dx' as string]: `${(p.x / (Math.hypot(p.x, p.y) || 1)) * (260 + (h % 220))}px`,
-                          ['--dy' as string]: `${(p.y / (Math.hypot(p.x, p.y) || 1)) * (260 + (h % 220))}px`,
-                          animationDelay: `${Math.min(i * 12, 700)}ms`,
-                        }}
-                      >
                       <g className="cbg-pop" style={{ animationDelay: `${Math.min(i * 12, 700)}ms` }}>
                         <g className="cbg-cuerpo">
                           <circle r={Math.max(r + 8 / kr, 16 / kr)} fill="transparent" />
@@ -508,9 +531,6 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                           </text>
                         )}
                       </g>
-                      </g>
-                    </g>
-                    </g>
                   </g>
                 );
               })}
@@ -568,11 +588,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
               el usuario enciende UNA distinción. Reemplaza a la leyenda, que explicaba
               rellenos que ya no codifican nada. */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 16px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 'var(--fs-sm)', color: 'var(--dim)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={colorear} onChange={(e) => setColorear(e.target.checked)} />
-              Colorear por área
-            </label>
-            {colorear && (
+            {(
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', marginTop: 11 }}>
                 {AREAS.map((a) => (
                   <button
