@@ -157,16 +157,26 @@ muestra «ya fue aplicada», no «no existe») y `duenoDePropuesta` usa el clien
 servicio, así que ve todos los workspaces. Para ver «ya no existe» **la fila tiene que no
 estar**: el id que llegó no es ninguno de los que se crearon.
 
-Lo que se hizo es la red, no la cura: si el id no existe y el que mira tiene UN solo
-borrador pendiente, se abre ése; con varios, se listan. Un id equivocado deja de ser un
-callejón sin salida.
+**RESUELTO.** Dos capas, y la segunda es la que cura:
 
-**Queda SIN hacer la cura de fondo:** que el link no dependa de que el modelo lo copie —
-mandarlo desde el código en un segundo mensaje, o exponer una ruta corta y estable
-(`/plan/revisar/ultimo`). Mientras eso no esté, el link puede seguir apuntando al
-borrador equivocado, que es el caso que la red NO ataja.
+1. *La red*, en la pantalla: si el id no existe y el que mira tiene UN solo borrador
+   pendiente, se abre ése; con varios, se listan. Un id equivocado deja de ser un
+   callejón sin salida — pero NO ataja el caso peor, el del borrador equivocado.
+2. *La cura*, en la salida del doer: **el link ya no lo escribe el modelo.**
+   `corregirLinkBorrador` (lib/link-borrador.ts) toma el link que devolvió la tool —el
+   id REAL— y corrige la respuesta antes de mandarla: si el modelo cambió un carácter lo
+   reemplaza, si usó otro host lo normaliza, si lo repitió lo deduplica y si se lo olvidó
+   lo agrega. Con 9 tests, uno por cada forma de fallar que se vio.
 
-**Vive en:** lib/mako-doer-acciones.ts (arma el link y la instrucción) · app/plan/revisar/[id]/page.tsx (la red) · app/plan/revisar/[id]/NoEsTuyo.tsx · *2026-08-08*
+Y cuando el modelo se equivoca queda un `console.warn` con los dos ids. Sin ese log no
+hay forma de saber si el problema sigue vivo, porque la corrección lo vuelve invisible.
+
+⚠️ **El otro camino que manda este link NO tenía el problema y conviene saber por qué:**
+`lib/reunion-destinatarios.ts` arma el texto del WhatsApp por código (`textoWhatsapp(…,
+link)`), sin modelo en el medio. La diferencia entre los dos caminos es exactamente la
+lección: **un dato exacto que pasa por las manos de un LLM deja de ser exacto.**
+
+**Vive en:** lib/link-borrador.ts + tests/link-borrador.test.ts (la cura) · lib/mako-doer-in.ts (donde se aplica) · app/plan/revisar/[id]/page.tsx y NoEsTuyo.tsx (la red) · *2026-08-08*
 
 ### Lo que quedó SIN hacer en las preguntas
 

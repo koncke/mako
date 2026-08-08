@@ -15,6 +15,7 @@
 
 import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
+import { corregirLinkBorrador, idDeLinkRevisar } from '@/lib/link-borrador';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
@@ -667,8 +668,24 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
     // dueño es "sí, dale" (ver pareceConfirmacion en mako-doer-acciones).
     const runnerAcciones = crearRunnerAcciones(wsData, jid, Date.now(), texto);
-    const runTool = async (name: string, input: Record<string, unknown>) =>
-      NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input);
+    // EL LINK DEL BORRADOR NO LO ESCRIBE EL MODELO.
+    //
+    // La tool devuelve el link con el id REAL; acá se lo guarda para corregir la
+    // respuesta antes de mandarla. El id son 17 caracteres al azar y pedirle a un LLM
+    // que los copie bien falló en prod de las dos formas: un link que no existía, y
+    // —peor— uno que resolvía a un borrador real pero equivocado.
+    // Ver lib/link-borrador.ts.
+    let linkBorrador: string | null = null;
+    const runTool = async (name: string, input: Record<string, unknown>) => {
+      const out = await (NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input));
+      if (typeof out === 'string' && out.includes('/plan/revisar/')) {
+        try {
+          const j = JSON.parse(out) as { link?: unknown };
+          if (typeof j.link === 'string' && j.link.includes('/plan/revisar/')) linkBorrador = j.link;
+        } catch { /* no era JSON: el link se corrige igual si aparece en el texto */ }
+      }
+      return out;
+    };
 
     // Si hay imagen/PDF, el último turno del usuario va con bloques (media + texto);
     // si no, texto plano. La memoria guarda siempre el placeholder de texto.
@@ -753,6 +770,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           respuesta = `⚠️ No pude responder ahora: falló la IA (${msg.slice(0, 140)}). Reintentá en un momento o avisá a soporte.`;
         }
       }
+    }
+    // EL LINK, CORREGIDO CONTRA EL ID REAL. Va acá y no en el prompt porque una
+    // instrucción no es una garantía: si el modelo cambió un carácter, lo escribió con
+    // otro host o directamente se lo olvidó, se arregla ahora. Y se deja rastro cuando
+    // se equivoca — sin el log no hay forma de saber si sigue pasando.
+    if (respuesta && linkBorrador) {
+      const antes = idDeLinkRevisar(respuesta);
+      respuesta = corregirLinkBorrador(respuesta, linkBorrador);
+      const bueno = idDeLinkRevisar(linkBorrador);
+      if (antes && antes !== bueno) console.warn(`[mako-doer-in] el modelo mandó el link del borrador MAL: «${antes}» → corregido a «${bueno}»`);
+      else if (!antes) console.warn('[mako-doer-in] el modelo no puso el link del borrador → agregado');
     }
     if (respuesta) {
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos

@@ -115,6 +115,15 @@ capas.** El texto en el prompt (para que el modelo acierte) y una validación
 determinista en el saneo (para cuando no acierte). Si la segunda no se puede escribir,
 la regla es una expresión de deseo y hay que decirlo en el comentario.
 
+El corolario que más cuesta ver: **un DATO EXACTO que pasa por las manos de un LLM deja
+de ser exacto.** El link de un borrador es `…/plan/revisar/propmskimbc4s4b4h` — 17
+caracteres al azar, sin ninguna redundancia. El código lo armaba bien y le pedía al
+modelo que lo mandara; falló de las dos formas, y la silenciosa es la peor: un link que
+resolvía a un borrador REAL pero equivocado. El mismo link, cuando lo escribe el código
+(`lib/reunion-destinatarios.ts`), nunca falló. Si un id, un número o una URL tienen que
+llegar intactos, **no los transporta el modelo**: los pone el código, o se corrigen
+contra el valor real antes de salir (`lib/link-borrador.ts`).
+
 Y cuando el saneo tenga que elegir entre dos señales que se contradicen, **gana la más
 cara de producir**. Un `tipo` es un token que el modelo tira sin pensar; una lista de
 opciones concretas sólo se escribe sabiendo qué contesta la pregunta. El saneo viejo
