@@ -113,6 +113,9 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Competitor Spy', emoji: '🕵️', familia: 'producto', que: 'El análisis de competencia: qué anuncia la competencia, qué ofertas hay en el mercado. (Se llamaba Market Analyst.)' },
   { nombre: 'Offer Analyst', emoji: '🏷️', familia: 'producto', que: 'El analista de la oferta del cliente: precio, promesa, garantía y qué la hace comprable.' },
   { nombre: 'Chat Analyst', emoji: '💭', familia: 'producto', que: 'El analista de las conversaciones: dónde se caen los chats, qué objeción aparece, qué responde mejor.' },
+  // Estaba en el tablero con 5 tareas y NO en el catálogo: un proyecto huérfano al que
+  // el ruteo no puede mandar nada, así que su trabajo se iba a desparramar solo.
+  { nombre: 'YouTube Analyst', emoji: '📺', familia: 'producto', que: 'El analista del canal de YouTube del cliente: qué video retiene, qué trae suscriptores y qué convierte.' },
   { nombre: 'CS Analyst', emoji: '🩺', familia: 'producto', que: 'Retención y customer success: anticipar la baja de un cliente.' },
   { nombre: 'Second Brain', emoji: '🧠', familia: 'producto', que: 'La vista que conecta las señales de todo el negocio y encuentra qué mover: el análisis transversal y sus conclusiones.' },
   { nombre: 'Preguntale a MaKo', emoji: '💡', familia: 'producto', que: 'El chat con MaKo dentro de la app: la conversación, el contexto que ve y los modos del consultor. NO es el chat por WhatsApp (eso es «Agente: MaKo Doer»).' },
