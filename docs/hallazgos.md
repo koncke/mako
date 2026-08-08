@@ -31,6 +31,8 @@ antes que todo lo demás:
 |---|---|
 | [mapa-del-proyecto.md](mapa-del-proyecto.md) | Qué es MaKo, cómo está armado y en qué estado está cada pieza. Lo que una sesión nueva necesita saber y no está en el código |
 | [dos-cuentas.md](dos-cuentas.md) | El protocolo de las dos cuentas de Claude sobre este clon: qué comparten, los dos modos de trabajo y el traspaso |
+| [conectores.md](conectores.md) | Qué conectores tiene la cuenta de Claude, cuáles se usan de verdad y en qué orden conectarlos al cambiar de cuenta |
+| [chats.md](chats.md) | Las 48 sesiones de trabajo: qué se hizo en cada una, qué quedó pendiente y dónde hubo fricción |
 | [corridas-multiagente.md](corridas-multiagente.md) | El registro de las 260 corridas de workflow: qué se fue a buscar en cada una y si dejó algo escrito |
 
 Documentos que todavía no existen y hay que crear cuando aparezca el primer hallazgo:

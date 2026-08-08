@@ -33,7 +33,7 @@ import { metaDeDocs } from './git-meta';
 export const dynamic = 'force-dynamic';
 
 /** Los que se abren primero: el orden en que conviene leerlos. */
-const PRIMEROS = ['AGENTS', 'mapa-del-proyecto', 'hallazgos', 'dos-cuentas', 'corridas-multiagente'];
+const PRIMEROS = ['AGENTS', 'mapa-del-proyecto', 'hallazgos', 'dos-cuentas', 'conectores', 'chats', 'corridas-multiagente'];
 
 function cargar(): { docs: Doc[]; error?: string } {
   const raiz = process.cwd();

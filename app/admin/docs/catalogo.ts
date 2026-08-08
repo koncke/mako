@@ -36,6 +36,14 @@ export const CATALOGO: Record<string, FichaDoc> = {
     grupo: 'Arranque', tabs: [],
     hace: ['Registro de las 260 corridas de workflow', 'Cuáles dejaron algo escrito'],
   },
+  chats: {
+    grupo: 'Arranque', tabs: [],
+    hace: ['Las 48 sesiones de trabajo: qué se hizo en cada una', 'Qué quedó pendiente y dónde hubo fricción'],
+  },
+  conectores: {
+    grupo: 'Arranque', tabs: [],
+    hace: ['Qué conectores tiene la cuenta de Claude', 'Cuáles se usan de verdad y en qué orden conectarlos'],
+  },
 
   // --- uno por área, que es donde vive el código ---
   'hallazgos-crm': {
