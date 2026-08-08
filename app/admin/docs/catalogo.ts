@@ -15,7 +15,7 @@ export type FichaDoc = {
   /** Las funcionalidades concretas, para reconocerlo sin abrirlo. */
   hace: string[];
   /** Para agrupar la lista. */
-  grupo: 'Arranque' | 'Por área' | 'Auditorías' | 'Referencia';
+  grupo: 'Arranque' | 'Por área' | 'Auditorías' | 'Referencia' | 'Chats';
 };
 
 export const CATALOGO: Record<string, FichaDoc> = {
@@ -116,4 +116,7 @@ export const CATALOGO: Record<string, FichaDoc> = {
   },
 };
 
-export const ORDEN_GRUPOS: FichaDoc['grupo'][] = ['Arranque', 'Por área', 'Auditorías', 'Referencia'];
+// «Chats» va último: son 49 transcripciones y taparían a los 22 documentos que
+// se leen de verdad. No están en el catálogo una por una —se reconocen por el
+// prefijo `chat-` del slug— porque son un archivo, no documentación curada.
+export const ORDEN_GRUPOS: FichaDoc['grupo'][] = ['Arranque', 'Por área', 'Auditorías', 'Referencia', 'Chats'];

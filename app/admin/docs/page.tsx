@@ -44,6 +44,17 @@ function cargar(): { docs: Doc[]; error?: string } {
 
     archivos.unshift({ slug: 'AGENTS', ruta: join(raiz, 'AGENTS.md'), rel: 'AGENTS.md' });
 
+    // Las transcripciones viven en su propia carpeta para no ahogar la lista:
+    // son 49 contra 22. Sus slugs arrancan con `chat-`, que es lo que las manda
+    // al grupo «Chats» del final.
+    try {
+      for (const f of readdirSync(join(raiz, 'docs', 'chats'))) {
+        if (f.endsWith('.md')) {
+          archivos.push({ slug: f.replace(/\.md$/, ''), ruta: join(raiz, 'docs', 'chats', f), rel: `docs/chats/${f}` });
+        }
+      }
+    } catch { /* todavía no hay transcripciones exportadas */ }
+
     const meta = metaDeDocs();
 
     const docs: Doc[] = archivos.map(({ slug, ruta, rel }) => {
@@ -108,7 +119,7 @@ export default async function DocsPage({ searchParams }: { searchParams: Promise
       slug: doc.slug,
       titulo: doc.titulo,
       lineas: doc.lineas,
-      grupo: doc.ficha?.grupo ?? 'Referencia',
+      grupo: doc.ficha?.grupo ?? (doc.slug.startsWith('chat-') ? 'Chats' : 'Referencia'),
       tabs: doc.ficha?.tabs ?? [],
       hits: busca ? doc.texto.toLowerCase().split(busca).length - 1 : 0,
     }))
