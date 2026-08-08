@@ -18,10 +18,17 @@
 // dos sesiones en paralelo no hay a quién preguntarle por una decisión
 // (docs/dos-cuentas.md).
 
-/** Las dos cuentas que trabajan este repo. El detalle, en docs/dos-cuentas.md. */
+/**
+ * Las dos cuentas que trabajan este repo. El detalle, en docs/dos-cuentas.md.
+ *
+ * ⚠️ La 2 es de **Leandro Tejado**, no de Martín (corregido el 8/8 por Martín). El
+ * `config` dice `.claude-martin` porque así se llamó la carpeta cuando se pensaba al
+ * revés: es una RUTA, no el dueño de la cuenta, y renombrarla movería los junctions
+ * de la memoria. No deduzcas de ahí quién está logueado.
+ */
 export const CUENTAS = {
   claude1: { n: 1, nombre: 'Mauricio', ventana: 'miércoles a viernes', config: '~\\.claude' },
-  claude2: { n: 2, nombre: 'Martín', ventana: 'sábado a martes', config: '~\\.claude-martin' },
+  claude2: { n: 2, nombre: 'Leandro Tejado', ventana: 'sábado a martes', config: '~\\.claude-martin' },
 } as const;
 
 export type Cuenta = keyof typeof CUENTAS;

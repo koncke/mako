@@ -1053,10 +1053,19 @@ funcionalidad, no como pantalla aparte («una nueva tab con un nuevo chat, cuand
 
 ### Decisiones de navegación
 
-- **Sidebar en tres secciones** (Operate / Create / Analyze), con renombres: *Content Machine*
-  reemplaza a *Ads Writer*, se agrega *Second Brain*, y *Market Analyst* pasa a *Competitor
-  Spy*. La ruta **siempre coincide con el nombre**. Las secciones tienen que distinguirse
-  visualmente de las tabs (2026-08-06).
+- **Sidebar en secciones (familias)**, con renombres: *Content Machine* reemplaza a *Ads
+  Writer*, se agrega *Second Brain*, y *Market Analyst* pasa a *Competitor Spy*. La ruta
+  **siempre coincide con el nombre**. Empezaron siendo tres (Operate / Create / Analyze) y
+  terminaron en **cuatro**: Content Machine se separó como familia propia el 7/8, porque no es
+  UNA herramienta sino un taller con secciones por canal (2026-08-06 → 2026-08-07).
+- ⚠️ **Una familia se distingue por su SUPERFICIE, no por su tipografía.** Se pidió cuatro
+  veces («haz bien esto de una vez») y las tres primeras fallaron por lo mismo: se intentó
+  diferenciarla con tamaño y color de texto, que es exactamente lo que hace un item activo —
+  así que en vez de separarlas, las confundía. Lo que funcionó: franja apenas más clara
+  cuando está desplegada, pastilla alrededor del ícono en el rail plegado, y el rótulo en
+  versalitas mono. **Regla: dos cosas de jerarquía distinta no pueden diferenciarse con el
+  mismo recurso visual que ya usa otro estado.** Cerrado el 2026-08-08.
+  *Vive en: app/_components/Sidebar.tsx · app/_components/nav.ts · app/_ui/ui.css (`.mk-navrow`)*
 - En el sidebar rediseñado, **«Create» pasa a «Sales Machine»**: Landing/VSL/Lead Magnet
   Generator · Chatbot/Sales Email/Newsletters · Closing Script/Sales Roleplay (2026-08-07).
 - **«Graphich» pasa a llamarse «Dashboard»** en sidebar, título, landing y ruta: «Dashboard es

@@ -78,8 +78,9 @@ el repo y **no depende de la cuenta**: ver [dos-cuentas.md](dos-cuentas.md).
 
 Checklist para la cuenta nueva:
 
-- [ ] Conectar **Fathom**. Si es la cuenta de Martín, es su propia cuenta de Fathom, no la
-      de Mauricio.
+- [ ] Conectar **Fathom**. Ojo: hay DOS cuentas de Fathom (la de Mauricio, que es la que
+      usa el producto, y la de Martín). Cuál corresponde depende de quién opera la cuenta
+      de Claude — preguntá, no lo asumas por el nombre del config dir.
 - [ ] Conectar **Google Drive** si va a tocar `/conocimientos`.
 - [ ] Conectar **Google Calendar** si va a tocar agenda u horarios.
 - [ ] El resto: solo si aparece la necesidad.

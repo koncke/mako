@@ -21,7 +21,19 @@ Ya están las funciones en el `$PROFILE` de PowerShell
 | Comando | Cuenta | Config dir | Ventana |
 |---|---|---|---|
 | `claude1` | Mauricio | `~\.claude` | miércoles a viernes |
-| `claude2` | Martín | `~\.claude-martin` | sábado a martes |
+| `claude2` | **Leandro Tejado** | `~\.claude-martin` | sábado a martes |
+
+⚠️ **La cuenta 2 es de Leandro Tejado, no de Martín** (corregido el 2026-08-08 por el
+propio Martín). Martín tiene su cuenta, pero **por ahora no se trabaja con ella**. El
+nombre del config dir `~\.claude-martin` quedó de cuando se pensaba al revés: es una
+ruta, no un dato — no deduzcas de ahí quién está logueado.
+
+⚠️ Y no deduzcas de ahí **ni del disco**: verificado el 2026-08-08, `~\.claude.json`
+declara `mbustos@elevate.com.mx` / «Mauricio» (de un login de julio) y
+`~\.claude-martin` **no tiene `.credentials.json`** — nunca se logueó por CLI. O sea que
+el config dir y lo que dice el archivo **no alcanzan** para saber qué cuenta está
+corriendo, sobre todo si la sesión se abrió desde la app de escritorio en vez de la
+terminal. Si necesitás saberlo, preguntá; no lo infieras.
 
 Las dos hacen `cd` al repo **antes** de arrancar, y las dos imprimen el estado de git
 al abrir. Eso no es decorativo: si aparecen archivos sin commitear, son de la otra
