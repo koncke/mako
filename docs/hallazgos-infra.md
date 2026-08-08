@@ -1324,6 +1324,18 @@ Es el mismo principio que `commit-tree` + `update-ref` para arreglar un mensaje 
 plumbing mueve referencias y el worktree ni se entera**, mientras que cualquier comando de
 porcelana (`stash`, `checkout`, `rebase`) le cambia los archivos abajo de los pies a la otra sesión.
 
+⚠️ **Y el mismo día pasó al revés: la otra sesión se llevó lo mío.** `git mv` no es como editar un
+archivo — **stagea en el acto**. Así que un renombre queda en el índice desde que lo hacés hasta que
+commiteás, y en ese hueco cualquier `git add -A` de la otra sesión se lo lleva. Fue exactamente lo
+que pasó con `app/admin/dev/ads-generator/` → `ads-writer/`: terminó adentro de `feddcc3`, un commit
+sobre el cruce del plan que no tiene nada que ver.
+
+No se pierde contenido y no rompe nada: el archivo queda en la ruta correcta. Se pierde la
+trazabilidad, y el commit deja de decir la verdad. La regla práctica: **si vas a renombrar, hacelo
+justo antes de commitear**, no al principio de la tanda — al revés de lo que pide la comodidad.
+Y no lo arregles reescribiendo historia si la otra sesión está viva: mover un cambio de archivo
+entre commits es un rebase encubierto, y el costo es peor que el problema.
+
 **Vive en:** global · casos testigo lib/mako-context.ts, app/_ui/ui.css · *2026-06-30 ~experimentos-medicion-y-ui + 2026-08-08 rediseño Parte 3*
 
 ### Separar las cuentas por `CLAUDE_CONFIG_DIR` también separa la memoria
