@@ -1,24 +1,26 @@
 'use client';
 
 // =============================================================================
-// Las nueve partes y el Change History
+// El Roadmap y el Change History — la pantalla de todo registro de área
 // =============================================================================
-// Es lo ÚNICO de esta pantalla que está escrito a mano, porque es lo único que
-// ningún código puede deducir: el porqué de cada cambio. Todo lo demás —la
-// barra, los íconos, las piezas— se monta de los componentes de verdad.
+// Nació adentro de la sub-tab del rediseño y se mueve acá cuando dejó de haber
+// una sola: Onboarding, General, Chatbot y Ads Generator tienen la misma
+// pantalla con otros datos. Lo único que cambia por área es el CONTENIDO —que
+// vive en el `bitacora.ts` de cada una— y eso es lo único que se escribe a
+// mano, porque es lo único que ningún código puede deducir: el porqué.
 //
-// Las filas arrancan PLEGADAS. Con 33 entradas y el pedido textual adentro, una
-// lista abierta son ~9.000 px: para llegar a la de abajo hay que scrollear un
-// rato, y no se puede barrer la historia de un vistazo. Plegada, el índice
-// entero entra en dos pantallas.
+// Las filas del historial arrancan PLEGADAS. Con más de treinta entradas y el
+// pedido textual adentro, una lista abierta son ~9.000 px: para llegar a la de
+// abajo hay que scrollear un rato y no se puede barrer la historia de un
+// vistazo. Plegada, el índice entero entra en dos pantallas.
 
 import { useEffect, useState } from 'react';
-import { Section, Avatar, MONO } from '@/app/_ui';
+import { Section, Avatar, EmptyState, MONO } from '@/app/_ui';
 // El mismo «ver más» del historial de Proyectos del plan. Vive ahí y no en
 // app/_ui porque nació ahí; se importa en vez de escribir un segundo.
 import { useVerMas } from '@/app/plan/board/VerMas';
 import { ClaudeMark } from '@/app/_components/icons';
-import { BITACORA, PARTES, CUENTAS, TIPOS, type Hito } from './bitacora';
+import { CUENTAS, TIPOS, type Hito, type Parte } from './tipos';
 
 /** `**negrita**` y `` `código` `` — lo mínimo para que el historial se lea. */
 export function texto(s: string) {
@@ -35,28 +37,32 @@ const CHIP = {
   cola: { t: 'En cola', bg: 'var(--surface-2)', c: 'var(--faint)' },
 } as const;
 
-// ── Las nueve partes ─────────────────────────────────────────────────────────
-export function Partes() {
+// ── Roadmap ──────────────────────────────────────────────────────────────────
+export function Roadmap({ partes }: { partes: Parte[] }) {
   return (
-    <Section titulo="Las nueve partes">
-      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-        {PARTES.map((p, i) => {
-          const c = CHIP[p.estado];
-          return (
-            <li key={p.titulo} style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) auto', gap: 14, alignItems: 'center', padding: '13px 16px', background: p.estado === 'hecha' ? 'var(--good-bg)' : 'var(--surface)' }}>
-              <span style={{ fontFamily: MONO, fontSize: 13, color: p.estado === 'hecha' ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{String(i + 1).padStart(2, '0')}</span>
-              <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>
-                {p.titulo}
-                <span style={{ display: 'block', fontWeight: 400, fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{p.detalle}</span>
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', background: c.bg, color: c.c, border: `1px solid ${p.estado === 'cola' ? 'var(--border-strong)' : `color-mix(in srgb, ${c.c} 35%, transparent)`}` }}>
-                {p.estado !== 'cola' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />}
-                {c.t}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+    <Section titulo="Roadmap">
+      {partes.length === 0 ? (
+        <EmptyState titulo="Sin fases todavía" detalle="Se escriben en el bitacora.ts de esta área." />
+      ) : (
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+          {partes.map((p, i) => {
+            const c = CHIP[p.estado];
+            return (
+              <li key={p.titulo} style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) auto', gap: 14, alignItems: 'center', padding: '13px 16px', background: p.estado === 'hecha' ? 'var(--good-bg)' : 'var(--surface)' }}>
+                <span style={{ fontFamily: MONO, fontSize: 13, color: p.estado === 'hecha' ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>
+                  {p.titulo}
+                  <span style={{ display: 'block', fontWeight: 400, fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{p.detalle}</span>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', background: c.bg, color: c.c, border: `1px solid ${p.estado === 'cola' ? 'var(--border-strong)' : `color-mix(in srgb, ${c.c} 35%, transparent)`}` }}>
+                  {p.estado !== 'cola' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />}
+                  {c.t}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </Section>
   );
 }
@@ -73,19 +79,16 @@ const COLOR = { claude: '#D97757', martin: '#2F6FED' } as const;
 function Meta({ h }: { h: Hito }) {
   const c = CUENTAS[h.cuenta];
   return (
-    <div className="mk-hist__meta" style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginTop: 3, fontSize: 'var(--fs-meta)', color: 'var(--faint)', lineHeight: 1.5 }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginTop: 3, fontSize: 'var(--fs-meta)', color: 'var(--faint)', lineHeight: 1.5 }}>
       <span style={{ fontFamily: MONO, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{h.fecha} · {h.hora}</span>
       <span aria-hidden>·</span>
       {/* El rótulo va tenue y el valor firme: así el ojo salta de un nombre de
-          chat al siguiente sin releer «Nombre del chat» treinta y tres veces.
-          Cada par rótulo+valor es UN item del flex, o el `gap` los separa. */}
+          chat al siguiente sin releer «Nombre del chat» treinta veces. */}
       <span style={{ minWidth: 0 }}>
         Nombre del chat: <span style={{ color: 'var(--dim)' }}>{h.chat}</span>
       </span>
       <span aria-hidden>·</span>
-      <span style={{ whiteSpace: 'nowrap' }} title={`${h.cuenta} · config ${c.config} · ventana ${c.ventana}`}>
-        Cuenta {c.n}: <span style={{ color: 'var(--dim)' }}>{c.nombre}</span>
-      </span>
+      <span style={{ whiteSpace: 'nowrap' }}>Cuenta {c.n}: <span style={{ color: 'var(--dim)' }}>{c.nombre}</span></span>
     </div>
   );
 }
@@ -158,18 +161,17 @@ function Detalle({ h }: { h: Hito }) {
   );
 }
 
-export function ChangeHistory() {
+export function ChangeHistory({ hitos }: { hitos: Hito[] }) {
   // El array se mantiene en orden cronológico —se agrega al final, que es lo
   // natural al escribirlo— pero se LEE al revés: lo último que pasó va arriba.
-  const recientes = [...BITACORA].reverse();
+  const recientes = [...hitos].reverse();
   const { visibles, boton } = useVerMas(recientes, { inicial: 14, tanda: 14, estilo: 'texto' });
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
-  // La foto de perfil del dueño, de `/api/perfil` (`usuarios.foto_url`): si la
-  // cambia en /perfil, cambia acá. El NOMBRE en cambio va fijo: el autor de
-  // estos pedidos es Martín, no «quien esté logueado» — en local con dev-login
-  // el perfil es «Dev (local)» y las iniciales saldrían «D(».
-  // Sin foto, `Avatar` cae a iniciales, que es el caso normal en esta app.
+  // La foto de perfil del dueño, de `/api/perfil` (`usuarios.foto_url`). El
+  // NOMBRE en cambio va fijo: el autor de estos pedidos es Martín, no «quien
+  // esté logueado» — en local con dev-login el perfil es «Dev (local)» y las
+  // iniciales saldrían «D(». Sin foto, `Avatar` cae a iniciales.
   const [foto, setFoto] = useState('');
   useEffect(() => {
     let vivo = true;
@@ -184,6 +186,17 @@ export function ChangeHistory() {
     if (s.has(k)) s.delete(k); else s.add(k);
     return s;
   });
+
+  if (hitos.length === 0) {
+    return (
+      <Section titulo="Change History">
+        <EmptyState
+          titulo="Todavía no hay historia"
+          detalle="Se llena trabajando: cada tanda deja una entrada en el bitacora.ts de esta área."
+        />
+      </Section>
+    );
+  }
 
   const todasAbiertas = visibles.every((h, i) => abiertas.has(h.titulo + i));
 
@@ -213,9 +226,7 @@ export function ChangeHistory() {
 
               <button type="button" className="mk-hist__cab" onClick={() => alternar(clave)} aria-expanded={abierta}>
                 <span style={{ display: 'flex', flex: 'none', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: h.actor === 'claude' ? 'color-mix(in srgb, #D97757 14%, transparent)' : 'transparent' }}>
-                  {h.actor === 'claude'
-                    ? <ClaudeMark size={17} />
-                    : <Avatar name="Martín" url={foto} size={28} />}
+                  {h.actor === 'claude' ? <ClaudeMark size={17} /> : <Avatar name="Martín" url={foto} size={28} />}
                 </span>
                 <span style={{ minWidth: 0, flex: 1 }}>
                   <span style={{ display: 'block', fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>

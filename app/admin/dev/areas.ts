@@ -17,6 +17,8 @@ export type AreaDev = {
   titulo: string;
   /** Qué parte del producto cubre, para que el registro no se solape con otro. */
   alcance: string;
+  /** La ruta del producto, para saltar de la bitácora a la pantalla real. */
+  verEnApp: string;
   /** Dónde vive el código de esa área: es lo primero que se pregunta. */
   vive: string[];
   /** El documento de hallazgos que ya cubre parte de esto, si existe. */
@@ -26,6 +28,7 @@ export type AreaDev = {
 export const AREAS: AreaDev[] = [
   {
     slug: 'onboarding',
+    verEnApp: '/onboarding',
     titulo: 'Onboarding',
     alcance: 'El wizard de alta del cliente y el hub de 10 tabs: fase, El Archivero, productos, avatares, razones, persona, ángulos.',
     vive: ['app/onboarding/', 'lib/onboarding-state.ts', 'lib/tab-onboarding-state.ts', 'lib/archivero.ts'],
@@ -33,6 +36,7 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'general',
+    verEnApp: '/general',
     titulo: 'General',
     alcance: 'La casa del cliente: el semáforo de salud, el reporte del día y lo que MaKo propone al entrar.',
     vive: ['app/general/', 'lib/reportes.ts', 'lib/meta-health.ts'],
@@ -40,6 +44,7 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'chatbot',
+    verEnApp: '/chatbot',
     titulo: 'Chatbot',
     alcance: 'El Chat Agent: jugadas, secuencias de nutrición, el ensayo y el hand-off al humano.',
     vive: ['app/chat-agent/', 'lib/nutricion.ts', 'lib/setting-estrategia.ts', 'lib/evolution-envio.ts'],
@@ -47,6 +52,7 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'ads-generator',
+    verEnApp: '/ads-writer',
     titulo: 'Ads Generator',
     alcance: 'La fábrica de creativos y de guiones: la Matriz avatar × razón, los ángulos y las estructuras.',
     vive: ['app/ads-writer/', 'app/onboarding/MatrizView.tsx', 'lib/guion-angulos.ts', 'lib/razones.ts'],

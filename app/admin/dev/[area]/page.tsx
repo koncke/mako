@@ -1,7 +1,25 @@
+// =============================================================================
+// /admin/dev/<area> — el registro de construcción de una tab del producto
+// =============================================================================
+// La misma idea que ya funciona en «MaKo UX/UI»: mientras se trabaja una tab,
+// queda escrito el ROADMAP (en qué fase está) y el CHANGE HISTORY (qué se
+// pidió, qué se hizo y por qué). Después, cambiar o debuguear esa tab no
+// arranca de cero.
+//
+// El contenido de cada área vive en su `bitacora.ts` y es lo ÚNICO escrito a
+// mano, porque es lo único que ningún código puede deducir. La pantalla es
+// compartida (`../_registro/Registro.tsx`): agregar un área es agregar datos,
+// no otra pantalla.
+//
+// Solo super-admin: es herramienta de construcción, no producto.
+
 import { notFound, redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
-import { Pagina, PageHeader, Section, EmptyState, MONO } from '@/app/_ui';
 import { areaDe } from '../areas';
+import { registroDe } from '../registros';
+import { RegistroArea } from './RegistroArea';
+
+export const dynamic = 'force-dynamic';
 
 export default async function AreaDevPage({ params }: { params: Promise<{ area: string }> }) {
   // El mismo guard que el resto de /admin: rol de AGENCIA, re-chequeado contra
@@ -14,36 +32,5 @@ export default async function AreaDevPage({ params }: { params: Promise<{ area: 
   const area = areaDe(slug);
   if (!area) notFound();
 
-  return (
-    <Pagina>
-      <PageHeader titulo={area.titulo} proposito={area.alcance} />
-
-      <Section titulo="Todavía no hay registro">
-        <EmptyState
-          titulo="Este registro se llena trabajando"
-          detalle={
-            <>
-              Mientras se trabaje esta tab, acá va quedando qué se decidió, qué se rompió y
-              qué falta — con el mismo molde que <a href="/admin/ui" style={{ color: 'var(--accent)' }}>MaKo UX/UI</a>:
-              catálogo de piezas arriba y Change History abajo.
-              {area.hallazgos ? (
-                <>
-                  {' '}Lo que ya se aprendió de esta área vive mientras tanto en{' '}
-                  <a href={`/admin/docs?d=${area.hallazgos}`} style={{ color: 'var(--accent)' }}>{area.hallazgos}</a>.
-                </>
-              ) : null}
-            </>
-          }
-        />
-      </Section>
-
-      <Section titulo="Dónde vive el código">
-        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {area.vive.map((v) => (
-            <li key={v} style={{ fontFamily: MONO, fontSize: 13, color: 'var(--dim)' }}>{v}</li>
-          ))}
-        </ul>
-      </Section>
-    </Pagina>
-  );
+  return <RegistroArea area={area} registro={registroDe(slug)} />;
 }

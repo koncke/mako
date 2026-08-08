@@ -24,46 +24,12 @@
 //
 // Se agrega AL FINAL del array (orden cronológico). La pantalla lo lee al revés.
 
-/** Las dos cuentas que trabajan este repo. El detalle, en docs/dos-cuentas.md. */
-export const CUENTAS = {
-  claude1: { n: 1, nombre: 'Mauricio', ventana: 'miércoles a viernes', config: '~\\.claude' },
-  claude2: { n: 2, nombre: 'Martín', ventana: 'sábado a martes', config: '~\\.claude-martin' },
-} as const;
+// Los tipos se mudaron a app/admin/dev/_registro/tipos.ts cuando dejó de haber
+// una sola bitácora: Onboarding, General, Chatbot y Ads Generator tienen la
+// suya y se pintan con el mismo componente.
+import type { Hito, Parte } from '@/app/admin/dev/_registro/tipos';
 
-export type Cuenta = keyof typeof CUENTAS;
-
-/** Quién produjo la entrada. Define el color, el avatar y el rótulo. */
-export type Actor = 'martin' | 'claude';
-
-export const TIPOS = {
-  prompt: 'Prompt',
-  implementacion: 'Implementación',
-  investigacion: 'Investigación',
-  correccion: 'Corrección',
-  cosecha: 'Cosecha',
-} as const;
-
-export type Tipo = keyof typeof TIPOS;
-
-export type Commit = { sha: string; msg: string; lineas: number; archivos: number };
-
-export type Hito = {
-  fecha: string;
-  hora: string;
-  /** Título de la sesión de Claude Code donde pasó. */
-  chat: string;
-  cuenta: Cuenta;
-  actor: Actor;
-  tipo: Tipo;
-  titulo: string;
-  /** El pedido TEXTUAL del dueño. Solo en los de tipo `prompt`. */
-  pedido?: string;
-  puntos: string[];
-  /** Los commits que salieron de esto. */
-  commits?: Commit[];
-  /** Qué archivo hace qué, para no tener que buscarlo. */
-  archivos?: string[];
-};
+export type { Hito, Parte };
 
 // El título real de la sesión, no uno inventado.
 const CH = 'Rediseño por partes';
@@ -445,8 +411,6 @@ export const BITACORA: Hito[] = [
 ];
 
 /** Las nueve partes del rediseño y en qué anda cada una. */
-export type Parte = { titulo: string; detalle: string; estado: 'hecha' | 'sigue' | 'cola' };
-
 export const PARTES: Parte[] = [
   { titulo: 'Los cimientos', detalle: 'Un solo dorado · biblioteca de primitives · los 8 estados · bases mobile', estado: 'hecha' },
   { titulo: 'App Shell', detalle: 'Navegación por intención · PageHeader · Section', estado: 'hecha' },

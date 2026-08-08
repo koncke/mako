@@ -22,7 +22,8 @@ import {
 } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
-import { Partes, ChangeHistory } from './Rediseno';
+import { Roadmap, ChangeHistory } from '@/app/admin/dev/_registro/Registro';
+import { BITACORA, PARTES } from './bitacora';
 import { LaSidebar, LosIconos } from './Barra';
 import { LaMarca } from './Marca';
 
@@ -33,7 +34,9 @@ const TONOS: Tono[] = ['mako', 'info', 'good', 'warn', 'bad', 'neutral'];
  * detalle de otra—, que es la condición para que sean tabs y no navegación.
  */
 const TABS: Tab[] = [
-  { id: 'rediseno', label: 'Rediseño' },
+  // La `id` sigue siendo 'rediseno' aunque el label cambió: está escrita en la
+  // URL (?tab=) y en links ya mandados. Se renombra el label, no la clave.
+  { id: 'rediseno', label: 'Roadmap' },
   { id: 'sidebar', label: 'Sidebar' },
   { id: 'iconos', label: 'Íconos' },
   { id: 'marca', label: 'Marca' },
@@ -100,7 +103,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
 
       <Tabs tabs={TABS} activa={tab} onCambio={irA} />
 
-      {tab === 'rediseno' && <><Partes /><ChangeHistory /></>}
+      {tab === 'rediseno' && <><Roadmap partes={PARTES} /><ChangeHistory hitos={BITACORA} /></>}
       {tab === 'sidebar' && <LaSidebar />}
       {tab === 'iconos' && <LosIconos />}
       {tab === 'marca' && <LaMarca />}
