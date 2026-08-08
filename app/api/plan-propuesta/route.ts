@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, guardarRevision, preguntasParaCargar, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, guardarRevision, preguntasParaCargar, tareasDesdeRespuestas, getPropuesta, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -122,6 +122,17 @@ export async function POST(req: NextRequest) {
       // sella el borrador para que ese análisis no se repita en cada apertura.
       const ok = await guardarRevision(id, tareas, body.cruzado === true);
       return NextResponse.json({ ok });
+    }
+    // Las tareas que SALEN de lo que el dueño contestó en el wizard. No crean nada:
+    // se muestran en el último paso, con checkbox y contexto editable.
+    if (action === 'tareas-extra') {
+      const prop = await getPropuesta(id);
+      if (!prop) return NextResponse.json({ ok: false, error: 'No existe la propuesta.' }, { status: 404 });
+      const respuestas = Array.isArray(body.respuestas)
+        ? (body.respuestas as unknown[]).map((r) => { const o = (r ?? {}) as Record<string, unknown>; return { pregunta: String(o.pregunta ?? ''), respuesta: String(o.respuesta ?? '') }; })
+        : [];
+      const tareas = await tareasDesdeRespuestas(prop.tareas.filter((t) => !t.esDeOtro).map((t) => ({ titulo: t.titulo, detalle: t.detalle })), respuestas);
+      return NextResponse.json({ ok: true, tareas });
     }
     if (action === 'preguntar') {
       // Las preguntas de contexto para EXACTAMENTE lo que se va a cargar (no para todo

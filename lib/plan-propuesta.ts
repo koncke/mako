@@ -20,6 +20,7 @@ import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import { sanearPregunta, avisoSaneo, apuntarSobre, CONTRATO_TIPOS_PREGUNTA, JSON_PREGUNTAS, type Pregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
 import { corregirMarca } from '@/lib/mako-gramatica';
+import { MOLDE_DETALLE } from '@/lib/detalle-contrato';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
 
 type Row = Record<string, unknown>;
@@ -494,6 +495,80 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
     // funnels se lee como una pregunta al azar, aunque la pregunta sea pertinente.
     .map((p) => ({ ...p, sobre: apuntarSobre(p.pregunta, p.sobre, universo) }))
     .slice(0, 40);
+}
+
+// ── Tareas que SALEN de lo que el dueño contestó ─────────────────────────────
+// Una «idea» tirada por WhatsApp casi nunca es una tarea: es un proyecto. El dueño
+// manda una línea, MaKo pregunta cuatro cosas, y de esas respuestas aparece trabajo
+// que no estaba en el borrador original — y hasta acá se perdía, porque el wizard solo
+// sabía crear lo que ya venía escrito. La regla del dueño: «dale la libertad al perro
+// de decidir si debe agregar más tareas».
+//
+// Nada se crea solo: lo que devuelve esto se muestra en el último paso del wizard, con
+// checkbox y con el contexto editable, igual que las tareas de una reunión.
+const TAREAS_EXTRA_SYSTEM = `Sos el Perro Guardián de MaKo. El dueño está por cargar unas tareas al plan y acaba de contestar unas preguntas de contexto. Tu trabajo: decidir si de esas respuestas SALE TRABAJO QUE NO ESTÁ EN LA LISTA.
+
+VOS decidís cuántas: pueden ser NINGUNA, una, o siete. No hay cuota. El caso típico es que lo que entró como UNA idea suelta sea en realidad un proyecto entero, y ahí faltan los pasos.
+
+⛔ NO REPITAS lo que ya está. Te paso las tareas que se van a cargar: si lo que ibas a proponer ya está escrito ahí —aunque sea con otras palabras— no lo propongas. Un duplicado acá es peor que una tarea de menos, porque el dueño ya revisó esa lista.
+⛔ NO INVENTES. Cada tarea nueva tiene que SALIR de algo que él dijo en las respuestas. Si no podés señalar la frase de la que sale, no la propongas.
+⛔ NADA de tareas de relleno tipo «revisar», «hacer seguimiento», «documentar el proceso» o «definir la estrategia». Una tarea es algo que alguien HACE y que se puede dar por terminado.
+
+QUÉ SÍ proponer:
+· El paso que la respuesta reveló que falta ANTES o DESPUÉS de lo que ya está («no puedo grabar hasta tener el guion» → falta el guion).
+· El bloqueo que nombró y que nadie va a resolver solo.
+· Lo que dijo al pasar como si fuera obvio y no está anotado en ninguna parte.
+· Cuando una tarea de la lista es en realidad TRES: proponé las que faltan, sin repetir la original.
+
+CÓMO SE ESCRIBE CADA UNA:
+· "titulo": el trabajo concreto, arranca con un verbo, sin jerga. Se entiende sin leer nada más.
+· "detalle": con el molde de abajo. En «Por qué» va la FRASE TEXTUAL del dueño entre « » de la que sale la tarea — es lo que le deja verificar de un vistazo que no la inventaste.
+· "porQue": una línea, para la pantalla: de qué respuesta salió.
+⛔ El "proyecto" NO lo elegís vos: lo decide el ruteo del Perro al aplicar. No lo mandes.
+
+{{molde}}
+
+Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown):
+{ "tareas": [ { "titulo": "<con un verbo>", "detalle": "<con el molde>", "porQue": "<de qué respuesta sale>" } ] }
+Español rioplatense. Si de las respuestas no sale nada nuevo, { "tareas": [] } — y es la respuesta más común.`;
+
+export type TareaExtra = { titulo: string; detalle: string; porQue: string };
+
+/**
+ * Las tareas que aparecieron al contestar. Devuelve [] cuando no hay nada nuevo, que es
+ * lo normal: esto NO tiene que producir tareas para justificar la llamada.
+ */
+export async function tareasDesdeRespuestas(
+  tareas: Array<{ titulo: string; detalle?: string }>,
+  respuestas: Array<{ pregunta: string; respuesta: string }>,
+): Promise<TareaExtra[]> {
+  const respStr = (respuestas || []).filter((r) => r?.respuesta?.trim()).map((r) => `P: ${r.pregunta}\nR: ${r.respuesta}`).join('\n\n');
+  if (!respStr.trim() || !tareas.length) return [];
+  const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.detalle ? ` — ${paraPrompt(t.detalle)}` : ''}`).join('\n');
+  const system = TAREAS_EXTRA_SYSTEM.replace('{{molde}}', MOLDE_DETALLE);
+  const user = `TAREAS QUE YA SE VAN A CARGAR (no las repitas):\n${lista}\n\nLO QUE CONTESTÓ EL DUEÑO:\n${respStr}\n\n¿Sale de ahí algún trabajo que NO esté en la lista? JSON.`;
+  const raw = await chatCheapCascade({ system, user, maxTokens: 4000, feature: 'mako-guardian', motivo: 'Tareas que salen de las respuestas del wizard' }).catch(() => '');
+  if (!raw) return [];
+  let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
+  const yaEstan = tareas.map((t) => normTitulo(t.titulo));
+  return asArr<unknown>(obj.tareas)
+    .map((t) => {
+      const o = (t ?? {}) as Record<string, unknown>;
+      const titulo = corregirMarca(str(o.titulo).trim()).slice(0, 200);
+      return titulo ? { titulo, detalle: corregirMarca(str(o.detalle)).slice(0, 6000), porQue: str(o.porQue).trim().slice(0, 300) } : null;
+    })
+    .filter((t): t is TareaExtra => !!t)
+    // El «no repitas» del prompt no alcanza: se verifica. Mismo criterio de dedup que
+    // usa el resto del riel (lib/tareas-dedup), no una comparación de strings.
+    .filter((t) => {
+      const n = normTitulo(t.titulo);
+      if (yaEstan.some((y) => y === n || mismaTarea(y, t.titulo))) {
+        console.warn(`[plan-propuesta] tarea extra descartada por repetida: «${t.titulo.slice(0, 60)}»`);
+        return false;
+      }
+      return true;
+    })
+    .slice(0, 12);
 }
 
 // ── Preguntas sobre LO QUE SE VA A CARGAR ────────────────────────────────────

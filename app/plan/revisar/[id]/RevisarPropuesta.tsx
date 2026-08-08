@@ -11,8 +11,12 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { WizardShell } from '../../../_components/WizardShell';
 import { PreguntaCampo } from '../../board/guardian-form';
+import { FilaCandidata, type FilaTarea } from '../../board/ReunionTareas';
 import { ayudaDePregunta } from '@/lib/preguntas-contrato';
 import type { Propuesta, PropuestaPregunta } from '@/lib/plan-propuesta';
+
+/** Una tarea propuesta por el Perro a partir de las respuestas, con su estado en la UI. */
+type TareaExtraUI = { titulo: string; detalle: string; porQue: string; incluir: boolean };
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -66,7 +70,7 @@ function Mensaje({ texto, sub, ok, link }: { texto: string; sub?: string; ok?: b
 // tarea. Si detecta que se está subiendo una que ya está, debe procesarlo internamente
 // y decidir solo: ignorarla o ampliar el contexto de la que ya existe». Eso ahora pasa
 // en el server (aplicarPropuestas), sin pantalla y sin checkbox.
-type Step = { kind: 'cerrar'; i: number } | { kind: 'q'; i: number } | { kind: 'dyn'; i: number } | { kind: 'confirm' };
+type Step = { kind: 'cerrar'; i: number } | { kind: 'q'; i: number } | { kind: 'dyn'; i: number } | { kind: 'extra' } | { kind: 'confirm' };
 
 /** Un cierre propuesto: el título de la tarjeta, la evidencia, y las tres respuestas.
  *  «Está a medias» existe porque es la respuesta REAL más frecuente: de 27 candidatas
@@ -122,6 +126,12 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [dynResp, setDynResp] = useState<Record<number, string>>({});
   const [dynFetched, setDynFetched] = useState(false);
   const [dynLoading, setDynLoading] = useState(false);
+  /** Las tareas que SALIERON de lo que contestó. Nacen tildadas —el Perro las propuso
+   *  desde sus propias palabras— pero se destildan con un clic, y el contexto se corrige
+   *  ahí mismo. Es el mismo trato que las tareas de una reunión. */
+  const [extras, setExtras] = useState<TareaExtraUI[]>([]);
+  const [extrasFetched, setExtrasFetched] = useState(false);
+  const [extrasLoading, setExtrasLoading] = useState(false);
   /** Respuesta por cierre: 'si' cierra, 'medias' sube el avance y suma la evidencia,
    *  'no' no toca nada. Sin responder = 'no': el default nunca cierra sola. */
   const [cierreResp, setCierreResp] = useState<Record<number, 'si' | 'medias' | 'no'>>({});
@@ -132,18 +142,22 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return;
-      const s = JSON.parse(raw) as { paso?: number; resp?: Record<number, string>; dynQs?: PropuestaPregunta[]; dynResp?: Record<number, string>; dynFetched?: boolean };
+      const s = JSON.parse(raw) as { paso?: number; resp?: Record<number, string>; dynQs?: PropuestaPregunta[]; dynResp?: Record<number, string>; dynFetched?: boolean; extras?: TareaExtraUI[]; extrasFetched?: boolean };
       if (Array.isArray(s.dynQs)) setDynQs(s.dynQs);
       if (s.dynResp) setDynResp(s.dynResp);
       if (s.dynFetched) setDynFetched(true);
+      if (Array.isArray(s.extras)) setExtras(s.extras);
+      if (s.extrasFetched) setExtrasFetched(true);
       if (s.resp) setResp(s.resp);
       if (typeof s.paso === 'number') setPaso(s.paso);
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ paso, resp, dynQs, dynResp, dynFetched })); } catch { /* ignore */ }
-  }, [LS_KEY, paso, resp, dynQs, dynResp, dynFetched]);
+    // Las tareas extra van al localStorage como todo lo demás: son trabajo del dueño
+    // (las destildó, les corrigió el texto) y un F5 no puede tirarlo.
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ paso, resp, dynQs, dynResp, dynFetched, extras, extrasFetched })); } catch { /* ignore */ }
+  }, [LS_KEY, paso, resp, dynQs, dynResp, dynFetched, extras, extrasFetched]);
   const irPlan = () => { window.location.href = '/plan'; };
   // Las tareas que ESTE wizard va a crear son solo las MÍAS: el server descarta las de
   // otras personas (aplicarPropuestas filtra esDeOtro), que viajan a SU tablero por su
@@ -185,22 +199,51 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     ...cierres.map((_, i) => ({ kind: 'cerrar' as const, i })),
     ...prop.preguntas.map((_, i) => ({ kind: 'q' as const, i })),
     ...dynQs.map((_, i) => ({ kind: 'dyn' as const, i })),
+    // El paso de las tareas que SALIERON de las respuestas. Solo aparece si el Perro
+    // encontró alguna: un paso vacío que diga «no hay nada» es un clic de más.
+    ...(extras.length ? [{ kind: 'extra' as const }] : []),
     { kind: 'confirm' as const },
   ];
   const cur = steps[Math.min(paso, steps.length - 1)];
   const esUltimo = paso >= steps.length - 1;
+  const nExtra = extras.filter((e) => e.incluir).length;
 
-  // Avanzar: al pasar de la ÚLTIMA pregunta inicial, MaKo genera repreguntas dinámicas
-  // (una sola vez) con las respuestas dadas y las inserta como pasos antes de seguir.
+  /** Todas las respuestas dadas, en el formato que espera el server. */
+  const respuestasDadas = () => [
+    ...prop.preguntas.map((q, i) => ({ pregunta: q.pregunta, respuesta: (resp[i] || '').trim() })),
+    ...dynQs.map((q, i) => ({ pregunta: q.pregunta, respuesta: (dynResp[i] || '').trim() })),
+  ].filter((r) => r.respuesta);
+
+  // Avanzar. Dos cosas pasan solas al terminar de contestar, y en este orden:
+  //   1. al salir de la ÚLTIMA pregunta inicial → las repreguntas dinámicas;
+  //   2. al salir de la última pregunta DE TODAS → las tareas que salieron de lo
+  //      contestado. Una «idea» tirada por WhatsApp casi nunca es una tarea: es un
+  //      proyecto, y los pasos que faltan recién aparecen cuando el dueño contesta.
   const avanzar = async () => {
     const enUltimaInicial = cur.kind === 'q' && cur.i === prop.preguntas.length - 1;
     if (enUltimaInicial && !dynFetched && prop.preguntas.length > 0) {
       setDynLoading(true);
       try {
-        const respuestas = prop.preguntas.map((q, i) => ({ pregunta: q.pregunta, respuesta: (resp[i] || '').trim() })).filter((r) => r.respuesta);
-        const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'profundizar', id: prop.id, respuestas }) }).then((x) => x.json());
-        if (r?.ok && Array.isArray(r.preguntas) && r.preguntas.length) setDynQs(r.preguntas as PropuestaPregunta[]);
-      } catch { /* sin repreguntas: seguimos */ } finally { setDynFetched(true); setDynLoading(false); }
+        const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'profundizar', id: prop.id, respuestas: respuestasDadas() }) }).then((x) => x.json());
+        if (r?.ok && Array.isArray(r.preguntas) && r.preguntas.length) { setDynQs(r.preguntas as PropuestaPregunta[]); setDynFetched(true); setDynLoading(false); setPaso((p) => p + 1); return; }
+      } catch { /* sin repreguntas: seguimos */ }
+      setDynFetched(true); setDynLoading(false);
+    }
+    // ¿Es la última pregunta que queda? Entonces toca buscar las tareas nuevas.
+    const ultimaPregunta = (cur.kind === 'dyn' && cur.i === dynQs.length - 1)
+      || (cur.kind === 'q' && cur.i === prop.preguntas.length - 1 && dynQs.length === 0);
+    if (ultimaPregunta && !extrasFetched) {
+      setExtrasFetched(true);
+      const dadas = respuestasDadas();
+      if (dadas.length) {
+        setExtrasLoading(true);
+        try {
+          const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'tareas-extra', id: prop.id, respuestas: dadas }) }).then((x) => x.json());
+          if (r?.ok && Array.isArray(r.tareas) && r.tareas.length) {
+            setExtras((r.tareas as Array<{ titulo: string; detalle: string; porQue: string }>).map((t) => ({ ...t, incluir: true })));
+          }
+        } catch { /* sin extras: seguimos */ } finally { setExtrasLoading(false); }
+      }
     }
     setPaso((p) => p + 1);
   };
@@ -215,7 +258,14 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       ].filter(Boolean).join('\n');
       const cerrarIds = cierres.filter((_, i) => cierreResp[i] === 'si').map((c) => c.id);
       const aMediasIds = cierres.filter((_, i) => cierreResp[i] === 'medias').map((c) => c.id);
-      const body = action === 'aplicar' ? { action, id: prop.id, contexto, cerrarIds, aMediasIds } : { action, id: prop.id };
+      // Las del borrador MÁS las que salieron de las respuestas y quedaron tildadas.
+      // Van juntas y en una sola lista: el Perro las puntúa y las rutea en la misma
+      // pasada, así que una tarea que apareció recién compite de igual a igual con las
+      // que ya venían — que es justamente el punto de que las decida él.
+      const tareas = action === 'aplicar' && nExtra
+        ? [...mias, ...extras.filter((e) => e.incluir).map((e) => ({ titulo: e.titulo, detalle: e.detalle }))]
+        : undefined;
+      const body = action === 'aplicar' ? { action, id: prop.id, contexto, cerrarIds, aMediasIds, ...(tareas ? { tareas } : {}) } : { action, id: prop.id };
       const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((res) => res.json());
       if (!r.ok) { setError(r.error || 'No se pudo.'); setBusy(false); return; }
       try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ } // ya se aplicó/descartó
@@ -239,15 +289,17 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     return <Mensaje ok texto={done === 'aplicada' ? hecho : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
   }
 
-  const crearLabel = !soloCierres ? `Crear ${nT}`
+  const totalCrear = nT + nExtra;
+  const crearLabel = !soloCierres ? `Crear ${totalCrear}`
     : nSi ? `Cerrar ${nSi}`
     : nMedias ? `Guardar el avance de ${nMedias}`
       : 'Listo';
   const pregunta = cur.kind === 'cerrar' ? `¿«${cierres[cur.i]?.titulo || 'esta tarea'}» ya está hecha?`
     : cur.kind === 'q' ? (prop.preguntas[cur.i]?.pregunta || '…')
     : cur.kind === 'dyn' ? (dynQs[cur.i]?.pregunta || '…')
+    : cur.kind === 'extra' ? (extras.length === 1 ? 'De lo que contestaste sale una tarea más' : `De lo que contestaste salen ${extras.length} tareas más`)
     : soloCierres ? (fraseCierre ? `Listo — ${fraseCierre}` : 'No queda nada para cerrar')
-      : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
+      : `Listo — creo ${totalCrear} tarea${totalCrear === 1 ? '' : 's'}${enProy}`;
   // La ayuda de abajo del enunciado SALE DEL TIPO. Estaba hardcodeada en «Elegí una
   // opción o escribí la tuya» y se mostraba igual sobre una escala del 1 al 5, donde no
   // hay ni opciones ni dónde escribir: el renglón que explica cómo contestar decía una
@@ -255,6 +307,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const qActual = cur.kind === 'q' ? prop.preguntas[cur.i] : cur.kind === 'dyn' ? dynQs[cur.i] : undefined;
   const sub = cur.kind === 'cerrar' ? 'La tengo en tu tablero abierta, pero encontré esto. Vos decidís.'
     : qActual ? ayudaDePregunta(qActual.tipo, qActual.opciones.length > 0)
+    : cur.kind === 'extra' ? 'Destildá lo que no vaya y corregí lo que haga falta. El proyecto y la prioridad los pone el Perro.'
     : soloCierres ? 'Las que dijiste que no, quedan abiertas tal cual estaban.'
       : 'El Perro Guardián las prioriza, las describe y les arma la checklist. La revisión final la ves en el plan.';
 
@@ -265,8 +318,8 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       // de poder leer la pregunta. El texto completo va abajo, en ContextoDelBorrador.
       titulo={soloCierres ? `Borrador · ${nC} para revisar` : `Borrador · ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`}
       total={steps.length} idx={Math.min(paso, steps.length - 1)}
-      pregunta={dynLoading ? 'MaKo está pensando…' : busy ? (soloCierres ? 'Guardando…' : 'Creando…') : pregunta} sub={dynLoading || busy ? undefined : sub}
-      puedeAvanzar={!busy && !dynLoading} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy || dynLoading}
+      pregunta={dynLoading || extrasLoading ? 'MaKo está pensando…' : busy ? (soloCierres ? 'Guardando…' : 'Creando…') : pregunta} sub={dynLoading || extrasLoading || busy ? undefined : sub}
+      puedeAvanzar={!busy && !dynLoading && !extrasLoading} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy || dynLoading || extrasLoading}
       atrasLabel={paso === 0 ? 'Cancelar' : 'Atrás'} siguienteLabel="Siguiente →"
       error={error || undefined}
       // No se puede cerrar a mitad (sin ✕, sin backdrop): si cerrás perdés las
@@ -280,6 +333,9 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     >
       {dynLoading ? (
         <DynLoader texto="MaKo está mirando tus respuestas…" />
+      ) : extrasLoading ? (
+        <DynLoader texto="El Perro está viendo si de tus respuestas sale más trabajo…"
+          sub="Una idea suelta suele ser un proyecto entero: los pasos que faltan recién aparecen cuando contestás." />
       ) : busy ? (
         /* El aplicado es LARGO de verdad: crea las tareas y después el Perro las
            puntúa por tandas. Antes acá seguía dibujándose el cuerpo del último paso y
@@ -302,6 +358,27 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
           <SobreQue sobre={dynQs[cur.i]?.sobre} />
           <PreguntaCampo q={dynQs[cur.i]} value={dynResp[cur.i] || ''} onChange={(v) => setDynResp((r) => ({ ...r, [cur.i]: v }))} />
         </>
+      ) : cur.kind === 'extra' ? (
+        // LA MISMA FILA que el modal de una reunión (FilaCandidata): checkbox para
+        // dejarla entrar o no, y «corregir contexto» para arreglar el título y el
+        // detalle ahí mismo. Es la misma decisión, así que es la misma pieza.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
+          {extras.map((e, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <FilaCandidata
+                f={{ titulo: e.titulo, detalle: e.detalle, prioridad: 'media', incluir: e.incluir } as FilaTarea}
+                onFila={(patch) => setExtras((xs) => xs.map((x, k) => (k === i ? { ...x, ...patch } as TareaExtraUI : x)))}
+                personas={[]}
+              />
+              {/* De qué respuesta salió. Es lo que deja verificar de un vistazo que el
+                  Perro no la inventó: sin esto, una tarea que apareció sola se lee como
+                  ruido y se destilda por las dudas. */}
+              {e.porQue && (
+                <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.45, paddingLeft: 32 }}>↳ {e.porQue}</div>
+              )}
+            </div>
+          ))}
+        </div>
       ) : (
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>

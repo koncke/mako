@@ -637,7 +637,10 @@ function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard, delTablero
   );
 }
 
-function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null; personas: PersonaRef[]; onAbrirTarea?: (id: string) => void }) {
+/** Exportada para que el wizard de /plan/revisar use LA MISMA fila que el modal de una
+ *  reunión: mismo checkbox, mismo «corregir contexto», mismo alto. Son la misma
+ *  decisión («¿esta tarea entra o no?») y el dueño ya la conoce de un lado. */
+export function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null; personas: PersonaRef[]; onAbrirTarea?: (id: string) => void }) {
   const [editando, setEditando] = useState(false);
   const [reasignando, setReasignando] = useState(false);
   const momentos = momentosDe(f);

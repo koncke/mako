@@ -223,6 +223,34 @@ mandó una tarea de heatmaps a «Vender MaKo».
 
 **Vive en:** lib/plan-proyectos-catalogo.ts (PREFIJO_AGENTE, las 8 entradas de familia 'agente') · docs/preguntas-para-llenar-proyectos.md · *2026-08-08*
 
+### Una «idea» tirada por WhatsApp casi nunca es una tarea: es un proyecto
+
+El wizard de revisión solo sabía crear lo que YA venía escrito en el borrador. Pero el
+uso real es otro: el dueño manda una línea por WhatsApp, MaKo pregunta cuatro cosas, y de
+esas respuestas aparece trabajo que nadie anotó — «esa idea termina siendo todo un
+proyecto con diferentes tareas». Ese trabajo se perdía: quedaba como texto en el contexto
+que lee el Perro, y nada más.
+
+Ahora, al terminar de contestar, el Perro decide **con libertad** si de las respuestas
+sale más trabajo (`tareasDesdeRespuestas`). Devolver cero es la respuesta más común y está
+escrito así en el prompt: esto no tiene que producir tareas para justificar la llamada.
+
+Dos decisiones que valen para cualquier cosa parecida:
+
+1. **Se reusa `FilaCandidata`, la misma fila del modal de una reunión.** Es la misma
+   decisión del usuario («¿esta tarea entra o no?») con el mismo gesto (checkbox +
+   «corregir contexto»), así que tiene que ser la misma pieza. Se exportó en vez de
+   escribir una segunda — que es como nacieron los dos renderizadores de preguntas.
+2. **Cada tarea propuesta muestra DE QUÉ RESPUESTA salió** (`porQue`, y en el «Por qué»
+   del detalle va la frase textual del dueño). Sin eso, una tarea que aparece sola se lee
+   como ruido y se destilda por las dudas: la trazabilidad es lo que la vuelve creíble.
+
+Y el «no repitas lo que ya está» del prompt **se verifica en código** con `mismaTarea`
+(lib/tareas-dedup), no se confía. Un duplicado acá es peor que una tarea de menos, porque
+el dueño ya revisó esa lista.
+
+**Vive en:** lib/plan-propuesta.ts (`tareasDesdeRespuestas`, TAREAS_EXTRA_SYSTEM) · app/api/plan-propuesta/route.ts (acción `tareas-extra`) · app/plan/revisar/[id]/RevisarPropuesta.tsx (paso `extra`) · app/plan/board/ReunionTareas.tsx (FilaCandidata, ahora exportada) · *2026-08-08*
+
 ### Lo que quedó SIN hacer en las preguntas
 
 Confirmado por la auditoría del 2026-08-08 (30 hallazgos verificados) y deliberadamente
