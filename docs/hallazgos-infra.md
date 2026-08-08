@@ -854,6 +854,47 @@ jugadas duplicadas sin que nadie haya tocado nada.
 
 ## Build, deploy y entrega
 
+### Agregar archivos a `docs/` rompe el build, y el error apunta al lugar equivocado
+
+**Síntoma:** el build falla —local y en Vercel— con
+`CssSyntaxError: tailwindcss: app/globals.css:1:1: Invalid code point 1941695`.
+Esa línea es `@import "tailwindcss"` y está intacta desde hace meses. El commit
+que lo rompió no toca una sola línea de CSS.
+
+**Causa:** Tailwind 4 detecta sus fuentes **solo**, y eso significa escanear el repo
+entero buscando nombres de clase — `docs/` incluido. Al guardar ahí las transcripciones
+de los chats (~9 MB de markdown) su escáner se ahoga y escupe un code point **fuera del
+rango de Unicode**: 1941695 = `0x1DA6BF`, y el máximo es `0x10FFFF`. O sea que el número
+del error no viene de ningún archivo: lo inventa el propio escáner.
+
+**El error miente dos veces**, y por eso costó:
+
+1. **Apunta a `globals.css:1:1`**, que es la línea sana. Verificar el archivo no lleva a
+   ningún lado: es UTF-8 válido, byte por byte idéntico a lo commiteado.
+2. **Parece caché.** El repo vive en OneDrive y hay un gotcha conocido de errores
+   fantasma de Turbopack, así que la primera conclusión fue ésa — y estaba mal. Lo que la
+   descarta es que **Vercel da el mismo error desde un clon limpio**.
+
+La prueba que lo aisla en un minuto es sacar la carpeta y volver a compilar:
+
+```bash
+mv docs/chats /tmp/x && npm run build   # ✓ compila
+mv /tmp/x docs/chats && npm run build   # ✗ Invalid code point
+```
+
+**Regla:** lo que se agrega al repo y **no** tiene clases de Tailwind se excluye del
+escaneo, en `app/globals.css`:
+
+```css
+@source not "../docs";
+```
+
+Vale para cualquier carpeta futura de contenido —transcripciones, exports, datasets—.
+No se pierde nada: en `docs/` no hay una sola clase.
+
+**Vive en:** `app/globals.css` (el `@source not`) · `docs/chats/` · *2026-08-08, sesión de
+la tab de documentación*
+
 ### ⚠️ El otro «pushear no es desplegar»: el build nunca ARRANCA
 
 **Síntoma:** el dueño no ve los cambios en la app. El commit está en `origin/main`, el

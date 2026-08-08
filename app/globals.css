@@ -1,4 +1,16 @@
 @import "tailwindcss";
+
+/* Tailwind 4 detecta sus fuentes SOLO: escanea el repo entero buscando nombres
+   de clase. Eso incluye docs/, que desde que guarda las transcripciones de los
+   chats son ~9 MB de markdown — y su escáner se ahoga ahí con
+   `CssSyntaxError: Invalid code point 1941695` (un code point fuera del rango
+   de Unicode, o sea inventado por el propio escáner).
+
+   El error miente de dos formas y por eso cuesta: apunta a globals.css:1:1,
+   que es esta línea y está intacta, y NO es caché — sale igual en Vercel desde
+   un clon limpio. La prueba que lo aisla es sacar docs/chats/ y volver a
+   compilar. En docs/ no hay una sola clase de Tailwind: nada se pierde. */
+@source not "../docs";
 /* La biblioteca de primitives (app/_ui). Un solo import: las clases mk-* quedan
    disponibles en cualquier pantalla sin que nadie importe nada. */
 @import "./_ui/ui.css";
