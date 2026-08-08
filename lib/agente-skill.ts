@@ -87,7 +87,38 @@ ${MOLDE_DETALLE}
   ${MOLDE_ADVERTENCIA}
   El Perro estima el ESFUERZO con lo que le des: escribir corto hace que la tarea parezca
   barata y la hunde en la lista.
-- \`eliminar: [{ id, motivo }]\` si esta carga deja tareas viejas obsoletas.
+## 2.b Cerrá lo que YA hiciste
+
+Si mientras trabajaban quedó resuelto algo que sigue abierto en el tablero, no lo dejes
+ahí: va en el MISMO borrador, en \`cerrar\`. El usuario lo confirma de a uno, con tres
+respuestas posibles (sí / está a medias / no).
+
+\`\`\`json
+{
+  "resumen": "…",
+  "cerrar": [{
+    "id": "<el id que vino en el GET>",
+    "evidencia": "commit d4a6958 · app/plan/board/NotasLista.tsx:59 — la lista de notas con fecha ya está montada y guarda contra el campo notas.",
+    "confianza": "alta"
+  }]
+}
+\`\`\`
+
+Un lote de puros cierres es válido: no hace falta mandar \`tareas\` para cerrar algo.
+
+**Las reglas duras, y no son formalismo:**
+- \`evidencia\` es OBLIGATORIA y tiene que ser **verificable**: commit + \`archivo:línea\`,
+  o el dato concreto. «Ya lo hicimos» no es evidencia y se rechaza.
+- \`confianza: 'alta'\` **solo** si abriste el archivo y lo verificaste. Si lo dedujiste
+  del mensaje de un commit, es \`'media'\`.
+- **Ante la duda, no lo mandes.** La primera vez que se midió esto, de 17 tareas que la
+  IA afirmó hechas **solo 8 lo estaban**. Un cierre equivocado esconde trabajo real; una
+  tarea que queda abierta de más cuesta un clic.
+- Si cubriste **parte**, mandala igual con la evidencia de lo que sí está: existe el
+  botón «está a medias», que sube el avance sin cerrarla.
+- **Cerrar NO es borrar.** La tarjeta se queda con su historial y su checklist, y se le
+  suma la evidencia. Es la diferencia entre «esto se hizo, mirá dónde» y «esto no
+  existió nunca».
 
 ### Antes de mandar: ¿ya existe?
 

@@ -207,12 +207,16 @@ export { fusionarDetalle };
  * evidencia al detalle. Perder ese matiz —tratar «a medias» como «no»— tira a la
  * basura el trabajo de verificar, y tratarlo como «sí» esconde lo que falta.
  */
-export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcial = false): Promise<void> {
+/** Devuelve `true` solo si tocó una fila. Devolvía `void`, y el llamador sumaba al
+ *  contador igual: con un id inventado la pantalla decía «cerré 1» sin haber cerrado
+ *  nada. Un contador que miente sobre un cierre es peor que no tenerlo, porque el
+ *  dueño deja de revisar. */
+export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcial = false): Promise<boolean> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const { data } = await db.from('plan_tareas').select('*').eq('id', id).limit(1);
     const fila = (data ?? [])[0] as Row | undefined;
-    if (!fila) { console.warn(`[plan-board] cerrar: no existe ${id}`); return; }
+    if (!fila) { console.warn(`[plan-board] cerrar: no existe ${id}`); return false; }
     const t = rowToTask(fila);
     const texto = (parcial ? `MaKo la dejó a medias: ${evidencia}` : `MaKo la marcó hecha: ${evidencia}`).slice(0, 240);
     const hist: Hist[] = [{ id: genId('h'), ts: Date.now(), actor: 'ia' as Actor, text: texto }, ...(t.historial ?? [])].slice(0, 40);
@@ -228,6 +232,7 @@ export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcia
     }
     const { error } = await db.from('plan_tareas').update(patch).eq('id', id);
     if (error) throw new Error(`cerrarPlanTareaOwner: ${error.message}`);
+    return true;
   });
 }
 

@@ -89,7 +89,15 @@ export async function POST(req: NextRequest) {
   try { body = (await req.json()) as Record<string, unknown>; } catch { return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
 
   const tareas = Array.isArray(body.tareas) ? body.tareas.slice(0, 30) : [];
-  if (!tareas.length) return NextResponse.json({ ok: false, error: 'mandá al menos una tarea en `tareas`' }, { status: 400 });
+  const cerrar = Array.isArray(body.cerrar) ? body.cerrar.slice(0, 30) : [];
+  // El guard miraba SOLO `tareas`, así que un lote de puros CIERRES —«estas cinco ya
+  // las hice»— devolvía 400 y era imposible de mandar. Todo el canal `cerrar` estaba
+  // construido del lado del servidor (tipo, saneo, columna de la migración 0119, paso
+  // propio en el wizard, y el cron cerrar-por-commits ya lo usa) y esta línea lo tenía
+  // cerrado desde afuera. Ahora alcanza con que venga algo en cualquiera de los dos.
+  if (!tareas.length && !cerrar.length) {
+    return NextResponse.json({ ok: false, error: 'mandá al menos una tarea en `tareas` o un cierre en `cerrar`' }, { status: 400 });
+  }
 
   try {
     const id = await runWithWorkspace(ws, () =>
@@ -107,7 +115,7 @@ export async function POST(req: NextRequest) {
         // cierran solas: la precisión medida de un «ya está hecho» dicho por IA fue
         // 8 de 17 en la corrida real del 5/8 — sin confirmación humana, esto convierte
         // el tablero en algo que no se puede creer.
-        cerrar: Array.isArray(body.cerrar) ? body.cerrar : [],
+        cerrar,
         resumen: String(body.resumen ?? ''),
         origen: 'claude-code',
       }),

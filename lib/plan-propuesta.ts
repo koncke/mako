@@ -811,8 +811,8 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         // «esto no existió nunca».
         for (const c of aCerrar) {
           try {
-            await cerrarPlanTareaOwner(c.id, c.evidencia, c.parcial);
-            cerradas += 1;
+            // Solo suma si de verdad tocó una fila: ver el porqué en la firma.
+            if (await cerrarPlanTareaOwner(c.id, c.evidencia, c.parcial)) cerradas += 1;
           } catch (e) { console.error('[plan-propuesta] cerrar owner:', e instanceof Error ? e.message : String(e)); }
         }
       } else {
