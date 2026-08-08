@@ -6,11 +6,18 @@
 // NO toca, nunca: la fila del workspace, sus usuarios y sus roles — si se
 // fueran, el cliente de prueba quedaría inaccesible y habría que crearlo de nuevo.
 //
-// Tres cinturones para que jamás corra contra el dueño:
-//   1. Este archivo tira si el destino es OWNER_WS, antes de mirar nada más.
-//   2. La ruta valida el id antes de llamar.
-//   3. El botón no se ofrece parado en el workspace del dueño.
+// Tres cinturones para que jamás corra contra un cliente real:
+//   1. Este archivo tira si el destino no es WS_PRUEBA, antes de mirar nada más.
+//   2. La ruta exige el mismo workspace antes de llamar.
+//   3. El botón no se ofrece fuera del cliente de prueba.
 // El que vale es el primero; los otros dos son comodidad.
+//
+// ⚠️ Los tres decían «que no sea el del dueño», que es una condición NEGATIVA:
+// protegía a Mauricio y dejaba pasar a todos los demás. Vaciar el workspace de
+// Leandro o de Leila estaba a un click de distancia y no había nada que lo
+// frenara. Un guard contra lo destructivo se escribe en positivo —«solo ESTE»—
+// porque la lista de lo que hay que proteger crece sola con cada cliente nuevo,
+// y la de lo que se puede tocar no.
 //
 // Y una regla de implementación: se usa getSupabaseServer() CRUDO, con el
 // .eq('workspace_id', ws) escrito a mano en un solo helper. getTenantDb()
@@ -19,7 +26,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import { OWNER_WS } from './auth-session';
+import { exigirClienteDePrueba } from './auth-session';
 
 /**
  * Orden de borrado: los hijos antes que los padres. Si igual queda una FK
@@ -98,8 +105,9 @@ async function listarRecursivo(bucket: string, prefijo: string, prof = 0): Promi
  * adentro.
  */
 export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
-  if (!Number.isInteger(ws)) throw new Error('Workspace inválido.');
-  if (ws === OWNER_WS) throw new Error('El workspace del dueño no se resetea. Nunca.');
+  // La condición vive en auth-session.ts (sin `server-only`) para que se pueda
+  // testear: ver tests/reset-workspace.test.ts.
+  exigirClienteDePrueba(ws);
 
   const sb = getSupabaseServer();
   const borrado: Record<string, number> = {};

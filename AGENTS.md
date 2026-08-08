@@ -120,6 +120,25 @@ el problema vuelva. `scripts/sync-contrato-detalle.mjs` copia hoy DOS cosas (el 
 `detalle` y la regla del nombre de un proyecto), cada una entre sus marcadores. Si agregás
 una skill que repite una de estas reglas, sumala a `DESTINOS` en vez de copiar el texto.
 
+# Un guard sobre algo destructivo se escribe en POSITIVO
+
+«Solo ESTE workspace», nunca «cualquiera menos aquél». La condición negativa protege una
+cosa y deja pasar todo lo demás, y se queda vieja sola: cada cliente nuevo entra en la
+lista de los que NO estaban contemplados, sin que nada avise.
+
+No es hipotético. El Reset que vacía un workspace —50+ tablas y 4 buckets de storage— se
+ofrecía adentro de **todos los clientes reales**, porque las tres capas de guard decían
+`ws !== OWNER_WS`. La función que lo decidía se llamaba `wsDePrueba()`: el nombre decía la
+intención y el código decía otra cosa, así que leerlo por encima no alcanzaba para verlo.
+
+Y donde haya un guard así, dos cosas más:
+
+- **La condición va en un módulo SIN `server-only`**, para que se pueda testear. Si vive
+  adentro del que hace el trabajo sucio, ningún test la puede importar — y termina siendo
+  lo único sin red justo donde más duele. Ver `exigirClienteDePrueba` en `lib/auth-session.ts`.
+- **Esconder el botón no protege nada.** El que decide es el server; la UI solo pinta lo
+  que él contesta.
+
 # Una regla en un prompt no es una regla
 
 Si una regla sólo vive en la prosa de un prompt, **no se cumple**: se cumple casi

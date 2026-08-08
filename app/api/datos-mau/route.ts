@@ -10,13 +10,16 @@
 //
 // Guard, en este orden y sin excepciones:
 //   · super-admin de la agencia (getSesionAdmin)
-//   · el workspace efectivo NO puede ser el del dueño
-// Así, un cliente nunca puede tirar de los datos de Mauricio, y un admin
-// distraído no puede escribir sobre la cuenta real.
+//   · el workspace efectivo tiene que ser EXACTAMENTE el de prueba (WS_PRUEBA)
+//
+// ⚠️ Antes la segunda condición era «que no sea el del dueño». Eso protegía a
+// Mauricio y a nadie más: en el workspace de cualquier cliente REAL aparecía el
+// botón de Reset, que vacía 50+ tablas y 4 buckets de storage. Un click de más
+// en la cuenta equivocada y no hay vuelta atrás.
 
 import { NextResponse } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { OWNER_WS } from '@/lib/auth-session';
+import { WS_PRUEBA } from '@/lib/auth-session';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { AMBITOS, ambitosCompletados, completarConDatosDelDueno, eliminarDatosDelDueno, type AmbitoKey } from '@/lib/datos-mau';
 
@@ -29,8 +32,9 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 async function wsDePrueba(): Promise<number | null> {
   if (!(await getSesionAdmin())) return null;
   const ws = await getWorkspaceActual();
-  if (ws == null || ws === OWNER_WS) return null;
-  return ws;
+  // Igualdad estricta contra UN workspace, no «distinto del dueño». La versión
+  // negativa dejaba pasar a todos los clientes reales.
+  return ws === WS_PRUEBA ? ws : null;
 }
 
 /** El catálogo, para que el panel global lo liste sin duplicar los nombres. */

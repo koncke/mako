@@ -181,6 +181,40 @@ pasada se verificó que fathom/meta-leads/calendly ya acceden a leads solo por l
 
 ---
 
+### ⚠️ El botón de vaciar un workspace se ofrecía en TODOS los clientes reales
+
+**Síntoma:** ninguno, hasta que alguien lo apretara. Martín lo vio en la interfaz: los
+controles de agencia («Datos de Mauricio» y **Reset**) aparecían parado adentro de
+cualquier cliente.
+
+**Causa:** el guard era una condición **negativa**. Tres capas, y las tres decían lo mismo:
+
+```ts
+if (ws == null || ws === OWNER_WS) return null;   // ← "cualquiera menos el dueño"
+```
+
+Eso protege a Mauricio y **a nadie más**. Leandro (ws 10), Martín (9) y Leila (11) tenían
+el botón de vaciar disponible, y `resetearWorkspace` borra 50+ tablas y 4 buckets de
+storage sin vuelta atrás. La función que decidía se llamaba `wsDePrueba()` — el nombre
+decía la intención, el código decía otra cosa, y nadie lo miró dos veces porque leyendo el
+nombre parecía correcto.
+
+**Regla: un guard sobre algo destructivo se escribe en POSITIVO.** «Solo ESTE» y no
+«cualquiera menos aquél». La lista de lo que hay que proteger crece sola con cada cliente
+nuevo; la de lo que se puede tocar, no. Una condición negativa se queda vieja el día que
+se da de alta un cliente, y sin que nada avise.
+
+Dos corolarios del mismo arreglo:
+
+- **La condición se sacó a un módulo sin `server-only`** (`exigirClienteDePrueba` en
+  `lib/auth-session.ts`). No es prolijidad: `lib/reset-workspace.ts` lleva `server-only`,
+  así que un test **no lo puede importar** — la guarda más peligrosa de la app era la única
+  sin red. Ahora tiene `tests/reset-workspace.test.ts`.
+- **Esconder el botón no es el arreglo.** El que decide es el endpoint; la UI se pinta con
+  lo que él contesta. Si sólo se ocultara el botón, un POST a mano seguiría vaciando.
+
+**Vive en:** lib/auth-session.ts (`WS_PRUEBA`, `exigirClienteDePrueba`) · app/api/datos-mau/route.ts (`wsDePrueba`) · lib/reset-workspace.ts · app/_components/PanelAgencia.tsx · *2026-08-08*
+
 ## Guards, roles y sesión
 
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`

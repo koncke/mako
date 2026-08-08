@@ -11,8 +11,13 @@
 //   · Datos de Mauricio — traer o devolver, agrupado por recorrido.
 //   · Reset — vaciar el cliente entero, con confirmación.
 //
-// Se pinta solo si /api/datos-mau dice que corresponde (super-admin de la
-// agencia, parado en un workspace que no es el del dueño).
+// Se pinta solo si /api/datos-mau dice que corresponde: super-admin de la
+// agencia parado EXACTAMENTE en el cliente de prueba (`WS_PRUEBA`).
+//
+// ⚠️ La condición era «un workspace que no sea el del dueño», o sea que estos
+// botones —incluido el Reset, que vacía 50+ tablas y 4 buckets— aparecían
+// también adentro de los clientes REALES. Quién decide sigue siendo el server:
+// esconder el botón no protege nada si el endpoint acepta igual.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';

@@ -47,6 +47,40 @@ export const SESSION_DIAS = 30;
 export const OWNER_WS = 1;
 
 /**
+ * El workspace de PRUEBA de la agencia — «Cliente de Prueba».
+ *
+ * Es el único donde se pueden usar los controles destructivos de la barra de
+ * impersonación: traer los datos de Mauricio y el Reset que vacía el workspace
+ * entero (50+ tablas y 4 buckets de storage).
+ *
+ * ⚠️ Existe porque la condición anterior era «cualquier workspace que no sea el
+ * del dueño». Eso protegía a Mauricio y a NADIE MÁS: el botón de vaciar aparecía
+ * también en los workspaces de los clientes reales. La función que lo decidía se
+ * llamaba `wsDePrueba()`, que es exactamente lo que alguien creyó que hacía.
+ *
+ * Si algún día el cliente de prueba es otro, se cambia acá y en ningún lado más.
+ */
+export const WS_PRUEBA = 3;
+
+/**
+ * Tira si `ws` no es el cliente de prueba. La usa todo lo que borra en masa.
+ *
+ * Está acá, en un módulo SIN `server-only`, y no adentro de `reset-workspace.ts`,
+ * por una razón concreta: así se puede TESTEAR. El módulo del reset no se puede
+ * importar desde un test —`server-only` lo corta— así que mientras la condición
+ * viviera adentro, la guarda más peligrosa de la app era la única sin red.
+ */
+export function exigirClienteDePrueba(ws: number): void {
+  if (!Number.isInteger(ws)) throw new Error('Workspace inválido.');
+  // El del dueño tiene su propio mensaje: es el error que más asusta y conviene
+  // que se lea distinto del genérico.
+  if (ws === OWNER_WS) throw new Error('El workspace del dueño no se resetea. Nunca.');
+  if (ws !== WS_PRUEBA) {
+    throw new Error(`Solo se puede vaciar el cliente de prueba (workspace ${WS_PRUEBA}). Este es el ${ws}, que es de un cliente real.`);
+  }
+}
+
+/**
  * Secret de firma de las sesiones. SOLO AUTH_SECRET, sin cadena de fallbacks.
  *
  * Antes era `AUTH_SECRET || AUTH_COOKIE_VALUE || DASHBOARD_PASSWORD`, y eso era
