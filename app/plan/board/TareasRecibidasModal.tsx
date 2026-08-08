@@ -349,6 +349,16 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // AUTOSAVE de la revisión. Reasignar veinte tareas y corregirles el texto es trabajo
   // real; vivía solo en el estado de este modal y un F5 —o cerrar y volver— lo borraba
   // entero. Se guarda con retardo (no en cada tecla) y nunca durante el aplicado.
+  /** La fila como la espera el server. Una sola definición: el autosave y el guardado
+   *  inmediato del cruce mandan lo MISMO — si divergen, uno de los dos pierde campos. */
+  const aPayload = (f: FilaConProp) => ({
+    titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
+    proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined),
+    dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
+    minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
+    // El resultado del cruce viaja con la tarea: es lo que evita rehacerlo.
+    enriquece: f.enriquece, ampliar: f.ampliar,
+  });
   const primeraRef = useRef(true);
   useEffect(() => {
     if (primeraRef.current) { primeraRef.current = false; return; }
@@ -360,14 +370,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         if ((p.estado ?? 'pendiente') !== 'pendiente') continue;
         const suyas = filas.filter((f) => f.propId === p.id);
         if (!suyas.length) continue;
-        void api({ action: 'guardar', id: p.id, cruzado, tareas: suyas.map((f) => ({
-          titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
-          proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined),
-          dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
-          minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
-          // El resultado del cruce viaja con la tarea: es lo que evita rehacerlo.
-          enriquece: f.enriquece, ampliar: f.ampliar,
-        })) });
+        void api({ action: 'guardar', id: p.id, cruzado, tareas: suyas.map(aPayload) });
       }
     }, 900);
     return () => clearTimeout(id);
@@ -446,10 +449,25 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       // las dos «hablan de presupuesto». Con la confianza en media la tarea se sigue
       // avisando —el cartel verde explica de qué la marcó— pero entra TILDADA: el dueño
       // decide, y el default no esconde trabajo.
-      setFilas((prev) => prev.map((f) => {
+      // SE GUARDA ACÁ MISMO, no por el autosave.
+      //
+      // El autosave es un debounce de 900 ms que muere con el componente: si cerrás el
+      // modal antes, el `clearTimeout` del cleanup se lo lleva. Para las ediciones a
+      // mano da igual (volvés y reescribís), pero esto costó ~40 segundos de IA y es
+      // exactamente lo que no se puede perder — verificado en prod: `cruzado_at` estaba
+      // NULL en TODAS las filas y ningún `enriquece` había llegado a la base, así que el
+      // análisis se rehacía cada vez que se abría la reunión.
+      const conCruce = filas.map((f) => {
         const hit = !f.esDeOtro && !f.enriquece ? porTitulo.get(f.titulo) : undefined;
         return hit ? { ...f, enriquece: hit, incluir: hit.confianza === 'alta' ? false : f.incluir } : f;
-      }));
+      });
+      setFilas(conCruce);
+      for (const p of props) {
+        if ((p.estado ?? 'pendiente') !== 'pendiente') continue;
+        const suyas = conCruce.filter((f) => f.propId === p.id);
+        if (!suyas.length) continue;
+        void api({ action: 'guardar', id: p.id, cruzado: true, tareas: suyas.map(aPayload) });
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -574,12 +592,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             <span style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', boxSizing: 'border-box', display: 'inline-block', animation: 'makoSpinTR .7s linear infinite' }} />
             <style>{'@keyframes makoSpinTR{to{transform:rotate(360deg)}}'}</style>
             {cruzando ? (
-              <>
-                <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>El Perro está cruzando con tu plan…</div>
-                <div style={{ position: 'relative', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
-                  Mira si alguna de estas {filas.length} ya está en el tablero, para sumarle el contexto en vez de duplicarla. Se hace <b>una sola vez</b>: la próxima que entres ya va a estar resuelto.
-                </div>
-              </>
+              // Una línea. Lo que el usuario necesita saber es QUÉ está pasando, no cómo
+              // funciona por dentro ni una promesa sobre la próxima vez.
+              <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cruzando con tu plan…</div>
             ) : pensando ? (
               <>
                 <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>MaKo está mirando lo que elegiste…</div>

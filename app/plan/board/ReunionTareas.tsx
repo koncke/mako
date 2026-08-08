@@ -393,13 +393,8 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
               demás con un borde verde, y entre veinte no se distinguía. */}
           {yaEnPlan.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ok, #1E9E57)' }}>
-                  ⊕ {yaEnPlan.length === 1 ? 'Esta ya está en tu plan' : `Estas ${yaEnPlan.length} ya están en tu plan`}
-                </div>
-                <span style={{ fontSize: 12, color: 'var(--dim)' }}>
-                  No se crean de nuevo: se le suma este contexto a la tarjeta que ya existe.
-                </span>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ok, #1E9E57)' }}>
+                ⊕ {yaEnPlan.length === 1 ? 'Ya está en tu plan' : `Ya están en tu plan (${yaEnPlan.length})`}
               </div>
               {yaEnPlan.map(({ f, i }) => (
                 <FilaYaEnPlan key={i} f={f} onFila={(p) => onFila(i, p)} url={(f.reunion ?? reunion).url}
@@ -536,7 +531,7 @@ function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard, delTablero
   /** Las tareas ABIERTAS del tablero, para poder re-apuntar el cruce a otra. */
   delTablero?: Array<{ id: string; titulo: string }>;
 }) {
-  const [abierto, setAbierto] = useState(false);
+  const [editando, setEditando] = useState(false);
   const [eligiendo, setEligiendo] = useState(false);
   const [busca, setBusca] = useState('');
   const momentos = momentosDe(f);
@@ -550,61 +545,70 @@ function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard, delTablero
   }, [delTablero, busca, f.enriquece?.id]);
   return (
     <div style={{ borderRadius: 12, border: '1px solid var(--ok, #1E9E57)', background: 'var(--surface)', overflow: 'hidden' }}>
-      {/* Lo que trajo la reunión: el título nuevo y el contexto que se va a sumar. */}
+      {/* Lo que trajo la reunión: el título y el contexto que se va a sumar. */}
       <div style={{ padding: '11px 13px', borderBottom: '1px dashed var(--border)' }}>
         <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 4 }}>
           De la reunión
         </div>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
-          {f.titulo}
-          {momentos.map((seg) => {
-            const l = urlEnMinuto(url, seg);
-            return l
-              ? <a key={seg} href={l} target="_blank" rel="noreferrer" title="Escuchar este momento"
-                  style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
-              : <span key={seg} style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {relojDe(seg)}</span>;
-          })}
-        </div>
-        {f.detalle && (
+        {editando ? (
           <>
-            <button type="button" onClick={() => setAbierto((v) => !v)} style={{ ...btnChico, marginTop: 5 }}>
-              {abierto ? '▴ ocultar el contexto' : `▾ ver el contexto que se le suma (${Math.round(f.detalle.length / 100) / 10}k)`}
-            </button>
-            {abierto && <div style={{ marginTop: 6 }}><DetalleDoc texto={f.detalle} /></div>}
+            <input autoFocus value={f.titulo} onChange={(e) => onFila({ titulo: e.target.value })} placeholder="Título de la tarea"
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, outline: 'none', fontFamily: SANS }} />
+            <textarea value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} rows={5} placeholder="Contexto: qué se dijo, para qué es"
+              style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
+              {f.titulo}
+              {momentos.map((seg) => {
+                const l = urlEnMinuto(url, seg);
+                return l
+                  ? <a key={seg} href={l} target="_blank" rel="noreferrer" title="Escuchar este momento"
+                      style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
+                  : <span key={seg} style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {relojDe(seg)}</span>;
+              })}
+            </div>
+            {/* DetalleDoc YA trae su propio «ver más»: el botón que había acá encima
+                dejaba dos controles seguidos que decían lo mismo. */}
+            {f.detalle && <div style={{ marginTop: 6 }}><DetalleDoc texto={f.detalle} /></div>}
           </>
         )}
-        {f.enriquece?.razon && (
-          <div style={{ fontSize: 11.5, color: 'var(--ok, #1E9E57)', lineHeight: 1.45, marginTop: 6 }}>⊕ {f.enriquece.razon}</div>
-        )}
       </div>
-      {/* La tarjeta que YA está en el tablero, tal cual la ve en el kanban. */}
+      {/* La tarea que YA está en el tablero, tal cual se ve en el kanban. */}
       <div style={{ padding: '11px 13px', background: 'var(--surface-2)' }}>
         <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>
-          Se le suma a esta tarjeta
+          Se le suma a esta tarea
         </div>
-        <div style={{ maxWidth: 320 }}>
+        {/* Ancho completo: con `maxWidth: 320` la tarjeta quedaba pegada a la izquierda
+            y media fila vacía a la derecha. */}
+        <div>
           {card ?? (
             <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, color: 'var(--dim)' }}>
-              La tarjeta ya no está en el tablero.
+              La tarea ya no está en el tablero.
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 9, flexWrap: 'wrap' }}>
-          {!!f.enriquece?.id && onAbrirTarea && (
-            <button type="button" onClick={(e) => { e.stopPropagation(); onAbrirTarea(f.enriquece!.id); }}
-              style={{ ...btnChico, color: 'var(--primary)' }}>abrir la tarjeta</button>
-          )}
-          {/* DOS salidas distintas, porque el cruce se puede equivocar de dos maneras:
-              «no hay ninguna igual» y «hay una igual, pero es otra». Hasta acá existía
-              solo la primera, así que cuando el Perro acertaba en que era un duplicado
-              pero erraba la tarjeta, la única jugada era crearla de nuevo — y quedaba
-              el duplicado que todo esto viene a evitar. */}
-          <button type="button" onClick={(e) => { e.stopPropagation(); setEligiendo((v) => !v); }}
-            style={{ ...btnChico, color: eligiendo ? 'var(--primary)' : undefined }}
-            title="Es un duplicado, pero de otra tarjeta">↔ es otra tarea</button>
-          <button type="button" onClick={(e) => { e.stopPropagation(); onFila({ ampliar: false, incluir: true }); }}
-            style={{ ...btnChico, color: 'var(--warn)' }}
-            title="Crear una tarea nueva en vez de sumarle el contexto a la que ya está">↗ no es la misma</button>
+        {/* Editar a la IZQUIERDA, decisiones a la DERECHA. Amontonados contra un borde
+            se leen como una sola cosa y se tocan sin querer. Es el mismo reparto que la
+            fila de una tarea nueva. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+          <button type="button" onClick={(e) => { e.stopPropagation(); setEditando((v) => !v); }}
+            style={{ ...btnChico, ...(editando ? { color: 'var(--primary)' } : {}) }}>
+            {editando ? '✓ listo' : '✎ corregir contexto'}
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            {!!f.enriquece?.id && onAbrirTarea && (
+              <button type="button" onClick={(e) => { e.stopPropagation(); onAbrirTarea(f.enriquece!.id); }}
+                style={{ ...btnChico, color: 'var(--primary)' }}>abrir la tarea</button>
+            )}
+            {/* DOS salidas, porque el cruce se equivoca de dos maneras: «no hay ninguna
+                igual» y «hay una igual, pero es otra». */}
+            <button type="button" onClick={(e) => { e.stopPropagation(); setEligiendo((v) => !v); }}
+              style={{ ...btnChico, color: eligiendo ? 'var(--primary)' : undefined }}>↔ es otra tarea</button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onFila({ ampliar: false, incluir: true }); }}
+              style={{ ...btnChico, color: 'var(--warn)' }}>↗ crear como nueva tarea</button>
+          </div>
         </div>
         {eligiendo && (
           <div style={{ marginTop: 9, padding: 10, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
@@ -626,7 +630,7 @@ function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard, delTablero
               ))}
               {!candidatas.length && (
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', padding: '6px 2px' }}>
-                  {busca.trim() ? 'Ninguna coincide. Si no está en el plan, usá «no es la misma».' : 'No hay otras tareas abiertas en el tablero.'}
+                  {busca.trim() ? 'Ninguna coincide.' : 'No hay otras tareas abiertas.'}
                 </div>
               )}
             </div>
