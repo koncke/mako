@@ -333,7 +333,39 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
 
   // "Escribiendo…" YA, aunque la respuesta tarde la ventana de silencio. Es lo que
   // hace que la espera se sienta atención y no abandono, y no cuesta un mensaje.
-  void enviarPresencia(instance, jid, 'composing', 25000);
+  // 55s y no 25s: la espera real MEDIDA de un audio es de 38 a 52 segundos, así que
+  // el "escribiendo…" se apagaba a mitad de camino y el chat quedaba muerto.
+  void enviarPresencia(instance, jid, 'composing', 55000);
+
+  // ── ACUSE DE RECIBO DE UNA NOTA DE VOZ / UN ADJUNTO ───────────────────────
+  // Medido en prod sobre los tres audios del 8/8: 38,6 · 50,6 · 51,7 segundos SIN
+  // que MaKo dijera una sola palabra. Y no es una molestia estética: el dueño
+  // reenvió el mismo audio 2 min 43 s después creyendo que no había llegado, y
+  // salieron dos borradores duplicados de la misma cosa.
+  //
+  // El acuse de TEXTO ya existía (en `procesarDoer`), pero su condición arranca con
+  // `!audio`, o sea que excluía por definición al caso más lento. Y sobre todo:
+  // vive DESPUÉS de `esperarSilencio`, así que el buffer del lote —que se agregó
+  // más tarde— lo empujó detrás de 21 segundos de espera. El comentario de allá que
+  // dice «lo mandamos ACÁ, lo primero» quedó viejo el día que se sumó el buffer.
+  //
+  // ACÁ es el único punto del pipeline por el que pasa EXACTAMENTE UNA invocación
+  // por lote (el que pierde el candado ya volvió en la línea de arriba), y está
+  // delante de la espera. Mandar tres audios seguidos deja un solo «te escucho».
+  //
+  // Solo para media, a propósito: una nota de voz o un adjunto SIEMPRE enganchan
+  // (más abajo, `esMedia` saltea el chequeo de modo/ventana), así que acá no hace
+  // falta repetir esa guarda. Para texto el acuse sigue donde estaba, porque ahí sí
+  // depende de si lo nombran y de si hay una charla pendiente.
+  if (audio || adjunto) {
+    if (!(await doerActivo(OWNER_WS))) return { engaged: false, skip: 'doer desactivado' };
+    const ackTxt = audio ? 'Te escucho 🎧 dame un momento y te contesto.' : 'Me llegó 📎 lo miro y te contesto.';
+    const ack = await enviarAGrupoJid(jid, ackTxt, 0);   // delay 0: sin el retardo anti-ban
+    // El anti-eco ANTES de seguir: la línea de voz es el número del propio dueño, así
+    // que todo lo que manda MaKo vuelve por el webhook como `fromMe`. Sin registrar el
+    // id, el acuse se encola como si lo hubiera dicho él.
+    if (ack.ok && ack.id) await registrarEnviado(OWNER_WS, jid, ack.id);
+  }
 
   try {
     // Un adjunto no espera: es un acto deliberado y se responde solo.
@@ -535,7 +567,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         const m = await fetchMediaBase64EnInstancia(instance, jid, msgId, !!key?.fromMe);
         if (m) { b64 = m.base64; audio.mime = m.mimetype || audio.mime; }
       }
-      if (!b64) { console.error('[mako-doer-in] audio sin base64'); return { engaged: false, skip: 'audio sin base64' }; }
+      // UNA VEZ QUE ACUSASTE, CERRÁS SIEMPRE. Acá se acaba de decir «te escucho» y este
+      // return se iba mudo con un console.error: el dueño se queda esperando una
+      // respuesta que no va a llegar nunca, que es peor que no haber acusado.
+      if (!b64) {
+        console.error('[mako-doer-in] audio sin base64');
+        void enviarAGrupoJid(jid, 'Me llegó tu audio pero WhatsApp no me deja bajarlo. ¿Me lo reenviás?', 0);
+        return { engaged: false, skip: 'audio sin base64' };
+      }
       // Si NINGUNA de las IA pudo escucharlo (Gemini→Groq→OpenAI, todas caídas o sin
       // cuota), MaKo lo dice. Antes se descartaba en silencio: mandabas el audio y no
       // pasaba nada, indistinguible de que te estuviera ignorando.
@@ -586,7 +625,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           const m = await fetchMediaBase64EnInstancia(instance, jid, msgId, !!key?.fromMe);
           if (m) { b64 = m.base64; }
         }
-        if (!b64) { console.error('[mako-doer-in] adjunto sin base64'); return { engaged: false, skip: 'adjunto sin base64' }; }
+        if (!b64) {
+          console.error('[mako-doer-in] adjunto sin base64');
+          void enviarAGrupoJid(jid, 'Me llegó tu archivo pero WhatsApp no me deja bajarlo. ¿Me lo reenviás?', 0);
+          return { engaged: false, skip: 'adjunto sin base64' };
+        }
         const source = { type: 'base64', media_type: adjunto.tipo === 'image' ? adjunto.mime : 'application/pdf', data: b64 };
         const prompt = textoDirecto || adjunto.caption || (adjunto.tipo === 'image' ? 'Mirá esta imagen y decime qué ves y qué hago.' : 'Leé este PDF y decime lo importante.');
         mediaBlocks = [{ type: adjunto.tipo, source }, { type: 'text', text: prompt }];

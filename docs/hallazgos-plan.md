@@ -90,6 +90,54 @@ disparador de «un número de plata», pero **eso es prosa y por lo tanto no es 
 
 **Vive en:** lib/preguntas-contrato.ts (apuntarSobre) · lib/plan-propuesta.ts (profundizarPropuesta, PROFUNDIZAR_SYSTEM) · *2026-08-08*
 
+### ⚠️ El cruce «ya está en el plan» marcaba por TEMA, y un falso positivo esconde trabajo
+
+«Contratar el plan de $100 para no agotar los créditos» (pagar una suscripción de IA) se
+marcó como duplicada de #105 «Reglas de presupuesto según la plata real» (programar el
+motor que mueve el presupuesto de los anuncios). La razón que dio el modelo lo delata:
+«ambas apuntan a gestionar el presupuesto y evitar agotar recursos». Eso es un TEMA
+compartido, no el mismo trabajo.
+
+**Por qué es grave y no cosmético:** una candidata marcada llegaba con `incluir: false`, o
+sea DESTILDADA. Entre veinte tareas, el dueño no la ve, confirma, y el pedido de la reunión
+se pierde sin que nada avise. **El error de marcar de MÁS cuesta muchísimo más que el de
+marcar de menos**: un duplicado que se escapa se arregla con un clic.
+
+Y otra vez el patrón: el prompt YA decía «solo marcá enriquece cuando de verdad es el MISMO
+trabajo, ante la duda es nueva». No alcanzó, porque era énfasis, no criterio. Lo que sí
+opera es **una prueba que se pueda aplicar**: *si alguien HACE la tarea del plan, ¿la
+candidata queda hecha también?* Contratar el plan sigue pendiente después de escribir ese
+motor → no es la misma. Se sumó eso, más el caso real como few-shot negativo, más una
+`confianza` que el código USA: solo `alta` destilda sola; con `media` se avisa y la tarea
+entra tildada.
+
+Queda SIN hacer: no existe «es otra tarea» para re-apuntar el cruce a una tarjeta distinta
+—solo «no es la misma», que la desmarca del todo— y el cruce no se persiste (ver abajo).
+
+**Vive en:** lib/mako-guardian.ts (CRUCE_SYSTEM_TEMPLATE, cruzarCandidatas) · app/plan/board/TareasRecibidasModal.tsx (el efecto `cruzadoRef`) · *2026-08-08*
+
+### El catálogo de proyectos ahora distingue la PANTALLA del AGENTE que vive adentro
+
+«Investigar herramientas de heatmap para landing pages» se fue a «Vender MaKo». No fue un
+error de criterio del modelo: **no existía «Feature: Landing Analyst» en el catálogo**, y la
+regla le dice —bien— que ante la duda elija de la lista. Un ruteo no puede acertar a un
+destino que no está.
+
+Dos cambios que salen de ahí:
+1. El catálogo se completó contra `nav.ts`, incluidas las tabs en «coming soon». **El
+   proyecto tiene que existir ANTES que la primera tarea**, o la primera tarea de cada
+   feature nueva cae en la vecina más parecida.
+2. Familia nueva **`Agente: `** (`PREFIJO_AGENTE`). La frontera, dictada por el dueño: **si
+   corre solo, es agente; si lo abrís y lo usás, es feature.** Por eso los Analysts y los
+   Generators siguen siendo `Feature:` aunque usen IA. «Feature: Plan» era el tablero Y el
+   Perro en el mismo proyecto, así que el avance de la pantalla y el del cerebro que la
+   puntúa se sumaban en la misma barra.
+
+`nucleo()` ignora los DOS prefijos, y eso hace suave el cambio de familia: las tareas que
+ya vivían en «Feature: MaKo Doer» siguen matcheando con «Agente: MaKo Doer» sin migrar nada.
+
+**Vive en:** lib/plan-proyectos-catalogo.ts · *2026-08-08*
+
 ### Lo que quedó SIN hacer en las preguntas
 
 Confirmado por la auditoría del 2026-08-08 (30 hallazgos verificados) y deliberadamente

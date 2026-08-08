@@ -54,12 +54,19 @@ const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
  * ¿La pregunta pide una FECHA? Se usa para mandarla al campo que la puede
  * contestar en vez de dejarla en un formato que no la contesta.
  *
- * Deliberadamente estrecho: solo dispara cuando el enunciado pregunta CUÁNDO.
- * «¿El deadline lo pone el cliente o nosotros?» no es una fecha, es una opción,
- * y por eso el chequeo corre DESPUÉS de mirar si hay opciones usables.
+ * Amplio a propósito: alcanza con que el enunciado nombre una fecha, un día o un
+ * plazo. La primera versión era estrecha (solo «¿cuándo?», «deadline», «qué
+ * fecha») y se le escapó «¿Cuál es la **fecha de inicio y fin** de cada Quarter?»,
+ * que salió como un textarea vacío — exactamente lo que no puede pasar.
+ *
+ * El costo de equivocarse es asimétrico y por eso conviene pasarse de amplio: un
+ * calendario donde hacía falta un textarea es incómodo; un textarea donde hacía
+ * falta un calendario es una pregunta que el dueño saltea. Y el chequeo corre
+ * DESPUÉS de mirar si hay opciones usables, así que «¿El deadline lo pone el
+ * cliente o nosotros?» con sus dos opciones sigue siendo una `opcion`.
  */
 export function pideFecha(pregunta: string): boolean {
-  return /(\bpara cu[áa]ndo\b|\bcu[áa]ndo\b|\bdeadline\b|\bfecha l[íi]mite\b|\bqu[ée] fecha\b|\bpara qu[ée] (?:d[íi]a|fecha)\b|\bplazo\b|\ben qu[ée] fecha\b)/i.test(pregunta);
+  return /(\bfechas?\b|\bcu[áa]ndo\b|\bdeadline\b|\bplazo\b|\bvencimiento\b|\bqu[ée] d[íi]a\b|\bpara qu[ée] d[íi]a\b)/i.test(pregunta);
 }
 
 /**
@@ -96,6 +103,10 @@ export function sanearPregunta(p: unknown, avisar?: (motivo: string) => void): P
   if (!pregunta) return null;
 
   let opciones = asArr<unknown>(o.opciones).map((x) => str(x).trim()).filter(Boolean).slice(0, 6);
+  // `texto` SOLO vale si el modelo lo pidió explícitamente. La regla del dueño es «nunca
+  // campos abiertos», con la excepción rara de que de verdad no haya otro campo posible
+  // — y esa excepción la elige el modelo a conciencia, no la produce un degradado.
+  const textoPedido = o.tipo === 'texto';
   let tipo: TipoPregunta = TIPOS_PREGUNTA.includes(o.tipo as TipoPregunta)
     ? (o.tipo as TipoPregunta)
     : (opciones.length ? 'opcion' : (pideFecha(pregunta) ? 'fecha' : 'texto'));
@@ -130,12 +141,25 @@ export function sanearPregunta(p: unknown, avisar?: (motivo: string) => void): P
   }
 
   // ── FECHA ──────────────────────────────────────────────────────────────────
-  // Una pregunta abierta que pregunta CUÁNDO se contesta con un calendario, no
-  // con un párrafo. Las opciones que haya mandado el modelo sobreviven como
-  // ATAJOS al lado del calendario («Esta semana», «Sin fecha todavía»): son la
-  // respuesta rápida, y el calendario está para la fecha exacta.
-  if (tipo === 'texto' && pideFecha(pregunta)) queda('fecha', 'pregunta abierta que pide una fecha');
+  // Una pregunta que pregunta CUÁNDO se contesta con un calendario, no con un
+  // párrafo — ni siquiera cuando el modelo pidió `texto` a propósito. Las opciones
+  // que haya mandado sobreviven como ATAJOS al lado del calendario («Esta semana»,
+  // «Todavía no hay fecha»): son la respuesta rápida, y el calendario está para la
+  // fecha exacta.
+  if (tipo === 'texto' && pideFecha(pregunta)) queda('fecha', 'pide una fecha: va al calendario, no a un campo abierto');
   if (tipo === 'fecha') opciones = opciones.slice(0, 4);
+
+  // ── NUNCA UN CAMPO ABIERTO POR DESCARTE ────────────────────────────────────
+  // Si llegamos a `texto` DEGRADANDO —el modelo dijo "opcion" y se olvidó las
+  // opciones, o mandó una comparación de uno— la pregunta se descarta. Antes se
+  // dibujaba un textarea, y eso rompe la regla del dueño: «ya teníamos como REGLA
+  // NUNCA campos abiertos». El modelo quiso dar opciones y no pudo; inventarle un
+  // formato que nadie eligió no arregla la pregunta, solo la disfraza. Mejor una
+  // pregunta menos que una que el dueño va a saltear igual.
+  if (tipo === 'texto' && !textoPedido) {
+    avisar?.(`«${pregunta.slice(0, 70)}»: quedó sin campo posible (el tipo pedía opciones y no vinieron) → descartada`);
+    return null;
+  }
 
   const sobre = asArr<unknown>(o.sobre).map((x) => str(x).trim().slice(0, 200)).filter(Boolean).slice(0, 8);
   return { pregunta, opciones, tipo, sobre: sobre.length ? sobre : undefined };
@@ -159,7 +183,7 @@ export const CONTRATO_TIPOS_PREGUNTA = `TIPO Y OPCIONES — TIENEN QUE SER COHER
 · "comparacion" → enfrentar DOS ítems para ver cuál pesa más. OBLIGATORIO: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
 · "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Podés sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
 · "escala" → intensidad de 1 a 5, y NADA MÁS. NO lleva opciones: el dueño ve los números pelados. Por eso la pregunta TIENE que decir qué significan los dos extremos, dentro del enunciado mismo: "¿Qué tan firme es esa fecha? (1 = es una idea, 5 = ya está comprometida con el cliente)".
-· "texto" → último recurso, solo si de verdad no hay forma de cerrarla.
+· "texto" → un campo abierto. ⛔⛔ **CASI NUNCA.** La regla del dueño es NUNCA campos abiertos: un textarea vacío es la pregunta que más se saltea. Usalo solo si de verdad no existe ningún otro campo que la conteste, y antes de usarlo intentá dos veces convertirla en "opcion" o en "fecha". Si mandás cualquier otro tipo sin las opciones que ese tipo exige, la pregunta **se descarta entera** — no se convierte en un campo abierto.
 
 ⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntás cuándo, el tipo es "fecha"; si preguntás cuánto, dale opciones con rangos concretos.
 ⛔ Una "escala" sin los extremos explicados en el enunciado es una pregunta muerta.

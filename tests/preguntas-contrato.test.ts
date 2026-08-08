@@ -38,18 +38,36 @@ test('una escala que SÍ explica sus extremos se respeta, y sin opciones', () =>
 });
 
 test('una escala sin explicar los extremos no es una escala', () => {
-  const q = sanearPregunta({ pregunta: '¿Qué tan seguido te piden integrar su propio agente?', tipo: 'escala' });
-  assert.ok(q);
-  assert.notEqual(q.tipo, 'escala', 'un 3 sin unidad no significa nada');
-  assert.equal(q.tipo, 'texto');
+  // Sin extremos el 3 no tiene unidad, y como tampoco pide una fecha no queda campo
+  // posible: se descarta en vez de dibujar un textarea.
+  assert.equal(sanearPregunta({ pregunta: '¿Qué tan seguido te piden integrar su propio agente?', tipo: 'escala' }), null);
 });
 
-// ── Coherencia tipo ↔ opciones, en las dos direcciones ────────────────────────
+// ── NUNCA un campo abierto por descarte ───────────────────────────────────────
 
-test('opcion sin opciones se degrada a algo contestable', () => {
-  assert.equal(sanearPregunta({ pregunta: '¿Qué herramienta vas a usar?', tipo: 'opcion' })?.tipo, 'texto');
-  // …y si lo que pide es una fecha, al calendario, no a un textarea.
+test('opcion sin opciones NO se convierte en textarea: se descarta', () => {
+  // La regla del dueño: «ya teníamos como REGLA NUNCA campos abiertos».
+  assert.equal(sanearPregunta({ pregunta: '¿Qué herramienta vas a usar?', tipo: 'opcion' }), null);
+  // …salvo que lo que pida sea una fecha: ahí hay campo, y es el calendario.
   assert.equal(sanearPregunta({ pregunta: '¿Para cuándo lo necesitás?', tipo: 'opcion' })?.tipo, 'fecha');
+});
+
+test('un `texto` PEDIDO a propósito se respeta: es la excepción legítima', () => {
+  assert.equal(sanearPregunta({ pregunta: '¿Con qué palabras lo diría el cliente?', tipo: 'texto' })?.tipo, 'texto');
+});
+
+test('el caso de la captura: «la fecha de inicio y fin» va al calendario, no a un textarea', () => {
+  const q = sanearPregunta({ pregunta: '¿Cuál es la fecha de inicio y fin de cada Quarter (Q1, Q2, Q3, Q4) en tu negocio?', tipo: 'texto' });
+  assert.equal(q?.tipo, 'fecha');
+});
+
+test('el detector de fecha cubre las formas que se le escaparon', () => {
+  for (const p of ['¿Cuál es la fecha de lanzamiento?', '¿Hay una fecha comprometida con el cliente?',
+    '¿Qué día se hace la sesión?', '¿Cuál es la fecha de inicio y fin de cada Quarter?',
+    '¿Cuándo arranca?', '¿Cuál es el deadline?', '¿Qué plazo hay?']) {
+    assert.ok(pideFecha(p), `debería detectar fecha en: ${p}`);
+  }
+  assert.ok(!pideFecha('¿Qué herramienta de heatmap conviene?'));
 });
 
 test('comparacion exige exactamente dos', () => {
@@ -60,7 +78,7 @@ test('comparacion exige exactamente dos', () => {
 
 test('un tipo desconocido no rompe ni inventa un campo que no se puede contestar', () => {
   assert.equal(sanearPregunta({ pregunta: '¿Y esto?', tipo: 'ranking', opciones: ['a', 'b'] })?.tipo, 'opcion');
-  assert.equal(sanearPregunta({ pregunta: '¿Y esto?', tipo: 'ranking' })?.tipo, 'texto');
+  assert.equal(sanearPregunta({ pregunta: '¿Y esto?', tipo: 'ranking' }), null);
 });
 
 test('una pregunta con buenas opciones de fecha se queda como opcion', () => {

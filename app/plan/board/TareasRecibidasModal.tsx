@@ -374,8 +374,8 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         }),
       }).then((r) => r.json()).catch(() => ({ ok: false }));
       if (!j?.ok || !Array.isArray(j.cruces) || !j.cruces.length) return;
-      const porTitulo = new Map<string, { id: string; razon: string }>();
-      for (const c of j.cruces as Array<{ i: number; idExistente?: string; razon?: string }>) {
+      const porTitulo = new Map<string, { id: string; razon: string; confianza: 'alta' | 'media' }>();
+      for (const c of j.cruces as Array<{ i: number; idExistente?: string; razon?: string; confianza?: string }>) {
         const cand = aCruzar[c.i];
         const ya = universo.find((t) => t.id === c.idExistente);
         if (!cand || !ya) continue;
@@ -383,12 +383,23 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         porTitulo.set(cand.titulo, {
           id: enBorrador ? '' : ya.id,
           razon: `${enBorrador ? 'la misma reunión ya la trae como' : 'ya está en tu plan como'} «${ya.titulo}»${c.razon ? ` — ${c.razon}` : ''}`,
+          confianza: c.confianza === 'alta' ? 'alta' : 'media',
         });
       }
       if (!porTitulo.size) return;
+      // SOLO UN CRUCE DE CONFIANZA ALTA DESTILDA LA TAREA SOLA.
+      //
+      // Un falso positivo acá no es un detalle: la tarea llega destildada, el dueño no la
+      // ve entre veinte, y un pedido real de una reunión se pierde en silencio. Pasó y es
+      // grave — «Contratar el plan de $100 para no agotar los créditos» (pagar una
+      // suscripción de IA) se marcó como duplicada de «Reglas de presupuesto según la
+      // plata real» (programar el motor que mueve el presupuesto de los anuncios), porque
+      // las dos «hablan de presupuesto». Con la confianza en media la tarea se sigue
+      // avisando —el cartel verde explica de qué la marcó— pero entra TILDADA: el dueño
+      // decide, y el default no esconde trabajo.
       setFilas((prev) => prev.map((f) => {
         const hit = !f.esDeOtro && !f.enriquece ? porTitulo.get(f.titulo) : undefined;
-        return hit ? { ...f, enriquece: hit, incluir: false } : f;
+        return hit ? { ...f, enriquece: hit, incluir: hit.confianza === 'alta' ? false : f.incluir } : f;
       }));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

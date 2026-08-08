@@ -29,7 +29,7 @@
 // son sus clientes y sus campañas (ver lib/reunion-cliente.ts).
 // =============================================================================
 
-export type FamiliaProyecto = 'producto' | 'vender' | 'transversal';
+export type FamiliaProyecto = 'producto' | 'agente' | 'vender' | 'transversal';
 
 export type ProyectoCatalogo = {
   /** El nombre EXACTO con el que vive en el tablero. */
@@ -57,6 +57,22 @@ export type ProyectoCatalogo = {
  */
 export const PREFIJO_FEATURE = 'Feature: ';
 
+/**
+ * Los que TRABAJAN SOLOS. Un agente no es una pantalla que abrís: es una IA que
+ * decide y ejecuta sin que se lo pidas — el Perro puntúa cuando entran tareas, el
+ * Doer actúa cuando le hablás por WhatsApp, el Chat Agent nutre por su cuenta.
+ *
+ * La frontera la fijó el dueño y es nítida: **si corre solo, es agente; si lo
+ * abrís y lo usás, es feature.** Por eso los Analysts y los Generators —que son
+ * IA, pero IA que vos disparás— siguen siendo `Feature:`.
+ *
+ * Separarlos importa por una razón concreta: «Feature: Plan» era el tablero Y el
+ * Perro metidos en el mismo proyecto, así que el avance de la pantalla y el del
+ * cerebro que la puntúa se sumaban en la misma barra y no se podía saber cuál de
+ * los dos estaba trabado.
+ */
+export const PREFIJO_AGENTE = 'Agente: ';
+
 /** El catálogo tal cual se escribe: `nombre` es el NÚCLEO, sin prefijo. */
 const CRUDO: ProyectoCatalogo[] = [
   // ── Producto: una tab, un proyecto ─────────────────────────────────────────
@@ -69,7 +85,10 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'CRM', emoji: '👥', familia: 'producto', que: 'Los leads: la ficha, las etapas, el avance automático, los recordatorios de reunión y el follow-up.' },
   { nombre: 'Dashboard', emoji: '📊', familia: 'producto', que: 'La analítica de marketing y comercial: métricas, gráficos, objetivos y salud del número.' },
   { nombre: 'Experiments', emoji: '🧪', familia: 'producto', que: 'Los experimentos: el único lugar donde se concluye qué funcionó y qué no.' },
-  { nombre: 'Plan', emoji: '🐕', familia: 'producto', que: 'El tablero de tareas y el Perro Guardián: priorizar, agrupar, deduplicar, rendir cuentas.' },
+  // Plan y el Perro eran UN solo proyecto y son dos cosas distintas: la PANTALLA
+  // (tablero, kanban, vistas, gráficos) y el CEREBRO que la puntúa. Mezclados, el
+  // avance de las dos se sumaba en la misma barra.
+  { nombre: 'Plan', emoji: '🗂️', familia: 'producto', que: 'La PANTALLA del tablero de tareas: kanban, vistas, prioridades, proyectos, gráficos, el modal de la tarjeta y la checklist. NO es el cerebro que puntúa (eso es «Agente: Perro Guardián»).' },
   { nombre: 'Ads Manager', emoji: '📣', familia: 'producto', que: 'Las campañas de Meta desde la app: crear, pausar, renombrar, presupuesto, y el agente que optimiza el gasto.' },
   { nombre: 'Fábrica de creativos', emoji: '🏭', familia: 'producto', que: 'Avatares, razones, matriz, lead magnet, personas, ángulos y guiones: la cadena que produce los creativos.' },
   { nombre: 'Ads Writer', emoji: '🖊️', familia: 'producto', que: 'La redacción de anuncios: copys, variantes y textos listos para publicar.' },
@@ -78,14 +97,25 @@ const CRUDO: ProyectoCatalogo[] = [
   // MaKo: Landing y VSL», que es el marketing propio de MaKo — otra pantalla, otro
   // objetivo. Son tabs (nav.ts: 'vsl-writer' en Tools, 'vsl-an' en Analytics), así que
   // van en la familia producto como sus hermanas de Ads.
-  { nombre: 'VSL Writer', emoji: '🖊️', familia: 'producto', que: 'El generador de guiones de VSL largo: estructuras de VSL, bloques del guion y las variantes a probar. NO es el VSL propio de MaKo (eso es «Vender MaKo: Landing y VSL»).' },
+  { nombre: 'VSL Generator', emoji: '🖊️', familia: 'producto', que: 'El generador de guiones de VSL largo: estructuras de VSL, bloques del guion y las variantes a probar. NO es el VSL propio de MaKo (eso es «Vender MaKo: Landing y VSL»). (Se llamaba VSL Writer.)' },
+  { nombre: 'Lead Magnet Generator', emoji: '🧲', familia: 'producto', que: 'El generador del lead magnet: qué se regala a cambio del contacto y cómo se arma.' },
+  { nombre: 'Image Generator', emoji: '🖼️', familia: 'producto', que: 'Generar imágenes para los creativos desde la app.' },
+  { nombre: 'Video Generator', emoji: '🎞️', familia: 'producto', que: 'Generar videos para los creativos desde la app.' },
+  { nombre: 'Contenido orgánico', emoji: '📝', familia: 'producto', que: 'Las tabs de formatos de la Content Machine para el CLIENTE: Reels, Carousels, Stories, Thumbnails, YouTube Writer e Ideas.' },
+  { nombre: 'Sales Email', emoji: '📧', familia: 'producto', que: 'El generador de emails de venta y las newsletters para el cliente.' },
+  { nombre: 'Closing Script', emoji: '📜', familia: 'producto', que: 'El guion de la llamada de cierre: estructura, objeciones y respuestas.' },
+  { nombre: 'Sales Roleplay', emoji: '🎭', familia: 'producto', que: 'El simulador para entrenar al vendedor: practicar la llamada contra un cliente simulado.' },
   { nombre: 'Closing Analyst', emoji: '📞', familia: 'producto', que: 'El analista de llamadas de venta: transcripciones, objeciones, y el copiloto en vivo.' },
   { nombre: 'Ads Analyst', emoji: '🎬', familia: 'producto', que: 'El analista de guiones y creativos: retención por cuartiles, qué gancho funciona.' },
   { nombre: 'VSL Analyst', emoji: '🎥', familia: 'producto', que: 'El analista del VSL: en qué tramo se cae el espectador, contra qué parte del guion, y qué pasó después con ese lead en el CRM. NO es el VSL propio de MaKo (eso es «Vender MaKo: Landing y VSL»).' },
-  { nombre: 'Market Analyst', emoji: '🕵️', familia: 'producto', que: 'El análisis de competencia: qué anuncia la competencia, qué ofertas hay en el mercado.' },
+  { nombre: 'Landing Analyst', emoji: '🌐', familia: 'producto', que: 'El analista de landing pages: qué convierte y qué no en la página, heatmaps y grabaciones de sesión, dónde se cae el visitante. Es una tab del PRODUCTO — no confundir con «Vender MaKo: Landing y VSL», que es la landing propia de MaKo.' },
+  { nombre: 'Landing Generator', emoji: '🧱', familia: 'producto', que: 'El generador de landing pages: estructura, secciones y copy de una landing para el cliente.' },
+  { nombre: 'Competitor Spy', emoji: '🕵️', familia: 'producto', que: 'El análisis de competencia: qué anuncia la competencia, qué ofertas hay en el mercado. (Se llamaba Market Analyst.)' },
+  { nombre: 'Offer Analyst', emoji: '🏷️', familia: 'producto', que: 'El analista de la oferta del cliente: precio, promesa, garantía y qué la hace comprable.' },
+  { nombre: 'Chat Analyst', emoji: '💭', familia: 'producto', que: 'El analista de las conversaciones: dónde se caen los chats, qué objeción aparece, qué responde mejor.' },
   { nombre: 'CS Analyst', emoji: '🩺', familia: 'producto', que: 'Retención y customer success: anticipar la baja de un cliente.' },
-  { nombre: 'MaKo Doer', emoji: '🧠', familia: 'producto', que: 'MaKo que ACTÚA (no que opina): sus tools, el chat por WhatsApp con el dueño, las confirmaciones.' },
-  { nombre: 'Chat Agent', emoji: '💬', familia: 'producto', que: 'El proceso de setting: secuencias de nutrición, canales fríos, plantillas y las métricas de la conversación.' },
+  { nombre: 'Second Brain', emoji: '🧠', familia: 'producto', que: 'La vista que conecta las señales de todo el negocio y encuentra qué mover: el análisis transversal y sus conclusiones.' },
+  { nombre: 'Preguntale a MaKo', emoji: '💡', familia: 'producto', que: 'El chat con MaKo dentro de la app: la conversación, el contexto que ve y los modos del consultor. NO es el chat por WhatsApp (eso es «Agente: MaKo Doer»).' },
   { nombre: 'WhatsApp', emoji: '📥', familia: 'producto', que: 'El canal de WhatsApp en sí: bandejas, oficial y no oficial, envío, anti-ban.' },
   { nombre: 'Email', emoji: '✉️', familia: 'producto', que: 'El canal de email: envíos, plantillas, entregabilidad.' },
   { nombre: 'Instagram', emoji: '📸', familia: 'producto', que: 'La tab de Instagram del producto: conectar la cuenta, leer DMs, publicar desde la app.' },
@@ -97,6 +127,15 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Conocimientos', emoji: '📚', familia: 'producto', que: 'El portal de formación: cursos, clases y material para el cliente.' },
   { nombre: 'Feedback y errores', emoji: '🗳️', familia: 'producto', que: 'Que el usuario pueda reportar un error y proponer features: botón de reportar, tickets con estado, votación, y el triaje automático.' },
   { nombre: 'Cobros y planes', emoji: '💳', familia: 'producto', que: 'Monetización: planes y límites, versión free, suscripciones, pasarela de pago, créditos y consumo de tokens.' },
+
+  // ── Agentes: la IA que trabaja SOLA, sin que se lo pidas ───────────────────
+  // No son pantallas. Un agente puede no tener ninguna tab (el Perro vive adentro
+  // del Plan) y aun así ser el proyecto donde cae todo el trabajo de su cerebro:
+  // el criterio con el que decide, sus prompts, sus reglas, su ruteo.
+  { nombre: 'Perro Guardián', emoji: '🐕', familia: 'agente', que: 'El cerebro que PRIORIZA: puntúa cada tarea, le pone deadline, la rutea a su proyecto, deduplica, arma la checklist y se deja debatir. Todo lo que sea su CRITERIO o sus preguntas de contexto va acá, no en «Feature: Plan» (esa es la pantalla).' },
+  { nombre: 'MaKo Doer', emoji: '🤖', familia: 'agente', que: 'MaKo que ACTÚA por WhatsApp con el dueño: escucha audios, entiende el pedido, ejecuta con sus tools y confirma. NO es el chat dentro de la app («Feature: Preguntale a MaKo») ni el canal en sí («Feature: WhatsApp»).' },
+  { nombre: 'Chat Agent', emoji: '💬', familia: 'agente', que: 'El agente que conversa con los LEADS solo: secuencias de nutrición, canales fríos, jugadas de setting, plantillas y las métricas de esa conversación.' },
+  { nombre: 'Optimizador de Ads', emoji: '🎚️', familia: 'agente', que: 'El agente que vigila y mueve la pauta sin que se lo pidas: sube y baja presupuesto, apaga lo que no rinde, avisa. NO es la pantalla de campañas (eso es «Feature: Ads Manager»).' },
 
   // ── Transversales: no son una tab, atraviesan toda la app ──────────────────
   { nombre: 'Seguridad y multi-inquilino', emoji: '🛡️', familia: 'transversal', que: 'Que un cliente no vea lo de otro: aislamiento por workspace, auth, cifrado, auditorías.' },
@@ -119,9 +158,17 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Vender MaKo: Referidos', emoji: '🤝', familia: 'vender', que: 'Que los clientes traigan clientes: programa de referidos, incentivos y su seguimiento.' },
 ];
 
-/** El catálogo de verdad: las features ya vienen con su prefijo puesto. */
+/** El prefijo que le toca a cada familia. Los transversales y los de vender no llevan:
+ *  «Vender MaKo: Ads» ya dice qué es, y «Seguridad» no se construye como una tab. */
+const PREFIJO: Partial<Record<FamiliaProyecto, string>> = {
+  producto: PREFIJO_FEATURE,
+  agente: PREFIJO_AGENTE,
+};
+
+/** El catálogo de verdad: cada familia ya viene con su prefijo puesto. Derivado, nunca
+ *  escrito fila por fila — con 50 entradas, la 51 se olvidaría de ponerlo. */
 export const CATALOGO_PROYECTOS: ProyectoCatalogo[] = CRUDO.map((p) =>
-  p.familia === 'producto' ? { ...p, nombre: `${PREFIJO_FEATURE}${p.nombre}` } : p);
+  ({ ...p, nombre: `${PREFIJO[p.familia] ?? ''}${p.nombre}` }));
 
 export const NOMBRES_CATALOGO: string[] = CATALOGO_PROYECTOS.map((p) => p.nombre);
 
@@ -133,9 +180,13 @@ const norm = (s: string): string =>
  * el MISMO proyecto: las filas viejas del tablero no lo tienen, el modelo a veces lo
  * va a omitir, y sin esto cada una de esas dos formas abriría un proyecto distinto —
  * que es exactamente el desastre de 64 proyectos que este catálogo vino a cerrar.
+ *
+ * Ignora los DOS prefijos, y eso además hace suave el cambio de familia: el día que
+ * «Feature: MaKo Doer» pasó a ser «Agente: MaKo Doer», las tareas que ya vivían en el
+ * proyecto viejo siguieron matcheando sin necesidad de migrar nada.
  */
 export const nucleo = (nombre: string): string =>
-  norm(nombre).replace(/^feature\s*:\s*/, '');
+  norm(nombre).replace(/^(feature|agente)\s*:\s*/, '');
 
 const PORNOMBRE = new Map(CATALOGO_PROYECTOS.map((p) => [nucleo(p.nombre), p]));
 
@@ -157,8 +208,13 @@ export const canonNombre = (nombre: string): string => delCatalogo(nombre)?.nomb
  */
 export const REGLA_NOMBRE_PROYECTO = `El nombre se entiende SOLO, en 1 a 4 palabras, como el nombre de una tab. Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
 
-EL PREFIJO, y es obligatorio: si el proyecto nuevo es una FUNCIONALIDAD del producto —una tab, un módulo, un agente de la app— se llama «${PREFIJO_FEATURE}NOMBRE»: «${PREFIJO_FEATURE}Facturación», igual que «${PREFIJO_FEATURE}CRM» o «${PREFIJO_FEATURE}Ads Manager».
-Si NO es una funcionalidad del producto va SIN prefijo: un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads"). Ponerle «${PREFIJO_FEATURE.trim()}» a algo que no se programa es peor que no ponérselo: dice que hay que construirlo cuando hay que firmarlo o pagarlo.`;
+EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUTA SOLO, se VENDE, o CRUZA todo?
+· «${PREFIJO_FEATURE}NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «${PREFIJO_FEATURE}Facturación», igual que «${PREFIJO_FEATURE}CRM» o «${PREFIJO_FEATURE}Ads Manager». Los analistas y los generadores van acá aunque usen IA: los disparás vos.
+· «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abrís y lo usás, es feature.
+· SIN prefijo → un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads").
+
+⚠️ Ponerle «${PREFIJO_FEATURE.trim()}» a algo que no se programa es peor que no ponérselo: dice que hay que construirlo cuando hay que firmarlo o pagarlo.
+⚠️ Y la confusión que más se repite: **la pantalla y el agente que vive adentro NO son el mismo proyecto.** El tablero es «${PREFIJO_FEATURE}Plan»; el cerebro que puntúa es «${PREFIJO_AGENTE}Perro Guardián». Mejorar la vista Kanban va a la primera; cambiar cómo decide una prioridad va al segundo.`;
 
 /**
  * El catálogo como se lo pasamos a un modelo: nombre + qué entra. Va SIEMPRE con las
@@ -168,11 +224,12 @@ export function catalogoParaPrompt(): string {
   const bloque = (f: FamiliaProyecto, titulo: string) =>
     `${titulo}\n${CATALOGO_PROYECTOS.filter((p) => p.familia === f).map((p) => `· ${p.nombre} — ${p.que}`).join('\n')}`;
   return [
-    bloque('producto', `CONSTRUIR EL PRODUCTO (cada uno es una tab de la app, y por eso lleva el prefijo «${PREFIJO_FEATURE.trim()}»):`),
+    bloque('producto', `CONSTRUIR EL PRODUCTO (cada uno es una PANTALLA de la app que el usuario abre, y por eso lleva el prefijo «${PREFIJO_FEATURE.trim()}»):`),
+    bloque('agente', `LOS AGENTES (la IA que trabaja SOLA — su criterio, sus prompts, sus reglas. Prefijo «${PREFIJO_AGENTE.trim()}»):`),
     bloque('transversal', 'TRANSVERSALES (no son una tab, cruzan toda la app — SIN prefijo):'),
     bloque('vender', 'VENDER MAKO (el trabajo comercial, por canal — SIN prefijo):'),
-    // La regla escrita, además de los 28 ejemplos: el modelo tiene que poder nombrar
+    // La regla escrita, además de los ejemplos: el modelo tiene que poder nombrar
     // una feature que TODAVÍA no existe, y ahí no hay ningún ejemplo que copiar.
-    `CÓMO SE LLAMAN: una feature del producto se llama «${PREFIJO_FEATURE}NOMBRE DE LA TAB». Si proponés una feature nueva, ponele ese prefijo. Lo transversal y lo de vender NO lo llevan.`,
+    REGLA_NOMBRE_PROYECTO,
   ].join('\n\n');
 }

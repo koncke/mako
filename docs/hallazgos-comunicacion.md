@@ -1350,8 +1350,31 @@ Esto importa antes de fijar cualquier ventana de espera: la más larga (audio, ~
 que hoy queda muda **por partida doble**. Hay que mandar acuse también en audio/adjunto y en cheap, o
 renovar la presencia mientras dure la ventana.
 
-**Vive en:** lib/mako-doer-in.ts (bloque del acuse y enviarPresencia) · *2026-08-05
-~fathom-preguntas-lote-whatsapp-forense*
+**AMPLIADO Y RESUELTO PARA MEDIA el 2026-08-08.** Lo de arriba era la mitad. La otra mitad, que es la
+que explica por qué el acuse tampoco era «casi inmediato» para el texto que SÍ pasa el gate: **el
+buffer del lote se agregó DELANTE del acuse y lo empujó detrás de la ventana de silencio.** El bloque
+vive dentro de `procesarDoer`, y `procesarDoer` se llama después de `esperarSilencio` — 21 s reales
+para audio, 9 s para texto. El comentario del código que dice «lo mandamos ACÁ, lo primero» era cierto
+cuando se escribió (jul-19) y quedó falso el día del buffer (ago-05). *Antes de confiar en un
+comentario de posición, mirá quién llama a esa función y qué hay antes.*
+
+Medido en prod sobre los tres audios de ws9 del 8/8: **38,6 · 50,6 · 51,7 segundos de silencio total**.
+Y el costo real está en la base: el dueño reenvió el mismo audio 2 min 43 s después creyendo que no
+había llegado (`mako_doer_buffer` id=25 e id=26, dos turnos idénticos de 1.892 chars) → **dos
+borradores duplicados de la misma reunión**.
+
+El acuse de media va ahora en `bufferearYResponder`, justo después de `reclamar()`. Ese es **el único
+punto del pipeline por el que pasa exactamente UNA invocación por lote** (el que pierde el candado ya
+volvió), y está delante de la espera: mandar tres audios seguidos deja un solo «te escucho». Solo para
+media a propósito — audio y adjunto siempre enganchan (`esMedia` saltea el chequeo de modo/ventana),
+así que ahí no hace falta repetir esa guarda; el acuse de texto sigue en `procesarDoer` porque sí
+depende de si lo nombran y de si hay una charla pendiente.
+
+⚠️ **Una vez que acusaste, cerrás siempre.** `procesarDoer` tenía seis salidas mudas; las dos que
+importan después de un acuse (`audio sin base64`, `adjunto sin base64`) ahora avisan y piden el reenvío
+en vez de irse con un `console.error`. Acusar y desaparecer es peor que no acusar.
+
+**Vive en:** lib/mako-doer-in.ts (`bufferearYResponder` tras `reclamar`; las salidas de `sin base64`) · lib/mako-doer-buffer.ts:36-42 (VENTANA_AUDIO_MS) · *2026-08-05 ~fathom-preguntas-lote-whatsapp-forense · ampliado y resuelto 2026-08-08*
 
 ### El anti-eco del doer sigue con el read-modify-write que ya explotó una vez en el dedup
 
