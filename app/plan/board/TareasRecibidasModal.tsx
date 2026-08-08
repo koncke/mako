@@ -654,6 +654,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             yaCargadas={yaCargadas}
             onAbrirTarea={onAbrirTarea}
             renderTaskCard={renderTaskCard}
+            // Para «es otra tarea»: solo las ABIERTAS, que son a las que tiene sentido
+            // sumarles contexto (a una cerrada no se le amplía nada).
+            delTablero={(existentes ?? []).filter((t) => !t.hecha).map((t) => ({ id: t.id, titulo: t.titulo }))}
           />}
         </div>
 

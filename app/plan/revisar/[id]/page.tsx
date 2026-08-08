@@ -8,7 +8,7 @@
 
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
-import { getPropuesta, duenoDePropuesta } from '@/lib/plan-propuesta';
+import { getPropuesta, duenoDePropuesta, listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { getCapaActual } from '@/lib/workspace';
 import { RevisarPropuesta } from './RevisarPropuesta';
 import { NoEsTuyo } from './NoEsTuyo';
@@ -27,6 +27,22 @@ export default async function RevisarPage({ params }: { params: Promise<{ id: st
   const prop = await getPropuesta(id);
   if (prop) return <RevisarPropuesta prop={prop} />;
 
+  // ── EL LINK LO TRANSCRIBE UN MODELO, ASÍ QUE PUEDE VENIR MAL ────────────────
+  // El id es una cadena aleatoria de 17 caracteres («propmskimbc4s4b4h»): el código lo
+  // arma bien (lib/mako-doer-acciones.ts), pero después la instrucción le dice al modelo
+  // «mandá una línea corta + este link», y copiar 17 caracteres al azar sin errarle uno
+  // es justo lo que un LLM hace mal. Verificado: un link que MaKo mandó apuntaba a un
+  // borrador de 1 tarea sobre un Reel cuando lo que había que revisar eran 3 tareas de
+  // otra cosa — o sea que ni siquiera falla siempre en «no existe»: a veces cae en un
+  // borrador REAL pero equivocado.
+  //
+  // No se puede arreglar pidiéndole al modelo que copie mejor. Lo que sí se puede es
+  // que un id que no existe deje de ser un callejón sin salida: si el que mira tiene UN
+  // solo borrador pendiente, es obvio cuál buscaba y se lo damos. Con varios, se los
+  // listamos en vez de mandarlo a la nada.
+  const pendientes = await listPropuestasPendientes(5).catch(() => []);
+  if (pendientes.length === 1) return <RevisarPropuesta prop={pendientes[0]} />;
+
   // NO ESTÁ EN TU WORKSPACE. Puede ser que el link no exista o que sea de otra persona,
   // y hasta ahora las dos cosas daban el mismo 404 mudo de Next — que además se lee
   // como "la app se rompió". Se distingue con una consulta que devuelve SOLO de qué
@@ -38,5 +54,6 @@ export default async function RevisarPage({ params }: { params: Promise<{ id: st
   // la UI justo lo que el scope cierra por atrás.
   const dueno = await duenoDePropuesta(id).catch(() => null);
   const capa = await getCapaActual().catch(() => null);
-  return <NoEsTuyo existe={!!dueno} deQuien={dueno?.nombre ?? ''} wsDestino={capa === 'superadmin' ? dueno?.workspaceId ?? null : null} />;
+  return <NoEsTuyo existe={!!dueno} deQuien={dueno?.nombre ?? ''} wsDestino={capa === 'superadmin' ? dueno?.workspaceId ?? null : null}
+    otros={dueno ? [] : pendientes.map((p) => ({ id: p.id, resumen: p.resumen, nTareas: p.tareas.length }))} />;
 }

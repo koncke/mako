@@ -578,7 +578,12 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
           // que anunciaba «y 3 preguntas» en los seis borradores de WhatsApp del día, y
           // los seis tenían cero. Un hueco en la instrucción se llena solo.
           const extras = `${preguntas.length} pregunta${preguntas.length === 1 ? '' : 's'} y ${eliminar.length} baja${eliminar.length === 1 ? '' : 's'} sugerida${eliminar.length === 1 ? '' : 's'}`;
-          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: preguntas.length, eliminar: eliminar.length, instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Mandá UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" acá, NO repitas la lista). ⛔ Si das un número, usá EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
+          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: preguntas.length, eliminar: eliminar.length, // ⛔ El link es el punto FRÁGIL de todo esto: el id son 17 caracteres al azar
+// («propmskimbc4s4b4h») y el modelo lo tiene que copiar en su mensaje. Se midió
+// mal en prod —un link que apuntaba a otro borrador— así que la instrucción lo
+// dice explícito. Y como una instrucción no es una garantía, /plan/revisar/[id]
+// tiene la red: si el id no existe, ofrece los borradores pendientes que sí hay.
+instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Mandá UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" acá, NO repitas la lista). ⛔⛔ EL LINK SE COPIA Y SE PEGA TAL CUAL, carácter por carácter — no lo reescribas de memoria ni lo acortes: un solo carácter cambiado lo manda a un borrador que no es, o a ninguno. ⛔ Si das un número, usá EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
         } catch (e) {
           return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
         }

@@ -138,6 +138,36 @@ ya vivían en «Feature: MaKo Doer» siguen matcheando con «Agente: MaKo Doer»
 
 **Vive en:** lib/plan-proyectos-catalogo.ts · *2026-08-08*
 
+### ⚠️ «Este borrador ya no existe»: el link lo transcribe un MODELO, y son 17 caracteres al azar
+
+El id de un borrador es `prop` + base36 aleatorio (`propmskimbc4s4b4h`). El código lo arma
+bien (`lib/mako-doer-acciones.ts`, caso del borrador), pero la instrucción que sigue le
+dice al modelo «mandá una línea corta + este link» — o sea que **la integridad del id
+depende de que un LLM copie 17 caracteres aleatorios sin errarle a uno**.
+
+Verificado en esta misma sesión, y el modo de falla es peor de lo que parece: el dueño
+pasó un link diciendo que ahí estaba la pregunta que reportaba, y ese id resolvía a un
+borrador REAL pero equivocado (1 tarea sobre un Reel de Instagram, cuando lo que tenía en
+pantalla eran 3 tareas de funnels, `propmskgpno0rxldp`). O sea que no siempre cae en «no
+existe»: **a veces cae en el borrador de otra cosa**, y ahí nadie se entera.
+
+Se descartó lo obvio antes de llegar acá: no hay borradores vacíos, ninguno en estado
+`procesando` o `fallado`, `getPropuesta` no filtra por estado (un borrador aplicado
+muestra «ya fue aplicada», no «no existe») y `duenoDePropuesta` usa el cliente de
+servicio, así que ve todos los workspaces. Para ver «ya no existe» **la fila tiene que no
+estar**: el id que llegó no es ninguno de los que se crearon.
+
+Lo que se hizo es la red, no la cura: si el id no existe y el que mira tiene UN solo
+borrador pendiente, se abre ése; con varios, se listan. Un id equivocado deja de ser un
+callejón sin salida.
+
+**Queda SIN hacer la cura de fondo:** que el link no dependa de que el modelo lo copie —
+mandarlo desde el código en un segundo mensaje, o exponer una ruta corta y estable
+(`/plan/revisar/ultimo`). Mientras eso no esté, el link puede seguir apuntando al
+borrador equivocado, que es el caso que la red NO ataja.
+
+**Vive en:** lib/mako-doer-acciones.ts (arma el link y la instrucción) · app/plan/revisar/[id]/page.tsx (la red) · app/plan/revisar/[id]/NoEsTuyo.tsx · *2026-08-08*
+
 ### Lo que quedó SIN hacer en las preguntas
 
 Confirmado por la auditoría del 2026-08-08 (30 hallazgos verificados) y deliberadamente

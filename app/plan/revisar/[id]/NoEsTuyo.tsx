@@ -24,13 +24,18 @@ async function irAlPlanDe(ws: number) {
   if (r?.ok) window.location.href = '/plan';
 }
 
-export function NoEsTuyo({ existe, deQuien, wsDestino }: {
+export function NoEsTuyo({ existe, deQuien, wsDestino, otros = [] }: {
   /** el id existe pero es de otra cuenta (false = el link no existe o ya no está). */
   existe: boolean;
   /** nombre del workspace dueño. Solo se muestra al super-admin. */
   deQuien: string;
   /** si viene, se ofrece pasar a ese tablero (solo super-admin). */
   wsDestino: number | null;
+  /** Los borradores PENDIENTES que sí son tuyos. El link lo transcribe un modelo y a
+   *  veces le erra un carácter; ofrecerlos convierte un callejón sin salida en «era
+   *  éste». Solo aparecen cuando el id no existe: si el borrador es de otra cuenta, lo
+   *  que corresponde es el aviso de aislamiento, no una lista. */
+  otros?: Array<{ id: string; resumen: string; nTareas: number }>;
 }) {
   const puedeIr = existe && wsDestino != null;
   return (
@@ -45,8 +50,23 @@ export function NoEsTuyo({ existe, deQuien, wsDestino }: {
             ? (puedeIr && deQuien
               ? `El borrador es de ${deQuien}. Cada plan vive en su propia cuenta, así que desde acá no te lo puedo mostrar.`
               : 'El borrador es de otra cuenta. Cada plan vive en la suya, así que desde acá no te lo puedo mostrar.')
-            : 'Puede que se haya aplicado hace tiempo o que el link esté mal copiado.'}
+            : otros.length
+              ? 'Ese link no lleva a ningún lado — puede haber llegado con un carácter cambiado. Estos son los borradores que tenés esperando:'
+              : 'Puede que se haya aplicado hace tiempo o que el link esté mal copiado.'}
         </div>
+        {!existe && otros.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 14, textAlign: 'left' }}>
+            {otros.map((o) => (
+              <a key={o.id} href={`/plan/revisar/${o.id}`}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', textDecoration: 'none', color: 'var(--ink)' }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600, minWidth: 0 }}>
+                  {o.resumen || `${o.nTareas} ${o.nTareas === 1 ? 'tarea' : 'tareas'} para revisar`}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>Revisar →</span>
+              </a>
+            ))}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 9, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
           <a href="/plan" style={{ padding: '10px 18px', borderRadius: 10, background: 'var(--ink)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, textDecoration: 'none' }}>Ir a mi plan</a>
           {puedeIr && (

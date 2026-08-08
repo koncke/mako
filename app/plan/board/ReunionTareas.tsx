@@ -65,7 +65,7 @@ export type ReunionRefUI = { recordingId?: number; titulo: string; fecha?: strin
  *  o la creación falló después de que el borrador ya la anotara). Se muestra ARRIBA de
  *  todo y con la MISMA fila que el resto —con «no es mía» y «corregir contexto»—, porque
  *  es una candidata más: lo único distinto es por qué llegó hasta acá. */
-export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: string; razon: string }; ampliar?: boolean; reunion?: ReunionRefUI; faltante?: boolean;
+export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: string; razon: string; confianza?: 'alta' | 'media' }; ampliar?: boolean; reunion?: ReunionRefUI; faltante?: boolean;
   /** el borrador se descartó: la fila queda TACHADA en vez de desaparecer. Que una tarea
    *  que se decidió no hacer se borre de la pantalla es peor que verla: al volver a la
    *  reunión no se entiende qué se hizo con cada cosa. */
@@ -202,7 +202,7 @@ function descargarMd(nombre: string, filas: FilaTarea[], reunion: ReunionRefUI) 
 /** Una tarea de esta reunión que YA está en el plan (se cargó en una pasada anterior). */
 export type TareaYaCargada = { titulo: string; tareaId: string; minutos?: number[]; url?: string | null };
 
-export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard }: {
+export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard, delTablero }: {
   filas: FilaTarea[];
   labels: Label[];
   /** reunión por defecto, para cuando las filas no traen la suya (extracción manual). */
@@ -222,6 +222,10 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
    * cae a la fila de texto de siempre.
    */
   renderTaskCard?: (id: string) => ReactNode;
+  /** Las tareas ABIERTAS del tablero. Habilitan «es otra tarea»: cuando el cruce acertó
+   *  que es un duplicado pero erró la tarjeta, se re-apunta a la correcta en vez de
+   *  crear una nueva (que es el duplicado que todo esto viene a evitar). */
+  delTablero?: Array<{ id: string; titulo: string }>;
 }) {
   // Índices originales, para que el patch vuelva a la fila correcta del padre.
   const conIdx = useMemo(() => filas.map((f, i) => ({ f, i, r: f.reunion ?? reunion })), [filas, reunion]);
@@ -399,7 +403,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
               </div>
               {yaEnPlan.map(({ f, i }) => (
                 <FilaYaEnPlan key={i} f={f} onFila={(p) => onFila(i, p)} url={(f.reunion ?? reunion).url}
-                  onAbrirTarea={onAbrirTarea} renderTaskCard={renderTaskCard} />
+                  onAbrirTarea={onAbrirTarea} renderTaskCard={renderTaskCard} delTablero={delTablero} />
               ))}
             </div>
           )}
@@ -526,13 +530,24 @@ function TabBtn({ activo, onClick, label, n }: { activo: boolean; onClick: () =>
  * de que el cruce se equivocó. Si el id ya no existe en el tablero, la tarjeta devuelve
  * null y cae al nombre a secas.
  */
-function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard }: {
+function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard, delTablero = [] }: {
   f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null;
   onAbrirTarea?: (id: string) => void; renderTaskCard?: (id: string) => ReactNode;
+  /** Las tareas ABIERTAS del tablero, para poder re-apuntar el cruce a otra. */
+  delTablero?: Array<{ id: string; titulo: string }>;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const [eligiendo, setEligiendo] = useState(false);
+  const [busca, setBusca] = useState('');
   const momentos = momentosDe(f);
   const card = f.enriquece?.id ? renderTaskCard?.(f.enriquece.id) : null;
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const candidatas = useMemo(() => {
+    const q = norm(busca.trim());
+    const otras = delTablero.filter((t) => t.id !== f.enriquece?.id);
+    if (!q) return otras.slice(0, 8);
+    return otras.filter((t) => norm(t.titulo).includes(q)).slice(0, 12);
+  }, [delTablero, busca, f.enriquece?.id]);
   return (
     <div style={{ borderRadius: 12, border: '1px solid var(--ok, #1E9E57)', background: 'var(--surface)', overflow: 'hidden' }}>
       {/* Lo que trajo la reunión: el título nuevo y el contexto que se va a sumar. */}
@@ -579,12 +594,44 @@ function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard }: {
             <button type="button" onClick={(e) => { e.stopPropagation(); onAbrirTarea(f.enriquece!.id); }}
               style={{ ...btnChico, color: 'var(--primary)' }}>abrir la tarjeta</button>
           )}
-          {/* La salida cuando el cruce se equivocó. Al tocarla la tarea vuelve arriba,
-              con las nuevas: ahí es donde pasó a pertenecer. */}
+          {/* DOS salidas distintas, porque el cruce se puede equivocar de dos maneras:
+              «no hay ninguna igual» y «hay una igual, pero es otra». Hasta acá existía
+              solo la primera, así que cuando el Perro acertaba en que era un duplicado
+              pero erraba la tarjeta, la única jugada era crearla de nuevo — y quedaba
+              el duplicado que todo esto viene a evitar. */}
+          <button type="button" onClick={(e) => { e.stopPropagation(); setEligiendo((v) => !v); }}
+            style={{ ...btnChico, color: eligiendo ? 'var(--primary)' : undefined }}
+            title="Es un duplicado, pero de otra tarjeta">↔ es otra tarea</button>
           <button type="button" onClick={(e) => { e.stopPropagation(); onFila({ ampliar: false, incluir: true }); }}
             style={{ ...btnChico, color: 'var(--warn)' }}
             title="Crear una tarea nueva en vez de sumarle el contexto a la que ya está">↗ no es la misma</button>
         </div>
+        {eligiendo && (
+          <div style={{ marginTop: 9, padding: 10, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
+            <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscá la tarea de tu plan…"
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13, outline: 'none', fontFamily: SANS }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 7, maxHeight: 220, overflowY: 'auto' }}>
+              {candidatas.map((t) => (
+                <button key={t.id} type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEligiendo(false); setBusca('');
+                    // Lo elige una persona mirando las dos: es lo más confiable que hay,
+                    // así que va con confianza alta y sin tildar (se amplía, no se crea).
+                    onFila({ enriquece: { id: t.id, razon: `ya está en tu plan como «${t.titulo}» — lo marcaste vos`, confianza: 'alta' }, ampliar: true, incluir: false });
+                  }}
+                  style={{ textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.35, cursor: 'pointer', fontFamily: SANS }}>
+                  {t.titulo}
+                </button>
+              ))}
+              {!candidatas.length && (
+                <div style={{ fontSize: 12.5, color: 'var(--faint)', padding: '6px 2px' }}>
+                  {busca.trim() ? 'Ninguna coincide. Si no está en el plan, usá «no es la misma».' : 'No hay otras tareas abiertas en el tablero.'}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
