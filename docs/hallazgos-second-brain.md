@@ -337,6 +337,55 @@ la captura **sobre el SVG**, y sin `onPointerLeave` (con la captura bien puesta,
 
 **Vive en:** `app/second-brain/Grafo.tsx`
 
+### `setPointerCapture` retargetea los eventos, y el `onClick` del nodo no dispara nunca
+
+**Síntoma.** Se agrega el arrastre y deja de poder hacerse clic en un nodo para fijarlo y leer
+su detalle. No hay error: el clic simplemente no pasa nada.
+
+**Causa.** `setPointerCapture` sobre el `<svg>` redirige **todos** los eventos siguientes —
+incluido el `click` — al elemento que capturó. El `onClick` del `<circle>` deja de recibirlos.
+Y la captura sobre el `<svg>` es correcta y necesaria (sin ella el paneo se corta: ver arriba),
+así que no se puede revertir.
+
+**Regla.** Con captura de puntero, el clic se resuelve en el **`pointerup`**: si el gesto no
+superó el umbral de arrastre, es un clic, y se sabe sobre qué elemento empezó porque se guardó
+en el `pointerdown`. Cualquier `onClick` de un hijo del elemento que captura es código muerto.
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`soltar`)
+
+### Una flotación chica no se lee como flotar: se lee como que el texto tiembla
+
+**Síntoma.** Los nodos «flotan mal», y sobre todo el texto: se ve tembloroso y sucio.
+
+**Causa.** Con una amplitud de ~2 px de pantalla, el desplazamiento es sub-pixel y el navegador
+**re-rasteriza la tipografía en cada frame**. Eso no se percibe como movimiento, se percibe
+como ruido.
+
+**Regla.** Dos cosas juntas: amplitud suficiente para que el movimiento sea intencional (acá
+16 unidades de mundo, ~8 px de pantalla, con períodos de 7,1 s y 11,3 s), y `will-change:
+transform` en el grupo que se anima, que lo promueve a su propia capa del compositor — así el
+texto viaja como una imagen en vez de redibujarse. Sin lo segundo, subir la amplitud mejora
+pero no limpia.
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`cbg-flota-x` / `cbg-flota-y`)
+
+### Un radio de colisión grande es seguro SI dura solo el gesto
+
+La regla de arriba dice que el radio de colisión del cliente no puede superar la separación
+mínima en reposo (37) o la colisión pelea contra la casa para siempre. **La excepción es el
+nodo que se está arrastrando**: mientras dura el gesto tiene `fx/fy`, así que no se mueve él —
+mueve a los demás. Al soltar vuelve a su radio normal y todos regresan. Por eso
+`colisionRadioArrastre` puede ser 150 sin romper nada, y es lo que hace que el mapa se abra al
+paso del nodo en vez de empujar solo al que tiene pegado.
+
+### La paleta del grafo no puede salir de los tokens semánticos
+
+Los `--grafo-*` de `app/globals.css` existen porque sobre `#14161B` los semánticos de la app
+quedan **por debajo** del gris base de un nodo: `--primary` 3,98:1, `--good` 5,24, `--bad`
+4,25, contra 6,55 de `--sidebar-text`. Un nodo «marcado» con ellos se ve *menos* importante
+que uno sin marcar. La paleta del grafo es claro-desaturada y se distingue por **tono**, no por
+brillo. Diez es el techo: pasada esa cantidad una paleta cualitativa deja de leerse.
+
 ### La trampa que llega con la simulación viva: el hover que no se apaga
 
 Cuando el grafo se mueve debajo de un cursor quieto, **`pointerout` no se dispara nunca** y el

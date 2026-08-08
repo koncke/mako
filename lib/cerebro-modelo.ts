@@ -20,17 +20,23 @@
  *  es arbitrario: sigue el recorrido del onboarding, así que el mapa terminado se
  *  lee como la historia de cómo se construyó. */
 export const AREAS = [
-  { id: 'norte', nombre: 'Norte', que: 'En qué fase está el negocio, qué lo frena y cómo vende.' },
-  { id: 'documentos', nombre: 'Documentos', que: 'Lo que soltaste en el Archivero y MaKo leyó.' },
-  { id: 'panorama', nombre: 'Panorama', que: 'Lo que MaKo entendió del negocio, en sus seis planos.' },
-  { id: 'oferta', nombre: 'Oferta', que: 'Qué vendes, a cuánto, qué prometes y qué garantizas.' },
-  { id: 'cliente', nombre: 'Cliente', que: 'A quién le vendes, qué le duele y qué objeta.' },
-  { id: 'productos', nombre: 'Productos', que: 'El catálogo con el que el CRM cierra cada venta.' },
-  { id: 'entregables', nombre: 'Gancho', que: 'El elemento tangible que hace deseable la oferta.' },
-  { id: 'avatares', nombre: 'Segmentos', que: 'Los tres segmentos que se pueden targetear en Meta.' },
-  { id: 'razones', nombre: 'Razones', que: 'Por qué compra cada segmento: las celdas de la matriz.' },
-  { id: 'voz', nombre: 'Voz y cara', que: 'Cómo suena tu marca y qué cara tiene en los creativos.' },
+  { id: 'norte', nombre: 'Norte', color: 'var(--grafo-norte)', que: 'En qué fase está el negocio, qué lo frena y cómo vende.' },
+  { id: 'documentos', nombre: 'Documentos', color: 'var(--grafo-documentos)', que: 'Lo que soltaste en el Archivero y MaKo leyó.' },
+  { id: 'panorama', nombre: 'Panorama', color: 'var(--grafo-panorama)', que: 'Lo que MaKo entendió del negocio, en sus seis planos.' },
+  { id: 'oferta', nombre: 'Oferta', color: 'var(--grafo-oferta)', que: 'Qué vendes, a cuánto, qué prometes y qué garantizas.' },
+  { id: 'cliente', nombre: 'Cliente', color: 'var(--grafo-cliente)', que: 'A quién le vendes, qué le duele y qué objeta.' },
+  { id: 'productos', nombre: 'Productos', color: 'var(--grafo-productos)', que: 'El catálogo con el que el CRM cierra cada venta.' },
+  { id: 'entregables', nombre: 'Gancho', color: 'var(--grafo-entregables)', que: 'El elemento tangible que hace deseable la oferta.' },
+  { id: 'avatares', nombre: 'Segmentos', color: 'var(--grafo-avatares)', que: 'Los tres segmentos que se pueden targetear en Meta.' },
+  { id: 'razones', nombre: 'Razones', color: 'var(--grafo-razones)', que: 'Por qué compra cada segmento: las celdas de la matriz.' },
+  { id: 'voz', nombre: 'Voz y cara', color: 'var(--grafo-voz)', que: 'Cómo suena tu marca y qué cara tiene en los creativos.' },
 ] as const;
+
+/** El color de grupo de un área. Los tokens `--grafo-*` viven en app/globals.css y
+ *  solo se usan adentro del lienzo del grafo: los semánticos de la app no sirven ahí
+ *  porque quedan por debajo del gris base en contraste. */
+export const colorArea = (id: AreaId): string =>
+  AREAS.find((a) => a.id === id)?.color ?? 'var(--sidebar-text)';
 
 export type AreaId = (typeof AREAS)[number]['id'];
 

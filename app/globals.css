@@ -61,6 +61,28 @@
      con `opacity` sobre un gris claro se ve lavada y sucia; Obsidian usa un color
      opaco a dos escalones del fondo (#3f3f3f sobre #1e1e1e) y por eso se lee limpio. */
   --sidebar-line: #383D47;
+
+  /* ── Paleta de GRUPO del grafo del Second Brain ────────────────────────
+     Son el equivalente de los seis slots `color-fill-1…6` de Obsidian: una
+     paleta CUALITATIVA que solo vive adentro del lienzo oscuro del grafo y no
+     se usa en ninguna otra pantalla. Existen porque los tokens semánticos de
+     la app NO sirven acá: sobre #14161B, --primary da 3,98:1, --good 5,24 y
+     --bad 4,25, todos POR DEBAJO del gris base de un nodo (--sidebar-text,
+     6,55:1), así que un nodo «marcado» con ellos se vería MENOS importante que
+     uno sin marcar. Estos son claros y desaturados a propósito: todos superan
+     al gris y se distinguen por TONO, no por brillo.
+     ⚠️ No usar fuera del grafo, y no agregar más de estos diez: una paleta
+     cualitativa deja de leerse pasadas ~10 categorías. */
+  --grafo-norte: #F2B01E;
+  --grafo-documentos: #9DBBF5;
+  --grafo-panorama: #A5D8C4;
+  --grafo-oferta: #F5C89B;
+  --grafo-cliente: #C9B0EE;
+  --grafo-productos: #8FD3E8;
+  --grafo-entregables: #E8B7D4;
+  --grafo-avatares: #B8D98D;
+  --grafo-razones: #F0A9A0;
+  --grafo-voz: #D9CE8F;
   --sidebar-text: #949CAA;
   --on-sidebar: #F3F5F8;
 

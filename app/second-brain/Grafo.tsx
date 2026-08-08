@@ -32,7 +32,7 @@
 // =============================================================================
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { AREAS, radioNodo, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
+import { AREAS, radioNodo, colorArea, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
 import type { NodoFisico, Simulacion } from './fisica';
 import { MONO } from '@/app/_ui/tokens';
 
@@ -72,7 +72,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   const [activo, setActivo] = useState<string | null>(null);
   const [fijado, setFijado] = useState<string | null>(null);
   const [areaFoco, setAreaFoco] = useState<AreaId | null>(null);
-  const [grupoTuyo, setGrupoTuyo] = useState(false);
+  const [colorear, setColorear] = useState(true);
 
   const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
 
@@ -119,9 +119,9 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   // el color de grupo gana contra el tipo pero nunca tapa un estado interactivo.
   const rellenoDe = (n: NodoCerebro): string => {
     if (n.id === 'raiz') return 'var(--on-sidebar)';
-    if (n.destacado) return 'var(--mako)';
     if (n.alerta) return 'var(--warn-fill)';
-    if (grupoTuyo && n.autoria === 'usuario') return 'var(--primary-weak)';
+    if (n.destacado) return 'var(--mako)';
+    if (colorear) return colorArea(n.area);
     return 'var(--sidebar-text)';
   };
 
@@ -298,8 +298,14 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     punteros.current.delete(e.pointerId);
     if (punteros.current.size < 2) pellizco.current = null;
     if (punteros.current.size === 0) {
-      if (arrastrando.current) simRef.current?.soltar();
-      else if (arrastre.current && !arrastre.current.movido) setFijado(null);
+      const quieto = arrastre.current && !arrastre.current.movido;
+      const sobreNodo = arrastrando.current;
+      if (sobreNodo) simRef.current?.soltar();
+      // ⚠️ El clic se resuelve ACÁ y no con un onClick en el nodo. `setPointerCapture`
+      // RETARGETEA todos los eventos siguientes al elemento que capturó —el <svg>—,
+      // así que el `click` nunca llega al <circle> y el onClick del nodo no dispara.
+      // Es lo que rompió poder fijar un nodo para leer su detalle.
+      if (quieto) setFijado((f) => (sobreNodo ? (f === sobreNodo ? null : sobreNodo) : null));
       arrastrando.current = null;
       arrastre.current = null;
     }
@@ -318,17 +324,14 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     });
   };
 
-  const clicNodo = (id: string) => (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (arrastre.current?.movido) return;
-    setFijado((f) => (f === id ? null : id));
-  };
 
   const areaDe = (id: AreaId) => AREAS.find((a) => a.id === id)!;
   const vb = `${encuadre.x} ${encuadre.y} ${encuadre.lado} ${encuadre.lado}`;
-  /** Amplitud de la flotación, en unidades de mundo. A zoom 1 son ~2 px de pantalla:
-   *  arriba de 4 marea, abajo de 1 no se ve. */
-  const flote = 3 / kr;
+  /** Amplitud de la flotación, en unidades de mundo. Con 3 el recorrido era de ~2 px
+   *  de pantalla y no se leía como flotar: se leía como que el texto TEMBLABA, porque
+   *  a esa escala el desplazamiento sub-pixel hace que la tipografía se re-rasterice
+   *  en cada frame. Con 16 el movimiento es intencional y el texto viaja con él. */
+  const flote = 16 / kr;
 
   return (
     <div className="cbg">
@@ -357,10 +360,22 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
            de 0,03 px, o sea ninguno.
            Períodos que no son múltiplos entre sí: la órbita no se cierra y no se lee
            mecánica. */
-        .cbg .cbg-flota-x { animation: cbg-fx 4.3s ease-in-out infinite alternate; }
-        .cbg .cbg-flota-y { animation: cbg-fy 6.7s ease-in-out infinite alternate; }
+        .cbg .cbg-flota-x { animation: cbg-fx 7.1s ease-in-out infinite alternate; }
+        .cbg .cbg-flota-y { animation: cbg-fy 11.3s ease-in-out infinite alternate; }
+        /* will-change promueve el grupo a su propia capa del compositor. Sin esto el
+           navegador re-rasteriza el TEXTO en cada frame y se ve tembloroso, que es
+           distinto de flotar. Con la capa, el texto se mueve como una imagen. */
+        .cbg .cbg-flota-x, .cbg .cbg-flota-y { will-change: transform; }
         @keyframes cbg-fx { from { transform: translateX(calc(-1 * var(--fl))); } to { transform: translateX(var(--fl)); } }
         @keyframes cbg-fy { from { transform: translateY(var(--fl)); } to { transform: translateY(calc(-1 * var(--fl))); } }
+
+        /* LA LLEGADA. El nodo no nace en su lugar: nace MÁS AFUERA, en la dirección
+           que lo aleja del centro, y viaja hasta su posición. Va en su propio grupo
+           porque también anima transform y pisaría al pop. Curva de desaceleración
+           larga (sin overshoot): el que rebota es el pop, y dos rebotes encimados se
+           leen como un error. */
+        .cbg .cbg-llega { animation: cbg-viene .9s cubic-bezier(.16,1,.3,1) backwards; }
+        @keyframes cbg-viene { from { transform: translate(var(--dx), var(--dy)); } to { transform: translate(0,0); } }
 
         /* EL POP. easeOutBack sobrepasa ~1,10 y vuelve. Nunca desde scale(0): eso se
            lee como glitch y esconde el área de toque. */
@@ -377,7 +392,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
         .cbg .cbg-et { font-size: calc(12px / var(--k, 1)); fill: var(--on-sidebar); pointer-events: none; }
 
         @media (prefers-reduced-motion: reduce) {
-          .cbg .cbg-flota-x, .cbg .cbg-flota-y, .cbg .cbg-pop { animation: none; }
+          .cbg .cbg-flota-x, .cbg .cbg-flota-y, .cbg .cbg-pop, .cbg .cbg-llega { animation: none; }
           .cbg .cbg-cuerpo, .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et { transition: none; }
           .cbg .cbg-nodo:hover .cbg-cuerpo, .cbg .cbg-nodo.cbg-sel .cbg-cuerpo { transform: none; }
         }
@@ -451,7 +466,6 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                     onMouseEnter={() => setActivo(n.id)}
                     onMouseLeave={() => setActivo(null)}
                     onPointerDown={agarrarNodo(n.id)}
-                    onClick={clicNodo(n.id)}
                   >
                     <g
                       className="cbg-flota-x"
@@ -459,10 +473,21 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                         ['--fl' as string]: `${flote}px`,
                         // Retardo NEGATIVO: arranca a mitad de ciclo YA, sin espera. Y
                         // sale del hash del id, así que el nodo flota igual cada visita.
-                        animationDelay: `-${h % 4300}ms`,
+                        animationDelay: `-${h % 7100}ms`,
                       }}
                     >
-                    <g className="cbg-flota-y" style={{ ['--fl' as string]: `${flote}px`, animationDelay: `-${(h >>> 7) % 6700}ms` }}>
+                    <g className="cbg-flota-y" style={{ ['--fl' as string]: `${flote}px`, animationDelay: `-${(h >>> 7) % 11300}ms` }}>
+                      <g
+                        className="cbg-llega"
+                        style={{
+                          // Desvío inicial: hacia AFUERA del centro del encuadre, con
+                          // una distancia que varía por nodo para que no lleguen todos
+                          // en formación. El centro del mapa es (0,0) del mundo.
+                          ['--dx' as string]: `${(p.x / (Math.hypot(p.x, p.y) || 1)) * (260 + (h % 220))}px`,
+                          ['--dy' as string]: `${(p.y / (Math.hypot(p.x, p.y) || 1)) * (260 + (h % 220))}px`,
+                          animationDelay: `${Math.min(i * 12, 700)}ms`,
+                        }}
+                      >
                       <g className="cbg-pop" style={{ animationDelay: `${Math.min(i * 12, 700)}ms` }}>
                         <g className="cbg-cuerpo">
                           <circle r={Math.max(r + 8 / kr, 16 / kr)} fill="transparent" />
@@ -482,6 +507,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                             {n.etiqueta}
                           </text>
                         )}
+                      </g>
                       </g>
                     </g>
                     </g>
@@ -541,10 +567,32 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
           {/* El color es OPT-IN, como los grupos de Obsidian: el mapa nace monocromo y
               el usuario enciende UNA distinción. Reemplaza a la leyenda, que explicaba
               rellenos que ya no codifican nada. */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 16px', fontSize: 'var(--fs-sm)', color: 'var(--dim)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={grupoTuyo} onChange={(e) => setGrupoTuyo(e.target.checked)} />
-            Resaltar lo que escribiste tú
-          </label>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 16px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 'var(--fs-sm)', color: 'var(--dim)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={colorear} onChange={(e) => setColorear(e.target.checked)} />
+              Colorear por área
+            </label>
+            {colorear && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', marginTop: 11 }}>
+                {AREAS.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => setAreaFoco(areaFoco === a.id ? null : a.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
+                      padding: 0, cursor: 'pointer', fontSize: 'var(--fs-meta)',
+                      color: areaFoco === a.id ? 'var(--ink)' : 'var(--faint)',
+                      fontWeight: areaFoco === a.id ? 650 : 400,
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: a.color, flex: 'none' }} />
+                    {a.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </aside>
       </div>
     </div>

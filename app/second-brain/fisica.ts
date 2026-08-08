@@ -69,6 +69,12 @@ export const FISICA = {
    *  reposo la separación mínima es 37. Con radios de 8 y pad 8 da 32 < 37, que entra
    *  justo. Subirlo a 12 da 40 y el problema vuelve. */
   colisionPad: 8,
+  /** El radio del nodo que estás ARRASTRANDO. Mucho más grande a propósito: es lo que
+   *  hace que el mapa se abra a su paso en vez de que empuje solo al que tiene pegado.
+   *  Solo aplica mientras dura el gesto, así que no entra en conflicto con el techo del
+   *  aire en reposo (ver `colisionPad`): al soltar vuelve a su radio normal y todos
+   *  regresan a su casa. */
+  colisionRadioArrastre: 150,
   colisionFuerza: 0.7,
   colisionIter: 1,
   /** El resorte a casa. Con 0,30 el mapa queda quieto en 62 ticks (~1,03 s) y el
@@ -100,14 +106,15 @@ export async function crearSimulacion(
   }));
   const porId = new Map(nodos.map((n) => [n.id, n]));
 
+  let agarrado: NodoFisico | null = null;
+
   const sim = forceSimulation<NodoFisico>(nodos)
-    .force('colision', forceCollide<NodoFisico>((d) => d.r + FISICA.colisionPad).strength(FISICA.colisionFuerza).iterations(FISICA.colisionIter))
+    .force('colision', forceCollide<NodoFisico>((d) => (d === agarrado ? FISICA.colisionRadioArrastre : d.r + FISICA.colisionPad)).strength(FISICA.colisionFuerza).iterations(FISICA.colisionIter))
     .force('casaX', forceX<NodoFisico>((d) => d.casaX).strength(FISICA.casaFuerza))
     .force('casaY', forceY<NodoFisico>((d) => d.casaY).strength(FISICA.casaFuerza))
     .stop();
 
   let raf: number | null = null;
-  let agarrado: NodoFisico | null = null;
   // Cuánto había entre el centro del nodo y el punto donde lo agarraste. Sin esto el
   // nodo se teletransporta bajo el cursor en el primer movimiento, que es el defecto
   // clásico de un drag mal hecho: se siente que lo arrancaste, no que lo agarraste.

@@ -131,8 +131,13 @@ const capitalizar = (s: string): string => s.charAt(0) + s.slice(1).toLowerCase(
 // Los campos del brief, repartidos en las dos áreas que les corresponden. Las
 // claves salen de DEFAULT_SCHEMA (lib/onboarding.ts); el label se lee del esquema
 // vivo para que renombrar un campo allá no deje el grafo hablando en viejo.
+// De los 18 campos de DEFAULT_SCHEMA se usaban 11. Los 7 que faltaban no eran
+// relleno: dos de ellos —el objetivo a 90 días y qué te está frenando— son lo que el
+// Perro Guardián usa para priorizar, y los cinco de marca son la voz del negocio.
+const CAMPOS_NORTE = ['negocio_objetivo', 'negocio_freno'];
 const CAMPOS_OFERTA = ['oferta_nombre', 'oferta_ticket', 'oferta_promesa', 'oferta_incluye', 'oferta_garantia'];
 const CAMPOS_CLIENTE = ['avatar_quien', 'avatar_dolor', 'avatar_deseo', 'avatar_objecion', 'avatar_nicho'];
+const CAMPOS_MARCA = ['marca_nombre', 'marca_tono', 'marca_valores', 'marca_no', 'marca_frase'];
 
 /**
  * El nombre del nodo NO es el label del esquema. Los labels de `DEFAULT_SCHEMA`
@@ -153,6 +158,13 @@ const NOMBRE_CAMPO: Record<string, string> = {
   avatar_deseo: 'Lo que quiere',
   avatar_objecion: 'Su objeción',
   avatar_nicho: 'Nicho',
+  negocio_objetivo: 'Tu objetivo a 90 días',
+  negocio_freno: 'Lo que te frena',
+  marca_nombre: 'Personaje de marca',
+  marca_tono: 'Su tono',
+  marca_valores: 'En qué cree',
+  marca_no: 'Lo que nunca hace',
+  marca_frase: 'Su muletilla',
 };
 
 /** Último recurso para un campo sin nombre propio: la pregunta sin signos, sin
@@ -290,7 +302,10 @@ export async function construirCerebro(): Promise<Cerebro> {
   // un documento (y de cuál) o si lo escribió el usuario encima. Eso es lo que
   // hace honesta la regla del borde, y no hay que inferir nada.
   const campoANodo = new Map<string, string>();
-  for (const [area, claves] of [['oferta', CAMPOS_OFERTA], ['cliente', CAMPOS_CLIENTE]] as const) {
+  for (const [area, claves] of [
+    ['norte', CAMPOS_NORTE], ['oferta', CAMPOS_OFERTA],
+    ['cliente', CAMPOS_CLIENTE], ['voz', CAMPOS_MARCA],
+  ] as const) {
     for (const key of claves) {
       const valor = limpio(answers[key]);
       if (!valor) continue;
