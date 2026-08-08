@@ -17,8 +17,12 @@
 //   chat        el título de la sesión de Claude Code. Vive en
 //               %APPDATA%\Claude\claude-code-sessions\<cuenta>\<org>\<sesión>.json
 //               campo `title`.
-//   cuenta      cuál de las dos. Se detecta por CLAUDE_CONFIG_DIR: vacío o
-//               ~\.claude = claude1; ~\.claude-martin = claude2.
+//   cuenta      cuál de las dos. ⚠️ NO se puede detectar sola: el 8/8 esta
+//               sesión corría en la 2 con CLAUDE_CONFIG_DIR vacío, y
+//               ~\.claude.json declaraba «Mauricio» de un login de julio. La
+//               app de escritorio se loguea aparte del CLI, así que el config
+//               dir, el oauthAccount y el nombre de la carpeta mienten los
+//               tres. Preguntá; no lo deduzcas. (docs/dos-cuentas.md)
 //   actor       'martin' si es un pedido suyo · 'claude' si es trabajo del agente
 //   tipo        prompt · implementacion · investigacion · correccion · cosecha
 //
@@ -33,6 +37,8 @@ export type { Hito, Parte };
 
 // El título real de la sesión, no uno inventado.
 const CH = 'Rediseño por partes';
+/** La sesión que retoma el rediseño desde la cuenta 2. */
+const CH3 = 'Parte 3 · Gramática de MaKo';
 
 export const BITACORA: Hito[] = [
   // ── 6 de agosto ────────────────────────────────────────────────────────────
@@ -408,13 +414,52 @@ export const BITACORA: Hito[] = [
       'app/_ui/ui.css — `.mk-hist`',
     ],
   },
+
+  // ── 8 de agosto · la cuenta 2 retoma el rediseño ───────────────────────────
+  {
+    fecha: '8 ago', hora: '10:58', chat: CH3, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Retomar el rediseño, y dos correcciones',
+    pedido: 'Tienes absolutamente todo el contexto? Quiero seguir con la parte del rediseño de MaKo. Te dejé todo preparado para la estrategia de las 2 cuentas, quiero asegurarme que antes tengas todo.\n\n[…] En realidad estás corriendo en claude2 y es la cuenta de Leandro Tejado. Corrigelo, por ahora no vamos a trabajar con la cuenta de Martin.\n\nPon como resuelto la diferenciación de las secciones, eso ya está bien. Y continua con la parte 3. ¿Que hay que hacer?',
+    puntos: [
+      '**La cuenta 2 es de Leandro Tejado, no de Martín.** Estaba mal en `docs/dos-cuentas.md`, en `docs/conectores.md`, en el `$PROFILE` y en la constante `CUENTAS` que pinta esta misma pantalla: cada tanda de commits le atribuía el trabajo a la persona equivocada.',
+      '⚠️ **El disco no alcanza para saber qué cuenta corre.** `~\\.claude.json` declaraba «Mauricio» de un login de julio, `~\\.claude-martin` ni tenía `.credentials.json`, y aun así la sesión era la 2: la app de escritorio se loguea aparte del CLI. La instrucción de arriba de este archivo decía cómo deducirlo — decía mal.',
+      '«Diferenciar las secciones» deja de ser la queja viva: la dio por buena. Lo que quedó escrito no es que se hizo, sino por qué fallaron los tres intentos anteriores.',
+    ],
+    commits: [{ sha: '68a251a', msg: 'La cuenta 2 es de Leandro Tejado, y las secciones ya se distinguen', lineas: 49, archivos: 5 }],
+  },
+  {
+    fecha: '8 ago', hora: '11:34', chat: CH3, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Parte 3 · Los nueve estados de MaKo',
+    puntos: [
+      'Antes de escribir nada: **35 archivos** resolvían por su cuenta el «analizando…», y en `app/_ui/` no había NINGUNA pieza de MaKo — solo el color (un tono `mako` en Button, Badge y Progress).',
+      '⚠️ **El Semáforo eran dos tipos incompatibles.** `Semaforo` decía `ambar`/`gris`, `SemaforoAviso` decía `amarillo`/`na`: no coincidían en dos de los cuatro valores, en 158 usos sobre 22 archivos. Un `switch` sobre el equivocado compila perfecto y pinta otro color — no avisa nunca. No era un problema de diseño, era un bug latente.',
+      '**El rótulo no es un prop.** Sale del catálogo y no se puede pasar por parámetro: es la única forma de que el criterio de «listo» de la tarea (que se llame igual en Plan, Dashboard, CRM y chat) no dependa de que cada pantalla se acuerde.',
+      '**El error que solo se vio renderizando los nueve juntos:** «MaKo está ejecutando» me había quedado AZUL. Azul es «vos actuás» y el que actúa ahí es MaKo. Leído de a un estado parecía razonable; con los nueve uno debajo del otro eran ocho dorados y uno azul sin nada que lo explicara. Va dorado.',
+      '**El segundo error, del mismo tipo:** el chequeo de campos obligatorios disparaba también en la variante compacta, que por diseño no muestra esos campos — nueve avisos imposibles de resolver. Una guarda con falsos positivos se ignora a la semana, y ahí deja de avisar de los verdaderos.',
+      'La forma: el estado se reconoce por el **filo izquierdo**, no por el fondo. Seis tarjetas seguidas con seis fondos de color son una bolsa de caramelos. Y la estrella brilla solo en «analizando» y «ejecutando» — por eso `MakoStar` ahora acepta `animate`.',
+      '⚠️ Convivencia: `app/_ui/ui.css` tenía trabajo sin commitear de la otra sesión pegado al final, así que git daba UN solo hunk de 145 líneas con lo de los dos. Se separó con `hash-object` + `update-index` (el `git add -p` que decía el hallazgo no corre acá: es interactivo). La receta quedó en `docs/hallazgos-infra.md`.',
+    ],
+    commits: [{ sha: 'bad3b90', msg: 'Parte 3 · La gramática de MaKo: los nueve estados, en un solo lugar', lineas: 737, archivos: 9 }],
+    archivos: [
+      'lib/mako-gramatica.ts — NUEVO. La fuente única: los 9 estados con su rótulo, su tono y lo que cada uno exige, más el Semáforo unificado y `normalizarSemaforo()`',
+      'app/_ui/Mako.tsx — NUEVO. Un componente, nueve variantes, y el aviso de desarrollo cuando falta un campo obligatorio',
+      'app/admin/ui/Gramatica.tsx — NUEVO. El catálogo, con ejemplos del producto real. Va aparte por la tarea #534 (CatalogoUI ya pasa las 500 líneas)',
+      'lib/meta-health-ui.ts — `Semaforo` se re-exporta; los colores salen de la paleta de tonos',
+      'lib/avisos-catalogo.ts — `SemaforoAviso` marcado deprecado (los datos viejos se migran aparte)',
+      'app/_components/MakoBrand.tsx — `MakoStar` acepta `animate`',
+      'app/_ui/ui.css — `.mk-mako` y sus partes · app/_ui/index.ts — el export',
+      'AGENTS.md — `lib/mako-gramatica.ts` sumado a «Una cosa, un lugar», con la regla del rótulo',
+    ],
+  },
 ];
 
 /** Las nueve partes del rediseño y en qué anda cada una. */
 export const PARTES: Parte[] = [
   { titulo: 'Los cimientos', detalle: 'Un solo dorado · biblioteca de primitives · los 8 estados · bases mobile', estado: 'hecha' },
   { titulo: 'App Shell', detalle: 'Navegación por intención · PageHeader · Section', estado: 'hecha' },
-  { titulo: 'Gramática de MaKo', detalle: 'Los 9 estados de la IA · unificar el Semáforo', estado: 'sigue' },
+  // Construida y visible en /admin/ui?tab=mako; sigue abierta porque «lista»,
+  // según la propia tarea, es que el estado se vea igual en las cuatro tabs.
+  { titulo: 'Gramática de MaKo', detalle: 'Los 9 estados y el Semáforo unificado ya viven en lib/mako-gramatica.ts. Falta aplicarlos en Plan, Dashboard, CRM y chat, y pasar los 22 archivos del Semáforo', estado: 'sigue' },
   { titulo: 'Second Brain', detalle: 'Selector de contexto · ciclo de aprendizaje', estado: 'cola' },
   { titulo: 'La pantalla «General»', detalle: 'La prioridad de la semana con sus seis campos', estado: 'cola' },
   { titulo: 'Plantilla Analyst', detalle: 'Se diseña una vez, se aplica en Closing y en Ads', estado: 'cola' },

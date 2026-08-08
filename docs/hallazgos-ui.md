@@ -210,6 +210,63 @@ alcanza** (el extremo claro queda en ~3,3:1): la salida que pasa AA es texto cas
 
 **Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-tier-ribbon, .s-diff-seg-3, .s-ch-lever .s-ch-id, .s-rung-1 .s-rung-n) · *2026-07-19 ~revision-landing-estrategia-vsl*
 
+### ⚠️ El «Semáforo» eran DOS tipos incompatibles, y por eso no lo encontraba nadie
+
+**Síntoma:** ninguno. Ése es el punto. Todo compilaba, nada rompía, y en algún lado se
+pintaba un color que no correspondía.
+
+**Causa:** el mismo concepto estaba declarado dos veces, con dos vocabularios:
+`Semaforo` (`lib/meta-health-ui.ts`) decía `rojo | ambar | verde | gris`, y
+`SemaforoAviso` (`lib/avisos-catalogo.ts`) decía `rojo | amarillo | verde | na`. **No
+coincidían en dos de los cuatro valores.** Un `switch` sobre el tipo equivocado es código
+perfectamente válido: TypeScript no puede saber que quisiste decir el otro, así que cae al
+`default` y pinta gris donde iba ámbar. 158 usos en 22 archivos.
+
+**Regla:** un concepto con nombre propio se declara UNA vez, y si ya está duplicado, el
+que sobrevive es el del consumidor más grande. Los valores viejos no se renombran de una:
+siguen escritos en los DATOS (las ~48 filas de `CATALOGO_AVISOS`), así que la salida es una
+función que acepta las dos escrituras (`normalizarSemaforo`) y una migración aparte para
+las filas. Renombrar el tipo y dejar los datos viejos es cambiar un bug silencioso por otro.
+
+Corolario que vale para cualquier color de estado: `colorDeSemaforo`/`bgDeSemaforo` ahora
+derivan de la paleta de tonos (`TONO`), no de una lista de `var(--…)` escrita al lado. Es
+lo único que impide que el ámbar del semáforo y el warning de un botón vuelvan a separarse.
+
+**Vive en:** lib/mako-gramatica.ts · lib/meta-health-ui.ts · lib/avisos-catalogo.ts · *2026-08-08 rediseño Parte 3*
+
+### ⚠️ Un estado azul en una lista de estados dorados rompe la regla de color justo donde más se mira
+
+**Síntoma:** «MaKo está ejecutando» se veía distinto de los otros ocho estados y nada
+explicaba por qué.
+
+**Causa:** al elegir el tono de cada estado, «está pasando algo» tienta a usar el azul de
+acción. Pero en la regla de la casa **azul es «VOS actuás» y dorado es «intervino MaKo»** —
+y ejecutar es MaKo actuando. Leído de a un estado por vez, el azul parecía razonable; el
+error solo apareció **con los nueve renderizados uno debajo del otro**, que es la única
+vista donde se ve que ocho comparten significado y uno no.
+
+**Regla:** un sistema de estados no se revisa de a un estado. El catálogo vivo
+(`/admin/ui`) no está para documentar: está para poder mirarlos juntos, que es donde
+aparecen estas cosas. Si vas a agregar una familia de piezas, renderizala entera antes de
+darla por buena.
+
+**Vive en:** lib/mako-gramatica.ts (`GRAMATICA.ejecuta`) · app/admin/ui/Gramatica.tsx · *2026-08-08 rediseño Parte 3*
+
+### Una guarda que grita en falso deja de ser una guarda
+
+`<Mako>` avisa por consola, en desarrollo, cuando a un estado le faltan los campos que el
+documento le exige. La primera versión también avisaba en la variante **compacta** — que
+por diseño no muestra esos campos. Resultado: nueve advertencias imposibles de resolver en
+la pantalla del catálogo, y en una tabla de 40 filas habrían sido 40.
+
+El chip es una **referencia** a un estado («esta fila está en aprobación»), no su
+presentación; las obligaciones las debe el lugar donde el estado se muestra entero. La
+lección no es sobre este componente: **una guarda con falsos positivos se ignora a la
+semana**, y a partir de ahí tampoco avisa de los verdaderos. Antes de agregar un aviso
+automático, hay que saber en qué casos NO corresponde.
+
+**Vive en:** app/_ui/Mako.tsx (`useAvisoDeDesarrollo`, `REQUIERE`) · *2026-08-08 rediseño Parte 3*
+
 ### ⚠️ `nota` y `placeholder` del catálogo de credenciales son texto muerto
 
 `ServicioConfigForm` trae `nota` del API y la tipa (l.46) pero **no la pinta en ningún

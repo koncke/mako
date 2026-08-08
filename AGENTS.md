@@ -85,6 +85,13 @@ Los que hoy son fuente única:
 | Qué archivos se pueden leer | `lib/formatos-archivo.ts` (**sin `server-only`**, a propósito) | `archivo-a-texto` (el lector), `mako-doer-in` (WhatsApp), `ImportarModal` (el `accept` y los íconos) |
 | Qué modelo usa cada feature | `lib/model-registry.ts` | `chatClaude`/`chatCheap`, con override en /modelos-ia |
 | Cómo se funden dos descripciones | `lib/detalle-fusion.ts` | el board del dueño y el del cliente |
+| Cómo se llama y se ve cada estado de la IA, y el Semáforo | `lib/mako-gramatica.ts` | la primitive `<Mako>`, `meta-health-ui`, `avisos-catalogo` |
+
+⚠️ **El rótulo de un estado de MaKo no es un prop.** Sale de `GRAMATICA` y no se puede
+pasar por parámetro, a propósito. El día que se pueda, tres pantallas escriben
+«Analizando…», «Pensando…» y «MaKo está trabajando» para el mismo estado y el usuario no
+tiene forma de saber que son lo mismo — que es exactamente el diagnóstico que la Parte 3
+del rediseño vino a cerrar. Si a un estado le falta algo, se le agrega **al catálogo**.
 
 Las skills son `.md` y no pueden importar nada. Para esas, el módulo se copia con un
 script y **el pre-push falla si quedaron viejas** — esa guarda es lo único que impide que

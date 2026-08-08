@@ -1295,12 +1295,36 @@ archivo, el refactor de prompts editables de la otra; `git add lib/mako-context.
 trabajo ajeno adentro de un commit titulado «solo experimentos». No rompe el build, pero **el
 commit deja de decir la verdad** y te adueñás de trabajo que no es tuyo.
 
-**Regla:** cuando el archivo esté compartido, `git add -p` y stagear solo los hunks propios, o
-asumir el archivo entero a conciencia y decirlo en el mensaje. (El modo de falla contrario —subir
-el archivo que importa y dejarse el que define— está en
-[Build, deploy y entrega](#build-deploy-y-entrega).)
+**Regla:** cuando el archivo esté compartido, stagear solo lo propio, o asumir el archivo entero a
+conciencia y decirlo en el mensaje. (El modo de falla contrario —subir el archivo que importa y
+dejarse el que define— está en [Build, deploy y entrega](#build-deploy-y-entrega).)
 
-**Vive en:** global · caso testigo lib/mako-context.ts · *2026-06-30 ~experimentos-medicion-y-ui*
+⚠️ **Pero `git add -p` NO le sirve a un agente**, que es lo que decía este hallazgo hasta el
+8/8: es interactivo, y en esta herramienta los flags interactivos (`-p`, `-i`) no corren. Peor:
+si los dos bloques quedaron **pegados** —las dos sesiones agregando al final del mismo archivo—
+git los reporta como **UN solo hunk** y ni siquiera `-p` los separaría sin editar el parche a mano.
+Pasó con `app/_ui/ui.css`: 145 líneas en un hunk, 46 de la otra sesión y 99 mías.
+
+Lo que sí funciona, y no le toca el worktree a nadie —que es la condición, porque la otra sesión
+está editando ese archivo AHORA—: construir el contenido que querés commitear y stagearlo por
+plumbing.
+
+```bash
+git show HEAD:app/_ui/ui.css > /tmp/mio.css     # la base limpia, sin lo de nadie
+tail -n +<primera-linea-tuya> app/_ui/ui.css >> /tmp/mio.css
+h=$(git hash-object -w /tmp/mio.css)
+git update-index --cacheinfo 100644,$h,app/_ui/ui.css
+```
+
+Y **verificá las dos direcciones antes de commitear**, que es lo que convierte esto en seguro:
+`git diff --cached -- <archivo>` tiene que traer solo lo tuyo, y `git diff -- <archivo>` solo lo
+de ellos. Un `grep` de una clase ajena sobre el archivo construido cuesta nada y prueba el corte.
+
+Es el mismo principio que `commit-tree` + `update-ref` para arreglar un mensaje viejo: **el
+plumbing mueve referencias y el worktree ni se entera**, mientras que cualquier comando de
+porcelana (`stash`, `checkout`, `rebase`) le cambia los archivos abajo de los pies a la otra sesión.
+
+**Vive en:** global · casos testigo lib/mako-context.ts, app/_ui/ui.css · *2026-06-30 ~experimentos-medicion-y-ui + 2026-08-08 rediseño Parte 3*
 
 ### Separar las cuentas por `CLAUDE_CONFIG_DIR` también separa la memoria
 
