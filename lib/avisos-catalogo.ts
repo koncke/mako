@@ -11,6 +11,15 @@
 // Derivado del mapa multiagente (workflow mako-avisos-discovery, 131 casos → ~48).
 
 export type CategoriaAviso = 'reporte' | 'aviso' | 'accion' | 'pregunta';
+/**
+ * @deprecated Es el Semáforo escrito con OTRAS palabras: donde el canónico dice
+ * `ambar` y `gris`, éste dice `amarillo` y `na`. El tipo bueno es `Semaforo` de
+ * lib/mako-gramatica.ts.
+ *
+ * No se renombra todavía porque estos valores están ESCRITOS en las ~48 filas
+ * de CATALOGO_AVISOS de abajo, y cambiarlos es una migración aparte. Para leer
+ * uno y pintarlo, pasalo por `normalizarSemaforo()`: acepta las dos escrituras.
+ */
 export type SemaforoAviso = 'verde' | 'amarillo' | 'rojo' | 'na';
 export type PrioridadAviso = 'alta' | 'media' | 'baja';
 export type EstadoImplementacion = 'si' | 'parcial' | 'no';

@@ -18,6 +18,7 @@ export { Spinner, Progress, Skeleton, SkeletonLines, Divider } from './Feedback'
 export { Tooltip } from './Tooltip';
 export { Avatar } from './Avatar';
 export { EmptyState, NoResults, ErrorState, StaleData, PermissionState, Banner, Alert } from './Estados';
+export { Mako, type MakoProps, type DatoMako } from './Mako';
 export { Confirm, useConfirm } from './Confirm';
 export { Toast, useToast, type ToastState } from './Toast';
 export { Pagina, Lectura } from './Pagina';

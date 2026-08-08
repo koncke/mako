@@ -6,7 +6,15 @@
 // Graph API, resolución de credenciales por workspace) vive en lib/meta-health.ts,
 // que re-exporta todo esto para el código de servidor.
 
-export type Semaforo = 'rojo' | 'ambar' | 'verde' | 'gris';
+import { type Semaforo, tonoDeSemaforo } from './mako-gramatica';
+import { TONO } from '@/app/_ui/tokens';
+
+// El Semáforo ya no se define acá: vive en lib/mako-gramatica.ts junto con los
+// nueve estados de MaKo, porque eran DOS tipos distintos (el otro era
+// `SemaforoAviso`, con 'amarillo' y 'na' donde éste dice 'ambar' y 'gris') y un
+// `switch` sobre el equivocado compilaba igual y pintaba otro color. Se
+// re-exporta para no tocar los 22 archivos que ya lo importan de acá.
+export type { Semaforo };
 
 export type Reco = {
   fuente: 'meta' | 'mako';
@@ -155,11 +163,19 @@ export function statusSemaforo(s: string): Semaforo {
   }
 }
 
+// Los dos colores del semáforo salen ahora de la paleta de tonos, no de una
+// lista de variables escrita a mano acá: así el ámbar del semáforo y el warning
+// de un botón no pueden separarse nunca más. Los valores que devuelven son los
+// mismos de antes — esto no cambia un pixel, cambia de dónde sale el pixel.
 export function colorDeSemaforo(s: Semaforo): string {
-  return s === 'rojo' ? 'var(--bad)' : s === 'ambar' ? 'var(--warn-fill)' : s === 'verde' ? 'var(--good)' : 'var(--dim)';
+  // `gris` es la excepción: va a --dim y no al fill del tono neutral (--faint),
+  // porque un punto de estado en una tabla densa tiene que verse. --faint está
+  // pensado para texto de apoyo.
+  if (s === 'gris') return 'var(--dim)';
+  return TONO[tonoDeSemaforo(s)].fill;
 }
 export function bgDeSemaforo(s: Semaforo): string {
-  return s === 'rojo' ? 'var(--bad-bg)' : s === 'ambar' ? 'var(--warn-bg)' : s === 'verde' ? 'var(--good-bg)' : 'var(--surface-2)';
+  return TONO[tonoDeSemaforo(s)].bg;
 }
 
 // Traduce un problema de Meta (issues_info en inglés) a español, por keywords.

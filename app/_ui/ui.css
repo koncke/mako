@@ -505,3 +505,102 @@
   .mk-row--stack > .mk-btn { width: 100%; }
 }
 
+
+/* ── La gramática de MaKo (<Mako>, los nueve estados) ──────────────────────
+   Parte 3 del rediseño (#520). El catálogo de estados vive en
+   lib/mako-gramatica.ts y la pieza en app/_ui/Mako.tsx; acá va sólo la forma.
+
+   La decisión que ordena todo lo demás: **el estado se reconoce por el filo
+   izquierdo**, no por el fondo. En una columna con seis tarjetas seguidas, seis
+   fondos de color distinto son una bolsa de caramelos; un filo de 3 px alcanza
+   para barrer la lista y encontrar la que pide algo. Es el «structure should be
+   felt not seen» de Linear, que el documento elige como referencia. */
+.mk-mako {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-left-width: 3px;
+  border-radius: var(--r-md);
+}
+
+/* La variante de una línea, para una fila de tabla o un encabezado de card. */
+.mk-mako--chip {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px 3px 8px;
+  border-left-width: 1px;
+  border-radius: 999px;
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+}
+.mk-mako--chip .mk-mako__t { font-size: var(--fs-meta); font-weight: 500; color: var(--dim); }
+
+.mk-mako__cab { display: flex; align-items: center; gap: 7px; }
+
+/* El rótulo va en versalitas mono, igual que el de las familias de la barra:
+   es la marca de «esto no lo escribió una persona, lo dice el sistema». */
+.mk-mako__rot {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+/* La importancia NO usa color: si «alta» fuera roja competiría con el rojo de
+   riesgo, y una señal importante no es lo mismo que una señal mala. */
+.mk-mako__imp {
+  margin-left: auto;
+  font-size: var(--fs-meta);
+  color: var(--faint);
+}
+
+.mk-mako__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.4; }
+.mk-mako__d { font-size: var(--fs-sm); color: var(--dim); line-height: 1.55; }
+
+.mk-mako__proc { display: flex; flex-direction: column; gap: 5px; }
+.mk-mako__fuente { font-size: var(--fs-meta); color: var(--faint); }
+
+/* Los campos obligatorios del estado. Rejilla que se acomoda sola: con dos
+   campos son dos columnas, con cinco (los de «recomienda») bajan de renglón.
+   Nunca scroll lateral — eso es esconder lo que el estado está obligado a
+   mostrar. */
+.mk-mako__datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 18px;
+  margin: 2px 0 0;
+}
+.mk-mako__dato { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mk-mako__k {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.mk-mako__v { margin: 0; font-size: var(--fs-sm); color: var(--ink); line-height: 1.45; }
+
+/* La evidencia va plegada: RESPALDA la afirmación, no se lee todas las veces.
+   Desplegada siempre, la tarjeta pasa de «MaKo encontró algo» a un volcado de
+   datos y deja de tener un título directo, que es lo que el documento pide. */
+.mk-mako__ev > summary {
+  cursor: pointer;
+  font-size: var(--fs-meta);
+  color: var(--dim);
+  padding: 2px 0;
+}
+.mk-mako__ev > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+.mk-mako__evc {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  color: var(--dim);
+  line-height: 1.55;
+}

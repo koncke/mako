@@ -26,12 +26,13 @@ import { Roadmap, ChangeHistory } from '@/app/admin/dev/_registro/Registro';
 import { BITACORA, PARTES } from './bitacora';
 import { LaSidebar, LosIconos } from './Barra';
 import { LaMarca } from './Marca';
+import { LaGramatica } from './Gramatica';
 
 const TONOS: Tono[] = ['mako', 'info', 'good', 'warn', 'bad', 'neutral'];
 
 /**
- * Las cinco vistas de esta pantalla. Son hermanas de verdad —ninguna es el
- * detalle de otra—, que es la condición para que sean tabs y no navegación.
+ * Las vistas de esta pantalla. Son hermanas de verdad —ninguna es el detalle de
+ * otra—, que es la condición para que sean tabs y no navegación.
  */
 const TABS: Tab[] = [
   // La `id` sigue siendo 'rediseno' aunque el label cambió: está escrita en la
@@ -42,7 +43,11 @@ const TABS: Tab[] = [
   { id: 'marca', label: 'Marca' },
   { id: 'fundamentos', label: 'Fundamentos' },
   { id: 'piezas', label: 'Piezas' },
+  // Los estados de PANTALLA (#519: vacío, error, sin permiso) y los estados de
+  // la INTELIGENCIA (#520) son cosas distintas y van separados a propósito: el
+  // primero dice qué le pasa a la vista, el segundo qué está haciendo MaKo.
   { id: 'estados', label: 'Estados' },
+  { id: 'mako', label: 'Gramática de MaKo' },
 ];
 
 /** Envoltorio local: la Section del sistema, siempre con tarjeta. */
@@ -107,6 +112,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
       {tab === 'sidebar' && <LaSidebar />}
       {tab === 'iconos' && <LosIconos />}
       {tab === 'marca' && <LaMarca />}
+      {tab === 'mako' && <LaGramatica />}
 
       {tab === 'fundamentos' && (<>
       {/* ── Tipografía ───────────────────────────────────────────────────── */}

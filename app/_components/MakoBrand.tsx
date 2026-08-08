@@ -25,10 +25,18 @@ const INK = '#1A1813';
 const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
 
 // ── Estrella que brilla (botones "✨ MaKo") ──────────────────────────────────
-export function MakoStar({ size = 14, color }: { size?: number; color?: string }) {
+// `animate` existe por la misma regla que apagó el shimmer del wordmark (ver
+// MakoWord, abajo): un destello permanente deja de significar «MaKo está
+// haciendo algo». En un botón la estrella brilla porque el botón es una
+// invitación a activarla; en una tarjeta que ya está ahí, quieta, no. La
+// primitive <Mako> la pide apagada para los estados en reposo y encendida solo
+// para «analizando» y «ejecutando», que son los dos momentos de proceso reales.
+//
+// El default es `true` para no cambiarle el brillo a los botones que ya existen.
+export function MakoStar({ size = 14, color, animate = true }: { size?: number; color?: string; animate?: boolean }) {
   const uid = `mks${useId().replace(/[:]/g, '')}`;
   const fill = color ?? `url(#${uid}-g)`;
-  const css = `
+  const css = !animate ? `.${uid}-mini { opacity: .55; }` : `
     .${uid}-spark { transform-box: fill-box; transform-origin: center; animation: ${uid}-tw 2.4s ease-in-out infinite; }
     .${uid}-mini  { transform-box: fill-box; transform-origin: center; animation: ${uid}-mn 2.4s ease-in-out infinite; }
     @keyframes ${uid}-tw { 0%,100% { transform: scale(1); opacity: .9; } 45% { transform: scale(1.18); opacity: 1; } }
