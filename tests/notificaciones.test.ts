@@ -115,9 +115,17 @@ test('la marca no se repite cuando ya está en el nombre de la sección', () => 
   assert.equal(tituloDe('/agencia'), 'WhatsApp de MaKo');
 });
 
-test('la fábrica de guiones no se come el título de Admin', () => {
-  // nav.ts excluye a mano /admin/guiones del item de Admin para darle el suyo;
-  // si USER_NAV se evalúa antes, ese esfuerzo queda anulado.
-  assert.equal(tituloDe('/admin/guiones'), 'MaKo - Guiones');
+test('las sub-rutas de /admin no se comen el título entre sí', () => {
+  // El item de Clientes excluye a mano cada sub-ruta de /admin para que lean su
+  // propio nombre. Si algo más general se evalúa antes, ese esfuerzo se anula y
+  // todas se leen «Clientes».
+  //
+  // OJO: la fábrica de guiones ya NO se llama «Guiones». /admin/guiones redirige
+  // a /admin/dev/ads-writer y el título sale del item de Dev, que se llama como
+  // la feature. Este test decía 'MaKo - Guiones' y fue lo único que avisó del
+  // renombre — el pre-push corre tipos, no tests.
+  assert.equal(tituloDe('/admin/guiones'), 'MaKo - Ads Writer');
+  assert.equal(tituloDe('/admin'), 'MaKo - Clientes');
   assert.notEqual(tituloDe('/admin'), tituloDe('/admin/guiones'));
+  assert.notEqual(tituloDe('/admin'), tituloDe('/admin/dev/semaforo'));
 });

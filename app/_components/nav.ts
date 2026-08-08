@@ -300,7 +300,12 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // el /whatsapp de Operate y sigue viviendo acá.
         { key: 'agencia', label: 'WhatsApp de MaKo', href: '/agencia', icon: 'whatsapp', match: starts('/agencia') },
       ],
+      // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
+      // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
+      // y no es configuración de tu cuenta: es lo que la agencia le carga a la
+      // IA, así que pertenece acá.
       [
+        { key: 'contexto', label: 'Contexto de MaKo', href: '/contexto', icon: 'contexto', match: starts('/contexto') },
         { key: 'modelos-ia', label: 'Modelos IA', href: '/modelos-ia', icon: 'mako', match: starts('/modelos-ia') },
         // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
         { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
@@ -361,10 +366,13 @@ export const ADMIN_NAV: NavItem[] = ADMIN_FAMILIAS.flatMap(itemsDe);
 export const USER_NAV: NavItem[] = [
   { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', rolesWs: ['closer', 'setter'], match: starts('/perfil') },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
-  { key: 'contexto', label: 'Contexto de MaKo', href: '/contexto', icon: 'contexto', adminOnly: true, match: starts('/contexto') },
   { key: 'onboarding', label: 'Onboarding', href: '/onboarding', icon: 'contexto', match: (p) => starts('/onboarding')(p) || starts('/funnel')(p) },
   { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) },
-  { key: 'admin', label: 'Admin', href: '/admin', icon: 'admin', adminOnly: true, match: starts('/admin') },
+  // Acá NO va «Admin» ni «Contexto de MaKo». Los dos eran `adminOnly`, o sea que
+  // solo los veía el super admin — que ahora tiene su propia familia Admin en la
+  // barra, con Clientes adentro. Repetirlos detrás del avatar era darle dos
+  // puertas a lo mismo, y este menú es la cuenta de QUIEN sos, no las
+  // herramientas de la agencia.
   // Reportar un problema vive acá y no en la barra: no es un destino de trabajo,
   // es a dónde vas cuando algo se rompió. Al lado de las tabs competiría todo el
   // día con lo que sí estás haciendo; en el menú del perfil está donde todo el

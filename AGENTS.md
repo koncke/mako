@@ -39,6 +39,14 @@ Reglas para cualquier agente que trabaje acá:
 ⚠️ El hook hace DOS chequeos: los tipos y que las skills tengan el contrato del `detalle`
 al día (`node scripts/sync-contrato-detalle.mjs --check`). Si lo recreás, poné los dos.
 
+⚠️ **Lo que el hook NO hace es correr los tests** (`npm test`), y por eso hay que acordarse
+a mano. Un renombre pasa el typecheck perfecto y rompe una aserción sin que nada avise: al
+renombrar la tab «Guiones» a «Ads Writer» el push salió verde, se desplegó a producción, y
+el test del título quedó roto en `main`. **Si tocás `nav.ts`, los títulos de pestaña, un
+catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` antes de
+pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
+de los cambios no los necesita — pero los renombres, sí.
+
 # Hay dos cuentas de Claude trabajando sobre este repo
 
 No estás solo en este clon. Hay **dos cuentas** (`claude1` / `claude2` en el `$PROFILE`)

@@ -38,13 +38,17 @@ const EXTRA_KEYS = Object.keys(EXTRA).sort((a, b) => b.length - a.length);
 // Donde dos entradas matchean la misma ruta gana la primera, así que van antes
 // las del menú principal.
 //
-// ADMIN_NAV va ANTES que USER_NAV a propósito. USER_NAV tiene un item 'admin' con
-// `starts('/admin')`, que se traga /admin/guiones; ADMIN_NAV se toma el trabajo de
-// excluirla y darle su propia entrada ("Guiones"). Con USER_NAV primero, ese
-// esfuerzo quedaba anulado y la fábrica de guiones se leía "Admin".
+// ADMIN_NAV sigue yendo ANTES que USER_NAV. El motivo original ya no aplica
+// —USER_NAV tenía un item 'admin' con `starts('/admin')` que se tragaba las
+// sub-rutas, y ese item se eliminó el 8/8— pero el orden se queda: adentro de
+// ADMIN_NAV el item de Clientes EXCLUYE a mano /admin/guiones, /admin/ui,
+// /admin/docs y /admin/dev para que cada una lea su propio nombre, y ese trabajo
+// solo sirve si nada más general se evalúa primero.
 const TODOS: NavItem[] = [
-  // Las cuatro familias (Focus · Operate · Analyze · Create) más la zona de MaKo.
+  // Las cuatro familias de producto (Operate · Analyze · Sales Machine ·
+  // Content Machine) más la zona de MaKo.
   ...TODOS_LOS_ITEMS,
+  // Las dos del super admin: Admin y Dev.
   ...ADMIN_NAV,
   ...USER_NAV,
 ];
