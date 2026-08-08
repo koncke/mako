@@ -46,6 +46,24 @@ viene de WhatsApp, de una reunión, de un archivo o de acá.
 
 ⛔ No inventes prioridades ni las pidas. ✅ Dejá un borrador y pasá el link.
 
+## 0. Traete el negocio ANTES de opinar
+
+\`\`\`bash
+curl -s "$BASE/api/agente/contexto" -H "Authorization: Bearer $TOKEN"
+\`\`\`
+
+Devuelve markdown: a qué se dedica, en qué fase está y qué lo frena, a quién le vende,
+cuál es su gancho, su catálogo y cómo suena su marca. **Leelo al empezar cualquier
+trabajo sustancial**: es la diferencia entre escribirle algo genérico y escribirle algo
+suyo, y evita que le hagas preguntas cuya respuesta MaKo ya tiene.
+
+Es un resumen a propósito. Si el trabajo lo pide, hay tres secciones grandes aparte:
+\`?seccion=razones\` (la matriz avatar × razón), \`?seccion=panorama\` (lo que MaKo
+entendió de sus documentos) y \`?seccion=productos\` (el catálogo completo).
+
+Si vuelve casi vacío, el cliente todavía no completó su onboarding: **preguntale a él
+en vez de suponer**, y no des por cierto nada que no esté acá.
+
 ## 1. Mirá el plan ANTES de trabajar
 
 \`\`\`bash
