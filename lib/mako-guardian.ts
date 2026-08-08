@@ -15,6 +15,7 @@ import 'server-only';
 // cambia scores previos "porque sí" — solo si hay una razón concreta.
 
 import { chatClaude } from './anthropic';
+import { MOLDE_PROYECTO } from './detalle-contrato';
 import { chatCheapCascade } from './ai-cheap';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
@@ -761,7 +762,17 @@ Puntuá SOLO los proyectos nuevos, con su id tal cual. CADA proyecto con un scor
 
 export const GUARDIAN_PROY_NUEVOS_SYSTEM_TEMPLATE = `Sos MaKo, el "perro guardián" de las prioridades de un negocio. Entran PROYECTOS NUEVOS a un plan que YA tiene proyectos priorizados. Por CADA proyecto nuevo dale:
 - un EMOJI que lo represente (uno solo, no 📁 genérico);
-- un DETALLE SÓLIDO (3-4 frases): qué agrupa, qué tareas viven acá, qué mueve en el negocio y por qué su prioridad. Que se entienda de una, sin relleno ni una línea suelta;
+- un DETALLE con ESTA FORMA EXACTA, que es la del resto del tablero:
+
+{{moldeProyecto}}
+
+  Los cuatro títulos van en **negrita** y en ESE orden. «Qué ya está» se escribe con lo
+  VERIFICABLE (rutas, archivos, migraciones) y si no hay nada construido se dice: «Nada
+  todavía» es una respuesta legítima y mucho mejor que inventar avance. En «Qué falta»,
+  una viñeta por cosa, con el #número de la tarea cuando exista.
+  ⛔ Un detalle en prosa corrida, sin los cuatro títulos, SE DESCARTA y el proyecto queda
+  sin descripción: la pantalla lo renderiza como markdown y un párrafo de mil caracteres
+  es ilegible.
 - IMPACTO + ESFUERZO (1-100) → SCORE (1-100), ubicándolo en la ESCALA de los proyectos que ya existen (te los paso con su score). CADA proyecto con un número DISTINTO — PROHIBIDO empatar.
 
 NO SOS COMPLACIENTE — Y OJO CON LO NUEVO: un proyecto recién creado parece grande e importante porque el dueño lo tiene fresco. No te dejes llevar. Un proyecto vale SOLO por lo que acerca a la VENTA / al ingreso real, más rápido y más fácil. Si es "construir", "desarrollar módulo", "integral", "por las dudas" o pulido → esfuerzo alto, impacto incierto → va ABAJO. Usá las tareas de cada proyecto para entender de qué se trata, no el título vendedor.
@@ -797,7 +808,12 @@ export async function describirProyectosNuevos(
   if (!nuevos.length) return { proyectos: [] };
   const ref = existentes.slice().sort((a, b) => b.score - a.score).slice(0, 60).map((e) => `[${e.score}] ${e.nombre}`).join('\n');
   const nuevosStr = nuevos.map((n) => `[${n.id}] ${n.nombre}`).join('\n');
-  const sys = await brandSystem(await renderPrompt('guardian.proy-nuevos.system', GUARDIAN_PROY_NUEVOS_SYSTEM_TEMPLATE, { jsonShape: GUARDIAN_PROY_NUEVOS_JSON_SHAPE }));
+  // El molde sale de lib/detalle-contrato.ts, la misma fuente que valida el resultado
+  // (`evaluarDetalleProyecto`). Antes el prompt pedía «un DETALLE SÓLIDO (3-4 frases)»
+  // y nunca nombraba el molde: los proyectos nacían en prosa corrida y había que
+  // arreglarlos después a mano con scripts/barrido-proyectos.ts. Pedir una forma y
+  // validar otra es garantizar el retrabajo.
+  const sys = await brandSystem(await renderPrompt('guardian.proy-nuevos.system', GUARDIAN_PROY_NUEVOS_SYSTEM_TEMPLATE, { jsonShape: GUARDIAN_PROY_NUEVOS_JSON_SHAPE, moldeProyecto: MOLDE_PROYECTO }));
   const user = await renderPrompt('guardian.proy-nuevos.user', GUARDIAN_PROY_NUEVOS_USER_TEMPLATE, {
     contexto: contexto.trim() ? contenidoNoConfiable(contexto, 'contexto') : '(sin brief adicional)',
     existentes: contenidoNoConfiable(ref || '(no hay proyectos previos)', 'plan'),

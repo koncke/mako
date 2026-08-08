@@ -82,7 +82,7 @@ const CRUDO: ProyectoCatalogo[] = [
   // compiten: mientras el diagnóstico crecía, la acción de la semana quedaba enterrada
   // entre métricas — que es justo el problema que venía a resolver.
   { nombre: 'Foco', emoji: '🧭', familia: 'producto', que: 'Qué hacer AHORA: la acción de la semana, la vista Hoy, el briefing de la mañana, a quién llamar y el latido que te lo reclama.' },
-  { nombre: 'CRM', emoji: '👥', familia: 'producto', que: 'Los leads: la ficha, las etapas, el avance automático, los recordatorios de reunión y el follow-up.' },
+  { nombre: 'CRM', emoji: '👥', familia: 'producto', que: 'La PANTALLA de los leads: la ficha, el pipeline, las etapas, los recordatorios de reunión y el follow-up. El motor que mueve leads solo es «Agente: CRM automático».' },
   { nombre: 'Dashboard', emoji: '📊', familia: 'producto', que: 'La analítica de marketing y comercial: métricas, gráficos, objetivos y salud del número.' },
   { nombre: 'Experiments', emoji: '🧪', familia: 'producto', que: 'Los experimentos: el único lugar donde se concluye qué funcionó y qué no.' },
   // Plan y el Perro eran UN solo proyecto y son dos cosas distintas: la PANTALLA
@@ -101,7 +101,15 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Lead Magnet Generator', emoji: '🧲', familia: 'producto', que: 'El generador del lead magnet: qué se regala a cambio del contacto y cómo se arma.' },
   { nombre: 'Image Generator', emoji: '🖼️', familia: 'producto', que: 'Generar imágenes para los creativos desde la app.' },
   { nombre: 'Video Generator', emoji: '🎞️', familia: 'producto', que: 'Generar videos para los creativos desde la app.' },
-  { nombre: 'Contenido orgánico', emoji: '📝', familia: 'producto', que: 'Las tabs de formatos de la Content Machine para el CLIENTE: Reels, Carousels, Stories, Thumbnails, YouTube Writer e Ideas.' },
+  // Los formatos de la Content Machine van SEPARADOS, uno por tab. Estuvieron juntos en
+  // un «Contenido orgánico» y el dueño lo cortó: son seis destinos distintos del sidebar
+  // y el trabajo de cada uno no se parece al del otro.
+  { nombre: 'Ideas', emoji: '💡', familia: 'producto', que: 'El primer paso de la fábrica: de qué hablar, antes de que haya pieza. Captura y organiza los temas de contenido.' },
+  { nombre: 'Reels', emoji: '🎬', familia: 'producto', que: 'El formato Reel para el cliente: guion corto, gancho y estructura para Instagram.' },
+  { nombre: 'Carousels', emoji: '🎠', familia: 'producto', que: 'El formato carrusel: la secuencia de placas, qué va en cada una y el cierre.' },
+  { nombre: 'Stories', emoji: '⭕', familia: 'producto', que: 'El formato historias: la secuencia diaria, encuestas y el paso a la conversación.' },
+  { nombre: 'Thumbnails', emoji: '🖼️', familia: 'producto', que: 'Las miniaturas de YouTube: qué imagen y qué texto hacen que se cliquee.' },
+  { nombre: 'YouTube Writer', emoji: '▶️', familia: 'producto', que: 'El guion de los videos largos de YouTube para el cliente: estructura, gancho y CTA.' },
   { nombre: 'Sales Email', emoji: '📧', familia: 'producto', que: 'El generador de emails de venta y las newsletters para el cliente.' },
   { nombre: 'Closing Script', emoji: '📜', familia: 'producto', que: 'El guion de la llamada de cierre: estructura, objeciones y respuestas.' },
   { nombre: 'Sales Roleplay', emoji: '🎭', familia: 'producto', que: 'El simulador para entrenar al vendedor: practicar la llamada contra un cliente simulado.' },
@@ -127,6 +135,10 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Integraciones', emoji: '🔌', familia: 'producto', que: 'Conectar servicios de afuera: Meta, Chatwoot, Fathom, Resend, las credenciales y su salud.' },
   { nombre: 'Configuraciones y equipo', emoji: '🔑', familia: 'producto', que: 'Cuentas, roles, permisos, perfil y las configuraciones del workspace.' },
   { nombre: 'Admin y clientes', emoji: '🏢', familia: 'producto', que: 'El panel del super-admin: alta de clientes, impersonación, ver el estado de cada workspace.' },
+  // Las dos que el relevamiento encontró SIN proyecto: son tabs reales y en uso, así que
+  // el ruteo no tenía dónde mandarles nada — el mismo agujero que tenía Landing Analyst.
+  { nombre: 'Modelos IA', emoji: '🎛️', familia: 'producto', que: 'La tab que decide qué modelo corre cada feature y cuánto se gasta: el registro por tarea, los overrides y el consumo. Es el control de COSTO de la IA, no la infraestructura.' },
+  { nombre: 'WhatsApp de MaKo', emoji: '📲', familia: 'producto', que: 'El canal propio de la agencia (/agencia): la línea por QR con la que MaKo habla con el dueño y con los grupos. NO es el WhatsApp del producto que usa el cliente (eso es «Feature: WhatsApp»).' },
   { nombre: 'Conocimientos', emoji: '📚', familia: 'producto', que: 'El portal de formación: cursos, clases y material para el cliente.' },
   { nombre: 'Feedback y errores', emoji: '🗳️', familia: 'producto', que: 'Que el usuario pueda reportar un error y proponer features: botón de reportar, tickets con estado, votación, y el triaje automático.' },
   { nombre: 'Cobros y planes', emoji: '💳', familia: 'producto', que: 'Monetización: planes y límites, versión free, suscripciones, pasarela de pago, créditos y consumo de tokens.' },
@@ -135,10 +147,21 @@ const CRUDO: ProyectoCatalogo[] = [
   // No son pantallas. Un agente puede no tener ninguna tab (el Perro vive adentro
   // del Plan) y aun así ser el proyecto donde cae todo el trabajo de su cerebro:
   // el criterio con el que decide, sus prompts, sus reglas, su ruteo.
-  { nombre: 'Perro Guardián', emoji: '🐕', familia: 'agente', que: 'El cerebro que PRIORIZA: puntúa cada tarea, le pone deadline, la rutea a su proyecto, deduplica, arma la checklist y se deja debatir. Todo lo que sea su CRITERIO o sus preguntas de contexto va acá, no en «Feature: Plan» (esa es la pantalla).' },
+  // El alcance de cada uno está acotado A PROPÓSITO, con la frase de lo que NO es. El
+  // Perro vive dentro de la pantalla del Plan y por eso se le colgaba encima todo lo que
+  // pasaba cerca del tablero: la Retro, el cierre por commits, la lectura de reuniones.
+  // Son cuatro agentes distintos, con crons distintos y criterios distintos.
+  { nombre: 'Perro Guardián', emoji: '🐕', familia: 'agente', que: 'El cerebro que PRIORIZA: puntúa 1-100, pone deadline, rutea al proyecto, deduplica, arma la checklist y se deja debatir. Se dispara al INGRESO de cada tarea, venga de donde venga. NO cierra tareas («Agente: Cierre automático»), NO lee reuniones («Agente: Lector de reuniones») y NO hace retrospectivas («Agente: Retro»): eso se le atribuye por vivir cerca del tablero y no es suyo.' },
+  { nombre: 'Retro', emoji: '🔁', familia: 'agente', que: 'El coach que cada período lee TODO el negocio, diagnostica por área, cruza señales, arma la tesis con la fuga en plata, deja un plan encadenado (experimentos + tareas) y después te pide cuentas. Su pipeline de 8 fases y su gate de rendición son suyos, no del Perro.' },
+  { nombre: 'Lector de reuniones', emoji: '🎙️', familia: 'agente', que: 'Lee las reuniones de Fathom solo, saca los compromisos, los reparte por persona y deja el borrador esperando. Termina cuando entrega el borrador: puntuarlo es del Perro.' },
+  { nombre: 'Cierre automático', emoji: '✅', familia: 'agente', que: 'Mira el mundo real (los commits, las señales del producto) y propone cerrar lo que ya está hecho, con la evidencia. Otro criterio que el del Perro: aquel prioriza lo que entra, este cierra lo que salió.' },
   { nombre: 'MaKo Doer', emoji: '🤖', familia: 'agente', que: 'MaKo que ACTÚA por WhatsApp con el dueño: escucha audios, entiende el pedido, ejecuta con sus tools y confirma. NO es el chat dentro de la app («Feature: Preguntale a MaKo») ni el canal en sí («Feature: WhatsApp»).' },
-  { nombre: 'Chat Agent', emoji: '💬', familia: 'agente', que: 'El agente que conversa con los LEADS solo: secuencias de nutrición, canales fríos, jugadas de setting, plantillas y las métricas de esa conversación.' },
-  { nombre: 'Optimizador de Ads', emoji: '🎚️', familia: 'agente', que: 'El agente que vigila y mueve la pauta sin que se lo pidas: sube y baja presupuesto, apaga lo que no rinde, avisa. NO es la pantalla de campañas (eso es «Feature: Ads Manager»).' },
+  // Se llama como la TAB (nav.ts dice «Chatbot»), no como el módulo. En el tablero ya
+  // vivía así con 15 tareas: renombrarlo a «Chat Agent» habría abierto un segundo
+  // proyecto con el mismo trabajo adentro.
+  { nombre: 'Chatbot', emoji: '💬', familia: 'agente', que: 'El agente que conversa con los LEADS solo: secuencias de nutrición, canales fríos, jugadas de setting, plantillas y las métricas de esa conversación.' },
+  { nombre: 'CRM automático', emoji: '⚙️', familia: 'agente', que: 'El motor que mueve los leads de etapa SOLO, por sus reglas (T1..T6), sin que nadie arrastre una tarjeta. NO es la pantalla del CRM (esa es «Feature: CRM»): acá va el criterio con el que decide mover, no la ficha ni la vista.' },
+  { nombre: 'Ads Optimizer Bot', emoji: '🎚️', familia: 'agente', que: 'El agente que vigila y mueve la pauta sin que se lo pidas: sube y baja presupuesto, apaga lo que no rinde, avisa. TODAVÍA NO EXISTE — el proyecto es dónde vive el trabajo de construirlo. NO es la pantalla de campañas (eso es «Feature: Ads Manager»).' },
 
   // ── Transversales: no son una tab, atraviesan toda la app ──────────────────
   { nombre: 'Seguridad y multi-inquilino', emoji: '🛡️', familia: 'transversal', que: 'Que un cliente no vea lo de otro: aislamiento por workspace, auth, cifrado, auditorías.' },
