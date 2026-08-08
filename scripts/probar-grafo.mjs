@@ -78,6 +78,20 @@ const atenuados = await p.evaluate(() => {
   return cs.filter((c) => Number(c.getAttribute('opacity')) <= 0.25).length;
 });
 
+// 3.b El CLIC tiene que FIJAR el nodo y dejar el detalle abierto.
+await nodo.click({ force: true });
+await p.waitForTimeout(350);
+const fijadoTxt = await p.evaluate(() => document.querySelector('.cbg aside')?.textContent ?? '');
+const hayAnillo = await p.evaluate(() => document.querySelectorAll('.cbg .cbg-sel').length);
+// Se saca el cursor: si el clic FIJÓ, el detalle tiene que seguir ahí.
+await p.mouse.move(10, 10);
+await p.waitForTimeout(300);
+const sigueFijado = await p.evaluate(() => document.querySelectorAll('.cbg .cbg-sel').length);
+await svg.screenshot({ path: `${OUT}/03b-fijado.png` });
+
+const colores = await p.evaluate(() => new Set([...document.querySelectorAll('.cbg .cbg-nodo circle:nth-of-type(2)')]
+  .map((c) => getComputedStyle(c).fill)).size);
+
 // 4. ARRASTRE: se agarra un nodo y se lo lleva 180 px. Se mide si los vecinos se corren.
 const antes = await p.evaluate(() => [...document.querySelectorAll('.cbg .cbg-nodo')]
   .map((g) => g.getAttribute('transform')));
@@ -127,6 +141,10 @@ const zoomDespues = await p.evaluate(() => document.querySelector('.cbg svg > g'
 
 console.log(JSON.stringify({
   flotacion_px: +flota.toFixed(2),
+  colores_distintos: colores,
+  clic_fija_el_nodo: hayAnillo > 0,
+  sigue_fijado_al_sacar_el_cursor: sigueFijado > 0,
+  detalle_no_vacio: fijadoTxt.length > 60,
   nodos_atenuados_en_hover: atenuados,
   arrastre_vecinos_movidos: seCorrieron,
   arrastre_desplazamiento_max: +Math.max(...movidos).toFixed(1),
