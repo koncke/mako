@@ -230,26 +230,16 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
     } finally { setAccionando(false); }
   };
 
-  /**
-   * Entrar a un cliente abre una PESTAÑA NUEVA con `?ws=N`.
-   *
-   * Antes escribía una cookie firmada y navegaba en la misma pestaña. El
-   * problema no era el mecanismo sino su alcance: la cookie es del NAVEGADOR, así
-   * que entrar a un cliente te cambiaba el contexto en todas las pestañas
-   * abiertas, incluida la del panel de admin. Con el workspace en la URL, cada
-   * pestaña es un cliente distinto y el panel sigue vivo en la suya.
-   *
-   * No hay `await` ni estado de carga porque ya no hay request: es abrir una URL.
-   * `noopener` es de rutina para cualquier `window.open`, aunque sea al mismo
-   * origen — la pestaña nueva no tiene por qué poder tocar a ésta.
-   */
-  const entrarComo = (w: Workspace) => {
-    setErrAccion(null);
-    const abierta = window.open(`/general?ws=${w.id}`, '_blank', 'noopener');
-    // Si el navegador bloqueó el pop-up, no dejarlo en silencio: sin esto el
-    // botón se sentiría roto y no habría forma de saber por qué.
-    if (!abierta) setErrAccion('El navegador bloqueó la pestaña nueva. Permití las ventanas emergentes para este sitio y probá otra vez.');
-  };
+  // Entrar a un cliente NO necesita JavaScript: es un `<a href="/general?ws=N">`
+  // (ver la fila de cada cliente, más abajo). Un ancla común ya hace exactamente
+  // lo que hace falta —navegación dura en ESTA pestaña— y de paso deja intactos
+  // el ctrl+click y el botón del medio, que abren el cliente en otra. Escribir un
+  // handler solo servía para romper esos dos gestos.
+  //
+  // Que el contexto sea por pestaña y que se entre en la pestaña actual no se
+  // contradicen: el aislamiento lo da que el workspace viaje en la URL, no que se
+  // abra una ventana. Cada pestaña se queda con el `?ws=` de su barra de
+  // direcciones.
 
   const guardarNombre = async () => {
     const w = renombrando;
@@ -327,10 +317,17 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                     ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
                     : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}
                   <span style={{ fontSize: 12.5, color: 'var(--dim)', flex: 'none', width: 84, textAlign: 'right' }}>{w.usuarios} {w.usuarios === 1 ? 'miembro' : 'miembros'}</span>
-                  {/* Ya no hay estado «Entrando…»: no se espera a ningún request,
-                      se abre una pestaña. Y el título lo dice, porque una pestaña
-                      que aparece sin aviso se siente como que algo salió mal. */}
-                  <button style={btnPrimary} onClick={() => entrarComo(w)} title={`Abre ${w.nombre} en una pestaña nueva`}>Entrar como →</button>
+                  {/* Es un <a> de verdad, no un <button> con onClick: así el
+                      click normal entra en esta pestaña —que es lo pedido— y
+                      ctrl+click o el botón del medio abren el cliente en otra,
+                      gratis y sin que la app tenga que decidir nada. Un botón se
+                      come esos gestos, y son justo los que hacen falta para
+                      mirar dos clientes a la vez. */}
+                  <a href={`/general?ws=${w.id}`}
+                    title={`Entrar a ${w.nombre}`}
+                    style={{ ...btnPrimary, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+                    Entrar como →
+                  </a>
                   <Dropdown
                     value="" resetAfterSelect align="right" placeholder="Acciones"
                     ariaLabel={`Acciones sobre ${w.nombre}`} disabled={accionando}
