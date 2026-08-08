@@ -756,8 +756,14 @@ Dale a cada tarea NUEVA impacto + esfuerzo → score (1-100), ubicándola en la 
 // Cuando MaKo crea proyectos, entran con emoji 📁 / detalle vacío / score 50 por default.
 // El Perro los toma y les pone emoji propio, una descripción de qué agrupan, y un score
 // UBICADO en la escala de los proyectos que ya existen (con sus tareas como contexto).
+// ⚠️ El `detalle` de acá decía «2-3 frases» y arriba el prompt pedía el molde de cuatro
+// títulos. El shape es lo ÚLTIMO que lee el modelo y describe exactamente el campo que
+// va a escribir, así que ganaba él: salían párrafos en prosa que el saneo rechazaba, y
+// el proyecto quedaba sin descripción. Dos instrucciones que se contradicen no son una
+// instrucción más fuerte: son la de más abajo.
 export const GUARDIAN_PROY_NUEVOS_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
-{ "proyectos": [ { "id": "<id tal cual>", "emoji": "<1 emoji que lo represente>", "detalle": "<2-3 frases: qué agrupa, qué tareas viven acá y por qué mueve la aguja>", "impacto": <1-100>, "esfuerzo": <1-100>, "score": <1-100>, "razon": "<1 frase comparando con los demás proyectos>" } ] }
+{ "proyectos": [ { "id": "<id tal cual>", "emoji": "<1 emoji que lo represente>", "detalle": "**Qué es**\\n…\\n\\n**Qué ya está**\\n…\\n\\n**Qué falta**\\n- …\\n\\n**Por qué importa**\\n…", "impacto": <1-100>, "esfuerzo": <1-100>, "score": <1-100>, "razon": "<1 frase comparando con los demás proyectos>" } ] }
+⛔ El "detalle" va con LOS CUATRO TÍTULOS en negrita y saltos de línea reales (\\n en el JSON), tal cual el molde de arriba. Un detalle en prosa corrida se descarta y el proyecto queda sin descripción.
 Puntuá SOLO los proyectos nuevos, con su id tal cual. CADA proyecto con un score DISTINTO — prohibido empatar (ni entre ellos ni en 50). Español rioplatense.`;
 
 export const GUARDIAN_PROY_NUEVOS_SYSTEM_TEMPLATE = `Sos MaKo, el "perro guardián" de las prioridades de un negocio. Entran PROYECTOS NUEVOS a un plan que YA tiene proyectos priorizados. Por CADA proyecto nuevo dale:

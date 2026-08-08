@@ -87,8 +87,17 @@ export function BuscadorTareas({ q, onQ, campos, onCampos, ia, onBuscarIA, onLim
             style={{ ...mini, color: 'var(--accent)' }}>{ia.pensando ? '…' : '✕'}</button>
         )}
 
-        <button type="button" onClick={() => setAbierto((v) => !v)} title="Dónde buscar"
-          style={{ ...mini, color: ampliada ? 'var(--primary)' : 'var(--faint)', borderColor: ampliada ? 'var(--primary)' : 'transparent' }}>⌄</button>
+        {/* El chevron va en SVG y no como el carácter «⌄»: ese glifo se dibuja pegado al
+            techo de su caja (su baseline no está donde uno espera), así que por más que
+            el botón centre con flex, el ícono se ve corrido hacia arriba. Un path se
+            centra de verdad, y de paso gira cuando el menú está abierto. */}
+        <button type="button" onClick={() => setAbierto((v) => !v)} title="Dónde buscar" aria-label="Dónde buscar" aria-expanded={abierto}
+          style={{ ...mini, color: ampliada ? 'var(--primary)' : 'var(--faint)', borderColor: ampliada ? 'var(--primary)' : 'transparent' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            style={{ display: 'block', transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
+            <path d="M5 9l7 7 7-7" />
+          </svg>
+        </button>
       </div>
 
       {/* El chip dice DÓNDE se está buscando. Sin esto, sumar «detalle» hace aparecer
@@ -99,9 +108,19 @@ export function BuscadorTareas({ q, onQ, campos, onCampos, ia, onBuscarIA, onLim
         </div>
       )}
 
+      {/* EL MENÚ SE CORTABA Y NO HABÍA CÓMO LLEGAR A LO DE ABAJO.
+          Dos causas encimadas, y hacían falta las dos correcciones:
+          · No tenía techo ni scroll propio, así que crecía hasta donde le diera.
+          · Vive dentro de un <main> con `overflow: hidden` y `height: 100vh`
+            (BoardShell), que recorta a cualquier hijo absoluto que se pase — y con
+            el header arriba, el espacio real es bastante menos que la pantalla.
+          El techo se calcula contra el viewport (100vh menos lo que ocupa el header)
+          para que el menú TERMINE antes del recorte y el scroll quede adentro, que es
+          donde el usuario lo puede usar. */}
       {abierto && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 60, width: 280,
+          maxHeight: 'min(calc(100vh - 160px), 460px)', overflowY: 'auto', overscrollBehavior: 'contain',
           background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12,
           boxShadow: '0 12px 32px rgba(0,0,0,.16)', padding: 12, fontFamily: SANS,
         }}>

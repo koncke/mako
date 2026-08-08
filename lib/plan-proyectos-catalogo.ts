@@ -104,7 +104,8 @@ const CRUDO: ProyectoCatalogo[] = [
   // Los formatos de la Content Machine van SEPARADOS, uno por tab. Estuvieron juntos en
   // un «Contenido orgánico» y el dueño lo cortó: son seis destinos distintos del sidebar
   // y el trabajo de cada uno no se parece al del otro.
-  { nombre: 'Ideas', emoji: '💡', familia: 'producto', que: 'El primer paso de la fábrica: de qué hablar, antes de que haya pieza. Captura y organiza los temas de contenido.' },
+  { nombre: 'Ideas', emoji: '💡', familia: 'producto', que: 'El copiloto que convierte una idea suelta en un guion. Le tirás lo que sea —una frase, un audio, una imagen, un link de referencia— y te va guiando y organizando hasta que hay una pieza. NO es un repositorio ni un tablero de temas: es la conversación que te lleva de la ocurrencia al guion.' },
+  { nombre: 'Mindset', emoji: '🧠', familia: 'producto', que: 'La tab de diagnóstico psicológico del dueño: tests (LOT-R y otros), cómo ese perfil afecta a SU negocio en concreto, y las metodologías para trabajarlo. Diagnosticar → relacionar con el negocio → practicar.' },
   { nombre: 'Reels', emoji: '🎬', familia: 'producto', que: 'El formato Reel para el cliente: guion corto, gancho y estructura para Instagram.' },
   { nombre: 'Carousels', emoji: '🎠', familia: 'producto', que: 'El formato carrusel: la secuencia de placas, qué va en cada una y el cierre.' },
   { nombre: 'Stories', emoji: '⭕', familia: 'producto', que: 'El formato historias: la secuencia diaria, encuestas y el paso a la conversación.' },

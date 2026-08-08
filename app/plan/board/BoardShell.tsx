@@ -1058,11 +1058,15 @@ function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total
 }
 
 function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; total: number; label: string }) {
+  // `flex: 'none'` + `whiteSpace: 'nowrap'`: el chip vive en un contenedor con
+  // `minWidth: 0` que lo deja encogerse, y cuando el tablero llegó a «89/527 del plan»
+  // el texto partió en dos renglones y estiró todo el header. Un contador que cambia de
+  // alto según cuántas tareas tengas no es un contador, es un salto.
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 12px' }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, flex: 'none', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 12px', whiteSpace: 'nowrap' }}>
       <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{avg}%</span>
-      <span style={{ display: 'block', width: 74, height: 6, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: avg + '%', background: 'var(--primary)' }} /></span>
-      <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{hechas}/{total} {label}</span>
+      <span style={{ display: 'block', width: 74, height: 6, flex: 'none', borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: avg + '%', background: 'var(--primary)' }} /></span>
+      <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{hechas}/{total} {label}</span>
     </div>
   );
 }

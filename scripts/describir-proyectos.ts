@@ -71,9 +71,15 @@ async function main() {
     // proyecto, y sin eso el Perro describe por el nombre y se pisa con el vecino.
     const brief = catalogoParaPrompt();
 
-    // De a 8: el detalle de un proyecto son ~600 caracteres y con 20 juntos la
-    // respuesta se corta a la mitad (el modelo prioriza terminar el JSON).
-    const LOTE = 8;
+    // De a 4, y con una pausa entre lotes. Dos razones distintas:
+    // · El detalle de un proyecto son ~600 caracteres: con 20 juntos la respuesta se
+    //   corta a la mitad (el modelo prioriza cerrar el JSON antes que completarlo).
+    // · El tope del tier gratis de Gemini es por TOKENS POR MINUTO, no por día. Con
+    //   lotes de 8 el prompt pesa ~9k y cuatro seguidos disparan un 429 — verificado:
+    //   con ese 429 activo, una llamada de 10 tokens pasa igual. Espaciarlas es lo que
+    //   lo evita, y no cuesta nada porque esto corre una vez.
+    const LOTE = 4;
+    const PAUSA_MS = 20_000;
     const out: Array<{ id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }> = [];
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
@@ -89,6 +95,7 @@ async function main() {
       );
       out.push(...r.proyectos);
       console.log(`${r.proyectos.length} descriptos`);
+      if (i + LOTE < pendientes.length) await new Promise((r2) => setTimeout(r2, PAUSA_MS));
     }
 
     let escritos = 0, saltados = 0;
@@ -98,22 +105,29 @@ async function main() {
       const ev = evaluarDetalleProyecto(d.detalle);
       const viejo = (p.detalle ?? '').trim();
       // Las dos guardas de barrido-proyectos: forma mínima, y no acortar contenido.
+      // Que el DETALLE no pase no es motivo para perder el SCORE: son dos campos
+      // distintos y el score es justamente lo que este script viene a resolver. Antes
+      // un `continue` acá dejaba el proyecto en 0 para siempre.
+      let detalleOk = true;
       if (!ev.conForma) {
-        console.log(`  ✗ ${p.name}: el detalle vino sin forma (${ev.partes.join(', ') || 'ninguna parte'}) — no se escribe`);
-        if (!APLICAR) console.log(`     lo que devolvió: «${d.detalle.replace(/\s+/g, ' ').slice(0, 220)}»`);
-        saltados++; continue;
+        console.log(`  ~ ${p.name}: el detalle vino sin forma (${ev.partes.join(', ') || 'ninguna parte'}) — se conserva el que había`);
+        if (!APLICAR) console.log(`     lo que devolvió: «${d.detalle.replace(/\s+/g, ' ').slice(0, 200)}»`);
+        detalleOk = false;
+      } else if (viejo.length > 120 && d.detalle.length < viejo.length * 0.8) {
+        console.log(`  ~ ${p.name}: acortaría de ${viejo.length} a ${d.detalle.length} — se conserva el que había`);
+        detalleOk = false;
       }
-      if (viejo.length > 120 && d.detalle.length < viejo.length * 0.8) { console.log(`  ✗ ${p.name}: acortaría de ${viejo.length} a ${d.detalle.length} — no se escribe`); saltados++; continue; }
       console.log(`\n── ${p.emoji} ${p.name}  score ${p.score} → ${d.score}${d.impacto ? `  (impacto ${d.impacto} · esfuerzo ${d.esfuerzo})` : ''}`);
-      console.log(d.detalle.split('\n').map((l) => '   ' + l).join('\n'));
+      if (detalleOk) console.log(d.detalle.split('\n').map((l) => '   ' + l).join('\n'));
       if (d.razon) console.log(`   ↳ ${d.razon}`);
-      if (!APLICAR) continue;
+      if (!APLICAR) { if (!detalleOk) saltados++; continue; }
       const { error } = await db.from('plan_proyectos').update({
-        detalle: d.detalle, score: d.score, emoji: d.emoji || p.emoji,
+        ...(detalleOk ? { detalle: d.detalle, emoji: d.emoji || p.emoji } : {}),
+        score: d.score,
         ...(d.impacto ? { impacto: d.impacto } : {}), ...(d.esfuerzo ? { esfuerzo: d.esfuerzo } : {}),
         updated_at: new Date().toISOString(),
       }).eq('id', p.id);
-      if (error) { console.error(`  ✗ ${p.name}: ${error.message}`); saltados++; } else escritos++;
+      if (error) { console.error(`  ✗ ${p.name}: ${error.message}`); saltados++; } else { escritos++; if (!detalleOk) saltados++; }
     }
     console.log(APLICAR ? `\n[LISTO: ${escritos} escritos, ${saltados} saltados]` : `\n[DRY-RUN — ${out.length} descriptos, ${saltados} no pasarían las guardas. Agregá --aplicar]`);
   });
