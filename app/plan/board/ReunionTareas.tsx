@@ -240,7 +240,17 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
   // normales (las marca TareasRecibidasModal, que es quien tiene la lista del tablero),
   // así que acá solo se separan para ponerlas arriba.
   const faltantes = useMemo(() => mias.filter((x) => x.f.faltante), [mias]);
-  const miasRestantes = useMemo(() => mias.filter((x) => !x.f.faltante), [mias]);
+  // LAS QUE YA ESTÁN EN EL PLAN VAN ABAJO DE TODO, EN SU PROPIA SECCIÓN.
+  //
+  // Mezcladas entre las nuevas no se distinguían: la misma fila, el mismo alto, y la
+  // única diferencia era un borde verde y un chip. Con veinte tareas eso no se ve, y lo
+  // que el dueño necesita leer primero es lo que TIENE QUE DECIDIR — lo que ya está en
+  // el plan no requiere ninguna decisión suya salvo desmarcarlo.
+  //
+  // El corte es el mismo `ampliando` que usa la fila: si tocás «no es la misma», la
+  // tarea vuelve sola arriba, con las nuevas, que es donde pasó a pertenecer.
+  const yaEnPlan = useMemo(() => mias.filter((x) => !x.f.faltante && !!x.f.enriquece && x.f.ampliar !== false), [mias]);
+  const miasRestantes = useMemo(() => mias.filter((x) => !x.f.faltante && !(x.f.enriquece && x.f.ampliar !== false)), [mias]);
   // MIS tareas agrupadas por reunión (con varias esperando, saber de cuál salió cada
   // una es la mitad del sentido de la pantalla).
   // Las faltantes salen ARRIBA, en su propio bloque: acá se agrupa solo el resto.
@@ -373,6 +383,26 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
               ))}
             </div>
           )}
+          {/* YA ESTÁ EN EL PLAN: sección propia, abajo de las nuevas. Cada una muestra
+              la TARJETA REAL del tablero —la misma que el dueño ya conoce del kanban—
+              con el contexto que se le va a sumar arriba. Antes era una fila igual a las
+              demás con un borde verde, y entre veinte no se distinguía. */}
+          {yaEnPlan.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ok, #1E9E57)' }}>
+                  ⊕ {yaEnPlan.length === 1 ? 'Esta ya está en tu plan' : `Estas ${yaEnPlan.length} ya están en tu plan`}
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--dim)' }}>
+                  No se crean de nuevo: se le suma este contexto a la tarjeta que ya existe.
+                </span>
+              </div>
+              {yaEnPlan.map(({ f, i }) => (
+                <FilaYaEnPlan key={i} f={f} onFila={(p) => onFila(i, p)} url={(f.reunion ?? reunion).url}
+                  onAbrirTarea={onAbrirTarea} renderTaskCard={renderTaskCard} />
+              ))}
+            </div>
+          )}
           {/* Lo que ya cargaste de esta reunión. No se vuelve a ofrecer, pero sigue a la
               vista: el borrador quedó abierto por las tareas de los demás y sin esto
               parecía que las tuyas se habían perdido. Cada una abre su tarjeta real.
@@ -483,6 +513,83 @@ function TabBtn({ activo, onClick, label, n }: { activo: boolean; onClick: () =>
  * app va a pisar dos segundos después). Lo que sí necesita mano humana es el DETALLE:
  * la IA escucha mal un número y queda escrito ("el grupal de $497" cuando son $1500).
  */
+/**
+ * «Ya está en tu plan»: el contexto que se le va a sumar, y debajo LA TARJETA REAL.
+ *
+ * Es otra pieza y no una variante de `FilaCandidata` porque no es la misma decisión.
+ * Una candidata se tilda o se destilda; ésta ya tiene destino y lo único que se puede
+ * hacer es discutir el match. Mostrarla con el mismo cuerpo —checkbox incluido— era
+ * justamente lo que hacía que no se distinguieran.
+ *
+ * La tarjeta sale de `renderTaskCard`, la MISMA del kanban: el dueño reconoce de un
+ * vistazo cuál es sin tener que abrir nada, que es lo que hace falta para darse cuenta
+ * de que el cruce se equivocó. Si el id ya no existe en el tablero, la tarjeta devuelve
+ * null y cae al nombre a secas.
+ */
+function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard }: {
+  f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null;
+  onAbrirTarea?: (id: string) => void; renderTaskCard?: (id: string) => ReactNode;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const momentos = momentosDe(f);
+  const card = f.enriquece?.id ? renderTaskCard?.(f.enriquece.id) : null;
+  return (
+    <div style={{ borderRadius: 12, border: '1px solid var(--ok, #1E9E57)', background: 'var(--surface)', overflow: 'hidden' }}>
+      {/* Lo que trajo la reunión: el título nuevo y el contexto que se va a sumar. */}
+      <div style={{ padding: '11px 13px', borderBottom: '1px dashed var(--border)' }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 4 }}>
+          De la reunión
+        </div>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
+          {f.titulo}
+          {momentos.map((seg) => {
+            const l = urlEnMinuto(url, seg);
+            return l
+              ? <a key={seg} href={l} target="_blank" rel="noreferrer" title="Escuchar este momento"
+                  style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
+              : <span key={seg} style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {relojDe(seg)}</span>;
+          })}
+        </div>
+        {f.detalle && (
+          <>
+            <button type="button" onClick={() => setAbierto((v) => !v)} style={{ ...btnChico, marginTop: 5 }}>
+              {abierto ? '▴ ocultar el contexto' : `▾ ver el contexto que se le suma (${Math.round(f.detalle.length / 100) / 10}k)`}
+            </button>
+            {abierto && <div style={{ marginTop: 6 }}><DetalleDoc texto={f.detalle} /></div>}
+          </>
+        )}
+        {f.enriquece?.razon && (
+          <div style={{ fontSize: 11.5, color: 'var(--ok, #1E9E57)', lineHeight: 1.45, marginTop: 6 }}>⊕ {f.enriquece.razon}</div>
+        )}
+      </div>
+      {/* La tarjeta que YA está en el tablero, tal cual la ve en el kanban. */}
+      <div style={{ padding: '11px 13px', background: 'var(--surface-2)' }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>
+          Se le suma a esta tarjeta
+        </div>
+        <div style={{ maxWidth: 320 }}>
+          {card ?? (
+            <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, color: 'var(--dim)' }}>
+              La tarjeta ya no está en el tablero.
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 9, flexWrap: 'wrap' }}>
+          {!!f.enriquece?.id && onAbrirTarea && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onAbrirTarea(f.enriquece!.id); }}
+              style={{ ...btnChico, color: 'var(--primary)' }}>abrir la tarjeta</button>
+          )}
+          {/* La salida cuando el cruce se equivocó. Al tocarla la tarea vuelve arriba,
+              con las nuevas: ahí es donde pasó a pertenecer. */}
+          <button type="button" onClick={(e) => { e.stopPropagation(); onFila({ ampliar: false, incluir: true }); }}
+            style={{ ...btnChico, color: 'var(--warn)' }}
+            title="Crear una tarea nueva en vez de sumarle el contexto a la que ya está">↗ no es la misma</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null; personas: PersonaRef[]; onAbrirTarea?: (id: string) => void }) {
   const [editando, setEditando] = useState(false);
   const [reasignando, setReasignando] = useState(false);

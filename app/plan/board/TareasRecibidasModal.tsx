@@ -31,7 +31,9 @@ import { type Label, type Prio } from './types';
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number; minutos?: number[]; incluir?: boolean };
+type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number; minutos?: number[]; incluir?: boolean;
+  /** el cruce anti-duplicados YA guardado (mig 0123): no se vuelve a correr. */
+  enriquece?: { id: string; razon: string; confianza?: 'alta' | 'media' }; ampliar?: boolean };
 // El `tipo` es el del contrato, NO un `string` suelto: mientras fue string, el
 // compilador no podía avisar que esta pantalla y la de /plan/revisar dibujaban cosas
 // distintas para el mismo valor (y de hecho lo hacían).
@@ -53,6 +55,8 @@ export type PropuestaPendiente = {
   cerrar?: Array<{ id: string; titulo?: string; evidencia: string; confianza?: string }>;
   /** las tuyas que ya cargaste: el borrador siguió abierto por las de los demás. */
   aplicadas?: Array<{ titulo: string; tareaId: string; minutos?: number[] }>;
+  /** cuándo corrió el cruce anti-duplicados (mig 0123). Sin esto se rehacía en cada apertura. */
+  cruzadoAt?: string;
 };
 
 async function api(body: Record<string, unknown>): Promise<Record<string, unknown> & { ok: boolean; error?: string }> {
@@ -125,6 +129,13 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // concreta. Se muestran DE A UNA, como el resto de los formularios de la app.
   const [preguntasIA, setPreguntasIA] = useState<PropPregunta[] | null>(null);
   const [pensando, setPensando] = useState(false);
+  /** El Perro está cruzando contra el tablero. Mientras dure, la pantalla NO deja
+   *  cargar: si no, se confirma un lote que dos segundos después iba a quedar marcado
+   *  como repetido, y quedan duplicados en el board. */
+  const [cruzando, setCruzando] = useState(false);
+  /** El cruce terminó en ESTA sesión: el autosave lo sella en la base (`cruzado_at`)
+   *  para que no se vuelva a correr la próxima vez que se abra la reunión. */
+  const [cruzado, setCruzado] = useState(false);
   const [qIdx, setQIdx] = useState(0);
   // Init perezoso (el padre monta con una key que depende de los ids: si cambian, es
   // un componente nuevo y no hace falta re-sincronizar por efecto).
@@ -137,6 +148,21 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     // el umbral bajo (pareceLaMisma) — nunca se descarta, porque a ese umbral el
     // parecido a veces es solo parecido.
     const deOtrosBorradores: TareaEnTablero[] = [];
+    /**
+     * ¿La fila nace tildada? UN solo lugar donde se decide, por orden de autoridad:
+     *   1. Lo que YA decidió el dueño (`incluir`, `ampliar`) — manda siempre.
+     *   2. Es de otra persona → no.
+     *   3. El cruce la marcó CON CONFIANZA ALTA → no (se le suma contexto, no se crea).
+     *      Con confianza media entra TILDADA: un falso positivo destildado esconde un
+     *      pedido real de una reunión, y eso ya pasó.
+     *   4. Si no, sí.
+     */
+    const tildada = (t: PropTarea): boolean => {
+      if (t.ampliar === false) return true;          // «no es la misma», dicho por el dueño
+      if (t.incluir === false) return false;
+      if (t.esDeOtro) return false;
+      return t.enriquece?.confianza !== 'alta';
+    };
     const yaEnPlan = (titulo: string): { id: string; razon: string } | null => {
       const enBoard = abiertas.find((x) => pareceLaMisma(x.titulo, titulo).si);
       if (enBoard) return { id: enBoard.id, razon: `ya está en tu plan como «${enBoard.titulo}»` };
@@ -157,14 +183,18 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       // aplicar: la tarea entraba SIN proyecto aunque el server sabe crearlo por nombre.
       proyectoPropuesto: (t.proyecto ?? '').trim(),
       dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro, minuto: t.minuto, minutos: t.minutos,
-      // `incluir` viene del borrador si el dueño ya lo revisó antes (F5 / volver más
-      // tarde). Sin esto, cada recarga le devolvía el reparto que había adivinado MaKo.
-      incluir: t.incluir === false ? false : !t.esDeOtro,
+      // `incluir` sale de UN solo cálculo (`tildada`), abajo: mientras estuvo acá y
+      // además adentro del spread del cruce, la segunda pisaba a la primera y cuál
+      // ganaba dependía del orden de las líneas.
+      incluir: tildada(t),
       // ¿Esta ya está en el plan? La misma reunión se puede grabar dos veces (un
       // notetaker por participante) y el mismo compromiso puede volver en la junta
-      // siguiente. Se marca y nace DESTILDADA: se ve por qué, y con un clic entra
-      // igual si el usuario decide que no es la misma.
-      ...(yaEnPlan(t.titulo) ? { enriquece: yaEnPlan(t.titulo)!, incluir: false } : {}),
+      // siguiente. Se marca y —solo si el cruce está seguro— nace DESTILDADA.
+      // El cruce GUARDADO manda sobre el léxico: si el borrador ya trae el resultado del
+      // Perro, ése es el bueno (y con él viene la decisión que tomó el dueño en `ampliar`).
+      ...(t.enriquece
+        ? { enriquece: t.enriquece, ampliar: t.ampliar }
+        : yaEnPlan(t.titulo) ? { enriquece: yaEnPlan(t.titulo)! } : {}),
       // La fecha de la REUNIÓN. Si el borrador no la trae (lo dejó una versión vieja
       // del cron), va SIN fecha: caer a createdAt mostraba la hora a la que corrió el
       // cron como si fuera la hora de la reunión — "tuviste una reunión hoy" cuando la
@@ -330,17 +360,23 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         if ((p.estado ?? 'pendiente') !== 'pendiente') continue;
         const suyas = filas.filter((f) => f.propId === p.id);
         if (!suyas.length) continue;
-        void api({ action: 'guardar', id: p.id, tareas: suyas.map((f) => ({
+        void api({ action: 'guardar', id: p.id, cruzado, tareas: suyas.map((f) => ({
           titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
           proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined),
           dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
           minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
+          // El resultado del cruce viaja con la tarea: es lo que evita rehacerlo.
+          enriquece: f.enriquece, ampliar: f.ampliar,
         })) });
       }
     }, 900);
     return () => clearTimeout(id);
+    // `cruzado` también dispara el guardado: cuando el cruce termina SIN encontrar nada,
+    // `filas` no cambia y sin esta dependencia el sello nunca se escribiría — o sea que
+    // el análisis se volvería a pagar en cada apertura, que es justo lo que se vino a
+    // cerrar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filas]);
+  }, [filas, cruzado]);
 
   // EL PERRO CRUZA. El léxico solo agarra lo que se parece en palabras, y eso alcanza
   // para poco: medido contra un caso real (la misma llamada grabada por dos notetakers),
@@ -352,9 +388,17 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   const cruzadoRef = useRef(false);
   useEffect(() => {
     if (cruzadoRef.current) return;
+    // YA SE CRUZÓ: no se vuelve a preguntar. `cruzadoAt` (mig 0123) se sella la primera
+    // vez y lo que encontró viaja dentro de cada tarea. Antes esto corría en CADA
+    // apertura del modal: se pagaba la misma llamada de IA una y otra vez, y —peor—
+    // mientras corría las tareas se veían como nuevas y se podían cargar, así que
+    // entrar y confirmar rápido creaba el duplicado que el cruce iba a marcar dos
+    // segundos después.
+    if (todos.every((p) => !!p.cruzadoAt)) { cruzadoRef.current = true; return; }
     const aCruzar = filas.filter((f) => !f.esDeOtro && !f.enriquece);
-    if (!aCruzar.length) return;
+    if (!aCruzar.length) { cruzadoRef.current = true; return; }
     cruzadoRef.current = true;
+    setCruzando(true);
     (async () => {
       // Contra el tablero Y contra las tareas de los OTROS borradores. Lo segundo es
       // el caso que más duele: la misma llamada grabada por dos personas llega como dos
@@ -364,7 +408,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       const otros = filas.filter((f) => !f.esDeOtro && !aCruzar.includes(f))
         .map((f, k) => ({ id: `borrador:${k}`, titulo: f.titulo, detalle: f.detalle }));
       const universo = [...delBoard, ...otros];
-      if (!universo.length) return;
+      if (!universo.length) { setCruzando(false); return; }
       const j = await fetch('/api/plan-fathom', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -373,6 +417,11 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
           existentes: universo,
         }),
       }).then((r) => r.json()).catch(() => ({ ok: false }));
+      setCruzando(false);
+      // Se selle o no con resultados, el borrador queda marcado: «ya se cruzó» y «no
+      // encontró nada» son la misma cosa para la próxima apertura. Si la llamada FALLÓ
+      // (`ok:false`) no se sella, para que se pueda reintentar entrando de nuevo.
+      if (j?.ok) setCruzado(true);
       if (!j?.ok || !Array.isArray(j.cruces) || !j.cruces.length) return;
       const porTitulo = new Map<string, { id: string; razon: string; confianza: 'alta' | 'media' }>();
       for (const c of j.cruces as Array<{ i: number; idExistente?: string; razon?: string; confianza?: string }>) {
@@ -506,7 +555,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     // Cerrar clickeando AFUERA, como cualquier modal de la app. Cerrar no descarta
     // nada: el borrador sigue esperando y se vuelve desde el botón de Fathom. Lo único
     // que no se puede interrumpir es el aplicado (ahí sí queda el board a medio armar).
-    <div onClick={() => { if (!guardando && !pensando) onClose(); }}
+    <div onClick={() => { if (!guardando && !pensando && !cruzando) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto || !capa.visible ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()}
         style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
@@ -516,7 +565,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             Tapa también mientras MaKo arma las preguntas (`pensando`): es la MISMA
             espera larga detrás del MISMO botón, un paso antes, y sin el velo lo único
             que cambiaba era el texto del botón. */}
-        {(aplicando || pensando) && (
+        {(aplicando || pensando || cruzando) && (
           <div role="status" aria-live="polite" style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
             {/* El velo va en SU capa: un `opacity` sobre el contenedor apagaría también
                 el spinner y el texto. Y sale de --surface, no de un blanco fijo — en
@@ -524,7 +573,14 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'var(--surface)', opacity: 0.94, backdropFilter: 'blur(3px)' }} />
             <span style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', boxSizing: 'border-box', display: 'inline-block', animation: 'makoSpinTR .7s linear infinite' }} />
             <style>{'@keyframes makoSpinTR{to{transform:rotate(360deg)}}'}</style>
-            {pensando ? (
+            {cruzando ? (
+              <>
+                <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>El Perro está cruzando con tu plan…</div>
+                <div style={{ position: 'relative', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
+                  Mira si alguna de estas {filas.length} ya está en el tablero, para sumarle el contexto en vez de duplicarla. Se hace <b>una sola vez</b>: la próxima que entres ya va a estar resuelto.
+                </div>
+              </>
+            ) : pensando ? (
               <>
                 <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>MaKo está mirando lo que elegiste…</div>
                 <div style={{ position: 'relative', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
@@ -623,7 +679,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             </button>
           ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mandáselo desde la lista.</span>}
           {hayMias && !cerrado && (
-            <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando}
+            <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando || cruzando}
               style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
               {guardando === 'aplicar' ? 'Cargando…' : pensando ? 'MaKo está mirando lo que elegiste…' : nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
             </button>

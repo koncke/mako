@@ -48,6 +48,14 @@ export type PropuestaTarea = {
    *  Se persiste para que la revisión sobreviva a un F5: antes vivía solo en el estado
    *  del modal y con recargar la página volvía todo al reparto que había adivinado MaKo. */
   incluir?: boolean;
+  /** El resultado del cruce anti-duplicados: esta candidata YA existe en el tablero.
+   *  Se PERSISTE (mig 0123) porque antes vivía solo en el estado del modal y el cruce
+   *  —que es una llamada de IA— se rehacía en cada apertura. Mientras corría, las tareas
+   *  se veían como nuevas y se podían cargar: entrar y confirmar rápido creaba el
+   *  duplicado que el cruce iba a marcar dos segundos después. */
+  enriquece?: { id: string; razon: string; confianza?: 'alta' | 'media' };
+  /** `false` = el dueño dijo «no es la misma»: se crea igual, aunque el cruce la marcó. */
+  ampliar?: boolean;
 };
 /**
  * Los títulos de las tareas ABIERTAS del tablero del workspace actual, para no volver
@@ -105,6 +113,8 @@ export type Propuesta = {
   ref?: string;
   /** las que ya se cargaron al plan desde este borrador (sigue abierto por las de otros). */
   aplicadas?: PropuestaAplicada[];
+  /** cuándo corrió el cruce anti-duplicados (mig 0123). undefined = falta correrlo. */
+  cruzadoAt?: string;
 };
 
 function limpiarAplicada(a: unknown): PropuestaAplicada | null {
@@ -154,6 +164,13 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
       ? [...new Set((o.minutos as unknown[]).map((x) => Math.round(Number(x))).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b)
       : undefined,
     incluir: o.incluir === false ? false : undefined,
+    enriquece: (() => {
+      const e = o.enriquece as Record<string, unknown> | undefined;
+      const razon = str(e?.razon).trim().slice(0, 400);
+      if (!e || typeof e !== 'object' || !razon) return undefined;
+      return { id: str(e.id).trim().slice(0, 80), razon, confianza: e.confianza === 'alta' ? 'alta' as const : 'media' as const };
+    })(),
+    ampliar: o.ampliar === false ? false : undefined,
   };
 }
 function limpiarEliminar(e: unknown): PropuestaEliminar | null {
@@ -297,6 +314,7 @@ function rowToPropuesta(r: Row): Propuesta {
     fuenteFecha: r.fuente_fecha ? String(r.fuente_fecha) : undefined,
     ref: r.ref ? str(r.ref) : undefined,
     aplicadas: asArr<unknown>(r.aplicadas).map(limpiarAplicada).filter((a): a is PropuestaAplicada => !!a),
+    cruzadoAt: r.cruzado_at ? str(r.cruzado_at) : undefined,
   };
 }
 
@@ -890,14 +908,20 @@ export async function estadoDePropuesta(id: string): Promise<{ estado: string; n
   });
 }
 
-export async function guardarRevision(id: string, tareas: PropuestaTarea[]): Promise<boolean> {
+export async function guardarRevision(id: string, tareas: PropuestaTarea[], marcarCruzado = false): Promise<boolean> {
   return enWs(async () => {
     const limpias = tareas.map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     if (!limpias.length) return false;
     const db = await getTenantDb();
     const { data } = await db.from('plan_propuestas').select('estado').eq('id', id).maybeSingle();
     if (!data || str((data as Row).estado, 'pendiente') !== 'pendiente') return false;
-    const { error } = await db.from('plan_propuestas').update({ tareas: limpias }).eq('id', id);
+    // `cruzado_at` (mig 0123) es lo que hace que el cruce anti-duplicados corra UNA vez
+    // por borrador y no en cada apertura del modal. El resultado en sí viaja adentro de
+    // cada tarea (`enriquece`); esta marca es lo único que distingue «se cruzó y no
+    // encontró nada» de «todavía no se cruzó».
+    const patch: Row = { tareas: limpias };
+    if (marcarCruzado) patch.cruzado_at = new Date().toISOString();
+    const { error } = await db.from('plan_propuestas').update(patch).eq('id', id);
     if (error) { console.error(`[plan-propuesta] guardarRevision ${id}: ${error.message}`); return false; }
     return true;
   });

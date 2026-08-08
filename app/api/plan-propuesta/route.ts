@@ -118,7 +118,9 @@ export async function POST(req: NextRequest) {
       // Guarda la revisión en curso (reparto + destildado + correcciones) sin aplicar
       // nada. Es lo que hace que un F5 no borre veinte reasignaciones hechas a mano.
       const tareas = Array.isArray(body.tareas) ? (body.tareas as PropuestaTarea[]) : [];
-      const ok = await guardarRevision(id, tareas);
+      // `cruzado` lo manda el modal cuando el guardado viene del cruce anti-duplicados:
+      // sella el borrador para que ese análisis no se repita en cada apertura.
+      const ok = await guardarRevision(id, tareas, body.cruzado === true);
       return NextResponse.json({ ok });
     }
     if (action === 'preguntar') {
