@@ -81,22 +81,49 @@ function corto(s: string, max = 34): string {
 function seccionesPanorama(texto: string): Array<{ titulo: string; cuerpo: string }> {
   const t = limpio(texto);
   if (!t) return [];
-  const titulos = ['IDENTIDAD Y POSICIONAMIENTO', 'OFERTA Y PRECIOS', 'AVATAR Y CLIENTE IDEAL', 'NICHO Y MERCADO', 'TONO Y VOZ DE MARCA', 'OTROS DATOS RELEVANTES'];
-  const arriba = t.toUpperCase();
-  const marcas = titulos
-    .map((titulo) => ({ titulo, i: arriba.indexOf(titulo) }))
-    .filter((m) => m.i >= 0)
-    .sort((a, b) => a.i - b.i);
-  return marcas
-    .map((m, k) => {
-      const desde = m.i + m.titulo.length;
-      const hasta = k + 1 < marcas.length ? marcas[k + 1].i : t.length;
-      // Se come el resto del renglón del título (los ':' y '**' que pone el modelo).
-      const cuerpo = t.slice(desde, hasta).replace(/^[\s:*#·—-]+/, '').trim();
-      return { titulo: m.titulo, cuerpo };
-    })
-    .filter((s) => s.cuerpo.length > 0);
+  // Se parte por ENCABEZADO, no buscando seis títulos literales. La versión anterior
+  // hacía `indexOf` de los seis nombres exactos y, sobre el panorama YA GUARDADO del
+  // workspace del dueño —que una versión anterior escribió con otro molde
+  // («# DESCRIPCIÓN DEL NEGOCIO», «# AVATAR», «# DOLORES», «# NICHOMERCADO»)—
+  // encontraba UNO SOLO: 1 nodo en vez de 6, y las aristas laterales de
+  // PANORAMA_APUNTA_A tampoco se disparaban. En silencio, y solo en ese workspace.
+  //
+  // La lección: el comentario decía «el generador GARANTIZA que las seis están», y es
+  // cierto para lo que se genere de ahora en más. No para lo que ya está en la base.
+  const lineas = t.split('\n');
+  const secciones: Array<{ titulo: string; cuerpo: string }> = [];
+  let actual: { titulo: string; cuerpo: string[] } | null = null;
+  for (const linea of lineas) {
+    // Un encabezado es una línea corta que empieza con # o ** o que está entera en
+    // mayúsculas, y que no es una oración.
+    const crudo = linea.trim();
+    const esEncabezado =
+      crudo.length > 0 && crudo.length <= 60 &&
+      (/^#{1,4}\s+\S/.test(crudo) || /^\*\*[^*]+\*\*:?$/.test(crudo) ||
+        (crudo === crudo.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(crudo) && !/[.;]$/.test(crudo)));
+    if (esEncabezado) {
+      if (actual) secciones.push({ titulo: actual.titulo, cuerpo: actual.cuerpo.join('\n').trim() });
+      actual = { titulo: crudo.replace(/^[#*\s]+|[#*:\s]+$/g, '').toUpperCase(), cuerpo: [] };
+    } else if (actual) {
+      actual.cuerpo.push(linea);
+    }
+  }
+  if (actual) secciones.push({ titulo: actual.titulo, cuerpo: actual.cuerpo.join('\n').trim() });
+  return secciones.filter((s) => s.titulo.length > 0 && s.cuerpo.length > 0);
 }
+
+/** Los sinónimos con los que distintas versiones del generador nombraron el mismo
+ *  plano. Sirve para que las aristas laterales encuentren su destino igual. */
+const PLANO_CANONICO: Array<{ canon: string; alias: RegExp }> = [
+  { canon: 'IDENTIDAD Y POSICIONAMIENTO', alias: /IDENTIDAD|DESCRIPCI[OÓ]N DEL NEGOCIO|POSICIONAMIENTO/ },
+  { canon: 'OFERTA Y PRECIOS', alias: /OFERTA|PRECIO/ },
+  { canon: 'AVATAR Y CLIENTE IDEAL', alias: /AVATAR|CLIENTE IDEAL|DOLOR/ },
+  { canon: 'NICHO Y MERCADO', alias: /NICHO|MERCADO/ },
+  { canon: 'TONO Y VOZ DE MARCA', alias: /TONO|VOZ DE MARCA/ },
+];
+
+const canonPlano = (titulo: string): string =>
+  PLANO_CANONICO.find((p) => p.alias.test(titulo))?.canon ?? titulo;
 
 /** Título en versalitas humanas: «OFERTA Y PRECIOS» → «Oferta y precios». */
 const capitalizar = (s: string): string => s.charAt(0) + s.slice(1).toLowerCase();
@@ -244,7 +271,10 @@ export async function construirCerebro(): Promise<Cerebro> {
   const panoramaIds: string[] = [];
   for (const s of seccionesPanorama(panorama)) {
     const id = push({
-      id: `pan:${s.titulo}`,
+      // El id usa el nombre CANÓNICO del plano, no el que trajo el texto: así las
+      // aristas laterales encuentran su destino aunque el panorama guardado use un
+      // molde viejo («# DESCRIPCIÓN DEL NEGOCIO» en vez de «IDENTIDAD…»).
+      id: `pan:${canonPlano(s.titulo)}`,
       area: 'panorama',
       etiqueta: capitalizar(s.titulo),
       detalle: s.cuerpo,

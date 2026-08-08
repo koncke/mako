@@ -241,6 +241,110 @@ En cualquier otro lado `var(--mono)` no resuelve y cae al font heredado, en sile
 
 ---
 
+## La física viva del cliente
+
+### Reponer las fuerzas del servidor para arrastrar rearma el mapa solo
+
+**Síntoma.** Se agrega arrastre con el patrón canónico de d3 (`alphaTarget(0.3).restart()`)
+y el mapa se mueve **58 px de mediana a los 120 ticks sin que nadie toque nada**; 83 px a los
+300; y al soltar no vuelve (72 px de deriva final).
+
+**Causa.** Un layout parado en `alphaMin = 0.001` **no está en equilibrio de fuerzas**: sigue
+cayendo, 300 veces más lento. Reinyectarle alpha lo hace correr otra vez. Bajar el
+`alphaTarget` mitiga y no cierra (0,05 todavía deja 20 px).
+
+**Regla.** La simulación del cliente es **otra receta**, en `app/second-brain/fisica.ts`, y
+tiene exactamente dos fuerzas: `forceCollide(60).strength(0.7)` y un **resorte a su casa**
+(`forceX/forceY` hacia la posición que mandó el servidor, `strength 0.30`). **Sin
+`forceManyBody` y sin centro**, que son las que rearman el mapa. Con eso nace en reposo
+exacto (0,00 px al despertarla) y todo vuelve a su lugar en ~1 s.
+
+El diagnóstico obvio —«usá el drag de los ejemplos de d3»— es el equivocado.
+
+Y al soltar, `fx/fy` van a `null`: el nodo **no** queda clavado donde lo soltaste. Es lo que
+hace Obsidian, y acá es más importante todavía, porque la posición *significa* algo (la
+calculó el servidor con la topología): dejarla movida sería mentir.
+
+**Vive en:** `app/second-brain/fisica.ts`
+
+### Una animación CSS sobre `transform` le gana al `transform` que escribe JS
+
+**Síntoma.** Se agrega la flotación y los nodos dejan de responder a la física: quedan
+clavados. Sin error, sin warning, y **el mapa parece vivo porque flota**.
+
+**Causa.** En la cascada, las declaraciones de una animación están por encima de los estilos
+de autor normales, incluido el inline y el `setAttribute`.
+
+**Regla.** Un dueño por grupo, anidados: el de afuera lleva la **posición** (la escribe la
+física), el del medio la **flotación** (CSS), el de adentro el **pop** de entrada (CSS).
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`cbg-flota` / `cbg-pop` / `cbg-cuerpo`)
+
+### Sobre el lienzo oscuro solo hay dos tokens de color usables
+
+Contraste WCAG sobre `--sidebar` #14161B, contra el gris base `--sidebar-text` (6,55:1):
+`--on-sidebar` 16,6 · `--mako-lite` 11,8 · `--mako` 9,5 · `--primary-weak` 9,4 · **`--good`
+5,2 · `--bad` 4,3 · `--primary` 4,0 · `--warn` 3,6**.
+
+**Regla.** Todo lo que esté por debajo de 6,55 se lee como **menos** importante que un nodo
+normal: un nodo «marcado» con `--primary` se ve menos que uno sin marcar. Sobre superficie
+oscura el azul de MaKo es **`--primary-weak`**, que es el par simétrico de `--mako-ink` (que
+existe por el motivo inverso, dorado sobre fondo claro).
+
+Y bajo deuteranopía (~6% de los hombres), medido con la matriz de Viénot: **`--mako` y
+`--warn-fill` colapsan en el mismo color** (1,14:1). Hoy es tolerable porque son dos nodos de
+cincuenta, separados por posición y etiqueta. **No se puede agregar una tercera clase dorada
+o naranja.**
+
+### El color de Obsidian es opt-in y viene apagado
+
+Sus seis slots `.graph-view.color-fill-1…6` valen `var(--text-muted)`: **el mismo gris que un
+nodo normal**. El sistema está cableado entero y no pinta nada hasta que el usuario define un
+grupo — y el grupo lo define una **consulta**, no una categoría del esquema.
+
+**Regla.** Monocromo por defecto, color opt-in, con tope. Acá quedó un solo grupo
+(«Resaltar lo que escribiste tú», `--primary-weak`). Las diez áreas **no** reciben color: ya
+están resueltas por topología (el nodo de área) y por el filtro del panel.
+
+### El parser del panorama descartaba 5 de 6 secciones, y solo en un workspace
+
+**Síntoma.** El grafo del workspace del dueño tenía 1 nodo de panorama en vez de 6, y las
+cuatro aristas laterales de `PANORAMA_APUNTA_A` tampoco se disparaban.
+
+**Causa.** `seccionesPanorama()` buscaba seis títulos **literales** con `indexOf`. El panorama
+ya guardado de ese workspace lo escribió una versión anterior con otro molde
+(`# DESCRIPCIÓN DEL NEGOCIO`, `# AVATAR`, `# DOLORES`, `# NICHOMERCADO`): coincidía uno solo.
+
+**Regla.** El comentario decía «el generador GARANTIZA que las seis están». Es cierto para lo
+que se genere de ahora en más, **no para lo que ya está en la base**. Un parser que lee datos
+históricos parte por estructura (encabezado) y mapea sinónimos, nunca por literales.
+
+**Vive en:** `lib/cerebro-grafo.ts` (`seccionesPanorama`, `PLANO_CANONICO`)
+
+### El drag nativo del navegador se come el paneo
+
+**Síntoma.** «Al hacer clic, en lugar de desplazarse, parece que intenta agarrar una imagen.»
+
+**Causa.** Tres a la vez: (1) arrastrar sobre un nodo o una etiqueta dispara el
+drag-and-drop **nativo**, que muestra el fantasma y cancela los pointer events; (2) el
+`setPointerCapture` estaba sobre `e.target` —el `<circle>`— y el primer re-render de React lo
+reemplaza, así que la captura se pierde a mitad del gesto; (3) `onPointerLeave` cortaba el
+arrastre al salirse del borde con el botón apretado.
+
+**Regla.** `user-select: none` + `-webkit-user-drag: none` + `preventDefault` en `dragstart`,
+la captura **sobre el SVG**, y sin `onPointerLeave` (con la captura bien puesta, el puntero no
+«sale»). Obsidian hace lo mismo en una línea: `interactiveEl.addEventListener('mousedown', e => e.preventDefault())`.
+
+**Vive en:** `app/second-brain/Grafo.tsx`
+
+### La trampa que llega con la simulación viva: el hover que no se apaga
+
+Cuando el grafo se mueve debajo de un cursor quieto, **`pointerout` no se dispara nunca** y el
+nodo queda resaltado para siempre. Obsidian lo resuelve recalculando el hover **por frame**,
+por distancia. Hoy acá no muerde porque durante el arrastre el resaltado es el nodo
+arrastrado (el mismo `dragNode || highlightNode` de Obsidian), pero cualquier movimiento
+autónomo que se agregue lo despierta.
+
 ## Lo que quedó sin hacer
 
 - **Persistir el layout** (`getSetting`/`setSetting` con la `huella` que ya calcula
