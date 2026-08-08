@@ -17,6 +17,64 @@ multi-agente es aparte: [corridas-multiagente.md](corridas-multiagente.md).
 ⚠️ Los títulos son los reales del chat, salvo cuando el original era vago o estaba en
 inglés: en ese caso se reescribió para que se entienda solo, y el original queda anotado.
 
+## Las 48 sesiones de un vistazo
+
+El nombre lleva al resumen de más abajo; la última columna, a la conversación entera.
+
+| Fecha | Chat | Martín | Claude | Herram. | |
+|---|---|--:|--:|--:|---|
+| 2026-08-08 | [Dos cuentas de Claude en paralelo](#dos-cuentas-de-claude-en-paralelo) | 5 | 156 | 356 | [ver →](chats/chat-estrategia-de-dos-cuentas-claude-e680c815.md) |
+| 2026-08-08 | [Rediseño: sidebar y nueva navegación](#rediseño-sidebar-y-nueva-navegación) | 18 | 117 | 822 | [ver →](chats/chat-redise-o-por-partes-88457d97.md) |
+| 2026-08-07 | [Ads Writer se vuelve Content Machine](#ads-writer-se-vuelve-content-machine) | 8 | 106 | 308 | [ver →](chats/chat-ads-writer-y-ads-generator-23edf4e1.md) |
+| 2026-08-07 | [CRM: funnel, validaciones y ficha del lead](#crm-funnel-validaciones-y-ficha-del-lead) | 75 | 1214 | 2084 | [ver →](chats/chat-crm-action-bar-and-lead-validation-c82dcecc.md) |
+| 2026-08-06 | [Conocimientos, Archivero y las 5 fases](#conocimientos-archivero-y-las-5-fases) | 157 | 2536 | 6589 | [ver →](chats/chat-conocimientos-cursos-e8ba820e.md) |
+| 2026-08-06 | [Notificaciones y título de tab](#notificaciones-y-título-de-tab) | 4 | 89 | 274 | [ver →](chats/chat-notificaciones-y-t-tulo-de-tab-9b5c7e42.md) |
+| 2026-08-06 | [Migración a dominio propio](#migración-a-dominio-propio) | 23 | 241 | 588 | [ver →](chats/chat-dominio-makodigital-app-en-mako-4f96b813.md) |
+| 2026-08-05 | [Terminar Landing Analyst y Generator](#terminar-landing-analyst-y-generator) | 2 | 60 | 355 | [ver →](chats/chat-landing-analyst-y-generator-tareas-pendiente-837eee8d.md) |
+| 2026-08-05 | [Cerrar VSL Analyst y VSL Generator](#cerrar-vsl-analyst-y-vsl-generator) | 2 | 27 | 158 | [ver →](chats/chat-vsl-analyst-y-generator-tareas-pendientes-e491f6d6.md) |
+| 2026-08-05 | [Chat Agent: onboarding, nutrición y datos de Mauricio](#chat-agent-onboarding-nutrición-y-datos-de-mauricio) | 52 | 709 | 2393 | [ver →](chats/chat-configuraci-n-autom-tica-y-nutrici-n-899c848a.md) |
+| 2026-07-31 | [Subir creativos a campaña existente](#subir-creativos-a-campaña-existente) | 8 | 117 | 342 | [ver →](chats/chat-subir-creativos-a-campa-a-existente-2da0bd61.md) |
+| 2026-07-31 | [Follow-up post-llamada redactado por MaKo](#follow-up-post-llamada-redactado-por-mako) | 2 | 8 | 76 | [ver →](chats/chat-post-llamada-redactado-por-mako-con-el-an-li-aa226a15.md) |
+| 2026-07-31 | [Webhook de Chatwoot: registro y salud](#webhook-de-chatwoot-registro-y-salud) | 2 | 8 | 55 | [ver →](chats/chat-registrar-y-verificar-el-webhook-de-chatwoot-d015d583.md) |
+| 2026-07-31 | [El page id de Meta partido en dos](#el-page-id-de-meta-partido-en-dos) | 1 | 31 | 53 | [ver →](chats/chat-arreglar-el-page-id-partido-en-dos-cron-de-l-aca2b6d2.md) |
+| 2026-07-30 | [Fathom: reparto de tareas al plan](#fathom-reparto-de-tareas-al-plan) | 20 | 187 | 830 | [ver →](chats/chat-fathom-task-distribution-workflow-518fbd28.md) |
+| 2026-07-29 | [Compartir un curso: invitación y vista rotas](#compartir-un-curso-invitación-y-vista-rotas) | 3 | 37 | 140 | [ver →](chats/chat-foto-de-perfil-en-invitaciones-de-cursos-ad90083c.md) |
+| 2026-07-28 | [Estrategia de venta de MaKo](#estrategia-de-venta-de-mako) | 11 | 18 | 117 | [ver →](chats/chat-estrategia-de-ventas-mako-76363c1b.md) |
+| 2026-07-27 | [Landing de venta y mini-VSL de Funnel](#landing-de-venta-y-mini-vsl-de-funnel) | 141 | 1204 | 2144 | [ver →](chats/chat-mako-landing-page-4d6acb52.md) |
+| 2026-07-26 | [Prompt editable del Archivero](#prompt-editable-del-archivero) | 1 | 9 | 17 | [ver →](chats/chat-registrar-prompt-editable-del-archivero-1ff6b1b4.md) |
+| 2026-07-26 | [Perro Guardián en WhatsApp y migración a Gemini](#perro-guardián-en-whatsapp-y-migración-a-gemini) | 88 | 959 | 1442 | [ver →](chats/chat-mako-cont-skills-recuperada-a5bc0d5c.md) |
+| 2026-07-24 | [Terminar ingesta del curso BlueHacker](#terminar-ingesta-del-curso-bluehacker) | 1 | 9 | 13 | [ver →](chats/chat-bluehacker-cerrar-ingesta-f75a5ce5.md) |
+| 2026-07-21 | [Onboarding del cliente y oferta cebolla](#onboarding-del-cliente-y-oferta-cebolla) | 10 | 243 | 471 | [ver →](chats/chat-mako-onboarding-strategy-and-tiered-offering-9035e991.md) |
+| 2026-07-19 | [Landing /vsl: copys, pop-ups y landing por feature](#landing-vsl-copys-pop-ups-y-landing-por-feature) | 10 | 256 | 383 | [ver →](chats/chat-vsl-copy-y-detail-pop-up-ecead78a.md) |
+| 2026-07-17 | [Tab de Integraciones con BYOK](#tab-de-integraciones-con-byok) | 28 | 609 | 995 | [ver →](chats/chat-integraciones-html-implementation-9aa7b90c.md) |
+| 2026-07-10 | [Email Marketing y WhatsApp no oficial](#email-marketing-y-whatsapp-no-oficial) | 31 | 676 | 1202 | [ver →](chats/chat-develop-email-marketing-tab-functionality-f00866e5.md) |
+| 2026-07-09 | [Rediseño del detalle del lead](#rediseño-del-detalle-del-lead) | 18 | 831 | 2205 | [ver →](chats/chat-auditar-y-optimizar-detalle-de-leads-en-crm-a9fd35ef.md) |
+| 2026-07-09 | [Plan para volver la app Doer, no Thinker](#plan-para-volver-la-app-doer-no-thinker) | 3 | 6 | 24 | [ver →](chats/chat-transform-app-from-thinker-to-doer-mode-8c0178e3.md) |
+| 2026-07-08 | [Publicar MaKo Customer Success en /vsl](#publicar-mako-customer-success-en-vsl) | 2 | 4 | 13 | [ver →](chats/chat-deploy-mako-customer-success-to-new-route-550e13d3.md) |
+| 2026-07-05 | [Fuga de usuarios entre workspaces](#fuga-de-usuarios-entre-workspaces) | 5 | 177 | 260 | [ver →](chats/chat-workspace-data-isolation-and-form-issues-24a5bae3.md) |
+| 2026-07-02 | [Auditoría de seguridad y performance con gstack](#auditoría-de-seguridad-y-performance-con-gstack) | 2 | 57 | 119 | [ver →](chats/chat-auditor-a-de-seguridad-y-performance-con-gst-c8d83b28.md) |
+| 2026-07-02 | [Usuarios, workspaces y panel de admin](#usuarios-workspaces-y-panel-de-admin) | 10 | 324 | 870 | [ver →](chats/chat-implementar-sistema-de-usuarios-y-vista-admi-b0880645.md) |
+| 2026-07-02 | [Experiments y la Retro de MaKo](#experiments-y-la-retro-de-mako) | 10 | 246 | 507 | [ver →](chats/chat-implementar-vista-de-experimentos-con-datos-54554a28.md) |
+| 2026-07-01 | [Perfil, notificaciones y rediseño del sidebar](#perfil-notificaciones-y-rediseño-del-sidebar) | 18 | 180 | 303 | [ver →](chats/chat-agregar-tabs-de-perfil-y-notificaciones-con--57a5d954.md) |
+| 2026-07-01 | [Kanban /martinkoncke y rediseño de sidebar](#kanban-martinkoncke-y-rediseño-de-sidebar) | 5 | 90 | 156 | [ver →](chats/chat-implementar-ruta-martinkoncke-para-kanban-or-0aeda8fa.md) |
+| 2026-07-01 | [Tab Conocimiento y MaKo asesor en WhatsApp](#tab-conocimiento-y-mako-asesor-en-whatsapp) | 2 | 67 | 146 | [ver →](chats/chat-implementar-m-dulo-de-conocimiento-y-asisten-433e9ad8.md) |
+| 2026-06-30 | [Nueva campaña con IA en Ads Manager](#nueva-campaña-con-ia-en-ads-manager) | 30 | 350 | 530 | [ver →](chats/chat-agregar-bot-n-nueva-campa-a-con-ia-en-ads-ma-1da0bfd5.md) |
+| 2026-06-30 | [Stats de email alineadas por id de paso](#stats-de-email-alineadas-por-id-de-paso) | 1 | 8 | 17 | [ver →](chats/chat-alinear-stats-de-email-secuencias-por-id-en--bffd3251.md) |
+| 2026-06-29 | [Landing /vsl: copy, rutas por feature y CTA](#landing-vsl-copy-rutas-por-feature-y-cta) | 12 | 110 | 137 | [ver →](chats/chat-revisar-copy-de-marketing-para-landing-de-ma-0ba93af4.md) |
+| 2026-06-29 | [Script Analyst y renombrado en Ads Manager](#script-analyst-y-renombrado-en-ads-manager) | 26 | 514 | 918 | [ver →](chats/chat-crear-tab-y-funcionalidades-de-script-analys-78151c47.md) |
+| 2026-06-29 | [Tab de Configuraciones para editar prompts](#tab-de-configuraciones-para-editar-prompts) | 2 | 45 | 106 | [ver →](chats/chat-crear-tab-de-configuraciones-para-prompts-099598eb.md) |
+| 2026-06-25 | [Closing Analyst con llamadas de Fathom](#closing-analyst-con-llamadas-de-fathom) | 8 | 306 | 442 | [ver →](chats/chat-desarrollar-vista-closing-analyst-con-histor-89819e11.md) |
+| 2026-06-24 | [Ads Manager estilo Meta](#ads-manager-estilo-meta) | 4 | 153 | 226 | [ver →](chats/chat-agregar-alertas-de-urgencia-y-vista-de-rendi-46649985.md) |
+| 2026-06-24 | [Tracking del VSL y el inbox de WhatsApp](#tracking-del-vsl-y-el-inbox-de-whatsapp) | 49 | 812 | 1256 | [ver →](chats/chat-auditar-landing-y-app-para-rastrear-comporta-7c8e302d.md) |
+| 2026-06-23 | [Auth de los endpoints de WhatsApp](#auth-de-los-endpoints-de-whatsapp) | 1 | 19 | 37 | [ver →](chats/chat-fix-whatsapp-api-authentication-and-authoriz-ee21c942.md) |
+| 2026-06-21 | [MaKo en los gráficos + contexto y onboarding](#mako-en-los-gráficos--contexto-y-onboarding) | 8 | 105 | 180 | [ver →](chats/chat-mako-ui-and-interaction-improvements-7dd4a280.md) |
+| 2026-06-20 | [Marketing dashboard KPI pop-up details](#marketing-dashboard-kpi-pop-up-details) | 0 | — | — | — |
+| 2026-06-20 | [Review CLAUDE.md and README.md](#review-claudemd-and-readmemd) | 0 | — | — | — |
+| 2026-06-19 | [Clonar el repo dashboard-marketing](#clonar-el-repo-dashboard-marketing) | 3 | 3 | 8 | [ver →](chats/chat-verificar-estructura-del-proyecto-y-archivos-cc41993e.md) |
+
+**Totales:** 922 mensajes de Martín · 35.488 llamadas a herramientas · 48 sesiones.
+
+---
 
 ## Agosto de 2026
 
