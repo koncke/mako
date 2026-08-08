@@ -337,6 +337,8 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
       ],
       // Un registro por área del producto. Mismo molde en todas: Roadmap primero.
       [
+        // Va primero porque es el shell donde vive todo lo demás.
+        { key: 'dev-admin', label: 'Admin', href: '/admin/dev/admin', icon: 'admin', match: starts('/admin/dev/admin') },
         { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
         { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
         { key: 'dev-chatbot', label: 'Chatbot', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },

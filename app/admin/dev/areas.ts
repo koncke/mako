@@ -27,6 +27,18 @@ export type AreaDev = {
 
 export const AREAS: AreaDev[] = [
   {
+    // El shell de la agencia. Tiene registro propio porque nada de esto es
+    // rediseño: la barra sí, pero la impersonación, el aislamiento por pestaña y
+    // los controles destructivos son funcionalidad, y metidos en el registro del
+    // rediseño lo dejaban contando cosas que no le tocan.
+    slug: 'admin',
+    verEnApp: '/admin',
+    titulo: 'Admin',
+    alcance: 'El shell del super admin: su barra, la gestión de clientes, cómo se entra a la cuenta de uno y qué se puede hacer adentro.',
+    vive: ['app/admin/', 'app/_components/nav.ts', 'app/_components/Sidebar.tsx', 'lib/workspace.ts', 'lib/ws-tab.ts', 'proxy.ts'],
+    hallazgos: 'hallazgos-seguridad',
+  },
+  {
     slug: 'onboarding',
     verEnApp: '/onboarding',
     titulo: 'Onboarding',
