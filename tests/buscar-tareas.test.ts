@@ -75,6 +75,62 @@ test('los campos sirven para los dos tableros (title y titulo)', () => {
   assert.equal(matchTarea({ titulo: 'x', checklist: [{ texto: 'pixel' }] }, 'pixel', ['checklist']), true);
 });
 
+// ---------------------------------------------------------------------------
+// El caso «CAC»: un término NUNCA cae en el medio de una palabra
+// ---------------------------------------------------------------------------
+// Buscar «CAC» en el tablero devolvía casi todo, y no era casualidad: «cac» vive
+// adentro de un montón de palabras larguísimas y comunísimas en español. Estos son
+// los títulos REALES que volvieron en esa búsqueda.
+const RUIDO_CAC = [
+  'Implementar autenticación/2FA con Meta',                            // autentiCACión
+  'Optimizar notificaciones de MaKo por WhatsApp para Mauricio',       // notifiCACiones
+  'Ajustar la lógica de cualificación de leads según facturación',     // cualifiCACión
+  'Agregar filtro por fecha de publicación en vista de guiones',       // publiCACión
+  'Mejorar el flujo de onboarding dentro de la aplicación',            // apliCACión
+  'Automatizar recordatorios de planificación de Quarters futuros',    // planifiCACión
+];
+const CON_CAC = [
+  'Modelar la viabilidad financiera de comisiones recurrentes basadas en CAC',
+  'Armar el modelo financiero de CAC, LTV y margen unitario del freemium',
+];
+
+test('CAC no matchea adentro de notifiCACión, autentiCACión ni publiCACión', () => {
+  for (const t of RUIDO_CAC) assert.equal(matchTarea({ title: t }, 'CAC'), false, t);
+  for (const t of CON_CAC) assert.equal(matchTarea({ title: t }, 'CAC'), true, t);
+});
+
+test('el espacio cierra la palabra: «CAC » pide la palabra entera', () => {
+  for (const t of RUIDO_CAC) assert.equal(matchTarea({ title: t }, 'CAC '), false, t);
+  for (const t of CON_CAC) assert.equal(matchTarea({ title: t }, 'CAC '), true, t);
+  // Sin cerrar, sigue siendo un prefijo: mientras se escribe hay que ver de más.
+  assert.equal(coincide('revisar el cacheo del dashboard', 'cac'), true);
+  assert.equal(coincide('revisar el cacheo del dashboard', 'cac '), false);
+});
+
+test('cerrar una palabra tolera el plural, que es la misma palabra', () => {
+  assert.equal(coincide('Optimizar las notificaciones', 'notificacion '), true);
+  assert.equal(coincide('Optimizar la notificación', 'notificaciones '), false); // al revés no
+  assert.equal(coincide('Reparto de tareas de la reunión', 'reunion tarea'), true);
+});
+
+test('un término que no es el último también está cerrado', () => {
+  // «cac ltv» → «cac» quedó cerrado por el espacio que le sigue.
+  assert.equal(coincide('Armar el modelo financiero de CAC, LTV', 'cac ltv'), true);
+  assert.equal(coincide('Implementar autenticación con LTV', 'cac ltv'), false);
+});
+
+test('la coma también cierra la palabra', () => {
+  assert.equal(coincide('basadas en CAC', 'cac,'), true);
+  assert.equal(coincide('revisar el cacheo', 'cac,'), false);
+});
+
+test('el detalle se busca sin sus etiquetas HTML', () => {
+  const t = { title: 'x', detalle: '<div><strong>Conectar</strong> el pixel</div>' };
+  assert.equal(matchTarea(t, 'div', ['detalle']), false);
+  assert.equal(matchTarea(t, 'strong', ['detalle']), false);
+  assert.equal(matchTarea(t, 'pixel', ['detalle']), true);
+});
+
 test('cada campo declara su etiqueta y su ayuda (los pinta el panel)', () => {
   for (const c of CAMPOS) {
     assert.ok(c.label.length > 0, `${c.id} sin label`);

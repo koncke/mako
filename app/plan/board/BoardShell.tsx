@@ -35,7 +35,7 @@ import { MakoStar } from '../../_components/MakoBrand';
 import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
 import { BuscadorTareas } from './BuscadorTareas';
-import { matchTarea, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/lib/buscar-tareas';
+import { matchTarea, coincide, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/lib/buscar-tareas';
 import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
@@ -1016,29 +1016,10 @@ function PlanIcon({ size = 24 }: { size?: number }) {
 // cómo se referencian las tareas entre sí (y como las nombra MaKo cuando marca un
 // duplicado), así que tiene que ser buscable: sin esto el id no sirve para nada.
 // "#132" busca SOLO por número (exacto); "132" busca por número o por texto.
-/**
- * Texto comparable: SIN acentos, sin etiquetas HTML y con los espacios normalizados.
- *
- * Sin el NFD, buscar «diseno» no encontraba «Diseño» y la pantalla quedaba vacía — que
- * es lo que se ve como «busco sin acento y me filtra todo». Y sin sacar las etiquetas,
- * el detalle (que se guarda como HTML) hacía que buscar «div» o «strong» matcheara
- * media lista.
- */
-const paraBuscar = (s: string): string =>
-  (s ?? '').replace(/<[^>]*>/g, ' ')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/\s+/g, ' ').trim();
-
-/**
- * ¿El texto contiene lo buscado? Por PALABRAS y en cualquier orden: «landing copy»
- * encuentra «Reescribir el copy de la landing». Con `includes` a secas, invertir dos
- * palabras devolvía cero.
- */
-function coincide(heno: string, q: string): boolean {
-  const h = paraBuscar(heno);
-  const piezas = paraBuscar(q).split(' ').filter(Boolean);
-  return piezas.every((p) => h.includes(p));
-}
+// El buscador de proyectos usa el MISMO `coincide` que el de tareas (lib/buscar-tareas).
+// Acá vivía una segunda copia, con su propio `paraBuscar`: la de la barra sacaba la
+// puntuación y ésta no, la de acá sacaba las etiquetas HTML y la otra no, y las dos
+// buscaban por subcadena. Dos buscadores en la misma pantalla que no se parecían.
 
 
 // filtro por estado (2ª capa del botón Filtrar): Todas / Activas / Comenzadas / Completadas

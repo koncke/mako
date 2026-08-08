@@ -51,20 +51,57 @@ export const CAMPOS_POR_DEFECTO: CampoBusqueda[] = ['titulo'];
 /** Todos, que es lo que hacía ANTES para todo el mundo, ahora bajo pedido explícito. */
 export const CAMPOS_TODOS: CampoBusqueda[] = CAMPOS.map((c) => c.id);
 
-/** Sin acentos, sin mayúsculas, sin puntuación: «Añadí» encuentra «anadi» y «anadí». */
+/**
+ * Sin acentos, sin mayúsculas, sin puntuación y SIN etiquetas HTML: «Añadí» encuentra
+ * «anadi» y «anadí».
+ *
+ * Lo de las etiquetas no es cosmético: el `detalle` se guarda como HTML, así que sin
+ * sacarlas buscar «div» o «strong» matcheaba media lista.
+ */
 export const paraBuscar = (s: string): string =>
-  (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-    .replace(/[^a-z0-9áéíóúñ\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+  (s ?? '').replace(/<[^>]*>/g, ' ')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[^a-z0-9ñ\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * Un término de la búsqueda. `cerrado` = la palabra está TERMINADA porque después vino
+ * un espacio (o una coma, o el término no es el último). Mientras se escribe, la última
+ * palabra está a medias y hay que tratarla distinto.
+ */
+export type Termino = { texto: string; cerrado: boolean };
+
+/** Parte la consulta en términos, mirando el texto CRUDO para saber cuál quedó cerrado. */
+export function terminos(q: string): Termino[] {
+  const crudo = q ?? '';
+  const cierraElUltimo = crudo.length > 0 && !/[a-z0-9ñ]$/i.test(crudo.normalize('NFD').replace(/[̀-ͯ]/g, ''));
+  const piezas = paraBuscar(crudo).split(' ').filter(Boolean);
+  return piezas.map((texto, i) => ({ texto, cerrado: cierraElUltimo || i < piezas.length - 1 }));
+}
+
+const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * ¿El texto contiene lo buscado? Por PALABRAS y en cualquier orden: «landing copy»
  * encuentra «Reescribir el copy de la landing». Con `includes` a secas, invertir dos
  * palabras devolvía cero.
+ *
+ * Y el término tiene que empezar una palabra, NUNCA caer en el medio de otra. El caso
+ * que lo probó llegó a la pantalla del dueño: buscar «CAC» devolvía casi todo el
+ * tablero, porque «cac» vive adentro de notifi·CAC·iones, autenti·CAC·ión,
+ * publi·CAC·ión y apli·CAC·ión. Con `includes` no hay forma de distinguirlo.
+ *
+ * El espacio es una señal, no ruido: «CAC» (a medias) trae también «cacheo», pero
+ * «CAC » —terminado— pide la palabra entera. Se toleran el plural y nada más: buscar
+ * «notificacion » tiene que seguir encontrando «notificaciones», que es lo mismo.
  */
 export function coincide(heno: string, q: string): boolean {
   const h = paraBuscar(heno);
-  const piezas = paraBuscar(q).split(' ').filter(Boolean);
-  return piezas.length > 0 && piezas.every((p) => h.includes(p));
+  const ts = terminos(q);
+  if (!ts.length) return false;
+  return ts.every(({ texto, cerrado }) => {
+    const e = escapar(texto);
+    return new RegExp(cerrado ? `(^| )${e}(es|s)?( |$)` : `(^| )${e}`).test(h);
+  });
 }
 
 /**
