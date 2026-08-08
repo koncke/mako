@@ -32,8 +32,14 @@ type Accion = { label: string; onClick?: () => void; href?: string };
 
 export type MakoProps = {
   estado: EstadoMako;
-  /** La frase concreta. El documento pide «título directo», no un encabezado. */
-  titulo: ReactNode;
+  /**
+   * La frase concreta. El documento pide «título directo», no un encabezado.
+   *
+   * Opcional SOLO por el chip: ahí muchas veces el referente ya está en la fila
+   * («esta campaña» al lado del nombre de la campaña) y repetirlo es ruido. En
+   * la tarjeta entera va siempre — sin frase no está diciendo nada.
+   */
+  titulo?: ReactNode;
   detalle?: ReactNode;
   /** Los campos obligatorios del estado. Ver `exige` en lib/mako-gramatica.ts. */
   datos?: DatoMako[];
@@ -124,7 +130,7 @@ export function Mako(props: MakoProps) {
       <span className="mk-mako mk-mako--chip" style={{ background: t.bg, borderColor: t.border, color: t.ink }}>
         {marca}
         <span className="mk-mako__rot">{def.rotulo}</span>
-        <span className="mk-mako__t">{titulo}</span>
+        {titulo && <span className="mk-mako__t">{titulo}</span>}
       </span>
     );
   }

@@ -11,10 +11,17 @@
 // miente sobre el tamaño de las cosas: la tarjeta de «recomienda» con cinco
 // campos ocupa lo que ocupa, y eso hay que poder verlo antes de meterla en una
 // columna de 320 px.
+//
+// ⚠️ ACÁ NO SE EXPLICA NADA. La primera versión tenía, alrededor de cada
+// ejemplo, la key en mono, una línea de «qué comunica» y otra de «qué exige», más
+// un párrafo de diagnóstico arriba y una nota bajo cada título. Todo eso ya está
+// en `lib/mako-gramatica.ts` y en la bitácora, que es donde se lee; acá tapaba
+// justo lo único que esta pantalla puede dar y ningún documento puede: **ver las
+// piezas**. Regla de la casa: título corto y nada de prosa debajo salvo pedido
+// explícito.
 
-import { Mako, Section, Status, ButtonLink } from '@/app/_ui';
-import { ESTADOS, GRAMATICA, DESCRIPCIONES, type EstadoMako } from '@/lib/mako-gramatica';
-import { MONO } from '@/app/_ui';
+import { Mako, Section, Status } from '@/app/_ui';
+import { ESTADOS, DESCRIPCIONES, type EstadoMako } from '@/lib/mako-gramatica';
 
 /** Un ejemplo por estado, con los campos que ese estado está obligado a mostrar. */
 const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
@@ -97,62 +104,26 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
 export function LaGramatica() {
   return (
     <>
-      <Section
-        titulo="Los nueve estados de MaKo"
-        nota="el rótulo sale de lib/mako-gramatica.ts, nunca de la pantalla"
-        card
-      >
-        <p style={{ margin: '0 0 4px', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6, maxWidth: '70ch' }}>
-          El diagnóstico del documento es que <em>«la inteligencia de MaKo aparece fragmentada»</em>:
-          Retro, Second Brain, Perro Guardián, Semáforo, Chat Agent y las recomendaciones no comparten
-          una gramática. Hoy hay <strong>35 archivos</strong> que escriben su propio «analizando…».
-          La tarea está lista cuando el mismo estado se ve y se llama igual en el Plan, el Dashboard,
-          el CRM y el chat — por eso el rótulo no es un prop.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 10 }}>
-          {ESTADOS.map((e) => (
-            <div key={e}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-                <code style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{e}</code>
-                <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>{GRAMATICA[e].comunica}</span>
-              </div>
-              <Mako {...EJEMPLOS[e]} />
-              <div style={{ marginTop: 6, fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
-                Exige: {GRAMATICA[e].exige.join(' · ')}
-              </div>
-            </div>
-          ))}
+      <Section titulo="Los nueve estados" card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {ESTADOS.map((e) => <Mako key={e} {...EJEMPLOS[e]} />)}
         </div>
       </Section>
 
-      <Section titulo="La versión de una línea" nota="para una fila de tabla o el encabezado de una card" card>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
-          {ESTADOS.map((e) => (
-            <Mako key={e} estado={e} compacto titulo={e === 'analizando' ? 'la landing' : 'esta campaña'} />
-          ))}
+      {/* Los mismos nueve, en chip. Sin título de ejemplo: en el catálogo obligaba
+          a inventar «esta campaña» nueve veces, y ese relleno era lo único que se
+          leía. Solos y del mismo largo se ven como lo que son, un juego. */}
+      <Section titulo="En una línea" card>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+          {ESTADOS.map((e) => <Mako key={e} estado={e} compacto />)}
         </div>
       </Section>
 
-      <Section titulo="El semáforo no vive acá" nota="tiene su propio registro" card>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
-          <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6, maxWidth: '70ch' }}>
-            El verde/ámbar/rojo/gris apareció trabajando esta gramática —eran dos tipos
-            incompatibles y había que unificarlos— pero <strong>no es parte del rediseño</strong>:
-            no es una pieza del sistema de diseño, es un concepto del producto que lo cruza entero.
-            Que dos cosas se toquen no las hace la misma tarea, y un registro que cuenta lo que no le
-            toca deja de servir para lo que sí.
-          </p>
-          <ButtonLink href="/admin/dev/semaforo" variant="secondary">Ir al registro del semáforo →</ButtonLink>
-        </div>
-      </Section>
-
-      <Section titulo="Las dos traducciones fijas" nota="un nombre propio no explica nada solo" card>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
+      <Section titulo="Second Brain y Perro Guardián" card>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
           {Object.values(DESCRIPCIONES).map((d) => (
-            <div key={d.nombre} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Status tono="mako">{d.nombre}</Status>
-              </span>
+            <div key={d.nombre} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+              <Status tono="mako">{d.nombre}</Status>
               <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55 }}>{d.que_hace}</span>
             </div>
           ))}

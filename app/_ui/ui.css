@@ -525,29 +525,35 @@
   border-radius: var(--r-md);
 }
 
-/* La variante de una línea, para una fila de tabla o un encabezado de card. */
+/* La variante de una línea, para una fila de tabla o un encabezado de card.
+   El filo izquierdo de 3 px NO va acá: en una pastilla de 22 px de alto se lee
+   como un defecto de render, no como jerarquía. La pastilla se apoya en el
+   fondo del tono y en la marca, que es lo que la hace reconocible a ese tamaño. */
 .mk-mako--chip {
   flex-direction: row;
   align-items: center;
-  gap: 7px;
-  padding: 3px 10px 3px 8px;
+  gap: 6px;
+  padding: 3px 11px 3px 9px;
   border-left-width: 1px;
   border-radius: 999px;
   font-size: var(--fs-meta);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 .mk-mako--chip .mk-mako__t { font-size: var(--fs-meta); font-weight: 500; color: var(--dim); }
 
 .mk-mako__cab { display: flex; align-items: center; gap: 7px; }
 
-/* El rótulo va en versalitas mono, igual que el de las familias de la barra:
-   es la marca de «esto no lo escribió una persona, lo dice el sistema». */
+/* El rótulo es mono para que se lea como algo que dice el SISTEMA, no una
+   persona. Pero SIN versalitas, y no es un capricho: el rótulo dice «MaKo» y
+   `text-transform: uppercase` lo renderizaba «MAKO», que es escribir mal la
+   marca. Además, nueve pastillas en mayúscula con tracking gritan todas a la
+   vez y el conjunto se vuelve ilegible — el peso lo da la fuente mono y el
+   color del tono, que alcanzan. */
 .mk-mako__rot {
   font-family: 'Geist Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: .07em;
-  text-transform: uppercase;
+  letter-spacing: .01em;
 }
 
 /* La importancia NO usa color: si «alta» fuera roja competiría con el rojo de
