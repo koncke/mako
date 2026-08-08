@@ -19,6 +19,10 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   escritos dos veces (en el `.slice()` y en el texto del prompt) → [Topes](#topes).
 - El saldo y el gasto son globales al ws1 aunque las keys ya sean por cliente →
   [Gasto y saldo](#gasto-y-saldo).
+- **Nada corta una llamada por gasto**, y el gasto de Claude no se puede atribuir a un
+  cliente: las dos cosas bloquean cualquier límite por plan →
+  [Gasto y saldo](#gasto-y-saldo). El análisis completo, con los números reales de
+  producción, está en [costos-ia-y-planes.md](costos-ia-y-planes.md).
 
 Dos advertencias sobre el origen de este material. **Buena parte es de segunda mano:** sale
 de lo que devolvieron los subagentes de las 261 corridas de junio-agosto 2026 (de las que
@@ -849,6 +853,79 @@ foto de usuario ni «vos» *(2026-07-14)*.
 ---
 
 ## Gasto y saldo
+
+### ⚠️ Nada en `lib/` corta una llamada por gasto: `ia-cuotas` reordena, nunca bloquea
+
+**Síntoma:** se asume que el sistema de cuotas ya frena algo. No frena nada.
+
+**Causa:** `ordenarPorCuota` (`lib/ia-cuotas.ts:86-93`) devuelve
+`[...no-agotados, ...agotados]` — la misma cantidad de proveedores que entró. El comentario
+lo dice: «Nunca los saca: solo los manda al final». No hay en todo `lib/` una sola rama que
+devuelva error por dinero gastado. Lo único que frena algo son presupuestos **por corrida**
+(`closing.ts:704`, `ads-analyst.ts:502`): topean una invocación del cron, no a un cliente —
+nada impide que corra de nuevo mañana. `saldo-ia-bajo` avisa, no corta; `lib/rate-limit.ts`
+es en memoria por instancia y muere en el cold start.
+
+**Regla:** un límite por plan hay que escribirlo entero, y el chequeo tiene que ser
+**pre-flight**. Los `recordUsage` existentes son posteriores a la llamada y fire-and-forget:
+sirven para contabilizar, no para gatear.
+
+**Vive en:** lib/ia-cuotas.ts:86-93 · lib/closing.ts:704 · lib/ads-analyst.ts:502 ·
+*2026-08-08 analisis-costos-ia-cobros*
+
+### ⚠️ Tres módulos gastan sin registrar, y siempre contra la key de la agencia
+
+**Síntoma:** el gasto medido en `anthropic_usage` no cierra con la factura de OpenAI.
+
+**Causa:** `lib/embeddings.ts:27` (un `text-embedding-3-small` por **cada búsqueda del
+RAG**, vía `mako-knowledge.ts:190`), `lib/transcribe.ts` (whisper-1 ×2, gpt-4o-mini y
+gpt-4o visión en `:132,:174,:203,:260`) y `app/api/ads-manager/analyze-creatives/route.ts:44`
+(gpt-4o, hasta 8 imágenes, **sin guard de rol**) llaman a la API sin pasar por
+`lib/anthropic.ts` ni `lib/ai-cheap.ts`. `grep -c 'recordUsage\|recordSttUsage'` da **0** en
+los tres. Además resuelven la key con `envCred` —que siempre cae a `OWNER_WS`— en vez de
+`credWs`, así que **un cliente BYOK igual se lo paga la agencia**.
+
+**Regla:** cualquier número de gasto sacado de `anthropic_usage` es un **piso**, no un
+total. Al taparlo, whisper va con `recordSttUsage` (cobra por segundo, y `verbose_json` ya
+devuelve `duration`), el resto con `recordUsage`.
+
+**Vive en:** lib/embeddings.ts:24,27 · lib/transcribe.ts:54-63,132,174,203,260 ·
+app/api/ads-manager/analyze-creatives/route.ts:30,44 · *2026-08-08 analisis-costos-ia-cobros*
+
+### ⚠️ El registro de la IA barata es `void` sin `await`, y el insert nunca lee su `error`
+
+**Síntoma:** faltan filas de consumo y no hay ningún log que lo explique.
+
+**Causa:** dos agujeros distintos. (1) Los 6 registros de `lib/ai-cheap.ts`
+(`:184,:359,:385,:467,:523,:560`) se disparan con `void` y no se esperan — en serverless la
+instancia se puede congelar con el INSERT en vuelo. `lib/anthropic.ts:125,:256` sí awaitea,
+así que el camino de Claude es el confiable y el barato el frágil. (2) `insertUsage`
+(`lib/anthropic-usage.ts:76-87`) envuelve todo en try/catch con `console.warn` y **nunca lee
+el `{ error }` que devuelve supabase-js**: como `.insert()` no lanza ante errores de base, un
+rechazo de RLS (habilitada en la mig. 0118) o una violación de constraint se pierden **sin
+ningún log**. El catch solo cubre lo que sí se tira (falta la service key, red, timeout).
+
+**Regla:** antes de construir cuotas sobre esta tabla, el registro tiene que ser
+verificable: leer el `error` del insert, envolver los 6 call-sites en `after()` de
+`next/server` (patrón que el repo ya usa en `app/api/plan-fathom/route.ts:11`), y que un
+fallo de **lectura** sea un error explícito y no un cero — hoy `getUsageSummary` deja
+`rows = []` y `usoHoyProveedores` hace lo mismo, que es el sentido más caro del error.
+
+**Vive en:** lib/ai-cheap.ts:184,359,385,467,523,560 · lib/anthropic-usage.ts:76-87,225-237 ·
+lib/ia-cuotas.ts:47-61 · *2026-08-08 analisis-costos-ia-cobros*
+
+### ⚠️ `cost_usd` no es una medición: es una tabla hardcodeada con dos sesgos
+
+`PRICING` (`lib/anthropic-usage.ts:39-52`) lista 12 modelos y `DEFAULT_PRICE` es **precio de
+Opus** (5/25): un modelo que no esté en la tabla se sobrefactura — ya pasó con
+`claude-sonnet-5` (lo documenta el comentario de `:44`) y hoy le pasa a `gpt-4o`, que no está
+(solo `gpt-4o-mini`). Y al revés: `costFor` devuelve 0 para groq/gemini/cerebras/mistral/
+openrouter **por estar en una lista**, no por el tier real; el costo verdadero se recomputa
+solo **al leer**, solo para Gemini y solo si hay saldo cargado (`:245-256`).
+
+**Regla:** si los «MaKo Tokens» se derivan de `cost_usd`, heredan las dos distorsiones.
+
+**Vive en:** lib/anthropic-usage.ts:39-74,245-256 · *2026-08-08 analisis-costos-ia-cobros*
 
 ### ⚠️ El saldo y el gasto de IA son globales a ws1 aunque la key sea BYOK por workspace
 
