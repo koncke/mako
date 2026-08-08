@@ -100,7 +100,9 @@ export function AdminView() {
     }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
-  // La tab MaKo (copy) ahora vive en la sidebar → se abre con /admin?tab=copy.
+  // Deep-link: /admin?tab=copy sigue abriendo el cerebro de copywriting. Se
+  // mantiene porque hay links viejos dando vueltas, pero YA NO es la única
+  // puerta: la tab está acá abajo, al lado de las otras dos.
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'copy') setTab('copy'); }, []);
 
   const header = (
@@ -121,6 +123,14 @@ export function AdminView() {
     <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
       <button style={tabBtn('clientes')} onClick={() => setTab('clientes')}>Clientes</button>
       <button style={tabBtn('superadmins')} onClick={() => setTab('superadmins')}>Super Admins</button>
+      {/* Vuelve a tener botón. Vivía SOLO en la barra lateral, como un item
+          «MaKo» que apuntaba a /admin?tab=copy: al sacarlo de ahí, esta pantalla
+          —la metodología de copywriting y el swipe de ejemplos— se quedaba sin
+          ninguna forma de llegar. Además el item de la barra casi nunca
+          funcionaba: el `?tab=` lo lee un efecto de montaje, así que estando ya
+          en /admin la navegación del cliente no remontaba nada y te dejaba en
+          Clientes. Eso es lo que se veía como «me redirige». */}
+      <button style={tabBtn('copy')} onClick={() => setTab('copy')}>Copywriting</button>
     </div>
   );
 

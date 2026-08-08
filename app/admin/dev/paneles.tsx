@@ -1,0 +1,46 @@
+'use client';
+
+// =============================================================================
+// Las sub-tabs propias de un área, además de Roadmap
+// =============================================================================
+// Todos los registros arrancan igual —«Roadmap» primero, y abajo el Change
+// History— y algunos tienen ADEMÁS una herramienta que solo tiene sentido en esa
+// área: las bibliotecas de Ads Writer, el catálogo del semáforo. Eso va acá.
+//
+// Por qué un archivo aparte y no dentro de `areas.ts`: aquél lo importa un
+// server component y es datos puros; esto son componentes de cliente. Mezclarlos
+// arrastraría todo el árbol de cliente al server.
+//
+// ⚠️ `panelDe` devuelve el nodo A PARTIR de la tab activa, en vez de tener el
+// nodo guardado en la lista. Es a propósito: así las dos tabs de Ads Writer son
+// el MISMO `<GuionesAdminView>` con otra prop, React conserva la instancia y no
+// se pierde lo que estabas editando al cambiar de tab. Con un nodo por tab,
+// cada cambio remontaba el componente y volvía a pedir los dos endpoints.
+
+import type { ReactNode } from 'react';
+import { GuionesAdminView } from '@/app/admin/guiones/GuionesAdminView';
+import { ElSemaforo } from './semaforo/ElSemaforo';
+
+export type SubTab = { id: string; label: string };
+
+/** Las sub-tabs EXTRA de cada área. «Roadmap» lo pone la pantalla, siempre primero. */
+export const SUBTABS: Record<string, SubTab[]> = {
+  'ads-writer': [
+    { id: 'angulos', label: 'Ángulos' },
+    { id: 'estructuras', label: 'Estructuras' },
+  ],
+  semaforo: [
+    { id: 'catalogo', label: 'El semáforo' },
+  ],
+};
+
+export const subTabsDe = (slug: string): SubTab[] => SUBTABS[slug] ?? [];
+
+/** El panel de una sub-tab. `null` = no es una sub-tab extra (es el Roadmap). */
+export function panelDe(slug: string, tab: string): ReactNode {
+  if (slug === 'ads-writer' && (tab === 'angulos' || tab === 'estructuras')) {
+    return <GuionesAdminView tabExterna={tab} />;
+  }
+  if (slug === 'semaforo' && tab === 'catalogo') return <ElSemaforo />;
+  return null;
+}

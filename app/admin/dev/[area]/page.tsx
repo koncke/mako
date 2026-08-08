@@ -29,6 +29,10 @@ export default async function AreaDevPage({ params }: { params: Promise<{ area: 
   if (!admin) redirect('/inicio');
 
   const { area: slug } = await params;
+  // El área se llamaba «ads-generator» y pasó a llamarse como la feature. La
+  // ruta vieja redirige en vez de dar 404: está escrita en la bitácora del
+  // rediseño y en links que ya circularon.
+  if (slug === 'ads-generator') redirect('/admin/dev/ads-writer');
   const area = areaDe(slug);
   if (!area) notFound();
 

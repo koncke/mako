@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { Section, Tabs, MONO } from '@/app/_ui';
 import { BarraPreview } from '@/app/_components/BarraPreview';
-import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_NAV, type NavItem } from '@/app/_components/nav';
+import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_NAV, ADMIN_FAMILIAS, type NavItem } from '@/app/_components/nav';
 import { Icon, NOMBRES_ICONO } from '@/app/_components/icons';
 
 // ── La barra ─────────────────────────────────────────────────────────────────
@@ -72,7 +72,13 @@ function TablaDestinos({ ruta }: { ruta: string }) {
       items: [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)],
     })),
     { grupo: 'Detrás del avatar', items: [...MAKO_NAV, ...USER_NAV] },
-    { grupo: 'Administración', items: ADMIN_NAV },
+    // Solo en el shell de super admin, y ahora son dos familias más (Admin y
+    // Dev) en vez de una lista aparte: se leen de ADMIN_FAMILIAS igual que las
+    // de producto se leen de FAMILIAS.
+    ...ADMIN_FAMILIAS.map((f) => ({
+      grupo: `${f.label} · solo super admin`,
+      items: [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)],
+    })),
   ];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

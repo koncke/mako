@@ -12,9 +12,8 @@
 // campos ocupa lo que ocupa, y eso hay que poder verlo antes de meterla en una
 // columna de 320 px.
 
-import { Mako, Section, Status } from '@/app/_ui';
-import { ESTADOS, GRAMATICA, DESCRIPCIONES, EMOJI_SEMAFORO, type EstadoMako, type Semaforo } from '@/lib/mako-gramatica';
-import { colorDeSemaforo, bgDeSemaforo } from '@/lib/meta-health-ui';
+import { Mako, Section, Status, ButtonLink } from '@/app/_ui';
+import { ESTADOS, GRAMATICA, DESCRIPCIONES, type EstadoMako } from '@/lib/mako-gramatica';
 import { MONO } from '@/app/_ui';
 
 /** Un ejemplo por estado, con los campos que ese estado está obligado a mostrar. */
@@ -95,13 +94,6 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
   },
 };
 
-const SEMAFOROS: { s: Semaforo; viejo: string; caso: string }[] = [
-  { s: 'verde', viejo: 'verde', caso: 'La cuenta entrega con normalidad' },
-  { s: 'ambar', viejo: 'amarillo', caso: 'En revisión de riesgo, o el saldo se está por agotar' },
-  { s: 'rojo', viejo: 'rojo', caso: 'Deshabilitada, token vencido o anuncio rechazado' },
-  { s: 'gris', viejo: 'na', caso: 'Pausado, archivado, o todavía no sabemos' },
-];
-
 export function LaGramatica() {
   return (
     <>
@@ -141,39 +133,17 @@ export function LaGramatica() {
         </div>
       </Section>
 
-      <Section
-        titulo="El Semáforo, que eran dos"
-        nota="mismo concepto, dos tipos incompatibles en 22 archivos"
-        card
-      >
-        <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6, maxWidth: '70ch' }}>
-          No era un problema de diseño: era un bug latente. <code style={{ fontFamily: MONO, fontSize: 12 }}>Semaforo</code> decía
-          {' '}<code style={{ fontFamily: MONO, fontSize: 12 }}>ambar</code> y <code style={{ fontFamily: MONO, fontSize: 12 }}>gris</code>;
-          {' '}<code style={{ fontFamily: MONO, fontSize: 12 }}>SemaforoAviso</code> decía <code style={{ fontFamily: MONO, fontSize: 12 }}>amarillo</code> y
-          {' '}<code style={{ fontFamily: MONO, fontSize: 12 }}>na</code>. Un <code style={{ fontFamily: MONO, fontSize: 12 }}>switch</code> sobre
-          el equivocado compila perfecto y pinta otro color — no avisa nunca.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {SEMAFOROS.map((x) => (
-            <div key={x.s} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,120px) minmax(0,120px) minmax(0,1fr)', gap: 14, alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: MONO, fontSize: 12, color: 'var(--ink)' }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: colorDeSemaforo(x.s), border: `1px solid ${bgDeSemaforo(x.s)}` }} aria-hidden />
-                {x.s}
-              </span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', textDecoration: x.viejo === x.s ? 'none' : 'line-through' }}>
-                {x.viejo}
-              </span>
-              <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-                {EMOJI_SEMAFORO[x.s]} {x.caso}
-              </span>
-            </div>
-          ))}
+      <Section titulo="El semáforo no vive acá" nota="tiene su propio registro" card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+          <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6, maxWidth: '70ch' }}>
+            El verde/ámbar/rojo/gris apareció trabajando esta gramática —eran dos tipos
+            incompatibles y había que unificarlos— pero <strong>no es parte del rediseño</strong>:
+            no es una pieza del sistema de diseño, es un concepto del producto que lo cruza entero.
+            Que dos cosas se toquen no las hace la misma tarea, y un registro que cuenta lo que no le
+            toca deja de servir para lo que sí.
+          </p>
+          <ButtonLink href="/admin/dev/semaforo" variant="secondary">Ir al registro del semáforo →</ButtonLink>
         </div>
-        <p style={{ margin: '12px 0 0', fontSize: 'var(--fs-meta)', color: 'var(--faint)', lineHeight: 1.6 }}>
-          Los nombres viejos siguen escritos en las ~48 filas de <code style={{ fontFamily: MONO }}>CATALOGO_AVISOS</code>,
-          así que se leen con <code style={{ fontFamily: MONO }}>normalizarSemaforo()</code>, que acepta las dos escrituras.
-          Renombrarlos en los datos es una migración aparte.
-        </p>
       </Section>
 
       <Section titulo="Las dos traducciones fijas" nota="un nombre propio no explica nada solo" card>

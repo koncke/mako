@@ -3,20 +3,25 @@
 // =============================================================================
 // La pantalla de un área en desarrollo
 // =============================================================================
-// Misma forma que «MaKo UX/UI»: sub-tabs arriba, Roadmap y abajo el Change
-// History. Hoy hay una sola sub-tab porque es lo que hay para mostrar; cuando
-// un área tenga su propio catálogo de piezas o su banco de pruebas, se suma acá
-// al lado de «Roadmap» sin tocar nada más.
+// Misma forma en TODAS: sub-tabs arriba, «Roadmap» SIEMPRE primera, y abajo de
+// ella el Change History. Un área puede sumar sus propias sub-tabs al lado —las
+// bibliotecas de Ads Writer, el catálogo del semáforo— y viven en `../paneles`.
+//
+// Por qué el orden es fijo: el registro es lo que hace que cambiar o debuguear
+// esa tab no arranque de cero, así que es lo primero que tenés que ver al
+// entrar. Si la herramienta va primero, el registro no se lee nunca.
 
+import { useState } from 'react';
 import { Pagina, PageHeader, Tabs, Status, ButtonLink, type Tab } from '@/app/_ui';
 import { Roadmap, ChangeHistory } from '../_registro/Registro';
 import type { Registro } from '../_registro/tipos';
 import type { AreaDev } from '../areas';
-
-const TABS: Tab[] = [{ id: 'roadmap', label: 'Roadmap' }];
+import { subTabsDe, panelDe } from '../paneles';
 
 export function RegistroArea({ area, registro }: { area: AreaDev; registro: Registro }) {
   const hechas = registro.partes.filter((p) => p.estado === 'hecha').length;
+  const tabs: Tab[] = [{ id: 'roadmap', label: 'Roadmap' }, ...subTabsDe(area.slug)];
+  const [tab, setTab] = useState('roadmap');
 
   return (
     <Pagina>
@@ -31,10 +36,17 @@ export function RegistroArea({ area, registro }: { area: AreaDev; registro: Regi
         accion={<ButtonLink href={area.verEnApp} variant="secondary">Ver en la app →</ButtonLink>}
       />
 
-      <Tabs tabs={TABS} activa="roadmap" onCambio={() => {}} />
+      {/* Con una sola tab la barra es ruido: no hay a dónde ir. */}
+      {tabs.length > 1 && <Tabs tabs={tabs} activa={tab} onCambio={setTab} />}
 
-      <Roadmap partes={registro.partes} />
-      <ChangeHistory hitos={registro.bitacora} />
+      {tab === 'roadmap' ? (
+        <>
+          <Roadmap partes={registro.partes} />
+          <ChangeHistory hitos={registro.bitacora} />
+        </>
+      ) : (
+        panelDe(area.slug, tab)
+      )}
     </Pagina>
   );
 }

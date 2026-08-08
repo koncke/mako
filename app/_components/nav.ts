@@ -85,7 +85,11 @@ export type NavBloque = NavItem[];
  * tiene badge.
  */
 export type NavFamilia = {
-  key: 'operate' | 'analyze' | 'create' | 'content';
+  // `admin` y `dev` existen SOLO en el shell de super admin, y son familias de
+  // pleno derecho —no una lista aparte— justamente para que se vean y se
+  // comporten igual que las demás. Antes eran otra estructura y por eso la barra
+  // de admin no tenía desplegables: no era el mismo componente.
+  key: 'operate' | 'analyze' | 'create' | 'content' | 'admin' | 'dev';
   label: string;
   /** La pregunta que responde. Se muestra como tooltip del rail. */
   pregunta: string;
@@ -263,55 +267,87 @@ export const MAKO_NAV: NavItem[] = [
   { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', rolesWs: ['closer', 'setter'], match: (p) => starts('/mako')(p) || starts('/mako-doer')(p) },
 ];
 
-// Shell de administración: lo ve un admin que NO está impersonando. Sin tabs de
-// marketing — solo gestión de clientes e integraciones. Es un shell aparte a
-// propósito: «las rutas administrativas y de producto no deben mezclarse
-// visualmente cuando el usuario está operando un negocio».
 /**
- * El shell de administración, en dos secciones.
+ * Las DOS familias que solo existen en el shell de super admin.
  *
- * «Dev» son los REGISTROS de construcción: por cada área del producto, qué se
- * decidió, qué se rompió y qué falta. El de UX/UI es el que ya existe y sirve de
- * molde; los otros nacen vacíos a propósito y se llenan igual que aquél, a
- * medida que se trabaja cada tab. Es lo que hace que cambiar, mejorar o
- * debuguear una tab no arranque de cero cada vez.
+ * ⚠️ Antes esto era `ADMIN_SECCIONES`, otra estructura (`{titulo, items}`) que el
+ * Sidebar pintaba con su propio bloque de JSX: un rótulo estático y una lista
+ * plana. De ahí salía la queja: la barra de admin no se parecía a la de un
+ * workspace y las secciones no se desplegaban — no era que estuviera mal
+ * estilada, es que **no era el mismo componente**. Ahora son `NavFamilia` como
+ * cualquier otra y las pinta `<Familia>`, así que heredan gratis el desplegable,
+ * el chevron, la caja, el rail plegado y cualquier cosa que se le agregue después.
+ *
+ * Y el super admin ve ADEMÁS las cuatro familias de producto (`FAMILIAS`): vamos
+ * a vender MaKo usándolo. Eso funciona sin impersonar porque un admin cae en su
+ * propio workspace (lib/workspace.ts, `resolverDesdeCookies`); si el usuario
+ * admin no tiene workspace asignado, esas tabs responden 403 y hay que entrar
+ * como un cliente.
  */
-export const ADMIN_SECCIONES: { titulo: string; items: NavItem[] }[] = [
-  { titulo: 'Administración', items: [
-  // /admin/guiones tiene su propio item — que "Clientes" no se marque también.
-  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/docs')(p) && !starts('/admin/dev')(p) },
-  { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
-  // Canal propio de MaKo (SuperAdmin): WhatsApp del admin (canal + chat de grupos
-  // + plantillas). NO es preview de ningún cliente. Su propia línea por QR.
-  { key: 'agencia', label: 'WhatsApp de MaKo', href: '/agencia', icon: 'whatsapp', match: starts('/agencia') },
-  { key: 'mako-admin', label: 'MaKo', href: '/admin?tab=copy', icon: 'mako', match: () => false },
-  // La fábrica de guiones: biblioteca de ÁNGULOS y ESTRUCTURAS que ven todos los
-  // clientes al crear un guion en la Matriz. Editable solo por el super-admin.
-  { key: 'guiones-admin', label: 'Guiones', href: '/admin/guiones', icon: 'graphics', match: starts('/admin/guiones') },
-  { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
-  { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },
-  { key: 'modelos-ia', label: 'Modelos IA', href: '/modelos-ia', icon: 'mako', match: starts('/modelos-ia') },
-  // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
-  { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
-  ] },
+export const ADMIN_FAMILIAS: NavFamilia[] = [
+  {
+    key: 'admin',
+    label: 'Admin',
+    pregunta: '¿Cómo está la agencia y sus clientes?',
+    icon: 'admin',
+    bloques: [
+      [
+        // Las sub-rutas de /admin tienen item propio — que "Clientes" no se
+        // marque también cuando estás en cualquiera de ellas.
+        { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/docs')(p) && !starts('/admin/dev')(p) },
+        // Canal propio de MaKo: WhatsApp del admin (canal + grupos + plantillas).
+        // NO es preview de ningún cliente. Su propia línea por QR. Por eso NO es
+        // el /whatsapp de Operate y sigue viviendo acá.
+        { key: 'agencia', label: 'WhatsApp de MaKo', href: '/agencia', icon: 'whatsapp', match: starts('/agencia') },
+      ],
+      [
+        { key: 'modelos-ia', label: 'Modelos IA', href: '/modelos-ia', icon: 'mako', match: starts('/modelos-ia') },
+        // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
+        { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
+      ],
+    ],
+  },
 
-  { titulo: 'Dev', items: [
-    // AGENTS.md + docs/*.md renderizados desde el REPO, no copiados: la fuente
-    // única sigue siendo el archivo.
-    { key: 'docs', label: 'Documentación', href: '/admin/docs', icon: 'contexto', match: starts('/admin/docs') },
-    // El catálogo vivo de app/_ui Y el registro del rediseño, en una sola tab
-    // con sub-tabs. OJO: la key sigue siendo 'ui' aunque el label cambió a
-    // «MaKo UX/UI» — las keys de nav.ts son contrato con la base.
-    { key: 'ui', label: 'MaKo UX/UI', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
-    { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
-    { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
-    { key: 'dev-chatbot', label: 'Chatbot', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },
-    { key: 'dev-ads-generator', label: 'Ads Generator', href: '/admin/dev/ads-generator', icon: 'config', match: starts('/admin/dev/ads-generator') },
-  ] },
+  /**
+   * «Dev» son las herramientas de construcción y los REGISTROS por área: qué se
+   * decidió en cada tab, qué se rompió y qué falta. Es lo que hace que cambiar o
+   * debuguear una tab no arranque de cero cada vez.
+   */
+  {
+    key: 'dev',
+    label: 'Dev',
+    pregunta: '¿Qué se decidió y qué falta en cada tab?',
+    icon: 'config',
+    bloques: [
+      // Las herramientas: miran TODO el repo, no un área.
+      [
+        { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
+        // AGENTS.md + docs/*.md renderizados desde el REPO, no copiados: la
+        // fuente única sigue siendo el archivo.
+        { key: 'docs', label: 'Documentación', href: '/admin/docs', icon: 'contexto', match: starts('/admin/docs') },
+        // El catálogo vivo de app/_ui Y el registro del rediseño, con sub-tabs.
+        // OJO: la key sigue siendo 'ui' aunque el label cambió — las keys de
+        // nav.ts son contrato con la base.
+        { key: 'ui', label: 'MaKo UX/UI', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
+      ],
+      // Un registro por área del producto. Mismo molde en todas: Roadmap primero.
+      [
+        { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
+        { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
+        { key: 'dev-chatbot', label: 'Chatbot', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },
+        // Se llama como la FEATURE (/ads-writer), no «Ads Generator» ni
+        // «Guiones»: adentro viven su roadmap, su historial y las dos
+        // bibliotecas globales (Ángulos y Estructuras) que antes colgaban
+        // sueltas de /admin/guiones con un nombre que no se entendía.
+        { key: 'dev-ads-writer', label: 'Ads Writer', href: '/admin/dev/ads-writer', icon: 'escribir', match: (p) => starts('/admin/dev/ads-writer')(p) || starts('/admin/dev/ads-generator')(p) || starts('/admin/guiones')(p) },
+        { key: 'dev-semaforo', label: 'El semáforo', href: '/admin/dev/semaforo', icon: 'graphics', match: starts('/admin/dev/semaforo') },
+      ],
+    ],
+  },
 ];
 
 /** Plano, para el título de la pestaña y cualquier búsqueda por key. */
-export const ADMIN_NAV: NavItem[] = ADMIN_SECCIONES.flatMap((s) => s.items);
+export const ADMIN_NAV: NavItem[] = ADMIN_FAMILIAS.flatMap(itemsDe);
 
 /**
  * El menú de la foto de perfil: la quinta familia (ADMIN) del documento, que

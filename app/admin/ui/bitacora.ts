@@ -451,6 +451,37 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — `lib/mako-gramatica.ts` sumado a «Una cosa, un lugar», con la regla del rótulo',
     ],
   },
+  {
+    fecha: '8 ago', hora: '12:10', chat: CH3, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'La barra de super admin, y limpiar sus tabs',
+    pedido: 'Por otro lado, corrige la sidebar de super admin, el diseño tiene que ser exactamente el mismo que en cualquier workspace.\nLas secciones no son así, son desplegables...\n\nTabs a modificar o eliminar en SuperAdmin porque no tienen sentido, revisalas igualmente para ver si hacen algo importante...\n\n1. Ruta /metodo tab "Integraciones". Ya existe una tab de integraciones, no tiene sentido ver eso... Eliminala directamente.\n2. La ruta de /admin/guiones la tab de "Guiones" debería estar dentro de la sección de "dev" con nombre de "Ads Writer" que así se llama la feature... Y que ambas tabs de "angulos y estructura" vivan dentro de las tabs que ya estamos acostumbrados a poner, con la primera tab siempre en "roadmap".\n3. Hay una tab llamada "MaKo" que me redirije a otra tab, a la de admin, "clientes". Eso no tiene sentido, elimina MaKo.\n4. Lleva a "Grafo" a dev, y ponlo primero.\n5. Quiero que traigas TODAS las secciones de cualquier workspace al super admin. Ya que vamos a salir a vender MaKo y vamos a utilizar todo. Con la particularidad de que en SuperAdmin existirá una sección de "Admin" y otra de "Dev".',
+    puntos: [
+      'El pedido 5 cambia qué ES el shell de admin: dejaba de ser «sin tabs de marketing, solo gestión» —que es como estaba escrito— para ser el producto entero MÁS dos secciones propias. La razón es de negocio: van a vender MaKo usándolo.',
+    ],
+  },
+  {
+    fecha: '8 ago', hora: '13:05', chat: CH3, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra de admin deja de ser otra barra',
+    puntos: [
+      '⚠️ **No era un problema de estilos: eran dos JSX distintos.** El shell de admin no usaba `<Familia>` — tenía su propia rama con un rótulo estático y una lista plana. Por eso las secciones no se desplegaban y no se parecía a la del producto: ninguna cantidad de CSS lo iba a arreglar. Ahora `ADMIN_SECCIONES` (que era `{titulo, items}`) son dos `NavFamilia` más, y hay **una sola rama** que pinta los dos shells.',
+      'La regla que queda: **si dos cosas tienen que verse igual, tienen que ser el mismo componente.** Mientras sean dos ramas de JSX vuelven a divergir a la tercera edición — que es exactamente lo que había pasado acá.',
+      'El super admin ve las CUATRO familias de producto además de Admin y Dev. Funciona sin impersonar porque un admin que no impersona cae en su PROPIO workspace (`resolverDesdeCookies`, lib/workspace.ts). ⚠️ Si el usuario admin no tiene workspace asignado, esas tabs dan 403: para ese caso está el flag `entrarComoDueno`, que quedó enchufado aunque hoy ningún item lo use.',
+      '**«MaKo» no era una tab que redirigía: era la ÚNICA puerta a una feature.** Apuntaba a `/admin?tab=copy` y adentro vive el cerebro de copywriting (metodología + swipe de ejemplos); el tab bar de /admin solo mostraba Clientes y Super Admins. Y casi nunca funcionaba, porque el `?tab=` lo lee un efecto de MONTAJE: estando ya en /admin, la navegación del cliente no remontaba nada y te dejaba en Clientes — eso es lo que se veía como «me redirige». Se sacó de la barra y volvió a tener botón propio adentro de /admin.',
+      '**«Integraciones» (/metodo) sí hace algo**: es el asistente guiado de credenciales. Se saca de la barra porque duplica la tab de Integraciones, pero la ruta queda: sigue colgando de Configuraciones → «Método».',
+      '«Guiones» era el tercer nombre de la misma cosa (la feature es /ads-writer, el registro decía «Ads Generator»). Todo pasa a llamarse **Ads Writer**, y las bibliotecas de Ángulos y Estructuras son dos sub-tabs al lado de Roadmap. Las dos rutas viejas redirigen.',
+      '⚠️ Detalle que se ve al final y arruina el trabajo si no se piensa: las dos sub-tabs devuelven el MISMO `<GuionesAdminView>` con otra prop (`panelDe`), no un nodo por tab. Con un nodo por tab, React remonta al cambiar de sub-tab, vuelve a pedir los dos endpoints y **te borra lo que estabas editando**. Verificado en vivo: ir y volver entre Ángulos y Estructuras no dispara ni un request nuevo.',
+      'El semáforo se fue a su propia área (`/admin/dev/semaforo`): apareció trabajando la gramática de MaKo, pero no es parte del rediseño. Que dos cosas se toquen no las hace la misma tarea.',
+    ],
+    archivos: [
+      'app/_components/nav.ts — `ADMIN_FAMILIAS` (dos NavFamilia) reemplaza a `ADMIN_SECCIONES`; se van los items `plan`, `mako-admin`, `metodo-admin` y `guiones-admin`',
+      'app/_components/Sidebar.tsx — una sola rama de navegación; `familiaDeRuta` busca en las seis; `onEntrarComoDueno` baja por `<Familia>`',
+      'app/admin/dev/paneles.tsx — NUEVO. Las sub-tabs extra de un área y su panel, resuelto por tab activa',
+      'app/admin/dev/[area]/RegistroArea.tsx — tabs de verdad, «Roadmap» siempre primera',
+      'app/admin/dev/ads-generator/ → ads-writer/ (renombrada) · app/admin/dev/semaforo/ — NUEVA',
+      'app/admin/guiones/page.tsx — redirige · GuionesAdminView.tsx — acepta `tabExterna` y deja de ser un `<main>` cuando va embebida',
+      'app/admin/AdminView.tsx — vuelve el botón «Copywriting»',
+    ],
+  },
 ];
 
 /** Las nueve partes del rediseño y en qué anda cada una. */

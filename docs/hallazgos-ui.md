@@ -210,6 +210,46 @@ alcanza** (el extremo claro queda en ~3,3:1): la salida que pasa AA es texto cas
 
 **Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-tier-ribbon, .s-diff-seg-3, .s-ch-lever .s-ch-id, .s-rung-1 .s-rung-n) · *2026-07-19 ~revision-landing-estrategia-vsl*
 
+### ⚠️ «La barra de admin no se parece a la del producto» no era un problema de estilos: eran dos JSX
+
+**Síntoma:** la sidebar del super admin no tenía secciones desplegables y se veía distinta de la de
+cualquier workspace, por más que compartieran tokens, colores y clases.
+
+**Causa:** el `Sidebar` tenía **dos ramas**. El shell de producto pintaba `<Familia>` —con su
+chevron, su caja y su rail—, y el de admin tenía su propio bloque de JSX: un `<div>` con el título
+de la sección y una lista de `<NavLink>` abajo. Compartían el archivo y hasta la función de estilo
+de fila, así que parecía el mismo componente. No lo era.
+
+**Regla:** **si dos cosas tienen que verse igual, tienen que ser el mismo componente.** Mientras
+sean dos ramas de JSX vuelven a divergir a la tercera edición, y el síntoma aparece meses después
+como «esto no quedó igual». La forma de arreglarlo no fue estilar la rama de admin: fue borrarla y
+convertir sus secciones en `NavFamilia`, de modo que hereden gratis lo que se le agregue a la barra
+después.
+
+Corolario del mismo caso: **un `key` de tipo unión hay que ensancharlo antes de agregar variantes**
+(`NavFamilia['key']` era `'operate' | 'analyze' | 'create' | 'content'`). El compilador te avisa —es
+lo bueno de tenerlo tipado— pero solo si las secciones nuevas son del mismo tipo que las viejas.
+
+**Vive en:** app/_components/Sidebar.tsx · app/_components/nav.ts (`ADMIN_FAMILIAS`) · *2026-08-08 rediseño de la barra de super admin*
+
+### ⚠️ Una tab que «redirige a otra» puede ser la única puerta a una feature
+
+**Síntoma:** un item «MaKo» en la barra de super admin que, al tocarlo, te dejaba en Clientes. Se
+lee como un link roto y da ganas de borrarlo.
+
+**Causa, doble:** apuntaba a `/admin?tab=copy`, y ese `?tab=` lo lee un `useEffect` **de montaje**.
+Estando ya en `/admin`, la navegación del cliente no remonta nada, así que el efecto no vuelve a
+correr y te quedás en la tab que estabas. Solo funcionaba entrando de cero. Y detrás de ese
+parámetro vivía una pantalla entera —el cerebro de copywriting de MaKo— que **no tenía ningún otro
+acceso**: el tab bar de `/admin` solo mostraba Clientes y Super Admins.
+
+**Regla:** antes de borrar una tab «que no hace nada», seguí a dónde apunta. Un deep-link por query
+string no es una puerta: es un atajo que depende de cómo llegaste. Si una pantalla solo se alcanza
+así, no está enlazada — está escondida, y el día que alguien limpie el nav desaparece sin que nada
+lo note.
+
+**Vive en:** app/admin/AdminView.tsx (`TabCopywriting`, el `useEffect` del `?tab=`) · *2026-08-08*
+
 ### ⚠️ El «Semáforo» eran DOS tipos incompatibles, y por eso no lo encontraba nadie
 
 **Síntoma:** ninguno. Ése es el punto. Todo compilaba, nada rompía, y en algún lado se

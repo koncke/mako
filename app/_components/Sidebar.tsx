@@ -28,7 +28,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_SECCIONES, itemsDe, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_FAMILIAS, itemsDe, type NavItem, type NavGrupo } from './nav';
 import { tabEnCapa } from '@/lib/capas';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
@@ -231,12 +231,20 @@ function GrupoFila({ g, open, pathname, abierto, onAbrir, onCerrar }: {
  * Plegada vale lo mismo: el ícono de la familia va tenue y chico, los de las
  * tabs enteros, y la línea separa. Ninguna de las dos señales es el color.
  */
-export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, contadorItem, onToggle, flyoutKey, onAbrirFlyout, onCerrarFlyout }: {
+export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, contadorItem, onToggle, flyoutKey, onAbrirFlyout, onCerrarFlyout, onEntrarComoDueno }: {
   f: FamiliaVista; primera: boolean; open: boolean; pathname: string; abiertaEsta: boolean;
   contadorFamilia: number; contadorItem: (key: string) => number;
   onToggle: (key: string) => void;
   flyoutKey: string | null;
   onAbrirFlyout: (key: string, el: HTMLElement, largo: number) => void; onCerrarFlyout: () => void;
+  /**
+   * Para los items marcados `entrarComoDueno`: impersonan ws1 y recién ahí
+   * navegan. Sin esto, un item con ese flag renderiza un `<button>` con
+   * `onClick` vacío —un botón que no hace nada— así que el prop viaja aunque hoy
+   * ningún item lo use: el flag existe para el admin SIN workspace propio, que
+   * es el único caso en que las tabs de producto le dan 403.
+   */
+  onEntrarComoDueno?: (href: string) => void;
 }) {
   const activa = [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)].some((i) => i.match(pathname));
   return (
@@ -296,7 +304,8 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
               ...(i > 0 ? { marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,.06)' } : {}),
             }}>
               {bloque.map((it) => (
-                <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)} />
+                <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)}
+                  onClick={it.entrarComoDueno ? () => onEntrarComoDueno?.(it.href) : undefined} />
               ))}
             </div>
           ))}
@@ -419,13 +428,28 @@ export function Sidebar() {
     (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
     && tabEnCapa(it.key, capa || undefined);
 
-  const familias = FAMILIAS
+  const familiasProducto = FAMILIAS
     .map((f) => ({
       ...f,
       bloques: f.bloques.map((b) => b.filter(puedeVer)).filter((b) => b.length > 0),
       grupos: (f.grupos ?? []).map((g) => ({ ...g, items: g.items.filter(puedeVer) })).filter((g) => g.items.length > 0),
     }))
     .filter((f) => f.bloques.length > 0 || f.grupos.length > 0);
+
+  /**
+   * El super admin ve LAS MISMAS familias de producto que un cliente, y además
+   * Admin y Dev al final. Dos decisiones adentro de esta línea:
+   *
+   * · Van al FINAL y no al principio: el trabajo diario es el producto; Admin y
+   *   Dev son a dónde vas cuando pasó otra cosa.
+   * · A las dos de admin NO se les aplica `puedeVer`. El filtro por capa es «qué
+   *   contrató este cliente», y la agencia no contrató nada: son sus
+   *   herramientas. Pasarlas por el filtro sería atarlas a un catálogo comercial
+   *   que no las contempla.
+   */
+  const familias = adminShell
+    ? [...familiasProducto, ...ADMIN_FAMILIAS.map((f) => ({ ...f, grupos: f.grupos ?? [] }))]
+    : familiasProducto;
 
   const todosDe = (f: typeof familias[number]) => [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)];
 
@@ -457,7 +481,10 @@ export function Sidebar() {
    * cambia una prop», hecho en render y no en un efecto (un efecto pintaría un
    * frame con la familia equivocada).
    */
-  const familiaDeRuta = FAMILIAS.find((f) => itemsDe(f).some((i) => i.match(pathname)))?.key ?? null;
+  // Busca en TODAS las familias visibles, no solo en las de producto: si no, un
+  // super admin parado en /admin/docs no abría ninguna sección y la barra le
+  // quedaba con Operate desplegada, que no es donde está.
+  const familiaDeRuta = [...FAMILIAS, ...ADMIN_FAMILIAS].find((f) => itemsDe(f).some((i) => i.match(pathname)))?.key ?? null;
   const [rutaVista, setRutaVista] = useState(familiaDeRuta);
   const [abierta, setAbierta] = useState<string | null>(familiaDeRuta ?? 'operate');
   if (familiaDeRuta && familiaDeRuta !== rutaVista) {
@@ -593,34 +620,27 @@ export function Sidebar() {
             no una línea: el documento pide que la elevación y los bordes sean
             mínimos y que el aire y el contraste hagan el trabajo. */}
         <nav style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
-          {adminShell ? (
-            <>
-              {ADMIN_SECCIONES.map((sec, i) => (
-                <div key={sec.titulo} style={{ marginTop: i === 0 ? 0 : 14 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.72, fontWeight: 600, padding: open ? '5px 10px 7px' : '2px 0 6px', textAlign: open ? 'left' : 'center' }}>{open ? sec.titulo : '·'}</div>
-                  {sec.items.map((item) => (
-                    <NavLink key={item.key} item={item} active={item.match(pathname)} expanded={open}
-                      onClick={item.entrarComoDueno ? () => entrarComoDuenoYNavegar(item.href) : undefined} />
-                  ))}
-                </div>
-              ))}
-            </>
-          ) : (
-            familias.map((f, i) => (
-              <Familia key={f.key} f={f} primera={i === 0} open={open} pathname={pathname}
-                abiertaEsta={desplegada === f.key}
-                contadorFamilia={contadorDe(f)} contadorItem={contadorItem}
-                onToggle={(k) => { setExpanded(true); setAbierta((prev) => (prev === k && open ? null : k)); }}
-                flyoutKey={flyout?.key ?? null}
-                onAbrirFlyout={abrirFlyout} onCerrarFlyout={cerrarFlyout} />
-            ))
-          )}
+          {/* UNA sola rama para los dos shells. El admin tenía la suya —un
+              rótulo estático y una lista plana— y por eso su barra no se parecía
+              a la del producto ni se desplegaba. Mientras sean dos JSX distintos
+              vuelven a divergir a la tercera edición. */}
+          {familias.map((f, i) => (
+            <Familia key={f.key} f={f} primera={i === 0} open={open} pathname={pathname}
+              abiertaEsta={desplegada === f.key}
+              contadorFamilia={contadorDe(f)} contadorItem={contadorItem}
+              onToggle={(k) => { setExpanded(true); setAbierta((prev) => (prev === k && open ? null : k)); }}
+              flyoutKey={flyout?.key ?? null}
+              onAbrirFlyout={abrirFlyout} onCerrarFlyout={cerrarFlyout}
+              onEntrarComoDueno={entrarComoDuenoYNavegar} />
+          ))}
         </nav>
 
         {/* MaKo (capacidad global) + perfil */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
-          {!adminShell && MAKO_NAV.filter(puedeVer).map((it) => (
+          {/* MaKo también para el super admin: es una capacidad global, y si va a
+              vender el producto usándolo, no puede ser lo único que le falte. */}
+          {MAKO_NAV.filter((it) => adminShell || puedeVer(it)).map((it) => (
             <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
           ))}
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}

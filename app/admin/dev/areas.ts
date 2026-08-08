@@ -51,12 +51,27 @@ export const AREAS: AreaDev[] = [
     hallazgos: 'hallazgos-comunicacion',
   },
   {
-    slug: 'ads-generator',
+    // Se llama como la FEATURE. Antes el área decía «Ads Generator» y la
+    // biblioteca de ángulos vivía aparte, en /admin/guiones, bajo el rótulo
+    // «Guiones»: tres nombres para una sola cosa, y ninguno el de la ruta.
+    slug: 'ads-writer',
     verEnApp: '/ads-writer',
-    titulo: 'Ads Generator',
-    alcance: 'La fábrica de creativos y de guiones: la Matriz avatar × razón, los ángulos y las estructuras.',
-    vive: ['app/ads-writer/', 'app/onboarding/MatrizView.tsx', 'lib/guion-angulos.ts', 'lib/razones.ts'],
+    titulo: 'Ads Writer',
+    alcance: 'La fábrica de creativos y de guiones: la Matriz avatar × razón, más las dos bibliotecas globales que ve todo cliente al generar — los ángulos y las estructuras.',
+    vive: ['app/ads-writer/', 'app/admin/guiones/GuionesAdminView.tsx', 'app/onboarding/MatrizView.tsx', 'lib/guion-angulos.ts', 'lib/razones.ts'],
     hallazgos: 'hallazgos-ads',
+  },
+  {
+    // No es una tab del producto: es un CONCEPTO que lo cruza entero (la salud
+    // de Meta, los avisos de MaKo, el estado de una campaña). Tiene registro
+    // propio porque su historia —eran dos tipos incompatibles— no pertenece a
+    // ninguna pantalla en particular y se perdía en el documento de otra.
+    slug: 'semaforo',
+    verEnApp: '/marketing/salud',
+    titulo: 'El semáforo',
+    alcance: 'El verde/ámbar/rojo/gris que atraviesa el producto: la salud de la cuenta de Meta, los avisos de MaKo y el estado de cada campaña, conjunto y anuncio.',
+    vive: ['lib/mako-gramatica.ts', 'lib/meta-health-ui.ts', 'lib/meta-health.ts', 'lib/avisos-catalogo.ts', 'app/marketing/salud/SaludBoard.tsx'],
+    hallazgos: 'hallazgos-ui',
   },
 ];
 

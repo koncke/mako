@@ -36,8 +36,22 @@ const bannerError: CSSProperties = { background: 'var(--bad-bg)', border: '1px s
 const aLineas = (arr: string[]) => arr.join('\n');
 const deLineas = (s: string) => s.split('\n').map((l) => l.trim()).filter(Boolean);
 
-export function GuionesAdminView() {
-  const [tab, setTab] = useState<'angulos' | 'estructuras'>('angulos');
+/**
+ * `tabExterna` la EMBEBE dentro del registro de Ads Writer (/admin/dev/ads-writer),
+ * donde Ángulos y Estructuras son dos tabs más al lado de Roadmap. Con ella
+ * puesta, esta vista no dibuja su propio encabezado ni su propia barra de tabs
+ * —los pone la pantalla de afuera— y deja de ser un `<main>`, porque el `<main>`
+ * de una pantalla es `Pagina` (regla de AGENTS.md).
+ *
+ * Sin `tabExterna` sigue funcionando sola, que es como la usa /admin/guiones.
+ */
+export function GuionesAdminView({ tabExterna }: { tabExterna?: 'angulos' | 'estructuras' } = {}) {
+  const [tabPropia, setTabPropia] = useState<'angulos' | 'estructuras'>('angulos');
+  const tab = tabExterna ?? tabPropia;
+  const setTab = setTabPropia;
+  // El contenedor es un string constante por montaje, NO un componente definido
+  // en el render: eso remontaría el subárbol en cada tecla y vaciaría los campos.
+  const Cont = tabExterna ? 'div' : 'main';
   const [angulos, setAngulos] = useState<Angulo[] | null>(null);
   const [estructuras, setEstructuras] = useState<Estructura[] | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -81,16 +95,20 @@ export function GuionesAdminView() {
   const estructuraOpts = (estructuras ?? []).map((e) => ({ value: e.id, label: `${e.emoji} ${e.nombre}` }));
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-        <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="graphics" size={34} /></span>
-        <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Guiones</h1>
-      </header>
-      <div style={{ maxWidth: 980, marginTop: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
-          <button style={tabBtn(tab === 'angulos')} onClick={() => { setTab('angulos'); setAbierto(null); setMsg(null); }}>Ángulos</button>
-          <button style={tabBtn(tab === 'estructuras')} onClick={() => { setTab('estructuras'); setAbierto(null); setMsg(null); }}>Estructuras</button>
-        </div>
+    <Cont style={tabExterna ? undefined : { flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
+      {!tabExterna && (
+        <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="escribir" size={34} /></span>
+          <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Ads Writer</h1>
+        </header>
+      )}
+      <div style={tabExterna ? undefined : { maxWidth: 980, marginTop: 18 }}>
+        {!tabExterna && (
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
+            <button style={tabBtn(tab === 'angulos')} onClick={() => { setTab('angulos'); setAbierto(null); setMsg(null); }}>Ángulos</button>
+            <button style={tabBtn(tab === 'estructuras')} onClick={() => { setTab('estructuras'); setAbierto(null); setMsg(null); }}>Estructuras</button>
+          </div>
+        )}
 
         {error && !angulos && !estructuras && <div style={bannerError}>{error}</div>}
         {((tab === 'angulos' && !angulos) || (tab === 'estructuras' && !estructuras)) && !error && (
@@ -218,6 +236,6 @@ export function GuionesAdminView() {
           </div>
         )}
       </div>
-    </main>
+    </Cont>
   );
 }
