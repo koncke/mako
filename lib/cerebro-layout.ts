@@ -33,7 +33,11 @@
 // =============================================================================
 
 import { forceSimulation, forceLink, forceManyBody, forceCollide, forceX, forceY, type SimulationNodeDatum, type SimulationLinkDatum } from 'd3-force';
-import { AREAS, type AreaId, type NodoCerebro, type AristaCerebro } from './cerebro-modelo';
+// `radioNodo` vive en el modelo y no acá porque lo consumen las DOS puntas: la
+// colisión de esta simulación y el dibujo del cliente. Cuando estaba escrito en los
+// dos archivos, cada uno llevaba un comentario avisando que si divergían los nodos se
+// pisaban — que es la señal de que estaba en el lugar equivocado.
+import { radioNodo, type AreaId, type NodoCerebro, type AristaCerebro } from './cerebro-modelo';
 
 export type Punto = { x: number; y: number };
 export type Encuadre = { x: number; y: number; lado: number };
@@ -46,39 +50,36 @@ export type Layout = { posiciones: Record<string, Punto>; encuadre: Encuadre; hu
  * los corre 253 px — no es «menos convergido», es OTRO layout.
  */
 export const RECETA = {
-  v: 1,
-  /** d3 converge «naturalmente» en 300; 320 clava el residuo sin costar nada. */
-  ticks: 320,
-  /** Repulsión. El default de d3 (−30) está calibrado para aristas de 30 px y acá da
-   *  una pelota ilegible; −260 abre la nube sin que se escape del encuadre. */
-  carga: -260,
-  /** Sin tope, el ancho del mapa crece sin control a medida que entran nodos. */
-  cargaDistMax: 420,
-  linkDist: 70,
-  /** El hub necesita más aire que una hoja, o la raíz queda ahogada. */
-  linkDistRaiz: 130,
-  colisionPad: 14,
-  colisionFuerza: 0.9,
-  colisionIter: 2,
-  /** Lo que mantiene juntas a las diez áreas sin volver al radial. Medido, «pureza de
-   *  sector» (% de nodos cuyo vecino más cercano es de su área): 0 → 55%, 0,02 → 79%,
-   *  0,08 → 100%, 0,12 → 100% pero ya se vuelve a ver el abanico. */
-  anclaArea: 0.08,
-  anclaRadio: 230,
+  /** Entra en `huellaDe()`: sin bumpearla, un layout guardado con la receta vieja
+   *  seguiría valiendo y el mapa no cambiaría. */
+  v: 2,
+  /** El mundo es 3,6× más grande que en la v1 y la nube arranca de un disco chico:
+   *  la expansión tarda más. d3 llega a `alphaMin` en ~300; 400 clava el residuo. */
+  ticks: 400,
+  /** Los cinco valores de Obsidian, sin adaptar. La v1 usaba −260/70, que tiene el
+   *  MISMO balance (−3,7 contra −4,0) pero a un cuarto de la escala: los nodos se
+   *  escapaban del resorte y se iban al perímetro. */
+  carga: -1000,
+  /** Sin esto, dos nodos que se rozan generan una fuerza casi infinita. */
+  cargaDistMin: 30,
+  linkDist: 250,
+  colisionRadio: 60,
+  colisionFuerza: 0.5,
+  colisionIter: 1,
+  /** La ÚNICA fuerza posicional, y va al ORIGEN. La v1 tenía diez anclas por área con
+   *  strength 0,08 y radio 230, y eso sentaba todo sobre un anillo: la mediana medida
+   *  de distancia al centro daba 237. Bajarlas no alcanzaba (la relación pico/valle de
+   *  densidad por corona daba 4,5× con 0,08 y seguía en 4,2× con 0,04, contra 2,3× sin
+   *  anclas). Se fueron. Los racimos ahora los hacen los NODOS DE ÁREA, por topología. */
+  centro: 0.1,
+  /** Radio de la nube inicial: 10·√n, el mismo disco que usa la filotaxis de d3. */
+  semillaRadio: 10,
   /** Margen del encuadre, en unidades de mundo: es el lugar de las etiquetas. */
-  margen: 70,
-  ladoMin: 600,
+  margen: 140,
+  ladoMin: 1400,
 } as const;
-
-/** El ancla de cada área. Es el MISMO ángulo que usaba el layout radial, pero cambió
- *  de rol: antes era la posición final, ahora es apenas un objetivo de fuerza que la
- *  simulación negocia con el resto. */
-export function anclaDe(area: AreaId, nNodos: number): Punto {
-  const i = Math.max(0, AREAS.findIndex((a) => a.id === area));
-  const ang = ((-90 + (i * 360) / AREAS.length) * Math.PI) / 180;
-  const r = RECETA.anclaRadio * Math.sqrt(Math.max(nNodos, 39) / 39);
-  return { x: r * Math.cos(ang), y: r * Math.sin(ang) };
-}
+// `velocityDecay` (0,4) y `alphaDecay` (0,0227628) se dejan en el DEFAULT de d3 a
+// propósito: son exactamente los de Obsidian. No los ajustes.
 
 /** Grado de cada nodo (cuántas aristas lo tocan). Alimenta el radio y el ranking de
  *  etiquetas: en un grafo, «importante» es «muy conectado». */
@@ -89,13 +90,6 @@ export function gradosDe(nodos: NodoCerebro[], aristas: AristaCerebro[]): Record
   return g;
 }
 
-/** El radio en unidades de MUNDO. El bonus por grado es lo que hace que el mapa tenga
- *  jerarquía visible; sin las aristas laterales sería 0 en casi todos los nodos. */
-export function radioNodo(n: NodoCerebro, grado: number): number {
-  const base = n.id === 'raiz' ? 9 : n.destacado || n.alerta ? 6.5 : n.autoria === 'pendiente' ? 3.5 : 4.5;
-  return base + Math.min(3, 0.9 * Math.sqrt(Math.max(0, grado - 1)));
-}
-
 /**
  * Semilla determinista por IDENTIDAD, no por índice.
  *
@@ -103,15 +97,18 @@ export function radioNodo(n: NodoCerebro, grado: number): number {
  * filotaxis indexada por la POSICIÓN EN EL ARRAY. O sea: insertar un documento en el
  * medio corre la semilla de todos los nodos siguientes y el mapa entero cambia, sin
  * que nada falle ni avise. Sembrando por hash del id, el mismo nodo arranca siempre
- * en el mismo lugar — y arranca en el barrio de su área, así que un nodo nuevo nace
- * donde le corresponde en vez de cruzar el mapa mientras se acomoda.
+ * en el mismo lugar.
+ *
+ * El `√u` no es decorativo: sin él, un radio uniforme siembra sobre un ANILLO en vez
+ * de sobre un disco. Es el mismo bug de arranque que el código de d3 evita.
  */
-function semilla(id: string, ancla: Punto): Punto {
+function semilla(id: string, n: number): Punto {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
-  const a = ((h >>> 0) / 4294967296) * Math.PI * 2;
-  const r = 30 + (((h >>> 8) & 0xff) / 255) * 90;
-  return { x: ancla.x + r * Math.cos(a), y: ancla.y + r * Math.sin(a) };
+  const ang = ((h >>> 0) / 4294967296) * Math.PI * 2;
+  const u = ((h >>> 8) & 0xffff) / 65536;
+  const r = RECETA.semillaRadio * Math.sqrt(n) * Math.sqrt(u);
+  return { x: r * Math.cos(ang), y: r * Math.sin(ang) };
 }
 
 /** Identifica un grafo + su receta. Sirve para saber si un layout guardado sigue
@@ -149,12 +146,13 @@ export function layoutCerebro(nodos: NodoCerebro[], aristas: AristaCerebro[], pr
   const sim: NodoSim[] = [...nodos]
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     .map((nd) => {
-      const ancla = anclaDe(nd.area, n);
-      const p = previo?.[nd.id] ?? semilla(nd.id, ancla);
-      return { id: nd.id, area: nd.area, r: radioNodo(nd, grados[nd.id] ?? 0), x: p.x, y: p.y };
+      const p = previo?.[nd.id] ?? semilla(nd.id, n);
+      return { id: nd.id, area: nd.area, r: radioNodo(grados[nd.id] ?? 0), x: p.x, y: p.y };
     });
-  const raiz = sim.find((s) => s.id === 'raiz');
-  if (raiz) { raiz.fx = 0; raiz.fy = 0; }        // el negocio es el centro del mundo
+  // La raíz NO se pinea. Un hub de grado 14 clavado en el origen, con todo lo demás
+  // empujado hacia afuera, dibuja un asterisco — que era literalmente la queja. El
+  // forceX/forceY al origen ya la mantiene cerca del centro, y el encuadre recentra
+  // por bbox. Ningún clon de Obsidian pinea nada salvo mientras dura un arrastre.
   const porId = new Set(sim.map((s) => s.id));
   const links: LinkSim[] = aristas
     .filter((a) => porId.has(a.de) && porId.has(a.a))
@@ -163,21 +161,21 @@ export function layoutCerebro(nodos: NodoCerebro[], aristas: AristaCerebro[], pr
 
   const s = forceSimulation<NodoSim>(sim)
     .stop()                                       // NUNCA se enciende el timer: esto es estático
-    .force('link', forceLink<NodoSim, LinkSim>(links)
-      .id((d) => d.id)
-      // `distance` corre DESPUÉS de que forceLink resolvió los ids a objetos, así que
-      // `l.source` ya es el nodo y no el string con el que se armó el array.
-      .distance((l) => ((l.source as NodoSim).id === 'raiz' ? RECETA.linkDistRaiz : RECETA.linkDist)))
-    // `strength` de forceLink queda en el DEFAULT (1/min(gradoA, gradoB)) a propósito:
-    // en una topología con un hub, eso solo ya evita que las 20 aristas de la raíz
-    // aplasten el centro. Pisarlo es el error clásico.
-    .force('carga', forceManyBody<NodoSim>().strength(RECETA.carga).distanceMax(RECETA.cargaDistMax))
-    // La colisión es lo que impide que los puntos se pisen. NO lo hace la repulsión.
-    .force('colision', forceCollide<NodoSim>((d) => d.r + RECETA.colisionPad).strength(RECETA.colisionFuerza).iterations(RECETA.colisionIter))
-    // forceX/forceY y NO forceCenter: `center.js` mueve node.x DIRECTO en vez de la
-    // velocidad, y pelea con los nodos pineados (la raíz).
-    .force('ax', forceX<NodoSim>((d) => anclaDe(d.area, n).x).strength(RECETA.anclaArea))
-    .force('ay', forceY<NodoSim>((d) => anclaDe(d.area, n).y).strength(RECETA.anclaArea));
+    // UNA sola distancia para todas las aristas. Especializar la del hub («que
+    // respire») es lo que dibuja el asterisco: el aire del hub ya lo da el `strength`
+    // por defecto de forceLink, que es 1/min(gradoA, gradoB) y NO se pisa.
+    .force('link', forceLink<NodoSim, LinkSim>(links).id((d) => d.id).distance(RECETA.linkDist))
+    // Sin `distanceMax`: con un tope, media cancha deja de ejercer fuerza sobre la
+    // otra y se apaga justo la repulsión de largo alcance, que es la que redondea la
+    // nube y separa los racimos. Obsidian usa Infinity.
+    .force('carga', forceManyBody<NodoSim>().strength(RECETA.carga).distanceMin(RECETA.cargaDistMin))
+    // Radio FIJO, no `r + pad`: una burbuja personal pareja es lo que produce la
+    // separación de espuma. Con `r + 14` la burbuja medía 1,7 diámetros; ésta, 3,75.
+    .force('colision', forceCollide<NodoSim>(RECETA.colisionRadio).strength(RECETA.colisionFuerza).iterations(RECETA.colisionIter))
+    // forceX/forceY al ORIGEN y NO forceCenter: `center.js` mueve node.x DIRECTO en
+    // vez de la velocidad. Es la única fuerza posicional que existe acá.
+    .force('ax', forceX<NodoSim>(0).strength(RECETA.centro))
+    .force('ay', forceY<NodoSim>(0).strength(RECETA.centro));
 
   s.tick(RECETA.ticks);
   s.stop();

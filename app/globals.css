@@ -56,6 +56,11 @@
   --faint: #98A0AC;
   --sidebar: #14161B;
   --sidebar-2: #1E212A;
+  /* La línea que se dibuja SOBRE el fondo oscuro: dos escalones por encima, no un
+     gris claro bajado de opacidad. Sale del grafo del Second Brain, donde una arista
+     con `opacity` sobre un gris claro se ve lavada y sucia; Obsidian usa un color
+     opaco a dos escalones del fondo (#3f3f3f sobre #1e1e1e) y por eso se lee limpio. */
+  --sidebar-line: #383D47;
   --sidebar-text: #949CAA;
   --on-sidebar: #F3F5F8;
 

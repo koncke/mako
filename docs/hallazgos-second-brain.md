@@ -6,6 +6,10 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ## Lo que más muerde acá
 
+0. **«Se ve parecido» no es verificable, y dos veces seguidas el dibujo pareció bien y
+   estaba mal.** Antes de tocar el grafo, correr `node scripts/medir-grafo.mjs <html>`.
+   [→](#las-doce-métricas-que-deciden-si-se-parece)
+
 1. **El diagnóstico obvio era el equivocado: el problema no era el motor de dibujo, eran
    los datos.** [→](#un-árbol-no-se-dibuja-como-una-red-por-más-física-que-le-pongas)
 2. **Las dos razones para no usar un force layout son falsas**, y costaron una versión
@@ -18,6 +22,36 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 6. **`var(--mono)` no está definido** en ningún `:root`, y se usa 38 veces. [→](#varmono-no-existe-y-se-usa-38-veces)
 
 ---
+
+## Las doce métricas que deciden si se parece
+
+**Síntoma.** Se rehace el grafo con d3-force, se mira, parece una nube. El dueño lo mira y
+dice «sigue viéndose como un árbol». Dos rondas seguidas.
+
+**Causa.** El ojo no distingue una nube de un anillo con ruido. Los números sí: la mediana de
+distancia al centro daba **237** y el parámetro `anclaRadio` valía **230** — todo estaba
+sentado sobre una circunferencia, y encima repartido en diez cuñas (11 de 36 sectores
+angulares vacíos). Nada de eso se ve mirando; todo se ve midiendo.
+
+**Regla.** `node scripts/medir-grafo.mjs <pagina.html>` antes y después de cualquier cambio.
+Las que más mienten al ojo:
+
+| Métrica | Umbral | Qué delata |
+|---|---|---|
+| CV del radio | ≥ 0,35 | si es bajo, es un **anillo** disfrazado de nube |
+| Bins angulares vacíos | ≤ 4 de 36 | si es alto, hay **cuñas**: quedó radial |
+| Hojas de grado 1 | ≤ 30% | un borde de hojas es **topología**, no física |
+| Hub máx/medio | ≤ 4,5× | un hub grande dibuja un **asterisco** |
+| Clustering | ≥ 0,15 | sin triángulos no hay **racimos** |
+| Gris uniforme | **≥ 85%** | Obsidian es monocromo — ver abajo |
+
+**Dos umbrales que escribí al revés la primera vez**, y valen como advertencia: puse «color
+dominante ≤ 55%» cuando lo correcto es lo contrario (**≥ 85% del mismo gris**, porque en
+Obsidian el color marca excepciones); y medí el hub como «% de nodos» cuando lo que importa
+es la razón contra el grado medio. Un umbral mal puesto es peor que ninguno: da el visto
+bueno a lo que está mal y suspende lo que está bien.
+
+**Vive en:** `scripts/medir-grafo.mjs`
 
 ## El layout
 
@@ -86,6 +120,56 @@ el desvío medido era de 0,5 px, invisible pero real, y suficiente para que el t
 determinismo falle. Ordenar lo cierra.
 
 **Vive en:** `lib/cerebro-layout.ts` (`semilla()` y el `.sort()` de `layoutCerebro`)
+
+### Agrupar por categoría con fuerzas ES volver al radial
+
+**Síntoma.** Se saca el layout radial, se pone d3-force, y el resultado sigue leyéndose como
+sectores.
+
+**Causa.** Se conservó un `forceX`/`forceY` hacia un ancla POR ÁREA (`strength 0,08`,
+`radio 230`), pensando que mantendría los racimos juntos. Diez anclas repartidas en círculo
+son diez imanes en un anillo: la simulación hace exactamente lo que se le pidió. Medido, la
+relación pico/valle de densidad por corona daba 4,5× con 0,08 y **seguía en 4,2× con 0,04** —
+bajar la fuerza no compra nada, porque el problema es la geometría de las anclas, no su
+intensidad.
+
+**Regla.** Obsidian tiene **una sola** fuerza posicional: `forceX(0)/forceY(0)` al ORIGEN con
+strength 0,1. Los racimos emergen de la topología. Si hacen falta racimos por categoría, la
+solución no es una fuerza: es **meter la categoría como NODO** y unir sus miembros a ella —
+que es lo que hace Quartz con los tags. El racimo lo produce `forceLink`, gratis, y como sale
+de la topología no deja anillos ni cuñas. Efecto medido acá: hojas 47,6% → 2%, densidad
+1,21 → 1,74, clustering 0,09 → 0,15, bins vacíos 10 → 3, CV del radio 0,30 → 0,39.
+
+**Vive en:** `lib/cerebro-layout.ts` (`RECETA.centro`) · `lib/cerebro-grafo.ts` (el bloque
+«Las ÁREAS como nodos»)
+
+### En Obsidian el color significa «esto es una excepción»
+
+**Síntoma.** El grafo se ve como un muro de oro y no se parece a Obsidian por más que la
+física esté bien.
+
+**Causa.** Se usó el color para codificar la autoría de cada nodo — dorado si lo dedujo MaKo,
+gris si lo escribió el usuario — y como MaKo deduce casi todo, **37 de 42 nodos quedaban
+dorados**. En Obsidian pasa lo contrario: `getFillColor()` cae en `--graph-node` (un único
+gris, `--text-muted`) para **toda** nota normal, y el color solo aparece en el nodo activo, un
+tag, un adjunto o un link roto. Incluso los seis «grupos de color» configurables tienen
+fallback CSS al mismo gris hasta que el usuario elige uno a mano.
+
+**Regla.** El color codifica **excepciones, no categorías**. Acá quedaron tres nodos de color
+sobre cincuenta: la raíz, el Norte y el cuello. La autoría no se perdió — vive en el panel
+lateral y en la ficha del nodo, que es donde se pregunta por ella. Y de paso desactiva sola la
+alarma del antipatrón «cripto o casino»: el dorado vuelve a significar algo.
+
+Dos corolarios del mismo `app.css`, que también estaban al revés:
+- **El nodo es un círculo PLANO**: sin borde, sin sombra, sin gradiente, sin punteado. El
+  «todavía no existe» de Obsidian es el mismo círculo relleno con `opacity: 0.5`, no un aro.
+- **La arista NO es translúcida**: va a alpha 1 y lo que la hace tenue es el color, a dos
+  escalones del fondo (#3f3f3f sobre #1e1e1e). Un gris claro bajado de opacidad se ve lavado.
+  De ahí sale el token `--sidebar-line`.
+- **La etiqueta no tiene halo** ni contorno ni bold, y van TODAS: el fade es por zoom
+  (`clamp(log2(k)+1, 0, 1)`), que a zoom 1 vale 1. Mostrar 13 de 42 era otra cosa distinta.
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`rellenoDe`) · `app/globals.css` (`--sidebar-line`)
 
 ### Los parámetros SON el dibujo
 

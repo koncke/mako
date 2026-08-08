@@ -3,60 +3,49 @@
 // =============================================================================
 // Grafo — el mapa del segundo cerebro: lo que MaKo entendió del negocio
 // =============================================================================
-// El lenguaje visual es el de Obsidian, y no de oído: los parámetros salieron de
-// leer su worker de física (publish.obsidian.md/sim.js, que es un build de d3-force)
-// y su renderer. De ahí vienen el fade de etiquetas por zoom, la atenuación a 0,20
-// al pasar el cursor, el grosor de arista constante en píxeles de pantalla y el
-// radio que "resiste" el zoom out (r · √k).
+// El lenguaje visual es el de Obsidian, y no de oído: los valores salieron de bajar
+// su `app.css` y su `app.js` reales y leer el puente CSS→WebGL, el `render()` del
+// nodo y el de la arista. Las cuatro cosas que más definen ese lenguaje, y que son
+// justo las que la primera versión tenía al revés:
+//
+//  1. TODOS LOS NODOS SON DEL MISMO GRIS. En Obsidian el color marca EXCEPCIONES
+//     —el nodo activo, un link roto, un tag— y una nota normal siempre cae en
+//     `--graph-node`. Acá el 88% de los nodos era dorado, o sea que el color decía
+//     «esto es lo normal». Ahora el color no gris son tres nodos de cuarenta: la
+//     raíz, el Norte y el cuello.
+//  2. EL NODO ES UN CÍRCULO PLANO. Sin borde, sin sombra, sin gradiente, sin
+//     punteado. Ni siquiera el «no existe todavía»: eso en Obsidian es el MISMO
+//     círculo relleno, más apagado (opacidad 0,5).
+//  3. LA ARISTA NO ES TRANSLÚCIDA. Va a alpha 1 y lo que la hace tenue es el COLOR,
+//     a dos escalones del fondo. Y se dibuja borde a borde, no centro a centro.
+//  4. LA ETIQUETA NO TIENE HALO. Va debajo del punto, centrada, sin contorno ni
+//     sombra, y se ven TODAS: el fade es por zoom y a zoom 1 vale 1.
 //
 // LAS POSICIONES NO SE CALCULAN ACÁ. Vienen del servidor, ya asentadas
-// (lib/cerebro-layout.ts). Este componente dibuja y navega, nada más. Es lo que
-// mantiene d3-force fuera del bundle del browser.
+// (lib/cerebro-layout.ts). Es lo que mantiene d3-force fuera del bundle del browser.
 //
-// TRES REGLAS QUE SE ROMPEN SOLAS SI NO SE SABEN:
-//
-//  1. El transform del zoom NO va como prop de JSX. Va con setAttribute sobre un ref
-//     adentro de un rAF. Si además se renderiza como prop, el próximo render de React
-//     lo pisa con el valor viejo del vdom y el mapa salta hacia atrás. Lo único que
-//     entra a useState es `kPaso` (la escala redondeada a cuartos), que cambia ~15
-//     veces en todo el recorrido del zoom y no 60 por segundo.
-//  2. `onWheel` de JSX NO puede preventDefault: react-dom 19 registra `wheel`,
-//     `touchstart` y `touchmove` con { passive: true }. Sin un addEventListener propio
-//     con { passive: false }, el zoom anda Y la página scrollea al mismo tiempo.
-//  3. Una etiqueta apagada por el nivel de detalle NO se renderiza. `opacity: 0` en
-//     SVG no ahorra nada: el nodo sigue costando layout igual que si se viera.
+// DOS REGLAS QUE SE ROMPEN SOLAS SI NO SE SABEN:
+//  · El transform del zoom NO va como prop de JSX: va con setAttribute sobre un ref
+//    dentro de un rAF. Si además se renderiza como prop, el próximo render lo pisa
+//    con el valor viejo del vdom y el mapa salta hacia atrás.
+//  · `onWheel` de JSX no puede preventDefault: react-dom 19 registra `wheel`,
+//    `touchstart` y `touchmove` con { passive: true }.
 // =============================================================================
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { AREAS, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
+import { AREAS, radioNodo, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
 import { MONO } from '@/app/_ui/tokens';
 
-// ── Constantes de navegación ─────────────────────────────────────────────────
 const K_MIN = 0.5;
 const K_MAX = 4;
 /** Umbral de clic vs arrastre, en px de pantalla al cuadrado (5 px, como Obsidian). */
 const ARRASTRE2 = 25;
-/** La `Rl` de Obsidian: cuánto se apaga lo que no es vecino del nodo en foco. */
+/** La `Rl` de Obsidian: cuánto se apaga lo que no toca al nodo en foco. */
 const ATENUADO = 0.2;
-const ATENUADO_ARISTA = 0.1;
+/** El «no existe todavía»: mismo círculo relleno, más apagado (`--graph-node-unresolved`). */
+const PENDIENTE = 0.5;
 
 type Vista = { k: number; x: number; y: number };
-
-// ── Radio, en unidades de mundo ──────────────────────────────────────────────
-// Misma fórmula que usa el layout del servidor para la colisión: si divergen, los
-// nodos se pisan o dejan huecos. No se copia el `max(8, min(3√(g+1), 30))` de
-// Obsidian porque es plano hasta grado 6 y acá dejaría el 95% del mapa igual.
-const radioBase = (n: NodoCerebro): number =>
-  n.id === 'raiz' ? 9 : n.destacado || n.alerta ? 6.5 : n.autoria === 'pendiente' ? 3.5 : 4.5;
-
-const radioMundo = (n: NodoCerebro, grado: number): number =>
-  radioBase(n) + Math.min(3, 0.9 * Math.sqrt(Math.max(0, grado - 1)));
-
-/** Qué tan "importante" es un nodo, para decidir a quién le toca etiqueta cuando no
- *  entran todas. En un grafo, importante = muy conectado. */
-const PESO_AUTORIA: Record<NodoCerebro['autoria'], number> = { mako: 2, usuario: 1.5, pendiente: 0.5 };
-const importancia = (n: NodoCerebro, grado: number): number =>
-  n.id === 'raiz' ? 1e6 : n.destacado || n.alerta ? 1e5 : (2 + Math.sqrt(grado)) * PESO_AUTORIA[n.autoria];
 
 export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
@@ -91,79 +80,12 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   const nodoSel = sel ? porId.get(sel) ?? null : null;
   const cerca = useMemo(() => (sel ? new Set([sel, ...(vecinos.get(sel) ?? [])]) : null), [sel, vecinos]);
 
-  // ── El centroide de cada área: ahí va su rótulo ────────────────────────────
-  // Antes los rótulos vivían en un anillo exterior fijo, que era una pista de que el
-  // layout era radial. Ahora el rótulo va donde de verdad quedó el racimo.
-  const rotulos = useMemo(() => {
-    const acc = new Map<AreaId, { x: number; y: number; n: number }>();
-    for (const n of nodos) {
-      if (n.id === 'raiz') continue;
-      const p = posiciones[n.id];
-      if (!p) continue;
-      const a = acc.get(n.area) ?? { x: 0, y: 0, n: 0 };
-      a.x += p.x; a.y += p.y; a.n++;
-      acc.set(n.area, a);
-    }
-    // Un área con UN solo nodo no lleva rótulo: el rótulo y la etiqueta del nodo se
-    // pisarían y dirían casi lo mismo.
-    return AREAS.filter((a) => (acc.get(a.id)?.n ?? 0) >= 2)
-      .map((a) => { const c = acc.get(a.id)!; return { ...a, x: c.x / c.n, y: c.y / c.n }; });
-  }, [nodos, posiciones]);
+  // El fade de etiquetas de Obsidian: `clamp(log2(zoom) + 1 − textFadeMult, 0, 1)`.
+  // Con los defaults da 1 a zoom 1, o sea que se dibujan TODAS y se dejan pisar. La
+  // versión anterior repartía un presupuesto por importancia y mostraba 13 de 42: un
+  // lienzo con el 31% de los puntos nombrados no se puede parecer a uno con el 100%.
+  const alphaEtiqueta = Math.min(1, Math.max(0, Math.log2(kPaso) + 1));
 
-  // ── Nivel de detalle de las etiquetas ──────────────────────────────────────
-  // Obsidian usa solo un umbral de zoom, que alcanza con 50 notas. Acá el presupuesto
-  // crece con k² (al duplicar el zoom se ve un cuarto del área) y se reparte por
-  // importancia, así que a cualquier zoom se lee lo que más pesa y nunca hay 300
-  // etiquetas encima. El hover SIEMPRE gana: es lo que hace Obsidian.
-  const etiquetas = useMemo(() => {
-    const forzadas = new Set<string>(['raiz']);
-    for (const n of nodos) if (n.destacado || n.alerta) forzadas.add(n.id);
-    if (sel) { forzadas.add(sel); for (const v of vecinos.get(sel) ?? []) forzadas.add(v); }
-
-    const presupuesto = Math.min(Math.max(Math.round(10 * kPaso * kPaso), 6), nodos.length);
-    const rank = [...nodos]
-      .filter((n) => !forzadas.has(n.id))
-      .sort((a, b) => importancia(b, grados[b.id] ?? 0) - importancia(a, grados[a.id] ?? 0));
-
-    const visibles = new Set(forzadas);
-    for (const n of rank) {
-      if (visibles.size >= presupuesto + forzadas.size) break;
-      if (areaFoco && n.area !== areaFoco) continue;
-      visibles.add(n.id);
-    }
-
-    // Descongestión en coordenadas de PANTALLA: dos nodos separados en el mundo se
-    // pisan igual si el zoom los junta. Una sola pasada, ordenada por y.
-    const cajas = [...visibles]
-      .map((id) => ({ id, n: porId.get(id)!, p: posiciones[id] }))
-      .filter((c) => c.n && c.p)
-      .map((c) => {
-        const w = (c.n.etiqueta.length * 5.4) / kPaso;    // ancho en unidades de mundo
-        const r = radioMundo(c.n, grados[c.id] ?? 0) / Math.sqrt(kPaso);
-        return { id: c.id, x: c.p.x, y: c.p.y + r + 11 / kPaso, w, base: c.p.y + r + 11 / kPaso };
-      })
-      .sort((a, b) => a.y - b.y);
-
-    const alto = 13 / kPaso;
-    const tope = 22 / kPaso;
-    const fuera = new Set<string>();
-    for (let i = 1; i < cajas.length; i++) {
-      const prev = cajas[i - 1];
-      const cur = cajas[i];
-      if (fuera.has(prev.id)) continue;
-      const cruzanX = Math.min(prev.x + prev.w / 2, cur.x + cur.w / 2) - Math.max(prev.x - prev.w / 2, cur.x - cur.w / 2) > 0;
-      const sep = cur.y - prev.y;
-      if (!cruzanX || sep >= alto) continue;
-      const necesita = alto - sep;
-      if (cur.y + necesita - cur.base <= tope) cur.y += necesita;
-      else if (!forzadas.has(cur.id)) fuera.add(cur.id);
-    }
-    const ys = new Map(cajas.map((c) => [c.id, c.y]));
-    for (const id of fuera) visibles.delete(id);
-    return { visibles, ys };
-  }, [nodos, sel, vecinos, kPaso, areaFoco, grados, posiciones, porId]);
-
-  // ── Zoom y pan ─────────────────────────────────────────────────────────────
   const aplicar = useCallback(() => {
     rafRef.current = null;
     const g = gRef.current;
@@ -179,8 +101,8 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     if (rafRef.current == null) rafRef.current = requestAnimationFrame(aplicar);
   }, [aplicar]);
 
-  /** Un punto de pantalla a coordenadas del viewBox. `getScreenCTM` fuerza layout, así
-   *  que se llama una vez por gesto y no por frame. */
+  /** Un punto de pantalla a coordenadas del viewBox. `getScreenCTM` fuerza layout: se
+   *  llama una vez por gesto, no por frame. */
   const aMundo = useCallback((cx: number, cy: number): Punto | null => {
     const svg = svgRef.current;
     if (!svg) return null;
@@ -195,7 +117,6 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
-    // { passive: false } es obligatorio: el onWheel de React no puede preventDefault.
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const pt = aMundo(e.clientX, e.clientY);
@@ -255,9 +176,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     const dy = e.clientY - arr.y0;
     if (!arr.movido && dx * dx + dy * dy <= ARRASTRE2) return;
     arr.movido = true;
-    // El desplazamiento se convierte a unidades de mundo con la escala del viewBox.
-    const svg = svgRef.current;
-    const caja = svg?.getBoundingClientRect();
+    const caja = svgRef.current?.getBoundingClientRect();
     if (!caja) return;
     const escala = encuadre.lado / caja.width;
     vista.current = { ...vista.current, x: arr.vx + dx * escala, y: arr.vy + dy * escala };
@@ -268,7 +187,6 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     punteros.current.delete(e.pointerId);
     if (punteros.current.size < 2) pellizco.current = null;
     if (punteros.current.size === 0) {
-      // Un arrastre no deselecciona; un clic en el vacío sí.
       if (arrastre.current && !arrastre.current.movido) setFijado(null);
       arrastre.current = null;
     }
@@ -280,50 +198,50 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
     setFijado((f) => (f === id ? null : id));
   };
 
-  const apagado = (n: NodoCerebro): boolean => {
-    if (n.id === 'raiz') return false;
-    if (cerca) return !cerca.has(n.id);
-    if (areaFoco) return n.area !== areaFoco;
-    return false;
-  };
-
   const areaDe = (id: AreaId) => AREAS.find((a) => a.id === id)!;
   const kr = Math.sqrt(kPaso);
   const vb = `${encuadre.x} ${encuadre.y} ${encuadre.lado} ${encuadre.lado}`;
 
+  /** Radio EN PANTALLA. `nodeScale = √(1/zoom)` de Obsidian: los nodos resisten el
+   *  zoom out en vez de desaparecer. */
+  const radioDe = (n: NodoCerebro) => radioNodo(grados[n.id] ?? 0) / kr;
+
+  /** El relleno. Tres nodos de color en todo el mapa; el resto, un solo gris. */
+  const rellenoDe = (n: NodoCerebro, esSel: boolean): string => {
+    if (esSel) return 'var(--mako-lite)';
+    if (n.id === 'raiz') return 'var(--on-sidebar)';
+    if (n.destacado) return 'var(--mako)';
+    if (n.alerta) return 'var(--warn-fill)';
+    return 'var(--sidebar-text)';
+  };
+
+  const opacidadDe = (n: NodoCerebro): number => {
+    const base = n.autoria === 'pendiente' ? PENDIENTE : 1;
+    if (n.id === 'raiz') return base;
+    if (cerca) return cerca.has(n.id) ? base : ATENUADO;
+    if (areaFoco) return n.area === areaFoco ? base : ATENUADO;
+    return base;
+  };
+
   return (
     <div className="cbg">
       <style>{`
-        .cbg .cbg-lienzo { background: var(--sidebar); border: 1px solid var(--sidebar-2); border-radius: 14px; overflow: hidden; }
-        .cbg svg { width: 100%; height: auto; display: block; aspect-ratio: 1/1; touch-action: none; cursor: grab; }
+        .cbg .cbg-lienzo { background: var(--sidebar); border-radius: 12px; overflow: hidden; }
+        .cbg svg { width: 100%; height: auto; display: block; aspect-ratio: 4/3; touch-action: none; cursor: grab; }
         .cbg svg:active { cursor: grabbing; }
         .cbg .cbg-nodo { cursor: pointer; }
-        .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et, .cbg .cbg-rot { transition: opacity .18s ease, stroke .18s ease, fill .18s ease; }
+        .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et { transition: opacity .18s ease, fill .18s ease, stroke .18s ease; }
+        /* Sin halo, sin contorno, sin sombra, sin bold: Obsidian no tiene nada de eso. */
         .cbg .cbg-et {
-          font-size: calc(11px / var(--k, 1));
-          fill: var(--sidebar-text);
-          paint-order: stroke;
-          stroke: var(--sidebar);
-          stroke-width: calc(3px / var(--k, 1));
-          stroke-linejoin: round;
+          font-size: calc(12px / var(--k, 1));
+          fill: var(--on-sidebar);
           pointer-events: none;
         }
-        .cbg .cbg-et-fuerte { fill: var(--on-sidebar); font-weight: 600; }
-        .cbg .cbg-rot {
-          font-family: ${MONO};
-          font-size: calc(10px / var(--k, 1));
-          letter-spacing: .1em;
-          text-transform: uppercase;
-          fill: var(--sidebar-text);
-          opacity: .45;
-          cursor: pointer;
-        }
-        .cbg .cbg-rot-on { opacity: 1; fill: var(--mako); }
         .cbg .cbg-entra { animation: cbg-in .55s cubic-bezier(.23,1,.32,1) backwards; }
         @keyframes cbg-in { from { opacity: 0; } to { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) {
           .cbg .cbg-entra { animation: none; }
-          .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et, .cbg .cbg-rot { transition: none; }
+          .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et { transition: none; }
         }
         @media (max-width: 900px) {
           .cbg .cbg-cols { grid-template-columns: minmax(0,1fr) !important; }
@@ -345,39 +263,35 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
             onPointerLeave={soltar}
           >
             <g ref={gRef} style={{ ['--k' as string]: 1 }}>
-              {/* Rótulos de área, en el centroide de su racimo. Van primero: cualquier
-                  nodo tiene que quedar por encima. */}
-              {rotulos.map((a) => (
-                <text
-                  key={a.id}
-                  className={`cbg-rot${areaFoco === a.id ? ' cbg-rot-on' : ''}`}
-                  x={a.x}
-                  y={a.y}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  onClick={(e) => { e.stopPropagation(); setAreaFoco(areaFoco === a.id ? null : a.id); }}
-                >
-                  {a.nombre}
-                </text>
-              ))}
-
               <g fill="none">
                 {aristas.map((e, i) => {
                   const a = posiciones[e.de];
                   const b = posiciones[e.a];
-                  if (!a || !b) return null;
                   const na = porId.get(e.a);
+                  const nb = porId.get(e.de);
+                  if (!a || !b || !na || !nb) return null;
+                  // Borde a borde, como Obsidian: la línea arranca en el perímetro de
+                  // un nodo y termina en el del otro, no en sus centros.
+                  const dx = b.x - a.x;
+                  const dy = b.y - a.y;
+                  const d = Math.hypot(dx, dy) || 1;
+                  const ra = radioDe(nb);
+                  const rb = radioDe(na);
+                  if (d <= ra + rb) return null;
+                  const x1 = a.x + (dx / d) * ra;
+                  const y1 = a.y + (dy / d) * ra;
+                  const x2 = b.x - (dx / d) * rb;
+                  const y2 = b.y - (dy / d) * rb;
                   const viva = cerca ? cerca.has(e.de) && cerca.has(e.a) : true;
-                  const enFoco = areaFoco ? na?.area === areaFoco || porId.get(e.de)?.area === areaFoco : true;
-                  const op = cerca ? (viva ? 0.9 : ATENUADO_ARISTA) : areaFoco ? (enFoco ? 0.7 : ATENUADO_ARISTA) : 0.35;
+                  const enFoco = areaFoco ? na.area === areaFoco || nb.area === areaFoco : true;
+                  const op = cerca ? (viva ? 1 : ATENUADO) : areaFoco ? (enFoco ? 1 : ATENUADO) : 1;
                   return (
                     <line
                       key={`${e.de}-${e.a}-${i}`}
                       className="cbg-arista"
-                      x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                      stroke={viva && cerca ? 'var(--on-sidebar)' : 'var(--sidebar-text)'}
-                      strokeWidth={viva && cerca ? 1.6 : 1}
-                      strokeDasharray={na?.autoria === 'pendiente' ? '3 5' : undefined}
+                      x1={x1} y1={y1} x2={x2} y2={y2}
+                      stroke={viva && cerca ? 'var(--mako)' : 'var(--sidebar-line)'}
+                      strokeWidth={1}
                       strokeOpacity={op}
                       vectorEffect="non-scaling-stroke"
                     />
@@ -388,57 +302,35 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
               {nodos.map((n, i) => {
                 const p = posiciones[n.id];
                 if (!p) return null;
-                const off = apagado(n);
-                // El radio "resiste" el zoom out: en pantalla queda r·√k, igual que la
-                // nodeScale de Obsidian. Sin esto los nodos desaparecen al alejarse.
-                const r = radioMundo(n, grados[n.id] ?? 0) / kr;
+                const r = radioDe(n);
                 const esSel = sel === n.id;
-
-                // El COLOR dice QUIÉN, y sobre fondo oscuro se invierte: acá el relleno
-                // es la autoría (un borde de 3 px sobre un punto de 4,5 sería casi todo
-                // el nodo). Rellenos con significado: los dos de siempre, Norte y cuello.
-                let fill = 'var(--sidebar-text)';
-                let stroke = 'none';
-                let sw = 0;
-                if (n.id === 'raiz') fill = 'var(--on-sidebar)';
-                else if (n.destacado) fill = 'var(--mako)';
-                else if (n.alerta) fill = 'var(--warn-fill)';
-                else if (n.autoria === 'mako') fill = 'var(--mako)';
-                else if (n.autoria === 'pendiente') { fill = 'none'; stroke = 'var(--sidebar-text)'; sw = 1; }
-
-                const mostrarEt = etiquetas.visibles.has(n.id);
-                const ey = etiquetas.ys.get(n.id) ?? p.y + r + 11 / kPaso;
-
                 return (
                   <g
                     key={n.id}
                     className="cbg-nodo cbg-entra"
-                    style={{ animationDelay: `${Math.min(i * 14, 700)}ms` }}
+                    style={{ animationDelay: `${Math.min(i * 12, 700)}ms` }}
                     onMouseEnter={() => setActivo(n.id)}
                     onMouseLeave={() => setActivo(null)}
                     onClick={clicNodo(n.id)}
                   >
-                    <circle cx={p.x} cy={p.y} r={Math.max(r + 10 / kr, 18 / kr)} fill="transparent" />
-                    {esSel && (
-                      <circle cx={p.x} cy={p.y} r={r + 3.5 / kr} fill="none" stroke="var(--on-sidebar)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
-                    )}
+                    <circle cx={p.x} cy={p.y} r={Math.max(r + 8 / kr, 16 / kr)} fill="transparent" />
                     <circle
                       cx={p.x} cy={p.y} r={r}
-                      fill={fill}
-                      stroke={stroke}
-                      strokeWidth={sw}
-                      strokeDasharray={n.autoria === 'pendiente' ? '2 2' : undefined}
-                      vectorEffect={sw ? 'non-scaling-stroke' : undefined}
-                      opacity={off ? ATENUADO : 1}
+                      fill={rellenoDe(n, esSel)}
+                      opacity={opacidadDe(n)}
                     />
-                    {mostrarEt && (
+                    {/* El único anillo del grafo, y va PEGADO al borde: 1 px de pantalla. */}
+                    {esSel && (
+                      <circle cx={p.x} cy={p.y} r={r + 1.2 / kr} fill="none" stroke="var(--mako-lite)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+                    )}
+                    {(alphaEtiqueta > 0.02 || esSel) && (
                       <text
-                        className={`cbg-et${n.id === 'raiz' || n.destacado || n.alerta ? ' cbg-et-fuerte' : ''}`}
+                        className="cbg-et"
                         x={p.x}
-                        y={ey}
+                        y={p.y + r + 6 / kr}
                         textAnchor="middle"
-                        dominantBaseline="middle"
-                        opacity={off ? ATENUADO : 1}
+                        dominantBaseline="hanging"
+                        opacity={esSel ? 1 : alphaEtiqueta * opacidadDe(n)}
                       >
                         {n.etiqueta}
                       </text>
@@ -450,13 +342,23 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
           </svg>
         </div>
 
-        <aside style={{ position: 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, minHeight: 190 }}>
+        <aside style={{ position: 'sticky', top: 20 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, minHeight: 210 }}>
             {nodoSel ? (
               <>
-                <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
+                {/* El nombre del área es el control que reemplaza a los rótulos que
+                    flotaban en el lienzo: filtra sin ensuciar el dibujo. */}
+                <button
+                  type="button"
+                  onClick={() => setAreaFoco(areaFoco === nodoSel.area ? null : nodoSel.area)}
+                  style={{
+                    fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase',
+                    color: areaFoco === nodoSel.area ? 'var(--mako-ink)' : 'var(--faint)',
+                    background: 'none', border: 'none', padding: 0, marginBottom: 8, cursor: 'pointer',
+                  }}
+                >
                   {areaDe(nodoSel.area).nombre}
-                </div>
+                </button>
                 <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 8 }}>
                   {nodoSel.etiqueta}
                 </div>
@@ -479,37 +381,13 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                   {cuenta.pendientes > 0 && ` Quedan ${cuenta.pendientes} ${cuenta.pendientes === 1 ? 'área' : 'áreas'} sin construir.`}
                 </p>
                 <p style={{ margin: '12px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--faint)', lineHeight: 1.55 }}>
-                  Pasa el cursor por un punto para leerlo, haz clic para fijarlo, y usa la rueda para acercarte.
+                  Pasa el cursor por un punto para leerlo, haz clic para fijarlo, arrastra para mover el mapa y usa la rueda para acercarte.
                 </p>
               </>
             )}
           </div>
-
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px' }}>
-            <Leyenda />
-          </div>
         </aside>
       </div>
-    </div>
-  );
-}
-
-function Leyenda() {
-  const fila = (nodo: React.ReactNode, texto: string) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-      <span style={{ display: 'inline-flex', flex: 'none', background: 'var(--sidebar)', borderRadius: 5, padding: 2 }}>
-        <svg width={16} height={16} viewBox="0 0 16 16">{nodo}</svg>
-      </span>
-      {texto}
-    </div>
-  );
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-      {fila(<circle cx={8} cy={8} r={4.5} fill="var(--mako)" />, 'Lo dedujo MaKo')}
-      {fila(<circle cx={8} cy={8} r={4.5} fill="var(--sidebar-text)" />, 'Lo escribiste tú')}
-      {fila(<circle cx={8} cy={8} r={4} fill="none" stroke="var(--sidebar-text)" strokeWidth={1} strokeDasharray="2 2" />, 'Todavía no existe')}
-      {fila(<circle cx={8} cy={8} r={5.5} fill="var(--mako)" />, 'Tu Norte')}
-      {fila(<circle cx={8} cy={8} r={5.5} fill="var(--warn-fill)" />, 'Lo que te frena')}
     </div>
   );
 }

@@ -2,8 +2,8 @@
 // y el usuario deja de reconocer el suyo. Por eso están en un test y no en un comentario.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutCerebro, huellaDe, radioNodo, gradosDe } from '../lib/cerebro-layout';
-import type { NodoCerebro, AristaCerebro } from '../lib/cerebro-modelo';
+import { layoutCerebro, huellaDe, gradosDe } from '../lib/cerebro-layout';
+import { radioNodo, type NodoCerebro, type AristaCerebro } from '../lib/cerebro-modelo';
 
 const nodo = (id: string, area: NodoCerebro['area'], extra: Partial<NodoCerebro> = {}): NodoCerebro => ({
   id, area, etiqueta: id, detalle: '', fuente: '', autoria: 'mako', ...extra,
@@ -93,7 +93,12 @@ test('agregar un nodo no rearma el mapa: los viejos se mueven poco', () => {
     const q = conPrevio.posiciones[id];
     peor = Math.max(peor, Math.hypot(q.x - p.x, q.y - p.y));
   }
-  assert.ok(peor <= 60, `el nodo que más se movió recorrió ${peor.toFixed(1)} px`);
+  // El umbral va RELATIVO al encuadre, no en unidades absolutas: la escala del mundo
+  // depende de `linkDist`, así que un número fijo deja de significar lo mismo apenas
+  // se toca la receta (pasó al subir de 70 a 250 — el mismo desvío proporcional saltó
+  // de 51 a 184 unidades sin que nada empeorara).
+  const tope = conPrevio.encuadre.lado * 0.15;
+  assert.ok(peor <= tope, `se movió ${peor.toFixed(0)} de un encuadre de ${conPrevio.encuadre.lado.toFixed(0)} (tope ${tope.toFixed(0)})`);
   assert.ok(conPrevio.posiciones['doc:b'], 'el nodo nuevo no recibió posición');
 });
 
@@ -104,16 +109,14 @@ test('la huella cambia si cambia el grafo, y no si solo cambia el orden', () => 
   assert.notEqual(h, huellaDe([...nodos, nodo('doc:b', 'documentos')], aristas));
 });
 
-test('el radio crece con el grado y topea', () => {
-  const { nodos, aristas } = grafoDePrueba();
-  const g = gradosDe(nodos, aristas);
-  const raiz = nodos.find((n) => n.id === 'raiz')!;
-  const hoja = nodos.find((n) => n.id === 'raz:1')!;
-  const pendiente = nodos.find((n) => n.id === 'falta:productos')!;
-  assert.ok(radioNodo(raiz, g['raiz']) > radioNodo(hoja, g['raz:1']));
-  assert.ok(radioNodo(hoja, g['raz:1']) > radioNodo(pendiente, g['falta:productos']));
-  // El techo del bonus: grado 100 no puede dar un nodo gigante.
-  assert.equal(radioNodo(hoja, 100), 4.5 + 3);
+test('el radio es el de Obsidian: casi uniforme, con piso y techo', () => {
+  // La jerarquía la dan la POSICIÓN y el color, no el diámetro: el piso de 8 domina
+  // hasta grado 6, así que un mapa entero varía poco de tamaño. Es a propósito.
+  assert.equal(radioNodo(1), 8);
+  assert.equal(radioNodo(6), 8);
+  assert.ok(radioNodo(14) > radioNodo(6));
+  assert.ok(radioNodo(14) < 12);
+  assert.equal(radioNodo(1000), 30);   // el techo
 });
 
 test('todos los nodos entran en el encuadre', () => {

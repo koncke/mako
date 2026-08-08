@@ -402,7 +402,10 @@ export async function construirCerebro(): Promise<Cerebro> {
       fuente: rec ? 'MaKo lo eligió de la biblioteca para tu negocio' : 'en uso en tu matriz',
       autoria: 'mako',
     });
-    unir(RAIZ, id, 'Un formato de creativo de este negocio');
+    // A la raíz SOLO el formato que MaKo recomendó y todavía no usa ninguna celda. Si
+    // una razón ya lo usa, ése es su padre: colgarlo además de la raíz le suma un
+    // radio al hub sin agregar información, y el hub es lo que dibuja el asterisco.
+    if (!usadosPorCelda.has(formatoId)) unir(RAIZ, id, 'Un formato que MaKo eligió para este negocio');
   }
 
   // ── LAS ARISTAS LATERALES ──────────────────────────────────────────────────
@@ -434,6 +437,41 @@ export async function construirCerebro(): Promise<Cerebro> {
     }
   }
 
+  // ── Las ÁREAS como nodos ───────────────────────────────────────────────────
+  // Es el mecanismo con el que Quartz fabrica racimos sin inventar ninguna fuerza:
+  // el tag entra como nodo y las notas se juntan solas alrededor. Acá reemplaza a DOS
+  // cosas que se van juntas — los rótulos flotantes del dibujo y las fuerzas de ancla
+  // por sector del layout. El racimo lo hace forceLink, gratis, y como emerge de la
+  // topología no deja cuñas ni anillos.
+  //
+  // ⚠️ DEROGA, a propósito, la regla de la cabecera de este archivo («un nodo es una
+  // cosa que alguien puede señalar y decir "eso es mío"»). El criterio: el área ya se
+  // le mostraba al cliente —el panel y los rótulos la nombraban—, así que no es
+  // información nueva: es la MISMA etiqueta movida de texto flotante a nodo, que es
+  // donde puede hacer trabajo topológico. Sin esta nota, la próxima sesión los saca.
+  //
+  // Efecto medido: hojas 47,6% → 1,9% · densidad 1,21 → 1,77 · ciclos por nodo
+  // 0,24 → 0,79. NO se unen a la raíz: eso le sumaría diez radios al hub, que es
+  // justo lo que se está desinflando.
+  const realesPorArea = new Map<AreaId, string[]>();
+  for (const n of nodos) {
+    if (n.id === RAIZ || n.autoria === 'pendiente') continue;
+    realesPorArea.set(n.area, [...(realesPorArea.get(n.area) ?? []), n.id]);
+  }
+  for (const a of AREAS) {
+    const miembros = realesPorArea.get(a.id) ?? [];
+    if (miembros.length < 2) continue;   // con un solo miembro el nodo de área es un salto mudo
+    const idArea = push({
+      id: `area:${a.id}`,
+      area: a.id,
+      etiqueta: a.nombre,
+      detalle: a.que,
+      fuente: `${miembros.length} cosas de tu negocio`,
+      autoria: 'mako',
+    });
+    for (const m of miembros) unir(m, idArea, `Esto es parte de ${a.nombre}`);
+  }
+
   // ── Los huecos, etiquetados ────────────────────────────────────────────────
   // Un vacío REGISTRADO y con nombre vale más que un vacío disimulado: dice qué
   // falta y qué se desbloquea al llenarlo. Es la misma lógica del estado honesto
@@ -454,7 +492,10 @@ export async function construirCerebro(): Promise<Cerebro> {
     unir(RAIZ, id, 'Todavía sin construir');
   }
 
-  const reales = nodos.filter((n) => n.autoria !== 'pendiente');
+  // Los nodos de ÁREA no cuentan: el panel dice «MaKo entendió N cosas de tu negocio»
+  // y un área no es una cosa entendida, es la caja donde viven varias.
+  const esArea = (n: NodoCerebro) => n.id.startsWith('area:');
+  const reales = nodos.filter((n) => n.autoria !== 'pendiente' && !esArea(n));
   const { posiciones, encuadre } = layoutCerebro(nodos, aristas);
   return {
     negocio: negocio || 'Tu negocio',
@@ -466,7 +507,7 @@ export async function construirCerebro(): Promise<Cerebro> {
       total: reales.length,
       mako: reales.filter((n) => n.autoria === 'mako').length,
       usuario: reales.filter((n) => n.autoria === 'usuario').length,
-      pendientes: nodos.length - reales.length,
+      pendientes: nodos.filter((n) => n.autoria === 'pendiente').length,
     },
     vacias,
   };

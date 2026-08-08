@@ -59,6 +59,25 @@ export type NodoCerebro = {
  *  lee al pasar por encima; si no se puede escribir, la arista no va. */
 export type AristaCerebro = { de: string; a: string; motivo: string };
 
+/**
+ * El radio del nodo, en unidades de mundo. Es la fórmula de Obsidian tal cual:
+ * `max(8, min(3·√(grado+1), 30))`.
+ *
+ * Vive acá y no en el layout porque la consumen las DOS puntas —la colisión del
+ * servidor y el dibujo del cliente— y cuando estaba escrita dos veces, cada archivo
+ * llevaba un comentario avisando que si divergían los nodos se pisaban. Eso es la
+ * definición de «una cosa, un lugar».
+ *
+ * El piso de 8 domina hasta grado 6, así que el mapa queda casi uniforme en tamaño:
+ * una hoja mide 8,0 y un hub de grado 14 mide 11,6. Eso es a propósito y es lo que
+ * hace que un grafo de Obsidian se vea como se ve — la jerarquía la dan la POSICIÓN
+ * y el color, no el diámetro. La versión anterior daba un rango de 3,4× (con el
+ * `pendiente` en 3,5) y producía un mapa de burbujas de tamaños dispares.
+ */
+export function radioNodo(grado: number): number {
+  return Math.max(8, Math.min(3 * Math.sqrt(grado + 1), 30));
+}
+
 export type Punto = { x: number; y: number };
 /** El cuadrado del mundo que hay que mirar. Sale del bbox de las posiciones ya
  *  asentadas, no es fijo: un negocio con 12 nodos y otro con 300 se ven igual de bien. */
