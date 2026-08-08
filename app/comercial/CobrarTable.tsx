@@ -8,7 +8,7 @@
 // más cercano arriba; resalta vencidas (rojo · URGENTE) y próximas (ámbar).
 
 import { useEffect, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import type { CSSProperties } from 'react';
 import type { OutstandingLead } from '@/lib/pagos';
 import { marcarPagoAction } from '../crm/actions';

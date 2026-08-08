@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { Icon } from './icons';
 import { AvisoFlotante } from './AvisoFlotante';
 

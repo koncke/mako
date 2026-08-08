@@ -14,7 +14,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { MakoStar } from '../_components/MakoBrand';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { Carrusel, EnlaceMaKo } from '../_components/PanelMarketing';

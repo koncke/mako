@@ -24,7 +24,7 @@
 // fue al desplegable del perfil: es «visible, nunca protagonista», y al lado de
 // las tabs competía todo el tiempo por algo que se mira una vez por semana.
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';

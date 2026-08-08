@@ -12,7 +12,7 @@
 // No se duplica esa lógica acá: si mañana cambia, cambia en un solo lugar.
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 
 const DESTINO = '/inicio';
 const ESPERA_MS = 1200; // suficiente para leer el aviso, poco para no estorbar

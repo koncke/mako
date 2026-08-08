@@ -8,7 +8,8 @@
 // Sale solo cuando resolvés todo. (Fuente: mako_confirmaciones.)
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { listConfirmacionesAction, resolverConfirmacionAction } from '../crm/mako-confirm-actions';
 import type { MakoConfirmacion, ConfOpcion } from '@/lib/mako-confirmaciones';
 

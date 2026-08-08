@@ -12,7 +12,7 @@
 // la tab Marketing.
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { geoMercator, geoPath } from 'd3-geo';
 import { fmtDDMMYYYY } from '@/lib/date-utils';

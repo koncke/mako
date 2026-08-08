@@ -1338,6 +1338,70 @@ entre commits es un rebase encubierto, y el costo es peor que el problema.
 
 **Vive en:** global · casos testigo lib/mako-context.ts, app/_ui/ui.css · *2026-06-30 ~experimentos-medicion-y-ui + 2026-08-08 rediseño Parte 3*
 
+### ⚠️ Un contexto POR PESTAÑA no puede vivir en una cookie, y `sessionStorage` tampoco alcanza
+
+**Síntoma:** el super admin entraba a un cliente y se le cambiaba el contexto en TODAS las
+pestañas abiertas, incluida la del panel de admin. No podía mirar dos clientes a la vez.
+
+**Causa:** la impersonación era una cookie firmada (`mako_ws`). Las cookies son del
+NAVEGADOR, no de la pestaña — no hay opción de alcance que las haga por pestaña.
+
+**Y el diagnóstico obvio es el equivocado.** Lo primero que se piensa es `sessionStorage`,
+que sí es por pestaña. No sirve: **el server no lo puede leer cuando pinta la página**, y
+en esta app 61 de las 104 pantallas deciden qué mostrar con un gate server-side
+(`requireCapa` / `guardTab`) que corre en el request del documento. Con `sessionStorage` el
+gate resolvería con el workspace equivocado y solo los datos traídos por `fetch` estarían
+bien: media pantalla de un cliente y media del otro.
+
+**Regla:** lo único que es distinto en cada pestaña Y llega en el request del documento es
+**la URL**. Cualquier contexto por pestaña va ahí. En este repo es `?ws=N`.
+
+Las tres piezas, y por qué cada una está donde está:
+
+1. **`proxy.ts`** lo valida y lo convierte en un header interno. Es el único que mira el
+   parámetro. Un `?ws=` lo escribe cualquiera: sin la validación contra la sesión firmada
+   es un IDOR que abre los datos de otro cliente.
+2. **El parche de `fetch`** (`app/_components/WsFetch.tsx`) se lo pega a las 340 llamadas a
+   `/api`. Un choke point en vez de 340 ediciones, por la misma razón que `emitirAviso`.
+3. **`app/_ui/Link.tsx`** lo preserva en la navegación (27 archivos de `next/link` + 30 de
+   `useRouter`, cambiados con un codemod).
+
+**Vive en:** lib/ws-tab.ts · proxy.ts (`seguir`) · lib/workspace.ts (`wsDePestana`) · app/_ui/Link.tsx · app/_components/WsFetch.tsx · *2026-08-08*
+
+### ⚠️ En un gate con varias salidas, el chequeo va DENTRO del helper, no en cada llamada
+
+**Síntoma:** todo el mecanismo de `?ws=` andaba… salvo en `/api/auth/me`, que es
+justamente la ruta que le dice al sidebar y al cartel a qué cliente estás mirando. O sea:
+los datos eran del cliente correcto y la interfaz decía que no estabas en ningún cliente.
+
+**Causa:** `seguir(req, sesion)` recibía la sesión por parámetro y la ponía solo si venía.
+Pero `proxy.ts` tiene **cinco salidas**, y la de rutas públicas es un early-return que
+corre ANTES de verificar la sesión. `/api/auth/me` cuelga de `/api/auth`, que está en
+`PUBLICOS` — así que salía por ahí, sin sesión, sin header. La llamada estaba bien escrita;
+el problema era que se podía escribir mal.
+
+**Regla:** cuando un gate tiene varias salidas, lo que TODAS deben hacer se pone adentro
+del helper compartido, no como argumento en cada `return`. Un parámetro que hay que
+acordarse de pasar es un parámetro que un día no se pasa — y acá el modo de falla no es un
+error visible, es una pantalla que muestra los datos de un cliente con el chrome de otro.
+
+**Vive en:** proxy.ts (`seguir`, y la lista `PUBLICOS`) · *2026-08-08*
+
+### Un parche global de `fetch` va en el módulo, no en un `useEffect`
+
+Los efectos de React corren de **hijo a padre**. Un provider que parchee `window.fetch` en
+su `useEffect` lo hace DESPUÉS de que sus hijos ya dispararon las llamadas de la carga
+inicial — justo las que más importan, y el bug sería intermitente según qué componente
+montó primero. El código de arriba de un módulo `'use client'` corre al cargar el chunk,
+antes de renderizar nada.
+
+Corolario del mismo trabajo: **`useSearchParams()` obliga a envolver en `<Suspense>` a todo
+componente que lo use**, o el build se cae en las rutas estáticas. Con 27 archivos serían
+27 fronteras nuevas. Se lee UNA vez en un provider que ya vive adentro de un Suspense y se
+reparte por contexto.
+
+**Vive en:** app/_components/WsFetch.tsx · app/_ui/Link.tsx (`WsProvider`) · *2026-08-08*
+
 ### Separar las cuentas por `CLAUDE_CONFIG_DIR` también separa la memoria
 
 Las dos cuentas están aisladas con `CLAUDE_CONFIG_DIR` (`~\.claude` y `~\.claude-martin`). El

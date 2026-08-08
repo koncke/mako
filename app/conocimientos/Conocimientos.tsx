@@ -15,7 +15,8 @@
 // el selector, la navegación por URL y los dos cursos que no son de texto.
 
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { CURSOS, type Curso } from './curso';
 import { CURSO_VSL } from './curso-vsl';
 import { CURSO_PRODUCTO_APP } from './curso-producto-app';

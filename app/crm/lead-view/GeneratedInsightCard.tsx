@@ -9,7 +9,7 @@
 // completable, se pide con el wizard conocido. Diseño scaneble, no muro de texto.
 
 import { useState, useTransition, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { deriveStageKey, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
 import type { LeadInsightGen } from '@/lib/lead-insights';

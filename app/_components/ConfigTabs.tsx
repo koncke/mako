@@ -6,7 +6,7 @@
 // El sub-tab Método solo aparece para admins (gestiona credenciales del
 // workspace); /metodo igual redirige a los no-admin, esto solo oculta el link.
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 

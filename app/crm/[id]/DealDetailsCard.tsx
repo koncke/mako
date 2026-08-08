@@ -12,8 +12,9 @@
 // documento fiscal" rellena Datos fiscales. Diseño 2×2 (nunca 3+1 ni 5+1).
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import Link from '@/app/_ui/Link';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead } from '@/lib/leads';

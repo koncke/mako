@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import type { SenalRecon } from '@/lib/queries';
 import type { MetaHealth } from '@/lib/meta-health-ui';
 import { resolverAd } from '../../ads-manager/ad-resolver';

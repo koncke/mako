@@ -18,7 +18,7 @@
 //    (URLs de campaña enteras): toda opción y todo chip lleva maxWidth + ellipsis +
 //    title con el valor completo.
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from '@/lib/pipeline';
 

@@ -7,7 +7,7 @@
 // El submit va a la server action createLeadAction (que re-valida).
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { createLeadAction } from '../actions';
 
 const SANS = "'Geist', sans-serif";

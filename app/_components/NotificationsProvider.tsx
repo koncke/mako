@@ -12,7 +12,8 @@ import {
   createContext, useContext, useEffect, useRef, useState,
   type Dispatch, type SetStateAction, type MutableRefObject, type ReactNode,
 } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { isPublicLandingPath } from './PublicRouteGate';
 import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
 

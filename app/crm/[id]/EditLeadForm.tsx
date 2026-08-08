@@ -9,7 +9,7 @@
 // (saveLeadEditorAction) que sincroniza estado + override de tablero + meta.
 
 import { useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { saveLeadEditorAction, deleteLeadAction, type LeadEditorInput } from '../actions';
 import { CHIP, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';

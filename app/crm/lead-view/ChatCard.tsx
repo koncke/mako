@@ -7,7 +7,7 @@
 // mergeados). Para RESPONDER se abre /whatsapp?lead=<id>: ahí vive la lógica
 // de ventana de 24h, plantillas y adjuntos. Acá solo se lee el hilo.
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTzWorkspace } from './useTzWorkspace';
 

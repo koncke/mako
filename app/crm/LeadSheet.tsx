@@ -7,9 +7,9 @@
 // "Editar lead →"). Los movimientos del Kanban que exigen datos usan su propio
 // pop-up chico (StageMoveDialog), no esta ficha.
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { CHIP, BAND_LABEL, deriveStageKey, stageMeta, nutricionPositivaDe, type Stage, type StageBand } from '@/lib/pipeline';
 import { hayPasoDeWizard, tabDeSolucion } from '@/lib/stage-requirements';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';

@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { createElement as h, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import dynamic from 'next/dynamic';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { TaxonomyManager } from '../components/TaxonomyManager';

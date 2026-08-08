@@ -18,7 +18,7 @@
 // Las piezas se MONTAN, no se dibujan: `MakoLogo`, `MakoWord` y `MakoStar` son
 // los componentes que usa la app.
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { Section, MONO } from '@/app/_ui';
 import { MakoLogo, MakoWord, MakoStar } from '@/app/_components/MakoBrand';
 

@@ -20,14 +20,31 @@
 import 'server-only';
 import { cache } from 'react';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from './supabase';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CAPA_DEFAULT, capaDef, esCapaValida, type CapaId } from './capas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
+import { WS_HEADER, parseWs } from './ws-tab';
 
 export { firmarImpersonacion, IMPERSONATE_COOKIE, OWNER_WS };
+
+/**
+ * El workspace de ESTA pestaña, si el super admin abrió un cliente con `?ws=N`.
+ *
+ * Lo pone `proxy.ts` como header interno DESPUÉS de verificar contra la sesión
+ * firmada que quien pide es admin de agencia — y lo borra en cada request antes
+ * de decidir. Acá se lee y ya: si el header está, es porque el proxy lo puso.
+ * Nunca leer `?ws=` directo de la URL en el resto de la app: eso saltearía la
+ * validación y sería un IDOR.
+ *
+ * Gana sobre la cookie de impersonación porque es lo que el usuario está mirando
+ * AHORA en esta pestaña; la cookie es del navegador entero y no distingue.
+ */
+async function wsDePestana(): Promise<number | null> {
+  return parseWs((await headers()).get(WS_HEADER));
+}
 
 // Contexto de workspace por-request. Lo usa la caché (lib/cache.ts): dentro de
 // unstable_cache NO se puede llamar cookies(), así que el workspace se fija acá
@@ -63,12 +80,18 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
   if (sesion) {
     if (sesion.legacy) return OWNER_WS;        // login compartido viejo / dev → dueño
     if (sesion.rol === 'admin') {
+      // 1) LA PESTAÑA manda. `?ws=N` es lo que el admin está mirando acá y ahora,
+      //    y es lo único que le permite tener varios clientes abiertos a la vez.
+      const pestana = await wsDePestana();
+      if (pestana) return pestana;
+      // 2) La cookie de impersonación, que es del navegador ENTERO. Queda por las
+      //    sesiones que ya la tienen puesta; la UI no la escribe más.
       const store = await cookies();
       const imp = leerImpersonacion(store.get(IMPERSONATE_COOKIE)?.value);
-      // Impersonación GANA (entrar-como un cliente). Si no impersona, el admin cae a
-      // SU PROPIO workspace (si tiene uno asignado) → así un super-admin con espacio
-      // propio (ej. Martín) entra a lo suyo por default, sin pisar al dueño. null solo
-      // si el admin no tiene workspace → ve el panel /admin (contrato de siempre).
+      // 3) Si no hay nada, el admin cae a SU PROPIO workspace (si tiene uno
+      //    asignado) → un super-admin con espacio propio entra a lo suyo por
+      //    default, sin pisar al dueño. null solo si el admin no tiene workspace
+      //    → ve el panel /admin (contrato de siempre).
       return imp ?? sesion.ws ?? null;
     }
     return sesion.ws ?? null;                   // usuario → su workspace
@@ -120,13 +143,19 @@ export async function esDuenoAdmin(): Promise<boolean> {
   return (await esWorkspaceDueno()) && (await getRolWsEfectivo()) === 'admin';
 }
 
-/** true si un admin está impersonando a un cliente (cookie de impersonación activa).
+/** true si un admin está metido adentro de un cliente, en ESTA pestaña.
  *  Sirve para distinguir "admin viendo su propio panel" de "admin metido en un
  *  cliente": p.ej. el board /plan muestra el PlanBoard del dueño solo si NO impersona,
- *  y el tablero del cliente (incl. Mauricio/ws1) cuando sí. */
+ *  y el tablero del cliente (incl. Mauricio/ws1) cuando sí.
+ *
+ *  ⚠️ Tiene que mirar lo MISMO que `getWorkspaceActual`, y en el mismo orden. Si
+ *  uno mirara la pestaña y el otro solo la cookie, la app quedaría mostrando los
+ *  datos de un cliente con el chrome del panel de admin (o al revés), que es la
+ *  clase de incoherencia que nadie reporta como bug: se lee como "se ve raro". */
 export async function estaImpersonando(): Promise<boolean> {
   const sesion = await getUsuarioActual();
   if (sesion?.rol !== 'admin') return false;
+  if (await wsDePestana()) return true;
   const store = await cookies();
   return leerImpersonacion(store.get(IMPERSONATE_COOKIE)?.value) != null;
 }

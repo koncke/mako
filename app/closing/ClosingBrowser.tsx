@@ -13,7 +13,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '../_components/icons';
 import type { ClosingViewData, ClosingAnalysisRow, ClosingDim, ClosingEvidence, DimGroup, Tone } from '@/lib/closing';
 import { Dropdown } from '../components/Dropdown';

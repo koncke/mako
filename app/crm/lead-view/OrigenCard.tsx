@@ -15,7 +15,7 @@
 // mayoría de los leads de Calendly.
 
 import type { CSSProperties } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import type { Lead, VslEngagement } from '@/lib/leads';
 
 const MONO = "'Geist Mono', monospace";

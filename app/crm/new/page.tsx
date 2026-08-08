@@ -4,7 +4,7 @@
 // Mínimo: nombre + un canal de contacto (email o teléfono). Opcional: fechas.
 // =============================================================================
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { NewLeadForm } from './NewLeadForm';
 

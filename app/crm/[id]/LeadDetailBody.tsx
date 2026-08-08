@@ -10,7 +10,8 @@
 // "Volver" usa el historial del navegador (regresa al contexto exacto).
 
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { reactivarPendientesAction } from '../actions';
 import { deriveStageKey, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';

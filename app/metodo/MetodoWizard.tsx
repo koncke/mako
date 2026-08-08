@@ -7,7 +7,7 @@
 // real (configurado / origen / máscara) sale de GET /api/metodo.
 // =============================================================================
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { MakoLogo } from '../_components/MakoBrand';
 import { SERVICIOS_METODO, type ServicioMetodo } from '@/lib/metodo-catalogo';

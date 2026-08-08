@@ -16,7 +16,7 @@
 // nunca para navegar; y nunca hay dos `primary` compitiendo en la misma vista.
 
 import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type ComponentPropsWithRef, type ReactNode } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 
 /**
  * El «éxito temporal» del botón, listo para usar: `flash()` lo pone en verde y

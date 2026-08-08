@@ -8,7 +8,7 @@
 // como prop. Método sigue siendo una ruta propia (admin de agencia). El Archivero,
 // el Funnel y los Ángulos se mudaron a "Onboarding" (menú de la foto de perfil).
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
 import { IdentidadesFiscalesPanel } from './IdentidadesFiscalesPanel';

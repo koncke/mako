@@ -11,7 +11,7 @@
 // (persistido); onPlan lo muta el padre.
 
 import { Fragment, useState, type CSSProperties, type ReactNode } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip,
   ScatterChart, Scatter, LabelList,

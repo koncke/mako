@@ -11,7 +11,8 @@
 // Reemplaza al viejo FechaSelector (la franja-sección dentro de la página).
 // =============================================================================
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { useState } from 'react';
 import { diasAntes, lunesDeFecha, primerDiaDelMesDeFecha, fmtDDMMYYYY } from '@/lib/date-utils';
 

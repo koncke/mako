@@ -12,7 +12,7 @@
 // Uso:  <DatosDeMau ambito="archivero" />
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { AvisoFlotante } from './AvisoFlotante';
 
 const MONO = "'Geist Mono', monospace";

@@ -9,7 +9,7 @@
 // que el caller ya tiene (seed) mientras llega el resto.
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { LeadSheet } from './LeadSheet';
 import { getLeadFullAction, type LeadFullData } from './actions';
 

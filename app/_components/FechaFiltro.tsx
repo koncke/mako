@@ -7,7 +7,8 @@
 // ?desde&hasta), restilado al tema claro y al botón del header del rediseño.
 // Lo usan /marketing y /comercial.
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { useState, type CSSProperties } from 'react';
 import { presetsDeFecha } from './FechaFiltroGlobal';
 import { fmtDDMMYYYY } from '@/lib/date-utils';

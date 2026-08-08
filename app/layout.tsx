@@ -8,6 +8,8 @@ import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { IaUsageToast } from './_components/IaUsageToast';
 import { HideOnPublicLanding } from './_components/PublicRouteGate';
 import { TituloTab } from './_components/TituloTab';
+import { WsFetch } from './_components/WsFetch';
+import { WsProvider } from './_ui/Link';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
 // del navegador, al lado del favicon. El producto es MaKo: acá decía "Marketing
@@ -63,6 +65,15 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <TituloTab />
         </Suspense>
+        {/* No pinta nada: importarlo acá es lo que aplica el parche de fetch que
+            le pega el `?ws=` de la pestaña a todas las llamadas a /api. Va lo más
+            arriba posible del árbol para que el chunk cargue antes que nadie. */}
+        <WsFetch />
+        {/* El `?ws=` de la pestaña, leído UNA vez acá adentro del Suspense y
+            repartido por contexto: es lo que hace que <Link> y router.push no
+            te saquen del cliente que estás mirando. */}
+        <Suspense fallback={null}>
+        <WsProvider>
         <NotificationsProvider>
           <div style={rootStyle}>
             {/* Sidebar usa useSearchParams (propaga el filtro de fecha); Suspense
@@ -94,6 +105,8 @@ export default function RootLayout({
             </div>
           </div>
         </NotificationsProvider>
+        </WsProvider>
+        </Suspense>
       </body>
     </html>
   );

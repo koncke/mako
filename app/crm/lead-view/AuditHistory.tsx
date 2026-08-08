@@ -9,7 +9,7 @@
 // mapeo directo, un botón "Deshacer" que revierte ese cambio puntual.
 
 import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { stageMetaOpt, type Stage } from '@/lib/pipeline';
 import { normalizar as normTxt } from '@/lib/buscar-texto';
 import { getLeadAuditAction, revertMoveAction, type LeadAuditRowFull } from '../actions';

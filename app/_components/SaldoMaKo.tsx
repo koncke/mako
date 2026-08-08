@@ -13,7 +13,7 @@
 // el CLARO (el del menú); `tema="oscuro"` queda para un fondo tipo sidebar.
 // =============================================================================
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { MakoStar } from './MakoBrand';
 

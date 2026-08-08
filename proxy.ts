@@ -20,6 +20,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
+import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
 
 // Prefijos públicos (no requieren login).
 // '/' es la landing de venta de MaKo (antes vivía en /vsl). Solo la ve quien NO
@@ -142,6 +143,43 @@ function paginaMudanza(destino: string): string {
 </body></html>`;
 }
 
+/**
+ * Dejar pasar el request, resolviendo de paso el workspace de ESTA pestaña.
+ *
+ * Reemplaza a `NextResponse.next()` en TODAS las salidas del gate, y eso es a
+ * propósito: la primera cosa que hace es **borrar** `WS_HEADER` de lo que llegó.
+ * Si una sola salida se olvidara de pasar por acá, cualquiera podría mandar ese
+ * header a mano y leer los datos de otro cliente — el IDOR más caro de esta app.
+ * Borrarlo siempre, y ponerlo solo nosotros, es lo que lo hace seguro.
+ *
+ * El header se pone ÚNICAMENTE si la sesión firmada dice `rol === 'admin'` (la
+ * agencia). Para cualquier otro usuario, `?ws=` en la URL es texto decorativo:
+ * su workspace sigue saliendo de su propia fila.
+ *
+ * No se chequea acá que el workspace EXISTA: eso es una consulta a la base en
+ * cada request. Un id inventado no filtra nada — `getTenantDb` filtra por él y
+ * devuelve cero filas, que es el fail-closed de siempre.
+ */
+function seguir(req: NextRequest) {
+  const headers = new Headers(req.headers);
+  headers.delete(WS_HEADER);
+
+  const ws = parseWs(req.nextUrl.searchParams.get(WS_PARAM));
+  // ⚠️ La sesión se verifica ACÁ ADENTRO y no se recibe por parámetro. Parece un
+  // detalle y no lo es: `/api/auth/me` vive bajo `/api/auth`, que está en
+  // PUBLICOS, así que sale por el early-return de arriba SIN pasar por la
+  // verificación de sesión del final. Con la sesión como parámetro, esa ruta
+  // nunca recibía el workspace — y es justo la que le dice al sidebar y al
+  // cartel a qué cliente estás mirando. Verificar acá hace que las cinco
+  // salidas se comporten igual sin que nadie tenga que acordarse.
+  if (ws) {
+    const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
+    if (sesion?.rol === 'admin') headers.set(WS_HEADER, String(ws));
+  }
+
+  return NextResponse.next({ request: { headers } });
+}
+
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -157,7 +195,7 @@ export function proxy(req: NextRequest) {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }
-    return NextResponse.next();
+    return seguir(req);
   }
 
   // Las rutas públicas pasan siempre (tienen su propia auth por firma/secret).
@@ -167,7 +205,9 @@ export function proxy(req: NextRequest) {
     if (soloLectura && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }
-    return NextResponse.next();
+    // Sin sesión: `seguir` no pone nada, pero igual BORRA el header. Un webhook
+    // o el beacon del VSL no pueden elegir workspace mandándolo a mano.
+    return seguir(req);
   }
 
   // CSRF: las APIs internas se autentican por COOKIE, así que una mutación
@@ -195,7 +235,9 @@ export function proxy(req: NextRequest) {
   if (!gateConfigurado()) {
     const esProd =
       process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
-    if (!esProd) return NextResponse.next();
+    // En local sin AUTH_SECRET no hay sesión que verificar, así que tampoco hay
+    // a quién creerle: se borra el header y no se pone ninguno.
+    if (!esProd) return seguir(req);
     console.error('[gate] AUTH_SECRET sin setear en producción → negando rutas protegidas');
     return denegar(req, pathname);
   }
@@ -208,7 +250,7 @@ export function proxy(req: NextRequest) {
   const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
   if (sesion) {
     if (esAdminRoute && sesion.rol !== 'admin') return denegarRol(req, pathname);
-    return NextResponse.next();
+    return seguir(req);
   }
 
   return denegar(req, pathname);

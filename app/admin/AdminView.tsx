@@ -182,7 +182,6 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
 
   const [errAccion, setErrAccion] = useState<string | null>(null);
   const [accionando, setAccionando] = useState(false);
-  const [entrando, setEntrando] = useState<number | null>(null);
   const [abierto, setAbierto] = useState<number | null>(null);
   const [renombrando, setRenombrando] = useState<Workspace | null>(null);
   const [nombreEdit, setNombreEdit] = useState('');
@@ -231,17 +230,25 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
     } finally { setAccionando(false); }
   };
 
-  const entrarComo = async (w: Workspace) => {
-    if (entrando != null) return;
-    setErrAccion(null); setEntrando(w.id);
-    try {
-      const j = await (await fetch('/api/admin/impersonate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ws: w.id }) })).json();
-      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo entrar como este cliente.'); setEntrando(null); return; }
-      window.location.href = '/general';
-    } catch (e) {
-      setErrAccion(e instanceof Error ? e.message : String(e));
-      setEntrando(null);
-    }
+  /**
+   * Entrar a un cliente abre una PESTAÑA NUEVA con `?ws=N`.
+   *
+   * Antes escribía una cookie firmada y navegaba en la misma pestaña. El
+   * problema no era el mecanismo sino su alcance: la cookie es del NAVEGADOR, así
+   * que entrar a un cliente te cambiaba el contexto en todas las pestañas
+   * abiertas, incluida la del panel de admin. Con el workspace en la URL, cada
+   * pestaña es un cliente distinto y el panel sigue vivo en la suya.
+   *
+   * No hay `await` ni estado de carga porque ya no hay request: es abrir una URL.
+   * `noopener` es de rutina para cualquier `window.open`, aunque sea al mismo
+   * origen — la pestaña nueva no tiene por qué poder tocar a ésta.
+   */
+  const entrarComo = (w: Workspace) => {
+    setErrAccion(null);
+    const abierta = window.open(`/general?ws=${w.id}`, '_blank', 'noopener');
+    // Si el navegador bloqueó el pop-up, no dejarlo en silencio: sin esto el
+    // botón se sentiría roto y no habría forma de saber por qué.
+    if (!abierta) setErrAccion('El navegador bloqueó la pestaña nueva. Permití las ventanas emergentes para este sitio y probá otra vez.');
   };
 
   const guardarNombre = async () => {
@@ -320,7 +327,10 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                     ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
                     : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}
                   <span style={{ fontSize: 12.5, color: 'var(--dim)', flex: 'none', width: 84, textAlign: 'right' }}>{w.usuarios} {w.usuarios === 1 ? 'miembro' : 'miembros'}</span>
-                  <button style={{ ...btnPrimary, opacity: entrando != null ? 0.6 : 1 }} disabled={entrando != null} onClick={() => entrarComo(w)}>{entrando === w.id ? 'Entrando…' : 'Entrar como →'}</button>
+                  {/* Ya no hay estado «Entrando…»: no se espera a ningún request,
+                      se abre una pestaña. Y el título lo dice, porque una pestaña
+                      que aparece sin aviso se siente como que algo salió mal. */}
+                  <button style={btnPrimary} onClick={() => entrarComo(w)} title={`Abre ${w.nombre} en una pestaña nueva`}>Entrar como →</button>
                   <Dropdown
                     value="" resetAfterSelect align="right" placeholder="Acciones"
                     ariaLabel={`Acciones sobre ${w.nombre}`} disabled={accionando}

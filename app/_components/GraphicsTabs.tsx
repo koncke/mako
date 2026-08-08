@@ -7,7 +7,7 @@
 // va arriba de ambos dashboards y navega entre ellos, conservando el filtro de
 // fecha global (?desde&hasta).
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from './icons';
 

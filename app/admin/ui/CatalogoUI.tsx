@@ -8,7 +8,7 @@
 // nada — que es exactamente el criterio de «listo» de la tarea #516.
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import {
   Button, ButtonLink, IconButton, useOkFlash,
   TextField,

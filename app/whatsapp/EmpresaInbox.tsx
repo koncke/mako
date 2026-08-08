@@ -11,9 +11,10 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment, type CSSProperties, type ChangeEvent } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import dynamic from 'next/dynamic';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EmojiPicker } from './EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, IconEye, IconEyeOff, IconDoc, IconBan, IconDraft, IconRefresh } from './_shared/composer-icons';

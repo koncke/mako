@@ -7,13 +7,19 @@
 // alimenta de /api/auth/me (impersonando + clienteNombre).
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { PanelAgencia } from './PanelAgencia';
+import { WS_PARAM } from '@/lib/ws-tab';
 
 const MONO = "'Geist Mono', monospace";
 
 export function ImpersonationBanner() {
   const pathname = usePathname() || '';
+  const sp = useSearchParams();
+  // El `?ws=` es parte de la identidad de lo que se está mirando: sin él en las
+  // dependencias, cambiar de cliente en la misma pestaña dejaba el nombre viejo
+  // en el cartel mientras los datos de abajo ya eran de otro.
+  const wsUrl = sp.get(WS_PARAM) ?? '';
   const [cliente, setCliente] = useState<string | null>(null);
   const [saliendo, setSaliendo] = useState(false);
 
@@ -23,11 +29,23 @@ export function ImpersonationBanner() {
       .then((j) => { if (alive && j?.ok && j.impersonando) setCliente(j.clienteNombre as string); else if (alive) setCliente(null); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [pathname]);
+  }, [pathname, wsUrl]);
 
   if (!cliente) return null;
 
+  /**
+   * Salir de la vista del cliente.
+   *
+   * Si el contexto vino por la URL (lo normal desde que se entra en pestaña
+   * nueva), salir es simplemente irse a una URL SIN `?ws=` — no hay nada que
+   * borrar, y sobre todo no hay que tocar nada global: las OTRAS pestañas están
+   * mirando otros clientes y no tienen por qué enterarse.
+   *
+   * El DELETE queda solo para el caso viejo, cuando el contexto venía de la
+   * cookie del navegador. Ahí sí hay estado compartido que limpiar.
+   */
   const salir = async () => {
+    if (wsUrl) { window.location.href = '/admin'; return; }
     setSaliendo(true);
     try {
       await fetch('/api/admin/impersonate', { method: 'DELETE' });

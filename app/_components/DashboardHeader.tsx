@@ -2,7 +2,7 @@
 // DashboardHeader — header compartido de las 3 tabs del dashboard
 // =============================================================================
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { getDataSources } from '@/lib/sources';
 import { SourceStrip } from './SourceStrip';
 import { FechaFiltroGlobal } from './FechaFiltroGlobal';

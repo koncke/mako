@@ -7,7 +7,7 @@
 // (main/intro/header grande) y con onComplete al guardar el último grupo.
 // =============================================================================
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
 import { TaxonomyManager, type TaxItem } from '../components/TaxonomyManager';

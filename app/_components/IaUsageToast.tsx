@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { inAppActivo } from '@/lib/notif-catalogo';

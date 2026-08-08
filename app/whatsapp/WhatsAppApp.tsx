@@ -14,7 +14,7 @@
 
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useSearchParams } from 'next/navigation';
 import { Dropdown } from '../components/Dropdown';
 import { EmojiPicker } from './EmojiPicker';

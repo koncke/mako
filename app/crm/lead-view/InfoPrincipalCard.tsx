@@ -7,7 +7,7 @@
 // portapapeles; al lado, el ícono de WhatsApp abre la tab /whatsapp en el chat
 // del lead y el de Gmail abre un correo a ese lead.
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 
 const MONO = "'Geist Mono', monospace";

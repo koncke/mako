@@ -13,8 +13,9 @@
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
+import Link from '@/app/_ui/Link';
 import { Icon } from '../_components/icons';
 import { MakoLogo } from '../_components/MakoBrand';
 import { Dropdown } from '../components/Dropdown';

@@ -5,10 +5,8 @@
 // (b) pintar el banner de impersonación "estás viendo a <cliente>".
 
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getUsuarioActual } from '@/lib/auth';
-import { getCapaActual, getWorkspace, getWorkspaceActual, getRolWsEfectivo, IMPERSONATE_COOKIE } from '@/lib/workspace';
-import { leerImpersonacion } from '@/lib/auth-session';
+import { getCapaActual, getWorkspace, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,17 +14,18 @@ export async function GET() {
   const sesion = await getUsuarioActual();
   if (!sesion) return NextResponse.json({ ok: true, autenticado: false });
 
-  // ¿Un admin está "viendo como" un cliente?
-  let impersonando = false;
+  // ¿Un admin está "viendo como" un cliente, EN ESTA PESTAÑA?
+  //
+  // Antes esto leía la cookie de impersonación a mano. Ya no: el workspace puede
+  // venir del `?ws=` de la pestaña, y con dos fuentes hay que preguntarle a quien
+  // sabe combinarlas. Copiar la lógica acá era garantizar que un día el banner
+  // dijera un cliente y los datos fueran de otro.
+  const ws = await getWorkspaceActual();
+  const impersonando = await estaImpersonando();
   let clienteNombre: string | null = null;
-  let clienteWs: number | null = null;
-  if (sesion.rol === 'admin') {
-    const ws = leerImpersonacion((await cookies()).get(IMPERSONATE_COOKIE)?.value);
-    if (ws) {
-      clienteWs = ws;
-      impersonando = true;
-      try { clienteNombre = (await getWorkspace(ws))?.nombre ?? `Workspace ${ws}`; } catch { clienteNombre = `Workspace ${ws}`; }
-    }
+  const clienteWs = impersonando ? ws : null;
+  if (clienteWs) {
+    try { clienteNombre = (await getWorkspace(clienteWs))?.nombre ?? `Workspace ${clienteWs}`; } catch { clienteNombre = `Workspace ${clienteWs}`; }
   }
 
   return NextResponse.json({
@@ -37,7 +36,7 @@ export async function GET() {
     rol: sesion.rol,
     // Rol dentro del negocio + workspace efectivo (para que el Sidebar filtre tabs).
     rolWs: await getRolWsEfectivo(),
-    ws: await getWorkspaceActual(),
+    ws,
     // Capa que compró el cliente (lib/capas.ts): el Sidebar esconde lo que no
     // incluye. Es cosmético — el enforcement real es requireCapa server-side.
     capa: await getCapaActual(),

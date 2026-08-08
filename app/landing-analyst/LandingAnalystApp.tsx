@@ -13,8 +13,8 @@
 // =============================================================================
 
 import { useCallback, useMemo, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from '@/app/_ui/Link';
+import Link from '@/app/_ui/Link';
 import { Icon } from '../_components/icons';
 import { MakoLogo } from '../_components/MakoBrand';
 import type { LandingViewData, LandingAnalysisRow, LandingHallazgo, Severidad, Tone } from '@/lib/landing-analyst';

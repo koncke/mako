@@ -7,7 +7,7 @@
 // vía la server action existente (setObjetivoAction).
 
 import { useState, useTransition, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { setObjetivoAction } from './actions';
 
 const SANS = "'Geist', sans-serif";

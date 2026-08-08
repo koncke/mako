@@ -8,7 +8,8 @@
 // y borrar lead (server actions). Plan de pagos / cuotas / nutrición se editan
 // en sesión (no se persisten en esta iteración).
 
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useSearchParams, usePathname } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import {
   useEffect,
   useMemo,

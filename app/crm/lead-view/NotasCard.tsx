@@ -9,7 +9,7 @@
 // en el historial del lead (evento 'Nota').
 
 import { useEffect, useState, useTransition, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { addLeadNoteAction, getLeadNotasAction, type LeadAuditRowFull } from '../actions';
 import { useTzWorkspace } from './useTzWorkspace';
 

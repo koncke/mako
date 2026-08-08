@@ -8,8 +8,8 @@
 // resumen de entrega, recomendaciones (Meta + MaKo) y "Analizar con MaKo".
 
 import { useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from '@/app/_ui/Link';
+import Link from '@/app/_ui/Link';
 import { MakoButton } from '../../_components/ChartIA';
 import { colorDeSemaforo, bgDeSemaforo, type MetaHealth, type Reco, type Semaforo } from '@/lib/meta-health-ui';
 

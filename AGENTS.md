@@ -94,6 +94,7 @@ Los que hoy son fuente única:
 | Qué modelo usa cada feature | `lib/model-registry.ts` | `chatClaude`/`chatCheap`, con override en /modelos-ia |
 | Cómo se funden dos descripciones | `lib/detalle-fusion.ts` | el board del dueño y el del cliente |
 | Cómo se llama y se ve cada estado de la IA, y el Semáforo | `lib/mako-gramatica.ts` | la primitive `<Mako>`, `meta-health-ui`, `avisos-catalogo` |
+| Qué cliente mira ESTA pestaña (`?ws=`) | `lib/ws-tab.ts` + la validación en `proxy.ts` | `getWorkspaceActual`, el `<Link>` de `app/_ui`, el parche de fetch |
 | Cómo se escribe **MaKo** (`corregirMarca`, `REGLA_MARCA`) | `lib/mako-gramatica.ts` | `transcribirAudio` (STT), `limpiarTarea`, `MAKO_NUCLEO` |
 | Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | `plan-propuesta`, `plan-fathom`, `mako-doer-acciones`, `PreguntaCampo` |
 
@@ -102,6 +103,16 @@ pasar por parámetro, a propósito. El día que se pueda, tres pantallas escribe
 «Analizando…», «Pensando…» y «MaKo está trabajando» para el mismo estado y el usuario no
 tiene forma de saber que son lo mismo — que es exactamente el diagnóstico que la Parte 3
 del rediseño vino a cerrar. Si a un estado le falta algo, se le agrega **al catálogo**.
+
+⚠️ **NUNCA leas `?ws=` de la URL para decidir de quién son los datos.** El super admin
+abre cada cliente en su propia pestaña y el workspace viaja ahí, pero un parámetro de URL
+lo escribe cualquiera: leerlo directo es un IDOR que abre los datos de otro cliente. El
+único que lo mira es `proxy.ts`, que lo acepta **solo** si la sesión firmada dice
+`rol === 'admin'` y que borra el header interno en cada request. De ahí para adentro se
+pregunta siempre a `getWorkspaceActual()`, como siempre. Para links y navegación usá
+`import Link, { useRouter } from '@/app/_ui/Link'` en vez de `next/link` y
+`next/navigation`: preservan el cliente que estás mirando. Las llamadas a `/api` no hay
+que tocarlas — el parche de `app/_components/WsFetch.tsx` les pega el parámetro solo.
 
 Las skills son `.md` y no pueden importar nada. Para esas, el módulo se copia con un
 script y **el pre-push falla si quedaron viejas** — esa guarda es lo único que impide que

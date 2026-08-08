@@ -5,7 +5,7 @@
 // Cableado a las queries existentes (objetivo, comparativo MTD, pendientes,
 // señales para el semáforo).
 
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import type { CSSProperties } from 'react';
 import {
   getResumenComparativo,

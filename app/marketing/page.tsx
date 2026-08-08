@@ -31,7 +31,7 @@ import {
   fmtDDMMYYYY,
 } from '@/lib/date-utils';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
 import { MakoButton } from '../_components/ChartIA';
