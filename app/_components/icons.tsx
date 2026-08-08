@@ -209,6 +209,29 @@ const PATHS: Record<string, ReactNode> = {
  */
 export const NOMBRES_ICONO = Object.keys(PATHS);
 
+/**
+ * La ráfaga de Claude. NO va en `PATHS` porque no es un ícono del producto:
+ * marca las entradas del historial que escribió el agente, y nada más. Metido
+ * en el set aparecería en el catálogo de íconos como si fuera de MaKo.
+ *
+ * Once radios, como la marca. El largo alterna para que la silueta no se lea
+ * como un asterisco tipográfico.
+ */
+const RAFAGA = [10.4, 7.6, 9.6, 7.2, 10.2, 7.6, 9.8, 7.2, 10.4, 7.6, 9.6];
+
+export function ClaudeMark({ size = 18, color = '#D97757' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ flex: 'none', display: 'block' }}>
+      <g fill={color} stroke="none">
+        {RAFAGA.map((largo, i) => (
+          <rect key={i} x={11.05} y={12 - largo} width={1.9} height={largo - 1.4} rx={0.95}
+            transform={`rotate(${(i * 360) / RAFAGA.length} 12 12)`} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.85} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none' }}>

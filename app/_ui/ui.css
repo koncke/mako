@@ -441,21 +441,43 @@
 .mk-tab[data-activo='true'] { color: var(--ink); }
 .mk-tab:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
 
-/* ── Fila del Change History ───────────────────────────────────────────────
-   Dos columnas: la metadata (cuándo, qué chat, qué cuenta) y el cambio. En
-   pantalla chica la metadata pasa ARRIBA en una sola línea, porque a 375 px una
-   columna de 108 px le deja 40 caracteres al texto. */
-.mk-hist { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 18px; }
-@media (max-width: 700px) {
-  .mk-hist { grid-template-columns: 1fr; gap: 0; }
-  .mk-hist > :first-child {
-    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-    text-align: left !important; padding: 14px 0 0 !important;
-  }
-  .mk-hist > :first-child > * { margin-top: 0 !important; }
-  .mk-hist > :last-child { border-left: none !important; padding-left: 0 !important; }
-  .mk-hist > :last-child > span:first-child { display: none; }
+/* ── Change History ────────────────────────────────────────────────────────
+   La cabecera de una entrada: avatar + título + metadata, todo clickeable.
+   Es un <button> y no un <div> con onClick para que llegue por teclado — el
+   historial es lo que va a leer la otra cuenta, no un adorno.
+
+   La metadata va DEBAJO del título y en horizontal, no en una columna al
+   costado: «Nombre del chat: Rediseño por partes» no entra en 108 px. */
+.mk-hist__cab {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%;
+  padding: 12px 12px 12px 10px; margin-left: -10px;
+  border: none; background: transparent; cursor: pointer;
+  font-family: inherit; text-align: left;
+  border-radius: var(--r-md);
+  transition: background .13s ease;
 }
+.mk-hist__cab:hover { background: var(--surface-2); }
+.mk-hist__cab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* La metadata (cuándo · qué chat · qué cuenta). En ancho normal va en UNA línea
+   separada por puntos medios. En pantalla chica eso se deshace en nueve
+   renglones —«Nombre del chat: Rediseño por partes» se parte palabra por
+   palabra—, así que ahí pasa a un dato por renglón y los separadores se van. */
+@media (max-width: 700px) {
+  .mk-hist__meta { display: block !important; }
+  .mk-hist__meta > span { display: block; }
+  .mk-hist__meta > span[aria-hidden] { display: none; }
+}
+
+/* «Desplegar todo» / «Plegar todo». Mismo tratamiento que el «ver más» del
+   plan: link discreto, no un botón que compita con la acción de la pantalla. */
+.mk-vermas {
+  border: none; background: transparent; color: var(--dim);
+  font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  padding: 4px 2px; text-decoration: underline; text-underline-offset: 3px;
+}
+.mk-vermas:hover { color: var(--ink); }
+.mk-vermas:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
 
 /* Salir es la única acción destructiva del menú del perfil, y va en rojo: es la
    que no querés tocar por error buscando Configuraciones. */
