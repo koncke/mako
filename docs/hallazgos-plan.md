@@ -178,6 +178,51 @@ lección: **un dato exacto que pasa por las manos de un LLM deja de ser exacto.*
 
 **Vive en:** lib/link-borrador.ts + tests/link-borrador.test.ts (la cura) · lib/mako-doer-in.ts (donde se aplica) · app/plan/revisar/[id]/page.tsx y NoEsTuyo.tsx (la red) · *2026-08-08*
 
+### ⚠️ El molde del detalle de un PROYECTO existía y el generador no lo conocía
+
+`MOLDE_PROYECTO` (Qué es / Qué ya está / Qué falta / Por qué importa) vive en
+`lib/detalle-contrato.ts` desde hace tiempo, y el repo hasta tiene `evaluarDetalleProyecto`
+para validarlo. Pero el prompt que ESCRIBE los proyectos —`GUARDIAN_PROY_NUEVOS_SYSTEM_TEMPLATE`—
+pedía «un DETALLE SÓLIDO (3-4 frases)», y `mako-guardian.ts` **no importaba `MOLDE_PROYECTO`
+en ninguna línea**.
+
+O sea: **el camino oficial por el que nacen los proyectos nunca usó el molde del repo.** Por
+eso salían en prosa corrida y después había que arreglarlos a mano con
+`scripts/barrido-proyectos.ts` — un script que existe precisamente porque el generador no
+hacía su trabajo. Pedir una forma y validar otra es garantizar el retrabajo.
+
+Se sumó también `scripts/describir-proyectos.ts`: la puerta para los proyectos abiertos a
+mano, que no pasan por `priorizarNuevasOwner` y por eso nacen sin detalle y sin score. Llama
+a la MISMA función del Perro, con las guardas de barrido-proyectos.
+
+⚠️ **Un proyecto creado con un INSERT directo saltea al Perro.** Nace con `detalle` vacío y
+`score` 0, y el board lo pinta como sin puntuar para siempre. La skill `plan-tareas` ya lo
+dice para las tareas («NUNCA hagas insert into plan_tareas»); vale igual para los proyectos.
+
+**Vive en:** lib/mako-guardian.ts (GUARDIAN_PROY_NUEVOS_SYSTEM_TEMPLATE) · lib/detalle-contrato.ts (MOLDE_PROYECTO) · scripts/describir-proyectos.ts · *2026-08-08*
+
+### La frontera Agente / Feature: si corre solo es agente, si lo abrís es feature
+
+El catálogo tenía 4 agentes y el código tiene 8. La que faltaba y más dolió fue la **Retro**:
+7 archivos, ~2.200 líneas, tablas y prompts propios, y no comparte NADA con `mako-guardian.ts`
+salvo una llamada — pero como no tenía proyecto, su trabajo terminaba anotado dentro de
+«Agente: Perro Guardián». El catálogo es CERRADO, así que **un proyecto que falta no produce
+un error: produce un ruteo silenciosamente equivocado.**
+
+La frontera la dictó el dueño y es nítida: **si corre solo, es agente; si lo abrís y lo usás,
+es feature.** Por eso los Analysts y los Generators siguen siendo `Feature:` aunque usen IA.
+
+El caso que NO cierra solo con esa regla y hay que resolver a mano: una pantalla que tiene
+adentro un cerebro que corre solo. Son DOS proyectos. Pasó con Plan/Perro y volvió a pasar
+con CRM: el motor de auto-transición (cron, 9 corridas por día) estaba adentro de
+«Feature: CRM», así que el avance de la pantalla y el del motor se sumaban en la misma barra.
+
+Al relevar el código aparecieron además dos tabs reales SIN proyecto (Modelos IA y el
+WhatsApp propio de la agencia): el mismo agujero que tenía Landing Analyst, que fue el que
+mandó una tarea de heatmaps a «Vender MaKo».
+
+**Vive en:** lib/plan-proyectos-catalogo.ts (PREFIJO_AGENTE, las 8 entradas de familia 'agente') · docs/preguntas-para-llenar-proyectos.md · *2026-08-08*
+
 ### Lo que quedó SIN hacer en las preguntas
 
 Confirmado por la auditoría del 2026-08-08 (30 hallazgos verificados) y deliberadamente
