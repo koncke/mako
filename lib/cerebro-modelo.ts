@@ -59,6 +59,11 @@ export type NodoCerebro = {
  *  lee al pasar por encima; si no se puede escribir, la arista no va. */
 export type AristaCerebro = { de: string; a: string; motivo: string };
 
+export type Punto = { x: number; y: number };
+/** El cuadrado del mundo que hay que mirar. Sale del bbox de las posiciones ya
+ *  asentadas, no es fijo: un negocio con 12 nodos y otro con 300 se ven igual de bien. */
+export type Encuadre = { x: number; y: number; lado: number };
+
 export type Cerebro = {
   negocio: string;
   nodos: NodoCerebro[];
@@ -66,4 +71,10 @@ export type Cerebro = {
   cuenta: { total: number; mako: number; usuario: number; pendientes: number };
   /** Las áreas que todavía no tienen un solo nodo real. */
   vacias: AreaId[];
+  /**
+   * Dónde va cada nodo. Se calcula EN EL SERVIDOR con d3-force (lib/cerebro-layout.ts)
+   * y viaja como números: así el motor de física nunca entra al bundle del browser.
+   */
+  posiciones: Record<string, Punto>;
+  encuadre: Encuadre;
 };

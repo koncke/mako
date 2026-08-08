@@ -47,6 +47,7 @@ import { getRecomendaciones } from './angulos-formatos';
 import { FASES, CANALES } from './fase-diagnostico';
 import { PERSONALIDAD_PREGUNTAS } from './personalidad';
 import { BIBLIOTECA_ANGULOS } from './angulos-data';
+import { layoutCerebro } from './cerebro-layout';
 
 // ── El modelo ────────────────────────────────────────────────────────────────
 // Vive en `cerebro-modelo.ts`, SIN `server-only`, porque el componente que dibuja
@@ -237,6 +238,10 @@ export async function construirCerebro(): Promise<Cerebro> {
   }
 
   // ── Panorama ───────────────────────────────────────────────────────────────
+  // Los seis planos se cuelgan de la raíz Y, cuando existe, del dato del que hablan
+  // (ver PANORAMA_APUNTA_A). Esa segunda arista es LATERAL: cruza de un área a otra
+  // y es parte de lo que convierte el grafo en una red en vez de un árbol.
+  const panoramaIds: string[] = [];
   for (const s of seccionesPanorama(panorama)) {
     const id = push({
       id: `pan:${s.titulo}`,
@@ -246,6 +251,7 @@ export async function construirCerebro(): Promise<Cerebro> {
       fuente: files.length === 1 ? 'de tu documento' : `de tus ${files.length} documentos`,
       autoria: 'mako',
     });
+    panoramaIds.push(id);
     unir(RAIZ, id, 'Un plano del panorama que MaKo escribió');
   }
 
@@ -323,19 +329,21 @@ export async function construirCerebro(): Promise<Cerebro> {
   // La única relación del modelo con integridad referencial de verdad:
   // RazonCelda.avatarId apunta a un Avatar. Es la arista más honesta del grafo.
   const formatoNombre = new Map(BIBLIOTECA_ANGULOS.map((f) => [f.id, f.nombre]));
+  const razonAFormatos: Array<{ razon: string; formato: string }> = [];
   for (const r of razones) {
-    const usados = [r.anguloImagen, r.anguloVideo].filter(Boolean).map((f) => formatoNombre.get(f) ?? f);
+    const usados = [r.anguloImagen, r.anguloVideo].filter(Boolean);
     const id = push({
       id: `raz:${r.id}`,
       area: 'razones',
       etiqueta: corto(r.nombre, 28),
-      detalle: [limpio(r.descripcion), limpio(r.copy) && `Hook: «${limpio(r.copy)}»`, r.guiones?.length ? `${r.guiones.length} ${r.guiones.length === 1 ? 'guion escrito' : 'guiones escritos'}` : '', usados.length ? `Formato: ${usados.join(' · ')}` : ''].filter(Boolean).join(' · '),
+      detalle: [limpio(r.descripcion), limpio(r.copy) && `Hook: «${limpio(r.copy)}»`, r.guiones?.length ? `${r.guiones.length} ${r.guiones.length === 1 ? 'guion escrito' : 'guiones escritos'}` : ''].filter(Boolean).join(' · '),
       fuente: 'una motivación de compra de ese segmento',
       autoria: 'mako',
     });
     const padre = avatarANodo.get(r.avatarId);
     if (padre) unir(padre, id, 'Este segmento compra por esta razón');
     else unir(RAIZ, id, 'Una razón de compra');
+    for (const f of usados) razonAFormatos.push({ razon: id, formato: f });
   }
 
   // ── Voz y cara ─────────────────────────────────────────────────────────────
@@ -375,20 +383,55 @@ export async function construirCerebro(): Promise<Cerebro> {
   }
 
   // ── Formatos: solo los que ESTE negocio usa ────────────────────────────────
-  // La biblioteca son 14 y es catálogo de MaKo, igual para todos. Entran solo los
-  // recomendados, y como nodo del área de razones porque es donde se usan.
-  for (const rec of recomendaciones) {
-    const nombre = formatoNombre.get(rec.formatoId);
+  // La biblioteca son 14 y es catálogo de MaKo, igual para todos. Entran los
+  // RECOMENDADOS más los que alguna celda eligió de verdad, y como nodo del área de
+  // razones porque es donde se usan.
+  const porRec = new Map(recomendaciones.map((r) => [r.formatoId, r]));
+  const usadosPorCelda = new Set(razonAFormatos.map((x) => x.formato));
+  for (const formatoId of new Set([...porRec.keys(), ...usadosPorCelda])) {
+    const nombre = formatoNombre.get(formatoId);
     if (!nombre) continue;
+    const rec = porRec.get(formatoId);
     const id = push({
-      id: `fmt:${rec.formatoId}`,
+      id: `fmt:${formatoId}`,
       area: 'razones',
       etiqueta: corto(nombre, 26),
-      detalle: [limpio(rec.para) && `Para: ${limpio(rec.para)}`, limpio(rec.porque)].filter(Boolean).join(' · '),
-      fuente: 'MaKo lo eligió de la biblioteca para tu negocio',
+      detalle: rec
+        ? [limpio(rec.para) && `Para: ${limpio(rec.para)}`, limpio(rec.porque)].filter(Boolean).join(' · ')
+        : 'Lo elegiste para uno de tus anuncios.',
+      fuente: rec ? 'MaKo lo eligió de la biblioteca para tu negocio' : 'en uso en tu matriz',
       autoria: 'mako',
     });
-    unir(RAIZ, id, 'Un formato de creativo recomendado para este negocio');
+    unir(RAIZ, id, 'Un formato de creativo de este negocio');
+  }
+
+  // ── LAS ARISTAS LATERALES ──────────────────────────────────────────────────
+  // Todo lo de arriba produce UNA arista entrante por nodo: eso es un ÁRBOL, y un
+  // árbol con un hub grande no se dibuja como una red — se dibuja como un diente de
+  // león. Estas son las relaciones que YA estaban en los datos y no se estaban
+  // usando; ninguna es decorativa y cada una se puede explicar en una frase.
+  const existe = new Set(nodos.map((n) => n.id));
+
+  // 1. Una celda de la matriz USA un formato concreto. Es la arista que cruza de un
+  //    segmento a otro (dos avatares distintos pueden elegir el mismo formato) y la
+  //    que más hace por sacar al grafo de la forma de estrella.
+  for (const { razon, formato } of razonAFormatos) {
+    if (existe.has(`fmt:${formato}`)) unir(razon, `fmt:${formato}`, 'Este anuncio se hace con este formato');
+  }
+
+  // 2. Cada plano del panorama HABLA de un dato concreto. Cuando ese dato existe como
+  //    nodo, se conectan: el plano deja de ser una hoja colgada de la raíz.
+  const PANORAMA_APUNTA_A: Record<string, string[]> = {
+    'OFERTA Y PRECIOS': ['campo:oferta_nombre', 'campo:oferta_ticket'],
+    'AVATAR Y CLIENTE IDEAL': ['campo:avatar_quien', 'campo:avatar_dolor'],
+    'NICHO Y MERCADO': ['campo:avatar_nicho'],
+    'TONO Y VOZ DE MARCA': ['voz'],
+  };
+  for (const idPan of panoramaIds) {
+    const titulo = idPan.slice('pan:'.length);
+    for (const destino of PANORAMA_APUNTA_A[titulo] ?? []) {
+      if (existe.has(destino)) unir(idPan, destino, 'Este plano del panorama habla de este dato');
+    }
   }
 
   // ── Los huecos, etiquetados ────────────────────────────────────────────────
@@ -412,10 +455,13 @@ export async function construirCerebro(): Promise<Cerebro> {
   }
 
   const reales = nodos.filter((n) => n.autoria !== 'pendiente');
+  const { posiciones, encuadre } = layoutCerebro(nodos, aristas);
   return {
     negocio: negocio || 'Tu negocio',
     nodos,
     aristas,
+    posiciones,
+    encuadre,
     cuenta: {
       total: reales.length,
       mako: reales.filter((n) => n.autoria === 'mako').length,

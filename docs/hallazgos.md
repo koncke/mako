@@ -21,7 +21,8 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 | Ads | [hallazgos-ads.md](hallazgos-ads.md) | `ads-analyst` y las lecturas de `marketing_metrics_daily` |
 | Landing / VSL | [hallazgos-landing.md](hallazgos-landing.md) | `landing-analyst`, `landing_visits` y `vsl_events` |
 | Plan | [hallazgos-plan.md](hallazgos-plan.md) | El board, el Perro Guardián, el contrato de sus preguntas (tipo ↔ campo), el pipeline reunión → tareas y el reparto por proyecto |
-| Onboarding | [hallazgos-onboarding.md](hallazgos-onboarding.md) | El wizard del cliente nuevo: el estado y sus cuatro listas paralelas, dónde se cae la gente de verdad, el grafo del segundo cerebro, la cáscara y el panel, y qué NO existe todavía (paso opcional, plan gratuito) |
+| Onboarding | [hallazgos-onboarding.md](hallazgos-onboarding.md) | El wizard del cliente nuevo: el estado y sus cuatro listas paralelas, dónde se cae la gente de verdad, la cáscara y el panel, y qué NO existe todavía (paso opcional, plan gratuito) |
+| Second Brain | [hallazgos-second-brain.md](hallazgos-second-brain.md) | El grafo del negocio: por qué un árbol no se dibuja como una red, qué es verdad y qué es mito del force layout, el determinismo de d3, y las trampas de dibujar y navegar un grafo en SVG |
 | Seguridad | [hallazgos-seguridad.md](hallazgos-seguridad.md) | Aislamiento, cifrado de credenciales, firma de webhooks, superficie expuesta |
 | Aislamiento | [auditoria-aislamiento-workspace.md](auditoria-aislamiento-workspace.md) | Multi-inquilino: qué se scopea por workspace y qué no |
 

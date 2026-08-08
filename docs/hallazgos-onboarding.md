@@ -220,11 +220,18 @@ reproducible y da el número exacto (quedó en 0 de 39).
 `d3-force` + `d3-quadtree` + `d3-dispatch` = **6,1 KB** · `sigma` 47,1 KB (+ `graphology`
 14,1 KB) · `cytoscape` 136,4 KB · `vis-network` 166,0 KB.
 
-**Regla.** A esta escala de nodos ninguna se justifica: un layout **determinista** (posiciones
-calculadas, sin simulación de fuerzas) cuesta 0 KB y elimina por construcción los tres bugs
-caros de esta clase de componente — identidad de objetos mutados entre renders, arranque en
-frío por `alpha(1)` y temblor en reposo. Ese temblor además viola una regla ya escrita en el
-sistema: nada de animación decorativa indefinida.
+⚠️ **La conclusión que había acá era la equivocada, y queda como ejemplo.** Decía que a esta
+escala ninguna librería se justifica y que un layout determinista sin física evitaba tres
+bugs. Dos de esos tres bugs no existen (d3-force se congela solo y es determinista por LCG de
+semilla fija), y el layout sin física produjo un organigrama radial que **no se parecía en
+nada** al grafo tipo Obsidian que se había pedido. Lo dijo el dueño en una frase.
+
+Lo que se hace hoy: `d3-force` **corre en el servidor** dentro de `construirCerebro()`, y al
+browser viajan las coordenadas ya asentadas. El peso de la librería en el bundle del cliente
+es **0 KB** — la discusión de KB estaba mal planteada desde el principio, porque asumía que
+el layout se calculaba en el navegador.
+
+El detalle completo está en [hallazgos-second-brain.md](hallazgos-second-brain.md).
 
 ### `view-transition-name` no sirve para animar el nacimiento de un nodo
 

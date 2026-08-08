@@ -3,197 +3,86 @@
 // =============================================================================
 // Grafo — el mapa del segundo cerebro: lo que MaKo entendió del negocio
 // =============================================================================
-// Tres decisiones que no son de gusto y conviene no revertir sin leer esto:
+// El lenguaje visual es el de Obsidian, y no de oído: los parámetros salieron de
+// leer su worker de física (publish.obsidian.md/sim.js, que es un build de d3-force)
+// y su renderer. De ahí vienen el fade de etiquetas por zoom, la atenuación a 0,20
+// al pasar el cursor, el grosor de arista constante en píxeles de pantalla y el
+// radio que "resiste" el zoom out (r · √k).
 //
-// 1. LAYOUT DETERMINISTA, NO SIMULACIÓN DE FUERZAS. Las posiciones se calculan
-//    con trigonometría a partir del área y del índice del nodo: mismas entradas,
-//    mismas coordenadas, siempre. Un force layout resuelve un problema que acá no
-//    existe (no hay que descubrir la estructura: el negocio YA tiene diez áreas)
-//    y trae tres bugs conocidos de regalo — identidad de objetos mutados entre
-//    renders, arranque en frío por alpha(1) y temblor permanente en reposo. Ese
-//    temblor además viola la regla de la casa de no dejar animación decorativa
-//    indefinida. Sin física tampoco hay nada que arrastrar, y eso es deliberado:
-//    un mapa que se puede desordenar deja de ser un registro y pasa a ser un
-//    juguete. Costo de esta decisión: 0 KB de dependencias.
+// LAS POSICIONES NO SE CALCULAN ACÁ. Vienen del servidor, ya asentadas
+// (lib/cerebro-layout.ts). Este componente dibuja y navega, nada más. Es lo que
+// mantiene d3-force fuera del bundle del browser.
 //
-// 2. EL COLOR DICE **QUIÉN**, NO QUÉ. Un borde de 3 px dorado = lo dedujo MaKo;
-//    borde neutro = lo escribiste tú; punteado = todavía no existe. Es la misma
-//    gramática del filo izquierdo de `.mk-mako` en ui.css («fondos de color
-//    distinto son una bolsa de caramelos; un filo de 3 px alcanza»). Diez colores
-//    por área serían justamente esa bolsa, y encima taparían el único dato que
-//    hace honesto al mapa. Rellenos de color hay exactamente dos en todo el
-//    lienzo, y los dos significan algo: el Norte (dorado) y el cuello (naranja).
+// TRES REGLAS QUE SE ROMPEN SOLAS SI NO SE SABEN:
 //
-// 3. LAS ETIQUETAS SE ANCLAN POR LADO. En la mitad izquierda del círculo el texto
-//    termina en el nodo, en la derecha empieza en él; si no, el texto se cruza
-//    encima del grafo y a los 40 nodos no se lee ninguno. El halo blanco
-//    (paint-order: stroke) es lo que lo mantiene legible sobre las aristas.
+//  1. El transform del zoom NO va como prop de JSX. Va con setAttribute sobre un ref
+//     adentro de un rAF. Si además se renderiza como prop, el próximo render de React
+//     lo pisa con el valor viejo del vdom y el mapa salta hacia atrás. Lo único que
+//     entra a useState es `kPaso` (la escala redondeada a cuartos), que cambia ~15
+//     veces en todo el recorrido del zoom y no 60 por segundo.
+//  2. `onWheel` de JSX NO puede preventDefault: react-dom 19 registra `wheel`,
+//     `touchstart` y `touchmove` con { passive: true }. Sin un addEventListener propio
+//     con { passive: false }, el zoom anda Y la página scrollea al mismo tiempo.
+//  3. Una etiqueta apagada por el nivel de detalle NO se renderiza. `opacity: 0` en
+//     SVG no ahorra nada: el nodo sigue costando layout igual que si se viera.
 // =============================================================================
 
-import { useMemo, useState, useId } from 'react';
-// Del modelo PURO, nunca de `cerebro-grafo`: ése lleva `server-only` y arrastra
-// la cadena entera de auth al bundle del browser. Ver lib/cerebro-modelo.ts.
-import { AREAS, type Cerebro, type NodoCerebro, type AreaId } from '@/lib/cerebro-modelo';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { AREAS, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
+import { MONO } from '@/app/_ui/tokens';
 
-// El lienzo es un cuadrado con el negocio en el centro. Coordenadas en unidades
-// de viewBox: el SVG escala solo y nunca hay que medir el DOM.
-const LADO = 1000;
-const C = LADO / 2;
-// Los anillos: hasta 3 nodos en el primero, 5 en el segundo, y de ahí 7 por fila.
-const CUPOS = [3, 5, 7, 9, 11];
-const R0 = 205;
-const DR = 92;
+// ── Constantes de navegación ─────────────────────────────────────────────────
+const K_MIN = 0.5;
+const K_MAX = 4;
+/** Umbral de clic vs arrastre, en px de pantalla al cuadrado (5 px, como Obsidian). */
+const ARRASTRE2 = 25;
+/** La `Rl` de Obsidian: cuánto se apaga lo que no es vecino del nodo en foco. */
+const ATENUADO = 0.2;
+const ATENUADO_ARISTA = 0.1;
 
-type Pos = {
-  x: number; y: number; ang: number;
-  /** Dónde va la etiqueta. NO es siempre `y`: ver `descongestionar`. */
-  ly: number;
-  /** false = la etiqueta se pisaba con otra y no se dibuja hasta el hover. */
-  visible: boolean;
-};
+type Vista = { k: number; x: number; y: number };
 
-// Medidas de la etiqueta, aproximadas pero suficientes para detectar choques: a
-// 11.5 px, un carácter promedio ocupa ~5,6 px de ancho y la línea ~13 px de alto.
-const CHAR = 5.6;
-const ALTO = 13;
-/** Cuánto se puede correr una etiqueta de su nodo antes de que deje de leerse como
- *  suya. Más que esto y el texto parece de otro punto: mejor esconderla. */
-const CORRIMIENTO_MAX = 22;
+// ── Radio, en unidades de mundo ──────────────────────────────────────────────
+// Misma fórmula que usa el layout del servidor para la colisión: si divergen, los
+// nodos se pisan o dejan huecos. No se copia el `max(8, min(3√(g+1), 30))` de
+// Obsidian porque es plano hasta grado 6 y acá dejaría el 95% del mapa igual.
+const radioBase = (n: NodoCerebro): number =>
+  n.id === 'raiz' ? 9 : n.destacado || n.alerta ? 6.5 : n.autoria === 'pendiente' ? 3.5 : 4.5;
 
-/** El ángulo del sector de cada área, arrancando arriba y girando como el reloj. */
-const anguloArea = (i: number): number => -90 + (i * 360) / AREAS.length;
+const radioMundo = (n: NodoCerebro, grado: number): number =>
+  radioBase(n) + Math.min(3, 0.9 * Math.sqrt(Math.max(0, grado - 1)));
 
-/**
- * Las posiciones. Determinista y sin estado: es una función pura del área y del
- * índice del nodo dentro de su área, así que dos renders con los mismos nodos dan
- * exactamente el mismo dibujo y nada salta al agregar uno nuevo.
- */
-function disponer(nodos: NodoCerebro[]): Map<string, Pos> {
-  const pos = new Map<string, Pos>();
-  pos.set('raiz', { x: C, y: C, ang: 0, ly: C, visible: true });
-
-  const porArea = new Map<AreaId, NodoCerebro[]>();
-  for (const n of nodos) {
-    if (n.id === 'raiz') continue;
-    const lista = porArea.get(n.area) ?? [];
-    lista.push(n);
-    porArea.set(n.area, lista);
-  }
-
-  AREAS.forEach((area, ai) => {
-    const lista = porArea.get(area.id) ?? [];
-    const base = anguloArea(ai);
-
-    // Repartir en filas según los cupos, y quedarse con cuántos cayeron en cada una:
-    // el abanico se centra sobre los que HAY, no sobre el cupo, o una fila a medio
-    // llenar queda pegada a un costado del sector.
-    const filas: NodoCerebro[][] = [];
-    let resto = lista.slice();
-    let f = 0;
-    while (resto.length) {
-      const cupo = CUPOS[Math.min(f, CUPOS.length - 1)];
-      filas.push(resto.slice(0, cupo));
-      resto = resto.slice(cupo);
-      f++;
-    }
-
-    filas.forEach((fila, fi) => {
-      const radio = R0 + fi * DR;
-      // La apertura crece con el anillo (más lejos, más lugar) pero se topea antes
-      // de invadir el sector vecino: 360/10 = 36°, así que 30 deja aire de sobra.
-      const apertura = Math.min(30, 20 + fi * 5);
-      const paso = fila.length > 1 ? apertura / (fila.length - 1) : 0;
-      fila.forEach((n, i) => {
-        const ang = base + (fila.length > 1 ? -apertura / 2 + i * paso : 0);
-        const rad = (ang * Math.PI) / 180;
-        const x = C + radio * Math.cos(rad);
-        const y = C + radio * Math.sin(rad);
-        pos.set(n.id, { x, y, ang, ly: y, visible: true });
-      });
-    });
-  });
-
-  descongestionar(nodos, pos);
-  return pos;
-}
-
-/**
- * Separa las etiquetas que se pisan. Hace falta porque en un layout radial dos
- * nodos de ANILLOS distintos pueden caer casi a la misma altura —el de adentro
- * más abierto en ángulo, el de afuera más cerrado— y ahí sus textos se montan uno
- * sobre otro. Medido sobre un cliente real: 7 choques en 39 etiquetas.
- *
- * Mueve solo la ETIQUETA, nunca el nodo: el punto es el dato y su posición
- * significa a qué área pertenece. Y si correrla no alcanza, la esconde en vez de
- * dejarla lejos de su punto — una etiqueta a 40 px parece de otro nodo, que es
- * peor que no tenerla. El hover la muestra igual.
- *
- * Determinista: mismo orden de entrada, mismo resultado. No hay iteración hasta
- * converger ni azar, así que dos renders dibujan exactamente lo mismo.
- */
-function descongestionar(nodos: NodoCerebro[], pos: Map<string, Pos>): void {
-  type Caja = { id: string; x0: number; x1: number; p: Pos };
-  // Cada lado se resuelve por separado: un texto anclado a la derecha nunca se
-  // cruza con uno anclado a la izquierda del otro extremo del círculo.
-  for (const lado of [-1, 1]) {
-    const cajas: Caja[] = [];
-    for (const n of nodos) {
-      const p = pos.get(n.id);
-      if (!p || n.id === 'raiz') continue;
-      const izq = Math.cos((p.ang * Math.PI) / 180) < 0;
-      if ((izq ? -1 : 1) !== lado) continue;
-      const w = n.etiqueta.length * CHAR;
-      const x = izq ? p.x - 14 : p.x + 14;
-      cajas.push({ id: n.id, x0: izq ? x - w : x, x1: izq ? x : x + w, p });
-    }
-    cajas.sort((a, b) => a.p.ly - b.p.ly);
-
-    for (let i = 1; i < cajas.length; i++) {
-      const prev = cajas[i - 1];
-      const cur = cajas[i];
-      if (!prev.p.visible) continue;
-      const cruzanEnX = Math.min(prev.x1, cur.x1) - Math.max(prev.x0, cur.x0) > 2;
-      const separacion = cur.p.ly - prev.p.ly;
-      if (!cruzanEnX || separacion >= ALTO) continue;
-      const necesita = ALTO - separacion;
-      if (Math.abs(cur.p.ly + necesita - cur.p.y) <= CORRIMIENTO_MAX) cur.p.ly += necesita;
-      else cur.p.visible = false;
-    }
-  }
-}
-
-/** Curva suave entre dos nodos: el punto de control se corre hacia el centro, así
- *  las aristas que cruzan sectores se arquean en vez de atravesar el dibujo en
- *  línea recta. Es el truco barato de agrupar aristas, sin librería. */
-function curva(a: Pos, b: Pos): string {
-  const mx = (a.x + b.x) / 2;
-  const my = (a.y + b.y) / 2;
-  const cx = mx + (C - mx) * 0.22;
-  const cy = my + (C - my) * 0.22;
-  return `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
-}
-
-const radioNodo = (n: NodoCerebro): number => {
-  if (n.id === 'raiz') return 15;
-  if (n.destacado || n.alerta) return 10;
-  if (n.autoria === 'pendiente') return 6;
-  return 7.5;
-};
+/** Qué tan "importante" es un nodo, para decidir a quién le toca etiqueta cuando no
+ *  entran todas. En un grafo, importante = muy conectado. */
+const PESO_AUTORIA: Record<NodoCerebro['autoria'], number> = { mako: 2, usuario: 1.5, pendiente: 0.5 };
+const importancia = (n: NodoCerebro, grado: number): number =>
+  n.id === 'raiz' ? 1e6 : n.destacado || n.alerta ? 1e5 : (2 + Math.sqrt(grado)) * PESO_AUTORIA[n.autoria];
 
 export function Grafo({ cerebro }: { cerebro: Cerebro }) {
-  const uid = `cbg-${useId().replace(/[:»]/g, '')}`;
+  const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
+
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const gRef = useRef<SVGGElement | null>(null);
+  const vista = useRef<Vista>({ k: 1, x: 0, y: 0 });
+  const rafRef = useRef<number | null>(null);
+
+  const [kPaso, setKPaso] = useState(1);
   const [activo, setActivo] = useState<string | null>(null);
   const [fijado, setFijado] = useState<string | null>(null);
   const [areaFoco, setAreaFoco] = useState<AreaId | null>(null);
 
-  const { nodos, aristas, cuenta } = cerebro;
-  const pos = useMemo(() => disponer(nodos), [nodos]);
   const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
 
-  // Los vecinos de cada nodo, para poder atenuar todo lo demás al pasar por encima.
+  const grados = useMemo(() => {
+    const g: Record<string, number> = {};
+    for (const n of nodos) g[n.id] = 0;
+    for (const a of aristas) { if (a.de in g) g[a.de]++; if (a.a in g) g[a.a]++; }
+    return g;
+  }, [nodos, aristas]);
+
   const vecinos = useMemo(() => {
     const m = new Map<string, Set<string>>();
-    const add = (a: string, b: string) => { const s = m.get(a) ?? new Set(); s.add(b); m.set(a, s); };
+    const add = (a: string, b: string) => { const s = m.get(a) ?? new Set<string>(); s.add(b); m.set(a, s); };
     for (const e of aristas) { add(e.de, e.a); add(e.a, e.de); }
     return m;
   }, [aristas]);
@@ -202,8 +91,195 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   const nodoSel = sel ? porId.get(sel) ?? null : null;
   const cerca = useMemo(() => (sel ? new Set([sel, ...(vecinos.get(sel) ?? [])]) : null), [sel, vecinos]);
 
-  // Un nodo está apagado si hay una selección y no es vecino, o si hay un área en
-  // foco y no pertenece. La raíz nunca se apaga: es el ancla de lectura del mapa.
+  // ── El centroide de cada área: ahí va su rótulo ────────────────────────────
+  // Antes los rótulos vivían en un anillo exterior fijo, que era una pista de que el
+  // layout era radial. Ahora el rótulo va donde de verdad quedó el racimo.
+  const rotulos = useMemo(() => {
+    const acc = new Map<AreaId, { x: number; y: number; n: number }>();
+    for (const n of nodos) {
+      if (n.id === 'raiz') continue;
+      const p = posiciones[n.id];
+      if (!p) continue;
+      const a = acc.get(n.area) ?? { x: 0, y: 0, n: 0 };
+      a.x += p.x; a.y += p.y; a.n++;
+      acc.set(n.area, a);
+    }
+    // Un área con UN solo nodo no lleva rótulo: el rótulo y la etiqueta del nodo se
+    // pisarían y dirían casi lo mismo.
+    return AREAS.filter((a) => (acc.get(a.id)?.n ?? 0) >= 2)
+      .map((a) => { const c = acc.get(a.id)!; return { ...a, x: c.x / c.n, y: c.y / c.n }; });
+  }, [nodos, posiciones]);
+
+  // ── Nivel de detalle de las etiquetas ──────────────────────────────────────
+  // Obsidian usa solo un umbral de zoom, que alcanza con 50 notas. Acá el presupuesto
+  // crece con k² (al duplicar el zoom se ve un cuarto del área) y se reparte por
+  // importancia, así que a cualquier zoom se lee lo que más pesa y nunca hay 300
+  // etiquetas encima. El hover SIEMPRE gana: es lo que hace Obsidian.
+  const etiquetas = useMemo(() => {
+    const forzadas = new Set<string>(['raiz']);
+    for (const n of nodos) if (n.destacado || n.alerta) forzadas.add(n.id);
+    if (sel) { forzadas.add(sel); for (const v of vecinos.get(sel) ?? []) forzadas.add(v); }
+
+    const presupuesto = Math.min(Math.max(Math.round(10 * kPaso * kPaso), 6), nodos.length);
+    const rank = [...nodos]
+      .filter((n) => !forzadas.has(n.id))
+      .sort((a, b) => importancia(b, grados[b.id] ?? 0) - importancia(a, grados[a.id] ?? 0));
+
+    const visibles = new Set(forzadas);
+    for (const n of rank) {
+      if (visibles.size >= presupuesto + forzadas.size) break;
+      if (areaFoco && n.area !== areaFoco) continue;
+      visibles.add(n.id);
+    }
+
+    // Descongestión en coordenadas de PANTALLA: dos nodos separados en el mundo se
+    // pisan igual si el zoom los junta. Una sola pasada, ordenada por y.
+    const cajas = [...visibles]
+      .map((id) => ({ id, n: porId.get(id)!, p: posiciones[id] }))
+      .filter((c) => c.n && c.p)
+      .map((c) => {
+        const w = (c.n.etiqueta.length * 5.4) / kPaso;    // ancho en unidades de mundo
+        const r = radioMundo(c.n, grados[c.id] ?? 0) / Math.sqrt(kPaso);
+        return { id: c.id, x: c.p.x, y: c.p.y + r + 11 / kPaso, w, base: c.p.y + r + 11 / kPaso };
+      })
+      .sort((a, b) => a.y - b.y);
+
+    const alto = 13 / kPaso;
+    const tope = 22 / kPaso;
+    const fuera = new Set<string>();
+    for (let i = 1; i < cajas.length; i++) {
+      const prev = cajas[i - 1];
+      const cur = cajas[i];
+      if (fuera.has(prev.id)) continue;
+      const cruzanX = Math.min(prev.x + prev.w / 2, cur.x + cur.w / 2) - Math.max(prev.x - prev.w / 2, cur.x - cur.w / 2) > 0;
+      const sep = cur.y - prev.y;
+      if (!cruzanX || sep >= alto) continue;
+      const necesita = alto - sep;
+      if (cur.y + necesita - cur.base <= tope) cur.y += necesita;
+      else if (!forzadas.has(cur.id)) fuera.add(cur.id);
+    }
+    const ys = new Map(cajas.map((c) => [c.id, c.y]));
+    for (const id of fuera) visibles.delete(id);
+    return { visibles, ys };
+  }, [nodos, sel, vecinos, kPaso, areaFoco, grados, posiciones, porId]);
+
+  // ── Zoom y pan ─────────────────────────────────────────────────────────────
+  const aplicar = useCallback(() => {
+    rafRef.current = null;
+    const g = gRef.current;
+    if (!g) return;
+    const v = vista.current;
+    g.setAttribute('transform', `translate(${v.x} ${v.y}) scale(${v.k})`);
+    g.style.setProperty('--k', String(v.k));
+    const paso = Math.round(v.k * 4) / 4;
+    setKPaso((prev) => (prev === paso ? prev : paso));
+  }, []);
+
+  const pedirPintado = useCallback(() => {
+    if (rafRef.current == null) rafRef.current = requestAnimationFrame(aplicar);
+  }, [aplicar]);
+
+  /** Un punto de pantalla a coordenadas del viewBox. `getScreenCTM` fuerza layout, así
+   *  que se llama una vez por gesto y no por frame. */
+  const aMundo = useCallback((cx: number, cy: number): Punto | null => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return null;
+    const p = svg.createSVGPoint();
+    p.x = cx; p.y = cy;
+    const q = p.matrixTransform(ctm.inverse());
+    return { x: q.x, y: q.y };
+  }, []);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    // { passive: false } es obligatorio: el onWheel de React no puede preventDefault.
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const pt = aMundo(e.clientX, e.clientY);
+      if (!pt) return;
+      const unidad = e.deltaMode === 1 ? 0.05 : e.deltaMode ? 1 : 0.002;
+      const factor = Math.pow(2, -e.deltaY * unidad * (e.ctrlKey ? 10 : 1));
+      const v = vista.current;
+      const k = Math.min(K_MAX, Math.max(K_MIN, v.k * factor));
+      // La invariante del zoom anclado: el punto del mundo bajo el cursor no se mueve.
+      const mx = (pt.x - v.x) / v.k;
+      const my = (pt.y - v.y) / v.k;
+      vista.current = { k, x: pt.x - mx * k, y: pt.y - my * k };
+      pedirPintado();
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, [aMundo, pedirPintado]);
+
+  const punteros = useRef(new Map<number, { x: number; y: number }>());
+  const arrastre = useRef<{ x0: number; y0: number; vx: number; vy: number; movido: boolean } | null>(null);
+  const pellizco = useRef<{ d0: number; k0: number } | null>(null);
+
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    punteros.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (punteros.current.size === 1) {
+      const v = vista.current;
+      arrastre.current = { x0: e.clientX, y0: e.clientY, vx: v.x, vy: v.y, movido: false };
+    } else if (punteros.current.size === 2) {
+      const [a, b] = [...punteros.current.values()];
+      pellizco.current = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, k0: vista.current.k };
+      arrastre.current = null;
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!punteros.current.has(e.pointerId)) return;
+    punteros.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pellizco.current && punteros.current.size === 2) {
+      const [a, b] = [...punteros.current.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const medio = aMundo((a.x + b.x) / 2, (a.y + b.y) / 2);
+      if (!medio) return;
+      const v = vista.current;
+      const k = Math.min(K_MAX, Math.max(K_MIN, pellizco.current.k0 * (d / pellizco.current.d0)));
+      const mx = (medio.x - v.x) / v.k;
+      const my = (medio.y - v.y) / v.k;
+      vista.current = { k, x: medio.x - mx * k, y: medio.y - my * k };
+      pedirPintado();
+      return;
+    }
+
+    const arr = arrastre.current;
+    if (!arr) return;
+    const dx = e.clientX - arr.x0;
+    const dy = e.clientY - arr.y0;
+    if (!arr.movido && dx * dx + dy * dy <= ARRASTRE2) return;
+    arr.movido = true;
+    // El desplazamiento se convierte a unidades de mundo con la escala del viewBox.
+    const svg = svgRef.current;
+    const caja = svg?.getBoundingClientRect();
+    if (!caja) return;
+    const escala = encuadre.lado / caja.width;
+    vista.current = { ...vista.current, x: arr.vx + dx * escala, y: arr.vy + dy * escala };
+    pedirPintado();
+  };
+
+  const soltar = (e: React.PointerEvent<SVGSVGElement>) => {
+    punteros.current.delete(e.pointerId);
+    if (punteros.current.size < 2) pellizco.current = null;
+    if (punteros.current.size === 0) {
+      // Un arrastre no deselecciona; un clic en el vacío sí.
+      if (arrastre.current && !arrastre.current.movido) setFijado(null);
+      arrastre.current = null;
+    }
+  };
+
+  const clicNodo = (id: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (arrastre.current?.movido) return;
+    setFijado((f) => (f === id ? null : id));
+  };
+
   const apagado = (n: NodoCerebro): boolean => {
     if (n.id === 'raiz') return false;
     if (cerca) return !cerca.has(n.id);
@@ -212,154 +288,173 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
   };
 
   const areaDe = (id: AreaId) => AREAS.find((a) => a.id === id)!;
+  const kr = Math.sqrt(kPaso);
+  const vb = `${encuadre.x} ${encuadre.y} ${encuadre.lado} ${encuadre.lado}`;
 
   return (
-    <div className={uid}>
+    <div className="cbg">
       <style>{`
-        .${uid} { --cbg-mako: var(--mako); --cbg-linea: var(--border-strong); }
-        .${uid} .cbg-nodo { cursor: pointer; }
-        .${uid} .cbg-nodo circle { transition: opacity .18s ease, r .18s ease; }
-        .${uid} .cbg-nodo text { transition: opacity .18s ease; }
-        .${uid} .cbg-arista { transition: opacity .18s ease, stroke .18s ease; }
-        .${uid} .cbg-rot { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; fill: var(--faint); }
-        .${uid} .cbg-et { font-size: 11.5px; fill: var(--dim); paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; }
-        .${uid} .cbg-et-fuerte { fill: var(--ink); font-weight: 600; }
-        .${uid} .cbg-entra { animation: cbg-in .5s cubic-bezier(.23,1,.32,1) backwards; }
-        @keyframes cbg-in { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+        .cbg .cbg-lienzo { background: var(--sidebar); border: 1px solid var(--sidebar-2); border-radius: 14px; overflow: hidden; }
+        .cbg svg { width: 100%; height: auto; display: block; aspect-ratio: 1/1; touch-action: none; cursor: grab; }
+        .cbg svg:active { cursor: grabbing; }
+        .cbg .cbg-nodo { cursor: pointer; }
+        .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et, .cbg .cbg-rot { transition: opacity .18s ease, stroke .18s ease, fill .18s ease; }
+        .cbg .cbg-et {
+          font-size: calc(11px / var(--k, 1));
+          fill: var(--sidebar-text);
+          paint-order: stroke;
+          stroke: var(--sidebar);
+          stroke-width: calc(3px / var(--k, 1));
+          stroke-linejoin: round;
+          pointer-events: none;
+        }
+        .cbg .cbg-et-fuerte { fill: var(--on-sidebar); font-weight: 600; }
+        .cbg .cbg-rot {
+          font-family: ${MONO};
+          font-size: calc(10px / var(--k, 1));
+          letter-spacing: .1em;
+          text-transform: uppercase;
+          fill: var(--sidebar-text);
+          opacity: .45;
+          cursor: pointer;
+        }
+        .cbg .cbg-rot-on { opacity: 1; fill: var(--mako); }
+        .cbg .cbg-entra { animation: cbg-in .55s cubic-bezier(.23,1,.32,1) backwards; }
+        @keyframes cbg-in { from { opacity: 0; } to { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) {
-          .${uid} .cbg-entra { animation: none; }
-          .${uid} .cbg-nodo circle, .${uid} .cbg-nodo text, .${uid} .cbg-arista { transition: none; }
+          .cbg .cbg-entra { animation: none; }
+          .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et, .cbg .cbg-rot { transition: none; }
+        }
+        @media (max-width: 900px) {
+          .cbg .cbg-cols { grid-template-columns: minmax(0,1fr) !important; }
+          .cbg .cbg-cols > aside { position: static !important; }
         }
       `}</style>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 300px', gap: 20, alignItems: 'start' }} className="cbg-cols">
-        {/* ── El lienzo ───────────────────────────────────────────────────── */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+      <div className="cbg-cols" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 300px', gap: 20, alignItems: 'start' }}>
+        <div className="cbg-lienzo">
           <svg
-            viewBox={`0 0 ${LADO} ${LADO}`}
-            style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: '1 / 1' }}
+            ref={svgRef}
+            viewBox={vb}
             role="img"
             aria-label={`Mapa del segundo cerebro: ${cuenta.total} cosas que MaKo entendió de tu negocio`}
-            onClick={() => setFijado(null)}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={soltar}
+            onPointerCancel={soltar}
+            onPointerLeave={soltar}
           >
-            {/* Los rótulos de área, en el borde exterior de su sector. Van primero
-                para que cualquier nodo quede por encima. */}
-            {AREAS.map((a, i) => {
-              const ang = (anguloArea(i) * Math.PI) / 180;
-              const r = 470;
-              const x = C + r * Math.cos(ang);
-              const y = C + r * Math.sin(ang);
-              const izq = Math.cos(ang) < -0.15;
-              const centro = Math.abs(Math.cos(ang)) <= 0.15;
-              return (
+            <g ref={gRef} style={{ ['--k' as string]: 1 }}>
+              {/* Rótulos de área, en el centroide de su racimo. Van primero: cualquier
+                  nodo tiene que quedar por encima. */}
+              {rotulos.map((a) => (
                 <text
                   key={a.id}
-                  className="cbg-rot"
-                  x={x}
-                  y={y}
-                  textAnchor={centro ? 'middle' : izq ? 'end' : 'start'}
+                  className={`cbg-rot${areaFoco === a.id ? ' cbg-rot-on' : ''}`}
+                  x={a.x}
+                  y={a.y}
+                  textAnchor="middle"
                   dominantBaseline="middle"
-                  style={{ fill: areaFoco === a.id ? 'var(--mako-ink)' : undefined, cursor: 'pointer' }}
                   onClick={(e) => { e.stopPropagation(); setAreaFoco(areaFoco === a.id ? null : a.id); }}
                 >
                   {a.nombre}
                 </text>
-              );
-            })}
+              ))}
 
-            {/* Aristas */}
-            <g fill="none">
-              {aristas.map((e, i) => {
-                const a = pos.get(e.de);
-                const b = pos.get(e.a);
-                if (!a || !b) return null;
-                const viva = cerca ? cerca.has(e.de) && cerca.has(e.a) : true;
-                const na = porId.get(e.a);
-                const punteada = na?.autoria === 'pendiente';
+              <g fill="none">
+                {aristas.map((e, i) => {
+                  const a = posiciones[e.de];
+                  const b = posiciones[e.a];
+                  if (!a || !b) return null;
+                  const na = porId.get(e.a);
+                  const viva = cerca ? cerca.has(e.de) && cerca.has(e.a) : true;
+                  const enFoco = areaFoco ? na?.area === areaFoco || porId.get(e.de)?.area === areaFoco : true;
+                  const op = cerca ? (viva ? 0.9 : ATENUADO_ARISTA) : areaFoco ? (enFoco ? 0.7 : ATENUADO_ARISTA) : 0.35;
+                  return (
+                    <line
+                      key={`${e.de}-${e.a}-${i}`}
+                      className="cbg-arista"
+                      x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                      stroke={viva && cerca ? 'var(--on-sidebar)' : 'var(--sidebar-text)'}
+                      strokeWidth={viva && cerca ? 1.6 : 1}
+                      strokeDasharray={na?.autoria === 'pendiente' ? '3 5' : undefined}
+                      strokeOpacity={op}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  );
+                })}
+              </g>
+
+              {nodos.map((n, i) => {
+                const p = posiciones[n.id];
+                if (!p) return null;
+                const off = apagado(n);
+                // El radio "resiste" el zoom out: en pantalla queda r·√k, igual que la
+                // nodeScale de Obsidian. Sin esto los nodos desaparecen al alejarse.
+                const r = radioMundo(n, grados[n.id] ?? 0) / kr;
+                const esSel = sel === n.id;
+
+                // El COLOR dice QUIÉN, y sobre fondo oscuro se invierte: acá el relleno
+                // es la autoría (un borde de 3 px sobre un punto de 4,5 sería casi todo
+                // el nodo). Rellenos con significado: los dos de siempre, Norte y cuello.
+                let fill = 'var(--sidebar-text)';
+                let stroke = 'none';
+                let sw = 0;
+                if (n.id === 'raiz') fill = 'var(--on-sidebar)';
+                else if (n.destacado) fill = 'var(--mako)';
+                else if (n.alerta) fill = 'var(--warn-fill)';
+                else if (n.autoria === 'mako') fill = 'var(--mako)';
+                else if (n.autoria === 'pendiente') { fill = 'none'; stroke = 'var(--sidebar-text)'; sw = 1; }
+
+                const mostrarEt = etiquetas.visibles.has(n.id);
+                const ey = etiquetas.ys.get(n.id) ?? p.y + r + 11 / kPaso;
+
                 return (
-                  <path
-                    key={`${e.de}-${e.a}-${i}`}
-                    className="cbg-arista"
-                    d={curva(a, b)}
-                    stroke={viva && cerca ? 'var(--mako-ink)' : 'var(--cbg-linea)'}
-                    strokeWidth={viva && cerca ? 1.6 : 1}
-                    strokeDasharray={punteada ? '3 5' : undefined}
-                    opacity={cerca ? (viva ? 0.9 : 0.12) : areaFoco ? (na?.area === areaFoco ? 0.7 : 0.12) : 0.5}
-                  />
+                  <g
+                    key={n.id}
+                    className="cbg-nodo cbg-entra"
+                    style={{ animationDelay: `${Math.min(i * 14, 700)}ms` }}
+                    onMouseEnter={() => setActivo(n.id)}
+                    onMouseLeave={() => setActivo(null)}
+                    onClick={clicNodo(n.id)}
+                  >
+                    <circle cx={p.x} cy={p.y} r={Math.max(r + 10 / kr, 18 / kr)} fill="transparent" />
+                    {esSel && (
+                      <circle cx={p.x} cy={p.y} r={r + 3.5 / kr} fill="none" stroke="var(--on-sidebar)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                    )}
+                    <circle
+                      cx={p.x} cy={p.y} r={r}
+                      fill={fill}
+                      stroke={stroke}
+                      strokeWidth={sw}
+                      strokeDasharray={n.autoria === 'pendiente' ? '2 2' : undefined}
+                      vectorEffect={sw ? 'non-scaling-stroke' : undefined}
+                      opacity={off ? ATENUADO : 1}
+                    />
+                    {mostrarEt && (
+                      <text
+                        className={`cbg-et${n.id === 'raiz' || n.destacado || n.alerta ? ' cbg-et-fuerte' : ''}`}
+                        x={p.x}
+                        y={ey}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        opacity={off ? ATENUADO : 1}
+                      >
+                        {n.etiqueta}
+                      </text>
+                    )}
+                  </g>
                 );
               })}
             </g>
-
-            {/* Nodos */}
-            {nodos.map((n, i) => {
-              const p = pos.get(n.id);
-              if (!p) return null;
-              const off = apagado(n);
-              const r = radioNodo(n);
-              const esSel = sel === n.id;
-              const izq = Math.cos((p.ang * Math.PI) / 180) < 0 && n.id !== 'raiz';
-
-              // Relleno y borde. Solo dos rellenos de color en todo el mapa, y los
-              // dos significan algo: el Norte y el cuello.
-              let fill = 'var(--surface)';
-              let stroke = 'var(--border-strong)';
-              let sw = 2;
-              if (n.id === 'raiz') { fill = 'var(--sidebar)'; stroke = 'var(--sidebar)'; sw = 0; }
-              else if (n.destacado) { fill = 'var(--mako)'; stroke = 'var(--mako-ink)'; sw = 2; }
-              else if (n.alerta) { fill = 'var(--warn-bg)'; stroke = 'var(--warn-fill)'; sw = 2.5; }
-              else if (n.autoria === 'mako') { stroke = 'var(--mako)'; sw = 3; }
-              else if (n.autoria === 'pendiente') { fill = 'transparent'; stroke = 'var(--faint)'; sw = 1.5; }
-
-              return (
-                <g
-                  key={n.id}
-                  className={`cbg-nodo cbg-entra`}
-                  style={{ animationDelay: `${Math.min(i * 22, 900)}ms`, transformOrigin: `${p.x}px ${p.y}px` }}
-                  onMouseEnter={() => setActivo(n.id)}
-                  onMouseLeave={() => setActivo(null)}
-                  onClick={(e) => { e.stopPropagation(); setFijado(fijado === n.id ? null : n.id); }}
-                >
-                  {/* Área de toque generosa: el punto mide 7 px y el dedo no. */}
-                  <circle cx={p.x} cy={p.y} r={Math.max(r + 12, 22)} fill="transparent" />
-                  <circle
-                    cx={p.x}
-                    cy={p.y}
-                    r={esSel ? r + 2.5 : r}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth={sw}
-                    strokeDasharray={n.autoria === 'pendiente' ? '3 3' : undefined}
-                    opacity={off ? 0.15 : 1}
-                  />
-                  {/* Una etiqueta escondida por choque vuelve al pasar por encima o
-                      al fijar el nodo: el dato no se pierde, solo deja de competir. */}
-                  {(p.visible || esSel || activo === n.id) && (
-                    <text
-                      className={`cbg-et${n.id === 'raiz' || n.destacado || n.alerta ? ' cbg-et-fuerte' : ''}`}
-                      x={n.id === 'raiz' ? p.x : izq ? p.x - r - 6 : p.x + r + 6}
-                      y={n.id === 'raiz' ? p.y + r + 16 : p.ly}
-                      textAnchor={n.id === 'raiz' ? 'middle' : izq ? 'end' : 'start'}
-                      dominantBaseline="middle"
-                      opacity={off ? 0.12 : 1}
-                    >
-                      {n.etiqueta}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
           </svg>
         </div>
 
-        {/* ── El lector ───────────────────────────────────────────────────── */}
-        {/* Panel fijo, no tooltip flotante: un tooltip de 300 px al lado del cursor
-            se sale del lienzo en los nodos del borde y tapa justo lo que se estaba
-            mirando. Acá el texto siempre aparece en el mismo lugar. */}
         <aside style={{ position: 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, minHeight: 190 }}>
             {nodoSel ? (
               <>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
                   {areaDe(nodoSel.area).nombre}
                 </div>
                 <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 8 }}>
@@ -369,7 +464,7 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                   {nodoSel.detalle}
                 </p>
                 {nodoSel.fuente && (
-                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--faint)' }}>
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>
                     {nodoSel.fuente}
                   </div>
                 )}
@@ -384,27 +479,17 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                   {cuenta.pendientes > 0 && ` Quedan ${cuenta.pendientes} ${cuenta.pendientes === 1 ? 'área' : 'áreas'} sin construir.`}
                 </p>
                 <p style={{ margin: '12px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--faint)', lineHeight: 1.55 }}>
-                  Pasa el cursor por un punto para leerlo. Haz clic para fijarlo.
+                  Pasa el cursor por un punto para leerlo, haz clic para fijarlo, y usa la rueda para acercarte.
                 </p>
               </>
             )}
           </div>
 
-          {/* La leyenda ES el control: cada fila enfoca su área. */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px' }}>
             <Leyenda />
           </div>
         </aside>
       </div>
-
-      {/* Una sola media query, del lado del contenedor: en mobile el lector baja
-          debajo del lienzo en vez de comprimirlo a una columna ilegible. */}
-      <style>{`
-        @media (max-width: 900px) {
-          .${uid} .cbg-cols { grid-template-columns: minmax(0,1fr) !important; }
-          .${uid} .cbg-cols > aside { position: static !important; }
-        }
-      `}</style>
     </div>
   );
 }
@@ -412,17 +497,19 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
 function Leyenda() {
   const fila = (nodo: React.ReactNode, texto: string) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-      <svg width={18} height={18} viewBox="0 0 18 18" style={{ flex: 'none' }}>{nodo}</svg>
+      <span style={{ display: 'inline-flex', flex: 'none', background: 'var(--sidebar)', borderRadius: 5, padding: 2 }}>
+        <svg width={16} height={16} viewBox="0 0 16 16">{nodo}</svg>
+      </span>
       {texto}
     </div>
   );
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-      {fila(<circle cx={9} cy={9} r={5.5} fill="var(--surface)" stroke="var(--mako)" strokeWidth={3} />, 'Lo dedujo MaKo')}
-      {fila(<circle cx={9} cy={9} r={5.5} fill="var(--surface)" stroke="var(--border-strong)" strokeWidth={2} />, 'Lo escribiste tú')}
-      {fila(<circle cx={9} cy={9} r={5} fill="transparent" stroke="var(--faint)" strokeWidth={1.5} strokeDasharray="3 3" />, 'Todavía no existe')}
-      {fila(<circle cx={9} cy={9} r={6} fill="var(--mako)" stroke="var(--mako-ink)" strokeWidth={2} />, 'Tu Norte')}
-      {fila(<circle cx={9} cy={9} r={6} fill="var(--warn-bg)" stroke="var(--warn-fill)" strokeWidth={2.5} />, 'Lo que te frena')}
+      {fila(<circle cx={8} cy={8} r={4.5} fill="var(--mako)" />, 'Lo dedujo MaKo')}
+      {fila(<circle cx={8} cy={8} r={4.5} fill="var(--sidebar-text)" />, 'Lo escribiste tú')}
+      {fila(<circle cx={8} cy={8} r={4} fill="none" stroke="var(--sidebar-text)" strokeWidth={1} strokeDasharray="2 2" />, 'Todavía no existe')}
+      {fila(<circle cx={8} cy={8} r={5.5} fill="var(--mako)" />, 'Tu Norte')}
+      {fila(<circle cx={8} cy={8} r={5.5} fill="var(--warn-fill)" />, 'Lo que te frena')}
     </div>
   );
 }
