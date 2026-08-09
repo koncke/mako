@@ -130,10 +130,17 @@ export function Pricing() {
             rotulo="Retención anual bajo US$50/mes"
             detalle="El Pro cae en la peor banda medida, por dos dólares."
           />
+          {/* Acá estuvo «US$666 · costo de una reunión de venta» y era un ERROR:
+              ese número es el costo de una reunión agendada por un SDR en un
+              equipo de venta OUTBOUND — un modelo que MaKo no usa. Puesto como
+              cifra del veredicto se leía como «este es tu CAC», que es falso. Y
+              encima venía de blogs de agencias de lead-gen sin muestra publicada.
+              Lo que SÍ se sostiene es el TECHO: cuánto se puede gastar en
+              adquirir sin destruir valor. Es un límite, no un costo incurrido. */}
           <Cifra
-            valor="US$666" tono="warn"
-            rotulo="Costo de una reunión de venta"
-            detalle={`Contra un ACV de US$${(PRO.precioUsd * 12).toFixed(0)} en el Pro.`}
+            valor="US$53-104" tono="warn"
+            rotulo="Techo de CAC del Pro"
+            detalle="Lo máximo que puede costar adquirir un cliente sin destruir valor. Derivado de la retención por banda y una relación LTV:CAC de 3 a 4,1×."
           />
         </div>
         <Nota>
