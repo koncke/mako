@@ -1321,6 +1321,42 @@ coinciden, pero pueden.
 - **La deferencia colectiva deja el doc mintiendo.** Cuatro reportes seguidos anunciaron "esta fila del doc quedó obsoleta, no la toqué porque hay otra sesión en el árbol". Los cuatro dijeron lo mismo y **ninguno la tocó**: para quien leyera el documento al día siguiente, cinco frentes cerrados seguían abiertos. Un `.md` no es código: el conflicto se resuelve leyendo. **Si sos el que cierra, cerrá también el documento.**
 - **La sesión que cierra deja escrito dónde quedó** — en `docs/hallazgos-<área>.md`, en el board `/plan` o en una memoria. Si la cuota corta a mitad de camino, eso es lo único que sobrevive.
 
+### ⚠️ El preview MUERE EN SILENCIO si la otra sesión ya tiene un `next dev` arriba
+
+**Síntoma:** `preview_start` contesta `"Server started successfully on port 3000"` con un
+`serverId` nuevo, y un segundo después ese mismo `serverId` **ya no existe** —
+`preview_logs` responde *«not found — it may be stale»* y `preview_list` no lo lista. El
+puerto 3000 queda libre. Se puede repetir cuatro veces con el mismo resultado, y ninguna
+de las cuatro dice qué pasó.
+
+**Causa:** Next 16 detecta que ya hay un dev server sobre el MISMO directorio y se apaga
+solo. El mensaje existe, pero se lo come el preview:
+
+```
+⨯ Another next dev server is already running.
+- Local:  http://localhost:3100
+- PID:    24524
+```
+
+Lo devuelve `node_modules/.bin/next dev` corrido a mano, que es la única forma de verlo.
+
+**La trampa de diagnóstico:** el instinto es «se cayó el server» o «el puerto está
+ocupado», y las dos pistas mienten — el puerto 3000 está **libre** (`Get-NetTCPConnection
+-LocalPort 3000` no devuelve nada) porque el server ajeno está en el 3100.
+
+**Regla:** si `preview_start` devuelve un `serverId` que después no existe, **no lo
+reintentes: corré `node_modules/.bin/next dev` una vez para leer el error**. Y si el que
+está arriba es de la otra sesión, **no lo mates**: sirve el MISMO working tree —tus
+ediciones ya están adentro por HMR— así que se verifica contra su puerto. Cambiar
+`.claude/launch.json` para apuntar ahí no sirve: el preview igual arranca la entrada de
+3000.
+
+Para verificar una ruta gateada desde ahí sin navegador, alcanza con curl y un cookie jar
+contra `/api/auth/dev-login` (super-admin, solo-dev), que es como se comprobó el filtro de
+período de `/integraciones`.
+
+**Vive en:** `.claude/launch.json` · `app/api/auth/dev-login/route.ts` · *2026-08-09*
+
 ### `git add <archivo>` explícito igual se lleva trabajo de la otra sesión
 
 La regla escrita es «nunca `git add -A`, commiteá por ruta explícita». **No alcanza:** git stagea
