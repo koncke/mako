@@ -15,6 +15,7 @@ habilita a darle mejores prompts al otro Claude».
 - Un push no es una entrega: el build de Vercel falla, **producción sigue sirviendo la versión vieja** y nadie avisa → [Build, deploy y entrega](#build-deploy-y-entrega).
 - La tabla `notificaciones` **no existe en producción** desde siempre y el escritor se traga el error → [Migraciones](#migraciones).
 - Hay features **terminadas, con migración y API propias, que ninguna página monta**: compilan y no existen → [Código construido que ninguna página monta](#código-construido-que-ninguna-página-monta).
+- Si Claude Code «se cierra solo» y la PC sigue andando, es el **proceso GPU** muriendo por la gráfica híbrida — y los tres diagnósticos obvios (memoria, energía, drivers) estaban los tres equivocados → [El equipo](#el-equipo-cuando-se-cierra-claude-code-y-no-es-claude-code).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -1458,3 +1459,69 @@ multiplica las rutas: **la clave de proyecto sale del `cwd`**, así que abrir la
 carpeta padre o desde el repo genera dos claves distintas y cada una busca su propia `memory/`.
 
 - **Dos sesiones no editan la misma skill ni el mismo prompt a la vez.** Se pisan igual que el código, pero el efecto aparece días después y en otro lado.
+
+---
+
+## El equipo: cuando se cierra Claude Code y no es Claude Code
+
+### ⚠️ «Se cierra solo» = crash del proceso GPU por la gráfica híbrida, no un bug de la app
+
+**Síntoma:** la sesión de Claude Code desaparece cada 4 a 46 minutos, siempre alrededor de
+lanzar un workflow. La PC **sigue andando**: el dueño vuelve al rato y la app ya no está.
+Windows ofrece «reparar» la app. Las corridas con subagentes se pierden enteras — cuatro
+veces la misma noche.
+
+**Causa:** en `%APPDATA%\Claude\logs\main.log`, cada reinicio viene precedido por
+`GPU process gone: { reason: 'crashed', exitCode: 101457950 }`, y **sin `onQuitCleanup`** —
+la app muere de golpe, no se despide. El equipo es una notebook con **gráficos híbridos**
+(Intel UHD + RTX 4060). Claude estaba en «Alto rendimiento» (`GpuPreference=2`), así que la
+NVIDIA renderizaba y **copiaba los cuadros al framebuffer de la Intel**, que es la que
+maneja el panel. Ese traspaso es lo que se rompe, y pega más con varios contextos de
+navegador a la vez (los subagentes) porque hay más superficie para que la copia falle.
+
+**La regla:** en una notebook con Optimus, fijar Claude a la **integrada**, no a la dedicada
+— `Configuración → Sistema → Pantalla → Gráficos → Claude → Ahorro de energía`. La integrada
+ya maneja el panel; sacar el salto entre placas elimina el fallo. Verificable en el registro:
+`HKCU:\SOFTWARE\Microsoft\DirectX\UserGpuPreferences` tiene que decir `GpuPreference=1;`.
+
+**Tres diagnósticos obvios que estaban EQUIVOCADOS**, y es lo que más tiempo cuesta:
+
+1. **«Es falta de memoria.»** No: había 3,8 GB libres de 16 en cada crash, y la app usaba
+   1,96 GB. La telemetría propia (`[process-memory] … sys_free=`) lo desmiente sola.
+2. **«Windows cierra la sesión.»** El log dice `Windows session ending (shutdown)` **una
+   sola vez** — y esa fue el reinicio que dispara el instalador de drivers (evento
+   Kernel-Power 109, `Reason: Kernel API`). Las otras cinco no tienen ni ese aviso ni
+   `onQuitCleanup`.
+3. **«Actualizando los drivers se arregla.»** Se actualizaron los dos (Intel y NVIDIA) y
+   **volvió a crashear 4 minutos después**. Lo que lo arregló fue el pin a la integrada.
+
+También quedaron descartados con evidencia: hardware (cero eventos WHEA), el driver
+colgándose (cero TDR), el software de MSI y la cámara virtual Camo (corriendo durante las
+tres pruebas de reproducción, sin un solo crash), y «es del sistema entero» (Chrome tuvo 35
+crashes en 4 meses; Claude, 6 en 3 horas — no es comparable).
+
+**Cómo verificarlo sin adivinar.** Un crash del proceso GPU **no deja atribución en ningún
+log**: ningún componente firma que lo mató. Se reproduce y se mide. Las tres pruebas, en
+orden de valor:
+
+| Prueba | Qué mide | Resultado con el pin a Intel |
+|---|---|---|
+| 6 escenas WebGL sostenidas, 4 min | carga bruta de GPU | no crashea (**y sin el pin tampoco** — descarta «se satura») |
+| Churn de pestañas: crear → navegar → cerrar, ×5 | ciclo de vida del contexto | no crashea |
+| **6 agentes en paralelo con navegador** | **concurrencia — la condición real** | **6 de 6, sin crash** |
+
+La tercera es la que importa: es la única que reproducía el fallo antes.
+
+**Vive en:** `%APPDATA%\Claude\logs\main.log` (buscar `GPU process gone`) ·
+`HKCU:\SOFTWARE\Microsoft\DirectX\UserGpuPreferences` · *2026-08-09*
+
+### Regla: antes de culpar a la app, mirá SU log — está en el disco y dice la causa
+
+Las tres teorías equivocadas de arriba salieron de mirar el sistema (memoria, energía,
+drivers) en vez del log de la aplicación. `main.log` tenía la línea exacta desde el primer
+minuto. El orden correcto es: **log de la app → evento de Windows que lo corrobore →
+reproducción medida**. Y si el log de la app dice `session ending`, eso es Windows
+avisando; si NO lo dice y falta `onQuitCleanup`, el proceso murió — son dos causas
+distintas y se confunden fácil.
+
+**Vive en:** *2026-08-09*
