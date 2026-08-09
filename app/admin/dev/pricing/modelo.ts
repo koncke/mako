@@ -211,6 +211,29 @@ export const AUDIO: Medio[] = [
 
 export type Dato = { id: string; titulo: string; numero: string; que: string; fuente: string };
 
+// El hallazgo más fuerte del análisis, en números y no en prosa: ChartMogul midió
+// la retención de 200 empresas AI-native SEGMENTADA POR PRECIO DE LISTA, y el
+// resultado es monótono — cuanto más barato, peor retiene. Sirve graficado porque
+// lo que importa es el salto entre bandas, y eso una tabla no lo muestra.
+export type BandaRetencion = { id: string; banda: string; grrAnual: number; nrr: number; cae: string | null };
+
+export const RETENCION: BandaRetencion[] = [
+  { id: 'baja', banda: 'Menos de US$50/mes', grrAnual: 23, nrr: 34, cae: 'Pro · US$47' },
+  { id: 'media', banda: 'US$50 a 249/mes', grrAnual: 45, nrr: 61, cae: 'Growth · US$97' },
+  { id: 'alta', banda: 'Más de US$250/mes', grrAnual: 70, nrr: 85, cae: null },
+];
+
+export const RETENCION_FUENTE =
+  'ChartMogul, «The SaaS Retention Report: The AI churn wave» — 3.500 empresas de software, 200 de ellas AI-native, datos 2025';
+
+/** Los benchmarks contra los que se lee todo lo de arriba. Sin ellos un número
+ *  suelto no dice si está bien o mal. */
+export const BENCHMARKS = [
+  { id: 'ltvcac', que: 'LTV : CAC', objetivo: '3× mínimo · 4,1× la mediana real', fuente: 'Aleph × Benchmarkit 2026' },
+  { id: 'payback', que: 'Payback del CAC', objetivo: '≤ 15 meses · 11 en ACV sub-US$5K', fuente: 'Aleph × Benchmarkit 2026' },
+  { id: 'margen', que: 'Margen bruto', objetivo: '75-80% en SaaS · 53% en producto de IA', fuente: 'Benchmarkit / ICONIQ 2026' },
+];
+
 export const ECONOMIA: Dato[] = [
   {
     id: 'grr-banda', titulo: 'El benchmark que aplica no es «SaaS PyME», es «AI-native» — y el Pro cae en la peor banda',
