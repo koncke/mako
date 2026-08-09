@@ -11,6 +11,9 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   repo → [Prompts](#prompts).
 - El modelo que corre una feature **no se deduce del catálogo**: el override es global del
   ws1 y la cascada barata ni lo lee → [Modelos y ruteo](#modelos-y-ruteo).
+- **Un `def` que cobra es un cobro silencioso**: `/modelos-ia` solo escribe cuando alguien
+  toca el botón, así que la feature que nadie tocó paga desde el día uno. `plan-fathom`
+  se comió US$37 en 30 días así, y el reclamo culpaba al Perro → [Modelos y ruteo](#modelos-y-ruteo).
 - La cascada "gratis" muchas veces **le pega cuatro veces al mismo Groq** y un `validar`
   flojo la corta en el primer proveedor → [La capa barata](#la-capa-barata).
 - Un `0` por fuente desconectada entra al prompt como si fuera una medición, y la IA
@@ -36,6 +39,53 @@ sus palabras, con la fecha en que las dijo.
 ---
 
 ## Modelos y ruteo
+
+### ✅ El default del catálogo es lo que paga TODA feature que nadie configuró — US$37 en 30 días
+
+**Síntoma (2026-08-08, segunda vez, con la misma pantalla):** «el Perro sigue utilizando a
+Claude para tareas simples». La captura mostraba seis operaciones en **Claude · Sonnet 5**.
+
+**El diagnóstico obvio era el equivocado, y por segunda vez el mismo día.** El Perro no
+tenía nada que ver: sus últimas corridas pagas fueron a las **15:04**, todas con el
+motivo `⚠ fallback: gemini falló (HTTP 429)` — el bug de un solo intento, ya arreglado
+esa mañana. De ahí en adelante el Perro corre en Mistral a US$0. Lo que se veía en la
+captura, a las 19:42, era **`plan-fathom`**: la extracción de tareas de una reunión.
+
+`plan-fathom` **nunca tuvo override**. Y ahí está la trampa real: `/modelos-ia` escribe una
+fila en `app_settings` **solo cuando alguien toca el botón**. Una feature que nadie tocó
+cae en su `def` del catálogo, y el `def` de `plan-fathom` era `SONNET`. Corre sola en cada
+reunión nueva, parte el transcript en cuatro pedazos de ~40k tokens y factura **~US$1 por
+reunión sin decirlo en ningún lado**: 180 corridas y **US$37,42 en 30 días**, contra
+US$0,81 del Perro en 48h. Con ella había otras cuatro en la misma situación
+(`ads-analyst`, `landing-analyst`, `landing-writer`, `post-llamada`) y una sexta que
+encontró el test recién escrito: `onboarding-extract`, en `gpt-4o-mini`, con el propio
+audit recomendando Groq desde hacía meses.
+
+Peor: **trece features tenían `def: SONNET` mientras un override las corría en Gemini.**
+El default decía una cosa y la realidad era otra, así que leer el catálogo para saber qué
+modelo usa una feature daba la respuesta equivocada — y cualquier workspace sin overrides
+(un cliente nuevo) habría pagado los trece.
+
+**Causa:** la regla «esto va en Gemini» vivía en un botón. Una regla que vive en un botón
+no es una regla — el mismo diagnóstico que AGENTS.md ya tenía escrito para los prompts.
+
+**La regla que queda, con las dos capas:** el `def` de una feature es un proveedor
+**gratis**; si cobra, `pagoPorque` explica en una frase qué se compra, y
+`tests/model-registry.test.ts` **falla si falta**. Quedan tres a propósito (`closing`,
+`lead_insights`, `experimentos`: análisis pesado sobre datos reales, que es lo que el
+cliente paga a sabiendas). Para que el test pudiera existir, el catálogo salió a
+`lib/model-catalogo.ts` **sin `server-only`** — un módulo con `server-only` no lo puede
+importar ningún test, y la guarda del gasto quedaba sin red justo donde más duele.
+
+**Cómo verificarlo de nuevo** (el catálogo solo no alcanza: hay que cruzarlo con los
+overrides): el modelo EFECTIVO de una feature es `override de ws1 ?? def del catálogo`.
+Los overrides están en `app_settings` con `key='mako.modelos'`, y `modeloDeFeature` los
+lee **siempre del workspace 1** (`runWithWorkspace(OWNER_WS, …)`), así que la copia del ws3
+es vestigial y no la mira nadie. El gasto real, en `anthropic_usage` — y su columna
+`motivo` distingue un cobro deliberado de un fallback, que es lo que permitió separar los
+dos casos de este día.
+
+**Vive en:** lib/model-catalogo.ts (el catálogo y la regla), lib/model-registry.ts (el override), tests/model-registry.test.ts, app_settings key `mako.modelos` · *2026-08-08*
 
 ### ✅ Un 429 de Gemini era suficiente para pagarle a Claude: el fallback saltaba cuatro proveedores gratis
 

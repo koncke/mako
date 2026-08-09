@@ -169,6 +169,39 @@ hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con 
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
 
+# Un default que cobra es un cobro silencioso
+
+El `def` de una feature en `lib/model-catalogo.ts` no es «lo que usa hoy el código»: es
+**lo que va a pagar cualquier feature que nadie se acordó de configurar**. `/modelos-ia`
+escribe un override **solo cuando alguien toca el botón**, así que una feature nueva con
+`def: SONNET` cobra desde el día uno y no lo dice en ningún lado.
+
+El caso: el dueño reclamó dos veces el mismo día «el Perro sigue usando Claude para tareas
+simples». La segunda vez el Perro no tenía nada que ver — hacía horas que corría en
+Mistral a US$0. Lo que cobraba era **`plan-fathom`**, que corre sola en cada reunión nueva
+y parte el transcript en cuatro pedazos de ~40k: **US$37 en 30 días**, contra US$0,81 del
+Perro. Nunca tuvo override porque nadie se lo tocó. Y **trece features más tenían
+`def: SONNET` mientras un override las corría en Gemini**: el catálogo decía una cosa y la
+realidad otra.
+
+La regla, con las dos capas de siempre:
+
+1. **El `def` de una feature es un proveedor GRATIS.** No la deja sin red: si el proveedor
+   falla se recorre la cascada gratis entera antes de pagar (ver la sección siguiente).
+2. **Si cobra, `pagoPorque` dice en una frase qué se compra**, y
+   `tests/model-registry.test.ts` **falla si falta**. Hoy son tres, a propósito: `closing`,
+   `lead_insights` y `experimentos` — análisis pesado sobre datos reales, que es lo que el
+   cliente paga a sabiendas.
+
+Por eso el catálogo vive en `lib/model-catalogo.ts` **sin `server-only`**, separado del
+`model-registry.ts` que lee la base: un módulo con `server-only` no lo puede importar
+ningún test, y la guarda del gasto quedaba sin red. Es el mismo criterio que
+`exigirClienteDePrueba`.
+
+Y para saber qué modelo corre **de verdad** una feature, el catálogo solo no alcanza:
+es `override del ws1 ?? def del catálogo`. Los overrides están en `app_settings` con
+`key='mako.modelos'`, siempre del workspace 1.
+
 # Claude es el ÚLTIMO recurso, no el segundo
 
 Cuando una feature está ruteada a IA barata en `/modelos-ia` y el proveedor falla, se
