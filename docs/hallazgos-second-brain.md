@@ -577,6 +577,34 @@ nuevo por una razón buena (no duplicar). La conclusión no es «no compartas»:
 lugar común de las dos orillas tiene que ser un módulo **puro**. `AUTORIA_TEXTO` vive
 en `cerebro-modelo.ts`, que no importa nada justamente para eso.
 
+### El README de adentro del ZIP contaba mal, y nada lo podía mirar
+
+**Vive en:** `lib/vault-modelo.ts` (`readme`) · **Se prueba con:** `tests/vault.test.ts`
+
+**Síntoma.** Se exporta el vault del ws 11 y se abre. El README dice «01 Norte — … (5
+archivos)» y la carpeta tiene **3**. Todas las carpetas estaban infladas en uno; la del
+Norte, en dos.
+
+**Causa.** `readme()` contaba con su propio filtro escrito a mano —solo
+`autoria !== 'pendiente'`— mientras `construirVault()` descarta además la RAÍZ y los
+nodos de ÁREA, que son andamiaje del grafo y no archivos. Norte se iba de dos porque
+ahí vive también la raíz. Dos filtros para la misma pregunta, y el que se usaba para
+contar no era el que decidía qué se escribía.
+
+**Por qué sobrevivió tanto.** `lib/vault.ts` llevaba `server-only`, así que **ningún
+test lo podía importar**: no había una sola prueba sobre el único artefacto que el
+cliente se lleva y abre en otro programa. Se descubrió abriendo el ZIP a mano, no
+leyendo el código ni corriendo la suite.
+
+**Regla.** Es la misma que AGENTS.md fija para los guards destructivos y para el
+catálogo de modelos, y acá se paga otra vez: **lo que hay que poder testear no vive
+detrás de `server-only`.** La proyección pura se mudó a `lib/vault-modelo.ts` (sin la
+marca) y `lib/vault.ts` quedó como la puerta que la reexporta, así que los
+importadores de siempre no cambian y la guarda de bundle se mantiene.
+
+Y la regla de fondo: **un índice que cuenta distinto que la carpeta que describe es
+peor que no tener índice.** Si dos lugares cuentan lo mismo, uno llama al otro.
+
 ### Lo que quedó sin hacer, medido
 
 - **El grafo deja ~370 px de aire vacío a cada lado.** Es geométrico: el layout del
