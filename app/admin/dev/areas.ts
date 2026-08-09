@@ -12,8 +12,11 @@
 // QUÉ ES UN ÁREA (y qué no). Un área tiene tareas propias en el plan, o código
 // propio con decisiones propias. Las vistas internas, los modales y los wizards NO
 // son áreas: son entradas del Roadmap de la suya. El criterio se aplicó sobre un
-// relevamiento de 208 piezas del producto y dio 121 áreas, que cubren los 68
+// relevamiento de 208 piezas del producto y dio 122 áreas, que cubren los 68
 // proyectos del tablero y sus 438 tareas abiertas sin dejar ninguna afuera.
+//
+// El número NO se escribe en la UI a mano: sale de `AREAS.length`. Acá quedó en
+// 121 un rato porque lo conté con `grep -c`, que cuenta LÍNEAS y no ocurrencias.
 //
 // LOS NOMBRES VAN EN INGLÉS, salvo dos casos: los que ya existen en español en
 // `nav.ts` (`Contexto de MaKo`, `Conocimientos`) y **Perro Guardián**, que es nombre
@@ -29,7 +32,7 @@
 //     tienen el pedido TEXTUAL del dueño y el porqué, que ningún commit contiene.
 //     Donde existen, mandan ellas.
 //
-// Eso es deliberado y es la única forma de que 121 registros no sean 121 mentiras.
+// Eso es deliberado y es la única forma de que 122 registros no sean 122 mentiras.
 // La versión anterior de este archivo lo decía así: «nacen vacíos a propósito; uno
 // inventado de antemano es peor que ninguno: se lee como verdad y no lo es». Sigue
 // valiendo — por eso lo único escrito a mano acá es lo que ningún código deduce:
