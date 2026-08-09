@@ -74,6 +74,19 @@ export const AREAS: AreaDev[] = [
     hallazgos: 'hallazgos-ads',
   },
   {
+    // Tampoco es una tab del producto: es el NEGOCIO. La pantalla de Pricing que
+    // va a ver el cliente todavía no existe, y a propósito — prometer un cupo que
+    // hoy no se puede ni medir ni cobrar es peor que no tener planes. Lo que vive
+    // acá es lo que tiene que estar resuelto ANTES: cuánto cuesta cada acción
+    // medido contra producción, qué se dispara solo, y los bloqueantes del medidor.
+    slug: 'pricing',
+    verEnApp: '/integraciones#saldo-ia',
+    titulo: 'Pricing',
+    alcance: 'Cuánto cuesta la IA de verdad y qué plan la aguanta: el costo medido por acción, los escenarios de ruteo, los cupos de MaKo Tokens y lo que falta para poder cobrarlos.',
+    vive: ['lib/costos-ia.ts', 'lib/anthropic-usage.ts', 'lib/ia-cuotas.ts', 'lib/model-registry.ts', 'app/api/costos-ia/', 'docs/costos-ia-y-planes.md'],
+    hallazgos: 'hallazgos-ia',
+  },
+  {
     // No es una tab del producto: es un CONCEPTO que lo cruza entero (la salud
     // de Meta, los avisos de MaKo, el estado de una campaña). Tiene registro
     // propio porque su historia —eran dos tipos incompatibles— no pertenece a

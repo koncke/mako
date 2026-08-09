@@ -13,6 +13,7 @@ import { PARTES as GENERAL_PARTES, BITACORA as GENERAL_BITACORA } from './genera
 import { PARTES as CHATBOT_PARTES, BITACORA as CHATBOT_BITACORA } from './chatbot/bitacora';
 import { PARTES as ADS_PARTES, BITACORA as ADS_BITACORA } from './ads-writer/bitacora';
 import { PARTES as SEMAFORO_PARTES, BITACORA as SEMAFORO_BITACORA } from './semaforo/bitacora';
+import { PARTES as PRICING_PARTES, BITACORA as PRICING_BITACORA } from './pricing/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
@@ -21,6 +22,7 @@ const REGISTROS: Record<string, Registro> = {
   chatbot: { partes: CHATBOT_PARTES, bitacora: CHATBOT_BITACORA },
   'ads-writer': { partes: ADS_PARTES, bitacora: ADS_BITACORA },
   semaforo: { partes: SEMAFORO_PARTES, bitacora: SEMAFORO_BITACORA },
+  pricing: { partes: PRICING_PARTES, bitacora: PRICING_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */

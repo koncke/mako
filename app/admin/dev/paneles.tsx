@@ -20,6 +20,7 @@
 import type { ReactNode } from 'react';
 import { GuionesAdminView } from '@/app/admin/guiones/GuionesAdminView';
 import { ElSemaforo } from './semaforo/ElSemaforo';
+import { Pricing } from './pricing/Pricing';
 
 export type SubTab = { id: string; label: string };
 
@@ -32,6 +33,11 @@ export const SUBTABS: Record<string, SubTab[]> = {
   semaforo: [
     { id: 'catalogo', label: 'El semáforo' },
   ],
+  // El análisis va PRIMERO en la lista, pero «Roadmap» lo antepone la pantalla:
+  // acá el orden es el de las sub-tabs extra, no el de toda la barra.
+  pricing: [
+    { id: 'analisis', label: 'Análisis de costos' },
+  ],
 };
 
 export const subTabsDe = (slug: string): SubTab[] => SUBTABS[slug] ?? [];
@@ -42,5 +48,6 @@ export function panelDe(slug: string, tab: string): ReactNode {
     return <GuionesAdminView tabExterna={tab} />;
   }
   if (slug === 'semaforo' && tab === 'catalogo') return <ElSemaforo />;
+  if (slug === 'pricing' && tab === 'analisis') return <Pricing />;
   return null;
 }
