@@ -184,6 +184,35 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   // con otra ya dibujada, que es trabajo aparte.
   const alphaEtiqueta = Math.min(1, Math.max(0, Math.log2(kPaso / (kFitEstado || 1)) + 1));
 
+  /** ¿Este nodo pasa el filtro de «Ver»? Los nodos de ÁREA y la raíz pasan siempre: son
+   *  el andamiaje del mapa y apagarlos deja las etiquetas flotando sin racimo. */
+  const pasaVer = useCallback((n: NodoCerebro): boolean => {
+    if (verQue === 'todo' || n.id === 'raiz' || n.id.startsWith('area:')) return true;
+    if (verQue === 'falta') return n.autoria === 'pendiente';
+    return n.autoria === verQue;
+  }, [verQue]);
+
+  // Refs para que `visible()` no cambie de identidad en cada tecla: lo consumen el
+  // dibujo de las aristas y el descarte de etiquetas.
+  const buscaRef = useRef('');
+  const idsResultadoRef = useRef<Set<string>>(new Set());
+
+  /**
+   * ¿Este nodo pasa TODOS los filtros? Es la ÚNICA función que lo decide, y de acá salen
+   * las tres cosas que se dibujan: el nodo, sus aristas y su etiqueta.
+   *
+   * ⚠️ Antes había tres criterios distintos y el de las ARISTAS ignoraba dos filtros.
+   * Medido con «los escribiste tú» puesto: 47 de 67 nodos se atenuaban… y las 119 líneas
+   * y las 49 etiquetas seguían a opacidad plena. O sea que filtrar apagaba los puntos y
+   * dejaba intacta la telaraña, que es el 70% de la tinta de la pantalla — por eso «no
+   * parecía filtrar».
+   */
+  const visible = useCallback((n: NodoCerebro): boolean => {
+    if (!pasaVer(n)) return false;
+    if (buscaRef.current.trim() !== '' && !idsResultadoRef.current.has(n.id)) return false;
+    return true;
+  }, [pasaVer]);
+
   // ── QUÉ ETIQUETAS SE DIBUJAN ───────────────────────────────────────────────
   // Con el tamaño arreglado, el texto pasa de 4,32 px ilegibles a 12 px reales — y ahí
   // aparece el problema que estaba TAPADO: medido, 17 pares de cajas se pisan (43% de
@@ -213,7 +242,10 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
       if (n === 2) return z >= 0.75;    // apenas se acerca un poco
       return z >= 1.35;                 // los datos, más cerca
     };
-    const orden = [...nodos].filter((n) => entraPorNivel(n.id)).sort((a, b) => {
+    // Sobre los que PASAN el filtro, no sobre todos: antes una etiqueta que había
+    // perdido su caja contra un nodo filtrado seguía sin dibujarse. Al filtrar tiene que
+    // pasar lo contrario — se libera espacio y aparecen más nombres.
+    const orden = nodos.filter((n) => entraPorNivel(n.id) && visible(n)).sort((a, b) => {
       const d = (grados[b.id] ?? 0) - (grados[a.id] ?? 0);
       return d !== 0 ? d : a.id < b.id ? -1 : 1;   // desempate estable
     });
@@ -233,7 +265,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
       ok.add(n.id);
     }
     return ok;
-  }, [nodos, posiciones, grados, kPaso, uEstado]);
+  }, [nodos, posiciones, grados, kPaso, uEstado, kFitEstado, visible, verQue, busca]);
 
   const radioMundo = useCallback((n: NodoCerebro) => radioNodo(grados[n.id] ?? 0), [grados]);
   const kr = Math.sqrt(kPaso);
@@ -262,13 +294,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     return 'var(--sidebar-text)';
   };
 
-  /** ¿Este nodo pasa el filtro de «Ver»? Los nodos de ÁREA y la raíz pasan siempre: son
-   *  el andamiaje del mapa y apagarlos deja las etiquetas flotando sin racimo. */
-  const pasaVer = useCallback((n: NodoCerebro): boolean => {
-    if (verQue === 'todo' || n.id === 'raiz' || n.id.startsWith('area:')) return true;
-    if (verQue === 'falta') return n.autoria === 'pendiente';
-    return n.autoria === verQue;
-  }, [verQue]);
+
 
   const opacidadDe = (n: NodoCerebro): number => {
     const base = n.autoria === 'pendiente' ? PENDIENTE : 1;
@@ -595,6 +621,8 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   }, [busca, nodos, grados, dondeBuscar]);
   const primerMatch = resultados[0] ?? null;
   const idsResultado = useMemo(() => new Set(resultados.map((n) => n.id)), [resultados]);
+  buscaRef.current = busca;
+  idsResultadoRef.current = idsResultado;
   /** Por dónde va el ciclo del Enter. Se reinicia con cada búsqueda nueva. */
   const cursorBusca = useRef(0);
   useEffect(() => { cursorBusca.current = 0; }, [busca, dondeBuscar]);
@@ -805,6 +833,17 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
         .cbg .cbg-marco {
           background: var(--sidebar); border-radius: 14px; overflow: hidden;
           border: 1px solid var(--sidebar-line);
+          /* SE TOPEA EL ASPECTO, NO EL ANCHO. El alto sale del viewport —eso está bien y
+             ya está documentado— pero el ancho se tomaba TODO lo que hubiera, así que
+             cuanto más grande el monitor más buzón se volvía el marco. Medido: 2,07:1 en
+             1440 y 3,16:1 en 2560, con el grafo llenando el 46% y el 31% del ancho
+             respectivamente (a lo alto llena 92-95% siempre, o sea que el problema es el
+             ancho y no el alto). Con el tope, en 1440 el marco pasa de 1282 a 992 px y el
+             grafo de llenar 46% a 60%.
+             ⚠️ El grafo DIBUJADO no cambia de tamaño —lo fija el alto—: lo que cambia es
+             el encuadre. No toca el layout del servidor ni la línea base de medir-grafo. */
+          max-width: calc(var(--cbg-alto) * 1.6);
+          margin-inline: auto;
         }
         .cbg .cbg-lienzo { position: relative; height: var(--cbg-alto); }
         .cbg .cbg-barra {
@@ -883,13 +922,24 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
            nodo dispara el drag-and-drop NATIVO del navegador — aparece el «fantasma»
            de la imagen, se cancelan los pointer events y el paneo se muere a mitad de
            camino. Es el síntoma de «al hacer clic parece que agarra una imagen». */
-        .cbg svg {
+        /* ⚠️ EL LIENZO SE NOMBRA, NO SE DEDUCE POR TIPO DE ELEMENTO. Esta regla decía
+           «.cbg svg» y matcheaba TODOS los svg de adentro del componente — incluidas las
+           flechas de 13x13 de cada conexión del panel y el chevron de «Leer todo». Un
+           width:100% de una hoja de estilos le gana al atributo width="13", porque los
+           atributos de presentación tienen la especificidad MÁS BAJA que existe.
+           Medido: la flecha computaba 270 px, se quedaba con 270 de los 286 px de la
+           fila y dejaba el texto en 0 — de ahí que el panel se viera roto y que su
+           scroll fuera de 1463 px sobre una caja de 644. También heredaban el cursor de
+           agarre y el touch-action del lienzo.
+           REGLA: un selector de dos partes adentro de un componente que además contiene
+           íconos es un selector ABIERTO. */
+        .cbg .cbg-mapa {
           width: 100%; height: 100%; display: block;
           touch-action: none; cursor: grab;
           user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
         }
-        .cbg svg * { -webkit-user-drag: none; }
-        .cbg svg:active { cursor: grabbing; }
+        .cbg .cbg-mapa * { -webkit-user-drag: none; }
+        .cbg .cbg-mapa:active { cursor: grabbing; }
         .cbg .cbg-nodo { cursor: pointer; }
 
         /* LA FLOTACIÓN. Va en su propio grupo porque una animación CSS sobre transform
@@ -1046,6 +1096,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
         <div className="cbg-lienzo">
           <svg
             ref={svgRef}
+            className="cbg-mapa"
             viewBox={vb}
             role="img"
             aria-label={`Mapa del segundo cerebro: ${cuenta.total} datos que MaKo entendió de tu negocio`}
@@ -1071,6 +1122,10 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
                   if (d <= ra + rb) return null;
                   const viva = cerca ? cerca.has(e.de) && cerca.has(e.a) : true;
                   const enFoco = areaFoco ? na.area === areaFoco || nb.area === areaFoco : true;
+                  // Una arista se dibuja solo si sus DOS puntas pasan el filtro. Antes
+                  // esta línea miraba el nodo en foco y el área, e ignoraba el filtro de
+                  // «Ver» y la búsqueda.
+                  if (!visible(na) || !visible(nb)) return null;
                   const op = cerca ? (viva ? 1 : ATENUADO) : areaFoco ? (enFoco ? 1 : ATENUADO) : 1;
                   return (
                     <line
