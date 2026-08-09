@@ -661,11 +661,17 @@
    campos son dos columnas, con cinco (los de «recomienda») bajan de renglón.
    Nunca scroll lateral — eso es esconder lo que el estado está obligado a
    mostrar. */
+/* ⚠️ Con TOPE de ancho. Sin él, los cinco campos de «qué conviene hacer» se
+   estiraban a lo ancho de la tarjeta y la fila se leía como una TABLA — el
+   elemento más pesado de la pantalla, y encima en la tarjeta menos urgente de
+   las tres. Acotada, los cinco bajan a dos renglones y la tarjeta vuelve a
+   leerse como una tarjeta. */
 .mk-mako__datos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px 18px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 9px 20px;
   margin: 2px 0 0;
+  max-width: 620px;
 }
 .mk-mako__dato { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 /* El rótulo del campo va en la tipografía de la app, chico y tenue. Estaba en

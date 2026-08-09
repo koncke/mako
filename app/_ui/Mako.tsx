@@ -263,7 +263,20 @@ export function Mako(props: MakoProps) {
 
       {(accion || secundaria || deshacer) && (
         <div className="mk-row" style={{ marginTop: 2 }}>
-          {accion && <Boton a={accion} variant="primary" />}
+          {/* EL BOTÓN LLENO ES SOLO DE LA TARJETA QUE TE FRENA.
+              Las tres de «tenés que decidir» tenían botón primario y por eso se
+              leían iguales, cuando piden cosas muy distintas: la aprobación
+              BLOQUEA —nada se mueve sin tu sí—, «qué conviene hacer» es opcional
+              y podés ignorarla para siempre, y «falta un dato» es un mandado que
+              te lleva a otra pantalla. Un botón lleno es un compromiso; navegar
+              y aceptar una sugerencia no lo son. Con esto la jerarquía se ve sin
+              agregar un solo color. */}
+          {/* La condición es la MISMA que la del tinte, y tiene que serlo: «falta
+              un dato» también espera al usuario, así que con `esperando` a secas
+              se quedaba con el botón lleno —y azul, el más fuerte de la página—
+              en la tarjeta menos urgente de las tres. Bloquea el que tiene tono
+              de riesgo, y solo ése manda. */}
+          {accion && <Boton a={accion} variant={esperando && def.tono === 'warn' ? 'primary' : 'secondary'} />}
           {/* Deshacer NO es la acción principal: es la salida de emergencia de
               algo que ya pasó. En secundario, y siempre primero entre las
               secundarias — es lo que la gente busca cuando se arrepiente. */}
