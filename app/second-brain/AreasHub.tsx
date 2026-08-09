@@ -83,6 +83,7 @@ export function AreasHub({ conteo, abierta, onAbrir, onResaltar, funnelPanel }: 
   funnelPanel: ReactNode;
 }) {
   const [sub, setSub] = useState(0);
+  const [funnelAbierto, setFunnelAbierto] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Al abrir un área, el panel se trae a la vista. Sin esto, tocar «Abrir Razones»
@@ -110,7 +111,7 @@ export function AreasHub({ conteo, abierta, onAbrir, onResaltar, funnelPanel }: 
         @media (max-width: 940px)  { .sb-areas { grid-template-columns: repeat(3, minmax(0,1fr)); } }
         @media (max-width: 700px)  { .sb-areas { grid-template-columns: repeat(2, minmax(0,1fr)); } }
         .sb-area {
-          display: flex; flex-direction: column; gap: 6; align-items: flex-start;
+          display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
           text-align: left; background: var(--surface); border: 1px solid var(--border);
           border-radius: var(--r-lg); padding: 13px 14px; cursor: pointer; min-height: 112px;
           font: inherit; color: inherit;
@@ -118,6 +119,14 @@ export function AreasHub({ conteo, abierta, onAbrir, onResaltar, funnelPanel }: 
         .sb-area:hover { border-color: var(--border-strong); }
         .sb-area[aria-expanded="true"] { border-color: var(--mako); }
         .sb-area:focus-visible { outline: 2px solid var(--mako); outline-offset: 2px; }
+        .sb-plegable {
+          display: inline-flex; align-items: center; gap: 8px;
+          background: var(--surface); border: 1px solid var(--border);
+          border-radius: var(--r-lg); padding: 11px 15px; cursor: pointer;
+          font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--ink);
+        }
+        .sb-plegable:hover { border-color: var(--border-strong); }
+        .sb-plegable:focus-visible { outline: 2px solid var(--mako); outline-offset: 2px; }
         .sb-area .sb-que {
           margin: 4px 0 0; font-size: var(--fs-meta); color: var(--dim); line-height: 1.45;
           display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -188,12 +197,24 @@ export function AreasHub({ conteo, abierta, onAbrir, onResaltar, funnelPanel }: 
         )}
       </div>
 
-      {/* El funnel no es un área del cerebro —no tiene color, ni carpeta en el ZIP, ni
-          nodos en el mapa— pero es data del negocio y vivía en este hub. Se queda como
-          su propia sección en vez de forzar una tarjeta número once que rompería la
-          grilla de 5×2 y obligaría a inventarle un color. */}
+      {/* EL FUNNEL VA PLEGADO. Ya no es un área del cerebro pero tampoco puede quedar
+          suelto y abierto al final de la página: el editor del funnel es una pantalla
+          entera —bandas, etapas, transiciones— y desplegado empuja todo lo demás fuera
+          de la vista sin que nadie lo haya pedido. Se abre cuando se lo toca.
+          ⚠️ El contenido se monta SOLO al abrir (no se esconde con CSS): el editor trae
+          su propio estado y su autoguardado, y tenerlo vivo detrás de un display:none es
+          la clase de cosa que guarda sin que nadie lo mire. */}
       <Section titulo="El funnel" nota="Por dónde pasa cada lead">
-        {funnelPanel}
+        <button
+          type="button"
+          className="sb-plegable"
+          aria-expanded={funnelAbierto}
+          onClick={() => setFunnelAbierto((v) => !v)}
+        >
+          <span aria-hidden style={{ transform: funnelAbierto ? 'rotate(90deg)' : 'none', transition: 'transform .15s', display: 'inline-block' }}>›</span>
+          {funnelAbierto ? 'Ocultar el funnel' : 'Ver y editar el funnel'}
+        </button>
+        {funnelAbierto && <div style={{ marginTop: 16 }}>{funnelPanel}</div>}
       </Section>
     </>
   );

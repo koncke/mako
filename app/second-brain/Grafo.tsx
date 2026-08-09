@@ -742,12 +742,16 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
             placeholder="Buscar un dato"
             aria-label="Buscar un dato en el mapa"
           />
-          <button type="button" className="cbg-ico" onClick={() => { tocoElZoom.current = false; ajustar(); }} title="Ajustar a la vista">⤢</button>
+          {/* El zoom es UN control (alejar · cuánto · acercar) y va junto. «Ajustar a la
+              vista» y «Pantalla completa» son los dos que cambian el ENCUADRE, así que
+              van juntos y al final. Antes «ajustar» quedaba del otro lado del zoom,
+              separado del único botón con el que se emparenta. */}
           <button type="button" className="cbg-ico" onClick={() => zoomPaso(1 / 1.3)} title="Alejar">−</button>
           <span style={{ fontFamily: MONO, fontSize: 11, minWidth: 38, textAlign: 'center' }}>
             {zoomPct}%
           </span>
           <button type="button" className="cbg-ico" onClick={() => zoomPaso(1.3)} title="Acercar">+</button>
+          <button type="button" className="cbg-ico" onClick={() => { tocoElZoom.current = false; ajustar(); }} title="Ajustar a la vista">⤢</button>
           <button type="button" className="cbg-ico" onClick={pantallaCompleta} title={enPantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}>⛶</button>
         </div>
 
