@@ -76,6 +76,19 @@ function Fila({ cols, plantilla, head = false }: { cols: React.ReactNode[]; plan
     </div>
   );
 }
+/**
+ * El envoltorio de una tabla de `Fila`. En pantalla angosta la tabla NO se
+ * comprime hasta que las palabras se parten: se corre de costado.
+ *
+ * Esto NO contradice la regla de layout de AGENTS.md — la que prohíbe el scroll
+ * lateral es la de las barras de NAVEGACIÓN, porque esconde destinos. Correr
+ * CONTENIDO de costado es lo que `.mk-scroll-x` existe para hacer. Sin esto, a
+ * 390px la grilla de 5 columnas deja «Operación» en una celda de 25px y el texto
+ * sale por encima de la columna de al lado.
+ */
+function Tabla({ children }: { children: React.ReactNode }) {
+  return <div className="mk-scroll-x"><div style={{ minWidth: 560 }}>{children}</div></div>;
+}
 const Num = ({ children }: { children: React.ReactNode }) => (
   <span style={{ fontFamily: MONO, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{children}</span>
 );
@@ -88,12 +101,12 @@ const Celda = ({ v }: { v: CeldaT }) => {
   return <span style={{ fontSize: 11.5, color: 'var(--ink)' }}>{v}</span>;
 };
 const Nota = ({ children }: { children: React.ReactNode }) => (
-  <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 14px', maxWidth: '72ch', lineHeight: 1.6 }}>{children}</p>
+  <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 14px', lineHeight: 1.6 }}>{children}</p>
 );
 const BloqueTexto = ({ b }: { b: Bloque }) => (
   <div style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
     <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{b.titulo}</div>
-    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, lineHeight: 1.6, maxWidth: '76ch' }}>{b.cuerpo}</div>
+    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, lineHeight: 1.6 }}>{b.cuerpo}</div>
     {b.fuente && <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4 }}>{b.fuente}</div>}
   </div>
 );
@@ -186,12 +199,12 @@ export function Pricing() {
           el lector tenía que adivinar de qué. Un veredicto sin la pregunta que
           contesta no es un veredicto, es un número suelto. */}
       <Section titulo="Qué contesta esta pantalla" card>
-        <p style={{ fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.65, margin: 0, maxWidth: '76ch' }}>
+        <p style={{ fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.65, margin: 0 }}>
           Si MaKo le va a poner la IA a sus clientes en vez de que cada uno traiga su key,{' '}
           <strong>cada cosa que hace el producto pasa a costar plata de la agencia</strong>. Esta
           pantalla contesta cuatro preguntas, en este orden:
         </p>
-        <ol style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.7, margin: '12px 0 0', paddingLeft: 20, maxWidth: '76ch' }}>
+        <ol style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.7, margin: '12px 0 0', paddingLeft: 20 }}>
           <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto cuesta?</strong> — medido en producción, y proyectado con el producto entero construido.</li>
           <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto se le cobra?</strong> — la tarifa de MaKo Tokens, operación por operación.</li>
           <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto cuesta conseguir un cliente?</strong> — el CAC de cada funnel, contra el techo que tolera cada plan.</li>
@@ -245,11 +258,11 @@ export function Pricing() {
             se leen como un error. Queda solo lo que las cifras NO dicen: qué hay
             que hacer con esto. */}
         <div style={{ padding: '14px 16px', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, fontWeight: 600, maxWidth: '74ch' }}>
+          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, fontWeight: 600 }}>
             La consecuencia es de diseño de planes, no de ingeniería: el video no puede ser una
             feature incluida, tiene que ser una unidad medida.
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: 8, maxWidth: '74ch' }}>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: 8 }}>
             Y lo que <em>no</em> se arregla bajando el costo es la retención: abajo de US$50/mes el
             producto retiene 23% anual, y el Pro cae en esa banda por dos dólares.
           </div>
@@ -300,26 +313,28 @@ export function Pricing() {
 
         <div style={{ marginTop: 22 }}>
           <Eyebrow>El texto se derrumba</Eyebrow>
-          <Fila head plantilla="minmax(0,1.6fr) 90px 90px 60px" cols={['Acción', 'Hoy', 'Ruteado', '']} />
-          {RERUTEO.map((r) => {
-            const veces = r.nuevoUsd > 0 ? r.hoyUsd / r.nuevoUsd : Infinity;
-            return (
-              <Fila key={r.id} plantilla="minmax(0,1.6fr) 90px 90px 60px"
-                cols={[
-                  <span key="n">{r.label}<div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 1 }}>{r.como}</div></span>,
-                  <Num key="h">{usd(r.hoyUsd, 4)}</Num>,
-                  <Num key="x">{r.nuevoUsd === 0 ? 'gratis' : usd(r.nuevoUsd, 4)}</Num>,
-                  <span key="v" style={{ fontFamily: MONO, fontSize: 12, color: veces > 1.5 ? 'var(--good)' : 'var(--faint)' }}>
-                    {!isFinite(veces) ? '∞' : veces > 1.5 ? `${veces.toFixed(0)}×` : '—'}
-                  </span>,
-                ]} />
-            );
-          })}
+          <Tabla>
+            <Fila head plantilla="minmax(0,1.6fr) 90px 90px 60px" cols={['Acción', 'Hoy', 'Ruteado', '']} />
+            {RERUTEO.map((r) => {
+              const veces = r.nuevoUsd > 0 ? r.hoyUsd / r.nuevoUsd : Infinity;
+              return (
+                <Fila key={r.id} plantilla="minmax(0,1.6fr) 90px 90px 60px"
+                  cols={[
+                    <span key="n">{r.label}<div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 1 }}>{r.como}</div></span>,
+                    <Num key="h">{usd(r.hoyUsd, 4)}</Num>,
+                    <Num key="x">{r.nuevoUsd === 0 ? 'gratis' : usd(r.nuevoUsd, 4)}</Num>,
+                    <span key="v" style={{ fontFamily: MONO, fontSize: 12, color: veces > 1.5 ? 'var(--good)' : 'var(--faint)' }}>
+                      {!isFinite(veces) ? '∞' : veces > 1.5 ? `${veces.toFixed(0)}×` : '—'}
+                    </span>,
+                  ]} />
+              );
+            })}
+          </Tabla>
         </div>
 
         <div style={{ marginTop: 16, padding: 13, border: '1px solid var(--warn-border, var(--border))', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
           <Status tono="warn">Ojo con estos números</Status>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6, maxWidth: '72ch' }}>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
             El <strong>costo unitario</strong> es precio publicado del fabricante. La{' '}
             <strong>cantidad mensual</strong> es un supuesto nuestro — y es la palanca de todo el
             resultado. Con 40 clips en vez de 20, el Growth pasa de {usd(GROWTH_P.iaUsd)} a más de
@@ -382,10 +397,12 @@ export function Pricing() {
               600/5.000/50.000 —porque cuesta 1 MT—, así que se leía como si un
               mensaje COSTARA 50.000. El número estaba bien y la tabla estaba mal:
               ahora cada celda trae su unidad y el precio va en su propia columna. */}
-          <Fila head plantilla="minmax(0,1.5fr) 74px 1fr 1fr 1fr" cols={['Operación', 'Precio', 'Free', 'Pro', 'Growth']} />
-          {/* Rótulos CORTOS acá, no los de TARIFA: «Un mensaje a MaKo (web o
-              WhatsApp)» se parte en dos líneas y deja la tabla con renglones de
-              alturas distintas. El nombre completo vive en la tarifa completa. */}
+          <Tabla>
+            <Fila head plantilla="minmax(0,1.5fr) 74px 1fr 1fr 1fr" cols={['Operación', 'Precio', 'Free', 'Pro', 'Growth']} />
+            {/* Rótulos CORTOS acá, no los de TARIFA: «Un mensaje a MaKo (web o
+                WhatsApp)» se parte en dos líneas y deja la tabla con renglones de
+                alturas distintas. El nombre completo vive en la tarifa completa. */}
+          </Tabla>
           {([
             ['mako-msg', 'Un mensaje a MaKo', 'mensajes'],
             ['reunion', 'Extraer una reunión', 'reuniones'],
@@ -420,20 +437,22 @@ export function Pricing() {
 
         <div style={{ marginTop: 20 }}>
           <Eyebrow>Lo que expone cada cupo</Eyebrow>
-          <Fila head plantilla="minmax(0,1fr) 110px 100px 110px 100px" cols={['Plan', 'Mes normal', 'Margen', 'Mes malo (p90)', 'Margen']} />
-          {EXPOSICION.map((e) => (
-            <Fila key={e.plan} plantilla="minmax(0,1fr) 110px 100px 110px 100px"
-              cols={[
-                <span key="p">{e.plan} <span style={{ color: 'var(--faint)', fontFamily: MONO, fontSize: 11 }}>{miles(e.cupo)} MT</span></span>,
-                <Num key="n">{usd(e.normalUsd)}</Num>,
-                <span key="mn">{e.margenNormal === null ? '—' : <Status tono={e.margenNormal >= 70 ? 'good' : 'warn'}>{`${num(e.margenNormal)}%`}</Status>}</span>,
-                <Num key="m">{usd(e.maloUsd)}</Num>,
-                <span key="mm">{e.margenMalo === null ? '—' : <Status tono={e.margenMalo >= 70 ? 'good' : e.margenMalo >= 25 ? 'warn' : 'bad'}>{`${num(e.margenMalo)}%`}</Status>}</span>,
-              ]} />
-          ))}
+          <Tabla>
+            <Fila head plantilla="minmax(0,1fr) 110px 100px 110px 100px" cols={['Plan', 'Mes normal', 'Margen', 'Mes malo (p90)', 'Margen']} />
+            {EXPOSICION.map((e) => (
+              <Fila key={e.plan} plantilla="minmax(0,1fr) 110px 100px 110px 100px"
+                cols={[
+                  <span key="p">{e.plan} <span style={{ color: 'var(--faint)', fontFamily: MONO, fontSize: 11 }}>{miles(e.cupo)} MT</span></span>,
+                  <Num key="n">{usd(e.normalUsd)}</Num>,
+                  <span key="mn">{e.margenNormal === null ? '—' : <Status tono={e.margenNormal >= 70 ? 'good' : 'warn'}>{`${num(e.margenNormal)}%`}</Status>}</span>,
+                  <Num key="m">{usd(e.maloUsd)}</Num>,
+                  <span key="mm">{e.margenMalo === null ? '—' : <Status tono={e.margenMalo >= 70 ? 'good' : e.margenMalo >= 25 ? 'warn' : 'bad'}>{`${num(e.margenMalo)}%`}</Status>}</span>,
+                ]} />
+            ))}
+          </Tabla>
           <div style={{ marginTop: 12, padding: 13, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
             <Status tono="warn">El riesgo que queda es uno solo</Status>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6, maxWidth: '74ch' }}>{RIESGO_QUE_QUEDA}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>{RIESGO_QUE_QUEDA}</div>
           </div>
         </div>
       </Section>
@@ -468,7 +487,7 @@ export function Pricing() {
                 {perfil && perfil.precioUsd > 0 && (
                   <div style={{ marginTop: 8 }}>
                     <Status tono={margen({ ...PLANES[0], precioUsd: pr.netoMensualUsd }, perfil.iaUsd)! >= 70 ? 'good' : 'warn'}>
-                      {`margen ${num(margen({ ...PLANES[0], precioUsd: pr.netoMensualUsd }, perfil.iaUsd)!, 0)}% sobre neto`}
+                      {`margen ${num(margen({ ...PLANES[0], precioUsd: pr.netoMensualUsd }, perfil.iaUsd)!, 0)}%`}
                     </Status>
                   </div>
                 )}
@@ -479,24 +498,26 @@ export function Pricing() {
         </div>
 
         <Eyebrow>Qué entra en cada uno</Eyebrow>
-        <Fila head plantilla="minmax(0,2fr) 1fr 1fr 1fr 1fr" cols={['', 'Free', 'Pro', 'Growth', 'Agencia']} />
-        {GRILLA.map((g) => (
-          <div key={g.grupo} style={{ marginBottom: 10 }}>
-            <div style={{ ...{ fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase' as const }, color: 'var(--faint)', fontFamily: MONO, margin: '10px 0 2px' }}>{g.grupo}</div>
-            {g.filas.map((f) => (
-              <Fila key={f.que} plantilla="minmax(0,2fr) 1fr 1fr 1fr 1fr"
-                cols={[f.que, ...(['free', 'pro', 'growth', 'agencia'] as const).map((c) => <Celda key={c} v={f[c]} />)]} />
-            ))}
-          </div>
-        ))}
+        <Tabla>
+          <Fila head plantilla="minmax(0,2fr) 1fr 1fr 1fr 1fr" cols={['', 'Free', 'Pro', 'Growth', 'Agencia']} />
+          {GRILLA.map((g) => (
+            <div key={g.grupo} style={{ marginBottom: 10 }}>
+              <div style={{ ...{ fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase' as const }, color: 'var(--faint)', fontFamily: MONO, margin: '10px 0 2px' }}>{g.grupo}</div>
+              {g.filas.map((f) => (
+                <Fila key={f.que} plantilla="minmax(0,2fr) 1fr 1fr 1fr 1fr"
+                  cols={[f.que, ...(['free', 'pro', 'growth', 'agencia'] as const).map((c) => <Celda key={c} v={f[c]} />)]} />
+              ))}
+            </div>
+          ))}
+        </Tabla>
 
         <div style={{ marginTop: 16, padding: 13, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
           <Status tono="warn">Por qué el Growth va en lista de espera</Status>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6, maxWidth: '74ch' }}>{FUERA_DE_GRILLA.growthEnEspera}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10, lineHeight: 1.6, maxWidth: '74ch' }}>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>{FUERA_DE_GRILLA.growthEnEspera}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10, lineHeight: 1.6 }}>
             <strong style={{ color: 'var(--ink)' }}>Y tres trampas peores que un ComingSoon</strong>, porque figuran como listo o parcial y se venderían sin querer:
           </div>
-          <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, maxWidth: '74ch' }}>
+          <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6 }}>
             {FUERA_DE_GRILLA.trampas.map((t) => (
               <li key={t.que}><strong style={{ color: 'var(--ink)' }}>{t.que}</strong> — {t.por}</li>
             ))}
@@ -518,7 +539,7 @@ export function Pricing() {
           {SALVEDADES.map((s) => (
             <div key={s.id} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
               <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{s.titulo}</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, lineHeight: 1.6, maxWidth: '76ch' }}>{s.que}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, lineHeight: 1.6 }}>{s.que}</div>
               {s.vive !== '—' && <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4 }}>{s.vive}</div>}
             </div>
           ))}
@@ -551,16 +572,18 @@ export function Pricing() {
             el Free, los seis caminos automáticos facturan solos. Invertir este orden es abrir la
             canilla y después buscar la llave.
           </Nota>
-          <Fila head plantilla="30px minmax(0,3fr) minmax(0,1.4fr)" cols={['#', 'Qué', 'Dónde vive']} />
-          {ORDEN_DE_TRABAJO.map((o) => (
-            <Fila key={o.n} plantilla="30px minmax(0,3fr) minmax(0,1.4fr)"
-              cols={[<Num key="n">{o.n}</Num>, o.que,
-                <span key="v" style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{o.vive}</span>]} />
-          ))}
+          <Tabla>
+            <Fila head plantilla="30px minmax(0,3fr) minmax(0,1.4fr)" cols={['#', 'Qué', 'Dónde vive']} />
+            {ORDEN_DE_TRABAJO.map((o) => (
+              <Fila key={o.n} plantilla="30px minmax(0,3fr) minmax(0,1.4fr)"
+                cols={[<Num key="n">{o.n}</Num>, o.que,
+                  <span key="v" style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{o.vive}</span>]} />
+            ))}
+          </Tabla>
         </Plegable>
 
         <Plegable titulo="⚠️ Los huecos bloqueantes" resumen={`${HUECOS.length} cosas que frenan el primer cobro`}>
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65, maxWidth: '76ch' }}>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>
             {HUECOS.map((h, i) => <li key={i} style={{ marginBottom: 8 }}>{h}</li>)}
           </ul>
         </Plegable>
@@ -576,18 +599,20 @@ export function Pricing() {
           {(['Conversar', 'Plan', 'Análisis', 'Escribir', 'Automático', 'Medios'] as const).map((g) => (
             <div key={g} style={{ marginBottom: 14 }}>
               <Eyebrow>{g}{g === 'Automático' ? ' · no consume cupo' : ''}</Eyebrow>
-              <Fila head plantilla="minmax(0,1.8fr) 70px 90px 110px" cols={['Operación', 'MT', 'Costo real', 'Origen']} />
-              {TARIFA.filter((o) => o.grupo === g).map((o) => (
-                <Fila key={o.id} plantilla="minmax(0,1.8fr) 70px 90px 110px"
-                  cols={[
-                    o.label,
-                    <Num key="mt">{o.mt === 0 ? '—' : miles(o.mt)}</Num>,
-                    <Num key="c">{o.costoUsd === 0 ? 'gratis' : `${usd(o.costoUsd, 5)}`}</Num>,
-                    <span key="o" style={{ fontSize: 11, color: o.origen === 'supuesto' ? 'var(--warn)' : 'var(--faint)' }}>
-                      {o.origen}{o.n > 0 ? ` · n=${o.n}` : ''}
-                    </span>,
-                  ]} />
-              ))}
+              <Tabla>
+                <Fila head plantilla="minmax(0,1.8fr) 70px 90px 110px" cols={['Operación', 'MT', 'Costo real', 'Origen']} />
+                {TARIFA.filter((o) => o.grupo === g).map((o) => (
+                  <Fila key={o.id} plantilla="minmax(0,1.8fr) 70px 90px 110px"
+                    cols={[
+                      o.label,
+                      <Num key="mt">{o.mt === 0 ? '—' : miles(o.mt)}</Num>,
+                      <Num key="c">{o.costoUsd === 0 ? 'gratis' : `${usd(o.costoUsd, 5)}`}</Num>,
+                      <span key="o" style={{ fontSize: 11, color: o.origen === 'supuesto' ? 'var(--warn)' : 'var(--faint)' }}>
+                        {o.origen}{o.n > 0 ? ` · n=${o.n}` : ''}
+                      </span>,
+                    ]} />
+                ))}
+              </Tabla>
             </div>
           ))}
           <Fuente>
@@ -606,16 +631,18 @@ export function Pricing() {
             <span style={{ fontFamily: MONO }}>GEMINI_MODEL</span>…), y el que no entra por ahí es
             justo el del contexto gigante, que es el del 436×.
           </Nota>
-          <Fila head plantilla="minmax(0,1fr) 75px 75px minmax(0,1.8fr)" cols={['Modelo', 'US$/M in', 'out', 'Para qué']} />
-          {RUTEO.map((r) => (
-            <Fila key={r.id} plantilla="minmax(0,1fr) 75px 75px minmax(0,1.8fr)"
-              cols={[
-                r.modelo,
-                <Num key="i">{r.inUsd === 0 ? 'gratis' : num(r.inUsd, 2)}</Num>,
-                <Num key="o">{r.outUsd === 0 ? '—' : num(r.outUsd, 2)}</Num>,
-                <span key="p" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.para}</span>,
-              ]} />
-          ))}
+          <Tabla>
+            <Fila head plantilla="minmax(0,1fr) 75px 75px minmax(0,1.8fr)" cols={['Modelo', 'US$/M in', 'out', 'Para qué']} />
+            {RUTEO.map((r) => (
+              <Fila key={r.id} plantilla="minmax(0,1fr) 75px 75px minmax(0,1.8fr)"
+                cols={[
+                  r.modelo,
+                  <Num key="i">{r.inUsd === 0 ? 'gratis' : num(r.inUsd, 2)}</Num>,
+                  <Num key="o">{r.outUsd === 0 ? '—' : num(r.outUsd, 2)}</Num>,
+                  <span key="p" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.para}</span>,
+                ]} />
+            ))}
+          </Tabla>
         </Plegable>
 
         <Plegable titulo="Las 22 acciones que faltan construir" resumen="16 de texto suman US$0,23 · 6 de medios suman US$3,22">
@@ -628,15 +655,17 @@ export function Pricing() {
           {(['Analyze', 'Sales', 'Content', 'Agentes'] as const).map((fam) => (
             <div key={fam} style={{ marginBottom: 14 }}>
               <Eyebrow>{fam}</Eyebrow>
-              <Fila head plantilla="minmax(0,1.8fr) 90px 90px" cols={['Acción', 'Costo', 'Barata']} />
-              {ACCIONES_NUEVAS.filter((a) => a.familia === fam).map((a) => (
-                <Fila key={a.id} plantilla="minmax(0,1.8fr) 90px 90px"
-                  cols={[
-                    <span key="n" style={{ fontWeight: a.usdBarato !== undefined ? 600 : 400 }}>{a.label}</span>,
-                    <Num key="c">{a.usd === 0 ? 'gratis' : `${usd(a.usd, 4)}`}</Num>,
-                    <Num key="b">{a.usdBarato !== undefined ? `${usd(a.usdBarato, 4)}` : '—'}</Num>,
-                  ]} />
-              ))}
+              <Tabla>
+                <Fila head plantilla="minmax(0,1.8fr) 90px 90px" cols={['Acción', 'Costo', 'Barata']} />
+                {ACCIONES_NUEVAS.filter((a) => a.familia === fam).map((a) => (
+                  <Fila key={a.id} plantilla="minmax(0,1.8fr) 90px 90px"
+                    cols={[
+                      <span key="n" style={{ fontWeight: a.usdBarato !== undefined ? 600 : 400 }}>{a.label}</span>,
+                      <Num key="c">{a.usd === 0 ? 'gratis' : `${usd(a.usd, 4)}`}</Num>,
+                      <Num key="b">{a.usdBarato !== undefined ? `${usd(a.usdBarato, 4)}` : '—'}</Num>,
+                    ]} />
+                ))}
+              </Tabla>
             </div>
           ))}
         </Plegable>
@@ -660,11 +689,13 @@ export function Pricing() {
                   <Status tono="warn">El corte por cliente no es real: todo lo de Claude se registra en el workspace 1</Status>
                 </div>
               )}
-              <Fila head plantilla="minmax(0,2fr) 80px 100px 90px" cols={['Proceso', 'Llamadas', 'Tokens', 'Costo']} />
-              {data.porFeature.slice(0, 10).map((f) => (
-                <Fila key={f.clave} plantilla="minmax(0,2fr) 80px 100px 90px"
-                  cols={[f.clave, <Num key="l">{miles(f.llamadas)}</Num>, <Num key="t">{miles(f.tokens)}</Num>, <Num key="c">{f.costUsd > 0 ? usd(f.costUsd) : '—'}</Num>]} />
-              ))}
+              <Tabla>
+                <Fila head plantilla="minmax(0,2fr) 80px 100px 90px" cols={['Proceso', 'Llamadas', 'Tokens', 'Costo']} />
+                {data.porFeature.slice(0, 10).map((f) => (
+                  <Fila key={f.clave} plantilla="minmax(0,2fr) 80px 100px 90px"
+                    cols={[f.clave, <Num key="l">{miles(f.llamadas)}</Num>, <Num key="t">{miles(f.tokens)}</Num>, <Num key="c">{f.costUsd > 0 ? usd(f.costUsd) : '—'}</Num>]} />
+                ))}
+              </Tabla>
             </>
           )}
         </Plegable>
@@ -679,46 +710,52 @@ export function Pricing() {
             Esto es el <strong>baseline</strong> contra el que se mide el ahorro del ruteo, no lo que
             se le cobra al cliente.
           </Nota>
-          <Fila head plantilla="minmax(0,1.7fr) 90px 110px" cols={['Acción', 'Costo real', 'Llamadas pagas']} />
-          {ACCIONES.map((a) => (
-            <Fila key={a.id} plantilla="minmax(0,1.7fr) 90px 110px"
-              cols={[
-                <span key="n">{a.label} {a.automatico && <Status tono="warn">solo</Status>}</span>,
-                <Num key="c">{usd(costoUnitario(a), 4)}</Num>,
-                <Num key="l">{miles(a.llamadasPagas)}</Num>,
-              ]} />
-          ))}
+          <Tabla>
+            <Fila head plantilla="minmax(0,1.7fr) 90px 110px" cols={['Acción', 'Costo real', 'Llamadas pagas']} />
+            {ACCIONES.map((a) => (
+              <Fila key={a.id} plantilla="minmax(0,1.7fr) 90px 110px"
+                cols={[
+                  <span key="n">{a.label} {a.automatico && <Status tono="warn">solo</Status>}</span>,
+                  <Num key="c">{usd(costoUnitario(a), 4)}</Num>,
+                  <Num key="l">{miles(a.llamadasPagas)}</Num>,
+                ]} />
+            ))}
+          </Tabla>
         </Plegable>
 
         <Plegable titulo="La IA que se dispara sola" resumen="6 caminos que gastan sin que el usuario entre — la bomba del Free">
           <Nota>{EL_ACCIDENTE}</Nota>
-          <Fila head plantilla="minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1.3fr)" cols={['Camino', 'Lo dispara', 'Proyección']} />
-          {AUTOMATICOS.map((a) => (
-            <Fila key={a.id} plantilla="minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1.3fr)"
-              cols={[a.label,
-                <span key="d" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{a.disparador}</span>,
-                <span key="p" style={{ fontSize: 11.5, color: a.techo === 'ninguno' ? 'var(--bad)' : 'var(--muted)' }}>{a.proyeccion}</span>]} />
-          ))}
+          <Tabla>
+            <Fila head plantilla="minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1.3fr)" cols={['Camino', 'Lo dispara', 'Proyección']} />
+            {AUTOMATICOS.map((a) => (
+              <Fila key={a.id} plantilla="minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1.3fr)"
+                cols={[a.label,
+                  <span key="d" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{a.disparador}</span>,
+                  <span key="p" style={{ fontSize: 11.5, color: a.techo === 'ninguno' ? 'var(--bad)' : 'var(--muted)' }}>{a.proyeccion}</span>]} />
+            ))}
+          </Tabla>
         </Plegable>
 
         <Plegable titulo="Lo que va a costar lo que todavía no existe" resumen="video, imagen y voz — con tres modelos que ya tienen fecha de apagado">
           {([['Video', VIDEO], ['Imagen', IMAGEN], ['Voz', AUDIO]] as const).map(([t, lista]) => (
             <div key={t} style={{ marginBottom: 16 }}>
               <Eyebrow>{t}</Eyebrow>
-              <Fila head plantilla="minmax(0,1.2fr) 80px minmax(0,1.6fr)" cols={['Modelo', 'Precio', 'Nota']} />
-              {lista.map((m) => (
-                <Fila key={m.id} plantilla="minmax(0,1.2fr) 80px minmax(0,1.6fr)"
-                  cols={[
-                    <span key="n" style={{ opacity: m.muere ? 0.55 : 1, textDecoration: m.muere ? 'line-through' : 'none' }}>
-                      <span style={{ color: 'var(--faint)', fontSize: 11 }}>{m.proveedor}</span> {m.modelo}
-                    </span>,
-                    <Num key="p">{m.usd === 0 ? '—' : `$${m.usd}`}</Num>,
-                    <span key="q" style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                      {m.muere && <><Status tono="bad">{`se apaga ${m.muere}`}</Status>{' '}</>}
-                      <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{m.unidad}</span> · {m.nota}
-                    </span>,
-                  ]} />
-              ))}
+              <Tabla>
+                <Fila head plantilla="minmax(0,1.2fr) 80px minmax(0,1.6fr)" cols={['Modelo', 'Precio', 'Nota']} />
+                {lista.map((m) => (
+                  <Fila key={m.id} plantilla="minmax(0,1.2fr) 80px minmax(0,1.6fr)"
+                    cols={[
+                      <span key="n" style={{ opacity: m.muere ? 0.55 : 1, textDecoration: m.muere ? 'line-through' : 'none' }}>
+                        <span style={{ color: 'var(--faint)', fontSize: 11 }}>{m.proveedor}</span> {m.modelo}
+                      </span>,
+                      <Num key="p">{m.usd === 0 ? '—' : `$${m.usd}`}</Num>,
+                      <span key="q" style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                        {m.muere && <><Status tono="bad">{`se apaga ${m.muere}`}</Status>{' '}</>}
+                        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{m.unidad}</span> · {m.nota}
+                      </span>,
+                    ]} />
+                ))}
+              </Tabla>
             </div>
           ))}
           <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: 13, background: 'var(--surface-2)' }}>
@@ -733,7 +770,7 @@ export function Pricing() {
             <div key={d.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border)', padding: '12px 0' }}>
               <strong style={{ fontSize: 12.5 }}>{d.titulo}</strong>
               <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--mako-ink)', margin: '4px 0 5px' }}>{d.numero}</div>
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 4px', lineHeight: 1.55, maxWidth: '76ch' }}>{d.que}</p>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 4px', lineHeight: 1.55 }}>{d.que}</p>
               <div style={{ fontSize: 10.5, color: 'var(--faint)' }}>{d.fuente}</div>
             </div>
           ))}
@@ -749,7 +786,7 @@ export function Pricing() {
             <div key={d.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border)', padding: '12px 0' }}>
               <strong style={{ fontSize: 12.5 }}>{d.titulo}</strong>
               <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--mako-ink)', margin: '4px 0 5px' }}>{d.numero}</div>
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 4px', lineHeight: 1.55, maxWidth: '76ch' }}>{d.que}</p>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 4px', lineHeight: 1.55 }}>{d.que}</p>
               <div style={{ fontSize: 10.5, color: 'var(--faint)' }}>{d.fuente}</div>
             </div>
           ))}
@@ -763,7 +800,7 @@ export function Pricing() {
                 <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{b.orden}</span>
                 <strong style={{ fontSize: 12.5 }}>{b.titulo}</strong>
               </div>
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '5px 0 4px 22px', lineHeight: 1.55, maxWidth: '76ch' }}>{b.que}</p>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '5px 0 4px 22px', lineHeight: 1.55 }}>{b.que}</p>
               <div style={{ marginLeft: 22, fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{b.vive}</div>
             </div>
           ))}
