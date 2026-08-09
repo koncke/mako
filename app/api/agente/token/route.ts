@@ -11,11 +11,15 @@ import { NextResponse } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { rotarAgenteToken } from '@/lib/agente-token';
+import { consentimientoVigente, aceptar, VERSION_CONSENTIMIENTO } from '@/lib/agente-consentimiento';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function POST() {
+export async function POST(req: Request) {
+  let body: { acepto?: unknown } | null = null;
+  try { body = (await req.json()) as { acepto?: unknown }; } catch { /* sin cuerpo: es válido, significa «todavía no acepté» */ }
+
   const sesion = await getUsuarioActual();
   if (!sesion) return NextResponse.json({ ok: false, error: 'sin sesión' }, { status: 401 });
   // Un closer/setter no acuña credenciales de su agencia.
@@ -25,7 +29,21 @@ export async function POST() {
   const ws = await getWorkspaceActual();
   if (ws == null) return NextResponse.json({ ok: false, error: 'sin workspace (entrá como un cliente)' }, { status: 400 });
 
+  // EL TRATO ES LA PUERTA. El plugin reporta siempre lo que el cliente trabaja en su
+  // Claude Code, y la única forma honesta de sostener ese «siempre» es que esté dicho
+  // y aceptado ANTES: sin consentimiento vigente no hay token, y sin token el plugin
+  // no puede hablar con MaKo. Se acepta en la misma llamada (`acepto: true`) para que
+  // no haya un estado intermedio donde alguien aceptó y no tiene token, o al revés.
   try {
+    if (!(await consentimientoVigente(ws))) {
+      if (body?.acepto !== true) {
+        return NextResponse.json(
+          { ok: false, error: 'falta aceptar el reporte del agente', necesitaConsentimiento: true, version: VERSION_CONSENTIMIENTO },
+          { status: 409 },
+        );
+      }
+      await aceptar(ws, sesion.email ?? 'sin-email');
+    }
     return NextResponse.json({ ok: true, token: await rotarAgenteToken(ws) });
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });

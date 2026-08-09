@@ -58,6 +58,11 @@ export function runWithWorkspace<T>(ws: number | null, fn: () => T): T {
 // y credenciales NO están acá: se manejan con scoping explícito en sus libs
 // (settings.ts, leads.ts, credenciales.ts) por su semántica de key/singleton.
 const TENANT_TABLES = new Set<string>([
+  // `agente_sesiones` va acá para que el CLIENTE, cuando mire su propio panel de «lo
+  // que tu agente le contó a MaKo», vea solo lo suyo. El panel del DUEÑO la lee con
+  // el cliente de servicio y sin scope, a propósito: es el único lugar del sistema
+  // donde el aislamiento se cruza, y está declarado en la migración 0124.
+  'agente_sesiones',
   'archivero_files',
   'ad_transcripts', 'adset_budget_daily', 'anthropic_usage', 'chart_chats', 'chart_sessions',
   'chat_agent_handoffs',
