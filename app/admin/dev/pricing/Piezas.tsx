@@ -41,7 +41,7 @@ export type Barra = {
  * cortan — ambas cosas las castiga el catálogo de antipatrones.
  */
 export function Barras({
-  datos, max, sufijo = '', tono = 'mako', altura = 26,
+  datos, max, sufijo = '', tono = 'mako', altura = 26, escala = 'lineal',
 }: {
   datos: Barra[];
   /** El tope de la escala. Explícito para que dos gráficos se puedan comparar. */
@@ -50,14 +50,29 @@ export function Barras({
   /** El color del acento. `bad` cuando la magnitud grande es mala. */
   tono?: 'mako' | 'bad' | 'info';
   altura?: number;
+  /**
+   * `log` para series que abarcan órdenes de magnitud. La tarifa va de 1 a 2.000
+   * MT: en escala lineal las 25 operaciones baratas quedan todas pegadas al cero
+   * y el gráfico solo dice «el Reel es caro», que ya se sabía.
+   *
+   * ⚠️ Una escala logarítmica SIN rotular es un antipatrón: el ojo lee áreas y
+   * concluye proporciones falsas. Quien la use tiene que decirlo en pantalla —
+   * por eso esto es una prop explícita y no una heurística sobre los datos.
+   */
+  escala?: 'lineal' | 'log';
 }) {
   const tope = max ?? Math.max(...datos.map((d) => d.valor), 1);
   const acento = tono === 'bad' ? 'var(--bad)' : tono === 'info' ? 'var(--primary)' : 'var(--mako)';
+  // log1p en vez de log: la tarifa tiene valores en 0 (lo automático no cobra) y
+  // log(0) es -Infinity, que pinta una barra de ancho NaN sin decir nada.
+  const ancho = (v: number) => (escala === 'log'
+    ? (Math.log1p(Math.max(0, v)) / Math.log1p(tope)) * 100
+    : (v / tope) * 100);
 
   return (
     <div role="img" aria-label={datos.map((d) => `${d.label}: ${d.texto}`).join('. ')}>
       {datos.map((d) => {
-        const pct = Math.max(1.5, (d.valor / tope) * 100);
+        const pct = Math.max(1.5, ancho(d.valor));
         return (
           <div key={d.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,190px) 1fr auto', gap: 12, alignItems: 'center', padding: '7px 0' }}>
             <div style={{ minWidth: 0 }}>

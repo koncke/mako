@@ -85,31 +85,42 @@ export type Plan = {
   id: 'free' | 'pro' | 'growth';
   label: string;
   precioUsd: number;
-  /** Cupo mensual en MaKo Tokens. 1.000 MT = US$1 de costo real de IA. */
-  cupoMt: number;
   /** Qué incluye, para la tabla de la landing. */
   incluye: string[];
   noIncluye: string[];
 };
 
-/** 1.000 MaKo Tokens = US$1 de costo de IA. La unidad es COSTO, no tokens de
- *  modelo: así se puede cambiar de proveedor sin rehacer los planes. */
+/**
+ * 1.000 MaKo Tokens = US$1 de **PRECIO DE LISTA** — el inverso de `USD_POR_MT`.
+ *
+ * ⚠️ Ojo con el rótulo: NO es «US$1 de costo». El costo real de 1.000 MT es
+ * US$1 / `MARKUP_MT` ≈ US$0,42. La pantalla dijo «US$1 de costo de IA» durante
+ * un rato y hacía parecer que el cupo del Growth costaba US$50 cuando cuesta
+ * US$21 — el error se ve recién cuando los dos números están en la misma vista.
+ *
+ * La unidad es de PRECIO, no tokens de modelo: así se cambia de proveedor sin
+ * rehacer los planes.
+ */
 export const MT_POR_USD = 1000;
 
+// ⚠️ El cupo de cada plan NO vive acá: vive en `CUPO_MT`, junto a la TARIFA que
+// lo hace legible. Estuvo duplicado (1.500/12.000/25.000 acá contra
+// 600/5.000/50.000 allá) y la pantalla pintaba el viejo. Un cupo es un número
+// que solo significa algo contra la tarifa; separarlos es lo que los desincronizó.
 export const PLANES: Plan[] = [
   {
-    id: 'free', label: 'Free', precioUsd: 0, cupoMt: 1500,
+    id: 'free', label: 'Free', precioUsd: 0,
     incluye: ['El plan y el Perro Guardián', 'CRM y funnel', 'Un workspace, un usuario', 'MaKo por WhatsApp, con cupo'],
     noIncluye: ['Integraciones que disparan IA sola (Fathom, Meta, Evolution)', 'Análisis de llamadas', 'Generación de creativos', 'BYOK'],
   },
   {
-    id: 'pro', label: 'Pro', precioUsd: 47, cupoMt: 12000,
+    id: 'pro', label: 'Pro', precioUsd: 47,
     incluye: ['Todo lo del Free', 'Fathom: reuniones → tareas', 'Closing Analyst', 'Ads Analyst', 'Hasta 3 usuarios'],
     noIncluye: ['Generación de video', 'BYOK', 'Usuarios ilimitados'],
   },
   {
-    id: 'growth', label: 'Growth', precioUsd: 97, cupoMt: 25000,
-    incluye: ['Todo lo del Pro', 'Fábrica de creativos (imagen)', 'Nutrición automática', 'Usuarios ilimitados', 'BYOK en el plan anual'],
+    id: 'growth', label: 'Growth', precioUsd: 97,
+    incluye: ['Todo lo del Pro', 'Fábrica de creativos (imagen)', 'Nutrición automática', 'Hasta 10 usuarios', 'BYOK de texto'],
     noIncluye: [],
   },
 ];

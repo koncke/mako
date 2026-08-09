@@ -23,9 +23,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Section, Eyebrow, Status, Select, Spinner, ErrorState, MONO } from '@/app/_ui';
 import { Barras, Cifra, Plegable, type Barra } from './Piezas';
 import {
-  ACCIONES, ACCIONES_NUEVAS, AUDIO, AUTOMATICOS, BENCHMARKS, BLOQUEANTES, COMPETENCIA, DATO_FALSO,
-  ECONOMIA, EL_ACCIDENTE, EL_COSTO_ES_EL_VIDEO, ESCENARIOS, IMAGEN, MEDICION, MT_POR_USD, PERFILES,
-  PLANES, RERUTEO, RETENCION, RETENCION_FUENTE, RUTEO, SALVEDADES, VIDEO, VIDEO_15S,
+  ACCIONES, ACCIONES_NUEVAS, AUDIO, AUTOMATICOS, BENCHMARKS, BLOQUEANTES, COMPETENCIA, CUPO_MT,
+  DATO_FALSO, ECONOMIA, EL_ACCIDENTE, EL_COSTO_ES_EL_VIDEO, ESCENARIOS, EXPOSICION, IMAGEN,
+  MARKUP_MT, MEDICION, MT_POR_USD, PERFILES, PLANES, RERUTEO, RETENCION, RETENCION_FUENTE,
+  RIESGO_QUE_QUEDA, RUTEO, SALVEDADES, TARIFA, VIDEO, VIDEO_15S,
   aMes, costoUnitario, margen, techoIa,
 } from './modelo';
 
@@ -37,11 +38,23 @@ type Resumen = {
   mesesDisponibles: string[];
 };
 
-const usd = (n: number) => `US$${n.toFixed(2)}`;
+// Coma decimal, punto de miles. La pantalla mezclaba «US$0,001» escrito a mano
+// con «US$0.30» salido de toFixed, y dos separadores distintos en la misma tabla
+// se leen como dos unidades distintas. Un solo formateador para todo.
+const usd = (n: number, dec = 2) => `US$${n.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
 const miles = (n: number) => n.toLocaleString('es-AR');
-const mtDe = (c: number) => Math.ceil((c * MT_POR_USD) / 5) * 5;
+const num = (n: number, dec = 1) => n.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const mesLabel = (m: string) => { const [y, x] = m.split('-'); return `${MESES[Number(x) - 1] ?? x} ${y}`; };
+
+/** El precio en MT de una operación. Falla ruidoso: un id mal escrito acá pinta
+ *  «0 MT» en una cifra del veredicto, que es la forma más cara de equivocarse. */
+const mtDeOp = (id: string) => {
+  const o = TARIFA.find((t) => t.id === id);
+  if (!o) throw new Error(`Pricing: no existe la operación «${id}» en TARIFA`);
+  return o.mt;
+};
 
 const PRO = PLANES.find((p) => p.id === 'pro')!;
 const GROWTH = PLANES.find((p) => p.id === 'growth')!;
@@ -128,6 +141,26 @@ export function Pricing() {
     destacada: p.plan === 'growth',
   }));
   const pctMedios = (GROWTH_P.mediosUsd / GROWTH_P.iaUsd) * 100;
+
+  // ── La tarifa ────────────────────────────────────────────────────────────
+  // Se grafica una MUESTRA de 12, no las 40: el gráfico existe para que se vea
+  // la escala, y cuarenta filas de barras no es un gráfico, es la tabla otra vez.
+  // La tabla completa vive plegada, abajo.
+  const MUESTRA = ['mako-msg', 'stt', 'lead-360', 'reunion', 'closing', 'archivero', 'campana',
+    'roleplay', 'imagen', 'carrusel', 'retro', 'clip8', 'reel'];
+  const barrasTarifa: Barra[] = MUESTRA
+    .map((id) => TARIFA.find((t) => t.id === id))
+    .filter((o): o is NonNullable<typeof o> => Boolean(o))
+    .sort((a, b) => a.mt - b.mt)
+    .map((o) => ({
+      id: o.id,
+      label: o.label,
+      nota: o.origen === 'medido' ? `medido · n=${o.n}` : o.origen,
+      valor: o.mt,
+      texto: miles(o.mt),
+      // El Reel es el que ordena la conversación: es el techo de la escala.
+      destacada: o.id === 'reel',
+    }));
 
   return (
     <>
@@ -228,8 +261,8 @@ export function Pricing() {
               <Fila key={r.id} plantilla="minmax(0,1.6fr) 90px 90px 60px"
                 cols={[
                   <span key="n">{r.label}<div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 1 }}>{r.como}</div></span>,
-                  <Num key="h">US${r.hoyUsd.toFixed(4)}</Num>,
-                  <Num key="x">{r.nuevoUsd === 0 ? 'gratis' : `US$${r.nuevoUsd.toFixed(4)}`}</Num>,
+                  <Num key="h">{usd(r.hoyUsd, 4)}</Num>,
+                  <Num key="x">{r.nuevoUsd === 0 ? 'gratis' : usd(r.nuevoUsd, 4)}</Num>,
                   <span key="v" style={{ fontFamily: MONO, fontSize: 12, color: veces > 1.5 ? 'var(--good)' : 'var(--faint)' }}>
                     {!isFinite(veces) ? '∞' : veces > 1.5 ? `${veces.toFixed(0)}×` : '—'}
                   </span>,
@@ -254,11 +287,78 @@ export function Pricing() {
         </Fuente>
       </Section>
 
+      {/* ── LA TARIFA ─────────────────────────────────────────────────────── */}
+      {/* El problema de forma acá es el RANGO: de 1 a 2.000 MT, 2000×. En barras
+          lineales las 25 operaciones baratas quedan pegadas al cero y el gráfico
+          solo dice «el Reel es caro». Por eso: primero la comparación que hace
+          legible la escala de una, después el gráfico en log ROTULADO, y recién
+          después la tabla completa para el que quiera auditar fila por fila. */}
+      <Section titulo="La tarifa" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>1 MaKo Token = US$0,001 de precio de lista</span>} card>
+        <Nota>
+          Cada operación cuesta lo que cuesta. El precio sale del <strong>costo medio real
+          medido</strong> por un markup de {num(MARKUP_MT)}×, redondeado a un número que se pueda sumar
+          de cabeza.
+        </Nota>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 24, margin: '18px 0 22px' }}>
+          <Cifra valor={`${mtDeOp('mako-msg')} MT`} tono="good" rotulo="Un mensaje a MaKo" detalle="Lo más barato del catálogo. Priorizar tareas y analizar un anuncio también valen 1." />
+          <Cifra valor={`${mtDeOp('imagen')} MT`} rotulo="Una imagen" detalle="El primer escalón que se siente. 80 veces un mensaje." />
+          <Cifra valor={`${miles(mtDeOp('reel'))} MT`} tono="bad" rotulo="Un intento de Reel de 15 s" detalle={`${miles(mtDeOp('reel') / Math.max(1, mtDeOp('mako-msg')))} veces un mensaje a MaKo. Y se cobra por INTENTO, no por Reel terminado.`} />
+        </div>
+
+        <Eyebrow>La escala, en logarítmica</Eyebrow>
+        <Nota>
+          ⚠️ El eje es <strong>logarítmico</strong>: cada paso a la derecha es ×10, no +1. En lineal
+          las veinticinco operaciones de texto quedan todas pegadas al cero y el gráfico no dice
+          nada que no supieras. El valor exacto está siempre en el número de la derecha.
+        </Nota>
+        <Barras datos={barrasTarifa} escala="log" tono="mako" altura={18} sufijo=" MT" />
+
+        <div style={{ marginTop: 24 }}>
+          <Eyebrow>Qué compra el cupo de cada plan</Eyebrow>
+          <Fila head plantilla="minmax(0,1.6fr) 90px 90px 90px" cols={['Si gastaras todo en…', 'Free 600', 'Pro 5.000', 'Growth 50.000']} />
+          {['mako-msg', 'reunion', 'closing', 'imagen', 'clip8', 'reel'].map((id) => {
+            const o = TARIFA.find((t) => t.id === id)!;
+            return (
+              <Fila key={id} plantilla="minmax(0,1.6fr) 90px 90px 90px"
+                cols={[o.label,
+                  ...(['free', 'pro', 'growth'] as const).map((p) => (
+                    <Num key={p}>{o.mt > 0 ? miles(Math.floor(CUPO_MT[p] / o.mt)) : '—'}</Num>
+                  ))]} />
+            );
+          })}
+          <Nota>
+            Por eso el contador que ve el cliente va en <strong>unidades</strong> («te quedan 3
+            Reels»), nunca en tokens, y el costo se muestra <strong>antes</strong> de generar.
+          </Nota>
+        </div>
+
+        <div style={{ marginTop: 20 }}>
+          <Eyebrow>Lo que expone cada cupo</Eyebrow>
+          <Fila head plantilla="minmax(0,1fr) 110px 100px 110px 100px" cols={['Plan', 'Mes normal', 'Margen', 'Mes malo (p90)', 'Margen']} />
+          {EXPOSICION.map((e) => (
+            <Fila key={e.plan} plantilla="minmax(0,1fr) 110px 100px 110px 100px"
+              cols={[
+                <span key="p">{e.plan} <span style={{ color: 'var(--faint)', fontFamily: MONO, fontSize: 11 }}>{miles(e.cupo)} MT</span></span>,
+                <Num key="n">{usd(e.normalUsd)}</Num>,
+                <span key="mn">{e.margenNormal === null ? '—' : <Status tono={e.margenNormal >= 70 ? 'good' : 'warn'}>{`${num(e.margenNormal)}%`}</Status>}</span>,
+                <Num key="m">{usd(e.maloUsd)}</Num>,
+                <span key="mm">{e.margenMalo === null ? '—' : <Status tono={e.margenMalo >= 70 ? 'good' : e.margenMalo >= 25 ? 'warn' : 'bad'}>{`${num(e.margenMalo)}%`}</Status>}</span>,
+              ]} />
+          ))}
+          <div style={{ marginTop: 12, padding: 13, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
+            <Status tono="warn">El riesgo que queda es uno solo</Status>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6, maxWidth: '74ch' }}>{RIESGO_QUE_QUEDA}</div>
+          </div>
+        </div>
+      </Section>
+
       {/* ── LOS PLANES ────────────────────────────────────────────────────── */}
-      <Section titulo="Los planes" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>1.000 MaKo Tokens = US$1 de costo de IA</span>} card>
+      <Section titulo="Los planes" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>1.000 MaKo Tokens = US$1 de precio de lista · {usd(1000 / MT_POR_USD / MARKUP_MT)} de costo</span>} card>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16 }}>
           {PLANES.map((p) => {
-            const costo = p.cupoMt / MT_POR_USD;
+            // Lo que cuesta el cupo entero SI se consume todo, que es el peor caso.
+            const costo = CUPO_MT[p.id] / MT_POR_USD / MARKUP_MT;
             // El cupo es lo que se VENDE; el perfil es lo que se proyecta que el
             // cliente va a consumir de verdad. Mostrar solo el primero escondía
             // que en el Growth el consumo proyectado se come el cupo entero.
@@ -272,7 +372,7 @@ export function Pricing() {
                   {p.precioUsd > 0 && <span style={{ fontSize: 12, color: 'var(--faint)', fontWeight: 400 }}>/mes</span>}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--muted)' }}>
-                  cupo {miles(p.cupoMt)} MT · {usd(costo)}
+                  cupo {miles(CUPO_MT[p.id])} MT{p.id === 'free' ? ' · por única vez' : '/mes'}
                 </div>
                 {perfil && (
                   <div style={{ fontFamily: MONO, fontSize: 11.5, color: perfil.iaUsd > costo ? 'var(--warn)' : 'var(--faint)', marginBottom: 9 }}>
@@ -310,6 +410,39 @@ export function Pricing() {
           ))}
         </Plegable>
 
+        <Plegable titulo="La tarifa completa" resumen={`las ${TARIFA.length} operaciones, con su costo real y de dónde sale`}>
+          <Nota>
+            El estadístico es la <strong>media</strong>, no la mediana ni el p90. La distribución de
+            tokens de salida es asimétrica a la derecha —la media es 1,9× a 3× la mediana en casi
+            todas las medidas—, así que por mediana se subcobra y la cola se come el margen (el mes
+            malo del Growth daba <strong>−58%</strong>), y por p90 se sobrecobra al 90% de los
+            usuarios. La media es lo que se paga cuando se corren muchas.
+          </Nota>
+          {(['Conversar', 'Plan', 'Análisis', 'Escribir', 'Automático', 'Medios'] as const).map((g) => (
+            <div key={g} style={{ marginBottom: 14 }}>
+              <Eyebrow>{g}{g === 'Automático' ? ' · no consume cupo' : ''}</Eyebrow>
+              <Fila head plantilla="minmax(0,1.8fr) 70px 90px 110px" cols={['Operación', 'MT', 'Costo real', 'Origen']} />
+              {TARIFA.filter((o) => o.grupo === g).map((o) => (
+                <Fila key={o.id} plantilla="minmax(0,1.8fr) 70px 90px 110px"
+                  cols={[
+                    o.label,
+                    <Num key="mt">{o.mt === 0 ? '—' : miles(o.mt)}</Num>,
+                    <Num key="c">{o.costoUsd === 0 ? 'gratis' : `${usd(o.costoUsd, 5)}`}</Num>,
+                    <span key="o" style={{ fontSize: 11, color: o.origen === 'supuesto' ? 'var(--warn)' : 'var(--faint)' }}>
+                      {o.origen}{o.n > 0 ? ` · n=${o.n}` : ''}
+                    </span>,
+                  ]} />
+              ))}
+            </div>
+          ))}
+          <Fuente>
+            Lo <strong>medido</strong> sale de la media real sobre {miles(MEDICION.llamadas)} llamadas
+            de <span style={{ fontFamily: MONO }}>anthropic_usage</span>. Lo{' '}
+            <strong style={{ color: 'var(--warn)' }}>supuesto</strong> es de features que todavía no
+            existen: es lo primero a recalibrar cuando corran.
+          </Fuente>
+        </Plegable>
+
         <Plegable titulo="El ruteo elegido" resumen={`${RUTEO.length} modelos, uno por tipo de tarea — todavía SIN implementar`}>
           <Nota>
             Verificados contra la página del fabricante el 09/08/2026. ⚠️ Ninguno está en{' '}
@@ -323,8 +456,8 @@ export function Pricing() {
             <Fila key={r.id} plantilla="minmax(0,1fr) 75px 75px minmax(0,1.8fr)"
               cols={[
                 r.modelo,
-                <Num key="i">{r.inUsd === 0 ? 'gratis' : r.inUsd.toFixed(2)}</Num>,
-                <Num key="o">{r.outUsd === 0 ? '—' : r.outUsd.toFixed(2)}</Num>,
+                <Num key="i">{r.inUsd === 0 ? 'gratis' : num(r.inUsd, 2)}</Num>,
+                <Num key="o">{r.outUsd === 0 ? '—' : num(r.outUsd, 2)}</Num>,
                 <span key="p" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.para}</span>,
               ]} />
           ))}
@@ -345,8 +478,8 @@ export function Pricing() {
                 <Fila key={a.id} plantilla="minmax(0,1.8fr) 90px 90px"
                   cols={[
                     <span key="n" style={{ fontWeight: a.usdBarato !== undefined ? 600 : 400 }}>{a.label}</span>,
-                    <Num key="c">{a.usd === 0 ? 'gratis' : `US$${a.usd.toFixed(4)}`}</Num>,
-                    <Num key="b">{a.usdBarato !== undefined ? `US$${a.usdBarato.toFixed(4)}` : '—'}</Num>,
+                    <Num key="c">{a.usd === 0 ? 'gratis' : `${usd(a.usd, 4)}`}</Num>,
+                    <Num key="b">{a.usdBarato !== undefined ? `${usd(a.usdBarato, 4)}` : '—'}</Num>,
                   ]} />
               ))}
             </div>
@@ -381,15 +514,23 @@ export function Pricing() {
           )}
         </Plegable>
 
-        <Plegable titulo="Cuánto cuesta cada acción" resumen={`${ACCIONES.length} procesos medidos, y su precio en MaKo Tokens`}>
-          <Nota>El denominador son las llamadas que <strong>efectivamente se pagaron</strong>: mezclarlas con las gratis da un número que no sirve para cotizar, porque el free tier no escala.</Nota>
-          <Fila head plantilla="minmax(0,1.7fr) 90px 70px" cols={['Acción', 'Costo real', 'MT']} />
+        {/* Acá había una columna «MT» calculada sobre ESTOS costos, y contradecía
+            a la TARIFA: son el gasto con el ruteo VIEJO, no el precio del cupo.
+            Dos números que se llaman igual y no coinciden es peor que uno solo. */}
+        <Plegable titulo="Lo que costaba cada acción ANTES del re-ruteo" resumen={`${ACCIONES.length} procesos medidos con el ruteo viejo — el precio en MT está en «La tarifa»`}>
+          <Nota>
+            El denominador son las llamadas que <strong>efectivamente se pagaron</strong>: mezclarlas
+            con las gratis da un número que no sirve para cotizar, porque el free tier no escala.
+            Esto es el <strong>baseline</strong> contra el que se mide el ahorro del ruteo, no lo que
+            se le cobra al cliente.
+          </Nota>
+          <Fila head plantilla="minmax(0,1.7fr) 90px 110px" cols={['Acción', 'Costo real', 'Llamadas pagas']} />
           {ACCIONES.map((a) => (
-            <Fila key={a.id} plantilla="minmax(0,1.7fr) 90px 70px"
+            <Fila key={a.id} plantilla="minmax(0,1.7fr) 90px 110px"
               cols={[
                 <span key="n">{a.label} {a.automatico && <Status tono="warn">solo</Status>}</span>,
-                <Num key="c">US${costoUnitario(a).toFixed(4)}</Num>,
-                <Num key="m">{mtDe(costoUnitario(a))}</Num>,
+                <Num key="c">{usd(costoUnitario(a), 4)}</Num>,
+                <Num key="l">{miles(a.llamadasPagas)}</Num>,
               ]} />
           ))}
         </Plegable>
