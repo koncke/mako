@@ -619,22 +619,151 @@ peor que no tener índice.** Si dos lugares cuentan lo mismo, uno llama al otro.
   **sin resolver el solape**. Se probó y se revirtió. La salida real es no dibujar una
   etiqueta cuando su caja choca con otra ya dibujada.
 - **El layout se recalcula en CADA carga** (`force-dynamic` + `revalidate: 0`) y
-  `lib/cerebro-layout.ts` ya devuelve la `huella` para poder cachearlo. Con 43 nodos no
-  duele; sumar el funnel (+18) cruza los ~80 donde la tabla de más arriba mide 300 ms.
-  Persistirlo deja de ser opcional ANTES de agregar el funnel.
-- **El funnel todavía no está en el grafo**, y sería la mejor adición: es la única
-  entidad del sistema con CADENA propia (etapa → etapa, con ramas), que es justo lo que
-  un grafo dibuja bien y lo que hoy falta — todo el resto es hub y hojas. Cuesta cero
-  lecturas nuevas (`page.tsx` ya llama a `getFunnel()`). **Bloqueado** por
-  `app/api/onboarding/route.ts:252`, que siembra `FUNNEL_TEMPLATES[0]` sin mirar el
-  canal: sin arreglar eso, un workspace de 'carrito' vería dos etapas de «Reunión» en
-  su mapa.
+  `lib/cerebro-layout.ts` ya devuelve la `huella` para poder cachearlo. ⚠️ Este punto
+  decía que persistirlo era un prerrequisito del funnel; se midió y era falso — ver
+  «CORRECCIÓN: persistir el layout NO era un prerrequisito» más abajo. Sigue siendo lo
+  correcto cuando un workspace real pase de 80 nodos.
+- ~~**El funnel todavía no está en el grafo**~~ — HECHO, junto con el arreglo del canal
+  del que dependía. Ver «El funnel adentro del grafo» más abajo y la entrada del canal
+  en `docs/hallazgos-crm.md`.
 - **El brief entra al grafo por cuatro listas hardcodeadas** (`CAMPOS_NORTE`,
   `CAMPOS_OFERTA`, `CAMPOS_CLIENTE`, `CAMPOS_MARCA` en `lib/cerebro-grafo.ts`) mientras
   `getSchema()` lee el esquema VIVO del workspace. O sea: se le agrega un campo al
   brief de un cliente, el cliente lo contesta, el dato alimenta los prompts… y **no
   existe** en el mapa que dice «todo lo que MaKo sabe de tu negocio». Sin error y sin
   aviso. Es el molde exacto del bug del parser del panorama.
+
+## El funnel adentro del grafo
+
+### `scripts/medir-grafo.mjs` se quedó ciego y no lo dijo
+
+**Vive en:** `scripts/medir-grafo.mjs`
+
+**Síntoma.** Se corre el verificador después de sumar el funnel y devuelve `nodos 0`,
+`densidad Infinity`, `NaN` en cuatro métricas y finalmente un `TypeError`.
+
+**Causa.** Su parser pedía `<circle cx="…" cy="…" r="…" fill="…">`. Cuando el dibujo pasó
+a mover los nodos con un `transform` en el `<g>` que los envuelve, los círculos se
+quedaron sin `cx`/`cy` y la expresión dejó de matchear. **No falló: informó cero.**
+
+**Por qué importa más de lo que parece.** Este script existe porque, textual en este
+mismo documento, «la casa dio por bueno DOS VECES un grafo que estaba mal porque se veía
+parecido». Un verificador que devuelve 0 en silencio es peor que no tenerlo: da la pinta
+de haber corrido. Y estuvo roto desde el rediseño del dibujo hasta que alguien lo usó de
+verdad — o sea que las capturas intermedias se aprobaron a ojo, que es exactamente lo que
+venía a impedir.
+
+**Regla.** El parser ahora sale con error explícito si lee 0 nodos, en vez de seguir y
+escupir `NaN`. Y saca el id de cada nodo de `data-nodo`, así que la próxima vez que el
+marcado cambie el mensaje dice dónde mirar. **Una herramienta de verificación que puede
+devolver «todo bien» sobre una entrada vacía no es una herramienta de verificación.**
+
+### Qué entra del funnel y qué no: 17 etapas no son 17 nodos
+
+**Vive en:** `lib/cerebro-grafo.ts` (el bloque «El FUNNEL»)
+
+`generateFunnel` produce 17 etapas para high-ticket, 11 para simple y directa. No entran
+todas:
+
+- **Fuera las tres salidas fijas** (Perdido · Descalificado · No responde). Son catálogo
+  de MaKo: bit a bit iguales en las cuatro plantillas y en todos los workspaces. Es la
+  misma regla que ya excluye los 14 formatos de la biblioteca — «el catálogo de MaKo no
+  es del cliente».
+- **Fuera «Nutrición - Manual»**, y este es el motivo más fuerte: `generateFunnel` la
+  coloca siempre pero **no emite ni una transición hacia ella ni desde ella**. Sería el
+  único nodo huérfano del mapa. Colgarla del área sería peor: parecería conectada sin
+  significar nada.
+
+Quedan 13 en high-ticket y en vsl, 7 en simple y directa. Y **no son las mismas entre
+plantillas**: `directa` genera «No pagó» y no genera «No Show R1». Eso es justamente lo
+que hace que el funnel valga como dato del negocio y no como decoración.
+
+### Las transiciones vienen DUPLICADAS por par, y `unir()` no deduplica
+
+**Vive en:** `lib/cerebro-grafo.ts`
+
+`generateFunnel` emite ida **y** vuelta entre los mismos dos nodos: `agenda → No Show R1`
+y `No Show R1 → agenda`, `facturando → No pagó` y la vuelta. Medido: 5 pares duplicados
+en high-ticket, 4 en vsl, 3 en simple, 1 en directa.
+
+Un par duplicado rompe cuatro cosas distintas, todas silenciosas: mete **dos resortes** en
+`forceLink` —ese par queda al doble de tensión y se pega en el dibujo—, dibuja dos líneas
+una encima de la otra, **infla la densidad que mide el verificador** (cuenta líneas, no
+pares) y hace que el panel cuente dos veces al mismo vecino. Se funden por par **no
+ordenado**, juntando los dos motivos en una frase.
+
+**Regla general:** `unir()` no deduplica. Cualquier fuente que pueda emitir la relación
+en los dos sentidos tiene que fundirse antes de entrar.
+
+### El nodo de área NO se lleva las etapas de nutrición, y sin esa excepción el hub se rompe
+
+**Vive en:** `lib/cerebro-grafo.ts` (el bloque «Las ÁREAS como nodos»)
+
+El bloque de áreas cuelga todo nodo real de su área. Aplicado al funnel —13 etapas, todas
+en `norte`— le lleva el grado de `area:norte` de 5 a 22 y la convierte en el nodo más
+conectado del mapa, por encima de la raíz: **el hub pasa a 5,5× contra el umbral de 4,5×**.
+
+La excepción es que solo cuelgan de su área las etapas de la fila **Activo**. Y no es un
+parche métrico: el racimo del funnel ya lo hace **su propia cadena**, que es para lo único
+que existe el nodo de área. Con eso el hub queda en 3,5×.
+
+⚠️ Esta excepción **deroga** la regla del bloque de áreas y por eso lleva su comentario al
+lado. Sin él se lee como un olvido, alguien lo «arregla», y el hub vuelve a 5,5× sin que
+nada avise: el typecheck no lo ve y **no hay ningún test que mida topología**.
+
+### El antes y el después, medido — incluido lo que empeoró
+
+Sobre el ws 11, con `scripts/medir-grafo.mjs`:
+
+| | sin funnel | con funnel |
+|---|---|---|
+| nodos · aristas | 50 · 87 | 61 · 105 |
+| densidad | 1,74 | 1,72 ✓ |
+| hojas | 2% | 7% ✓ |
+| hub | 3,4× | 3,5× ✓ |
+| clustering | 0,15 | **0,21** ✓ |
+| componentes | 1 | 1 ✓ |
+| CV del radio | 0,39 | 0,41 ✓ |
+| **bins vacíos** | **4/36** ✓ | **6/36** ✗ |
+
+El clustering sube un 40% —era el objetivo: el funnel es la única cadena que tiene el
+negocio— y **los bins vacíos se pasan del umbral**. Se probó la variante mínima (solo la
+fila Activo, 4 etapas) y también da 5/36: la línea base ya estaba **exactamente en el
+límite**, así que cualquier agregado la pasa. Queda anotado en vez de disimulado. Para
+referencia: el caso radial que este umbral vino a cazar daba 11/36.
+
+### CORRECCIÓN: persistir el layout NO era un prerrequisito
+
+**Vive en:** `lib/cerebro-layout.ts`
+
+Una versión anterior de este documento afirmaba que sumar el funnel «cruza los ~80 nodos
+donde la tabla mide 300 ms» y que **persistir el layout dejaba de ser opcional antes de
+agregarlo**. Es falso, y las dos mitades lo son:
+
+- la aritmética no cierra — 43 + 13 = 56, no cruza 80;
+- y el tiempo tampoco. Medido con `layoutCerebro` real: **43 nodos 117 ms · 50 → 112 ms ·
+  58 → 141 ms · 68 → 167 ms · 80 → 215 ms · 100 → 270 ms · 150 → 451 ms**. El funnel
+  cuesta ~30 ms por carga.
+
+La lección no es sobre el funnel: es que **un número heredado de otro documento no es una
+medición**. Persistir sigue siendo lo correcto cuando un workspace real pase de 80 nodos
+—la `huella` ya se calcula y no la consume nadie—, pero no bloqueaba esto.
+
+### Lo que quedó sin hacer acá
+
+- **No hay ningún test que mire la topología del grafo**, y no se puede escribir hoy:
+  `lib/cerebro-grafo.ts` lleva `server-only`, así que ningún test lo puede importar. Es
+  el mismo agujero que ya se pagó con `lib/vault.ts` y el README que contaba mal, y la
+  salida ya está probada: mover la parte pura a un módulo sin la marca. Mientras tanto,
+  todo lo medido acá se puede romper en un commit posterior sin una sola señal roja.
+- **Cambiar el pipeline cambia los ids de los nodos** (`etapa:<key>`) y por lo tanto la
+  huella del layout: el mapa entero se reacomoda cada vez que el cliente toca el editor
+  del funnel. El camino incremental de `layoutCerebro` (el parámetro `previo`) existe,
+  está testeado y no lo llama nadie — este es el primer caso de uso que lo justifica.
+- **El área Norte pasó a ser el 21% del mapa** (`gris uniforme` la reporta como color
+  dominante). Es consecuencia directa de que el funnel viva ahí. Se ve bien porque
+  `--grafo-norte` es un gris azulado desaturado, pero si algún día se le sube la
+  saturación, un quinto del lienzo se pinta de un solo tono.
 
 ## El vault: el segundo cerebro como carpetas y archivos
 

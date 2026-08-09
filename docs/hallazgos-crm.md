@@ -1166,6 +1166,160 @@ una demo mostrándola correr**.
 
 ---
 
+## El canal de venta y la plantilla de funnel
+
+### El canal se guardaba y no lo leía nadie
+
+**Vive en:** `app/api/onboarding/route.ts` (caso `fase`) · `lib/pipeline.ts`
+(`TEMPLATE_POR_CANAL`)
+
+**Síntoma.** Ninguno visible. Ese es el punto.
+
+**Causa.** El wizard le preguntaba al cliente cómo vende, guardaba la respuesta en
+`onboarding.funnel_tipos`… y a continuación sembraba `FUNNEL_TEMPLATES[0]` —el de dos
+reuniones— para todos. `grep onboarding.funnel_tipos` en todo el repo daba **dos
+resultados, los dos en utilidades de clonado**: el dato se escribía y no lo consumía
+nadie.
+
+**Lo que decide el mapeo NO es el nombre del canal**, y por eso el diagnóstico obvio se
+equivoca: `llamadas` suena a `highticket`. Lo único que se consume de una plantilla es
+**cuántas etapas `kind: 'reunion'` tiene**, porque `reunionesDe()` y `funnelReqInfo()`
+leen solo eso. De ahí salen, en cascada: qué datos exige el wizard para mover un lead,
+qué nutrición genera `generateFunnel`, qué secuencias le reclama `huecosDeSecuencias`, el
+pendiente «La Reunión N ya pasó» del worklist, y **qué audios se le piden al dueño en el
+onboarding del Chat Agent**. Nueve consumidores; ninguno mira el id de la plantilla.
+
+Daño concreto con la siembra vieja para un negocio de carrito: seis pasos de wizard por
+una R1 y una R2 que no existen, tres etapas de No Show, siete huecos de secuencia y tres
+audios sobre llamadas.
+
+### Sobre-pedir NO es el lado seguro, aunque lo parezca
+
+**Vive en:** `lib/stage-requirements.ts` · `lib/pipeline.ts` (`salidasDeEtapa`)
+
+La intuición dice que ante la duda conviene la plantilla más completa: si sobra una
+etapa, el cliente la borra. **Es al revés, y es asimétrico:**
+
+- **Sobre-pedir BLOQUEA.** Con dos reuniones, `funnelReqInfo('ganado')` da `numReuniones:
+  2`, y `stepsForStage` exige fecha de R2, asistencia a R2 y Fathom de R2 **aunque no haya
+  fecha**. El cliente no puede cerrar un lead sin inventar una segunda reunión.
+- **Sub-pedir se posterga.** Agregar una etapa en /funnel es un click y `addStage` nace
+  con `kind: 'reunion'`; los requisitos aparecen solos.
+
+La cicatriz está escrita en el propio repo: `salidasDeEtapa` tiene un bloque entero
+llamado **«Cierre directo: cerró en esta misma reunión, sin la siguiente»**, que existe
+porque la gente tenía que mover el lead dos veces inventando una R2. Ese parche es el
+síntoma de la plantilla sobredimensionada.
+
+Y hay evidencia de campo: de los tres clientes reales con canal `llamadas`, **uno le sacó
+la R2 a mano** a su funnel.
+
+⚠️ **`llamadas` es genuinamente ambiguo y conviene saberlo:** el texto del canal dice
+«agendas una llamada y cierras la venta ahí» (UNA reunión) pero `lib/todo-seeds-data.ts`
+—el único lugar que ya era canal-aware— le da a ese mismo canal tareas de «Guion del
+setter (R1)» y «Guion del closer (R2)». La pregunta del canal **no captura cuántas
+reuniones hay**. Se eligió `simple` por reversibilidad, no por certeza. Si algún día se
+quiere afinar sin agregar una pregunta, la señal gratis ya está en el mismo request: la
+fase del diagnóstico.
+
+### El gemelo del bug: la siembra pisaba un funnel que ya existía
+
+**Vive en:** `app/api/onboarding/route.ts` (caso `fase`)
+
+El bloque corría **sin ninguna condición** cada vez que se guardaba el diagnóstico desde
+el wizard. Un cliente con el onboarding a medias que volviera atrás y rehiciera las seis
+preguntas **se comía su propio funnel editado**, en silencio y sin confirmación.
+
+Cambiar una plantilla equivocada por una correcta que **sigue pisando** no arregla eso.
+El arreglo es doble: elegir por canal **y** sembrar solo si el funnel está intacto. El
+guard va en positivo — se siembra cuando el pipeline es idéntico al que da el fallback;
+cualquier diferencia, hasta un label, cuenta como «el cliente ya habló».
+
+### Por qué NO se puede escribir una migración que arregle lo ya sembrado
+
+**Vive en:** `lib/leads.ts` (`getFunnel`/`saveFunnel`) · `lib/pipeline.ts`
+
+`FUNNEL_TEMPLATES[0]` **es** `DEFAULT_PIPELINE` — la misma referencia. Elegir «High-ticket
+· 2 reuniones» a mano en el selector de /funnel escribe **byte por byte** lo mismo que
+escribía el bug. Y no hay ningún otro rastro: no existe tabla de auditoría del funnel, la
+server action no escribe en `lead_audit` ni en ningún log, y el editor autoguarda con un
+debounce sin registrar quién ni por qué. El único campo temporal es
+`funnel_config.updated_at`, que se pisa en cada guardado.
+
+**Por lo tanto: una migración que reescriba funnels usando como criterio «está en
+highticket» es destructiva y no se puede correr.** Y hay un segundo escalón que es fácil
+pasar por alto: **«sin fila» no es «vacío»**. `crearWorkspace` no siembra `funnel_config`
+y `getFunnel` cae a `DEFAULT_PIPELINE`, así que crearle la fila a un workspace sin fila le
+cambia el funnel exactamente igual que reescribírsela a otro.
+
+**El dato que cerró la discusión** (consulta de solo lectura contra producción,
+2026-08-09): los cuatro workspaces con canal declarado eligieron **todos** `llamadas`.
+Nadie quedó dañado por el bug — y eso es justamente por qué nadie lo vio en meses. El
+pasivo a reparar es cero; el arreglo es hacia adelante.
+
+### Qué se rompe si igual se le cambia el funnel a alguien con leads
+
+Cuatro efectos, todos silenciosos, por si algún día hay que hacerlo:
+
+1. `etapaVigenteDe` **descarta** un `pipeline_stage` que ya no existe en el funnel y el
+   lead vuelve a la etapa derivada. Ya pasó en escala: cientos de leads del ws1 con
+   override a etapas que su funnel ya no tenía.
+2. `deriveStageKey` deriva por FECHAS: un lead con `fecha_junta_2` deriva a `agendaj2`,
+   que en un funnel `directa` no existe, y ahí `stageMeta` cae a `stages[0]` y **pinta un
+   dato falso**.
+3. Las secuencias de nutrición cuelgan de una etapa: si la etapa desaparece, quedan
+   colgadas.
+4. `salidasDeEtapa` y `faltantesParaMover` cambian de respuesta, o sea que cambian los
+   requisitos de un lead que ya estaba en curso.
+
+### La plantilla `vsl` usa claves que la derivación no conoce — y NO se tocó
+
+**Vive en:** `lib/pipeline.ts` (`FUNNEL_TEMPLATES`, `deriveStageKey`) ·
+`app/crm/CrmBoard.tsx` (`effStage`)
+
+`deriveStageKey` habla once claves canónicas (`lead · nutri · agenda · agendaj2 ·
+facturando · noshow_r1 · noshow_r2 · ganado · perdido · descal · noresp`) y `effStage`
+**cae a la PRIMERA etapa** cuando la clave derivada no está en el funnel. La plantilla
+`vsl` usa `registro / grupo / webinar / checkout`: un lead que agenda por Calendly deriva
+`agenda`, esa clave no existe ahí, y la tarjeta aparece en «Registro (landing)». El board
+no distingue registrado de asistente.
+
+**No se cambió, a propósito.** Hay tres tests que afirman esas claves **como una
+característica** —«las keys canónicas, que este funnel NO tiene, no se cuelan por el
+nombre»— y verifican que `slotDeReunion` la detecte igual por `kind`. O sea que hubo una
+decisión deliberada, y pisarla de costado dentro de otra tarea sería peor que dejarla
+anotada. El arreglo, si se decide: claves canónicas con `label` propio
+(`{ ...pk('agenda','reunion'), label: 'Webinar' }`), que mantiene la derivación viva y
+cambia solo lo que el cliente lee.
+
+Sigue siendo estrictamente mejor que lo de antes: `webinar → vsl` en vez de dos reuniones
+uno-a-uno para un negocio de uno-a-muchos.
+
+### Lo que el mapeo por canal NO arregla
+
+Tres cosas quedan rotas igual, con la plantilla correcta:
+
+- **`generateFunnel` siembra «Reunión excepcional» y «No Show R3» en todo funnel con
+  etapa de pago**, tenga o no reuniones. Un e-commerce termina con una etapa llamada
+  Reunión excepcional, y `huecosDeSecuencias` le reclama la secuencia de No Show R3.
+- **La Reactivación se apaga justo donde más se necesita**: `if (reac && firstMeeting)`,
+  así que un funnel sin reuniones (carrito, conversaciones) se queda sin la nutrición de
+  re-contacto de fríos — que es la más obvia de un e-commerce. Y el motor del CRM
+  automático sigue proponiendo `move: { to: 'reactivacion' }` hacia una etapa que ese
+  funnel no tiene.
+- **El copy de la nutrición de entrada dice «No agendó»** a quien nunca tuvo que agendar.
+  El módulo ya sabe hacer la distinción —la aplica en el `recover`, con
+  `next.kind === 'reunion' ? 'Agenda tardío' : 'Retoma'`— y solo la usa en la mitad del par.
+
+### Al pasar, y fuera del alcance: `saveFunnelAction` no valida rol
+
+La server action que reescribe el funnel entero del workspace llama directo a
+`saveFunnel`, sin ningún guard. El único control está en la PÁGINA
+(`requireRolWs([], { nav: 'crm' })`), y esconder el botón no protege nada. El aislamiento
+cross-tenant sí se sostiene (`saveFunnel` resuelve el workspace con `getWorkspaceActual`,
+no con un parámetro), así que no es un IDOR: el agujero es de **rol**. Cualquier miembro
+del workspace puede reescribir la fuente de verdad del CRM.
+
 ## Descartado a propósito (no volver a "arreglarlo")
 
 - **Los items 'R' permanentes y no ignorables.** Decisión de producto: el lead está trabado y

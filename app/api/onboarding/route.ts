@@ -18,8 +18,8 @@ import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-cata
 import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, integracionConectada } from '@/lib/credenciales';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { getSetting, setSetting } from '@/lib/settings';
-import { saveFunnel } from '@/lib/leads';
-import { FUNNEL_TEMPLATES } from '@/lib/pipeline';
+import { saveFunnel, getFunnel } from '@/lib/leads';
+import { FUNNEL_TEMPLATES, templateDeCanal, mismoPipeline, DEFAULT_PIPELINE } from '@/lib/pipeline';
         // Ya no se siembran secuencias: el dueño arranca con la pantalla limpia
 import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
 import { getAnswers, getSchema, saveAnswers } from '@/lib/onboarding';
@@ -146,10 +146,6 @@ export async function GET() {
       // verificar, tiene que volver a verificar el nuevo.
       contacto: { ...contacto, verificado: verifContacto.verificado && verifContacto.telefono === contacto.telefono.replace(/\D/g, '') },
       usuario: { nombre: sesion?.nombre ?? '', email: sesion?.email ?? '' },
-      funnelTemplates: FUNNEL_TEMPLATES.map((t) => ({
-        id: t.id, name: t.name, description: t.description,
-        etapas: t.pipeline.map((s) => s.label ?? s.key),
-      })),
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e instanceof Error ? e.message : e) }, { status: 500 });
@@ -249,9 +245,32 @@ export async function POST(req: NextRequest) {
         // default. Las secuencias las arma el dueño: ya no se siembran.
         if (canal) {
           try { await setSetting('onboarding.funnel_tipos', JSON.stringify([canal])); } catch { /* no fatal */ }
-          const tpl = FUNNEL_TEMPLATES[0];
+          // ⚠️ DOS ARREGLOS QUE VAN JUNTOS, porque uno sin el otro no sirve.
+          //
+          // 1. LA PLANTILLA SALE DEL CANAL. Antes era `FUNNEL_TEMPLATES[0]` fijo: el
+          //    canal se guardaba en la línea de arriba y no lo leía nadie. Un negocio de
+          //    carrito arrancaba con dos reuniones, tres etapas de No Show y avisos de
+          //    «La Reunión 2 ya pasó». El mapa vive en lib/pipeline.ts.
+          //
+          // 2. NO SE PISA UN FUNNEL QUE YA EXISTE. Este bloque corría SIN CONDICIÓN cada
+          //    vez que alguien guardaba el diagnóstico en el wizard, así que un cliente
+          //    con el onboarding a medias que volvía atrás y rehacía las seis preguntas
+          //    se comía su propio funnel editado, en silencio y sin confirmación.
+          //    Cambiar una plantilla equivocada por una correcta que SIGUE pisando no
+          //    arregla eso.
+          //
+          // El guard va en POSITIVO (AGENTS.md): se siembra solo cuando el funnel está
+          // intacto — o sea idéntico al que da el fallback, que es lo que ve un
+          // workspace que nunca guardó nada. Cualquier diferencia, hasta un label,
+          // cuenta como «el cliente ya habló» y no se toca. El falso negativo (no
+          // sembrar cuando se podría) es el lado seguro.
+          const tpl = templateDeCanal(canal);
           if (tpl) {
-            try { await saveFunnel(tpl.pipeline, []); } catch (e) { console.error('[onboarding] funnel default falló (no fatal):', e); }
+            try {
+              const actual = await getFunnel();
+              const intacto = mismoPipeline(actual.pipeline, DEFAULT_PIPELINE) && actual.suppressed.length === 0;
+              if (intacto) await saveFunnel(tpl.pipeline, []);
+            } catch (e) { console.error('[onboarding] funnel por canal falló (no fatal):', e); }
           }
         }
         return NextResponse.json({ ok: true, diagnostico });

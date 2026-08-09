@@ -30,8 +30,24 @@ const start = h.lastIndexOf('<svg', i);
 const svg = h.slice(start, h.indexOf('</svg>', start));
 
 const vb = (svg.match(/viewBox="([-\d. ]+)"/) || [])[1].split(' ').map(Number);
-const nodos = [...svg.matchAll(/<circle cx="([-\d.]+)" cy="([-\d.]+)" r="([\d.]+)" fill="(var\(--[a-z-]+\)|none)"/g)]
-  .map((m) => ({ x: +m[1], y: +m[2], r: +m[3], fill: m[4] }));
+// ⚠️ LA POSICIÓN DE UN NODO VIVE EN EL <g>, NO EN EL <circle>. Cuando el dibujo pasó a
+// mover los nodos con un transform en el grupo, los círculos se quedaron sin `cx`/`cy` y
+// esta expresión —que los pedía— dejó de matchear. El script no falló: reportó **0 nodos
+// y NaN en todas las métricas**, que es la peor forma de romperse para una herramienta
+// cuya razón de existir es que «se ve parecido» no alcanza. Si esto vuelve a dar 0,
+// mirá el marcado antes que el grafo.
+const nodos = [...svg.matchAll(/<g class="cbg-nodo[^"]*" data-nodo="([^"]+)" transform="translate\(([-\d.]+) ([-\d.]+)\)">([\s\S]{0,400}?)<\/text>|<g class="cbg-nodo[^"]*" data-nodo="([^"]+)" transform="translate\(([-\d.]+) ([-\d.]+)\)">([\s\S]{0,400}?)<\/g>/g)]
+  .map((m) => {
+    const id = m[1] ?? m[5];
+    const x = +(m[2] ?? m[6]), y = +(m[3] ?? m[7]);
+    const cuerpo = m[4] ?? m[8] ?? '';
+    // El PRIMER <circle> del cuerpo es el área de toque transparente; el segundo es el
+    // que se dibuja. Medir con el primero infla el radio y falsea las proporciones.
+    const circulos = [...cuerpo.matchAll(/<circle r="([\d.]+)"[^>]*fill="([^"]+)"/g)];
+    const dib = circulos.find((c) => c[2] !== 'transparent') ?? circulos[0];
+    return { id, x, y, r: dib ? +dib[1] : 0, fill: dib ? dib[2] : 'none' };
+  });
+if (!nodos.length) { console.error('✖ 0 nodos: el marcado cambió y el parser quedó ciego. Revisá el <g class="cbg-nodo" data-nodo=… transform=…> de app/second-brain/Grafo.tsx.'); process.exit(1); }
 const lineas = [...svg.matchAll(/x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/g)]
   .map((m) => ({ x1: +m[1], y1: +m[2], x2: +m[3], y2: +m[4] }));
 const etiquetas = (svg.match(/class="cbg-et/g) || []).length;
@@ -125,6 +141,6 @@ console.log('DIBUJO');
 console.log(`  etiquetas        ${etiquetas} de ${nodos.length}`);
 console.log(`  rótulos de área  ${ok(String(rotulos), rotulos === 0)}  objetivo 0 (Obsidian no tiene)`);
 const acento = nodos.filter((n) => /mako|warn/.test(n.fill)).length;
-console.log(`  gris uniforme    ${ok(`${dom[0]} ${fmt((100 * dom[1]) / nodos.length, 0)}%`, dom[1] / nodos.length >= 0.85)}  objetivo ≥ 85% (Obsidian es monocromo)`);
+console.log(`  gris uniforme    ${dom ? ok(`${dom[0]} ${fmt((100 * dom[1]) / nodos.length, 0)}%`, dom[1] / nodos.length >= 0.85) : '—'}  objetivo ≥ 85% (Obsidian es monocromo)`);
 console.log(`  nodos de acento  ${ok(`${acento} = ${fmt((100 * acento) / nodos.length, 0)}%`, acento / nodos.length <= 0.1)}  objetivo ≤ 10% (el color marca EXCEPCIONES)`);
 console.log('');

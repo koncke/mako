@@ -74,7 +74,6 @@ type WizardData = {
   settings: Record<string, string>;
   contacto: { nombre: string; email: string; telefono: string; verificado: boolean };
   usuario: { nombre: string; email: string };
-  funnelTemplates: Array<{ id: string; name: string; description: string; etapas: string[] }>;
 };
 type RetroRow = { id: number; periodo_desde: string; periodo_hasta: string; reporte: RetroReporte | null };
 
@@ -149,7 +148,6 @@ export function OnboardingWizard() {
 
   // Respuestas en curso
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [tpl, setTpl] = useState('highticket');
   const [cierres, setCierres] = useState('');
   const [cash, setCash] = useState('');
   const [geminiConectada, setGeminiConectada] = useState(false); // lo reporta ServicioConfigForm
@@ -198,7 +196,6 @@ export function OnboardingWizard() {
       const d = j as unknown as WizardData;
       setData(d);
       setAnswers(d.briefAnswers ?? {});
-      setTpl(d.funnelTemplates[0]?.id ?? 'highticket');
       setCierres(d.settings.objetivo_cierres ?? '');
       setCash(d.settings.objetivo_cash_usd ?? '');
       setContacto({

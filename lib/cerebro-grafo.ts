@@ -48,6 +48,8 @@ import { FASES, CANALES } from './fase-diagnostico';
 import { PERSONALIDAD_PREGUNTAS } from './personalidad';
 import { BIBLIOTECA_ANGULOS } from './angulos-data';
 import { layoutCerebro } from './cerebro-layout';
+import { getFunnel } from './leads';
+import { BAND_LABEL, TRIGGER, salidasDeEtapa, type FunnelTransition } from './pipeline';
 
 // ── El modelo ────────────────────────────────────────────────────────────────
 // Vive en `cerebro-modelo.ts`, SIN `server-only`, porque el componente que dibuja
@@ -178,8 +180,32 @@ const desdePregunta = (label: string): string =>
  * Arma el grafo completo del negocio del workspace actual. Todo en paralelo: son
  * once lecturas independientes y ninguna depende del resultado de otra.
  */
+/**
+ * Qué dice una arista del funnel. NO se usa `t.label` solo: son textos de BOTÓN
+ * («Avanza», «Se perdió») que no explican nada fuera del Kanban. El dato que sí explica
+ * está en el `trigger`, que ya viene en cada transición y no lo lee ninguna pantalla.
+ *
+ * Y `autoHoy: false` es oro puro: el catálogo TRIGGER sabe qué disparadores todavía NO
+ * están cableados (Pago, Asistencia, Tiempo). Decirlo es información verdadera y
+ * verificable que hoy no aparece en ningún lado del producto — la misma lógica de «un
+ * vacío registrado y con nombre vale más que un vacío disimulado» que ya gobierna los
+ * nodos `falta:`.
+ */
+function motivoDeTransicion(t: FunnelTransition): string {
+  const tr = t.trigger ? TRIGGER[t.trigger] : undefined;
+  if (!tr) return t.label;
+  if (!tr.auto) return `Lo marca una persona: ${t.label}`;
+  if (!tr.autoHoy) return `${t.label}: se dispara con ${tr.label}, que todavía no está conectado`;
+  return `${t.label}, sola: la dispara ${tr.label}`;
+}
+
 export async function construirCerebro(): Promise<Cerebro> {
-  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, recomendaciones] = await Promise.all([
+  // ⚠️ El funnel se LEE ACÁ ADENTRO y no entra por parámetro, aunque la página ya lo
+  // tenga a mano. `construirCerebro()` tiene DOS llamadores —la pantalla y la ruta que
+  // arma el ZIP— y un parámetro opcional que solo pasara uno dejaría el vault sin funnel
+  // en silencio, que es la clase de bug que este repo ya pagó varias veces. Va en el
+  // mismo Promise.all, así que no suma latencia, y `getFunnel()` nunca lanza.
+  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, recomendaciones, funnel] = await Promise.all([
     getSchema(),
     getDiagnosticoFase(),
     listFiles(),
@@ -192,6 +218,7 @@ export async function construirCerebro(): Promise<Cerebro> {
     getPersona(),
     getPersonalidad(),
     getRecomendaciones(),
+    getFunnel(),
   ]);
 
   const { answers, fuente } = computeEffective(files, manual);
@@ -494,6 +521,78 @@ export async function construirCerebro(): Promise<Cerebro> {
     }
   }
 
+  // ── El FUNNEL: la única cadena que tiene el negocio ───────────────────────
+  // Todo el resto del cerebro es hub y hojas — un dato cuelga de su área y ahí termina.
+  // El funnel es lo único con CADENA propia (etapa → etapa, con vueltas), que es
+  // exactamente lo que un grafo dibuja bien y lo que a este mapa le faltaba.
+  //
+  // ⚠️ NO ENTRAN LAS 17 ETAPAS que genera `generateFunnel`. Entran las que dicen algo de
+  // ESTE negocio:
+  //   · FUERA las tres salidas fijas (Perdido / Descalificado / No responde). Son
+  //     catálogo de MaKo: bit a bit iguales en las cuatro plantillas y en todos los
+  //     workspaces. Es la misma regla que ya excluye los 14 formatos de la biblioteca.
+  //   · FUERA «Nutrición - Manual». Es el catch-all del worklist y `generateFunnel` no
+  //     emite NI UNA transición hacia ella ni desde ella: sería el único nodo huérfano
+  //     del mapa. Colgarla del área sería peor — parecería conectada sin significar nada.
+  // Quedan 13 nodos en high-ticket y en vsl, 7 en simple y en directa. Y no son los
+  // mismos entre plantillas: `directa` genera «No pagó» y no genera «No Show R1», que es
+  // justamente lo que hace que el funnel valga como dato del negocio.
+  if (funnel.pipeline.length) {
+    const FIJAS = new Set(['perdido', 'descal', 'noresp', 'manual']);
+    const delFunnel = funnel.stages.filter((e) => !FIJAS.has(e.key));
+    const idEtapa = (k: string) => `etapa:${k}`;
+    const enElMapa = new Set(delFunnel.map((e) => e.key));
+
+    for (const e of delFunnel) {
+      const esActivo = e.band === 'pipeline';
+      const salidas = salidasDeEtapa(funnel.stages, funnel.transitions, e.key)
+        .map((x) => x.label)
+        .filter(Boolean);
+      push({
+        id: idEtapa(e.key),
+        area: 'norte',
+        etiqueta: e.label,
+        // Del `Stage` se usa lo que es del NEGOCIO. `dot`, `tone` y `col` son layout del
+        // Kanban y no entran: el grafo tiene su propia paleta.
+        detalle: [
+          BAND_LABEL[e.band ?? 'pipeline'],
+          salidas.length ? `Desde acá: ${salidas.join(' · ')}.` : '',
+        ].filter(Boolean).join(' — '),
+        // La fila «Activo» es la que el cliente edita en /funnel; las de nutrición las
+        // deriva `generateFunnel` sola. Eso es literalmente cierto hoy, y es lo único
+        // que se puede afirmar: `funnel_config` no guarda de dónde salió el pipeline.
+        fuente: esActivo ? 'de tu funnel' : 'derivada de tu funnel',
+        autoria: esActivo ? 'usuario' : 'mako',
+      });
+    }
+
+    // ⚠️ LAS TRANSICIONES VIENEN DUPLICADAS POR PAR. `generateFunnel` emite ida Y vuelta
+    // entre los mismos dos nodos (agenda → No Show R1 y No Show R1 → agenda), y `unir()`
+    // no deduplica. Dos aristas sobre el mismo par meten DOS resortes en forceLink —ese
+    // par queda al doble de tensión y se pega en el dibujo—, se dibujan una encima de la
+    // otra, inflan la densidad que mide `scripts/medir-grafo.mjs` y hacen que el panel
+    // cuente dos veces al mismo vecino. Se funden por par NO ORDENADO, juntando los dos
+    // motivos en una frase.
+    const porPar = new Map<string, string[]>();
+    for (const t of funnel.transitions) {
+      if (!enElMapa.has(t.from) || !enElMapa.has(t.to)) continue;
+      const par = [t.from, t.to].sort().join('|');
+      porPar.set(par, [...(porPar.get(par) ?? []), motivoDeTransicion(t)]);
+    }
+    for (const [par, motivos] of porPar) {
+      const [a, b] = par.split('|');
+      unir(idEtapa(a), idEtapa(b), [...new Set(motivos)].join('. Y '));
+    }
+
+    // La arista que une las dos mitades: el canal que el cliente declaró explica por qué
+    // su funnel arranca así. ⚠️ Esta arista era MENTIRA hasta que se arregló el sembrado
+    // —el funnel se elegía sin mirar el canal—, y por eso el funnel no estaba en el mapa.
+    const primera = funnel.pipeline[0];
+    if (primera && nodos.some((n) => n.id === 'canal') && enElMapa.has(primera.key)) {
+      unir('canal', idEtapa(primera.key), 'Por eso tu funnel arranca así');
+    }
+  }
+
   // ── Las ÁREAS como nodos ───────────────────────────────────────────────────
   // Es el mecanismo con el que Quartz fabrica racimos sin inventar ninguna fuerza:
   // el tag entra como nodo y las notas se juntan solas alrededor. Acá reemplaza a DOS
@@ -510,9 +609,20 @@ export async function construirCerebro(): Promise<Cerebro> {
   // Efecto medido: hojas 47,6% → 1,9% · densidad 1,21 → 1,77 · ciclos por nodo
   // 0,24 → 0,79. NO se unen a la raíz: eso le sumaría diez radios al hub, que es
   // justo lo que se está desinflando.
+  //
+  // ⚠️ Y UNA EXCEPCIÓN, medida: las etapas de NUTRICIÓN del funnel NO se cuelgan de su
+  // área. Colgar las 13 etapas del funnel de `area:norte` le lleva el grado de 5 a 22 y
+  // la convierte en el nodo más conectado del mapa, por encima de la raíz: el hub pasa a
+  // 5,5x contra el umbral de 4,5x de scripts/medir-grafo.mjs. Y el racimo del funnel no
+  // lo necesita — ya lo hace su propia cadena, que es para lo único que existe el nodo de
+  // área. Colgando solo la fila «Activo» las seis métricas pasan en las cuatro
+  // plantillas. Sin esta nota, la próxima sesión lo lee como un olvido y lo «arregla».
+  const nutricionDelFunnel = new Set(
+    funnel.stages.filter((e) => e.band !== 'pipeline').map((e) => `etapa:${e.key}`),
+  );
   const realesPorArea = new Map<AreaId, string[]>();
   for (const n of nodos) {
-    if (n.id === RAIZ || n.autoria === 'pendiente') continue;
+    if (n.id === RAIZ || n.autoria === 'pendiente' || nutricionDelFunnel.has(n.id)) continue;
     realesPorArea.set(n.area, [...(realesPorArea.get(n.area) ?? []), n.id]);
   }
   for (const a of AREAS) {

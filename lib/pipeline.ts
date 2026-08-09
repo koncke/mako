@@ -9,6 +9,8 @@ import type { EstadoLead } from './leads';
 // de imports entre los dos está documentado en la cabecera de funnel-etapas.ts:
 // es inocuo porque acá solo se usan DENTRO de generateFunnel, nunca al cargar.
 import { reunionesDe, slotPorIndice } from './funnel-etapas';
+// Solo el TIPO del canal: `fase-diagnostico` no importa nada, así que no hay ciclo.
+import type { CanalId } from './fase-diagnostico';
 
 export type StageTone =
   | 'neutral' | 'accent' | 'good' | 'bad' | 'warn' | 'info'
@@ -499,7 +501,96 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
       pk('ganado', 'cierre'),
     ],
   },
-];
+  {
+    // El único canal cuya operación ENTERA es la conversación, y el único sin plantilla
+    // hasta ahora. Las dos con reunión están descartadas por definición («sin llamada»)
+    // y `directa` va del lead al pago sin ningún lugar donde parar la charla: todos los
+    // leads con los que estás hablando quedarían mezclados con los que nadie tocó.
+    // ⚠️ 'conversando' es la única clave de este archivo que no conoce `deriveStageKey`
+    // (que habla 11 claves canónicas derivadas de fechas y estado). O sea que a esta
+    // etapa se llega SOLO moviendo el lead a mano — que es lo correcto: la abre una
+    // persona o MaKo, no un webhook. Y `kind: 'paso'` es deliberado: no tiene case en
+    // el switch de generateFunnel, así que no inventa nutrición, y `funnelReqInfo` le da
+    // nivel 0, así que mover un lead ahí no dispara ningún requisito.
+    id: 'conversaciones',
+    name: 'Conversaciones · sin llamada',
+    description: 'Lead → conversación abierta → cobro. Para quien vende por WhatsApp o DM.',
+    pipeline: [
+      pk('lead', 'entrada'),
+      { key: 'conversando', label: 'Conversación abierta', dot: '#1FA855', tone: 'teal', kind: 'paso' },
+      pk('facturando', 'pago'),
+      pk('ganado', 'cierre'),
+    ],
+  },
+]
+
+/**
+ * QUÉ FUNNEL LE TOCA A CADA CANAL DE VENTA.
+ *
+ * ⚠️ ESTO NO EXISTÍA, y esa era la falla: `app/api/onboarding/route.ts` guardaba el canal
+ * que el cliente declaraba y después sembraba `FUNNEL_TEMPLATES[0]` —el de dos
+ * reuniones— para todos. El canal quedaba escrito y no lo leía nadie. Un e-commerce que
+ * vende por carrito arrancaba con Agenda R1, Agenda R2, tres etapas de No Show y avisos
+ * de «La Reunión 2 ya pasó».
+ *
+ * LO QUE DECIDE EL MAPEO NO ES EL NOMBRE DEL CANAL SINO CUÁNTAS ETAPAS `kind: 'reunion'`
+ * corresponden, porque es lo único que se consume: `reunionesDe()` y `funnelReqInfo()`
+ * leen solo eso, y de ahí salen los requisitos para mover un lead, la nutrición de No
+ * Show, los huecos de secuencias y hasta qué audios se le piden al dueño en el
+ * onboarding del Chat Agent.
+ *
+ * ⚠️ Y EQUIVOCARSE PARA ARRIBA NO ES EL LADO SEGURO, aunque lo parezca. Con dos
+ * reuniones, para marcar Ganado el wizard exige fecha, asistencia y Fathom de una R2 que
+ * no existe: el cliente NO PUEDE cerrar el lead sin inventarla. Sub-pedir, en cambio, se
+ * arregla con un click en /funnel. Por eso 'llamadas' —cuyo texto dice «agendas una
+ * llamada y cierras la venta ahí», o sea UNA— arranca en `simple` y no en `highticket`.
+ * Evidencia de que sobre-pedir molesta de verdad: `salidasDeEtapa` tiene un bloque
+ * entero llamado «Cierre directo: cerró en esta misma reunión, sin la siguiente», que
+ * existe porque la gente tenía que mover el lead dos veces inventando una R2.
+ *
+ * `Record<CanalId, …>` es a propósito: el compilador exige la fila cuando se agrega un
+ * canal. Y `tests/funnel-por-canal.test.ts` verifica que cada id exista de verdad en
+ * FUNNEL_TEMPLATES — el tipo no puede ver eso.
+ */
+export const TEMPLATE_POR_CANAL: Record<CanalId, string> = {
+  llamadas: 'simple',
+  conversaciones: 'conversaciones',
+  carrito: 'directa',
+  webinar: 'vsl',
+};
+
+/**
+ * ¿Dos pipelines son el MISMO? Comparación estructural y estricta: misma cantidad de
+ * etapas, en el mismo orden, con la misma clave, la misma etiqueta y el mismo `kind`.
+ *
+ * Existe para poder preguntar «¿este cliente ya tocó su funnel?» sin adivinar. No hay
+ * historial de funnel en ningún lado —`funnel_config` guarda un solo `data` que se pisa
+ * en cada guardado, sin versiones ni auditoría—, así que la única forma honesta de
+ * saber si alguien lo editó es comparar contra lo que se le habría dado.
+ *
+ * ⚠️ Estricta A PROPÓSITO: cualquier diferencia, hasta un label cambiado a mano, cuenta
+ * como «lo editaron». Si mañana alguien toca una etiqueta de DEFAULT_STAGES, todos los
+ * funnels viejos dejan de ser idénticos y nadie los va a pisar. Ese falso negativo es
+ * el lado seguro: no sembrar de más nunca rompió nada; sembrar encima de un funnel en
+ * uso mueve leads de etapa en silencio.
+ *
+ * Se ignoran `dot`, `tone`, `band` y `col`: son layout del Kanban, no la forma del
+ * embudo, y `withLayout` los rellena solo.
+ */
+export function mismoPipeline(a: Stage[] | null | undefined, b: Stage[] | null | undefined): boolean {
+  const x = a ?? [], y = b ?? [];
+  if (x.length !== y.length) return false;
+  return x.every((s, i) => s.key === y[i].key && s.label === y[i].label && (s.kind ?? 'paso') === (y[i].kind ?? 'paso'));
+}
+
+/** La plantilla de un canal, o `null` si el canal no existe. Falla CERRADO a propósito:
+ *  un canal desconocido —el endpoint del hub no lo valida contra CANALES— no siembra
+ *  nada en vez de caer a una plantilla por default, que es como nació este problema. */
+export function templateDeCanal(canal: string | null | undefined): FunnelTemplate | null {
+  if (!canal) return null;
+  const id = (TEMPLATE_POR_CANAL as Record<string, string>)[canal];
+  return id ? FUNNEL_TEMPLATES.find((t) => t.id === id) ?? null : null;
+}
 
 /** Enriquece una etapa con su layout por defecto (banda/col/colores) si no lo trae. */
 export function withLayout(s: Stage): Stage {
