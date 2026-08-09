@@ -93,6 +93,9 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   // El zoom que hace entrar el mapa entero, en ESTADO además de en el ref de más abajo:
   // el render lo necesita para decidir el fade de las etiquetas, y un ref no re-renderiza.
   const [kFitEstado, setKFitEstado] = useState(1);
+  // Unidades de mundo por píxel. Lo necesitan el tamaño de la etiqueta y el descarte por
+  // colisión, y depende del LIENZO, no del zoom.
+  const [uEstado, setUEstado] = useState(1);
   const [activo, setActivo] = useState<string | null>(null);
   const [fijado, setFijado] = useState<string | null>(null);
   const [areaFocoPropio, setAreaFoco] = useState<AreaId | null>(null);
@@ -137,6 +140,45 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   // resolver el solape. La salida real es no dibujar la etiqueta cuando su caja choca
   // con otra ya dibujada, que es trabajo aparte.
   const alphaEtiqueta = Math.min(1, Math.max(0, Math.log2(kPaso / (kFitEstado || 1)) + 1));
+
+  // ── QUÉ ETIQUETAS SE DIBUJAN ───────────────────────────────────────────────
+  // Con el tamaño arreglado, el texto pasa de 4,32 px ilegibles a 12 px reales — y ahí
+  // aparece el problema que estaba TAPADO: medido, 17 pares de cajas se pisan (43% de
+  // las etiquetas). Por eso los dos cambios van juntos; el del tamaño solo deja la
+  // pantalla peor que antes.
+  //
+  // Se descartan por COLISIÓN, en orden de grado descendente: el nodo más conectado gana
+  // su etiqueta y el que llega después la cede. Es lo que hace Obsidian, y tiene la
+  // propiedad que importa: al ACERCARSE los nodos se separan en pantalla, las cajas
+  // dejan de chocar y las etiquetas aparecen solas. O sea que acercarse por fin sirve.
+  //
+  // ⚠️ Por render CONDICIONAL, nunca con `opacity: 0`: este documento ya midió que un
+  // nodo invisible cuesta lo mismo que uno dibujado.
+  const etiquetasVisibles = useMemo(() => {
+    const alto = (12 * uEstado) / kPaso;          // la caja, en unidades locales del <g>
+    const cajas: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
+    const ok = new Set<string>();
+    const orden = [...nodos].sort((a, b) => {
+      const d = (grados[b.id] ?? 0) - (grados[a.id] ?? 0);
+      return d !== 0 ? d : a.id < b.id ? -1 : 1;   // desempate estable
+    });
+    for (const n of orden) {
+      const p = posiciones[n.id];
+      if (!p) continue;
+      // Los factores salen de MEDIR la caja real en el navegador, no de estimarlos: el
+      // alto renderizado de una etiqueta de 12 px es 16 px (la caja incluye el
+      // interlineado), o sea 1,33 — con el 1,15 que tenía puesto quedaban 10 pares
+      // pisados. Se le suma un margen: dos etiquetas que se tocan justo se leen igual de
+      // mal que dos que se pisan.
+      const ancho = Math.min(n.etiqueta.length, 34) * alto * 0.58 + alto * 0.6;
+      const y0 = p.y + radioNodo(grados[n.id] ?? 0) + 6 / Math.sqrt(kPaso);
+      const c = { x0: p.x - ancho / 2, x1: p.x + ancho / 2, y0: y0 - alto * 0.2, y1: y0 + alto * 1.55 };
+      if (cajas.some((b) => c.x0 < b.x1 && c.x1 > b.x0 && c.y0 < b.y1 && c.y1 > b.y0)) continue;
+      cajas.push(c);
+      ok.add(n.id);
+    }
+    return ok;
+  }, [nodos, posiciones, grados, kPaso, uEstado]);
 
   const radioMundo = useCallback((n: NodoCerebro) => radioNodo(grados[n.id] ?? 0), [grados]);
   const kr = Math.sqrt(kPaso);
@@ -492,6 +534,15 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     const k = Math.min((anchoU - 2 * aire) / (bbox.w || 1), (altoU - 2 * aire) / (bbox.h || 1));
     kFit.current = k;
     setKFitEstado((prev) => (Math.abs(prev - k) < 1e-6 ? prev : k));
+    // ⚠️ CUÁNTAS UNIDADES DE MUNDO ENTRAN EN UN PÍXEL. El <g> se escala DOS veces —por el
+    // zoom del paneo (`--k`) y por la escala del viewBox— y el CSS de la etiqueta solo
+    // compensaba la primera. Resultado medido: el texto se dibujaba a 4,32 px SIEMPRE, a
+    // cualquier zoom, porque el /k se cancelaba y quedaba 12 × 0,36. O sea que acercarse
+    // NO agrandaba el texto, que es justo el único mecanismo con el que Obsidian hace
+    // legible un racimo denso. Se escribe acá y en el ResizeObserver, nunca por frame:
+    // depende del tamaño del lienzo, no del zoom.
+    svgRef.current?.style.setProperty('--u', String(1 / porPixel));
+    setUEstado((prev) => (Math.abs(prev - 1 / porPixel) < 1e-9 ? prev : 1 / porPixel));
     const cxU = encuadre.x + encuadre.lado / 2;
     const cyU = encuadre.y + encuadre.lado / 2;
     vista.current = { k, x: cxU - k * bbox.cx, y: cyU - k * bbox.cy };
@@ -686,7 +737,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
         .cbg .cbg-nodo:hover circle, .cbg .cbg-nodo:hover .cbg-et { transition-duration: .14s; }
 
         /* Sin halo, sin contorno, sin sombra, sin bold: Obsidian no tiene nada de eso. */
-        .cbg .cbg-et { font-size: calc(12px / var(--k, 1)); fill: var(--on-sidebar); pointer-events: none; }
+        .cbg .cbg-et { font-size: calc(12px * var(--u, 1) / var(--k, 1)); fill: var(--on-sidebar); pointer-events: none; }
 
         @media (prefers-reduced-motion: reduce) {
           .cbg .cbg-pop { animation: none; }
@@ -832,7 +883,9 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
                             <circle r={r + 1.2 / kr} fill="none" stroke="var(--on-sidebar)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
                           )}
                         </g>
-                        {(alphaEtiqueta > 0.02 || esSel) && (
+                        {/* El nodo en foco y sus vecinos SIEMPRE llevan etiqueta: es lo
+                            que se está mirando, y esconderla ahí sería el peor momento. */}
+                        {((etiquetasVisibles.has(n.id) && alphaEtiqueta > 0.02) || esSel || (cerca?.has(n.id) ?? false)) && (
                           <text
                             className="cbg-et"
                             y={r + 6 / kr}
