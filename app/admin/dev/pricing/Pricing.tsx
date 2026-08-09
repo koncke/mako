@@ -118,8 +118,10 @@ export function Pricing() {
       {/* ── EL VEREDICTO ──────────────────────────────────────────────────── */}
       <Section titulo="El veredicto" card>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 26, marginBottom: 20 }}>
+          {/* Signo MENOS (U+2212), no el guion del teclado: a 34px el guion se lee
+              como un separador y la cifra pierde el signo. */}
           <Cifra
-            valor={`${margenPro.toFixed(0)}%`} tono="bad"
+            valor={`${margenPro < 0 ? '−' : ''}${Math.abs(margenPro).toFixed(0)}%`} tono="bad"
             rotulo="Margen bruto del Pro"
             detalle={`Con un usuario intensivo, medido. El objetivo del sector es 75%.`}
           />

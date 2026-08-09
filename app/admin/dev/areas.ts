@@ -613,6 +613,19 @@ export const AREAS: AreaDev[] = [
 
   // ────────────────────────────────────────────────────────── Business
   {
+    // Va PRIMERA del grupo a propósito: es el análisis que decide los precios, y
+    // las otras tres son la maquinaria que los cobra. Sin esto, «Free / Pro /
+    // Growth» son tres números elegidos a ojo.
+    slug: 'pricing', titulo: 'Pricing', familia: 'Business', grupo: 'Cobros y planes',
+    estado: 'parcial',
+    alcance: 'Cuánto cuesta la IA de verdad y qué plan la aguanta: el costo medido por acción, los escenarios de ruteo, los cupos de MaKo Tokens y lo que falta para poder cobrarlos.',
+    verEnApp: '/integraciones#saldo-ia',
+    vive: ['app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'lib/costos-ia.ts', 'app/api/costos-ia/route.ts', 'docs/costos-ia-y-planes.md'],
+    proyectos: ['Feature: Cobros y planes'],
+    hallazgos: 'hallazgos-ia',
+    nota: 'El hallazgo que decide no es de costos sino de PRECIO: ChartMogul mide 23% de retención bruta anual en productos AI-native de menos de US$50/mes (45% entre 50 y 249, 70% arriba de 250), o sea que el Pro a US$47 cae en la peor banda por dos dólares. Y una reunión de venta cuesta US$666-900 contra un ACV de US$564. Ojo con el solape: esta área es el MODELO DE NEGOCIO; el medidor de consumo es `ai-spend-cuotas`. Cada número de modelo.ts dice si es medido, publicado o supuesto — y hay uno marcado «no usar» que circula por ocho sitios sin estudio primario detrás.',
+  },
+  {
     slug: 'plans-entitlements', titulo: 'Plans & Entitlements', familia: 'Business', grupo: 'Cobros y planes',
     estado: 'parcial',
     alcance: 'Free / Pro / Growth. La maquinaria YA corre con 3 capas hardcodeadas en lib/capas.ts y sin noción de plan.',

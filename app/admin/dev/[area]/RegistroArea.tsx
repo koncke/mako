@@ -12,6 +12,7 @@
 // entrar. Si la herramienta va primero, el registro no se lee nunca.
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Pagina, PageHeader, Tabs, Status, ButtonLink, type Tab } from '@/app/_ui';
 import { Roadmap, ChangeHistory } from '../_registro/Registro';
 import { RoadmapDelPlan, HistorialDeGit, Trampa } from '../_registro/Derivados';
@@ -31,7 +32,13 @@ export function RegistroArea({
 }) {
   const hechas = registro.partes.filter((p) => p.estado === 'hecha').length;
   const tabs: Tab[] = [{ id: 'roadmap', label: 'Roadmap' }, ...subTabsDe(area.slug)];
-  const [tab, setTab] = useState('roadmap');
+  // `?tab=<id>` abre una sub-tab directo. Sirve para dos cosas: mandar el link de
+  // UN panel en vez de «entrá y clickeá la segunda pestaña», y poder verificar el
+  // panel desde afuera — con la pane del navegador oculta, un clic sintético no
+  // llega al onClick de React y no hay forma de cambiar de tab. Mismo patrón que
+  // `/integraciones?ops=1`. Un id que no existe cae en Roadmap, que es el default.
+  const pedida = useSearchParams().get('tab');
+  const [tab, setTab] = useState(tabs.some((t) => t.id === pedida) ? pedida! : 'roadmap');
   // Seis áreas tienen bitácora escrita a mano. Manda ella: tiene el pedido
   // TEXTUAL del dueño y el porqué, que ningún mensaje de commit contiene.
   const conBitacora = registro.partes.length > 0 || registro.bitacora.length > 0;
