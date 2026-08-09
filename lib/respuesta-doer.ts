@@ -1,0 +1,108 @@
+// =============================================================================
+// La compuerta de salida de MaKo en WhatsApp
+// =============================================================================
+// El caso que la trajo, reportado por el dueño el 9/8/2026: mandó dos tareas para
+// cargar al plan y MaKo, en vez de crear el borrador y contestar con el LINK, le
+// escupió el borrador ENTERO como texto — con las preguntas del formulario ahí
+// mismo en el chat y un «**Eliminar** — Nada por ahora» que no significa nada para
+// quien lo lee. Sus palabras: «me comenzó a preguntar allí mismo en el chat, cuando
+// existe justamente la metodología de enviar el link» y «no entiendo qué hizo».
+//
+// No entendía porque MaKo no hizo nada: no hubo INSERT, no hubo id, no hubo link.
+// Solo redactó. Lo que salió por WhatsApp era el `input_schema` de la tool
+// `proponer_tareas_plan` aplanado a markdown, campo por campo — el MOLDE_DETALLE va
+// LITERAL en la description del campo `detalle`, y con un modelo chico el schema
+// viaja como prompt plano, indistinguible de una instrucción.
+//
+// LA CAUSA NO FUE EL MODELO. El día anterior acertó cuatro veces con el mismo
+// modelo y la misma ruta. La causa es que el código aceptaba cualquier texto:
+//
+//     if (r.text && !r.text.startsWith('(')) { respuesta = r.text.trim(); break; }
+//
+// El único filtro era que no empezara con paréntesis. «Este turno crea un borrador»
+// no existía como decisión del código: la tomaba el modelo emitiendo un tool_call, y
+// si no lo emitía, su prosa salía derecho al WhatsApp del dueño. Es exactamente
+// AGENTS.md → «Una regla en un prompt no es una regla»: el preámbulo pedía «llamá
+// proponer_tareas_plan» y esa era la única capa.
+//
+// ⚠️ Y NO alcanza con `toolsUsados > 0`, que es la guarda que ya existía apagada
+// detrás de un flag. Ese día el modelo SÍ llamó una tool (`ver_plan`, la de 6 tokens
+// del registro de gasto) y después redactó igual. La pregunta correcta no es «¿llamó
+// alguna herramienta?» sino **«¿ocurrió el efecto que esta ruta exigía?»** — y de eso
+// hay prueba dura: `linkBorrador`, que solo se setea cuando `crearPropuesta` hizo el
+// INSERT y devolvió un id real.
+//
+// Sin `server-only` a propósito, para que se pueda testear sola. Mismo criterio que
+// `lib/link-borrador.ts` y `exigirClienteDePrueba`.
+
+import { evaluarDetalle } from './detalle-contrato';
+
+export type VeredictoDoer =
+  | { ok: true }
+  | { ok: false; razon: 'molde-volcado' | 'sin-borrador'; detalle: string };
+
+/** Lo que MaKo contesta cuando bloqueamos su respuesta. Honesto y corto: decir «no
+ *  pude» es infinitamente mejor que mandar el payload y que el dueño tenga que
+ *  adivinar qué pasó. */
+export const AVISO_NO_PUDE =
+  'No pude armar el borrador con eso. Reintentá en un momento y si vuelve a pasar, avisame.';
+
+/**
+ * La respuesta cuando el borrador SÍ se creó. Vive acá y no suelta en el prompt
+ * porque la usan los dos: el preámbulo la muestra como ejemplo y la compuerta la
+ * escribe cuando el modelo se fue por las ramas. Copiada en dos lados, la segunda
+ * copia se queda vieja — y acá «vieja» significa que MaKo promete algo distinto de
+ * lo que la guarda manda.
+ */
+export const mensajeBorrador = (link: string) =>
+  `Listo, te armé el borrador. Revisalo y confirmalo acá 👇\n${link}`;
+
+/** El mismo mensaje en UNA línea, para mostrarlo como ejemplo adentro de un prompt.
+ *  Sale de la función y no de un string aparte: el ejemplo que ve el modelo y lo que
+ *  la guarda manda tienen que ser la misma frase, siempre. */
+export const EJEMPLO_BORRADOR = mensajeBorrador('<link>').replace(/\n/g, ' ');
+
+/**
+ * ¿Esta respuesta se puede mandar por WhatsApp?
+ *
+ * Dos señales, con severidades distintas a propósito:
+ *
+ * **A) `molde-volcado` — bloqueo duro.** El texto trae los títulos del MOLDE_DETALLE
+ * («Qué hay que hacer», «Por qué», «Detalles concretos», «Listo cuando»). Ese molde
+ * es el contrato del campo `detalle` de una tarea; no hay ninguna razón legítima para
+ * que aparezca en un mensaje de chat. Si está, el modelo volcó el payload en vez de
+ * ejecutarlo. Reusa `evaluarDetalle`, que ya sabe reconocerlos con o sin asteriscos y
+ * sin depender de acentos ni mayúsculas — la respuesta mala del 9/8 traía tres de los
+ * cuatro. Vale para cualquier proveedor: atrapa el caso venga de mistral o de Claude.
+ *
+ * **B) `sin-borrador` — señal blanda.** La ruta era «cargar al plan» y no hay link.
+ * No bloquea el mensaje: hay turnos legítimos en esa ruta que no crean nada («¿qué
+ * tengo pendiente?»). Sirve para dejar rastro — el modo de falla grave era el único
+ * que no logueaba NADA, y por eso del 9/8 no quedó ni una línea en los logs.
+ */
+export function validarRespuestaDoer(
+  texto: string,
+  ctx: { motivoRuta: string; linkBorrador: string | null },
+): VeredictoDoer {
+  const t = (texto ?? '').trim();
+  if (!t) return { ok: false, razon: 'sin-borrador', detalle: 'respuesta vacía' };
+
+  const ev = evaluarDetalle(t);
+  if (ev.conForma) {
+    return {
+      ok: false,
+      razon: 'molde-volcado',
+      detalle: `la respuesta trae el molde del detalle (${ev.partes.join(' · ')}): el modelo redactó el borrador en vez de crearlo`,
+    };
+  }
+
+  if (esRutaPlan(ctx.motivoRuta) && !ctx.linkBorrador) {
+    return { ok: false, razon: 'sin-borrador', detalle: 'ruta de plan sin link de borrador' };
+  }
+  return { ok: true };
+}
+
+/** El `motivo` del router llega como «mistral router:sonnet (plan)». La ruta va entre
+ *  paréntesis; se busca así y no por `includes('plan')` a secas para no matchear la
+ *  palabra «plan» del recorte del mensaje del usuario, que va en el mismo string. */
+export const esRutaPlan = (motivoRuta: string): boolean => /\(plan\)/.test(motivoRuta ?? '');

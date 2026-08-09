@@ -150,7 +150,7 @@ A qué problema responde. Si alguien lo pidió, la frase TEXTUAL entre « » con
 El criterio de terminado, verificable.
 ```
 
-Copiá esta forma EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.
+Esta forma va DENTRO DEL VALOR de este campo, nunca en tu respuesta al usuario: si estos títulos aparecen en un chat, algo salió mal. Copiála EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.
 
 <!-- CONTRATO-DETALLE:FIN -->
 

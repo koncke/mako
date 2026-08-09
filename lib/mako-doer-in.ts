@@ -17,6 +17,7 @@ import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { corregirLinkBorrador, idDeLinkRevisar } from '@/lib/link-borrador';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
+import { validarRespuestaDoer, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE } from '@/lib/respuesta-doer';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
@@ -228,7 +229,7 @@ CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anot
    · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: decílo, mandá su link (el campo "link" que te da ver_plan) y ofrecé enriquecerla en vez de crear otra.
 2. ARMÁ EL BORRADOR: llamá 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Lo que NO podés deducir pasalo en "preguntas" (se responden de a UNA en la app, no por WhatsApp que se traba). ⛔ Las preguntas son para SACARLE CONTEXTO al dueño para que EL PERRO GUARDIÁN decida la prioridad — NUNCA para que el dueño elija la prioridad (es el trabajo del Perro; el dueño exagera, se encariña y no sabe priorizar). PROHIBIDO preguntar "¿qué prioridad le das?", "¿cuál te urge primero?". Preguntá HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en PLATA y en cuánto, qué es "listo", si es 1 tarea o varias. CRITERIO: cada pregunta tiene que TENER SENTIDO (no preguntes lo obvio ni algo que se contradice con lo dicho) y ELEGÍ EL MEJOR TIPO por pregunta — "multi" si valen varias respuestas a la vez (sin opción "Ambas/Todas", que tilde varias), "opcion" si es excluyente, "escala" para intensidad 1-5, "comparacion" para enfrentar dos ítems. NADA de preguntas abiertas (siempre con opciones). Una lista cruda casi siempre tiene algo para preguntar.
    · BAJAS (con criterio): si en ver_plan viste tareas que esta lista deja OBSOLETAS o que ya están DUPLICADAS, proponé borrarlas/fusionarlas en el campo "eliminar" (cada una con su "id" EXACTO de ver_plan + un "motivo" corto). Solo lo que de verdad ya no aplica o se funde con otra — NO borres por borrar. Cada baja la confirma el dueño/cliente con un checkbox en la app.
-3. La tool te devuelve un LINK a la pantalla de revisión. Mandá UNA sola línea corta + el link, tal cual, y NADA MÁS — ej: "Listo, te armé el borrador. Revisalo y confirmalo acá 👇 <link>". ⛔ NO pidas "confirmá con un sí", NO repitas la lista de tareas en el chat, NO tires preguntas sueltas: TODO se resuelve en el link. ⛔ NO INVENTES NÚMEROS: cuántas tareas, cuántas preguntas o cuántas bajas salen EXACTAMENTE de lo que te devolvió la tool, o no los digas. ⛔ NO NOMBRES EL PROYECTO: vos proponés uno y el Perro decide otro; prometer un nombre que después no está en el tablero es la peor forma de romper la confianza. Vale IGUAL para el dueño y para un cliente.`;
+3. La tool te devuelve un LINK a la pantalla de revisión. Mandá UNA sola línea corta + el link, tal cual, y NADA MÁS — ej: "${EJEMPLO_BORRADOR}". ⛔ NO pidas "confirmá con un sí", NO repitas la lista de tareas en el chat, NO tires preguntas sueltas: TODO se resuelve en el link. ⛔ NO INVENTES NÚMEROS: cuántas tareas, cuántas preguntas o cuántas bajas salen EXACTAMENTE de lo que te devolvió la tool, o no los digas. ⛔ NO NOMBRES EL PROYECTO: vos proponés uno y el Perro decide otro; prometer un nombre que después no está en el tablero es la peor forma de romper la confianza. Vale IGUAL para el dueño y para un cliente.`;
 
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
@@ -751,7 +752,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             for (const prov of orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>) {
               try {
                 const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}»` });
-                if (r.text && !r.text.startsWith('(')) { respuesta = r.text.trim(); break; }
+                if (!r.text || r.text.startsWith('(')) continue; // centinelas internos
+                // ⚠️ Acá el único filtro era «que no empiece con paréntesis», y por eso el
+                // 9/8 salió el borrador entero por WhatsApp: el modelo redactó el payload
+                // en vez de llamar la tool y el código lo aceptó. Ver lib/respuesta-doer.ts.
+                // Si volcó el molde, NO es una respuesta: probamos el próximo proveedor.
+                // Solo rotamos si todavía no hay borrador — con uno creado, reintentar
+                // haría un segundo («nunca duplicar», AGENTS.md).
+                if (!validarRespuestaDoer(r.text, { motivoRuta: ruta.motivo, linkBorrador }).ok && !linkBorrador) {
+                  console.error(`[mako-doer-in] ${prov} volcó el molde en vez de llamar la tool → probando el próximo proveedor`);
+                  continue;
+                }
+                respuesta = r.text.trim();
+                break;
               } catch (e2) { ultErr = e2; console.warn(`[mako-doer-in] ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
             }
             if (!respuesta) throw ultErr ?? new Error('todas las IA baratas fallaron');
@@ -781,6 +794,26 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       const bueno = idDeLinkRevisar(linkBorrador);
       if (antes && antes !== bueno) console.warn(`[mako-doer-in] el modelo mandó el link del borrador MAL: «${antes}» → corregido a «${bueno}»`);
       else if (!antes) console.warn('[mako-doer-in] el modelo no puso el link del borrador → agregado');
+    }
+
+    // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan
+    // las DOS ramas —la IA barata y Claude— y las dos tenían el mismo agujero.
+    //
+    // Nada de esto reemplaza al prompt: el modelo tiene que acertar. Pero cuando no
+    // acierta, lo que llega al WhatsApp del dueño no puede ser el payload crudo.
+    if (respuesta) {
+      const v = validarRespuestaDoer(respuesta, { motivoRuta: ruta.motivo, linkBorrador });
+      if (!v.ok && v.razon === 'molde-volcado') {
+        console.error(`[mako-doer-in] BLOQUEADA: ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
+        // Si el borrador SÍ se creó, lo único roto era el texto: mandamos el link, que
+        // es lo que el modelo tenía que haber contestado.
+        respuesta = linkBorrador ? mensajeBorrador(linkBorrador) : AVISO_NO_PUDE;
+      } else if (!v.ok) {
+        // No bloquea —hay turnos de plan que legítimamente no crean nada («¿qué tengo
+        // pendiente?»)— pero deja rastro. Antes, el modo de falla grave era el ÚNICO
+        // que no logueaba: por eso del 9/8 no quedó una sola línea en Vercel.
+        console.error(`[mako-doer-in] ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
+      }
     }
     if (respuesta) {
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos
