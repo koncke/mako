@@ -88,6 +88,11 @@ export type NodoCerebro = {
   destacado?: boolean;
   /** El cuello de botella: naranja de warning, porque es lo que hay que mover. */
   alerta?: boolean;
+  /** Solo en los nodos de documento. El panel lo necesita para elegir el visor: un PDF
+   *  se muestra en un iframe, una imagen como imagen, y lo demás no se previsualiza.
+   *  Sin esto el panel tendría que adivinar por la extensión — y la etiqueta viene
+   *  recortada, así que ni extensión hay. */
+  mime?: string | null;
 };
 
 /** Una arista se dibuja solo si SIGNIFICA algo verificable. `motivo` es lo que se

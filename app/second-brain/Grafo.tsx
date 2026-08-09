@@ -62,6 +62,21 @@ type Vista = { k: number; x: number; y: number };
  *  «fantasma» de imagen del navegador y mata el paneo a mitad del gesto. */
 const frenarDragNativo = (e: React.DragEvent) => e.preventDefault();
 
+/** La ruta que devuelve una URL firmada para MIRAR el archivo (no para bajarlo). El
+ *  `?ws=` de la pestaña NO viaja solo en un `src`: el parche de fetch de la app pisa
+ *  `window.fetch`, y un `<iframe>` no pasa por ahí. Por eso se lo pega a mano — sin
+ *  esto, el super-admin mirando a un cliente recibe un 404 «Archivo no encontrado». */
+function urlPreview(idNodo: string): string {
+  const id = idNodo.slice(4);   // saca el prefijo 'doc:'
+  const ws = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ws') : null;
+  return `/api/onboarding/archivero/download?id=${encodeURIComponent(id)}&preview=1${ws ? `&ws=${encodeURIComponent(ws)}` : ''}`;
+}
+
+const esImagen = (mime?: string | null) => !!mime && mime.startsWith('image/');
+/** Qué se puede mostrar de verdad adentro del navegador. Un .docx o un .xlsx bajan, no
+ *  se previsualizan: ofrecer «Ver» sobre ellos abre un visor vacío. */
+const sePuedeVer = (mime?: string | null) => esImagen(mime) || (!!mime && (mime.includes('pdf') || mime.startsWith('text/')));
+
 /** FNV-1a, el mismo hash que usa la semilla del layout en el servidor: así el nodo
  *  flota con la misma fase en cada visita en vez de sortearla en cada carga. */
 function hashDe(id: string): number {
@@ -112,6 +127,8 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   const [verTodas, setVerTodas] = useState(false);
   const [textoEntero, setTextoEntero] = useState(false);
   const [enPantallaCompleta, setEnPantallaCompleta] = useState(false);
+  /** El documento que se está previsualizando sobre el lienzo, o null. */
+  const [verDoc, setVerDoc] = useState<NodoCerebro | null>(null);
 
 
   const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
@@ -744,6 +761,36 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
           border-radius: 14px; padding: 16px;
           box-shadow: 0 8px 28px rgba(10,12,16,.28);
         }
+        /* ── LO CLICKEABLE TIENE QUE VERSE CLICKEABLE ──────────────────────────
+           Las conexiones y el rótulo del área eran <button> con aspecto de texto suelto:
+           funcionaban y nadie los tocaba, que es la peor combinación — el trabajo estaba
+           hecho y no se cobraba. Cursor, superficie al pasar, y una flecha que aparece
+           para decir «esto te lleva a algún lado». */
+        .cbg .cbg-link {
+          display: flex; align-items: center; gap: 8px; width: 100%;
+          text-align: left; background: none; border: none;
+          border-radius: 8px; padding: 6px 8px; margin-left: -8px; cursor: pointer;
+          font: inherit; color: var(--ink); line-height: 1.45;
+        }
+        .cbg .cbg-link:hover { background: var(--surface-2); }
+        .cbg .cbg-link:focus-visible { outline: 2px solid var(--mako); outline-offset: 1px; }
+        .cbg .cbg-link .cbg-flecha { flex: none; color: var(--faint); opacity: 0; transition: opacity .12s, transform .12s; }
+        .cbg .cbg-link:hover .cbg-flecha { opacity: 1; transform: translateX(2px); }
+        /* El rótulo del área es un FILTRO, no un título. */
+        .cbg .cbg-area-btn {
+          display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+          background: none; border: 1px solid transparent; border-radius: 999px;
+          padding: 3px 8px; margin-left: -8px; font: inherit;
+        }
+        .cbg .cbg-area-btn:hover { border-color: var(--border); background: var(--surface-2); }
+        .cbg .cbg-area-btn:focus-visible { outline: 2px solid var(--mako); outline-offset: 1px; }
+        /* La previsualización del documento, sobre el lienzo. */
+        .cbg .cbg-visor {
+          position: absolute; inset: 12px; z-index: 2;
+          background: var(--surface); border: 1px solid var(--border-strong);
+          border-radius: 14px; overflow: hidden; display: flex; flex-direction: column;
+          box-shadow: 0 12px 40px rgba(10,12,16,.4);
+        }
         .cbg:fullscreen { --cbg-alto: calc(100svh - 46px); }
         .cbg:fullscreen .cbg-marco { border-radius: 0; border: none; height: 100svh; }
         /* user-select y -webkit-user-drag NO son adorno: sin ellos, arrastrar sobre un
@@ -970,14 +1017,13 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <button
                 type="button"
+                className="cbg-area-btn"
                 onClick={() => setAreaFoco(areaFoco === nodoSel.area ? null : nodoSel.area)}
                 aria-pressed={areaFoco === nodoSel.area}
                 title={areaFoco === nodoSel.area ? 'Ver todo' : `Ver solo ${areaDe(nodoSel.area).nombre}`}
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
                   fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase',
                   color: areaFoco === nodoSel.area ? 'var(--mako-ink)' : 'var(--faint)',
-                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
                 }}
               >
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: areaDe(nodoSel.area).color, flex: 'none' }} />
@@ -1044,18 +1090,20 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
                     <li key={c.nodo.id}>
                       <button
                         type="button"
+                        className="cbg-link"
                         onClick={() => irA(c.nodo.id)}
-                        style={{
-                          display: 'block', width: '100%', textAlign: 'left', background: 'none',
-                          border: 'none', padding: '5px 0', cursor: 'pointer',
-                          fontSize: 'var(--fs-sm)', color: 'var(--ink)', lineHeight: 1.45,
-                        }}
+                        title={`Ir a ${c.nodo.etiqueta}`}
+                        style={{ fontSize: 'var(--fs-sm)' }}
                       >
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: areaDe(c.nodo.area).color, flex: 'none' }} />
+                        <span style={{ flex: 1, minWidth: 0 }}>
                         {c.nodo.etiqueta}
                         {/* `motivo` se venía calculando con cuidado en cada arista, viajaba al
                             browser en cada carga y no lo leía NADIE: el panel mostraba solo
                             «5 conexiones». Su propio tipo dice que es lo que hay que poder leer. */}
                         {c.motivo && <span style={{ color: 'var(--faint)' }}> — {c.motivo}</span>}
+                        </span>
+                        <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6l6 6-6 6" /></svg>
                       </button>
                     </li>
                   ))}
@@ -1070,11 +1118,23 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
               </div>
             )}
 
-            {fijado && onAbrirArea && !nodoSel.id.startsWith('area:') && nodoSel.id !== 'raiz' && (
-              <div style={{ marginTop: 14 }}>
-                <Button variant="secondary" full onClick={() => onAbrirArea(nodoSel.area)}>
-                  Abrir {areaDe(nodoSel.area).nombre}
-                </Button>
+            {fijado && (
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Un documento se MIRA, no se «abre en su área»: el archivo está a un
+                    clic y hasta ahora había que salir de la pantalla para verlo. Solo
+                    aparece si de verdad se puede previsualizar — un .docx no se
+                    previsualiza, y prometer un botón que no muestra nada es peor que no
+                    tenerlo. */}
+                {nodoSel.id.startsWith('doc:') && sePuedeVer(nodoSel.mime) && (
+                  <Button variant="primary" full onClick={() => setVerDoc(nodoSel)}>
+                    Ver el documento
+                  </Button>
+                )}
+                {onAbrirArea && !nodoSel.id.startsWith('area:') && nodoSel.id !== 'raiz' && (
+                  <Button variant="secondary" full onClick={() => onAbrirArea(nodoSel.area)}>
+                    Abrir {areaDe(nodoSel.area).nombre}
+                  </Button>
+                )}
               </div>
             )}
 
@@ -1083,6 +1143,33 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
                 Toca el punto para fijarlo y ver sus conexiones.
               </p>
             )}
+          </div>
+        )}
+
+        {/* ── LA PREVISUALIZACIÓN ────────────────────────────────────────────
+            Vive DENTRO de `.cbg-lienzo`, no en un portal a document.body: el lienzo
+            puede estar en pantalla completa, y en el top layer del navegador un portal
+            al body queda invisible — sin error y sin síntoma. */}
+        {verDoc && (
+          <div className="cbg-visor" role="dialog" aria-label={`Vista previa de ${verDoc.etiqueta}`}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 650, color: 'var(--ink)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {verDoc.etiqueta}
+              </span>
+              <a
+                href={`/api/onboarding/archivero/download?id=${encodeURIComponent(verDoc.id.slice(4))}`}
+                style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', textDecoration: 'none' }}
+              >Descargar</a>
+              <button
+                type="button"
+                onClick={() => setVerDoc(null)}
+                aria-label="Cerrar la vista previa"
+                style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--faint)', lineHeight: 1 }}
+              >✕</button>
+            </div>
+            {esImagen(verDoc.mime)
+              ? <img src={urlPreview(verDoc.id)} alt={verDoc.etiqueta} style={{ flex: 1, minHeight: 0, objectFit: 'contain', background: 'var(--surface-2)' }} />
+              : <iframe src={urlPreview(verDoc.id)} title={verDoc.etiqueta} style={{ flex: 1, minHeight: 0, border: 'none' }} />}
           </div>
         )}
 

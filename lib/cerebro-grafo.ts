@@ -316,6 +316,9 @@ export async function construirCerebro(): Promise<Cerebro> {
       detalle: limpio(f.razonamiento) || 'Lo leí, pero no pude sacar campos concretos de acá.',
       fuente: aporto === 1 ? 'aportó 1 dato' : `aportó ${aporto} datos`,
       autoria: 'mako',
+      // El mime viaja para que el panel pueda PREVISUALIZARLO. La etiqueta va recortada
+      // a 30 caracteres, así que ni siquiera la extensión sobrevive para adivinarlo.
+      mime: (f as { mime?: string | null }).mime ?? null,
     });
     unir(RAIZ, id, 'Un documento que soltaste en el Archivero');
   }
