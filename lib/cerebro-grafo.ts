@@ -281,12 +281,24 @@ export async function construirCerebro(): Promise<Cerebro> {
   // (ver PANORAMA_APUNTA_A). Esa segunda arista es LATERAL: cruza de un área a otra
   // y es parte de lo que convierte el grafo en una red en vez de un árbol.
   const panoramaIds: string[] = [];
+  // ⚠️ `canonPlano` mapea SINÓNIMOS al mismo nombre, y dos secciones distintas del
+  // mismo panorama pueden caer en el mismo canónico («NICHO O MERCADO ESPECÍFICO» y
+  // «NICHO Y MERCADO» → los dos a «NICHO Y MERCADO»). Sin esta guarda quedan DOS
+  // nodos con el MISMO id, y eso no rompe el parser: rompe todo lo que indexa por id
+  // —las claves de React, el mapa de posiciones del layout, el destino de las
+  // aristas— y encima en silencio. Se detectó porque el export escribía dos archivos
+  // en la misma ruta y el segundo pisaba al primero.
+  const idsPanorama = new Set<string>();
   for (const s of seccionesPanorama(panorama)) {
+    let idPan = `pan:${canonPlano(s.titulo)}`;
+    if (idsPanorama.has(idPan)) idPan = `pan:${s.titulo}`;   // el crudo desempata
+    if (idsPanorama.has(idPan)) continue;                     // dos veces el mismo título: es la misma sección
+    idsPanorama.add(idPan);
     const id = push({
       // El id usa el nombre CANÓNICO del plano, no el que trajo el texto: así las
       // aristas laterales encuentran su destino aunque el panorama guardado use un
       // molde viejo («# DESCRIPCIÓN DEL NEGOCIO» en vez de «IDENTIDAD…»).
-      id: `pan:${canonPlano(s.titulo)}`,
+      id: idPan,
       area: 'panorama',
       etiqueta: capitalizar(s.titulo),
       detalle: s.cuerpo,

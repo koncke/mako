@@ -28,6 +28,8 @@ import { Grafo } from './Grafo';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
 import { construirCerebro } from '@/lib/cerebro-grafo';
+import { conteoPorArea } from '@/lib/vault';
+import { BotonExportar } from './BotonExportar';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,6 +46,7 @@ export default async function SecondBrainPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ display: 'inline-flex', color: 'var(--mako-ink)' }}><Icon name="red" size={32} /></span>
           <h1 style={{ fontWeight: 700, fontSize: 'var(--fs-page)', letterSpacing: '-0.02em', lineHeight: 1.15, margin: 0, color: 'var(--ink)' }}>Second Brain</h1>
+          <span style={{ marginLeft: 'auto' }}><BotonExportar cerebro={cerebro} conteo={conteoPorArea(cerebro)} /></span>
         </div>
         <p style={{ margin: '8px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5, maxWidth: 640 }}>
           Todo lo que MaKo sabe de tu negocio. De acá salen las señales que conecta para encontrar qué mover.

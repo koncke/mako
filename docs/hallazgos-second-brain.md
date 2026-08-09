@@ -394,6 +394,71 @@ por distancia. Hoy acá no muerde porque durante el arrastre el resaltado es el 
 arrastrado (el mismo `dragNode || highlightNode` de Obsidian), pero cualquier movimiento
 autónomo que se agregue lo despierta.
 
+## El vault: el segundo cerebro como carpetas y archivos
+
+### El veredicto del modelo: proyección y exportación, NO almacenamiento
+
+El pedido fue «trabajalo como lo hace Obsidian, que son carpetas y archivos». Se hizo
+como **proyección** (el árbol navega) y **materialización** (el ZIP se lo lleva). Las
+filas siguen siendo filas.
+
+**Por qué no se mudó todo a markdown, con la cicatriz ya pagada en este repo:** el
+panorama es el ÚNICO dato del second brain que hoy se guarda como markdown, y es el
+único que perdió el 83% de su contenido sin que nada avisara (ver el parser, arriba).
+Mover `productos` —con el que el CRM cierra ventas y calcula MRR— a `.md` repite ese
+experimento sobre las filas que sostienen el negocio: se pierden el JOIN, la suma, las
+RLS por `workspace_id` y la concurrencia de dos personas editando lo mismo.
+
+**Y la distinción que destraba «la info que pones es muy limitada»:** no es un problema
+de almacenamiento, es de **cobertura**. `construirCerebro()` hace doce lecturas y el
+sistema tiene ~70 tablas por workspace. Cambiar el motor de guardado suma cero archivos.
+De ahí sale la separación que antes no existía: el **grafo** dibuja identidad y se queda
+chico y legible · el **árbol** navega todo y puede tener miles de archivos · el **ZIP**
+se lleva el árbol entero. Eran la misma cosa y no lo son.
+
+**Vive en:** `lib/vault.ts` · `app/api/second-brain/exportar/route.ts`
+
+### Dos nodos con el mismo id: el bug que encontró el export y que rompía el grafo
+
+**Síntoma.** El ZIP salía con dos archivos menos de los que decía. Ninguna excepción.
+
+**Causa.** `canonPlano` mapea sinónimos al mismo nombre para que las aristas laterales
+encuentren su destino aunque el panorama esté guardado con un molde viejo. Pero dos
+secciones **distintas** del mismo panorama pueden caer en el mismo canónico —«NICHO O
+MERCADO ESPECÍFICO» y «NICHO Y MERCADO» van las dos a «NICHO Y MERCADO»—, y ahí quedan
+**dos nodos con el mismo `id`**.
+
+Eso no rompe el parser: rompe **todo lo que indexa por id**. Las claves de React, el
+`Map` de posiciones del layout, el destino de las aristas. Y en silencio.
+
+**Regla.** Cualquier función que derive un id de un texto normalizado necesita una
+guarda de unicidad al lado. Y el detector barato es el export: **si dos nodos producen
+la misma ruta de archivo, hay dos nodos con el mismo id.** Fue un ZIP con dos archivos
+de menos lo que sacó a la luz un bug del grafo.
+
+**Vive en:** `lib/cerebro-grafo.ts` (`idsPanorama`)
+
+### Un enlace `[[wiki]]` roto es peor que ninguno
+
+**Síntoma.** El vault salía con enlaces a «Norte» y al nombre del negocio, que no
+existen como archivo.
+
+**Causa.** Los vecinos de un nodo se enlazan todos, pero la raíz es el README y los
+nodos de área son la carpeta: ninguno de los dos es un archivo. En Obsidian un enlace
+que no resuelve se pinta como un **nodo fantasma**, así que el export ensuciaba el grafo
+con cosas que no existen — el opuesto exacto de lo que viene a mostrar.
+
+Y el enlace tiene que usar el nombre **ya desambiguado**: cuando dos nodos se llaman
+igual (hoy pasa con «Oferta», que existe como campo y como plano del panorama) el
+segundo archivo se llama «Oferta 2», y un `[[Oferta]]` en su vecino resuelve al primero.
+Un link que apunta a un archivo REAL pero equivocado es la peor forma de estar roto.
+
+**Regla.** Los nombres se resuelven en una primera pasada sobre TODOS los nodos, y los
+cuerpos se escriben en una segunda. Y el chequeo que hay que correr: **cero enlaces que
+no resuelvan** — verificado en los cuatro workspaces reales (56 a 74 enlaces cada uno).
+
+**Vive en:** `lib/vault.ts` (`construirVault`, las dos pasadas)
+
 ## Lo que quedó sin hacer
 
 - **Persistir el layout** (`getSetting`/`setSetting` con la `huella` que ya calcula
