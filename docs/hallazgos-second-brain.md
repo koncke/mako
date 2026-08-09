@@ -786,6 +786,171 @@ medición**. Persistir sigue siendo lo correcto cuando un workspace real pase de
   `--grafo-norte` es un gris azulado desaturado, pero si algún día se le sube la
   saturación, un quinto del lienzo se pinta de un solo tono.
 
+## El lienzo: lo que se ve y lo que se toca
+
+### Las etiquetas se dibujaban a 4,32 px y el zoom NO las agrandaba
+
+**Vive en:** `app/second-brain/Grafo.tsx` (el `font-size` de `.cbg-et` y `--u`)
+
+El CSS declaraba `font-size: calc(12px / var(--k,1))`. Parece correcto y no lo es: el
+`<g>` se escala **dos veces** —por el zoom del paneo (`--k`) y por la escala del
+viewBox— y el CSS compensaba solo la primera. El `/k` se cancelaba y el neto era
+**12 × 0,36 = 4,32 px CONSTANTES a cualquier zoom**. Medido a k=1,16 y a k=4,40: 4,32 px
+las dos veces.
+
+Lo grave no es el tamaño: es que **acercarse no servía para nada**, y ese es el único
+mecanismo con el que Obsidian hace legible un racimo denso.
+
+⚠️ **Y arreglar el tamaño SOLO deja la pantalla peor.** Con el texto a su tamaño real
+aparecen 17 pares de etiquetas pisadas que la ilegibilidad venía tapando. Los dos
+cambios son uno: tamaño + descarte por colisión en orden de grado descendente. Por
+render condicional, nunca con `opacity: 0` — este documento ya midió que un nodo
+invisible cuesta lo mismo que uno dibujado.
+
+Los factores de la caja salen de **medir la real en el navegador**: el alto renderizado
+de una etiqueta de 12 px es **16 px**, porque la caja incluye el interlineado. Con el
+1,15 estimado quedaban 10 pares pisados.
+
+**Medido, ws11 a 1440×900:** al encuadre 39 de 61 etiquetas y **0 pares pisados**;
+acercado, 61 de 61 y **0 pares**. Que es el comportamiento de Obsidian.
+
+### El centro de lo visible NO es «medio ancho visible»
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`irA`)
+
+El viewBox es **cuadrado** y entra con `xMidYMid meet`: se escala por el lado corto y se
+**centra** en el largo, o sea que lo visible se extiende más allá del viewBox por los dos
+costados en partes iguales. El centro es el del viewBox, no `encuadre.x + anchoVisible/2`.
+
+Con la fórmula mal, el nodo quedaba **317 px a la derecha** del centro. `ajustar()` ya lo
+hacía bien; `irA` no — así que el buscador venía «centrando» nodos y dejándolos corridos
+desde antes de que existiera el vuelo de cámara. La regla: cuando dos funciones calculan
+lo mismo, la que se escribió después no se deduce, se copia de la que ya funciona.
+
+### Dos trampas de popover que invalidan los patrones de la casa dentro del lienzo
+
+**Vive en:** `app/components/Dropdown.tsx` (`portalTo`) · `app/second-brain/Grafo.tsx`
+
+1. **La pantalla completa mata el portal.** Cuando un elemento entra al *top layer* con
+   `requestFullscreen()`, **todo lo que esté fuera de ese subárbol deja de pintarse** —
+   incluido un portal a `document.body`. El menú se abre, existe en el DOM, responde al
+   teclado… y no se ve. Sin error y sin warning. Por eso `Dropdown` tiene `portalTo`.
+2. **El `overflow: hidden` del marco mata el popover absolute**, que es el otro patrón de
+   la casa. Entre las dos, adentro de un lienzo con pantalla completa no sirve ninguno de
+   los dos por defecto.
+
+### El recorte cortaba texto sin dejar forma de verlo
+
+**Vive en:** `app/second-brain/Grafo.tsx`
+
+El clamp recortaba por **líneas** (`WebkitLineClamp: 6`) y el botón «Leer todo» se
+decidía por **caracteres** (`> 320`). Entre los ~270 y los 320 caracteres el texto se
+cortaba y **no había ningún botón** para verlo entero: se perdía, en silencio.
+
+**La regla:** el que recorta y el que ofrece ver más tienen que mirar **la misma
+señal**. Si uno mide líneas y el otro caracteres, hay una banda donde el contenido
+desaparece.
+
+## Los datos del grafo
+
+### El hueco no estaba donde parecía: catálogo disfrazado de dato del cliente
+
+**Vive en:** `lib/cerebro-grafo.ts`
+
+Contra el pedido «faltan muchísimos datos», el inventario de las 67 tablas por workspace
+dio tres categorías, y la que engaña **no es el volumen**:
+
+- **VOLUMEN** (13.217 mensajes de WhatsApp en un cliente, 6.151 eventos de VSL, 1.187
+  leads): obvio, y ni agregados aportan un nodo. Cuántos leads hay parados en una etapa
+  es un **dato de esa etapa**, no un nodo aparte.
+- **CATÁLOGO DE MAKO DISFRAZADO**: las once secuencias de nutrición de tres workspaces
+  distintos son la **misma semilla bit a bit**, y las categorías del tablero son
+  literalmente el catálogo. Parecen datos del negocio y son los nuestros. Por eso de las
+  secuencias entran **solo las activas**.
+- **ACTIVIDAD, no conocimiento**: lo que el negocio está probando es la salida de otra
+  pantalla.
+
+**El criterio que quedó:** una fuente entra cuando trae **al menos una arista lateral por
+nodo que suma**; si no puede, entra **agregada en un solo nodo**; si ni siquiera se le
+puede escribir el `motivo`, no entra. Las aristas laterales son el ingrediente escaso —
+sin ellas el grafo vuelve a ser un árbol y ninguna física lo salva.
+
+Y el tope no es el tiempo: **es el porcentaje de hojas**. Los 22 términos del glosario
+serían 22 hojas de grado 1 de un saque, ~21% del mapa colgando de un solo lugar. Por eso
+van agregadas.
+
+### Un área suelta del resto NO es un bug, y «arreglarlo» rompió un umbral real
+
+**Vive en:** `lib/cerebro-grafo.ts` (el comentario del bloque de áreas)
+
+Al sumar las fuentes nuevas, un workspace que nunca contestó el quiz de personalidad
+quedó con su área «Voz y cara» flotando suelta: sin el nodo `voz` que recibiera las
+aristas, los cinco nodos nuevos colgaban solo de su área. El verificador pasó de 1
+componente a 2 — **con cero huérfanos**, así que el chequeo de huérfanos no lo hubiera
+visto nunca.
+
+Se tendió un puente del nodo de área a la raíz. **Se revirtió**, por dos razones medidas:
+
+1. `scripts/medir-grafo.mjs` **no marca `componentes` como falla**, y su propio comentario
+   dice que «las islas son parte del look de Obsidian». No había nada que arreglar.
+2. El puente le suma radios a la raíz: el hub de un workspace real pasó de **4,3× a 4,6×**
+   contra un umbral de 4,5×. El arreglo de un no-problema rompió un umbral que sí existe.
+
+Y la isla **dice algo cierto**: esa parte del negocio todavía no se conecta con el resto.
+
+### El detalle del nodo era un string plano, y por eso el copy era pobre
+
+**Vive en:** `lib/cerebro-modelo.ts` (`datos`, `cuerpo`)
+
+El síntoma que se reportó fue «los textos están muy resumidos». La causa raíz es que
+`NodoCerebro.detalle` era **un solo string** y todos los productores lo armaban con
+`.join(' · ')`. Con un campo único, cada uno tenía que elegir entre **tirar datos** o
+escribir un renglón corrido ilegible — y eligieron tirar. Se descartaban campos reales en
+**11 de los 17** tipos de nodo.
+
+El peor caso era el Norte: `FaseDef` tiene **quince campos** y el nodo mostraba **uno**.
+Qué funnel corresponde, cómo repartir la inversión, qué no conviene hacer todavía: todo
+escrito, viajando al browser, sin leerse.
+
+**La regla:** cuando un campo de texto recibe información que tiene ESTRUCTURA, la
+estructura se pierde en el primer `join`. Un nodo tiene tres campos con tres trabajos —
+la frase que lo define, los pares nombre/valor, y la prosa larga — y el ZIP lleva los
+tres, o el archivo dice menos que la pantalla.
+
+### Un producto dado de baja se dibujaba como vigente
+
+**Vive en:** `lib/cerebro-grafo.ts` · `lib/productos.ts`
+
+`construirCerebro` llama `listProductos()` sin argumento y `soloActivos` es `false` por
+defecto. En una pantalla cuyo argumento entero es «esto es tuyo y está al día», eso no es
+una omisión: **es información falsa**. Ahora lo dice en sus datos.
+
+## Lo que quedó sin hacer
+
+- **La búsqueda por IA** del plan no se trajo: con 60-100 etiquetas a la vista no se
+  justifica el costo por consulta. Tendría caso para buscar por el CONTENIDO de los
+  detalles («dónde dice cuánto cobro»), que es semántico y no textual. Vive en
+  `app/plan/board/BuscadorTareas.tsx` + `/api/plan-buscar`.
+- **El brief sigue entrando por cuatro listas hardcodeadas** (`CAMPOS_NORTE`,
+  `CAMPOS_OFERTA`, `CAMPOS_CLIENTE`, `CAMPOS_MARCA` en `lib/cerebro-grafo.ts`) mientras
+  `getSchema()` lee el esquema vivo. Hoy es **latente** —ningún workspace tiene esquema
+  propio— pero la UI de /onboarding ya tiene `addField`: el primer cliente que agregue un
+  campo lo activa en silencio. Es el molde del bug del parser del panorama.
+- **El local graph** (re-encuadrar sobre el vecindario a 2 saltos al fijar) es la
+  alternativa BARATA al layout elíptico y resolvería el 56-67% de lienzo vacío sin tocar
+  `RECETA` ni cambiarle el mapa a todos los clientes. Vecindario medido a 2 saltos: 14
+  nodos, 23-25% del mapa, que es también el default de Obsidian.
+- **`gris uniforme ≥ 85%` viene en ✗ en los cuatro workspaces** y nadie lo mira: el
+  código pinta las diez áreas y el documento afirma lo contrario. Hay que elegir una de
+  las dos y renombrar el check. Vive en `scripts/medir-grafo.mjs` y `app/globals.css`.
+- **La `huella` del layout sigue sin consumidor** y se recalcula en cada carga. No urge
+  —medido, 141 ms con 58 nodos— pero el camino incremental de `layoutCerebro` (el
+  parámetro `previo`) existe, está testeado y no lo llama nadie.
+- **`ang:<anguloId>`** (el ángulo de los guiones) quedó sin implementar: replicaría el
+  mecanismo de `fmt:` que ya funciona. 🚨 Al hacerlo, NUNCA unirlo con `fmt:` — son tres
+  catálogos con nombres parecidos y espacios de ids distintos, y una arista con un id que
+  no matchea simplemente no se dibuja, en silencio.
+
 ## El vault: el segundo cerebro como carpetas y archivos
 
 ### El veredicto del modelo: proyección y exportación, NO almacenamiento

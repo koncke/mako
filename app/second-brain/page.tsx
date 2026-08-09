@@ -29,6 +29,9 @@ import { getFunnel } from '@/lib/leads';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { conteoPorArea } from '@/lib/vault';
 import { BotonExportar } from './BotonExportar';
+import { BotonClaude } from './BotonClaude';
+import { getAgenteToken } from '@/lib/agente-token';
+import { getWorkspaceActual } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,6 +43,9 @@ export default async function SecondBrainPage() {
   const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
 
   const conteo = conteoPorArea(cerebro);
+  const ws = await getWorkspaceActual();
+  const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);
+  const appUrl = process.env.NEXT_PUBLIC_BASE_URL ?? '';
 
   // ⚠️ `ancho="completo"` NO es opcional acá y no es un gusto: con el default el
   // contenido topa en 1280 y el lienzo queda MÁS CHICO que antes de este rediseño.
@@ -50,6 +56,7 @@ export default async function SecondBrainPage() {
       <PageHeader
         titulo="Second Brain"
         proposito="Todo lo que MaKo sabe de tu negocio."
+        acciones={<BotonClaude tokenInicial={agenteToken} appUrl={appUrl} />}
         accion={<BotonExportar cerebro={cerebro} conteo={conteo} />}
       />
       <VistaCerebro cerebro={cerebro} conteo={conteo} funnelPanel={funnelPanel} />
