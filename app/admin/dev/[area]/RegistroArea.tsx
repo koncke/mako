@@ -33,7 +33,9 @@ export function RegistroArea({ area, registro }: { area: AreaDev; registro: Regi
             ? <Status tono={hechas === registro.partes.length ? 'good' : 'mako'}>{hechas} de {registro.partes.length}</Status>
             : undefined
         }
-        accion={<ButtonLink href={area.verEnApp} variant="secondary">Ver en la app →</ButtonLink>}
+        // Un área por construir no tiene pantalla a la que saltar: el botón
+        // llevaría a un 404 y prometería algo que no existe.
+        accion={area.verEnApp ? <ButtonLink href={area.verEnApp} variant="secondary">Ver en la app →</ButtonLink> : undefined}
       />
 
       {/* Con una sola tab la barra es ruido: no hay a dónde ir. */}
