@@ -404,6 +404,187 @@ hoy no hay nada que lo impida.
 
 ---
 
+## BYOK vs MaKo Tokens: dos economías, y la línea no pasa por donde parecía
+
+*Paso 3, 2026-08-09. Corrida de 12 agentes: 5 frentes (código, mercado, economía, 4º plan,
+riesgo legal) + un escéptico por frente + crítico de completitud + síntesis.*
+
+### El veredicto
+
+**BYOK no es una palanca de precio: es una casilla de gobernanza.** Va en el Growth de
+US$97, **sin tocar el precio**, y **solo para texto**. Ahorraría como máximo US$2,82 de los
+US$27,40 del Growth: el 90% restante son medios, y ahí el BYOK está **prohibido por
+contrato**.
+
+**No hay 4º plan.** Todavía, y sobre todo no por BYOK.
+
+### La prohibición que cierra la discusión de los medios
+
+fal.ai, textual (ToS act. 31/07/2026): *«You may not share or permit others to use your
+individual account credentials»*. Replicate dice lo mismo.
+
+Un cliente que pega su key de fal en MaKo para que MaKo la use es **exactamente eso**. Y
+son justo los dos proveedores que el paso 1 eligió por ser los únicos cuyos términos
+contemplan un SaaS. O sea: el BYOK de medios viola el contrato del único camino limpio.
+
+De los cinco contratos de LLM leídos (OpenAI, Google, Groq, Anthropic, fal) **ninguno
+prohíbe explícitamente** que un tercero opere la key del titular — pero ninguno lo bendice,
+y los cinco cargan el 100% de la responsabilidad sobre el titular. La lectura correcta no
+es «no se puede»: es **«si sale mal, no hay a quién reclamarle»**. Vercel y OpenRouter
+operan BYOK a escala hace años sin que nadie los frene.
+
+⚠️ **Falta chequear Vertex (service accounts) y Bedrock (IAM):** ahí la delegación es un
+mecanismo diseñado a propósito y probablemente sea el único BYOK contractualmente limpio.
+
+### Las dos economías
+
+| | **MaKo Tokens** (key de MaKo) | **BYOK** (key del cliente) |
+|---|---|---|
+| Quién paga la inferencia | MaKo, y la revende con margen | El cliente, a **precio de lista** |
+| Quién responde ante el proveedor | MaKo | El cliente |
+| A quién suspenden si algo viola política | A MaKo, y caen **todos** los clientes | Solo a ese cliente |
+| Texto (post-ruteo barato) | US$2,82/mes en Growth | Se lo lleva el cliente |
+| **Medios** | US$24,58/mes en Growth | **Imposible: prohibido** |
+| Qué le cuesta al cliente empezar | Nada | ~US$30-35 inmovilizados, créditos que **vencen a los 365 días y no se reembolsan** |
+
+**Los costos que NO se mueven de lado:** la orquestación (Vercel + Supabase + el ruteo) y
+—el que sorprende— **el storage y el egress de los medios generados**. Es el único COGS que
+**crece** con BYOK: si al cliente le sale más barato generar, genera más, y todo aterriza
+en tu bucket. Sin tope de almacenamiento, BYOK convierte un costo acotado por el plan en
+uno sin techo.
+
+### El patrón del mercado, unánime en tres cosas
+
+Ocho productos con BYOK documentado, todos verificados en su página oficial el 9/8/2026:
+
+1. **Nadie inventó un tier para BYOK.** Zapier: «Pro and Advanced plans only». Gumloop:
+   «Requires Pro plan or higher». Cursor: cualquier plan pago. Warp lo da **hasta en el
+   Free** y lo gatea por tamaño de organización — señal de que es una casilla de compras,
+   no una feature premium.
+2. **Nadie baja el precio.** Y los tres diseños de fee **se contradicen, no se promedian**:
+   Vercel AI Gateway cobra **0%**, OpenRouter **5%**, Gumloop **duplica** su fee de
+   orquestación (8% → 16%) justamente porque perdió el margen del token, y Cursor suma
+   US$0,25/M de tokens encima del BYOK.
+3. **Lo que baja es la moneda interna.** Zapier: tu key consume tareas 1x en vez de 5x.
+   Gumloop: 459 créditos → 93. El mensaje es «tu cuota rinde 5 veces más», nunca «te cobro
+   menos».
+
+⚠️ **El fee de Gumloop es inaplicable acá.** Cobra un % *sobre lo que la corrida habría
+costado* — y en MaKo esa corrida cuesta US$0,0021, así que el 16% da **cero**. Si se cobra
+un fee, la base tiene que ser **por acción**, no por costo evitado.
+
+### Las cuatro reglas del BYOK, si se construye
+
+1. **Solo texto.** Video e imagen siempre con key de MaKo.
+2. **Solo FUERA del pipeline ruteado.** Este es el que más ahorra: el ruteo barato **es el
+   producto**. Si el cliente pone su key de OpenAI en el pipeline, paga 436× más por el
+   mismo trabajo y te culpa a vos. Es lo que le pasó a Cursor — no retiró BYOK, lo
+   **vació**: hoy «custom API keys only work with chat models» y el Agent lo rechaza por
+   diseño.
+3. **Se vende como control, no como ahorro.** «Tus prompts van por tu cuenta, tu factura,
+   tus logs». El break-even de texto es **negativo** para el cliente: ahorra US$2,82/mes y
+   le cuesta ~US$2,90/mes de crédito prepago que se vence.
+4. **Exige saldo mínimo de MaKo Tokens**, y el fallback cuando la key del cliente se agota
+   consume tokens, con aviso en el momento. Es el diseño de Vercel, textual: *«that
+   fallback usage is billed against your credits balance»*.
+
+### Por qué NO hay 4º plan: las tres premisas que lo empujaban se caen
+
+| Premisa | Por qué se cae |
+|---|---|
+| «El Growth se pasa del techo de 75% de margen» | **El 75% es un supuesto de la era SaaS.** La mediana publicada de margen bruto de un producto de IA es **50%** (Poyar, n=230, abr-may 2026), y solo el 12% apunta a 80%+. El 72% del Growth está **22 puntos ARRIBA** de la mediana de su categoría |
+| «Arriba de US$250 se retiene 70%» | El dato de ChartMogul es real, pero la banda de precio es atributo de la **empresa**, no del cliente dentro de un producto. Dice «las empresas que PUEDEN cobrar caro retienen mejor», no «si subís de US$97 a US$297 vas a retener mejor». El propio reporte atribuye la fuga al bajo costo de cancelar |
+| «Un plan caro hace ver barato al Growth» | **El efecto señuelo no replica** con estímulos realistas: Frederick/Lee/Baskin y Yang/Lynn, *JMR* 51(4) 2014 — 91 intentos, 23 categorías, solo 11 con efecto confiable |
+
+⚠️ **El criterio correcto no es el margen promedio: es que ningún CLIENTE INDIVIDUAL quede
+en margen negativo.** US$27,40 es un promedio; el que hace 20 Reels cuesta US$49.
+
+**Qué se hace en lugar del 4º plan:** tope de MaKo Tokens en el Growth con corte duro,
+packs de overage con margen (el Reel extra a ~US$5, 2× sobre costo), y 60-90 días de
+medición. Si aparece un pelotón que revienta el tope todos los meses y compra packs sin
+quejarse, esa gente dice sola el precio y el contenido del 4º plan.
+
+**Si después de medir hay 4º plan, el ancla es AGENCIA (multi-workspace), no BYOK, a
+US$297.** Múltiplos medidos en páginas oficiales: GoHighLevel US$97→US$297 = 3,06× (compra
+multi-subcuenta) y US$297→US$497 = 1,67× (compra revender); Zapier 3,45×; HeyGen 1,69× y
+3,04×; respond.io 2,01× y 1,75×. **No existe regla de 2× ni de 3×: el rango real es
+1,7×-3,4×.** US$247 da 2,55×, no cae en ningún patrón observado y no tiene comparable que
+el comprador reconozca — descartarlo. MaKo ya es multi-inquilino por dentro (mig 0054 y
+0058), así que un plan de agencia es costo de UI y de gating, no de arquitectura.
+
+### El problema del video lo arregla el TOPE, no el BYOK ni un plan más caro
+
+El argumento es aritmético y no necesita fuente: **si sacás un plan de US$297 con más
+video, el cliente que hoy quema US$49 de video dentro del Growth de US$97 no se muda.** Se
+queda donde está, porque ahí le sale más barato. Un tier nuevo captura al que ya está
+topeado; **no defiende el margen de abajo**.
+
+Y el BYOK tampoco: además de prohibido, **Veo no tiene tier gratis** — Veo 3.1 Lite es
+US$0,05/seg a 720p, o sea que el clip de 8s a US$0,40 **ya es precio de lista**. La key del
+cliente no ahorra un centavo por unidad.
+
+**Nadie vende video sin tope self-serve:** HeyGen capea créditos en **los cinco** tiers
+(Free 3 videos · Creator US$29 = 600 · Pro US$49 = 1.000 · Business US$149 = 1.500);
+respond.io capea por tier con overage a US$15/1.000 créditos y **corte al 200%** del
+allowance.
+
+**Diseño del tope:** MaKo Token = **US$0,01**, la misma unidad que HubSpot (packs de 1.000
+por US$10) para que la comparación sea legible. Multiplicador **inverso** al costo: texto
+**0 tokens** (medirlo cuesta más que hacerlo, y «texto ilimitado» es el diferencial contra
+HubSpot, que cobra 50 créditos por conversación), imagen 9, clip de 8s 88, Reel de 15s 490.
+Cupo del Growth ≈ 2.450 tokens/mes, corte duro al 200%. **Dimensionar el N con el costo de
+fal.ai/Replicate, no con la capa barata.**
+
+---
+
+## Lo que este análisis daba por cierto y NO lo es
+
+*Salió del crítico de completitud del paso 3. Cada punto corrige algo escrito más arriba en
+este mismo documento.*
+
+1. ⚠️ **El ruteo barato del paso 1 NO está en el código.** Los cuatro modelos —gpt-5.6-luna,
+   Qwen3.7-Flash, Kimi K2.6, GLM-4.7-Flash— no aparecen en ninguna línea ejecutable. Lo que
+   corre hoy (`lib/ai-cheap.ts:35-65,99-104`) es Groq `gpt-oss-20b`, Gemini
+   `gemini-flash-latest`, Cerebras `llama-3.3-70b`, Mistral `mistral-small-latest`,
+   OpenRouter `llama-3.3-70b:free`, OpenAI `gpt-4o-mini`. **El 436×, las «4 acciones a
+   cero» y el margen del 96% del Pro son proyecciones sobre una configuración que todavía
+   no existe.**
+2. ⚠️ **Parte de «el texto dejó de costar» es «el texto dejó de medirse».** `costFor`
+   devuelve 0 para groq/gemini/cerebras/mistral/openrouter **porque están en una lista**
+   (`lib/anthropic-usage.ts:240`), no porque el tier real sea gratis. Medido hoy: los
+   workspaces de clientes (3, 9, 10, 11) tienen **1.005 llamadas y 7,5M de tokens
+   registrados a US$0,04 en total**. Eso no es barato: es no medido.
+3. ⚠️ **El volumen de medios es el supuesto más cargado del análisis y nadie lo derivó.**
+   Los US$24,58 son `volumen supuesto × precio verificado`. El precio está bien; el volumen
+   no puede derivarlo nadie **porque la feature de medios no tiene una sola línea de
+   código**: grep por `fal|replicate|kie|apimart|veo|sora|gpt-image|text-to-video` en `lib/`
+   y `app/` da **cero coincidencias ejecutables**. De ese número dependen en cadena el
+   margen del 72%, el «90% son medios», el techo de CAC del Growth y el cupo de tokens.
+   **Los US$24,58 no son un costo a cubrir: son un producto a construir.**
+4. ⚠️ **No existe máquina de cobro.** El único hit de Stripe en todo el repo es un regex que
+   tapa claves de Stripe en los logs (`lib/agente-redaccion.ts:49`). No hay `/registro`,
+   `/checkout` ni `/precios`, y ninguna migración de plan, suscripción o saldo.
+   `0014_pagos_cuotas.sql` es la cobranza de los leads DEL cliente, no la suscripción a
+   MaKo. Todo el diseño de overage, packs y corte duro **es billing, y el billing no está
+   en ninguna estimación**.
+5. ⚠️ **Nadie contó el precio NETO.** El procesador se lleva 3-6% + fee fijo (que sobre
+   US$47 pesa), el IVA de servicios digitales es 16% en México y 19% en Colombia, y **una
+   PyME mexicana que no recibe CFDI no puede deducir la suscripción** — eso frena la
+   conversión al Growth más que cualquier discusión de BYOK. El margen del 96% del Pro está
+   calculado sobre el precio de lista, no sobre lo que entra a la cuenta.
+6. ⚠️ **El costo variable del canal principal no está en ningún número.** MaKo vende y opera
+   por WhatsApp, y Meta cobra por conversación de marketing. En los US$0,02 / US$1,87 /
+   US$27,40 **no hay un centavo de WhatsApp**. Tampoco de Supabase, Vercel, egress ni Panda.
+7. ⚠️ **Falta la grilla de qué feature entra en qué plan.** En el código no hay
+   Free/Pro/Growth: hay dos capas, `pm` y `completo` (`lib/capas.ts`), y `completo` es
+   literalmente «todo el producto».
+8. ⚠️ **Y falta decidir qué pasa con los clientes que YA están adentro.** Hoy tienen
+   `completo` sin tope. Meterles cupo, corte duro y overage es un cambio de contrato hacia
+   atrás sobre gente que ya paga. No hay una línea de grandfathering en ningún lado, y es el
+   movimiento con más riesgo de churn de todo el plan.
+
+---
+
 ## El plan gratis: el tope de tokens NO alcanza
 
 *Corrida `pricing-paso-1-con-que-ia`, 2026-08-09. Responde la pregunta textual del dueño:

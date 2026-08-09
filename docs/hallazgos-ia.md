@@ -30,6 +30,12 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   contra el fabricante**, y sus términos de reventa son la otra mitad del dato: APImart
   prohíbe por escrito facturar encima y Kie.ai no dice nada, que no es lo mismo que
   permitir → [Comprar modelos](#comprar-modelos-revendedores-mercados-y-precios-de-terceros).
+- **BYOK de MEDIOS está prohibido**, textual, por los dos únicos proveedores aptos para un
+  SaaS (fal.ai y Replicate: «You may not share or permit others to use your individual
+  account credentials») → [Comprar modelos](#comprar-modelos-revendedores-mercados-y-precios-de-terceros).
+- **Un chequeo de conexión que usa otro resolver que la ruta caliente pinta verde y te cobra
+  a vos**, y «el texto dejó de costar» es en parte «dejó de medirse»: 7,5M de tokens de
+  clientes registrados en US$0,04 → [Gasto y saldo](#gasto-y-saldo).
 
 Dos advertencias sobre el origen de este material. **Buena parte es de segunda mano:** sale
 de lo que devolvieron los subagentes de las 261 corridas de junio-agosto 2026 (de las que
@@ -472,6 +478,22 @@ Se leyeron los cuatro contratos. Esto es lo que dicen, textual:
 Y una nota aparte: **Freepik API es el único del lote que ofrece indemnización legal**
 (plan Business). Si algún día preocupa que un cliente reciba un reclamo por un creativo
 generado, es el único que pone la firma.
+
+⚠️ **La fila de fal.ai contesta UNA pregunta y hay una segunda que contesta al revés.**
+Que fal permita construir un SaaS encima es sobre **la key de MaKo** sirviendo a End Users.
+Sobre **la key del cliente** dice lo contrario, textual (ToS act. 31/07/2026): *«You may not
+share or permit others to use your individual account credentials»*. Replicate igual. O
+sea: **MaKo puede vender generación de medios con su propia key, y NO puede ofrecer BYOK de
+medios.** Un cliente que pega su key de fal para que MaKo la use es exactamente lo que esa
+cláusula prohíbe. Es la línea dura del paso 3, y es lo que mata el «plan Studio con BYOK de
+medios» antes de que alguien lo vuelva a proponer.
+
+Para LLM el mapa es otro: de cinco contratos leídos (OpenAI, Google, Groq, Anthropic, fal)
+**ninguno prohíbe explícitamente** que un tercero opere la key del titular, pero ninguno lo
+bendice y los cinco cargan el 100% de la responsabilidad sobre el titular. No es «no se
+puede»: es **«si sale mal, no hay a quién reclamarle»**. Falta chequear Vertex (service
+accounts) y Bedrock (IAM), donde la delegación es un mecanismo diseñado a propósito y
+probablemente sea el único BYOK contractualmente limpio.
 
 **Regla:** antes de agregar un proveedor a la cascada, se leen sus términos de reventa. El
 precio por token es la mitad del dato; la otra mitad es si se puede facturar encima.
@@ -1146,6 +1168,74 @@ devuelve `duration`), el resto con `recordUsage`.
 
 **Vive en:** lib/embeddings.ts:24,27 · lib/transcribe.ts:54-63,132,174,203,260 ·
 app/api/ads-manager/analyze-creatives/route.ts:30,44 · *2026-08-08 analisis-costos-ia-cobros*
+
+### ⚠️ Un chequeo de conexión que usa OTRO resolver que la ruta caliente pinta verde y te cobra a vos
+
+**Síntoma:** el cliente carga su API key, `/integraciones` la pinta conectada, y la factura
+la sigue pagando la agencia. Ninguna pantalla puede mostrar la contradicción.
+
+**Causa:** son **dos resolvers distintos para el mismo servicio**. «Probar conexión»
+(`lib/metodo-verificar.ts:12`, importa `credWs`) resuelve con la key **del cliente** — y por
+eso da verde. El trabajo real sale por `envCred` (`lib/embeddings.ts:24`,
+`lib/transcribe.ts:58`), que **siempre** cae al workspace 1. El chequeo prueba un camino y
+la app usa otro.
+
+**Regla:** un chequeo de conexión llama **al mismo resolver** que la ruta caliente. Si no
+puede, no es un chequeo: es una decoración. Es el mismo antipatrón que el pin de
+`plan-seed-ia` documentado en `lib/model-catalogo.ts` («se elegiría un modelo acá y seguiría
+corriendo otro»), y la misma familia que el Google Calendar que se pintaba conectado con un
+token que no alcanzaba para escribir.
+
+⚠️ Y hay un segundo orden: como el gasto de Claude se anota siempre en ws1
+(`lib/anthropic-usage.ts:22-25`), **te auto-facturás a precio de lista plata que pagó otro**.
+
+**Vive en:** lib/metodo-verificar.ts:12,382 · lib/credenciales.ts (`credWs` vs `envCred`) ·
+lib/embeddings.ts:24 · lib/transcribe.ts:58 · *2026-08-09 pricing-paso-3*
+
+### ⚠️ «El texto dejó de costar» es, en parte, «el texto dejó de medirse»
+
+**Síntoma:** los workspaces de clientes figuran gastando casi cero y suena a buena noticia.
+
+**Medido el 09/08/2026** sobre `anthropic_usage` (todo el histórico, leído paginado):
+
+| Workspace | Costo | Llamadas | Tokens |
+|---|---|---|---|
+| 1 (agencia) | US$95,70 | 1.255 | 16,1M |
+| 3, 9, 10, 11 (clientes) | **US$0,04** | **1.005** | **7,5M** |
+
+Mil llamadas y siete millones y medio de tokens registrados en cuatro centavos. **No es que
+sean baratos: es que no se miden.** `costFor` (`lib/anthropic-usage.ts:70`) devuelve 0
+`if (provider && PROVEEDORES_GRATIS.includes(provider))` — **por estar en una lista**, no
+porque el tier real de esa key sea gratis. El día que un free tier se agote o que la
+plataforma sirva su propia key, ese renglón aparece de golpe y nadie lo tenía en la
+proyección.
+
+**Regla:** un costo de cero tiene que poder distinguir «no cobró» de «no lo miramos». Si el
+0 sale de una lista y no de una medición, la fila necesita decirlo.
+
+**Vive en:** lib/anthropic-usage.ts:68-73 (`costFor`, `PROVEEDORES_GRATIS`), :117 (el mismo
+patrón en STT) · *2026-08-09 pricing-paso-3*
+
+### ⚠️ El ruteo barato «ya decidido» no existe en el código
+
+El análisis de precios (`app/admin/dev/pricing/modelo.ts` → `RUTEO`) proyecta sobre
+gpt-5.6-luna, Qwen3.7-Flash, Kimi K2.6 y GLM-4.7-Flash. **Ninguno de los cuatro aparece en
+una línea ejecutable.** Lo que corre hoy (`lib/ai-cheap.ts:35-61`) es Groq
+`openai/gpt-oss-20b`, Gemini `gemini-flash-latest`, Cerebras `llama-3.3-70b`, Mistral
+`mistral-small-latest`, OpenRouter `meta-llama/llama-3.3-70b-instruct:free` y OpenAI
+`gpt-4o-mini`.
+
+O sea que el «436× más barato extraer una reunión», las «4 acciones que caen a cero» y el
+margen del 96% del Pro **son proyecciones sobre una configuración que todavía no existe**.
+No están mal: están sin implementar, que es distinto — y la diferencia importa cuando el
+número se usa para fijar un precio.
+
+Los defaults viven en env (`CHEAP_MODEL`, `GEMINI_MODEL`, `CEREBRAS_MODEL`…), así que mover
+tres de los cuatro es configuración, no código. El que no entra por ahí es el de contexto
+gigante para reuniones, que es justamente el del 436×.
+
+**Vive en:** lib/ai-cheap.ts:35-61 · app/admin/dev/pricing/modelo.ts (`RUTEO`, `RERUTEO`) ·
+*2026-08-09 pricing-paso-3*
 
 ### ⚠️ El registro de la IA barata es `void` sin `await`, y el insert nunca lee su `error`
 
