@@ -52,13 +52,41 @@ export const BITACORA: Hito[] = [
       'app/admin/dev/pricing/modelo.ts — los números de la proyección, cada uno con su origen (medido/publicado/supuesto)',
     ],
   },
+  {
+    fecha: '9 ago', hora: '01:30', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: '«De dónde sacaste que mi CAC será de 666? eso NO tiene sentido»',
+    pedido: 'Mi CAC será muchísimo menor, yo NO vendo por llamadas de ventas. […] No me interesa tanto lo que se haya gastado HOY en MaKo, esa no es un punto de referencia fuerte. Me interesa lo que se va a gastar cuando esté todo implementado. […] Debería dividir el análisis entre el sistema BYOK que no consume tokens de MaKo y el sistema de Tokens de MaKo. […] Hiciste toooda la proyección basándote en las IA de hoy en día cuando podríamos investigar otras alternativas ultra baratas. […] Tampoco está bien definido que SI y que NO en cada plan. […] Tampoco tuviste en cuenta pago mensual vs pago anual.',
+    puntos: [
+      '**El US$666 estaba doblemente mal y es la lección del capítulo.** Es el costo de una reunión agendada por un SDR en un equipo OUTBOUND — un modelo que MaKo no usa — y encima venía de blogs de agencias de lead-gen que el propio agente había marcado «sin muestra publicada». Puesto como cifra del veredicto se leía «este es tu CAC». Lo que sí se sostiene es el **techo**: cuánto se puede gastar sin destruir valor. Es un límite, no un costo incurrido.',
+      '**El mismo error se repitió con un número del curso propio.** El material de AVATARHYPE enseña a comprar Sora en Kie.ai a US$0,15 por 15 segundos. Verificado el 9/8: **Kie ya no vende Sora**, y US$0,01/seg es 10× por debajo de la API oficial. El único Sora comprable es APImart a **US$1,20 por 15s: ocho veces más**. Un número de una fuente propia no está más verificado que uno de un blog.',
+      '**Regla que queda:** un precio sacado de un curso, un blog o un benchmark no entra a una proyección sin abrir la página del fabricante ESE día. Está en AGENTS.md.',
+    ],
+  },
+  {
+    fecha: '9 ago', hora: '02:40', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'investigacion',
+    titulo: 'Con el producto completo, el costo deja de ser el texto y pasa a ser el video',
+    puntos: [
+      '**El texto se derrumba con el ruteo elegido.** Extraer una reunión de 2 h pasa de US$0,93 a US$0,0021 — **436×** — y no por un modelo más barato: Qwen3.7-Flash tiene 1M de contexto y la reunión **entra entera**, así que desaparecen las 4-5 llamadas del troceo. Otras cuatro acciones caen a cero con GLM-4.7-Flash.',
+      '**Y aparece el que importa.** De las 22 acciones nuevas, las 16 de texto suman US$0,23 y las 6 de medios US$3,22. Costo mensual con el producto completo: Free US$0,02 · Pro US$1,87 · **Growth US$27,40, con los medios en el 90%**. Un solo Reel de 15 s con 3 intentos cuesta US$2,45 — más que TODO el texto del Pro en un mes.',
+      '**BYOK de MEDIOS está prohibido**, textual, por los dos únicos proveedores aptos para un SaaS: fal.ai y Replicate («You may not share or permit others to use your individual account credentials»). Al BYOK le queda US$2,82 de US$27,40. Va en el Growth, sin bajar el precio, y solo para texto.',
+      '**No hay 4º plan.** Las tres premisas que lo empujaban se caen: el techo del 75% de margen es un supuesto de la era SaaS (la mediana de un producto de IA es 50%, n=230); la banda de retención de ChartMogul es atributo de la EMPRESA, no del cliente; y el efecto señuelo **no replica** (91 intentos, 11 confiables). Lo que arregla el video es un TOPE — el que quema US$49 dentro del Growth de US$97 no se muda a uno de US$297.',
+      '⚠️ **Y cuatro cosas que este mismo análisis daba por ciertas y no lo son:** el ruteo del paso 1 **no está en el código**; parte de «el texto dejó de costar» es «dejó de medirse» (los ws de clientes tienen 1.005 llamadas y 7,5M de tokens en **US$0,04**, porque `costFor` devuelve 0 por estar el proveedor en una lista); el volumen de medios es un supuesto sin derivar **porque la feature no existe**; y no hay máquina de cobro — el único hit de Stripe en el repo es un regex que tapa claves en los logs.',
+    ],
+    archivos: [
+      'docs/costos-ia-y-planes.md — el producto completo, las dos economías y las 8 correcciones',
+      'docs/hallazgos-ia.md — «Comprar modelos»: términos de reventa, el precio del revendedor y el ruteo que no existe',
+      'AGENTS.md — la regla de verificar precio y términos antes de sumar un proveedor',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
   { titulo: 'El costo real, medido', detalle: 'Costo por acción, por proveedor y por día, leído en vivo de `anthropic_usage` con filtro de mes y sin el truncado de 1000 filas', estado: 'hecha' },
   { titulo: 'Los 5 bloqueantes del medidor', detalle: 'Atribución de Claude por workspace, los 3 puntos ciegos, el registro fire-and-forget, la falta de primitiva de denegación y el modelo por plan', estado: 'hecha' },
-  { titulo: 'Costo de las features que NO existen todavía', detalle: 'Generación de video e imagen, voz y agentes autónomos: precios publicados por proveedor y qué le suman al cupo de cada plan', estado: 'sigue' },
-  { titulo: 'Unit economics: CAC, churn y payback', detalle: 'Hoy la venta es con llamada, que encarece el CAC muchísimo vs self-serve. Sin eso, el margen bruto solo no dice si el negocio cierra', estado: 'sigue' },
-  { titulo: 'El filtro de fecha en /integraciones', detalle: 'El endpoint ya está (`/api/costos-ia`); falta cablearlo en la card «Costo de MaKo» del board', estado: 'cola' },
+  { titulo: 'Costo de las features que NO existen todavía', detalle: 'Las 22 acciones nuevas de las 38 áreas por construir, con el precio verificado contra el fabricante. El resultado: los medios son el 90% del costo del Growth y el texto ya no importa', estado: 'hecha' },
+  { titulo: 'Unit economics: CAC, churn y payback', detalle: 'Los dos canales reales, self-serve: CTWA da CAC ~US$83 y entra en el techo del Pro; el carrito frío da US$76-179 y NO cierra a US$47. Más el impuesto invisible del cobro en LATAM, que pega en adquisición y otra vez en cada rebill', estado: 'hecha' },
+  { titulo: 'BYOK vs MaKo Tokens como dos economías', detalle: 'BYOK es gobernanza, no palanca de precio: Growth, sin bajar el precio, solo texto. En medios está prohibido por contrato. Y no hay 4º plan', estado: 'hecha' },
+  { titulo: 'El filtro de fecha en /integraciones', detalle: 'Cableado en la card «Costo de MaKo». `?meses=1` puebla el selector y hace de sonda de permiso; las gráficas por proceso siguen al período y los tiles de saldo NO, porque son estado de hoy', estado: 'hecha' },
+  { titulo: 'El diseño real de los planes', detalle: 'Qué entra y qué no en cada uno, mensual vs anual, el precio NETO después de comisiones e IVA, el cupo de MaKo Tokens y qué se hace con los 4 clientes que ya están adentro', estado: 'sigue' },
   { titulo: 'La pantalla de Pricing del producto', detalle: 'Las 3 columnas con el desglose de qué incluye y qué no. Va DESPUÉS de los bloqueantes: prometer un cupo que no se puede medir es peor que no tener planes', estado: 'cola' },
 ];
