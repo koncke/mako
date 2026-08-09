@@ -26,6 +26,7 @@ import type { CuotaProv } from '@/lib/ia-cuotas';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { agenteSkillMarkdown, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
 import { AGENTE_HOOK_PATH, AGENTE_HOOK_SETTINGS } from '@/lib/agente-plugin';
+import { Dropdown } from '../components/Dropdown';
 import ServicioConfigForm from './ServicioConfigForm';
 import { getGoogleCalendarStatusAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
@@ -60,6 +61,24 @@ type Resumen = {
   porFeature?: Array<{ feature: string; costUsd: number; tokens: number }>;
   porProveedor?: ProvSaldo[];
   historial?: Movimiento[];
+};
+
+// ── El filtro de período de «Costo de MaKo» ──────────────────────────────────
+// Pedido textual del dueño: «Sería bueno que incluyas un filtro de fecha y poder
+// ver el gasto de otros meses también» (08/08/2026). El origen del número CAMBIA
+// según el período elegido, y eso importa:
+//   · 'actual' → /api/anthropic-usage, que es el mes en curso Y la ventana del
+//     saldo cargado. Es el que tiene sentido al lado de los tiles de saldo.
+//   · un mes o 'todo' → /api/costos-ia, que lee PAGINADO. El otro trunca en 1000
+//     filas sin avisar y subestima el gasto viejo (ver lib/costos-ia.ts).
+// No se unifican a propósito: responden preguntas distintas.
+const PERIODO_ACTUAL = 'actual';
+type ResumenPeriodo = { periodo: string; llamadas: number; tokens: number; costUsd: number; filas: number; porFeature: Array<{ clave: string; llamadas: number; tokens: number; costUsd: number }> };
+
+const rotuloMes = (yyyymm: string) => {
+  const [y, m] = yyyymm.split('-');
+  const nombre = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][Number(m) - 1];
+  return nombre ? `${nombre} ${y}` : yyyymm;
 };
 
 // ── Helpers de formato ───────────────────────────────────────────────────────
@@ -395,17 +414,67 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
   // Un tile por proveedor que consumió algo + uno por CADA IA gratis registrada aunque
   // todavía no se haya usado (item "cargalos como otro contenedor"): esos salen del
   // catálogo de cuotas con uso 0, así Cerebras/Mistral/OpenRouter siempre tienen su caja.
+  // ── El filtro de período ────────────────────────────────────────────────────
+  // `meses` vacío = el selector no se dibuja. Pasa en dos casos y los dos son
+  // correctos: la sesión no es de la agencia (el endpoint contesta 403) o no hay
+  // un solo registro de gasto todavía.
+  const [meses, setMeses] = useState<string[]>([]);
+  const [periodo, setPeriodo] = useState<string>(PERIODO_ACTUAL);
+  const [per, setPer] = useState<ResumenPeriodo | null>(null);
+  const [cargandoPer, setCargandoPer] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const j = await (await fetch('/api/costos-ia?meses=1')).json();
+        if (vivo && j?.ok) setMeses(j.mesesDisponibles ?? []);
+      } catch { /* offline o sin permiso: sin selector */ }
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  useEffect(() => {
+    if (periodo === PERIODO_ACTUAL) { setPer(null); return; }
+    let vivo = true;
+    setCargandoPer(true);
+    (async () => {
+      try {
+        const j = await (await fetch(`/api/costos-ia?periodo=${encodeURIComponent(periodo)}`)).json();
+        // Un fetch fallido NO deja el número anterior en pantalla: eso mostraría
+        // el gasto de julio bajo el rótulo de junio, que es peor que no mostrar nada.
+        if (vivo) setPer(j?.ok ? (j as ResumenPeriodo) : null);
+      } catch { if (vivo) setPer(null); }
+      if (vivo) setCargandoPer(false);
+    })();
+    return () => { vivo = false; };
+  }, [periodo]);
+
+  const opcionesPeriodo = [
+    { value: PERIODO_ACTUAL, label: 'Este mes', sub: 'Lo que se descuenta del saldo cargado' },
+    ...meses.map((m) => ({ value: m, label: rotuloMes(m) })),
+    { value: 'todo', label: 'Todo el histórico', sub: `${meses.length} ${meses.length === 1 ? 'mes' : 'meses'} con datos` },
+  ];
+  const filtrado = periodo !== PERIODO_ACTUAL;
+  const rotuloPeriodo = periodo === PERIODO_ACTUAL ? 'este mes' : periodo === 'todo' ? 'todo el histórico' : rotuloMes(periodo);
+
   const provsBase = usage?.porProveedor ?? [];
   const provs: ProvSaldo[] = [
     ...provsBase,
     ...cuotas.filter((c) => !provsBase.some((p) => p.provider === c.provider))
       .map((c): ProvSaldo => ({ provider: c.provider, costMesUsd: 0, tokens: 0, tokensHoy: c.tokens, saldo: null, restanteUsd: null, gratis: true })),
   ].sort((a, b) => ordenIA(a.provider) - ordenIA(b.provider)); // pago (Claude/OpenAI/Gemini) arriba, gratis abajo
-  const feats = (usage?.porFeature ?? []).slice(0, 8);
+  // Las gráficas por proceso siguen al período elegido; los tiles de arriba NO
+  // (son saldo y cuota de HOY, no del período). Está rotulado abajo, porque un
+  // número filtrado al lado de uno que no lo está es una trampa de lectura.
+  const featsFuente = filtrado
+    ? (per?.porFeature ?? []).map((c) => ({ feature: c.clave, costUsd: c.costUsd, tokens: c.tokens }))
+    : (usage?.porFeature ?? []);
+  const feats = featsFuente.slice(0, 8);
   const maxFeat = Math.max(1, ...feats.map((f) => f.costUsd));
   // Para la gráfica de TOKENS: el top-8 por tokens (puede diferir del top por $ —
   // un proceso en IA gratis consume muchos tokens y $0). Así ambas cuentan algo real.
-  const featsTok = (usage?.porFeature ?? []).slice().sort((a, b) => b.tokens - a.tokens).slice(0, 8);
+  const featsTok = featsFuente.slice().sort((a, b) => b.tokens - a.tokens).slice(0, 8);
   const maxTok = Math.max(1, ...featsTok.map((f) => f.tokens));
   // Arriba las que consumen dinero (Claude/OpenAI/Gemini), abajo las gratis. El
   // saldo/créditos ya NO se edita inline en el tile: se hace en el detalle (abrí el tile).
@@ -466,11 +535,35 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
           <MakoStar size={16} color="var(--accent)" />
           <h2 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.017em', margin: 0, color: 'var(--ink)' }}>Costo de MaKo</h2>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
-          <span style={{ ...capMono, fontSize: 10.5, letterSpacing: '.1em' }}>este mes</span>
-          <span style={{ fontFamily: MONO, fontWeight: 600, fontSize: 29, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{usd(usage?.gastadoMesUsd ?? 0)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+          {meses.length > 0 && (
+            <Dropdown
+              value={periodo}
+              options={opcionesPeriodo}
+              onChange={setPeriodo}
+              ariaLabel="Período del gasto"
+              width={188}
+              align="right"
+            />
+          )}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
+            <span style={{ ...capMono, fontSize: 10.5, letterSpacing: '.1em' }}>{rotuloPeriodo}</span>
+            <span style={{ fontFamily: MONO, fontWeight: 600, fontSize: 29, letterSpacing: '-0.02em', color: cargandoPer ? 'var(--faint)' : 'var(--ink)' }}>
+              {cargandoPer ? '···' : filtrado && !per ? '—' : usd(filtrado ? (per?.costUsd ?? 0) : (usage?.gastadoMesUsd ?? 0))}
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* El período elegido NO mueve los tiles de abajo, y decirlo es parte del
+          dato: un saldo restante de hoy al lado de un gasto de junio, sin
+          aclaración, se lee como si fueran la misma ventana. */}
+      {filtrado && per && (
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: -8, marginBottom: 18 }}>
+          {per.llamadas.toLocaleString('es-MX')} llamadas · {fmtTok(per.tokens)} tokens, leídas {per.filas.toLocaleString('es-MX')} filas sin truncar.
+          {' '}<strong style={{ color: 'var(--ink)' }}>Los tiles de saldo y cuota de acá abajo son de hoy</strong>, no del período: el saldo es un estado, no un acumulado.
+        </div>
+      )}
 
       {/* Tiles por proveedor — arriba las de pago, abajo las gratis (dos filas
           separadas para que no queden todos juntos y OpenRouter suelto). */}

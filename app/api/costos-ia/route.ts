@@ -15,7 +15,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { resumenDelPeriodo } from '@/lib/costos-ia';
+import { resumenDelPeriodo, mesesConDatos } from '@/lib/costos-ia';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +24,19 @@ export async function GET(req: NextRequest) {
   // de CADA workspace, así que ese chequeo dejaría entrar a cualquier cliente.
   if (!(await getSesionAdmin())) {
     return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  }
+
+  // `?meses=1` devuelve SOLO la lista de meses con datos. Lo pide /integraciones
+  // al montar, y hace dos cosas de una: puebla el selector sin ofrecer meses
+  // vacíos, y sirve de sonda de permiso — si contesta 403, el cliente no ve el
+  // filtro. Es la regla de «estado vivo, no recordado»: el control aparece
+  // porque el endpoint contestó, no porque alguien supuso que existe.
+  if (req.nextUrl.searchParams.get('meses')) {
+    try {
+      return Response.json({ ok: true, mesesDisponibles: await mesesConDatos() });
+    } catch (err) {
+      return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    }
   }
 
   const crudo = req.nextUrl.searchParams.get('periodo') ?? 'todo';
