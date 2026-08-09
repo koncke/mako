@@ -164,53 +164,82 @@ export function Pricing() {
 
   return (
     <>
+      {/* ── DE QUÉ SE TRATA ───────────────────────────────────────────────── */}
+      {/* Esto NO estaba y era el problema #1: la pantalla abría con «US$27,40» y
+          el lector tenía que adivinar de qué. Un veredicto sin la pregunta que
+          contesta no es un veredicto, es un número suelto. */}
+      <Section titulo="Qué contesta esta pantalla" card>
+        <p style={{ fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.65, margin: 0, maxWidth: '76ch' }}>
+          Si MaKo le va a poner la IA a sus clientes en vez de que cada uno traiga su key,{' '}
+          <strong>cada cosa que hace el producto pasa a costar plata de la agencia</strong>. Esta
+          pantalla contesta cuatro preguntas, en este orden:
+        </p>
+        <ol style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.7, margin: '12px 0 0', paddingLeft: 20, maxWidth: '76ch' }}>
+          <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto cuesta?</strong> — medido en producción, y proyectado con el producto entero construido.</li>
+          <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto se le cobra?</strong> — la tarifa de MaKo Tokens, operación por operación.</li>
+          <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto cuesta conseguir un cliente?</strong> — el CAC de cada funnel, contra el techo que tolera cada plan.</li>
+          <li><strong style={{ color: 'var(--ink)' }}>¿Cómo se empaqueta?</strong> — los planes, y qué falta para poder cobrarlos.</li>
+        </ol>
+        <Fuente>
+          Todo lo <strong>medido</strong> sale de {miles(MEDICION.llamadas)} llamadas reales de{' '}
+          <span style={{ fontFamily: MONO }}>anthropic_usage</span> ({MEDICION.dias} días,{' '}
+          {MEDICION.workspaces} workspaces). Lo <strong>publicado</strong> es precio de lista con su
+          fecha. Lo <strong>supuesto</strong> lo pusimos nosotros y está marcado como tal en cada tabla.
+        </Fuente>
+      </Section>
+
       {/* ── EL VEREDICTO ──────────────────────────────────────────────────── */}
-      <Section titulo="El veredicto" card>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 26, marginBottom: 20 }}>
+      <Section titulo="El veredicto, en tres números" card>
+        {/* 195px y no 230: a 230 las tres tarjetas no entran en el ancho de la
+            card y se parten 2+1, que deja un hueco al lado de la tercera y rompe
+            la lectura de un vistazo — que es lo único que un veredicto tiene que
+            hacer. Tres o una, nunca dos y media. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(195px,1fr))', gap: 28, marginBottom: 22 }}>
           {/* Dos cifras de este veredicto estuvieron MAL y conviene que quede
               escrito, porque las dos fallaron igual: un número traído de una
               fuente sin verificar el modelo al que aplica.
               · «US$666 · costo de una reunión de venta» — es el costo de una
                 reunión agendada por un SDR OUTBOUND, y MaKo vende self-serve.
-                Puesto acá se leía «este es tu CAC». Lo que sí se sostiene es el
-                TECHO: un límite, no un costo incurrido. Vive abajo, en ECONOMIA.
-              · «margen −45% del Pro» — medido con el ruteo caro de hoy Y contra
-                un techo del 75% que es un supuesto de la era SaaS. La mediana de
-                un producto de IA es 50%: el Pro nunca estuvo en problemas. */}
+              · «margen −45% del Pro» — medido con el ruteo caro Y contra un techo
+                del 75% que es un supuesto de la era SaaS. La mediana de un
+                producto de IA es 50%: el Pro nunca estuvo en problemas.
+             Y cada rótulo tiene que sostenerse SOLO: «De ese costo son medios»
+             obligaba a haber leído la tarjeta de al lado. */}
           <Cifra
-            valor={usd(GROWTH_P.iaUsd)} tono="warn"
-            rotulo="Costo de IA del Growth, con todo construido"
-            detalle={`Contra un precio de US$${GROWTH_P.precioUsd}. Margen ${margen(GROWTH, GROWTH_P.iaUsd)!.toFixed(0)}% — arriba de la mediana de un producto de IA, que es 50-53%.`}
+            valor={usd(GROWTH_P.iaUsd)} unidad="por mes" tono="warn"
+            rotulo="Lo que costará de IA el cliente más caro"
+            detalle={`Un plan Growth de US$${GROWTH_P.precioUsd}/mes con el producto entero construido. Deja ${num(margen(GROWTH, GROWTH_P.iaUsd)!, 0)}% de margen, arriba de la mediana de un producto de IA (50-53%).`}
           />
           <Cifra
-            valor={`${pctMedios.toFixed(0)}%`} tono="bad"
-            rotulo="De ese costo son MEDIOS, no texto"
-            detalle={`${usd(GROWTH_P.mediosUsd)} de video e imagen contra ${usd(GROWTH_P.textoUsd)} de texto. Un Reel de 15 s con 3 intentos cuesta US$2,45.`}
+            valor={`${num(pctMedios, 0)}%`} unidad="del costo" tono="bad"
+            rotulo="Son video e imagen, no texto"
+            detalle={`${usd(GROWTH_P.mediosUsd)} de medios contra ${usd(GROWTH_P.textoUsd)} de todo el texto. Un solo intento de Reel de 15 segundos cuesta US$0,85.`}
           />
           <Cifra
-            valor="436×" tono="good"
-            rotulo="Lo que baja extraer una reunión"
+            valor="436×" unidad="más barato" tono="good"
+            rotulo="Lo que se ahorra extrayendo una reunión"
             detalle="De US$0,93 a US$0,0021. No es un modelo más barato: con 1M de contexto la reunión entra entera y desaparecen las 4-5 llamadas del troceo."
           />
         </div>
-        <Nota>
-          <strong>{EL_COSTO_ES_EL_VIDEO}</strong>
-        </Nota>
-        <Nota>
-          Lo que <em>no</em> se arregla bajando el costo es la retención: a menos de US$50/mes el
-          producto retiene 23% anual, y el Pro cae en esa banda por dos dólares. Y el techo de CAC
-          sigue siendo el límite duro — <strong>US$53-104</strong> en el Pro, <strong>US$194-381</strong> en
-          el Growth. Medido: el canal de WhatsApp da ~US$83 y entra; el carrito frío da US$76-179 y
-          <strong> no cierra a US$47</strong>.
-        </Nota>
-        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-          {BENCHMARKS.map((b) => (
-            <div key={b.id} style={{ fontSize: 11.5 }}>
-              <span style={{ color: 'var(--faint)' }}>{b.que}: </span>
-              <span style={{ color: 'var(--ink)', fontFamily: MONO }}>{b.objetivo}</span>
-            </div>
-          ))}
+        {/* Acá había un párrafo en negrita que volvía a contar las tres cifras de
+            arriba —y encima decía «US$2,45» del Reel donde la tarjeta dice
+            «US$0,85», porque uno es con tres intentos y el otro con uno. Dos
+            números del mismo objeto en la misma vista, sin decir qué los separa,
+            se leen como un error. Queda solo lo que las cifras NO dicen: qué hay
+            que hacer con esto. */}
+        <div style={{ padding: '14px 16px', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, fontWeight: 600, maxWidth: '74ch' }}>
+            La consecuencia es de diseño de planes, no de ingeniería: el video no puede ser una
+            feature incluida, tiene que ser una unidad medida.
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: 8, maxWidth: '74ch' }}>
+            Y lo que <em>no</em> se arregla bajando el costo es la retención: abajo de US$50/mes el
+            producto retiene 23% anual, y el Pro cae en esa banda por dos dólares.
+          </div>
         </div>
+        {/* Los benchmarks se van al final de la sección de CAC, que es donde se
+            usan. Acá abajo del veredicto eran tres líneas en monoespaciada que
+            nadie lee y que le sacaban peso a las cifras. */}
       </Section>
 
       {/* ── GRÁFICO 1 ─────────────────────────────────────────────────────── */}
@@ -300,36 +329,75 @@ export function Pricing() {
           de cabeza.
         </Nota>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 24, margin: '18px 0 22px' }}>
-          <Cifra valor={`${mtDeOp('mako-msg')} MT`} tono="good" rotulo="Un mensaje a MaKo" detalle="Lo más barato del catálogo. Priorizar tareas y analizar un anuncio también valen 1." />
-          <Cifra valor={`${mtDeOp('imagen')} MT`} rotulo="Una imagen" detalle="El primer escalón que se siente. 80 veces un mensaje." />
-          <Cifra valor={`${miles(mtDeOp('reel'))} MT`} tono="bad" rotulo="Un intento de Reel de 15 s" detalle={`${miles(mtDeOp('reel') / Math.max(1, mtDeOp('mako-msg')))} veces un mensaje a MaKo. Y se cobra por INTENTO, no por Reel terminado.`} />
+        {/* El gráfico de barras en log que estuvo acá se retiró, y la razón vale
+            escribirla: necesitaba un párrafo explicando que el eje era
+            logarítmico para poder leerse. Un gráfico que viene con instrucciones
+            de uso no está comunicando — y encima el dato que la gente leía era
+            la columna de números de la derecha, no las barras.
+            Lo que importa de una lista de precios que abarca 2000× no es el
+            valor de cada fila: son los TRES ESCALONES. Eso son tres renglones. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(195px,1fr))', gap: 26, margin: '20px 0 8px' }}>
+          <Cifra
+            valor="1-30" unidad="MT" tono="good"
+            rotulo="Todo lo que es texto"
+            detalle="Un mensaje a MaKo, priorizar tareas, extraer una reunión, analizar una llamada. Con el ruteo elegido el texto prácticamente dejó de costar."
+          />
+          <Cifra
+            valor="80-570" unidad="MT"
+            rotulo="Todo lo que es imagen"
+            detalle={`Una imagen ${mtDeOp('imagen')} MT, un thumbnail ${mtDeOp('thumb')}, un carrusel de 7 ${mtDeOp('carrusel')}. El primer escalón que se siente en la factura.`}
+          />
+          <Cifra
+            valor={`960-${miles(mtDeOp('reel'))}`} unidad="MT" tono="bad"
+            rotulo="Todo lo que es video"
+            detalle={`Un clip de 8 segundos ${mtDeOp('clip8')} MT; un intento de Reel de 15 s, ${miles(mtDeOp('reel'))}. Es ${miles(Math.round(mtDeOp('reel') / mtDeOp('imagen')))} veces una imagen y ${miles(mtDeOp('reel'))} veces un mensaje.`}
+          />
         </div>
-
-        <Eyebrow>La escala, en logarítmica</Eyebrow>
         <Nota>
-          ⚠️ El eje es <strong>logarítmico</strong>: cada paso a la derecha es ×10, no +1. En lineal
-          las veinticinco operaciones de texto quedan todas pegadas al cero y el gráfico no dice
-          nada que no supieras. El valor exacto está siempre en el número de la derecha.
+          Ese salto —de <strong>1</strong> a <strong>2.000</strong>— es todo el diseño de los planes
+          en un número. El texto se puede regalar; el video hay que medirlo.
         </Nota>
-        <Barras datos={barrasTarifa} escala="log" tono="mako" altura={18} sufijo=" MT" />
 
-        <div style={{ marginTop: 24 }}>
-          <Eyebrow>Qué compra el cupo de cada plan</Eyebrow>
-          <Fila head plantilla="minmax(0,1.6fr) 90px 90px 90px" cols={['Si gastaras todo en…', 'Free 600', 'Pro 5.000', 'Growth 50.000']} />
-          {['mako-msg', 'reunion', 'closing', 'imagen', 'clip8', 'reel'].map((id) => {
+        <div style={{ marginTop: 22 }}>
+          <Eyebrow>Cuánto rinde el cupo de cada plan</Eyebrow>
+          {/* La versión anterior de esta tabla tenía los encabezados «Free 600 /
+              Pro 5.000 / Growth 50.000» y la fila del mensaje daba exactamente
+              600/5.000/50.000 —porque cuesta 1 MT—, así que se leía como si un
+              mensaje COSTARA 50.000. El número estaba bien y la tabla estaba mal:
+              ahora cada celda trae su unidad y el precio va en su propia columna. */}
+          <Fila head plantilla="minmax(0,1.5fr) 74px 1fr 1fr 1fr" cols={['Operación', 'Precio', 'Free', 'Pro', 'Growth']} />
+          {/* Rótulos CORTOS acá, no los de TARIFA: «Un mensaje a MaKo (web o
+              WhatsApp)» se parte en dos líneas y deja la tabla con renglones de
+              alturas distintas. El nombre completo vive en la tarifa completa. */}
+          {([
+            ['mako-msg', 'Un mensaje a MaKo', 'mensajes'],
+            ['reunion', 'Extraer una reunión', 'reuniones'],
+            ['closing', 'Analizar una llamada', 'llamadas'],
+            ['imagen', 'Generar una imagen', 'imágenes'],
+            ['clip8', 'Un clip de 8 segundos', 'clips'],
+            ['reel', 'Un intento de Reel', 'intentos'],
+          ] as const).map(([id, corto, unidad]) => {
             const o = TARIFA.find((t) => t.id === id)!;
+            const cuantos = (p: 'free' | 'pro' | 'growth') => Math.floor(CUPO_MT[p] / o.mt);
             return (
-              <Fila key={id} plantilla="minmax(0,1.6fr) 90px 90px 90px"
-                cols={[o.label,
+              <Fila key={id} plantilla="minmax(0,1.5fr) 74px 1fr 1fr 1fr"
+                cols={[
+                  corto,
+                  <Num key="p">{miles(o.mt)} MT</Num>,
                   ...(['free', 'pro', 'growth'] as const).map((p) => (
-                    <Num key={p}>{o.mt > 0 ? miles(Math.floor(CUPO_MT[p] / o.mt)) : '—'}</Num>
+                    <span key={p} style={{ fontSize: 12, color: cuantos(p) === 0 ? 'var(--faint)' : 'var(--ink)' }}>
+                      <span style={{ fontFamily: MONO, fontVariantNumeric: 'tabular-nums' }}>{cuantos(p) === 0 ? '—' : miles(cuantos(p))}</span>
+                      {cuantos(p) > 0 && <span style={{ color: 'var(--faint)', fontSize: 11 }}> {unidad}</span>}
+                    </span>
                   ))]} />
             );
           })}
           <Nota>
-            Por eso el contador que ve el cliente va en <strong>unidades</strong> («te quedan 3
-            Reels»), nunca en tokens, y el costo se muestra <strong>antes</strong> de generar.
+            Se lee así: <strong>una imagen cuesta {mtDeOp('imagen')} MT</strong>, y con los{' '}
+            {miles(CUPO_MT.pro)} MT del Pro entran {miles(Math.floor(CUPO_MT.pro / mtDeOp('imagen')))} imágenes
+            —<em>si no gastaras el cupo en ninguna otra cosa</em>. Por eso el contador que ve el
+            cliente va en <strong>unidades</strong> («te quedan 3 Reels») y el costo se muestra{' '}
+            <strong>antes</strong> de generar, nunca después.
           </Nota>
         </div>
 

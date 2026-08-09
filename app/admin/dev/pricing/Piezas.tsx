@@ -105,18 +105,33 @@ export function Barras({
  * El número que decide. Cifras proporcionales, no tabulares: a tamaño grande, los
  * dígitos de ancho fijo dejan huecos y se lee flojo.
  */
-export function Cifra({ valor, rotulo, detalle, tono = 'neutral' }: {
+export function Cifra({ valor, unidad, rotulo, detalle, tono = 'neutral' }: {
   valor: string;
+  /**
+   * La unidad, aparte del número. Va en tamaño chico pegada al valor: «27,40» a
+   * 34px con «US$/mes» a 13px se lee de un vistazo; «US$27,40/mes» todo junto y
+   * grande hace que el ojo tenga que separar la cifra del sufijo.
+   */
+  unidad?: string;
   rotulo: string;
   detalle?: string;
   tono?: 'bad' | 'good' | 'warn' | 'neutral';
 }) {
   const color = tono === 'bad' ? 'var(--bad)' : tono === 'good' ? 'var(--good)' : tono === 'warn' ? 'var(--warn)' : 'var(--ink)';
   return (
-    <div>
-      <div style={{ fontSize: 34, lineHeight: 1.05, color, fontWeight: 600, letterSpacing: '-.02em' }}>{valor}</div>
-      <div style={{ fontSize: 12.5, color: 'var(--ink)', marginTop: 5, fontWeight: 500 }}>{rotulo}</div>
-      {detalle && <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 3, lineHeight: 1.45 }}>{detalle}</div>}
+    // La grilla de 3 filas es lo que alinea las tarjetas entre sí. Sin ella cada
+    // una mide lo que mide su rótulo, y un rótulo de dos líneas al lado de uno de
+    // una deja el detalle de la del medio flotando a otra altura — que es
+    // exactamente lo que se veía como «texto cortado a la mitad de la card».
+    <div style={{ display: 'grid', gridTemplateRows: 'auto auto 1fr', gap: 0, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 34, lineHeight: 1.05, color, fontWeight: 600, letterSpacing: '-.02em' }}>{valor}</span>
+        {unidad && <span style={{ fontSize: 13, color: 'var(--dim)', fontWeight: 500 }}>{unidad}</span>}
+      </div>
+      {/* `text-wrap: balance` reparte las líneas parejas en vez de dejar una
+          palabra huérfana abajo — «…con todo | construido» era eso. */}
+      <div style={{ fontSize: 13, color: 'var(--ink)', marginTop: 7, fontWeight: 600, lineHeight: 1.35, textWrap: 'balance' }}>{rotulo}</div>
+      {detalle && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 5, lineHeight: 1.5 }}>{detalle}</div>}
     </div>
   );
 }

@@ -41,7 +41,13 @@ const PRICING: Record<string, { in: number; out: number }> = {
   'claude-opus-4-7': { in: 5, out: 25 },
   'claude-opus-4-6': { in: 5, out: 25 },
   'claude-sonnet-4-6': { in: 3, out: 15 },
-  'claude-sonnet-5': { in: 3, out: 15 },   // default "Sonnet" del registro (faltaba → se cobraba a precio de Opus)
+  // ⚠️ Sonnet 5 está en PRECIO INTRODUCTORIO 2/10 hasta el 31/08/2026; el 1 de
+  // septiembre pasa a 3/15. Es un error con fecha de vencimiento en las DOS
+  // direcciones: con 3/15 el histórico de julio-agosto queda sobrevaluado 50%
+  // (y de ahí cuelga el baseline de US$93,50 y el «margen del Pro» que sale en
+  // /admin/dev/pricing), y si no se toca, el 1/9 el número se vuelve correcto
+  // solo para lo nuevo y el histórico queda mal para siempre, sin que nada avise.
+  'claude-sonnet-5': { in: 2, out: 10 },   // ← volver a { in: 3, out: 15 } el 2026-09-01
   'claude-haiku-4-5': { in: 1, out: 5 },
   'claude-fable-5': { in: 10, out: 50 },
   // Baratos (tareas simples)

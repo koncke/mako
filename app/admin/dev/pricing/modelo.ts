@@ -338,7 +338,7 @@ export const RUTEO = [
   { id: 'qwen', modelo: 'Qwen3.7-Flash', inUsd: 0.03, outUsd: 0.13, para: 'Contexto enorme: la reunión entera sin trocear (1M)', origen: 'publicado' as Origen },
   { id: 'kimi', modelo: 'Kimi K2.6', inUsd: 0.95, outUsd: 4.00, para: 'Copy con voz de marca (lo juzga un humano, no un índice)', origen: 'publicado' as Origen },
   { id: 'glm', modelo: 'GLM-4.7-Flash', inUsd: 0, outUsd: 0, para: 'Clasificar contra una rúbrica. Gratis, entrada y salida', origen: 'publicado' as Origen },
-  { id: 'opus', modelo: 'Claude Opus 4.8', inUsd: 15, outUsd: 75, para: 'Solo la Retro: su salida gobierna decisiones de plata', origen: 'publicado' as Origen },
+  { id: 'opus', modelo: 'Claude Opus 4.8', inUsd: 5, outUsd: 25, para: 'Solo la Retro: su salida gobierna decisiones de plata', origen: 'publicado' as Origen },
 ];
 
 /** Lo que ya existe, medido, contra lo que costaría con el ruteo nuevo. */
@@ -447,7 +447,7 @@ export const TARIFA: OpTarifa[] = [
 
   { id: 'closing', grupo: 'Análisis', label: 'Analizar una llamada de venta', costoUsd: 0.00712, mt: 15, origen: 'medido', n: 132 },
   { id: 'lead-360', grupo: 'Análisis', label: 'Insight 360 de un lead', costoUsd: 0.00192, mt: 5, origen: 'medido', n: 3 },
-  { id: 'retro', grupo: 'Análisis', label: 'Retro / experimentos del negocio', costoUsd: 0.29661, mt: 710, origen: 'medido', n: 47 },
+  { id: 'retro', grupo: 'Análisis', label: 'Retro / experimentos del negocio', costoUsd: 0.0989, mt: 235, origen: 'medido', n: 47 },
   { id: 'ads-an', grupo: 'Análisis', label: 'Analizar un anuncio', costoUsd: 0, mt: 1, origen: 'medido', n: 18 },
   { id: 'script-an', grupo: 'Análisis', label: 'Analizar un guion de video', costoUsd: 0.00135, mt: 3, origen: 'medido', n: 5 },
   { id: 'landing-an', grupo: 'Análisis', label: 'Diagnosticar una landing', costoUsd: 0.0092, mt: 20, origen: 'supuesto', n: 0 },
@@ -498,9 +498,19 @@ export const EXPOSICION = [
   { plan: 'Growth', cupo: 50000, normalUsd: 25.18, maloUsd: 65.00, margenNormal: 72.3, margenMalo: 28.5 },
 ];
 
-/** El riesgo que queda después de tarifar bien, en una frase. */
+/**
+ * El riesgo que queda después de tarifar bien.
+ *
+ * ⚠️ Y una lección de aritmética que casi se publica al revés: acá el precio de
+ * Opus estuvo en US$15/US$75 (los de Opus 4.1, retirado) cuando el oficial es
+ * **US$5/US$25** — el propio repo ya lo tenía bien en `lib/anthropic-usage.ts`.
+ * Eso cobraba la Retro a 710 MT cuando corresponden 235: **3× de más al
+ * cliente**. Pero NO cambia la exposición, porque el error dividía por tres el
+ * costo Y el precio a la vez: el markup efectivo —y con él el peor caso— queda
+ * igual. Un error de precio de lista mueve lo que se cobra, no el margen.
+ */
 export const RIESGO_QUE_QUEDA =
-  'El «mes malo» del Growth (todo al p90) deja 28,5% de margen, y lo empuja UNA sola operación: la Retro, que es la única que sigue en Opus y cuya salida va de 1.487 tokens de mediana a 11.288 en el p90. El cupo la acota, pero conviene sumarle un límite de FRECUENCIA propio (corre pocas veces al mes por diseño) en vez de confiar solo en los tokens.';
+  'El «mes malo» del Growth (todo al p90) deja ~28% de margen, y lo empuja UNA sola operación: la Retro, la única que sigue en Opus, cuya salida va de 3.484 tokens de media a 11.288 en el p90 — 3,2× la media. El cupo la acota, pero conviene sumarle un límite de FRECUENCIA propio (corre pocas veces al mes por diseño) en vez de confiar solo en los tokens.';
 
 // ── Lo que este análisis daba por cierto y NO lo es ─────────────────────────
 // Salió del crítico de completitud del paso 3 y se verificó a mano contra el
