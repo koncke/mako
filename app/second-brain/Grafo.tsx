@@ -87,6 +87,12 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   const gRef = useRef<SVGGElement | null>(null);
   const vista = useRef<Vista>({ k: 1, x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
+  /** El rAF del vuelo de cámara. Vive acá arriba porque lo cortan el zoom y el paneo,
+   *  que se declaran mucho antes que el vuelo. */
+  const vueloRef = useRef<number | null>(null);
+  const cortarVuelo = useCallback(() => {
+    if (vueloRef.current != null) { cancelAnimationFrame(vueloRef.current); vueloRef.current = null; }
+  }, []);
 
   const [kPaso, setKPaso] = useState(1);
   const [zoomPct, setZoomPct] = useState(100);
@@ -295,6 +301,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   }, [posiciones, pintar]);
 
   useEffect(() => () => { simRef.current?.destruir(); simRef.current = null; }, []);
+  useEffect(() => cortarVuelo, [cortarVuelo]);
 
   /** Carga d3-force la primera vez que hace falta y nada más. */
   const asegurarSim = useCallback(async (): Promise<Simulacion | null> => {
@@ -360,6 +367,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
       const pt = aMundo(e.clientX, e.clientY);
       if (!pt) return;
       const unidad = e.deltaMode === 1 ? 0.05 : e.deltaMode ? 1 : 0.002;
+      cortarVuelo();
       const factor = Math.pow(2, -e.deltaY * unidad * (e.ctrlKey ? 10 : 1));
       const v = vista.current;
       const k = Math.min(kFit.current * K_MAX_REL, Math.max(kFit.current * K_MIN_REL, v.k * factor));
@@ -371,7 +379,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, [aMundo, pedirPintado]);
+  }, [aMundo, pedirPintado, cortarVuelo]);
 
   const punteros = useRef(new Map<number, { x: number; y: number }>());
   const arrastre = useRef<{ x0: number; y0: number; vx: number; vy: number; movido: boolean } | null>(null);
@@ -381,6 +389,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     // La captura va sobre el SVG, NO sobre `e.target`. Si se captura sobre el
     // `<circle>` que se tocó, el primer re-render de React lo reemplaza y la captura
     // se pierde a mitad del gesto: el paneo se corta solo.
+    cortarVuelo();
     svgRef.current?.setPointerCapture?.(e.pointerId);
     punteros.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (punteros.current.size === 1) {
@@ -449,7 +458,12 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
       // RETARGETEA todos los eventos siguientes al elemento que capturó —el <svg>—,
       // así que el `click` nunca llega al <circle> y el onClick del nodo no dispara.
       // Es lo que rompió poder fijar un nodo para leer su detalle.
-      if (quieto) setFijado((f) => (sobreNodo ? (f === sobreNodo ? null : sobreNodo) : null));
+      if (quieto) {
+        // Clic sobre un nodo: si ya estaba fijado se suelta; si no, se vuela hasta él.
+        // Clic en el fondo: se suelta.
+        if (sobreNodo && fijado !== sobreNodo) irA(sobreNodo);
+        else setFijado(null);
+      }
       arrastrando.current = null;
       arrastre.current = null;
     }
@@ -563,24 +577,65 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     pedirPintado();
   }, [aMundo, pedirPintado]);
 
-  /** Fija un nodo y lo trae al centro. Lo usan el buscador, los chips del Norte y del
-   *  cuello, y cada conexión de la tarjeta. */
+  // ── EL VUELO DE CÁMARA ─────────────────────────────────────────────────────
+  // Antes esto TELETRANSPORTABA: el mapa aparecía de golpe en otro lado y no quedaba
+  // claro que uno se hubiera movido, ni hacia dónde. Ahora se interpola la vista entera
+  // —posición y zoom— para que el ojo siga el recorrido y entienda dónde quedó parado.
+  /** Fija un nodo y VUELA hasta él. Lo usan el buscador, el clic sobre un nodo, los
+   *  accesos del desplegable y cada conexión de la tarjeta. */
   const irA = useCallback((id: string) => {
     const p = posiciones[id];
     setFijado(id);
     setVerTodas(false);
     setTextoEntero(false);
     if (!p) return;
-    const caja = svgRef.current?.getBoundingClientRect();
-    if (!caja) return;
-    const porPixel = Math.min(caja.width, caja.height) / encuadre.lado;
-    const cxU = encuadre.x + (caja.width / porPixel) / 2;
-    const cyU = encuadre.y + (caja.height / porPixel) / 2;
-    const k = vista.current.k;
-    vista.current = { k, x: cxU - k * p.x, y: cyU - k * p.y };
+    if (!svgRef.current) return;
+    // ⚠️ EL CENTRO DE LO VISIBLE ES EL CENTRO DEL viewBox, y no «medio ancho visible».
+    // El viewBox es CUADRADO y entra con `xMidYMid meet`, o sea que se escala por el lado
+    // corto y se CENTRA en el largo: lo visible se extiende más allá del viewBox por los
+    // dos costados, en partes iguales. Calcularlo como `encuadre.x + anchoVisible/2`
+    // dejaba el nodo 317 px a la derecha del centro — medido. `ajustar()` ya lo hacía
+    // bien; esto no, y el error venía desde antes del vuelo: el buscador «centraba» un
+    // nodo y lo dejaba corrido.
+    const cxU = encuadre.x + encuadre.lado / 2;
+    const cyU = encuadre.y + encuadre.lado / 2;
+    // Se ACERCA, nunca se aleja: si el usuario ya estaba mirando de cerca se respeta su
+    // zoom, y si venía del encuadre completo se lo lleva a 2,2× — lo suficiente para que
+    // el nodo y sus vecinos sean el tema de la pantalla, sin perder el contexto de dónde
+    // está eso dentro del mapa.
+    const k = Math.min(kFit.current * K_MAX_REL, Math.max(vista.current.k, kFit.current * 2.2));
+    const destino = { k, x: cxU - k * p.x, y: cyU - k * p.y };
+    const desde = { ...vista.current };
     tocoElZoom.current = true;
-    pedirPintado();
-  }, [posiciones, encuadre, pedirPintado]);
+    cortarVuelo();
+
+    // Quien pidió menos movimiento salta directo. El archivo ya consulta este mismo
+    // matchMedia para apagar la flotación.
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      vista.current = destino;
+      pedirPintado();
+      return;
+    }
+
+    const t0 = performance.now();
+    const DURACION = 520;   // medido a ojo: menos se siente un salto, más se siente lento
+    const paso = () => {
+      const t = Math.min(1, (performance.now() - t0) / DURACION);
+      // easeInOutCubic: arranca y termina despacio, así el ojo engancha el recorrido.
+      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      vista.current = {
+        k: desde.k + (destino.k - desde.k) * e,
+        x: desde.x + (destino.x - desde.x) * e,
+        y: desde.y + (destino.y - desde.y) * e,
+      };
+      // Se escribe por el MISMO rAF que todo lo demás. Un segundo bucle propio pelearía
+      // con `aplicar()` por el mismo atributo, que es el defecto que este archivo ya
+      // documenta con la flotación y la física.
+      pedirPintado();
+      vueloRef.current = t < 1 ? requestAnimationFrame(paso) : null;
+    };
+    vueloRef.current = requestAnimationFrame(paso);
+  }, [posiciones, encuadre, pedirPintado, cortarVuelo]);
 
   // ⚠️ Pantalla completa con la Fullscreen API sobre `.cbg`, NUNCA con un overlay
   // `position:fixed`. En esta app los z-index son literales y ya se quemó: la pila de
