@@ -1786,13 +1786,29 @@ porque el dato no existe.**
 ### ⚠️ El orden correcto es: ANCLAS primero, modales después
 
 «Linkear en vez de dibujar» degrada a «te dejo en la puerta» si el link no selecciona la
-entidad. Anclas que faltan, todas verificadas: `/chatbot` (**cero `useSearchParams` en la
-carpeta entera**), `/experimentos` (idem, y la tab activa es un `useState('retro')`: todos los
-links caen en Retro), `/email` (falta `?sec=`, `?bcast=`), `/integraciones?servicio=`,
-`/ads-manager` por campaña y por conjunto, `/ads-analyst` por guion.
+entidad. El vocabulario a copiar ya estaba escrito en `/whatsapp` (`?canal`, `?chat`, `?lead`,
+`?stab`) y en `/crm` (`?pendientes=1`, `?solucionar=1`, `?tab=`).
 
-El vocabulario a copiar ya está escrito en `/whatsapp` (`?canal`, `?chat`, `?lead`, `?stab`) y
-en `/crm` (`?pendientes=1`, `?solucionar=1`, `?tab=`).
+**Hechas** (verificadas contra el build de producción, no contra `next dev`):
+
+| Ancla | Antes | Comprobado |
+|---|---|---|
+| `/chatbot?stab=`<br>`/chatbot?sec=` | cero `useSearchParams` en la carpeta entera | las tres sub-tabs; el wizard abre por **id** y por **clave**; un id inexistente no abre nada |
+| `/experimentos?tab=` | la tab activa era un `useState('retro')`: **todo link caía en Retro** | `experiments` y `conclusions` pintan su panel; un valor inventado cae en Retro |
+| `/integraciones?servicio=` | solo leía `?gcal=` y `?ops=1` | abre el servicio y **consume el parámetro**; una key que no está en el catálogo no abre nada |
+
+**Faltan:** `/email` (`?sec=`, `?bcast=`), `/ads-manager` por campaña y por conjunto (solo
+existe `/ads-manager/<adId>`), `/ads-analyst` por guion, y las llamadas `status='pendiente'` de
+`/closing`, que `getClosingViewData` filtra fuera.
+
+**Dos cosas que se aprendieron haciéndolas, y valen para la próxima:**
+
+- **Se acepta el id Y la clave.** MaKo arma el link desde `lib/mako-capacidades.ts`, donde
+  tiene el nombre de la cosa y casi nunca su id numérico. Un ancla que solo entiende ids
+  obliga a que quien escribe el link haya hecho antes una consulta.
+- **Un valor que no existe no abre nada, y se dice.** Abrir el wizard con un id de otro
+  workspace mostraría una secuencia vacía en vez de decir que no está: la validación va contra
+  la lista real, y si no aparece se limpia el parámetro.
 
 ### El catálogo de capacidades mentía en dos filas
 

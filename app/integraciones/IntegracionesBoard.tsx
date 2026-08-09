@@ -200,6 +200,24 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     }
   }, [searchParams, router]);
 
+  // ── ?servicio=<key> → abre ESE servicio ───────────────────────────────────
+  // Es el ancla del estado «falta un dato» más común del producto: `tab-activacion.ts`
+  // tiene ocho tabs con su `servicio` escrito a mano («sin Calendly las reuniones
+  // no entran»), y hasta ahora el link dejaba al usuario delante de una grilla de
+  // veintipico de tarjetas buscando cuál era. «Linkear en vez de dibujar» sin
+  // ancla por entidad es dejar a alguien en la recepción.
+  //
+  // Se valida contra la lista real: una key que no existe NO abre nada, en vez de
+  // abrir un modal vacío. Y se consume el parámetro igual que `?ops=1`, para que
+  // volver a tocar el mismo link reabra el modal aunque lo hayas cerrado.
+  useEffect(() => {
+    const key = searchParams.get('servicio');
+    if (!key) return;
+    if (!integraciones.some((i) => i.key === key)) { router.replace('/integraciones', { scroll: false }); return; }
+    setModal({ t: 'svc', key });
+    router.replace('/integraciones', { scroll: false });
+  }, [searchParams, router, integraciones]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModal(null); };
     document.addEventListener('keydown', onKey);

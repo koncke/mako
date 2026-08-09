@@ -15,7 +15,8 @@
 // sigue existiendo por debajo: un audio grabado en una secuencia queda
 // disponible para las demás.
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Icon } from '@/app/_components/icons';
 import { Dropdown } from '../components/Dropdown';
 import { SecuenciaWizard } from './SecuenciaWizard';
@@ -54,7 +55,32 @@ const ETAPA_LABEL: Record<string, string> = {
 
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
 
+// =============================================================================
+// DEEP LINK: /chatbot?stab=<whatsapp|email|dashboard>&sec=<id>
+// =============================================================================
+// Existe porque MaKo manda acá desde otra pantalla: cuando termina de escribir
+// una secuencia, su tarjeta dice «Ver los 5 mensajes» y NO los dibuja —los
+// mensajes se editan acá, así que dibujarlos allá garantiza que un día digan
+// algo distinto de lo que se ve en esta tab—.
+//
+// ⚠️ Antes de esto, la carpeta entera no tenía UN SOLO `useSearchParams`: el
+// link existía y dejaba al usuario en la puerta, mirando la lista completa y
+// buscando cuál de todas era. «Linkear en vez de dibujar» sin ancla por entidad
+// no es linkear, es dejar a alguien en la recepción.
+//
+// El vocabulario (`?stab=`, y el id como parámetro) es el mismo de /whatsapp
+// —`?canal`, `?chat`, `?lead`, `?stab`— a propósito: un usuario que aprendió a
+// leer una URL de MaKo no tiene que volver a aprenderla en cada tab.
 export function ChatAgentApp() {
+  // `useSearchParams` exige un boundary de Suspense, igual que en /whatsapp.
+  return (
+    <Suspense fallback={null}>
+      <ChatAgentInner />
+    </Suspense>
+  );
+}
+
+function ChatAgentInner() {
   const [secuencias, setSecuencias] = useState<SecuenciaDto[] | null>(null);
   const [serie, setSerie] = useState<PuntoSerie[]>([]);
   const [rolAdmin, setRolAdmin] = useState(false);
@@ -137,6 +163,36 @@ export function ChatAgentApp() {
     } catch { setEnOnboarding(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  // ── El ancla del deep link ────────────────────────────────────────────────
+  // Se aplica UNA sola vez. Sin el ref, cada render volvería a forzar la sub-tab
+  // y el usuario no podría moverse de donde lo dejó el link: el parámetro sigue
+  // en la URL, así que el efecto lo re-aplicaría para siempre. Es el mismo
+  // cuidado que `lastSearchRef` en /whatsapp.
+  const params = useSearchParams();
+  const anclaAplicada = useRef(false);
+  useEffect(() => {
+    if (anclaAplicada.current) return;
+    const stab = params.get('stab');
+    if (stab === 'whatsapp' || stab === 'email' || stab === 'dashboard') setVista(stab);
+
+    const sec = params.get('sec');
+    if (!sec) { anclaAplicada.current = true; return; }
+    // Hay que esperar a que carguen: sin la lista no se puede resolver ni la
+    // clave ni comprobar que el id exista. Y comprobar que exista importa —
+    // abrir el wizard con un id de otro workspace mostraría una secuencia vacía
+    // en vez de decir que no está.
+    if (secuencias === null) return;
+    // Se acepta el id numérico Y la clave («noshow»): MaKo arma el link desde el
+    // catálogo de capacidades, donde tiene el nombre de la secuencia y no
+    // siempre su id.
+    const n = Number(sec);
+    const hallada = Number.isInteger(n) && n > 0
+      ? secuencias.find((s) => s.id === n)
+      : secuencias.find((s) => s.clave === sec);
+    if (hallada) setWizard(hallada.id);
+    anclaAplicada.current = true;
+  }, [params, secuencias]);
 
   const etiquetaEtapa = useCallback(
     (key: string) => etapas.find((e) => e.value === key)?.label ?? ETAPA_LABEL[key] ?? key,

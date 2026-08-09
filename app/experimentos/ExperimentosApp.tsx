@@ -8,7 +8,8 @@
 // un toast simple. Cada tab es un componente propio; comparten los átomos de ./ui.
 // =============================================================================
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { Suspense, useCallback, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { ExperimentosView } from '@/lib/experimentos';
 import type { Retro } from '@/lib/retro';
 import { MONO, SANS } from './ui';
@@ -20,12 +21,31 @@ type TabKey = 'retro' | 'experiments' | 'conclusions';
 
 export type Toast = (msg: string, tone?: 'ok' | 'bad') => void;
 
-export function ExperimentosApp({
-  exp, retros: retros0, errorMsg, demo,
-}: {
-  exp: ExperimentosView; retros: Retro[]; errorMsg: string | null; demo: boolean;
-}) {
-  const [tab, setTab] = useState<TabKey>('retro');
+type Props = { exp: ExperimentosView; retros: Retro[]; errorMsg: string | null; demo: boolean };
+
+// ⚠️ `?tab=` NO ES UN LUJO ACÁ. La memoria del proyecto dice que los experimentos
+// son la fuente de verdad y que MaKo, desde el resto de la app, SUGIERE
+// experimentos — o sea que esta tab es destino de links de otras pantallas. Y
+// hasta ahora la tab activa era un `useState('retro')` fijo: todos esos links
+// caían en Retro, apuntaran a donde apuntaran. Un link que siempre aterriza en
+// el mismo lado no es un link, es un botón de «ir a la tab».
+export function ExperimentosApp(props: Props) {
+  // `useSearchParams` exige un boundary de Suspense.
+  return (
+    <Suspense fallback={null}>
+      <ExperimentosInner {...props} />
+    </Suspense>
+  );
+}
+
+function ExperimentosInner({ exp, retros: retros0, errorMsg, demo }: Props) {
+  // El valor de la URL manda al montar, y desde ahí el estado es del usuario:
+  // el inicializador perezoso corre UNA vez, así que tocar una tab no pelea con
+  // el parámetro que sigue en la barra de direcciones.
+  const pedida = useSearchParams().get('tab');
+  const [tab, setTab] = useState<TabKey>(() => (
+    pedida === 'experiments' || pedida === 'conclusions' || pedida === 'retro' ? pedida : 'retro'
+  ));
   const [expView, setExpView] = useState<ExperimentosView>(exp);
   const [retros, setRetros] = useState<Retro[]>(retros0);
   const [toast, setToast] = useState<{ msg: string; tone: 'ok' | 'bad' } | null>(null);
