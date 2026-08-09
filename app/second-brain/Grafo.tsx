@@ -1385,9 +1385,20 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
                     Ver el documento
                   </Button>
                 )}
-                {onAbrirArea && !nodoSel.id.startsWith('area:') && nodoSel.id !== 'raiz' && (
+                {/* TODA área se abre desde el mapa, incluido SU PROPIO NODO — que era
+                    el más grande de su racimo, el primero que uno toca, y el único que
+                    no ofrecía nada.
+                    ⚠️ La carpeta MADRE no ofrece acción, y es a propósito: agrupa varias
+                    áreas, así que no tiene un destino único. Su `area` es la de su
+                    primera hija, o sea que un botón ahí diría «Completar Norte» estando
+                    parado en «Negocio». La regla de la casa es que nunca se promete un
+                    botón que no lleva a donde dice. Tampoco la raíz: es el negocio
+                    entero, no un área. */}
+                {onAbrirArea && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:') && (
                   <Button variant="secondary" full onClick={() => onAbrirArea(nodoSel.area)}>
-                    Abrir {areaDe(nodoSel.area).nombre}
+                    {nodoSel.id.startsWith('area:')
+                      ? `Completar ${areaDe(nodoSel.area).nombre}`
+                      : `Abrir ${areaDe(nodoSel.area).nombre}`}
                   </Button>
                 )}
               </div>

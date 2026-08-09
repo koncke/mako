@@ -951,6 +951,102 @@ una omisión: **es información falsa**. Ahora lo dice en sus datos.
   catálogos con nombres parecidos y espacios de ids distintos, y una arista con un id que
   no matchea simplemente no se dibuja, en silencio.
 
+### El panel no estaba mal diseñado: un selector abierto lo rompía
+
+**Vive en:** `app/second-brain/Grafo.tsx` (la clase `.cbg-mapa`)
+
+**Síntoma.** «Está MUY mal diseñado el detail de cada nodo.»
+
+**Causa.** `.cbg svg { width: 100% }` estaba escrito para el lienzo, pero matchea **todos**
+los `<svg>` de adentro del componente — incluidas las flechas de 13×13 de cada conexión
+del panel y el chevron de «Leer todo». **Un `width:100%` de una hoja de estilos le gana
+al atributo `width="13"`**, porque los atributos de presentación tienen la especificidad
+más baja que existe.
+
+Medido a 1500×950: la flecha computaba **270 px**, se quedaba con 270 de los 286 de la
+fila, y dejaba el texto de la conexión en **cero** — desbordaba y partía una palabra por
+renglón. El `scrollHeight` del panel era **1463 px sobre una caja de 644**. Después:
+flecha 13, texto 235, panel **510 — entra entero**.
+
+**La regla:** un selector de dos partes adentro de un componente que además contiene
+íconos es un selector **abierto**. El lienzo se **nombra** con una clase; nunca
+`.componente svg`.
+
+⚠️ Y el orden importa: si se rediseña el panel sin arreglar esto primero, la mejora se le
+atribuye al rediseño y la regla no queda escrita en ningún lado.
+
+### Filtrar apagaba los nodos y dejaba intacta la telaraña
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`visible()`)
+
+Con un filtro puesto: 47 de 67 nodos atenuados… y **las 119 líneas y las 49 etiquetas
+seguían a opacidad plena**. Se apagaban los puntos y quedaba la telaraña, que es el ~70%
+de la tinta de la pantalla — por eso «no parecía filtrar».
+
+**Causa:** tres criterios distintos para tres cosas que son la misma pregunta. El de las
+aristas miraba el nodo en foco y el área, e ignoraba el filtro de autoría y la búsqueda.
+
+**La regla:** **un solo predicado, tres consumidores** — el nodo, sus aristas (se dibuja
+solo si sus DOS puntas pasan) y su etiqueta. Y el descarte por colisión se calcula sobre
+lo que PASA el filtro: al filtrar se libera espacio y aparecen más nombres, que es lo que
+uno espera.
+
+### La jerarquía gobierna el zoom, y el fade viejo hacía lo mismo peor
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`entraPorNivel`)
+
+Las cinco carpetas madre nunca pierden el título; las áreas se van al alejarse a la mitad;
+los datos, apenas uno se aleja. Encima sigue el descarte por colisión.
+
+Se **quitó** el fade de Obsidian (`clamp(log2(zoom)+1)`) y conviene saber por qué para no
+reponerlo: hacía el mismo trabajo con menos información. Superpuestos se anulaban — el
+fade apagaba **todo** por debajo del encuadre, incluidas las carpetas madre, que son
+justamente las que no tienen que desaparecer nunca.
+
+Y una trampa: el umbral usaba `kPaso`, que está **cuantizado a cuartos** para el fade. Con
+eso el encuadre caía del lado equivocado y el mapa arrancaba con 13 nombres de 72. El
+umbral usa el zoom real.
+
+### Desaparecer no es `opacity: 0` — hay que desmontar, pero después
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`saliendo`)
+
+La animación de salida es la de entrada al revés y más corta (240 ms contra 420): al
+filtrar uno quiere ver el resultado, no la despedida. El nodo **se desmonta** al terminar
+— quedarse en `opacity: 0` cuesta lo mismo que dibujarlo, y eso ya está medido más arriba
+en este documento.
+
+El patrón: una lista de «los que se están yendo» que mantiene el nodo montado con una
+clase mientras dura la animación, con el temporizador **cancelable** — desfiltrar a mitad
+de camino tiene que devolverlo, no dejarlo a medias.
+
+### El marco topea su ASPECTO, no su ancho
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`.cbg-marco`)
+
+El alto salía del viewport (correcto) pero el ancho se tomaba todo, así que **cuanto más
+grande el monitor, más buzón**: 2,07:1 en 1440 y **3,16:1 en 2560**, con el grafo llenando
+46% y **31%** del ancho. A lo alto llenaba 92-95% en las cinco tallas medidas, o sea que
+el problema nunca fue el alto.
+
+Con `max-width: calc(var(--cbg-alto) * 1.6)`: 1,6:1 en las dos, llenando 60% y 61%. El
+grafo **dibujado** no cambia de tamaño —lo fija el alto—: cambia el encuadre, que es lo
+que se ve. No toca el layout del servidor ni la línea base de `medir-grafo`.
+
+### Un área con exactamente UN dato caía por un hueco entre dos reglas
+
+**Vive en:** `lib/cerebro-grafo.ts`
+
+El nodo de área no se crea con menos de 2 miembros, y el nodo `falta:` solo se crea cuando
+el área tiene CERO. **Un área con exactamente uno no recibe ninguno de los dos** y
+desaparece del mapa. No falla nada y no hay error: medido, faltaba al menos un área en los
+cuatro workspaces.
+
+No se baja el umbral —un nodo de área con un miembro tiene grado 1, o sea una hoja nueva, y
+es el mecanismo que ya rompió una métrica—. Lo resuelve la jerarquía: **el padre adopta a
+los huérfanos**, uniéndose directo a los miembros sueltos de las áreas que no llegaron a
+tener nodo propio.
+
 ## El vault: el segundo cerebro como carpetas y archivos
 
 ### El veredicto del modelo: proyección y exportación, NO almacenamiento

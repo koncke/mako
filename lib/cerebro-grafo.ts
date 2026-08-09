@@ -848,6 +848,15 @@ export async function construirCerebro(): Promise<Cerebro> {
       area: a.id,
       etiqueta: a.nombre,
       detalle: a.que,
+      // Cuántos de sus datos siguen sin completar. Es el aviso que pidió el dueño, y
+      // sale de algo que ya se calculaba: los nodos con autoría `pendiente` de esa área.
+      // No lleva color propio — solo hay DOS tonos de estado en el lienzo (el Norte y el
+      // cuello) y bajo deuteranopía ya colisionan entre sí, así que un tercero sería
+      // ilegible para ~6% de los hombres. Lo dice con palabras, que además es preciso.
+      datos: (() => {
+        const faltan = nodos.filter((n) => n.area === a.id && n.autoria === 'pendiente').length;
+        return faltan ? [{ k: 'Falta completar', v: `${faltan} ${faltan === 1 ? 'dato' : 'datos'}` }] : [];
+      })(),
       fuente: `${miembros.length} cosas de tu negocio`,
       autoria: 'mako',
     });
