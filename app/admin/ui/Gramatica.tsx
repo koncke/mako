@@ -20,57 +20,60 @@
 // piezas**. Regla de la casa: título corto y nada de prosa debajo salvo pedido
 // explícito.
 
-import { Mako, Section, Status } from '@/app/_ui';
-import { ESTADOS, GRAMATICA, DESCRIPCIONES, type EstadoMako } from '@/lib/mako-gramatica';
+import { Mako, Section } from '@/app/_ui';
+import { ESTADOS, GRAMATICA, type EstadoMako } from '@/lib/mako-gramatica';
 
 /** Un ejemplo por estado, con los campos que ese estado está obligado a mostrar. */
 const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
   detecto: {
     estado: 'detecto',
-    titulo: 'El costo por agenda de «Dolor de espalda · Testimonial» se duplicó en 3 días',
-    detalle: 'Pasó de $410 a $890 sin que cambiara el presupuesto ni el creativo.',
+    titulo: 'El costo por turno de «Dolor de espalda · Testimonial» se duplicó en 3 días',
+    detalle: 'Pasó de $410 a $890 sin que cambiara el presupuesto ni el anuncio.',
     importancia: 'alta',
-    evidencia: 'Meta Ads · 5 al 8 de agosto · 41 clics, 2 agendas. La campaña gemela con el mismo presupuesto mantuvo $430.',
+    evidencia: 'Meta Ads · 5 al 8 de agosto · 41 clics, 2 turnos. La campaña gemela con el mismo presupuesto se mantuvo en $430.',
   },
-  // El rótulo viaja con la fuente: «Revisando» solo es el «Processing…» que
-  // Apple marca como el copy a evitar.
+  // El rótulo arranca la frase y el título la completa: «Revisando · por qué
+  // cayó…». «Revisando» solo es el «Processing…» que Apple marca como el copy a
+  // evitar, y por eso el estado exige además la fuente y el progreso.
   analizando: {
     estado: 'analizando',
-    titulo: 'por qué cayó la conversión de la landing',
+    titulo: 'por qué se duplicó el costo por turno',
     progreso: 0.62,
     fuente: '14 campañas activas',
   },
   explica: {
     estado: 'explica',
-    // 54 caracteres. El anterior tenía 97 y arrancaba con lo que NO era: en una
-    // lista el ojo baja por el margen izquierdo y captura las dos primeras
-    // palabras, así que «No es el anuncio» se comía el lugar del hecho.
-    titulo: 'El 71% del tráfico nuevo entra desde el celular y el VSL no arranca solo',
-    detalle: 'No es el anuncio: el costo por clic está igual que la semana pasada. Lo que cambió es quién llega y desde dónde.',
-    evidencia: 'De 1.240 visitas, 880 son mobile. En mobile el play automático está bloqueado por el navegador, y solo el 12% toca el botón. En desktop lo ve el 58%.',
+    titulo: 'Los turnos no bajaron: el 71% ahora llega desde el celular',
+    detalle: 'El costo por clic está igual que la semana pasada. Lo que cambió es desde dónde entra la gente, y en el celular el formulario queda abajo de todo.',
+    evidencia: 'De 1.240 visitas, 880 entraron desde el celular. Ahí pide turno el 12%; desde la computadora, el 58%.',
   },
-  // ⚠️ El título ya no tiene voseo. «Poné el play visible arriba del pliegue»
-  // tenía dos problemas: la forma verbal es rioplatense —y la UI va en español
-  // neutro— y «arriba del pliegue» es calco de *above the fold*, jerga que el
-  // dueño de un negocio no tiene por qué conocer.
+  // ⚠️ EL EJEMPLO ES DE UN CLIENTE, NO DE LA CASA. El anterior decía «Mostrar el
+  // play sin scroll en mobile» y hablaba del VSL de MaKo: el dueño lo marcó
+  // —«pusiste cosas de SuperAdmin, ¿qué tiene que ver eso con los clientes?»— y
+  // tenía razón. Este catálogo se usa para diseñar lo que ve un CLIENTE, así que
+  // los nueve estados cuentan una sola historia suya: una clínica que pauta en
+  // Meta, se le dispara el costo por turno, y MaKo la acompaña de punta a punta.
+  // Un ejemplo que habla de nuestro propio producto miente sobre el tamaño y el
+  // vocabulario de lo que la pieza va a tener que mostrar.
   recomienda: {
     estado: 'recomienda',
-    titulo: 'Mostrar el play sin scroll en mobile',
+    titulo: 'Subir el formulario de turnos a la primera pantalla del celular',
     // La línea que decide si vale abrir: el resultado y lo que cuesta, en una
     // frase. Sin esto la fila cerrada es un título suelto y hay que abrir las
     // tres para saber cuál importa.
-    consecuencia: 'Reproducciones de 12% a ~35% · una tarde de trabajo',
-    detalle: 'En mobile el navegador bloquea el arranque automático del video, y el botón queda abajo de todo: solo el 12% lo toca.',
+    consecuencia: 'Turnos pedidos de 12% a ~35% · una tarde de trabajo',
+    cuando: 'hace 20 min',
+    detalle: 'Hoy hay que bajar tres pantallas para llegar al formulario, y el 71% de la gente entra desde el celular. Subirlo no cambia el anuncio ni el presupuesto: cambia lo que pasa cuando ya hiciste el gasto.',
     // ⚠️ «Impacto esperado» y «Esfuerzo» NO están acá: los dice la consecuencia,
     // que es la línea que se ve sin abrir. Estaban en los dos lados y el mismo
-    // número aparecía dos veces en la misma tarjeta, una con ~ y otra sin.
+    // número aparecía dos veces, una con ~ y otra sin.
     // El estado los sigue exigiendo; lo que cambió es dónde viven.
     datos: [
-      { k: 'Responsable', v: 'Martín' },
-      { k: 'Objetivo', v: 'Bajar el costo por agenda' },
+      { k: 'Responsable', v: 'Quien maneja la web' },
+      { k: 'Objetivo', v: 'Bajar el costo por turno' },
       { k: 'Se revisa', v: 'En 7 días' },
     ],
-    evidencia: 'De 1.240 visitas, 880 son mobile. En desktop, donde el video arranca solo, lo ve el 58%.',
+    evidencia: 'De 1.240 visitas, 880 entraron desde el celular. Ahí pide turno el 12%; desde la computadora, donde el formulario se ve de entrada, el 58%.',
     accion: { label: 'Pasar al Plan' },
     // «Descartar» → «Ignorar». Un botón tiene que decir qué pasa si lo tocás, y
     // «descartar» suena a que se borra algo. Acá no se borra nada: la sugerencia
@@ -95,11 +98,14 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     // abierta, con el título, la consecuencia y el campo uno debajo del otro —
     // el mismo número repetido tres veces es lo que hace visible que uno miente.
     consecuencia: '3 mensajes a cada uno, uno por día · no se puede deshacer',
+    cuando: 'hace 2 h',
     detalle: 'Son contactos que dejaron de responder hace más de tres semanas y todavía no fueron marcados como perdidos.',
     datos: [
       { k: 'A quiénes', v: '340 contactos sin respuesta hace más de 21 días' },
       { k: 'Cuándo salen', v: 'Uno por día a las 10:00, desde mañana' },
+      { k: 'Desde qué número', v: 'El de la clínica (+598 9…)' },
     ],
+    evidenciaRotulo: 'Los tres mensajes, tal cual van a salir',
     // ⚠️ EL TEXTO REAL DE LO QUE SE VA A MANDAR, no un resumen de cuántos son.
     // Antes «Qué reciben: 3 mensajes de WhatsApp» vivía detrás de un click y el
     // botón que los enviaba estaba siempre a la vista: se podía aprobar un envío
@@ -121,7 +127,10 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
   },
   ejecuta: {
     estado: 'ejecuta',
-    titulo: '«Testimonial Ana 30s»',
+    // El título dice QUÉ se está haciendo, no solo sobre qué. «"Testimonial Ana
+    // 30s"» a secas obligaba a leer el rótulo para entender que se estaba
+    // pausando algo — y el rótulo es lo que menos se lee.
+    titulo: 'los 3 anuncios que no traen turnos',
     fuente: 'Meta Ads',
     progreso: 0.33,
     datos: [{ k: 'Van', v: '1 de 3' }],
@@ -137,7 +146,7 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     // que es justo lo que la gramática rechaza («un color solo deja afuera a
     // quien no lo distingue»).
     titulo: 'Pausé 3 anuncios',
-    detalle: 'Gastaban $4.480 sin traer una sola agenda.',
+    detalle: 'Gastaban $4.480 sin traer un solo turno.',
     datos: [
       { k: 'Cambios', v: 'Pasaron a pausado en Meta · queda en el historial' },
       { k: 'Vuelvo a mirar', v: 'El lunes, con el reporte semanal' },
@@ -146,7 +155,7 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
   },
   vigila: {
     estado: 'vigila',
-    titulo: 'Estoy mirando el costo por agenda de las campañas activas',
+    titulo: 'Estoy mirando el costo por turno de las campañas activas',
     datos: [
       { k: 'Condición', v: 'Que suba más de 40% contra su propia media de 7 días' },
       { k: 'Frecuencia', v: 'Cada 6 horas' },
@@ -156,16 +165,20 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
   },
   sin_conclusion: {
     estado: 'sin_conclusion',
-    titulo: 'No puedo decirte qué anuncio trae los clientes que más pagan',
-    consecuencia: '38 de 52 leads ganados no tienen el monto cargado',
-    detalle: 'Puedo ver qué anuncio trae agendas, pero no cuánto factura cada una.',
+    titulo: 'No puedo decirte qué anuncio trae los pacientes que más gastan',
+    consecuencia: '38 de 52 tratamientos cerrados no tienen el monto cargado',
+    cuando: 'ayer',
+    detalle: 'Puedo ver qué anuncio trae turnos, pero no cuánto factura cada uno. Sin eso, «el anuncio más barato» y «el anuncio que más deja» pueden ser dos anuncios distintos y no hay cómo saberlo.',
     // El rótulo del estado ya dice «Falta un dato», así que el campo no puede
     // llamarse «Falta»: eran tres nombres para el mismo hueco (el rótulo, la
     // etiqueta y `exige[0] = "qué fuente falta"`).
     datos: [
-      { k: 'Qué dato', v: 'El monto cerrado, en la ficha del lead' },
-      { k: 'Desde cuándo', v: 'Los leads ganados de los últimos 4 meses' },
+      { k: 'Qué dato', v: 'El monto cerrado, en la ficha del paciente' },
+      { k: 'Desde cuándo', v: 'Los tratamientos cerrados de los últimos 4 meses' },
+      { k: 'Con eso puedo', v: 'Ordenar los anuncios por lo que dejan, no por lo que cuestan' },
     ],
+    evidenciaRotulo: 'Lo que sí puedo ver hoy',
+    evidencia: '52 tratamientos cerrados en 4 meses, y de esos 14 tienen monto. Con 14 la diferencia entre campañas queda dentro del margen de error.',
     accion: { label: 'Cargar los montos en el CRM' },
   },
 };
@@ -188,8 +201,11 @@ export function LaGramatica() {
         </div>
       </Section>
 
+      {/* También sin `gap`: filas con filete, igual que las de decisión. Con el
+          gap de 4 px quedaban dos líneas sueltas flotando en el medio de una
+          tarjeta grande. */}
       <Section titulo="Está pasando algo" card>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div>
           {ESTADOS.filter((e) => GRAMATICA[e].forma === 'curso').map((e) => <Mako key={e} {...EJEMPLOS[e]} />)}
         </div>
       </Section>
@@ -201,40 +217,38 @@ export function LaGramatica() {
       </Section>
 
       {/* El patrón de Linear: la sugerencia pegada al campo que propone cambiar,
-          no en una tarjeta aparte. El «por qué» aparece al pasar el cursor. */}
+          no en una tarjeta aparte. */}
+      {/* ⚠️ SIN `maxWidth: 460`. Era el mismo bug del ancho muerto en chiquito:
+          un tope pegado a la izquierda adentro de una tarjeta de 1134 px. Ahora
+          la pastilla ocupa el ancho del campo, que es lo que va a pasar en la
+          ficha real del lead. */}
       <Section titulo="Pegado al dato" card>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 460 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>Responsable</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>Responsable del seguimiento</span>
             {/* Ningún botón de MaKo puede ser «Sí», «No» ni «Aceptar» a secas:
                 cada uno nombra su acción Y su objeto. «No» no dice qué pasa. */}
-            <Mako estado="recomienda" inline titulo="Martín" detalle="Cerró las últimas 4 tareas de esta campaña."
-              accion={{ label: 'Asignar a Martín' }} secundaria={{ label: 'Elegir otro' }} />
+            <Mako estado="recomienda" inline titulo="Carolina" detalle="Cerró los últimos 4 turnos de esta campaña."
+              accion={{ label: 'Asignar a Carolina' }} secundaria={{ label: 'Elegir otra persona' }} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>Etapa</span>
-            <Mako estado="recomienda" inline titulo="Cualificado" detalle="Pidió precio y dejó teléfono."
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>Etapa</span>
+            <Mako estado="recomienda" inline titulo="Cualificado" detalle="Preguntó el precio y dejó el teléfono."
               accion={{ label: 'Mover a Cualificado' }} secundaria={{ label: 'Dejar como está' }} />
           </div>
         </div>
       </Section>
 
       <Section titulo="En una fila" card>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {ESTADOS.map((e) => <Mako key={e} estado={e} compacto />)}
         </div>
       </Section>
-
-      <Section titulo="Second Brain y Perro Guardián" card>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-          {Object.values(DESCRIPCIONES).map((d) => (
-            <div key={d.nombre} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-              <Status tono="mako">{d.nombre}</Status>
-              <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55 }}>{d.que_hace}</span>
-            </div>
-          ))}
-        </div>
-      </Section>
+      {/* ⚠️ Acá vivía «Second Brain y Perro Guardián»: dos `Status` con un párrafo
+          al lado explicando qué hace cada uno. Se sacó porque NO ES UNA PIEZA —
+          es documentación, y este archivo abre diciendo que acá no se explica
+          nada. Los dos textos siguen en `DESCRIPCIONES` (lib/mako-gramatica.ts),
+          que es de donde los toman las pantallas que sí los muestran. */}
     </>
   );
 }

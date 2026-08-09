@@ -20,6 +20,10 @@ export { Avatar } from './Avatar';
 export { EmptyState, NoResults, ErrorState, StaleData, PermissionState, Banner, Alert } from './Estados';
 export { Mako, type MakoProps, type DatoMako } from './Mako';
 export { Confirm, useConfirm } from './Confirm';
+// `Confirm` pregunta (440 px, dos botones) · `Modal` MUESTRA el detalle de algo
+// (600 px, header + cuerpo que scrollea + pie) · `WizardShell` conduce un flujo
+// de varios pasos. Son tres cosas distintas, no tres tamaños de lo mismo.
+export { Modal } from './Modal';
 export { Toast, useToast, type ToastState } from './Toast';
 export { Pagina, Lectura } from './Pagina';
 export { PageHeader, Section, Eyebrow } from './PageHeader';

@@ -553,7 +553,7 @@
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 5px 11px;
   border-radius: 999px;
   background: var(--surface-2);
 }
@@ -563,21 +563,28 @@
   color: var(--dim);
   line-height: 1;
 }
+.mk-mako--chip .mk-mako__rot { font-weight: 500; }
 
 /* ── EN CURSO ─────────────────────────────────────────────────────────────
    Que MaKo esté trabajando NO merece una caja: merece una línea. Una tarjeta
    entera para «estoy revisando» ocupa el lugar de lo que sí tenés que leer, y
    encima desaparece a los segundos — deja un hueco que salta. */
 .mk-mako--curso {
-  gap: 6px;
-  padding: 8px 0;
+  gap: 8px;
+  padding: 12px 12px;
   background: transparent;
   border: none;
   border-radius: 0;
 }
-.mk-mako--curso .mk-mako__cab { flex-wrap: wrap; gap: 6px; }
-.mk-mako--curso .mk-mako__t { font-size: var(--fs-sm); font-weight: 500; }
-.mk-mako--curso .mk-mako__proc { flex-direction: row; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mk-mako--curso + .mk-mako--curso { border-top: 1px solid var(--border); }
+.mk-mako--curso .mk-mako__cab { flex-wrap: wrap; gap: 8px; }
+/* El TÍTULO manda, igual que en la fila de decisión: es lo que dice qué está
+   haciendo MaKo. El rótulo y la fuente son la meta que lo acompaña, y por eso
+   van un escalón abajo y en gris — antes el rótulo iba en mono y en negrita y
+   se leía más fuerte que el trabajo que estaba describiendo. */
+.mk-mako--curso .mk-mako__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.35; }
+.mk-mako--curso .mk-mako__rot { font-weight: 500; color: var(--dim) !important; }
+.mk-mako--curso .mk-mako__proc { flex-direction: row; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* ── EN LÍNEA (el patrón de Linear) ───────────────────────────────────────
    La sugerencia pegada al dato que propone cambiar, con sus dos salidas y sin
@@ -585,139 +592,227 @@
    el cursor y no empuja nada.
    Es la diferencia entre una IA atornillada al costado de la pantalla y una que
    vive donde estás trabajando. */
+/* ⚠️ EL «POR QUÉ» YA NO VIVE EN EL `title`. Era un tooltip nativo: no aparece
+   con teclado, no existe en pantalla táctil y no se puede leer sin mantener el
+   cursor encima — los tres requisitos de WCAG 1.4.13 (dismissable, hoverable,
+   persistent) fallando a la vez. Y era la única explicación de por qué MaKo
+   propone lo que propone. Ahora se ve, en su renglón. */
 .mk-mako--inline {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
   background: var(--mako-bg);
   border: 1px solid var(--mako-border);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
 }
+.mk-mako--inline .mk-mako__l1 { display: flex; align-items: center; gap: 9px; }
 .mk-mako--inline .mk-mako__t {
-  font-size: var(--fs-sm);
-  font-weight: 500;
+  font-size: var(--fs-md);
+  font-weight: 600;
   color: var(--ink);
   line-height: 1.3;
 }
+/* Los botones se van al borde derecho: la pastilla ocupa el ancho del campo que
+   propone cambiar, y con los botones pegados al texto quedaba todo amontonado
+   a la izquierda con el mismo hueco muerto de siempre. */
+.mk-mako--inline .mk-mako__acc { margin-left: auto; display: flex; gap: 6px; flex: none; }
+.mk-mako--inline .mk-mako__d { font-size: var(--fs-sm); line-height: 1.5; }
 
-/* ── DECISIÓN — una FILA que se abre, no una tarjeta ──────────────────────
-   El pedido del dueño, textual: «que muestre poco en la tarjeta y si la abrís
-   te muestre todo». Cerrada muestra DOS elementos de texto —el título y la
-   consecuencia— y ni un botón. El porqué completo, en app/_ui/Mako.tsx.
+/* ── MODAL — la caja del detalle ──────────────────────────────────────────
+   ⚠️ ACÁ VIVE EL ÚNICO ANCHO MÁXIMO. Nada de lo que va adentro lleva
+   `max-width`: todo va al 100% de esta caja. El porqué completo, arriba de
+   app/_ui/Modal.tsx — resumido: el panel anterior ponía el tope en el TEXTO
+   dentro de un contenedor de 1134 px, y dejaba 528 px muertos a la derecha.
 
-   Acá no hay caja: son filas separadas por un filete de 1 px. «Cards are the
-   lazy container» — tres tarjetas del mismo tamaño apiladas es el antipatrón
-   nombrado, y era literalmente lo que teníamos. */
-.mk-dec { border-radius: var(--r-sm); }
-/* El filete lo pone la fila de ABAJO, no la de arriba: así una sola decisión
-   suelta en una pantalla no queda con una raya colgando sin nada arriba. */
-.mk-dec + .mk-dec { border-top: 1px solid var(--border); }
+   Medidas de los sistemas que publican sus números en el código: ancho 600
+   (Cloudscape «medium» 600 · Polaris 620 · Primer «xlarge» 640), alto
+   min(85vh, 720px), y header y pie FIJOS con el cuerpo como único que scrollea
+   —regla idéntica en Polaris, Carbon, Primer y Atlassian—. */
+.mk-modal__fondo {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(18, 21, 27, .5);
+  backdrop-filter: blur(2px);
+  animation: mkFade .12s ease;
+}
+.mk-modal {
+  width: 100%;
+  /* Alto TOPADO, no automático: si el contenido crece, scrollea el cuerpo y el
+     pie con los botones se queda a la vista. Sin el tope, un modal alto empuja
+     los botones fuera de la pantalla y hay que scrollear la página para
+     decidir. */
+  max-height: min(85vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 30px 70px rgba(18, 21, 27, .35);
+  animation: mkPop .16s ease;
+}
+.mk-modal:focus { outline: none; }
 
-.mk-dec__fila {
+.mk-modal__cab {
+  flex: none;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  /* 44 px es el mínimo táctil, y acá es el objetivo de click más grande de la
-     pantalla a propósito: el disparador viejo era un `summary` de 17 px de alto
-     que además dependía del hover para explicarse. */
-  min-height: 44px;
-  padding: 13px 6px;
-  cursor: pointer;
-  border-radius: var(--r-sm);
-  /* `list-style: none` para Firefox y el pseudo-elemento para WebKit: el
-     triangulito nativo va a la izquierda y no rota. El caret propio va a la
-     derecha, que es donde el estudio de NN/g mide que la gente lo busca. */
-  list-style: none;
+  gap: 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
 }
-.mk-dec__fila::-webkit-details-marker { display: none; }
-.mk-dec__fila:hover { background: var(--surface-2); }
-/* La fila ES el control. Sin foco visible, con teclado no se sabe dónde estás y
-   el segundo nivel queda inalcanzable en la práctica. */
-.mk-dec__fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-/* La marca se alinea con la primera línea del título, no con el centro del
-   bloque: con dos renglones de texto, centrada queda flotando en el medio. */
+.mk-modal__tit { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+/* 20 px. Es el escalón de título de modal en Carbon (heading-03 20/28) y en
+   Atlassian (heading.medium 20/24). El del panel viejo medía 15,5 y competía
+   con el cuerpo. */
+.mk-modal__h { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 600; color: var(--ink); }
+
+.mk-modal__x {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+}
+.mk-modal__x:hover { background: var(--surface-2); color: var(--ink); }
+.mk-modal__x:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* `min-height: 0` es lo que lo deja scrollear adentro de un flex column: sin
+   eso el hijo crece a su contenido, el que scrollea pasa a ser la página y el
+   pie se va abajo de la pantalla. */
+.mk-modal__cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 24px 20px; }
+/* Los bloques del cuerpo se separan con un filete, como las Section de Polaris:
+   es lo que convierte una pila de textos sueltos en grupos. El primero no lleva
+   nada arriba y el último no lleva nada abajo. */
+.mk-modal__cuerpo > * { padding: 18px 0; }
+.mk-modal__cuerpo > * + * { border-top: 1px solid var(--border); }
+.mk-modal__cuerpo > :last-child { padding-bottom: 0; }
+
+.mk-modal__pie {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* ── DECISIÓN — una FILA de lista que abre su detalle en el modal ──────────
+   El dueño lo pidió textual: «Prefiero que NO sea un desplegable, no se ve
+   lindo, que sea un pop-up con detail BIEN diseñado». Y de paso arregla el
+   ancho muerto: el detalle pasa a una caja de 600 px, donde el texto llena su
+   renglón por construcción en vez de cortarse a la mitad de una de 1134.
+
+   Anatomía copiada de la lista de advisories de GitHub, que es la que resolvió
+   el mismo problema: línea 1 = título + PÍLDORA DE ESTADO INLINE al final del
+   título; línea 2 = una línea gris; riel derecho = el tiempo, corto y sin
+   partirse. La píldora va inline y NO alineada a la derecha a propósito: como
+   los nombres de estado miden muy distinto («Sugerencia» contra «Aprobación
+   pendiente»), alineados a la derecha dejan el borde izquierdo dentado fila
+   por fila.
+
+   Y DOS TAMAÑOS EN TODA LA FILA, no cinco: la jerarquía la hacen el PESO y el
+   COLOR. Es lo que hacen GitHub (16/12, tres pesos, dos colores) y la tabla de
+   Geist de Vercel (un solo tamaño, 14, y cambia solo el peso). El defecto
+   anterior era el contrario: siete elementos repartidos entre 12 y 13 px, o
+   sea ninguna jerarquía y todo pesando igual. */
+.mk-dec {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  /* 14 px arriba y abajo dan 60+ de alto: por encima del mínimo táctil de
+     44 y de los 40 de `--touch`. La fila ENTERA es el control. */
+  padding: 14px 12px;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* El filete lo pone la fila de abajo: una decisión suelta en una pantalla no
+   queda con una raya colgando sin nada arriba. Sin radio, a propósito — el
+   realce del hover va de borde a borde, como en cualquier bandeja. */
+.mk-dec + .mk-dec { border-top: 1px solid var(--border); }
+.mk-dec:hover { background: var(--surface-2); }
+.mk-dec:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .mk-dec .mk-mako__marca { margin-top: 2px; }
 
-.mk-dec__txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.mk-dec__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.mk-dec__l1 { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .mk-dec__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.35; }
-/* La consecuencia va en prosa y en gris: es contexto para decidir si abrís, no
-   un campo. En cuanto se parta en etiqueta + valor, volvió el formulario. */
-.mk-dec__c { font-size: var(--fs-sm); color: var(--dim); line-height: 1.45; }
+/* La consecuencia va en prosa. En cuanto se parta en etiqueta + valor, volvió
+   el formulario que este rediseño vino a sacar. */
+.mk-dec__c { font-size: var(--fs-sm); color: var(--dim); line-height: 1.5; }
 
-/* En `--dim` y no en `--faint` (5,98:1 contra 2,64:1). Acá el piso de 3:1 de
-   WCAG para objetos gráficos no es un tecnicismo: sacados el rótulo, el botón y
-   la caja, el caret quedó como la ÚNICA señal de que la fila tiene un segundo
-   nivel, y su rotación como la única de si está abierta o cerrada. */
-.mk-dec__caret { flex: none; margin-top: 6px; color: var(--dim); transition: transform .15s ease; }
-.mk-dec[open] .mk-dec__caret { transform: rotate(180deg); }
-@media (prefers-reduced-motion: reduce) { .mk-dec__caret { transition: none; } }
-
-/* El panel arranca donde arranca el texto de la fila (6 padding + 16 marca + 10
-   gap = 32), así lo de adentro cuelga del título en vez de flotar suelto. */
-.mk-dec__panel { display: flex; flex-direction: column; gap: 12px; padding: 0 6px 16px 32px; }
-.mk-dec__rot { font-size: var(--fs-meta); font-weight: 600; }
-.mk-dec__porque { margin: 0; font-size: var(--fs-sm); color: var(--dim); line-height: 1.6; max-width: 70ch; }
-
-.mk-dec__campos {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 10px 24px;
-  margin: 0;
-  max-width: 620px;
-}
-.mk-dec__campo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-/* ⚠️ `--dim`, NO `--faint`. Estos <dt> no son metadata decorativa: son los que
-   nombran cada dato del panel, y en la aprobación son lo único que distingue el
-   ALCANCE del CRONOGRAMA — sin ellos quedan dos frases sueltas y hay que
-   adivinar cuál es cuál. `--faint` sobre superficie da 2,64:1 (2,46:1 con la
-   fila en hover), contra el piso de 4,5:1. `--dim` da 5,98:1. */
-.mk-dec__k { font-size: var(--fs-meta); color: var(--dim); line-height: 1.3; }
-.mk-dec__v { margin: 0; font-size: var(--fs-sm); color: var(--ink); line-height: 1.45; }
-
-/* La evidencia se marca con un filete al costado y no con una caja: una caja
-   con borde adentro de otra caja es anidar contenedores, y encima la anterior
-   tenía el MISMO fondo que su padre — borde sin contraste. */
-.mk-dec__ev {
-  padding-left: 12px;
-  border-left: 2px solid var(--border);
-  font-size: var(--fs-sm);
-  color: var(--dim);
-  line-height: 1.6;
-  max-width: 70ch;
+/* La píldora del estado. Sin monospace: la guía de oficio marca la mono usada
+   «as a costume for technical» como algo a evitar cuando no es código, dato ni
+   medición. El peso y el color del tono alcanzan. */
+.mk-dec__pill {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
-.mk-dec__pie { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
-/* En tinta normal, NO en gris. Es lo que puede hacer que el dueño diga que no,
-   y va pegada al botón porque es ahí donde se lee. */
-.mk-dec__adv { margin: 0; font-size: var(--fs-sm); color: var(--ink); line-height: 1.5; max-width: 70ch; }
+/* El riel derecho, que es lo que impedía que la fila se viera medio vacía:
+   Gmail, GitHub y Linear ponen ahí el tiempo. Corto, gris y sin partirse. */
+.mk-dec__cuando { flex: none; padding-top: 3px; font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; }
+/* Chevron a la DERECHA, no hacia abajo: ya no despliega nada en el lugar, abre
+   otra capa. El ícono tiene que decir a dónde va. */
+.mk-dec__ir { flex: none; margin-top: 4px; color: var(--dim); }
 
-/* El ÚNICO naranja de la pantalla, y solo con el panel abierto. Antes eran tres
-   señales para decir una cosa: fondo, borde y botón.
+/* ── Los bloques del detalle, adentro del modal ────────────────────────────
+   Ninguno lleva `max-width`. A 600 px de caja menos 48 de sangría quedan
+   552 px, que a 14 px de cuerpo son ~68 caracteres por renglón: la medida de
+   lectura sale del ancho del modal, no de un tope pegado al texto. */
+.mk-det { display: flex; flex-direction: column; gap: 10px; }
+/* El nombre del bloque. Es lo que convierte «textos sueltos volando» en grupos
+   con nombre — la ley de proximidad necesita que el grupo se llame de algo. */
+.mk-det__h { font-size: var(--fs-meta); font-weight: 600; color: var(--dim); line-height: 1.3; }
+.mk-det__p { margin: 0; font-size: var(--fs-md); color: var(--ink); line-height: 1.6; }
 
-   ⚠️ EL `color` VA SIEMPRE QUE SE PISE EL `background`. La primera versión de
-   esta regla cambiaba el fondo a `--warn-fill` y heredaba el `color: #fff` de
-   `.mk-btn--primary`: blanco sobre #EE7B1C da **2,81:1**, contra el piso de
-   4,5:1. O sea que el override, hecho para destacar el único control
-   irreversible de la app, dejó su etiqueta MENOS legible que la de cualquier
-   otro botón (el azul que reemplazaba daba 4,55:1) — y encima al revés, porque
-   el hover sí pasaba. La salida reversible de al lado, «No enviar», se leía al
-   doble de contraste que la que no tiene vuelta atrás.
+.mk-det__campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px 20px; margin: 0; }
+.mk-det__campo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+/* Etiqueta 12 y valor 14: un solo escalón de tamaño, y el trabajo lo hacen el
+   peso y el color. Es lo que shipean Carbon (label-01 12 contra body-01 14) y
+   Atlassian. El defecto anterior era etiqueta 12 y valor 13 — un punto de
+   diferencia, invisible. */
+.mk-det__k { font-size: var(--fs-meta); color: var(--dim); line-height: 1.35; }
+.mk-det__v { margin: 0; font-size: var(--fs-md); font-weight: 500; color: var(--ink); line-height: 1.45; }
 
-   Tinta oscura sobre relleno brillante, que es lo que ya hace `.mk-btn--mako`
-   por esta misma razón. Reposo 6,50:1 · hover 5,02:1. */
-.mk-dec--bloquea .mk-btn--primary {
-  background: var(--warn-fill);
-  border-color: var(--warn-fill);
-  color: var(--ink);
-}
-.mk-dec--bloquea .mk-btn--primary:hover:not(:disabled) {
-  background: var(--warn);
-  border-color: var(--warn);
-  color: #fff;
-}
+/* Lo que se va a hacer, tal cual va a salir. Fondo propio y no un filete al
+   costado: es contenido citado, no una nota al pie. */
+.mk-det__cita { display: flex; flex-direction: column; gap: 9px; padding: 14px 16px; background: var(--surface-2); border-radius: var(--r-md); font-size: var(--fs-md); color: var(--ink); line-height: 1.55; }
 
+/* La consecuencia irreversible: pegada al pie, en tinta normal y con el tinte
+   del tono. Es feedforward (Microsoft HAX G16-A): se lee donde se actúa. */
+.mk-det__adv { display: flex; gap: 10px; padding: 13px 15px; background: var(--warn-bg); border: 1px solid var(--warn-fill); border-radius: var(--r-md); font-size: var(--fs-md); color: var(--ink); line-height: 1.5; }
+.mk-det__adv svg { flex: none; margin-top: 2px; color: var(--warn); }
+
+/* El botón que hace lo irreversible. Tinta oscura sobre relleno brillante:
+   blanco sobre `--warn-fill` daba 2,81:1 y era el control MENOS legible de la
+   app justo donde no hay vuelta atrás. Reposo 6,50:1 · hover 5,02:1. */
+.mk-det__cta .mk-btn--primary { background: var(--warn-fill); border-color: var(--warn-fill); color: var(--ink); }
+.mk-det__cta .mk-btn--primary:hover:not(:disabled) { background: var(--warn); border-color: var(--warn); color: #fff; }
 /* La caja de la marca: cuadrada, fija, y centra su contenido. Es lo que hace
    que una estrella de 14 px y un punto de 7 px ocupen lo mismo. */
 .mk-mako__marca {
@@ -738,17 +833,17 @@
 
 .mk-mako__cab { display: flex; align-items: center; gap: 7px; }
 
-/* El rótulo es mono para que se lea como algo que dice el SISTEMA, no una
-   persona. Pero SIN versalitas, y no es un capricho: el rótulo dice «MaKo» y
-   `text-transform: uppercase` lo renderizaba «MAKO», que es escribir mal la
-   marca. Además, nueve pastillas en mayúscula con tracking gritan todas a la
-   vez y el conjunto se vuelve ilegible — el peso lo da la fuente mono y el
-   color del tono, que alcanzan. */
+/* ⚠️ SIN MONOSPACE. Estaba en 'Geist Mono' a 11,5 px «para que se lea como algo
+   que dice el sistema», y la guía de oficio lo nombra entre lo que se rechaza:
+   «Monospace as a costume for "technical" rather than for code, data, or
+   measurement». Un rótulo de estado no es ninguna de las tres. El peso y el
+   color del tono hacen el trabajo, que es lo mismo que hacen GitHub y Vercel:
+   la jerarquía sale del peso y del color, no de estrenar una tipografía.
+   Y sube de 11,5 a 12 (`--fs-meta`): 11,5 no es ningún escalón del sistema, era
+   un número suelto, y 12 es el paso más chico que shipean Carbon y Atlassian. */
 .mk-mako__rot {
-  font-family: 'Geist Mono', monospace;
-  font-size: 11.5px;
+  font-size: var(--fs-meta);
   font-weight: 600;
-  letter-spacing: .01em;
   /* `line-height: 1` es lo que centra la palabra en el chip: la caja del texto
      pasa a medir lo que mide la letra, así `align-items: center` centra glifos
      y no una caja con aire sobrante arriba y abajo. */
@@ -776,28 +871,33 @@
 .mk-mako__linea .mk-mako__marca { margin-top: 3px; }
 
 .mk-mako__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.4; }
-.mk-mako__d { font-size: var(--fs-sm); color: var(--dim); line-height: 1.55; }
+/* 14 px (`--fs-md`) y no 13: es el cuerpo con el que coinciden Carbon, M3,
+   Atlassian y Geist. Con la etiqueta en 12 queda UN escalón de diferencia, que
+   es todo lo que hace falta — antes eran 12 contra 13, un punto, invisible. */
+.mk-mako__d { font-size: var(--fs-md); color: var(--dim); line-height: 1.6; }
 
 .mk-mako__proc { display: flex; flex-direction: column; gap: 5px; }
-.mk-mako__fuente { font-size: var(--fs-meta); color: var(--dim); }
+.mk-mako__fuente { font-size: var(--fs-sm); color: var(--dim); }
 
 /* Los campos obligatorios del estado. Rejilla que se acomoda sola: con dos
-   campos son dos columnas, con cinco (los de «recomienda») bajan de renglón.
-   Nunca scroll lateral — eso es esconder lo que el estado está obligado a
-   mostrar. */
-/* ⚠️ Con TOPE de ancho. Sin él, los cinco campos de «qué conviene hacer» se
-   estiraban a lo ancho de la tarjeta y la fila se leía como una TABLA — el
-   elemento más pesado de la pantalla, y encima en la tarjeta menos urgente de
-   las tres. Acotada, los cinco bajan a dos renglones y la tarjeta vuelve a
-   leerse como una tarjeta. */
+   campos son dos columnas, con cinco bajan de renglón. Nunca scroll lateral —
+   eso es esconder lo que el estado está obligado a mostrar. */
+/* ⚠️ SIN TOPE DE ANCHO, y el tope anterior era el bug. Decía «acotada, la
+   tarjeta vuelve a leerse como una tarjeta», pero un `max-width: 620px` adentro
+   de una caja de 1134 no achica la caja: deja **528 px muertos a la derecha** y
+   el contenido aplastado contra el borde izquierdo. Es exactamente lo que
+   AGENTS.md ya prohibía —«un maxWidth pegado a la izquierda es lo que deja la
+   franja muerta»— y lo que el dueño vio como «el texto se corta al medio de la
+   card».
+   Si alguna vez hay que acotar la medida de lectura, se acota el CONTENEDOR
+   (para eso está el modal, 600 px) o se centra con `margin-inline: auto`. */
 .mk-mako__datos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 9px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px 24px;
   margin: 2px 0 0;
-  max-width: 620px;
 }
-.mk-mako__dato { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mk-mako__dato { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 /* El rótulo del campo va en la tipografía de la app, chico y tenue. Estaba en
    mono, 10,5 px, versalitas y tracking: cinco de esos arriba de cinco valores
    convertían la tarjeta en un formulario de configuración. Lo que tiene que
@@ -809,7 +909,7 @@
   color: var(--dim);
   line-height: 1.3;
 }
-.mk-mako__v { margin: 0; font-size: var(--fs-sm); color: var(--ink); line-height: 1.45; }
+.mk-mako__v { margin: 0; font-size: var(--fs-md); font-weight: 500; color: var(--ink); line-height: 1.45; }
 
 /* La evidencia va plegada: RESPALDA la afirmación, no se lee todas las veces.
    Desplegada siempre, la tarjeta pasa de «MaKo encontró algo» a un volcado de
@@ -818,7 +918,7 @@
    puerta a la evidencia queda por debajo del mínimo legible. */
 .mk-mako__ev > summary {
   cursor: pointer;
-  font-size: var(--fs-meta);
+  font-size: var(--fs-sm);
   color: var(--dim);
   padding: 2px 0;
   list-style-position: outside;
@@ -826,13 +926,15 @@
 .mk-mako__ev > summary:hover { color: var(--ink); }
 .mk-mako__ev[open] > summary { margin-bottom: 2px; }
 .mk-mako__ev > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+/* Fondo propio y SIN borde. Antes tenía `background: var(--surface)` adentro de
+   un `.mk-mako` que también es `--surface`: una caja con borde y sin contraste
+   contra su padre, o sea anidar contenedores para no distinguir nada. */
 .mk-mako__evc {
   margin-top: 8px;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  font-size: var(--fs-sm);
-  color: var(--dim);
-  line-height: 1.55;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  line-height: 1.6;
 }

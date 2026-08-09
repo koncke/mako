@@ -382,6 +382,40 @@ describe una geometría, la geometría hay que **medirla** una vez, no deducirla
 **Vive en:** app/_ui/ui.css (`.mk-mako__marca .mk-dot`) · app/_ui/Mako.tsx (`marca`) ·
 *2026-08-09*
 
+### ⚠️ Una página que NO hidrata se ve perfecta, y `<details>` te tapa que no hidrata
+
+**Síntoma:** el rediseño de las filas de decisión se «verificó» con Playwright durante toda una
+ronda —abrían con clic, abrían con Enter, el caret rotaba, el foco se veía— y al cambiar el
+`<details>` por un modal de React **nada respondía al clic**.
+
+**Causa:** el árbol de la app nunca hidrataba. Lo que hacía funcionar la versión anterior era
+que `<details>`/`<summary>` **abre y cierra sin una línea de JavaScript**: es comportamiento
+nativo del navegador. Toda la evidencia de que «funciona» era evidencia de que el HTML estaba
+bien, no de que React estuviera vivo.
+
+**Cómo se detecta, en una línea.** Un nodo hidratado tiene claves de fiber; uno sin hidratar no:
+
+```js
+Object.keys(document.querySelector('.mi-clase')).filter(k => k.startsWith('__react'))
+// [] → no hidrató. Los onClick no existen.
+```
+
+Ojo con el falso positivo: el overlay de desarrollo de Next (`<nextjs-portal>`) **sí** tiene
+fiber aunque la app no hidrate, así que preguntar «¿hay React en la página?» da que sí. Hay que
+preguntarlo sobre **un nodo de la app**.
+
+**Qué lo causaba acá:** el servidor de desarrollo de la otra sesión, con el WebSocket de HMR
+caído (`ERR_INVALID_HTTP_RESPONSE`). Ni una petición fallaba, ni un error en consola, ni nada en
+el overlay: la página se servía entera y muda.
+
+**Regla:** verificar una interacción es verificar que **el handler de React corrió**, no que el
+DOM cambió. Si lo que probás puede funcionar sin JavaScript —`<details>`, un `<a href>`, un
+`<label for>`, un formulario nativo— la prueba no dice nada sobre tu código. Y **cada sesión
+levanta su propio `next dev` en su puerto**: el de la otra sesión puede estar a medio morir sin
+avisar, y ahí lo que estás mirando no es tu trabajo.
+
+**Vive en:** cualquier verificación con navegador · *2026-08-09*
+
 ### ⚠️ `nota` y `placeholder` del catálogo de credenciales son texto muerto
 
 `ServicioConfigForm` trae `nota` del API y la tipa (l.46) pero **no la pinta en ningún

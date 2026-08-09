@@ -18,12 +18,13 @@
 // tiene cómo saber que son lo mismo. El criterio de «listo» de la tarea es
 // literalmente que se llame igual en las cuatro tabs.
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { GRAMATICA, type EstadoMako, type DefEstado } from '@/lib/mako-gramatica';
 import { TONO, type Tono } from './tokens';
 import { Button, ButtonLink } from './Button';
 import { Progress } from './Feedback';
+import { Modal } from './Modal';
 
 /** Un campo de los que el estado exige. La `k` es el rótulo, la `v` el valor. */
 export type DatoMako = { k: string; v: ReactNode };
@@ -63,8 +64,21 @@ export type MakoProps = {
   advertencia?: ReactNode;
   /** Los campos obligatorios del estado. Ver `exige` en lib/mako-gramatica.ts. */
   datos?: DatoMako[];
-  /** Lo que respalda la afirmación. Va PLEGADO: respalda, no se lee siempre. */
+  /** Lo que respalda la afirmación. Va en el segundo nivel: respalda, no se lee siempre. */
   evidencia?: ReactNode;
+  /**
+   * Cómo se llama la evidencia adentro del modal. Por defecto «En qué me baso».
+   * En la aprobación NO es evidencia sino lo que se va a hacer, así que ahí el
+   * call-site pone «Los mensajes que se van a enviar»: tres frases entre
+   * comillas sin un rótulo que diga qué son obligan a deducirlo.
+   */
+  evidenciaRotulo?: string;
+  /**
+   * Cuándo pasó. Va en el riel derecho de la fila, que es donde lo ponen Gmail,
+   * GitHub y Linear — y es lo que impide que una fila con dos líneas de texto a
+   * la izquierda se vea medio vacía.
+   */
+  cuando?: string;
   /** De dónde salieron los datos. Obligatorio mientras MaKo analiza. */
   fuente?: string;
   /** 0 a 1. Sin esto, «analizando» es un spinner eterno — que el documento prohíbe. */
@@ -82,13 +96,14 @@ export type MakoProps = {
   /** Versión de una línea, para una fila de tabla o el encabezado de una card. */
   compacto?: boolean;
   /**
-   * Fuerza el estado inicial del panel. Por defecto lo decide la gramática:
-   * abre sola la que BLOQUEA, porque el usuario la va a abrir siempre y hacerle
-   * pagar un click para llegar a lo que sí o sí tiene que leer es costo puro.
+   * Abre el modal apenas se monta. **Por defecto NO**, ni siquiera para la
+   * aprobación, y el cambio es deliberado: mientras el detalle se desplegaba en
+   * el lugar, abrir solo el que bloquea era ahorrarle un click al usuario; un
+   * MODAL que se abre solo al cargar la pantalla es otra cosa —tapa todo y hay
+   * que despacharlo antes de poder mirar nada—, que es exactamente lo que las
+   * guías marcan como el abuso del diálogo.
    *
-   * ⚠️ Existe por UN caso: con dos aprobaciones vivas, dos paneles abiertos son
-   * otra vez el muro que este rediseño vino a sacar. La lista deja abierta la
-   * primera y le pasa `arrancaAbierta={false}` al resto.
+   * Queda para el caso de llegar por link directo a una decisión.
    */
   arrancaAbierta?: boolean;
   /**
@@ -181,132 +196,158 @@ const IMPORTANCIA: Record<'alta' | 'media' | 'baja', string> = {
   alta: 'Importante', media: 'A tener en cuenta', baja: 'Menor',
 };
 
-/** El significante de «esto se abre acá, no te lleva a otra página». */
-function Caret() {
+
+/** Va a otra capa, no despliega en el lugar: el ícono tiene que decir a dónde va. */
+function Chevron() {
   return (
-    <svg className="mk-dec__caret" width="12" height="12" viewBox="0 0 12 12" aria-hidden focusable="false">
-      <path d="M3 4.5 6 8l3-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <svg className="mk-dec__ir" width="14" height="14" viewBox="0 0 14 14" aria-hidden focusable="false">
+      <path d="M5.5 3 10 7l-4.5 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Aviso() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden focusable="false">
+      <path d="M8 1.8 15 14H1L8 1.8Z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M8 6v3.4M8 11.6v.1" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
 
 // =============================================================================
-// DECISIÓN — una FILA que se abre, no una tarjeta
+// DECISIÓN — una FILA de lista, y el detalle en un MODAL
 // =============================================================================
-// El pedido del dueño, textual: «es mejor que muestre poco en la tarjeta y si la
-// abrís te muestre todo». La versión anterior mostraba 7, 8 y 6 elementos de
-// texto sin abrir nada, y él la rechazó tres veces seguidas. Las tres rondas de
-// arreglos movieron cómo se veían esos elementos y nunca preguntaron por qué
-// estaban ahí.
+// Tercera versión, y las dos anteriores fallaron por cosas distintas:
 //
-// La causa de raíz era que la tarjeta dibujaba los CAMPOS del estado en vez de la
-// consecuencia de decidir: `exige` se leyó como instrucción de layout, así que
-// cada tarjeta salía como un formulario —etiqueta gris, valor, etiqueta gris,
-// valor— y encima con un <details> cuyo `summary` era el ÍNDICE de las etiquetas
-// que había adentro. Se le sacaron filas al formulario y siguió siendo un
-// formulario.
+//   1ª  una tarjeta que mostraba los CINCO campos siempre. 14 elementos de texto
+//       para decidir si te interesa una sugerencia.
+//   2ª  una fila que desplegaba un panel en el lugar. Bajó a 2 elementos
+//       cerrada —eso funcionó— pero el panel abierto quedó como una pila de
+//       textos de 12 y 13 px flotando, y **el texto ocupaba 603 px dentro de una
+//       caja de 1134**: el 47% vacío a la derecha y el párrafo cortado al medio.
 //
-// Lo que queda cerrado son DOS elementos de texto:
+// El pedido, textual: «Prefiero que NO sea un desplegable, no se ve lindo, que
+// sea un pop-up con detail BIEN diseñado».
 //
-//   TÍTULO        el hecho. Sin él la fila no dice nada.
-//   CONSECUENCIA  la frase con el número que permite decidir SI vale abrir.
+// Y no es solo estética: el modal ARREGLA el ancho muerto por construcción. La
+// caja mide 600 px, así que el texto llena su renglón sin que nadie le ponga un
+// tope. La regla que salió de esto vive en app/_ui/Modal.tsx y es corta: **el
+// único ancho máximo del diseño vive en el contenedor del modal**; adentro nadie
+// lleva `max-width`.
 //
-// No hay un tercero porque cualquier tercer texto vuelve a ser un campo. Y no
-// hay botones: un botón en una fila cerrada invita a decidir sin haber leído, y
-// en la aprobación eso era directamente un defecto de seguridad.
+// LA FILA. Anatomía copiada de la lista de advisories de GitHub, que resolvió
+// exactamente este problema:
 //
-// Tres cosas que se sacaron y por qué, cada una con su fuente:
+//   ✦  Título de lo que pasa  «Aprobación pendiente»        hace 2 h   ›
+//      la consecuencia, en una línea gris
 //
-//   · EL RÓTULO EN MONOSPACE arriba del título. Es un «kicker», y la guía de
-//     oficio que usamos lo prohíbe sin excepción: «A kicker or eyebrow above a
-//     heading. This one is a ban, not a default: no brief earns it back. The
-//     heading carries its own weight». Sigue vivo en GRAMATICA —el chip, la
-//     tabla y el panel abierto lo pintan—, así que el contrato de que el estado
-//     se llame igual en las cuatro tabs no se rompe.
-//     Y se sacó también de la forma `aviso`, más abajo: el test es si el rótulo
-//     dice algo que el título no diga ya, y en tres de los cuatro la respuesta
-//     era no («El costo se duplicó en 3 días» ES «Algo cambió»). El único que
-//     cargaba peso real era «Hecho» sobre «3 anuncios pausados», que es ambiguo
-//     entre «hay 3 pausados» y «acabo de pausar 3» — y eso se arregla poniendo
-//     el verbo en el título, no dejando una excepción a un veto sin excepciones.
-//   · LA CAJA. «Cards are the lazy container»: tres tarjetas del mismo tamaño
-//     apiladas son el antipatrón nombrado. Son una lista con filete de 1 px.
-//   · EL FONDO DE COLOR de la aprobación. Fondo + borde + botón lleno eran tres
-//     señales para decir una sola cosa. Queda el botón, que además es el único
-//     naranja de la pantalla.
+// La píldora del estado va INLINE al final del título y no alineada a la
+// derecha: como los nombres miden muy distinto («Sugerencia» contra «Aprobación
+// pendiente»), a la derecha dejan el borde izquierdo dentado fila por fila.
+// A la derecha va el tiempo, que es lo que ponen ahí Gmail, GitHub y Linear —
+// y es lo que impide que la fila se vea medio vacía.
+//
+// DOS TAMAÑOS EN TODA LA FILA. La jerarquía la hacen el peso y el color, no más
+// tamaños: GitHub usa 16 y 12 con tres pesos y dos colores, y la tabla de Geist
+// de Vercel usa UN solo tamaño y cambia el peso. El defecto de la versión
+// anterior era el contrario — siete elementos repartidos entre 12 y 13 px, o
+// sea todo pesando igual.
 function Decision({
   props, def, t, marca,
 }: { props: MakoProps; def: DefEstado; t: (typeof TONO)[Tono]; marca: ReactNode }) {
-  const { titulo, detalle, consecuencia, advertencia, datos, evidencia, accion, secundaria, arrancaAbierta } = props;
+  const {
+    titulo, detalle, consecuencia, advertencia, datos, evidencia,
+    evidenciaRotulo, cuando, accion, secundaria, arrancaAbierta,
+  } = props;
 
-  // Abre sola la que BLOQUEA. El dueño la va a abrir siempre —nada se mueve sin
-  // su sí—, así que cobrarle un click para llegar a lo que tiene que leer es
-  // costo de interacción puro. Las otras dos arrancan cerradas.
-  const [abierta, setAbierta] = useState(arrancaAbierta ?? def.bloquea === true);
+  const [abierto, setAbierto] = useState(arrancaAbierta === true);
+  const cerrar = useCallback(() => setAbierto(false), []);
 
-  // Controlado y no `<details open>` suelto: React vuelve a sincronizar la
-  // propiedad `open` en cada render, así que sin este estado el panel se
-  // cerraría solo cuando algo de arriba se vuelva a renderizar.
+  const pill = <span className="mk-dec__pill" style={{ background: t.bg, color: t.ink }}>{def.rotulo}</span>;
+
   return (
-    <details
-      className={`mk-dec${def.bloquea ? ' mk-dec--bloquea' : ''}`}
-      open={abierta}
-      onToggle={(e) => setAbierta(e.currentTarget.open)}
-    >
-      {/* Nada de <details name>: acordeón exclusivo NO. Cerrar una para abrir
-          otra mueve de lugar el botón que el usuario iba a tocar y rompe la
-          comparación que está haciendo — que es justo la tarea acá. */}
-      <summary className="mk-dec__fila">
+    <>
+      {/* La fila ENTERA es el control, y es un <button> de verdad: ya no hay
+          nada interactivo adentro, así que no hay conflicto de anidación y el
+          teclado la alcanza sola. */}
+      <button type="button" className="mk-dec" onClick={() => setAbierto(true)} aria-haspopup="dialog">
         {marca}
         <span className="mk-dec__txt">
-          <span className="mk-dec__t">{titulo}</span>
+          <span className="mk-dec__l1">
+            <span className="mk-dec__t">{titulo}</span>
+            {pill}
+          </span>
           {consecuencia && <span className="mk-dec__c">{consecuencia}</span>}
         </span>
-        <Caret />
-      </summary>
+        {cuando && <span className="mk-dec__cuando">{cuando}</span>}
+        <Chevron />
+      </button>
 
-      <div className="mk-dec__panel">
-        {/* Acá sí va el rótulo: adentro no es un kicker —el título quedó arriba,
-            en la fila— y es lo que sostiene que el estado se llame igual en el
-            Plan, el Dashboard, el CRM y el chat. */}
-        <span className="mk-dec__rot" style={{ color: t.ink }}>{def.rotulo}</span>
-
-        {detalle && <p className="mk-dec__porque">{detalle}</p>}
-
-        {/* Los campos, TODOS. Acá el formulario está permitido: es el segundo
-            nivel, y son los que impiden que una recomendación sea un consejo
-            genérico. Lo que estaba mal era mostrarlos antes de que los pidas. */}
-        {!!datos?.length && (
-          <dl className="mk-dec__campos">
-            {datos.map((d) => (
-              <div key={d.k} className="mk-dec__campo">
-                <dt className="mk-dec__k">{d.k}</dt>
-                <dd className="mk-dec__v">{d.v}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-
-        {/* Sin sub-plegado. Dos niveles, nunca tres. */}
-        {evidencia && <div className="mk-dec__ev">{evidencia}</div>}
-
-        {(accion || secundaria || advertencia) && (
-          <div className="mk-dec__pie">
-            {/* La consecuencia va PEGADA al botón y en tinta normal, no en gris
-                arriba de todo: es feedforward (Microsoft HAX G16-A), se lee
-                donde se actúa. En gris y lejos, no la lee nadie. */}
-            {advertencia && <p className="mk-dec__adv">{advertencia}</p>}
-            <div className="mk-row">
-              {/* El botón lleno es SOLO de la que bloquea. Un botón lleno es un
-                  compromiso: aceptar una sugerencia opcional no lo es, y abrir
-                  otra pantalla tampoco. */}
-              {accion && <Boton a={accion} variant={def.bloquea ? 'primary' : 'secondary'} />}
+      {abierto && (
+        <Modal
+          titulo={titulo}
+          encabezado={pill}
+          onCerrar={cerrar}
+          pie={(accion || secundaria) && (
+            <>
+              {/* Secundaria primero y a la izquierda: en las cuatro guías que
+                  publican el orden, la salida sin compromiso va antes y la de
+                  compromiso queda última, pegada al borde. */}
               {secundaria && <Boton a={secundaria} variant="tertiary" />}
+              {/* El botón lleno es SOLO el de la que bloquea, y toma el naranja
+                  del estado. Aceptar una sugerencia o ir a cargar un dato no son
+                  compromisos: van en secundario. */}
+              {accion && (
+                <span className={def.bloquea ? 'mk-det__cta' : undefined}>
+                  <Boton a={accion} variant={def.bloquea ? 'primary' : 'secondary'} />
+                </span>
+              )}
+            </>
+          )}
+        >
+          {/* Cada hijo directo del cuerpo es un BLOQUE, y el modal les pone el
+              filete que los separa (la regla de las Section de Polaris). Eso es
+              lo que convierte una pila de textos sueltos en grupos. */}
+          {detalle && (
+            <div className="mk-det">
+              <p className="mk-det__p">{detalle}</p>
             </div>
-          </div>
-        )}
-      </div>
-    </details>
+          )}
+
+          {!!datos?.length && (
+            <div className="mk-det">
+              <dl className="mk-det__campos">
+                {datos.map((d) => (
+                  <div key={d.k} className="mk-det__campo">
+                    <dt className="mk-det__k">{d.k}</dt>
+                    <dd className="mk-det__v">{d.v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+
+          {evidencia && (
+            <div className="mk-det">
+              {/* La evidencia SÍ lleva nombre. Tres frases entre comillas sin
+                  un rótulo que diga qué son obligan a deducirlo, y en la
+                  aprobación son literalmente los mensajes que se van a enviar. */}
+              <span className="mk-det__h">{evidenciaRotulo ?? 'En qué me baso'}</span>
+              <div className="mk-det__cita">{evidencia}</div>
+            </div>
+          )}
+
+          {advertencia && (
+            <div className="mk-det">
+              {/* Último bloque del cuerpo, así queda pegado al pie: la
+                  consecuencia se lee donde se actúa (Microsoft HAX G16-A). */}
+              <p className="mk-det__adv"><Aviso />{advertencia}</p>
+            </div>
+          )}
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -353,14 +394,19 @@ export function Mako(props: MakoProps) {
     const porQue = [detalle, ...(datos ?? []).map((d) => `${d.k}: ${typeof d.v === 'string' ? d.v : ''}`)]
       .filter(Boolean).join(' · ');
     return (
-      <span className="mk-mako mk-mako--inline" title={porQue || undefined}>
-        {marca}
-        <span className="mk-mako__t">{titulo}</span>
-        {/* Secundario, NO primario: un botón azul lleno adentro de una pastilla
-            dorada de 28 px son dos acentos peleando otra vez, y encima le da a
-            una sugerencia el peso de la acción principal de la pantalla. */}
-        {accion && <Boton a={accion} variant="secondary" />}
-        {secundaria && <Boton a={secundaria} variant="tertiary" />}
+      <span className="mk-mako mk-mako--inline">
+        <span className="mk-mako__l1">
+          {marca}
+          <span className="mk-mako__t">{titulo}</span>
+          <span className="mk-mako__acc">
+            {/* Secundario, NO primario: un botón azul lleno adentro de una caja
+                dorada son dos acentos peleando, y encima le da a una sugerencia
+                el peso de la acción principal de la pantalla. */}
+            {accion && <Boton a={accion} variant="secondary" />}
+            {secundaria && <Boton a={secundaria} variant="tertiary" />}
+          </span>
+        </span>
+        {porQue && <span className="mk-mako__d">{porQue}</span>}
       </span>
     );
   }
@@ -372,10 +418,14 @@ export function Mako(props: MakoProps) {
   if (def.forma === 'curso') {
     return (
       <div className="mk-mako mk-mako--curso" role="status" aria-live="polite">
+        {/* El rótulo arranca la frase y el TÍTULO la completa: «Revisando · por
+            qué cayó la conversión». Manda el título, que es lo que dice qué está
+            haciendo; el rótulo va un escalón abajo y en gris.
+            La fuente bajó a la línea del progreso: arriba metía un tercer texto
+            entre el rótulo y el título y partía la frase al medio. */}
         <div className="mk-mako__cab">
           {marca}
-          <span className="mk-mako__rot" style={{ color: t.ink }}>{def.rotulo}</span>
-          {fuente && <span className="mk-mako__fuente">· {fuente}</span>}
+          <span className="mk-mako__rot">{def.rotulo}</span>
           {titulo && <span className="mk-mako__t">{titulo}</span>}
         </div>
         {/* La barra va acotada y pegada a su línea. A todo el ancho de la
@@ -388,8 +438,16 @@ export function Mako(props: MakoProps) {
               100% del padre, el resultado era 0 px — la barra existía y no se
               veía. Justo en el estado que sin progreso no comunica nada. */}
           {progreso !== undefined && <span style={{ flex: '0 0 220px' }}><Progress value={progreso} tono="mako" /></span>}
-          {!!datos?.length && (
-            <span className="mk-mako__fuente">{datos.map((d) => `${d.k} ${typeof d.v === 'string' ? d.v : ''}`).join(' · ')}</span>
+          {/* La fuente y el avance, en la misma línea que la barra. Un «68%» sin
+              decir de qué no informa más que un spinner, y la fuente sola
+              arriba partía la frase del título. */}
+          {(fuente || !!datos?.length) && (
+            <span className="mk-mako__fuente">
+              {[
+                fuente,
+                ...(datos ?? []).map((d) => `${d.k} ${typeof d.v === 'string' ? d.v : ''}`),
+              ].filter(Boolean).join(' · ')}
+            </span>
           )}
         </div>
       </div>
