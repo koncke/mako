@@ -294,11 +294,15 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
       [
         // Las sub-rutas de /admin tienen item propio — que "Clientes" no se
         // marque también cuando estás en cualquiera de ellas.
-        { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/docs')(p) && !starts('/admin/dev')(p) },
+        { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/docs')(p) && !starts('/admin/dev')(p) && !starts('/admin/agente')(p) },
         // Canal propio de MaKo: WhatsApp del admin (canal + grupos + plantillas).
         // NO es preview de ningún cliente. Su propia línea por QR. Por eso NO es
         // el /whatsapp de Operate y sigue viviendo acá.
         { key: 'agencia', label: 'WhatsApp de MaKo', href: '/agencia', icon: 'whatsapp', match: starts('/agencia') },
+        // En qué trabaja cada cliente en SU Claude Code. Va en este bloque y no en el
+        // del cerebro de MaKo porque es información de CLIENTES, no configuración de
+        // la IA: se lee al lado de «Clientes», que es la pregunta que contesta.
+        { key: 'admin-agente', label: 'Agente de los clientes', href: '/admin/agente', icon: 'mako', match: starts('/admin/agente') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
