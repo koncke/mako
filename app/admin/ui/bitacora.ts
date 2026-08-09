@@ -542,7 +542,7 @@ export const BITACORA: Hito[] = [
       'Cómo se detecta en una línea: `Object.keys(document.querySelector(".mi-clase")).filter(k => k.startsWith("__react"))`. Vacío = no hidrató. ⚠️ El overlay de Next (`<nextjs-portal>`) SÍ tiene fiber aunque la app no hidrate, así que hay que preguntarlo sobre un nodo de la app.',
       'Verificado contra producción para descartar que fuera el rediseño: `hola-mako.com` tiene `__reactFiber$` y `__reactProps$`; el local solo `__reactContainer$` —React crea la raíz y nunca monta—, y falla igual en `/inicio`, `/plan` y `/vsl`, que no se tocaron. Es del entorno local, no del código.',
       'La salida sin matar el server de la otra sesión: **un worktree**, que al ser otro directorio tiene su propio lock. Las tres trampas, todas nuevas: el junction de `node_modules` no le sirve a Turbopack («points out of the filesystem root»), `next dev --webpack` muere con `node:crypto`, y `next start` pone NODE_ENV=production, con lo cual `/api/auth/dev-login` devuelve 404 a propósito. Terminó siendo `npm ci` real adentro del worktree.',
-      'Lo que sí se pudo verificar sin hidratación: **el modal renderiza en el HTML del server**, así que con `arrancaAbierta` se mide y se mira entero. El clic para abrirlo queda por verificar en producción.',
+      '✅ **La causa quedó acotada y el clic verificado.** `next dev` NO hidrata en este proyecto; **`next build` + `next start` SÍ**. Sobre el build local, con una cookie de sesión firmada a mano (dev-login es 404 en producción, y esa guarda no se toca): hidrata, el clic abre el modal de 600 px, Escape lo cierra y el foco vuelve a la fila. El worktree, al final, sobró.',
     ],
   },
   {

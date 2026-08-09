@@ -1387,9 +1387,15 @@ formas distintas:
 3. **El puerto** — `next start` y `next dev` compiten igual. `EADDRINUSE` se lee como si el
    worktree estuviera roto y es solo un puerto ocupado por un experimento anterior.
 
-⚠️ Y `next start` **no sirve** para esto: pone `NODE_ENV=production`, con lo cual
-`/api/auth/dev-login` devuelve 404 a propósito y no se puede entrar. La verificación local con
-sesión necesita `next dev`, sí o sí.
+⚠️ **Y el worktree no arregló nada**: tampoco hidrata. La causa real es que **`next dev` no
+hidrata en este proyecto y `next build` + `next start` sí** — está desarrollado en
+[hallazgos-ui.md](hallazgos-ui.md). O sea que para probar una INTERACCIÓN, el worktree sobra:
+alcanza con levantar el build de producción en otro puerto.
+
+⚠️ `next start` pone `NODE_ENV=production`, con lo cual `/api/auth/dev-login` devuelve 404 **a
+propósito**. No se toca esa guarda: se firma la cookie a mano con el mismo secret
+(`crearToken` de `lib/auth-session.ts`, con `node --import tsx --env-file=.env.local`) y se la
+inyecta con `ctx.addCookies`. Es lo mismo que hace el dev-login, sin abrir una puerta nueva.
 
 ### `git add <archivo>` explícito igual se lleva trabajo de la otra sesión
 

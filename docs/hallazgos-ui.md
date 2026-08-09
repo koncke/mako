@@ -455,17 +455,46 @@ Ojo con el falso positivo: el overlay de desarrollo de Next (`<nextjs-portal>`) 
 fiber aunque la app no hidrate, así que preguntar «¿hay React en la página?» da que sí. Hay que
 preguntarlo sobre **un nodo de la app**.
 
-**Qué lo causaba acá:** el servidor de desarrollo de la otra sesión, con el WebSocket de HMR
-caído (`ERR_INVALID_HTTP_RESPONSE`). Ni una petición fallaba, ni un error en consola, ni nada en
-el overlay: la página se servía entera y muda.
+**Qué lo causaba, acotado a fuerza de descartar:** **`next dev` no hidrata en este proyecto;
+`next build` + `next start` sí.** El camino hasta ahí, porque cada paso descarta una hipótesis
+que parecía obvia:
+
+| Se probó | Resultado |
+|---|---|
+| El dev server de la otra sesión | ❌ no hidrata |
+| Un worktree limpio, `npm ci` propio, dev server propio | ❌ tampoco |
+| `/inicio`, `/plan`, `/vsl` — páginas que nadie tocó | ❌ tampoco |
+| Producción (`hola-mako.com`) | ✅ `__reactFiber$`, `__reactProps$` |
+| **Build de producción LOCAL (`next start`)** | ✅ **hidrata y el clic funciona** |
+
+O sea: no era el código, no era la otra sesión, no era el entorno de la máquina. Es el modo
+desarrollo. Ni una petición fallaba, ni un error en consola, ni nada en el overlay de Next: la
+página se servía entera y muda. El único síntoma lateral era el WebSocket de HMR caído
+(`ERR_INVALID_HTTP_RESPONSE`), que el matcher de `proxy.ts` explica —no excluye
+`_next/webpack-hmr`, así que el upgrade pasa por el gate de auth— pero excluirlo **no** devolvió
+la hidratación, así que no es la causa raíz.
+
+**Cómo verificar una interacción mientras esto siga así**, que es lo único accionable:
+
+```bash
+npx next build && npx next start -p 3215
+```
+
+Y para entrar, `/api/auth/dev-login` **no sirve**: devuelve 404 en producción a propósito. Se
+firma una cookie con el mismo secret y se la inyecta en el navegador:
+
+```ts
+import { crearToken, SESSION_COOKIE } from '@/lib/auth-session';
+crearToken({ sub: 'dev', email: 'dev@local', nombre: 'Dev (local)', rol: 'admin' })
+// node --import tsx --env-file=.env.local … y ctx.addCookies([...])
+```
 
 **Regla:** verificar una interacción es verificar que **el handler de React corrió**, no que el
 DOM cambió. Si lo que probás puede funcionar sin JavaScript —`<details>`, un `<a href>`, un
-`<label for>`, un formulario nativo— la prueba no dice nada sobre tu código. Y **cada sesión
-levanta su propio `next dev` en su puerto**: el de la otra sesión puede estar a medio morir sin
-avisar, y ahí lo que estás mirando no es tu trabajo.
+`<label for>`, un formulario nativo— la prueba no dice nada sobre tu código.
 
-**Vive en:** cualquier verificación con navegador · *2026-08-09*
+**Vive en:** cualquier verificación con navegador · `app/api/auth/dev-login/route.ts` ·
+`proxy.ts` (el matcher) · *2026-08-09*
 
 ### ⚠️ `nota` y `placeholder` del catálogo de credenciales son texto muerto
 
