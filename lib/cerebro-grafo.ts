@@ -66,7 +66,7 @@ import { getSetting } from './settings';
 export { AREAS } from './cerebro-modelo';
 export type { AreaId, Autoria, NodoCerebro, AristaCerebro, Cerebro } from './cerebro-modelo';
 
-import { AREAS, type AreaId, type Autoria, type NodoCerebro, type AristaCerebro, type Cerebro } from './cerebro-modelo';
+import { AREAS, NIVEL1, type AreaId, type Autoria, type NodoCerebro, type AristaCerebro, type Cerebro } from './cerebro-modelo';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -616,7 +616,7 @@ export async function construirCerebro(): Promise<Cerebro> {
         .filter(Boolean);
       push({
         id: idEtapa(e.key),
-        area: 'norte',
+        area: 'funnel',
         etiqueta: e.label,
         // Del `Stage` se usa lo que es del NEGOCIO. `dot`, `tone` y `col` son layout del
         // Kanban y no entran: el grafo tiene su propia paleta.
@@ -826,6 +826,12 @@ export async function construirCerebro(): Promise<Cerebro> {
   // lo necesita — ya lo hace su propia cadena, que es para lo único que existe el nodo de
   // área. Colgando solo la fila «Activo» las seis métricas pasan en las cuatro
   // plantillas. Sin esta nota, la próxima sesión lo lee como un olvido y lo «arregla».
+  // ⚠️ LA EXCEPCIÓN SE CONSERVA, SOLO CAMBIÓ DE ÁREA. Las etapas de nutrición no se
+  // cuelgan de su nodo de área — antes era `area:norte`, ahora `area:funnel`. El motivo
+  // original no desapareció con la mudanza: en el workspace más chico 13 de sus 24 nodos
+  // son etapas, y colgarlas todas del nodo de área le lleva el grado a 14 y el hub a
+  // 6,1x contra un umbral de 4,5x. El racimo del funnel ya lo hace su propia cadena de
+  // transiciones, que es para lo único que existe el nodo de área.
   const nutricionDelFunnel = new Set(
     funnel.stages.filter((e) => e.band !== 'pipeline').map((e) => `etapa:${e.key}`),
   );
@@ -846,6 +852,57 @@ export async function construirCerebro(): Promise<Cerebro> {
       autoria: 'mako',
     });
     for (const m of miembros) unir(m, idArea, `Esto es parte de ${a.nombre}`);
+  }
+
+
+  // ── EL NIVEL 1: las cinco carpetas madre ──────────────────────────────────
+  // Juntas forman una frase: «este NEGOCIO vende esta OFERTA a este MERCADO diciéndole
+  // este MENSAJE por este FUNNEL». Son el mismo mecanismo que los nodos de área, un
+  // escalón más arriba — y por eso no es un cambio de paradigma: el grafo YA tenía un
+  // nivel de la jerarquía dibujado desde que se sacaron las fuerzas de ancla.
+  //
+  // 🚨 EL MAPA NO VUELVE A SER UN ÁRBOL, y esto va acá para que la próxima sesión no lo
+  // intente. Se midió: el árbol puro de tres niveles rompe CUATRO de las seis métricas en
+  // los cuatro workspaces (densidad 0,79-0,83 contra ≥1,5 · hojas 63-67% contra ≤30% ·
+  // hub 7,0-7,8× contra ≤4,5× · clustering 0,00 contra ≥0,15) y parte el grafo en 12-14
+  // islas. La jerarquía gobierna el ZOOM, el EXPORT y la grilla; el dibujo conserva sus
+  // aristas laterales.
+  //
+  // 🚨 Y LOS PADRES NUNCA SE CUELGAN DE LA RAÍZ. Medido: hub 4,8× y 5,1× contra 4,5×. Es
+  // el mismo mecanismo del puente área→raíz que ya se probó y se revirtió en este archivo.
+  // El padre se cuelga de sus HIJOS, nunca del centro.
+  {
+    const hayArea = new Set(nodos.filter((n) => n.id.startsWith('area:')).map((n) => n.id.slice(5)));
+    for (const p of NIVEL1) {
+      const areasDelPadre = AREAS.filter((a) => a.padre === p.id);
+      const conNodo = areasDelPadre.filter((a) => hayArea.has(a.id));
+      // Un padre con menos de dos hijos NO se dibuja: sería un nodo de grado 1, o sea una
+      // hoja nueva — justo el número que esta jerarquía viene a bajar. En el ZIP la
+      // carpeta sí existe aunque tenga un solo archivo: una carpeta con un archivo es
+      // normal en un explorador, una hoja en un force layout rompe una métrica. Las dos
+      // asimetrías son a propósito.
+      //
+      // Y el padre ADOPTA a los huérfanos: si un área de su grupo no llegó a tener nodo
+      // propio (porque tiene un solo miembro), sus miembros se cuelgan directo del padre.
+      // Así ningún tipo de dato queda fuera del árbol y no se estrena ninguna hoja.
+      const sueltos = areasDelPadre
+        .filter((a) => !hayArea.has(a.id))
+        .flatMap((a) => nodos.filter((n) => n.area === a.id && n.id !== RAIZ && n.autoria !== 'pendiente' && !n.id.startsWith('area:')).map((n) => n.id));
+      if (conNodo.length + sueltos.length < 2) continue;
+      const idPadre = push({
+        id: `n1:${p.id}`,
+        // El área del padre es la de su PRIMERA hija: hereda su color, así el racimo
+        // entero se lee de un tono. No se inventa un color número once — el catálogo de
+        // `--grafo-*` tiene tope de diez por un motivo medido.
+        area: areasDelPadre[0].id,
+        etiqueta: p.nombre,
+        detalle: p.que,
+        fuente: `${conNodo.length + sueltos.length} partes de tu negocio`,
+        autoria: 'mako',
+      });
+      for (const a of conNodo) unir(`area:${a.id}`, idPadre, `${a.nombre} es parte de ${p.nombre}`);
+      for (const m of sueltos) unir(m, idPadre, `Esto es parte de ${p.nombre}`);
+    }
   }
 
   // ⚠️ UN ÁREA SUELTA DEL RESTO DEL MAPA NO ES UN BUG, Y SE INTENTÓ «ARREGLAR».

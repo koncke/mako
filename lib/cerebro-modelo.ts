@@ -31,17 +31,65 @@
  *
  *  Y no llevan números adentro («los TRES segmentos», «sus SEIS planos»): un cliente
  *  con cuatro avatares leía un texto que le mentía. */
+/**
+ * LAS CINCO CARPETAS MADRE. Juntas forman una frase: «este NEGOCIO vende esta OFERTA a
+ * este MERCADO diciéndole este MENSAJE por este FUNNEL».
+ *
+ * ⚠️ TRES DE LOS CINCO NOMBRES QUE SE PROPUSIERON NO ENTRARON, y el motivo es
+ * verificable, no una opinión de estilo. «CRM» y «Closing» son PANTALLAS DEL PRODUCTO,
+ * no cosas que MaKo entendió del negocio: `construirCerebro()` hace 21 lecturas y NINGUNA
+ * es de closing, y lo único que roza al CRM es el catálogo de productos —cuya propia
+ * fuente dice «del catálogo que arma el CRM», o sea el catálogo de la OFERTA que el CRM
+ * consume—. Las dos carpetas saldrían VACÍAS en los cuatro workspaces vivos, y una
+ * carpeta de nivel 1 vacía es lo primero que ve el cliente al abrir el ZIP. «Ads» tampoco:
+ * lo que caería debajo no son anuncios sino su insumo (avatares, razones, formatos, voz),
+ * y el mapa no tiene un solo nodo de un anuncio real.
+ *
+ * LA REGLA QUE QUEDA: el nombre de una carpeta del segundo cerebro tiene que sobrevivir a
+ * un rediseño de MaKo. Si mañana la tab «CRM» se llama «Ventas», la carpeta del cliente
+ * NO cambia de nombre — sus datos no cambiaron. El precedente ya está en el repo:
+ * `AreasHub.tsx` documenta que la taxonomía se unificó a la del grafo justamente porque
+ * «el mapa decía Lead Magnet y la tab decía otra cosa».
+ */
+export const NIVEL1 = [
+  { id: 'negocio', n: 1, nombre: 'Negocio', que: 'En qué fase estás, qué te frena y de dónde salió todo.' },
+  { id: 'oferta', n: 2, nombre: 'Oferta', que: 'Qué vendes, a cuánto y qué garantizas.' },
+  { id: 'mercado', n: 3, nombre: 'Mercado', que: 'A quién le vendes.' },
+  { id: 'mensaje', n: 4, nombre: 'Mensaje', que: 'Qué le dices y cómo suenas.' },
+  { id: 'funnel', n: 5, nombre: 'Funnel', que: 'Por dónde pasa un lead hasta comprar.' },
+] as const;
+
+export type Nivel1Id = (typeof NIVEL1)[number]['id'];
+
+/**
+ * Las áreas del negocio: el NIVEL 2 del árbol. `padre` dice de qué carpeta madre cuelga y
+ * `n` las ordena adentro de ella — el orden es narrativo, no alfabético, y sin el número
+ * el explorador de archivos lo destruye.
+ *
+ * ⚠️ EL `nombre` SE CAMBIA EN UN SOLO LUGAR: acá. Las carpetas del ZIP se DERIVAN de
+ * `padre` + `n` + `nombre` (ver lib/vault-modelo.ts). Antes había una segunda tabla con
+ * los nombres escritos a mano y se quedaba vieja sin que nada avisara.
+ *
+ * ⚠️ El `id` de un padre y el de un área pueden coincidir (`oferta`, `funnel`). Los ids de
+ * NODO no pueden: el nivel 1 usa el prefijo `n1:` y el nivel 2 `area:`. Este repo ya pagó
+ * una vez «dos nodos con el mismo id» y el síntoma fue silencioso.
+ */
 export const AREAS = [
-  { id: 'norte', nombre: 'Norte', color: 'var(--grafo-norte)', que: 'En qué fase está tu negocio, qué lo frena y por dónde vende.' },
-  { id: 'documentos', nombre: 'Documentos', color: 'var(--grafo-documentos)', que: 'Lo que soltaste en el Archivero y MaKo leyó.' },
-  { id: 'panorama', nombre: 'Panorama', color: 'var(--grafo-panorama)', que: 'Lo que MaKo entendió de tu negocio, sección por sección.' },
-  { id: 'oferta', nombre: 'Oferta', color: 'var(--grafo-oferta)', que: 'Tu oferta principal: qué prometes, a cuánto y qué garantizas.' },
-  { id: 'cliente', nombre: 'Cliente', color: 'var(--grafo-cliente)', que: 'Tu cliente ideal: qué le duele, qué quiere y qué objeta.' },
-  { id: 'productos', nombre: 'Productos', color: 'var(--grafo-productos)', que: 'El catálogo que usa el CRM para cargar cada venta, con su precio.' },
-  { id: 'entregables', nombre: 'Lead Magnet', color: 'var(--grafo-entregables)', que: 'El elemento tangible que hace deseable la oferta.' },
-  { id: 'avatares', nombre: 'Avatares', color: 'var(--grafo-avatares)', que: 'Los públicos distintos a los que le vendes, separados para segmentarlos en Meta.' },
-  { id: 'razones', nombre: 'Razones', color: 'var(--grafo-razones)', que: 'Por qué te compra cada avatar. Cada razón es un anuncio distinto.' },
-  { id: 'voz', nombre: 'Voz y cara', color: 'var(--grafo-voz)', que: 'Cómo suena tu marca y qué cara le pones a tus anuncios.' },
+  { id: 'norte', n: 1, padre: 'negocio', nombre: 'Norte', color: 'var(--grafo-norte)', que: 'En qué fase está tu negocio y qué lo frena.' },
+  { id: 'panorama', n: 2, padre: 'negocio', nombre: 'Panorama', color: 'var(--grafo-panorama)', que: 'Lo que MaKo entendió de tu negocio, sección por sección.' },
+  { id: 'documentos', n: 3, padre: 'negocio', nombre: 'Documentos', color: 'var(--grafo-documentos)', que: 'Lo que soltaste en el Archivero y MaKo leyó.' },
+  { id: 'oferta', n: 1, padre: 'oferta', nombre: 'La oferta', color: 'var(--grafo-oferta)', que: 'Tu oferta principal: qué prometes, a cuánto y qué garantizas.' },
+  { id: 'productos', n: 2, padre: 'oferta', nombre: 'Productos', color: 'var(--grafo-productos)', que: 'El catálogo que usa el CRM para cargar cada venta, con su precio.' },
+  { id: 'entregables', n: 3, padre: 'oferta', nombre: 'Lead Magnet', color: 'var(--grafo-entregables)', que: 'El elemento tangible que hace deseable la oferta.' },
+  { id: 'cliente', n: 1, padre: 'mercado', nombre: 'Cliente ideal', color: 'var(--grafo-cliente)', que: 'Tu cliente ideal: qué le duele, qué quiere y qué objeta.' },
+  { id: 'avatares', n: 2, padre: 'mercado', nombre: 'Avatares', color: 'var(--grafo-avatares)', que: 'Los públicos distintos a los que le vendes, separados para segmentarlos en Meta.' },
+  { id: 'razones', n: 1, padre: 'mensaje', nombre: 'Razones', color: 'var(--grafo-razones)', que: 'Por qué te compra cada avatar. Cada razón es un anuncio distinto.' },
+  { id: 'voz', n: 2, padre: 'mensaje', nombre: 'Voz y cara', color: 'var(--grafo-voz)', que: 'Cómo suena tu marca y qué cara le pones a tus anuncios.' },
+  // El funnel deja de vivir adentro de «Norte» y se hace área propia. No es cosmético:
+  // medido, con las 11-13 etapas ahí adentro el color del Norte era el DOMINANTE del mapa
+  // (19% en un workspace, 26% en dos, 58% en el más chico), y en el ZIP la carpeta «01
+  // Norte» tenía 13 de 15 archivos bajo una descripción que dice «en qué fase estás».
+  { id: 'funnel', n: 1, padre: 'funnel', nombre: 'El funnel', color: 'var(--grafo-funnel)', que: 'Las etapas por las que pasa un lead hasta comprar.' },
 ] as const;
 
 /**

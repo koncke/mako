@@ -89,6 +89,10 @@
   --grafo-entregables: #E8B7D4;
   --grafo-avatares: #B8D98D;
   --grafo-razones: #F0A9A0;
+  /* El funnel dejó de vivir adentro de Norte y es área propia: sin su tono, sus 11-13
+     etapas se pintaban del color del Norte y lo volvían el dominante del mapa (58% en el
+     workspace más chico). Verde azulado: no colisiona con --mako ni con --warn-fill. */
+  --grafo-funnel: #8FD3C4;
   --grafo-voz: #D9CE8F;
   --sidebar-text: #949CAA;
   --on-sidebar: #F3F5F8;

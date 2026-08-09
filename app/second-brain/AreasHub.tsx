@@ -52,7 +52,7 @@ import { ResumenView } from '../onboarding/ResumenView';
  *  Algunas áreas tienen más de una vista (Razones son las razones y los ángulos; Voz
  *  son la personalidad y la persona). Van como sub-pestañas ADENTRO del panel abierto,
  *  no como áreas nuevas: el color y la carpeta del ZIP son por área. */
-const VISTAS: Record<AreaId, Array<{ nombre: string; vista: ReactNode }>> = {
+const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ nombre: string; vista: ReactNode }>> => ({
   norte: [{ nombre: 'Diagnóstico', vista: <DiagnosticoView /> }],
   documentos: [{ nombre: 'El Archivero', vista: <Archivero /> }],
   panorama: [{ nombre: 'Panorama', vista: <ResumenView /> }],
@@ -70,7 +70,11 @@ const VISTAS: Record<AreaId, Array<{ nombre: string; vista: ReactNode }>> = {
     { nombre: 'Personalidad', vista: <PersonalidadView /> },
     { nombre: 'Persona', vista: <PersonaView /> },
   ],
-};
+  // El funnel dejó de ser una sección suelta al final de la página y pasó a ser UNA
+  // TARJETA MÁS: es un área del cerebro como cualquier otra, con sus nodos en el mapa y
+  // su carpeta en el ZIP. Antes vivía aparte y desplegado duplicaba el alto de la página.
+  funnel: [{ nombre: 'El funnel', vista: funnelPanel }],
+});
 
 export function AreasHub({ conteo, abierta, onAbrir, onResaltar, funnelPanel }: {
   /** Cuántos datos tiene cada área. Sale de `conteoPorArea(cerebro)`: el MISMO número
@@ -83,7 +87,6 @@ export function AreasHub({ conteo, abierta, onAbrir, onResaltar, funnelPanel }: 
   funnelPanel: ReactNode;
 }) {
   const [sub, setSub] = useState(0);
-  const [funnelAbierto, setFunnelAbierto] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Al abrir un área, el panel se trae a la vista. Sin esto, tocar «Abrir Razones»
@@ -96,7 +99,7 @@ export function AreasHub({ conteo, abierta, onAbrir, onResaltar, funnelPanel }: 
   }, [abierta]);
 
   const areaAbierta = abierta ? AREAS.find((a) => a.id === abierta) ?? null : null;
-  const vistas = abierta ? VISTAS[abierta] : [];
+  const vistas = abierta ? vistasDe(funnelPanel)[abierta] : [];
 
   return (
     <>
@@ -197,25 +200,7 @@ export function AreasHub({ conteo, abierta, onAbrir, onResaltar, funnelPanel }: 
         )}
       </div>
 
-      {/* EL FUNNEL VA PLEGADO. Ya no es un área del cerebro pero tampoco puede quedar
-          suelto y abierto al final de la página: el editor del funnel es una pantalla
-          entera —bandas, etapas, transiciones— y desplegado empuja todo lo demás fuera
-          de la vista sin que nadie lo haya pedido. Se abre cuando se lo toca.
-          ⚠️ El contenido se monta SOLO al abrir (no se esconde con CSS): el editor trae
-          su propio estado y su autoguardado, y tenerlo vivo detrás de un display:none es
-          la clase de cosa que guarda sin que nadie lo mire. */}
-      <Section titulo="El funnel" nota="Por dónde pasa cada lead">
-        <button
-          type="button"
-          className="sb-plegable"
-          aria-expanded={funnelAbierto}
-          onClick={() => setFunnelAbierto((v) => !v)}
-        >
-          <span aria-hidden style={{ transform: funnelAbierto ? 'rotate(90deg)' : 'none', transition: 'transform .15s', display: 'inline-block' }}>›</span>
-          {funnelAbierto ? 'Ocultar el funnel' : 'Ver y editar el funnel'}
-        </button>
-        {funnelAbierto && <div style={{ marginTop: 16 }}>{funnelPanel}</div>}
-      </Section>
+
     </>
   );
 }

@@ -201,7 +201,19 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     const alto = (12 * uEstado) / kPaso;          // la caja, en unidades locales del <g>
     const cajas: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
     const ok = new Set<string>();
-    const orden = [...nodos].sort((a, b) => {
+    // ── EL ZOOM MANDA POR NIVEL ─────────────────────────────────────────────
+    // Es la lógica de carpetas: de lejos se leen las cinco madre, al acercarse aparecen
+    // las áreas, y más cerca los datos. La carpeta madre NUNCA pierde su título — es lo
+    // único que orienta cuando el mapa entero entra en la pantalla.
+    const z = kPaso / (kFitEstado || 1);
+    const nivelDe = (id: string) => (id.startsWith('n1:') ? 1 : id.startsWith('area:') || id === 'raiz' ? 2 : 3);
+    const entraPorNivel = (id: string) => {
+      const n = nivelDe(id);
+      if (n === 1) return true;         // siempre
+      if (n === 2) return z >= 0.75;    // apenas se acerca un poco
+      return z >= 1.35;                 // los datos, más cerca
+    };
+    const orden = [...nodos].filter((n) => entraPorNivel(n.id)).sort((a, b) => {
       const d = (grados[b.id] ?? 0) - (grados[a.id] ?? 0);
       return d !== 0 ? d : a.id < b.id ? -1 : 1;   // desempate estable
     });
