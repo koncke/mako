@@ -30,6 +30,12 @@ llamadas, 23,4M tokens, 5 workspaces, del 29/06/2026 al 08/08/2026 (41 días).
 6. **Tres módulos gastan sin registrar y siempre contra la key de la agencia.** Ese gasto
    no está adentro de los US$93,50: el baseline es un **piso**.
    → [Los puntos ciegos](#los-tres-puntos-ciegos)
+7. **El tope de tokens NO alcanza para el plan gratis**: acota el costo pero no produce una
+   decisión. Va con plazo, y con dosis DIARIA, no bolsa mensual.
+   → [El plan gratis](#el-plan-gratis-el-tope-de-tokens-no-alcanza)
+8. **El carrito directo no cierra a US$47 y el cobro en LATAM se come el 45% del
+   checkout** — y el mismo problema vuelve en cada rebill, lo que baja el techo de CAC de
+   US$104 a US$55-70. → [El CAC de los dos canales](#el-cac-de-los-dos-canales-y-el-impuesto-que-nadie-ve)
 
 ---
 
@@ -305,6 +311,231 @@ Con esos cupos, la proyección de flota da **68 % de margen** en vez de 29 %.
 
 ⚠️ **El chequeo tiene que ser pre-flight, nuevo.** Los `recordUsage` existentes son
 posteriores a la llamada y fire-and-forget: sirven para contabilizar, **no para gatear**.
+
+---
+
+## El plan gratis: el tope de tokens NO alcanza
+
+*Corrida `pricing-paso-1-con-que-ia`, 2026-08-09. Responde la pregunta textual del dueño:
+«¿le meto además de una restricción de funcionalidades una restricción de tiempo, como una
+prueba gratuita, o basta con dejar la restricción de tokens? ¿Cómo lo hacen otras apps?».*
+
+**Respuesta corta: no alcanza, porque las dos restricciones resuelven problemas
+distintos.**
+
+- El **tope de créditos** acota el COSTO, pero no produce una decisión: el usuario tibio
+  nunca llega al tope y se queda gratis para siempre.
+- El **plazo** no acota ningún costo (un usuario intenso quema inferencia en 3 días), pero
+  es lo único que fija una FECHA de compra.
+
+Por eso el patrón del mercado es **«X créditos o N días, lo que ocurra primero»**: Adobe
+(Experience Cloud AI termina el trial al consumir el otorgamiento de 10.000 AI Credits),
+Customer.io (los créditos introductorios expiran a los 90 días, los comprados no) y Orb lo
+documenta como estándar de facturación.
+
+### La métrica que engaña y la que decide
+
+SaaS Conversion Report (enero 2026, **n=200 productos B2B**, ChartMogul + Growth Unhinged
++ ProductLed) — la única fuente del lote con muestra y metodología publicadas:
+
+| Mecánica | Conversión free→pago | Por cada 1.000 visitantes |
+|---|---|---|
+| Freemium clásico | 3-5% bueno / 8-12% excelente | 90 registros → **5 pagos** |
+| Freemium sin registro | 7-9% / 8-12% | 70 registros → **5,6 pagos** |
+| Trial sin tarjeta | 4-6% / 10-15% | 45 registros → **3,6 pagos** |
+| **Trial CON tarjeta** | 25-35% / 50-60% | 35 registros → **10,5 pagos** |
+| Reverse trial | 4-6% / 8-12% | — |
+
+⚠️ **No elegir por el % de conversión: es la métrica que más engaña.** Se elige por
+*clientes pagos por cada 1.000 visitantes*, que es lo que paga la campaña. El trial con
+tarjeta rinde **el doble** que el freemium **con un tercio de los usuarios gratis** — que
+en un producto con costo marginal real es la única mecánica que baja el volumen de
+gratuitos y sube los pagos al mismo tiempo.
+
+⚠️ Sobre el reverse trial: Poyar aclara explícitamente que la muestra era chica y **la
+diferencia con freemium NO es estadísticamente significativa**. No es mágico.
+
+Contexto de mercado (mismos 200 productos): trial por tiempo 57%, freemium 26%, reverse
+trial 7%. **14 días en el 62%** de los trials. Solo el 20% pide tarjeta. Y los productos
+AI-native usan trial por tiempo bastante menos que el SaaS clásico (43% vs 61%): cuanto
+más IA tiene el producto, menos se apoya en el reloj y más en el consumo.
+
+### Los SaaS con costo real de inferencia ya sacaron la IA del plan gratis
+
+Verificado en las páginas de precios oficiales el 9/8/2026:
+
+| Producto | Qué hace con la IA en el gratis |
+|---|---|
+| **HubSpot Marketing** | Plan Free real (US$0, 2 usuarios, sin tarjeta) con **CERO créditos de IA**. Aparecen en Starter (500) y Professional (3.000). La funcionalidad es gratis; la IA no |
+| **Jasper** | No tiene plan gratis. Solo 7 días de trial sobre Pro |
+| **Copy.ai** | Eliminó el plan gratis. El escalón más bajo es US$29/mes |
+| **Lovable** | Free forever, pero con tope **DIARIO**: 5 créditos/día, máx. 30/mes, **no acumulables** |
+| **ElevenLabs** | La excepción: 10.000 créditos por mes renovables. Funciona porque ahí **el volumen ES el producto** |
+
+*(Gamma y ManyChat quedaron sin verificar: sus páginas devuelven 403. ManyChat es el
+comparable más cercano por canal y precio — vale abrirlo a mano en el navegador.)*
+
+⚠️ **Tope diario, no bolsa mensual.** Una bolsa mensual se quema entera el día 1, con un
+pico de inferencia concentrado y sin ningún compromiso del usuario, y deja 29 días de
+cuenta muerta. El tope diario aplana el gasto, hace imposible el abuso por ráfaga y genera
+el hábito de volver. Es lo que hace Lovable y lo que hace el free tier de Gemini.
+
+### El diseño recomendado para MaKo
+
+1. **Reverse trial de 14 días** con todo desbloqueado y una bolsa de MaKo Tokens. Termina
+   con lo que ocurra primero. Los 14 días son el estándar que nadie tiene que explicar.
+2. **Sin tarjeta en el canal WhatsApp; con tarjeta en el canal carrito.** Son dos públicos
+   distintos y no hay que elegir: son dos puertas.
+3. **Al vencer NO se cierra la cuenta:** se cae a un Free permanente que conserva CRM,
+   board, funnel, contactos y lo ya generado (costo marginal ~0, y **el dato del cliente
+   queda adentro**), con una dosis DIARIA mínima de IA que no se acumula (3-5 acciones/día).
+   Molde HubSpot + tope diario de Lovable.
+4. **El Free nunca toca el modelo caro.** El modelo bueno es una razón para pagar, no un
+   derecho adquirido. → esto necesita el bloqueante «modelo por plan» del orden de trabajo.
+5. **Una cuenta gratis por teléfono verificado**, reusando el OTP de WhatsApp que ya existe
+   (`lib/mako-grupo.ts`). Sin esto el free se recicla infinito y la inferencia la paga la
+   agencia. En un producto con costo marginal real esto no es higiene: es margen.
+6. **El aviso es parte del diseño:** al 80% de tokens y a 3 días del vencimiento, MaKo
+   avisa por WhatsApp —el mismo canal por el que entró— mostrando lo que hizo y lo que se
+   pierde. La aversión a la pérdida es el único motor real del reverse trial.
+
+⚠️ **Lo que NO hay que hacer: un free forever con tokens que se renuevan todos los meses.**
+Es el modelo de ElevenLabs y funciona ahí porque el valor ES el volumen. En MaKo el valor
+es el resultado: una PyME se queda viviendo en el gratis para siempre, cómoda, y la
+inferencia la paga la agencia sin fecha de vencimiento.
+
+**El margen manda la palanca.** El margen bruto objetivo mediano de la IA es **50%** contra
+70-80% del SaaS tradicional (*State of B2B SaaS and AI Monetization*, Growth Unhinged,
+13/5/2026, n=230). a16z recomienda subsidiar la PRUEBA, no el acceso gratis permanente, y
+Lovable dice tratar su freemium agresivo como **gasto de marketing, no centro de costo** —
+la única forma honesta de justificar regalar inferencia: presupuestada como CAC, con techo.
+De ahí sale la métrica de gobierno: *costo de inferencia regalada por cliente pago
+adquirido*. Si se acerca al margen del Pro, **se achica el tope diario del free** — por eso
+tiene que ser un parámetro configurable desde el día uno, no una constante.
+
+---
+
+## El CAC de los dos canales, y el impuesto que nadie ve
+
+*Misma corrida. Reemplaza el «US$666 por reunión de venta» que estuvo mal en la tab de
+pricing: salía de un benchmark de SDR y **MaKo no vende por llamadas**, vende self-serve.*
+
+> **Veredicto: el canal WhatsApp cierra contra el techo del Pro. El carrito directo a
+> US$47 no.**
+
+**Canal (a) — CTWA → free → pago.** `CAC = costo_conversación / (conv→registro × free→pago)`
+
+| conv→registro | free→pago 3% | 6% | 10% |
+|---|---|---|---|
+| 20% | $250 | $125 | $75 |
+| 30% | $167 | **$83** | $50 |
+| 40% | $125 | $63 | $37 |
+| 60% | $83 | $42 | $25 |
+
+Caso base (30% × 6%) = **CAC US$83**: entra en el techo laxo del Pro (US$104), no en el
+estricto (US$53). Caso bueno (40% × 8%) = US$47: entra en los dos. Invertido: el producto
+de las dos tasas debe superar **1,44%** para el techo de $104 y **2,83%** para el de $53.
+Para el Growth los umbrales caen a 0,77% y 0,39% — casi imposible de fallar.
+
+**Canal (b) — carrito directo.** CPC B2B ~US$1,00 en México, checkout frío 0,8-1,5%,
+aprobación de pago 70-88% → **CAC US$76-179**. Rompe el techo del Pro en casi toda la
+banda; entra cómodo en el del Growth (US$194-381).
+
+→ **Decisión operativa: vender Growth o anual en el carrito, y rutear el Pro mensual a
+WhatsApp.** Es ruteo de campaña, no de producto: la misma landing, distinto objetivo. Y la
+palanca que multiplica el techo en vez de mejorarlo al margen es el **cobro anual**: un
+anual de US$470 (12 meses al precio de 10) mueve el techo de CAC de $104 a más de $700.
+
+### Cuatro cosas que cambian el resultado y no estaban en la pregunta
+
+1. **Meta regala 72 horas de mensajería en click-to-WhatsApp.** Confirmado en su
+   documentación oficial: si el usuario inicia desde un anuncio CTWA y se responde dentro
+   de las 24h, se abre una ventana «Free Entry Point» de **72h desde la respuesta** en la
+   que se puede mandar cualquier tipo de mensaje sin cargo. **El costo de mensajería del
+   canal es cero si el chatbot cierra el registro adentro de la ventana** — el diseño del
+   bot deja de ser UX y pasa a ser economía unitaria. Instrumentar una alerta cuando una
+   conversación cruza la hora 60 sin registro.
+2. ⚠️ **El cobro en LATAM es un impuesto invisible al CAC.** Solo ~28% tiene tarjeta de
+   crédito; México tiene 0,19 tarjetas de crédito per cápita contra 0,99 de débito; las
+   transacciones **cross-border aprueban al 65-75%** contra 85-92% de los rieles locales; y
+   ~45% del tráfico se pierde en el checkout **por pago fallido**. Pasar de 70% a 88% de
+   aprobación baja el CAC del carrito de US$119 a US$95 — 20% menos sin tocar el anuncio.
+   Se ve como «conversión baja», nunca como «cobro roto».
+3. ⚠️ **Y pega dos veces: el rebill también falla.** La aprobación cross-border no aplica
+   solo al primer cobro. Si el fallo de renovación suma 3-5 puntos al churn voluntario de
+   SMB self-serve (3-7% mensual), el churn efectivo pasa de ~5% a 8-10% y la vida útil cae
+   de ~20 meses a 10-12. **Eso corta el LTV casi a la mitad y con él el techo de CAC: el
+   $104 real sería más bien US$55-70 mientras se cobre solo con tarjeta internacional.** Y
+   se lee como «los clientes se van». → separar churn voluntario de involuntario **desde el
+   día 1**; juntos, este problema es indetectable.
+4. ⚠️ **Meta optimiza por conversaciones baratas, no por registros.** Puede bajar el costo
+   por conversación de US$1,50 a US$0,60 mientras hunde conv→registro de 30% a 10%: el CAC
+   sube de $83 a $100 **y el dashboard dice que mejoró**. La corrección es mandar el evento
+   de registro (y el de pago) por Conversions API. MaKo ya tiene la integración con Meta y
+   los webhooks: es cableado, no arquitectura.
+
+### El número que decide todo, y que no publica nadie
+
+De los cuatro eslabones de la cadena, tres tienen benchmark público y uno no:
+
+| Eslabón | ¿Hay dato? |
+|---|---|
+| Costo por conversación | Sí — reconstruido desde el CPM, ver abajo |
+| Costo de mensajería | Sí, y es **cero** (ventana de 72h) |
+| free → pago | Sí — mediana 8%, freemium bueno 3-5% |
+| **conversación → registro** | **NO EXISTE dato público.** Verificado |
+
+Y es la variable de mayor apalancamiento: con free→pago del 6%, si conv→registro es 20% el
+CAC es $125 (falla) y si es 40% es $63 (entra en los dos techos). **El mismo gasto
+publicitario, el doble de resultado, y la diferencia está entera en el guion del chatbot** —
+que es el único eslabón que MaKo controla al 100%. Umbrales exactos a US$1,50/conversación
+con free→pago 6%: **≥24% para CAC ≤$104, ≥47% para CAC ≤$53**.
+
+⚠️ **El costo por conversación: US$1,50, no US$0,40.** Lo que circula para LATAM
+(€0,20-0,60) es de moda, belleza y alimentos con audiencias amplias, sin muestra ni
+metodología. No existe dato público para audiencia B2B hispanohablante. Reconstruido desde
+el CPM, que sí es auditable: audiencia amplia México da US$0,30-0,50 (coincide con lo
+publicado, lo que valida el método), pero **audiencia B2B estrecha sube el CPM a
+US$10-14 y baja el CTR: US$1,10-2,30 por conversación**. Banda de planificación
+US$0,80-2,50, base **US$1,50**. Usar US$0,40 sería un error de 4x.
+
+### Claims que NO deben entrar a la proyección
+
+Aparecen repetidos en toda la web de vendors de WhatsApp y son justamente los que harían
+que este negocio cerrara trivialmente:
+
+- «92% menos costo por lead y 94% más conversión que una landing» → estudio de Forrester
+  **encargado por Meta**. Material del vendedor.
+- «CTWA convierte 10-20% de los clics en ventas» → un orden de magnitud fuera de cualquier
+  cosa medida en SaaS, sin fuente primaria.
+- «Los chatbots de WhatsApp convierten 28% de los leads», «comercio conversacional 45-60%»
+  → sin metodología, sin muestra, y midiendo compra de ecommerce, no alta en un SaaS.
+- Toda la familia de «benchmarks 2026» con cifras sospechosamente precisas (opt-out retiene
+  28,4%, reverse trial convierte 38,4%): páginas generadas para SEO, se contradicen entre
+  sí y contradicen al estudio de 200 productos que sí tiene metodología.
+
+**Y los benchmarks de CAC en USD son de mercado estadounidense.** El ajuste a LATAM no es
+dividir todo por el ratio de CPM: la ventaja de medios **sí** se traslada (EE.UU. US$23,00
+de CPM contra México US$4,50, más de 5x), pero las tasas de conversión de landing y de
+free→pago **no mejoran** por estar en LATAM —si acaso empeoran, porque US$47/mes pesa más
+sobre el ingreso local— y la fricción de cobro es **peor**. MaKo hereda la ventaja de costo
+y también las desventajas. El neto sigue siendo favorable, pero un cálculo que solo aplique
+el descuento de CPM sobreestima.
+
+### Lo que hay que medir con dinero propio
+
+Cuatro datos que **no existen públicamente** — verificado. Los cuatro se resuelven con
+US$300-500 de gasto real en México y Colombia (los CPM más baratos con poder de compra en
+USD: MX US$4,50, CO US$4,00; evitar España, casi el doble):
+
+1. Costo por conversación CTWA para audiencia B2B en LATAM hispanohablante.
+2. Conversación → registro vía chatbot.
+3. Free → pago segmentado por origen WhatsApp.
+4. CAC de un SaaS de US$47-97 vendido en LATAM. No hay benchmark. Ninguno.
+
+Dos semanas de gasto real valen más que cualquier benchmark ajeno. **Instrumentar
+conversación→registro ANTES de gastar el primer dólar**, con el link de alta trackeado por
+conversación, y testear 2-3 guiones de chatbot en paralelo desde el día 1.
 
 ---
 

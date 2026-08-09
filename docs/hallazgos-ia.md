@@ -26,6 +26,10 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   cliente: las dos cosas bloquean cualquier límite por plan →
   [Gasto y saldo](#gasto-y-saldo). El análisis completo, con los números reales de
   producción, está en [costos-ia-y-planes.md](costos-ia-y-planes.md).
+- **El precio que publica un revendedor de modelos es propaganda hasta que se recalcula
+  contra el fabricante**, y sus términos de reventa son la otra mitad del dato: APImart
+  prohíbe por escrito facturar encima y Kie.ai no dice nada, que no es lo mismo que
+  permitir → [Comprar modelos](#comprar-modelos-revendedores-mercados-y-precios-de-terceros).
 
 Dos advertencias sobre el origen de este material. **Buena parte es de segunda mano:** sale
 de lo que devolvieron los subagentes de las 261 corridas de junio-agosto 2026 (de las que
@@ -396,6 +400,207 @@ está**: es un nombre de persona, y convertir el nombre de alguien en el de la m
 que dejar un «Maco» suelto.
 
 **Vive en:** lib/mako-gramatica.ts (`corregirMarca`, `REGLA_MARCA`) · lib/ai-cheap.ts (`transcribirAudio`) · lib/plan-propuesta.ts (`limpiarTarea`) · *2026-08-08*
+
+---
+
+## Comprar modelos: revendedores, mercados y precios de terceros
+
+Nada de esto está implementado todavía. Es lo que hay que saber **antes** de meter un
+proveedor nuevo en `lib/model-catalogo.ts` o de proyectar el costo de una feature que
+genera imagen, video o voz. Salió de la corrida `pricing-paso-1-con-que-ia`
+(*2026-08-09*, 4 agentes), que fue a leer las páginas de precios y **los términos** de
+Kie.ai, APImart, fal.ai, Replicate, Groq, DeepSeek, Z.ai y Google.
+
+### ⚠️ El «precio oficial» que declara un revendedor no es un dato: es un número derivado del suyo
+
+APImart publica una columna «OFFICIAL PRICE» al lado de la suya. En las ~200 filas que se
+revisaron, esa columna es **exactamente su propio precio × 1,25**. Siempre 20% de
+descuento, en todos los modelos, de todos los proveedores. No es el precio de nadie: es
+una referencia fabricada para que el descuento se vea. Dicen que el oficial de Veo 3.1
+Fast 720p es US$0,08/seg cuando Google cobra US$0,10.
+
+Kie.ai es menos mecánico —sus descuentos varían de 16% a 95%, o sea que la columna no está
+generada— pero también infla: declara «oficial US$1,20» para Veo 3.1 Fast 720p cuando
+Google cobra US$0,80 por esos 8 segundos. En Veo Quality 1080p, en cambio, su «US$3,20
+oficial» **sí** coincide. O sea: no se puede confiar ni desconfiar en bloque, hay que
+recalcular fila por fila.
+
+**Regla:** el ahorro de un revendedor se calcula **siempre** contra
+`ai.google.dev/gemini-api/docs/pricing` y `developers.openai.com/api/docs/pricing`, nunca
+contra la columna del propio revendedor.
+
+**Vive en:** todavía en ningún archivo — aplica al agregar cualquier proveedor a
+`lib/model-catalogo.ts` · *2026-08-09 pricing-paso-1*
+
+### ⚠️ Un número que viene de un curso no es un dato: el «Sora a US$0,15 por 15s» está roto por 8x
+
+El material de AVATARHYPE (los cursos que ya están en `/conocimiento`) enseña a comprar
+Sora en Kie.ai a **US$0,15 por 15 segundos** = US$0,01/segundo. Verificado el 9/8/2026:
+
+- **Kie.ai hoy no vende Sora.** Buscar «sora» en sus 408 ítems de precio devuelve
+  *«No pricing data found»*.
+- US$0,01/seg es **10x por debajo** de la API oficial de OpenAI (US$0,10/seg) y **5x por
+  debajo** de su modo batch (US$0,05/seg). Nunca fue un precio sostenible.
+- El único Sora comprable en estos mercados es el de **APImart a US$0,08/seg = US$1,20 por
+  15 segundos**: **ocho veces** lo que dice el curso.
+
+El dato circuló dos veces sin verificarse —primero en el curso, después en un mensaje al
+dueño— y en las dos ocasiones sonaba bien porque venía de una fuente propia. Es el mismo
+patrón que el CAC de US$666 que se coló en la tab de pricing desde un benchmark de SDR
+que el propio agente había marcado como «sin muestra publicada».
+
+**Regla:** un precio sacado de un curso, un blog o un benchmark **no entra a una
+proyección sin abrir la página de precios del fabricante ese día**. Los cursos avisan
+ellos mismos que «el mundo de la IA cambia todo el tiempo»; el que los cita es el
+responsable de la fecha.
+
+**Vive en:** app/admin/dev/pricing/modelo.ts (todo número ahí declara su origen:
+`medido` | `publicado` | `supuesto` — este caso es por qué existe ese campo) ·
+*2026-08-09 pricing-paso-1*
+
+### ⚠️ Los términos de reventa son parte del precio, y son lo único que nadie publica de frente
+
+Se leyeron los cuatro contratos. Esto es lo que dicen, textual:
+
+| Proveedor | ¿Se puede construir un SaaS que cobra encima? |
+|---|---|
+| **APImart** | **PROHIBIDO.** ToS (act. 2026-08-06) §4: *«Resell, redistribute, or white-label our API services without explicit authorization»*. Opera 杭州唤智网络科技有限公司, ley de China, tribunales de Hangzhou. Reclamo práctico desde LatAm: ninguno |
+| **Kie.ai** | **NO DICE NADA.** Sus Terms (vig. 2025-08-01) no mencionan derechos sobre el output, ni uso comercial, ni reventa, ni que apliquen los términos de los proveedores upstream. **Un vacío contractual no es un permiso** |
+| **fal.ai** | **PERMITIDO Y CONTEMPLADO.** Define «Customer Solution» y otorga derecho a *«allow End Users to access and use the Services through the Customer Solution»* — que es exactamente la forma de MaKo. Única restricción: no exponer la API cruda al cliente final |
+| **Replicate** | **PERMITIDO, INCLUSO PARA VENDER EL OUTPUT:** *«grants to you all right, title and interest… including your use of Output for commercial purposes such as sale or publication, subject to any Third Party Terms»*. Ojo con esa última cláusula: Ideogram, por ejemplo, prohíbe usar su output para construir un competidor |
+
+Y una nota aparte: **Freepik API es el único del lote que ofrece indemnización legal**
+(plan Business). Si algún día preocupa que un cliente reciba un reclamo por un creativo
+generado, es el único que pone la firma.
+
+**Regla:** antes de agregar un proveedor a la cascada, se leen sus términos de reventa. El
+precio por token es la mitad del dato; la otra mitad es si se puede facturar encima.
+
+**Vive en:** lib/ai-cheap.ts (la cascada) · lib/model-catalogo.ts · *2026-08-09 pricing-paso-1*
+
+### El descuento uniforme es la firma de un canal gris, no de un acuerdo
+
+Cuando el descuento supera lo que cualquier programa de reventa podría dar, no es
+negociación: es otro canal. Las banderas concretas:
+
+- Kie vende **todos** los modelos GPT a **exactamente −72%** y Gemini 3.1 Pro a −75%. Un
+  descuento uniforme y redondo sobre una familia entera no sale de un acuerdo.
+- Kie vende Runway 5s/720p a US$0,06 cuando la API oficial cuesta US$0,25 por esos mismos
+  5 segundos (−76%), y ni declara precio oficial: pone N/A. **Vender por debajo del costo
+  del proveedor solo se explica automatizando cuentas de consumidor.**
+- Los dos venden **Midjourney, que no tiene API pública en 2026**. Toda «API de
+  Midjourney» automatiza Discord o la web y viola sus términos. APImart lista 75 variantes;
+  Kie ya no la lista (se reporta, sin fuente primaria, que la retiró cuando Midjourney se
+  lo exigió — que es exactamente el escenario de «desaparece de un día para el otro»).
+
+**Mérito para APImart:** es el único que separa los canales por nombre. Los endpoints
+`-OFFICIAL` son pass-through al proveedor real; los `-EXT` son su canal propio y son los
+baratos. Construir solo contra `-OFFICIAL` compra casi toda la seguridad a cambio de casi
+todo el descuento.
+
+**Dónde sí hay ahorro creíble** (20-65%, el que se puede meter en una proyección):
+imagen 50-67% (APImart Nano Banana 2 EXT US$0,015/img, Z-Image-Turbo US$0,01/img; Kie Nano
+Banana US$0,02/img); **Veo 3.1 Lite 720p en Kie a US$0,15 el clip de 8s** contra US$0,40
+oficial (−62%); voz ElevenLabs multilingual v2 a US$0,06/1.000 chars (−40%).
+
+**Arquitectura recomendada:** fal.ai o Replicate como camino principal (términos que sí
+contemplan un SaaS), y Kie/APImart como capa barata **opcional** detrás de un router con
+failover, solo en los modelos donde el descuento es creíble (Kling, Seedream, Wan, Flux,
+ElevenLabs: 17-40%) y **nunca** en los que gritan canal gris (Runway, GPT, Gemini,
+Midjourney, GPT-Image).
+
+**Vive en:** lib/ai-cheap.ts (`chatCheapCascade` es el molde del router) · *2026-08-09 pricing-paso-1*
+
+### ⚠️ Tres trampas de tesorería que no están en la tabla de precios
+
+1. **Kie borra el media generado a los 14 días.** Si MaKo genera un creativo y guarda la
+   URL de Kie en vez de los bytes, el creativo desaparece del historial del cliente sin que
+   nada avise. Hay que copiar a storage propio en la misma pasada.
+2. **APImart §6 se reserva ajustar cuántos créditos cuesta cada modelo «dynamically based
+   on the model, the upstream provider channel, or operating costs».** Pueden subir el
+   precio de un día para el otro, sin aviso. Un modelo de MaKo Tokens con margen fijo no se
+   puede apoyar en eso sin colchón.
+3. **Los créditos de fal.ai vencen a los 365 días** (los promocionales a los 90) y **no son
+   reembolsables**. Es plata atrapada: no cargar más de lo que se consume en un año.
+   Replicate es el único con pospago por consumo.
+
+Y el contrato le gana al marketing: la doc de APImart vende «99.9% uptime guarantee», pero
+su §8 dice *«we do not guarantee that our services will be available at all times»* y no
+define ningún crédito por incumplimiento. Kie lo admite en su propia doc: *«Our overall
+stability may be slightly lower than official providers»*.
+
+**Vive en:** todavía en ningún archivo · *2026-08-09 pricing-paso-1*
+
+### ⚠️ El precio no es del modelo: es del reasoning effort
+
+Artificial Analysis lista **el mismo** DeepSeek V4-Flash con Intelligence Index **30**
+(default), **40** (medio) y **52** (max). El precio por token no cambia; los tokens
+consumidos sí, y mucho. **Cualquier proyección que use «índice 52» y «el precio de la
+tabla» al mismo tiempo está subestimando el costo.**
+
+Esto muerde por partida doble acá, porque ya está documentado que el `effort` se perdía en
+Gemini y que un `reasoning_effort: 'minimal'` hardcodeado mataba el override
+(ver [Topes](#topes) y el hallazgo del effort en Gemini). O sea: en MaKo el effort no es
+solo un parámetro de calidad, es **el multiplicador del costo que hoy no se registra en
+ningún lado**.
+
+**Vive en:** lib/ai-cheap.ts (`effort`) · lib/anthropic-usage.ts (`cost_usd`, que no lo
+mira) · *2026-08-09 pricing-paso-1*
+
+### ⚠️ En tool-use agéntico ningún modelo barato pasa el 27%
+
+Dato crudo de tau3-Banking (Sierra / Artificial Analysis): **el techo lo tiene GLM-5.2 con
+27%**. No es que los baratos anden mal — es que **nadie** anda bien en flujos agénticos
+multi-turno sobre un dominio real.
+
+Ranking por evidencia independiente (no por lo que dice el fabricante):
+**Qwen3.7-Max** lidera el Berkeley Function Calling Leaderboard v4 con 0,750 (13 modelos,
+media 0,6, jul-2026) — la mejor señal de tool-use de un tercero que existe hoy. **GLM-4.5**
+(77,8%) y **GLM-4.5-Air** (76,4%) fueron 1º y 2º de BFCL v3. **DeepSeek V4 Flash/Pro** son
+1º y 2º de tau3-Banking.
+
+Y los que **no** deben recibir tool-use multi-paso: gpt-oss-20b (índice 15), Llama 3.1 8B,
+Amazon Nova Micro (índice 4) y Nova 2 Lite (índice 12). Ahí es donde se cumple lo que ya
+sabemos: 20x más barato, pero falla y sale más caro.
+
+**Consecuencia de diseño:** el doer de MaKo sobre un modelo barato necesita **verificación
+determinista arriba**, no confianza. Es la misma regla de las dos capas que gobierna las
+preguntas del Perro.
+
+**Vive en:** lib/mako-doer-acciones.ts · lib/chat-claude-tools.ts · *2026-08-09 pricing-paso-1*
+
+### Qué modelo barato va en cada tarea (agosto 2026)
+
+Recomendación de la corrida, con el precio **confirmado contra la página del fabricante**
+salvo donde se aclara:
+
+| Tarea | Modelo | US$/M in · out | Por qué |
+|---|---|---|---|
+| Analizar llamadas (juicio, poco volumen, error caro) | **gpt-5.6-luna** | 0,20 · 1,20 | AA Index 51-52, el mismo nivel que Gemini 3.6 Flash que cuesta **7,5x** más en entrada. Con caché a US$0,02/M el system prompt del Closing se paga solo |
+| Extraer tareas de una reunión larga | **Qwen3.7-Flash** | 0,03 · 0,13 | 1M de contexto: **mete el transcript entero sin trocear**, que es el problema que ya costó tiempo (ver [Topes](#topes)). ⚠️ **Cero benchmarks independientes de este modelo** — hay que probarlo contra casos reales antes de producción |
+| Ídem, pero verificado | DeepSeek V4-Flash | 0,14 · 0,28 | También 1M de contexto, salida máx. 384K, y sí tiene benchmarks |
+| Copy con voz de marca | **Kimi K2.6** | 0,95 · 4,00 | Acá el benchmark correcto **no** es el Intelligence Index sino LMArena (preferencia humana ciega, 386 modelos, 7,6M de votos): 1461, el más alto de los baratos |
+| Clasificar contra una rúbrica | **GLM-4.7-Flash** | **gratis** | Confirmado en la tabla oficial de Z.ai. Contexto 200K, function calling declarado |
+| Chatbot de WhatsApp (manda la latencia) | gpt-oss-120b en Groq | 0,15 · 0,60 | ~500 tok/s. Su índice es **24**: es rápido, no inteligente |
+
+**Cuatro advertencias sobre esta tabla:**
+
+1. **DeepSeek avisó que va a subir precios.** Texto literal en su página oficial: planean
+   subir el precio general *«in the near future, with a significant increase expected»*. No
+   armar el modelo de costos sobre US$0,14/US$0,28 sin plan B.
+2. **Cerebras no es cotizable:** su página no publica precio por token (solo Free Trial /
+   Developer / Enterprise a medida) y sus planes Code figuran agotados. Para una proyección
+   financiera, afuera.
+3. **Groq no publica su tabla de forma legible** (JS). Lo confirmado sale de
+   `console.groq.com/docs/models`. Y el catálogo se mueve: el 21/7/2026 sacaron Llama 4
+   Scout y Qwen3 32B.
+4. **Cuando un leaderboard y el fabricante no coinciden, gana el fabricante.** LMArena
+   lista Gemini 3.5 Flash-Lite a US$0,15/US$1,25 cuando Google dice US$0,30/US$2,50.
+
+**Tiers gratis confirmados:** GLM-4.7-Flash y GLM-4.5-Flash (entrada **y** salida, tabla
+oficial de Z.ai); todas las variantes Flash y Flash-Lite de Gemini; Groq con rate limits.
+
+**Vive en:** lib/model-catalogo.ts · lib/ai-cheap.ts · *2026-08-09 pricing-paso-1*
 
 ## Prompts
 

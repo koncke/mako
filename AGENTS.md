@@ -202,6 +202,27 @@ Y para saber qué modelo corre **de verdad** una feature, el catálogo solo no a
 es `override del ws1 ?? def del catálogo`. Los overrides están en `app_settings` con
 `key='mako.modelos'`, siempre del workspace 1.
 
+# El precio de un proveedor no es un dato hasta que lo verificás vos
+
+Antes de meter un modelo o un proveedor nuevo en `lib/model-catalogo.ts`, tres chequeos.
+Ninguno es opcional y los tres ya fallaron una vez:
+
+1. **Recalculá el precio contra la página del FABRICANTE, ese día.** La columna «precio
+   oficial» que publica un revendedor es propaganda: la de APImart es, en las ~200 filas
+   revisadas, exactamente su propio precio × 1,25. Y un número sacado de un curso, un blog
+   o un benchmark tampoco es un precio — el curso de la casa enseña a comprar Sora a
+   US$0,15 por 15s y hoy eso está roto por un factor de **8**.
+2. **Leé sus términos de reventa.** Es la otra mitad del dato y es lo único que nadie
+   publica de frente. APImart **prohíbe** por escrito facturar encima sin autorización;
+   Kie.ai **no dice nada**, que no es lo mismo que permitir; fal.ai y Replicate lo
+   contemplan explícitamente. Un SaaS que cobra no se para sobre un vacío contractual.
+3. **Desconfiá del descuento redondo.** Un −72% uniforme sobre toda una familia de modelos
+   no sale de un acuerdo de reventa: sale de un intermediario que puede desaparecer de un
+   día para el otro. 20-40% variando por modelo es creíble; 75-86% parejo, no.
+
+El detalle, con las citas textuales de cada contrato y la tabla de qué modelo barato va en
+cada tarea, en [docs/hallazgos-ia.md](docs/hallazgos-ia.md) → «Comprar modelos».
+
 # Claude es el ÚLTIMO recurso, no el segundo
 
 Cuando una feature está ruteada a IA barata en `/modelos-ia` y el proveedor falla, se

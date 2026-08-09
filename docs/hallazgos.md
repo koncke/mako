@@ -37,7 +37,7 @@ antes que todo lo demás:
 | [conectores.md](conectores.md) | Qué conectores tiene la cuenta de Claude, cuáles se usan de verdad y en qué orden conectarlos al cambiar de cuenta |
 | [chats.md](chats.md) | Las 48 sesiones de trabajo: qué se hizo en cada una, qué quedó pendiente y dónde hubo fricción |
 | [corridas-multiagente.md](corridas-multiagente.md) | El registro de las 260 corridas de workflow: qué se fue a buscar en cada una y si dejó algo escrito |
-| [costos-ia-y-planes.md](costos-ia-y-planes.md) | Cuánto cuesta la IA de verdad, medido en producción: costo por acción, qué se dispara solo, los cuatro bloqueantes del medidor y el diseño de los MaKo Tokens. Se lee antes de tocar precios, cuotas o el plan Free |
+| [costos-ia-y-planes.md](costos-ia-y-planes.md) | Cuánto cuesta la IA de verdad, medido en producción: costo por acción, qué se dispara solo, los cuatro bloqueantes del medidor y el diseño de los MaKo Tokens. Más la mecánica del plan gratis (por qué el tope de tokens no alcanza) y el CAC real de los dos canales de venta. Se lee antes de tocar precios, cuotas o el plan Free |
 
 Documentos que todavía no existen y hay que crear cuando aparezca el primer hallazgo:
 `hallazgos-email.md`, si lo de Resend crece lo suficiente como para salir de
