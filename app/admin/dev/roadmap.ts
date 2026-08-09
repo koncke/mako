@@ -12,7 +12,8 @@
 // hay una tarea específica que pidió Mauricio».
 
 import 'server-only';
-import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb } from '@/lib/workspace';
+import { enPlan } from '@/lib/plan-board';
 import { AREAS, type AreaDev, type EstadoArea } from './areas';
 
 export type TareaRoadmap = {
@@ -69,13 +70,15 @@ let cache: { at: number; filas: TareaRoadmap[] } | null = null;
  * una: sin esto era una consulta por área. El TTL corto alcanza — es una pantalla
  * de construcción, no el tablero.
  *
- * ⚠️ El tablero del dueño vive en el workspace del dueño, no en el del super admin
- * que está mirando. Va con `runWithWorkspace(OWNER_WS)` explícito, igual que el
- * resto de `lib/plan-board.ts`.
+ * ⚠️ El workspace lo resuelve `enPlan`, y NO es `OWNER_WS`. El board `/plan` es el
+ * roadmap del SUPER-ADMIN y vive en el workspace de él; `OWNER_WS` quedó solo de red
+ * para contextos sin request (cron, boot). Escribirlo al revés no rompe nada: la
+ * consulta devuelve vacío y las 121 áreas se pintan «Cerrado» con cero tareas. Pasó
+ * en la primera versión de este archivo, por eso `enPlan` ahora se exporta.
  */
 async function tareasAbiertas(): Promise<TareaRoadmap[]> {
   if (cache && Date.now() - cache.at < 30_000) return cache.filas;
-  const filas = await runWithWorkspace(OWNER_WS, async () => {
+  const filas = await enPlan(async () => {
     const db = await getTenantDb();
     const [{ data: proys }, { data: tareas }] = await Promise.all([
       db.from('plan_proyectos').select('id, name'),

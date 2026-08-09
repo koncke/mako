@@ -23,7 +23,11 @@ type Row = Record<string, unknown>;
 // forzaba OWNER_WS porque el admin no tenía espacio propio y caía al del dueño; ahora
 // que lo tiene, usamos el workspace del request (web: el suyo; doer: el del grupo).
 // OWNER_WS queda solo de red para contextos sin workspace (cron/boot).
-const enPlan = async <T,>(fn: () => Promise<T>): Promise<T> =>
+// Se EXPORTA porque la regla es fácil de escribir al revés y ya pasó: el Roadmap
+// de /admin/dev arrancó con `runWithWorkspace(OWNER_WS)` copiado de memoria, y las
+// 121 áreas se pintaron «Cerrado» con cero tareas — leía el workspace equivocado y
+// no fallaba, devolvía vacío. Quien necesite leer el board del dueño usa esto.
+export const enPlan = async <T,>(fn: () => Promise<T>): Promise<T> =>
   runWithWorkspace((await getWorkspaceActual()) ?? OWNER_WS, fn);
 
 // id string estable para tareas/proyectos nuevos (el board usa ids de texto).
