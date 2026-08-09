@@ -394,6 +394,72 @@ por distancia. Hoy acá no muerde porque durante el arrastre el resaltado es el 
 arrastrado (el mismo `dragNode || highlightNode` de Obsidian), pero cualquier movimiento
 autónomo que se agregue lo despierta.
 
+### `forceCollide` cachea los radios: el radio de arrastre nunca existió
+
+**Vive en:** `app/second-brain/fisica.ts` · **Se prueba con:** `scripts/probar-solape.mjs`
+
+**Síntoma.** El dueño: «al arrastrar un nodo incluso puedo solaparlo con otro, eso no
+debería pasar». Y era literal: medido con Playwright, arrastrando el nodo más conectado
+del ws 11 a través del mapa, los círculos llegaban a pisarse **5,9 px**.
+
+**El diagnóstico obvio era el equivocado.** Todo apuntaba a que la colisión era
+demasiado blanda (`strength 0.7`) o a que el nodo iba clavado con `fx/fy` y por eso la
+fuerza no podía correrlo. Las dos lecturas son ciertas *en abstracto* y las dos llevan a
+tocar lo que no era: subir la fuerza a 1 tensa el reposo (el pad de 8 ya está contra su
+techo, ver más arriba) y cambiar el clavado por un resorte hace que el nodo arrastrado
+se quede atrás del cursor.
+
+**Causa real.** `forceCollide` **no evalúa el radio por tick**. Lo calcula una sola vez,
+en su `initialize()`, y lo guarda en un array
+(`node_modules/d3-force/src/collide.js:74`). Ese `initialize()` corre cuando la fuerza se
+registra en la simulación — momento en el que `agarrado` vale `null`. O sea que el
+accessor
+
+```ts
+(d) => (d === agarrado ? FISICA.colisionRadioArrastre : d.r + FISICA.colisionPad)
+```
+
+se resolvía **una vez y para siempre por la rama normal**. `colisionRadioArrastre: 380`
+—la constante que existe justamente para que «el mapa se abra a su paso»— **nunca se
+aplicó una sola vez**. El nodo arrastrado empujaba con radio 8, como cualquier otro.
+
+Lo peor del caso: la constante estaba ahí, documentada, con su comentario explicando por
+qué vale 380. Leer el código daba la impresión de que el comportamiento existía.
+
+**Arreglo.** Llamar a `.radius()` con el mismo accessor vuelve a correr `initialize()`
+(línea 96 del mismo archivo). Es API pública y es el único gancho que hay. Se llama al
+agarrar y al soltar.
+
+**Medido, mismo escenario:** hueco mínimo entre bordes de **−5,9 px** (solape) a
+**+89,9 px**. Con el radio vivo, el clavado con `fx/fy` es lo correcto y no hay que
+tocarlo: d3 reparte la corrección **por el cuadrado de los radios**, así que con 380
+contra 18 el vecino se lleva el 99,8% del empujón y el arrastrado no se frena.
+
+**La regla que queda, y aplica a `manyBody`, `link` y `radial` igual:** **un accessor de
+d3-force que dependa de estado que cambia no se recalcula solo.** Si el valor tiene que
+cambiar durante la vida de la simulación, hay que re-inicializar la fuerza a mano. Un
+accessor que lee una variable mutable *parece* reactivo y no lo es — y falla en silencio,
+por la rama que estaba activa cuando se registró.
+
+### Dos trampas de medición de este grafo, que dan números falsos
+
+Las dos hacen que una prueba honesta reporte un defecto que no existe:
+
+1. **Medir antes de que termine la entrada.** Los nodos entran con retardos escalonados
+   de hasta 700 ms. Leer la posición «inicial» apenas aparece el SVG captura un fotograma
+   de la animación, no la casa del nodo, y toda esa diferencia reaparece después como
+   «deriva al soltar». En la misma corrida: 15,6 px de deriva midiendo temprano contra
+   14,0 esperando a que asiente, y el hueco mínimo saltó de 46,8 a 89,9.
+2. **La deriva al soltar NUNCA da cero, y no tiene que dar cero.** Los nodos **flotan**
+   con 16 unidades de amplitud, que a la escala del encuadre son ~10 px. Un ~14 es el
+   flote. Lo que habría que mirar es un 100+.
+
+Y una tercera, para tocar el DOM del grafo desde una prueba: el primer `<circle>` de
+`.cbg-cuerpo` es el **área de toque transparente** y es más grande que el nodo. Medir con
+ese da solapes que no se ven. El que se dibuja es el segundo. El id sale de
+`data-nodo`, que existe solo para esto: las clases son todas iguales y la posición la
+reescribe el rAF, así que sin él no hay forma de seguir a UN nodo entre dos frames.
+
 ## El vault: el segundo cerebro como carpetas y archivos
 
 ### El veredicto del modelo: proyección y exportación, NO almacenamiento

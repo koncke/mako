@@ -506,6 +506,11 @@ export function Grafo({ cerebro }: { cerebro: Cerebro }) {
                     key={n.id}
                     ref={(el) => { nodoRefs.current.set(n.id, el); }}
                     className={`cbg-nodo${esSel ? ' cbg-sel' : ''}`}
+                    // Enganche de las pruebas (scripts/probar-solape.mjs). El id no se
+                    // puede sacar del DOM de otra forma: las clases son todas iguales y
+                    // la posición la reescribe el rAF, así que sin esto no hay manera de
+                    // seguir a UN nodo entre dos frames.
+                    data-nodo={n.id}
                     transform={`translate(${p.x} ${p.y})`}
                     onMouseEnter={() => setActivo(n.id)}
                     onMouseLeave={() => setActivo(null)}

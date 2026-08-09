@@ -108,8 +108,23 @@ export async function crearSimulacion(
 
   let agarrado: NodoFisico | null = null;
 
+  const radioDe = (d: NodoFisico) => (d === agarrado ? FISICA.colisionRadioArrastre : d.r + FISICA.colisionPad);
+  const colision = forceCollide<NodoFisico>(radioDe).strength(FISICA.colisionFuerza).iterations(FISICA.colisionIter);
+
+  // ⚠️ EL RADIO DE COLISIÓN NO SE RECALCULA SOLO, Y ESE ERA EL BUG DEL SOLAPE.
+  // `forceCollide` guarda los radios en un array UNA sola vez, adentro de su
+  // `initialize()`, que d3 corre cuando la fuerza se registra en la simulación
+  // (node_modules/d3-force/src/collide.js:74). En ese momento `agarrado` vale null, así
+  // que el ternario de arriba se evalúa una vez y para siempre por el lado normal: el
+  // nodo que estabas arrastrando tenía radio 8, no 380, y podías pasarlo por encima de
+  // cualquier otro. El síntoma se veía como «la colisión es débil»; la causa era que la
+  // colisión del arrastre NO EXISTÍA.
+  // Llamar a `.radius()` con el mismo accessor vuelve a correr `initialize()` (línea 96
+  // del mismo archivo). Es API pública y es el único gancho que hay para esto.
+  const recalcularRadios = () => { colision.radius(radioDe); };
+
   const sim = forceSimulation<NodoFisico>(nodos)
-    .force('colision', forceCollide<NodoFisico>((d) => (d === agarrado ? FISICA.colisionRadioArrastre : d.r + FISICA.colisionPad)).strength(FISICA.colisionFuerza).iterations(FISICA.colisionIter))
+    .force('colision', colision)
     .force('casaX', forceX<NodoFisico>((d) => d.casaX).strength(FISICA.casaFuerza))
     .force('casaY', forceY<NodoFisico>((d) => d.casaY).strength(FISICA.casaFuerza))
     .stop();
@@ -159,7 +174,13 @@ export async function crearSimulacion(
       if (!n) return;
       agarrado = n;
       desfase = { x: n.x - x, y: n.y - y };
+      // El nodo va CLAVADO al cursor, no atado con un resorte. Podría parecer que un
+      // resorte es mejor —así la colisión también lo frenaría a él—, pero con radio 380
+      // el rebote de cada vecino lo dejaría metros atrás del cursor. Clavado, la
+      // repartija de d3 le da al vecino el 99,8% de la corrección (el reparto va por el
+      // cuadrado de los radios), que es justo lo que se quiere: el mapa se abre.
       n.fx = n.x; n.fy = n.y;
+      recalcularRadios();
       sim.alpha(0.35);
       despertar();
     },
@@ -171,11 +192,15 @@ export async function crearSimulacion(
     },
     soltar() {
       if (!agarrado) return;
-      // fx/fy a null: el nodo NO queda clavado donde lo soltaste, vuelve a su casa.
-      // Es lo que hace Obsidian, y es lo correcto acá: la posición SIGNIFICA algo (la
-      // calculó el servidor con la topología), así que dejarla movida sería mentir.
+      // fx/fy a null: el nodo NO queda clavado donde lo soltaste, vuelve a su casa. Es
+      // lo que hace Obsidian, y acá es más importante todavía porque la posición
+      // SIGNIFICA algo —la calculó el servidor con la topología—, así que dejarla
+      // movida sería mentir.
       agarrado.fx = null; agarrado.fy = null;
       agarrado = null;
+      // Vuelve al radio chico. Sin esto el nodo se queda con un radio de 380 para
+      // siempre y empuja a medio mapa desde su casa.
+      recalcularRadios();
       sim.alpha(0.3);
       despertar();
     },
