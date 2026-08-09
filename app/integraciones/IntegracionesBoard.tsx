@@ -25,6 +25,7 @@ import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible, ordenIA
 import type { CuotaProv } from '@/lib/ia-cuotas';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { TutorialAgente, CODE } from '../_components/TutorialAgente';
+import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import ServicioConfigForm from './ServicioConfigForm';
 import { getGoogleCalendarStatusAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
@@ -660,21 +661,6 @@ function ProblemasHistorial({ incidentes, nombreDe }: { incidentes: Incidente[];
 // scrollear adentro. Va con overflow:hidden para que el contenido no se escape
 // por las esquinas redondeadas. Sin `h` el modal se comporta como siempre (lo
 // usa OperacionesModal) y el que scrollea es el overlay.
-function ModalShell({ w, h, label, onClose, children }: { w: number; h?: number | string; label: string; onClose: () => void; children: ReactNode }) {
-  // Bloquea el scroll del fondo mientras el modal está abierto (como el diseño).
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, []);
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,22,27,.5)', display: 'flex', alignItems: h ? 'center' : 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto', animation: 'mkFade .16s ease' }}>
-      <div role="dialog" aria-modal="true" aria-label={label} onClick={(e) => e.stopPropagation()} style={{ width: w, maxWidth: '100%', height: h, overflow: h ? 'hidden' : undefined, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 24px 60px rgba(20,22,27,.24)', animation: 'mkPop .2s cubic-bezier(.2,.7,.3,1)' }}>
-        {children}
-      </div>
-    </div>
-  );
-}
 const closeBtn: CSSProperties = { flex: 'none', width: 30, height: 30, border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', lineHeight: 1 };
 
 // ── Landing: código copiable en vez de form de credenciales ───────────────────

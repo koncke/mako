@@ -12,7 +12,6 @@
 // pero conviene montarlo una sola vez arriba del árbol.
 // =============================================================================
 
-import { GuardianIcon } from '../plan/board/GuardianIcon';
 
 // ── Iconos de marca por servicio (color de fondo + símbolo SVG) ──────────────
 // REGLA: acá solo van logos OFICIALES, copiados tal cual de la fuente de la marca
@@ -45,11 +44,12 @@ export const ICON: Record<string, IconDef> = {
   // GitHub: el mark oficial en blanco sobre su negro de marca (#181717).
   github: { sym: 'ic-github', bg: '#181717' },
   landing: { sym: 'ic-landing', bg: '#7C5CFF' },
-  // Agente (Claude Code): no es una marca externa — es el Perro Guardián de MaKo.
-  // Tile neutro con borde (como google/panda) para que el escudo dorado + el perro
-  // (var(--accent) / var(--ink)) se lean en claro y en oscuro. El SVG lo dibuja
-  // SvcIcon con <GuardianIcon>, no por <symbol>.
-  agente: { bg: 'var(--surface-2)', bd: '1px solid var(--border-strong)' },
+  // Agente: la integración ES Claude Code, así que lleva el logo de Anthropic, que ya
+  // vive en `BrandDefs` como `ic-anthropic`. Antes dibujaba el escudo del Perro Guardián
+  // por un `if` escondido adentro de `SvcIcon` que pisaba este catálogo — el Perro es de
+  // MaKo, la integración es de Anthropic, y el tile de una integración lleva la marca de
+  // con quién te estás conectando.
+  agente: { sym: 'ic-anthropic', bg: '#181818' },
 };
 export const iconFor = (k: string): IconDef => ICON[k] ?? { sym: 'ic-supabase', bg: '#1F2937' };
 
@@ -59,11 +59,15 @@ export function SvcIcon({ k, size = 21, box = 34, radius = 9 }: { k: string; siz
     // Decorativo: el nombre del servicio SIEMPRE va al lado. Sin esto, el
     // letter-mark se lee doble ("P Panda Video").
     <span aria-hidden style={{ width: box, height: box, flex: 'none', borderRadius: radius, background: ic.bg, border: ic.bd, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {k === 'agente'
-        ? <GuardianIcon size={Math.round(box * 0.68)} />
-        : ic.letter
-          ? <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: Math.round(box * 0.46), lineHeight: 1, letterSpacing: '-0.03em', color: ic.fg ?? '#fff' }}>{ic.letter}</span>
-          : <svg width={size} height={size} viewBox="0 0 24 24"><use href={`#${ic.sym}`} /></svg>}
+      {/* ⚠️ Acá había un caso especial que para `agente` dibujaba el escudo del Perro
+          Guardián, pisando lo que dice el catálogo. La integración es CLAUDE CODE: su
+          logo es el de Anthropic, que ya vive en `BrandDefs` como `ic-anthropic`. Un
+          `if` por clave adentro del renderer es exactamente lo que hace que el catálogo
+          deje de ser la fuente única — el que agrega un servicio mira `ICON` y no se
+          entera de que hay una excepción escondida acá abajo. */}
+      {ic.letter
+        ? <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: Math.round(box * 0.46), lineHeight: 1, letterSpacing: '-0.03em', color: ic.fg ?? '#fff' }}>{ic.letter}</span>
+        : <svg width={size} height={size} viewBox="0 0 24 24"><use href={`#${ic.sym}`} /></svg>}
     </span>
   );
 }
