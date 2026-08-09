@@ -18,6 +18,7 @@ import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { corregirLinkBorrador, idDeLinkRevisar } from '@/lib/link-borrador';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE } from '@/lib/respuesta-doer';
+import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
@@ -359,6 +360,16 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // (más abajo, `esMedia` saltea el chequeo de modo/ventana), así que acá no hace
   // falta repetir esa guarda. Para texto el acuse sigue donde estaba, porque ahí sí
   // depende de si lo nombran y de si hay una charla pendiente.
+  //
+  // Y EL DE TEXTO TAMBIÉN, por la misma razón. Vivía en `procesarDoer`, o sea DETRÁS de
+  // `esperarSilencio`: el «Dale, anoto eso» llegaba 8 segundos después de mandar el
+  // mensaje (20 si el lote traía audio). El dueño: «tarda mucho en enviarse, eso tiene
+  // que ser casi de inmediato». El comentario de allá decía «lo mandamos ACÁ, lo
+  // primero» y era verdad el día que se escribió — el buffer llegó después y lo empujó
+  // atrás sin que nadie tocara esa línea. Ahora hay UN solo acuse, y está acá.
+  //
+  // Para texto SÍ hay que preguntar si engancha (en media no: siempre engancha), y son
+  // tres lecturas baratas de settings. Se cortocircuitan en orden de costo.
   if (audio || adjunto) {
     if (!(await doerActivo(OWNER_WS))) return { engaged: false, skip: 'doer desactivado' };
     const ackTxt = audio ? 'Te escucho 🎧 dame un momento y te contesto.' : 'Me llegó 📎 lo miro y te contesto.';
@@ -367,6 +378,19 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // que todo lo que manda MaKo vuelve por el webhook como `fromMe`. Sin registrar el
     // id, el acuse se encola como si lo hubiera dicho él.
     if (ack.ok && ack.id) await registrarEnviado(OWNER_WS, jid, ack.id);
+  } else if (texto.length > 10 && (await doerActivo(OWNER_WS))) {
+    const modo = await modoDoer(OWNER_WS, jid);
+    const engancha = modo === 'libre' || nombraAMaKo(texto)
+      || (await ventanaVigente(OWNER_WS, jid))
+      || (await pendientesVigentes(wsData, jid)).length > 0;
+    // Con una charla pendiente NO se acusa: ahí MaKo está en medio de un ida y vuelta
+    // y un «dame un segundo» corta la conversación en vez de acompañarla.
+    const hayCharla = (await pendientesVigentes(wsData, jid)).length > 0;
+    if (engancha && !hayCharla && (esCargaDePlan(texto) || rutearDoer(texto, { hayMedia: false, hayPendientes: false }).tier !== 'cheap')) {
+      const ackTxt = esCargaDePlan(texto) ? 'Dale, anoto eso 👇 dame un segundo.' : 'Recibido 👍 dame un momento y te contesto.';
+      const ack = await enviarAGrupoJid(jid, ackTxt, 0);
+      if (ack.ok && ack.id) await registrarEnviado(OWNER_WS, jid, ack.id);
+    }
   }
 
   try {
@@ -551,14 +575,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // tarda) y CON el "escribiendo…" (delay anti-ban de ~3s) → se sentía colgado.
     // Ahora lo mandamos ACÁ, lo primero, y con delay 0 (sin simular tipeo). Solo para
     // texto (audio/adjunto se resuelven aparte) y si NO hay una charla pendiente.
-    if (!audio && !adjunto && textoDirecto.length > 10 && vigentes.length === 0) {
-      const rutaAck = rutearDoer(textoDirecto, { hayMedia: false, hayPendientes: false });
-      if (rutaAck.tier !== 'cheap' || esCargaDePlan(textoDirecto)) {
-        const ackTxt = esCargaDePlan(textoDirecto) ? 'Dale, anoto eso 👇 dame un segundo.' : 'Recibido 👍 dame un momento y te contesto.';
-        const ack = await enviarAGrupoJid(jid, ackTxt, 0);
-        if (ack.ok && ack.id) await registrarEnviado(OPS, jid, ack.id);
-      }
-    }
+    // (El acuse de texto ya salió en `bufferearYResponder`, ANTES de la ventana de
+    // silencio. Acá llegaba 8 segundos tarde, que es justo lo que el dueño reportó.)
 
     // Resolver el texto: si vino como NOTA DE VOZ, transcribir (pidiendo el base64 a
     // la instancia si el webhook no lo adjuntó inline).
@@ -658,7 +676,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     const ctxPend = vigentes.length
       ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usá confirmar_accion con el id que corresponda.`
       : '';
-    const system = `${base}\n\n${DOER_WA_PREAMBLE}\n\n${DEEP_LINKS}${ctxPend}`;
+    // CUÁNTAS COSAS PIDIÓ, contadas por CÓDIGO. El preámbulo explica muy bien cómo
+    // agrupar tareas en PROYECTOS por tema, y no dice una palabra sobre cuántas TAREAS
+    // salen de un mensaje — así que seis puntos numerados terminaron en UNA sola. Y no
+    // fue el techo de tokens: gastó 933 de 2500. Resumió. Contar no se le pide a un
+    // modelo, se le pasa hecho. Ver lib/puntos-mensaje.ts.
+    const ctxPuntos = avisoDePuntos(texto);
+    const system = `${base}\n\n${DOER_WA_PREAMBLE}\n\n${DEEP_LINKS}${ctxPend}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
 
     // Tools por ruta (feedback jul-19, costo): 20 tools con schema pesan varios miles de
     // tokens de INPUT en CADA llamada. Los turnos claros (cargar tareas, confirmar) usan
@@ -677,12 +701,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // —peor— uno que resolvía a un borrador real pero equivocado.
     // Ver lib/link-borrador.ts.
     let linkBorrador: string | null = null;
+    let tareasCreadas = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       const out = await (NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input));
       if (typeof out === 'string' && out.includes('/plan/revisar/')) {
         try {
           const j = JSON.parse(out) as { link?: unknown };
           if (typeof j.link === 'string' && j.link.includes('/plan/revisar/')) linkBorrador = j.link;
+          // Cuántas entraron de verdad. Del INPUT de la tool, no de lo que el modelo
+          // dice después: contar es justamente lo que hace mal.
+          const dadas = (input as { tareas?: unknown }).tareas;
+          if (Array.isArray(dadas)) tareasCreadas = dadas.length;
         } catch { /* no era JSON: el link se corrige igual si aparece en el texto */ }
       }
       return out;
@@ -826,6 +855,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     //
     // Nada de esto reemplaza al prompt: el modelo tiene que acertar. Pero cuando no
     // acierta, lo que llega al WhatsApp del dueño no puede ser el payload crudo.
+    // ¿Salió más corto que lo que pidió? No se bloquea —el dueño revisa el borrador y
+    // el wizard le deja sumar las que falten— pero queda en el log, que es la única
+    // forma de saber si el aviso de los puntos está sirviendo.
+    const nPuntos = puntosDelMensaje(texto).length;
+    if (nPuntos >= 2 && linkBorrador && tareasCreadas > 0 && tareasCreadas < nPuntos) {
+      console.error(`[mako-doer-in] el dueño enumeró ${nPuntos} puntos y el borrador trajo ${tareasCreadas} · ${ruta.motivo}`);
+    }
+
     if (respuesta) {
       const v = validarRespuestaDoer(respuesta, { motivoRuta: ruta.motivo, linkBorrador });
       if (!v.ok && v.razon === 'molde-volcado') {

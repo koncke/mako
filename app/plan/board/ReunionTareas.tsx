@@ -728,7 +728,13 @@ export function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: F
           {/* La transcripción de Fathom etiqueta MAL a quien habla (mezcla dos voces en
               un bloque), así que la atribución falla y no hay prompt que lo arregle. Se
               corrige acá — pero PREGUNTANDO de quién es, no mandándola a ciegas. */}
-          <button type="button" onClick={() => setReasignando((v) => !v)} style={btnChico}>↪ no es mía</button>
+          {/* Y SOLO si hay a quién dársela. Con la lista vacía el botón abre un
+              selector sin opciones: un callejón sin salida. Pasa en el wizard del
+              borrador, donde las tareas salen de las respuestas del propio dueño y
+              «no es mía» no significa nada — ahí no tiene que estar. */}
+          {personas.length > 0 && (
+            <button type="button" onClick={() => setReasignando((v) => !v)} style={btnChico}>↪ no es mía</button>
+          )}
         </div>
         {reasignando && (
           <ElegirDueño personas={personas} actual="" esMiaHoy

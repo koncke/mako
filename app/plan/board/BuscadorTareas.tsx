@@ -23,6 +23,7 @@
 // =============================================================================
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { CAMPOS, CAMPOS_POR_DEFECTO, CAMPOS_TODOS, resumenCampos, type CampoBusqueda } from '@/lib/buscar-tareas';
 
 const SANS = "'Geist', sans-serif";
@@ -46,11 +47,38 @@ export function BuscadorTareas({ q, onQ, campos, onCampos, ia, onBuscarIA, onLim
   // y hay que volver a apretar el botón exacto para sacarlo.
   useEffect(() => {
     if (!abierto) return;
-    const fuera = (e: MouseEvent) => { if (caja.current && !caja.current.contains(e.target as Node)) setAbierto(false); };
+    // ⚠️ El panel vive en un PORTAL (document.body), así que NO está adentro de
+    // `caja`: con `caja.contains()` a secas, el primer click sobre una casilla del
+    // propio panel se lee como «afuera» y lo cierra. Se pregunta también por el panel,
+    // que se marca con un data-attribute justamente para poder encontrarlo desde acá.
+    const fuera = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (caja.current?.contains(t)) return;
+      if ((t as Element)?.closest?.('[data-buscador-panel]')) return;
+      setAbierto(false);
+    };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
     document.addEventListener('mousedown', fuera);
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc); };
+  }, [abierto]);
+
+  // DÓNDE se dibuja el panel, medido contra el VIEWPORT. Se recalcula al abrir y en
+  // scroll/resize, porque la barra se mueve con la página.
+  const [ancla, setAncla] = useState<{ top: number; left: number; alto: number } | null>(null);
+  useEffect(() => {
+    if (!abierto) { setAncla(null); return; }
+    const medir = () => {
+      const r = caja.current?.getBoundingClientRect();
+      if (!r) return;
+      // Si abajo no entra, el techo es lo que quede — con un piso para que no quede
+      // una rendija inservible.
+      setAncla({ top: r.bottom + 8, left: r.left, alto: Math.max(180, window.innerHeight - r.bottom - 24) });
+    };
+    medir();
+    window.addEventListener('scroll', medir, true);
+    window.addEventListener('resize', medir);
+    return () => { window.removeEventListener('scroll', medir, true); window.removeEventListener('resize', medir); };
   }, [abierto]);
 
   const ampliada = campos.length > CAMPOS_POR_DEFECTO.length || !campos.includes('titulo');
@@ -117,10 +145,10 @@ export function BuscadorTareas({ q, onQ, campos, onCampos, ia, onBuscarIA, onLim
           El techo se calcula contra el viewport (100vh menos lo que ocupa el header)
           para que el menú TERMINE antes del recorte y el scroll quede adentro, que es
           donde el usuario lo puede usar. */}
-      {abierto && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 60, width: 280,
-          maxHeight: 'min(calc(100vh - 160px), 460px)', overflowY: 'auto', overscrollBehavior: 'contain',
+      {abierto && ancla && createPortal(
+        <div data-buscador-panel style={{
+          position: 'fixed', top: ancla.top, left: ancla.left, zIndex: 2000, width: 280,
+          maxHeight: Math.min(ancla.alto, 460), overflowY: 'auto', overscrollBehavior: 'contain',
           background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12,
           boxShadow: '0 12px 32px rgba(0,0,0,.16)', padding: 12, fontFamily: SANS,
         }}>
@@ -152,7 +180,8 @@ export function BuscadorTareas({ q, onQ, campos, onCampos, ia, onBuscarIA, onLim
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>
             ¿No sabés en qué campo está? Escribí lo que buscás con tus palabras y tocá <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✦</span> — MaKo lee el tablero entero y elige.
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

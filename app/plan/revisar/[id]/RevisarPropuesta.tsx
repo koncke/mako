@@ -316,7 +316,10 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       // UNA LÍNEA. El `resumen` puede traer la investigación entera (3.000 caracteres) y
       // acá se renderiza centrado y en mono, arriba de todo: era un muro de texto antes
       // de poder leer la pregunta. El texto completo va abajo, en ContextoDelBorrador.
-      titulo={soloCierres ? `Borrador · ${nC} para revisar` : `Borrador · ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`}
+      // ⚠️ `totalCrear`, NO `nT`. El encabezado contaba solo las originales y el botón
+      // sumaba las que salen de las respuestas: decía «Borrador · 2 tareas» arriba y
+      // «Crear 3» abajo, en la misma pantalla. Lo que se muestra es lo que se va a crear.
+      titulo={soloCierres ? `Borrador · ${nC} para revisar` : `Borrador · ${totalCrear} tarea${totalCrear === 1 ? '' : 's'}${enProy}`}
       total={steps.length} idx={Math.min(paso, steps.length - 1)}
       pregunta={dynLoading || extrasLoading ? 'MaKo está pensando…' : busy ? (soloCierres ? 'Guardando…' : 'Creando…') : pregunta} sub={dynLoading || extrasLoading || busy ? undefined : sub}
       puedeAvanzar={!busy && !dynLoading && !extrasLoading} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy || dynLoading || extrasLoading}
@@ -384,7 +387,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
           <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>
             {soloCierres
               ? (fraseCierre ? `De ${nC} que revisaste, ${fraseCierre}.` : `Revisaste ${nC} y no confirmaste ninguna.`)
-              : `${nT} tarea${nT === 1 ? '' : 's'}${enProy}.`}
+              : `${totalCrear} tarea${totalCrear === 1 ? '' : 's'}${enProy}.`}
           </div>
           <button onClick={() => enviar('descartar')} disabled={busy} style={{ marginTop: 14, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 12.5, cursor: busy ? 'default' : 'pointer', textDecoration: 'underline', fontFamily: SANS }}>o descartar este borrador</button>
         </div>
