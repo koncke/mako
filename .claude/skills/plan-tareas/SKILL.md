@@ -27,6 +27,50 @@ y la descripción del proyecto — y deja una tarea con prioridad inventada por 
 Perro con las credenciales del dueño (que vos no tenés: se descifran con
 `CREDENCIALES_SECRET`, que solo vive en Vercel).
 
+## CUÁNDO: sola, al cerrar el trabajo. No esperes que te lo pidan
+
+Esto no se usa cuando el dueño dice «anotá esto». Es lo que hacés **al terminar
+cualquier trabajo sustancial**, sin que te lo pidan, igual que correr los tests.
+
+Hay varias sesiones de Claude trabajando este repo en paralelo, cada una tocando cosas
+que ya están en el plan y descubriendo otras nuevas. Si cada una espera a que se lo
+pidan, el tablero queda mintiendo: tareas cerradas que figuran abiertas, y trabajo
+nuevo que solo existe en un chat que nadie va a releer.
+
+Al cerrar, mirá para atrás y contestate las tres, en este orden:
+
+1. **¿CERRÉ algo que estaba abierto?** → `cerrar`, con la evidencia (commit, archivo:línea).
+2. **¿APRENDÍ algo sobre una tarea que ya está?** → `enriquece` apuntando a su id. **No**
+   una tarea nueva.
+3. **¿APARECIÓ trabajo nuevo?** → `tareas`. Lo que quedó sin hacer, la deuda que
+   dejaste, lo que descubriste de paso.
+
+**Las tres van en UN SOLO borrador y UN SOLO link.** No mandes tres borradores: el
+dueño revisa una vez y confirma una vez, que es la costumbre que ya tiene.
+
+Si de las tres no sale nada, no mandes nada y no lo anuncies — pero que no salga nada
+tiene que ser raro después de una sesión de trabajo real.
+
+### Enriquecer vs. crear
+
+| Lo que pasó | Va en |
+|---|---|
+| La tarea quedó HECHA | `cerrar` |
+| Aprendiste algo sobre una tarea abierta | `enriquece` |
+| Es trabajo que antes no estaba | `tareas` |
+
+```js
+tareas: [{
+  titulo: 'el mismo tema, como lo dirías hoy',
+  detalle: 'SOLO lo que aprendiste — no repitas lo que ya dice la tarjeta',
+  enriquece: { id: '<id de la tarea que ya está>', razon: 'es la misma: acá está el porqué', confianza: 'alta' },
+}]
+```
+
+`crearPropuesta` lo sanea y `ampliarTareasPlanOwner` lo aplica: el detalle se **suma**
+al que ya tiene, no lo pisa. Ante la duda entre enriquecer y crear, **enriquecé**: dos
+tarjetas de lo mismo son más caras de deshacer que una con contexto de más.
+
 ## 1. Revisá el plan ANTES de trabajar
 
 Leé directo de la base (read-only). Resolvé el workspace por capa, no lo hardcodees:

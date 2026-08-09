@@ -106,7 +106,19 @@ export async function POST(req: NextRequest) {
         // aplicar, no el agente que propone (ver lib/plan-propuesta.ts).
         tareas: tareas.map((t) => {
           const o = (t ?? {}) as Record<string, unknown>;
-          return { titulo: String(o.titulo ?? ''), proyecto: o.proyecto ? String(o.proyecto) : undefined, detalle: o.detalle ? String(o.detalle) : undefined, deadline: o.deadline ? String(o.deadline) : undefined };
+          return {
+            titulo: String(o.titulo ?? ''),
+            proyecto: o.proyecto ? String(o.proyecto) : undefined,
+            detalle: o.detalle ? String(o.detalle) : undefined,
+            deadline: o.deadline ? String(o.deadline) : undefined,
+            // ENRIQUECER una tarea que YA está, en vez de crear una gemela. Este
+            // campo se caía acá: `crearPropuesta` lo sanea (limpiarTarea), el wizard
+            // lo pinta y `ampliarTareasPlanOwner` lo aplica — pero el mapeo de esta
+            // ruta solo copiaba cuatro campos, así que por la puerta del agente la
+            // única opción era «crear otra». El resultado es el tablero con dos
+            // tarjetas de lo mismo, que es justo lo que el cruce vino a evitar.
+            enriquece: o.enriquece as { id: string; razon: string; confianza?: 'alta' | 'media' } | undefined,
+          };
         }),
         preguntas: Array.isArray(body.preguntas) ? body.preguntas : [],
         eliminar: Array.isArray(body.eliminar) ? body.eliminar : [],

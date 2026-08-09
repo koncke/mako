@@ -5,10 +5,20 @@
 // =============================================================================
 // Vivía adentro de app/integraciones/IntegracionesBoard.tsx y se mudó acá porque ahora
 // lo usan DOS pantallas: /integraciones y el botón «Conectar a Claude» de
-// /second-brain. Se EXTRAJO, no se copió: el tutorial son cuatro pasos encadenados
-// —acuñar el token, instalar la skill, activar el hook, pedírselo al agente— y una
-// segunda copia se queda vieja el día que uno de los cuatro cambie. Es literalmente el
-// caso que AGENTS.md documenta con el contrato del `detalle`.
+// /second-brain. Se EXTRAJO, no se copió: el tutorial son tres pasos encadenados
+// —acuñar el token, instalar la skill, pedírselo al agente— y una segunda copia se
+// queda vieja el día que uno de los tres cambie. Es literalmente el caso que AGENTS.md
+// documenta con el contrato del `detalle`.
+//
+// ERAN CUATRO. El de «activá el reporte de sesiones» pedía bajar un archivo, ponerlo
+// en su carpeta, fusionar un JSON en settings.json y correr un comando de prueba —
+// cuatro gestos manuales para algo que la skill puede hacer sola, porque corre EN el
+// proyecto del usuario. El pedido del dueño fue textual: «¿no puede estar directamente
+// dentro de la skill? en lugar de que los usuarios tengan que hacer todo eso». Ahora
+// vive en el §0.a de la skill y se instala en la primera corrida.
+//
+// Y la skill NO se muestra acá. Se copia y se pega: mostrar 11.000 caracteres de
+// markdown en un <pre> dentro del tutorial no ayuda a nadie a instalarla.
 //
 // Y hay una razón más fuerte todavía para no copiarlo: el paso 1 tiene la pantalla del
 // CONSENTIMIENTO. Duplicarla es duplicar un texto legal versionado.
@@ -16,7 +26,6 @@
 
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { agenteSkillMarkdown, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
-import { AGENTE_HOOK_PATH, AGENTE_HOOK_SETTINGS } from '@/lib/agente-plugin';
 import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
 
 const MONO = "'Geist Mono', monospace";
@@ -37,7 +46,7 @@ export const CODE = {
 /** Cada cosa que el tutorial deja copiar. Está tipado a propósito: el botón dice
  *  «¡Copiado!» comparando contra este valor, así que un typo en la clave deja un botón
  *  que copia bien y nunca confirma — y eso se lee como que no funcionó. */
-type Copiable = 'skill' | 'token' | 'ruta' | 'hookruta' | 'settings' | 'probar';
+type Copiable = 'skill' | 'token' | 'ruta';
 
 export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
   const [token, setToken] = useState<string | null>(tokenInicial);
@@ -45,7 +54,6 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   const [error, setError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<Copiable | null>(null);
   const [verTrato, setVerTrato] = useState(false);
-  const [verSkill, setVerSkill] = useState(false);
 
   const skill = useMemo(() => agenteSkillMarkdown(appUrl, token ?? ''), [appUrl, token]);
   const listo = !!token;
@@ -65,7 +73,7 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
         body: acepto ? JSON.stringify({ acepto: true }) : undefined,
       });
       const j = await r.json();
-      if (j?.ok) { setToken(j.token as string); setVerTrato(false); setVerSkill(true); return; }
+      if (j?.ok) { setToken(j.token as string); setVerTrato(false); return; }
       if (j?.necesitaConsentimiento) { setVerTrato(true); return; }
       setError(j?.error === 'sin workspace (entrá como un cliente)' ? 'Entra a un cliente para generar su token.' : (j?.error ?? 'No se pudo generar.'));
     } catch { setError('No se pudo generar. Revisa tu conexión.'); }
@@ -122,7 +130,7 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-        ¿Programás con <strong style={{ color: 'var(--ink)' }}>Claude Code</strong>? Instalá esta skill (4 pasos, sin API key) y tu agente
+        ¿Programás con <strong style={{ color: 'var(--ink)' }}>Claude Code</strong>? Instalá esta skill (3 pasos, sin API key) y tu agente
         va a <strong style={{ color: 'var(--ink)' }}>mirar tu plan</strong> antes de arrancar y a <strong style={{ color: 'var(--ink)' }}>proponerte tareas</strong>.
         Nunca las crea solo: deja un borrador que revisás vos y que prioriza el Perro Guardián.
       </div>
@@ -156,39 +164,24 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
               <button type="button" style={listo ? btnPrimario : { ...btnPrimario, opacity: 0.45, cursor: 'not-allowed' }} disabled={!listo} onClick={() => copiar('skill', skill)}>
                 {copiado === 'skill' ? '¡Skill copiada!' : 'Copiar skill'}
               </button>
-              <button type="button" style={btnSecundario} onClick={() => setVerSkill((v) => !v)}>{verSkill ? 'Ocultar' : 'Ver la skill'}</button>
             </div>
             {!listo && <span style={{ fontSize: 12, color: 'var(--faint)' }}>Generá el token primero: viene embebido en el archivo.</span>}
-            {verSkill && (
-              <pre style={{ margin: 0, minWidth: 0, background: CODE.bg, border: `1px solid ${CODE.bd}`, borderRadius: 12, padding: '12px 14px', maxHeight: 220, overflow: 'auto', fontFamily: MONO, fontSize: 10.5, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--dim)', userSelect: 'all' }}>{skill}</pre>
-            )}
           </div>
         ))}
 
         {/* PASO 3 — el hook. Es un paso aparte del 2 a propósito: la skill la lee el
             modelo y el hook lo corre el runtime, y si se presentan como una sola cosa
             el usuario asume que instalando la skill ya reporta. No reporta. */}
-        {paso(3, 'Activá el reporte de sesiones', (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              Bajá el archivo y guardalo en <button type="button" onClick={() => copiar('hookruta', AGENTE_HOOK_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'hookruta' ? '¡copiada!' : AGENTE_HOOK_PATH}</button>. Después sumá esto a tu <code style={codeInline}>.claude/settings.json</code>.
-            </div>
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <a href="/api/agente/hook" download style={{ ...btnPrimario, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Bajar el archivo</a>
-              <button type="button" style={btnSecundario} onClick={() => copiar('settings', AGENTE_HOOK_SETTINGS)}>{copiado === 'settings' ? '¡Copiado!' : 'Copiar el settings'}</button>
-            </div>
-            <pre style={{ margin: 0, minWidth: 0, background: CODE.bg, border: `1px solid ${CODE.bd}`, borderRadius: 12, padding: '12px 14px', overflow: 'auto', fontFamily: MONO, fontSize: 10.5, lineHeight: 1.6, color: 'var(--dim)', userSelect: 'all' }}>{AGENTE_HOOK_SETTINGS}</pre>
-            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              Para comprobar que quedó andando, corré <button type="button" onClick={() => copiar('probar', `node ${AGENTE_HOOK_PATH} probar`)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar comando">{copiado === 'probar' ? '¡copiado!' : `node ${AGENTE_HOOK_PATH} probar`}</button> en tu proyecto.
-            </div>
-            <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>
-              Se manda el resumen de la sesión y lo que escribiste vos —nunca lo que leyeron las herramientas—, y antes de salir se tapan claves, mails y teléfonos. Lo que escribiste se borra a los 90 días.
-            </span>
-          </div>
-        ))}
+        {/* El reporte de sesiones YA NO es un paso. Eran cuatro gestos —bajar un
+            archivo, ponerlo en su carpeta, fusionar un JSON en settings.json y correr
+            un comando de prueba— y el pedido del dueño fue directo: «¿no puede estar
+            directamente dentro de la skill? en lugar de que los usuarios tengan que
+            hacer todo eso». Puede: la skill corre EN el proyecto del usuario y tiene
+            acceso a los archivos, así que se instala el hook sola la primera vez
+            (§0.a). Un agente que sabe escribir código sabe crear dos archivos. */}
 
-        {/* PASO 4 — usarlo */}
-        {paso(4, 'Pedíselo a tu agente', (
+        {/* PASO 3 — usarlo */}
+        {paso(3, 'Pedíselo a tu agente', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
             <div>Escribile, por ejemplo:</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
