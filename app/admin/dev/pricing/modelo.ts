@@ -231,7 +231,9 @@ export const RETENCION_FUENTE =
 export const BENCHMARKS = [
   { id: 'ltvcac', que: 'LTV : CAC', objetivo: '3× mínimo · 4,1× la mediana real', fuente: 'Aleph × Benchmarkit 2026' },
   { id: 'payback', que: 'Payback del CAC', objetivo: '≤ 15 meses · 11 en ACV sub-US$5K', fuente: 'Aleph × Benchmarkit 2026' },
-  { id: 'margen', que: 'Margen bruto', objetivo: '75-80% en SaaS · 53% en producto de IA', fuente: 'Benchmarkit / ICONIQ 2026' },
+  // Dos fuentes independientes dan casi lo mismo y se citan las dos: promediarlas
+  // escondería que coinciden, que es justamente lo que les da peso.
+  { id: 'margen', que: 'Margen bruto', objetivo: '75-80% en SaaS · 50-53% en producto de IA', fuente: 'Benchmarkit · ICONIQ 2026 (53% promedio, n≈300) · Poyar 2026 (50% mediana, n=230)' },
 ];
 
 export const ECONOMIA: Dato[] = [
@@ -332,8 +334,12 @@ export const RUTEO = [
 export type Reruteo = { id: string; label: string; hoyUsd: number; nuevoUsd: number; como: string };
 
 export const RERUTEO: Reruteo[] = [
-  { id: 'reunion', label: 'Extraer tareas de una reunión de 2 h', hoyUsd: 0.9293, nuevoUsd: 0.0021, como: 'Qwen3.7-Flash con 1M de contexto: entra entera y desaparecen las 4-5 llamadas del troceo' },
-  { id: 'doer', label: 'Un mensaje a MaKo por WhatsApp', hoyUsd: 0.0886, nuevoUsd: 0.0011, como: 'El router barato, hasta 8 pasos de herramientas' },
+  // ⚠️ Los `nuevoUsd` van SIN redondear a 4 decimales, a propósito: la pantalla
+  // calcula el múltiplo dividiendo, y con 0,0021 en vez de 0,00213 el 436× de
+  // arriba se pintaba 443× tres párrafos más abajo. Una cifra redondeada para
+  // mostrar no sirve para derivar otra.
+  { id: 'reunion', label: 'Extraer tareas de una reunión de 2 h', hoyUsd: 0.9293, nuevoUsd: 0.00213, como: 'Qwen3.7-Flash con 1M de contexto: entra entera y desaparecen las 4-5 llamadas del troceo' },
+  { id: 'doer', label: 'Un mensaje a MaKo por WhatsApp', hoyUsd: 0.0886, nuevoUsd: 0.00114, como: 'El router barato, hasta 8 pasos de herramientas' },
   { id: 'closing', label: 'Analizar una llamada de venta', hoyUsd: 0.1729, nuevoUsd: 0.0108, como: 'gpt-5.6-luna — mismo nivel de índice que modelos 7,5× más caros' },
   { id: 'campana', label: 'Estructurar una campaña de Meta', hoyUsd: 0.0711, nuevoUsd: 0.0127, como: 'Kimi K2.6, el mejor de los baratos en preferencia humana' },
   { id: 'guardian', label: 'Priorizar un lote de tareas', hoyUsd: 0.0728, nuevoUsd: 0, como: 'GLM-4.7-Flash: clasificar contra rúbrica es gratis' },
@@ -379,6 +385,24 @@ export const PERFILES: Perfil[] = [
   { plan: 'free', precioUsd: 0, iaUsd: 0.02, iaUsdBarato: 0.02, textoUsd: 0.02, mediosUsd: 0 },
   { plan: 'pro', precioUsd: 47, iaUsd: 1.87, iaUsdBarato: 1.15, textoUsd: 0.58, mediosUsd: 1.29 },
   { plan: 'growth', precioUsd: 97, iaUsd: 27.40, iaUsdBarato: 12.60, textoUsd: 2.82, mediosUsd: 24.58 },
+];
+
+// ── Lo que este análisis daba por cierto y NO lo es ─────────────────────────
+// Salió del crítico de completitud del paso 3 y se verificó a mano contra el
+// código. Va EN LA PANTALLA, no en una nota al pie: son las que invalidan
+// números que están arriba, y esconderlas es la forma más cara de presentarlas.
+
+export type Salvedad = { id: string; titulo: string; que: string; vive: string };
+
+export const SALVEDADES: Salvedad[] = [
+  { id: 'ruteo-no-existe', titulo: 'El ruteo barato no está en el código', vive: 'lib/ai-cheap.ts:35-61', que: 'Ninguno de los cuatro modelos de RUTEO aparece en una línea ejecutable. Hoy corre Groq `gpt-oss-20b`, Gemini `gemini-flash-latest`, Cerebras `llama-3.3-70b`, Mistral `mistral-small-latest` y OpenAI `gpt-4o-mini`. El 436× y el margen del 96% del Pro son proyecciones sobre una configuración que todavía no existe.' },
+  { id: 'no-se-mide', titulo: '«El texto dejó de costar» es, en parte, «dejó de medirse»', vive: 'lib/anthropic-usage.ts:70', que: '`costFor` devuelve 0 `if (provider && PROVEEDORES_GRATIS.includes(provider))` — por estar en una LISTA, no porque el tier real sea gratis. Medido el 09/08: los workspaces de clientes (3, 9, 10, 11) tienen 1.005 llamadas y 7,5M de tokens registrados en US$0,04 en total.' },
+  { id: 'medios-no-existen', titulo: 'La generación de medios no tiene una sola línea de código', vive: 'grep en lib/ y app/', que: 'Buscar `fal|replicate|kie|apimart|veo|sora|gpt-image|text-to-video` da cero coincidencias ejecutables. Los US$24,58 no son un costo a cubrir: son un producto a construir, y su volumen mensual (20 clips, 4 Reels) es un supuesto que nadie puede derivar todavía.' },
+  { id: 'sin-cobro', titulo: 'No existe máquina de cobro', vive: 'lib/agente-redaccion.ts:49', que: 'El único hit de Stripe en todo el repo es un regex que TAPA claves de Stripe en los logs. No hay `/registro`, `/checkout` ni `/precios`, ni ninguna migración de plan, suscripción o saldo. Todo el diseño de overage y packs es billing, y el billing no está en ninguna estimación.' },
+  { id: 'precio-neto', titulo: 'Los márgenes están sobre el precio de LISTA, no sobre lo que entra', vive: '—', que: 'El procesador se lleva 3-6% + fee fijo (que sobre US$47 pesa), el IVA de servicios digitales es 16% en México y 19% en Colombia, y una PyME mexicana que no recibe CFDI no puede deducir la suscripción — eso frena la conversión más que cualquier discusión de BYOK.' },
+  { id: 'sin-whatsapp', titulo: 'El costo del canal principal no está en ningún número', vive: '—', que: 'MaKo vende y opera por WhatsApp, y Meta cobra por conversación de marketing. En los US$0,02 / US$1,87 / US$27,40 no hay un centavo de WhatsApp. Tampoco de Supabase, Vercel, egress ni Panda.' },
+  { id: 'sin-grilla', titulo: 'En el código no hay Free/Pro/Growth', vive: 'lib/capas.ts', que: 'Hay dos capas de cliente, `pm` y `completo`, y `completo` es literalmente «todo el producto». La grilla de qué feature entra en qué plan —lo único que el cliente compara y lo único que permite gatear— no existe todavía.' },
+  { id: 'grandfathering', titulo: 'Falta decidir qué pasa con los 4 clientes que ya están adentro', vive: 'lib/capas.ts', que: 'Hoy tienen `completo` sin tope. Meterles cupo, corte duro y overage es un cambio de contrato hacia atrás sobre gente que ya paga: es el movimiento con más riesgo de churn de todo el plan.' },
 ];
 
 /** El hallazgo del paso 2, en una frase. */

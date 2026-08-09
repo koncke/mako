@@ -23,9 +23,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Section, Eyebrow, Status, Select, Spinner, ErrorState, MONO } from '@/app/_ui';
 import { Barras, Cifra, Plegable, type Barra } from './Piezas';
 import {
-  ACCIONES, AUDIO, AUTOMATICOS, BENCHMARKS, BLOQUEANTES, COMPETENCIA, DATO_FALSO,
-  ECONOMIA, EL_ACCIDENTE, ESCENARIOS, IMAGEN, MEDICION, MT_POR_USD, PLANES,
-  RETENCION, RETENCION_FUENTE, VIDEO, VIDEO_15S,
+  ACCIONES, ACCIONES_NUEVAS, AUDIO, AUTOMATICOS, BENCHMARKS, BLOQUEANTES, COMPETENCIA, DATO_FALSO,
+  ECONOMIA, EL_ACCIDENTE, EL_COSTO_ES_EL_VIDEO, ESCENARIOS, IMAGEN, MEDICION, MT_POR_USD, PERFILES,
+  PLANES, RERUTEO, RETENCION, RETENCION_FUENTE, RUTEO, SALVEDADES, VIDEO, VIDEO_15S,
   aMes, costoUnitario, margen, techoIa,
 } from './modelo';
 
@@ -113,43 +113,62 @@ export function Pricing() {
       destacada: e.id === 'real',
     }));
 
+  // ── Gráfico 3: con el producto completo, el costo es el video ────────────
+  // Se grafica el TOTAL por plan y la parte de medios va en la `nota`, no en un
+  // segundo color: son dos magnitudes de la misma serie (dinero por plan), y
+  // partirlas en dos series pintaría un apilado de dos colores para comparar
+  // tres barras — más ruido que dato. El número igual está en texto.
+  const GROWTH_P = PERFILES.find((p) => p.plan === 'growth')!;
+  const barrasPlanes: Barra[] = PERFILES.map((p) => ({
+    id: p.plan,
+    label: PLANES.find((x) => x.id === p.plan)?.label ?? p.plan,
+    nota: p.mediosUsd > 0 ? `${usd(p.mediosUsd)} son medios` : 'sin medios',
+    valor: p.iaUsd,
+    texto: usd(p.iaUsd),
+    destacada: p.plan === 'growth',
+  }));
+  const pctMedios = (GROWTH_P.mediosUsd / GROWTH_P.iaUsd) * 100;
+
   return (
     <>
       {/* ── EL VEREDICTO ──────────────────────────────────────────────────── */}
       <Section titulo="El veredicto" card>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 26, marginBottom: 20 }}>
-          {/* Signo MENOS (U+2212), no el guion del teclado: a 34px el guion se lee
-              como un separador y la cifra pierde el signo. */}
+          {/* Dos cifras de este veredicto estuvieron MAL y conviene que quede
+              escrito, porque las dos fallaron igual: un número traído de una
+              fuente sin verificar el modelo al que aplica.
+              · «US$666 · costo de una reunión de venta» — es el costo de una
+                reunión agendada por un SDR OUTBOUND, y MaKo vende self-serve.
+                Puesto acá se leía «este es tu CAC». Lo que sí se sostiene es el
+                TECHO: un límite, no un costo incurrido. Vive abajo, en ECONOMIA.
+              · «margen −45% del Pro» — medido con el ruteo caro de hoy Y contra
+                un techo del 75% que es un supuesto de la era SaaS. La mediana de
+                un producto de IA es 50%: el Pro nunca estuvo en problemas. */}
           <Cifra
-            valor={`${margenPro < 0 ? '−' : ''}${Math.abs(margenPro).toFixed(0)}%`} tono="bad"
-            rotulo="Margen bruto del Pro"
-            detalle={`Con un usuario intensivo, medido. El objetivo del sector es 75%.`}
+            valor={usd(GROWTH_P.iaUsd)} tono="warn"
+            rotulo="Costo de IA del Growth, con todo construido"
+            detalle={`Contra un precio de US$${GROWTH_P.precioUsd}. Margen ${margen(GROWTH, GROWTH_P.iaUsd)!.toFixed(0)}% — arriba de la mediana de un producto de IA, que es 50-53%.`}
           />
           <Cifra
-            valor="23%" tono="bad"
-            rotulo="Retención anual bajo US$50/mes"
-            detalle="El Pro cae en la peor banda medida, por dos dólares."
+            valor={`${pctMedios.toFixed(0)}%`} tono="bad"
+            rotulo="De ese costo son MEDIOS, no texto"
+            detalle={`${usd(GROWTH_P.mediosUsd)} de video e imagen contra ${usd(GROWTH_P.textoUsd)} de texto. Un Reel de 15 s con 3 intentos cuesta US$2,45.`}
           />
-          {/* Acá estuvo «US$666 · costo de una reunión de venta» y era un ERROR:
-              ese número es el costo de una reunión agendada por un SDR en un
-              equipo de venta OUTBOUND — un modelo que MaKo no usa. Puesto como
-              cifra del veredicto se leía como «este es tu CAC», que es falso. Y
-              encima venía de blogs de agencias de lead-gen sin muestra publicada.
-              Lo que SÍ se sostiene es el TECHO: cuánto se puede gastar en
-              adquirir sin destruir valor. Es un límite, no un costo incurrido. */}
           <Cifra
-            valor="US$53-104" tono="warn"
-            rotulo="Techo de CAC del Pro"
-            detalle="Lo máximo que puede costar adquirir un cliente sin destruir valor. Derivado de la retención por banda y una relación LTV:CAC de 3 a 4,1×."
+            valor="436×" tono="good"
+            rotulo="Lo que baja extraer una reunión"
+            detalle="De US$0,93 a US$0,0021. No es un modelo más barato: con 1M de contexto la reunión entra entera y desaparecen las 4-5 llamadas del troceo."
           />
         </div>
         <Nota>
-          <strong>Con el ruteo de HOY, el plan que pierde plata es el Pro, no el Free.</strong> Un
-          workspace intensivo cuesta {usd(COSTO_INTENSIVO)} por mes de IA — más que la suscripción
-          entera. Pero eso es un problema de ruteo, no de precio: con los modelos del paso 1 el
-          texto se derrumba (extraer una reunión pasa de US$0,93 a US$0,002) y el que queda
-          apretado es el <strong>Growth</strong>, por el video. Lo que no se arregla bajando el
-          costo es la retención: a menos de US$50/mes el producto retiene 23% anual.
+          <strong>{EL_COSTO_ES_EL_VIDEO}</strong>
+        </Nota>
+        <Nota>
+          Lo que <em>no</em> se arregla bajando el costo es la retención: a menos de US$50/mes el
+          producto retiene 23% anual, y el Pro cae en esa banda por dos dólares. Y el techo de CAC
+          sigue siendo el límite duro — <strong>US$53-104</strong> en el Pro, <strong>US$194-381</strong> en
+          el Growth. Medido: el canal de WhatsApp da ~US$83 y entra; el carrito frío da US$76-179 y
+          <strong> no cierra a US$47</strong>.
         </Nota>
         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
           {BENCHMARKS.map((b) => (
@@ -185,12 +204,66 @@ export function Pricing() {
         <Fuente>Medido sobre {MEDICION.dias} días de producción; los escenarios usan precio de lista de cada proveedor.</Fuente>
       </Section>
 
+      {/* ── GRÁFICO 3 ─────────────────────────────────────────────────────── */}
+      <Section titulo="Con el producto completo, el costo es el video" card>
+        <Nota>
+          Las 122 áreas del producto: <strong>55 cerradas, 29 a medias, 38 por construir</strong>. De
+          las que faltan, 22 consumen IA. Con el ruteo elegido, el texto deja de importar y lo que
+          queda son los medios.
+        </Nota>
+        <Barras datos={barrasPlanes} tono="bad" />
+        <Nota>
+          El Growth se lleva {usd(GROWTH_P.mediosUsd)} de medios contra {usd(GROWTH_P.textoUsd)} de
+          texto. <strong>Un solo Reel de 15 segundos con 3 intentos cuesta US$2,45</strong> — más que
+          todo el texto del plan Pro en un mes entero. La consecuencia es de diseño de planes, no de
+          ingeniería: el video no puede ser una feature incluida, tiene que ser una unidad medida.
+        </Nota>
+
+        <div style={{ marginTop: 22 }}>
+          <Eyebrow>El texto se derrumba</Eyebrow>
+          <Fila head plantilla="minmax(0,1.6fr) 90px 90px 60px" cols={['Acción', 'Hoy', 'Ruteado', '']} />
+          {RERUTEO.map((r) => {
+            const veces = r.nuevoUsd > 0 ? r.hoyUsd / r.nuevoUsd : Infinity;
+            return (
+              <Fila key={r.id} plantilla="minmax(0,1.6fr) 90px 90px 60px"
+                cols={[
+                  <span key="n">{r.label}<div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 1 }}>{r.como}</div></span>,
+                  <Num key="h">US${r.hoyUsd.toFixed(4)}</Num>,
+                  <Num key="x">{r.nuevoUsd === 0 ? 'gratis' : `US$${r.nuevoUsd.toFixed(4)}`}</Num>,
+                  <span key="v" style={{ fontFamily: MONO, fontSize: 12, color: veces > 1.5 ? 'var(--good)' : 'var(--faint)' }}>
+                    {!isFinite(veces) ? '∞' : veces > 1.5 ? `${veces.toFixed(0)}×` : '—'}
+                  </span>,
+                ]} />
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 16, padding: 13, border: '1px solid var(--warn-border, var(--border))', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
+          <Status tono="warn">Ojo con estos números</Status>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6, maxWidth: '72ch' }}>
+            El <strong>costo unitario</strong> es precio publicado del fabricante. La{' '}
+            <strong>cantidad mensual</strong> es un supuesto nuestro — y es la palanca de todo el
+            resultado. Con 40 clips en vez de 20, el Growth pasa de {usd(GROWTH_P.iaUsd)} a más de
+            US$35 y el margen cae debajo del 65%. Hoy nada lo impide. Ver{' '}
+            <strong>«Lo que este análisis daba por cierto y no lo es»</strong>, abajo.
+          </div>
+        </div>
+        <Fuente>
+          Baseline medido: un workspace intensivo con el ruteo de HOY cuesta {usd(COSTO_INTENSIVO)}/mes
+          (margen del Pro {margenPro.toFixed(0)}%). Eso es lo que el re-ruteo viene a corregir.
+        </Fuente>
+      </Section>
+
       {/* ── LOS PLANES ────────────────────────────────────────────────────── */}
       <Section titulo="Los planes" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>1.000 MaKo Tokens = US$1 de costo de IA</span>} card>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16 }}>
           {PLANES.map((p) => {
             const costo = p.cupoMt / MT_POR_USD;
-            const m = margen(p, costo);
+            // El cupo es lo que se VENDE; el perfil es lo que se proyecta que el
+            // cliente va a consumir de verdad. Mostrar solo el primero escondía
+            // que en el Growth el consumo proyectado se come el cupo entero.
+            const perfil = PERFILES.find((x) => x.plan === p.id);
+            const m = margen(p, perfil?.iaUsd ?? costo);
             return (
               <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: 15 }}>
                 <Eyebrow>{p.label}</Eyebrow>
@@ -198,9 +271,14 @@ export function Pricing() {
                   {p.precioUsd === 0 ? 'Gratis' : `US$${p.precioUsd}`}
                   {p.precioUsd > 0 && <span style={{ fontSize: 12, color: 'var(--faint)', fontWeight: 400 }}>/mes</span>}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--muted)', marginBottom: 9 }}>
-                  {miles(p.cupoMt)} MT · {usd(costo)} de IA
+                <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--muted)' }}>
+                  cupo {miles(p.cupoMt)} MT · {usd(costo)}
                 </div>
+                {perfil && (
+                  <div style={{ fontFamily: MONO, fontSize: 11.5, color: perfil.iaUsd > costo ? 'var(--warn)' : 'var(--faint)', marginBottom: 9 }}>
+                    proyectado {usd(perfil.iaUsd)} de IA{perfil.mediosUsd > 0 ? ` (${usd(perfil.mediosUsd)} medios)` : ''}
+                  </div>
+                )}
                 {m !== null && <Status tono={m >= 70 ? 'good' : 'bad'}>{`margen ${m.toFixed(0)}%`}</Status>}
                 <ul style={{ margin: '10px 0 0', paddingLeft: 15, fontSize: 12, lineHeight: 1.65 }}>
                   {p.incluye.map((i) => <li key={i}>{i}</li>)}
@@ -214,6 +292,66 @@ export function Pricing() {
 
       {/* ── TODO EL RESPALDO, PLEGADO ─────────────────────────────────────── */}
       <Section titulo="El respaldo" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>abrí lo que quieras auditar</span>} card>
+
+        {/* Va PRIMERO y ABIERTO a propósito: son las salvedades que invalidan
+            números que están arriba. Plegarlas sería presentarlas de la forma
+            más cara posible — la misma razón por la que el veredicto va arriba. */}
+        <Plegable abierto titulo="⚠️ Lo que este análisis daba por cierto y NO lo es" resumen={`${SALVEDADES.length} salvedades, verificadas contra el código`}>
+          <Nota>
+            Salieron del crítico de completitud del paso 3 y se chequearon a mano en el repo. Dos de
+            ellas califican los números del veredicto.
+          </Nota>
+          {SALVEDADES.map((s) => (
+            <div key={s.id} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
+              <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{s.titulo}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, lineHeight: 1.6, maxWidth: '76ch' }}>{s.que}</div>
+              {s.vive !== '—' && <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4 }}>{s.vive}</div>}
+            </div>
+          ))}
+        </Plegable>
+
+        <Plegable titulo="El ruteo elegido" resumen={`${RUTEO.length} modelos, uno por tipo de tarea — todavía SIN implementar`}>
+          <Nota>
+            Verificados contra la página del fabricante el 09/08/2026. ⚠️ Ninguno está en{' '}
+            <span style={{ fontFamily: MONO }}>lib/ai-cheap.ts</span> todavía: mover tres de los
+            cuatro es configuración (<span style={{ fontFamily: MONO }}>CHEAP_MODEL</span>,{' '}
+            <span style={{ fontFamily: MONO }}>GEMINI_MODEL</span>…), y el que no entra por ahí es
+            justo el del contexto gigante, que es el del 436×.
+          </Nota>
+          <Fila head plantilla="minmax(0,1fr) 75px 75px minmax(0,1.8fr)" cols={['Modelo', 'US$/M in', 'out', 'Para qué']} />
+          {RUTEO.map((r) => (
+            <Fila key={r.id} plantilla="minmax(0,1fr) 75px 75px minmax(0,1.8fr)"
+              cols={[
+                r.modelo,
+                <Num key="i">{r.inUsd === 0 ? 'gratis' : r.inUsd.toFixed(2)}</Num>,
+                <Num key="o">{r.outUsd === 0 ? '—' : r.outUsd.toFixed(2)}</Num>,
+                <span key="p" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.para}</span>,
+              ]} />
+          ))}
+        </Plegable>
+
+        <Plegable titulo="Las 22 acciones que faltan construir" resumen="16 de texto suman US$0,23 · 6 de medios suman US$3,22">
+          <Nota>
+            De las 38 áreas por construir, estas son las que consumen IA. La columna{' '}
+            <strong>barata</strong> es la capa de revendedores — el ahorro es real y{' '}
+            <strong>el riesgo contractual también</strong>: APImart prohíbe revender y Kie.ai no
+            aclara derechos del output.
+          </Nota>
+          {(['Analyze', 'Sales', 'Content', 'Agentes'] as const).map((fam) => (
+            <div key={fam} style={{ marginBottom: 14 }}>
+              <Eyebrow>{fam}</Eyebrow>
+              <Fila head plantilla="minmax(0,1.8fr) 90px 90px" cols={['Acción', 'Costo', 'Barata']} />
+              {ACCIONES_NUEVAS.filter((a) => a.familia === fam).map((a) => (
+                <Fila key={a.id} plantilla="minmax(0,1.8fr) 90px 90px"
+                  cols={[
+                    <span key="n" style={{ fontWeight: a.usdBarato !== undefined ? 600 : 400 }}>{a.label}</span>,
+                    <Num key="c">{a.usd === 0 ? 'gratis' : `US$${a.usd.toFixed(4)}`}</Num>,
+                    <Num key="b">{a.usdBarato !== undefined ? `US$${a.usdBarato.toFixed(4)}` : '—'}</Num>,
+                  ]} />
+              ))}
+            </div>
+          ))}
+        </Plegable>
 
         <Plegable titulo="Lo que se gastó de verdad" resumen="en vivo, con filtro de mes">
           <div style={{ marginBottom: 12 }}>
