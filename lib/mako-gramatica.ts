@@ -121,8 +121,24 @@ export type DefEstado = {
    * consejo genérico que el producto dice no dar.
    */
   exige: string[];
-  /** true si la pelota queda del lado del usuario y la interfaz debe esperarlo. */
-  esperaAlUsuario?: boolean;
+  /**
+   * true si NADA se mueve hasta que el usuario conteste.
+   *
+   * ⚠️ Antes se llamaba `esperaAlUsuario` y lo tenían DOS estados: la aprobación
+   * y «falta un dato». Ahí estaba el error de raíz del diseño viejo: agrupaba por
+   * «¿tiene botones?» cuando la pregunta que importa es **qué pasa si el usuario
+   * no hace nada**. Y son cosas opuestas: si ignorás una aprobación, el envío
+   * queda congelado y vos sos el cuello de botella; si ignorás «falta un dato»,
+   * no hay nada esperando — MaKo simplemente no puede contestar esa pregunta.
+   *
+   * Con el nombre viejo las dos se pintaban con fondo de color «para que no se te
+   * pasen», y como una de las dos era `neutral`, su fondo salía `--surface-2` —
+   * la misma superficie que usa media app. Un realce invisible por construcción.
+   *
+   * Hoy `bloquea` gobierna tres cosas y nada más: la fila arranca abierta, su
+   * botón es el único lleno, y es el único naranja de la pantalla.
+   */
+  bloquea?: boolean;
 };
 
 /**
@@ -166,9 +182,13 @@ export const GRAMATICA: Record<EstadoMako, DefEstado> = {
   },
   recomienda: {
     // Es `decision` y no `aviso`: trae dos salidas (aceptar / descartar), igual
-    // que una sugerencia de Linear. «Recomienda» sonaba opcional y blando para
-    // una tarjeta que exige cinco campos duros y termina en un botón.
-    rotulo: 'Qué conviene hacer',
+    // que una sugerencia de Linear.
+    //
+    // «Qué conviene hacer» era una frase, no un nombre, y encima duplicaba lo que
+    // ya dice el título de la fila. Un rótulo tiene que poder leerse suelto en un
+    // chip, en una columna de tabla y en un filtro: ahí «Sugerencia» funciona y
+    // «Qué conviene hacer» pide un renglón entero.
+    rotulo: 'Sugerencia',
     forma: 'decision',
     tono: 'mako',
     comunica: 'Propone una acción concreta. Sin los cinco campos es un consejo genérico.',
@@ -180,12 +200,19 @@ export const GRAMATICA: Record<EstadoMako, DefEstado> = {
     // es comodidad: un diálogo de confirmación pierde poder con el uso («if you
     // warn people too much, they stop paying attention», NN/g), así que gastarlo
     // en lo reversible deja sin efecto el día que MaKo quiera borrar algo.
-    rotulo: 'Esperando tu aprobación',
+    rotulo: 'Aprobación pendiente',
     forma: 'decision',
     tono: 'warn',
     comunica: 'Solo para lo que no se puede deshacer. Nada se mueve hasta tu sí.',
-    exige: ['el alcance', 'los cambios previstos'],
-    esperaAlUsuario: true,
+    // ⚠️ «los cambios previstos» significa lo que va a pasar DE VERDAD, con el
+    // texto a la vista: los mensajes que se van a mandar, los nombres de la
+    // lista. No un resumen de cuántos son. Microsoft lo pide textual en su guía
+    // de confirmaciones —«Don't hide needed information because users might not
+    // find it»— y era el defecto más grave del diseño anterior: el botón que
+    // mandaba 340 mensajes estaba a la vista y QUÉ decían esos mensajes vivía
+    // detrás de un click. Se podía aprobar un envío sin haberlo leído nunca.
+    exige: ['el alcance', 'los cambios previstos', 'la consecuencia, pegada al botón'],
+    bloquea: true,
   },
   ejecuta: {
     // Dorado y no azul, aunque «está pasando algo» tiente a usar el azul de
@@ -236,7 +263,8 @@ export const GRAMATICA: Record<EstadoMako, DefEstado> = {
     // La diferencia con ErrorState importa. Un error se reintenta; esto no se
     // arregla reintentando, se arregla conectando algo o cargando un dato.
     exige: ['qué fuente falta', 'cómo resolverlo'],
-    esperaAlUsuario: true,
+    // Sin `bloquea`: acá no espera nadie. Es un análisis que no llegó, no una
+    // decisión pendiente. Ver el comentario de `bloquea` arriba.
   },
 };
 

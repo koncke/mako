@@ -510,19 +510,20 @@
    Parte 3 del rediseño (#520). El catálogo de estados vive en
    lib/mako-gramatica.ts y la pieza en app/_ui/Mako.tsx; acá va sólo la forma.
 
-   LA TARJETA ES UNA TARJETA COMÚN. Fondo de superficie y filete de siempre,
-   igual que cualquier otra de la app. La versión anterior pintaba el fondo del
-   tono, el borde del tono Y un filo izquierdo de 3 px: tres señales para decir
-   una sola cosa, y el resultado era una caja que grita en el medio de una
-   pantalla tranquila.
+   ⚠️ ESTA CAJA ES SOLO DE LOS AVISOS. Las tres formas se ven distinto a
+   propósito y cada una tiene su bloque:
 
-   El estado lo dicen la MARCA y el RÓTULO, que es lo que se lee primero.
+     decisión  →  `.mk-dec`, más abajo. Una FILA que se abre, sin caja.
+     curso     →  `.mk-mako--curso`. Una línea, sin caja.
+     aviso     →  esto. Es lo único que sigue siendo una tarjeta, porque es una
+                  unidad cerrada que se lee entera de una vez.
 
-   El color del fondo queda reservado para los estados que te están ESPERANDO
-   (`esperaAlUsuario` en lib/mako-gramatica.ts: «necesita tu aprobación» y «no
-   alcanza para concluir»). Ahí el tinte no es decoración: es lo único que hace
-   que no se te pase entre seis tarjetas. Un color que se usa para todo no
-   distingue nada. */
+   Sin fondo de color, ni siquiera para lo que te está esperando. Ese tinte
+   existió y se sacó: lo tenían la aprobación y «falta un dato», y como el
+   segundo es de tono `neutral` su fondo salía `--surface-2` —la misma
+   superficie que usa media app—, así que el realce que la regla anunciaba como
+   «lo único que hace que no se te pase» era invisible por construcción. Hoy el
+   único color de la lista es el botón de la fila que bloquea. */
 .mk-mako {
   display: flex;
   flex-direction: column;
@@ -601,15 +602,121 @@
   line-height: 1.3;
 }
 
-/* El botón principal de una tarjeta que te ESPERA toma el color del estado, no
-   el azul de acción. Un botón azul adentro de una tarjeta naranja son dos
-   acentos peleando en la misma caja, y la regla de la casa dice que el color
-   tiene un solo significado por vez. */
-.mk-mako--espera .mk-btn--primary {
+/* ── DECISIÓN — una FILA que se abre, no una tarjeta ──────────────────────
+   El pedido del dueño, textual: «que muestre poco en la tarjeta y si la abrís
+   te muestre todo». Cerrada muestra DOS elementos de texto —el título y la
+   consecuencia— y ni un botón. El porqué completo, en app/_ui/Mako.tsx.
+
+   Acá no hay caja: son filas separadas por un filete de 1 px. «Cards are the
+   lazy container» — tres tarjetas del mismo tamaño apiladas es el antipatrón
+   nombrado, y era literalmente lo que teníamos. */
+.mk-dec { border-radius: var(--r-sm); }
+/* El filete lo pone la fila de ABAJO, no la de arriba: así una sola decisión
+   suelta en una pantalla no queda con una raya colgando sin nada arriba. */
+.mk-dec + .mk-dec { border-top: 1px solid var(--border); }
+
+.mk-dec__fila {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  /* 44 px es el mínimo táctil, y acá es el objetivo de click más grande de la
+     pantalla a propósito: el disparador viejo era un `summary` de 17 px de alto
+     que además dependía del hover para explicarse. */
+  min-height: 44px;
+  padding: 13px 6px;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  /* `list-style: none` para Firefox y el pseudo-elemento para WebKit: el
+     triangulito nativo va a la izquierda y no rota. El caret propio va a la
+     derecha, que es donde el estudio de NN/g mide que la gente lo busca. */
+  list-style: none;
+}
+.mk-dec__fila::-webkit-details-marker { display: none; }
+.mk-dec__fila:hover { background: var(--surface-2); }
+/* La fila ES el control. Sin foco visible, con teclado no se sabe dónde estás y
+   el segundo nivel queda inalcanzable en la práctica. */
+.mk-dec__fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* La marca se alinea con la primera línea del título, no con el centro del
+   bloque: con dos renglones de texto, centrada queda flotando en el medio. */
+.mk-dec .mk-mako__marca { margin-top: 2px; }
+
+.mk-dec__txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.mk-dec__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.35; }
+/* La consecuencia va en prosa y en gris: es contexto para decidir si abrís, no
+   un campo. En cuanto se parta en etiqueta + valor, volvió el formulario. */
+.mk-dec__c { font-size: var(--fs-sm); color: var(--dim); line-height: 1.45; }
+
+/* En `--dim` y no en `--faint` (5,98:1 contra 2,64:1). Acá el piso de 3:1 de
+   WCAG para objetos gráficos no es un tecnicismo: sacados el rótulo, el botón y
+   la caja, el caret quedó como la ÚNICA señal de que la fila tiene un segundo
+   nivel, y su rotación como la única de si está abierta o cerrada. */
+.mk-dec__caret { flex: none; margin-top: 6px; color: var(--dim); transition: transform .15s ease; }
+.mk-dec[open] .mk-dec__caret { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .mk-dec__caret { transition: none; } }
+
+/* El panel arranca donde arranca el texto de la fila (6 padding + 16 marca + 10
+   gap = 32), así lo de adentro cuelga del título en vez de flotar suelto. */
+.mk-dec__panel { display: flex; flex-direction: column; gap: 12px; padding: 0 6px 16px 32px; }
+.mk-dec__rot { font-size: var(--fs-meta); font-weight: 600; }
+.mk-dec__porque { margin: 0; font-size: var(--fs-sm); color: var(--dim); line-height: 1.6; max-width: 70ch; }
+
+.mk-dec__campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px 24px;
+  margin: 0;
+  max-width: 620px;
+}
+.mk-dec__campo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* ⚠️ `--dim`, NO `--faint`. Estos <dt> no son metadata decorativa: son los que
+   nombran cada dato del panel, y en la aprobación son lo único que distingue el
+   ALCANCE del CRONOGRAMA — sin ellos quedan dos frases sueltas y hay que
+   adivinar cuál es cuál. `--faint` sobre superficie da 2,64:1 (2,46:1 con la
+   fila en hover), contra el piso de 4,5:1. `--dim` da 5,98:1. */
+.mk-dec__k { font-size: var(--fs-meta); color: var(--dim); line-height: 1.3; }
+.mk-dec__v { margin: 0; font-size: var(--fs-sm); color: var(--ink); line-height: 1.45; }
+
+/* La evidencia se marca con un filete al costado y no con una caja: una caja
+   con borde adentro de otra caja es anidar contenedores, y encima la anterior
+   tenía el MISMO fondo que su padre — borde sin contraste. */
+.mk-dec__ev {
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--dim);
+  line-height: 1.6;
+  max-width: 70ch;
+}
+
+.mk-dec__pie { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+/* En tinta normal, NO en gris. Es lo que puede hacer que el dueño diga que no,
+   y va pegada al botón porque es ahí donde se lee. */
+.mk-dec__adv { margin: 0; font-size: var(--fs-sm); color: var(--ink); line-height: 1.5; max-width: 70ch; }
+
+/* El ÚNICO naranja de la pantalla, y solo con el panel abierto. Antes eran tres
+   señales para decir una cosa: fondo, borde y botón.
+
+   ⚠️ EL `color` VA SIEMPRE QUE SE PISE EL `background`. La primera versión de
+   esta regla cambiaba el fondo a `--warn-fill` y heredaba el `color: #fff` de
+   `.mk-btn--primary`: blanco sobre #EE7B1C da **2,81:1**, contra el piso de
+   4,5:1. O sea que el override, hecho para destacar el único control
+   irreversible de la app, dejó su etiqueta MENOS legible que la de cualquier
+   otro botón (el azul que reemplazaba daba 4,55:1) — y encima al revés, porque
+   el hover sí pasaba. La salida reversible de al lado, «No enviar», se leía al
+   doble de contraste que la que no tiene vuelta atrás.
+
+   Tinta oscura sobre relleno brillante, que es lo que ya hace `.mk-btn--mako`
+   por esta misma razón. Reposo 6,50:1 · hover 5,02:1. */
+.mk-dec--bloquea .mk-btn--primary {
   background: var(--warn-fill);
   border-color: var(--warn-fill);
+  color: var(--ink);
 }
-.mk-mako--espera .mk-btn--primary:hover { background: var(--warn); border-color: var(--warn); }
+.mk-dec--bloquea .mk-btn--primary:hover:not(:disabled) {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: #fff;
+}
 
 /* La caja de la marca: cuadrada, fija, y centra su contenido. Es lo que hace
    que una estrella de 14 px y un punto de 7 px ocupen lo mismo. */
@@ -622,6 +729,12 @@
   height: 16px;
 }
 .mk-mako--chip .mk-mako__marca { width: 13px; height: 13px; }
+/* ⚠️ EL PUNTO NO SE VEÍA. Su único tamaño lo daba `.mk-status .mk-dot`, que es
+   descendiente de `.mk-status` — una clase que acá no existe. Fuera de Status el
+   span medía 0×0: invisible en «Hecho», y los quince renglones de comentario que
+   explicaban cómo alinear «una estrella de 14 px y un punto de 7 px» hablaban de
+   algo que nunca se dibujó. Tres rondas de ajuste fino encima de un fantasma. */
+.mk-mako__marca .mk-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 
 .mk-mako__cab { display: flex; align-items: center; gap: 7px; }
 
@@ -645,17 +758,28 @@
 
 /* La importancia NO usa color: si «alta» fuera roja competiría con el rojo de
    riesgo, y una señal importante no es lo mismo que una señal mala. */
+/* ⚠️ En `--dim` y no en `--faint`, igual que las etiquetas de los campos: es un
+   dato que `detecto` está OBLIGADO a mostrar («el nivel de importancia»), y a
+   2,64:1 no se lee. Un campo obligatorio pintado por debajo del mínimo legible
+   es un campo que no está. */
 .mk-mako__imp {
   margin-left: auto;
   font-size: var(--fs-meta);
-  color: var(--faint);
+  color: var(--dim);
 }
+
+/* La marca va en la MISMA línea que el título, no en un renglón propio arriba.
+   Ese renglón era el `.mk-mako__cab` con el rótulo en monospace —el «kicker»
+   prohibido— y sacando el rótulo quedaba una fila fantasma de 16 px con la
+   marca sola, que igual se comía el `gap` de la tarjeta. */
+.mk-mako__linea { display: flex; align-items: flex-start; gap: 8px; }
+.mk-mako__linea .mk-mako__marca { margin-top: 3px; }
 
 .mk-mako__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.4; }
 .mk-mako__d { font-size: var(--fs-sm); color: var(--dim); line-height: 1.55; }
 
 .mk-mako__proc { display: flex; flex-direction: column; gap: 5px; }
-.mk-mako__fuente { font-size: var(--fs-meta); color: var(--faint); }
+.mk-mako__fuente { font-size: var(--fs-meta); color: var(--dim); }
 
 /* Los campos obligatorios del estado. Rejilla que se acomoda sola: con dos
    campos son dos columnas, con cinco (los de «recomienda») bajan de renglón.
@@ -680,7 +804,9 @@
    leerse es el VALOR; la etiqueta solo dice de qué es. */
 .mk-mako__k {
   font-size: var(--fs-meta);
-  color: var(--faint);
+  /* `--dim`, no `--faint`: mismo motivo que `.mk-dec__k`. 2,64:1 no llega al
+     piso de 4,5:1, y sin la etiqueta el valor queda huérfano. */
+  color: var(--dim);
   line-height: 1.3;
 }
 .mk-mako__v { margin: 0; font-size: var(--fs-sm); color: var(--ink); line-height: 1.45; }
@@ -688,28 +814,16 @@
 /* La evidencia va plegada: RESPALDA la afirmación, no se lee todas las veces.
    Desplegada siempre, la tarjeta pasa de «MaKo encontró algo» a un volcado de
    datos y deja de tener un título directo, que es lo que el documento pide. */
-/* El campo que queda a la vista va en UNA línea —etiqueta y valor al lado, no
-   uno encima del otro—: apilados ocupan el doble de alto y hacen que un solo
-   dato parezca un formulario. */
-.mk-mako__dato--frente {
-  flex-direction: row;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* El disparador del segundo nivel NOMBRA lo que hay adentro («Esfuerzo ·
-   Responsable · Objetivo»), así que se lee como una lista y necesita el
-   tratamiento de una: versalitas no, mono no, y el triángulo del <details>
-   alcanza como afordancia. */
+/* El disparador de un plegado es un CONTROL, no metadata: a 2,64:1 la única
+   puerta a la evidencia queda por debajo del mínimo legible. */
 .mk-mako__ev > summary {
   cursor: pointer;
   font-size: var(--fs-meta);
-  color: var(--faint);
+  color: var(--dim);
   padding: 2px 0;
   list-style-position: outside;
 }
-.mk-mako__ev > summary:hover { color: var(--dim); }
+.mk-mako__ev > summary:hover { color: var(--ink); }
 .mk-mako__ev[open] > summary { margin-bottom: 2px; }
 .mk-mako__ev > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
 .mk-mako__evc {

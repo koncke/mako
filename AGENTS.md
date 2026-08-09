@@ -235,6 +235,36 @@ Perro corre en tandas— y el código caía derecho a Sonnet. Dos corridas de pr
 costaron US$0,25 con otros cuatro proveedores gratis configurados y sin usar. Un fallback
 que cobra tiene que ser la excepción rara y ruidosa, no la reacción al primer 429.
 
+# Un contrato de datos no es un layout
+
+`exige` en `lib/mako-gramatica.ts` dice qué tiene que **tener** un estado de MaKo para no
+ser un consejo genérico. No dice qué tiene que **mostrar de entrada**. Confundir las dos
+cosas costó tres rediseños seguidos de la misma pantalla: el dueño la rechazó tres veces
+por «cargada», y las tres rondas de arreglos movieron cómo se veían los campos sin
+preguntar nunca por qué estaban todos a la vista.
+
+Lo que queda:
+
+- **Lo que se ve sin abrir se elige a mano, nunca por el índice de un array.** La versión
+  vieja mostraba `datos[0]` y escondía el resto; en la aprobación eso dejaba «A quiénes»
+  arriba y «Qué reciben» detrás de un click, con el botón que manda 340 mensajes
+  irreversibles siempre visible. Se podía aprobar un envío sin haber visto qué se enviaba.
+  Por eso `consecuencia` es un prop propio de `<Mako>` y **no se deriva de `datos`**.
+- **Nada de kicker.** El rótulo del estado no va en monospace arriba del título. Sigue en
+  `GRAMATICA` —el contrato de que se llame igual en las cuatro tabs no se toca— y se pinta
+  en el chip, en una columna de tabla y adentro del panel abierto. Vale para cualquier
+  pieza nueva, no solo para `<Mako>`.
+- **Un grupo de cosas del mismo tipo es una lista con filete, no una pila de cajas.** Tres
+  tarjetas del mismo tamaño apiladas son el contenedor perezoso; la caja se gana.
+- **Ningún botón puede ser «Sí», «No», «Aceptar», «Cancelar» ni «Descartar» a secas.** Cada
+  uno nombra su acción y su objeto, y el par de salidas resume qué pasa con cada una:
+  «Enviar 340 mensajes» / «No enviar», no «Enviar» / «Cancelar».
+- **La consecuencia de lo irreversible va pegada al botón**, en tinta normal y no en gris,
+  y **antes** del click. Arriba de todo y en gris no la lee nadie.
+
+El detalle de cada uno, con las citas de las guías, en
+[docs/hallazgos-ui.md](docs/hallazgos-ui.md).
+
 # Dos reglas de layout que se rompen solas
 
 **1. El `<main>` de una pantalla es `Pagina`.** Una pantalla no elige su propio ancho.

@@ -18,10 +18,10 @@
 // tiene cómo saber que son lo mismo. El criterio de «listo» de la tarea es
 // literalmente que se llame igual en las cuatro tabs.
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { MakoStar } from '@/app/_components/MakoBrand';
-import { GRAMATICA, type EstadoMako } from '@/lib/mako-gramatica';
-import { TONO } from './tokens';
+import { GRAMATICA, type EstadoMako, type DefEstado } from '@/lib/mako-gramatica';
+import { TONO, type Tono } from './tokens';
 import { Button, ButtonLink } from './Button';
 import { Progress } from './Feedback';
 
@@ -41,6 +41,26 @@ export type MakoProps = {
    */
   titulo?: ReactNode;
   detalle?: ReactNode;
+  /**
+   * LA LÍNEA QUE DECIDE SI VALE LA PENA ABRIR. Es el único dato que sobrevive al
+   * colapso, así que va en prosa y con el número adentro —«340 mensajes de
+   * WhatsApp · no se puede deshacer»—, nunca como etiqueta y valor.
+   *
+   * ⚠️ Es un prop propio y NO se deriva de `datos[0]`, a propósito. El diseño
+   * anterior mostraba el primer campo del array y escondía el resto: en la
+   * aprobación eso dejaba arriba «A quiénes» y detrás de un click «Qué reciben»,
+   * mientras el botón que manda los mensajes estaba siempre a la vista. Elegir
+   * por posición no es elegir. El día que esto vuelva a salir de `datos[0]`,
+   * vuelve el mismo defecto por otra puerta.
+   */
+  consecuencia?: ReactNode;
+  /**
+   * Lo que no tiene vuelta atrás, PEGADO ARRIBA DEL BOTÓN y en tinta normal, no
+   * en gris. Es feedforward (Microsoft HAX G16-A): la consecuencia se comunica
+   * antes de que el usuario actúe, y en el lugar donde va a actuar. Solo tiene
+   * sentido en `aprobacion`.
+   */
+  advertencia?: ReactNode;
   /** Los campos obligatorios del estado. Ver `exige` en lib/mako-gramatica.ts. */
   datos?: DatoMako[];
   /** Lo que respalda la afirmación. Va PLEGADO: respalda, no se lee siempre. */
@@ -62,6 +82,16 @@ export type MakoProps = {
   /** Versión de una línea, para una fila de tabla o el encabezado de una card. */
   compacto?: boolean;
   /**
+   * Fuerza el estado inicial del panel. Por defecto lo decide la gramática:
+   * abre sola la que BLOQUEA, porque el usuario la va a abrir siempre y hacerle
+   * pagar un click para llegar a lo que sí o sí tiene que leer es costo puro.
+   *
+   * ⚠️ Existe por UN caso: con dos aprobaciones vivas, dos paneles abiertos son
+   * otra vez el muro que este rediseño vino a sacar. La lista deja abierta la
+   * primera y le pasa `arrancaAbierta={false}` al resto.
+   */
+  arrancaAbierta?: boolean;
+  /**
    * La sugerencia va PEGADA al dato que propone cambiar, no en una tarjeta
    * aparte — el patrón de Linear. El «por qué» no ocupa espacio: viaja en el
    * title y aparece al pasar el cursor.
@@ -81,12 +111,30 @@ const REQUIERE: Record<EstadoMako, (keyof MakoProps)[]> = {
   detecto: ['importancia', 'evidencia'],
   analizando: ['progreso', 'fuente'],
   explica: ['evidencia'],
-  recomienda: ['datos'],
-  aprobacion: ['datos', 'accion'],
+  // ⚠️ `titulo` y `consecuencia` son obligatorios en los tres estados de
+  // decisión, y no es burocracia: son los DOS ÚNICOS elementos de texto que la
+  // fila muestra cerrada. Si falta uno, la fila no dice nada y el usuario tiene
+  // que abrir las tres para averiguar cuál le importa — que es el «mystery ≠
+  // minimalism» que la guía de diseño marca como lo peor de esconder cosas.
+  //
+  // Antes `titulo` no era obligatorio para NINGÚN estado y se renderizaba igual:
+  // un `titulo` undefined dejaba un <div> vacío que igual se comía el gap.
+  recomienda: ['titulo', 'consecuencia', 'datos'],
+  // ⚠️ `evidencia` es obligatoria acá, y es el ítem que más fácil se pierde.
+  // Qué prop cubre cada cosa que `exige` la aprobación:
+  //     «el alcance»                    → datos
+  //     «los cambios previstos»         → evidencia  ← el TEXTO REAL de lo que
+  //                                        se va a mandar, no cuántos son
+  //     «la consecuencia, pegada al botón» → advertencia
+  // Sin `evidencia` en esta lista, un <Mako estado="aprobacion"> con título,
+  // consecuencia, datos, acción y advertencia pinta el botón de enviar y no
+  // avisa nada: vuelve entero el defecto original —el botón a la vista y qué
+  // dicen los mensajes en ningún lado— con el checklist diciendo que está bien.
+  aprobacion: ['titulo', 'consecuencia', 'datos', 'accion', 'advertencia', 'evidencia'],
   ejecuta: ['datos'],
   completo: ['datos'],
   vigila: ['datos'],
-  sin_conclusion: ['datos', 'accion'],
+  sin_conclusion: ['titulo', 'consecuencia', 'datos', 'accion'],
 };
 
 /** Ya avisados, para no repetir el mismo warning en cada render. */
@@ -95,12 +143,18 @@ const avisados = new Set<string>();
 function useAvisoDeDesarrollo(estado: EstadoMako, props: MakoProps) {
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') return;
-    // El chip NO tiene que cumplir el contrato: es una REFERENCIA a un estado
-    // («esta fila está en aprobación»), no su presentación. Los campos
-    // obligatorios los debe el lugar donde el estado se muestra entero. Sin
-    // esta línea, una tabla de 40 filas escupe 40 avisos que no se pueden
-    // resolver, y a la semana nadie mira la consola.
-    if (props.compacto) return;
+    // El chip y la pastilla en línea NO tienen que cumplir el contrato: son
+    // REFERENCIAS a un estado («esta fila está en aprobación»), no su
+    // presentación. Los campos obligatorios los debe el lugar donde el estado
+    // se muestra entero. Sin esta línea, una tabla de 40 filas escupe 40 avisos
+    // que no se pueden resolver, y a la semana nadie mira la consola.
+    //
+    // ⚠️ `inline` faltaba, y el efecto era peor que un aviso de más: la clave
+    // que dedup-ea (`recomienda:consecuencia,datos`) se quema con el falso
+    // positivo del inline, y a partir de ahí el aviso VERDADERO —una tarjeta de
+    // recomendación sin consecuencia, en cualquier pantalla— ya no se imprime.
+    // Un falso positivo acá no hace ruido: apaga la guarda.
+    if (props.compacto || props.inline) return;
     const faltan = REQUIERE[estado].filter((k) => {
       const v = props[k];
       return v === undefined || v === null || (Array.isArray(v) && v.length === 0);
@@ -127,6 +181,135 @@ const IMPORTANCIA: Record<'alta' | 'media' | 'baja', string> = {
   alta: 'Importante', media: 'A tener en cuenta', baja: 'Menor',
 };
 
+/** El significante de «esto se abre acá, no te lleva a otra página». */
+function Caret() {
+  return (
+    <svg className="mk-dec__caret" width="12" height="12" viewBox="0 0 12 12" aria-hidden focusable="false">
+      <path d="M3 4.5 6 8l3-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// =============================================================================
+// DECISIÓN — una FILA que se abre, no una tarjeta
+// =============================================================================
+// El pedido del dueño, textual: «es mejor que muestre poco en la tarjeta y si la
+// abrís te muestre todo». La versión anterior mostraba 7, 8 y 6 elementos de
+// texto sin abrir nada, y él la rechazó tres veces seguidas. Las tres rondas de
+// arreglos movieron cómo se veían esos elementos y nunca preguntaron por qué
+// estaban ahí.
+//
+// La causa de raíz era que la tarjeta dibujaba los CAMPOS del estado en vez de la
+// consecuencia de decidir: `exige` se leyó como instrucción de layout, así que
+// cada tarjeta salía como un formulario —etiqueta gris, valor, etiqueta gris,
+// valor— y encima con un <details> cuyo `summary` era el ÍNDICE de las etiquetas
+// que había adentro. Se le sacaron filas al formulario y siguió siendo un
+// formulario.
+//
+// Lo que queda cerrado son DOS elementos de texto:
+//
+//   TÍTULO        el hecho. Sin él la fila no dice nada.
+//   CONSECUENCIA  la frase con el número que permite decidir SI vale abrir.
+//
+// No hay un tercero porque cualquier tercer texto vuelve a ser un campo. Y no
+// hay botones: un botón en una fila cerrada invita a decidir sin haber leído, y
+// en la aprobación eso era directamente un defecto de seguridad.
+//
+// Tres cosas que se sacaron y por qué, cada una con su fuente:
+//
+//   · EL RÓTULO EN MONOSPACE arriba del título. Es un «kicker», y la guía de
+//     oficio que usamos lo prohíbe sin excepción: «A kicker or eyebrow above a
+//     heading. This one is a ban, not a default: no brief earns it back. The
+//     heading carries its own weight». Sigue vivo en GRAMATICA —el chip, la
+//     tabla y el panel abierto lo pintan—, así que el contrato de que el estado
+//     se llame igual en las cuatro tabs no se rompe.
+//     Y se sacó también de la forma `aviso`, más abajo: el test es si el rótulo
+//     dice algo que el título no diga ya, y en tres de los cuatro la respuesta
+//     era no («El costo se duplicó en 3 días» ES «Algo cambió»). El único que
+//     cargaba peso real era «Hecho» sobre «3 anuncios pausados», que es ambiguo
+//     entre «hay 3 pausados» y «acabo de pausar 3» — y eso se arregla poniendo
+//     el verbo en el título, no dejando una excepción a un veto sin excepciones.
+//   · LA CAJA. «Cards are the lazy container»: tres tarjetas del mismo tamaño
+//     apiladas son el antipatrón nombrado. Son una lista con filete de 1 px.
+//   · EL FONDO DE COLOR de la aprobación. Fondo + borde + botón lleno eran tres
+//     señales para decir una sola cosa. Queda el botón, que además es el único
+//     naranja de la pantalla.
+function Decision({
+  props, def, t, marca,
+}: { props: MakoProps; def: DefEstado; t: (typeof TONO)[Tono]; marca: ReactNode }) {
+  const { titulo, detalle, consecuencia, advertencia, datos, evidencia, accion, secundaria, arrancaAbierta } = props;
+
+  // Abre sola la que BLOQUEA. El dueño la va a abrir siempre —nada se mueve sin
+  // su sí—, así que cobrarle un click para llegar a lo que tiene que leer es
+  // costo de interacción puro. Las otras dos arrancan cerradas.
+  const [abierta, setAbierta] = useState(arrancaAbierta ?? def.bloquea === true);
+
+  // Controlado y no `<details open>` suelto: React vuelve a sincronizar la
+  // propiedad `open` en cada render, así que sin este estado el panel se
+  // cerraría solo cuando algo de arriba se vuelva a renderizar.
+  return (
+    <details
+      className={`mk-dec${def.bloquea ? ' mk-dec--bloquea' : ''}`}
+      open={abierta}
+      onToggle={(e) => setAbierta(e.currentTarget.open)}
+    >
+      {/* Nada de <details name>: acordeón exclusivo NO. Cerrar una para abrir
+          otra mueve de lugar el botón que el usuario iba a tocar y rompe la
+          comparación que está haciendo — que es justo la tarea acá. */}
+      <summary className="mk-dec__fila">
+        {marca}
+        <span className="mk-dec__txt">
+          <span className="mk-dec__t">{titulo}</span>
+          {consecuencia && <span className="mk-dec__c">{consecuencia}</span>}
+        </span>
+        <Caret />
+      </summary>
+
+      <div className="mk-dec__panel">
+        {/* Acá sí va el rótulo: adentro no es un kicker —el título quedó arriba,
+            en la fila— y es lo que sostiene que el estado se llame igual en el
+            Plan, el Dashboard, el CRM y el chat. */}
+        <span className="mk-dec__rot" style={{ color: t.ink }}>{def.rotulo}</span>
+
+        {detalle && <p className="mk-dec__porque">{detalle}</p>}
+
+        {/* Los campos, TODOS. Acá el formulario está permitido: es el segundo
+            nivel, y son los que impiden que una recomendación sea un consejo
+            genérico. Lo que estaba mal era mostrarlos antes de que los pidas. */}
+        {!!datos?.length && (
+          <dl className="mk-dec__campos">
+            {datos.map((d) => (
+              <div key={d.k} className="mk-dec__campo">
+                <dt className="mk-dec__k">{d.k}</dt>
+                <dd className="mk-dec__v">{d.v}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        {/* Sin sub-plegado. Dos niveles, nunca tres. */}
+        {evidencia && <div className="mk-dec__ev">{evidencia}</div>}
+
+        {(accion || secundaria || advertencia) && (
+          <div className="mk-dec__pie">
+            {/* La consecuencia va PEGADA al botón y en tinta normal, no en gris
+                arriba de todo: es feedforward (Microsoft HAX G16-A), se lee
+                donde se actúa. En gris y lejos, no la lee nadie. */}
+            {advertencia && <p className="mk-dec__adv">{advertencia}</p>}
+            <div className="mk-row">
+              {/* El botón lleno es SOLO de la que bloquea. Un botón lleno es un
+                  compromiso: aceptar una sugerencia opcional no lo es, y abrir
+                  otra pantalla tampoco. */}
+              {accion && <Boton a={accion} variant={def.bloquea ? 'primary' : 'secondary'} />}
+              {secundaria && <Boton a={secundaria} variant="tertiary" />}
+            </div>
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
+
 export function Mako(props: MakoProps) {
   const { estado, titulo, detalle, datos, evidencia, fuente, progreso, importancia, accion, secundaria, deshacer, compacto, inline } = props;
   const def = GRAMATICA[estado];
@@ -138,9 +321,16 @@ export function Mako(props: MakoProps) {
   const enProceso = estado === 'analizando' || estado === 'ejecuta';
   // Siempre adentro de su caja: es lo que hace que una estrella de 14 px y un
   // punto de 7 px dejen el texto en el mismo lugar en los nueve estados.
+  //
+  // ⚠️ En las tres de DECISIÓN va la estrella aunque el tono no sea `mako`. La
+  // aprobación es `warn` y «falta un dato» es `neutral`, así que con la regla de
+  // arriba arrancaban con un punto de color: dos señales cromáticas en una lista
+  // donde el único color permitido es el del botón que bloquea. Y en las tres
+  // habla MaKo — la marca dice quién, no qué tan grave es.
+  const conEstrella = def.tono === 'mako' || def.forma === 'decision';
   const marca = (
     <span className="mk-mako__marca" aria-hidden>
-      {def.tono === 'mako'
+      {conEstrella
         ? <MakoStar size={compacto ? 12 : 14} animate={enProceso} />
         : <span className="mk-dot" style={{ background: t.fill }} />}
     </span>
@@ -206,119 +396,57 @@ export function Mako(props: MakoProps) {
     );
   }
 
-  // El fondo del tono SOLO cuando el estado te está esperando. Para el resto, la
-  // tarjeta común: el estado ya lo dicen la marca y el rótulo, y pintar las nueve
-  // deja el color sin significado justo donde hace falta que lo tenga.
-  const esperando = def.esperaAlUsuario === true;
 
-  // El PRIMER campo de `exige` es, por definición del catálogo, el que decide:
-  // en `recomienda` el impacto esperado, en `aprobacion` el alcance. Ése se
-  // queda a la vista y el resto pasa al segundo nivel. Que sea siempre «el
-  // primero» y no una elección por pantalla es lo que hace que las tarjetas de
-  // un mismo grupo tengan la MISMA forma — Material lo marca: con campos
-  // condicionales cada tarjeta queda distinta y el usuario tiene que leerlas
-  // enteras en vez de escanearlas.
-  const [primero, ...resto] = datos ?? [];
+  // ── DECISIÓN ──────────────────────────────────────────────────────────────
+  // Una fila que se abre. El porqué completo, arriba de `Decision`.
+  if (def.forma === 'decision') {
+    return <Decision props={props} def={def} t={t} marca={marca} />;
+  }
 
+  // ── AVISO ─────────────────────────────────────────────────────────────────
+  // Te estás enterando de algo: no hay nada que decidir ni nada corriendo. Esta
+  // sí es una tarjeta, porque es una unidad cerrada que se lee entera de una vez
+  // y no tiene segundo nivel que esconder.
+  //
+  // Sin fondo de color y SIN RÓTULO arriba: el kicker se sacó también acá (ver
+  // el porqué arriba de `Decision`). La marca va en la misma línea que el
+  // título y no en un renglón propio, porque un renglón con la marca sola es
+  // una fila fantasma de 16 px que igual se come el `gap` de la tarjeta — el
+  // mismo defecto del `titulo` undefined que este archivo documenta más arriba.
   return (
-    <div
-      // El botón toma el color del estado SOLO en la aprobación (tono warn).
-      // «Falta un dato» también espera al usuario, pero su acción —«Ir a
-      // completarlos en el CRM»— es navegación normal y le toca el azul de
-      // siempre: azul es «vos actuás». Pintarlo naranja como la aprobación decía
-      // «cuidado» donde no hay ningún riesgo.
-      className={`mk-mako${esperando && def.tono === 'warn' ? ' mk-mako--espera' : ''}`}
-      // `aria-live` solo donde el estado CAMBIA solo: anunciar una tarjeta
-      // estática cada vez que se monta es ruido para quien usa lector.
-      role={enProceso ? 'status' : undefined}
-      aria-live={enProceso ? 'polite' : undefined}
-      style={esperando ? { background: t.bg, borderColor: t.border } : undefined}
-    >
-      <div className="mk-mako__cab">
+    <div className="mk-mako">
+      <div className="mk-mako__linea">
         {marca}
-        <span className="mk-mako__rot" style={{ color: t.ink }}>{def.rotulo}</span>
+        <span className="mk-mako__t">{titulo}</span>
         {importancia && <span className="mk-mako__imp">{IMPORTANCIA[importancia]}</span>}
       </div>
-
-      <div className="mk-mako__t">{titulo}</div>
       {detalle && <div className="mk-mako__d">{detalle}</div>}
 
-      {/* El progreso va con su fuente pegada: «68%» sin decir de qué no informa
-          más que un spinner, y el documento pide las dos cosas juntas. */}
-      {(progreso !== undefined || fuente) && (
-        <div className="mk-mako__proc">
-          {progreso !== undefined && <Progress value={progreso} tono="mako" />}
-          {fuente && <span className="mk-mako__fuente">Leyendo {fuente}</span>}
-        </div>
+      {!!datos?.length && (
+        <dl className="mk-mako__datos">
+          {datos.map((d) => (
+            <div key={d.k} className="mk-mako__dato">
+              <dt className="mk-mako__k">{d.k}</dt>
+              <dd className="mk-mako__v">{d.v}</dd>
+            </div>
+          ))}
+        </dl>
       )}
 
-      {/* ⚠️ UN SOLO CAMPO A LA VISTA. El resto, detrás de un gesto.
-          La versión anterior pintaba los cinco campos siempre, y era «la card
-          enciclopedia» que Material nombra como antipatrón: le ahorra el click
-          al usuario y termina siendo una página comprimida que nadie escanea.
-          Catorce elementos de texto para decidir si te interesa una sugerencia.
-
-          El error de origen fue leer «campos obligatorios» como «campos siempre
-          visibles». El documento pide que una recomendación TENGA impacto,
-          esfuerzo, responsable y objetivo —para que no sea un consejo genérico—
-          no que los cinco te salten encima antes de decidir si te interesa.
-
-          El corte se define por FRECUENCIA DE USO, no por importancia (NN/g):
-          el primer campo es el que decide y se queda arriba; los otros se miran
-          en raras ocasiones. Y son DOS niveles, nunca tres. */}
-      {primero && (
-        <div className="mk-mako__dato mk-mako__dato--frente">
-          <span className="mk-mako__k">{primero.k}</span>
-          <span className="mk-mako__v">{primero.v}</span>
-        </div>
-      )}
-
-      {/* UN solo disclosure, con los campos restantes Y la evidencia adentro.
-          Antes eran dos («Ver la evidencia» aparte), y NN/g lo desaconseja
-          explícitamente: «it's rarely a good idea to offer multiple ways to
-          progress to secondary options».
-          El rótulo NOMBRA lo que hay adentro en vez de decir «ver más»: sin ese
-          olor a información, el acordeón obliga a descubrir por prueba y error. */}
-      {(resto.length > 0 || evidencia) && (
+      {/* La evidencia RESPALDA la afirmación: se lee cuando dudás, no siempre. */}
+      {evidencia && (
         <details className="mk-mako__ev">
-          <summary>{[...resto.map((d) => d.k), evidencia ? 'Evidencia' : null].filter(Boolean).join(' · ')}</summary>
-          <div className="mk-mako__evc">
-            {resto.length > 0 && (
-              <dl className="mk-mako__datos">
-                {resto.map((d) => (
-                  <div key={d.k} className="mk-mako__dato">
-                    <dt className="mk-mako__k">{d.k}</dt>
-                    <dd className="mk-mako__v">{d.v}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {evidencia}
-          </div>
+          <summary>Evidencia</summary>
+          <div className="mk-mako__evc">{evidencia}</div>
         </details>
       )}
 
-      {(accion || secundaria || deshacer) && (
+      {deshacer && (
         <div className="mk-row" style={{ marginTop: 2 }}>
-          {/* EL BOTÓN LLENO ES SOLO DE LA TARJETA QUE TE FRENA.
-              Las tres de «tenés que decidir» tenían botón primario y por eso se
-              leían iguales, cuando piden cosas muy distintas: la aprobación
-              BLOQUEA —nada se mueve sin tu sí—, «qué conviene hacer» es opcional
-              y podés ignorarla para siempre, y «falta un dato» es un mandado que
-              te lleva a otra pantalla. Un botón lleno es un compromiso; navegar
-              y aceptar una sugerencia no lo son. Con esto la jerarquía se ve sin
-              agregar un solo color. */}
-          {/* La condición es la MISMA que la del tinte, y tiene que serlo: «falta
-              un dato» también espera al usuario, así que con `esperando` a secas
-              se quedaba con el botón lleno —y azul, el más fuerte de la página—
-              en la tarjeta menos urgente de las tres. Bloquea el que tiene tono
-              de riesgo, y solo ése manda. */}
-          {accion && <Boton a={accion} variant={esperando && def.tono === 'warn' ? 'primary' : 'secondary'} />}
-          {/* Deshacer NO es la acción principal: es la salida de emergencia de
-              algo que ya pasó. En secundario, y siempre primero entre las
-              secundarias — es lo que la gente busca cuando se arrepiente. */}
-          {deshacer && <Boton a={deshacer} variant="secondary" />}
-          {secundaria && <Boton a={secundaria} variant="tertiary" />}
+          {/* Deshacer NO es una acción principal: es la salida de emergencia de
+              algo que ya pasó, y es lo que permite que MaKo haga sin preguntar
+              todo lo que se puede desandar. */}
+          <Boton a={deshacer} variant="secondary" />
         </div>
       )}
     </div>

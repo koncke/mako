@@ -163,8 +163,16 @@
   --fs-kpi: 34px;
   --touch: 40px;
 
-  /* Anillo de foco: uno solo para toda la app (accesibilidad de teclado). */
-  --focus-ring: 0 0 0 3px rgba(47, 111, 237, 0.28);
+  /* Anillo de foco: uno solo para toda la app (accesibilidad de teclado).
+     ⚠️ SÓLIDO, no un glow translúcido. Era `rgba(47,111,237,.28)`, que
+     compuesto sobre blanco da #C5D7FA = **1,45:1** contra el fondo de al lado
+     (1,35:1 con la fila en hover), contra el 3:1 que pide WCAG 1.4.11.
+     El diagnóstico obvio era el equivocado: una prueba automatizada confirma
+     que el `box-shadow` ESTÁ —la aserción pasa— y aun así el que navega con
+     teclado no ve dónde está parado. Que exista no es que se vea.
+     El halo interno de 2 px en color de superficie no es decoración: es lo que
+     despega el anillo del fondo del control cuando el control tiene relleno. */
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--primary);
 
   /* Radios: cambiarlos acá los cambia en los 1.158 botones, que es el punto. */
   --r-sm: 8px;
@@ -399,6 +407,20 @@ textarea.mako-field {
 @media (prefers-reduced-motion: reduce) {
   .mk-enlace-linea {
     animation: none;
+  }
+}
+
+/* ── Alto contraste de Windows ────────────────────────────────────────────────
+   ⚠️ En este modo el navegador FUERZA `box-shadow: none`. Como todos nuestros
+   `:focus-visible` son `outline: none` + `box-shadow: var(--focus-ring)`, el
+   foco de teclado desaparecía por completo: no quedaba nada abajo.
+
+   Va UN bloque global y no un `outline: 2px solid transparent` repetido en cada
+   `:focus-visible`. Son catorce hoy, y el que se agregue mañana se olvida. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
   }
 }
 

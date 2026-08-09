@@ -482,6 +482,49 @@ export const BITACORA: Hito[] = [
       'app/admin/AdminView.tsx — vuelve el botón «Copywriting»',
     ],
   },
+  // ── 9 de agosto ────────────────────────────────────────────────────────────
+  {
+    fecha: '9 ago', hora: '11:40', chat: CH3, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'La tercera vez que rechaza las tarjetas de decisión',
+    pedido: 'No solo está cargado, está MAL diseñado, por favor lanza multi agente para investigar como lo hacen otras apps, investiga en https://www.skills.sh/ investiga diseño, copy, buenas practicas de hacer lo que queremos hacer...\n\nNo te quedes con el diseño actual que tenemos, cambialo completamente, incluso la lógica, es mejor que muestre poco en la tarjeta y si la abrís te muestre todo.',
+    puntos: [
+      '⚠️ **Tercer rechazo de la MISMA pantalla.** Las dos rondas anteriores arreglaron cómo se veían los elementos y ninguna preguntó por qué estaban ahí: de 25 elementos de texto se bajó a 21, y dos de las tres tarjetas ni se tocaron. Cuando el mismo pedido vuelve tres veces, el problema no es el que se está arreglando.',
+      'El pedido trae la dirección ya tomada («poco arriba, todo al abrir»), así que lo que quedaba por investigar era **cómo**, no **si**.',
+    ],
+  },
+  {
+    fecha: '9 ago', hora: '12:30', chat: CH3, cuenta: 'claude2', actor: 'claude', tipo: 'investigacion',
+    titulo: 'Seis líneas en paralelo, y skills.sh dio lo más filoso',
+    puntos: [
+      '**skills.sh es un catálogo de skills de agentes**, y adentro está `impeccable` (pbakaus), que tiene una lista de cosas que se rechazan sin discusión. Dos aplicaban textual a lo que teníamos: *«A kicker or eyebrow above a heading. This one is a **ban, not a default**: no brief earns it back. The heading carries its own weight»* — eso es el rótulo en monospace arriba del título, en las nueve tarjetas — y *«Same-size cards of icon plus heading plus text as the page structure. **Cards are the lazy container**»* — eso son las tres tarjetas iguales apiladas.',
+      'Las apps reales dieron el número que faltaba: una fila de checks de GitHub tiene **UN** elemento de texto; una fila de GitHub Advisories tiene 4 y el cuarto es una **oración**, no pares etiqueta-valor. Stripe Radar documenta que su lista existe para *«scan a list of reviews without seeing details»*, y al abrir **todavía** hay un «Show all insights»: ni siquiera el segundo nivel vuelca todo.',
+      'Sobre la aprobación irreversible convergen tres sistemas (Cloudscape de AWS, GitLab, Win32): el alcance identificado, la palabra «no se puede deshacer», y la consecuencia en su propia sección. Y Microsoft es explícito en lo que estábamos haciendo mal: *«Don\'t hide needed information because users might not find it»*.',
+      'NN/g cerró dos discusiones con dato: varios paneles abiertos a la vez, nunca acordeón exclusivo («restringe la capacidad de combinar información»); y el caret gana sobre el «+» para decir «esto se abre acá y no te lleva a otra página» (136 participantes, p<0.01).',
+      'Lo único que la investigación NO resolvió: si el envío se puede cortar de verdad a mitad de tanda. La propuesta de reemplazar el botón por una ventana de gracia con «Detener» quedó **sin implementar** a propósito — prometer un corte que el backend no puede hacer es peor que el botón de hoy.',
+    ],
+  },
+  {
+    fecha: '9 ago', hora: '13:15', chat: CH3, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La decisión deja de ser una tarjeta y pasa a ser una fila que se abre',
+    puntos: [
+      'Medido antes y después con Playwright, que es lo que convierte «está cargado» en algo que se puede cerrar: **de 7 / 8 / 6 elementos de texto visibles a 2 / 2 / 2**, y de 171 / 198 / 169 px de alto a **69 px**.',
+      'Cerrada se ven dos cosas: el **título** (el hecho) y la **consecuencia** (la frase con el número que te deja decidir si vale abrir). Cero botones: un botón en una fila cerrada invita a decidir sin haber leído.',
+      '⚠️ **La causa de raíz era que la tarjeta dibujaba los CAMPOS del estado en vez de la consecuencia de decidir.** `exige` se leyó como instrucción de layout, así que salía un formulario, y encima el `<details>` tenía como `summary` el índice de las etiquetas que había adentro. Se le sacaban filas al formulario y seguía siendo un formulario.',
+      '⚠️ **Y lo que quedaba a la vista se elegía por POSICIÓN** (`datos[0]`). En la aprobación eso dejaba arriba «A quiénes: 340 contactos» y escondía «Qué reciben» detrás de un click, con el botón que manda los 340 mensajes irreversibles siempre visible: **se podía aprobar un envío sin haber visto nunca qué se enviaba**. Hoy el panel muestra el texto de los tres mensajes.',
+      '⚠️ **El punto de color nunca se dibujó.** `.mk-dot` solo tiene tamaño por `.mk-status .mk-dot`, y dentro de `<Mako>` no hay ningún `.mk-status`: medía 0×0. Había quince renglones de comentario explicando cómo alinear «una estrella de 14 px y un punto de 7 px», y tres rondas de ajuste fino de centrado, sobre un elemento que no existía.',
+      '`esperaAlUsuario` se llama ahora **`bloquea`** y lo tiene solo la aprobación. El nombre viejo agrupaba por «¿tiene botones?» cuando la pregunta es **qué pasa si no hago nada**, y por eso «falta un dato» —donde no espera nadie— se pintaba con fondo de color… que al ser de tono `neutral` salía `--surface-2`, la misma superficie que usa media app. Un realce invisible por construcción.',
+      '⚠️ **El rediseño destapó un dato que estaba mal.** La tarjeta decía «Enviar 340 mensajes», y son **1.020**: tres mensajes a cada uno de los 340 contactos. Con la tarjeta abierta, el título, la consecuencia y el campo quedan uno debajo del otro y el mismo número repetido tres veces hace visible que uno miente. Sacar la redundancia no es sólo estética: es lo que deja ver los errores.',
+      'Copy: «Tenés que decidir» → «Requiere tu decisión» (y sale el voseo, que es regionalismo y la UI va en neutro). «Qué conviene hacer» → «Sugerencia». «Descartar» → «Ignorar». «Enviar la secuencia» → «Enviar 340 mensajes» / «No enviar». **Regla nueva: ningún botón de MaKo puede ser «Sí», «No», «Aceptar» ni «Descartar» a secas.**',
+      'Lo que quedó SIN hacer y dónde vive: las cuatro tarjetas de forma `aviso` siguen con el kicker en monospace (app/admin/ui/Gramatica.tsx + la rama de aviso en Mako.tsx), y la ventana de gracia con «Detener» del envío masivo depende de que el job se pueda cancelar de verdad.',
+    ],
+    archivos: [
+      'app/_ui/Mako.tsx — `<Decision>` nuevo; props `consecuencia`, `advertencia` y `arrancaAbierta`; muere `const [primero, ...resto] = datos`',
+      'lib/mako-gramatica.ts — `esperaAlUsuario` → `bloquea` (solo aprobación); rótulos «Sugerencia» y «Aprobación pendiente»',
+      'app/_ui/ui.css — bloque `.mk-dec` (fila + panel); se van `.mk-mako--espera` y `.mk-mako__dato--frente`; se arregla `.mk-mako__marca .mk-dot`',
+      'app/admin/ui/Gramatica.tsx — copy nuevo y el panel de la aprobación muestra el texto real de los 3 mensajes',
+      'AGENTS.md — «Un contrato de datos no es un layout» · docs/hallazgos-ui.md — tres entradas',
+    ],
+  },
 ];
 
 /** Las nueve partes del rediseño y en qué anda cada una. */

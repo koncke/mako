@@ -307,6 +307,81 @@ automático, hay que saber en qué casos NO corresponde.
 
 **Vive en:** app/_ui/Mako.tsx (`useAvisoDeDesarrollo`, `REQUIERE`) · *2026-08-08 rediseño Parte 3*
 
+### ⚠️ «Campos obligatorios» no quiere decir «campos siempre visibles» — y confundirlo cuesta tres rediseños
+
+**Síntoma:** el dueño rechazó la misma pantalla **tres veces seguidas** con las mismas
+palabras («está cargado», «muy fea», «no es intuitivo»). Las tres rondas de arreglos
+tocaron cómo se veían los elementos y ninguna preguntó **por qué estaban ahí**. Medido:
+de 25 elementos de texto se bajó a 21, y dos de las tres tarjetas no se movieron.
+
+**Causa:** el catálogo declara `exige: ['el impacto esperado', 'el esfuerzo', …]` para que
+una recomendación no sea un consejo genérico. Eso se leyó como **instrucción de layout**,
+así que la tarjeta se dibujaba como un formulario —etiqueta gris, valor, etiqueta gris,
+valor— y encima con un `<details>` cuyo `summary` era el **índice de las etiquetas que
+había adentro** («Esfuerzo · Responsable · Objetivo · Se revisa»). Se le sacaban filas al
+formulario y seguía siendo un formulario.
+
+El agravante, que lo vuelve un defecto y no una cuestión de gusto: **lo que quedaba a la
+vista se elegía por POSICIÓN** (`const [primero, ...resto] = datos`). En la aprobación eso
+dejaba arriba «A quiénes: 340 contactos» y escondía «Qué reciben» detrás de un click,
+mientras el botón que manda los 340 mensajes irreversibles estaba siempre visible. **Se
+podía aprobar un envío sin haber visto nunca qué se enviaba.**
+
+**Regla:** un contrato de datos dice qué tiene que TENER una pieza, nunca qué tiene que
+MOSTRAR de entrada. El corte entre el primer y el segundo nivel se define por **frecuencia
+de uso**, y lo que queda arriba se elige a mano, nunca por el índice de un array — elegir
+por posición no es elegir.
+
+**Vive en:** app/_ui/Mako.tsx (`Decision`, props `consecuencia` y `advertencia`) ·
+lib/mako-gramatica.ts (`exige`) · *2026-08-09 rediseño de las filas de decisión*
+
+### ⚠️ El rótulo en monospace arriba del título es un «kicker», y está prohibido
+
+**Síntoma:** cada tarjeta de MaKo abría con una palabra chiquita en monospace («Qué
+conviene hacer», «Falta un dato») arriba del título. Se defendía como «el estado se tiene
+que llamar igual en las cuatro tabs».
+
+**Causa:** es el patrón que la guía de oficio que usamos lista entre lo que **no se
+negocia**: *«A kicker or eyebrow above a heading. This one is a ban, not a default: no
+brief earns it back. The heading carries its own weight»*. Y en la misma lista: *«Monospace
+as a costume for "technical" rather than for code, data, or measurement»*. Encima era
+redundante en los tres casos — el rótulo decía «Falta un dato» y el campo de abajo se
+llamaba «Falta».
+
+De la misma fuente salió el otro diagnóstico: *«Same-size cards of icon plus heading plus
+text as the page structure. **Cards are the lazy container**»*. Tres tarjetas iguales
+apiladas era, literalmente, lo que teníamos.
+
+**Regla:** el rótulo del estado sigue viviendo en `GRAMATICA` —el contrato de que se llame
+igual en todos lados no se toca— pero **se pinta donde aporta**: en el chip, en una columna
+de tabla, y adentro del panel abierto. Arriba del título, no. Y un grupo de cosas del mismo
+tipo es una **lista con filete**, no una pila de cajas.
+
+**Vive en:** app/_ui/Mako.tsx (`Decision`) · app/_ui/ui.css (`.mk-dec`) ·
+app/admin/ui/Gramatica.tsx · *2026-08-09*
+
+### ⚠️ El punto de color de `<Mako>` nunca se dibujó: medía 0×0, y tres rondas lo ajustaron igual
+
+**Síntoma:** en los estados que no son de tono dorado, la marca de la izquierda era un
+hueco. Nadie lo notó porque un espacio vacío de 16 px no se lee como un error.
+
+**Causa:** `<span className="mk-dot">` solo tiene tamaño por la regla
+`.mk-status .mk-dot { width:7px; height:7px }` — **descendiente de `.mk-status`**, una clase
+que dentro de `<Mako>` no existe. Fuera de `Status` el span medía 0×0.
+
+Lo que hace que valga escribirlo: en `ui.css` había **quince renglones de comentario**
+explicando cómo se alinean «una estrella de 14 px y un punto de 7 px» para que las nueve
+pastillas tengan la misma geometría, y se hicieron **tres rondas de ajuste fino de
+centrado** sobre esa premisa. Todo eso era razonamiento sobre un elemento que no se
+dibujaba.
+
+**Regla:** un selector descendiente (`.a .b`) es un contrato con el ancestro. Si la pieza
+`.b` se va a usar fuera de `.a`, su tamaño no puede depender de `.a` — y si un comentario
+describe una geometría, la geometría hay que **medirla** una vez, no deducirla.
+
+**Vive en:** app/_ui/ui.css (`.mk-mako__marca .mk-dot`) · app/_ui/Mako.tsx (`marca`) ·
+*2026-08-09*
+
 ### ⚠️ `nota` y `placeholder` del catálogo de credenciales son texto muerto
 
 `ServicioConfigForm` trae `nota` del API y la tipa (l.46) pero **no la pinta en ningún
