@@ -1004,6 +1004,52 @@ pruebo todo junto y no gasto tokens al pedo» *(2026-07-22)*.
 
 ## Cómo pregunta y responde MaKo
 
+### ⚠️ Aplicar la gramática de MaKo no es trabajo de componentes: los datos no existen
+
+Barrido de 42 lugares donde hoy la interfaz muestra que MaKo hizo, está haciendo o va a hacer
+algo (7 superficies, 16 agentes, ninguno descartado al verificar). El reparto: `recomienda` 8 ·
+`analizando` 6 · `aprobacion` 6 · `sin_conclusion` 5 · `completo` 5 · `explica` 4 · `detecto` 3 ·
+`ejecuta` 3.
+
+**El diagnóstico obvio era el equivocado.** Parecía que aplicar `<Mako>` (los nueve estados de
+`lib/mako-gramatica.ts`) era cambiar el markup pantalla por pantalla. No: en casi todos los
+casos **el campo que el estado exige no está en el tipo**, así que primero hay que producirlo.
+
+Los cuatro patrones, con el dato duro:
+
+- **`recomienda`: en los 8 lugares faltan CUATRO de los cinco campos.** Existe la acción y a lo
+  sumo una razón; no existen impacto esperado, esfuerzo, responsable ni objetivo. Los tipos:
+  `Sugerido = {texto, razon?}`, `Alerta = {nivel,titulo,detalle,href,hrefLabel,desglose}`,
+  `Reco = {prioridad,titulo,detalle}`, `recomendaciones: string[]`, `Pattern`, `AvisoCatalogo`.
+  Es literalmente el «consejo genérico» que el producto dice no dar.
+- **`analizando`: ninguno tiene progreso real.** Todos son un booleano (`loading`, `pending`,
+  `syncing`) con animación indefinida — lo que el documento prohíbe explícitamente. Ni la fuente
+  de datos se declara.
+- **`ejecuta`: ninguno de los 3 persiste.** Vive en `useState`; un F5 y no queda forma de saber
+  si lo que pediste pasó.
+- **`completo`: ninguno de los 5 tiene próximo control.**
+
+**Y cuatro cosas que no son gaps sino bugs:**
+
+- `app/plan/board/MakoProyecto.tsx:19` — si la llamada falla, **el error se traga y la UI pasa
+  igual a `result`**: el usuario ve el nombre que ya tenía, firmado «propuesto por MaKo». Un
+  fallo disfrazado de recomendación. `fase` solo admite `'generando' | 'result'`: no hay estado
+  de error.
+- `app/_components/MakoChat.tsx:202` — todo lo que no es respuesta se pinta **error rojo**,
+  incluido «no puedo concluir». La gramática dice que ése NO es un error: un error se reintenta,
+  esto se arregla conectando algo.
+- `app/ads-manager/NuevaCampanaModal.tsx:682` — los pasos del loader **fingen**: los rota un
+  `setInterval` de 1700 ms y se clava en el último mientras el trabajo real sigue. Progreso
+  inventado es peor que ninguno.
+- `lib/reportes.ts:52` — `catch` vacío, sin variable: el motivo del fallo **no existe en los
+  datos**, así que no se puede mostrar aunque se quiera.
+
+**Regla: antes de aplicar un contrato de presentación, verificá que el dato exista.** Un estado
+que exige cinco campos sobre un tipo que tiene uno no se resuelve en la vista — se resuelve
+agregando los campos donde se producen, y recién después se pinta.
+
+**Vive en:** lib/mako-gramatica.ts · app/plan/board/MakoChecklist.tsx · app/general/page.tsx · app/crm/lead-view/GeneratedInsightCard.tsx · app/_components/MakoChat.tsx · app/ads-manager/NuevaCampanaModal.tsx · lib/avisos-catalogo.ts · *2026-08-08 corrida de 16 agentes*
+
 ### Regla: la IA FACILITA — sugiere, completa, y si pregunta, pregunta CERRADO
 
 «Se volvió super complejo crear un guion, me pide muchas preguntas abiertas, esa NO es la

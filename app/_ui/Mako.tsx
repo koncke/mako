@@ -121,9 +121,15 @@ export function Mako(props: MakoProps) {
   // La estrella brilla SOLO mientras hay proceso. En reposo va quieta: un
   // destello permanente deja de querer decir «MaKo está haciendo algo».
   const enProceso = estado === 'analizando' || estado === 'ejecuta';
-  const marca = def.tono === 'mako'
-    ? <MakoStar size={compacto ? 12 : 14} animate={enProceso} />
-    : <span className="mk-dot" style={{ background: t.fill }} aria-hidden />;
+  // Siempre adentro de su caja: es lo que hace que una estrella de 14 px y un
+  // punto de 7 px dejen el texto en el mismo lugar en los nueve estados.
+  const marca = (
+    <span className="mk-mako__marca" aria-hidden>
+      {def.tono === 'mako'
+        ? <MakoStar size={compacto ? 12 : 14} animate={enProceso} />
+        : <span className="mk-dot" style={{ background: t.fill }} />}
+    </span>
+  );
 
   if (compacto) {
     return (
@@ -135,6 +141,11 @@ export function Mako(props: MakoProps) {
     );
   }
 
+  // El fondo del tono SOLO cuando el estado te está esperando. Para el resto, la
+  // tarjeta común: el estado ya lo dicen la marca y el rótulo, y pintar las nueve
+  // deja el color sin significado justo donde hace falta que lo tenga.
+  const esperando = def.esperaAlUsuario === true;
+
   return (
     <div
       className="mk-mako"
@@ -142,7 +153,7 @@ export function Mako(props: MakoProps) {
       // estática cada vez que se monta es ruido para quien usa lector.
       role={enProceso ? 'status' : undefined}
       aria-live={enProceso ? 'polite' : undefined}
-      style={{ background: t.bg, borderColor: t.border, borderLeftColor: t.fill }}
+      style={esperando ? { background: t.bg, borderColor: t.border } : undefined}
     >
       <div className="mk-mako__cab">
         {marca}

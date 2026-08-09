@@ -490,7 +490,7 @@ export const PARTES: Parte[] = [
   { titulo: 'App Shell', detalle: 'Navegación por intención · PageHeader · Section', estado: 'hecha' },
   // Construida y visible en /admin/ui?tab=mako; sigue abierta porque «lista»,
   // según la propia tarea, es que el estado se vea igual en las cuatro tabs.
-  { titulo: 'Gramática de MaKo', detalle: 'Los 9 estados y el Semáforo unificado ya viven en lib/mako-gramatica.ts. Falta aplicarlos en Plan, Dashboard, CRM y chat, y pasar los 22 archivos del Semáforo', estado: 'sigue' },
+  { titulo: 'Gramática de MaKo', detalle: 'Los 9 estados y el Semáforo unificado viven en lib/mako-gramatica.ts, con su pieza y su catálogo. El barrido de 42 lugares mostró que aplicarlos NO es trabajo de vista: en los 8 «recomienda» faltan 4 de los 5 campos, ningún «analizando» tiene progreso real y ningún «ejecuta» persiste. Primero hay que producir el dato — ver docs/hallazgos-ia.md', estado: 'sigue' },
   { titulo: 'Second Brain', detalle: 'Selector de contexto · ciclo de aprendizaje', estado: 'cola' },
   { titulo: 'La pantalla «General»', detalle: 'La prioridad de la semana con sus seis campos', estado: 'cola' },
   { titulo: 'Plantilla Analyst', detalle: 'Se diseña una vez, se aplica en Closing y en Ads', estado: 'cola' },
