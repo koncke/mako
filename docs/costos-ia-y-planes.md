@@ -786,6 +786,109 @@ sin `server-only` para que el test la pueda importar — mismo criterio que
 
 ---
 
+## La tarifa de MaKo Tokens, operación por operación
+
+*Decisión del dueño, 09/08/2026: «Sí o sí debe ser MaKo Tokens, porque hay muchas
+operaciones de IA… y cada una debe costar diferente cantidad. Hay que calcular
+precisamente cuánto debe costar cada operación». Los números viven en
+`app/admin/dev/pricing/modelo.ts` → `TARIFA`.*
+
+**1 MT = US$0,001 de precio de lista**, no el US$0,01 de HubSpot que proponía el paso 4.
+Con el texto adentro de la cuota, a un centavo por token **todas** las operaciones baratas
+caen debajo de 1 MT y hay que inventar un piso que sobrecobra. A un décimo de centavo, un
+mensaje a MaKo vale 1 MT de verdad y un Reel vale 2.000.
+
+### El hallazgo de método: el estadístico correcto es la MEDIA
+
+⚠️ **La distribución de tokens de SALIDA es asimétrica a la derecha.** Medido:
+
+| Operación | Salida mediana | Salida media | |
+|---|---|---|---|
+| Un mensaje a MaKo | 284 | **854** | ×3,0 |
+| Retro / experimentos | 1.487 | **3.484** | ×2,3 |
+| Analizar una llamada | 492 | **1.033** | ×2,1 |
+| Priorizar un lote | 1.204 | **2.376** | ×2,0 |
+| Extraer una reunión | 11.700 | **22.694** | ×1,9 |
+
+Tarifar por **mediana subcobra y la cola se come el margen**: con la Retro corriendo en
+Opus, el mes malo del Growth daba **−58%**. Tarifar por **p90 sobrecobra al 90% de los
+usuarios** (la Retro pasaba de 320 a 2.200 MT). **La media es, por definición, lo que se
+paga cuando se corren muchas** — y es el único de los tres que no rompe nada.
+
+Esto no se ve estimando. Salió de medir `anthropic_usage`: 2.249 llamadas reales.
+
+### Las tres reglas de la tarifa
+
+1. **Markup 2,4×** sobre el costo medio real, redondeado a un número que un humano pueda
+   sumar de cabeza (1, 5, 10, 20, 70, 100, 570, 2.000).
+2. ⚠️ **Lo AUTOMÁTICO cuesta 0 MT.** El usuario no lo dispara ni lo puede parar: cobrarle
+   cuota por un cron es que abra la app y la encuentre vaciada por algo que no hizo. Se
+   gatea **por plan** —el Free no conecta nada con webhook ni cron—, que es el mismo eje que
+   separa los planes.
+3. **Los medios se cobran por INTENTO, no por pieza terminada** (se descuenta por segundo
+   *generado*). Si los fallidos no descuentan, cada pieza cuesta 3× y la paga la agencia.
+
+### La tarifa
+
+| Operación | MT | Costo real | |
+|---|---|---|---|
+| Un mensaje a MaKo · priorizar un lote · checklist · analizar un anuncio | **1** | ~US$0 | medido |
+| Transcribir una nota de voz (1 min) | 2 | US$0,0007 | publicado |
+| Insight 360 de un lead | 5 | US$0,0019 | medido |
+| Escribir un guion de VSL | 9 | US$0,0036 | medido |
+| **Extraer tareas de una reunión de 2 h** · escribir un guion de anuncio | **10** | US$0,0050 | medido |
+| **Analizar una llamada de venta** · analizar un chat | **15** | US$0,0071 | medido |
+| El Archivero · diagnosticar una landing · espiar un competidor | 20 | US$0,008 | medido/sup. |
+| Estructurar una campaña de Meta | 30 | US$0,0121 | medido |
+| Escribir una secuencia de nutrición | 55 | US$0,0236 | supuesto |
+| Plan de arranque · guion de YouTube · Sales Roleplay | 70 | US$0,03 | supuesto |
+| **Generar una imagen** | **80** | US$0,034 | publicado |
+| Escribir una landing entera | 100 | US$0,043 | supuesto |
+| Una locución de 1 minuto | 110 | US$0,045 | publicado |
+| **Un segundo de video** | **120** | US$0,05 | publicado |
+| Un carrusel de 7 imágenes | 570 | US$0,238 | publicado |
+| **Retro / experimentos** | **710** | US$0,297 | medido |
+| Un clip de 8 segundos | 960 | US$0,40 | publicado |
+| **Un intento de Reel de 15 s** | **2.000** | US$0,845 | publicado |
+
+### Los cupos y lo que exponen
+
+| Plan | Cupo | Mes normal | Margen | Mes malo (todo p90) | Margen |
+|---|---|---|---|---|---|
+| Free | **600 MT**, por única vez | US$0,30 | — | US$0,78 | — |
+| Pro | **5.000 MT**/mes | US$2,52 | **94,2%** | US$6,50 | 85,2% |
+| Growth | **50.000 MT**/mes | US$25,18 | **72,3%** | US$65,00 | **28,5%** |
+
+Y el uso proyectado entra: **el Pro consume el 75% de su cupo, el Growth el 95%**.
+
+⚠️ **El riesgo que queda, y es uno solo:** el mes malo del Growth deja 28,5% y lo empuja
+**una** operación — la Retro, la única que sigue en Opus, cuya salida va de 1.487 tokens de
+mediana a 11.288 en el p90. El cupo la acota, pero conviene sumarle un **límite de
+frecuencia propio** (corre pocas veces al mes por diseño) en vez de confiar solo en los
+tokens.
+
+### La decisión sobre el alta: el workspace se crea en el REGISTRO
+
+*Del dueño: «Siempre crea el workspace luego del registro, ¿sino cómo hacen los usuarios
+free?».* Es correcto y cierra el hueco #1 del paso 4 — un usuario Free nunca paga, así que
+si el workspace naciera del webhook de pago el plan gratuito no podría existir.
+
+**Lo que se sigue de eso, y cambia el orden del sprint:**
+
+- El alta es **pública** y no puede depender del procesador. Hoy
+  `app/api/auth/callback/google/route.ts` devuelve `no-autorizado` si el email no está en
+  `usuarios`: hay que escribir el alta entera.
+- **El registro pasa a ser la primera superficie de abuso.** El Free se recicla infinito si
+  no hay gate — y ahí entra el OTP de WhatsApp que ya existe (`lib/mako-grupo.ts`): una
+  cuenta gratis por teléfono verificado.
+- El webhook de pago **no crea** nada: solo **cambia el plan** de un workspace que ya
+  existe. Es mucho más simple que provisionar desde el webhook, y hace que el downgrade y
+  la baja sean el mismo camino al revés.
+- Y el Free arranca ya con los 600 MT de regalo, que son **US$0,30 de exposición máxima
+  por cuenta, para siempre**.
+
+---
+
 ## Lo que este análisis daba por cierto y NO lo es
 
 *Salió del crítico de completitud del paso 3. Cada punto corrige algo escrito más arriba en

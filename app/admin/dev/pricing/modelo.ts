@@ -387,6 +387,110 @@ export const PERFILES: Perfil[] = [
   { plan: 'growth', precioUsd: 97, iaUsd: 27.40, iaUsdBarato: 12.60, textoUsd: 2.82, mediosUsd: 24.58 },
 ];
 
+// ── LA TARIFA DE MaKo TOKENS ────────────────────────────────────────────────
+// Decisión del dueño (09/08/2026): «Sí o sí debe ser MaKo Tokens, porque hay
+// muchas operaciones de IA… y cada una debe costar diferente cantidad».
+//
+// 1 MT = US$0,001 de precio de lista. NO es la unidad de HubSpot (US$0,01): con
+// el texto adentro de la cuota, a un centavo por token las operaciones baratas
+// caen todas debajo de 1 y hay que inventar un piso que sobrecobra. A un décimo
+// de centavo, un mensaje a MaKo vale 1 MT de verdad y un Reel vale 2.000.
+//
+// ⚠️ EL ESTADÍSTICO ES LA MEDIA, y esa es la decisión que más mueve los números.
+// La distribución de tokens de SALIDA es asimétrica a la derecha: la media es
+// 1,9× a 3× la mediana en casi todas las features medidas. Tarifar por mediana
+// subcobra y la cola se come el margen —con la Retro en Opus, el mes malo del
+// Growth daba −58%—; tarifar por p90 sobrecobra al 90% de los usuarios. La media
+// es, por definición, lo que se paga cuando se corren muchas.
+//
+// Los `origen: 'medido'` salen de `anthropic_usage` (media real sobre n llamadas,
+// 29/06-08/08/2026). Los `supuesto` son de features que todavía no existen: son
+// lo PRIMERO a recalibrar cuando corran.
+
+export type OpTarifa = {
+  id: string;
+  grupo: 'Conversar' | 'Plan' | 'Análisis' | 'Escribir' | 'Automático' | 'Medios';
+  label: string;
+  /** Costo medio real de UNA operación, en USD. */
+  costoUsd: number;
+  /** Lo que se le cobra al cliente, en MaKo Tokens. */
+  mt: number;
+  origen: Origen;
+  /** Cuántas llamadas reales respaldan el número. 0 = sin medir. */
+  n: number;
+};
+
+export const MARKUP_MT = 2.4;
+/** 1 MT = US$0,001 de precio de lista. Ver el encabezado de esta sección. */
+export const USD_POR_MT = 0.001;
+
+export const TARIFA: OpTarifa[] = [
+  { id: 'mako-msg', grupo: 'Conversar', label: 'Un mensaje a MaKo (web o WhatsApp)', costoUsd: 0.00038, mt: 1, origen: 'medido', n: 337 },
+  { id: 'mako-chat', grupo: 'Conversar', label: 'Preguntarle a MaKo sobre un gráfico', costoUsd: 0.00009, mt: 1, origen: 'medido', n: 9 },
+  { id: 'stt', grupo: 'Conversar', label: 'Transcribir una nota de voz (1 min)', costoUsd: 0.00067, mt: 2, origen: 'publicado', n: 0 },
+
+  { id: 'guardian', grupo: 'Plan', label: 'Priorizar un lote de tareas', costoUsd: 0, mt: 1, origen: 'medido', n: 333 },
+  { id: 'checklist', grupo: 'Plan', label: 'Descripción + checklist de un lote', costoUsd: 0, mt: 1, origen: 'medido', n: 132 },
+  { id: 'reunion', grupo: 'Plan', label: 'Extraer tareas de una reunión de 2 h', costoUsd: 0.00504, mt: 10, origen: 'medido', n: 437 },
+  { id: 'plan-seed', grupo: 'Plan', label: 'Escribir el plan de arranque', costoUsd: 0.0295, mt: 70, origen: 'supuesto', n: 0 },
+
+  { id: 'closing', grupo: 'Análisis', label: 'Analizar una llamada de venta', costoUsd: 0.00712, mt: 15, origen: 'medido', n: 132 },
+  { id: 'lead-360', grupo: 'Análisis', label: 'Insight 360 de un lead', costoUsd: 0.00192, mt: 5, origen: 'medido', n: 3 },
+  { id: 'retro', grupo: 'Análisis', label: 'Retro / experimentos del negocio', costoUsd: 0.29661, mt: 710, origen: 'medido', n: 47 },
+  { id: 'ads-an', grupo: 'Análisis', label: 'Analizar un anuncio', costoUsd: 0, mt: 1, origen: 'medido', n: 18 },
+  { id: 'script-an', grupo: 'Análisis', label: 'Analizar un guion de video', costoUsd: 0.00135, mt: 3, origen: 'medido', n: 5 },
+  { id: 'landing-an', grupo: 'Análisis', label: 'Diagnosticar una landing', costoUsd: 0.0092, mt: 20, origen: 'supuesto', n: 0 },
+  { id: 'competitor', grupo: 'Análisis', label: 'Espiar a un competidor', costoUsd: 0.0086, mt: 20, origen: 'supuesto', n: 0 },
+  { id: 'chat-an', grupo: 'Análisis', label: 'Analizar una conversación de WhatsApp', costoUsd: 0.006, mt: 15, origen: 'supuesto', n: 0 },
+  { id: 'vsl-an', grupo: 'Análisis', label: 'Analizar un VSL', costoUsd: 0.0108, mt: 25, origen: 'supuesto', n: 0 },
+  { id: 'yt-an', grupo: 'Análisis', label: 'Analizar un video de YouTube', costoUsd: 0.0086, mt: 20, origen: 'supuesto', n: 0 },
+  { id: 'roleplay', grupo: 'Análisis', label: 'Una sesión de Sales Roleplay', costoUsd: 0.03, mt: 70, origen: 'supuesto', n: 0 },
+
+  { id: 'wa-sugerir', grupo: 'Escribir', label: 'Sugerir la respuesta a un lead', costoUsd: 0.007, mt: 15, origen: 'supuesto', n: 0 },
+  { id: 'nutri', grupo: 'Escribir', label: 'Escribir una secuencia de nutrición', costoUsd: 0.0236, mt: 55, origen: 'supuesto', n: 0 },
+  { id: 'email', grupo: 'Escribir', label: 'Escribir un email de nutrición', costoUsd: 0.01075, mt: 25, origen: 'supuesto', n: 0 },
+  { id: 'campana', grupo: 'Escribir', label: 'Estructurar una campaña de Meta', costoUsd: 0.01213, mt: 30, origen: 'medido', n: 14 },
+  { id: 'ads-writer', grupo: 'Escribir', label: 'Escribir un guion de anuncio', costoUsd: 0.00504, mt: 10, origen: 'medido', n: 28 },
+  { id: 'landing-gen', grupo: 'Escribir', label: 'Escribir una landing entera', costoUsd: 0.0434, mt: 100, origen: 'supuesto', n: 0 },
+  { id: 'vsl-gen', grupo: 'Escribir', label: 'Escribir un guion de VSL', costoUsd: 0.00356, mt: 9, origen: 'medido', n: 17 },
+  { id: 'leadmagnet', grupo: 'Escribir', label: 'Escribir un lead magnet', costoUsd: 0.0276, mt: 65, origen: 'supuesto', n: 0 },
+  { id: 'yt-writer', grupo: 'Escribir', label: 'Escribir un guion de YouTube', costoUsd: 0.0295, mt: 70, origen: 'supuesto', n: 0 },
+  { id: 'archivero', grupo: 'Escribir', label: 'El Archivero resume un documento', costoUsd: 0.00762, mt: 20, origen: 'medido', n: 94 },
+
+  // ⚠️ Lo AUTOMÁTICO cuesta 0 MT a propósito. El usuario no lo dispara ni lo
+  // puede parar: cobrarle cuota por un cron es que abra la app y la encuentre
+  // vaciada por algo que no hizo. Se gatea por PLAN —el Free no conecta nada con
+  // webhook ni cron—, que es el mismo eje que separa los planes.
+  { id: 'crm-auto', grupo: 'Automático', label: 'Clasificar un lead (CRM automático)', costoUsd: 0, mt: 0, origen: 'medido', n: 165 },
+  { id: 'validador', grupo: 'Automático', label: 'Validar una plantilla contra Meta', costoUsd: 0, mt: 0, origen: 'medido', n: 21 },
+  { id: 'aviso', grupo: 'Automático', label: 'Redactar un aviso del semáforo', costoUsd: 0, mt: 0, origen: 'supuesto', n: 0 },
+  { id: 'ads-bot', grupo: 'Automático', label: 'Una corrida del Ads Optimizer', costoUsd: 0.0108, mt: 0, origen: 'supuesto', n: 0 },
+
+  { id: 'imagen', grupo: 'Medios', label: 'Generar una imagen', costoUsd: 0.034, mt: 80, origen: 'publicado', n: 0 },
+  { id: 'thumb', grupo: 'Medios', label: 'Un thumbnail (2 variantes)', costoUsd: 0.068, mt: 160, origen: 'publicado', n: 0 },
+  { id: 'voz', grupo: 'Medios', label: 'Una locución de 1 minuto (~900 chars)', costoUsd: 0.045, mt: 110, origen: 'publicado', n: 0 },
+  { id: 'video-seg', grupo: 'Medios', label: 'Un segundo de video generado', costoUsd: 0.05, mt: 120, origen: 'publicado', n: 0 },
+  { id: 'carrusel', grupo: 'Medios', label: 'Un carrusel de 7 imágenes', costoUsd: 0.238, mt: 570, origen: 'publicado', n: 0 },
+  { id: 'clip8', grupo: 'Medios', label: 'Un clip de 8 segundos', costoUsd: 0.4, mt: 960, origen: 'publicado', n: 0 },
+  // Se cobra por INTENTO, no por pieza terminada: se descuenta por segundo
+  // GENERADO. Si los fallidos no descuentan, cada pieza cuesta 3× y la paga la agencia.
+  { id: 'reel', grupo: 'Medios', label: 'Un INTENTO de Reel de 15 s (2 clips + voz)', costoUsd: 0.845, mt: 2000, origen: 'publicado', n: 0 },
+];
+
+/** El cupo de cada plan, en MaKo Tokens. El Free es por ÚNICA VEZ, no mensual. */
+export const CUPO_MT: Record<Plan['id'], number> = { free: 600, pro: 5000, growth: 50000 };
+
+/** Lo que expone cada plan si el cupo entero se gasta en la peor operación. */
+export const EXPOSICION = [
+  { plan: 'Free', cupo: 600, normalUsd: 0.30, maloUsd: 0.78, margenNormal: null, margenMalo: null },
+  { plan: 'Pro', cupo: 5000, normalUsd: 2.52, maloUsd: 6.50, margenNormal: 94.2, margenMalo: 85.2 },
+  { plan: 'Growth', cupo: 50000, normalUsd: 25.18, maloUsd: 65.00, margenNormal: 72.3, margenMalo: 28.5 },
+];
+
+/** El riesgo que queda después de tarifar bien, en una frase. */
+export const RIESGO_QUE_QUEDA =
+  'El «mes malo» del Growth (todo al p90) deja 28,5% de margen, y lo empuja UNA sola operación: la Retro, que es la única que sigue en Opus y cuya salida va de 1.487 tokens de mediana a 11.288 en el p90. El cupo la acota, pero conviene sumarle un límite de FRECUENCIA propio (corre pocas veces al mes por diseño) en vez de confiar solo en los tokens.';
+
 // ── Lo que este análisis daba por cierto y NO lo es ─────────────────────────
 // Salió del crítico de completitud del paso 3 y se verificó a mano contra el
 // código. Va EN LA PANTALLA, no en una nota al pie: son las que invalidan
