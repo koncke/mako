@@ -89,7 +89,13 @@ export type NavFamilia = {
   // pleno derecho —no una lista aparte— justamente para que se vean y se
   // comporten igual que las demás. Antes eran otra estructura y por eso la barra
   // de admin no tenía desplegables: no era el mismo componente.
-  key: 'operate' | 'analyze' | 'create' | 'content' | 'admin' | 'dev';
+  //
+  // La key de una FAMILIA no es contrato con la base —solo identifica el plegado
+  // y el flyout— así que es `string`. La advertencia de arriba es sobre las keys
+  // de ÍTEM, que `tabEnCapa()` sí tiene escritas. Las seis de la barra real son
+  // 'operate' | 'analyze' | 'create' | 'content' | 'admin' | 'dev'; el mapa de
+  // /admin/dev arma las suyas para previsualizar una barra que todavía no existe.
+  key: string;
   label: string;
   /** La pregunta que responde. Se muestra como tooltip del rail. */
   pregunta: string;

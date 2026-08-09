@@ -3,7 +3,7 @@
 // =============================================================================
 // Cada área declara sus `proyectos` del tablero y acá se leen sus tareas abiertas.
 // La razón es la que ya está escrita en `areas.ts`: un roadmap escrito a mano se
-// queda viejo el martes, y con 121 áreas serían 121 listas desactualizándose en
+// queda viejo el martes, y con 122 áreas serían 122 listas desactualizándose en
 // paralelo. El tablero es donde el trabajo ya vive; esto solo lo mira.
 //
 // De acá sale también el ESTADO real: una pieza con tareas abiertas no está
@@ -12,8 +12,7 @@
 // hay una tarea específica que pidió Mauricio».
 
 import 'server-only';
-import { getTenantDb } from '@/lib/workspace';
-import { enPlan } from '@/lib/plan-board';
+import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { AREAS, type AreaDev, type EstadoArea } from './areas';
 
 export type TareaRoadmap = {
@@ -31,16 +30,27 @@ export type RoadmapArea = {
   estado: EstadoArea;
 };
 
-/** Cuántas tareas abiertas tiene cada área. Una sola consulta para las 121. */
-export async function conteoPorArea(): Promise<Map<string, number>> {
-  const filas = await tareasAbiertas();
+/**
+ * Cuántas tareas abiertas tiene cada área, y cuántas hay en total.
+ *
+ * Devuelve las dos cosas de UNA llamada a propósito. Antes eran dos funciones y
+ * la pantalla las pedía con `Promise.all`; el resultado fue silencioso y feo: el
+ * total daba 0 y treinta áreas figuraban cerradas, sin un solo error. Dos
+ * lecturas concurrentes del contexto del request no son gratis, y acá no hacen
+ * falta — es el mismo recorrido.
+ *
+ * `total` NO es la suma de `porArea`: una tarea que cuelga de dos proyectos
+ * cuenta —bien— en las dos áreas, y sumarlas da 449 donde el tablero tiene 438.
+ */
+export async function conteoPorArea(ws: number): Promise<{ porArea: Map<string, number>; total: number }> {
+  const filas = await tareasAbiertas(ws);
   const porProyecto = new Map<string, number>();
   for (const t of filas) porProyecto.set(t.proyecto, (porProyecto.get(t.proyecto) ?? 0) + 1);
-  const out = new Map<string, number>();
+  const porArea = new Map<string, number>();
   for (const a of AREAS) {
-    out.set(a.slug, (a.proyectos ?? []).reduce((n, p) => n + (porProyecto.get(p) ?? 0), 0));
+    porArea.set(a.slug, (a.proyectos ?? []).reduce((n, p) => n + (porProyecto.get(p) ?? 0), 0));
   }
-  return out;
+  return { porArea, total: new Set(filas.map((t) => t.num)).size };
 }
 
 /** El estado que se pinta: `listo` solo si de verdad no queda nada abierto. */
@@ -49,24 +59,30 @@ export function estadoEfectivo(a: AreaDev, abiertas: number): EstadoArea {
   return abiertas > 0 ? 'parcial' : a.estado;
 }
 
-export async function roadmapDe(slug: string): Promise<RoadmapArea> {
+export async function roadmapDe(slug: string, ws: number): Promise<RoadmapArea> {
   const area = AREAS.find((a) => a.slug === slug);
   if (!area) return { tareas: [], estado: 'por-construir' };
   const suyos = new Set(area.proyectos ?? []);
   const tareas = suyos.size
-    ? (await tareasAbiertas()).filter((t) => suyos.has(t.proyecto)).sort((a, b) => b.score - a.score)
+    ? (await tareasAbiertas(ws)).filter((t) => suyos.has(t.proyecto)).sort((a, b) => b.score - a.score)
     : [];
   return { tareas, estado: estadoEfectivo(area, tareas.length) };
 }
 
 // ---------------------------------------------------------------------------
 
-let cache: { at: number; filas: TareaRoadmap[] } | null = null;
+// Se cachea la PROMESA, no el resultado. Con el resultado, dos llamadas del mismo
+// request (el conteo y el total, cuando eran dos funciones en un Promise.all) arrancaban dos
+// consultas y la última pisaba el caché — y como el workspace se resuelve por
+// contexto, una de las dos podía resolverlo mal y guardar vacío. Se veía como 31
+// áreas que de golpe figuraban cerradas y un total en cero: ningún error, datos
+// silenciosamente equivocados. Con la promesa, la segunda espera a la primera.
+let cache: { at: number; ws: number; filas: Promise<TareaRoadmap[]> } | null = null;
 
 /**
  * Las tareas abiertas del tablero del dueño, con el NOMBRE de su proyecto.
  *
- * Se cachea 30 s en memoria porque el índice de /admin/dev pinta las 121 áreas de
+ * Se cachea 30 s en memoria porque el índice de /admin/dev pinta las 122 áreas de
  * una: sin esto era una consulta por área. El TTL corto alcanza — es una pantalla
  * de construcción, no el tablero.
  *
@@ -76,9 +92,9 @@ let cache: { at: number; filas: TareaRoadmap[] } | null = null;
  * consulta devuelve vacío y las 121 áreas se pintan «Cerrado» con cero tareas. Pasó
  * en la primera versión de este archivo, por eso `enPlan` ahora se exporta.
  */
-async function tareasAbiertas(): Promise<TareaRoadmap[]> {
-  if (cache && Date.now() - cache.at < 30_000) return cache.filas;
-  const filas = await enPlan(async () => {
+async function tareasAbiertas(ws: number): Promise<TareaRoadmap[]> {
+  if (cache && cache.ws === ws && Date.now() - cache.at < 30_000) return cache.filas;
+  const filas = runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
     const [{ data: proys }, { data: tareas }] = await Promise.all([
       db.from('plan_proyectos').select('id, name'),
@@ -105,6 +121,13 @@ async function tareasAbiertas(): Promise<TareaRoadmap[]> {
     }
     return out;
   });
-  cache = { at: Date.now(), filas };
+  cache = { at: Date.now(), ws, filas };
+  // Si la consulta falla, el caché no se queda con la promesa rota 30 segundos.
+  filas.catch(() => { cache = null; });
   return filas;
 }
+
+/** El workspace donde vive el board del dueño, a partir de la sesión ya validada.
+ *  `OWNER_WS` solo como red: un admin sin workspace propio cae al del dueño, que es
+ *  el contrato de siempre. */
+export const wsDelBoard = (wsDeLaSesion: number | null | undefined): number => wsDeLaSesion ?? OWNER_WS;

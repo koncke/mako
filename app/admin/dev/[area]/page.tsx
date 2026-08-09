@@ -17,7 +17,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { areaDe } from '../areas';
 import { registroDe } from '../registros';
-import { roadmapDe } from '../roadmap';
+import { roadmapDe, wsDelBoard } from '../roadmap';
 import { historialGitDe } from '../_historial.generado';
 import { RegistroArea } from './RegistroArea';
 
@@ -40,6 +40,6 @@ export default async function AreaDevPage({ params }: { params: Promise<{ area: 
 
   // Los dos paneles derivados: el Roadmap sale del plan y el historial de git.
   // Ver el encabezado de `../areas.ts` para por qué no se escriben a mano.
-  const { tareas } = await roadmapDe(slug);
+  const { tareas } = await roadmapDe(slug, wsDelBoard(admin.ws));
   return <RegistroArea area={area} registro={registroDe(slug)} tareas={tareas} commits={historialGitDe(slug)} />;
 }
