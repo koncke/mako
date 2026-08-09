@@ -182,7 +182,12 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   // etiquetas SE PISAN entre sí. Atenuarlas todas las hace más difíciles de leer sin
   // resolver el solape. La salida real es no dibujar la etiqueta cuando su caja choca
   // con otra ya dibujada, que es trabajo aparte.
-  const alphaEtiqueta = Math.min(1, Math.max(0, Math.log2(kPaso / (kFitEstado || 1)) + 1));
+  // ⚠️ EL FADE DE OBSIDIAN (clamp(log2(zoom)+1)) SE FUE, y conviene saber por qué para
+  // no reponerlo: hacía el mismo trabajo que la regla de NIVEL pero peor. Los dos decidían
+  // qué etiqueta se ve según el zoom, y superpuestos se anulaban — el fade apagaba TODO
+  // por debajo del encuadre, incluidas las carpetas madre, que son justamente las que el
+  // dueño pidió que no desaparezcan nunca. La regla de nivel dice lo mismo con una
+  // jerarquía real detrás.
 
   /** ¿Este nodo pasa el filtro de «Ver»? Los nodos de ÁREA y la raíz pasan siempre: son
    *  el andamiaje del mapa y apagarlos deja las etiquetas flotando sin racimo. */
@@ -191,6 +196,14 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     if (verQue === 'falta') return n.autoria === 'pendiente';
     return n.autoria === verQue;
   }, [verQue]);
+
+  // ── QUIÉN ESTÁ SALIENDO ────────────────────────────────────────────────────
+  // Un nodo filtrado no puede desaparecer de golpe: tiene que hacer la animación de
+  // entrada al revés y RECIÉN AHÍ desmontarse. Mientras dura, sigue montado con la clase
+  // `cbg-fuera`. El temporizador se cancela si vuelve a entrar antes de terminar —
+  // desfiltrar a mitad de la salida tiene que devolverlo, no dejarlo a medio camino.
+  const [saliendo, setSaliendo] = useState<Set<string>>(new Set());
+  const relojSalida = useRef<number | null>(null);
 
   // Refs para que `visible()` no cambie de identidad en cada tecla: lo consumen el
   // dibujo de las aristas y el descarte de etiquetas.
@@ -226,6 +239,25 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   //
   // ⚠️ Por render CONDICIONAL, nunca con `opacity: 0`: este documento ya midió que un
   // nodo invisible cuesta lo mismo que uno dibujado.
+  /** Los nodos que hay que RENDERIZAR: los que pasan el filtro más los que se están
+   *  yendo. Es la lista que recorre el dibujo; `visible()` decide cuáles de esos están
+   *  de verdad adentro. */
+  const montados = useMemo(
+    () => nodos.filter((n) => visible(n) || saliendo.has(n.id)),
+    [nodos, visible, saliendo, verQue, busca],
+  );
+
+  // Cuando cambia el filtro: los que salieron se marcan y se desmontan al terminar.
+  useEffect(() => {
+    const fuera = nodos.filter((n) => !visible(n)).map((n) => n.id);
+    if (!fuera.length) { setSaliendo(new Set()); return; }
+    setSaliendo(new Set(fuera));
+    if (relojSalida.current != null) window.clearTimeout(relojSalida.current);
+    relojSalida.current = window.setTimeout(() => setSaliendo(new Set()), 260);
+    return () => { if (relojSalida.current != null) window.clearTimeout(relojSalida.current); };
+    // `visible` cambia de identidad con el filtro, que es exactamente cuándo hay que correr.
+  }, [nodos, visible, verQue, busca]);
+
   const etiquetasVisibles = useMemo(() => {
     const alto = (12 * uEstado) / kPaso;          // la caja, en unidades locales del <g>
     const cajas: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
@@ -234,13 +266,21 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     // Es la lógica de carpetas: de lejos se leen las cinco madre, al acercarse aparecen
     // las áreas, y más cerca los datos. La carpeta madre NUNCA pierde su título — es lo
     // único que orienta cuando el mapa entero entra en la pantalla.
-    const z = kPaso / (kFitEstado || 1);
+    // El zoom REAL, no el cuantizado. `kPaso` se redondea a cuartos para el fade viejo,
+    // y con eso los umbrales de nivel daban saltos: al encuadre podía caer del lado
+    // equivocado y el mapa arrancaba con 13 nombres de 72.
+    const z = zoomPct / 100;
     const nivelDe = (id: string) => (id.startsWith('n1:') ? 1 : id.startsWith('area:') || id === 'raiz' ? 2 : 3);
     const entraPorNivel = (id: string) => {
       const n = nivelDe(id);
       if (n === 1) return true;         // siempre
-      if (n === 2) return z >= 0.75;    // apenas se acerca un poco
-      return z >= 1.35;                 // los datos, más cerca
+      // El encuadre (z = 1) es el estado NORMAL, no «lejos»: ahí se ve todo lo que
+      // entra por colisión. Los umbrales están para cuando el usuario se ALEJA, que es
+      // lo que pidió — «si haces zoom out vayan desapareciendo títulos y queden los más
+      // importantes». Con el umbral en 1,35 el nivel 3 no aparecía nunca al encuadre y
+      // el mapa arrancaba con 13 nombres de 72.
+      if (n === 2) return z >= 0.5;     // se van al alejarse a la mitad
+      return z >= 0.92;                 // los datos, apenas uno se aleja
     };
     // Sobre los que PASAN el filtro, no sobre todos: antes una etiqueta que había
     // perdido su caja contra un nodo filtrado seguía sin dibujarse. Al filtrar tiene que
@@ -265,7 +305,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
       ok.add(n.id);
     }
     return ok;
-  }, [nodos, posiciones, grados, kPaso, uEstado, kFitEstado, visible, verQue, busca]);
+  }, [nodos, posiciones, grados, kPaso, uEstado, zoomPct, visible, verQue, busca]);
 
   const radioMundo = useCallback((n: NodoCerebro) => radioNodo(grados[n.id] ?? 0), [grados]);
   const kr = Math.sqrt(kPaso);
@@ -967,6 +1007,12 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
            lee como glitch y esconde el área de toque. */
         .cbg .cbg-pop { animation: cbg-in .42s cubic-bezier(.34,1.56,.64,1) backwards; }
         @keyframes cbg-in { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+        /* LA SALIDA ES LA ENTRADA AL REVÉS, y más corta: al filtrar uno quiere ver el
+           resultado, no la despedida. El nodo se DESMONTA cuando termina — no se queda
+           en opacity 0, que en SVG cuesta lo mismo que dibujarlo (medido, está en el
+           documento). El desmonte lo hace React cuando la lista de salida se vacía. */
+        .cbg .cbg-fuera .cbg-pop { animation: cbg-out .24s cubic-bezier(.4,0,.7,.2) forwards; }
+        @keyframes cbg-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(.6); } }
 
         /* EL HOVER: entra rápido, sale lento. Tres señales, ninguna cromática. */
         .cbg .cbg-cuerpo { transition: transform .14s cubic-bezier(.34,1.4,.64,1); }
@@ -978,7 +1024,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
         .cbg .cbg-et { font-size: calc(12px * var(--u, 1) / var(--k, 1)); fill: var(--on-sidebar); pointer-events: none; }
 
         @media (prefers-reduced-motion: reduce) {
-          .cbg .cbg-pop { animation: none; }
+          .cbg .cbg-pop, .cbg .cbg-fuera .cbg-pop { animation: none; }
           .cbg .cbg-cuerpo, .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et { transition: none; }
           .cbg .cbg-nodo:hover .cbg-cuerpo, .cbg .cbg-nodo.cbg-sel .cbg-cuerpo { transform: none; }
         }
@@ -1145,7 +1191,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
                 })}
               </g>
 
-              {nodos.map((n) => {
+              {montados.map((n) => {
                 const p = posiciones[n.id];
                 if (!p) return null;
                 const r = radioDe(n);
@@ -1156,7 +1202,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
                   <g
                     key={n.id}
                     ref={(el) => { nodoRefs.current.set(n.id, el); }}
-                    className={`cbg-nodo${esSel ? ' cbg-sel' : ''}`}
+                    className={`cbg-nodo${esSel ? ' cbg-sel' : ''}${saliendo.has(n.id) ? ' cbg-fuera' : ''}`}
                     // Enganche de las pruebas (scripts/probar-solape.mjs). El id no se
                     // puede sacar del DOM de otra forma: las clases son todas iguales y
                     // la posición la reescribe el rAF, así que sin esto no hay manera de
@@ -1177,13 +1223,13 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
                         </g>
                         {/* El nodo en foco y sus vecinos SIEMPRE llevan etiqueta: es lo
                             que se está mirando, y esconderla ahí sería el peor momento. */}
-                        {((etiquetasVisibles.has(n.id) && alphaEtiqueta > 0.02) || esSel || (cerca?.has(n.id) ?? false)) && (
+                        {(etiquetasVisibles.has(n.id) || esSel || (cerca?.has(n.id) ?? false)) && (
                           <text
                             className="cbg-et"
                             y={r + 6 / kr}
                             textAnchor="middle"
                             dominantBaseline="hanging"
-                            opacity={esSel ? 1 : alphaEtiqueta * opacidadDe(n)}
+                            opacity={esSel ? 1 : opacidadDe(n)}
                           >
                             {n.etiqueta}
                           </text>
