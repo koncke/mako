@@ -272,6 +272,20 @@ export async function construirCerebro(): Promise<Cerebro> {
       area: 'norte',
       etiqueta: `Fase ${f.id} · ${f.nombre}`,
       detalle: f.objetivo,
+      // ⚠️ ESTE ERA EL PEOR CASO DE TODO EL MAPA: `FaseDef` tiene quince campos y el
+      // nodo mostraba UNO. Lo que MaKo dedujo de las seis preguntas —qué NO conviene
+      // hacer todavía, cómo repartir la inversión, qué funnel corresponde— estaba
+      // escrito, viajaba al browser y no lo leía nadie. Y es justo lo que hace que el
+      // Norte sea el Norte.
+      datos: [
+        { k: 'Qué funnel te toca', v: f.funnelSugerido?.nombre ?? '' },
+        { k: 'Cómo repartir', v: f.estrategia
+          ? `${f.estrategia.prospeccion}% a tráfico frío · ${f.estrategia.nutricion}% a nutrición · ${f.estrategia.escala}% a escalar`
+          : '' },
+        { k: 'Cuánto invertir', v: f.estrategia?.inversion ?? '' },
+        { k: 'Todavía no conviene', v: (f.noHacer ?? []).slice(0, 3).join(' · ') },
+      ],
+      cuerpo: [f.estrategia?.nota, f.funnelSugerido?.comoFunciona].filter(Boolean).join('\n\n'),
       fuente: 'de tus 6 respuestas del diagnóstico',
       autoria: 'mako',
       destacado: true,
@@ -282,7 +296,14 @@ export async function construirCerebro(): Promise<Cerebro> {
       id: 'cuello',
       area: 'norte',
       etiqueta: f.cuelloLabel,
-      detalle: `Es donde se rompe la cadena hoy. Mientras esto no se mueva, mejorar el resto no cambia el resultado. El hito para pasar de fase: ${f.hito}`,
+      detalle: 'Es donde se rompe la cadena hoy. Mientras esto no se mueva, mejorar el resto no cambia el resultado.',
+      datos: [
+        { k: 'El hito para pasar de fase', v: f.hito },
+        // `hitoCriterios` son las preguntas que dicen CUÁNDO se salió de la fase, y se
+        // estaban tirando enteras: sin ellas el hito es una intención sin forma de saber
+        // si se cumplió.
+        { k: 'Cómo sabes que lo lograste', v: (f.hitoCriterios ?? []).join(' · ') },
+      ],
       fuente: 'se deriva de tu fase, no se pregunta suelto',
       autoria: 'mako',
       alerta: true,
@@ -394,7 +415,16 @@ export async function construirCerebro(): Promise<Cerebro> {
       id: `prod:${p.id}`,
       area: 'productos',
       etiqueta: corto(p.nombre, 30),
-      detalle: [precio, limpio(p.promesa), limpio(p.incluye) && `Incluye: ${limpio(p.incluye)}`, limpio(p.garantia) && `Garantía: ${limpio(p.garantia)}`].filter(Boolean).join(' · '),
+      detalle: limpio(p.promesa),
+      datos: [
+        { k: 'Precio', v: precio },
+        { k: 'Incluye', v: limpio(p.incluye) },
+        { k: 'Garantía', v: limpio(p.garantia) },
+        // Un producto dado de baja se DIBUJABA como si estuviera vigente, en una pantalla
+        // cuyo argumento entero es «esto es tuyo y está al día». Eso es información
+        // falsa, no una omisión: si está de baja, lo dice.
+        { k: 'Estado', v: (p as { activo?: boolean }).activo === false ? 'Dado de baja' : '' },
+      ],
       fuente: 'del catálogo que arma el CRM',
       autoria: 'mako',
     });
@@ -407,7 +437,12 @@ export async function construirCerebro(): Promise<Cerebro> {
       id: `ent:${e.id}`,
       area: 'entregables',
       etiqueta: corto(e.nombre, 30),
-      detalle: [limpio(e.queEs), limpio(e.fomo) && `Línea para el anuncio: «${limpio(e.fomo)}»`].filter(Boolean).join(' · '),
+      detalle: limpio(e.queEs),
+      datos: [
+        { k: 'Línea para el anuncio', v: limpio(e.fomo) },
+        { k: 'Tipo', v: limpio((e as { tipo?: string }).tipo ?? '') },
+        { k: 'Enlace', v: limpio((e as { enlace?: string }).enlace ?? '') },
+      ],
       fuente: e.tipo ? `tipo: ${e.tipo}` : '',
       autoria: 'mako',
     });
@@ -421,7 +456,12 @@ export async function construirCerebro(): Promise<Cerebro> {
       id: `av:${a.id}`,
       area: 'avatares',
       etiqueta: corto(a.nombre, 28),
-      detalle: [limpio(a.segmento), limpio(a.dolor) && `Le duele: ${limpio(a.dolor)}`, limpio(a.senalesMeta) && `En Meta: ${limpio(a.senalesMeta)}`].filter(Boolean).join(' · '),
+      detalle: limpio(a.segmento),
+      datos: [
+        { k: 'Le duele', v: limpio(a.dolor) },
+        { k: 'Su situación', v: limpio((a as { situacion?: string }).situacion ?? '') },
+        { k: 'Cómo encontrarlo en Meta', v: limpio(a.senalesMeta) },
+      ],
       fuente: 'MaKo los propuso desde tu panorama',
       autoria: 'mako',
     });
@@ -440,7 +480,13 @@ export async function construirCerebro(): Promise<Cerebro> {
       id: `raz:${r.id}`,
       area: 'razones',
       etiqueta: corto(r.nombre, 28),
-      detalle: [limpio(r.descripcion), limpio(r.copy) && `Hook: «${limpio(r.copy)}»`, r.guiones?.length ? `${r.guiones.length} ${r.guiones.length === 1 ? 'guion escrito' : 'guiones escritos'}` : ''].filter(Boolean).join(' · '),
+      detalle: limpio(r.descripcion),
+      datos: [
+        { k: 'Gancho', v: limpio(r.copy) && `«${limpio(r.copy)}»` },
+        // Los guiones se CUENTAN y se NOMBRAN con su estado: antes decía «2 guiones
+        // escritos» y el estado estaba a mano en la misma fila, sin usarse.
+        { k: 'Guiones', v: r.guiones?.length ? `${r.guiones.length} ${r.guiones.length === 1 ? 'escrito' : 'escritos'}` : '' },
+      ],
       fuente: 'una motivación de compra de ese segmento',
       autoria: 'mako',
     });

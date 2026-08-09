@@ -31,7 +31,7 @@
 //    el drag nativo del navegador hay que apagarlo a mano o se come el paneo.
 // =============================================================================
 
-import { useMemo, useState, useRef, useEffect, useCallback, type CSSProperties } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback, Fragment, type CSSProperties } from 'react';
 import { AREAS, AUTORIA_TEXTO, radioNodo, colorArea, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
 import type { NodoFisico, Simulacion } from './fisica';
 import { MONO } from '@/app/_ui/tokens';
@@ -165,6 +165,10 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
 
   const sel = fijado ?? activo;
   const nodoSel = sel ? porId.get(sel) ?? null : null;
+  // Se reinician con CADA cambio de nodo, no solo cuando se llega volando: pasar el
+  // cursor por otro punto también cambia el panel, y sin esto el nuevo aparecía con el
+  // «Leer todo» ya desplegado del anterior.
+  useEffect(() => { setTextoEntero(false); setVerTodas(false); }, [sel]);
   const cerca = useMemo(() => (sel ? new Set([sel, ...(vecinos.get(sel) ?? [])]) : null), [sel, vecinos]);
 
   // El fade de etiquetas de Obsidian: clamp(log2(zoom) + 1, 0, 1), pero con el zoom
@@ -1166,30 +1170,49 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
             <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 8 }}>
               {nodoSel.etiqueta}
             </div>
-            {/* El `detalle` de un plano del panorama son varios párrafos: sin recorte,
-                la tarjeta se comía el lienzo entero y empujaba las conexiones y la
-                acción fuera de la vista. Se muestran ocho líneas y el resto se pide. */}
             {nodoSel.detalle && (
-              <>
-                <p
-                  style={{
-                    margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55,
-                    whiteSpace: 'pre-line',
-                    ...(textoEntero ? {} : {
-                      display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    }),
-                  }}
-                >
-                  {nodoSel.detalle}
-                </p>
-                {!textoEntero && nodoSel.detalle.length > 320 && (
-                  <button
-                    type="button"
-                    onClick={() => setTextoEntero(true)}
-                    style={{ background: 'none', border: 'none', padding: '4px 0 0', cursor: 'pointer', fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}
-                  >Leer todo</button>
-                )}
-              </>
+              <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55, whiteSpace: 'pre-line' }}>
+                {nodoSel.detalle}
+              </p>
+            )}
+
+            {/* ── LOS DATOS DEL NODO ─────────────────────────────────────────
+                Antes todo esto se pegaba con « · » adentro del mismo párrafo, así que
+                cada productor tenía que elegir entre tirar campos o escribir un renglón
+                corrido ilegible. Como pares nombre/valor entran todos y se leen. */}
+            {(nodoSel.datos ?? []).filter((d) => d.v && d.v.trim()).length > 0 && (
+              <dl style={{ margin: '12px 0 0', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 10px', alignItems: 'baseline' }}>
+                {(nodoSel.datos ?? []).filter((d) => d.v && d.v.trim()).map((d) => (
+                  <Fragment key={d.k}>
+                    <dt style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--faint)', whiteSpace: 'nowrap' }}>{d.k}</dt>
+                    <dd style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--ink)', lineHeight: 1.5 }}>{d.v}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            )}
+
+            {/* ── LA PROSA LARGA ─────────────────────────────────────────────
+                ⚠️ El recorte anterior tenía un bug silencioso: clampeaba por LÍNEAS
+                (WebkitLineClamp) y decidía si mostrar «Leer todo» por CARACTERES (> 320).
+                O sea que había una banda entera —textos de ~270 a 320 caracteres— donde
+                el texto se cortaba y NO había ningún botón para verlo entero. Ahora el
+                que decide es uno solo: si hay cuerpo, hay botón. */}
+            {nodoSel.cuerpo && (
+              <div style={{ marginTop: 12 }}>
+                {textoEntero
+                  ? <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55, whiteSpace: 'pre-line' }}>{nodoSel.cuerpo}</p>
+                  : (
+                    <button
+                      type="button"
+                      className="cbg-link"
+                      onClick={() => setTextoEntero(true)}
+                      style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}
+                    >
+                      <span style={{ flex: 1 }}>Leer lo que MaKo explica</span>
+                      <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                  )}
+              </div>
             )}
 
             {(nodoSel.fuente || nodoSel.autoria) && (

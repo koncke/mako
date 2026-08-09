@@ -88,6 +88,22 @@ export type NodoCerebro = {
   destacado?: boolean;
   /** El cuello de botella: naranja de warning, porque es lo que hay que mover. */
   alerta?: boolean;
+  /**
+   * Los DATOS del nodo, como pares nombre/valor.
+   *
+   * ⚠️ EXISTE PORQUE `detalle` ERA UN STRING PLANO, y esa era la causa raíz de que los
+   * textos del panel fueran pobres: todos los productores armaban el detalle con
+   * `.join(' · ')`, así que cada uno tenía que elegir entre TIRAR campos o escribir un
+   * renglón corrido ilegible — y eligieron tirar. Contado sobre las lecturas, se
+   * descartaban campos reales en 11 de los 17 tipos de nodo, y el peor caso —la fase—
+   * usaba UNO de sus quince.
+   *
+   * Un par se muestra solo si tiene valor: nada se dibuja vacío.
+   */
+  datos?: Array<{ k: string; v: string }>;
+  /** Prosa larga: se muestra plegada y con «Leer todo». Es para lo que no entra en un
+   *  par nombre/valor — un plano del panorama, el razonamiento de un documento. */
+  cuerpo?: string;
   /** Solo en los nodos de documento. El panel lo necesita para elegir el visor: un PDF
    *  se muestra en un iframe, una imagen como imagen, y lo demás no se previsualiza.
    *  Sin esto el panel tendría que adivinar por la extensión — y la etiqueta viene
