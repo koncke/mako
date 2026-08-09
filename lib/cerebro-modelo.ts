@@ -44,6 +44,23 @@ export const AREAS = [
   { id: 'voz', nombre: 'Voz y cara', color: 'var(--grafo-voz)', que: 'Cómo suena tu marca y qué cara le pones a tus anuncios.' },
 ] as const;
 
+/**
+ * Cómo se dice en castellano de dónde salió un dato. Lo dicen los dos: el panel del
+ * grafo y el frontmatter de cada archivo del ZIP.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN `lib/vault.ts`, que sería su casa natural, por una razón que el
+ * typecheck NO ve: `vault.ts` lleva `server-only`, y `Grafo.tsx` es un componente de
+ * cliente. Importarlo desde ahí compila perfecto y revienta en el navegador con un 500
+ * («You're importing a module that depends on server-only»). Este módulo es puro a
+ * propósito —no importa nada— justamente para poder ser el lugar común de las dos
+ * orillas. Ya pasó una vez; no hace falta que pase otra.
+ */
+export const AUTORIA_TEXTO: Record<NodoCerebro['autoria'], string> = {
+  mako: 'lo dedujo MaKo',
+  usuario: 'lo escribiste tú',
+  pendiente: 'todavía no existe',
+};
+
 /** El color de grupo de un área. Los tokens `--grafo-*` viven en app/globals.css y
  *  solo se usan adentro del lienzo del grafo: los semánticos de la app no sirven ahí
  *  porque quedan por debajo del gris base en contraste. */

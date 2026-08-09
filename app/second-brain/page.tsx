@@ -21,10 +21,9 @@
 // LO QUE FALTA (tarea #522): el selector de contexto (negocio · producto ·
 // oferta · funnel), que según su decisión vive adentro de Second Brain.
 
-import { Icon } from '../_components/icons';
-import { OnboardingTabs } from '../onboarding/OnboardingTabs';
 import { FunnelEditor } from '../funnel/FunnelEditor';
-import { Grafo } from './Grafo';
+import { Pagina, PageHeader } from '@/app/_ui';
+import { VistaCerebro } from './VistaCerebro';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
 import { construirCerebro } from '@/lib/cerebro-grafo';
@@ -40,22 +39,20 @@ export default async function SecondBrainPage() {
   const [{ pipeline, suppressed }, cerebro] = await Promise.all([getFunnel(), construirCerebro()]);
   const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
 
+  const conteo = conteoPorArea(cerebro);
+
+  // ⚠️ `ancho="completo"` NO es opcional acá y no es un gusto: con el default el
+  // contenido topa en 1280 y el lienzo queda MÁS CHICO que antes de este rediseño.
+  // El manual de app/_ui lo dice textual: «completo es para lo que de verdad necesita
+  // cada píxel: … un lienzo».
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ display: 'inline-flex', color: 'var(--mako-ink)' }}><Icon name="red" size={32} /></span>
-          <h1 style={{ fontWeight: 700, fontSize: 'var(--fs-page)', letterSpacing: '-0.02em', lineHeight: 1.15, margin: 0, color: 'var(--ink)' }}>Second Brain</h1>
-          <span style={{ marginLeft: 'auto' }}><BotonExportar cerebro={cerebro} conteo={conteoPorArea(cerebro)} /></span>
-        </div>
-        <p style={{ margin: '8px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5, maxWidth: 640 }}>
-          Todo lo que MaKo sabe de tu negocio. De acá salen las señales que conecta para encontrar qué mover.
-        </p>
-      </header>
-      <section style={{ marginBottom: 34 }}>
-        <Grafo cerebro={cerebro} />
-      </section>
-      <OnboardingTabs funnelPanel={funnelPanel} />
-    </main>
+    <Pagina ancho="completo">
+      <PageHeader
+        titulo="Second Brain"
+        proposito="Todo lo que MaKo sabe de tu negocio."
+        accion={<BotonExportar cerebro={cerebro} conteo={conteo} />}
+      />
+      <VistaCerebro cerebro={cerebro} conteo={conteo} funnelPanel={funnelPanel} />
+    </Pagina>
   );
 }
