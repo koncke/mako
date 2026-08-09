@@ -15,8 +15,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Section, Eyebrow, Status, Select, Spinner, ErrorState, MONO } from '@/app/_ui';
 import {
-  ACCIONES, AUDIO, AUTOMATICOS, BLOQUEANTES, DATO_FALSO, ECONOMIA, EL_ACCIDENTE,
-  ESCENARIOS, IMAGEN, MEDICION, MT_POR_USD, PLANES, VIDEO, VIDEO_15S,
+  ACCIONES, AUDIO, AUTOMATICOS, BLOQUEANTES, COMPETENCIA, DATO_FALSO, ECONOMIA,
+  EL_ACCIDENTE, ESCENARIOS, IMAGEN, MEDICION, MT_POR_USD, PLANES, VIDEO, VIDEO_15S,
   aMes, costoUnitario, margen, techoIa,
 } from './modelo';
 
@@ -311,7 +311,23 @@ export function Pricing() {
         </div>
       </Section>
 
-      {/* ── 8. BLOQUEANTES ───────────────────────────────────────────────── */}
+      {/* ── 8. COMPETENCIA ───────────────────────────────────────────────── */}
+      <Section titulo="Cómo cobran los que ya lo resolvieron" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>el mecanismo, no el precio</span>} card>
+        <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', maxWidth: '72ch' }}>
+          Lo que hay que copiar no es cuánto cobran: es <strong>qué pasa cuando se acaba el cupo</strong>.
+          Es una decisión de producto, y hay una sola respuesta buena.
+        </p>
+        {COMPETENCIA.map((d, i) => (
+          <div key={d.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border)', padding: '14px 0' }}>
+            <strong style={{ fontSize: 13.5 }}>{d.titulo}</strong>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: 'var(--mako-ink)', margin: '5px 0 6px' }}>{d.numero}</div>
+            <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 6px', maxWidth: '78ch', lineHeight: 1.65 }}>{d.que}</p>
+            <div style={{ fontSize: 11, color: 'var(--faint)' }}>{d.fuente}</div>
+          </div>
+        ))}
+      </Section>
+
+      {/* ── 9. BLOQUEANTES ───────────────────────────────────────────────── */}
       <Section titulo="Lo que hay que arreglar antes de cobrar" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>verificado contra el código</span>} card>
         <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', maxWidth: '70ch' }}>
           No son mejoras: sin estos, el cupo de MaKo Tokens no se puede ni medir ni cobrar.

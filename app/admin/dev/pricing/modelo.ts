@@ -256,6 +256,31 @@ export const ECONOMIA: Dato[] = [
   },
 ];
 
+// ── Cómo cobran los que ya lo resolvieron ───────────────────────────────────
+// Lo que importa no es el precio: es el MECANISMO. Qué pasa cuando se acaba el
+// cupo es una decisión de producto, y hay una sola respuesta buena.
+
+export const COMPETENCIA: Dato[] = [
+  {
+    id: 'hubspot-mecanica', titulo: 'HubSpot da a elegir QUÉ pasa cuando se acaban los créditos, y el default es frenar',
+    numero: 'Pausar (default) · Auto-upgrade · Pay-as-you-go a US$0,010 el crédito',
+    que: 'Tres comportamientos configurables. El default para cuentas nuevas es PAUSAR — no cobrar de más sin permiso. El auto-upgrade te sube de plan hasta la renovación del contrato, y por eso la recomendación general es habilitar pay-as-you-go en su lugar: evita el salto de plan sorpresa. Para MaKo la lectura es directa: el cupo agotado no puede degradar la calidad en silencio ni cobrar sin avisar; tiene que frenar y ofrecer.',
+    fuente: 'HubSpot AI credits 2026 — eesel.ai / huboexperts.com',
+  },
+  {
+    id: 'hubspot-precio', titulo: 'El crédito de HubSpot cotiza a US$0,01, y publican cuántas acciones rinde',
+    numero: 'US$10 por 1.000 créditos (US$9 anual) · 3.000 créditos ≈ 60 conversaciones resueltas',
+    que: 'No esconden la tabla: dicen cuántas acciones reales entran en el cupo y cuánto sale cada una pasada esa línea (US$0,45 por resolución en Enterprise). Es exactamente el molde del menú de MaKo Tokens — y valida la unidad elegida: su crédito vale US$0,01, el MaKo Token vale US$0,001, o sea diez veces más granular.',
+    fuente: 'HubSpot pricing 2026 — usagepricing.com / eesel.ai',
+  },
+  {
+    id: 'byok-breakeven', titulo: 'BYOK como beneficio del plan anual tiene el punto de equilibrio a favor',
+    numero: 'BYOK gana arriba de ~200 salidas de IA por mes · debajo de 50, gana el cupo administrado',
+    que: 'El costo directo del proveedor sale 40-60% más barato que un tier administrado, pero recién compensa la fricción de conseguir y cargar la key con volumen alto. Eso valida la tarea #312: BYOK NO va en el Free (a ese volumen solo agrega fricción y no ahorra nada) sino arriba, donde el usuario ya factura suficiente como para que le convenga. El modelo híbrido que se está imponiendo —cuota fija de plataforma US$20-50 más el costo real del proveedor— es casi exactamente el Growth anual con BYOK.',
+    fuente: 'Kompozy «BYOK vs managed: the real break-even math» + buildmvpfast.com, 2026',
+  },
+];
+
 /** Un número que circula por todos lados y NO hay que usar. */
 export const DATO_FALSO = {
   numero: 'US$702 self-serve vs US$11.400 sales-led',
