@@ -211,6 +211,15 @@ export function Mako(props: MakoProps) {
   // deja el color sin significado justo donde hace falta que lo tenga.
   const esperando = def.esperaAlUsuario === true;
 
+  // El PRIMER campo de `exige` es, por definición del catálogo, el que decide:
+  // en `recomienda` el impacto esperado, en `aprobacion` el alcance. Ése se
+  // queda a la vista y el resto pasa al segundo nivel. Que sea siempre «el
+  // primero» y no una elección por pantalla es lo que hace que las tarjetas de
+  // un mismo grupo tengan la MISMA forma — Material lo marca: con campos
+  // condicionales cada tarjeta queda distinta y el usuario tiene que leerlas
+  // enteras en vez de escanearlas.
+  const [primero, ...resto] = datos ?? [];
+
   return (
     <div
       // El botón toma el color del estado SOLO en la aprobación (tono warn).
@@ -243,21 +252,49 @@ export function Mako(props: MakoProps) {
         </div>
       )}
 
-      {!!datos?.length && (
-        <dl className="mk-mako__datos">
-          {datos.map((d) => (
-            <div key={d.k} className="mk-mako__dato">
-              <dt className="mk-mako__k">{d.k}</dt>
-              <dd className="mk-mako__v">{d.v}</dd>
-            </div>
-          ))}
-        </dl>
+      {/* ⚠️ UN SOLO CAMPO A LA VISTA. El resto, detrás de un gesto.
+          La versión anterior pintaba los cinco campos siempre, y era «la card
+          enciclopedia» que Material nombra como antipatrón: le ahorra el click
+          al usuario y termina siendo una página comprimida que nadie escanea.
+          Catorce elementos de texto para decidir si te interesa una sugerencia.
+
+          El error de origen fue leer «campos obligatorios» como «campos siempre
+          visibles». El documento pide que una recomendación TENGA impacto,
+          esfuerzo, responsable y objetivo —para que no sea un consejo genérico—
+          no que los cinco te salten encima antes de decidir si te interesa.
+
+          El corte se define por FRECUENCIA DE USO, no por importancia (NN/g):
+          el primer campo es el que decide y se queda arriba; los otros se miran
+          en raras ocasiones. Y son DOS niveles, nunca tres. */}
+      {primero && (
+        <div className="mk-mako__dato mk-mako__dato--frente">
+          <span className="mk-mako__k">{primero.k}</span>
+          <span className="mk-mako__v">{primero.v}</span>
+        </div>
       )}
 
-      {evidencia && (
+      {/* UN solo disclosure, con los campos restantes Y la evidencia adentro.
+          Antes eran dos («Ver la evidencia» aparte), y NN/g lo desaconseja
+          explícitamente: «it's rarely a good idea to offer multiple ways to
+          progress to secondary options».
+          El rótulo NOMBRA lo que hay adentro en vez de decir «ver más»: sin ese
+          olor a información, el acordeón obliga a descubrir por prueba y error. */}
+      {(resto.length > 0 || evidencia) && (
         <details className="mk-mako__ev">
-          <summary>Ver la evidencia</summary>
-          <div className="mk-mako__evc">{evidencia}</div>
+          <summary>{[...resto.map((d) => d.k), evidencia ? 'Evidencia' : null].filter(Boolean).join(' · ')}</summary>
+          <div className="mk-mako__evc">
+            {resto.length > 0 && (
+              <dl className="mk-mako__datos">
+                {resto.map((d) => (
+                  <div key={d.k} className="mk-mako__dato">
+                    <dt className="mk-mako__k">{d.k}</dt>
+                    <dd className="mk-mako__v">{d.v}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {evidencia}
+          </div>
         </details>
       )}
 

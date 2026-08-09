@@ -688,12 +688,29 @@
 /* La evidencia va plegada: RESPALDA la afirmación, no se lee todas las veces.
    Desplegada siempre, la tarjeta pasa de «MaKo encontró algo» a un volcado de
    datos y deja de tener un título directo, que es lo que el documento pide. */
+/* El campo que queda a la vista va en UNA línea —etiqueta y valor al lado, no
+   uno encima del otro—: apilados ocupan el doble de alto y hacen que un solo
+   dato parezca un formulario. */
+.mk-mako__dato--frente {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* El disparador del segundo nivel NOMBRA lo que hay adentro («Esfuerzo ·
+   Responsable · Objetivo»), así que se lee como una lista y necesita el
+   tratamiento de una: versalitas no, mono no, y el triángulo del <details>
+   alcanza como afordancia. */
 .mk-mako__ev > summary {
   cursor: pointer;
   font-size: var(--fs-meta);
-  color: var(--dim);
+  color: var(--faint);
   padding: 2px 0;
+  list-style-position: outside;
 }
+.mk-mako__ev > summary:hover { color: var(--dim); }
+.mk-mako__ev[open] > summary { margin-bottom: 2px; }
 .mk-mako__ev > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
 .mk-mako__evc {
   margin-top: 8px;
