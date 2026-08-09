@@ -68,3 +68,34 @@ test('recorta los turnos largos y cuenta las redacciones de todo el lote', () =>
   assert.ok(tapadas >= 1);
   assert.ok(turnos[1].ts, 'sin ts, tiene que ponerse uno');
 });
+
+// ── Reglas que se pisan entre sí ──────────────────────────────────────────────
+// Encontrado probando el hook de punta a punta contra un MaKo de mentira: el texto
+// salía tapado pero ROTO, y el contador de redacciones contaba de más.
+test('una regla no se come el reemplazo de otra', () => {
+  const r = redactar('mi ANTHROPIC_API_KEY=sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFF y listo');
+  // El síntoma era exactamente esto: `ANTHROPIC_API_KEY=«tapado» de Anthropic tapada»`,
+  // porque el `\S+` de la regla de .env agarraba solo hasta el primer espacio del
+  // reemplazo que ya había dejado la regla de Anthropic.
+  assert.ok(!r.texto.includes('de Anthropic tapada»'), `texto roto: ${r.texto}`);
+  assert.ok(!r.texto.includes('sk-ant-api03'), 'se escapó la clave');
+  assert.equal(r.texto, 'mi ANTHROPIC_API_KEY=«tapado» y listo');
+});
+
+test('el contador no cuenta dos veces el mismo secreto', () => {
+  // `redacciones` es la ALARMA de que el filtro de turnos humanos está dejando pasar
+  // salidas de herramientas. Si dos reglas que se solapan suman dos, la alarma sube
+  // sola y deja de servir para lo único que sirve.
+  assert.equal(redactar('ANTHROPIC_API_KEY=sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFF').tapadas, 1);
+  assert.equal(redactar('escribime a martin@makodigital.app o al +598 99 123 456').tapadas, 2);
+  assert.equal(redactar('no hay nada que tapar acá').tapadas, 0);
+});
+
+test('un número suelto en el texto no se confunde con un marcador interno', () => {
+  // Los marcadores temporales van entre NUL justamente por esto. Si fueran, digamos,
+  // espacios o guiones, «hay 3 cosas» se comería el reemplazo de otra regla.
+  const t = 'hay 3 cosas y 12 más, y un mail de alguien@empresa.com';
+  const r = redactar(t);
+  assert.ok(r.texto.startsWith('hay 3 cosas y 12 más'), r.texto);
+  assert.equal(r.tapadas, 1);
+});

@@ -23,13 +23,19 @@
 // no pegue credenciales ni datos de terceros en el chat.
 // =============================================================================
 
-type Regla = { nombre: string; re: RegExp; con: string };
+export type Regla = { nombre: string; re: RegExp; con: string };
 
 /**
  * El orden importa: lo más específico primero. Una regla golosa que corra antes se
  * come el texto que otra necesitaba ver.
+ *
+ * ⚠️ Se EXPORTA porque `lib/agente-plugin.ts` genera el script del hook a partir de
+ * esta misma tabla, serializando cada `RegExp` por su `source` y su `flags`. Esa es la
+ * razón de que no haya un `scripts/sync-*.mjs` para el plugin como sí lo hay para las
+ * skills: acá no existe una copia que se pueda quedar vieja, el script se arma en el
+ * momento de pedirlo. Si agregás una regla, el plugin la tiene en el próximo pedido.
  */
-const REGLAS: Regla[] = [
+export const REGLAS: Regla[] = [
   // ── Claves de proveedor, por su prefijo característico ─────────────────────
   { nombre: 'anthropic', re: /\bsk-ant-[A-Za-z0-9_-]{20,}/g, con: '«clave de Anthropic tapada»' },
   { nombre: 'openai', re: /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}/g, con: '«clave de OpenAI tapada»' },
@@ -70,21 +76,62 @@ const REGLAS: Regla[] = [
 
 export type Redactado = { texto: string; tapadas: number };
 
-/** Tapa lo que reconoce y devuelve cuántas veces tuvo que hacerlo. El conteo es la
- *  señal de alarma: si en producción sube, el filtro de turnos humanos está fallando. */
-export function redactar(entrada: string): Redactado {
+/**
+ * Tapa lo que reconoce y devuelve cuántas veces tuvo que hacerlo. El conteo es la
+ * señal de alarma: si en producción sube, el filtro de turnos humanos está fallando.
+ *
+ * ⚠️ ES AUTOCONTENIDA A PROPÓSITO —las reglas entran por PARÁMETRO y no toca nada del
+ * módulo— porque `lib/agente-plugin.ts` la serializa con `.toString()` y la mete
+ * adentro del script que corre en la máquina del cliente. Si usara cualquier cosa del
+ * módulo (una constante, otra función, un import), el script generado la referenciaría
+ * sin tenerla: rompería en la máquina del cliente y no acá. Y las reglas van por
+ * parámetro y no por nombre porque un bundler que minifique renombra las variables del
+ * módulo y la referencia deja de resolver, mientras que un parámetro se renombra de
+ * forma consistente adentro de la propia función.
+ *
+ * O sea: el algoritmo tampoco tiene una copia. Ni la tabla ni el código.
+ */
+export function redactarCon(entrada: string, reglas: Regla[]): Redactado {
+  // El molde del marcador temporal. Lleva NUL a los costados porque es lo único que
+  // no aparece nunca en un texto tipeado por una persona.
+  const MARCA = /\u0000(\d+)\u0000/g;
   let texto = typeof entrada === 'string' ? entrada : '';
+
+  // ⚠️ CADA REGLA DEJA UN MARCADOR, NO SU TEXTO FINAL, y recién al final se cambian
+  // todos por el texto de verdad. Sin esto, una regla se come el reemplazo de otra.
+  // El caso real, con `ANTHROPIC_API_KEY=sk-ant-…`: la regla de Anthropic dejaba
+  // «clave de Anthropic tapada» y después la regla de `.env` matcheaba
+  // `ANTHROPIC_API_KEY=\S+`, donde `\S+` agarra solo hasta el primer espacio — o sea la
+  // palabra «clave — y escupía `ANTHROPIC_API_KEY=«tapado» de Anthropic tapada»`.
+  // El secreto quedaba tapado igual, así que no era un agujero; era un texto roto y,
+  // peor, un contador inflado.
+  const finales: string[] = [];
   let tapadas = 0;
-  for (const r of REGLAS) {
+
+  for (const r of reglas) {
     texto = texto.replace(r.re, (...args) => {
-      tapadas += 1;
+      const bruto = String(args[0]);
+      // Si esta regla se está comiendo marcadores de reglas anteriores, esos secretos
+      // YA se contaron y desaparecen adentro de este reemplazo. Descontarlos es lo que
+      // mantiene honesto el contador — que no es cosmético: `redacciones` es la alarma
+      // que avisa si el filtro de «solo turnos humanos» está dejando pasar salidas de
+      // herramientas. Una alarma que cuenta de más no se puede mirar.
+      tapadas += 1 - (bruto.match(MARCA) ?? []).length;
       // `$1` en `con` toma el primer grupo de captura (el dominio del mail, el nombre
       // de la variable de entorno). Sin esto, tapar un email borraría también de qué
       // empresa se estaba hablando, que es justo el dato útil y no sensible.
-      return r.con.replace('$1', String(args[1] ?? ''));
+      finales.push(r.con.replace('$1', String(args[1] ?? '')));
+      return `\u0000${finales.length - 1}\u0000`;
     });
   }
+
+  texto = texto.replace(MARCA, (_, i) => finales[Number(i)] ?? '');
   return { texto, tapadas };
+}
+
+/** La de todos los días, con la tabla de este módulo. */
+export function redactar(entrada: string): Redactado {
+  return redactarCon(entrada, REGLAS);
 }
 
 /** Un turno escrito por la persona, ya limpio. */
