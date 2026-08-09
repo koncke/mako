@@ -14,14 +14,27 @@
 import { useState } from 'react';
 import { Pagina, PageHeader, Tabs, Status, ButtonLink, type Tab } from '@/app/_ui';
 import { Roadmap, ChangeHistory } from '../_registro/Registro';
+import { RoadmapDelPlan, HistorialDeGit, Trampa } from '../_registro/Derivados';
 import type { Registro } from '../_registro/tipos';
 import type { AreaDev } from '../areas';
+import type { CommitArea } from '../_historial.generado';
+import type { TareaRoadmap } from '../roadmap';
 import { subTabsDe, panelDe } from '../paneles';
 
-export function RegistroArea({ area, registro }: { area: AreaDev; registro: Registro }) {
+export function RegistroArea({
+  area, registro, tareas, commits,
+}: {
+  area: AreaDev;
+  registro: Registro;
+  tareas: TareaRoadmap[];
+  commits: CommitArea[];
+}) {
   const hechas = registro.partes.filter((p) => p.estado === 'hecha').length;
   const tabs: Tab[] = [{ id: 'roadmap', label: 'Roadmap' }, ...subTabsDe(area.slug)];
   const [tab, setTab] = useState('roadmap');
+  // Seis áreas tienen bitácora escrita a mano. Manda ella: tiene el pedido
+  // TEXTUAL del dueño y el porqué, que ningún mensaje de commit contiene.
+  const conBitacora = registro.partes.length > 0 || registro.bitacora.length > 0;
 
   return (
     <Pagina>
@@ -43,8 +56,17 @@ export function RegistroArea({ area, registro }: { area: AreaDev; registro: Regi
 
       {tab === 'roadmap' ? (
         <>
-          <Roadmap partes={registro.partes} />
-          <ChangeHistory hitos={registro.bitacora} />
+          {area.nota && <Trampa nota={area.nota} />}
+          {conBitacora ? (
+            <>
+              <Roadmap partes={registro.partes} />
+              <RoadmapDelPlan tareas={tareas} proyectos={area.proyectos ?? []} />
+              <ChangeHistory hitos={registro.bitacora} />
+            </>
+          ) : (
+            <RoadmapDelPlan tareas={tareas} proyectos={area.proyectos ?? []} />
+          )}
+          <HistorialDeGit commits={commits} conBitacora={conBitacora} />
         </>
       ) : (
         panelDe(area.slug, tab)
