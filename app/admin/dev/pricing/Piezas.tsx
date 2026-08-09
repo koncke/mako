@@ -47,8 +47,10 @@ export function Barras({
   /** El tope de la escala. Explícito para que dos gráficos se puedan comparar. */
   max?: number;
   sufijo?: string;
-  /** El color del acento. `bad` cuando la magnitud grande es mala. */
-  tono?: 'mako' | 'bad' | 'info';
+  /** El color del acento. `bad` cuando la magnitud grande es mala; `good`
+   *  cuando la destacada es la que PASA — pintar de rojo al único canal que
+   *  entra en el techo dice lo contrario de lo que dice el dato. */
+  tono?: 'mako' | 'bad' | 'good' | 'info';
   altura?: number;
   /**
    * `log` para series que abarcan órdenes de magnitud. La tarifa va de 1 a 2.000
@@ -62,7 +64,7 @@ export function Barras({
   escala?: 'lineal' | 'log';
 }) {
   const tope = max ?? Math.max(...datos.map((d) => d.valor), 1);
-  const acento = tono === 'bad' ? 'var(--bad)' : tono === 'info' ? 'var(--primary)' : 'var(--mako)';
+  const acento = tono === 'bad' ? 'var(--bad)' : tono === 'good' ? 'var(--good)' : tono === 'info' ? 'var(--primary)' : 'var(--mako)';
   // log1p en vez de log: la tarifa tiene valores en 0 (lo automático no cobra) y
   // log(0) es -Infinity, que pinta una barra de ancho NaN sin decir nada.
   const ancho = (v: number) => (escala === 'log'
@@ -72,7 +74,15 @@ export function Barras({
   return (
     <div role="img" aria-label={datos.map((d) => `${d.label}: ${d.texto}`).join('. ')}>
       {datos.map((d) => {
-        const pct = Math.max(1.5, ancho(d.valor));
+        // ⚠️ SE RECORTA AL 100%, y no es cosmética. `max` es una prop explícita
+        // justamente para poder comparar dos gráficos, así que un valor por
+        // encima del tope es normal — pero el ancho de la barra es un % del
+        // carril, y `width: 1468%` no desborda la barra: desborda la PÁGINA.
+        // Medido acá: dos canales arriba del tope llevaron el documento de
+        // 1.440px a 7.656px de ancho. El recorte se avisa con la flecha.
+        const crudo = ancho(d.valor);
+        const cortada = crudo > 100;
+        const pct = Math.min(100, Math.max(1.5, crudo));
         return (
           <div key={d.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,190px) 1fr auto', gap: 12, alignItems: 'center', padding: '7px 0' }}>
             <div style={{ minWidth: 0 }}>
@@ -82,14 +92,29 @@ export function Barras({
               {d.nota && <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 1 }}>{d.nota}</div>}
             </div>
             {/* La pista de fondo da la escala sin necesidad de grilla. */}
-            <div style={{ position: 'relative', height: altura, background: 'var(--surface-2)', borderRadius: 3 }}>
+            <div style={{ position: 'relative', height: altura, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
               <div
                 style={{
                   position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: `${pct}%`,
                   background: d.destacada ? acento : 'var(--border-strong)',
-                  borderRadius: '3px 4px 4px 3px',
+                  // La punta redondeada solo si la barra TERMINA acá. Una barra
+                  // cortada con la punta redondeada miente: parece que ese es su
+                  // valor. Cortada va a filo, con la flecha al lado.
+                  borderRadius: cortada ? '3px 0 0 3px' : '3px 4px 4px 3px',
                 }}
               />
+              {cortada && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute', insetInlineEnd: 4, top: '50%', transform: 'translateY(-50%)',
+                    fontFamily: MONO, fontSize: 11, color: 'var(--surface)', lineHeight: 1,
+                  }}
+                  title="se sale de la escala — el valor está al lado"
+                >
+                  »
+                </span>
+              )}
             </div>
             <div style={{ fontFamily: MONO, fontSize: 12.5, fontVariantNumeric: 'tabular-nums', color: d.destacada ? 'var(--ink)' : 'var(--muted)', minWidth: 58, textAlign: 'right' }}>
               {d.texto}{sufijo}

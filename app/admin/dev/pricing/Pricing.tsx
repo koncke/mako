@@ -28,7 +28,9 @@ import {
   MARKUP_MT, MEDICION, MT_POR_USD, PERFILES, PLANES, RERUTEO, RETENCION, RETENCION_FUENTE,
   RIESGO_QUE_QUEDA, RUTEO, SALVEDADES, TARIFA, VIDEO, VIDEO_15S,
   BYOK, COBRO, CUARTO_PLAN, FUERA_DE_GRILLA, GANCHO, GRANDFATHER, GRILLA, HUECOS,
-  INDICE, ORDEN_DE_TRABAJO, PRECIOS, type Bloque, type Celda as CeldaT,
+  INDICE, ORDEN_DE_TRABAJO, PRECIOS,
+  ASCENSO_NETO, CAC_CANALES, CAPITAL_NECESARIO, CONTRAFACTUAL_MENSUAL, COSTO_FREE,
+  LLAMADA, P1_ASCENSO, PARA_QUE_ESTO_SE_PUEDA_MEDIR, PROYECCION, UNIT, type Bloque, type Celda as CeldaT,
   aMes, costoUnitario, margen, techoIa,
 } from './modelo';
 
@@ -57,6 +59,11 @@ const mtDeOp = (id: string) => {
   if (!o) throw new Error(`Pricing: no existe la operación «${id}» en TARIFA`);
   return o.mt;
 };
+
+/** El nombre de la regla, sin su explicación. `reglaQueGobierna` mezcla las dos
+ *  y la del Pro anual son 300 caracteres: dentro de una columna de tabla eso no
+ *  es un dato, es un párrafo suelto. Lo largo va al aviso de abajo. */
+const reglaCorta = (r: string) => (r.startsWith('⚠️') ? 'las dos reglas se separan 2,3×' : r.split(' —')[0].split(' (')[0]);
 
 const PRO = PLANES.find((p) => p.id === 'pro')!;
 const GROWTH = PLANES.find((p) => p.id === 'growth')!;
@@ -165,6 +172,33 @@ export function Pricing() {
   useEffect(() => { void cargar(periodo); }, [cargar, periodo]);
 
   const margenPro = margen(PRO, COSTO_INTENSIVO)!;
+
+  // ── Parte 3: el CAC de cada canal contra el techo del Pro ────────────────
+  // Énfasis, no arcoíris: se destaca el ÚNICO que entra. El resto queda
+  // recesivo aunque sea el más grande — que la barra más larga sea gris es
+  // justamente lo que dice «esta no la podés comprar».
+  const techoPro = UNIT.find((u) => u.plan === 'pro')!.gobierna;
+  const barrasCac: Barra[] = [...CAC_CANALES]
+    .sort((a, b) => a.cacUsd - b.cacUsd)
+    .map((c) => ({
+      id: c.id,
+      label: c.nombre.split(' —')[0].split(' (')[0],
+      nota: `${num(c.vsProMensual * 100, 0)}% del techo · ${c.escalable ? 'escala' : 'con tope propio'}`,
+      valor: c.cacUsd,
+      texto: usd(c.cacUsd, 0),
+      destacada: c.vsProMensual <= 1,
+    }));
+
+  // Las llamadas de venta SERVIDAS contra las PEDIDAS, por escenario. Es la
+  // forma de ver que el numerador no se mueve aunque el denominador explote.
+  const barrasLlamadas: Barra[] = PROYECCION.map((p) => ({
+    id: p.id,
+    label: p.nombre.split(' — ')[0],
+    nota: `${miles(p.hitos[p.hitos.length - 1].pagos)} clientes pagos · ${num(p.programas1a1)} programas vendidos`,
+    valor: p.llamadasServidas,
+    texto: `${miles(p.llamadasServidas)} de ${miles(p.llamadasPedidas)}`,
+    destacada: p.id === 'base',
+  }));
 
   // ── Gráfico 1: la retención se desploma con el precio ────────────────────
   const barrasRetencion: Barra[] = RETENCION.map((b) => ({
@@ -480,12 +514,184 @@ export function Pricing() {
       </Section>
 
       <Parte n="3" />
-      <Section titulo="Todavía no hay número" card>
+      {/* ── PARTE 3: EL CAC ────────────────────────────────────────────────── */}
+      {/* La pregunta que el índice prometía y la pantalla no contestaba. Sale de
+          la corrida de 12 agentes del 09/08/2026 (31 fallas encontradas, 14 que
+          cambiaban el signo). El detalle en docs/embudo-y-high-ticket.md. */}
+      <Section titulo="Un solo techo por plan, y para el Pro son US$105,84" card>
         <Nota>
-          Esta es la única de las cuatro preguntas que la pantalla todavía no contesta, y
-          es la que decide si el negocio cierra: sin CAC por canal, el margen de arriba es
-          un margen bruto que no paga la adquisición. El modelo está corriendo.
+          Hasta acá convivían <strong>seis</strong> números con el mismo rótulo «techo de CAC»
+          (US$104, US$53, US$49-97, US$55-70, US$194-381, y ocho «con y sin ascenso»), y ninguno
+          tenía derivación escrita. Se reemplazan por uno por plan. La regla que gobierna es la
+          más estricta de las dos, y no es la misma para todos.
         </Nota>
+        <Tabla>
+          <Fila head plantilla="minmax(0,1fr) 78px 62px 78px 74px 74px minmax(0,1.3fr)"
+            cols={['Plan', 'Contrib./mes', 'Vida', 'LTV', '3:1', 'Payback', 'Gobierna']} />
+          {UNIT.map((u) => (
+            <Fila key={u.plan} plantilla="minmax(0,1fr) 78px 62px 78px 74px 74px minmax(0,1.3fr)"
+              cols={[
+                <span key="p" style={{ fontWeight: u.plan === 'pro' || u.plan === 'proAnual' ? 600 : 400 }}>
+                  {u.plan === 'proAnual' ? 'Pro ANUAL' : u.plan}
+                </span>,
+                <Num key="c">{u.contribucionMes === 0 ? '—' : usd(u.contribucionMes)}</Num>,
+                <Num key="v">{u.vidaMeses ? `${num(u.vidaMeses)} m` : '—'}</Num>,
+                <Num key="l">{u.ltvTotal === 0 ? '—' : usd(u.ltvTotal, 0)}</Num>,
+                <Num key="t">{u.cacMax3a1 === 0 ? '—' : usd(u.cacMax3a1, 0)}</Num>,
+                <Num key="y">{u.cacMaxPayback === 0 ? '—' : usd(u.cacMaxPayback, 0)}</Num>,
+                <span key="g" style={{ fontSize: 11.5, color: u.gobierna ? 'var(--ink)' : 'var(--faint)' }}>
+                  {u.gobierna
+                    ? <><strong>{usd(u.gobierna)}</strong> · {reglaCorta(u.reglaQueGobierna)}</>
+                    : 'no se adquiere, se subsidia'}
+                </span>,
+              ]} />
+          ))}
+        </Tabla>
+        <div style={{ marginTop: 14, padding: 13, border: '1px solid var(--warn-border, var(--border))', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
+          <Status tono="warn">La decisión más grande de la tabla</Status>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
+            {UNIT.find((u) => u.plan === 'proAnual')!.reglaQueGobierna.replace('⚠️ ', '')}
+          </div>
+        </div>
+        <div style={{ marginTop: 12, padding: 13, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
+          <Status tono="bad">Murió la columna «con ascenso»</Status>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
+            La llamada 1a1 regalada vale <strong>{usd(ASCENSO_NETO.valorEsperadoUsd)}</strong> de ascenso
+            esperado y cuesta <strong>{usd(ASCENSO_NETO.costoLlamadaUsd)}</strong> de tiempo del dueño
+            ({num(LLAMADA.horas)} h: {LLAMADA.desglose.prep} de preparación, {LLAMADA.desglose.llamada} de
+            llamada y {LLAMADA.desglose.informe} del informe por escrito que el guion promete y que no
+            estaba contado en ninguna hora). Neto:{' '}
+            <strong style={{ color: 'var(--bad)' }}>{usd(ASCENSO_NETO.netoUsd)} por comprador</strong>.
+            El break-even está en P₁ = {num(ASCENSO_NETO.breakEvenP1 * 100)}% y la base del repo es{' '}
+            {num(P1_ASCENSO.base * 100, 0)}%. Mover el techo un ±2% no justifica una segunda columna.
+          </div>
+        </div>
+      </Section>
+
+      <Section titulo="El único canal que entra en el techo del Pro es referidos" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>CAC económico: medios + los Free que no pagan + las horas del dueño</span>} card>
+        <Nota>
+          <strong>El CAC es por cliente PAGO</strong>, nunca por lead: un pago de CTWA arrastra 20
+          registros Free de los cuales 19 no pagan nunca, y esos 19 cuestan {usd(COSTO_FREE.totalVida)} cada
+          uno. Ese costo es el 37,8% del CAC del CTWA y es lo que lo saca del techo.
+        </Nota>
+        <Barras tono="good" datos={barrasCac} max={techoPro * 2} />
+        <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 8 }}>
+          La escala corta en 2× el techo del Pro ({usd(techoPro)}). Prospección y orgánico se salen del
+          gráfico por 10× y 17×: están en la tabla con su número.
+        </div>
+        <div style={{ marginTop: 20 }}>
+          <Eyebrow>De qué está hecho cada CAC</Eyebrow>
+          <Tabla>
+            <Fila head plantilla="minmax(0,1fr) 70px 70px 70px 76px 70px"
+              cols={['Canal', 'Medios', 'Free', 'Horas', 'CAC', '% techo']} />
+            {CAC_CANALES.map((c) => (
+              <Fila key={c.id} plantilla="minmax(0,1fr) 70px 70px 70px 76px 70px"
+                cols={[
+                  <div key="n">
+                    <div style={{ fontWeight: c.vsProMensual <= 1 ? 600 : 400 }}>{c.nombre}</div>
+                    <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2, lineHeight: 1.45 }}>{c.cadena}</div>
+                  </div>,
+                  <Num key="m">{usd(c.medios, 0)}</Num>,
+                  <Num key="f">{c.costoFree ? usd(c.costoFree, 0) : '—'}</Num>,
+                  <Num key="h">{c.horasDueno ? usd(c.horasDueno, 0) : '—'}</Num>,
+                  <Num key="c">{usd(c.cacUsd, 0)}</Num>,
+                  <Status key="v" tono={c.vsProMensual <= 1 ? 'good' : 'bad'}>{num(c.vsProMensual * 100, 0)}%</Status>,
+                ]} />
+            ))}
+          </Tabla>
+          <div style={{ marginTop: 14 }}>
+            {CAC_CANALES.map((c) => (
+              <Plegable key={c.id} titulo={c.nombre}
+                resumen={`${usd(c.cacUsd, 0)} · ${c.escalable ? 'escala con plata' : 'tiene techo propio'} · señal en ${c.senalEn.split(' —')[0]}`}>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>{c.veredicto}</div>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 8 }}>
+                  confianza {c.confianza} · contra el Pro anual bajo payback: {num(c.vsProAnualPayback * 100, 0)}%
+                </div>
+              </Plegable>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      <Section titulo="Lo único que cambia el signo es qué se vende, no cuánto se gasta" card>
+        <Nota>
+          Misma máquina, mismo embudo, mismo gasto. Lo único distinto es si el canal pago vende el
+          Pro <strong>mensual</strong> o el Pro <strong>anual</strong>: el anual cobra la contribución
+          del año entero el día 0, y eso multiplica por 3,4 el techo de CAC. Es lo que vuelve
+          comprable la publicidad.
+        </Nota>
+        <Tabla>
+          <Fila head plantilla="minmax(0,1fr) 100px 100px 84px 84px"
+            cols={['Escenario a 24 meses', 'Caja · anual', 'Caja · mensual', 'Pagos · an.', 'Pagos · men.']} />
+          {CONTRAFACTUAL_MENSUAL.map((e) => (
+            <Fila key={e.escenario} plantilla="minmax(0,1fr) 100px 100px 84px 84px"
+              cols={[
+                <span key="n" style={{ fontWeight: e.escenario === 'base' ? 600 : 400 }}>
+                  {e.escenario}{e.escenario === 'base' ? ' — el que hay que mirar' : ''}
+                </span>,
+                <Num key="a"><span style={{ color: e.cajaAnualUsd > 0 ? 'var(--good)' : 'var(--bad)' }}>{usd(e.cajaAnualUsd, 0)}</span></Num>,
+                <Num key="m"><span style={{ color: e.cajaMensualUsd > 0 ? 'var(--ink)' : 'var(--bad)' }}>{usd(e.cajaMensualUsd, 0)}</span></Num>,
+                <Num key="pa">{miles(e.pagosAnual)}</Num>,
+                <Num key="pm">{miles(e.pagosMensual)}</Num>,
+              ]} />
+          ))}
+        </Tabla>
+        <div style={{ marginTop: 20 }}>
+          <Eyebrow>Y lo que hay que poner para arrancar — en las dos monedas</Eyebrow>
+          <Tabla>
+            <Fila head plantilla="minmax(0,1fr) 86px 84px 92px 78px 92px"
+              cols={['Escenario', 'Piso de caja', 'Horas dueño', 'Caja positiva', 'Tope 60 h', 'High ticket']} />
+            {PROYECCION.map((p) => (
+              <Fila key={p.id} plantilla="minmax(0,1fr) 86px 84px 92px 78px 92px"
+                cols={[
+                  <div key="n">
+                    <div style={{ fontWeight: p.id === 'base' ? 600 : 400 }}>{p.nombre.split(' — ')[0]}</div>
+                    <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2, lineHeight: 1.45 }}>{p.medios}</div>
+                  </div>,
+                  <Num key="c"><span style={{ color: 'var(--bad)' }}>{usd(p.pisoCajaUsd, 0)}</span></Num>,
+                  <Num key="h">{miles(CAPITAL_NECESARIO.horasDelDueno[p.id])} h</Num>,
+                  <Num key="p">{p.mesCajaPositiva ? `mes ${p.mesCajaPositiva}` : 'nunca'}</Num>,
+                  <Num key="t">mes {p.mesTopeHoras}</Num>,
+                  <Num key="ht">{usd(p.highTicketAcumUsd, 0)}</Num>,
+                ]} />
+            ))}
+          </Tabla>
+          <Fuente>
+            Las horas son 60/mes de construcción sin un peso de ingreso. Y falta un tercer precio:{' '}
+            {CAPITAL_NECESARIO.agencia}
+          </Fuente>
+        </div>
+      </Section>
+
+      <Section titulo="El calendario vende lo mismo con 50 clientes que con 4.011" card>
+        <Nota>
+          Es el hallazgo estructural de toda la corrida. Los cuatro escenarios venden entre 0,8 y 1,5
+          programas de US$4.000 en 24 meses, con poblaciones que van de 50 a 4.011 clientes pagos. El
+          high ticket pasa del <strong>64% de la caja</strong> en el pesimista al <strong>0,4%</strong> en
+          el optimista — no porque funcione peor, sino porque el SaaS crece y el calendario no.
+        </Nota>
+        <Barras tono="info" datos={barrasLlamadas} />
+        <div style={{ marginTop: 16, padding: 13, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
+          <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5 }}>
+            El SaaS y el 1a1 no compiten por clientes: compiten por la misma hora.
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
+            En el escenario base se sirven <strong>24 de 869</strong> llamadas pedidas. Por eso el ascenso
+            no puede justificar un canal de volumen: le sube el techo a los primeros compradores del mes
+            y al resto no le sube nada. Y el modo de falla no es el fracaso — cuanto mejor funciona el
+            ascenso, antes satura.
+          </div>
+        </div>
+      </Section>
+
+      <Section titulo="Nada de esto se va a poder verificar sin tres cosas adentro del registro" card>
+        <Nota>
+          Van acá y no en el respaldo porque son <strong>gate, no epílogo</strong>: sin ellas, ningún
+          número de esta parte se puede confirmar ni desmentir nunca con datos propios.
+        </Nota>
+        <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7 }}>
+          {PARA_QUE_ESTO_SE_PUEDA_MEDIR.map((x) => <li key={x} style={{ marginBottom: 7 }}>{x}</li>)}
+        </ol>
       </Section>
 
       <Parte n="4" />
