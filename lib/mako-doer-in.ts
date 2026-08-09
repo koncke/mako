@@ -17,7 +17,7 @@ import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { corregirLinkBorrador, idDeLinkRevisar } from '@/lib/link-borrador';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
-import { validarRespuestaDoer, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE } from '@/lib/respuesta-doer';
+import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE } from '@/lib/respuesta-doer';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
@@ -751,7 +751,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             let ultErr: unknown = null;
             for (const prov of orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>) {
               try {
-                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}»` });
+                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: esRutaPlan(ruta.motivo) ? 'required' : undefined });
                 if (!r.text || r.text.startsWith('(')) continue; // centinelas internos
                 // ⚠️ Acá el único filtro era «que no empiece con paréntesis», y por eso el
                 // 9/8 salió el borrador entero por WhatsApp: el modelo redactó el payload
@@ -759,13 +759,38 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // Si volcó el molde, NO es una respuesta: probamos el próximo proveedor.
                 // Solo rotamos si todavía no hay borrador — con uno creado, reintentar
                 // haría un segundo («nunca duplicar», AGENTS.md).
-                if (!validarRespuestaDoer(r.text, { motivoRuta: ruta.motivo, linkBorrador }).ok && !linkBorrador) {
+                //
+                // ⚠️ SOLO por `molde-volcado`. La primera versión de esto miraba `.ok` a
+                // secas y rotaba también por `sin-borrador` — que es la señal BLANDA, la
+                // que tiene casos legítimos («¿qué tengo pendiente?»). Con eso, una
+                // respuesta corta y correcta quemaba los cinco proveedores y el usuario
+                // recibía el error del último que había reventado («cerebras: HTTP 404»)
+                // en vez de la respuesta. Una guarda que descarta lo bueno es peor que
+                // no tener guarda.
+                const vv = validarRespuestaDoer(r.text, { motivoRuta: ruta.motivo, linkBorrador });
+                if (!vv.ok && vv.razon === 'molde-volcado' && !linkBorrador) {
                   console.error(`[mako-doer-in] ${prov} volcó el molde en vez de llamar la tool → probando el próximo proveedor`);
                   continue;
                 }
                 respuesta = r.text.trim();
                 break;
               } catch (e2) { ultErr = e2; console.warn(`[mako-doer-in] ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
+            }
+            // CLAUDE ES EL ÚLTIMO RECURSO, PERO ES UN RECURSO. El comentario de arriba
+            // decía «NUNCA caemos a Claude» y para la charla está bien. Pero si la ruta
+            // era «cargar al plan» y NINGUNA de las cinco gratis creó el borrador, la
+            // alternativa a pagar dos centavos es mandarle prosa al dueño y que el
+            // trabajo se pierda — que es exactamente lo que pasó dos veces seguidas.
+            // AGENTS.md dice «el ÚLTIMO recurso, no el segundo»: éste es el último.
+            if (esRutaPlan(ruta.motivo) && !linkBorrador) {
+              console.error(`[mako-doer-in] ninguna IA barata armó el borrador (${orden.join(', ')}) → escalando a Claude`);
+              try {
+                const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
+                  feature: 'mako-doer-in', maxSteps: 8, model: 'claude-sonnet-5',
+                  toolChoice: 'any', motivo: `⚠ escalado a Claude: las gratis no armaron el borrador · ${ruta.motivo} «${recorte}»`,
+                });
+                if (text?.trim()) respuesta = text.trim();
+              } catch (e3) { console.error('[mako-doer-in] Claude tampoco pudo:', e3 instanceof Error ? e3.message : String(e3)); }
             }
             if (!respuesta) throw ultErr ?? new Error('todas las IA baratas fallaron');
           } else {

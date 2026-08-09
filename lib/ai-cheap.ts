@@ -427,7 +427,22 @@ export async function chatCheapTools(
   messages: RichMsg[],
   tools: ToolDef[],
   runTool: ToolRunner,
-  opts: { maxSteps?: number; maxTokens?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string } = {},
+  opts: {
+    maxSteps?: number; maxTokens?: number; feature?: string; motivo?: string;
+    provider?: ProvName; model?: string;
+    /**
+     * `'required'` obliga al modelo a llamar UNA herramienta en el primer paso.
+     * Se libera solo (paso 1 en adelante vuelve a 'auto'), porque forzarlo en todos
+     * los pasos es un bucle infinito: nunca podría contestar.
+     *
+     * Para qué: hay turnos donde la acción ya está decidida por el ROUTER (cargar
+     * tareas al plan), y ahí `'auto'` es pedirle permiso al modelo para hacer lo que
+     * ya se resolvió. El hermano de Claude tiene esto desde siempre (`toolChoice`);
+     * acá faltaba, y el agujero se pagó: el modelo contestaba en prosa y el borrador
+     * no se creaba nunca.
+     */
+    toolChoicePrimerPaso?: 'required';
+  } = {},
 ): Promise<CheapToolsResult> {
   const p = await proveedor(opts.provider);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
@@ -455,7 +470,7 @@ export async function chatCheapTools(
     const res = await fetch(`${p.base}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages: msgs, tools: oaiTools, tool_choice: 'auto', max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
+      body: JSON.stringify({ model, messages: msgs, tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto', max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
       cache: 'no-store',
       signal: AbortSignal.timeout(45000),
     });

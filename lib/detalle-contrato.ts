@@ -96,7 +96,7 @@ export const MOLDE_DETALLE = [
  * el molde entero por WhatsApp en vez de crear el borrador. La red que lo ataja es
  * `lib/respuesta-doer.ts`; esto solo baja la probabilidad.
  */
-export const MOLDE_ADVERTENCIA = 'Esta forma va DENTRO DEL VALOR de este campo, nunca en tu respuesta al usuario: si estos títulos aparecen en un chat, algo salió mal. Copiála EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.';
+export const MOLDE_ADVERTENCIA = 'Esta forma va DENTRO DEL VALOR de este campo, no en tu respuesta al usuario. Copiála EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.';
 
 // =============================================================================
 // El contrato del detalle de un PROYECTO — distinto al de una tarea

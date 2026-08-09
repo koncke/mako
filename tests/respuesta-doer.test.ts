@@ -114,3 +114,29 @@ test('una respuesta vacía no se manda', () => {
   assert.equal(validarRespuestaDoer('', { motivoRuta: RUTA_PLAN, linkBorrador: null }).ok, false);
   assert.equal(validarRespuestaDoer('   \n ', { motivoRuta: 'x (charla) «y»', linkBorrador: null }).ok, false);
 });
+
+// ---------------------------------------------------------------------------
+// La regresión que causó la guarda: descartar lo bueno es peor que no guardar
+// ---------------------------------------------------------------------------
+// La primera versión miraba `.ok` a secas en el loop de proveedores, así que
+// rotaba también por `sin-borrador` — la señal BLANDA. Una respuesta corta y
+// correcta quemaba los cinco proveedores y el dueño recibía «falló la IA
+// (cerebras: HTTP 404)». La distinción entre las dos razones no es cosmética:
+// es lo que decide si se descarta una respuesta o solo se loguea.
+
+test('REGRESIÓN: las dos razones NO se tratan igual — solo el molde descarta', () => {
+  const corta = validarRespuestaDoer('Dale, ya lo anoto.', { motivoRuta: RUTA_PLAN, linkBorrador: null });
+  assert.equal(corta.ok, false);
+  assert.equal(corta.ok === false && corta.razon, 'sin-borrador', 'una respuesta corta NO es un volcado del molde');
+
+  const volcada = validarRespuestaDoer(LA_MALA, { motivoRuta: RUTA_PLAN, linkBorrador: null });
+  assert.equal(volcada.ok === false && volcada.razon, 'molde-volcado');
+
+  // El caller descarta SOLO por 'molde-volcado'. Si alguna vez las razones se
+  // colapsan en un booleano, este test es el que avisa.
+  assert.notEqual(
+    corta.ok === false && corta.razon,
+    volcada.ok === false && volcada.razon,
+    'si las dos razones fueran iguales, el loop volvería a descartar respuestas buenas',
+  );
+});
