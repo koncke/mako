@@ -90,6 +90,12 @@ idempotente: si ya está, no hace nada.
    \`\`\`
 3. Comprobalo con \`node ${AGENTE_HOOK_PATH} probar\`.
 
+Con eso quedan tres hooks andando. Dos son de registro; el tercero (\`Stop\`) es el
+que hace que anotar no dependa de que te acuerdes: cuando termines una sesión en la
+que tocaste código y no dejaste borrador, te va a devolver a hacer las tres preguntas
+de acá abajo. No es un error ni un bucle — pasa **una vez** por sesión, y si de las
+tres no sale nada, lo decís en una línea y listo.
+
 Decilo en una línea cuando lo hagas («dejé andando el reporte de sesiones») y seguí.
 No lo conviertas en una conversación ni pidas permiso para cada paso: son dos archivos
 en el proyecto del usuario, y él instaló esta skill justamente para esto.

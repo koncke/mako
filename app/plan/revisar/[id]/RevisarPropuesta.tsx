@@ -316,10 +316,19 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       // UNA LÍNEA. El `resumen` puede traer la investigación entera (3.000 caracteres) y
       // acá se renderiza centrado y en mono, arriba de todo: era un muro de texto antes
       // de poder leer la pregunta. El texto completo va abajo, en ContextoDelBorrador.
-      // ⚠️ `totalCrear`, NO `nT`. El encabezado contaba solo las originales y el botón
-      // sumaba las que salen de las respuestas: decía «Borrador · 2 tareas» arriba y
-      // «Crear 3» abajo, en la misma pantalla. Lo que se muestra es lo que se va a crear.
-      titulo={soloCierres ? `Borrador · ${nC} para revisar` : `Borrador · ${totalCrear} tarea${totalCrear === 1 ? '' : 's'}${enProy}`}
+      // EL NÚMERO NO SE MUESTRA HASTA EL FINAL, y hay una razón: durante el wizard
+      // todavía no está decidido. De las respuestas salen tareas nuevas y el Perro
+      // puede mandar una a otro proyecto, así que arrancar con «1 tarea en 1 proyecto»
+      // es prometer un número que casi seguro cambia. Pedido del dueño: «no tiene
+      // sentido que me diga 1 tarea en 1 proyecto si al final terminan siendo más,
+      // mejor que no diga nada hasta el final».
+      //
+      // Antes decía «2 tareas» arriba y «Crear 3» abajo en la misma pantalla: contaba
+      // solo las originales mientras el botón sumaba las que salen de las respuestas.
+      // Ahora hay UN solo número, en el último paso, y es el que se va a crear.
+      titulo={soloCierres ? `Borrador · ${nC} para revisar`
+        : cur.kind === 'confirm' ? `Borrador · ${totalCrear} tarea${totalCrear === 1 ? '' : 's'}${enProy}`
+        : 'Borrador'}
       total={steps.length} idx={Math.min(paso, steps.length - 1)}
       pregunta={dynLoading || extrasLoading ? 'MaKo está pensando…' : busy ? (soloCierres ? 'Guardando…' : 'Creando…') : pregunta} sub={dynLoading || extrasLoading || busy ? undefined : sub}
       puedeAvanzar={!busy && !dynLoading && !extrasLoading} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy || dynLoading || extrasLoading}

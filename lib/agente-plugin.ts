@@ -39,6 +39,9 @@ export const AGENTE_HOOK_SETTINGS = JSON.stringify({
   hooks: {
     UserPromptSubmit: [{ hooks: [{ type: 'command', command: `node ${AGENTE_HOOK_PATH} turno` }] }],
     SessionEnd: [{ hooks: [{ type: 'command', command: `node ${AGENTE_HOOK_PATH} cierre` }] }],
+    // Y el que hace que anotar deje de depender de la memoria del agente. Ver el
+    // modo `plan` del script: es lo único de acá que le habla DE VUELTA al agente.
+    Stop: [{ hooks: [{ type: 'command', command: `node ${AGENTE_HOOK_PATH} plan` }] }],
   },
 }, null, 2);
 
@@ -217,6 +220,40 @@ try {
       // endpoint hace upsert por (workspace, sesión) así que no duplica.
       if (r.ok) { try { fs.unlinkSync(archivo); } catch {} }
     } else { try { fs.unlinkSync(archivo); } catch {} }
+  } else if (MODO === 'plan') {
+    // ── EL EMPUJÓN ───────────────────────────────────────────────────────────
+    // La skill dice «al terminar, anotá lo que cerraste, lo que aprendiste y lo que
+    // apareció». Eso es una instrucción, y una instrucción se cumple casi siempre —
+    // que es otra cosa (AGENTS.md → «una regla en un prompt no es una regla»).
+    //
+    // «Stop» es el ÚNICO hook que puede devolver al agente a trabajar: con
+    // {"decision":"block"} el turno no termina y el agente recibe el «reason» como
+    // trabajo pendiente. «SessionEnd» no sirve para esto — su salida no la ve nadie,
+    // es solo registro (ahí vive el modo «cierre»).
+    //
+    // Tres candados contra el bucle, porque un hook que bloquea siempre deja al
+    // usuario encerrado:
+    //   1. «stop_hook_active» viene en true cuando ESTE bloqueo ya corrió. Se sale.
+    //   2. Si en la sesión ya salió un borrador (aparece /plan/revisar/ o la ruta de
+    //      la API en el transcript), no hay nada que empujar.
+    //   3. Si la sesión no tocó código, tampoco: mirar un archivo no genera tareas.
+    // Y por encima de los tres, Claude Code corta solo a los 8 bloqueos seguidos.
+    if (ev.stop_hook_active) { process.exit(0); }
+    let crudo = '';
+    try { crudo = fs.readFileSync(ev.transcript_path || '', 'utf8'); } catch { process.exit(0); }
+    if (/\\/plan\\/revisar\\/|api\\/agente\\/plan/.test(crudo)) { process.exit(0); }
+    if (!/"name"\\s*:\\s*"(Edit|Write|NotebookEdit|MultiEdit)"/.test(crudo)) { process.exit(0); }
+    process.stdout.write(JSON.stringify({
+      decision: 'block',
+      reason: [
+        'Antes de cerrar: pasá el plan de MaKo por las tres preguntas (skill mako-plan).',
+        '1) ¿Cerraste algo que estaba abierto en el plan? → cerrar, con la evidencia.',
+        '2) ¿Aprendiste algo sobre una tarea que YA existe? → enriquece, con su id.',
+        '3) ¿Apareció trabajo nuevo, o dejaste deuda? → tareas.',
+        'Las tres van en UN borrador y UN link. Si de las tres no sale nada, decilo en una línea y terminá.',
+      ].join('\\n'),
+    }));
+    process.exit(0);
   } else if (MODO === 'autoprueba') {
     // Lee un JSON de textos por stdin y devuelve cómo los taparía. Existe para que el
     // test del servidor pueda comparar ESTE script con la redacción de MaKo y fallar si

@@ -64,10 +64,23 @@ test('el token NO queda incrustado en el script', () => {
 test('el settings apunta al mismo archivo que el tutorial manda crear', () => {
   const s = JSON.parse(AGENTE_HOOK_SETTINGS) as { hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>> };
   const comandos = Object.values(s.hooks).flatMap((g) => g.flatMap((x) => x.hooks.map((h) => h.command)));
-  assert.equal(comandos.length, 2);
+  assert.equal(comandos.length, 3);
   for (const c of comandos) assert.ok(c.includes(AGENTE_HOOK_PATH), `el comando no apunta a ${AGENTE_HOOK_PATH}: ${c}`);
-  // Los dos eventos que importan: uno junta lo que la persona escribe, el otro cierra.
-  assert.deepEqual(Object.keys(s.hooks).sort(), ['SessionEnd', 'UserPromptSubmit']);
+  // Los tres eventos: uno junta lo que la persona escribe, otro cierra la sesión, y
+  // `Stop` es el único que le habla DE VUELTA al agente (ver el modo `plan`).
+  assert.deepEqual(Object.keys(s.hooks).sort(), ['SessionEnd', 'Stop', 'UserPromptSubmit']);
+  assert.ok(comandos.some((c) => c.endsWith(' plan')), 'falta el hook que empuja a anotar el trabajo');
+});
+
+test('el empujón NO puede bloquear en bucle: los tres candados están en el script', () => {
+  // Un hook que devuelve `decision: block` sin salida deja al usuario encerrado, y
+  // Claude Code recién corta a los 8 bloqueos seguidos. Los tres tienen que estar.
+  const script = agenteHookScript('https://x.test');
+  assert.ok(script.includes('ev.stop_hook_active'), 'sin mirar stop_hook_active, el bloqueo se repite');
+  assert.ok(/plan\\?\/revisar/.test(script), 'tiene que saltear si el borrador YA salió en esta sesión');
+  assert.ok(script.includes('MultiEdit'), 'tiene que saltear si la sesión no tocó código');
+  // Y lo que emite tiene que ser el contrato exacto del hook, o Claude lo ignora.
+  assert.ok(script.includes("decision: 'block'"));
 });
 
 test('la base va sin barra final, para no armar URLs con doble barra', () => {
