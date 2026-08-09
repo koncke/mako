@@ -72,8 +72,15 @@
      uno sin marcar. Estos son claros y desaturados a propósito: todos superan
      al gris y se distinguen por TONO, no por brillo.
      ⚠️ No usar fuera del grafo, y no agregar más de estos diez: una paleta
-     cualitativa deja de leerse pasadas ~10 categorías. */
-  --grafo-norte: #F2B01E;
+     cualitativa deja de leerse pasadas ~10 categorías.
+     ⚠️ Y NINGUNA de estas puede ser `--mako` ni `--warn-fill`: esos dos tonos ya
+     significan otra cosa adentro del lienzo —«tu Norte» y «tu cuello de botella»— y
+     el mapa los pinta por estado, no por área. `--grafo-norte` valía EXACTAMENTE
+     #F2B01E, o sea `--mako`, así que el único nodo dorado con significado del mapa
+     era indistinguible de sus cuatro vecinos de área. Y bajo deuteranopía `--mako` y
+     `--warn-fill` colapsan entre sí (1,14:1), con lo cual el área Norte tenía tres
+     clases que para ~6% de los hombres eran dos. */
+  --grafo-norte: #BFC8DC;
   --grafo-documentos: #9DBBF5;
   --grafo-panorama: #A5D8C4;
   --grafo-oferta: #F5C89B;

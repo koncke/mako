@@ -460,6 +460,154 @@ ese da solapes que no se ven. El que se dibuja es el segundo. El id sale de
 `data-nodo`, que existe solo para esto: las clases son todas iguales y la posición la
 reescribe el rAF, así que sin él no hay forma de seguir a UN nodo entre dos frames.
 
+## La pantalla: hacer que el grafo sea el protagonista
+
+### El `aspect-ratio` hacía que el lienzo creciera justo donde no entraba
+
+**Vive en:** `app/second-brain/Grafo.tsx` (el bloque `<style>`)
+
+**Síntoma.** El dueño mandó una captura: se veía el tercio de arriba del grafo.
+
+**El diagnóstico obvio era el equivocado.** Se midió el layout primero y estaba bien:
+43 nodos, separación mínima 96 unidades, ninguno fuera del encuadre. La conclusión
+tentadora era «el lienzo es grande, hay que scrollear». Falso: el svg tenía
+`aspect-ratio: 4/3` con `height: auto`, o sea que **el alto se derivaba del ancho**. En
+1920 con la sidebar plegada eso da 1444×1083 sobre un viewport de 900. El lienzo crecía
+**justo en el monitor donde más espacio hay**, que es exactamente al revés.
+
+**Regla.** Un lienzo dentro de una página saca su alto del VIEWPORT, nunca del ancho:
+`clamp(420px, calc(100svh - 280px), 760px)`. Y `svh`, no `dvh`: en mobile `dvh` cambia
+cuando se esconde la barra del navegador, el lienzo se redimensiona a mitad del scroll
+y el re-encuadre da tirones.
+
+El 280 sale de MEDIR, no de estimar. La primera versión restaba 240 —sumando a mano el
+padding, el header y la barra— y la grilla de abajo quedaba **9 px por debajo del
+pliegue**: la pantalla terminaba justo donde terminaba el lienzo y mentía diciendo que
+no había nada más. Con 280 asoman 31-41 px de la primera fila de tarjetas.
+
+⚠️ Y NUNCA `height: 100vh` en el `<main>`: `flex: 1` implica `flex-basis: 0%` y le gana
+al `height`, el main colapsa. Ya está documentado, pero acá reaparece la tentación.
+
+### Bajar el lienzo SIN arreglar el encuadre lo empeora: son un solo cambio
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`ajustar()`)
+
+`layoutCerebro` devuelve un encuadre **CUADRADO** (`lado`) y el `<svg>` no declaraba
+`preserveAspectRatio`, o sea `xMidYMid meet`: el cuadrado entra por el lado **chico**.
+Con el lienzo 4:3 eso ya desperdiciaba el 25% del ancho; con un lienzo apaisado de
+1762×760 desperdiciaría el 60%. Bajar el alto sin tocar esto deja el grafo MÁS chico
+que antes.
+
+La salida es encuadrar **en el cliente** contra la caja medida (`ResizeObserver`),
+usando el bbox real de los nodos con su radio. Medido después: el bbox ocupa el 92-95%
+del lado corto en 1440×900, 1920×1050 y 1366×768, y el grafo entra entero en las tres.
+
+Es una función y **tres** usos: el encuadre inicial, el botón «Ajustar a la vista» y el
+centrado del buscador y de las conexiones.
+
+⚠️ El re-encuadre automático se apaga en cuanto el usuario toca el zoom
+(`tocoElZoom`). Re-encuadrarle el mapa a alguien mientras lo está mirando es peor que
+dejárselo descuadrado.
+
+### Tres bugs que solo aparecen cuando se cambia el encuadre
+
+**Vive en:** `app/second-brain/Grafo.tsx`
+
+1. **El paneo iba lento y nadie lo había notado.** `const escala = encuadre.lado /
+   caja.width`. Con `meet` el factor real lo fija el lado **chico**, así que en un
+   lienzo 4:3 el mapa se arrastraba al **75% de la velocidad del dedo** — lo justo para
+   sentirse raro y no lo bastante para reportarlo. En un lienzo apaisado habría bajado
+   al 40%. Fix de una línea: `Math.min(caja.width, caja.height)`. La rueda y el
+   pellizco NO lo tenían: pasan por `aMundo()`, que usa la matriz real del SVG.
+2. **`K_MIN`/`K_MAX` eran absolutos contra k=1**, que era el zoom de arranque cuando el
+   mapa entraba por `preserveAspectRatio`. Con el encuadre nuevo el arranque puede ser
+   k=1,8 y el usuario **no podía alejarse**. Pasan a ser relativos a `kFit`. No lo ve
+   el typecheck: se ve como «el zoom se traba».
+3. **El porcentaje mentía.** Salía de `kPaso`, que está cuantizado a cuartos
+   (`Math.round(k*4)/4`), así que el mapa recién encuadrado marcaba **89%** sin que
+   nadie hubiera tocado nada — se lee como que arranca mal puesto. Ahora sale del zoom
+   real; 100% es el encuadre.
+
+Y el mismo `kFit` hace falta en ESTADO además de en un ref: el fade de etiquetas se
+calcula en el render y un ref no re-renderiza.
+
+### El color del área Norte era el mismo dorado que «tu Norte»
+
+**Vive en:** `app/globals.css` (los tokens `--grafo-*`)
+
+`--grafo-norte` valía `#F2B01E`, que es **exactamente** `--mako`. El nodo `fase` se
+pinta con `--mako` por `destacado`, y sus cuatro vecinos del área Norte con
+`--grafo-norte`: el único nodo dorado con significado del mapa quedaba
+**indistinguible** de cuatro nodos comunes. Y bajo deuteranopía `--mako` y
+`--warn-fill` colapsan entre sí (1,14:1), con lo cual esa zona tenía tres clases que
+para ~6% de los hombres eran dos.
+
+**La regla que queda:** ningún área puede usar `--mako` ni `--warn-fill`. Esos dos
+tonos están tomados por «tu Norte» y «tu cuello de botella», que se pintan por ESTADO,
+no por área. `--grafo-norte` pasa a `#BFC8DC`.
+
+### Datos que se calculaban, viajaban al browser y no los leía nadie
+
+**Vive en:** `lib/cerebro-grafo.ts` → `app/second-brain/Grafo.tsx`
+
+- **`AristaCerebro.motivo`.** Escrito con cuidado en las ~14 llamadas a `unir()` —«Este
+  segmento compra por esta razón», «Un plano del panorama que MaKo escribió»—, con un
+  tipo que dice literalmente «es lo que se lee al pasar por encima; si no se puede
+  escribir, la arista no va». `grep motivo app/second-brain/` daba **cero**. El panel
+  mostraba «5 conexiones» y tiraba los cinco motivos. Ahora es la lista.
+- **`cerebro.vacias`.** El panel decía «Quedan N áreas sin construir» sin poder
+  nombrarlas, porque no leía el array que se las estaba mandando. Y el número estaba
+  **mal**: usaba `cuenta.pendientes`, que incluye el nodo RAÍZ, así que en un workspace
+  nuevo decía «11 áreas» y áreas hay diez. No se arregló la frase: se borró el
+  consumidor, porque cada tarjeta de área ya dice «Vacía» por su cuenta.
+
+**La regla:** antes de agregar un dato al grafo, `grep` los que ya viajan. Salen gratis
+y valen más que un área nueva.
+
+### El `server-only` volvió a morder, y con el mismo disfraz
+
+**Vive en:** `lib/cerebro-modelo.ts` (`AUTORIA_TEXTO`)
+
+Para no copiar la tabla de «lo dedujo MaKo / lo escribiste tú», se la exportó desde
+`lib/vault.ts` y se la importó en `Grafo.tsx`. **Typecheck verde, página 500**:
+`vault.ts` lleva `server-only` y `Grafo` es un componente de cliente.
+
+Es el mismo error que ya está documentado más arriba en este documento, cometido de
+nuevo por una razón buena (no duplicar). La conclusión no es «no compartas»: es que el
+lugar común de las dos orillas tiene que ser un módulo **puro**. `AUTORIA_TEXTO` vive
+en `cerebro-modelo.ts`, que no importa nada justamente para eso.
+
+### Lo que quedó sin hacer, medido
+
+- **El grafo deja ~370 px de aire vacío a cada lado.** Es geométrico: el layout del
+  servidor produce un bbox cuadrado (551×623 medido en el ws 11) y el lienzo es
+  apaisado (1282×620). El grafo llena la ALTURA al 94% y no puede llenar el ancho. La
+  única salida es un layout elíptico de ~2:1 tocando `RECETA` en
+  `lib/cerebro-layout.ts`, y el costo es alto: **cambia el mapa de todos los clientes**
+  e invalida la línea base de `scripts/medir-grafo.mjs`. No es un ajuste, es otro
+  layout. Decisión del dueño.
+- **Las etiquetas se pisan en el racimo más denso.** Y ojo con el arreglo fácil:
+  atenuarlas todas (bajar el techo de `alphaEtiqueta`) las hace más difíciles de leer
+  **sin resolver el solape**. Se probó y se revirtió. La salida real es no dibujar una
+  etiqueta cuando su caja choca con otra ya dibujada.
+- **El layout se recalcula en CADA carga** (`force-dynamic` + `revalidate: 0`) y
+  `lib/cerebro-layout.ts` ya devuelve la `huella` para poder cachearlo. Con 43 nodos no
+  duele; sumar el funnel (+18) cruza los ~80 donde la tabla de más arriba mide 300 ms.
+  Persistirlo deja de ser opcional ANTES de agregar el funnel.
+- **El funnel todavía no está en el grafo**, y sería la mejor adición: es la única
+  entidad del sistema con CADENA propia (etapa → etapa, con ramas), que es justo lo que
+  un grafo dibuja bien y lo que hoy falta — todo el resto es hub y hojas. Cuesta cero
+  lecturas nuevas (`page.tsx` ya llama a `getFunnel()`). **Bloqueado** por
+  `app/api/onboarding/route.ts:252`, que siembra `FUNNEL_TEMPLATES[0]` sin mirar el
+  canal: sin arreglar eso, un workspace de 'carrito' vería dos etapas de «Reunión» en
+  su mapa.
+- **El brief entra al grafo por cuatro listas hardcodeadas** (`CAMPOS_NORTE`,
+  `CAMPOS_OFERTA`, `CAMPOS_CLIENTE`, `CAMPOS_MARCA` en `lib/cerebro-grafo.ts`) mientras
+  `getSchema()` lee el esquema VIVO del workspace. O sea: se le agrega un campo al
+  brief de un cliente, el cliente lo contesta, el dato alimenta los prompts… y **no
+  existe** en el mapa que dice «todo lo que MaKo sabe de tu negocio». Sin error y sin
+  aviso. Es el molde exacto del bug del parser del panorama.
+
 ## El vault: el segundo cerebro como carpetas y archivos
 
 ### El veredicto del modelo: proyección y exportación, NO almacenamiento

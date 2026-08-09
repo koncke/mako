@@ -1338,6 +1338,52 @@ argentino, a veces no se te entiende… ¿A qué te referís con que los tablero
 
 ---
 
+### Exportar/Importar es la ACCIÓN; «Descargar ↓» es el botón. Nunca «Bajar»
+
+**Vive en:** `app/plan/board/ExportarModal.tsx` · `app/crm/ExportarLeadsModal.tsx` ·
+`app/crm/CrmToolbar.tsx` · `app/plan/board/ImportarModal.tsx`
+
+El patrón ya estaba cerrado en cuatro pantallas y tiene **dos niveles**, que es la parte
+que se saltea el que llega nuevo:
+
+| Nivel | Palabra | Dónde |
+|---|---|---|
+| La acción, en el header o el menú | **Exportar** / **Importar** | `BoardShell.tsx:727,927`, `CrmToolbar.tsx:149,152` |
+| El botón que dispara la descarga, ya adentro del modal | **Descargar ↓** | `ExportarModal.tsx:214`, `ExportarLeadsModal.tsx:334` |
+
+/second-brain decía «BAJAR ↓» en el header y «Bajar tu segundo cerebro» en el modal: la
+única pantalla del repo que no usaba ninguna de las dos palabras.
+
+**Y el motivo de fondo por el que «Bajar» está prohibido no es la consistencia: es que
+YA SIGNIFICA OTRA COSA en esta app.** `app/conocimiento/ConocimientoView.tsx:164` tiene
+un botón «Bajar a tierra ↓» que **no descarga nada** —internaliza un curso— y cuyo
+propio label de progreso dice «Importando…». Un usuario que pasó por esa pantalla lee
+«BAJAR» como «traer a tierra».
+
+**La prueba sin navegador**, que conviene correr al tocar cualquier pantalla con
+entrada o salida de datos:
+
+```bash
+grep -rn "Bajar\|Bajás\|te llevás" app/ --include=*.tsx
+```
+
+### Un número hardcodeado en un copy es una mentira con fecha de vencimiento
+
+**Vive en:** `lib/cerebro-modelo.ts` (los `que` de `AREAS`)
+
+Las descripciones de las áreas del segundo cerebro decían «los **TRES** segmentos que se
+pueden targetear en Meta» y «lo que MaKo entendió del negocio, en sus **SEIS** planos».
+Los dos números estaban escritos a mano. Un cliente con cuatro avatares leía un texto
+que le mentía, y el del panorama era peor: hay un hallazgo registrado de que el parser
+llegó a descartar 5 de 6 secciones, así que ese «seis» afirmaba justo lo que el bug
+desmentía.
+
+Y estos `que` en particular son user-facing **por partida doble** —subtítulo de cada
+opción en el modal de exportación y renglón de cada carpeta en el README del ZIP—, así
+que parecían comentarios internos y no lo eran.
+
+**La regla:** si el copy nombra una cantidad, o sale del dato o no se escribe.
+
 ## Entregar una pantalla
 
 ### Regla: todo lo que se construye para el dueño se construye para los clientes, en la misma pasada
