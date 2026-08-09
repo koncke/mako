@@ -315,6 +315,33 @@ fila de filtros, un bloque de código—: para eso está `.mk-scroll-x`.
 El resto del sistema, en [app/_ui/LEEME.md](app/_ui/LEEME.md); el catálogo vivo, en
 `/admin/ui`, que además lleva el historial de por qué cada cosa quedó así.
 
+# Una barra de gráfico se recorta al 100%, siempre
+
+`width: ${pct}%` adentro de un carril NO desborda la barra: **desborda la página**.
+Un valor 14× por encima del `max` del gráfico se dibujó con `width: 1468%` y llevó el
+documento de 1.440 px a **7.656 px** de ancho — con el scroll horizontal en toda la
+app, no en el gráfico.
+
+No fue un dato raro: `max` es una prop explícita justamente para que dos gráficos se
+puedan comparar, así que un valor por encima del tope es lo NORMAL. Toda escala con
+tope fijo necesita las dos cosas:
+
+- `Math.min(100, …)` en el ancho, y `overflow: hidden` en el carril.
+- **Que se vea que está cortada.** Una barra recortada con la punta redondeada miente:
+  parece que ahí termina el valor. Va a filo, con una marca, y el número al lado —
+  que ya es obligatorio por la regla de que el color nunca es el único portador.
+
+Vive en `app/admin/dev/pricing/Piezas.tsx` → `Barras`.
+
+# Un color de acento dice algo, y puede decir lo contrario
+
+`tono="bad"` pinta de rojo la barra DESTACADA. Si lo que se destaca es «el único canal
+que sí entra en el techo», el gráfico afirma exactamente lo contrario de lo que afirma
+el dato, y se lee antes que el texto.
+
+La regla: **el tono se elige por lo que significa la barra destacada, no por el tema de
+la sección.** Un gráfico sobre costos no es «malo» por ser sobre costos.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que
