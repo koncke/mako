@@ -1357,6 +1357,40 @@ período de `/integraciones`.
 
 **Vive en:** `.claude/launch.json` · `app/api/auth/dev-login/route.ts` · *2026-08-09*
 
+#### Corolario: «se verifica contra su puerto» deja de valer cuando ESE server está podrido
+
+La regla de arriba dice —y sigue estando bien— que no hay que matar el dev server de la otra
+sesión porque sirve el mismo working tree. Pero **hay que comprobar que sirve algo vivo antes
+de creerle**. El caso: el server ajeno servía el HTML perfecto y **ninguna página hidrataba** —
+ni `/inicio`, ni `/plan`, ni la que se estaba tocando—, con el WebSocket de HMR caído
+(`ERR_INVALID_HTTP_RESPONSE`), cero peticiones fallidas, cero errores en consola y el overlay
+de Next limpio. Verificar contra él daba resultados que parecían buenos y no probaban nada
+(ver el hallazgo de la hidratación en [hallazgos-ui.md](hallazgos-ui.md)).
+
+**El chequeo, una línea, antes de confiar en cualquier verificación de interacción:**
+
+```js
+Object.keys(document.querySelector('main *')).filter(k => k.startsWith('__react')).length
+// 0 → el server está sirviendo HTML muerto. Lo que midas ahí no vale.
+```
+
+**La salida sin tocar el proceso ajeno: un worktree**, que al ser otro directorio tiene su
+propio lock de dev server. Las tres cosas que hay que recrear a mano, y las tres fallan de
+formas distintas:
+
+1. **`node_modules`** — el junction de NTFS (`mklink /J`) **no le sirve a Turbopack**: falla con
+   `Symlink [project]/node_modules is invalid, it points out of the filesystem root`. La salida
+   es `next dev --webpack`, que sí sigue el symlink. La flag existe en Next 16 aunque Turbopack
+   sea el default.
+2. **`.env.local`** — está en `.gitignore`, así que el worktree nace sin él y la app arranca sin
+   credenciales. Se copia.
+3. **El puerto** — `next start` y `next dev` compiten igual. `EADDRINUSE` se lee como si el
+   worktree estuviera roto y es solo un puerto ocupado por un experimento anterior.
+
+⚠️ Y `next start` **no sirve** para esto: pone `NODE_ENV=production`, con lo cual
+`/api/auth/dev-login` devuelve 404 a propósito y no se puede entrar. La verificación local con
+sesión necesita `next dev`, sí o sí.
+
 ### `git add <archivo>` explícito igual se lleva trabajo de la otra sesión
 
 La regla escrita es «nunca `git add -A`, commiteá por ruta explícita». **No alcanza:** git stagea

@@ -50,6 +50,13 @@ import { BIBLIOTECA_ANGULOS } from './angulos-data';
 import { layoutCerebro } from './cerebro-layout';
 import { getFunnel } from './leads';
 import { BAND_LABEL, TRIGGER, salidasDeEtapa, type FunnelTransition } from './pipeline';
+import { getSecuenciasActivas } from './nutricion';
+import { landingsParaCerebro } from './landing-analyst';
+import { listAudios } from './setting-audios';
+import { getManual as getVozManual, getEvidencia as getVozEvidencia } from './chat-agent-voz';
+import { ANGULOS_GUION_DEFAULT } from './guion-angulos';
+import { listKnowledge } from './mako-knowledge';
+import { getSetting } from './settings';
 
 // ── El modelo ────────────────────────────────────────────────────────────────
 // Vive en `cerebro-modelo.ts`, SIN `server-only`, porque el componente que dibuja
@@ -205,7 +212,7 @@ export async function construirCerebro(): Promise<Cerebro> {
   // arma el ZIP— y un parámetro opcional que solo pasara uno dejaría el vault sin funnel
   // en silencio, que es la clase de bug que este repo ya pagó varias veces. Va en el
   // mismo Promise.all, así que no suma latencia, y `getFunnel()` nunca lanza.
-  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, recomendaciones, funnel] = await Promise.all([
+  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, recomendaciones, funnel, secuencias, landings, audios, vozManual, vozEvidencia, glosario, objCierres, objCash] = await Promise.all([
     getSchema(),
     getDiagnosticoFase(),
     listFiles(),
@@ -219,6 +226,16 @@ export async function construirCerebro(): Promise<Cerebro> {
     getPersonalidad(),
     getRecomendaciones(),
     getFunnel(),
+    // Las lecturas nuevas van con `.catch()` a un valor vacío: una fuente secundaria que
+    // falle NO puede dejar sin mapa a un cliente. El grafo se degrada, no se cae.
+    getSecuenciasActivas().catch(() => []),
+    landingsParaCerebro().catch(() => []),
+    listAudios().catch(() => []),
+    getVozManual().catch(() => ({} as Record<string, string>)),
+    getVozEvidencia().catch(() => null),
+    listKnowledge().catch(() => []),
+    getSetting('objetivo_cierres').catch(() => null),
+    getSetting('objetivo_cash_usd').catch(() => null),
   ]);
 
   const { answers, fuente } = computeEffective(files, manual);
@@ -593,6 +610,149 @@ export async function construirCerebro(): Promise<Cerebro> {
     }
   }
 
+  // ── LO QUE MAKO APRENDIÓ EN EL RESTO DEL PRODUCTO ─────────────────────────
+  // El criterio, en una frase: una fuente entra cuando trae AL MENOS UNA ARISTA LATERAL
+  // por nodo que suma; si no puede, entra AGREGADA en un solo nodo; y si ni siquiera se
+  // le puede escribir el `motivo`, no entra.
+  //
+  // ⚠️ Lo que se dejó AFUERA importa tanto como lo que entró, y el motivo casi nunca es
+  // el volumen:
+  //   · VOLUMEN puro (13.217 mensajes de WhatsApp en un solo workspace, 6.151 eventos de
+  //     VSL, 1.187 leads): ni agregados aportan un nodo — cuántos leads hay parados en
+  //     una etapa es un DATO de esa etapa, no un nodo aparte.
+  //   · CATÁLOGO DE MAKO DISFRAZADO DE DATO DEL CLIENTE, que es el que engaña: medido,
+  //     las once secuencias de nutrición de tres workspaces distintos son la MISMA
+  //     semilla bit a bit, y las categorías del tablero son literalmente el catálogo. Por
+  //     eso de las secuencias entran solo las ACTIVAS: la semilla dormida es catálogo.
+  //   · ACTIVIDAD, no conocimiento: lo que el negocio está probando (experimentos
+  //     abiertos, tareas) es la salida de otra pantalla, no lo que MaKo entendió de él.
+  // Se recalcula: entre el bloque de las aristas laterales y este entraron el funnel y
+  // sus etapas, y las fuentes de acá abajo enganchan justamente con esas.
+  const enElMapa = new Set(nodos.map((n) => n.id));
+  const primeraEtapa = funnel.pipeline[0] ? `etapa:${funnel.pipeline[0].key}` : null;
+
+  // A1 · SECUENCIAS DE NUTRICIÓN ACTIVAS. El mejor enganche del inventario: cada una
+  // apunta a una etapa REAL del funnel, así que caen sobre la única cadena del mapa.
+  // ⚠️ El id sale de la CLAVE y no del `id` de la fila: el id es un bigint autoincremental
+  // que cambia entre workspaces y entre reseeds, y el id de un nodo entra en `huellaDe()`
+  // — un id inestable le rearma el mapa al cliente sin que nada haya cambiado.
+  const clavesSec = new Set<string>();
+  for (const sec of secuencias) {
+    const destino = `etapa:${sec.etapa}`;
+    // Sin arista no hay nodo: si la etapa no está en el mapa (apunta a una salida fija o
+    // a «manual», que se excluyen a propósito), la secuencia no entra.
+    if (!enElMapa.has(destino) || clavesSec.has(sec.clave)) continue;
+    clavesSec.add(sec.clave);
+    const pasos = Array.isArray(sec.pasos) ? sec.pasos.length : 0;
+    const idSec = push({
+      id: `sec:${sec.clave}`,
+      area: 'norte',
+      etiqueta: sec.nombre,
+      detalle: `Nutrición de ${pasos} ${pasos === 1 ? 'mensaje' : 'mensajes'}, activa.`,
+      fuente: 'la escribiste en tu nutrición',
+      autoria: 'usuario',
+    });
+    unir(idSec, destino, 'Los leads que caen en esta etapa reciben esta secuencia');
+  }
+
+  // A2 · LA LANDING ANALIZADA. Tres aristas laterales por nodo — el mejor ratio de todo
+  // el inventario — y las tres contrastan lo que la PÁGINA dice con lo que el negocio
+  // declaró de sí mismo, que es información que hoy no aparece en ninguna pantalla.
+  const urlsLanding = new Set<string>();
+  for (const l of landings) {
+    if (urlsLanding.has(l.url)) continue;
+    urlsLanding.add(l.url);
+    const idLand = push({
+      id: `land:${l.url}`,
+      area: 'oferta',
+      etiqueta: l.titulo || l.url.replace(/^https?:\/\//, ''),
+      detalle: [l.veredicto, l.score != null ? `Puntaje ${l.score} de 10` : '', l.resumen]
+        .filter(Boolean).join('\n\n'),
+      fuente: 'MaKo analizó tu página',
+      autoria: 'mako',
+    });
+    if (l.promesa && enElMapa.has('campo:oferta_promesa')) {
+      unir(idLand, 'campo:oferta_promesa', 'Lo que tu página promete, al lado de la promesa que declaraste');
+    }
+    if (l.avatar && enElMapa.has('campo:avatar_quien')) {
+      unir(idLand, 'campo:avatar_quien', 'A quién le habla la página, según su propio texto');
+    }
+    // ⚠️ NUNCA 'etapa:lead' literal: `lead` es la clave del catálogo por defecto y un
+    // funnel armado a mano puede no tenerla. La primera etapa del pipeline SIEMPRE existe.
+    if (primeraEtapa && enElMapa.has(primeraEtapa)) {
+      unir(idLand, primeraEtapa, 'Acá caen los leads que entran por esta página');
+    }
+  }
+
+  // B1 · LOS AUDIOS DEL DUEÑO. El área «Voz y cara» tenía dos nodos para una de las cosas
+  // más personales del producto.
+  for (const a of audios) {
+    const idAudio = push({
+      id: `audio:${a.id}`,
+      area: 'voz',
+      etiqueta: a.titulo,
+      detalle: a.duracion_s ? `Audio de ${Math.round(a.duracion_s)} segundos.` : 'Un audio grabado por vos.',
+      fuente: 'lo grabaste vos',
+      autoria: 'usuario',
+    });
+    if (enElMapa.has('voz')) unir(idAudio, 'voz', 'Es tu voz grabada, la que suena en la nutrición');
+  }
+
+  // B2 · LA VOZ COMERCIAL MEDIDA: cómo dijiste que hablas contra cómo hablas de verdad.
+  const rasgosVoz = Object.keys(vozManual ?? {}).length;
+  const convsVoz = (vozEvidencia as { conversaciones?: unknown[] } | null)?.conversaciones?.length ?? 0;
+  if (rasgosVoz > 0 || convsVoz > 0) {
+    const idVozCom = push({
+      id: 'vozcom',
+      area: 'voz',
+      etiqueta: 'Cómo hablas vendiendo',
+      detalle: convsVoz
+        ? `MaKo leyó ${convsVoz} ${convsVoz === 1 ? 'conversación tuya' : 'conversaciones tuyas'} de venta para sacar tu forma de escribir.`
+        : 'Lo que anotaste sobre tu forma de escribir vendiendo.',
+      fuente: convsVoz ? 'MaKo lo sacó de tus conversaciones' : 'lo escribiste vos',
+      autoria: convsVoz ? 'mako' : 'usuario',
+    });
+    if (enElMapa.has('voz')) unir(idVozCom, 'voz', 'Cómo dijiste que hablas, y cómo hablas de verdad en tus chats');
+  }
+
+  // D1 · EL OBJETIVO EN NÚMEROS. Si faltan los números NO se emite un nodo «pendiente»:
+  // los huecos ya tienen su lugar en los `falta:` por área, y uno suelto acá solo infla
+  // el conteo sin decir nada.
+  const nCierres = Number(objCierres);
+  const nCash = Number(objCash);
+  if (Number.isFinite(nCierres) && nCierres > 0) {
+    const etapaCierre = funnel.pipeline.find((e) => e.kind === 'cierre') ?? funnel.pipeline[funnel.pipeline.length - 1];
+    const idObj = push({
+      id: 'objetivo',
+      area: 'norte',
+      etiqueta: `${nCierres} ${nCierres === 1 ? 'cierre' : 'cierres'} en 90 días`,
+      detalle: Number.isFinite(nCash) && nCash > 0 ? `Y USD ${nCash.toLocaleString('es')} de facturación.` : '',
+      fuente: 'lo pusiste como objetivo',
+      autoria: 'usuario',
+    });
+    if (etapaCierre && enElMapa.has(`etapa:${etapaCierre.key}`)) {
+      unir(idObj, `etapa:${etapaCierre.key}`, 'Un cierre se cuenta cuando un lead llega acá');
+    }
+  }
+
+  // E1 · EL VOCABULARIO PROPIO, AGREGADO EN UN NODO. Y el motivo es duro, no estético:
+  // los términos del glosario del workspace más poblado son 22 hojas de grado 1 de un
+  // saque, que sobre ~106 nodos serían el 21% del mapa colgando de un solo lugar — el
+  // umbral de hojas es 30% y hoy vamos por 7%. Un nodo que los NOMBRA en su detalle dice
+  // lo mismo sin deformar la topología.
+  const propios = glosario.filter((g) => g.activo && (g.area === 'glosario' || g.categoria === 'glosario'));
+  if (propios.length > 0) {
+    const idGlos = push({
+      id: 'glosario',
+      area: 'voz',
+      etiqueta: `Tu vocabulario (${propios.length})`,
+      detalle: propios.slice(0, 12).map((g) => g.titulo).join(' · '),
+      fuente: 'lo cargaste en Conocimiento',
+      autoria: 'usuario',
+    });
+    if (enElMapa.has('voz')) unir(idGlos, 'voz', 'Las palabras con las que MaKo te escribe');
+  }
+
   // ── Las ÁREAS como nodos ───────────────────────────────────────────────────
   // Es el mecanismo con el que Quartz fabrica racimos sin inventar ninguna fuerza:
   // el tag entra como nodo y las notas se juntan solas alrededor. Acá reemplaza a DOS
@@ -638,6 +798,21 @@ export async function construirCerebro(): Promise<Cerebro> {
     });
     for (const m of miembros) unir(m, idArea, `Esto es parte de ${a.nombre}`);
   }
+
+  // ⚠️ UN ÁREA SUELTA DEL RESTO DEL MAPA NO ES UN BUG, Y SE INTENTÓ «ARREGLAR».
+  // Un área se engancha al resto solo por las aristas laterales de sus miembros; si
+  // ninguno tiene una —pasa en un workspace que nunca contestó el quiz de personalidad:
+  // sin el nodo `voz`, los audios y el vocabulario quedan colgando solo de su área— el
+  // racimo queda flotando al lado. Se probó tender un puente del nodo de área a la raíz.
+  // NO va, por dos razones medidas:
+  //   · `scripts/medir-grafo.mjs` NO marca `componentes` como falla, y su propio
+  //     comentario dice que «las islas son parte del look de Obsidian». No había nada
+  //     que arreglar.
+  //   · El puente le suma radios a la raíz: con él, el hub de un workspace real pasó de
+  //     4,3× a 4,6× contra un umbral de 4,5×. O sea que el arreglo de un no-problema
+  //     rompió un umbral que sí existe.
+  // Y además la isla DICE algo cierto: esa parte del negocio todavía no se conecta con
+  // el resto.
 
   // ── Los huecos, etiquetados ────────────────────────────────────────────────
   // Un vacío REGISTRADO y con nombre vale más que un vacío disimulado: dice qué

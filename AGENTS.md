@@ -261,6 +261,14 @@ Lo que queda:
   «Enviar 340 mensajes» / «No enviar», no «Enviar» / «Cancelar».
 - **La consecuencia de lo irreversible va pegada al botón**, en tinta normal y no en gris,
   y **antes** del click. Arriba de todo y en gris no la lee nadie.
+- **El único `max-width` del diseño vive en el CONTENEDOR.** Nada adentro lleva ancho
+  propio: todo va al 100%. Un `max-width` puesto al texto dentro de una caja más ancha no
+  acota nada — deja la mitad de la caja vacía a la derecha y el contenido aplastado a la
+  izquierda. Si hay que cuidar la medida de lectura, se acota el contenedor (para eso está
+  `Modal`, 600 px) o se centra con `margin-inline: auto`. Medido acá: 603 px de contenido en
+  una caja de 1134.
+- **`Confirm` pregunta · `Modal` muestra el detalle · `WizardShell` conduce un flujo.** Son
+  tres cosas distintas, no tres tamaños de lo mismo. Para el detalle de algo, `Modal`.
 
 El detalle de cada uno, con las citas de las guías, en
 [docs/hallazgos-ui.md](docs/hallazgos-ui.md).

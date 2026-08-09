@@ -812,6 +812,38 @@ export async function getLandingViewData(): Promise<LandingViewData> {
  * No usa getLandingViewData a propósito: aquello barre landing_visits entero
  * para calcular las descubiertas, y el generador no necesita nada de eso.
  */
+/**
+ * Las landings analizadas, con lo que el grafo del segundo cerebro necesita para
+ * dibujarlas: `listarAnalizadas` solo trae url/veredicto/score, y el mapa además usa la
+ * `promesa` y el `avatar` para tender las aristas hacia los campos que el cliente
+ * declaró — que es lo que hace valiosa a esta fuente: contrasta lo que la página dice
+ * con lo que el negocio dijo de sí mismo.
+ */
+export async function landingsParaCerebro(): Promise<Array<{
+  url: string; titulo: string | null; score: number | null; veredicto: string | null;
+  resumen: string | null; promesa: string | null; avatar: string | null;
+}>> {
+  const supabase = (await getTenantDb());
+  const { data, error } = await supabase
+    .from('landing_analyses')
+    .select('url, titulo, score, veredicto, resumen, promesa, avatar')
+    .eq('status', 'analizada')
+    .order('analyzed_at', { ascending: false, nullsFirst: false });
+  if (error) throw new Error(`Error leyendo landings para el cerebro: ${error.message}`);
+  return ((data ?? []) as Array<Record<string, unknown>>).map((l) => {
+    const n = Number(l.score);
+    return {
+      url: String(l.url ?? ''),
+      titulo: (l.titulo as string) ?? null,
+      score: Number.isFinite(n) ? n : null,
+      veredicto: (l.veredicto as string) ?? null,
+      resumen: (l.resumen as string) ?? null,
+      promesa: (l.promesa as string) ?? null,
+      avatar: (l.avatar as string) ?? null,
+    };
+  }).filter((l) => l.url);
+}
+
 export async function listarAnalizadas(): Promise<Array<{ url: string; veredicto: string | null; score: number | null }>> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase

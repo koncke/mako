@@ -382,6 +382,57 @@ describe una geometría, la geometría hay que **medirla** una vez, no deducirla
 **Vive en:** app/_ui/ui.css (`.mk-mako__marca .mk-dot`) · app/_ui/Mako.tsx (`marca`) ·
 *2026-08-09*
 
+### ⚠️ Un `max-width` adentro de una caja ancha no acota: deja la mitad vacía
+
+**Síntoma:** el dueño lo describió como tres cosas distintas —«textos que se cortan al medio
+de la card», «cards que llegan al final del ancho y la info se queda aplastada a la
+izquierda», «textos desordenados, sueltos, volando»— y era **un solo defecto**.
+
+**Medido:** el contenido ocupaba **603 px dentro de una caja de 1134**. El 47% de la tarjeta
+vacío a la derecha. Lo causaban cuatro topes puestos con buena intención: `max-width: 620px`
+en la rejilla de campos, `70ch` en los párrafos y en la evidencia, y un `maxWidth: 460` suelto
+en una sección del catálogo. Cada uno se agregó para «que no se lea como una tabla», y el
+comentario que lo justificaba decía «acotada, la tarjeta vuelve a leerse como una tarjeta».
+
+**La regla, que ya estaba escrita en AGENTS.md y se violó igual:** «un maxWidth pegado a la
+izquierda es lo que deja la franja muerta».
+
+**Lo que hay que hacer en su lugar** —verificado en el código fuente de tres sistemas:
+
+- **El único ancho máximo vive en el CONTENEDOR.** En shadcn/Radix el único `max-width` está
+  en `DialogContent` y adentro no hay ninguno: todos los hijos van al 100%. En Notion el
+  `max-width` de la página se APAGA al entrar al peek.
+- **Si hay que acotar la medida de lectura, se acota con `margin-inline: auto`** —el sobrante
+  se reparte a los dos lados— o con un padding PORCENTUAL, que es lo que hace Carbon
+  (`padding-inline-end: calc(20% - 32px)` en los párrafos, y **solo** en los párrafos: «anything
+  besides text/p spans full width»). Un porcentaje se achica solo cuando se achica la caja; un
+  `max-width` en px, no.
+- Y Linear cuenta en su changelog que tuvo este mismo problema y lo resolvió **centrando** el
+  contenido cuando la ventana crece, no dejando el hueco de un lado.
+
+Por eso el detalle de una decisión se mudó a un modal de 600 px: ahí el texto llena su renglón
+por construcción, sin que nadie le ponga un tope.
+
+**Vive en:** app/_ui/Modal.tsx · app/_ui/ui.css (`.mk-modal`, `.mk-det__*`) · *2026-08-09*
+
+### ⚠️ La barra de progreso pintaba 1% cuando el dato decía 62%
+
+**Síntoma:** las dos líneas de «está pasando algo» mostraban una barra visualmente vacía. Se le
+ajustó el ancho **tres veces** —incluido un `flex: 0 0 220px` con su propio comentario
+explicando por qué `maxWidth` no servía— y ninguna miró el número.
+
+**Causa:** desajuste de unidades entre dos contratos que nadie cruzó. `MakoProps.progreso` está
+declarado **de 0 a 1**; `Progress.value` está declarado **de 0 a 100**. Con `0.62` la barra
+renderizaba `width: 1%`, y con `0.33`, `0%`. El `aria-valuenow` mentía igual.
+
+**Regla:** cuando un valor cruza de un componente a otro, el rango es parte del tipo y
+TypeScript no lo ve — los dos son `number`. Si dos APIs vecinas usan escalas distintas para lo
+mismo, la conversión va explícita y comentada en el punto de cruce, o se unifica la escala.
+El corolario que duele: **si algo se ve mal y ya lo ajustaste tres veces, el problema no es el
+estilo — es el dato.**
+
+**Vive en:** app/_ui/Mako.tsx (rama `curso`) · app/_ui/Feedback.tsx (`Progress`) · *2026-08-09*
+
 ### ⚠️ Una página que NO hidrata se ve perfecta, y `<details>` te tapa que no hidrata
 
 **Síntoma:** el rediseño de las filas de decisión se «verificó» con Playwright durante toda una

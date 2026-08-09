@@ -437,7 +437,13 @@ export function Mako(props: MakoProps) {
               contenedor sin ancho se encoge a su contenido, y como la barra mide
               100% del padre, el resultado era 0 px — la barra existía y no se
               veía. Justo en el estado que sin progreso no comunica nada. */}
-          {progreso !== undefined && <span style={{ flex: '0 0 220px' }}><Progress value={progreso} tono="mako" /></span>}
+          {/* ⚠️ ×100. `progreso` de <Mako> va de 0 a 1 (así lo declara su prop) y
+              `Progress.value` va de 0 a 100. Sin la conversión, un 0,62 se
+              redondeaba a **1%** y un 0,33 a **0%**: la barra existía, medía lo
+              que tenía que medir, y estaba vacía. Se ajustó su ancho tres veces
+              —incluido el `flex: 0 0 220px` de acá abajo— sin mirar nunca el
+              valor. Justo en el estado que sin progreso real no comunica nada. */}
+          {progreso !== undefined && <span style={{ flex: '0 0 220px' }}><Progress value={progreso * 100} tono="mako" /></span>}
           {/* La fuente y el avance, en la misma línea que la barra. Un «68%» sin
               decir de qué no informa más que un spinner, y la fuente sola
               arriba partía la frase del título. */}

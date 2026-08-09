@@ -525,6 +525,47 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — «Un contrato de datos no es un layout» · docs/hallazgos-ui.md — tres entradas',
     ],
   },
+  {
+    fecha: '9 ago', hora: '15:40', chat: CH3, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Siete defectos, y el desplegable no va',
+    pedido: 'Sigue estando mal diseñado...\n\n1. Textos desordenados, sueltos, volando y letras muy chicas.\n2. Textos que se cortan al medio de la card... eso YA lo habiamos hablado.\n3. Cards que llegan al final del ancho y la info se queda aplastada a la izquierda...\n4. Prefiero que NO sea un desplegable, no se ve lindo, que sea un pop-up con detail BIEN diseñado.\n5. Pusiste cosas de SuperAdmin, como "Mostrar el play sin scroll en mobile" que tiene que ver eso con los clientes?\n6. Rediseñaste solo las primeras de "Requiere tu decisión" y luego dejaste todo feo y viejo.\n7. Siguen habiendo secciones viejas que ya no deberían estar...',
+    puntos: [
+      'Los puntos 2 y 3 eran **el mismo defecto**, y medido da feo: el contenido ocupaba **603 px dentro de una caja de 1134**. El 47% vacío a la derecha. La regla ya estaba escrita en AGENTS.md —«un maxWidth pegado a la izquierda es lo que deja la franja muerta»— y se violó igual, cuatro veces, cada una con su comentario justificándola.',
+      'El punto 4 no es solo estético: un modal de 600 px **arregla el punto 2 y el 3 por construcción**, porque el texto llena su renglón sin que nadie le ponga un tope.',
+    ],
+  },
+  {
+    fecha: '9 ago', hora: '17:10', chat: CH3, cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: '⚠️ La verificación anterior no probaba nada: la página no hidrataba',
+    puntos: [
+      '⚠️ **EL HALLAZGO MÁS CARO DEL DÍA.** El rediseño anterior se «verificó» con Playwright —abría con clic, abría con Enter, el caret rotaba, el foco se veía— y al cambiar el `<details>` por un modal de React **nada respondía**. Causa: el árbol de la app nunca hidrataba, y lo que hacía funcionar la versión anterior es que **`<details>`/`<summary>` abre y cierra sin una línea de JavaScript**. Toda la evidencia era evidencia de que el HTML estaba bien.',
+      'Cómo se detecta en una línea: `Object.keys(document.querySelector(".mi-clase")).filter(k => k.startsWith("__react"))`. Vacío = no hidrató. ⚠️ El overlay de Next (`<nextjs-portal>`) SÍ tiene fiber aunque la app no hidrate, así que hay que preguntarlo sobre un nodo de la app.',
+      'Verificado contra producción para descartar que fuera el rediseño: `hola-mako.com` tiene `__reactFiber$` y `__reactProps$`; el local solo `__reactContainer$` —React crea la raíz y nunca monta—, y falla igual en `/inicio`, `/plan` y `/vsl`, que no se tocaron. Es del entorno local, no del código.',
+      'La salida sin matar el server de la otra sesión: **un worktree**, que al ser otro directorio tiene su propio lock. Las tres trampas, todas nuevas: el junction de `node_modules` no le sirve a Turbopack («points out of the filesystem root»), `next dev --webpack` muere con `node:crypto`, y `next start` pone NODE_ENV=production, con lo cual `/api/auth/dev-login` devuelve 404 a propósito. Terminó siendo `npm ci` real adentro del worktree.',
+      'Lo que sí se pudo verificar sin hidratación: **el modal renderiza en el HTML del server**, así que con `arrancaAbierta` se mide y se mira entero. El clic para abrirlo queda por verificar en producción.',
+    ],
+  },
+  {
+    fecha: '9 ago', hora: '17:35', chat: CH3, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El detalle se va a un modal de 600 px, y el ancho muerto se muere',
+    puntos: [
+      'Medido antes y después: los bloques del detalle pasaron de **603 px de contenido con 528 px muertos** a **550 px de contenido con 0 muertos**. Y los campos de un aviso, de 620 px en una caja de 1134 a 1100 px.',
+      'La regla que sale, y vale para toda la app: **el único `max-width` del diseño vive en el contenedor**. Es literal de cómo lo resuelven los que lo tienen resuelto: en shadcn/Radix el único ancho está en `DialogContent` y adentro no hay ninguno; en Notion el `max-width` de la página se APAGA al entrar al peek; y Carbon usa un padding PORCENTUAL —que se achica solo— en vez de un tope en px.',
+      'Tipografía: de siete elementos repartidos entre 12 y 13 px a cuatro niveles con salto de peso —20/600 el título, 14/400 el cuerpo, 14/500 el valor, 12/400 la etiqueta—. GitHub usa DOS tamaños en toda una fila (16 y 12) y hace la jerarquía con peso y color; la tabla de Geist de Vercel usa uno solo.',
+      'La fila, copiada de la lista de advisories de GitHub: título + **píldora de estado INLINE al final del título** (no alineada a la derecha: con nombres de largo muy distinto, a la derecha dejan el borde izquierdo dentado fila por fila) + una línea gris, y el TIEMPO en el riel derecho, que es lo que impide que la fila se vea medio vacía.',
+      '⚠️ **La barra de progreso pintaba 1% cuando el dato decía 62%.** `MakoProps.progreso` va de 0 a 1 y `Progress.value` de 0 a 100: los dos son `number` y el compilador no ve nada. Se le había ajustado el ancho TRES veces sin mirar el valor. Si algo se ve mal y ya lo ajustaste tres veces, el problema no es el estilo — es el dato.',
+      'Se rediseñaron las cuatro secciones que habían quedado viejas: fuera la monospace del rótulo («monospace as a costume for technical»), `curso` pasa a filas con filete, y el «por qué» de la pastilla inline sale del `title` —un tooltip nativo que falla los tres requisitos de WCAG 1.4.13— y se hace visible.',
+      'Se borró la sección «Second Brain y Perro Guardián»: era prosa, no una pieza, y este archivo abre diciendo que acá no se explica nada. Los textos siguen en `DESCRIPCIONES`.',
+      'Los ejemplos ahora cuentan la operación de UN cliente —una clínica que pauta en Meta— en vez de hablar del VSL de la casa y de Martín como responsable.',
+    ],
+    archivos: [
+      'app/_ui/Modal.tsx — NUEVO. La tercera caja de la casa: `Confirm` pregunta, `Modal` muestra el detalle, `WizardShell` conduce un flujo',
+      'app/_ui/Mako.tsx — `Decision` es una fila-botón que abre el modal; props `cuando` y `evidenciaRotulo`; el ×100 del progreso',
+      'app/_ui/ui.css — `.mk-modal*` y `.mk-det__*`; se van los cuatro `max-width` de adentro; sin monospace en el rótulo',
+      'app/admin/ui/Gramatica.tsx — ejemplos de cliente, y fuera la sección de prosa',
+      'AGENTS.md — la regla del contenedor y las tres cajas · docs/hallazgos-ui.md · docs/hallazgos-infra.md',
+    ],
+  },
 ];
 
 /** Las nueve partes del rediseño y en qué anda cada una. */
