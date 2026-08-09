@@ -512,6 +512,160 @@ export const EXPOSICION = [
 export const RIESGO_QUE_QUEDA =
   'El «mes malo» del Growth (todo al p90) deja ~28% de margen, y lo empuja UNA sola operación: la Retro, la única que sigue en Opus, cuya salida va de 3.484 tokens de media a 11.288 en el p90 — 3,2× la media. El cupo la acota, pero conviene sumarle un límite de FRECUENCIA propio (corre pocas veces al mes por diseño) en vez de confiar solo en los tokens.';
 
+// ── LA GRILLA DE PLANES ─────────────────────────────────────────────────────
+// Cuatro columnas. El eje que las separa NO es una cantidad: es que el Free no
+// conecta ninguna integración con webhook ni cron. Free = la IA corre cuando
+// apretás un botón; Pro = corre mientras dormís. Se corresponde exactamente con
+// la curva de costo: los seis caminos automáticos son los que gastan solos.
+
+export type Columna = 'free' | 'pro' | 'growth' | 'agencia';
+/** `true` incluido · `false` no · string = el límite. */
+export type Celda = boolean | string;
+export type FilaGrilla = { que: string; free: Celda; pro: Celda; growth: Celda; agencia: Celda };
+export type GrupoGrilla = { grupo: string; filas: FilaGrilla[] };
+
+export const GRILLA: GrupoGrilla[] = [
+  {
+    grupo: 'Tu operación diaria',
+    filas: [
+      { que: 'Plan del día + Perro Guardián', free: true, pro: true, growth: true, agencia: true },
+      { que: 'CRM, funnel y ficha del lead', free: true, pro: true, growth: true, agencia: true },
+      { que: 'Onboarding, Archivero y plan de arranque', free: true, pro: true, growth: true, agencia: true },
+      { que: 'Preguntale a MaKo', free: '20 mensajes/día', pro: 'uso justo', growth: 'uso justo', agencia: 'uso justo' },
+    ],
+  },
+  {
+    grupo: 'Lo que MaKo hace solo',
+    filas: [
+      { que: 'Integraciones con disparador externo (Fathom, Meta, WhatsApp)', free: false, pro: true, growth: true, agencia: true },
+      { que: 'Meeting Reader — la reunión se vuelve tareas repartidas', free: false, pro: '20 reuniones/mes', growth: 'sin tope', agencia: 'sin tope' },
+      { que: 'Closing Analyst — análisis de llamadas de venta', free: false, pro: '30 llamadas/mes', growth: 'sin tope', agencia: 'sin tope' },
+      { que: 'CRM automático + Auto-Close', free: false, pro: true, growth: true, agencia: true },
+      { que: 'WhatsApp, email y secuencias de nutrición', free: false, pro: true, growth: true, agencia: true },
+      { que: 'Ads Manager con escrituras a Meta + Ads Analyst', free: false, pro: true, growth: true, agencia: true },
+    ],
+  },
+  {
+    grupo: 'Análisis',
+    filas: [
+      { que: 'Lead Insights + WhatsApp Advisor', free: false, pro: true, growth: true, agencia: true },
+      { que: 'Landing Analyst + Landing Generator', free: false, pro: true, growth: true, agencia: true },
+      { que: 'Retro / Experimentos', free: false, pro: '4 corridas/mes', growth: 'sin tope', agencia: 'sin tope' },
+    ],
+  },
+  {
+    grupo: 'Contenido',
+    filas: [
+      { que: 'Ads Writer', free: false, pro: true, growth: true, agencia: true },
+      { que: 'Generación de imágenes', free: '6, por única vez', pro: '50/mes', growth: 'dentro del cupo', agencia: 'dentro del cupo' },
+      { que: 'Generación de video y Reels', free: false, pro: false, growth: 'dentro del cupo', agencia: 'dentro del cupo' },
+    ],
+  },
+  {
+    grupo: 'Tu equipo y tus datos',
+    filas: [
+      { que: 'Usuarios', free: '1', pro: '3', growth: '10', agencia: 'ilimitados' },
+      { que: 'Contactos', free: '500', pro: '2.500', growth: '10.000', agencia: 'ilimitados' },
+      { que: 'Workspaces', free: '1', pro: '1', growth: '1', agencia: 'hasta 10 clientes' },
+      { que: 'Roles de closer y setter', free: false, pro: false, growth: true, agencia: true },
+      { que: 'BYOK de texto — tu propia key de IA', free: false, pro: false, growth: true, agencia: true },
+    ],
+  },
+  {
+    grupo: 'MaKo Tokens',
+    filas: [
+      { que: 'Cupo mensual', free: '600, por única vez', pro: '5.000', growth: '50.000', agencia: '150.000' },
+      { que: 'Packs de recarga', free: false, pro: true, growth: true, agencia: true },
+    ],
+  },
+];
+
+/** Por qué alguien sube de escalón. Una línea, la que se pone en la landing. */
+export const GANCHO: Record<Columna, string> = {
+  free: 'Terminá el onboarding y MaKo ya entendió tu negocio: te dice qué hacer primero, con fecha y con razón.',
+  pro: 'Deja de ser una app donde cargás cosas: la reunión se vuelve tareas sola, las llamadas se analizan solas y WhatsApp nutre solo.',
+  growth: 'La fábrica de creativos: del guion que ya salió de tu Matriz a la imagen y el video, con tu equipo adentro.',
+  agencia: 'Un workspace por cliente, con tu equipo y tu cupo compartido. El mismo MaKo, multiplicado.',
+};
+
+/** El precio anual y lo que de verdad entra a la cuenta después de Paddle e IVA. */
+export type Precio = { plan: Columna; mensualUsd: number; anualUsd: number | null; descuento: string; netoMensualUsd: number };
+
+export const PRECIOS: Precio[] = [
+  { plan: 'free', mensualUsd: 0, anualUsd: null, descuento: '—', netoMensualUsd: 0 },
+  { plan: 'pro', mensualUsd: 47, anualUsd: 470, descuento: '2 meses gratis · 16,7%', netoMensualUsd: 43.77 },
+  { plan: 'growth', mensualUsd: 97, anualUsd: 1067, descuento: '1 mes gratis · 8,3%', netoMensualUsd: 90.87 },
+  { plan: 'agencia', mensualUsd: 297, anualUsd: 2970, descuento: '2 meses gratis · 16,7%', netoMensualUsd: 279.62 },
+];
+
+/** ⚠️ Lo que NO puede entrar a la grilla porque todavía no existe. */
+export const FUERA_DE_GRILLA = {
+  porConstruir: 'Image Generator, Video Generator, Reels, Carousels, Stories, Thumbnails, YouTube Writer, Ideas, Competitor Spy, Offer/VSL/Chat/CS/YouTube Analyst, VSL Generator, Lead Magnet, Sales Email, Newsletters, Closing Script, Sales Roleplay, Instagram, Foco, Mindset y Ads Optimizer Bot — 38 de las 122 áreas.',
+  trampas: [
+    { que: 'Second Brain', por: 'figura `listo` pero su propio alcance dice que todavía no conecta señales ni saca conclusiones. No venderlo como «conecta las señales de tu negocio».' },
+    { que: 'Nutrition Writer y Post-Call Follow-up', por: 'escriben el borrador, NO mandan. Falta el go-live del envío. No venderlo como «responde solo».' },
+    { que: 'CRM Automation', por: 'está hecho pero gateado por `crmAutoHabilitado`, que es fail-closed. Se puede vender, pero hay que prenderlo en el alta o el cliente compra algo que nunca arranca.' },
+  ],
+  // Esto es lo que decide que el Growth NO se pueda cobrar todavía.
+  growthEnEspera: 'El gancho entero del Growth —Image Generator y Video Generator— son `ComingSoon` de 8 líneas. Un tercer plan vacío no es un ancla de precio: es un reembolso. Va con precio anunciado y lista de espera.',
+};
+
+// ── El respaldo de los pasos 3 y 4 ──────────────────────────────────────────
+
+export type Bloque = { id: string; titulo: string; cuerpo: string; fuente?: string };
+
+export const BYOK: Bloque[] = [
+  { id: 'veredicto', titulo: 'BYOK es gobernanza, no una palanca de precio', cuerpo: 'Va en el Growth, SIN tocar el precio, y solo para texto. Ahorraría como máximo US$2,82 de los US$27,40 del Growth: el 90% restante son medios, y ahí está prohibido por contrato. Se vende como control —«tus prompts van por tu cuenta, tu factura, tus logs»—, que es el único argumento verdadero: el break-even de texto es NEGATIVO para el cliente (ahorra US$2,82/mes y le cuesta ~US$2,90 de crédito prepago que se vence).' },
+  { id: 'prohibido', titulo: 'BYOK de MEDIOS está prohibido, textual', cuerpo: 'fal.ai (ToS act. 31/07/2026): «You may not share or permit others to use your individual account credentials». Replicate dice lo mismo. Y son justo los dos proveedores que el paso 1 eligió por ser los únicos cuyos términos contemplan un SaaS. De los cinco contratos de LLM leídos, ninguno prohíbe explícitamente que un tercero opere la key del titular, pero ninguno lo bendice: no es «no se puede», es «si sale mal, no hay a quién reclamarle».', fuente: 'ToS de fal.ai y Replicate, consultados 9/8/2026' },
+  { id: 'mercado', titulo: 'El mercado es unánime en tres cosas', cuerpo: 'Ocho productos con BYOK documentado: (1) nadie inventó un tier para BYOK — Zapier «Pro and Advanced plans only», Gumloop «requires Pro or higher», Warp lo da hasta en el Free y lo gatea por tamaño de organización; (2) nadie baja el precio, y los tres diseños de fee se contradicen (Vercel 0%, OpenRouter 5%, Gumloop DUPLICA su fee de orquestación); (3) lo que baja es la moneda interna — Zapier: tu key consume 1x en vez de 5x.', fuente: 'páginas oficiales, 9/8/2026' },
+  { id: 'fee', titulo: 'El fee de Gumloop es inaplicable acá', cuerpo: 'Cobra un porcentaje sobre lo que la corrida HABRÍA costado. En MaKo esa corrida cuesta US$0,0021, así que el 16% da cero. Si se cobra un fee, la base tiene que ser por ACCIÓN, no por costo evitado.' },
+];
+
+export const CUARTO_PLAN: Bloque[] = [
+  { id: 'techo', titulo: '«El Growth se pasa del techo del 75%» — el techo era el equivocado', cuerpo: 'El 75% es un supuesto de la era SaaS. La mediana publicada de margen bruto de un producto de IA es 50%, y solo el 12% apunta a 80%+. El 72% del Growth está 22 puntos ARRIBA de la mediana de su categoría. El criterio correcto no es el margen promedio: es que ningún cliente INDIVIDUAL quede negativo.', fuente: 'Poyar, n=230, abr-may 2026' },
+  { id: 'retencion', titulo: '«Arriba de US$250 se retiene 70%» — es atributo de la empresa, no del cliente', cuerpo: 'El dato de ChartMogul es real, pero dice «las empresas que PUEDEN cobrar caro retienen mejor», no «si subís de US$97 a US$297 vas a retener mejor». El propio reporte atribuye la fuga al bajo costo de cancelar y a la falta de enganche.', fuente: 'ChartMogul, ~3.500 empresas, datos 2025' },
+  { id: 'senuelo', titulo: '«Un plan caro ancla al Growth» — el efecto señuelo no replica', cuerpo: 'Con estímulos realistas: Frederick/Lee/Baskin y Yang/Lynn, JMR 51(4) 2014 — 91 intentos, 23 categorías, solo 11 con efecto confiable.', fuente: 'JMR 51(4), 2014' },
+  { id: 'ancla', titulo: 'Si hay 4º plan, el ancla es AGENCIA — y el múltiplo real no es 2× ni 3×', cuerpo: 'Múltiplos medidos en páginas oficiales: GoHighLevel US$97→US$297 = 3,06× (compra multi-subcuenta) y US$297→US$497 = 1,67× (compra revender); Zapier 3,45×; HeyGen 1,69× y 3,04×; respond.io 2,01× y 1,75×. El rango real es 1,7×-3,4×. US$247 da 2,55×: no cae en ningún patrón observado y no tiene comparable que el comprador reconozca. MaKo ya es multi-inquilino por dentro (mig 0054 y 0058), así que un plan de agencia es costo de UI y de gating, no de arquitectura.', fuente: 'páginas oficiales, 9/8/2026' },
+  { id: 'video', titulo: 'El problema del video lo arregla el TOPE, no un plan más caro', cuerpo: 'Es aritmético: si sacás un plan de US$297 con más video, el cliente que hoy quema US$49 de video dentro del Growth de US$97 NO se muda — se queda, porque ahí le sale más barato. Un tier nuevo captura al que ya está topeado; no defiende el margen de abajo. Y nadie vende video sin tope self-serve: HeyGen capea en los cinco tiers, respond.io corta en seco al 200%.' },
+];
+
+export const COBRO: Bloque[] = [
+  { id: 'paddle', titulo: 'Paddle como merchant of record, y es más barato que Stripe arriba de US$33', cuerpo: 'Paddle 5% + US$0,50. Stripe directo, para hacer lo mismo, apila 2,9% + US$0,30 + 1,5% internacional + 0,7% Billing + 0,5% Tax = 5,6% + US$0,30. Stripe Managed Payments es el MoR más caro del mercado: 8,6% + US$0,30. Y el fijo de US$0,50 es la palanca del anual: pesa 1,06% sobre US$47 y 0,11% sobre US$470 — doce cobros mensuales del Pro cuestan US$38,76 de fee, uno anual US$27,76.', fuente: 'páginas oficiales, 9/8/2026' },
+  { id: 'cfdi', titulo: 'Lo del CFDI era un falso problema', cuerpo: 'Una empresa extranjera no puede emitir CFDI, pero existe la regla 12.1.4 de la RMF: el prestador extranjero inscripto entrega un PDF con el IVA trasladado por separado y con eso el receptor mexicano lo acredita. Paddle está en el padrón del SAT (RFC PML120808ITA, alta 10/11/2021), posición 182 del listado del quinto bimestre 2025. Stripe y Lemon Squeezy NO figuran. En el copy no prometer «factura fiscal»: decir «comprobante con IVA desglosado, acreditable según regla 12.1.4 RMF», y poner el campo RFC/NIT en el checkout.', fuente: 'sidof.segob.gob.mx, listado del 5º bimestre 2025' },
+  { id: 'stripe-reloj', titulo: 'Y por eso no se vende «rápido con Stripe» mientras tanto', cuerpo: 'El reloj de 30 días naturales para inscribirse en el RFC arranca con la primera venta a un mexicano, sin monto mínimo, y exige representante legal y domicilio EN territorio nacional. Más e.firma, declaración mensual, y bloqueo del servicio en México por tres meses de incumplimiento.' },
+  { id: 'argentina', titulo: 'Argentina es segunda ola, y son dos números, no uno', cuerpo: 'A un monotributista el Pro le aparece ~US$71 (21% de percepción de IVA + 30% a cuenta de Ganancias, este último recuperable). A un responsable inscripto NO le aplica la percepción: importa el servicio, autoliquida y toma crédito fiscal — le sale ~US$61 de tarjeta y le cuesta US$47. Cobrar localmente en ARS no es pago al exterior y no dispara la percepción, pero Rebill tiene mínimo de US$500/mes hasta procesar US$50.000 mensuales.' },
+  { id: 'whatsapp', titulo: 'El costo de WhatsApp es casi cero, y estaba en el lugar equivocado', cuerpo: 'Meta abre una ventana gratis de 72 horas en los anuncios click-to-WhatsApp: toda conversación que cierra en 3 días cuesta US$0. Y el WhatsApp que consumen los clientes NO es COGS de MaKo — lib/chatwoot.ts resuelve las cuatro credenciales por credWs, así que Meta le factura a la cuenta de cada cliente. Va presupuestado en CAC, no en producto: ~US$1-3 por lead por mes de reactivación.', fuente: 'documentación oficial de Meta + lib/chatwoot.ts' },
+];
+
+export const GRANDFATHER: Bloque[] = [
+  { id: 'quienes', titulo: 'Son TRES, y no son los que la lista decía', cuerpo: 'docs/mapa-del-proyecto.md:43 — ws1 = Mauricio, ws3 = Cliente de Prueba, ws9 = Martín/super-admin, ws10 = Leandro, ws11 = Leila. La lista que circulaba («4 vivos: 3, 9, 10, 11») estaba mal en los dos sentidos: incluía el workspace de testing y al propio dueño, y dejaba afuera al ws1, que es un cliente real y el único mezclado en el medidor de Claude. Los destinatarios son Mauricio, Leandro y Leila.' },
+  { id: 'como', titulo: 'Con tres clientes que conocés por nombre, el proceso formal es teatro', cuerpo: 'Una llamada de 15 minutos por cliente + un email de constancia de 10 líneas, que es lo que salva de la discusión «a mí me dijiste que era ilimitado»: (1) se te congela el precio y el alcance al 9 de agosto de 2026; (2) las funciones que se lancen después entran con los límites de su plan, iguales para todos; (3) el texto te queda sin tope, los medios van a tener cupo para todos, ustedes incluidos; (4) respondeme SÍ para confirmar, o te doy de baja sin cargo.' },
+  { id: 'trampa', titulo: 'No prometer «te queda todo ilimitado»', cuerpo: 'Se grandfatherea lo que existe, nunca lo que todavía no se escribió. Si el email dice «ilimitado» y en tres meses aparece el botón de Reels, esos tres son los únicos usuarios sin tope de la feature más cara del producto. Sacarle un tope a alguien que nunca lo tuvo es la conversación que Docker y Unity perdieron; nacer con tope es gratis, porque nadie extraña lo que nunca tuvo.' },
+];
+
+/** Lo que hay que construir, en orden — y el orden ES el del riesgo. */
+export const ORDEN_DE_TRABAJO = [
+  { n: 1, que: 'Atribuir el gasto de Anthropic al workspace del request. Sin esto ningún tope es implementable, para nadie', vive: 'lib/anthropic-usage.ts:15-25' },
+  { n: 2, que: 'Índice (workspace_id, created_at) en anthropic_usage', vive: 'migración nueva' },
+  { n: 3, que: 'workspaces.plan + plan_limites + workspace_limites', vive: 'supabase/migrations/0125' },
+  { n: 4, que: 'lib/planes.ts — catálogo puro, FAIL-CLOSED: plan desconocido cae al más restrictivo (al revés de capaDef, que cae a «completo»)', vive: 'lib/planes.ts (nuevo)' },
+  { n: 5, que: 'El gate DENTRO de cada cron y cada webhook, escrito en positivo. No pasan por la sesión: un gate en capas.ts esconde tabs y no frena un dólar', vive: 'lib/cron-workspaces.ts · app/api/webhooks/*' },
+  { n: 6, que: 'presupuestoRestante(ws) PRE-FLIGHT, antes del fetch. Hoy no existe ninguna primitiva de denegación por consumo', vive: 'lib/anthropic.ts · lib/ai-cheap.ts' },
+  { n: 7, que: 'Ledger de MaKo Tokens append-only. El saldo se DERIVA de la suma, nunca un contador mutable: ese bug ya se pagó en la mig. 0113', vive: 'migración 0126 · lib/tokens.ts' },
+  { n: 8, que: 'Alta pública de usuario y workspace. El callback de Google devuelve no-autorizado si el email no está en usuarios: hoy no hay nada entre el pago y el primer login', vive: 'app/api/auth/callback/google' },
+  { n: 9, que: 'Paddle: 4 Prices + pack, /precios, /checkout, webhook, campo RFC/NIT', vive: 'app/precios · app/checkout' },
+  { n: 10, que: 'Key de plataforma para el Free. ÚLTIMO — no antes de 1-7', vive: 'lib/credenciales.ts' },
+  { n: 11, que: 'Image Generator primero (10× más barato y más simple que el video, y sus dos insumos ya existen), después Video y Reels', vive: 'app/image-generator' },
+];
+
+/** Los huecos que quedan abiertos, y son bloqueantes. */
+export const HUECOS = [
+  'No existe ninguna página legal — ni /terminos, ni /privacidad, ni /reembolsos — en un producto con landing pública de venta. Un merchant of record APRUEBA el negocio antes de activarte y las pide: es un gate de días o semanas ANTES del primer cobro.',
+  'Falta el impuesto del que COBRA, no el del que compra. Qué entidad factura y en qué país condiciona todos los netos: si es argentina, el payout en USD entra al régimen cambiario y paga Ingresos Brutos.',
+  '¿Los tres clientes actuales pagan algo hoy? `workspaces` no tiene columna de precio, plan ni fecha de renovación. Si son acuerdos de agencia, «congelar el precio» no significa nada y lo único que se congela es el alcance.',
+  'El PDF que entrega Paddle en México no está documentado: hay que hacer una compra de prueba en sandbox con RFC y pasárselo a un contador mexicano. Que el contador de un cliente ACEPTE un PDF extranjero es un hecho comercial que nadie verificó.',
+];
+
 // ── Lo que este análisis daba por cierto y NO lo es ─────────────────────────
 // Salió del crítico de completitud del paso 3 y se verificó a mano contra el
 // código. Va EN LA PANTALLA, no en una nota al pie: son las que invalidan

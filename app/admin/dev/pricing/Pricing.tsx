@@ -27,6 +27,8 @@ import {
   DATO_FALSO, ECONOMIA, EL_ACCIDENTE, EL_COSTO_ES_EL_VIDEO, ESCENARIOS, EXPOSICION, IMAGEN,
   MARKUP_MT, MEDICION, MT_POR_USD, PERFILES, PLANES, RERUTEO, RETENCION, RETENCION_FUENTE,
   RIESGO_QUE_QUEDA, RUTEO, SALVEDADES, TARIFA, VIDEO, VIDEO_15S,
+  BYOK, COBRO, CUARTO_PLAN, FUERA_DE_GRILLA, GANCHO, GRANDFATHER, GRILLA, HUECOS,
+  ORDEN_DE_TRABAJO, PRECIOS, type Bloque, type Celda as CeldaT,
   aMes, costoUnitario, margen, techoIa,
 } from './modelo';
 
@@ -77,8 +79,23 @@ function Fila({ cols, plantilla, head = false }: { cols: React.ReactNode[]; plan
 const Num = ({ children }: { children: React.ReactNode }) => (
   <span style={{ fontFamily: MONO, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{children}</span>
 );
+/** Una celda de la grilla. El valor SIEMPRE es texto o símbolo, nunca solo color:
+ *  un tilde verde y una raya gris se ven igual en escala de grises y para quien
+ *  no distingue rojo de verde. */
+const Celda = ({ v }: { v: CeldaT }) => {
+  if (v === true) return <span style={{ color: 'var(--good)', fontSize: 13 }} title="incluido">✓</span>;
+  if (v === false) return <span style={{ color: 'var(--faint)', fontSize: 13 }} title="no incluido">—</span>;
+  return <span style={{ fontSize: 11.5, color: 'var(--ink)' }}>{v}</span>;
+};
 const Nota = ({ children }: { children: React.ReactNode }) => (
   <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 14px', maxWidth: '72ch', lineHeight: 1.6 }}>{children}</p>
+);
+const BloqueTexto = ({ b }: { b: Bloque }) => (
+  <div style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
+    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{b.titulo}</div>
+    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, lineHeight: 1.6, maxWidth: '76ch' }}>{b.cuerpo}</div>
+    {b.fuente && <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4 }}>{b.fuente}</div>}
+  </div>
 );
 const Fuente = ({ children }: { children: React.ReactNode }) => (
   <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 12 }}>{children}</div>
@@ -422,39 +439,68 @@ export function Pricing() {
       </Section>
 
       {/* ── LOS PLANES ────────────────────────────────────────────────────── */}
+      {/* Cuatro columnas, y la del Growth va marcada como lista de espera: su
+          gancho entero (Image y Video Generator) es ComingSoon. Un tercer plan
+          vacío no es un ancla de precio, es un reembolso. */}
       <Section titulo="Los planes" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>1.000 MaKo Tokens = US$1 de precio de lista · {usd(1000 / MT_POR_USD / MARKUP_MT)} de costo</span>} card>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16 }}>
-          {PLANES.map((p) => {
-            // Lo que cuesta el cupo entero SI se consume todo, que es el peor caso.
-            const costo = CUPO_MT[p.id] / MT_POR_USD / MARKUP_MT;
-            // El cupo es lo que se VENDE; el perfil es lo que se proyecta que el
-            // cliente va a consumir de verdad. Mostrar solo el primero escondía
-            // que en el Growth el consumo proyectado se come el cupo entero.
-            const perfil = PERFILES.find((x) => x.plan === p.id);
-            const m = margen(p, perfil?.iaUsd ?? costo);
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 14, marginBottom: 20 }}>
+          {PRECIOS.map((pr) => {
+            const perfil = PERFILES.find((x) => x.plan === pr.plan);
+            const espera = pr.plan === 'growth' || pr.plan === 'agencia';
             return (
-              <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: 15 }}>
-                <Eyebrow>{p.label}</Eyebrow>
-                <div style={{ fontSize: 25, margin: '5px 0 1px', fontWeight: 600, letterSpacing: '-.02em' }}>
-                  {p.precioUsd === 0 ? 'Gratis' : `US$${p.precioUsd}`}
-                  {p.precioUsd > 0 && <span style={{ fontSize: 12, color: 'var(--faint)', fontWeight: 400 }}>/mes</span>}
+              <div key={pr.plan} style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: 15, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                  <Eyebrow>{pr.plan}</Eyebrow>
+                  {espera && <span style={{ fontSize: 10, color: 'var(--warn)', fontFamily: MONO }}>en espera</span>}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--muted)' }}>
-                  cupo {miles(CUPO_MT[p.id])} MT{p.id === 'free' ? ' · por única vez' : '/mes'}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, margin: '6px 0 2px' }}>
+                  <span style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-.02em' }}>{pr.mensualUsd === 0 ? 'Gratis' : `US$${pr.mensualUsd}`}</span>
+                  {pr.mensualUsd > 0 && <span style={{ fontSize: 12, color: 'var(--faint)' }}>/mes</span>}
                 </div>
-                {perfil && (
-                  <div style={{ fontFamily: MONO, fontSize: 11.5, color: perfil.iaUsd > costo ? 'var(--warn)' : 'var(--faint)', marginBottom: 9 }}>
-                    proyectado {usd(perfil.iaUsd)} de IA{perfil.mediosUsd > 0 ? ` (${usd(perfil.mediosUsd)} medios)` : ''}
+                {pr.anualUsd !== null && (
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--muted)' }}>
+                    US${miles(pr.anualUsd)}/año · {pr.descuento}
                   </div>
                 )}
-                {m !== null && <Status tono={m >= 70 ? 'good' : 'bad'}>{`margen ${m.toFixed(0)}%`}</Status>}
-                <ul style={{ margin: '10px 0 0', paddingLeft: 15, fontSize: 12, lineHeight: 1.65 }}>
-                  {p.incluye.map((i) => <li key={i}>{i}</li>)}
-                  {p.noIncluye.map((i) => <li key={i} style={{ color: 'var(--faint)', textDecoration: 'line-through' }}>{i}</li>)}
-                </ul>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>
+                  {pr.netoMensualUsd > 0 ? `neto ${usd(pr.netoMensualUsd)} · ` : ''}cupo {miles(CUPO_MT[pr.plan as keyof typeof CUPO_MT] ?? 150000)} MT
+                </div>
+                {perfil && perfil.precioUsd > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <Status tono={margen({ ...PLANES[0], precioUsd: pr.netoMensualUsd }, perfil.iaUsd)! >= 70 ? 'good' : 'warn'}>
+                      {`margen ${num(margen({ ...PLANES[0], precioUsd: pr.netoMensualUsd }, perfil.iaUsd)!, 0)}% sobre neto`}
+                    </Status>
+                  </div>
+                )}
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 9, lineHeight: 1.5 }}>{GANCHO[pr.plan]}</div>
               </div>
             );
           })}
+        </div>
+
+        <Eyebrow>Qué entra en cada uno</Eyebrow>
+        <Fila head plantilla="minmax(0,2fr) 1fr 1fr 1fr 1fr" cols={['', 'Free', 'Pro', 'Growth', 'Agencia']} />
+        {GRILLA.map((g) => (
+          <div key={g.grupo} style={{ marginBottom: 10 }}>
+            <div style={{ ...{ fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase' as const }, color: 'var(--faint)', fontFamily: MONO, margin: '10px 0 2px' }}>{g.grupo}</div>
+            {g.filas.map((f) => (
+              <Fila key={f.que} plantilla="minmax(0,2fr) 1fr 1fr 1fr 1fr"
+                cols={[f.que, ...(['free', 'pro', 'growth', 'agencia'] as const).map((c) => <Celda key={c} v={f[c]} />)]} />
+            ))}
+          </div>
+        ))}
+
+        <div style={{ marginTop: 16, padding: 13, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
+          <Status tono="warn">Por qué el Growth va en lista de espera</Status>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6, maxWidth: '74ch' }}>{FUERA_DE_GRILLA.growthEnEspera}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10, lineHeight: 1.6, maxWidth: '74ch' }}>
+            <strong style={{ color: 'var(--ink)' }}>Y tres trampas peores que un ComingSoon</strong>, porque figuran como listo o parcial y se venderían sin querer:
+          </div>
+          <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, maxWidth: '74ch' }}>
+            {FUERA_DE_GRILLA.trampas.map((t) => (
+              <li key={t.que}><strong style={{ color: 'var(--ink)' }}>{t.que}</strong> — {t.por}</li>
+            ))}
+          </ul>
         </div>
       </Section>
 
@@ -476,6 +522,47 @@ export function Pricing() {
               {s.vive !== '—' && <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4 }}>{s.vive}</div>}
             </div>
           ))}
+        </Plegable>
+
+        {/* El respaldo de los pasos 3 y 4, que hasta acá no había llegado a la
+            pantalla: dos corridas de 24 agentes cuyo resultado vivía solo en el
+            documento. Un análisis que no se puede auditar desde donde se decide
+            es un análisis que nadie va a auditar. */}
+        <Plegable titulo="BYOK vs MaKo Tokens — las dos economías" resumen={`${BYOK.length} hallazgos · por qué va en el Growth sin bajar el precio, y solo para texto`}>
+          {BYOK.map((b) => <BloqueTexto key={b.id} b={b} />)}
+        </Plegable>
+
+        <Plegable titulo="Por qué NO hay un 4º plan (todavía)" resumen={`${CUARTO_PLAN.length} premisas que lo empujaban, y por qué se caen`}>
+          {CUARTO_PLAN.map((b) => <BloqueTexto key={b.id} b={b} />)}
+        </Plegable>
+
+        <Plegable titulo="El precio NETO: Paddle, IVA y el CFDI" resumen={`${COBRO.length} hallazgos · lo que de verdad entra a la cuenta`}>
+          {COBRO.map((b) => <BloqueTexto key={b.id} b={b} />)}
+        </Plegable>
+
+        <Plegable titulo="Los tres clientes que ya están adentro" resumen="quiénes son de verdad, qué se les dice y qué NO prometerles">
+          {GRANDFATHER.map((b) => <BloqueTexto key={b.id} b={b} />)}
+        </Plegable>
+
+        <Plegable titulo="Lo que hay que construir, en orden" resumen={`${ORDEN_DE_TRABAJO.length} pasos — y el orden ES el del riesgo`}>
+          <Nota>
+            Hoy nada cuesta plata <strong>por accidente</strong>: un cliente sin key propia no gasta
+            porque la llamada explota. El día que la plataforma sirva su propia key para que exista
+            el Free, los seis caminos automáticos facturan solos. Invertir este orden es abrir la
+            canilla y después buscar la llave.
+          </Nota>
+          <Fila head plantilla="30px minmax(0,3fr) minmax(0,1.4fr)" cols={['#', 'Qué', 'Dónde vive']} />
+          {ORDEN_DE_TRABAJO.map((o) => (
+            <Fila key={o.n} plantilla="30px minmax(0,3fr) minmax(0,1.4fr)"
+              cols={[<Num key="n">{o.n}</Num>, o.que,
+                <span key="v" style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{o.vive}</span>]} />
+          ))}
+        </Plegable>
+
+        <Plegable titulo="⚠️ Los huecos bloqueantes" resumen={`${HUECOS.length} cosas que frenan el primer cobro`}>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65, maxWidth: '76ch' }}>
+            {HUECOS.map((h, i) => <li key={i} style={{ marginBottom: 8 }}>{h}</li>)}
+          </ul>
         </Plegable>
 
         <Plegable titulo="La tarifa completa" resumen={`las ${TARIFA.length} operaciones, con su costo real y de dónde sale`}>
