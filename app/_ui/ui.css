@@ -563,6 +563,54 @@
   line-height: 1;
 }
 
+/* ── EN CURSO ─────────────────────────────────────────────────────────────
+   Que MaKo esté trabajando NO merece una caja: merece una línea. Una tarjeta
+   entera para «estoy revisando» ocupa el lugar de lo que sí tenés que leer, y
+   encima desaparece a los segundos — deja un hueco que salta. */
+.mk-mako--curso {
+  gap: 6px;
+  padding: 8px 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+.mk-mako--curso .mk-mako__cab { flex-wrap: wrap; gap: 6px; }
+.mk-mako--curso .mk-mako__t { font-size: var(--fs-sm); font-weight: 500; }
+.mk-mako--curso .mk-mako__proc { flex-direction: row; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ── EN LÍNEA (el patrón de Linear) ───────────────────────────────────────
+   La sugerencia pegada al dato que propone cambiar, con sus dos salidas y sin
+   robar espacio. El «por qué» va en el `title` del elemento: aparece al pasar
+   el cursor y no empuja nada.
+   Es la diferencia entre una IA atornillada al costado de la pantalla y una que
+   vive donde estás trabajando. */
+.mk-mako--inline {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 8px;
+  background: var(--mako-bg);
+  border: 1px solid var(--mako-border);
+  border-radius: var(--r-sm);
+}
+.mk-mako--inline .mk-mako__t {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+/* El botón principal de una tarjeta que te ESPERA toma el color del estado, no
+   el azul de acción. Un botón azul adentro de una tarjeta naranja son dos
+   acentos peleando en la misma caja, y la regla de la casa dice que el color
+   tiene un solo significado por vez. */
+.mk-mako--espera .mk-btn--primary {
+  background: var(--warn-fill);
+  border-color: var(--warn-fill);
+}
+.mk-mako--espera .mk-btn--primary:hover { background: var(--warn); border-color: var(--warn); }
+
 /* La caja de la marca: cuadrada, fija, y centra su contenido. Es lo que hace
    que una estrella de 14 px y un punto de 7 px ocupen lo mismo. */
 .mk-mako__marca {

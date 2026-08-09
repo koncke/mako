@@ -53,8 +53,23 @@ export type MakoProps = {
   importancia?: 'alta' | 'media' | 'baja';
   accion?: Accion;
   secundaria?: Accion;
+  /**
+   * Deshacer. Va SOLO en `completo`, y es la pieza que permite que MaKo haga las
+   * cosas reversibles sin pedir permiso: si se puede desandar, se hace y se
+   * ofrece esto. Sin Deshacer, la única salida honesta es `aprobacion`.
+   */
+  deshacer?: Accion;
   /** Versión de una línea, para una fila de tabla o el encabezado de una card. */
   compacto?: boolean;
+  /**
+   * La sugerencia va PEGADA al dato que propone cambiar, no en una tarjeta
+   * aparte — el patrón de Linear. El «por qué» no ocupa espacio: viaja en el
+   * title y aparece al pasar el cursor.
+   *
+   * Es la diferencia entre «un panel de IA atornillado al costado» y una IA que
+   * vive donde estás trabajando.
+   */
+  inline?: boolean;
 };
 
 /**
@@ -103,7 +118,7 @@ function useAvisoDeDesarrollo(estado: EstadoMako, props: MakoProps) {
   }, [estado, props]);
 }
 
-function Boton({ a, variant }: { a: Accion; variant: 'primary' | 'tertiary' }) {
+function Boton({ a, variant }: { a: Accion; variant: 'primary' | 'secondary' | 'tertiary' }) {
   if (a.href) return <ButtonLink href={a.href} size="sm" variant={variant}>{a.label}</ButtonLink>;
   return <Button size="sm" variant={variant} onClick={a.onClick}>{a.label}</Button>;
 }
@@ -113,7 +128,7 @@ const IMPORTANCIA: Record<'alta' | 'media' | 'baja', string> = {
 };
 
 export function Mako(props: MakoProps) {
-  const { estado, titulo, detalle, datos, evidencia, fuente, progreso, importancia, accion, secundaria, compacto } = props;
+  const { estado, titulo, detalle, datos, evidencia, fuente, progreso, importancia, accion, secundaria, deshacer, compacto, inline } = props;
   const def = GRAMATICA[estado];
   const t = TONO[def.tono];
   useAvisoDeDesarrollo(estado, props);
@@ -141,6 +156,56 @@ export function Mako(props: MakoProps) {
     );
   }
 
+  // ── EN LÍNEA (el patrón de Linear) ────────────────────────────────────────
+  // La sugerencia pegada al dato, con dos salidas y sin robar espacio. El «por
+  // qué» va en el `title`: aparece al pasar el cursor y no empuja nada.
+  if (inline) {
+    const porQue = [detalle, ...(datos ?? []).map((d) => `${d.k}: ${typeof d.v === 'string' ? d.v : ''}`)]
+      .filter(Boolean).join(' · ');
+    return (
+      <span className="mk-mako mk-mako--inline" title={porQue || undefined}>
+        {marca}
+        <span className="mk-mako__t">{titulo}</span>
+        {/* Secundario, NO primario: un botón azul lleno adentro de una pastilla
+            dorada de 28 px son dos acentos peleando otra vez, y encima le da a
+            una sugerencia el peso de la acción principal de la pantalla. */}
+        {accion && <Boton a={accion} variant="secondary" />}
+        {secundaria && <Boton a={secundaria} variant="tertiary" />}
+      </span>
+    );
+  }
+
+  // ── EN CURSO ──────────────────────────────────────────────────────────────
+  // NO es una tarjeta. Que MaKo esté trabajando no merece una caja: merece una
+  // línea. Y el rótulo viaja pegado a la fuente, porque «Revisando» solo no dice
+  // nada — es el «Processing…» que Apple marca como el copy a evitar.
+  if (def.forma === 'curso') {
+    return (
+      <div className="mk-mako mk-mako--curso" role="status" aria-live="polite">
+        <div className="mk-mako__cab">
+          {marca}
+          <span className="mk-mako__rot" style={{ color: t.ink }}>{def.rotulo}</span>
+          {fuente && <span className="mk-mako__fuente">· {fuente}</span>}
+          {titulo && <span className="mk-mako__t">{titulo}</span>}
+        </div>
+        {/* La barra va acotada y pegada a su línea. A todo el ancho de la
+            pantalla, una barra de 4 px se lee como un renglón cortado, no como
+            progreso — y los datos van en la MISMA línea, no sueltos abajo:
+            «Van: 1 de 3» colgando solo parecía texto que sobró. */}
+        <div className="mk-mako__proc">
+          {/* `flex: '0 0 220px'` y no `maxWidth`: adentro de una fila flex un
+              contenedor sin ancho se encoge a su contenido, y como la barra mide
+              100% del padre, el resultado era 0 px — la barra existía y no se
+              veía. Justo en el estado que sin progreso no comunica nada. */}
+          {progreso !== undefined && <span style={{ flex: '0 0 220px' }}><Progress value={progreso} tono="mako" /></span>}
+          {!!datos?.length && (
+            <span className="mk-mako__fuente">{datos.map((d) => `${d.k} ${typeof d.v === 'string' ? d.v : ''}`).join(' · ')}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // El fondo del tono SOLO cuando el estado te está esperando. Para el resto, la
   // tarjeta común: el estado ya lo dicen la marca y el rótulo, y pintar las nueve
   // deja el color sin significado justo donde hace falta que lo tenga.
@@ -148,7 +213,12 @@ export function Mako(props: MakoProps) {
 
   return (
     <div
-      className="mk-mako"
+      // El botón toma el color del estado SOLO en la aprobación (tono warn).
+      // «Falta un dato» también espera al usuario, pero su acción —«Ir a
+      // completarlos en el CRM»— es navegación normal y le toca el azul de
+      // siempre: azul es «vos actuás». Pintarlo naranja como la aprobación decía
+      // «cuidado» donde no hay ningún riesgo.
+      className={`mk-mako${esperando && def.tono === 'warn' ? ' mk-mako--espera' : ''}`}
       // `aria-live` solo donde el estado CAMBIA solo: anunciar una tarjeta
       // estática cada vez que se monta es ruido para quien usa lector.
       role={enProceso ? 'status' : undefined}
@@ -191,9 +261,13 @@ export function Mako(props: MakoProps) {
         </details>
       )}
 
-      {(accion || secundaria) && (
+      {(accion || secundaria || deshacer) && (
         <div className="mk-row" style={{ marginTop: 2 }}>
           {accion && <Boton a={accion} variant="primary" />}
+          {/* Deshacer NO es la acción principal: es la salida de emergencia de
+              algo que ya pasó. En secundario, y siempre primero entre las
+              secundarias — es lo que la gente busca cuando se arrepiente. */}
+          {deshacer && <Boton a={deshacer} variant="secondary" />}
           {secundaria && <Boton a={secundaria} variant="tertiary" />}
         </div>
       )}

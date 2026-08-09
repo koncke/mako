@@ -86,9 +86,31 @@ export type EstadoMako =
   | 'vigila'
   | 'sin_conclusion';
 
+/**
+ * Las TRES formas en pantalla. Los nueve estados siguen siendo nueve —definen
+ * qué campos son obligatorios, que es para lo que sirven— pero **no son nueve
+ * cajas distintas**.
+ *
+ * Nueve tratamientos visuales fue el error de la primera versión: nadie
+ * distingue nueve cajas y el resultado era una bolsa de tarjetas de colores. Las
+ * referencias coinciden en un vocabulario chico: Linear usa cinco tipos para sus
+ * agentes (thought · action · elicitation · response · error) y Copilot tres
+ * (plan · aprobar · ejecutar).
+ *
+ * Frente a una pantalla el usuario se hace TRES preguntas, y de ahí salen las
+ * tres formas:
+ *
+ *   decision  ¿tengo que decidir algo?   → tarjeta con salidas explícitas
+ *   curso     ¿está pasando algo?        → una línea con progreso y fuente
+ *   aviso     ¿me estoy enterando?       → tarjeta tranquila, sin acciones
+ */
+export type FormaMako = 'decision' | 'curso' | 'aviso';
+
 export type DefEstado = {
   /** Lo que LEE el usuario. Es lo que tiene que ser igual en las cuatro tabs. */
   rotulo: string;
+  /** Cuál de las tres formas usa en pantalla. */
+  forma: FormaMako;
   tono: Tono;
   /** Qué comunica, para quien elige el estado desde el código. */
   comunica: string;
@@ -112,13 +134,22 @@ export type DefEstado = {
  */
 export const GRAMATICA: Record<EstadoMako, DefEstado> = {
   detecto: {
-    rotulo: 'MaKo detectó',
+    // ⚠️ Los rótulos NO nombran a MaKo. Cinco de los nueve decían «MaKo algo»:
+    // la IA hablando de sí misma en vez de decirte qué pasa. Y en el chip, «MaKo
+    // detectó» es un pasado sin objeto que no informa nada. El dorado ya dice
+    // que intervino la inteligencia; repetir el nombre es ruido.
+    rotulo: 'Algo cambió',
+    forma: 'aviso',
     tono: 'mako',
     comunica: 'Encontró una señal que merece atención. Todavía no dice qué hacer.',
     exige: ['un indicador discreto', 'la evidencia resumida', 'el nivel de importancia'],
   },
   analizando: {
-    rotulo: 'Analizando',
+    // «Analizando» a secas es lenguaje de spinner. Apple lo marca explícitamente:
+    // en vez de «Processing…», nombrar la subtarea real. Por eso el rótulo viaja
+    // SIEMPRE con la fuente al lado («Revisando · 14 campañas activas»).
+    rotulo: 'Revisando',
+    forma: 'curso',
     tono: 'mako',
     comunica: 'Está trabajando ahora. El usuario tiene que poder ver sobre qué.',
     // ⚠️ Textual del documento: «no usar animación decorativa indefinida». Un
@@ -127,21 +158,32 @@ export const GRAMATICA: Record<EstadoMako, DefEstado> = {
     exige: ['progreso real', 'la fuente de datos que está leyendo'],
   },
   explica: {
-    rotulo: 'MaKo explica',
+    rotulo: 'Por qué pasa',
+    forma: 'aviso',
     tono: 'mako',
     comunica: 'Traduce lo que encontró. Es el estado que construye confianza.',
     exige: ['un título directo', 'la evidencia, expandible'],
   },
   recomienda: {
-    rotulo: 'MaKo recomienda',
+    // Es `decision` y no `aviso`: trae dos salidas (aceptar / descartar), igual
+    // que una sugerencia de Linear. «Recomienda» sonaba opcional y blando para
+    // una tarjeta que exige cinco campos duros y termina en un botón.
+    rotulo: 'Qué conviene hacer',
+    forma: 'decision',
     tono: 'mako',
     comunica: 'Propone una acción concreta. Sin los cinco campos es un consejo genérico.',
     exige: ['la acción', 'el impacto esperado', 'el esfuerzo', 'el responsable', 'con qué objetivo se relaciona'],
   },
   aprobacion: {
-    rotulo: 'Necesita tu aprobación',
+    // ⚠️ SOLO para lo IRREVERSIBLE. Lo que se puede desandar —pausar, renombrar,
+    // mover presupuesto— se hace y se ofrece `completo` con Deshacer. La razón no
+    // es comodidad: un diálogo de confirmación pierde poder con el uso («if you
+    // warn people too much, they stop paying attention», NN/g), así que gastarlo
+    // en lo reversible deja sin efecto el día que MaKo quiera borrar algo.
+    rotulo: 'Esperando tu aprobación',
+    forma: 'decision',
     tono: 'warn',
-    comunica: 'Puede hacerlo, y no lo hace hasta que le digas que sí.',
+    comunica: 'Solo para lo que no se puede deshacer. Nada se mueve hasta tu sí.',
     exige: ['el alcance', 'los cambios previstos'],
     esperaAlUsuario: true,
   },
@@ -149,10 +191,12 @@ export const GRAMATICA: Record<EstadoMako, DefEstado> = {
     // Dorado y no azul, aunque «está pasando algo» tiente a usar el azul de
     // acción: el azul es «VOS actuás» y acá el que actúa es MaKo. Se vio recién
     // al renderizar los nueve juntos — ocho dorados y uno azul en el medio, sin
-    // que nada explicara por qué ése era distinto. La regla de la Parte 1 es
-    // que ver dorado alcance para saber que intervino la inteligencia, y un
-    // «MaKo está ejecutando» azul es exactamente el caso que la rompe.
-    rotulo: 'MaKo está ejecutando',
+    // que nada explicara por qué ése era distinto.
+    //
+    // «Ejecutando» era jerga de sistema y encima redundante: el título ya decía
+    // «Pausando los anuncios en Meta».
+    rotulo: 'Aplicando el cambio',
+    forma: 'curso',
     tono: 'mako',
     comunica: 'Está haciendo el cambio. Sobrevive a que cierres la pantalla.',
     // «Persistente» es la palabra del documento y es un requisito de verdad: si
@@ -161,19 +205,32 @@ export const GRAMATICA: Record<EstadoMako, DefEstado> = {
     exige: ['un estado persistente', 'qué elementos toca'],
   },
   completo: {
-    rotulo: 'Listo',
+    // «Listo» es ambiguo en español: significa «terminado» y también «preparado
+    // para arrancar». En un estado final esa ambigüedad se paga. Y obligaba a
+    // repetirlo en el título («Listo: 3 anuncios pausados»), que es justo donde
+    // tiene que ir el RESULTADO.
+    rotulo: 'Hecho',
+    forma: 'aviso',
     tono: 'good',
-    comunica: 'Terminó. Cierra el ciclo diciendo qué cambió y cuándo se revisa.',
+    comunica: 'Terminó. Si la acción se puede desandar, acá va el Deshacer.',
     exige: ['el resultado', 'los cambios', 'el próximo control'],
   },
   vigila: {
-    rotulo: 'MaKo vigila',
+    // «MaKo vigila», sin objeto, se lee como que te vigilan a vos. Y chocaba con
+    // su propio ejemplo, escrito en primera persona: dos voces en una tarjeta.
+    rotulo: 'En seguimiento',
+    forma: 'aviso',
     tono: 'mako',
     comunica: 'Quedó una guardia puesta. Es el estado del Perro Guardián.',
     exige: ['la condición', 'la frecuencia', 'la última revisión', 'el criterio de alerta'],
   },
   sin_conclusion: {
-    rotulo: 'No alcanza para concluir',
+    // «No alcanza para concluir» es jerga de informe y suena a fracaso — que es
+    // exactamente lo que este estado NO es. Nombrar la causa («falta un dato»)
+    // ya insinúa la salida, que es lo que pide el capítulo de failstates de PAIR:
+    // explicar el límite y dar un camino concreto, nunca un error genérico.
+    rotulo: 'Falta un dato',
+    forma: 'decision',
     tono: 'neutral',
     comunica: 'Le falta información. NO es un error: es un pedido de datos.',
     // La diferencia con ErrorState importa. Un error se reintenta; esto no se

@@ -20,9 +20,8 @@
 // piezas**. Regla de la casa: título corto y nada de prosa debajo salvo pedido
 // explícito.
 
-import { useState } from 'react';
 import { Mako, Section, Status } from '@/app/_ui';
-import { ESTADOS, DESCRIPCIONES, type EstadoMako } from '@/lib/mako-gramatica';
+import { ESTADOS, GRAMATICA, DESCRIPCIONES, type EstadoMako } from '@/lib/mako-gramatica';
 
 /** Un ejemplo por estado, con los campos que ese estado está obligado a mostrar. */
 const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
@@ -33,11 +32,13 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     importancia: 'alta',
     evidencia: 'Meta Ads · 5 al 8 de agosto · 41 clics, 2 agendas. La campaña gemela con el mismo presupuesto mantuvo $430.',
   },
+  // El rótulo viaja con la fuente: «Revisando» solo es el «Processing…» que
+  // Apple marca como el copy a evitar.
   analizando: {
     estado: 'analizando',
-    titulo: 'Buscando por qué se cayó la conversión de la landing',
+    titulo: 'por qué cayó la conversión de la landing',
     progreso: 0.62,
-    fuente: 'landing_visits, vsl_events y las 14 campañas activas',
+    fuente: '14 campañas activas',
   },
   explica: {
     estado: 'explica',
@@ -47,41 +48,52 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
   },
   recomienda: {
     estado: 'recomienda',
-    titulo: 'Poné una miniatura con botón de play visible arriba del pliegue en mobile',
+    titulo: 'Poné el play visible arriba del pliegue en mobile',
     datos: [
-      { k: 'Impacto esperado', v: 'Reproducciones de +12% a ~35%' },
+      { k: 'Impacto esperado', v: 'Reproducciones de 12% a ~35%' },
       { k: 'Esfuerzo', v: 'Bajo · una tarde' },
       { k: 'Responsable', v: 'Martín' },
       { k: 'Objetivo', v: 'Bajar el costo por agenda' },
       { k: 'Se revisa', v: 'En 7 días' },
     ],
-    accion: { label: 'Convertir en tarea del Plan' },
-    secundaria: { label: 'No ahora' },
+    accion: { label: 'Pasar al Plan' },
+    secundaria: { label: 'Descartar' },
   },
+  // ⚠️ El ejemplo cambió a propósito. Antes era «pausar 3 anuncios», y pausar
+  // SE PUEDE DESHACER: pedir permiso ahí gasta la atención que hace falta el día
+  // que MaKo quiera hacer algo sin vuelta atrás. Mandar 340 mensajes no se
+  // desmanda. Ése es el caso que merece este estado.
+  //
+  // Y sin redundancia: el título dice QUÉ y por qué, «Alcance» dice solo DÓNDE y
+  // «Cambios» solo qué queda distinto. Ningún número ni verbo se repite.
   aprobacion: {
     estado: 'aprobacion',
-    titulo: 'Puedo pausar los 3 anuncios que gastaron más de $1.500 sin una sola agenda',
+    titulo: 'Enviar la secuencia de reactivación',
+    detalle: 'No se puede desenviar.',
     datos: [
-      { k: 'Alcance', v: '3 anuncios de 2 conjuntos, campaña «Retargeting · Agosto»' },
-      { k: 'Cambios', v: 'Pasan a PAUSADO en Meta. El presupuesto del conjunto no se toca' },
+      { k: 'A quiénes', v: '340 contactos sin respuesta hace más de 21 días' },
+      { k: 'Qué reciben', v: '3 mensajes de WhatsApp, uno por día, a las 10:00' },
     ],
-    accion: { label: 'Aprobar y pausar' },
-    secundaria: { label: 'Ver cuáles son' },
+    accion: { label: 'Enviar la secuencia' },
+    secundaria: { label: 'Ver la lista' },
   },
   ejecuta: {
     estado: 'ejecuta',
-    titulo: 'Pausando los anuncios en Meta',
+    titulo: '«Testimonial Ana 30s»',
+    fuente: 'Meta Ads',
     progreso: 0.33,
-    datos: [{ k: 'Elementos', v: '1 de 3 · «Testimonial Ana 30s»' }],
+    datos: [{ k: 'Van', v: '1 de 3' }],
   },
+  // El caso que ya no pide permiso: se hizo, y la salida es Deshacer.
   completo: {
     estado: 'completo',
-    titulo: 'Listo: 3 anuncios pausados',
+    titulo: '3 anuncios pausados',
+    detalle: 'Gastaban $4.480 sin traer una sola agenda.',
     datos: [
-      { k: 'Resultado', v: 'Se liberan ~$1.500/día de gasto sin retorno' },
-      { k: 'Cambios', v: '3 anuncios a PAUSADO · queda registrado en el historial' },
-      { k: 'Próximo control', v: 'Lunes 11, con el reporte semanal' },
+      { k: 'Cambios', v: 'Pasaron a pausado en Meta · queda en el historial' },
+      { k: 'Vuelvo a mirar', v: 'El lunes, con el reporte semanal' },
     ],
+    deshacer: { label: 'Deshacer' },
   },
   vigila: {
     estado: 'vigila',
@@ -103,9 +115,6 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
 };
 
 export function LaGramatica() {
-  // Arranca en «recomienda» porque es el más cargado: si ese entra bien en el
-  // ancho, los otros ocho también.
-  const [visto, setVisto] = useState<EstadoMako>('recomienda');
   return (
     <>
       {/* ⚠️ UNO A LA VEZ, no los nueve apilados.
@@ -114,17 +123,45 @@ export function LaGramatica() {
           una, adentro de una pantalla. Los chips hacen de selector, así que de
           paso dejan de ser decoración y se prueban solos: son la variante que va
           en una fila de tabla. */}
-      <Section titulo="Los nueve estados" card>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>
-          {ESTADOS.map((e) => (
-            <button key={e} type="button" onClick={() => setVisto(e)}
-              aria-pressed={visto === e}
-              style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', borderRadius: 999, opacity: visto === e ? 1 : 0.5 }}>
-              <Mako estado={e} compacto />
-            </button>
-          ))}
+      <Section titulo="Tenés que decidir" card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {ESTADOS.filter((e) => GRAMATICA[e].forma === 'decision').map((e) => <Mako key={e} {...EJEMPLOS[e]} />)}
         </div>
-        <Mako {...EJEMPLOS[visto]} />
+      </Section>
+
+      <Section titulo="Está pasando algo" card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {ESTADOS.filter((e) => GRAMATICA[e].forma === 'curso').map((e) => <Mako key={e} {...EJEMPLOS[e]} />)}
+        </div>
+      </Section>
+
+      <Section titulo="Te estás enterando" card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {ESTADOS.filter((e) => GRAMATICA[e].forma === 'aviso').map((e) => <Mako key={e} {...EJEMPLOS[e]} />)}
+        </div>
+      </Section>
+
+      {/* El patrón de Linear: la sugerencia pegada al campo que propone cambiar,
+          no en una tarjeta aparte. El «por qué» aparece al pasar el cursor. */}
+      <Section titulo="Pegado al dato" card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 460 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>Responsable</span>
+            <Mako estado="recomienda" inline titulo="Martín" detalle="Cerró las últimas 4 tareas de esta campaña."
+              accion={{ label: 'Asignar' }} secundaria={{ label: 'No' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>Etapa</span>
+            <Mako estado="recomienda" inline titulo="Cualificado" detalle="Pidió precio y dejó teléfono."
+              accion={{ label: 'Mover' }} secundaria={{ label: 'No' }} />
+          </div>
+        </div>
+      </Section>
+
+      <Section titulo="En una fila" card>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+          {ESTADOS.map((e) => <Mako key={e} estado={e} compacto />)}
+        </div>
       </Section>
 
       <Section titulo="Second Brain y Perro Guardián" card>
