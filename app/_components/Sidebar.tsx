@@ -73,7 +73,7 @@ type Tema = 'oscuro' | 'claro';
  * El hover y el foco NO están acá: viven en `.mk-navrow` (ui.css), porque un
  * `style` en línea no los tiene. Sin ellos la barra no se siente navegable.
  */
-function filaStyle(expandido: boolean): CSSProperties {
+export function filaStyle(expandido: boolean): CSSProperties {
   // Solo GEOMETRÍA. El color, el fondo, el peso y el indicador del activo viven
   // en `.mk-navrow` (ui.css) porque un estilo en línea le gana a cualquier regla
   // de hoja: mientras acá decía `background: transparent`, el `:hover` de la

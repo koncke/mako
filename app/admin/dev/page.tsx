@@ -19,15 +19,20 @@ import { MapaAreas, type AreaVista } from './MapaAreas';
 
 export const dynamic = 'force-dynamic';
 
-const PROPOSITO: Record<string, string> = {
-  Operate: 'El día a día del cliente',
-  Analyze: 'Mirar y entender',
-  'Sales Machine': 'Convertir',
-  'Content Machine': 'Producir',
-  MaKo: 'La IA, de punta a punta',
-  Business: 'El negocio de MaKo',
-  Platform: 'Administrar la plataforma',
-  Infra: 'Lo que sostiene la app',
+// El propósito y el ícono de cada familia. Los cuatro primeros son los MISMOS que
+// usa `nav.ts` para su familia homónima: si acá dijeran otra cosa, esta pantalla
+// enseñaría una barra que no existe.
+const FAM_UI: Record<string, { proposito: string; icono: string }> = {
+  Operate: { proposito: 'El día a día del cliente', icono: 'rayo' },
+  Analyze: { proposito: 'Mirar y entender', icono: 'analytics' },
+  'Sales Machine': { proposito: 'Convertir', icono: 'sales' },
+  'Content Machine': { proposito: 'Producir', icono: 'creativos' },
+  MaKo: { proposito: 'La IA, de punta a punta', icono: 'mako' },
+  // Las tres que NO existen en `nav.ts` y hay que elegirles ícono. `tag` es el
+  // precio, `admin` el shell de la agencia y `tools` la caja de herramientas.
+  Business: { proposito: 'El negocio de MaKo', icono: 'tag' },
+  Platform: { proposito: 'Administrar la plataforma', icono: 'admin' },
+  Infra: { proposito: 'Lo que sostiene la app', icono: 'tools' },
 };
 
 export default async function DevPage() {
@@ -39,7 +44,8 @@ export default async function DevPage() {
   const conteo = await conteoPorArea();
   const familias = FAMILIAS.map((familia) => ({
     familia,
-    proposito: PROPOSITO[familia] ?? '',
+    proposito: FAM_UI[familia]?.proposito ?? '',
+    icono: FAM_UI[familia]?.icono ?? 'config',
     grupos: porGrupo(familia).map((g) => ({
       grupo: g.grupo,
       areas: g.areas.map((a): AreaVista => ({
