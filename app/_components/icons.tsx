@@ -117,6 +117,9 @@ const PATHS: Record<string, ReactNode> = {
   // Burbuja con chispa: CHAT AGENT. Antes usaba la etiqueta de precio, que no
   // decía nada del módulo. Esto sí: una conversación con inteligencia adentro.
   agente: (<><path d="M20.5 11.6a8 8 0 0 1-11.7 7.1L3.5 20l1.5-5.2a8 8 0 1 1 15.5-3.2Z" /><path d="M12 8.2 12.9 11l2.8.9-2.8.9-.9 2.8-.9-2.8-2.8-.9 2.8-.9Z" /></>),
+  // El tercer DownloadIcon del repo, pero el primero en el catálogo: hasta ahora vivía
+  // copiado en app/crm/CrmToolbar.tsx:62 y app/plan/board/BoardShell.tsx:997.
+  descargar: (<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></>),
   dot: (<circle cx="12" cy="12" r="3" />),
   // ── Íconos de la fábrica (SVG entregados por Martín) ──────────────────────
   // Vienen de archivos de 1500×1500 rellenos. Cada uno se escala y se centra

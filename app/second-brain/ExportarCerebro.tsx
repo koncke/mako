@@ -115,14 +115,14 @@ export function ExportarCerebro({ cerebro, conteo, onClose }: {
 
   return (
     <WizardShell
-      titulo={`Bajar tu segundo cerebro · ${resumen}`}
-      pasos={['Qué te llevás']}
-      pasoActual="Qué te llevás"
-      pregunta="¿Qué te llevás?"
+      titulo={`Exportar tu segundo cerebro · ${resumen}`}
+      pasos={['Áreas']}
+      pasoActual="Áreas"
+      pregunta="¿Qué áreas te llevas?"
       ancho={760}
       puedeAvanzar={hayAlgo}
       enUltimo
-      confirmLabel={bajando ? 'Armando el ZIP…' : hayAlgo ? 'Descargar ↓' : 'No hay nada para bajar'}
+      confirmLabel={bajando ? 'Armando el ZIP…' : hayAlgo ? `Descargar ${resumen} ↓` : 'No hay nada para bajar'}
       atrasLabel="Cancelar"
       onAtras={onClose}
       onSiguiente={() => {}}
@@ -162,8 +162,9 @@ export function ExportarCerebro({ cerebro, conteo, onClose }: {
         })}
 
         <p style={{ margin: '6px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--faint)', lineHeight: 1.55 }}>
-          Bajás una carpeta con archivos de texto. Cada uno dice de dónde salió el dato y con qué está conectado.
-          Si la abrís con Obsidian vas a ver el mismo mapa que acá.
+          Se descarga como un ZIP: adentro hay una carpeta por área y un archivo de texto por dato.
+          Cada archivo dice de dónde salió y con qué está conectado. Si lo abres con Obsidian vas a ver
+          el mismo mapa que aquí.
         </p>
       </div>
     </WizardShell>

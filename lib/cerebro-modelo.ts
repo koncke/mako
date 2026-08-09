@@ -18,18 +18,30 @@
 
 /** Las diez áreas del negocio. El orden ES el orden del reloj en el lienzo, y no
  *  es arbitrario: sigue el recorrido del onboarding, así que el mapa terminado se
- *  lee como la historia de cómo se construyó. */
+ *  lee como la historia de cómo se construyó.
+ *
+ *  ⚠️ EL `nombre` DE UN ÁREA SE CAMBIA EN DOS ARCHIVOS: acá y en `CARPETA` de
+ *  lib/vault.ts, que es como se llama la carpeta adentro del ZIP. Si se toca uno solo,
+ *  la pantalla dice «Avatares» y el ZIP sigue trayendo «08 Segmentos» — y nadie lo ve
+ *  hasta que un cliente abre el vault.
+ *
+ *  ⚠️ Los `que` son user-facing por partida DOBLE: son el subtítulo de cada opción en
+ *  el modal de exportación y el renglón de cada carpeta en el README del ZIP. No son
+ *  comentarios internos.
+ *
+ *  Y no llevan números adentro («los TRES segmentos», «sus SEIS planos»): un cliente
+ *  con cuatro avatares leía un texto que le mentía. */
 export const AREAS = [
-  { id: 'norte', nombre: 'Norte', color: 'var(--grafo-norte)', que: 'En qué fase está el negocio, qué lo frena y cómo vende.' },
+  { id: 'norte', nombre: 'Norte', color: 'var(--grafo-norte)', que: 'En qué fase está tu negocio, qué lo frena y por dónde vende.' },
   { id: 'documentos', nombre: 'Documentos', color: 'var(--grafo-documentos)', que: 'Lo que soltaste en el Archivero y MaKo leyó.' },
-  { id: 'panorama', nombre: 'Panorama', color: 'var(--grafo-panorama)', que: 'Lo que MaKo entendió del negocio, en sus seis planos.' },
-  { id: 'oferta', nombre: 'Oferta', color: 'var(--grafo-oferta)', que: 'Qué vendes, a cuánto, qué prometes y qué garantizas.' },
-  { id: 'cliente', nombre: 'Cliente', color: 'var(--grafo-cliente)', que: 'A quién le vendes, qué le duele y qué objeta.' },
-  { id: 'productos', nombre: 'Productos', color: 'var(--grafo-productos)', que: 'El catálogo con el que el CRM cierra cada venta.' },
-  { id: 'entregables', nombre: 'Gancho', color: 'var(--grafo-entregables)', que: 'El elemento tangible que hace deseable la oferta.' },
-  { id: 'avatares', nombre: 'Segmentos', color: 'var(--grafo-avatares)', que: 'Los tres segmentos que se pueden targetear en Meta.' },
-  { id: 'razones', nombre: 'Razones', color: 'var(--grafo-razones)', que: 'Por qué compra cada segmento: las celdas de la matriz.' },
-  { id: 'voz', nombre: 'Voz y cara', color: 'var(--grafo-voz)', que: 'Cómo suena tu marca y qué cara tiene en los creativos.' },
+  { id: 'panorama', nombre: 'Panorama', color: 'var(--grafo-panorama)', que: 'Lo que MaKo entendió de tu negocio, sección por sección.' },
+  { id: 'oferta', nombre: 'Oferta', color: 'var(--grafo-oferta)', que: 'Tu oferta principal: qué prometes, a cuánto y qué garantizas.' },
+  { id: 'cliente', nombre: 'Cliente', color: 'var(--grafo-cliente)', que: 'Tu cliente ideal: qué le duele, qué quiere y qué objeta.' },
+  { id: 'productos', nombre: 'Productos', color: 'var(--grafo-productos)', que: 'El catálogo que usa el CRM para cargar cada venta, con su precio.' },
+  { id: 'entregables', nombre: 'Lead Magnet', color: 'var(--grafo-entregables)', que: 'El elemento tangible que hace deseable la oferta.' },
+  { id: 'avatares', nombre: 'Avatares', color: 'var(--grafo-avatares)', que: 'Los públicos distintos a los que le vendes, separados para segmentarlos en Meta.' },
+  { id: 'razones', nombre: 'Razones', color: 'var(--grafo-razones)', que: 'Por qué te compra cada avatar. Cada razón es un anuncio distinto.' },
+  { id: 'voz', nombre: 'Voz y cara', color: 'var(--grafo-voz)', que: 'Cómo suena tu marca y qué cara le pones a tus anuncios.' },
 ] as const;
 
 /** El color de grupo de un área. Los tokens `--grafo-*` viven en app/globals.css y

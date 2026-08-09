@@ -7,24 +7,26 @@
 import { useState } from 'react';
 import { ExportarCerebro } from './ExportarCerebro';
 import type { Cerebro } from '@/lib/cerebro-modelo';
-import { MONO } from '@/app/_ui/tokens';
+import { Button } from '@/app/_ui';
+import { Icon } from '@/app/_components/icons';
 
 export function BotonExportar({ cerebro, conteo }: { cerebro: Cerebro; conteo: Record<string, number> }) {
   const [abierto, setAbierto] = useState(false);
   return (
     <>
-      <button
-        type="button"
+      {/* «Exportar», no «Bajar». El patrón de la casa tiene dos niveles y está cerrado
+          en cuatro pantallas: la ACCIÓN se llama Exportar/Importar y el botón que
+          dispara la descarga, ya adentro del modal, se llama «Descargar ↓». Y «Bajar»
+          además YA significa otra cosa acá: el «Bajar a tierra ↓» de /conocimiento no
+          descarga nada, internaliza un curso. */}
+      <Button
+        variant="secondary"
+        icon={<Icon name="descargar" size={16} />}
+        title="Exportar a carpetas y archivos de texto"
         onClick={() => setAbierto(true)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px',
-          borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)',
-          color: 'var(--ink)', cursor: 'pointer', fontFamily: MONO, fontSize: 11,
-          letterSpacing: '.06em', textTransform: 'uppercase',
-        }}
       >
-        Bajar ↓
-      </button>
+        Exportar
+      </Button>
       {abierto && <ExportarCerebro cerebro={cerebro} conteo={conteo} onClose={() => setAbierto(false)} />}
     </>
   );
