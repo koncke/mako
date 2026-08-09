@@ -724,13 +724,34 @@ Sobre el ws 11, con `scripts/medir-grafo.mjs`:
 | clustering | 0,15 | **0,21** ✓ |
 | componentes | 1 | 1 ✓ |
 | CV del radio | 0,39 | 0,41 ✓ |
-| **bins vacíos** | **4/36** ✓ | **6/36** ✗ |
+| bins vacíos | 4/36 | 6/36 (ver la corrección abajo) |
 
-El clustering sube un 40% —era el objetivo: el funnel es la única cadena que tiene el
-negocio— y **los bins vacíos se pasan del umbral**. Se probó la variante mínima (solo la
-fila Activo, 4 etapas) y también da 5/36: la línea base ya estaba **exactamente en el
-límite**, así que cualquier agregado la pasa. Queda anotado en vez de disimulado. Para
-referencia: el caso radial que este umbral vino a cazar daba 11/36.
+El clustering sube un 40%: era el objetivo, el funnel es la única cadena que tiene el
+negocio.
+
+⚠️ **CORRECCIÓN, y la escribo porque el error lo cometí acá.** Esta entrada decía que
+«los bins vacíos se pasan del umbral» y lo dejaba anotado como una deuda del layout. Las
+dos mitades están mal:
+
+1. **El umbral ≤4 es estadísticamente imposible de cumplir con pocos nodos.** Es un
+   problema de coleccionista de cupones: con `n` ángulos **uniformes** sobre 36 bins,
+   E[vacíos] = 36·(35/36)^n. Simulado con 60.000 corridas: n=42 → mediana **11** ·
+   n=61 → 6 · n=80 → 4 · n=100 → 2. O sea que a n=61 el umbral suspende a un grafo
+   perfectamente isótropo, y **solo se vuelve alcanzable a partir de n≈78**.
+2. **El «caso radial» que este umbral vino a cazar daba 11/36 con 42 nodos — que es
+   exactamente la mediana del azar.** La métrica nunca cazó nada. Lo que sí detectó el
+   layout radial fue el **CV del radio** (0,30).
+
+Medido después con el test de Rayleigh, que **no depende de n**: ws11 R₁=0,095 p=0,58 ·
+R₂=0,186 p=0,12 · R₁₀=0,044 p=0,89. Los tres armónicos importan —el 1.º cazaría «todo
+corrido hacia un lado», el 2.º una elipse, y el 10.º es justamente el que cazaría las
+DIEZ CUÑAS del layout radial viejo— y ninguno dispara. El grafo de hoy es angularmente
+**indistinguible de isótropo**.
+
+**La regla que queda, y vale para cualquier umbral que se escriba de nuevo: un umbral
+que cambia de veredicto según cuántos datos tenga el cliente no es un umbral.** Antes de
+fijar uno, simulá el modelo nulo. Este suspendía a los clientes chicos y aprobaba a los
+grandes, y en el medio nos hizo escribir una deuda que no existía.
 
 ### CORRECCIÓN: persistir el layout NO era un prerrequisito
 
