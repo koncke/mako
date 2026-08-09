@@ -75,6 +75,7 @@ export function Dropdown({
   ariaLabel,
   disabled = false,
   search,
+  portalTo,
 }: {
   value: string;
   options?: DropdownOption[];
@@ -100,6 +101,18 @@ export function Dropdown({
    * documento de rediseño pide combobox. `false` la apaga a mano.
    */
   search?: boolean;
+  /**
+   * Dónde se monta el menú. Por defecto `document.body`, que es lo correcto en toda la
+   * app.
+   *
+   * ⚠️ EXISTE POR LA PANTALLA COMPLETA. Cuando un elemento entra al *top layer* del
+   * navegador con `requestFullscreen()`, TODO lo que esté fuera de ese subárbol deja de
+   * pintarse — incluido un portal a `document.body`. El menú se abre, existe en el DOM,
+   * responde al teclado… y no se ve. Sin error y sin warning, que es lo que lo vuelve
+   * caro de diagnosticar. El lienzo del grafo usa esa API, así que ahí hay que pasarle
+   * `document.fullscreenElement ?? document.body`.
+   */
+  portalTo?: HTMLElement | null;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -244,7 +257,7 @@ export function Dropdown({
             </div>
           )}
         </div>,
-        document.body,
+        portalTo ?? document.body,
       )}
     </div>
   );
