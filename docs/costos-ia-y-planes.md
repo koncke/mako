@@ -37,7 +37,11 @@ llamadas, 23,4M tokens, 5 workspaces, del 29/06/2026 al 08/08/2026 (41 días).
 8. **El tope de tokens NO alcanza para el plan gratis**: acota el costo pero no produce una
    decisión. Va con plazo, y con dosis DIARIA, no bolsa mensual.
    → [El plan gratis](#el-plan-gratis-el-tope-de-tokens-no-alcanza)
-9. **El carrito directo no cierra a US$47 y el cobro en LATAM se come el 45% del
+9. **Se venden DOS planes, no tres**: el gancho del Growth (Image y Video Generator) es
+   `ComingSoon`, y un tercer plan vacío no es un ancla de precio, es un reembolso. Y **no
+   existe alta de usuario ni de workspace**: no hay nada entre el «gracias por tu compra» y
+   el primer login. → [El diseño de los planes](#el-diseño-de-los-planes-se-venden-dos-el-tercero-se-anuncia)
+10. **El carrito directo no cierra a US$47 y el cobro en LATAM se come el 45% del
    checkout** — y el mismo problema vuelve en cada rebill, lo que baja el techo de CAC de
    US$104 a US$55-70. → [El CAC de los dos canales](#el-cac-de-los-dos-canales-y-el-impuesto-que-nadie-ve)
 
@@ -534,6 +538,251 @@ por US$10) para que la comparación sea legible. Multiplicador **inverso** al co
 HubSpot, que cobra 50 créditos por conversación), imagen 9, clip de 8s 88, Reel de 15s 490.
 Cupo del Growth ≈ 2.450 tokens/mes, corte duro al 200%. **Dimensionar el N con el costo de
 fal.ai/Replicate, no con la capa barata.**
+
+---
+
+## El diseño de los planes: se venden DOS, el tercero se anuncia
+
+*Paso 4, 2026-08-09. Corrida de 12 agentes: grilla de features, mensual vs anual, precio
+neto, cupo de tokens y clientes existentes, cada uno con su escéptico.*
+
+### La decisión que ordena todo: el Growth no se puede cobrar todavía
+
+Su gancho entero —**Image Generator y Video Generator**— son `estado: 'por-construir'` en
+`app/admin/dev/areas.ts`, con un `page.tsx` de 8 líneas que monta `<ComingSoon>`
+(verificado). **Un tercer plan vacío no es un ancla de precio: es un reembolso.** La grilla
+tiene tres columnas y **dos botones de compra**; el Growth va como lista de espera con el
+precio anunciado.
+
+### El eje que separa los planes, en una línea
+
+> **El Free no conecta ninguna integración con webhook ni cron.**
+> Free = la IA corre cuando apretás un botón. Pro = corre mientras dormís.
+
+No es una cantidad ni un feature suelto: se corresponde exactamente con la curva de costo.
+Hay seis caminos que gastan sin que el usuario entre a la app, y el peor —el webhook de
+Fathom, disparado por la agenda de un tercero, sin dedup ni tope— proyecta US$52/mes contra
+un plan de US$0.
+
+Y **usuarios 1/3/10, no «ilimitados»**: GoHighLevel puede regalarlos porque un usuario más
+no le cuesta nada; en MaKo cada usuario es una boca de gasto de IA. **Un solo workspace en
+los tres**, porque el multi-workspace es el ancla del plan Agencia de US$297.
+
+### Lo que se saca de la grilla porque no existe
+
+38 de 122 áreas están en `por-construir`. Nada de esto puede aparecer en la landing, ni
+como bullet. Y **tres trampas peores que un ComingSoon**, porque figuran como listo/parcial
+y se venderían sin querer:
+
+- **Second Brain** está `listo` pero su propio alcance dice que todavía no conecta señales
+  ni saca conclusiones. No venderlo como «conecta las señales de tu negocio».
+- **Nutrition Writer** y **Post-Call Follow-up** escriben el borrador, **no mandan**. Falta
+  el go-live del envío. No venderlo como «responde solo».
+- **CRM Automation** está hecho pero gateado por `crmAutoHabilitado`, que es fail-closed:
+  se puede vender, pero **hay que prenderlo en el alta** o el cliente compra algo que nunca
+  arranca.
+
+### Mensual vs anual: Pro 16,7%, Growth 8,3%
+
+| | Mensual | Anual | Descuento |
+|---|---|---|---|
+| **Pro** | US$47/mes | **US$470/año** (US$39/mes) | 2 meses gratis · 16,7% |
+| **Growth** | US$97/mes | **US$1.067/año** (US$89/mes) | 1 mes gratis · 8,3% |
+
+**El 20% es cartel publicitario, no práctica.** Verificado el 9/8: GoHighLevel 16,67%
+exacto; Systeme.io «2 months free»; Jasper dice «Save ~20%» y son 14,5% reales; HubSpot
+10,1%; **respond.io muestra «Save up to 20%» y sus precios anuales son 12× el mensual
+clavado — cero descuento, todo el trabajo lo hace el «up to»**.
+
+⚠️ **Por qué el Growth descuenta la mitad:** el mismo porcentaje de precio se come distinto
+porcentaje de margen. 16,7% sobre el Pro son US$7,85 contra un margen de US$40,20 = 19,5%
+del margen; sobre el Growth son US$16,17 contra US$68,29 = 23,7%. **No se copia un
+porcentaje entre planes con estructuras de costo distintas.**
+
+### El precio NETO: Paddle, y lo del CFDI era un falso problema
+
+**Paddle como merchant of record**, balance y payout en USD, precios listados «+ IVA».
+Es más barato que Stripe directo arriba de US$33 de ticket: Paddle 5% + US$0,50 contra
+Stripe 2,9% + US$0,30 + 1,5% internacional + 0,7% Billing + 0,5% Tax = **5,6% + US$0,30**.
+Stripe Managed Payments es el MoR más caro del mercado (8,6% + US$0,30).
+
+| | Lista | Cobrado (con IVA MX) | **Neto** | Costo IA | **Margen sobre IA** |
+|---|---|---|---|---|---|
+| Pro mensual | US$47 | US$54,52 | **US$43,77** | US$3,57 | **91,8%** |
+| Pro anual | US$470 | US$545,20 | **US$442,24** | US$3,57 | 90,3% |
+| Growth mensual | US$97 | US$112,52 | **US$90,87** | US$22,58 | **75,1%** |
+| Pack 1.000 MT | US$15 | US$17,40 | US$13,63 | ≤US$4,17 | ≥69% |
+
+**El fijo de US$0,50 es la palanca del anual:** pesa 1,06% sobre US$47 y 0,11% sobre
+US$470. Doce cobros mensuales del Pro cuestan US$38,76 de fee; uno anual, US$27,76.
+
+> **¿Sobrevive el Pro a US$47? Sí por producto, no por carrito.** US$41,90 de contribución
+> contra US$3,57 de IA no es un problema de precio. El techo de CAC sobre neto es US$49-97
+> y el carrito mide US$76-179. **No toques el precio del Pro: arreglá el carrito, o vendé
+> el anual.**
+
+⚠️ **El CFDI no bloquea.** Una empresa extranjera no puede emitir CFDI, pero existe la
+**regla 12.1.4 de la RMF**: el prestador extranjero inscripto entrega un PDF con el IVA
+trasladado por separado y con eso el receptor mexicano lo acredita. **Paddle está en el
+padrón del SAT (RFC PML120808ITA, alta 10/11/2021), posición 182 del listado del quinto
+bimestre 2025. Stripe y Lemon Squeezy no figuran.** En el copy no prometer «factura
+fiscal»: decir «comprobante con IVA desglosado, acreditable según regla 12.1.4 RMF», y
+poner el campo **RFC / NIT** en el checkout.
+
+⚠️ **Y por eso no se vende «rápido con Stripe» mientras tanto:** el reloj de **30 días
+naturales** para inscribirse en el RFC arranca con la primera venta a un mexicano, sin
+monto mínimo, y exige representante legal y domicilio **en territorio nacional**.
+
+⚠️ **Argentina es segunda ola.** A un monotributista el Pro le aparece **~US$71** (21% de
+percepción de IVA + 30% a cuenta de Ganancias); a un responsable inscripto, ~US$61 y le
+cuesta US$47. Rebill resolvería cobrando en ARS, pero tiene **mínimo de US$500/mes** para
+cuentas que no procesan US$50.000 mensuales.
+
+### El agujero de WhatsApp, cerrado: es casi cero
+
+1. **El anuncio click-to-WhatsApp abre una ventana gratis de 72 horas**, textual de Meta.
+   Como el canal principal *es* CTWA, toda conversación que cierra en 3 días cuesta US$0.
+   Lo que se paga es la reactivación fuera de la ventana: US$0,0305 la plantilla en México.
+2. **El WhatsApp que consumen los clientes no es COGS de MaKo:** `lib/chatwoot.ts` resuelve
+   las cuatro credenciales por `credWs` y tira error si faltan — **Meta le factura a la
+   cuenta de cada cliente**.
+
+Va presupuestado en CAC, no en producto: ~US$1-3 por lead por mes de reactivación, con tope.
+
+### El cupo: MaKo Tokens SOLO para medios
+
+**1 MT = US$0,01 de precio de lista.** El texto va con uso justo y **no se mide de cara al
+cliente**: cuesta US$1,87 y US$2,82 al mes, y poner un contador de tokens de texto en la
+cara del cliente mide algo que no cuesta y le enseña a tenerle miedo al producto.
+
+| Acción | Costo real | Precio | Markup |
+|---|---|---|---|
+| 1 imagen | US$0,034 | 10 MT | 2,9× |
+| 1 segundo de video | US$0,05 (Veo 3.1 Lite 720p) | 12 MT | 2,4× |
+| Reel de 15 s (3 intentos) | US$2,25 | 540 MT | 2,4× |
+
+| Plan | Cupo | Qué compra |
+|---|---|---|
+| Free | **60 MT una sola vez** | 6 imágenes. Sin video. Sin recarga |
+| Pro | **500 MT/mes** | 50 imágenes. **Sin video** — el video es capacidad del Growth, no una cuota más grande |
+| Growth | **5.000 MT/mes** | «300 segundos de video + 140 imágenes, **o cualquier combinación**» |
+
+El «o cualquier combinación» es obligatorio en el copy: sin esa frase, el que quiere 8
+Reels y 0 imágenes se siente estafado por una sub-cuota que no existe. Y los MT aparecen
+**solo dentro de la app**, con el costo mostrado ANTES de generar y un contador en unidades
+(«te quedan 3 Reels»), no en tokens — que es lo que hacen todos los que le venden a
+no-expertos: **Synthesia migró oficialmente a créditos y su página de precios sigue
+mostrando minutos**.
+
+**Dos reglas que hacen que los números aguanten:** se descuenta por segundo **generado**, no
+entregado (nadie acierta al primer intento; si los fallidos no descuentan, cada pieza cuesta
+3× y lo paga la agencia); y **los MT no pagan WhatsApp** (meter un pass-through de commodity
+adentro de una unidad con markup es cómo se pierde plata en México y se sobre-cobra en
+Argentina).
+
+**Al agotarse se frena la generación de medios y nada más.** El CRM, WhatsApp, el copy y los
+análisis siguen andando: quedarse sin tokens nunca puede romper el CRM. Es el default de la
+industria verificado en cinco — y **respond.io es el único que sigue cobrando, con corte en
+seco al 200%**.
+
+**Pack de overage: 1.000 MT = US$15**, mínimo un pack, solo Pro y Growth (mismo precio que
+respond.io). **Techo duro al 200% del cupo**: al llegar no se vende más recarga, se sube de
+plan. Eso cierra el arbitraje —un Pro que quisiera 5.000 MT pagaría US$114,50, más caro que
+el Growth, y además el Pro no puede comprar video a ningún precio— y acota la exposición:
+el Growth al 200% factura US$159,02 netos contra US$44,49 de IA, **72% de margen**.
+
+⚠️ **Honestidad sobre el cupo:** el paso 3 modeló el Growth con 20 clips + 4 Reels ≈
+US$24,58. Este cupo entrega el equivalente a ~12 clips: **es menos canasta**, y buena parte
+del salto de margen viene de haberla recortado. Ese cliente se va a chocar contra el tope
+—para eso está— pero se dice así, no como si el margen hubiera aparecido solo. **Recalibrar
+contra uso real a los 60 días de que la feature exista.**
+
+### Los que ya están adentro son TRES, y no son los que decíamos
+
+⚠️ **Corrección de hecho.** `docs/mapa-del-proyecto.md:43` dice: `ws1` = Mauricio, `ws3` =
+Cliente de Prueba, `ws9` = Martín/super-admin, `ws10` = Leandro, `ws11` = Leila.
+
+La lista que circulaba —«4 workspaces vivos: 3, 9, 10, 11»— **está mal en los dos
+sentidos**: incluye el workspace de testing y al propio dueño, y **deja afuera al ws1, que
+es un cliente real** y encima el único que comparte la key de Claude con la agencia.
+Mandarle el email a esa lista sería escribirle al workspace de prueba y a uno mismo, y
+dejar afuera al único cliente mezclado en el medidor.
+
+**Los destinatarios reales son tres: Mauricio (ws1), Leandro (ws10), Leila (ws11).**
+
+Con tres clientes que el dueño conoce por nombre, **el proceso formal es teatro**. Una
+llamada de 15 minutos por cliente + un email de constancia de 10 líneas, que es lo que
+salva de la discusión «a mí me dijiste que era ilimitado»:
+
+1. «Se te congela el precio y el alcance al 9 de agosto de 2026: todo lo que hoy usás, con
+   los límites que hoy tenés.»
+2. «Las funciones que se lancen después entran con los límites de su plan, iguales para
+   todos.»
+3. «El texto te queda sin tope. Los medios van a tener cupo mensual para todos, ustedes
+   incluidos.»
+4. «Respondeme SÍ para confirmar; si preferís no seguir, te doy de baja sin cargo.»
+
+⚠️ **No prometer «te queda todo ilimitado».** Se grandfatherea lo que existe, nunca lo que
+todavía no se escribió. Si el email dice «ilimitado» y en tres meses aparece el botón de
+Reels, esos tres son los únicos usuarios sin tope de la feature más cara del producto.
+**Sacarle un tope a alguien que nunca lo tuvo es la conversación que Docker y Unity
+perdieron; nacer con tope es gratis, porque nadie extraña lo que nunca tuvo.**
+
+### Lo que hay que construir, en orden — y el orden ES el del riesgo
+
+Hoy nada cuesta plata **por accidente**: `credWs` solo cae al env si el workspace es el 1,
+así que un cliente sin key propia no gasta, la llamada **explota**. El día que la plataforma
+sirva su propia key para que exista el Free, los seis caminos automáticos facturan solos.
+Invertir este orden es abrir la canilla y después buscar la llave.
+
+1. **Atribuir el gasto de Anthropic al workspace del request** (`lib/anthropic-usage.ts:15-25`).
+   Sin esto ningún tope es implementable, para nadie.
+2. Índice `(workspace_id, created_at)` en `anthropic_usage`.
+3. **Migración 0125**: `workspaces.plan` + `plan_limites` + `workspace_limites`.
+4. **`lib/planes.ts`** — catálogo puro, **fail-closed**: plan desconocido cae al más
+   restrictivo (al revés de `capaDef`, que cae a `'completo'`).
+5. **El gate DENTRO de cada cron y cada webhook**, escrito en positivo. Los crons iteran
+   todos los workspaces y los webhooks resuelven el workspace por el payload de un tercero:
+   **no pasan por la sesión**, así que un gate en `capas.ts` esconde tabs y no frena un
+   dólar. Es exactamente el caso del Reset que se ofrecía a clientes reales.
+6. **`presupuestoRestante(ws)` PRE-FLIGHT**, antes del fetch. Hoy no existe ninguna
+   primitiva de denegación por consumo.
+7. **Ledger de MaKo Tokens append-only.** El saldo se **deriva de la suma**, nunca se guarda
+   un contador mutable: ese bug ya se pagó (la mig. 0113 reemplazó un string de
+   `app_settings` que dos invocaciones concurrentes se pisaban).
+8. **Paddle**: 4 Prices + pack, `/precios`, `/checkout`, webhook, campo RFC/NIT.
+9. **Key de plataforma para el Free. ÚLTIMO.** No antes de 1-6.
+10. **Image Generator** primero (10× más barato y más simple que el video, y sus dos insumos
+    ya existen), después Video y Reels.
+
+**Y un test que falle si un cron nuevo no filtra por plan**, con la condición en un módulo
+sin `server-only` para que el test la pueda importar — mismo criterio que
+`exigirClienteDePrueba`. La regla en el prompt de una PR no es una regla.
+
+### Los huecos que quedaron abiertos, y son bloqueantes
+
+1. ⚠️ **No existe alta de usuario ni de workspace.** `app/api/auth/callback/google/route.ts`
+   es Google OAuth y nada más: si el email no está en `usuarios`, devuelve `no-autorizado`.
+   **No hay nada entre el «gracias por tu compra» y el primer login.** La cadena
+   `pago → webhook → crear workspace → asignar plan → invitar → wizard` no la diseñó nadie,
+   y es más trabajo que la columna `plan`. Decisión que falta: ¿el signup crea el workspace
+   antes o después del pago?
+2. ⚠️ **Hay DOS monedas de cupo incompatibles** y ninguna quedó elegida: unidades de negocio
+   («30 imágenes/mes») vs MaKo Tokens. No se resuelve con más research — es una decisión de
+   producto de 10 minutos que bloquea la redacción de la grilla.
+3. ⚠️ **La grilla le pone al Pro «imágenes/mes» y el Image Generator es un ComingSoon.** El
+   primer cliente que paga US$47 abre la tab y lee «Próximamente». Es el escenario que más
+   enoja y está adentro de la recomendación, no en un riesgo lejano.
+4. ⚠️ **No existe ninguna página legal** — ni `/terminos`, ni `/privacidad`, ni
+   `/reembolsos`— en un producto que ya tiene landing pública de venta. Un merchant of
+   record **aprueba el negocio antes de activarlo** y las pide. Es un gate de días o semanas
+   **antes** del primer cobro, no copy de última hora.
+5. ⚠️ **Falta el impuesto del que COBRA, no el del que compra.** Qué entidad factura y en
+   qué país condiciona todos los netos: si es argentina, el payout en USD entra al régimen
+   cambiario y paga Ingresos Brutos. **Sin ese dato ningún margen de arriba es real.**
+6. **¿Los tres clientes actuales pagan algo hoy?** `workspaces` no tiene columna de precio,
+   plan ni fecha de renovación. Si son acuerdos de agencia, «congelar el precio» no
+   significa nada y lo único que se congela es el alcance — y eso cambia qué dice el email.
 
 ---
 
