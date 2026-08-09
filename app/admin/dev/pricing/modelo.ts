@@ -713,7 +713,7 @@ export type Pregunta = { n: string; pregunta: string; bajada: string };
 export const INDICE: Pregunta[] = [
   { n: '1', pregunta: '¿Cuánto cuesta?', bajada: 'Medido en producción, y proyectado con el producto entero construido.' },
   { n: '2', pregunta: '¿Cuánto se le cobra?', bajada: 'La tarifa de MaKo Tokens, operación por operación, y qué rinde el cupo de cada plan.' },
-  { n: '3', pregunta: '¿Cuánto cuesta conseguir un cliente?', bajada: 'El CAC de cada uno de los cinco canales, contra el techo que tolera cada plan — con y sin el ascenso al high ticket.' },
+  { n: '3', pregunta: '¿Cuánto cuesta conseguir un cliente?', bajada: 'El CAC de cada uno de los cinco canales, contra el techo que tolera cada plan. Y por qué el ascenso al high ticket no lo sube.' },
   { n: '4', pregunta: '¿Cómo se empaqueta?', bajada: 'Los cuatro planes, qué entra en cada uno, y qué falta para poder cobrarlos.' },
 ];
 

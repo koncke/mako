@@ -188,3 +188,48 @@ export function Plegable({ titulo, resumen, children, abierto = false }: {
     </details>
   );
 }
+
+/**
+ * UN dato y UNA frase. Todo lo demás, plegado.
+ *
+ * Es la respuesta al reclamo del dueño sobre la parte 3: «pusiste muucha data
+ * mucho texto todo junto». No sobraba análisis — sobraba análisis A LA VISTA.
+ * Un párrafo de seis renglones arriba de una tabla de siete columnas obliga a
+ * leer todo para saber si te interesa algo.
+ *
+ * La regla que impone: **sin abrir se ve un número y como mucho dos frases.**
+ * Si algo no entra en dos frases, no es que haya que achicar la letra: es que
+ * son dos secciones. El respaldo va adentro de `children`, a un clic, para
+ * quien quiera auditarlo — que es la misma forma que ya tenía «El respaldo» y
+ * que funcionó.
+ */
+export function Titular({ valor, unidad, frase, tono = 'neutral', abrir = 'Cómo sale este número', children }: {
+  valor: string;
+  unidad?: string;
+  /** Una o dos frases. No más: el componente no las va a achicar por vos. */
+  frase: ReactNode;
+  tono?: 'bad' | 'good' | 'warn' | 'neutral';
+  /** Qué promete el plegable. Se lee cerrado, así que dice el contenido. */
+  abrir?: string;
+  children?: ReactNode;
+}) {
+  const color = tono === 'bad' ? 'var(--bad)' : tono === 'good' ? 'var(--good)' : tono === 'warn' ? 'var(--warn)' : 'var(--ink)';
+  return (
+    <div>
+      {/* El número y la frase van LADO A LADO en pantalla ancha: apilados, la
+          frase queda tan lejos del dato que se leen como dos cosas. */}
+      <div style={{ display: 'flex', gap: 22, alignItems: 'baseline', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexShrink: 0 }}>
+          <span style={{ fontSize: 38, lineHeight: 1, color, fontWeight: 600, letterSpacing: '-.025em' }}>{valor}</span>
+          {unidad && <span style={{ fontSize: 13, color: 'var(--dim)', fontWeight: 500 }}>{unidad}</span>}
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55, flex: '1 1 320px', minWidth: 0 }}>{frase}</div>
+      </div>
+      {children && (
+        <div style={{ marginTop: 14 }}>
+          <Plegable titulo={abrir} resumen="">{children}</Plegable>
+        </div>
+      )}
+    </div>
+  );
+}
