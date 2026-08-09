@@ -28,7 +28,7 @@ import {
   MARKUP_MT, MEDICION, MT_POR_USD, PERFILES, PLANES, RERUTEO, RETENCION, RETENCION_FUENTE,
   RIESGO_QUE_QUEDA, RUTEO, SALVEDADES, TARIFA, VIDEO, VIDEO_15S,
   BYOK, COBRO, CUARTO_PLAN, FUERA_DE_GRILLA, GANCHO, GRANDFATHER, GRILLA, HUECOS,
-  ORDEN_DE_TRABAJO, PRECIOS, type Bloque, type Celda as CeldaT,
+  INDICE, ORDEN_DE_TRABAJO, PRECIOS, type Bloque, type Celda as CeldaT,
   aMes, costoUnitario, margen, techoIa,
 } from './modelo';
 
@@ -113,6 +113,38 @@ const BloqueTexto = ({ b }: { b: Bloque }) => (
 const Fuente = ({ children }: { children: React.ReactNode }) => (
   <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 12 }}>{children}</div>
 );
+
+/** El id de anclaje de una parte. Lo comparten el índice de arriba y el título. */
+export const anclaParte = (n: string) => `parte-${n}`;
+
+/**
+ * El título de una de las cuatro partes.
+ *
+ * Existe porque el índice de arriba prometía cuatro preguntas y abajo había ocho
+ * cards del mismo peso, en otro orden, y una de las preguntas —el CAC— no tenía
+ * sección. El lector no tenía forma de saber dónde estaba parado.
+ *
+ * Va FUERA de las cards a propósito: si el título de la parte fuera otra card se
+ * leería como una sección más. Lo que lo separa es que respira, no que decore.
+ */
+function Parte({ n }: { n: string }) {
+  const q = INDICE.find((x) => x.n === n);
+  if (!q) throw new Error(`Pricing: la parte «${n}» no está en INDICE`);
+  const { pregunta, bajada } = q;
+  return (
+    // El filete y el aire de arriba son lo que hace que se lea como una PARTE y no
+    // como una sección más. Sin ellos el título de la parte competía con el de la
+    // primera card de adentro, que es más oscura y más grande, y la jerarquía se
+    // invertía: la parte parecía el subtítulo de su propia sección.
+    <div id={anclaParte(n)} style={{ margin: '54px 0 18px', paddingTop: 20, borderTop: '1px solid var(--border-strong)', scrollMarginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+        <span style={{ fontFamily: MONO, fontSize: 15, color: 'var(--mako)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+        <h2 style={{ fontSize: 27, fontWeight: 600, letterSpacing: '-.025em', color: 'var(--ink)', margin: 0, lineHeight: 1.15 }}>{pregunta}</h2>
+      </div>
+      <div style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.55, marginTop: 8, paddingLeft: 29 }}>{bajada}</div>
+    </div>
+  );
+}
 
 export function Pricing() {
   const [periodo, setPeriodo] = useState('todo');
@@ -205,10 +237,12 @@ export function Pricing() {
           pantalla contesta cuatro preguntas, en este orden:
         </p>
         <ol style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.7, margin: '12px 0 0', paddingLeft: 20 }}>
-          <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto cuesta?</strong> — medido en producción, y proyectado con el producto entero construido.</li>
-          <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto se le cobra?</strong> — la tarifa de MaKo Tokens, operación por operación.</li>
-          <li><strong style={{ color: 'var(--ink)' }}>¿Cuánto cuesta conseguir un cliente?</strong> — el CAC de cada funnel, contra el techo que tolera cada plan.</li>
-          <li><strong style={{ color: 'var(--ink)' }}>¿Cómo se empaqueta?</strong> — los planes, y qué falta para poder cobrarlos.</li>
+          {INDICE.map((q) => (
+            <li key={q.n} style={{ marginBottom: 2 }}>
+              <a href={`#${anclaParte(q.n)}`} style={{ color: 'var(--ink)', fontWeight: 600, textDecoration: 'none', borderBottom: '1px solid var(--border-strong)' }}>{q.pregunta}</a>
+              {' — '}{q.bajada}
+            </li>
+          ))}
         </ol>
         <Fuente>
           Todo lo <strong>medido</strong> sale de {miles(MEDICION.llamadas)} llamadas reales de{' '}
@@ -272,15 +306,7 @@ export function Pricing() {
             nadie lee y que le sacaban peso a las cifras. */}
       </Section>
 
-      {/* ── GRÁFICO 1 ─────────────────────────────────────────────────────── */}
-      <Section titulo="Cuanto más barato, peor retiene" card>
-        <Nota>
-          Retención bruta anual de productos <strong>AI-native</strong>, segmentada por precio
-          de lista. Es el benchmark que aplica a MaKo — no el de «SaaS para PyMEs», que mide otra cosa.
-        </Nota>
-        <Barras datos={barrasRetencion} max={100} tono="bad" />
-        <Fuente>{RETENCION_FUENTE}</Fuente>
-      </Section>
+      <Parte n="1" />
 
       {/* ── GRÁFICO 2 ─────────────────────────────────────────────────────── */}
       <Section titulo="El ruteo de modelo vale 8×" card>
@@ -348,12 +374,8 @@ export function Pricing() {
         </Fuente>
       </Section>
 
-      {/* ── LA TARIFA ─────────────────────────────────────────────────────── */}
-      {/* El problema de forma acá es el RANGO: de 1 a 2.000 MT, 2000×. En barras
-          lineales las 25 operaciones baratas quedan pegadas al cero y el gráfico
-          solo dice «el Reel es caro». Por eso: primero la comparación que hace
-          legible la escala de una, después el gráfico en log ROTULADO, y recién
-          después la tabla completa para el que quiera auditar fila por fila. */}
+      <Parte n="2" />
+
       <Section titulo="La tarifa" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>1 MaKo Token = US$0,001 de precio de lista</span>} card>
         <Nota>
           Cada operación cuesta lo que cuesta. El precio sale del <strong>costo medio real
@@ -457,10 +479,27 @@ export function Pricing() {
         </div>
       </Section>
 
-      {/* ── LOS PLANES ────────────────────────────────────────────────────── */}
-      {/* Cuatro columnas, y la del Growth va marcada como lista de espera: su
-          gancho entero (Image y Video Generator) es ComingSoon. Un tercer plan
-          vacío no es un ancla de precio, es un reembolso. */}
+      <Parte n="3" />
+      <Section titulo="Todavía no hay número" card>
+        <Nota>
+          Esta es la única de las cuatro preguntas que la pantalla todavía no contesta, y
+          es la que decide si el negocio cierra: sin CAC por canal, el margen de arriba es
+          un margen bruto que no paga la adquisición. El modelo está corriendo.
+        </Nota>
+      </Section>
+
+      <Parte n="4" />
+
+      {/* ── GRÁFICO 1 ─────────────────────────────────────────────────────── */}
+      <Section titulo="Cuanto más barato, peor retiene" card>
+        <Nota>
+          Retención bruta anual de productos <strong>AI-native</strong>, segmentada por precio
+          de lista. Es el benchmark que aplica a MaKo — no el de «SaaS para PyMEs», que mide otra cosa.
+        </Nota>
+        <Barras datos={barrasRetencion} max={100} tono="bad" />
+        <Fuente>{RETENCION_FUENTE}</Fuente>
+      </Section>
+
       <Section titulo="Los planes" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>1.000 MaKo Tokens = US$1 de precio de lista · {usd(1000 / MT_POR_USD / MARKUP_MT)} de costo</span>} card>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 14, marginBottom: 20 }}>
           {PRECIOS.map((pr) => {

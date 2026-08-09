@@ -697,3 +697,22 @@ export const DATO_FALSO = {
 /** El dato que ordena a todos los demás. */
 export const EL_ACCIDENTE =
   'Hoy nada de esto cuesta plata en un cliente, y no es por una cuota: `credWs` solo cae al env si el workspace es el 1, así que un cliente sin key propia no gasta — la llamada EXPLOTA. El modelo de MaKo Tokens implica servirle la key de la plataforma a todos, y en ese momento los seis caminos de arriba empiezan a facturar de golpe. Gatear va ANTES de ese cambio, no después.';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EL ÍNDICE DE LA PANTALLA
+// ─────────────────────────────────────────────────────────────────────────────
+// Las cuatro preguntas que la pantalla contesta, EN ORDEN. Es fuente única: lo
+// leen el índice de arriba y el título de cada parte, así que no existe la
+// versión donde el índice promete una cosa y abajo hay otra — que es exactamente
+// lo que pasaba (el índice prometía el CAC y esa sección no existía).
+//
+// Si se agrega una parte, se agrega ACÁ y después se pone su <Parte n="…"/>.
+
+export type Pregunta = { n: string; pregunta: string; bajada: string };
+
+export const INDICE: Pregunta[] = [
+  { n: '1', pregunta: '¿Cuánto cuesta?', bajada: 'Medido en producción, y proyectado con el producto entero construido.' },
+  { n: '2', pregunta: '¿Cuánto se le cobra?', bajada: 'La tarifa de MaKo Tokens, operación por operación, y qué rinde el cupo de cada plan.' },
+  { n: '3', pregunta: '¿Cuánto cuesta conseguir un cliente?', bajada: 'El CAC de cada uno de los cinco canales, contra el techo que tolera cada plan — con y sin el ascenso al high ticket.' },
+  { n: '4', pregunta: '¿Cómo se empaqueta?', bajada: 'Los cuatro planes, qué entra en cada uno, y qué falta para poder cobrarlos.' },
+];
