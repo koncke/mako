@@ -20,6 +20,8 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   dictamina catástrofe → [Lo que le llega al modelo](#lo-que-le-llega-al-modelo).
 - `effort: 'low'` **no apaga** el razonamiento de Claude, y los topes de cantidad están
   escritos dos veces (en el `.slice()` y en el texto del prompt) → [Topes](#topes).
+- **Un agente que no llama la tool no falla: CONTESTA.** Su prosa salía al WhatsApp del
+  dueño sin ningún chequeo, y `toolsUsados > 0` no lo ataja → [El doer](#el-doer).
 - El saldo y el gasto son globales al ws1 aunque las keys ya sean por cliente →
   [Gasto y saldo](#gasto-y-saldo).
 - **Nada corta una llamada por gasto**, y el gasto de Claude no se puede atribuir a un
@@ -967,6 +969,55 @@ eso» *(2026-07-27)*.
 ---
 
 ## El doer
+
+### ✅ Un agente que no llama la tool no falla: CONTESTA — y su prosa sale al WhatsApp del dueño
+
+**Síntoma (9/8/2026):** el dueño pidió cargar dos tareas al plan y MaKo le contestó con
+el borrador ENTERO como texto — las preguntas del formulario en el chat y un
+«**Eliminar** — Nada por ahora». Sus palabras: «no entiendo qué hizo».
+
+**Tenía razón literal: no hizo nada.** No hubo INSERT, no hubo id, no hubo link. Lo que
+salió era el `input_schema` de `proponer_tareas_plan` aplanado a markdown, campo por
+campo: «Qué hay que hacer / Por qué / Detalles concretos» es `MOLDE_DETALLE`, incrustado
+literal en la `description` del campo `detalle`; «Preguntas» con `(opcion)`/`(comparacion)`
+es el enum de `tipo`; «Eliminar» es una propiedad opcional del schema. Con un modelo chico
+el schema viaja como **prompt plano**, indistinguible de una instrucción — «copiá esta
+forma exacta» se lee como «escribí esto».
+
+**El diagnóstico obvio era el equivocado, dos veces.** (1) No fue el modelo: el día
+anterior acertó CUATRO veces con el mismo modelo y la misma ruta. (2) No fue una
+regresión: la línea culpable es idéntica los dos días. La causa es que el código aceptaba
+cualquier texto —`if (r.text && !r.text.startsWith('('))`, o sea «que no empiece con
+paréntesis»— así que «este turno crea un borrador» no existía como decisión del código:
+la tomaba el modelo emitiendo un tool_call, y si no lo emitía, su prosa salía derecho.
+La fiabilidad quedaba colgada del modelo.
+
+**Y la guarda evidente tampoco servía.** `toolsUsados > 0` ya existía escrita, apagada
+detrás de `DOER_GROQ_TOOLS` y en una rama mutuamente excluyente con la que corre. Igual
+no habría atajado nada: ese día el modelo **sí** llamó una tool (`ver_plan` — es la fila
+de `out:6` del registro de gasto, el tamaño de un tool_call sin argumentos) y redactó
+igual en el paso siguiente. La pregunta correcta no es «¿llamó alguna herramienta?» sino
+**«¿ocurrió el efecto que esta ruta exigía?»**, y de eso hay prueba dura: `linkBorrador`,
+que solo se setea cuando `crearPropuesta` hizo el INSERT.
+
+**Cómo leer el registro de gasto para esto** (es lo que resolvió el caso): `recordUsage`
+corre **una vez por PASO** del loop de tools, no por llamada. Dos filas del mismo minuto
+con la misma feature son dos pasos de la misma conversación. Y `rutearDoer` es una
+heurística de regex, síncrona y sin LLM: **nunca** emite una fila. Un día con la tool
+llamada trae una fila extra de la feature del borrador; el día roto, no.
+
+**La regla que queda:** un agente con herramientas necesita que el código verifique **el
+efecto**, no la intención. Si la ruta exige una acción y la acción no ocurrió, la prosa
+del modelo no es una respuesta: o se reintenta con otro proveedor, o se manda un «no
+pude» honesto. Nunca el payload. Vive en `lib/respuesta-doer.ts`, sin `server-only` para
+poder testearla, con el mensaje real del 9/8 como caso 1.
+
+⚠️ **Y el log estaba invertido respecto del riesgo:** los dos `console.warn` del link
+vivían DENTRO de `if (respuesta && linkBorrador)`, así que el caso leve (puso el link mal)
+logueaba y el caso grave (no hubo borrador) era el único mudo. Por eso del 9/8 no quedó
+una sola línea en Vercel y el bug solo se supo porque el dueño lo pegó en el chat.
+
+**Vive en:** lib/respuesta-doer.ts, lib/mako-doer-in.ts (el loop de rotación y la compuerta antes de `enviarAGrupoJid`), lib/detalle-contrato.ts (`MOLDE_ADVERTENCIA`), tests/respuesta-doer.test.ts · *2026-08-09 doer-borrador-roto*
 
 ### ⚠️ Los pasos de acción de un flujo son afordancia viva con dispatcher muerto
 
