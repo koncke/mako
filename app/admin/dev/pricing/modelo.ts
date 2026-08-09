@@ -242,10 +242,16 @@ export const ECONOMIA: Dato[] = [
     fuente: 'ChartMogul, «The SaaS Retention Report: The AI churn wave» (3.500 empresas, 200 AI-native, datos 2025)',
   },
   {
-    id: 'llamada', titulo: 'Una reunión de venta cuesta más que un año de Pro',
-    numero: 'US$666-900 por reunión agendada · ACV mínimo para inside sales: US$3.000',
-    que: 'Un SDR cargado sale ~US$10.000/mes y agenda 10-15 reuniones. MaKo tiene un ACV de US$564 (Pro) a US$1.164 (Growth): entre 2,6× y 5,3× por debajo del piso que la industria considera necesario para sostener venta asistida. A este precio el canal tiene que ser self-serve o no cierra.',
-    fuente: 'Tomasz Tunguz, «The Smallest ACV to Justify an Inside Sales Team» + benchmarks de lead-gen B2B',
+    id: 'canales', titulo: 'El CAC real de los dos canales: WhatsApp cierra contra el Pro, el carrito directo no',
+    numero: 'CTWA → free → pago: US$83 · carrito directo: US$76-179',
+    que: 'CAC = costo_conversación / (conversación→registro × free→pago). Con US$1,50 por conversación (banda B2B en México/Colombia reconstruida desde el CPM) y el caso base 30%×6%, el canal de WhatsApp da US$83: entra en el techo laxo del Pro (US$104), no en el estricto (US$53). El carrito frío rompe el techo del Pro en casi toda su banda y entra cómodo en el del Growth. Decisión: vender Growth o anual en el carrito y rutear el Pro mensual a WhatsApp. Y el cobro anual mueve el techo de US$104 a más de US$700.',
+    fuente: 'Cálculo propio sobre CPM/CPC por país (adamigo, 6/8/2026) + free→pago de ChartMogul (n=200, ene 2026)',
+  },
+  {
+    id: 'cobro-latam', titulo: 'El impuesto invisible: en LATAM se pierde ~45% del checkout por cobro, no por copy',
+    numero: 'Aprobación cross-border 65-75% vs 85-92% de rieles locales · solo ~28% tiene tarjeta de crédito',
+    que: 'Pasar de 70% a 88% de aprobación baja el CAC del carrito de US$119 a US$95 — 20% menos sin tocar el anuncio. Y pega dos veces: el rebill también falla, lo que sube el churn efectivo de ~5% a 8-10% mensual, corta la vida útil de ~20 meses a 10-12 y con ella el techo de CAC. El US$104 del Pro sería más bien US$55-70 mientras se cobre solo con tarjeta internacional. Se lee como «los clientes se van», nunca como «el cobro está roto».',
+    fuente: 'dodopayments / Allied Global / crea.la sobre pagos en LATAM + churn SMB self-serve (Vena/Recurly Q1-Q2 2025)',
   },
   {
     id: 'techo-cac', titulo: 'El techo de CAC que tolera cada plan',
@@ -303,6 +309,81 @@ export const COMPETENCIA: Dato[] = [
     fuente: 'Kompozy «BYOK vs managed: the real break-even math» + buildmvpfast.com, 2026',
   },
 ];
+
+// ── PASO 2: lo que cuesta el producto COMPLETO ──────────────────────────────
+// El producto de hoy son 55 áreas cerradas de 122. Esto proyecta las 38 que
+// faltan más las 29 a medias, con el ruteo elegido en el paso 1.
+//
+// ⚠️ Dos tipos de número conviven acá y NO valen lo mismo:
+//   · el COSTO UNITARIO es `publicado` — sale de la página del fabricante;
+//   · la CANTIDAD MENSUAL es `supuesto` — la pusimos nosotros. Es lo primero
+//     que hay que discutir si el resultado extraña, y la palanca de todo.
+
+/** El ruteo del paso 1, en un solo lugar. US$ por millón de tokens. */
+export const RUTEO = [
+  { id: 'luna', modelo: 'gpt-5.6-luna', inUsd: 0.20, outUsd: 1.20, para: 'Análisis con juicio (llamadas, competidores, VSL)', origen: 'publicado' as Origen },
+  { id: 'qwen', modelo: 'Qwen3.7-Flash', inUsd: 0.03, outUsd: 0.13, para: 'Contexto enorme: la reunión entera sin trocear (1M)', origen: 'publicado' as Origen },
+  { id: 'kimi', modelo: 'Kimi K2.6', inUsd: 0.95, outUsd: 4.00, para: 'Copy con voz de marca (lo juzga un humano, no un índice)', origen: 'publicado' as Origen },
+  { id: 'glm', modelo: 'GLM-4.7-Flash', inUsd: 0, outUsd: 0, para: 'Clasificar contra una rúbrica. Gratis, entrada y salida', origen: 'publicado' as Origen },
+  { id: 'opus', modelo: 'Claude Opus 4.8', inUsd: 15, outUsd: 75, para: 'Solo la Retro: su salida gobierna decisiones de plata', origen: 'publicado' as Origen },
+];
+
+/** Lo que ya existe, medido, contra lo que costaría con el ruteo nuevo. */
+export type Reruteo = { id: string; label: string; hoyUsd: number; nuevoUsd: number; como: string };
+
+export const RERUTEO: Reruteo[] = [
+  { id: 'reunion', label: 'Extraer tareas de una reunión de 2 h', hoyUsd: 0.9293, nuevoUsd: 0.0021, como: 'Qwen3.7-Flash con 1M de contexto: entra entera y desaparecen las 4-5 llamadas del troceo' },
+  { id: 'doer', label: 'Un mensaje a MaKo por WhatsApp', hoyUsd: 0.0886, nuevoUsd: 0.0011, como: 'El router barato, hasta 8 pasos de herramientas' },
+  { id: 'closing', label: 'Analizar una llamada de venta', hoyUsd: 0.1729, nuevoUsd: 0.0108, como: 'gpt-5.6-luna — mismo nivel de índice que modelos 7,5× más caros' },
+  { id: 'campana', label: 'Estructurar una campaña de Meta', hoyUsd: 0.0711, nuevoUsd: 0.0127, como: 'Kimi K2.6, el mejor de los baratos en preferencia humana' },
+  { id: 'guardian', label: 'Priorizar un lote de tareas', hoyUsd: 0.0728, nuevoUsd: 0, como: 'GLM-4.7-Flash: clasificar contra rúbrica es gratis' },
+  { id: 'checklist', label: 'Descripción + checklist de un lote', hoyUsd: 0.0396, nuevoUsd: 0, como: 'gratis' },
+  { id: 'validador', label: 'Validar una plantilla de WhatsApp', hoyUsd: 0.0400, nuevoUsd: 0, como: 'gratis' },
+  { id: 'ads', label: 'Analizar un anuncio', hoyUsd: 0.0284, nuevoUsd: 0, como: 'gratis' },
+  { id: 'retro', label: 'Retro / experimentos', hoyUsd: 0.0989, nuevoUsd: 0.0989, como: 'NO se mueve: es el único análisis cuya salida gobierna decisiones de plata' },
+];
+
+/** Las acciones del producto que todavía no existe. `medio: true` = compra píxeles. */
+export type AccionNueva = { id: string; familia: 'Analyze' | 'Sales' | 'Content' | 'Agentes'; label: string; usd: number; usdBarato?: number };
+
+export const ACCIONES_NUEVAS: AccionNueva[] = [
+  { id: 'competitor', familia: 'Analyze', label: 'Competitor Spy — un competidor', usd: 0.0086 },
+  { id: 'offer', familia: 'Analyze', label: 'Offer Analyst', usd: 0.0076 },
+  { id: 'vsl-an', familia: 'Analyze', label: 'VSL Analyst', usd: 0.0108 },
+  { id: 'chat-an', familia: 'Analyze', label: 'Chat Analyst — una conversación', usd: 0.0060 },
+  { id: 'cs-an', familia: 'Analyze', label: 'CS Analyst', usd: 0.0076 },
+  { id: 'yt-an', familia: 'Analyze', label: 'YouTube Analyst — un video', usd: 0.0086 },
+  { id: 'vsl-gen', familia: 'Sales', label: 'VSL Generator — guion completo', usd: 0.0354 },
+  { id: 'leadmagnet', familia: 'Sales', label: 'Lead Magnet Generator', usd: 0.0276 },
+  { id: 'sales-mail', familia: 'Sales', label: 'Sales Email', usd: 0.0107 },
+  { id: 'newsletter', familia: 'Sales', label: 'Newsletter', usd: 0.0157 },
+  { id: 'closing-sc', familia: 'Sales', label: 'Closing Script', usd: 0.0196 },
+  { id: 'roleplay', familia: 'Sales', label: 'Sales Roleplay — una sesión', usd: 0.0300 },
+  { id: 'ideas', familia: 'Content', label: 'Ideas — una tanda', usd: 0 },
+  { id: 'yt-writer', familia: 'Content', label: 'YouTube Writer — un guion', usd: 0.0295 },
+  { id: 'img', familia: 'Content', label: 'Image Generator — 1 imagen', usd: 0.034, usdBarato: 0.015 },
+  { id: 'stories', familia: 'Content', label: 'Story — 1 imagen', usd: 0.034, usdBarato: 0.015 },
+  { id: 'thumb', familia: 'Content', label: 'Thumbnail — 2 variantes', usd: 0.068, usdBarato: 0.030 },
+  { id: 'carousel', familia: 'Content', label: 'Carrusel — 7 imágenes', usd: 0.238, usdBarato: 0.105 },
+  { id: 'video', familia: 'Content', label: 'Video Generator — clip de 8 s', usd: 0.40, usdBarato: 0.15 },
+  { id: 'reel', familia: 'Content', label: 'Reel de 15 s — 3 intentos + voz', usd: 2.445, usdBarato: 0.945 },
+  { id: 'ads-bot', familia: 'Agentes', label: 'Ads Optimizer Bot — una corrida diaria', usd: 0.0108 },
+  { id: 'autoclose', familia: 'Agentes', label: 'Auto-Close / CRM Automation — un lead', usd: 0 },
+];
+
+/** El costo mensual de IA de un cliente con el producto completo.
+ *  ⚠️ Las CANTIDADES son supuestas. El costo unitario, no. */
+export type Perfil = { plan: 'free' | 'pro' | 'growth'; precioUsd: number; iaUsd: number; iaUsdBarato: number; textoUsd: number; mediosUsd: number };
+
+export const PERFILES: Perfil[] = [
+  { plan: 'free', precioUsd: 0, iaUsd: 0.02, iaUsdBarato: 0.02, textoUsd: 0.02, mediosUsd: 0 },
+  { plan: 'pro', precioUsd: 47, iaUsd: 1.87, iaUsdBarato: 1.15, textoUsd: 0.58, mediosUsd: 1.29 },
+  { plan: 'growth', precioUsd: 97, iaUsd: 27.40, iaUsdBarato: 12.60, textoUsd: 2.82, mediosUsd: 24.58 },
+];
+
+/** El hallazgo del paso 2, en una frase. */
+export const EL_COSTO_ES_EL_VIDEO =
+  'Con el ruteo del paso 1 el texto deja de importar: extraer una reunión pasa de US$0,93 a US$0,002 (436×) y la mitad de las acciones caen a cero. Lo que queda es que los MEDIOS son el 90% del costo del plan Growth. Un solo Reel de 15 segundos con 3 intentos cuesta US$2,45 — más que TODO el texto del plan Pro en un mes entero. La consecuencia es de diseño de planes, no de ingeniería: el video no puede ser una feature incluida, tiene que ser una unidad medida.';
 
 /** Un número que circula por todos lados y NO hay que usar. */
 export const DATO_FALSO = {

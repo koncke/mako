@@ -30,10 +30,14 @@ llamadas, 23,4M tokens, 5 workspaces, del 29/06/2026 al 08/08/2026 (41 días).
 6. **Tres módulos gastan sin registrar y siempre contra la key de la agencia.** Ese gasto
    no está adentro de los US$93,50: el baseline es un **piso**.
    → [Los puntos ciegos](#los-tres-puntos-ciegos)
-7. **El tope de tokens NO alcanza para el plan gratis**: acota el costo pero no produce una
+7. **Con el producto completo el costo ya no es el texto, es el video.** Re-ruteado, extraer
+   una reunión pasa de US$0,93 a US$0,002 (436×) y la mitad de las acciones caen a cero;
+   pero los medios son el **90%** del costo del Growth, que se pasa de su techo.
+   → [El producto completo](#el-producto-completo-el-costo-deja-de-ser-el-texto-y-pasa-a-ser-el-video)
+8. **El tope de tokens NO alcanza para el plan gratis**: acota el costo pero no produce una
    decisión. Va con plazo, y con dosis DIARIA, no bolsa mensual.
    → [El plan gratis](#el-plan-gratis-el-tope-de-tokens-no-alcanza)
-8. **El carrito directo no cierra a US$47 y el cobro en LATAM se come el 45% del
+9. **El carrito directo no cierra a US$47 y el cobro en LATAM se come el 45% del
    checkout** — y el mismo problema vuelve en cada rebill, lo que baja el techo de CAC de
    US$104 a US$55-70. → [El CAC de los dos canales](#el-cac-de-los-dos-canales-y-el-impuesto-que-nadie-ve)
 
@@ -311,6 +315,92 @@ Con esos cupos, la proyección de flota da **68 % de margen** en vez de 29 %.
 
 ⚠️ **El chequeo tiene que ser pre-flight, nuevo.** Los `recordUsage` existentes son
 posteriores a la llamada y fire-and-forget: sirven para contabilizar, **no para gatear**.
+
+---
+
+## El producto COMPLETO: el costo deja de ser el texto y pasa a ser el video
+
+*Paso 2, 2026-08-09. Base: las 122 áreas de `app/admin/dev/areas.ts` — **55 cerradas, 29 a
+medias, 38 por construir** — con los precios verificados del paso 1. Los números viven en
+`app/admin/dev/pricing/modelo.ts` (`RERUTEO`, `ACCIONES_NUEVAS`, `PERFILES`).*
+
+⚠️ **Dos tipos de número conviven acá y no valen lo mismo.** El **costo unitario** es
+`publicado` (sale de la página del fabricante). La **cantidad mensual** es `supuesto` — la
+pusimos nosotros, es discutible, y es la palanca de todo el resultado.
+
+### Lo que ya existe, re-ruteado: el texto se derrumba
+
+| Acción | Hoy (medido) | Con el ruteo del paso 1 | |
+|---|---|---|---|
+| Extraer tareas de una reunión de 2 h | US$0,9293 | **US$0,0021** | **436×** |
+| Un mensaje a MaKo por WhatsApp | US$0,0886 | US$0,0011 | 78× |
+| Analizar una llamada de venta | US$0,1729 | US$0,0108 | 16× |
+| Estructurar una campaña de Meta | US$0,0711 | US$0,0127 | 6× |
+| Priorizar un lote de tareas | US$0,0728 | **US$0** | gratis |
+| Descripción + checklist de un lote | US$0,0396 | **US$0** | gratis |
+| Validar una plantilla de WhatsApp | US$0,0400 | **US$0** | gratis |
+| Analizar un anuncio | US$0,0284 | **US$0** | gratis |
+| Retro / experimentos | US$0,0989 | US$0,0989 | **no se mueve** |
+
+El 436× de la reunión no es un modelo más barato: es que **Qwen3.7-Flash tiene 1M de
+contexto y la reunión entra entera**, así que desaparecen las 4-5 llamadas del troceo. Es
+exactamente el problema documentado en [hallazgos-ia.md](hallazgos-ia.md) → Topes.
+
+La Retro es la única que **no** se mueve, a propósito: es el único análisis cuya salida
+gobierna decisiones de plata.
+
+### Lo que falta construir: 22 acciones nuevas que gastan
+
+De las 38 áreas por construir, las que consumen IA son 6 analistas nuevos (Competitor Spy,
+Offer / VSL / Chat / CS / YouTube Analyst), 6 de Sales Machine (VSL Generator, Lead Magnet,
+Sales Email, Newsletters, Closing Script, Sales Roleplay), 8 de Content Machine (Ideas,
+Image, Video, Reels, Carousels, Stories, YouTube Writer, Thumbnails) y 2 agentes.
+
+| | Una unidad de cada acción |
+|---|---|
+| Las 16 de **texto** | **US$0,23** |
+| Las 6 de **medios** | **US$3,22** (capa barata US$1,26) |
+
+**Los medios son 14× el texto entero, con seis acciones contra dieciséis.**
+
+Las unidades que importan: imagen US$0,034 (barata US$0,015) · clip de video de 8 s
+US$0,40 (barata US$0,15) · **Reel de 15 s con 3 intentos y voz US$2,45** (barata US$0,95) ·
+carrusel de 7 imágenes US$0,238.
+
+⚠️ Los 3 intentos no son pesimismo: en creativos publicitarios nadie acierta al primero, y
+ningún modelo genera 15 segundos de una — son 2 clips más un stitch. Es la arquitectura, no
+una optimización pendiente.
+
+### El costo mensual por cliente, con el producto completo
+
+| Plan | Precio | Costo de IA | Margen | Techo al 75% |
+|---|---|---|---|---|
+| Free | US$0 | **US$0,02** | — | — |
+| Pro | US$47 | **US$1,87** (barata US$1,15) | 96% | US$11,75 ✅ |
+| Growth | US$97 | **US$27,40** (barata US$12,60) | **72%** | US$24,25 ⚠️ |
+
+> **El Growth se pasa del techo, y el 90% de su costo son medios: US$24,58 de US$27,40.**
+> Un solo Reel de 15 segundos cuesta más que TODO el texto del plan Pro en un mes entero.
+
+Supuestos del Growth que producen ese número: 20 clips de video, 4 Reels, 80 imágenes, 40
+stories, 8 carruseles y 12 thumbnails por mes. **Ninguno está medido.** Si un cliente hace
+40 clips en vez de 20, el costo pasa de US$27 a US$35 y el margen cae debajo del 65% — y
+hoy no hay nada que lo impida.
+
+### La consecuencia, que es de diseño de planes y no de ingeniería
+
+1. **El video no puede ser una feature incluida.** Tiene que ser una unidad medida y
+   visible: «te quedan N videos», no «generación de video ✓». Es la única línea del costo
+   que un usuario puede multiplicar por diez sin darse cuenta.
+2. **El Free es gratis de verdad** si no toca medios: US$0,02/mes. El molde de HubSpot
+   (funcionalidad gratis, IA paga) no es una concesión — acá es literalmente el diseño que
+   los números piden.
+3. **El Pro respira**: US$1,87 contra un techo de US$11,75. Hay espacio para meterle
+   analistas de texto sin tocar el precio, porque el texto ya no cuesta.
+4. **La capa barata del paso 1 vale exactamente donde duele.** Baja el Growth de US$27,40 a
+   US$12,60 — la mitad del costo, y toda la diferencia está en los medios. Pero es la capa
+   que tiene el problema de términos de reventa (ver [hallazgos-ia.md](hallazgos-ia.md) →
+   Comprar modelos): **el ahorro es real y el riesgo contractual también**.
 
 ---
 

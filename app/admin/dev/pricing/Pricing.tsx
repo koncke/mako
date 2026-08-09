@@ -144,10 +144,12 @@ export function Pricing() {
           />
         </div>
         <Nota>
-          <strong>El plan que pierde plata es el Pro, no el Free.</strong> Un workspace
-          intensivo cuesta {usd(COSTO_INTENSIVO)} por mes de IA — más que la suscripción entera.
-          Y el problema no se arregla solo bajando el costo: a ese precio el producto también
-          retiene mal y la venta con llamada no se paga.
+          <strong>Con el ruteo de HOY, el plan que pierde plata es el Pro, no el Free.</strong> Un
+          workspace intensivo cuesta {usd(COSTO_INTENSIVO)} por mes de IA — más que la suscripción
+          entera. Pero eso es un problema de ruteo, no de precio: con los modelos del paso 1 el
+          texto se derrumba (extraer una reunión pasa de US$0,93 a US$0,002) y el que queda
+          apretado es el <strong>Growth</strong>, por el video. Lo que no se arregla bajando el
+          costo es la retención: a menos de US$50/mes el producto retiene 23% anual.
         </Nota>
         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
           {BENCHMARKS.map((b) => (
