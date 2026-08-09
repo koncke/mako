@@ -506,119 +506,177 @@
 }
 
 
-/* ── La gramática de MaKo (<Mako>, los nueve estados) ──────────────────────
-   Parte 3 del rediseño (#520). El catálogo de estados vive en
-   lib/mako-gramatica.ts y la pieza en app/_ui/Mako.tsx; acá va sólo la forma.
+/* ── La gramática de MaKo: UNA FILA y UNA PÍLDORA ─────────────────────────
+   El catálogo de estados vive en lib/mako-gramatica.ts y la pieza en
+   app/_ui/Mako.tsx; acá va sólo la forma.
 
-   ⚠️ ESTA CAJA ES SOLO DE LOS AVISOS. Las tres formas se ven distinto a
-   propósito y cada una tiene su bloque:
+   ⚠️ ACÁ HABÍA CINCO TRATAMIENTOS Y SON DOS. La versión anterior tenía una
+   fila para las decisiones, una línea con barra suelta para el trabajo en
+   curso, una tarjeta con caja para los avisos, una caja crema para la
+   sugerencia pegada a un campo, y una pastilla aparte para la tabla. Los
+   cuatro primeros ya tenían la MISMA anatomía —marca de 16 px, columna de
+   texto que se estira, riel derecho— y se diferenciaban sólo en el relleno, el
+   separador y qué iba en el riel. No eran cinco piezas: era una pieza con
+   cuatro juegos de números.
 
-     decisión  →  `.mk-dec`, más abajo. Una FILA que se abre, sin caja.
-     curso     →  `.mk-mako--curso`. Una línea, sin caja.
-     aviso     →  esto. Es lo único que sigue siendo una tarjeta, porque es una
-                  unidad cerrada que se lee entera de una vez.
+   Queda:
+     `.mk-fila`   todo lo que MaKo pone en una lista. El modal NO es un
+                  tratamiento aparte: es su segunda capa, igual que un
+                  <summary> no es un componente distinto de su <details>.
+     `.mk-pill`   el nombre del estado, un solo componente.
 
-   Sin fondo de color, ni siquiera para lo que te está esperando. Ese tinte
-   existió y se sacó: lo tenían la aprobación y «falta un dato», y como el
-   segundo es de tono `neutral` su fondo salía `--surface-2` —la misma
-   superficie que usa media app—, así que el realce que la regla anunciaba como
-   «lo único que hace que no se te pase» era invisible por construcción. Hoy el
-   único color de la lista es el botón de la fila que bloquea. */
-.mk-mako {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 14px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-}
+   Y se cae la CAJA de los avisos: eran tarjetas adentro de una `Section card`,
+   o sea cajas adentro de una caja — «nested cards are always wrong», la misma
+   regla que ya había sacado la caja de las decisiones y que no se aplicó abajo.
 
-/* ── El chip ──────────────────────────────────────────────────────────────
-   CENTRADO POR CONSTRUCCIÓN, no por ajuste fino. Las tres razones por las que
-   la palabra quedaba descentrada, y cómo se cierran:
+   Lo único que NO vive en una lista es la sugerencia pegada a un campo, y por
+   eso es lo único que cambia de separador. */
 
-   1. `line-height: 1.45` — `align-items: center` centra la CAJA del texto, no
-      los glifos; con la caja 45% más alta que la letra, la palabra flota arriba
-      del centro. Va `line-height: 1` en el rótulo: la caja pasa a medir lo que
-      mide la letra y el centrado es exacto.
-   2. Padding asimétrico calibrado para la estrella de 12 px. Pero cinco de los
-      nueve estados no llevan estrella sino un punto de 7 px, así que el texto
-      arrancaba en otra x y cada pastilla se desbalanceaba distinto. Ahora el
-      padding es simétrico.
-   3. La marca no tenía caja propia. `.mk-mako__marca` es un cuadrado fijo que
-      centra lo que le pongas adentro, así las nueve pastillas tienen la misma
-      geometría midan lo que midan la estrella y el punto. */
-.mk-mako--chip {
-  flex-direction: row;
+/* ── La píldora del estado ────────────────────────────────────────────────
+   ⚠️ ERAN DOS COMPONENTES PARA LA MISMA COSA: `.mk-dec__pill` (fondo del tono,
+   sin marca) y `.mk-mako--chip` (fondo gris, con la estrella adentro). La regla
+   de la casa dice que si dos cosas tienen que verse igual tienen que ser el
+   mismo componente — y acá ni siquiera se veían igual, que era peor.
+
+   El criterio para saber si hacen falta dos lo publica Primer, y son dos ejes:
+   ¿es clickeable? y ¿el vocabulario es cerrado o lo escribe el usuario? Los
+   nueve estados de MaKo son enum CERRADO y NO interactivo: caen los dos en la
+   misma celda. Primer no los separaría, Polaris tampoco (un solo Badge, y lo
+   suave contra lo fuerte es un `tone`), Atlassian tampoco (un Lozenge, dos
+   apariencias). Lo que los diferenciaba pasa a ser un modificador.
+
+   Los números son el consenso de los cuatro sistemas: alto 20, padding 8,
+   12 px, peso 500 —que ya existe en la escala, así que no estrena nivel—. */
+.mk-pill {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 11px;
+  flex: none;
+  height: 20px;
+  padding: 0 8px;
   border-radius: 999px;
-  background: var(--surface-2);
-}
-.mk-mako--chip .mk-mako__t {
   font-size: var(--fs-meta);
   font-weight: 500;
-  color: var(--dim);
+  /* Con alto fijo, `line-height: 1` centra los glifos sin pelearse con la caja. */
   line-height: 1;
+  white-space: nowrap;
 }
-.mk-mako--chip .mk-mako__rot { font-weight: 500; }
+/* La marca adentro SOLO donde la píldora viaja sola —una celda de tabla, un
+   filtro— y hay que decir que eso lo dijo MaKo. En una fila NO va: la fila ya
+   tiene su marca a la izquierda, y repetirla son dos estrellas por renglón. */
+.mk-pill--con-marca { height: 22px; padding: 0 9px 0 7px; }
+.mk-pill .mk-mako__marca { width: 13px; height: 13px; }
 
-/* ── EN CURSO ─────────────────────────────────────────────────────────────
-   Que MaKo esté trabajando NO merece una caja: merece una línea. Una tarjeta
-   entera para «estoy revisando» ocupa el lugar de lo que sí tenés que leer, y
-   encima desaparece a los segundos — deja un hueco que salta. */
-.mk-mako--curso {
-  gap: 8px;
-  padding: 12px 12px;
-  background: transparent;
+/* ── La fila ──────────────────────────────────────────────────────────────
+   Una sola anatomía para las cuatro cosas que MaKo pone en una lista:
+
+     [marca]  título + píldora .................... riel derecho  [chevron]
+              la segunda línea, en gris
+
+   Lo único que cambia entre ellas es qué va en el riel y si hay chevron:
+     decisión   riel = cuándo          · chevron sí (abre el modal)
+     en curso   riel = el porcentaje   · chevron NO (no hay segunda capa)
+     aviso      riel = importancia y cuándo · chevron sí
+
+   Sin caja y sin radio, a propósito: el realce del hover va de borde a borde,
+   como en cualquier bandeja. */
+.mk-fila {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  /* 14 px arriba y abajo dejan la fila en ~64-76 px: bien por encima del
+     mínimo táctil de 44 y de los 40 de `--touch`. La fila ENTERA es el
+     control cuando hay segunda capa. */
+  padding: 14px 12px;
   border: none;
-  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
-.mk-mako--curso + .mk-mako--curso { border-top: 1px solid var(--border); }
-.mk-mako--curso .mk-mako__cab { flex-wrap: wrap; gap: 8px; }
-/* El TÍTULO manda, igual que en la fila de decisión: es lo que dice qué está
-   haciendo MaKo. El rótulo y la fuente son la meta que lo acompaña, y por eso
-   van un escalón abajo y en gris — antes el rótulo iba en mono y en negrita y
-   se leía más fuerte que el trabajo que estaba describiendo. */
-.mk-mako--curso .mk-mako__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.35; }
-.mk-mako--curso .mk-mako__rot { font-weight: 500; color: var(--dim) !important; }
-.mk-mako--curso .mk-mako__proc { flex-direction: row; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* El filete lo pone la fila de ABAJO: una sola fila suelta en una pantalla no
+   queda con una raya colgando sin nada arriba. */
+.mk-fila + .mk-fila { border-top: 1px solid var(--border); }
+.mk-fila--abre { cursor: pointer; }
+.mk-fila--abre:hover { background: var(--surface-2); }
+.mk-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* UN solo número para alinear la marca con la primera línea del título, en las
+   cuatro formas. Antes eran tres distintos (2 px, 3 px y `center`). */
+.mk-fila .mk-mako__marca { margin-top: 2px; }
 
-/* ── EN LÍNEA (el patrón de Linear) ───────────────────────────────────────
-   La sugerencia pegada al dato que propone cambiar, con sus dos salidas y sin
-   robar espacio. El «por qué» va en el `title` del elemento: aparece al pasar
-   el cursor y no empuja nada.
-   Es la diferencia entre una IA atornillada al costado de la pantalla y una que
-   vive donde estás trabajando. */
-/* ⚠️ EL «POR QUÉ» YA NO VIVE EN EL `title`. Era un tooltip nativo: no aparece
-   con teclado, no existe en pantalla táctil y no se puede leer sin mantener el
-   cursor encima — los tres requisitos de WCAG 1.4.13 (dismissable, hoverable,
-   persistent) fallando a la vez. Y era la única explicación de por qué MaKo
-   propone lo que propone. Ahora se ve, en su renglón. */
-.mk-mako--inline {
+.mk-fila__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.mk-fila__l1 { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.mk-fila__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.35; }
+/* La segunda línea va en PROSA. En cuanto se parta en etiqueta + valor volvió
+   el formulario que este rediseño vino a sacar. */
+.mk-fila__c { font-size: var(--fs-sm); color: var(--dim); line-height: 1.5; }
+
+/* El riel derecho: lo que impide que una fila de 1134 px con dos líneas de
+   texto a la izquierda se vea medio vacía. Es el mismo slot en las cuatro
+   —Gmail, GitHub y Linear ponen ahí el tiempo— y nunca lleva texto largo. */
+.mk-fila__riel { flex: none; padding-top: 3px; font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; }
+/* Chevron a la DERECHA y sólo si hay segunda capa: el ícono dice a dónde va, y
+   una flecha en una fila que no abre nada es una promesa que no se cumple. */
+.mk-fila__ir { flex: none; margin-top: 4px; color: var(--dim); }
+
+/* ── La barra de progreso de una fila en curso ────────────────────────────
+   ⚠️ NO es una barra suelta al lado del texto. Ese era el defecto: 220 px
+   flotando en una fila de 1134, con el resto vacío. Ningún producto que muestre
+   progreso dentro de una LISTA hace eso — o la barra es el BORDE de la fila
+   (Uppy la pone absoluta, 2 px, a ancho completo, y lo único que cambia es su
+   width), o no hay barra y el estado vive en el riel (GitHub Actions no dibuja
+   ninguna, ni en la lista ni en el detalle).
+   Acá hay porcentaje real, así que va la barra-borde: 2 px, a lo ancho de la
+   fila, pegada abajo, donde además cae el filete del hermano siguiente. */
+.mk-fila__barra { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--border); overflow: hidden; }
+.mk-fila__barra i { display: block; height: 100%; background: var(--mako); transition: width .3s ease-out; }
+
+/* ── La sugerencia pegada a un campo ──────────────────────────────────────
+   Lo único que no vive en una lista: vive pegado al dato que propone cambiar.
+
+   ⚠️ SIN CAJA. Era un bloque crema a ancho completo con borde dorado, y era el
+   único de los cuatro que existía como objeto propio. Ninguno de los que lo
+   hacen bien envuelve la sugerencia: Copilot no le pone ni fondo ni borde y la
+   distingue sólo con opacidad; Attio tiñe la CELDA, no un contenedor; Grammarly
+   subraya el texto y se lleva la tarjeta afuera. La marca es del CAMPO.
+   Queda un filete dorado al costado: dice «esto lo propuso MaKo» sin pintar un
+   bloque entero, y deja de competir con los botones. */
+.mk-inline {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 10px 12px;
-  background: var(--mako-bg);
-  border: 1px solid var(--mako-border);
-  border-radius: var(--r-md);
+  gap: 4px;
+  padding: 6px 0 6px 11px;
+  border-left: 2px solid var(--mako);
+  background: transparent;
 }
-.mk-mako--inline .mk-mako__l1 { display: flex; align-items: center; gap: 9px; }
-.mk-mako--inline .mk-mako__t {
-  font-size: var(--fs-md);
-  font-weight: 600;
-  color: var(--ink);
-  line-height: 1.3;
-}
-/* Los botones se van al borde derecho: la pastilla ocupa el ancho del campo que
-   propone cambiar, y con los botones pegados al texto quedaba todo amontonado
-   a la izquierda con el mismo hueco muerto de siempre. */
-.mk-mako--inline .mk-mako__acc { margin-left: auto; display: flex; gap: 6px; flex: none; }
-.mk-mako--inline .mk-mako__d { font-size: var(--fs-sm); line-height: 1.5; }
+.mk-inline__l1 { display: flex; align-items: center; gap: 10px; }
+.mk-inline__v { font-size: var(--fs-md); font-weight: 600; color: var(--ink); line-height: 1.35; }
+/* UNA acción visible, no dos. Copilot acepta con Tab y descarta con Escape, sin
+   un solo botón en reposo; Gmail no tiene forma de rechazar —seguir escribiendo
+   ES el rechazo—; Linear revela el botón recién al pasar el cursor. Tener
+   «Asignar a Carolina» al lado de un valor que ya dice «Carolina» era, además,
+   repetir el dato en el botón. */
+.mk-inline__acc { margin-left: auto; display: flex; align-items: center; gap: 2px; flex: none; }
+.mk-inline__d { font-size: var(--fs-sm); color: var(--dim); line-height: 1.5; }
 
+/* La caja de la marca: cuadrada, fija, y centra su contenido. Es lo que hace
+   que una estrella de 14 px y un punto de 7 px ocupen lo mismo. */
+.mk-mako__marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+/* ⚠️ EL PUNTO NO SE VEÍA. Su único tamaño lo daba `.mk-status .mk-dot`, que es
+   descendiente de `.mk-status` — una clase que acá no existe. Fuera de Status el
+   span medía 0×0: invisible en «Hecho», y los quince renglones de comentario que
+   explicaban cómo alinear «una estrella de 14 px y un punto de 7 px» hablaban de
+   algo que nunca se dibujó. Tres rondas de ajuste fino encima de un fantasma. */
+.mk-mako__marca .mk-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 /* ── MODAL — la caja del detalle ──────────────────────────────────────────
    ⚠️ ACÁ VIVE EL ÚNICO ANCHO MÁXIMO. Nada de lo que va adentro lleva
    `max-width`: todo va al 100% de esta caja. El porqué completo, arriba de
@@ -711,75 +769,6 @@
   background: var(--surface);
 }
 
-/* ── DECISIÓN — una FILA de lista que abre su detalle en el modal ──────────
-   El dueño lo pidió textual: «Prefiero que NO sea un desplegable, no se ve
-   lindo, que sea un pop-up con detail BIEN diseñado». Y de paso arregla el
-   ancho muerto: el detalle pasa a una caja de 600 px, donde el texto llena su
-   renglón por construcción en vez de cortarse a la mitad de una de 1134.
-
-   Anatomía copiada de la lista de advisories de GitHub, que es la que resolvió
-   el mismo problema: línea 1 = título + PÍLDORA DE ESTADO INLINE al final del
-   título; línea 2 = una línea gris; riel derecho = el tiempo, corto y sin
-   partirse. La píldora va inline y NO alineada a la derecha a propósito: como
-   los nombres de estado miden muy distinto («Sugerencia» contra «Aprobación
-   pendiente»), alineados a la derecha dejan el borde izquierdo dentado fila
-   por fila.
-
-   Y DOS TAMAÑOS EN TODA LA FILA, no cinco: la jerarquía la hacen el PESO y el
-   COLOR. Es lo que hacen GitHub (16/12, tres pesos, dos colores) y la tabla de
-   Geist de Vercel (un solo tamaño, 14, y cambia solo el peso). El defecto
-   anterior era el contrario: siete elementos repartidos entre 12 y 13 px, o
-   sea ninguna jerarquía y todo pesando igual. */
-.mk-dec {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  /* 14 px arriba y abajo dan 60+ de alto: por encima del mínimo táctil de
-     44 y de los 40 de `--touch`. La fila ENTERA es el control. */
-  padding: 14px 12px;
-  border: none;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-/* El filete lo pone la fila de abajo: una decisión suelta en una pantalla no
-   queda con una raya colgando sin nada arriba. Sin radio, a propósito — el
-   realce del hover va de borde a borde, como en cualquier bandeja. */
-.mk-dec + .mk-dec { border-top: 1px solid var(--border); }
-.mk-dec:hover { background: var(--surface-2); }
-.mk-dec:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.mk-dec .mk-mako__marca { margin-top: 2px; }
-
-.mk-dec__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.mk-dec__l1 { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
-.mk-dec__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.35; }
-/* La consecuencia va en prosa. En cuanto se parta en etiqueta + valor, volvió
-   el formulario que este rediseño vino a sacar. */
-.mk-dec__c { font-size: var(--fs-sm); color: var(--dim); line-height: 1.5; }
-
-/* La píldora del estado. Sin monospace: la guía de oficio marca la mono usada
-   «as a costume for technical» como algo a evitar cuando no es código, dato ni
-   medición. El peso y el color del tono alcanzan. */
-.mk-dec__pill {
-  flex: none;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: var(--fs-meta);
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-/* El riel derecho, que es lo que impedía que la fila se viera medio vacía:
-   Gmail, GitHub y Linear ponen ahí el tiempo. Corto, gris y sin partirse. */
-.mk-dec__cuando { flex: none; padding-top: 3px; font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; }
-/* Chevron a la DERECHA, no hacia abajo: ya no despliega nada en el lugar, abre
-   otra capa. El ícono tiene que decir a dónde va. */
-.mk-dec__ir { flex: none; margin-top: 4px; color: var(--dim); }
-
 /* ── Los bloques del detalle, adentro del modal ────────────────────────────
    Ninguno lleva `max-width`. A 600 px de caja menos 48 de sangría quedan
    552 px, que a 14 px de cuerpo son ~68 caracteres por renglón: la medida de
@@ -813,128 +802,3 @@
    app justo donde no hay vuelta atrás. Reposo 6,50:1 · hover 5,02:1. */
 .mk-det__cta .mk-btn--primary { background: var(--warn-fill); border-color: var(--warn-fill); color: var(--ink); }
 .mk-det__cta .mk-btn--primary:hover:not(:disabled) { background: var(--warn); border-color: var(--warn); color: #fff; }
-/* La caja de la marca: cuadrada, fija, y centra su contenido. Es lo que hace
-   que una estrella de 14 px y un punto de 7 px ocupen lo mismo. */
-.mk-mako__marca {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 16px;
-  height: 16px;
-}
-.mk-mako--chip .mk-mako__marca { width: 13px; height: 13px; }
-/* ⚠️ EL PUNTO NO SE VEÍA. Su único tamaño lo daba `.mk-status .mk-dot`, que es
-   descendiente de `.mk-status` — una clase que acá no existe. Fuera de Status el
-   span medía 0×0: invisible en «Hecho», y los quince renglones de comentario que
-   explicaban cómo alinear «una estrella de 14 px y un punto de 7 px» hablaban de
-   algo que nunca se dibujó. Tres rondas de ajuste fino encima de un fantasma. */
-.mk-mako__marca .mk-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-
-.mk-mako__cab { display: flex; align-items: center; gap: 7px; }
-
-/* ⚠️ SIN MONOSPACE. Estaba en 'Geist Mono' a 11,5 px «para que se lea como algo
-   que dice el sistema», y la guía de oficio lo nombra entre lo que se rechaza:
-   «Monospace as a costume for "technical" rather than for code, data, or
-   measurement». Un rótulo de estado no es ninguna de las tres. El peso y el
-   color del tono hacen el trabajo, que es lo mismo que hacen GitHub y Vercel:
-   la jerarquía sale del peso y del color, no de estrenar una tipografía.
-   Y sube de 11,5 a 12 (`--fs-meta`): 11,5 no es ningún escalón del sistema, era
-   un número suelto, y 12 es el paso más chico que shipean Carbon y Atlassian. */
-.mk-mako__rot {
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  /* `line-height: 1` es lo que centra la palabra en el chip: la caja del texto
-     pasa a medir lo que mide la letra, así `align-items: center` centra glifos
-     y no una caja con aire sobrante arriba y abajo. */
-  line-height: 1;
-  white-space: nowrap;
-}
-
-/* La importancia NO usa color: si «alta» fuera roja competiría con el rojo de
-   riesgo, y una señal importante no es lo mismo que una señal mala. */
-/* ⚠️ En `--dim` y no en `--faint`, igual que las etiquetas de los campos: es un
-   dato que `detecto` está OBLIGADO a mostrar («el nivel de importancia»), y a
-   2,64:1 no se lee. Un campo obligatorio pintado por debajo del mínimo legible
-   es un campo que no está. */
-.mk-mako__imp {
-  margin-left: auto;
-  font-size: var(--fs-meta);
-  color: var(--dim);
-}
-
-/* La marca va en la MISMA línea que el título, no en un renglón propio arriba.
-   Ese renglón era el `.mk-mako__cab` con el rótulo en monospace —el «kicker»
-   prohibido— y sacando el rótulo quedaba una fila fantasma de 16 px con la
-   marca sola, que igual se comía el `gap` de la tarjeta. */
-.mk-mako__linea { display: flex; align-items: flex-start; gap: 8px; }
-.mk-mako__linea .mk-mako__marca { margin-top: 3px; }
-
-.mk-mako__t { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.4; }
-/* 14 px (`--fs-md`) y no 13: es el cuerpo con el que coinciden Carbon, M3,
-   Atlassian y Geist. Con la etiqueta en 12 queda UN escalón de diferencia, que
-   es todo lo que hace falta — antes eran 12 contra 13, un punto, invisible. */
-.mk-mako__d { font-size: var(--fs-md); color: var(--dim); line-height: 1.6; }
-
-.mk-mako__proc { display: flex; flex-direction: column; gap: 5px; }
-.mk-mako__fuente { font-size: var(--fs-sm); color: var(--dim); }
-
-/* Los campos obligatorios del estado. Rejilla que se acomoda sola: con dos
-   campos son dos columnas, con cinco bajan de renglón. Nunca scroll lateral —
-   eso es esconder lo que el estado está obligado a mostrar. */
-/* ⚠️ SIN TOPE DE ANCHO, y el tope anterior era el bug. Decía «acotada, la
-   tarjeta vuelve a leerse como una tarjeta», pero un `max-width: 620px` adentro
-   de una caja de 1134 no achica la caja: deja **528 px muertos a la derecha** y
-   el contenido aplastado contra el borde izquierdo. Es exactamente lo que
-   AGENTS.md ya prohibía —«un maxWidth pegado a la izquierda es lo que deja la
-   franja muerta»— y lo que el dueño vio como «el texto se corta al medio de la
-   card».
-   Si alguna vez hay que acotar la medida de lectura, se acota el CONTENEDOR
-   (para eso está el modal, 600 px) o se centra con `margin-inline: auto`. */
-.mk-mako__datos {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px 24px;
-  margin: 2px 0 0;
-}
-.mk-mako__dato { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-/* El rótulo del campo va en la tipografía de la app, chico y tenue. Estaba en
-   mono, 10,5 px, versalitas y tracking: cinco de esos arriba de cinco valores
-   convertían la tarjeta en un formulario de configuración. Lo que tiene que
-   leerse es el VALOR; la etiqueta solo dice de qué es. */
-.mk-mako__k {
-  font-size: var(--fs-meta);
-  /* `--dim`, no `--faint`: mismo motivo que `.mk-dec__k`. 2,64:1 no llega al
-     piso de 4,5:1, y sin la etiqueta el valor queda huérfano. */
-  color: var(--dim);
-  line-height: 1.3;
-}
-.mk-mako__v { margin: 0; font-size: var(--fs-md); font-weight: 500; color: var(--ink); line-height: 1.45; }
-
-/* La evidencia va plegada: RESPALDA la afirmación, no se lee todas las veces.
-   Desplegada siempre, la tarjeta pasa de «MaKo encontró algo» a un volcado de
-   datos y deja de tener un título directo, que es lo que el documento pide. */
-/* El disparador de un plegado es un CONTROL, no metadata: a 2,64:1 la única
-   puerta a la evidencia queda por debajo del mínimo legible. */
-.mk-mako__ev > summary {
-  cursor: pointer;
-  font-size: var(--fs-sm);
-  color: var(--dim);
-  padding: 2px 0;
-  list-style-position: outside;
-}
-.mk-mako__ev > summary:hover { color: var(--ink); }
-.mk-mako__ev[open] > summary { margin-bottom: 2px; }
-.mk-mako__ev > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
-/* Fondo propio y SIN borde. Antes tenía `background: var(--surface)` adentro de
-   un `.mk-mako` que también es `--surface`: una caja con borde y sin contraste
-   contra su padre, o sea anidar contenedores para no distinguir nada. */
-.mk-mako__evc {
-  margin-top: 8px;
-  padding: 12px 14px;
-  background: var(--surface-2);
-  border-radius: var(--r-md);
-  font-size: var(--fs-md);
-  color: var(--ink);
-  line-height: 1.6;
-}

@@ -269,6 +269,13 @@ Lo que queda:
   una caja de 1134.
 - **`Confirm` pregunta · `Modal` muestra el detalle · `WizardShell` conduce un flujo.** Son
   tres cosas distintas, no tres tamaños de lo mismo. Para el detalle de algo, `Modal`.
+- **Todo lo que MaKo pone en una lista es `.mk-fila`, y su nombre de estado es `.mk-pill`.**
+  Eran cinco tratamientos —fila, línea con barra, tarjeta, caja crema, pastilla— que
+  compartían la misma anatomía y diferían en tres números. Antes de estilar una pieza
+  «parecida» a otra, poné las dos anatomías al lado: si comparten esqueleto, es una pieza con
+  dos configuraciones, y mantenerlas separadas garantiza que diverjan.
+- **Adentro de una lista, una barra de progreso es el BORDE de la fila (2 px, ancho completo)
+  o no existe.** Una barra con ancho propio deja el mismo hueco muerto que un `max-width`.
 
 El detalle de cada uno, con las citas de las guías, en
 [docs/hallazgos-ui.md](docs/hallazgos-ui.md).

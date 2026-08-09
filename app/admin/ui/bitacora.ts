@@ -566,6 +566,34 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — la regla del contenedor y las tres cajas · docs/hallazgos-ui.md · docs/hallazgos-infra.md',
     ],
   },
+  {
+    fecha: '9 ago', hora: '18:20', chat: CH3, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'No lo aplicaste al resto',
+    pedido: 'No lo aplicaste al resto de cosas...\n\n1. Está pasando algo\n2. Te estás enterando\n3. Pegado al dato\n4. En una fila\n\nRevisa bien como hacer bien esos diseños, ya tienes toda la data, pero si necesitas investigar como lo hacen otras apps, hazlo.',
+    puntos: [
+      'Tenía razón y el diagnóstico salió más profundo que el pedido: **no era que faltara aplicarles el mismo estilo, era que no tenían por qué existir por separado**.',
+    ],
+  },
+  {
+    fecha: '9 ago', hora: '19:15', chat: CH3, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cinco «piezas» eran una pieza con cuatro juegos de números',
+    puntos: [
+      'Convivían cinco tratamientos: fila (decisión), línea con barra suelta (curso), tarjeta con caja (aviso), caja crema (inline) y pastilla (chip). Los cuatro primeros **ya tenían la misma anatomía** —marca de 16 px, columna de texto que se estira, riel derecho— y diferían sólo en el relleno, el separador y qué iba en el riel. Cada uno se escribió en una sesión distinta resolviendo su caso, y ninguno miró al de al lado.',
+      'Queda **`.mk-fila`** (con el modal como su segunda capa, no como un tratamiento aparte) y **`.mk-pill`**. Lo único que cambia entre los tres usos de la fila: decisión → riel con el cuándo, abre · en curso → riel con el porcentaje, no abre · aviso → riel con importancia y cuándo, abre.',
+      '⚠️ **Yo mismo había creado la duplicación de la píldora**: al rediseñar las decisiones hice `.mk-dec__pill` y dejé `.mk-mako--chip` viva. El criterio para saber si hacen falta dos lo publica Primer y son dos ejes —¿es clickeable? ¿el vocabulario es cerrado o lo escribe el usuario?—: los nueve estados caen los dos en la misma celda. Polaris tiene UN Badge y resuelve suave-vs-fuerte con un `tone`; Material 3 tiene cuatro chips con nombres distintos y **la caja es idéntica en los cuatro**.',
+      '⚠️ **Y había cajas adentro de cajas**: los avisos eran cuatro tarjetas con caja dentro de una `Section card`. Es el «nested cards are always wrong» que ya había citado para sacarle la caja a las decisiones y que no apliqué abajo.',
+      '**La barra de progreso suelta no la usa nadie.** Medido sobre el DOM real: GitHub Actions no dibuja ninguna —anillo girando y el estado ocupando el MISMO slot que la duración—; Uppy la pone absoluta, 2 px, pegada al borde de la fila y a ancho completo, y lo único que cambia es su `width`; Geist lo dice textual: «the bar alone doesn\'t say what\'s progressing». Ahora es el borde de la fila, el porcentaje va al riel y la fuente y el avance a la segunda línea.',
+      '**La sugerencia pegada al dato pierde la caja.** Ninguno de los que lo hacen bien la envuelve: Copilot no le pone ni fondo ni borde y la distingue sólo con opacidad, Attio tiñe la CELDA, Grammarly subraya el texto y se lleva la tarjeta afuera. Queda un filete dorado al costado. Y **una sola acción visible**: «Asignar a Carolina» al lado de un valor que ya decía «Carolina» repetía el dato adentro del botón.',
+      'El rótulo es ahora **siempre** la píldora al final del título. Antes el aviso lo pintaba como kicker arriba, el curso en gris antes del título y la decisión como píldora: tres tratamientos para el mismo dato. Los títulos de `curso` pasaron a frases completas, porque ya no los arranca el rótulo.',
+      'Verificado sobre el build de producción con la cookie firmada: hidrata, **0 px muertos en las CINCO secciones**, y los 7 modales abren con 600 px de ancho y 550 útiles, con su píldora y sus botones, y cierran con Escape.',
+    ],
+    archivos: [
+      'app/_ui/ui.css — `.mk-fila*`, `.mk-pill*`, `.mk-inline*`; mueren `.mk-dec*`, `.mk-mako--chip/--curso/--inline`, `.mk-mako__cab/__rot/__datos/__ev/__evc`',
+      'app/_ui/Mako.tsx — `Fila` y `Pill` reemplazan a `Decision` y a las tres ramas; `titulo` pasa a obligatorio en los NUEVE',
+      'app/admin/ui/Gramatica.tsx — títulos de curso como frase completa, `cuando` en los cuatro avisos, una sola acción en el inline, y las tres secciones sin `gap`',
+      'AGENTS.md — «todo lo que MaKo pone en una lista es .mk-fila» y la regla de la barra · docs/hallazgos-ui.md — dos entradas',
+    ],
+  },
 ];
 
 /** Las nueve partes del rediseño y en qué anda cada una. */

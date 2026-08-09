@@ -382,6 +382,64 @@ describe una geometría, la geometría hay que **medirla** una vez, no deducirla
 **Vive en:** app/_ui/ui.css (`.mk-mako__marca .mk-dot`) · app/_ui/Mako.tsx (`marca`) ·
 *2026-08-09*
 
+### ⚠️ Cinco «piezas» eran una pieza con cuatro juegos de números
+
+**Síntoma:** rediseñada la fila de decisión, el dueño marcó que las otras cuatro secciones
+seguían feas. Y no era que faltara aplicarles el mismo estilo: era que **no tenían por qué
+existir por separado**.
+
+Convivían cinco tratamientos para lo que MaKo pone en pantalla: una fila para las decisiones,
+una línea con una barra suelta para el trabajo en curso, una tarjeta con caja para los avisos,
+una caja crema para la sugerencia pegada a un campo, y una pastilla aparte para la tabla.
+
+**Causa:** los cuatro primeros **ya tenían la misma anatomía** —marca de 16 px, columna de
+texto que se estira, riel derecho— y se diferenciaban sólo en tres cosas: el relleno, el
+separador y qué iba en el riel. Cada uno se escribió en una sesión distinta resolviendo su
+caso, y ninguno miró al de al lado.
+
+**Lo que quedó — dos piezas:**
+
+| Antes | Ahora |
+|---|---|
+| `.mk-dec` (decisión) · `.mk-mako--curso` · `.mk-mako` (tarjeta de aviso) | **`.mk-fila`**, con el modal como su segunda capa |
+| `.mk-dec__pill` · `.mk-mako--chip` | **`.mk-pill`**, con un modificador para la marca |
+| `.mk-mako--inline` | `.mk-inline` — el único que no vive en una lista, y por eso el único con otro separador |
+
+Lo único que cambia entre los tres usos de la fila es qué va en el riel y si hay chevron:
+decisión → cuándo, abre · en curso → el porcentaje, no abre · aviso → importancia y cuándo,
+abre. Y **el rótulo es siempre la píldora al final del título**: antes el aviso lo pintaba como
+kicker arriba, el curso en gris antes del título, y la decisión como píldora — tres
+tratamientos para el mismo dato.
+
+**Regla:** antes de estilar una pieza «parecida» a otra, poné las dos anatomías una al lado de
+la otra. Si comparten el esqueleto y difieren en tres números, no son dos piezas: es una con
+dos configuraciones, y mantenerlas separadas garantiza que diverjan.
+
+**Vive en:** app/_ui/Mako.tsx (`Fila`, `Pill`) · app/_ui/ui.css · *2026-08-09*
+
+### ⚠️ Una barra de progreso suelta al lado del texto no la usa nadie
+
+**Síntoma:** la fila de «está pasando algo» medía 1134 px y usaba ~500: el texto a la izquierda
+y una barra de 220 px flotando al lado, con el resto vacío.
+
+**Causa:** se trató la barra como un elemento más de la fila. Medido sobre el DOM real de tres
+productos, ninguno hace eso:
+
+- **GitHub Actions** no dibuja **ninguna** barra, ni en la lista ni en el detalle del run. Un
+  anillo de 16 px girando a la izquierda, y en el riel derecho el texto ocupa **el mismo slot
+  que la duración** cuando termina — el estado no se suma, reemplaza.
+- **Uppy** pone la barra como un elemento absoluto de **2 px pegado al borde de la fila**, a
+  ancho completo: no ocupa altura de layout, no tiene track visible, **es** el borde. Lo único
+  que cambia es su `width`.
+- **Vercel Geist** lo dice textual: *«the bar alone doesn't say what's progressing»*, y el paso
+  va al lado, unido con punto medio: `Step 2 of 4 · Building`. Y nunca un porcentaje pelado.
+
+**Regla:** dentro de una lista, la barra es el borde de la fila o no existe. Una barra con
+ancho propio adentro de una fila ancha reintroduce el mismo hueco muerto de siempre. Y el
+porcentaje va en el riel derecho, con la fuente y el avance en la segunda línea.
+
+**Vive en:** app/_ui/ui.css (`.mk-fila__barra`) · app/_ui/Mako.tsx · *2026-08-09*
+
 ### ⚠️ Un `max-width` adentro de una caja ancha no acota: deja la mitad vacía
 
 **Síntoma:** el dueño lo describió como tres cosas distintas —«textos que se cortan al medio

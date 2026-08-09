@@ -23,7 +23,10 @@ import { MakoStar } from '@/app/_components/MakoBrand';
 import { GRAMATICA, type EstadoMako, type DefEstado } from '@/lib/mako-gramatica';
 import { TONO, type Tono } from './tokens';
 import { Button, ButtonLink } from './Button';
-import { Progress } from './Feedback';
+// `Progress` ya no se importa: la barra de una fila en curso NO es el componente
+// suelto de 200 px, es un filete de 2 px pegado al borde de la fila (ver
+// `.mk-fila__barra` en ui.css). El componente sigue existiendo para las barras
+// que sí son un elemento propio de una pantalla.
 import { Modal } from './Modal';
 
 /** Un campo de los que el estado exige. La `k` es el rótulo, la `v` el valor. */
@@ -122,10 +125,13 @@ export type MakoProps = {
  * gramática: aquello es el texto que lee un humano, esto es lo que la interfaz
  * puede comprobar sola. Alimenta el aviso de desarrollo de más abajo.
  */
+// ⚠️ `titulo` es obligatorio en los NUEVE. Ahora los nueve se pintan con la
+// misma fila, y el título es el único texto que la fila siempre muestra: sin él
+// no dice nada y queda un renglón vacío que igual se come el gap.
 const REQUIERE: Record<EstadoMako, (keyof MakoProps)[]> = {
-  detecto: ['importancia', 'evidencia'],
-  analizando: ['progreso', 'fuente'],
-  explica: ['evidencia'],
+  detecto: ['titulo', 'importancia', 'evidencia'],
+  analizando: ['titulo', 'progreso', 'fuente'],
+  explica: ['titulo', 'evidencia'],
   // ⚠️ `titulo` y `consecuencia` son obligatorios en los tres estados de
   // decisión, y no es burocracia: son los DOS ÚNICOS elementos de texto que la
   // fila muestra cerrada. Si falta uno, la fila no dice nada y el usuario tiene
@@ -146,9 +152,9 @@ const REQUIERE: Record<EstadoMako, (keyof MakoProps)[]> = {
   // avisa nada: vuelve entero el defecto original —el botón a la vista y qué
   // dicen los mensajes en ningún lado— con el checklist diciendo que está bien.
   aprobacion: ['titulo', 'consecuencia', 'datos', 'accion', 'advertencia', 'evidencia'],
-  ejecuta: ['datos'],
-  completo: ['datos'],
-  vigila: ['datos'],
+  ejecuta: ['titulo', 'progreso', 'datos'],
+  completo: ['titulo', 'datos'],
+  vigila: ['titulo', 'datos'],
   sin_conclusion: ['titulo', 'consecuencia', 'datos', 'accion'],
 };
 
@@ -197,10 +203,9 @@ const IMPORTANCIA: Record<'alta' | 'media' | 'baja', string> = {
 };
 
 
-/** Va a otra capa, no despliega en el lugar: el ícono tiene que decir a dónde va. */
 function Chevron() {
   return (
-    <svg className="mk-dec__ir" width="14" height="14" viewBox="0 0 14 14" aria-hidden focusable="false">
+    <svg className="mk-fila__ir" width="14" height="14" viewBox="0 0 14 14" aria-hidden focusable="false">
       <path d="M5.5 3 10 7l-4.5 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -215,89 +220,121 @@ function Aviso() {
   );
 }
 
+/** El nombre del estado. UN componente para los dos usos que antes eran dos. */
+function Pill({ def, t, conMarca, marca }: { def: DefEstado; t: (typeof TONO)[Tono]; conMarca?: boolean; marca?: ReactNode }) {
+  return (
+    <span className={`mk-pill${conMarca ? ' mk-pill--con-marca' : ''}`} style={{ background: t.bg, color: t.ink }}>
+      {conMarca && marca}
+      {def.rotulo}
+    </span>
+  );
+}
+
 // =============================================================================
-// DECISIÓN — una FILA de lista, y el detalle en un MODAL
+// LA FILA — lo único que MaKo pone en una lista
 // =============================================================================
-// Tercera versión, y las dos anteriores fallaron por cosas distintas:
+// ⚠️ ACÁ HABÍA CUATRO PIEZAS Y ES UNA. Convivían una fila para las decisiones,
+// una línea con una barra suelta para el trabajo en curso, una tarjeta con caja
+// para los avisos y una pastilla aparte para la tabla. Las cuatro ya tenían la
+// MISMA anatomía —marca de 16 px, columna de texto que se estira, riel
+// derecho— y se diferenciaban sólo en el relleno, el separador y qué iba en el
+// riel. No eran cuatro piezas: era una pieza con cuatro juegos de números.
 //
-//   1ª  una tarjeta que mostraba los CINCO campos siempre. 14 elementos de texto
-//       para decidir si te interesa una sugerencia.
-//   2ª  una fila que desplegaba un panel en el lugar. Bajó a 2 elementos
-//       cerrada —eso funcionó— pero el panel abierto quedó como una pila de
-//       textos de 12 y 13 px flotando, y **el texto ocupaba 603 px dentro de una
-//       caja de 1134**: el 47% vacío a la derecha y el párrafo cortado al medio.
+// El modal NO cuenta como un tratamiento aparte: es la segunda capa de la fila,
+// igual que un <summary> no es un componente distinto de su <details>.
 //
-// El pedido, textual: «Prefiero que NO sea un desplegable, no se ve lindo, que
-// sea un pop-up con detail BIEN diseñado».
+//   [marca]  título + píldora ....................... riel derecho  [chevron]
+//            la segunda línea, en gris
 //
-// Y no es solo estética: el modal ARREGLA el ancho muerto por construcción. La
-// caja mide 600 px, así que el texto llena su renglón sin que nadie le ponga un
-// tope. La regla que salió de esto vive en app/_ui/Modal.tsx y es corta: **el
-// único ancho máximo del diseño vive en el contenedor del modal**; adentro nadie
-// lleva `max-width`.
+// Lo único que cambia entre los tres usos:
 //
-// LA FILA. Anatomía copiada de la lista de advisories de GitHub, que resolvió
-// exactamente este problema:
+//   decisión   riel = cuándo                    · chevron sí · 2ª línea = consecuencia
+//   en curso   riel = el porcentaje             · chevron NO · 2ª línea = fuente · avance
+//   aviso      riel = importancia y cuándo      · chevron sí · 2ª línea = detalle
 //
-//   ✦  Título de lo que pasa  «Aprobación pendiente»        hace 2 h   ›
-//      la consecuencia, en una línea gris
-//
-// La píldora del estado va INLINE al final del título y no alineada a la
-// derecha: como los nombres miden muy distinto («Sugerencia» contra «Aprobación
-// pendiente»), a la derecha dejan el borde izquierdo dentado fila por fila.
-// A la derecha va el tiempo, que es lo que ponen ahí Gmail, GitHub y Linear —
-// y es lo que impide que la fila se vea medio vacía.
-//
-// DOS TAMAÑOS EN TODA LA FILA. La jerarquía la hacen el peso y el color, no más
-// tamaños: GitHub usa 16 y 12 con tres pesos y dos colores, y la tabla de Geist
-// de Vercel usa UN solo tamaño y cambia el peso. El defecto de la versión
-// anterior era el contrario — siete elementos repartidos entre 12 y 13 px, o
-// sea todo pesando igual.
-function Decision({
+// Y el RÓTULO es siempre la píldora al final del título. Antes el aviso lo
+// pintaba como kicker arriba (prohibido), el curso lo pintaba en gris antes del
+// título, y la decisión lo pintaba como píldora. Tres tratamientos para el
+// mismo dato.
+function Fila({
   props, def, t, marca,
 }: { props: MakoProps; def: DefEstado; t: (typeof TONO)[Tono]; marca: ReactNode }) {
   const {
-    titulo, detalle, consecuencia, advertencia, datos, evidencia,
-    evidenciaRotulo, cuando, accion, secundaria, arrancaAbierta,
+    titulo, detalle, consecuencia, advertencia, datos, evidencia, evidenciaRotulo,
+    cuando, fuente, progreso, importancia, accion, secundaria, deshacer, arrancaAbierta,
   } = props;
 
-  const [abierto, setAbierto] = useState(arrancaAbierta === true);
+  const enCurso = def.forma === 'curso';
+  // ¿Hay segunda capa? Si no hay nada que el modal pueda agregar, no hay
+  // chevron ni click: una flecha en una fila que no abre nada es una promesa
+  // que no se cumple. El trabajo en curso nunca abre — todavía no hay resultado.
+  const hayDetalle = !enCurso && Boolean(detalle || datos?.length || evidencia || accion || secundaria || deshacer);
+
+  const [abierto, setAbierto] = useState(arrancaAbierta === true && hayDetalle);
   const cerrar = useCallback(() => setAbierto(false), []);
 
-  const pill = <span className="mk-dec__pill" style={{ background: t.bg, color: t.ink }}>{def.rotulo}</span>;
+  // La segunda línea, en prosa. En el trabajo en curso se arma con la fuente y
+  // el avance unidos por punto medio, que es el separador que usan Uppy y Geist
+  // para la línea secundaria de un progreso.
+  const bajo = enCurso
+    ? [fuente, ...(datos ?? []).map((d) => `${d.k} ${typeof d.v === 'string' ? d.v : ''}`.trim())].filter(Boolean).join(' · ')
+    : (consecuencia ?? detalle);
+
+  // El riel derecho. Nunca lleva texto largo y nunca se parte.
+  const riel = enCurso
+    ? (progreso !== undefined ? `${Math.round(progreso * 100)}%` : null)
+    : [importancia ? IMPORTANCIA[importancia] : null, cuando].filter(Boolean).join(' · ') || null;
+
+  const cuerpo = (
+    <>
+      {marca}
+      <span className="mk-fila__txt">
+        <span className="mk-fila__l1">
+          <span className="mk-fila__t">{titulo}</span>
+          <Pill def={def} t={t} />
+        </span>
+        {bajo && <span className="mk-fila__c">{bajo}</span>}
+      </span>
+      {riel && <span className="mk-fila__riel">{riel}</span>}
+      {hayDetalle && <Chevron />}
+      {/* La barra va PEGADA al borde de la fila y a todo su ancho, no flotando
+          al lado del texto. El porqué completo, en ui.css. */}
+      {enCurso && progreso !== undefined && (
+        <span className="mk-fila__barra"><i style={{ width: `${Math.round(progreso * 100)}%` }} /></span>
+      )}
+    </>
+  );
 
   return (
     <>
-      {/* La fila ENTERA es el control, y es un <button> de verdad: ya no hay
-          nada interactivo adentro, así que no hay conflicto de anidación y el
-          teclado la alcanza sola. */}
-      <button type="button" className="mk-dec" onClick={() => setAbierto(true)} aria-haspopup="dialog">
-        {marca}
-        <span className="mk-dec__txt">
-          <span className="mk-dec__l1">
-            <span className="mk-dec__t">{titulo}</span>
-            {pill}
-          </span>
-          {consecuencia && <span className="mk-dec__c">{consecuencia}</span>}
-        </span>
-        {cuando && <span className="mk-dec__cuando">{cuando}</span>}
-        <Chevron />
-      </button>
+      {hayDetalle ? (
+        <button type="button" className="mk-fila mk-fila--abre" onClick={() => setAbierto(true)} aria-haspopup="dialog">
+          {cuerpo}
+        </button>
+      ) : (
+        // Sin segunda capa no es un control: es contenido. Un <button> que no
+        // hace nada igual entra en el orden de tabulación y se anuncia como
+        // botón, así que quien usa teclado o lector para en algo que no responde.
+        <div className="mk-fila" role={enCurso ? 'status' : undefined} aria-live={enCurso ? 'polite' : undefined}>
+          {cuerpo}
+        </div>
+      )}
 
       {abierto && (
         <Modal
           titulo={titulo}
-          encabezado={pill}
+          encabezado={<Pill def={def} t={t} />}
           onCerrar={cerrar}
-          pie={(accion || secundaria) && (
+          pie={(accion || secundaria || deshacer) && (
             <>
-              {/* Secundaria primero y a la izquierda: en las cuatro guías que
-                  publican el orden, la salida sin compromiso va antes y la de
-                  compromiso queda última, pegada al borde. */}
+              {/* Secundaria primero y a la izquierda: la salida sin compromiso
+                  va antes y la de compromiso queda última, pegada al borde. */}
               {secundaria && <Boton a={secundaria} variant="tertiary" />}
-              {/* El botón lleno es SOLO el de la que bloquea, y toma el naranja
-                  del estado. Aceptar una sugerencia o ir a cargar un dato no son
-                  compromisos: van en secundario. */}
+              {/* Deshacer NO se pinta en la fila. La regla «una fila colapsada
+                  no lleva botones» existe para que nadie DECIDA sin leer, y
+                  deshacer no es decidir — pero tampoco es urgente acá: lo que
+                  MaKo hace sin permiso es, por definición, reversible. */}
+              {deshacer && <Boton a={deshacer} variant="secondary" />}
               {accion && (
                 <span className={def.bloquea ? 'mk-det__cta' : undefined}>
                   <Boton a={accion} variant={def.bloquea ? 'primary' : 'secondary'} />
@@ -307,12 +344,10 @@ function Decision({
           )}
         >
           {/* Cada hijo directo del cuerpo es un BLOQUE, y el modal les pone el
-              filete que los separa (la regla de las Section de Polaris). Eso es
-              lo que convierte una pila de textos sueltos en grupos. */}
-          {detalle && (
-            <div className="mk-det">
-              <p className="mk-det__p">{detalle}</p>
-            </div>
+              filete que los separa. Eso es lo que convierte una pila de textos
+              sueltos en grupos. */}
+          {detalle && consecuencia && (
+            <div className="mk-det"><p className="mk-det__p">{detalle}</p></div>
           )}
 
           {!!datos?.length && (
@@ -330,9 +365,9 @@ function Decision({
 
           {evidencia && (
             <div className="mk-det">
-              {/* La evidencia SÍ lleva nombre. Tres frases entre comillas sin
-                  un rótulo que diga qué son obligan a deducirlo, y en la
-                  aprobación son literalmente los mensajes que se van a enviar. */}
+              {/* La evidencia SÍ lleva nombre: unas frases sin un rótulo que
+                  diga qué son obligan a deducirlo. Y ya no va plegada — el
+                  <details> adentro del modal sería un tercer nivel. */}
               <span className="mk-det__h">{evidenciaRotulo ?? 'En qué me baso'}</span>
               <div className="mk-det__cita">{evidencia}</div>
             </div>
@@ -340,8 +375,8 @@ function Decision({
 
           {advertencia && (
             <div className="mk-det">
-              {/* Último bloque del cuerpo, así queda pegado al pie: la
-                  consecuencia se lee donde se actúa (Microsoft HAX G16-A). */}
+              {/* Último bloque, así queda pegado al pie: la consecuencia se lee
+                  donde se actúa (Microsoft HAX G16-A). */}
               <p className="mk-det__adv"><Aviso />{advertencia}</p>
             </div>
           )}
@@ -352,7 +387,7 @@ function Decision({
 }
 
 export function Mako(props: MakoProps) {
-  const { estado, titulo, detalle, datos, evidencia, fuente, progreso, importancia, accion, secundaria, deshacer, compacto, inline } = props;
+  const { estado, titulo, detalle, datos, accion, secundaria, compacto, inline } = props;
   const def = GRAMATICA[estado];
   const t = TONO[def.tono];
   useAvisoDeDesarrollo(estado, props);
@@ -363,12 +398,12 @@ export function Mako(props: MakoProps) {
   // Siempre adentro de su caja: es lo que hace que una estrella de 14 px y un
   // punto de 7 px dejen el texto en el mismo lugar en los nueve estados.
   //
-  // ⚠️ En las tres de DECISIÓN va la estrella aunque el tono no sea `mako`. La
-  // aprobación es `warn` y «falta un dato» es `neutral`, así que con la regla de
-  // arriba arrancaban con un punto de color: dos señales cromáticas en una lista
-  // donde el único color permitido es el del botón que bloquea. Y en las tres
-  // habla MaKo — la marca dice quién, no qué tan grave es.
-  const conEstrella = def.tono === 'mako' || def.forma === 'decision';
+  // ⚠️ La estrella va en TODOS menos donde el tono trae su propio color con
+  // significado (`completo` en verde). Con la regla vieja —estrella solo si el
+  // tono es `mako`— la aprobación y «falta un dato» arrancaban con un punto de
+  // color, o sea dos señales cromáticas en una lista donde el único color
+  // permitido es el del botón que bloquea.
+  const conEstrella = def.tono !== 'good';
   const marca = (
     <span className="mk-mako__marca" aria-hidden>
       {conEstrella
@@ -377,142 +412,40 @@ export function Mako(props: MakoProps) {
     </span>
   );
 
-  if (compacto) {
-    return (
-      <span className="mk-mako mk-mako--chip" style={{ background: t.bg, borderColor: t.border, color: t.ink }}>
-        {marca}
-        <span className="mk-mako__rot">{def.rotulo}</span>
-        {titulo && <span className="mk-mako__t">{titulo}</span>}
-      </span>
-    );
-  }
+  // ── LA PÍLDORA SUELTA ─────────────────────────────────────────────────────
+  // Para una celda de tabla o un filtro. Acá SÍ lleva la marca adentro: la
+  // píldora viaja sola y hay que decir que eso lo dijo MaKo. En una fila no,
+  // porque la fila ya tiene su marca a la izquierda.
+  if (compacto) return <Pill def={def} t={t} conMarca marca={marca} />;
 
-  // ── EN LÍNEA (el patrón de Linear) ────────────────────────────────────────
-  // La sugerencia pegada al dato, con dos salidas y sin robar espacio. El «por
-  // qué» va en el `title`: aparece al pasar el cursor y no empuja nada.
+  // ── PEGADO AL DATO ────────────────────────────────────────────────────────
+  // Lo único que no vive en una lista: vive pegado al campo que propone
+  // cambiar. Sin caja (ver ui.css) y con UNA sola acción visible — dos botones
+  // es el doble de lo que usa cualquiera, y «Asignar a Carolina» al lado de un
+  // valor que ya dice «Carolina» repetía el dato adentro del botón.
   if (inline) {
-    const porQue = [detalle, ...(datos ?? []).map((d) => `${d.k}: ${typeof d.v === 'string' ? d.v : ''}`)]
-      .filter(Boolean).join(' · ');
     return (
-      <span className="mk-mako mk-mako--inline">
-        <span className="mk-mako__l1">
+      <span className="mk-inline">
+        <span className="mk-inline__l1">
           {marca}
-          <span className="mk-mako__t">{titulo}</span>
-          <span className="mk-mako__acc">
-            {/* Secundario, NO primario: un botón azul lleno adentro de una caja
-                dorada son dos acentos peleando, y encima le da a una sugerencia
-                el peso de la acción principal de la pantalla. */}
+          <span className="mk-inline__v">{titulo}</span>
+          <span className="mk-inline__acc">
             {accion && <Boton a={accion} variant="secondary" />}
             {secundaria && <Boton a={secundaria} variant="tertiary" />}
           </span>
         </span>
-        {porQue && <span className="mk-mako__d">{porQue}</span>}
+        {/* El porqué, VISIBLE. Antes viajaba en el `title`: un tooltip nativo
+            que no aparece con teclado, no existe en pantalla táctil y no se
+            puede leer sin mantener el cursor encima — los tres requisitos de
+            WCAG 1.4.13 fallando a la vez, y era la única explicación de por qué
+            MaKo propone lo que propone. */}
+        {detalle && <span className="mk-inline__d">{detalle}</span>}
+        {!detalle && !!datos?.length && (
+          <span className="mk-inline__d">{datos.map((d) => `${d.k}: ${typeof d.v === 'string' ? d.v : ''}`).join(' · ')}</span>
+        )}
       </span>
     );
   }
 
-  // ── EN CURSO ──────────────────────────────────────────────────────────────
-  // NO es una tarjeta. Que MaKo esté trabajando no merece una caja: merece una
-  // línea. Y el rótulo viaja pegado a la fuente, porque «Revisando» solo no dice
-  // nada — es el «Processing…» que Apple marca como el copy a evitar.
-  if (def.forma === 'curso') {
-    return (
-      <div className="mk-mako mk-mako--curso" role="status" aria-live="polite">
-        {/* El rótulo arranca la frase y el TÍTULO la completa: «Revisando · por
-            qué cayó la conversión». Manda el título, que es lo que dice qué está
-            haciendo; el rótulo va un escalón abajo y en gris.
-            La fuente bajó a la línea del progreso: arriba metía un tercer texto
-            entre el rótulo y el título y partía la frase al medio. */}
-        <div className="mk-mako__cab">
-          {marca}
-          <span className="mk-mako__rot">{def.rotulo}</span>
-          {titulo && <span className="mk-mako__t">{titulo}</span>}
-        </div>
-        {/* La barra va acotada y pegada a su línea. A todo el ancho de la
-            pantalla, una barra de 4 px se lee como un renglón cortado, no como
-            progreso — y los datos van en la MISMA línea, no sueltos abajo:
-            «Van: 1 de 3» colgando solo parecía texto que sobró. */}
-        <div className="mk-mako__proc">
-          {/* `flex: '0 0 220px'` y no `maxWidth`: adentro de una fila flex un
-              contenedor sin ancho se encoge a su contenido, y como la barra mide
-              100% del padre, el resultado era 0 px — la barra existía y no se
-              veía. Justo en el estado que sin progreso no comunica nada. */}
-          {/* ⚠️ ×100. `progreso` de <Mako> va de 0 a 1 (así lo declara su prop) y
-              `Progress.value` va de 0 a 100. Sin la conversión, un 0,62 se
-              redondeaba a **1%** y un 0,33 a **0%**: la barra existía, medía lo
-              que tenía que medir, y estaba vacía. Se ajustó su ancho tres veces
-              —incluido el `flex: 0 0 220px` de acá abajo— sin mirar nunca el
-              valor. Justo en el estado que sin progreso real no comunica nada. */}
-          {progreso !== undefined && <span style={{ flex: '0 0 220px' }}><Progress value={progreso * 100} tono="mako" /></span>}
-          {/* La fuente y el avance, en la misma línea que la barra. Un «68%» sin
-              decir de qué no informa más que un spinner, y la fuente sola
-              arriba partía la frase del título. */}
-          {(fuente || !!datos?.length) && (
-            <span className="mk-mako__fuente">
-              {[
-                fuente,
-                ...(datos ?? []).map((d) => `${d.k} ${typeof d.v === 'string' ? d.v : ''}`),
-              ].filter(Boolean).join(' · ')}
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-
-  // ── DECISIÓN ──────────────────────────────────────────────────────────────
-  // Una fila que se abre. El porqué completo, arriba de `Decision`.
-  if (def.forma === 'decision') {
-    return <Decision props={props} def={def} t={t} marca={marca} />;
-  }
-
-  // ── AVISO ─────────────────────────────────────────────────────────────────
-  // Te estás enterando de algo: no hay nada que decidir ni nada corriendo. Esta
-  // sí es una tarjeta, porque es una unidad cerrada que se lee entera de una vez
-  // y no tiene segundo nivel que esconder.
-  //
-  // Sin fondo de color y SIN RÓTULO arriba: el kicker se sacó también acá (ver
-  // el porqué arriba de `Decision`). La marca va en la misma línea que el
-  // título y no en un renglón propio, porque un renglón con la marca sola es
-  // una fila fantasma de 16 px que igual se come el `gap` de la tarjeta — el
-  // mismo defecto del `titulo` undefined que este archivo documenta más arriba.
-  return (
-    <div className="mk-mako">
-      <div className="mk-mako__linea">
-        {marca}
-        <span className="mk-mako__t">{titulo}</span>
-        {importancia && <span className="mk-mako__imp">{IMPORTANCIA[importancia]}</span>}
-      </div>
-      {detalle && <div className="mk-mako__d">{detalle}</div>}
-
-      {!!datos?.length && (
-        <dl className="mk-mako__datos">
-          {datos.map((d) => (
-            <div key={d.k} className="mk-mako__dato">
-              <dt className="mk-mako__k">{d.k}</dt>
-              <dd className="mk-mako__v">{d.v}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-
-      {/* La evidencia RESPALDA la afirmación: se lee cuando dudás, no siempre. */}
-      {evidencia && (
-        <details className="mk-mako__ev">
-          <summary>Evidencia</summary>
-          <div className="mk-mako__evc">{evidencia}</div>
-        </details>
-      )}
-
-      {deshacer && (
-        <div className="mk-row" style={{ marginTop: 2 }}>
-          {/* Deshacer NO es una acción principal: es la salida de emergencia de
-              algo que ya pasó, y es lo que permite que MaKo haga sin preguntar
-              todo lo que se puede desandar. */}
-          <Boton a={deshacer} variant="secondary" />
-        </div>
-      )}
-    </div>
-  );
+  return <Fila props={props} def={def} t={t} marca={marca} />;
 }

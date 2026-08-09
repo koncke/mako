@@ -30,20 +30,24 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     titulo: 'El costo por turno de «Dolor de espalda · Testimonial» se duplicó en 3 días',
     detalle: 'Pasó de $410 a $890 sin que cambiara el presupuesto ni el anuncio.',
     importancia: 'alta',
+    cuando: 'hace 40 min',
     evidencia: 'Meta Ads · 5 al 8 de agosto · 41 clics, 2 turnos. La campaña gemela con el mismo presupuesto se mantuvo en $430.',
   },
-  // El rótulo arranca la frase y el título la completa: «Revisando · por qué
-  // cayó…». «Revisando» solo es el «Processing…» que Apple marca como el copy a
-  // evitar, y por eso el estado exige además la fuente y el progreso.
+  // ⚠️ El título es una FRASE COMPLETA. Antes era un fragmento («por qué se
+  // duplicó…») porque el rótulo lo arrancaba desde la izquierda; ahora el rótulo
+  // es la píldora al final del título, igual que en los otros ocho, así que el
+  // título tiene que sostenerse solo. El verbo lo pone la píldora: «Por qué se
+  // duplicó el costo por turno» + [Revisando].
   analizando: {
     estado: 'analizando',
-    titulo: 'por qué se duplicó el costo por turno',
+    titulo: 'Por qué se duplicó el costo por turno',
     progreso: 0.62,
     fuente: '14 campañas activas',
   },
   explica: {
     estado: 'explica',
     titulo: 'Los turnos no bajaron: el 71% ahora llega desde el celular',
+    cuando: 'hace 35 min',
     detalle: 'El costo por clic está igual que la semana pasada. Lo que cambió es desde dónde entra la gente, y en el celular el formulario queda abajo de todo.',
     evidencia: 'De 1.240 visitas, 880 entraron desde el celular. Ahí pide turno el 12%; desde la computadora, el 58%.',
   },
@@ -127,13 +131,14 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
   },
   ejecuta: {
     estado: 'ejecuta',
-    // El título dice QUÉ se está haciendo, no solo sobre qué. «"Testimonial Ana
-    // 30s"» a secas obligaba a leer el rótulo para entender que se estaba
-    // pausando algo — y el rótulo es lo que menos se lee.
-    titulo: 'los 3 anuncios que no traen turnos',
+    titulo: 'Pausar los 3 anuncios que no traen turnos',
     fuente: 'Meta Ads',
     progreso: 0.33,
-    datos: [{ k: 'Van', v: '1 de 3' }],
+    // Va a la segunda línea junto a la fuente, unido por punto medio: «Meta Ads
+    // · van 1 de 3». Es el orden de la línea secundaria de Uppy —archivos,
+    // datos, tiempo restante— y la regla de Geist: «the bar alone doesn't say
+    // what's progressing».
+    datos: [{ k: 'van', v: '1 de 3' }],
   },
   // El caso que ya no pide permiso: se hizo, y la salida es Deshacer.
   completo: {
@@ -146,6 +151,7 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     // que es justo lo que la gramática rechaza («un color solo deja afuera a
     // quien no lo distingue»).
     titulo: 'Pausé 3 anuncios',
+    cuando: 'hace 1 h',
     detalle: 'Gastaban $4.480 sin traer un solo turno.',
     datos: [
       { k: 'Cambios', v: 'Pasaron a pausado en Meta · queda en el historial' },
@@ -156,6 +162,7 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
   vigila: {
     estado: 'vigila',
     titulo: 'Estoy mirando el costo por turno de las campañas activas',
+    cuando: 'desde el lunes',
     datos: [
       { k: 'Condición', v: 'Que suba más de 40% contra su propia media de 7 días' },
       { k: 'Frecuencia', v: 'Cada 6 horas' },
@@ -210,8 +217,12 @@ export function LaGramatica() {
         </div>
       </Section>
 
+      {/* ⚠️ SIN `gap`, igual que las otras dos. Acá había cuatro TARJETAS con
+          caja apiladas adentro de esta `Section card`: cajas adentro de una
+          caja, que es el «nested cards are always wrong» que ya se había citado
+          para sacarle la caja a las decisiones y que no se aplicó abajo. */}
       <Section titulo="Te estás enterando" card>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
           {ESTADOS.filter((e) => GRAMATICA[e].forma === 'aviso').map((e) => <Mako key={e} {...EJEMPLOS[e]} />)}
         </div>
       </Section>
@@ -224,17 +235,21 @@ export function LaGramatica() {
           ficha real del lead. */}
       <Section titulo="Pegado al dato" card>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* ⚠️ UNA sola acción visible, no dos. Copilot acepta con Tab y
+              descarta con Escape, sin un botón en reposo; Gmail no tiene forma
+              de rechazar —seguir escribiendo ES el rechazo—; Linear revela el
+              botón recién al pasar el cursor. Y «Asignar a Carolina» al lado de
+              un valor que ya dice «Carolina» repetía el dato adentro del botón:
+              el verbo alcanza, el objeto está a la izquierda. */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>Responsable del seguimiento</span>
-            {/* Ningún botón de MaKo puede ser «Sí», «No» ni «Aceptar» a secas:
-                cada uno nombra su acción Y su objeto. «No» no dice qué pasa. */}
             <Mako estado="recomienda" inline titulo="Carolina" detalle="Cerró los últimos 4 turnos de esta campaña."
-              accion={{ label: 'Asignar a Carolina' }} secundaria={{ label: 'Elegir otra persona' }} />
+              accion={{ label: 'Asignar' }} secundaria={{ label: 'Elegir otra' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>Etapa</span>
             <Mako estado="recomienda" inline titulo="Cualificado" detalle="Preguntó el precio y dejó el teléfono."
-              accion={{ label: 'Mover a Cualificado' }} secundaria={{ label: 'Dejar como está' }} />
+              accion={{ label: 'Mover' }} secundaria={{ label: 'Dejar como está' }} />
           </div>
         </div>
       </Section>
