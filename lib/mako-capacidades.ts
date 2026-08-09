@@ -39,9 +39,12 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Abrí la Fábrica de creativos', 'Definí tus avatares', 'Dejá que MaKo saque las razones de compra de cada uno', 'Cargá tu lead magnet'],
   },
   {
-    id: 'copy-ads', tab: 'Ads Writer', ruta: '/ads-writer',
+    // La tab se llama Content Machine pero la RUTA sigue siendo /ads-writer (ver
+    // el comentario de nav.ts): /content-machine todavía no existe y mandar acá
+    // a un cliente le daba un 404.
+    id: 'copy-ads', tab: 'Content Machine', ruta: '/ads-writer',
     que: 'Escribir los guiones de los anuncios de video, y seguirlos de borrador a publicado.',
-    como: ['Entrá a Ads Writer', 'En la Matriz, abrí el anuncio (avatar × razón) que querés atacar', 'Pedile el guion: MaKo elige el ángulo y la estructura solo', 'En Guiones los ves todos, los filtrás y los vas marcando grabado y publicado'],
+    como: ['Entrá a Content Machine', 'En Anuncios, abrí el que querés atacar (avatar × razón)', 'Pedile el guion: MaKo elige el ángulo y la estructura solo', 'En Guiones los ves todos, los filtrás y los vas marcando grabado y publicado'],
   },
   {
     id: 'landing-diagnosticar', tab: 'Landing Analyst', ruta: '/landing-analyst',
@@ -49,7 +52,7 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entrá a Landing Analyst', 'Pegá la dirección de tu página y tocá Analizar', 'Mirá los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
   },
   {
-    id: 'landing-escribir', tab: 'Landing Generator', ruta: '/landing-writer',
+    id: 'landing-escribir', tab: 'Landing Generator', ruta: '/landing-generator',
     que: 'Escribir la landing entera —estructura y copy terminado— desde tu oferta y tu proceso comercial. Si la página ya se analizó, la escribe resolviendo esos hallazgos.',
     como: ['Entrá a Landing Generator', 'Contale qué página necesitás y qué tiene que lograr', 'Elegí en "Sobre cuál" la página ya analizada para que arregle lo que falla', 'Pedile los cambios que quieras y copiá el texto listo'],
   },
@@ -64,9 +67,15 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entrá a WhatsApp', 'Abrí la conversación', 'Pedile a MaKo que te sugiera la respuesta y ajustala'],
   },
   {
-    id: 'nutricion', tab: 'Chat Agent', ruta: '/chat-agent',
+    // ⚠️ Decía `tab: 'Chat Agent', ruta: '/chat-agent'` y las DOS cosas eran
+    // falsas: la tab se llama **Chatbot** en el sidebar (nav.ts:207) y
+    // `/chat-agent` es un redirect a `/chatbot`. O sea que MaKo mandaba al
+    // cliente a una tab con un nombre que no existe y por una URL de rebote.
+    // Es el riesgo de que este archivo sea la fuente de los links: se arregla
+    // una vez acá, o se propaga a cada lugar que lo copie.
+    id: 'nutricion', tab: 'Chatbot', ruta: '/chatbot',
     que: 'Armar las secuencias de seguimiento y nutrición: qué se manda, cuándo, y a quién.',
-    como: ['Entrá a Chat Agent', 'Elegí la secuencia o creá una nueva', 'MaKo escribe los mensajes en tu voz y vos los aprobás'],
+    como: ['Entrá a Chatbot', 'Elegí la secuencia o creá una nueva', 'MaKo escribe los mensajes en tu voz y vos los aprobás'],
   },
   {
     id: 'email', tab: 'Email', ruta: '/email',
@@ -74,7 +83,9 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entrá a Email', 'Elegí a quién le va', 'Revisá el texto que escribe MaKo y mandalo'],
   },
   {
-    id: 'metricas', tab: 'Dashboard', ruta: '/dashboard',
+    // La tab se llama Dashboard en el sidebar, pero `/dashboard` es un redirect
+    // a `/marketing`: la ruta va directo al destino real, así el link no rebota.
+    id: 'metricas', tab: 'Dashboard', ruta: '/marketing',
     que: 'Ver los números de marketing y comercial: gasto, costo por lead, agendas, show rate, cierres y facturación.',
     como: ['Abrí el Dashboard', 'Elegí el período', 'Preguntale a MaKo qué cambió y por qué'],
   },

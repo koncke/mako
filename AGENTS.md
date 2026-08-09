@@ -276,6 +276,12 @@ Lo que queda:
   dos configuraciones, y mantenerlas separadas garantiza que diverjan.
 - **Adentro de una lista, una barra de progreso es el BORDE de la fila (2 px, ancho completo)
   o no existe.** Una barra con ancho propio deja el mismo hueco muerto que un `max-width`.
+- **Si el contenido se EDITA en otra pantalla, el modal NO lo dibuja: lo nombra y linkea**
+  (prop `ver`, que sale de `lib/mako-capacidades.ts`, nunca un href a mano). La excepción es
+  el estado que BLOQUEA: una aprobación que linkea es una aprobación que se da sin leer, así
+  que ahí el modal muestra el texto entero. Cuando linkea, la evidencia es **una muestra y el
+  conteo**, nunca la lista. El mapa completo de escenarios, en
+  [docs/hallazgos-ia.md](docs/hallazgos-ia.md) → «Dónde vive cada estado de MaKo».
 
 El detalle de cada uno, con las citas de las guías, en
 [docs/hallazgos-ui.md](docs/hallazgos-ui.md).

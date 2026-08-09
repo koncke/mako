@@ -631,7 +631,42 @@
    Acá hay porcentaje real, así que va la barra-borde: 2 px, a lo ancho de la
    fila, pegada abajo, donde además cae el filete del hermano siguiente. */
 .mk-fila__barra { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--border); overflow: hidden; }
-.mk-fila__barra i { display: block; height: 100%; background: var(--mako); transition: width .3s ease-out; }
+.mk-fila__barra i { display: block; position: relative; height: 100%; background: var(--mako); transition: width .4s ease-out; overflow: hidden; }
+/* ⚠️ MIENTRAS NO LLEGÓ AL FINAL, LA BARRA SE MUEVE. Una barra determinada y
+   quieta en 62% es indistinguible de una barra colgada: el número es el mismo
+   en los dos casos. El brillo que recorre el relleno dice «esto sigue vivo» sin
+   mentir sobre cuánto falta, que es lo que hace un indeterminado. Se apaga sola
+   al llegar a 1 — un brillo eterno vuelve a ser decoración. */
+.mk-fila__barra--viva i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .75), transparent);
+  animation: mkBarraViva 1.5s linear infinite;
+}
+@keyframes mkBarraViva { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .mk-fila__barra--viva i::after { animation: none; } }
+
+/* ── Lo que MaKo va haciendo ──────────────────────────────────────────────
+   El pedido fue «poné abajo las cosas que irá haciendo, como un resumen, algo
+   similar a la animación de la Retro». La diferencia con aquélla (`MakoLoading`
+   en app/experimentos/ui.tsx) es a propósito: la Retro ROTA mensajes cada 1,8 s
+   porque no sabe cuánto falta, así que muestra uno y lo pisa. Acá hay progreso
+   real, entonces se muestran TODOS y se marca en cuál va — un paso que aparece
+   y desaparece no deja ver qué ya se hizo, que es justo lo que el dueño quiere
+   leer de un vistazo. */
+.mk-pasos { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.mk-paso { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); line-height: 1.45; }
+/* La caja de la marca es fija para que las tres formas —el ✓, la estrella
+   grande y la chica— dejen el texto en la misma x. */
+.mk-paso__m { display: flex; align-items: center; justify-content: center; flex: none; width: 12px; height: 12px; }
+/* Lo pendiente NO se aclara: `--faint` da 2,64:1 y no se lee. Lo que distingue
+   los tres estados es el ÍCONO y el peso, no bajar el contraste. */
+.mk-paso--hecho { color: var(--dim); }
+.mk-paso--hecho .mk-paso__m { color: var(--good); }
+.mk-paso--ahora { color: var(--ink); font-weight: 500; }
+.mk-paso--pend { color: var(--dim); }
+.mk-paso--pend .mk-paso__m { color: var(--border-strong); }
 
 /* ── La sugerencia pegada a un campo ──────────────────────────────────────
    Lo único que no vive en una lista: vive pegado al dato que propone cambiar.
@@ -658,7 +693,11 @@
    ES el rechazo—; Linear revela el botón recién al pasar el cursor. Tener
    «Asignar a Carolina» al lado de un valor que ya dice «Carolina» era, además,
    repetir el dato en el botón. */
-.mk-inline__acc { margin-left: auto; display: flex; align-items: center; gap: 2px; flex: none; }
+/* ⚠️ SIN `margin-left: auto`. Empujaba los botones al borde derecho del
+   contenedor, fuera cual fuera: en una caja de 1100 px quedaban a un palmo del
+   valor, flotando solos. Un botón que actúa sobre un valor va PEGADO al valor —
+   Linear revela el suyo al lado del campo, no en la otra punta de la fila. */
+.mk-inline__acc { display: flex; align-items: center; gap: 2px; flex: none; }
 .mk-inline__d { font-size: var(--fs-sm); color: var(--dim); line-height: 1.5; }
 
 /* La caja de la marca: cuadrada, fija, y centra su contenido. Es lo que hace
@@ -779,8 +818,23 @@
 .mk-det__h { font-size: var(--fs-meta); font-weight: 600; color: var(--dim); line-height: 1.3; }
 .mk-det__p { margin: 0; font-size: var(--fs-md); color: var(--ink); line-height: 1.6; }
 
-.mk-det__campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px 20px; margin: 0; }
-.mk-det__campo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+/* ⚠️ LISTA DE PROPIEDADES, NO REJILLA. Antes eran columnas de pares apilados
+   (etiqueta arriba, valor abajo) que se acomodaban solas: con tres campos daban
+   tres columnas, con cinco bajaban de renglón, y cada campo arrancaba en una x
+   distinta. El resultado era el «texto flotante» — nada alineaba con nada.
+
+   Ahora la etiqueta vive en una COLUMNA IZQUIERDA DE ANCHO FIJO y el valor
+   ocupa el resto. Es lo que hacen Notion y Linear con las propiedades de una
+   página o un issue, y es lo que hace que la columna de valores forme una línea
+   vertical: esa línea ES la estructura, sin agregar una caja ni un filete.
+
+   El ancho fijo tiene un costo y hay que saberlo: una etiqueta más larga que la
+   columna se corta. Por eso 150 px, que entra «Última revisión» y «Desde qué
+   número», las dos más largas del catálogo. */
+.mk-det__campos { display: flex; flex-direction: column; gap: 11px; margin: 0; }
+.mk-det__campo { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: baseline; min-width: 0; }
+/* En pantalla chica la columna fija se come el valor: ahí sí se apila. */
+@media (max-width: 560px) { .mk-det__campo { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
 /* Etiqueta 12 y valor 14: un solo escalón de tamaño, y el trabajo lo hacen el
    peso y el color. Es lo que shipean Carbon (label-01 12 contra body-01 14) y
    Atlassian. El defecto anterior era etiqueta 12 y valor 13 — un punto de

@@ -43,6 +43,12 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     titulo: 'Por qué se duplicó el costo por turno',
     progreso: 0.62,
     fuente: '14 campañas activas',
+    pasos: [
+      'Leí las 14 campañas activas de los últimos 30 días',
+      'Comparé el costo por turno contra su propia media',
+      'Buscando qué cambió: creativo, público o presupuesto',
+      'Cruzar con lo que pasa en la página de turnos',
+    ],
   },
   explica: {
     estado: 'explica',
@@ -78,6 +84,10 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
       { k: 'Se revisa', v: 'En 7 días' },
     ],
     evidencia: 'De 1.240 visitas, 880 entraron desde el celular. Ahí pide turno el 12%; desde la computadora, donde el formulario se ve de entrada, el 58%.',
+    // El Plan ya tiene cómo se escribe el contexto de una tarea (el detalle, la
+    // checklist, las preguntas del Perro) y su propia pantalla de revisión. El
+    // modal no rehace nada de eso: pasa la tarea y ofrece ir a verla ahí.
+    ver: { capacidad: 'experimento', label: 'Probarlo como experimento' },
     accion: { label: 'Pasar al Plan' },
     // «Descartar» → «Ignorar». Un botón tiene que decir qué pasa si lo tocás, y
     // «descartar» suena a que se borra algo. Acá no se borra nada: la sugerencia
@@ -124,6 +134,10 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     // «Desenviar» no existe en español. Y el riesgo del número es el dato que
     // puede hacer que el dueño diga que no, y no estaba en ningún lado.
     advertencia: 'No se puede deshacer. Si varios los marcan como no deseados, WhatsApp puede limitar el número.',
+    // ⚠️ ESTE NO LINKEA, Y ES LA EXCEPCIÓN QUE CONFIRMA LA REGLA. `aprobacion`
+    // BLOQUEA, y su contrato pide «los cambios previstos, con el texto a la
+    // vista». Una aprobación que manda a otra tab a leer lo que se va a enviar
+    // es una aprobación que se va a dar sin leer.
     accion: { label: 'Enviar a 340 contactos' },
     // «Ver la lista» dejó de ser botón: la lista es contenido del panel. Y el
     // par de salidas nombra qué pasa con cada una, en vez de Sí/No.
@@ -134,13 +148,28 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     titulo: 'Pausar los 3 anuncios que no traen turnos',
     fuente: 'Meta Ads',
     progreso: 0.33,
+    pasos: [
+      '«Dolor de espalda · Carrusel» pausado',
+      'Pausando «Ciática · Estático»',
+      'Pausar «Testimonial Ana 30s»',
+    ],
     // Va a la segunda línea junto a la fuente, unido por punto medio: «Meta Ads
     // · van 1 de 3». Es el orden de la línea secundaria de Uppy —archivos,
     // datos, tiempo restante— y la regla de Geist: «the bar alone doesn't say
     // what's progressing».
     datos: [{ k: 'van', v: '1 de 3' }],
   },
-  // El caso que ya no pide permiso: se hizo, y la salida es Deshacer.
+  // ⚠️ ESTE ES EL EJEMPLO QUE PIDIÓ EL DUEÑO, Y ES `completo`, NO `aprobacion`.
+  // «Los mensajes de nutrición que armamos secuencia: no mostrar la secuencia
+  // allí, sino permitirles visualizarla yendo a la tab correspondiente.»
+  //
+  // Elegir el estado decide el diseño entero: `aprobacion` OBLIGA a mostrar el
+  // texto completo —«los cambios previstos, con el texto a la vista»— así que
+  // los cinco mensajes tendrían que entrar en 600 px. `completo` no, y además
+  // es lo que de verdad pasa: la secuencia nace PAUSADA (lib/setting-secuencias.ts),
+  // o sea que MaKo hizo algo reversible sin pedir permiso y te lo cuenta.
+  //
+  // Por eso el modal dice CUÁNTOS y CÓMO terminan, y el link lleva a verlos.
   completo: {
     estado: 'completo',
     // ⚠️ EL VERBO ENTRA AL TÍTULO, y acá es obligatorio. «3 anuncios pausados»
@@ -150,14 +179,19 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     // la estrella — sin el verbo, lo único que diría que ya pasó sería un color,
     // que es justo lo que la gramática rechaza («un color solo deja afuera a
     // quien no lo distingue»).
-    titulo: 'Pausé 3 anuncios',
+    titulo: 'Escribí los 5 mensajes de la secuencia «No Show»',
     cuando: 'hace 1 h',
-    detalle: 'Gastaban $4.480 sin traer un solo turno.',
+    detalle: 'Están pausados: no sale nada hasta que los prendas.',
+    // NI UN MENSAJE ACÁ. Los cinco se ven y se EDITAN en Chatbot, así que
+    // dibujarlos en el modal garantiza que un día digan algo distinto de lo que
+    // el usuario ve al lado. El modal dice cuántos son y cómo terminan.
     datos: [
-      { k: 'Cambios', v: 'Pasaron a pausado en Meta · queda en el historial' },
-      { k: 'Vuelvo a mirar', v: 'El lunes, con el reporte semanal' },
+      { k: 'Para quién', v: 'Los que agendaron y no se presentaron' },
+      { k: 'Qué mandan', v: '3 por WhatsApp y 2 por email, uno cada 2 días' },
+      { k: 'Hasta cuándo', v: 'Hasta que reagende, o 7 días de silencio' },
     ],
-    deshacer: { label: 'Deshacer' },
+    ver: { capacidad: 'nutricion', ancla: '?sec=no-show&stab=mensajes', label: 'Ver los 5 mensajes' },
+    deshacer: { label: 'Descartar la secuencia' },
   },
   vigila: {
     estado: 'vigila',
@@ -186,6 +220,9 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     ],
     evidenciaRotulo: 'Lo que sí puedo ver hoy',
     evidencia: '52 tratamientos cerrados en 4 meses, y de esos 14 tienen monto. Con 14 la diferencia entre campañas queda dentro del margen de error.',
+    // El CRM ya tiene «Datos sin marcar» con su propio diseño y su filtro
+    // (`/crm?pendientes=1`). El modal no rehace ese listado: manda ahí.
+    ver: { capacidad: 'crm-lead', ancla: '?pendientes=1', label: 'Abrir los 38 en el CRM' },
     accion: { label: 'Cargar los montos en el CRM' },
   },
 };

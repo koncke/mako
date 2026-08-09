@@ -1702,3 +1702,113 @@ lateral. *(2026-08-07)*
 ### Decisión: Telegram se saca de toda la app
 
 «Saquemos de todos lados telegram, no lo quiero». *(2026-07-26)*
+
+## Dónde vive cada estado de MaKo, de verdad
+
+Mapeo de las ocho áreas de la app, hecho para contestar una pregunta del dueño: **en qué
+escenarios reales se usa `<Mako>` y qué debe LINKEAR en vez de redibujar.** Todo lo de acá
+está verificado con archivo:línea; lo que no se pudo verificar quedó afuera a propósito.
+
+### ⚠️ `<Mako>` no tiene un solo call-site de producción
+
+Lo primero que apareció, y cambia el orden de todo lo demás. Grepeado en `app/` y `lib/`:
+**los únicos usos de `<Mako>` están en `app/admin/ui/Gramatica.tsx`**, que es el catálogo.
+
+Todo lo que hoy actúa de «MaKo» en el producto son modales escritos a mano, de 200 a 1.040
+líneas: `MakoConfirmGate`, `DatosSinMarcarCard`, `GeneratedInsightCard`, `HandoffsPanel`,
+`EntityDetalle`, `RecosModal`, `ProblemaModal`, y el `Modal` propio de `/experimentos`
+(`app/experimentos/ui.tsx:165`).
+
+**El riesgo no es que el contrato esté mal: es escribir la fila nueva AL LADO de la pieza
+vieja y quedarnos con las dos.** Cada migración tiene que nombrar qué componente reemplaza.
+
+### La regla: si el contenido se EDITA en otra pantalla, el modal no lo dibuja
+
+Tres tests, y manda el primero que aplica:
+
+1. **¿El estado bloquea (`GRAMATICA[e].bloquea`)?** Hoy eso es `aprobacion`, y solo
+   `aprobacion` → **el modal MUESTRA**, aunque exista pantalla propia. Su contrato pide «los
+   cambios previstos, con el texto a la vista»: una aprobación que linkea es una aprobación
+   que se da sin leer.
+   **Corolario que decide un diseño entero: elegir `aprobacion` ES elegir redibujar.** Por eso
+   el estado se elige ANTES que el link.
+2. **¿Ese campo se edita en algún lado** —un `<input>`, un `<textarea>`, un paso de wizard—?
+   Es grepeable: el nombre del campo + `value=`/`onChange` → **LINK**. Un modal que dibuja lo
+   que otra pantalla edita queda viejo respecto de ella y nadie se entera.
+3. **¿Hay una URL que seleccione esa entidad?** Si no hay ninguna, el modal es el hogar y
+   dibuja lo mínimo para actuar.
+
+**Cuando linkea, la evidencia es como máximo UNA muestra y el conteo.** Nunca la lista.
+
+Y el link **no se escribe a mano**: sale de `lib/mako-capacidades.ts` (lista cerrada) más un
+ancla — la prop `ver` de `<Mako>`. Es el mismo patrón que `haceloEn` en el board, que ya está
+probado en producción.
+
+### Los escenarios que SÍ se pueden pintar hoy
+
+| Escenario | Estado | Linkea a |
+|---|---|---|
+| CRM · «Datos sin marcar» (`lib/queries.ts:2090`) | `sin_conclusion` | `/crm/<id>?solucionar=1` · `/crm?pendientes=1` |
+| Chatbot · MaKo escribió una secuencia (`lib/setting-secuencias.ts:64`, nace PAUSADA) | `completo` | `/chatbot` — **falta el ancla `?sec=`** |
+| WhatsApp · borrador para un lead (`lib/nutricion.ts:1023`) | `aprobacion` | no linkea: muestra el texto entero |
+| Plan · repartir tareas de una reunión (`lib/reunion-destinatarios.ts:147`) | `aprobacion` | no linkea: muestra el mensaje entero |
+| Plan · MaKo cerró tareas del plan de arranque (`lib/todo-seeds.ts:117`) | `completo` | `/plan?tarea=<id>` |
+| CRM · marcó asistencia con Fathom (`lib/crm-auto.ts:242`) | `completo` | `/crm/<id>?tab=reuniones` |
+| Ads · la cuenta de Meta no entrega (`lib/meta-health.ts:175`) | `detecto` | `/marketing/salud` |
+| Ads · Meta retiene un anuncio (`lib/meta-health-ui.ts:39`) | `sin_conclusion` | externo + `/ads-manager/<adId>` |
+| Closing · una llamada analizada (`lib/closing.ts:59`) | `explica` | `/closing?call=<id>` |
+| Infra · la tab no tiene qué mostrar (`lib/tab-activacion.ts:59`) | `sin_conclusion` | `/integraciones` — **falta `?servicio=`** |
+
+### ⚠️ Los estados que NO se pueden pintar, y por qué
+
+Esto es lo que más ahorra tiempo: **el diseño de un estado no falla por el diseño, falla
+porque el dato no existe.**
+
+- **`vigila` — no se puede pintar en NINGUNA área.** Ni siquiera el ejemplo del catálogo. Para
+  un lead en una secuencia, la base tiene los cuatro campos (`nutricion_inscripciones`, mig
+  0034) pero **ninguna pantalla los pide**: cero apariciones en `app/crm/`, `lib/queries.ts` y
+  `lib/leads.ts`. Para un experimento faltan la frecuencia y la última revisión —`medir()` corre
+  on-demand en cada render (`lib/experimentos.ts:274`), no hay cron ni columna `revisado_at`—.
+  Y del Perro Guardián, a quien la gramática le atribuye este estado, ningún cron persiste su
+  corrida salvo `mako.cerrar-commits.ultimo`.
+- **`analizando` y `ejecuta` — falta `progreso` en todas las áreas.** La Retro emite `fase` sin
+  contador ni total (`lib/retro-reporte.ts:165`); importar al plan solo tiene
+  `estado='procesando'`; un broadcast deja `total_destinatarios` en 0 hasta el final (mig 0046).
+  **El único progreso honesto y persistido de todo el repo** es
+  `analizadas / (analizadas+pendientes+sinTranscript)` de Ads Analyst (`lib/ads-analyst.ts:789`).
+- **`detecto` — falta `importancia` fuera de Meta.** No existe en `plan_propuestas`, ni en
+  `RetroFinding`, ni en `AdsetFatiga`, ni en los issues de anuncios. **Es una columna y es el
+  arreglo más barato del mapa**: destraba el borrador de reunión de Fathom —que ya tiene la
+  mejor pantalla de destino de toda la app, `/plan/revisar/<id>`— y los 14 hallazgos de la Retro.
+- **`recomienda` — hoy es impintable en casi todo el producto.** De sus cinco campos faltan
+  cuatro (impacto esperado, esfuerzo, responsable, objetivo).
+
+### ⚠️ El orden correcto es: ANCLAS primero, modales después
+
+«Linkear en vez de dibujar» degrada a «te dejo en la puerta» si el link no selecciona la
+entidad. Anclas que faltan, todas verificadas: `/chatbot` (**cero `useSearchParams` en la
+carpeta entera**), `/experimentos` (idem, y la tab activa es un `useState('retro')`: todos los
+links caen en Retro), `/email` (falta `?sec=`, `?bcast=`), `/integraciones?servicio=`,
+`/ads-manager` por campaña y por conjunto, `/ads-analyst` por guion.
+
+El vocabulario a copiar ya está escrito en `/whatsapp` (`?canal`, `?chat`, `?lead`, `?stab`) y
+en `/crm` (`?pendientes=1`, `?solucionar=1`, `?tab=`).
+
+### El catálogo de capacidades mentía en dos filas
+
+`lib/mako-capacidades.ts` es de donde salen los links, así que un error ahí se propaga a todo
+lo que lo copie. Decía `tab: 'Chat Agent', ruta: '/chat-agent'` — la tab se llama **Chatbot**
+(nav.ts:207) y `/chat-agent` es un **redirect**. Y `metricas` mandaba a `/dashboard`, que
+redirige a `/marketing`. Los dos arreglados.
+
+**Regla:** una ruta que es un redirect no es un destino. Si el catálogo la guarda, cada link
+que salga de ahí rebota, y el rebote se ve como lentitud, no como error.
+
+### Y `bloquea` se está gastando en lo reversible
+
+`MakoConfirmGate` es un modal **no cerrable** que trata igual un `completo` con Deshacer
+quirúrgico y un caso donde no pasó nada. La gramática es explícita en por qué importa: *«if you
+warn people too much, they stop paying attention»*. Si no se corrige antes de migrar, el día
+que llegue el envío de verdad la aprobación ya no significa nada.
+
+**Vive en:** app/_ui/Mako.tsx (`ver`) · lib/mako-capacidades.ts · *2026-08-09 mapeo de 8 áreas*

@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { GRAMATICA, type EstadoMako, type DefEstado } from '@/lib/mako-gramatica';
+import { capacidad } from '@/lib/mako-capacidades';
 import { TONO, type Tono } from './tokens';
 import { Button, ButtonLink } from './Button';
 // `Progress` ya no se importa: la barra de una fila en curso NO es el componente
@@ -86,6 +87,50 @@ export type MakoProps = {
   fuente?: string;
   /** 0 a 1. Sin esto, «analizando» es un spinner eterno — que el documento prohíbe. */
   progreso?: number;
+  /**
+   * Lo que MaKo va a ir haciendo, en orden. Se pinta debajo de la fila mientras
+   * trabaja: lo hecho tachado con un ✓, lo que está haciendo ahora en tinta
+   * normal, y lo que falta en gris.
+   *
+   * ⚠️ Cuál es el paso actual NO es un prop: sale de `progreso`. Con dos props
+   * el día que una se actualice y la otra no, la barra va por la mitad y el
+   * texto dice que está en el primer paso — y no hay forma de saber cuál miente.
+   *
+   * Es la misma idea que el loader de la Retro (`MakoLoading`, app/experimentos/
+   * ui.tsx), con una diferencia: aquél rota mensajes a ciegas cada 1,8 s porque
+   * no sabe cuánto falta; acá hay progreso real, así que se muestran TODOS y se
+   * marca en cuál va. Un paso que aparece y desaparece no deja ver qué se hizo.
+   */
+  pasos?: string[];
+  /**
+   * A DÓNDE IR A VER ESTO ENTERO.
+   *
+   * No es una salida de la decisión: es el link a la pantalla que ya lo resuelve
+   * mejor, y por eso va en el CUERPO del modal y no en el pie — si estuviera
+   * abajo competiría con `accion`.
+   *
+   * ⚠️ LA REGLA QUE DECIDE si el modal MUESTRA o LINKEA, en tres tests, y manda
+   * el primero que aplica:
+   *
+   *   1. ¿El estado BLOQUEA (`def.bloquea`)? → el modal MUESTRA, aunque exista
+   *      pantalla propia. Una aprobación que linkea es una aprobación que se da
+   *      sin haber leído, que es el defecto que la gramática vino a cerrar.
+   *   2. ¿Ese contenido se EDITA en algún lado (un input, un textarea, un paso
+   *      de wizard)? → LINK. Un modal que dibuja lo que otra pantalla edita
+   *      queda viejo respecto de ella, y nadie se entera.
+   *   3. ¿Hay una URL que seleccione esa entidad? Si no hay ninguna, el modal es
+   *      el hogar y dibuja lo mínimo para actuar.
+   *
+   * Cuando linkea, la evidencia es COMO MÁXIMO una muestra y el conteo. Nunca
+   * la lista: «5 mensajes, el primero dice…», no los cinco.
+   *
+   * ⚠️ Es un id de `lib/mako-capacidades.ts`, NO un href, por la misma razón que
+   * `haceloEn` en el board: la lista es cerrada y de ahí salen el nombre de la
+   * tab y la ruta. Con href libre, el día que una ruta se renombre hay N
+   * call-sites mintiendo — que es exactamente lo que estaba pasando con
+   * `/chat-agent` y `/dashboard`, dos redirects escritos como si fueran destino.
+   */
+  ver?: { capacidad: string; ancla?: string; label?: string };
   /** Solo para `detecto`: cuánto importa lo que encontró. */
   importancia?: 'alta' | 'media' | 'baja';
   accion?: Accion;
@@ -261,14 +306,17 @@ function Fila({
 }: { props: MakoProps; def: DefEstado; t: (typeof TONO)[Tono]; marca: ReactNode }) {
   const {
     titulo, detalle, consecuencia, advertencia, datos, evidencia, evidenciaRotulo,
-    cuando, fuente, progreso, importancia, accion, secundaria, deshacer, arrancaAbierta,
+    cuando, fuente, progreso, pasos, importancia, accion, secundaria, deshacer, ver, arrancaAbierta,
   } = props;
 
   const enCurso = def.forma === 'curso';
   // ¿Hay segunda capa? Si no hay nada que el modal pueda agregar, no hay
   // chevron ni click: una flecha en una fila que no abre nada es una promesa
   // que no se cumple. El trabajo en curso nunca abre — todavía no hay resultado.
-  const hayDetalle = !enCurso && Boolean(detalle || datos?.length || evidencia || accion || secundaria || deshacer);
+  //
+  // `ver` CUENTA: una fila cuyo único aporte es «esto se ve entero en tal tab»
+  // tiene segunda capa igual, y es justamente el caso que más se va a repetir.
+  const hayDetalle = !enCurso && Boolean(detalle || datos?.length || evidencia || accion || secundaria || deshacer || ver);
 
   const [abierto, setAbierto] = useState(arrancaAbierta === true && hayDetalle);
   const cerrar = useCallback(() => setAbierto(false), []);
@@ -294,13 +342,48 @@ function Fila({
           <Pill def={def} t={t} />
         </span>
         {bajo && <span className="mk-fila__c">{bajo}</span>}
+        {/* LO QUE VA HACIENDO. El paso actual sale del progreso, no de un prop
+            aparte: con dos fuentes, el día que una se actualice y la otra no, la
+            barra va por la mitad y el texto dice que está en el primero. */}
+        {enCurso && !!pasos?.length && (
+          <span className="mk-pasos">
+            {pasos.map((p, i) => {
+              // ⚠️ `round`, no `floor`. «Van 1 de 3» es progreso 1/3, y
+              // `floor(0.3333 × 3)` da 0 por punto flotante: el paso que ya
+              // decía «pausado» se marcaba como el que se está haciendo. Lo que
+              // buscamos es CUÁNTOS terminaron, que es el redondeo.
+              const hechos = Math.min(pasos.length - 1, Math.round((progreso ?? 0) * pasos.length));
+              const estado = i < hechos ? 'hecho' : i === hechos ? 'ahora' : 'pend';
+              return (
+                <span key={p} className={`mk-paso mk-paso--${estado}`}>
+                  <span className="mk-paso__m" aria-hidden>
+                    {estado === 'hecho' && (
+                      <svg width="11" height="11" viewBox="0 0 11 11" focusable="false"><path d="M2 5.8 4.2 8 9 3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    )}
+                    {/* UNA sola estrella por fila: la del paso que está pasando
+                        ahora, y es lo único que se mueve. Con una estrella por
+                        paso, la marca deja de señalar dónde está el trabajo y
+                        pasa a ser una viñeta. Lo pendiente es un anillo vacío. */}
+                    {estado === 'ahora' && <MakoStar size={11} animate />}
+                    {estado === 'pend' && (
+                      <svg width="7" height="7" viewBox="0 0 7 7" focusable="false"><circle cx="3.5" cy="3.5" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
+                    )}
+                  </span>
+                  {p}
+                </span>
+              );
+            })}
+          </span>
+        )}
       </span>
       {riel && <span className="mk-fila__riel">{riel}</span>}
       {hayDetalle && <Chevron />}
       {/* La barra va PEGADA al borde de la fila y a todo su ancho, no flotando
           al lado del texto. El porqué completo, en ui.css. */}
       {enCurso && progreso !== undefined && (
-        <span className="mk-fila__barra"><i style={{ width: `${Math.round(progreso * 100)}%` }} /></span>
+        <span className={`mk-fila__barra${progreso < 1 ? ' mk-fila__barra--viva' : ''}`}>
+          <i style={{ width: `${Math.round(progreso * 100)}%` }} />
+        </span>
       )}
     </>
   );
@@ -372,6 +455,21 @@ function Fila({
               <div className="mk-det__cita">{evidencia}</div>
             </div>
           )}
+
+          {/* EL LINK A LA PANTALLA QUE YA LO RESUELVE. Va en el cuerpo y no en
+              el pie: no es una salida de la decisión, es «esto se ve entero
+              allá». El nombre de la tab y la ruta salen del catálogo. */}
+          {ver && (() => {
+            const cap = capacidad(ver.capacidad);
+            if (!cap) return null;
+            return (
+              <div className="mk-det">
+                <ButtonLink href={cap.ruta + (ver.ancla ?? '')} variant="secondary" size="sm">
+                  {ver.label ?? `Ver en ${cap.tab}`} →
+                </ButtonLink>
+              </div>
+            );
+          })()}
 
           {advertencia && (
             <div className="mk-det">
