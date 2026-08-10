@@ -130,3 +130,49 @@ test('el veredicto nunca compara horas contra el límite de plata', () => {
   // Con plata 0 entra aunque el límite sea de un centavo: las horas no cuentan acá.
   assert.equal(v.entra, true);
 });
+
+// =============================================================================
+// La conclusión con la que abre cada parte
+// =============================================================================
+// El título dice de qué habla; la conclusión dice qué concluye. La tercera guarda
+// es la que ataca la causa raíz de todo este plan: la conclusión de la parte 3
+// afirmaba «solo entra un canal» mientras CAC_CANALES decía tres, porque la prosa
+// se escribió cuando las dos monedas todavía se sumaban. Una frase en un archivo
+// no se entera de que el dato de al lado cambió: el test sí.
+// =============================================================================
+
+import { INDICE, UNIT } from '../app/admin/dev/pricing/modelo';
+
+test('cada parte tiene una conclusión, y dice un número', () => {
+  for (const q of INDICE) {
+    assert.ok(q.conclusion, `parte ${q.n}: no tiene conclusión`);
+    assert.match(q.conclusion, /\d/, `parte ${q.n}: la conclusión no dice ningún número`);
+  }
+});
+
+test('ninguna conclusión usa la palabra «techo»', () => {
+  for (const q of INDICE) {
+    assert.ok(!/techo/i.test(q.conclusion), `parte ${q.n}: dice «techo»`);
+    assert.ok(!/techo/i.test(q.bajada), `parte ${q.n}: la bajada dice «techo»`);
+  }
+});
+
+/** Los conteos chicos van en letras: «tres de los cinco canales» se lee. */
+const EN_LETRAS = ['ningún', 'un', 'dos', 'tres', 'cuatro', 'cinco'];
+
+test('la conclusión de la parte 3 no puede contradecir a CAC_CANALES', () => {
+  // La MISMA fuente que usa la pantalla para `limitePlata` (Pricing.tsx): lo
+  // máximo que se puede pagar por un cliente Pro bajo la regla que gobierna.
+  const limitePlata = UNIT.find((u) => u.plan === 'pro')!.gobierna;
+  const entran = CAC_CANALES.filter((c) => c.plataPorCliente <= limitePlata).length;
+  const parte3 = INDICE.find((q) => q.n === '3')!;
+
+  const frase = `${EN_LETRAS[entran]} de los ${EN_LETRAS[CAC_CANALES.length]} canales`;
+  assert.ok(parte3.conclusion.includes(frase),
+    `entran ${entran} de ${CAC_CANALES.length} canales por plata y la conclusión no dice «${frase}»: «${parte3.conclusion}»`);
+
+  // Y el número contra el que se los mide, en el formato de la pantalla.
+  const limiteEscrito = limitePlata.toFixed(2).replace('.', ',');
+  assert.ok(parte3.conclusion.includes(limiteEscrito),
+    `la conclusión mide los canales contra otro número: hoy el límite es ${limiteEscrito}`);
+});

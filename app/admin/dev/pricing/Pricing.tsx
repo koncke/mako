@@ -162,7 +162,7 @@ export const anclaParte = (n: string) => `parte-${n}`;
 function Parte({ n }: { n: string }) {
   const q = INDICE.find((x) => x.n === n);
   if (!q) throw new Error(`Pricing: la parte «${n}» no está en INDICE`);
-  const { pregunta, bajada } = q;
+  const { pregunta, bajada, conclusion } = q;
   return (
     // El filete y el aire de arriba son lo que hace que se lea como una PARTE y no
     // como una sección más. Sin ellos el título de la parte competía con el de la
@@ -174,6 +174,10 @@ function Parte({ n }: { n: string }) {
         <h2 style={{ fontSize: 27, fontWeight: 600, letterSpacing: '-.025em', color: 'var(--ink)', margin: 0, lineHeight: 1.15 }}>{pregunta}</h2>
       </div>
       <div style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.55, marginTop: 8, paddingLeft: 29 }}>{bajada}</div>
+      {/* La conclusión va en tinta normal y más grande que la bajada, porque no es
+          un subtítulo: es la respuesta. La bajada dice de qué habla la parte y se
+          lee en gris; esto dice qué concluye y se lee antes que cualquier card. */}
+      <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, marginTop: 12, paddingLeft: 29, fontWeight: 500 }}>{conclusion}</div>
     </div>
   );
 }
@@ -603,11 +607,16 @@ export function Pricing() {
           mucho texto todo junto». No sobraba análisis, sobraba análisis a la
           vista. Si algo no entra en dos frases, son dos secciones. */}
       <Section titulo="Los dos canales que te cuestan tiempo son los más baratos en plata" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>por un cliente de US${PRO.precioUsd}/mes podés pagar hasta {usd(limitePlata)} · regla LTV:CAC 3:1</span>} card>
+        {/* La frase del Titular decía lo mismo que la conclusión de la parte,
+            palabra por palabra y sesenta píxeles más abajo. Los porcentajes se
+            siguen DERIVANDO de CAC_CANALES —esa es la parte que no se puede
+            perder—, pero lo que la frase agrega ahora es la otra moneda, que es
+            lo que viene abajo y la conclusión no cuenta. */}
         <Titular
           valor={`${entranEnPlata} de ${CAC_CANALES.length}`}
           unidad="canales entran, mirando solo la plata"
           tono="good"
-          frase={<>Contra los {usd(limitePlata)} que podés pagar por un cliente Pro: prospección {pctDeLoQuePodesPagar(canalCac('prospeccion').plataPorCliente)}, orgánico {pctDeLoQuePodesPagar(canalCac('organico').plataPorCliente)} y referidos {pctDeLoQuePodesPagar(canalCac('referidos').plataPorCliente)}. Los dos que no entran son los que se compran con pauta —carrito {pctDeLoQuePodesPagar(canalCac('carrito').plataPorCliente)} y CTWA {pctDeLoQuePodesPagar(canalCac('ctwa').plataPorCliente)}—, y los dos más baratos son justo los que se pagan con tus horas.</>}
+          frase={<>Los tres que entran cuestan {pctDeLoQuePodesPagar(canalCac('prospeccion').plataPorCliente)}, {pctDeLoQuePodesPagar(canalCac('organico').plataPorCliente)} y {pctDeLoQuePodesPagar(canalCac('referidos').plataPorCliente)} de esos {usd(limitePlata)}; los dos que no son los únicos que se compran con pauta —carrito {pctDeLoQuePodesPagar(canalCac('carrito').plataPorCliente)} y CTWA {pctDeLoQuePodesPagar(canalCac('ctwa').plataPorCliente)}—. Abajo, los mismos cinco en la otra moneda: ahí el orden se invierte, el más barato en plata es el más caro en horas, y lo que lo mueve es qué feature de MaKo esté construida.</>}
           abrir="Los cinco canales, moneda por moneda, con el veredicto de cada uno"
         >
           {/* UN GRÁFICO POR MONEDA. El de antes era uno solo y graficaba la suma

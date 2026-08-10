@@ -701,21 +701,32 @@ export const EL_ACCIDENTE =
 // ─────────────────────────────────────────────────────────────────────────────
 // EL ÍNDICE DE LA PANTALLA
 // ─────────────────────────────────────────────────────────────────────────────
-// Las cuatro preguntas que la pantalla contesta, EN ORDEN. Es fuente única: lo
+// Las cinco preguntas que la pantalla contesta, EN ORDEN. Es fuente única: lo
 // leen el índice de arriba y el título de cada parte, así que no existe la
 // versión donde el índice promete una cosa y abajo hay otra — que es exactamente
 // lo que pasaba (el índice prometía el CAC y esa sección no existía).
 //
 // Si se agrega una parte, se agrega ACÁ y después se pone su <Parte n="…"/>.
 
-export type Pregunta = { n: string; pregunta: string; bajada: string };
+export type Pregunta = { n: string; pregunta: string; bajada: string; /** Qué CONCLUYE la parte, no de qué habla. Va debajo de la bajada, antes de la primera card: el que solo lee esto ya se llevó el veredicto. ⚠️ Es prosa, así que no se entera si el dato de al lado cambia — por eso la de la parte 3 tiene su guarda en tests/pricing-modelo.test.ts. */ conclusion: string };
 
 export const INDICE: Pregunta[] = [
-  { n: '1', pregunta: '¿Cuánto cuesta?', bajada: 'Medido en producción, y proyectado con el producto entero construido.' },
-  { n: '2', pregunta: '¿Cuánto se le cobra?', bajada: 'La tarifa de MaKo Tokens, operación por operación, y qué rinde el cupo de cada plan.' },
-  { n: '3', pregunta: '¿Cuánto cuesta conseguir un cliente?', bajada: 'El CAC de cada uno de los cinco canales, contra el techo que tolera cada plan. Y por qué el ascenso al high ticket no lo sube.' },
-  { n: '4', pregunta: '¿Cómo se empaqueta?', bajada: 'Los cuatro planes, qué entra en cada uno, y qué falta para poder cobrarlos.' },
-  { n: '5', pregunta: '¿Y el plan? ¿Cuánto da?', bajada: 'El mes 1 real —30 usuarios, US$1.000 de pauta, tus 1.000 contactos—, la corrida de 24 meses, el programa de US$4.000 y la oferta anual.' },
+  { n: '1', pregunta: '¿Cuánto cuesta?', bajada: 'Medido en producción, y proyectado con el producto entero construido.',
+    conclusion: 'Un cliente Pro te cuesta US$10,90 de IA por mes, no US$2,52 — ese número asumía un ruteo barato que no tiene una sola línea escrita. Arreglarlo vale US$15.018 de caja. Y con el producto entero el costo deja de ser el texto: el 90% pasa a ser video e imagen.' },
+  { n: '2', pregunta: '¿Cuánto se le cobra?', bajada: 'La tarifa de MaKo Tokens, operación por operación, y qué rinde el cupo de cada plan.',
+    conclusion: 'Cada operación cuesta lo que cuesta: un mensaje 1 MT, un Reel 2.000. Ese salto de 1 a 2.000 es todo el diseño de los planes, y es por lo que el video no puede ser una feature incluida sino algo que se mide.' },
+  // ⚠️ La conclusión que decía «el orgánico no cuesta plata pero te come 26 horas
+  // por cliente» salía del modelo que sumaba las dos monedas, y las 26 h heredan
+  // ese error (US$2.601,60 ÷ US$100/h): están pendientes de una pregunta al dueño.
+  // Por eso esta conclusión NO se apoya en ese número. Lo que sí es firme es el
+  // conteo, y lo cuida el test «la conclusión de la parte 3 no puede contradecir
+  // a CAC_CANALES»: si mañana un canal cambia de lado, falla acá.
+  { n: '3', pregunta: '¿Cuánto cuesta conseguir un cliente?', bajada: 'El costo de cada canal en las dos monedas que tenés: plata y horas.',
+    conclusion: 'Contra los US$105,84 que vale un cliente Pro entran tres de los cinco canales: prospección cuesta el 0,03%, el orgánico 0% y los referidos el 41%. Los dos que quedan afuera son los que se compran con pauta —el carrito 129% y CTWA 166%—, y los dos más baratos en plata son justo los que se pagan con tus horas: no están descartados, están en la otra moneda.' },
+  { n: '4', pregunta: '¿Cómo se empaqueta?', bajada: 'Los cuatro planes, qué entra en cada uno, y qué falta para poder cobrarlos.',
+    conclusion: 'Vender el anual en vez del mensual multiplica la caja por 62, porque cobrás el año entero el día 0. Es la decisión más grande del documento, y el límite del descuento está en 19,5%: pasado eso, la pauta deja de cerrar.' },
+  { n: '5', pregunta: '¿Y el plan? ¿Cuánto da?', bajada: 'El mes 1 real —30 usuarios, US$1.000 de pauta, tus 1.000 contactos—, la corrida de 24 meses, el programa de US$4.000 y la oferta anual.',
+    conclusion: 'Los 30 clientes pagos del mes 1 no salen: salen 11, y las 19 que faltan no se compran a ningún precio. A 24 meses el plan da 160 clientes y US$69.150 sin poner capital — lo que pide son tus horas, no tu plata.' },
 ];
 
 // =============================================================================
