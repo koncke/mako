@@ -1227,6 +1227,11 @@ export const MES_0 = {
 
 // ── LOS 1.000 CONTACTOS PROPIOS ─────────────────────────────────────────────
 // DECIDE: cuántas altas trae la base, y por qué canal se la puede tocar.
+//
+// ⚠️ NO ES UN CANAL, y por eso vive acá y no en CAC_CANALES: es un EVENTO de
+// arranque que se agota en dos meses y no vuelve. Meterlo entre los canales es lo
+// que hizo que se contara dos veces con `prospeccion` — que sí es un canal, el
+// recurrente con el chatbot, y que trabaja contactos que NO son estos 1.000.
 // ⚠️ La corrección más cara de todo el plan: el panel usaba 8% de conversión
 // sobre los que responden y lo justificaba con «el ask es 85× más chico». El
 // argumento tiene el signo al revés. El 3,5% del propio dueño es la tasa a la
@@ -1240,8 +1245,20 @@ export const BASE_PROPIA = {
   cierranFuente: 'Estrategia.tsx CANAL_A (líneas 60-64), la misma cadena del dueño: 200 responden → 7. Se usa para CIERRE DIRECTO con link de pago, sin llamada de por medio — que es la lectura generosa, porque la cadena original la gastaba en agendar.',
   aprobacionCobro: 0.85, aprobacionOrigen: 'supuesto' as Origen,
   aprobacionFuente: 'CAC_CANALES.carrito cotiza 0,70 de aprobación de tarjeta. Acá sube a 0,85 porque la venta es a mano por WhatsApp y se reintenta en el momento.',
-  altasMes1: 5.95, altasMes2: 2.55, altasTotal: 8.5,
+  // ⚠️ CORREGIDO: nacieron como 5,95 + 2,55 = 8,5 y la cadena de arriba da 5,95.
+  // Los 8,5 son la cuenta con 5% de cierre, que es de OTRA corrida: convivían dos
+  // mundos en la misma línea y el 2,55 era doble conteo. Las tres anclas del propio
+  // archivo dicen 5,95 — `cierranFuente` (200 responden → 7), `losQueFaltan.viaBase`
+  // («duplicar de 3,5% a 7% son +5,95») y `PLAN_MES_1.desglose.base`.
+  // ❓ PENDIENTE DEL DUEÑO: si el mes 2 era una SEGUNDA pasada sobre los que no
+  // contestaron, es otra cadena con su propia tasa y hay que declararla aparte.
+  // Hasta que lo diga, el mes 2 son las 10 h que faltan para terminar la pasada,
+  // no una cosecha nueva. `tests/pricing-modelo.test.ts` no deja que se separen otra vez.
+  altasMes1: 5.95, altasMes2: 0, altasTotal: 5.95,
   horasMes1: 30, horasMes2: 10,
+  /** Con el chatbot escribiendo y contestando, las 40 h a mano caen a 1. */
+  horasConMaKo: 1, loHabilita: 'Agente: Chatbot',
+  origen: 'supuesto' as Origen,
   costoIaUsd: 30, costoIaComo: '1.000 mensajes redactados por MaKo con lo que sabe de cada contacto, ~US$0,03 c/u',
   // ── El veredicto legal, y es accionable, no un «ojo» ──
   legal: {
@@ -1256,7 +1273,7 @@ export const BASE_PROPIA = {
     ],
     origen: 'publicado' as Origen,
   },
-  cotizacion: 'US$3.000 de horas del dueño (30 h × US$100) + US$30 de IA para 8,5 altas = US$356 por alta. Es 2,6× el CAC del carrito y sigue siendo el mejor canal del mes 1 porque no compite por presupuesto sino por horas que igual no se pueden vender. ⚠️ Y es un activo de UNA SOLA VEZ: en el mes 3 ya está agotado y no vuelve.',
+  cotizacion: 'US$3.000 de horas del dueño (30 h × US$100) + US$30 de IA para 5,95 altas = US$509 por alta. Es 3,7× la plata que cuesta el carrito y sigue siendo el mejor arranque del mes 1 porque no compite por presupuesto sino por horas que igual no se pueden vender. ⚠️ Y es un activo de UNA SOLA VEZ: en el mes 3 ya está agotado y no vuelve. ⚠️ Ojo con esa comparación: US$509 son horas valuadas a US$100 y los US$136 del carrito son plata de verdad — se ponen al lado para dar escala, no para sumarse ni para elegir por el número más chico.',
 };
 
 // ── EL MES 1 ────────────────────────────────────────────────────────────────

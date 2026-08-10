@@ -71,3 +71,22 @@ test('en la fase de adquisición no entra ningún cliente de high ticket', () =>
   assert.equal(topeClientes1a1(adq, 6.33), 0,
     'septiembre es 100% adquisición: no puede haber horas de entrega');
 });
+
+// =============================================================================
+// Los 1.000 contactos: la cadena tiene que cerrar contra las altas
+// =============================================================================
+// BASE_PROPIA no es un canal, es un EVENTO de arranque que se agota en dos meses.
+// Y como sus tasas se editan a mano, lo único que impide que las altas y las tasas
+// se vayan cada una por su lado es esta cuenta. Ya pasó: nacieron declarando 8,5
+// altas con tasas que dan 5,95 — el 3,5% de cierre y el 5% de otra corrida
+// conviviendo en la misma línea.
+// =============================================================================
+
+import { BASE_PROPIA } from '../app/admin/dev/pricing/modelo';
+
+test('las altas de los 1.000 contactos salen de sus propias tasas', () => {
+  const cadena = BASE_PROPIA.contactos * BASE_PROPIA.responden * BASE_PROPIA.cierran * BASE_PROPIA.aprobacionCobro;
+  const declaradas = BASE_PROPIA.altasMes1 + BASE_PROPIA.altasMes2;
+  assert.ok(Math.abs(cadena - declaradas) <= 0.1,
+    `la cadena da ${cadena.toFixed(2)} altas y la tabla declara ${declaradas.toFixed(2)} (mes 1 ${BASE_PROPIA.altasMes1} + mes 2 ${BASE_PROPIA.altasMes2})`);
+});
