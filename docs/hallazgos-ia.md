@@ -1320,6 +1320,40 @@ cadena con su propia tasa y hay que declararla aparte; hoy quedó en `altasMes2:
 tests/pricing-modelo.test.ts (`las altas de los 1.000 contactos salen de sus propias tasas`) ·
 *2026-08-10 cac-dos-monedas*
 
+### ⚠️ La conclusión escrita a mano no se entera de que el dato de al lado cambió
+
+**Síntoma:** la parte 3 del documento de pricing abría diciendo «solo un canal entra»
+mientras la tabla de la misma pantalla, doscientos píxeles más abajo, pintaba tres.
+
+**Causa:** la prosa se escribió cuando `cacUsd` sumaba plata y horas. Al partir el CAC en
+dos monedas **el veredicto se dio vuelta** —entran tres de cinco, y los dos más baratos en
+plata son justo los que se pagan con horas— y no había nada que relacionara la frase con
+`CAC_CANALES`. Es el mismo patrón del doble conteo de los 1.000 contactos un escalón más
+arriba: allá era un NÚMERO derivado escrito a mano, acá un VEREDICTO escrito a mano.
+
+**Regla:** un conteo que aparece en prosa se guarda con un test que lo derive del dato y
+exija que esté escrito. El test arma la frase esperada desde `CAC_CANALES` («tres de los
+cinco canales») y falla mostrando el texto viejo. Dos detalles que lo hacen servir:
+
+- **El conteo va en letras.** `includes('3')` pasaría por accidente: el «0,03%» de la misma
+  frase ya trae un 3. `includes('tres de los cinco canales')` no.
+- **El límite también se verifica** (`105,84`), formateado como lo pinta la pantalla. Es el
+  ancla contra la que se miden los canales; si cambia, la frase entera hay que reescribirla.
+
+**Y la trampa de al lado:** al agregar la conclusión de la parte, quedó diciendo lo mismo
+que la `frase` del `Titular` de su primera sección, palabra por palabra y a sesenta píxeles.
+Cuando dos capas resumen lo mismo, la de arriba se queda con el veredicto y la de abajo
+cuenta lo que sigue. Los porcentajes se siguen derivando de `CAC_CANALES` en la que se
+pinta: la prosa solo repite el ancla que el test verifica.
+
+**Pendiente:** las 26 h del orgánico (`CAC_CANALES.organico.horas`) siguen heredadas del
+modelo roto (US$2.601,60 ÷ US$100/h) y esperan una pregunta al dueño. Ninguna conclusión se
+apoya en ese número, a propósito.
+
+**Vive en:** app/admin/dev/pricing/modelo.ts (`INDICE`, `Pregunta.conclusion`) ·
+app/admin/dev/pricing/Pricing.tsx (`Parte`) · tests/pricing-modelo.test.ts (`la conclusión
+de la parte 3 no puede contradecir a CAC_CANALES`) · *2026-08-10 cac-dos-monedas*
+
 ### ⚠️ El registro de la IA barata es `void` sin `await`, y el insert nunca lee su `error`
 
 **Síntoma:** faltan filas de consumo y no hay ningún log que lo explique.
