@@ -321,6 +321,34 @@ fila de filtros, un bloque de código—: para eso está `.mk-scroll-x`.
 El resto del sistema, en [app/_ui/LEEME.md](app/_ui/LEEME.md); el catálogo vivo, en
 `/admin/ui`, que además lleva el historial de por qué cada cosa quedó así.
 
+# Una pantalla oscura se hace redefiniendo TOKENS, no reglas
+
+La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). No hay
+`prefers-color-scheme` ni modo oscuro global, y no se está agregando uno. Cuando una
+pantalla tiene que ser oscura —hoy solo `/second-brain`— se marca `<html data-tema="oscuro">`
+y se redefinen los tokens en `app/globals.css`. Todo lo que ya consume `var(--surface)`,
+`var(--ink)`, `var(--border)`… se da vuelta solo. El inventario de esa pantalla contó **40
+usos** repartidos en tres archivos: tocarlos uno por uno era garantizar que el próximo se
+olvidara.
+
+Tres cosas que el scope NO resuelve solo, y que hay que mirar a mano:
+
+- **Los tokens que existen PARA un fondo.** `--mako-ink` es, textual, «el dorado bajado de
+  luminosidad para que se LEA sobre fondo claro». En oscuro da 2,97:1. No se inventa un
+  cuarto dorado: en el scope apunta a `--mako`.
+- **Las relaciones invertidas.** Si el estado ENCENDIDO de algo es un gris oscuro y el
+  apagado es casi blanco, en oscuro el apagado pasa a ser lo más brillante de la pantalla.
+  Pasó con las aristas del grafo.
+- **`--focus-ring`**, que trae un halo interno de `var(--surface)`. En oscuro hay que
+  apuntarlo al FONDO o pinta un aro blanco puro.
+
+Y dos reglas de valores: en oscuro las superficies **suben** de luminosidad (`--sidebar-2`
+es MÁS oscuro que el fondo del lienzo y da 1,06:1), y las líneas van con un color **opaco**
+a dos escalones del fondo, nunca un gris claro bajado de `opacity`.
+
+El detalle, con las mediciones, en
+[docs/hallazgos-second-brain.md](docs/hallazgos-second-brain.md).
+
 # Una barra de gráfico se recorta al 100%, siempre
 
 `width: ${pct}%` adentro de un carril NO desborda la barra: **desborda la página**.

@@ -78,27 +78,33 @@ const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ nombre: string
   funnel: [{ nombre: 'El funnel', vista: funnelPanel }],
 });
 
-export function AreasHub({ abierta, onAbrir, funnelPanel }: {
+export function AreasHub({ abierta, onAbrir, salto, funnelPanel }: {
   abierta: AreaId | null;
   onAbrir: (a: AreaId | null) => void;
+  /** Contador de pedidos de SALTO. Ver VistaCerebro: abrir y saltar son dos cosas. */
+  salto: number;
   funnelPanel: ReactNode;
 }) {
   const [sub, setSub] = useState(0);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // Al abrir un área, el panel se trae a la vista. Sin esto, tocar «Abrir» en la columna
-  // del mapa abre algo que está fuera de pantalla y parece que el botón no hizo nada.
+  // Cambiar de área resetea la sub-pestaña. Nada más: esto NO scrollea.
+  useEffect(() => { setSub(0); }, [abierta]);
+
+  // El salto a la sección se pide APARTE. Sin esto, tocar «Abrir» en la columna del mapa
+  // abre algo que está fuera de pantalla y parece que el botón no hizo nada; y con esto
+  // atado a `abierta`, tocar un nodo del grafo —que ahora también abre la sección— le
+  // arrancaba la pantalla al que solo quería leer el detalle.
   //
-  // ⚠️ Depende de `abierta` y NADA MÁS, a propósito. Cuando además existían las tarjetas,
-  // pasar el cursor por una prendía un estado en el padre que re-renderizaba este árbol,
-  // y con él volvía a correr este scroll: la página se movía sola de arriba abajo cada
-  // vez que el mouse rozaba una tarjeta. La causa no estaba en el grafo aunque el
-  // síntoma se viera ahí.
+  // ⚠️ La primera corrida se saltea: el efecto corre al montar y sin la guarda la página
+  // arranca scrolleada abajo. Y depende SOLO de `salto`: cuando existían las tarjetas,
+  // cualquier re-render del padre volvía a disparar este scroll y la página se movía
+  // sola cada vez que el mouse rozaba una.
+  const primera = useRef(true);
   useEffect(() => {
-    if (!abierta) return;
-    setSub(0);
+    if (primera.current) { primera.current = false; return; }
     panelRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  }, [abierta]);
+  }, [salto]);
 
   const areaAbierta = abierta ? AREAS.find((a) => a.id === abierta) ?? null : null;
   const vistas = abierta ? vistasDe(funnelPanel)[abierta] : [];

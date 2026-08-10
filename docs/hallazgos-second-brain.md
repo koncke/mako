@@ -1149,6 +1149,16 @@ no resuelvan** — verificado en los cuatro workspaces reales (56 a 74 enlaces c
 
 ## Lo que quedó sin hacer
 
+- **El visor de documentos sigue pintando blanco sobre el lienzo oscuro**: el `<iframe>`
+  de un PDF y el fondo de una `<img>` los pinta el navegador y no se pueden tematizar
+  desde acá. Vive en `app/second-brain/Grafo.tsx` (`.cbg-visor`).
+- **`scripts/medir-grafo.mjs` no mide contraste**, ni de arista ni de etiqueta contra el
+  fondo. En claro no importaba; con el lienzo oscuro es el chequeo que faltaría para que
+  la herramienta no pueda decir «todo bien» sobre un mapa ilegible.
+- **El regex de «nodos de acento» del mismo script es `/mako|warn/`**: un acento pintado
+  con `--primary` no lo cuenta, y sobre oscuro `--primary` da 3,3:1 (ilegible). Ampliar el
+  regex, no el umbral.
+
 - **La versión oscura del lienzo** quedó pendiente y es un cambio de CUATRO variables, no
   de cada regla: `--cbg-fondo`, `--cbg-texto`, `--cbg-tenue` y `--cbg-linea` en `.cbg`
   (`app/second-brain/Grafo.tsx`). Todo lo demás ya las consume.
@@ -1251,3 +1261,114 @@ CSS computado y medidas si se le saca el `hidden` a mano.
 había un Service Worker de otro proyecto (`gym-shell-v2`) sirviendo su propio 404 mientras
 `curl` contra el mismo puerto contestaba 307 correctamente. Si Chrome da 404 en una ruta
 que `curl` resuelve, mirá `navigator.serviceWorker.getRegistrations()` antes que la ruta.
+
+### El lienzo blanco contradecía la paleta que él mismo usaba
+
+**Vive en:** `app/globals.css:65-96` (`--grafo-*`) · `app/second-brain/Grafo.tsx`
+
+Las once `--grafo-*` traen escrito, desde que se crearon, que son «una paleta CUALITATIVA
+que **solo vive adentro del lienzo oscuro del grafo**», y cada tono está justificado
+midiendo contraste **contra #14161B**. La ronda anterior pintó el lienzo de blanco y nadie
+—yo incluido— releyó ese comentario: `#BFC8DC` sobre blanco da **1,5:1**. Los nodos se
+veían porque el ojo perdona, no porque el color funcionara.
+
+**La regla:** antes de cambiarle el FONDO a algo, grepear los tokens que ese algo pinta
+encima. Un token con un comentario que dice «sobre X» es un contrato, no una nota.
+
+Medido sobre el fondo nuevo (#22262E), las once quedan entre **7,8:1 y 9,8:1** — todas por
+encima de AAA. El oscuro no fue una variante: fue volver a la premisa.
+
+### Una pantalla oscura se hace redefiniendo tokens, no reglas
+
+**Vive en:** `app/globals.css` (`[data-tema="oscuro"]`) · `app/_components/TemaOscuro.tsx`
+
+El inventario contó **40 usos de tokens claros** (`var(--surface)`, `var(--ink)`,
+`var(--faint)`…) repartidos entre `Grafo.tsx`, `BuscadorCerebro.tsx` y `AreasHub.tsx`.
+Tocarlos uno por uno era garantizar que el próximo se olvidara. Redefinidos en un scope,
+los 40 se dan vuelta solos y el que agregue el 41 no tiene que saber que existe un tema.
+
+Tres cosas que sí hay que hacer a mano, porque **no** son «el mismo token con otro valor**:
+
+1. **Los tokens que existen PARA un fondo.** `--mako-ink` (#8F6709) está definido como «el
+   dorado bajado de luminosidad para que se LEA sobre fondo claro». En oscuro da 2,97:1.
+   No se inventa un cuarto dorado: en el scope apunta a `--mako`.
+2. **Las relaciones invertidas.** La arista encendida era `--dim` (gris oscuro) y la
+   apagada `--border-strong` (casi blanco). Sobre oscuro **la apagada pasaba a ser lo más
+   brillante de la pantalla**. Dos tokens nuevos (`--cbg-arista`, `--cbg-arista-viva`)
+   mantienen «encendida = más contraste» en los dos temas.
+3. **`--focus-ring`** traía un halo interno de `var(--surface)`, que en claro es blanco.
+   Sobre oscuro pintaba un aro blanco puro. El halo es el FONDO, no la superficie.
+
+**Y en oscuro las superficies SUBEN de luminosidad, no bajan.** `--sidebar-2` (#1E212A)
+parece la elevación natural y es **más oscuro** que el fondo del lienzo: 1,06:1.
+
+### El `<script>` inline del tema no es un duplicado del `useEffect`
+
+**Vive en:** `app/_components/TemaOscuro.tsx`
+
+Un `useEffect` corre después de hidratar: entre el primer pintado y esa línea hay un flash
+blanco a pantalla completa. El script inline corre mientras el navegador todavía parsea.
+Y el efecto sigue haciendo falta para lo que el script no cubre: volver a la ruta por
+navegación de cliente, donde no hay documento nuevo. El **cleanup** es la tercera pata —
+sin él, ir de /second-brain a /plan deja el tablero entero oscuro.
+
+### El estado vacío del filtro era inalcanzable porque la raíz siempre pasa
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`esDato`, `datosVisibles`)
+
+`montados.length === 0` nunca se cumplía: el nodo raíz pasa el filtro por diseño (sin él
+las áreas cuelgan de la nada), así que el mínimo alcanzable era **1**. Filtrando por una
+sección vacía quedaba el nodo raíz solo en el lienzo, sin un mensaje que dijera qué pasó —
+y el `NoResults` estaba escrito y montado.
+
+El mismo error contaminaba el «N de M»: decía **66 de 66** mientras la barra decía «56
+datos», dos números para la misma cosa. Los dos salen ahora de `esDato`.
+
+**La regla:** cuando una colección tiene elementos de ANDAMIO que están exentos del filtro,
+ningún conteo de cara al usuario puede salir de la colección cruda.
+
+### El dorado no es «esto elegiste»
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`.cbg-nav-fila[aria-pressed]`)
+
+La fila marcada del navegador se pintaba con `--mako-bg` y la carpeta activa con
+`--mako-ink`. En la regla de color de la casa el dorado significa **MaKo** («acá intervino
+la inteligencia») y el azul significa **vos actuás** (selección, foco). Una fila marcada
+porque el usuario la tocó pintada de dorado dice que la eligió MaKo. Es el mismo error que
+ya se pagó cuando `--grafo-norte` valía exactamente `--mako`.
+
+En un lienzo oscuro esto además tiene un costo extra: el §7.4 lista «interfaz de cripto o
+casino por **exceso de negro y dorado**» entre los seis antipatrones.
+
+### GOTCHA: el CSS compilado va atrás del archivo
+
+**Vive en:** cualquier edición de `app/globals.css` con el dev server arriba
+
+Se editó `globals.css`, se reinició el server, y la regla nueva **no estaba** en el chunk
+servido — ni por `curl` ni en el navegador. El diagnóstico obvio (y equivocado) fue
+«Tailwind está tirando mi regla»: es plausible, porque el archivo pasa por
+`@import "tailwindcss"` y tiene un `@theme inline` que sí se come cosas.
+
+Era **latencia de compilación**. La prueba que lo aisló en un paso: meter una variable
+sonda tonta (`--tema-sonda: 7px`) adentro de `:root` y preguntar por ella en el navegador.
+Si la sonda tampoco aparece, el archivo no se recompiló; si aparece y tu regla no, ahí sí
+el problema es la regla. Con el arranque en OneDrive esto puede tardar más de lo que uno
+espera antes de dar por muerta una hipótesis.
+
+### `Pagina` no tiene full-bleed, y `100vw` no es el reemplazo
+
+**Vive en:** `app/_ui/Pagina.tsx:27-63`
+
+`ancho="completo"` saca el `maxWidth` pero **conserva el padding** de 34/44 px, y el
+`style` está tipado sin `maxWidth`/`width`/`margin*`: el compilador rechaza el ancho. Para
+sangrar de verdad hay que anular ese padding con márgenes negativos CONOCIDOS
+(`margin-inline: -44px; padding-inline: 44px`) en el hijo.
+
+⚠️ El truco de `left:50% + width:100vw + translateX(-50%)` que usa la landing
+(`app/vsl/_detalle/FeatureDetail.tsx:391`) **no se puede copiar adentro de la app**: ahí el
+sidebar está escondido y el `<main>` ocupa el viewport, pero en una pantalla interna el
+`<aside>` se lleva 68 px del flujo, así que `100vw` sobresale y mete scroll horizontal en
+toda la página — la misma falla que AGENTS.md ya documenta para las barras de gráfico.
+
+En este rediseño no hizo falta ninguna de las dos: si la página ENTERA es del color del
+lienzo, no hay banda que sangrar.

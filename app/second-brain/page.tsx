@@ -32,6 +32,7 @@ import { BotonExportar } from './BotonExportar';
 import { BotonClaude } from './BotonClaude';
 import { getAgenteToken } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
+import { TemaOscuro } from '@/app/_components/TemaOscuro';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -53,6 +54,10 @@ export default async function SecondBrainPage() {
   // cada píxel: … un lienzo».
   return (
     <Pagina ancho="completo">
+      {/* El mapa se pinta oscuro, y la PÁGINA con él: el pedido del dueño es que el
+          lienzo no tenga un fondo distinto al de la página. La única forma de que sean
+          el mismo color es que no haya dos colores. */}
+      <TemaOscuro />
       <PageHeader
         titulo="Second Brain"
         proposito="Todo lo que MaKo sabe de tu negocio."

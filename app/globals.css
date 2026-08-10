@@ -209,6 +209,70 @@
   --font-dm-sans: 'Geist', system-ui, sans-serif;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMA OSCURO, POR PANTALLA — hoy solo /second-brain
+   ───────────────────────────────────────────────────────────────────────────
+   No es un modo oscuro de la app. Es UNA pantalla que se pinta oscura, y se
+   hace REDEFINIENDO LOS TOKENS, no reescribiendo sus reglas: todo lo que ya
+   consume var(--surface), var(--ink), var(--border)… se da vuelta solo. El
+   inventario que motivó esto contó 40 usos de tokens claros repartidos en
+   Grafo.tsx, BuscadorCerebro.tsx y AreasHub.tsx; tocarlos uno por uno era
+   garantizar que el próximo se olvidara.
+
+   ⚠️ ESTO VA CONTRA LA DIRECCIÓN ESTÉTICA ELEGIDA, y queda escrito para que el
+   que venga no crea que fue un descuido: el §12 dice «navegación oscura
+   estable, ÁREA OPERATIVA CLARA», y lista como antipatrón «interfaz de cripto
+   o casino por exceso de negro y dorado». El dueño lo pidió explícito para el
+   mapa. La defensa contra el antipatrón es que el dorado sigue reservado a UNA
+   cosa —«tu Norte»— y no se agrega ni un borde dorado más.
+
+   POR QUÉ #22262E Y NO #14161B (el del sidebar): con el mismo valor, la
+   navegación se funde con la página y la barra deja de tener borde. Un escalón
+   por encima mantiene el rail más oscuro —que es la jerarquía correcta— y las
+   once --grafo-* siguen entre 7,8:1 y 9,8:1 contra él (medido), o sea AAA.
+
+   REGLA PARA AGREGAR TOKENS ACÁ: en oscuro las superficies SUBEN de luminosidad,
+   no bajan. --sidebar-2 (#1E212A) es MÁS OSCURO que este fondo y da 1,06:1: no
+   sirve como superficie elevada. Y las líneas van con un color OPACO a dos
+   escalones del fondo, nunca un gris claro bajado de opacity — la misma razón
+   que ya está escrita arriba en --sidebar-line.
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-tema="oscuro"] {
+  --bg: #22262E;
+  --surface: #2A2F39;
+  --surface-2: #333944;
+  --border: #383D47;
+  --border-strong: #4A5160;
+  --ink: #F3F5F8;
+  --dim: #A8B0BD;
+  --faint: #7C8492;
+
+  /* El azul de acción de claro (#2F6FED) da 3,3:1 acá: ilegible. Sube. */
+  --primary: #7FA6F8;
+  --primary-strong: #9DBBF5;
+  --primary-bg: #26324A;
+  --primary-weak: #4B6693;
+
+  /* En oscuro el dorado LEGIBLE es el dorado. --mako-ink (#8F6709) existe para
+     fondo claro y acá da 2,97:1. No se inventa un cuarto dorado: apunta al único. */
+  --mako-ink: #F2B01E;
+  --mako-bg: #2E2614;
+  --mako-border: #4E4020;
+
+  --good: #4FC98A;
+  --good-bg: #17301F;
+  --warn: #EFA05A;
+  --warn-bg: #33230F;
+  --bad: #EF8B85;
+  --bad-bg: #351C1B;
+
+  /* El anillo de foco traía un halo interno de var(--surface) que en claro es
+     blanco. Sobre oscuro pintaba un aro blanco puro: el mismo bug que el
+     comentario de --focus-ring dice haber arreglado, al revés. El halo es el
+     FONDO, no la superficie. */
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+}
+
 /* Mobile: sube la escala entera y agranda el área táctil a los 44 px del
    documento. Es la ÚNICA media query que necesita el sistema — los primitives
    leen las variables, no las redeclaran. */

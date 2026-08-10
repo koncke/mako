@@ -27,14 +27,24 @@ export function VistaCerebro({ cerebro, funnelPanel }: {
   funnelPanel: ReactNode;
 }) {
   const [abierta, setAbierta] = useState<AreaId | null>(null);
+  /** Cuántas veces se pidió IR a la sección, no cuál. Abrir y saltar son dos cosas
+   *  distintas —tocar un nodo abre sin mover la pantalla, tocar «Abrir» va— y con un
+   *  solo booleano no se distinguen dos pedidos seguidos de salto a la MISMA sección:
+   *  el estado no cambia y el efecto no vuelve a correr. Un contador sí cambia siempre. */
+  const [salto, setSalto] = useState(0);
+
+  const abrir = (a: AreaId | null, saltar = false) => {
+    setAbierta(a);
+    if (saltar) setSalto((n) => n + 1);
+  };
 
   return (
     <>
-      <Grafo cerebro={cerebro} onAbrirArea={setAbierta} areaAbierta={abierta} />
+      <Grafo cerebro={cerebro} onAbrirArea={abrir} areaAbierta={abierta} />
       {/* El separador solo existe si hay algo abajo. Fijo, dejaba un hueco permanente
           entre el mapa y nada. */}
       {abierta && <div style={{ height: 'var(--sect-gap)' }} />}
-      <AreasHub abierta={abierta} onAbrir={setAbierta} funnelPanel={funnelPanel} />
+      <AreasHub abierta={abierta} onAbrir={abrir} salto={salto} funnelPanel={funnelPanel} />
     </>
   );
 }

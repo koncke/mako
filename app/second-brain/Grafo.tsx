@@ -36,7 +36,8 @@ import { AREAS, NIVEL1, AUTORIA_TEXTO, radioNodo, colorArea, type Cerebro, type 
 import type { NodoFisico, Simulacion } from './fisica';
 import { MONO } from '@/app/_ui/tokens';
 import { Button, Eyebrow } from '@/app/_ui';
-import { Dropdown } from '@/app/components/Dropdown';
+import { FiltroMapa, ChipsFiltro, FILTRO_VACIO, cuentaFiltros, type EstadoFiltro, type PanelAbierto } from './FiltroMapa';
+import { NoResults } from '@/app/_ui/Estados';
 // La misma máquina de matcheo que la barra del plan: palabras en cualquier orden, sin
 // acentos ni mayúsculas, con frontera de palabra y plural tolerado. El módulo no lleva
 // `server-only` justamente para poder compartirse con el navegador. Escribir una segunda
@@ -92,16 +93,6 @@ function hashDe(id: string): number {
   return h >>> 0;
 }
 
-/** El embudo del filtro. Mismo path que el de la barra del CRM: dos filtros que se ven
- *  distinto son dos controles distintos para el usuario, aunque hagan lo mismo. */
-function IconoFiltro() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
-    </svg>
-  );
-}
-
 export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   cerebro: Cerebro;
   /** Qué área está abierta abajo, para marcarla en el navegador de la derecha. Antes acá
@@ -112,7 +103,12 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   /** Abre el área abajo, en la misma página. Es la costura entre las dos mitades de la
    *  pantalla. Si no se pasa, la tarjeta no ofrece la acción — nunca se promete un
    *  botón que no lleva a ningún lado. */
-  onAbrirArea?: (area: AreaId) => void;
+  /** @param saltar si además hay que traer la sección a la vista. Lo pide el botón
+   *  «Abrir», que es una intención explícita de ir a editar; NO lo pide el click en un
+   *  nodo, que abre la sección igual pero sin moverle la pantalla a nadie: uno toca un
+   *  punto para leerlo, y que la página se vaya sola al formulario de abajo es perder
+   *  de vista justo lo que se acaba de tocar. */
+  onAbrirArea?: (area: AreaId, saltar?: boolean) => void;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
 
@@ -149,22 +145,23 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   /** El documento que se está previsualizando sobre el lienzo, o null. */
   const [verDoc, setVerDoc] = useState<NodoCerebro | null>(null);
   /**
-   * EL FILTRO. Uno solo, y es a propósito: antes eran un desplegable de autoría, otro de
-   * «Ir a» y una pastilla de área suelta que aparecía sola. Tres controles para la misma
-   * pregunta —«¿qué parte del mapa estoy mirando?»— se leen como tres filtros
-   * independientes que se podrían combinar, y no se pueden.
+   * EL FILTRO. Tres dimensiones que se COMBINAN —carpeta, sección y quién lo
+   * escribió—, con AND entre ellas y OR adentro de cada una. Es la misma semántica
+   * del tablero (`passes` en app/plan/board/BoardShell.tsx:390).
    *
-   * El valor es UNA cadena con prefijo, y de ahí sale todo lo demás:
-   *   'todo' · 'autor:mako' · 'autor:usuario' · 'autor:falta'
-   *   'carpeta:<id de NIVEL1>'  — la carpeta madre
-   *   'area:<id de AREAS>'      — la sección
-   * Un solo estado significa que no hay estados imposibles que sanear: elegir una
-   * sección apaga la carpeta sin que nadie tenga que acordarse de apagarla.
+   * La versión anterior era UNA cadena con prefijo y un solo valor a la vez, con el
+   * argumento de que «no hay estados imposibles que sanear». Era cierto y era el
+   * problema: hacía imposible también el estado que uno más quiere —«de lo que
+   * dedujo MaKo, qué hay en Oferta»— y obligaba a elegir cuál de las dos preguntas
+   * contestaba el mapa.
+   *
+   * `Set` vacío significa TODOS, no «ninguno»: así el estado inicial y el estado
+   * limpio son el mismo objeto y no hay forma de dejar la pantalla en blanco sin
+   * haberlo pedido.
    */
-  const [filtro, setFiltro] = useState<string>('todo');
-  const filtroAutor = filtro.startsWith('autor:') ? filtro.slice(6) : null;
-  const filtroCarpeta = filtro.startsWith('carpeta:') ? filtro.slice(8) : null;
-  const filtroArea = filtro.startsWith('area:') ? (filtro.slice(5) as AreaId) : null;
+  const [filtro, setFiltro] = useState<EstadoFiltro>(FILTRO_VACIO);
+  const [filtroAbierto, setFiltroAbierto] = useState<PanelAbierto>(null);
+  const hayFiltro = cuentaFiltros(filtro) > 0;
 
 
   const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
@@ -227,20 +224,27 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
    *  filtra por carpeta o por sección — ahí justamente lo que se pide es quedarse con
    *  una rama, y dejar el andamiaje de las otras dibujado sería no haber filtrado. */
   const pasaVer = useCallback((n: NodoCerebro): boolean => {
-    if (filtro === 'todo' || n.id === 'raiz') return true;
-    if (filtroAutor) {
-      if (n.id.startsWith('area:') || n.id.startsWith('n1:')) return true;
-      if (filtroAutor === 'falta') return n.autoria === 'pendiente';
-      return n.autoria === filtroAutor;
-    }
-    if (filtroArea) return n.area === filtroArea || n.id === `area:${filtroArea}`;
-    if (filtroCarpeta) {
-      if (n.id === `n1:${filtroCarpeta}`) return true;
-      const suArea = AREAS.find((a) => a.id === n.area);
-      return suArea?.padre === filtroCarpeta;
+    if (n.id === 'raiz') return true;   // el centro del mapa; sin él las áreas cuelgan de la nada
+
+    const esAndamio = n.id.startsWith('area:') || n.id.startsWith('n1:');
+    const suArea = AREAS.find((a) => a.id === n.area);
+
+    // ── Carpeta y sección: OR adentro, AND entre ellas ──
+    // El andamio (la carpeta y el nodo de área) se rige por la MISMA condición que
+    // sus hijos, no pasa siempre: filtrar por «Oferta» y dejar dibujadas las otras
+    // cuatro carpetas es no haber filtrado. Con la autoría es al revés — ahí el
+    // andamio sí pasa, porque no tiene autoría propia y sacarlo dejaría las
+    // etiquetas flotando sin racimo.
+    if (filtro.carpetas.size && !filtro.carpetas.has(suArea?.padre ?? '')) return false;
+    if (filtro.areas.size && !filtro.areas.has(n.area)) return false;
+
+    if (filtro.autoria !== 'todos') {
+      if (esAndamio) return true;
+      if (filtro.autoria === 'falta') return n.autoria === 'pendiente';
+      return n.autoria === filtro.autoria;
     }
     return true;
-  }, [filtro, filtroAutor, filtroArea, filtroCarpeta]);
+  }, [filtro]);
 
   // ── QUIÉN ESTÁ SALIENDO ────────────────────────────────────────────────────
   // Un nodo filtrado no puede desaparecer de golpe: tiene que hacer la animación de
@@ -297,6 +301,18 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
     // mostrando 5. El contador y el dibujo tienen que salir del mismo cálculo.
     [nodos, visible, saliendo, filtro, busca, campos, ia.ids],
   );
+
+  /** Los nodos que son un DATO, no andamio. La raíz, las carpetas y los nodos de área
+   *  existen para sostener el dibujo y pasan el filtro casi siempre; contarlos rompe las
+   *  dos cosas que se apoyan en este número:
+   *   · el «N de M» daba 66 cuando la barra dice «56 datos» — dos números para lo mismo;
+   *   · el estado vacío NO APARECÍA NUNCA, porque con la raíz siempre adentro el mínimo
+   *     alcanzable era 1. Medido: filtrando por una sección vacía quedaba el nodo raíz
+   *     solo en el lienzo, sin un mensaje que dijera qué pasó.
+   */
+  const esDato = (n: NodoCerebro) => n.id !== 'raiz' && !n.id.startsWith('area:') && !n.id.startsWith('n1:');
+  const datosTotal = useMemo(() => nodos.filter(esDato).length, [nodos]);
+  const datosVisibles = useMemo(() => montados.filter(esDato).length, [montados]);
 
   // Cuando cambia el filtro: los que salieron se marcan y se desmontan al terminar.
   useEffect(() => {
@@ -682,10 +698,10 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
     return c;
   }, [nodos]);
 
-  /** El área «en foco» ya no es un estado propio: ES el filtro cuando el filtro es una
-   *  sección. Cuando lo era, había dos maneras de mirar una sola área —atenuar el resto
-   *  o esconderlo— y ninguna de las dos ganaba. */
-  const areaFoco: AreaId | null = filtroArea;
+  /** El área «en foco» no es un estado propio: ES el filtro cuando hay UNA sección
+   *  elegida. Con dos o más no hay foco — atenuar «todo menos estas tres» no dice nada
+   *  que el propio filtro no diga ya escondiéndolas. */
+  const areaFoco: AreaId | null = filtro.areas.size === 1 ? [...filtro.areas][0] : null;
 
   /** Los dos nodos con significado propio: el Norte (dorado) y el cuello de botella
    *  (naranja). El lienzo los pintaba distinto y no los explicaba en ningún lado. */
@@ -710,13 +726,6 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
     }
     return out;
   }, [nodos, grados]);
-
-  /** El botón de un desplegable dentro de la barra OSCURA del lienzo. El menú se abre
-   *  claro, como en toda la app; lo que hay que vestir es el disparador. */
-  const estiloBotonBarra: CSSProperties = {
-    background: 'none', border: '1px solid transparent', color: 'var(--dim)',
-    minHeight: 30, padding: '4px 9px', borderRadius: 999, fontSize: 12,
-  };
 
   /** Los nodos que matchean, ordenados por grado: el más conectado primero, que es el
    *  que más probablemente se estaba buscando. */
@@ -850,7 +859,15 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
     // `fijar` es opcional porque los renglones del navegador vuelan a un área SIN
     // abrirla: si fijaran, el primer click reemplazaría el navegador por el detalle del
     // nodo de área y para seguir recorriendo habría que cerrarlo cada vez.
-    if (fijar) setFijado(id);
+    if (fijar) {
+      setFijado(id);
+      // Y ABRE SU SECCIÓN ABAJO, sin saltar. El detalle de la derecha contesta «qué es
+      // esto»; la sección de abajo contesta «cómo lo cambio», y tenerla ya abierta es la
+      // diferencia entre leer el mapa y trabajar sobre él. La carpeta madre no tiene
+      // sección propia (su `area` es prestada de su primera hija), así que no abre nada.
+      const n = porId.get(id);
+      if (n && n.id !== 'raiz' && !n.id.startsWith('n1:')) onAbrirArea?.(n.area, false);
+    }
     setVerTodas(false);
     setTextoEntero(false);
     if (!p) return;
@@ -900,7 +917,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
       vueloRef.current = t < 1 ? requestAnimationFrame(paso) : null;
     };
     vueloRef.current = requestAnimationFrame(paso);
-  }, [posiciones, encuadre, pedirPintado, cortarVuelo]);
+  }, [posiciones, encuadre, pedirPintado, cortarVuelo, porId, onAbrirArea]);
 
   // ⚠️ Pantalla completa con la Fullscreen API sobre `.cbg`, NUNCA con un overlay
   // `position:fixed`. En esta app los z-index son literales y ya se quemó: la pila de
@@ -963,12 +980,14 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
            \`svh\` y NO \`dvh\`: en mobile \`dvh\` cambia cuando se esconde la barra del
            navegador, el lienzo se redimensiona a mitad del scroll y el re-encuadre da
            tirones. */
-        /* EL LIENZO SE MIMETIZA CON LA PÁGINA. Antes era una caja oscura con borde,
-           o sea un objeto puesto ENCIMA; ahora comparte el fondo del resto y lo único
-           que lo separa es una sombra muy suave, así que el mapa parece flotar sobre la
-           pantalla en vez de vivir adentro de un recuadro. Los tres tokens de acá abajo
-           son el único lugar donde se decide el tema del mapa: la versión oscura se hace
-           cambiándolos, no tocando cada regla. */
+        /* EL LIENZO NO TIENE CONTENEDOR. Ni fondo propio, ni borde, ni radio, ni
+           sombra: los nodos se dibujan directamente sobre el fondo de la página. Esa es
+           la diferencia entre «flotar» y «estar adentro de una caja», y las dos
+           versiones anteriores eran caja — primero oscura con borde, después blanca con
+           sombra sobre una página gris. Una caja con sombra sigue siendo una caja.
+           La regla de Linear: la estructura se siente, no se ve.
+           ⚠️ Si alguna vez esto vuelve a llevar un background, tiene que ser el MISMO
+           valor que el de la página, y entonces no hace falta escribirlo. */
         /* DOS COLUMNAS: el mapa a la izquierda, el detalle a la derecha y AFUERA del
            lienzo. Antes el panel flotaba ENCIMA del mapa y tapaba nodos; y la columna no
            queda vacía cuando no hay nada elegido, porque ahí vive la navegación por
@@ -977,15 +996,17 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
           display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px;
           align-items: start;
           --cbg-alto: clamp(420px, calc(100svh - 280px), 760px);
-          --cbg-fondo: var(--surface);
           --cbg-texto: var(--ink);
           --cbg-tenue: var(--dim);
           --cbg-linea: var(--border);
+          /* Las dos luminosidades de la telaraña. Van acá y NO como opacity sobre un
+             gris: una arista translúcida sobre fondo oscuro se ve lavada y sucia, que es
+             exactamente lo que ya está escrito arriba de --sidebar-line. Opaco, a dos
+             escalones del fondo el apagado y a cuatro el encendido. */
+          --cbg-arista: var(--border-strong);
+          --cbg-arista-viva: var(--dim);
         }
         .cbg .cbg-marco {
-          background: var(--cbg-fondo); border-radius: 16px; overflow: hidden;
-          border: 1px solid var(--cbg-linea);
-          box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 12px 32px rgba(18,21,27,.06);
           /* SE TOPEA EL ASPECTO, NO EL ANCHO. El alto sale del viewport —eso está bien y
              ya está documentado— pero el ancho se tomaba TODO lo que hubiera, así que
              cuanto más grande el monitor más buzón se volvía el marco. Medido: 2,07:1 en
@@ -996,11 +1017,13 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
              ⚠️ El grafo DIBUJADO no cambia de tamaño —lo fija el alto—: lo que cambia es
              el encuadre. No toca el layout del servidor ni la línea base de medir-grafo. */
         }
-        .cbg .cbg-lienzo { position: relative; height: var(--cbg-alto); }
+        /* El recorte vive acá y no en el marco: el SVG es lo único que hay que
+           recortar, y en el marco además cortaba el panel del filtro, que es
+           absolute y sale de la barra hacia abajo. */
+        .cbg .cbg-lienzo { position: relative; height: var(--cbg-alto); overflow: hidden; }
         .cbg .cbg-barra {
           display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-          min-height: 46px; padding: 6px 14px;
-          border-bottom: 1px solid var(--cbg-linea);
+          min-height: 46px; padding: 0 2px 10px;
           font-size: 12px; color: var(--cbg-tenue);
         }
         .cbg .cbg-chip {
@@ -1024,11 +1047,16 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
            300 px que el 90% del tiempo está vacía. Y es gratis: el encuadre es cuadrado,
            así que en un lienzo apaisado quedan cientos de píxeles de aire a cada lado
            donde no hay un solo nodo. */
+        /* La columna SÍ es una superficie, y no se contradice con lo de arriba: lo que
+           no puede tener contenedor es el MAPA. Un panel de lectura sin ningún borde al
+           lado de un lienzo del mismo color no se lee como panel, se lee como texto
+           tirado sobre el grafo. Un escalón de luminosidad y una línea: sentido, no
+           visto. Sin sombra — en oscuro una sombra de tinta no separa nada, separa el
+           borde. */
         .cbg .cbg-detalle {
           max-height: var(--cbg-alto); overflow-y: auto;
           background: var(--surface); border: 1px solid var(--cbg-linea);
-          border-radius: 16px; padding: 20px;
-          box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 12px 32px rgba(18,21,27,.06);
+          border-radius: 14px; padding: 20px;
         }
         /* ── LO CLICKEABLE TIENE QUE VERSE CLICKEABLE ──────────────────────────
            Las conexiones y el rótulo del área eran <button> con aspecto de texto suelto:
@@ -1141,7 +1169,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
           cursor: pointer; text-align: left;
         }
         .cbg .cbg-nav-carpeta:hover { color: var(--cbg-texto); }
-        .cbg .cbg-nav-carpeta[aria-pressed="true"] { color: var(--mako-ink); }
+        .cbg .cbg-nav-carpeta[aria-pressed="true"] { color: var(--primary); }
         .cbg .cbg-nav-par { display: flex; align-items: center; gap: 4; border-radius: 8px; }
         .cbg .cbg-nav-par:hover { background: var(--surface-2); }
         .cbg .cbg-nav-fila {
@@ -1150,7 +1178,11 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
           color: var(--cbg-texto); font: inherit; font-size: 13px; cursor: pointer; text-align: left;
         }
         .cbg .cbg-nav-fila:hover { background: var(--surface-2); }
-        .cbg .cbg-nav-fila[aria-pressed="true"] { background: var(--mako-bg, var(--surface-2)); font-weight: 650; }
+        /* AZUL, no dorado. La regla de color de la casa: dorado = MaKo («acá intervino
+           la inteligencia»), azul = vos actuás (selección, foco). Una fila marcada
+           porque el usuario la eligió es lo segundo; pintada de dorado decía que la
+           había elegido MaKo. */
+        .cbg .cbg-nav-fila[aria-pressed="true"] { background: var(--primary-bg); font-weight: 650; }
         .cbg .cbg-nav-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         /* «Abrir» SIEMPRE está visible. La primera versión lo revelaba al pasar el
            cursor, y eso rompe la regla de la casa: si algo es clicable, se tiene que
@@ -1164,7 +1196,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
           transition: color .12s, border-color .12s;
         }
         .cbg .cbg-nav-par:hover .cbg-nav-abrir { color: var(--cbg-texto); border-color: var(--border-strong); }
-        .cbg .cbg-nav-abrir:hover { color: var(--mako-ink); border-color: var(--mako); }
+        .cbg .cbg-nav-abrir:hover { color: var(--primary); border-color: var(--primary-weak); }
 
         @media (max-width: 1100px) {
           /* Apilado: el detalle baja debajo del mapa. Una columna de 400 px sobre un
@@ -1186,51 +1218,31 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
             —el Norte y el cuello de botella—, nombradas y clicables. Antes el mapa las
             pintaba de dorado y de naranja y no las explicaba en ningún lado. */}
         <div className="cbg-barra">
-          {/* ── EL FILTRO, uno solo ─────────────────────────────────────────
-              Con el icono de embudo fijo a la izquierda, que es lo que hace que se lea
-              como filtro incluso cuando dice «52 datos»: el rótulo cambia con lo elegido
-              y sin el icono el control no se distingue de un contador.
-
-              Las tres columnas son las tres maneras REALES de recortar un mapa: por
-              quién lo escribió, por carpeta madre y por sección. Van en el mismo menú
-              porque son excluyentes entre sí — elegir una apaga la anterior. */}
-          <Dropdown
-            value={filtro}
-            onChange={setFiltro}
-            ariaLabel="Filtrar el mapa"
-            portalTo={enPantallaCompleta ? marcoRef.current : null}
-            buttonStyle={estiloBotonBarra}
-            icono={<IconoFiltro />}
-            columns={[[
-              {
-                title: 'Todo',
-                options: [{ value: 'todo', label: `${cuenta.total} ${cuenta.total === 1 ? 'dato' : 'datos'}`, sub: 'El mapa entero' }],
-              },
-              {
-                title: 'Quién lo escribió',
-                options: [
-                  { value: 'autor:mako', label: `${cuenta.mako} los dedujo MaKo`, sub: 'Salieron de tus documentos y respuestas' },
-                  { value: 'autor:usuario', label: `${cuenta.usuario} los escribiste tú`, sub: 'Los cargaste o corregiste a mano' },
-                  ...(cuenta.pendientes > 0
-                    ? [{ value: 'autor:falta', label: `${cuenta.pendientes} sin completar`, sub: 'Lo que le falta al mapa' }]
-                    : []),
-                ],
-              },
-            ], [
-              {
-                title: 'Carpetas',
-                // El `sub` no se DIBUJA en modo columnas —el desplegable lo esconde a
-                // propósito— pero sí entra en su buscador. O sea que escribir «lead» en
-                // el menú encuentra «Funnel» por su descripción. Por eso lleva el `que`
-                // de verdad y no un conteo, que no sirve para buscar nada.
-                options: NIVEL1.map((c: (typeof NIVEL1)[number]) => ({ value: `carpeta:${c.id}`, label: c.nombre, sub: c.que })),
-              },
-              {
-                title: 'Secciones',
-                options: AREAS.map((a) => ({ value: `area:${a.id}`, label: a.nombre, color: a.color, sub: a.que })),
-              },
-            ]]}
+          {/* ── EL FILTRO ───────────────────────────────────────────────────
+              Su anatomía y el porqué de cada pieza están en FiltroMapa.tsx. Acá solo
+              viven el estado y los conteos, que salen del mismo cálculo que dibuja el
+              mapa — un contador que no sale de ahí es un contador que se va a
+              desincronizar, y ya pasó una vez (decía 14 y el mapa mostraba 5). */}
+          <FiltroMapa
+            filtro={filtro}
+            onFiltro={setFiltro}
+            abierto={filtroAbierto}
+            onAbrir={setFiltroAbierto}
+            conteoArea={porArea}
+            conteoAutoria={{ mako: cuenta.mako, usuario: cuenta.usuario, falta: cuenta.pendientes }}
           />
+          <ChipsFiltro filtro={filtro} onFiltro={setFiltro} onAbrir={setFiltroAbierto} />
+
+          {/* «N de M», que el tablero no tiene y el CRM sí. Sin esto, filtrar y no ver
+              nada es indistinguible de que el mapa esté vacío. */}
+          {hayFiltro && (
+            <span
+              style={{ fontFamily: MONO, fontSize: 11, color: 'var(--cbg-tenue)', whiteSpace: 'nowrap' }}
+              title={`Se muestran ${datosVisibles} de ${datosTotal} datos del mapa`}
+            >
+              <b style={{ fontWeight: 600, color: 'var(--cbg-texto)' }}>{datosVisibles}</b> de {datosTotal}
+            </span>
+          )}
 
           <span style={{ flex: 1 }} />
           <BuscadorCerebro
@@ -1301,7 +1313,14 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                       x2={b.x - (dx / d) * rb} y2={b.y - (dy / d) * rb}
                       // La arista en foco NO va dorada: eso diría «acá intervino MaKo»,
                       // que es falso. Es la línea normal subida dos escalones.
-                      stroke={viva && cerca ? 'var(--dim)' : 'var(--border-strong)'}
+                      /* ⚠️ ESTO ESTABA INVERTIDO PARA OSCURO. El estado ENCENDIDO era
+                         `--dim` (un gris oscuro) y el apagado `--border-strong` (casi
+                         blanco): sobre fondo claro funcionaba, y sobre fondo oscuro la
+                         arista apagada pasaba a ser lo más brillante de la pantalla y la
+                         encendida se fundía con el fondo. Los dos tokens de acá se
+                         redefinen con el tema, así que la relación «encendida más clara
+                         que apagada» se mantiene en los dos. */
+                      stroke={viva && cerca ? 'var(--cbg-arista-viva)' : 'var(--cbg-arista)'}
                       strokeWidth={1}
                       strokeOpacity={op}
                       vectorEffect="non-scaling-stroke"
@@ -1396,6 +1415,21 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
             </div>
           )}
 
+          {/* NADA PASA EL FILTRO. Es un estado distinto de «el mapa está vacío» y por eso
+              es otro bloque: acá SÍ hay datos, lo que no hay es datos que pasen, y la
+              salida es sacar el filtro. Sale de `NoResults` —el canónico de la casa— y
+              no de un mensaje escrito acá: el tablero pinta un «—» que no dice que fue
+              el filtro ni ofrece nada, y es su punto más flojo. */}
+          {cuenta.total > 0 && hayFiltro && datosVisibles === 0 && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+              <NoResults
+                inline
+                detalle="Tu mapa tiene datos, pero ninguno pasa este filtro."
+                onLimpiar={() => setFiltro(FILTRO_VACIO)}
+              />
+            </div>
+          )}
+
           {/* Estado vacío: un mensaje que explica, nunca un cuadro con los campos en cero.
               Antes acá se leían cuatro ceros seguidos y un número mal contado. */}
           {cuenta.total === 0 && (
@@ -1410,7 +1444,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                 Suelta tus documentos en El Archivero y el mapa se arma solo.
               </p>
               {onAbrirArea && (
-                <Button variant="primary" onClick={() => onAbrirArea('documentos')}>Abrir El Archivero</Button>
+                <Button variant="primary" onClick={() => onAbrirArea('documentos', true)}>Abrir El Archivero</Button>
               )}
             </div>
           )}
@@ -1431,12 +1465,12 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                 <button
                   type="button"
                   className="cbg-area-btn"
-                  onClick={() => setFiltro(areaFoco === nodoSel.area ? 'todo' : `area:${nodoSel.area}`)}
+                  onClick={() => setFiltro((f) => ({ ...f, areas: f.areas.has(nodoSel.area) ? new Set() : new Set([nodoSel.area]) }))}
                   aria-pressed={areaFoco === nodoSel.area}
                   title={areaFoco === nodoSel.area ? 'Ver todo' : `Ver solo ${areaDe(nodoSel.area).nombre}`}
                   style={{
                     fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase',
-                    color: areaFoco === nodoSel.area ? 'var(--mako-ink)' : 'var(--faint)',
+                    color: areaFoco === nodoSel.area ? 'var(--primary)' : 'var(--faint)',
                   }}
                 >
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: areaDe(nodoSel.area).color, flex: 'none' }} />
@@ -1572,7 +1606,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                       botón que no lleva a donde dice. Tampoco la raíz: es el negocio
                       entero, no un área. */}
                   {onAbrirArea && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:') && (
-                    <Button variant="secondary" full onClick={() => onAbrirArea(nodoSel.area)}>
+                    <Button variant="secondary" full onClick={() => onAbrirArea(nodoSel.area, true)}>
                       {nodoSel.id.startsWith('area:')
                         ? `Completar ${areaDe(nodoSel.area).nombre}`
                         : `Abrir ${areaDe(nodoSel.area).nombre}`}
@@ -1621,9 +1655,13 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                     <button
                       type="button"
                       className="cbg-nav-carpeta"
-                      onClick={() => setFiltro(filtroCarpeta === c.id ? 'todo' : `carpeta:${c.id}`)}
-                      aria-pressed={filtroCarpeta === c.id}
-                      title={filtroCarpeta === c.id ? 'Ver el mapa entero' : `Ver solo ${c.nombre}`}
+                      onClick={() => setFiltro((f) => {
+                        const cs = new Set(f.carpetas);
+                        if (cs.has(c.id)) cs.delete(c.id); else cs.add(c.id);
+                        return { ...f, carpetas: cs };
+                      })}
+                      aria-pressed={filtro.carpetas.has(c.id)}
+                      title={filtro.carpetas.has(c.id) ? `Dejar de ver solo ${c.nombre}` : `Ver solo ${c.nombre}`}
                     >
                       {c.nombre}
                     </button>
@@ -1635,8 +1673,15 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                             <button
                               type="button"
                               className="cbg-nav-fila"
-                              aria-pressed={filtroArea === a.id}
-                              onClick={() => { setFiltro(filtroArea === a.id ? 'todo' : `area:${a.id}`); irA(`area:${a.id}`, false); }}
+                              aria-pressed={filtro.areas.has(a.id)}
+                              onClick={() => {
+                                setFiltro((f) => {
+                                  const as = new Set(f.areas);
+                                  if (as.has(a.id)) as.delete(a.id); else as.add(a.id);
+                                  return { ...f, areas: as };
+                                });
+                                irA(`area:${a.id}`, false);
+                              }}
                               title={`Ver ${a.nombre} en el mapa`}
                             >
                               <span style={{ width: 7, height: 7, borderRadius: '50%', flex: 'none', background: a.color }} />
@@ -1651,7 +1696,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                               <button
                                 type="button"
                                 className="cbg-nav-abrir"
-                                onClick={() => onAbrirArea(a.id)}
+                                onClick={() => onAbrirArea(a.id, true)}
                                 title={`Abrir ${a.nombre} para completarla`}
                                 aria-label={`Abrir ${a.nombre} para completarla`}
                               >{areaAbierta === a.id ? 'Abierta' : 'Abrir'}</button>
