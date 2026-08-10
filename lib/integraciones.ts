@@ -84,12 +84,12 @@ async function estadoAgente(): Promise<Pick<Integracion, 'estado' | 'detalle'>> 
   try {
     const ws = await getWorkspaceActual();
     if (ws != null && (await getAgenteToken(ws))) {
-      return { estado: 'conectada', detalle: 'Token generado — tu agente puede leer tu plan y proponerte tareas.' };
+      return { estado: 'conectada', detalle: 'Token generado — Claude ya puede leer tu negocio y tu plan, y proponerte tareas.' };
     }
   } catch (e) {
     console.error(`[integraciones] chequeo del agente falló: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return { estado: 'falta', detalle: 'Generá tu token e instalá la skill en tu Claude Code.' };
+  return { estado: 'falta', detalle: 'Generá tu token e instalá la skill en Claude.' };
 }
 
 export async function getIntegraciones(): Promise<Integracion[]> {

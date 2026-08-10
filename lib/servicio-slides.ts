@@ -107,11 +107,16 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/integraciones.ts: la única integración cuyo estado son eventos REALES
     { t: 'La única que se prueba de verdad', d: 'Las demás se ven "conectadas" porque hay credencial. Esta se pone en verde solo cuando llega un evento real.' },
   ],
-  // El agente de código (Claude Code) enchufado al plan. Sin API key: se instala
-  // una skill del lado del usuario y habla por /api/agente/plan con un token.
+  // Claude enchufado a MaKo. Sin API key: se instala una skill del lado del usuario y
+  // habla por /api/agente/* con un token.
+  //
+  // ⚠️ El orden importa y no es el histórico. Antes las tres slides hablaban del PLAN,
+  // porque el plan fue lo primero que se conectó; hoy lo que más cambia la conversación
+  // es que Claude arranque sabiendo a qué te dedicás, a quién le vendés y cómo suena tu
+  // marca. Eso va primero.
   agente: [
-    { t: 'Mira tu plan antes de arrancar', d: 'Tu agente lee tus tareas y proyectos, así no duplica lo que ya está anotado y te avisa si hay algo urgente o vencido.' },
-    { t: 'Te propone, no decide', d: 'Cuando encuentra algo para anotar, deja un borrador con preguntas. Vos respondés y el Perro Guardián le pone la prioridad.' },
-    { t: 'El mismo proceso que WhatsApp', d: 'No inventa prioridades ni ensucia el tablero: entra por el mismo camino que MaKo por WhatsApp. Un solo criterio para todo.' },
+    { t: 'Arranca sabiendo de tu negocio', d: 'Tu oferta, tu cliente ideal, tus avatares, tus razones de compra y cómo suena tu marca. No se lo tenés que contar de nuevo en cada chat.' },
+    { t: 'Mira tu plan antes de proponerte nada', d: 'Lee tus tareas y proyectos abiertos, así no te propone algo que ya está anotado y te avisa si hay algo urgente o vencido.' },
+    { t: 'Te propone, no decide', d: 'Cuando encuentra algo para anotar, deja un borrador con preguntas y te pasa el link. Vos respondés y el Perro Guardián le pone la prioridad — el mismo camino que MaKo por WhatsApp.' },
   ],
 };

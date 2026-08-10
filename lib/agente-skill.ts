@@ -24,15 +24,36 @@ export function agenteSkillMarkdown(baseUrl: string, token: string): string {
   return `---
 name: mako-plan
 description: >
-  Mirar el plan de MaKo antes de arrancar algo grande, y proponerle tareas nuevas
-  cuando aparezca algo que vale la pena anotar. Usar al empezar un trabajo
-  sustancial en este proyecto o cuando el usuario diga "anotá esto". NUNCA crear
-  tareas por tu cuenta: se proponen y las puntúa el Perro Guardián.
+  El negocio del usuario vive en MaKo: su oferta, su cliente ideal, sus avatares, sus
+  razones de compra, su catálogo, cómo suena su marca y su plan de trabajo. Usar SIEMPRE
+  que haya que escribir, decidir o proponer algo sobre su negocio —un anuncio, un guion,
+  un email, una oferta, un precio, una decisión de marketing— y también al empezar o
+  cerrar un trabajo sustancial. Traete el contexto ANTES de opinar; no le pidas al
+  usuario datos que MaKo ya tiene. Para el plan: NUNCA crear tareas por tu cuenta, se
+  proponen y las puntúa el Perro Guardián.
 ---
 
-# Plan de MaKo
+# MaKo — el negocio del usuario
 
-El plan del usuario vive en MaKo. Esta skill lo LEE y le PROPONE — no escribe tareas.
+MaKo sabe de este negocio mucho más de lo que entra en un chat: qué vende, a quién, por
+qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a todo eso.
+
+**Lo que podés hacer, en orden de uso:**
+
+1. **Traerte el negocio** (\`/api/agente/contexto\`) — oferta, cliente ideal, fase,
+   gancho, catálogo con precios y voz de marca. Es lo primero, siempre.
+2. **Pedir una sección grande bajo demanda** (\`?seccion=razones|panorama|productos\`) —
+   la matriz de avatares × razones de compra, lo que MaKo entendió de los documentos, o
+   el catálogo completo.
+3. **Leer el plan abierto** (\`GET /api/agente/plan\`).
+4. **Proponer**: tareas nuevas, cierres de lo que ya se hizo, y detalle sobre lo que ya
+   está anotado (\`POST /api/agente/plan\`).
+
+⚠️ Los puntos 1 y 2 son de LECTURA y no tienen ninguna ceremonia: usalos sin pedir
+permiso cada vez que vayas a escribir algo del negocio. La ceremonia del borrador es
+solo para el punto 4, que es lo único que ESCRIBE.
+
+## El plan: se LEE y se PROPONE, no se escribe
 
 \`\`\`
 BASE=${base}

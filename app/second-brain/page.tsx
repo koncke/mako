@@ -58,13 +58,17 @@ export default async function SecondBrainPage() {
           lienzo no tenga un fondo distinto al de la página. La única forma de que sean
           el mismo color es que no haya dos colores. */}
       <TemaOscuro />
-      <PageHeader
-        titulo="Second Brain"
-        proposito="Todo lo que MaKo sabe de tu negocio."
-        acciones={<BotonClaude tokenInicial={agenteToken} appUrl={appUrl} />}
-        accion={<BotonExportar cerebro={cerebro} conteo={conteo} />}
+      {/* ⚠️ EL HEADER LO ARMA `VistaCerebro`, NO ESTA PÁGINA. Los dos botones del header
+          dependen de lo que el mapa está mostrando (exportar baja el recorte que estás
+          viendo), y desde acá —un server component— no hay ningún estado que compartir.
+          Es la misma razón por la que el resto de la pantalla vive ahí adentro. */}
+      <VistaCerebro
+        cerebro={cerebro}
+        conteo={conteo}
+        funnelPanel={funnelPanel}
+        agenteToken={agenteToken}
+        appUrl={appUrl}
       />
-      <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} />
     </Pagina>
   );
 }

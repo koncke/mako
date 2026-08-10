@@ -10,7 +10,14 @@ import type { Cerebro } from '@/lib/cerebro-modelo';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 
-export function BotonExportar({ cerebro, conteo }: { cerebro: Cerebro; conteo: Record<string, number> }) {
+export function BotonExportar({ cerebro, conteo, recorte }: {
+  cerebro: Cerebro;
+  conteo: Record<string, number>;
+  /** Lo que el mapa está mostrando ahora. `recortado` es falso cuando no hay ni filtro
+   *  ni búsqueda: ahí «lo que estás viendo» y «todo» son lo mismo y no hay que
+   *  preguntarlo. */
+  recorte: { ids: string[]; recortado: boolean };
+}) {
   const [abierto, setAbierto] = useState(false);
   return (
     <>
@@ -27,7 +34,7 @@ export function BotonExportar({ cerebro, conteo }: { cerebro: Cerebro; conteo: R
       >
         Exportar
       </Button>
-      {abierto && <ExportarCerebro cerebro={cerebro} conteo={conteo} onClose={() => setAbierto(false)} />}
+      {abierto && <ExportarCerebro cerebro={cerebro} conteo={conteo} recorte={recorte} onClose={() => setAbierto(false)} />}
     </>
   );
 }

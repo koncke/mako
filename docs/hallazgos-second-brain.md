@@ -1149,6 +1149,15 @@ no resuelvan** — verificado en los cuatro workspaces reales (56 a 74 enlaces c
 
 ## Lo que quedó sin hacer
 
+- **El reporte de sesiones sigue siendo solo de Claude Code**: el hook es un `Stop` de
+  `.claude/settings.json`, así que desde la app de Claude la skill funciona pero no
+  reporta. El texto del consentimiento lo nombra bien, pero conviene revisarlo si la
+  integración se sigue generalizando. Vive en `lib/agente-consentimiento-texto.ts`.
+- **Un test es INTERMITENTE en este clon**: en dos corridas dio `1 fail` y en cinco
+  seguidas dio limpio, sin poder capturarse cuál. Coincide con que la otra cuenta estuvo
+  agregando tests (476 → 502 en una sesión). No es de Grafo.tsx ni de FiltroMapa.tsx,
+  que no tienen test propio.
+
 - **El visor de documentos sigue pintando blanco sobre el lienzo oscuro**: el `<iframe>`
   de un PDF y el fondo de una `<img>` los pinta el navegador y no se pueden tematizar
   desde acá. Vive en `app/second-brain/Grafo.tsx` (`.cbg-visor`).
@@ -1372,3 +1381,67 @@ toda la página — la misma falla que AGENTS.md ya documenta para las barras de
 
 En este rediseño no hizo falta ninguna de las dos: si la página ENTERA es del color del
 lienzo, no hay banda que sangrar.
+
+### Claude y Anthropic son dos marcas, y estaban cambiadas
+
+**Vive en:** `app/_components/icons.tsx` (`RafagaClaude`) · `app/_components/ServicioVisual.tsx` (`ic-claude` / `ic-anthropic`)
+
+El repo tenía los DOS logos y los usaba al revés donde importaba. `ic-anthropic` es el
+logotipo de la EMPRESA (la «A\»); la ráfaga de once radios es la marca del PRODUCTO. La
+integración con la que el cliente habla llevaba el logo de la empresa, y la ráfaga —que
+ya existía, bien dibujada— se usaba en **un solo lugar** de todo el repo: el avatar del
+historial de `/admin/dev`.
+
+**La regla:** el tile de una integración lleva la marca de **con qué** te conectás. Con la
+API key te conectás con Anthropic (ahí el logotipo está bien); con la skill te conectás
+con Claude.
+
+Y el dibujo no se copió: `RafagaClaude` devuelve el `<g>` sin el `<svg>` de afuera, así
+que el mismo path sirve como componente y como `<symbol>` de `BrandDefs`. Dos copias de
+una marca ajena garantizan que una quede vieja.
+
+### «Claude Code» nombraba la puerta, no lo que hay adentro
+
+**Vive en:** `lib/integraciones-catalogo.ts` · `lib/servicio-slides.ts` · `app/_components/TutorialAgente.tsx` · `lib/agente-skill.ts`
+
+La integración se llamaba «Claude Code» y su tutorial abría con «¿Programás con Claude
+Code?». La skill es **un archivo de texto**: funciona en cualquier Claude que lea skills,
+y el que la usa no está programando — está escribiendo un anuncio o decidiendo un precio.
+El nombre y el copy dejaban afuera a la mayoría de los clientes.
+
+**Y la skill se había quedado corta con su propio código.** Su `description` —lo que
+decide cuándo el modelo la activa— hablaba solo del plan, cuando ya expone el contexto
+completo del negocio (`/api/agente/contexto`, seis bloques) y tres secciones grandes bajo
+demanda (razones, panorama, productos). Una skill cuya descripción no nombra la mitad de
+lo que sabe hacer es una skill que no se activa cuando hace falta: el modelo lee la
+descripción, no el código.
+
+**La regla:** cuando se le agrega una capacidad a una skill, se toca **la descripción del
+frontmatter** en el mismo commit. El cuerpo lo lee el modelo cuando ya decidió usarla; la
+descripción es lo único que lee para decidir.
+
+### El exportador no sabía nada del filtro, y su conteo tenía tres copias
+
+**Vive en:** `lib/vault-modelo.ts` (`esArchivo`) · `app/api/second-brain/exportar/route.ts` · `app/second-brain/ExportarCerebro.tsx`
+
+El mapa filtra por carpeta, sección, autoría y búsqueda; el ZIP solo sabía de áreas. Se
+podía dejar el mapa en 15 datos y bajar 52.
+
+Dos decisiones que valen para el próximo:
+
+1. **Se manda el RESULTADO, no los criterios.** La ruta recibe la lista de ids visibles,
+   no el filtro. Mandar los criterios obligaba a reimplementar en el servidor el
+   predicado que ya existe en el navegador —tres dimensiones más dos búsquedas— y dos
+   implementaciones de «qué se ve» divergen. Este archivo ya pagó ese bug entre el README
+   y las carpetas.
+2. **`esArchivo` es ahora la única condición.** Estaba escrita tres veces con tres
+   redacciones: en `construirVault`, en `conteoPorArea` y en el filtro del README. El
+   síntoma histórico fue «5 archivos» en una carpeta con 3. El test que lo blinda
+   (`tests/vault.test.ts`) compara el número del README contra los archivos reales de
+   cada carpeta, y es el que hay que correr ante cualquier cambio acá.
+
+**Y el nombre del ZIP salía de los IDS.** Los ids siguen siendo `norte` y `panorama` —
+vocabulario interno renombrado en pantalla dos rondas atrás — y aparecían tal cual en
+`segundo-cerebro-…-norte-panorama-documentos-….zip`, con la última palabra cortada al
+medio por un `slice(0, 40)`. Un id no es un nombre: si sale a la cara del usuario, sale
+del `nombre` del catálogo.

@@ -13,11 +13,12 @@
 //   · las SLIDES y el LOGO, que ya viven en lib/servicio-slides.ts y en BrandDefs.
 //
 // Por qué el botón vive acá: el segundo cerebro es literalmente lo que la skill le lleva
-// a Claude Code. El lugar donde alguien entiende para qué conectar su agente es mirando
-// el mapa de lo que MaKo sabe de él.
+// a Claude. El lugar donde alguien entiende para qué conectarlo es mirando el mapa de lo
+// que MaKo sabe de él.
 // =============================================================================
 
 import { useState } from 'react';
+import { ClaudeMark } from '@/app/_components/icons';
 import { ModalShell, closeBtn } from '@/app/_components/ModalShell';
 import { TutorialAgente } from '@/app/_components/TutorialAgente';
 import { Carrusel, EnlaceMaKo } from '@/app/_components/PanelMarketing';
@@ -39,33 +40,38 @@ export function BotonClaude({ tokenInicial, appUrl }: { tokenInicial: string | n
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        title="Llevarte tu segundo cerebro a Claude Code"
+        title="Llevarte tu segundo cerebro a Claude"
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 9,
           // Fondo oscuro y no el `secondary` de la casa: es un botón de MARCA ajena, y
-          // el negro de Anthropic lo separa del resto de la barra sin inventar un color.
-          background: '#181818', border: '1px solid #2A2A2A', color: '#F5F4F0',
+          // el negro la separa del resto de la barra sin inventar un color.
+          // ⚠️ El borde sube a #3A3A3A desde que la pantalla es oscura: contra el #22262E
+          // del fondo, el #2A2A2A original daba 1,1:1 y el botón se leía como un agujero
+          // sin bordes en vez de como un botón.
+          background: '#181818', border: '1px solid #3A3A3A', color: '#F5F4F0',
           borderRadius: 10, padding: '8px 14px', cursor: 'pointer',
           fontFamily: "'Geist', sans-serif", fontSize: 13.5, fontWeight: 600,
           minHeight: 'var(--ctrl-h, 38px)',
         }}
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><use href="#ic-anthropic" /></svg>
+        {/* La ráfaga de CLAUDE, no el logotipo de Anthropic. Acá se conecta con el
+            producto, no con la empresa. */}
+        <ClaudeMark size={15} />
         Conectar a Claude
       </button>
 
       {abierto && (
-        <ModalShell w={940} h="min(720px, calc(100dvh - 96px))" label="Conectar a Claude Code" onClose={() => setAbierto(false)}>
+        <ModalShell w={940} h="min(720px, calc(100dvh - 96px))" label="Conectar a Claude" onClose={() => setAbierto(false)}>
           <div className="mk-svc-modal">
             {/* ═══ IZQUIERDA (negra) · qué vas a poder hacer ═══ */}
             <aside className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: '26px 24px', minWidth: 0, minHeight: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
                 <MakoStar size={14} color="var(--accent)" />
                 <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)' }}>
-                  Con Claude Code conectado
+                  Con Claude conectado
                 </span>
               </div>
-              <Carrusel slides={SLIDES.agente ?? []} arriba={<EnlaceMaKo k="agente" nombre="Claude Code" />} />
+              <Carrusel slides={SLIDES.agente ?? []} arriba={<EnlaceMaKo k="agente" nombre="Claude" />} />
             </aside>
 
             {/* ═══ DERECHA · el tutorial, el mismo de /integraciones ═══
@@ -75,9 +81,9 @@ export function BotonClaude({ tokenInicial, appUrl }: { tokenInicial: string | n
               <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 13, padding: '22px 26px 16px' }}>
                 <SvcIcon k="agente" box={44} radius={12} size={25} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>Claude Code</h3>
+                  <h3 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>Claude</h3>
                   <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)', marginTop: 3 }}>
-                    Tu segundo cerebro, adentro de tu agente
+                    Tu negocio, adentro de Claude
                   </div>
                 </div>
                 <button type="button" onClick={() => setAbierto(false)} aria-label="Cerrar" style={closeBtn}>✕</button>

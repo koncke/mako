@@ -21,9 +21,10 @@
 // misma, y un paso que se contesta solo es un paso que sobra.
 // =============================================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { WizardShell } from '@/app/_components/WizardShell';
 import { AREAS, type AreaId, type Cerebro } from '@/lib/cerebro-modelo';
+import { conteoPorArea } from '@/lib/vault-modelo';
 import { MONO, SANS } from '@/app/_ui/tokens';
 
 /** Copiada, no compartida: es el mismo criterio con el que vive dos veces en el repo
@@ -54,22 +55,56 @@ function Opcion({ on, titulo, sub, onClick, off = false }: { on: boolean; titulo
   );
 }
 
-export function ExportarCerebro({ cerebro, conteo, onClose }: {
+export function ExportarCerebro({ cerebro, conteo, recorte, onClose }: {
   cerebro: Cerebro;
   conteo: Record<string, number>;
+  recorte: { ids: string[]; recortado: boolean };
   onClose: () => void;
 }) {
+  /**
+   * ¿SE LLEVA LO QUE ESTÁ VIENDO, O TODO?
+   *
+   * Es la pregunta que faltaba, y se gana el lugar con el criterio que ya estaba escrito
+   * en este archivo: «las dos respuestas tienen que producir archivos que personas
+   * distintas quieren de verdad». Alguien que filtró el mapa a «lo que dedujo MaKo en
+   * Oferta» y aprieta exportar quiere ESO; alguien que abre el modal sin haber tocado
+   * nada quiere su cerebro entero.
+   *
+   * Y por eso la pregunta NO aparece si no hay nada filtrado: ahí las dos respuestas dan
+   * el mismo ZIP, y un paso que se contesta solo es un paso que sobra.
+   */
+  const [soloVisible, setSoloVisible] = useState(recorte.recortado);
+  // Si el mapa deja de estar recortado (o pasa a estarlo) mientras el modal vive, el
+  // alcance lo sigue. Sin esto el default se congela en el primer montaje: abrir el
+  // modal sin filtro, cerrarlo, filtrar y volver a abrir dejaba «Todo» elegido con la
+  // pregunta del recorte a la vista — el formulario decía una cosa y bajaba otra.
+  useEffect(() => { setSoloVisible(recorte.recortado); }, [recorte.recortado]);
+  const idsVisibles = useMemo(() => new Set(recorte.ids), [recorte.ids]);
+
+  /** El conteo por área, ya recortado si corresponde. Sale de `conteoPorArea` —el mismo
+   *  que usa el README— y no de una cuenta propia: dos maneras de contar lo mismo es el
+   *  bug que este archivo ya pagó. */
+  const conteoVivo = useMemo(
+    () => (soloVisible ? conteoPorArea(cerebro, idsVisibles) : conteo),
+    [soloVisible, cerebro, idsVisibles, conteo],
+  );
+
   // Arranca con TODO lo que tiene contenido tildado: el que quiere todo aprieta
   // «Descargar» y listo, y el que quiere solo su oferta destilda el resto. El default
   // sirve al caso frecuente y no le cuesta nada al caso raro.
-  const conContenido = useMemo(() => AREAS.filter((a) => (conteo[a.id] ?? 0) > 0).map((a) => a.id as AreaId), [conteo]);
+  const conContenido = useMemo(() => AREAS.filter((a) => (conteoVivo[a.id] ?? 0) > 0).map((a) => a.id as AreaId), [conteoVivo]);
   const [elegidas, setElegidas] = useState<Set<AreaId>>(new Set(conContenido));
   const [bajando, setBajando] = useState(false);
   const [error, setError] = useState('');
 
+  // Al cambiar de alcance se re-tildan las áreas: si venías con «Razones» marcada y
+  // pasás al recorte donde Razones quedó vacía, el formulario mostraba una casilla
+  // tildada y apagada a la vez, y el contador sumaba un área que no aportaba nada.
+  useEffect(() => { setElegidas(new Set(conContenido)); }, [conContenido]);
+
   const archivos = useMemo(
-    () => [...elegidas].reduce((n, a) => n + (conteo[a] ?? 0), 0),
-    [elegidas, conteo],
+    () => [...elegidas].reduce((n, a) => n + (conteoVivo[a] ?? 0), 0),
+    [elegidas, conteoVivo],
   );
   const hayAlgo = archivos > 0;
 
@@ -86,7 +121,7 @@ export function ExportarCerebro({ cerebro, conteo, onClose }: {
       const r = await fetch('/api/second-brain/exportar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ areas: [...elegidas] }),
+        body: JSON.stringify({ areas: [...elegidas], ids: soloVisible ? recorte.ids : undefined }),
       });
       if (!r.ok) throw new Error(`el servidor devolvió ${r.status}`);
       const blob = await r.blob();
@@ -109,6 +144,12 @@ export function ExportarCerebro({ cerebro, conteo, onClose }: {
       setBajando(false);
     }
   }
+
+  const totalRecorte = useMemo(() => {
+    const c = conteoPorArea(cerebro, idsVisibles);
+    return AREAS.reduce((n, a) => n + (c[a.id] ?? 0), 0);
+  }, [cerebro, idsVisibles]);
+  const totalEntero = useMemo(() => AREAS.reduce((n, a) => n + (conteo[a.id] ?? 0), 0), [conteo]);
 
   const resumen = `${archivos} ${archivos === 1 ? 'archivo' : 'archivos'}`;
   const todasTildadas = elegidas.size === conContenido.length;
@@ -135,6 +176,23 @@ export function ExportarCerebro({ cerebro, conteo, onClose }: {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {recorte.recortado && (
+          <div style={{ display: 'flex', gap: 9, marginBottom: 4 }}>
+            <Opcion
+              on={soloVisible}
+              titulo="Lo que estás viendo"
+              sub={`${totalRecorte} ${totalRecorte === 1 ? 'archivo' : 'archivos'} · el recorte que tenés en el mapa`}
+              onClick={() => setSoloVisible(true)}
+            />
+            <Opcion
+              on={!soloVisible}
+              titulo="Todo tu cerebro"
+              sub={`${totalEntero} ${totalEntero === 1 ? 'archivo' : 'archivos'} · sin el filtro`}
+              onClick={() => setSoloVisible(false)}
+            />
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             type="button"
@@ -146,7 +204,7 @@ export function ExportarCerebro({ cerebro, conteo, onClose }: {
         </div>
 
         {AREAS.map((a) => {
-          const n = conteo[a.id] ?? 0;
+          const n = conteoVivo[a.id] ?? 0;
           return (
             <Opcion
               key={a.id}
@@ -155,16 +213,20 @@ export function ExportarCerebro({ cerebro, conteo, onClose }: {
               titulo={a.nombre}
               // Un área vacía se muestra apagada y no se ofrece: preguntar por algo
               // que no existe hace que el formulario se sienta roto.
-              sub={n === 0 ? 'todavía vacía' : `${n} ${n === 1 ? 'archivo' : 'archivos'} · ${a.que}`}
+              sub={n === 0 ? (soloVisible ? 'fuera del filtro' : 'todavía vacía') : `${n} ${n === 1 ? 'archivo' : 'archivos'} · ${a.que}`}
               onClick={() => alternar(a.id as AreaId)}
             />
           );
         })}
 
+        {/* El texto decía «una carpeta por área» y son DOS niveles de carpeta desde que
+            entró NIVEL1; y prometía N archivos cuando el ZIP trae N+1 (el README). Lo que
+            se describe tiene que ser lo que sale. */}
         <p style={{ margin: '6px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--faint)', lineHeight: 1.55 }}>
-          Se descarga como un ZIP: adentro hay una carpeta por área y un archivo de texto por dato.
-          Cada archivo dice de dónde salió y con qué está conectado. Si lo abres con Obsidian vas a ver
-          el mismo mapa que aquí.
+          Se descarga como un ZIP con dos niveles de carpeta —la carpeta madre y adentro cada
+          sección— y un archivo de texto por dato, más un README con el índice. Cada archivo dice
+          de dónde salió y con qué está conectado. Si lo abres con Obsidian vas a ver el mismo mapa
+          que acá.
         </p>
       </div>
     </WizardShell>

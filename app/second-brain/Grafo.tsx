@@ -93,7 +93,7 @@ function hashDe(id: string): number {
   return h >>> 0;
 }
 
-export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
+export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
   cerebro: Cerebro;
   /** Qué área está abierta abajo, para marcarla en el navegador de la derecha. Antes acá
    *  entraba `areaResaltada`, que la prendía el cursor sobre una TARJETA del hub — y esas
@@ -109,6 +109,13 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
    *  punto para leerlo, y que la página se vaya sola al formulario de abajo es perder
    *  de vista justo lo que se acaba de tocar. */
   onAbrirArea?: (area: AreaId | null, saltar?: boolean) => void;
+  /** Qué se está viendo AHORA, para que el exportador pueda bajar exactamente eso.
+   *  Se publica el RESULTADO (la lista de ids) y no los criterios: el filtro son tres
+   *  dimensiones que se combinan más la búsqueda por texto y la de MaKo, y mandar los
+   *  criterios obligaría a reimplementar el predicado del otro lado. Dos
+   *  implementaciones de «qué se ve» divergen — este archivo ya pagó ese bug entre el
+   *  contador y el dibujo. */
+  onVerse?: (info: { ids: string[]; recortado: boolean }) => void;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
 
@@ -384,6 +391,15 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   const esDato = (n: NodoCerebro) => n.id !== 'raiz' && !n.id.startsWith('area:') && !n.id.startsWith('n1:');
   const datosTotal = useMemo(() => nodos.filter(esDato).length, [nodos]);
   const datosVisibles = useMemo(() => montados.filter(esDato).length, [montados]);
+
+  // Publica hacia arriba lo que se está viendo. El callback va por ref para que un
+  // padre que lo redefine en cada render no dispare el efecto en cada render.
+  const onVerseRef = useRef(onVerse);
+  onVerseRef.current = onVerse;
+  const recortado = hayFiltro || busca.trim() !== '' || ia.ids !== null;
+  useEffect(() => {
+    onVerseRef.current?.({ ids: [...visiblesIds], recortado });
+  }, [visiblesIds, recortado]);
 
   // Terminada la salida, se desmontan. El `t.saliendo === saliendo` es lo que hace que un
   // segundo cambio de filtro a mitad de camino no lo pise: si ya hay otra tanda saliendo,

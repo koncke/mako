@@ -17,14 +17,20 @@
 // ya usaba `OnboardingTabs` con `funnelPanel`).
 // =============================================================================
 
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import type { AreaId, Cerebro } from '@/lib/cerebro-modelo';
+import { PageHeader } from '@/app/_ui';
 import { Grafo } from './Grafo';
 import { AreasHub } from './AreasHub';
+import { BotonClaude } from './BotonClaude';
+import { BotonExportar } from './BotonExportar';
 
-export function VistaCerebro({ cerebro, funnelPanel }: {
+export function VistaCerebro({ cerebro, conteo, funnelPanel, agenteToken, appUrl }: {
   cerebro: Cerebro;
+  conteo: Record<string, number>;
   funnelPanel: ReactNode;
+  agenteToken: string | null;
+  appUrl: string;
 }) {
   const [abierta, setAbierta] = useState<AreaId | null>(null);
   /** Cuántas veces se pidió IR a la sección, no cuál. Abrir y saltar son dos cosas
@@ -38,9 +44,22 @@ export function VistaCerebro({ cerebro, funnelPanel }: {
     if (saltar) setSalto((n) => n + 1);
   };
 
+  /** Lo que el mapa está mostrando ahora mismo. Vive acá y no adentro del grafo porque
+   *  el botón de exportar es su HERMANO, no su descendiente: el header lo renderiza esta
+   *  vista justamente para que los dos puedan mirar el mismo estado. Antes el header
+   *  vivía en la página (un server component) y no había ningún ancestro con estado. */
+  const [verse, setVerse] = useState<{ ids: string[]; recortado: boolean }>({ ids: [], recortado: false });
+  const alVerse = useCallback((info: { ids: string[]; recortado: boolean }) => setVerse(info), []);
+
   return (
     <>
-      <Grafo cerebro={cerebro} onAbrirArea={abrir} areaAbierta={abierta} />
+      <PageHeader
+        titulo="Second Brain"
+        proposito="Todo lo que MaKo sabe de tu negocio."
+        acciones={<BotonClaude tokenInicial={agenteToken} appUrl={appUrl} />}
+        accion={<BotonExportar cerebro={cerebro} conteo={conteo} recorte={verse} />}
+      />
+      <Grafo cerebro={cerebro} onAbrirArea={abrir} areaAbierta={abierta} onVerse={alVerse} />
       {/* El separador solo existe si hay algo abajo. Fijo, dejaba un hueco permanente
           entre el mapa y nada. */}
       {abierta && <div style={{ height: 'var(--sect-gap)' }} />}

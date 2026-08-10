@@ -50,10 +50,15 @@ export const DEFS: Def[] = [
   // estadoLanding). El usuario no pega credenciales: copia un <script> con su
   // token y lo pega donde tenga la landing (Lovable, Framer, Webflow, WP…).
   { key: 'landing', nombre: 'Landing / VSL', categoria: 'Datos', descripcion: 'Mide visitas y retención del VSL desde tu landing, esté donde esté.', envs: [] },
-  // Agente (Claude Code): como la landing, no se configura con una API key — se
-  // instala una skill del lado del usuario y se conecta con un token. Su estado se
-  // mide por señal REAL (¿generó el token?), no por env (ver estadoAgente).
-  { key: 'agente', nombre: 'Claude Code', categoria: 'Agentes', descripcion: 'Tu agente de código lee tu plan y te propone tareas — las prioriza el Perro Guardián.', envs: [] },
+  // Claude: como la landing, no se configura con una API key — se instala una skill del
+  // lado del usuario y se conecta con un token. Su estado se mide por señal REAL (¿generó
+  // el token?), no por env (ver estadoAgente).
+  //
+  // ⚠️ SE LLAMA «Claude», NO «Claude Code». La skill es un archivo de texto y funciona en
+  // cualquier Claude que lea skills, no solo en el de la terminal — y el que la usa no
+  // está programando: está avanzando su funnel. Nombrarla por una de las dos puertas
+  // dejaba afuera a la mayoría de los clientes, que no programan.
+  { key: 'agente', nombre: 'Claude', categoria: 'Agentes', descripcion: 'Claude trabaja con tu negocio adentro: tu oferta, tu cliente, tus razones y tu plan.', envs: [] },
 ];
 
 /**

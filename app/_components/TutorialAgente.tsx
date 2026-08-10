@@ -130,9 +130,11 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-        ¿Programás con <strong style={{ color: 'var(--ink)' }}>Claude Code</strong>? Instalá esta skill (3 pasos, sin API key) y tu agente
-        va a <strong style={{ color: 'var(--ink)' }}>mirar tu plan</strong> antes de arrancar y a <strong style={{ color: 'var(--ink)' }}>proponerte tareas</strong>.
-        Nunca las crea solo: deja un borrador que revisás vos y que prioriza el Perro Guardián.
+        Instalá esta skill (3 pasos, sin API key) y <strong style={{ color: 'var(--ink)' }}>Claude arranca sabiendo de tu
+        negocio</strong>: tu oferta, tu cliente ideal, tus razones de compra y cómo suena tu marca. No se lo
+        tenés que volver a contar en cada chat. Además <strong style={{ color: 'var(--ink)' }}>mira tu plan</strong> antes de
+        proponerte nada, y cuando encuentra algo para anotar <strong style={{ color: 'var(--ink)' }}>te deja un borrador</strong> —
+        nunca crea una tarea solo: la revisás vos y la prioriza el Perro Guardián.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 17 }}>
@@ -155,10 +157,17 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
         ))}
 
         {/* PASO 2 — instalar la skill */}
-        {paso(2, 'Instalá la skill en tu proyecto', (
+        {paso(2, 'Instalá la skill en Claude', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* La skill es UN archivo de texto, y por eso el paso se explica por las dos
+                puertas. En la terminal se crea el archivo; en la app de Claude se pega
+                como skill nueva. Nombrar solo una dejaba afuera a la mayoría de los
+                clientes, que no programan. */}
             <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              Creá el archivo <button type="button" onClick={() => copiar('ruta', AGENTE_SKILL_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'ruta' ? '¡copiada!' : AGENTE_SKILL_PATH}</button> en tu proyecto y pegá la skill adentro.
+              <strong style={{ color: 'var(--ink)' }}>En Claude Code:</strong> creá el archivo <button type="button" onClick={() => copiar('ruta', AGENTE_SKILL_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'ruta' ? '¡copiada!' : AGENTE_SKILL_PATH}</button> en tu proyecto y pegá la skill adentro.
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--ink)' }}>En la app de Claude:</strong> creá una skill nueva y pegá el mismo texto. Es el mismo archivo.
             </div>
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
               <button type="button" style={listo ? btnPrimario : { ...btnPrimario, opacity: 0.45, cursor: 'not-allowed' }} disabled={!listo} onClick={() => copiar('skill', skill)}>
@@ -181,11 +190,16 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
             (§0.a). Un agente que sabe escribir código sabe crear dos archivos. */}
 
         {/* PASO 3 — usarlo */}
-        {paso(3, 'Pedíselo a tu agente', (
+        {paso(3, 'Pedíselo a Claude', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
             <div>Escribile, por ejemplo:</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Mirá mi plan antes de arrancar con esto.”</span>
+              {/* Los ejemplos son de NEGOCIO, no de código. Los de antes («mirá mi plan
+                  antes de arrancar con esto») venían de cuando la integración era solo
+                  para el tablero del dueño, y le decían a un cliente que esto es una
+                  herramienta de programación. */}
+              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Escribime 5 anuncios para mi oferta, con mis razones de compra.”</span>
+              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Mirá mi plan y decime qué debería hacer esta semana.”</span>
               <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Anotá esto en mi plan.”</span>
             </div>
             <div>Te devuelve un <strong style={{ color: 'var(--ink)' }}>link a un borrador</strong>. Lo abrís, respondés las preguntas y el Perro le pone la prioridad. Recién ahí entra al tablero.</div>
