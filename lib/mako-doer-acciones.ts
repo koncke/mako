@@ -14,6 +14,7 @@ import 'server-only';import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle
 
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { CONTRATO_TIPOS_PREGUNTA } from '@/lib/preguntas-contrato';
+import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalogo';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mako-pendientes';
 import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes } from '@/lib/leads';
@@ -331,7 +332,12 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             properties: {
               titulo: { type: 'string', description: 'qué hay que hacer, corto e imperativo.' },
               prioridad: { type: 'string', enum: ['alta', 'media', 'baja', 'futuro'], description: 'opcional; default media.' },
-              proyecto: { type: 'string', description: 'opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, poné su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica. Si el tema NO tiene proyecto todavía, poné igual el nombre que le pondrías: es una PROPUESTA que revisa el Perro Guardián antes de crear nada. ⛔ NUNCA le digas al dueño en qué proyecto quedó la tarea: todavía no está decidido.' },
+              proyecto: { type: 'string', description: `opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, poné su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica. Si el tema NO tiene proyecto todavía, poné igual el nombre que le pondrías: es una PROPUESTA que revisa el Perro Guardián antes de crear nada. ⛔ NUNCA le digas al dueño en qué proyecto quedó la tarea: todavía no está decidido.
+
+CÓMO SE LLAMA UN PROYECTO NUEVO (la misma regla que aplica el Perro — si proponés un nombre que no la cumple, no lo va a reconocer como proyecto nuevo y va a reusar el más parecido):
+${REGLA_NOMBRE_PROYECTO}
+
+Y el nombre va en INGLÉS: «${'Feature: '}AI Agents», no «Agentes IA». Los proyectos que YA existen en español se dejan como están.` },
               deadline: { type: 'string', description: 'opcional; fecha límite YYYY-MM-DD.' },
               detalle: { type: 'string', description: `EL CAMPO MAS IMPORTANTE. ${MOLDE_ADVERTENCIA}
 
@@ -541,7 +547,10 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const raw: unknown[] = Array.isArray((input as { tareas?: unknown }).tareas) ? (input as { tareas: unknown[] }).tareas : [];
         const tareas = raw
           .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-          .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), proyecto: x.proyecto ? String(x.proyecto).trim().slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 6000) : undefined }))
+          .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), // `canonNombre`: si el modelo escribió «CRM», el proyecto se llama «Feature: CRM».
+            // El prefijo no puede depender de que se acuerde de escribirlo. Para un nombre
+            // que no está en el catálogo lo deja igual — ahí manda el Perro al aplicar.
+            proyecto: x.proyecto ? canonNombre(String(x.proyecto).trim()).slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 6000) : undefined }))
           .filter((t) => t.titulo);
         if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resolvé lo deducible con ver_plan; si falta info, ponela en "preguntas" — no preguntes por acá.' });
         // CANDADO: el mensaje era un "sí" pelado y no una lista → las tareas no salen
