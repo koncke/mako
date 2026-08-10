@@ -9,9 +9,13 @@
 //
 // El origen se lee del REQUEST y no de una variable de entorno: así el script que se
 // baja desde localhost apunta a localhost y el que se baja desde producción apunta a
-// producción, sin un paso de configuración donde equivocarse. Si `NEXT_PUBLIC_BASE_URL`
-// está puesta, gana ella — es la que sabe el dominio público cuando hay un proxy
-// adelante que reescribe el Host.
+// producción, sin un paso de configuración donde equivocarse. Si hay una URL pública
+// configurada gana ella — es la que sabe el dominio cuando hay un proxy adelante que
+// reescribe el Host.
+//
+// ⚠️ Acá decía `NEXT_PUBLIC_BASE_URL`, que NO EXISTE. Nunca ganó nadie: siempre caía al
+// origin del request, que por suerte es lo correcto. En /second-brain el mismo nombre
+// inventado no tenía red y entregaba una skill con la URL vacía.
 // =============================================================================
 
 import { NextResponse } from 'next/server';
@@ -25,7 +29,7 @@ export async function GET(req: Request) {
   const sesion = await getUsuarioActual();
   if (!sesion) return NextResponse.json({ ok: false, error: 'sin sesión' }, { status: 401 });
 
-  const base = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+  const base = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
 
   return new NextResponse(agenteHookScript(base), {
     headers: {

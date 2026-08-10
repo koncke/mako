@@ -1753,3 +1753,79 @@ avisando; si NO lo dice y falta `onQuitCleanup`, el proceso murió — son dos c
 distintas y se confunden fácil.
 
 **Vive en:** *2026-08-09*
+
+## La integración con Claude nunca funcionó desde afuera
+
+**Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `tests/rutas-publicas.test.ts`
+
+**Síntoma.** Una clienta instaló la skill y su Claude Code reportó: «el nuevo token
+tampoco autentica… puede ser que el endpoint necesite algo más que el token solo (¿un
+header adicional, cookie de sesión?), o que el token se genere para otro entorno».
+
+**Causa.** Ninguna de las dos. `/api/agente/*` no estaba en la lista de rutas públicas
+del middleware, así que `proxy.ts` cortaba el request con un 401 **antes de que la ruta
+mirara el bearer**. El token era correcto; la puerta estaba cerrada. Las tres rutas del
+agente —`plan`, `contexto`, `telemetria`— se autentican por `Authorization: Bearer` y no
+tienen cookie, que es exactamente el caso que la lista de públicas existe para contemplar.
+
+**Por qué nadie lo vio, que es lo importante.** En local `gateConfigurado()` devuelve
+false y el middleware hace **no-op**: contra `localhost` la integración anda perfecta.
+Falla solo en producción. Todo el desarrollo y todas las pruebas fueron contra local.
+
+### La pista que lo desenmascara en un segundo
+
+Pegarle a la ruta con un token **inválido** y leer el TEXTO del 401. Los dos son 401 y
+desde afuera se ven iguales:
+
+```bash
+curl -s -H "Authorization: Bearer mkoag_000" https://hola-mako.com/api/agente/contexto
+```
+
+| Respuesta | Quién contesta | Qué significa |
+|---|---|---|
+| `{"ok":false,"error":"no autenticado"}` | **el middleware** | la ruta ni se ejecutó — el problema es la lista de públicas |
+| `{"ok":false,"error":"token inválido o revocado"}` | **la ruta** | ahí sí el problema es el token |
+
+Vale para cualquier ruta con auth propia (webhooks, links compartidos, cron): **un 401 no
+dice quién lo emitió, y el que lo emite cambia por completo el diagnóstico.** Sin esto se
+buscan headers y entornos que no tienen nada que ver — que es literalmente lo que el
+agente de la clienta propuso.
+
+### Lo que quedó
+
+La lista salió de `proxy.ts` a `lib/rutas-publicas.ts`, **sin `server-only`**, por la regla
+de la casa: la condición que gobierna algo delicado va en un módulo que un test pueda
+importar. Un middleware no lo importa nadie, y por eso esta lista pudo dejar una
+integración entera afuera sin que nada avisara.
+
+El test es de **dos filos**: verifica que las tres del bearer estén Y que
+`/api/agente/token` y `/api/agente/hook` NO — esas dos las usa una persona logueada desde
+el navegador, y un prefijo `/api/agente` suelto (que era la solución obvia) habría abierto
+la acuñación de credenciales.
+
+⚠️ **Estar en esa lista significa dos cosas, no una:** que la ruta se hace cargo de su
+auth, y que **no se apoya en la cookie para nada**. El early-return se saltea el chequeo
+CSRF de Origin, así que una ruta que lea la cookie y esté ahí queda expuesta. Las del
+agente cumplen: el navegador nunca manda un `Authorization` solo.
+
+## Una env var con un nombre inventado entrega un artefacto roto
+
+**Vive en:** `app/second-brain/page.tsx` · `app/api/agente/hook/route.ts` · `lib/app-url.ts`
+
+`/second-brain` leía `process.env.NEXT_PUBLIC_BASE_URL ?? ''` — una variable que **no
+existe en ningún lado del repo ni de Vercel**. Las que existen son `APP_BASE_URL` y
+`NEXT_PUBLIC_APP_URL`, y las resuelve `lib/app-url.ts` con fallback al dominio real.
+
+Resultado: la skill que el cliente copiaba salía con `BASE=` **vacío**, y lo primero que
+hacía Claude después de instalarla era pedirle la URL de la API. El síntoma aparecía en la
+terminal del usuario; la causa era un nombre de variable inventado en un archivo de la app.
+
+El mismo nombre fantasma estaba en `/api/agente/hook`, pero ahí caía al origin del request
+—que es lo correcto— así que nunca dio síntoma: **el error estaba en los dos lados y solo
+uno dolía.**
+
+**La regla:** si un valor ya tiene su módulo, no se lo vuelve a leer del entorno a mano.
+Un `?? ''` sobre una env var convierte «falta configurar» en «cadena vacía», y una cadena
+vacía viaja hasta el archivo del cliente sin que nada la frene. Donde ese valor arma un
+artefacto que sale de la app, la última red la pone el navegador: `window.location.origin`
+es incontestable y no hay que configurarlo.

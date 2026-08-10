@@ -32,6 +32,7 @@ import { BotonClaude } from './BotonClaude';
 import { getAgenteToken } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { TemaOscuro } from '@/app/_components/TemaOscuro';
+import { APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,7 +45,15 @@ export default async function SecondBrainPage() {
 
   const ws = await getWorkspaceActual();
   const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);
-  const appUrl = process.env.NEXT_PUBLIC_BASE_URL ?? '';
+  // ⚠️ ACÁ SE ENTREGABA UNA SKILL ROTA. Esto leía `NEXT_PUBLIC_BASE_URL`, una variable
+  // que NO EXISTE en ningún lado del repo ni de Vercel — las que existen son
+  // `APP_BASE_URL` y `NEXT_PUBLIC_APP_URL`, y las dos las resuelve `lib/app-url.ts`.
+  // Resultado: `appUrl` era SIEMPRE '' en producción y la skill salía con `BASE=`
+  // vacío, así que lo primero que hacía Claude después de instalarla era pedirle la
+  // URL al cliente. El síntoma aparecía en la terminal del usuario y la causa era un
+  // nombre de variable inventado en este archivo. La regla de siempre: si un valor ya
+  // tiene su módulo, no se lo vuelve a leer del entorno a mano.
+  const appUrl = APP_BASE_URL;
 
   // ⚠️ `ancho="completo"` NO es opcional acá y no es un gusto: con el default el
   // contenido topa en 1280 y el lienzo queda MÁS CHICO que antes de este rediseño.

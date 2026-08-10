@@ -49,13 +49,23 @@ export const CODE = {
 type Copiable = 'skill' | 'token' | 'ruta' | 'ruta2';
 
 export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
+  /**
+   * LA URL QUE VA ADENTRO DE LA SKILL, con red propia.
+   *
+   * `appUrl` viene del servidor y ya se entregó vacía una vez —una env var con un
+   * nombre inventado—, y el costo lo pagó el cliente: instalaba la skill y lo primero
+   * que le pedía Claude era la URL de la API. Este componente corre en el NAVEGADOR,
+   * así que tiene a mano el dato incontestable: el origen desde el que se está mirando
+   * la app. Si el servidor no mandó nada, se usa ése.
+   */
+  const base = (appUrl || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/+$/, '');
   const [token, setToken] = useState<string | null>(tokenInicial);
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<Copiable | null>(null);
   const [verTrato, setVerTrato] = useState(false);
 
-  const skill = useMemo(() => agenteSkillMarkdown(appUrl, token ?? ''), [appUrl, token]);
+  const skill = useMemo(() => agenteSkillMarkdown(base, token ?? ''), [base, token]);
   const listo = !!token;
 
   // ⚠️ EL 409 NO ES UN ERROR: ES LA PUERTA. `/api/agente/token` responde

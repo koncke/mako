@@ -21,25 +21,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
+import { esPublica, esPublicaSoloLectura } from './lib/rutas-publicas';
 
-// Prefijos públicos (no requieren login).
-// '/' es la landing de venta de MaKo (antes vivía en /vsl). Solo la ve quien NO
-// tiene sesión: app/page.tsx redirige a los logueados a su home según el rol.
-// '/vsl' es la ruta vieja de esa misma landing y sigue viva (hay anuncios y
-// links apuntando ahí); redirige a '/'. '/vsl/<slug>' son los detalles de
-// features y '/vsl-assets' sus videos (.mp4 no lo excluye el matcher de abajo).
-// '/api/email/unsubscribe' es la baja del email: la abren destinatarios externos
-// (sin cookie) y el POST One-Click de Gmail/Apple; valida con su propio token HMAC.
-// '/compartido' y '/api/compartido' son los links que Martín le pasa a alguien
-// de afuera (material de marca). Son GET-only y validan su propio token contra
-// la fila viva en CADA request: el token no es una sesión y no da acceso a nada
-// más que a lo que ese link comparte.
-const PUBLICOS = ['/api/webhooks', '/api/track', '/api/cron', '/api/email/unsubscribe', '/login', '/api/auth', '/vsl', '/vsl-assets', '/compartido', '/api/compartido'];
-
-// Los públicos que solo deben responder a LECTURA. El early-return de abajo
-// saltea el chequeo CSRF de Origin, así que una ruta pública que acepte POST
-// quedaría expuesta: estas se cortan acá si el método no es de lectura.
-const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'];
+// La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
+// que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
+// importar. Ya dejó una integración entera afuera sin que nada avisara — el detalle,
+// con la pista que lo desenmascara, está en ese archivo.
 
 // Rutas que además del login exigen rol admin. /metodo gestiona las
 // credenciales del workspace (tokens globales) — solo admins.
@@ -200,8 +187,8 @@ export function proxy(req: NextRequest) {
 
   // Las rutas públicas pasan siempre (tienen su propia auth por firma/secret).
   // Se evalúa primero para que ni el modo fail-closed las toque.
-  if (PUBLICOS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
-    const soloLectura = PUBLICOS_SOLO_LECTURA.some((p) => pathname === p || pathname.startsWith(p + '/'));
+  if (esPublica(pathname)) {
+    const soloLectura = esPublicaSoloLectura(pathname);
     if (soloLectura && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }

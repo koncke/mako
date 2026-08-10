@@ -349,6 +349,34 @@ a dos escalones del fondo, nunca un gris claro bajado de `opacity`.
 El detalle, con las mediciones, en
 [docs/hallazgos-second-brain.md](docs/hallazgos-second-brain.md).
 
+# Una ruta con auth propia va en `lib/rutas-publicas.ts`, o no existe en producción
+
+Si una ruta se autentica sola —por firma, por secreto o por **bearer**— tiene que estar en
+`PUBLICOS` (`lib/rutas-publicas.ts`). Si no está, `proxy.ts` la corta con un 401 **antes**
+de que su código corra, y no hay síntoma que apunte al lugar correcto.
+
+⚠️ **En local esto NO se ve.** Sin `AUTH_SECRET`, `gateConfigurado()` es false y el
+middleware hace no-op: la ruta anda perfecta contra `localhost` y falla solo en producción.
+La integración con Claude vivió meses así, y la descubrió una clienta.
+
+**La pista, y sirve para cualquier ruta con auth propia:** pegarle con una credencial
+inválida y leer el TEXTO del 401.
+
+| Respuesta | Quién contesta |
+|---|---|
+| `no autenticado` | **el middleware** — la ruta ni se ejecutó |
+| el error propio de la ruta | **la ruta** — ahí sí el problema es la credencial |
+
+Los dos son 401 y desde afuera se ven iguales. Sin distinguirlos se buscan headers y
+entornos que no tienen nada que ver.
+
+Y estar en esa lista significa **dos** cosas: que la ruta se hace cargo de su auth, y que
+**no lee la cookie de sesión para nada** — el early-return se saltea el chequeo CSRF de
+Origin. Se listan rutas exactas, nunca un prefijo de carpeta: en `/api/agente` conviven
+las que hablan por bearer y las que exigen navegador.
+
+El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md).
+
 # Una barra de gráfico se recorta al 100%, siempre
 
 `width: ${pct}%` adentro de un carril NO desborda la barra: **desborda la página**.
