@@ -98,8 +98,8 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
     <div ref={caja} style={{ position: 'relative', flex: '0 1 260px', minWidth: 150 }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 3, padding: '0 3px 0 0',
-        borderRadius: 9, border: `1px solid ${conIA ? 'var(--accent)' : 'var(--sidebar-line)'}`,
-        background: 'rgba(255,255,255,.05)', transition: 'border-color .15s',
+        borderRadius: 9, border: `1px solid ${conIA ? 'var(--accent)' : 'var(--border-strong)'}`,
+        background: 'var(--surface-2)', transition: 'border-color .15s',
       }}>
         <input
           value={q}
@@ -110,11 +110,11 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
           }}
           placeholder={conIA ? 'Buscando con MaKo…' : 'Buscar un dato'}
           aria-label="Buscar un dato en el mapa"
-          style={{ flex: 1, minWidth: 0, height: 28, padding: '0 0 0 10px', border: 'none', background: 'transparent', color: 'var(--on-sidebar)', fontSize: 12.5, outline: 'none', fontFamily: SANS }}
+          style={{ flex: 1, minWidth: 0, height: 28, padding: '0 0 0 10px', border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }}
         />
 
         {hayTexto && !conIA && (
-          <span style={{ fontFamily: MONO, fontSize: 10.5, color: resultados ? 'var(--sidebar-text)' : 'var(--warn)', whiteSpace: 'nowrap', paddingRight: 2 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10.5, color: resultados ? 'var(--dim)' : 'var(--warn)', whiteSpace: 'nowrap', paddingRight: 2 }}>
             {resultados === 0 ? 'nada' : `${resultados}/${total}`}
           </span>
         )}
@@ -134,7 +134,7 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
             techo de su caja, así que por más que el botón centre con flex se ve corrido
             hacia arriba. Un path se centra de verdad, y de paso gira al abrir. */}
         <button type="button" onClick={() => setAbierto((v) => !v)} title="Dónde buscar" aria-label="Dónde buscar" aria-expanded={abierto}
-          style={{ ...mini, color: ampliada ? 'var(--accent)' : 'var(--sidebar-text)' }}>
+          style={{ ...mini, color: ampliada ? 'var(--accent)' : 'var(--dim)' }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
             style={{ display: 'block', transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
             <path d="M5 9l7 7 7-7" />
@@ -143,7 +143,7 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
       </div>
 
       {(ampliada || conIA) && (
-        <div style={{ position: 'absolute', top: '100%', left: 2, marginTop: 3, fontSize: 10, fontFamily: MONO, letterSpacing: '.04em', color: conIA ? 'var(--accent)' : 'var(--sidebar-text)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 2, marginTop: 3, fontSize: 10, fontFamily: MONO, letterSpacing: '.04em', color: conIA ? 'var(--accent)' : 'var(--dim)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
           {conIA ? (ia.pensando ? 'MaKo está leyendo tu mapa…' : `MaKo eligió ${ia.ids?.length ?? 0}`) : resumenCamposCerebro(campos)}
         </div>
       )}

@@ -74,9 +74,14 @@ export type Nivel1Id = (typeof NIVEL1)[number]['id'];
  * NODO no pueden: el nivel 1 usa el prefijo `n1:` y el nivel 2 `area:`. Este repo ya pagó
  * una vez «dos nodos con el mismo id» y el síntoma fue silencioso.
  */
+// ⚠️ LOS NOMBRES SON LOS QUE EL CLIENTE YA CONOCE DE LA APP, no unos inventados acá.
+// «Norte» y «Panorama» eran vocabulario interno: en la pantalla el cliente ve
+// «Diagnóstico» y «Resumen». Un mapa que dice «todo lo que MaKo sabe de tu negocio» no
+// puede estrenar palabras — si el nombre no coincide con el de la tab que abre, el mapa
+// deja de ser un mapa de lo suyo y pasa a ser un segundo índice que hay que aprender.
 export const AREAS = [
-  { id: 'norte', n: 1, padre: 'negocio', nombre: 'Norte', color: 'var(--grafo-norte)', que: 'En qué fase está tu negocio y qué lo frena.' },
-  { id: 'panorama', n: 2, padre: 'negocio', nombre: 'Panorama', color: 'var(--grafo-panorama)', que: 'Lo que MaKo entendió de tu negocio, sección por sección.' },
+  { id: 'norte', n: 1, padre: 'negocio', nombre: 'Diagnóstico de negocio', color: 'var(--grafo-norte)', que: 'En qué fase está tu negocio y qué lo frena.' },
+  { id: 'panorama', n: 2, padre: 'negocio', nombre: 'Resumen del negocio', color: 'var(--grafo-panorama)', que: 'Lo que MaKo entendió de tu negocio, sección por sección.' },
   { id: 'documentos', n: 3, padre: 'negocio', nombre: 'Documentos', color: 'var(--grafo-documentos)', que: 'Lo que soltaste en el Archivero y MaKo leyó.' },
   { id: 'oferta', n: 1, padre: 'oferta', nombre: 'La oferta', color: 'var(--grafo-oferta)', que: 'Tu oferta principal: qué prometes, a cuánto y qué garantizas.' },
   { id: 'productos', n: 2, padre: 'oferta', nombre: 'Productos', color: 'var(--grafo-productos)', que: 'El catálogo que usa el CRM para cargar cada venta, con su precio.' },

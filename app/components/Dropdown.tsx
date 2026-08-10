@@ -9,7 +9,7 @@
 // que NO lo recorte ningún contenedor con overflow (ej. el scroll del modal de
 // detalle): antes, dentro de un modal scrolleable el menú se cortaba al abrir.
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties , type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 const SANS = "'Geist', sans-serif";
@@ -76,6 +76,7 @@ export function Dropdown({
   disabled = false,
   search,
   portalTo,
+  icono,
 }: {
   value: string;
   options?: DropdownOption[];
@@ -113,6 +114,10 @@ export function Dropdown({
    * `document.fullscreenElement ?? document.body`.
    */
   portalTo?: HTMLElement | null;
+  /** Icono fijo a la izquierda del rótulo — el que dice QUÉ hace este control, no qué
+   *  está elegido. Va acá y no en cada `option` porque no cambia con la selección: un
+   *  desplegable de filtro tiene que leerse como filtro incluso cuando dice «todo». */
+  icono?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -211,6 +216,7 @@ export function Dropdown({
     <div ref={ref} style={{ position: 'relative', display: 'inline-block', width: width ?? 'auto' }}>
       <button type="button" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} aria-disabled={disabled} disabled={disabled} onClick={toggle} style={btn}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          {icono && <span style={{ flex: 'none', display: 'flex', color: 'var(--faint)' }}>{icono}</span>}
           {selected?.avatar !== undefined && <OptAvatar url={selected.avatar} name={selected.label} size={20} cuadrado={selected.avatarCuadrado} />}
           {selected?.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: selected.color, flex: 'none' }} />}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.label : placeholder}</span>

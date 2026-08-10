@@ -59,7 +59,7 @@ export default async function SecondBrainPage() {
         acciones={<BotonClaude tokenInicial={agenteToken} appUrl={appUrl} />}
         accion={<BotonExportar cerebro={cerebro} conteo={conteo} />}
       />
-      <VistaCerebro cerebro={cerebro} conteo={conteo} funnelPanel={funnelPanel} />
+      <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} />
     </Pagina>
   );
 }

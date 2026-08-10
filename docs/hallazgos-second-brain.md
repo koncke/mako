@@ -1149,6 +1149,13 @@ no resuelvan** — verificado en los cuatro workspaces reales (56 a 74 enlaces c
 
 ## Lo que quedó sin hacer
 
+- **La versión oscura del lienzo** quedó pendiente y es un cambio de CUATRO variables, no
+  de cada regla: `--cbg-fondo`, `--cbg-texto`, `--cbg-tenue` y `--cbg-linea` en `.cbg`
+  (`app/second-brain/Grafo.tsx`). Todo lo demás ya las consume.
+- **El detalle y el navegador comparten la columna**: al fijar un nodo, el navegador de
+  áreas desaparece. Se decidió así para que la columna no salte, pero significa que para
+  volver a la lista hay que soltar el nodo. Vive en `app/second-brain/Grafo.tsx`.
+
 - **Persistir el layout** (`getSetting`/`setSetting` con la `huella` que ya calcula
   `cerebro-layout.ts`). Hoy se recalcula en cada carga: con 42 nodos son ~40 ms y no se nota,
   pero **arriba de ~80 nodos hay que persistirlo** (100 nodos ≈ 300 ms, 300 ≈ 1,45 s).
@@ -1161,3 +1168,86 @@ no resuelvan** — verificado en los cuatro workspaces reales (56 a 74 enlaces c
 
 Relacionado: [hallazgos-onboarding.md](hallazgos-onboarding.md) (de dónde salen los nodos, y
 la trampa de importar un módulo con `server-only` desde un componente cliente).
+
+### Las tarjetas de abajo eran la navegación en competencia con el mapa
+
+**Vive en:** `app/second-brain/AreasHub.tsx` · `app/second-brain/Grafo.tsx` (`.cbg-nav-*`)
+
+**Síntoma.** «Al pasar el cursor por una de las tarjetas de abajo, se comienza a mover la
+pantalla de arriba abajo, es como que se bugea el grafo.»
+
+**Causa.** No era el grafo. Cada tarjeta hacía `onResaltar(a.id)` en `onMouseEnter`, y ese
+estado vivía en `VistaCerebro` —el padre de las DOS mitades—, así que rozar una tarjeta
+re-renderizaba el árbol entero, y con él volvía a correr el `useEffect` de `AreasHub` que
+hace `scrollIntoView({behavior:'smooth'})`. El síntoma aparecía en el mapa; la causa estaba
+en un `onMouseEnter` a dos componentes de distancia.
+
+**La regla.** Un estado compartido que lo enciende el HOVER es una animación de scroll a
+60 fps esperando a que alguien mueva el mouse. Si un hover tiene que hablar con otro
+componente, que hable por CSS (`:hover` en un ancestro común) o que no hable.
+
+**Lo que quedó.** Las once tarjetas se fueron enteras y la lista de áreas pasó a la columna
+de la derecha del mapa. El diagnóstico de fondo era el mismo que ya había echado a las once
+tabs: **once cajas del mismo tamaño repitiendo lo que el mapa dibuja, puestas justo debajo
+del mapa, son una segunda navegación que le compite.** En la columna se ven MIENTRAS se
+mira el mapa, en vez de después.
+
+### Una animación CSS no se repite porque le cambies la clase
+
+**Vive en:** `app/second-brain/Grafo.tsx` (el `key` del `<g className="cbg-pop">`)
+
+**Síntoma.** «SIEMPRE que se van o entran los nodos, con la animación de entrada y de
+salida. No que simplemente aparezcan en el lugar.» La salida se veía; la vuelta no.
+
+**Causa.** Una `animation` corre **al montar** el elemento. Agregarle y sacarle la clase
+`.cbg-fuera` alcanza para que arranque la de salida (la clase TRAE una animación nueva),
+pero al volver no hay animación nueva que traer: `cbg-in` ya estaba declarada desde el
+montaje y ya terminó. El nodo aparecía plantado en su lugar.
+
+**El arreglo, y dónde va.** `key={saliendo.has(n.id) ? 'fuera' : 'dentro'}` en el `<g>`
+interno: al cambiar la key React desmonta y remonta, y la animación arranca de cero. Va en
+el `<g>` **interno** y no en el de afuera a propósito — ese tiene el `transform` que
+reescribe el rAF y los refs de la física, y remontarlo hace saltar al nodo a su posición
+del server.
+
+**El segundo error, más silencioso.** El retardo escalonado (`i * 12 ms`) salía del puesto
+del nodo en el mapa ENTERO. Un filtro que deja 8 nodos podía darle al último el puesto 55:
+**660 ms de lienzo vacío** antes de que apareciera, que se lee como que el filtro no hizo
+nada. El ranking se calcula ahora sobre lo montado.
+
+### Un filtro que es tres controles no es un filtro
+
+**Vive en:** `app/second-brain/Grafo.tsx` (el estado `filtro`)
+
+Había un desplegable de autoría, otro de «Ir a» y una pastilla de área que aparecía sola al
+tocar un nodo. Tres controles para la misma pregunta —«¿qué parte del mapa estoy
+mirando?»— se leen como tres filtros **combinables**, y no lo eran. Ahora es **un** estado,
+una cadena con prefijo (`autor:` · `carpeta:` · `area:`), y de ahí sale todo: elegir una
+sección apaga la carpeta sin que nadie tenga que acordarse de apagarla, porque no hay dos
+estados que puedan contradecirse.
+
+Y el icono de embudo fijo en el disparador no es decoración: el rótulo del botón es el
+valor elegido («56 datos»), así que sin el icono el control se lee como un contador. Se le
+agregó `icono` al `Dropdown` de la casa en vez de dibujar uno propio acá.
+
+### Un `<div hidden>` de React deja la página sin hidratar y sin error
+
+**Vive en:** cualquier verificación con `mcp__Claude_Browser__*`
+
+El panel del navegador embebido, cuando no está a la vista, deja el documento en
+`visibilityState: 'hidden'`. El HTML llega entero —se pueden contar 66 nodos con
+`querySelectorAll`— pero el árbol queda adentro de un `<div hidden>` que React nunca
+revela, así que **nada está hidratado**: los clicks no hacen nada, `getBoundingClientRect`
+devuelve 0 y no hay un solo error en la consola. Las tres pistas mienten a la vez.
+
+Se reconoce por `document.querySelector('body > div').hasAttribute('hidden') === true` con
+`__reactFiber$` presente en la raíz y **ausente** en cualquier nodo de adentro.
+
+**Para verificar interacción, Playwright** (`scripts/probar-solape.mjs` es el molde), que
+corre en un Chromium visible de verdad. El navegador embebido sigue sirviendo para leer
+CSS computado y medidas si se le saca el `hidden` a mano.
+
+⚠️ Y el Chrome real puede estar viendo **otro servidor** en el mismo `localhost:3000`: acá
+había un Service Worker de otro proyecto (`gym-shell-v2`) sirviendo su propio 404 mientras
+`curl` contra el mismo puerto contestaba 307 correctamente. Si Chrome da 404 en una ruta
+que `curl` resuelve, mirá `navigator.serviceWorker.getRegistrations()` antes que la ruta.
