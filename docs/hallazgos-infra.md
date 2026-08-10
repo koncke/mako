@@ -16,6 +16,7 @@ habilita a darle mejores prompts al otro Claude».
 - La tabla `notificaciones` **no existe en producción** desde siempre y el escritor se traga el error → [Migraciones](#migraciones).
 - Hay features **terminadas, con migración y API propias, que ninguna página monta**: compilan y no existen → [Código construido que ninguna página monta](#código-construido-que-ninguna-página-monta).
 - Si Claude Code «se cierra solo» y la PC sigue andando, es el **proceso GPU** muriendo por la gráfica híbrida — y los tres diagnósticos obvios (memoria, energía, drivers) estaban los tres equivocados → [El equipo](#el-equipo-cuando-se-cierra-claude-code-y-no-es-claude-code).
+- El repo es **CRLF**: un reemplazo por bloque buscó `'\n];\n'`, no matcheó, se fue 700 líneas más abajo y **borró 76 KB con exit 0** → [Editar este repo](#editar-este-repo-archivos-grandes-saltos-de-línea-y-nombres).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -1249,6 +1250,68 @@ a futuro, creativos generados con IA, y recomendarle cómo pasarle los cursos (2
 
 ---
 
+## Editar este repo: archivos grandes, saltos de línea y nombres
+
+### ⚠️ El repo es CRLF, y un reemplazo por bloque se comió 76 KB con exit 0
+
+**Síntoma:** un script de reemplazo por bloque sobre `app/admin/dev/pricing/modelo.ts`
+imprimió su mensaje de éxito y salió con **código 0**. El archivo pasó de 165.596 a 89.287
+bytes: **76.309 bytes borrados**, sin un solo error y sin ninguna pista en la salida. Se
+recuperó entero con `git checkout HEAD -- app/admin/dev/pricing/modelo.ts`.
+
+**Causa:** el script ubicaba el cierre del array con `src.indexOf('\n];\n')`. **El archivo
+es CRLF** — `file` lo dice textual: «with CRLF line terminators» — así que ese marcador no
+matcheó donde tenía que matchear. Y acá está lo que lo hace invisible: **un `indexOf` que
+no encuentra devuelve `-1` y eso se chequea siempre; uno que encuentra el lugar EQUIVOCADO
+devuelve un número perfectamente válido**. Siguió buscando ~700 líneas más abajo hasta el
+primer `];` que sí estaba en LF, y se llevó todo lo del medio.
+
+**Regla**, las tres partes, porque ninguna sola alcanza:
+
+- **Todo marcador de texto va con `/\r?\n/`**, nunca con `'\n'` pelado. Vale para los
+  scripts y para los tests: la fila «Los guards de texto leen de más en Windows» de la
+  tabla de acá abajo es exactamente el mismo error del otro lado.
+- **Todo reemplazo por bloque lleva un tope que ABORTA.** Si el tramo a reemplazar mide
+  más de lo esperado, `throw`, no `write`. Es una línea, y es lo único que convierte un
+  borrado silencioso en un error a tiempo.
+- **Para archivos grandes, `Edit` antes que un script.** `Edit` falla si el `old_string`
+  no matchea exacto o no es único; un script hace lo que le salga y avisa después.
+
+La versión sana quedó escrita: busca con `/\r?\n\];\r?\n/` y tira
+`throw new Error('el bloque a reemplazar mide N caracteres: demasiado, algo se corrió')`
+si el tramo supera los 12.000 caracteres.
+
+**Vive en:** `app/admin/dev/pricing/modelo.ts` (173 KB, CRLF) · *2026-08-10 cac-dos-monedas*
+
+### ⚠️ Hay TRES `FASES` distintos, y uno citaba al otro creyendo que era el suyo
+
+**Síntoma:** `app/admin/dev/pricing/modelo.ts` se contradecía solo. Un comentario citaba
+`FASES[0].noHacer` para justificar un número, y ese `noHacer` era del array de **otro
+archivo**, sobre otra cosa.
+
+**Causa:** tres constantes exportadas con el mismo nombre y significados que no se tocan:
+
+| Dónde | Qué son de verdad |
+|---|---|
+| `lib/fase-diagnostico.ts:80` | las fases 1-5 del **negocio del cliente** (el diagnóstico del onboarding) |
+| `lib/mako-fases.ts:12` | las **pestañas** de MaKo |
+| `app/admin/dev/pricing/modelo.ts` | los tramos de **tiempo del dueño** (en qué gasta sus horas) |
+
+Ninguno de los tres importa a los otros, así que **el compilador nunca vio nada**: cada
+archivo resolvía `FASES` contra el suyo y todo tipaba. Lo que se rompió fue la PROSA, que
+es donde un humano lee «FASES[0]» y da por hecho que habla de lo que tiene delante. Se
+renombró el tercero a `FASES_TIEMPO` / `FaseTiempo` (commit `c363702`).
+
+**Regla:** antes de bautizar una constante exportada, **grepeá el nombre en `lib/`**. Es
+«una cosa, un lugar» aplicado a los NOMBRES y no solo a los datos — y sale más caro, porque
+el mismo dato en dos lugares al menos diverge visiblemente, mientras que dos cosas distintas
+con el mismo nombre compilan para siempre.
+
+**Vive en:** `app/admin/dev/pricing/modelo.ts` (`FASES_TIEMPO`) · `lib/fase-diagnostico.ts:80` ·
+`lib/mako-fases.ts:12` · *2026-08-10 cac-dos-monedas*
+
+---
+
 ## Tests y entorno local
 
 ### Las trampas del runner
@@ -1260,6 +1323,31 @@ a futuro, creativos generados con IA, y recomendarle cómo pasarle los cursos (2
 | **`node --test` corre cada archivo en su propio proceso** | ídem | Se aprovecha a favor: para un ciclo de imports, un test importa A primero y otro importa B primero, y así quedan cubiertos los dos órdenes de carga |
 | **tsx NO resuelve el alias `@/`** | ídem | Los tests usan imports relativos |
 | **El typecheck no corre en el build** | `.git/hooks/pre-push` | Ver [Build, deploy y entrega](#build-deploy-y-entrega) |
+
+### Un test que nunca viste fallar no sabés si sirve: verificalo por MUTACIÓN
+
+**Síntoma:** una guarda escrita, corrida, **en verde** — y completamente inútil. La que iba
+a proteger el conteo «tres de los cinco canales» en la prosa de la pantalla de pricing
+chequeaba `includes('3')`, y la misma frase contiene «0,03%». Habría pasado en verde con
+cualquier conteo escrito, incluido el equivocado que venía a cazar.
+
+**Causa:** un test que solo se corrió contra el dato bueno demuestra que **pasa**, no que
+**atrapa**. Y el verde de la primera corrida es el estado que tiene todo test, incluido el
+que no mira nada.
+
+**Regla: toda guarda sobre TEXTO se verifica por mutación antes de darla por buena.** Se
+rompe el dato a propósito (cambiar el número, borrar la frase), se corre, se confirma que
+**falla y que el mensaje dice qué falta**, y recién ahí se revierte. Las dos guardas de
+texto de `tests/pricing-modelo.test.ts` pasaron por eso, y el arreglo que salió de ahí es
+que **el conteo se escribe en LETRAS** (`'tres de los cinco canales'`), que no tiene
+subcadenas por accidente.
+
+Aplica a `includes`, a los regex y a cualquier aserción sobre prosa. Sobre números no hace
+falta: `assert.equal(x, 5.95)` no puede pasar de rebote.
+
+**Vive en:** `tests/pricing-modelo.test.ts` — el caso concreto de esa frase y su ancla está
+en [hallazgos-ia.md](hallazgos-ia.md) → «La conclusión escrita a mano no se entera de que el
+dato de al lado cambió» · *2026-08-10 cac-dos-monedas*
 
 ### Cómo correr un lib del repo a mano, sin levantar Next
 
@@ -1320,6 +1408,30 @@ coinciden, pero pueden.
 - **Verificá contra el código, no contra el resumen del agente anterior.** Un agente reportó como "arreglado" algo que otro seguía editando, y dos reportes se contradecían sobre el mismo archivo.
 - **La deferencia colectiva deja el doc mintiendo.** Cuatro reportes seguidos anunciaron "esta fila del doc quedó obsoleta, no la toqué porque hay otra sesión en el árbol". Los cuatro dijeron lo mismo y **ninguno la tocó**: para quien leyera el documento al día siguiente, cinco frentes cerrados seguían abiertos. Un `.md` no es código: el conflicto se resuelve leyendo. **Si sos el que cierra, cerrá también el documento.**
 - **La sesión que cierra deja escrito dónde quedó** — en `docs/hallazgos-<área>.md`, en el board `/plan` o en una memoria. Si la cuota corta a mitad de camino, eso es lo único que sobrevive.
+
+### ⚠️ Dos agentes sobre el MISMO archivo de tests: el segundo no puede commitear lo suyo
+
+**Síntoma:** dos agentes en paralelo escribieron sus tests en el mismo
+`tests/pricing-modelo.test.ts`. El segundo **no pudo commitear el archivo**: tenía adentro
+los tests del primero, y esos estaban en rojo porque el código que verifican todavía no
+estaba. Sus tests terminaron viajando dentro del commit del OTRO agente.
+
+**Causa:** un archivo de tests es un recurso compartido con resultado **global**: corre
+entero o no corre. `git add <archivo>` no sabe llevarse «solo mis tests» y `npm test` no
+sabe evaluar «solo mis tests». Con el código fuente, dos sesiones que se pisan dejan rastro
+en el diff; acá se pisan en el **resultado**, que en el diff no se ve.
+
+Salió bien, pero **por instrucción explícita, no por diseño**: el prompt de la corrida decía
+quién commiteaba qué archivo. Sin esa línea, el segundo o pisaba el trabajo del primero o
+dejaba sus tests sin commitear.
+
+**Regla:** si dos tareas comparten un archivo, **o van en serie, o el prompt dice quién
+commitea qué**. No alcanza con «no toquen lo del otro»: el conflicto no está en la edición,
+está en el commit y en el verde. Es la misma familia que la regla de no editar la misma
+skill a la vez.
+
+**Vive en:** `docs/superpowers/plans/2026-08-10-cac-dos-monedas.md` (el plan que repartió las
+tareas entre los dos) · `tests/pricing-modelo.test.ts` · *2026-08-10 cac-dos-monedas*
 
 ### ⚠️ El preview MUERE EN SILENCIO si la otra sesión ya tiene un `next dev` arriba
 
