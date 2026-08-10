@@ -5,7 +5,18 @@
 // tutorial de /integraciones y se guarda en `.claude/hooks/` del proyecto del cliente.
 //
 // Con sesión de browser, no con token de agente: esto lo baja una persona una vez,
-// desde la pantalla. Un agente no tiene por qué poder pedirlo.
+// desde la pantalla.
+//
+// ⚠️ ACÁ DECÍA «un agente no tiene por qué poder pedirlo», y era verdad cuando el hook lo
+// bajaba una persona a mano desde /integraciones. Después la skill pasó a instalarlo sola
+// (§0.a le dice al agente que lo baje con `curl`) y esta guarda quedó contradiciendo al
+// producto: el agente pedía el hook con su bearer y le contestaban «no autenticado».
+// Se vio en la terminal de una clienta, con todo lo demás ya funcionando.
+//
+// Se abre al bearer porque el script NO LLEVA SECRETOS: el token lo lee en tiempo de
+// ejecución de un archivo aparte, y por eso el propio `agente-plugin.ts` dice que «el
+// script se puede commitear al repo del proyecto y el token no». Lo que sí se mantiene es
+// que sea fail-closed: sin sesión Y sin bearer válido, 401.
 //
 // El origen se lee del REQUEST y no de una variable de entorno: así el script que se
 // baja desde localhost apunta a localhost y el que se baja desde producción apunta a
@@ -21,13 +32,19 @@
 import { NextResponse } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { agenteHookScript } from '@/lib/agente-plugin';
+import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(req: Request) {
+  // Dos puertas, las dos válidas: la persona logueada que lo baja desde la pantalla, y
+  // el agente que lo instala solo con el token de su workspace.
   const sesion = await getUsuarioActual();
-  if (!sesion) return NextResponse.json({ ok: false, error: 'sin sesión' }, { status: 401 });
+  const ws = sesion ? 0 : await wsPorAgenteToken(bearerDe(req));
+  if (!sesion && ws == null) {
+    return NextResponse.json({ ok: false, error: 'sin sesión ni token válido' }, { status: 401 });
+  }
 
   const base = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
 

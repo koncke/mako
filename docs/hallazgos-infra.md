@@ -1829,3 +1829,52 @@ Un `?? ''` sobre una env var convierte «falta configurar» en «cadena vacía»
 vacía viaja hasta el archivo del cliente sin que nada la frene. Donde ese valor arma un
 artefacto que sale de la app, la última red la pone el navegador: `window.location.origin`
 es incontestable y no hay que configurarlo.
+
+### El hook: una guarda que quedó contradiciendo al producto
+
+**Vive en:** `app/api/agente/hook/route.ts`
+
+Con todo lo demás ya andando, el agente de la clienta reportó: «el hook de telemetría
+(`/api/agente/hook`) devuelve *no autenticado* — puede ser que tu plan de MaKo no tenga
+ese endpoint habilitado todavía». No era el plan: esa ruta exigía **sesión de navegador**,
+y su comentario lo justificaba con «un agente no tiene por qué poder pedirlo».
+
+Era verdad **cuando se escribió**: el hook lo bajaba una persona a mano desde
+/integraciones. Después la skill pasó a instalarlo sola —su §0.a le dice al agente que lo
+baje con `curl`— y la guarda quedó pidiéndole al agente una credencial que por definición
+no puede tener.
+
+Se abrió al bearer porque **el script no lleva secretos**: el token lo lee en ejecución de
+un archivo aparte, y el propio `agente-plugin.ts` dice que «el script se puede commitear
+al repo del proyecto y el token no». Sigue siendo fail-closed: sin sesión y sin bearer
+válido, 401.
+
+**La regla:** cuando una tarea se automatiza, hay que revisar los guards que la protegían
+cuando era manual. Un comentario que dice «X no tiene por qué poder» es una decisión con
+fecha, y no se actualiza solo cuando X pasa a ser quien la hace.
+
+### El artefacto se ENTREGA, no se dicta
+
+**Vive en:** `app/_components/TutorialAgente.tsx` · `lib/agente-skill.ts`
+
+La instalación de la skill pasó por tres versiones, y las tres fallaron en la terminal de
+un usuario real antes de llegar a ésta:
+
+1. **«Creá el archivo `.claude/skills/…` y pegá la skill adentro».** Ruta de PROYECTO —la
+   respuesta de desarrollador— y un gesto que nadie hace: la gente pega el texto en el
+   chat. Funcionaba solo porque el modelo deducía la intención.
+2. **«Copiala y pegala en Claude», con las dos rutas detrás de un desplegable.** Mejor,
+   pero seguía poniendo **11.000 caracteres** en el portapapeles: si el usuario pega de
+   más, de menos, o el portapapeles se pisa en el medio, la skill queda rota y el error
+   aparece recién cuando Claude no la encuentra. Y ofrecer «¿global o de proyecto?» a
+   alguien que no programa es hacerle tomar una decisión técnica que no puede evaluar.
+3. **Un botón que baja el archivo, una sola ubicación, sin desplegable.** Un archivo
+   llega entero o no llega.
+
+**Las dos reglas que quedan:**
+
+- **Un artefacto de más de un par de líneas se entrega como archivo, no por portapapeles.**
+  El portapapeles no tiene integridad: no hay forma de saber si llegó completo.
+- **Una opción que el 95% no necesita no es flexibilidad: es una bifurcación donde
+  equivocarse.** Si un caso es de expertos, que lo resuelva el experto —tiene el archivo y
+  puede ponerlo donde quiera—, no una pregunta en el camino de todos.

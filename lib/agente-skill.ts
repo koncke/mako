@@ -11,25 +11,30 @@
 // Función pura (sin server-only) para poder mostrarla y copiarla desde la UI.
 // =============================================================================
 
-/**
- * DÓNDE VA EL ARCHIVO. Son dos lugares y el que se recomienda NO es el de proyecto.
- *
- * ⚠️ Esto se enseñó mal la primera vez y el dueño lo cazó en su propia terminal: el
- * tutorial daba SOLO `.claude/skills/…`, que es scope de PROYECTO — la skill existe
- * únicamente adentro de esa carpeta. Es la respuesta de desarrollador. Un cliente de
- * MaKo no tiene «un proyecto», tiene un negocio: abre Claude donde sea y espera que
- * sepa de su oferta. Para eso la skill va en la carpeta GLOBAL del usuario, que es
- * además donde el propio Claude Code busca (lo dice él mismo cuando no la encuentra:
- * «ni en el proyecto ni en tu carpeta global ~/.claude/skills»).
- *
- * La de proyecto se sigue ofreciendo, pero como la excepción: sirve para acotar la
- * skill a un repo, que es lo que quiere alguien que programa.
- */
 import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle-contrato';
 import { AGENTE_HOOK_PATH, AGENTE_HOOK_SETTINGS } from './agente-plugin';
 
-export const AGENTE_SKILL_PATH_USUARIO = '~/.claude/skills/mako-plan/SKILL.md';
-export const AGENTE_SKILL_PATH = '.claude/skills/mako-plan/SKILL.md';
+/**
+ * DÓNDE VA EL ARCHIVO. **Un solo lugar**, y es la carpeta global del usuario.
+ *
+ * ⚠️ Hubo dos versiones equivocadas antes de ésta, y las dos se cazaron en la terminal
+ * de un usuario real:
+ *   1. Primero se daba SOLO `.claude/skills/…`, que es scope de PROYECTO: la skill
+ *      existe únicamente adentro de esa carpeta. Es la respuesta de desarrollador, y un
+ *      cliente de MaKo no tiene «un proyecto» — tiene un negocio, y abre Claude donde sea.
+ *   2. Después se ofrecían LAS DOS, con la de proyecto como alternativa. También estaba
+ *      mal, por otra razón: preguntarle a alguien que no programa «¿global o de
+ *      proyecto?» es hacerle tomar una decisión técnica que no puede evaluar, para un
+ *      caso que casi nadie tiene. Una opción que el 95% no necesita no es flexibilidad,
+ *      es una bifurcación donde equivocarse.
+ *
+ * La global es además donde el propio Claude Code busca — lo dice cuando no la
+ * encuentra: «ni en el proyecto ni en tu carpeta global ~/.claude/skills».
+ */
+export const AGENTE_SKILL_PATH = '~/.claude/skills/mako-plan/SKILL.md';
+
+/** El nombre con el que se baja el archivo. */
+export const AGENTE_SKILL_ARCHIVO = 'SKILL.md';
 
 /** El SKILL.md listo para pegar, con la URL y el token ya embebidos. */
 export function agenteSkillMarkdown(baseUrl: string, token: string): string {
@@ -47,13 +52,12 @@ description: >
   proponen y las puntúa el Perro Guardián.
 ---
 
-## ¿Te pegaron este texto en un chat?
+## ¿Te pasaron este archivo suelto, o te lo pegaron en un chat?
 
-Entonces todavía no estoy instalada: soy el CONTENIDO de una skill, no una skill. Creá
-el archivo \`${AGENTE_SKILL_PATH_USUARIO}\` con este texto tal cual —de la primera línea
-\`---\` hasta el final— y confirmalo. Después seguí con lo que te estaban pidiendo.
-
-Si preferís que viva solo adentro de un proyecto, va en \`${AGENTE_SKILL_PATH}\`.
+Entonces todavía no estoy instalada: soy el CONTENIDO de una skill, no una skill.
+Guardame en \`${AGENTE_SKILL_PATH}\` tal cual —de la primera línea \`---\` hasta el final—,
+creando la carpeta si no existe, y confirmalo. Después seguí con lo que te estaban
+pidiendo.
 
 Una vez instalada, ignorá esta sección: es para el momento de instalar, no para usarme.
 

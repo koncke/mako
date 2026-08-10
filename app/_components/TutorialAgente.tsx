@@ -25,7 +25,7 @@
 // =============================================================================
 
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
-import { agenteSkillMarkdown, AGENTE_SKILL_PATH, AGENTE_SKILL_PATH_USUARIO } from '@/lib/agente-skill';
+import { agenteSkillMarkdown, AGENTE_SKILL_ARCHIVO, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
 import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
 
 const MONO = "'Geist Mono', monospace";
@@ -46,7 +46,7 @@ export const CODE = {
 /** Cada cosa que el tutorial deja copiar. Está tipado a propósito: el botón dice
  *  «¡Copiado!» comparando contra este valor, así que un typo en la clave deja un botón
  *  que copia bien y nunca confirma — y eso se lee como que no funcionó. */
-type Copiable = 'skill' | 'token' | 'ruta' | 'ruta2';
+type Copiable = 'token' | 'ruta';
 
 export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
   /**
@@ -66,6 +66,24 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   const [verTrato, setVerTrato] = useState(false);
 
   const skill = useMemo(() => agenteSkillMarkdown(base, token ?? ''), [base, token]);
+  const [bajado, setBajado] = useState(false);
+
+  /** Baja el SKILL.md como archivo. Mismo gesto que el ZIP del segundo cerebro: blob →
+   *  ancla → click → revocar diferido (revocar en la misma vuelta cancela la descarga
+   *  en Safari). */
+  const bajarSkill = () => {
+    const blob = new Blob([skill], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = AGENTE_SKILL_ARCHIVO;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setBajado(true);
+    setTimeout(() => setBajado(false), 2200);
+  };
   const listo = !!token;
 
   // ⚠️ EL 409 NO ES UN ERROR: ES LA PUERTA. `/api/agente/token` responde
@@ -167,41 +185,44 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
         ))}
 
         {/* PASO 2 — instalar la skill */}
-        {paso(2, 'Instalá la skill en Claude', (
+        {paso(2, 'Bajá la skill y ponela en Claude', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* ⚠️ EL CAMINO PRINCIPAL ES PEGAR Y PEDIR, no crear el archivo a mano.
-                La primera versión decía «creá el archivo … y pegá la skill adentro», y
-                lo que la gente hace es lo natural: pegar el texto en el chat. Claude lo
-                resuelve igual —reconoce que es una skill y ofrece instalarla— pero eso
-                era suerte, no diseño. Ahora el propio texto de la skill arranca
-                diciendo qué hacer con él, así que pegarlo ES instalarlo.
+            {/* ⚠️ SE BAJA UN ARCHIVO, NO SE COPIA UN TEXTO. La versión anterior ponía
+                11.000 caracteres de markdown en el portapapeles y le pedía al usuario
+                que los pegara en el lugar correcto. Eso es hacerle manipular a mano el
+                artefacto entero: si pega de más, de menos, o el portapapeles se pisa con
+                otra cosa en el medio, la skill queda rota y el error aparece recién
+                cuando Claude no la encuentra. Un archivo llega entero o no llega.
 
-                Y la ruta que se recomienda es la GLOBAL, no la del proyecto: un cliente
-                de MaKo no tiene «un proyecto», y una skill de proyecto solo existe
-                adentro de esa carpeta. */}
+                Y hay UNA sola ubicación a la vista. Antes había dos —global y de
+                proyecto— detrás de un desplegable: preguntarle a alguien que no programa
+                cuál de las dos quiere es hacerle tomar una decisión técnica que no puede
+                evaluar, para un caso que casi nadie tiene. */}
             <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              Copiala, <strong style={{ color: 'var(--ink)' }}>pegala en Claude</strong> y decile
-              «instalá esta skill». Se instala sola: el texto trae adentro dónde va.
+              Bajá el archivo y ponelo en{' '}
+              <button type="button" onClick={() => copiar('ruta', AGENTE_SKILL_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar la ruta">{copiado === 'ruta' ? '¡ruta copiada!' : AGENTE_SKILL_PATH}</button>
+              {' '}(creá la carpeta si no existe). Queda disponible en todas tus conversaciones.
             </div>
-            <details style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.6 }}>
-              <summary style={{ cursor: 'pointer', color: 'var(--dim)' }}>O crear el archivo a mano</summary>
-              <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <span>
-                  Para tenerla en <strong style={{ color: 'var(--ink)' }}>todas</strong> tus conversaciones:{' '}
-                  <button type="button" onClick={() => copiar('ruta', AGENTE_SKILL_PATH_USUARIO)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'ruta' ? '¡copiada!' : AGENTE_SKILL_PATH_USUARIO}</button>
-                </span>
-                <span>
-                  Solo dentro de un proyecto:{' '}
-                  <button type="button" onClick={() => copiar('ruta2', AGENTE_SKILL_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'ruta2' ? '¡copiada!' : AGENTE_SKILL_PATH}</button>
-                </span>
-              </div>
-            </details>
+
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <button type="button" style={listo ? btnPrimario : { ...btnPrimario, opacity: 0.45, cursor: 'not-allowed' }} disabled={!listo} onClick={() => copiar('skill', skill)}>
-                {copiado === 'skill' ? '¡Skill copiada!' : 'Copiar skill'}
+              <button
+                type="button"
+                style={listo ? btnPrimario : { ...btnPrimario, opacity: 0.45, cursor: 'not-allowed' }}
+                disabled={!listo}
+                onClick={bajarSkill}
+              >
+                {bajado ? '¡Archivo bajado!' : 'Descargar la skill ↓'}
               </button>
             </div>
-            {!listo && <span style={{ fontSize: 12, color: 'var(--faint)' }}>Generá el token primero: viene embebido en el archivo.</span>}
+
+            {/* La salida para quien no sepa dónde queda esa carpeta — que es la mayoría.
+                El archivo trae adentro sus propias instrucciones de instalación, así que
+                dárselo a Claude alcanza. */}
+            <span style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
+              ¿No sabés dónde es eso? Arrastrá el archivo a Claude y decile «instalá esta skill».
+            </span>
+
+            {!listo && <span style={{ fontSize: 12, color: 'var(--faint)' }}>Generá el token primero: viene adentro del archivo.</span>}
           </div>
         ))}
 

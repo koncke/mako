@@ -20,19 +20,19 @@ import assert from 'node:assert/strict';
 import { esPublica, esPublicaSoloLectura } from '../lib/rutas-publicas';
 
 test('las rutas del agente que hablan por Bearer entran sin sesión', () => {
-  // Son las tres que corren en la máquina del cliente, donde no hay cookie posible.
-  for (const r of ['/api/agente/plan', '/api/agente/contexto', '/api/agente/telemetria']) {
+  // Son las que corren en la máquina del cliente, donde no hay cookie posible.
+  for (const r of ['/api/agente/plan', '/api/agente/contexto', '/api/agente/telemetria', '/api/agente/hook']) {
     assert.equal(esPublica(r), true, r);
   }
   // Y con querystring, que es como las llama la skill de verdad.
   assert.equal(esPublica('/api/agente/contexto'), true);
 });
 
-test('las del agente que exigen NAVEGADOR siguen cerradas', () => {
-  // Acuñar la credencial y bajar el hook los hace una persona logueada, no el agente.
-  // Un prefijo `/api/agente` suelto las abriría a las dos: por eso van una por una.
+test('acuñar el token sigue exigiendo NAVEGADOR', () => {
+  // Es lo único de esa carpeta que crea una credencial, así que es lo único que no
+  // puede abrirse. Un prefijo `/api/agente` suelto —la solución obvia— lo abriría junto
+  // con el resto: por eso van una por una.
   assert.equal(esPublica('/api/agente/token'), false);
-  assert.equal(esPublica('/api/agente/hook'), false);
 });
 
 test('lo que nunca puede ser público, no lo es', () => {

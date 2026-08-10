@@ -41,14 +41,19 @@ export const PUBLICOS = [
   '/compartido',
   '/api/compartido',
   // ── El agente (Claude) ──────────────────────────────────────────────────
-  // Se listan UNA POR UNA y no como `/api/agente`, en positivo, porque en esa
-  // carpeta conviven dos clases de ruta: éstas tres hablan por bearer desde la
-  // máquina del cliente, y `/api/agente/token` y `/api/agente/hook` exigen sesión
-  // de navegador (acuñar la credencial y bajar el hook son cosas que hace una
-  // persona logueada, no el agente). Un prefijo suelto abriría esas dos también.
+  // Se listan UNA POR UNA y no como `/api/agente`, en positivo, porque en esa carpeta
+  // conviven dos clases de ruta. Estas cuatro las llama el agente desde la máquina del
+  // cliente con su bearer; `/api/agente/token` NO está y no puede estar — acuñar la
+  // credencial es lo único que exige ser una persona logueada, y un prefijo suelto lo
+  // abriría junto con el resto.
+  //
+  // `hook` entró después: sirve un script SIN secretos (el token lo lee en ejecución de
+  // otro archivo) y la skill lo instala sola, así que pedirle sesión de navegador era
+  // pedirle al agente algo que no puede tener.
   '/api/agente/plan',
   '/api/agente/contexto',
   '/api/agente/telemetria',
+  '/api/agente/hook',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el
