@@ -41,7 +41,8 @@ import { Dropdown } from '@/app/components/Dropdown';
 // acentos ni mayúsculas, con frontera de palabra y plural tolerado. El módulo no lleva
 // `server-only` justamente para poder compartirse con el navegador. Escribir una segunda
 // hubiera dado dos búsquedas que se comportan distinto en la misma app.
-import { coincide } from '@/lib/buscar-tareas';
+import { matchNodo, CAMPOS_CEREBRO_DEFECTO, type CampoCerebro } from '@/lib/buscar-cerebro';
+import { BuscadorCerebro, type EstadoIA } from './BuscadorCerebro';
 
 // ⚠️ RELATIVOS AL ENCUADRE, no absolutos. Antes valían 0,5 y 4 contra k=1, que era el
 // zoom de arranque cuando el mapa entraba por `preserveAspectRatio`. Ahora el mapa se
@@ -77,9 +78,6 @@ function urlPreview(idNodo: string): string {
   const ws = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ws') : null;
   return `/api/onboarding/archivero/download?id=${encodeURIComponent(id)}&preview=1${ws ? `&ws=${encodeURIComponent(ws)}` : ''}`;
 }
-
-/** El nombre del área, para que buscar «voz» encuentre lo que vive en «Voz y cara». */
-const areaDeId = (id: string) => AREAS.find((a) => a.id === id)?.nombre ?? '';
 
 const esImagen = (mime?: string | null) => !!mime && mime.startsWith('image/');
 /** Qué se puede mostrar de verdad adentro del navegador. Un .docx o un .xlsx bajan, no
@@ -133,10 +131,11 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   // cambia abajo de la mano.
   const areaFoco = areaFocoPropio ?? areaResaltada;
   const [busca, setBusca] = useState('');
-  /** Dónde busca. Por defecto en el nombre, que es lo que el usuario ve en el mapa; el
-   *  detalle y la procedencia se prenden a mano porque encuentran mucho más y a veces
+  /** Dónde busca. Por defecto en el nombre, que es lo que se ve dibujado en el mapa; el
+   *  contenido y la procedencia se prenden a mano porque encuentran mucho más y a veces
    *  eso es ruido. */
-  const [dondeBuscar, setDondeBuscar] = useState<'nombre' | 'todo'>('nombre');
+  const [campos, setCampos] = useState<CampoCerebro[]>(CAMPOS_CEREBRO_DEFECTO);
+  const [ia, setIa] = useState<EstadoIA>({ pensando: false, ids: null, explico: '' });
   const [verTodas, setVerTodas] = useState(false);
   const [textoEntero, setTextoEntero] = useState(false);
   const [enPantallaCompleta, setEnPantallaCompleta] = useState(false);
@@ -208,6 +207,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   // Refs para que `visible()` no cambie de identidad en cada tecla: lo consumen el
   // dibujo de las aristas y el descarte de etiquetas.
   const buscaRef = useRef('');
+  const iaRef = useRef<boolean>(false);
   const idsResultadoRef = useRef<Set<string>>(new Set());
 
   /**
@@ -222,7 +222,9 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
    */
   const visible = useCallback((n: NodoCerebro): boolean => {
     if (!pasaVer(n)) return false;
-    if (buscaRef.current.trim() !== '' && !idsResultadoRef.current.has(n.id)) return false;
+    // Con MaKo la lista manda aunque el texto no matchee nada por letras: es justamente
+    // el caso que la búsqueda por texto no cubre.
+    if ((buscaRef.current.trim() !== '' || iaRef.current) && !idsResultadoRef.current.has(n.id)) return false;
     return true;
   }, [pasaVer]);
 
@@ -244,7 +246,10 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
    *  de verdad adentro. */
   const montados = useMemo(
     () => nodos.filter((n) => visible(n) || saliendo.has(n.id)),
-    [nodos, visible, saliendo, verQue, busca],
+    // ⚠️ `campos` e `ia.ids` van en las deps aunque `visible()` los lea por ref: sin
+    // ellos, ampliar la búsqueda a «todo» actualizaba el contador a 14 y el mapa seguía
+    // mostrando 5. El contador y el dibujo tienen que salir del mismo cálculo.
+    [nodos, visible, saliendo, verQue, busca, campos, ia.ids],
   );
 
   // Cuando cambia el filtro: los que salieron se marcan y se desmontan al terminar.
@@ -256,7 +261,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
     relojSalida.current = window.setTimeout(() => setSaliendo(new Set()), 260);
     return () => { if (relojSalida.current != null) window.clearTimeout(relojSalida.current); };
     // `visible` cambia de identidad con el filtro, que es exactamente cuándo hay que correr.
-  }, [nodos, visible, verQue, busca]);
+  }, [nodos, visible, verQue, busca, campos, ia.ids]);
 
   const etiquetasVisibles = useMemo(() => {
     const alto = (12 * uEstado) / kPaso;          // la caja, en unidades locales del <g>
@@ -305,7 +310,7 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
       ok.add(n.id);
     }
     return ok;
-  }, [nodos, posiciones, grados, kPaso, uEstado, zoomPct, visible, verQue, busca]);
+  }, [nodos, posiciones, grados, kPaso, uEstado, zoomPct, visible, verQue, busca, campos, ia.ids]);
 
   const radioMundo = useCallback((n: NodoCerebro) => radioNodo(grados[n.id] ?? 0), [grados]);
   const kr = Math.sqrt(kPaso);
@@ -648,24 +653,42 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
   /** Los nodos que matchean, ordenados por grado: el más conectado primero, que es el
    *  que más probablemente se estaba buscando. */
   const resultados = useMemo(() => {
+    // Con MaKo, la lista la eligió el modelo y se respeta SU orden: lo pusimos a ordenar
+    // «del que más responde al que menos» y reordenarlo por grado acá tiraría eso.
+    if (ia.ids) {
+      const pos = new Map(ia.ids.map((id, i) => [id, i]));
+      return nodos.filter((n) => pos.has(n.id)).sort((a, b) => (pos.get(a.id)! - pos.get(b.id)!));
+    }
     const q = busca.trim();
     if (!q) return [] as NodoCerebro[];
     return nodos
-      .filter((n) => {
-        const heno = dondeBuscar === 'todo'
-          ? `${n.etiqueta} ${n.detalle} ${n.fuente} ${areaDeId(n.area)}`
-          : n.etiqueta;
-        return coincide(heno, q);
-      })
+      .filter((n) => matchNodo(n, q, campos))
       .sort((a, b) => (grados[b.id] ?? 0) - (grados[a.id] ?? 0));
-  }, [busca, nodos, grados, dondeBuscar]);
+  }, [busca, nodos, grados, campos, ia.ids]);
+
+  /** Le pide a MaKo que lea el mapa. El resultado son IDS, no texto: el modelo elige y el
+   *  filtro sigue siendo el mismo de siempre. */
+  const buscarConIA = useCallback(async (texto: string) => {
+    setIa({ pensando: true, ids: null, explico: '' });
+    try {
+      const r = await fetch('/api/second-brain/buscar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: texto }), signal: AbortSignal.timeout(60_000),
+      });
+      const j = await r.json();
+      setIa({ pensando: false, ids: Array.isArray(j?.ids) ? j.ids : [], explico: String(j?.explico ?? '') });
+    } catch {
+      setIa({ pensando: false, ids: [], explico: 'No se pudo consultar a MaKo.' });
+    }
+  }, []);
   const primerMatch = resultados[0] ?? null;
   const idsResultado = useMemo(() => new Set(resultados.map((n) => n.id)), [resultados]);
   buscaRef.current = busca;
+  iaRef.current = ia.ids !== null;
   idsResultadoRef.current = idsResultado;
   /** Por dónde va el ciclo del Enter. Se reinicia con cada búsqueda nueva. */
   const cursorBusca = useRef(0);
-  useEffect(() => { cursorBusca.current = 0; }, [busca, dondeBuscar]);
+  useEffect(() => { cursorBusca.current = 0; }, [busca, campos, ia.ids]);
 
   /** Los vecinos del nodo fijado CON su motivo. El motivo ya venía calculado en cada
    *  arista y no lo leía nadie. */
@@ -906,15 +929,9 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
           background: none; color: var(--sidebar-text); cursor: pointer;
         }
         .cbg .cbg-ico:hover { border-color: var(--sidebar-line); color: var(--on-sidebar); }
-        .cbg .cbg-chip:focus-visible, .cbg .cbg-ico:focus-visible, .cbg .cbg-buscar:focus-visible {
+        .cbg .cbg-chip:focus-visible, .cbg .cbg-ico:focus-visible {
           outline: 2px solid var(--mako); outline-offset: 2px;
         }
-        .cbg .cbg-buscar {
-          background: rgba(255,255,255,.05); border: 1px solid var(--sidebar-line);
-          border-radius: 8px; color: var(--on-sidebar);
-          font: inherit; width: 190px; height: 28px; padding: 0 10px;
-        }
-        .cbg .cbg-buscar::placeholder { color: var(--sidebar-text); }
         /* La tarjeta de detalle FLOTA sobre el lienzo en vez de comerle una columna de
            300 px que el 90% del tiempo está vacía. Y es gratis: el encuadre es cuadrado,
            así que en un lienzo apaisado quedan cientos de píxeles de aire a cada lado
@@ -1087,45 +1104,18 @@ export function Grafo({ cerebro, onAbrirArea, areaResaltada = null }: {
             </button>
           )}
           <span style={{ flex: 1 }} />
-          <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <input
-              className="cbg-buscar"
-              type="search"
-              value={busca}
-              onChange={(ev) => setBusca(ev.target.value)}
-              onKeyDown={(ev) => {
-                if (ev.key === 'Escape') { ev.preventDefault(); setBusca(''); return; }
-                if (ev.key !== 'Enter' || !resultados.length) return;
-                ev.preventDefault();
-                // Enter CICLA por los resultados en vez de volver siempre al primero:
-                // con 60 nodos y nombres parecidos, «llevame al que buscaba» casi nunca
-                // es el primero, y sin ciclo no había forma de llegar al segundo.
-                const i = cursorBusca.current % resultados.length;
-                cursorBusca.current = i + 1;
-                irA(resultados[i].id);
-              }}
-              placeholder="Buscar un dato"
-              aria-label="Buscar un dato en el mapa"
-            />
-            {busca.trim() !== '' && (
-              <span style={{ fontFamily: MONO, fontSize: 11, color: resultados.length ? 'var(--sidebar-text)' : 'var(--warn)', whiteSpace: 'nowrap' }}>
-                {resultados.length === 0 ? 'sin resultados' : `${resultados.length} de ${nodos.length}`}
-              </span>
-            )}
-            {/* Dónde busca. Dos opciones y no cuatro checkboxes como en el plan: acá los
-                nodos tienen tres campos de texto, no ocho, y una barra de filtros dentro
-                de la barra del lienzo compite con el mapa. */}
-            <button
-              type="button"
-              className="cbg-chip"
-              aria-pressed={dondeBuscar === 'todo'}
-              onClick={() => setDondeBuscar((v) => (v === 'todo' ? 'nombre' : 'todo'))}
-              title={dondeBuscar === 'todo' ? 'Buscar solo en el nombre' : 'Buscar también en el detalle y en la procedencia'}
-              style={{ fontSize: 11 }}
-            >
-              {dondeBuscar === 'todo' ? 'en todo' : 'en el nombre'}
-            </button>
-          </div>
+          <BuscadorCerebro
+            q={busca}
+            onQ={(v) => { setBusca(v); if (ia.ids !== null) setIa({ pensando: false, ids: null, explico: '' }); }}
+            campos={campos}
+            onCampos={setCampos}
+            ia={ia}
+            onBuscarIA={(t) => void buscarConIA(t)}
+            onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
+            resultados={resultados.length}
+            total={nodos.length}
+            portalTo={enPantallaCompleta ? marcoRef.current : null}
+          />
           {/* El zoom es UN control (alejar · cuánto · acercar) y va junto. «Ajustar a la
               vista» y «Pantalla completa» son los dos que cambian el ENCUADRE, así que
               van juntos y al final. Antes «ajustar» quedaba del otro lado del zoom,

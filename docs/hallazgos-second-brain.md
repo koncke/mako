@@ -1047,6 +1047,41 @@ es el mecanismo que ya rompió una métrica—. Lo resuelve la jerarquía: **el 
 los huérfanos**, uniéndose directo a los miembros sueltos de las áreas que no llegaron a
 tener nodo propio.
 
+### La barra de búsqueda: lo que se porta y lo que no
+
+**Vive en:** `app/second-brain/BuscadorCerebro.tsx` · `lib/buscar-cerebro.ts` ·
+`app/api/second-brain/buscar/route.ts`
+
+Es la barra del tablero (`app/plan/board/BuscadorTareas.tsx`) portada al mapa. Se **porta**
+y no se reusa tal cual porque aquella recibe y devuelve campos de una TAREA; lo que sí se
+comparte es lo que importa: el matcheo sale de `coincide`, así que las dos búsquedas se
+comportan igual ante las mismas palabras.
+
+Tres detalles del original que valen y que es fácil perder al portar:
+
+- **El ✦ de MaKo aparece SOLO con algo escrito.** Un botón de IA siempre visible invita a
+  apretarlo sin necesidad, y cada apretada es una llamada al modelo.
+- **La flechita va en SVG, no como el carácter «⌄».** Ese glifo se dibuja pegado al techo
+  de su caja, así que por más que el botón centre con flex se ve corrido hacia arriba. Un
+  path se centra de verdad y además gira al abrir.
+- **El chip dice DÓNDE se está buscando.** Sin él, ampliar a «el contenido» hace aparecer
+  el triple de resultados y parece que el buscador se rompió.
+
+**Lo que NO se portó, con su razón:** el tablero recorta el detalle a 120 caracteres por
+tarea porque con 500 tareas el prompt se iba a 58k tokens. Acá el mapa tiene 60-120 nodos:
+el detalle entra ENTERO y recortarlo perdería justo lo que hace útil la búsqueda
+semántica.
+
+**Y una trampa propia del lienzo, que el tablero no tiene:** el marco lleva
+`overflow: hidden` (un panel `absolute` se recorta) y puede entrar en pantalla completa
+(un portal a `document.body` deja de pintarse, sin error). Por eso el portal del panel es
+parametrizable — el mismo problema que ya obligó a agregarle `portalTo` al Dropdown.
+
+**El contador y el dibujo salen del mismo cálculo, y eso hubo que arreglarlo:** al ampliar
+los campos, el contador decía 14 y el mapa seguía mostrando 5, porque `campos` no estaba
+en las dependencias del montaje. Un contador que no coincide con lo que se ve es peor que
+no tenerlo.
+
 ## El vault: el segundo cerebro como carpetas y archivos
 
 ### El veredicto del modelo: proyección y exportación, NO almacenamiento
