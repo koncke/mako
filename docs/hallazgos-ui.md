@@ -30,6 +30,9 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
   últimos destinos sin dejar ni una pista → [Primitives y sistema visual](#primitives-y-sistema-visual).
 - Que una pantalla no llegue al borde no lo causa ninguna regla: de 44 `<main>`, **solo 3
   centraban** y había 5 topes distintos → [Primitives y sistema visual](#primitives-y-sistema-visual).
+- Una guarda que prohíbe una palabra en pantalla engancha identificadores del código y no ve
+  el texto que vive en los DATOS: falla donde no importa y calla donde sí →
+  [El texto de la UI](#el-texto-de-la-ui).
 
 ---
 
@@ -1630,6 +1633,92 @@ opción en el modal de exportación y renglón de cada carpeta en el README del 
 que parecían comentarios internos y no lo eran.
 
 **La regla:** si el copy nombra una cantidad, o sale del dato o no se escribe.
+
+### ⚠️ Una guarda de texto sobre el fuente engancha identificadores, no sólo texto
+
+**Síntoma:** la guarda que impedía que la palabra «techo» —jerga— volviera a la pantalla de
+pricing daba **rojo por cosas que no se ven**: `techoIa`, una función importada de otro
+módulo, y `a.techo`, un campo de dato. Ninguno de los dos se pinta, y renombrarlos era otro
+alcance.
+
+**Causa:** grepear `/techo/i` sobre `Pricing.tsx` con los comentarios sacados sigue mirando
+**código**. Un `.tsx` tiene el texto y el programa en el mismo archivo, y la palabra
+prohibida vive legítimamente en los dos.
+
+**Regla:** una guarda sobre lo que se LEE mira sólo dos cosas, y las dos **sin las llaves**:
+los string literals y el texto suelto de JSX (lo que va entre `>` y `<`). La resta previa
+pesa tanto como el match: fuera los comentarios de bloque y de línea, y **fuera los bloques
+`import`**, que son puros nombres traídos de otro módulo. Y adentro de `{}` hay expresiones,
+no texto — `{usd(techoIa(PRO))}` está entre `>` y `<` y es una llamada.
+
+**Vive en:** `tests/pricing-modelo.test.ts` (`textoEnPantalla`) ·
+`app/admin/dev/pricing/Pricing.tsx` · *2026-08-10 cac-dos-monedas*
+
+### ⚠️ Una guarda sobre la pantalla que sólo mira el componente cubre la mitad
+
+**Síntoma:** la guarda de arriba daba verde sobre `Pricing.tsx` y la palabra prohibida
+**seguía en pantalla**: la decían **14 strings de `modelo.ts`** que el `.tsx` pinta —
+`ECONOMIA`, `CUARTO_PLAN`, `PLAN_MES_1`, cinco meses de `PROYECCION_24`, `RESULTADO_24`,
+`TOPE_PAUTA` y `OFERTA_ANUAL`.
+
+**Causa:** en esta pantalla el texto no vive en el JSX, vive en los **DATOS**. El `.tsx` es
+el molde y los párrafos son campos de constantes exportadas. Una guarda sobre el componente
+mide dónde está el archivo, no dónde está el texto.
+
+**Regla:** la guarda recorre los valores de **los mismos exports que el componente importa**,
+y la lista de exports sale **del propio `import`** del archivo leído como texto — así no se
+queda vieja cuando alguien agrega uno; una lista escrita a mano al lado de lo que enumera se
+separa siempre. Lo que se importa pero no se pinta va en una lista explícita y chica
+(`NO_SE_PINTAN`: los `id` que son claves de React y un par de campos de respaldo), con el
+comentario de que si alguno empieza a pintarse sale de ahí.
+
+**Vive en:** `tests/pricing-modelo.test.ts` (`stringsDe`, `NO_SE_PINTAN`) ·
+`app/admin/dev/pricing/modelo.ts` · *2026-08-10 cac-dos-monedas*
+
+### ⚠️ Con conclusión arriba y conclusiones por sección, la duplicación es el modo de falla por defecto
+
+**Síntoma:** el bloque de conclusión general **copiaba** la conclusión de su parte en vez de
+resumirla. Ya había pasado sin guarda adentro de la parte 3, donde el titular repetía palabra
+por palabra la frase que estaba sesenta píxeles más abajo — ese caso está en
+[hallazgos-ia.md](hallazgos-ia.md) → «La conclusión escrita a mano no se entera de que el
+dato de al lado cambió».
+
+**Causa:** no es un descuido. El que escribe el resumen de arriba tiene delante la frase de
+abajo, y esa frase es la mejor que hay: copiarla es el camino de menor resistencia, y cada
+reescritura de una parte vuelve a abrir la puerta.
+
+**Y enganchó a su propio autor.** La guarda —tramo textual compartido de menos de 40
+caracteres contra la conclusión de la parte— se verificó por mutación, como manda
+[hallazgos-infra.md](hallazgos-infra.md) → «Un test que nunca viste fallar no sabés si
+sirve». Lo que atrapó no fue un texto viejo: fue **el primer borrador del agente que la
+estaba escribiendo**, con 44 caracteres textuales. Hubo que reescribir el texto, no aflojar
+el tope.
+
+**Regla:** la duplicación entre dos niveles de resumen se ataca con una guarda, no con
+revisión — la revisión la hace el mismo que acaba de copiar. Cuando dos capas resumen lo
+mismo, la de arriba se queda con el veredicto y la de abajo cuenta lo que sigue.
+
+**Vive en:** `tests/pricing-modelo.test.ts` (`tramoCompartido`, «la conclusión general resume
+su parte, no la copia») · `app/admin/dev/pricing/modelo.ts` (`CONCLUSION_GENERAL`) ·
+*2026-08-10 cac-dos-monedas*
+
+### ⚠️ Un matcher de números que arranca en `[\d.,]` se come el punto final de la oración
+
+**Síntoma:** el test que exige que ningún número de la conclusión general aparezca si no está
+en su parte daba **rojo por un dato que estaba bien**. La conclusión cerraba «…por 62.» y la
+parte decía «…por 62, porque».
+
+**Causa:** el matcher era `[\d.,]+`, así que capturaba `"62."` **con el punto** y buscaba esa
+cadena en la parte, donde el mismo número termina en coma. Lo único distinto entre los dos
+textos era dónde termina la oración.
+
+**Regla:** un matcher de números arranca en dígito (`/\d[\d.,]*/`) y descarta la puntuación
+final (`.replace(/[.,]+$/, '')`). Si no, la aserción valida la **redacción** en vez del dato
+y falla justo cuando el dato es correcto — el peor rojo posible, porque empuja a cambiar el
+texto que estaba bien.
+
+**Vive en:** `tests/pricing-modelo.test.ts` («la conclusión general no dice ningún número que
+su parte no diga») · *2026-08-10 cac-dos-monedas*
 
 ## Entregar una pantalla
 

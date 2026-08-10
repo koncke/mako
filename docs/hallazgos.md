@@ -15,7 +15,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 |---|---|---|
 | CRM | [hallazgos-crm.md](hallazgos-crm.md) | Leads, funnel, etapas y requisitos, worklist de datos sin marcar, agenda y horarios, historial |
 | Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | Supabase (paginado, upserts, settings), aislamiento multi-inquilino, credenciales/BYOK, webhooks, crons, topes de Next, migraciones, build y deploy, zonas horarias, storage, editar archivos grandes (CRLF y nombres colisionados), tests y sesiones paralelas |
-| UI compartida | [hallazgos-ui.md](hallazgos-ui.md) | `app/_ui` y `app/_components`: el ancho y el scroll de las barras de navegación, `WizardShell`, la pila de modales y los z-index, dónde vive de verdad la marca |
+| UI compartida | [hallazgos-ui.md](hallazgos-ui.md) | `app/_ui` y `app/_components`: el ancho y el scroll de las barras de navegación, `WizardShell`, la pila de modales y los z-index, dónde vive de verdad la marca. Y el texto de la UI: cómo se escribe una guarda que prohíbe una palabra en pantalla sin enganchar identificadores ni perderse los strings que viven en los datos, por qué la conclusión de arriba copia la de abajo si nadie lo impide, y el matcher de números que se come la puntuación |
 | MaKo (IA) | [hallazgos-ia.md](hallazgos-ia.md) | Modelos y ruteo, la cascada barata, prompts y overrides, topes de salida, gasto y saldo, el doer, cómo pregunta y responde MaKo |
 | Comunicación | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) | Espejo de WhatsApp (Evolution), onboarding del Chat Agent, desenlace de nutriciones |
 | Ads | [hallazgos-ads.md](hallazgos-ads.md) | `ads-analyst` y las lecturas de `marketing_metrics_daily` |
