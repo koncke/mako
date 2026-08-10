@@ -153,14 +153,24 @@ function ChatAgentInner() {
     try {
       const ro = await fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' });
       const jo = await ro.json();
-      const falta = jo.ok ? jo.estado?.status !== 'done' : false;
+      // ⚠️ Un 403 (el setter, que no es admin) SÍ ve la tab normal — es su caso
+      // legítimo y por eso el fallback es `false`. Cualquier OTRA falla, no: si
+      // no se pudo saber si el onboarding está completo, mostrar el dashboard es
+      // afirmar que sí lo está. Es la misma regla que el paso del WhatsApp
+      // oficial: «no pudimos preguntarlo» no es «está listo».
+      const falta = jo.ok ? jo.estado?.status !== 'done' : ro.status !== 403;
       setEnOnboarding(falta);
       // Arrancar de cero = ni un paso hecho en todo el recorrido. Ahí se
       // pregunta. Si ya venía a mitad de camino, se sigue donde quedó.
       const pasos = (jo?.estado?.steps ?? {}) as Record<string, { done?: boolean }>;
       const ningunoHecho = Object.values(pasos).every((x) => !x?.done);
       setPreguntarPlan(falta && ningunoHecho);
-    } catch { setEnOnboarding(false); }
+    } catch (e) {
+      // Sin red tampoco se afirma que está listo: se muestra el onboarding, que
+      // es reversible (se sigue de largo), en vez del dashboard, que no lo es.
+      console.error('[chatbot] no se pudo leer el estado del onboarding:', e);
+      setEnOnboarding(true);
+    }
   }, []);
   useEffect(() => { void load(); }, [load]);
 

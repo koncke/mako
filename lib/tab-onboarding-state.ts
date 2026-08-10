@@ -17,6 +17,9 @@
 
 import 'server-only';
 import { getSetting, setSetting } from './settings';
+// La condición del orden vive aparte, SIN server-only, para que se pueda testear.
+import { pasoBloqueadoPor } from './onboarding-orden';
+export { pasoBloqueadoPor };
 
 export type TabOnboardingStatus = 'pendiente' | 'done';
 
@@ -228,6 +231,25 @@ export async function marcarPasoTab(tab: string, paso: string, done = true): Pro
   const def = tabOnboardingDef(tab);
   if (!def) throw new Error(`La tab "${tab}" no tiene onboarding definido.`);
   if (!def.pasos.some((p) => p.key === paso)) throw new Error(`Paso "${paso}" desconocido en la tab "${tab}".`);
+
+  // ⚠️ NO SE PUEDE SALTEAR UN PASO. Antes esto aceptaba cualquier clave, así que
+  // el wizard cerraba el onboarding entero marcando el último paso — pasó en
+  // vivo, con una clienta delante: marcó `ensayo` y `aprobar` con diez segundos
+  // de diferencia, sin haber grabado un audio, la tab quedó `done` y le apareció
+  // el dashboard vacío en vez del onboarding.
+  //
+  // El guard va en el SERVER y no en el botón: la UI ya deshabilitaba «Siguiente»
+  // y aun así se llegó acá. Los pasos `opcional` no bloquean (para eso existe
+  // «Omitir por ahora»), y desmarcar (`done: false`) nunca se frena.
+  if (done) {
+    const estadoPrevio = await getEstadoTab(tab);
+    const falta = pasoBloqueadoPor(def.pasos, estadoPrevio.steps, paso);
+    if (falta) {
+      const label = def.pasos.find((p) => p.key === falta)?.label ?? falta;
+      throw new Error(`Antes de este paso falta completar «${label}».`);
+    }
+  }
+
   await anotarPasoCompartido(paso, done);
   const s = await getEstadoTab(tab);
   s.steps[paso] = { done, at: new Date().toISOString() };
