@@ -19,6 +19,7 @@ import 'server-only';
 
 import { getLead, updateLead, moverLeadAuto, applyFathomRecording, logLeadEvent } from './leads';
 import { pipelineStageOf, MAKO_SETTER } from './pipeline';
+import { encuentroGrabable } from './encuentro-ws';
 import { getTenantDb, runWithWorkspace, listarWorkspaces, getWorkspaceActual, OWNER_WS } from './workspace';
 import { hoyEnTijuana } from './date-utils';
 import { buscarReunionesAutomatico } from './auto-reuniones';
@@ -264,6 +265,30 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
         revert,
       });
     }
+    // ⚠️ SIN GRABACIÓN NO ES «NO VINO». Concluir No Show por la ausencia de un
+    // video solo es válido si de ese encuentro se esperaba un video: una llamada
+    // 1:1 remota, con Fathom conectado. Un taller presencial no se graba nunca, y
+    // sin este gate el motor le marcaba No Show —todas las semanas— a las veinte
+    // personas que sí habían ido.
+    //
+    // El que decide es la CONEXIÓN VIVA, no un campo declarado: así también deja
+    // de castigar a cualquier workspace que simplemente no tiene Fathom, que era
+    // el caso más común y nadie lo había mirado. Cuando no se puede concluir, no
+    // se afirma nada: se le pregunta a una persona.
+    if (!(await encuentroGrabable())) {
+      return confirmarOCompensar(a.leadId, {
+        leadId: a.leadId, leadNombre: lead.nombre, regla: 'T1', tipo: a.tipo, clave,
+        titulo: `¿Fue a la reunión ${lead.nombre ?? 'el lead'}?`,
+        detalle: `${a.descripcion}. Este encuentro no deja grabación, así que no puedo saberlo solo.`,
+        aplicado: false,
+        cambios: [],
+        opciones: [
+          { key: 'fue', label: 'Sí, fue', stage: null, tone: 'primary' },
+          { key: 'noshow', label: 'No fue', stage: which === 'j1' ? 'noshow_r1' : 'noshow_r2', tone: 'danger' },
+        ],
+      });
+    }
+
     // Sin grabación → No Show.
     const movido = await moverAuto(
       a.leadId,

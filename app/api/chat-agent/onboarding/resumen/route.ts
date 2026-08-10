@@ -76,9 +76,11 @@ export async function GET() {
     // Solo se reclama lo que este funnel realmente necesita: en una venta
     // directa los dos audios de agendamiento no van, y listarlos como
     // "faltantes" es pedirle al dueño algo que no tiene dónde usar.
-    const funnel = await import('@/lib/leads').then((m) => m.getFunnel()).catch(() => null);
-    const hayReunion = (funnel?.stages ?? []).some((s) => s.kind === 'reunion');
-    const sinGrabar = audiosDe(hayReunion)
+    const [funnel, diag] = await Promise.all([
+      import('@/lib/leads').then((m) => m.getFunnel()).catch(() => null),
+      import('@/lib/fase-store').then((m) => m.getDiagnosticoFase()).catch(() => null),
+    ]);
+    const sinGrabar = audiosDe(funnel?.entradas ?? [], diag?.canal ?? null)
       .filter((d) => !nuestras.some((s) => s.pasos.some((p) => porId.get(p.audio_id ?? 0)?.titulo === d.titulo)))
       .map((d) => tituloDe(d.clave));
 

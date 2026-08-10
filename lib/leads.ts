@@ -11,8 +11,9 @@ import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { getUsuarioActual } from './auth';
 import { sendMetaCAPIEvent } from './meta-capi';
-import type { Stage, FunnelTransition } from './pipeline';
-import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
+import type { Stage, FunnelTransition, EntradaId, EventoFunnel } from './pipeline';
+export type { EventoFunnel };
+import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER, parseEntradas, parseEvento, sanearPipeline, mergeFunnelData } from './pipeline';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
 import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
 // La etapa de ORIGEN de un movimiento se deriva con la MISMA función que usa la
@@ -1434,13 +1435,38 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
  * existe (migración 0025 sin aplicar) o no hay fila, cae a los defaults del
  * código — todo sigue renderizando, solo que los cambios no persisten aún.
  */
-// Lo que se PERSISTE es el pipeline (Activo) + las nutriciones suprimidas; el
-// funnel completo (stages + transitions) se DERIVA con generateFunnel.
-export type FunnelConfig = { stages: Stage[]; transitions: FunnelTransition[]; pipeline: Stage[]; suppressed: string[] };
+// Lo que se PERSISTE es el pipeline (Activo) + las nutriciones suprimidas + cómo
+// ENTRA el lead; el funnel completo (stages + transitions) se DERIVA con
+// generateFunnel.
+export type FunnelConfig = {
+  stages: Stage[];
+  transitions: FunnelTransition[];
+  pipeline: Stage[];
+  suppressed: string[];
+  /** Cómo entra un lead. `[]` es NO DECLARADO y nunca afirma nada. */
+  entradas: EntradaId[];
+  /** El evento de fecha fija, si el canal tiene uno (el taller de todos los miércoles). */
+  evento: EventoFunnel | null;
+  /**
+   * De dónde salió esto. Existe para que la PANTALLA pueda decir la verdad y para
+   * que el PROMPT no afirme nada que no se declaró: con `origen !== 'declarado'`,
+   * `entradas` viene vacío aunque el pipeline caiga al default.
+   */
+  origen: 'declarado' | 'sin-fila' | 'error';
+};
 
-function buildFunnel(pipeline: Stage[], suppressed: string[]): FunnelConfig {
+function buildFunnel(
+  pipeline: Stage[],
+  suppressed: string[],
+  extra?: { entradas?: EntradaId[]; evento?: EventoFunnel | null; origen?: FunnelConfig['origen'] },
+): FunnelConfig {
   const { stages, transitions } = generateFunnel(pipeline, suppressed);
-  return { stages, transitions, pipeline, suppressed };
+  return {
+    stages, transitions, pipeline, suppressed,
+    entradas: extra?.entradas ?? [],
+    evento: extra?.evento ?? null,
+    origen: extra?.origen ?? 'sin-fila',
+  };
 }
 
 export async function getFunnel(): Promise<FunnelConfig> {
@@ -1452,24 +1478,52 @@ export async function getFunnel(): Promise<FunnelConfig> {
       .select('data')
       .eq('workspace_id', ws)
       .maybeSingle();
-    if (error || !data || !data.data) return buildFunnel(DEFAULT_PIPELINE, []);
-    const cfg = data.data as { pipeline?: Stage[]; suppressed?: string[] };
-    const pipeline = Array.isArray(cfg.pipeline) && cfg.pipeline.length ? cfg.pipeline : DEFAULT_PIPELINE;
-    const suppressed = Array.isArray(cfg.suppressed) ? cfg.suppressed : [];
-    return buildFunnel(pipeline, suppressed);
+    // ⚠️ Los tres caminos que caen al default NO son el mismo. El pipeline sigue
+    // cayendo a DEFAULT_PIPELINE porque una pantalla en blanco es peor que una
+    // pantalla con el funnel más común — pero `origen` lo dice, y `entradas` queda
+    // vacío, que es lo que impide que un prompt afirme «dejó sus datos en el
+    // anuncio» sobre un cliente que nunca declaró nada (o sobre CUALQUIER cliente
+    // durante una caída de Supabase, que era el caso peor).
+    if (error) return buildFunnel(DEFAULT_PIPELINE, [], { origen: 'error' });
+    if (!data || !data.data) return buildFunnel(DEFAULT_PIPELINE, [], { origen: 'sin-fila' });
+    const cfg = data.data as Record<string, unknown>;
+    const pipeline = sanearPipeline(cfg.pipeline) ?? DEFAULT_PIPELINE;
+    const suppressed = Array.isArray(cfg.suppressed) ? cfg.suppressed.filter((s): s is string => typeof s === 'string') : [];
+    return buildFunnel(pipeline, suppressed, {
+      entradas: parseEntradas(cfg.entradas),
+      evento: parseEvento(cfg.evento),
+      origen: 'declarado',
+    });
   } catch {
-    return buildFunnel(DEFAULT_PIPELINE, []);
+    return buildFunnel(DEFAULT_PIPELINE, [], { origen: 'error' });
   }
 }
 
-/** Guarda la config del funnel del workspace actual (una fila por workspace). */
-export async function saveFunnel(pipeline: Stage[], suppressed: string[]): Promise<void> {
+/**
+ * Guarda la config del funnel del workspace actual (una fila por workspace).
+ *
+ * ⚠️ MERGE, no reemplazo. Antes escribía `data: { pipeline, suppressed }` y con eso
+ * BORRABA cualquier otra clave del jsonb — y el editor de /funnel autoguarda con un
+ * debounce de 500 ms en cada tecla, así que alcanzaba con que alguien tocara una
+ * etiqueta. `data.umbrales`, que `lib/crm-auto.ts` sí lee para los tiempos del CRM
+ * automático, se borraba solo. Hoy ninguna fila lo tiene escrito (verificado en
+ * prod: los 4 workspaces con fila tienen exactamente `pipeline` y `suppressed`), o
+ * sea que era un lector sin escritor y el daño no había ocurrido todavía. Con
+ * `entradas` y `evento` viviendo acá, dejaba de ser latente el primer día.
+ */
+export async function saveFunnel(
+  pipeline: Stage[],
+  suppressed: string[],
+  extra?: Record<string, unknown>,
+): Promise<void> {
   const supabase = (await getTenantDb());
   const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const { data: actual } = await supabase.from('funnel_config').select('data').eq('workspace_id', ws).maybeSingle();
+  const previo = actual?.data ?? {};
   const { error } = await supabase
     .from('funnel_config')
     .upsert(
-      { id: ws, workspace_id: ws, data: { pipeline, suppressed }, updated_at: new Date().toISOString() },
+      { id: ws, workspace_id: ws, data: mergeFunnelData(previo, pipeline, suppressed, extra), updated_at: new Date().toISOString() },
       { onConflict: 'workspace_id' },
     );
   if (error) throw new Error(`Error guardando el funnel: ${error.message}`);
@@ -1520,6 +1574,9 @@ export type AportadoAlMover = {
   asistioJ1?: boolean | null;
   asistioJ2?: boolean | null;
   hoyISO?: string;
+  /** ¿Se espera grabación de este encuentro? De `encuentroGrabable()`. Sin esto,
+   *  quien cierra en persona no puede mover un lead sin inventar un link de Fathom. */
+  grabable?: boolean;
 };
 
 /**
@@ -1558,6 +1615,7 @@ export function faltantesParaMover(
     asistioJ2: aportado.asistioJ2 ?? lead.asistio_j2,
     calificado: lead.calificado,
     hasFathomUrl: links.length > 0,
+    grabable: aportado.grabable,
     monto: aportado.monto ?? lead.monto_cierre_usd,
     // Partido en dos: el guardado puede ser de una pérdida ANTERIOR y no da por
     // contestada la de ahora. Quien decide es stepsForStage con `etapaActual`.
@@ -1808,7 +1866,7 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
 export function faltantesDeLead(
   lead: Lead,
   tienePlan?: boolean,
-  extra?: { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[] },
+  extra?: { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean },
 ): Step[] {
   // El override manual (pipeline_stage) vale SOLO si esa etapa sigue existiendo en
   // el funnel del workspace; si no, se deriva del estado del lead — la misma regla
@@ -1835,6 +1893,7 @@ export function faltantesDeLead(
     fechaJ2: lead.fecha_junta_2,
     asistioJ2: lead.asistio_j2,
     hasFathomUrl: links.length > 0,
+    grabable: extra?.grabable,
     monto: lead.monto_cierre_usd,
     motivo: lead.motivo_perdida,
     setter: lead.setter,

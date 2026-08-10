@@ -94,7 +94,17 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
 
       if (t.tabla === 'funnel_config') {
         // Singleton por workspace: id = workspace_id (mig 0054).
-        const data = origenFilas[0]?.data;
+        // ⚠️ Se copia la FORMA del embudo, nunca los HECHOS del dueño. `entradas` y
+        // `evento` dicen cómo entra la gente a ESE negocio y dónde queda su taller:
+        // clonarlos hace que un workspace nuevo nazca afirmando que sus leads
+        // llegan de un formulario de anuncio que no existe, y de ahí sale un audio
+        // que se lo dice a un desconocido. Un dato declarado no se hereda.
+        const origen = origenFilas[0]?.data;
+        const data = origen && typeof origen === 'object' ? { ...(origen as Record<string, unknown>) } : origen;
+        if (data && typeof data === 'object') {
+          delete (data as Record<string, unknown>).entradas;
+          delete (data as Record<string, unknown>).evento;
+        }
         const { error } = await sb.from('funnel_config')
           .upsert({ id: destino, workspace_id: destino, data, updated_at: new Date().toISOString() }, { onConflict: 'workspace_id' });
         if (error) { avisos.push(`funnel_config: ${error.message}`); tablas[t.tabla] = 0; continue; }

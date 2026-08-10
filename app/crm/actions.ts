@@ -33,6 +33,7 @@ import {
   setBoardStageOverride,
   saveLeadMeta,
   saveFunnel,
+  getFunnel,
   faltantesDeLead,
   getLead,
   getPipelineStages,
@@ -62,6 +63,8 @@ import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, filasDesdeCsv, type FilaImport } from './leads-importar';
 import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
+import { encuentroGrabable } from '@/lib/encuentro-ws';
+import { parseEntradas, parseEvento } from '@/lib/pipeline';
 import { alinearEtapaVista } from '@/lib/etapa-historial';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
@@ -73,7 +76,7 @@ import { DURACION_DEFECTO_MIN, instanteDeLocal } from './horarios-respuesta';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
 
 /**
  * Autor para el historial: el email del usuario logueado (se resuelve a nombre y
@@ -166,7 +169,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
   ]);
-  const [respuestas, insightGen, equipo] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction()]);
+  const [respuestas, insightGen, equipo, grabable] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable()]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
@@ -177,7 +180,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
-  const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages });
+  const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   return { lead, stages, pagos, vslEng, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
@@ -242,6 +245,8 @@ function valoresDeRequisitos(
   pagosExistentes: Pago[],
   stagesMove: Stage[],
   d: StageMoveData = {},
+  /** ¿Se espera grabación de este encuentro? De encuentroGrabable(). undefined = se exige, como siempre. */
+  grabable?: boolean,
 ): StageReqValues {
   return {
     // El funnel del WORKSPACE (no el default): un funnel de 1 reunión no puede
@@ -289,6 +294,9 @@ function valoresDeRequisitos(
     sinR1: !!d.sinR1Motivo?.trim() || !!before?.sin_r1,
     sinR2: !!d.sinR2Motivo?.trim() || !!before?.sin_r2,
     fathomOmitido: !!d.fathomOmitido || !!before?.fathom_omitido,
+    // Un taller presencial o un webinar grupal no dejan grabación, y un workspace
+    // sin Fathom tampoco: exigir el link ahí es pedir un dato imposible.
+    grabable,
   };
 }
 
@@ -307,8 +315,8 @@ function valoresDeRequisitos(
 export async function requisitosDeEtapaAction(id: number, to: string, d: StageMoveData = {}): Promise<Step[]> {
   const before = await getLead(id).catch(() => null);
   const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
-  return stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d));
+  const [stagesMove, grabable] = await Promise.all([getPipelineStages().catch(() => DEFAULT_STAGES), encuentroGrabable()]);
+  return stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d, grabable));
 }
 
 /**
@@ -330,8 +338,8 @@ export type StageMoveResultado =
 export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<StageMoveResultado> {
   const before = await getLead(id).catch(() => null);
   const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
-  const faltan = stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d));
+  const [stagesMove, grabable] = await Promise.all([getPipelineStages().catch(() => DEFAULT_STAGES), encuentroGrabable()]);
+  const faltan = stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d, grabable));
   if (faltan.length) {
     const etapa = stageMeta(stagesMove, to)?.label ?? to;
     return {
@@ -634,14 +642,14 @@ export async function setLeadStageAction(
   // pasó, monto para Ganado, motivo para perdidos). La UI ya lo exige; esto lo
   // garantiza para cualquier caller (MaKo, API). Se evalúa con el MISMO builder
   // que el wizard (`valoresDeRequisitos`), no con una copia paralela.
-  const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
+  const [stagesMove, grabable] = await Promise.all([getPipelineStages().catch(() => DEFAULT_STAGES), encuentroGrabable()]);
   const pagosExistentes = stageKey === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
   const faltanMove = stepsForStage(stageKey, valoresDeRequisitos(stageKey, before, pagosExistentes, stagesMove, {
     asistioJ1: opts?.asistio_j1,
     asistioJ2: opts?.asistio_j2,
     monto: opts?.monto,
     motivo: opts?.motivo,
-  }));
+  }, grabable));
   // Faltar datos no es una excepción: el board lo usa para abrir el wizard en vez
   // de tragarse el error y revertir la card en silencio.
   if (faltanMove.length) {
@@ -1769,9 +1777,40 @@ export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Prom
 
 /** Persiste la config del funnel (pipeline de Activo + nutriciones suprimidas) desde la tab "Funnel". */
 export async function saveFunnelAction(pipeline: Stage[], suppressed: string[]): Promise<void> {
+  // El guard faltaba: cualquier miembro del workspace podía reescribir el funnel
+  // entero —que decide requisitos, nutrición y qué audios se piden— invocando la
+  // server action. Ya estaba anotado en docs/hallazgos-crm.md.
+  if ((await getRolWsEfectivo()) !== 'admin') throw new Error('Solo el administrador del workspace puede editar el funnel.');
   await saveFunnel(pipeline, suppressed);
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/funnel');
+}
+
+/**
+ * Declara CÓMO ENTRA la gente a este negocio (y, si corresponde, dónde y cuándo
+ * es su encuentro de fecha fija).
+ *
+ * Va separada de `saveFunnelAction` a propósito: el pipeline se autoguarda con un
+ * debounce en cada tecla del editor, y esto se guarda cuando la persona confirma.
+ * Mezclarlas haría que un tipeo cualquiera reescribiera una declaración.
+ */
+export async function declararEntradasAction(entradas: string[], evento: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede declarar esto.' };
+  // Se saneа con las MISMAS funciones que leen el jsonb: si el saneo de escritura
+  // y el de lectura fueran dos, divergen y se guarda algo que después no se lee.
+  const limpias = parseEntradas(entradas);
+  if (!limpias.length) return { ok: false, error: 'Elegí al menos una forma en la que te llega la gente.' };
+  const ev = parseEvento(evento);
+  try {
+    const actual = await getFunnel();
+    await saveFunnel(actual.pipeline, actual.suppressed, { entradas: limpias, evento: ev });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  bust(TAG.pipeline, TAG.leads);
+  revalidatePath('/funnel');
+  revalidatePath('/chatbot');
+  return { ok: true };
 }
 

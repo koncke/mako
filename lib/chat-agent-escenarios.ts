@@ -31,7 +31,9 @@
 // Sin 'server-only': la ruta arma el prompt con esto y el cliente pinta los
 // títulos y las semillas (mismo motivo que lib/setting-estrategia.ts).
 
-import { type ClaveAudio, defDeClave } from './audios-paso';
+import { type ClaveAudio, defDeClave, audiosDe } from './audios-paso';
+import type { EntradaId } from './pipeline';
+import type { CanalId } from './fase-diagnostico';
 
 /**
  * Cómo terminó un caso del ensayo. `abierto` es el borde: se acabaron los
@@ -307,6 +309,104 @@ export const ESCENARIOS: Escenario[] = [
     minRespuestas: 1,
     obligatorio: false,
   },
+
+  // ── Prospección en frío ────────────────────────────────────────────────────
+  // ⚠️ Estos tres NO son variantes de los de arriba. En los anteriores el lead
+  // dejó un dato y espera que lo contacten; acá no espera nada y la primera
+  // reacción es la desconfianza. Tan es así que «no me acuerdo de haber dejado
+  // mis datos» —que en los escenarios de anuncio está PROHIBIDO por fuera de
+  // tema— es la reacción número uno de este lado y hay que saber contestarla.
+  {
+    id: 'fria_quien_sos',
+    titulo: 'Mensaje en frío: «¿quién eres?»',
+    objetivo: 'Define cómo te presentas cuando del otro lado no te esperaba nadie.',
+    audio: 'apertura_fria',
+    quien: 'recibiste una nota de voz de alguien que no conoces, sin haber pedido nada.',
+    quePasa: 'desconfías: no sabes de dónde salió tu número ni por qué te escriben justo a ti.',
+    queHace: 'preguntas quién es y de dónde sacó tu contacto, medio cortante.',
+    evolucion: [
+      'si te dieron una razón CONCRETA de por qué te escribieron a vos —algo que vieron de tu negocio, no una frase genérica— aflojas y preguntas de qué se trata. Si te contestaron algo vago o te esquivaron la pregunta del número, te pones más seco.',
+      'si aflojaste, contestas algo real de tu situación pero sin comprometerte a nada. Si seguían vagos, dices que no te interesa.',
+      'último mensaje tuyo. Si en algún momento te dieron algo útil sin pedirte nada a cambio, aceptas seguir la charla. Si solo te vendieron, cortas.',
+    ],
+    desenlace: {
+      positivo: 'acepta seguir la conversación',
+      negativo: 'corta por desconfianza',
+    },
+    fueraDeTema: ['preguntar el precio', 'pedir cambiar el día de una reunión', 'decir que ya conocías el negocio'],
+    encarna: 'avatar',
+    primerMensaje: ['quien eres?', 'de donde sacaste mi numero', 'perdon nos conocemos?'],
+    minRespuestas: 3,
+    obligatorio: true,
+  },
+  {
+    id: 'fria_no_interesa',
+    titulo: 'Mensaje en frío: «no me interesa»',
+    objetivo: 'Define cómo respondes un no rotundo sin insistir ni desaparecer.',
+    audio: 'apertura_fria',
+    quien: 'recibiste una nota de voz de alguien que no conoces ofreciéndote algo.',
+    quePasa: 'estás ocupado y tu reflejo con cualquier mensaje comercial es cortarlo rápido.',
+    queHace: 'contestas que no te interesa, en dos palabras.',
+    evolucion: [
+      'si te insistieron con la oferta, no contestas más. Si en cambio te preguntaron algo puntual de tu negocio sin venderte nada, contestas corto — te dio curiosidad.',
+      'si te preguntaron bien, das un dato real de tu situación. Si te siguieron vendiendo, cortas definitivamente.',
+      'último mensaje tuyo. Si la charla se volvió sobre TU problema y no sobre su producto, aceptas escuchar. Si no, te vas.',
+    ],
+    desenlace: {
+      positivo: 'cambia de idea y acepta escuchar',
+      negativo: 'se va sin interés',
+    },
+    fueraDeTema: ['preguntar el precio', 'pedir cambiar el día de una reunión'],
+    encarna: 'avatar',
+    primerMensaje: ['no gracias', 'no me interesa', 'no estoy interesado gracias'],
+    minRespuestas: 2,
+    obligatorio: true,
+  },
+  {
+    id: 'entrante_que_ofrecen',
+    titulo: 'Te escribieron: «¿qué ofrecen?»',
+    objetivo: 'Define cómo explicas lo que haces a alguien que llegó por su cuenta.',
+    audio: 'respuesta_entrante',
+    quien: 'escribiste vos al negocio porque viste algo de ellos y te dio curiosidad.',
+    quePasa: 'no tenés claro qué venden exactamente ni si es para vos.',
+    queHace: 'preguntas qué es lo que ofrecen, en general.',
+    evolucion: [
+      'si te explicaron en criollo y te devolvieron una pregunta sobre tu situación, la contestás. Si te tiraron un discurso largo o lleno de nombres raros, respondés con un «ah, ok» y nada más.',
+      'si la charla te está sirviendo, contás tu problema real. Si no, decís que lo vas a pensar.',
+      'último mensaje tuyo. Si entendiste qué te resuelve a VOS, aceptás dar el siguiente paso. Si seguís sin entenderlo, te vas amablemente.',
+    ],
+    desenlace: {
+      positivo: 'entiende la propuesta y acepta el siguiente paso',
+      negativo: 'se va sin entender qué le resuelve',
+    },
+    fueraDeTema: ['pedir cambiar el día de una reunión', 'decir que no recuerdas haber escrito'],
+    encarna: 'avatar',
+    primerMensaje: ['hola, que ofrecen?', 'buenas, me pasas info?', 'hola! como es el tema?'],
+    minRespuestas: 2,
+    obligatorio: true,
+  },
+  {
+    id: 'evento_no_puedo_ir',
+    titulo: 'Sesión: «esta semana no puedo»',
+    objetivo: 'Define qué haces cuando confirma que va y después se cae.',
+    audio: 'evento_confirmado',
+    quien: 'habías quedado en ir a la sesión y ya te confirmaron que te esperan.',
+    quePasa: 'se te complicó a último momento y no vas a poder ir.',
+    queHace: 'avisas que esta vez no llegas.',
+    evolucion: [
+      'si te ofrecieron la siguiente fecha concreta, decís que sí o que lo ves. Si solo te dijeron «cuando puedas», no volvés a escribir.',
+      'último mensaje tuyo. Con una fecha concreta encima, confirmás que vas. Sin ella, la charla se apaga.',
+    ],
+    desenlace: {
+      positivo: 'queda confirmado para la próxima fecha',
+      negativo: 'se pierde sin volver a aparecer',
+    },
+    fueraDeTema: ['preguntar el precio', 'no acordarte de haber hablado antes'],
+    encarna: 'avatar',
+    primerMensaje: ['oye esta semana no voy a poder', 'se me complico, no llego', 'perdon, no puedo ir'],
+    minRespuestas: 1,
+    obligatorio: false,
+  },
 ];
 
 export const escenarioPorId = (id: string): Escenario | null => ESCENARIOS.find((e) => e.id === id) ?? null;
@@ -323,16 +423,23 @@ export const guionDelTurno = (e: Escenario, turno: number): string =>
   e.evolucion[Math.min(Math.max(turno, 0), e.evolucion.length - 1)];
 
 /**
- * Los escenarios que corresponden a este workspace. Los que arrancan de un audio
- * de agendamiento se caen solos si el negocio no tiene reuniones en su funnel:
- * ensayar cómo preparar una llamada que nunca ocurre no enseña nada, igual que
- * el del video cuando no hay link.
+ * Los escenarios que corresponden a este workspace.
+ *
+ * Cada escenario cuelga de un AUDIO, así que la regla es una sola y no se puede
+ * desincronizar: si el audio no está entre los que este negocio graba, el
+ * escenario tampoco va. Ensayar cómo preparar una llamada que nunca ocurre no
+ * enseña nada — y ensayar contra un lead que «dejó sus datos en un anuncio»
+ * cuando nadie los deja es peor, porque entrena el reflejo equivocado.
+ *
+ * ⚠️ SIN DEFAULT en `entradas` ni en `canal`, por lo mismo que `audiosDe`: el
+ * `hayReunion = true` que había acá le daba a cualquier caller distraído los
+ * escenarios del funnel del dueño de la agencia.
  */
-export function escenariosDe(hayVideo: boolean, hayReunion = true): Escenario[] {
+export function escenariosDe(hayVideo: boolean, entradas: EntradaId[], canal: CanalId | null): Escenario[] {
+  const claves = new Set(audiosDe(entradas, canal).map((a) => a.clave));
   return ESCENARIOS.filter((e) => {
     if (e.requiereVideo && !hayVideo) return false;
-    if (!hayReunion && defDeClave(e.audio)?.requiereReunion) return false;
-    return true;
+    return claves.has(e.audio as ClaveAudio);
   });
 }
 

@@ -564,6 +564,47 @@ marcar un lead como "Nutrición - Manual" **exige una confirmación con MOTIVO**
 guardar: es la salida de emergencia del funnel, y sin justificación se usa para tapar cualquier
 cosa.
 
+### El funnel modela el RECORRIDO y no los ACTIVOS, y eso deja al chatbot inventando
+
+**Vive en:** `lib/pipeline.ts` (`Stage`, `:29-42`) · `lib/leads.ts:1439-1472` (`getFunnel`/`saveFunnel`) ·
+`supabase/migrations/0025_funnel_config.sql:15-20`
+
+Una etapa dice a dónde llega el lead. No dice **con qué**: si hay landing, si hay video, si
+entró por un formulario de anuncio o por un mensaje frío, si se agendó solo o lo agendaron.
+`Stage` no tiene ningún atributo de activo y el brief del negocio (`lib/onboarding.ts:17-49`)
+tampoco lo pregunta. Grep de `tiene_landing|canal_adquisicion|prospecc` sobre `lib/` y `app/`:
+cero.
+
+Lo más cerca que hay es `leads.origen_lead`, que es **por lead y descriptivo** (ws1: 790
+`instant_form` + 65 `calendly`; ws11: 27 `NULL`). Sirve como evidencia para sugerir, nunca
+como fuente.
+
+Quien paga la cuenta es todo lo que genera contenido a partir del funnel. El caso completo
+—una clienta que prospecta en frío grabando un audio que dice «vi que dejaste tus datos en el
+anuncio»— está en
+[hallazgos-comunicacion.md → El Chatbot y el funnel](hallazgos-comunicacion.md#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+**Dónde va el campo cuando se agregue:** `funnel_config.data` es **jsonb libre** (hoy guarda
+`{pipeline, suppressed}`, `lib/leads.ts:1439,1456-1459`), así que un eje nuevo **no necesita
+migración**. Y `null` («no declarado») tiene que ser distinto de `[]` («declarado vacío»):
+hoy `getFunnel` cae a `DEFAULT_PIPELINE` con `agenda:'reunion'` tanto si no hay fila como si
+hubo **error de Supabase** (`:1455,1460` · `lib/pipeline.ts:316,318`), o sea que un cliente
+nuevo, o cualquiera durante una caída, recibe el funnel del dueño y nadie se entera.
+
+*2026-08-10 ~chatbot-funnel-leila*
+
+### El canal declarado solo se propaga al funnel por uno de los dos caminos
+
+**Vive en:** `app/api/onboarding/fase/route.ts:35,38` · `app/api/onboarding/route.ts:261-274`
+
+`app/api/onboarding/route.ts` (el wizard) propaga el canal al funnel; el hub
+(`fase/route.ts:38`) llama solo a `setDiagnosticoFase` y **no propaga**. Rehacer el
+diagnóstico desde el hub deja el funnel viejo, en silencio — que es el mismo síntoma que la
+sección de arriba, por la otra puerta. Va a **una** función que llamen los dos. Y `:35`
+castea `body.canal as CanalId` sin validar contra `CANALES`.
+
+*2026-08-10 ~chatbot-funnel-leila*
+
 ---
 
 ## Datos sin marcar y el motor automático

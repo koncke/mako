@@ -29,6 +29,10 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   decorativo. Ver [Avisos y reportes](#avisos-y-reportes).
 - **Los comentarios del código mienten seguido acá**: juran un arreglo, un orden o un
   relleno que ninguna rama hace. Ver [WhatsApp no oficial](#whatsapp-no-oficial-evolution).
+- **El chatbot le pone a todo cliente el funnel de Mauricio**, y no por falta de contexto:
+  el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
+  que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
+  Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
 
 ---
 
@@ -1522,3 +1526,231 @@ huérfanos.
 
 **Vive en:** app/api/webhooks/evolution/route.ts:133-152 · lib/mako-doer-in.ts · *2026-08-05
 ~fathom-preguntas-lote-whatsapp-forense*
+
+---
+
+## El Chatbot (ex Setting / Chat Agent) y el funnel del cliente
+
+Todo lo de acá salió de la corrida `chatbot-funnel-leila` (13 subagentes, 2026-08-10), con
+lectura de producción por `SELECT`. Los cuatro puntos que se citan con línea exacta están
+**re-verificados contra el código de hoy**.
+
+### ⚠️ El chatbot mira la SALIDA del funnel, y lo que separa a un cliente de otro es la ENTRADA
+
+**Síntoma.** Leila (ws11) vende por WhatsApp: campañas de mensajes, prospección en frío y un
+lead magnet. No tiene landing, no tiene VSL y nadie se agenda solo. El sistema le pidió tres
+audios y ella grabó los tres; el de Bienvenida dice, textual, *«vi que dejaste tus datos en
+el anuncio»*. Sus 27 leads tienen `meta_lead_id = 0` y `origen_lead` todo `NULL`: **ninguno
+dejó sus datos en ningún anuncio.** El audio es inservible y ya está grabado.
+
+**Causa.** El único eje que el chatbot lee del funnel es
+`hayReunion = stages.some(s => s.kind === 'reunion')`
+(`app/api/chat-agent/audios/route.ts:62`, `.../onboarding/resumen/route.ts:80`), que describe
+**cómo termina** el embudo. Y `hayReunion` no la distingue de Mauricio: ella **sí** hace
+llamadas (3 leads con `fecha_junta_1` en prod). Lo que no tiene es **formulario de anuncio ni
+agendamiento automático** — o sea, la entrada. Ese dato no existe como campo en ningún lado:
+grep de `tiene_landing|canal_adquisicion|prospecc` sobre `lib/` y `app/` da cero. `Stage`
+(`lib/pipeline.ts:29-42`) no tiene ningún atributo de activo, y el brief del negocio
+(`lib/onboarding.ts:17-49`, 18 campos) no lo pregunta.
+
+**La regla.** Un funnel modelado solo por sus etapas describe el recorrido y **no** los
+activos que lo hacen posible. Antes de derivar contenido de un funnel, separar qué de la
+premisa es *etapa* y qué es *activo declarado* (landing, video, formulario, agenda
+automática, lead magnet). Los activos se declaran; no se infieren de la forma del pipeline.
+
+**Vive en:** `lib/pipeline.ts` (`Stage`) · `lib/leads.ts:1439-1472` (`getFunnel`/`saveFunnel`) ·
+`lib/audios-paso.ts` · `app/api/chat-agent/audios/route.ts:62` · *2026-08-10 ~chatbot-funnel-leila*
+
+### El contexto del funnel SÍ le llega a MaKo, y pierde contra la instrucción que está 15 líneas más abajo
+
+**Síntoma.** El diagnóstico obvio —«MaKo no sabe el funnel del cliente, hay que pasárselo»—
+**era el equivocado**, y perseguirlo habría costado el trabajo entero. `resumenFunnel()`
+(`lib/mako-context.ts:51-67`) ya inyecta el funnel textual en cuatro features:
+`guion-audio/route.ts:88`, `ensayo/route.ts:190`, `lib/setting-simulador.ts:137`,
+`lib/nutricion-generator.ts:259`. El modelo tenía el dato y escribió el audio equivocado igual.
+
+**Causa.** El funnel entra como **dato descriptivo**, arriba; el catálogo de Mauricio entra
+como **orden**, abajo. `lib/audios-paso.ts:47` («Menciona de dónde llegó su dato: dejó sus
+datos en el anuncio») viaja crudo hasta el bloque encabezado *«QUÉ TIENE QUE DECIR EL AUDIO,
+EN ESTE ORDEN»* (`guion-audio/route.ts:53,118`). Un imperativo concreto le gana a un párrafo
+de contexto, siempre.
+
+**La regla, con el molde ya escrito en el mismo archivo.** Es la regla de AGENTS.md («una
+regla en un prompt no es una regla») en su forma positiva: el link de video se resuelve
+**determinísticamente** con `guionDe(def, linkVideo)` (`lib/audios-paso.ts:94-99`), que
+inserta el bullet solo si hay link, **y además** manda al prompt una prohibición explícita,
+`VIDEO_SIN` (`guion-audio/route.ts:72`): *«este negocio no tiene ningún video configurado. NO
+menciones videos, links ni material para ver»*. Dato → guion determinista → regla negativa.
+Cualquier eje nuevo del funnel se consume copiando ese molde, no agregando contexto arriba.
+
+**Vive en:** `lib/audios-paso.ts:44,47,94-99` · `app/api/chat-agent/onboarding/guion-audio/route.ts:53,71-72,88,117-118` ·
+`lib/mako-context.ts:51-67` · *2026-08-10 ~chatbot-funnel-leila*
+
+### La premisa del origen está repetida en los 9 escenarios del ensayo, y ahí manda sobre todo
+
+`quien: 'dejaste tus datos en un anuncio…'` aparece en
+`lib/chat-agent-escenarios.ts:106,133,156,202,224,246` y llega al prompt por `bloqueEscenario`
+(`:368`), donde el propio texto dice *«Ese renglón manda sobre todo lo demás»*
+(`ensayo/route.ts:68`). `escenariosDe` (`:331-337`) filtra por `requiereVideo` y por la reunión
+del audio asociado — **nunca por el origen**. Peor: `fueraDeTema` prohíbe explícitamente «decir
+que no recuerdas haber dejado tus datos» (`:121,145`), que es la reacción número uno de alguien
+contactado en frío. El ensayo entrena contra la realidad del cliente.
+
+**Vive en:** `lib/chat-agent-escenarios.ts:106,121,133,145,156,202,224,246,331-337,368` · *2026-08-10 ~chatbot-funnel-leila*
+
+### Las secuencias de audios nacen colgadas de columnas que un cliente sin Meta nunca llena
+
+`lib/secuencias-audios.ts:76` cuelga de `trigger:'instant_form_sin_agenda'`, que exige
+`meta_lead_id NOT NULL` (`lib/nutricion.ts:320`) — lo escribe **solo** el ingest de Meta
+lead-ads. `:128` cuelga de `'agendado_sin_confirmar'`, que exige `fecha_junta_1` futura
+(`lib/nutricion.ts:362-370`). Para un workspace con 0 leads de Meta: el cliente graba,
+aprueba, prende la secuencia y **no sale un solo mensaje**. Sin aviso, sin log, con la
+pantalla diciendo que está activa.
+
+**La regla.** Toda secuencia que se crea sola tiene que **contar su cohorte al activarse** y
+decirlo en pantalla si da 0. La mitad del dato ya existe y se tira: `GET /resumen` devuelve
+`sinGrabar` y la UI ni lo lee (`resumen/route.ts:85` vs `OnboardingChatAgent.tsx:569`).
+
+Adyacente y vivo: esas secuencias nacen con `estrategia` NULL (`lib/secuencias-audios.ts:149-152`
+no la setea), y eso hace que `asistirRespuesta` retorne en silencio — ver
+[Nutrición](#nutrición-y-secuencias). Verificado en prod: las 11 secuencias de ws11 tienen
+`estrategia` NULL.
+
+**Vive en:** `lib/secuencias-audios.ts:76,87,116-121,128,149-152` · `lib/nutricion.ts:320,362-370` · *2026-08-10 ~chatbot-funnel-leila*
+
+### Todo el chatbot falla ABIERTO hacia el funnel del dueño
+
+Cuatro defaults, los cuatro optimistas: `hayReunion` arranca en `true` en el cliente
+(`app/chatbot/OnboardingChatAgent.tsx:315`), `escenariosDe` tiene `hayReunion = true` por
+default (`lib/chat-agent-escenarios.ts:331`), y `getFunnel()` cae a `DEFAULT_PIPELINE` con
+`agenda:'reunion'` tanto si no hay fila como si hubo **error** (`lib/leads.ts:1455,1460` ·
+`lib/pipeline.ts:316,318`). Un cliente sin funnel declarado —o con Supabase caído— recibe el
+funnel de Mauricio y no se entera. Es la misma forma del guard en negativo que AGENTS.md ya
+prohíbe: `null` («no declarado») tiene que ser distinto de un default que afirma algo.
+
+**Vive en:** `app/chatbot/OnboardingChatAgent.tsx:315` · `lib/chat-agent-escenarios.ts:331` ·
+`lib/leads.ts:1455,1460` · `lib/pipeline.ts:316,318` · *2026-08-10 ~chatbot-funnel-leila*
+
+### Tres roturas silenciosas más, verificadas a mano
+
+- **`/api/chat-agent/envio` no existía** (ARREGLADO 2026-08-10). `app/chatbot/OnboardingChatAgent.tsx:367`
+  la llamaba; `app/api/chat-agent/` tiene solo `audios`, `onboarding`, `secuencias` y
+  `simulador`, y no hay rewrite en `next.config.ts`. Medido contra el dev server: esa ruta da
+  **404 con HTML**, así que `.json()` reventaba, lo tragaba el catch mudo de `:369`, `canales`
+  quedaba `null` y el paso `wa_oficial` mostraba **siempre** «no está conectado» (`:1169`). Es
+  exactamente el bug que el comentario de `:355-362` juraba haber arreglado la vez anterior —
+  otro caso de la sección «los comentarios mienten». Ahora apunta a `/api/whatsapp/envio`, que
+  devuelve las tres claves que el componente esperaba (`{ok, envioHabilitado, oficialConectado,
+  evolutionConectado}`).
+  **La regla que queda, que es más grande que el bug:** el catch ya no puede ser mudo, porque
+  era lo único que separaba «no está conectado» de «no pudimos preguntarlo», y un `null` que se
+  pinta como una afirmación es una mentira en pantalla. Por eso el error vive en su propio
+  estado (`canalesErr`) y no colapsado en el `null` del dato. Ojo también con el guard: ese GET
+  exige **rol admin del workspace**, así que a un miembro le da 403 — que sin el estado aparte
+  se leía como «desconectado».
+- **`setting.guion_audio` no está en `lib/prompt-registry.ts`** (0 hits; sus cinco hermanos
+  `setting.*` sí están, `:355,362,369,411,418`), aunque se renderiza con `renderPrompt`
+  (`guion-audio/route.ts:101`). El prompt más atado al funnel es el único que no se puede ni
+  parchear desde `/configuraciones`.
+- **`contextoDe()` devuelve `null` sin avisar** para la etapa `conversando`
+  (`lib/etapas-contexto.ts:26-97,100`), que es la etapa central de la plantilla `conversaciones`
+  (`lib/pipeline.ts:520`) — justo la de un negocio que vende por chat. `SecuenciaWizard.tsx:290`
+  simplemente no pinta la caja. Y `huecosDeSecuencias` excluye `reunion_excepcional` pero no
+  `noshow_r3` (`lib/secuencias-huecos.ts:27`), así que a un funnel sin reuniones le reclama
+  igual una secuencia de No Show R3.
+
+**Vive en:** `app/chatbot/OnboardingChatAgent.tsx:355-369,1169` · `lib/prompt-registry.ts` ·
+`lib/etapas-contexto.ts:100` · `lib/secuencias-huecos.ts:27` · *2026-08-10 ~chatbot-funnel-leila*
+
+### El canal declarado no se propaga al funnel cuando el diagnóstico se rehace desde el hub
+
+`app/api/onboarding/route.ts:261-274` propaga el canal al funnel; `app/api/onboarding/fase/route.ts:38`
+llama solo a `setDiagnosticoFase` y **no propaga**. Rehacer el diagnóstico desde el hub deja el
+funnel viejo y no lo nota nadie. Además `:35` castea `body.canal as CanalId` sin validar contra
+`CANALES`. Es una regla en dos lugares: va a **una** función (`aplicarCanalAlFunnel`) que llamen
+los dos.
+
+**Vive en:** `app/api/onboarding/fase/route.ts:35,38` · `app/api/onboarding/route.ts:261-274` · *2026-08-10 ~chatbot-funnel-leila*
+
+### Resetear el chatbot de un cliente real: qué se puede y qué no
+
+`resetearWorkspace` **no sirve** para esto y no debería: `exigirClienteDePrueba`
+(`lib/auth-session.ts:73-81`, `WS_PRUEBA=3`) bloquea cualquier workspace real en las tres capas
+(`lib/reset-workspace.ts:110`, `app/api/datos-mau/route.ts:31-37`, `app/_components/PanelAgencia.tsx:194`),
+con test explícito que itera `[9,10,11,42]` (`tests/reset-workspace.test.ts:49-56`). Y si se
+saltara, además de los datos **corta la sesión de Evolution** (`lib/reset-workspace.ts:120-126`):
+hay que re-escanear el QR. No deja backup, a diferencia de los scripts one-off.
+
+Lo que sí existe y **funciona en cualquier workspace** (guard = admin del ws):
+
+| Qué | Cómo | Nota |
+|---|---|---|
+| Borrar un audio | `DELETE /api/chat-agent/audios?id=N` (`route.ts:128-145`) | borra fila + binario + la clave del mapa `chat_agent.audios_clave` en un golpe |
+| Archivar todas las secuencias | `POST /api/chat-agent/secuencias {action:'archivar'}` (`route.ts:139-144`) | archiva, no borra; reversible con `desarchivarSecuencia` |
+| Reabrir la tab | `POST /api/chat-agent/onboarding {action:'reabrir'}` (`route.ts:57-59`) | resetea la tab **entera**, no un paso, y **no tiene ningún caller en la UI** |
+
+Para volver un paso solo, se escribe `onboarding.tab.setting.steps.<paso>.done = false` en
+`app_settings`. ⚠️ Y no copiar `scripts/wipe-chart-chats.mjs` como molde: `:20-21` hace
+`DELETE FROM chart_chats` **sin `workspace_id`**.
+
+**El orden importa:** resetear antes de arreglar el catálogo no sirve de nada — el cliente
+regraba exactamente el mismo audio equivocado, porque `lib/audios-paso.ts:44,47` no cambió. El
+reset es el último paso.
+
+**Vive en:** `lib/reset-workspace.ts` · `lib/auth-session.ts:73-81` · `app/api/chat-agent/audios/route.ts:128-145` ·
+`app/api/chat-agent/onboarding/route.ts:57-59` · `lib/secuencias-huecos.ts:90-123` · *2026-08-10 ~chatbot-funnel-leila*
+
+### Lo que se hizo (2026-08-10) y lo que quedó a mitad
+
+**Hecho, con tests:** el eje `funnel_config.data.entradas` (5 valores, array, `[]` = no
+declarado) + `evento` + el canal `presencial` con su plantilla; `audiosDe(entradas, canal)`
+y `escenariosDe(hayVideo, entradas, canal)` **sin default**; cuatro audios nuevos
+(`bienvenida_landing`, `apertura_fria`, `respuesta_entrante`, `evento_confirmado`) con los
+tres de ws1 **intactos y congelados por `assert.equal` literal**; cuatro escenarios de
+ensayo para prospección en frío y evento; `guionDe(def, {linkVideo, evento})`; las
+`PROHIBICIONES` con `violaPerfil` + un reintento en `guion-audio/route.ts`; la tarjeta
+«¿Cómo entra tu gente?» en `/funnel`; el merge del jsonb en `saveFunnel`; el guard de rol
+que le faltaba a `saveFunnelAction`; y el gate de Fathom por conexión viva.
+
+**Sin terminar, y hay que saberlo antes de seguir:**
+
+- **La tarjeta no PREMARCA nada.** El diseño pedía inferir la entrada de la evidencia real
+  (`leads.origen_lead`, `meta_lead_id`, la dirección del primer mensaje de `wa_mensajes`) y
+  que el cliente solo confirmara. Hoy elige de cero. `lib/funnel-evidencia.ts` no existe.
+  ⚠️ El join de WhatsApp es la parte frágil: `wa_mensajes.lead_id` está casi vacío y
+  `wa_mensajes.telefono` es el jid (`5219983928070`) contra `leads.telefono_normalizado`
+  (`9984607078`) — la igualdad exacta da **cero filas en los tres workspaces**. Hay que
+  matchear por los últimos 10 dígitos, acotado al workspace.
+- **No hay backfill.** Los workspaces existentes arrancan con `entradas: []`, así que el
+  paso de audios les va a pedir declararlo antes de grabar. Para ws1 la evidencia es dura
+  (790 leads con `instant_form` + 65 con `calendly`) y el backfill es un UPDATE de una fila.
+  ⚠️ ws5 y ws9 **no tienen fila** en `funnel_config` y no hay que crearla: ver la entrada de
+  `hallazgos-crm.md` sobre por qué «sin fila» no es «vacío».
+- **Falta el escritor único de canal.** `app/api/onboarding/fase/route.ts:38` sigue sin
+  propagar el canal al funnel ni validar `body.canal` contra `CANALES`. Con un canal nuevo
+  esto empeora: se puede elegir «presencial» desde el hub y quedarse con el funnel de
+  llamadas para siempre.
+- **Faltan los consumidores de segunda línea:** `lib/secuencias-audios.ts` sigue colgando de
+  `instant_form_sin_agenda` (que exige `meta_lead_id`) sin mirar `entradas`;
+  `lib/setting-estrategia.ts` no tiene el objetivo `'asistir'`, así que **la secuencia «nos
+  vemos el miércoles» no tiene forma de parar** cuando la persona ya fue; y
+  `landing-writer.ts:150`, `landing-analyst.ts:345` y `campaign-structurer.ts:144` siguen
+  leyendo la entrada del LABEL de una etapa.
+- **`onboarding.funnel_tipos` sigue escribiéndose** (1 escritor, 0 lectores).
+
+### Lo que sigue sin hacer
+- El **inbox de WhatsApp tiene su propio funnel hardcodeado en cuatro copias**
+  (`lib/wa-etapas.ts:48`, `app/api/whatsapp/conversations/route.ts:29`, `lib/meta-rules.ts:78`,
+  `app/whatsapp/WhatsAppApp.tsx:227`), ciego a `funnel_config`. Todos los leads de un cliente
+  así quedan en «Abierto» para siempre, y ese label es lo único que recibe
+  `lib/whatsapp-advisor.ts:175`. Es la pantalla donde vive un cliente que vende por chat.
+- **Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces**, ninguno
+  en el registry. El peor: `app/api/email/generar/route.ts:18-24` mete el Calendly de Mauricio
+  como CTA de cualquier cliente.
+- `saveFunnelAction` (`app/crm/actions.ts:1771`) **no valida rol**.
+- `/comercial` y las vistas `v_cohortes_*` filtran `fecha_junta_1 IS NOT NULL` **en SQL**
+  (`supabase/migrations/0001_initial_schema.sql:159-168,197-207`): para un cliente sin llamadas
+  no es un flag, es una migración.
+- `generateFunnel` siembra «Reunión excepcional» y «No Show R3» en todo funnel con etapa
+  `kind:'pago'` (`lib/pipeline.ts:429-439`), y **no** genera Reactivación salvo que haya
+  reunión (`:451`) — que es justo la que más le sirve a quien prospecta en frío.

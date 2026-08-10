@@ -23,6 +23,7 @@ import {
   type EstadoMadurez,
 } from './leads';
 import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
+import { encuentroGrabable } from './encuentro-ws';
 import { adjuntarFathomAutoThrottled } from './fathom-auto';
 import { registrarEtapasDerivadas } from './etapa-historial';
 import { etapaVigenteDe, slotDeReunion } from './funnel-etapas';
@@ -2148,6 +2149,9 @@ async function _getPendientesDeMarcar(
   const conR2Resp = new Set(respRows.map((r) => r.lead_id));
   // Funnel del workspace (una vez): requisitos correctos para funnels no-default.
   const funnelPipeline = await getPipelineStages().catch(() => undefined);
+  // Un encuentro que no deja grabación no puede tener «falta el link de Fathom»
+  // como dato sin marcar: sería una tarea imposible, repetida por cada lead.
+  const grabable = await encuentroGrabable();
 
   const items: PendienteItem[] = [];
 
@@ -2198,7 +2202,7 @@ async function _getPendientesDeMarcar(
     // los que más lo necesitan) y de su propio detalle en la fila, que pasaba de
     // "Faltan: Setter · Empresa" a una frase que no dice qué cargar. Con la etapa
     // efectiva, esa población dejó de ser marginal.
-    const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline });
+    const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline, grabable });
     // "Empresa" ignorada (empresa_omitido) NO notifica en el worklist del CRM general
     // (sigue visible como recordatorio suave en la ficha, que usa faltantesDeLead directo).
     const faltanSinEmpresa = l.empresa_omitido ? faltanRaw.filter((f) => f.id !== 'empresa') : faltanRaw;

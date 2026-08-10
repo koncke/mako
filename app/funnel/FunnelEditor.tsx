@@ -88,11 +88,19 @@ export function FunnelEditor({
   initialPipeline,
   initialSuppressed,
   embedded = false,
+  encabezado,
 }: {
   initialPipeline: Stage[];
   initialSuppressed: string[];
   /** Embebido dentro de /configuraciones: sin <main>/título propios. */
   embedded?: boolean;
+  /**
+   * Slot que se pinta DENTRO del `<main>`, entre el título y el diagrama. Existe
+   * para la declaración de las entradas: puesta como hermana en la page quedaba
+   * fuera del `<main>` —que lo dibuja este componente— y por lo tanto fuera del
+   * ancho y del padding de la pantalla, pegada al borde izquierdo.
+   */
+  encabezado?: React.ReactNode;
 }) {
   const [pipeline, setPipeline] = useState<Stage[]>(initialPipeline);
   const [suppressed, setSuppressed] = useState<string[]>(initialSuppressed);
@@ -223,6 +231,8 @@ export function FunnelEditor({
         )}
         <button onClick={() => setShowTemplates(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>▦ Plantillas</button>
       </header>
+
+      {encabezado && <div style={{ marginTop: 20 }}>{encabezado}</div>}
 
       {/* MAPA (solo lectura) */}
       <div

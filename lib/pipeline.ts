@@ -464,10 +464,214 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
   return { stages, transitions };
 }
 
+// ── Cómo ENTRA un lead ───────────────────────────────────────────────────────
+/**
+ * EL EJE QUE FALTABA. Un funnel modelado solo por sus etapas describe el
+ * RECORRIDO y no dice nada de los ACTIVOS que lo hacen posible: si hay landing,
+ * si hay video, si existe un formulario de anuncio, si la gente agenda sola. El
+ * pipeline es lo que le pasa al lead DESPUÉS; esto es cómo llegó.
+ *
+ * ⚠️ El síntoma que lo trajo: una clienta que prospecta en frío por WhatsApp
+ * grabó, porque el sistema se lo pidió, un audio que arranca «vi que dejaste tus
+ * datos en el anuncio». Sus leads tienen `meta_lead_id = 0` y `origen_lead` NULL:
+ * ninguno dejó sus datos en ningún lado. Y no fue por falta de contexto — el
+ * funnel textual YA viajaba en el prompt (`resumenFunnel`); perdía contra el
+ * bullet imperativo del catálogo de audios, quince líneas más abajo. Por eso el
+ * consumo de este eje es DETERMINISTA (el guion se arma en código) y encima
+ * manda una prohibición explícita al modelo. Ver `guionDe` en lib/audios-paso.ts.
+ *
+ * ⚠️ NO vive adentro de `Stage`, a propósito, y no es una preferencia de estilo:
+ * `applyTemplate` en app/funnel/FunnelEditor.tsx hace `setPipeline(tpl.pipeline)`
+ * y `pk()` reconstruye cada Stage desde DEFAULT_STAGES. Un campo colgado del
+ * Stage sobrevive por spread accidental y se borra con UN clic en «Aplicar
+ * plantilla», sin error y sin log. Vive en `funnel_config.data.entradas`.
+ */
+export type EntradaId = 'formulario_anuncio' | 'landing' | 'agenda_sola' | 'chat_entrante' | 'chat_saliente';
+
+export type EntradaDef = {
+  id: EntradaId;
+  label: string;
+  /** El subtexto de la tarjeta. Es lo que desambigua, así que se escribe con ejemplos. */
+  desc: string;
+  /**
+   * ¿Existe un dato que él dejó? Gobierna dos cosas que hoy están hardcodeadas:
+   * si el audio puede decir «de dónde llegó tu dato», y si «no me acuerdo de
+   * haber dejado mis datos» es una objeción fuera de tema o la reacción más
+   * probable del ensayo.
+   */
+  dejoDatos: boolean;
+  /** Quién dio el primer paso. Decide si el primer audio se presenta o retoma. */
+  empieza: 'lead' | 'negocio';
+  /** La premisa del lead en los escenarios del ensayo. Segunda persona, como le habla el bot. */
+  quien: string;
+  /** El objetivo de campaña de Meta que corresponde. Lo consume campaign-structurer. */
+  objetivoMeta: 'leads_instant' | 'leads_web' | 'mensajes' | 'trafico';
+};
+
+/**
+ * ⚠️ Son CINCO y no más, y las dos que faltan son deliberadas:
+ *
+ * - NO hay `referido`: un audio de referido tiene que decir QUIÉN lo refirió, y
+ *   eso es una variable por lead. Los guiones de audio no admiten variables (la
+ *   restricción está escrita en la cabecera de lib/audios-paso.ts). Prospección,
+ *   lista fría, campaña de mensajes y el referido que contactás vos caen todos en
+ *   `chat_saliente`, que es la verdad a nivel de la frase que se escucha.
+ * - NO hay `carga_manual`: `origen_lead = NULL` es un tacho (alta a mano, import,
+ *   lead creado desde el inbox), no una señal. Una entrada se afirma con evidencia
+ *   positiva, nunca por descarte.
+ */
+export const ENTRADAS: Record<EntradaId, EntradaDef> = {
+  formulario_anuncio: {
+    id: 'formulario_anuncio', label: 'Dejan sus datos en el anuncio',
+    desc: 'El formulario de Facebook o Instagram, sin salir de la app.',
+    dejoDatos: true, empieza: 'lead', objetivoMeta: 'leads_instant',
+    quien: 'dejaste tus datos en un anuncio y todavía no hablaste con nadie',
+  },
+  landing: {
+    id: 'landing', label: 'Llenan un formulario en tu página',
+    desc: 'Una landing, tu web o un lead magnet que se descarga.',
+    dejoDatos: true, empieza: 'lead', objetivoMeta: 'leads_web',
+    quien: 'llenaste un formulario en su página y todavía no hablaste con nadie',
+  },
+  agenda_sola: {
+    id: 'agenda_sola', label: 'Agendan solos, desde un link',
+    desc: 'Eligen horario sin hablar con nadie antes.',
+    dejoDatos: true, empieza: 'lead', objetivoMeta: 'trafico',
+    quien: 'agendaste directamente desde un link, sin hablar con nadie antes',
+  },
+  chat_entrante: {
+    id: 'chat_entrante', label: 'Te escriben ellos primero',
+    desc: 'Por WhatsApp, un DM o un comentario.',
+    dejoDatos: false, empieza: 'lead', objetivoMeta: 'mensajes',
+    quien: 'le escribiste vos primero, por WhatsApp, y todavía no te contestó nadie',
+  },
+  chat_saliente: {
+    id: 'chat_saliente', label: 'Le escribes tú primero',
+    desc: 'Prospección, una lista, una campaña de mensajes.',
+    dejoDatos: false, empieza: 'negocio', objetivoMeta: 'mensajes',
+    quien: 'no lo conocés de ningún lado: te escribe él, de la nada, sin que hayas pedido nada',
+  },
+};
+
+export const esEntrada = (x: unknown): x is EntradaId =>
+  typeof x === 'string' && Object.prototype.hasOwnProperty.call(ENTRADAS, x);
+
+/** Dónde y cuándo ocurre el encuentro de fecha fija. `dias`: 0=domingo … 6=sábado. */
+export type EventoFunnel = { lugar: string | null; dias: number[]; hora: string | null; tz: string | null; cupo: number | null };
+
+// ⚠️ EL SANEO VIVE ACÁ, no en lib/leads.ts, y no es una preferencia de orden: ese
+// módulo tiene `server-only`, así que ningún test lo puede importar — y esto es
+// exactamente lo que decide si un prompt afirma «dejaste tus datos en el anuncio»
+// sobre alguien que nunca los dejó. Es el mismo criterio que `exigirClienteDePrueba`
+// y `lib/model-catalogo.ts`: la regla que más duele si falla va donde se pueda probar.
+
+/** Whitelist + dedup + tope. Cualquier basura cae a `[]`, que es «no declarado». */
+export function parseEntradas(v: unknown): EntradaId[] {
+  if (!Array.isArray(v)) return [];
+  const out: EntradaId[] = [];
+  for (const x of v) if (esEntrada(x) && !out.includes(x)) out.push(x);
+  return out.slice(0, 3);
+}
+
+export function parseEvento(v: unknown): EventoFunnel | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const txt = (x: unknown): string | null => (typeof x === 'string' && x.trim() ? x.trim().slice(0, 200) : null);
+  const dias = Array.isArray(o.dias)
+    ? [...new Set(o.dias.filter((d): d is number => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 6))]
+    : [];
+  const cupo = typeof o.cupo === 'number' && Number.isFinite(o.cupo) && o.cupo > 0 ? Math.floor(o.cupo) : null;
+  const hora = typeof o.hora === 'string' && /^\d{1,2}:\d{2}$/.test(o.hora.trim()) ? o.hora.trim() : null;
+  const ev: EventoFunnel = { lugar: txt(o.lugar), dias, hora, tz: txt(o.tz), cupo };
+  // Un evento sin un solo dato no es un evento: sería una caja vacía que igual
+  // hace que la pantalla y los guiones se comporten como si hubiera uno.
+  return ev.lugar || ev.dias.length || ev.hora || ev.cupo != null ? ev : null;
+}
+
+/** Un pipeline guardado tiene que ser una lista de etapas con clave; si no, no es un pipeline. */
+export function sanearPipeline(v: unknown): Stage[] | null {
+  if (!Array.isArray(v) || !v.length) return null;
+  const ok = v.filter((s): s is Stage => !!s && typeof s === 'object' && typeof (s as Stage).key === 'string' && !!(s as Stage).key);
+  return ok.length ? ok : null;
+}
+
+/**
+ * El MERGE del jsonb de `funnel_config.data`, separado de la escritura para que
+ * se pueda probar sin Supabase.
+ *
+ * ⚠️ Existe porque `saveFunnel` escribía `data: { pipeline, suppressed }` —
+ * reemplazo total— y el editor de /funnel autoguarda en cada tecla. Cualquier
+ * otra clave del jsonb se borraba sola con un tipeo. Hoy `data.umbrales` (que
+ * lib/crm-auto.ts sí lee) no está escrito en ninguna fila, así que el daño no
+ * había ocurrido todavía; con `entradas` y `evento` viviendo ahí, dejaba de ser
+ * latente el primer día.
+ */
+export function mergeFunnelData(
+  previo: unknown,
+  pipeline: Stage[],
+  suppressed: string[],
+  extra?: Record<string, unknown>,
+): Record<string, unknown> {
+  const base = previo && typeof previo === 'object' && !Array.isArray(previo) ? (previo as Record<string, unknown>) : {};
+  return { ...base, pipeline, suppressed, ...(extra ?? {}) };
+}
+
+// ── Dónde se ENCUENTRAN (derivado del canal, nunca preguntado aparte) ────────
+/**
+ * La naturaleza del encuentro NO es un campo: se DERIVA del canal de cierre que
+ * el cliente ya declara. Preguntarla otra vez sería un segundo lugar para el
+ * mismo dato — y el canal ya la determina por completo.
+ *
+ * Lo que cambia con cada valor, que es la prueba de que el eje se gana su lugar:
+ *  · `modalidad` — un encuentro presencial se va a un LUGAR; el audio no puede
+ *    decir «te paso el link» y sí tiene que poder decir la dirección.
+ *  · `formato` — a un taller grupal no se le pide grabación de Fathom ni tiene
+ *    sentido concluir No Show por ausencia de video.
+ *  · `agenda` — si la fecha la pone el lead, hay un audio de «agendaste»; si la
+ *    pone el negocio (el taller es siempre el mismo miércoles), ese audio no
+ *    existe y el que sí existe es el de «nos vemos el miércoles».
+ */
+export type Encuentro = { modalidad: 'remoto' | 'presencial'; formato: 'uno_a_uno' | 'grupal'; agenda: 'lead' | 'fija' };
+
+export const ENCUENTRO_POR_CANAL: Record<CanalId, Encuentro | null> = {
+  llamadas: { modalidad: 'remoto', formato: 'uno_a_uno', agenda: 'lead' },
+  webinar: { modalidad: 'remoto', formato: 'grupal', agenda: 'fija' },
+  presencial: { modalidad: 'presencial', formato: 'grupal', agenda: 'fija' },
+  conversaciones: null,
+  carrito: null,
+};
+
+const encuentroDe = (c: CanalId | null | undefined): Encuentro | null => (c ? ENCUENTRO_POR_CANAL[c] ?? null : null);
+
+/**
+ * ¿Se espera que este encuentro deje grabación? Solo un 1:1 remoto Y con Fathom
+ * conectado. Se pasa la conexión como parámetro —estado vivo, no recordado— para
+ * que esto siga siendo puro y testeable.
+ *
+ * ⚠️ El default importa: con `canal` sin declarar devuelve lo mismo que hoy
+ * (grabable si Fathom está conectado). Un campo sin declarar no puede AFIRMAR un
+ * hecho nuevo, pero tampoco puede APAGAR una automatización que ya funciona.
+ */
+export const seGraba = (canal: CanalId | null | undefined, fathomConectado: boolean): boolean => {
+  if (!fathomConectado) return false;
+  const e = encuentroDe(canal);
+  if (!e) return !canal;  // sin canal declarado, se comporta como siempre
+  return e.modalidad === 'remoto' && e.formato === 'uno_a_uno';
+};
+
+/** ¿La fecha del encuentro la elige el lead? (Calendly, link de agenda) */
+export const agendaElLead = (canal: CanalId | null | undefined): boolean => encuentroDe(canal)?.agenda === 'lead';
+
+/** ¿El encuentro tiene fecha FIJA que pone el negocio? (el taller de todos los miércoles) */
+export const fechaFijaDelEvento = (canal: CanalId | null | undefined): boolean => encuentroDe(canal)?.agenda === 'fija';
+
 // ── Plantillas de funnel (arrancar sin configurar nada) ──────────────────────
 // Una plantilla es solo un PIPELINE (la fila de Activo); la nutrición y las
 // salidas las deriva generateFunnel.
-export type FunnelTemplate = { id: string; name: string; description: string; pipeline: Stage[] };
+// `suppressed` viaja con la plantilla porque hay pipelines que generan nutrición
+// que no aplica: uno con una sola sesión y `kind:'pago'` siembra igual «Reunión
+// excepcional» y «No Show R3» (ver generateFunnel), y el cliente las ve el día 1.
+export type FunnelTemplate = { id: string; name: string; description: string; pipeline: Stage[]; suppressed?: string[] };
 const pk = (key: string, kind: StageKind): Stage => ({ ...DEFAULT_STAGES.find((s) => s.key === key)!, kind });
 
 export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
@@ -522,6 +726,34 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
       pk('ganado', 'cierre'),
     ],
   },
+  {
+    // Chatear hasta llevarlo a una sesión presencial gratuita, y cerrar ahí. Es
+    // `conversaciones` con una parada más: la sesión.
+    //
+    // ⚠️ LA SESIÓN USA LA CLAVE CANÓNICA `agenda`, solo renombrada, y eso es lo
+    // que hace barata a esta plantilla. `deriveStageKey` la conoce, `slotPorIndice(0)`
+    // le da `fecha_junta_1`/`asistio_j1`, `funnelReqInfo` le da nivel 1, y las
+    // cohortes y /comercial la cuentan. O sea que «fue a la sesión» —la bisagra del
+    // negocio de quien vende así— es un hito de primera sin escribir una línea:
+    // `fecha_junta_1` es a qué fecha lo invitaste y `asistio_j1` si apareció.
+    // Inventar una clave nueva (`sesion`) la deja fuera de `deriveStageKey` y hace
+    // caer `effStage` a la PRIMERA etapa — la falla ya documentada de la plantilla
+    // `vsl`. Y usar `kind:'grupo'` en vez de `reunion` borra la asistencia entera,
+    // porque `reunionesDe` filtra solo por `kind === 'reunion'`.
+    id: 'presencial',
+    name: 'Sesión presencial · sin llamada',
+    description: 'Lead → conversación → sesión presencial gratuita → cobro. Para quien cierra en persona.',
+    pipeline: [
+      pk('lead', 'entrada'),
+      { key: 'conversando', label: 'Conversación abierta', dot: '#1FA855', tone: 'teal', kind: 'paso' },
+      { ...pk('agenda', 'reunion'), label: '1ª sesión sin costo' },
+      pk('facturando', 'pago'),
+      pk('ganado', 'cierre'),
+    ],
+    // Sin esto, `kind:'pago'` le siembra «Reunión excepcional» y «No Show R3» a un
+    // funnel de UNA sola sesión, y el cliente las ve en su primer día.
+    suppressed: ['nopaga>reunion_excepcional'],
+  },
 ]
 
 /**
@@ -557,6 +789,7 @@ export const TEMPLATE_POR_CANAL: Record<CanalId, string> = {
   conversaciones: 'conversaciones',
   carrito: 'directa',
   webinar: 'vsl',
+  presencial: 'presencial',
 };
 
 /**

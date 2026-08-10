@@ -21,7 +21,9 @@ import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import { Icon } from '@/app/_components/icons';
 import { Avatar } from '../whatsapp/_shared/Avatar';
 import { GrabadorAudioPaso, type AudioGrabado } from './GrabadorAudioPaso';
-import { audiosDe, PUBLICOS, type PublicoGenero } from '@/lib/audios-paso';
+import { audiosDe, defDeClave, PUBLICOS, type PublicoGenero } from '@/lib/audios-paso';
+import type { EntradaId } from '@/lib/pipeline';
+import type { CanalId } from '@/lib/fase-diagnostico';
 import { escenariosDe, type Escenario, type Desenlace } from '@/lib/chat-agent-escenarios';
 
 /**
@@ -262,6 +264,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
 
   // ── Paso canales ──
   const [canales, setCanales] = useState<{ oficialConectado: boolean; evolutionConectado: boolean; envioHabilitado: boolean } | null>(null);
+  // Separado de `canales` a propósito: sin esto, «no pudimos preguntar» y «no
+  // está conectado» son el mismo `null` y la pantalla afirma lo segundo.
+  const [canalesErr, setCanalesErr] = useState<string | null>(null);
   // WhatsApp de empresa: el QR se genera y se escanea ACÁ, sin mandar a otra tab.
   const [evo, setEvo] = useState<{ estado: string; numero: string | null } | null>(null);
   // Estado propio: `busy` es el del wizard (marcar el paso y avanzar), y
@@ -307,12 +312,18 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   const [otra, setOtra] = useState('');
   const [escribiendoOtra, setEscribiendoOtra] = useState(false);
 
-  // ── Paso voz: los 3 audios ──
+  // ── Paso voz: los audios ──
   const [audios, setAudios] = useState<AudioGrabado[] | null>(null);
   const [porClave, setPorClave] = useState<Record<string, number>>({});
   const [audioAbierto, setAudioAbierto] = useState<string | null>(null);
   const [linkVideo, setLinkVideo] = useState('');
-  const [hayReunion, setHayReunion] = useState(true);
+  // ⚠️ Arranca VACÍO y sin canal, no en «lo más común». El estado anterior era
+  // `hayReunion = true`, y ese default optimista es la última copia del bug: hacía
+  // que cualquier negocio, mientras cargaba o si la lectura fallaba, viera los
+  // audios del funnel del dueño de la agencia. `[]` significa «todavía no sé», y
+  // la pantalla lo dice en vez de pedir que graben algo que capaz no va.
+  const [entradas, setEntradas] = useState<EntradaId[]>([]);
+  const [canalVenta, setCanalVenta] = useState<CanalId | null>(null);
   const [publico, setPublico] = useState<PublicoGenero>('mixto');
 
   // ── Paso final: qué secuencias quedaron armadas con los audios ──
@@ -360,15 +371,29 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // de una versión previa del wizard. El fetch no corría nunca, `canales` se
   // quedaba en null y el paso wa_oficial mostraba SIEMPRE "no está conectado",
   // aunque lo estuviera.
+  //
+  // ⚠️ Y el arreglo de arriba tampoco alcanzó, porque `/api/chat-agent/envio`
+  // NO EXISTE: el 404 devuelve HTML, `.json()` tira, el catch se lo comía sin
+  // decir nada y el síntoma volvía a ser exactamente el mismo. El estado del
+  // envío lo sirve `/api/whatsapp/envio`, con estas tres claves. Por eso el
+  // catch de acá ya no puede ser mudo: era lo único que separaba «no está
+  // conectado» de «no pudimos preguntarlo», y afirmar lo primero cuando pasó
+  // lo segundo es una mentira en pantalla. Ojo: ese GET exige rol admin del
+  // workspace, así que un miembro cae siempre en la rama de abajo.
   useEffect(() => {
-    if (def?.pasos[idx]?.key !== 'wa_oficial' || canales) return;
+    if (def?.pasos[idx]?.key !== 'wa_oficial' || canales || canalesErr) return;
     void (async () => {
       try {
-        const j = await (await fetch('/api/chat-agent/envio', { cache: 'no-store' })).json();
+        const r = await fetch('/api/whatsapp/envio', { cache: 'no-store' });
+        const j = await r.json();
         if (j.ok) setCanales({ oficialConectado: j.oficialConectado, evolutionConectado: j.evolutionConectado, envioHabilitado: j.envioHabilitado });
-      } catch { /* sin datos */ }
+        else setCanalesErr(j.error || `Error ${r.status}`);
+      } catch (e) {
+        console.error('[chatbot] no se pudo leer el estado del envío de WhatsApp:', e);
+        setCanalesErr('Sin conexión con el servidor.');
+      }
     })();
-  }, [def, idx, canales]);
+  }, [def, idx, canales, canalesErr]);
 
   const pasoKey = (def?.pasos[idx]?.key ?? 'wa_no_oficial') as PasoKey;
   const enUltimo = !!def && idx === def.pasos.length - 1;
@@ -503,10 +528,12 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       setAudios(j.audios ?? []);
       setPorClave(j.porClave ?? {});
       setLinkVideo(j.linkVideo ?? '');
-      setHayReunion(j.hayReunion !== false);
+      const ents: EntradaId[] = Array.isArray(j.entradas) ? j.entradas : [];
+      setEntradas(ents);
+      setCanalVenta((j.canal ?? null) as CanalId | null);
       if (j.publico) setPublico(j.publico as PublicoGenero);
       // Se abre el primero que falte, para no tener que buscar por dónde seguir.
-      const falta = audiosDe(j.hayReunion !== false).find((d) => !(j.porClave ?? {})[d.clave]);
+      const falta = audiosDe(ents, (j.canal ?? null) as CanalId | null).find((d) => !(j.porClave ?? {})[d.clave]);
       setAudioAbierto(falta ? falta.clave : null);
     } catch { setAudios([]); }
   }, []);
@@ -535,11 +562,18 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     const id = porClave[clave];
     return id ? ((audios ?? []).find((a) => a.id === id) ?? null) : null;
   };
-  // Los audios que ESTE negocio tiene que grabar. `hayReunion` arranca en true
-  // (lo más común) para no esconder tarjetas mientras carga y hacerlas aparecer
-  // medio segundo después.
-  const misAudios = audiosDe(hayReunion);
+  // Los audios que ESTE negocio tiene que grabar, según cómo entra su gente y
+  // dónde cierra. Sin entradas declaradas la lista viene vacía a propósito: la
+  // pantalla pide declararlo antes de hacer grabar nada (ver el paso 'voz').
+  const misAudios = audiosDe(entradas, canalVenta);
   const nGrabados = misAudios.filter((d) => !!porClave[d.clave]).length;
+  // Grabaciones que quedaron de una declaración anterior. NO se borran —el mapa
+  // sigue apuntando a los archivos, por si vuelve a declarar esa entrada— pero
+  // hay que decir que hoy no se usan: si no, el dueño cree que están en el aire.
+  const audiosHuerfanos = (Object.keys(porClave) as string[])
+    .filter((c) => !misAudios.some((d) => d.clave === c))
+    .map((c) => defDeClave(c))
+    .filter((d): d is NonNullable<typeof d> => !!d);
 
   async function guardarPublico(v: PublicoGenero) {
     try {
@@ -702,7 +736,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
   // Los escenarios que hablan del video de preparación solo entran si el
   // workspace configuró el link: ensayar cómo conseguir que vea un video que no
   // existe no enseña nada.
-  const escenarios = escenariosDe(!!linkVideo.trim(), hayReunion);
+  const escenarios = escenariosDe(!!linkVideo.trim(), entradas, canalVenta);
   // Terminado el último, `escIdx` queda FUERA de rango a propósito: es la señal
   // de que se recorrieron todos. Sin este null explícito, un `?? escenarios[0]`
   // hacía caer en el escenario 1 y el efecto lo reabría con otra semilla — el
@@ -943,7 +977,10 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     // el dueño borra uno después, el paso tiene que volver a pedirlo. La salida
     // sigue estando en "Lo configuro después" del pie — trabar el avance es lo
     // pedido; dejar el paso sin ninguna salida lo convertiría en una trampa.
-    if (pasoKey === 'voz') return nGrabados === misAudios.length;
+    // `misAudios.length === 0` es «todavía no declaró cómo entra su gente», no
+    // «ya terminó»: sin ese corte el paso se daba por cumplido sin una sola
+    // grabación, que es la peor forma de fallar (silenciosa y hacia adelante).
+    if (pasoKey === 'voz') return misAudios.length > 0 && nGrabados === misAudios.length;
     // El ensayo avanza CASO a caso con el MISMO botón del pie: mientras quede
     // caso, el pie lo cierra y lo guarda; cuando no queda ninguno, pasa de paso.
     // Se habilita con las respuestas que el caso pide — salvo los opcionales,
@@ -1170,6 +1207,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             <div style={okBox}>✓ El oficial ya está conectado.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {canalesErr && (
+                <div style={{ padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+                  No pudimos verificar si el WhatsApp oficial está conectado ({canalesErr}). Si ya lo conectaste, seguí de largo.
+                </div>
+              )}
               <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
                 Se conecta pegando un solo token de Meta en Configuraciones → Método; MaKo descubre el resto de los datos solo.
               </div>
@@ -1411,6 +1453,22 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {audios === null ? (
             <Cargando texto="Buscando tus audios…" />
+          ) : !entradas.length ? (
+            // Sin saber cómo entra su gente, la lista de audios viene vacía —y una
+            // lista vacía sin explicación es peor que la lista equivocada. Se dice
+            // qué falta, por qué importa y dónde se arregla, en ese orden.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ padding: '13px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.65 }}>
+                <strong>Falta un dato antes de grabar: cómo llega tu gente.</strong>
+                <div style={{ marginTop: 6, color: 'var(--dim)' }}>
+                  No es lo mismo alguien que dejó sus datos en un anuncio que alguien
+                  a quien le escribiste vos primero. De eso depende qué audios te pido
+                  y qué dice cada uno — si el audio arranca con «vi que dejaste tus
+                  datos» y la persona nunca los dejó, se nota en la primera frase.
+                </div>
+              </div>
+              <a href="/funnel" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Decir cómo entra mi gente ↗</a>
+            </div>
           ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>
@@ -1442,6 +1500,20 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                   onError={setErr}
                 />
               ))}
+
+              {/* Grabaciones de una declaración anterior. NO se borran —el mapa
+                  sigue apuntando a los archivos por si vuelve a declarar esa
+                  entrada— pero callarlas sería peor: el dueño creería que están
+                  saliendo. El caso real: tres audios grabados que hablaban de un
+                  anuncio, en un negocio que nunca corrió uno. */}
+              {audiosHuerfanos.length > 0 && (
+                <div style={{ marginTop: 6, padding: '11px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'var(--surface-2)', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'left' }}>
+                  <strong style={{ color: 'var(--ink)' }}>Guardaste {audiosHuerfanos.length === 1 ? 'un audio que hoy no se usa' : `${audiosHuerfanos.length} audios que hoy no se usan`}:</strong>{' '}
+                  {audiosHuerfanos.map((d) => d.titulo).join(' · ')}. Se grabaron para
+                  otra forma de captar clientes, así que no se le manda a nadie. Quedan
+                  guardados por si volvés a esa forma.
+                </div>
+              )}
 
               {/* El link del video se PIDE, no se adivina: no hay ningún dato en
                   la app que diga que el funnel es de video. Si está, el guion de

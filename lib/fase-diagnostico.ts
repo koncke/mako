@@ -349,17 +349,25 @@ export function dimensionDeFase(faseId: number): Dimension {
 }
 
 // ── El canal de venta (para adaptar la pregunta de volumen) ──────────────────
-// MaKo sirve 3 modelos de cierre. El volumen "correcto" no es el mismo: una
+// MaKo sirve varios modelos de cierre. El volumen "correcto" no es el mismo: una
 // llamada high-ticket no se mide igual que un carrito low-ticket ni que los
 // registrados de un webinar. La pregunta de volumen se adapta al canal elegido,
-// pero el VOTO (el índice de opción) mapea a la misma fase en los tres.
-export type CanalId = 'llamadas' | 'conversaciones' | 'carrito' | 'webinar';
+// pero el VOTO (el índice de opción) mapea a la misma fase en todos.
+//
+// ⚠️ Este eje describe DÓNDE SE CIERRA la venta, no cómo entra el lead. Los dos
+// son independientes y confundirlos fue el bug: una clienta que prospecta en frío
+// por WhatsApp y cierra en un taller presencial declaró 'llamadas' —lo más
+// parecido que había— y con eso el sistema le pidió, y ella grabó, un audio que
+// dice «vi que dejaste tus datos en el anuncio». Cómo ENTRA vive en
+// `funnel_config.data.entradas` (ver ENTRADAS en lib/pipeline.ts).
+export type CanalId = 'llamadas' | 'conversaciones' | 'carrito' | 'webinar' | 'presencial';
 
 export const CANALES: Array<{ id: CanalId; label: string; desc: string }> = [
   { id: 'llamadas', label: 'Llamada de venta', desc: 'Agendas una llamada y cierras la venta ahí.' },
   { id: 'conversaciones', label: 'Conversaciones por chat', desc: 'Vendes charlando por WhatsApp o DM, sin llamada.' },
   { id: 'carrito', label: 'Carrito / checkout', desc: 'Compran directo en tu página, sin que hables con ellos.' },
   { id: 'webinar', label: 'Webinar', desc: 'Se registran a un webinar y ahí presentas y vendes.' },
+  { id: 'presencial', label: 'Sesión presencial', desc: 'Van a tu local, taller o sesión, y ahí cierras.' },
 ];
 
 /** Texto + 5 opciones (una por fase) para la pregunta de volumen, por canal. */
@@ -379,6 +387,13 @@ export const VOLUMEN_POR_CANAL: Record<CanalId, { texto: string; opciones: strin
   webinar: {
     texto: '¿Cuántos registrados a tu webinar por mes?',
     opciones: ['0 – 50', '50 – 200', '200 – 600', '600 – 2.000', 'Más de 2.000'],
+  },
+  // Los tramos son los de 'llamadas' y no los de 'webinar', aunque la sesión sea
+  // grupal: lo que se mide es a cuánta gente lográs llevar hasta la sesión, y eso
+  // tiene el techo de un lugar físico, no el de un registro online.
+  presencial: {
+    texto: '¿Cuántas personas van a tu sesión o taller por mes?',
+    opciones: ['0 – 5 (casi nadie)', '5 – 25', '25 – 75', '75 – 250', 'Más de 250'],
   },
 };
 

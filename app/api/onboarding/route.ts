@@ -269,7 +269,10 @@ export async function POST(req: NextRequest) {
             try {
               const actual = await getFunnel();
               const intacto = mismoPipeline(actual.pipeline, DEFAULT_PIPELINE) && actual.suppressed.length === 0;
-              if (intacto) await saveFunnel(tpl.pipeline, []);
+              // `tpl.suppressed` viaja con la plantilla: sin eso, un pipeline con
+              // etapa de pago siembra igual «Reunión excepcional» y «No Show R3»,
+              // que en un funnel de una sola sesión no existen.
+              if (intacto) await saveFunnel(tpl.pipeline, tpl.suppressed ?? []);
             } catch (e) { console.error('[onboarding] funnel por canal falló (no fatal):', e); }
           }
         }
@@ -292,7 +295,7 @@ export async function POST(req: NextRequest) {
       case 'funnel': {
         const tpl = FUNNEL_TEMPLATES.find((t) => t.id === body.templateId);
         if (!tpl) return NextResponse.json({ ok: false, error: 'plantilla inválida' }, { status: 400 });
-        await saveFunnel(tpl.pipeline, []);
+        await saveFunnel(tpl.pipeline, tpl.suppressed ?? []);
         return NextResponse.json({ ok: true });
       }
 

@@ -75,6 +75,18 @@ export interface StageReqValues {
   sinR2?: boolean;
   /** La reunión no se grabó: no se exige el link de Fathom. */
   fathomOmitido?: boolean;
+  /**
+   * ¿De este encuentro se espera una grabación? Sale de `seGraba(canal, fathomConectado)`
+   * en lib/pipeline.ts: un 1:1 remoto con Fathom conectado, sí; un taller presencial o
+   * un webinar, nunca; un workspace sin Fathom, tampoco.
+   *
+   * Es el mismo escape hatch que `fathomOmitido` (mig 0064, el botón «No se grabó»),
+   * pero resuelto por la naturaleza del encuentro en vez de a mano, lead por lead. Sin
+   * esto, quien cierra en persona no puede mover un lead a Ganado sin inventar un link.
+   *
+   * `undefined` = el caller no sabe → se comporta como hoy (se exige).
+   */
+  grabable?: boolean;
   /** Funnel del workspace (para funnels no-default). Si faltan, se asume el funnel
    *  high-ticket DEFAULT: 2 reuniones y venta = etapa 'ganado'. */
   nivel?: number;         // override del nivel de requisitos de la etapa
@@ -167,7 +179,7 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   const nivel = v.nivel ?? NIVEL[stageKey] ?? 0;
   const mTotal = v.numReuniones ?? 2;
   const esVenta = v.esVenta ?? (nivel >= 5);
-  const hayFathom = !!v.hasFathomUrl || !!v.fathomOmitido;
+  const hayFathom = !!v.hasFathomUrl || !!v.fathomOmitido || v.grabable === false;
 
   // ── Reunión 1 (solo si el funnel tiene al menos 1 reunión) ──
   if (nivel >= 1 && mTotal >= 1 && !v.sinR1) {
