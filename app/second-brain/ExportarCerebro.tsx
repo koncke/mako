@@ -1,118 +1,96 @@
 'use client';
 
 // =============================================================================
-// ExportarCerebro — bajarse el segundo cerebro como carpetas y archivos
+// ExportarCerebro — «me llevo esto», con el MISMO control que el mapa
 // =============================================================================
-// Replica el molde de app/plan/board/ExportarModal.tsx, con dos diferencias
-// deliberadas:
+// Antes eran dos sistemas para la misma idea. El mapa filtraba por carpeta, sección y
+// autoría con un desplegable de drill-down; el exportador preguntaba con diez casillas
+// de área. Nada más que el nombre de una de las tres dimensiones coincidía, así que
+// para bajar «lo que dedujo MaKo en Oferta» había que traducirlo a mano — y no se
+// podía, porque la autoría no existía acá.
 //
-//  1. Se le pasan `pasos` + `pasoActual` al WizardShell, NO `total`/`idx`. Los dos
-//     ejemplares que hay en el repo usan lo viejo porque son anteriores al contrato
-//     nuevo, y el JSDoc de la pieza es explícito: si el wizard tiene RAMAS se le pasa
-//     el mapa. Éste la tiene (el paso de formato solo aparece si hay algo que bajar),
-//     así que copiar el molde tal cual heredaría el defecto.
-//  2. NO se usa `ListaElegible`: tiene buscador y orden alfabético, y sobre DIEZ áreas
-//     fijas el buscador es ruido y el alfabético destruiría el orden narrativo que
-//     `AREAS` eligió a propósito (sigue el recorrido del onboarding, no el abecedario).
+// Ahora la pregunta la contesta `FiltroMapa`, el mismo componente de la barra del
+// lienzo, sobre el mismo `EstadoFiltro` y con el mismo predicado (`pasaFiltro`, en
+// lib/cerebro-filtro.ts). El que aprendió a filtrar el mapa ya sabe exportar.
 //
-// El criterio para que una pregunta se gane su lugar: **las dos respuestas tienen que
-// producir archivos que personas distintas quieren de verdad.** Por eso son dos pasos
-// y no cinco — «¿en qué formato?» no se pregunta porque la respuesta es siempre la
-// misma, y un paso que se contesta solo es un paso que sobra.
+// TRES DECISIONES QUE NO SON OBVIAS:
+//
+// 1. EL FILTRO ES UNA COPIA, no el del mapa. Se siembra con el del mapa —abrir el modal
+//    con el mapa filtrado propone bajar eso— pero tocarlo acá no mueve el lienzo de
+//    atrás. Un modal que reescribe la pantalla que lo abrió deja al usuario en un lugar
+//    distinto del que dejó al cancelar.
+// 2. LA LISTA DE ARCHIVOS SE VE. Un filtro dice qué NO entra; en una descarga lo que
+//    importa es qué SÍ. Con las casillas de área uno confiaba en un número; ahora se ve
+//    el árbol de carpetas que va a salir, que es literalmente lo que se abre después.
+// 3. NO HAY PREGUNTA DE FORMATO. Sigue valiendo el criterio viejo: un paso cuya
+//    respuesta es siempre la misma es un paso que sobra.
 // =============================================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { WizardShell } from '@/app/_components/WizardShell';
-import { AREAS, type AreaId, type Cerebro } from '@/lib/cerebro-modelo';
-import { conteoPorArea } from '@/lib/vault-modelo';
-import { MONO, SANS } from '@/app/_ui/tokens';
+import { AREAS, type AreaId, type Cerebro, type NodoCerebro } from '@/lib/cerebro-modelo';
+import { clonarFiltro, cuentaFiltros, filtroVacio, pasaFiltro, type EstadoFiltro } from '@/lib/cerebro-filtro';
+import { carpetaDe, esArchivo } from '@/lib/vault-modelo';
+import { MONO } from '@/app/_ui/tokens';
+import { FiltroMapa, type PanelAbierto } from './FiltroMapa';
 
-/** Copiada, no compartida: es el mismo criterio con el que vive dos veces en el repo
- *  (ExportarModal y ExportarLeadsModal). Son diez líneas y sacarlas a un módulo
- *  común obligaría a parametrizar tres estilos para ahorrar nada. */
-function Opcion({ on, titulo, sub, onClick, off = false }: { on: boolean; titulo: string; sub?: string; onClick: () => void; off?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={off ? undefined : onClick}
-      disabled={off}
-      style={{
-        width: '100%', padding: '12px 15px', borderRadius: 12, textAlign: 'left', fontFamily: SANS,
-        display: 'flex', alignItems: 'center', gap: 11, cursor: off ? 'default' : 'pointer',
-        transition: 'border-color .12s, background .12s',
-        border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
-        background: on ? 'var(--primary-bg)' : 'var(--surface-2)',
-        color: off ? 'var(--faint)' : on ? 'var(--primary)' : 'var(--ink)',
-        opacity: off ? 0.55 : 1,
-      }}
-    >
-      <span style={{ width: 18, height: 18, flex: 'none', borderRadius: 6, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{on ? '✓' : ''}</span>
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 14.5, fontWeight: on ? 700 : 600 }}>{titulo}</span>
-        {sub && <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 1 }}>{sub}</span>}
-      </span>
-    </button>
-  );
-}
-
-export function ExportarCerebro({ cerebro, conteo, recorte, onClose }: {
+export function ExportarCerebro({ cerebro, filtroMapa, onClose }: {
   cerebro: Cerebro;
-  conteo: Record<string, number>;
-  recorte: { ids: string[]; recortado: boolean };
+  /** El filtro que tiene puesto el mapa ahora mismo. Solo se usa para SEMBRAR. */
+  filtroMapa: EstadoFiltro;
   onClose: () => void;
 }) {
-  /**
-   * ¿SE LLEVA LO QUE ESTÁ VIENDO, O TODO?
-   *
-   * Es la pregunta que faltaba, y se gana el lugar con el criterio que ya estaba escrito
-   * en este archivo: «las dos respuestas tienen que producir archivos que personas
-   * distintas quieren de verdad». Alguien que filtró el mapa a «lo que dedujo MaKo en
-   * Oferta» y aprieta exportar quiere ESO; alguien que abre el modal sin haber tocado
-   * nada quiere su cerebro entero.
-   *
-   * Y por eso la pregunta NO aparece si no hay nada filtrado: ahí las dos respuestas dan
-   * el mismo ZIP, y un paso que se contesta solo es un paso que sobra.
-   */
-  const [soloVisible, setSoloVisible] = useState(recorte.recortado);
-  // Si el mapa deja de estar recortado (o pasa a estarlo) mientras el modal vive, el
-  // alcance lo sigue. Sin esto el default se congela en el primer montaje: abrir el
-  // modal sin filtro, cerrarlo, filtrar y volver a abrir dejaba «Todo» elegido con la
-  // pregunta del recorte a la vista — el formulario decía una cosa y bajaba otra.
-  useEffect(() => { setSoloVisible(recorte.recortado); }, [recorte.recortado]);
-  const idsVisibles = useMemo(() => new Set(recorte.ids), [recorte.ids]);
-
-  /** El conteo por área, ya recortado si corresponde. Sale de `conteoPorArea` —el mismo
-   *  que usa el README— y no de una cuenta propia: dos maneras de contar lo mismo es el
-   *  bug que este archivo ya pagó. */
-  const conteoVivo = useMemo(
-    () => (soloVisible ? conteoPorArea(cerebro, idsVisibles) : conteo),
-    [soloVisible, cerebro, idsVisibles, conteo],
-  );
-
-  // Arranca con TODO lo que tiene contenido tildado: el que quiere todo aprieta
-  // «Descargar» y listo, y el que quiere solo su oferta destilda el resto. El default
-  // sirve al caso frecuente y no le cuesta nada al caso raro.
-  const conContenido = useMemo(() => AREAS.filter((a) => (conteoVivo[a.id] ?? 0) > 0).map((a) => a.id as AreaId), [conteoVivo]);
-  const [elegidas, setElegidas] = useState<Set<AreaId>>(new Set(conContenido));
+  const [filtro, setFiltro] = useState<EstadoFiltro>(() => clonarFiltro(filtroMapa));
+  const [abierto, setAbierto] = useState<PanelAbierto>(null);
   const [bajando, setBajando] = useState(false);
   const [error, setError] = useState('');
 
-  // Al cambiar de alcance se re-tildan las áreas: si venías con «Razones» marcada y
-  // pasás al recorte donde Razones quedó vacía, el formulario mostraba una casilla
-  // tildada y apagada a la vez, y el contador sumaba un área que no aportaba nada.
-  useEffect(() => { setElegidas(new Set(conContenido)); }, [conContenido]);
-
-  const archivos = useMemo(
-    () => [...elegidas].reduce((n, a) => n + (conteoVivo[a] ?? 0), 0),
-    [elegidas, conteoVivo],
+  /** Los nodos que van a salir. `esArchivo` es la misma condición que usa el armador del
+   *  ZIP y `pasaFiltro` la misma que dibuja el mapa: acá no hay una tercera regla. */
+  const entran = useMemo(
+    () => cerebro.nodos.filter((n: NodoCerebro) => esArchivo(n) && pasaFiltro(n, filtro)),
+    [cerebro.nodos, filtro],
   );
-  const hayAlgo = archivos > 0;
 
-  const alternar = (id: AreaId) => setElegidas((s) => {
-    const n = new Set(s);
-    if (n.has(id)) n.delete(id); else n.add(id);
-    return n;
-  });
+  /** El árbol que va a tener el ZIP, para mostrarlo antes de bajarlo. */
+  const arbol = useMemo(() => {
+    const porArea = new Map<AreaId, number>();
+    for (const n of entran) porArea.set(n.area, (porArea.get(n.area) ?? 0) + 1);
+    const porCarpeta = new Map<string, Array<{ nombre: string; n: number }>>();
+    for (const a of AREAS) {
+      const n = porArea.get(a.id) ?? 0;
+      if (!n) continue;
+      const madre = carpetaDe(a.id).split('/')[0];
+      const lista = porCarpeta.get(madre) ?? [];
+      lista.push({ nombre: a.nombre, n });
+      porCarpeta.set(madre, lista);
+    }
+    return [...porCarpeta.entries()];
+  }, [entran]);
+
+  /** Los conteos por sección, para que el desplegable diga cuánto hay detrás de cada
+   *  opción. Sale del mismo `esArchivo` que el ZIP, así que el número del menú y el
+   *  número del README no pueden discrepar. */
+  const conteoArea = useMemo(() => {
+    const c: Partial<Record<AreaId, number>> = {};
+    for (const n of cerebro.nodos) if (esArchivo(n)) c[n.area] = (c[n.area] ?? 0) + 1;
+    return c;
+  }, [cerebro.nodos]);
+
+  const conteoAutoria = useMemo(() => {
+    let mako = 0; let usuario = 0; let falta = 0;
+    for (const n of cerebro.nodos) {
+      if (n.id === 'raiz' || n.id.startsWith('area:') || n.id.startsWith('n1:')) continue;
+      if (n.autoria === 'pendiente') falta += 1;
+      else if (n.autoria === 'usuario') usuario += 1;
+      else mako += 1;
+    }
+    return { mako, usuario, falta };
+  }, [cerebro.nodos]);
+
+  const archivos = entran.length;
+  const hayAlgo = archivos > 0;
+  const recortado = cuentaFiltros(filtro) > 0;
 
   async function bajar() {
     setBajando(true);
@@ -121,12 +99,18 @@ export function ExportarCerebro({ cerebro, conteo, recorte, onClose }: {
       const r = await fetch('/api/second-brain/exportar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ areas: [...elegidas], ids: soloVisible ? recorte.ids : undefined }),
+        // Se manda el RESULTADO (los ids) y no los criterios: el servidor no tiene que
+        // volver a interpretar el filtro, y así no hay dos lecturas de lo mismo.
+        // `areas` va igual porque es lo que arma las carpetas del ZIP.
+        body: JSON.stringify({
+          areas: [...new Set(entran.map((n) => n.area))],
+          ids: recortado ? entran.map((n) => n.id) : undefined,
+        }),
       });
       if (!r.ok) throw new Error(`el servidor devolvió ${r.status}`);
       const blob = await r.blob();
       // El nombre lo pone el servidor en el Content-Disposition: es el único que sabe
-      // cómo se llama el negocio y cuántas áreas entraron.
+      // cómo se llama el negocio.
       const cd = r.headers.get('content-disposition') ?? '';
       const nombre = /filename="([^"]+)"/.exec(cd)?.[1] ?? 'segundo-cerebro.zip';
       const url = URL.createObjectURL(blob);
@@ -145,21 +129,14 @@ export function ExportarCerebro({ cerebro, conteo, recorte, onClose }: {
     }
   }
 
-  const totalRecorte = useMemo(() => {
-    const c = conteoPorArea(cerebro, idsVisibles);
-    return AREAS.reduce((n, a) => n + (c[a.id] ?? 0), 0);
-  }, [cerebro, idsVisibles]);
-  const totalEntero = useMemo(() => AREAS.reduce((n, a) => n + (conteo[a.id] ?? 0), 0), [conteo]);
-
   const resumen = `${archivos} ${archivos === 1 ? 'archivo' : 'archivos'}`;
-  const todasTildadas = elegidas.size === conContenido.length;
 
   return (
     <WizardShell
-      titulo={`Exportar tu segundo cerebro · ${resumen}`}
-      pasos={['Áreas']}
-      pasoActual="Áreas"
-      pregunta="¿Qué áreas te llevas?"
+      titulo="Exportar tu segundo cerebro"
+      pasos={['Qué te llevas']}
+      pasoActual="Qué te llevas"
+      pregunta="¿Qué te llevas?"
       ancho={760}
       puedeAvanzar={hayAlgo}
       enUltimo
@@ -171,58 +148,68 @@ export function ExportarCerebro({ cerebro, conteo, recorte, onClose }: {
       onClose={onClose}
       extraFooter={
         <span style={{ fontFamily: MONO, fontSize: 11, color: error ? 'var(--bad)' : 'var(--faint)' }}>
-          {error ? `No se pudo: ${error}` : resumen}
+          {error ? `No se pudo: ${error}` : `${resumen} + README`}
         </span>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {recorte.recortado && (
-          <div style={{ display: 'flex', gap: 9, marginBottom: 4 }}>
-            <Opcion
-              on={soloVisible}
-              titulo="Lo que estás viendo"
-              sub={`${totalRecorte} ${totalRecorte === 1 ? 'archivo' : 'archivos'} · el recorte que tenés en el mapa`}
-              onClick={() => setSoloVisible(true)}
-            />
-            <Opcion
-              on={!soloVisible}
-              titulo="Todo tu cerebro"
-              sub={`${totalEntero} ${totalEntero === 1 ? 'archivo' : 'archivos'} · sin el filtro`}
-              onClick={() => setSoloVisible(false)}
-            />
-          </div>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={() => setElegidas(todasTildadas ? new Set() : new Set(conContenido))}
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--primary)' }}
-          >
-            {todasTildadas ? 'Ninguna' : 'Todas'}
-          </button>
+      {/* `textAlign: left` explícito: `WizardShell` centra su contenido, que está bien
+          para una pregunta y mal para un árbol de carpetas y un párrafo de ayuda. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'left' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <FiltroMapa
+            filtro={filtro}
+            onFiltro={setFiltro}
+            abierto={abierto}
+            onAbrir={setAbierto}
+            conteoArea={conteoArea}
+            conteoAutoria={conteoAutoria}
+          />
+          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
+            {recortado
+              ? <>Te llevas <b style={{ color: 'var(--ink)' }}>{resumen}</b> de los {Object.values(conteoArea).reduce((a, b) => a + (b ?? 0), 0)}.</>
+              : <>Te llevas <b style={{ color: 'var(--ink)' }}>tu cerebro entero</b>: {resumen}.</>}
+          </span>
         </div>
 
-        {AREAS.map((a) => {
-          const n = conteoVivo[a.id] ?? 0;
-          return (
-            <Opcion
-              key={a.id}
-              on={elegidas.has(a.id as AreaId)}
-              off={n === 0}
-              titulo={a.nombre}
-              // Un área vacía se muestra apagada y no se ofrece: preguntar por algo
-              // que no existe hace que el formulario se sienta roto.
-              sub={n === 0 ? (soloVisible ? 'fuera del filtro' : 'todavía vacía') : `${n} ${n === 1 ? 'archivo' : 'archivos'} · ${a.que}`}
-              onClick={() => alternar(a.id as AreaId)}
-            />
-          );
-        })}
+        {/* ── LO QUE VA A SALIR ────────────────────────────────────────────────
+            El árbol real del ZIP, con sus dos niveles de carpeta. Un filtro dice qué NO
+            entra; en una descarga lo que importa es qué SÍ, y esto es literalmente lo
+            que se abre después. */}
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '12px 14px', maxHeight: 260, overflowY: 'auto' }}>
+          {arbol.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--warn)' }}>
+              Con este recorte no queda ningún archivo. Saca alguna condición del filtro.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {arbol.map(([madre, hijas]) => (
+                <div key={madre}>
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>{madre}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+                    {hijas.map((h) => (
+                      <div key={h.nombre} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--ink)' }}>
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.nombre}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{h.n}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* El texto decía «una carpeta por área» y son DOS niveles de carpeta desde que
-            entró NIVEL1; y prometía N archivos cuando el ZIP trae N+1 (el README). Lo que
-            se describe tiene que ser lo que sale. */}
-        <p style={{ margin: '6px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--faint)', lineHeight: 1.55 }}>
+        {recortado && (
+          <button
+            type="button"
+            onClick={() => setFiltro(filtroVacio())}
+            style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--primary)' }}
+          >
+            Llevarme todo
+          </button>
+        )}
+
+        <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--faint)', lineHeight: 1.55 }}>
           Se descarga como un ZIP con dos niveles de carpeta —la carpeta madre y adentro cada
           sección— y un archivo de texto por dato, más un README con el índice. Cada archivo dice
           de dónde salió y con qué está conectado. Si lo abres con Obsidian vas a ver el mismo mapa

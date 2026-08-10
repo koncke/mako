@@ -36,7 +36,8 @@ import { AREAS, NIVEL1, AUTORIA_TEXTO, radioNodo, colorArea, type Cerebro, type 
 import type { NodoFisico, Simulacion } from './fisica';
 import { MONO } from '@/app/_ui/tokens';
 import { Button, Eyebrow } from '@/app/_ui';
-import { FiltroMapa, FILTRO_VACIO, cuentaFiltros, type EstadoFiltro, type PanelAbierto } from './FiltroMapa';
+import { FiltroMapa, type PanelAbierto } from './FiltroMapa';
+import { cuentaFiltros, filtroVacio, pasaFiltro, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import { NoResults } from '@/app/_ui/Estados';
 // La misma máquina de matcheo que la barra del plan: palabras en cualquier orden, sin
 // acentos ni mayúsculas, con frontera de palabra y plural tolerado. El módulo no lleva
@@ -56,6 +57,12 @@ const K_MAX_REL = 6;
 const ARRASTRE2 = 25;
 /** La `Rl` de Obsidian: cuánto se apaga lo que no toca al nodo en foco. */
 const ATENUADO = 0.2;
+
+/** Cuánto dura la salida de un nodo, en ms. Vive acá arriba y no como un 260 suelto
+ *  adentro del `setTimeout` porque tiene que coincidir con la animación `cbg-out` del
+ *  bloque de estilos: si el temporizador es más corto, los nodos se desmontan a mitad
+ *  del fade y se ven cortarse. */
+const MS_SALIDA = 300;
 /** El «todavía no existe»: mismo círculo relleno, más apagado. Nunca un aro punteado. */
 const PENDIENTE = 0.5;
 /** Amplitud de la flotación, en unidades de mundo. Con 3 el recorrido era de ~2 px de
@@ -93,7 +100,7 @@ function hashDe(id: string): number {
   return h >>> 0;
 }
 
-export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
+export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFiltro, areaAbierta = null }: {
   cerebro: Cerebro;
   /** Qué área está abierta abajo, para marcarla en el navegador de la derecha. Antes acá
    *  entraba `areaResaltada`, que la prendía el cursor sobre una TARJETA del hub — y esas
@@ -116,6 +123,12 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
    *  implementaciones de «qué se ve» divergen — este archivo ya pagó ese bug entre el
    *  contador y el dibujo. */
   onVerse?: (info: { ids: string[]; recortado: boolean }) => void;
+  /** El filtro lo posee el padre. No es un capricho de arquitectura: el botón de
+   *  exportar es HERMANO del mapa, y exportar y mirar tienen que ser el mismo recorte.
+   *  Con el estado adentro del grafo, el exportador tenía que aprender su propio
+   *  vocabulario de «qué me llevo», y el usuario dos sistemas para una sola idea. */
+  filtro: EstadoFiltro;
+  onFiltro: (f: EstadoFiltro | ((prev: EstadoFiltro) => EstadoFiltro)) => void;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
 
@@ -166,7 +179,6 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
    * limpio son el mismo objeto y no hay forma de dejar la pantalla en blanco sin
    * haberlo pedido.
    */
-  const [filtro, setFiltro] = useState<EstadoFiltro>(FILTRO_VACIO);
   const [filtroAbierto, setFiltroAbierto] = useState<PanelAbierto>(null);
 
   /**
@@ -263,28 +275,10 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
    *  andamiaje: apagarlos deja las etiquetas flotando sin racimo) pero NO cuando se
    *  filtra por carpeta o por sección — ahí justamente lo que se pide es quedarse con
    *  una rama, y dejar el andamiaje de las otras dibujado sería no haber filtrado. */
-  const pasaVer = useCallback((n: NodoCerebro): boolean => {
-    if (n.id === 'raiz') return true;   // el centro del mapa; sin él las áreas cuelgan de la nada
-
-    const esAndamio = n.id.startsWith('area:') || n.id.startsWith('n1:');
-    const suArea = AREAS.find((a) => a.id === n.area);
-
-    // ── Carpeta y sección: OR adentro, AND entre ellas ──
-    // El andamio (la carpeta y el nodo de área) se rige por la MISMA condición que
-    // sus hijos, no pasa siempre: filtrar por «Oferta» y dejar dibujadas las otras
-    // cuatro carpetas es no haber filtrado. Con la autoría es al revés — ahí el
-    // andamio sí pasa, porque no tiene autoría propia y sacarlo dejaría las
-    // etiquetas flotando sin racimo.
-    if (filtro.carpetas.size && !filtro.carpetas.has(suArea?.padre ?? '')) return false;
-    if (filtro.areas.size && !filtro.areas.has(n.area)) return false;
-
-    if (filtro.autoria !== 'todos') {
-      if (esAndamio) return true;
-      if (filtro.autoria === 'falta') return n.autoria === 'pendiente';
-      return n.autoria === filtro.autoria;
-    }
-    return true;
-  }, [filtro]);
+  /** El predicado vive en lib/cerebro-filtro.ts: lo comparten el mapa y el exportador.
+   *  Dos ideas de «qué se ve» divergen, y acá el costo es que el ZIP traiga algo
+   *  distinto de lo que la pantalla mostró. */
+  const pasaVer = useCallback((n: NodoCerebro) => pasaFiltro(n, filtro), [filtro]);
 
 
   // Refs para que `visible()` no cambie de identidad en cada tecla: lo consumen el
@@ -408,7 +402,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
     if (!saliendo.size) return;
     const t = window.setTimeout(
       () => setTransicion((prev) => (prev.saliendo === saliendo ? { ...prev, saliendo: new Set<string>() } : prev)),
-      260,
+      MS_SALIDA,
     );
     return () => window.clearTimeout(t);
   }, [saliendo]);
@@ -1169,8 +1163,11 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
            la grilla y no un elemento absolute encima del borde: así el área de agarre
            existe de verdad —14 px es lo mínimo cómodo con el mouse— sin robarle
            píxeles al lienzo ni taparle nada al panel.
-           La marca solo aparece al acercarse: un asa siempre visible entre dos paneles
-           es una tercera línea vertical compitiendo con las dos que ya hay. */
+           EL ASA ESTÁ SIEMPRE. La primera versión la revelaba al pasar el cursor, con
+           el argumento de que un asa permanente compite con las líneas del panel. El
+           argumento era malo: una funcionalidad que solo se descubre pasando el mouse
+           por una franja de 14 px es una funcionalidad que nadie encuentra. Apagada
+           —del color de la línea— no compite con nada; al acercarse se enciende. */
         .cbg .cbg-tirador {
           align-self: stretch; height: var(--cbg-alto);
           display: flex; align-items: center; justify-content: center;
@@ -1178,12 +1175,15 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
           border: none; background: none; padding: 0;
         }
         .cbg .cbg-tirador::before {
-          content: ''; width: 2px; height: 34px; border-radius: 999px;
-          background: var(--cbg-linea); opacity: 0; transition: opacity .15s, background .15s;
+          content: ''; width: 3px; height: 40px; border-radius: 999px;
+          background: var(--cbg-linea); opacity: .75;
+          transition: opacity .15s, background .15s, height .15s;
         }
         .cbg .cbg-tirador:hover::before,
         .cbg .cbg-tirador:focus-visible::before,
-        .cbg .cbg-tirador[data-arrastrando="1"]::before { opacity: 1; background: var(--primary); }
+        .cbg .cbg-tirador[data-arrastrando="1"]::before {
+          opacity: 1; background: var(--primary); height: 56px;
+        }
         .cbg .cbg-tirador:focus-visible { outline: 2px solid var(--mako); outline-offset: -2px; border-radius: 4px; }
 
         /* La barra de scroll del panel, con los tokens del tema. La del navegador es
@@ -1532,7 +1532,20 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
                           y ahí sí arranca de cero. Va acá adentro y no en el `<g>` de
                           afuera a propósito: ese tiene el `transform` que reescribe el
                           rAF y los refs de la física, y remontarlo haría saltar al nodo. */}
-                      <g key={saliendo.has(n.id) ? 'fuera' : 'dentro'} className="cbg-pop" style={{ animationDelay: `${Math.min(i * 12, 700)}ms` }}>
+                      {/* ⚠️ EL RETARDO ES SOLO PARA LA ENTRADA. El `animationDelay` en
+                          línea se lo come CUALQUIER animación que esté corriendo, así
+                          que la salida también arrancaba escalonada —hasta 700 ms— y el
+                          desmontaje corta a los 260: un nodo con 300 ms de retardo NUNCA
+                          empezaba su fade, se quedaba a opacidad plena y desaparecía de
+                          golpe cuando saltaba el temporizador. Como la mayoría de los
+                          que se van caen en ese rango, la salida parecía no existir.
+                          La salida va toda junta: es UN gesto —«esto se fue»— y
+                          escalonarla no significa nada. */}
+                      <g
+                        key={saliendo.has(n.id) ? 'fuera' : 'dentro'}
+                        className="cbg-pop"
+                        style={{ animationDelay: saliendo.has(n.id) ? '0ms' : `${Math.min(i * 12, 700)}ms` }}
+                      >
                         <g className="cbg-cuerpo">
                           <circle r={Math.max(r + 8 / kr, 16 / kr)} fill="transparent" />
                           <circle r={r} fill={rellenoDe(n)} opacity={opacidadDe(n)} />
@@ -1597,7 +1610,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, areaAbierta = null }: {
               <NoResults
                 inline
                 detalle="Tu mapa tiene datos, pero ninguno pasa este filtro."
-                onLimpiar={() => setFiltro(FILTRO_VACIO)}
+                onLimpiar={() => setFiltro(filtroVacio())}
               />
             </div>
           )}

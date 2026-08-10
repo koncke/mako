@@ -20,14 +20,14 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import type { AreaId, Cerebro } from '@/lib/cerebro-modelo';
 import { PageHeader } from '@/app/_ui';
+import { filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import { Grafo } from './Grafo';
 import { AreasHub } from './AreasHub';
 import { BotonClaude } from './BotonClaude';
 import { BotonExportar } from './BotonExportar';
 
-export function VistaCerebro({ cerebro, conteo, funnelPanel, agenteToken, appUrl }: {
+export function VistaCerebro({ cerebro, funnelPanel, agenteToken, appUrl }: {
   cerebro: Cerebro;
-  conteo: Record<string, number>;
   funnelPanel: ReactNode;
   agenteToken: string | null;
   appUrl: string;
@@ -44,10 +44,16 @@ export function VistaCerebro({ cerebro, conteo, funnelPanel, agenteToken, appUrl
     if (saltar) setSalto((n) => n + 1);
   };
 
-  /** Lo que el mapa está mostrando ahora mismo. Vive acá y no adentro del grafo porque
-   *  el botón de exportar es su HERMANO, no su descendiente: el header lo renderiza esta
-   *  vista justamente para que los dos puedan mirar el mismo estado. Antes el header
-   *  vivía en la página (un server component) y no había ningún ancestro con estado. */
+  /** EL FILTRO DEL MAPA VIVE ACÁ, no adentro del grafo, porque el botón de exportar es
+   *  su HERMANO y los dos tienen que hablar del mismo recorte. El header lo renderiza
+   *  esta vista justamente para eso: antes vivía en la página, que es un server
+   *  component, y no había ningún ancestro con estado. */
+  const [filtro, setFiltro] = useState<EstadoFiltro>(filtroVacio);
+
+  /** Y lo que el mapa está mostrando de verdad, que además del filtro incluye la
+   *  búsqueda por texto y la de MaKo. Se usa para el conteo honesto de «lo que estás
+   *  viendo»; lo que se EXPORTA sale del filtro, que es lo único que se puede volver a
+   *  expresar en un formulario. */
   const [verse, setVerse] = useState<{ ids: string[]; recortado: boolean }>({ ids: [], recortado: false });
   const alVerse = useCallback((info: { ids: string[]; recortado: boolean }) => setVerse(info), []);
 
@@ -57,9 +63,9 @@ export function VistaCerebro({ cerebro, conteo, funnelPanel, agenteToken, appUrl
         titulo="Second Brain"
         proposito="Todo lo que MaKo sabe de tu negocio."
         acciones={<BotonClaude tokenInicial={agenteToken} appUrl={appUrl} />}
-        accion={<BotonExportar cerebro={cerebro} conteo={conteo} recorte={verse} />}
+        accion={<BotonExportar cerebro={cerebro} filtroMapa={filtro} recorte={verse} />}
       />
-      <Grafo cerebro={cerebro} onAbrirArea={abrir} areaAbierta={abierta} onVerse={alVerse} />
+      <Grafo cerebro={cerebro} onAbrirArea={abrir} areaAbierta={abierta} onVerse={alVerse} filtro={filtro} onFiltro={setFiltro} />
       {/* El separador solo existe si hay algo abajo. Fijo, dejaba un hueco permanente
           entre el mapa y nada. */}
       {abierta && <div style={{ height: 'var(--sect-gap)' }} />}

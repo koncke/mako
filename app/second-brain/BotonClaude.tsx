@@ -56,7 +56,9 @@ export function BotonClaude({ tokenInicial, appUrl }: { tokenInicial: string | n
       >
         {/* La ráfaga de CLAUDE, no el logotipo de Anthropic. Acá se conecta con el
             producto, no con la empresa. */}
-        <ClaudeMark size={15} />
+        {/* Más grande que la tipografía, no más chico: un logo de 15 al lado de un
+            rótulo de 13,5 se lee como una viñeta, no como una marca. */}
+        <ClaudeMark size={20} />
         Conectar a Claude
       </button>
 

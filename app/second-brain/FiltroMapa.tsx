@@ -39,27 +39,16 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { MONO } from '@/app/_ui/tokens';
 import { AREAS, NIVEL1, type AreaId } from '@/lib/cerebro-modelo';
+// El modelo del filtro vive en lib/, no acá: lo comparten el mapa y el exportador, y
+// ahí se puede testear. Este archivo es solo su cara.
+import {
+  areasOfrecidas as areasDe, cuentaFiltros, podarAreas,
+  type Autoria, type EstadoFiltro,
+} from '@/lib/cerebro-filtro';
+
+export type { Autoria, EstadoFiltro };
 
 const SANS = "'Geist', sans-serif";
-
-/** Quién escribió el dato. Es RADIO y no checkbox: las tres opciones son
- *  particiones del mismo conjunto, así que «MaKo + vos» es lo mismo que «todos» y
- *  ofrecerlo como dos casillas invita a un click que no hace nada. */
-export type Autoria = 'todos' | 'mako' | 'usuario' | 'falta';
-
-export type EstadoFiltro = {
-  carpetas: Set<string>;
-  areas: Set<AreaId>;
-  autoria: Autoria;
-};
-
-export const FILTRO_VACIO: EstadoFiltro = { carpetas: new Set(), areas: new Set(), autoria: 'todos' };
-
-/** Cuántos filtros hay puestos. Cada VALOR elegido suma uno, igual que en el
- *  tablero: tres secciones marcadas son tres filtros, no uno. */
-export function cuentaFiltros(f: EstadoFiltro): number {
-  return f.carpetas.size + f.areas.size + (f.autoria !== 'todos' ? 1 : 0);
-}
 
 export type CategoriaFiltro = 'carpeta' | 'area' | 'autoria';
 export type PanelAbierto = 'root' | CategoriaFiltro | null;
@@ -96,13 +85,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
   const toggleCarpeta = (id: string) => {
     const c = new Set(filtro.carpetas);
     if (c.has(id)) c.delete(id); else c.add(id);
-    // Al cambiar de carpeta se PODAN las secciones que quedaron fuera. Son ramas
-    // distintas del árbol y el filtro es AND: dejarlas daría cero resultados sin que
-    // se vea por qué. Si no queda ninguna carpeta, no hay nada que podar.
-    const areas = c.size
-      ? new Set([...filtro.areas].filter((a) => c.has(AREAS.find((x) => x.id === a)?.padre ?? '')))
-      : filtro.areas;
-    onFiltro({ ...filtro, carpetas: c, areas });
+    onFiltro({ ...filtro, carpetas: c, areas: podarAreas(filtro, c) });
   };
   const toggleArea = (id: AreaId) => {
     const c = new Set(filtro.areas);
@@ -110,11 +93,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
     onFiltro({ ...filtro, areas: c });
   };
 
-  /** Las opciones que tiene sentido ofrecer, dado lo que ya está elegido en la otra
-   *  categoría. Ver el encabezado: una categoría recorta a la otra. */
-  const areasOfrecidas = filtro.carpetas.size
-    ? AREAS.filter((a) => filtro.carpetas.has(a.padre))
-    : AREAS;
+  const areasOfrecidas = areasDe(filtro);
   const carpetasOfrecidas = filtro.areas.size
     ? NIVEL1.filter((c: (typeof NIVEL1)[number]) => [...filtro.areas].some((a) => AREAS.find((x) => x.id === a)?.padre === c.id))
     : NIVEL1;

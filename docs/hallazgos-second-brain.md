@@ -1445,3 +1445,61 @@ vocabulario interno renombrado en pantalla dos rondas atrás — y aparecían ta
 `segundo-cerebro-…-norte-panorama-documentos-….zip`, con la última palabra cortada al
 medio por un `slice(0, 40)`. Un id no es un nombre: si sale a la cara del usuario, sale
 del `nombre` del catálogo.
+
+### El `animationDelay` en línea se lo come CUALQUIER animación
+
+**Vive en:** `app/second-brain/Grafo.tsx` (el `<g className="cbg-pop">`)
+
+**Síntoma.** «La animación de salida no funciona, no desaparecen, se bugean.» Segunda
+ronda del mismo síntoma: la primera causa (el frame de más del `useEffect`) estaba
+arreglada y medida, y aun así se veía mal.
+
+**Causa.** El retardo escalonado de la ENTRADA —`animationDelay: i*12ms`, hasta 700 ms—
+está puesto en el `style` del elemento, y un `animation-delay` no pertenece a una
+animación: se aplica a la que esté corriendo. Cuando el nodo pasaba a salir, su
+`cbg-out` heredaba el mismo retardo. Y el desmontaje corta a los 260 ms: **todo nodo con
+más de 260 ms de retardo nunca empezaba su fade** — se quedaba a opacidad plena y
+desaparecía de golpe. Como la mayoría de los que se van caen en ese rango, la salida
+parecía no existir.
+
+**La regla.** Un `animation-delay` inline es un delay para el ELEMENTO, no para la
+animación que uno tenía en mente. Si el mismo elemento corre dos animaciones en momentos
+distintos, el retardo se decide por estado. Y el temporizador que desmonta tiene que ser
+`retardo máximo + duración`, nunca solo la duración.
+
+Medido después: 66 nodos montados con 47 saliendo, opacidad 1,00 → 0,00 en 11 frames, y
+recién ahí el desmontaje a 19.
+
+**Lo que este bug enseña sobre el anterior:** la primera medición —«la cuenta de nodos no
+baja de 66 en ningún frame»— era correcta y estaba incompleta. Verificaba que los nodos
+siguieran MONTADOS, no que se estuvieran VIENDO animar. Un nodo montado a opacidad 1
+durante toda su «salida» pasa ese chequeo. La medición ahora mira la opacidad.
+
+### Un filtro y un exportador que preguntaban lo mismo de dos maneras
+
+**Vive en:** `lib/cerebro-filtro.ts` · `app/second-brain/ExportarCerebro.tsx`
+
+El mapa filtraba por carpeta, sección y autoría con un desplegable de drill-down; el
+exportador preguntaba con diez casillas de área. Coincidía **una** de las tres
+dimensiones, así que «bajame lo que dedujo MaKo en Oferta» no se podía expresar: la
+autoría no existía del lado del ZIP.
+
+Lo que quedó, y el orden importa:
+
+1. **El predicado salió a `lib/cerebro-filtro.ts`**, sin `server-only`. Vivía adentro de
+   un componente de 1.700 líneas, o sea que la única regla que decide qué dato EXISTE
+   para el usuario no la podía importar ningún test. Ahora tiene ocho.
+2. **El exportador monta el MISMO componente de filtro**, no uno parecido. El que
+   aprendió a filtrar el mapa ya sabe exportar.
+3. **Su filtro es una COPIA** (`clonarFiltro`), sembrada con la del mapa. Un modal que
+   reescribe la pantalla que lo abrió deja al usuario en otro lado al cancelar. Y los
+   `Set` tienen que ser propios: `FILTRO_VACIO` es una constante compartida y sus Sets
+   son mutables — usarla como estado inicial de dos pantallas las ata entre sí.
+4. **El modal muestra el ÁRBOL que va a salir**, no un número. Un filtro dice qué NO
+   entra; en una descarga lo que importa es qué SÍ.
+
+**La asimetría del andamiaje, que es lo que el test blinda:** la raíz, las carpetas madre
+y los nodos de área SÍ se apagan al filtrar por carpeta o sección —dejarlos dibujados es
+no haber filtrado— pero quedan EXENTOS de la autoría, porque no tienen autoría propia y
+sacarlos deja las etiquetas flotando sin racimo. Leyendo el código no se nota; en un test
+son tres líneas.

@@ -27,7 +27,6 @@ import { VistaCerebro } from './VistaCerebro';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
 import { construirCerebro } from '@/lib/cerebro-grafo';
-import { conteoPorArea } from '@/lib/vault';
 import { BotonExportar } from './BotonExportar';
 import { BotonClaude } from './BotonClaude';
 import { getAgenteToken } from '@/lib/agente-token';
@@ -43,7 +42,6 @@ export default async function SecondBrainPage() {
   const [{ pipeline, suppressed }, cerebro] = await Promise.all([getFunnel(), construirCerebro()]);
   const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
 
-  const conteo = conteoPorArea(cerebro);
   const ws = await getWorkspaceActual();
   const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);
   const appUrl = process.env.NEXT_PUBLIC_BASE_URL ?? '';
@@ -64,7 +62,6 @@ export default async function SecondBrainPage() {
           Es la misma razón por la que el resto de la pantalla vive ahí adentro. */}
       <VistaCerebro
         cerebro={cerebro}
-        conteo={conteo}
         funnelPanel={funnelPanel}
         agenteToken={agenteToken}
         appUrl={appUrl}
