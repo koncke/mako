@@ -1002,7 +1002,7 @@ export const CAC_CANALES: CanalCac[] = [
     queLoLimita: 'presupuesto', escalable: true,
     senalEn: 'días — el único que da señal antes de que la decisión esté tomada',
     confianza: 'baja', origen: 'supuesto',
-    veredicto: 'El 37,8% de su costo en plata es el de los Free que no pagan: un pago arrastra 20 registros y 19 no pagan nunca. Las dos palancas que lo cierran están identificadas: costo por conversación de US$1,50 a US$1,10, y free→pago de 5% a 8%.' },
+    veredicto: 'El 43,2% de su costo en plata es el de los Free que no pagan: un pago arrastra 20 registros y 19 no pagan nunca (19 × US$4,00 = US$76,00 de los US$176,00). Las dos palancas que lo cierran están identificadas: costo por conversación de US$1,50 a US$1,10, y free→pago de 5% a 8%.' },
 
   { id: 'prospeccion', nombre: 'Prospección con el chatbot',
     cadena: 'lista con permiso → MaKo escribe → conversación → alta',
@@ -1735,6 +1735,15 @@ export function topeClientes1a1(f: FaseTiempo, horasPorClienteMes: number): numb
 // ── LA MATRIZ: QUÉ CANAL ENTRA EN QUÉ FASE ──────────────────────────────────
 // DECIDE: con qué canales se puede trabajar cada mes, y hasta cuántos clientes
 // da cada uno antes de quedarse sin lo que lo limita.
+
+/**
+ * Qué features de MaKo están vivas HOY. Alimenta `horasDe`: sin la feature, el
+ * canal cuesta las horas «a mano».
+ * ⚠️ Se actualiza a mano. Si queda vieja, el modelo subestima las horas — y como
+ * las horas son la moneda escasa, subestimarlas es el error caro.
+ */
+export const FEATURES_CONSTRUIDAS: string[] = [];
+export const FEATURES_CONSTRUIDAS_ORIGEN: Origen = 'supuesto';
 
 /**
  * Las horas reales de un canal según lo que esté construido.

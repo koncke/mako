@@ -599,6 +599,34 @@ Claude-Cuenta: claude2"
 
 ---
 
+> ⚠️ **Lo que la Task 4 encontró mal en este plan (2026-08-10).** Al partir el CAC en
+> dos monedas **el veredicto se dio vuelta**, y la prosa que el plan daba por buena
+> salía del CAC mezclado. Contra los US$105,84 que vale un cliente Pro, comparando
+> SOLO plata: prospección 0,03%, orgánico 0% y referidos 41% **entran**; carrito 129%
+> y CTWA 166% no. **Entran tres de cinco, no uno.** Lo que se corrigió y lo que queda:
+>
+> - El título de la sección, el `<Titular>` y la `<Nota>` decían lo contrario del dato
+>   y además usaban «techo». Reescritos; los porcentajes ahora se **derivan** de
+>   `CAC_CANALES` en vez de estar en la prosa, que es de donde salió la contradicción.
+> - `ctwa.veredicto` decía «el 37,8% de su costo en plata es el de los Free»: ese 37,8%
+>   era 76/201 sobre el CAC mezclado. Sobre `plataPorCliente: 176` da **43,2%**.
+> - **La fila 1 de la tabla de la Task 6 ya no aplica**: el string
+>   `Solo un canal entra en el techo del Pro` no existe más, y su reemplazo
+>   (`Solo un canal cuesta menos…`) también sería falso.
+> - **La guarda de la Task 6 va a fallar por IDENTIFICADORES, no por texto de
+>   pantalla.** Grepear `/techo/i` sobre el fuente sin comentarios engancha `techoIa`
+>   (función importada de `modelo.ts`, línea 37) y `a.techo` (campo de un dato). Los
+>   locales `techoPro`/`techoProAnual` ya se renombraron a `limitePlata`/
+>   `limitePlataAnual`, pero los otros dos son nombres de otro módulo: la guarda tiene
+>   que mirar solo strings y texto JSX, o exceptuarlos explícitamente.
+> - **`clientesMax` no se puede pintar como «hasta N».** Sale SOLO de las horas, así
+>   que para un canal que frena la lista —referidos en septiembre— da «hasta 6.560»,
+>   un número que la parte 5 del mismo documento desmiente (160 clientes a 24 meses).
+>   La tabla pinta «entra» salvo que lo que frene al canal sean las horas.
+> - `entraEn().porQueNo` arma su texto con `toFixed(2)`, o sea punto decimal
+>   («cuesta 136.22»), contra la regla de un solo formateador de esta pantalla. Por eso
+>   la nota de las barras de plata no lo usa. Si alguna vez se pinta, hay que formatearlo.
+
 ## Task 5: La conclusión al principio de cada parte
 
 **Files:**

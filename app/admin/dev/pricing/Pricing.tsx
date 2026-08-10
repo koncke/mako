@@ -32,6 +32,7 @@ import {
   BASE_PROPIA, HIGH_TICKET, IA_POR_PRO, MES_0, OFERTA_ANUAL, PLAN_MES_1,
   PREGUNTAS_ABIERTAS, PROYECCION_24, RESULTADO_24, TOPE_PAUTA,
   ASCENSO_NETO, CAC_CANALES, CAPITAL_NECESARIO, CONTRAFACTUAL_MENSUAL, COSTO_FREE,
+  FASES_TIEMPO, FEATURES_CONSTRUIDAS, entraEn, horasDe, type CanalCac,
   LLAMADA, P1_ASCENSO, PARA_QUE_ESTO_SE_PUEDA_MEDIR, PROYECCION, UNIT, type Bloque, type Celda as CeldaT,
   aMes, costoUnitario, margen, techoIa,
 } from './modelo';
@@ -50,6 +51,28 @@ type Resumen = {
 const usd = (n: number, dec = 2) => `US$${n.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
 const miles = (n: number) => n.toLocaleString('es-AR');
 const num = (n: number, dec = 1) => n.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
+// Las dos monedas de un canal, cada una con su formato. Los decimales NO son
+// cosmética: sin ellos, la prospección —que cuesta tres centavos y media hora—
+// se pinta «US$0 · 0 h», o sea gratis y sin esfuerzo, que es lo contrario de lo
+// que dice el modelo (lo que la frena es de dónde saque contactos).
+/** La plata de un canal. Sin decimales, salvo cuando redondear los borraría. */
+const plata = (n: number) => (n > 0 && n < 1 ? usd(n) : usd(n, 0));
+/** Las horas de un canal. 26 h no lleva decimales; 0,05 h sí. */
+const horas = (h: number) => `${num(h, h > 0 && h < 1 ? 2 : 0)} h`;
+
+/** La grilla de la tabla de canales. Una sola constante para el encabezado y las
+ *  filas: dos plantillas escritas dos veces se desalinean en cuanto una cambia. */
+const PLANTILLA_CANAL = 'minmax(0,1fr) 84px 84px minmax(0,1fr) 92px';
+
+/** Qué se acaba primero y frena un canal. El nombre técnico no va a pantalla:
+ *  va lo que significa. */
+const QUE_LO_FRENA: Record<CanalCac['queLoLimita'], string> = {
+  presupuesto: 'la plata que puedas poner',
+  horas: 'tus horas',
+  lista: 'de dónde saques contactos con permiso',
+  'tiempo-hasta-señal': 'que tarda 6 a 12 meses en dar señal',
+};
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const mesLabel = (m: string) => { const [y, x] = m.split('-'); return `${MESES[Number(x) - 1] ?? x} ${y}`; };
@@ -175,25 +198,58 @@ export function Pricing() {
 
   const margenPro = margen(PRO, COSTO_INTENSIVO)!;
 
-  // ── Parte 3: el CAC de cada canal contra el techo del Pro ────────────────
-  // Énfasis, no arcoíris: se destaca el ÚNICO que entra. El resto queda
-  // recesivo aunque sea el más grande — que la barra más larga sea gris es
-  // justamente lo que dice «esta no la podés comprar».
-  const techoPro = UNIT.find((u) => u.plan === 'pro')!.gobierna;
-  const techoProAnual = UNIT.find((u) => u.plan === 'proAnual')!.cacMaxPayback;
-  // ⚠️ El gráfico compara PLATA contra PLATA. Antes graficaba `cacUsd`, que era
-  // la suma de la plata y de las horas del dueño valuadas a US$100: una barra
-  // que mezcla dos monedas no se puede comparar contra un techo que está en una
-  // sola. Las horas del canal van aparte, en la tabla.
-  const barrasCac: Barra[] = [...CAC_CANALES]
+  // ── Parte 3: lo que cuesta cada canal, en las dos monedas ────────────────
+  // ⚠️ UN GRÁFICO POR MONEDA, Y NUNCA SE SUMAN. El de antes graficaba `cacUsd`
+  // —la plata MÁS las horas del dueño valuadas a US$100— contra un límite que
+  // estaba en una sola moneda, y de ahí salía «solo entra referidos». Partidas
+  // en dos, entran TRES de los cinco: los dos que sobran son justo los que se
+  // compran con pauta, y los dos más baratos son los que se pagan con tiempo.
+  //
+  // `limitePlata` es lo máximo que se puede pagar por un cliente Pro (LTV:CAC
+  // 3:1). Se compara SOLO contra la plata; las horas van a su propio gráfico.
+  const limitePlata = UNIT.find((u) => u.plan === 'pro')!.gobierna;
+  const limitePlataAnual = UNIT.find((u) => u.plan === 'proAnual')!.cacMaxPayback;
+
+  // La fase que se mira. Septiembre es el mes que este documento planifica:
+  // agosto es construcción y no tiene una sola hora de adquisición, y el régimen
+  // recién empieza cuando hay clientes que entregar.
+  const faseActual = FASES_TIEMPO.find((f) => f.id === 'adquisicion')!;
+  const canalCac = (id: string) => CAC_CANALES.find((c) => c.id === id)!;
+
+  /** La plata de un canal como % de lo que se puede pagar. Dos decimales cuando
+   *  redondear a cero borraría el dato: la prospección cuesta 0,03%, no 0%. */
+  const pctDeLoQuePodesPagar = (p: number) => {
+    const x = (p / limitePlata) * 100;
+    return `${num(x, x > 0 && x < 1 ? 2 : 0)}%`;
+  };
+  const entranEnPlata = CAC_CANALES.filter((c) => c.plataPorCliente <= limitePlata).length;
+
+  // Énfasis, no arcoíris: se destacan los que SÍ se pueden comprar, y por eso el
+  // tono es `good`. El tono se elige por lo que significa la barra destacada, no
+  // por el tema de la sección (AGENTS.md → «Un color de acento dice algo»).
+  const barrasPlata: Barra[] = [...CAC_CANALES]
     .sort((a, b) => a.plataPorCliente - b.plataPorCliente)
     .map((c) => ({
       id: c.id,
       label: c.nombre.split(' —')[0].split(' (')[0],
-      nota: `${num((c.plataPorCliente / techoPro) * 100, 0)}% del techo · ${c.escalable ? 'escala' : 'con tope propio'}`,
+      nota: `${pctDeLoQuePodesPagar(c.plataPorCliente)} de lo que podés pagar · ${c.escalable ? 'escala con plata' : 'con tope propio'}`,
       valor: c.plataPorCliente,
-      texto: usd(c.plataPorCliente, 0),
-      destacada: c.plataPorCliente <= techoPro,
+      texto: plata(c.plataPorCliente),
+      destacada: c.plataPorCliente <= limitePlata,
+    }));
+
+  // El mismo canal en la otra moneda. Sin destacada a propósito: acá no hay una
+  // que «gane», y lo único que el gráfico tiene que decir es que el orgánico
+  // está en otra escala. La nota de cada barra dice con qué feature baja.
+  const barrasHoras: Barra[] = [...CAC_CANALES]
+    .sort((a, b) => horasDe(a, FEATURES_CONSTRUIDAS) - horasDe(b, FEATURES_CONSTRUIDAS))
+    .map((c) => ({
+      id: c.id,
+      label: c.nombre.split(' —')[0].split(' (')[0],
+      nota: c.horas.loHabilita ? `con ${c.horas.loHabilita} baja a ${horas(c.horas.conMaKo)}` : '',
+      valor: horasDe(c, FEATURES_CONSTRUIDAS),
+      texto: horas(horasDe(c, FEATURES_CONSTRUIDAS)),
+      destacada: false,
     }));
 
   // Las llamadas de venta SERVIDAS contra las PEDIDAS, por escenario. Es la
@@ -546,49 +602,76 @@ export function Pricing() {
           arriba de la tabla entera, y el dueño lo dijo así: «pusiste muucha data
           mucho texto todo junto». No sobraba análisis, sobraba análisis a la
           vista. Si algo no entra en dos frases, son dos secciones. */}
-      <Section titulo="Solo un canal entra en el techo del Pro" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>techo {usd(techoPro)} · regla LTV:CAC 3:1</span>} card>
+      <Section titulo="Los dos canales que te cuestan tiempo son los más baratos en plata" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>por un cliente de US${PRO.precioUsd}/mes podés pagar hasta {usd(limitePlata)} · regla LTV:CAC 3:1</span>} card>
         <Titular
-          valor={usd(CAC_CANALES.find((c) => c.id === 'referidos')!.plataPorCliente, 0)}
-          unidad="cuesta un cliente por referidos"
+          valor={`${entranEnPlata} de ${CAC_CANALES.length}`}
+          unidad="canales entran, mirando solo la plata"
           tono="good"
-          frase={<>Es el 46% del techo. Los otros cuatro canales lo pasan: carrito 129%, CTWA 190%, prospección 974% y orgánico 1.690%.</>}
-          abrir="Los cinco canales, con la cadena y el veredicto de cada uno"
+          frase={<>Contra los {usd(limitePlata)} que podés pagar por un cliente Pro: prospección {pctDeLoQuePodesPagar(canalCac('prospeccion').plataPorCliente)}, orgánico {pctDeLoQuePodesPagar(canalCac('organico').plataPorCliente)} y referidos {pctDeLoQuePodesPagar(canalCac('referidos').plataPorCliente)}. Los dos que no entran son los que se compran con pauta —carrito {pctDeLoQuePodesPagar(canalCac('carrito').plataPorCliente)} y CTWA {pctDeLoQuePodesPagar(canalCac('ctwa').plataPorCliente)}—, y los dos más baratos son justo los que se pagan con tus horas.</>}
+          abrir="Los cinco canales, moneda por moneda, con el veredicto de cada uno"
         >
-          <Barras tono="good" datos={barrasCac} max={techoPro * 2} />
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', margin: '6px 0 18px' }}>
-            La escala corta en 2× el techo. Prospección y orgánico se salen por 10× y 17×: van en la tabla con su número.
+          {/* UN GRÁFICO POR MONEDA. El de antes era uno solo y graficaba la suma
+              de las dos, que es la cuenta que dio el veredicto al revés. */}
+          <div style={{ marginBottom: 4 }}><Eyebrow>Lo que cuesta en plata</Eyebrow></div>
+          <Barras tono="good" datos={barrasPlata} max={limitePlata} />
+          <div style={{ fontSize: 11.5, color: 'var(--faint)', margin: '6px 0 22px' }}>
+            La escala termina en los {usd(limitePlata)} que podés pagar por un cliente. Las dos barras
+            que la pasan van cortadas a filo, con el número al lado.
           </div>
+
+          <div style={{ marginBottom: 4 }}><Eyebrow>Lo que cuesta en horas</Eyebrow></div>
+          <Barras datos={barrasHoras} />
+          <div style={{ fontSize: 11.5, color: 'var(--faint)', margin: '6px 0 18px' }}>
+            Otra moneda y otra escala: el orgánico se come {horas(canalCac('organico').horas.aMano)} por
+            cliente y ninguno de los otros cuatro llega a la media hora. Estas horas no se convierten a
+            dólares —esa cuenta fue la que dio «solo entra referidos»—: se miden contra las{' '}
+            {miles(faseActual.pisoAdquisicion)} h que {faseActual.mes} tiene para conseguir clientes.
+          </div>
+
           <Nota>
-            <strong>El CAC es por cliente PAGO</strong>, nunca por lead, y es económico: medios + los
-            Free que no pagan ({usd(COSTO_FREE.totalVida)} de vida cada uno) + las horas del dueño. Un
-            pago de CTWA arrastra 20 registros Free y 19 no pagan nunca — eso solo es el 37,8% de su CAC.
+            <strong>El CAC es por cliente PAGO</strong>, nunca por lead. La <strong>plata</strong> es lo
+            que sale del bolsillo —pauta, premios, IA— más el costo de vida de los Free que no pagan
+            ({usd(COSTO_FREE.totalVida)} cada uno). Las <strong>horas</strong> van aparte, en su propia
+            columna, y no se convierten a dólares. Un pago de CTWA arrastra 20 registros Free y 19 no
+            pagan nunca: esos {usd(19 * COSTO_FREE.totalVida, 0)} son el{' '}
+            {num((19 * COSTO_FREE.totalVida / canalCac('ctwa').plataPorCliente) * 100)}% de su plata.
           </Nota>
           {/* Las dos monedas en dos columnas, nunca en una. La columna «CAC» que
               había acá era la suma, y las de «Medios» y «Free» eran sus dos
               sumandos en plata: hoy van juntos en `plataPorCliente`. */}
           <Tabla>
-            <Fila head plantilla="minmax(0,1fr) 84px 84px 76px"
-              cols={['Canal', 'Plata', 'Horas', '% techo']} />
-            {CAC_CANALES.map((c) => (
-              <Fila key={c.id} plantilla="minmax(0,1fr) 84px 84px 76px"
-                cols={[
-                  <div key="n">
-                    <div style={{ fontWeight: c.plataPorCliente <= techoPro ? 600 : 400 }}>{c.nombre}</div>
-                    <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2, lineHeight: 1.45 }}>{c.cadena}</div>
-                  </div>,
-                  <Num key="p">{c.plataPorCliente ? usd(c.plataPorCliente, 0) : '—'}</Num>,
-                  <Num key="h">{c.horas.aMano ? `${num(c.horas.aMano)} h` : '—'}</Num>,
-                  <Status key="v" tono={c.plataPorCliente <= techoPro ? 'good' : 'bad'}>{num((c.plataPorCliente / techoPro) * 100, 0)}%</Status>,
-                ]} />
-            ))}
+            <Fila head plantilla={PLANTILLA_CANAL}
+              cols={['Canal', 'Plata', 'Horas', 'Qué lo frena', `En ${faseActual.mes}`]} />
+            {CAC_CANALES.map((c) => {
+              const v = entraEn(c, faseActual, FEATURES_CONSTRUIDAS, limitePlata);
+              return (
+                <Fila key={c.id} plantilla={PLANTILLA_CANAL}
+                  cols={[
+                    <div key="n">
+                      <div style={{ fontWeight: v.entra ? 600 : 400 }}>{c.nombre}</div>
+                      <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2, lineHeight: 1.45 }}>{c.cadena}</div>
+                    </div>,
+                    <Num key="p">{plata(c.plataPorCliente)}</Num>,
+                    <Num key="h">{horas(horasDe(c, FEATURES_CONSTRUIDAS))}</Num>,
+                    <span key="l" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{QUE_LO_FRENA[c.queLoLimita]}</span>,
+                    // ⚠️ `clientesMax` sale SOLO de las horas, así que solo se
+                    // pinta cuando lo que frena al canal son las horas. Para
+                    // referidos —que lo frena la lista— daría «hasta 6.560», un
+                    // número que el resto del documento desmiente en la parte 5.
+                    v.entra
+                      ? <Status key="v" tono="good">{c.queLoLimita === 'horas' ? `hasta ${miles(v.clientesMax)}` : 'entra'}</Status>
+                      : <Status key="v" tono="bad">no entra</Status>,
+                  ]} />
+              );
+            })}
           </Tabla>
           <div style={{ marginTop: 14 }}>
             {CAC_CANALES.map((c) => (
               <Plegable key={c.id} titulo={c.nombre}
-                resumen={`${usd(c.plataPorCliente, 0)} y ${num(c.horas.aMano)} h · ${c.escalable ? 'escala con plata' : 'tiene techo propio'}`}>
+                resumen={`${plata(c.plataPorCliente)} y ${horas(horasDe(c, FEATURES_CONSTRUIDAS))} · ${c.escalable ? 'escala con plata' : 'tiene tope propio'}`}>
                 <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>{c.veredicto}</div>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 8 }}>
-                  confianza {c.confianza} · señal en {c.senalEn} · la plata contra el Pro anual bajo payback: {num((c.plataPorCliente / techoProAnual) * 100, 0)}%
+                  confianza {c.confianza} · señal en {c.senalEn} · la plata contra el Pro anual bajo payback: {num((c.plataPorCliente / limitePlataAnual) * 100, 0)}%
                 </div>
               </Plegable>
             ))}
