@@ -27,7 +27,7 @@ import {
   DATO_FALSO, ECONOMIA, EL_ACCIDENTE, EL_COSTO_ES_EL_VIDEO, ESCENARIOS, EXPOSICION, IMAGEN,
   MARKUP_MT, MEDICION, MT_POR_USD, PERFILES, PLANES, RERUTEO, RETENCION, RETENCION_FUENTE,
   RIESGO_QUE_QUEDA, RUTEO, SALVEDADES, TARIFA, VIDEO, VIDEO_15S,
-  BYOK, COBRO, CUARTO_PLAN, FUERA_DE_GRILLA, GANCHO, GRANDFATHER, GRILLA, HUECOS,
+  BYOK, COBRO, CONCLUSION_GENERAL, CUARTO_PLAN, FUERA_DE_GRILLA, GANCHO, GRANDFATHER, GRILLA, HUECOS,
   INDICE, ORDEN_DE_TRABAJO, PRECIOS,
   BASE_PROPIA, HIGH_TICKET, IA_POR_PRO, MES_0, OFERTA_ANUAL, PLAN_MES_1,
   PREGUNTAS_ABIERTAS, PROYECCION_24, RESULTADO_24, TOPE_PAUTA,
@@ -318,7 +318,6 @@ export function Pricing() {
     texto: usd(p.iaUsd),
     destacada: p.plan === 'growth',
   }));
-  const pctMedios = (GROWTH_P.mediosUsd / GROWTH_P.iaUsd) * 100;
 
   // ── La tarifa ────────────────────────────────────────────────────────────
   // Se grafica una MUESTRA de 12, no las 40: el gráfico existe para que se vea
@@ -368,58 +367,36 @@ export function Pricing() {
         </Fuente>
       </Section>
 
-      {/* ── EL VEREDICTO ──────────────────────────────────────────────────── */}
-      <Section titulo="El veredicto, en tres números" card>
-        {/* 195px y no 230: a 230 las tres tarjetas no entran en el ancho de la
-            card y se parten 2+1, que deja un hueco al lado de la tercera y rompe
-            la lectura de un vistazo — que es lo único que un veredicto tiene que
-            hacer. Tres o una, nunca dos y media. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(195px,1fr))', gap: 28, marginBottom: 22 }}>
-          {/* Dos cifras de este veredicto estuvieron MAL y conviene que quede
-              escrito, porque las dos fallaron igual: un número traído de una
-              fuente sin verificar el modelo al que aplica.
-              · «US$666 · costo de una reunión de venta» — es el costo de una
-                reunión agendada por un SDR OUTBOUND, y MaKo vende self-serve.
-              · «margen −45% del Pro» — medido con el ruteo caro Y contra un techo
-                del 75% que es un supuesto de la era SaaS. La mediana de un
-                producto de IA es 50%: el Pro nunca estuvo en problemas.
-             Y cada rótulo tiene que sostenerse SOLO: «De ese costo son medios»
-             obligaba a haber leído la tarjeta de al lado. */}
-          <Cifra
-            valor={usd(GROWTH_P.iaUsd)} unidad="por mes" tono="warn"
-            rotulo="Lo que costará de IA el cliente más caro"
-            detalle={`Un plan Growth de US$${GROWTH_P.precioUsd}/mes con el producto entero construido. Deja ${num(margen(GROWTH, GROWTH_P.iaUsd)!, 0)}% de margen, arriba de la mediana de un producto de IA (50-53%).`}
-          />
-          <Cifra
-            valor={`${num(pctMedios, 0)}%`} unidad="del costo" tono="bad"
-            rotulo="Son video e imagen, no texto"
-            detalle={`${usd(GROWTH_P.mediosUsd)} de medios contra ${usd(GROWTH_P.textoUsd)} de todo el texto. Un solo intento de Reel de 15 segundos cuesta US$0,85.`}
-          />
-          <Cifra
-            valor="436×" unidad="más barato" tono="good"
-            rotulo="Lo que se ahorra extrayendo una reunión"
-            detalle="De US$0,93 a US$0,0021. No es un modelo más barato: con 1M de contexto la reunión entra entera y desaparecen las 4-5 llamadas del troceo."
-          />
-        </div>
-        {/* Acá había un párrafo en negrita que volvía a contar las tres cifras de
-            arriba —y encima decía «US$2,45» del Reel donde la tarjeta dice
-            «US$0,85», porque uno es con tres intentos y el otro con uno. Dos
-            números del mismo objeto en la misma vista, sin decir qué los separa,
-            se leen como un error. Queda solo lo que las cifras NO dicen: qué hay
-            que hacer con esto. */}
-        <div style={{ padding: '14px 16px', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, fontWeight: 600 }}>
-            La consecuencia es de diseño de planes, no de ingeniería: el video no puede ser una
-            feature incluida, tiene que ser una unidad medida.
+      {/* ── LO QUE HAY QUE SABER ──────────────────────────────────────────── */}
+      {/* Reemplaza a «El veredicto, en tres números», que eran tres tarjetas y un
+          párrafo — todas de la parte 1. Un veredicto que solo habla de costo de
+          IA no es el veredicto del documento: es el de una de sus cinco partes, y
+          las otras cuatro quedaban sin representación arriba de todo. Encima el
+          párrafo repetía textual la frase que la sección «el costo es el video»
+          vuelve a decir 500 líneas más abajo.
+
+          Cada punto es UN renglón fuerte + su detalle en gris, no un párrafo:
+          leídos solo los renglones fuertes, el documento ya se entendió. Y cada
+          uno linkea a la parte que lo sostiene, que es lo que lo hace auditable
+          en vez de una lista de afirmaciones. */}
+      <Section titulo="Lo que hay que saber" card>
+        {CONCLUSION_GENERAL.map((p, i) => (
+          <div key={p.titular} style={{
+            display: 'flex', gap: 16, alignItems: 'baseline', padding: '13px 0',
+            borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+          }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{p.titular}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: 4 }}>{p.que}</div>
+            </div>
+            <a href={`#${anclaParte(p.parte)}`} style={{
+              flexShrink: 0, fontFamily: MONO, fontSize: 10.5, letterSpacing: '.05em',
+              color: 'var(--muted)', textDecoration: 'none', borderBottom: '1px solid var(--border-strong)',
+            }}>
+              parte {p.parte}
+            </a>
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: 8 }}>
-            Y lo que <em>no</em> se arregla bajando el costo es la retención: abajo de US$50/mes el
-            producto retiene 23% anual, y el Pro cae en esa banda por dos dólares.
-          </div>
-        </div>
-        {/* Los benchmarks se van al final de la sección de CAC, que es donde se
-            usan. Acá abajo del veredicto eran tres líneas en monoespaciada que
-            nadie lee y que le sacaban peso a las cifras. */}
+        ))}
       </Section>
 
       <Parte n="1" />

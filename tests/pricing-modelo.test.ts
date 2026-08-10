@@ -252,3 +252,68 @@ test('los textos que la pantalla trae de modelo.ts tampoco dicen «techo»', () 
   const conJerga = todos.filter(([c, s]) => /techo/i.test(s) && !NO_SE_PINTAN.has(c)).map(([c]) => c);
   assert.deepEqual(conJerga, [], `modelo.ts le pasa «techo» a la pantalla en: ${conJerga.join(', ')}`);
 });
+
+// =============================================================================
+// La conclusión general, que se escribe ÚLTIMA
+// =============================================================================
+// Va arriba de todo y sale de las conclusiones de las cinco partes. Las dos
+// formas de arruinarla son las dos que se testean acá:
+//
+//  · Que diga un número que su parte no dice. Es la falla de siempre —dos
+//    versiones del mismo dato en la misma pantalla— pero en el peor lugar,
+//    porque este bloque es lo primero que se lee.
+//  · Que COPIE la conclusión de su parte en vez de resumirla. Pasó adentro de
+//    la parte 3, donde el `frase` del Titular repetía la conclusión palabra por
+//    palabra sesenta píxeles más abajo. Acá la distancia es un scroll, así que
+//    el mismo error se lee como un bug de armado.
+// =============================================================================
+
+import { CONCLUSION_GENERAL } from '../app/admin/dev/pricing/modelo';
+
+/** Todo lo que un punto pone en pantalla. El titular también dice números. */
+const textoDe = (p: (typeof CONCLUSION_GENERAL)[number]) => `${p.titular} ${p.que}`;
+
+test('cada punto de la conclusión general apunta a una parte que existe', () => {
+  for (const p of CONCLUSION_GENERAL) {
+    assert.ok(INDICE.some((q) => q.n === p.parte),
+      `«${p.titular}» apunta a la parte ${p.parte}, que no existe`);
+  }
+});
+
+test('la conclusión general no dice ningún número que su parte no diga', () => {
+  for (const p of CONCLUSION_GENERAL) {
+    // Arranca en dígito para no capturar puntuación suelta, y se le sacan el
+    // punto o la coma finales: «62.» es el mismo número que «62,» — lo que
+    // cambia ahí es dónde termina la oración, no el dato.
+    const numeros = (textoDe(p).match(/\d[\d.,]*/g) ?? [])
+      .map((n) => n.replace(/[.,]+$/, ''))
+      .filter((n) => n.length > 2);
+    const parte = INDICE.find((q) => q.n === p.parte)!;
+    for (const n of numeros) {
+      assert.ok(parte.conclusion.includes(n),
+        `el número ${n} está en la conclusión general («${p.titular}») y no en la parte ${p.parte}`);
+    }
+  }
+});
+
+/** El tramo textual más largo que comparten dos frases. */
+function tramoCompartido(a: string, b: string): string {
+  let mejor = '';
+  for (let i = 0; i < a.length; i++) {
+    for (let j = i + mejor.length + 1; j <= a.length; j++) {
+      if (!b.includes(a.slice(i, j))) break;
+      mejor = a.slice(i, j);
+    }
+  }
+  return mejor;
+}
+
+test('la conclusión general resume su parte, no la copia', () => {
+  const TOPE = 40; // caracteres. Una frase compartida; no un párrafo compartido.
+  for (const p of CONCLUSION_GENERAL) {
+    const parte = INDICE.find((q) => q.n === p.parte)!;
+    const tramo = tramoCompartido(textoDe(p), parte.conclusion);
+    assert.ok(tramo.length < TOPE,
+      `«${p.titular}» copia ${tramo.length} caracteres de la parte ${p.parte}: «${tramo}»`);
+  }
+});

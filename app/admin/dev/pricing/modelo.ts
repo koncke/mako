@@ -729,6 +729,43 @@ export const INDICE: Pregunta[] = [
     conclusion: 'Los 30 clientes pagos del mes 1 no salen: salen 11, y las 19 que faltan no se compran a ningún precio. A 24 meses el plan da 160 clientes y US$69.150 sin poner capital — lo que pide son tus horas, no tu plata.' },
 ];
 
+/**
+ * Lo que hay que saber, arriba de todo. SE ESCRIBE ÚLTIMA, derivada de las
+ * conclusiones de las cinco partes de arriba. Decisión del dueño, y es un orden
+ * de trabajo y no de lectura: escrita antes, sale de lo que uno cree y después
+ * se fuerza a los datos.
+ *
+ * DOS REGLAS, las dos con test en tests/pricing-modelo.test.ts:
+ *  1. Ningún número aparece acá si no está en la conclusión de SU parte. Es la
+ *     misma falla de siempre —dos versiones del mismo número en la misma
+ *     pantalla— pero peor, porque este bloque es lo primero que se lee.
+ *  2. RESUME, no copia. Esto vive a un scroll de las cinco conclusiones, así que
+ *     repetir la frase textual no agrega nada y se lee como un error de armado.
+ *     Ya pasó adentro de la parte 3: el `frase` del Titular decía la conclusión
+ *     de la parte palabra por palabra, sesenta píxeles más abajo.
+ *
+ * Y EL ORDEN NO ES EL DEL DOCUMENTO. Va de lo que se cae primero a lo que queda
+ * al final: lo que el plan pide y no pasa → la decisión que lo arregla → lo que
+ * cuesta sostenerlo → con qué se compran clientes → dónde termina a 24 meses.
+ * Por eso la parte 5 abre y cierra: es el mismo plan visto al mes 1 y al mes 24.
+ */
+export const CONCLUSION_GENERAL: Array<{ titular: string; que: string; parte: string }> = [
+  { parte: '5', titular: 'El mes 1 da 11 altas, no 30',
+    que: 'Las 19 que faltan no aparecen poniendo más pauta a ningún precio. La mitad de la brecha la cierra el alta pública, que todavía no está construida.' },
+
+  { parte: '4', titular: 'La decisión más grande es cobrar por año',
+    que: 'El año entero entra el día 0, y eso multiplica la caja por 62 con la misma máquina y el mismo gasto. El descuento tiene un tope duro: 19,5%.' },
+
+  { parte: '1', titular: 'Un Pro consume US$10,90 de IA, no US$2,52',
+    que: 'El ruteo barato que sostenía ese número no tiene una sola línea escrita en el repo. Escribirlo vale US$15.018 de caja.' },
+
+  { parte: '3', titular: 'Entran tres canales de cinco, y eso es solo la plata',
+    que: 'Medidos contra los US$105,84 que se pueden pagar por un Pro. Y los que menos plata cuestan son los que más horas te sacan: dos monedas distintas que nunca se suman.' },
+
+  { parte: '5', titular: 'A 24 meses: 160 clientes y US$69.150',
+    que: 'Sin poner un peso de capital. Lo que financia ese crecimiento son tus horas, y por eso el cuello del negocio es el calendario y no la caja.' },
+];
+
 // =============================================================================
 // PARTE 3 — ¿CUÁNTO CUESTA CONSEGUIR UN CLIENTE?
 // =============================================================================
