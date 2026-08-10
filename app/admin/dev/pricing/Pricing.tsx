@@ -29,6 +29,8 @@ import {
   RIESGO_QUE_QUEDA, RUTEO, SALVEDADES, TARIFA, VIDEO, VIDEO_15S,
   BYOK, COBRO, CUARTO_PLAN, FUERA_DE_GRILLA, GANCHO, GRANDFATHER, GRILLA, HUECOS,
   INDICE, ORDEN_DE_TRABAJO, PRECIOS,
+  BASE_PROPIA, HIGH_TICKET, IA_POR_PRO, MES_0, OFERTA_ANUAL, PLAN_MES_1,
+  PREGUNTAS_ABIERTAS, PROYECCION_24, RESULTADO_24, TOPE_PAUTA,
   ASCENSO_NETO, CAC_CANALES, CAPITAL_NECESARIO, CONTRAFACTUAL_MENSUAL, COSTO_FREE,
   LLAMADA, P1_ASCENSO, PARA_QUE_ESTO_SE_PUEDA_MEDIR, PROYECCION, UNIT, type Bloque, type Celda as CeldaT,
   aMes, costoUnitario, margen, techoIa,
@@ -191,6 +193,21 @@ export function Pricing() {
 
   // Las llamadas de venta SERVIDAS contra las PEDIDAS, por escenario. Es la
   // forma de ver que el numerador no se mueve aunque el denominador explote.
+  // Parte 5 — de dónde salen las 11 altas del mes 1, contra el objetivo de 30.
+  const barrasMes1: Barra[] = [
+    { id: 'base', label: 'Tus 1.000 contactos', nota: 'a mano, 30 h tuyas', valor: PLAN_MES_1.desglose.base, texto: num(PLAN_MES_1.desglose.base) },
+    { id: 'ads', label: 'US$1.000 de pauta', nota: `CAC económico ${usd(PLAN_MES_1.cacEconomicoUsd, 0)}`, valor: PLAN_MES_1.desglose.ads, texto: num(PLAN_MES_1.desglose.ads) },
+    { id: 'falta', label: 'Lo que falta para 30', nota: 'no se compra: se construye', valor: PLAN_MES_1.losQueFaltan.faltan, texto: num(PLAN_MES_1.losQueFaltan.faltan), destacada: true },
+  ];
+
+  // Y el costo de IA de un Pro: lo que cuesta hoy, lo que costaría ruteado, y
+  // lo que el modelo viejo decía. Destacado el de HOY, que es el que se paga.
+  const barrasIa: Barra[] = [
+    { id: 'hoy', label: 'Hoy, sin ruteo', nota: 'lo que se paga de verdad', valor: IA_POR_PRO.hoyUsd, texto: usd(IA_POR_PRO.hoyUsd), destacada: true },
+    { id: 'ruteado', label: 'Con el ruteo de los pasos 1-6', nota: IA_POR_PRO.cuandoBaja, valor: IA_POR_PRO.conRuteoUsd, texto: usd(IA_POR_PRO.conRuteoUsd) },
+    { id: 'viejo', label: 'Lo que el modelo proyectaba', nota: 'sobre un ruteo que no existe', valor: 2.52, texto: usd(2.52) },
+  ];
+
   const barrasLlamadas: Barra[] = PROYECCION.map((p) => ({
     id: p.id,
     label: p.nombre.split(' — ')[0],
@@ -781,6 +798,242 @@ export function Pricing() {
       </Section>
 
       {/* ── TODO EL RESPALDO, PLEGADO ─────────────────────────────────────── */}
+      <Parte n="5" />
+
+      {/* ── PARTE 5: EL PLAN ───────────────────────────────────────────────── */}
+      {/* Sale de la corrida del 09/08/2026 sobre el plan que el dueño decidió:
+          30 usuarios el mes 1, US$1.000 en ads, los 1.000 contactos de su
+          agencia, y vender high ticket siempre. 38 fallas auditadas, 14 de
+          ellas cambiaban el signo. Detalle en docs/embudo-y-high-ticket.md. */}
+      <Section titulo="Los 30 del mes 1 no salen: salen 11" card>
+        <Titular
+          valor={`${num(PLAN_MES_1.altasCobradas)} de ${PLAN_MES_1.objetivoDueno}`}
+          unidad="altas cobradas"
+          tono="warn"
+          frase={<>Las 19 que faltan <strong>no se compran</strong>: para conseguirlas hay que gastar US$4.686 de pauta, y a ese gasto cada cliente sale {usd(311.6, 0)} — el 171% del techo más permisivo que tiene el modelo.</>}
+          abrir="La cadena completa, y las tres vías para cerrar la brecha"
+        >
+          <Barras tono="info" datos={barrasMes1} />
+          <Nota>
+            <strong>De dónde salen las 11:</strong> {num(PLAN_MES_1.desglose.base)} de tus{' '}
+            {miles(BASE_PROPIA.contactos)} contactos ({miles(BASE_PROPIA.contactos)} → {num(BASE_PROPIA.responden * 100, 0)}% responden →{' '}
+            {num(BASE_PROPIA.cierran * 100)}% cierran → {num(BASE_PROPIA.aprobacionCobro * 100, 0)}% de aprobación de cobro)
+            y {num(PLAN_MES_1.desglose.ads)} de los US$1.000 de pauta. Las dos tasas son tuyas, de{' '}
+            <span style={{ fontFamily: MONO }}>Estrategia.tsx</span>.
+          </Nota>
+          <Tabla>
+            <Fila head plantilla="90px minmax(0,1fr)" cols={['Vía', 'Qué pasa si se empuja por ahí']} />
+            {[['Con ads', PLAN_MES_1.losQueFaltan.viaAds], ['Con la base', PLAN_MES_1.losQueFaltan.viaBase], ['Con producto', PLAN_MES_1.losQueFaltan.viaProducto]].map(([k, v]) => (
+              <Fila key={k} plantilla="90px minmax(0,1fr)" cols={[<strong key="k">{k}</strong>, <span key="v" style={{ fontSize: 12 }}>{v}</span>]} />
+            ))}
+          </Tabla>
+          <div style={{ marginTop: 14, padding: 13, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)', fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6 }}>
+            {PLAN_MES_1.losQueFaltan.veredicto}
+          </div>
+          <Fuente>{PLAN_MES_1.gastoAdsQue}</Fuente>
+        </Titular>
+      </Section>
+
+      <Section titulo="El mes 1 tira 199 interesados a la basura" card>
+        <Titular
+          valor={miles(PLAN_MES_1.interesadosSinDondeAterrizar)}
+          unidad="personas que quieren entrar y no pueden"
+          tono="bad"
+          frase={<>Los US$1.000 de pauta traen 210 personas y solo {num(PLAN_MES_1.altasCobradas)} pueden entrar. Las otras se pierden porque <strong>hoy no existe el alta pública</strong> — y valen más que la pauta que las trajo.</>}
+          abrir="Dónde muere cada una, con el archivo y la línea"
+        >
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7 }}>{PLAN_MES_1.elHallazgo}</div>
+        </Titular>
+      </Section>
+
+      <Section titulo="A 24 meses: 160 clientes y US$69.150 de caja, sin poner un peso" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>ningún mes en rojo · piso {usd(RESULTADO_24.pisoCaja, 0)}</span>} card>
+        <Titular
+          valor={usd(RESULTADO_24.cajaAcumulada, 0)}
+          unidad="de caja acumulada"
+          tono="good"
+          frase={<>{num(RESULTADO_24.pagosVivos, 0)} clientes pagos y {usd(RESULTADO_24.mrrEquivalente, 0)} de MRR. Lo que pide no son dólares —el capital necesario es cero— son <strong>{num(RESULTADO_24.horasDuenoMax)} horas tuyas el mes 1</strong> y 46-55 por mes, todos los meses.</>}
+          abrir="Los 24 meses, mes por mes"
+        >
+          <Tabla>
+            <Fila head plantilla="34px minmax(0,1.5fr) 66px 60px 62px 74px 78px 74px 56px"
+              cols={['Mes', 'Qué pasa', 'Pauta', 'Altas', 'Pagos', 'MRR', 'Cobrado', 'Caja', 'Horas']} />
+            {PROYECCION_24.map((m) => (
+              <Fila key={m.mes} plantilla="34px minmax(0,1.5fr) 66px 60px 62px 74px 78px 74px 56px"
+                cols={[
+                  <Num key="m">{m.mes}</Num>,
+                  <span key="q" style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.45 }}>{m.que}</span>,
+                  <Num key="g">{m.gastoAds ? usd(m.gastoAds, 0) : '—'}</Num>,
+                  <Num key="a">{num(m.altasNuevas)}</Num>,
+                  <Num key="p">{num(m.pagosVivos, 0)}</Num>,
+                  <Num key="mr">{usd(m.mrrEquivalente, 0)}</Num>,
+                  <Num key="c">{usd(m.cobradoMes, 0)}</Num>,
+                  <Num key="k"><span style={{ color: m.caja > 0 ? 'var(--good)' : 'var(--bad)' }}>{usd(m.caja, 0)}</span></Num>,
+                  <Num key="h">{num(m.horasDueno, 0)} h</Num>,
+                ]} />
+            ))}
+          </Tabla>
+          <Nota>
+            <strong>El cuello ya no es tu calendario.</strong> {RESULTADO_24.laConclusionQueCambio.replace('⚠️ ', '')}
+          </Nota>
+          <Plegable titulo="Por qué esto da menos que el panel de agosto" resumen={`de US$143.861 a ${usd(RESULTADO_24.cajaAcumulada, 0)}`}>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>
+              {RESULTADO_24.deDondeSaleLaDiferencia.map((x) => <li key={x} style={{ marginBottom: 7 }}>{x}</li>)}
+            </ul>
+          </Plegable>
+          <Plegable titulo="El tope de pauta no es US$5.800" resumen={`${usd(TOPE_PAUTA.bajo3a1.m5a12, 0)} bajo 3:1 · ${usd(TOPE_PAUTA.bajoPayback.m13a24, 0)} bajo payback`}>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>{TOPE_PAUTA.yLoQueNoEsLaPalanca}</div>
+          </Plegable>
+        </Titular>
+      </Section>
+
+      <Section titulo={HIGH_TICKET.nombre} nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>{usd(HIGH_TICKET.precioUsd, 0)} · {HIGH_TICKET.horasTotales} horas tuyas</span>} card>
+        <Titular
+          valor={`${HIGH_TICKET.horasTotales} h`}
+          unidad={`por programa · ${usd(HIGH_TICKET.precioUsd / HIGH_TICKET.horasTotales, 0)} por hora tuya`}
+          frase={<>{HIGH_TICKET.promesa}</>}
+          abrir="Qué incluye, qué no, y para quién es"
+        >
+          <Eyebrow>Los seis renglones de la entrega</Eyebrow>
+          <Tabla>
+            <Fila head plantilla="minmax(0,1.4fr) 58px minmax(0,1.2fr)" cols={['Qué', 'Horas', 'De dónde sale esa hora']} />
+            {HIGH_TICKET.entrega.map((e) => (
+              <Fila key={e.que} plantilla="minmax(0,1.4fr) 58px minmax(0,1.2fr)"
+                cols={[
+                  <strong key="q" style={{ fontSize: 12.5 }}>{e.que}</strong>,
+                  <Num key="h">{num(e.horas, 0)}</Num>,
+                  <span key="c" style={{ fontSize: 11.5, color: 'var(--faint)' }}>{e.comoSaleLaHora}</span>,
+                ]} />
+            ))}
+            <Fila plantilla="minmax(0,1.4fr) 58px minmax(0,1.2fr)"
+              cols={[<strong key="t">Total</strong>, <Num key="h"><strong>{HIGH_TICKET.horasTotales}</strong></Num>, '']} />
+          </Tabla>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 18, marginTop: 20 }}>
+            <div>
+              <Eyebrow>Para quién es</Eyebrow>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: 6 }}>{HIGH_TICKET.paraQuien}</div>
+            </div>
+            <div>
+              <Eyebrow>Para quién NO</Eyebrow>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: 6 }}>{HIGH_TICKET.noEsPara}</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 18 }}>
+            <Eyebrow>Qué NO incluye</Eyebrow>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>
+              {HIGH_TICKET.noIncluye.map((x) => <li key={x} style={{ marginBottom: 5 }}>{x}</li>)}
+            </ul>
+          </div>
+          <Fuente>{HIGH_TICKET.precioQue}</Fuente>
+        </Titular>
+      </Section>
+
+      <Section titulo="El anual: 2 meses gratis, y el margen es más fino de lo que parece" card>
+        <Titular
+          valor="16,7%"
+          unidad="de descuento · el límite está en 19,5%"
+          frase={<>Ahí el CAC del carrito toca el techo y el único canal escalable deja de cerrar. Por eso la respuesta a «hacelo más atractivo» es <strong>agregar cosas, no bajar el precio</strong>.</>}
+          abrir="El switch, las cuatro cards y qué se le agrega al anual"
+        >
+          <div style={{ padding: 15, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>
+            <div style={{ fontFamily: MONO, fontSize: 13, color: 'var(--ink)' }}>{OFERTA_ANUAL.switch.rotulo}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>{OFERTA_ANUAL.switch.bajada}</div>
+          </div>
+          <Tabla>
+            <Fila head plantilla="70px 68px 74px 82px 74px" cols={['Plan', 'Mensual', 'Anual', 'Equiv./mes', 'Ahorro']} />
+            {OFERTA_ANUAL.planes.map((p) => (
+              <Fila key={p.plan} plantilla="70px 68px 74px 82px 74px"
+                cols={[
+                  <strong key="p">{p.plan}</strong>,
+                  <Num key="m">{p.mensualUsd ? usd(p.mensualUsd, 0) : 'Gratis'}</Num>,
+                  <Num key="a">{p.anualUsd ? usd(p.anualUsd, 0) : '—'}</Num>,
+                  <Num key="e">{p.equivalenteMesUsd ? usd(p.equivalenteMesUsd) : '—'}</Num>,
+                  <Num key="h">{p.ahorroUsd ? usd(p.ahorroUsd, 0) : '—'}</Num>,
+                ]} />
+            ))}
+          </Tabla>
+          {OFERTA_ANUAL.planes.map((p) => (
+            <Plegable key={p.plan} titulo={`Qué lleva el anual del ${p.plan}`} resumen={p.anualUsd ? `${usd(p.anualUsd, 0)}/año` : 'sin anual'}>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>{p.extraDelAnual}</div>
+            </Plegable>
+          ))}
+          <Plegable titulo="Las cuatro decisiones del switch" resumen="dónde va, qué muestra, y por qué el mensual nunca se esconde">
+            <Tabla>
+              <Fila head plantilla="110px minmax(0,1fr)" cols={['Decisión', 'Por qué']} />
+              {[['Dónde va', OFERTA_ANUAL.switch.donde], ['Por default', OFERTA_ANUAL.switch.default],
+                ['Qué muestra', OFERTA_ANUAL.switch.muestra], ['Innegociable', OFERTA_ANUAL.switch.condicionInnegociable],
+                ['«2 meses gratis»', OFERTA_ANUAL.switch.porQueGratis]].map(([k, v]) => (
+                <Fila key={k} plantilla="110px minmax(0,1fr)"
+                  cols={[<strong key="k" style={{ fontSize: 12 }}>{k}</strong>, <span key="v" style={{ fontSize: 12 }}>{v}</span>]} />
+              ))}
+            </Tabla>
+          </Plegable>
+        </Titular>
+      </Section>
+
+      <Section titulo="Un cliente Pro cuesta US$10,90 de IA por mes, no US$2,52" card>
+        <Titular
+          valor={usd(IA_POR_PRO.hoyUsd)}
+          unidad="por mes, hoy"
+          tono="bad"
+          frase={<>El {usd(2.52)} asumía un ruteo barato que <strong>no tiene una sola línea ejecutable</strong> en el repo. Arreglarlo baja el costo a {usd(IA_POR_PRO.conRuteoUsd)} y vale US$15.018 de caja a 24 meses.</>}
+          abrir="De dónde sale cada centavo, y cuándo baja"
+        >
+          <Barras tono="bad" datos={barrasIa} />
+          <Nota>{IA_POR_PRO.hoyComo} · Baja en el {IA_POR_PRO.cuandoBaja.toLowerCase()}</Nota>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>{IA_POR_PRO.loQueVale}</div>
+        </Titular>
+      </Section>
+
+      <Section titulo="Tus 1.000 contactos sí se pueden tocar, pero no como campaña" card>
+        <Titular
+          valor={num(BASE_PROPIA.altasTotal)}
+          unidad="altas de los 1.000"
+          frase={<>Haber sido cliente <strong>no es opt-in</strong> — Meta lo excluye textual. Pero eso gobierna la plataforma de negocios: vos escribiendo desde tu número no sos una campaña.</>}
+          abrir="Las reglas de ejecución, y el costo real en horas"
+        >
+          <Tabla>
+            <Fila head plantilla="minmax(0,1fr) 70px 70px" cols={['La cadena', 'Mes 1', 'Mes 2']} />
+            <Fila plantilla="minmax(0,1fr) 70px 70px" cols={[`${miles(BASE_PROPIA.contactos)} contactos → ${num(BASE_PROPIA.responden * 100, 0)}% responden → ${num(BASE_PROPIA.cierran * 100)}% cierran → ${num(BASE_PROPIA.aprobacionCobro * 100, 0)}% cobra`, <Num key="a">{num(BASE_PROPIA.altasMes1)}</Num>, <Num key="b">{num(BASE_PROPIA.altasMes2)}</Num>]} />
+            <Fila plantilla="minmax(0,1fr) 70px 70px" cols={['Lo que te cuesta en horas', <Num key="c">{BASE_PROPIA.horasMes1} h</Num>, <Num key="d">{BASE_PROPIA.horasMes2} h</Num>]} />
+          </Tabla>
+          <Fuente>Las dos tasas son tuyas: {BASE_PROPIA.respondenFuente}. Y {usd(BASE_PROPIA.costoIaUsd, 0)} de IA para que MaKo escriba los 1.000 mensajes con lo que sabe de cada contacto.</Fuente>
+        </Titular>
+      </Section>
+
+      <Section titulo="Antes del mes 1 hay un mes 0, y son 12 horas" card>
+        <Titular
+          valor={`${MES_0.horasDueno} h`}
+          unidad="que no venden nada"
+          tono="warn"
+          frase={<>Tres páginas legales y la aprobación del merchant of record. Sin eso <strong>no cobrás un peso</strong>, y el atajo del link de Stripe está prohibido.</>}
+          abrir="Los tres bloqueantes, uno por uno"
+        >
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7 }}>
+            {MES_0.bloqueantes.map((x) => <li key={x} style={{ marginBottom: 7 }}>{x}</li>)}
+          </ol>
+        </Titular>
+      </Section>
+
+      <Section titulo="Cinco cosas que no puede decidir ningún modelo" card>
+        <Titular
+          valor="5"
+          unidad="decisiones tuyas"
+          tono="warn"
+          frase={<>Ordenadas por lo que mueven. La primera vale US$18.370 de caja; la última sigue sin contestar desde la corrida anterior y se cierra en treinta segundos.</>}
+          abrir="Cuáles son, con lo que mueve cada una"
+        >
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7 }}>
+            {PREGUNTAS_ABIERTAS.map((q) => (
+              <li key={q.n} style={{ marginBottom: 12 }}>
+                <strong style={{ color: 'var(--ink)' }}>{q.pregunta}</strong>
+                <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 3, lineHeight: 1.5 }}>{q.mueve}</div>
+                <div style={{ marginTop: 5 }}>{q.porQue}</div>
+              </li>
+            ))}
+          </ol>
+        </Titular>
+      </Section>
+
       <Section titulo="El respaldo" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>abrí lo que quieras auditar</span>} card>
 
         {/* Va PRIMERO y ABIERTO a propósito: son las salvedades que invalidan

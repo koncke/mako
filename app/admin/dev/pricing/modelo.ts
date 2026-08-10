@@ -594,7 +594,7 @@ export type Precio = { plan: Columna; mensualUsd: number; anualUsd: number | nul
 export const PRECIOS: Precio[] = [
   { plan: 'free', mensualUsd: 0, anualUsd: null, descuento: '—', netoMensualUsd: 0 },
   { plan: 'pro', mensualUsd: 47, anualUsd: 470, descuento: '2 meses gratis · 16,7%', netoMensualUsd: 43.77 },
-  { plan: 'growth', mensualUsd: 97, anualUsd: 1067, descuento: '1 mes gratis · 8,3%', netoMensualUsd: 90.87 },
+  { plan: 'growth', mensualUsd: 97, anualUsd: 970, descuento: '2 meses gratis · 16,7%', netoMensualUsd: 90.87 },
   { plan: 'agencia', mensualUsd: 297, anualUsd: 2970, descuento: '2 meses gratis · 16,7%', netoMensualUsd: 279.62 },
 ];
 
@@ -715,6 +715,7 @@ export const INDICE: Pregunta[] = [
   { n: '2', pregunta: '¿Cuánto se le cobra?', bajada: 'La tarifa de MaKo Tokens, operación por operación, y qué rinde el cupo de cada plan.' },
   { n: '3', pregunta: '¿Cuánto cuesta conseguir un cliente?', bajada: 'El CAC de cada uno de los cinco canales, contra el techo que tolera cada plan. Y por qué el ascenso al high ticket no lo sube.' },
   { n: '4', pregunta: '¿Cómo se empaqueta?', bajada: 'Los cuatro planes, qué entra en cada uno, y qué falta para poder cobrarlos.' },
+  { n: '5', pregunta: '¿Y el plan? ¿Cuánto da?', bajada: 'El mes 1 real —30 usuarios, US$1.000 de pauta, tus 1.000 contactos—, la corrida de 24 meses, el programa de US$4.000 y la oferta anual.' },
 ];
 
 // =============================================================================
@@ -1157,4 +1158,478 @@ export const PARA_QUE_ESTO_SE_PUEDA_MEDIR = [
   'Columna `origen` en `workspaces`, sellada en el REGISTRO, first-touch, con catálogo cerrado de 5 valores. Sin ella no se puede atribuir un solo cliente a un canal.',
   'Link de alta trackeado POR CONVERSACIÓN. Es lo único que mide conversación→registro, el eslabón sin dato de todo el modelo y el único que MaKo controla al 100%. Se cierra con US$300-500 de gasto real en México o Colombia.',
   'El arreglo de lib/anthropic-usage.ts:22-25, que hoy escribe TODA fila de Anthropic en el ws1 y hace que el costo de IA por cliente sea literalmente inmedible. Es el único término de la fórmula que se puede medir de verdad, y no se está midiendo.',
+];
+
+// =============================================================================
+// PARTE 5 — EL PLAN QUE EL DUEÑO DECIDIÓ, CORREGIDO Y CERRADO
+// =============================================================================
+// Esto reemplaza al panel de 24 meses que circuló en agosto. Se le aplicaron las
+// 38 fallas auditadas; las 14 que cambiaban el signo son obligatorias y están
+// todas adentro. La regla del archivo sigue en pie: cada número dice de dónde
+// salió, y además acá cada bloque dice QUÉ DECIDE.
+//
+// ⚠️ AL PORTAR ESTO HAY QUE CORREGIR, EN EL MISMO COMMIT:
+//   · modelo.ts:597 — PRECIOS growth anualUsd 1067 → 970 ('2 meses gratis · 16,7%')
+//   · modelo.ts:822 — COHORTE_GRUPAL.horasPorCabeza es 1,0 y NO 0,125: el 0,125
+//     es UNA sesión ÷ 12, no la cohorte de ocho. Ver TRAMOS_CAPACIDAD.
+// Dos cards pegadas que dicen «2 meses gratis» y «1 mes gratis» se leen como
+// error de tipeo, y un error de tipeo en la página de precios hace dudar del
+// resto de los números.
+//
+// LAS TRES CORRECCIONES QUE MUEVEN TODO LO DEMÁS, en una línea cada una:
+//   1. El costo de IA por cliente NO es US$2,52: ese número asume un ruteo que
+//      SALVEDADES id 'ruteo-no-existe' declara inexistente. Hoy son US$10,90.
+//   2. El techo de CAC se compara contra la MEZCLA de planes vendidos, no contra
+//      el Pro anual solo, y con el CAC MARGINAL, no el medio.
+//   3. La llamada de bonus se gatea a los que califican. Eso no cambia cuántos
+//      programas se venden — cambia cuánto calendario cuesta venderlos.
+
+export type Regla = 'payback' | 'tresAUno';
+
+// ── EL MES 0 QUE NO ESTABA EN NINGUNA FILA ──────────────────────────────────
+// DECIDE: cuándo puede arrancar el mes 1. No es una fila de la tabla porque no
+// vende nada, y por eso se caía del plan.
+export const MES_0 = {
+  que: 'Tres páginas legales y la aprobación del merchant of record. Nada de esto vende, y sin esto no se cobra.',
+  bloqueantes: [
+    '/terminos, /privacidad y /reembolsos no existen — verificado, y HUECOS ya lo decía',
+    'Paddle APRUEBA el negocio antes de activarte y pide esas páginas: días o semanas ANTES del primer cobro',
+    '⚠️ El atajo «mientras tanto vendo con un link de Stripe» está PROHIBIDO por COBRO id \'stripe-reloj\': la primera venta a un mexicano arranca un reloj de 30 días naturales para inscribirse en el RFC, con representante legal y domicilio en territorio nacional',
+  ],
+  horasDueno: 12,
+  origen: 'medido' as Origen,
+  nota: 'Si se decide vender con Stripe igual, hay que decidir explícitamente NO vender a mexicanos los primeros meses — y México es donde el propio repo dice que la aprobación de tarjeta es mejor.',
+};
+
+// ── LOS 1.000 CONTACTOS PROPIOS ─────────────────────────────────────────────
+// DECIDE: cuántas altas trae la base, y por qué canal se la puede tocar.
+// ⚠️ La corrección más cara de todo el plan: el panel usaba 8% de conversión
+// sobre los que responden y lo justificaba con «el ask es 85× más chico». El
+// argumento tiene el signo al revés. El 3,5% del propio dueño es la tasa a la
+// que un contacto tibio acepta una llamada GRATIS; pedir US$470 prepago baja esa
+// tasa, no la multiplica por 2,3.
+export const BASE_PROPIA = {
+  contactos: 1000,
+  responden: 0.20, respondenOrigen: 'supuesto' as Origen,
+  respondenFuente: 'Estrategia.tsx:63, textual «20% — la abro yo»',
+  cierran: 0.035, cierranOrigen: 'supuesto' as Origen,
+  cierranFuente: 'Estrategia.tsx CANAL_A (líneas 60-64), la misma cadena del dueño: 200 responden → 7. Se usa para CIERRE DIRECTO con link de pago, sin llamada de por medio — que es la lectura generosa, porque la cadena original la gastaba en agendar.',
+  aprobacionCobro: 0.85, aprobacionOrigen: 'supuesto' as Origen,
+  aprobacionFuente: 'CAC_CANALES.carrito cotiza 0,70 de aprobación de tarjeta. Acá sube a 0,85 porque la venta es a mano por WhatsApp y se reintenta en el momento.',
+  altasMes1: 5.95, altasMes2: 2.55, altasTotal: 8.5,
+  horasMes1: 30, horasMes2: 10,
+  costoIaUsd: 30, costoIaComo: '1.000 mensajes redactados por MaKo con lo que sabe de cada contacto, ~US$0,03 c/u',
+  // ── El veredicto legal, y es accionable, no un «ojo» ──
+  legal: {
+    veredicto: 'Un vínculo comercial previo NO es opt-in. Messaging Policy de Meta §1 exige «(b) you have received opt-in permission from the recipient» y excluye textualmente el consentimiento «assumed… from a purchase».',
+    peroQue: 'Eso gobierna la WhatsApp Business Platform (WABA + plantillas + API), y MaKo NI SIQUIERA TIENE WABA propio — lib/chatwoot.ts:573-613 lo saca del inbox de cada cliente. Una persona escribiéndole a sus contactos desde su número no es una campaña de la plataforma de negocios.',
+    comoSeHace: [
+      'ESCRIBE MARTÍN, desde su número personal, a mano, uno por uno. No MaKo, no Evolution, no plantilla, no lote.',
+      'EL CANAL SE PARTE EN DOS: a los que ya le escribieron alguna vez (hay hilo bidireccional), WhatsApp. A los demás, EMAIL primero por Resend desde hola@hola-mako.com, y WhatsApp solo si contestan.',
+      'EL TEXTO nombra el vínculo concreto en la primera línea y ofrece salida en el mismo mensaje. Un texto que sirve para los 1.000 iguales ES un broadcast, y lo que mata no es una revisión humana: es la tasa de bloqueo.',
+      'EL RITMO: máximo 40 por día, ventana 9-21, nunca dos canales a la misma persona en la misma semana.',
+      '⛔ COLOMBIA NO: la Ley 2300/2023, ampliada en 2024, cubre mensajería web con WhatsApp explícito.',
+    ],
+    origen: 'publicado' as Origen,
+  },
+  cotizacion: 'US$3.000 de horas del dueño (30 h × US$100) + US$30 de IA para 8,5 altas = US$356 por alta. Es 2,6× el CAC del carrito y sigue siendo el mejor canal del mes 1 porque no compite por presupuesto sino por horas que igual no se pueden vender. ⚠️ Y es un activo de UNA SOLA VEZ: en el mes 3 ya está agotado y no vuelve.',
+};
+
+// ── EL MES 1 ────────────────────────────────────────────────────────────────
+// DECIDE: si salen los 30 usuarios que el dueño puso como objetivo.
+export const PLAN_MES_1 = {
+  objetivoDueno: 30,
+  altasCobradas: 11.1,
+  cumplimiento: 0.37,
+  desglose: { base: 5.95, ads: 5.12, referidos: 0 },
+  gastoAds: 1000,
+  gastoAdsQue: '⚠️ Rotulado presupuesto de MEDICIÓN, no de adquisición. Compra el dato del CAC real, que es el supuesto más caro del modelo, y US$1.000 es el piso para que Meta salga de aprendizaje. Bajo la regla de valor estos 5,1 clientes están 71% arriba del techo: CAC económico US$251,67 (US$166 de medios + US$85 de las 0,85 h que cuesta cerrar a mano) contra US$182,01 de techo de payback mezclado.',
+  cacMediosUsd: 166.00,
+  cacEconomicoUsd: 251.67,
+  horasDueno: 56.4,
+  contribucionUsd: 717,
+  // ⚠️ ESTE ES EL NÚMERO DEL MES 1, Y NO ESTABA EN NINGUNA COLUMNA.
+  interesadosSinDondeAterrizar: 199,
+  elHallazgo: 'EL MES 1 TIRA 199 INTERESADOS A LA BASURA. US$1.000 de CTWA compran 400 conversaciones → 120 registros (CAC_CANALES.ctwa: 66,67 conversaciones por pago, 20 registros, 19 no pagan) y hoy NO HAY DÓNDE PONERLOS: app/api/auth/callback/google/route.ts:12 dice textual «cualquier otro caso → no-autorizado. Los usuarios nuevos se agregan desde /admin», y lib/credenciales.ts:126-132 hace que un workspace sin key propia EXPLOTE en la primera pantalla. El paso 8 de ORDEN_DE_TRABAJO (alta pública) vale más que los US$1.000 de pauta: 199 interesados al 5% de FREE_A_PAGO son 10 altas, casi el doble de lo que compró la pauta, y cuestan cero dólares de medios.',
+  // ── Por qué no salen los 30, con el número que cierra la discusión ──
+  losQueFaltan: {
+    faltan: 18.9,
+    viaAds: 'US$3.686 adicionales (US$4.686 de gasto total). A ese gasto el CAC de medios saturado es US$226,60 y el económico US$311,60 = 171% del techo de PAYBACK, que es el techo más permisivo del modelo. NO SE COMPRAN A NINGÚN PRECIO QUE RESPETE NINGUNA REGLA.',
+    viaBase: 'Duplicar la conversión de la base de 3,5% a 7% son +5,95 altas y cuesta US$30 de IA. Cierra 6 de las 19, no las 19.',
+    viaProducto: 'El alta pública (paso 8): 199 interesados × 5% = 10 altas. Es la única de las tres que cierra la mitad de la brecha y no cuesta medios.',
+    veredicto: '11 de 30. Las 19 que faltan no se compran: se construyen. Y antes de gastar un dólar más, el dueño tiene que decir si «30 usuarios» eran 30 PAGOS o 30 REGISTRADOS — registrados salen 210 el mes 1 y hoy se pierden todos.',
+  },
+  origen: 'supuesto' as Origen,
+};
+
+// ── LAS CONSTANTES CORREGIDAS QUE ALIMENTAN TODO LO DEMÁS ───────────────────
+
+/**
+ * EL COSTO DE IA POR CLIENTE PRO. Reemplaza al US$2,52 de EXPOSICION.
+ * ⚠️ Aquel número es una proyección sobre el ruteo barato, y SALVEDADES
+ * id 'ruteo-no-existe' dice textual: «Ninguno de los cuatro modelos de RUTEO
+ * aparece en una línea ejecutable». Un cliente que entra hoy entra con Fathom,
+ * Closing Analyst y Ads Analyst prendidos y sin cupo — CUPO_MT no tiene un solo
+ * call-site fuera de la pantalla de pricing.
+ */
+export const IA_POR_PRO = {
+  hoyUsd: 10.90, hoyOrigen: 'medido' as Origen,
+  hoyComo: '8 reuniones × US$0,93 (ACCIONES id \'reunion\', el número que EL_COSTO_ES_EL_VIDEO ya publica) + 20 llamadas de venta × US$0,173 (ACCIONES id \'closing\')',
+  conRuteoUsd: 3.47, conRuteoOrigen: 'supuesto' as Origen,
+  conRuteoComo: 'Las reuniones caen a ~US$0 (436×, EL_COSTO_ES_EL_VIDEO) y el closing SE QUEDA en Claude a propósito: es una de las tres features con `pagoPorque` en lib/model-catalogo.ts. 20 × US$0,173 = US$3,46. El US$2,52 del repo asume que TODO se rutea, incluido lo que el catálogo dice que se paga a sabiendas.',
+  cuandoBaja: 'Mes 7 — pasos 1 a 6 de ORDEN_DE_TRABAJO.',
+  loQueVale: 'US$15.018 de caja a 24 meses. Es el número más grande que produce una decisión de ingeniería en todo el modelo: la corrida con IA a US$10,90 los 24 meses deja US$54.132 contra US$69.150.',
+  elLimite: '⚠️ Arriba de US$39,77/mes de IA (43,77 neto − 3,00 de soporte − 1,00 de infra) un Pro mensual es caja NEGATIVA. El único workspace real medido (ws1) está en US$68,39/mes.',
+};
+
+/** Renovación del anual. UN solo valor en los dos lados del modelo — antes había
+ *  23% adentro del techo (UNIT proAnual: 364/0,77) y 60% adentro de la caja. */
+export const RENOVACION_ANUAL = {
+  valor: 0.40, origen: 'supuesto' as Origen,
+  porQue: 'Punto medio entre el GRR 23% del Pro mensual —que el propio repo dice que NO se puede extrapolar al anual— y el 60% que el panel inventó. Se mide por primera vez en el MES 13, con la cohorte del mes 1.',
+  sensibilidad: 'Caja del mes 24: US$66.340 a 23% · US$69.150 a 40% · US$72.457 a 60%. Los extremos separan US$6.117, el 8,8% de la caja. ⚠️ NO es el riesgo de primer orden que el panel decía (afirmaba US$18.000 y son US$3.307 entre 60% y 40%).',
+};
+
+/** La llamada de bonus del anual, con el gate puesto y la duración honesta. */
+export const LLAMADA_BONUS = {
+  horasCalendario: 1.0,
+  desglose: { enVivo: 0.75, revisionDelInforme: 0.25 },
+  queDiceLaCard: '45 minutos conmigo, con el análisis de tu negocio ya escrito',
+  origen: 'supuesto' as Origen,
+  porQue: '⚠️ La card del panel prometía «Dos horas conmigo, 1 a 1» y el modelo compraba 1,25 h — y encima derivaba mal (2,0 − 0,5 = 1,5, no 1,25). LLAMADA.desglose dice que de las 2,0 h del repo solo 1,0 es cara a cara. Y el mecanismo que el propio repo propone para abaratarla (embudo:378) es ACORTAR la llamada de 60 a 25 minutos, no estirarla a 120. Acá se honra el presupuesto y el copy dice lo que se entrega.',
+  // El gate. Es lo que devuelve el calendario sin tocar el resultado.
+  gate: { fase: '≥3 (US$10k+/mes, lib/fase-diagnostico.ts PREGUNTAS[0])', ticket: '≥ US$1.000 (lib/onboarding.ts:30)', pasa: 0.40 },
+  t: 0.75, tQue: 'agenda × se presenta (LLAMADA.t)',
+  costoPorCompradorAnualUsd: 30.00,
+  costoComo: '0,40 que califica × 0,75 de show × 1,0 h × US$100/h. Sin gate son US$75,00.',
+  loQueValeElGate: 'CERO diferencia en programas vendidos (0,40 × 0,20 = 1,00 × 0,08) y 39,7 HORAS de calendario en 24 meses — US$3.970 de capacidad del dueño. El gate no vende más: vende lo mismo con la mitad del calendario. ⚠️ Y por eso la card NO puede prometer la llamada a todo comprador anual: se la promete al 40%, y hay que escribirlo así («si tu negocio califica —te lo decimos en el onboarding—»), o son 6 de cada 10 compradores con una promesa incumplida adentro de la ventana de reembolso.',
+  bloqueante: '🔧 Hoy no se puede preguntar «quién está en fase ≥3»: el diagnóstico es un blob JSON en app_settings y getSetting está duro-scopeado por workspace (lib/settings.ts:20-27). Se arregla promoviendo `fase` y `oferta_ticket` a COLUMNAS de `workspaces` en la migración 0125, que ya está planificada (ORDEN_DE_TRABAJO #3). Con 11 clientes se califica a mano y está perfecto.',
+};
+
+// ── LA UNIT ECONOMICS CORREGIDA ─────────────────────────────────────────────
+// Mismo tipo `UnitPlan` de arriba. Lo que cambia: iaUsd real, renovación única,
+// y el ascenso al high ticket calculado CON el gate y CON P₂ = 0.
+//
+// ⚠️ P₂ = 0 A PROPÓSITO. ASCENSO_NETO hereda un P₂ = 5% del programa GRUPAL, y
+// el grupal no existe: modelo.ts:844 lo rotula «en evaluación — no existe como
+// producto» y este plan decide no lanzarlo. El grupal aportaba el 28,9% del
+// valor esperado del ascenso; sacarlo es la corrección honesta.
+
+export const ASCENSO_NETO_V2 = {
+  p1SobreLlamadaServida: 0.20, p1Origen: 'supuesto' as Origen,
+  p1Que: 'Cierre entre CALIFICADOS. No es comparable con P1_ASCENSO.base (7%), que es sobre todo comprador: con el gate del 40%, 0,40 × 0,20 = 8% efectivo, que sí es el mismo objeto.',
+  p2: 0, p2Que: 'El grupal no se lanza en los 24 meses. Ver TRAMOS_CAPACIDAD.',
+  m1CapacidadUsd: 1541.33, m1Como: 'US$3.441,33 de caja (ASCENSO_PROGRAMAS.unoAUno) − 19 h × US$100',
+  valorEsperadoPorCompradorAnualUsd: 92.48,
+  costoPorCompradorAnualUsd: 30.00,
+  netoUsd: 62.48,
+  breakEvenP1: 0.0649,
+  breakEvenComo: 'US$100 (1,0 h de calendario) ÷ US$1.541,33 de M₁. UN break-even, no tres: el panel medía el mismo programa contra 6,44%, 7,47% y 10,3% en tres párrafos distintos.',
+  margen: 'El plan corre a 20% contra un break-even de 6,49%: 3,1× de aire. El panel corría a 8% contra 7,47% y titulaba «a 0,53 puntos del break-even» — la diferencia no es research, es el gate.',
+  sensibilidad: 'Si el cierre entre calificados es 10% el neto sigue en +US$16,24. Si la entrega se va a 24 h (llamadas de 60\' con preparación a mano) el break-even sube a 9,60% y el neto a +US$32,48. A 40 h de entrega M₁ es NEGATIVO (−US$558,67) y el programa deja de aportar al LTV.',
+  origen: 'supuesto' as Origen,
+};
+
+export const UNIT_V2: UnitPlan[] = [
+  { plan: 'free', precioListaUsd: 0, netoUsd: 0, netoOrigen: 'medido',
+    iaUsd: 0.05, soporteUsd: 0.40, infraUsd: 0.15, contribucionMes: -0.60,
+    grrAnual: null, vidaMeses: 6.67, ltvSuscripcion: -4.00, ltvTotal: -4.00,
+    cacMax3a1: 0, cacMaxPayback: 0, gobierna: 0,
+    reglaQueGobierna: 'no aplica — y ojo: en este plan el Free NO EXISTE hasta el mes 10 (paso 10 de ORDEN_DE_TRABAJO). Antes de eso el que entra tiene cuenta provisionada a mano.' },
+
+  { plan: 'pro', precioListaUsd: 47, netoUsd: 43.77, netoOrigen: 'supuesto',
+    iaUsd: 3.47, soporteUsd: 3.00, infraUsd: 1.00, contribucionMes: 36.30,
+    grrAnual: 23, vidaMeses: 8.7, ltvSuscripcion: 315.81, ltvTotal: 315.81,
+    cacMax3a1: 105.27, cacMaxPayback: 108.90, gobierna: 105.27,
+    reglaQueGobierna: 'LTV:CAC 3:1. ltvTotal = ltvSuscripcion porque el Pro MENSUAL no recibe la llamada: es bonus del anual y de nadie más. ⚠️ Con la IA de HOY (US$10,90) la contribución es US$28,87 y el techo US$81,50.' },
+
+  { plan: 'growth', precioListaUsd: 97, netoUsd: 90.87, netoOrigen: 'supuesto',
+    iaUsd: 25.18, soporteUsd: 8.00, infraUsd: 5.00, contribucionMes: 52.69,
+    grrAnual: 45, vidaMeses: 15.5, ltvSuscripcion: 816.70, ltvTotal: 816.70,
+    cacMax3a1: 272.23, cacMaxPayback: 158.07, gobierna: 158.07,
+    reglaQueGobierna: 'payback ≤3 meses. No se vende hasta el MES 13: su gancho (Image Generator) es un ComingSoon de 8 líneas, FUERA_DE_GRILLA.growthEnEspera.' },
+
+  // EL PLAN QUE SOSTIENE EL NEGOCIO. Contribución del año cobrada entera el día 0.
+  { plan: 'proAnual', precioListaUsd: 470, netoUsd: 442.24, netoOrigen: 'publicado',
+    iaUsd: 41.64, soporteUsd: 36.00, infraUsd: 12.00, contribucionMes: 352.60,
+    grrAnual: 40, vidaMeses: 12, ltvSuscripcion: 587.67, ltvTotal: 650.15,
+    cacMax3a1: 216.72, cacMaxPayback: 352.60, gobierna: 216.72,
+    reglaQueGobierna: '⚠️ LAS DOS REGLAS SIGUEN SEPARADAS 1,6× Y SIGUEN SIENDO LA DECISIÓN MÁS GRANDE DE LA TABLA — pero ahora está cuantificada: bajo 3:1 la pauta se capa en US$1.000/mes y el mes 24 cierra con 104 clientes y US$50.780; bajo payback se capa en US$1.552-1.940 y cierra con 160 y US$69.150. La diferencia son 56 clientes y US$18.370. Ver PREGUNTAS_ABIERTAS #1.' },
+];
+
+/** Techo MEZCLADO — es contra lo que se compara una campaña que vende de todo.
+ *  ⚠️ El panel comparaba el CAC contra el techo del Pro ANUAL solo, y el anual
+ *  es el 30% de las altas. Ese error solo valía 1,6× de presupuesto de pauta. */
+export const TECHO_MEZCLADO_V2 = {
+  m1a12: { mezcla: '70% Pro mensual / 30% Pro anual — el Growth no se vende todavía', regla3a1: 138.70, reglaPayback: 182.01 },
+  m13a24: { mezcla: '61,6% Pro mensual / 26,4% Pro anual / 8,4% Growth mensual / 3,6% Growth anual', regla3a1: 154.03, reglaPayback: 189.83 },
+  derrameFreeUsd: 12.00,
+  derrameQue: '3 registros que no pagan por cada pago × US$4,00 de vida (CAC_CANALES.carrito.costoFree). Se RESTA del techo antes de comparar contra el CAC de MEDIOS, porque en la proyección el Free vive en la P&L. CAC_CANALES:941 lo dice textual: «hay que elegir UNA». El panel hacía las dos.',
+  origen: 'supuesto' as Origen,
+};
+
+/** EL TOPE DE PAUTA, con la regla del dólar siguiente aplicada de verdad.
+ *  ⚠️ El panel publicaba US$5.800/mes calculado sobre el CAC MEDIO. modelo.ts
+ *  SATURACION dice textual que «el CAC medio no decide si conviene gastar más:
+ *  decide el MARGINAL» y da el divisor (0,7984). El panel citó la regla y se
+ *  salteó la división. Y hay un segundo detalle: la saturación arranca ARRIBA de
+ *  US$1.000/mes, así que por debajo de ese gasto el marginal ES el medio. */
+export const TOPE_PAUTA = {
+  cacBaseCarrito: 124.22, cacBaseOrigen: 'supuesto' as Origen,
+  bajo3a1: { m5a12: 1000, m13a24: 1000, nota: 'Exactamente US$1.000/mes: al CAC base (US$124,22) el carrito entra contra el techo de medios (US$126,70), pero el primer dólar por encima de US$1.000 dispara la saturación y el marginal salta a US$155,59 — 23% arriba del techo.' },
+  bajoPayback: { m5a12: 1552, m13a24: 1940, nota: 'Donde el marginal (medio ÷ 0,7984) toca el techo de medios de payback.' },
+  loQueCuesta: 'Elegir 3:1 en vez de payback cuesta 56 clientes y US$18.370 de caja a 24 meses. Elegir payback significa comprar a ~1,7:1, que es el cuartil que el propio repo dice que destruye valor con cada cliente.',
+  yLoQueNoEsLaPalanca: '⚠️ Ninguna de las dos reglas habilita los US$5.800/mes del panel. Con US$5.800 el mes 24 cierra con 402 clientes y US$120.580 de caja — pero US$119.000 de esa pauta se compraron arriba del techo, y ahí sí aparece el déficit que el panel decía tener: 29,4 llamadas servidas de 65,1 pedidas. Si se quiere crecer más rápido la palanca NO es presupuesto: es bajar el costo por conversación de US$1,50 a US$1,10 y subir la aprobación del cobro de 70% a 88% con rieles locales. Las dos juntas bajan el CAC ~30% y SUBEN el techo al mismo tiempo.',
+  origen: 'supuesto' as Origen,
+};
+
+// ── LA PROYECCIÓN A 24 MESES ────────────────────────────────────────────────
+// DECIDE: si el plan necesita capital, cuándo se contrata, y qué cierra el mes 24.
+//
+// Regla de esta tabla, y es la que el panel rompía: `llamadas` es un RESIDUAL,
+// no un dato. Se calcula con lo que sobra del calendario después de soporte,
+// producto, venta, entrega y agencia — nunca al revés.
+//
+// EL LIBRO DE HORAS, UNA SOLA REGLA (el panel usaba dos, cada una donde
+// convenía): el dueño hace las primeras 20 h/mes de soporte; pasado eso se
+// contrata a US$20/h y le queda el 15% como gestión. Y el soporte se cobra UNA
+// vez: los US$3,00/cliente de `soporteUsd` en UNIT son EL MISMO DINERO que la
+// columna `costoSoporte` de acá, así que acá no se vuelve a cobrar.
+
+export type MesProy = {
+  mes: number; que: string;
+  gastoAds: number; cacMedios: number;
+  /** Los que dieron el paso y NO tienen dónde aterrizar hasta el mes 10. */
+  interesados: number; freeVivos: number;
+  altasNuevas: number; altasProMensual: number; altasProAnual: number;
+  /** ⚠️ Columna propia. El panel las metía adentro de `altasProAnual` y con eso
+   *  subestimaba el CAC 14% y le servía la llamada a gente que ya pasó por el pitch. */
+  renovacionesAnual: number; altasGrowth: number;
+  pagosVivos: number; mrrEquivalente: number; cobradoMes: number;
+  costoIa: number; costoInfra: number; costoSoporte: number;
+  horasSoporteTotal: number; horasDueno: number;
+  llamadasPedidas: number; llamadasServidas: number;
+  ventasHighTicket: number; ingresoHighTicket: number;
+  contribucion: number; caja: number;
+};
+
+export const PROYECCION_24: MesProy[] = [
+  { mes: 1, que: 'Lanzamiento. La base propia a mano (30 h) + US$1.000 de MEDICIÓN en CTWA. 11 altas cobradas, no 30. Cero horas de producto.', gastoAds: 1000, cacMedios: 166.00, interesados: 210, freeVivos: 0, altasNuevas: 11.1, altasProMensual: 7.2, altasProAnual: 3.9, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 11.1, mrrEquivalente: 490, cobradoMes: 2028, costoIa: 151, costoInfra: 11, costoSoporte: 0, horasSoporteTotal: 1.7, horasDueno: 56.4, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0, ingresoHighTicket: 0, contribucion: 717, caja: 717 },
+  { mes: 2, que: 'Rezagados de la base. Arrancan /precios y /checkout (18 h). Se mide el CAC: si pasa de US$180, se corta la pauta.', gastoAds: 1000, cacMedios: 145.00, interesados: 160, freeVivos: 0, altasNuevas: 8.4, altasProMensual: 5.5, altasProAnual: 2.9, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 18.7, mrrEquivalente: 823, cobradoMes: 1820, costoIa: 203, costoInfra: 19, costoSoporte: 0, horasSoporteTotal: 2.8, horasDueno: 53.9, llamadasPedidas: 0.9, llamadasServidas: 0.9, ventasHighTicket: 0, ingresoHighTicket: 0, contribucion: 448, caja: 1165 },
+  { mes: 3, que: 'EL MES MÁS FLACO: US$98 de contribución. La base se agotó y la pauta se BAJA a US$500 a propósito, porque con venta a mano cada alta cuesta 0,85 h del dueño.', gastoAds: 500, cacMedios: 130.00, interesados: 62, freeVivos: 0, altasNuevas: 3.3, altasProMensual: 2.3, altasProAnual: 1.0, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 20.6, mrrEquivalente: 905, cobradoMes: 992, costoIa: 224, costoInfra: 21, costoSoporte: 0, horasSoporteTotal: 3.1, horasDueno: 46.0, llamadasPedidas: 0.3, llamadasServidas: 0.3, ventasHighTicket: 0, ingresoHighTicket: 0, contribucion: 98, caja: 1263 },
+  { mes: 4, que: 'Primer programa de US$4.000 (fracción). Antes del mes 4 no se puede vender: el comprador no tiene tres meses de datos propios y la semana 0 no existiría.', gastoAds: 500, cacMedios: 115.00, interesados: 70, freeVivos: 0, altasNuevas: 3.7, altasProMensual: 2.6, altasProAnual: 1.1, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 22.8, mrrEquivalente: 1002, cobradoMes: 1213, costoIa: 248, costoInfra: 23, costoSoporte: 0, horasSoporteTotal: 3.4, horasDueno: 46.6, llamadasPedidas: 0.3, llamadasServidas: 0.3, ventasHighTicket: 0.07, ingresoHighTicket: 114, contribucion: 291, caja: 1554 },
+  { mes: 5, que: 'CHECKOUT VIVO. Se deja de vender a mano y recién ahí la pauta puede subir al techo: US$1.552/mes. Las horas del dueño caen de 46,6 a 41,3.', gastoAds: 1550, cacMedios: 135.69, interesados: 217, freeVivos: 0, altasNuevas: 11.4, altasProMensual: 8.0, altasProAnual: 3.4, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 32.6, mrrEquivalente: 1437, cobradoMes: 2872, costoIa: 356, costoInfra: 33, costoSoporte: 0, horasSoporteTotal: 4.9, horasDueno: 41.3, llamadasPedidas: 1.0, llamadasServidas: 1.0, ventasHighTicket: 0.21, ingresoHighTicket: 468, contribucion: 783, caja: 2337 },
+  { mes: 6, que: 'Régimen de construcción: 25 h/mes de producto, la pauta al techo, el carrito trabajando solo. Arrancan los referidos.', gastoAds: 1550, cacMedios: 135.69, interesados: 229, freeVivos: 0, altasNuevas: 12.1, altasProMensual: 8.5, altasProAnual: 3.6, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 42.4, mrrEquivalente: 1866, cobradoMes: 3486, costoIa: 462, costoInfra: 42, costoSoporte: 0, horasSoporteTotal: 6.4, horasDueno: 44.2, llamadasPedidas: 1.1, llamadasServidas: 1.1, ventasHighTicket: 0.22, ingresoHighTicket: 728, contribucion: 1277, caja: 3614 },
+  { mes: 7, que: 'PASOS 1-6: atribución del gasto de Anthropic, migración 0125, y el gate DENTRO de crons y webhooks. El costo de IA por cliente cae de US$10,90 a US$3,47 y se ve en la fila: de US$462 a US$179 con MÁS clientes.', gastoAds: 1550, cacMedios: 135.69, interesados: 233, freeVivos: 0, altasNuevas: 12.3, altasProMensual: 8.6, altasProAnual: 3.7, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 51.6, mrrEquivalente: 2271, cobradoMes: 3781, costoIa: 179, costoInfra: 52, costoSoporte: 0, horasSoporteTotal: 7.7, horasDueno: 46.5, llamadasPedidas: 1.1, llamadasServidas: 1.1, ventasHighTicket: 0.22, ingresoHighTicket: 754, contribucion: 1844, caja: 5458 },
+  { mes: 8, que: 'Régimen. La contribución supera los US$2.000/mes por primera vez.', gastoAds: 1550, cacMedios: 135.69, interesados: 237, freeVivos: 0, altasNuevas: 12.5, altasProMensual: 8.7, altasProAnual: 3.7, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 60.4, mrrEquivalente: 2655, cobradoMes: 4038, costoIa: 210, costoInfra: 60, costoSoporte: 0, horasSoporteTotal: 9.1, horasDueno: 48.0, llamadasPedidas: 1.1, llamadasServidas: 1.1, ventasHighTicket: 0.22, ingresoHighTicket: 766, contribucion: 2060, caja: 7518 },
+  { mes: 9, que: 'Régimen. Ledger de MaKo Tokens (paso 7) y alta pública terminada.', gastoAds: 1550, cacMedios: 135.69, interesados: 240, freeVivos: 0, altasNuevas: 12.6, altasProMensual: 8.8, altasProAnual: 3.8, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 68.8, mrrEquivalente: 3019, cobradoMes: 4273, costoIa: 239, costoInfra: 69, costoSoporte: 0, horasSoporteTotal: 10.3, horasDueno: 49.3, llamadasPedidas: 1.1, llamadasServidas: 1.1, ventasHighTicket: 0.23, ingresoHighTicket: 777, contribucion: 2257, caja: 9775 },
+  { mes: 10, que: 'PASO 10: key de plataforma, y recién acá EXISTE el plan Free. Los interesados dejan de tirarse: de 240 perdidos a 38 que quedan adentro.', gastoAds: 1550, cacMedios: 135.69, interesados: 38, freeVivos: 38, altasNuevas: 12.8, altasProMensual: 9.0, altasProAnual: 3.8, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 76.8, mrrEquivalente: 3366, cobradoMes: 4489, costoIa: 268, costoInfra: 83, costoSoporte: 0, horasSoporteTotal: 12.3, horasDueno: 51.3, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.23, ingresoHighTicket: 788, contribucion: 2428, caja: 12203 },
+  { mes: 11, que: 'Régimen. El stock de Free arranca a acumularse y con él su costo (US$0,60/mes cada uno).', gastoAds: 1550, cacMedios: 135.69, interesados: 39, freeVivos: 72, altasNuevas: 13.0, altasProMensual: 9.1, altasProAnual: 3.9, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 84.5, mrrEquivalente: 3697, cobradoMes: 4687, costoIa: 297, costoInfra: 95, costoSoporte: 0, horasSoporteTotal: 14.1, horasDueno: 53.2, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.23, ingresoHighTicket: 798, contribucion: 2584, caja: 14787 },
+  { mes: 12, que: 'Cierre del año 1: 92 clientes pagos, US$4.015 de MRR, US$17.513 de caja. Y las primeras 30 llamadas etiquetadas están completas — el dato que reemplaza al supuesto de P₁.', gastoAds: 1550, cacMedios: 135.69, interesados: 39, freeVivos: 100, altasNuevas: 13.1, altasProMensual: 9.2, altasProAnual: 3.9, renovacionesAnual: 0, altasGrowth: 0, pagosVivos: 91.9, mrrEquivalente: 4015, cobradoMes: 4870, costoIa: 324, costoInfra: 107, costoSoporte: 0, horasSoporteTotal: 15.8, horasDueno: 54.9, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.24, ingresoHighTicket: 807, contribucion: 2726, caja: 17513 },
+  { mes: 13, que: 'DOS COSAS A LA VEZ: arranca el Growth (paso 11, Image Generator) y llegan las PRIMERAS RENOVACIONES del anual (cohorte del mes 1, al 40%). La pauta sube a US$1.940 porque el Growth entra en la mezcla y sube el techo.', gastoAds: 1840, cacMedios: 140.47, interesados: 45, freeVivos: 130, altasNuevas: 14.9, altasProMensual: 9.2, altasProAnual: 3.9, renovacionesAnual: 1.5, altasGrowth: 1.8, pagosVivos: 98.4, mrrEquivalente: 4389, cobradoMes: 6306, costoIa: 387, costoInfra: 125, costoSoporte: 0, horasSoporteTotal: 17.8, horasDueno: 50.0, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.24, ingresoHighTicket: 813, contribucion: 3790, caja: 21304 },
+  { mes: 14, que: 'Régimen. El producto baja de 25 a 18 h/mes: los 11 pasos están hechos.', gastoAds: 1840, cacMedios: 140.47, interesados: 45, freeVivos: 156, altasNuevas: 15.1, altasProMensual: 9.3, altasProAnual: 4.0, renovacionesAnual: 1.2, altasGrowth: 1.8, pagosVivos: 105.2, mrrEquivalente: 4768, cobradoMes: 6397, costoIa: 449, costoInfra: 143, costoSoporte: 0, horasSoporteTotal: 19.8, horasDueno: 52.0, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.24, ingresoHighTicket: 818, contribucion: 3801, caja: 25104 },
+  { mes: 15, que: 'PRIMERA CONTRATACIÓN, y es de SOPORTE. El soporte cruza las 20 h/mes (21,8) y del mes 15 en adelante el dueño se queda con el 15% como gestión.', gastoAds: 1840, cacMedios: 140.47, interesados: 46, freeVivos: 178, altasNuevas: 15.2, altasProMensual: 9.4, altasProAnual: 4.0, renovacionesAnual: 0.4, altasGrowth: 1.8, pagosVivos: 112.9, mrrEquivalente: 5176, cobradoMes: 6292, costoIa: 513, costoInfra: 160, costoSoporte: 36, horasSoporteTotal: 21.8, horasDueno: 52.5, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.24, ingresoHighTicket: 825, contribucion: 3577, caja: 28681 },
+  { mes: 16, que: 'TECHO DE PAUTA ALCANZADO Y SOSTENIDO: US$1.940/mes. No sube más en los 9 meses que quedan, y el freno no es la plata: es el techo de valor.', gastoAds: 1840, cacMedios: 140.47, interesados: 46, freeVivos: 197, altasNuevas: 15.4, altasProMensual: 9.5, altasProAnual: 4.1, renovacionesAnual: 0.4, altasGrowth: 1.8, pagosVivos: 120.2, mrrEquivalente: 5568, cobradoMes: 6546, costoIa: 575, costoInfra: 177, costoSoporte: 74, horasSoporteTotal: 23.7, horasDueno: 52.8, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.24, ingresoHighTicket: 833, contribucion: 3714, caja: 32395 },
+  { mes: 17, que: 'Régimen. El crecimiento ya no viene del gasto: viene de renovaciones y referidos.', gastoAds: 1840, cacMedios: 140.47, interesados: 47, freeVivos: 214, altasNuevas: 15.5, altasProMensual: 9.6, altasProAnual: 4.1, renovacionesAnual: 1.4, altasGrowth: 1.9, pagosVivos: 126.0, mrrEquivalente: 5894, cobradoMes: 7174, costoIa: 630, costoInfra: 192, costoSoporte: 106, horasSoporteTotal: 25.3, horasDueno: 53.1, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.25, ingresoHighTicket: 841, contribucion: 4239, caja: 36635 },
+  { mes: 18, que: 'Régimen. El soporte contratado ya cuesta US$135/mes y es el tercer gasto después de la pauta y la IA.', gastoAds: 1840, cacMedios: 140.47, interesados: 47, freeVivos: 229, altasNuevas: 15.6, altasProMensual: 9.6, altasProAnual: 4.1, renovacionesAnual: 1.4, altasGrowth: 1.9, pagosVivos: 131.5, mrrEquivalente: 6203, cobradoMes: 7408, costoIa: 682, costoInfra: 205, costoSoporte: 135, horasSoporteTotal: 26.8, horasDueno: 53.3, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.25, ingresoHighTicket: 848, contribucion: 4376, caja: 41011 },
+  { mes: 19, que: 'Régimen. Déficit de llamadas: CERO. Todas las que el embudo pide se sirven, y sobran 6 h/mes.', gastoAds: 1840, cacMedios: 140.47, interesados: 47, freeVivos: 242, altasNuevas: 15.7, altasProMensual: 9.7, altasProAnual: 4.2, renovacionesAnual: 1.5, altasGrowth: 1.9, pagosVivos: 136.8, mrrEquivalente: 6499, cobradoMes: 7604, costoIa: 733, costoInfra: 218, costoSoporte: 164, horasSoporteTotal: 28.2, horasDueno: 53.6, llamadasPedidas: 1.2, llamadasServidas: 1.2, ventasHighTicket: 0.25, ingresoHighTicket: 854, contribucion: 4479, caja: 45490 },
+  { mes: 20, que: 'Régimen. El stock de Free se estabiliza cerca de 253: entran ~47/mes y se van 38 (churn 15%).', gastoAds: 1840, cacMedios: 140.47, interesados: 48, freeVivos: 253, altasNuevas: 15.8, altasProMensual: 9.8, altasProAnual: 4.2, renovacionesAnual: 1.5, altasGrowth: 1.9, pagosVivos: 141.8, mrrEquivalente: 6783, cobradoMes: 7787, costoIa: 782, costoInfra: 231, costoSoporte: 191, horasSoporteTotal: 29.5, horasDueno: 53.8, llamadasPedidas: 1.3, llamadasServidas: 1.3, ventasHighTicket: 0.25, ingresoHighTicket: 860, contribucion: 4573, caja: 50063 },
+  { mes: 21, que: 'Régimen. La caja acumulada pasa los US$50.000.', gastoAds: 1840, cacMedios: 140.47, interesados: 48, freeVivos: 263, altasNuevas: 15.9, altasProMensual: 9.8, altasProAnual: 4.2, renovacionesAnual: 1.5, altasGrowth: 1.9, pagosVivos: 146.7, mrrEquivalente: 7057, cobradoMes: 7959, costoIa: 829, costoInfra: 243, costoSoporte: 216, horasSoporteTotal: 30.8, horasDueno: 54.0, llamadasPedidas: 1.3, llamadasServidas: 1.3, ventasHighTicket: 0.25, ingresoHighTicket: 866, contribucion: 4660, caja: 54722 },
+  { mes: 22, que: 'Régimen. Nada nuevo, y eso es el dato: el negocio entró en una meseta que solo se rompe subiendo el techo, no el presupuesto.', gastoAds: 1840, cacMedios: 140.47, interesados: 48, freeVivos: 272, altasNuevas: 16.0, altasProMensual: 9.9, altasProAnual: 4.2, renovacionesAnual: 1.5, altasGrowth: 1.9, pagosVivos: 151.4, mrrEquivalente: 7321, cobradoMes: 8120, costoIa: 875, costoInfra: 254, costoSoporte: 240, horasSoporteTotal: 32.0, horasDueno: 54.3, llamadasPedidas: 1.3, llamadasServidas: 1.3, ventasHighTicket: 0.25, ingresoHighTicket: 871, contribucion: 4739, caja: 59461 },
+  { mes: 23, que: 'Régimen. Las horas del dueño están en 54,5 de 60: hay 5,5 h/mes de holgura que el embudo no llena.', gastoAds: 1840, cacMedios: 140.47, interesados: 48, freeVivos: 279, altasNuevas: 16.1, altasProMensual: 9.9, altasProAnual: 4.3, renovacionesAnual: 1.6, altasGrowth: 1.9, pagosVivos: 156.0, mrrEquivalente: 7576, cobradoMes: 8272, costoIa: 919, costoInfra: 265, costoSoporte: 264, horasSoporteTotal: 33.2, horasDueno: 54.5, llamadasPedidas: 1.3, llamadasServidas: 1.3, ventasHighTicket: 0.26, ingresoHighTicket: 877, contribucion: 4811, caja: 64272 },
+  { mes: 24, que: 'Cierre: 160 clientes pagos, US$7.823 de MRR, US$69.150 de caja acumulada y 4,8 programas de US$4.000 vendidos.', gastoAds: 1840, cacMedios: 140.47, interesados: 49, freeVivos: 286, altasNuevas: 16.2, altasProMensual: 10.0, altasProAnual: 4.3, renovacionesAnual: 1.6, altasGrowth: 1.9, pagosVivos: 160.4, mrrEquivalente: 7823, cobradoMes: 8415, costoIa: 962, costoInfra: 275, costoSoporte: 286, horasSoporteTotal: 34.3, horasDueno: 54.7, llamadasPedidas: 1.3, llamadasServidas: 1.3, ventasHighTicket: 0.26, ingresoHighTicket: 882, contribucion: 4878, caja: 69150 },
+];
+
+/** El resultado, y de dónde salió la diferencia con el panel de agosto. */
+export const RESULTADO_24 = {
+  pagosVivos: 160.4, mrrEquivalente: 7823, cajaAcumulada: 69150,
+  pisoCaja: 717, mesPisoCaja: 1, mesesEnRojo: 0,
+  programas1a1: 4.85, highTicketCajaUsd: 16188,
+  llamadasServidas: 26.6, llamadasPedidas: 26.6,
+  horasDuenoMax: 56.4, mesHorasMax: 1, holguraRegimenH: 5.5,
+  capitalEnDolares: 0,
+  capitalEnHoras: '56,4 h el mes 1 y 46-55 h/mes sostenidas 24 meses, con 10 h/mes de agencia adentro del tope. La agencia NO se resigna en este plan y no hace falta: sacarla libera 10 h/mes y no cambia una sola fila de caja, porque el cuello dejó de ser el calendario.',
+  deDondeSaleLaDiferencia: [
+    'El panel decía 441 clientes, US$21.340 de MRR y US$143.861 de caja. Con las MISMAS decisiones de gasto (US$5.800/mes) y solo las correcciones de costo de IA, mortalidad de cobro y base propia, da 402 clientes y US$120.580: −16%. Eso es el error de cálculo.',
+    'De US$120.580 a US$69.150 es −43%, y NO es un error: es respetar el techo de valor. US$119.000 de pauta contra US$37.480. Esa parte es una DECISIÓN, no una corrección.',
+    'O sea: de los US$74.711 de diferencia, US$23.281 eran cuentas mal hechas y US$51.430 son clientes que el panel compraba por encima de lo que valen.',
+  ],
+  laConclusionQueCambio: '⚠️ EL CUELLO YA NO ES EL CALENDARIO, ES EL EMBUDO. El panel concluía que el dueño se quedaba sin horas en el mes 11 y por eso reestructuraba el bonus del anual. Con el gate puesto y la pauta capada, se sirven 26,6 de 26,6 llamadas pedidas y sobran 5,5 h/mes: el problema no es que no entren las llamadas, es que el embudo produce 1,3 llamadas calificadas por mes. La palanca del high ticket no es capacidad — es volumen de anuales calificados.',
+};
+
+// ── EL PROGRAMA DE US$4.000 ─────────────────────────────────────────────────
+// DECIDE: qué se entrega, qué no, y en cuántas horas — que es lo que fija si el
+// programa aporta al LTV o lo resta.
+//
+// ⚠️ UNA sola descomposición, y el TOTAL es la salida, no la entrada. El panel
+// tenía dos programas distintos en el mismo documento: «12 llamadas de 1 h, 15 h
+// totales» en un lado y «12 sesiones de 45 minutos» en el otro, y las cuatro
+// piezas que la segunda vendía (semana 0, pre-reads, entregables, franja de
+// acceso) no cabían en las 15 h de la primera.
+
+export type PiezaHt = { que: string; horas: number; comoSaleLaHora: string };
+
+export const HIGH_TICKET = {
+  nombre: '12 semanas con Martín',
+  precioUsd: 4000, precioOrigen: 'supuesto' as Origen,
+  precioQue: '⚠️ Los US$4.000 no están derivados en ningún lado: ni Estrategia.tsx ni modelo.ts los justifican, los dos los toman como input del dueño. Se sostienen por SELECCIÓN, que es lo único que la evidencia respalda (Ashraf, Berry & Shapiro, AER 100(5):2383-2413, 2010, precios asignados al azar: efectos de selección importantes y ninguna evidencia de costo hundido).',
+  promesa: 'A las 12 semanas tenés el funnel de adquisición andando y sabés por qué anda, decidido sobre tus propios datos y no sobre teoría.',
+
+  paraQuien: 'Ya adentro de MaKo pagando, con al menos tres meses de datos propios y una fuente conectada (Meta, la landing con el beacon, o el CRM con leads reales). Más los dos calificadores que YA existen en el repo: fase ≥3 (US$10k+/mes, lib/fase-diagnostico.ts) y oferta_ticket ≥ US$1.000 (lib/onboarding.ts:30). Sin diagnóstico completado no califica: fail-closed.',
+  noEsPara: 'Fase 1 (US$0-3k/mes), y se dice en la pantalla: el propio producto le dice a ese cliente, textual, «No sumes equipo ni delegues» (FASES[0].noHacer). Venderle US$4.000 es el producto diciendo una cosa y el fundador otra, con las dos pantallas abiertas.',
+
+  // ── LA DESCOMPOSICIÓN, con el origen de cada hora ──
+  entrega: [
+    { que: 'Semana 0 — el diagnóstico escrito ANTES de la primera sesión', horas: 1, comoSaleLaHora: 'MaKo lo genera con lo que ya está en la cuenta (lib/ads-analyst.ts, lib/landing-analyst.ts, lib/vsl-retencion.ts, lib/archivero.ts) por ~US$0,03 de IA. Martín lo corrige y le pone la decisión: 1 h.' },
+    { que: '12 sesiones de 45 minutos, una por semana', horas: 9, comoSaleLaHora: '12 × 0,75 h. Duran 45 y no 60 a propósito: el cliente llega con el pre-read leído.' },
+    { que: 'El pre-read de cada sesión, escrito por MaKo', horas: 1, comoSaleLaHora: '12 × 5 minutos de revisión de Martín.' },
+    { que: 'El entregable escrito de cada sesión, con las tareas cargadas en el plan del cliente', horas: 1, comoSaleLaHora: 'Entra por el camino que el producto ya usa (transcript → reparto de tareas). Martín revisa antes de publicar: 12 × 5 minutos.' },
+    { que: 'Franja de acceso entre sesiones — WhatsApp, dos ventanas fijas por semana', horas: 6, comoSaleLaHora: '⚠️ 30 minutos por semana × 12. El panel lo cotizaba en 2 h totales = 5 minutos por ventana, para un cliente de US$4.000: no es enforceable. Éste es el renglón que más se subestima y el que convierte 15 h en 40.' },
+    { que: 'Cierre — informe de los 3 meses y plan de los 90 días siguientes', horas: 1, comoSaleLaHora: 'Misma fuente que el diagnóstico de la semana 0, así que la comparación es honesta.' },
+  ] as PiezaHt[],
+  horasTotales: 19,
+  horasTotalesQue: 'La SUMA de los seis renglones, no un número puesto arriba. ASCENSO_PROGRAMAS.unoAUno.horasEntrega dice 15 y ese 15 solo cierra si el acceso se cotiza en 10 min/semana. Se publica 19 y se publica la sensibilidad.',
+
+  noIncluye: [
+    'Llamadas de 60 minutos. Son de 45, y es la reducción de alcance explícita: 12×60 con preparación e informe a mano son 24 h, y ahí el break-even de P₁ sube de 6,49% a 9,60%.',
+    'Ejecución. No se escriben tus anuncios, no se edita tu VSL, no se opera tu cuenta. Si se ejecuta, esto es una agencia con otro nombre y las 19 h se van a 40 — y a 40 h M₁ es NEGATIVO (−US$558,67).',
+    'Tu gasto en ads. El programa decide dónde y cuánto; la plata la ponés vos.',
+    'La suscripción a MaKo. Son dos rieles y dos cobros distintos. Si se regalan los 3 meses son ~US$141 de descuento encubierto que hoy no está en ningún modelo.',
+    'Soporte del software: va por el canal de tu plan, o la franja se come sola con capturas de pantalla.',
+    'Sesiones acumulables. Se reprograman dos veces en las 12 semanas; la que no se toma se pierde. Sin esa cláusula el programa de 3 meses dura 6 y las horas se duplican sin que el precio se mueva.',
+    'Garantía de resultado. Lo que hay es una ventana de devolución acotada y escrita.',
+  ],
+
+  // ⚠️ El temario NO puede ser el de la llamada gratis. Los seis ejes que el
+  // panel proponía viven en Estrategia.tsx:99-106, en una constante llamada
+  // ANALISIS cuyo comentario dice textual «Qué se analiza en la llamada» — y el
+  // guion promete «el análisis te lo llevás por escrito digas lo que digas».
+  // Venderle 12 conversaciones sobre lo que ya se llevó gratis, declarando que
+  // no se ejecuta nada, es descubrir eso en la sesión 1, que es justo donde está
+  // la garantía del 100%.
+  loQueLaLlamadaGratisNoDa: 'EL ARRASTRE. La llamada entrega el diagnóstico de los seis ejes; el programa entrega 12 semanas de revisar lo EJECUTADO contra los números de la semana anterior. La promesa se escribe así: «No te digo qué hacer —eso ya te lo dije gratis y por escrito—. Te acompaño 12 semanas mientras lo hacés, y lo medimos.»',
+
+  garantia: {
+    que: 'Garantía de la primera sesión: con el diagnóstico de la semana 0 ya entregado por escrito, si después de la sesión 1 decís que no es para vos se devuelve el 100%, sin preguntas y sin llamada de retención. A partir de la sesión 2 no hay devolución, y se dice ANTES de cobrar.',
+    porQueNo30: 'La evidencia que respalda la ventana larga (Janakiraman, Syrdal & Freling, Journal of Retailing 92(2):226-235, 2016, meta-análisis de ~21 papers) mide productos donde la ventana no cuesta entrega. Acá cuesta: a los 60 días ya entregaste 8 de 12 sesiones. Se declara que se está apartando de la regla del SaaS y por qué.',
+    reembolsoSupuesto: 0.10,
+    bloqueante: '🔧 /reembolsos no existe, y es el único lugar donde el cliente lee qué pasa si se siente estafado. Se escribe antes del primer cobro. Además el merchant of record lo pide para aprobar la cuenta (MES_0).',
+  },
+  cobranza: '50% al firmar, 50% al día 30. NUNCA 3 cuotas en 3 meses: la última caería cuando ya entregaste casi todo. ⚠️ El panel usaba 60/40 en la proyección y 50/50 en la especificación, en el mismo documento.',
+  rail: 'Stripe propio (FEE_RAIL_PROPIO, 4,4% + US$0,30). NUNCA Paddle: su AUP prohíbe textual «coaching». Por eso su botón no puede ir al mismo checkout que los planes.',
+  cupoVivos: 3, cupoQue: 'Publicado desde el día uno. Nacer con tope es gratis; sacárselo después a clientes que ya lo tenían es la conversación que no se gana. En este plan el cupo nunca se toca (0,75 programas vivos en el pico) — el tope real lo pone el embudo, no el calendario.',
+
+  economia: {
+    cajaUsd: 3441.33, cajaComo: '(4.000 − 176,30 de fee) × 0,90 de reembolso — exactamente ASCENSO_PROGRAMAS.unoAUno.cajaUsd',
+    capacidadUsd: 1541.33, usdPorHora: 181.12,
+    breakEvenP1: 0.0649,
+    vsPro: 'US$181,12 de caja por hora del dueño, 1,8× la hora de US$100 que el modelo le asigna. Un programa entregado equivale a 95 meses de contribución de un Pro (US$36,30/mes) o a 10,9 clientes Pro de por vida. ⚠️ Pero la comparación honesta no es esa: los US$3.441 entran una vez y las 19 h no vuelven, mientras que 19 h puestas en el producto sirven a todos los clientes a la vez. El 1a1 es el negocio mientras el SaaS es chico, y deja de serlo exactamente cuando el SaaS empieza a funcionar.',
+    enEstePlan: '4,85 programas y US$16.188 de caja en 24 meses — el 23% de la caja total. El panel proyectaba 13 programas y US$44.030 con el mismo producto: la diferencia es que allá la llamada se le servía a todo comprador anual sin gate y con un embudo 2,7× más grande comprado por encima del techo.',
+  },
+  origen: 'supuesto' as Origen,
+};
+
+// ── EL SWITCH MENSUAL / ANUAL ───────────────────────────────────────────────
+// DECIDE: qué se ve en /precios, que hoy no existe (SALVEDADES id 'sin-cobro').
+// Esto es una especificación, no una implementación.
+
+export type PlanAnual = {
+  plan: Columna; mensualUsd: number; anualUsd: number | null;
+  equivalenteMesUsd: number; ahorroUsd: number; descuento: number;
+  extraDelAnual: string;
+};
+
+export const OFERTA_ANUAL = {
+  switch: {
+    donde: 'Entre el H1 y las cards, centrado. Es el ÚNICO control de la página: no se repite adentro de las cards y NO envuelve al 1a1 —ese va en banda aparte al pie, con «Aplicar», porque su rail de cobro es otro.',
+    rotulo: '[ Mensual ]   [ Anual · 2 meses gratis ]',
+    bajada: 'Pagás 10 meses y usás 12. En todos los planes.',
+    porQueGratis: '«2 meses gratis» le gana a «Ahorrá 16,7%» por la palabra gratis (Shampanier, Mazar & Ariely, Marketing Science 26(6):742-757, 2007) y porque es el encuadre de los tres comparables de la banda: Systeme.io, ElevenLabs y Ahrefs. Sin «hasta»: los tres planes van al mismo 16,7%, así que decirlo sin hedge es gratis y compra credibilidad.',
+    default: 'Anual preseleccionado. ⚠️ ORIGEN SUPUESTO y hay que decirlo: 8 de 16 páginas medidas lo preseleccionan, pero NO existe evidencia experimental pública de que suba la conversión. Es convención observada, no experimento.',
+    condicionInnegociable: 'El mensual queda visible a un clic y NUNCA escondido. No es solo el plan barato: es el plan B del COBRO. Con aprobación cross-border en LATAM 30-50% más baja que la doméstica (EBANX Beyond Borders 2025), el anual puede convertir perfecto en la página y morir en el emisor.',
+    muestra: 'LOS DOS en el mismo bloque: número grande = equivalente mensual (US$39) con el mensual tachado (US$47), y debajo en tinta normal «Se cobra una vez al año: US$470. Te ahorrás US$94». El desempate no lo da el mercado (GoHighLevel muestra el total, ClickFunnels el equivalente): lo da el cobro. A un monotributista argentino le aparecen ~US$710 con el gross-up del 51%, y esconder el cargo real es cómo se produce un rechazo de emisor que el tablero después lee como «bajó la conversión».',
+  },
+
+  planes: [
+    { plan: 'free', mensualUsd: 0, anualUsd: null, equivalenteMesUsd: 0, ahorroUsd: 0, descuento: 0,
+      extraDelAnual: 'Sin anual. La card no cambia con el switch salvo una línea gris «Sin plan anual», para que el toggle no parezca roto cuando tres cards se mueven y una no. ⚠️ Y no se publica hasta el MES 10: antes de la key de plataforma un Free sin key propia no es «un usuario que no gasta», es una llamada que EXPLOTA (lib/credenciales.ts:126-132).' },
+
+    { plan: 'pro', mensualUsd: 47, anualUsd: 470, equivalenteMesUsd: 39.17, ahorroUsd: 94, descuento: 0.167,
+      extraDelAnual: 'SE SOSTIENE EL 16,7%, y el límite está derivado: cada punto de descuento cuesta US$5,31 de contribución y US$2,95 de techo. A 19,5% EXACTO el techo de medios mezclado toca US$124,22 = el CAC del carrito, y el único canal escalable deja de cerrar. ⚠️ Y el descuento y la garantía salen del MISMO techo: cada punto de reembolso del anual cuesta US$0,69 de techo mezclado, así que al 16,7% el presupuesto de reembolso es 3,6%; si el reembolso resulta 10%, el descuento sostenible baja a 11,7% y el 16,7% queda 5,0 puntos por encima del límite. Por eso la respuesta a «hacelo más atractivo» es AGREGAR cosas, no bajar el precio. QUÉ SE AGREGA: (1) 45 minutos 1 a 1 con el análisis ya escrito, solo si el negocio califica —cuesta US$30 por comprador anual con el gate contra US$75 sin él—; (2) precio congelado 12 meses, que cuesta US$0 hoy porque la lista solo puede subir; (3) rollover del cupo no usado hasta un mes, exposición máxima US$2,08 al año; (4) 30 días de devolución. QUÉ NO: cupo de MaKo Tokens adelantado, ni acá ni en ningún plan.' },
+
+    { plan: 'growth', mensualUsd: 97, anualUsd: 970, equivalenteMesUsd: 80.83, ahorroUsd: 194, descuento: 0.167,
+      extraDelAnual: '⚠️ ES UNA CORRECCIÓN DE CÓDIGO VIVO: modelo.ts:597 dice hoy US$1.067 con «1 mes gratis · 8,3%». Ese 8,3% queda por debajo del mínimo medido en 16 páginas reales (beehiiv, ~12%) y crea una escalera perversa: el plan que más conviene retener (vida 15,5 meses contra 8,7 del Pro) tiene la peor oferta anual, con las dos cards pegadas. Control de cordura externo: US$970/año es exactamente lo que cobra GoHighLevel por su Starter de US$97/mes, y ClickFunnels cobra US$81 sobre US$97 = US$972/año. Dos comparables independientes aterrizan en el mismo número. LA CARD VA CON PRECIO ANUNCIADO Y LISTA DE ESPERA, SIN COBRAR, hasta el mes 13: prepagar 12 meses contra un ComingSoon de 8 líneas es un reembolso con fecha.' },
+
+    { plan: 'agencia', mensualUsd: 297, anualUsd: 2970, equivalenteMesUsd: 247.50, ahorroUsd: 594, descuento: 0.167,
+      extraDelAnual: 'No se le agrega nada y no lleva botón de compra: hoy no existe como Plan[\'id\'] y su cupo es un `?? 150000` hardcodeado en Pricing.tsx:485. Va con «Hablemos». ⚠️ Nota de voz, no de precio: «Agencia» es el único nombre de plan en español contra la regla de nombres en inglés del proyecto. Conviene resolverlo antes de que el nombre esté en un Price de Paddle y en la factura de alguien.' },
+  ] as PlanAnual[],
+
+  /** La regla que ordena la página en una frase. */
+  laRegla: 'En todos los planes, el anual son 10 meses.',
+
+  copyClave: [
+    { donde: 'Card del Pro, estado ANUAL — el renglón del bonus, corregido', texto: 'Si tu negocio califica —te lo decimos en el onboarding— sumás 45 minutos conmigo, 1 a 1, con el análisis de tu negocio ya escrito. No gastamos la llamada en ponernos al día: la usamos para decidir qué hacés primero. El análisis te lo llevás por escrito.' },
+    { donde: 'Card del Pro, estado MENSUAL', texto: 'Se cobra todos los meses. Cancelás cuando quieras. Con el anual son US$39/mes. Ver el anual.' },
+    { donde: 'Checkout, cuando el emisor rechaza el cargo anual — en la MISMA pantalla', texto: 'Tu banco no aprobó el cargo de US$470. Pasa seguido con montos grandes en dólares: no es tu tarjeta, es el emisor. Probá con otra tarjeta, o arrancá con el mensual a US$47 y pasate al anual cuando quieras — te descontamos lo que ya pagaste.' },
+    { donde: 'ANTI-COPY — lo que NO se escribe en ningún lado', texto: '· «Dos horas conmigo»: se entregan 45 minutos y el modelo compra 1,0 h de calendario. · «Cancelás cuando quieras» en la card del anual: es falso en un prepago y se cobra en contracargos. · «Ahorrá hasta un 16,7%»: el «hasta» obliga a buscar cuál plan lo tiene. · «Cupo extra de MaKo Tokens con el anual»: es un pasivo de costo variable prepagado 12 meses sobre la única línea que no es marginal-cero. · «Te queda todo ilimitado»: se congela el precio, nunca el alcance.' },
+  ],
+
+  metricasDesdeLaPrimeraCohorte: [
+    'Clics al lado «Anual» y checkouts INICIADOS en anual',
+    'TASA DE APROBACIÓN DEL COBRO, anual vs mensual — sin ella un rechazo de emisor se lee como «bajó la conversión» y se termina bajando un precio que no era el problema',
+    'TASA DE REEMBOLSO del anual a 30 días — el presupuesto es 3,6%, y es lo que decide si el 16,7% era sostenible',
+    'Las 30 llamadas etiquetadas con su resultado — es lo único que reemplaza el supuesto de P₁, y se completan en el mes 12',
+  ],
+  origen: 'supuesto' as Origen,
+};
+
+// ── LOS TRES TRAMOS DE CAPACIDAD ────────────────────────────────────────────
+// DECIDE: cuándo el dueño deja de poder atender solo, y qué se hace.
+// El dueño pidió textual modelar «meter un closer». Está modelado, con el número
+// que lo dispara — y el veredicto es que no se contrata, pero por una razón
+// distinta a la que el panel daba.
+
+export type Tramo = {
+  id: 'a' | 'b' | 'c1' | 'c2';
+  nombre: string; mesesEnQueRige: string; techo: string;
+  disparadorDelSalto: string; veredicto: string;
+};
+
+export const TRAMOS_CAPACIDAD: Tramo[] = [
+  { id: 'a', nombre: 'El dueño solo, llamada a TODO comprador', mesesEnQueRige: 'ninguno',
+    techo: 'El mes 1 pide 11,1 compradores × 0,75 de show × 1,0 h = 8,3 h. Sí entra en el calendario.',
+    disparadorDelSalto: 'No lo descarta la capacidad: lo descarta la economía. Regalarle 1,0 h (US$100) a un comprador Pro MENSUAL son 2,8 meses de su contribución (US$36,30), y se puede ir en el mes 3 — que es exactamente el modo de falla que embudo:75 ya tenía escrito.',
+    veredicto: 'NO SE HACE NUNCA. La llamada es del anual y de los que califican, desde el día uno. ⚠️ El panel también lo descartaba, pero por el motivo equivocado (decía que el calendario no daba).' },
+
+  { id: 'b', nombre: 'El dueño con el gate: solo anual Y fase ≥3 Y ticket ≥ US$1.000', mesesEnQueRige: 'meses 1 a 24 — los veinticuatro',
+    techo: 'Las horas libres tras soporte, producto, venta, entrega y agencia: 5 a 15 h/mes, o sea 5 a 15 llamadas. El embudo pide 1,3.',
+    disparadorDelSalto: 'No se dispara. Déficit de llamadas en los 24 meses: CERO.',
+    veredicto: 'RIGE TODO EL PLAN. Y el filtro no es un cuestionario: es el PRECIO más dos campos que ya existen en la base. Pagar US$470 por adelantado ES la calificación (Ashraf/Berry/Shapiro, AER 100(5) 2010: el precio alto selecciona, no motiva).' },
+
+  { id: 'c1', nombre: 'Onboarding grupal en vez de 1a1', mesesEnQueRige: 'ninguno',
+    techo: '⚠️ 1,0 h POR CABEZA, no 0,125. COHORTE_GRUPAL dice textual `horasPorCabeza: 1.0` sobre 8 sesiones de 1,5 h para 12 personas. El panel dividió UNA sesión por 12 y le puso la etiqueta de la constante que describe las ocho: un error de 8× sobre la única palanca que decía que «multiplica la capacidad por 10 y cuesta cero».',
+    disparadorDelSalto: 'Cinco llamadas del bonus sin servir por mes, sostenidas 3 meses. Máximo del plan: cero.',
+    veredicto: 'NO SE ACTIVA, y encima a 1,0 h/cabeza casi no ahorra nada contra la llamada gateada de 1,0 h. Además cambiarle el bonus a cohortes que ya prepagaron 12 meses, justo antes de que se mida la renovación, es la peor forma de descubrir cuánto vale la promesa.' },
+
+  { id: 'c2', nombre: 'Closer contratado', mesesEnQueRige: 'ninguno',
+    techo: 'Fijo US$2.000/mes + comisión 10-20% sobre US$4.000, con rampa de 2-3 meses al 50% de la tasa del fundador y ~75% en régimen (el fundador cierra su propio programa; un tercero no).',
+    disparadorDelSalto: '4,60 llamadas CALIFICADAS sin servir por mes, sostenidas 3 meses. Sale de US$2.000 de fijo ÷ US$435,20 de caja por llamada servida por el closer (0,20 de cierre × 0,75 de haircut × US$2.901,33 netos con 15% de comisión). ⚠️ El panel publicaba 4,84 con una división que usaba P₁ = 12% (el optimista) mientras el resto del documento corría a 8%, y no cargaba la comisión — embudo:381 ya la cotiza.',
+    veredicto: 'NO SE CONTRATA en 24 meses, y la razón NO es la que decía el panel. No es que el calendario alcance a último momento: es que el embudo produce 1,3 llamadas calificadas por mes contra un disparador de 4,60. El día que el embudo triplique, el closer entra — y el prerrequisito (30 llamadas propias etiquetadas) se cumple en el mes 12, así que el dato va a estar.' },
+];
+
+// ── LO QUE SIGUE SIENDO DECISIÓN DEL DUEÑO ──────────────────────────────────
+// Ordenadas por cuánto mueven el resultado. Ninguna se puede contestar con más
+// análisis: las cinco necesitan que él diga un número.
+
+export const PREGUNTAS_ABIERTAS = [
+  { n: 1, pregunta: '¿Payback o 3:1?', mueve: 'US$18.370 de caja y 56 clientes al mes 24, y el presupuesto de pauta de US$1.000 a US$1.940/mes.',
+    porQue: 'UNIT.proAnual ya decía que las dos reglas se separan y que «es la decisión más grande de la tabla», y la dejó abierta. Payback protege la CAJA (y el dueño no tiene capital); 3:1 protege el VALOR. Comprar a payback es comprar a ~1,7:1, el cuartil que destruye valor con cada cliente. Este plan corre bajo PAYBACK porque no hay capital, y eso está declarado, no elegido en silencio.' },
+  { n: 2, pregunta: '¿Cuánto vale tu hora, de verdad?', mueve: 'El break-even del programa de US$4.000 es 2,0% a US$50/h, 6,5% a US$100/h y 25,4% a US$150/h — y arriba de US$181,12/h el programa NO CIERRA a ninguna tasa, porque M₁ se vuelve negativo (3.441,33 ÷ 19 h). La llamada del bonus muere antes: deja de cerrar arriba de US$143,39/h y ahí hay que sacarla de la card.',
+    porQue: 'VALOR_HORA_DUENO dice textual que los US$100 «los puso el analista, NO el dueño». Es la perilla más no-lineal de todo el modelo y la única que no se puede estimar desde afuera.' },
+  { n: 3, pregunta: '¿«30 usuarios» eran 30 pagos o 30 registrados?', mueve: 'Si son pagos, faltan 19 y no se compran a ningún precio que respete ninguna regla. Si son registrados, sobran: el mes 1 produce 210 y hoy se pierden 199 porque no existe el alta pública.',
+    porQue: 'Es la pregunta más barata de todo el documento y cambia qué se construye primero. Si son registrados, el paso 8 de ORDEN_DE_TRABAJO se adelanta al mes 1 y vale más que los US$1.000 de pauta.' },
+  { n: 4, pregunta: '¿El programa de US$4.000 arrastra o solo diagnostica?', mueve: 'Si el temario son los seis ejes de Estrategia.tsx, es lo mismo que el cliente ya se llevó gratis y por escrito — y lo descubre en la sesión 1, que es donde está la garantía del 100%. El supuesto de 10% de reembolso pasa a ser un piso optimista, y ese supuesto da vuelta el signo del ascenso.',
+    porQue: 'La constante de la que sale el temario se llama ANALISIS y su comentario dice «Qué se analiza en la llamada». La diferencia no puede ser la palabra «cómo»: tiene que ser el arrastre de 12 semanas.' },
+  { n: 5, pregunta: '¿Cuántas horas por mes te llevan hoy Mauricio, Leandro y Leila?', mueve: 'Está declarada en 10 h/mes y con eso el plan cierra con holgura. A 30 h/mes el mes 1 se va a 76 h y el plan no arranca.',
+    porQue: 'CAPITAL_NECESARIO.agencia dice textual que el modelo las declara en CERO «y eso es falso». Acá se declaran en 10 y se puede sostener, pero sigue siendo el único número del modelo que se cierra con una pregunta de treinta segundos y sigue sin contestar.' },
 ];
