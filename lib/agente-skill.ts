@@ -11,10 +11,24 @@
 // Función pura (sin server-only) para poder mostrarla y copiarla desde la UI.
 // =============================================================================
 
-/** Ruta donde va el archivo dentro del proyecto del usuario. */
+/**
+ * DÓNDE VA EL ARCHIVO. Son dos lugares y el que se recomienda NO es el de proyecto.
+ *
+ * ⚠️ Esto se enseñó mal la primera vez y el dueño lo cazó en su propia terminal: el
+ * tutorial daba SOLO `.claude/skills/…`, que es scope de PROYECTO — la skill existe
+ * únicamente adentro de esa carpeta. Es la respuesta de desarrollador. Un cliente de
+ * MaKo no tiene «un proyecto», tiene un negocio: abre Claude donde sea y espera que
+ * sepa de su oferta. Para eso la skill va en la carpeta GLOBAL del usuario, que es
+ * además donde el propio Claude Code busca (lo dice él mismo cuando no la encuentra:
+ * «ni en el proyecto ni en tu carpeta global ~/.claude/skills»).
+ *
+ * La de proyecto se sigue ofreciendo, pero como la excepción: sirve para acotar la
+ * skill a un repo, que es lo que quiere alguien que programa.
+ */
 import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle-contrato';
 import { AGENTE_HOOK_PATH, AGENTE_HOOK_SETTINGS } from './agente-plugin';
 
+export const AGENTE_SKILL_PATH_USUARIO = '~/.claude/skills/mako-plan/SKILL.md';
 export const AGENTE_SKILL_PATH = '.claude/skills/mako-plan/SKILL.md';
 
 /** El SKILL.md listo para pegar, con la URL y el token ya embebidos. */
@@ -31,6 +45,18 @@ description: >
   cerrar un trabajo sustancial. Traete el contexto ANTES de opinar; no le pidas al
   usuario datos que MaKo ya tiene. Para el plan: NUNCA crear tareas por tu cuenta, se
   proponen y las puntúa el Perro Guardián.
+---
+
+## ¿Te pegaron este texto en un chat?
+
+Entonces todavía no estoy instalada: soy el CONTENIDO de una skill, no una skill. Creá
+el archivo \`${AGENTE_SKILL_PATH_USUARIO}\` con este texto tal cual —de la primera línea
+\`---\` hasta el final— y confirmalo. Después seguí con lo que te estaban pidiendo.
+
+Si preferís que viva solo adentro de un proyecto, va en \`${AGENTE_SKILL_PATH}\`.
+
+Una vez instalada, ignorá esta sección: es para el momento de instalar, no para usarme.
+
 ---
 
 # MaKo — el negocio del usuario

@@ -1503,3 +1503,34 @@ y los nodos de área SÍ se apagan al filtrar por carpeta o sección —dejarlos
 no haber filtrado— pero quedan EXENTOS de la autoría, porque no tienen autoría propia y
 sacarlos deja las etiquetas flotando sin racimo. Leyendo el código no se nota; en un test
 son tres líneas.
+
+### La skill se instalaba en el lugar de desarrollador
+
+**Vive en:** `lib/agente-skill.ts` (`AGENTE_SKILL_PATH_USUARIO`) · `app/_components/TutorialAgente.tsx`
+
+**Síntoma.** El dueño pegó la skill en su Claude Code y le contestó: «No hay ninguna skill
+`mako-plan` instalada — ni en el proyecto ni en tu carpeta global `~/.claude/skills` (ahí
+solo están las de `hyperframes-*` y `media-use`)», y le ofreció crearla él.
+
+**Nada estaba roto**, y por eso costaba verlo: Claude reconoció el texto, dedujo que era
+una skill y ofreció el lugar correcto. El tutorial funcionaba **porque el modelo lo
+arregló**, no porque estuviera bien.
+
+**Las dos causas, y las dos son de producto:**
+
+1. **La ruta era de PROYECTO.** `.claude/skills/…` existe solo adentro de esa carpeta. Es
+   la respuesta de desarrollador. Un cliente de MaKo no tiene «un proyecto»: abre Claude
+   donde sea y espera que sepa de su oferta. La que corresponde es la GLOBAL del usuario
+   (`~/.claude/skills/…`), que además es donde el propio Claude Code busca — lo dice en su
+   mensaje de error, que es de dónde salió el diagnóstico.
+2. **El flujo pedía un gesto que nadie hace.** «Creá el archivo y pegá la skill adentro»
+   contra lo que la gente hace de verdad, que es pegar el texto en el chat.
+
+**Lo que quedó, y es la parte reusable:** el texto de la skill **arranca explicando qué
+hacer con él**. Si te lo pegan en un chat, la primera sección dice que todavía no está
+instalada, dónde va y que después siga con lo que estaban haciendo. Pegarlo ES instalarlo,
+sin depender de que el modelo adivine.
+
+**La regla:** un artefacto que se entrega por copiar-y-pegar tiene que llevar adentro sus
+instrucciones de instalación. El tutorial de la app lo lee quien lo copia; el que lo
+recibe es otro —una persona en otra máquina, o un modelo— y ese solo tiene el texto.

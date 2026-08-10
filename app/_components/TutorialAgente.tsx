@@ -25,7 +25,7 @@
 // =============================================================================
 
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
-import { agenteSkillMarkdown, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
+import { agenteSkillMarkdown, AGENTE_SKILL_PATH, AGENTE_SKILL_PATH_USUARIO } from '@/lib/agente-skill';
 import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
 
 const MONO = "'Geist Mono', monospace";
@@ -46,7 +46,7 @@ export const CODE = {
 /** Cada cosa que el tutorial deja copiar. Está tipado a propósito: el botón dice
  *  «¡Copiado!» comparando contra este valor, así que un typo en la clave deja un botón
  *  que copia bien y nunca confirma — y eso se lee como que no funcionó. */
-type Copiable = 'skill' | 'token' | 'ruta';
+type Copiable = 'skill' | 'token' | 'ruta' | 'ruta2';
 
 export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
   const [token, setToken] = useState<string | null>(tokenInicial);
@@ -159,16 +159,33 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
         {/* PASO 2 — instalar la skill */}
         {paso(2, 'Instalá la skill en Claude', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* La skill es UN archivo de texto, y por eso el paso se explica por las dos
-                puertas. En la terminal se crea el archivo; en la app de Claude se pega
-                como skill nueva. Nombrar solo una dejaba afuera a la mayoría de los
-                clientes, que no programan. */}
+            {/* ⚠️ EL CAMINO PRINCIPAL ES PEGAR Y PEDIR, no crear el archivo a mano.
+                La primera versión decía «creá el archivo … y pegá la skill adentro», y
+                lo que la gente hace es lo natural: pegar el texto en el chat. Claude lo
+                resuelve igual —reconoce que es una skill y ofrece instalarla— pero eso
+                era suerte, no diseño. Ahora el propio texto de la skill arranca
+                diciendo qué hacer con él, así que pegarlo ES instalarlo.
+
+                Y la ruta que se recomienda es la GLOBAL, no la del proyecto: un cliente
+                de MaKo no tiene «un proyecto», y una skill de proyecto solo existe
+                adentro de esa carpeta. */}
             <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              <strong style={{ color: 'var(--ink)' }}>En Claude Code:</strong> creá el archivo <button type="button" onClick={() => copiar('ruta', AGENTE_SKILL_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'ruta' ? '¡copiada!' : AGENTE_SKILL_PATH}</button> en tu proyecto y pegá la skill adentro.
+              Copiala, <strong style={{ color: 'var(--ink)' }}>pegala en Claude</strong> y decile
+              «instalá esta skill». Se instala sola: el texto trae adentro dónde va.
             </div>
-            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              <strong style={{ color: 'var(--ink)' }}>En la app de Claude:</strong> creá una skill nueva y pegá el mismo texto. Es el mismo archivo.
-            </div>
+            <details style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.6 }}>
+              <summary style={{ cursor: 'pointer', color: 'var(--dim)' }}>O crear el archivo a mano</summary>
+              <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <span>
+                  Para tenerla en <strong style={{ color: 'var(--ink)' }}>todas</strong> tus conversaciones:{' '}
+                  <button type="button" onClick={() => copiar('ruta', AGENTE_SKILL_PATH_USUARIO)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'ruta' ? '¡copiada!' : AGENTE_SKILL_PATH_USUARIO}</button>
+                </span>
+                <span>
+                  Solo dentro de un proyecto:{' '}
+                  <button type="button" onClick={() => copiar('ruta2', AGENTE_SKILL_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'ruta2' ? '¡copiada!' : AGENTE_SKILL_PATH}</button>
+                </span>
+              </div>
+            </details>
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
               <button type="button" style={listo ? btnPrimario : { ...btnPrimario, opacity: 0.45, cursor: 'not-allowed' }} disabled={!listo} onClick={() => copiar('skill', skill)}>
                 {copiado === 'skill' ? '¡Skill copiada!' : 'Copiar skill'}
