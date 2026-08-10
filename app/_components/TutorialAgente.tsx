@@ -25,7 +25,7 @@
 // =============================================================================
 
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
-import { agenteSkillMarkdown, AGENTE_SKILL_ARCHIVO, AGENTE_SKILL_PATH } from '@/lib/agente-skill';
+import { AGENTE_SKILL_PATH } from '@/lib/agente-skill';
 import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
 
 const MONO = "'Geist Mono', monospace";
@@ -46,7 +46,7 @@ export const CODE = {
 /** Cada cosa que el tutorial deja copiar. Está tipado a propósito: el botón dice
  *  «¡Copiado!» comparando contra este valor, así que un typo en la clave deja un botón
  *  que copia bien y nunca confirma — y eso se lee como que no funcionó. */
-type Copiable = 'token' | 'ruta';
+type Copiable = 'token' | 'instruccion';
 
 export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
   /**
@@ -57,33 +57,33 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
    * que le pedía Claude era la URL de la API. Este componente corre en el NAVEGADOR,
    * así que tiene a mano el dato incontestable: el origen desde el que se está mirando
    * la app. Si el servidor no mandó nada, se usa ése.
+   *
+   * ⚠️ Y EN LOCALHOST GANA EL ORIGEN, aunque el servidor haya mandado algo. `APP_BASE_URL`
+   * cae al dominio de producción cuando no hay env (que es el caso en `.env.local`), así
+   * que probando en local la skill salía apuntando a producción mientras el hook
+   * —que sí lee el origin del request— apuntaba a localhost. El par quedaba hablándole a
+   * dos servidores distintos, que es la clase de incoherencia que se descubre debuggeando
+   * otra cosa. En cualquier otro host manda `appUrl`: desde un preview de Vercel la skill
+   * tiene que apuntar a producción, que es donde viven los datos del cliente.
    */
-  const base = (appUrl || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/+$/, '');
+  const origen = typeof window !== 'undefined' ? window.location.origin : '';
+  const enLocal = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|$)/.test(origen);
+  const base = ((enLocal ? origen : appUrl) || origen).replace(/\/+$/, '');
   const [token, setToken] = useState<string | null>(tokenInicial);
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<Copiable | null>(null);
   const [verTrato, setVerTrato] = useState(false);
 
-  const skill = useMemo(() => agenteSkillMarkdown(base, token ?? ''), [base, token]);
-  const [bajado, setBajado] = useState(false);
+  /** La instrucción que el usuario le pega a Claude. Es TODO lo que hace falta: la URL
+   *  de donde bajarla, cómo autenticarse y dónde va. Tres líneas en vez de once mil
+   *  caracteres. */
+  const instruccion = useMemo(() => [
+    'Instalá la skill de MaKo:',
+    `curl -H "Authorization: Bearer ${token ?? ''}" ${base}/api/agente/skill -o SKILL.md`,
+    `Guardá ese archivo en ${AGENTE_SKILL_PATH} (creá la carpeta si no existe) y confirmame cuando esté.`,
+  ].join(String.fromCharCode(10)), [base, token]);
 
-  /** Baja el SKILL.md como archivo. Mismo gesto que el ZIP del segundo cerebro: blob →
-   *  ancla → click → revocar diferido (revocar en la misma vuelta cancela la descarga
-   *  en Safari). */
-  const bajarSkill = () => {
-    const blob = new Blob([skill], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = AGENTE_SKILL_ARCHIVO;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setBajado(true);
-    setTimeout(() => setBajado(false), 2200);
-  };
   const listo = !!token;
 
   // ⚠️ EL 409 NO ES UN ERROR: ES LA PUERTA. `/api/agente/token` responde
@@ -185,44 +185,42 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
         ))}
 
         {/* PASO 2 — instalar la skill */}
-        {paso(2, 'Bajá la skill y ponela en Claude', (
+        {paso(2, 'Pegale esta instrucción a Claude', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* ⚠️ SE BAJA UN ARCHIVO, NO SE COPIA UN TEXTO. La versión anterior ponía
-                11.000 caracteres de markdown en el portapapeles y le pedía al usuario
-                que los pegara en el lugar correcto. Eso es hacerle manipular a mano el
-                artefacto entero: si pega de más, de menos, o el portapapeles se pisa con
-                otra cosa en el medio, la skill queda rota y el error aparece recién
-                cuando Claude no la encuentra. Un archivo llega entero o no llega.
+            {/* ⚠️ ASÍ SE INSTALA UNA SKILL: se le dice a Claude DÓNDE ESTÁ y la baja él.
+                Este paso pasó por tres versiones peores, y las tres compartían la misma
+                causa — que no existía una URL de donde bajarla, así que la app la
+                entregaba por el único canal que le quedaba, el portapapeles:
+                  1. «Creá el archivo y pegá la skill adentro» (11.000 caracteres a mano).
+                  2. Lo mismo, con dos ubicaciones posibles detrás de un desplegable.
+                  3. Un botón que bajaba el .md y el usuario tenía que ubicarlo.
+                Ninguna otra skill se instala así. Con `/api/agente/skill` sirviendo el
+                archivo, el paso vuelve a ser lo normal: una instrucción y listo.
 
-                Y hay UNA sola ubicación a la vista. Antes había dos —global y de
-                proyecto— detrás de un desplegable: preguntarle a alguien que no programa
-                cuál de las dos quiere es hacerle tomar una decisión técnica que no puede
-                evaluar, para un caso que casi nadie tiene. */}
+                La instrucción incluye el token porque es lo que autentica la descarga —
+                y va en un header, no en la URL: una credencial en la query queda en los
+                logs, en el historial y en el Referer. */}
             <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              Bajá el archivo y ponelo en{' '}
-              <button type="button" onClick={() => copiar('ruta', AGENTE_SKILL_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar la ruta">{copiado === 'ruta' ? '¡ruta copiada!' : AGENTE_SKILL_PATH}</button>
-              {' '}(creá la carpeta si no existe). Queda disponible en todas tus conversaciones.
+              Copiá esto y pegáselo a Claude. Baja la skill solo y queda instalada.
             </div>
+
+            <pre style={{
+              margin: 0, padding: '11px 13px', borderRadius: 10, overflowX: 'auto',
+              background: 'var(--surface-2)', border: '1px solid var(--border)',
+              fontFamily: MONO, fontSize: 11.5, lineHeight: 1.6, color: 'var(--ink)',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}>{listo ? instruccion : 'Generá el token primero: viene adentro de la instrucción.'}</pre>
 
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
               <button
                 type="button"
                 style={listo ? btnPrimario : { ...btnPrimario, opacity: 0.45, cursor: 'not-allowed' }}
                 disabled={!listo}
-                onClick={bajarSkill}
+                onClick={() => copiar('instruccion', instruccion)}
               >
-                {bajado ? '¡Archivo bajado!' : 'Descargar la skill ↓'}
+                {copiado === 'instruccion' ? '¡Copiada!' : 'Copiar la instrucción'}
               </button>
             </div>
-
-            {/* La salida para quien no sepa dónde queda esa carpeta — que es la mayoría.
-                El archivo trae adentro sus propias instrucciones de instalación, así que
-                dárselo a Claude alcanza. */}
-            <span style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
-              ¿No sabés dónde es eso? Arrastrá el archivo a Claude y decile «instalá esta skill».
-            </span>
-
-            {!listo && <span style={{ fontSize: 12, color: 'var(--faint)' }}>Generá el token primero: viene adentro del archivo.</span>}
           </div>
         ))}
 

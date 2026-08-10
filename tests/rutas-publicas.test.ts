@@ -21,7 +21,7 @@ import { esPublica, esPublicaSoloLectura } from '../lib/rutas-publicas';
 
 test('las rutas del agente que hablan por Bearer entran sin sesión', () => {
   // Son las que corren en la máquina del cliente, donde no hay cookie posible.
-  for (const r of ['/api/agente/plan', '/api/agente/contexto', '/api/agente/telemetria', '/api/agente/hook']) {
+  for (const r of ['/api/agente/plan', '/api/agente/contexto', '/api/agente/telemetria', '/api/agente/hook', '/api/agente/skill']) {
     assert.equal(esPublica(r), true, r);
   }
   // Y con querystring, que es como las llama la skill de verdad.
