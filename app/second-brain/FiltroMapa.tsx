@@ -20,13 +20,16 @@
 //     «ninguno» que deje la pantalla vacía sin que nadie lo haya pedido.
 //   · El panel NO se cierra al elegir. Es lo que hace tolerable marcar tres cosas.
 //
-// Lo que se trae del CRM (app/crm/CrmToolbar.tsx:383-428) y el tablero NO tiene:
-//   · CHIPS de filtros activos afuera del panel, UNO POR CATEGORÍA. Uno por valor
-//     se desborda con cinco elegidos y empuja la pantalla. El cuerpo del chip
-//     reabre el menú en esa categoría; la × limpia la categoría entera.
-//   · El conteo «N de M».
-// Por eso `abierto` es un PROP y no un estado local: sin levantarlo, el chip no
-// tiene forma de reabrir el menú adentro de su categoría.
+// Lo que se trae del CRM (app/crm/CrmToolbar.tsx:431) y el tablero NO tiene: el
+// conteo «N de M». Los chips de filtros activos del CRM se probaron y se sacaron —
+// eran una segunda manera de borrar un filtro al lado de la primera, y con «Limpiar
+// filtros (N)» adentro del panel alcanza. UNA acción, UN lugar.
+//
+// LAS CATEGORÍAS SE RECORTAN ENTRE SÍ. Si hay carpetas elegidas, la lista de
+// secciones muestra SOLO las de esas carpetas, y al revés. Sin eso el menú ofrece
+// combinaciones que dan cero —«carpeta Oferta» + «sección Razones» son ramas
+// distintas del árbol— y el usuario descubre que eligió algo imposible recién
+// cuando el mapa queda vacío.
 //
 // Y el estado vacío sale de `NoResults` (app/_ui/Estados.tsx), que ya es el
 // canónico de la casa — el tablero muestra un «—» por columna que no dice que fue
@@ -93,13 +96,28 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
   const toggleCarpeta = (id: string) => {
     const c = new Set(filtro.carpetas);
     if (c.has(id)) c.delete(id); else c.add(id);
-    onFiltro({ ...filtro, carpetas: c });
+    // Al cambiar de carpeta se PODAN las secciones que quedaron fuera. Son ramas
+    // distintas del árbol y el filtro es AND: dejarlas daría cero resultados sin que
+    // se vea por qué. Si no queda ninguna carpeta, no hay nada que podar.
+    const areas = c.size
+      ? new Set([...filtro.areas].filter((a) => c.has(AREAS.find((x) => x.id === a)?.padre ?? '')))
+      : filtro.areas;
+    onFiltro({ ...filtro, carpetas: c, areas });
   };
   const toggleArea = (id: AreaId) => {
     const c = new Set(filtro.areas);
     if (c.has(id)) c.delete(id); else c.add(id);
     onFiltro({ ...filtro, areas: c });
   };
+
+  /** Las opciones que tiene sentido ofrecer, dado lo que ya está elegido en la otra
+   *  categoría. Ver el encabezado: una categoría recorta a la otra. */
+  const areasOfrecidas = filtro.carpetas.size
+    ? AREAS.filter((a) => filtro.carpetas.has(a.padre))
+    : AREAS;
+  const carpetasOfrecidas = filtro.areas.size
+    ? NIVEL1.filter((c: (typeof NIVEL1)[number]) => [...filtro.areas].some((a) => AREAS.find((x) => x.id === a)?.padre === c.id))
+    : NIVEL1;
 
   const resumen = (cat: CategoriaFiltro): string => {
     if (cat === 'carpeta') {
@@ -143,16 +161,12 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
         <IconoEmbudo color="var(--primary)" />
         Filtrar
         {n > 0 && (
-          // El badge ES el botón de limpiar (igual que en el tablero). El borde del
-          // color del FONDO es lo que lo despega del botón y lo hace leer como
-          // notificación en vez de como parte del rótulo.
+          // El badge CUENTA, no borra. En el tablero además limpia, y acá se sacó a
+          // propósito: entre el badge y «Limpiar filtros (N)» adentro del panel había
+          // dos maneras de hacer lo mismo, y la de afuera no se anuncia. El borde del
+          // color del FONDO es lo que lo despega y lo hace leer como notificación.
           <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); limpiar(); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); limpiar(); } }}
-            title="Limpiar los filtros"
-            aria-label={`Limpiar los ${n} filtros`}
+            aria-hidden
             style={{
               position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px',
               borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700,
@@ -191,11 +205,21 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
               <>
                 <button type="button" onClick={() => onAbrir('root')} style={volverBtn}>‹ volver</button>
 
-                {abierto === 'carpeta' && NIVEL1.map((c: (typeof NIVEL1)[number]) => (
+                {/* El aviso de que la lista está recortada. Sin él, entrar a «Carpeta»
+                    con una sección elegida y ver dos opciones donde había cinco se lee
+                    como que faltan opciones, no como que las otras no aplican. */}
+                {abierto === 'carpeta' && carpetasOfrecidas.length < NIVEL1.length && (
+                  <p style={avisoRecorte}>Solo las carpetas de las secciones que elegiste.</p>
+                )}
+                {abierto === 'area' && areasOfrecidas.length < AREAS.length && (
+                  <p style={avisoRecorte}>Solo las secciones de las carpetas que elegiste.</p>
+                )}
+
+                {abierto === 'carpeta' && carpetasOfrecidas.map((c: (typeof NIVEL1)[number]) => (
                   <Casilla key={c.id} on={filtro.carpetas.has(c.id)} onClick={() => toggleCarpeta(c.id)} label={c.nombre} />
                 ))}
 
-                {abierto === 'area' && AREAS.map((a) => (
+                {abierto === 'area' && areasOfrecidas.map((a) => (
                   <Casilla
                     key={a.id}
                     on={filtro.areas.has(a.id)}
@@ -224,53 +248,6 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
         </>
       )}
     </span>
-  );
-}
-
-/** Los chips de lo que está filtrando, UNO POR CATEGORÍA. Van afuera del panel
- *  porque un filtro que solo se ve abriéndolo es un filtro que uno se olvida que
- *  tiene puesto — y entonces el mapa «no muestra todo» sin motivo aparente. */
-export function ChipsFiltro({ filtro, onFiltro, onAbrir }: {
-  filtro: EstadoFiltro;
-  onFiltro: (f: EstadoFiltro) => void;
-  onAbrir: (v: PanelAbierto) => void;
-}) {
-  const chips: Array<{ cat: CategoriaFiltro; texto: string; todos: string[]; limpiar: () => void }> = [];
-
-  if (filtro.carpetas.size) {
-    const vals = NIVEL1.filter((c) => filtro.carpetas.has(c.id)).map((c) => c.nombre);
-    chips.push({ cat: 'carpeta', texto: `Carpeta: ${vals[0]}${vals.length > 1 ? ` +${vals.length - 1}` : ''}`, todos: vals, limpiar: () => onFiltro({ ...filtro, carpetas: new Set() }) });
-  }
-  if (filtro.areas.size) {
-    const vals = AREAS.filter((a) => filtro.areas.has(a.id)).map((a) => a.nombre);
-    chips.push({ cat: 'area', texto: `Sección: ${vals[0]}${vals.length > 1 ? ` +${vals.length - 1}` : ''}`, todos: vals, limpiar: () => onFiltro({ ...filtro, areas: new Set() }) });
-  }
-  if (filtro.autoria !== 'todos') {
-    const label = AUTORIA_OPS.find((o) => o.id === filtro.autoria)!.label;
-    chips.push({ cat: 'autoria', texto: label, todos: [label], limpiar: () => onFiltro({ ...filtro, autoria: 'todos' }) });
-  }
-
-  if (!chips.length) return null;
-
-  return (
-    <>
-      {chips.map((c) => (
-        <span key={c.cat} style={{ display: 'inline-flex', alignItems: 'center', maxWidth: 300, overflow: 'hidden', borderRadius: 999, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)' }}>
-          <button
-            type="button"
-            onClick={() => onAbrir(c.cat)}
-            title={c.todos.join(' · ')}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 11.5, color: 'var(--primary)', padding: '3px 4px 3px 10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-          >{c.texto}</button>
-          <button
-            type="button"
-            onClick={c.limpiar}
-            aria-label={`Quitar el filtro de ${c.cat === 'carpeta' ? 'carpeta' : c.cat === 'area' ? 'sección' : 'autoría'}`}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: 12, lineHeight: 1, padding: '0 8px 0 4px', height: 22 }}
-          >✕</button>
-        </span>
-      ))}
-    </>
   );
 }
 
@@ -330,6 +307,10 @@ const filaBase: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px',
   borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer',
   fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS,
+};
+
+const avisoRecorte: CSSProperties = {
+  margin: '2px 9px 6px', fontSize: 11, lineHeight: 1.4, color: 'var(--faint)',
 };
 
 const volverBtn: CSSProperties = {

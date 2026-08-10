@@ -36,7 +36,7 @@ import { AREAS, NIVEL1, AUTORIA_TEXTO, radioNodo, colorArea, type Cerebro, type 
 import type { NodoFisico, Simulacion } from './fisica';
 import { MONO } from '@/app/_ui/tokens';
 import { Button, Eyebrow } from '@/app/_ui';
-import { FiltroMapa, ChipsFiltro, FILTRO_VACIO, cuentaFiltros, type EstadoFiltro, type PanelAbierto } from './FiltroMapa';
+import { FiltroMapa, FILTRO_VACIO, cuentaFiltros, type EstadoFiltro, type PanelAbierto } from './FiltroMapa';
 import { NoResults } from '@/app/_ui/Estados';
 // La misma máquina de matcheo que la barra del plan: palabras en cualquier orden, sin
 // acentos ni mayúsculas, con frontera de palabra y plural tolerado. El módulo no lleva
@@ -108,7 +108,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
    *  nodo, que abre la sección igual pero sin moverle la pantalla a nadie: uno toca un
    *  punto para leerlo, y que la página se vaya sola al formulario de abajo es perder
    *  de vista justo lo que se acaba de tocar. */
-  onAbrirArea?: (area: AreaId, saltar?: boolean) => void;
+  onAbrirArea?: (area: AreaId | null, saltar?: boolean) => void;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
 
@@ -161,6 +161,39 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
    */
   const [filtro, setFiltro] = useState<EstadoFiltro>(FILTRO_VACIO);
   const [filtroAbierto, setFiltroAbierto] = useState<PanelAbierto>(null);
+
+  /**
+   * EL ANCHO DEL PANEL, arrastrable. Los topes NO son un detalle: sin ellos se puede
+   * dejar el lienzo en 200 px, y ahí el layout del grafo —que se calcula en el
+   * servidor sobre un encuadre cuadrado— se dibuja tan chico que el mapa deja de ser
+   * legible y no hay forma obvia de volver. El mínimo del MAPA es lo que manda; el
+   * máximo del panel es lo que sobre.
+   */
+  const [anchoCol, setAnchoCol] = useState(400);
+  const arrastreCol = useRef<{ x0: number; ancho0: number } | null>(null);
+  const COL_MIN = 300;
+  const COL_MAX = 620;
+  const MAPA_MIN = 460;
+
+  const acotarCol = useCallback((px: number) => {
+    const total = marcoRef.current?.getBoundingClientRect().width ?? 1200;
+    return Math.max(COL_MIN, Math.min(COL_MAX, Math.min(px, total - MAPA_MIN)));
+  }, []);
+
+  const tirarCol = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    arrastreCol.current = { x0: e.clientX, ancho0: anchoCol };
+  };
+  const moverCol = (e: React.PointerEvent<HTMLDivElement>) => {
+    const a = arrastreCol.current;
+    if (!a) return;
+    // Se ensancha arrastrando hacia la IZQUIERDA: el panel crece comiéndole al mapa.
+    setAnchoCol(acotarCol(a.ancho0 + (a.x0 - e.clientX)));
+  };
+  const soltarCol = (e: React.PointerEvent<HTMLDivElement>) => {
+    arrastreCol.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  };
   const hayFiltro = cuentaFiltros(filtro) > 0;
 
 
@@ -246,13 +279,6 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
     return true;
   }, [filtro]);
 
-  // ── QUIÉN ESTÁ SALIENDO ────────────────────────────────────────────────────
-  // Un nodo filtrado no puede desaparecer de golpe: tiene que hacer la animación de
-  // entrada al revés y RECIÉN AHÍ desmontarse. Mientras dura, sigue montado con la clase
-  // `cbg-fuera`. El temporizador se cancela si vuelve a entrar antes de terminar —
-  // desfiltrar a mitad de la salida tiene que devolverlo, no dejarlo a medio camino.
-  const [saliendo, setSaliendo] = useState<Set<string>>(new Set());
-  const relojSalida = useRef<number | null>(null);
 
   // Refs para que `visible()` no cambie de identidad en cada tecla: lo consumen el
   // dibujo de las aristas y el descarte de etiquetas.
@@ -294,12 +320,57 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   /** Los nodos que hay que RENDERIZAR: los que pasan el filtro más los que se están
    *  yendo. Es la lista que recorre el dibujo; `visible()` decide cuáles de esos están
    *  de verdad adentro. */
+  /** Los ids que pasan el filtro AHORA.
+   *  ⚠️ `campos` e `ia.ids` van en las deps aunque `visible()` los lea por ref: sin
+   *  ellos, ampliar la búsqueda a «todo» actualizaba el contador a 14 y el mapa seguía
+   *  mostrando 5. El contador y el dibujo tienen que salir del mismo cálculo. */
+  const visiblesIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const n of nodos) if (visible(n)) s.add(n.id);
+    return s;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodos, visible, filtro, busca, campos, ia.ids]);
+
+  // ── QUIÉN ESTÁ SALIENDO ────────────────────────────────────────────────────
+  // Un nodo filtrado no puede desaparecer de golpe: hace la animación de entrada al
+  // revés y RECIÉN AHÍ se desmonta. Mientras dura sigue montado con la clase `cbg-fuera`.
+  //
+  // ⚠️ ESTO SE CALCULA DURANTE EL RENDER, NO EN UN useEffect, y las dos cosas importan.
+  // La versión con efecto tenía dos fallas que juntas daban el síntoma «no desaparecen,
+  // se bugean»:
+  //
+  //   1. UN FRAME DE MÁS. Un `useEffect` corre DESPUÉS de pintar. En el render del
+  //      cambio de filtro, `saliendo` todavía era el valor viejo, así que los nodos que
+  //      se iban ya no estaban montados: se pintaba un frame SIN ellos, el efecto los
+  //      volvía a meter, y recién ahí empezaba el fade. Se veía desaparecer de golpe,
+  //      reaparecer y recién ahí desvanecerse.
+  //   2. SALÍAN TODOS, NO LOS QUE SE IBAN. El efecto ponía en `saliendo` a **todos** los
+  //      nodos invisibles, no a los que acababan de dejar de serlo. Con el filtro puesto
+  //      y cualquier tecla en el buscador, los ~50 nodos escondidos se montaban de nuevo
+  //      para volver a desvanecerse. Eso es el parpadeo.
+  //
+  // El patrón es el de React para estado derivado: `setState` durante el render descarta
+  // el render en curso y vuelve a correr ANTES de pintar, así que no hay frame
+  // intermedio. `previos` es el conjunto del último render COMMITEADO, que es lo único
+  // contra lo que tiene sentido comparar para saber quién se fue.
+  const [transicion, setTransicion] = useState<{ previos: Set<string>; saliendo: Set<string> }>(
+    () => ({ previos: new Set<string>(), saliendo: new Set<string>() }),
+  );
+  const mismosIds = (a: Set<string>, b: Set<string>) => {
+    if (a.size !== b.size) return false;
+    for (const id of a) if (!b.has(id)) return false;
+    return true;
+  };
+  if (!mismosIds(transicion.previos, visiblesIds)) {
+    const sal = new Set<string>();
+    for (const id of transicion.previos) if (!visiblesIds.has(id)) sal.add(id);
+    setTransicion({ previos: visiblesIds, saliendo: sal });
+  }
+  const saliendo = transicion.saliendo;
+
   const montados = useMemo(
-    () => nodos.filter((n) => visible(n) || saliendo.has(n.id)),
-    // ⚠️ `campos` e `ia.ids` van en las deps aunque `visible()` los lea por ref: sin
-    // ellos, ampliar la búsqueda a «todo» actualizaba el contador a 14 y el mapa seguía
-    // mostrando 5. El contador y el dibujo tienen que salir del mismo cálculo.
-    [nodos, visible, saliendo, filtro, busca, campos, ia.ids],
+    () => nodos.filter((n) => visiblesIds.has(n.id) || saliendo.has(n.id)),
+    [nodos, visiblesIds, saliendo],
   );
 
   /** Los nodos que son un DATO, no andamio. La raíz, las carpetas y los nodos de área
@@ -314,16 +385,17 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   const datosTotal = useMemo(() => nodos.filter(esDato).length, [nodos]);
   const datosVisibles = useMemo(() => montados.filter(esDato).length, [montados]);
 
-  // Cuando cambia el filtro: los que salieron se marcan y se desmontan al terminar.
+  // Terminada la salida, se desmontan. El `t.saliendo === saliendo` es lo que hace que un
+  // segundo cambio de filtro a mitad de camino no lo pise: si ya hay otra tanda saliendo,
+  // este temporizador viejo no tiene nada que limpiar.
   useEffect(() => {
-    const fuera = nodos.filter((n) => !visible(n)).map((n) => n.id);
-    if (!fuera.length) { setSaliendo(new Set()); return; }
-    setSaliendo(new Set(fuera));
-    if (relojSalida.current != null) window.clearTimeout(relojSalida.current);
-    relojSalida.current = window.setTimeout(() => setSaliendo(new Set()), 260);
-    return () => { if (relojSalida.current != null) window.clearTimeout(relojSalida.current); };
-    // `visible` cambia de identidad con el filtro, que es exactamente cuándo hay que correr.
-  }, [nodos, visible, filtro, busca, campos, ia.ids]);
+    if (!saliendo.size) return;
+    const t = window.setTimeout(
+      () => setTransicion((prev) => (prev.saliendo === saliendo ? { ...prev, saliendo: new Set<string>() } : prev)),
+      260,
+    );
+    return () => window.clearTimeout(t);
+  }, [saliendo]);
 
   const etiquetasVisibles = useMemo(() => {
     const alto = (12 * uEstado) / kPaso;          // la caja, en unidades locales del <g>
@@ -664,7 +736,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
         // Clic sobre un nodo: si ya estaba fijado se suelta; si no, se vuela hasta él.
         // Clic en el fondo: se suelta.
         if (sobreNodo && fijado !== sobreNodo) irA(sobreNodo);
-        else setFijado(null);
+        else soltarNodo();
       }
       arrastrando.current = null;
       arrastre.current = null;
@@ -791,6 +863,9 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   // Se calcula el bbox REAL de los nodos (con su radio) y se lo escala a la caja medida.
   const kFit = useRef(1);
   const tocoElZoom = useRef(false);
+  /** `ajustar` se declara más abajo que `soltarNodo`, y `soltarNodo` lo necesita. El ref evita
+   *  reordenar 200 líneas por una llamada. */
+  const ajustarRef = useRef<(() => void) | null>(null);
 
   const bbox = useMemo(() => {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -833,6 +908,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
     vista.current = { k, x: cxU - k * bbox.cx, y: cyU - k * bbox.cy };
     pedirPintado();
   }, [bbox, encuadre, pedirPintado]);
+  ajustarRef.current = ajustar;
 
   /** Zoom desde los botones. Va contra el CENTRO del lienzo, no contra el cursor: el
    *  botón no tiene una posición en el mapa. */
@@ -854,6 +930,31 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   // —posición y zoom— para que el ojo siga el recorrido y entienda dónde quedó parado.
   /** Fija un nodo y VUELA hasta él. Lo usan el buscador, el clic sobre un nodo, los
    *  accesos del desplegable y cada conexión de la tarjeta. */
+  /**
+   * SOLTAR: dejar de mirar un nodo. Es UNA función y no tres líneas repetidas porque
+   * son tres cosas que tienen que pasar SIEMPRE juntas, y antes cada salida hacía una
+   * parte distinta: el clic en el fondo solo soltaba el nodo, la ✕ solo soltaba el nodo,
+   * y Escape también. Resultado: se dejaba de mirar el dato y la pantalla quedaba
+   * acercada sobre él, con la sección de abajo abierta en un área que ya no venía de
+   * ningún lado. El mapa y sus dos paneles tienen que decir lo mismo en todo momento.
+   */
+  const soltarNodo = useCallback(() => {
+    setFijado(null);
+    onAbrirArea?.(null);
+    // Vuelve al encuadre completo. `tocoElZoom` en false es lo que además le devuelve el
+    // control al re-encuadre automático del ResizeObserver.
+    tocoElZoom.current = false;
+    ajustarRef.current?.();
+  }, [onAbrirArea]);
+
+  // ⚠️ SI EL NODO FIJADO SE VA DEL MAPA, SE SUELTA. Filtrar dejaba la columna de la
+  // derecha mostrando el detalle de un punto que ya no estaba dibujado, y la sección de
+  // abajo abierta en su área: los dos paneles hablando de algo invisible. El panel sigue
+  // al mapa, nunca al revés.
+  useEffect(() => {
+    if (fijado && !visiblesIds.has(fijado)) soltarNodo();
+  }, [fijado, visiblesIds, soltarNodo]);
+
   const irA = useCallback((id: string, fijar = true) => {
     const p = posiciones[id];
     // `fijar` es opcional porque los renglones del navegador vuelan a un área SIN
@@ -943,7 +1044,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
   // lee como que el grafo se colgó atenuado.
   useEffect(() => {
     if (!fijado) return;
-    const alTeclear = (e: KeyboardEvent) => { if (e.key === 'Escape') setFijado(null); };
+    const alTeclear = (e: KeyboardEvent) => { if (e.key === 'Escape') soltarNodo(); };
     window.addEventListener('keydown', alTeclear);
     return () => window.removeEventListener('keydown', alTeclear);
   }, [fijado]);
@@ -963,7 +1064,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
 
 
   return (
-    <div className="cbg" ref={marcoRef}>
+    <div className="cbg" ref={marcoRef} style={{ ['--cbg-col' as string]: `${anchoCol}px` }}>
       <style>{`
         /* ⚠️ EL ALTO NO SE DERIVA DEL ANCHO. Antes el svg llevaba \`aspect-ratio: 4/3\`
            con \`height:auto\`, así que el lienzo CRECÍA justo en el monitor donde más
@@ -993,7 +1094,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
            queda vacía cuando no hay nada elegido, porque ahí vive la navegación por
            carpetas — que es lo que reemplazó a las tarjetas de abajo. */
         .cbg {
-          display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px;
+          display: grid; grid-template-columns: minmax(0, 1fr) 14px var(--cbg-col, 400px); gap: 4px;
           align-items: start;
           --cbg-alto: clamp(420px, calc(100svh - 280px), 760px);
           --cbg-texto: var(--ink);
@@ -1047,6 +1148,41 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
            300 px que el 90% del tiempo está vacía. Y es gratis: el encuadre es cuadrado,
            así que en un lienzo apaisado quedan cientos de píxeles de aire a cada lado
            donde no hay un solo nodo. */
+        /* ── EL TIRADOR ────────────────────────────────────────────────────────
+           Una columna propia de 14 px entre el mapa y el panel. Es su propia celda de
+           la grilla y no un elemento absolute encima del borde: así el área de agarre
+           existe de verdad —14 px es lo mínimo cómodo con el mouse— sin robarle
+           píxeles al lienzo ni taparle nada al panel.
+           La marca solo aparece al acercarse: un asa siempre visible entre dos paneles
+           es una tercera línea vertical compitiendo con las dos que ya hay. */
+        .cbg .cbg-tirador {
+          align-self: stretch; height: var(--cbg-alto);
+          display: flex; align-items: center; justify-content: center;
+          cursor: col-resize; touch-action: none;
+          border: none; background: none; padding: 0;
+        }
+        .cbg .cbg-tirador::before {
+          content: ''; width: 2px; height: 34px; border-radius: 999px;
+          background: var(--cbg-linea); opacity: 0; transition: opacity .15s, background .15s;
+        }
+        .cbg .cbg-tirador:hover::before,
+        .cbg .cbg-tirador:focus-visible::before,
+        .cbg .cbg-tirador[data-arrastrando="1"]::before { opacity: 1; background: var(--primary); }
+        .cbg .cbg-tirador:focus-visible { outline: 2px solid var(--mako); outline-offset: -2px; border-radius: 4px; }
+
+        /* La barra de scroll del panel, con los tokens del tema. La del navegador es
+           blanca y gruesa por defecto: sobre un panel oscuro se lee como un error de
+           pintado. Va el ancho fino MAS el color en dos propiedades: Firefox entiende
+           scrollbar-color y los WebKit entienden el pseudo-elemento. */
+        .cbg .cbg-detalle { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+        .cbg .cbg-detalle::-webkit-scrollbar { width: 10px; }
+        .cbg .cbg-detalle::-webkit-scrollbar-track { background: transparent; }
+        .cbg .cbg-detalle::-webkit-scrollbar-thumb {
+          background: var(--border-strong); border-radius: 999px;
+          border: 3px solid var(--surface); background-clip: padding-box;
+        }
+        .cbg .cbg-detalle::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+
         /* La columna SÍ es una superficie, y no se contradice con lo de arriba: lo que
            no puede tener contenedor es el MAPA. Un panel de lectura sin ningún borde al
            lado de un lienzo del mismo color no se lee como panel, se lee como texto
@@ -1154,6 +1290,26 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
 
         /* Sin halo, sin contorno, sin sombra, sin bold: Obsidian no tiene nada de eso. */
         .cbg .cbg-et { font-size: calc(12px * var(--u, 1) / var(--k, 1)); fill: var(--cbg-texto); pointer-events: none; }
+        /* ── LOS TÍTULOS DE JERARQUÍA SE VEN DISTINTO, SIEMPRE ──────────────────
+           De lejos solo se leen las carpetas madre, así que se distinguen por
+           eliminación; al acercarse aparecen 60 nombres más y esa distinción se pierde
+           justo cuando más falta hace, que es cuando hay que orientarse adentro del
+           racimo. Se marcan por FORMA (versalitas, tracking, peso), no por color: el
+           color del mapa ya significa área, y sumarle un segundo significado lo rompe.
+           La carpeta manda sobre la sección, y las dos sobre un dato. */
+        .cbg .cbg-et-n1 {
+          font-family: var(--font-mono, ui-monospace, monospace);
+          /* MÁS GRANDE que una sección y que un dato, no más chico. La versalita en
+             mono ya la distingue, pero si además es la más chica de las tres el ojo la
+             lee como una nota al pie en vez de como el título que ordena el racimo. */
+          font-size: calc(13.5px * var(--u, 1) / var(--k, 1));
+          font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+          fill: var(--cbg-texto);
+        }
+        .cbg .cbg-et-area {
+          font-size: calc(12.5px * var(--u, 1) / var(--k, 1));
+          font-weight: 650; letter-spacing: .04em;
+        }
 
         @media (prefers-reduced-motion: reduce) {
           .cbg .cbg-pop, .cbg .cbg-fuera .cbg-pop { animation: none; }
@@ -1200,9 +1356,11 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
 
         @media (max-width: 1100px) {
           /* Apilado: el detalle baja debajo del mapa. Una columna de 400 px sobre un
-             lienzo de menos de 700 no deja mapa. */
+             lienzo de menos de 700 no deja mapa. Y sin dos columnas no hay nada que
+             arrastrar. */
           .cbg { grid-template-columns: minmax(0, 1fr); }
           .cbg .cbg-detalle { max-height: none; }
+          .cbg .cbg-tirador { display: none; }
         }
         @media (max-width: 900px) {
           /* El tope es OBLIGATORIO, no estético: el svg lleva \`touch-action:none\` para
@@ -1231,8 +1389,6 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
             conteoArea={porArea}
             conteoAutoria={{ mako: cuenta.mako, usuario: cuenta.usuario, falta: cuenta.pendientes }}
           />
-          <ChipsFiltro filtro={filtro} onFiltro={setFiltro} onAbrir={setFiltroAbierto} />
-
           {/* «N de M», que el tablero no tiene y el CRM sí. Sin esto, filtrar y no ver
               nada es indistinguible de que el mapa esté vacío. */}
           {hayFiltro && (
@@ -1372,7 +1528,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                             que se está mirando, y esconderla ahí sería el peor momento. */}
                         {(etiquetasVisibles.has(n.id) || esSel || (cerca?.has(n.id) ?? false)) && (
                           <text
-                            className="cbg-et"
+                            className={`cbg-et${n.id.startsWith('n1:') ? ' cbg-et-n1' : n.id.startsWith('area:') ? ' cbg-et-area' : ''}`}
                             y={r + 6 / kr}
                             textAnchor="middle"
                             dominantBaseline="hanging"
@@ -1452,6 +1608,31 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
         </div>
       </div>
 
+      {/* El separador arrastrable. Es un `separator` con `aria-orientation` y responde a
+          las flechas: un ancho que solo se puede cambiar con el mouse no lo puede cambiar
+          quien navega con teclado. */}
+      <div
+        className="cbg-tirador"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Ajustar el ancho del panel"
+        aria-valuenow={anchoCol}
+        aria-valuemin={COL_MIN}
+        aria-valuemax={COL_MAX}
+        tabIndex={0}
+        data-arrastrando={arrastreCol.current ? '1' : '0'}
+        onPointerDown={tirarCol}
+        onPointerMove={moverCol}
+        onPointerUp={soltarCol}
+        onPointerCancel={soltarCol}
+        onDoubleClick={() => setAnchoCol(400)}
+        title="Arrastra para ajustar · doble clic para volver al ancho normal"
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft') { e.preventDefault(); setAnchoCol((w) => acotarCol(w + 24)); }
+          if (e.key === 'ArrowRight') { e.preventDefault(); setAnchoCol((w) => acotarCol(w - 24)); }
+        }}
+      />
+
           {/* ── LA TARJETA DE DETALLE ────────────────────────────────────────
               Flota sobre el lienzo. Dos modos, y la diferencia es deliberada:
               · AL PASO (hover) se LEE. Sin botones, porque la tarjeta flota: mover el
@@ -1482,7 +1663,7 @@ export function Grafo({ cerebro, onAbrirArea, areaAbierta = null }: {
                     <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>Fijado</span>
                     <button
                       type="button"
-                      onClick={() => setFijado(null)}
+                      onClick={soltarNodo}
                       title="Soltar"
                       aria-label="Soltar el dato fijado"
                       style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--faint)', lineHeight: 1 }}
