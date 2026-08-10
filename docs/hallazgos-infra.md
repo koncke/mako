@@ -1648,6 +1648,46 @@ carpeta padre o desde el repo genera dos claves distintas y cada una busca su pr
 
 - **Dos sesiones no editan la misma skill ni el mismo prompt a la vez.** Se pisan igual que el código, pero el efecto aparece días después y en otro lado.
 
+### ⚠️ El `pre-push` te bloquea por trabajo ajeno, y el error nombra archivos que nunca tocaste
+
+Que el hook mire el **árbol de trabajo** y no lo que subís ya está escrito, pero siempre en la
+dirección del falso VERDE (pasa algo que no debería). Con sesiones paralelas pasa también la
+contraria, y esa desorienta más: **tu commit está impecable y el push se cae igual**, porque el
+árbol tiene la mitad de una feature ajena.
+
+Caso real: un commit de tres archivos (dos `.md` y un cambio de color) rebotó con
+`lib/pipeline.ts` y `lib/razones.ts` — dos archivos que ese commit no tocaba. La otra sesión había
+agregado un quinto canal (`presencial`) a `CanalId` sin actualizar los dos `Record<CanalId, …>`.
+**El diagnóstico obvio era el equivocado**: el error se lee como «tu push rompió los tipos» y lo
+que estaba roto era el escritorio de al lado. Pista para reconocerlo en un segundo: los archivos
+del error no están en tu commit (`git show --stat HEAD`) y **sí** están en `git status`.
+
+**Cómo saber de quién es la rotura, sin tocarle los archivos a nadie:** un worktree suelto en tu
+commit, con `node_modules` enganchado por junction —que no pide admin y tarda un segundo—:
+
+```
+git worktree add --detach <ruta> HEAD
+cmd /c mklink /J <ruta>\node_modules <repo>\node_modules
+cd <ruta> && npm run typecheck
+```
+
+Si ahí pasa, la rotura es ajena y está sin commitear. Y como el hook corre en el directorio desde
+el que pushás, `git push origin HEAD:main` **desde el worktree** valida exactamente lo que sube.
+No es saltearse el hook: es correrlo contra el árbol correcto. `--no-verify` no.
+
+⚠️ **Y el falso verde deja rastro en `main`.** Al pushear desde el worktree limpio apareció el
+segundo portón: `.claude/skills/plan-tareas/SKILL.md DESINCRONIZADO`. Comprobado con un checkout
+pelado de `origin/main`, sin nada local: **`main` ya está desincronizado**. O sea que alguien
+pusheó con un `skills-lock.json` sin commitear que hacía pasar el chequeo local — el falso verde
+del hook, pero realizado. Un clon limpio de `main` no se puede pushear hasta correr
+`node scripts/sync-contrato-detalle.mjs` y commitear el resultado.
+
+**La regla:** antes de pelear con un `pre-push` rojo, fijate si los archivos del error son tuyos.
+Y si vas a pushear con el árbol sucio de otra sesión, el worktree es la forma de saber qué estás
+subiendo de verdad.
+
+**Vive en:** .git/hooks/pre-push · scripts/sync-contrato-detalle.mjs · *2026-08-10 ~pricing-dos-monedas*
+
 ---
 
 ## El equipo: cuando se cierra Claude Code y no es Claude Code
