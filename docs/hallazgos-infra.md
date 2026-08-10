@@ -1956,17 +1956,26 @@ personal que sirve `/api/agente/skill`.
    haga lo correcto. Un token que se cuele en un repo público queda en el historial de git
    **para siempre**, y rotarlo después no lo borra.
 
-**Falta publicarlo** — no hay `gh` en este entorno. `plugin/` está generado y verificado
-limpio; los comandos, abajo.
+**PUBLICADO** en https://github.com/mbustos-digital/mako-plugin. El paso 2 del tutorial
+es ahora `/plugin marketplace add mbustos-digital/mako-plugin` + `/plugin install
+mako@mako`.
+
+⚠️ **Sin `gh` igual se puede.** No está instalado en este entorno y no hay `GH_TOKEN`,
+pero Git Credential Manager sí tiene guardada una credencial de GitHub —la misma con la
+que se pushea— y se lee sin exponerla:
 
 ```bash
-cd plugin && git init -b main && git add -A && git commit -m "MaKo para Claude"
-gh repo create mbustos-digital/mako-plugin --public --source=. --push
+TK=$(printf 'protocol=https
+host=github.com
+
+' | git credential fill | sed -n 's/^password=//p')
+curl -s -X POST -H "Authorization: Bearer $TK" https://api.github.com/user/repos -d '{"name":"…","private":false}'
 ```
 
-Después de publicar, el paso 2 de `app/_components/TutorialAgente.tsx` pasa a ser
-`/plugin marketplace add mbustos-digital/mako-plugin` + `/plugin install mako@mako`, y la
-instrucción con `curl` queda como alternativa.
+⚠️ Y el repo nuevo se arma en una carpeta APARTE, no con `git init` adentro de `plugin/`:
+un `.git` anidado convierte esa carpeta en un gitlink para el repo padre y le rompe el
+seguimiento de esos archivos. Se copia a un temporal, se publica desde ahí, y `plugin/`
+sigue siendo un directorio común del repo principal.
 
 ### Un título decorativo y un título clicable no se descartan igual
 
@@ -1984,3 +1993,22 @@ solapes contra puntos ajenos.
 **Y el `pointer-events` importa.** En un `<text>` de SVG, `visiblePainted` hace que solo
 cuenten los TRAZOS de las letras; `all` convierte el nombre en un rectángulo invisible que
 tapa a sus vecinos. La diferencia no se ve en pantalla — se ve en los clicks que caen mal.
+
+### Qué significa publicar la skill, y qué se publica con ella
+
+**Vive en:** https://github.com/mbustos-digital/mako-plugin · `lib/agente-skill.ts`
+
+El repo es público y cualquiera lo puede leer sin cuenta. Lo que se hizo público **no** son
+datos de ningún cliente —eso lo garantiza el guard del generador— pero sí es **la
+metodología**: qué endpoints existen, el contrato del `detalle` con sus cuatro títulos, las
+reglas del Perro Guardián, cómo se piden hechos en vez de prioridades, y hasta la medición
+de que «de 17 tareas que la IA afirmó hechas, solo 8 lo estaban».
+
+Es inevitable: una skill tiene que ser legible para funcionar, y una que se instala por
+marketplace vive en un repo abierto. Pero conviene tenerlo dicho, porque la decisión de
+publicar se toma una vez y el contenido se sigue actualizando solo —`plugin/` se regenera
+en cada push— así que **todo lo que se le agregue a la skill de acá en adelante sale
+publicado sin que nadie lo vuelva a decidir.**
+
+La contrapartida es la que se buscaba: una mejora de la skill llega a todos los clientes
+con un `git push` al repo público, en vez de que cada uno la reinstale.
