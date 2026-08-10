@@ -432,8 +432,8 @@ export function Pricing() {
         </Nota>
         <Barras datos={barrasRuteo} tono="mako" />
         <div style={{ marginTop: 14, display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 11.5, color: 'var(--muted)' }}>
-          <span>Techo del Pro para 75% de margen: <strong style={{ fontFamily: MONO }}>{usd(techoIa(PRO))}</strong></span>
-          <span>Techo del Growth: <strong style={{ fontFamily: MONO }}>{usd(techoIa(GROWTH))}</strong></span>
+          <span>Un Pro aguanta <strong style={{ fontFamily: MONO }}>{usd(techoIa(PRO))}</strong> de IA por mes y sigue dejando 75% de margen</span>
+          <span>Un Growth aguanta <strong style={{ fontFamily: MONO }}>{usd(techoIa(GROWTH))}</strong></span>
         </div>
         <Fuente>Medido sobre {MEDICION.dias} días de producción; los escenarios usan precio de lista de cada proveedor.</Fuente>
       </Section>
@@ -693,7 +693,7 @@ export function Pricing() {
           valor={usd(189877, 0)}
           unidad="de caja a 24 meses, contra US$3.073"
           tono="good"
-          frase={<>Misma máquina, mismo embudo, mismo gasto — lo único distinto es si el canal pago vende el Pro anual o el mensual. El anual cobra el año entero el día 0 y eso multiplica por 3,4 el techo de CAC.</>}
+          frase={<>Misma máquina, mismo embudo, mismo gasto — lo único distinto es si el canal pago vende el Pro anual o el mensual. El anual cobra el año entero el día 0, y eso multiplica por 3,4 lo que podés pagar por un cliente.</>}
           abrir="Los cuatro escenarios, y lo que hay que poner para arrancar"
         >
           <Tabla>
@@ -737,13 +737,13 @@ export function Pricing() {
         </Titular>
       </Section>
 
-      <Section titulo="La llamada 1a1 regalada no compra techo: lo baja" card>
+      <Section titulo="La llamada gratis te cuesta más de lo que te trae" card>
         <Titular
           valor={usd(ASCENSO_NETO.netoUsd)}
           unidad="por comprador"
           tono="bad"
-          frase={<>Vale {usd(ASCENSO_NETO.valorEsperadoUsd)} de ascenso esperado y cuesta {usd(ASCENSO_NETO.costoLlamadaUsd)} de calendario. El break-even está en P₁ = {num(ASCENSO_NETO.breakEvenP1 * 100)}% y la base es {num(P1_ASCENSO.base * 100, 0)}%: por eso se cayó la columna «con ascenso» y queda un techo por plan.</>}
-          abrir="El techo de cada plan, y por qué la llamada sale 2 horas y no 1,5"
+          frase={<>Vale {usd(ASCENSO_NETO.valorEsperadoUsd)} de ascenso esperado y cuesta {usd(ASCENSO_NETO.costoLlamadaUsd)} de calendario. El break-even está en P₁ = {num(ASCENSO_NETO.breakEvenP1 * 100)}% y la base es {num(P1_ASCENSO.base * 100, 0)}%: por eso se cayó la columna «con ascenso» y queda un solo máximo por plan.</>}
+          abrir="Cuánto podés pagar por un cliente de cada plan, y por qué la llamada sale 2 horas y no 1,5"
         >
           <Tabla>
             <Fila head plantilla="minmax(0,1fr) 78px 62px 78px 74px 74px minmax(0,1.3fr)"
@@ -780,8 +780,8 @@ export function Pricing() {
             </div>
           </div>
           <Nota>
-            Antes de esto convivían <strong>seis</strong> números con el rótulo «techo de CAC» —US$104,
-            US$53, US$49-97, US$55-70, US$194-381 y los ocho «con y sin ascenso»— y ninguno tenía
+            Antes de esto convivían <strong>seis</strong> números para lo mismo —US$104, US$53,
+            US$49-97, US$55-70, US$194-381 y los ocho «con y sin ascenso»— y ninguno tenía
             derivación escrita.
           </Nota>
         </Titular>
@@ -797,8 +797,8 @@ export function Pricing() {
         >
           <Barras tono="info" datos={barrasLlamadas} />
           <Nota>
-            Por eso el ascenso no puede justificar un canal de volumen: le sube el techo a los primeros
-            compradores del mes y al resto no le sube nada. Y el modo de falla no es el fracaso —
+            Por eso el ascenso no puede justificar un canal de volumen: te deja pagar más por los
+            primeros compradores del mes y por el resto no cambia nada. Y el modo de falla no es el fracaso —
             cuanto mejor funciona, antes satura. El high ticket pasa del 64% de la caja en el
             escenario pesimista al 0,4% en el optimista.
           </Nota>
@@ -908,7 +908,7 @@ export function Pricing() {
           valor={`${num(PLAN_MES_1.altasCobradas)} de ${PLAN_MES_1.objetivoDueno}`}
           unidad="altas cobradas"
           tono="warn"
-          frase={<>Las 19 que faltan <strong>no se compran</strong>: para conseguirlas hay que gastar US$4.686 de pauta, y a ese gasto cada cliente sale {usd(311.6, 0)} — el 171% del techo más permisivo que tiene el modelo.</>}
+          frase={<>Las 19 que faltan <strong>no se compran</strong>: para conseguirlas hay que gastar US$4.686 de pauta, y a ese gasto cada cliente sale {usd(311.6, 0)} — el 171% de lo que podés pagar, midiéndolo con la regla más permisiva que tiene el modelo.</>}
           abrir="La cadena completa, y las tres vías para cerrar la brecha"
         >
           <Barras tono="info" datos={barrasMes1} />
@@ -1029,7 +1029,7 @@ export function Pricing() {
         <Titular
           valor="16,7%"
           unidad="de descuento · el límite está en 19,5%"
-          frase={<>Ahí el CAC del carrito toca el techo y el único canal escalable deja de cerrar. Por eso la respuesta a «hacelo más atractivo» es <strong>agregar cosas, no bajar el precio</strong>.</>}
+          frase={<>Ahí el CAC del carrito toca lo máximo que podés pagar y el único canal escalable deja de cerrar. Por eso la respuesta a «hacelo más atractivo» es <strong>agregar cosas, no bajar el precio</strong>.</>}
           abrir="El switch, las cuatro cards y qué se le agrega al anual"
         >
           <div style={{ padding: 15, border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', background: 'var(--surface-2)' }}>

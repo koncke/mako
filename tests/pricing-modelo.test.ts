@@ -176,3 +176,79 @@ test('la conclusión de la parte 3 no puede contradecir a CAC_CANALES', () => {
   assert.ok(parte3.conclusion.includes(limiteEscrito),
     `la conclusión mide los canales contra otro número: hoy el límite es ${limiteEscrito}`);
 });
+
+// =============================================================================
+// La palabra «techo» no llega a la pantalla
+// =============================================================================
+// Es jerga: para el que lee, lo que significa es «lo máximo que podés pagar por
+// un cliente». Una vez sacada vuelve sola, en cuanto alguien copia un párrafo de
+// otra sección — por eso la guarda.
+//
+// ⚠️ LA GUARDA MIRA LO QUE SE PINTA, NO EL FUENTE. Grepear /techo/i sobre
+// Pricing.tsx sin comentarios engancha IDENTIFICADORES de otro módulo: `techoIa`
+// (una función de modelo.ts) y `a.techo` (un campo de AUTOMATICOS). Esos son
+// nombres de código, no palabras en pantalla, y renombrarlos es otro alcance.
+// Por eso se aíslan las dos únicas cosas que un lector ve: lo que va entre
+// comillas y el texto suelto de JSX — en los dos casos SIN las llaves, porque
+// adentro de `{}` hay expresiones: `{usd(techoIa(PRO))}` es una llamada, no texto.
+// =============================================================================
+
+import { readFileSync } from 'node:fs';
+import * as modelo from '../app/admin/dev/pricing/modelo';
+
+const SRC_PRICING = readFileSync(new URL('../app/admin/dev/pricing/Pricing.tsx', import.meta.url), 'utf8');
+
+/** Lo que un lector VE de un archivo .tsx. Todo lo demás es código. */
+function textoEnPantalla(src: string): string[] {
+  const sinCodigoMudo = src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')                 // /* … */ y también {/* … */}
+    .replace(/^[ \t]*\/\/.*$/gm, ' ')                  // // …
+    .replace(/^import[\s\S]*?from '[^']+';/gm, ' ');   // nombres traídos de otro módulo
+  const literales = (sinCodigoMudo.match(/'[^'\n]*'|"[^"\n]*"|`[^`]*`/g) ?? [])
+    .map((s) => s.replace(/\$\{[^{}]*\}/g, ' '));
+  const textoJsx = (sinCodigoMudo.match(/>[^<>]*</g) ?? [])
+    .map((s) => s.slice(1, -1).replace(/\{[^{}]*\}/g, ' '));
+  return [...literales, ...textoJsx].map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+test('la pantalla no dice «techo»', () => {
+  const conJerga = textoEnPantalla(SRC_PRICING).filter((t) => /techo/i.test(t));
+  assert.deepEqual(conJerga, [], `quedó «techo» en el texto de la pantalla: ${conJerga.join(' | ')}`);
+});
+
+// La otra mitad del texto de esta pantalla NO vive en Pricing.tsx: son strings de
+// modelo.ts que el .tsx pinta con `{X.que}`, y la guarda de arriba no los ve. Esta
+// recorre los valores de los MISMOS exports que Pricing.tsx importa —la lista sale
+// del import, así que no se queda vieja— y baja hasta cada string.
+
+/** Lo que se importa pero NO se pinta. Un `id` es una clave de React; el resto son
+ *  campos de respaldo que hoy ningún componente lee. Si alguno empieza a pintarse,
+ *  sale de esta lista y se le saca la palabra. */
+const NO_SE_PINTAN = new Set([
+  'ECONOMIA[].id', 'CUARTO_PLAN[].id',
+  'HIGH_TICKET.economia.enEstePlan',
+  'TOPE_PAUTA.bajo3a1.nota', 'TOPE_PAUTA.bajoPayback.nota',
+  'ASCENSO_NETO.nota', 'PROYECCION[].resumen',
+]);
+
+function stringsDe(v: unknown, camino: string, out: Array<[string, string]>): void {
+  if (typeof v === 'string') { out.push([camino, v]); return; }
+  if (v === null || typeof v !== 'object') return;
+  if (Array.isArray(v)) { for (const x of v) stringsDe(x, `${camino}[]`, out); return; }
+  for (const [k, x] of Object.entries(v)) stringsDe(x, `${camino}.${k}`, out);
+}
+
+test('los textos que la pantalla trae de modelo.ts tampoco dicen «techo»', () => {
+  const importados = SRC_PRICING.match(/import \{([\s\S]*?)\} from '\.\/modelo';/)![1]
+    .split(/[,\n]/).map((s) => s.trim().replace(/^type\s+/, ''))
+    .filter((s) => /^[A-Za-z_$][\w$]*$/.test(s));
+  assert.ok(importados.length > 20, 'no se pudo leer qué importa Pricing.tsx de modelo.ts');
+
+  const todos: Array<[string, string]> = [];
+  for (const n of importados) {
+    const v = (modelo as Record<string, unknown>)[n];
+    if (v !== undefined) stringsDe(v, n, todos);
+  }
+  const conJerga = todos.filter(([c, s]) => /techo/i.test(s) && !NO_SE_PINTAN.has(c)).map(([c]) => c);
+  assert.deepEqual(conJerga, [], `modelo.ts le pasa «techo» a la pantalla en: ${conJerga.join(', ')}`);
+});
