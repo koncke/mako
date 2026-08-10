@@ -196,31 +196,61 @@ prosa de cada canal en su propio plegable.
 
 ---
 
-## Lo que hay que decidir antes de implementar
+## Las decisiones del dueño, ya tomadas
 
-**El alcance de desarrollo de agosto.** El board tiene **459 tareas abiertas**: 368
-de desarrollo y 91 de vender. Cerrarlas todas en 338 h son 55 minutos por tarea, sin
-contar la agencia ni un solo bug.
+### El piso de adquisición
 
-No es un bloqueo, es una selección: el dueño quiere **ejecutar lo más posible** este
-mes. El modelo tiene que mostrar **qué corte de alcance eligió** y qué rinde cada
-uno, porque de eso depende si septiembre es el mes 1 de adquisición o se corre.
+- **Mes 1 (septiembre): cerca del 100%.** Textual: «debo enfocarme en conseguir
+  clientes». O sea prácticamente las 338 h.
+- **De ahí en adelante: 50%** (~169 h/mes).
 
-Referencia de piso: el «mes 0» ya modelado son **3 páginas legales + el checkout +
-la aprobación del merchant of record ≈ 12 h**. Eso es lo mínimo para cobrar un peso.
-Todo lo demás es elección.
+Con eso la matriz de canales del punto C se puede llenar, y el orgánico —que en el
+modelo viejo no entraba nunca— pasa a tener un mes donde sí entra.
 
-**El piso de adquisición, en horas por mes.** El diseño dice que la adquisición no se
-sacrifica y que todo lo demás lleva tope — pero el número del piso no está fijado, y
-el modelo entero cuelga de él: es el denominador que decide qué canal entra en qué
-mes. Sin ese número, la matriz del punto C no se puede llenar. Va como pregunta al
-dueño en la implementación, no como supuesto.
+### El tope de high ticket: se DERIVA, no se fija
 
-**Los dos topes de octubre**, por la misma razón: cuántos clientes de high ticket
-como máximo, y cuántas horas de debug e implementación como máximo. El dueño los
-nombró; los valores no están.
+El dueño: «la cantidad de clientes lo puedes sacar de la promesa de horas que les
+doy, si es una reu de 1 hora a la semana ya puedes analizarlo».
 
----
+Entonces: `clientes 1a1 simultáneos = (338 h − adquisición − debug − agencia) ÷ horas
+por cliente por mes`. Las horas por cliente salen de `HIGH_TICKET.entrega` (19 h en
+12 semanas ≈ 6,3 h/mes). El tope es la salida.
+
+### Qué entra en agosto: el criterio es del dueño
+
+Sus tres niveles, textuales:
+
+1. **«Que la app se venda sola»** — que la experiencia haga decir «WOW, necesito
+   esta app». Onboarding épico, rediseño. Es lo que vuelve rentable al plan Free.
+2. **Las funcionalidades DESEADAS** — generación de imágenes y video, Second Brain,
+   chatbot, Competitor Spy, Landing y VSL Generator. «Lo que hace que la app sea
+   vista como muy IA, no solamente un dashboard».
+3. **Las NECESARIAS** — pasarela de pagos, ciberseguridad.
+
+⚠️ **El nivel 3 no es un nivel: es una COMPUERTA.** Sin pasarela no hay 30 clientes
+pagos — hay 30 personas que quisieron pagar y no pudieron. Son ~12 h de 338, así que
+no compite con los niveles 1 y 2: los habilita. Va primero por dependencia, no por
+importancia.
+
+Y dos cosas que el board contradice y hay que resolver antes de implementar:
+
+- **Lo mejor puntuado NO está en la lista.** `Feature: WhatsApp de MaKo` tiene score
+  medio **76,4**, el más alto de los proyectos que quedaron afuera, y encaja de lleno
+  en el nivel 2: hablarle a MaKo por WhatsApp es lo más IA-nativo del producto.
+  Detrás: `Agente: CRM automático` (71,0) y `Feature: Integraciones` (62,5 con 15
+  tareas abiertas). Sin integraciones conectadas, el «WOW» del nivel 1 no tiene datos
+  que mostrar.
+- **Las deseadas casi no tienen trabajo desglosado.** Landing Generator 1 tarea
+  abierta (score 11), VSL Generator 2 (14), Video Generator 1 (20), Image Generator 4
+  (49) — contra Onboarding 31 y Diseño de la app 24. O están hechas, o no están
+  planificadas. Si es lo segundo, el alcance de agosto está subestimado justo en lo
+  que el dueño más quiere mostrar.
+
+Referencia de la compuerta: el «mes 0» ya modelado son las 3 páginas legales
+(términos, privacidad, reembolsos), el checkout, y la aprobación del *merchant of
+record* — quién figura como vendedor en la factura. Paddle le vende al cliente en
+nombre de MaKo y se hace cargo del IVA de cada país; hasta que no aprueban la cuenta,
+no se puede cobrar. ≈ 12 h en total.
 
 ## Trabajo que este diseño genera (va al board por el canal de `plan-tareas`)
 
