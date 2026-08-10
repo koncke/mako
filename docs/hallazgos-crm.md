@@ -30,6 +30,11 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 - Calendly **se pinta conectado** y el webhook tira las reuniones con 200 OK. → [Calendly se pinta conectado y el webhook descarta las reuniones con 200 OK](#calendly-se-pinta-conectado-y-el-webhook-descarta-las-reuniones-con-200-ok)
 - Cambiar **cómo se deriva una etapa** cambia quién entra a las listas que filtran por
   etapa. → [Las etapas de reunión salen del funnel, no de un ternario](#las-etapas-de-reunión-salen-del-funnel-no-de-un-ternario)
+- El funnel es **uno por workspace por construcción**: un índice único, tres upserts con
+  `onConflict: 'workspace_id'` y un `.maybeSingle()` que degrada a `DEFAULT_PIPELINE` sin
+  log. → [El funnel es UNO por workspace por construcción, no por convención](#el-funnel-es-uno-por-workspace-por-construcción-no-por-convención)
+- Y el diagnóstico obvio es el equivocado: **el funnel no ubica los leads**, los ubica un
+  `switch` con 11 keys fijas. → [El diagnóstico obvio: «el funnel ubica los leads». No los ubica](#el-diagnóstico-obvio-el-funnel-ubica-los-leads-no-los-ubica)
 
 ---
 
@@ -631,6 +636,119 @@ sección de arriba, por la otra puerta. Va a **una** función que llamen los dos
 castea `body.canal as CanalId` sin validar contra `CANALES`.
 
 *2026-08-10 ~chatbot-funnel-leila*
+
+### El funnel es UNO por workspace por construcción, no por convención
+
+**Síntoma que se va a ver.** «Quiero un segundo funnel para el otro producto» suena a
+agregar una fila. El insert falla con `23505` y, si alguien saca el índice, la app deja de
+mostrar el funnel de nadie sin un solo error en el log.
+
+**Causa — son cuatro cerrojos, no uno, y tres son invisibles al compilador:**
+
+1. `create unique index funnel_config_ws_uk on funnel_config (workspace_id)` — una fila por
+   cliente, garantizado por la base.
+2. **Tres** escritores upsertean con `{ id: ws, workspace_id: ws }` y
+   `onConflict: 'workspace_id'`: `saveFunnel`, `clonarConfigDelDueno` y el `copiarTabla`
+   marcado `singleton: true` de datos-mau. El `id` de la fila **es** el id del workspace.
+3. `getFunnel()` lee con `.maybeSingle()`. Con dos filas eso devuelve `PGRST116`, que el
+   `catch` convierte en `DEFAULT_PIPELINE` con `origen: 'error'` — **sin log**. Todo el CRM
+   pasa a pintar el pipeline high-ticket genérico y nadie se entera. `getFunnel` no tiene
+   ningún test.
+4. `funnel_config` está **exceptuada** de `TENANT_TABLES` (el filtro va a mano, y el
+   contrato lo fija un test). Hoy olvidarse el `.eq` da «no encuentra»; con N filas da **el
+   funnel de otro cliente**. El proxy no lo ataja.
+
+**Regla.** Multi-funnel no es una columna: es cambiar la identidad de la fila. La salida
+aditiva es una tabla `funnels` con PK propia y `funnel_config` intacta durante la
+transición — dropear el índice único primero rompe los tres upserts en la ventana que hay
+entre la migración y el deploy, y el toast del editor le echa la culpa a «la migración
+0025».
+
+**Vive en:** `supabase/migrations/0054_workspaces.sql:93-95` · `lib/leads.ts:1472-1530` ·
+`lib/clonar-config.ts:49,95-109` · `lib/datos-mau.ts:174,503-505` · `lib/workspace.ts:57` ·
+`tests/tenant-tables-contract.test.ts:16` · `app/funnel/FunnelEditor.tsx:136-142`
+
+### El diagnóstico obvio: «el funnel ubica los leads». No los ubica
+
+**Síntoma.** Al planificar multi-funnel, el instinto dice que hay que prefijar las stage
+keys por funnel para que dos pipelines no se pisen.
+
+**Causa real.** `deriveStageKey` **no lee `funnel_config` en absoluto**: es una función
+pura sobre `estado_lead` + fechas + asistencias, con las 11 keys canónicas escritas en un
+`switch`. El funnel editable define qué COLUMNAS se pintan y cómo se llaman, no dónde cae
+un lead. Por eso un cliente con etapas propias hoy ubica sus leads a mano, y por eso
+`stageMetaOpt` cae a `DEFAULT_STAGES` para resolver labels de keys que el funnel del
+workspace ya no lista — ese fallback es **intencional**, sostiene el historial.
+
+**Regla.** El ámbito de un lead lo tiene que dar una columna (`leads.funnel_id`), **nunca
+el nombre de la key**. Prefijar invalidaría todos los `pipeline_stage` guardados, todo
+`lead_audit` y `leads.etapa_vista`. Las 11 canónicas significan lo mismo en todos los
+funnels y conviene declararlas catálogo cerrado.
+
+**Vive en:** `lib/pipeline.ts:887-909` (`deriveStageKey`/`pipelineStageOf`) ·
+`lib/pipeline.ts:859-868` (`stageMetaOpt`) · `supabase/migrations/0122_etapa_vista.sql`
+
+### Lo que SÍ está listo para multi-funnel: el modelo, entero
+
+Contra lo que parece, casi nada de `lib/pipeline.ts` hay que reescribir. `generateFunnel`,
+`salidasDeEtapa`, `sanearPipeline`, `mergeFunnelData`, `parseEntradas`, `parseEvento`,
+`templateDeCanal` y los templates reciben el pipeline **por parámetro** y no tocan
+Supabase. Lo único acoplado a «hay uno» son las **funciones de acceso** de `lib/leads.ts`.
+Los ~10 tests del funnel sobreviven sin tocarse.
+
+**Regla.** Si el `data` de la tabla nueva conserva la forma exacta de `funnel_config.data`
+(`{pipeline, suppressed, entradas, evento, umbrales}`), el merge que impide que un tecleo
+borre `umbrales` se hereda gratis. Cambiar la forma del jsonb «ya que estamos» es tirar esa
+red.
+
+**Vive en:** `lib/pipeline.ts:194-266,351-465,569-617,822-826`
+
+### `leads.producto_id` es una columna muerta desde la 0117
+
+La migración del catálogo de productos agregó `leads.producto_id`, y **ninguna línea de
+TypeScript la lee ni la escribe**: no está en el tipo `Lead`, ni en `LISTA_COLS`, ni en
+`COLS_FILTRO`, ni en `CrmLead`. `seedProductosDesdeOferta()` tampoco tiene un solo
+call-site. O sea: la mitad declarada de #374 —«el deal hereda el pricing del producto»— no
+existe, aunque la tabla y el CRUD estén.
+
+Al cablearla, dos trampas ya identificadas en el wizard «Ganado»: el paso `producto`
+necesita **condición de faltante propia** (`productoId == null`), nunca colgada de
+`'monto'` —`stepsForStage` no pide `'monto'` cuando ya hay uno y el bloque entero se cae
+del payload, que es el bug que hoy deja `venta_tipo` inasignable—, y hay que pedirlo **solo
+al ENTRAR** a la etapa o «Datos sin marcar» reclama producto sobre cientos de cierres
+viejos.
+
+Y el precio va como **snapshot, no como JOIN**: el producto siembra
+`venta_tipo`/`monto_cierre_usd`/`suscripcion_*` y esos campos del lead siguen siendo la
+verdad histórica. `producto_id` es solo la dimensión para agrupar.
+
+**Vive en:** `supabase/migrations/0117_productos.sql:34` · `lib/productos.ts:89-109` ·
+`lib/leads.ts:40-159,238-244` · `lib/stage-requirements.ts:20-26,226-242,268-274` ·
+`app/crm/actions.ts:192-227,463-474`
+
+### La nutrición enrola por etapa y filtra en memoria: dos funnels se cruzan mensajes reales
+
+**Síntoma que va a aparecer.** Con dos funnels que tengan una etapa homónima (`noshow_r1`,
+`nutri`), un lead del funnel A entra en una secuencia del funnel B y le llega un WhatsApp o
+un email que no le corresponde. Sin error y sin log.
+
+**Causa.** `leadsDeCohorte('etapa_actual')` trae **todos** los leads abiertos del workspace
+y filtra en memoria con `pipelineStageOf(l) === etapa`. No hay ámbito de funnel en ninguna
+parte de la consulta. Lo mismo `planLeadAuto`, que hardcodea `'lead'`, `'nutri'`,
+`'manual'` y `'reactivacion'`: con un funnel de etapas propias no dispara T1..T6 **en
+silencio**, y el cliente concluye «el CRM automático no anda».
+
+**Regla.** `nutricion_secuencias.funnel_id` tiene que estar en el **mismo release** en que
+un cliente real pueda crear su segundo funnel. Es el único riesgo de todo el proyecto que
+sale de la pantalla y le llega a una persona. Nota que ayuda: `nutricion_secuencias.clave`
+**no** es unique global —la 0054 ya la pasó a `(workspace_id, clave)`—, así que sumar
+`funnel_id` al índice es un afloje y ninguna fila existente lo viola.
+
+**Vive en:** `lib/nutricion.ts:285-313` · `lib/crm-auto-plan.ts:69-138` ·
+`lib/secuencias-huecos.ts:27-79` · `supabase/migrations/0054_workspaces.sql:99-101`
+
+*2026-08-10 ~productos-x-funnels (15 agentes). El plan que salió de acá:
+[productos-y-funnels-plan.md](productos-y-funnels-plan.md)*
 
 ---
 

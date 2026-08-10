@@ -48,6 +48,43 @@ mientras sigan separadas, el próximo paso nuevo repite este bug.
 **Vive en:** `lib/onboarding-state.ts:56-70,85-99` · `lib/capas.ts:24,116` ·
 `app/api/onboarding/route.ts:171,324` · `app/onboarding/OnboardingWizard.tsx:391-392`
 
+**Re-verificado el 10/08/2026, sigue vivo tal cual.** Y el arreglo tiene una puerta barata
+que no estaba escrita: `getEstadoOnboarding` ya hace deep-merge del `steps` guardado sobre
+el esqueleto de `estadoInicial()`, así que **agregar la clave arregla solo a los clientes ya
+persistidos** — no hay que tocar `app_settings` de nadie. Lo que sí hay que hacer es no
+repetir el antipatrón: `PASOS_ONBOARDING as const` en `lib/capas.ts` como fuente única, el
+tipo derivado con `typeof …[number]`, el `steps` armado con `Object.fromEntries` y el union
+del endpoint validado con un `esPasoOnboarding()` **en positivo**. Cuatro listas paralelas
+mantenidas a mano garantizan que el paso número quince nazca con este mismo bug.
+
+### El catálogo de productos: la IA pisa lo que el cliente escribió a mano
+
+**Síntoma.** El cliente corrige la garantía de un producto, vuelve a pedir la sugerencia de
+MaKo, y la corrección desaparece.
+
+**Causa.** El GET le manda a `sugerirProductos()` solo el **nombre y el precio** de los
+productos que ya existen, y con lo que vuelve hace un `UPDATE` de **todas** las columnas.
+El modelo no puede «completar sin pisar» un texto que nunca vio. El dedup, además, matchea
+por nombre exacto: una tilde o un plural ya crea un duplicado, y esa regla vive solo en la
+prosa del prompt — sin la segunda capa determinista que AGENTS.md exige.
+
+**Regla.** Merge **campo a campo**: la IA rellena lo vacío y nunca sobrescribe lo escrito.
+Y al modelo se le pasa el producto **entero**, no un resumen — un LLM no preserva lo que no
+recibe. La capa determinista es un
+`unique (workspace_id, lower(btrim(nombre)))`, con saneo previo de las colisiones que ya
+existan (contar filas en prod **antes** de aplicarlo).
+
+De paso, dos cosas del catálogo que están escritas y no corren: `seedProductosDesdeOferta()`
+no tiene **un solo call-site** —el producto que el cliente ya había declarado en el brief
+nunca se siembra— y `upsertProducto` no escribe `orden`, así que el `.order('orden')` de
+`listProductos` es inerte.
+
+**Vive en:** `lib/productos-ia.ts:92-94` · `app/api/onboarding/productos/route.ts:61-65` ·
+`lib/productos.ts:47,57-67,89-109`
+
+*2026-08-10 ~productos-x-funnels. El plan completo:
+[productos-y-funnels-plan.md](productos-y-funnels-plan.md)*
+
 ### El retomar cuenta pantallas a mano, y ya está desfasado en `fase`
 
 **Síntoma.** Un cliente que cierra el diagnóstico y vuelve aterriza en la pantalla del

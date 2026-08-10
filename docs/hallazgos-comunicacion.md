@@ -993,7 +993,10 @@ MARKETING para Mauricio Bustos (consultor: Negocio que Escala™)» y más abajo
 `https://calendly.com/mauriciobustoseguia/60min` como link de agenda. No lee el perfil del
 workspace ni la guía de voz destilada: solo pasa por `brandSystem()`.
 
-**Verificado el 2026-08-07: sigue vivo, hardcodeado en las líneas 18 y 23.** El molde correcto
+**Verificado el 2026-08-07 y de nuevo el 2026-08-10: sigue vivo, hardcodeado en
+`app/api/email/generar/route.ts:18` y `:23`.** Y hay que arreglarlo **antes** de multi-producto,
+no después: cuando la oferta pase a salir del catálogo, esta ruta va a seguir escribiendo la de
+Mauricio y va a parecer que el catálogo no funciona. El molde correcto
 está en el mismo dominio: `lib/nutricion-generator.ts` sí inyecta perfil + funnel + guía de voz +
 estrategia.
 
