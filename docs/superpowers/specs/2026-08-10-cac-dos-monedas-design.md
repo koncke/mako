@@ -234,6 +234,13 @@ importancia.
 
 Y dos cosas que el board contradice y hay que resolver antes de implementar:
 
+- **RESUELTO — `Feature: WhatsApp de MaKo` ENTRA en agosto.** El dueño: «Si MaKo en
+  WhatsApp está bueno, quiero incluirlo». Y refuerza el punto G: es la superficie por
+  la que él mismo va a operar mientras vende.
+- **RESUELTO — las deseadas NO están hechas ni planificadas.** El dueño: «eso es algo
+  que debería hacer». Entonces el plan de implementación **arranca por desglosarlas**,
+  antes de estimar nada: hoy el alcance de agosto está subestimado justo en lo que más
+  quiere mostrar.
 - **Lo mejor puntuado NO está en la lista.** `Feature: WhatsApp de MaKo` tiene score
   medio **76,4**, el más alto de los proyectos que quedaron afuera, y encaja de lleno
   en el nivel 2: hablarle a MaKo por WhatsApp es lo más IA-nativo del producto.
@@ -251,6 +258,39 @@ Referencia de la compuerta: el «mes 0» ya modelado son las 3 páginas legales
 record* — quién figura como vendedor en la factura. Paddle le vende al cliente en
 nombre de MaKo y se hace cargo del IVA de cada país; hasta que no aprueban la cuenta,
 no se puede cobrar. ≈ 12 h en total.
+
+### G. Las horas de un canal dependen de qué esté construido
+
+Decisión del dueño, y es la que más cambia el modelo:
+
+> «pretendo utilizar MaKo para mi propio negocio, para vender MaKo… no es lo mismo el
+> tiempo que le voy a dedicar a la prospección cuando literal hay un chatbot. O a
+> crear guiones, cuando literal hay un ads writer»
+
+Entonces `horasPorCliente` **no es un número: son dos**, y cuál aplica depende de qué
+features estén vivas.
+
+```ts
+horasPorCliente: { aMano: number; conMaKo: number; loHabilita: string };
+// loHabilita = la feature que baja el costo. Si no está construida, rige `aMano`.
+```
+
+Ejemplos que ya están medidos o modelados:
+
+| Canal | A mano | Con MaKo | Lo habilita |
+|---|---|---|---|
+| Los 1.000 contactos | 30 h (mes 1) | ≈ 0 | `Agente: Chatbot` |
+| Creativos para pauta | por derivar | por derivar | `Feature: Ads Writer` |
+| Orgánico | por derivar | por derivar | Landing/VSL Generator, Image/Video |
+
+**Esto cierra un lazo que el modelo no tenía:** cuánto se termine en agosto decide
+cuántas horas cuesta cada cliente en septiembre, y por lo tanto cuántos clientes
+entran en el piso de adquisición. Terminar una feature no es solo producto — **es
+capacidad de venta del mes siguiente**, y el modelo tiene que mostrarlo así.
+
+⚠️ Corolario para el alcance de agosto: una feature que MaKo usa para venderse a sí
+misma tiene un retorno que las otras no tienen, y hoy no se está contando. El plan de
+implementación tiene que marcar cuáles son.
 
 ## Trabajo que este diseño genera (va al board por el canal de `plan-tareas`)
 
