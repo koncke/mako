@@ -1288,6 +1288,38 @@ gigante para reuniones, que es justamente el del 436×.
 **Vive en:** lib/ai-cheap.ts:35-61 · app/admin/dev/pricing/modelo.ts (`RUTEO`, `RERUTEO`) ·
 *2026-08-09 pricing-paso-3*
 
+### ⚠️ Los 1.000 contactos declaraban 8,5 altas y sus tasas dan 5,95
+
+`BASE_PROPIA` nació con `altasMes1: 5.95, altasMes2: 2.55, altasTotal: 8.5` y con
+`cierran: 0.035`. La cadena declarada —1.000 × 20% × 3,5% × 85%— da **5,95**. Los 8,5 son
+la misma cadena con 5% de cierre: dos corridas conviviendo en una línea, y el 2,55 era
+doble conteo que llegó a la pantalla del dueño como titular («8,5 altas de los 1.000»).
+
+Lo que lo hizo invisible es una coincidencia numérica: 8,5 × 0,7 = 5,95, exactamente el
+resultado de la cadena buena. Así que el mes 1 «cerraba» contra la cuenta correcta y nadie
+miraba el total. Y el archivo ya se contradecía en dos lugares —`Pricing.tsx:825` pinta la
+MISMA cadena diciendo 5,95, y `losQueFaltan.viaBase` dice «duplicar de 3,5% a 7% son +5,95
+altas»—, pero las dos secciones no se leen juntas nunca.
+
+**Regla:** un número derivado no se escribe a mano al lado de sus insumos. Si conviven en
+la misma constante, el test que multiplica los insumos y compara contra el derivado es lo
+único que impide que se separen — el compilador ve dos `number` y calla. Vale para toda
+cadena de embudo del modelo, no solo para esta.
+
+**Y el diagnóstico obvio era el equivocado:** el plan afirmaba que `BASE_PROPIA` no existía
+y había que crearla («los 1.000 contactos se perdieron»). Existía desde `6db4210`, entera y
+con mejores fuentes que las que el plan proponía (`respondenFuente`/`cierranFuente`/
+`aprobacionFuente`, una por tasa, en vez de un `fuente` único). Lo que faltaba no era el
+dato: eran tres campos del modelo de dos monedas. Antes de reponer algo «perdido», grepear
+el nombre.
+
+**Pendiente:** si el mes 2 era una SEGUNDA pasada sobre los que no contestaron, es otra
+cadena con su propia tasa y hay que declararla aparte; hoy quedó en `altasMes2: 0`.
+
+**Vive en:** app/admin/dev/pricing/modelo.ts (`BASE_PROPIA`) · app/admin/dev/pricing/Pricing.tsx:825,995-1005 ·
+tests/pricing-modelo.test.ts (`las altas de los 1.000 contactos salen de sus propias tasas`) ·
+*2026-08-10 cac-dos-monedas*
+
 ### ⚠️ El registro de la IA barata es `void` sin `await`, y el insert nunca lee su `error`
 
 **Síntoma:** faltan filas de consumo y no hay ningún log que lo explique.
