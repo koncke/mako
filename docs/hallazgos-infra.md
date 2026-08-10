@@ -181,6 +181,48 @@ detección honesta cuesta un request extra en **cada** lectura chica (3 por carg
 `PAGINA_POSTGREST = 1000` es el default de Supabase. **Si se baja `db-max-rows`, se baja la
 constante en el mismo commit** — está escrito en el módulo.
 
+### ⚠️ `JSON.stringify` en una columna `jsonb` la guarda como un jsonb de TIPO STRING, y nadie avisa
+
+**Vive en:** `scripts/reset-chatbot-leila.ts` (el caso) · `funnel_config.data` · cualquier
+script one-off con `postgres` (`sql`) que escriba una columna jsonb
+
+**Síntoma.** Un `update` corre sin error, la fila queda escrita, y la app se comporta como
+si el dato no existiera: el cliente vio el funnel por defecto en vez del suyo.
+
+**Causa.** `sql\`update … set data = ${JSON.stringify(obj)}\`` manda un **string**. Postgres
+lo acepta porque un string ES un JSON válido, así que guarda `"{\"pipeline\":[…]}"` — el
+objeto entero envuelto en comillas y escapado. `jsonb_typeof(data)` devuelve `string` en vez
+de `object`, y del lado de la app `cfg.pipeline` es `undefined`: se cae al default, sin
+error, sin log y sin nada que mirar.
+
+Lo correcto es `sql.json(obj)`, que declara el tipo:
+
+```ts
+await sql`update funnel_config set data = ${sql.json(obj)} where workspace_id = ${ws}`;
+```
+
+**Y el corolario que lo hace fácil de repetir: en este repo conviven las dos formas.**
+`app_settings.value` es **TEXT**, así que ahí `JSON.stringify` es lo correcto; `funnel_config.data`
+es **jsonb**, y ahí es un bug. El mismo script escribía las dos tablas y solo una estaba mal.
+No son intercambiables: se mira la columna, no la costumbre.
+
+**Cómo se detecta y cómo se repara** (el valor no se perdió, solo está envuelto):
+
+```sql
+select jsonb_typeof(data) from funnel_config where workspace_id = 11;   -- 'string' = mal
+```
+```ts
+const [r] = await sql`select data #>> '{}' as txt from funnel_config where workspace_id = ${ws}`;
+await sql`update funnel_config set data = ${sql.json(JSON.parse(r.txt))} where workspace_id = ${ws}`;
+```
+
+**La regla que queda:** todo script one-off que escriba jsonb verifica con `jsonb_typeof`
+**después** de escribir, en la misma corrida. Un `update` que no falla no es un `update` que
+funcionó — y este es exactamente el tipo de escritura que se hace una vez, contra producción
+y sobre datos de un cliente real.
+
+*2026-08-10 ~chatbot-funnel-leila*
+
 ---
 
 ## Aislamiento multi-inquilino
