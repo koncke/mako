@@ -154,7 +154,9 @@ dice qué concluye. Ejemplo, parte 3:
 > Hoy: «El CAC de cada uno de los cinco canales, contra el techo que tolera cada plan.»
 > Nuevo: «Tus 1.000 contactos son lo más barato que tenés y se acaban en dos meses.
 > La pauta se banca hasta US$1.940 por mes. El orgánico no cuesta plata pero te come
-> 26 horas por cliente, así que entra o no según el mes.»
+> <h> horas por cliente, así que entra o no según el mes.»
+
+(Mismo `<h>` del punto C: sale del recálculo, no del número viejo.)
 
 **El bloque de conclusión general va arriba de todo, y se escribe ÚLTIMO.**
 Decisión del dueño, y es un orden de trabajo, no de lectura: se deriva de las
