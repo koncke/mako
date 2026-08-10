@@ -1812,8 +1812,11 @@ agente cumplen: el navegador nunca manda un `Authorization` solo.
 
 **Vive en:** `app/second-brain/page.tsx` · `app/api/agente/hook/route.ts` · `lib/app-url.ts`
 
-`/second-brain` leía `process.env.NEXT_PUBLIC_BASE_URL ?? ''` — una variable que **no
-existe en ningún lado del repo ni de Vercel**. Las que existen son `APP_BASE_URL` y
+`/second-brain` leía `process.env.NEXT_PUBLIC_BASE_URL ?? ''` — una variable **que no está
+definida en ningún archivo del repo**. Un grep del nombre sobre el repo entero devuelve
+exactamente DOS resultados, y los dos son consumidores; ninguno la define. Que tampoco
+estuviera puesta en Vercel lo prueba el síntoma: si lo estuviera, el `BASE` no habría
+salido vacío en producción. Las que existen son `APP_BASE_URL` y
 `NEXT_PUBLIC_APP_URL`, y las resuelve `lib/app-url.ts` con fallback al dominio real.
 
 Resultado: la skill que el cliente copiaba salía con `BASE=` **vacío**, y lo primero que
@@ -1826,7 +1829,15 @@ uno dolía.**
 
 **La regla:** si un valor ya tiene su módulo, no se lo vuelve a leer del entorno a mano.
 Un `?? ''` sobre una env var convierte «falta configurar» en «cadena vacía», y una cadena
-vacía viaja hasta el archivo del cliente sin que nada la frene. Donde ese valor arma un
+vacía viaja hasta el archivo del cliente sin que nada la frene.
+
+**Y el corolario que apareció al confirmarlo:** `.env.local` tampoco define `APP_BASE_URL`,
+así que en desarrollo `lib/app-url.ts` cae a su fallback —el dominio de PRODUCCIÓN— y la
+skill generada desde localhost apuntaba a producción, mientras el hook (que sí lee el
+origin del request) apuntaba a localhost. El par quedaba hablándole a dos servidores
+distintos. Un fallback a un dominio real es correcto para producción y una trampa en
+desarrollo: donde el valor arma un artefacto, conviene que localhost gane sobre el
+fallback. Donde ese valor arma un
 artefacto que sale de la app, la última red la pone el navegador: `window.location.origin`
 es incontestable y no hay que configurarlo.
 

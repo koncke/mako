@@ -50,10 +50,15 @@ export const PUBLICOS = [
   // `hook` entró después: sirve un script SIN secretos (el token lo lee en ejecución de
   // otro archivo) y la skill lo instala sola, así que pedirle sesión de navegador era
   // pedirle al agente algo que no puede tener.
+  //
+  // `skill` es la que faltaba para que instalarla sea lo que es en cualquier otra: se le
+  // pasa a Claude la URL y la baja él. Sin ella la única forma de entregar el archivo era
+  // el portapapeles, con 11.000 caracteres que el usuario tenía que ubicar a mano.
   '/api/agente/plan',
   '/api/agente/contexto',
   '/api/agente/telemetria',
   '/api/agente/hook',
+  '/api/agente/skill',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el
