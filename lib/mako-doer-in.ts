@@ -784,6 +784,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             const cands = [pin.provider, 'groq', 'cerebras', 'mistral', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
+            // Lo pone el reintento de arriba: alguna IA escribió un link de borrador, o
+            // sea que ENTENDIÓ que este turno cargaba tareas aunque el router no.
+            let quisoBorrador = false;
             for (const prov of orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>) {
               try {
                 const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined });
@@ -802,12 +805,36 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // recibía el error del último que había reventado («cerebras: HTTP 404»)
                 // en vez de la respuesta. Una guarda que descarta lo bueno es peor que
                 // no tener guarda.
-                const vv = validarRespuestaDoer(r.text, { motivoRuta: ruta.motivo, linkBorrador });
+                let vv = validarRespuestaDoer(r.text, { motivoRuta: ruta.motivo, linkBorrador });
+                let texto2 = r.text;
+
+                // EL LINK INVENTADO ES LA PRUEBA DE QUE QUISO CREAR EL BORRADOR.
+                //
+                // Ninguna de las dos señales de intención vio este turno: el router lo
+                // mandó a (dato/acción) y `esCargaDePlan` pide un «anotá» o una lista
+                // numerada, y el mensaje era prosa con links («Investigar: … que sea una
+                // nueva feature en MaKo»). Así que la tool no se forzó y el modelo
+                // contestó en prosa, con un link de borrador que se inventó.
+                //
+                // Pero ESE link dice algo que ninguna heurística sabía: el modelo creía
+                // que estaba armando un borrador. Es la señal de intención más limpia que
+                // tenemos —la da él, sobre este mensaje— y llega tarde pero llega. Se
+                // reintenta UNA vez con el mismo proveedor y la tool obligatoria.
+                if (!vv.ok && vv.razon === 'link-inventado' && !linkBorrador) {
+                  quisoBorrador = true;
+                  console.warn(`[mako-doer-in] ${prov} inventó el link → reintento con la tool obligatoria`);
+                  const r2 = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
+                  if (r2.text && !r2.text.startsWith('(')) {
+                    texto2 = r2.text;
+                    vv = validarRespuestaDoer(r2.text, { motivoRuta: ruta.motivo, linkBorrador });
+                  }
+                }
+
                 if (!vv.ok && vv.razon !== 'sin-borrador' && !linkBorrador) {
                   console.error(`[mako-doer-in] ${prov}: ${vv.detalle} → probando el próximo proveedor`);
                   continue;
                 }
-                respuesta = r.text.trim();
+                respuesta = texto2.trim();
                 break;
               } catch (e2) { ultErr = e2; console.warn(`[mako-doer-in] ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
             }
@@ -817,7 +844,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // alternativa a pagar dos centavos es mandarle prosa al dueño y que el
             // trabajo se pierda — que es exactamente lo que pasó dos veces seguidas.
             // AGENTS.md dice «el ÚLTIMO recurso, no el segundo»: éste es el último.
-            if (esRutaPlan(ruta.motivo) && !linkBorrador) {
+            if ((esRutaPlan(ruta.motivo) || esCargaDePlan(texto) || quisoBorrador) && !linkBorrador) {
               console.error(`[mako-doer-in] ninguna IA barata armó el borrador (${orden.join(', ')}) → escalando a Claude`);
               try {
                 const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
@@ -840,7 +867,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error('[mako-doer-in] IA falló:', msg);
-          respuesta = `⚠️ No pude responder ahora: falló la IA (${msg.slice(0, 140)}). Reintentá en un momento o avisá a soporte.`;
+          // El error TÉCNICO va al log, no al WhatsApp del dueño. Le llegó literal
+          // «falló la IA (chatCheapTools(cerebras): HTTP 404)» y eso no le dice nada:
+          // ni qué pasó con lo que escribió, ni qué hacer. Peor, el proveedor que
+          // aparece es el ÚLTIMO que reventó, que puede no tener nada que ver con la
+          // causa — los anteriores se descartaron por otra razón y su error quedó
+          // pisado. Afuera va lo único que le sirve: si su trabajo se guardó o no.
+          respuesta = AVISO_NO_PUDE;
         }
       }
     }
