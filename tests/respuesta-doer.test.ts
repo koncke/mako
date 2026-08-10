@@ -140,3 +140,47 @@ test('REGRESIÓN: las dos razones NO se tratan igual — solo el molde descarta'
     'si las dos razones fueran iguales, el loop volvería a descartar respuestas buenas',
   );
 });
+
+// ---------------------------------------------------------------------------
+// El link inventado: «este borrador ya no existe»
+// ---------------------------------------------------------------------------
+// 10/8/2026. El dueño mandó ideas al grupo y MaKo contestó «Listo, te armé el
+// borrador» con un link. Al abrirlo: «este borrador ya no existe». No existía
+// porque nunca se creó — la herramienta no corrió y el modelo escribió un id
+// plausible. Éste es el link REAL que le llegó, y el real de al lado:
+//
+//   propmsn956x9qg48    ← inventado (16 caracteres)
+//   propmsn7pbzb4bz48   ← de verdad (17)
+//
+// La señal `sin-borrador` no lo atajó porque el router había clasificado ese turno
+// como (dato/acción) y no (plan). Por eso ésta NO mira la ruta: el link son 17
+// caracteres al azar y su única fuente legítima es lo que devolvió la tool.
+
+const LINK_FALSO = 'Listo, te armé el borrador. Revisalo y confirmalo acá 👇\nhttps://hola-mako.com/plan/revisar/propmsn956x9qg48';
+
+test('EL CASO REAL: un link de borrador sin borrador NO se manda', () => {
+  const v = validarRespuestaDoer(LINK_FALSO, { motivoRuta: RUTA_PLAN, linkBorrador: null });
+  assert.equal(v.ok, false);
+  assert.equal(v.ok === false && v.razon, 'link-inventado');
+});
+
+test('…y se ataja aunque el router se haya equivocado de ruta', () => {
+  // Éste es el punto: el turno real vino como (dato/acción). Si la detección
+  // dependiera de que el router acierte, seguiría saliendo el link roto.
+  const v = validarRespuestaDoer(LINK_FALSO, { motivoRuta: 'mistral router:sonnet (dato/acción) «Investigar…»', linkBorrador: null });
+  assert.equal(v.ok === false && v.razon, 'link-inventado');
+  // Y en una charla cualquiera, lo mismo: no hay ruta donde esto sea legítimo.
+  assert.equal(validarRespuestaDoer(LINK_FALSO, { motivoRuta: 'groq router:lean (charla) «hola»', linkBorrador: null }).ok, false);
+});
+
+test('el MISMO texto con el borrador creado de verdad, pasa', () => {
+  const link = 'https://hola-mako.com/plan/revisar/propmsn956x9qg48';
+  assert.deepEqual(validarRespuestaDoer(LINK_FALSO, { motivoRuta: RUTA_PLAN, linkBorrador: link }), { ok: true });
+});
+
+test('un texto sin link no dispara esta señal', () => {
+  // La diferencia con `sin-borrador`: aquélla es blanda y mira la ruta; ésta exige
+  // que el modelo haya ESCRITO un link. Sin link no hay promesa que romper.
+  const v = validarRespuestaDoer('Tenés 14 tareas abiertas.', { motivoRuta: RUTA_PLAN, linkBorrador: null });
+  assert.equal(v.ok === false && v.razon, 'sin-borrador');
+});

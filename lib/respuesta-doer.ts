@@ -39,7 +39,10 @@ import { evaluarDetalle } from './detalle-contrato';
 
 export type VeredictoDoer =
   | { ok: true }
-  | { ok: false; razon: 'molde-volcado' | 'sin-borrador'; detalle: string };
+  | { ok: false; razon: 'molde-volcado' | 'link-inventado' | 'sin-borrador'; detalle: string };
+
+/** El link de un borrador. Solo lo puede escribir el código: son 17 caracteres al azar. */
+const LINK_REVISAR = /\/plan\/revisar\/[A-Za-z0-9_-]+/;
 
 /** Lo que MaKo contesta cuando bloqueamos su respuesta. Honesto y corto: decir «no
  *  pude» es infinitamente mejor que mandar el payload y que el dueño tenga que
@@ -93,6 +96,31 @@ export function validarRespuestaDoer(
       ok: false,
       razon: 'molde-volcado',
       detalle: `la respuesta trae el molde del detalle (${ev.partes.join(' · ')}): el modelo redactó el borrador en vez de crearlo`,
+    };
+  }
+
+  // ⚠️ EL LINK INVENTADO. Esta señal NO mira la ruta, y ahí está la gracia.
+  //
+  // El caso (10/8/2026): el dueño mandó ideas para cargar al plan y MaKo contestó
+  // «Listo, te armé el borrador» con un link. Al abrirlo: «este borrador ya no
+  // existe». No existía porque nunca se creó — la herramienta no corrió (tres
+  // llamadas de 79, 6 y 47 tokens, ningún INSERT) y el modelo escribió un id
+  // plausible: `propmsn956x9qg48`, un carácter más corto que uno de verdad.
+  //
+  // Por qué no lo atajó `sin-borrador`: el router clasificó ese turno como
+  // `(dato/acción)`, no `(plan)`, así que la señal de abajo ni se evaluó. Colgar la
+  // detección de que el router acierte es colgarla de otra heurística.
+  //
+  // Esta no depende de nada: el link de un borrador son 17 caracteres al azar y su
+  // ÚNICA fuente legítima es el valor que devolvió la tool (`linkBorrador`). Si hay
+  // un link en el texto y no hay borrador, es inventado — venga de la ruta que venga
+  // y del proveedor que sea. Es el corolario de AGENTS.md: «un dato exacto que pasa
+  // por las manos de un LLM deja de ser exacto».
+  if (!ctx.linkBorrador && LINK_REVISAR.test(t)) {
+    return {
+      ok: false,
+      razon: 'link-inventado',
+      detalle: `la respuesta trae un link de borrador (${LINK_REVISAR.exec(t)?.[0]}) que nadie creó`,
     };
   }
 

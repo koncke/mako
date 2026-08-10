@@ -775,12 +775,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // soportan tools] y las ORDENAMOS POR CUOTA (las cerca del tope van al final) →
             // probamos primero las que todavía pueden, sin esperar el 429. OpenRouter ":free"
             // queda afuera (tools inconsistentes); OpenAI (barato) es el último de red.
+            // DOS señales para forzar la herramienta, no una. El router es una
+            // heurística de regex y se equivoca: el 10/8 clasificó «Investigar: … que
+            // sea una nueva feature en MaKo» como (dato/acción), no (plan), así que no
+            // se forzó nada y el modelo escribió un link de borrador inventado. Con
+            // `esCargaDePlan` mirando el texto por su cuenta, hace falta que fallen las
+            // dos para quedar sin red.
+            const forzarTool = esRutaPlan(ruta.motivo) || esCargaDePlan(texto);
             const cands = [pin.provider, 'groq', 'cerebras', 'mistral', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             for (const prov of orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>) {
               try {
-                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: esRutaPlan(ruta.motivo) ? 'required' : undefined });
+                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined });
                 if (!r.text || r.text.startsWith('(')) continue; // centinelas internos
                 // ⚠️ Acá el único filtro era «que no empiece con paréntesis», y por eso el
                 // 9/8 salió el borrador entero por WhatsApp: el modelo redactó el payload
@@ -797,8 +804,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // en vez de la respuesta. Una guarda que descarta lo bueno es peor que
                 // no tener guarda.
                 const vv = validarRespuestaDoer(r.text, { motivoRuta: ruta.motivo, linkBorrador });
-                if (!vv.ok && vv.razon === 'molde-volcado' && !linkBorrador) {
-                  console.error(`[mako-doer-in] ${prov} volcó el molde en vez de llamar la tool → probando el próximo proveedor`);
+                if (!vv.ok && vv.razon !== 'sin-borrador' && !linkBorrador) {
+                  console.error(`[mako-doer-in] ${prov}: ${vv.detalle} → probando el próximo proveedor`);
                   continue;
                 }
                 respuesta = r.text.trim();
@@ -865,8 +872,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
 
     if (respuesta) {
       const v = validarRespuestaDoer(respuesta, { motivoRuta: ruta.motivo, linkBorrador });
-      if (!v.ok && v.razon === 'molde-volcado') {
-        console.error(`[mako-doer-in] BLOQUEADA: ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
+      if (!v.ok && v.razon !== 'sin-borrador') {
+        // Las dos razones duras: volcó el molde, o prometió un link que no existe.
+        // Mandarle al dueño un link roto es peor que decirle «no pude»: hace clic,
+        // lee «este borrador ya no existe» y pierde lo que escribió sin saber por qué.
+        console.error(`[mako-doer-in] BLOQUEADA (${v.razon}): ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
         // Si el borrador SÍ se creó, lo único roto era el texto: mandamos el link, que
         // es lo que el modelo tenía que haber contestado.
         respuesta = linkBorrador ? mensajeBorrador(linkBorrador) : AVISO_NO_PUDE;
