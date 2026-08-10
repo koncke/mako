@@ -217,25 +217,25 @@ Claude-Cuenta: claude2"
 
 **Interfaces:**
 - Produces: `HORAS_MES = 338`
-- Produces: `type Fase = { id: 'desarrollo' | 'adquisicion' | 'regimen'; nombre: string; mes: string; pisoAdquisicion: number; topeDebug: number; topeAgencia: number; }`
-- Produces: `FASES: Fase[]`
-- Produces: `horasLibres(f: Fase): number`
-- Produces: `topeClientes1a1(f: Fase, horasPorCliente: number): number`
+- Produces: `type FaseTiempo = { id: 'desarrollo' | 'adquisicion' | 'regimen'; nombre: string; mes: string; pisoAdquisicion: number; topeDebug: number; topeAgencia: number; }`
+- Produces: `FASES_TIEMPO: FaseTiempo[]`
+- Produces: `horasLibres(f: FaseTiempo): number`
+- Produces: `topeClientes1a1(f: FaseTiempo, horasPorCliente: number): number`
 
 - [ ] **Step 1: Escribir el test que falla**
 
 ```ts
-import { FASES, HORAS_MES, horasLibres, topeClientes1a1 } from '../app/admin/dev/pricing/modelo';
+import { FASES_TIEMPO, HORAS_MES, horasLibres, topeClientes1a1 } from '../app/admin/dev/pricing/modelo';
 
 test('ninguna fase reparte más horas de las que hay', () => {
-  for (const f of FASES) {
+  for (const f of FASES_TIEMPO) {
     const usadas = f.pisoAdquisicion + f.topeDebug + f.topeAgencia;
     assert.ok(usadas <= HORAS_MES, `${f.id}: reparte ${usadas} de ${HORAS_MES}`);
   }
 });
 
 test('el tope de clientes 1a1 sale del residual, no se fija', () => {
-  const regimen = FASES.find((f) => f.id === 'regimen')!;
+  const regimen = FASES_TIEMPO.find((f) => f.id === 'regimen')!;
   // 19 h en 12 semanas ≈ 6,33 h/mes por cliente (HIGH_TICKET.entrega)
   const tope = topeClientes1a1(regimen, 6.33);
   assert.equal(tope, Math.floor(horasLibres(regimen) / 6.33));
@@ -243,7 +243,7 @@ test('el tope de clientes 1a1 sale del residual, no se fija', () => {
 });
 
 test('en la fase de adquisición no entra ningún cliente de high ticket', () => {
-  const adq = FASES.find((f) => f.id === 'adquisicion')!;
+  const adq = FASES_TIEMPO.find((f) => f.id === 'adquisicion')!;
   assert.equal(topeClientes1a1(adq, 6.33), 0,
     'septiembre es 100% adquisición: no puede haber horas de entrega');
 });
@@ -252,7 +252,7 @@ test('en la fase de adquisición no entra ningún cliente de high ticket', () =>
 - [ ] **Step 2: Correr y verificar que falla**
 
 Run: `npx tsx --test tests/pricing-modelo.test.ts`
-Expected: FAIL — `Cannot find module` / `FASES is not exported`.
+Expected: FAIL — `Cannot find module` / `FASES_TIEMPO is not exported`.
 
 - [ ] **Step 3: Implementar**
 
@@ -274,7 +274,7 @@ export const HORAS_MES = 338;
 export const HORAS_MES_ORIGEN: Origen = 'supuesto';
 export const HORAS_MES_COMO = '12 h de lunes a sábado + 6 h el domingo, × 4,33 semanas. Dicho por el dueño.';
 
-export type Fase = {
+export type FaseTiempo = {
   id: 'desarrollo' | 'adquisicion' | 'regimen';
   nombre: string;
   mes: string;
@@ -284,7 +284,7 @@ export type Fase = {
   topeAgencia: number;
 };
 
-export const FASES: Fase[] = [
+export const FASES_TIEMPO: FaseTiempo[] = [
   { id: 'desarrollo', nombre: 'Desarrollo', mes: 'agosto',
     pisoAdquisicion: 0, topeDebug: 0, topeAgencia: 10 },
   { id: 'adquisicion', nombre: 'Adquisición', mes: 'septiembre',
@@ -294,7 +294,7 @@ export const FASES: Fase[] = [
 ];
 
 /** Lo que queda después del piso y los topes. De acá sale el high ticket. */
-export function horasLibres(f: Fase): number {
+export function horasLibres(f: FaseTiempo): number {
   return HORAS_MES - f.pisoAdquisicion - f.topeDebug - f.topeAgencia;
 }
 
@@ -303,7 +303,7 @@ export function horasLibres(f: Fase): number {
  * así — «la cantidad de clientes lo puedes sacar de la promesa de horas que les
  * doy». En desarrollo y en adquisición da 0 a propósito.
  */
-export function topeClientes1a1(f: Fase, horasPorClienteMes: number): number {
+export function topeClientes1a1(f: FaseTiempo, horasPorClienteMes: number): number {
   if (f.id !== 'regimen') return 0;
   return Math.floor(horasLibres(f) / horasPorClienteMes);
 }
@@ -326,6 +326,13 @@ Claude-Cuenta: claude2"
 
 ---
 
+> ⚠️ **Renombre aplicado sobre la marcha (2026-08-10).** El plan bautizaba `FASES` y
+> `Fase`, y esos dos nombres YA EXISTEN en el repo con otro significado:
+> `lib/fase-diagnostico.ts` (las fases 1-5 del negocio del cliente) y
+> `lib/mako-fases.ts`. Peor: `modelo.ts` cita `FASES[0].noHacer` en su línea 1479,
+> que es el OTRO `FASES` — el archivo se contradecía a sí mismo. Van como
+> **`FASES_TIEMPO` / `FaseTiempo`**. Lo encontró el agente de la Task 2.
+
 ## Task 3: La matriz — qué canal entra en qué fase
 
 **Files:**
@@ -333,18 +340,18 @@ Claude-Cuenta: claude2"
 - Test: `tests/pricing-modelo.test.ts`
 
 **Interfaces:**
-- Consumes: `CanalCac`, `Fase`, `horasLibres` (Tasks 1 y 2)
+- Consumes: `CanalCac`, `FaseTiempo`, `horasLibres` (Tasks 1 y 2)
 - Produces: `horasDe(c: CanalCac, construidas: string[]): number`
 - Produces: `type Veredicto = { entra: boolean; clientesMax: number; porQueNo: string | null }`
-- Produces: `entraEn(c: CanalCac, f: Fase, construidas: string[], limitePlata: number): Veredicto`
+- Produces: `entraEn(c: CanalCac, f: FaseTiempo, construidas: string[], limitePlata: number): Veredicto`
 
 - [ ] **Step 1: Escribir el test que falla**
 
 ```ts
-import { CAC_CANALES, FASES, entraEn, horasDe } from '../app/admin/dev/pricing/modelo';
+import { CAC_CANALES, FASES_TIEMPO, entraEn, horasDe } from '../app/admin/dev/pricing/modelo';
 
 const canal = (id: string) => CAC_CANALES.find((c) => c.id === id)!;
-const fase = (id: string) => FASES.find((f) => f.id === id)!;
+const fase = (id: string) => FASES_TIEMPO.find((f) => f.id === id)!;
 
 test('sin la feature construida rige el costo a mano', () => {
   const p = canal('prospeccion');
@@ -406,7 +413,7 @@ export type Veredicto = {
  * `limitePlata` se compara SOLO contra `plataPorCliente`; las horas se comparan
  * SOLO contra el piso de adquisición de la fase.
  */
-export function entraEn(c: CanalCac, f: Fase, construidas: string[], limitePlata: number): Veredicto {
+export function entraEn(c: CanalCac, f: FaseTiempo, construidas: string[], limitePlata: number): Veredicto {
   const h = horasDe(c, construidas);
   const porHoras = h <= 0 ? Infinity : Math.floor(f.pisoAdquisicion / h);
 
@@ -446,7 +453,7 @@ Claude-Cuenta: claude2"
 - Modify: `app/admin/dev/pricing/modelo.ts` (`FEATURES_CONSTRUIDAS`)
 
 **Interfaces:**
-- Consumes: `CAC_CANALES`, `FASES`, `entraEn`, `horasDe`, `UNIT` (Tasks 1-3)
+- Consumes: `CAC_CANALES`, `FASES_TIEMPO`, `entraEn`, `horasDe`, `UNIT` (Tasks 1-3)
 - Produces: `FEATURES_CONSTRUIDAS: string[]` — qué features están vivas hoy
 
 - [ ] **Step 1: Agregar el catálogo de lo construido**
