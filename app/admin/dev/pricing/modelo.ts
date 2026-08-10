@@ -1633,3 +1633,54 @@ export const PREGUNTAS_ABIERTAS = [
   { n: 5, pregunta: '¿Cuántas horas por mes te llevan hoy Mauricio, Leandro y Leila?', mueve: 'Está declarada en 10 h/mes y con eso el plan cierra con holgura. A 30 h/mes el mes 1 se va a 76 h y el plan no arranca.',
     porQue: 'CAPITAL_NECESARIO.agencia dice textual que el modelo las declara en CERO «y eso es falso». Acá se declaran en 10 y se puede sostener, pero sigue siendo el único número del modelo que se cierra con una pregunta de treinta segundos y sigue sin contestar.' },
 ];
+
+// ── EL MODELO DE TIEMPO ─────────────────────────────────────────────────────
+// DECIDE: cuántos clientes de cada canal entran en un mes, y cuántos programas
+// de high ticket se pueden entregar.
+//
+// El dueño trabaja ~12 h de lunes a sábado y ~6 el domingo. Las fases NO cambian
+// el total: lo REPARTEN. Y el reparto sale de su regla, textual: «la parte de
+// adquisición es la importante, no debo sacrificar nunca ese tiempo. Entonces
+// puedo tener un tope de clientes high ticket y un tope de tiempo dedicado a
+// debugear e implementar».
+//
+// ⚠️ SUPUESTO GRANDE Y DECLARADO: 12 h sentado no son 12 h efectivas, y hoy
+// nadie lo mide. Todo esto se apoya en un factor de efectividad desconocido.
+
+export const HORAS_MES = 338;
+export const HORAS_MES_ORIGEN: Origen = 'supuesto';
+export const HORAS_MES_COMO = '12 h de lunes a sábado + 6 h el domingo, × 4,33 semanas. Dicho por el dueño.';
+
+export type Fase = {
+  id: 'desarrollo' | 'adquisicion' | 'regimen';
+  nombre: string;
+  mes: string;
+  /** Horas protegidas para conseguir clientes. NO se sacrifican. */
+  pisoAdquisicion: number;
+  topeDebug: number;
+  topeAgencia: number;
+};
+
+export const FASES: Fase[] = [
+  { id: 'desarrollo', nombre: 'Desarrollo', mes: 'agosto',
+    pisoAdquisicion: 0, topeDebug: 0, topeAgencia: 10 },
+  { id: 'adquisicion', nombre: 'Adquisición', mes: 'septiembre',
+    pisoAdquisicion: 328, topeDebug: 0, topeAgencia: 10 },
+  { id: 'regimen', nombre: 'Adquisición y entrega', mes: 'octubre en adelante',
+    pisoAdquisicion: 169, topeDebug: 60, topeAgencia: 10 },
+];
+
+/** Lo que queda después del piso y los topes. De acá sale el high ticket. */
+export function horasLibres(f: Fase): number {
+  return HORAS_MES - f.pisoAdquisicion - f.topeDebug - f.topeAgencia;
+}
+
+/**
+ * El tope de clientes de high ticket. ⚠️ Es SALIDA, no entrada: el dueño lo dijo
+ * así — «la cantidad de clientes lo puedes sacar de la promesa de horas que les
+ * doy». En desarrollo y en adquisición da 0 a propósito.
+ */
+export function topeClientes1a1(f: Fase, horasPorClienteMes: number): number {
+  if (f.id !== 'regimen') return 0;
+  return Math.floor(horasLibres(f) / horasPorClienteMes);
+}
