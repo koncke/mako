@@ -60,6 +60,22 @@ Reglas que salen de eso:
 - **Nunca `git add -A`.** Commiteá por ruta explícita. El día que coincidan, `add -A` se
   lleva el trabajo a medias de la otra sesión adentro de tu commit y nadie se entera
   hasta que rompe.
+- **Commitear por ruta explícita NO alcanza: lo que se mira es el HUNK.** Un mismo
+  archivo puede tener trabajo de las dos sesiones. Pasó con `lib/razones.ts`: una sesión
+  agregó una fila a `PASO_TXT` y la otra una función nueva, y al armar el commit «por
+  rutas» el archivo se descartó entero por ajeno — con lo cual el commit quedó sin una
+  línea que el compilador exigía. Antes de excluir un archivo tocado por los dos, `git
+  diff <archivo>` y separá: `git checkout HEAD -- <archivo>`, reaplicá **solo tu hunk**,
+  commiteá, y devolvé el contenido completo al working tree.
+- **Nunca `--amend` sin volver a mirar que HEAD siga siendo tuyo.** Entre tu commit y tu
+  amend, la otra sesión puede haber commiteado: el amend le reescribe el commit A ELLA,
+  con tu mensaje. Pasó. Se recupera con `git reset --soft <su-hash>` (nunca `--hard`: se
+  llevaría su trabajo sin commitear), pero la forma de no llegar ahí es `git log -1`
+  antes de cada amend.
+- **Y la app puede dejar de hidratar por culpa de la otra sesión.** Un `export` a medias
+  en un client component rompe el bundle ENTERO: la página se ve perfecta (el HTML es
+  del server) pero ningún botón responde. Antes de diagnosticar tu propio cambio, probá
+  otra ruta cualquiera — si tampoco hidrata, no es tuyo.
 - **La sesión que cierra deja escrito dónde quedó** — en `docs/hallazgos-<área>.md`, en
   el board `/plan` o en una memoria. Si la cuota corta a mitad de camino, eso es lo único
   que sobrevive.
