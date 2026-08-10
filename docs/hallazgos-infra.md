@@ -1931,3 +1931,56 @@ un usuario real antes de llegar a ésta:
 - **Una opción que el 95% no necesita no es flexibilidad: es una bifurcación donde
   equivocarse.** Si un caso es de expertos, que lo resuelva el experto —tiene el archivo y
   puede ponerlo donde quiera—, no una pregunta en el camino de todos.
+
+### El plugin público: por qué la skill se genera y no se escribe
+
+**Vive en:** `scripts/generar-plugin.mjs` · `plugin/` · `lib/agente-skill.ts`
+
+La forma normal de instalar una skill es un plugin: `/plugin marketplace add <owner>/<repo>`
+y listo. Eso exige un repo **público**, y la skill de MaKo llevaba el token del cliente
+adentro — o sea que no se podía publicar.
+
+**Lo que lo destraba** ya estaba construido para otra cosa: el hook de telemetría no
+embebe el token, lo lee de `~/.mako-token`. La skill genérica hace lo mismo, y con eso
+queda publicable. `agenteSkillMarkdown(base, null)` emite esa variante; con token, la
+personal que sirve `/api/agente/skill`.
+
+**Las dos guardas, y las dos son obligatorias:**
+
+1. **La copia pública se GENERA.** Es el mismo texto con cuatro líneas de diferencia; a
+   mano, el día que se le agregue una capacidad a la skill se actualiza una de las dos y
+   la otra queda vieja. Es el bug del contrato del `detalle`, otra vez. El pre-push corre
+   `--check` y bloquea si `plugin/` quedó atrás.
+2. **Antes de escribir, se busca el patrón de una credencial** (`mkoag_`, `sk-ant-`, un
+   JWT, un `localhost`). En POSITIVO: se busca el patrón, no se confía en que la función
+   haga lo correcto. Un token que se cuele en un repo público queda en el historial de git
+   **para siempre**, y rotarlo después no lo borra.
+
+**Falta publicarlo** — no hay `gh` en este entorno. `plugin/` está generado y verificado
+limpio; los comandos, abajo.
+
+```bash
+cd plugin && git init -b main && git add -A && git commit -m "MaKo para Claude"
+gh repo create mbustos-digital/mako-plugin --public --source=. --push
+```
+
+Después de publicar, el paso 2 de `app/_components/TutorialAgente.tsx` pasa a ser
+`/plugin marketplace add mbustos-digital/mako-plugin` + `/plugin install mako@mako`, y la
+instrucción con `curl` queda como alternativa.
+
+### Un título decorativo y un título clicable no se descartan igual
+
+**Vive en:** `app/second-brain/Grafo.tsx` (`etiquetasVisibles`)
+
+El descarte por colisión comparaba etiqueta contra etiqueta: alcanzaba, porque el único
+daño de un solape era que no se leyera. Al volverlas **clicables** aparece un daño nuevo
+que ese test no cubre: una etiqueta que cae encima del punto de OTRO nodo le roba el click
+y abre un dato que nadie quiso abrir.
+
+Ahora se descarta también contra los círculos. Se sacrifica la etiqueta, no el nodo:
+perder un nombre es barato, un click que abre otra cosa no. Medido: 40 etiquetas, 0
+solapes contra puntos ajenos.
+
+**Y el `pointer-events` importa.** En un `<text>` de SVG, `visiblePainted` hace que solo
+cuenten los TRAZOS de las letras; `all` convierte el nombre en un rectángulo invisible que
+tapa a sus vecinos. La diferencia no se ve en pantalla — se ve en los clicks que caen mal.

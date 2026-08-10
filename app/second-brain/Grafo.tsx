@@ -450,6 +450,19 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
       const y0 = p.y + radioNodo(grados[n.id] ?? 0) + 6 / Math.sqrt(kPaso);
       const c = { x0: p.x - ancho / 2, x1: p.x + ancho / 2, y0: y0 - alto * 0.2, y1: y0 + alto * 1.55 };
       if (cajas.some((b) => c.x0 < b.x1 && c.x1 > b.x0 && c.y0 < b.y1 && c.y1 > b.y0)) continue;
+      // ⚠️ Y TAMPOCO PUEDE TAPAR EL PUNTO DE OTRO NODO. Esto no importaba mientras la
+      // etiqueta era decorativa; desde que es CLICABLE, una que cae encima del círculo
+      // del vecino le roba el click y abre un dato que nadie quiso abrir — que es
+      // exactamente lo que el dueño pidió evitar. Se descarta la etiqueta, no el nodo:
+      // perder un nombre es barato, un click que abre otra cosa no.
+      const tapaUnPunto = orden.some((otro) => {
+        if (otro.id === n.id) return false;
+        const q = posiciones[otro.id];
+        if (!q) return false;
+        const r = radioNodo(grados[otro.id] ?? 0);
+        return q.x + r > c.x0 && q.x - r < c.x1 && q.y + r > c.y0 && q.y - r < c.y1;
+      });
+      if (tapaUnPunto) continue;
       cajas.push(c);
       ok.add(n.id);
     }
@@ -1305,7 +1318,22 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
         .cbg .cbg-nodo:hover circle, .cbg .cbg-nodo:hover .cbg-et { transition-duration: .14s; }
 
         /* Sin halo, sin contorno, sin sombra, sin bold: Obsidian no tiene nada de eso. */
-        .cbg .cbg-et { font-size: calc(12px * var(--u, 1) / var(--k, 1)); fill: var(--cbg-texto); pointer-events: none; }
+        /* ── LA ETIQUETA TAMBIÉN SE TOCA ───────────────────────────────────────
+           Vive adentro del grupo del nodo, así que hereda sus handlers sin tocar el
+           JSX: alcanza con dejar de ignorar el puntero. El nombre es lo que uno LEE,
+           y obligar a apuntarle a un círculo de 8 px cuando hay un texto de 120 al
+           lado es pedir puntería sin motivo.
+           visiblePainted y no all: en un texto SVG eso significa
+           que solo cuentan los TRAZOS de las letras, no la caja que las contiene.
+           Con all, un nombre largo se convierte en un rectángulo invisible que
+           tapa a sus vecinos. La otra mitad del cuidado está arriba, en el descarte
+           por colisión: una etiqueta que caería sobre el punto de otro nodo no se
+           dibuja. */
+        .cbg .cbg-et {
+          font-size: calc(12px * var(--u, 1) / var(--k, 1));
+          fill: var(--cbg-texto); pointer-events: visiblePainted; cursor: pointer;
+        }
+        .cbg .cbg-nodo:hover .cbg-et { fill: var(--cbg-texto); text-decoration: underline; text-underline-offset: 3px; }
         /* ── LOS TÍTULOS DE JERARQUÍA SE VEN DISTINTO, SIEMPRE ──────────────────
            De lejos solo se leen las carpetas madre, así que se distinguen por
            eliminación; al acercarse aparecen 60 nombres más y esa distinción se pierde

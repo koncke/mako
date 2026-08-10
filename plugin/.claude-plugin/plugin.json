@@ -1,0 +1,10 @@
+{
+  "name": "mako",
+  "description": "El negocio del cliente —oferta, cliente ideal, avatares, razones de compra, voz de marca y plan— disponible en cualquier conversación.",
+  "version": "1.0.0",
+  "author": {
+    "name": "MaKo",
+    "url": "https://hola-mako.com"
+  },
+  "homepage": "https://hola-mako.com"
+}

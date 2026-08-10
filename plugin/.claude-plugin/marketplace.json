@@ -1,0 +1,19 @@
+{
+  "name": "mako",
+  "owner": {
+    "name": "MaKo",
+    "url": "https://hola-mako.com"
+  },
+  "plugins": [
+    {
+      "name": "mako",
+      "source": "./",
+      "description": "Claude trabaja con tu negocio adentro: tu oferta, tu cliente ideal, tus razones de compra y tu plan.",
+      "version": "1.0.0",
+      "author": {
+        "name": "MaKo",
+        "url": "https://hola-mako.com"
+      }
+    }
+  ]
+}

@@ -36,8 +36,10 @@ Reglas para cualquier agente que trabaje acá:
 - **Cada push cuesta ~US$0.09** en build. Agrupá commits y pusheá cuando haya algo que
   probar, no después de cada paso interno.
 
-⚠️ El hook hace DOS chequeos: los tipos y que las skills tengan el contrato del `detalle`
-al día (`node scripts/sync-contrato-detalle.mjs --check`). Si lo recreás, poné los dos.
+⚠️ El hook hace TRES chequeos: los tipos, que las skills tengan el contrato del `detalle`
+al día (`node scripts/sync-contrato-detalle.mjs --check`) y que `plugin/` —la copia
+PÚBLICA de la skill de Claude— esté generada de la versión viva
+(`node --import tsx scripts/generar-plugin.mjs --check`). Si lo recreás, poné los tres.
 
 ⚠️ **Lo que el hook NO hace es correr los tests** (`npm test`), y por eso hay que acordarse
 a mano. Un renombre pasa el typecheck perfecto y rompe una aserción sin que nada avise: al

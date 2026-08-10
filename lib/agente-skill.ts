@@ -36,10 +36,25 @@ export const AGENTE_SKILL_PATH = '~/.claude/skills/mako-plan/SKILL.md';
 /** El nombre con el que se baja el archivo. */
 export const AGENTE_SKILL_ARCHIVO = 'SKILL.md';
 
-/** El SKILL.md listo para pegar, con la URL y el token ya embebidos. */
-export function agenteSkillMarkdown(baseUrl: string, token: string): string {
+/** Dónde guarda el usuario su token cuando la skill es GENÉRICA. Es el mismo archivo
+ *  que ya lee el hook de telemetría (`agente-plugin.ts`), a propósito: un solo lugar
+ *  donde vive la credencial en la máquina del cliente. */
+export const AGENTE_TOKEN_ARCHIVO = '~/.mako-token';
+
+/**
+ * El SKILL.md. Con `token`, sale la versión PERSONAL —el token adentro— que se baja de
+ * /api/agente/skill. Con `null`, sale la versión GENÉRICA: idéntica salvo que en vez del
+ * token trae la instrucción de leerlo de `~/.mako-token`.
+ *
+ * POR QUÉ LAS DOS SALEN DE ACÁ Y NO SON DOS ARCHIVOS: la genérica es la que se publica
+ * en el repo público del plugin, y la personal la que sirve la app. Son el MISMO texto
+ * con una diferencia de cuatro líneas. Copiado, el día que se le agregue una capacidad a
+ * la skill se actualiza uno de los dos y el otro se queda viejo — que es exactamente el
+ * bug del contrato del `detalle` que este repo ya pagó. La del repo público se GENERA
+ * con `scripts/generar-plugin.mjs`, y el pre-push falla si quedó vieja.
+ */
+export function agenteSkillMarkdown(baseUrl: string, token: string | null): string {
   const base = baseUrl.replace(/\/+$/, '');
-  const tk = token || '<pegá-acá-tu-token-de-/integraciones>';
   return `---
 name: mako-plan
 description: >
@@ -87,8 +102,19 @@ solo para el punto 4, que es lo único que ESCRIBE.
 
 \`\`\`
 BASE=${base}
-TOKEN=${tk}
+${token ? `TOKEN=${token}` : 'TOKEN=<leelo de ' + AGENTE_TOKEN_ARCHIVO + '>'}
 \`\`\`
+${token ? '' : `
+### Tu token
+
+No viene adentro de este archivo a propósito: esta skill es pública y el token es tuyo.
+Vive en \`${AGENTE_TOKEN_ARCHIVO}\`, el mismo archivo que usa el reporte de sesiones.
+
+**La primera vez que necesites llamar a la API:** leé ese archivo. Si no existe o está
+vacío, pedíselo al usuario —lo saca de **Integraciones → Claude** en MaKo, con un
+click— y guardalo ahí con permisos \`600\`. No vuelvas a preguntarlo nunca más, y no lo
+escribas en ningún otro lado.
+`}
 
 ## LA REGLA (no negociable)
 
