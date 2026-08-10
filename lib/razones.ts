@@ -256,6 +256,10 @@ export async function siguientePasoDefault(): Promise<string> {
     conversaciones: 'abre una conversación de WhatsApp con el negocio',
     carrito: 'llega al checkout y puede comprar directo',
     webinar: 'llega a la página de registro del webinar',
+    // Sin fecha ni dirección: son datos del negocio y este texto viaja a un modelo,
+    // que los inventaría. El lugar y el día salen de `funnel_config.data.evento`,
+    // y solo por código (ver guionDe en lib/audios-paso.ts).
+    presencial: 'escribe por WhatsApp para ir a la sesión presencial',
   };
   const diag = await getDiagnosticoFase();
   return diag?.canal ? PASO_TXT[diag.canal] : 'no especificado — usa el CTA más genérico y verdadero posible (pedir más información), sin inventar activos';
