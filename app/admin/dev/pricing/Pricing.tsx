@@ -20,8 +20,8 @@
 // El análisis en prosa está en docs/costos-ia-y-planes.md.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Section, Eyebrow, Status, Select, Spinner, ErrorState, MONO } from '@/app/_ui';
-import { Barras, Cifra, Plegable, Titular, type Barra } from './Piezas';
+import { Section, Eyebrow, Modal, Status, Select, Spinner, ErrorState, MONO } from '@/app/_ui';
+import { Barras, Cifra, DosMonedas, Plegable, Titular, type Barra, type FilaDosMonedas } from './Piezas';
 import {
   ACCIONES, ACCIONES_NUEVAS, AUDIO, AUTOMATICOS, BENCHMARKS, BLOQUEANTES, COMPETENCIA, CUPO_MT,
   DATO_FALSO, ECONOMIA, EL_ACCIDENTE, EL_COSTO_ES_EL_VIDEO, ESCENARIOS, EXPOSICION, IMAGEN,
@@ -45,6 +45,29 @@ type Resumen = {
   mesesDisponibles: string[];
 };
 
+// =============================================================================
+// QUÉ PARTES SE PINTAN
+// =============================================================================
+// Las cinco partes siguen enteras en el archivo y siguen listadas en el índice de
+// arriba: lo único que cambia es cuáles se dibujan.
+//
+// Está porque el dueño pidió revisarlas de a una, textual: «oculta absolutamente
+// todo lo que esté incompleto, vamos por partes porque hay muchas cosas mal (…)
+// puedes ocultar el resto para que lo pueda leer bien sin tanto texto». Con las
+// cinco a la vista el feedback sale sobre el volumen —«es mucho texto»— y nunca
+// llega al contenido, que es lo que hace falta corregir.
+//
+// PARA VOLVER A MOSTRAR UNA PARTE se le agrega su número a este array. Para
+// mostrarlas todas otra vez: ['1', '2', '3', '4', '5'].
+const PARTES_VISIBLES = ['3'];
+
+const verParte = (n: string) => PARTES_VISIBLES.includes(n);
+
+/** La conclusión general se DERIVA de las cinco partes: con cuatro escondidas
+ *  afirmaría cinco cosas que la pantalla ya no muestra, y eso es mentir. Vuelve
+ *  sola cuando vuelven todas — no hay un segundo interruptor que se quede viejo. */
+const VER_CONCLUSION_GENERAL = INDICE.every((q) => verParte(q.n));
+
 // Coma decimal, punto de miles. La pantalla mezclaba «US$0,001» escrito a mano
 // con «US$0.30» salido de toFixed, y dos separadores distintos en la misma tabla
 // se leen como dos unidades distintas. Un solo formateador para todo.
@@ -61,9 +84,9 @@ const plata = (n: number) => (n > 0 && n < 1 ? usd(n) : usd(n, 0));
 /** Las horas de un canal. 26 h no lleva decimales; 0,05 h sí. */
 const horas = (h: number) => `${num(h, h > 0 && h < 1 ? 2 : 0)} h`;
 
-/** La grilla de la tabla de canales. Una sola constante para el encabezado y las
- *  filas: dos plantillas escritas dos veces se desalinean en cuanto una cambia. */
-const PLANTILLA_CANAL = 'minmax(0,1fr) 84px 84px minmax(0,1fr) 92px';
+/** Los conteos chicos van en letras: «los dos de abajo» se lee de una, «los 2 de
+ *  abajo» hace parar el ojo a contar. Los números que son DATOS siguen en cifras. */
+const EN_LETRAS = ['ningún', 'un', 'dos', 'tres', 'cuatro', 'cinco'];
 
 /** Qué se acaba primero y frena un canal. El nombre técnico no va a pantalla:
  *  va lo que significa. */
@@ -187,6 +210,13 @@ export function Pricing() {
   const [data, setData] = useState<Resumen | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
+  // El detalle de un canal y la nota del método, cada uno en su Modal. `Modal`
+  // MUESTRA el detalle de una cosa —no es `Confirm`, que pregunta, ni
+  // `WizardShell`, que conduce un flujo—, y esa es exactamente la pieza que hacía
+  // falta: cinco plegables con 300 caracteres de prosa cada uno son 1.800
+  // caracteres a un clic de distancia y todos en la misma pantalla.
+  const [canalAbierto, setCanalAbierto] = useState<string | null>(null);
+  const [verComoSeCuenta, setVerComoSeCuenta] = useState(false);
 
   const cargar = useCallback(async (p: string) => {
     setCargando(true); setError(null);
@@ -226,35 +256,43 @@ export function Pricing() {
     const x = (p / limitePlata) * 100;
     return `${num(x, x > 0 && x < 1 ? 2 : 0)}%`;
   };
-  const entranEnPlata = CAC_CANALES.filter((c) => c.plataPorCliente <= limitePlata).length;
 
-  // Énfasis, no arcoíris: se destacan los que SÍ se pueden comprar, y por eso el
-  // tono es `good`. El tono se elige por lo que significa la barra destacada, no
+  // UN SOLO ORDEN PARA LAS DOS MONEDAS, y es el de la plata. Antes había dos
+  // gráficos, cada uno ordenado por SU valor: un canal estaba en el renglón 1
+  // arriba y en el 4 abajo, así que la relación entre las dos monedas —lo único
+  // que esta sección tiene para decir— era justo lo que no se podía seguir con
+  // el ojo. Ordenados por plata, el corte de «entran / no entran» es una línea
+  // horizontal y no una cuenta que hay que hacer.
+  const canalesPorPlata = [...CAC_CANALES].sort((a, b) => a.plataPorCliente - b.plataPorCliente);
+  // El veredicto lo da `entraEn` y no una comparación escrita acá: esa función es
+  // la que garantiza que las dos monedas se chequeen POR SEPARADO y nunca se
+  // sumen. Reescribir la regla en la pantalla es cómo vuelve el error.
+  const entra = (c: CanalCac) => entraEn(c, faseActual, FEATURES_CONSTRUIDAS, limitePlata).entra;
+  const queEntran = canalesPorPlata.filter(entra);
+  const entranEnPlata = queEntran.length;
+  // ⚠️ El corte es legítimo SOLO si los que entran son los primeros de la lista.
+  // Hoy lo son porque en septiembre las horas nunca frenan a nadie, y eso lo
+  // sostiene un test: «el corte del gráfico parte la lista en dos de verdad».
+  const ultimoQueEntra = queEntran[queEntran.length - 1].id;
+
+  // El riel de las horas se llena con el canal más caro en horas. No hay un
+  // límite de horas por cliente contra el cual medirlas —las horas se miden
+  // contra el mes, no contra el cliente— así que el tope es el propio máximo.
+  const maxHoras = Math.max(...CAC_CANALES.map((c) => horasDe(c, FEATURES_CONSTRUIDAS)));
+
+  // Énfasis, no arcoíris: se destaca lo que SÍ se puede comprar, y por eso el
+  // acento es verde. El tono se elige por lo que significa la barra destacada, no
   // por el tema de la sección (AGENTS.md → «Un color de acento dice algo»).
-  const barrasPlata: Barra[] = [...CAC_CANALES]
-    .sort((a, b) => a.plataPorCliente - b.plataPorCliente)
-    .map((c) => ({
-      id: c.id,
-      label: c.nombre.split(' —')[0].split(' (')[0],
-      nota: `${pctDeLoQuePodesPagar(c.plataPorCliente)} de lo que podés pagar · ${c.escalable ? 'escala con plata' : 'con tope propio'}`,
-      valor: c.plataPorCliente,
-      texto: plata(c.plataPorCliente),
-      destacada: c.plataPorCliente <= limitePlata,
-    }));
-
-  // El mismo canal en la otra moneda. Sin destacada a propósito: acá no hay una
-  // que «gane», y lo único que el gráfico tiene que decir es que el orgánico
-  // está en otra escala. La nota de cada barra dice con qué feature baja.
-  const barrasHoras: Barra[] = [...CAC_CANALES]
-    .sort((a, b) => horasDe(a, FEATURES_CONSTRUIDAS) - horasDe(b, FEATURES_CONSTRUIDAS))
-    .map((c) => ({
-      id: c.id,
-      label: c.nombre.split(' —')[0].split(' (')[0],
-      nota: c.horas.loHabilita ? `con ${c.horas.loHabilita} baja a ${horas(c.horas.conMaKo)}` : '',
-      valor: horasDe(c, FEATURES_CONSTRUIDAS),
-      texto: horas(horasDe(c, FEATURES_CONSTRUIDAS)),
-      destacada: false,
-    }));
+  const filasMonedas: FilaDosMonedas[] = canalesPorPlata.map((c) => ({
+    id: c.id,
+    label: c.nombre,
+    // Lo que frena a un canal no es ninguna de las dos monedas, y sin embargo es
+    // lo que decide: los dos más baratos están frenados por la lista de contactos.
+    nota: `lo frena ${QUE_LO_FRENA[c.queLoLimita]}`,
+    izq: { valor: c.plataPorCliente, texto: plata(c.plataPorCliente), destacada: entra(c) },
+    der: { valor: horasDe(c, FEATURES_CONSTRUIDAS), texto: horas(horasDe(c, FEATURES_CONSTRUIDAS)) },
+    onVer: () => setCanalAbierto(c.id),
+  }));
 
   // Las llamadas de venta SERVIDAS contra las PEDIDAS, por escenario. Es la
   // forma de ver que el numerador no se mueve aunque el denominador explote.
@@ -349,17 +387,32 @@ export function Pricing() {
         <p style={{ fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.65, margin: 0 }}>
           Si MaKo le va a poner la IA a sus clientes en vez de que cada uno traiga su key,{' '}
           <strong>cada cosa que hace el producto pasa a costar plata de la agencia</strong>. Esta
-          pantalla contesta cuatro preguntas, en este orden:
+          pantalla contesta {INDICE.length} preguntas, en este orden:
         </p>
+        {/* El índice sigue listando las CINCO aunque se pinte una: es el mapa, y
+            un mapa al que le borran cuatro calles desorienta más que uno entero.
+            Lo que cambia es que dice en voz alta cuál se está revisando — sin eso,
+            las otras cuatro parecen rotas y no guardadas.
+
+            Y la que se revisa linkea; las otras NO: un ancla que no lleva a ningún
+            lado se siente como una pantalla rota, que es peor que la parte oculta. */}
         <ol style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.7, margin: '12px 0 0', paddingLeft: 20 }}>
           {INDICE.map((q) => (
-            <li key={q.n} style={{ marginBottom: 2 }}>
-              <a href={`#${anclaParte(q.n)}`} style={{ color: 'var(--ink)', fontWeight: 600, textDecoration: 'none', borderBottom: '1px solid var(--border-strong)' }}>{q.pregunta}</a>
+            <li key={q.n} style={{ marginBottom: 4, color: verParte(q.n) ? 'var(--muted)' : 'var(--faint)' }}>
+              {verParte(q.n) ? (
+                <a href={`#${anclaParte(q.n)}`} style={{ color: 'var(--ink)', fontWeight: 600, textDecoration: 'none', borderBottom: '1px solid var(--border-strong)' }}>{q.pregunta}</a>
+              ) : (
+                <span style={{ fontWeight: 600 }}>{q.pregunta}</span>
+              )}
+              {' '}
+              {verParte(q.n) ? <Status tono="good">la estás leyendo</Status> : <Status>en revisión</Status>}
               {' — '}{q.bajada}
             </li>
           ))}
         </ol>
         <Fuente>
+          Se lee <strong>una parte por vez</strong>, a pedido: las otras{' '}
+          {INDICE.length - PARTES_VISIBLES.length} están escritas y guardadas, no borradas.{' '}
           Todo lo <strong>medido</strong> sale de {miles(MEDICION.llamadas)} llamadas reales de{' '}
           <span style={{ fontFamily: MONO }}>anthropic_usage</span> ({MEDICION.dias} días,{' '}
           {MEDICION.workspaces} workspaces). Lo <strong>publicado</strong> es precio de lista con su
@@ -378,7 +431,13 @@ export function Pricing() {
           Cada punto es UN renglón fuerte + su detalle en gris, no un párrafo:
           leídos solo los renglones fuertes, el documento ya se entendió. Y cada
           uno linkea a la parte que lo sostiene, que es lo que lo hace auditable
-          en vez de una lista de afirmaciones. */}
+          en vez de una lista de afirmaciones.
+
+          ⚠️ SE ESCONDE CON LAS PARTES. Cada punto de acá resume una de las cinco y
+          linkea a ella. Con cuatro sin pintar, cuatro de los cinco puntos serían
+          afirmaciones sueltas con un link muerto: la lista pasaría de ser el mapa
+          del documento a ser un cartel de cosas que no se pueden verificar. */}
+      {VER_CONCLUSION_GENERAL && (
       <Section titulo="Lo que hay que saber" card>
         {CONCLUSION_GENERAL.map((p, i) => (
           <div key={p.titular} style={{
@@ -398,7 +457,9 @@ export function Pricing() {
           </div>
         ))}
       </Section>
+      )}
 
+      {verParte('1') && (<>
       <Parte n="1" />
 
       {/* ── GRÁFICO 2 ─────────────────────────────────────────────────────── */}
@@ -466,7 +527,9 @@ export function Pricing() {
           (margen del Pro {margenPro.toFixed(0)}%). Eso es lo que el re-ruteo viene a corregir.
         </Fuente>
       </Section>
+      </>)}
 
+      {verParte('2') && (<>
       <Parte n="2" />
 
       <Section titulo="La tarifa" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>1 MaKo Token = US$0,001 de precio de lista</span>} card>
@@ -571,7 +634,9 @@ export function Pricing() {
           </div>
         </div>
       </Section>
+      </>)}
 
+      {verParte('3') && (<>
       <Parte n="3" />
       {/* ── PARTE 3: EL CAC ────────────────────────────────────────────────── */}
       {/* La pregunta que el índice prometía y la pantalla no contestaba. Sale de
@@ -583,87 +648,154 @@ export function Pricing() {
           arriba de la tabla entera, y el dueño lo dijo así: «pusiste muucha data
           mucho texto todo junto». No sobraba análisis, sobraba análisis a la
           vista. Si algo no entra en dos frases, son dos secciones. */}
-      <Section titulo="Los dos canales que te cuestan tiempo son los más baratos en plata" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>por un cliente de US${PRO.precioUsd}/mes podés pagar hasta {usd(limitePlata)} · regla LTV:CAC 3:1</span>} card>
-        {/* La frase del Titular decía lo mismo que la conclusión de la parte,
-            palabra por palabra y sesenta píxeles más abajo. Los porcentajes se
-            siguen DERIVANDO de CAC_CANALES —esa es la parte que no se puede
-            perder—, pero lo que la frase agrega ahora es la otra moneda, que es
-            lo que viene abajo y la conclusión no cuenta. */}
+      {/* ⚠️ EL GRÁFICO NO VA PLEGADO. Estaba adentro del <Titular>, o sea detrás
+          de un clic que decía «Cómo sale este número», y por eso el dueño nunca
+          lo vio: la sección entera se leía como un párrafo. El gráfico ES la
+          respuesta, así que va a la vista y lo que queda a un clic es el detalle
+          de cada canal — que es al revés de como estaba. */}
+      <Section titulo="El más barato en plata es el que te come las horas" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>por un cliente de US${PRO.precioUsd}/mes podés pagar hasta {usd(limitePlata)} · regla LTV:CAC 3:1</span>} card>
         <Titular
           valor={`${entranEnPlata} de ${CAC_CANALES.length}`}
           unidad="canales entran, mirando solo la plata"
           tono="good"
-          frase={<>Los tres que entran cuestan {pctDeLoQuePodesPagar(canalCac('prospeccion').plataPorCliente)}, {pctDeLoQuePodesPagar(canalCac('organico').plataPorCliente)} y {pctDeLoQuePodesPagar(canalCac('referidos').plataPorCliente)} de esos {usd(limitePlata)}; los dos que no son los únicos que se compran con pauta —carrito {pctDeLoQuePodesPagar(canalCac('carrito').plataPorCliente)} y CTWA {pctDeLoQuePodesPagar(canalCac('ctwa').plataPorCliente)}—. Abajo, los mismos cinco en la otra moneda: ahí el orden se invierte, el más barato en plata es el más caro en horas, y lo que lo mueve es qué feature de MaKo esté construida.</>}
-          abrir="Los cinco canales, moneda por moneda, con el veredicto de cada uno"
-        >
-          {/* UN GRÁFICO POR MONEDA. El de antes era uno solo y graficaba la suma
-              de las dos, que es la cuenta que dio el veredicto al revés. */}
-          <div style={{ marginBottom: 4 }}><Eyebrow>Lo que cuesta en plata</Eyebrow></div>
-          <Barras tono="good" datos={barrasPlata} max={limitePlata} />
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', margin: '6px 0 22px' }}>
-            La escala termina en los {usd(limitePlata)} que podés pagar por un cliente. Las dos barras
-            que la pasan van cortadas a filo, con el número al lado.
-          </div>
+          frase={<>Y la plata es una sola de las dos monedas. La otra son tus horas, y no se suman:
+            hay un canal que no te cuesta un peso y te saca {horas(maxHoras)} por cada cliente.</>}
+        />
 
-          <div style={{ marginBottom: 4 }}><Eyebrow>Lo que cuesta en horas</Eyebrow></div>
-          <Barras datos={barrasHoras} />
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', margin: '6px 0 18px' }}>
-            Otra moneda y otra escala: el orgánico se come {horas(canalCac('organico').horas.aMano)} por
-            cliente y ninguno de los otros cuatro llega a la media hora. Estas horas no se convierten a
-            dólares —esa cuenta fue la que dio «solo entra referidos»—: se miden contra las{' '}
-            {miles(faseActual.pisoAdquisicion)} h que {faseActual.mes} tiene para conseguir clientes.
-          </div>
+        <div style={{ marginTop: 24 }}>
+          <DosMonedas
+            filas={filasMonedas}
+            izq={{
+              titulo: 'Lo que cuesta en plata',
+              escala: `el riel lleno son los ${usd(limitePlata)} que podés pagar por un cliente Pro`,
+              max: limitePlata,
+            }}
+            der={{
+              titulo: 'Lo que cuesta en horas',
+              escala: `el riel lleno son las ${horas(maxHoras)} del canal más caro en tiempo`,
+              max: maxHoras,
+            }}
+            corte={{
+              despuesDe: ultimoQueEntra,
+              texto: `Hasta acá entran: cuestan menos de lo que vale un cliente. Los ${EN_LETRAS[CAC_CANALES.length - entranEnPlata]} de abajo se pasan, y son justo los únicos que se compran con pauta.`,
+            }}
+          />
+        </div>
 
-          <Nota>
-            <strong>El CAC es por cliente PAGO</strong>, nunca por lead. La <strong>plata</strong> es lo
-            que sale del bolsillo —pauta, premios, IA— más el costo de vida de los Free que no pagan
-            ({usd(COSTO_FREE.totalVida)} cada uno). Las <strong>horas</strong> van aparte, en su propia
-            columna, y no se convierten a dólares. Un pago de CTWA arrastra 20 registros Free y 19 no
-            pagan nunca: esos {usd(19 * COSTO_FREE.totalVida, 0)} son el{' '}
-            {num((19 * COSTO_FREE.totalVida / canalCac('ctwa').plataPorCliente) * 100)}% de su plata.
-          </Nota>
-          {/* Las dos monedas en dos columnas, nunca en una. La columna «CAC» que
-              había acá era la suma, y las de «Medios» y «Free» eran sus dos
-              sumandos en plata: hoy van juntos en `plataPorCliente`. */}
-          <Tabla>
-            <Fila head plantilla={PLANTILLA_CANAL}
-              cols={['Canal', 'Plata', 'Horas', 'Qué lo frena', `En ${faseActual.mes}`]} />
-            {CAC_CANALES.map((c) => {
-              const v = entraEn(c, faseActual, FEATURES_CONSTRUIDAS, limitePlata);
-              return (
-                <Fila key={c.id} plantilla={PLANTILLA_CANAL}
-                  cols={[
-                    <div key="n">
-                      <div style={{ fontWeight: v.entra ? 600 : 400 }}>{c.nombre}</div>
-                      <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2, lineHeight: 1.45 }}>{c.cadena}</div>
-                    </div>,
-                    <Num key="p">{plata(c.plataPorCliente)}</Num>,
-                    <Num key="h">{horas(horasDe(c, FEATURES_CONSTRUIDAS))}</Num>,
-                    <span key="l" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{QUE_LO_FRENA[c.queLoLimita]}</span>,
-                    // ⚠️ `clientesMax` sale SOLO de las horas, así que solo se
-                    // pinta cuando lo que frena al canal son las horas. Para
-                    // referidos —que lo frena la lista— daría «hasta 6.560», un
-                    // número que el resto del documento desmiente en la parte 5.
-                    v.entra
-                      ? <Status key="v" tono="good">{c.queLoLimita === 'horas' ? `hasta ${miles(v.clientesMax)}` : 'entra'}</Status>
-                      : <Status key="v" tono="bad">no entra</Status>,
-                  ]} />
-              );
-            })}
-          </Tabla>
-          <div style={{ marginTop: 14 }}>
-            {CAC_CANALES.map((c) => (
-              <Plegable key={c.id} titulo={c.nombre}
-                resumen={`${plata(c.plataPorCliente)} y ${horas(horasDe(c, FEATURES_CONSTRUIDAS))} · ${c.escalable ? 'escala con plata' : 'tiene tope propio'}`}>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>{c.veredicto}</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 8 }}>
-                  confianza {c.confianza} · señal en {c.senalEn} · la plata contra el Pro anual bajo payback: {num((c.plataPorCliente / limitePlataAnual) * 100, 0)}%
-                </div>
-              </Plegable>
-            ))}
-          </div>
-        </Titular>
+        {/* El pie del gráfico dice lo único que no se puede dibujar: que los dos
+            rieles no son la misma unidad. Sin esta línea, dos barras llenas del
+            mismo largo invitan a sumarlas — que es el error que originó todo. */}
+        <div style={{ fontSize: 11.5, color: 'var(--faint)', margin: '14px 0 0', lineHeight: 1.6 }}>
+          Los dos rieles miden cosas distintas y no se suman. A la izquierda, plata que sale del
+          bolsillo; a la derecha, horas tuyas. Un riel lleno de un lado no vale lo mismo que uno
+          lleno del otro, y por eso cada uno tiene su propia escala.{' '}
+          <button type="button" className="mk-vermas" onClick={() => setVerComoSeCuenta(true)}>
+            cómo se cuenta cada moneda
+          </button>
+        </div>
       </Section>
+
+      {/* ── EL DETALLE DE UN CANAL, EN SU CAJA ────────────────────────────── */}
+      {/* Eran cinco <Plegable> con el veredicto adentro, uno abajo del otro: con
+          los cinco abiertos, 1.800 caracteres de prosa apilados en la misma
+          pantalla. Un Modal muestra UNO por vez, que es lo que se lee. */}
+      {canalAbierto && (() => {
+        const c = canalCac(canalAbierto);
+        const h = horasDe(c, FEATURES_CONSTRUIDAS);
+        const v = entraEn(c, faseActual, FEATURES_CONSTRUIDAS, limitePlata);
+        return (
+          <Modal
+            titulo={c.nombre}
+            encabezado={<Eyebrow>Canal de adquisición</Eyebrow>}
+            onCerrar={() => setCanalAbierto(null)}
+          >
+            <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{c.cadena}</div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 20, margin: '20px 0 4px' }}>
+              <Cifra
+                valor={plata(c.plataPorCliente)}
+                rotulo="de plata por cliente pago"
+                tono={c.plataPorCliente <= limitePlata ? 'good' : 'neutral'}
+                // «0% de lo que podés pagar» es cierto y no dice nada. Un canal
+                // que no gasta plata se cuenta en la otra moneda, y eso es lo que
+                // el detalle tiene que decir.
+                detalle={c.plataPorCliente === 0
+                  ? 'No sale un peso del bolsillo. Lo que cuesta está en la columna de al lado.'
+                  : c.plataPorCliente <= limitePlata
+                    ? `${pctDeLoQuePodesPagar(c.plataPorCliente)} de lo que podés pagar por un cliente Pro.`
+                    : `${pctDeLoQuePodesPagar(c.plataPorCliente)} de lo que podés pagar: se pasa por ${plata(c.plataPorCliente - limitePlata)}.`}
+              />
+              <Cifra
+                valor={horas(h)}
+                rotulo="de tus horas por cliente pago"
+                detalle={c.horas.loHabilita
+                  ? `Con «${c.horas.loHabilita}» construido bajan a ${horas(c.horas.conMaKo)}. Hoy no está.`
+                  : 'No hay ninguna feature de MaKo que las baje.'}
+              />
+            </div>
+
+            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.65, marginTop: 18 }}>{c.veredicto}</div>
+
+            <div style={{ marginTop: 18 }}>
+              {[
+                // El veredicto de la fase sale de `entraEn`, igual que el gráfico:
+                // el motivo se reescribe acá porque el que trae `porQueNo` viene
+                // con punto decimal y esta pantalla usa coma en todos lados.
+                [`En ${faseActual.mes}`, v.entra
+                  ? 'entra: cuesta menos de lo que vale un cliente, y las horas que pide caben en el mes'
+                  : `no entra: cuesta ${plata(c.plataPorCliente)} y podés pagar hasta ${usd(limitePlata)}`],
+                ['Qué lo frena primero', QUE_LO_FRENA[c.queLoLimita]],
+                ['Si le ponés más plata', c.escalable ? 'trae más clientes: escala' : 'no trae más: tiene tope propio'],
+                ['Cuándo da señal', c.senalEn],
+                ['Contra el Pro anual', c.plataPorCliente === 0
+                  ? 'no cambia nada: este canal no se paga con plata'
+                  : `su plata es el ${num((c.plataPorCliente / limitePlataAnual) * 100, 0)}% de lo que podrías pagar cobrando el año por adelantado`],
+                ['Cuánto le creemos', `confianza ${c.confianza} · el número es ${c.origen}`],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,150px) 1fr', gap: 14, alignItems: 'baseline', padding: '9px 0', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{k}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.55 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* ── LA NOTA DEL MÉTODO ───────────────────────────────────────────── */}
+      {/* Era un párrafo de 400 caracteres arriba de la tabla. Define las dos
+          monedas, así que no se puede borrar — pero tampoco tiene que estar
+          delante de quien ya entendió el gráfico. */}
+      {verComoSeCuenta && (
+        <Modal titulo="Cómo se cuenta cada moneda" encabezado={<Eyebrow>El método</Eyebrow>} onCerrar={() => setVerComoSeCuenta(false)}>
+          <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.7 }}>
+            <p style={{ margin: '0 0 14px' }}>
+              <strong>Todo es por cliente PAGO</strong>, nunca por lead. Un canal que trae mil
+              interesados y cobra a diez cuesta lo de los mil, repartido entre los diez.
+            </p>
+            <p style={{ margin: '0 0 14px' }}>
+              <strong>La plata</strong> es lo que sale del bolsillo —pauta, premios, IA— más el costo
+              de vida de los Free que no pagan ({usd(COSTO_FREE.totalVida)} cada uno). No es un
+              detalle: un pago de CTWA arrastra 20 registros Free y 19 no pagan nunca, así que esos{' '}
+              {usd(19 * COSTO_FREE.totalVida, 0)} son el{' '}
+              {num((19 * COSTO_FREE.totalVida / canalCac('ctwa').plataPorCliente) * 100)}% de lo que
+              cuesta ese canal.
+            </p>
+            <p style={{ margin: '0 0 14px' }}>
+              <strong>Las horas</strong> van aparte y no se convierten a dólares. Convertirlas fue el
+              error que dio «el único canal que entra es referidos», que es absurdo para alguien que
+              tiene tiempo y no tiene capital: las horas no se pagan con plata que no hay, ni la
+              plata se fabrica con horas.
+            </p>
+            <p style={{ margin: 0 }}>
+              Cada una se mide contra otra cosa. La plata, contra los {usd(limitePlata)} que vale un
+              cliente Pro. Las horas, contra las {miles(faseActual.pisoAdquisicion)} h que{' '}
+              {faseActual.mes} tiene reservadas para conseguir clientes — contra el mes, no contra
+              el cliente.
+            </p>
+          </div>
+        </Modal>
+      )}
 
       <Section titulo="Vender el anual en vez del mensual multiplica la caja por 62" card>
         <Titular
@@ -756,11 +888,14 @@ export function Pricing() {
               {UNIT.find((u) => u.plan === 'proAnual')!.reglaQueGobierna.replace('⚠️ ', '')}
             </div>
           </div>
-          <Nota>
+          {/* Era un <Nota> del mismo peso que el de arriba. Es arqueología: dice
+              por qué esta tabla existe, no cómo se decide con ella. Va en el
+              tratamiento de fuente, que es donde va lo que respalda sin decidir. */}
+          <Fuente>
             Antes de esto convivían <strong>seis</strong> números para lo mismo —US$104, US$53,
             US$49-97, US$55-70, US$194-381 y los ocho «con y sin ascenso»— y ninguno tenía
             derivación escrita.
-          </Nota>
+          </Fuente>
         </Titular>
       </Section>
 
@@ -782,12 +917,15 @@ export function Pricing() {
         </Titular>
       </Section>
 
+      {/* La frase decía «van acá y no en el respaldo»: el respaldo vive al final
+          de la parte 5, y con las partes de a una puede no estar en pantalla. Una
+          referencia a algo que no se ve es peor que no tenerla. */}
       <Section titulo="Nada de esto se va a poder verificar sin tres cosas en el registro" card>
         <Titular
           valor="3"
           unidad="cosas, y son gate"
           tono="warn"
-          frase={<>Sin ellas ningún número de esta parte se puede confirmar ni desmentir nunca con datos propios. Van acá y no en el respaldo por eso.</>}
+          frase={<>Sin ellas ningún número de esta parte se puede confirmar ni desmentir nunca con datos propios. Por eso están a la vista y no plegadas con el resto del respaldo.</>}
           abrir="Cuáles son, con el archivo donde vive cada una"
         >
           <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7 }}>
@@ -795,7 +933,9 @@ export function Pricing() {
           </ol>
         </Titular>
       </Section>
+      </>)}
 
+      {verParte('4') && (<>
       <Parte n="4" />
 
       {/* ── GRÁFICO 1 ─────────────────────────────────────────────────────── */}
@@ -871,8 +1011,10 @@ export function Pricing() {
           </ul>
         </div>
       </Section>
+      </>)}
 
       {/* ── TODO EL RESPALDO, PLEGADO ─────────────────────────────────────── */}
+      {verParte('5') && (<>
       <Parte n="5" />
 
       {/* ── PARTE 5: EL PLAN ───────────────────────────────────────────────── */}
@@ -1390,6 +1532,7 @@ export function Pricing() {
         </Plegable>
 
       </Section>
+      </>)}
     </>
   );
 }

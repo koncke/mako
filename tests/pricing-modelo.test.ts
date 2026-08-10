@@ -132,6 +132,54 @@ test('el veredicto nunca compara horas contra el límite de plata', () => {
 });
 
 // =============================================================================
+// LO QUE EL GRÁFICO DE LAS DOS MONEDAS AFIRMA CON SU FORMA
+// =============================================================================
+// El gráfico ordena los cinco canales por plata y traza UNA línea horizontal:
+// «hasta acá entran, de acá para abajo no». Esa línea es una afirmación, y es
+// verdad solamente si los que entran son los PRIMEROS de la lista ordenada.
+//
+// Hoy lo son, pero por una razón que se puede caer sola: en septiembre las horas
+// nunca frenan a nadie —hay 328 h de adquisición y el canal más caro pide 26 por
+// cliente—, así que `entraEn` termina decidiendo solo por plata. El día que un
+// canal quede afuera POR HORAS quedaría en el medio de la lista, del lado
+// equivocado de la línea, y el gráfico diría que entra alguien que no entra.
+//
+// Nada en la pantalla avisaría: la línea se dibuja igual. El test sí.
+// =============================================================================
+
+import { FEATURES_CONSTRUIDAS } from '../app/admin/dev/pricing/modelo';
+
+test('el corte del gráfico parte la lista en dos de verdad', () => {
+  // Las MISMAS tres entradas que usa Pricing.tsx para pintar el gráfico.
+  const limitePlata = UNIT.find((u) => u.plan === 'pro')!.gobierna;
+  const septiembre = fase('adquisicion');
+
+  const porPlata = [...CAC_CANALES].sort((a, b) => a.plataPorCliente - b.plataPorCliente);
+  const veredictos = porPlata.map((c) => entraEn(c, septiembre, FEATURES_CONSTRUIDAS, limitePlata).entra);
+
+  const primeroQueNoEntra = veredictos.indexOf(false);
+  if (primeroQueNoEntra === -1) return; // entran todos: no hay línea que trazar.
+
+  const colados = porPlata
+    .filter((_, i) => i > primeroQueNoEntra && veredictos[i])
+    .map((c) => c.id);
+  assert.deepEqual(colados, [],
+    `ordenados por plata, ${colados.join(' y ')} entran pero quedan DEBAJO de «${porPlata[primeroQueNoEntra].id}», que no entra: la línea del gráfico los deja del lado de los que no entran`);
+});
+
+test('el canal que se lleva las horas es el que no cuesta plata', () => {
+  // El Titular dice, textual, que el más caro en horas «no te cuesta un peso».
+  // Es prosa derivada de dos campos distintos: si mañana el que se lleva las
+  // horas pasa a costar pauta, la frase queda mintiendo y nadie se entera.
+  const horasDeCanal = (c: (typeof CAC_CANALES)[number]) => horasDe(c, FEATURES_CONSTRUIDAS);
+  const maxHoras = Math.max(...CAC_CANALES.map(horasDeCanal));
+  const masCaro = CAC_CANALES.find((c) => horasDeCanal(c) === maxHoras)!;
+
+  assert.equal(masCaro.plataPorCliente, 0,
+    `«${masCaro.id}» es el más caro en horas (${maxHoras}) y ahora también cuesta US$${masCaro.plataPorCliente}: el Titular de la parte 3 dice que no cuesta un peso`);
+});
+
+// =============================================================================
 // La conclusión con la que abre cada parte
 // =============================================================================
 // El título dice de qué habla; la conclusión dice qué concluye. La tercera guarda

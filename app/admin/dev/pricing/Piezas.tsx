@@ -20,7 +20,7 @@
 //     portador del dato.
 
 import { useId, type ReactNode } from 'react';
-import { MONO } from '@/app/_ui';
+import { Eyebrow, MONO } from '@/app/_ui';
 
 export type Barra = {
   id: string;
@@ -230,6 +230,187 @@ export function Titular({ valor, unidad, frase, tono = 'neutral', abrir = 'Cómo
           <Plegable titulo={abrir} resumen="">{children}</Plegable>
         </div>
       )}
+    </div>
+  );
+}
+
+// =============================================================================
+// DOS MONEDAS QUE NO SE SUMAN
+// =============================================================================
+// Un renglón por ítem, dos carriles con su propia escala, y una raya en el medio
+// que dice que son dos mundos.
+//
+// POR QUÉ ESTA FORMA, Y NO LAS OTRAS DOS QUE PARECÍAN OBVIAS:
+//
+//  · NO es un gráfico de dispersión —la forma canónica para «dos medidas por
+//    ítem»— porque los datos no lo aguantan: las horas van de 0 a 26 y CUATRO de
+//    los cinco canales están abajo de 0,31. En lineal, cuatro puntos se apilan
+//    sobre el eje y solo se distingue el quinto. En logarítmico se leería, pero
+//    una escala log que el lector no espera es un antipatrón del catálogo: el ojo
+//    lee áreas y concluye proporciones falsas.
+//
+//  · NO son dos gráficos apilados, que es lo que había. Cada uno venía ordenado
+//    por SU propio valor, así que un canal estaba en el renglón 1 arriba y en el
+//    4 abajo, y no se lo podía seguir con el ojo. La RELACIÓN entre las dos
+//    monedas —que es todo lo que la sección tiene para decir— era justo lo único
+//    que no se veía.
+//
+//  · Y NO es un doble eje (dos escalas Y sobre un mismo plano), que es el
+//    antipatrón #1 del método: la alineación entre las dos escalas es arbitraria
+//    y el gráfico inventa una correlación que el dato no tiene. Acá no puede
+//    pasar: cada carril tiene su propia caja, su propio tope y su unidad escrita
+//    en cada valor.
+//
+// Lo que queda es «small multiples con eje de categorías compartido», que es la
+// respuesta del método para dos medidas de escalas distintas. El orden de los
+// renglones es UNO y lo fija quien llama: ese es el eje compartido.
+
+export type CarrilMoneda = {
+  /** Qué mide este carril. */
+  titulo: string;
+  /** Qué significa el riel LLENO. Es lo que impide leer los dos carriles como si
+   *  compartieran escala, y por eso es obligatorio. */
+  escala: string;
+  max: number;
+};
+
+export type FilaDosMonedas = {
+  id: string;
+  label: string;
+  /** Una línea corta debajo del rótulo. Acá va lo que FRENA al ítem, que no es
+   *  ninguna de las dos monedas y sin embargo es lo que decide. */
+  nota?: string;
+  izq: { valor: number; texto: string; destacada?: boolean };
+  der: { valor: number; texto: string; destacada?: boolean };
+  /** Abre el detalle. Sin esto la fila no tiene botón. */
+  onVer?: () => void;
+};
+
+/** Las seis columnas. Una sola constante para el encabezado, las filas y el
+ *  corte: tres plantillas escritas tres veces se desalinean en cuanto una cambia. */
+const COLS_MONEDA = 'minmax(0,200px) minmax(78px,1fr) 60px 17px minmax(78px,1fr) 54px';
+
+/** Un riel. El fondo da la escala sin necesidad de grilla. */
+function Riel({ valor, max, destacada, alto }: { valor: number; max: number; destacada?: boolean; alto: number }) {
+  const crudo = max > 0 ? (valor / max) * 100 : 0;
+  // Se recorta al 100% y se avisa: `width: 166%` no desborda la barra, desborda
+  // la PÁGINA (AGENTS.md → «Una barra de gráfico se recorta al 100%, siempre»).
+  const cortada = crudo > 100;
+  // Un valor 0 no dibuja NADA. El piso de 1,2% existe para que 0,03 se vea, pero
+  // aplicárselo también al cero pintaría una marca donde no hay dato — y el
+  // carrito cuesta cero horas de verdad.
+  const pct = valor <= 0 ? 0 : Math.min(100, Math.max(1.2, crudo));
+  return (
+    <div style={{ position: 'relative', height: alto, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
+      {pct > 0 && (
+        <div style={{
+          position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: `${pct}%`,
+          // El acento es para lo que el gráfico DESTACA; el resto queda recesivo.
+          // El gris es `--faint` y no `--border-strong`: medido con el validador
+          // del método, aquel da 1,23:1 contra el carril —o sea, invisible— y
+          // este 2,46:1. Los dos obligan a que el valor esté en texto, y está.
+          background: destacada ? 'var(--good)' : 'var(--faint)',
+          // Punta redondeada SOLO si la barra termina acá. Cortada y redondeada
+          // miente: parece que ese es su valor.
+          borderRadius: cortada ? '3px 0 0 3px' : '3px 4px 4px 3px',
+        }} />
+      )}
+      {cortada && (
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute', insetInlineEnd: 4, top: '50%', transform: 'translateY(-50%)',
+            fontFamily: MONO, fontSize: 11, color: 'var(--surface)', lineHeight: 1,
+          }}
+          title="se sale de la escala — el valor está al lado"
+        >
+          »
+        </span>
+      )}
+    </div>
+  );
+}
+
+const Valor = ({ children, destacada }: { children: ReactNode; destacada?: boolean }) => (
+  <div style={{
+    fontFamily: MONO, fontSize: 12, fontVariantNumeric: 'tabular-nums', textAlign: 'right',
+    color: destacada ? 'var(--ink)' : 'var(--muted)',
+  }}>
+    {children}
+  </div>
+);
+
+/** La raya vertical del medio. No es un eje: es la frontera entre las dos
+ *  monedas, y está para que no se lean como una sola barra partida. */
+const Frontera = () => (
+  <div aria-hidden style={{ alignSelf: 'stretch', width: 1, justifySelf: 'center', background: 'var(--border)' }} />
+);
+
+export function DosMonedas({ filas, izq, der, corte, alto = 22, verEtiqueta = 'ver el detalle' }: {
+  filas: FilaDosMonedas[];
+  izq: CarrilMoneda;
+  der: CarrilMoneda;
+  /** La línea que parte la lista en dos. `despuesDe` es el id del último ítem que
+   *  queda ARRIBA. Es lo que convierte «entran 3 de 5» en algo que se ve y no que
+   *  se cuenta. */
+  corte?: { despuesDe: string; texto: string };
+  alto?: number;
+  verEtiqueta?: string;
+}) {
+  return (
+    <div
+      role="img"
+      aria-label={`${izq.titulo} y ${der.titulo}, por canal. ${filas.map((f) => `${f.label}: ${f.izq.texto} y ${f.der.texto}`).join('. ')}.${corte ? ` ${corte.texto}` : ''}`}
+    >
+      {/* El encabezado: cada carril dice qué mide y qué significa su riel lleno. */}
+      <div style={{ display: 'grid', gridTemplateColumns: COLS_MONEDA, gap: 10, alignItems: 'end', paddingBottom: 9 }}>
+        <div style={{ gridColumn: '2 / 4', minWidth: 0 }}>
+          <Eyebrow>{izq.titulo}</Eyebrow>
+          <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 3, lineHeight: 1.4 }}>{izq.escala}</div>
+        </div>
+        <div style={{ gridColumn: '5 / 7', minWidth: 0 }}>
+          <Eyebrow>{der.titulo}</Eyebrow>
+          <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 3, lineHeight: 1.4 }}>{der.escala}</div>
+        </div>
+      </div>
+
+      {filas.map((f) => (
+        <div key={f.id}>
+          {/* El padding vive en las CELDAS y no en la fila, para que los tramos de
+              la frontera se toquen entre renglones. Una raya cortada a puntos se
+              lee como otra cosa. */}
+          <div style={{ display: 'grid', gridTemplateColumns: COLS_MONEDA, gap: 10, alignItems: 'center', borderTop: '1px solid var(--border)' }}>
+            <div style={{ minWidth: 0, padding: '8px 0' }}>
+              <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.3 }}>{f.label}</div>
+              {f.nota && <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2, lineHeight: 1.4 }}>{f.nota}</div>}
+              {/* Cinco veces el mismo link en negrita subrayada es cromo, no
+                  información: se baja el peso y el cuerpo, y queda la afordancia
+                  (el subrayado y el :hover de .mk-vermas) sin competir con el dato. */}
+              {f.onVer && (
+                <button
+                  type="button" className="mk-vermas" onClick={f.onVer}
+                  aria-label={`${f.label} — ${verEtiqueta}`}
+                  style={{ fontSize: 10.5, fontWeight: 400, padding: '3px 0 0' }}
+                >
+                  {verEtiqueta}
+                </button>
+              )}
+            </div>
+            <Riel valor={f.izq.valor} max={izq.max} destacada={f.izq.destacada} alto={alto} />
+            <Valor destacada={f.izq.destacada}>{f.izq.texto}</Valor>
+            <Frontera />
+            <Riel valor={f.der.valor} max={der.max} destacada={f.der.destacada} alto={alto} />
+            <Valor destacada={f.der.destacada}>{f.der.texto}</Valor>
+          </div>
+          {corte?.despuesDe === f.id && (
+            // La única línea gruesa del gráfico, y es la que decide: arriba entran,
+            // abajo no. No es una grilla —esas van en hairline— es un umbral.
+            <div style={{ borderTop: '2px solid var(--ink)', padding: '9px 0 2px', fontSize: 11.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.5 }}>
+              {corte.texto}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

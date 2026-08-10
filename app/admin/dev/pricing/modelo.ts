@@ -722,7 +722,10 @@ export const INDICE: Pregunta[] = [
   // conteo, y lo cuida el test «la conclusión de la parte 3 no puede contradecir
   // a CAC_CANALES»: si mañana un canal cambia de lado, falla acá.
   { n: '3', pregunta: '¿Cuánto cuesta conseguir un cliente?', bajada: 'El costo de cada canal en las dos monedas que tenés: plata y horas.',
-    conclusion: 'Contra los US$105,84 que vale un cliente Pro entran tres de los cinco canales: prospección cuesta el 0,03%, el orgánico 0% y los referidos el 41%. Los dos que quedan afuera son los que se compran con pauta —el carrito 129% y CTWA 166%—, y los dos más baratos en plata son justo los que se pagan con tus horas: no están descartados, están en la otra moneda.' },
+    // Se acortó a la mitad: el gráfico de la sección ya pinta canal por canal los
+    // cinco porcentajes que esta frase enumeraba, así que repetirlos acá era
+    // obligar a leer dos veces el mismo dato antes de llegar al dibujo.
+    conclusion: 'Contra los US$105,84 que vale un cliente Pro entran tres de los cinco canales. Los dos que no entran son los únicos que se compran con pauta. Y los más baratos no cuestan plata: cuestan tus horas, que son la otra moneda y no se suman con la primera.' },
   { n: '4', pregunta: '¿Cómo se empaqueta?', bajada: 'Los cuatro planes, qué entra en cada uno, y qué falta para poder cobrarlos.',
     conclusion: 'Vender el anual en vez del mensual multiplica la caja por 62, porque cobrás el año entero el día 0. Es la decisión más grande del documento, y el límite del descuento está en 19,5%: pasado eso, la pauta deja de cerrar.' },
   { n: '5', pregunta: '¿Y el plan? ¿Cuánto da?', bajada: 'El mes 1 real —30 usuarios, US$1.000 de pauta, tus 1.000 contactos—, la corrida de 24 meses, el programa de US$4.000 y la oferta anual.',
