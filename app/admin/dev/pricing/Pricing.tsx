@@ -180,15 +180,20 @@ export function Pricing() {
   // recesivo aunque sea el más grande — que la barra más larga sea gris es
   // justamente lo que dice «esta no la podés comprar».
   const techoPro = UNIT.find((u) => u.plan === 'pro')!.gobierna;
+  const techoProAnual = UNIT.find((u) => u.plan === 'proAnual')!.cacMaxPayback;
+  // ⚠️ El gráfico compara PLATA contra PLATA. Antes graficaba `cacUsd`, que era
+  // la suma de la plata y de las horas del dueño valuadas a US$100: una barra
+  // que mezcla dos monedas no se puede comparar contra un techo que está en una
+  // sola. Las horas del canal van aparte, en la tabla.
   const barrasCac: Barra[] = [...CAC_CANALES]
-    .sort((a, b) => a.cacUsd - b.cacUsd)
+    .sort((a, b) => a.plataPorCliente - b.plataPorCliente)
     .map((c) => ({
       id: c.id,
       label: c.nombre.split(' —')[0].split(' (')[0],
-      nota: `${num(c.vsProMensual * 100, 0)}% del techo · ${c.escalable ? 'escala' : 'con tope propio'}`,
-      valor: c.cacUsd,
-      texto: usd(c.cacUsd, 0),
-      destacada: c.vsProMensual <= 1,
+      nota: `${num((c.plataPorCliente / techoPro) * 100, 0)}% del techo · ${c.escalable ? 'escala' : 'con tope propio'}`,
+      valor: c.plataPorCliente,
+      texto: usd(c.plataPorCliente, 0),
+      destacada: c.plataPorCliente <= techoPro,
     }));
 
   // Las llamadas de venta SERVIDAS contra las PEDIDAS, por escenario. Es la
@@ -543,7 +548,7 @@ export function Pricing() {
           vista. Si algo no entra en dos frases, son dos secciones. */}
       <Section titulo="Solo un canal entra en el techo del Pro" nota={<span style={{ fontSize: 12, color: 'var(--faint)' }}>techo {usd(techoPro)} · regla LTV:CAC 3:1</span>} card>
         <Titular
-          valor={usd(CAC_CANALES.find((c) => c.id === 'referidos')!.cacUsd, 0)}
+          valor={usd(CAC_CANALES.find((c) => c.id === 'referidos')!.plataPorCliente, 0)}
           unidad="cuesta un cliente por referidos"
           tono="good"
           frase={<>Es el 46% del techo. Los otros cuatro canales lo pasan: carrito 129%, CTWA 190%, prospección 974% y orgánico 1.690%.</>}
@@ -558,31 +563,32 @@ export function Pricing() {
             Free que no pagan ({usd(COSTO_FREE.totalVida)} de vida cada uno) + las horas del dueño. Un
             pago de CTWA arrastra 20 registros Free y 19 no pagan nunca — eso solo es el 37,8% de su CAC.
           </Nota>
+          {/* Las dos monedas en dos columnas, nunca en una. La columna «CAC» que
+              había acá era la suma, y las de «Medios» y «Free» eran sus dos
+              sumandos en plata: hoy van juntos en `plataPorCliente`. */}
           <Tabla>
-            <Fila head plantilla="minmax(0,1fr) 70px 70px 70px 76px 70px"
-              cols={['Canal', 'Medios', 'Free', 'Horas', 'CAC', '% techo']} />
+            <Fila head plantilla="minmax(0,1fr) 84px 84px 76px"
+              cols={['Canal', 'Plata', 'Horas', '% techo']} />
             {CAC_CANALES.map((c) => (
-              <Fila key={c.id} plantilla="minmax(0,1fr) 70px 70px 70px 76px 70px"
+              <Fila key={c.id} plantilla="minmax(0,1fr) 84px 84px 76px"
                 cols={[
                   <div key="n">
-                    <div style={{ fontWeight: c.vsProMensual <= 1 ? 600 : 400 }}>{c.nombre}</div>
+                    <div style={{ fontWeight: c.plataPorCliente <= techoPro ? 600 : 400 }}>{c.nombre}</div>
                     <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2, lineHeight: 1.45 }}>{c.cadena}</div>
                   </div>,
-                  <Num key="m">{usd(c.medios, 0)}</Num>,
-                  <Num key="f">{c.costoFree ? usd(c.costoFree, 0) : '—'}</Num>,
-                  <Num key="h">{c.horasDueno ? usd(c.horasDueno, 0) : '—'}</Num>,
-                  <Num key="c">{usd(c.cacUsd, 0)}</Num>,
-                  <Status key="v" tono={c.vsProMensual <= 1 ? 'good' : 'bad'}>{num(c.vsProMensual * 100, 0)}%</Status>,
+                  <Num key="p">{c.plataPorCliente ? usd(c.plataPorCliente, 0) : '—'}</Num>,
+                  <Num key="h">{c.horas.aMano ? `${num(c.horas.aMano)} h` : '—'}</Num>,
+                  <Status key="v" tono={c.plataPorCliente <= techoPro ? 'good' : 'bad'}>{num((c.plataPorCliente / techoPro) * 100, 0)}%</Status>,
                 ]} />
             ))}
           </Tabla>
           <div style={{ marginTop: 14 }}>
             {CAC_CANALES.map((c) => (
               <Plegable key={c.id} titulo={c.nombre}
-                resumen={`${usd(c.cacUsd, 0)} · ${c.escalable ? 'escala con plata' : 'tiene techo propio'}`}>
+                resumen={`${usd(c.plataPorCliente, 0)} y ${num(c.horas.aMano)} h · ${c.escalable ? 'escala con plata' : 'tiene techo propio'}`}>
                 <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.65 }}>{c.veredicto}</div>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 8 }}>
-                  confianza {c.confianza} · señal en {c.senalEn} · contra el Pro anual bajo payback: {num(c.vsProAnualPayback * 100, 0)}%
+                  confianza {c.confianza} · señal en {c.senalEn} · la plata contra el Pro anual bajo payback: {num((c.plataPorCliente / techoProAnual) * 100, 0)}%
                 </div>
               </Plegable>
             ))}

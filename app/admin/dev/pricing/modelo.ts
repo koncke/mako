@@ -932,76 +932,100 @@ export const TECHO_MEZCLADO = {
   origen: 'supuesto' as Origen,
 };
 
-// ── EL CAC DE LOS CINCO CANALES ─────────────────────────────────────────────
-// ⚠️ Estos CAC son ECONÓMICOS COMPLETOS: medios + el costo de vida de los Free
-// que NO pagan + las horas del dueño valuadas. La proyección de abajo los
-// descompone en tres columnas separadas (gastoCac / costoIa+otros / horasDueno)
-// justamente para no contar dos veces. Si se compara `cacUsd` de acá contra la
-// columna `gastoCac` de allá, se está comparando dos cosas distintas.
+// ── EL CAC DE LOS CINCO CANALES, EN DOS MONEDAS ─────────────────────────────
+// ⚠️ Un canal cuesta PLATA y cuesta HORAS, y las dos NUNCA se suman. La versión
+// anterior de esta tabla las sumaba en un solo `cacUsd`, valuando la hora del
+// dueño a US$100, y de ahí salía «el único canal que entra es referidos» — que
+// es absurdo para alguien que tiene tiempo y no tiene capital: las horas no se
+// pagan con plata que no hay, ni la plata se fabrica con horas.
 //
-// La alternativa equivalente —y hay que elegir UNA— es dejar el Free en la P&L
-// y BAJAR el techo antes de comparar: el presupuesto de MEDIOS del Pro sería
-// US$105,84 − US$76 (Free) − US$25 (horas) = US$4,84. Da el mismo veredicto.
+// La plata sigue siendo ECONÓMICA COMPLETA dentro de su propia moneda: lo que
+// sale del bolsillo (pauta, premios, IA) MÁS el costo de vida de los Free que
+// no pagan. La proyección de abajo descompone eso en columnas separadas
+// (gastoCac / costoIa+otros / horasDueno) justamente para no contar dos veces:
+// comparar `plataPorCliente` de acá contra `gastoCac` de allá es comparar dos
+// cosas distintas.
+
+/**
+ * Las horas que cuesta un cliente por este canal. NO se convierten a dólares:
+ * las horas y la plata no son intercambiables, y menos para alguien que tiene
+ * tiempo y no tiene capital. Sumarlas fue el error que dio «el único canal que
+ * entra es referidos», que es absurdo.
+ */
+export type HorasCanal = {
+  aMano: number;
+  /** Con la feature de MaKo construida. Si no está, rige `aMano`. */
+  conMaKo: number;
+  /** Qué feature produce el salto. `null` si no hay ninguna. */
+  loHabilita: string | null;
+};
 
 export type CanalCac = {
-  id: string; nombre: string; cadena: string;
-  medios: number; costoFree: number; horasDueno: number; cacUsd: number;
-  banda: readonly [number, number, number];
-  escalable: boolean; senalEn: string; confianza: 'alta' | 'media' | 'baja';
-  vsProMensual: number; vsProAnualPayback: number; veredicto: string;
+  id: string;
+  nombre: string;
+  cadena: string;
+  /** Solo lo que sale del bolsillo: pauta, premios, IA. NUNCA horas. */
+  plataPorCliente: number;
+  horas: HorasCanal;
+  /** Qué se acaba primero y frena el canal. */
+  queLoLimita: 'presupuesto' | 'horas' | 'lista' | 'tiempo-hasta-señal';
+  escalable: boolean;
+  senalEn: string;
+  confianza: 'alta' | 'media' | 'baja';
+  veredicto: string;
+  origen: Origen;
 };
 
 export const CAC_CANALES: CanalCac[] = [
-  {
-    id: 'referidos',
-    nombre: 'Sistema de referidos',
-    cadena: 'premio + [registros_que_no_pagan × costoFreeVida] + [horas × valorHora]. Con el premio pagado SOLO cuando el referido PAGA, es exactamente 1 premio por cliente. referidos_por_pago = 1/(0,50 × 0,10) = 20 → registros 10, de los cuales 9 no pagan.',
-    medios: 7.55, costoFree: 36.00, horasDueno: 5.00, cacUsd: 48.56,
-    banda: [24.85, 48.56, 118.85],
-    escalable: false, senalEn: 'meses — con 3 clientes la base produce ~0 sin importar el diseño', confianza: 'media',
-    vsProMensual: 0.46, vsProAnualPayback: 0.13,
-    veredicto: 'ENTRA, y es el único que entra contra el Pro MENSUAL. El premio (15.000 MT = US$7,55 de costo real) es el único componente MEDIDO de los cinco canales. Con la segunda vuelta de referidos (Gershon & Jiang, JMR 62(1) 2024, experimento de campo con >10M de referidos: ignorarla subvalúa un referido 20-36%) el CAC baja a US$36,42. El premio va al que RECOMIENDA, no al referido (Ryu & Feick, JM 71(1) 2007: vínculos débiles Y MARCAS DÉBILES).',
-  },
-  {
-    id: 'carrito',
-    nombre: 'Campaña de ventas a la landing (compra directa)',
-    cadena: 'clics_por_pago × CPC + Free_derramados × costoFreeVida. clics = 1/(0,0115 × 0,70) = 124,22. Sin horas del dueño: es self-serve. ⚠️ El eslabón que más manda no es el copy, es la APROBACIÓN DEL PAGO.',
-    medios: 124.22, costoFree: 12.00, horasDueno: 0, cacUsd: 136.22,
-    banda: [76.59, 136.22, 236.42],
-    escalable: true, senalEn: 'días — DESPUÉS de construirlo', confianza: 'media',
-    vsProMensual: 1.29, vsProAnualPayback: 0.37,
-    veredicto: 'NO entra contra el Pro mensual (129%). Entra contra el Pro ANUAL bajo las DOS reglas (37% de payback, 88% de 3:1) y contra el Growth bajo payback (86%). Pasar la aprobación de 70% a 88% con rieles locales baja el CAC 20% sin tocar el anuncio. ⚠️ Hoy el canal está bloqueado por código, no por precio: no existen app/registro, app/checkout ni app/precios.',
-  },
-  {
-    id: 'ctwa',
-    nombre: 'Campañas de mensajes a WhatsApp (CTWA)',
-    cadena: 'conv_por_pago × costo_conversación + registros_que_no_pagan × costoFreeVida + horas × valorHora. conv = 1/(0,30 × 0,05) = 66,67 → 20 registros, 19 no pagan. La mensajería NO entra: US$0 dentro de la ventana FEP de 72 h (documentación oficial de Meta, verificada 09/08/2026).',
-    medios: 100.00, costoFree: 76.00, horasDueno: 25.00, cacUsd: 201.00,
-    banda: [87.29, 201.00, 444.27],
-    escalable: true, senalEn: 'días — es el único que da señal antes de que la decisión esté tomada', confianza: 'baja',
-    vsProMensual: 1.90, vsProAnualPayback: 0.55,
-    veredicto: 'NO entra contra el Pro mensual (190%) — y el 37,8% de su CAC es el costo del Free, que la versión anterior de esta tabla no cargaba. Entra contra el Pro ANUAL solo bajo payback (55%); bajo 3:1 sigue 29% arriba. Las dos palancas que lo cierran están identificadas: costo por conversación de US$1,50 al US$1,10 que deriva el research (CPC MX US$0,45 ÷ 40% clic→conversación) y free→pago de 5% a 8%. Con las dos, CAC US$87,29 y entra en todo.',
-  },
-  {
-    id: 'prospeccion',
-    nombre: 'Prospección con el chatbot — CERRADA en frío; se cotiza la variante legal',
-    cadena: '⛔ La versión que describe el dueño (base comprada) NO tiene CAC porque no es una opción: Messaging Policy §1 exige «(b) you have received opt-in permission from the recipient». || Variante legal: opt-ins_por_pago = 1/(0,15 × 0,05) = 133,33 × US$6,82 = US$909,33 + plantillas + Free + horas.',
-    medios: 929.66, costoFree: 76.00, horasDueno: 25.00, cacUsd: 1030.67,
-    banda: [283.94, 1030.67, 3215.12],
-    escalable: false, senalEn: 'semanas — y hoy es inarrancable: el tope es el tamaño de la lista propia, y es ~0', confianza: 'baja',
-    vsProMensual: 9.74, vsProAnualPayback: 2.83,
-    veredicto: 'NO cierra por 10×. Un opt-in por landing sale US$6,82 contra US$1,10-1,50 de una conversación de CTWA: toda la diferencia está en la fricción de abrir un hilo de WhatsApp contra llenar un formulario. ⚠️ Dos cosas más: MaKo no tiene WABA propio (lib/chatwoot.ts:573-613 saca el WABA del inbox de CADA CLIENTE), así que los US$20,33 de plantillas están cotizados sobre infraestructura que no existe; y el «salvavidas» de reactivar la lista propia tampoco es legal sin opt-in — Meta excluye textual el consentimiento «assumed… from a purchase».',
-  },
-  {
-    id: 'organico',
-    nombre: 'Orgánico por Instagram y YouTube',
-    cadena: '⚠️ No se puede escribir un CAC honesto: el numerador es derivable y el denominador NO EXISTE. Numerador = 12 piezas × 5,42 h × [0,40 × US$100 + 0,60 × US$25] = US$3.577,20/mes. Denominador (clientes/mes) = INVENTADO. Lo publicable es el BREAK-EVEN, que no lo necesita.',
-    medios: 3577.20, costoFree: 0, horasDueno: 2601.60, cacUsd: 1788.60,
-    banda: [894.30, 1788.60, 3577.20],
-    escalable: false, senalEn: '6-12 meses — el único canal que no puede dar señal antes de que la decisión ya esté tomada', confianza: 'baja',
-    vsProMensual: 16.90, vsProAnualPayback: 4.91,
-    veredicto: 'NO cierra como adquisición, ni siquiera en vista CAJA. Break-even contra el techo del Pro: 33,8 clientes Pro/mes en vista capacidad, 9,2 en vista caja (solo el editor). Hoy MaKo tiene 3 clientes en total. Sigue valiendo como PRUEBA SOCIAL y como fábrica de creativos para CTWA, que es otro uso y no compite por el mismo presupuesto — pero sí por las mismas 26 h/mes del dueño.',
-  },
+  { id: 'referidos', nombre: 'Sistema de referidos',
+    cadena: 'premio en crédito → el que recomienda trae → alta',
+    plataPorCliente: 43.55, // 7,55 de premio + 36,00 de los Free que no pagan
+    horas: { aMano: 0.05, conMaKo: 0.05, loHabilita: null },
+    queLoLimita: 'lista', escalable: false,
+    senalEn: 'meses — con 3 clientes la base produce ~0',
+    confianza: 'media', origen: 'supuesto',
+    veredicto: 'El premio (15.000 MT = US$7,55 de costo real) es el único componente MEDIDO de los cinco canales. El premio va al que RECOMIENDA, no al referido (Ryu & Feick, JM 71(1) 2007: vínculos débiles Y marcas débiles).' },
+
+  { id: 'carrito', nombre: 'Campaña de ventas a la landing',
+    cadena: 'pauta → landing → checkout → alta',
+    plataPorCliente: 136.22, // 124,22 de medios + 12,00 de Free
+    horas: { aMano: 0, conMaKo: 0, loHabilita: null },
+    queLoLimita: 'presupuesto', escalable: true,
+    senalEn: 'días — DESPUÉS de construirlo',
+    confianza: 'media', origen: 'supuesto',
+    veredicto: 'Hoy el canal está bloqueado por código, no por precio: no existen app/registro, app/checkout ni app/precios. Pasar la aprobación de 70% a 88% con rieles locales baja el costo 20% sin tocar el anuncio.' },
+
+  { id: 'ctwa', nombre: 'Campañas de mensajes a WhatsApp',
+    cadena: 'pauta → conversación → registro → alta',
+    plataPorCliente: 176.00, // 100,00 de medios + 76,00 de Free
+    horas: { aMano: 0.25, conMaKo: 0.02, loHabilita: 'Agente: Chatbot' },
+    queLoLimita: 'presupuesto', escalable: true,
+    senalEn: 'días — el único que da señal antes de que la decisión esté tomada',
+    confianza: 'baja', origen: 'supuesto',
+    veredicto: 'El 37,8% de su costo en plata es el de los Free que no pagan: un pago arrastra 20 registros y 19 no pagan nunca. Las dos palancas que lo cierran están identificadas: costo por conversación de US$1,50 a US$1,10, y free→pago de 5% a 8%.' },
+
+  { id: 'prospeccion', nombre: 'Prospección con el chatbot',
+    cadena: 'lista con permiso → MaKo escribe → conversación → alta',
+    plataPorCliente: 0.03, // centavos de IA por contacto trabajado
+    horas: { aMano: 0.30, conMaKo: 0.01, loHabilita: 'Agente: Chatbot' },
+    queLoLimita: 'lista', escalable: false,
+    senalEn: 'semanas',
+    confianza: 'baja', origen: 'supuesto',
+    veredicto: 'Casi no cuesta plata ni horas: lo que lo limita es de DÓNDE salen contactos con permiso. Meta exige opt-in (Messaging Policy §1b) y excluye textual el consentimiento «assumed… from a purchase», así que una base comprada está cerrada. Con vínculo previo se puede, escribiendo desde el número propio y no como campaña.' },
+
+  // ⚠️ LAS 26 h SON HEREDADAS DEL MODELO ROTO y hay que preguntárselas al dueño:
+  // salen de dividir los US$2.601,60 de «horas del dueño valuadas» por US$100/h,
+  // o sea que arrastran exactamente el error que este archivo vino a sacar. Las
+  // reales salen de una pregunta de un minuto: cuántas horas lleva guionar,
+  // grabar y editar un Reel, y cuántos Reels hacen falta para un cliente.
+  { id: 'organico', nombre: 'Orgánico por Instagram y YouTube',
+    cadena: 'contenido → audiencia → registro → alta',
+    plataPorCliente: 0, // edición y música; no hay pauta
+    horas: { aMano: 26, conMaKo: 26, loHabilita: null },
+    queLoLimita: 'tiempo-hasta-señal', escalable: false,
+    senalEn: '6-12 meses — el único que no puede dar señal antes de que la decisión ya esté tomada',
+    confianza: 'baja', origen: 'supuesto',
+    veredicto: 'No cuesta plata: cuesta horas. Sigue valiendo como PRUEBA SOCIAL y como fábrica de creativos para CTWA, que es otro uso y no compite por el mismo presupuesto — pero sí por las mismas horas.' },
 ];
 
 /**
