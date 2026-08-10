@@ -184,3 +184,43 @@ test('un texto sin link no dispara esta señal', () => {
   const v = validarRespuestaDoer('Tenés 14 tareas abiertas.', { motivoRuta: RUTA_PLAN, linkBorrador: null });
   assert.equal(v.ok === false && v.razon, 'sin-borrador');
 });
+
+// ---------------------------------------------------------------------------
+// El mensaje del borrador NO lo escribe el modelo
+// ---------------------------------------------------------------------------
+// Pedido del dueño, y es la corrección de fondo de todo lo de arriba: «el modelo
+// de IA jamás debe ser el responsable de mandar ese mensaje… si literalmente
+// SIEMPRE es el mismo y lo único que cambia es la variable del link».
+//
+// Tenía razón. Las tres capas anteriores —pedirle la frase al modelo, corregirle
+// el link cuando copiaba mal los 17 caracteres, y detectar cuando lo inventaba
+// entero— eran red debajo de una decisión que no había que tomar: darle a un
+// modelo una salida que no tiene ni una variable de libertad.
+//
+// `mensajeBorrador` es esa salida, y estos tests fijan sus dos propiedades: que
+// solo dependa del link, y que lo que produce pase la propia compuerta.
+
+test('el mensaje del borrador es UNA función del link y nada más', () => {
+  const a = mensajeBorrador('https://hola-mako.com/plan/revisar/prop111');
+  const b = mensajeBorrador('https://hola-mako.com/plan/revisar/prop222');
+  // Lo único distinto entre dos mensajes son los ids. Si algún día alguien le mete
+  // un contador, un nombre de proyecto o una hora, este test lo caza.
+  assert.equal(a.replace('prop111', 'X'), b.replace('prop222', 'X'));
+  assert.equal(mensajeBorrador('L'), mensajeBorrador('L'), 'tiene que ser determinista');
+});
+
+test('el mensaje canónico incluye el link EXACTO, sin recortarlo ni reescribirlo', () => {
+  // El id son 17 caracteres al azar sin redundancia: si la función los toca, el
+  // link resuelve a otro borrador o a ninguno.
+  const link = 'https://hola-mako.com/plan/revisar/propmsn7pbzb4bz48';
+  assert.ok(mensajeBorrador(link).includes(link));
+});
+
+test('lo que escribe el código siempre pasa la compuerta', () => {
+  // Si no, reemplazar la respuesta por el mensaje canónico crearía un bloqueo
+  // infinito: la guarda descartaría su propia salida.
+  const link = 'https://hola-mako.com/plan/revisar/propmsn7pbzb4bz48';
+  for (const ruta of [RUTA_PLAN, 'mistral router:sonnet (dato/acción) «x»', 'groq router:lean (charla) «hola»']) {
+    assert.deepEqual(validarRespuestaDoer(mensajeBorrador(link), { motivoRuta: ruta, linkBorrador: link }), { ok: true }, ruta);
+  }
+});

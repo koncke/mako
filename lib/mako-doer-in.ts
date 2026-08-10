@@ -15,7 +15,6 @@
 
 import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
-import { corregirLinkBorrador, idDeLinkRevisar } from '@/lib/link-borrador';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE } from '@/lib/respuesta-doer';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
@@ -230,7 +229,7 @@ CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anot
    · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: decílo, mandá su link (el campo "link" que te da ver_plan) y ofrecé enriquecerla en vez de crear otra.
 2. ARMÁ EL BORRADOR: llamá 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Lo que NO podés deducir pasalo en "preguntas" (se responden de a UNA en la app, no por WhatsApp que se traba). ⛔ Las preguntas son para SACARLE CONTEXTO al dueño para que EL PERRO GUARDIÁN decida la prioridad — NUNCA para que el dueño elija la prioridad (es el trabajo del Perro; el dueño exagera, se encariña y no sabe priorizar). PROHIBIDO preguntar "¿qué prioridad le das?", "¿cuál te urge primero?". Preguntá HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en PLATA y en cuánto, qué es "listo", si es 1 tarea o varias. CRITERIO: cada pregunta tiene que TENER SENTIDO (no preguntes lo obvio ni algo que se contradice con lo dicho) y ELEGÍ EL MEJOR TIPO por pregunta — "multi" si valen varias respuestas a la vez (sin opción "Ambas/Todas", que tilde varias), "opcion" si es excluyente, "escala" para intensidad 1-5, "comparacion" para enfrentar dos ítems. NADA de preguntas abiertas (siempre con opciones). Una lista cruda casi siempre tiene algo para preguntar.
    · BAJAS (con criterio): si en ver_plan viste tareas que esta lista deja OBSOLETAS o que ya están DUPLICADAS, proponé borrarlas/fusionarlas en el campo "eliminar" (cada una con su "id" EXACTO de ver_plan + un "motivo" corto). Solo lo que de verdad ya no aplica o se funde con otra — NO borres por borrar. Cada baja la confirma el dueño/cliente con un checkbox en la app.
-3. La tool te devuelve un LINK a la pantalla de revisión. Mandá UNA sola línea corta + el link, tal cual, y NADA MÁS — ej: "${EJEMPLO_BORRADOR}". ⛔ NO pidas "confirmá con un sí", NO repitas la lista de tareas en el chat, NO tires preguntas sueltas: TODO se resuelve en el link. ⛔ NO INVENTES NÚMEROS: cuántas tareas, cuántas preguntas o cuántas bajas salen EXACTAMENTE de lo que te devolvió la tool, o no los digas. ⛔ NO NOMBRES EL PROYECTO: vos proponés uno y el Perro decide otro; prometer un nombre que después no está en el tablero es la peor forma de romper la confianza. Vale IGUAL para el dueño y para un cliente.`;
+3. TERMINÁ AHÍ. El mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_BORRADOR}"): no lo escribas vos y NO copies el link — cualquier cosa que contestes en este turno se reemplaza por ese mensaje. ⛔ NO pidas "confirmá con un sí", NO repitas la lista de tareas en el chat, NO tires preguntas sueltas: TODO se resuelve en el link. ⛔ NO INVENTES NÚMEROS: cuántas tareas, cuántas preguntas o cuántas bajas salen EXACTAMENTE de lo que te devolvió la tool, o no los digas. ⛔ NO NOMBRES EL PROYECTO: vos proponés uno y el Perro decide otro; prometer un nombre que después no está en el tablero es la peor forma de romper la confianza. Vale IGUAL para el dueño y para un cliente.`;
 
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
@@ -845,16 +844,29 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         }
       }
     }
-    // EL LINK, CORREGIDO CONTRA EL ID REAL. Va acá y no en el prompt porque una
-    // instrucción no es una garantía: si el modelo cambió un carácter, lo escribió con
-    // otro host o directamente se lo olvidó, se arregla ahora. Y se deja rastro cuando
-    // se equivoca — sin el log no hay forma de saber si sigue pasando.
-    if (respuesta && linkBorrador) {
-      const antes = idDeLinkRevisar(respuesta);
-      respuesta = corregirLinkBorrador(respuesta, linkBorrador);
-      const bueno = idDeLinkRevisar(linkBorrador);
-      if (antes && antes !== bueno) console.warn(`[mako-doer-in] el modelo mandó el link del borrador MAL: «${antes}» → corregido a «${bueno}»`);
-      else if (!antes) console.warn('[mako-doer-in] el modelo no puso el link del borrador → agregado');
+    // ── EL MENSAJE DEL BORRADOR LO ESCRIBE EL CÓDIGO ─────────────────────────
+    //
+    // Si el borrador se creó, la respuesta ES esta frase. No se corrige la del
+    // modelo: se REEMPLAZA. Pedido del dueño, y tiene razón: «el modelo de IA jamás
+    // debe ser el responsable de mandar ese mensaje… si literalmente SIEMPRE es el
+    // mismo y lo único que cambia es la variable del link».
+    //
+    // Todo lo que había acá antes era compensar ese error de base. Primero se le pedía
+    // al modelo que escribiera la frase con el link; después, como copiaba mal los 17
+    // caracteres del id, se agregó `corregirLinkBorrador` para arreglárselo; después,
+    // como a veces inventaba el link entero sin haber creado nada, una guarda para
+    // detectarlo. Tres capas de red debajo de una decisión que no había que tomar:
+    // dejarle a un modelo una salida que no tiene ni una variable de libertad.
+    //
+    // El trabajo del modelo termina cuando llama la tool. Lo que sale por WhatsApp es
+    // de `mensajeBorrador`, la misma función que el prompt usa como ejemplo.
+    if (linkBorrador) {
+      if (respuesta && respuesta !== mensajeBorrador(linkBorrador)) {
+        // No es un error —el modelo no tiene por qué acertar una frase exacta— pero
+        // mirar cuánto se desvía dice si el prompt todavía sirve para algo acá.
+        console.warn(`[mako-doer-in] respuesta del modelo reemplazada por el mensaje canónico (${respuesta.length} chars)`);
+      }
+      respuesta = mensajeBorrador(linkBorrador);
     }
 
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan
@@ -873,13 +885,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     if (respuesta) {
       const v = validarRespuestaDoer(respuesta, { motivoRuta: ruta.motivo, linkBorrador });
       if (!v.ok && v.razon !== 'sin-borrador') {
-        // Las dos razones duras: volcó el molde, o prometió un link que no existe.
-        // Mandarle al dueño un link roto es peor que decirle «no pude»: hace clic,
-        // lee «este borrador ya no existe» y pierde lo que escribió sin saber por qué.
+        // Llegar acá ya solo es posible SIN borrador: con uno creado, la respuesta se
+        // reemplazó arriba por el mensaje canónico. O sea que las dos razones duras que
+        // quedan —volcó el molde, o prometió un link que nadie creó— significan lo
+        // mismo: el modelo dijo que hizo algo que no hizo. Eso no se manda.
         console.error(`[mako-doer-in] BLOQUEADA (${v.razon}): ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
-        // Si el borrador SÍ se creó, lo único roto era el texto: mandamos el link, que
-        // es lo que el modelo tenía que haber contestado.
-        respuesta = linkBorrador ? mensajeBorrador(linkBorrador) : AVISO_NO_PUDE;
+        respuesta = AVISO_NO_PUDE;
       } else if (!v.ok) {
         // No bloquea —hay turnos de plan que legítimamente no crean nada («¿qué tengo
         // pendiente?»)— pero deja rastro. Antes, el modo de falla grave era el ÚNICO
