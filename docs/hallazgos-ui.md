@@ -213,6 +213,47 @@ alcanza** (el extremo claro queda en ~3,3:1): la salida que pasa AA es texto cas
 
 **Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-tier-ribbon, .s-diff-seg-3, .s-ch-lever .s-ch-id, .s-rung-1 .s-rung-n) · *2026-07-19 ~revision-landing-estrategia-vsl*
 
+### ⚠️ El gris de de-énfasis de una barra no es `--border-strong`: da 1,23:1 y es invisible
+
+**Síntoma:** en un gráfico de barras se ve la barra destacada y nada más. Las otras no se
+leen flojo — no están. Como el valor va en texto al lado, la pantalla igual «dice» los
+números y el gráfico parece correcto; lo que falta es la comparación, que es para lo que
+existe el gráfico.
+
+**Causa:** el gris recesivo era `--border-strong` (#DCE0E7) y el carril de fondo es
+`--surface-2` (#F5F7FA). Son dos grises clarísimos a un escalón uno del otro: **1,23:1**.
+`--border-strong` es el token de una **línea de 1px sobre el fondo del lienzo**, no el de
+un área de 22-26px sobre una superficie que ya es gris. Con `--faint` (#98A0AC) da
+**2,46:1**. Medido, no razonado — el validador del método:
+`scripts/validate_palette.js "#1E9E57,#98A0AC" --mode light --surface "#F5F7FA"`.
+
+**Los dos siguen abajo de 3:1**, así que el valor TIENE que estar en texto al lado, que es
+la regla que el repo ya tiene («el color nunca es el único portador»). 2,46:1 no vuelve
+legible la barra sola: la vuelve **visible como masa**, que es exactamente lo que se le
+pide a un elemento recesivo. En oscuro el par es `--border-strong` #4A5160 → **1,46:1** y
+`--faint` #7C8492 → **3,08:1**, o sea que ahí sí pasa el piso.
+
+**Y el que aparece al arreglarlo: el acento se puede volver MENOS visible que lo
+recesivo.** `tono="mako"` pinta la barra destacada con `--mako` (#F2B01E), que contra el
+carril da **1,78:1**. Con el gris recesivo en 1,23:1 la jerarquía se sostenía de casualidad;
+subirlo a 2,46:1 la **invierte** — las barras que no importan se ven más que la que sí. La
+salida ya existe y es un token: `--mako-ink` (#8F6709) da **4,76:1**, y en oscuro
+`--mako-ink` ya apunta al dorado brillante (#F2B01E, 6,08:1), así que sirve en los dos
+temas sin un cuarto dorado. Los otros tres tonos ya pasaban: `bad` 3,97 · `good` 3,22 ·
+`info` 4,24 en claro.
+
+**La regla que queda:** un color de de-énfasis se **mide contra el fondo sobre el que se
+apoya**, no contra el lienzo; y cada vez que se toca el gris recesivo hay que volver a
+mirar el acento, porque lo que importa es la DISTANCIA entre los dos.
+
+**Verificado en el navegador** sobre las cinco partes a la vez (`?tab=analisis`, con
+`PARTES_VISIBLES` abierto a mano): 29 barras en 9 gráficos, 21 recesivas a 2,46:1, cero a
+1,23:1, y las 29 filas con su valor en texto.
+
+**Vive en:** app/admin/dev/pricing/Piezas.tsx → `Barras` (el gris y el acento) y `Riel`
+(el de `DosMonedas`, que ya nacía con `--faint`) · tokens en app/globals.css ·
+*2026-08-10 ~pricing-dos-monedas*
+
 ### ⚠️ «La barra de admin no se parece a la del producto» no era un problema de estilos: eran dos JSX
 
 **Síntoma:** la sidebar del super admin no tenía secciones desplegables y se veía distinta de la de

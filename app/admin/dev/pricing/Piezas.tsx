@@ -64,7 +64,12 @@ export function Barras({
   escala?: 'lineal' | 'log';
 }) {
   const tope = max ?? Math.max(...datos.map((d) => d.valor), 1);
-  const acento = tono === 'bad' ? 'var(--bad)' : tono === 'good' ? 'var(--good)' : tono === 'info' ? 'var(--primary)' : 'var(--mako)';
+  // El dorado del acento es `--mako-ink` y no `--mako`: medido contra el carril
+  // `--surface-2`, `--mako` da 1,78:1 y el gris recesivo 2,46:1 — o sea que la
+  // barra DESTACADA se vería menos que las que no lo están. `--mako-ink` da
+  // 4,76:1 y en oscuro el token ya apunta al dorado brillante, así que sirve en
+  // los dos temas. Los otros tres tonos ya pasan: bad 3,97 · good 3,22 · info 4,24.
+  const acento = tono === 'bad' ? 'var(--bad)' : tono === 'good' ? 'var(--good)' : tono === 'info' ? 'var(--primary)' : 'var(--mako-ink)';
   // log1p en vez de log: la tarifa tiene valores en 0 (lo automático no cobra) y
   // log(0) es -Infinity, que pinta una barra de ancho NaN sin decir nada.
   const ancho = (v: number) => (escala === 'log'
@@ -96,7 +101,13 @@ export function Barras({
               <div
                 style={{
                   position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: `${pct}%`,
-                  background: d.destacada ? acento : 'var(--border-strong)',
+                  // El gris recesivo es `--faint` y no `--border-strong`: aquel da
+                  // 1,23:1 contra el carril `--surface-2` —invisible, no recesivo— y
+                  // este 2,46:1. `--border-strong` es para una LÍNEA de 1px, no para
+                  // un área de 26px sobre una superficie que ya es gris. Las barras no
+                  // destacadas SON el término de comparación: si no se ven, el gráfico
+                  // solo muestra la destacada y no compara nada.
+                  background: d.destacada ? acento : 'var(--faint)',
                   // La punta redondeada solo si la barra TERMINA acá. Una barra
                   // cortada con la punta redondeada miente: parece que ese es su
                   // valor. Cortada va a filo, con la flecha al lado.

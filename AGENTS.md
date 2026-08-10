@@ -376,6 +376,31 @@ el dato, y se lee antes que el texto.
 La regla: **el tono se elige por lo que significa la barra destacada, no por el tema de
 la sección.** Un gráfico sobre costos no es «malo» por ser sobre costos.
 
+# Dos gráficos que hay que comparar comparten el ORDEN de las filas, o no se comparan
+
+En «¿Cuánto cuesta conseguir un cliente?» el costo de cada canal se pinta en dos monedas
+que nunca se suman: plata y horas. Eran dos `<Barras>` apilados, y cada uno venía
+ordenado por SU propio valor —`sort` por `plataPorCliente` en uno, por `horasDe()` en el
+otro—. Resultado: un canal estaba en el renglón 1 del gráfico de arriba y en el 4 del de
+abajo. La RELACIÓN entre las dos monedas —que era todo lo que la sección tenía para
+decir— era exactamente lo único que no se podía seguir con el ojo.
+
+El dueño lo reportó como «no se entiende», y **el diagnóstico obvio era el equivocado**:
+no sobraba texto. El texto era correcto; lo roto era que cada gráfico se ordenaba solo.
+
+**La regla: el orden de las filas es UNO, se fija explícitamente en un solo lugar, y lo
+fija quien llama.** Un `sort` adentro de cada gráfico es el bug.
+
+Y el corolario, que es la parte que más ahorra después: el método de dataviz manda
+**small multiples** para dos medidas de escalas distintas, y hasta ahí todo bien — pero
+**small multiples SIN eje de categorías compartido no son small multiples: son dos
+gráficos sueltos**. En un gráfico de barras horizontales el eje de categorías ES el orden
+de los renglones. Se puede tener la forma correcta del catálogo y un gráfico que igual no
+se lee.
+
+Vive en `app/admin/dev/pricing/Piezas.tsx` → `DosMonedas`: un renglón por ítem, dos
+carriles con su propia escala y su propio tope, y el orden lo fija quien llama.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que
