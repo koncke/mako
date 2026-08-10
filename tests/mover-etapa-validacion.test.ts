@@ -106,6 +106,24 @@ test('Ganado exige monto — y la higiene NUNCA gatea un movimiento', async () =
   }
 });
 
+test('una venta RECURRENTE cierra con su monto mensual (no se pide "Monto de cierre")', async () => {
+  const { faltantesParaMover } = await leads();
+  // El importe de una suscripción vive en `suscripcion_monto_usd`: `monto_cierre_usd`
+  // queda null a propósito (una recurrencia indefinida no tiene total). Mirando solo
+  // el monto de cierre, el wizard mostraba "Suscripción · $40/mes" en el resumen y
+  // al confirmar reclamaba el monto — sin ningún paso donde cargarlo.
+  const base: Partial<Lead> = {
+    fecha_junta_1: '2026-06-01', asistio_j1: true, calificado: true,
+    fecha_junta_2: '2026-06-08', asistio_j2: true,
+    fathom_links: [{ url: 'https://fathom.video/x', label: 'R1' }],
+  };
+  const suscripcion = L({ ...base, venta_tipo: 'suscripcion', suscripcion_monto_usd: 40, suscripcion_meses: null });
+  assert.deepEqual(faltantesParaMover(suscripcion, 'ganado', DEFAULT_STAGES), []);
+  // Y el importe de una suscripción NO vale para un cierre de pago único.
+  const unico = L({ ...base, venta_tipo: 'unico', suscripcion_monto_usd: 40 });
+  assert.deepEqual(etiquetas(faltantesParaMover(unico, 'ganado', DEFAULT_STAGES)), ['Monto de cierre']);
+});
+
 test('las etapas que mueve el motor automático no exigen nada (no se traba)', async () => {
   const { faltantesParaMover } = await leads();
   // T2/T6 → nutrición y reactivación · T1 → No Show · T3 → No responde.

@@ -259,6 +259,13 @@ function valoresDeRequisitos(
     calificado: d.calificado ?? before?.calificado ?? null,
     hasFathomUrl: (d.fathom ?? before?.fathom_links ?? []).some((f) => f.url?.trim()),
     monto: d.monto ?? before?.monto_cierre_usd ?? null,
+    // Venta recurrente: el importe es el MENSUAL y `monto` viaja null a propósito
+    // (el wizard manda uno u otro, nunca los dos). Se lee el tipo EFECTIVO —lo que
+    // el usuario acaba de elegir gana sobre lo persistido— para que pasar de
+    // suscripción a pago único no deje el monto viejo dando el paso por cargado.
+    suscripcionMonto: (d.ventaTipo ?? before?.venta_tipo) === 'suscripcion'
+      ? (d.suscripcionMonto ?? before?.suscripcion_monto_usd ?? null)
+      : null,
     // El motivo va PARTIDO en dos porque no valen lo mismo: al mover un lead a
     // perdido/descal, el `motivo_perdida` que ya trae es el de una pérdida
     // anterior y no puede dar por contestada la de ahora. Quien decide es

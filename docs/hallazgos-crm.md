@@ -177,6 +177,33 @@ nada de configuración manual en ninguna feature (30/06).
 
 ## Leads: mover de etapa, validar y escribir
 
+### El dato estaba cargado, pero en OTRA columna: el cierre por suscripción no se podía mover
+
+**Síntoma (10/08):** el wizard de "Mover a Miembro activo" mostraba en su propio resumen
+**«Suscripción · $40/mes · indefinida»** y, abajo, *«Para pasar a Miembro activo todavía
+falta cargar: Monto de cierre»*. Sin salida: el paso que reclamaba el dato era el mismo que
+la persona acababa de contestar, y «Completar lo que falta →» devolvía al mismo lugar.
+
+**Causa:** una venta recurrente (#363, mig 0115) guarda su importe en
+`suscripcion_monto_usd` (el MRR) y deja `monto_cierre_usd` en **null a propósito** — una
+recurrencia indefinida no tiene total. `stepsForStage` solo miraba `monto`. El wizard ya
+sabía de suscripciones (el paso, el resumen, `tienePlan`); el corte del monto, no.
+
+**La regla:** cuando un dato pasa a poder vivir en **dos columnas**, la validación es lo
+primero que se queda vieja — porque no falla al escribir, falla al leer, y el síntoma
+aparece en una pantalla que ya muestra el dato correcto. Buscá los call-sites del corte,
+no los del campo nuevo. Acá eran tres (`valoresDeRequisitos` en el wizard,
+`faltantesParaMover` para los callers sin pantalla, `faltantesDeLead` para "Datos sin
+marcar"), y con dos arreglados el lead volvía a aparecer como incompleto un segundo
+después de moverse.
+
+Y el importe alternativo se pasa **solo si la venta ES recurrente hoy**: pasarlo siempre
+haría que cambiar una suscripción a pago único diera por cargado un monto que ya no existe.
+
+**Vive en:** `lib/stage-requirements.ts` (`suscripcionMonto` en `StageReqValues`) ·
+`app/crm/actions.ts` (`valoresDeRequisitos`) · `lib/leads.ts` (`faltantesParaMover`,
+`faltantesDeLead`) · `tests/mover-etapa-validacion.test.ts`
+
 ### ⚠️ El historial de cambio de Status del lead queda vacío
 
 **Síntoma:** se mueve un lead y la sección "Status" del historial no muestra nada. *"Pero

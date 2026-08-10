@@ -1617,6 +1617,8 @@ export function faltantesParaMover(
     hasFathomUrl: links.length > 0,
     grabable: aportado.grabable,
     monto: aportado.monto ?? lead.monto_cierre_usd,
+    // Venta recurrente: el importe vive en el MRR y `monto_cierre_usd` queda null.
+    suscripcionMonto: lead.venta_tipo === 'suscripcion' ? (lead.suscripcion_monto_usd ?? null) : null,
     // Partido en dos: el guardado puede ser de una pérdida ANTERIOR y no da por
     // contestada la de ahora. Quien decide es stepsForStage con `etapaActual`.
     motivo: lead.motivo_perdida,
@@ -1895,6 +1897,8 @@ export function faltantesDeLead(
     hasFathomUrl: links.length > 0,
     grabable: extra?.grabable,
     monto: lead.monto_cierre_usd,
+    // Venta recurrente: el importe vive en el MRR y `monto_cierre_usd` queda null.
+    suscripcionMonto: lead.venta_tipo === 'suscripcion' ? (lead.suscripcion_monto_usd ?? null) : null,
     motivo: lead.motivo_perdida,
     setter: lead.setter,
     closer: lead.closer,
@@ -1912,7 +1916,11 @@ export function faltantesDeLead(
     tieneR2,
     // Respuestas R2: las de Calendly O el motivo de haberse agendado fuera de Calendly.
     r2RespuestasOk: (extra?.r2RespuestasOk ?? false) || !!lead.r2_agenda_externa_motivo?.trim(),
-    tienePlan,
+    // Una suscripción ES su plan (el monto mensual), aunque no tenga ni una cuota
+    // cargada: el mismo criterio que el wizard (`valoresDeRequisitos`). Sin esto,
+    // un cierre recurrente movido con éxito reaparecía al toque en "Datos sin
+    // marcar" pidiendo un plan de pagos que no existe para esa venta.
+    tienePlan: lead.venta_tipo === 'suscripcion' ? undefined : tienePlan,
     hoyISO: hoyEnTijuana(),
     // Timestamps con hora (Calendly): "ya pasó" mira la hora real, no solo el día,
     // así una reunión de HOY que ya terminó exige cargar el Fathom.

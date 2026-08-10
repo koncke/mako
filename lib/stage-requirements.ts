@@ -36,6 +36,13 @@ export interface StageReqValues {
   /** Un solo set de links por lead: cubre R1 y R2 (etiquetados). */
   hasFathomUrl?: boolean;
   monto?: number | null;
+  /** Importe MENSUAL de una venta recurrente (`suscripcion_monto_usd`). En una
+   *  suscripción `monto` queda null A PROPÓSITO —una recurrencia indefinida no
+   *  tiene total— así que este es el importe que satisface "Monto de cierre".
+   *  El caller solo lo pasa cuando la venta ES recurrente; si el movimiento la
+   *  cambia a pago único, va null (si no, el importe viejo daría por cargado un
+   *  monto que ya no existe). */
+  suscripcionMonto?: number | null;
   /** Motivo YA persistido en el lead (`motivo_perdida`). Puede ser el de una
    *  pérdida ANTERIOR: ver `etapaActual` en el corte de perdido/descal. */
   motivo?: string | null;
@@ -217,7 +224,12 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
 
   // ── Venta — Deal Details COMPLETO (etapa de cierre del funnel) ──
   if (esVenta) {
-    if (!(Number(v.monto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
+    // Una venta RECURRENTE guarda su importe en `suscripcion_monto_usd` (el MRR) y
+    // deja `monto_cierre_usd` en null. Mirando solo `monto`, un cierre por
+    // suscripción quedaba bloqueado con el importe cargado y A LA VISTA en el
+    // resumen del wizard ("Suscripción · $40/mes"), sin ninguna salida: el paso
+    // que lo pedía era el mismo que ya se había contestado.
+    if (!(Number(v.monto) > 0) && !(Number(v.suscripcionMonto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
     if (v.tienePlan === false) steps.push({ id: 'plan', label: 'Plan de pagos' });
     if (v.dealServicioOk === false) steps.push({ id: 'dealServicio', label: 'Servicio del cierre' });
     if (v.dealPromesaOk === false) steps.push({ id: 'dealPromesa', label: 'Promesa del cierre' });
