@@ -1517,7 +1517,7 @@ export const HIGH_TICKET = {
   promesa: 'A las 12 semanas tenés el funnel de adquisición andando y sabés por qué anda, decidido sobre tus propios datos y no sobre teoría.',
 
   paraQuien: 'Ya adentro de MaKo pagando, con al menos tres meses de datos propios y una fuente conectada (Meta, la landing con el beacon, o el CRM con leads reales). Más los dos calificadores que YA existen en el repo: fase ≥3 (US$10k+/mes, lib/fase-diagnostico.ts) y oferta_ticket ≥ US$1.000 (lib/onboarding.ts:30). Sin diagnóstico completado no califica: fail-closed.',
-  noEsPara: 'Fase 1 (US$0-3k/mes), y se dice en la pantalla: el propio producto le dice a ese cliente, textual, «No sumes equipo ni delegues» (FASES[0].noHacer). Venderle US$4.000 es el producto diciendo una cosa y el fundador otra, con las dos pantallas abiertas.',
+  noEsPara: 'Fase 1 (US$0-3k/mes), y se dice en la pantalla: el propio producto le dice a ese cliente, textual, «No sumes equipo ni delegues» (FASES[0].noHacer de lib/fase-diagnostico.ts — las fases del negocio del cliente, que no son las FASES_TIEMPO de este archivo). Venderle US$4.000 es el producto diciendo una cosa y el fundador otra, con las dos pantallas abiertas.',
 
   // ── LA DESCOMPOSICIÓN, con el origen de cada hora ──
   entrega: [
@@ -1692,7 +1692,13 @@ export const HORAS_MES = 338;
 export const HORAS_MES_ORIGEN: Origen = 'supuesto';
 export const HORAS_MES_COMO = '12 h de lunes a sábado + 6 h el domingo, × 4,33 semanas. Dicho por el dueño.';
 
-export type Fase = {
+/**
+ * ⚠️ Se llama `FaseTiempo` y no `Fase` porque en este repo `Fase`/`FASES` ya son
+ * OTRAS dos cosas: las fases 1-5 del negocio del cliente (`lib/fase-diagnostico.ts`)
+ * y las de los gráficos (`lib/mako-fases.ts`). Estas reparten las horas del mes del
+ * dueño y no tienen nada que ver con aquellas.
+ */
+export type FaseTiempo = {
   id: 'desarrollo' | 'adquisicion' | 'regimen';
   nombre: string;
   mes: string;
@@ -1702,7 +1708,7 @@ export type Fase = {
   topeAgencia: number;
 };
 
-export const FASES: Fase[] = [
+export const FASES_TIEMPO: FaseTiempo[] = [
   { id: 'desarrollo', nombre: 'Desarrollo', mes: 'agosto',
     pisoAdquisicion: 0, topeDebug: 0, topeAgencia: 10 },
   { id: 'adquisicion', nombre: 'Adquisición', mes: 'septiembre',
@@ -1712,7 +1718,7 @@ export const FASES: Fase[] = [
 ];
 
 /** Lo que queda después del piso y los topes. De acá sale el high ticket. */
-export function horasLibres(f: Fase): number {
+export function horasLibres(f: FaseTiempo): number {
   return HORAS_MES - f.pisoAdquisicion - f.topeDebug - f.topeAgencia;
 }
 
@@ -1721,7 +1727,51 @@ export function horasLibres(f: Fase): number {
  * así — «la cantidad de clientes lo puedes sacar de la promesa de horas que les
  * doy». En desarrollo y en adquisición da 0 a propósito.
  */
-export function topeClientes1a1(f: Fase, horasPorClienteMes: number): number {
+export function topeClientes1a1(f: FaseTiempo, horasPorClienteMes: number): number {
   if (f.id !== 'regimen') return 0;
   return Math.floor(horasLibres(f) / horasPorClienteMes);
+}
+
+// ── LA MATRIZ: QUÉ CANAL ENTRA EN QUÉ FASE ──────────────────────────────────
+// DECIDE: con qué canales se puede trabajar cada mes, y hasta cuántos clientes
+// da cada uno antes de quedarse sin lo que lo limita.
+
+/**
+ * Las horas reales de un canal según lo que esté construido.
+ *
+ * El dueño: «pretendo utilizar MaKo para mi propio negocio, para vender MaKo… no
+ * es lo mismo el tiempo que le voy a dedicar a la prospección cuando literal hay
+ * un chatbot». Por eso terminar una feature no es solo producto: es capacidad de
+ * venta del mes siguiente.
+ */
+export function horasDe(c: CanalCac, construidas: string[]): number {
+  if (!c.horas.loHabilita) return c.horas.aMano;
+  return construidas.includes(c.horas.loHabilita) ? c.horas.conMaKo : c.horas.aMano;
+}
+
+export type Veredicto = {
+  entra: boolean;
+  clientesMax: number;
+  /** En castellano, para pintar tal cual. `null` si entra. */
+  porQueNo: string | null;
+};
+
+/**
+ * ⚠️ LAS DOS MONEDAS SE CHEQUEAN POR SEPARADO Y NUNCA SE SUMAN.
+ * `limitePlata` se compara SOLO contra `plataPorCliente`; las horas se comparan
+ * SOLO contra el piso de adquisición de la fase.
+ */
+export function entraEn(c: CanalCac, f: FaseTiempo, construidas: string[], limitePlata: number): Veredicto {
+  const h = horasDe(c, construidas);
+  const porHoras = h <= 0 ? Infinity : Math.floor(f.pisoAdquisicion / h);
+
+  if (c.plataPorCliente > limitePlata) {
+    return { entra: false, clientesMax: 0,
+      porQueNo: `en plata cuesta ${c.plataPorCliente.toFixed(2)} y podés pagar hasta ${limitePlata.toFixed(2)}` };
+  }
+  if (porHoras < 1) {
+    return { entra: false, clientesMax: 0,
+      porQueNo: `te come ${h} horas por cliente y en ${f.mes} tenés ${f.pisoAdquisicion} para conseguir clientes` };
+  }
+  return { entra: true, clientesMax: porHoras === Infinity ? 0 : porHoras, porQueNo: null };
 }
