@@ -86,3 +86,27 @@ export async function revocarLinksAction(leadId: number): Promise<{ ok: boolean;
   revalidatePath('/customer-success');
   return { ok: true, revocados: vivos.length };
 }
+
+// ── Sincronizar el programa a Whop ──────────────────────────────────────────
+// Lo mismo que hacía `scripts/cargar-programa-whop.ts`, desde un botón. El
+// script queda para el arranque desde cero; el día a día es esto.
+//
+// Idempotente por título, igual que el script: la API de Whop no tiene «crear si
+// no existe» ni borrado en lote, así que correrlo dos veces sin comparar dejaría
+// el curso duplicado y sin forma cómoda de limpiarlo.
+
+export type ResultadoSync =
+  | { ok: true; creadas: number; reescritas: number; sinCambios: number; mapa: number }
+  | { ok: false; error: string };
+
+export async function sincronizarWhopAction(): Promise<ResultadoSync> {
+  const ws = await wsActual();
+  try {
+    const { sincronizarPrograma } = await import('@/lib/cs-sync-whop');
+    const r = await sincronizarPrograma(ws);
+    revalidatePath('/customer-success/programa');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo sincronizar.' };
+  }
+}

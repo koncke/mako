@@ -97,6 +97,11 @@ export const PROGRAMA: Modulo[] = [
         pregunta: 'Los dos números tuyos que se contradicen.',
       },
       {
+        id: 'm1c7', titulo: 'Quién te compite de verdad',
+        pregunta: 'En qué frente pega cada competidor, si perdiste venta medible, y qué hace que un cliente te prefiera.',
+        atoro: 'Casi siempre es percepción y no dato. Distinguirlo cambia la MCI: se ataca lo que se puede medir.',
+      },
+      {
         id: 'm1c6', titulo: 'Lo que no sabés todavía',
         pregunta: 'La lista de datos que no existen, con quién los consigue y para cuándo.',
         atoro: 'El dato base no existe: le pasó a los cuatro clientes. TEXX vivió 19 días con la MCI abierta esperando una cifra de margen. Contestar «no lo tengo, lo consigue Fulano el 12» es una respuesta válida.',
@@ -200,6 +205,11 @@ export const PROGRAMA: Modulo[] = [
         id: 'm6c3', titulo: 'Elegir las palancas',
         pregunta: 'Máximo tres por objetivo, cada una pasando el filtro de cuatro: predice el resultado, lo controla el equipo, se mide al menos semanal, y es hoy un cuello real.',
         atoro: 'Si la respuesta a la cuarta es «ya lo hacen bien», eso no es una palanca: es un estándar que ya opera. Se anota y se saca del tablero.',
+      },
+      {
+        id: 'm6c5', titulo: 'El número del área, con su base y su fuente',
+        pregunta: 'El indicador consecuencia del área: su base real hoy, la meta, cada cuánto se cierra y si el área ya lo calcula.',
+        atoro: 'Si hay que inventar un reporte para calcularlo, no entra en este ciclo. El tablero recibe cifras que el área YA cierra.',
       },
       {
         id: 'm6c4', titulo: 'La ficha de nueve campos',

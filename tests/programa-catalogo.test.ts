@@ -81,8 +81,8 @@ test('rotuloDe devuelve el id cuando no existe, en vez de romper', () => {
 });
 
 test('el conteo que se comunica es el real', () => {
-  // docs/programa-mauricio.md dice 12 módulos y 42 clases, y de ahí sale cuántos
+  // docs/programa-mauricio.md dice 12 módulos y 44 clases, y de ahí sale cuántos
   // videos hay que grabar. Un número mal contado es un presupuesto mal hecho.
   assert.equal(TOTAL_MODULOS, 12);
-  assert.equal(TOTAL_CLASES, 42);
+  assert.equal(TOTAL_CLASES, 44);
 });
