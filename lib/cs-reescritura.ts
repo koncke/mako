@@ -169,11 +169,13 @@ export async function reescribirBloque(input: {
  */
 export async function reescribirBloquesDeLaJunta(input: {
   leadId: number;
+  /** Para poder tutearlo en el aviso. */
+  nombre?: string | null;
   conversacion: string;
   fuenteReunion?: string | null;
   /** Tope de bloques por junta. Cada uno es una llamada al modelo. */
   tope?: number;
-}): Promise<{ reescritos: string[]; sinMaterial: number; errores: number }> {
+}): Promise<{ reescritos: string[]; sinMaterial: number; errores: number; aviso: 'borrador' | 'sin-telefono' | 'nada' }> {
   const { bloquesDeCliente } = await import('./cs-respuestas');
   const filas = await bloquesDeCliente(input.leadId).catch(() => []);
   const abiertos = filas.filter(f => f.estado === 'contestada' || f.estado === 'revisada_ia');
@@ -190,5 +192,23 @@ export async function reescribirBloquesDeLaJunta(input: {
     else if (r.motivo === 'sin-material') sinMaterial++;
     else errores++;
   }
-  return { reescritos, sinMaterial, errores };
+  // ── Y ACÁ CIERRA EL BUCLE ────────────────────────────────────────────────
+  // Sin esto el bloque quedaba en «esperando su ok» PARA SIEMPRE: MaKo proponía
+  // y el cliente no se enteraba nunca. Era el último eslabón y estaba abierto.
+  //
+  // Un borrador POR CLIENTE, no uno por bloque: si la junta tocó cinco bloques,
+  // cinco WhatsApp seguidos es spam. Y borrador y no envío directo porque MaKo
+  // no le escribe a un cliente sola — lo manda un humano con un click.
+  let aviso: 'borrador' | 'sin-telefono' | 'nada' = 'nada';
+  if (reescritos.length) {
+    const { borradorHayQueAprobar } = await import('./cs-mensajes');
+    const r = await borradorHayQueAprobar({
+      leadId: input.leadId,
+      nombre: input.nombre ?? 'Hola',
+      clases: reescritos,
+    }).catch(() => ({ ok: false as const, error: 'falló' }));
+    aviso = r.ok ? 'borrador' : 'sin-telefono';
+  }
+
+  return { reescritos, sinMaterial, errores, aviso };
 }

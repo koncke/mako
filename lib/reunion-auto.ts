@@ -240,11 +240,12 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         try {
           const { reescribirBloquesDeLaJunta } = await import('./cs-reescritura');
           const cs = await reescribirBloquesDeLaJunta({
-            leadId: cliente.leadId, conversacion: cabecera, fuenteReunion: ref,
+            leadId: cliente.leadId, nombre: cliente.nombre,
+            conversacion: cabecera, fuenteReunion: ref,
           });
           if (cs.reescritos.length || cs.sinMaterial || cs.errores) {
             console.log(`[reunion-auto] CS ws=${ws} ${cliente.nombre}: ${cs.reescritos.length} bloque(s) reescrito(s), ` +
-              `${cs.sinMaterial} sin material, ${cs.errores} con error`);
+              `${cs.sinMaterial} sin material, ${cs.errores} con error · aviso=${cs.aviso}`);
           }
         } catch (e) {
           console.error('[reunion-auto] la reescritura de bloques falló (el borrador sigue):', e);

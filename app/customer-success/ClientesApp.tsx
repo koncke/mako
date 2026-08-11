@@ -59,12 +59,19 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
   const [verCerrados, setVerCerrados] = useState(false);
   const { toast, show, clear } = useToast();
 
-  async function emitir(c: ClienteCartera, rotar: boolean) {
+  async function emitir(c: ClienteCartera, rotar: boolean, porWhatsApp = false) {
     setCargando(c.leadId); setConfirmarRotar(null);
-    const r = await emitirLinkAction(c.leadId, rotar);
+    const r = await emitirLinkAction(c.leadId, rotar, porWhatsApp);
     setCargando(null);
-    if (r.ok) setEmitido({ url: r.url, nombre: r.nombre });
-    else show(r.error, undefined, 'bad');
+    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+    if (r.mandado) {
+      // Ya lo tiene: mostrarle el token igual sería pedirle que copie algo que
+      // ya viajó. El cartel solo aparece cuando hay que copiar de verdad.
+      show(`Link enviado a ${r.nombre} por WhatsApp.`, undefined, 'good');
+      return;
+    }
+    if (r.avisoEnvio) show(`El link quedó emitido, pero no se pudo enviar: ${r.avisoEnvio}`, undefined, 'warn');
+    setEmitido({ url: r.url, nombre: r.nombre });
   }
 
   async function revocar(c: ClienteCartera) {
@@ -115,6 +122,7 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
                     c={c} cargando={cargando === c.leadId}
                     onAbrir={() => setAbierto(c)}
                     onDarLink={() => void emitir(c, false)}
+                    onMandarLink={() => void emitir(c, false, true)}
                     onRotar={() => setConfirmarRotar(c)}
                     onRevocar={() => void revocar(c)}
                   />
@@ -193,9 +201,10 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
   );
 }
 
-function Card({ c, cargando, onAbrir, onDarLink, onRotar, onRevocar }: {
+function Card({ c, cargando, onAbrir, onDarLink, onMandarLink, onRotar, onRevocar }: {
   c: ClienteCartera; cargando: boolean;
-  onAbrir: () => void; onDarLink: () => void; onRotar: () => void; onRevocar: () => void;
+  onAbrir: () => void; onDarLink: () => void; onMandarLink: () => void;
+  onRotar: () => void; onRevocar: () => void;
 }) {
   const r = c.reloj;
   // El filo es el TIEMPO transcurrido del contrato, no el avance del temario:
@@ -263,10 +272,10 @@ function Card({ c, cargando, onAbrir, onDarLink, onRotar, onRevocar }: {
           </>
         ) : (
           <>
-            <button className="b primaria" disabled={cargando} onClick={onDarLink}>
-              {cargando ? 'Emitiendo…' : 'Darle su link'}
+            <button className="b primaria" disabled={cargando} onClick={onMandarLink}>
+              {cargando ? 'Enviando…' : 'Mandarle su link'}
             </button>
-            <button className="b" onClick={onAbrir}>Ver todo</button>
+            <button className="b" disabled={cargando} onClick={onDarLink}>Solo copiarlo</button>
           </>
         )}
       </div>

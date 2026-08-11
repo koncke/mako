@@ -40,14 +40,21 @@ async function clienteDelWorkspace(leadId: number): Promise<{ id: number; nombre
   return (data as { id: number; nombre: string } | null) ?? null;
 }
 
-export type ResultadoLink = { ok: true; url: string; nombre: string } | { ok: false; error: string };
+export type ResultadoLink =
+  | { ok: true; url: string; nombre: string; mandado?: boolean; avisoEnvio?: string }
+  | { ok: false; error: string };
 
 /**
  * Emite el link de un cliente. Si ya tenía uno vivo, no hace nada salvo que se
  * pida `rotar`: el token viejo no se puede recuperar, así que emitir de nuevo
  * sin querer dejaría al cliente con un link que nadie sabe cuál es.
  */
-export async function emitirLinkAction(leadId: number, rotar = false): Promise<ResultadoLink> {
+export async function emitirLinkAction(
+  leadId: number, rotar = false,
+  /** true = además se lo manda por WhatsApp. El click de Mauricio ES la
+   *  aprobación: acá no va por la cola de borradores. */
+  mandarPorWhatsApp = false,
+): Promise<ResultadoLink> {
   const ws = await wsActual();
   const cliente = await clienteDelWorkspace(leadId);
   if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
@@ -69,8 +76,23 @@ export async function emitirLinkAction(leadId: number, rotar = false): Promise<R
     creadoPor: quien ?? 'Customer Success',
   });
 
+  const url = `${APP_BASE_URL}/compartido/${token}`;
+
+  // ⚠️ El token lo pone el CÓDIGO, no un modelo. Son 43 caracteres al azar sin
+  // ninguna redundancia: si lo transporta un LLM falla de dos formas, y la
+  // silenciosa —un link que resuelve a OTRO cliente— es la peor.
+  let mandado = false;
+  let avisoEnvio: string | undefined;
+  if (mandarPorWhatsApp) {
+    const { mandarElLink } = await import('@/lib/cs-mensajes');
+    const r = await mandarElLink({ leadId, nombre: cliente.nombre, token })
+      .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'falló el envío' }));
+    mandado = r.ok;
+    if (!r.ok) avisoEnvio = r.error;
+  }
+
   revalidatePath('/customer-success');
-  return { ok: true, url: `${APP_BASE_URL}/compartido/${token}`, nombre: cliente.nombre };
+  return { ok: true, url, nombre: cliente.nombre, mandado, avisoEnvio };
 }
 
 /** Corta el acceso al instante: cada request revalida contra la fila viva. */
