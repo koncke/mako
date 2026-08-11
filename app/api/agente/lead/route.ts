@@ -12,21 +12,24 @@
 // que sacaba era «el token no tiene permisos de CRM». No era un permiso que faltaba:
 // era una ruta que no existía.
 //
-// ES IDEMPOTENTE, y no es un lujo: un formulario de landing dispara dos veces con una
-// conexión mala, y un Apps Script reintenta. Si el teléfono o el mail ya están en el
-// workspace, se devuelve el lead que ya estaba con `creado: false` en vez de duplicarlo.
-// El CRM no tiene deshacer para un duplicado: lo tiene que borrar una persona.
+// ⚠️ NO CREA EL LEAD: DEJA UNA PROPUESTA Y DEVUELVE UN LINK. Es la regla del producto
+// —nada que venga de un canal escribe directo— y acá se estrenó al revés: la primera
+// versión insertaba en `leads`. El porqué está pagado y escrito en AGENTS.md: «un DATO
+// EXACTO que pasa por las manos de un LLM deja de ser exacto». Un teléfono con un
+// dígito cambiado entra al CRM, no matchea su chat de WhatsApp ni su Calendly, y no se
+// nota hasta que falta una conversación. La confirmación es el único momento en que un
+// humano ve el dato antes de que valga.
 //
-// ⚠️ EL TELÉFONO SE NORMALIZA y de eso se encarga `createLead`, no este archivo. Es la
-// llave con la que un lead matchea su chat de WhatsApp, su Calendly y su instant form;
-// un lead cargado con el teléfono crudo queda huérfano de todo eso y nadie lo nota
-// hasta que falta una conversación.
+// ES IDEMPOTENTE por `ref`, y no es un lujo: un formulario de landing dispara dos veces
+// con una conexión mala y un Apps Script reintenta. Sin eso quedan dos propuestas del
+// mismo lead y el dueño confirma un duplicado creyendo que son dos personas. Si el
+// emisor no manda `ref`, se arma una con el contacto: es lo que identifica a la persona.
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
-import { runWithWorkspace } from '@/lib/workspace';
-import { createLead, findLeadByContacto, logLeadEvent } from '@/lib/leads';
+import { crearPropuesta } from '@/lib/propuestas';
+import { APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -46,6 +49,8 @@ export async function POST(req: NextRequest) {
   const nombre = txt(body.nombre);
   const email = txt(body.email)?.toLowerCase() ?? null;
   const telefono = txt(body.telefono);
+  const empresaTxt = txt(body.empresa);
+  const origenTxt = txt(body.origen);
 
   // El nombre es lo único obligatorio, igual que en el alta manual del CRM. Y se pide
   // al menos una forma de contactarlo: un lead sin mail ni teléfono no se puede
@@ -56,30 +61,35 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    return await runWithWorkspace(ws, async () => {
-      const yaEsta = await findLeadByContacto(email, telefono);
-      if (yaEsta) {
-        return NextResponse.json({ ok: true, creado: false, id: yaEsta.id, nombre: yaEsta.nombre });
-      }
+    // La ref por defecto sale del CONTACTO, no del nombre: dos personas se llaman igual,
+    // pero un teléfono o un mail identifican a una.
+    const ref = txt(body.ref) ?? `lead:${telefono ?? email}`;
 
-      const lead = await createLead({
-        nombre,
-        email,
-        telefono,
-        empresa: txt(body.empresa),
+    const { id, nueva } = await crearPropuesta({
+      ws,
+      tipo: 'lead',
+      origen: 'claude',
+      ref,
+      resumen: `${nombre}${empresaTxt ? ` · ${empresaTxt}` : ''}${origenTxt ? ` · ${origenTxt}` : ''}`,
+      datos: {
+        nombre, email, telefono,
+        empresa: empresaTxt,
+        origen: origenTxt,
         utm_source: txt(body.utm_source),
         utm_medium: txt(body.utm_medium),
         utm_campaign: txt(body.utm_campaign),
         utm_content: txt(body.utm_content),
-      });
+      },
+    });
 
-      // Queda en el Change History de la ficha DE DÓNDE salió. Sin esto, un lead que
-      // aparece solo en el tablero no tiene explicación: el que lo mira no sabe si lo
-      // cargó alguien, si vino de un anuncio o si lo inventó una automatización.
-      const origen = txt(body.origen) ?? 'una automatización';
-      await logLeadEvent(lead.id, 'Alta', `Entró por Claude desde ${origen}`, 'Claude').catch(() => {});
-
-      return NextResponse.json({ ok: true, creado: true, id: lead.id, nombre: lead.nombre });
+    // El link va ENTERO y absoluto. Un path suelto no es clicable en un chat, y este
+    // repo ya pagó que un link armado a medias resolviera a otra cosa.
+    return NextResponse.json({
+      ok: true,
+      propuesta: id,
+      nueva,
+      url: `${APP_BASE_URL}/crm/revisar/${id}`,
+      mensaje: 'Quedó para confirmar. Pasale el link al usuario: el lead entra al CRM recién cuando lo confirma.',
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });

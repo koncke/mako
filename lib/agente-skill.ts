@@ -93,12 +93,17 @@ qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a t
 3. **Leer el plan abierto** (\`GET /api/agente/plan\`).
 4. **Proponer**: tareas nuevas, cierres de lo que ya se hizo, y detalle sobre lo que ya
    está anotado (\`POST /api/agente/plan\`).
-5. **Meter un lead al CRM** (\`POST /api/agente/lead\`) — un contacto que llegó por
-   afuera: un formulario, una planilla, una conversación.
+5. **Proponer un lead para el CRM** (\`POST /api/agente/lead\`) — un contacto que llegó
+   por afuera: un formulario, una planilla, una conversación.
 
 ⚠️ Los puntos 1 y 2 son de LECTURA y no tienen ninguna ceremonia: usalos sin pedir
-permiso cada vez que vayas a escribir algo del negocio. La ceremonia del borrador es
-solo para el punto 4, que es lo único que ESCRIBE.
+permiso cada vez que vayas a escribir algo del negocio.
+
+⚠️ **NADA DE LO QUE MANDES ESCRIBE DIRECTO.** Los puntos 4 y 5 dejan una PROPUESTA y te
+devuelven un LINK; el dato entra recién cuando el usuario lo confirma en MaKo. Es la
+regla del producto y no tiene excepciones: lo que vos transcribís puede llegar con un
+dígito cambiado, y un teléfono mal escrito no matchea su WhatsApp y nadie se entera hasta
+que falta una conversación. **Tu trabajo termina cuando entregás el link entero.**
 
 ## El plan: se LEE y se PROPONE, no se escribe
 
@@ -345,10 +350,10 @@ Cómo elegir entre las tres:
 Ante la duda entre enriquecer y crear, **enriquecé**: dos tarjetas de lo mismo son
 más caras de deshacer que una tarjeta con contexto de más.
 
-## 4. Meter un lead al CRM
+## 4. Proponer un lead para el CRM
 
 Cuando aparezca un contacto que llegó por afuera —un formulario de la landing, una fila
-de una planilla, alguien que escribió— va al CRM del cliente:
+de una planilla, alguien que escribió— se propone para el CRM del cliente:
 
 \`\`\`bash
 curl -s -X POST "$BASE/api/agente/lead" \
@@ -358,9 +363,11 @@ curl -s -X POST "$BASE/api/agente/lead" \
         "utm_source": "instagram", "utm_campaign": "lanzamiento" }'
 \`\`\`
 
-Devuelve \`{ ok, creado, id, nombre }\`. **\`creado: false\` no es un error**: significa que
-ese teléfono o ese mail ya estaban en el CRM y te devuelve el lead que ya existía. Podés
-reintentar sin miedo a duplicar.
+Devuelve \`{ ok, propuesta, nueva, url }\`. **El lead NO está en el CRM todavía**: pasale
+el \`url\` ENTERO al usuario y pará. Ahí lo mira, lo corrige si hace falta y confirma.
+
+**\`nueva: false\` no es un error**: significa que ese contacto ya tenía una propuesta
+pendiente y te devuelve la misma. Podés reintentar sin miedo a duplicar.
 
 Reglas:
 - \`nombre\` es obligatorio, y hace falta **al menos** \`email\` o \`telefono\`. Un lead sin
@@ -370,6 +377,8 @@ Reglas:
   nadie lo nota hasta que falta una conversación.
 - \`origen\` en una frase, para que quede en el historial de la ficha: el que mire ese
   lead dentro de un mes tiene que poder saber de dónde salió.
+- \`ref\` opcional: tu propia llave de idempotencia (el id de la fila de la planilla, por
+  ejemplo). Si no la mandás se arma con el contacto.
 - ⛔ No inventes datos para completar el formulario. Si no tenés el mail, mandá solo el
   teléfono.
 

@@ -426,6 +426,42 @@ las que hablan por bearer y las que exigen navegador.
 
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md).
 
+# Un canal PROPONE; una persona confirma. Nada escribe directo
+
+Todo lo que llega de afuera —Claude, WhatsApp, una automatización, un formulario— deja
+una **propuesta** y devuelve **UN LINK** a una pantalla de MaKo donde alguien la mira, la
+corrige y confirma. Recién ahí se escribe.
+
+Ya funcionaba así el plan (`plan_propuestas` → `/plan/revisar`) y funcionaba bien. Lo que
+faltaba era que fuera LA regla: cuando se agregó el alta de leads del agente, escribió
+directo en `leads` — no porque alguien decidiera saltear la revisión, sino porque no había
+ningún lugar del que la revisión saliera sola.
+
+**El porqué ya está pagado** y es el corolario de «una regla en un prompt no es una regla»:
+un DATO EXACTO que pasa por las manos de un LLM deja de ser exacto. Un teléfono con un
+dígito cambiado entra al CRM, no matchea su chat de WhatsApp ni su Calendly, y no se nota
+hasta que falta una conversación. La confirmación no es burocracia: **es el único momento
+en que un humano ve el dato antes de que valga.**
+
+Cómo se cumple, y son cuatro piezas:
+
+1. **La propuesta va a `propuestas`** (`lib/propuestas.ts`, mig 0128), con `tipo` +
+   `datos`. Es genérica a propósito: una tabla por área garantiza que la tercera también
+   sea propia y que cada una reinvente estado, idempotencia y caducidad.
+2. **La respuesta del canal es un LINK ABSOLUTO**, nunca un id ni un path suelto. Un path
+   no es clicable en un chat, y este repo ya pagó que un link armado a medias resolviera a
+   un borrador REAL pero equivocado.
+3. **La pantalla de confirmación es EDITABLE.** Si solo pregunta «¿confirmás?», obliga a
+   aceptar el dato mal y arreglarlo después — o sea, a confirmar algo que se sabe
+   equivocado. El momento de mirarlo es el momento de corregirlo.
+4. **Idempotencia en las dos puntas**: `ref` al proponer (un formulario dispara dos veces
+   con mala conexión) y `.eq('estado','pendiente')` al aplicar (dos pestañas, un doble
+   click). Sin las dos, el dueño confirma un duplicado creyendo que son dos personas.
+
+⚠️ **La excepción no es «el dato viene de un sistema, no de un modelo».** Un lead de un
+formulario es un dato real, pero si el que lo transporta es un modelo, el modelo lo puede
+transcribir mal. Lo que decide es **quién escribe la request**, no de dónde salió el dato.
+
 # Una barra de gráfico se recorta al 100%, siempre
 
 `width: ${pct}%` adentro de un carril NO desborda la barra: **desborda la página**.
