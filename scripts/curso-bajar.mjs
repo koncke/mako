@@ -106,7 +106,10 @@ for (const [i, c] of clases.entries()) {
     ...yt.pre,
     c.url,
     '--referer', plan.referer,
-    '--user-agent', plan.userAgent,
+    // Si el plan no trae UA, NO se manda el flag: `--user-agent ""` es peor que
+    // omitirlo (yt-dlp arranca con User-Agent en blanco y algunos CDN invalidan
+    // el token por eso). Omitirlo deja el default de yt-dlp, que funciona.
+    ...(plan.userAgent ? ['--user-agent', plan.userAgent] : []),
     // Solo si se piden a mano: ver la nota de arriba sobre el DB lockeado.
     ...(tiene('cookies') ? ['--cookies-from-browser', `chrome:${join(PERFIL, 'Default')}`] : []),
     '--ffmpeg-location', FFDIR,

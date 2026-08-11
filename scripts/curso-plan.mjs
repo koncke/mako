@@ -82,7 +82,9 @@ const main = async () => {
   catch { console.error(`\n  ✖ No hay CDP en ${PORT}. Corré curso-perfil.ps1 primero.\n`); process.exit(1); }
 
   const pag = lista.filter((t) => t.type === 'page' && !t.url.startsWith('devtools://'));
-  const obj = pag.find((t) => /\/curso\//i.test(t.url)) ?? pag.find((t) => t.url !== 'about:blank');
+  // El sitio tiene DOS patrones de URL de curso: /curso/<slug> y /vip/course/<slug>.
+  // Reconocer solo el primero dejaba media plataforma afuera.
+  const obj = pag.find((t) => /\/(curso|course)\//i.test(t.url)) ?? pag.find((t) => t.url !== 'about:blank');
   if (!obj) { console.error('  ✖ No encuentro una pestaña con un curso abierto.\n'); process.exit(1); }
 
   const ws = new WebSocket(obj.webSocketDebuggerUrl);
@@ -103,17 +105,50 @@ const main = async () => {
   console.log(`\n  Curso : ${curso}`);
   console.log(`  URL   : ${obj.url}\n`);
 
-  // 1. Abrir todos los acordeones de módulo, si alguno estuviera cerrado.
-  //    Si ya están abiertos esto no hace nada malo: se mide el antes y el después.
-  const antes = await ev(`document.querySelectorAll('button').length`);
-  await ev(`(() => {
-    const mods = [...document.querySelectorAll('button')].filter(b => /^\\s*\\d+\\..{2,60}\\s+\\d+\\/\\d+\\s*$/.test((b.innerText||'').replace(/\\s+/g,' ').trim()));
-    mods.forEach(b => { try { if (b.getAttribute('aria-expanded') === 'false') b.click(); } catch (e) {} });
-    return mods.length;
-  })()`);
-  await new Promise((r) => setTimeout(r, 700));
-  const despues = await ev(`document.querySelectorAll('button').length`);
-  if (despues !== antes) console.log(`  (abrí módulos: ${antes} → ${despues} botones)\n`);
+  // 1. Abrir TODOS los acordeones, incluidos los anidados.
+  //
+  // Cómo se reconoce una cabecera de módulo, y por qué así: lleva un progreso
+  // (`0/2`) y NO lleva duración (`25:38`). Anclar el progreso al FINAL de la línea
+  // no sirve — hay cabeceras como «1. ONBOARDING 0/2 1», con un número detrás.
+  //
+  // Y no se puede confiar en aria-expanded: acá no existe. Así que se mide el
+  // efecto de cada click y, si CERRÓ en vez de abrir, se vuelve a clickear. Se
+  // repite en rondas porque un módulo abierto puede revelar submódulos cerrados.
+  const contarClases = `[...document.querySelectorAll('button')].filter(b => { const t=(b.innerText||'').replace(/\\s+/g,' ').trim(); return /\\b\\d{1,2}:\\d{2}\\b/.test(t) && !/\\d+\\s*\\/\\s*\\d+/.test(t); }).length`;
+  const antes = await ev(contarClases);
+
+  // El bucle vive en NODE, no en la página: meter N clicks con espera dentro de un
+  // solo Runtime.evaluate se pasa del timeout en cuanto el curso tiene muchos
+  // módulos (pasó con este, de 249 clases). Un click por llamada, cada una corta.
+  const marcar = `(() => {
+    const esCabecera = (b) => { const t=(b.innerText||'').replace(/\\s+/g,' ').trim();
+      return /\\d+\\s*\\/\\s*\\d+/.test(t) && !/\\b\\d{1,2}:\\d{2}\\b/.test(t) && t.length < 120; };
+    const hs = [...document.querySelectorAll('button')].filter(esCabecera);
+    hs.forEach((b, i) => b.setAttribute('data-cxh', String(i)));
+    return hs.length;
+  })()`;
+
+  for (let ronda = 1; ronda <= 8; ronda++) {
+    const previo = await ev(contarClases);
+    const cabeceras = await ev(marcar);
+    let abiertos = 0;
+    for (let i = 0; i < (cabeceras ?? 0); i++) {
+      const c0 = await ev(contarClases);
+      const hizo = await ev(`(() => { const b = document.querySelector('button[data-cxh="${i}"]'); if (!b) return false; b.click(); return true; })()`);
+      if (!hizo) continue;
+      await new Promise((r) => setTimeout(r, 130));
+      const c1 = await ev(contarClases);
+      // Si cerró en vez de abrir, se revierte: no hay aria-expanded que consultar.
+      if (c1 < c0) await ev(`(() => { const b = document.querySelector('button[data-cxh="${i}"]'); if (b) b.click(); return true; })()`);
+      else if (c1 > c0) abiertos++;
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    const ahora = await ev(contarClases);
+    console.log(`  ronda ${ronda}: ${previo} → ${ahora} clases visibles (${cabeceras} cabeceras, ${abiertos} abierta/s)`);
+    if (ahora === previo) break;
+  }
+  const despues = await ev(contarClases);
+  if (despues !== antes) console.log(`  (acordeones: ${antes} → ${despues} clases)\n`);
 
   // 2. Enumerar clases. Heurística robusta en vez de clases de Tailwind (que
   //    cambian con cualquier build): un <button> cuyo texto tiene duración mm:ss.
@@ -129,8 +164,9 @@ const main = async () => {
       if (!txt || txt.length > 200) continue;
       const m = dur.exec(txt);
       if (!m) continue;
-      if (/\\d+\\/\\d+\\s*$/.test(txt)) continue;          // cabecera de módulo
-      if (/^\\d+ *\\/ *\\d+/.test(txt)) continue;
+      // Cabecera de módulo: lleva progreso (0/2) en CUALQUIER posición, no solo
+      // al final — hay cabeceras como «1. ONBOARDING 0/2 1».
+      if (/\\d+\\s*\\/\\s*\\d+/.test(txt)) continue;
       if (vistos.has(txt)) continue;
       vistos.add(txt);
       b.setAttribute('data-cx', String(i));
@@ -159,7 +195,11 @@ const main = async () => {
     let mod = null;
     for (const b of todos) {
       const txt = (b.innerText || '').replace(/\\s+/g, ' ').trim();
-      if (/^\\s*\\d+\\..{2,60}\\s+\\d+\\/\\d+\\s*$/.test(txt)) { mod = txt.replace(/\\s+\\d+\\/\\d+\\s*$/, '').trim(); continue; }
+      // Misma regla que arriba: progreso presente y duración ausente = cabecera.
+      if (/\\d+\\s*\\/\\s*\\d+/.test(txt) && !/\\b\\d{1,2}:\\d{2}\\b/.test(txt) && txt.length < 120) {
+        mod = txt.replace(/\\s*\\d+\\s*\\/\\s*\\d+.*$/, '').trim();
+        continue;
+      }
       const cx = b.getAttribute('data-cx');
       if (cx !== null) out.push({ idx: Number(cx), modulo: mod });
     }
