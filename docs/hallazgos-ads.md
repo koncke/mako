@@ -30,6 +30,49 @@ registro completo de las corridas está en [corridas-multiagente.md](corridas-mu
 
 ## Lecturas y métricas de Meta
 
+### ⚠️ El mapa de México no pinta cero: pinta el estado equivocado
+
+**Síntoma:** Mauricio reportó que «el mapa marca cero en Ciudad de México cuando debería
+haber datos».
+
+**Causa — y el diagnóstico obvio es el equivocado.** No es que falte el dato: es que se lo
+está llevando otro estado. `valueFor()` en `app/marketing/ad-charts.tsx:514-519` matchea el
+nombre del GeoJSON contra el de Meta con `norm()` (`:60`), que **solo saca acentos y baja a
+minúsculas**. Cuando la igualdad falla hay un fallback bidireccional:
+
+```ts
+for (const [k, val] of valByNorm) if (k.startsWith(n) || n.startsWith(k)) return val;
+return 0;
+```
+
+Con el GeoJSON de `mexicoHigh.json` (`:48`) eso produce **dos fallas a la vez**:
+
+- La feature `Ciudad de México` (`n = "ciudad de mexico"`) no matchea la clave de Meta
+  `"mexico city"` ni por igualdad ni por prefijo → cae en el `return 0`.
+- La feature `México` —el Estado de México, `n = "mexico"`— **sí** matchea, porque
+  `"mexico city".startsWith("mexico")` es `true` → **se queda con el valor de CDMX**.
+
+O sea: el número no desapareció, se mudó al estado de al lado. Un cero pintado y un falso
+positivo, los dos en silencio. Es el mismo antipatrón que
+[hallazgos-landing.md](hallazgos-landing.md) ya tiene escrito: **sin avance positivo el
+resultado es «no medido», jamás 0**.
+
+**Regla:** un match por `startsWith` entre dos catálogos de nombres propios **no es un
+match**: es una colisión esperando el nombre más corto. Donde dos fuentes nombran la misma
+entidad, va un **diccionario explícito**, y lo que no está en el diccionario devuelve `null`
+—«sin dato»— nunca `0`. El tooltip y la escala tienen que distinguir las dos cosas.
+
+**Sin verificar:** los nombres exactos que devuelve la API de Meta con `breakdowns:'region'`
+para México. El diccionario hay que armarlo mirando una respuesta real, no de memoria.
+Aparte: `GEOURL` es un `fetch` a `raw.githubusercontent.com` desde un componente cliente —
+conviene bajar el GeoJSON al repo.
+
+**Vive en:** `app/marketing/ad-charts.tsx:48,60,512-519,547-549` ·
+`app/ads-manager/EntityDetalle.tsx:156` (el otro consumidor de `regiones`).
+
+*(Corrida `wf_bf78bf97-f34`, 2026-08-11. Reportado por Mauricio en la reunión del 10/07;
+mecanismo reverificado a mano sobre el código de hoy.)*
+
 ### ⚠️ La retención del VSL es un promedio de promedios: no está ponderada por plays
 
 **Síntoma:** el número que la app llama «retención del VSL» no representa lo que la gente
