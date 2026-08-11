@@ -13,7 +13,7 @@
 //
 //   node scripts/curso-audio.mjs --de C:\cursos\video --a C:\cursos\audio
 
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -59,8 +59,39 @@ const correr = (args) => {
   if (p.status !== 0) throw new Error((`${p.stderr}`.trim().split('\n').slice(-4).join('\n')) || 'ffmpeg falló');
 };
 
-const entradas = readdirSync(DE).filter((f) => VIDEO.has(extname(f).toLowerCase())).sort();
-if (!entradas.length) { console.error(`\n  ✖ No hay videos en ${DE}\n`); process.exit(1); }
+// ⚠️ Esta carpeta la puede estar ESCRIBIENDO el descargador ahora mismo, y los
+// archivos intermedios de yt-dlp parecen videos terminados: para una clase a medio
+// bajar quedan «<titulo>.fhls-fastly_skyfire-598.mp4» (solo la pista de video, ya
+// completa y de 170 MB) junto a un .part del audio. Tomarlo por bueno produce un
+// audio mudo o un ffmpeg que falla con «Invalid argument», y el diagnóstico
+// aparenta ser un problema de ffmpeg cuando es una carrera de escritura.
+//
+// Dos filtros, y el primero es una ALLOWLIST (guarda en positivo):
+//   1. Si viene --plan, solo se aceptan los nombres que el plan declara.
+//   2. Siempre: se descartan los intermedios «.f<formato>.<ext>» y todo lo que
+//      tenga un hermano .part / .ytdl (= sigue bajando).
+const PLAN = arg('plan', '');
+const esperados = PLAN && existsSync(PLAN)
+  ? new Set(JSON.parse(readFileSync(PLAN, 'utf8')).clases.map((c) => c.archivo))
+  : null;
+
+const enVuelo = new Set(
+  readdirSync(DE).filter((f) => /\.(part|ytdl)$|\.part-Frag\d+$/i.test(f))
+    .map((f) => f.replace(/\.f[^.]*\.(mp4|mkv|webm|m4v).*$/i, '').replace(/\.(part|ytdl).*$/i, '').replace(/\.[^.]*$/, '')),
+);
+
+const entradas = readdirSync(DE).filter((f) => {
+  if (!VIDEO.has(extname(f).toLowerCase())) return false;
+  if (/\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f)) return false;          // intermedio de yt-dlp
+  const nombre = basename(f, extname(f));
+  if (esperados && !esperados.has(nombre)) return false;                // allowlist del plan
+  if ([...enVuelo].some((p) => p && nombre.startsWith(p))) return false; // sigue bajando
+  return true;
+}).sort();
+
+const saltadosEnVuelo = readdirSync(DE).filter((f) => VIDEO.has(extname(f).toLowerCase())).length - entradas.length;
+if (saltadosEnVuelo > 0) console.log(`  (salteo ${saltadosEnVuelo} archivo/s: intermedios de yt-dlp o descargas en curso)`);
+if (!entradas.length) { console.error(`\n  ✖ No hay videos TERMINADOS en ${DE}\n`); process.exit(1); }
 
 console.log(`\n  ${entradas.length} video(s) · ${KBPS} kbps mono 16 kHz · objetivo ${MB_OBJETIVO} MB (parte a los ${Math.floor(SEG_MAX / 60)} min)\n`);
 
