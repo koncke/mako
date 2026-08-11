@@ -361,5 +361,99 @@ propósito: perderlo cuesta una reconstrucción de más, no un dato mal.
 
 ---
 
+## Una variable CSS que no existe no falla: invalida la declaración y sigue
+
+**Vive en:** `app/customer-success/programa/ProgramaApp.tsx` (corregido)
+
+Usé `--ink-70`, `--ink-40`, `--ink-15`, `--ink-05` y `--lime-ink` **17 veces**. Ninguna
+está definida en `app/globals.css`. Los colores de esa pantalla estuvieron mal en
+producción durante días.
+
+**Por qué no lo agarró nada:** una custom property indefinida no cae a un valor por
+defecto — invalida la declaración entera y la propiedad hereda. El resultado se parece
+bastante a lo correcto, así que pasó el typecheck, los 646 tests y mi propia lectura del
+HTML renderizado.
+
+**De dónde salió:** las copié de `app/conocimientos/CursoPortal.tsx`, que **sí** las
+define… adentro de su scope `.cono`. Ahí andan. En la app principal no existen.
+
+**La regla:** copiar un `var(--x)` de otra pantalla sin mirar dónde NACE es cómo se
+propaga esto. Los nombres reales del sistema son `--ink`, `--dim`, `--faint`, `--border`,
+`--border-strong`, `--surface`, `--surface-2`, `--mako`, `--mako-ink`, `--mako-bg`,
+`--good`, `--warn`, `--bad`.
+
+---
+
+## Skool no tiene vista de autor, y esa es justo la que hacía falta
+
+**Vive en:** `app/customer-success/programa/ProgramaApp.tsx`
+
+Se midió el classroom de Skool **en vivo** (DOM real, no de memoria): grilla de ancho
+fijo 1082px con cards de 350×355 y portada 16:9 a sangre; rail izquierdo de 328px con
+filas de 48px; la fila activa en ámbar pálido; la clase es un `?md=` del mismo curso, no
+una página nueva.
+
+**Pero su parte de autor no existe.** Para ver el avance de un miembro hay que entrar
+miembro por miembro, y no hay vista del temario completo — hay una extensión paga que
+sólo hace eso. Circle sí la tiene.
+
+**La regla que queda:** «copiá cómo lo hace X» casi nunca significa copiar X entero.
+Acá se copió la ESTRUCTURA (grilla → rail + documento) y se descartó el CONTENIDO: donde
+Skool pone una portada van los datos que dejan auditar el temario, porque el que mira no
+viene a reconocer un módulo por su arte, viene a ver si está balanceado y dónde faltan
+videos.
+
+---
+
+## La primera regla de triaje se traga la pantalla si no se mira con datos reales
+
+**Vive en:** `lib/cs-cartera.ts` → `cancha()`
+
+La cartera agrupa por «de quién es la pelota». La primera regla que escribí era «si no
+tiene link, te toca a vos» — verdadera, y **metía a los 13 clientes en el mismo grupo**.
+La pantalla dejaba de triar absolutamente nada.
+
+Peor: a un cliente con **187 días sin una sola sesión** le decía «dale su link». Ahí lo
+que pasa es otra cosa, y se arregla con una llamada, no con un mail.
+
+**La regla:** en una función de clasificación, el ORDEN de los `if` ES el diseño, y no se
+puede validar leyendo el código — hay que mirar la pantalla con los datos de producción.
+Ahora la razón se lee distinta según el caso: «Se enfrió: 187 días sin una sola sesión»,
+«Cerró hace meses y nunca tuvieron una sesión», «Todavía no tiene su link».
+
+**Y el corolario del denominador:** «Semana 37 de 26» se lee como un error de cálculo.
+Pasado el largo del programa el dato útil deja de ser el denominador: dice «37 · se pasó».
+
+---
+
+## Los datos del CRM que la cartera no estaba usando
+
+**Vive en:** `lib/cs-cartera.ts`
+
+`leads` tiene **80 columnas**. La cartera mostraba dos. Lo que estaba disponible y sin
+usar, medido sobre los 13 clientes reales:
+
+| Dato | Dónde | Cobertura |
+|---|---|---|
+| `fecha_cierre`, `monto_cierre_usd` | `leads` | **13 de 13** |
+| `telefono` | `leads` | 12 de 13 |
+| `empresa` | `leads` | 10 de 13 |
+| `fecha_inicio_servicio` | `leads` | **8 de 13, y sucia** |
+| `duracion_meses` | `leads` | **2 de 13** |
+| Sesiones grabadas | `closing_analyses` | 109 filas |
+| Cuotas | `pagos` + `getCuotasPendientes` | 33 filas |
+
+**Dos decisiones que salen de ahí.** El reloj del programa es una **constante** (26
+semanas) y no `duracion_meses`: derivarlo del dato dejaría a once clientes sin reloj. Y
+la semana se calcula con la fecha **más reciente** entre inicio de servicio y cierre —
+hay una ficha que arranca cuatro meses ANTES de la venta, y eso es un dato mal cargado,
+no un cliente que empezó antes de comprar.
+
+**Y lo que NO se hizo, a propósito:** ningún health score. Con 13 clientes un 78/100
+esconde el hecho —«cuota vencida hace 9 días»— detrás de un número que nadie sabe cómo se
+calculó. Las plataformas de CS lo usan porque miran 3.000 cuentas.
+
+---
+
 *Corrida del 2026-08-11: 16 agentes mapeando el código para el bucle de entrega, más la
 verificación en vivo contra la cuenta real de Whop.*
