@@ -31,11 +31,71 @@ export function texto(s: string) {
   });
 }
 
-const CHIP = {
+/**
+ * Los estados de una fila de Roadmap. Los tres primeros son los de `Parte`;
+ * `bloqueada` lo suma el roadmap propio de Customer Success, que necesita
+ * distinguir «no arrancó» de «no PUEDE arrancar» — sin eso, «en cola» miente.
+ */
+export type EstadoFila = Parte['estado'] | 'bloqueada';
+
+const CHIP: Record<EstadoFila, { t: string; bg: string; c: string }> = {
   hecha: { t: 'Hecha', bg: 'var(--good-bg)', c: 'var(--good)' },
   sigue: { t: 'Sigue', bg: 'var(--primary-bg)', c: 'var(--primary)' },
+  bloqueada: { t: 'Bloqueada', bg: 'var(--bad-bg)', c: 'var(--bad)' },
   cola: { t: 'En cola', bg: 'var(--surface-2)', c: 'var(--faint)' },
-} as const;
+};
+
+export function ChipEstado({ estado }: { estado: EstadoFila }) {
+  const c = CHIP[estado];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', background: c.bg, color: c.c, border: `1px solid ${estado === 'cola' ? 'var(--border-strong)' : `color-mix(in srgb, ${c.c} 35%, transparent)`}` }}>
+      {/* El punto es redundante a propósito: el color nunca es el único portador,
+          y el rótulo va SIEMPRE escrito al lado. */}
+      {estado !== 'cola' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />}
+      {c.t}
+    </span>
+  );
+}
+
+/**
+ * UNA fila de Roadmap: número, título, detalle y estado. Es el renglón que ya
+ * usaban las siete áreas; se extrae para que el roadmap propio de Customer
+ * Success sea EL MISMO renglón y no uno parecido. Antes de estilar una pieza
+ * «parecida» a otra hay que poner las dos anatomías al lado (AGENTS.md): acá
+ * comparten esqueleto, así que es una pieza con dos usos.
+ */
+export function FilaRoadmap({ n, titulo, detalle, estado, extra }: {
+  n: number;
+  titulo: string;
+  detalle: string;
+  estado: EstadoFila;
+  /** Lo que cuelga al lado del título (el link a la tarea del plan, quién la hace). */
+  extra?: React.ReactNode;
+}) {
+  return (
+    <li style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) auto', gap: 14, alignItems: 'center', padding: '13px 16px', background: estado === 'hecha' ? 'var(--good-bg)' : 'var(--surface)' }}>
+      <span style={{ fontFamily: MONO, fontSize: 13, color: estado === 'hecha' ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{String(n).padStart(2, '0')}</span>
+      <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>
+        {titulo}
+        {extra}
+        {/* Pasa por `texto()` igual que los puntos de la bitácora: el detalle
+            nombra funciones y archivos, y sin esto los backticks y los ** se
+            leían literales en pantalla. */}
+        <span style={{ display: 'block', fontWeight: 400, fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{texto(detalle)}</span>
+      </span>
+      <ChipEstado estado={estado} />
+    </li>
+  );
+}
+
+/** El contenedor de filas: el marco con el filete entre renglones. */
+export function ListaRoadmap({ children }: { children: React.ReactNode }) {
+  return (
+    <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+      {children}
+    </ol>
+  );
+}
 
 // ── Roadmap ──────────────────────────────────────────────────────────────────
 export function Roadmap({ partes }: { partes: Parte[] }) {
@@ -44,28 +104,11 @@ export function Roadmap({ partes }: { partes: Parte[] }) {
       {partes.length === 0 ? (
         <EmptyState titulo="Sin fases todavía" detalle="Se escriben en el bitacora.ts de esta área." />
       ) : (
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-          {partes.map((p, i) => {
-            const c = CHIP[p.estado];
-            return (
-              <li key={p.titulo} style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) auto', gap: 14, alignItems: 'center', padding: '13px 16px', background: p.estado === 'hecha' ? 'var(--good-bg)' : 'var(--surface)' }}>
-                <span style={{ fontFamily: MONO, fontSize: 13, color: p.estado === 'hecha' ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{String(i + 1).padStart(2, '0')}</span>
-                <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>
-                  {p.titulo}
-                  {/* Pasa por `texto()` igual que los puntos de la bitácora: el detalle
-                      de una fase nombra funciones y archivos, y sin esto los backticks
-                      y los ** se leían literales en pantalla. Estaba así en las siete
-                      áreas — el helper existía y el Roadmap era el único que no lo usaba. */}
-                  <span style={{ display: 'block', fontWeight: 400, fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{texto(p.detalle)}</span>
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', background: c.bg, color: c.c, border: `1px solid ${p.estado === 'cola' ? 'var(--border-strong)' : `color-mix(in srgb, ${c.c} 35%, transparent)`}` }}>
-                  {p.estado !== 'cola' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />}
-                  {c.t}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+        <ListaRoadmap>
+          {partes.map((p, i) => (
+            <FilaRoadmap key={p.titulo} n={i + 1} titulo={p.titulo} detalle={p.detalle} estado={p.estado} />
+          ))}
+        </ListaRoadmap>
       )}
     </Section>
   );

@@ -19,15 +19,15 @@ import type { Hito, Parte } from '../_registro/tipos';
  * si no, el contador cuenta otra cosa que lo que la pantalla muestra.
  */
 export const PARTES: Parte[] = [
-  { titulo: 'Fase 0 · Destrabar lo que frena todo', detalle: 'Los 5 entregables de Mauricio, reencuadrar el sprint, poner el consumo de IA bajo control y verificar la cuota. Nada es código, y por eso se posterga solo.', estado: 'sigue' },
-  { titulo: 'Fase 1 · La matriz vinculada', detalle: 'El esqueleto: las 14 columnas del Cuestionario Maestro y las 6 auditorías como validador determinista. Va primero porque el formulario, el prompt maestro y el tablero preguntan o pintan lo mismo.', estado: 'cola' },
-  { titulo: 'Fase 2 · Que el tablero salga solo', detalle: 'El prompt maestro editable y la skill de Claude Code que lo emite. Su mayor sangría de tiempo: tiene seis tableros en cola y los codea de madrugada.', estado: 'cola' },
-  { titulo: 'Fase 3 · Que la plataforma exista (Whop)', detalle: 'Habilita el paso 1 del bucle. Elegida el 11/8 por ser la gratuita con API; falta conectarla y montar el programa por bloques, que espera los 5 entregables.', estado: 'sigue' },
-  { titulo: 'Fase 4 · Que el cliente haga la tarea', detalle: 'Habilita los pasos 2 y 5: el formulario del bloque y la aprobación. Es lo que le saca el trabajo de encima.', estado: 'cola' },
-  { titulo: 'Fase 5 · Que la IA cierre el bucle', detalle: 'Habilita el paso 4: el Fathom de la reunión reescribe las respuestas, y hay un camino para cuando no hay grabación.', estado: 'cola' },
-  { titulo: 'Fase 6 · Que no se caiga nada', detalle: 'Aviso de compromiso vencido, vista de cartera, etapa del encargo y el semáforo que da el guión. No espera a nadie y es lo más barato del encargo.', estado: 'cola' },
-  { titulo: 'Fase 7 · Que se cierre y vuelva a vender', detalle: 'Protocolo de graduación y la oferta de renovación de octubre/noviembre, que es lo que reemplaza al frente 04.', estado: 'cola' },
-  { titulo: '⚠ La deuda con él', detalle: 'Vista móvil, agendar la J2 desde la llamada, el aviso que se pierde, el mapa de CDMX y el acuerdo de propiedad del código. No es técnico: es lo que sostiene la relación.', estado: 'cola' },
+  { titulo: 'Destrabar', detalle: 'Los 5 entregables de Mauricio, el bucle por escrito, el consumo de IA bajo control y la cuota. Nada es código.', estado: 'sigue' },
+  { titulo: 'La matriz vinculada', detalle: '`lib/tablero-matriz.ts` con las 14 columnas y `validarMatriz()` con las 6 auditorías.', estado: 'cola' },
+  { titulo: 'Que el tablero salga solo', detalle: 'El prompt maestro en el registro, la skill que emite el código, y probarla contra un tablero ya hecho.', estado: 'cola' },
+  { titulo: 'Que la plataforma exista · Whop', detalle: '`lib/whop.ts` + los dos catálogos, el avance del cliente, y el programa montado por bloques.', estado: 'sigue' },
+  { titulo: 'Que el cliente haga la tarea', detalle: 'El formulario del bloque generado por IA, la pantalla de aprobación y Calendly condicionado.', estado: 'cola' },
+  { titulo: 'Que la IA cierre el bucle', detalle: 'El Fathom reescribe las respuestas, con camino propio cuando no hay grabación.', estado: 'cola' },
+  { titulo: 'Que no se caiga nada', detalle: 'Cron de vencidos, tabla de seguimiento, vista de cartera y el semáforo que da el guión.', estado: 'cola' },
+  { titulo: 'Que se cierre y vuelva a vender', detalle: 'Protocolo de graduación, la oferta de renovación de oct/nov y el pipeline de casos.', estado: 'cola' },
+  { titulo: 'La deuda con él', detalle: 'Móvil, la Junta 2 desde la llamada, la jerarquía de avisos, el mapa de CDMX y el acuerdo del código.', estado: 'cola' },
 ];
 
 const CH = 'Customer Success: mapeo y roadmap';
@@ -105,6 +105,19 @@ export const BITACORA: Hito[] = [
       'Ahora el objetivo va aparte y sin estado —no es trabajo, es el destino— y cada paso declara qué fase lo habilita. El camino son 9 fases en orden de DEPENDENCIA, no en el orden de los cuatro frentes del Sprint: cada una dice qué desbloquea y qué necesita antes, y dos están marcadas como paralelas.',
       'La matriz vinculada pasó a ser la fase 1 por la misma razón: el formulario, el prompt maestro y el tablero preguntan o pintan LO MISMO. Construir cualquiera antes es construirlo sobre una suposición.',
       'Las tareas del plan se resuelven **por título** adentro de cada paso (`tareasDelCamino` en roadmap.ts, que une las del proyecto con las que el camino reclama en otros). Si el título no matchea no se inventa número: un número aproximado manda a la tarjeta de otra tarea. Y las que el camino no reclama se muestran igual, para que la pantalla no diga «esto es todo» cuando no lo es.',
+    ],
+  },
+  {
+    fecha: '11 ago', hora: '—', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'correccion',
+    titulo: 'Toda la paja afuera, y el renglón es el mismo que el de las otras siete áreas',
+    pedido: 'Elimina TODA la información innecesaria... Ahora SOLO queremos tener claridad en el roadmap de implementación, TODA TODA la paja eliminala.\nY se más específico en el roadmap de implementación sobre lo que hay que hacer.\nIntenta seguir el mismo diseño que estamos acostumbrados en otras tabs del roadmap. Hazlo bien diseñado, que se la facil.',
+    puntos: [
+      '**Se fue todo lo que no es un paso**: las citas de reuniones, las seis objeciones del 8/7, los precios, la tabla a 3 años, «lo que MaKo no reemplaza» y las reglas del acuerdo. Nada de eso se perdió — vive en `docs/sprint-servicio-mauricio.md`, que es donde se lee. Una pantalla de roadmap que además argumenta una venta no sirve para ninguna de las dos cosas.',
+      '⚠️ **Y lo posterior dejó de ser un documento para ser TRABAJO.** Los 12 módulos de la propuesta estaban como features con su copy de venta; ahora son 24 pasos de implementación con el mismo formato que los del sprint. Los que ya se habían descartado con motivo (NPS, CES, churn rate, gamificación, momentos wow, escudo de disputas, blindaje legal, firma de contrato, asignación de consultor) **no están**: un roadmap con pasos que nadie va a hacer no es un roadmap.',
+      '**El renglón ahora es literalmente el mismo.** `FilaRoadmap`, `ListaRoadmap` y `ChipEstado` se extrajeron de `_registro/Registro.tsx` —donde ya vivían, adentro de `Roadmap`— y las dos pantallas los comparten. Antes esto era un diseño «parecido» al de las otras siete áreas, que es exactamente lo que AGENTS.md manda no hacer: si comparten esqueleto, es una pieza con dos usos.',
+      'Se suma un cuarto estado, `bloqueada`, al vocabulario de los chips. Es la única información que cambia qué se puede hacer HOY: con solo `hecha | sigue | cola`, «en cola» miente sobre los 3 pasos que no pueden arrancar.',
+      '**La numeración es continua y cruza los grupos**: el paso 01 es lo primero que hay que hacer, y no hay que interpretar nada. Los grupos pasaron de ser cajas a ser un rótulo tenue con una línea que dice qué desbloquea.',
+      'Y el detalle de cada paso dice **dónde se toca**: `lib/tablero-matriz.ts`, `lib/whop.ts` + los dos catálogos, el molde `app/api/cron/tareas-verificar/route.ts`, `TENANT_TABLES` **y** `TABLAS_RESET`. Antes decía qué se lograba; ahora dice qué se escribe.',
     ],
   },
 ];
