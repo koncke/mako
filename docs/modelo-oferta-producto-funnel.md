@@ -2,7 +2,22 @@
 
 > Reemplaza la **sección 2 ("La decisión de modelo")** y la **fase F3** de `docs/productos-y-funnels-plan.md`.
 > Escrito el 2026-08-10, después de las tres respuestas del dueño. Última migración aplicada: `0124_agente_telemetria.sql`.
-> **Nada de esto está verificado contra la base.** Las queries a correr antes de la primera migración están en §5.
+> ~~**Nada de esto está verificado contra la base.**~~ **Las cinco queries de §5 SE CORRIERON contra prod el 2026-08-10.** Resultados:
+>
+> | Query | Resultado | Qué decide |
+> |---|---|---|
+> | leads por workspace | **1.000** (ws1 880, ws3 120) | el backfill de la 0128 entra en **un solo statement transaccional**; no hace falta partirlo por lote |
+> | filas en `funnel_config` | **4** | la 0126 copia 4 filas y crea el default para los workspaces sin fila. El comentario de `lib/leads.ts:1510` era exacto |
+> | `productos` por workspace | **2 en total** (ws1 y ws3, «Negocio que Escala» cada uno), **cero colisiones de nombre normalizado** | el unique `(workspace_id, lower(btrim(nombre)))` se puede aplicar **sin saneo previo**. Y el catálogo está prácticamente vacío: no hay masa de datos que migrar a `oferta_productos` |
+> | leads cerrados/perdidos con R1 futura | **0** | ⚠️ **el bug del reagendo NO tiene ninguna víctima viva en prod hoy.** Ver la corrección abajo |
+> | `lead_audit` con `Fecha R1` sobrescrita | **4** | la fecha se pisó 4 veces, pero por **cualquier** camino (un reagendo manual también cuenta): NO es prueba del bug de Calendly |
+> | leads con `producto_id` | **0** | confirmado: la columna sigue muerta |
+>
+> ⚠️ **Corrección al §3 de este documento:** la sección «Un bug que está VIVO hoy» está
+> sobrevendida. El mecanismo existe en el código y es real, pero **el síntoma no está presente
+> en producción**: cero leads perdidos/ganados con una R1 futura. Sigue siendo una razón para
+> las participaciones —el día que un lead reagende después de perderse, pasa— pero no es una
+> urgencia y no justifica adelantar nada.
 
 ---
 

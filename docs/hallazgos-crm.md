@@ -782,7 +782,14 @@ fecha de la PRIMERA reunión se pierde para siempre, y el lead migra retroactiva
 **Regla.** Un lead que vuelve no es el mismo intento. Hasta que exista `lead_participaciones`,
 cualquier writer que pise fechas de reunión sobre una fila existente tiene que preguntarse qué
 pasa con `estado_lead` — el short-circuit lo vuelve invisible.
-*(Leído del código, no verificado contra la base. La query está en el modelo, §5.)*
+
+⚠️ **Verificado contra prod el 2026-08-10, y el resultado BAJA la urgencia:** cero leads
+perdidos/ganados/no-responde con una R1 futura. El mecanismo está en el código, pero **no tiene
+ninguna víctima viva**. Las 4 filas de `lead_audit` con `Fecha R1` sobrescrita tampoco lo
+prueban: un reagendo manual escribe lo mismo. Vale como razón de diseño para las
+participaciones; no vale como urgencia. *(Y esa es la mitad del hallazgo que más importa: un
+bug leído en el código no es un bug medido en la base, y la diferencia decide si se adelanta o
+no una fase entera.)*
 
 **Vive en:** `lib/leads.ts:943-1016,1054-1079` · `lib/pipeline.ts:886-903`
 
