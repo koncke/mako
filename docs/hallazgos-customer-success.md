@@ -211,5 +211,97 @@ decisiones que salen de ahí y que conviene no revertir:
 
 ---
 
+## El secreto de un webhook no siempre es base64, y el prefijo lo dice
+
+**Vive en:** `lib/standard-webhooks.ts` → `claveDelSecreto`
+
+Standard Webhooks dice «el secreto va base64-decodificado». Es cierto para Fathom y
+Resend, que entregan `whsec_<base64>`. **Whop entrega `ws_` + 64 hex, que no es base64.**
+
+Sus propios SDK (Python, Ruby) hacen literalmente `base64encode(WHOP_WEBHOOK_SECRET)`
+antes de pasárselo al verificador estándar, que después lo decodifica. La vuelta completa
+deja **el string entero, prefijo incluido, como clave del HMAC**.
+
+**Por qué falla en silencio:** `Buffer.from('ws_0200…', 'base64')` **no lanza** — descarta
+los caracteres inválidos y devuelve bytes. Bytes equivocados, pero bytes. El resultado es
+«firma no coincide», que es el mensaje que manda a revisar el secreto: lo único que estaba
+bien.
+
+**La regla:** la tabla prefijo → clave vive en UN lugar y se deriva del propio secreto,
+nunca se pasa por parámetro. Así el que conecta una integración nueva no puede
+configurarlo mal. Y un secreto que decodifica a **cero bytes** es `sin-secreto`: con clave
+vacía el HMAC igual se calcula, así que sin ese corte cualquiera firma.
+
+---
+
+## El webhook apuntaba a la raíz del dominio, y Whop lo daba por entregado
+
+**Vive en:** `scripts/apuntar-webhook-whop.ts`
+
+El webhook creado a mano en el panel quedó en `https://hola-mako.com/` en vez de
+`/api/webhooks/whop`. Whop entregaba, la landing devolvía **200**, y el evento se perdía.
+Del lado de Whop se ve como una entrega exitosa; de este lado no se ve nada.
+
+**Cómo se detecta:** `GET /webhooks?company_id=…` lista la URL configurada. Vale la pena
+mirarla antes de debuggear el receptor — el receptor puede estar perfecto.
+
+---
+
+## Los ids de lección de Whop son `lesn_`, no `less_`
+
+**Vive en:** `lib/whop-evento.ts`
+
+Asumí el prefijo. Con `startsWith('less')` el receptor descartaba **todas** las lecciones:
+un payload bien firmado, del workspace correcto, con un id de lección existente,
+contestaba «sin id de lección». Y con 200, o sea que Whop lo daba por entregado.
+
+**Lo encontró un evento real contra producción, no un test** — y no podría haberlo
+encontrado un test, porque los datos de prueba los habría inventado con el mismo prefijo
+equivocado. La aserción ahora usa un id de la cuenta real: `lesn_NxR3LfLTx5zpH`.
+
+**La causa de fondo, que es la lección transferible:** una clave EXPLÍCITA se toma tal
+cual. Si el campo se llama `course_lesson_id`, ES el id de la lección y no hay nada que
+validar. El filtro por prefijo solo tiene sentido para el `id` pelado, que en un evento de
+interacción es el id de LA INTERACCIÓN.
+
+**Y la regla de la casa que apareció al ir a escribir el test:** `lib/whop.ts` tiene
+`server-only`, así que ningún test lo puede importar — la parte que decide de qué clase y
+de qué cliente es un evento era lo único del camino sin una sola aserción. El parseo se
+mudó a `lib/whop-evento.ts`, sin `server-only`. Mismo criterio que `lib/model-catalogo.ts`
+y `exigirClienteDePrueba`.
+
+---
+
+## Reescribir un texto «con lo que se habló» necesita la conversación, no las tareas
+
+**Vive en:** `lib/cs-reescritura.ts`, `lib/plan-fathom.ts` → `ExtractOut.cabecera`
+
+`extraerTareasDeReunion` devolvía las tareas y nada más. Enganchar ahí el prompt de
+reescritura —que es lo natural, está en la misma función— le habría dado al modelo una
+lista de **títulos** en vez de la conversación. Y un modelo al que se le pide «mejorá este
+texto con lo que se habló» siempre devuelve algo: el resultado se ve plausible y es
+inventado.
+
+La `cabecera` (el resumen de Fathom más sus action items) ya estaba construida ahí mismo,
+así que devolverla es gratis. La alternativa —volver a pedirle el transcript a Fathom—
+paga el fetch dos veces.
+
+**Las tres reglas del prompt están además en el código**, porque una regla que solo vive
+en la prosa se cumple «casi siempre»:
+
+- no pisa lo del cliente → lo garantiza `proponerReescritura`, que escribe en otra
+  columna;
+- si la junta no habló del tema, `SIN_MATERIAL` y el saneo lo descarta (también
+  entrecomillado o con punto);
+- sin respuesta previa no hace nada: escribirla de cero sería ponerle en la boca al
+  cliente algo que nunca dijo, y llegaría a la pantalla de aprobación como si él lo
+  hubiera escrito antes.
+
+**Y no elige «el bloque de esta junta»:** reescribe todos los abiertos y deja que el
+modelo descarte los que no se tocaron. Una sesión no corresponde a un bloque, y cuál se
+debatió lo sabe quien leyó la conversación, no un calendario.
+
+---
+
 *Corrida del 2026-08-11: 16 agentes mapeando el código para el bucle de entrega, más la
 verificación en vivo contra la cuenta real de Whop.*

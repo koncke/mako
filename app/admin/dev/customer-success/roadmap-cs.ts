@@ -76,13 +76,14 @@ export const URGENTE: Grupo[] = [
     pasos: [
       {
         titulo: 'Conectar Whop', estado: 'hecha', plan: 'Conectar Whop por API para la plataforma de contenido',
-        que: 'La key de Mauricio anda, el webhook recibe y el ruteo sabe de quién es cada evento.',
+        que: 'La key y el secreto andan, el webhook recibe firmado y el avance del cliente aterriza en su fila.',
         yaEsta: [
           '`lib/whop.ts` + el alta en los dos catálogos + `PINGS.whop`, que muestra el NOMBRE del negocio: es lo único que delata al toque haber pegado la key de otra cuenta.',
           '`app/api/webhooks/whop/route.ts`, verificado en vivo: GET 200, POST sin firma 401 con NUESTRO texto (no «no autenticado»), JSON roto 400.',
           'El ruteo se registra solo desde `/accounts/me`: `whop / biz_1FDimrbhXluff7 → ws 1`, sin pedirle el company id a nadie.',
+          '⭐ Probado con un evento REAL firmado contra producción: devolvió `{clase: m7c1, lead: 91}` y dejó la fila. Y las dos credenciales están en la base para ws1, no en el env de Vercel.',
         ],
-        falta: ['El `WHOP_WEBHOOK_SECRET`, que sale de crear el webhook en el panel de Whop. Sin él el avance llega en la pasada del cron y no al instante.'],
+
         ojo: 'De Whop se lee **el avance, nunca las respuestas**: su API no tiene endpoint para leerlas. Y firma con Standard Webhooks (Svix), igual que Fathom y Resend — el verificador quedó en uno solo, `lib/standard-webhooks.ts`.',
       },
       {
@@ -107,31 +108,31 @@ export const URGENTE: Grupo[] = [
         ojo: '**No como jsonb en `app_settings`**: es last-write-wins sin CAS y un formulario largo con guardado parcial se pisa solo.',
       },
       {
-        titulo: 'Que el cliente entre por un link, sin crearse cuenta', estado: 'sigue',
+        titulo: 'Que el cliente entre por un link, sin crearse cuenta', estado: 'hecha',
         que: 'MaKo le manda el link cuando toca el bloque. Sin login, sin contraseña.',
-        yaEsta: ['El permiso de escritura: `shares.permiso` (mig 0126) con default `ver`, y `puedeEditar()` en POSITIVO con 8 tests que fijan que una fila vieja, un alcance amplio o un id distinto NO escriben.'],
-        falta: ['La pantalla: `/compartido/[token]` con el bloque y su formulario.'],
-        tocar: ['`app/compartido/[token]/`'],
+        yaEsta: [
+          'El permiso de escritura: `shares.permiso` (mig 0126) con default `ver`, y `puedeEditar()` en POSITIVO con 8 tests que fijan que una fila vieja, un alcance amplio o un id distinto NO escriben.',
+          'La pantalla y su endpoint, probados contra un cliente real: el link de solo-lectura no escribe, y el link del lead 92 escribe en 92 y nunca en 91.',
+        ],
+
         ojo: 'Es la condición para que esto funcione con «empresarios que todos tienen TDAH… no creas que le sabe la computadora». Un login más es un bloque que no se contesta. Y el permiso se escribe en POSITIVO —este share puede escribir ESTE bloque— nunca «cualquiera menos».',
       },
       {
-        titulo: 'Que la IA mejore esas respuestas con lo hablado en la junta', estado: 'cola',
+        titulo: 'Que la IA mejore esas respuestas con lo hablado en la junta', estado: 'hecha',
         plan: 'Configurar Fathom e IA para actualizar formularios post-reunión',
         que: 'Después de la sesión, las respuestas del bloque quedan ampliadas con lo que se discutió.',
         yaEsta: [
-          'El molde de «ampliar sin pisar» ya existe y está probado: `lib/plan-propuesta.ts:803` y `lib/detalle-fusion.ts:24`.',
-          'El destino: `proponerReescritura()` en `lib/cs-respuestas.ts` escribe en `respuesta_ia` sin tocar lo que escribió el cliente.',
-          'La pantalla de aprobación ya está y espera este dato: en cuanto una fila quede en `revisada_ia`, el cliente ve los dos textos.',
+          '`lib/cs-reescritura.ts`, enganchado en el cron de reuniones: solo juntas de entrega, con el cliente identificado, y en su propio try/catch para que un fallo no se coma el borrador de tareas.',
+          'Las tres reglas están en el prompt Y en el código: no pisa lo del cliente, no reescribe si la junta no habló del tema (`SIN_MATERIAL`), y no inventa sobre una respuesta vacía.',
+          'El prompt es editable desde /configuraciones.',
         ],
-        falta: ['El prompt de reescritura registrado, y el enganche justo después de `extraerTareasDeReunion` (`lib/reunion-auto.ts`, tras el write del caché y antes de `crearPropuesta`).'],
-        tocar: ['`lib/prompt-registry.ts`', '`lib/plan-fathom.ts`', '`lib/reunion-auto.ts`'],
-        ojo: '**La trampa que rompe esto EN SILENCIO:** `ExtractOut` (`lib/plan-fathom.ts:376`) devuelve las TAREAS, no la conversación. Enganchado ahí sin más, el prompt reescribiría el bloque a partir de una lista de títulos — y el resultado se ve plausible. La `cabecera` con el resumen ya está construida (`:812-815`): hay que devolverla, no volver a pedirle el transcript a Fathom. Y el `def` del modelo va GRATIS: `plan-fathom` costó US$37 en 30 días por no tener override.',
+        ojo: '**La trampa era real y estaba anotada:** `ExtractOut` devolvía las TAREAS, no la conversación. Enganchado ahí sin más, habría reescrito el bloque a partir de una lista de títulos, con un resultado plausible. Ahora devuelve la `cabecera`, que ya estaba construida. Y corre GRATIS por la cascada completa: es una llamada por bloque abierto, por junta, por cliente.',
       },
       {
-        titulo: 'Que el cliente corrija y apruebe lo que escribió la IA', estado: 'cola',
-        que: 'Entra, lo pule y le da el ok. Ahí el bloque queda cerrado.',
-        yaEsta: ['`app/plan/revisar/[id]/page.tsx` es el molde exacto, y su comentario dice textual que sirve al dueño **o al cliente**. Aprobar/descartar ya está en `RevisarPropuesta.tsx:251-275`.'],
-        falta: ['Que el objeto aprobado sea el bloque, no una propuesta de tareas.'],
+        titulo: 'Que el cliente corrija y apruebe lo que escribió la IA', estado: 'hecha',
+        que: 'Ve los dos textos enteros, edita el que prefiere y le da el ok.',
+        yaEsta: ['`app/compartido/[token]/TareaCliente.tsx`. Muestra los DOS textos completos, no un resumen ni un link: aprobar lo que no se leyó es aprobar sin leer.'],
+        ojo: 'Los botones nombran su acción y su objeto — «Aprobar este texto» / «Dejar el mío» —, nunca «Aceptar» o «Cancelar» a secas.',
       },
       {
         titulo: 'Dejar de descartar las reuniones de entrega', estado: 'hecha',
