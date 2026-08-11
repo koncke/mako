@@ -65,6 +65,19 @@ export const CLAVE_PROMPT = 'cs.bloque.reescritura';
  *  terminaría guardada como propuesta. */
 const SIN_MATERIAL = 'SIN_MATERIAL';
 
+/** ¿Estos dos textos dicen lo mismo? Se ignoran los espacios, los saltos de
+ *  línea y las mayúsculas: son las tres cosas que un modelo cambia sin querer y
+ *  que no significan nada.
+ *
+ *  A propósito NO es una comparación difusa: si el modelo agregó una frase, eso
+ *  ES una mejora y tiene que llegarle al cliente. Lo que se descarta es lo
+ *  idéntico, no lo parecido. */
+function igualEnLoQueImporta(a: string, b: string | null): boolean {
+  if (!b) return false;
+  const norm = (t: string) => t.replace(/\s+/g, ' ').trim().toLowerCase();
+  return norm(a) === norm(b);
+}
+
 export type ResultadoReescritura =
   | { ok: true; claseId: string; propuesta: string }
   | { ok: false; motivo: 'sin-bloque' | 'sin-respuesta' | 'sin-material' | 'sin-modelo' };
@@ -123,6 +136,21 @@ export async function reescribirBloque(input: {
   if (texto.length < SIN_MATERIAL.length + 8 && texto.toUpperCase().includes(SIN_MATERIAL)) {
     return { ok: false, motivo: 'sin-material' };
   }
+
+  // ⚠️ EL TERCER CASO, que no estaba y salió en el primer ensayo de verdad.
+  // Pedido de reescribir un bloque del que la junta no habló, el modelo hizo lo
+  // correcto —no agregar nada— pero lo dijo de la forma que no esperábamos:
+  // devolvió el texto IDÉNTICO en vez de `SIN_MATERIAL`.
+  //
+  // Sin este corte el bloque pasaba igual a «esperando tu ok» y el cliente
+  // recibía un aviso para aprobar algo que no cambió. Eso no es solo ruido: es
+  // lo que entrena a aprobar sin leer, y la próxima vez que la propuesta SÍ
+  // diga algo distinto, tampoco la va a leer.
+  //
+  // Es la parte determinista de la regla, y por eso va acá y no en el prompt:
+  // «devolvé SIN_MATERIAL» es una instrucción que el modelo puede obedecer de
+  // muchas maneras; «el texto es el mismo» es una comparación que no falla.
+  if (igualEnLoQueImporta(texto, bloque.respuesta)) return { ok: false, motivo: 'sin-material' };
 
   await proponerReescritura(input.leadId, input.claseId, texto, {
     area: input.area,
