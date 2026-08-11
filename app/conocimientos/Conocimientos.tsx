@@ -20,6 +20,7 @@ import { useRouter } from '@/app/_ui/Link';
 import { CURSOS, type Curso } from './curso';
 import { CURSO_VSL } from './curso-vsl';
 import { CURSO_PRODUCTO_APP } from './curso-producto-app';
+import { CURSO_CLAUDE_AI_RODRIGO_ROJO } from './curso-claude-ai-rodrigo-rojo';
 import AnalisisNegocio, { CURSO_ANALISIS } from './AnalisisNegocio';
 import BrandingMaKo, { CURSO_BRANDING } from './BrandingMaKo';
 import Compartir from './Compartir';
@@ -27,7 +28,7 @@ import CursoPortal, { Card, PortalShell } from './CursoPortal';
 
 // curso.ts es AUTO-GENERADO desde transcripciones: los módulos escritos a mano
 // viven en su propio archivo y se suman acá.
-const TODOS: Curso[] = [...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP];
+const TODOS: Curso[] = [...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP, CURSO_CLAUDE_AI_RODRIGO_ROJO];
 
 // ── Selector de cursos (landing) ─────────────────────────────────────────────
 function Selector({ enter }: { enter: (slug: string) => void }) {
