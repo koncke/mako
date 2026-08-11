@@ -17,6 +17,7 @@ import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AREAS, FAMILIAS, areaDe, porGrupo } from '../app/admin/dev/areas';
+import { REGISTROS_SLUGS, registroDe } from '../app/admin/dev/registros';
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -79,11 +80,28 @@ test('el documento de hallazgos al que apunta un área existe', () => {
   }
 });
 
-test('las seis áreas con bitácora escrita a mano siguen existiendo', () => {
+test('toda área con bitácora escrita a mano sigue existiendo', () => {
   // Tienen registro curado (`<area>/bitacora.ts`), entrada en el nav y links que ya
   // circularon. Renombrar su slug rompe las tres cosas en silencio.
-  for (const slug of ['admin', 'onboarding', 'general', 'chatbot', 'ads-writer', 'semaforo']) {
+  //
+  // ⚠️ La lista sale de `registros.ts`, NO se escribe acá. Antes eran seis slugs a
+  // mano y el test ya estaba viejo: `pricing` tenía bitácora desde hacía días y
+  // nadie la había sumado, así que renombrar ESE slug no rompía nada. Una lista
+  // paralela de lo mismo se queda vieja sola — que es la regla de la casa.
+  const conBitacora = REGISTROS_SLUGS;
+  assert.ok(conBitacora.length >= 6, 'se perdieron registros: quedaban menos de los que había');
+  for (const slug of conBitacora) {
     assert.ok(areaDe(slug), `desapareció el área '${slug}', que tiene bitácora escrita a mano`);
+  }
+});
+
+test('una bitácora escrita a mano tiene sus dos paneles con contenido', () => {
+  // Un registro a medias es peor que ninguno: la pantalla pinta el estado vacío del
+  // que falta y se lee como «acá no pasó nada», cuando lo que pasó es que se olvidó.
+  for (const slug of REGISTROS_SLUGS) {
+    const r = registroDe(slug);
+    assert.ok(r.partes.length > 0, `el área '${slug}' tiene bitácora pero cero partes (Roadmap vacío)`);
+    assert.ok(r.bitacora.length > 0, `el área '${slug}' tiene partes pero cero hitos (Change History vacío)`);
   }
 });
 

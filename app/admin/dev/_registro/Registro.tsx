@@ -52,7 +52,11 @@ export function Roadmap({ partes }: { partes: Parte[] }) {
                 <span style={{ fontFamily: MONO, fontSize: 13, color: p.estado === 'hecha' ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{String(i + 1).padStart(2, '0')}</span>
                 <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>
                   {p.titulo}
-                  <span style={{ display: 'block', fontWeight: 400, fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{p.detalle}</span>
+                  {/* Pasa por `texto()` igual que los puntos de la bitácora: el detalle
+                      de una fase nombra funciones y archivos, y sin esto los backticks
+                      y los ** se leían literales en pantalla. Estaba así en las siete
+                      áreas — el helper existía y el Roadmap era el único que no lo usaba. */}
+                  <span style={{ display: 'block', fontWeight: 400, fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{texto(p.detalle)}</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', background: c.bg, color: c.c, border: `1px solid ${p.estado === 'cola' ? 'var(--border-strong)' : `color-mix(in srgb, ${c.c} 35%, transparent)`}` }}>
                   {p.estado !== 'cola' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />}

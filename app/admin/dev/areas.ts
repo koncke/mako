@@ -28,9 +28,10 @@
 //     martes; éste es el tablero, que es donde el trabajo ya vive.
 //   · El CHANGE HISTORY sale de git. `scripts/gen-dev-historial.mjs` corre
 //     `git log` sobre las rutas de `vive` y deja `_historial.generado.ts`.
-//     Las seis bitácoras escritas a mano (`<area>/bitacora.ts`) NO se reemplazan:
+//     Las bitácoras escritas a mano (`<area>/bitacora.ts`) NO se reemplazan:
 //     tienen el pedido TEXTUAL del dueño y el porqué, que ningún commit contiene.
-//     Donde existen, mandan ellas.
+//     Donde existen, mandan ellas. Cuáles son sale de `registros.ts`, nunca de una
+//     lista escrita al lado: acá decía «las seis» cuando ya eran siete.
 //
 // Eso es deliberado y es la única forma de que 122 registros no sean 122 mentiras.
 // La versión anterior de este archivo lo decía así: «nacen vacíos a propósito; uno
@@ -155,15 +156,18 @@ export const AREAS: AreaDev[] = [
     slug: 'funnel-editor', titulo: 'Funnel Editor', familia: 'Operate', grupo: 'CRM',
     estado: 'listo', verEnApp: '/funnel',
     alcance: 'Fuente de verdad de las etapas. Pantalla real SIN entrada en el nav.',
-    vive: ['app/funnel/page.tsx', 'app/funnel/FunnelEditor.tsx'],
+    vive: ['app/funnel/page.tsx', 'app/funnel/FunnelEditor.tsx', 'lib/pipeline.ts', 'lib/leads.ts', 'supabase/migrations/0025_funnel_config.sql'],
+    hallazgos: 'hallazgos-crm',
+    nota: 'El funnel es UNO por workspace por CONSTRUCCIÓN, no por convención: índice único funnel_config_ws_uk (0054:95) + TRES upserts con onConflict:\'workspace_id\' (saveFunnel, clonarConfigDelDueno, datos-mau) + un .maybeSingle() en getFunnel que con dos filas devuelve PGRST116 y el catch lo convierte en DEFAULT_PIPELINE SIN UN SOLO LOG. Y el diagnóstico obvio es el equivocado: el funnel NO ubica los leads — deriveStageKey (lib/pipeline.ts:887) es un switch puro con 11 keys canónicas que no lee funnel_config. El editor autoguarda el jsonb ENTERO con debounce de 500ms por tecla y está embebido en tres pantallas más (/funnel, /onboarding, /second-brain). El plan de multi-funnel, en docs/modelo-oferta-producto-funnel.md.',
   },
   {
     slug: 'products-offers', titulo: 'Products & Offers', familia: 'Operate', grupo: 'CRM',
     estado: 'parcial',
-    alcance: 'Catálogo de productos/ofertas por workspace (#374): MaKo los propone leyendo el brief y El Archivero, y cada uno lleva tipo de cobro, precio, promesa, qué incluye y garantía.',
-    vive: ['lib/productos.ts', 'lib/productos-ia.ts', 'app/onboarding/ProductosView.tsx', 'app/api/onboarding/productos/route.ts', 'supabase/migrations/0117_productos.sql'],
-    hallazgos: 'hallazgos-onboarding',
-    nota: 'La mitad del propósito declarado no está cableada: la migración 0117 agregó leads.producto_id para que el CRM referencie un producto al cerrar y herede su pricing, pero grep de \'producto_id\' en todo el repo pega SOLO en el .sql — ningún código lo lee ni lo escribe. Hoy el catálogo se toca únicamente desde el paso \'productos\' del wizard de onboarding; no hay pantalla propia ni entrada en el CRM. Va sin RLS: se scopea por getTenantDb (\'productos\' tiene que estar en TENANT_TABLES de lib/workspace.ts).',
+    alcance: 'Qué vende el negocio y por dónde: el catálogo de PRODUCTOS (lo que se entrega y se factura), las OFERTAS (cómo se presenta cada uno para que se compre) y su relación N:M con los funnels. MaKo los propone leyendo el brief y El Archivero; el CRM referencia uno al cerrar y hereda su pricing.',
+    vive: ['lib/productos.ts', 'lib/productos-ia.ts', 'app/onboarding/ProductosView.tsx', 'app/api/onboarding/productos/route.ts', 'supabase/migrations/0117_productos.sql', 'docs/modelo-oferta-producto-funnel.md', 'docs/productos-y-funnels-plan.md'],
+    proyectos: ['Feature: CRM'],
+    hallazgos: 'hallazgos-crm',
+    nota: 'OFERTA ≠ PRODUCTO, y confundirlos costó un rediseño entero del plan (10/8): el producto es lo que se ENTREGA y se factura, la oferta es cómo se PRESENTA para que se compre (promesa, garantía, bonos, urgencia, lead magnet). Decisión del dueño: la oferta NO se depreca a favor del catálogo — y hay un dato que lo respalda, perfilNegocioTexto() alimenta ~20 features y el catálogo productos solo 2 (lib/agente-contexto.ts); lib/mako-context.ts no lee productos en absoluto. Sigue sin cablearse leads.producto_id (mig 0117:34): la columna existe y NINGUNA línea de TypeScript la lee ni la escribe — no está en el tipo Lead, ni en LISTA_COLS, ni en COLS_FILTRO. Va sin RLS: se scopea por getTenantDb (\'productos\' está en TENANT_TABLES). El modelo completo de lo que falta, con el DDL de 0125 a 0131, en docs/modelo-oferta-producto-funnel.md.',
   },
   {
     slug: 'contracts-receipts', titulo: 'Contracts & Receipts', familia: 'Operate', grupo: 'CRM',
