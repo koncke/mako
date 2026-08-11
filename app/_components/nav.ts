@@ -346,9 +346,18 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         { key: 'ui', label: 'MaKo UX/UI', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
       ],
       // Un registro por área del producto. Mismo molde en todas: Roadmap primero.
+      //
+      // ⚠️ ESTA LISTA Y `registros.ts` TIENEN QUE COINCIDIR, y no se puede derivar
+      // una de la otra: `registros.ts` importa las ocho bitácoras enteras (~1.500
+      // líneas de prosa) y `nav.ts` lo consume el Sidebar, que es cliente — meterlas
+      // al bundle de cada página para armar ocho links no vale la pena.
+      // La coincidencia la fija `tests/dev-areas.test.ts`: un área con bitácora y sin
+      // fila acá no es un error visible, es una tab que existe y NO SE VE. Pasó con
+      // `pricing`, que estuvo días con registro y sin entrada, y se descubrió recién
+      // cuando el dueño dijo «no veo la tab en la sidebar» de otra.
       [
-        // El MAPA de las 121 áreas. Va primero porque es la puerta: en el sidebar
-        // entran seis, y las otras 115 solo se alcanzan desde acá.
+        // El MAPA de las 122 áreas. Va primero porque es la puerta: en el sidebar
+        // entran las que tienen registro escrito, y el resto solo se alcanza desde acá.
         { key: 'dev-areas', label: 'Áreas del producto', href: '/admin/dev', icon: 'graphics', match: (p) => p === '/admin/dev' },
         // Va primero de los registros porque es el shell donde vive todo lo demás.
         { key: 'dev-admin', label: 'Admin', href: '/admin/dev/admin', icon: 'admin', match: starts('/admin/dev/admin') },
@@ -361,6 +370,8 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // sueltas de /admin/guiones con un nombre que no se entendía.
         { key: 'dev-ads-writer', label: 'Ads Writer', href: '/admin/dev/ads-writer', icon: 'escribir', match: (p) => starts('/admin/dev/ads-writer')(p) || starts('/admin/dev/ads-generator')(p) || starts('/admin/guiones')(p) },
         { key: 'dev-semaforo', label: 'El semáforo', href: '/admin/dev/semaforo', icon: 'graphics', match: starts('/admin/dev/semaforo') },
+        { key: 'dev-products-offers', label: 'Products & Offers', href: '/admin/dev/products-offers', icon: 'crm', match: starts('/admin/dev/products-offers') },
+        { key: 'dev-pricing', label: 'Pricing', href: '/admin/dev/pricing', icon: 'tag', match: starts('/admin/dev/pricing') },
       ],
     ],
   },

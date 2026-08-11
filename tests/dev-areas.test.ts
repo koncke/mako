@@ -18,6 +18,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AREAS, FAMILIAS, areaDe, porGrupo } from '../app/admin/dev/areas';
 import { REGISTROS_SLUGS, registroDe } from '../app/admin/dev/registros';
+import { ADMIN_NAV } from '../app/_components/nav';
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -93,6 +94,25 @@ test('toda área con bitácora escrita a mano sigue existiendo', () => {
   for (const slug of conBitacora) {
     assert.ok(areaDe(slug), `desapareció el área '${slug}', que tiene bitácora escrita a mano`);
   }
+});
+
+test('EL PEDIDO: un área con bitácora tiene su fila en el sidebar', () => {
+  // «No veo la tab en la sidebar» (Martín, 11/8), sobre un registro recién escrito.
+  //
+  // El sidebar de Dev lleva la lista a mano (app/_components/nav.ts) y NO se puede
+  // derivar de `registros.ts`: eso importaría las ocho bitácoras enteras al bundle
+  // del cliente para armar ocho links. Entonces son dos listas de lo mismo, y la
+  // única forma de que no divirjan es esta guarda — que ya llegaba tarde: `pricing`
+  // tenía registro desde hacía días y ninguna fila. Una tab que existe, funciona y
+  // no se ve no da ningún síntoma: no rompe, no loguea, y nadie la abre nunca.
+  const enNav = new Set(ADMIN_NAV.map((i) => i.key.replace(/^dev-/, '')));
+  const faltan = REGISTROS_SLUGS.filter((s) => !enNav.has(s));
+  assert.deepEqual(
+    faltan,
+    [],
+    `Estas áreas tienen bitácora escrita y NO aparecen en el sidebar. Sumá su fila al ` +
+    `bloque de registros de ADMIN_FAMILIAS en app/_components/nav.ts:\n  ${faltan.join('\n  ')}`,
+  );
 });
 
 test('una bitácora escrita a mano tiene sus dos paneles con contenido', () => {
