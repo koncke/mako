@@ -118,9 +118,14 @@ export const URGENTE: Grupo[] = [
         titulo: 'Que la IA mejore esas respuestas con lo hablado en la junta', estado: 'cola',
         plan: 'Configurar Fathom e IA para actualizar formularios post-reunión',
         que: 'Después de la sesión, las respuestas del bloque quedan ampliadas con lo que se discutió.',
-        yaEsta: ['El molde de «ampliar sin pisar» ya existe y está probado: `lib/plan-propuesta.ts:803` y `lib/detalle-fusion.ts:24`.'],
-        falta: ['El prompt de reescritura registrado, y el enganche después de `extraerTareasDeReunion`.'],
-        tocar: ['`lib/prompt-registry.ts`', '`lib/reunion-auto.ts`'],
+        yaEsta: [
+          'El molde de «ampliar sin pisar» ya existe y está probado: `lib/plan-propuesta.ts:803` y `lib/detalle-fusion.ts:24`.',
+          'El destino: `proponerReescritura()` en `lib/cs-respuestas.ts` escribe en `respuesta_ia` sin tocar lo que escribió el cliente.',
+          'La pantalla de aprobación ya está y espera este dato: en cuanto una fila quede en `revisada_ia`, el cliente ve los dos textos.',
+        ],
+        falta: ['El prompt de reescritura registrado, y el enganche justo después de `extraerTareasDeReunion` (`lib/reunion-auto.ts`, tras el write del caché y antes de `crearPropuesta`).'],
+        tocar: ['`lib/prompt-registry.ts`', '`lib/plan-fathom.ts`', '`lib/reunion-auto.ts`'],
+        ojo: '**La trampa que rompe esto EN SILENCIO:** `ExtractOut` (`lib/plan-fathom.ts:376`) devuelve las TAREAS, no la conversación. Enganchado ahí sin más, el prompt reescribiría el bloque a partir de una lista de títulos — y el resultado se ve plausible. La `cabecera` con el resumen ya está construida (`:812-815`): hay que devolverla, no volver a pedirle el transcript a Fathom. Y el `def` del modelo va GRATIS: `plan-fathom` costó US$37 en 30 días por no tener override.',
       },
       {
         titulo: 'Que el cliente corrija y apruebe lo que escribió la IA', estado: 'cola',
