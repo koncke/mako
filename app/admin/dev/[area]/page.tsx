@@ -23,7 +23,10 @@ import { RegistroArea } from './RegistroArea';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AreaDevPage({ params }: { params: Promise<{ area: string }> }) {
+export default async function AreaDevPage({ params, searchParams }: {
+  params: Promise<{ area: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   // El mismo guard que el resto de /admin: rol de AGENCIA, re-chequeado contra
   // la base en cada request. requireRolWs([]) no sirve acá — `rol_ws` vale
   // 'admin' para el dueño de CADA workspace.
@@ -35,11 +38,21 @@ export default async function AreaDevPage({ params }: { params: Promise<{ area: 
   // ruta vieja redirige en vez de dar 404: está escrita en la bitácora del
   // rediseño y en links que ya circularon.
   if (slug === 'ads-generator') redirect('/admin/dev/ads-writer');
+  // El área se llamaba «cs-analyst» y era la mitad del asunto: el analista de
+  // riesgo es UNA pieza de Customer Success, no el módulo. Mismo trato que
+  // arriba — la ruta vieja redirige, no da 404.
+  if (slug === 'cs-analyst') redirect('/admin/dev/customer-success');
   const area = areaDe(slug);
   if (!area) notFound();
 
   // Los dos paneles derivados: el Roadmap sale del plan y el historial de git.
   // Ver el encabezado de `../areas.ts` para por qué no se escriben a mano.
   const { tareas } = await roadmapDe(slug, wsDelBoard(admin.ws));
-  return <RegistroArea area={area} registro={registroDe(slug)} tareas={tareas} commits={historialGitDe(slug)} />;
+  // La sub-tab se lee ACÁ y no con `useSearchParams`: ese hook hace que el
+  // boundary se saltee el render del servidor y la primera pintura salga vacía.
+  // Es el mismo molde que app/admin/ui/page.tsx, que ya lo dejó escrito — y
+  // acá importa más, porque `?tab=` es además el único camino para abrir un
+  // panel desde afuera (un clic sintético no llega al onClick de React).
+  const { tab } = await searchParams;
+  return <RegistroArea area={area} registro={registroDe(slug)} tareas={tareas} commits={historialGitDe(slug)} tabInicial={tab} />;
 }

@@ -345,34 +345,59 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // nav.ts son contrato con la base.
         { key: 'ui', label: 'MaKo UX/UI', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
       ],
-      // Un registro por área del producto. Mismo molde en todas: Roadmap primero.
-      //
-      // ⚠️ ESTA LISTA Y `registros.ts` TIENEN QUE COINCIDIR, y no se puede derivar
-      // una de la otra: `registros.ts` importa las ocho bitácoras enteras (~1.500
-      // líneas de prosa) y `nav.ts` lo consume el Sidebar, que es cliente — meterlas
-      // al bundle de cada página para armar ocho links no vale la pena.
-      // La coincidencia la fija `tests/dev-areas.test.ts`: un área con bitácora y sin
-      // fila acá no es un error visible, es una tab que existe y NO SE VE. Pasó con
-      // `pricing`, que estuvo días con registro y sin entrada, y se descubrió recién
-      // cuando el dueño dijo «no veo la tab en la sidebar» de otra.
+      // El MAPA de las 122 áreas. Va suelto y no adentro de «Registros» porque es
+      // la PUERTA: las que tienen registro escrito entran en la colección de
+      // abajo, y las otras ~113 solo se alcanzan desde acá.
       [
-        // El MAPA de las 122 áreas. Va primero porque es la puerta: en el sidebar
-        // entran las que tienen registro escrito, y el resto solo se alcanza desde acá.
         { key: 'dev-areas', label: 'Áreas del producto', href: '/admin/dev', icon: 'graphics', match: (p) => p === '/admin/dev' },
-        // Va primero de los registros porque es el shell donde vive todo lo demás.
-        { key: 'dev-admin', label: 'Admin', href: '/admin/dev/admin', icon: 'admin', match: starts('/admin/dev/admin') },
-        { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
-        { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
-        { key: 'dev-chatbot', label: 'Chatbot', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },
-        // Se llama como la FEATURE (/ads-writer), no «Ads Generator» ni
-        // «Guiones»: adentro viven su roadmap, su historial y las dos
-        // bibliotecas globales (Ángulos y Estructuras) que antes colgaban
-        // sueltas de /admin/guiones con un nombre que no se entendía.
-        { key: 'dev-ads-writer', label: 'Ads Writer', href: '/admin/dev/ads-writer', icon: 'escribir', match: (p) => starts('/admin/dev/ads-writer')(p) || starts('/admin/dev/ads-generator')(p) || starts('/admin/guiones')(p) },
-        { key: 'dev-semaforo', label: 'El semáforo', href: '/admin/dev/semaforo', icon: 'graphics', match: starts('/admin/dev/semaforo') },
-        { key: 'dev-products-offers', label: 'Products & Offers', href: '/admin/dev/products-offers', icon: 'crm', match: starts('/admin/dev/products-offers') },
-        { key: 'dev-pricing', label: 'Pricing', href: '/admin/dev/pricing', icon: 'tag', match: starts('/admin/dev/pricing') },
       ],
+    ],
+    // ⚠️ LOS REGISTROS VAN EN UNA COLECCIÓN, NO EN FILAS SUELTAS, y el motivo es
+    // una regla del dueño que ya estaba escrita desde el 1/7: «La sidebar se
+    // puede scrollear, eso NO debe ser posible NUNCA» (docs/hallazgos-ui.md).
+    // Con una fila por registro, Dev llegó a TRECE y la columna desbordó — se
+    // agregaron tres en 24 horas y va a seguir creciendo con cada área nueva.
+    // Una colección cuesta UNA fila y abre al costado, igual que «Analysts», que
+    // esconde siete destinos por exactamente la misma razón (ver el comentario
+    // del tipo NavFamilia arriba: «sin esto, Analyze eran nueve filas y la barra
+    // se volvía una lista de todo»).
+    //
+    // Esto NO es esconder destinos: la fila lleva rótulo, ícono y chevron, y
+    // abre por hover y por click. Lo que la regla de la casa prohíbe es esconder
+    // SIN pista — el caso de las tabs de la ficha del lead.
+    //
+    // ⚠️ ESTA LISTA Y `registros.ts` TIENEN QUE COINCIDIR, y no se puede derivar
+    // una de la otra: `registros.ts` importa las nueve bitácoras enteras (~1.700
+    // líneas de prosa) y `nav.ts` lo consume el Sidebar, que es cliente — meterlas
+    // al bundle de cada página para armar nueve links no vale la pena.
+    // La coincidencia la fija `tests/dev-areas.test.ts`: un área con bitácora y sin
+    // fila acá no es un error visible, es una tab que existe y NO SE VE. Pasó con
+    // `pricing`, que estuvo días con registro y sin entrada, y se descubrió recién
+    // cuando el dueño dijo «no veo la tab en la sidebar» de otra. El test sigue
+    // valiendo dentro del grupo: `itemsDe()` incluye los items de las colecciones.
+    grupos: [
+      {
+        key: 'dev-registros', label: 'Registros', icon: 'config',
+        items: [
+          // Va primero porque es el shell donde vive todo lo demás.
+          { key: 'dev-admin', label: 'Admin', href: '/admin/dev/admin', icon: 'admin', match: starts('/admin/dev/admin') },
+          { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
+          { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
+          { key: 'dev-chatbot', label: 'Chatbot', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },
+          // Se llama como la FEATURE (/ads-writer), no «Ads Generator» ni
+          // «Guiones»: adentro viven su roadmap, su historial y las dos
+          // bibliotecas globales (Ángulos y Estructuras) que antes colgaban
+          // sueltas de /admin/guiones con un nombre que no se entendía.
+          { key: 'dev-ads-writer', label: 'Ads Writer', href: '/admin/dev/ads-writer', icon: 'escribir', match: (p) => starts('/admin/dev/ads-writer')(p) || starts('/admin/dev/ads-generator')(p) || starts('/admin/guiones')(p) },
+          { key: 'dev-semaforo', label: 'El semáforo', href: '/admin/dev/semaforo', icon: 'graphics', match: starts('/admin/dev/semaforo') },
+          { key: 'dev-products-offers', label: 'Products & Offers', href: '/admin/dev/products-offers', icon: 'crm', match: starts('/admin/dev/products-offers') },
+          { key: 'dev-pricing', label: 'Pricing', href: '/admin/dev/pricing', icon: 'tag', match: starts('/admin/dev/pricing') },
+          // Se llamaba «cs-analyst» y era la mitad del asunto: el analista de riesgo
+          // es UNA pieza de Customer Success. La ruta vieja redirige (ver
+          // app/admin/dev/[area]/page.tsx), así que sigue matcheando.
+          { key: 'dev-customer-success', label: 'Customer Success', href: '/admin/dev/customer-success', icon: 'cs', match: (p) => starts('/admin/dev/customer-success')(p) || starts('/admin/dev/cs-analyst')(p) },
+        ],
+      },
     ],
   },
 ];

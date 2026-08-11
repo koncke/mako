@@ -207,7 +207,7 @@ respecto de la versión original de esta fase:
 - La vista de carriles es **oferta → funnels**, no producto → funnels. Molde:
   `MatrizView.tsx:3-23,270-278`. La tabla producto×funnel sigue descartada por escrito ahí
   mismo: obliga a que todos tengan la misma cantidad y rellena con «—».
-- Pantalla propia con `Pagina` + `PageHeader` + `Section` y entrada en `lib/nav.ts`. Lista con
+- Pantalla propia con `Pagina` + `PageHeader` + `Section` y entrada en `app/_components/nav.ts`. Lista con
   filete, no pila de tarjetas, y **no `.mk-fila`** (esa lleva la marca dorada de «acá
   intervino MaKo»; un catálogo comercial no lo es).
 - Wizard «Agregar un funnel» con `WizardShell` usando **`pasos`+`pasoActual`** (el MAPA), no

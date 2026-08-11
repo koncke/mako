@@ -662,7 +662,15 @@ export function Sidebar() {
         <div id="grp-flyout"
           onMouseEnter={() => { if (flyoutTimer.current) clearTimeout(flyoutTimer.current); }}
           onMouseLeave={cerrarFlyout}
-          style={{ position: 'fixed', top: flyout.top, left: (open ? FULL : RAIL) + 8, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.28)', overflow: 'hidden', padding: 6 }}>
+          // ⚠️ `maxHeight` + `overflowY`, o el desplegable hereda el problema que
+          // vino a resolver. El `alto` que calcula `abrirFlyout` solo clampea el
+          // `top`: si la colección crece más que la pantalla, el `overflow:
+          // hidden` de acá le corta las últimas filas EN SILENCIO — sin barra,
+          // sin degradado, sin nada. Y «Registros» es justo la que crece: sumó
+          // tres áreas en 24 horas. La barra va con `.mk-scroll-oscuro`, que
+          // adelgaza y tiñe pero NUNCA esconde.
+          className="mk-scroll-oscuro"
+          style={{ position: 'fixed', top: flyout.top, left: (open ? FULL : RAIL) + 8, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', boxShadow: '0 18px 44px rgba(23,21,17,.28)', maxHeight: 'calc(100vh - 24px)', overflowY: 'auto', overflowX: 'hidden', padding: 6 }}>
           <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', padding: '4px 10px 6px' }}>{grupoFlyout.label}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {grupoFlyout.items.map((it) => (

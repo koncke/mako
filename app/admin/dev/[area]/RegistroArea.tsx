@@ -23,7 +23,10 @@
 // Partir por longitud da tabs arbitrarias que después nadie sabe dónde buscar.
 
 import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+// `useRouter` sale de app/_ui/Link, NO de next/navigation: preserva el `?ws=` de
+// la pestaña. Con el de Next, cambiar de tab dentro de un cliente impersonado te
+// devuelve al workspace propio sin avisar.
+import { useRouter } from '@/app/_ui/Link';
 import { Pagina, PageHeader, Tabs, Status, ButtonLink, type Tab } from '@/app/_ui';
 import { Roadmap, ChangeHistory } from '../_registro/Registro';
 import { RoadmapDelPlan, HistorialDeGit, Trampa } from '../_registro/Derivados';
@@ -34,12 +37,14 @@ import type { TareaRoadmap } from '../roadmap';
 import { subTabsDe, panelDe } from '../paneles';
 
 export function RegistroArea({
-  area, registro, tareas, commits,
+  area, registro, tareas, commits, tabInicial,
 }: {
   area: AreaDev;
   registro: Registro;
   tareas: TareaRoadmap[];
   commits: CommitArea[];
+  /** La sub-tab pedida por `?tab=`, ya leída en el SERVER (ver page.tsx). */
+  tabInicial?: string;
 }) {
   const hechas = registro.partes.filter((p) => p.estado === 'hecha').length;
   // Las áreas con bitácora escrita a mano tienen registro curado. Manda ella:
@@ -58,8 +63,18 @@ export function RegistroArea({
   // panel desde afuera — con la pane del navegador oculta, un clic sintético no
   // llega al onClick de React y no hay forma de cambiar de tab. Mismo patrón que
   // `/integraciones?ops=1`. Un id que no existe cae en Roadmap, que es el default.
-  const pedida = useSearchParams().get('tab');
-  const [tab, setTab] = useState(tabs.some((t) => t.id === pedida) ? pedida! : 'roadmap');
+  //
+  // ⚠️ Y el viaje es de IDA Y VUELTA. Antes solo se LEÍA (`useSearchParams`) y el
+  // `onCambio` era `setTab` pelado: la URL nunca se actualizaba, así que el link
+  // que copiabas no era la tab que estabas viendo — justo lo que este mecanismo
+  // vino a resolver. `replace` y no `push`: cambiar de tab no es navegar, y
+  // llenar el historial obliga a apretar Atrás cinco veces para salir.
+  const router = useRouter();
+  const [tab, setTab] = useState(tabs.some((t) => t.id === tabInicial) ? tabInicial! : 'roadmap');
+  const irA = (id: string) => {
+    setTab(id);
+    router.replace(id === 'roadmap' ? `/admin/dev/${area.slug}` : `/admin/dev/${area.slug}?tab=${id}`, { scroll: false });
+  };
 
   return (
     <Pagina>
@@ -76,7 +91,7 @@ export function RegistroArea({
         accion={area.verEnApp ? <ButtonLink href={area.verEnApp} variant="secondary">Ver en la app →</ButtonLink> : undefined}
       />
 
-      <Tabs tabs={tabs} activa={tab} onCambio={setTab} />
+      <Tabs tabs={tabs} activa={tab} onCambio={irA} />
 
       {tab === 'roadmap' && (
         <>

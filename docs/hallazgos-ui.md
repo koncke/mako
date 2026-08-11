@@ -1424,6 +1424,44 @@ tope es **texto**, el tope va en el párrafo (`Lectura`, 70ch), nunca en la pág
 Si no entra, se resuelve de otra forma —reorganizando o plegando—, nunca con scroll. Está
 inspirada en la de Meta, y las notificaciones salen de ahí.
 
+⚠️ **Se violó el 2026-08-11 y el diagnóstico obvio era el equivocado.** El reclamo fue «la
+sidebar se ve horrible con esa barra de scroll», así que la primera reacción fue arreglar
+**la barra** —adelgazarla y teñirla con `.mk-scroll-oscuro`— y el problema siguió igual. La
+barra fea no era el problema: **era el testigo**. Lo roto era que la familia Dev pasó de 10
+a 13 filas en 24 horas (Products & Offers, Pricing, Customer Success) y es la única familia
+larga que NO usaba el mecanismo de colecciones que el resto de la barra ya tiene — Analyze
+esconde siete Analysts en una fila, Content Machine tiene tres grupos. Trece contra las
+cinco de Operate. El arreglo real es un `NavGrupo`, no CSS.
+
+**Por qué se volvió a violar una regla que estaba escrita:** era inencontrable por el método
+que prescribe AGENTS.md. Su línea «Vive en:» apuntaba a `lib/nav.ts`, **un archivo que no
+existe desde el rediseño**, así que grepear la ruta real (`app/_components/nav.ts`) en
+`docs/` no devolvía nada. Una ruta muerta en un «Vive en:» no rompe nada y no la ve el
+compilador: solo hace que la regla no se encuentre, y entonces cada sesión vuelve a proponer
+«le pongo scroll» o «le escondo la barra». Corregidas las tres que había.
+
+**Tres trampas del arreglo, todas verificadas:**
+
+- **El rail PLEGADO desborda ~14 px antes que el expandido**, porque la fila colapsada es más
+  alta (`filaStyle(false)` usa `padding: '8px 0'` sobre un ícono de 19). Medir solo con la
+  barra abierta subestima el problema — y el rail es el estado por defecto.
+- **El flyout hereda el fallo.** Tenía `overflow: 'hidden'` y ningún `maxHeight`: el `alto`
+  que calcula `abrirFlyout` solo clampea el `top`. Mover filas ahí sin tocarlo mudaba el
+  mismo corte silencioso de la columna al desplegable.
+- **La fila del grupo NO lleva contador.** `Contador` pinta sobre `--bad` —rojo de
+  notificación— y la regla del catálogo reserva los números a la familia que notifica. La
+  pista de que hay más adentro es el chevron, no un número.
+
+**Y lo que NO hay que hacer, con el motivo:** `scrollbar-width: none` no elimina el scroll,
+elimina la evidencia — y como el contenedor corta con `overflow: hidden`, el síntoma queda en
+exactamente cero: ni degradado, ni media fila. Lo que desaparecía desde abajo era Customer
+Success → Pricing → Products & Offers → El semáforo; tres de ésas se habían agregado ese
+mismo día, y «Pricing» es literalmente la fila del hallazgo de más abajo.
+
+**Vive en:** `app/_components/nav.ts` (familias, bloques y grupos) ·
+`app/_components/Sidebar.tsx` (el flyout y su techo) · `app/_ui/ui.css` (`.mk-scroll-oscuro`) ·
+`tests/dev-areas.test.ts` · *2026-08-11*
+
 - «La sidebar se puede scrollear, eso NO debe ser posible NUNCA. Jamás se debe poder
   scrollear en la sidebar» (2026-07-01)
 - «Ya hay muchas tabs, no debo scrollear en la barra lateral» (2026-07-01)
@@ -1431,7 +1469,7 @@ inspirada en la de Meta, y las notificaciones salen de ahí.
 Las **secciones** de la sidebar no pueden tener el mismo diseño que las tabs: jerarquías
 distintas se ven distintas de un vistazo, para que sea intuitivo.
 
-**Vive en:** lib/nav.ts (fuente de verdad de la navegación) · *memoria [[sidebar-nav-estructura]]*
+**Vive en:** app/_components/nav.ts (fuente de verdad de la navegación) · *memoria [[sidebar-nav-estructura]]*
 
 ### Regla: las tabs van en UNA fila, sin scroll y sin reacomodar la topbar
 
@@ -1503,7 +1541,7 @@ funcionalidad, no como pantalla aparte («una nueva tab con un nuevo chat, cuand
   link a cualquiera y pueda acceder a eso» (2026-07-27).
 - La estética general de la app se alinea a la de la landing `/vsl` (2026-07-01).
 
-**Vive en:** lib/nav.ts · *memoria [[sidebar-nav-estructura]], [[rediseno-direccion-estetica]]*
+**Vive en:** app/_components/nav.ts · app/_components/Sidebar.tsx · *memoria [[sidebar-nav-estructura]], [[rediseno-direccion-estetica]]*
 
 ### Una tab que existe y no se ve no da ningún síntoma
 

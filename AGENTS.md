@@ -336,6 +336,37 @@ oculta por CSS, así que las últimas no daban ni una pista de existir.
 El scroll lateral sigue bien donde lo que se corre es **contenido** —una tabla, una
 fila de filtros, un bloque de código—: para eso está `.mk-scroll-x`.
 
+**3. Y una COLUMNA de navegación no scrollea, aunque una barra sí pueda envolver.** La
+regla de arriba no cubre este caso y la diferencia es de eje: una barra horizontal que no
+entra baja de renglón y no pierde nada; una columna no puede envolver, así que si no entra
+o scrollea o corta. Por eso el eje vertical lleva la regla más dura, y el dueño ya la había
+escrito dos veces el 1/7/2026: **«La sidebar se puede scrollear, eso NO debe ser posible
+NUNCA»**. Si no entra, se reorganiza o se pliega.
+
+- **La columna no crece: se agrupa.** Una familia con más de ~6 destinos mete en un
+  `NavGrupo` los que se consultan de a uno. Cuesta UNA fila y abre al costado. El
+  precedente está en la misma barra: «Analysts» esconde siete destinos en una fila, con el
+  porqué escrito al lado — *«sin esto, Analyze eran nueve filas y la barra se volvía una
+  lista de todo»*.
+- **`scrollbar-width: none` está prohibido en los dos ejes.** No elimina el scroll: elimina
+  la evidencia, y con `overflow: hidden` en el contenedor el síntoma es exactamente cero —
+  ni degradado, ni media fila cortada, ni nada. Sobre fondo oscuro va `.mk-scroll-oscuro`,
+  que adelgaza y tiñe. Es la RED por si igual desborda, **nunca** el arreglo.
+- **Plegar sí, esconder no.** Lo que se pliega lleva rótulo, ícono y chevron, y abre por
+  hover y por click. Lo que la regla prohíbe es esconder SIN pista.
+- **El desplegable hereda el problema.** Si la colección puede crecer, el flyout lleva
+  `maxHeight` + `overflowY` + `.mk-scroll-oscuro`: un menú con `overflow: hidden` clipea sus
+  últimas filas en silencio.
+
+**En el CONTENIDO de una pantalla el equivalente es partir en tabs**, y es obligatorio
+cuando se apilan paneles de fuentes de verdad distintas. El corte va por **pregunta, no por
+longitud** —«¿qué falta?» vs «¿qué pasó?» en `app/admin/dev/[area]/RegistroArea.tsx`— porque
+partir por largo da tabs arbitrarias que después nadie sabe dónde buscar. El techo son seis
+(`app/_ui/Tabs.tsx`: más de seis es que falta una decisión de arquitectura, no una tab). Y la
+tab viaja en `?tab=` **leída en el server** y escrita de vuelta con `router.replace(…, {
+scroll: false })` —el router de `app/_ui/Link`, que preserva el `?ws=`—: si solo se lee, el
+link que copiás no es la tab que estás viendo. El molde completo es `app/admin/ui/`.
+
 El resto del sistema, en [app/_ui/LEEME.md](app/_ui/LEEME.md); el catálogo vivo, en
 `/admin/ui`, que además lleva el historial de por qué cada cosa quedó así.
 
