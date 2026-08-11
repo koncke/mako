@@ -17,7 +17,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esPublica, esPublicaSoloLectura } from '../lib/rutas-publicas';
+import { esPublica, esPublicaSoloLectura, esPublicaDeEscritura, PUBLICOS_ESCRITURA } from '../lib/rutas-publicas';
 
 test('las rutas del agente que hablan por Bearer entran sin sesión', () => {
   // Son las que corren en la máquina del cliente, donde no hay cookie posible.
@@ -58,4 +58,28 @@ test('los públicos de solo lectura son un subconjunto de los públicos', () => 
     assert.equal(esPublica(r), true, r);
   }
   assert.equal(esPublicaSoloLectura('/api/agente/plan'), false, 'el agente hace POST: no puede ser solo-lectura');
+});
+
+test('la excepción de escritura abre UNA ruta, y solo esa', () => {
+  // `/api/compartido` es solo-lectura porque el early-return del middleware se
+  // saltea el chequeo CSRF de Origin. La tarea del cliente necesita escribir, y
+  // puede: se autentica con el token del link, que viaja en el CUERPO y que el
+  // navegador no manda solo — no hay autoridad ambiente que abusar.
+  assert.equal(esPublicaDeEscritura('/api/compartido/tarea'), true);
+  assert.equal(esPublicaSoloLectura('/api/compartido/tarea'), false);
+  assert.equal(esPublica('/api/compartido/tarea'), true, 'sin esto el middleware pide sesión y el 405 ni se evalúa');
+});
+
+test('la excepción NO se hereda: es match exacto, nunca prefijo', () => {
+  // Un prefijo abriría a POST cualquier ruta futura colgada abajo. Es la misma
+  // razón por la que `/api/agente/token` se dejó afuera una por una.
+  assert.equal(esPublicaDeEscritura('/api/compartido/tarea/borrar'), false);
+  assert.equal(esPublicaSoloLectura('/api/compartido/tarea/borrar'), true);
+  assert.equal(esPublicaDeEscritura('/api/compartido/tareas'), false);
+  assert.equal(esPublicaDeEscritura('/api/compartido/archivo'), false);
+  assert.equal(esPublicaSoloLectura('/api/compartido/archivo'), true, 'servir un archivo sigue siendo solo GET');
+});
+
+test('todo lo que escribe está en PUBLICOS: si no, el middleware lo corta antes', () => {
+  for (const r of PUBLICOS_ESCRITURA) assert.equal(esPublica(r), true, r);
 });

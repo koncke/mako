@@ -161,5 +161,55 @@ estado del bloque.
 
 ---
 
+## `/api/compartido` es solo-lectura a nivel middleware, y el 405 no dice por qué
+
+**Vive en:** `lib/rutas-publicas.ts` → `PUBLICOS_ESCRITURA`, `proxy.ts:192`
+
+**El síntoma:** la ruta nueva `POST /api/compartido/tarea` devolvía **405 Method Not
+Allowed** a todo. El archivo existía, compilaba, el typecheck pasaba y el build la
+listaba. El cuerpo del 405 es texto plano sin explicación.
+
+**La causa:** `proxy.ts` corta con 405 cualquier método que no sea GET/HEAD/OPTIONS
+sobre los prefijos de `PUBLICOS_SOLO_LECTURA`, y `/api/compartido` está ahí. El handler
+nunca corre. Es un guard **deliberado**: el early-return de las rutas públicas se saltea
+el chequeo CSRF de Origin, así que una pública que acepte POST queda expuesta si además
+se autentica por cookie.
+
+**Por qué esta ruta sí puede escribir:** se autentica con el token del link, que viaja en
+el **cuerpo** del request. Una página ajena puede mandarle un POST, pero sin el token no
+escribe nada — y el token es la credencial entera. No hay autoridad ambiente que abusar,
+que es justo lo que el chequeo de Origin protege. Es el mismo razonamiento que ya está
+escrito para el bearer de `/api/agente/*`.
+
+**La regla:** la excepción se lista **exacta**, en `PUBLICOS_ESCRITURA`, nunca por
+prefijo — y NO se saca `/api/compartido` de la lista de solo-lectura, porque eso abriría
+a POST toda la carpeta incluidas las rutas que todavía no existen. Es el mismo criterio
+por el que `/api/agente/token` quedó afuera una por una.
+
+**Cómo se diagnostica rápido**, que es lo que costó acá: un 405 sobre una ruta pública
+casi siempre es el middleware, no el handler. Se confirma mirando si la respuesta trae
+los headers de seguridad que pone `proxy.ts` (`X-Frame-Options`, `Content-Security-Policy`)
+con un cuerpo `text/plain`. Es el mismo truco que la tabla de AGENTS.md para el 401.
+
+---
+
+## Un textarea que no dice si guardó es un textarea que pierde trabajo
+
+**Vive en:** `app/compartido/[token]/TareaCliente.tsx`
+
+Quien contesta es un empresario sin cuenta, probablemente desde el teléfono. Tres
+decisiones que salen de ahí y que conviene no revertir:
+
+- **Autosave con 2 s de freno**, no un botón «Guardar». Un botón que no se toca pierde
+  todo, y un POST por tecla es ruido.
+- **`sendBeacon` en `pagehide`**: si cierra la pestaña con algo sin mandar, se manda
+  igual. Un `fetch` normal muere con la navegación.
+- **El error se muestra.** Dejarlo creer que quedó guardado, después de que escribió a
+  mano media pantalla, es la peor forma de fallar acá. Por eso el endpoint devuelve 500
+  —y no el 404 genérico del resto de `/compartido`— cuando falla el guardado: es el único
+  caso donde el que entró TIENE que enterarse.
+
+---
+
 *Corrida del 2026-08-11: 16 agentes mapeando el código para el bucle de entrega, más la
 verificación en vivo contra la cuenta real de Whop.*

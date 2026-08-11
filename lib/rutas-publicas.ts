@@ -66,8 +66,33 @@ export const PUBLICOS = [
  *  expuesta si además se autenticara por cookie. */
 export const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'] as const;
 
+/**
+ * La excepción: rutas públicas que SÍ escriben.
+ *
+ * ⚠️ SE LISTAN EXACTAS, NUNCA POR PREFIJO, y por eso esta lista existe en vez de
+ * sacar `/api/compartido` de la de arriba: sacarlo abriría a POST toda la
+ * carpeta, incluidas las rutas que todavía no existen. Acá entra una por una y a
+ * mano, que es lo que se quiere.
+ *
+ * QUÉ TIENE QUE CUMPLIR UNA RUTA PARA ENTRAR ACÁ: autenticarse con un secreto
+ * que el navegador NO manda solo. `/api/compartido/tarea` se autentica con el
+ * token del link, que viaja en el CUERPO del request: una página ajena puede
+ * mandarle un POST, pero sin el token no escribe nada, y el token es la
+ * credencial entera. No hay autoridad ambiente que abusar, que es exactamente
+ * lo que el chequeo de Origin protege y acá no aplica.
+ *
+ * Es lo mismo que hace `/api/agente/*` con su bearer, dicho arriba.
+ */
+export const PUBLICOS_ESCRITURA = ['/api/compartido/tarea'] as const;
+
 const matchea = (lista: readonly string[], pathname: string) =>
   lista.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
 export const esPublica = (pathname: string) => matchea(PUBLICOS, pathname);
-export const esPublicaSoloLectura = (pathname: string) => matchea(PUBLICOS_SOLO_LECTURA, pathname);
+
+/** Match EXACTO: `/api/compartido/tarea/loquesea` no hereda el permiso. */
+export const esPublicaDeEscritura = (pathname: string) =>
+  (PUBLICOS_ESCRITURA as readonly string[]).includes(pathname);
+
+export const esPublicaSoloLectura = (pathname: string) =>
+  matchea(PUBLICOS_SOLO_LECTURA, pathname) && !esPublicaDeEscritura(pathname);

@@ -11,7 +11,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { listarAssetsDeWorkspace } from '@/lib/branding';
-import { resolverToken, filtrarPorShare, registrarVisita } from '@/lib/shares';
+import { resolverToken, filtrarPorShare, registrarVisita, puedeEditar } from '@/lib/shares';
+import { vistaDeTarea } from '@/lib/cs-tarea-vista';
+import TareaCliente from './TareaCliente';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
 import AnalisisCompartido from './AnalisisCompartido';
@@ -47,6 +49,22 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
     if (!curso) notFound();
     await registrarVisita(acceso);
     return <CursoCompartido curso={curso} invitado={acceso.invitado?.email ?? null} />;
+  }
+
+  // ── La tarea de un bloque del programa: la contesta el CLIENTE de un cliente ──
+  // El share apunta al lead, y `puedeEditar` (mismo criterio que `puedeVer`) es
+  // lo que habilita escribir. Acá solo se decide qué mostrar; quien AUTORIZA la
+  // escritura es `/api/compartido/tarea`, porque si solo lo hiciera esta página
+  // un POST directo escribiría sobre la tarea de otro.
+  if (acceso.share.recurso === 'tarea-cs') {
+    const leadId = Number(acceso.share.recurso_id);
+    if (!Number.isFinite(leadId) || leadId <= 0) notFound();
+    if (!puedeEditar(acceso.share, 'tarea-cs', String(leadId))) notFound();
+
+    const { bloques, inicial, nombre } = await vistaDeTarea(acceso.share.workspace_id, leadId);
+    if (!bloques.length) notFound();
+    await registrarVisita(acceso);
+    return <TareaCliente token={token} nombre={nombre} bloques={bloques} inicial={inicial} />;
   }
 
   const todos = await listarAssetsDeWorkspace(acceso.share.workspace_id);
