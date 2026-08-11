@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, guardarRevision, preguntasParaCargar, tareasDesdeRespuestas, getPropuesta, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, guardarRevision, guardarActaRevision, type LineaRevision, preguntasParaCargar, tareasDesdeRespuestas, getPropuesta, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -114,6 +114,15 @@ export async function POST(req: NextRequest) {
       const preguntas = await profundizarPropuesta(id, respuestas);
       return NextResponse.json({ ok: true, preguntas });
     }
+    // EL ACTA de lo que se preguntó y se contestó. Va por su propia acción y no
+    // colgada de 'guardar' a propósito: se escribe apenas hay respuestas, incluso si
+    // el wizard se abandona a la mitad — y ese es justo el caso donde uno quiere saber
+    // qué pregunta lo hizo abandonar. Ver lib/plan-propuesta.ts → guardarActaRevision.
+    if (action === 'acta') {
+      const lineas = Array.isArray(body.lineas) ? (body.lineas as LineaRevision[]) : [];
+      return NextResponse.json({ ok: await guardarActaRevision(id, lineas) });
+    }
+
     if (action === 'guardar') {
       // Guarda la revisión en curso (reparto + destildado + correcciones) sin aplicar
       // nada. Es lo que hace que un F5 no borre veinte reasignaciones hechas a mano.

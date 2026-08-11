@@ -214,18 +214,65 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     ...dynQs.map((q, i) => ({ pregunta: q.pregunta, respuesta: (dynResp[i] || '').trim() })),
   ].filter((r) => r.respuesta);
 
+  /**
+   * EL ACTA: qué preguntó MaKo y qué contestaste, con el TIPO y las OPCIONES.
+   *
+   * Se manda al server cada vez que avanzás un paso, y ahí es append-only. Antes las
+   * preguntas dinámicas vivían solo en el localStorage de este navegador y las
+   * estáticas se borraban al aplicar, así que un bug del formulario —un tipo que no
+   * pega con el campo, una opción repetida, una respuesta que se pierde— solo se
+   * descubría si el dueño lo veía en pantalla y sacaba una captura. Literalmente
+   * pasó, y una auditoría entera dijo «revisé las preguntas» mirando solo las buenas.
+   *
+   * Va con el tipo y las opciones a propósito: sin eso no se puede auditar lo que más
+   * falla, que es que el CAMPO no pegue con lo que se pregunta.
+   */
+  const actaDeAhora = () => [
+    ...prop.preguntas.map((q, i) => ({
+      pregunta: q.pregunta, tipo: String(q.tipo ?? 'opcion'), opciones: q.opciones ?? [],
+      respuesta: (resp[i] || '').trim(), origen: 'estatica' as const, ts: new Date().toISOString(),
+    })),
+    ...dynQs.map((q, i) => ({
+      pregunta: q.pregunta, tipo: String(q.tipo ?? 'opcion'), opciones: q.opciones ?? [],
+      respuesta: (dynResp[i] || '').trim(), origen: 'dinamica' as const, ts: new Date().toISOString(),
+    })),
+  ];
+
+  /** Best-effort: si no llega, no se traba el wizard — es un registro, no el trabajo. */
+  const mandarActa = (lineas: ReturnType<typeof actaDeAhora>) => {
+    if (!lineas.length) return;
+    void fetch('/api/plan-propuesta', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'acta', id: prop.id, lineas }),
+    }).catch(() => { /* el acta no puede romper la revisión */ });
+  };
+
   // Avanzar. Dos cosas pasan solas al terminar de contestar, y en este orden:
   //   1. al salir de la ÚLTIMA pregunta inicial → las repreguntas dinámicas;
   //   2. al salir de la última pregunta DE TODAS → las tareas que salieron de lo
   //      contestado. Una «idea» tirada por WhatsApp casi nunca es una tarea: es un
   //      proyecto, y los pasos que faltan recién aparecen cuando el dueño contesta.
   const avanzar = async () => {
+    // Antes de cualquier otra cosa: dejar registro de lo contestado hasta acá. Si el
+    // dueño abandona en el paso siguiente, esto ya quedó.
+    mandarActa(actaDeAhora());
     const enUltimaInicial = cur.kind === 'q' && cur.i === prop.preguntas.length - 1;
     if (enUltimaInicial && !dynFetched && prop.preguntas.length > 0) {
       setDynLoading(true);
       try {
         const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'profundizar', id: prop.id, respuestas: respuestasDadas() }) }).then((x) => x.json());
-        if (r?.ok && Array.isArray(r.preguntas) && r.preguntas.length) { setDynQs(r.preguntas as PropuestaPregunta[]); setDynFetched(true); setDynLoading(false); setPaso((p) => p + 1); return; }
+        if (r?.ok && Array.isArray(r.preguntas) && r.preguntas.length) {
+          const qs = r.preguntas as PropuestaPregunta[];
+          // El acta de las dinámicas se escribe APENAS LLEGAN, sin esperar respuesta:
+          // el bug que las hizo falta —la opción «Todavía no hay fecha» duplicada— se
+          // ve en la PREGUNTA, no en lo que se contesta. Si esperáramos, una pregunta
+          // rota que el dueño saltea no dejaría rastro, que es como estábamos.
+          mandarActa(qs.map((q) => ({
+            pregunta: q.pregunta, tipo: String(q.tipo ?? 'opcion'), opciones: q.opciones ?? [],
+            respuesta: '', origen: 'dinamica' as const, ts: new Date().toISOString(),
+          })));
+          setDynQs(qs); setDynFetched(true); setDynLoading(false); setPaso((p) => p + 1); return;
+        }
       } catch { /* sin repreguntas: seguimos */ }
       setDynFetched(true); setDynLoading(false);
     }

@@ -894,7 +894,11 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       const previas = (await getPropuesta(id))?.aplicadas ?? [];
       const aplicadas = [...previas, ...(c?.creadas ?? [])];
       const quedan = c?.restantes ?? [];
-      // `notas` (las preguntas) se vacía SIEMPRE: hablaban de las tareas que acaban de
+      // `notas` (las preguntas PENDIENTES) se vacía SIEMPRE: hablaban de las tareas que
+      // acaban de aplicarse. ⚠️ `revision` —el acta de lo que se preguntó y se contestó—
+      // NO se toca: es lo único que queda para auditar el formulario después, y es
+      // justo después cuando uno lo necesita. Ver `guardarActaRevision`.
+      // hablaban de las tareas que acaban de
       // entrar al plan (o que destildaste). Dejarlas hacía que el borrador reabierto te
       // volviera a preguntar por trabajo que ya está hecho.
       await db.from('plan_propuestas').update(quedan.length
@@ -980,6 +984,51 @@ export async function estadoDePropuesta(id: string): Promise<{ estado: string; n
     if (!fila) return null;
     const tareas = asArr<unknown>(fila.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     return { estado: str(fila.estado, 'pendiente'), n: tareas.length, resumen: str(fila.resumen), tareas };
+  });
+}
+
+/**
+ * Una línea del ACTA de la revisión: qué se preguntó y qué se contestó.
+ *
+ * Existe porque el formulario no se podía auditar. Las preguntas dinámicas vivían
+ * solo en el localStorage del navegador y las estáticas se borraban al aplicar, así
+ * que un bug del wizard —un tipo que no pega con el campo, una opción repetida, una
+ * respuesta que se pierde— solo se descubría si el dueño lo veía en pantalla. Pasó:
+ * «no creo que hayas revisado bien los borradores, porque me aparecen bugs como
+ * este». Tenía razón, y no había forma de haberlo visto desde la base.
+ */
+export type LineaRevision = {
+  pregunta: string;
+  tipo: string;
+  opciones: string[];
+  respuesta: string;
+  /** `dinamica` = la armó «Profundizar borrador» al abrir el link. Son las que no
+   *  dejaban rastro, y son la mitad del formulario. */
+  origen: 'estatica' | 'dinamica';
+  ts: string;
+};
+
+/**
+ * Guarda el acta. Es APPEND-ONLY y no se vacía nunca —ni al aplicar— porque el
+ * registro sirve justo después de que el borrador dejó de existir como tal.
+ *
+ * Se escribe apenas hay respuestas, no al final: un wizard abandonado a la mitad es
+ * exactamente el caso donde uno quiere saber qué pregunta lo hizo abandonar.
+ */
+export async function guardarActaRevision(id: string, lineas: LineaRevision[]): Promise<boolean> {
+  if (!lineas.length) return false;
+  return enWs(async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_propuestas').select('revision').eq('id', id).maybeSingle();
+    const previas = asArr<LineaRevision>((data as Row | null)?.revision);
+    // Idempotente por (pregunta, origen): abrir el link dos veces, o contestar y
+    // volver atrás, no tiene que dejar la misma pregunta tres veces en el acta. Gana
+    // la ÚLTIMA respuesta, que es la que el dueño dejó.
+    const porClave = new Map(previas.map((l) => [`${l.origen}|${l.pregunta}`, l]));
+    for (const l of lineas) porClave.set(`${l.origen}|${l.pregunta}`, l);
+    const { error } = await db.from('plan_propuestas').update({ revision: [...porClave.values()] }).eq('id', id);
+    if (error) { console.error(`[plan-propuesta] guardarActaRevision ${id}: ${error.message}`); return false; }
+    return true;
   });
 }
 
