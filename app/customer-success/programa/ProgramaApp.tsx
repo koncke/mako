@@ -184,49 +184,49 @@ export function ProgramaApp({ modulos, totales, whopConectado }: {
 }
 
 const CSS = `
-.pg-intro{ font-size:14.5px; line-height:1.55; color:var(--ink-70); margin:2px 0 20px; }
+.pg-intro{ font-size:14.5px; line-height:1.55; color:var(--dim); margin:2px 0 20px; }
 .pg-mods{ list-style:none; margin:0; padding:0; }
 .pg-mod{ border-bottom:1px solid var(--border); }
 .pg-cab{ width:100%; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
   background:none; border:0; padding:14px 2px; text-align:left; font:inherit; cursor:pointer; }
-.pg-cab:hover{ background:var(--ink-05, rgba(0,0,0,.03)); }
-.pg-cab .chev{ color:var(--ink-40); width:12px; }
-.pg-cab .num{ font-family:${MONO}; font-size:11px; letter-spacing:.1em; color:var(--ink-40);
+.pg-cab:hover{ background:var(--surface-2); }
+.pg-cab .chev{ color:var(--faint); width:12px; }
+.pg-cab .num{ font-family:${MONO}; font-size:11px; letter-spacing:.1em; color:var(--faint);
   min-width:20px; }
 .pg-cab .tit{ font-weight:650; font-size:15.5px; }
-.pg-cab .meta{ font-family:${MONO}; font-size:11px; letter-spacing:.06em; color:var(--ink-40); }
+.pg-cab .meta{ font-family:${MONO}; font-size:11px; letter-spacing:.06em; color:var(--faint); }
 .pg-cab .tags{ margin-left:auto; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
 .pg-cab .fase{ font-family:${MONO}; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
-  color:var(--ink-40); }
+  color:var(--faint); }
 .pg-clases{ list-style:none; margin:0 0 10px; padding:0 0 0 26px; }
 .pg-clase{ width:100%; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
   background:none; border:0; border-top:1px solid var(--border); padding:11px 2px;
   text-align:left; font:inherit; cursor:pointer; }
-.pg-clase:hover{ background:var(--ink-05, rgba(0,0,0,.03)); }
-.pg-clase .r{ font-family:${MONO}; font-size:11px; color:var(--ink-40); min-width:30px; }
+.pg-clase:hover{ background:var(--surface-2); }
+.pg-clase .r{ font-family:${MONO}; font-size:11px; color:var(--faint); min-width:30px; }
 .pg-clase .t{ font-size:14.5px; flex:1; min-width:180px; }
 .pg-clase .destraba{ margin-left:6px; }
-.pg-clase .q{ font-family:${MONO}; font-size:10.5px; letter-spacing:.06em; color:var(--ink-40); }
+.pg-clase .q{ font-family:${MONO}; font-size:10.5px; letter-spacing:.06em; color:var(--faint); }
 
 .pg-res{ font-size:15.5px; line-height:1.55; margin:0 0 12px; }
-.pg-atoro{ border-left:2px solid var(--lime-ink, var(--good)); padding:8px 0 8px 14px;
-  margin:0 0 18px; font-size:14px; line-height:1.5; color:var(--ink-70); }
+.pg-atoro{ border-left:2px solid var(--good); padding:8px 0 8px 14px;
+  margin:0 0 18px; font-size:14px; line-height:1.5; color:var(--dim); }
 .pg-h3{ font-family:${MONO}; font-size:10.5px; letter-spacing:.11em; text-transform:uppercase;
-  color:var(--ink-40); margin:22px 0 12px; font-weight:600; }
-.pg-vacio{ color:var(--ink-40); font-size:14px; }
+  color:var(--faint); margin:22px 0 12px; font-weight:600; }
+.pg-vacio{ color:var(--faint); font-size:14px; }
 .pg-campos{ list-style:none; margin:0; padding:0; counter-reset:c; }
 .pg-campos > li{ padding:14px 0; border-top:1px solid var(--border); }
 .c-cab{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
 .c-tipo{ font-family:${MONO}; font-size:10px; letter-spacing:.09em; text-transform:uppercase;
   color:var(--ink); background:var(--surface-2); border:1px solid var(--border-strong);
   border-radius:4px; padding:2px 6px; }
-.c-origen{ font-family:${MONO}; font-size:10px; color:var(--ink-40); }
+.c-origen{ font-family:${MONO}; font-size:10px; color:var(--faint); }
 .c-obl{ font-family:${MONO}; font-size:10px; letter-spacing:.08em; color:var(--warn); }
 .c-label{ font-size:15px; line-height:1.5; margin:0; }
-.c-ayuda{ font-size:13px; line-height:1.5; color:var(--ink-40); margin:6px 0 0; }
-.c-ops{ margin:8px 0 0; padding-left:18px; font-size:13.5px; line-height:1.6; color:var(--ink-70); }
+.c-ayuda{ font-size:13px; line-height:1.5; color:var(--faint); margin:6px 0 0; }
+.c-ops{ margin:8px 0 0; padding-left:18px; font-size:13.5px; line-height:1.6; color:var(--dim); }
 .c-tabla{ width:100%; border-collapse:collapse; margin:10px 0 0; font-size:12.5px; }
 .c-tabla th{ text-align:left; font-weight:600; padding:6px 9px; border:1px solid var(--border-strong);
   background:var(--surface-2); white-space:nowrap; }
-.c-tabla td{ padding:9px; border:1px solid var(--border); color:var(--ink-70); }
+.c-tabla td{ padding:9px; border:1px solid var(--border); color:var(--dim); }
 `;
