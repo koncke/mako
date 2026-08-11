@@ -25,8 +25,9 @@
 import { useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { WizardShell } from '../_components/WizardShell';
 import { importarLeadsRevisadosAction } from './actions';
+import { TablaRevisionLeads } from './TablaRevisionLeads';
 import {
-  ACCEPT_IMPORT, FILAS_POR_PAGINA, MENSAJE_PLANILLA, MOTIVO_LABEL, UMBRAL_PAGINADO,
+  ACCEPT_IMPORT, MENSAJE_PLANILLA,
   contar, esPlanilla, recalcular,
   type FilaImport, type LecturaImport,
 } from './leads-importar';
@@ -37,18 +38,7 @@ const MAX_BYTES = 8 * 1024 * 1024;
 
 const peso = (n: number): string => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' };
-const celdaInput: CSSProperties = { width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, outline: 'none', minWidth: 0 };
-/** Mismo reparto de columnas para el encabezado y para cada fila. */
-const GRID = '26px 1.2fr 1.4fr 1fr 1fr 128px';
 
-function Chip({ n, texto, color }: { n: number; texto: string; color: string }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, padding: '5px 10px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface-2)', fontFamily: SANS, fontSize: 12 }}>
-      <strong style={{ color, fontVariantNumeric: 'tabular-nums', fontSize: 13 }}>{n}</strong>
-      <span style={{ color: 'var(--dim)' }}>{texto}</span>
-    </span>
-  );
-}
 
 export function ImportarLeadsModal({ onListo, onClose }: {
   /** Se llama al terminar la importación, con el resumen para avisar arriba. */
@@ -61,7 +51,6 @@ export function ImportarLeadsModal({ onListo, onClose }: {
   const [filas, setFilas] = useState<FilaImport[]>([]);
   const [viaIA, setViaIA] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [pagina, setPagina] = useState(0);
   const [cargando, setCargando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -72,7 +61,6 @@ export function ImportarLeadsModal({ onListo, onClose }: {
     const fArch = fl && Array.from(fl)[0];
     if (!fArch) return;
     setFilas([]);
-    setPagina(0);
     setAviso(null);
     // El .xlsx se ataja acá y no en el server: así el usuario se entera antes de
     // esperar una subida de varios megas para nada.
@@ -117,29 +105,8 @@ export function ImportarLeadsModal({ onListo, onClose }: {
       .catch((e) => { setErr(e instanceof Error ? e.message : 'No se pudo importar'); setCargando(false); });
   };
 
-  const editar = (id: string, campo: 'nombre' | 'email' | 'telefono' | 'empresa', v: string) => {
-    setFilas((prev) => recalcular(prev.map((f) => {
-      if (f.id !== id) return f;
-      const next: FilaImport = { ...f, [campo]: v };
-      // Cambiar el contacto invalida el "ya existe" que el server resolvió contra
-      // el valor viejo. Al confirmar se vuelve a chequear igual, así que no se
-      // pierde nada por darle el beneficio de la duda mientras edita.
-      if (campo === 'email' || campo === 'telefono') next.yaExiste = false;
-      // Si estaba descartada y la está arreglando, se tilda sola: ya se tomó el
-      // trabajo de completarla, pedirle además que la marque es de más.
-      if (f.motivo) next.incluir = true;
-      return next;
-    })));
-  };
 
-  const tildar = (id: string) => setFilas((prev) => prev.map((f) => (f.id === id && !f.motivo ? { ...f, incluir: !f.incluir } : f)));
-  const soloNuevas = () => setFilas((prev) => prev.map((f) => ({ ...f, incluir: !f.motivo })));
-  const destildarTodo = () => setFilas((prev) => prev.map((f) => ({ ...f, incluir: false })));
 
-  const paginado = filas.length > UMBRAL_PAGINADO;
-  const paginas = paginado ? Math.ceil(filas.length / FILAS_POR_PAGINA) : 1;
-  const pag = Math.min(pagina, paginas - 1);
-  const visibles = paginado ? filas.slice(pag * FILAS_POR_PAGINA, (pag + 1) * FILAS_POR_PAGINA) : filas;
 
   const enUltimo = paso === 1;
   const puede = paso === 0 ? !!file && !err : c.tildadas > 0;
@@ -188,104 +155,11 @@ export function ImportarLeadsModal({ onListo, onClose }: {
 
   // ── Paso 2: la revisión ────────────────────────────────────────────────────
 
-  const filaTabla = (f: FilaImport) => {
-    const fuera = !!f.motivo;
-    // El borde rojo marca EL CAMPO que hay que arreglar, no la fila entera: si la
-    // fila está sin nombre, el que tiene que llamar la atención es ese input.
-    const culpable = (k: string): boolean =>
-      (f.motivo === 'sin-nombre' && k === 'nombre') ||
-      (f.motivo === 'sin-contacto' && (k === 'email' || k === 'telefono'));
-    const campo = (k: 'nombre' | 'email' | 'telefono' | 'empresa', ph: string) => (
-      <input value={f[k]} placeholder={ph} onChange={(e) => editar(f.id, k, e.target.value)} aria-label={`${ph} de la fila ${f.id}`}
-        style={{ ...celdaInput, borderColor: culpable(k) ? 'var(--bad)' : 'var(--border)' }} />
-    );
-    return (
-      <div key={f.id} style={{
-        display: 'grid', gridTemplateColumns: GRID, gap: 8, alignItems: 'center',
-        padding: '7px 9px', borderRadius: 10,
-        background: fuera ? 'transparent' : f.bajaConfianza ? 'color-mix(in srgb, var(--warn-fill, #D9A400) 8%, transparent)' : 'var(--surface-2)',
-        border: `1px solid ${fuera ? 'var(--border)' : 'transparent'}`,
-        opacity: fuera ? 0.55 : 1,
-      }}>
-        <button type="button" onClick={() => tildar(f.id)} disabled={fuera} aria-label={f.incluir ? 'No importar esta fila' : 'Importar esta fila'}
-          style={{ width: 18, height: 18, borderRadius: 6, cursor: fuera ? 'default' : 'pointer', border: `1.5px solid ${f.incluir && !fuera ? 'var(--primary)' : 'var(--border-strong)'}`, background: f.incluir && !fuera ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11, lineHeight: 1, padding: 0 }}>
-          {f.incluir && !fuera ? '✓' : ''}
-        </button>
-        {campo('nombre', 'Nombre')}
-        {campo('email', 'Email')}
-        {campo('telefono', 'Teléfono')}
-        {campo('empresa', 'Empresa')}
-        <span style={{ fontFamily: MONO, fontSize: 10.5, color: fuera ? 'var(--bad)' : 'var(--faint)', textAlign: 'right', lineHeight: 1.3 }}>
-          {f.motivo ? MOTIVO_LABEL[f.motivo] : f.bajaConfianza ? 'revisar' : 'entra'}
-        </span>
-      </div>
-    );
-  };
-
+  // La tabla es la MISMA que la de /crm/revisar: se extrajo a TablaRevisionLeads para
+  // que revisar una importación y revisar lo que propuso un canal se vean y se
+  // comporten igual. Antes vivía acá adentro y era el único lugar donde existía.
   const pasoRevisar = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: SANS, textAlign: 'left' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-        <Chip n={c.tildadas} texto="se van a crear" color="var(--good)" />
-        {c.listas > c.tildadas && <Chip n={c.listas - c.tildadas} texto="destildadas" color="var(--dim)" />}
-        {c.duplicado > 0 && <Chip n={c.duplicado} texto="ya existen" color="var(--dim)" />}
-        {c['repetido-archivo'] > 0 && <Chip n={c['repetido-archivo']} texto="repetidas en el archivo" color="var(--dim)" />}
-        {c['sin-nombre'] > 0 && <Chip n={c['sin-nombre']} texto="sin nombre" color="var(--bad)" />}
-        {c['sin-contacto'] > 0 && <Chip n={c['sin-contacto']} texto="sin contacto" color="var(--bad)" />}
-      </div>
-
-      {viaIA && (
-        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, padding: '9px 11px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-          Estos datos los leyó MaKo del documento. Revisá que cada valor esté en la columna que corresponde: lo que quedó dudoso viene destildado y marcado como <em>revisar</em>.
-        </div>
-      )}
-      {aviso && <div style={{ fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.5 }}>{aviso}</div>}
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ ...rotulo }}>{filas.length} fila{filas.length === 1 ? '' : 's'} detectada{filas.length === 1 ? '' : 's'}</span>
-        <span style={{ display: 'flex', gap: 7 }}>
-          <button type="button" onClick={soloNuevas}
-            style={{ padding: '6px 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-            Tildar solo las nuevas
-          </button>
-          <button type="button" onClick={destildarTodo}
-            style={{ padding: '6px 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-            Destildar todo
-          </button>
-        </span>
-      </div>
-
-      {/* La tabla scrollea en su propio eje: el modal nunca se va de ancho. */}
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: 700, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '0 9px 4px' }}>
-            <span />
-            {['Nombre', 'Email', 'Teléfono', 'Empresa'].map((t) => <span key={t} style={rotulo}>{t}</span>)}
-            <span style={{ ...rotulo, textAlign: 'right' }}>Estado</span>
-          </div>
-          {visibles.map(filaTabla)}
-        </div>
-      </div>
-
-      {paginado && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <button type="button" onClick={() => setPagina(Math.max(0, pag - 1))} disabled={pag === 0}
-            style={{ padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: pag === 0 ? 'var(--faint)' : 'var(--dim)', fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: pag === 0 ? 'default' : 'pointer' }}>
-            ← Anteriores
-          </button>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>
-            {pag * FILAS_POR_PAGINA + 1}–{Math.min((pag + 1) * FILAS_POR_PAGINA, filas.length)} de {filas.length}
-          </span>
-          <button type="button" onClick={() => setPagina(Math.min(paginas - 1, pag + 1))} disabled={pag >= paginas - 1}
-            style={{ padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: pag >= paginas - 1 ? 'var(--faint)' : 'var(--dim)', fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: pag >= paginas - 1 ? 'default' : 'pointer' }}>
-            Siguientes →
-          </button>
-        </div>
-      )}
-
-      <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55 }}>
-        Nada se creó todavía. Podés corregir cualquier celda acá mismo; las filas atenuadas no entran hasta que se resuelva su motivo.
-      </div>
-    </div>
+    <TablaRevisionLeads filas={filas} onFilas={setFilas} viaIA={viaIA} aviso={aviso} />
   );
 
   return (

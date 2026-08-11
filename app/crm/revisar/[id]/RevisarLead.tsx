@@ -1,110 +1,120 @@
 'use client';
 
 // =============================================================================
-// La pantalla de confirmar un lead propuesto
+// Confirmar los contactos que propuso un canal
 // =============================================================================
-// EDITABLE, y ese es el punto: el dato pasó por un modelo, así que el momento de
-// mirarlo tiene que ser también el momento de corregirlo. Una pantalla que solo
-// dijera «¿confirmás?» obligaría a aceptar el teléfono mal y arreglarlo después en la
-// ficha — o sea, a confirmar algo que se sabe equivocado.
+// La tabla es `TablaRevisionLeads`, LA MISMA que la del importador del CRM. El pedido
+// del dueño fue textual: «SIEMPRE la preview de confirmación tiene que ser EXACTAMENTE
+// igual a la preview cuando intento IMPORTAR un lead del CRM, que aparece como una
+// tabla. Así sea 1 lead o los que sean».
 //
-// Los botones nombran su acción y su objeto, y el par de salidas dice qué pasa con
-// cada una: es la regla de la casa contra los «Aceptar / Cancelar» a secas.
+// Y una sola fila sigue siendo una tabla, a propósito: el encabezado con los nombres de
+// columna es lo que hace evidente qué valor cayó en qué campo, que es justo lo que hay
+// que revisar cuando el dato lo transcribió un modelo.
 // =============================================================================
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
-import { Pagina, PageHeader, Section, Button, TextField, Status } from '@/app/_ui';
-import { MONO } from '@/app/_ui/tokens';
+import { WizardShell } from '@/app/_components/WizardShell';
+import { TablaRevisionLeads } from '@/app/crm/TablaRevisionLeads';
+import { contar, recalcular, type FilaImport } from '@/app/crm/leads-importar';
 import type { Propuesta } from '@/lib/propuestas';
-import { confirmarLeadAction, descartarLeadAction } from './acciones';
+import { confirmarLeadsAction, descartarLeadsAction } from './acciones';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
+/** Los leads propuestos, con la forma que espera la tabla del importador.
+ *  Acepta el LOTE (`datos.leads`) y también la forma vieja de un lead suelto en la
+ *  raíz: una propuesta ya guardada no se migra sola, y romperle el link a alguien que
+ *  lo tiene abierto sería peor que estas tres líneas. */
+function aFilas(datos: Record<string, unknown>): FilaImport[] {
+  const crudos = Array.isArray(datos.leads) ? (datos.leads as Record<string, unknown>[]) : [datos];
+  return recalcular(crudos.map((c, i) => ({
+    id: `p${i}`,
+    nombre: str(c.nombre),
+    email: str(c.email),
+    telefono: str(c.telefono),
+    empresa: str(c.empresa),
+    incluir: true,
+    yaExiste: false,
+  })));
+}
+
 export function RevisarLead({ prop }: { prop: Propuesta }) {
   const router = useRouter();
-  const [nombre, setNombre] = useState(str(prop.datos.nombre));
-  const [email, setEmail] = useState(str(prop.datos.email));
-  const [telefono, setTelefono] = useState(str(prop.datos.telefono));
-  const [empresa, setEmpresa] = useState(str(prop.datos.empresa));
+  // `recalcular` ya corrió en el inicializador: los descartes por «sin nombre» o
+  // «repetido» tienen que estar marcados en el primer pintado, no después de tocar algo.
+  const [filas, setFilas] = useState<FilaImport[]>(() => aFilas(prop.datos));
   const [trabajando, setTrabajando] = useState(false);
-  const [error, setError] = useState('');
+  const [err, setErr] = useState<string | null>(null);
 
-  const yaResuelta = prop.estado !== 'pendiente';
+  // Cada edición vuelve a pasar por `recalcular`: corregir un nombre vacío tiene que
+  // sacarle la atenuación a esa fila en el acto, no al confirmar.
+  const editar = (v: FilaImport[] | ((prev: FilaImport[]) => FilaImport[])) =>
+    setFilas((prev) => recalcular(typeof v === 'function' ? v(prev) : v));
+
+  const c = useMemo(() => contar(filas), [filas]);
   const origen = str(prop.datos.origen);
+  const yaResuelta = prop.estado !== 'pendiente';
 
   const confirmar = async () => {
-    setTrabajando(true); setError('');
-    const r = await confirmarLeadAction(prop.id, { nombre, email, telefono, empresa });
-    if (!r.ok) { setError(r.error); setTrabajando(false); return; }
-    router.push(`/crm/${r.leadId}`);
+    setTrabajando(true); setErr(null);
+    const r = await confirmarLeadsAction(prop.id, filas);
+    if (!r.ok) { setErr(r.error); setTrabajando(false); return; }
+    router.push('/crm');
   };
 
   const descartar = async () => {
     setTrabajando(true);
-    await descartarLeadAction(prop.id);
+    await descartarLeadsAction(prop.id);
     router.push('/crm');
   };
 
   if (yaResuelta) {
-    const idCreado = prop.resultado?.lead_id;
     return (
-      <Pagina>
-        <PageHeader titulo="Esto ya se resolvió" proposito={prop.estado === 'aplicada' ? 'El lead ya está en tu CRM.' : 'Esta propuesta se descartó.'} />
-        <Section titulo={prop.resumen || 'La propuesta'}>
-          {typeof idCreado === 'number'
-            ? <Button variant="primary" onClick={() => router.push(`/crm/${idCreado}`)}>Ver el lead en el CRM</Button>
-            : <Button variant="secondary" onClick={() => router.push('/crm')}>Ir al CRM</Button>}
-        </Section>
-      </Pagina>
+      <WizardShell
+        ancho={640}
+        titulo="Esto ya se resolvió"
+        pasos={['Revisar']} pasoActual="Revisar"
+        pregunta={prop.estado === 'aplicada' ? 'Los contactos ya están en tu CRM' : 'Esta propuesta se descartó'}
+        puedeAvanzar
+        enUltimo
+        confirmLabel="Ir al CRM"
+        atrasLabel="Cerrar"
+        onAtras={() => router.push('/crm')}
+        onSiguiente={() => {}}
+        onConfirmar={() => router.push('/crm')}
+        onClose={() => router.push('/crm')}
+      >
+        <p style={{ margin: 0, textAlign: 'left', color: 'var(--dim)', lineHeight: 1.6 }}>{prop.resumen}</p>
+      </WizardShell>
     );
   }
 
   return (
-    <Pagina>
-      <PageHeader
-        titulo="¿Sumamos este contacto a tu CRM?"
-        proposito="Lo propuso Claude. Revisá los datos —podés corregirlos— y confirmá."
+    <WizardShell
+      ancho={940}
+      titulo={`Contactos propuestos · ${filas.length} fila${filas.length === 1 ? '' : 's'}`}
+      pasos={['Revisar']} pasoActual="Revisar"
+      pregunta="¿Está bien lo que va a entrar?"
+      sub={`Lo propuso Claude${origen ? ` desde ${origen}` : ''}. Corregí lo que haga falta y tildá qué se crea.`}
+      error={err}
+      pending={trabajando}
+      puedeAvanzar={c.tildadas > 0}
+      enUltimo
+      confirmLabel={c.tildadas > 0 ? `Crear ${c.tildadas} lead${c.tildadas === 1 ? '' : 's'} →` : 'No hay nada tildado'}
+      atrasLabel="No sumarlos"
+      onAtras={() => { void descartar(); }}
+      onSiguiente={() => {}}
+      onConfirmar={() => { if (c.tildadas > 0 && !trabajando) void confirmar(); }}
+      onClose={() => router.push('/crm')}
+    >
+      <TablaRevisionLeads
+        filas={filas}
+        onFilas={editar}
+        viaIA
+        nota="Nada se creó todavía. Podés corregir cualquier celda acá mismo; las filas atenuadas no entran hasta que se resuelva su motivo."
       />
-
-      <Section
-        titulo="El contacto"
-        nota={origen ? `Llegó desde ${origen}` : undefined}
-        accion={<Status tono="info">Sin confirmar</Status>}
-      >
-        <div style={{ display: 'grid', gap: 14, maxWidth: 520 }}>
-          <TextField label="Nombre" required value={nombre} onChange={(e) => setNombre(e.target.value)} />
-          <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          {/* El teléfono lleva su porqué al lado: es la llave con la que el lead matchea
-              su chat de WhatsApp y su Calendly, y sin código de país queda huérfano de
-              eso sin que nada avise. */}
-          <TextField
-            label="Teléfono"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
-            hint="Con código de país (+54 9 11…). Es lo que lo conecta con su WhatsApp."
-          />
-          <TextField label="Empresa" value={empresa} onChange={(e) => setEmpresa(e.target.value)} />
-        </div>
-
-        {error && <p style={{ marginTop: 14, color: 'var(--bad)', fontSize: 'var(--fs-sm)' }}>{error}</p>}
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Button variant="primary" onClick={() => void confirmar()} disabled={trabajando}>
-            {trabajando ? 'Sumando…' : 'Sumar al CRM'}
-          </Button>
-          <Button variant="tertiary" onClick={() => void descartar()} disabled={trabajando}>
-            No sumarlo
-          </Button>
-          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-            Si lo sumás, entra a tu CRM como un lead nuevo y te lo abrimos.
-          </span>
-        </div>
-      </Section>
-
-      <p style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>
-        Propuesta {prop.id}
-      </p>
-    </Pagina>
+    </WizardShell>
   );
 }

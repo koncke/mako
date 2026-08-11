@@ -343,12 +343,26 @@ Cuando aparezca un contacto que llegó por afuera —un formulario de la landing
 de una planilla, alguien que escribió— se propone para el CRM del cliente:
 
 ```bash
-curl -s -X POST "$BASE/api/agente/lead"   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"   -d '{ "nombre": "Ana Pérez", "email": "ana@ejemplo.com", "telefono": "+5491122334455",
-        "empresa": "Acme", "origen": "formulario de la landing",
-        "utm_source": "instagram", "utm_campaign": "lanzamiento" }'
+curl -s -X POST "$BASE/api/agente/lead"   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json; charset=utf-8"   --data-binary @lote.json
 ```
 
-Devuelve `{ ok, propuesta, nueva, url }`. **El lead NO está en el CRM todavía**: pasale
+Con `lote.json` así — **uno o varios, misma ruta**:
+
+```json
+{ "origen": "formulario de la landing",
+  "leads": [
+    { "nombre": "Ana Pérez", "email": "ana@ejemplo.com", "telefono": "+5491122334455",
+      "empresa": "Acme", "utm_source": "instagram" },
+    { "nombre": "Beto Díaz", "telefono": "+5491199887766" }
+  ] }
+```
+
+⚠️ **Mandá el cuerpo desde un ARCHIVO (`--data-binary @archivo`), no en la línea de
+comandos.** Un JSON con acentos pegado inline en la shell se puede corromper antes de
+salir —pasó, y llegó un `Martín` con el carácter roto—: el nombre queda mal escrito en
+el CRM del cliente y no hay nada del lado del servidor que lo pueda notar.
+
+Devuelve `{ ok, propuesta, nueva, leads, url }`. **El lead NO está en el CRM todavía**: pasale
 el `url` ENTERO al usuario y pará. Ahí lo mira, lo corrige si hace falta y confirma.
 
 **`nueva: false` no es un error**: significa que ese contacto ya tenía una propuesta

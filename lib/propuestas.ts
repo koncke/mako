@@ -22,7 +22,8 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, runWithWorkspace } from './workspace';
+import { getTenantDb, runWithWorkspace, getWorkspace } from './workspace';
+import { getSupabaseServer } from './supabase';
 
 export type TipoPropuesta = 'lead';
 export type EstadoPropuesta = 'pendiente' | 'aplicada' | 'descartada';
@@ -142,4 +143,25 @@ export async function propuestasPendientes(tipo?: TipoPropuesta): Promise<Propue
   const { data, error } = await q;
   if (error) throw new Error(`propuestasPendientes: ${error.message}`);
   return (data ?? []).map((r) => aPropuesta(r as Record<string, unknown>));
+}
+
+/**
+ * De quién es una propuesta, SIN scope de workspace.
+ *
+ * Existe para contestar bien el caso «abrí el link con otra cuenta»: sin esto la
+ * pantalla solo sabe que `getPropuesta` devolvió null, y no puede distinguir «el link
+ * está mal escrito» de «esto es de otro cliente». Las dos cosas se resuelven distinto y
+ * la primera es un callejón sin salida.
+ *
+ * ⚠️ Devuelve el DUEÑO, nunca el contenido. Quién es el dueño es lo mínimo para explicar
+ * el aislamiento; los datos del lead siguen del lado del server, scopeados.
+ */
+export async function duenoDePropuesta(id: string): Promise<{ workspaceId: number; nombre: string } | null> {
+  const limpio = (id ?? '').trim().slice(0, 80);
+  if (!limpio) return null;
+  const { data } = await getSupabaseServer().from('propuestas').select('workspace_id').eq('id', limpio).maybeSingle();
+  const ws = Number((data as { workspace_id?: unknown } | null)?.workspace_id);
+  if (!Number.isFinite(ws)) return null;
+  const w = await getWorkspace(ws).catch(() => null);
+  return { workspaceId: ws, nombre: (w?.nombre ?? '').trim() || `workspace ${ws}` };
 }

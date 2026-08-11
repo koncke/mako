@@ -39,6 +39,31 @@ const txt = (v: unknown): string | null => {
   return s ? s : null;
 };
 
+type LeadCrudo = Record<string, unknown>;
+
+/** Un lead saneado, o el motivo por el que no se puede ni proponer. */
+function aFila(c: LeadCrudo, i: number): { fila: Record<string, unknown> } | { error: string } {
+  const nombre = txt(c.nombre);
+  const email = txt(c.email)?.toLowerCase() ?? null;
+  const telefono = txt(c.telefono);
+  if (!nombre) return { error: `el lead #${i + 1} no tiene "nombre"` };
+  if (!email && !telefono) return { error: `"${nombre}" no tiene "email" ni "telefono": sin forma de contacto no se puede trabajar` };
+  return {
+    fila: {
+      nombre, email, telefono,
+      empresa: txt(c.empresa),
+      utm_source: txt(c.utm_source),
+      utm_medium: txt(c.utm_medium),
+      utm_campaign: txt(c.utm_campaign),
+      utm_content: txt(c.utm_content),
+    },
+  };
+}
+
+/** El tope por propuesta. El mismo criterio que el importador: una revisión de 500
+ *  filas no la hace nadie, y partirla en dos es trabajo de quien la manda. */
+const TOPE = 200;
+
 export async function POST(req: NextRequest) {
   const ws = await wsPorAgenteToken(bearerDe(req));
   if (ws == null) return NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
@@ -46,40 +71,47 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {};
   try { body = (await req.json()) as Record<string, unknown>; } catch { /* sin cuerpo */ }
 
-  const nombre = txt(body.nombre);
-  const email = txt(body.email)?.toLowerCase() ?? null;
-  const telefono = txt(body.telefono);
-  const empresaTxt = txt(body.empresa);
-  const origenTxt = txt(body.origen);
+  // UNO O VARIOS, misma ruta. `leads: [...]` para un lote; los campos sueltos siguen
+  // valiendo para uno. Dos endpoints para lo mismo obligan al que llama a elegir, y el
+  // caso de «uno» es literalmente el lote de largo 1.
+  const crudos: LeadCrudo[] = Array.isArray(body.leads)
+    ? (body.leads as LeadCrudo[])
+    : [body];
 
-  // El nombre es lo único obligatorio, igual que en el alta manual del CRM. Y se pide
-  // al menos una forma de contactarlo: un lead sin mail ni teléfono no se puede
-  // trabajar, y entra al tablero solo para ensuciarlo.
-  if (!nombre) return NextResponse.json({ ok: false, error: 'falta "nombre"' }, { status: 400 });
-  if (!email && !telefono) {
-    return NextResponse.json({ ok: false, error: 'falta "email" o "telefono": un lead sin forma de contacto no se puede trabajar' }, { status: 400 });
+  if (!crudos.length) return NextResponse.json({ ok: false, error: 'no llegó ningún lead' }, { status: 400 });
+  if (crudos.length > TOPE) {
+    return NextResponse.json({ ok: false, error: `son ${crudos.length} y el tope por propuesta es ${TOPE}. Partilo en dos.` }, { status: 400 });
   }
 
+  const filas: Array<Record<string, unknown>> = [];
+  const errores: string[] = [];
+  crudos.forEach((c, i) => {
+    const r = aFila(c ?? {}, i);
+    if ('error' in r) errores.push(r.error); else filas.push(r.fila);
+  });
+
+  // Si NINGUNO sirve, es un 400: no se deja una propuesta vacía que el usuario abra
+  // para encontrarse con nada.
+  if (!filas.length) {
+    return NextResponse.json({ ok: false, error: errores.join(' · ') || 'ningún lead válido' }, { status: 400 });
+  }
+
+  const origenTxt = txt(body.origen);
+
   try {
-    // La ref por defecto sale del CONTACTO, no del nombre: dos personas se llaman igual,
-    // pero un teléfono o un mail identifican a una.
-    const ref = txt(body.ref) ?? `lead:${telefono ?? email}`;
+    // La ref por defecto sale de los CONTACTOS, no de los nombres: dos personas se
+    // llaman igual, pero un teléfono o un mail identifican a una.
+    const ref = txt(body.ref) ?? `lead:${filas.map((f) => f.telefono ?? f.email).join(',')}`.slice(0, 200);
 
     const { id, nueva } = await crearPropuesta({
       ws,
       tipo: 'lead',
       origen: 'claude',
       ref,
-      resumen: `${nombre}${empresaTxt ? ` · ${empresaTxt}` : ''}${origenTxt ? ` · ${origenTxt}` : ''}`,
-      datos: {
-        nombre, email, telefono,
-        empresa: empresaTxt,
-        origen: origenTxt,
-        utm_source: txt(body.utm_source),
-        utm_medium: txt(body.utm_medium),
-        utm_campaign: txt(body.utm_campaign),
-        utm_content: txt(body.utm_content),
-      },
+      resumen: filas.length === 1
+        ? `${filas[0].nombre}${origenTxt ? ` · ${origenTxt}` : ''}`
+        : `${filas.length} contactos${origenTxt ? ` · ${origenTxt}` : ''}`,
+      datos: { leads: filas, origen: origenTxt },
     });
 
     // El link va ENTERO y absoluto. Un path suelto no es clicable en un chat, y este
@@ -88,8 +120,11 @@ export async function POST(req: NextRequest) {
       ok: true,
       propuesta: id,
       nueva,
+      leads: filas.length,
+      // Lo que NO entró se devuelve: un lead que se cae en silencio es peor que un error.
+      descartados: errores.length ? errores : undefined,
       url: `${APP_BASE_URL}/crm/revisar/${id}`,
-      mensaje: 'Quedó para confirmar. Pasale el link al usuario: el lead entra al CRM recién cuando lo confirma.',
+      mensaje: 'Quedó para confirmar. Pasale el link al usuario: los contactos entran al CRM recién cuando los confirma.',
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });

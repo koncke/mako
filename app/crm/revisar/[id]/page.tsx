@@ -1,20 +1,20 @@
 // =============================================================================
-// /crm/revisar/[id] — confirmar un lead que propuso un canal (mig 0128)
+// /crm/revisar/[id] — confirmar los contactos que propuso un canal (mig 0128)
 // =============================================================================
 // La otra punta de la regla: Claude (o cualquier canal) deja una propuesta y manda el
-// link acá. El dueño mira el dato, lo corrige si hace falta y confirma → recién ahí
-// entra al CRM.
+// link acá. El dueño ve la MISMA tabla que cuando importa un archivo, corrige lo que
+// haga falta y confirma → recién ahí entran al CRM.
 //
-// Guard = cualquier sesión, y `getPropuesta` scopea al workspace del que mira: un
-// cliente solo puede abrir SUS propuestas, y el id de otro simplemente no existe para
-// él. Es el mismo criterio que /plan/revisar.
-// =============================================================================
+// Guard = cualquier sesión, y `getPropuesta` scopea al workspace del que mira. Cuando
+// devuelve null hay DOS casos que se resuelven distinto y por eso se distinguen:
+// el link vino mal escrito, o es de otra cuenta. Un 404 mudo los junta y deja al que
+// mira sin saber qué hacer.
 
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
-import { getPropuesta } from '@/lib/propuestas';
-import { Pagina, PageHeader, Section } from '@/app/_ui';
+import { getPropuesta, duenoDePropuesta } from '@/lib/propuestas';
 import { RevisarLead } from './RevisarLead';
+import { NoEsTuyo } from './NoEsTuyo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,24 +25,18 @@ export default async function RevisarLeadPage({ params }: { params: Promise<{ id
 
   const { id } = await params;
   const prop = await getPropuesta(id);
+  if (prop && prop.tipo === 'lead') return <RevisarLead prop={prop} />;
 
-  // ── EL LINK LO TRANSCRIBE UN MODELO, ASÍ QUE PUEDE VENIR MAL ────────────────
-  // No se muestra un 404 mudo: el que llega acá venía a confirmar algo y merece saber
-  // si el link está mal escrito o si ya lo confirmó. Es la misma pantalla que
-  // /plan/revisar tuvo que aprender.
-  if (!prop || prop.tipo !== 'lead') {
-    return (
-      <Pagina>
-        <PageHeader titulo="No encontramos esa propuesta" proposito="El link puede estar incompleto." />
-        <Section titulo="Qué hacer">
-          <p style={{ margin: 0, lineHeight: 1.6 }}>
-            Fijate que el link esté entero — a veces se corta al copiarlo de un chat. Si ya lo
-            confirmaste, el lead está en tu <a href="/crm">CRM</a>.
-          </p>
-        </Section>
-      </Pagina>
-    );
-  }
-
-  return <RevisarLead prop={prop} />;
+  // No es de este workspace (o no existe). Solo al super-admin se le dice de quién es y
+  // se le ofrece pasar: para cualquier otro, saber que existe el borrador de otro
+  // cliente ya sería más de lo que le corresponde.
+  const dueno = await duenoDePropuesta(id);
+  const esAdmin = sesion.rol === 'admin';
+  return (
+    <NoEsTuyo
+      existe={!!dueno}
+      deQuien={esAdmin ? (dueno?.nombre ?? '') : ''}
+      wsDestino={esAdmin ? (dueno?.workspaceId ?? null) : null}
+    />
+  );
 }
