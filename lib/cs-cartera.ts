@@ -22,17 +22,18 @@ import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
 import { listarShares } from './shares';
 import { bloquesDeCliente, type Bloque } from './cs-respuestas';
 import { TOTAL_CLASES, rotuloDe, PROGRAMA } from './programa-catalogo';
+import { relojDe, promesaDe, type Reloj } from './cs-contrato';
 
 export const RECURSO_TAREA = 'tarea-cs';
 
-/** Cuántas semanas dura el programa. Es una CONSTANTE del producto y no un dato
- *  por cliente a propósito: `duracion_meses` está en 2 de 13 fichas, así que
- *  derivarlo de ahí dejaría a once clientes sin reloj. Sus propias sesiones son
- *  14-18 repartidas en unos seis meses. */
-export const SEMANAS_PROGRAMA = 26;
 
 /** De quién es la pelota. Es el organizador de toda la pantalla. */
 export type Cancha = 'tuya' | 'suya' | 'al-dia';
+
+/** Dónde está dentro del programa. `graduado` y `baja` son DECISIONES de
+ *  Mauricio, no cálculos: el contrato dice cuándo vence el plazo, no si el
+ *  trabajo se terminó. */
+export type EstadoCliente = 'activo' | 'graduado' | 'baja' | 'pausado';
 
 export type ClienteCartera = {
   leadId: number;
@@ -45,9 +46,16 @@ export type ClienteCartera = {
   /** Por qué está en esa cancha, en una frase. Es lo que se lee en la card. */
   razon: string;
 
-  /** Semana N del programa. Null si no se sabe cuándo arrancó. */
-  semana: number | null;
-  semanasTotales: number;
+  /** El reloj sale del CONTRATO del cliente, no de una constante inventada.
+   *  Puede venir incompleto —y entonces la pantalla dice «—», no un número—. */
+  reloj: Reloj;
+  /** Lo que se le prometió. Es lo primero que hay que tener a mano antes de
+   *  una sesión: la garantía de Sergio Esquer dice «continuar sesiones sin
+   *  costo hasta instalación completa», y eso cambia qué significa «se pasó». */
+  promesa: { resultado: string | null; garantia: string | null; queEs: string | null; sesiones: string | null };
+  /** Dónde está DENTRO del programa. Separado de la venta: que se haya cobrado
+   *  no dice si la entrega terminó. */
+  estado: EstadoCliente;
 
   ultimaSesionHace: number | null;
   ultimaSesionTitulo: string | null;
@@ -78,22 +86,6 @@ const dias = (iso: string | Date | null | undefined): number | null => {
   const t = new Date(iso).getTime();
   return Number.isFinite(t) ? Math.floor((Date.now() - t) / 86_400_000) : null;
 };
-
-/** En qué semana del programa va.
- *
- *  `fecha_inicio_servicio` es el dato correcto pero está en 8 de 13 y viene
- *  sucia —hay una ficha que arranca cuatro meses ANTES del cierre—, así que se
- *  cae a `fecha_cierre`, que está en las 13 y nunca puede ser posterior al
- *  arranque real. Devolver null antes que mentir un número. */
-function semanaDe(inicio: string | null, cierre: string | null): number | null {
-  const candidatos = [inicio, cierre].filter(Boolean).map(d => new Date(d!).getTime()).filter(Number.isFinite);
-  if (!candidatos.length) return null;
-  // El MÁS RECIENTE de los dos: una fecha de inicio anterior al cierre es un
-  // dato mal cargado, no un cliente que arrancó antes de comprar.
-  const arranque = Math.max(...candidatos);
-  const d = Math.floor((Date.now() - arranque) / 86_400_000);
-  return d < 0 ? null : Math.max(1, Math.ceil((d + 1) / 7));
-}
 
 /** El bloque en el que está parado: el que espera su ok gana, después el
  *  primero sin contestar. Es la misma regla con la que abre su cuaderno. */
@@ -185,11 +177,12 @@ export async function cartera(): Promise<ClienteCartera[]> {
   const db = await getTenantDb();
 
   const { data } = await db.from('leads')
-    .select('id, nombre, email, telefono, empresa, fecha_inicio_servicio, fecha_cierre')
+    .select('id, nombre, email, telefono, empresa, fecha_inicio_servicio, fecha_cierre, duracion_meses, deal_servicio, deal_promesa')
     .eq('estado_lead', 'ganado').order('id');
   const leads = (data ?? []) as {
     id: number; nombre: string; email: string | null; telefono: string | null;
     empresa: string | null; fecha_inicio_servicio: string | null; fecha_cierre: string | null;
+    duracion_meses: number | null; deal_servicio: unknown; deal_promesa: unknown;
   }[];
   if (!leads.length) return [];
   const ids = leads.map(l => l.id);
@@ -202,7 +195,7 @@ export async function cartera(): Promise<ClienteCartera[]> {
     try { return (((await q) as { data: unknown }).data ?? []) as T[]; } catch { return []; }
   };
 
-  const [shares, sesiones, cuotas, respuestas] = await Promise.all([
+  const [shares, sesiones, cuotas, respuestas, estados] = await Promise.all([
     listarShares(ws, RECURSO_TAREA).catch(() => []),
     leer<Ses>(db.from('closing_analyses').select('lead_id, call_date, title')
       .in('lead_id', ids).order('call_date', { ascending: false })),
@@ -210,6 +203,8 @@ export async function cartera(): Promise<ClienteCartera[]> {
       .in('lead_id', ids).eq('pagado', false)),
     leer<Bloque>(db.from('cs_respuestas').select('lead_id, clase_id, area, estado, visto_at, updated_at')
       .in('lead_id', ids)),
+    leer<{ lead_id: number; estado: EstadoCliente }>(
+      db.from('cs_clientes').select('lead_id, estado').in('lead_id', ids)),
   ]);
 
   const porLead = <T extends { lead_id: number }>(xs: T[]) => {
@@ -220,6 +215,7 @@ export async function cartera(): Promise<ClienteCartera[]> {
   const sesionesDe = porLead(sesiones);
   const cuotasDe = porLead(cuotas);
   const respuestasDe = porLead(respuestas);
+  const estadoDe = new Map(estados.map(e => [e.lead_id, e.estado]));
 
   const sharesDe = new Map<string, { vivos: number; ultima: string | null }>();
   for (const s of shares as { recurso_id?: unknown; revocado_at?: string | null; ultima_visita?: string | null }[]) {
@@ -241,6 +237,7 @@ export async function cartera(): Promise<ClienteCartera[]> {
     const sh = sharesDe.get(String(l.id)) ?? { vivos: 0, ultima: null };
 
     const vencidaMasVieja = cuo.map(p => p.fecha_vencimiento!).sort()[0] ?? null;
+    const reloj = relojDe(l);
     const base = {
       esperandoSuOk: bs.filter(b => b.estado === 'revisada_ia').length,
       contestados: bs.filter(b => b.estado !== 'pendiente').length,
@@ -251,14 +248,15 @@ export async function cartera(): Promise<ClienteCartera[]> {
       vistosSinContestar: bs.filter(b => b.visto_at && b.estado === 'pendiente').length,
       entroHace: dias(sh.ultima),
       links: sh.vivos,
-      semanasDesdeElCierre: semanaDe(l.fecha_inicio_servicio, l.fecha_cierre),
+      semanasDesdeElCierre: reloj.semana,
     };
 
     return {
       leadId: l.id, nombre: l.nombre, empresa: l.empresa, email: l.email, telefono: l.telefono,
       ...cancha(base),
-      semana: semanaDe(l.fecha_inicio_servicio, l.fecha_cierre),
-      semanasTotales: SEMANAS_PROGRAMA,
+      reloj,
+      promesa: promesaDe(l),
+      estado: estadoDe.get(l.id) ?? 'activo',
       ultimaSesionHace: base.ultimaSesionHace,
       ultimaSesionTitulo: ses[0]?.title ?? null,
       sesiones: ses.length,

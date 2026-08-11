@@ -45,7 +45,8 @@ export function DetalleCliente({ cliente: c, totalClases, onCerrar, onDarLink }:
         <p className="dc-cancha">{c.razon}</p>
 
         <div className="dc-hi">
-          <Hi k="Semana" v={c.semana === null ? '—' : `${c.semana}`} de={c.semana === null ? undefined : `de ${c.semanasTotales}`} />
+          <Hi k="Semana" v={c.reloj.semana === null ? '—' : `${c.reloj.semana}`}
+            de={c.reloj.semanasTotales ? `de ${c.reloj.semanasTotales}` : undefined} />
           <Hi k="Bloques listos" v={`${c.aprobados}`} de={`de ${totalClases}`} />
           <Hi k="Última sesión" v={c.ultimaSesionHace === null ? 'Ninguna' : `hace ${c.ultimaSesionHace} d`} />
           <Hi k="Sesiones" v={`${c.sesiones}`} />

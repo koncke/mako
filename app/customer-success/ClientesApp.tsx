@@ -29,6 +29,16 @@ const GRUPOS: { cancha: Cancha; titulo: string; sub: string }[] = [
   { cancha: 'al-dia', titulo: 'Al día', sub: 'Sin nada pendiente' },
 ];
 
+/** El reloj, dicho sin inventar. Sin contrato que diga cuánto dura, se muestra
+ *  la semana sola: «semana 12» es un hecho, «12 de 26» sobre un total inventado
+ *  es una decisión tomada sobre humo. */
+export function textoReloj(r: { semana: number | null; semanasTotales: number | null; terminado: boolean }): string {
+  if (r.semana === null) return '—';
+  if (r.terminado) return `${r.semana} · terminó`;
+  if (r.semanasTotales === null) return `semana ${r.semana}`;
+  return `${r.semana} de ${r.semanasTotales}`;
+}
+
 /** Dos letras. Más es un logo; una sola no distingue a dos Franciscos. */
 const iniciales = (n: string) =>
   n.trim().split(/\s+/).slice(0, 2).map(p => p[0] ?? '').join('').toUpperCase();
@@ -180,13 +190,7 @@ function Card({ c, totalClases, cargando, onAbrir, onDarLink, onRotar, onRevocar
         <span className="hechos">
           <Hecho k="Última sesión" v={c.ultimaSesionHace === null ? 'Ninguna' : `hace ${c.ultimaSesionHace} d`} tono={c.ultimaSesionHace !== null && c.ultimaSesionHace > 21 ? 'bad' : undefined} />
           <Hecho k="Cobros" v={c.cuotasVencidas > 0 ? `${c.cuotasVencidas} vencida${c.cuotasVencidas > 1 ? 's' : ''}` : 'Al día'} tono={c.cuotasVencidas > 0 ? 'bad' : undefined} />
-          <Hecho
-            k="Semana"
-            v={c.semana === null ? '—'
-              : c.semana > c.semanasTotales ? `${c.semana} · se pasó`
-              : `${c.semana} de ${c.semanasTotales}`}
-            tono={c.semana !== null && c.semana > c.semanasTotales ? 'warn' : undefined}
-          />
+          <Hecho k="Semana" v={textoReloj(c.reloj)} tono={c.reloj.terminado ? 'warn' : undefined} />
         </span>
       </button>
 

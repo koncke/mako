@@ -37,7 +37,7 @@ const TABLAS_RESET = [
   // ── Hijos de leads ──
   'lead_respuestas', 'lead_insights', 'lead_audit', 'pagos', 'identidades_fiscales',
   'nutricion_envios', 'nutricion_inscripciones',
-  'email_broadcast_envios', 'cs_respuestas',
+  'email_broadcast_envios', 'cs_respuestas', 'cs_clientes',
   // ── Cabeceras ──
   'leads', 'email_broadcasts', 'nutricion_secuencias',
   // ── Conversaciones y canales ──
