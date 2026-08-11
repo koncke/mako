@@ -13,12 +13,24 @@
 //                                              \PDFs\
 //                                              \texto\
 //
+// A Drive va SIEMPRE el archivo tal cual se bajó (máxima calidad): no se recodifica
+// ni se baja de resolución en ningún punto.
+//
+// --liberar borra el original LOCAL, y solo el que cumple las cuatro condiciones:
+// está dentro de video/, tiene id de Drive, la copia en G: coincide byte a byte, y
+// el propio Drive reporta ese mismo tamaño (o sea: terminó de subir, no solo de
+// registrarse). Cualquier duda = se conserva. Y solo actúa si queda menos de
+// --min-libre-gb libre, así que con espacio de sobra no borra nada.
+//
 //   node <abs>\scripts\curso-a-drive.mjs --plan C:\cursos\<slug>\plan.json
 //   node <abs>\scripts\curso-a-drive.mjs --plan … --solo-ids   # sin copiar, solo leer ids
+//   node <abs>\scripts\curso-a-drive.mjs --plan … --liberar    # + limpiar local si falta espacio
+//   node <abs>\scripts\curso-a-drive.mjs --plan … --liberar --min-libre-gb 99999  # limpiar siempre
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, statSync, readdirSync, unlinkSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 
 const arg = (n, d) => {
@@ -31,6 +43,8 @@ const PLAN = arg('plan', '');
 const DRIVE = arg('drive', 'G:\\My Drive\\MARKETING KONCEPT\\CURSOS');
 const DFS = arg('dfs', join(process.env.LOCALAPPDATA ?? '', 'Google\\DriveFS'));
 const MINUTOS = Number(arg('minutos', 20)); // tope de espera a que Drive registre
+const LIBERAR = tiene('liberar');           // borrar el local una vez CONFIRMADO arriba
+const MIN_LIBRE = Number(arg('min-libre-gb', 25)); // solo libera si queda menos que esto
 
 if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json>\n'); process.exit(1); }
 const plan = JSON.parse(readFileSync(PLAN, 'utf8'));
@@ -98,7 +112,7 @@ if (!tiene('solo-ids')) {
     const dstDir = join(dirCurso, mod);
     mkdirSync(dstDir, { recursive: true });
     const dst = join(dstDir, cand[0]);
-    esperados.push({ nombre: cand[0], clase: c });
+    esperados.push({ nombre: cand[0], clase: c, src, dst });
 
     if (existsSync(dst) && statSync(dst).size === statSync(src).size) { console.log(`  = ${mod}\\${cand[0]}`); ya++; continue; }
     process.stdout.write(`  ↑ ${mod}\\${cand[0]} (${mb(statSync(src).size)} MB) … `);
@@ -127,7 +141,9 @@ if (!tiene('solo-ids')) {
   for (const c of plan.clases) {
     const dirVideo = join(base, 'video');
     const cand = existsSync(dirVideo) ? readdirSync(dirVideo).filter((f) => f.startsWith(c.archivo)) : [];
-    if (cand.length) esperados.push({ nombre: cand[0], clase: c });
+    if (!cand.length) continue;
+    const mod = limpio(c.modulo ?? 'Sin módulo').replace(/^(\d+)\.\s*/, (_, n) => `${String(n).padStart(2, '0')} `);
+    esperados.push({ nombre: cand[0], clase: c, src: join(dirVideo, cand[0]), dst: join(dirCurso, mod, cand[0]) });
   }
 }
 
@@ -171,6 +187,60 @@ const clases = esperados
 
 const salida = join(base, 'drive.json');
 writeFileSync(salida, JSON.stringify({ curso: plan.curso, carpeta: dirCurso, clases }, null, 2), 'utf8');
+
+// ── 4. Liberar espacio local, SOLO con la subida confirmada ──────────────────
+// La guarda va en POSITIVO (AGENTS.md): se borra únicamente el archivo que cumple
+// TODAS las condiciones. Cualquier duda = no se borra. Un borrado de más acá
+// significa perder una descarga de 100 MB y volver a bajarla, así que el costo de
+// ser conservador es cero y el de equivocarse no.
+if (LIBERAR) {
+  const libreGB = () => {
+    try {
+      const raiz = base.slice(0, 3); // 'C:\'
+      const out = execFileSync('powershell', ['-NoProfile', '-Command',
+        `[math]::Round((Get-PSDrive ${raiz[0]}).Free/1GB,2)`], { encoding: 'utf8' });
+      return Number(out.trim());
+    } catch { return null; }
+  };
+  const libre = libreGB();
+
+  console.log(`\n  ── Liberar espacio local ──`);
+  console.log(`  Libre en ${base.slice(0, 3)}: ${libre ?? '?'} GB · umbral: ${MIN_LIBRE} GB`);
+
+  if (libre !== null && libre >= MIN_LIBRE) {
+    console.log(`  Nada que liberar: sobra espacio. (Para forzar: --min-libre-gb 99999)`);
+  } else {
+    let borrados = 0, bytes = 0;
+    for (const e of esperados) {
+      const r = resueltos.get(e.nombre);
+      const razon = [];
+
+      // Las cuatro condiciones que habilitan el borrado, todas en positivo.
+      const dentroDelCurso = !!e.src && e.src.startsWith(join(base, 'video') + '\\');
+      const tieneId = !!r?.id && !r?.ambiguo;
+      const localOk = !!e.src && existsSync(e.src);
+      const tamLocal = localOk ? statSync(e.src).size : -1;
+      const copiaOk = !!e.dst && existsSync(e.dst) && statSync(e.dst).size === tamLocal;
+      const driveOk = tieneId && Number(r.size) === tamLocal;
+
+      if (!dentroDelCurso) razon.push('fuera de video/');
+      if (!tieneId) razon.push(r?.ambiguo ? 'id ambiguo' : 'sin id de Drive');
+      if (!localOk) razon.push('ya no está local');
+      if (!copiaOk) razon.push('la copia en G: no coincide en bytes');
+      if (!driveOk && tieneId) razon.push(`Drive reporta ${r.size} B y el local ${tamLocal} B (sigue subiendo)`);
+
+      if (dentroDelCurso && tieneId && localOk && copiaOk && driveOk) {
+        unlinkSync(e.src);
+        borrados++; bytes += tamLocal;
+        console.log(`  🗑 ${e.nombre}  (${mb(tamLocal)} MB liberados)`);
+      } else {
+        console.log(`  · conservo ${e.nombre} — ${razon.join(' · ')}`);
+      }
+    }
+    console.log(`\n  ${borrados} archivo(s) borrado(s) del local · ${mb(bytes)} MB liberados`);
+    if (borrados) console.log(`  El máster en máxima calidad queda en ${dirCurso}`);
+  }
+}
 
 console.log('\n' + '─'.repeat(70));
 console.log(`  ${clases.length}/${esperados.length} clases con videoId de Drive`);
