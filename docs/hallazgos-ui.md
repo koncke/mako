@@ -1505,6 +1505,30 @@ funcionalidad, no como pantalla aparte («una nueva tab con un nuevo chat, cuand
 
 **Vive en:** lib/nav.ts · *memoria [[sidebar-nav-estructura]], [[rediseno-direccion-estetica]]*
 
+### Una tab que existe y no se ve no da ningún síntoma
+
+**Síntoma.** «No veo la tab en la sidebar», sobre un área de `/admin/dev` recién escrita.
+La página existía, funcionaba, tenía su Roadmap y su Change History — y no había forma de
+llegar salvo tecleando la URL.
+
+**Causa.** El bloque de registros de la familia Dev en `app/_components/nav.ts` es una lista
+**escrita a mano**, y la fila nueva no estaba. No era una: **`pricing` llevaba días igual**,
+con bitácora completa y sin entrada, y nadie lo había notado.
+
+**Por qué sobrevive tanto.** Es el modo de falla más silencioso que hay: no rompe, no
+loguea, no lo ve el typecheck, y no aparece en ningún test porque *nada* pasa. Solo se
+descubre cuando una persona la busca — y si nadie la busca, el trabajo queda enterrado.
+
+**Regla.** La lista del nav NO se puede derivar de `registros.ts` (importaría las ocho
+bitácoras enteras, ~1.500 líneas de prosa, al bundle del cliente para armar ocho links).
+Entonces son dos listas de lo mismo, y eso exige las **dos capas** de siempre: la lista, y
+una guarda determinista que falle cuando divergen. Vale para cualquier catálogo que se
+duplique por una razón legítima de bundle — la razón justifica la copia, no la falta de
+guarda.
+
+**Vive en:** `app/_components/nav.ts` (bloque de registros de `ADMIN_FAMILIAS`) ·
+`app/admin/dev/registros.ts` (`REGISTROS_SLUGS`) · `tests/dev-areas.test.ts` (la guarda)
+
 ---
 
 ## El texto de la UI
