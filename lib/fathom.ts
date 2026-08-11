@@ -8,32 +8,20 @@
 // cada una "v1,<base64>".
 // =============================================================================
 
-import crypto from 'node:crypto';
+import { verificarFirmaSvix, MOTIVO_FIRMA } from './standard-webhooks';
 
 export class FathomSignatureError extends Error {}
 
 export type FathomSigHeaders = { id: string | null; timestamp: string | null; signature: string | null };
 
 export function verifyFathomSignature(rawBody: string, headers: FathomSigHeaders, secret: string, toleranceSec = 300): void {
-  const { id, timestamp, signature } = headers;
-  if (!secret) throw new FathomSignatureError('FATHOM_WEBHOOK_SECRET no configurado');
-  if (!id || !timestamp || !signature) throw new FathomSignatureError('Faltan headers de firma (webhook-id/timestamp/signature)');
-
-  const ts = Number(timestamp);
-  if (!Number.isFinite(ts)) throw new FathomSignatureError('webhook-timestamp inválido');
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - ts) > toleranceSec) throw new FathomSignatureError('webhook-timestamp fuera de tolerancia');
-
-  const key = Buffer.from(secret.startsWith('whsec_') ? secret.slice(6) : secret, 'base64');
-  const signedContent = `${id}.${timestamp}.${rawBody}`;
-  const expected = crypto.createHmac('sha256', key).update(signedContent).digest('base64');
-
-  // El header trae N firmas "v1,<sig>" separadas por espacio.
-  const provided = signature.split(' ').map((p) => (p.includes(',') ? p.split(',')[1] : p));
-  const ok = provided.some((sig) => {
-    try { return sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected)); } catch { return false; }
-  });
-  if (!ok) throw new FathomSignatureError('Firma no coincide');
+  // El algoritmo vive en lib/standard-webhooks.ts: Fathom, Resend y Whop firman
+  // igual (Svix), y estaba escrito dos veces. Acá queda solo la forma de fallar
+  // que este receptor ya esperaba (throw), para no tocar sus call-sites.
+  const fallo = verificarFirmaSvix(rawBody, headers, secret, toleranceSec);
+  if (!fallo) return;
+  if (fallo === 'sin-secreto') throw new FathomSignatureError('FATHOM_WEBHOOK_SECRET no configurado');
+  throw new FathomSignatureError(MOTIVO_FIRMA[fallo]);
 }
 
 // ── Payload de "new-meeting-content-ready" (subset que usamos) ──

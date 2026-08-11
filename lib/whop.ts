@@ -21,7 +21,7 @@
 // =============================================================================
 
 import 'server-only';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+
 import { credWs } from './credenciales';
 
 const BASE = 'https://api.whop.com/api/v1';
@@ -100,7 +100,36 @@ export async function whopCompanyId(ws?: number): Promise<WhopRes<string>> {
   if (!r.ok) return r;
   if (!r.data?.id) return { ok: false, error: 'Whop no devolvió la company de esta key.' };
   companyPorWs.set(clave, { id: r.data.id, hasta: Date.now() + TTL_COMPANY });
+  if (ws) void registrarRuteo(ws, r.data.id);
   return { ok: true, data: r.data.id };
+}
+
+/**
+ * Deja anotado que esta company es de este workspace, para que el webhook —que
+ * llega SIN sesión— sepa a quién entregarle el evento.
+ *
+ * Se hace acá y no pidiéndole el id al usuario porque el id se DERIVA de su
+ * propia key: preguntárselo sería un campo más para llenar mal, y peor, un campo
+ * que si se llena con el id de otro secuestra los webhooks ajenos. Derivado de
+ * la key, eso no puede pasar.
+ *
+ * Best-effort a propósito: si falla, el avance llega igual en la pasada del
+ * cron. `upsertRouting` es primer-reclamante-gana y NO pisa al que ya está.
+ */
+async function registrarRuteo(ws: number, companyId: string): Promise<void> {
+  try {
+    const { upsertRouting } = await import('./webhook-routing');
+    await upsertRouting('whop', companyId, ws);
+  } catch { /* el ruteo es una optimización, no una condición del acceso */ }
+}
+
+/** El workspace dueño de un evento entrante de Whop, o null. Fail-closed: sin
+ *  mapeo NO se asume el dueño — entregarle a ws1 el evento de otro sería
+ *  escribirle avance falso a un cliente. */
+export async function wsDeCompany(companyId: string | null | undefined): Promise<number | null> {
+  if (!companyId) return null;
+  const { wsPorIdentificador } = await import('./webhook-routing');
+  return wsPorIdentificador('whop', companyId);
 }
 
 /** La cuenta detrás de la key: sirve para mostrar A QUÉ negocio quedó conectado,
@@ -226,27 +255,38 @@ export async function crearLeccion(
   }, ws);
 }
 
+/** Reescribe el cuerpo (y opcionalmente el video) de una lección que ya existe.
+ *
+ *  Hace falta de verdad: el cargador es idempotente por TÍTULO, así que sin esto
+ *  una lección creada con el texto equivocado se queda con él para siempre — y
+ *  el día que se grabe el video no habría forma de engancharlo sin borrar y
+ *  volver a crear, perdiendo el avance de quien ya la completó. */
+export async function actualizarLeccion(
+  leccionId: string,
+  cambios: { titulo?: string; contenido?: string; tipo?: TipoLeccion; embed?: { tipo: 'youtube' | 'loom'; id: string } },
+  ws?: number,
+): Promise<WhopRes<Leccion>> {
+  const body: Record<string, unknown> = {};
+  if (cambios.titulo !== undefined) body.title = cambios.titulo.slice(0, 120);
+  if (cambios.contenido !== undefined) body.content = cambios.contenido;
+  if (cambios.tipo !== undefined) body.lesson_type = cambios.tipo;
+  if (cambios.embed) { body.embed_type = cambios.embed.tipo; body.embed_id = cambios.embed.id; body.lesson_type = cambios.tipo ?? 'video'; }
+  return whopFetch<Leccion>(`/course_lessons/${encodeURIComponent(leccionId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  }, ws);
+}
+
 // ── El webhook ───────────────────────────────────────────────────────────────
 
-/** Verifica la firma de un webhook de Whop sobre el cuerpo CRUDO.
- *
- *  ⚠️ El cuerpo tiene que ser el texto exacto que llegó. Si se hace
- *  `JSON.parse` y después `JSON.stringify`, el HMAC no da: cambia el orden de
- *  las claves y el espaciado. Es el error clásico y falla siempre, no a veces.
- *
- *  Devuelve false ante cualquier duda (fail-closed), como `lib/shares.ts`. */
-export function firmaWhopValida(crudo: string, firma: string | null, secreto: string | null): boolean {
-  if (!firma || !secreto) return false;
-  // Whop manda `t=<unix>,v1=<hex>` (estilo Stripe). Se acepta también el hex pelado.
-  const v1 = firma.split(',').map(p => p.trim()).find(p => p.startsWith('v1='))?.slice(3) ?? firma.trim();
-  const ts = firma.split(',').map(p => p.trim()).find(p => p.startsWith('t='))?.slice(2);
-  const payload = ts ? `${ts}.${crudo}` : crudo;
-  const esperado = createHmac('sha256', secreto).update(payload).digest('hex');
-  const a = Buffer.from(esperado, 'utf8');
-  const b = Buffer.from(v1, 'utf8');
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
+// La firma la verifica `lib/standard-webhooks.ts`: Whop firma con Standard
+// Webhooks (Svix), el MISMO esquema que Fathom y Resend. No hay una tercera
+// implementación acá a propósito.
+//
+// ⚠️ Lo escribí mal la primera vez —estilo Stripe, `t=…,v1=<hex>`, con el
+// secreto crudo como clave— y habría rechazado el 100% de los webhooks con un
+// error indistinguible de un secreto mal pegado. Los tres detalles que fallan
+// siempre están escritos arriba de standard-webhooks.ts.
 
 export type EventoWhop = {
   /** ej. `course_lesson_interaction.completed` */

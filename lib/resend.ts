@@ -10,6 +10,7 @@
 // server-only: el RESEND_API_KEY nunca debe llegar al navegador.
 
 import 'server-only';
+import { verificarFirmaSvix } from './standard-webhooks';
 import crypto from 'node:crypto';
 import { credWs } from './credenciales';
 import { getSetting } from './settings';
@@ -340,39 +341,15 @@ export async function listResendDomains(): Promise<{ ok: true; domains: Array<{ 
   };
 }
 
-// ── Verificación de firma del webhook (Svix, el que usa Resend) ───────────────
-// Headers: svix-id, svix-timestamp, svix-signature ("v1,<base64> v1,<base64>…").
-// secret: "whsec_<base64>". signedContent = `${id}.${timestamp}.${rawBody}`.
-// sig = base64( HMAC_SHA256(base64decode(secret), signedContent) ).
-const TOLERANCIA_SEG = 5 * 60; // ventana anti-replay
-
+// ── Verificación de firma del webhook ────────────────────────────────────────
+// Resend firma con Standard Webhooks (Svix). El algoritmo vive en
+// lib/standard-webhooks.ts, que es el mismo que usan Fathom y Whop: estaba
+// escrito dos veces con dos redacciones y agregar un tercer proveedor habría
+// sido la tercera copia. OJO: Resend manda los headers con prefijo `svix-`, no
+// `webhook-`, así que su ruta los lee a mano y arma el objeto (por eso acá no se
+// usa `headersSvix`).
 export type SvixHeaders = { id: string | null; timestamp: string | null; signature: string | null };
 
 export function verifyResendSignature(rawBody: string, headers: SvixHeaders, secret: string): boolean {
-  if (!secret) return false;
-  const { id, timestamp, signature } = headers;
-  if (!id || !timestamp || !signature) return false;
-
-  // Anti-replay: el timestamp no puede estar muy lejos de ahora.
-  const tsNum = Number(timestamp);
-  if (!Number.isFinite(tsNum)) return false;
-  const ahora = Math.floor(Date.now() / 1000);
-  if (Math.abs(ahora - tsNum) > TOLERANCIA_SEG) return false;
-
-  const secretB64 = secret.startsWith('whsec_') ? secret.slice('whsec_'.length) : secret;
-  let secretBytes: Buffer;
-  try { secretBytes = Buffer.from(secretB64, 'base64'); } catch { return false; }
-
-  const signedContent = `${id}.${timestamp}.${rawBody}`;
-  const expected = crypto.createHmac('sha256', secretBytes).update(signedContent).digest('base64');
-  const expBuf = Buffer.from(expected);
-
-  // El header trae una o más firmas separadas por espacio, cada una "v1,<sig>".
-  for (const part of signature.split(' ')) {
-    const comma = part.indexOf(',');
-    const sig = comma >= 0 ? part.slice(comma + 1) : part;
-    const sigBuf = Buffer.from(sig);
-    if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) return true;
-  }
-  return false;
+  return verificarFirmaSvix(rawBody, headers, secret) === null;
 }

@@ -161,7 +161,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // Sus IA, la voz, sus reuniones (Fathom) — y Datos: el super-admin SÍ mide su
     // propio VSL. Los mini-VSL de cada funcionalidad viven en Panda y /vsl trackea
     // landing + retención, así que necesita poder conectar Panda desde acá.
-    categoriasIntegraciones: ['Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Datos'],
+    categoriasIntegraciones: ['Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos'],
     // …pero no las tres que son de un funnel de ventas de leads: YouTube (mide un
     // VSL en YT), Calendly y Google Calendar (agenda R1/R2). El super-admin no las usa.
     integracionesOcultas: ['youtube', 'calendly', 'google'],

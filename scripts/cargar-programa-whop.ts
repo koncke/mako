@@ -4,6 +4,8 @@
 //   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/cargar-programa-whop.ts
 //   …--aplicar   → escribe de verdad. Sin el flag solo dice qué haría.
 //   …--visible   → publica el curso. Por defecto nace OCULTO, ver abajo.
+//   …--actualizar → reescribe el cuerpo de las lecciones que ya existen. Sin
+//                  esto solo crea las que faltan y nunca corrige un texto.
 //
 // ES IDEMPOTENTE, y no es un lujo: la API de Whop no tiene "crear si no existe".
 // Correrlo dos veces sin comparar por título dejaría el curso con 84 clases
@@ -26,13 +28,13 @@ config({ path: resolve(process.cwd(), '.env.local') });
 import { PROGRAMA, TOTAL_CLASES, CLASES_QUE_DESTRABAN, type Modulo, type Clase } from '../lib/programa-catalogo';
 import {
   whopCuenta, listarExperiencias, crearExperiencia, listarCursos, crearCurso,
-  listarCapitulos, crearCapitulo, listarLecciones, crearLeccion,
+  listarCapitulos, crearCapitulo, listarLecciones, crearLeccion, actualizarLeccion,
   type WhopRes,
 } from '../lib/whop';
 import { runWithWorkspace } from '../lib/workspace';
-import { APP_BASE_URL } from '../lib/app-url';
 
 const APLICAR = process.argv.includes('--aplicar');
+const ACTUALIZAR = process.argv.includes('--actualizar');
 const VISIBLE = process.argv.includes('--visible');
 const WS = 1; // Mauricio. OWNER_WS.
 
@@ -43,9 +45,16 @@ const BAJADA = 'Dirige tu negocio. No lo cargues.';
 /** El cuerpo de la lección, en Markdown. El video se agrega después; lo que va
  *  hoy es la TAREA, que es lo único que hace avanzar el bucle.
  *
- *  El link apunta a MaKo y no a un formulario de Whop a propósito: la respuesta
- *  hay que leerla, reescribirla con lo hablado en la junta y devolverla para que
- *  el cliente la apruebe, y la API de Whop no deja leer respuestas. */
+ *  ⚠️ ACÁ NO VA NINGÚN LINK, Y NO ES UN OLVIDO. El cuerpo de una lección es el
+ *  MISMO para todos los alumnos: Whop no lo personaliza. Un link acá no puede
+ *  llevar el token de nadie, así que sería la misma URL para todos — o pide
+ *  identificarse (y son empresarios que no manejan la computadora), o abre la
+ *  tarea de otro. Las dos están mal.
+ *
+ *  El link personal lo manda MaKo por WhatsApp o mail cuando toca el bloque, y
+ *  es un share de escritura acotado a ESE cliente (`lib/shares.ts` →
+ *  `puedeEditar`). Acá solo va el enunciado, que es lo que el alumno necesita
+ *  mientras mira el video. */
 function cuerpo(modulo: Modulo, clase: Clase): string {
   const partes: string[] = [];
   partes.push(`## Tu tarea de este bloque\n\n${clase.pregunta}`);
@@ -56,8 +65,7 @@ function cuerpo(modulo: Modulo, clase: Clase): string {
   if (modulo.porArea) {
     partes.push('_Este bloque se repite una vez por cada área de tu negocio. El video es el mismo; la tarea, no._');
   }
-  partes.push(`[Contestar la tarea](${APP_BASE_URL}/tarea/${clase.id})`);
-  partes.push('---\n\nDejá la tarea contestada **antes** de la sesión. En la sesión la debatimos y la afinamos; después te llega la versión mejorada para que la apruebes.');
+  partes.push('---\n\nTe llega un link para contestarla. Dejala contestada **antes** de la sesión: ahí la debatimos y la afinamos, y después te vuelve la versión mejorada para que la apruebes.');
   return partes.join('\n\n');
 }
 
@@ -70,7 +78,7 @@ function morir(r: WhopRes<unknown>): never {
   process.exit(1);
 }
 
-let creados = 0, saltados = 0;
+let creados = 0, saltados = 0, actualizados = 0;
 const marca = (hubo: boolean) => { hubo ? creados++ : saltados++; return hubo ? 'CREADA' : 'ya estaba'; };
 
 async function main() {
@@ -137,12 +145,26 @@ async function main() {
     for (const [i, clase] of modulo.clases.entries()) {
       const titulo = `${modulo.numero}.${i + 1} · ${clase.titulo}`;
       const destaca = (CLASES_QUE_DESTRABAN as readonly string[]).includes(clase.id) ? '  ⭐' : '';
-      const existe = yaHay?.ok ? yaHay.data.some(l => norm(l.title) === norm(titulo)) : false;
+      const ya = yaHay?.ok ? yaHay.data.find(l => norm(l.title) === norm(titulo)) : undefined;
+      const texto = cuerpo(modulo, clase);
 
-      if (existe) { console.log(`   ${titulo} → ${marca(false)}${destaca}`); continue; }
+      if (ya) {
+        // El cargador es idempotente por TÍTULO, así que sin --actualizar una
+        // lección creada con el texto equivocado se queda con él para siempre.
+        if (ACTUALIZAR && (ya.content ?? '') !== texto) {
+          if (!APLICAR) { console.log(`   ${titulo} → se reescribiría${destaca}`); saltados++; continue; }
+          const r = await actualizarLeccion(ya.id, { contenido: texto }, WS);
+          if (!r.ok) morir(r);
+          actualizados++;
+          console.log(`   ${titulo} → REESCRITA${destaca}`);
+        } else {
+          console.log(`   ${titulo} → ${marca(false)}${destaca}`);
+        }
+        continue;
+      }
       if (!APLICAR || !cap) { console.log(`   ${titulo} → se crearía${destaca}`); continue; }
 
-      const r = await crearLeccion({ capituloId: cap.id, titulo, contenido: cuerpo(modulo, clase) }, WS);
+      const r = await crearLeccion({ capituloId: cap.id, titulo, contenido: texto }, WS);
       if (!r.ok) morir(r);
       console.log(`   ${titulo} → ${marca(true)}${destaca}`);
     }

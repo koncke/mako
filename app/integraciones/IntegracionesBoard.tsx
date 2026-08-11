@@ -114,7 +114,7 @@ const capMono: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: 
 // mapea sobre esta lista, así que una categoría que no esté acá NO se pinta aunque tenga
 // integraciones. GitHub quedó invisible por eso: existía, pasaba todos los filtros, y
 // 'Desarrollo' no estaba en la lista.
-const CAT_ORDER = ['Publicidad', 'Mensajería', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Datos', 'Desarrollo'];
+const CAT_ORDER = ['Publicidad', 'Mensajería', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'];
 
 // Servicios sintéticos: no están en el catálogo de integraciones pero tienen modal
 // propio (Groq es gratis y aparece en Costo de MaKo → su tile abre este modal).

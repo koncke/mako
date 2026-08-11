@@ -45,6 +45,10 @@ export const ICON: Record<string, IconDef> = {
   // GitHub: el mark oficial en blanco sobre su negro de marca (#181717).
   github: { sym: 'ic-github', bg: '#181717' },
   landing: { sym: 'ic-landing', bg: '#7C5CFF' },
+  // Whop: no tenemos su vector oficial, así que va letter-mark sobre su naranja
+  // de marca (#FF6243). La regla de arriba: una inicial honesta antes que un
+  // logo inventado.
+  whop: { letter: 'W', bg: '#FF6243' },
   // ⚠️ CLAUDE Y ANTHROPIC SON DOS MARCAS Y LLEVAN DOS LOGOS DISTINTOS.
   // `anthropic` de más arriba es la API key que el cliente pega: ahí se está conectando
   // con la EMPRESA, y va su logotipo. `agente` es con lo que el cliente habla —Claude,

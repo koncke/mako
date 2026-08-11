@@ -30,6 +30,8 @@ import { getSupabaseServer } from './supabase';
 
 export type ShareAlcance = 'todo' | 'seccion' | 'grupo' | 'item';
 export type ShareModo = 'link' | 'invitados';
+/** Qué se puede HACER dentro de lo que el alcance ya deja ver (mig 0126). */
+export type SharePermiso = 'ver' | 'editar';
 
 export type Share = {
   id: number;
@@ -38,6 +40,8 @@ export type Share = {
   alcance: ShareAlcance;
   recurso_id: string | null;
   modo: ShareModo;
+  /** Ausente en filas viejas. `permisoDe()` lo lee: nunca se usa crudo. */
+  permiso?: SharePermiso | null;
   etiqueta: string | null;
   expira_at: string | null;
   revocado_at: string | null;
@@ -78,7 +82,7 @@ export async function resolverToken(token: string): Promise<Acceso | null> {
   if (inv.data) {
     if (!vigente(inv.data)) return null;
     const s = await sb.from('shares')
-      .select('id,workspace_id,recurso,alcance,recurso_id,modo,etiqueta,expira_at,revocado_at')
+      .select('id,workspace_id,recurso,alcance,recurso_id,modo,permiso,etiqueta,expira_at,revocado_at')
       .eq('id', inv.data.share_id).maybeSingle();
     if (!s.data || !vigente(s.data)) return null;
     return { share: s.data as Share, invitado: inv.data as Invitado };
@@ -86,7 +90,7 @@ export async function resolverToken(token: string): Promise<Acceso | null> {
 
   // 2. ¿Es el token del share? Solo vale si el modo es 'link'.
   const s = await sb.from('shares')
-    .select('id,workspace_id,recurso,alcance,recurso_id,modo,etiqueta,expira_at,revocado_at,token_hash')
+    .select('id,workspace_id,recurso,alcance,recurso_id,modo,permiso,etiqueta,expira_at,revocado_at,token_hash')
     .eq('token_hash', h).maybeSingle();
   if (!s.data || !vigente(s.data)) return null;
   if ((s.data as Share).modo !== 'link') return null;   // es de invitados: el link solo no entra
@@ -117,15 +121,60 @@ export function filtrarPorShare<T extends { id: string; seccion: string; grupo: 
   return assets.filter((a) => puedeVer(share, a));
 }
 
+// ── El punto de autorización de ESCRITURA ───────────────────────────────────
+// Mismo criterio que `puedeVer`: uno solo, y lo llaman TODOS los que escriben.
+// Si lo llamara la página y no el endpoint, cualquiera mandaría un POST con otro
+// id y escribiría sobre datos ajenos — el IDOR que `puedeVer` ya cerró del lado
+// de la lectura.
+
+/** El permiso efectivo. Una fila vieja, un valor desconocido o un null son
+ *  'ver': lo que no se declaró explícitamente NO escribe. */
+export function permisoDe(share: Share): SharePermiso {
+  return share.permiso === 'editar' ? 'editar' : 'ver';
+}
+
+/**
+ * ¿Este share alcanza para ESCRIBIR este recurso concreto?
+ *
+ * Escrito en POSITIVO a propósito (AGENTS.md → «Un guard sobre algo destructivo
+ * se escribe en POSITIVO»): enumera las cuatro condiciones que tienen que darse
+ * TODAS, en vez de listar qué se prohíbe. Un recurso nuevo que nadie contempló
+ * no entra solo; hay que agregarlo acá a mano, que es exactamente lo que se
+ * quiere.
+ *
+ * Las cuatro:
+ *   1. el share declara permiso 'editar';
+ *   2. es del recurso que se está escribiendo;
+ *   3. su alcance es 'item' — nunca 'todo', 'seccion' ni 'grupo': un link que
+ *      escribe tiene que apuntar a UNA cosa, no a una familia;
+ *   4. el id del share es EXACTAMENTE el que se quiere escribir.
+ */
+export function puedeEditar(share: Share, recurso: string, recursoId: string): boolean {
+  if (permisoDe(share) !== 'editar') return false;
+  if (share.recurso !== recurso) return false;
+  if (share.alcance !== 'item') return false;
+  if (!share.recurso_id) return false;
+  return share.recurso_id === recursoId;
+}
+
 // ── Administración (solo desde el panel, con guard de super-admin) ───────────
 export async function crearShare(input: {
   ws: number; recurso: string; alcance: ShareAlcance; recursoId: string | null;
-  modo: ShareModo; etiqueta?: string | null; expiraAt?: string | null; creadoPor?: string | null;
+  modo: ShareModo; permiso?: SharePermiso; etiqueta?: string | null; expiraAt?: string | null; creadoPor?: string | null;
 }): Promise<{ id: number; token: string }> {
+  // Escribir se pide EXPLÍCITO. Sin el campo, el share es de lectura, igual que
+  // los cientos que ya existen. Y 'editar' solo tiene sentido con alcance
+  // 'item': un link que escribe apunta a UNA cosa (ver `puedeEditar`), así que
+  // pedirlo con cualquier otro alcance es un error de programación, no una
+  // configuración rara que valga la pena tolerar.
+  const permiso: SharePermiso = input.permiso === 'editar' ? 'editar' : 'ver';
+  if (permiso === 'editar' && (input.alcance !== 'item' || !input.recursoId)) {
+    throw new Error('Un share que edita tiene que apuntar a un item concreto (alcance "item" + recursoId).');
+  }
   const token = nuevoToken();
   const { data, error } = await getSupabaseServer().from('shares').insert({
     workspace_id: input.ws, recurso: input.recurso, alcance: input.alcance, recurso_id: input.recursoId,
-    modo: input.modo, etiqueta: input.etiqueta ?? null, expira_at: input.expiraAt ?? null,
+    modo: input.modo, permiso, etiqueta: input.etiqueta ?? null, expira_at: input.expiraAt ?? null,
     token_hash: hash(token), token_prefijo: prefijoDe(token), creado_por: input.creadoPor ?? null,
   }).select('id').single();
   if (error) throw new Error(error.message);
@@ -136,14 +185,14 @@ export async function crearShare(input: {
  *  request: sin este chequeo se podrían tocar invitados de otro inquilino (IDOR). */
 export async function getShare(ws: number, id: number): Promise<Share | null> {
   const { data } = await getSupabaseServer().from('shares')
-    .select('id,workspace_id,recurso,alcance,recurso_id,modo,etiqueta,expira_at,revocado_at')
+    .select('id,workspace_id,recurso,alcance,recurso_id,modo,permiso,etiqueta,expira_at,revocado_at')
     .eq('workspace_id', ws).eq('id', id).maybeSingle();
   return (data as Share) ?? null;
 }
 
 export async function listarShares(ws: number, recurso: string) {
   const { data, error } = await getSupabaseServer().from('shares')
-    .select('id,recurso,alcance,recurso_id,modo,etiqueta,token_prefijo,expira_at,revocado_at,visitas,ultima_visita,created_at')
+    .select('id,recurso,alcance,recurso_id,modo,permiso,etiqueta,token_prefijo,expira_at,revocado_at,visitas,ultima_visita,created_at')
     .eq('workspace_id', ws).eq('recurso', recurso).order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
