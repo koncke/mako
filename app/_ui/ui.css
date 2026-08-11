@@ -389,6 +389,31 @@
   font-weight: 500;
   transition: background .13s ease, color .13s ease;
 }
+
+/* ── El scroll de una ISLA OSCURA ──────────────────────────────────────────
+   La barra nativa de Windows es blanca, ancha y opaca: sobre el rail del
+   sidebar (--sidebar, #14161B) es lo más brillante de la pantalla, y se lee
+   como un elemento de la interfaz en vez de como un control del scroll.
+
+   ⚠️ Se ADELGAZA y se TIÑE, no se esconde. `scrollbar-width: none` sacaría la
+   única señal de que abajo hay más destinos, que es exactamente lo que ya
+   prohíbe la regla de las barras de navegación (AGENTS.md). Un control feo se
+   arregla; un destino invisible no se descubre nunca.
+
+   Los dos motores: `scrollbar-color` (Firefox y Chromium moderno) y
+   `::-webkit-scrollbar` para el resto. El pulgar sale de --sidebar-line, que es
+   el color de línea de esta isla — no un gris inventado al lado. */
+.mk-scroll-oscuro {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-line) transparent;
+}
+.mk-scroll-oscuro::-webkit-scrollbar { width: 6px; height: 6px; }
+.mk-scroll-oscuro::-webkit-scrollbar-track { background: transparent; }
+.mk-scroll-oscuro::-webkit-scrollbar-thumb {
+  background: var(--sidebar-line);
+  border-radius: 999px;
+}
+.mk-scroll-oscuro::-webkit-scrollbar-thumb:hover { background: var(--sidebar-text); }
 .mk-navrow:hover { background: rgba(255, 255, 255, .085); color: var(--on-sidebar); }
 .mk-navrow:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); }
 .mk-navrow.is-activo {

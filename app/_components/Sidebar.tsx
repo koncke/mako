@@ -619,7 +619,11 @@ export function Sidebar() {
         {/* El separador entre familias es el ESPACIO (marginBottom de cada una),
             no una línea: el documento pide que la elevación y los bordes sean
             mínimos y que el aire y el contraste hagan el trabajo. */}
-        <nav style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+        {/* `.mk-scroll-oscuro`: la barra nativa de Windows es blanca y ancha, y
+            sobre este rail queda como lo más brillante de la pantalla. Se
+            adelgaza y se tiñe con --sidebar-line; NO se esconde — sería sacar la
+            única señal de que abajo hay más destinos. Ver ui.css. */}
+        <nav className="mk-scroll-oscuro" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {/* UNA sola rama para los dos shells. El admin tenía la suya —un
               rótulo estático y una lista plana— y por eso su barra no se parecía
               a la del producto ni se desplegaba. Mientras sean dos JSX distintos

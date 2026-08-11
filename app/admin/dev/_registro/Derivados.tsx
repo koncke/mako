@@ -35,11 +35,20 @@ const contador: React.CSSProperties = { marginLeft: 'auto', fontSize: 12.5, colo
 const tono = (score: number) =>
   score >= 75 ? 'var(--bad)' : score >= 50 ? 'var(--warn-fill)' : score >= 25 ? 'var(--good)' : 'var(--faint)';
 
+/**
+ * Las tareas abiertas del tablero para esta área.
+ *
+ * ⚠️ Se llama «Tareas abiertas» en pantalla y no «Roadmap», aunque la función
+ * conserve el nombre: convive con el Roadmap escrito a mano en la MISMA tab, y
+ * dos secciones con el mismo `<h3>` no se distinguen — el subtítulo chiquito no
+ * alcanza para decir cuál es cuál. Son dos cosas distintas: una es el plan que
+ * escribimos, la otra es lo que hoy está abierto en el board.
+ */
 export function RoadmapDelPlan({ tareas, proyectos }: { tareas: TareaRoadmap[]; proyectos: string[] }) {
   if (!proyectos.length) {
     return (
       <div style={caja}>
-        <div style={cabecera}><h3 style={titulo}>Roadmap</h3></div>
+        <div style={cabecera}><h3 style={titulo}>Tareas abiertas</h3></div>
         <EmptyState
           titulo="Esta área todavía no tiene proyecto en el plan"
           detalle="El Roadmap sale de las tareas abiertas del tablero. Para que aparezca acá, el área tiene que declarar sus proyectos en areas.ts."
@@ -50,8 +59,8 @@ export function RoadmapDelPlan({ tareas, proyectos }: { tareas: TareaRoadmap[]; 
   return (
     <div style={caja}>
       <div style={cabecera}>
-        <h3 style={titulo}>Roadmap</h3>
-        <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>del plan · {proyectos.join(' · ')}</span>
+        <h3 style={titulo}>Tareas abiertas</h3>
+        <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>en el tablero · {proyectos.join(' · ')}</span>
         <span style={contador}>{tareas.length}</span>
       </div>
       {tareas.length === 0 ? (
