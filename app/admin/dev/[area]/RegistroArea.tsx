@@ -91,7 +91,8 @@ export function RegistroArea({
     <Pagina>
       <PageHeader
         titulo={area.titulo}
-        proposito={area.alcance}
+        // Con roadmap propio el alcance es paja: la pantalla lo explica sola.
+        proposito={propio ? undefined : area.alcance}
         estado={
           registro.partes.length
             ? <Status tono={hechas === registro.partes.length ? 'good' : 'mako'}>{hechas} de {registro.partes.length}</Status>

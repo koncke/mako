@@ -69,6 +69,41 @@ Las 7 reuniones, por si hay que volver:
 
 ---
 
+## Las tres piezas, y quién entra a cada una
+
+⚠️ **Esto invalidó media planificación, así que va antes que todo lo demás.** El tablero de
+sus clientes **no se construye adentro de MaKo**, y una versión del roadmap lo planteaba así
+—con `lib/tablero-matriz.ts`, su migración y un validador de la matriz en MaKo—. Sus dos
+skills reales lo desmienten:
+
+| Pieza | Quién entra | Qué es |
+|---|---|---|
+| **MaKo** | Mauricio | Su cartera, el seguimiento, las juntas y los compromisos |
+| **El tablero** | El equipo del cliente | Una app **propia por cliente**, duplicada del repo privado `plantilla-accountability` (Next + Supabase + Vercel, uno por cliente). Capturan evidencia y ven su semáforo |
+| **Whop** | El cliente | Ve los videos del programa y hace la tarea de cada bloque |
+
+Su cadena real, hoy, con dos skills que ya ejecuta:
+
+1. **`mapa-ejecucion-4dx`** produce el **Excel Mapa MCI/OKR** desde las sesiones (una hoja por
+   área) y **audita contra 4DX discutiéndole** — le pidió explícitamente que no le dé la razón
+   por default.
+2. **`dashboard-accountability`** completa en chat **seis columnas técnicas** por palanca
+   (capa, alcance, modo de captura, criterio dato→color, quién llena, tipo de enlace), cierra
+   un checklist de decisiones y recién ahí genera el prompt de arranque.
+3. **BUILD en Claude Code**: duplica la plantilla y toca **solo la capa de contenido**
+   (`config/client.ts`, seed, `lib/auth.ts`, `.env.local`).
+
+⚠️ **Dos reglas suyas que prohíben lo obvio:**
+- *«MCIs: NO se modelan en base de datos ni se muestran en vistas»* — van como texto en el
+  `CONTEXTO.md` del repo. Lo operativo es áreas → objetivos LAG → palancas LEAD.
+- *«UN SOLO ARCHIVO… cero duplicación de captura»* — no hay cuestionario aparte del Excel.
+  Cualquier cosa que MaKo aporte tiene que entrar **al mismo Excel**.
+
+**Entonces, ¿qué aporta MaKo?** Lo único que ninguna de sus dos skills puede: **el histórico
+de los seis clientes anteriores**. Sus skills ven un cliente por vez. Con el histórico se
+ataca el bloqueo número uno de todo su programa —definir la evidencia— y el segundo —poner el
+umbral, contestando su propia pregunta: «qué nivel ya lograste alguna vez».
+
 ## Los 5 pasos (el 31 de julio, `[03:46:44]`)
 
 Los enuncia **Martín**; Mauricio valida (`[03:33:26]` *«Me late, me hace sentido»*;

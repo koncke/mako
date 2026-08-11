@@ -21,7 +21,7 @@ import { useBoard } from '@/app/plan/board/useBoard';
 import { repoPlan } from '@/app/plan/board/repo-plan';
 import { TaskModal } from '@/app/plan/board/BoardShell';
 import type { BoardTask, Label, BoardUser } from '@/app/plan/board/types';
-import { OBJETIVO, URGENTE, FUTURO, TITULOS_EN_PLAN, cuantos, conteo, type Grupo, type Paso } from './roadmap-cs';
+import { PIEZAS, URGENTE, FUTURO, TITULOS_EN_PLAN, cuantos, conteo, type Grupo, type Paso } from './roadmap-cs';
 import type { TareaRoadmap } from '../roadmap';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, ' ').trim().toLowerCase();
@@ -97,10 +97,7 @@ export function RoadmapCS({ tareas, plan, user }: {
   let n = 0;
   const bloque = (gs: Grupo[]) => gs.map((g) => (
     <div key={g.titulo}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', margin: '22px 0 8px' }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600 }}>{g.titulo}</span>
-        <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>{g.desbloquea}</span>
-      </div>
+      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, margin: '22px 0 8px' }}>{g.titulo}</div>
       <ListaRoadmap>
         {g.pasos.map((p) => {
           const num = ++n;
@@ -124,11 +121,20 @@ export function RoadmapCS({ tareas, plan, user }: {
 
   return (
     <>
+      {/* Las tres piezas y quién entra a cada una. NO es relleno: es lo que la
+          pantalla no contestaba —«¿el cliente entra a MaKo o a Whop?»— y sin eso
+          los pasos no se entienden. Tres líneas y se acabó. */}
+      <ListaRoadmap>
+        {PIEZAS.map((x) => (
+          <li key={x.que} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,112px) minmax(0,168px) minmax(0,1fr)', gap: 14, alignItems: 'baseline', padding: '11px 16px', background: 'var(--surface)' }}>
+            <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>{x.que}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--mako-ink)' }}>{x.quien}</span>
+            <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5 }}>{texto(x.detalle)}</span>
+          </li>
+        ))}
+      </ListaRoadmap>
+
       <Section titulo="Urgencia" nota={resumenU}>
-        <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', margin: '0 0 4px', lineHeight: 1.6 }}>
-          <strong style={{ color: 'var(--ink)' }}>El objetivo:</strong> {OBJETIVO}
-        </p>
-        <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', margin: 0 }}>Ordenado por dependencia. Cliqueá un paso para abrir su tarjeta.</p>
         {bloque(URGENTE)}
       </Section>
 

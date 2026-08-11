@@ -19,11 +19,9 @@ import type { Hito, Parte } from '../_registro/tipos';
  * si no, el contador cuenta otra cosa que lo que la pantalla muestra.
  */
 export const PARTES: Parte[] = [
-  { titulo: 'El esquema del tablero', detalle: 'Definir cómo se guarda el tablero de un cliente, que el sistema rechace uno mal armado, y sus tablas. Bloquea cinco pasos.', estado: 'cola' },
-  { titulo: 'El generador de tableros', detalle: 'El prompt que lo arma —editable sin código— y la skill de Claude Code que lo emite.', estado: 'cola' },
-  { titulo: 'La plataforma del cliente', detalle: 'Conectar Whop, que cada cliente comparta SU material, y poder subir una clase sin deploy.', estado: 'sigue' },
-  { titulo: 'El bucle de entrega', detalle: 'Dejar de descartar las reuniones de entrega, guardar lo que responde el cliente y que la IA lo mejore con la junta.', estado: 'cola' },
-  { titulo: 'El seguimiento de la cartera', detalle: 'Avisar de compromisos vencidos y de clientes sin señales, y ver a todos en una pantalla.', estado: 'cola' },
+  { titulo: 'El bucle de entrega', detalle: 'Whop conectado, el programa por bloques, lo que responde el cliente, la IA que lo mejora con la junta y su aprobación.', estado: 'sigue' },
+  { titulo: 'La cartera de Mauricio', detalle: 'Avisos de compromiso vencido y de cliente sin señales, la etapa de cada uno y verlos a todos en una pantalla.', estado: 'cola' },
+  { titulo: 'Que armar un tablero cueste menos', detalle: 'Proponerle la evidencia y los umbrales desde los seis clientes anteriores, que es lo que ninguna de sus skills puede hacer.', estado: 'cola' },
 ];
 
 const CH = 'Customer Success: mapeo y roadmap';
@@ -131,6 +129,23 @@ export const BITACORA: Hito[] = [
       'Los pasos que todavía NO tienen tarjeta abren una ficha corta con «Ya está construido / Falta / Dónde se toca». Se distinguen a propósito: un paso sin tarjeta es un paso que nadie va a hacer.',
       '**Los títulos pasan a castellano llano.** Antes decían `Validador validarMatriz() con las 6 auditorías` — el nombre de la función no es el título de una tarea. Ahora: «Que el sistema rechace un tablero mal armado». Los 34 se reescribieron.',
       '⚠️ **Corrección de un diagnóstico mío anterior:** dije que la app no hidrataba «por el trabajo a medias de la otra sesión». Es falso. Con `.next` limpio y sin un solo error de módulo, siguen sin hidratar TODOS los botones (0 fibers sobre 62) con los 27 scripts cargados. **El pane del navegador no ejecuta React** —tampoco compone: los screenshots vencen y todo mide 0 px—. La verificación de interacción hay que hacerla en producción o a mano.',
+    ],
+  },
+  {
+    fecha: '11 ago', hora: '—', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'correccion',
+    titulo: 'Sus dos skills reales: el tablero NO se construye adentro de MaKo',
+    pedido: `1. Elimina todos los subtitulos y textos innecesarios... revisa bien, y elimina los textos innecesarios.
+2. El paso numero 1 ya esta resuelto. NO quiero preguntarle nada a Mauricio, es lo que ya te pasé en los MD desde un principio.
+3. Te paso los prompts y las skills que Mauricio ACTUALMETE ejecuta para con todos sus clientes... OJO, como lo haga el no significa que es ley.
+4. Todos los primeros pasos NO se entienden... Eso significa que LOS clientes de Mauricio deberán ingresar a MaKo? O deberán ingresar a Whop? No se entiende como vamos a plantear el proyecto... Y el orden de las cosas`,
+    puntos: [
+      '⚠️ **El roadmap estaba mal planteado de raíz, y sus dos skills lo dejaron claro.** Tenía `lib/tablero-matriz.ts`, una migración de la matriz y un validador **adentro de MaKo**. El tablero de sus clientes NO vive en MaKo: es una app PROPIA por cliente, duplicada del repo privado `plantilla-accountability` (Next + Supabase + Vercel, uno por cliente). Y su propia metodología lo dice al revés de como yo lo había modelado: «**MCIs: NO se modelan en base de datos**».',
+      '**Las tres piezas, que es lo que la pantalla no contestaba:** MaKo lo usa MAURICIO (su cartera y su seguimiento) · el TABLERO lo usa el equipo del cliente (app propia, no MaKo) · WHOP es donde el cliente ve los videos y hace la tarea. Ahora eso está arriba de todo, en tres renglones.',
+      '**El generador de tableros ya existe y no era nuestro trabajo.** `dashboard-accountability` ya hace el BUILD desde el Excel, y `mapa-ejecucion-4dx` produce ese Excel auditando contra 4DX. Se sacaron del roadmap los pasos que los duplicaban.',
+      '⭐ **Lo que sí puede aportar MaKo, y ninguna de sus dos skills puede:** el histórico de los seis clientes anteriores. Con eso ataca el **bloqueo número uno de todo su programa, dicho por él**: definir la evidencia (Baja Teriyaki estuvo tres semanas detenida en esa sola pregunta) y poner el umbral («qué nivel ya lograste alguna vez»). Sus skills ven un cliente por vez; MaKo los ve a todos.',
+      '**El paso de preguntarle cuántos campos tiene la ficha se elimina: ya estaba contestado** en el material que él había pasado desde el principio — «La ficha de nueve campos». Preguntar algo que ya está escrito es hacerle perder el tiempo.',
+      '⚠️ **Y el protocolo prohíbe lo que yo estaba por proponer:** «UN SOLO ARCHIVO… cero duplicación de captura». Nada de un cuestionario nuevo en MaKo: lo que MaKo aporte tiene que entrar al MISMO Excel que él ya trabaja con el cliente.',
+      'Fuera la paja: el `proposito` del encabezado, la línea de «Ordenado por dependencia», y el `desbloquea` de cada grupo. Los grupos son un rótulo y nada más.',
     ],
   },
 ];
