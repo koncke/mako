@@ -203,6 +203,7 @@ function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
  * una tilde o una coma y una comparación exacta diría "no lo absorbió" siempre.
  */
 import { fusionarDetalle } from './detalle-fusion';
+import { evaluarDetalle } from './detalle-contrato';
 export { fusionarDetalle };
 
 /**
@@ -527,7 +528,24 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       // contexto entero. El dueño mandaba tres minutos de audio y en la tarjeta le quedaba
       // un párrafo genérico. Ahora el texto original manda; la versión del Perro solo entra
       // si no había nada, y si la escribió sin absorber lo que ya estaba, se suma abajo.
-      const detalleFinal = fusionarDetalle(n.detalle, enr?.detalle ?? '');
+      //
+      // ⚠️ PERO SI EL DETALLE YA VIENE CON EL MOLDE, EL COACH NO ESCRIBE NADA.
+      //
+      // Medido el 11/8: 37 de 73 tarjetas nuevas tenían el molde escrito DOS VECES, y el
+      // 85% de las del último día. La causa es la combinación de dos cosas razonables por
+      // separado: el trabajo del coach es REESCRIBIR el detalle, así que su texto nunca
+      // conserva el arranque del original — y `fusionarDetalle`, al no reconocerlo, hace
+      // lo único que le queda: concatenar.
+      //
+      // Y no alcanzaba con pisar: el bloque del coach PIERDE contenido. En #669 el
+      // original decía «limitar el desarrollo a un porcentaje del Cloud de Mauricio» y su
+      // versión decía «en la cuenta de Claude de Mauricio» — lo contrario de lo acordado.
+      // Pisar traía de vuelta el bug viejo; concatenar deja la tarjeta diciendo las dos
+      // cosas. La salida es no elegir entre dos textos malos: si el detalle que ya está
+      // cumple el contrato, está bien y no hay nada que optimizar. Del coach se toma solo
+      // la CHECKLIST, que es lo que de verdad agrega.
+      const yaTieneMolde = evaluarDetalle(n.detalle ?? '').conForma;
+      const detalleFinal = yaTieneMolde ? (n.detalle ?? '') : fusionarDetalle(n.detalle, enr?.detalle ?? '');
       if (detalleFinal && detalleFinal !== n.detalle) { patch.detalle = detalleFinal; out.detalle = detalleFinal; }
       if (enr?.items.length) {
         const checklist = enr.items.map((text): Check => ({ id: genId('c'), text, done: false }));
