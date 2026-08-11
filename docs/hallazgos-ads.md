@@ -70,8 +70,8 @@ conviene bajar el GeoJSON al repo.
 **Vive en:** `app/marketing/ad-charts.tsx:48,60,512-519,547-549` ·
 `app/ads-manager/EntityDetalle.tsx:156` (el otro consumidor de `regiones`).
 
-*(Corrida `wf_bf78bf97-f34`, 2026-08-11. Reportado por Mauricio en la reunión del 10/07;
-mecanismo reverificado a mano sobre el código de hoy.)*
+*(Corrida `wf_bf78bf97-f34`, 2026-08-11. Reportado por Mauricio en la reunión del 08/07
+`[01:42:50]`; mecanismo reverificado a mano sobre el código de hoy.)*
 
 ### ⚠️ La retención del VSL es un promedio de promedios: no está ponderada por plays
 

@@ -32,7 +32,7 @@ los documentos del repo.
 Calendar. Los otros cuatro se pueden dejar para cuando aparezca la necesidad — hoy no hay
 una sola tarea del repo que los pida.
 
-## Fathom: hay DOS cuentas, y conviene saberlo antes
+## Fathom: hay TRES cuentas, y conviene saberlo antes
 
 Es la trampa más cara de esta lista.
 
@@ -43,6 +43,23 @@ Es la trampa más cara de esta lista.
   sus reuniones propias («Mau ↔ Martín»). Está **deliberadamente fuera** de `ENVS_METODO`
   para que `migrarEnvACredenciales` no la copie a la base y no se mezcle con la del
   cliente.
+- Y el **conector MCP de Fathom** de la sesión de Claude es una TERCERA cuenta
+  (`tejadomartin@gmail.com`, ~188 reuniones), que **no tiene las «Mau ↔ Martín»**.
+
+⚠️ **El diagnóstico obvio acá es el equivocado, y cuesta media sesión.** Buscando las
+reuniones con Mauricio por el conector MCP: `find_person "Mauricio"` devuelve *«no
+encontrado como hablante»*, `search_meetings` no trae ninguna weekly, y `list_meetings` sin
+filtro tampoco — todo lo cual se lee como **«esas reuniones no existen / las grabó otro»**.
+Y no: existen, son 7 entre el 4/7 y el 6/8 de 2026, y salen todas con
+`FATHOM_API_KEY_MARTIN`. **Antes de concluir que una reunión no está, probá las tres
+cuentas.** Los links `/share/…` tampoco sirven de atajo: `get_recording_by_url` devuelve
+*«url not found or access denied»* para un share de otra cuenta, y la página web rate-limitea
+al tercer intento.
+
+⚠️ **La diarización de Fathom está rota en tramos largos**: bloques duplicados con los
+hablantes invertidos, y tramos enteros traducidos al inglés. Los timestamps sí son fieles.
+**Una cita de un transcript se atribuye por contenido y dialecto, nunca por la etiqueta del
+hablante** (rioplatense «vos/tenés» = Martín; mexicano «órale/nomás/a lo mejor» = Mauricio).
 
 ⚠️ **La key de Martín empieza con un guion** (`-zxWU…`). Sin comillas en el `.env` se
 rompe: con guion devuelve 200, sin guion 503. Verificado contra la API.
