@@ -17,7 +17,8 @@
 //
 // TRES DETALLES QUE FALLAN SIEMPRE SI SE HACEN MAL, y ninguno da un síntoma que
 // apunte al lugar correcto (todos dan «firma no coincide»):
-//   1. El secreto NO es la clave. Va base64-decodificado, sin `whsec_`.
+//   1. El secreto NO es la clave. Cómo se convierte depende del PREFIJO — ver
+//      `claveDelSecreto` acá abajo, que es donde vive esa tabla.
 //   2. La salida es BASE64, no hex.
 //   3. El body tiene que ser el TEXTO CRUDO. Un JSON.parse + JSON.stringify
 //      cambia orden y espaciado, y el HMAC deja de dar.
@@ -37,6 +38,34 @@ export type FalloFirma = 'sin-secreto' | 'faltan-headers' | 'timestamp-invalido'
 
 export const TOLERANCIA_SEG = 5 * 60; // ventana anti-replay
 
+/**
+ * Los bytes de la clave del HMAC, a partir del secreto que pegó el usuario.
+ *
+ * ⚠️ NO ES SIEMPRE LO MISMO, Y ESE ES EL PUNTO. El estándar dice «base64», pero
+ * cada proveedor entrega el secreto envuelto distinto, y el prefijo ES su
+ * declaración de formato. Elegir mal no da error: da «firma no coincide», que
+ * manda a revisar el secreto — o sea, lo único que estaba bien.
+ *
+ *   `whsec_…`  Fathom, Resend, y el resto del mundo Svix. Lo que sigue al
+ *              prefijo es base64: se decodifica y ESO es la clave.
+ *   `ws_…`     Whop. Su secreto NO es base64 (es `ws_` + 64 hex). Sus propios
+ *              SDK piden que se lo pase base64-ENCODEADO al verificador, que
+ *              después lo decodifica: o sea que la clave termina siendo el
+ *              STRING ENTERO en UTF-8, prefijo incluido. Verificado contra su
+ *              documentación y sus SDK (Python y Ruby hacen literalmente
+ *              `base64encode(WHOP_WEBHOOK_SECRET)`).
+ *   sin prefijo  Se asume base64, que es el default del estándar.
+ *
+ * Se deriva del propio secreto y no se pasa por parámetro a propósito: así el
+ * que conecta una integración nueva no puede configurarlo mal, y la tabla vive
+ * en UN lugar.
+ */
+export function claveDelSecreto(secret: string): Buffer {
+  if (secret.startsWith('ws_')) return Buffer.from(secret, 'utf8');
+  const b64 = secret.startsWith('whsec_') ? secret.slice('whsec_'.length) : secret;
+  return Buffer.from(b64, 'base64');
+}
+
 /** Verifica la firma. Devuelve null si está bien, o el motivo del rechazo.
  *  Fail-closed: cualquier duda es un motivo, nunca un pase. */
 export function verificarFirmaSvix(
@@ -54,9 +83,9 @@ export function verificarFirmaSvix(
   const ahora = Math.floor(Date.now() / 1000);
   if (Math.abs(ahora - ts) > toleranciaSeg) return 'timestamp-viejo';
 
-  const b64 = secret.startsWith('whsec_') ? secret.slice('whsec_'.length) : secret;
   let clave: Buffer;
-  try { clave = Buffer.from(b64, 'base64'); } catch { return 'sin-secreto'; }
+  try { clave = claveDelSecreto(secret); } catch { return 'sin-secreto'; }
+  if (!clave.length) return 'sin-secreto';
 
   const firmado = `${id}.${timestamp}.${rawBody}`;
   const esperado = crypto.createHmac('sha256', clave).update(firmado).digest('base64');
