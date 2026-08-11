@@ -30,13 +30,17 @@ export type Bloque = {
   respuesta_ia: string | null;
   fuente_reunion: string | null;
   estado: EstadoBloque;
+  /** Cuándo completó la clase en Whop. NO es haber contestado la tarea: «la vio y
+   *  no la contestó» es justo el estado que dispara el recordatorio, y sin esta
+   *  columna se confunde con «ni la abrió». */
+  visto_at: string | null;
   contestada_at: string | null;
   revisada_at: string | null;
   aprobada_at: string | null;
   updated_at: string;
 };
 
-const COLS = 'id, lead_id, clase_id, area, respuesta, respuesta_ia, fuente_reunion, estado, contestada_at, revisada_at, aprobada_at, updated_at';
+const COLS = 'id, lead_id, clase_id, area, respuesta, respuesta_ia, fuente_reunion, estado, visto_at, contestada_at, revisada_at, aprobada_at, updated_at';
 
 /** Normaliza el área a lo que guarda la base. `area` es NOT NULL DEFAULT '' para
  *  que el índice único sea sobre columnas exactas; null y '' son el mismo bloque
@@ -120,6 +124,9 @@ export type AvanceCliente = {
   contestados: number;
   aprobados: number;
   esperandoAprobacion: number;
+  /** Vio la clase en Whop y NO contestó la tarea. Es el estado que dispara el
+   *  recordatorio: el que ni la abrió necesita otro mensaje distinto. */
+  vistosSinContestar: number;
   /** El último bloque que el cliente tocó. Es lo que se mira antes de la junta. */
   ultimo: Bloque | null;
 };
@@ -129,6 +136,7 @@ export async function avanceDeCliente(leadId: number): Promise<AvanceCliente> {
   const porFecha = [...filas].sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
   return {
     contestados: filas.filter(f => f.estado !== 'pendiente').length,
+    vistosSinContestar: filas.filter(f => f.visto_at && f.estado === 'pendiente').length,
     aprobados: filas.filter(f => f.estado === 'aprobada').length,
     esperandoAprobacion: filas.filter(f => f.estado === 'revisada_ia').length,
     ultimo: porFecha[0] ?? null,
