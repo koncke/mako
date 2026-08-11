@@ -147,7 +147,19 @@ export function sanearPregunta(p: unknown, avisar?: (motivo: string) => void): P
   // «Todavía no hay fecha»): son la respuesta rápida, y el calendario está para la
   // fecha exacta.
   if (tipo === 'texto' && pideFecha(pregunta)) queda('fecha', 'pide una fecha: va al calendario, no a un campo abierto');
-  if (tipo === 'fecha') opciones = opciones.slice(0, 4);
+  if (tipo === 'fecha') {
+    // ⚠️ FUERA el atajo que el renderer YA agrega, y fuera los repetidos.
+    //
+    // El bug, visto en pantalla el 11/8: «Todavía no hay fecha» aparecía DOS veces y
+    // las dos marcadas. `PreguntaCampo` pinta `[...opciones, SIN_FECHA]` —el atajo
+    // siempre va— así que cuando el modelo lo manda entre sus opciones (y lo manda,
+    // porque el contrato se lo ofrece como ejemplo) sale duplicado. Y las dos quedan
+    // en azul porque la marca compara por TEXTO: el mismo string matchea las dos filas.
+    //
+    // Se saca acá y no en el renderer porque el saneo es la fuente única: la misma
+    // pregunta la pinta el board, el wizard del borrador y el de la reunión.
+    opciones = dedupOpciones(opciones.filter((o) => norm(o) !== norm(SIN_FECHA))).slice(0, 4);
+  }
 
   // ── NUNCA UN CAMPO ABIERTO POR DESCARTE ────────────────────────────────────
   // Si llegamos a `texto` DEGRADANDO —el modelo dijo "opcion" y se olvidó las
@@ -177,6 +189,31 @@ export const avisoSaneo = (donde: string) => (motivo: string): void => {
 // enum. Un modelo al que le ofrecen un valor sin explicárselo lo usa de comodín.
 
 /** Catálogo de tipos + reglas de coherencia. Va en el system de cada generador. */
+/**
+ * El atajo «sin fecha» que TODA pregunta de fecha ofrece. Vive acá y no en el
+ * componente porque lo necesitan los dos: el renderer para pintarlo una vez, y el
+ * saneo para sacarlo de lo que mandó el modelo. Copiado en los dos lados, el día que
+ * cambie el texto vuelven a salir dos filas distintas que significan lo mismo.
+ */
+/** Comparable: sin acentos, sin mayúsculas, sin puntuación ni espacios de más. */
+const norm = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
+
+export const SIN_FECHA = 'Todavía no hay fecha';
+
+/** Sin repetidos, ignorando acentos, mayúsculas y espacios de más. Dos opciones que
+ *  se leen igual son una sola: el usuario no puede elegir «la segunda». */
+export function dedupOpciones(ops: string[]): string[] {
+  const vistas = new Set<string>();
+  const out: string[] = [];
+  for (const o of ops) {
+    const k = norm(o);
+    if (!k || vistas.has(k)) continue;
+    vistas.add(k);
+    out.push(o);
+  }
+  return out;
+}
+
 export const CONTRATO_TIPOS_PREGUNTA = `TIPO Y OPCIONES — TIENEN QUE SER COHERENTES ENTRE SÍ. Es donde más se falla, y una pregunta incoherente es una pregunta que el dueño no puede contestar:
 · "opcion" → una sola respuesta, excluyente. OBLIGATORIO: 2 a 6 opciones cortas y concretas.
 · "multi" → pueden valer VARIAS a la vez. OBLIGATORIO: 2 a 6 opciones. NO agregues "Todas" ni "Ambas": para eso tilda varias.
@@ -237,7 +274,6 @@ const cuantoComparten = (pregunta: string, titulo: string): number => {
  */
 export function apuntarSobre(pregunta: string, sobre: string[] | undefined, titulos: string[]): string[] | undefined {
   if (!titulos.length) return sobre?.length ? sobre : undefined;
-  const norm = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
   // El modelo suele devolver la línea entera que le pasamos ("3. Título — detalle"),
   // así que la cita se mapea al título real por igualdad o por contención.
   const alTitulo = (cita: string): string | null => {

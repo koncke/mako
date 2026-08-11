@@ -6,7 +6,7 @@
 // diferencia entre una regla escrita y una regla que se cumple.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanearPregunta, apuntarSobre, ayudaDePregunta, explicaLaEscala, pideFecha } from '../lib/preguntas-contrato';
+import { sanearPregunta, apuntarSobre, ayudaDePregunta, explicaLaEscala, pideFecha, SIN_FECHA, dedupOpciones } from '../lib/preguntas-contrato';
 import { corregirMarca } from '../lib/mako-gramatica';
 
 // ── El caso de las capturas ───────────────────────────────────────────────────
@@ -144,4 +144,45 @@ test('«Maco» de una transcripción se corrige a MaKo', () => {
 test('no toca nombres de persona ni palabras que empiezan igual', () => {
   assert.equal(corregirMarca('Hablar con Marco el martes'), 'Hablar con Marco el martes');
   assert.equal(corregirMarca('el estilo makoto'), 'el estilo makoto');
+});
+
+// ---------------------------------------------------------------------------
+// «Todavía no hay fecha» aparecía DOS veces, y las dos marcadas
+// ---------------------------------------------------------------------------
+// Visto en pantalla el 11/8/2026, en la pregunta «¿Para cuándo necesitas que las
+// plantillas estén listas?». El renderer pinta `[...opciones, SIN_FECHA]` —el
+// atajo va siempre— así que cuando el modelo lo manda entre sus opciones sale
+// duplicado. Y las dos quedan en azul porque la marca compara por TEXTO: el mismo
+// string matchea las dos filas.
+//
+// El modelo lo manda porque el contrato se lo ofrece como ejemplo, así que pedirle
+// que no lo repita sería pedirle que ignore el ejemplo. Se saca en el saneo.
+
+test('EL CASO REAL: el atajo de «sin fecha» no se duplica', () => {
+  const q = sanearPregunta({
+    pregunta: '¿Para cuándo necesitas que las plantillas estén listas?',
+    tipo: 'fecha',
+    opciones: ['Esta semana', 'Este mes', 'Tarde del próximo mes', 'Todavía no hay fecha'],
+  });
+  assert.ok(q);
+  assert.deepEqual(q.opciones, ['Esta semana', 'Este mes', 'Tarde del próximo mes']);
+  // Lo que pinta el renderer es esto + SIN_FECHA: cuatro filas, ninguna repetida.
+  assert.equal([...q.opciones, SIN_FECHA].length, 4);
+});
+
+test('…y tampoco si viene escrito distinto', () => {
+  // Sin acentos, en minúsculas o con espacios de más es la MISMA opción.
+  const q = sanearPregunta({
+    pregunta: '¿Para cuándo?',
+    tipo: 'fecha',
+    opciones: ['Mañana', 'todavia no hay fecha', 'Mañana', '  Todavía  no  hay  fecha  '],
+  });
+  assert.ok(q);
+  assert.deepEqual(q.opciones, ['Mañana']);
+});
+
+test('dedupOpciones deja la PRIMERA forma, no la última', () => {
+  // La que escribió el modelo primero suele ser la mejor redactada.
+  assert.deepEqual(dedupOpciones(['Esta semana', 'esta  semana', 'El mes que viene']), ['Esta semana', 'El mes que viene']);
+  assert.deepEqual(dedupOpciones(['', '  ', 'Una']), ['Una']);
 });

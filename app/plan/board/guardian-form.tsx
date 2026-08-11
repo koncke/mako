@@ -6,7 +6,7 @@
 
 import { type CSSProperties } from 'react';
 import { GuardianIcon } from './GuardianIcon';
-import { type Pregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
+import { type Pregunta, type TipoPregunta, SIN_FECHA } from '@/lib/preguntas-contrato';
 
 const SANS = "'Geist', sans-serif";
 
@@ -80,7 +80,6 @@ export const textareaStyle: CSSProperties = { ...inputStyle, minHeight: 90, resi
  *  board y el wizard usaban la misma cadena por casualidad, no por contrato. */
 export const SEPARADOR_MULTI = ' · ';
 
-const SIN_FECHA = 'Todavía no hay fecha';
 
 export function PreguntaCampo({ q, value, onChange, autoFocus }: {
   q: { pregunta: string; tipo?: TipoPregunta | string; opciones?: string[] } | Pregunta;
