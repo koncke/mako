@@ -9,7 +9,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
-import { capaDef, type PasoOnboarding } from './capas';
+import { capaDef, PASOS_ONBOARDING, type PasoOnboarding } from './capas';
 
 export const ONBOARDING_KEY = 'onboarding.state';
 
@@ -52,22 +52,13 @@ export type OnboardingState = {
    * guardamos todos para que cambiar de capa no pierda lo ya hecho: un cliente
    * que pasa de Project Manager a Completo conserva su 'negocio' y solo le
    * aparecen los pasos nuevos.
+   *
+   * ⚠️ Las claves SALEN de `PASOS_ONBOARDING`, no se escriben a mano. Esta lista
+   * era una de las cuatro copias paralelas que dejaron nacer roto el paso
+   * `productos`: mientras se mantengan por separado, el próximo paso nuevo repite
+   * el bug. `retroId` es el único dato extra de un paso, así que va aparte.
    */
-  steps: {
-    integraciones: { done: boolean };
-    tabs: { done: boolean };
-    negocio: { done: boolean };
-    archivero: { done: boolean };
-    entregable: { done: boolean };
-    avatares: { done: boolean };
-    persona: { done: boolean };
-    personalidad: { done: boolean };
-    angulos: { done: boolean };
-    gemini: { done: boolean };
-    fase: { done: boolean };
-    retro: { done: boolean; retroId?: number | null };
-    plan: { done: boolean };
-  };
+  steps: Record<PasoOnboarding, { done: boolean }> & { retro: { done: boolean; retroId?: number | null } };
   extraction: ExtractionState;
 };
 
@@ -75,6 +66,8 @@ export const JOB_KEYS: JobKey[] = ['meta_metrics', 'meta_leads', 'ad_transcripts
 
 export function estadoInicial(status: OnboardingStatus = 'pending'): OnboardingState {
   const jobs = Object.fromEntries(JOB_KEYS.map((k) => [k, { status: 'pending' as JobStatus }])) as Record<JobKey, JobState>;
+  const steps = Object.fromEntries(PASOS_ONBOARDING.map((k) => [k, { done: false }])) as OnboardingState['steps'];
+  steps.retro = { done: false, retroId: null };
   return {
     version: 1,
     status,
@@ -82,21 +75,7 @@ export function estadoInicial(status: OnboardingStatus = 'pending'): OnboardingS
     startedAt: null,
     completedAt: null,
     completedBy: null,
-    steps: {
-      integraciones: { done: false },
-      tabs: { done: false },
-      negocio: { done: false },
-      archivero: { done: false },
-      entregable: { done: false },
-      avatares: { done: false },
-      persona: { done: false },
-      personalidad: { done: false },
-      angulos: { done: false },
-      gemini: { done: false },
-      fase: { done: false },
-      retro: { done: false, retroId: null },
-      plan: { done: false },
-    },
+    steps,
     extraction: { status: 'idle', startedAt: null, finishedAt: null, jobs },
   };
 }

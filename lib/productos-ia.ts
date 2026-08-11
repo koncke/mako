@@ -13,7 +13,8 @@ import 'server-only';
 import { renderPrompt } from './prompt-render';
 import { perfilNegocioTexto } from './onboarding';
 import { getPanorama } from './archivero';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, motivoDeErroresCascada } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, motivoDeErroresCascada, type ProvName } from './ai-cheap';
+import { overrideDeFeature } from './model-registry';
 import { listProductos, type ProductoInput } from './productos';
 
 export const PRODUCTOS_SYSTEM_TEMPLATE = `Sos MaKo, el copiloto de marketing de un negocio de alto ticket.
@@ -89,8 +90,17 @@ export async function sugerirProductos(): Promise<SugerirResult> {
   if (!brief.trim() && !panorama.trim()) {
     return { ok: false, error: 'Primero cargá tu negocio (el brief o algún documento en El Archivero): de ahí salen los productos.' };
   }
+  // ⚠️ Se le pasa el producto ENTERO, no un resumen. Antes iban solo el nombre y
+  // el precio: un modelo no puede "completar sin pisar" un texto que nunca vio, y
+  // la respuesta terminaba sobrescribiendo la garantía que el dueño había escrito
+  // a mano. El que garantiza que no se pisa es el merge de la ruta (campo a campo);
+  // esto es la otra mitad, para que además el modelo no repita lo que ya está.
   const yaHay = existentes.length
-    ? `\nPRODUCTOS QUE YA ESTÁN CARGADOS (completá lo que les falte, respetando el nombre; no los dupliques):\n${existentes.map((p) => `- ${p.nombre}${p.monto_usd ? ` (${p.monto_usd} USD)` : ''}`).join('\n')}\n`
+    ? `\nPRODUCTOS QUE YA ESTÁN CARGADOS. Respetá el nombre EXACTO y completá SOLO los campos vacíos (null o ""); lo que ya tiene valor NO se toca ni se reescribe. No los dupliques.\n${
+        existentes.map((p) => `- ${JSON.stringify({
+          nombre: p.nombre, tipo: p.tipo, monto_usd: p.monto_usd, suscripcion_meses: p.suscripcion_meses,
+          promesa: p.promesa, incluye: p.incluye, garantia: p.garantia, descripcion: p.descripcion,
+        })}`).join('\n')}\n`
     : '';
   const sys = await renderPrompt('productos.system', PRODUCTOS_SYSTEM_TEMPLATE, {});
   const user = await renderPrompt('productos.user', PRODUCTOS_USER_TEMPLATE, {
@@ -98,11 +108,16 @@ export async function sugerirProductos(): Promise<SugerirResult> {
     panorama: panorama.trim() ? `\nPANORAMA (lo que MaKo entendió de tus documentos):\n${panorama.slice(0, 6000)}\n` : '',
     existentes: yaHay,
   });
+  // El pin del override de /modelos-ia: `chatCheapCascade` NO lee el registro por
+  // su cuenta. Sin esto, la entrada del catálogo sería un verde mudo — se elegiría
+  // un modelo en la pantalla y seguiría corriendo otro. Sin override, cascada gratis.
+  const pin = await overrideDeFeature('productos').catch(() => null);
   const errores: string[] = [];
   const text = await chatCheapCascade({
     system: sys, user, json: true, maxTokens: 2000,
     feature: 'productos', motivo: 'Armar el catálogo de productos del negocio',
-    provs: CASCADA_DOCS, modelos: MODELO_DOCS,
+    provs: pin ? [pin.provider as ProvName] : CASCADA_DOCS,
+    modelos: pin ? ({ [pin.provider]: pin.model } as Partial<Record<ProvName, string>>) : MODELO_DOCS,
     validar: (t) => parseProductos(t).length > 0,
     erroresOut: errores,
   });

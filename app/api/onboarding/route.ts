@@ -12,7 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
-import { capaDef } from '@/lib/capas';
+import { capaDef, esPasoOnboarding, type PasoOnboarding } from '@/lib/capas';
 import { enviarCodigoVerificacion, verificarCodigoContacto, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
 import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, integracionConectada } from '@/lib/credenciales';
@@ -164,7 +164,10 @@ type Body = {
   canal?: string;
   geminiKey?: string;
   codigo?: string;
-  step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'personalidad' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+  /** Sale del catálogo (lib/capas.ts). Se valida con `esPasoOnboarding` porque
+   *  llega de JSON sin tipar: un paso que el estado no conoce reventaba con un
+   *  TypeError y devolvía 500 sin que el cliente lo mirara. */
+  step?: PasoOnboarding;
   done?: boolean;
   retroId?: number | null;
   skip?: boolean;
@@ -337,17 +340,25 @@ export async function POST(req: NextRequest) {
         // para siempre → guardOnboarding la rebotaba al wizard en loop.
         const pasos = await pasosDeCapaActual();
         const ultimo = pasos[pasos.length - 1];
+        // El `step` llega de JSON: se valida contra el catálogo EN POSITIVO antes
+        // de tocar el estado. Sin esto, un paso desconocido escribía sobre
+        // `undefined` y devolvía 500 — y el wizard, que no mira `ok`, avanzaba
+        // igual dejando el paso sin cerrar.
+        if (body.step !== undefined && !esPasoOnboarding(body.step)) {
+          return NextResponse.json({ ok: false, error: `Paso desconocido: ${String(body.step)}` }, { status: 400 });
+        }
+        const paso = body.step;
         const estado: OnboardingState = await patchEstadoOnboarding((s) => {
           if (s.status === 'pending') { s.status = 'in_progress'; s.startedAt = s.startedAt ?? new Date().toISOString(); }
           if (body.skip) { s.status = 'skipped'; return; }
-          if (body.step) {
-            s.step = body.step;
+          if (paso) {
+            s.step = paso;
             if (body.done) {
-              s.steps[body.step].done = true;
-              if (body.step === 'retro') {
+              s.steps[paso].done = true;
+              if (paso === 'retro') {
                 s.steps.retro.retroId = typeof body.retroId === 'number' ? body.retroId : s.steps.retro.retroId ?? null;
               }
-              if (body.step === ultimo) {
+              if (paso === ultimo) {
                 s.status = 'done';
                 s.completedAt = new Date().toISOString();
                 s.completedBy = quien;

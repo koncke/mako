@@ -44,12 +44,26 @@ const KEYS_COPIABLES = [
 ] as const;
 
 /** Tablas de CONFIGURACIÓN que se clonan (no datos operativos). */
-type TablaClon = { tabla: string; cols: string[]; forzar?: Record<string, unknown> };
+type TablaClon = {
+  tabla: string;
+  cols: string[];
+  forzar?: Record<string, unknown>;
+  /** Columna que hace de clave natural para no duplicar. Default: 'clave'. */
+  clave?: string;
+};
 const TABLAS: TablaClon[] = [
   { tabla: 'funnel_config', cols: ['data'] },
   // Las secuencias llegan SIEMPRE pausadas: un workspace de prueba nunca debe
   // empezar a mandar solo, ni siquiera si en el origen estaban activas.
   { tabla: 'nutricion_secuencias', cols: ['clave', 'nombre', 'etapa', 'trigger_tipo', 'pasos', 'estrategia'], forzar: { activa: false } },
+  // El catálogo comercial es contexto de negocio del mismo tipo que el brief: sin
+  // él, el workspace de prueba no puede recorrer el cierre de un deal. Su clave
+  // natural es el NOMBRE (no tiene columna 'clave').
+  {
+    tabla: 'productos',
+    cols: ['nombre', 'tipo', 'monto_usd', 'suscripcion_meses', 'promesa', 'incluye', 'garantia', 'descripcion', 'activo', 'orden'],
+    clave: 'nombre',
+  },
 ];
 
 export type ResultadoClon = { settings: number; tablas: Record<string, number>; avisos: string[] };
@@ -112,11 +126,12 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
         continue;
       }
 
-      // Resto: insertar las que falten, comparando por 'clave'.
-      const { data: yaHay } = await sb.from(t.tabla).select('clave').eq('workspace_id', destino);
-      const existentes = new Set(((yaHay ?? []) as Array<{ clave: string }>).map((r) => r.clave));
+      // Resto: insertar las que falten, comparando por la clave natural de la tabla.
+      const clave = t.clave ?? 'clave';
+      const { data: yaHay } = await sb.from(t.tabla).select(clave).eq('workspace_id', destino);
+      const existentes = new Set(((yaHay ?? []) as unknown as Array<Record<string, unknown>>).map((r) => String(r[clave])));
       const nuevas = origenFilas
-        .filter((r) => !existentes.has(String(r.clave)))
+        .filter((r) => !existentes.has(String(r[clave])))
         .map((r) => ({ ...r, ...(t.forzar ?? {}), workspace_id: destino }));
       if (!nuevas.length) { tablas[t.tabla] = 0; continue; }
       const { error } = await sb.from(t.tabla).insert(nuevas);

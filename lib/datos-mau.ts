@@ -163,6 +163,17 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     settings: ['mako.archivero.manual', 'mako.archivero.panorama'],
     tablas: [{ tabla: 'archivero_files', limite: 200, ordenar: { col: 'created_at' } }],
   },
+  // Lugar propio y no parte de 'negocio' porque es un PASO propio del wizard: el
+  // que quiere probar el cierre de un deal necesita el catálogo aunque no traiga
+  // el brief. Se lleva el flag de siembra para que el seed desde la 'oferta' no
+  // vuelva a correr sobre un catálogo ya copiado.
+  productos: {
+    titulo: 'Productos y ofertas',
+    seccion: 'Onboarding principal',
+    label: 'el catálogo de productos de Mau',
+    settings: ['mako.productos.seeded'],
+    tablas: [{ tabla: 'productos', dedupPor: 'nombre', limite: 50, ordenar: { col: 'orden', asc: true } }],
+  },
   funnel: {
     titulo: 'El funnel',
     seccion: 'Onboarding principal',

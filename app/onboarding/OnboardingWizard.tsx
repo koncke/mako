@@ -44,6 +44,7 @@ import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
 import { Dropdown } from '../components/Dropdown';
 import { PAISES, PAIS_DEFAULT, flagUrl } from '@/lib/paises';
+import type { PasoOnboarding } from '@/lib/capas';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -52,7 +53,10 @@ const SANS = "'Geist', sans-serif";
 type Servicio = { key: string; nombre: string; requerido: boolean; conectada: boolean };
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
-type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'productos' | 'entregable' | 'avatares' | 'persona' | 'personalidad' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+// El union sale del catálogo (lib/capas.ts, datos puros sin server-only), no se
+// recopia acá: era una de las cuatro listas paralelas que dejaron nacer roto el
+// paso `productos`.
+type Paso = PasoOnboarding;
 type BriefCampo = { key: string; label: string; type: 'text' | 'number' | 'textarea'; placeholder?: string; grupo: string };
 type Estado = {
   status: 'pending' | 'in_progress' | 'skipped' | 'done';
@@ -385,8 +389,13 @@ export function OnboardingWizard() {
       if (ultimaDelPaso) {
         // Este POST tiene que COMPLETAR antes de navegar: /plan/revisar/[id] llama a
         // guardOnboarding(), y con el estado todavía en 'in_progress' rebota al wizard.
-        const j = await post('/api/onboarding', { action: 'paso', step: p.paso, done: true });
-        const cerrado = (j as { estado?: { status?: string } } | null)?.estado?.status === 'done';
+        const j = await post('/api/onboarding', { action: 'paso', step: p.paso, done: true }) as
+          { ok?: boolean; error?: string; estado?: { status?: string } } | null;
+        // Si el server no pudo cerrar el paso, NO se avanza. Antes solo se miraba
+        // `estado.status`, así que un 500 dejaba el paso sin marcar y el cliente
+        // volvía a aterrizar acá para siempre, sin ver un solo error.
+        if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar el avance. Probá de nuevo.')); return; }
+        const cerrado = j.estado?.status === 'done';
         if (cerrado) {
           // TERMINÓ EL ONBOARDING → MaKo le escribe SU plan. Recién acá están guardados
           // el diagnóstico, el archivero, los avatares, las razones y el lead magnet:

@@ -98,6 +98,8 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // pin, la entrada sería un verde mudo: se elegiría un modelo acá y seguiría corriendo
   // otro — el mismo antipatrón de la key BYOK que se pintaba conectada y no se usaba.
   { feature: 'plan-seed-ia', label: 'Plan de arranque del cliente nuevo', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe el plan inicial desde el onboarding del cliente. Corre UNA vez por cliente, con la key del PROPIO cliente (cascada de IA barata), así que no le cuesta a la agencia.' },
+  // Mismo trato que plan-seed-ia: lib/productos-ia.ts pasa el pin a chatCheapCascade.
+  { feature: 'productos', label: 'Armar el catálogo de productos', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El paso "Tus productos" del onboarding: lee el brief y El Archivero y propone el catálogo. Corre a pedido del cliente, con la key del PROPIO cliente. Default GRATIS: es una extracción, no copy.' },
   // La MÁS cara de todas y la que disparó la regla: corre sola en cada reunión
   // nueva, con el transcript entero partido en 4 partes de ~40k tokens. En Sonnet
   // eran ~US$1 por reunión y nadie lo había pedido. Gemini Flash tiene 1M de

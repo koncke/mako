@@ -59,7 +59,10 @@ const TABLAS_RESET = [
   // ── Experimentos y charts ──
   'experimento_tareas', 'experimentos', 'chart_chats', 'chart_sessions',
   // ── Config y pertenencias ──
-  'pipeline_stages', 'funnel_config',
+  // 'productos' es el catálogo comercial del cliente: un reset que lo deja en pie
+  // devuelve un workspace "vacío" que igual arrastra las ofertas del anterior, y
+  // el paso de onboarding lo encuentra ya cargado y no vuelve a preguntar.
+  'pipeline_stages', 'funnel_config', 'productos',
   'shares', 'branding_assets',
   // ── Credenciales: primero la auditoría, después la credencial ──
   'credenciales_auditoria', 'credenciales', 'webhook_routing',

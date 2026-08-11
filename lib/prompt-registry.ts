@@ -39,6 +39,8 @@ import {
   SCRIPT_VALORACION_USER_TEMPLATE,
 } from './ads-analyst';
 import { LANDING_ANALYZE_SYSTEM_TEMPLATE, LANDING_ANALYZE_USER_TEMPLATE } from './landing-analyst';
+import { PRODUCTOS_SYSTEM_TEMPLATE, PRODUCTOS_USER_TEMPLATE } from './productos-ia';
+import { EMAIL_GEN_SYSTEM_TEMPLATE } from '@/app/api/email/generar/route';
 import {
   LANDING_SUGGEST_SYSTEM_TEMPLATE,
   LANDING_SUGGEST_USER_TEMPLATE,
@@ -353,6 +355,20 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
+    group: 'Email marketing (MaKo escribe el email)',
+    icon: '✉️',
+    blurb: 'El botón "generar" de /email: asunto, preheader y cuerpo escritos con el perfil, la voz y el funnel REALES del negocio del workspace.',
+    entries: [
+      {
+        key: 'email.generar.system', source: 'override',
+        label: 'Copy de email marketing (system)', kind: 'system', dynamic: true,
+        variables: [v('perfil', 'el perfil del negocio del workspace'), v('voz', 'la guía de voz destilada del Chat Agent'), v('funnel', 'el funnel REAL del workspace')], scope: 'full', sensitive: true,
+        default: EMAIL_GEN_SYSTEM_TEMPLATE,
+        context: 'Este prompt tenía hardcodeado "escribiendo para Mauricio Bustos (Negocio que Escala™)" y su link de Calendly, para TODOS los workspaces: cualquier cliente que tocara "generar" recibía copy del negocio de otro. Conservá los slots {{perfil}}/{{voz}}/{{funnel}} y el bloque PROHIBIDO INVENTAR — sin él vuelven los links inventados y el dialecto por default (voseo a una audiencia mexicana).',
+      },
+    ],
+  },
+  {
     group: 'Setting — wizard de secuencias de mensajes',
     icon: '🎯',
     blurb: 'Sugerencias del wizard de la tab Setting: ganchos (lead magnet / oferta) y preguntas de cualificación por cohorte. Corren con la IA barata.',
@@ -658,6 +674,19 @@ export const REGISTRY: Group[] = [
         variables: [v('lista', 'los campos pedidos (clave: qué pide)')], scope: 'static-only', sensitive: true,
         default: ARCHIVERO_EXTRACT_TEMPLATE,
         context: 'Lee UN documento del cliente (de a uno, para atribuir qué campo salió de qué archivo) y completa los campos del negocio, devolviendo JSON con un "razonamiento" de UNA frase sobre qué aportó ese documento. Regla clave: si un dato no aparece, lo omite (NO inventa). Conservá el formato JSON {"campos":{…},"razonamiento":"…"}, el slot {{lista}} y la regla de "no inventar".',
+      },
+      {
+        key: 'productos.system', source: 'override',
+        label: 'Catálogo de productos del negocio (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: PRODUCTOS_SYSTEM_TEMPLATE,
+        context: 'El paso "Tus productos" del onboarding: MaKo arma el catálogo leyendo el brief y El Archivero, para que el dueño CORRIJA en vez de redactar. Reglas que no se tocan: máximo 4, "no inventes una escalera de valor que no existe", y `monto_usd` en null cuando el contexto no dice el precio — una cifra inventada acá termina siendo el pricing de un cierre real. Conservá la forma EXACTA del JSON o el paso no puede leer la respuesta.',
+      },
+      {
+        key: 'productos.user', source: 'override',
+        label: 'Brief + Archivero + lo ya cargado (user)', kind: 'user', dynamic: true,
+        variables: [v('brief', 'el perfil del negocio del onboarding'), v('panorama', 'lo que MaKo entendió de tus documentos de El Archivero'), v('existentes', 'los productos ya cargados, enteros, para completarlos sin pisarlos')], scope: 'full', sensitive: false,
+        default: PRODUCTOS_USER_TEMPLATE,
+        context: 'El slot {{existentes}} lleva los productos YA cargados enteros (en JSON) para que MaKo complete lo vacío sin reescribir lo que el dueño escribió a mano. La garantía de que no se pisa NO es este texto: es el merge campo a campo de app/api/onboarding/productos/route.ts. Conservá los tres slots.',
       },
       {
         key: 'contracts.extract_payment_plan.user', source: 'override',

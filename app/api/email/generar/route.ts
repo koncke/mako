@@ -3,26 +3,49 @@
 // =============================================================================
 // POST { instruccion, etapa?, modo? ('paso'|'broadcast'), asuntoActual?, cuerpoActual? }
 //   → { ok, asunto, preheader, cuerpo, uso }
-// MaKo escribe el asunto + preheader + cuerpo en la voz de Mauricio Bustos.
+// MaKo escribe el asunto + preheader + cuerpo para EL NEGOCIO DEL WORKSPACE.
+//
+// ⚠️ Esto escribía literalmente "para Mauricio Bustos (Negocio que Escala™)" y
+// mandaba a usar SU link de Calendly — hardcodeado, para todos los workspaces.
+// Cualquier cliente que tocara "generar email" recibía copy del negocio de otro,
+// en voseo aunque su audiencia fuera mexicana. El molde correcto vivía al lado
+// (lib/nutricion-generator.ts): perfil + voz destilada + funnel REAL del cliente.
+// Ver docs/hallazgos-comunicacion.md → "El generador de emails escribe para el
+// negocio de Mauricio".
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { chatClaude } from '@/lib/anthropic';
 import { brandSystem, parseJsonObject } from '@/lib/campaign-structurer';
+import { renderPrompt } from '@/lib/prompt-render';
+import { perfilNegocioTexto } from '@/lib/onboarding';
+import { getVozGuia } from '@/lib/nutricion-generator';
+import { resumenFunnel } from '@/lib/mako-context';
 
 export const dynamic = 'force-dynamic';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
-const SYSTEM = `Sos MaKo escribiendo EMAIL MARKETING para Mauricio Bustos (consultor: "Negocio que Escala™", ayuda a dueños de empresa a crecer sin depender de sí mismos en todo). Escribís en español rioplatense, voseo, cálido y directo, de igual a igual.
+export const EMAIL_GEN_SYSTEM_TEMPLATE = `Sos MaKo escribiendo EMAIL MARKETING para el negocio que se describe abajo. No sos el negocio: escribís POR él, en su voz.
 
+PERFIL DEL NEGOCIO:
+{{perfil}}
+
+VOZ DE LA MARCA:
+{{voz}}
+{{funnel}}
 Reglas del email:
-- Asunto corto (máx ~6 palabras), concreto, que de ganas de abrir. Sin clickbait barato, sin MAYÚSCULAS gritonas, sin emojis salvo que aporten.
+- Asunto corto (máx ~6 palabras), concreto, que dé ganas de abrir. Sin clickbait barato, sin MAYÚSCULAS gritonas, sin emojis salvo que aporten.
 - Preheader (texto de vista previa): 1 línea que complementa el asunto, no lo repite.
-- Cuerpo en texto plano, 2 a 5 párrafos cortos, con saltos de línea. Un solo CTA claro. Si corresponde un link de agenda, usá https://calendly.com/mauriciobustoseguia/60min.
-- Variable disponible: {nombre} (primer nombre del lead). Usala con naturalidad, sin abusar. También existen {empresa}, {nombre_completo}, {apellido}.
+- Cuerpo en texto plano, 2 a 5 párrafos cortos, con saltos de línea. Un solo CTA claro.
+- Variables disponibles: {nombre} (primer nombre del lead), {empresa}, {nombre_completo}, {apellido}. Usalas con naturalidad, sin abusar.
 - Nada de promesas falsas ni lenguaje spam ("gratis!!!", "urgente", "ganá dinero").
+
+PROHIBIDO INVENTAR:
+- El idioma y el trato (vos / tú / usted) salen de la VOZ DE LA MARCA y del perfil, NUNCA por default.
+- No inventes links. Si el email necesita un link de agenda o de pago y no aparece en el contexto, escribí el marcador [LINK DE AGENDA] y seguí: que lo ponga una persona.
+- No inventes cifras, testimonios, nombres de clientes, plazos ni garantías que no estén en el perfil.
 
 Devolvé SOLO un JSON: {"asunto": "...", "preheader": "...", "cuerpo": "..."} — sin texto fuera del JSON.`;
 
@@ -44,7 +67,25 @@ export async function POST(req: NextRequest) {
 
   try {
     let uso: { tokens: number; costUsd: number } | null = null;
-    const system = await brandSystem(SYSTEM);
+    const [perfil, voz, funnel] = await Promise.all([
+      perfilNegocioTexto().catch(() => ''),
+      getVozGuia().catch(() => null),
+      resumenFunnel().catch(() => ''),
+    ]);
+    // Sin perfil no se escribe: un email sin negocio atrás sale genérico o, peor,
+    // el modelo lo rellena solo. Se avisa en vez de mandar cualquier cosa.
+    if (!perfil.trim()) {
+      return Response.json({
+        ok: false,
+        error: 'Todavía no hay perfil del negocio cargado: completá el brief (o subí tus documentos a El Archivero) y MaKo va a poder escribir con tu oferta y tu voz.',
+      }, { status: 422 });
+    }
+    const base = await renderPrompt('email.generar.system', EMAIL_GEN_SYSTEM_TEMPLATE, {
+      perfil,
+      voz: voz?.trim() || '(todavía no hay guía de voz destilada: escribí con el perfil del negocio y buen criterio, sin sonar genérico. No asumas un dialecto: seguí el que use el perfil.)',
+      funnel: funnel.trim() ? `\nFUNNEL REAL DEL NEGOCIO (así se mueve un lead acá — escribí coherente con estas etapas):\n${funnel}\n` : '',
+    });
+    const system = await brandSystem(base);
     const text = await chatClaude(system, [{ role: 'user', content: user }], {
       thinking: true,
       effort: 'medium',

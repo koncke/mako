@@ -20,8 +20,26 @@
  * 'archivero' = "El Archivero": el cliente tira sus documentos sueltos (avatar,
  * oferta, nicho, web/IG…) y MaKo los ordena en el brief. Es la versión DOER de
  * 'negocio' (que pregunta de a un campo): una capa usa uno u otro, no los dos.
+ *
+ * ⚠️ Esta lista es la FUENTE ÚNICA. El tipo, el esqueleto de `OnboardingState.steps`
+ * y el union que valida el endpoint salen todos de acá — no se re-escriben a mano.
+ * Antes eran cuatro listas paralelas mantenidas por separado y el paso `productos`
+ * nació roto por eso: estaba en el tipo y en el orden de la capa, pero no en el
+ * estado ni en el body, así que cerrarlo era un TypeError que devolvía 500 y el
+ * cliente quedaba varado en esa pantalla para siempre. Ver
+ * docs/hallazgos-onboarding.md → «El paso `productos` no existe en el estado».
  */
-export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'productos' | 'entregable' | 'avatares' | 'persona' | 'personalidad' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+export const PASOS_ONBOARDING = [
+  'integraciones', 'tabs', 'negocio', 'archivero', 'productos', 'entregable',
+  'avatares', 'persona', 'personalidad', 'angulos', 'fase', 'gemini', 'retro', 'plan',
+] as const;
+
+export type PasoOnboarding = typeof PASOS_ONBOARDING[number];
+
+/** Guard en positivo: solo pasa lo que está en el catálogo. Para validar bodies JSON. */
+export function esPasoOnboarding(v: unknown): v is PasoOnboarding {
+  return typeof v === 'string' && (PASOS_ONBOARDING as readonly string[]).includes(v);
+}
 
 export type CapaId = 'pm' | 'completo' | 'superadmin';
 

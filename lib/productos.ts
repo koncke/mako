@@ -38,6 +38,8 @@ export type ProductoInput = {
   garantia?: string | null;
   descripcion?: string | null;
   activo?: boolean;
+  /** Posición en el catálogo. Si no viene, el alta va al final. */
+  orden?: number;
 };
 
 const COLS = 'id, nombre, tipo, monto_usd, suscripcion_meses, promesa, incluye, garantia, descripcion, activo, orden';
@@ -70,9 +72,30 @@ export async function upsertProducto(input: ProductoInput, id?: number): Promise
     if (error) throw new Error(`upsertProducto (update) falló: ${error.message}`);
     return id;
   }
-  const { data, error } = await db.from('productos').insert(row).select('id').single();
+  // `orden` NUNCA se escribía, así que todas las filas quedaban en 0 y el
+  // .order('orden') de listProductos era inerte: el catálogo se veía en el orden
+  // que devolviera Postgres. El alta va al final de la lista.
+  const orden = input.orden ?? (await proximoOrden());
+  const { data, error } = await db.from('productos').insert({ ...row, orden }).select('id').single();
   if (error) throw new Error(`upsertProducto (insert) falló: ${error.message}`);
   return Number((data as { id: number }).id);
+}
+
+/** El `orden` que le toca a un producto nuevo: al final. Tolerante — si falla, 0. */
+async function proximoOrden(): Promise<number> {
+  const db = await getTenantDb();
+  const { data } = await db.from('productos').select('orden').order('orden', { ascending: false }).limit(1);
+  const max = (data as { orden: number }[] | null)?.[0]?.orden;
+  return typeof max === 'number' && Number.isFinite(max) ? max + 1 : 0;
+}
+
+/** Reordena el catálogo: la posición de cada id en el array pasa a ser su `orden`. */
+export async function reordenarProductos(ids: number[]): Promise<void> {
+  const db = await getTenantDb();
+  for (const [i, id] of ids.entries()) {
+    const { error } = await db.from('productos').update({ orden: i }).eq('id', id);
+    if (error) throw new Error(`reordenarProductos falló en ${id}: ${error.message}`);
+  }
 }
 
 export async function deleteProducto(id: number): Promise<void> {
