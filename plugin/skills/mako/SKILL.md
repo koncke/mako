@@ -36,6 +36,8 @@ qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a t
 3. **Leer el plan abierto** (`GET /api/agente/plan`).
 4. **Proponer**: tareas nuevas, cierres de lo que ya se hizo, y detalle sobre lo que ya
    está anotado (`POST /api/agente/plan`).
+5. **Meter un lead al CRM** (`POST /api/agente/lead`) — un contacto que llegó por
+   afuera: un formulario, una planilla, una conversación.
 
 ⚠️ Los puntos 1 y 2 son de LECTURA y no tienen ninguna ceremonia: usalos sin pedir
 permiso cada vez que vayas a escribir algo del negocio. La ceremonia del borrador es
@@ -329,6 +331,32 @@ Cómo elegir entre las tres:
 
 Ante la duda entre enriquecer y crear, **enriquecé**: dos tarjetas de lo mismo son
 más caras de deshacer que una tarjeta con contexto de más.
+
+## 4. Meter un lead al CRM
+
+Cuando aparezca un contacto que llegó por afuera —un formulario de la landing, una fila
+de una planilla, alguien que escribió— va al CRM del cliente:
+
+```bash
+curl -s -X POST "$BASE/api/agente/lead"   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"   -d '{ "nombre": "Ana Pérez", "email": "ana@ejemplo.com", "telefono": "+5491122334455",
+        "empresa": "Acme", "origen": "formulario de la landing",
+        "utm_source": "instagram", "utm_campaign": "lanzamiento" }'
+```
+
+Devuelve `{ ok, creado, id, nombre }`. **`creado: false` no es un error**: significa que
+ese teléfono o ese mail ya estaban en el CRM y te devuelve el lead que ya existía. Podés
+reintentar sin miedo a duplicar.
+
+Reglas:
+- `nombre` es obligatorio, y hace falta **al menos** `email` o `telefono`. Un lead sin
+  forma de contacto no se puede trabajar y solo ensucia el tablero.
+- **Mandá el teléfono con el código de país** (`+54911…`). Es la llave con la que el lead
+  matchea su chat de WhatsApp y su Calendly; sin código de país queda huérfano de eso y
+  nadie lo nota hasta que falta una conversación.
+- `origen` en una frase, para que quede en el historial de la ficha: el que mire ese
+  lead dentro de un mes tiene que poder saber de dónde salió.
+- ⛔ No inventes datos para completar el formulario. Si no tenés el mail, mandá solo el
+  teléfono.
 
 ## 3. Entregá el link ENTERO y pará
 

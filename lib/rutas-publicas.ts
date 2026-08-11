@@ -54,11 +54,16 @@ export const PUBLICOS = [
   // `skill` es la que faltaba para que instalarla sea lo que es en cualquier otra: se le
   // pasa a Claude la URL y la baja él. Sin ella la única forma de entregar el archivo era
   // el portapapeles, con 11.000 caracteres que el usuario tenía que ubicar a mano.
+  //
+  // `lead` ESCRIBE, y entra igual por la misma razón que las otras: se autentica con un
+  // bearer que el navegador no manda solo, así que no hay autoridad ambiente que abusar
+  // y el chequeo de Origin que el early-return saltea no la estaba protegiendo de nada.
   '/api/agente/plan',
   '/api/agente/contexto',
   '/api/agente/telemetria',
   '/api/agente/hook',
   '/api/agente/skill',
+  '/api/agente/lead',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el
@@ -83,7 +88,7 @@ export const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'] as const
  *
  * Es lo mismo que hace `/api/agente/*` con su bearer, dicho arriba.
  */
-export const PUBLICOS_ESCRITURA = ['/api/compartido/tarea'] as const;
+export const PUBLICOS_ESCRITURA = ['/api/compartido/tarea', '/api/agente/lead'] as const;
 
 const matchea = (lista: readonly string[], pathname: string) =>
   lista.some((p) => pathname === p || pathname.startsWith(`${p}/`));

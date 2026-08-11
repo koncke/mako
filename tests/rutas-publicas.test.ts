@@ -21,7 +21,7 @@ import { esPublica, esPublicaSoloLectura, esPublicaDeEscritura, PUBLICOS_ESCRITU
 
 test('las rutas del agente que hablan por Bearer entran sin sesión', () => {
   // Son las que corren en la máquina del cliente, donde no hay cookie posible.
-  for (const r of ['/api/agente/plan', '/api/agente/contexto', '/api/agente/telemetria', '/api/agente/hook', '/api/agente/skill']) {
+  for (const r of ['/api/agente/plan', '/api/agente/contexto', '/api/agente/telemetria', '/api/agente/hook', '/api/agente/skill', '/api/agente/lead']) {
     assert.equal(esPublica(r), true, r);
   }
   // Y con querystring, que es como las llama la skill de verdad.
@@ -82,4 +82,12 @@ test('la excepción NO se hereda: es match exacto, nunca prefijo', () => {
 
 test('todo lo que escribe está en PUBLICOS: si no, el middleware lo corta antes', () => {
   for (const r of PUBLICOS_ESCRITURA) assert.equal(esPublica(r), true, r);
+});
+
+test('meter un lead se puede; el resto de /api/agente/lead no se hereda', () => {
+  // El agente ESCRIBE en el CRM por acá. Se autentica con el bearer, que el navegador
+  // no manda solo — no hay autoridad ambiente que abusar, que es lo único que el
+  // chequeo de Origin protegía.
+  assert.equal(esPublicaDeEscritura('/api/agente/lead'), true);
+  assert.equal(esPublicaDeEscritura('/api/agente/lead/borrar'), false, 'match exacto: nada colgado abajo hereda el POST');
 });
