@@ -23,6 +23,7 @@ import { ElSemaforo } from './semaforo/ElSemaforo';
 import { Pricing } from './pricing/Pricing';
 import { RoadmapCS } from './customer-success/RoadmapCS';
 import type { TareaRoadmap } from './roadmap';
+import type { BoardTask, Label, BoardUser } from '@/app/plan/board/types';
 
 export type SubTab = { id: string; label: string };
 
@@ -65,8 +66,8 @@ export function panelDe(slug: string, tab: string): ReactNode {
  * uno escrito a mano, ese pasa a ser EL roadmap y se hace cargo de mostrar las
  * tareas del plan adentro — no al lado.
  */
-export function roadmapPropioDe(slug: string, tareas: TareaRoadmap[]): ReactNode {
-  if (slug === 'customer-success') return <RoadmapCS tareas={tareas} />;
+export function roadmapPropioDe(slug: string, tareas: TareaRoadmap[], plan: { tareas: BoardTask[]; proyectos: Label[] } | null, user: BoardUser): ReactNode {
+  if (slug === 'customer-success') return <RoadmapCS tareas={tareas} plan={plan} user={user} />;
   return null;
 }
 

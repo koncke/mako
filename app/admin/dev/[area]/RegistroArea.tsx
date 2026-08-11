@@ -30,6 +30,7 @@ import { useRouter } from '@/app/_ui/Link';
 import { Pagina, PageHeader, Tabs, Status, ButtonLink, type Tab } from '@/app/_ui';
 import { Roadmap, ChangeHistory } from '../_registro/Registro';
 import { RoadmapDelPlan, HistorialDeGit, Trampa } from '../_registro/Derivados';
+import type { BoardTask, Label, BoardUser } from '@/app/plan/board/types';
 import type { Registro } from '../_registro/tipos';
 import type { AreaDev } from '../areas';
 import type { CommitArea } from '../_historial.generado';
@@ -37,7 +38,7 @@ import type { TareaRoadmap } from '../roadmap';
 import { subTabsDe, panelDe, roadmapPropioDe, tieneRoadmapPropio } from '../paneles';
 
 export function RegistroArea({
-  area, registro, tareas, commits, tabInicial, tareasCamino = [],
+  area, registro, tareas, commits, tabInicial, tareasCamino = [], plan = null, user = { nombre: '', avatarUrl: '' },
 }: {
   area: AreaDev;
   registro: Registro;
@@ -48,6 +49,9 @@ export function RegistroArea({
   /** Solo para las áreas con Roadmap propio: las tareas que su camino reclama,
    *  que cruzan varios proyectos y por eso no salen de `tareas`. */
   tareasCamino?: TareaRoadmap[];
+  /** El board completo, solo para las áreas con roadmap propio (abren el modal de /plan). */
+  plan?: { tareas: BoardTask[]; proyectos: Label[] } | null;
+  user?: BoardUser;
 }) {
   // Un área tiene UN roadmap. Si trae el suyo escrito, ese REEMPLAZA al genérico
   // (las `partes` + `RoadmapDelPlan`) en vez de sumarse como otra tab — ver el
@@ -104,8 +108,10 @@ export function RegistroArea({
         <>
           {/* La trampa va en el Roadmap y no en el Historial: es lo que hay que
               saber ANTES de tocar el área, no lo que pasó. */}
-          {area.nota && <Trampa nota={area.nota} />}
-          {propio ? roadmapPropioDe(area.slug, tareasCamino) : (
+          {/* La trampa NO se pinta en un área con roadmap propio: ahí el porqué
+              vive en el Historial y en docs/, y arriba del roadmap es paja. */}
+          {area.nota && !propio && <Trampa nota={area.nota} />}
+          {propio ? roadmapPropioDe(area.slug, tareasCamino, plan, user) : (
             <>
               {conBitacora && <Roadmap partes={registro.partes} />}
               <RoadmapDelPlan tareas={tareas} proyectos={area.proyectos ?? []} />

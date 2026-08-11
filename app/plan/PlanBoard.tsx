@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
+import { repoPlan, apiPlan } from './board/repo-plan';
 import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, type Actor, type GuardPatch, type GuardProjPatch, type GuardResult, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
 import { CATALOGO_PROYECTOS } from '@/lib/plan-proyectos-catalogo';
 
@@ -729,41 +730,10 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-// Pega a la API del board (DB). Devuelve la tarea/proyecto canónico cuando aplica.
-async function apiPlan(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: BoardTask; proyecto?: Label; error?: string; patches?: GuardPatch[]; proyectosPatch?: GuardProjPatch[]; conteo?: GuardResult | null }> {
-  return fetch('/api/plan-board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
-}
-
 export function PlanBoard({ user, tareas, proyectos, vacio }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; vacio: boolean }) {
-  // Repo contra la DB (/api/plan-board). El board persiste optimista; acá solo el I/O.
-  // Ya NO hay localStorage / bandeja / ops / snapshot: MaKo y el server leen y escriben
-  // la misma tabla que este board (mig 0093).
-  const repo: Repo = {
-    labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos', fathomExtract: true, catalogo: CATALOGO_PROYECTOS,
-    createTask: async (d) => { const j = await apiPlan({ action: 'crear-tarea', tarea: d }); if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear'); return j.tarea; },
-    saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
-    deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
-    createLabel: async (l) => { const j = await apiPlan({ action: 'crear-proyecto', proyecto: l }); return j.ok && j.proyecto ? j.proyecto : l; },
-    saveLabel: async (l) => { await apiPlan({ action: 'guardar-proyecto', proyecto: l }); },
-    deleteLabel: async (id) => { await apiPlan({ action: 'borrar-proyecto', id }); },
-    // Corre el Perro server-side sobre las tareas nuevas (por ids) — mismo trato que
-    // WhatsApp. Persiste score/razón/checklist en plan_tareas. Best-effort (no rompe el alta).
-    // OJO: hay que mirar j.ok. apiPlan NUNCA tira (atrapa y devuelve {ok:false}), así que
-    // sin este chequeo un 403/500/504 resolvía como ÉXITO: el board creía que el Perro
-    // había corrido, no activaba el fallback y nadie se enteraba de nada.
-    priorizarNuevas: async (ids, proyectoIds, contexto) => {
-      const j = await apiPlan({ action: 'priorizar-nuevas', ids, proyectoIds: proyectoIds ?? [], contexto: contexto ?? '' });
-      if (!j.ok) throw new Error(j.error || 'no se pudo priorizar');
-      return { tareas: j.conteo?.tareas ?? { alta: 0, media: 0, baja: 0, futuro: 0 }, proyectos: j.conteo?.proyectos ?? 0, patches: j.patches ?? [], proyectosPatch: j.proyectosPatch ?? [] };
-    },
-    // Sumarle contexto a una tarjeta que ya existe, en vez de crear la misma dos veces.
-    ampliarTareas: async (items, fuente) => {
-      const j = await apiPlan({ action: 'ampliar-tareas', items, fuente });
-      if (!j.ok) throw new Error(j.error || 'no se pudo ampliar');
-      return j.patches ?? [];
-    },
-  };
+  // El I/O vive en board/repo-plan.ts: lo comparte el roadmap de Customer
+  // Success, que abre la MISMA tarjeta con el MISMO modal.
+  const repo = repoPlan();
   const board = useBoard(tareas, proyectos, user, repo);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
   if (vacio) return <MigrarPlan />;

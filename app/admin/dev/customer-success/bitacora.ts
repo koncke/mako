@@ -19,12 +19,11 @@ import type { Hito, Parte } from '../_registro/tipos';
  * si no, el contador cuenta otra cosa que lo que la pantalla muestra.
  */
 export const PARTES: Parte[] = [
-  { titulo: 'El esquema del tablero', detalle: '`lib/tablero-matriz.ts`, `validarMatriz()` con las 6 auditorías y su migración. La piedra angular: bloquea cinco pasos.', estado: 'cola' },
-  { titulo: 'El generador de tableros', detalle: 'El prompt maestro en el registro y la skill de Claude Code que emite el código.', estado: 'cola' },
-  { titulo: 'La plataforma del cliente', detalle: '`lib/whop.ts`, el `WS = 1` de compartir, el 404 del curso y el contenido por workspace.', estado: 'sigue' },
-  { titulo: 'El bucle de entrega', detalle: 'Dejar entrar las reuniones de entrega, el formulario por bloque, la reescritura con Fathom y la aprobación del cliente.', estado: 'cola' },
-  { titulo: 'El seguimiento de la cartera', detalle: 'Cron de vencidos, regla de cliente sin señales, tabla de seguimiento y la vista de cartera.', estado: 'cola' },
-  { titulo: 'El final del ciclo', detalle: 'Analizar las llamadas de entrega, el riesgo de baja, el estado de graduado, testimonios y casos.', estado: 'cola' },
+  { titulo: 'El esquema del tablero', detalle: 'Definir cómo se guarda el tablero de un cliente, que el sistema rechace uno mal armado, y sus tablas. Bloquea cinco pasos.', estado: 'cola' },
+  { titulo: 'El generador de tableros', detalle: 'El prompt que lo arma —editable sin código— y la skill de Claude Code que lo emite.', estado: 'cola' },
+  { titulo: 'La plataforma del cliente', detalle: 'Conectar Whop, que cada cliente comparta SU material, y poder subir una clase sin deploy.', estado: 'sigue' },
+  { titulo: 'El bucle de entrega', detalle: 'Dejar de descartar las reuniones de entrega, guardar lo que responde el cliente y que la IA lo mejore con la junta.', estado: 'cola' },
+  { titulo: 'El seguimiento de la cartera', detalle: 'Avisar de compromisos vencidos y de clientes sin señales, y ver a todos en una pantalla.', estado: 'cola' },
 ];
 
 const CH = 'Customer Success: mapeo y roadmap';
@@ -115,6 +114,23 @@ export const BITACORA: Hito[] = [
       'Se suma un cuarto estado, `bloqueada`, al vocabulario de los chips. Es la única información que cambia qué se puede hacer HOY: con solo `hecha | sigue | cola`, «en cola» miente sobre los 3 pasos que no pueden arrancar.',
       '**La numeración es continua y cruza los grupos**: el paso 01 es lo primero que hay que hacer, y no hay que interpretar nada. Los grupos pasaron de ser cajas a ser un rótulo tenue con una línea que dice qué desbloquea.',
       'Y el detalle de cada paso dice **dónde se toca**: `lib/tablero-matriz.ts`, `lib/whop.ts` + los dos catálogos, el molde `app/api/cron/tareas-verificar/route.ts`, `TENANT_TABLES` **y** `TABLAS_RESET`. Antes decía qué se lograba; ahora dice qué se escribe.',
+    ],
+  },
+  {
+    fecha: '11 ago', hora: '—', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'correccion',
+    titulo: 'Dos bloques, títulos en castellano, y el modal es el de /plan',
+    pedido: `1. Elimina TODO el texto inncesario, como "Antes de tocarla", o los subtitulos innecesarios, eso ya está como regla, elimina TODA la paja.
+2. Separa el roadmap en 2 bloques, uno de Urgencia que es lo que debemos hacer para Mauricio ya. Y otro de "A futuro" que es todo lo que estaba en la propuesta original.
+3. Que las task se abran como modal sin cambiar de ruta. El modal EXACTO que ya hemos implementado en el plan, no inventes nada nuevo, solo llama a ese modal que ya existe.
+4. Haz que TODOS los títulos sean ENTENDIBLES, mira como pusiste algunos titulos "Validador \`validarMatriz()\` con las 6 auditorías" eso no se entiende...
+5. Dentro del detail de cada paso, se más específico con lo que hay que hacer, se más detallista. Revisa como lo hacemos en el plan, para que se entienda.`,
+    puntos: [
+      '**La caja «Antes de tocarla» se saca del roadmap propio.** Lo que decía son reglas que ya viven en `AGENTS.md` y en `docs/`, y arriba de un roadmap son paja: el que entra viene a ver qué hacer, no a leer el porqué de la pantalla. Sigue apareciendo en las áreas que NO tienen roadmap propio, donde sí es lo único que hay.',
+      '**Dos bloques.** `URGENTE` (5 grupos, lo de Mauricio ya) y `FUTURO` (7 grupos, la propuesta original convertida en pasos). La numeración es continua y cruza los dos: el paso 01 es lo primero que hay que hacer.',
+      '⚠️ **El modal es LITERALMENTE el de /plan.** `TaskModal` se exporta desde `app/plan/board/BoardShell.tsx` y el `Board` se arma con `useBoard` + el mismo `repoPlan()`. Para eso el I/O salió de `PlanBoard.tsx` a `app/plan/board/repo-plan.ts`: apareció el segundo consumidor, y copiarlo era garantizar que el segundo se quedara viejo. Consecuencia buena: lo que se edita desde el roadmap —detalle, checklist, avance, MaKo— queda guardado igual que si se hubiera abierto la tarjeta en /plan, y sin cambiar de ruta.',
+      'Los pasos que todavía NO tienen tarjeta abren una ficha corta con «Ya está construido / Falta / Dónde se toca». Se distinguen a propósito: un paso sin tarjeta es un paso que nadie va a hacer.',
+      '**Los títulos pasan a castellano llano.** Antes decían `Validador validarMatriz() con las 6 auditorías` — el nombre de la función no es el título de una tarea. Ahora: «Que el sistema rechace un tablero mal armado». Los 34 se reescribieron.',
+      '⚠️ **Corrección de un diagnóstico mío anterior:** dije que la app no hidrataba «por el trabajo a medias de la otra sesión». Es falso. Con `.next` limpio y sin un solo error de módulo, siguen sin hidratar TODOS los botones (0 fibers sobre 62) con los 27 scripts cargados. **El pane del navegador no ejecuta React** —tampoco compone: los screenshots vencen y todo mide 0 px—. La verificación de interacción hay que hacerla en producción o a mano.',
     ],
   },
 ];

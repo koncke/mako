@@ -1,39 +1,38 @@
 'use client';
 
 // =============================================================================
-// El roadmap de implementación de Customer Success
+// Customer Success — el roadmap de implementación
 // =============================================================================
-// Reemplaza al Roadmap genérico del área (un área tiene UN roadmap) y usa EL
-// MISMO renglón que las otras siete: `FilaRoadmap` de ../_registro/Registro.tsx.
+// Dos bloques: URGENCIA (lo de Mauricio ya) y A FUTURO (la propuesta original).
+// El renglón es el MISMO que las otras siete áreas (`FilaRoadmap`), y al
+// clickearlo se abre **el modal de /plan**, no uno parecido: `TaskModal` sale de
+// `app/plan/board/BoardShell.tsx` y el `Board` se arma con el mismo `repoPlan()`.
+// Eso da, gratis, edición del detalle, checklist, avance, historial y MaKo — y
+// que lo que se cambie acá sea lo mismo que se ve en /plan, sin cambiar de ruta.
 //
-// LO ÚNICO QUE SUMA es lo que este roadmap necesita y aquéllas no: grupos con su
-// porqué, numeración continua, quién lo hace, el link a la tarjeta del plan, y
-// **el detalle en un modal**. El modal es la respuesta a las dos cosas a la vez
-// —«que se entienda rápido» y «no resumas tanto»—: la fila dice una línea, y lo
-// que ya existe, lo que falta y dónde se toca se abre al clickearla.
-//
-// `Modal` (app/_ui) y no un plegable: acá el detalle NO es más texto del mismo
-// tipo, es una ficha con su propia estructura. La regla de la casa: `Confirm`
-// pregunta · `Modal` muestra el detalle · `WizardShell` conduce un flujo.
+// Los pasos que TODAVÍA no tienen tarjeta abren la ficha corta del roadmap: no
+// hay tarea que editar. Se distinguen a propósito — un paso sin tarjeta es un
+// paso que nadie va a hacer.
 
 import { useState } from 'react';
 import { Section, Modal, Button, MONO } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
 import { FilaRoadmap, ListaRoadmap, ChipEstado, texto } from '../_registro/Registro';
-import { OBJETIVO, GRUPOS, TOTAL, TITULOS_EN_PLAN, conteo, type Grupo, type Paso } from './roadmap-cs';
+import { useBoard } from '@/app/plan/board/useBoard';
+import { repoPlan } from '@/app/plan/board/repo-plan';
+import { TaskModal } from '@/app/plan/board/BoardShell';
+import type { BoardTask, Label, BoardUser } from '@/app/plan/board/types';
+import { OBJETIVO, URGENTE, FUTURO, TITULOS_EN_PLAN, cuantos, conteo, type Grupo, type Paso } from './roadmap-cs';
 import type { TareaRoadmap } from '../roadmap';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, ' ').trim().toLowerCase();
 
-/** Un bloque del modal. No se dibuja si no tiene contenido: una ficha con
- *  títulos vacíos promete un dato que no está. */
-function BloqueModal({ rotulo, items }: { rotulo: string; items?: string[] }) {
+/** Un bloque de la ficha corta. No se dibuja vacío: un título sin contenido
+ *  promete un dato que no está. */
+function Bloque({ rotulo, items }: { rotulo: string; items?: string[] }) {
   if (!items?.length) return null;
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, marginBottom: 7 }}>
-        {rotulo}
-      </div>
+      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, marginBottom: 7 }}>{rotulo}</div>
       <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {items.map((x, k) => (
           <li key={k} style={{ position: 'relative', paddingLeft: 16, fontSize: 'var(--fs-sm)', lineHeight: 1.6, color: 'var(--dim)' }}>
@@ -46,131 +45,116 @@ function BloqueModal({ rotulo, items }: { rotulo: string; items?: string[] }) {
   );
 }
 
-function DetallePaso({ paso, n, tarea, onCerrar }: { paso: Paso; n: number; tarea?: TareaRoadmap; onCerrar: () => void }) {
+/** La ficha de un paso SIN tarjeta en el plan. Los que sí la tienen abren `TaskModal`. */
+function FichaCorta({ paso, n, onCerrar }: { paso: Paso; n: number; onCerrar: () => void }) {
   return (
-    <Modal
-      titulo={paso.titulo}
-      encabezado={`Paso ${String(n).padStart(2, '0')}`}
-      onCerrar={onCerrar}
-      ancho={720}
-      pie={<Button variant="secondary" onClick={onCerrar}>Cerrar</Button>}
-    >
+    <Modal titulo={paso.titulo} encabezado={`Paso ${String(n).padStart(2, '0')} · sin tarjeta en el plan`} onCerrar={onCerrar} ancho={720}
+      pie={<Button variant="secondary" onClick={onCerrar}>Cerrar</Button>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
         <ChipEstado estado={paso.estado} />
-        {paso.quien && (
-          <span style={{ fontFamily: MONO, fontSize: 11.5, color: paso.quien === 'Mauricio' ? 'var(--warn)' : 'var(--faint)' }}>
-            lo hace {paso.quien === 'Los dos' ? 'con Mauricio' : paso.quien}
-          </span>
-        )}
-        {tarea && (
-          <Link href={`/plan?tarea=${tarea.num}`} style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--primary)' }}>
-            #{tarea.num} en el plan{tarea.progreso > 0 ? ` · ${tarea.progreso}%` : ''}
-          </Link>
-        )}
+        {paso.quien && <span style={{ fontFamily: MONO, fontSize: 11.5, color: paso.quien === 'Mauricio' ? 'var(--warn)' : 'var(--faint)' }}>lo hace {paso.quien === 'Los dos' ? 'con Mauricio' : paso.quien}</span>}
       </div>
-
       <p style={{ fontSize: 'var(--fs-card)', color: 'var(--ink)', margin: 0, lineHeight: 1.55 }}>{texto(paso.que)}</p>
-
       {paso.ojo && (
-        <p style={{ margin: '16px 0 0', padding: '11px 15px', background: 'var(--surface-2)', borderLeft: '2px solid var(--warn-fill)', borderRadius: '0 var(--r-sm) var(--r-sm) 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>
-          {texto(paso.ojo)}
-        </p>
+        <p style={{ margin: '16px 0 0', padding: '11px 15px', background: 'var(--surface-2)', borderLeft: '2px solid var(--warn-fill)', borderRadius: '0 var(--r-sm) var(--r-sm) 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>{texto(paso.ojo)}</p>
       )}
-
-      {/* «Ya está» va PRIMERO, y es a propósito: es lo que evita rehacer trabajo
-          hecho, que es el error que este roadmap ya cometió una vez. */}
-      <BloqueModal rotulo="Ya está construido" items={paso.yaEsta} />
-      <BloqueModal rotulo="Falta" items={paso.falta} />
-      <BloqueModal rotulo="Dónde se toca" items={paso.tocar} />
+      {/* «Ya está» va PRIMERO: es lo que evita rehacer trabajo hecho. */}
+      <Bloque rotulo="Ya está construido" items={paso.yaEsta} />
+      <Bloque rotulo="Falta" items={paso.falta} />
+      <Bloque rotulo="Dónde se toca" items={paso.tocar} />
     </Modal>
   );
 }
 
-/** Lo que cuelga al lado del título en la fila. */
-function Extra({ paso, tarea }: { paso: Paso; tarea?: TareaRoadmap }) {
+function Extra({ paso, tarea }: { paso: Paso; tarea?: BoardTask }) {
   return (
     <>
       {paso.quien && (
-        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: paso.quien === 'Mauricio' ? 'var(--warn)' : 'var(--faint)', marginLeft: 9 }}>
-          {paso.quien}
-        </span>
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: paso.quien === 'Mauricio' ? 'var(--warn)' : 'var(--faint)', marginLeft: 9 }}>{paso.quien}</span>
       )}
-      {tarea && (
-        <Link href={`/plan?tarea=${tarea.num}`} onClick={(e) => e.stopPropagation()}
-          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: 'var(--primary)', marginLeft: 9 }}
-          title={`${tarea.proyecto} · score ${tarea.score}`}>
-          #{tarea.num}
-        </Link>
-      )}
+      {tarea && <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: 'var(--primary)', marginLeft: 9 }}>#{tarea.num}</span>}
     </>
   );
 }
 
-export function RoadmapCS({ tareas }: { tareas: TareaRoadmap[] }) {
-  const [abierto, setAbierto] = useState<{ paso: Paso; n: number } | null>(null);
-  const porTitulo = new Map(tareas.map((t) => [norm(t.titulo), t]));
+export function RoadmapCS({ tareas, plan, user }: {
+  tareas: TareaRoadmap[];
+  plan: { tareas: BoardTask[]; proyectos: Label[] } | null;
+  user: BoardUser;
+}) {
+  // El MISMO board que /plan: mismo repo, misma API, mismo optimismo. Lo que se
+  // edita acá queda guardado igual que si se hubiera abierto la tarjeta allá.
+  const board = useBoard(plan?.tareas ?? [], plan?.proyectos ?? [], user, repoPlan());
+  const [abierto, setAbierto] = useState<{ paso: Paso; n: number; id: string | null } | null>(null);
+
+  const porTitulo = new Map(board.tasks.map((t) => [norm(t.title), t]));
+  const tareaDe = (p: Paso) => (p.plan ? porTitulo.get(norm(p.plan)) : undefined);
+
   const reclamados = new Set(TITULOS_EN_PLAN.map(norm));
   const sueltas = tareas.filter((t) => !reclamados.has(norm(t.titulo)));
-  const c = conteo();
 
-  const resumen = [
-    `${TOTAL} pasos`,
-    c.hecha ? `${c.hecha} hechos` : null,
-    c.sigue ? `${c.sigue} en curso` : null,
-    c.bloqueada ? `${c.bloqueada} bloqueados` : null,
-  ].filter(Boolean).join(' · ');
-
+  // La numeración es continua y cruza los dos bloques: el paso 01 es lo primero.
   let n = 0;
-  const tareaDe = (p: Paso) => (p.plan ? porTitulo.get(norm(p.plan)) : undefined);
+  const bloque = (gs: Grupo[]) => gs.map((g) => (
+    <div key={g.titulo}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', margin: '22px 0 8px' }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600 }}>{g.titulo}</span>
+        <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>{g.desbloquea}</span>
+      </div>
+      <ListaRoadmap>
+        {g.pasos.map((p) => {
+          const num = ++n;
+          const t = tareaDe(p);
+          return (
+            <FilaRoadmap key={p.titulo} n={num} titulo={p.titulo} detalle={p.que} estado={p.estado}
+              extra={<Extra paso={p} tarea={t} />}
+              onAbrir={() => setAbierto({ paso: p, n: num, id: t?.id ?? null })} />
+          );
+        })}
+      </ListaRoadmap>
+    </div>
+  ));
+
+  const cU = conteo(URGENTE);
+  const resumenU = [`${cuantos(URGENTE)} pasos`, cU.hecha ? `${cU.hecha} hechos` : null, cU.sigue ? `${cU.sigue} en curso` : null, cU.bloqueada ? `${cU.bloqueada} bloqueados` : null].filter(Boolean).join(' · ');
+
+  // `board.tasks` es el estado VIVO: la tarjeta se relee de ahí en cada render,
+  // así lo que se edita en el modal se refleja al toque (y no una copia congelada).
+  const tareaAbierta = abierto?.id ? board.tasks.find((t) => t.id === abierto.id) ?? null : null;
 
   return (
     <>
-      <Section titulo="Roadmap de implementación" nota={resumen}>
+      <Section titulo="Urgencia" nota={resumenU}>
         <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', margin: '0 0 4px', lineHeight: 1.6 }}>
           <strong style={{ color: 'var(--ink)' }}>El objetivo:</strong> {OBJETIVO}
         </p>
-        <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', margin: 0 }}>
-          Ordenado por dependencia. Cliqueá un paso para ver qué ya existe, qué falta y dónde se toca.
-        </p>
-
-        {GRUPOS.map((g: Grupo) => (
-          <div key={g.titulo}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', margin: '22px 0 8px' }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600 }}>
-                {g.titulo}
-              </span>
-              <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>{g.desbloquea}</span>
-            </div>
-            <ListaRoadmap>
-              {g.pasos.map((p) => {
-                const num = ++n;
-                return (
-                  <FilaRoadmap
-                    key={p.titulo} n={num} titulo={p.titulo} detalle={p.que} estado={p.estado}
-                    extra={<Extra paso={p} tarea={tareaDe(p)} />}
-                    onAbrir={() => setAbierto({ paso: p, n: num })}
-                  />
-                );
-              })}
-            </ListaRoadmap>
-          </div>
-        ))}
+        <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', margin: 0 }}>Ordenado por dependencia. Cliqueá un paso para abrir su tarjeta.</p>
+        {bloque(URGENTE)}
       </Section>
 
-      {/* Sin esto la pantalla diría «esto es todo el trabajo» cuando no lo es. */}
+      <Section titulo="A futuro" nota={`${cuantos(FUTURO)} pasos · la propuesta original`}>
+        {bloque(FUTURO)}
+      </Section>
+
       {sueltas.length > 0 && (
         <Section titulo="Del plan, sin lugar en el roadmap" nota={`${sueltas.length}`}>
           <ListaRoadmap>
             {sueltas.map((t, i) => (
               <FilaRoadmap key={t.num} n={i + 1} titulo={t.titulo} detalle={t.proyecto} estado="cola"
-                extra={<Link href={`/plan?tarea=${t.num}`} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: 'var(--primary)', marginLeft: 9 }}>#{t.num}</Link>} />
+                onAbrir={() => { const bt = board.tasks.find((x) => x.num === t.num); if (bt) setAbierto({ paso: { titulo: t.titulo, que: t.proyecto, estado: 'cola' }, n: i + 1, id: bt.id }); }} />
             ))}
           </ListaRoadmap>
         </Section>
       )}
 
-      {abierto && (
-        <DetallePaso paso={abierto.paso} n={abierto.n} tarea={tareaDe(abierto.paso)} onCerrar={() => setAbierto(null)} />
+      {/* El modal EXACTO de /plan cuando el paso tiene tarjeta; la ficha corta cuando no. */}
+      {abierto && tareaAbierta && (
+        <TaskModal t={tareaAbierta} board={board} topProjectId={null}
+          onDebate={() => {}} onDebateFecha={() => {}} onDelete={() => {}} onAsignar={() => {}}
+          ask={(_m, ok) => ok()} onClose={() => setAbierto(null)} />
+      )}
+      {abierto && !tareaAbierta && (
+        <FichaCorta paso={abierto.paso} n={abierto.n} onCerrar={() => setAbierto(null)} />
       )}
     </>
   );

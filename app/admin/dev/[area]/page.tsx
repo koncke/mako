@@ -18,6 +18,8 @@ import { getSesionAdmin } from '@/lib/auth';
 import { areaDe } from '../areas';
 import { registroDe } from '../registros';
 import { roadmapDe, tareasDelCamino, wsDelBoard } from '../roadmap';
+import { enPlan, listPlanBoard } from '@/lib/plan-board';
+import { getPerfil } from '@/lib/perfil';
 import { historialGitDe } from '../_historial.generado';
 import { RegistroArea } from './RegistroArea';
 
@@ -54,11 +56,18 @@ export default async function AreaDevPage({ params, searchParams }: {
   // `roadmapDe` —que filtra por los proyectos del área— no alcanza. Devuelve []
   // para las demás: es la misma consulta cacheada, no una segunda ida a la base.
   const tareasCamino = await tareasDelCamino(slug, ws);
+  // El board COMPLETO, solo para las áreas con roadmap propio: su pantalla abre la
+  // tarjeta con el MISMO modal que /plan, y ese modal necesita el `Board` entero
+  // (checklist, historial, MaKo). Para las demás no se pide nada.
+  const plan = tareasCamino.length
+    ? await enPlan(() => listPlanBoard()).catch(() => null)
+    : null;
+  const user = await getPerfil().then((p) => ({ nombre: p.nombre, avatarUrl: p.avatarUrl })).catch(() => ({ nombre: '', avatarUrl: '' }));
   // La sub-tab se lee ACÁ y no con `useSearchParams`: ese hook hace que el
   // boundary se saltee el render del servidor y la primera pintura salga vacía.
   // Es el mismo molde que app/admin/ui/page.tsx, que ya lo dejó escrito — y
   // acá importa más, porque `?tab=` es además el único camino para abrir un
   // panel desde afuera (un clic sintético no llega al onClick de React).
   const { tab } = await searchParams;
-  return <RegistroArea area={area} registro={registroDe(slug)} tareas={tareas} commits={historialGitDe(slug)} tabInicial={tab} tareasCamino={tareasCamino} />;
+  return <RegistroArea area={area} registro={registroDe(slug)} tareas={tareas} commits={historialGitDe(slug)} tabInicial={tab} tareasCamino={tareasCamino} plan={plan} user={user} />;
 }

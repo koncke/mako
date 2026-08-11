@@ -1594,7 +1594,7 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDebateFecha, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
+export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDebateFecha, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
   t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean; onDebate: () => void; onDebateFecha: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
