@@ -4,91 +4,124 @@
 // El roadmap de implementación de Customer Success
 // =============================================================================
 // Reemplaza al Roadmap genérico del área (un área tiene UN roadmap) y usa EL
-// MISMO renglón: `FilaRoadmap` sale de ../_registro/Registro.tsx, que es lo que
-// pintan las otras siete áreas. Lo único que suma es lo que este roadmap tiene y
-// aquéllas no: grupos con su porqué, numeración continua, quién lo hace, y el
-// link a la tarjeta del plan.
+// MISMO renglón que las otras siete: `FilaRoadmap` de ../_registro/Registro.tsx.
 //
-// Los datos y qué va acá y qué no están en `roadmap-cs.ts`. Regla corta: solo
-// pasos de implementación. Nada de citas, precios ni argumentos de venta — eso
-// vive en docs/sprint-servicio-mauricio.md.
+// LO ÚNICO QUE SUMA es lo que este roadmap necesita y aquéllas no: grupos con su
+// porqué, numeración continua, quién lo hace, el link a la tarjeta del plan, y
+// **el detalle en un modal**. El modal es la respuesta a las dos cosas a la vez
+// —«que se entienda rápido» y «no resumas tanto»—: la fila dice una línea, y lo
+// que ya existe, lo que falta y dónde se toca se abre al clickearla.
 //
-// «Después del sprint» va PLEGADO: son 24 pasos más y no es lo de hoy.
+// `Modal` (app/_ui) y no un plegable: acá el detalle NO es más texto del mismo
+// tipo, es una ficha con su propia estructura. La regla de la casa: `Confirm`
+// pregunta · `Modal` muestra el detalle · `WizardShell` conduce un flujo.
 
-import { Section, MONO } from '@/app/_ui';
+import { useState } from 'react';
+import { Section, Modal, Button, MONO } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
-import { FilaRoadmap, ListaRoadmap } from '../_registro/Registro';
-import { Plegable } from '../pricing/Piezas';
-import { OBJETIVO, GRUPOS, DESPUES, TOTAL_SPRINT, TOTAL_DESPUES, TITULOS_EN_PLAN, conteo, type Grupo, type Paso } from './roadmap-cs';
+import { FilaRoadmap, ListaRoadmap, ChipEstado, texto } from '../_registro/Registro';
+import { OBJETIVO, GRUPOS, TOTAL, TITULOS_EN_PLAN, conteo, type Grupo, type Paso } from './roadmap-cs';
 import type { TareaRoadmap } from '../roadmap';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, ' ').trim().toLowerCase();
 
-/** El rótulo de un grupo. Tenue y en versalitas: separa sin competir con las filas. */
-function Rotulo({ g }: { g: Grupo }) {
+/** Un bloque del modal. No se dibuja si no tiene contenido: una ficha con
+ *  títulos vacíos promete un dato que no está. */
+function BloqueModal({ rotulo, items }: { rotulo: string; items?: string[] }) {
+  if (!items?.length) return null;
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', margin: '20px 0 8px' }}>
-      <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600 }}>
-        {g.titulo}
-      </span>
-      <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>{g.desbloquea}</span>
+    <div style={{ marginTop: 16 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, marginBottom: 7 }}>
+        {rotulo}
+      </div>
+      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {items.map((x, k) => (
+          <li key={k} style={{ position: 'relative', paddingLeft: 16, fontSize: 'var(--fs-sm)', lineHeight: 1.6, color: 'var(--dim)' }}>
+            <span style={{ position: 'absolute', left: 1, top: '.66em', width: 5, height: 5, borderRadius: '50%', background: 'var(--faint)' }} />
+            {texto(x)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
-/** Lo que cuelga al lado del título: quién lo hace (si no es Martín) y su tarjeta. */
-function Extra({ p, tarea }: { p: Paso; tarea?: TareaRoadmap }) {
-  if (!p.quien && !tarea) return null;
+function DetallePaso({ paso, n, tarea, onCerrar }: { paso: Paso; n: number; tarea?: TareaRoadmap; onCerrar: () => void }) {
+  return (
+    <Modal
+      titulo={paso.titulo}
+      encabezado={`Paso ${String(n).padStart(2, '0')}`}
+      onCerrar={onCerrar}
+      ancho={720}
+      pie={<Button variant="secondary" onClick={onCerrar}>Cerrar</Button>}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <ChipEstado estado={paso.estado} />
+        {paso.quien && (
+          <span style={{ fontFamily: MONO, fontSize: 11.5, color: paso.quien === 'Mauricio' ? 'var(--warn)' : 'var(--faint)' }}>
+            lo hace {paso.quien === 'Los dos' ? 'con Mauricio' : paso.quien}
+          </span>
+        )}
+        {tarea && (
+          <Link href={`/plan?tarea=${tarea.num}`} style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--primary)' }}>
+            #{tarea.num} en el plan{tarea.progreso > 0 ? ` · ${tarea.progreso}%` : ''}
+          </Link>
+        )}
+      </div>
+
+      <p style={{ fontSize: 'var(--fs-card)', color: 'var(--ink)', margin: 0, lineHeight: 1.55 }}>{texto(paso.que)}</p>
+
+      {paso.ojo && (
+        <p style={{ margin: '16px 0 0', padding: '11px 15px', background: 'var(--surface-2)', borderLeft: '2px solid var(--warn-fill)', borderRadius: '0 var(--r-sm) var(--r-sm) 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>
+          {texto(paso.ojo)}
+        </p>
+      )}
+
+      {/* «Ya está» va PRIMERO, y es a propósito: es lo que evita rehacer trabajo
+          hecho, que es el error que este roadmap ya cometió una vez. */}
+      <BloqueModal rotulo="Ya está construido" items={paso.yaEsta} />
+      <BloqueModal rotulo="Falta" items={paso.falta} />
+      <BloqueModal rotulo="Dónde se toca" items={paso.tocar} />
+    </Modal>
+  );
+}
+
+/** Lo que cuelga al lado del título en la fila. */
+function Extra({ paso, tarea }: { paso: Paso; tarea?: TareaRoadmap }) {
   return (
     <>
-      {p.quien && (
-        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: p.quien === 'Mauricio' ? 'var(--warn)' : 'var(--faint)', marginLeft: 9 }}>
-          {p.quien}
+      {paso.quien && (
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: paso.quien === 'Mauricio' ? 'var(--warn)' : 'var(--faint)', marginLeft: 9 }}>
+          {paso.quien}
         </span>
       )}
       {tarea && (
-        <Link href={`/plan?tarea=${tarea.num}`} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: 'var(--primary)', marginLeft: 9 }}
-          title={`${tarea.proyecto} · score ${tarea.score}${tarea.deadline ? ` · vence ${tarea.deadline}` : ''}`}>
-          #{tarea.num}{tarea.progreso > 0 ? ` · ${tarea.progreso}%` : ''}
+        <Link href={`/plan?tarea=${tarea.num}`} onClick={(e) => e.stopPropagation()}
+          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: 'var(--primary)', marginLeft: 9 }}
+          title={`${tarea.proyecto} · score ${tarea.score}`}>
+          #{tarea.num}
         </Link>
       )}
     </>
   );
 }
 
-/** Los grupos, con la numeración CONTINUA: el paso 01 es lo primero que se hace. */
-function Pasos({ grupos, desde, porTitulo }: { grupos: Grupo[]; desde: number; porTitulo: Map<string, TareaRoadmap> }) {
-  let n = desde;
-  return (
-    <>
-      {grupos.map((g) => (
-        <div key={g.titulo}>
-          <Rotulo g={g} />
-          <ListaRoadmap>
-            {g.pasos.map((p) => {
-              const tarea = p.plan ? porTitulo.get(norm(p.plan)) : undefined;
-              return (
-                <FilaRoadmap key={p.titulo} n={n++} titulo={p.titulo} detalle={p.que} estado={p.estado}
-                  extra={<Extra p={p} tarea={tarea} />} />
-              );
-            })}
-          </ListaRoadmap>
-        </div>
-      ))}
-    </>
-  );
-}
-
 export function RoadmapCS({ tareas }: { tareas: TareaRoadmap[] }) {
+  const [abierto, setAbierto] = useState<{ paso: Paso; n: number } | null>(null);
   const porTitulo = new Map(tareas.map((t) => [norm(t.titulo), t]));
   const reclamados = new Set(TITULOS_EN_PLAN.map(norm));
   const sueltas = tareas.filter((t) => !reclamados.has(norm(t.titulo)));
-  const c = conteo(GRUPOS);
+  const c = conteo();
+
   const resumen = [
-    `${TOTAL_SPRINT} pasos`,
+    `${TOTAL} pasos`,
+    c.hecha ? `${c.hecha} hechos` : null,
     c.sigue ? `${c.sigue} en curso` : null,
     c.bloqueada ? `${c.bloqueada} bloqueados` : null,
   ].filter(Boolean).join(' · ');
+
+  let n = 0;
+  const tareaDe = (p: Paso) => (p.plan ? porTitulo.get(norm(p.plan)) : undefined);
 
   return (
     <>
@@ -96,31 +129,48 @@ export function RoadmapCS({ tareas }: { tareas: TareaRoadmap[] }) {
         <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', margin: '0 0 4px', lineHeight: 1.6 }}>
           <strong style={{ color: 'var(--ink)' }}>El objetivo:</strong> {OBJETIVO}
         </p>
-        <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', margin: '0 0 2px' }}>
-          El orden es el orden: está por dependencia, no por los frentes del Sprint.
+        <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', margin: 0 }}>
+          Ordenado por dependencia. Cliqueá un paso para ver qué ya existe, qué falta y dónde se toca.
         </p>
-        <Pasos grupos={GRUPOS} desde={1} porTitulo={porTitulo} />
-      </Section>
 
-      <Section titulo="Después del sprint">
-        <Plegable titulo={`${TOTAL_DESPUES} pasos más`} resumen="los 12 módulos de la propuesta original, sin lo que ya se descartó">
-          <Pasos grupos={DESPUES} desde={TOTAL_SPRINT + 1} porTitulo={porTitulo} />
-        </Plegable>
-      </Section>
-
-      {/* Las del tablero que ningún paso reclama. Se muestran o la pantalla
-          miente: sin esto diría «esto es todo el trabajo» cuando no lo es. */}
-      {sueltas.length > 0 && (
-        <Section titulo="Sin lugar en el roadmap">
-          <Plegable titulo={`${sueltas.length} tareas del plan que ningún paso reclama`} resumen="o les falta su lugar acá, o el roadmap les falta a ellas">
+        {GRUPOS.map((g: Grupo) => (
+          <div key={g.titulo}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', margin: '22px 0 8px' }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600 }}>
+                {g.titulo}
+              </span>
+              <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>{g.desbloquea}</span>
+            </div>
             <ListaRoadmap>
-              {sueltas.map((t, i) => (
-                <FilaRoadmap key={t.num} n={i + 1} titulo={t.titulo} detalle={t.proyecto} estado="cola"
-                  extra={<Link href={`/plan?tarea=${t.num}`} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: 'var(--primary)', marginLeft: 9 }}>#{t.num}</Link>} />
-              ))}
+              {g.pasos.map((p) => {
+                const num = ++n;
+                return (
+                  <FilaRoadmap
+                    key={p.titulo} n={num} titulo={p.titulo} detalle={p.que} estado={p.estado}
+                    extra={<Extra paso={p} tarea={tareaDe(p)} />}
+                    onAbrir={() => setAbierto({ paso: p, n: num })}
+                  />
+                );
+              })}
             </ListaRoadmap>
-          </Plegable>
+          </div>
+        ))}
+      </Section>
+
+      {/* Sin esto la pantalla diría «esto es todo el trabajo» cuando no lo es. */}
+      {sueltas.length > 0 && (
+        <Section titulo="Del plan, sin lugar en el roadmap" nota={`${sueltas.length}`}>
+          <ListaRoadmap>
+            {sueltas.map((t, i) => (
+              <FilaRoadmap key={t.num} n={i + 1} titulo={t.titulo} detalle={t.proyecto} estado="cola"
+                extra={<Link href={`/plan?tarea=${t.num}`} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 400, color: 'var(--primary)', marginLeft: 9 }}>#{t.num}</Link>} />
+            ))}
+          </ListaRoadmap>
         </Section>
+      )}
+
+      {abierto && (
+        <DetallePaso paso={abierto.paso} n={abierto.n} tarea={tareaDe(abierto.paso)} onCerrar={() => setAbierto(null)} />
       )}
     </>
   );

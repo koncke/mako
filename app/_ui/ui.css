@@ -881,3 +881,10 @@
    app justo donde no hay vuelta atrás. Reposo 6,50:1 · hover 5,02:1. */
 .mk-det__cta .mk-btn--primary { background: var(--warn-fill); border-color: var(--warn-fill); color: var(--ink); }
 .mk-det__cta .mk-btn--primary:hover:not(:disabled) { background: var(--warn); border-color: var(--warn); color: #fff; }
+
+/* La fila de Roadmap cuando abre su ficha (app/admin/dev/_registro/Registro.tsx).
+   Es un <button> y no un <li> con onClick: el teclado y el lector de pantalla
+   salen gratis. Solo necesita el hover y el foco visible; el resto del renglón
+   lo pinta el componente. */
+.mk-fila-roadmap:hover { background: var(--surface-2) !important; }
+.mk-fila-roadmap:focus-visible { outline: none; box-shadow: var(--focus-ring); position: relative; z-index: 1; }

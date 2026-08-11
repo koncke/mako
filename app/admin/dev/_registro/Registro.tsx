@@ -64,18 +64,20 @@ export function ChipEstado({ estado }: { estado: EstadoFila }) {
  * «parecida» a otra hay que poner las dos anatomías al lado (AGENTS.md): acá
  * comparten esqueleto, así que es una pieza con dos usos.
  */
-export function FilaRoadmap({ n, titulo, detalle, estado, extra }: {
+export function FilaRoadmap({ n, titulo, detalle, estado, extra, onAbrir }: {
   n: number;
   titulo: string;
   detalle: string;
   estado: EstadoFila;
   /** Lo que cuelga al lado del título (el link a la tarea del plan, quién la hace). */
   extra?: React.ReactNode;
+  /** Si la fila tiene más detalle, abre su ficha. Sin esto, la fila no es clickeable. */
+  onAbrir?: () => void;
 }) {
-  return (
-    <li style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) auto', gap: 14, alignItems: 'center', padding: '13px 16px', background: estado === 'hecha' ? 'var(--good-bg)' : 'var(--surface)' }}>
+  const cuerpo = (
+    <>
       <span style={{ fontFamily: MONO, fontSize: 13, color: estado === 'hecha' ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{String(n).padStart(2, '0')}</span>
-      <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>
+      <span style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)', textAlign: 'left' }}>
         {titulo}
         {extra}
         {/* Pasa por `texto()` igual que los puntos de la bitácora: el detalle
@@ -84,7 +86,20 @@ export function FilaRoadmap({ n, titulo, detalle, estado, extra }: {
         <span style={{ display: 'block', fontWeight: 400, fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{texto(detalle)}</span>
       </span>
       <ChipEstado estado={estado} />
+    </>
+  );
+  const grid = { display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) auto', gap: 14, alignItems: 'center', padding: '13px 16px', background: estado === 'hecha' ? 'var(--good-bg)' : 'var(--surface)' } as const;
+
+  // Cuando abre ficha es un BOTÓN, no un `<li>` con onClick: el teclado y el
+  // lector de pantalla salen gratis, y el `<li>` no es un control.
+  return onAbrir ? (
+    <li>
+      <button type="button" onClick={onAbrir} className="mk-fila-roadmap" style={{ ...grid, width: '100%', border: 0, font: 'inherit', cursor: 'pointer' }}>
+        {cuerpo}
+      </button>
     </li>
+  ) : (
+    <li style={grid}>{cuerpo}</li>
   );
 }
 

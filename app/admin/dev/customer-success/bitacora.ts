@@ -19,15 +19,12 @@ import type { Hito, Parte } from '../_registro/tipos';
  * si no, el contador cuenta otra cosa que lo que la pantalla muestra.
  */
 export const PARTES: Parte[] = [
-  { titulo: 'Destrabar', detalle: 'Los 5 entregables de Mauricio, el bucle por escrito, el consumo de IA bajo control y la cuota. Nada es código.', estado: 'sigue' },
-  { titulo: 'La matriz vinculada', detalle: '`lib/tablero-matriz.ts` con las 14 columnas y `validarMatriz()` con las 6 auditorías.', estado: 'cola' },
-  { titulo: 'Que el tablero salga solo', detalle: 'El prompt maestro en el registro, la skill que emite el código, y probarla contra un tablero ya hecho.', estado: 'cola' },
-  { titulo: 'Que la plataforma exista · Whop', detalle: '`lib/whop.ts` + los dos catálogos, el avance del cliente, y el programa montado por bloques.', estado: 'sigue' },
-  { titulo: 'Que el cliente haga la tarea', detalle: 'El formulario del bloque generado por IA, la pantalla de aprobación y Calendly condicionado.', estado: 'cola' },
-  { titulo: 'Que la IA cierre el bucle', detalle: 'El Fathom reescribe las respuestas, con camino propio cuando no hay grabación.', estado: 'cola' },
-  { titulo: 'Que no se caiga nada', detalle: 'Cron de vencidos, tabla de seguimiento, vista de cartera y el semáforo que da el guión.', estado: 'cola' },
-  { titulo: 'Que se cierre y vuelva a vender', detalle: 'Protocolo de graduación, la oferta de renovación de oct/nov y el pipeline de casos.', estado: 'cola' },
-  { titulo: 'La deuda con él', detalle: 'Móvil, la Junta 2 desde la llamada, la jerarquía de avisos, el mapa de CDMX y el acuerdo del código.', estado: 'cola' },
+  { titulo: 'El esquema del tablero', detalle: '`lib/tablero-matriz.ts`, `validarMatriz()` con las 6 auditorías y su migración. La piedra angular: bloquea cinco pasos.', estado: 'cola' },
+  { titulo: 'El generador de tableros', detalle: 'El prompt maestro en el registro y la skill de Claude Code que emite el código.', estado: 'cola' },
+  { titulo: 'La plataforma del cliente', detalle: '`lib/whop.ts`, el `WS = 1` de compartir, el 404 del curso y el contenido por workspace.', estado: 'sigue' },
+  { titulo: 'El bucle de entrega', detalle: 'Dejar entrar las reuniones de entrega, el formulario por bloque, la reescritura con Fathom y la aprobación del cliente.', estado: 'cola' },
+  { titulo: 'El seguimiento de la cartera', detalle: 'Cron de vencidos, regla de cliente sin señales, tabla de seguimiento y la vista de cartera.', estado: 'cola' },
+  { titulo: 'El final del ciclo', detalle: 'Analizar las llamadas de entrega, el riesgo de baja, el estado de graduado, testimonios y casos.', estado: 'cola' },
 ];
 
 const CH = 'Customer Success: mapeo y roadmap';

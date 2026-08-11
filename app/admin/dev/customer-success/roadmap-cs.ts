@@ -1,301 +1,411 @@
 // =============================================================================
 // Customer Success — el roadmap de implementación
 // =============================================================================
-// Es EL Roadmap del área: reemplaza al genérico en vez de sumarse (ver
-// `roadmapPropioDe` en ../paneles.tsx). Un área tiene UN roadmap.
+// Es EL Roadmap del área: reemplaza al genérico (un área tiene UN roadmap).
 //
-// QUÉ VA ACÁ Y QUÉ NO. Solo pasos de implementación: qué hay que hacer, en qué
-// orden, y concretamente en qué archivo o tabla. Nada de citas de reuniones,
-// objeciones de venta, precios ni comparativas — eso es material del encargo y
-// vive en docs/sprint-servicio-mauricio.md, que es donde se lee. El pedido fue
-// literal: «Ahora SOLO queremos tener claridad en el roadmap de implementación,
-// TODA TODA la paja eliminala».
+// TRES REGLAS, y las tres salieron de un reclamo del dueño:
 //
-// EL ORDEN ES EL ORDEN. La numeración es continua y corre a través de los
-// grupos: el paso 01 es lo primero que hay que hacer. No es el orden de los
-// cuatro frentes del Sprint sino el de las dependencias — la matriz vinculada va
-// antes que el formulario, el prompt maestro y el tablero porque los tres
-// preguntan o pintan lo mismo.
+//  1. SOLO CUSTOMER SUCCESS. CS es lo que pasa DESPUÉS del pago: el bucle de
+//     entrega, la plataforma del cliente, el seguimiento de la cartera, la
+//     graduación y el generador de tableros. NO entra el costo de la IA de la
+//     plataforma, ni la vista móvil, ni el CRM de ventas, ni los acuerdos
+//     comerciales con Mauricio. Eso vive en el board /plan y en
+//     docs/sprint-servicio-mauricio.md.
 //
-// ⚠️ La trampa que ya costó una corrección: el objetivo es un bucle de 5 pasos, y
-// su paso 1 —«el cliente ve el video»— es el ÚLTIMO en poder correr, porque
-// necesita la plataforma. Los pasos del bucle NO son pasos del roadmap: por eso
-// acá no aparecen como tales, y cada grupo dice qué habilita.
+//  2. EL ESTADO ESTÁ VERIFICADO CONTRA EL CÓDIGO, no deducido. Cada paso trae
+//     `yaEsta` con archivo:línea. Salió de una corrida de 8 agentes
+//     (wf_f634446a-942, 11/08/2026) después de que este roadmap diera por
+//     pendiente algo que estaba hecho. **Un roadmap que miente sobre el estado
+//     es peor que no tener roadmap**: hace perder el tiempo dos veces, una
+//     construyendo lo que ya existe y otra descubriéndolo.
 //
-// LO POSTERIOR NO SE RESUME: se convierte en pasos. Los 12 módulos de la
-// propuesta original (/vsl/mako-cs) están abajo, en `DESPUES`, con el mismo
-// formato — menos los que ya se descartaron con motivo, que no son roadmap.
+//  3. LA FILA DICE UNA LÍNEA; EL DETALLE VA EN UN MODAL. Es el mismo renglón que
+//     las otras siete áreas (`FilaRoadmap` en ../_registro/Registro.tsx) y el
+//     detalle no se pierde: se abre. Sin abrir, la pantalla se barre entera.
+//
+// EL ORDEN ES POR DEPENDENCIA. `lib/tablero-matriz.ts` va primero porque es la
+// piedra angular: bloquea el generador, el formulario, el seguimiento por
+// palancas y el semáforo del área. Verificado: hoy no existe en disco.
 // =============================================================================
 
-/** Cuatro estados. Los tres primeros son los de la casa (`Parte` en
- *  ../_registro/tipos.ts); `bloqueada` se suma porque es la única información
- *  que cambia qué se puede hacer hoy, y sin ella «en cola» miente. */
+/** Los tres primeros son los de la casa (`Parte`); `bloqueada` distingue «no
+ *  arrancó» de «no PUEDE arrancar», que es lo único que cambia qué se hace hoy. */
 export type EstadoPaso = 'hecha' | 'sigue' | 'bloqueada' | 'cola';
 
 export type Paso = {
   titulo: string;
-  /** QUÉ hay que hacer, concreto: archivo, tabla, ruta. Una línea.
-   *  Acepta `**negrita**` y `` `código` `` — lo pinta `texto()` del registro. */
+  /** UNA línea, la que se lee en la fila. Acepta `**negrita**` y `` `código` ``. */
   que: string;
   estado: EstadoPaso;
-  /** Solo cuando NO lo hace Martín. Sin marca = lo hace él. */
+  /** Solo cuando NO lo hace Martín. */
   quien?: 'Mauricio' | 'Los dos';
-  /** El título EXACTO de la tarea en /plan. Si no matchea, no se muestra número. */
+  /** El título EXACTO de la tarea en /plan. Sin match, no se muestra número. */
   plan?: string;
+  // ── El modal ──────────────────────────────────────────────────────────────
+  /** Lo que YA existe y se reusa, con archivo:línea. Es lo que evita rehacerlo. */
+  yaEsta?: string[];
+  /** Qué falta exactamente. Si el paso está hecho, va vacío. */
+  falta?: string[];
+  /** Los archivos concretos a crear o editar. */
+  tocar?: string[];
+  /** La trampa. Solo donde cambia una decisión. */
+  ojo?: string;
 };
 
 export type Grupo = {
   titulo: string;
-  /** Qué queda desbloqueado. Una línea, es el porqué del orden. */
+  /** Qué queda desbloqueado. Una línea: es el porqué del orden. */
   desbloquea: string;
   pasos: Paso[];
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EL SPRINT — lo urgente con Mauricio
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const OBJETIVO = 'Que el cliente haga el trabajo y Mauricio solo ponga el criterio: ve el video del bloque, completa la tarea, la discuten, la IA la reescribe con el Fathom y él la aprueba.';
+export const OBJETIVO = 'Que el cliente haga el trabajo de la entrega y Mauricio solo ponga el criterio: ve el video del bloque, completa la tarea, la discuten en la llamada, la IA la reescribe con el Fathom y él la aprueba.';
 
 export const GRUPOS: Grupo[] = [
+  // ───────────────────────────────────────────────────────────────────────────
   {
-    titulo: 'Destrabar',
-    desbloquea: 'Todo lo demás. Nada es código, y por eso se posterga solo.',
+    titulo: 'El esquema del tablero',
+    desbloquea: 'El generador, el formulario del cliente, el seguimiento por palancas y el semáforo del área. Es la piedra angular: hoy no existe en disco.',
     pasos: [
-      { titulo: 'Recibir los 5 entregables de Mauricio', quien: 'Mauricio', estado: 'bloqueada',
-        que: 'Timing por bloque, esfuerzo del cliente, llamadas por bloque, qué hace a mano y qué le cuesta entender. **Sin esto no se puede estructurar el programa.**' },
-      { titulo: 'Mandarle el bucle por escrito y renegociar el frente 04', estado: 'sigue', plan: 'Reencuadrar el sprint con Mauricio: los 5 pasos y el frente 04',
-        que: 'Los 5 pasos y los 5 entregables en un documento, y cambiar los «5 casos de éxito» por la oferta de renovación de oct/nov.' },
-      { titulo: 'Contratar plan propio de Claude y auto-limitarse', estado: 'cola', plan: 'Auto-límite del consumo de IA sobre la cuenta de Claude de Mauricio',
-        que: 'Plan de US$200 propio + tope de porcentaje sobre el Cloud de Mauricio, con el gasto visible en `/integraciones`.' },
-      { titulo: 'Verificar la cuota del 10 de agosto', estado: 'cola',
-        que: 'La segunda del sprint. El 6/8 quedó impaga.' },
+      {
+        titulo: 'Cerrar cuántos campos tiene la ficha de palanca', quien: 'Los dos', estado: 'cola',
+        que: 'El cuestionario dice nueve, su tabla lista diez y la que dictó en la reunión tiene siete.',
+        falta: ['Una respuesta de Mauricio. Es una pregunta de cinco minutos.'],
+        ojo: 'Modelar antes de cerrarlo es modelar una suposición, y después migrar una tabla con datos adentro.',
+      },
+      {
+        titulo: 'Escribir `lib/tablero-matriz.ts`', estado: 'cola', plan: 'La matriz vinculada y su validador: el esquema del tablero de un cliente',
+        que: 'El tipo de la matriz vinculada: MCI → objetivo LAG → área → palanca → ficha → umbrales → evidencia → corte.',
+        yaEsta: [
+          '`lib/landing-spec.ts:44` — el molde exacto: tipo puro, sin `server-only`, importado por el generador y por la UI.',
+          'Nada más. Verificado: `MCI` y `validarMatriz` solo aparecen como strings de este mismo roadmap.',
+        ],
+        falta: ['El archivo entero. Es lo que bloquea cinco pasos a la vez.'],
+        tocar: ['`lib/tablero-matriz.ts` (nuevo, **sin `server-only`** para que un test lo importe)'],
+      },
+      {
+        titulo: 'Validador `validarMatriz()` con las 6 auditorías', estado: 'cola',
+        que: 'Área sin objetivo · MCI sin área · objetivo con más de 3 palancas · palanca repetida · responsable sin autoridad · habilitadora sin objetivo. Más el traslape de umbrales.',
+        yaEsta: ['El cuestionario de Mauricio ya trae las 6 auditorías escritas: no hay que inventarlas.'],
+        falta: ['La función y su test. Las cinco primeras se escriben en código sin ambigüedad.'],
+        tocar: ['`lib/tablero-matriz.ts`', '`tests/tablero-matriz.test.ts` (nuevo)'],
+        ojo: 'Una regla que solo vive en la prosa de un prompt no es una regla: necesita el texto Y la validación determinista.',
+      },
+      {
+        titulo: 'Migración de la matriz por workspace', estado: 'cola',
+        que: 'Tablas de MCI, objetivo por área y palanca, con `workspace_id` y RLS.',
+        yaEsta: ['El molde de migración numerada y el checklist de alta están en la skill `author-numbered-migration`.'],
+        falta: ['La migración, y el alta en los DOS registros que se separan solos.'],
+        tocar: ['`supabase/migrations/0125_*.sql`', '`lib/workspace.ts:60` (`TENANT_TABLES`)', '`lib/reset-workspace.ts:36` (`TABLAS_RESET`)'],
+        ojo: '`getTenantDb()` sobre una tabla que NO está en `TENANT_TABLES` no filtra nada y no avisa. Y no puede llamarse `FASES`: ya hay tres constantes con ese nombre que compilan sin conflicto.',
+      },
     ],
   },
+  // ───────────────────────────────────────────────────────────────────────────
   {
-    titulo: 'La matriz vinculada',
-    desbloquea: 'El formulario, el prompt maestro y el tablero: los tres preguntan o pintan lo mismo.',
+    titulo: 'El generador de tableros',
+    desbloquea: 'Su mayor sangría de tiempo: seis tableros en cola, codeados de madrugada.',
     pasos: [
-      { titulo: 'Cerrar cuántos campos tiene la ficha de palanca', quien: 'Los dos', estado: 'cola',
-        que: 'El cuestionario dice nueve, su tabla lista diez y la que dictó tiene siete. Una pregunta, cinco minutos.' },
-      { titulo: 'Escribir `lib/tablero-matriz.ts`', estado: 'cola', plan: 'La matriz vinculada y su validador: el esquema del tablero de un cliente',
-        que: 'El tipo de las 14 columnas (MCI → LAG → área → palanca → umbrales → evidencia → corte). **Sin `server-only`**, molde `lib/landing-spec.ts`.' },
-      { titulo: 'Validador `validarMatriz()` con las 6 auditorías', estado: 'cola',
-        que: 'Área sin objetivo · MCI sin área · objetivo con +3 palancas · palanca repetida · responsable sin autoridad · habilitadora sin objetivo. Más traslape de umbrales. Con test propio.' },
+      {
+        titulo: 'Registrar el prompt maestro', estado: 'cola', plan: 'El prompt maestro que arma el tablero de un cliente',
+        que: 'Que **llene** y después emita: proponga evidencia y umbrales desde los otros clientes, y devuelva la tabla de huecos con responsable y fecha.',
+        yaEsta: [
+          '`lib/prompt-render.ts:44` (`getPromptText` = override ?? default), `:49` (`renderPrompt` interpola `{{slot}}`), `:64` (`savePromptOverride`, con 30 versiones de historial). El riel está entero.',
+          'La UI para editarlo ya existe en `/contexto`.',
+        ],
+        falta: ['El prompt y su alta en `lib/prompt-registry.ts` + `lib/prompt-defaults.ts`.'],
+        tocar: ['`lib/prompt-registry.ts`', '`lib/prompt-defaults.ts`'],
+        ojo: '⚠️ Hay **27 keys usadas en runtime que NO están en el registry**: se resuelven con su default y son invisibles desde la UI, y nada en el compilador ni en el pre-push lo detecta. No sumar la 28.',
+      },
+      {
+        titulo: 'Generar la skill de Claude Code que emite el tablero', estado: 'cola', plan: 'La skill de Claude Code que emite el tablero del cliente',
+        que: 'Toma la matriz validada y escribe el código del tablero.',
+        yaEsta: [
+          '`lib/agente-skill.ts:56` — fuente única con dos salidas (descarga con token y marketplace público).',
+          '`scripts/generar-plugin.mjs:33-35` escribe los 4 archivos de `plugin/`, y el **pre-push falla** si quedaron viejos.',
+          '`scripts/generar-plugin.mjs:37-51` ya tiene la guarda que impide filtrar credenciales al repo público.',
+        ],
+        falta: ['La skill nueva colgada de ese mismo riel.'],
+        tocar: ['`lib/agente-skill.ts`', '`scripts/generar-plugin.mjs`'],
+        ojo: 'MaKo no emite código en runtime en ningún lado: lo único que genera son specs JSON coercionados a un tipo. El generador va afuera, como skill.',
+      },
+      {
+        titulo: 'Correrla contra un tablero ya hecho', quien: 'Los dos', estado: 'cola',
+        que: 'Esquer o Baja Teriyaki. Si no reproduce lo que construyó a mano, no sirve.',
+        falta: ['La corrida y el ajuste del prompt con el resultado.'],
+      },
     ],
   },
+  // ───────────────────────────────────────────────────────────────────────────
   {
-    titulo: 'Que el tablero salga solo',
-    desbloquea: 'Su mayor sangría: seis tableros en cola, codeados de madrugada.',
+    titulo: 'La plataforma del cliente',
+    desbloquea: 'Que el cliente vea el video del bloque antes de la reunión, sin que viva en WhatsApp ni en Drive.',
     pasos: [
-      { titulo: 'Registrar el prompt maestro en `lib/prompt-registry.ts`', estado: 'cola', plan: 'El prompt maestro que arma el tablero de un cliente',
-        que: 'Editable desde `/contexto` con historial. Que **llene** —proponga evidencia y umbrales desde los otros clientes— y devuelva la tabla de huecos.' },
-      { titulo: 'Generar la skill de Claude Code que emite el tablero', estado: 'cola', plan: 'La skill de Claude Code que emite el tablero del cliente',
-        que: 'Toma la matriz validada y escribe el código. Generada desde el repo, con `--check` en el pre-push (molde `lib/agente-skill.ts`).' },
-      { titulo: 'Correrla contra un tablero ya hecho', quien: 'Los dos', estado: 'cola',
-        que: 'Esquer o Baja Teriyaki. Si no lo reproduce, no sirve.' },
+      {
+        titulo: 'Crear `lib/whop.ts` y darlo de alta', estado: 'sigue', plan: 'Conectar Whop por API para la plataforma de contenido',
+        que: 'Cliente de la API con credencial por workspace. No se desarrolla la plataforma: se conecta.',
+        yaEsta: [
+          '`lib/credenciales.ts` → `credWs` ya resuelve credenciales por workspace para los 19 servicios del catálogo.',
+          'Verificado: **no hay ningún servicio de plataforma de contenido** en `lib/integraciones-catalogo.ts:21-61` ni en `lib/metodo-catalogo.ts`. Las 24 menciones de «Whop» en el repo son prosa.',
+        ],
+        falta: ['El cliente de la API y el alta en los DOS catálogos.'],
+        tocar: ['`lib/whop.ts` (nuevo)', '`lib/integraciones-catalogo.ts`', '`lib/metodo-catalogo.ts`', '`lib/capas.ts` (si la categoría tiene que verla el cliente)'],
+        ojo: '⚠️ El `env` del catálogo tiene que coincidir EXACTO con lo que lee la lib: si no, `credWs` devuelve `null` en silencio (`lib/integraciones.ts:122`) y la integración se ve conectada sin estarlo.',
+      },
+      {
+        titulo: 'Sacar el `const WS = 1` de la ruta que comparte', estado: 'cola', plan: 'Sacar el `const WS = 1` de la ruta que comparte material',
+        que: 'Hoy **todo share que existe nace con `workspace_id = 1`**.',
+        yaEsta: [
+          'Lo de abajo ya está listo: la columna existe (`0098_branding_shares.sql`) y las funciones ya reciben `ws` (`lib/shares.ts:137,144,152,237,253`).',
+          'El consumo público ya lee el ws del share: `app/compartido/[token]/page.tsx:52`.',
+          'El mecanismo entero está vivo y es fail-closed: `lib/shares.ts:69` (`resolverToken` revalida contra la fila viva), `:105` (`puedeVer`, único punto de autorización).',
+        ],
+        falta: ['Solo el emisor: `app/api/compartir/route.ts:25` tiene `const WS = 1` usado en los SEIS caminos (`:45, :70, :144, :170, :189, :193`).'],
+        tocar: ['`app/api/compartir/route.ts`'],
+      },
+      {
+        titulo: 'Arreglar el 404 del curso compartido', estado: 'cola',
+        que: 'El share se crea, el mail sale, y el invitado ve un 404. Son dos listas de cursos que tienen que coincidir y nada las ata.',
+        yaEsta: ['El bug está localizado: `app/conocimientos/Conocimientos.tsx:30` arma `TODOS`, y `app/compartido/[token]/page.tsx:46` resuelve contra `[...CURSOS, CURSO_VSL]` — `CURSO_PRODUCTO_APP` está en la primera y no en la segunda.'],
+        falta: ['Unificar el catálogo en un módulo que consuman los dos lados.'],
+        tocar: ['`app/conocimientos/cursos.ts` (nuevo)', '`app/conocimientos/Conocimientos.tsx`', '`app/compartido/[token]/page.tsx`'],
+        ojo: 'Cada curso nuevo que se sume hereda el bug. Es el patrón «una cosa, un lugar» sin aplicar.',
+      },
+      {
+        titulo: 'Contenido por workspace, no constantes de código', estado: 'cola',
+        que: 'Hoy sumar una clase exige un deploy: los cursos son archivos `.ts` de la agencia.',
+        yaEsta: [
+          '`app/conocimientos/CursoPortal.tsx:202-203` ya reproduce video, recursos y transcripción lazy — y ya lo consume alguien **sin login** desde `app/compartido/[token]/CursoCompartido.tsx:41`.',
+          '`mako_knowledge` (migraciones 0033/0049) ya es tenant-scoped y tiene `curso` y `area`.',
+        ],
+        falta: [
+          'Tabla de programa → bloques → clases por workspace.',
+          'Que `/conocimientos` deje de ser super-admin (`app/conocimientos/page.tsx:23-24` hace `getSesionAdmin()` → `redirect`).',
+        ],
+        tocar: ['`supabase/migrations/`', '`app/conocimientos/page.tsx`', '`app/_components/nav.ts:321` (hoy la entrada vive en la familia Admin)'],
+        ojo: 'Con Whop encima, este paso puede no hacer falta: son dos diseños distintos y hay que elegir uno. Decidirlo ANTES de escribir la tabla.',
+      },
+      {
+        titulo: 'Traer el avance del cliente en el programa', estado: 'bloqueada',
+        que: 'Qué bloque completó cada uno. Es el insumo del seguimiento y del bucle.',
+        falta: ['Todo. Cero resultados de `curso_progreso|progreso_curso|leccion_completada` en migraciones, `lib/` y `app/api/`.'],
+        ojo: '`registrarVisita()` (`lib/shares.ts:159`) NO sirve: responde «¿abrió el link?», no «¿qué bloque completó?» — y su propio comentario avisa que puede perder visitas. Depende de la decisión Whop vs portal propio.',
+      },
+      {
+        titulo: 'Montar el programa por bloques y dar de alta a los clientes', quien: 'Los dos', estado: 'bloqueada',
+        que: 'La estructura del programa con el video de cada bloque, y los clientes activos adentro.',
+        plan: 'Montar el programa de Mauricio en Whop, por bloques',
+        falta: ['Los 5 entregables de Mauricio: timing, esfuerzo, llamadas por bloque, qué hace a mano y qué le cuesta entender. El quinto ES la lista de videos a grabar.'],
+        ojo: 'Restricciones que puso él: nada de Notion, y «son empresarios que todos tienen TDAH… no creas que le sabe la computadora».',
+      },
     ],
   },
+  // ───────────────────────────────────────────────────────────────────────────
   {
-    titulo: 'Que la plataforma exista · Whop',
-    desbloquea: 'Que el cliente vea el video del bloque antes de la reunión.',
+    titulo: 'El bucle de entrega',
+    desbloquea: 'Que el trabajo pase de la cancha de Mauricio a la del cliente. Es el corazón del encargo.',
     pasos: [
-      { titulo: 'Crear `lib/whop.ts` y registrar la integración', estado: 'sigue', plan: 'Conectar Whop por API para la plataforma de contenido',
-        que: 'Cliente de la API con credencial por workspace, dado de alta en **los dos catálogos** (`lib/integraciones.ts` y `lib/metodo-catalogo.ts`). No se desarrolla la plataforma: se conecta.' },
-      { titulo: 'Traer el avance del cliente desde Whop', estado: 'cola',
-        que: 'Cron que lee qué bloque completó cada uno y lo deja legible desde MaKo.' },
-      { titulo: 'Sacar el `const WS = 1` de `/api/compartir`', estado: 'cola', plan: 'Sacar el `const WS = 1` de la ruta que comparte material',
-        que: 'Que `curso` sea un recurso por workspace apoyado en `mako_knowledge`, que ya es tenant-scoped.' },
-      { titulo: 'Montar el programa por bloques y dar de alta a los clientes', quien: 'Los dos', estado: 'bloqueada',
-        que: 'La estructura del programa en Whop con el video de cada bloque. Espera los 5 entregables.', plan: 'Montar el programa de Mauricio en Whop, por bloques' },
-      { titulo: 'Grabar los videos de los bloques que más cuestan', quien: 'Mauricio', estado: 'bloqueada',
-        que: 'Salen del quinto entregable. Es lo que de verdad toma tiempo de este grupo.' },
+      {
+        titulo: 'Detectar si una llamada es de venta o de entrega', estado: 'hecha',
+        que: 'Ya funciona, y sin gastar IA cuando el título alcanza.',
+        yaEsta: [
+          '`lib/closing.ts:154` — heurística por título (`RE_SERVICIO_EXPLICITO`, `:129`) devuelve `entrega_servicio` sin llamar a Claude.',
+          '`lib/closing.ts:500-501` — Claude como árbitro final cuando el título no alcanza.',
+          'Corre solo: `vercel.json:37` → `app/api/cron/closing-sync/route.ts`, 1 fila por grabación en `closing_analyses`.',
+        ],
+      },
+      {
+        titulo: 'Resolver de qué cliente es una reunión', estado: 'hecha',
+        que: 'Ya funciona por tres caminos, y **devuelve `null` en vez de inventar** cuando no está seguro.',
+        yaEsta: [
+          '`lib/reunion-cliente.ts:91-130` (`resolverClienteDeReunion`): email del invitado contra `leads`, y el título como segunda vía.',
+          'Dos call-sites reales: `lib/reunion-auto.ts:205-222` (lo que elige el cliente PISA lo que dijo el modelo) y `app/api/plan-fathom/route.ts:63-64`.',
+        ],
+      },
+      {
+        titulo: 'Dejar entrar las reuniones de ENTREGA al pipeline', estado: 'cola',
+        que: 'Hoy el cron las **descarta**: se queda solo con `tipo === \'equipo\'`.',
+        yaEsta: [
+          'El pipeline entero y vivo: `vercel.json:41` → `app/api/cron/fathom-plan/route.ts:33-34` → `lib/reunion-auto.ts:136` → `:170` extraer → `:242` dejar BORRADOR (no crea tareas) → `:273` aviso por WhatsApp.',
+        ],
+        falta: ['Sacar el filtro de `lib/reunion-auto.ts:139` y darle destino a la reunión de entrega.'],
+        tocar: ['`lib/reunion-auto.ts:139`', '`lib/reunion-gate.ts:27-33`'],
+        ojo: '⚠️ **Es la falla más grave del área, y el producto se contradice a sí mismo.** `lib/reunion-gate.ts:27-33` frena esas reuniones a propósito diciendo «de una llamada de entrega salen tareas para ESE cliente (customer success), no para tu plan» — o sea: la regla correcta está escrita y **el destino al que apunta no existe**. Corolario perverso: cuanto mejor identificado está el cliente en el CRM, más seguro es que su llamada NO deje compromisos.',
+      },
+      {
+        titulo: 'Tabla del formulario por bloque y por cliente', estado: 'cola',
+        que: 'El objeto sobre el que el cliente escribe y la IA reescribe. No existe ninguno.',
+        falta: ['La tabla entera, con `workspace_id`, y su alta en `TENANT_TABLES` y `TABLAS_RESET`.'],
+        tocar: ['`supabase/migrations/`', '`lib/workspace.ts:60`', '`lib/reset-workspace.ts:36`'],
+        ojo: '**No como jsonb en `app_settings`**: es last-write-wins sin CAS, y un formulario largo con guardado parcial se pisa solo. La fase del negocio ya pagó ese costo: al vivir como JSON, «cumplí el hito» no tiene dónde guardarse.',
+      },
+      {
+        titulo: 'Que la IA reescriba las respuestas con el Fathom', estado: 'cola', plan: 'Configurar Fathom e IA para actualizar formularios post-reunión',
+        que: 'Después de la junta, las respuestas del bloque quedan ampliadas con lo que se habló.',
+        yaEsta: [
+          'El molde de «ampliar sin pisar» ya existe y está probado: `lib/plan-propuesta.ts:803` y `lib/detalle-fusion.ts:24` funden dos textos sin destruir el original.',
+        ],
+        falta: ['El prompt de reescritura registrado, y el enganche en el pipeline después de `extraerTareasDeReunion`.'],
+        tocar: ['`lib/prompt-registry.ts`', '`lib/reunion-auto.ts`', '`lib/cs-bucle.ts` (nuevo)'],
+      },
+      {
+        titulo: 'Pantalla donde el cliente pule y aprueba', estado: 'cola',
+        que: 'Ve lo que reescribió la IA, lo corrige y le da el ok. Es el cierre del bucle.',
+        yaEsta: [
+          '`app/plan/revisar/[id]/page.tsx:1-28` — el molde exacto, y su comentario de cabecera dice textual que sirve al dueño **o al cliente**. Scopea al ws del que mira (`:27`).',
+          'Aprobar/descartar ya implementado en `RevisarPropuesta.tsx:251-275`.',
+        ],
+        falta: ['Que el objeto aprobado sea el formulario del bloque, no una propuesta de tareas.'],
+        ojo: 'Hoy el contenido de negocio que escribe la IA **no tiene aprobación, solo corrección**: el brief se autoguarda `onBlur` y los avatares son solo lectura. No hay ningún registro de que el cliente lo haya leído.',
+      },
+      {
+        titulo: 'Camino cuando la junta no quedó grabada', estado: 'cola',
+        que: 'Detectar la ausencia, avisar y ofrecer completar a mano. Hoy no pasa nada, en silencio.',
+        yaEsta: [
+          '`lib/crm-auto.ts:270-289` (`encuentroGrabable`) — el gate que ya evita concluir de una grabación ausente. Vale reusarlo.',
+          '`lib/importar-en-segundo-plano.ts:74` — el camino manual genérico para pegar notas de una junta.',
+        ],
+        falta: ['Lo inverso del cron: reuniones esperadas SIN grabación. Y el aviso, que está declarado y sin implementar (`lib/avisos-catalogo.ts:243-247`, `yaImplementado: \'no\'`).'],
+        ojo: 'Sin esto el bucle se corta entero cada vez que falla la grabación, y ya falló dos veces documentadas.',
+      },
     ],
   },
+  // ───────────────────────────────────────────────────────────────────────────
   {
-    titulo: 'Que el cliente haga la tarea',
-    desbloquea: 'Que complete antes de la llamada y apruebe después: es lo que le saca el trabajo de encima.',
+    titulo: 'El seguimiento de la cartera',
+    desbloquea: 'Que Mauricio deje de sostener el estado de 7 clientes en la cabeza y en un Excel. No espera al bucle.',
     pasos: [
-      { titulo: 'Formulario del bloque, generado por IA', estado: 'cola', plan: 'El formulario del bucle: que el cliente haga la tarea antes de la llamada',
-        que: 'Las preguntas salen de la matriz y se personalizan por cliente. Guarda una fila por bloque, no un jsonb en `app_settings` (last-write-wins sin CAS).' },
-      { titulo: 'Pantalla de revisión y aprobación del cliente', estado: 'cola',
-        que: 'Ve lo que reescribió la IA, lo pule y lo aprueba. Es el cierre del bucle.' },
-      { titulo: 'Abrir Calendly recién cuando la tarea está completa', estado: 'cola',
-        que: 'La llamada se gana. Mata la reunión de calendario fijo.' },
+      {
+        titulo: 'Que las tareas queden en un borrador que se aprueba', estado: 'hecha',
+        que: 'Nada entra al tablero sin que alguien lo confirme.',
+        yaEsta: [
+          '`lib/reunion-auto.ts:242` deja un BORRADOR en `plan_propuestas`; no crea tareas.',
+          '`:273` avisa por WhatsApp con el link, y el link lo arma el CÓDIGO (`lib/link-borrador.ts`), no el modelo.',
+        ],
+      },
+      {
+        titulo: 'Cron de compromisos vencidos', estado: 'cola', plan: 'Implementar notificaciones proactivas de MaKo por WhatsApp sobre tareas pendientes',
+        que: 'Barre `deadline` vencido agrupado por cliente y avisa una vez por día.',
+        yaEsta: [
+          'El campo existe hace rato: `lib/todo.ts:40`, `lib/plan-board.ts:51,244`.',
+          'El molde que ya recorre todos los workspaces sin filtrar por integración: `app/api/cron/tareas-verificar/route.ts:45-73`.',
+        ],
+        falta: ['El cron. Verificado: `grep "deadline"` sobre los 18 crons devuelve **cero**.'],
+        tocar: ['`app/api/cron/compromisos-vencidos/route.ts` (nuevo)', '`lib/avisos-catalogo.ts`', '`lib/notif-catalogo.ts:159` (`AVISOS_WA_EN_VIVO`)', '`vercel.json`'],
+      },
+      {
+        titulo: 'Regla de «cliente sin señales hace N días»', estado: 'cola',
+        que: 'Hoy un cliente ganado no dispara ninguna acción del motor.',
+        yaEsta: ['El motor y sus reglas T1-T6: `lib/crm-auto-plan.ts`, con umbral por workspace.'],
+        falta: [
+          '`lib/crm-auto-plan.ts:82` abre con `if (l.estado_lead === \'abierto\')` y la única regla de afuera (T6, `:126`) exige `no_responde` o `perdido`. **Un lead `ganado` queda fuera de todo.**',
+          'Definir qué cuenta como señal: última reunión, último WhatsApp, último cambio en su proyecto, avance en la plataforma.',
+        ],
+        tocar: ['`lib/crm-auto-plan.ts`'],
+      },
+      {
+        titulo: 'Tabla de seguimiento por cliente', estado: 'cola', plan: 'Etapa del encargo, próximo hito y estado por cliente',
+        que: 'Etapa del encargo, próximo hito con fecha y estado manual. Es lo único que no se deriva de nada.',
+        yaEsta: ['Sus clientes YA son proyectos de su board (`PREFIJO_CLIENTE`, `lib/todo-proyectos-catalogo.ts:36`): la tabla cuelga de ahí, no es una entidad nueva.'],
+        falta: ['`plan_proyectos` (mig 0093) no tiene etapa ni hito.'],
+        tocar: ['`supabase/migrations/`', '`lib/workspace.ts:60`', '`lib/reset-workspace.ts:36`'],
+        ojo: 'No llamarla `FASES`: ya hay tres constantes con ese nombre. Y `FaseDef.hito` es un falso amigo — es constante de la fase, igual para todos los clientes.',
+      },
+      {
+        titulo: 'Vista de cartera', estado: 'cola', plan: 'Vista de cartera + alertas de baja al dueño',
+        que: 'Una fila por cliente: último contacto, compromisos abiertos, vencidos y próximo hito.',
+        yaEsta: ['El molde de pantalla cross-cliente, ya auditado: `app/admin/agente/page.tsx:49-66`.'],
+        falta: ['La vista. Hoy la única ruta del área es `app/cs-analyst/page.tsx`: **7 líneas** que devuelven `<ComingSoon />`.'],
+        tocar: ['`lib/cs-cartera.ts` (nuevo)', '`app/cs-analyst/page.tsx`', '`app/_components/nav.ts:182` (sacar `comingSoon`)'],
+        ojo: 'La tab «Clientes» de `/admin` es un falso amigo: lista **workspaces** (los clientes de MaKo), no los clientes de Mauricio.',
+      },
+      {
+        titulo: 'Que la atribución al cliente sobreviva al confirmar', estado: 'cola',
+        que: 'En el board del cliente, el proyecto resuelto se pierde al aplicar el borrador.',
+        falta: [
+          '`lib/plan-propuesta.ts:827` re-rutea todo, y `lib/todo-rutear.ts:84` decide contra un menú que **excluye explícitamente los proyectos de cliente**.',
+          'Dos exports muertos: `proyectoDeCliente` (`lib/reunion-cliente.ts:168-188`, la única función que CREA la categoría) y `razonArchivado` (`:331`). Cero call-sites.',
+        ],
+        tocar: ['`lib/todo-rutear.ts`', '`lib/plan-propuesta.ts`', '`lib/reunion-cliente.ts`'],
+      },
+      {
+        titulo: 'Que el aviso importante se distinga del ruido', estado: 'cola', plan: 'Optimizar notificaciones de MaKo por WhatsApp para Mauricio',
+        que: 'Los metadatos existen y nadie los usa al despachar.',
+        yaEsta: ['`lib/avisos-catalogo.ts:24` define `PrioridadAviso` y las ~48 filas la traen.'],
+        falta: ['`emitirAviso` (`lib/avisos.ts:73-134`) **no lee `prioridad` en ninguna línea**: un `alta` y un `baja` salen por el mismo canal con el mismo formato.'],
+        tocar: ['`lib/avisos.ts`'],
+        ojo: '⚠️ El feed in-app está muerto en tres capas y tiene ORDEN OBLIGATORIO (`docs/hallazgos-infra.md:872-876`): la tabla `notificaciones` se creó **sin `workspace_id`** y nunca se aplicó en prod; `lib/notificaciones.ts:76-101` traga el error con un `catch` mudo. Aplicarla tal cual le mostraría los avisos de todos a cada cliente.',
+      },
     ],
   },
+  // ───────────────────────────────────────────────────────────────────────────
   {
-    titulo: 'Que la IA cierre el bucle',
-    desbloquea: 'Que las respuestas se reescriban solas después de cada junta.',
+    titulo: 'El final del ciclo',
+    desbloquea: 'Anticipar una baja, cerrar bien y que el cliente feliz vuelva a vender. Es lo que le sirve para los contratos que vencen en octubre.',
     pasos: [
-      { titulo: 'El Fathom de la reunión reescribe las respuestas', estado: 'cola', plan: 'Configurar Fathom e IA para actualizar formularios post-reunión',
-        que: 'Engancha en el pipeline de reuniones que ya corre, y amplía las respuestas del bloque con lo que se habló.' },
-      { titulo: 'Camino cuando no hay grabación', estado: 'cola',
-        que: 'Que lo diga y ofrezca completar a mano. **Ya falló dos veces**: sin esto el bucle se corta entero.' },
-    ],
-  },
-  {
-    titulo: 'Que no se caiga nada',
-    desbloquea: 'Que deje de sostener el seguimiento en la cabeza y en un Excel. No espera a nadie.',
-    pasos: [
-      { titulo: 'Cron de compromisos vencidos', estado: 'cola', plan: 'Implementar notificaciones proactivas de MaKo por WhatsApp sobre tareas pendientes',
-        que: 'Barre `deadline` vencido agrupado por cliente y emite un aviso por día. Molde: `app/api/cron/tareas-verificar/route.ts`, que ya recorre workspaces. **Hoy tiene cero líneas.**' },
-      { titulo: 'Tabla de seguimiento por cliente', estado: 'cola', plan: 'Etapa del encargo, próximo hito y estado por cliente',
-        que: 'Etapa del encargo (0-4), próximo hito con fecha y estado manual, colgada del proyecto que ya existe. A `TENANT_TABLES` **y** a `TABLAS_RESET`. No llamarla `FASES`: ya hay tres.' },
-      { titulo: 'Vista de cartera', estado: 'cola', plan: 'Vista de cartera + alertas de baja al dueño',
-        que: 'Una fila por cliente: último contacto, compromisos abiertos, vencidos y próximo hito. Molde `app/admin/agente/page.tsx`.' },
-      { titulo: 'Que el semáforo dé el guión, no el link', estado: 'cola', plan: 'Semáforo que razona alertas, no que solo linkea',
-        que: 'Cada alerta de `app/general/page.tsx` pasa a ser una capacidad con acción (`lib/mako-capacidades.ts`) en vez de un `<Link>`.' },
-    ],
-  },
-  {
-    titulo: 'Que se cierre y vuelva a vender',
-    desbloquea: 'Lo que les ofrece a los contratos que vencen en octubre y noviembre.',
-    pasos: [
-      { titulo: 'Escribir el protocolo de graduación', quien: 'Los dos', estado: 'cola', plan: 'Protocolo de graduación y salida de un cliente',
-        que: 'Qué se entrega, cómo se cierra y cuándo. Es un documento, no software.' },
-      { titulo: 'Definir la oferta de renovación de oct/nov', quien: 'Los dos', estado: 'cola',
-        que: 'Lo único de este grupo con reloj. Ya está como prioridad del Perro en su board.' },
-      { titulo: 'Pipeline de casos de éxito', estado: 'cola', plan: 'Pipeline de casos de éxito: del resultado al testimonio publicado',
-        que: 'Tabla chica por estados: resultado → entrevista → editado → publicado. **Sin materia prima todavía**: ningún cliente llegó.' },
-    ],
-  },
-  {
-    titulo: 'La deuda con él',
-    desbloquea: 'Nada técnico: es lo que sostiene la relación. No espera a nadie.',
-    pasos: [
-      { titulo: 'Vista móvil', estado: 'cola', plan: 'Bases mobile dentro del sistema global (una tarea por pantalla, sheets, 44 px)',
-        que: 'Intentó usar MaKo desde el teléfono en vivo y no pudo.' },
-      { titulo: 'Agendar la Junta 2 sin salir de la llamada', estado: 'cola', plan: 'Agendar la Junta 2 sin salir de la llamada',
-        que: 'Camino corto desde la ficha del lead a reservar el horario, usable desde el celular.' },
-      { titulo: 'Jerarquía en los avisos de WhatsApp', estado: 'cola', plan: 'Optimizar notificaciones de MaKo por WhatsApp para Mauricio',
-        que: 'Que el accionable se distinga del informativo. El problema no es volumen: un aviso correcto quedó sepultado y le costó media reunión.' },
-      { titulo: 'Arreglar el mapa de México', estado: 'cola', plan: 'El mapa de México pinta el estado equivocado, no un cero',
-        que: 'Diccionario Meta→GeoJSON en `app/marketing/ad-charts.tsx` y devolver `null` en vez de `0`. Hoy el Estado de México se queda con el valor de CDMX.' },
-      { titulo: 'Escribir el acuerdo de propiedad del código', estado: 'cola', plan: 'Dejar escrito el acuerdo de propiedad del código de MaKo',
-        que: 'Quedó cerrado de palabra el 6/8 y sin registro.' },
-      { titulo: 'Los otros bugs que reportó', estado: 'cola',
-        que: '«Pregúntale a MaKo» roto · histórico que mezcla meses · audio de WhatsApp sin transcribir · filtro de fecha en costos de IA.' },
+      {
+        titulo: 'Analizar las llamadas de entrega en vez de tirarlas', estado: 'cola', plan: 'Analizar las llamadas de entrega en vez de tirarlas',
+        que: 'Hoy se transcriben y se descartan sin que Claude las lea.',
+        yaEsta: ['La detección está sólida y corre sola (ver el primer paso del bucle). Los datos ya existen.'],
+        falta: [
+          '`lib/closing.ts:478-486` escribe `summary: null`, `status: \'descartada\'` y todo el bloque `NULL_V2`. Por el otro camino, `:533-545` deja `score`, `dims`, `moments` y `recs` en null porque `ventaOk` es false.',
+          'Un contrato de salida propio: las 7 dimensiones SPIN no aplican a una sesión de entrega. Hacen falta otras: ánimo, compromisos asumidos, fricción, señal de riesgo.',
+          'Una pantalla que las muestre: `entrega_servicio` **solo aparece en `lib/closing.ts`** en todo el repo.',
+        ],
+        tocar: ['`lib/closing.ts` (`descartadaRow`, `analyzedRow`, `getClosingViewData`)', '`lib/prompt-registry.ts`', '`supabase/migrations/`', '`app/cs-analyst/`'],
+      },
+      {
+        titulo: 'Puntaje de riesgo de baja por cliente', estado: 'bloqueada', plan: 'Termómetro de baja por cliente',
+        que: 'Combina el ánimo de la última llamada, la cuota impaga y las señales del CRM.',
+        yaEsta: ['Dos de los tres insumos ya están: `lib/pagos.ts:495` (`getCuotasPendientes`) y la clasificación de la reunión como entrega.'],
+        falta: ['El tercer insumo —el ánimo— hoy se tira: depende del paso anterior.'],
+      },
+      {
+        titulo: 'Estado de cliente: graduado o dado de baja', estado: 'cola',
+        que: 'Los cuatro desenlaces de `EstadoLead` son todos PRE-venta.',
+        falta: ['`lib/leads.ts:38` no tiene ningún estado posterior a `ganado`.'],
+        tocar: ['`supabase/migrations/`', '`lib/leads.ts`', '`lib/queries.ts` (`_getMrrActivo`)'],
+        ojo: '⚠️ Hoy la suscripción «activa» se **deriva de fechas** (`lib/queries.ts:765-766`): un cliente que se va antes de tiempo **sigue contando en el MRR** hasta que venza el plazo.',
+      },
+      {
+        titulo: 'Etapa del pipeline posterior a `ganado`', estado: 'cola',
+        que: 'El pipeline termina en `ganado` y no hay dónde vive un cliente en entrega.',
+        falta: ['`lib/pipeline.ts:316` le da `kind: \'cierre\'` y el `switch` de `generateFunnel` (`:399-441`) no tiene case para eso. La UI además inserta toda etapa nueva ANTES del cierre (`FunnelEditor.tsx:187`).'],
+        tocar: ['`lib/pipeline.ts`', '`lib/leads.ts`', '`app/crm/actions.ts`', '`app/funnel/FunnelEditor.tsx`', '`lib/stage-requirements.ts:146`'],
+        ojo: '🔴 **Esto HOY corrompe datos.** Un usuario puede mover una etapa custom después de `ganado` con el botón ▼ (`FunnelEditor.tsx:345`), y `terminalEstadoFor` (`lib/pipeline.ts:953-961`) devuelve `abierto` para cualquier key no canónica → `app/crm/actions.ts:1771-1773` pone `monto_cierre_usd`, `fecha_cierre` y `fecha_inicio_servicio` en `null`. **Destruye el Revenue y el CAPI del lead.** Arreglar eso antes que la etapa.',
+      },
+      {
+        titulo: 'Testimonios como entidad', estado: 'cola',
+        que: 'Con texto, autor, `lead_id`, grabación de origen, **permiso de uso** y estado de publicación.',
+        falta: ['No hay tabla ni tipo. Alta manual primero; la extracción automática desde los transcripts, después.'],
+        tocar: ['`supabase/migrations/`', '`lib/` (módulo nuevo)'],
+        ojo: 'Falso amigo caro: todo lo que matchea «testimonio» en el repo son vocabularios de clasificación de CREATIVOS (`lib/ads-analyst.ts:43,46,54`, `lib/script-angles.ts:19`) o tipos de bloque de landing. Quien busque `caso-exito` lo encuentra primero y se equivoca de área.',
+      },
+      {
+        titulo: 'Pipeline de casos de éxito', estado: 'bloqueada', plan: 'Pipeline de casos de éxito: del resultado al testimonio publicado',
+        que: 'Resultado → entrevista → editado → publicado, por estados.',
+        falta: ['La tabla y la vista. Y la señal que lo dispara: hoy no hay «promesa cumplida» en ningún lado.'],
+        ojo: 'Sin materia prima todavía: al 29/7 ningún cliente de Mauricio había llegado a la etapa que produce el caso.',
+      },
+      {
+        titulo: 'Encuesta de satisfacción por instancia', estado: 'cola',
+        que: 'Arranque, módulo, 1:1, grupal y pago. Un termómetro, no una encuesta anual.',
+        yaEsta: ['Los canales de envío ya existen: `lib/resend.ts` y `lib/evolution-envio.ts`.'],
+        falta: ['Todo lo demás. Verificado: `grep -rni "encuesta|nps|satisfacc"` sobre `lib/` y `app/` devuelve **cero código**.'],
+        ojo: 'NPS quedó descartado con motivo: con ~7 clientes activos no significa nada. Lo que se mide es la instancia, no el año.',
+      },
     ],
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DESPUÉS DEL SPRINT — los 12 módulos de la propuesta, como pasos
-// ─────────────────────────────────────────────────────────────────────────────
-// Solo lo que sigue siendo trabajo. Lo que ya se descartó con motivo (NPS, CES,
-// churn rate, gamificación, momentos wow, escudo de disputas, blindaje legal,
-// firma de contrato, asignación de consultor) NO está: un roadmap con pasos que
-// nadie va a hacer no es un roadmap. Y lo que se adelantó al sprint tampoco se
-// repite acá.
-
-export const DESPUES: Grupo[] = [
-  {
-    titulo: 'Arranque del cliente',
-    desbloquea: 'Que el pago se vuelva cliente listo sin intervención.',
-    pasos: [
-      { titulo: 'Etapa posterior a `ganado` en el pipeline', estado: 'cola',
-        que: 'Hoy `lib/pipeline.ts` termina en `ganado`: no hay dónde vive un cliente en entrega.' },
-      { titulo: 'Traspaso automático de venta a servicio', estado: 'cola',
-        que: 'El que paga entra solo al circuito: datos, accesos y bienvenida.' },
-      { titulo: 'Tracker de arranque', estado: 'cola',
-        que: 'En qué paso del onboarding está cada cliente nuevo, para ver quién se trabó antes de empezar.' },
-    ],
-  },
-  {
-    titulo: 'La sesión de cada semana',
-    desbloquea: 'Que el trabajo recurrente no dependa de la memoria de Mauricio.',
-    pasos: [
-      { titulo: 'Preparación de sesión', estado: 'cola',
-        que: 'Diez minutos antes, el resumen del cliente y el objetivo del día.' },
-      { titulo: 'Fases del programa configurables por workspace', estado: 'cola',
-        que: 'Hoy son constantes de código (`lib/fase-diagnostico.ts`): cada consultor tiene las suyas.' },
-    ],
-  },
-  {
-    titulo: 'Medir el resultado del cliente',
-    desbloquea: 'La detección de «promesa cumplida», que enciende el growth loop.',
-    pasos: [
-      { titulo: 'Tracker de la promesa', estado: 'cola',
-        que: 'La promesa que le hizo, medida: de dónde salió, dónde está y cuánto falta. Se apoya en la matriz.' },
-      { titulo: 'KPIs del cliente', estado: 'cola',
-        que: 'Tareas asignadas y cumplidas, sesiones entregadas, cuellos de botella.' },
-      { titulo: 'Quick wins', estado: 'cola',
-        que: 'Marcar las primeras victorias para usarlas temprano.' },
-      { titulo: 'Detector de promesa cumplida', estado: 'cola',
-        que: 'Cuando llega a la meta, dispara caso de éxito, referido o ascenso.' },
-    ],
-  },
-  {
-    titulo: 'Que la entrega vuelva a vender',
-    desbloquea: 'Que cada cliente feliz alimente el funnel.',
-    pasos: [
-      { titulo: 'Guía de entrevista de caso de éxito', estado: 'cola',
-        que: 'Las preguntas listas y la grabación capturada sola.' },
-      { titulo: 'Banco de testimonios', estado: 'cola',
-        que: 'Los elogios de las sesiones, etiquetados y listos para marketing. Amplía lo que ya lee el pipeline de reuniones.' },
-      { titulo: 'Motor de referidos', estado: 'cola',
-        que: 'Avisa cuándo pedirlos, con el guión.' },
-      { titulo: 'Tracking de referidos', estado: 'cola',
-        que: 'Link propio por cliente: quién trajo a quién.' },
-    ],
-  },
-  {
-    titulo: 'Retener y recuperar',
-    desbloquea: 'Anticipar una baja en vez de enterarse cuando ya pasó.',
-    pasos: [
-      { titulo: 'Analizar las llamadas de entrega', estado: 'cola', plan: 'Analizar las llamadas de entrega en vez de tirarlas',
-        que: 'Hoy el triage las guarda con `status: descartada` y `summary: null`. Los datos ya existen, solo se tiran.' },
-      { titulo: 'Termómetro de baja por cliente', estado: 'cola', plan: 'Termómetro de baja por cliente',
-        que: 'Puntaje de riesgo que combina el ánimo de la última llamada con la cuota impaga y las señales del CRM.' },
-      { titulo: 'Encuesta de satisfacción por instancia', estado: 'cola',
-        que: 'Arranque, módulos, 1:1, grupales, pago. Hoy hay 4 respuestas de una encuesta anónima y nada en el código.' },
-      { titulo: 'Flujo de pausa y cancelación', estado: 'cola',
-        que: 'Entender el porqué, proponer pausa, recordar la garantía.' },
-      { titulo: 'Gestión de cobros del cliente', estado: 'cola',
-        que: 'Impagos que se persiguen solos y la próxima fecha a la vista. Parte existe: `getCuotasPendientes`.' },
-    ],
-  },
-  {
-    titulo: 'La entrega de a muchos',
-    desbloquea: 'El modelo grupal, que es su camino declarado a los US$50K.',
-    pasos: [
-      { titulo: 'Gestión de camadas', estado: 'cola',
-        que: 'Los clientes por cohorte, no solo de a uno.' },
-      { titulo: 'Sesiones grupales con Q&A', estado: 'cola',
-        que: 'Formulario de preguntas antes, hoja de Q&A después, cada pregunta registrada por cliente.' },
-      { titulo: 'Grabaciones con marcas de tiempo', estado: 'cola',
-        que: 'La grabación sube con cada pregunta marcada en su minuto.' },
-      { titulo: 'Check-ins automáticos', estado: 'cola',
-        que: 'MaKo le pregunta a cada cliente cómo va, sin intervención.' },
-      { titulo: 'Grupos de accountability', estado: 'cola',
-        que: 'Armar grupos entre clientes para que se empujen entre ellos.' },
-    ],
-  },
-  {
-    titulo: 'Operación y equipo',
-    desbloquea: 'Que el servicio deje de depender de que Mauricio esté.',
-    pasos: [
-      { titulo: 'Biblioteca de procesos (SOPs)', estado: 'cola',
-        que: 'Su forma de entregar, documentada una vez y viva adentro de MaKo. Es el entregable «servicio escrito».' },
-      { titulo: 'Roles y ruteo de eventos', estado: 'cola',
-        que: 'Cada evento cae en el equipo correcto, con su tarea y su fecha.' },
-      { titulo: 'Arreglar «Pregúntale a MaKo»', estado: 'cola',
-        que: 'Lo reportó roto el 31/7. Es la puerta a todo lo de arriba: preguntar por un cliente y que responda con su historial.' },
-    ],
-  },
-];
-
-/** Los títulos que el roadmap reclama del tablero. Derivado de los datos. */
+/** Los títulos que este roadmap reclama del tablero. Derivado. */
 export const TITULOS_EN_PLAN: string[] =
-  [...GRUPOS, ...DESPUES].flatMap((g) => g.pasos.map((p) => p.plan).filter((t): t is string => !!t));
+  GRUPOS.flatMap((g) => g.pasos.map((p) => p.plan).filter((t): t is string => !!t));
 
-export const TOTAL_SPRINT = GRUPOS.reduce((n, g) => n + g.pasos.length, 0);
-export const TOTAL_DESPUES = DESPUES.reduce((n, g) => n + g.pasos.length, 0);
+export const TOTAL = GRUPOS.reduce((n, g) => n + g.pasos.length, 0);
 
-/** Cuántos pasos hay en cada estado, para el resumen del encabezado. */
-export function conteo(grupos: Grupo[]): Record<EstadoPaso, number> {
+export function conteo(): Record<EstadoPaso, number> {
   const out: Record<EstadoPaso, number> = { hecha: 0, sigue: 0, bloqueada: 0, cola: 0 };
-  for (const g of grupos) for (const p of g.pasos) out[p.estado]++;
+  for (const g of GRUPOS) for (const p of g.pasos) out[p.estado]++;
   return out;
 }
