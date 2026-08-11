@@ -156,21 +156,19 @@ export async function POST(request: NextRequest) {
       // Corrido acá, el mensaje ya puede DECIR el desenlace y linkear la pantalla.
       const shareUrl = body.share_url ?? null;
       after(() => runWithWorkspace(ws, async () => {
-        let borradorListo = false;
         if (attended !== false) {
           try {
             const r = await redactarFollowUpPostLlamada(lead.id, shareUrl, reunion);
-            borradorListo = r.creado;
             console.log(`[webhook:fathom] follow-up post-llamada lead=${lead.id}: ${r.creado ? 'borrador creado' : `no (${r.motivo})`}`);
           } catch (err2) {
             console.error(`[webhook:fathom] follow-up post-llamada lead=${lead.id} falló: ${err2 instanceof Error ? err2.message : String(err2)}`);
           }
         }
         // El aviso sale SIEMPRE, aunque el análisis o la redacción hayan fallado:
-        // sin él, una reunión terminada no le avisa a nadie. `textoAvisoPostLlamada`
-        // se adapta a lo que de verdad haya (ver lib/lead-resumen.ts).
+        // sin él, una reunión terminada no le avisa a nadie. Y NO cuenta nada de
+        // la charla — eso vive en la pantalla que linkea (ver lib/lead-resumen.ts).
         try {
-          const texto = await textoAvisoPostLlamada({ leadId: lead.id, nombre, reunion, duracionMin: dur, borradorListo });
+          const texto = await textoAvisoPostLlamada({ leadId: lead.id, nombre, reunion, duracionMin: dur });
           await emitirDelCatalogo('reunion-ocurrio-fathom', { texto });
         } catch (err3) {
           console.error(`[webhook:fathom] aviso post-llamada lead=${lead.id} falló: ${err3 instanceof Error ? err3.message : String(err3)}`);

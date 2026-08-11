@@ -380,7 +380,7 @@ export async function POST(request: NextRequest) {
           // horario?») no tenía a dónde ir: nadie escuchaba la respuesta. Ahora
           // MaKo sí puede reagendar en Calendly desde el chat, así que se dice
           // exactamente qué escribirle para que pase (ver lib/calendly-agenda.ts).
-          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} que era para el ${fmtFechaHoraLocal(startTimeIso, tzWs)} y todavía no reagendó.\n\nSi conseguís otro horario, decime *«reagendale la ${tipoCancelada} a ${lead.nombre}»* y te busco los huecos libres.\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
+          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} (era el ${fmtFechaHoraLocal(startTimeIso, tzWs)}) y todavía no reagendó.\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\nSi conseguís otro horario, decime *«reagendale la ${tipoCancelada} a ${lead.nombre}»*.\n\n— MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.cancelo'.
         await dispararEvento('lead.cancelo', { leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada });

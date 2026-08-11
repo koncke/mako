@@ -165,7 +165,7 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
 
   const data = await getResumenLead(idNum);
   if (!data) notFound();
-  const { lead, tz, llamadas, respuestas, origen, proximaReunion, grabaciones } = data;
+  const { lead, tz, llamadas, respuestas, origen, proximaReunion, grabaciones, borradorSeguimiento } = data;
 
   const stagesRaw = await getPipelineStages().catch(() => [] as Stage[]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
@@ -227,6 +227,22 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
         )}
 
         {yaHablaron && ultima && <Llamada ll={ultima} tz={tz} principal />}
+
+        {/* ── El seguimiento que MaKo dejó escrito ──────────────────────────
+            Antes esto se anunciaba en el WhatsApp («te dejé el mensaje listo»)
+            sin dar dónde leerlo. Vive acá justamente para poder abrirlo: se ve
+            el texto completo, y el botón lleva al lugar donde se manda. */}
+        {borradorSeguimiento && (
+          <Seccion titulo="MaKo te escribió el seguimiento" nota="Todavía no se envió. Revisalo y mandalo desde el WhatsApp de MaKo.">
+            <div style={{ padding: '13px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 15.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+              {borradorSeguimiento.texto}
+            </div>
+            <Link href={`/whatsapp?lead=${lead.id}`} style={{ display: 'inline-block', marginTop: 12, fontSize: 15, fontWeight: 600, color: 'var(--primary)' }}>
+              Revisarlo y mandarlo →
+            </Link>
+          </Seccion>
+        )}
+
         {quienEs}
         {!yaHablaron && (
           <Seccion titulo="Todavía no hablaron" nota="Cuando termine la reunión, acá abajo aparece el resumen de la charla, las objeciones y el próximo paso.">

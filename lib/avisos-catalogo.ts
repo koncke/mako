@@ -46,6 +46,93 @@ export const EMOJI_CATEGORIA: Record<CategoriaAviso, string> = {
   reporte: '📊', aviso: '🔔', accion: '⚡', pregunta: '❓',
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// El RÓTULO: de qué habla cada mensaje, en la primera línea
+// ─────────────────────────────────────────────────────────────────────────────
+// El dueño lo pidió con estas palabras: «muchas veces los mensajes se solapan
+// porque son muchos, me gustaría implementar una metodología para que el cliente
+// los diferencie fácilmente».
+//
+// El problema no es que sean largos: es que TODOS EMPIEZAN IGUAL. En la lista de
+// WhatsApp se ve el arranque de cada uno, y si tres arrancan con un emoji suelto
+// y una frase, hay que abrirlos para saber de qué son. La primera línea es lo
+// ÚNICO que se lee sin abrir, así que ahí va de qué se trata.
+//
+// ⚠️ POR QUÉ EL ÁREA Y NO LA CATEGORÍA. `categoria` (reporte/aviso/acción/
+// pregunta) describe la FORMA del mensaje, no su tema: al dueño le importa
+// distinguir «esto es de una reunión» de «esto es de plata», no «esto es un
+// aviso» de «esto es una pregunta». Con la categoría, catorce mensajes de temas
+// distintos arrancarían con el mismo rótulo y no se habría arreglado nada.
+//
+// Se pinta en el choke point (`emitirAviso`), no en los call-sites: así lo toma
+// TODO mensaje, incluidos los que nadie tocó y los que se creen mañana.
+
+export type AreaAviso = 'reunion' | 'lead' | 'anuncios' | 'plata' | 'plan' | 'sistema' | 'reporte';
+
+/** Cómo se ve el rótulo de cada área. El emoji es el ancla visual; el texto, el desempate. */
+export const ROTULO_AREA: Record<AreaAviso, { emoji: string; texto: string }> = {
+  reunion:  { emoji: '🗓️', texto: 'REUNIÓN' },
+  lead:     { emoji: '👤', texto: 'LEAD' },
+  anuncios: { emoji: '📣', texto: 'ANUNCIOS' },
+  plata:    { emoji: '💵', texto: 'PLATA' },
+  plan:     { emoji: '📋', texto: 'PLAN' },
+  sistema:  { emoji: '🔧', texto: 'SISTEMA' },
+  reporte:  { emoji: '📊', texto: 'REPORTE' },
+};
+
+/**
+ * Área de cada aviso del catálogo. Lo que NO está acá cae en 'sistema', que es
+ * el default honesto: un mensaje sin área declarada es uno que nadie clasificó,
+ * y es mejor que se vea como tal a que se disfrace de otra cosa.
+ */
+const AREA_POR_AVISO: Record<string, AreaAviso> = {
+  'reporte-diario': 'reporte', 'reporte-horario': 'reporte', 'reporte-semanal': 'reporte',
+  'cierre-mes': 'reporte', 'retro-lista': 'reporte',
+
+  'reunion-recordatorio': 'reunion', 'reunion-agenda-dia': 'reunion',
+  'reunion-nuevo-agendado': 'reunion', 'reunion-cancelada': 'reunion',
+  'reunion-ocurrio-fathom': 'reunion', 'reunion-no-show': 'reunion',
+  'reunion-compromisos-tareas': 'plan', 'reunion-tareas-al-plan': 'plan',
+  'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
+
+  'lead-formulario-meta': 'lead', 'wa-mensaje-entrante': 'lead',
+  'wa-sin-responder': 'lead', 'nutricion-agotada': 'lead',
+  'closing-objecion': 'lead',
+
+  'meta-cuenta-frenada': 'anuncios', 'meta-cuenta-riesgo': 'anuncios',
+  'meta-cuenta-recuperada': 'anuncios', 'meta-saldo-agotarse': 'anuncios',
+  'meta-token-vencido': 'anuncios', 'meta-anuncio-rechazado': 'anuncios',
+  'meta-anuncio-espera-aprobacion': 'anuncios', 'ad-fatiga': 'anuncios',
+  'ad-cpl-disparado': 'anuncios', 'ad-ganador-escalar': 'anuncios',
+  'ad-gastan-sin-leads': 'anuncios', 'ad-gasto-anomalo': 'anuncios',
+  'ad-aprendizaje-limitado': 'anuncios', 'ad-cuenta-verde-sin-ads': 'anuncios',
+  'leads-caida': 'anuncios', 'capi-cierres-no-reportados': 'anuncios',
+  'script-ganador': 'anuncios', 'sugerir-experimento': 'anuncios',
+  'drive-campana-armada': 'anuncios',
+
+  'cuota-vencida': 'plata', 'cuota-por-vencer': 'plata',
+  'pago-recibido': 'plata', 'cierre-venta': 'plata',
+  'objetivo-en-riesgo': 'plata', 'meta-alcanzada': 'plata',
+
+  'tracking-apagado': 'sistema', 'wa-desconectado': 'sistema',
+  'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
+  'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
+  'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
+};
+
+export function areaDeAviso(id: string): AreaAviso {
+  return AREA_POR_AVISO[id] ?? 'sistema';
+}
+
+/**
+ * La primera línea del mensaje. Las barras no son decoración: en WhatsApp son lo
+ * que corta visualmente un mensaje del anterior cuando llegan cuatro seguidos.
+ */
+export function encabezadoAviso(id: string): string {
+  const { emoji, texto } = ROTULO_AREA[areaDeAviso(id)];
+  return `━━ ${emoji} ${texto} ━━`;
+}
+
 export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   // ── REPORTES (digest por cron) ─────────────────────────────────────────────
   {
@@ -190,13 +277,11 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     id: 'reunion-recordatorio', titulo: 'Recordatorio de reunión próxima', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron reunion-recordatorio (cada 10 min): junta_1_at/junta_2_at a menos de 30 minutos, con el lead abierto y la asistencia sin marcar. Una marca por reunión evita repetirlo.',
-    ejemplo: `⏰ En 30 min tenés la *R2* con *Francisco Ramos* (Dental Ramos).
-
-De la charla anterior quedó sin resolver: “Lo tengo que ver con mi socio”
-Y habías quedado en: mandarle la propuesta con las dos opciones de plazo
+    ejemplo: `━━ 🗓️ REUNIÓN ━━
+⏰ En 30 min tenés la *R2* con *Francisco Ramos* (Dental Ramos).
 
 👉 Mirá el resumen del lead:
-https://tu-app/crm/482/resumen
+https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
   },
@@ -215,7 +300,7 @@ https://tu-app/crm/482/resumen
     ejemplo: `🎯 *Nuevo agendado*: Juan Pérez reservó una *R1 para el jueves 16 a las 11:00*. Vino del anuncio "VSL testimonios".
 
 👉 Mirá el resumen del lead:
-https://tu-app/crm/482/resumen
+https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
   },
@@ -228,7 +313,7 @@ https://tu-app/crm/482/resumen
 Si conseguís otro horario, decime *«reagendale la R1 a Mariela Gómez»* y te busco los huecos libres.
 
 👉 Mirá el resumen del lead:
-https://tu-app/crm/482/resumen
+https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
   },
@@ -241,16 +326,11 @@ https://tu-app/crm/482/resumen
     // así que no había resumen que pasar, y la respuesta del dueño no la escuchaba
     // nadie. El link reemplaza la pregunta — ver app/api/webhooks/fathom/route.ts.
     disparador: 'Webhook Fathom, dentro del after(): cuando el Closing Analyst terminó de analizar la llamada y MaKo dejó el follow-up como borrador.',
-    ejemplo: `✅ Terminó la *R1 con Sergio Esquer* (42 min).
-
-*Avanza a propuesta*
-Quedaron 2 objeciones sin resolver.
-Próximo paso: mandarle el caso de éxito de logística y confirmar la R2
+    ejemplo: `━━ 🗓️ REUNIÓN ━━
+✅ Terminó la *R1 con Sergio Esquer* (42 min).
 
 👉 Mirá el resumen de la llamada:
-https://tu-app/crm/482/resumen
-
-Y te dejé el mensaje de seguimiento escrito y listo para mandarle, en /whatsapp.
+https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
   },
@@ -264,7 +344,7 @@ Y te dejé el mensaje de seguimiento escrito y listo para mandarle, en /whatsapp
     id: 'reunion-tareas-al-plan', titulo: 'Reunión de equipo nueva → tareas esperando confirmación', categoria: 'accion',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron fathom-plan: caen grabaciones nuevas de reuniones de EQUIPO, MaKo las lee y deja los borradores pendientes en el plan. UN aviso por corrida, no uno por reunión.',
-    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Mau <> Martín* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://tu-app/plan\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`,
+    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Mau <> Martín* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://hola-mako.com/plan\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`,
   },
   {
     id: 'tareas-autocompletadas', titulo: 'MaKo cerró tareas que ya estaban hechas', categoria: 'aviso',
@@ -277,7 +357,7 @@ Y te dejé el mensaje de seguimiento escrito y listo para mandarle, en /whatsapp
 • *Cargar el funnel* — ya está cargado en MaKo
 
 Si alguna no está lista, abrila y reabrila: no la vuelvo a tocar.
-https://tu-app/plan — MaKo`,
+https://hola-mako.com/plan — MaKo`,
   },
   {
     id: 'reunion-no-show', titulo: 'No-show → sugerir seguimiento', categoria: 'accion',

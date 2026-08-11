@@ -21,6 +21,10 @@ import { readFileSync } from 'node:fs';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 
+/** Saca comentarios de bloque y de línea, para poder afirmar sobre el CÓDIGO. */
+const sinComentarios = (src: string): string =>
+  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
 test('CABLEADO: el aviso post-llamada se emite DESPUÉS del análisis, adentro del after()', () => {
   const src = leer('../app/api/webhooks/fathom/route.ts');
 
@@ -105,6 +109,61 @@ test('CABLEADO: el link al resumen lo arma el código, nunca el modelo', () => {
   }
   const lib = leer('../lib/lead-resumen.ts');
   assert.ok(lib.includes('export function linkResumenLead'), 'el helper del link sigue siendo la fuente única');
+});
+
+test('El WhatsApp NO cuenta la reunión: solo avisa y linkea', async () => {
+  // Regla del dueño (11/08/2026): «no quiero que en WhatsApp me diga
+  // absolutamente nada de lo que pasó en la reu o lo que quedó pendiente o nada.
+  // Solo quiero que me mande el link». El riesgo real es la reincidencia: es
+  // tentador «ayudar» agregando el próximo paso o cuántas objeciones quedaron.
+  const src = leer('../lib/lead-resumen.ts');
+  const desde = src.indexOf('export async function textoAvisoPostLlamada');
+  const hasta = src.indexOf('export async function textoAvisoPreLlamada');
+  assert.ok(desde > 0 && hasta > desde, 'los dos armadores de mensaje siguen existiendo');
+  // Sin comentarios: los comentarios de esa zona EXPLICAN por qué no van las
+  // objeciones, así que buscarlas sobre el texto crudo se dispara contra la
+  // propia explicación.
+  const mensajes = sinComentarios(src.slice(desde));
+
+  // Se prohíbe LEER los campos del análisis, no la palabra: «resumen» aparece
+  // legítimamente en `getResumenLead` y en «Mirá el resumen del lead».
+  for (const prohibido of ['.objeciones', '.proximoPaso', '.outcome', '.resumen', '.handled', 'llamadas[0]']) {
+    assert.ok(
+      !mensajes.includes(prohibido),
+      `el mensaje de WhatsApp volvió a leer "${prohibido}" del análisis: eso vive en la pantalla, no en el chat`,
+    );
+  }
+  assert.ok(mensajes.includes('linkResumenLead('), 'el mensaje dejó de llevar el link, que es su única razón de ser');
+});
+
+test('Nada de «te dejé algo listo» sin su link: el borrador se muestra en la pantalla', () => {
+  // «No me puede decir que me dejó un mensaje listo y no mandarme un link.»
+  const src = leer('../lib/lead-resumen.ts');
+  const mensajes = sinComentarios(src.slice(src.indexOf('export async function textoAvisoPostLlamada')));
+  assert.ok(!/te dej[ée]/i.test(mensajes), 'el WhatsApp volvió a anunciar algo que no se puede abrir desde ahí');
+
+  const pagina = leer('../app/crm/[id]/resumen/page.tsx');
+  assert.ok(pagina.includes('borradorSeguimiento'), 'la pantalla dejó de mostrar el borrador de seguimiento');
+  assert.ok(/\/whatsapp\?lead=/.test(pagina), 'el borrador se muestra pero sin el link para ir a mandarlo');
+});
+
+test('Todo aviso arranca con su rótulo, y se pega en el choke point', () => {
+  const catalogo = leer('../lib/avisos-catalogo.ts');
+  const avisos = leer('../lib/avisos.ts');
+
+  assert.ok(avisos.includes('encabezadoAviso(a.tipo)'), 'el rótulo dejó de pegarse en emitirAviso: con eso, cada call-site tiene que acordarse');
+  // Se manda el texto CON rótulo, no el pelado.
+  assert.ok(/enviarAlGrupoSuperAdmin\(texto\)/.test(avisos) && /enviarAlGrupoMaKo\(ws, texto\)/.test(avisos),
+    'se volvió a mandar a.texto sin el rótulo');
+  assert.ok(/guardarTurno\(ws, jid, 'assistant', texto/.test(avisos),
+    'el historial del doer guarda un texto distinto del que se mandó');
+
+  // Todo id del catálogo tiene área declarada: el default 'sistema' existe para
+  // los custom que crea el dueño, no para tapar olvidos del catálogo.
+  const ids = [...catalogo.matchAll(/^\s*id: '([a-z0-9-]+)',/gm)].map((m) => m[1]);
+  assert.ok(ids.length > 40, `se esperaban los ~48 avisos del catálogo, se encontraron ${ids.length}`);
+  const sinArea = ids.filter((id) => !new RegExp(`'${id}': '`).test(catalogo));
+  assert.deepEqual(sinArea, [], `estos avisos del catálogo no tienen área y caerían en 'sistema': ${sinArea.join(', ')}`);
 });
 
 test('CABLEADO: el recordatorio no depende de la frecuencia del cron para no repetirse', () => {

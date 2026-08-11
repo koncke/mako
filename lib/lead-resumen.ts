@@ -70,6 +70,15 @@ export type ResumenLead = {
   proximaReunion: { cual: 'R1' | 'R2'; iso: string } | null;
   /** Grabaciones cargadas a mano en la ficha (fathom_links). */
   grabaciones: FathomLink[];
+  /**
+   * El follow-up que MaKo dejó escrito y sin enviar, si lo hay.
+   *
+   * Vive acá y no en el WhatsApp por la regla del dueño: «no me puede decir que
+   * me dejó un mensaje listo y no mandarme un link». Anunciarlo en el chat sin
+   * poder abrirlo es un callejón; en la pantalla se lee entero y se manda con un
+   * toque desde /whatsapp.
+   */
+  borradorSeguimiento: { texto: string; creadoIso: string | null } | null;
 };
 
 /**
@@ -158,7 +167,7 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
   const ws = (await getWorkspaceActual()) ?? OWNER_WS;
   const supabase = await getTenantDb();
 
-  const [tz, filas, campMap, adMap] = await Promise.all([
+  const [tz, filas, campMap, adMap, borrador] = await Promise.all([
     tzDeWorkspace(ws).catch(() => TZ_DEFAULT),
     supabase
       .from('closing_analyses')
@@ -169,6 +178,20 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
       .then((r) => (r.data ?? []) as unknown as Fila[]),
     getCampaignNameMap().catch(() => ({} as Record<string, string>)),
     getAdNameMap().catch(() => ({} as Record<string, string>)),
+    // Solo el PENDIENTE: uno ya enviado o descartado no es algo «que te dejé
+    // listo», y anunciarlo mandaría a /whatsapp a buscar algo que no está.
+    Promise.resolve(
+      supabase
+        .from('wa_borradores')
+        .select('texto, created_at')
+        .eq('lead_id', leadId)
+        .eq('origen', 'post_llamada')
+        .eq('estado', 'pendiente')
+        .order('created_at', { ascending: false })
+        .limit(1),
+    )
+      .then((r) => ((r.data ?? [])[0] as { texto: string; created_at: string } | undefined) ?? null)
+      .catch(() => null),
   ]);
 
   const llamadas: LlamadaResumen[] = filas.map((f) => ({
@@ -207,58 +230,56 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
     },
     proximaReunion: proximaReunionDe(lead),
     grabaciones: lead.fathom_links ?? [],
+    borradorSeguimiento: borrador ? { texto: borrador.texto, creadoIso: borrador.created_at ?? null } : null,
   };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los dos mensajes de WhatsApp que linkean acá
 // ─────────────────────────────────────────────────────────────────────────────
-// Viven en este módulo A PROPÓSITO: leen exactamente el mismo `getResumenLead`
-// que pinta la pantalla. Cuando el mensaje lo armaba el webhook por su cuenta,
-// prometía «ya te saqué las objeciones» minutos antes de que el análisis
-// existiera, y el que entraba no encontraba nada. Un mensaje que promete lo que
-// la pantalla no tiene es peor que no mandar nada.
-
-const plural = (n: number, uno: string, varios: string) => (n === 1 ? `1 ${uno}` : `${n} ${varios}`);
+// ⚠️ EL MENSAJE NO CUENTA LA REUNIÓN. Pedido textual del dueño (11/08/2026):
+// «no quiero que en WhatsApp me diga absolutamente nada de lo que pasó en la reu
+// o lo que quedó pendiente o nada. Solo quiero que me mande el link, dentro de
+// MaKo se verá todo eso».
+//
+// No es una preferencia de largo: es dónde vive cada cosa. El resumen, las
+// objeciones y el próximo paso viven en la pantalla, que los muestra ordenados,
+// completos y actualizados. Repetirlos en el chat los deja congelados en el
+// momento del envío, obliga a leer un ladrillo en el celular y —lo peor— hace
+// que abrir el link se sienta redundante justo cuando es lo único que importa.
+// El WhatsApp avisa QUÉ pasó y a dónde ir. Nada más.
+//
+// ⚠️ Y NADA DE «TE DEJÉ ALGO LISTO» SIN SU LINK. Segunda regla del mismo pedido:
+// «no me puede decir que me dejó un mensaje listo y no mandarme un link». Si el
+// mensaje nombra algo que MaKo preparó, ese algo se abre desde ahí mismo, o no
+// se nombra. El borrador de seguimiento se anuncia y se linkea EN LA PANTALLA,
+// que es donde se puede leer antes de mandarlo.
 
 /**
- * DESPUÉS de la reunión. Se manda cuando el análisis YA corrió, no cuando cae
- * el webhook: por eso puede decir qué pasó en vez de preguntar si lo querés.
+ * DESPUÉS de la reunión. Se manda cuando el análisis YA corrió — no para
+ * contarlo, sino para que el link lleve a algo que ya está completo.
  */
 export async function textoAvisoPostLlamada(input: {
   leadId: number;
   nombre: string;
   reunion: 'R1' | 'R2';
   duracionMin: number | null;
-  /** MaKo dejó el follow-up listo para enviar en /whatsapp. */
-  borradorListo: boolean;
 }): Promise<string> {
-  const { leadId, nombre, reunion, duracionMin, borradorListo } = input;
-  const data = await getResumenLead(leadId).catch(() => null);
-  const ll = data?.llamadas[0] ?? null;
+  const { leadId, nombre, reunion, duracionMin } = input;
   const dur = duracionMin ? ` (${duracionMin} min)` : '';
-
-  const lineas = [`✅ Terminó la *${reunion} con ${nombre}*${dur}.`];
-
-  if (ll) {
-    if (ll.outcome) lineas.push('', `*${ll.outcome}*`);
-    const abiertas = ll.objeciones.filter((o) => !o.handled).length;
-    if (abiertas) lineas.push(`Quedaron ${plural(abiertas, 'objeción sin resolver', 'objeciones sin resolver')}.`);
-    if (ll.proximoPaso) lineas.push(`Próximo paso: ${ll.proximoPaso}`);
-  } else {
-    // Sin análisis no se inventa: se dice que la grabación está y ya.
-    lineas.push('', 'Ya tengo la grabación y el transcript.');
-  }
-
-  lineas.push('', '👉 Mirá el resumen de la llamada:', linkResumenLead(leadId));
-  if (borradorListo) lineas.push('', 'Y te dejé el mensaje de seguimiento escrito y listo para mandarle, en /whatsapp.');
-  lineas.push('', '— MaKo');
-  return lineas.join('\n');
+  return [
+    `✅ Terminó la *${reunion} con ${nombre}*${dur}.`,
+    '',
+    '👉 Mirá el resumen de la llamada:',
+    linkResumenLead(leadId),
+    '',
+    '— MaKo',
+  ].join('\n');
 }
 
 /**
- * ANTES de la reunión. Lo que sirve acá no es el historial completo: es con
- * quién te vas a sentar y qué quedó pendiente de la charla anterior.
+ * ANTES de la reunión. Con quién y cuándo, y el link. El repaso de la charla
+ * anterior y las objeciones abiertas están en la pantalla.
  */
 export async function textoAvisoPreLlamada(input: {
   leadId: number;
@@ -269,23 +290,16 @@ export async function textoAvisoPreLlamada(input: {
   const { leadId, cual, minutos } = input;
   const data = await getResumenLead(leadId);
   if (!data) return '';
-  const { lead, llamadas } = data;
+  const { lead } = data;
 
   const cuanto = minutos >= 60 ? `${Math.round(minutos / 60)} h` : `${minutos} min`;
   const quien = lead.empresa ? `*${lead.nombre}* (${lead.empresa})` : `*${lead.nombre}*`;
-  const lineas = [`⏰ En ${cuanto} tenés la *${cual}* con ${quien}.`];
-
-  const previa = llamadas[0];
-  if (previa) {
-    const abiertas = previa.objeciones.filter((o) => !o.handled);
-    if (abiertas.length) lineas.push('', `De la charla anterior quedó sin resolver: “${abiertas[0].quote}”${abiertas.length > 1 ? ` (y ${abiertas.length - 1} más)` : ''}`);
-    if (previa.proximoPaso) lineas.push(`Y habías quedado en: ${previa.proximoPaso}`);
-  } else if (data.respuestas.length) {
-    // Primera reunión: lo que dijo al agendar es todo lo que hay de él.
-    const r = data.respuestas[0];
-    lineas.push('', `${r.pregunta} → ${r.respuesta}`);
-  }
-
-  lineas.push('', '👉 Mirá el resumen del lead:', linkResumenLead(leadId), '', '— MaKo');
-  return lineas.join('\n');
+  return [
+    `⏰ En ${cuanto} tenés la *${cual}* con ${quien}.`,
+    '',
+    '👉 Mirá el resumen del lead:',
+    linkResumenLead(leadId),
+    '',
+    '— MaKo',
+  ].join('\n');
 }

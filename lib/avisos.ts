@@ -17,7 +17,7 @@ import { getSetting, setSetting } from './settings';
 import { avisoWaActivo } from './perfil';
 import { runWithWorkspace, getWorkspaceActual, OWNER_WS } from './workspace';
 import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-catalogo';
-import { CATALOGO_AVISOS } from './avisos-catalogo';
+import { CATALOGO_AVISOS, encabezadoAviso } from './avisos-catalogo';
 
 const SEV_POR_SEMAFORO: Record<SemaforoAviso, NotifSeveridad> = {
   rojo: 'urgente', amarillo: 'warn', verde: 'ok', na: 'info',
@@ -113,7 +113,17 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // SuperAdmin es SOLO para avisos de agencia (cross-cliente) marcados alDueno.
     // Así los eventos de un cliente (aunque corran en OWNER_WS) NO caen en el grupo
     // de SuperAdmin — el cliente los recibe en SU grupo (creado en Config>Notif).
-    const env = a.alDueno === true ? await enviarAlGrupoSuperAdmin(a.texto) : await enviarAlGrupoMaKo(ws, a.texto);
+    // El RÓTULO se pega acá y en ningún otro lado. Es el choke point: así lo
+    // llevan los ~48 avisos del catálogo y también los que se creen mañana, sin
+    // que nadie tenga que acordarse. Va solo al WhatsApp — en el feed in-app el
+    // mensaje ya está dentro de una tarjeta con su título, y ahí las barras son
+    // ruido (por eso `crearNotificacion` arriba recibe el texto pelado).
+    //
+    // Idempotente a propósito: si un call-site ya lo trae (una plantilla que el
+    // dueño editó a mano copiando el formato), no se duplica.
+    const encabezado = encabezadoAviso(a.tipo);
+    const texto = a.texto.trimStart().startsWith('━━') ? a.texto : `${encabezado}\n${a.texto}`;
+    const env = a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto) : await enviarAlGrupoMaKo(ws, texto);
     if (!env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
     // El aviso queda EN LA CONVERSACIÓN del grupo. Sin esto, MaKo manda una pregunta
     // ("saqué 97 compromisos, ¿los cargo?") y no le queda ningún registro: cuando el
@@ -123,7 +133,10 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     if (env.ok) {
       const { guardarTurno } = await import('./mako-doer-conv');
       const jid = a.alDueno === true ? await getGrupoSuperAdminJid() : await getGrupoJidMaKo(ws);
-      if (jid) await guardarTurno(ws, jid, 'assistant', a.texto, env.id).catch(() => {});
+      // Se guarda el texto QUE SE MANDÓ (con rótulo), no el pelado: el historial
+      // del doer tiene que ser lo que el dueño ve en el chat, o el modelo razona
+      // sobre un mensaje que nadie leyó.
+      if (jid) await guardarTurno(ws, jid, 'assistant', texto, env.id).catch(() => {});
     }
     if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo);
     return { ok: true, feedId, wa: env.ok, deduped: false, waError: env.ok ? undefined : env.error };
