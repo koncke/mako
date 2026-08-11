@@ -23,7 +23,8 @@
 
 import { type NextRequest } from 'next/server';
 import { verificarFirmaSvix, headersSvix, MOTIVO_FIRMA } from '@/lib/standard-webhooks';
-import { leccionDelEvento, wsDeCompany, type EventoWhop } from '@/lib/whop';
+import { wsDeCompany } from '@/lib/whop';
+import { leccionDelEvento, emailDelEvento, companyDelEvento, tipoDelEvento, type EventoWhop } from '@/lib/whop-evento';
 import { credWs, envCred } from '@/lib/credenciales';
 import { runWithWorkspace } from '@/lib/workspace';
 import { registrarAvanceDeClase } from '@/lib/cs-avance';
@@ -43,18 +44,18 @@ export async function POST(request: NextRequest) {
   //    validar. Un payload forjado igual muere en la firma, porque el secreto
   //    que se prueba es el del workspace que el propio payload nombra.
   //    El chequeo de objeto no es de más: `JSON.parse('null')` no lanza.
-  let evento: EventoWhop & { data?: { company_id?: string } };
+  let evento: EventoWhop;
   try {
     const parsed: unknown = JSON.parse(crudo);
     if (parsed === null || typeof parsed !== 'object') throw new Error('no es un objeto');
-    evento = parsed as EventoWhop & { data?: { company_id?: string } };
+    evento = parsed as EventoWhop;
   } catch {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
   // 3) De quién es. Fail-CLOSED: sin mapeo no se toca un dato. Entregarle a ws1
   //    el avance de otro sería escribirle progreso falso a un cliente.
-  const companyId = evento.data?.company_id ?? null;
+  const companyId = companyDelEvento(evento);
   const ws = await wsDeCompany(companyId);
 
   // 4) La firma, con el secreto DE ESE workspace. Cada cliente registra el
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: true, ignored: 'sin workspace' });
   }
 
-  const tipo = evento.event ?? evento.action ?? '';
+  const tipo = tipoDelEvento(evento);
   if (tipo !== EVENTO) return Response.json({ ok: true, ignored: `evento ${tipo || 'sin nombre'}` });
 
   const leccionId = leccionDelEvento(evento);
@@ -90,15 +91,12 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: true, ignored: 'sin id de lección' });
   }
 
-  const userId = typeof evento.data?.user_id === 'string' ? evento.data.user_id
-    : typeof (evento.data?.user as { id?: unknown } | undefined)?.id === 'string'
-      ? String((evento.data!.user as { id: string }).id) : null;
 
   // 5) TODO lo que escribe va adentro de runWithWorkspace: sin sesión,
   //    getWorkspaceActual() cae al dueño, y getTenantDb() estampa el
   //    workspace_id solo si el contexto está puesto.
   try {
-    const r = await runWithWorkspace(ws, () => registrarAvanceDeClase({ ws, leccionId, userId, email: emailDelEvento(evento) }));
+    const r = await runWithWorkspace(ws, () => registrarAvanceDeClase({ ws, leccionId, email: emailDelEvento(evento) }));
     // 200 aunque no se haya podido atribuir: el evento llegó bien y firmado, lo
     // que falta es de nuestro lado. El motivo va en el cuerpo y en el log para
     // que se pueda ver, en vez de descartarse en silencio.
@@ -109,18 +107,6 @@ export async function POST(request: NextRequest) {
     // 500 a propósito: acá SÍ queremos el reintento de Whop.
     return Response.json({ ok: false, error: 'no se pudo registrar' }, { status: 500 });
   }
-}
-
-/** El email del alumno, que es lo único que lo cruza con el CRM. Whop lo manda
- *  en distintos lugares según el evento, así que se buscan los tres nombres que
- *  usa. Null antes que adivinar: un email inventado le escribe avance a otro. */
-function emailDelEvento(ev: EventoWhop): string | null {
-  const d = (ev.data ?? {}) as Record<string, unknown>;
-  const directo = d.email ?? d.user_email;
-  if (typeof directo === 'string' && directo.includes('@')) return directo;
-  const user = d.user as { email?: unknown } | undefined;
-  if (user && typeof user.email === 'string' && user.email.includes('@')) return user.email;
-  return null;
 }
 
 /** Healthcheck: pegarle con GET dice si la ruta existe y por dónde entra. Y si

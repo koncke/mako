@@ -288,23 +288,10 @@ export async function actualizarLeccion(
 // error indistinguible de un secreto mal pegado. Los tres detalles que fallan
 // siempre están escritos arriba de standard-webhooks.ts.
 
-export type EventoWhop = {
-  /** ej. `course_lesson_interaction.completed` */
-  event?: string;
-  action?: string;
-  data?: Record<string, unknown>;
-};
-
-/** El id de lección que trae un evento de avance, mirando los nombres que Whop
- *  usa indistintamente. Devuelve null en vez de inventar: un id equivocado
- *  marca completado el bloque de otra clase. */
-export function leccionDelEvento(ev: EventoWhop): string | null {
-  const d = ev.data ?? {};
-  for (const k of ['course_lesson_id', 'lesson_id', 'id']) {
-    const v = d[k];
-    if (typeof v === 'string' && v.startsWith('less')) return v;
-  }
-  const anidado = d.course_lesson as { id?: unknown } | undefined;
-  if (anidado && typeof anidado.id === 'string') return anidado.id;
-  return null;
-}
+// El parseo del payload vive en `lib/whop-evento.ts`, SIN `server-only`, para
+// que se pueda testear. Se re-exporta acá para que quien ya importaba de `whop`
+// no tenga que cambiar nada.
+export {
+  leccionDelEvento, emailDelEvento, companyDelEvento, tipoDelEvento,
+  PREFIJO_LECCION, type EventoWhop,
+} from './whop-evento';

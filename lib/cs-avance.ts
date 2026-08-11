@@ -94,7 +94,6 @@ export type ResultadoAvance =
 export async function registrarAvanceDeClase(input: {
   ws: number;
   leccionId: string;
-  userId: string | null;
   email: string | null;
 }): Promise<ResultadoAvance> {
   // 1. Lección → clase, con auto-reparación.
