@@ -61,10 +61,10 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
     if (!Number.isFinite(leadId) || leadId <= 0) notFound();
     if (!puedeEditar(acceso.share, 'tarea-cs', String(leadId))) notFound();
 
-    const { bloques, inicial, nombre } = await vistaDeTarea(acceso.share.workspace_id, leadId);
-    if (!bloques.length) notFound();
+    const { modulos, inicial, nombre, totales } = await vistaDeTarea(acceso.share.workspace_id, leadId);
+    if (!modulos.length) notFound();
     await registrarVisita(acceso);
-    return <TareaCliente token={token} nombre={nombre} bloques={bloques} inicial={inicial} />;
+    return <TareaCliente token={token} nombre={nombre} modulos={modulos} inicial={inicial} totales={totales} />;
   }
 
   const todos = await listarAssetsDeWorkspace(acceso.share.workspace_id);

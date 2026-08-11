@@ -1,37 +1,60 @@
 // =============================================================================
-// cs-tarea-vista — el programa + lo que este cliente ya contestó, en una lista
+// cs-tarea-vista — el programa + lo que este cliente ya contestó
 // =============================================================================
-// Junta las dos mitades: el temario, que es igual para todos
-// (`lib/programa-catalogo.ts`), y las filas de ESTE cliente (`cs_respuestas`).
-// Vive aparte de los dos porque la pantalla pública no puede importar ninguno de
-// los dos caminos completos: el catálogo no sabe de base y la lib de base no
-// sabe del temario.
+// Junta las dos mitades: el temario, que es igual para todos, y las filas de
+// ESTE cliente. Vive aparte de los dos porque la pantalla pública no puede
+// importar ninguno de los dos caminos completos: el catálogo no sabe de base y
+// la lib de base no sabe del temario.
 //
 // ⚠️ Corre bajo el workspace DEL SHARE, no del request: quien entra no tiene
 // sesión. Por eso recibe `ws` y envuelve la lectura en `runWithWorkspace`.
 
 import 'server-only';
 import { runWithWorkspace, getTenantDb } from './workspace';
-import { PROGRAMA, rotuloDe } from './programa-catalogo';
+import { PROGRAMA } from './programa-catalogo';
+import { camposDe, type Campo } from './programa-campos';
+import { faltantes, type Valores } from './cs-valores';
 import { bloquesDeCliente, type Bloque } from './cs-respuestas';
 
-export type BloqueVista = {
+export type EstadoBloque = Bloque['estado'];
+
+export type ClaseVista = {
   claseId: string;
-  rotulo: string;
-  modulo: string;
+  /** «4.2» */
+  numero: string;
+  titulo: string;
+  /** La línea que resume el bloque. Se muestra antes de las preguntas. */
   pregunta: string;
-  atoro?: string;
-  quienContesta: string;
-  respuesta: string;
+  atoro: string | null;
+  campos: Campo[];
+  valores: Valores;
+  /** Lo que MaKo propuso después de la junta. */
   respuestaIa: string | null;
-  estado: Bloque['estado'];
+  /** Lo que quedó guardado como respuesta final, legible. */
+  respuesta: string;
+  estado: EstadoBloque;
+  /** Obligatorias sin contestar. Es lo que le dice cuánto le queda. */
+  faltan: number;
+  vista: boolean;
+};
+
+export type ModuloVista = {
+  moduloId: string;
+  numero: number;
+  titulo: string;
+  /** El líder del área contesta los umbrales, no el dueño. */
+  loContestaElLider: boolean;
+  porArea: boolean;
+  clases: ClaseVista[];
 };
 
 export async function vistaDeTarea(ws: number, leadId: number): Promise<{
-  bloques: BloqueVista[];
-  /** Cuál abrir: el que espera aprobación gana, después el primero sin contestar. */
+  modulos: ModuloVista[];
+  /** Cuál abrir: el que espera su ok gana, después el primero sin terminar. */
   inicial: string;
   nombre: string | null;
+  /** Para el marcador de arriba. */
+  totales: { clases: number; listas: number; esperandoSuOk: number };
 }> {
   return runWithWorkspace(ws, async () => {
     const filas = await bloquesDeCliente(leadId).catch(() => [] as Bloque[]);
@@ -39,32 +62,49 @@ export async function vistaDeTarea(ws: number, leadId: number): Promise<{
     // la pantalla muestra la vuelta sin área (''), que es la que existe siempre.
     const porClase = new Map(filas.filter(f => !f.area).map(f => [f.clase_id, f]));
 
-    const bloques: BloqueVista[] = PROGRAMA.flatMap(m =>
-      m.clases.map(c => {
+    const modulos: ModuloVista[] = PROGRAMA.map(m => ({
+      moduloId: m.id,
+      numero: m.numero,
+      titulo: m.titulo,
+      loContestaElLider: m.quien === 'líder de área',
+      porArea: Boolean(m.porArea),
+      clases: m.clases.map((c, i) => {
         const f = porClase.get(c.id);
+        const valores = (f?.valores ?? {}) as Valores;
         return {
           claseId: c.id,
-          rotulo: rotuloDe(c.id),
-          modulo: `Módulo ${m.numero} · ${m.titulo}`,
+          numero: `${m.numero}.${i + 1}`,
+          titulo: c.titulo,
           pregunta: c.pregunta,
-          atoro: c.atoro,
-          quienContesta: m.quien,
-          respuesta: f?.respuesta ?? '',
+          atoro: c.atoro ?? null,
+          campos: camposDe(c.id),
+          valores,
           respuestaIa: f?.respuesta_ia ?? null,
+          respuesta: f?.respuesta ?? '',
           estado: f?.estado ?? 'pendiente',
-        };
+          faltan: faltantes(c.id, valores).length,
+          vista: Boolean(f?.visto_at),
+        } satisfies ClaseVista;
       }),
-    );
+    }));
 
-    // Lo que espera SU ok va primero: es lo único que está frenado esperándolo.
+    const todas = modulos.flatMap(m => m.clases);
     const inicial =
-      bloques.find(b => b.estado === 'revisada_ia')?.claseId
-      ?? bloques.find(b => b.estado === 'pendiente')?.claseId
-      ?? bloques[0]?.claseId
+      todas.find(c => c.estado === 'revisada_ia')?.claseId
+      ?? todas.find(c => c.estado === 'pendiente')?.claseId
+      ?? todas[0]?.claseId
       ?? '';
 
-    const nombre = await nombreDelCliente(leadId);
-    return { bloques, inicial, nombre };
+    return {
+      modulos,
+      inicial,
+      nombre: await nombreDelCliente(leadId),
+      totales: {
+        clases: todas.length,
+        listas: todas.filter(c => c.estado === 'aprobada').length,
+        esperandoSuOk: todas.filter(c => c.estado === 'revisada_ia').length,
+      },
+    };
   });
 }
 

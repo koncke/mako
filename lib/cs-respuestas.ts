@@ -18,6 +18,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { claseDe } from './programa-catalogo';
+import { aTexto, type Valores } from './cs-valores';
 
 export type EstadoBloque = 'pendiente' | 'contestada' | 'revisada_ia' | 'aprobada';
 
@@ -26,7 +27,12 @@ export type Bloque = {
   lead_id: number;
   clase_id: string;
   area: string;
+  /** La versión LEGIBLE de `valores`. Derivada, nunca escrita a mano: es sobre
+   *  la que trabaja el resto del bucle (la IA reescribe prosa, el cliente
+   *  aprueba prosa). */
   respuesta: string | null;
+  /** Lo que contestó, campo por campo. ES la fuente de verdad. */
+  valores: Valores;
   respuesta_ia: string | null;
   fuente_reunion: string | null;
   estado: EstadoBloque;
@@ -40,7 +46,7 @@ export type Bloque = {
   updated_at: string;
 };
 
-const COLS = 'id, lead_id, clase_id, area, respuesta, respuesta_ia, fuente_reunion, estado, visto_at, contestada_at, revisada_at, aprobada_at, updated_at';
+const COLS = 'id, lead_id, clase_id, area, respuesta, valores, respuesta_ia, fuente_reunion, estado, visto_at, contestada_at, revisada_at, aprobada_at, updated_at';
 
 /** Normaliza el área a lo que guarda la base. `area` es NOT NULL DEFAULT '' para
  *  que el índice único sea sobre columnas exactas; null y '' son el mismo bloque
@@ -70,15 +76,20 @@ export async function bloquesDeCliente(leadId: number): Promise<Bloque[]> {
  *  ya se cerró, volver a escribir lo reabre a 'contestada' a propósito (el
  *  cliente cambió de opinión), pero la propuesta de la IA se conserva para que
  *  se pueda comparar. */
-export async function guardarRespuesta(leadId: number, claseId: string, texto: string, area?: string | null): Promise<Bloque | null> {
-  if (!claseDe(claseId)) return null; // un id que no está en el programa no se guarda: sería una fila huérfana
+export async function guardarRespuesta(
+  leadId: number, claseId: string, valores: Valores, area?: string | null,
+): Promise<Bloque | null> {
+  if (!claseDe(claseId)) return null; // un id que no está en el programa sería una fila huérfana
   const db = await getTenantDb();
+  // El texto se DERIVA, siempre. Si se aceptara uno de afuera habría dos
+  // versiones de lo mismo y la que lee la IA sería la que nadie actualizó.
+  const texto = aTexto(claseId, valores);
   const vacio = !texto.trim();
   const { data } = await db
     .from('cs_respuestas')
     .upsert({
       lead_id: leadId, clase_id: claseId, area: areaDe(area),
-      respuesta: texto,
+      valores, respuesta: texto,
       estado: vacio ? 'pendiente' : 'contestada',
       contestada_at: vacio ? null : new Date().toISOString(),
       updated_at: new Date().toISOString(),

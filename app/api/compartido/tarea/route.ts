@@ -21,6 +21,7 @@ import { resolverToken, puedeEditar } from '@/lib/shares';
 import { runWithWorkspace } from '@/lib/workspace';
 import { guardarRespuesta, aprobarBloque } from '@/lib/cs-respuestas';
 import { claseDe } from '@/lib/programa-catalogo';
+import { sanear } from '@/lib/cs-valores';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -34,7 +35,7 @@ const NO = () => NextResponse.json({ ok: false }, { status: 404, headers: { 'Cac
 const TOPE = 20_000;
 
 export async function POST(req: NextRequest) {
-  let body: { token?: string; claseId?: string; area?: string; texto?: string; accion?: string };
+  let body: { token?: string; claseId?: string; area?: string; texto?: string; valores?: unknown; accion?: string };
   try {
     const parsed: unknown = await req.json();
     if (parsed === null || typeof parsed !== 'object') return NO();
@@ -62,8 +63,14 @@ export async function POST(req: NextRequest) {
   try {
     const fila = await runWithWorkspace(acceso.share.workspace_id, () =>
       accion === 'aprobar'
+        // Aprobar guarda PROSA: es lo que el cliente leyó y confirmó, que puede
+        // ser la propuesta de MaKo. No toca `valores` — lo estructurado sigue
+        // siendo lo que él escribió campo por campo.
         ? aprobarBloque(leadId, claseId, texto, area)
-        : guardarRespuesta(leadId, claseId, texto, area),
+        // Guardar recibe los CAMPOS. El texto se deriva adentro, y el saneo
+        // recorta contra los campos que existen: un id inventado no entra al
+        // jsonb, y una tabla no puede traer más columnas que las suyas.
+        : guardarRespuesta(leadId, claseId, sanear(claseId, body.valores), area),
     );
     if (!fila) return NO();
     return NextResponse.json(
