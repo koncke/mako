@@ -42,6 +42,10 @@ export const DEFS: Def[] = [
   // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL
   // (ver estadoGoogleCalendar), como la landing.
   { key: 'google', nombre: 'Google Calendar', categoria: 'Reuniones', descripcion: 'Cruza las reuniones de tu agenda para detectar juntas automáticamente.', envs: [] },
+  // Whop: la plataforma donde el cliente ve los videos del programa. De acá se
+  // lee el AVANCE, nunca las respuestas de la tarea — su API no tiene endpoint
+  // para leerlas (verificado 2026-08-11). Ver el comentario de lib/whop.ts.
+  { key: 'whop', nombre: 'Whop', categoria: 'Contenido', descripcion: 'El programa en video, y quién completó cada clase.', envs: ['WHOP_API_KEY'] },
   { key: 'panda', nombre: 'Panda Video', categoria: 'Datos', descripcion: 'Métricas de reproducción del VSL.', envs: ['PANDA_API_KEY'] },
   { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_API_KEY'] },
   // Supabase NO va acá: es la infra de la plataforma, no una integración que el

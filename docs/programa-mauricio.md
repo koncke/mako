@@ -206,7 +206,7 @@ responder por ellos.*
 
 ## Lo que este temario decide, y conviene discutir con él
 
-- **39 clases son 39 videos.** Es mucho para grabar de una. Si hay que priorizar, los que
+- **42 clases son 42 videos.** Es mucho para grabar de una. Si hay que priorizar, los que
   destraban de verdad son **1.6, 4.2, 7.1, 7.2 y 8.1**: son los cinco atoros medidos en sus
   cuatro clientes. Con esos cinco grabados, el resto se puede sostener en sesión un ciclo más.
 - **El módulo 8 lo mira el líder del área, no el dueño.** Eso obliga a que la plataforma

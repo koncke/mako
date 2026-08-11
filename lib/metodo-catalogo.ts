@@ -413,6 +413,41 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
+    key: 'whop',
+    nombre: 'Whop',
+    categoria: 'Contenido',
+    paraQue: 'Tus clientes ven ahí los videos del programa, y MaKo se entera solo de quién avanzó y quién se quedó.',
+    // UN SOLO CAMPO OBLIGATORIO, A PROPÓSITO. Casi todos los endpoints de Whop
+    // piden `company_id`, pero no se pregunta: sale de GET /accounts/me, que es
+    // lo único que la API key ya identifica sola (ver lib/whop.ts →
+    // whopCompanyId). Un campo menos que se pueda llenar mal.
+    campos: [
+      { env: 'WHOP_API_KEY', label: 'API key', secreto: true, placeholder: 'apik_…', nota: 'Con esto MaKo lee tu programa y sabe qué clase completó cada cliente.' },
+      { env: 'WHOP_WEBHOOK_SECRET', label: 'Secret del webhook', secreto: true, opcional: true, nota: 'Sin esto el avance llega en la pasada del cron y no al instante. Para recordarle a alguien el mismo día que se quedó, hace falta.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pegá esta dirección dentro de Whop',
+      porque: 'Es por donde Whop avisa apenas un cliente termina una clase. Con eso MaKo le recuerda al que se quedó y te arma el resumen antes de la llamada.',
+      valor: '{{APP_URL}}/api/webhooks/whop',
+      donde: 'whop.com → tu negocio → Developer → Webhooks → "Create Webhook".',
+      ojo: [
+        'Marcá el evento course_lesson_interaction.completed: es el único que hace falta.',
+        'Al crearlo, Whop te muestra un secret una sola vez. Ese va en el campo de arriba.',
+      ],
+    },
+    tutorial: {
+      url: 'https://whop.com/dashboard',
+      urlLabel: 'Whop → Dashboard → Developer',
+      pasos: [
+        'Para qué sirve: tus clientes miran los videos del programa en Whop, y MaKo se entera de quién avanzó sin que vos mires nada.',
+        'Entrá a whop.com con la cuenta de tu negocio.',
+        'Andá a Developer → API Keys y creá una (empieza con apik_).',
+        'Pegala acá. MaKo detecta solo a qué negocio pertenece.',
+        'Opcional pero recomendado: en Developer → Webhooks creá uno con la URL de arriba y pegá su secret.',
+      ],
+    },
+  },
+  {
     key: 'youtube',
     nombre: 'YouTube',
     categoria: 'Datos',
