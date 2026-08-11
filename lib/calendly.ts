@@ -136,6 +136,21 @@ function slug(s: string): string {
   return partes[partes.length - 1] ?? '';
 }
 
+/**
+ * ¿Estos dos nombran el MISMO event type de Calendly?
+ *
+ * Se exporta (como `mismoEventType`) porque hay dos lugares que necesitan la
+ * respuesta y tienen que dar la misma: `clasificarJunta`, que clasifica lo que
+ * ENTRA por el webhook, y `lib/calendly-agenda.ts`, que resuelve a qué event
+ * type reservar cuando MaKo agenda desde WhatsApp. Con dos comparaciones
+ * distintas, MaKo podría reservar en un event type y el webhook clasificar la
+ * reunión resultante como otra.
+ *
+ * Tolerante a propósito: `CALENDLY_EVENT_TYPE_J1/J2` se cargan a mano y en la
+ * práctica el dueño pega el NOMBRE del event type, no su URI. Compara nombre
+ * contra nombre, URI contra URI, y slug contra slug (que cubre URL de agenda vs
+ * URI de API).
+ */
 function coincide(candidato: string, configurado: string): boolean {
   const a = normalizar(candidato);
   const b = normalizar(configurado);
@@ -146,6 +161,8 @@ function coincide(candidato: string, configurado: string): boolean {
   const sb = slug(configurado);
   return sa !== '' && sa === sb;
 }
+
+export { coincide as mismoEventType };
 
 export function clasificarJunta(
   scheduled: { event_type?: string; name?: string; uri?: string } | undefined,

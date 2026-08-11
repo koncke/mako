@@ -188,9 +188,17 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   // ── REUNIONES / CRM ────────────────────────────────────────────────────────
   {
     id: 'reunion-recordatorio', titulo: 'Recordatorio de reunión próxima', categoria: 'aviso',
-    prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'no',
-    disparador: 'junta_at a N minutos (cron/scheduler).',
-    ejemplo: `⏰ En 30 minutos tenés *R2 con Dental Ramos (Francisco)*. Link listo. Repaso: quedó en revisar la propuesta de $4.500 y una objeción de plazos. A romperla. — MaKo`,
+    prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cron reunion-recordatorio (cada 10 min): junta_1_at/junta_2_at a menos de 30 minutos, con el lead abierto y la asistencia sin marcar. Una marca por reunión evita repetirlo.',
+    ejemplo: `⏰ En 30 min tenés la *R2* con *Francisco Ramos* (Dental Ramos).
+
+De la charla anterior quedó sin resolver: “Lo tengo que ver con mi socio”
+Y habías quedado en: mandarle la propuesta con las dos opciones de plazo
+
+👉 Mirá el resumen del lead:
+https://tu-app/crm/482/resumen
+
+— MaKo`,
   },
   {
     id: 'reunion-agenda-dia', titulo: 'Agenda del día (juntas de hoy)', categoria: 'aviso',
@@ -200,21 +208,51 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   },
   {
     id: 'reunion-nuevo-agendado', titulo: 'Nuevo lead que agendó reunión', categoria: 'aviso',
-    prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'no',
+    prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Webhook Calendly invitee.created.',
-    ejemplo: `🎯 *Nuevo agendado*: Juan Pérez reservó una *R1 para el jueves 16 a las 11:00*. Vino del anuncio "VSL testimonios". La ficha ya quedó armada en el CRM. — MaKo`,
+    // Decía «la ficha ya quedó armada en el CRM» y no daba el link: mandaba a
+    // buscarla a mano justo cuando el dato recién llegó y es más fácil de mirar.
+    ejemplo: `🎯 *Nuevo agendado*: Juan Pérez reservó una *R1 para el jueves 16 a las 11:00*. Vino del anuncio "VSL testimonios".
+
+👉 Mirá el resumen del lead:
+https://tu-app/crm/482/resumen
+
+— MaKo`,
   },
   {
     id: 'reunion-cancelada', titulo: 'Reunión cancelada/reagendada → reacomodar', categoria: 'accion',
-    prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'no',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'si',
     disparador: 'Webhook Calendly invitee.canceled.',
-    ejemplo: `🔄 *Se canceló* la R1 con Mariela Gómez del jueves y todavía no reagendó. ¿Le mando un WhatsApp para conseguir otro horario esta semana antes de que se pierda? — MaKo`,
+    ejemplo: `🔄 *Se canceló* la R1 con Mariela Gómez que era para el jueves 16 a las 11:00 y todavía no reagendó.
+
+Si conseguís otro horario, decime *«reagendale la R1 a Mariela Gómez»* y te busco los huecos libres.
+
+👉 Mirá el resumen del lead:
+https://tu-app/crm/482/resumen
+
+— MaKo`,
   },
   {
-    id: 'reunion-ocurrio-fathom', titulo: 'Reunión ocurrió / grabación lista (Fathom)', categoria: 'pregunta',
-    prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'no',
-    disparador: 'Webhook Fathom: transcript y grabación disponibles.',
-    ejemplo: `✅ Terminó la *R1 con Sergio Esquer* (42 min). Ya tengo grabación y transcript, y le saqué los puntos clave y las objeciones.\n\n¿Te paso el resumen acá? — MaKo`,
+    id: 'reunion-ocurrio-fathom', titulo: 'Reunión ocurrió / grabación lista (Fathom)', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ Sale DESPUÉS del Closing Analyst, no cuando cae el webhook. Antes era una
+    // 'pregunta' («¿te paso el resumen y las objeciones acá?») disparada en el
+    // instante del webhook: en ese momento el análisis todavía no había corrido,
+    // así que no había resumen que pasar, y la respuesta del dueño no la escuchaba
+    // nadie. El link reemplaza la pregunta — ver app/api/webhooks/fathom/route.ts.
+    disparador: 'Webhook Fathom, dentro del after(): cuando el Closing Analyst terminó de analizar la llamada y MaKo dejó el follow-up como borrador.',
+    ejemplo: `✅ Terminó la *R1 con Sergio Esquer* (42 min).
+
+*Avanza a propuesta*
+Quedaron 2 objeciones sin resolver.
+Próximo paso: mandarle el caso de éxito de logística y confirmar la R2
+
+👉 Mirá el resumen de la llamada:
+https://tu-app/crm/482/resumen
+
+Y te dejé el mensaje de seguimiento escrito y listo para mandarle, en /whatsapp.
+
+— MaKo`,
   },
   {
     id: 'reunion-compromisos-tareas', titulo: 'Compromisos de la reunión → cargar tareas', categoria: 'accion',

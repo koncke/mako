@@ -17,9 +17,10 @@ import { CONTRATO_TIPOS_PREGUNTA } from '@/lib/preguntas-contrato';
 import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalogo';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mako-pendientes';
-import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes } from '@/lib/leads';
+import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
+import { eventTypeDeReunion, huecosDisponibles, reservarReunion } from '@/lib/calendly-agenda';
 import type { Step, StepId } from '@/lib/stage-requirements';
-import { tzDeWorkspace } from '@/lib/timezone';
+import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
@@ -233,6 +234,42 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         const cola = fallidas ? ` (${fallidas} no pude)` : '';
         return { ok: true, resumen: `Agregué ${links.length} tarea${links.length === 1 ? '' : 's'} al plan${cola}. ${links.length === 1 ? 'Miralo acá' : 'Miralas acá'}:\n${links.join('\n')}` };
       }
+      case 'agendar_reunion': {
+        const leadId = Number(payload.leadId);
+        const cual = payload.cual === 'R2' ? 'R2' as const : 'R1' as const;
+        const startIso = String(payload.startIso ?? '');
+        const lead = await getLead(leadId).catch(() => null);
+        if (!lead) return { ok: false, resumen: `No existe el lead #${leadId}.` };
+        if (!lead.email) return { ok: false, resumen: `${lead.nombre} no tiene email cargado y Calendly lo exige para reservar.` };
+
+        const tz = await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
+        const eventType = await eventTypeDeReunion(cual);
+        // ⚠️ SE REVALIDA EL HUECO CONTRA CALENDLY, ACÁ Y AHORA.
+        // El `startIso` viajó adentro de la propuesta, o sea que pasó por el
+        // modelo, y entre la propuesta y el "sí" pueden pasar dos horas: en el
+        // medio ese hueco se lo puede haber llevado otro. Las dos razones
+        // apuntan al mismo chequeo — el que manda es el valor REAL de Calendly,
+        // no el que quedó escrito (regla de la casa sobre datos exactos).
+        const huecos = await huecosDisponibles(eventType.uri, { dias: 31 });
+        if (!huecos.some((h) => h.startIso === startIso)) {
+          const cerca = huecos.slice(0, 3).map((h) => fmtFecha(h.startIso, tz)).join(' · ');
+          return { ok: false, resumen: `Ese horario ya no está libre en Calendly. Los próximos que sí: ${cerca || 'no quedan huecos en 31 días'}.` };
+        }
+
+        const reserva = await reservarReunion({
+          eventType, startIso,
+          invitado: { email: lead.email, nombre: lead.nombre, timezone: tz },
+        });
+        // NO se escribe fecha_junta_1/2 acá: reservar dispara el webhook
+        // `invitee.created` de Calendly, que es el único que escribe esas
+        // columnas (y de paso guarda las respuestas y el UTM). Escribirlo
+        // también desde acá sería el mismo dato en dos lugares, con la versión
+        // de acá quedándose vieja el día que el webhook cambie.
+        await logLeadEvent(leadId, 'Reunión agendada', `MaKo agendó la ${cual} en Calendly para el ${fmtFecha(startIso, tz)} desde WhatsApp.`, 'MaKo');
+        const link = reserva.joinUrl ? `\n${reserva.joinUrl}` : '';
+        return { ok: true, resumen: `Listo: ${cual} con ${lead.nombre} el ${fmtFecha(startIso, tz)}. Calendly ya les mandó la invitación a los dos.${link}` };
+      }
+
       default:
         return { ok: false, resumen: `Acción desconocida: ${tipo}` };
     }
@@ -255,6 +292,35 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
     name: 'listar_campanas_meta',
     description: 'Lista las campañas de Meta Ads conocidas (id, nombre y gasto reciente), tomadas de las métricas ya sincronizadas. Usala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
     input_schema: { type: 'object', properties: {} },
+  },
+  {
+    // Es una tool de LECTURA (no propone ni escribe nada), y está acá porque es
+    // el paso obligatorio antes de `proponer_agendar_reunion`: los horarios que
+    // devuelve son los ÚNICOS que Calendly va a aceptar. Sin esto el modelo
+    // inventaría una hora redonda plausible y la reserva rebotaría siempre.
+    name: 'listar_horarios_reunion',
+    description: 'Lista los horarios REALES que tenés libres en Calendly para una R1 o una R2, en los próximos días. Usala SIEMPRE antes de proponer agendar: los "startIso" que devuelve son los únicos que Calendly acepta, y hay que pasarlos TAL CUAL, sin redondear ni reescribir. Mostrale al dueño la fecha y hora legibles, no el startIso.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cual: { type: 'string', enum: ['R1', 'R2'], description: 'qué reunión: R1 (primera) o R2 (seguimiento).' },
+        dias: { type: 'number', description: 'cuántos días para adelante mirar (1 a 31; default 7).' },
+      },
+      required: ['cual'],
+    },
+  },
+  {
+    name: 'proponer_agendar_reunion',
+    description: 'PROPONE reservar una reunión en Calendly con un lead (deja la acción pendiente de confirmación del dueño; NO la reserva). Al confirmar, Calendly crea el evento y le manda la invitación al lead y al dueño. Conseguí el leadId con buscar_leads y el startIso con listar_horarios_reunion — el startIso tiene que ser EXACTAMENTE uno de los que devolvió esa tool. El lead necesita email cargado.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        leadId: { type: 'number', description: 'id del lead (de buscar_leads).' },
+        cual: { type: 'string', enum: ['R1', 'R2'], description: 'qué reunión agendar.' },
+        startIso: { type: 'string', description: 'el "startIso" COPIADO TAL CUAL de listar_horarios_reunion. No lo reescribas ni lo redondees: si no coincide carácter por carácter, Calendly lo rechaza.' },
+      },
+      required: ['leadId', 'cual', 'startIso'],
+    },
   },
   {
     name: 'proponer_cambio_etapa',
@@ -473,6 +539,65 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         });
         if (!campanas.length) return 'No tengo campañas de Meta sincronizadas todavía.';
         return JSON.stringify(campanas);
+      }
+
+      case 'listar_horarios_reunion': {
+        const cual = str(input, 'cual').toUpperCase() === 'R2' ? 'R2' as const : 'R1' as const;
+        const dias = num(input, 'dias') ?? 7;
+        try {
+          const { eventType, huecos, tz } = await runWithWorkspace(ws, async () => {
+            const et = await eventTypeDeReunion(cual);
+            return {
+              eventType: et,
+              huecos: await huecosDisponibles(et.uri, { dias }),
+              tz: await tzDeWorkspace(ws).catch(() => TZ_DEFAULT),
+            };
+          });
+          if (!huecos.length) return JSON.stringify({ ok: true, cual, horarios: [], nota: `No te queda ningún hueco libre para la ${cual} en los próximos ${dias} días.` });
+          // Tope de 12: la lista entra en un WhatsApp y el modelo va a mostrar
+          // tres o cuatro. Mandarle 200 huecos es pagar tokens por ruido.
+          return JSON.stringify({
+            ok: true, cual, reunion: eventType.nombre, duracion_min: eventType.duracionMin,
+            horarios: huecos.slice(0, 12).map((h) => ({ startIso: h.startIso, cuando: fmtFecha(h.startIso, tz) })),
+          });
+        } catch (e) {
+          // El error de Calendly sube TEXTUAL: «falta el token», «el event type
+          // configurado no coincide», «reconectá Zoom». Un "no pude" genérico
+          // manda a buscar el problema al lugar equivocado.
+          return JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+
+      case 'proponer_agendar_reunion': {
+        const leadId = num(input, 'leadId');
+        const cual = str(input, 'cual').toUpperCase() === 'R2' ? 'R2' as const : 'R1' as const;
+        const startIso = str(input, 'startIso');
+        if (leadId == null || !startIso) return JSON.stringify({ ok: false, error: 'Faltan leadId o startIso.' });
+
+        const lead = await runWithWorkspace(ws, () => getLead(leadId).catch(() => null));
+        if (!lead) return JSON.stringify({ ok: false, error: `No existe el lead #${leadId} en este workspace.` });
+        if (!lead.email) return JSON.stringify({ ok: false, error: `${lead.nombre} no tiene email cargado, y Calendly lo exige para reservar. Pedile el email antes.` });
+
+        try {
+          // El hueco se valida ANTES de pedirle el "sí" al dueño. Sin esto le
+          // pediríamos confirmar algo que va a rebotar dos horas después, y la
+          // acción pendiente ya estaría quemada.
+          const { huecos, tz } = await runWithWorkspace(ws, async () => {
+            const et = await eventTypeDeReunion(cual);
+            return { huecos: await huecosDisponibles(et.uri, { dias: 31 }), tz: await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) };
+          });
+          if (!huecos.some((h) => h.startIso === startIso)) {
+            return JSON.stringify({
+              ok: false,
+              error: 'Ese horario no está entre los libres de Calendly. Copiá un startIso EXACTO de listar_horarios_reunion.',
+              horarios_libres: huecos.slice(0, 6).map((h) => ({ startIso: h.startIso, cuando: fmtFecha(h.startIso, tz) })),
+            });
+          }
+          return proponer('agendar_reunion', { leadId, cual, startIso },
+            `Agendar la ${cual} con ${lead.nombre} para el ${fmtFecha(startIso, tz)} (Calendly le manda la invitación a ${lead.email})`);
+        } catch (e) {
+          return JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) });
+        }
       }
 
       case 'proponer_cambio_etapa': {

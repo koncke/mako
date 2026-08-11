@@ -1394,6 +1394,38 @@ crear/ampliar/ignorar por su cuenta — *memoria [[nunca-duplicar-nunca-pregunta
 
 ## Layout, sidebar y tabs
 
+### ⚠️ Una pantalla que se abre desde WhatsApp tiene que APAGAR el chrome, y el sidebar es lo de menos
+
+La app **no tiene tratamiento móvil**: el sidebar es un riel de ancho fijo, sin `@media`, sin
+colapso por viewport. Cualquier pantalla pensada para leerse en el celular —y las que MaKo
+linkea por WhatsApp lo son por definición— arranca con ese ancho comido.
+
+**Pero lo que de verdad la rompe no es el sidebar: es `MakoConfirmGate`**, que dispara un modal
+**bloqueante y no cerrable** en TODO `/crm*`. Una pantalla nueva bajo `/crm` nace tapada por un
+modal que pide resolver confirmaciones del CRM automático, justo con la reunión por empezar. No
+hay forma de verlo leyendo el archivo de la pantalla: el gate vive en el layout raíz y matchea
+por prefijo de ruta.
+
+**Regla:** antes de colgar una pantalla de un prefijo existente, buscá qué se monta por ESE
+prefijo en `app/layout.tsx` y en los gates globales. Y si la pantalla es para el celular,
+sumala a `esVistaSinChrome` (`app/_components/PublicRouteGate.tsx`).
+
+**Ojo con el predicado que se reusa:** `isPublicLandingPath` responde «¿la puede ver alguien de
+afuera?» y es lo que apaga los pollers de notificaciones (sin sesión devolverían 401 en bucle).
+`esVistaSinChrome` responde «¿esta pantalla se dibuja sola?». Toda landing pública cumple las
+dos, pero al revés no: el resumen del lead exige sesión y aun así va limpio. Meter la ruta en el
+primero para conseguir el efecto del segundo es un nombre que miente, y el próximo que lea la
+lista va a creer que esa ruta es pública.
+
+**Y un gotcha de verificación, no de código:** con el panel del navegador oculto la página no
+compone frames, así que `getBoundingClientRect()` devuelve **0 en todo** aunque el texto se
+extraiga perfecto. Los ceros no son un layout roto. Lo que sí sirve sin panel visible:
+`document.documentElement.scrollWidth` vs `window.innerWidth` (desborde horizontal),
+`getComputedStyle` y `read_page`.
+
+**Vive en:** app/_components/PublicRouteGate.tsx · app/_components/MakoConfirmGate.tsx ·
+app/crm/[id]/resumen/page.tsx · *2026-08-11*
+
 ### ⚠️ En una lista de matchers, el genérico que va primero anula la exclusión del específico
 
 `nav.ts` se toma el trabajo explícito de separar 'Clientes' (matchea `/admin` pero **no**

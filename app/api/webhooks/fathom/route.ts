@@ -22,6 +22,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { credWs, envCred } from '@/lib/credenciales';
 import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
+import { textoAvisoPostLlamada } from '@/lib/lead-resumen';
 
 export const dynamic = 'force-dynamic';
 // El follow-up post-llamada (Closing Analyst + redacción con Claude) corre en
@@ -135,10 +136,7 @@ export async function POST(request: NextRequest) {
       const nombre = invitee.name?.trim() || lead.nombre;
       const reunion = which === 'j1' ? 'R1' : 'R2';
       const dur = webhookDurationMin(body);
-      const durTxt = dur ? ` (${dur} min)` : '';
-      await emitirDelCatalogo('reunion-ocurrio-fathom', {
-        texto: `✅ Terminó la *${reunion} con ${nombre}*${durTxt}. Ya tengo la grabación y el transcript listos.\n\n¿Querés que te pase el resumen y las objeciones acá? — MaKo`,
-      });
+
       // Flujos configurados por el dueño (editor de flujos): disparar 'reunion.ocurrio'.
       await dispararEvento('reunion.ocurrio', { leadId: lead.id, leadNombre: nombre, reunion });
 
@@ -149,17 +147,35 @@ export async function POST(request: NextRequest) {
       // que respondemos 200 ya y el trabajo sigue hasta maxDuration. Si el lead
       // no asistió (attended=false), no hay charla que seguir: lo cubre la
       // nutrición de no-show.
-      if (attended !== false) {
-        const shareUrl = body.share_url ?? null;
-        after(() => runWithWorkspace(ws, async () => {
+      //
+      // ⚠️ EL AVISO AL DUEÑO VA ADENTRO DE ESTE `after()`, DESPUÉS del análisis.
+      // Antes salía acá arriba, en el mismo instante del webhook, y por eso decía
+      // «ya tengo la grabación, ¿te paso el resumen y las objeciones?»: en ese
+      // momento el análisis todavía no había corrido, así que no había resumen que
+      // pasar y la pregunta no tenía a dónde ir — nadie escuchaba la respuesta.
+      // Corrido acá, el mensaje ya puede DECIR el desenlace y linkear la pantalla.
+      const shareUrl = body.share_url ?? null;
+      after(() => runWithWorkspace(ws, async () => {
+        let borradorListo = false;
+        if (attended !== false) {
           try {
             const r = await redactarFollowUpPostLlamada(lead.id, shareUrl, reunion);
+            borradorListo = r.creado;
             console.log(`[webhook:fathom] follow-up post-llamada lead=${lead.id}: ${r.creado ? 'borrador creado' : `no (${r.motivo})`}`);
           } catch (err2) {
             console.error(`[webhook:fathom] follow-up post-llamada lead=${lead.id} falló: ${err2 instanceof Error ? err2.message : String(err2)}`);
           }
-        }));
-      }
+        }
+        // El aviso sale SIEMPRE, aunque el análisis o la redacción hayan fallado:
+        // sin él, una reunión terminada no le avisa a nadie. `textoAvisoPostLlamada`
+        // se adapta a lo que de verdad haya (ver lib/lead-resumen.ts).
+        try {
+          const texto = await textoAvisoPostLlamada({ leadId: lead.id, nombre, reunion, duracionMin: dur, borradorListo });
+          await emitirDelCatalogo('reunion-ocurrio-fathom', { texto });
+        } catch (err3) {
+          console.error(`[webhook:fathom] aviso post-llamada lead=${lead.id} falló: ${err3 instanceof Error ? err3.message : String(err3)}`);
+        }
+      }));
     }
 
     const ms = Date.now() - tStart;

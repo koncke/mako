@@ -24,9 +24,29 @@ export function isPublicLandingPath(pathname: string | null | undefined): boolea
   return p === '/' || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/');
 }
 
-/** Renderiza a sus hijos SOLO fuera de la landing pública. */
+/**
+ * ¿Esta pantalla se muestra SIN el chrome de la app (sidebar, banners, toasts)?
+ *
+ * Son dos cosas distintas y por eso hay dos predicados: `isPublicLandingPath`
+ * responde «¿la puede ver alguien de afuera?» —y es lo que gobierna los pollers,
+ * que sin sesión devolverían 401 en bucle—; éste responde «¿esta pantalla se
+ * dibuja sola?». Toda landing pública cumple las dos, pero al revés no: el
+ * resumen del lead exige sesión y aun así va limpio.
+ *
+ * El caso que lo trajo: el link que MaKo manda por WhatsApp antes y después de
+ * cada reunión se abre EN EL CELULAR, con la reunión por empezar. Ahí el sidebar
+ * se come el ancho (no tiene tratamiento móvil: el riel es fijo) y, peor,
+ * `MakoConfirmGate` dispara su modal bloqueante en todo `/crm*` — así que la
+ * pantalla que existe para leerse de un vistazo arrancaba tapada.
+ */
+export function esVistaSinChrome(pathname: string | null | undefined): boolean {
+  const p = pathname ?? '';
+  return isPublicLandingPath(p) || /^\/crm\/\d+\/resumen\/?$/.test(p);
+}
+
+/** Renderiza a sus hijos SOLO en las pantallas que sí llevan el chrome de la app. */
 export function HideOnPublicLanding({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (isPublicLandingPath(pathname)) return null;
+  if (esVistaSinChrome(pathname)) return null;
   return <>{children}</>;
 }

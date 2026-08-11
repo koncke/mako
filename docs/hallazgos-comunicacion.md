@@ -1194,6 +1194,98 @@ usuario que ya terminó el onboarding puede cambiar el número (el wizard es ina
 (getContactoReportes) · app/api/cron/reporte-diario/route.ts:27 ·
 app/perfil/NotificacionesPanel.tsx:96 · *2026-08-06 rediseno-notificaciones*
 
+### ⚠️ Un aviso que pregunta algo que nadie escucha: el momento del disparo era el bug
+
+**Síntoma:** el dueño mostró su WhatsApp con MaKo y señaló *«muchos están incompletos, como el
+que te pregunta ¿Querés que te pase el resumen y las objeciones acá? y al final no hace nada»*.
+
+**El diagnóstico obvio era el equivocado.** Parecía que faltaba cablear la respuesta —enseñarle
+al doer a entender el «sí» y mandar el resumen—. No era eso: el aviso se emitía en el **instante
+del webhook de Fathom**, y el Closing Analyst corre **después**, adentro del `after()`. En el
+momento en que MaKo ofrecía «te paso el resumen y las objeciones», el resumen y las objeciones
+**todavía no existían**. Cablear la respuesta habría hecho que contestar «sí» devolviera vacío.
+
+**Regla:** un aviso que habla de un análisis se emite DESPUÉS del análisis, no en paralelo. Si el
+trabajo pesado va en `after()`, el aviso va adentro del mismo `after()` — y se emite igual
+aunque el análisis falle, con el texto adaptado a lo que de verdad haya. Un webhook que avisa
+antes de trabajar solo puede prometer.
+
+**Y el corolario que vale para todo el catálogo:** una pregunta por WhatsApp exige que exista un
+receptor de la respuesta. Cuando no existe, **la salida es un LINK, no una pregunta**. Auditados
+los 48 avisos contra sus call-sites, cuatro preguntaban al vacío (`reunion-ocurrio-fathom`,
+`reunion-cancelada`, `lead-formulario-meta`, y `reunion-nuevo-agendado` que decía «la ficha ya
+quedó armada en el CRM» sin dar el link a esa ficha).
+
+**Vive en:** app/api/webhooks/fathom/route.ts (el `after()`) · lib/lead-resumen.ts
+(`textoAvisoPostLlamada`) · *2026-08-11*
+
+### ⚠️ El nombre de una columna `respuesta_*` no es su pregunta, y una de ellas se leía AL REVÉS
+
+**Síntoma:** la vista nueva del lead mostraba «¿Cuánto factura al año? → Si».
+
+**Causa real:** las columnas del formulario de Calendly se llaman por su TEMA, no por su
+pregunta. `respuesta_facturacion` no guarda una facturación: guarda el Sí/No a *«este programa
+está enfocado en negocios que facturan +$20M MXN al año, ¿es tu caso?»*.
+
+**Lo caro es la otra.** `respuesta_decisor` guarda el Sí/No a *«¿alguien MÁS participa en la
+decisión?»*. Rotularla «¿Decide solo?» **invierte el sentido**: un «No» —que significa que decide
+él— se lee como que NO decide él. Eso no es un rótulo feo, es entrar a la llamada con la
+estrategia dada vuelta, y el dato se ve idéntico de correcto.
+
+**Regla:** antes de rotular una columna `respuesta_*`, leé qué frase la llena en
+`extractRespuestaPorFrase` (el webhook de Calendly). Y ante un Sí/No, chequeá el SENTIDO de la
+pregunta, no solo el tema: la mitad de estas están redactadas en negativo.
+
+**Vive en:** lib/lead-resumen.ts (`PREGUNTAS`) · las frases, en
+app/api/webhooks/calendly/route.ts:247-264 · *2026-08-11*
+
+### ⚠️ Calendly SÍ reserva por API, pero la ubicación del event type la rechaza
+
+Existe la **Scheduling API** (`POST https://api.calendly.com/invitees`) y **no hace falta una app
+OAuth**: el personal access token que ya tenemos alcanza. Requiere plan pago. Verificado en vivo
+contra la cuenta del dueño el 2026-08-11, sin crear ninguna reserva (un `start_time` que no es un
+hueco abierto falla en validación).
+
+El contrato, probado a mano:
+
+| Qué | Cómo |
+|---|---|
+| Huecos | `GET /event_type_available_times?event_type=<uri>&start_time=&end_time=` — tope 31 días |
+| Reservar | `POST /invitees` con `{event_type, start_time, invitee:{email,name,timezone}, event:{location_configuration:{kind}}}` |
+
+**El bloqueo abierto:** los event types del dueño declaran `locations:[{kind:'zoom_conference'}]`
+y la API rechaza ese kind —y los otros once que se probaron— con *«Specified location kind is not
+configured for this event type»*. La causa más probable es la integración de Zoom desconectada o
+sin re-autorizar del lado de Calendly; **se arregla en el panel de Calendly, no en el código**.
+Por eso el error de Calendly sube TEXTUAL hasta el WhatsApp: un «no pude agendar» genérico manda
+a buscar el problema al lugar equivocado.
+
+**Dos trampas más, medidas:**
+- `GET /invitees` devuelve **404**, no 405. Un 404 en esta API no prueba que la ruta no exista:
+  para saberlo hay que pegarle con el método correcto y body vacío (devuelve 400 con los campos
+  que faltan, que además es la forma más rápida de descubrir el schema).
+- `start_time` no se redondea ni se aproxima. Tiene que ser **exactamente** uno de los
+  `start_time` que devolvió el endpoint de huecos — que es justo el tipo de dato que un LLM no
+  puede transportar. Por eso se revalida contra Calendly al proponer **y** al confirmar.
+
+**Vive en:** lib/calendly-agenda.ts · *2026-08-11*
+
+### Ojo: `CALENDLY_EVENT_TYPE_J1/J2` guardan el NOMBRE, no la URI — y está bien
+
+El catálogo (`lib/metodo-catalogo.ts`) pide `https://api.calendly.com/event_types/…`, pero en
+producción esas credenciales tienen el nombre del event type («Calificación para Programa
+Directivo»). No es un bug: `clasificarJunta` compara contra `event_type`, `name` **y** `uri` con
+un matcher tolerante (trim + lowercase + slug), así que el nombre matchea.
+
+Lo que sí importa: **cualquier código nuevo que resuelva un event type tiene que usar ESE mismo
+matcher** (`mismoEventType`, exportado de `lib/calendly.ts`), no comparar URIs. Si MaKo reservara
+en un event type y el webhook clasificara la reunión resultante como la otra, el lead terminaría
+con la R2 escrita en el campo de la R1. Verificado contra la cuenta real: R1 y R2 resuelven a un
+único event type activo cada una.
+
+**Vive en:** lib/calendly.ts (`mismoEventType`) · lib/calendly-agenda.ts
+(`eventTypeDeReunion`) · *2026-08-11*
+
 ### El dedup de los avisos es por TIPO, no por entidad
 
 `emitirAviso`/`emitirDelCatalogo` dedupean con una key `mako.aviso.last.<tipo>` por workspace. Si le

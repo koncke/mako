@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { listConfirmacionesAction, resolverConfirmacionAction } from '../crm/mako-confirm-actions';
+import { esVistaSinChrome } from './PublicRouteGate';
 import type { MakoConfirmacion, ConfOpcion } from '@/lib/mako-confirmaciones';
 
 const SANS = "'Geist', sans-serif";
@@ -75,7 +76,10 @@ function ItemCard({ c, busy, bloqueado, error, onResolve }: { c: MakoConfirmacio
 export function MakoConfirmGate() {
   const pathname = usePathname();
   const router = useRouter();
-  const enCrm = pathname?.startsWith('/crm') ?? false;
+  // El resumen del lead vive bajo /crm pero se abre desde WhatsApp, en el
+  // celular y con la reunión por empezar: un modal bloqueante ahí tapa
+  // justamente lo que se venía a leer. Ver esVistaSinChrome.
+  const enCrm = (pathname?.startsWith('/crm') ?? false) && !esVistaSinChrome(pathname);
   const [items, setItems] = useState<MakoConfirmacion[]>([]);
   const [busy, setBusy] = useState<number | null>(null);
   const [err, setErr] = useState<number | null>(null);

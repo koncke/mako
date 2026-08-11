@@ -33,6 +33,7 @@ import { hoyEnTijuana } from '@/lib/date-utils';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { linkResumenLead } from '@/lib/lead-resumen';
 import { dispararEvento } from '@/lib/flujos';
 import { enrolarPorEvento } from '@/lib/nutricion';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
             await saveLeadRespuestas(lead.id, 'R2', payload.questions_and_answers, fechaJ2);
             // Aviso al dueño: el lead agendó su R2 (best-effort, no bloquea).
             await emitirDelCatalogo('reunion-nuevo-agendado', {
-              texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*. Ya quedó en su ficha del CRM. — MaKo`,
+              texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
             });
             // Flujos configurados por el dueño: disparar 'lead.agendo' (R2).
             await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2' });
@@ -328,7 +329,7 @@ export async function POST(request: NextRequest) {
         // Aviso al dueño: nuevo lead que agendó una R1 (best-effort, no bloquea).
         const anuncio = utm_campaign ? ` Vino del anuncio "${utm_campaign}".` : '';
         await emitirDelCatalogo('reunion-nuevo-agendado', {
-          texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.${anuncio} La ficha ya quedó armada en el CRM. — MaKo`,
+          texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.${anuncio}\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.agendo' (R1).
         await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: nombre, reunion: 'R1' });
@@ -375,7 +376,11 @@ export async function POST(request: NextRequest) {
         // Aviso al dueño: reunión cancelada → sugerir reagendar (best-effort).
         const tipoCancelada = clasificarJunta(payload.scheduled_event, cfgJuntas) === 'j2' ? 'R2' : 'R1';
         await emitirDelCatalogo('reunion-cancelada', {
-          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} que era para el ${fmtFechaHoraLocal(startTimeIso, tzWs)} y todavía no reagendó. ¿Le mando un WhatsApp para conseguir otro horario antes de que se enfríe? — MaKo`,
+          // La pregunta vieja («¿le mando un WhatsApp para conseguir otro
+          // horario?») no tenía a dónde ir: nadie escuchaba la respuesta. Ahora
+          // MaKo sí puede reagendar en Calendly desde el chat, así que se dice
+          // exactamente qué escribirle para que pase (ver lib/calendly-agenda.ts).
+          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} que era para el ${fmtFechaHoraLocal(startTimeIso, tzWs)} y todavía no reagendó.\n\nSi conseguís otro horario, decime *«reagendale la ${tipoCancelada} a ${lead.nombre}»* y te busco los huecos libres.\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.cancelo'.
         await dispararEvento('lead.cancelo', { leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada });
