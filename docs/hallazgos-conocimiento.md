@@ -333,6 +333,27 @@ con un caso de uno.
 
 **Vive en:** `scripts/curso-transcribir.ts` · el patrón: `scripts/backfill-transcripts.ts:29`
 
+### Un fetch anónimo a `/conocimientos` NO prueba que un curso falte
+
+**Síntoma.** Se cablea un curso nuevo, se pega `curl http://localhost:3000/conocimientos`,
+vuelve **HTTP 200** y el curso no está en el HTML. Conclusión tentadora: el cableado
+está roto.
+
+**Causa.** La ruta está detrás del gate de sesión, y en local también —`AUTH_SECRET` está
+en `.env.local`, así que `gateConfigurado()` es true y el middleware corta. El 200 es la
+pantalla de login, no el portal.
+
+**La comprobación que lo desarma en un segundo:** grepear el HTML por un curso que YA
+existía. Si **AVATARHYPE tampoco aparece**, no falta tu curso: falta la sesión. Es el mismo
+principio que ya está escrito para los 401 en `hallazgos-infra.md` — hay que mirar QUÉ
+contestó, no el status.
+
+**Regla.** Para verificar el portal hace falta sesión: navegador logueado, o
+`?curso=<slug>` con la cookie puesta. Un `curl` pelado da un falso negativo, y el modo de
+falla es el caro: manda a «arreglar» algo que estaba bien.
+
+**Vive en:** `app/conocimientos/Conocimientos.tsx` · el gate: `lib/rutas-publicas.ts`
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato
