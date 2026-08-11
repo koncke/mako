@@ -19,20 +19,22 @@
 import { useState } from 'react';
 import { Modal, Status, Button, MONO } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
-import type { ClienteCartera } from '@/lib/cs-cartera';
+import type { ClienteCartera, EstadoCliente } from '@/lib/cs-cartera';
 
-type TabKey = 'programa' | 'sesiones' | 'cobros' | 'contacto';
+type TabKey = 'programa' | 'contrato' | 'sesiones' | 'cobros' | 'contacto';
 
-export function DetalleCliente({ cliente: c, totalClases, onCerrar, onDarLink }: {
+export function DetalleCliente({ cliente: c, totalClases, onCerrar, onDarLink, onMarcar }: {
   cliente: ClienteCartera;
   totalClases: number;
   onCerrar: () => void;
   onDarLink: () => void;
+  onMarcar: (estado: EstadoCliente) => void;
 }) {
   const [tab, setTab] = useState<TabKey>('programa');
 
   const tabs: { key: TabKey; label: string; badge?: number }[] = [
     { key: 'programa', label: 'Programa', badge: c.esperandoSuOk || undefined },
+    { key: 'contrato', label: 'Contrato' },
     { key: 'sesiones', label: 'Sesiones', badge: c.sesiones || undefined },
     { key: 'cobros', label: 'Cobros', badge: c.cuotasVencidas || undefined },
     { key: 'contacto', label: 'Contacto' },
@@ -64,6 +66,7 @@ export function DetalleCliente({ cliente: c, totalClases, onCerrar, onDarLink }:
 
         <div className="dc-cuerpo">
           {tab === 'programa' && <Programa c={c} total={totalClases} onDarLink={onDarLink} />}
+          {tab === 'contrato' && <Contrato c={c} />}
           {tab === 'sesiones' && <Sesiones c={c} />}
           {tab === 'cobros' && <Cobros c={c} />}
           {tab === 'contacto' && <Contacto c={c} />}
@@ -71,6 +74,18 @@ export function DetalleCliente({ cliente: c, totalClases, onCerrar, onDarLink }:
 
         <footer className="dc-pie">
           <Link href={`/crm/${c.leadId}`} className="dc-ficha">Abrir su ficha completa en el CRM →</Link>
+          {/* Cerrar a un cliente es una DECISIÓN, no un cálculo: el contrato dice
+              cuándo vence el plazo, no si el trabajo se terminó. */}
+          <span className="dc-estado">
+            {c.estado === 'activo' ? (
+              <>
+                <button onClick={() => onMarcar('graduado')}>Marcar como graduado</button>
+                <button onClick={() => onMarcar('baja')}>Se dio de baja</button>
+              </>
+            ) : (
+              <button onClick={() => onMarcar('activo')}>Volver a ponerlo activo</button>
+            )}
+          </span>
         </footer>
       </div>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -120,6 +135,41 @@ function Programa({ c, total, onDarLink }: { c: ClienteCartera; total: number; o
         <Fila k="Vio y no contestó" v={`${c.vistosSinContestar}`} tono="warn" />
       )}
       {c.entroHace !== null && <Fila k="Última vez que entró" v={`hace ${c.entroHace} días`} />}
+    </dl>
+  );
+}
+
+/** Lo que dice el contrato firmado. Es lo que hay que tener a mano antes de una
+ *  sesión, y es de donde sale el reloj de la card. */
+function Contrato({ c }: { c: ClienteCartera }) {
+  const r = c.reloj;
+  return (
+    <dl className="dc-dl">
+      {c.promesa.queEs && <Fila k="Qué es" v={c.promesa.queEs} />}
+      {c.promesa.resultado && <Fila k="Le prometiste" v={c.promesa.resultado} />}
+      {c.promesa.garantia && (
+        <Fila k="Garantía" v={c.promesa.garantia}
+          nota="Cambia qué significa pasarse del plazo para ESTE cliente." />
+      )}
+      {c.promesa.sesiones && <Fila k="Sesiones pactadas" v={c.promesa.sesiones} />}
+      <Fila
+        k="Duración"
+        v={r.semanasTotales ? `${r.semanasTotales} semanas` : 'No la dice el contrato'}
+        tono={r.semanasTotales ? undefined : 'warn'}
+        nota={r.fuente === 'ficha' ? 'Sale de la ficha, no del contrato.' : undefined}
+      />
+      <Fila
+        k="Arrancó"
+        v={r.arranque ? new Date(r.arranque).toISOString().slice(0, 10) : 'Sin fecha'}
+        tono={r.arranque ? undefined : 'warn'}
+        nota={r.fuenteArranque === 'cierre'
+          ? 'No hay fecha de inicio cargada: se usa la del cierre de la venta.'
+          : undefined}
+      />
+      {r.terminado && (
+        <Fila k="Estado del plazo" v="Se pasó" tono="warn"
+          nota="Pasarse del plazo no es haber terminado: eso lo decidís vos abajo." />
+      )}
     </dl>
   );
 }
@@ -223,7 +273,12 @@ const CSS = `
 .dc-vacio .t{ font-size:15px; font-weight:600; margin:0 0 5px; }
 .dc-vacio .d{ font-size:13.5px; line-height:1.5; color:var(--dim); margin:0 0 14px; }
 
-.dc-pie{ margin-top:8px; padding-top:14px; border-top:1px solid var(--border); }
+.dc-pie{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px;
+  padding-top:14px; border-top:1px solid var(--border); }
+.dc-estado{ margin-left:auto; display:flex; gap:2px; }
+.dc-estado button{ background:none; border:0; padding:6px 9px; border-radius:7px; font:inherit;
+  font-size:12.5px; color:var(--dim); cursor:pointer; }
+.dc-estado button:hover{ background:var(--surface-2); color:var(--ink); }
 .dc-ficha{ font-size:13.5px; color:var(--dim); }
 .dc-ficha:hover{ color:var(--ink); }
 `;

@@ -24,7 +24,7 @@ import { revalidatePath } from 'next/cache';
 import { crearShare, listarShares, revocarShare } from '@/lib/shares';
 import { getTenantDb, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
-import { RECURSO_TAREA } from '@/lib/cs-cartera';
+import { RECURSO_TAREA, type EstadoCliente } from '@/lib/cs-cartera';
 import { APP_BASE_URL } from '@/lib/app-url';
 
 async function wsActual(): Promise<number> {
@@ -109,4 +109,33 @@ export async function sincronizarWhopAction(): Promise<ResultadoSync> {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo sincronizar.' };
   }
+}
+
+// ── El estado del cliente dentro del programa ───────────────────────────────
+// `graduado` y `baja` son DECISIONES, no cálculos: el contrato dice cuándo vence
+// el plazo, no si el trabajo se terminó. La garantía de Sergio Esquer dice
+// textual «continuar sesiones sin costo hasta instalación completa», así que
+// pasarse de las 16 semanas no significa nada por sí solo.
+
+export async function marcarEstadoAction(
+  leadId: number, estado: EstadoCliente, motivo?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const ws = await wsActual();
+  const cliente = await clienteDelWorkspace(leadId);
+  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
+
+  const { getTenantDb: db } = await import('@/lib/workspace');
+  const ahora = new Date().toISOString();
+  const { error } = await (await db())
+    .from('cs_clientes')
+    .upsert({
+      lead_id: leadId, estado,
+      estado_at: estado === 'activo' ? null : ahora,
+      motivo: motivo?.trim() || null,
+      updated_at: ahora,
+    }, { onConflict: 'workspace_id,lead_id' });
+
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/customer-success');
+  return { ok: true };
 }
