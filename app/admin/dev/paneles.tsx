@@ -21,6 +21,7 @@ import type { ReactNode } from 'react';
 import { GuionesAdminView } from '@/app/admin/guiones/GuionesAdminView';
 import { ElSemaforo } from './semaforo/ElSemaforo';
 import { Pricing } from './pricing/Pricing';
+import { RoadmapCS } from './customer-success/RoadmapCS';
 
 export type SubTab = { id: string; label: string };
 
@@ -38,6 +39,13 @@ export const SUBTABS: Record<string, SubTab[]> = {
   pricing: [
     { id: 'analisis', label: 'Análisis de costos' },
   ],
+  // La ÚNICA sub-tab de Dev que no sale del plan. El porqué está arriba de
+  // `customer-success/roadmap-cs.ts`: media programa todavía no es trabajo
+  // cargado. Convive con «Roadmap» a propósito — ésta es el PROGRAMA, aquélla
+  // es el TRABAJO.
+  'customer-success': [
+    { id: 'roadmap-cs', label: 'Roadmap CS' },
+  ],
 };
 
 export const subTabsDe = (slug: string): SubTab[] => SUBTABS[slug] ?? [];
@@ -49,5 +57,6 @@ export function panelDe(slug: string, tab: string): ReactNode {
   }
   if (slug === 'semaforo' && tab === 'catalogo') return <ElSemaforo />;
   if (slug === 'pricing' && tab === 'analisis') return <Pricing />;
+  if (slug === 'customer-success' && tab === 'roadmap-cs') return <RoadmapCS />;
   return null;
 }

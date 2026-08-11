@@ -15,6 +15,7 @@ import { PARTES as ADS_PARTES, BITACORA as ADS_BITACORA } from './ads-writer/bit
 import { PARTES as SEMAFORO_PARTES, BITACORA as SEMAFORO_BITACORA } from './semaforo/bitacora';
 import { PARTES as PRICING_PARTES, BITACORA as PRICING_BITACORA } from './pricing/bitacora';
 import { PARTES as PRODUCTOS_PARTES, BITACORA as PRODUCTOS_BITACORA } from './products-offers/bitacora';
+import { PARTES as CS_PARTES, BITACORA as CS_BITACORA } from './customer-success/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
@@ -25,6 +26,7 @@ const REGISTROS: Record<string, Registro> = {
   semaforo: { partes: SEMAFORO_PARTES, bitacora: SEMAFORO_BITACORA },
   pricing: { partes: PRICING_PARTES, bitacora: PRICING_BITACORA },
   'products-offers': { partes: PRODUCTOS_PARTES, bitacora: PRODUCTOS_BITACORA },
+  'customer-success': { partes: CS_PARTES, bitacora: CS_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */

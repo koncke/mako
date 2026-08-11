@@ -373,11 +373,12 @@ export const AREAS: AreaDev[] = [
     proyectos: ['Feature: Chat Analyst'],
   },
   {
-    slug: 'cs-analyst', titulo: 'CS Analyst', familia: 'Analyze', grupo: 'Analysts',
+    slug: 'customer-success', titulo: 'Customer Success', familia: 'Analyze', grupo: 'Analysts',
     estado: 'por-construir', verEnApp: '/cs-analyst',
-    alcance: 'Retención y customer success: anticipar la baja de un cliente ya cerrado. Hoy es ComingSoon.',
-    vive: ['app/cs-analyst/page.tsx', 'app/_components/ComingSoon.tsx'],
-    proyectos: ['Feature: CS Analyst'],
+    alcance: 'Todo lo que pasa después del pago: la cartera de clientes del cliente, el bucle de entrega (video → tarea → llamada → IA → aprobación), la plataforma de contenido, la graduación y los casos de éxito, y el analista que anticipa una baja. Hoy la única ruta es /cs-analyst y es ComingSoon.',
+    vive: ['app/cs-analyst/page.tsx', 'app/_components/ComingSoon.tsx', 'app/admin/dev/customer-success/roadmap-cs.ts', 'docs/sprint-servicio-mauricio.md', 'public/vsl-assets/mako-cs.html'],
+    proyectos: ['Feature: Customer Success'],
+    nota: 'El área se llamaba «CS Analyst» y era la mitad del asunto: el analista de riesgo es UNA pieza de Customer Success, no el módulo. Y su `proyectos` apuntaba a «Feature: CS Analyst», que NO existe en el tablero — el proyecto real es «Feature: Customer Success» (P34, 3 tareas), que a su vez no estaba en el catálogo. Resultado: el Roadmap salía vacío sin fallar y el ruteo no podía mandarle nada. La sub-tab «Roadmap CS» es lo único de Dev que NO sale del plan: es el programa completo (lo de Mauricio primero, después los 12 módulos de la propuesta original), porque una parte todavía no es trabajo cargado. El contexto del encargo vivo está en docs/sprint-servicio-mauricio.md.',
   },
   {
     slug: 'youtube-analyst', titulo: 'YouTube Analyst', familia: 'Analyze', grupo: 'Analysts',

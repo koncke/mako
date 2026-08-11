@@ -208,8 +208,14 @@ dueño, qué mide, frecuencia, hora de corte, unidad, umbrales verde/amarillo/ro
 principio de diseño: `[03:38:14]` ***«La inteligencia artificial no funciona por procesos,
 funciona por estándares.»***
 
-### Frente 02 — Plataforma de contenido
-**El único frente en movimiento, y está bloqueado.**
+### Frente 02 — Plataforma de contenido · **Whop**
+**Decidido el 11/8: Whop**, por ser la alternativa gratuita con API. Cierra el compromiso
+más viejo del sprint —la comparativa de 3-4 opciones se prometió el 8/7 `[01:16:16]` y
+llevaba cinco semanas sin entregarse—. Circle y Thinkific no volvieron a nombrarse después
+de esa reunión.
+
+No se desarrolla nada: se conecta por API, que es exactamente el alcance que Martín se puso
+el 6/8 `[01:11:00]`. El resto del frente sigue igual:
 Hecho: el contenido está definido (los 5 pasos, los bloques, los tutoriales), los dos
 cuestionarios maestros entregados el 31/7, y el anti-requisito fijado — 16/7 `[01:42:12]`
 *«La de Notion, porque ellos no lo van a hacer ahí jamás.»*
@@ -344,10 +350,11 @@ del paso 5. Eso da criterio de terminado, que hoy no existe. **Escribir los 5 pa
 entregables y mandárselos es lo primero**: están enterrados en un transcript de 4 horas que
 nadie volvió a abrir, y la prueba es que el 6/8 ninguno de los dos se acordaba de la lista.
 
-### 2. Frente 02: dejar de evaluar y comprar
-El 6/8 Mauricio ya dio permiso y sacó trabajo de encima: SaaS existente *«que se adecúa más o
-menos»*. Ese «más o menos» es la licencia para no optimizar. Es lo único que bloquea todo lo
-demás y lleva prometido desde el 8/7. Restricciones no negociables, dichas por él: nada de
+### 2. Frente 02: **hecho — es Whop**
+El 6/8 Mauricio dio permiso y sacó trabajo de encima: SaaS existente *«que se adecúa más o
+menos»*. Ese «más o menos» era la licencia para no optimizar, y se usó: **Whop, elegida el
+11/8 por ser la gratuita con API.** Queda conectarla y montar el programa por bloques —lo
+segundo espera sus 5 entregables—. Restricciones no negociables, dichas por él: nada de
 Notion, y **empresarios con TDAH que no manejan la computadora**.
 
 ### 3. Frente 04: renegociarlo AHORA, no el 10/9
@@ -369,9 +376,26 @@ salga del bucle de 5 pasos le da la razón a la objeción del 8/7** —*«es nic
 pero no es el core»*— que es exactamente el argumento con el que rechazó los US$9.000 y con el
 que puede no renovar.
 
+### Dónde vive esto ahora
+
+- **El roadmap completo** —lo de Mauricio primero, después los 12 módulos de la propuesta
+  original con su estado real contra el código— está en **`/admin/dev/customer-success` →
+  sub-tab «Roadmap CS»**. Los datos, en `app/admin/dev/customer-success/roadmap-cs.ts`.
+- **El trabajo** está en el board `/plan`, proyecto `Feature: Customer Success` y los siete
+  proyectos vecinos que le tocan.
+- Las dos vistas conviven a propósito: **«Roadmap CS» es el PROGRAMA, «Roadmap» es el
+  TRABAJO.** Es la única vista de Dev escrita a mano, y el motivo está arriba de su archivo.
+
+⚠️ Al armar la carga del plan, el barrido anti-duplicados encontró **seis** tareas que ya
+existían y se habrían duplicado: `#109` (vista de cartera), `#287` (avisos de Mauricio),
+`#327` (notificaciones proactivas), `#521` (bases mobile), `#29` (semáforo que razona) y
+`#332` (Fathom actualiza formularios post-reunión). El dedup automático solo ve parecido
+léxico: **el barrido a mano contra las 461 abiertas no es opcional.**
+
 ### Compromisos vencidos de Martín, por urgencia
-1. **La comparativa de 3-4 plataformas** (prometida el 8/7). Bloquea el frente 02 entero.
-2. **El roadmap del sprint** (prometido para el mismo 8/7). No existe.
+1. ~~La comparativa de 3-4 plataformas~~ → **cerrado el 11/8: Whop.**
+2. **El roadmap del sprint** (prometido para el mismo 8/7). Existe desde el 11/8 en
+   `/admin/dev/customer-success`; falta pasárselo a él.
 3. **Recibir y usar los 5 entregables** de Mauricio (prometidos por él el 6/8).
 4. **Agendar la sesión del flujo de audios a leads viejos** — el 6/8 él lo puso como lo más
    urgente: *«está la fábrica de los carros y hay muchos carros, pero ninguno anda»*. Se cortó

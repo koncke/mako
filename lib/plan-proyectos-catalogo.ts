@@ -125,7 +125,14 @@ const CRUDO: ProyectoCatalogo[] = [
   // Estaba en el tablero con 5 tareas y NO en el catálogo: un proyecto huérfano al que
   // el ruteo no puede mandar nada, así que su trabajo se iba a desparramar solo.
   { nombre: 'YouTube Analyst', emoji: '📺', familia: 'producto', que: 'El analista del canal de YouTube del cliente: qué video retiene, qué trae suscriptores y qué convierte.' },
-  { nombre: 'CS Analyst', emoji: '🩺', familia: 'producto', que: 'Retención y customer success: anticipar la baja de un cliente.' },
+  // Se llamaba «CS Analyst» y el tablero nunca lo usó: sus tareas viven desde siempre en
+  // «Feature: Customer Success» (P34, 3 tareas), que NO estaba en el catálogo. O sea el
+  // mismo agujero que tenían Landing Analyst y YouTube Analyst, pero al revés: acá el
+  // huérfano era el proyecto REAL y el catálogo nombraba uno que no existe. El ruteo no
+  // podía mandarle nada y el Roadmap del área salía vacío sin fallar.
+  // Y de paso se arregla el alcance: Customer Success no es solo anticipar una baja — es
+  // toda la entrega después del pago. El analista de riesgo es UNA de sus piezas.
+  { nombre: 'Customer Success', emoji: '🩺', familia: 'producto', que: 'Todo lo que pasa DESPUÉS del pago: la cartera de clientes y su estado, el bucle de entrega (video → tarea → llamada → IA → aprobación), la plataforma donde el cliente consume el programa, la graduación y los casos de éxito, y el analista que anticipa una baja. NO es el CRM (eso termina en «ganado»).' },
   { nombre: 'Second Brain', emoji: '🧠', familia: 'producto', que: 'La vista que conecta las señales de todo el negocio y encuentra qué mover: el análisis transversal y sus conclusiones.' },
   { nombre: 'Preguntale a MaKo', emoji: '💡', familia: 'producto', que: 'El chat con MaKo dentro de la app: la conversación, el contexto que ve y los modos del consultor. NO es el chat por WhatsApp (eso es «Agente: MaKo Doer»).' },
   { nombre: 'WhatsApp', emoji: '📥', familia: 'producto', que: 'El canal de WhatsApp en sí: bandejas, oficial y no oficial, envío, anti-ban.' },
