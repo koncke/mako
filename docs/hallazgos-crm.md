@@ -747,8 +747,73 @@ sale de la pantalla y le llega a una persona. Nota que ayuda: `nutricion_secuenc
 **Vive en:** `lib/nutricion.ts:285-313` · `lib/crm-auto-plan.ts:69-138` ·
 `lib/secuencias-huecos.ts:27-79` · `supabase/migrations/0054_workspaces.sql:99-101`
 
-*2026-08-10 ~productos-x-funnels (15 agentes). El plan que salió de acá:
-[productos-y-funnels-plan.md](productos-y-funnels-plan.md)*
+### La etapa del lead NO está guardada, y eso es lo que hace barato el multi-funnel
+
+**El hecho.** `deriveStageKey` (`lib/pipeline.ts:886-903`) calcula la etapa con un switch sobre
+`estado_lead` y después mira `fecha_agenda`/`fecha_junta_1`/`fecha_junta_2`/`asistio_j1`/
+`asistio_j2`/`nutricion_realizada`; `pipelineStageOf` le antepone el override `pipeline_stage`.
+**Ocho columnas, todas del intento, ninguna persistida como «etapa».**
+
+**Por qué importa.** Es lo que permite meter una tabla de participaciones sin reescribir el CRM:
+si `leads` sigue trayendo esas ocho columnas con los valores de la participación **vigente**,
+`pipelineStageOf(lead)` sigue devolviendo lo correcto y los ~1.200 lectores que pasan por él,
+por `etapaVigenteDe` o por `LISTA_COLS` no se tocan. Todos describen «el intento vigente», que
+es exactamente lo que describen hoy.
+
+**Regla.** El espejo es viable **porque la etapa es derivada**. Si alguien alguna vez persiste
+la etapa como columna de verdad, esa propiedad se pierde y el plan de participaciones se vuelve
+un big-bang. Y el espejo necesita **un solo writer**: hoy hay ≥32 escrituras a `leads` en 15
+archivos (12 solas en `app/crm/actions.ts`), y colapsarlas en un choke point va ANTES de la
+migración, no después.
+
+**Vive en:** `lib/pipeline.ts:886-908` · `lib/leads.ts:238-244` · `app/crm/actions.ts`
+
+### Un lead que reagenda después de perderse pisa su propio historial
+
+**Síntoma.** Un lead 'perdido' aparece en la columna Perdido con una R1 **futura**. Y una
+semana cerrada hace meses cambia de número sola en las cohortes.
+
+**Causa.** `upsertLeadFromCalendly` matchea por `telefono_normalizado` y después por email, y
+en modo webhook en vivo escribe `basePayload` —que incluye `fecha_agenda`, `fecha_junta_1` y
+`junta_1_at`— sobre la fila existente, **sin tocar `estado_lead`**. Y `deriveStageKey` hace
+short-circuit por `estado_lead` antes de mirar las fechas. Resultado: la etapa no se mueve, la
+fecha de la PRIMERA reunión se pierde para siempre, y el lead migra retroactivamente de cohorte.
+
+**Regla.** Un lead que vuelve no es el mismo intento. Hasta que exista `lead_participaciones`,
+cualquier writer que pise fechas de reunión sobre una fila existente tiene que preguntarse qué
+pasa con `estado_lead` — el short-circuit lo vuelve invisible.
+*(Leído del código, no verificado contra la base. La query está en el modelo, §5.)*
+
+**Vive en:** `lib/leads.ts:943-1016,1054-1079` · `lib/pipeline.ts:886-903`
+
+### Dos guards impiden reactivar dos veces al mismo lead
+
+`l.pipeline_stage !== 'reactivacion'` (`lib/crm-auto-plan.ts:126`) y
+`if (lead.pipeline_stage === 'reactivacion') return 'skip'` (`lib/crm-auto.ts:211`) hacen que un
+lead reactivado una vez **nunca** se pueda volver a reactivar. Es exactamente el escenario que el
+dueño describe como real («no cerró, meses después aparece de nuevo»), bloqueado por
+construcción. Y el reloj de T6 usa `diasEntre(hoy, l.updated_at)` (`:127`), que se mueve con
+cualquier escritura a la fila, no con la actividad del lead.
+
+**Vive en:** `lib/crm-auto-plan.ts:126-127` · `lib/crm-auto.ts:211`
+
+### El corte por funnel de las métricas de arriba del embudo no existe, y no es un TODO
+
+`getFunnelEtapas` (`lib/queries.ts:1182-1290`) mezcla dos fuentes: `imp_click` y `click_form`
+salen de `marketing_metrics_daily`/meta_insights, que **no tienen dimensión de funnel ni de
+producto**; la fila puente `form_agenda` toma entrada del workspace entero y salida de `leads`.
+Filtrar solo la salida da un **porcentaje falso**, no un dato faltante. Igual el CAC
+(`:664-693`): el spend de Meta no tiene atribución a funnel en ninguna tabla.
+
+**Regla.** Cuando una métrica no se puede cortar por una dimensión, la pantalla lo **dice**, en
+tinta normal. Rotularla «en construcción» sugiere que el número va a llegar; acá no llega sin
+atribución en la ingesta.
+
+**Vive en:** `lib/queries.ts:664-693,1182-1290`
+
+*2026-08-10 ~productos-x-funnels (15 agentes) + ~modelo-oferta-producto-funnel (11). El plan:
+[productos-y-funnels-plan.md](productos-y-funnels-plan.md) · El modelo:
+[modelo-oferta-producto-funnel.md](modelo-oferta-producto-funnel.md)*
 
 ---
 

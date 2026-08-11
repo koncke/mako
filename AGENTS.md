@@ -483,6 +483,29 @@ Una entrada por tema, se integra sin duplicar, se lee en 5 minutos. Si la lecci�
 gobierna código nuevo (no es un hallazgo sino una regla), va acá en `AGENTS.md`, que
 es lo que todos leen antes de escribir.
 
+## Un agente no distingue «nunca estuvo roto» de «se arregló hace una hora»
+
+Un subagente lee el código de **ahora**. Si un hallazgo escrito ayer describe un bug que se
+arregló esta mañana, lo va a reportar como **«el plan arranca de una premisa falsa»** — que es
+la conclusión más cara posible, porque invita a descartar un diagnóstico correcto y a rehacer
+el análisis desde cero.
+
+Pasó el 2026-08-10: una corrida de 11 agentes devolvió «dos correcciones de hecho» diciendo que
+`upsertProducto` sí escribía `orden` y que `seedProductosDesdeOferta()` sí tenía call-site, y
+que por lo tanto los hallazgos de `docs/hallazgos-onboarding.md` y `docs/hallazgos-crm.md`
+estaban viejos. Las dos cosas eran ciertas **porque el commit anterior de esa misma sesión las
+había cableado**, dos horas antes.
+
+**La regla, para las dos puntas:**
+
+- **Al escribir un hallazgo**, fechalo. Los documentos de `docs/hallazgos-*.md` ya cierran cada
+  entrada con la corrida que la produjo; eso es lo que después permite cruzarla con `git log`.
+- **Antes de declarar viejo un hallazgo**, `git log -1 -- <archivo>`. Si el último commit que
+  lo toca es posterior al hallazgo, no está viejo: está **arreglado**, que es otra cosa y se
+  reporta distinto.
+- **Al lanzar la corrida**, decile qué acabás de tocar. Un agente que sabe que F0 se commiteó
+  hace una hora no gasta un reporte en descubrirlo.
+
 ## Y para leerlos: grepeá la ruta, no abras el documento
 
 **Antes de tocar un archivo, `Grep` su ruta en `docs/`.** Cada hallazgo trae adentro

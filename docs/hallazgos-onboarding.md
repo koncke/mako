@@ -82,8 +82,31 @@ nunca se siembra— y `upsertProducto` no escribe `orden`, así que el `.order('
 **Vive en:** `lib/productos-ia.ts:92-94` · `app/api/onboarding/productos/route.ts:61-65` ·
 `lib/productos.ts:47,57-67,89-109`
 
-*2026-08-10 ~productos-x-funnels. El plan completo:
-[productos-y-funnels-plan.md](productos-y-funnels-plan.md)*
+### A veinte prompts les llega el brief con las PREGUNTAS adentro
+
+**Síntoma.** MaKo escribe copy que suena a formulario, y a veces contesta la pregunta en vez de
+usar el dato.
+
+**Causa.** `perfilNegocioTexto()` emite el `label` de cada campo, y el label **es la pregunta**:
+lo que sale es literal «Oferta — ¿Cómo se llama tu oferta?: Negocio que Escala · ¿Tenés
+garantía? ¿Cuál?: 30 días». Eso viaja a ~20 features (todos los writers y analysts que piden el
+brief). El repo ya resolvió el mismo problema para el grafo del segundo cerebro
+(`lib/cerebro-grafo.ts:151-158`, que mapea label→sustantivo) y nunca lo llevó a los prompts.
+
+**Regla.** Un `label` de formulario es texto de UI, no de prompt. Lo que se le manda a un modelo
+es el **sustantivo** («Garantía: 30 días»), y esa traducción vive en un lugar solo.
+
+**Y el dato que decide cualquier discusión sobre deprecar el grupo `oferta`:**
+`perfilNegocioTexto()` alimenta **~20 features**; el catálogo `productos` alimenta **2**, las dos
+en `lib/agente-contexto.ts`. `lib/mako-context.ts` —el system prompt de MaKo— **no lee productos
+en absoluto**. Apagar el grupo dejaría ~18 features sin promesa, precio ni garantía.
+
+**Vive en:** `lib/onboarding.ts:28-34,259-269` · `lib/agente-contexto.ts:64,107-115` ·
+`lib/cerebro-grafo.ts:151-158`
+
+*2026-08-10 ~productos-x-funnels + ~modelo-oferta-producto-funnel. El plan:
+[productos-y-funnels-plan.md](productos-y-funnels-plan.md) · El modelo:
+[modelo-oferta-producto-funnel.md](modelo-oferta-producto-funnel.md)*
 
 ### El retomar cuenta pantallas a mano, y ya está desfasado en `fase`
 
