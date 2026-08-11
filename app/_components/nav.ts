@@ -145,6 +145,21 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },
       ],
     ],
+    grupos: [
+      {
+        // La entrega del programa. Va en Operate y no en Analyze porque contesta
+        // «¿qué tengo que hacer hoy con mis clientes?», no «¿qué pasó?».
+        //
+        // Desplegable y no bloque suelto: son dos destinos que se consultan de a
+        // uno —la cartera es lo de todos los días, el programa se toca cuando se
+        // arma o se cambia— y Operate ya tiene siete filas a la vista.
+        key: 'customer-success', label: 'Customer Success', icon: 'cs',
+        items: [
+          { key: 'cs-clients', label: 'Clients', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' || starts('/customer-success/cliente')(p) },
+          { key: 'cs-program', label: 'Program', href: '/customer-success/programa', icon: 'notepencil', match: starts('/customer-success/programa') },
+        ],
+      },
+    ],
   },
   {
     key: 'analyze',

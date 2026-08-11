@@ -38,6 +38,9 @@ const PATHS: Record<string, ReactNode> = {
   tools: (<g fill="currentColor" stroke="none"><g transform="rotate(-45 12 12)"><path d="M20.3 9.5A4.3 4.3 0 1 0 20.3 14.5L20.3 13.3 16.3 13.3 16.3 10.7 20.3 10.7Z" /><path fillRule="evenodd" clipRule="evenodd" d="M13 10.5H3.9a1.5 1.5 0 1 0 0 3H13v-3ZM4.4 11.1a0.9 0.9 0 1 0 0 1.8 0.9 0.9 0 0 0 0-1.8Z" /></g></g>),
   search: (<g fill="currentColor" stroke="none"><path fillRule="evenodd" clipRule="evenodd" d="M14.8 3.6a5.7 5.7 0 1 0 0 11.4 5.7 5.7 0 0 0 0-11.4Zm0 2.5a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Z" /><path d="M10.8 13.2 5.4 18.6" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" fill="none" /></g>),
   chats: (<><path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h10A1.5 1.5 0 0 1 16 5.5v5A1.5 1.5 0 0 1 14.5 12H8l-4 3v-3h-.5A1.5 1.5 0 0 1 3 10.5v-5Z" /></>),
+  // Dos personas: la cartera de clientes del programa. No es `cs` (una carita,
+  // que es el ÁREA) ni `crm` (el embudo): es «mi gente», un conjunto contado.
+  users: (<><circle cx="9.2" cy="8.6" r="3.2" /><path d="M3.6 19.4a5.6 5.6 0 0 1 11.2 0" /><path d="M16.2 6.2a3.2 3.2 0 0 1 0 6" /><path d="M17.6 14.6a5.6 5.6 0 0 1 2.8 4.8" /></>),
   cs: (<><circle cx="12" cy="12" r="8.5" /><path d="M8 14a5 5 0 0 0 8 0" /><path d="M9 9.7h.01" /><path d="M15 9.7h.01" /></>),
   instagram: (<><rect x="4" y="4" width="16" height="16" rx="4.5" /><circle cx="12" cy="12" r="3.4" /><circle cx="16.9" cy="7.1" r="1" /></>),
   pen: (<><path d="M4 20l3.6-.9L18.2 8.5 15.5 5.8 4.9 16.4 4 20Z" /><path d="M14 7.3 16.7 10" /></>),
