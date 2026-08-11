@@ -64,21 +64,54 @@ export async function reconstruirMapa(ws?: number): Promise<MapaLecciones> {
   if (!cursos.ok) return {};
   const porTitulo = new Map(CLASES.map(c => [norm(rotuloDe(c.clase.id)), c.clase.id]));
   const mapa: MapaLecciones = {};
+  let falloAlgo = false;
 
   for (const curso of cursos.data) {
     const caps = await listarCapitulos(curso.id, ws);
-    if (!caps.ok) continue;
+    if (!caps.ok) { falloAlgo = true; continue; }
     for (const cap of caps.data) {
       const lecs = await listarLecciones(cap.id, ws);
-      if (!lecs.ok) continue;
+      if (!lecs.ok) { falloAlgo = true; continue; }
       for (const l of lecs.data) {
         const claseId = porTitulo.get(norm(l.title));
         if (claseId) mapa[l.id] = claseId;
       }
     }
   }
-  if (Object.keys(mapa).length) await guardarMapaLecciones(mapa);
+
+  // ⚠️ UNA RECONSTRUCCIÓN A MEDIAS NO PISA UNA BUENA.
+  // Son ~14 requests a Whop; un 429 a mitad de la tanda dejaba un mapa con la
+  // mitad de las lecciones, y se guardaba igual «con tal de que haya matcheado
+  // alguna». El efecto: las clases del tramo que falló pasaban a contestar
+  // «lección desconocida» para siempre, y cada evento suyo disparaba OTRA
+  // reconstrucción — la tormenta se alimenta sola.
+  const previo = await getMapaLecciones();
+  const completo = Object.keys(mapa).length;
+  if (falloAlgo && completo <= Object.keys(previo).length) {
+    console.warn(`[cs-avance] reconstrucción parcial (${completo} de ${Object.keys(previo).length} conocidas): NO se guarda`);
+    return previo;
+  }
+  if (completo) await guardarMapaLecciones(mapa);
   return mapa;
+}
+
+/** Cuándo se reconstruyó por última vez, para no hacerlo en cada evento.
+ *
+ *  Sin esto, una lección que de verdad no está en el mapa —una que Mauricio
+ *  agregó a mano en Whop, por ejemplo— dispara 14 requests sincrónicos DENTRO
+ *  del handler del webhook, en CADA evento suyo. Con un alumno mirando cinco
+ *  clases seguidas son 70 requests y cinco webhooks al borde del timeout.
+ *
+ *  Es memoria del proceso y no base a propósito: el peor caso de perderlo es
+ *  una reconstrucción de más, no un dato mal. */
+const ultimaReconstruccion = new Map<number, number>();
+const ESPERA_RECONSTRUIR = 10 * 60 * 1000;
+
+async function reconstruirConFreno(ws: number): Promise<MapaLecciones> {
+  const ultima = ultimaReconstruccion.get(ws) ?? 0;
+  if (Date.now() - ultima < ESPERA_RECONSTRUIR) return getMapaLecciones();
+  ultimaReconstruccion.set(ws, Date.now());
+  return reconstruirMapa(ws);
 }
 
 export type ResultadoAvance =
@@ -100,7 +133,7 @@ export async function registrarAvanceDeClase(input: {
   let mapa = await getMapaLecciones();
   let claseId = mapa[input.leccionId];
   if (!claseId) {
-    mapa = await reconstruirMapa(input.ws);
+    mapa = await reconstruirConFreno(input.ws);
     claseId = mapa[input.leccionId];
   }
   if (!claseId) return { ok: false, motivo: 'leccion-desconocida' };

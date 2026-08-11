@@ -376,15 +376,25 @@ function coerceDudas(obj: Record<string, unknown>): DudaTermino[] {
 export type ExtractOut = {
   tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo;
   participantes?: Participante[]; partes?: number; partesFallidas?: number;
-  /** El resumen de Fathom y sus action items — o sea, DE QUÉ SE HABLÓ.
+  /**
+   * El resumen de Fathom y sus action items — o sea, DE QUÉ SE HABLÓ.
    *
-   *  Se devuelve porque `tareas` no sirve para eso: quien quiera saber qué se
-   *  discutió y se queda con la lista de tareas, tiene una lista de TÍTULOS. Un
-   *  modelo al que se le pide «mejorá este texto con lo que se habló» y recibe
-   *  títulos igual devuelve algo, y ese algo se ve plausible: falla en silencio.
-   *  Ya está construida más abajo, así que devolverla es gratis; la alternativa
-   *  —volver a pedirle el transcript a Fathom— paga el fetch dos veces. */
-  cabecera?: string;
+   * Se devuelve porque `tareas` no sirve para eso: quien quiera saber qué se
+   * discutió y se queda con la lista de tareas, tiene una lista de TÍTULOS. Un
+   * modelo al que se le pide «mejorá este texto con lo que se habló» y recibe
+   * títulos igual devuelve algo, y ese algo se ve plausible: falla en silencio.
+   *
+   * ⚠️ OBLIGATORIA A PROPÓSITO, y esa es toda la lección. Nació opcional
+   * (`cabecera?: string`), la función que la arma se olvidó de devolverla y el
+   * compilador no dijo nada: el paso que reescribe la tarea del cliente después
+   * de la junta se gatea con `if (… && cabecera)` y quedó como código MUERTO en
+   * producción. No lo agarró el typecheck ni los tests: lo agarró una auditoría
+   * leyendo el camino entero.
+   *
+   * Obligatoria, olvidarse es un error de compilación. Un campo opcional que
+   * alguien gatea con un `if` es una falla silenciosa esperando.
+   */
+  cabecera: string;
 };
 
 export const PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE = `Sos un revisor. Te paso las tareas que se sacaron de UNA reunión. En una charla larga, la MISMA tarea se habla varias veces (se plantea, se discute, se cierra), y por eso la lista trae tarjetas casi iguales dichas con otras palabras.
@@ -655,7 +665,7 @@ function sumarUsage(us: Array<UsageInfo | undefined>): UsageInfo | undefined {
  * (ver trocear): así una reunión de dos horas no se resume en ocho tarjetas.
  */
 export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {
-  if (!texto.trim()) return { tareas: [], dudas: [] };
+  if (!texto.trim()) return { tareas: [], dudas: [], cabecera: opts.cabecera ?? '' };
 
   const listaProyectos = proyectos.length
     ? proyectos.map((p) => `- ${p.id}: ${p.emoji} ${p.nombre}`).join('\n')
@@ -760,6 +770,9 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     tareas: dedup.tareas, dudas,
     usage: sumarUsage([...salidas.map((s) => s.usage), dedup.usage]),
     participantes, partes: partes.length, partesFallidas,
+    // La que faltaba. Se recibe por `opts` y se devuelve: quien llama necesita
+    // saber DE QUÉ SE HABLÓ, no solo qué tareas salieron.
+    cabecera: opts.cabecera ?? '',
   };
 }
 
@@ -780,7 +793,7 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   // (extraerTareasDeTexto): el tope queda como red de seguridad para no bajar un
   // transcript absurdo, en ~6 horas de charla.
   const texto = transcriptToText(transcript, 400000);
-  if (!resumen && !texto) return { tareas: [], dudas: [] };
+  if (!resumen && !texto) return { tareas: [], dudas: [], cabecera: '' };
 
   // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al
   // modelo la pista de quién asumió qué, sin que lo tenga que adivinar del transcript.
@@ -826,5 +839,18 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
     dueñosFathom ? `ACTION ITEMS QUE FATHOM YA DETECTÓ (con su dueño):\n${dueñosFathom}` : '',
   ].filter(Boolean).join('\n\n');
 
-  return extraerTareasDeTexto(texto ? `TRANSCRIPCIÓN:\n${texto}` : '', proyectos, yo, { ...opts, participantes, cabecera, usoMotivo: opts.usoMotivo || 'Extraer tareas de reunión' });
+  // ⚠️ La cabecera se DEVUELVE, no solo se pasa. `extraerTareasDeTexto` la usa
+  // como contexto y no la retorna, así que sin esta línea `ExtractOut.cabecera`
+  // llega siempre `undefined` — y como está declarada opcional, el compilador no
+  // dice absolutamente nada.
+  //
+  // Eso ya pasó: el paso que reescribe la tarea del cliente después de la junta
+  // se gatea con `if (… && cabecera)`, así que quedó como código muerto en
+  // producción sin un solo error. Lo encontró una auditoría leyendo el camino
+  // entero, no el typecheck ni los tests.
+  const out = await extraerTareasDeTexto(
+    texto ? `TRANSCRIPCIÓN:\n${texto}` : '', proyectos, yo,
+    { ...opts, participantes, cabecera, usoMotivo: opts.usoMotivo || 'Extraer tareas de reunión' },
+  );
+  return { ...out, cabecera };
 }

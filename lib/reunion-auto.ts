@@ -206,19 +206,16 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // Marcarla como vista ahí la quemaba PARA SIEMPRE — pasó de verdad ("no jaló la
       // IA, no hubo de Esquer") y no había forma de enterarse. Ahora, si hubo fallas,
       // la reunión NO se marca: el próximo cron la reintenta.
-      if (!tareas.length) {
-        if (parcial) {
-          out.errores += 1;
-          console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: la lectura FALLÓ (${partesFallidas} tramo(s) sin leer) — queda para reintentar`);
-        } else {
-          // Vacío legítimo: leída entera y sin compromisos. Esa sí se cierra.
-          await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
-          console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: leída completa, sin compromisos`);
-        }
-        continue;
-      }
-
-      const nombreProy = new Map(proyectos.map((p) => [p.id, p.nombre]));
+      // ⚠️ ESTO VA ANTES DEL `continue` DE ABAJO, Y ESE ES EL PUNTO.
+      // Una sesión de entrega donde se afina el Norte y no queda un solo
+      // compromiso accionable es el caso NORMAL del programa, no la excepción.
+      // Con el bloque de CS después del `continue`, esa junta —la más típica—
+      // no reescribía nada y el cliente nunca veía qué aprobar. Y peor: la
+      // reunión quedaba marcada como vista, así que no se reintentaba nunca.
+      //
+      // Reescribir la tarea del cliente NO depende de que la junta haya dejado
+      // tareas para el plan. Son dos cosas distintas que pasan en la misma
+      // llamada.
       // ¿ESTA REUNIÓN ES CON UN CLIENTE? Si lo es, TODAS sus tareas van al proyecto de
       // ese cliente y el tema de cada una deja de decidir dónde se archiva. Es la regla
       // que pidió el dueño ("si proviene de una llamada con cliente, clasificala al
@@ -253,6 +250,20 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
           console.error('[reunion-auto] la reescritura de bloques falló (el borrador sigue):', e);
         }
       }
+      if (!tareas.length) {
+        if (parcial) {
+          out.errores += 1;
+          console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: la lectura FALLÓ (${partesFallidas} tramo(s) sin leer) — queda para reintentar`);
+        } else {
+          // Vacío legítimo: leída entera y sin compromisos. Esa sí se cierra.
+          await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+          console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: leída completa, sin compromisos`);
+        }
+        continue;
+      }
+
+      const nombreProy = new Map(proyectos.map((p) => [p.id, p.nombre]));
+
 
       // ⚠️ EN UNA REUNIÓN DE ENTREGA, «el otro» PUEDE SER EL CLIENTE.
       // `esDeOtro` + `dueñoEmail` es lo que después ofrece mandarle la tarea a esa

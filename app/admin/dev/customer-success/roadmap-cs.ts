@@ -108,14 +108,18 @@ export const URGENTE: Grupo[] = [
         ojo: '**No como jsonb en `app_settings`**: es last-write-wins sin CAS y un formulario largo con guardado parcial se pisa solo.',
       },
       {
-        titulo: 'Que el cliente entre por un link, sin crearse cuenta', estado: 'hecha',
-        que: 'MaKo le manda el link cuando toca el bloque. Sin login, sin contraseña.',
+        titulo: 'Que el cliente entre por un link, sin crearse cuenta', estado: 'sigue',
+        que: 'El link existe y anda. Lo emite un script; MANDARLO todavía es a mano.',
         yaEsta: [
           'El permiso de escritura: `shares.permiso` (mig 0126) con default `ver`, y `puedeEditar()` en POSITIVO con 8 tests que fijan que una fila vieja, un alcance amplio o un id distinto NO escriben.',
           'La pantalla y su endpoint, probados contra un cliente real: el link de solo-lectura no escribe, y el link del lead 92 escribe en 92 y nunca en 91.',
+          '`scripts/link-tarea-cliente.ts` lista la cartera, emite y rota.',
         ],
-
-        ojo: 'Es la condición para que esto funcione con «empresarios que todos tienen TDAH… no creas que le sabe la computadora». Un login más es un bloque que no se contesta. Y el permiso se escribe en POSITIVO —este share puede escribir ESTE bloque— nunca «cualquiera menos».',
+        falta: [
+          'Emitirlo desde la app: `/api/compartir` valida contra `RECURSOS = [curso, branding]` y además llama a `crearShare` SIN `permiso`, así que todo lo que emite nace `ver`. Son dos candados y hay que abrir los dos.',
+          '**Mandarlo solo.** Hoy Martín copia el token de la terminal y lo pega en el WhatsApp del cliente. `emitirAviso` va siempre al DUEÑO, nunca al lead.',
+        ],
+        ojo: '⚠️ Esta tarjeta decía «MaKo le manda el link cuando toca el bloque» y eso NO EXISTE: el envío no está en ningún lado. Un renglón así hace que el próximo diagnóstico arranque de una premisa falsa. Lo que sí está: el permiso escrito en POSITIVO —este share puede escribir ESTE bloque, nunca «cualquiera menos»— y una pantalla sin login, que es la condición para que ande con «empresarios que todos tienen TDAH… no creas que le sabe la computadora».',
       },
       {
         titulo: 'Que la IA mejore esas respuestas con lo hablado en la junta', estado: 'hecha',

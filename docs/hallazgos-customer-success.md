@@ -303,5 +303,63 @@ debatió lo sabe quien leyó la conversación, no un calendario.
 
 ---
 
+## Un campo opcional que alguien gatea con un `if` es una falla silenciosa esperando
+
+**Vive en:** `lib/plan-fathom.ts` → `ExtractOut.cabecera`
+
+Agregué `cabecera?: string` a `ExtractOut`, escribí el comentario explicando que devolverla
+era gratis… **y no escribí la línea que la devuelve.** El paso que reescribe la tarea del
+cliente después de la junta se gatea con `if (r.tipo === 'entrega' && cliente && cabecera)`,
+así que quedó como **código muerto en producción**.
+
+**Y nada lo agarró.** El typecheck pasó (el campo era opcional). Los 613 tests pasaron. El
+ensayo end-to-end pasó en verde — porque llamaba a `reescribirBloque` **directamente**,
+salteándose justo el eslabón roto. Lo encontró una auditoría leyendo el camino entero,
+eslabón por eslabón, preguntando por cada uno «¿esta condición es alcanzable?».
+
+**La regla:** un campo que alguien va a usar como guarda va **obligatorio**. Ahora
+`cabecera: string` sin `?`, y olvidarse es un error de compilación — el compilador señaló
+al toque el `return` que la venía omitiendo desde el principio.
+
+**Y la lección sobre el ensayo:** un test end-to-end que llama a la función de adentro no
+prueba el camino, prueba la función. Si el paso real es *cron → extractor → reescritura*,
+saltear el extractor es saltear exactamente donde estaba el bug.
+
+---
+
+## La reescritura colgaba de que la junta hubiera dejado tareas
+
+**Vive en:** `lib/reunion-auto.ts`
+
+El `if (!tareas.length) { … continue; }` estaba 33 líneas ANTES del bloque de Customer
+Success. O sea: una sesión de entrega que no deja un solo compromiso accionable —que es el
+caso **normal** de una junta donde se afina el Norte— no reescribía nada, y el cliente nunca
+veía qué aprobar. Peor: esa reunión quedaba marcada como vista y no se reintentaba nunca.
+
+Son dos cosas distintas que pasan en la misma llamada: sacar tareas para el plan, y mejorar
+la respuesta que el cliente ya había escrito. La segunda no depende de la primera. El bloque
+de CS ahora corre **antes** del `continue`.
+
+---
+
+## Una reconstrucción a medias no puede pisar una buena
+
+**Vive en:** `lib/cs-avance.ts` → `reconstruirMapa`
+
+El mapa lección→clase se reconstruye preguntándole a Whop: ~14 requests. Un 429 a mitad de
+la tanda dejaba un mapa con la mitad de las lecciones, y **se guardaba igual** «con tal de
+que haya matcheado alguna».
+
+El efecto se alimenta solo: las clases del tramo que falló pasan a contestar «lección
+desconocida», y cada evento suyo dispara OTRA reconstrucción de 14 requests, sincrónica,
+dentro del handler del webhook. Un alumno mirando cinco clases seguidas son 70 requests y
+cinco webhooks al borde del timeout.
+
+Dos cortes: **si la reconstrucción falló en algún tramo y no mejora lo que ya había, no se
+guarda**; y un freno de 10 minutos por workspace. El freno vive en memoria del proceso a
+propósito: perderlo cuesta una reconstrucción de más, no un dato mal.
+
+---
+
 *Corrida del 2026-08-11: 16 agentes mapeando el código para el bucle de entrega, más la
 verificación en vivo contra la cuenta real de Whop.*
