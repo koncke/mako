@@ -105,6 +105,11 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // eran ~US$1 por reunión y nadie lo había pedido. Gemini Flash tiene 1M de
   // contexto —le entra la reunión entera sin partir— y es exactamente el caso de
   // uso para el que el troceo se inventó.
+  // GRATIS Y NO NEGOCIABLE: corre una vez POR BLOQUE ABIERTO, por cada junta, de
+  // cada cliente. Un cliente con 8 bloques abiertos son 8 llamadas por sesión.
+  // Es exactamente el perfil de gasto silencioso de `plan-fathom` (US$37 en 30
+  // días por caer en su default sin que nadie lo mirara), pero multiplicado.
+  { feature: 'cs-reescritura', label: 'Mejorar la tarea del cliente con lo hablado en la junta', grupo: 'Análisis', def: GEMINI(), nota: 'Reescribe la respuesta de un bloque con el resumen de la sesión. Es reescritura sobre material dado, no juicio: no hace falta pagar. Y corre en tanda, así que sale por la cascada gratis y no por un fallback que cobre al primer 429.' },
   { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: GEMINI(), nota: 'El problema NUNCA fue el modelo sino que se cortaba el transcript (14k→completo): con la reunión entera cualquier modelo con contexto saca los 16 action items. 1 vez por reunión (cacheada).' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────

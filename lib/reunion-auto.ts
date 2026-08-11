@@ -188,7 +188,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     procesadas += 1;
     try {
       const yo = await resolverYo(r, ws);
-      const { tareas, partesFallidas = 0 } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
+      const { tareas, partesFallidas = 0, cabecera = '' } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
         glosario, participantes: r.participantes, usoMotivo: 'Reunión nueva → tareas al plan (automático)',
       });
       // Lectura PARCIAL: se leyó parte del transcript y otra parte se perdió.
@@ -230,6 +230,29 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       }).catch(() => null);
       const proyCliente = cliente ? await nombreDeProyectoPara(cliente) : '';
       if (cliente) console.log(`[reunion-auto] «${r.titulo}» es con ${cliente.nombre} → todo va a «${proyCliente}»`);
+
+      // ── El bucle de entrega: MaKo mejora la tarea que el cliente ya contestó ──
+      // Solo en juntas de ENTREGA y con el cliente identificado. Va con `cabecera`
+      // (el resumen y los action items de Fathom), NO con `tareas`: de una lista de
+      // títulos sale una reescritura plausible y vacía.
+      //
+      // En su propio try/catch: si esto falla, el borrador de tareas —que es lo
+      // que la persona está esperando— tiene que quedar igual. Misma disciplina
+      // que el resto de la función.
+      if (r.tipo === 'entrega' && cliente && cabecera) {
+        try {
+          const { reescribirBloquesDeLaJunta } = await import('./cs-reescritura');
+          const cs = await reescribirBloquesDeLaJunta({
+            leadId: cliente.leadId, conversacion: cabecera, fuenteReunion: ref,
+          });
+          if (cs.reescritos.length || cs.sinMaterial || cs.errores) {
+            console.log(`[reunion-auto] CS ws=${ws} ${cliente.nombre}: ${cs.reescritos.length} bloque(s) reescrito(s), ` +
+              `${cs.sinMaterial} sin material, ${cs.errores} con error`);
+          }
+        } catch (e) {
+          console.error('[reunion-auto] la reescritura de bloques falló (el borrador sigue):', e);
+        }
+      }
 
       // ⚠️ EN UNA REUNIÓN DE ENTREGA, «el otro» PUEDE SER EL CLIENTE.
       // `esDeOtro` + `dueñoEmail` es lo que después ofrece mandarle la tarea a esa

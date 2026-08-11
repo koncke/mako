@@ -373,7 +373,19 @@ function coerceDudas(obj: Record<string, unknown>): DudaTermino[] {
 // `partesFallidas` > 0 = el transcript se leyó A MEDIAS (algún tramo falló incluso
 // tras el reintento). Quien consume esto NO puede tratar el resultado como completo:
 // el cron no cierra la reunión y la UI avisa que puede faltar contenido.
-export type ExtractOut = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo; participantes?: Participante[]; partes?: number; partesFallidas?: number };
+export type ExtractOut = {
+  tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo;
+  participantes?: Participante[]; partes?: number; partesFallidas?: number;
+  /** El resumen de Fathom y sus action items — o sea, DE QUÉ SE HABLÓ.
+   *
+   *  Se devuelve porque `tareas` no sirve para eso: quien quiera saber qué se
+   *  discutió y se queda con la lista de tareas, tiene una lista de TÍTULOS. Un
+   *  modelo al que se le pide «mejorá este texto con lo que se habló» y recibe
+   *  títulos igual devuelve algo, y ese algo se ve plausible: falla en silencio.
+   *  Ya está construida más abajo, así que devolverla es gratis; la alternativa
+   *  —volver a pedirle el transcript a Fathom— paga el fetch dos veces. */
+  cabecera?: string;
+};
 
 export const PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE = `Sos un revisor. Te paso las tareas que se sacaron de UNA reunión. En una charla larga, la MISMA tarea se habla varias veces (se plantea, se discute, se cierra), y por eso la lista trae tarjetas casi iguales dichas con otras palabras.
 
