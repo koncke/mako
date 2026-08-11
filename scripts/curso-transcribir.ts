@@ -41,6 +41,13 @@ const hhmm = (s: number | null) => (s == null ? '?' : `${Math.floor(s / 60)}m${S
 if (!existsSync(DE)) { console.error(`\n  ✖ No existe ${DE}. Corré antes: node scripts/curso-audio.mjs\n`); process.exit(1); }
 mkdirSync(A, { recursive: true });
 
+// ⚠️ Todo el cuerpo va dentro de main(): tsx compila estos scripts a CJS y un
+// `await` de nivel superior explota con «Top-level await is currently not
+// supported with the "cjs" output format». Es el mismo patrón de
+// scripts/backfill-transcripts.ts, y el error aparece en tiempo de TRANSFORM,
+// así que el typecheck pasa en verde y falla recién al ejecutar.
+async function main() {
+
 // Agrupar: 'clase-3.parte00.m4a' y 'clase-3.parte01.m4a' son UNA clase.
 const grupos = new Map<string, string[]>();
 for (const f of readdirSync(DE).sort()) {
@@ -132,3 +139,7 @@ console.log(`  Índice: ${join(A, '_indice.md')}\n`);
 if (fallidas) console.log('  Las falladas se reintentan solas al volver a correr (no dejaron .md).\n');
 console.log('  Cuando tengas tu versión curada, entra por /conocimiento — esa puerta ya\n  existe y es la única que escribe en mako_knowledge.\n');
 process.exit(fallidas && !hechas ? 1 : 0);
+
+}
+
+main().catch((e) => { console.error(`\n  ✖ ${e instanceof Error ? e.message : String(e)}\n`); process.exit(1); });

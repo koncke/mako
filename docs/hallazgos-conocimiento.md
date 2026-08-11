@@ -26,6 +26,12 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 7. **Y el remate: las cookies no hacían falta para nada, y eran lo único que rompía la
    descarga.** Probá sin la credencial antes de construir alrededor de ella.
    [→](#el-diagnóstico-obvio-era-el-equivocado-las-cookies-no-hacían-falta-y-encima-rompían-la-descarga)
+8. **⚠️ Drive te da un id antes de subir el archivo, y el script reportó «20/20 OK» con
+   cero archivos arriba.** Un fallo que se presenta como éxito.
+   [→](#️-drive-te-da-un-id-antes-de-subir-el-archivo-y-no-es-el-id-que-sirve)
+9. **El pre-push verde no significa que un script corra**: `tsx` compila a CJS y el
+   `await` de nivel superior falla recién al ejecutar.
+   [→](#npx-tsx-compila-a-cjs-un-await-de-nivel-superior-explota-en-ejecución)
 
 ---
 
@@ -275,6 +281,57 @@ Los tres hacen concluir «no está instalado» cuando sí está:
    fuera de OneDrive.
 
 ---
+
+## Subir a Drive y traer el videoId
+
+### ⚠️ Drive te da un id ANTES de subir el archivo, y no es el id que sirve
+
+**Síntoma.** El script reportó **«20/20 clases con videoId de Drive»** y escribió un
+`drive.json` completo. Cero archivos estaban subidos.
+
+**Causa.** Drive for Desktop crea la fila en su `metadata_sqlite_db` en cuanto el archivo
+aparece en `G:`, con un id **placeholder** de la forma `local-46973` y `file_size = 0`. El
+id de verdad —25+ caracteres alfanuméricos, como `1mSs6d7ROi7AJyjXqMQ93MwmQx-dfuOrl`—
+aparece recién cuando el archivo existe del lado del servidor. El polling tomaba
+«¿hay id?» como «ya está arriba», que son dos preguntas distintas.
+
+**Por qué es peor de lo que parece.** `DRIVE_PREVIEW('local-46973')` no tira error: pinta
+un iframe muerto. Y el fallo se presentó como **éxito**, o sea el modo de falla más caro:
+nadie va a revisar un 20/20.
+
+**Regla.** El id se valida por FORMA, explícitamente, y la validación no se deriva de
+otra condición: `!id.startsWith('local-') && /^[A-Za-z0-9_-]{20,}$/.test(id)`. Y se
+distingue en el reporte «Drive todavía no lo vio» de «lo registró y está subiendo»: el
+segundo es progreso.
+
+**El casi-accidente, que es la parte que hay que recordar.** La guarda de `--liberar`
+(borrar el local con la subida confirmada) **no borró nada**, pero no por la condición del
+id: se salvó porque además exigía `file_size == tamaño local`, y el placeholder trae 0. O
+sea que una guarda de cuatro condiciones se sostuvo por una sola. Si esa cuarta no hubiera
+estado, se borraban 2,2 GB de descargas buenas creyendo que estaban a salvo en la nube.
+**Una guarda destructiva no se apoya en que alguna de sus condiciones tape a las otras:
+cada una se escribe explícita, aunque parezca redundante.**
+
+**Vive en:** `scripts/curso-a-drive.mjs` (`esIdReal`)
+
+### `npx tsx` compila a CJS: un `await` de nivel superior explota en ejecución
+
+**Síntoma.** `ERROR: Top-level await is currently not supported with the "cjs" output
+format`, con el typecheck del pre-push **en verde**.
+
+**Causa.** El error es de **transform** (esbuild), no de tipos. `tsc --noEmit` no lo ve
+porque el `await` de nivel superior es TypeScript válido; lo rechaza el compilador de tsx
+al emitir CJS.
+
+**Regla.** Todo script de `scripts/*.ts` que use `await` envuelve su cuerpo en
+`async function main()` y cierra con `main().catch(...)`. Ya estaba resuelto así en
+`scripts/backfill-transcripts.ts` — el patrón existía y no lo copié.
+
+**Y la lección general:** el pre-push verde **no** significa que un script corra. Los
+scripts no se ejecutan en el typecheck. Un script nuevo se prueba corriéndolo, aunque sea
+con un caso de uno.
+
+**Vive en:** `scripts/curso-transcribir.ts` · el patrón: `scripts/backfill-transcripts.ts:29`
 
 ## Decisiones
 

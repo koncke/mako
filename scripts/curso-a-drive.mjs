@@ -65,6 +65,15 @@ const dbDeDrive = () => {
   return cuentas[0] ?? null;
 };
 
+// ⚠️ Drive crea la fila ANTES de subir el archivo, con un id PLACEHOLDER
+// ('local-46973') y file_size = 0. Ese id no sirve para nada: DRIVE_PREVIEW con
+// él da un iframe muerto. El id de verdad son 25+ chars alfanuméricos y aparece
+// recién cuando el archivo existe del lado del servidor.
+// Tomar el placeholder por bueno fue un falso positivo que reportó "20/20 OK"
+// con cero archivos subidos, así que la validación es explícita y no derivada.
+const ID_REAL = /^[A-Za-z0-9_-]{20,}$/;
+const esIdReal = (id) => typeof id === 'string' && !id.startsWith('local-') && ID_REAL.test(id);
+
 const idsDeDrive = (nombres) => {
   const src = dbDeDrive();
   if (!src) return { error: `no encontré metadata_sqlite_db bajo ${DFS}` };
@@ -75,14 +84,17 @@ const idsDeDrive = (nombres) => {
   const q = db.prepare(`SELECT id, local_title, file_size, trashed FROM items
                         WHERE local_title = ? AND is_folder = 0 AND trashed = 0`);
   const out = new Map();
+  const enVuelo = new Map(); // registrado pero todavía subiendo
   for (const n of nombres) {
     const filas = q.all(n);
-    if (filas.length === 1) out.set(n, { id: filas[0].id, size: Number(filas[0].file_size ?? 0) });
-    else if (filas.length > 1) out.set(n, { ambiguo: filas.length, id: filas[0].id });
+    const reales = filas.filter((f) => esIdReal(f.id));
+    if (reales.length === 1) out.set(n, { id: reales[0].id, size: Number(reales[0].file_size ?? 0) });
+    else if (reales.length > 1) out.set(n, { ambiguo: reales.length, id: reales[0].id, size: Number(reales[0].file_size ?? 0) });
+    else if (filas.length) enVuelo.set(n, filas[0].id); // hay fila, con id placeholder
   }
   db.close();
   try { unlinkSync(tmp); } catch {}
-  return { ids: out };
+  return { ids: out, enVuelo };
 };
 
 // ── 1. Copiar (= subir) ──────────────────────────────────────────────────────
@@ -157,6 +169,7 @@ const pendientes = new Map(esperados.map((e) => [e.nombre, e.clase]));
 const resueltos = new Map();
 const t0 = Date.now();
 
+let vuelta = 0;
 while (pendientes.size && Date.now() - t0 < MINUTOS * 60000) {
   const r = idsDeDrive([...pendientes.keys()]);
   if (r.error) { console.error(`  ✖ ${r.error}\n`); process.exit(1); }
@@ -167,6 +180,13 @@ while (pendientes.size && Date.now() - t0 < MINUTOS * 60000) {
     resueltos.set(nombre, { ...info, clase: pendientes.get(nombre) });
     console.log(`  ✓ ${nombre}  →  ${info.id}`);
     pendientes.delete(nombre);
+  }
+  // Distinguir "Drive todavía no lo vio" de "lo registró y está subiendo": son
+  // dos estados distintos y el segundo es progreso, no un problema.
+  if (pendientes.size && vuelta++ % 6 === 0) {
+    const subiendo = r.enVuelo?.size ?? 0;
+    const mins = Math.round((Date.now() - t0) / 60000);
+    console.log(`  … ${resueltos.size} con id · ${subiendo} subiendo · ${pendientes.size - subiendo} sin registrar aún  (${mins} min)`);
   }
   if (pendientes.size) await new Promise((r2) => setTimeout(r2, 10000));
 }
@@ -217,7 +237,8 @@ if (LIBERAR) {
 
       // Las cuatro condiciones que habilitan el borrado, todas en positivo.
       const dentroDelCurso = !!e.src && e.src.startsWith(join(base, 'video') + '\\');
-      const tieneId = !!r?.id && !r?.ambiguo;
+      // esIdReal explícito: un 'local-*' significa que Drive NO subió nada todavía.
+      const tieneId = esIdReal(r?.id) && !r?.ambiguo;
       const localOk = !!e.src && existsSync(e.src);
       const tamLocal = localOk ? statSync(e.src).size : -1;
       const copiaOk = !!e.dst && existsSync(e.dst) && statSync(e.dst).size === tamLocal;
