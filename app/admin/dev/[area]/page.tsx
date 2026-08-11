@@ -17,7 +17,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { areaDe } from '../areas';
 import { registroDe } from '../registros';
-import { roadmapDe, wsDelBoard } from '../roadmap';
+import { roadmapDe, tareasDelCamino, wsDelBoard } from '../roadmap';
 import { historialGitDe } from '../_historial.generado';
 import { RegistroArea } from './RegistroArea';
 
@@ -47,12 +47,18 @@ export default async function AreaDevPage({ params, searchParams }: {
 
   // Los dos paneles derivados: el Roadmap sale del plan y el historial de git.
   // Ver el encabezado de `../areas.ts` para por qué no se escriben a mano.
-  const { tareas } = await roadmapDe(slug, wsDelBoard(admin.ws));
+  const ws = wsDelBoard(admin.ws);
+  const { tareas } = await roadmapDe(slug, ws);
+  // Las áreas con Roadmap escrito a mano reclaman tareas de VARIOS proyectos (el
+  // camino de Customer Success toca Dashboard, Legal y fiscal, Avisos…), así que
+  // `roadmapDe` —que filtra por los proyectos del área— no alcanza. Devuelve []
+  // para las demás: es la misma consulta cacheada, no una segunda ida a la base.
+  const tareasCamino = await tareasDelCamino(slug, ws);
   // La sub-tab se lee ACÁ y no con `useSearchParams`: ese hook hace que el
   // boundary se saltee el render del servidor y la primera pintura salga vacía.
   // Es el mismo molde que app/admin/ui/page.tsx, que ya lo dejó escrito — y
   // acá importa más, porque `?tab=` es además el único camino para abrir un
   // panel desde afuera (un clic sintético no llega al onClick de React).
   const { tab } = await searchParams;
-  return <RegistroArea area={area} registro={registroDe(slug)} tareas={tareas} commits={historialGitDe(slug)} tabInicial={tab} />;
+  return <RegistroArea area={area} registro={registroDe(slug)} tareas={tareas} commits={historialGitDe(slug)} tabInicial={tab} tareasCamino={tareasCamino} />;
 }

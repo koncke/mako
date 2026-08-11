@@ -11,43 +11,23 @@
 
 import type { Hito, Parte } from '../_registro/tipos';
 
+/**
+ * ⚠️ Estas PARTES **no se pintan** en esta área: su Roadmap es propio y las
+ * reemplaza (ver `roadmapPropioDe` en ../paneles.tsx). Siguen acá porque son lo
+ * que alimenta el contador «N de M» del encabezado, y por eso son ESPEJO EXACTO
+ * de las fases de `roadmap-cs.ts`. Si allá se agrega una fase, acá va su fila —
+ * si no, el contador cuenta otra cosa que lo que la pantalla muestra.
+ */
 export const PARTES: Parte[] = [
-  {
-    titulo: 'El bucle de 5 pasos',
-    detalle:
-      'Video del bloque antes de la reunión → el cliente hace la tarea y recién ahí se agenda → la llamada es criterio, no extracción → la IA reescribe con el Fathom → el cliente aprueba en la plataforma. Es el reencuadre que unifica los frentes 01, 02 y 03: son tres piezas del MISMO bucle, no cuatro frentes sueltos. Da el criterio de terminado que el sprint no tenía.',
-    estado: 'sigue',
-  },
-  {
-    titulo: 'Frente 02 · Plataforma de contenido (Whop)',
-    detalle:
-      'Elegida el 11/8: es la alternativa gratuita con API. Cierra el compromiso más viejo del sprint —la comparativa de plataformas se prometió el 8/7 y nunca se entregó—. No se desarrolla nada: se conecta por API. Falta montar el programa por bloques, que espera los 5 entregables de Mauricio.',
-    estado: 'sigue',
-  },
-  {
-    titulo: 'Frente 03 · Seguimiento de sus clientes',
-    detalle:
-      'Más avanzado de lo que nadie cree: sus seis clientes ya son proyectos de su tablero y sus reuniones ya caen en el cliente correcto. Falta el cron de compromisos vencidos (cero líneas escritas hoy, y el más barato), la vista de cartera, y el semáforo de palancas que lo obligue a ÉL.',
-    estado: 'cola',
-  },
-  {
-    titulo: 'Frente 01 · Prompt maestro de tableros',
-    detalle:
-      'El esquema ya existe: la matriz vinculada de 14 columnas de su Cuestionario Maestro, con sus 6 auditorías de vinculación como validador determinista. Va partido en dos: el spec y el validador adentro de MaKo, el generador afuera como skill de Claude Code — MaKo no emite código en runtime en ningún lado.',
-    estado: 'cola',
-  },
-  {
-    titulo: 'Frente 04 · Graduación y casos de éxito',
-    detalle:
-      'No tiene materia prima: ningún cliente llegó todavía a la etapa que produce el caso. Hay que renegociarlo ahora y cambiarlo por lo que sí tiene reloj — la oferta de renovación de octubre/noviembre.',
-    estado: 'cola',
-  },
-  {
-    titulo: 'La propuesta original (12 módulos, 52 features)',
-    detalle:
-      'Rechazada el 8/7 por timing, no por precio, y aplazada con gatillo explícito. Se conserva entera en la sub-tab «Roadmap CS» con el estado real de cada feature contra el código: cuatro de las diez marcadas `listo` no lo estaban.',
-    estado: 'cola',
-  },
+  { titulo: 'Fase 0 · Destrabar lo que frena todo', detalle: 'Los 5 entregables de Mauricio, reencuadrar el sprint, poner el consumo de IA bajo control y verificar la cuota. Nada es código, y por eso se posterga solo.', estado: 'sigue' },
+  { titulo: 'Fase 1 · La matriz vinculada', detalle: 'El esqueleto: las 14 columnas del Cuestionario Maestro y las 6 auditorías como validador determinista. Va primero porque el formulario, el prompt maestro y el tablero preguntan o pintan lo mismo.', estado: 'cola' },
+  { titulo: 'Fase 2 · Que el tablero salga solo', detalle: 'El prompt maestro editable y la skill de Claude Code que lo emite. Su mayor sangría de tiempo: tiene seis tableros en cola y los codea de madrugada.', estado: 'cola' },
+  { titulo: 'Fase 3 · Que la plataforma exista (Whop)', detalle: 'Habilita el paso 1 del bucle. Elegida el 11/8 por ser la gratuita con API; falta conectarla y montar el programa por bloques, que espera los 5 entregables.', estado: 'sigue' },
+  { titulo: 'Fase 4 · Que el cliente haga la tarea', detalle: 'Habilita los pasos 2 y 5: el formulario del bloque y la aprobación. Es lo que le saca el trabajo de encima.', estado: 'cola' },
+  { titulo: 'Fase 5 · Que la IA cierre el bucle', detalle: 'Habilita el paso 4: el Fathom de la reunión reescribe las respuestas, y hay un camino para cuando no hay grabación.', estado: 'cola' },
+  { titulo: 'Fase 6 · Que no se caiga nada', detalle: 'Aviso de compromiso vencido, vista de cartera, etapa del encargo y el semáforo que da el guión. No espera a nadie y es lo más barato del encargo.', estado: 'cola' },
+  { titulo: 'Fase 7 · Que se cierre y vuelva a vender', detalle: 'Protocolo de graduación y la oferta de renovación de octubre/noviembre, que es lo que reemplaza al frente 04.', estado: 'cola' },
+  { titulo: '⚠ La deuda con él', detalle: 'Vista móvil, agendar la J2 desde la llamada, el aviso que se pierde, el mapa de CDMX y el acuerdo de propiedad del código. No es técnico: es lo que sostiene la relación.', estado: 'cola' },
 ];
 
 const CH = 'Customer Success: mapeo y roadmap';
@@ -112,8 +92,19 @@ export const BITACORA: Hito[] = [
     puntos: [
       '**Whop cierra el compromiso más viejo del sprint.** La comparativa de plataformas se prometió el 8/7 [01:16:16] y llevaba cinco semanas sin entregarse; Circle y Thinkific no volvieron a nombrarse después de esa reunión.',
       '⚠️ **El área se llamaba «CS Analyst» y era la mitad del asunto.** Su `proyectos` apuntaba a «Feature: CS Analyst», que NO existe en el tablero: el proyecto real es «Feature: Customer Success» (P34, 3 tareas), que a su vez no estaba en el catálogo. El Roadmap salía vacío **sin fallar** y el ruteo no podía mandarle nada. Es el mismo agujero que tuvieron Landing Analyst y YouTube Analyst, pero al revés: acá el huérfano era el proyecto real.',
-      '**La sub-tab «Roadmap CS» es la única vista de Dev que NO sale del plan**, y el motivo está escrito arriba de `roadmap-cs.ts`: la mitad del programa todavía no es trabajo cargado, y meter 52 hipótesis al tablero enterraría 460 tareas reales. Las dos vistas conviven a propósito: «Roadmap CS» es el PROGRAMA, «Roadmap» es el TRABAJO.',
       'De las 10 features que el documento le mostró a Mauricio con el tag `listo`, **cuatro no lo estaban** — entre ellas «Semáforo del negocio», que se vendió como hecha y es exactamente el comportamiento que él después reclamó como faltante.',
+    ],
+  },
+  {
+    fecha: '11 ago', hora: '—', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'correccion',
+    titulo: '«No entiendo porque hay 2 tabs de roadmap»',
+    pedido: 'No entiendo porque hay 2 tabs de roadmap... Y no se entiende, ¿que tenemos que hacer primero? Está bien que pongas "los 5 pasos" pero que hay que hacer primero... Y si dentro de los 5 pasos está uno que el cliente se vea el curso, no puede estar como paso posterior el crear la plataforma... Hazlo bien, y está bien que pongas el objetivo grande, pero también desglozalo. Puedes diferenciar el gran objetivo de las cosas que tenemos que hacer para llegar a ello.',
+    puntos: [
+      '**Tenía razón y eran TRES, no dos**: las `partes` de esta bitácora, el panel propio y `RoadmapDelPlan`, apiladas en la misma pantalla. La regla que queda: **un área tiene UN roadmap.** Si trae uno escrito a mano, ese REEMPLAZA al genérico y se hace cargo de mostrar las tareas del plan adentro — no al lado. Vive en `roadmapPropioDe` (paneles.tsx).',
+      '⚠️ **El error de fondo era de categorías, no de tabs.** Estaban mezclados el OBJETIVO (cómo va a funcionar el servicio: el bucle de 5 pasos) y el CAMINO (lo que hay que construir para que ese bucle pueda correr). Mezclados producen el absurdo que él marcó: el paso 1 es «el cliente ve el video» y aparecía ANTES que la fase que construye la plataforma donde vive ese video. **El paso 1 del bucle es el ÚLTIMO en poder correr.**',
+      'Ahora el objetivo va aparte y sin estado —no es trabajo, es el destino— y cada paso declara qué fase lo habilita. El camino son 9 fases en orden de DEPENDENCIA, no en el orden de los cuatro frentes del Sprint: cada una dice qué desbloquea y qué necesita antes, y dos están marcadas como paralelas.',
+      'La matriz vinculada pasó a ser la fase 1 por la misma razón: el formulario, el prompt maestro y el tablero preguntan o pintan LO MISMO. Construir cualquiera antes es construirlo sobre una suposición.',
+      'Las tareas del plan se resuelven **por título** adentro de cada paso (`tareasDelCamino` en roadmap.ts, que une las del proyecto con las que el camino reclama en otros). Si el título no matchea no se inventa número: un número aproximado manda a la tarjeta de otra tarea. Y las que el camino no reclama se muestran igual, para que la pantalla no diga «esto es todo» cuando no lo es.',
     ],
   },
 ];

@@ -14,6 +14,7 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { AREAS, type AreaDev, type EstadoArea } from './areas';
+import { TITULOS_EN_PLAN } from './customer-success/roadmap-cs';
 
 export type TareaRoadmap = {
   num: number;
@@ -67,6 +68,46 @@ export async function roadmapDe(slug: string, ws: number): Promise<RoadmapArea> 
     ? (await tareasAbiertas(ws)).filter((t) => suyos.has(t.proyecto)).sort((a, b) => b.score - a.score)
     : [];
   return { tareas, estado: estadoEfectivo(area, tareas.length) };
+}
+
+/**
+ * Las tareas que necesita un área con Roadmap PROPIO escrito a mano.
+ *
+ * Es la unión de dos cosas, y las dos hacen falta:
+ *  · las de sus `proyectos` — para poder mostrar lo que el camino NO reclama, en vez
+ *    de esconderlo y hacer creer que el camino es todo lo que hay;
+ *  · las que el camino reclama POR TÍTULO — porque un camino cruza varios proyectos
+ *    (el mapa de CDMX vive en Dashboard, el acuerdo del código en Legal y fiscal) y
+ *    filtrar solo por proyecto las dejaría sin número aunque estén cargadas.
+ *
+ * El match por título es tolerante (sin acentos ni puntuación) y **si no matchea no
+ * inventa**: la pantalla simplemente no muestra número. Un número aproximado mandaría
+ * a la tarjeta de otra tarea, que es peor que no tener link.
+ */
+const TITULOS_PROPIOS: Record<string, string[]> = {
+  'customer-success': TITULOS_EN_PLAN,
+};
+
+const normTitulo = (s: string): string =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, ' ').trim().toLowerCase();
+
+export async function tareasDelCamino(slug: string, ws: number): Promise<TareaRoadmap[]> {
+  const titulos = TITULOS_PROPIOS[slug];
+  if (!titulos) return [];
+  const area = AREAS.find((a) => a.slug === slug);
+  const suyos = new Set(area?.proyectos ?? []);
+  const quiere = new Set(titulos.map(normTitulo));
+  const vistas = new Set<number>();
+  const out: TareaRoadmap[] = [];
+  for (const t of await tareasAbiertas(ws)) {
+    if (!suyos.has(t.proyecto) && !quiere.has(normTitulo(t.titulo))) continue;
+    // Una tarea cuelga de varios proyectos y por eso aparece varias veces en el
+    // barrido: acá sí se deduplica, porque es UNA tarjeta en la pantalla.
+    if (vistas.has(t.num)) continue;
+    vistas.add(t.num);
+    out.push(t);
+  }
+  return out.sort((a, b) => b.score - a.score);
 }
 
 // ---------------------------------------------------------------------------

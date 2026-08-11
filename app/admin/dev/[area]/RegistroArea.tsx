@@ -34,10 +34,10 @@ import type { Registro } from '../_registro/tipos';
 import type { AreaDev } from '../areas';
 import type { CommitArea } from '../_historial.generado';
 import type { TareaRoadmap } from '../roadmap';
-import { subTabsDe, panelDe } from '../paneles';
+import { subTabsDe, panelDe, roadmapPropioDe, tieneRoadmapPropio } from '../paneles';
 
 export function RegistroArea({
-  area, registro, tareas, commits, tabInicial,
+  area, registro, tareas, commits, tabInicial, tareasCamino = [],
 }: {
   area: AreaDev;
   registro: Registro;
@@ -45,7 +45,14 @@ export function RegistroArea({
   commits: CommitArea[];
   /** La sub-tab pedida por `?tab=`, ya leída en el SERVER (ver page.tsx). */
   tabInicial?: string;
+  /** Solo para las áreas con Roadmap propio: las tareas que su camino reclama,
+   *  que cruzan varios proyectos y por eso no salen de `tareas`. */
+  tareasCamino?: TareaRoadmap[];
 }) {
+  // Un área tiene UN roadmap. Si trae el suyo escrito, ese REEMPLAZA al genérico
+  // (las `partes` + `RoadmapDelPlan`) en vez de sumarse como otra tab — ver el
+  // comentario de `roadmapPropioDe`.
+  const propio = tieneRoadmapPropio(area.slug);
   const hechas = registro.partes.filter((p) => p.estado === 'hecha').length;
   // Las áreas con bitácora escrita a mano tienen registro curado. Manda ella:
   // tiene el pedido TEXTUAL del dueño y el porqué, que ningún mensaje de commit
@@ -98,8 +105,12 @@ export function RegistroArea({
           {/* La trampa va en el Roadmap y no en el Historial: es lo que hay que
               saber ANTES de tocar el área, no lo que pasó. */}
           {area.nota && <Trampa nota={area.nota} />}
-          {conBitacora && <Roadmap partes={registro.partes} />}
-          <RoadmapDelPlan tareas={tareas} proyectos={area.proyectos ?? []} />
+          {propio ? roadmapPropioDe(area.slug, tareasCamino) : (
+            <>
+              {conBitacora && <Roadmap partes={registro.partes} />}
+              <RoadmapDelPlan tareas={tareas} proyectos={area.proyectos ?? []} />
+            </>
+          )}
         </>
       )}
 

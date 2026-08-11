@@ -378,13 +378,19 @@ que puede no renovar.
 
 ### Dónde vive esto ahora
 
-- **El roadmap completo** —lo de Mauricio primero, después los 12 módulos de la propuesta
-  original con su estado real contra el código— está en **`/admin/dev/customer-success` →
-  sub-tab «Roadmap CS»**. Los datos, en `app/admin/dev/customer-success/roadmap-cs.ts`.
-- **El trabajo** está en el board `/plan`, proyecto `Feature: Customer Success` y los siete
-  proyectos vecinos que le tocan.
-- Las dos vistas conviven a propósito: **«Roadmap CS» es el PROGRAMA, «Roadmap» es el
-  TRABAJO.** Es la única vista de Dev escrita a mano, y el motivo está arriba de su archivo.
+- **El roadmap** está en **`/admin/dev/customer-success`**, y separa dos cosas que estaban
+  mezcladas:
+  - **El objetivo** — el bucle de 5 pasos: cómo va a funcionar el servicio cuando esté. No
+    es trabajo y no tiene estado.
+  - **El camino** — 9 fases en orden de **dependencia**, no en el orden de los cuatro
+    frentes del Sprint. Cada una dice qué desbloquea y qué necesita antes.
+- ⚠️ **La trampa que costó una corrección:** el paso 1 del bucle es «el cliente ve el video
+  del bloque», y es el **último** en poder correr — necesita la plataforma que construye la
+  fase 3. Un paso del bucle no es una tarea del camino; por eso cada paso declara qué fase
+  lo habilita en vez de hacerse pasar por una.
+- Es el único Roadmap de Dev escrito a mano, y **reemplaza al genérico en vez de sumarse**:
+  un área tiene UN roadmap. Las tareas del plan se resuelven por título adentro de cada
+  paso. Los datos, en `app/admin/dev/customer-success/roadmap-cs.ts`.
 
 ⚠️ Al armar la carga del plan, el barrido anti-duplicados encontró **seis** tareas que ya
 existían y se habrían duplicado: `#109` (vista de cartera), `#287` (avisos de Mauricio),

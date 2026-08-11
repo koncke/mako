@@ -22,6 +22,7 @@ import { GuionesAdminView } from '@/app/admin/guiones/GuionesAdminView';
 import { ElSemaforo } from './semaforo/ElSemaforo';
 import { Pricing } from './pricing/Pricing';
 import { RoadmapCS } from './customer-success/RoadmapCS';
+import type { TareaRoadmap } from './roadmap';
 
 export type SubTab = { id: string; label: string };
 
@@ -39,13 +40,6 @@ export const SUBTABS: Record<string, SubTab[]> = {
   pricing: [
     { id: 'analisis', label: 'Análisis de costos' },
   ],
-  // La ÚNICA sub-tab de Dev que no sale del plan. El porqué está arriba de
-  // `customer-success/roadmap-cs.ts`: media programa todavía no es trabajo
-  // cargado. Convive con «Roadmap» a propósito — ésta es el PROGRAMA, aquélla
-  // es el TRABAJO.
-  'customer-success': [
-    { id: 'roadmap-cs', label: 'Roadmap CS' },
-  ],
 };
 
 export const subTabsDe = (slug: string): SubTab[] => SUBTABS[slug] ?? [];
@@ -57,6 +51,24 @@ export function panelDe(slug: string, tab: string): ReactNode {
   }
   if (slug === 'semaforo' && tab === 'catalogo') return <ElSemaforo />;
   if (slug === 'pricing' && tab === 'analisis') return <Pricing />;
-  if (slug === 'customer-success' && tab === 'roadmap-cs') return <RoadmapCS />;
   return null;
 }
+
+/**
+ * El Roadmap PROPIO de un área: REEMPLAZA al genérico (las `partes` de la
+ * bitácora + `RoadmapDelPlan`), no se suma como otra tab.
+ *
+ * ⚠️ Que sea reemplazo y no sub-tab es el pedido textual del dueño: «No entiendo
+ * porque hay 2 tabs de roadmap». Eran TRES listas parecidas apiladas y ninguna
+ * contestaba «¿qué hacemos primero?», que era lo único que se le pedía a la
+ * pantalla. La regla que queda: **un área tiene UN roadmap.** Si un área necesita
+ * uno escrito a mano, ese pasa a ser EL roadmap y se hace cargo de mostrar las
+ * tareas del plan adentro — no al lado.
+ */
+export function roadmapPropioDe(slug: string, tareas: TareaRoadmap[]): ReactNode {
+  if (slug === 'customer-success') return <RoadmapCS tareas={tareas} />;
+  return null;
+}
+
+/** ¿Este área trae su propio Roadmap? Lo mira la pantalla para no pintar el genérico. */
+export const tieneRoadmapPropio = (slug: string): boolean => slug === 'customer-success';

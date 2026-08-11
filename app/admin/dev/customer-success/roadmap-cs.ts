@@ -1,45 +1,46 @@
 // =============================================================================
-// El roadmap COMPLETO de Customer Success — el único de Dev escrito a mano
+// Customer Success: el objetivo, y el camino para llegar
 // =============================================================================
-// Todos los demás Roadmap de /admin/dev salen del plan (ver ../roadmap.ts), y esa
-// regla es buena: un roadmap escrito a mano se queda viejo el martes. Acá hay una
-// excepción con motivo, y conviene que quede escrita para que nadie la copie sin
-// pensarla:
+// Esta pantalla reemplaza al Roadmap genérico del área (el que sale del plan).
+// NO convive con él: el dueño lo dijo sin vueltas —«No entiendo porque hay 2 tabs
+// de roadmap»— y tenía razón, eran TRES listas parecidas apiladas (las PARTES de
+// la bitácora, este panel y RoadmapDelPlan). Ahora hay una sola, y las tareas del
+// plan se resuelven POR TÍTULO adentro de cada paso: el camino da el orden, el
+// tablero da el estado. Ver `roadmapPropioDe` en ../paneles.tsx.
 //
-//   · La MITAD de este programa todavía no es trabajo cargado. Los 12 módulos de la
-//     propuesta que se le presentó a Mauricio (/vsl/mako-cs) son 52 features, y
-//     meterlas al tablero hoy sería enterrar 460 tareas reales bajo 52 hipótesis.
-//   · La otra mitad —lo de Mauricio— SÍ va al plan, y la sub-tab «Roadmap» de esta
-//     misma área lo lee de ahí. Las dos vistas conviven a propósito: ésta es el
-//     PROGRAMA, aquélla es el TRABAJO.
+// LA SEPARACIÓN QUE FALTABA, y es la que hacía que no se entendiera:
 //
-// Cuando una de estas líneas se convierta en tarea del tablero, se marca `enPlan`
-// y deja de competir con ella: la fuente de verdad del avance sigue siendo el plan.
+//   · EL OBJETIVO es cómo va a FUNCIONAR el servicio cuando esté: el bucle de 5
+//     pasos. No es trabajo, es el destino. No tiene estado ni orden de ejecución.
+//   · EL CAMINO es lo que hay que CONSTRUIR para que ese bucle pueda correr, en
+//     orden de dependencia real.
 //
-// De dónde sale cada cosa:
-//   · Sección «Con Mauricio» → docs/sprint-servicio-mauricio.md, que a su vez sale
-//     de las 7 reuniones del 4/7 al 6/8 (corrida wf_92bf7d0a-363) y del Google Doc
-//     del Sprint. Las citas son textuales, con su fecha y su timestamp.
-//   · Sección «La propuesta original» → public/vsl-assets/mako-cs.html, decodificado.
-//     Los tags `listo` / `expande` son los que el propio documento le mostró a
-//     Mauricio: no son un diagnóstico de hoy. Donde el código dice otra cosa, está
-//     anotado — es la parte más útil de esta pantalla.
+// Mezclarlos producía el absurdo que el dueño marcó: «si dentro de los 5 pasos
+// está uno que el cliente se vea el curso, no puede estar como paso posterior el
+// crear la plataforma». El paso 1 del bucle es el ÚLTIMO en poder correr, porque
+// necesita la plataforma que la fase 3 construye. Por eso cada fase declara qué
+// paso del bucle habilita (`habilita`) en vez de hacerse pasar por uno.
+//
+// El orden NO es el de los cuatro frentes del Sprint: es el de las dependencias.
+// La matriz vinculada va primero porque es el esqueleto que usan el formulario,
+// el prompt maestro y el tablero — construir cualquiera de los tres antes es
+// construirlo sobre una suposición.
+//
+// De dónde sale: docs/sprint-servicio-mauricio.md (las 7 reuniones del 4/7 al 6/8)
+// y public/vsl-assets/mako-cs.html para la sección «Después».
 // =============================================================================
 
 import type { Tono } from '@/app/_ui';
 
-/** El estado de una línea del programa. */
 export type EstadoCS =
-  | 'hecho'        // está construido y enchufado
+  | 'hecho'        // construido y enchufado
   | 'en-curso'     // se está trabajando ahora
   | 'bloqueado'    // no avanza hasta que pase otra cosa
   | 'proximo'      // decidido, sin arrancar
   | 'idea'         // está en la propuesta, no se decidió
   | 'descartado';  // se evaluó y se dejó afuera, con motivo
 
-/** El tono sale de la paleta compartida (`TONO` en app/_ui/tokens.ts), nunca de un
- *  `var(--…)` escrito al lado: es lo único que impide que el ámbar de acá y el de un
- *  botón se separen. Misma lección que ya está escrita en el registro del semáforo. */
+/** El tono sale de la paleta compartida (`TONO`), nunca de un `var(--…)` al lado. */
 export const ESTADO_CS: Record<EstadoCS, { label: string; tono: Tono }> = {
   hecho: { label: 'Hecho', tono: 'good' },
   'en-curso': { label: 'En curso', tono: 'mako' },
@@ -53,422 +54,365 @@ export type ItemCS = {
   titulo: string;
   que: string;
   estado: EstadoCS;
+  /** Quién lo hace. Sin esto, la mitad del camino parece trabajo de Martín y no lo es. */
+  quien?: 'Martín' | 'Mauricio' | 'Los dos';
+  /** El TÍTULO EXACTO de la tarea en /plan. La pantalla lo resuelve contra el tablero
+   *  y muestra su número y su avance. Si no matchea, no inventa: no muestra nada. */
+  plan?: string;
   /** El tag que el documento original le mostró a Mauricio. No es el estado de hoy. */
   tagOriginal?: 'listo' | 'expande';
-  /** La trampa, la contradicción o la cita que explica el estado. */
   nota?: string;
-  /** Número de la tarea en /plan, si ya vive ahí. */
-  enPlan?: number;
 };
 
-export type BloqueCS = {
-  id: string;
-  /** El rótulo corto de la izquierda: «01», «Paso 2», «✦». */
+// ─────────────────────────────────────────────────────────────────────────────
+// EL OBJETIVO — cómo va a funcionar el servicio. No es trabajo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const OBJETIVO = {
+  titulo: 'Que el servicio de Mauricio corra como un bucle',
+  que:
+    'Hoy cada cliente le cuesta madrugadas: él llena el Excel, él redacta el documento, él codea el tablero. El objetivo es dar vuelta quién hace el trabajo — que el cliente lo haga y Mauricio solo aporte criterio. El efecto que él mismo puso en números: que el programa baje de 4-5 meses a 3, y que pueda atender más clientes sin sumar horas.',
+  cita:
+    '«si yo puedo tener una plataforma donde ponga más a trabajar al cliente y me quite tareas, pero que sea más asertivo, eso va a poder aumentar mi capacidad instalada para poder generar los 20 mil» — Mauricio, 29/7 [01:56:38]',
+  /** Los 5 pasos, definidos el 31/7 [03:46:44]. El destino, no la lista de tareas. */
+  pasos: [
+    { n: 1, titulo: 'El cliente ve el video del bloque', que: 'Antes de la reunión, por su cuenta. Mauricio deja de explicar la metodología en vivo, cliente por cliente, cada vez.', necesita: 'Necesita la plataforma · fase 3' },
+    { n: 2, titulo: 'Hace la tarea, y recién ahí se agenda la llamada', que: '«obligatorio que tu cliente se termine la tarea para avanzar en el proceso, si no se terminó la tarea está en su cancha el problema». La llamada se gana, no se regala.', necesita: 'Necesita el formulario · fase 4' },
+    { n: 3, titulo: 'En la llamada revisan y perfeccionan', que: 'La llamada deja de ser extracción de datos y pasa a ser criterio. Es lo único que Mauricio dijo que no delega.', necesita: 'Ya funciona así' },
+    { n: 4, titulo: 'La IA reescribe con el Fathom de esa reunión', que: 'Mata el «peinado» manual que hoy hace él después de cada junta.', necesita: 'Necesita el enganche con Fathom · fase 5' },
+    { n: 5, titulo: 'El cliente entra, pule y aprueba', que: 'La propiedad queda del lado del cliente. Y el efecto que Mauricio más valora: el empresario tiene claridad ANTES de que exista el tablero.', necesita: 'Necesita el formulario · fase 4' },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EL CAMINO — lo que hay que construir, en orden de dependencia
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type FaseCS = {
   n: string;
   titulo: string;
-  que: string;
+  /** Qué queda desbloqueado cuando esta fase cierra. Es el porqué del orden. */
+  desbloquea: string;
+  /** Qué tiene que estar antes. Vacío = se puede arrancar hoy. */
+  necesita?: string;
+  /** Puede correr sin esperar a las anteriores. */
+  paralelo?: boolean;
   items: ItemCS[];
 };
 
-export type SeccionCS = {
-  id: string;
-  titulo: string;
-  intro: string;
-  bloques: BloqueCS[];
-};
+export const FASES: FaseCS[] = [
+  {
+    n: '0',
+    titulo: 'Destrabar lo que frena todo',
+    desbloquea: 'Todo lo demás. Nada de esto es código, y por eso se posterga solo.',
+    items: [
+      {
+        titulo: 'Recibir los 5 entregables de Mauricio',
+        que: 'Timing por bloque · esfuerzo del cliente · cuántas llamadas por bloque · qué hace él a mano hoy · qué le cuesta más entender al cliente.',
+        estado: 'bloqueado', quien: 'Mauricio',
+        nota: 'Prometidos el 6/8 [01:09:37] «Ya los tengo, ya te lo envío hoy mismo», sin confirmación de recepción. Sin esto no se puede estructurar el programa (fase 3). El quinto ES la lista de videos a grabar.',
+      },
+      {
+        titulo: 'Reencuadrar el sprint y renegociar el frente 04',
+        que: 'Mandarle por escrito el bucle y los 5 entregables, y cambiar los 5 casos de éxito por algo que sí se pueda entregar.',
+        estado: 'proximo', quien: 'Martín', plan: 'Reencuadrar el sprint con Mauricio: los 5 pasos y el frente 04',
+        nota: 'El 6/8 ninguno de los dos se acordaba de la lista de cinco. Y el frente 04 no tiene materia prima: ningún cliente llegó a la etapa que produce el caso.',
+      },
+      {
+        titulo: 'Poner el consumo de IA bajo control',
+        que: 'Plan propio de US$200 y auto-límite sobre el Cloud de Mauricio, con el consumo visible para él.',
+        estado: 'proximo', quien: 'Martín', plan: 'Auto-límite del consumo de IA sobre la cuenta de Claude de Mauricio',
+        nota: '⚠️ Ya le costó tres días de trabajo con un cliente suyo, y bloqueó justamente el frente 01. El acuerdo está cerrado desde el 6/8 y sin ejecutar.',
+      },
+      {
+        titulo: 'Verificar la cuota del 10 de agosto',
+        que: 'La segunda cuota del sprint. El 6/8 quedó impaga, con promesa de pago ese día y problema de caja declarado.',
+        estado: 'proximo', quien: 'Martín',
+      },
+    ],
+  },
+  {
+    n: '1',
+    titulo: 'La matriz vinculada: el esqueleto',
+    desbloquea: 'El formulario (fase 4), el prompt maestro (fase 2) y el tablero. Los tres preguntan o pintan LO MISMO.',
+    items: [
+      {
+        titulo: 'El tipo de la matriz y el validador de las 6 auditorías',
+        que: 'Las 14 columnas del Cuestionario Maestro (MCI → Objetivo LAG → Área → Palanca → cómo se mide → verde/amarillo/rojo → evidencia → corte) y las 6 verificaciones que las rechazan.',
+        estado: 'proximo', quien: 'Martín', plan: 'La matriz vinculada y su validador: el esquema del tablero de un cliente',
+        nota: 'Mauricio ya lo entregó escrito: su cuestionario termina en esa tabla y trae su propia capa de verificación. Va sin `server-only` para que un test lo importe.',
+      },
+      {
+        titulo: 'Cerrar cuántos campos tiene la ficha de palanca',
+        que: 'El texto del cuestionario dice nueve, la tabla del Bloque 4 lista diez, y la que él dictó el 31/7 tiene siete.',
+        estado: 'proximo', quien: 'Los dos',
+        nota: 'Modelar antes de cerrarlo es modelar una suposición. Es una pregunta de cinco minutos.',
+      },
+    ],
+  },
+  {
+    n: '2',
+    titulo: 'Que el tablero salga solo',
+    desbloquea: 'Su mayor sangría de tiempo: tiene seis tableros en cola y los codea de madrugada.',
+    necesita: 'La matriz (fase 1). No necesita la plataforma.',
+    items: [
+      {
+        titulo: 'El prompt maestro, editable desde /contexto',
+        que: 'Que llene y después emita: proponer evidencia y umbrales a partir de lo que ya funcionó en sus otros clientes, y devolver la tabla de huecos con responsable y fecha.',
+        estado: 'proximo', quien: 'Martín', plan: 'El prompt maestro que arma el tablero de un cliente',
+        nota: '⚠️ El reencuadre que decide si sirve: su cuello NO es codear. Sus propios documentos dicen que el bloqueo #1 del programa es DEFINIR LA EVIDENCIA (tres semanas paradas con Patricia) y el #2 poner el umbral. Un prompt que toma un cuestionario ya lleno resuelve el último tramo.',
+      },
+      {
+        titulo: 'La skill de Claude Code que emite el tablero',
+        que: 'Toma la matriz validada y escribe el código. Generada DESDE el código, con `--check` en el pre-push.',
+        estado: 'proximo', quien: 'Martín', plan: 'La skill de Claude Code que emite el tablero del cliente',
+        nota: 'MaKo no emite código en runtime en ningún lado. El riel de skill generada ya existe (lib/agente-skill.ts:56).',
+      },
+      {
+        titulo: 'Probarlo contra un tablero que él YA hizo',
+        que: 'Esquer o Baja Teriyaki. Si no reproduce lo que construyó a mano, no sirve.',
+        estado: 'proximo', quien: 'Los dos',
+      },
+    ],
+  },
+  {
+    n: '3',
+    titulo: 'Que la plataforma exista · Whop',
+    desbloquea: 'El PASO 1 del bucle: que el cliente vea el video antes de la reunión.',
+    necesita: 'Los 5 entregables (fase 0) para saber qué bloques hay y qué videos grabar.',
+    items: [
+      {
+        titulo: 'Conectar Whop por API',
+        que: 'Alta de la integración con credenciales por workspace. No se desarrolla la plataforma: se conecta.',
+        estado: 'en-curso', quien: 'Martín', plan: 'Conectar Whop por API para la plataforma de contenido',
+        nota: 'Elegida el 11/8 por ser la gratuita con API. Cierra el compromiso más viejo del sprint: la comparativa se prometió el 8/7.',
+      },
+      {
+        titulo: 'Montar el programa por bloques y dar de alta a los clientes',
+        que: 'La estructura del programa con el video de cada bloque, y los clientes activos adentro.',
+        estado: 'bloqueado', quien: 'Los dos', plan: 'Montar el programa de Mauricio en Whop, por bloques',
+        nota: 'Restricciones dichas por él: nada de Notion, y «son empresarios que todos tienen TDAH… la mayoría no creas que le sabe la computadora».',
+      },
+      {
+        titulo: 'Grabar los videos de los bloques que más cuestan',
+        que: 'Salen del quinto entregable: los puntos que el cliente no entiende son exactamente los videos que hacen falta.',
+        estado: 'bloqueado', quien: 'Mauricio',
+        nota: 'Esto es lo que de verdad toma tiempo del frente 02. El software es un día; los otros 59 son él grabando.',
+      },
+      {
+        titulo: 'Sacar el `const WS = 1` de la ruta que comparte material',
+        que: 'Hoy compartir un curso está clavado al workspace 1: ningún otro cliente puede compartir el suyo.',
+        estado: 'proximo', quien: 'Martín', plan: 'Sacar el `const WS = 1` de la ruta que comparte material',
+      },
+    ],
+  },
+  {
+    n: '4',
+    titulo: 'Que el cliente haga la tarea',
+    desbloquea: 'Los PASOS 2 y 5 del bucle, que son los que le sacan el trabajo de encima.',
+    necesita: 'La matriz (fase 1) para saber qué preguntar, y la plataforma (fase 3) para que viva ahí.',
+    items: [
+      {
+        titulo: 'El formulario del bloque, y la aprobación del cliente',
+        que: 'El cliente completa la tarea antes de la llamada, y después vuelve a pulir y aprobar lo que la IA reescribió.',
+        estado: 'proximo', quien: 'Martín', plan: 'El formulario del bucle: que el cliente haga la tarea antes de la llamada',
+        nota: 'La forma la propuso él: «un formulario mediante inteligencia artificial, que la IA razone qué pregunta personalizada le tiene que hacer». Y su restricción: «no quiero automatizar algo que todavía no está estandarizado».',
+      },
+      {
+        titulo: 'La llamada se agenda cuando la tarea está terminada',
+        que: 'Calendly se abre recién ahí. Es lo que mata la reunión de calendario fijo.',
+        estado: 'proximo', quien: 'Martín',
+      },
+    ],
+  },
+  {
+    n: '5',
+    titulo: 'Que la IA cierre el bucle',
+    desbloquea: 'El PASO 4: las respuestas del cliente se reescriben solas después de cada junta.',
+    necesita: 'El formulario (fase 4): sin respuestas cargadas no hay nada que reescribir.',
+    items: [
+      {
+        titulo: 'El Fathom de la reunión reescribe las respuestas',
+        que: 'Lo que hoy hace Mauricio a mano: «Siempre lo redacto yo como una hipótesis y luego en la junta lo vamos peinando».',
+        estado: 'proximo', quien: 'Martín', plan: 'Configurar Fathom e IA para actualizar formularios post-reunión',
+      },
+      {
+        titulo: 'El camino cuando no hay grabación',
+        que: 'Que el sistema lo diga y ofrezca completar a mano, en vez de quedarse callado.',
+        estado: 'proximo', quien: 'Martín',
+        nota: '⚠️ Ya falló dos veces documentadas: el 16/7 Artemisa no entró a las juntas de todo un día, y el 31/7 «no jaló la IA, no hubo de Esquer». Sin este camino, el bucle se corta entero cada vez.',
+      },
+    ],
+  },
+  {
+    n: '6',
+    titulo: 'Que no se caiga nada',
+    desbloquea: 'Que Mauricio deje de sostener el seguimiento en la cabeza y en un Excel.',
+    paralelo: true,
+    items: [
+      {
+        titulo: 'Aviso de compromiso vencido',
+        que: 'Un barrido de `deadline < hoy` agrupado por cliente. Es la misma consulta que ya corre, al revés.',
+        estado: 'proximo', quien: 'Martín', plan: 'Implementar notificaciones proactivas de MaKo por WhatsApp sobre tareas pendientes',
+        nota: '⭐ Lo más barato de todo el encargo y lo primero que él ve. Hoy tiene CERO líneas: `grep -rn "deadline" app/api/cron/` no devuelve nada.',
+      },
+      {
+        titulo: 'La vista de cartera',
+        que: 'Una fila por cliente con último contacto, compromisos abiertos, vencidos y próximo hito. Sin depender del puntaje de riesgo.',
+        estado: 'proximo', quien: 'Martín', plan: 'Vista de cartera + alertas de baja al dueño',
+        nota: 'Está más cerca de lo que parece: sus seis clientes YA son proyectos de su tablero y sus reuniones YA caen en el cliente correcto.',
+      },
+      {
+        titulo: 'Etapa del encargo, próximo hito y estado',
+        que: 'Lo único que no se deriva de nada y necesita tabla propia.',
+        estado: 'proximo', quien: 'Martín', plan: 'Etapa del encargo, próximo hito y estado por cliente',
+        nota: '⚠️ No puede llamarse `FASES`: ya hay TRES en el repo que compilan sin conflicto. Sugerido `ETAPAS_ENCARGO`.',
+      },
+      {
+        titulo: 'El semáforo que da el guión, no el link',
+        que: 'Que cada alerta traiga qué hacer según el motivo, en vez de mandarte a la pantalla donde el problema se ve.',
+        estado: 'proximo', quien: 'Martín', plan: 'Semáforo que razona alertas, no que solo linkea',
+        nota: '⭐ Es su pedido más fuerte —«¿qué me va a dar el valor de que la herramienta sea mi brújula? Porque obligas a la gente»— y sirve a TODOS los workspaces. La propuesta original ya lo vendía como hecho.',
+      },
+    ],
+  },
+  {
+    n: '7',
+    titulo: 'Que se cierre y vuelva a vender',
+    desbloquea: 'Lo que Mauricio les ofrece a los contratos que vencen en octubre y noviembre.',
+    necesita: 'Que haya clientes que hayan terminado. Hoy no hay ninguno.',
+    items: [
+      {
+        titulo: 'Protocolo de graduación y salida',
+        que: 'Qué se entrega, cómo se cierra y cuándo. Es la fase 4 de su programa, que hoy no está definida.',
+        estado: 'proximo', quien: 'Los dos', plan: 'Protocolo de graduación y salida de un cliente',
+        nota: 'Es un documento, no software.',
+      },
+      {
+        titulo: 'La oferta de renovación de octubre/noviembre',
+        que: 'Lo que reemplaza al frente 04. Es lo único de esta fase que tiene reloj.',
+        estado: 'proximo', quien: 'Los dos',
+        nota: '8/7 [01:20:25]: «en octubre y noviembre van a empezar a vencerse ya. Entonces, ¿qué les voy a ofrecer? No está claro». Ya está como prioridad del Perro en su board.',
+      },
+      {
+        titulo: 'Pipeline de casos de éxito',
+        que: 'De «logró la promesa» a testimonio publicado, por estados.',
+        estado: 'idea', quien: 'Martín', plan: 'Pipeline de casos de éxito: del resultado al testimonio publicado',
+        nota: '⚠️ No hay materia prima: 29/7 «No tengo ningún cliente que todavía ha llegado a las juntas o a la implementación de los tableros».',
+      },
+    ],
+  },
+  {
+    n: '⚠',
+    titulo: 'La deuda con él',
+    desbloquea: 'Nada técnico. Es lo que sostiene la relación — y cada hora que no sale de acá le da la razón a su objeción del 8/7: «es nice, es cool, es wow, pero no es el core».',
+    paralelo: true,
+    items: [
+      { titulo: 'Vista móvil', que: 'Intentó usar MaKo desde el teléfono en vivo el 6/8 y no pudo. «La mayoría andamos en el tema del celular o la tablet».', estado: 'proximo', quien: 'Martín', plan: 'Bases mobile dentro del sistema global (una tarea por pantalla, sheets, 44 px)' },
+      { titulo: 'Agendar la Junta 2 sin salir de la llamada', que: 'Terminó cargándola a mano en su calendario porque «no me acuerdo dónde».', estado: 'proximo', quien: 'Martín', plan: 'Agendar la Junta 2 sin salir de la llamada' },
+      { titulo: 'El aviso importante se pierde entre el ruido', que: 'MaKo le avisó de una reunión y el mensaje quedó sepultado. Le costó media reunión.', estado: 'proximo', quien: 'Martín', plan: 'Optimizar notificaciones de MaKo por WhatsApp para Mauricio' },
+      { titulo: 'El mapa marca cero en Ciudad de México', que: 'No falta el dato: el `startsWith` bidireccional hace que el Estado de México se quede con el valor de CDMX.', estado: 'proximo', quien: 'Martín', plan: 'El mapa de México pinta el estado equivocado, no un cero' },
+      { titulo: 'Dejar escrito el acuerdo de propiedad del código', que: 'Le dedicó 25 minutos el 6/8 y quedó cerrado de palabra, sin registro.', estado: 'proximo', quien: 'Martín', plan: 'Dejar escrito el acuerdo de propiedad del código de MaKo' },
+      { titulo: 'Los otros bugs abiertos', que: '«Pregúntale a MaKo» no funciona · histórico que mezcla meses · crear proyecto por WhatsApp · audio de WhatsApp sin transcribir · la IA que archiva en el proyecto equivocado · filtro de fecha en costos.', estado: 'proximo', quien: 'Martín' },
+    ],
+  },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECCIÓN 1 · Lo que hay que resolver con Mauricio
+// DESPUÉS — la propuesta original, para cuando se abra el gatillo
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MAURICIO: SeccionCS = {
-  id: 'mauricio',
-  titulo: 'Con Mauricio, ahora',
+export const DESPUES = {
   intro:
-    'El Sprint de Servicio se cerró VERBALMENTE el 8/7 —«Cerramos ahora ya, 500 dólares extra por los próximos dos meses»— y el 10/7 es la fecha del primer pago, no de la firma. El «10 de septiembre» del documento no se dijo nunca en ninguna reunión: el disparador que él puso es de resultado, no de calendario («sistema andando para ~15 y cinco casos de éxito»). En cinco semanas no hubo ni una revisión de sprint.',
+    'Los 12 módulos y 52 features que se le presentaron el 8/7 por US$9.000 y que rechazó ese mismo día — no por precio sino por timing. No está muerto: lo aplazó con un gatillo explícito, «Si yo tengo eso para 15 y podemos empezar a tener testimonios de 5, a lo mejor ya estamos listos para escalar. Incluso hasta me vas a querer cobrar más». Los tags `listo` y `expande` son los que el documento le mostró: de las 10 marcadas `listo`, cuatro no lo estaban.',
   bloques: [
-    {
-      id: 'bucle',
-      n: 'El bucle',
-      titulo: 'Los 5 pasos',
-      que:
-        'Definidos el 31/7 [03:46:44]. Es el único activo metodológico que salió de estas ocho semanas, y unifica tres de los cuatro frentes: el 01, el 02 y el 03 son piezas del MISMO bucle. Reencuadrar el sprint como «montar el bucle para UN cliente» da el criterio de terminado que hoy no existe.',
-      items: [
-        {
-          titulo: 'Paso 1 · El cliente ve el video del bloque antes de la reunión',
-          que: 'Mata el explicar la metodología en vivo, cliente por cliente, cada vez.',
-          estado: 'bloqueado',
-          nota: 'Depende de la plataforma (frente 02) y de que él grabe. El 16/7 [01:28:04]: «lo que te está haciendo falta son los tutoriales… tú le intentas enviar lo que sea al cliente y te dice "no lo entiendo". Entonces, al final, por eso es que decides terminar haciéndolo tú».',
-        },
-        {
-          titulo: 'Paso 2 · Hace la tarea ANTES, y la llamada se agenda cuando la termina',
-          que: 'Textual: «obligatorio que tu cliente se termine la tarea para avanzar en el proceso, si no se terminó la tarea está en su cancha el problema».',
-          estado: 'proximo',
-          nota: 'Ataca su cuello de botella declarado el 29/7 [01:55:37]: «invertirle mucho tiempo en estar con los clientes para que ellos me den y yo llenar el formato de Excel». Y mata la reunión de calendario fijo: la llamada se gana.',
-        },
-        {
-          titulo: 'Paso 3 · En la llamada revisan la tarea y la perfeccionan',
-          que: 'La llamada deja de ser extracción de datos y pasa a ser criterio.',
-          estado: 'hecho',
-          nota: 'Es lo único que él dijo que NO delega (31/7 [03:22:56] «No voy a dejar de tener las sesiones»). Ya lo hace así: no hay nada que construir.',
-        },
-        {
-          titulo: 'Paso 4 · La IA lee el Fathom y reescribe las respuestas del cliente',
-          que: 'Mata el «peinado» manual que hoy hace él a mano después de cada junta.',
-          estado: 'proximo',
-          nota: '⚠️ Dependencia dura: sin Fathom no hay paso 4, y Fathom ya falló dos veces documentadas (16/7 [00:01:15] Artemisa no entró a las juntas de todo un día; 31/7 [03:50:09] «no jaló la IA, no hubo de Esquer»). El paso necesita un camino cuando la grabación no está.',
-        },
-        {
-          titulo: 'Paso 5 · El cliente entra, pule lo que hizo la IA y aprueba',
-          que: 'La propiedad. Y el efecto que él más valora: que el empresario tenga claridad ANTES de que exista el tablero.',
-          estado: 'proximo',
-          nota: '31/7 [03:33:35]: «antes de generar el tablero, si lo hacemos bien el proceso… los empresarios empiezan a tener una claridad que no tenían… ya andan ching y ching con esa persona para que haga la tarea».',
-        },
-      ],
-    },
-    {
-      id: 'frente-01',
-      n: '01',
-      titulo: 'Prompt maestro de tableros',
-      que: 'Su mayor sangría de tiempo. Acordado el 8/7 [01:18:59]: «un prompt maestro que sea mucho más robusto… y que sea un skill». Hecho por Martín: nada. Hecho por Mauricio, solo: bastante.',
-      items: [
-        {
-          titulo: 'El esquema de la matriz vinculada, como módulo puro',
-          que: 'Las 14 columnas del Cuestionario Maestro (MCI → Objetivo LAG → Área → Palanca → cómo se mide → verde/amarillo/rojo → evidencia → corte) en un `lib/tablero-matriz.ts` sin `server-only`, para que un test lo importe.',
-          estado: 'proximo',
-        },
-        {
-          titulo: 'El validador determinista de las 6 auditorías',
-          que: 'Área sin objetivo vinculado · MCI sin área que la sirva · objetivo con más de 3 palancas · palanca repetida con otro nombre · responsable sin autoridad · habilitadora crítica sin objetivo. Más los traslapes de umbral.',
-          estado: 'proximo',
-          nota: 'Su cuestionario ya trae su propia capa de validación: es exactamente lo que AGENTS.md exige («una regla en un prompt no es una regla»). Las cinco primeras se escriben en código sin ambigüedad.',
-        },
-        {
-          titulo: 'El prompt maestro, editable en /contexto',
-          que: 'En `lib/prompt-registry.ts`, para que se edite sin push (cada push cuesta ~US$0,09) y con historial.',
-          estado: 'proximo',
-        },
-        {
-          titulo: 'La skill de Claude Code que emite el tablero',
-          que: 'MaKo no emite código en runtime en ningún lado (verificado por grep). El generador va afuera, generado DESDE el código con `--check` en el pre-push, como `lib/agente-skill.ts`.',
-          estado: 'proximo',
-        },
-        {
-          titulo: 'Que llene, no solo que emita',
-          que: 'Proponer evidencia y umbrales a partir de lo que ya funcionó en los otros clientes, y devolver la tabla de huecos con responsable y fecha.',
-          estado: 'proximo',
-          nota: '⚠️ El reencuadre que cambia el frente. Sus propios documentos dicen que el bloqueo #1 del programa es DEFINIR LA EVIDENCIA (tres semanas paradas con Patricia) y el #2 poner el umbral. Un generador que toma un cuestionario ya lleno resuelve el ÚLTIMO tramo.',
-        },
-        {
-          titulo: 'Probarlo contra un tablero que él YA hizo',
-          que: 'Esquer o Baja Teriyaki. Si no reproduce lo que construyó a mano, no sirve.',
-          estado: 'proximo',
-        },
-      ],
-    },
-    {
-      id: 'frente-02',
-      n: '02',
-      titulo: 'Plataforma de contenido · Whop',
-      que: 'El único frente en movimiento, y está bloqueado. La comparativa de 3-4 opciones se prometió el 8/7 [01:16:16] y nunca se entregó.',
-      items: [
-        {
-          titulo: 'Whop: elegida',
-          que: 'Es la alternativa gratuita que tiene API. Decisión de Martín, 11/8.',
-          estado: 'en-curso',
-          nota: 'Cierra el compromiso más viejo del sprint. Circle y Thinkific se nombraron el 4/7 y el 8/7 y no volvieron a aparecer: la plataforma llevaba cinco semanas sin elegir.',
-        },
-        {
-          titulo: 'Conectar Whop por API a MaKo',
-          que: 'No se desarrolla la plataforma: se conecta. Alcance acotado por Martín el 6/8 [01:11:00]: «no vamos a desarrollarlo dentro de Maco… lo que sí voy a hacer es la conexión de API».',
-          estado: 'proximo',
-          nota: 'Regla RE-IMPUESTA por Mauricio el 6/8 [01:10:44]: «estamos claros que no queremos desarrollar… queremos pagar un service, un software as a service que ya está ahí, que se adecúa más o menos». Ese «más o menos» es la licencia para no optimizar.',
-        },
-        {
-          titulo: 'Montar el programa por bloques y dar de alta a los clientes',
-          que: 'La estructura por fases del programa, con los videos de cada bloque.',
-          estado: 'bloqueado',
-          nota: 'Espera los 5 entregables de Mauricio, prometidos el 6/8 [01:09:37] «Ya los tengo, ya te lo envío hoy mismo». Sin confirmación de recepción.',
-        },
-        {
-          titulo: 'Sacar el `const WS = 1` de /api/compartir',
-          que: 'Hoy la ruta que comparte material está clavada al workspace 1, con `RECURSOS = [curso, branding]`. Sin eso no sirve para el material de otro workspace.',
-          estado: 'proximo',
-          nota: 'app/api/compartir/route.ts:25. Un día de plomería; el resto del frente es él grabando.',
-        },
-        {
-          titulo: 'Restricciones de diseño, dichas por él',
-          que: 'Nada de Notion (16/7 [01:42:12]: «La de Notion, porque ellos no lo van a hacer ahí jamás»). Y 31/7 [03:05:26]: «son empresarios que todos tienen TDAH… la mayoría no creas que le sabe la computadora».',
-          estado: 'hecho',
-        },
-      ],
-    },
-    {
-      id: 'frente-03',
-      n: '03',
-      titulo: 'Seguimiento de sus clientes',
-      que: 'Está más cerca de lo que nadie cree. El documento dice «un tablero simple —no MaKo—», pero del 16/7 en adelante es MAURICIO quien pide que viva adentro de MaKo. Gana lo posterior.',
-      items: [
-        {
-          titulo: 'Sus clientes ya son proyectos de su tablero',
-          que: 'Seis, con el prefijo canónico: Grupo Esquer · Baja Teriyaki · Vértice Industrial · Aspro · TEXX · Macario Romero (HMO). Los mismos del Análisis de fases que mandó.',
-          estado: 'hecho',
-          nota: 'lib/todo-proyectos-catalogo.ts → PREFIJO_CLIENTE · scripts/reordenar-boards-clientes.ts:52-59.',
-        },
-        {
-          titulo: 'Sus reuniones ya caen en el cliente correcto',
-          que: '`resolverClienteDeReunion` resuelve por tres caminos con nivel de confianza y devuelve `null` en vez de inventar.',
-          estado: 'hecho',
-          nota: 'lib/reunion-cliente.ts:88-115. El barrido de agosto movió 37 tareas (commit 2742a8e) respetando las 12 que él había reasignado a mano.',
-        },
-        {
-          titulo: 'Cron de compromisos vencidos',
-          que: 'Lo único del sprint con CERO líneas escritas, y el más barato: `tareas-verificar` ya recorre workspaces y ya emite un aviso agrupado por día. Es la misma consulta al revés.',
-          estado: 'proximo',
-          nota: '`grep -rn "deadline" app/api/cron/` → cero. Molde: app/api/cron/tareas-verificar/route.ts:48-73 y tracking-vigilante/route.ts:82.',
-        },
-        {
-          titulo: 'Vista de cartera: una fila por cliente',
-          que: 'Último contacto, compromisos abiertos, vencidos, próximo hito y semáforo. Derivada de lo que ya hay, no un modelo nuevo.',
-          estado: 'proximo',
-          nota: 'Molde ya auditado: app/admin/agente/page.tsx:49-66.',
-        },
-        {
-          titulo: 'Lo que no se deriva: etapa del encargo, próximo hito, estado manual',
-          que: 'Una tabla chica colgada del proyecto que ya existe. No una entidad nueva.',
-          estado: 'proximo',
-          nota: '⚠️ El nombre no puede ser `FASES`: ya hay TRES en el repo que compilan sin conflicto (lib/fase-diagnostico.ts:80, lib/mako-fases.ts:12, app/admin/dev/pricing/modelo.ts). Sugerido: `ETAPAS_ENCARGO`.',
-        },
-        {
-          titulo: 'El semáforo de palancas: que MaKo lo obligue a ÉL',
-          que: 'Su pedido más fuerte de las 7 reuniones, y no es «ver mis clientes»: es su propia metodología —palanca con dueño, umbral y evidencia— aplicada a él mismo.',
-          estado: 'proximo',
-          nota: '31/7 [02:09:00]: «si Mauricio Bustos no subió con evidencia los siete videos a la semana, no va a ocurrir». Y [02:12:04]: «¿qué me va a dar el valor de que la herramienta sea mi brújula? Porque obligas a la gente». Sirve a TODOS los workspaces: es la bajada concreta del doer.',
-        },
-      ],
-    },
-    {
-      id: 'frente-04',
-      n: '04',
-      titulo: 'Graduación y casos de éxito',
-      que: 'No hay materia prima, y hay que renegociarlo ahora — no el 10/9.',
-      items: [
-        {
-          titulo: '⚠️ Ningún cliente llegó todavía a la etapa que produce el caso',
-          que: '29/7 [00:24:28]: «No tengo ningún cliente que todavía ha llegado a las juntas o a la implementación de los tableros con las juntas, no tengo ninguno todavía».',
-          estado: 'bloqueado',
-          nota: '31/7 [00:07:00]: «no tengo nada de casos de éxito documentados, ni mostrados en landing, ni nada» → «Sí, eso tenemos que hacerlo» → no se volvió a tocar en las 4 horas restantes.',
-        },
-        {
-          titulo: 'Cambiarlo por la oferta de renovación de octubre/noviembre',
-          que: 'Es lo que sí tiene reloj. 8/7 [01:20:25]: «en octubre y noviembre van a empezar a vencerse ya. Entonces, ¿qué les voy a ofrecer? No está claro».',
-          estado: 'proximo',
-          nota: 'Ya está como prioridad del Perro en su board (6/8 [01:15:00]). Es la salida recomendada.',
-        },
-        {
-          titulo: 'Protocolo de outboarding escrito',
-          que: 'La fase 4 del programa, que hoy no está definida: qué se entrega, cómo se cierra, cuándo.',
-          estado: 'proximo',
-          nota: 'Documento, no software. «Graduación» aparece una sola vez en todo el repo y es dentro del texto de una clase del curso (app/conocimientos/curso.ts:6590).',
-        },
-        {
-          titulo: 'El detector de «promesa cumplida»',
-          que: 'Lo único que el software puede aportar acá: detectar quién está listo. Depende de que exista la matriz del frente 01.',
-          estado: 'idea',
-        },
-      ],
-    },
-    {
-      id: 'deuda',
-      n: '⚠',
-      titulo: 'Compromisos vencidos y bugs que él reportó',
-      que: 'Lo que está prometido y no entregado. Cada hora que no sale de acá le da la razón a su objeción del 8/7: «es nice, es cool, es wow, pero no es el core».',
-      items: [
-        {
-          titulo: 'El roadmap del sprint',
-          que: 'Prometido para el MISMO 8/7 [01:28:52]: «yo hoy te mando un roadmap de las reuniones que vamos a tener que tener… qué priorizamos primero». No existe.',
-          estado: 'en-curso',
-          nota: 'Esta pantalla es eso.',
-        },
-        {
-          titulo: 'Poner el consumo de IA bajo control',
-          que: 'Acuerdo ya cerrado el 6/8 [00:07:15] y sin ejecutar: plan propio de US$200 y auto-límite de un porcentaje del Cloud de Mauricio.',
-          estado: 'proximo',
-          nota: '⚠️ El riesgo de relación más grande. 6/8 [00:04:02]: «tuve como tres días sin poder trabajar y tuve que pedir disculpas a mi cliente». Desarrollar MaKo sobre su cuenta se comió los créditos con los que él arma los tableros: el frente 01 se bloqueó a sí mismo.',
-        },
-        {
-          titulo: 'Agendar la sesión del flujo de audios a leads viejos',
-          que: 'El 6/8 él lo puso como lo más urgente: «está la fábrica de los carros y hay muchos carros, pero ninguno anda». Se propuso la reunión y se cortó la llamada antes de agendarla.',
-          estado: 'proximo',
-        },
-        {
-          titulo: 'Vista móvil rota',
-          que: '6/8 [00:51:17]: «la mayoría andamos en el tema del celular o la tablet». Intentó usar MaKo desde el teléfono en vivo y no pudo.',
-          estado: 'proximo',
-        },
-        {
-          titulo: 'Fricción para agendar la Junta 2 desde adentro de la llamada',
-          que: '6/8 [00:49:00]: «yo estoy con el cliente en la junta y meterme a Maco para hacer eso me genera una fricción… yo necesito apartar rápido el espacio». Terminó cargándola a mano en su calendario.',
-          estado: 'proximo',
-        },
-        {
-          titulo: 'El mapa marca cero en Ciudad de México',
-          que: 'Reportado el 8/7 [01:42:50]. No es un dato faltante: el `startsWith` bidireccional de `valueFor()` hace que el Estado de México se quede con el valor de CDMX.',
-          estado: 'proximo',
-          nota: 'app/marketing/ad-charts.tsx:514-519. El detalle, en docs/hallazgos-ads.md.',
-        },
-        {
-          titulo: 'Otros bugs abiertos que él reportó',
-          que: '«Pregúntale a MaKo» no funciona · histórico que mezcla meses · crear proyecto por WhatsApp · audio de WhatsApp que no se transcribe · la IA que mete tareas en el proyecto equivocado · filtro de fecha en costos de IA · el saldo de Claude que hay que actualizar a mano.',
-          estado: 'proximo',
-        },
-      ],
-    },
+    { n: '01', titulo: 'Tu cartera', que: 'El hub: cada cliente y su estado en una pantalla.', items: [
+      { titulo: 'Cartera de clientes', que: 'Ordenados del que necesita atención al que va bien.', estado: 'proximo' as EstadoCS, tagOriginal: 'listo' as const, nota: '⚠️ El tag mentía: no existe ninguna vista de cartera. Está en la fase 6.' },
+    ] },
+    { n: '02', titulo: 'Onboarding', que: 'El pago se vuelve cliente listo, sin mover un dedo.', items: [
+      { titulo: 'Traspaso de venta a servicio', que: 'El que paga entra solo al circuito de entrega.', estado: 'idea' as EstadoCS, nota: 'El pipeline muere en `ganado`: no hay etapa posterior.' },
+      { titulo: 'Firma de contrato', que: 'Sale, se firma y se archiva sin perseguir a nadie.', estado: 'descartado' as EstadoCS, nota: 'Es para volumen, no para 7 clientes.' },
+      { titulo: 'Formulario de arranque', que: 'Se completa una vez y MaKo arma ficha, carpeta y perfil.', estado: 'proximo' as EstadoCS, nota: 'Se recicla como el formulario de la fase 4.' },
+      { titulo: 'Tracker de onboarding', que: 'En qué paso del arranque está cada cliente nuevo.', estado: 'idea' as EstadoCS },
+      { titulo: 'Asignación de consultor', que: 'MaKo sugiere el consultor que mejor calza.', estado: 'descartado' as EstadoCS, nota: 'Mauricio es el único consultor.' },
+      { titulo: 'Filtro de pago', que: 'Nadie accede sin haber pagado.', estado: 'idea' as EstadoCS, nota: 'Whop ya lo resuelve.' },
+    ] },
+    { n: '03', titulo: 'El día a día', que: 'El trabajo recurrente, sin que se caiga nada. El módulo con más piezas ya construidas.', items: [
+      { titulo: 'Preparación de sesión', que: 'Diez minutos antes, el resumen del cliente y el objetivo del día.', estado: 'idea' as EstadoCS, tagOriginal: 'listo' as const },
+      { titulo: 'Bitácora automática', que: 'La sesión grabada se vuelve notas ordenadas en la ficha.', estado: 'hecho' as EstadoCS, tagOriginal: 'listo' as const, nota: 'Es el pipeline de Fathom, que ya corre. Y es el paso 4 del bucle.' },
+      { titulo: 'Las dos canchas', que: 'Qué te toca a vos y qué al cliente, con responsable y fecha.', estado: 'hecho' as EstadoCS, tagOriginal: 'listo' as const },
+      { titulo: 'Seguimiento que no falla', que: 'Si alguien no responde o no subió evidencia, MaKo avisa.', estado: 'proximo' as EstadoCS, tagOriginal: 'listo' as const, nota: '⚠️ El tag mentía en la mitad: la alerta de VENCIDO no existe. Está en la fase 6.' },
+      { titulo: 'Fases configurables', que: 'Cada cliente avanza por las fases que vos definís.', estado: 'proximo' as EstadoCS, tagOriginal: 'listo' as const, nota: '⚠️ Las fases existen pero son CONSTANTES de código: no se configuran por workspace.' },
+    ] },
+    { n: '04', titulo: 'Resultados', que: 'Que el cliente logre lo prometido, medido.', items: [
+      { titulo: 'Plan de acción', que: 'El roadmap de cada cliente, con hitos y fechas.', estado: 'proximo' as EstadoCS, nota: 'Es la salida del bucle: la matriz vinculada.' },
+      { titulo: 'Tracker de resultado', que: 'La promesa medida: de dónde salió, dónde está, cuánto falta.', estado: 'idea' as EstadoCS },
+      { titulo: 'KPIs del cliente', que: 'Tareas cumplidas, sesiones entregadas, cuellos de botella.', estado: 'idea' as EstadoCS },
+      { titulo: 'Quick wins', que: 'Las primeras victorias, marcadas para usarlas temprano.', estado: 'idea' as EstadoCS },
+      { titulo: 'Promesa cumplida', que: 'Cuando llega a su meta, dispara caso de éxito, referido o ascenso.', estado: 'idea' as EstadoCS, nota: 'Es el detector de la fase 7. Depende de la matriz.' },
+    ] },
+    { n: '05', titulo: 'Growth Loop', que: 'La entrega vuelve a vender.', items: [
+      { titulo: 'Pipeline de casos de éxito', que: 'De «logró la promesa» a testimonio publicado, por estados.', estado: 'idea' as EstadoCS, nota: 'Ya está en la fase 7.' },
+      { titulo: 'Guía de entrevista', que: 'Las preguntas listas y la grabación capturada sola.', estado: 'proximo' as EstadoCS },
+      { titulo: 'Banco de testimonios', que: 'Los elogios de las sesiones, ordenados y etiquetados.', estado: 'idea' as EstadoCS, tagOriginal: 'expande' as const },
+      { titulo: 'Motor de referidos', que: 'Avisa cuándo pedir referidos, con el guión listo.', estado: 'idea' as EstadoCS },
+      { titulo: 'Tracking de referidos', que: 'Link propio por cliente: quién trajo a quién.', estado: 'idea' as EstadoCS },
+      { titulo: 'Ascenso y renovación', que: 'Al terminar el ciclo, levanta la oferta del siguiente nivel.', estado: 'proximo' as EstadoCS, nota: 'Es lo que tiene reloj: octubre/noviembre. Está en la fase 7.' },
+    ] },
+    { n: '06', titulo: 'Retención y recupero', que: 'Hoy detectás el riesgo. Acá también actuás.', items: [
+      { titulo: 'Satisfacción y riesgo', que: 'Qué tan conforme está cada cliente y quién está por irse.', estado: 'idea' as EstadoCS, tagOriginal: 'listo' as const, nota: '⚠️ El tag mentía: no hay NPS ni encuesta en el código.' },
+      { titulo: 'Alarmas de churn', que: 'Comportamiento, KPIs e impagos disparan la alerta.', estado: 'idea' as EstadoCS, tagOriginal: 'expande' as const },
+      { titulo: 'Guiones de recuperación', que: 'El guión correcto según el motivo del rojo.', estado: 'proximo' as EstadoCS, nota: '⭐ Ya está en la fase 6: es la bajada del doer y sirve a todos los workspaces.' },
+      { titulo: 'Pausas y cancelaciones', que: 'Entender el porqué, proponer pausa, recordar la garantía.', estado: 'idea' as EstadoCS },
+      { titulo: 'Gestión de cobros', que: 'Impagos que se persiguen solos y la próxima fecha a la vista.', estado: 'idea' as EstadoCS, nota: 'Parte ya existe: `getCuotasPendientes`.' },
+      { titulo: 'Escudo de disputas', que: 'La evidencia armada si un cliente llama al banco.', estado: 'descartado' as EstadoCS },
+      { titulo: 'Blindaje legal', que: 'Difamación y piratería: reclamos y guiones a mano.', estado: 'descartado' as EstadoCS },
+    ] },
+    { n: '07', titulo: 'Métricas', que: 'El tablero de mando de la entrega. Es el módulo más lejos de existir.', items: [
+      { titulo: 'NPS', que: 'Calculado solo, con su tendencia.', estado: 'descartado' as EstadoCS, nota: 'Con ~7 clientes activos un NPS no significa nada.' },
+      { titulo: 'Customer Effort Score', que: 'Qué tan fácil le resulta trabajar con vos.', estado: 'descartado' as EstadoCS },
+      { titulo: 'Churn Rate', que: 'La tasa de bajas mes a mes.', estado: 'descartado' as EstadoCS },
+      { titulo: 'Feedback multipunto', que: 'Satisfacción en cada instancia, no una encuesta.', estado: 'idea' as EstadoCS, tagOriginal: 'expande' as const, nota: 'Lo único rescatable: hoy tiene 4 respuestas de una encuesta anónima.' },
+      { titulo: 'Ecuación de servicio', que: 'La salud de la entrega en un número.', estado: 'descartado' as EstadoCS },
+    ] },
+    { n: '08', titulo: 'Grupales y cohortes', que: 'Sube de prioridad: el grupal es su camino declarado a los US$50K.', items: [
+      { titulo: 'Curso y comunidad', que: 'El avance del curso dentro de la ficha de cada cliente.', estado: 'en-curso' as EstadoCS, tagOriginal: 'listo' as const, nota: 'Es la fase 3. Whop.' },
+      { titulo: 'Sesiones grupales', que: 'Llamadas con formulario de preguntas y hoja de Q&A.', estado: 'idea' as EstadoCS, nota: 'El grupal requiere sí o sí tener los cursos grabados antes.' },
+      { titulo: 'Grabaciones con marcas de tiempo', que: 'Cada pregunta marcada en su minuto.', estado: 'idea' as EstadoCS },
+      { titulo: 'Gestión de camadas', que: 'Los clientes por cohorte, no solo de a uno.', estado: 'idea' as EstadoCS },
+      { titulo: 'Control de sala', que: 'Solo entra quien está activo e invitado.', estado: 'idea' as EstadoCS, nota: 'Whop lo resuelve.' },
+    ] },
+    { n: '09', titulo: 'Comunidad', que: 'Que no se enfríen, sin estar encima de cada uno.', items: [
+      { titulo: 'Gamificación', que: 'Niveles, reconocimientos y logros.', estado: 'descartado' as EstadoCS },
+      { titulo: 'Check-ins automáticos', que: 'MaKo le pregunta a cada cliente cómo va.', estado: 'idea' as EstadoCS },
+      { titulo: 'Grupos de accountability', que: 'Grupos entre clientes para que se empujen.', estado: 'idea' as EstadoCS },
+      { titulo: 'Momentos wow', que: 'Detalles que el cliente no espera, programados solos.', estado: 'descartado' as EstadoCS },
+    ] },
+    { n: '10', titulo: 'Operación y equipo', que: 'Que el equipo siga tu forma de trabajar.', items: [
+      { titulo: 'Biblioteca de procesos (SOPs)', que: 'Tu forma de entregar, documentada una vez.', estado: 'proximo' as EstadoCS, nota: 'Es el entregable «servicio escrito» del sprint.' },
+      { titulo: 'Roles y ruteo', que: 'Cada evento cae en el equipo correcto.', estado: 'idea' as EstadoCS, tagOriginal: 'expande' as const },
+      { titulo: 'Notificaciones a tus canales', que: 'Nuevo cliente, disputa, NPS bajo, al instante.', estado: 'proximo' as EstadoCS, nota: 'El motor ya existe; el problema real es de jerarquía, no de volumen.' },
+    ] },
+    { n: '11', titulo: 'El cerebro', que: 'De todos los datos, qué hacer.', items: [
+      { titulo: 'Preguntale a MaKo', que: 'Le preguntás por cualquier cliente y responde con su historial.', estado: 'proximo' as EstadoCS, tagOriginal: 'listo' as const, nota: '⚠️ Él reportó el 31/7 que NO funciona.' },
+      { titulo: 'Semáforo del negocio', que: '«No te muestra el problema, te dice cuál atacar primero».', estado: 'proximo' as EstadoCS, tagOriginal: 'listo' as const, nota: '⭐ La ironía más útil del documento: se vendió como hecho el comportamiento que después reclamó como faltante. Está en la fase 6.' },
+    ] },
+    { n: '✦', titulo: 'Generador de tableros', que: 'La tarjeta con el badge «El más potente», y a la vez el módulo más flaco: 3 features, ninguna construida.', items: [
+      { titulo: 'Plantillas seleccionables', que: 'Listas para configurar, sin partir de cero.', estado: 'proximo' as EstadoCS, nota: 'El documento lo planteaba como plantillas + formulario. Lo acordado después es otra cosa: un prompt maestro como skill. Está en la fase 2.' },
+      { titulo: 'Se configura en un formulario', que: 'No se programa: se completa.', estado: 'proximo' as EstadoCS },
+      { titulo: 'Honesto', que: '«Conectar los datos de cada empresa sigue siendo puesta a punto».', estado: 'hecho' as EstadoCS, nota: 'La advertencia sigue siendo cierta, y es la parte que nadie mira: el dato base no existe en ninguno de sus clientes.' },
+    ] },
   ],
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SECCIÓN 2 · La propuesta original (/vsl/mako-cs)
-// ─────────────────────────────────────────────────────────────────────────────
+/** Los títulos de tarea que este camino reclama del tablero. Sale de los datos, nunca
+ *  de una lista escrita al lado: una segunda lista se queda vieja sola. */
+export const TITULOS_EN_PLAN: string[] =
+  FASES.flatMap((f) => f.items.map((i) => i.plan).filter((t): t is string => !!t));
 
-const PROPUESTA: SeccionCS = {
-  id: 'propuesta',
-  titulo: 'La propuesta original',
-  intro:
-    'Los 12 módulos y 52 features que se le presentaron a Mauricio el 8/7 por US$9.000 en 6 cuotas, y que rechazó ese mismo día — no por precio sino por timing: «9 mil dólares van a ser una ganga… pero es el timing». No está muerto: lo aplazó con gatillo («Si yo tengo eso para 15 y podemos empezar a tener testimonios de 5, a lo mejor ya estamos listos para escalar. Incluso hasta me vas a querer cobrar más»). Los tags `listo` y `expande` son los que el documento le mostró: donde el código de hoy dice otra cosa, está anotado.',
-  bloques: [
-    {
-      id: 'm01', n: '01', titulo: 'Tu cartera',
-      que: 'El hub: cada cliente y su estado, en una sola pantalla.',
-      items: [
-        { titulo: 'Cartera de clientes', que: 'Todos tus clientes activos y su avance, ordenados del que necesita atención al que va bien.', estado: 'proximo', tagOriginal: 'listo', nota: '⚠️ El tag mentía: no existe ninguna vista de cartera. Es el frente 03.' },
-      ],
-    },
-    {
-      id: 'm02', n: '02', titulo: 'Onboarding',
-      que: 'El pago se vuelve cliente listo, sin mover un dedo.',
-      items: [
-        { titulo: 'Traspaso de venta a servicio', que: 'El cliente que paga entra solo al circuito de entrega: datos, accesos y bienvenida.', estado: 'idea', nota: 'El pipeline muere en `ganado` (lib/pipeline.ts:46-59): no hay etapa posterior.' },
-        { titulo: 'Firma de contrato', que: 'El contrato sale, se firma y se archiva sin que persigas a nadie.', estado: 'descartado', nota: 'Sirve a un negocio de coaching de alto volumen, no a 7 clientes.' },
-        { titulo: 'Formulario de arranque', que: 'El cliente completa un formulario una vez y MaKo le arma la ficha, la carpeta y el perfil.', estado: 'proximo', nota: 'Se recicla como el paso 2 del bucle.' },
-        { titulo: 'Tracker de onboarding', que: 'Cada cliente nuevo y en qué paso del arranque está.', estado: 'idea' },
-        { titulo: 'Asignación de consultor', que: 'MaKo lee las respuestas del formulario y te sugiere el consultor que mejor le calza.', estado: 'descartado', nota: 'Mauricio es el único consultor.' },
-        { titulo: 'Filtro de pago', que: 'Nadie accede sin haber pagado. MaKo cruza el pago antes de abrir la puerta.', estado: 'idea', nota: 'Whop ya lo resuelve.' },
-      ],
-    },
-    {
-      id: 'm03', n: '03', titulo: 'El día a día',
-      que: 'El trabajo recurrente con cada cliente, sin que se caiga nada. Es el módulo con más piezas ya construidas.',
-      items: [
-        { titulo: 'Preparación de sesión', que: 'Diez minutos antes, MaKo te arma el resumen del cliente y el objetivo del día.', estado: 'idea', tagOriginal: 'listo' },
-        { titulo: 'Bitácora automática', que: 'Grabás la sesión y MaKo la convierte en notas ordenadas dentro de la ficha del cliente.', estado: 'hecho', tagOriginal: 'listo', nota: 'Es el pipeline de reuniones de Fathom, que ya corre. Y es el paso 4 del bucle.' },
-        { titulo: 'Las dos canchas', que: 'Qué te toca a vos y qué al cliente, con responsable y fecha.', estado: 'hecho', tagOriginal: 'listo' },
-        { titulo: 'Seguimiento que no falla', que: 'Si alguien no responde o no subió su evidencia, MaKo lo detecta y te avisa solo.', estado: 'proximo', tagOriginal: 'listo', nota: '⚠️ El tag mentía en la mitad: la alerta de compromiso VENCIDO no existe (cero líneas).' },
-        { titulo: 'Fases configurables', que: 'Cada cliente avanza por las fases que vos definís. Si se traba de más, salta la alerta.', estado: 'proximo', tagOriginal: 'listo', nota: '⚠️ Las fases existen pero son CONSTANTES de código (lib/fase-diagnostico.ts): no se configuran por workspace.' },
-      ],
-    },
-    {
-      id: 'm04', n: '04', titulo: 'Resultados',
-      que: 'Que el cliente logre lo prometido, medido. Es lo que enciende todo lo que sigue.',
-      items: [
-        { titulo: 'Plan de acción', que: 'El roadmap de cada cliente, con hitos y fechas, que armás una vez y él va cumpliendo.', estado: 'proximo', nota: 'Es la salida del paso 5 del bucle: la matriz vinculada.' },
-        { titulo: 'Tracker de resultado', que: 'La promesa que le hiciste, medida: de dónde salió, dónde está y cuánto le falta.', estado: 'idea' },
-        { titulo: 'KPIs del cliente', que: 'Tareas asignadas y cumplidas, sesiones entregadas, cuellos de botella.', estado: 'idea' },
-        { titulo: 'Quick wins', que: 'MaKo marca las primeras victorias de cada cliente para que las uses temprano.', estado: 'idea' },
-        { titulo: 'Promesa cumplida', que: 'Cuando un cliente llega a su meta, MaKo lo detecta y dispara lo que sigue: caso de éxito, referido, ascenso.', estado: 'idea', nota: 'Es el detector del frente 04. Depende de la matriz.' },
-      ],
-    },
-    {
-      id: 'm05', n: '05', titulo: 'Growth Loop',
-      que: 'La entrega vuelve a vender. MaKo ya capta y vende; acá cierra el círculo.',
-      items: [
-        { titulo: 'Pipeline de casos de éxito', que: 'De «logró la promesa» a testimonio publicado, por estados. Nada se pierde entre el resultado y el video.', estado: 'proximo', nota: 'Sirve a TODOS los workspaces: hoy MaKo tiene el vocabulario de creativos (`caso-exito`, `testimonio` en lib/ads-analyst.ts:54) sin nada que lo alimente.' },
-        { titulo: 'Guía de entrevista', que: 'La entrevista de caso de éxito con las preguntas listas y la grabación capturada sola.', estado: 'proximo' },
-        { titulo: 'Banco de testimonios', que: 'Los elogios de tus sesiones, ordenados y etiquetados, listos para marketing.', estado: 'idea', tagOriginal: 'expande' },
-        { titulo: 'Motor de referidos', que: 'Cuando un cliente está feliz, MaKo te avisa que es momento de pedirle referidos, con el guión listo.', estado: 'idea' },
-        { titulo: 'Tracking de referidos', que: 'Link propio por cliente. MaKo sabe quién trajo a quién y cuánto le corresponde.', estado: 'idea' },
-        { titulo: 'Ascenso y renovación', que: 'Cuando un cliente termina su ciclo, MaKo levanta la oferta del siguiente nivel.', estado: 'proximo', nota: 'Es lo que tiene reloj: octubre/noviembre.' },
-      ],
-    },
-    {
-      id: 'm06', n: '06', titulo: 'Retención y recupero',
-      que: 'Hoy detectás el riesgo. Acá también actuás sobre él.',
-      items: [
-        { titulo: 'Satisfacción y riesgo', que: 'Medís qué tan conforme está cada cliente y MaKo te marca a los que están por irse.', estado: 'idea', tagOriginal: 'listo', nota: '⚠️ El tag mentía: no hay NPS ni encuesta en el código (`grep -i "\\bnps\\b" lib/` → cero).', enPlan: 108 },
-        { titulo: 'Alarmas de churn', que: 'Más allá de la encuesta: comportamiento, KPIs e impagos disparan la alerta antes de tiempo.', estado: 'idea', tagOriginal: 'expande', enPlan: 109 },
-        { titulo: 'Guiones de recuperación', que: 'Cuando un cliente se pone en rojo, MaKo no solo lo marca: te da el guión correcto según el motivo.', estado: 'proximo', nota: '⭐ Es la definición operativa de DOER, y aplica idéntico al lead en rojo de cualquier workspace. Es el arreglo del semáforo de /general.' },
-        { titulo: 'Pausas y cancelaciones', que: 'Un flujo para cuando alguien se quiere ir: entender el porqué, proponer pausa, recordar la garantía.', estado: 'idea' },
-        { titulo: 'Gestión de cobros', que: 'Planes que se renegocian, impagos que se persiguen solos y la próxima fecha de cobro siempre a la vista.', estado: 'idea', nota: 'Parte ya existe: `getCuotasPendientes` en lib/pagos.ts:487-539.' },
-        { titulo: 'Escudo de disputas', que: 'Si un cliente llama al banco, MaKo te arma la evidencia para responder en horas.', estado: 'descartado' },
-        { titulo: 'Blindaje legal', que: 'Difamación y piratería: los reclamos y guiones a mano cuando los necesitás.', estado: 'descartado' },
-      ],
-    },
-    {
-      id: 'm07', n: '07', titulo: 'Métricas',
-      que: 'El tablero de mando de tu entrega. Es el módulo más lejos de existir: todo es aire hoy.',
-      items: [
-        { titulo: 'NPS', que: 'MaKo calcula tu NPS solo y te muestra la tendencia.', estado: 'descartado', nota: 'Con 7 clientes activos un NPS no significa nada.' },
-        { titulo: 'Customer Effort Score', que: 'Qué tan fácil le resulta a tu cliente trabajar con vos, medido en cada interacción.', estado: 'descartado' },
-        { titulo: 'Churn Rate', que: 'Tu tasa de bajas mes a mes, contra el estándar de la industria.', estado: 'descartado' },
-        { titulo: 'Feedback multipunto', que: 'Medís satisfacción en cada instancia: arranque, módulos, 1:1, grupales, pago.', estado: 'idea', tagOriginal: 'expande', nota: 'Lo único rescatable del módulo: hoy tiene 4 respuestas de una encuesta anónima (31/7 [00:06:46]).' },
-        { titulo: 'Ecuación de servicio', que: 'Satisfacción y casos de éxito arriba, costo y tiempo de entrega abajo.', estado: 'descartado' },
-      ],
-    },
-    {
-      id: 'm08', n: '08', titulo: 'Grupales y cohortes',
-      que: 'La entrega de a muchos. Sube de prioridad: el modelo grupal es su camino declarado a los US$50K.',
-      items: [
-        { titulo: 'Curso y comunidad', que: 'El avance del curso y la comunidad, dentro de la ficha de cada cliente.', estado: 'en-curso', tagOriginal: 'listo', nota: 'Es el frente 02. Whop.' },
-        { titulo: 'Sesiones grupales', que: 'Las llamadas grupales con formulario de preguntas y hoja de Q&A. Cada pregunta queda registrada por cliente.', estado: 'idea', nota: '6/8: el grupal requiere sí o sí tener los cursos grabados antes.' },
-        { titulo: 'Grabaciones con marcas de tiempo', que: 'La grabación sube al área de miembros con cada pregunta marcada en su minuto.', estado: 'idea' },
-        { titulo: 'Gestión de camadas', que: 'Tus clientes por cohorte, no solo de a uno.', estado: 'idea' },
-        { titulo: 'Control de sala', que: 'A las grupales solo entra quien está activo e invitado.', estado: 'idea', nota: 'Whop lo resuelve.' },
-      ],
-    },
-    {
-      id: 'm09', n: '09', titulo: 'Comunidad',
-      que: 'Que no se enfríen, sin estar encima de cada uno.',
-      items: [
-        { titulo: 'Gamificación', que: 'Niveles, reconocimientos y logros para tus clientes verdes.', estado: 'descartado' },
-        { titulo: 'Check-ins automáticos', que: 'MaKo le pregunta a cada cliente cómo va, sin que muevas un dedo.', estado: 'idea' },
-        { titulo: 'Grupos de accountability', que: 'MaKo arma grupos entre clientes para que se empujen entre ellos.', estado: 'idea' },
-        { titulo: 'Momentos wow', que: 'Detalles que el cliente no espera, programados solos.', estado: 'descartado' },
-      ],
-    },
-    {
-      id: 'm10', n: '10', titulo: 'Operación y equipo',
-      que: 'Lo que hace que el equipo siga tu forma de trabajar, no la suya.',
-      items: [
-        { titulo: 'Biblioteca de procesos (SOPs)', que: 'Tu forma de entregar, documentada una vez, viva adentro de MaKo.', estado: 'proximo', nota: 'Es el entregable «servicio escrito» del sprint.' },
-        { titulo: 'Roles y ruteo', que: 'Cada evento cae en el equipo correcto: consultor, CS o CEO, con su tarea y su fecha.', estado: 'idea', tagOriginal: 'expande' },
-        { titulo: 'Notificaciones a tus canales', que: 'Nuevo cliente, disputa, NPS bajo: MaKo lo empuja a Slack o WhatsApp al instante.', estado: 'proximo', nota: 'El motor ya existe (`emitirAviso`), y el 6/8 apareció el problema real: el aviso llegó pero se perdió entre el ruido y le costó media reunión.' },
-      ],
-    },
-    {
-      id: 'm11', n: '11', titulo: 'El cerebro',
-      que: 'De todos los datos, qué hacer.',
-      items: [
-        { titulo: 'Preguntale a MaKo', que: 'Le preguntás por cualquier cliente y responde con su historial completo.', estado: 'proximo', tagOriginal: 'listo', nota: '⚠️ Él reportó el 31/7 [01:43:10] que NO funciona.' },
-        { titulo: 'Semáforo del negocio', que: 'Verde en estándar, amarillo atención, rojo intervení. «No te muestra el problema, te dice cuál atacar primero».', estado: 'proximo', tagOriginal: 'listo', nota: '⭐ La ironía más útil del documento: se vendió como HECHO el comportamiento que después se reclamó como faltante. Hoy son reglas hardcodeadas inline (app/general/page.tsx:107-195) y cada alerta termina en un `<Link>`. Analiza y linkea; no ejecuta.' },
-      ],
-    },
-    {
-      id: 'generador', n: '✦', titulo: 'Generador de tableros',
-      que: 'La tarjeta destacada del documento, con el badge «El más potente» — y a la vez el módulo más flaco: 3 features, ninguna construida, y una de las tres es una advertencia.',
-      items: [
-        { titulo: 'Plantillas seleccionables', que: 'Listas para configurar, sin partir de cero.', estado: 'proximo', nota: 'El documento lo planteaba como plantillas + formulario. Lo que se acordó después con Mauricio es otra cosa: un prompt maestro como skill. Ver el frente 01.' },
-        { titulo: 'Se configura en un formulario', que: 'No se programa: se completa y queda armado.', estado: 'proximo' },
-        { titulo: 'Honesto', que: '«Conectar los datos de cada empresa sigue siendo puesta a punto — pero una fracción del esfuerzo de hoy».', estado: 'hecho', nota: 'La advertencia sigue siendo cierta, y es la parte del frente 01 que nadie mira: el dato base no existe en ninguno de sus clientes.' },
-      ],
-    },
-  ],
-};
-
-export const SECCIONES_CS: SeccionCS[] = [MAURICIO, PROPUESTA];
-
-/** El conteo por estado, para el resumen de arriba. Derivado, nunca escrito a mano. */
-export function conteoCS(seccion: SeccionCS): Record<EstadoCS, number> {
+/** El conteo por estado del CAMINO (no de la propuesta). Derivado. */
+export function conteoCamino(): Record<EstadoCS, number> {
   const out = { hecho: 0, 'en-curso': 0, bloqueado: 0, proximo: 0, idea: 0, descartado: 0 } as Record<EstadoCS, number>;
-  for (const b of seccion.bloques) for (const i of b.items) out[i.estado]++;
+  for (const f of FASES) for (const i of f.items) out[i.estado]++;
   return out;
 }
