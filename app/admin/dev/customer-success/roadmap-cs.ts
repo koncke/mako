@@ -13,8 +13,18 @@
 //                        `plantilla-accountability` (Next + Supabase + Vercel, uno
 //                        por cliente). Ahí entra el EQUIPO del cliente a capturar
 //                        evidencia. No es MaKo y no va a serlo.
-//   · Whop             → ahí el cliente ve los videos del programa y hace la
-//                        tarea de cada bloque.
+//   · Whop             → ahí el cliente ve los videos, y ahí están su acceso y
+//                        su cobro. Pero la TAREA del bloque NO vive en Whop.
+//
+// POR QUÉ LA TAREA NO VIVE EN WHOP (verificado en su API, 2026-08-11). Su API
+// tiene cursos, capítulos, lecciones, alumnos y el webhook
+// `course_lesson_interaction.completed`, así que la SEÑAL de avance sí la da:
+// alcanza para recordar, para saber quién se quedó y para avisarle a Mauricio
+// antes de la llamada. Lo que NO tiene es endpoint para LEER las respuestas de
+// un assessment (solo para enviarlas), ni un lugar donde guardar datos propios
+// por miembro. Y el bucle entero necesita justo eso: leer lo que contestó,
+// reescribirlo con lo que se habló en la sesión y devolvérselo para que apruebe.
+// Un LMS guarda un examen corregido; esto es un documento a tres manos.
 //
 // Y el Excel (Mapa MCI/OKR) es la bisagra: sale de las sesiones, se completa con
 // seis columnas técnicas en chat, y de ahí el BUILD saca la app del cliente. El
@@ -55,8 +65,9 @@ export type Grupo = { titulo: string; pasos: Paso[] };
  *  la pregunta que la pantalla no contestaba: ¿el cliente entra a MaKo o a Whop? */
 export const PIEZAS: { que: string; quien: string; detalle: string }[] = [
   { que: 'MaKo', quien: 'Mauricio', detalle: 'Su cartera de clientes, el seguimiento, las juntas y los compromisos.' },
+  { que: 'Whop', quien: 'El cliente', detalle: 'Ve los videos del programa. Ahí están su acceso y su cobro. Su API avisa a MaKo qué clase completó.' },
+  { que: 'La tarea del bloque', quien: 'El cliente, por link', detalle: 'La contesta antes de la junta, la IA la reescribe con lo que se habló y él la aprueba. Vive en MaKo: la API de Whop no deja leer respuestas.' },
   { que: 'El tablero', quien: 'El equipo del cliente', detalle: 'Una app propia por cliente, del repo `plantilla-accountability`. Capturan evidencia y ven su semáforo. No es MaKo.' },
-  { que: 'Whop', quien: 'El cliente', detalle: 'Ve los videos del programa y hace la tarea de cada bloque antes de la junta.' },
 ];
 
 export const URGENTE: Grupo[] = [
@@ -65,11 +76,11 @@ export const URGENTE: Grupo[] = [
     pasos: [
       {
         titulo: 'Conectar Whop', estado: 'sigue', plan: 'Conectar Whop por API para la plataforma de contenido',
-        que: 'Cliente de la API con credencial por workspace, para leer desde MaKo qué hizo cada cliente.',
-        yaEsta: ['`lib/credenciales.ts` (`credWs`) ya resuelve credenciales por workspace para los 19 servicios del catálogo.', 'Verificado: no hay ningún servicio de plataforma de contenido en `lib/integraciones-catalogo.ts:21-61`.'],
-        falta: ['El cliente de la API y el alta en los DOS catálogos.'],
-        tocar: ['`lib/whop.ts` (nuevo)', '`lib/integraciones-catalogo.ts`', '`lib/metodo-catalogo.ts`'],
-        ojo: 'El `env` del catálogo tiene que coincidir EXACTO con lo que lee la lib: si no, `credWs` devuelve `null` en silencio y la integración se ve conectada sin estarlo.',
+        que: 'Credencial por workspace y el webhook de Whop, para saber en MaKo qué clase completó cada cliente.',
+        yaEsta: ['`lib/credenciales.ts` (`credWs`) ya resuelve credenciales por workspace para los 19 servicios del catálogo.', 'Verificado: no hay ningún servicio de plataforma de contenido en `lib/integraciones-catalogo.ts:21-61`.', 'Verificado en su API: `course_lesson_interaction.completed` + `List course students` dan el avance por alumno.'],
+        falta: ['El cliente de la API, la ruta del webhook y el alta en los DOS catálogos.'],
+        tocar: ['`lib/whop.ts` (nuevo)', '`app/api/webhooks/whop/route.ts` (nuevo)', '`lib/integraciones-catalogo.ts`', '`lib/metodo-catalogo.ts`'],
+        ojo: 'De Whop se lee **el avance, nunca las respuestas**: su API no tiene endpoint para leerlas. El `env` del catálogo tiene que coincidir EXACTO con lo que lee la lib, o `credWs` devuelve `null` en silencio y la integración se ve conectada sin estarlo. Y `/api/webhooks` ya está en `lib/rutas-publicas.ts`.',
       },
       {
         titulo: 'Cargar el programa de Mauricio en Whop, por bloques', quien: 'Los dos', estado: 'bloqueada',
@@ -84,6 +95,14 @@ export const URGENTE: Grupo[] = [
         falta: ['La tabla entera, con `workspace_id`, y su alta en `TENANT_TABLES` y `TABLAS_RESET`.'],
         tocar: ['`supabase/migrations/`', '`lib/workspace.ts:60`', '`lib/reset-workspace.ts:36`'],
         ojo: '**No como jsonb en `app_settings`**: es last-write-wins sin CAS y un formulario largo con guardado parcial se pisa solo.',
+      },
+      {
+        titulo: 'Que el cliente entre por un link, sin crearse cuenta', estado: 'cola',
+        que: 'Desde la clase en Whop, un botón lo lleva a su tarea. Sin login, sin contraseña.',
+        yaEsta: ['`lib/shares.ts` ya es esto y nació genérico a propósito: token de 256 bits, del que se guarda solo el sha256, revocable de a uno y revalidado contra la fila viva en cada request. `/compartido/[token]` y `/api/compartido` ya están en `lib/rutas-publicas.ts`.'],
+        falta: ['Hoy `puedeVer` solo autoriza LECTURA. Falta el permiso de escritura acotado a UN bloque de UN cliente.'],
+        tocar: ['`lib/shares.ts`', '`app/compartido/[token]/`'],
+        ojo: 'Es la condición para que esto funcione con «empresarios que todos tienen TDAH… no creas que le sabe la computadora». Un login más es un bloque que no se contesta. Y el permiso se escribe en POSITIVO —este share puede escribir ESTE bloque— nunca «cualquiera menos».',
       },
       {
         titulo: 'Que la IA mejore esas respuestas con lo hablado en la junta', estado: 'cola',

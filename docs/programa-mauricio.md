@@ -1,0 +1,225 @@
+# El programa de Mauricio, por bloques
+
+**Qué es esto.** El temario del programa «Sistema Negocio que Escala™» partido en módulos y
+clases, para cargarlo en la plataforma y que cada clase tenga su video y su tarea. **No son
+guiones**: cada clase trae UNA línea con lo que el cliente tiene que dejar contestado.
+
+Sale de su propio material: los dos Cuestionarios Maestros, el análisis de fases, el contexto
+del sistema y las dos skills que ya ejecuta (`mapa-ejecucion-4dx`, `dashboard-accountability`).
+No hay nada inventado acá; lo que agrega es el CORTE en bloques, que es lo que faltaba para
+que el bucle de 5 pasos pueda correr.
+
+**El bucle:** cada clase = un video + una tarea. El cliente mira el video, deja la tarea
+contestada, y recién ahí se agenda la sesión. En la sesión se debate y se perfecciona; después
+la IA reescribe la respuesta con lo que se habló y el cliente la aprueba.
+
+**Encaja con sus 14-18 sesiones** así: Norte 3-4 · PAS 3-4 · Palancas y umbrales 4-6 ·
+Build 2. Los módulos 1 a 4 son el Norte; el 5 es el PAS; el 6 al 10 son palancas; el 11 es
+el arranque.
+
+---
+
+## Módulo 0 · Cómo se juega
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 0.1 · Qué vas a tener al final | Cuántas horas TUYAS cuesta esto y por qué no se delega al equipo |
+| 0.2 · Estándar no es criterio | Cuál es, en tu negocio, una decisión que tiene estándar pero no tiene criterio |
+| 0.3 · Cómo funciona cada bloque | Qué hacés antes de cada sesión y qué se revisa en ella |
+
+> El 0.1 existe porque el atoro de la fase 0 es que el dueño no asume que él es el proyecto.
+> Si no sabe cuántas horas le va a costar, no está vendido.
+
+---
+
+## Módulo 1 · Tu negocio en números
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 1.1 · La unidad que se repite | Si tu negocio se juega en puntos de operación, en oportunidades comerciales o en proyectos, y cuántos tenés |
+| 1.2 · Tus áreas y quién responde | Qué áreas existen hoy y quién rinde cuentas de cada una, con nombre y apellido |
+| 1.3 · Venta y resultado de 24 meses | Los números mes a mes, por línea de negocio y por unidad, con la fuente de cada cifra |
+| 1.4 · Qué te hace perder plata | Los tres costos que más pesan, el punto de equilibrio, y qué unidades venden bien sin ser rentables |
+| 1.5 · Tu paradoja en una frase | Los dos números tuyos que se contradicen |
+| 1.6 · Lo que no sabés todavía | La lista de datos que no existen, con quién los consigue y para cuándo |
+
+> **Acá se atora el 100% de los clientes: el dato base no existe.** TEXX vivió 19 días con la
+> MCI 1 abierta esperando una cifra de margen. Por eso 1.6 es una clase y no un pie de página:
+> el entregable de este módulo puede ser legítimamente «no lo tengo, lo consigue Fulano el 12».
+
+---
+
+## Módulo 2 · Dónde vive el criterio
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 2.1 · Si desaparecés dos semanas | Qué se degrada primero, con nombre concreto, no «todo» |
+| 2.2 · Las decisiones que te suben | Ocho renglones: la decisión, quién la toma hoy, qué resultado se espera, cómo se logra y qué hacer cuando no se logra |
+| 2.3 · Tu agenda real | Dos semanas medidas —no la ideal— repartidas en dirección, crecimiento, innovación, gente y operación |
+| 2.4 · Lo que no está pasando | La alianza que no cerraste, la línea que no lanzaste, el mercado que no exploraste |
+| 2.5 · Cuánto estás dispuesto a que baje | El número que aceptás resistir mientras soltás, y por cuánto tiempo |
+
+> Las tres últimas columnas del 2.2 SON el criterio. Si el cliente solo puede llenar «qué
+> resultado se espera», esa decisión tiene estándar y no tiene criterio: por eso te sigue
+> subiendo a vos. Y el 2.5 se define ahora o a la tercera semana todo vuelve a como estaba.
+
+---
+
+## Módulo 3 · El equipo real
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 3.1 · Quién hace qué de verdad | Por cada persona clave: qué hace realmente, qué le sobra, qué le falta, y la decisión (desarrollar, mover, sustituir, mantener) |
+| 3.2 · Qué puestos faltan | Qué haría cada uno, a quién reportaría, y si sale de adentro o se contrata |
+
+---
+
+## Módulo 4 · Las dos MCIs
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 4.1 · La MCI 1, el resultado | «Pasar de ___ a ___ para el ___», con base real, fuente y responsable del dato |
+| 4.2 · La MCI 2, el criterio | «Pasar de un equipo que ___ a un equipo que ___ para el ___» |
+| 4.3 · El objetivo de cada área | Qué sostiene, cuál es su número, su base de hoy, su fuente, quién rinde cuentas, y si el área YA lo calcula |
+
+> **El error más frecuente, y hay que decirlo en el video:** redactar la MCI 2 sobre lo que el
+> dueño deja de hacer. Un equipo no puede ganar «el director trabaja menos»; sí puede ganar
+> adueñarse de sus números. El tiempo del dueño es el LAG que comprueba la MCI 2, no la MCI 2.
+> HMO las escribió las dos sobre criterio y se quedó sin marcador económico.
+>
+> Y la regla del 4.3: **el tablero recibe cifras que el área ya cierra.** Si hay que inventar
+> un reporte, no entra en este ciclo.
+
+---
+
+## Módulo 5 · El propósito, en la voz de tu gente
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 5.1 · Por qué seguirían | Si el dinero estuviera resuelto, por qué seguirían con esto, y qué construyeron que antes no existía en su zona |
+| 5.2 · Quién es el adversario | Concreto y medible, no abstracto, y cómo se siente eso en el piso |
+| 5.3 · Los valores como conducta | Qué hace alguien de la casa que otro no haría, exactamente |
+| 5.4 · Cómo se lo contás al equipo | Quién lo dice, en qué foro, con qué ritual y cómo se ancla en la junta semanal |
+
+> **Acá se atora la bajada, no la redacción.** El enunciado sale bien en los cuatro clientes;
+> comunicarlo no ocurre solo. Por eso 5.4 es una clase con entregable propio.
+> Y el vocabulario traiciona: en Baja Teriyaki «honrar» se cambió a «consentirse» porque la
+> primera palabra sonaba demasiado formal para hablarle al equipo.
+
+---
+
+## Módulo 6 · Las palancas
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 6.1 · Para qué existe esta área | A cuál de las dos MCIs sirve, y qué número movería si hiciera todo perfecto un trimestre |
+| 6.2 · Qué te está pidiendo el frente | Lo que el área comercial u operativa le pide a esta área y no está recibiendo |
+| 6.3 · Elegir las palancas | Máximo tres por objetivo, cada una pasando el filtro de cuatro: predice, lo controla el equipo, se mide semanal, y es un cuello real hoy |
+| 6.4 · La ficha de nueve campos | Nombre con verbo y objeto, cómo se mide con numerador y denominador, frecuencia, hora de corte, unidad, verde, amarillo, rojo y un responsable con nombre |
+
+> El 6.3 tiene una trampa que conviene decir en el video: si la respuesta a la cuarta es «ya
+> lo hacen bien», eso no es una palanca, es un estándar que ya opera. Se anota y se saca del
+> tablero.
+
+---
+
+## Módulo 7 · La evidencia
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 7.1 · Qué prueba que se hizo | Por cada palanca: foto, checklist, formulario, lectura, registro en sistema o entregable |
+| 7.2 · Si es foto, de qué exactamente | Desde qué ángulo, y qué la hace aprobada o rechazada |
+| 7.3 · Quién sube y quién valida | Cuántas capturas por día, en qué momentos, y cuánto tarda la persona en subirla |
+
+> **Este es el bloqueo número uno de todo el programa y por eso tiene módulo propio, no una
+> pregunta suelta.** Baja Teriyaki estuvo tres semanas detenida en esta sola pregunta. En TEXX
+> el protocolo de servicio no se podía medir porque el mystery shopper solo captura cuando hay
+> alguien mirando. Su frase: *el cliente sabe qué quiere que pase, no sabe cómo probar que pasó.*
+>
+> Regla del 7.3: **si subir la evidencia pasa de dos minutos, no se va a hacer.** Y sin
+> evidencia subida, rojo, aunque el trabajo se haya hecho.
+
+---
+
+## Módulo 8 · Los umbrales
+
+*Estas clases las mira el LÍDER del área, no el dueño. Los umbrales los pone quien va a
+responder por ellos.*
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 8.1 · Qué ya lograste alguna vez | Ese número es el piso de lo posible, no la meta |
+| 8.2 · Qué es exigente pero alcanzable | Con lo que tenés hoy: sin gente nueva y sin presupuesto nuevo |
+| 8.3 · Cuándo se cae | Qué tendría que pasar para que esto salga mal: esa es la definición del rojo |
+
+> **El segundo atoro: el dueño no tiene referencia de qué es exigente pero posible, y ante la
+> duda no contesta.** Patricia no devolvió el archivo. Por eso la pregunta que sí funciona es
+> la del 8.1, y no «¿cuál sería una buena meta?».
+>
+> Y dos reglas para el video: rangos sin traslape entre verde, amarillo y rojo (es el error
+> más común), y nada de 100% salvo donde el incumplimiento sea inadmisible por seguridad,
+> legal o pérdida de cliente.
+
+---
+
+## Módulo 9 · La carta de expectativas
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 9.1 · Qué puede decidir sin consultarte | El límite explícito: hasta cuánto de gasto, qué tipo de decisión, en qué situaciones |
+| 9.2 · Qué sí te tiene que escalar | Corto y específico; todo lo que no esté ahí, no se escala |
+| 9.3 · Qué le vas a dar vos | Presupuesto, gente, capacitación y decisiones que dependen de vos, con fecha |
+| 9.4 · Qué pasa cuando no se logra | Qué hacemos si el número falla dos semanas seguidas, definido en frío |
+
+> **La 9.1 es la clase crítica de todo el programa.** Si esa sección queda vacía, el tablero
+> puede estar perfecto y el líder va a seguir escalando: la junta semanal sigue siendo el dueño
+> resolviendo. El documento se escribe solo; entregarlo en persona y sostenerlo es donde ocurre
+> la transferencia real.
+
+---
+
+## Módulo 10 · La cadencia
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 10.1 · Las tres juntas | Día, hora y participantes de la diaria de sincronización, la semanal de accountability y la mensual de rentabilidad |
+| 10.2 · El guion de la semanal | Rendir cuentas del compromiso · solo rojos y amarillos · despejar obstáculos · un compromiso concreto con fecha |
+| 10.3 · La única métrica que importa | Cómo vas a medir que hablás menos del 20% del tiempo |
+
+---
+
+## Módulo 11 · Arranque
+
+| Clase | Qué tiene que dejar contestado |
+|---|---|
+| 11.1 · Los catálogos que faltan | La lista de lo que no existe (productos por margen, inventario, descripciones de puesto, rangos operativos), con responsable y fecha |
+| 11.2 · Las dos primeras semanas | Qué mirar cuando el tablero empieza a recibir captura real, y qué corregir |
+
+> **En TEXX se detectaron trece catálogos faltantes, cada uno bloqueando una palanca.** No es
+> trabajo de tablero: es trabajo previo que aparece al final. Por eso 11.1 va antes del build
+> y no después.
+>
+> Y la regla de alcance, que conviene aplicar desde el inicio y no como rescate: con Patricia
+> funcionó bajar de ocho áreas a tres para poder arrancar; con Esquer, enfocarse en CEDIS.
+
+---
+
+## Lo que este temario decide, y conviene discutir con él
+
+- **39 clases son 39 videos.** Es mucho para grabar de una. Si hay que priorizar, los que
+  destraban de verdad son **1.6, 4.2, 7.1, 7.2 y 8.1**: son los cinco atoros medidos en sus
+  cuatro clientes. Con esos cinco grabados, el resto se puede sostener en sesión un ciclo más.
+- **El módulo 8 lo mira el líder del área, no el dueño.** Eso obliga a que la plataforma
+  distinga dos audiencias dentro del mismo cliente, o que esas tres clases se manden aparte.
+- **Los módulos 6 a 9 se repiten por área.** Un cliente con tres áreas hace ese tramo tres
+  veces. El video es el mismo; la tarea, no.
+- **El módulo 0 no está en su material**: lo agrego porque el atoro de la fase 0 —que el dueño
+  no asume que él es el proyecto— hoy se resuelve en la venta y se olvida. Si él prefiere que
+  eso siga siendo conversación y no video, se saca.
+
+---
+
+*Derivado del material de Mauricio Bustos · Sistema Negocio que Escala™. Las clases y sus
+preguntas salen de los dos Cuestionarios Maestros, el análisis de fases y el contexto del
+sistema; los atoros citados vienen de sus cuatro clientes reales (TEXX, HMO, Baja Teriyaki,
+Grupo Esquer).*
