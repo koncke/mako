@@ -23,6 +23,9 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
    versionar. [→](#el-pipeline-de-la-corrida-anterior-se-perdió-por-no-estar-versionado)
 6. **`--cookies-from-browser chrome` no puede funcionar en Windows hoy**, y el síntoma dice
    «0 cookies» en vez de fallar. [→](#reusar-la-sesión-del-navegador-lo-que-no-funciona-en-esta-máquina)
+7. **Y el remate: las cookies no hacían falta para nada, y eran lo único que rompía la
+   descarga.** Probá sin la credencial antes de construir alrededor de ella.
+   [→](#el-diagnóstico-obvio-era-el-equivocado-las-cookies-no-hacían-falta-y-encima-rompían-la-descarga)
 
 ---
 
@@ -212,6 +215,36 @@ falla o abre pestañas en la instancia del usuario; habilitar CDP le cierra las 
 con robocopy es **folclore de Linux**. Esos archivos son POSIX; en Windows el singleton es
 una ventana de mensajes. El `/XF` es inocuo pero el diagnóstico manda a mirar donde no es:
 si un perfil copiado no arranca, mirá **procesos**, no archivos.
+
+### El diagnóstico obvio era el equivocado: las cookies no hacían falta, y encima rompían la descarga
+
+**Síntoma.** `ERROR: Could not copy Chrome cookie database` (issue 7271 de yt-dlp) en la
+primera clase, con el perfil dedicado bien armado y la sesión abierta y válida.
+
+**Causa.** Dos capas, y la segunda es la que importa:
+
+1. El DB de cookies está **lockeado** mientras el Chrome dedicado corre. Y ese Chrome tiene
+   que estar corriendo, porque es el que expone CDP para enumerar las clases.
+2. Pero el hallazgo de fondo es que **las cookies nunca hicieron falta**. La privacidad
+   «solo en estos dominios» de Vimeo se valida por el header **Referer**, no por sesión.
+   Verificado: `yt-dlp <embed> --referer <dominio>` sin ninguna cookie lista los 12
+   formatos hasta 1080p y baja perfecto.
+
+**Lo que esto costó.** Todo el diseño previo giró alrededor de extraer cookies: el perfil
+dedicado existe para esquivar App-Bound Encryption, y la sintaxis de
+`--cookies-from-browser` con el subdirectorio se investigó y verificó en detalle. Nada de
+eso era necesario para este caso, y el flag que iba a «asegurar» la autenticación era
+**exactamente lo único que hacía fallar la descarga**.
+
+**Regla.** Antes de construir alrededor de una credencial, **probá sin ella**. Un
+`-F` (listar formatos) cuesta 3 segundos y dice si la autenticación hace falta. Vale para
+cualquier recurso embebido: primero Referer, después Origin, y solo al final cookies.
+
+⚠️ El perfil dedicado **sigue siendo necesario** — pero por CDP (Chrome 136+ no depura el
+directorio por defecto), no por las cookies. Dos motivos distintos para la misma pieza, y
+solo uno resultó real.
+
+**Vive en:** `scripts/curso-bajar.mjs` (el flag `--cookies`, apagado por default)
 
 ### Lo que sí está instalado y corre dentro de la sesión legítima
 

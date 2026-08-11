@@ -1,13 +1,17 @@
 // Baja el curso ENTERO desde el plan.json que armó curso-plan.mjs.
 //
 // Decisiones que importan (medidas, no supuestas):
-//   · --referer es OBLIGATORIO. Los embeds de Vimeo con privacidad por dominio
-//     contestan 403 a una URL pelada. El referer sale del plan.
-//   · --cookies-from-browser apunta al SUBDIRECTORIO del perfil
-//     (…\perfil\Default). yt-dlp hace dirname() para encontrar 'Local State',
-//     así que pasarle …\perfil agarra un Local State ajeno y falla raro.
-//     Y funciona porque ese perfil, al no ser el user-data-dir por defecto, NO
-//     tiene App-Bound Encryption: escribe cookies v10, que yt-dlp sí descifra.
+//   · --referer es OBLIGATORIO y es LO ÚNICO que hace falta para autenticar. La
+//     privacidad "solo en estos dominios" de Vimeo se valida por el header
+//     Referer, no por sesión. Verificado: con --referer y SIN cookies, yt-dlp
+//     lista los 12 formatos hasta 1080p.
+//   · Las cookies quedaron OPCIONALES (--cookies), y por default APAGADAS. No
+//     solo son innecesarias acá: con el Chrome dedicado abierto, el DB de
+//     cookies está lockeado y yt-dlp aborta con "Could not copy Chrome cookie
+//     database" (issue 7271) — o sea que pedirlas rompía la descarga por una
+//     credencial que nadie necesitaba. Si algún día una plataforma sí las pide,
+//     --cookies las manda apuntando al SUBDIRECTORIO del perfil (…\perfil\Default),
+//     porque yt-dlp hace dirname() para encontrar 'Local State'.
 //   · --ffmpeg-location: ffmpeg NO está en el PATH de esta máquina. Vimeo sirve
 //     video y audio por separado, así que sin merge no hay archivo.
 //   · --download-archive: reanudable. Volver a correr no re-baja nada.
@@ -103,7 +107,8 @@ for (const [i, c] of clases.entries()) {
     c.url,
     '--referer', plan.referer,
     '--user-agent', plan.userAgent,
-    '--cookies-from-browser', `chrome:${join(PERFIL, 'Default')}`,
+    // Solo si se piden a mano: ver la nota de arriba sobre el DB lockeado.
+    ...(tiene('cookies') ? ['--cookies-from-browser', `chrome:${join(PERFIL, 'Default')}`] : []),
     '--ffmpeg-location', FFDIR,
     '-f', FORMATO,
     '--merge-output-format', 'mp4',
@@ -137,8 +142,10 @@ if (fallos.length) {
   console.log('\n  Fallaron (volver a correr las reintenta; las OK se saltean solas):');
   for (const f of fallos) console.log(`    ${String(f.n).padStart(2, '0')}  ${f.titulo}`);
   console.log(`\n  Reintento puntual:  --solo ${fallos.map((f) => f.n).join(',')}`);
-  console.log('  Si dice 403: la sesión del perfil caducó. Volvé a abrir el curso en');
-  console.log('  ese Chrome y reintentá — el referer y el UA ya van bien.');
+  console.log('  Si dice 403: revisá que plan.referer sea el dominio que embebe el');
+  console.log('  player — es lo único que autentica un embed restringido por dominio.');
+  console.log('  Si dice "Could not copy Chrome cookie database": estás pasando');
+  console.log('  --cookies con el Chrome dedicado abierto. No hacen falta: sacá el flag.');
 }
 
 console.log(`\n  Siguiente:`);
