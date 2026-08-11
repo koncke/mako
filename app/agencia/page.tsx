@@ -13,7 +13,10 @@ export const revalidate = 0;
 
 export default async function AgenciaPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   if (!(await getSesionAdmin())) redirect('/login');
+  // Las plantillas se mudaron a /mensajes, que sí se puede nombrar en la barra
+  // (el `match` del nav ve solo el pathname, así que una tab en `?tab=` es
+  // inalcanzable como destino). Los links guardados siguen llegando.
   const { tab } = await searchParams;
-  const inicial = tab === 'plantillas' ? 'plantillas' : 'chat';
-  return <AgenciaTabs inicial={inicial} />;
+  if (tab === 'plantillas') redirect('/mensajes');
+  return <AgenciaTabs />;
 }

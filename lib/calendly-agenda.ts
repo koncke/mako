@@ -21,16 +21,27 @@ import 'server-only';
 //    modelo — se reserva uno de los `start_time` que devolvió `huecosDisponibles`,
 //    tal cual (regla de la casa: un dato exacto no lo transporta un LLM).
 //
-// 3. `event.location_configuration.kind` es obligatorio y tiene que ser una
-//    ubicación CONFIGURADA en ese event type. Acá hay una trampa medida: los
-//    event types del dueño declaran `locations: [{kind:'zoom_conference'}]` y la
-//    API igual contesta «Specified location kind is not configured for this
-//    event type» — para ese kind y para los otros once que se probaron. La
-//    causa más probable es que la integración de Zoom en Calendly esté
-//    desconectada o sin re-autorizar, y se arregla en el panel de Calendly, no
-//    acá. Por eso el error de Calendly se devuelve TEXTUAL hasta el WhatsApp:
-//    un «no se pudo agendar» genérico manda a buscar el problema al lugar
-//    equivocado.
+// 3. ⚠️ HOY `POST /invitees` NO RESERVA, Y NO ES POR LO QUE MANDAMOS. Los event
+//    types del dueño declaran `locations: [{kind:'zoom_conference'}]` y la API
+//    contesta «Specified location kind is not configured for this event type».
+//    Lo importante es CÓMO se descartó la hipótesis obvia: se probaron CINCO
+//    formas del pedido —con el kind correcto, con los otros once kinds, con el
+//    campo arriba de todo, en null, y OMITIDO POR COMPLETO— y las cinco dan el
+//    MISMO error. Si el error no cambia cuando cambia lo que mandás, el problema
+//    no es lo que mandás. Está reportado en la comunidad de desarrolladores de
+//    Calendly para event types con videollamada. NO es «reconectar Zoom» —eso
+//    fue el primer diagnóstico y era el equivocado—.
+//
+//    Por eso existe `linkParaAgendar`, que es la MISMA jugada que ya hace el CRM
+//    (app/crm/calendly-widget.ts): el formulario de Calendly con el nombre y el
+//    email prellenados. El popup del CRM funciona porque lo completa una PERSONA
+//    en un navegador; el iframe es de Calendly y el server no lo puede enviar
+//    por su cuenta. Mandar ese mismo formulario por WhatsApp deja la reserva a
+//    un toque, y NO depende de que Calendly arregle nada.
+//
+//    El orden que usa el doer: intentar la reserva directa, y si Calendly la
+//    rechaza, caer al link prellenado. El día que la arreglen, el agendado
+//    directo empieza a funcionar solo, sin tocar una línea.
 // =============================================================================
 
 import { credWs } from './credenciales';
@@ -51,6 +62,8 @@ export type EventTypeCalendly = {
   duracionMin: number;
   /** Ubicaciones declaradas por el event type; la 1ª es la que se manda al reservar. */
   kinds: string[];
+  /** La página pública de agenda (calendly.com/…): la base del link prellenado. */
+  schedulingUrl: string;
 };
 
 export type HuecoCalendly = {
@@ -94,7 +107,7 @@ async function usuarioUri(): Promise<string> {
 /** Los event types ACTIVOS de la cuenta. */
 export async function listarEventTypes(): Promise<EventTypeCalendly[]> {
   const user = await usuarioUri();
-  const r = await pedir<{ collection?: Array<{ uri: string; name: string; duration: number; active: boolean; locations?: Array<{ kind?: string }> }> }>(
+  const r = await pedir<{ collection?: Array<{ uri: string; name: string; duration: number; active: boolean; scheduling_url?: string; locations?: Array<{ kind?: string }> }> }>(
     `${API}/event_types?user=${encodeURIComponent(user)}&count=100`,
   );
   return (r.collection ?? [])
@@ -104,6 +117,7 @@ export async function listarEventTypes(): Promise<EventTypeCalendly[]> {
       nombre: (e.name ?? '').trim(),
       duracionMin: e.duration,
       kinds: (e.locations ?? []).map((l) => l.kind).filter((k): k is string => Boolean(k)),
+      schedulingUrl: e.scheduling_url ?? '',
     }));
 }
 
@@ -151,6 +165,46 @@ export async function huecosDisponibles(
   return (r.collection ?? [])
     .filter((s) => s.status === 'available' && s.start_time)
     .map((s) => ({ startIso: s.start_time as string }));
+}
+
+/**
+ * Un link de Calendly LISTO PARA TOCAR: el formulario con el nombre y el email
+ * ya puestos, para que el otro solo elija horario y confirme.
+ *
+ * Es EXACTAMENTE lo que ya hace el CRM cuando movés un lead a R1/R2: abre el
+ * popup de Calendly con `prefill: {name, email}` (app/crm/calendly-widget.ts).
+ * Eso funciona porque lo completa una PERSONA en un navegador — el iframe es de
+ * Calendly y no hay forma de que el server lo mande por su cuenta. Lo que se
+ * puede hacer, y es lo que hace esto, es mandar ese mismo formulario por
+ * WhatsApp para que se complete de un toque.
+ *
+ * `unUso: true` acuña además un link de un solo uso (`POST /scheduling_links`):
+ * se quema al reservar, así que no queda dando vueltas en un chat.
+ */
+export async function linkParaAgendar(input: {
+  eventType: EventTypeCalendly;
+  invitado: { nombre?: string | null; email?: string | null };
+  unUso?: boolean;
+}): Promise<string> {
+  const { eventType, invitado, unUso } = input;
+
+  let base = eventType.schedulingUrl;
+  if (unUso) {
+    const r = await pedir<{ resource?: { booking_url?: string } }>(`${API}/scheduling_links`, {
+      method: 'POST',
+      body: JSON.stringify({ max_event_count: 1, owner: eventType.uri, owner_type: 'EventType' }),
+    });
+    // Si Calendly no devuelve el link de un solo uso, se cae al público: es
+    // preferible un link que funciona a no mandar nada. Nunca al revés.
+    base = r.resource?.booking_url || base;
+  }
+  if (!base) throw new CalendlyAgendaError('Calendly no devolvió la URL de agenda de ese tipo de reunión.');
+
+  const q = new URLSearchParams();
+  if (invitado.nombre?.trim()) q.set('name', invitado.nombre.trim());
+  if (invitado.email?.trim()) q.set('email', invitado.email.trim());
+  const qs = q.toString();
+  return qs ? `${base}${base.includes('?') ? '&' : '?'}${qs}` : base;
 }
 
 export type ReservaHecha = {

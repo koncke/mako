@@ -18,7 +18,7 @@ import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalog
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mako-pendientes';
 import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
-import { eventTypeDeReunion, huecosDisponibles, reservarReunion } from '@/lib/calendly-agenda';
+import { eventTypeDeReunion, huecosDisponibles, reservarReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import type { Step, StepId } from '@/lib/stage-requirements';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
@@ -256,18 +256,37 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
           return { ok: false, resumen: `Ese horario ya no está libre en Calendly. Los próximos que sí: ${cerca || 'no quedan huecos en 31 días'}.` };
         }
 
-        const reserva = await reservarReunion({
-          eventType, startIso,
-          invitado: { email: lead.email, nombre: lead.nombre, timezone: tz },
-        });
-        // NO se escribe fecha_junta_1/2 acá: reservar dispara el webhook
-        // `invitee.created` de Calendly, que es el único que escribe esas
-        // columnas (y de paso guarda las respuestas y el UTM). Escribirlo
-        // también desde acá sería el mismo dato en dos lugares, con la versión
-        // de acá quedándose vieja el día que el webhook cambie.
-        await logLeadEvent(leadId, 'Reunión agendada', `MaKo agendó la ${cual} en Calendly para el ${fmtFecha(startIso, tz)} desde WhatsApp.`, 'MaKo');
-        const link = reserva.joinUrl ? `\n${reserva.joinUrl}` : '';
-        return { ok: true, resumen: `Listo: ${cual} con ${lead.nombre} el ${fmtFecha(startIso, tz)}. Calendly ya les mandó la invitación a los dos.${link}` };
+        // Se intenta la reserva DIRECTA. Si Calendly la rechaza —hoy lo hace
+        // siempre en los event types con videollamada, ver el encabezado de
+        // lib/calendly-agenda.ts— se cae al formulario prellenado, que es la
+        // misma jugada del popup del CRM y funciona igual. El orden importa: el
+        // día que Calendly lo arregle, esto empieza a reservar solo.
+        try {
+          const reserva = await reservarReunion({
+            eventType, startIso,
+            invitado: { email: lead.email, nombre: lead.nombre, timezone: tz },
+          });
+          // NO se escribe fecha_junta_1/2 acá: reservar dispara el webhook
+          // `invitee.created` de Calendly, que es el único que escribe esas
+          // columnas (y de paso guarda las respuestas y el UTM). Escribirlo
+          // también desde acá sería el mismo dato en dos lugares, con la versión
+          // de acá quedándose vieja el día que el webhook cambie.
+          await logLeadEvent(leadId, 'Reunión agendada', `MaKo agendó la ${cual} en Calendly para el ${fmtFecha(startIso, tz)} desde WhatsApp.`, 'MaKo');
+          const link = reserva.joinUrl ? `\n${reserva.joinUrl}` : '';
+          return { ok: true, resumen: `Listo: ${cual} con ${lead.nombre} el ${fmtFecha(startIso, tz)}. Calendly ya les mandó la invitación a los dos.${link}` };
+        } catch (e) {
+          const motivo = e instanceof Error ? e.message : String(e);
+          console.warn(`[mako-doer-acciones] reserva directa rechazada (lead ${leadId}): ${motivo} — mando el formulario prellenado`);
+          const url = await linkParaAgendar({ eventType, invitado: { nombre: lead.nombre, email: lead.email }, unUso: true });
+          // ok:true a propósito: la pendiente SE RESUELVE. Dejarla vigente haría
+          // que el próximo "sí" del dueño acuñe otro link de un solo uso, y
+          // terminaría con tres links distintos en el chat para la misma reunión.
+          await logLeadEvent(leadId, 'Link de agenda enviado', `MaKo mandó el formulario de Calendly de la ${cual} prellenado (la reserva directa la rechazó Calendly: ${motivo}).`, 'MaKo');
+          return {
+            ok: true,
+            resumen: `Calendly no me dejó reservarlo directo, así que te dejo el formulario ya completado con los datos de ${lead.nombre} — elegís el horario y queda:\n${url}`,
+          };
+        }
       }
 
       default:

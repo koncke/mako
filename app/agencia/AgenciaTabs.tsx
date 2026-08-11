@@ -1,30 +1,25 @@
 'use client';
 
 // =============================================================================
-// AgenciaTabs — el WhatsApp de MaKo (SuperAdmin): Chat · Plantillas
+// AgenciaTabs — el WhatsApp de MaKo (SuperAdmin)
 // =============================================================================
-// El estado del canal ("WhatsApp Admin") vive acá como un botón desplegable en la
-// barra de tabs (visible en ambas tabs). NO es preview de ningún cliente: es la
-// línea propia de MaKo (conexión por QR + chat de sus grupos + plantillas).
+// El canal propio de MaKo: su línea por QR + el chat de sus grupos. NO es
+// preview de ningún cliente.
+//
+// Ya no hay tabs: las plantillas se mudaron a /mensajes, que tiene lugar propio
+// en la barra. Quedó una sola vista, así que la barra de tabs se fue con ellas
+// — una tab sola es un rótulo que no lleva a ningún lado.
 
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { MakoStar } from '../_components/MakoBrand';
-import { PlantillasView } from './PlantillasView';
 import { ChatGruposPanel } from './ChatGruposPanel';
 import { CanalMaKoPanel } from './CanalMaKoPanel';
-
-type TabKey = 'chat' | 'plantillas';
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'chat', label: 'Chat' },
-  { key: 'plantillas', label: 'Plantillas' },
-];
 
 type Canal = { estado: string; numero: string | null; perfil: string | null; esVozActiva: boolean };
 const COLOR: Record<string, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
 const CANAL_LABEL: Record<string, string> = { conectado: 'WhatsApp Admin conectado', conectando: 'WhatsApp Admin conectando…', desconectado: 'WhatsApp Admin desconectado', error: 'WhatsApp Admin con error' };
 
-export function AgenciaTabs({ inicial = 'chat' }: { inicial?: TabKey }) {
-  const [tab, setTab] = useState<TabKey>(inicial);
+export function AgenciaTabs() {
   const [canal, setCanal] = useState<Canal | null>(null);
   const [canalOpen, setCanalOpen] = useState(false);
 
@@ -33,16 +28,6 @@ export function AgenciaTabs({ inicial = 'chat' }: { inicial?: TabKey }) {
   }, []);
   useEffect(() => { cargarCanal(); }, [cargarCanal]);
 
-  const paneles: Record<TabKey, ReactNode> = {
-    chat: <ChatGruposPanel />,
-    plantillas: <PlantillasView />,
-  };
-  const tabBtn = (on: boolean): CSSProperties => ({
-    padding: '9px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
-    background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--dim)',
-    fontSize: 14, fontWeight: on ? 600 : 500, boxShadow: on ? '0 1px 3px rgba(23,21,17,.08)' : 'none',
-    fontFamily: 'inherit', height: 40,
-  });
   const estado = canal?.estado ?? 'desconectado';
 
   return (
@@ -52,14 +37,8 @@ export function AgenciaTabs({ inicial = 'chat' }: { inicial?: TabKey }) {
         <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>WhatsApp de MaKo</h1>
       </div>
 
-      {/* Barra: tabs a la izquierda + canal (desplegable) a la derecha, misma altura */}
+      {/* El estado del canal, a la derecha */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, position: 'relative' }}>
-        <div style={{ display: 'inline-flex', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 4 }}>
-          {TABS.map((t) => (
-            <button key={t.key} type="button" style={tabBtn(tab === t.key)} onClick={() => setTab(t.key)}>{t.label}</button>
-          ))}
-        </div>
-
         <div style={{ marginLeft: 'auto', position: 'relative' }}>
           <button type="button" onClick={() => setCanalOpen((v) => !v)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 9, height: 40, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -88,7 +67,7 @@ export function AgenciaTabs({ inicial = 'chat' }: { inicial?: TabKey }) {
         </div>
       </div>
 
-      {paneles[tab]}
+      <ChatGruposPanel />
     </div>
   );
 }

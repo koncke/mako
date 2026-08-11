@@ -320,6 +320,14 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // NO es preview de ningún cliente. Su propia línea por QR. Por eso NO es
         // el /whatsapp de Operate y sigue viviendo acá.
         { key: 'agencia', label: 'WhatsApp de MaKo', href: '/agencia', icon: 'whatsapp', match: starts('/agencia') },
+        // Los ~48 mensajes que MaKo le puede mandar al dueño: se ven como llegan,
+        // se editan y se prenden/apagan. Vivía adentro de /agencia como una tab
+        // (`?tab=plantillas`) y por eso no se podía nombrar acá: el `match` de un
+        // item ve SOLO el pathname, así que dos items sobre /agencia se prenden
+        // los dos y el segundo nunca es el destino activo. Por eso tiene ruta
+        // propia. «Plantillas» a secas no pasa el test de entenderse solo —
+        // también se llaman así las de Meta—, así que va con su objeto.
+        { key: 'mensajes', label: 'Mensajes de MaKo', href: '/mensajes', icon: 'mako', match: starts('/mensajes') },
         // En qué trabaja cada cliente en SU Claude Code. Va en este bloque y no en el
         // del cerebro de MaKo porque es información de CLIENTES, no configuración de
         // la IA: se lee al lado de «Clientes», que es la pregunta que contesta.
