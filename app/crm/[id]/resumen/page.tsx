@@ -19,13 +19,14 @@
 // No gasta un peso de IA: todo sale de lo ya analizado (ver lib/lead-resumen.ts).
 // =============================================================================
 
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { CSSProperties, ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
-import { Pagina } from '@/app/_ui';
+import { Pagina, PermissionState } from '@/app/_ui';
 import { requireCapa } from '@/lib/tab-access';
 import { getResumenLead, type LlamadaResumen } from '@/lib/lead-resumen';
-import { getPipelineStages } from '@/lib/leads';
+import { getPipelineStages, workspaceDeLeadParaAdmin } from '@/lib/leads';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { deriveStageKey, stageMetaOpt, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { fechaHoraEnTz, fmtDDMMYYYY } from '@/lib/date-utils';
 
@@ -154,6 +155,41 @@ function Llamada({ ll, tz, principal }: { ll: LlamadaResumen; tz: string; princi
   );
 }
 
+/**
+ * El lead no está en ESTE workspace. Dos caminos, y la diferencia es quién sos:
+ *
+ *  · SUPER ADMIN → el lead existe, solo que en otro cliente. Se lo manda ahí con
+ *    `?ws=`, que es el mecanismo YA auditado (proxy.ts lo acepta solo si la
+ *    sesión firmada dice admin, y borra el header interno en cada request). No se
+ *    lee el lead por afuera del scope: se lo redirige y de ahí manda el camino de
+ *    siempre. El chequeo `!== wsActual` es el corta-bucle: sin él, un lead que no
+ *    aparece ni con el `?ws=` correcto redirige para siempre.
+ *
+ *  · CUALQUIER OTRO → una pantalla que dice qué pasó y a dónde ir. Nunca el 404
+ *    crudo de Next, que afirma que la página no existe cuando lo que no coincide
+ *    es la cuenta. Y nunca de QUIÉN es: probando ids, un error que nombra al
+ *    dueño reconstruye la cartera de clientes ajena.
+ */
+async function ResumenAjeno({ leadId }: { leadId: number }) {
+  const [wsDueno, wsActual] = await Promise.all([
+    workspaceDeLeadParaAdmin(leadId),
+    getWorkspaceActual().catch(() => null),
+  ]);
+  if (wsDueno != null && wsDueno !== wsActual) redirect(`/crm/${leadId}/resumen?ws=${wsDueno}`);
+
+  return (
+    <Pagina densidad="compacta">
+      <div style={columna}>
+        <PermissionState
+          motivo="ajeno"
+          que="Este lead"
+          accion={{ label: 'Ir a mi CRM', href: '/crm' }}
+        />
+      </div>
+    </Pagina>
+  );
+}
+
 export default async function ResumenLeadPage({ params }: { params: Promise<{ id: string }> }) {
   // Mismo permiso que el resto del CRM. No lleva `guardOnboarding`: esta
   // pantalla se abre desde un WhatsApp con la reunión encima, y mandar a
@@ -164,7 +200,7 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
   if (!Number.isFinite(idNum)) notFound();
 
   const data = await getResumenLead(idNum);
-  if (!data) notFound();
+  if (!data) return <ResumenAjeno leadId={idNum} />;
   const { lead, tz, llamadas, respuestas, origen, proximaReunion, grabaciones, borradorSeguimiento } = data;
 
   const stagesRaw = await getPipelineStages().catch(() => [] as Stage[]);

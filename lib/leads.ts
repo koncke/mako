@@ -257,6 +257,34 @@ async function _listLeads(): Promise<Lead[]> {
 /**
  * Obtiene UN lead por su id.
  */
+/**
+ * En qué workspace vive un lead, MIRANDO POR ENCIMA DEL SCOPE. Solo el super
+ * admin, y fail-closed: cualquier otra sesión —o ninguna— recibe null antes de
+ * que la consulta corra.
+ *
+ * ⚠️ ESTO CRUZA INQUILINOS A PROPÓSITO, que es la cosa que el resto del archivo
+ * evita. Existe por un caso concreto: el super admin abre desde WhatsApp el link
+ * del lead de un cliente estando parado en otro workspace, y `getLead` —que
+ * scopea— devuelve null como si el lead no existiera. La alternativa era que él
+ * tuviera que adivinar el `?ws=` a mano.
+ *
+ * Devuelve SOLO el número de workspace, nunca datos del lead: con eso alcanza
+ * para mandarlo a `?ws=N`, y de ahí en adelante manda el camino de siempre
+ * (proxy.ts valida que la sesión firmada sea admin y recién ahí lo deja pasar).
+ * Así esta función no se convierte en una segunda puerta a los datos ajenos.
+ */
+export async function workspaceDeLeadParaAdmin(id: number): Promise<number | null> {
+  const { getSesionAdmin } = await import('./auth');
+  if (!(await getSesionAdmin())) return null;
+  const { data } = await getSupabaseServer()
+    .from('leads')
+    .select('workspace_id')
+    .eq('id', id)
+    .maybeSingle();
+  const ws = (data as { workspace_id: number | null } | null)?.workspace_id;
+  return typeof ws === 'number' ? ws : null;
+}
+
 export async function getLead(id: number): Promise<Lead | null> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase

@@ -208,24 +208,42 @@ export function StaleData({ desde, onActualizar, offline }: {
 }
 
 /**
- * Existe, pero no te toca. `motivo` decide el texto, y la distinción importa:
- * «rol» se resuelve pidiéndole acceso a alguien, «plan» se resuelve contratando.
- * Ninguno de los dos es «esto todavía no existe» — para eso está ComingSoon.
+ * Existe, pero no te toca. `motivo` decide el texto, y la distinción importa
+ * porque cada uno se resuelve en un lugar distinto:
+ *   · «rol»    → se resuelve pidiéndole acceso a quien administra la cuenta.
+ *   · «plan»   → se resuelve contratando.
+ *   · «ajeno»  → no se resuelve: el link es de OTRA cuenta. Lo único que se
+ *                puede hacer es volver a lo propio.
+ * Ninguno de los tres es «esto todavía no existe» — para eso está ComingSoon.
+ *
+ * ⚠️ POR QUÉ 'ajeno' ESTÁ ACÁ Y NO ES UNA PANTALLA SUELTA. Antes, abrir el link
+ * de un lead de otro workspace tiraba el 404 crudo de Next («This page could not
+ * be found»), que dice la cosa equivocada: la página existe, el lead existe, lo
+ * que no coincide es la cuenta. El dueño lo vio y lo pidió con esas palabras
+ * («debería ser algo como "este lead no es tuyo", con un botón a tu CRM»).
+ *
+ * Y el texto NO nombra de quién es. Decir «esto es de Fulano» convierte una
+ * pantalla de error en un oráculo: probando ids se reconstruye la cartera de
+ * clientes ajena. Se dice que no es de esta cuenta y nada más.
  */
-export function PermissionState({ motivo = 'rol', que, accion, inline }: {
-  motivo?: 'rol' | 'plan';
+export function PermissionState({ motivo = 'rol', que, accion, secundaria, inline }: {
+  motivo?: 'rol' | 'plan' | 'ajeno';
   /** Qué es lo que no se puede ver, para nombrarlo. Ej.: «el Ads Manager». */
   que?: string;
   accion?: Accion;
+  secundaria?: Accion;
   inline?: boolean;
 }) {
   const nombre = que ?? 'esta sección';
+  const Nombre = `${nombre[0].toUpperCase()}${nombre.slice(1)}`;
+  const titulo = motivo === 'plan' ? `${Nombre} no está en tu plan`
+    : motivo === 'ajeno' ? `${Nombre} no es de esta cuenta`
+    : 'No tenés acceso a esta sección';
+  const detalle = motivo === 'plan' ? 'Está construida y funcionando; tu plan actual no la incluye.'
+    : motivo === 'ajeno' ? 'El link que abriste es de otro negocio. Entrá con la cuenta que corresponde, o seguí con lo tuyo.'
+    : `Tu rol dentro del negocio no incluye ${nombre}. Pedíselo a quien administra la cuenta.`;
   return (
     <Marco tono="neutral" ico={IcoCandado} inline={inline}
-      titulo={motivo === 'plan' ? `${nombre[0].toUpperCase()}${nombre.slice(1)} no está en tu plan` : 'No tenés acceso a esta sección'}
-      detalle={motivo === 'plan'
-        ? 'Está construida y funcionando; tu plan actual no la incluye.'
-        : `Tu rol dentro del negocio no incluye ${nombre}. Pedíselo a quien administra la cuenta.`}
-      accion={accion} />
+      titulo={titulo} detalle={detalle} accion={accion} secundaria={secundaria} />
   );
 }
