@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const resultados = await correrPorWorkspace('fathom', async (ws) => {
       const res = await procesarReunionesNuevas(ws);
       console.log(
-        `[cron:fathom-plan] ws=${ws} miradas=${res.miradas} equipo=${res.deEquipo} nuevas=${res.nuevas} ` +
+        `[cron:fathom-plan] ws=${ws} miradas=${res.miradas} alPlan=${res.alPlan} nuevas=${res.nuevas} ` +
         `borradores=${res.conTareas} tareas=${res.tareas} avisados=${res.avisados} sinAviso=${res.sinAviso} err=${res.errores}` +
         (res.avisoError ? ` · WhatsApp NO salió: ${res.avisoError}` : ''),
       );

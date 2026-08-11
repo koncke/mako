@@ -1,5 +1,6 @@
 import 'server-only';
 
+
 // =============================================================================
 // reunion-auto — las reuniones del equipo se leen SOLAS (ya no hay que apretar nada)
 // =============================================================================
@@ -9,8 +10,15 @@ import 'server-only';
 //   1) NO CREA NADA. Deja un BORRADOR pendiente (plan_propuestas). La próxima vez que
 //      la persona entra a su plan le salta el modal y confirma. Nunca aparecen tareas
 //      en el tablero que nadie aprobó.
-//   2) SOLO REUNIONES DE EQUIPO. Una llamada de ventas o de entrega de servicio deja
-//      tareas de seguimiento del lead, no del plan de ejecución (reunion-clasificar).
+//   2) EQUIPO Y ENTREGA. Una llamada de VENTAS deja tareas de seguimiento del lead y
+//      no del plan, así que sigue descartada. Las de ENTREGA no: son las juntas con
+//      un cliente ya ganado, y sus compromisos son justamente el trabajo que hay que
+//      seguir. Entraban al mismo filtro que las de ventas y se tiraban enteras.
+//
+//      Y no hacía falta construirles un destino: `resolverClienteDeReunion` ya manda
+//      sus tareas al proyecto «Cliente: X» (más abajo, ~66 líneas después del filtro
+//      que impedía llegar hasta acá). El diagnóstico de que «el destino no existe»
+//      era el equivocado: existía y era inalcanzable.
 //
 // Y avisa por WhatsApp al grupo de MaKo del workspace: "tuviste una reunión con X,
 // salieron N tareas, te las dejé en el plan para que las confirmes".
@@ -31,6 +39,7 @@ import { fechaHoraEnTz } from './date-utils';
 import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
 import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-cliente';
+import type { TipoReunion } from './reunion-clasificar';
 import { APP_BASE_URL as APP_URL } from './app-url';
 
 /**
@@ -40,6 +49,15 @@ import { APP_BASE_URL as APP_URL } from './app-url';
  * ENTERA cada hora durante toda la ventana (medido: una corrida se comió la cuota
  * gratis de Gemini y cayó a Claude, US$0,26 para devolver cero tareas).
  */
+/** Qué tipos de reunión llegan al plan.
+ *
+ *  'ventas' NO entra: sus compromisos son seguimiento del LEAD (los maneja el CRM),
+ *  no trabajo del plan de ejecución. 'otra' tampoco: por definición no se sabe qué es.
+ *  'entrega' sí, y es el arreglo: son las juntas con un cliente ya ganado, sus
+ *  compromisos son el trabajo, y `resolverClienteDeReunion` ya las archiva solas en
+ *  el proyecto «Cliente: X». Estaban cayendo en el mismo filtro que las de ventas. */
+const TIPOS_AL_PLAN: readonly TipoReunion[] = ['equipo', 'entrega'];
+
 const KEY_VISTA = (recordingId: number): string => `mako.reunion.auto.${recordingId}`;
 
 /** Una reunión ya procesada en esta corrida (para redactar el aviso al final). */
@@ -75,7 +93,10 @@ function textoAviso(hechas: ReunionHecha[], tz: string): string {
 }
 
 export type ResultadoReunionesAuto = {
-  miradas: number; deEquipo: number; nuevas: number; conTareas: number; tareas: number; errores: number;
+  /** Las que entran al plan: equipo + entrega. Se llamaba `deEquipo`, y al sumar
+   *  las de entrega el log decía «equipo=4» contando reuniones con clientes. Un
+   *  nombre que miente cuesta el próximo diagnóstico. */
+  miradas: number; alPlan: number; nuevas: number; conTareas: number; tareas: number; errores: number;
   /** avisos que SÍ salieron por WhatsApp, y el motivo del último que no. El borrador
    *  igual queda esperando en el plan: el aviso es el empujón, no el canal de la tarea. */
   avisados: number; sinAviso: number; avisoError?: string;
@@ -122,7 +143,7 @@ async function resolverYo(r: ReunionMeta, ws: number): Promise<Yo> {
 export async function procesarReunionesNuevas(ws: number, opts: { horas?: number; max?: number } = {}): Promise<ResultadoReunionesAuto> {
   const horas = opts.horas ?? 26;
   const max = opts.max ?? 3;
-  const out: ResultadoReunionesAuto = { miradas: 0, deEquipo: 0, nuevas: 0, conTareas: 0, tareas: 0, errores: 0, avisados: 0, sinAviso: 0 };
+  const out: ResultadoReunionesAuto = { miradas: 0, alPlan: 0, nuevas: 0, conTareas: 0, tareas: 0, errores: 0, avisados: 0, sinAviso: 0 };
 
   // La ventana va por `created_after` (CUÁNDO APARECIÓ la grabación en Fathom), no por
   // la fecha de la reunión: el disparador es "cayó una grabación nueva", y una charla
@@ -136,17 +157,17 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   const { reuniones } = await listReunionesRecientes({ limit: 20, createdAfter: desde });
   out.miradas = reuniones.length;
 
-  const deEquipo = reuniones.filter((r) => r.tipo === 'equipo');
-  out.deEquipo = deEquipo.length;
-  // Las que NO son de equipo se descartan — pero AHORA SE DICE CUÁLES y por qué. El
-  // log solo imprimía el total (`equipo=0`), así que una reunión de trabajo mal
-  // clasificada desaparecía sin dejar rastro y no había forma de notarlo.
-  const descartadas = reuniones.filter((r) => r.tipo !== 'equipo');
+  const aProcesar = reuniones.filter((r) => TIPOS_AL_PLAN.includes(r.tipo));
+  out.alPlan = aProcesar.length;
+  // Las que quedan afuera se descartan — pero SE DICE CUÁLES y por qué. El log solo
+  // imprimía el total (`equipo=0`), así que una reunión de trabajo mal clasificada
+  // desaparecía sin dejar rastro y no había forma de notarlo.
+  const descartadas = reuniones.filter((r) => !TIPOS_AL_PLAN.includes(r.tipo));
   if (descartadas.length) {
     console.log(`[reunion-auto] ws=${ws} descarté ${descartadas.length} reunión(es) por tipo: ` +
       descartadas.map((r) => `${r.recordingId} «${r.titulo}» → ${r.tipo}`).join(' · '));
   }
-  if (!deEquipo.length) return out;
+  if (!aProcesar.length) return out;
 
   const [proyectos, glosario] = await Promise.all([
     proyectosDelWorkspace(ws),
@@ -155,7 +176,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
 
   const hechas: ReunionHecha[] = [];
   let procesadas = 0;
-  for (const r of deEquipo) {
+  for (const r of aProcesar) {
     if (procesadas >= max) break;
     const ref = `fathom:${r.recordingId}`;
     // Ya la vio: o dejó borrador, o la leímos y no había nada que anotar. En los dos
@@ -210,6 +231,28 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       const proyCliente = cliente ? await nombreDeProyectoPara(cliente) : '';
       if (cliente) console.log(`[reunion-auto] «${r.titulo}» es con ${cliente.nombre} → todo va a «${proyCliente}»`);
 
+      // ⚠️ EN UNA REUNIÓN DE ENTREGA, «el otro» PUEDE SER EL CLIENTE.
+      // `esDeOtro` + `dueñoEmail` es lo que después ofrece mandarle la tarea a esa
+      // persona a su propio plan, y el cliente no tiene cuenta acá: el ofrecimiento
+      // no lleva a ningún lado, y peor, invita a repartirle trabajo interno a alguien
+      // de afuera. En una reunión de equipo todos los participantes son del
+      // workspace, así que el problema no existía y aparece justo ahora, al empezar a
+      // procesar las de entrega.
+      //
+      // La regla: se reparte SOLO a gente del workspace. Lo demás queda como tarea
+      // propia con el nombre adentro del detalle, que es donde ya vive el contexto.
+      // `listarUsuarios()` es cross-workspace (los admins tienen workspace_id null),
+      // así que se filtra a mano: cuentan los de ESTE workspace y los admins, que
+      // cruzan a propósito. Un email que no está en ninguno de los dos es de afuera.
+      const delEquipo = new Set(
+        (await listarUsuarios().catch(() => []))
+          .filter((u) => u.workspace_id === ws || u.rol === 'admin')
+          .map((u) => (u.email ?? '').trim().toLowerCase())
+          .filter(Boolean),
+      );
+      const repartible = (email: string | undefined | null): boolean =>
+        Boolean(email && delEquipo.has(email.trim().toLowerCase()));
+
       const propuestas: PropuestaTarea[] = tareas.map((t) => ({
         titulo: t.titulo,
         detalle: t.detalle || undefined,
@@ -220,9 +263,11 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // Con cliente detectado MANDA el cliente: lo que haya elegido el modelo se
         // ignora (es justo lo que repartía una misma llamada en proyectos temáticos).
         proyecto: proyCliente || (t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined)),
+        // El nombre se conserva SIEMPRE (es información de la reunión); lo que se
+        // corta es el reparto a alguien que no está en el workspace.
         dueno: t.dueño || undefined,
-        duenoEmail: t.dueñoEmail || undefined,
-        esDeOtro: t.esDeOtro || undefined,
+        duenoEmail: repartible(t.dueñoEmail) ? t.dueñoEmail : undefined,
+        esDeOtro: t.esDeOtro && repartible(t.dueñoEmail) ? true : undefined,
         // El MINUTO en que se dijo. Se perdía acá: la extracción lo trae, el borrador
         // lo declara y aplicarPropuestas lo usa para armar el link a la grabación
         // parada en ese segundo — pero este map no lo copiaba, así que toda tarea que

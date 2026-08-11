@@ -25,13 +25,14 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
-import { PROGRAMA, TOTAL_CLASES, CLASES_QUE_DESTRABAN, type Modulo, type Clase } from '../lib/programa-catalogo';
+import { PROGRAMA, TOTAL_CLASES, CLASES_QUE_DESTRABAN, rotuloDe, type Modulo, type Clase } from '../lib/programa-catalogo';
 import {
   whopCuenta, listarExperiencias, crearExperiencia, listarCursos, crearCurso,
   listarCapitulos, crearCapitulo, listarLecciones, crearLeccion, actualizarLeccion,
   type WhopRes,
 } from '../lib/whop';
 import { runWithWorkspace } from '../lib/workspace';
+import { guardarMapaLecciones, type MapaLecciones } from '../lib/cs-avance';
 
 const APLICAR = process.argv.includes('--aplicar');
 const ACTUALIZAR = process.argv.includes('--actualizar');
@@ -79,6 +80,11 @@ function morir(r: WhopRes<unknown>): never {
 }
 
 let creados = 0, saltados = 0, actualizados = 0;
+// leccionId de Whop → claseId del catálogo. Este es el ÚNICO momento en que se
+// conocen las dos puntas: el webhook trae un `less_…` pelado y sin este mapa no
+// sabe de qué clase habla. Se puede reconstruir preguntándole a Whop
+// (`reconstruirMapa`), pero eso son 13 requests; guardarlo acá es gratis.
+const mapa: MapaLecciones = {};
 const marca = (hubo: boolean) => { hubo ? creados++ : saltados++; return hubo ? 'CREADA' : 'ya estaba'; };
 
 async function main() {
@@ -142,13 +148,17 @@ async function main() {
     const yaHay = cap ? await listarLecciones(cap.id, WS) : null;
     if (yaHay && !yaHay.ok) morir(yaHay);
 
-    for (const [i, clase] of modulo.clases.entries()) {
-      const titulo = `${modulo.numero}.${i + 1} · ${clase.titulo}`;
+    for (const clase of modulo.clases) {
+      // El título sale de `rotuloDe` y no se arma acá: es lo mismo que usa
+      // `reconstruirMapa` para reconocer la lección. Dos plantillas separadas por
+      // un espacio dejarían el mapa vacío sin un solo error.
+      const titulo = rotuloDe(clase.id);
       const destaca = (CLASES_QUE_DESTRABAN as readonly string[]).includes(clase.id) ? '  ⭐' : '';
       const ya = yaHay?.ok ? yaHay.data.find(l => norm(l.title) === norm(titulo)) : undefined;
       const texto = cuerpo(modulo, clase);
 
       if (ya) {
+        mapa[ya.id] = clase.id;
         // El cargador es idempotente por TÍTULO, así que sin --actualizar una
         // lección creada con el texto equivocado se queda con él para siempre.
         if (ACTUALIZAR && (ya.content ?? '') !== texto) {
@@ -166,11 +176,20 @@ async function main() {
 
       const r = await crearLeccion({ capituloId: cap.id, titulo, contenido: texto }, WS);
       if (!r.ok) morir(r);
+      mapa[r.data.id] = clase.id;
       console.log(`   ${titulo} → ${marca(true)}${destaca}`);
     }
   }
 
-  console.log(`\n${APLICAR ? `Listo. ${creados} creadas, ${saltados} ya estaban.` : 'Ensayo terminado. Nada se escribió.'}`);
+  // El mapa lección→clase se guarda SIEMPRE que haya algo, aunque no se haya
+  // creado nada: es lo único que le permite al webhook saber de qué clase habla
+  // un `less_…` pelado, y un curso ya cargado es justamente el caso donde falta.
+  if (APLICAR && Object.keys(mapa).length) {
+    await guardarMapaLecciones(mapa);
+    console.log(`\nMapa lección→clase guardado: ${Object.keys(mapa).length} entradas.`);
+  }
+
+  console.log(`\n${APLICAR ? `Listo. ${creados} creadas, ${actualizados} reescritas, ${saltados} sin cambios.` : 'Ensayo terminado. Nada se escribió.'}`);
   if (APLICAR && !VISIBLE) {
     console.log('El curso quedó OCULTO. Se publica con --visible cuando estén grabados los cinco videos que destraban:');
     console.log(`  ${CLASES_QUE_DESTRABAN.join(', ')}`);
