@@ -570,6 +570,48 @@ hora» · *2026-08-11 ~programa-mauricio-recorte*
 
 ---
 
+## Doce agentes escribiendo en paralelo: qué caza un revisor y qué no caza un esquema
+
+Los 259 puntos de grabación de las 44 clases los escribieron doce agentes, uno por
+módulo, y encima un revisor que leyó los doce juntos. El esquema ya forzaba lo
+medible —4 a 7 puntos por clase, 160 caracteres mínimo, la cobertura de campos
+declarada—. Aun así el revisor encontró tres clases de defecto que **ningún esquema
+podía ver**, y las tres se repiten en cualquier corrida que genere contenido:
+
+**1. Un dato inventado, y perfectamente verosímil.** En 1.2 se coló «el dueño aparece
+como responsable de cinco de las siete áreas». No está en ningún atoro: el agente lo
+armó porque encajaba. Un esquema no lo distingue de un dato real — es un string del
+largo correcto en el lugar correcto. La única guarda posible es alguien que conozca la
+fuente y lea.
+
+**2. La muletilla, que solo se ve leyendo en el orden en que se CONSUME.** 24 de 44
+clases cerraban con un punto que empezaba «Cerrar…». Por clase suelta no es un
+defecto; el problema es que en tres módulos esas clases **comparten grabación**, así
+que Mauricio diría la misma fórmula tres veces en un mismo video. Ningún agente podía
+verlo: cada uno escribió su módulo aislado, y ni siquiera es visible leyendo los
+módulos en orden — hay que leerlos agrupados por VIDEO.
+
+> **La regla que queda: cuando N agentes escriben piezas de un mismo entregable, el
+> revisor tiene que leerlas en el orden en que las va a consumir el usuario, no en el
+> orden en que se generaron.**
+
+**3. Guiones encubiertos con una forma reconocible.** La instrucción decía «nunca un
+guion», y ninguno escribió «Decí: …». Lo que sí apareció, cuatro veces, fue *«conviene
+decirla tal cual:»* seguido de la frase entre dos puntos — que es un guion con otro
+envoltorio. El peor estaba en el cierre del programa entero. Una prohibición se esquiva
+sola si se prohíbe la FORMA y no la intención; los tests ahora prohíben las tres
+variantes que de hecho aparecieron.
+
+**Lo que sí funcionó sin revisor:** obligar a que los puntos salieran de los CAMPOS
+reales del formulario (`lib/programa-campos.ts`) y no del tema de la clase. Es lo que
+hace que exista un punto dedicado a la cuarta tabla del 1.3 —la que nadie espera— y que
+el 0.3 aclare la diferencia entre sus dos preguntas, que si no se contestan igual.
+
+**Vive en:** lib/programa-catalogo.ts (`puntos`) · tests/programa-catalogo.test.ts ·
+*2026-08-11 ~puntos-de-grabacion (12 escritores + 1 revisor)*
+
+---
+
 *Corrida del 2026-08-11: 16 agentes mapeando el código para el bucle de entrega, más la
 verificación en vivo contra la cuenta real de Whop. Ampliado el 2026-08-11 con
-~programa-mauricio-recorte: 5 lentes sobre el temario + 24 escépticos.*
+~programa-mauricio-recorte (5 lentes + 24 escépticos) y ~puntos-de-grabacion (12+1).*
