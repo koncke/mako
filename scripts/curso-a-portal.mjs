@@ -188,6 +188,13 @@ console.log(`  Clases: ${clases.length} · ${conTx} con transcripción · ${conA
 if (sinTx) console.log(`  ⚠ ${sinTx} sin transcripción todavía (volvé a correr esto cuando terminen)`);
 console.log(`\n  → ${salida}`);
 console.log(`  → ${dirTx}\\<videoId>.json  (${conTx} archivo/s)`);
-console.log(`\n  Falta UN paso a mano en app/conocimientos/Conocimientos.tsx:`);
+// ⚠️ El curso se suma en app/conocimientos/catalogo.ts y en NINGÚN otro lado.
+// Antes la lista estaba escrita dos veces (el portal del admin y el link
+// compartido armaban la suya), y un curso que faltaba en la del compartido se
+// podía compartir desde la UI con el link dando 404, sin ningún síntoma del lado
+// del admin. Ver docs/hallazgos-conocimiento.md → «el link compartido daba 404».
+console.log(`\n  Falta UN paso a mano en app/conocimientos/catalogo.ts:`);
 console.log(`    import { ${constante} } from './curso-${slug}';`);
-console.log(`    …y sumarlo al array TODOS.\n`);
+console.log(`    …y sumarlo al array CURSOS_TODOS.`);
+console.log(`\n  Es el ÚNICO lugar: esa lista la consumen el portal del admin y el link`);
+console.log(`  compartido. Sumarlo en Conocimientos.tsx en vez de acá deja el link en 404.\n`);
