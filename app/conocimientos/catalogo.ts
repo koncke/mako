@@ -20,13 +20,15 @@ import { CURSOS, type Curso } from './curso';
 import { CURSO_VSL } from './curso-vsl';
 import { CURSO_PRODUCTO_APP } from './curso-producto-app';
 import { CURSO_CLAUDE_AI_RODRIGO_ROJO } from './curso-claude-ai-rodrigo-rojo';
+import { CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE } from './curso-aumenta-tu-valor-y-atv-advantage';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
 
 // curso.ts es AUTO-GENERADO desde transcripciones: los cursos escritos a mano
 // viven en su propio archivo y se suman acá.
 export const CURSOS_TODOS: Curso[] = [
-  ...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP, CURSO_CLAUDE_AI_RODRIGO_ROJO,
+  ...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP,
+  CURSO_CLAUDE_AI_RODRIGO_ROJO, CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE,
 ];
 
 export const buscarCurso = (slug: string | null | undefined): Curso | undefined =>
