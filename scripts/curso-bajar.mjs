@@ -74,12 +74,27 @@ if (SOLO) {
   clases = clases.filter((c) => n.has(c.n));
 }
 
+// Las clases que el propio plan marcó como sin fuente NO se intentan: son las que
+// la plataforma reporta con duración 00:00, y del otro lado dan HTTP 404. Intentarlas
+// no es «por si acaso»: son 10 reintentos × ~300 fragmentos cada una, y ensucian el
+// log con cientos de ERROR que después parecen un problema del descargador.
+const vacias = clases.filter((c) => c.sinFuente);
+if (vacias.length && !tiene('incluir-vacias')) {
+  clases = clases.filter((c) => !c.sinFuente);
+}
+
 console.log(`\n  Curso   : ${plan.curso}`);
 console.log(`  Clases  : ${clases.length}${SOLO ? ` (filtradas de ${plan.clases.length})` : ''}`);
 console.log(`  yt-dlp  : ${yt.version}${yt.pre.length ? ' (vía python -m yt_dlp)' : ''}`);
 console.log(`  ffmpeg  : ${ffmpegOk ? FFDIR : '⚠ NO encontrado — Vimeo no va a poder mergear video+audio'}`);
 console.log(`  Referer : ${plan.referer}`);
-console.log(`  Destino : ${dirVideo}\n`);
+console.log(`  Destino : ${dirVideo}`);
+if (vacias.length) {
+  const modo = tiene('incluir-vacias') ? 'las intento igual (--incluir-vacias)' : 'las saltea';
+  console.log(`  ⚠ ${vacias.length} clase(s) sin fuente en la plataforma (duración 00:00) — ${modo}:`);
+  console.log(`    ${vacias.map((c) => c.n).join(', ')}`);
+}
+console.log('');
 
 if (tiene('listar')) {
   for (const c of clases) console.log(`  ${String(c.n).padStart(2, '0')}  ${c.duracion}  ${c.titulo}   [${c.plataforma} ${c.videoId}]`);

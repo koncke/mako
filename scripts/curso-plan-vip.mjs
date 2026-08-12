@@ -171,6 +171,11 @@ const main = async () => {
       submodulo: hoja && hoja.id !== r?.id ? hoja.title : null,
       plataforma: 'vimeo',
       videoId: String(l.video_id ?? '').trim() || null,
+      // duration '00:00' es la señal de que el video NO EXISTE del otro lado.
+      // Medido: las 2 clases de 249 con duración cero daban HTTP 404 en Vimeo, y
+      // sin esta marca el descargador gasta 10 reintentos × ~300 fragmentos en
+      // cada una (461 líneas de ERROR en el log) antes de rendirse.
+      sinFuente: s === 0 || !String(l.video_id ?? '').trim(),
       // player.vimeo.com + Referer es lo que autentica un embed restringido por
       // dominio. La URL pública vimeo.com/<id> da 403.
       url: `https://player.vimeo.com/video/${String(l.video_id ?? '').trim()}`,
@@ -178,7 +183,7 @@ const main = async () => {
     };
   });
 
-  const sinVideo = clases.filter((c) => !c.videoId);
+  const sinVideo = clases.filter((c) => c.sinFuente);
   const totalSeg = clases.reduce((a, c) => a + c.segundos, 0);
   const slug = slugDe(cursoTitulo);
   const dir = join(RAIZ, slug);

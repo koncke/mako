@@ -52,7 +52,10 @@ const correr = (script, args) => {
 
 const hasta = Date.now() + TOPE_H * 3600000;
 let secas = 0, ronda = 0;
-const hora = () => new Date(Date.now()).toISOString().slice(11, 19);
+// Hora LOCAL, no UTC. Con toISOString() el log marcaba 3 h menos que todo lo demás
+// que se mira (procesos, archivos), y un hueco por la máquina dormida se leyó como
+// «la descarga se colgó». Ver docs/hallazgos-conocimiento.md.
+const hora = () => new Date(Date.now()).toLocaleTimeString('es-AR', { hour12: false });
 
 console.log(`\n  Curso : ${plan.curso}`);
 console.log(`  Clases: ${total} · paralelo ${PARALELO} · tope ${TOPE_H} h\n`);

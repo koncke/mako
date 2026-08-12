@@ -354,6 +354,49 @@ falla es el caro: manda a «arreglar» algo que estaba bien.
 
 **Vive en:** `app/conocimientos/Conocimientos.tsx` · el gate: `lib/rutas-publicas.ts`
 
+### `duration: "00:00"` en la API significa «el video no existe», y avisa ANTES de fallar
+
+**Síntoma.** 461 líneas de `ERROR` en el log del descargador, con `HTTP Error 410:
+Gone` reintentando fragmentos una y otra vez. Leído por encima, parece que el
+descargador está roto o que las URLs firmadas de Vimeo caducan.
+
+**Causa.** De 249 clases, exactamente **2 fallaban**, y eran exactamente las 2 que el
+RPC de la plataforma reportaba con `duration: "00:00"`. Probadas sueltas:
+`HTTP Error 404: Not Found` en Vimeo. Los videos no existen — borrados o nunca
+subidos. El 410 en fragmentos era un síntoma derivado, no la causa.
+
+**Lo que costó.** Nada de contenido (247 de 249 bajaron bien), pero cada una de esas 2
+gastó **10 reintentos × ~300 fragmentos** antes de rendirse, y llenó el log de errores
+que después hacen dudar de todo lo demás. El diagnóstico obvio —«caducan las URLs
+firmadas»— manda a tocar timeouts y reintentos, que es exactamente lo que no era.
+
+**Regla.** El plan marca `sinFuente: true` cuando la duración es cero o falta el
+`video_id`, y el descargador **las saltea** con un aviso explícito (`--incluir-vacias`
+para forzar). La metadata de la fuente ya sabía que iban a fallar: leerla es gratis y
+reintentar no.
+
+**Y el corolario general:** cuando un lote falla, contá **cuántos** fallaron antes de
+mirar *por qué*. 2 de 249 es un dato de la fuente; 249 de 249 es un bug propio. El
+número dice dónde buscar, y se saca en un minuto contando huecos contra el plan.
+
+**Vive en:** `scripts/curso-plan-vip.mjs` (`sinFuente`) · `scripts/curso-bajar.mjs`
+
+### El log de un proceso largo necesita hora LOCAL, o se lee un problema que no existe
+
+**Síntoma.** En el log de la cola aparecen dos rondas consecutivas separadas por
+**5 horas y 40 minutos**. Conclusión inmediata y equivocada: «la descarga se colgó».
+
+**Causa.** Dos cosas a la vez, y ninguna era una falla: la máquina estuvo **dormida**
+de madrugada, y los timestamps del log salían de `toISOString()` — o sea **UTC**,
+mientras todo lo demás que se mira (procesos, archivos) está en hora local. Con
+UTC−3, `06:46` del log eran las `03:46` reales. El hueco era el sueño de la máquina.
+
+**Regla.** Un proceso que corre horas escribe hora **local** en cada línea, y su
+duración total no se estima por reloj de pared: la máquina se duerme. Para saber si
+algo sigue vivo se mira el **proceso**, no el último timestamp del log.
+
+**Vive en:** `scripts/curso-pipeline.mjs`
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato
