@@ -649,6 +649,40 @@ Se cerró en tres lugares, porque el agujero tenía tres bordes:
 
 **Vive en:** lib/plan-board.ts (la compuerta, en el `if (!cat && !delPerro)`) · lib/mako-guardian.ts (`asignarTareasAProyectos` + `unaPasadaDeRuteo`) · lib/ruteo-repesca.ts · lib/plan-proyectos-catalogo.ts (`puedeSerProyectoNuevo`) · *2026-08-12*
 
+### ⚠️⚠️ Contar tareas nunca midió si hacía falta un proyecto
+
+**12/8/2026, dictado por el dueño:** *«El filtro NO debe ser porque solo haya 1 tarea… Puede ser que 1 sola tarea justifique un proyecto… El filtro debe ser tener criterio, mejorarlo, y en este caso es evidente que la tarea de analizar a la competencia NO requiere una nueva feature.»*
+
+El umbral `n.cuantas < Math.min(3, tareas.length)` está borrado. Los números de su propio tablero lo refutan solos:
+
+- de 73 proyectos, **9 tienen CERO tareas y 14 tienen una sola**, y casi todos son legítimos («Feature: Carousels» es una tab real del sidebar);
+- «Feature: Content Machine», que no debía nacer, traía **dos**;
+- «Mejoras del Ads Manager» —el ejemplo del «NO» que el propio prompt tiene escrito— traería **tres**, y hoy pasa las cuatro barreras sin que nada lo mire.
+
+**El que tenía más tareas era el que estaba peor.** Y había un daño extra que no se veía: contar hacía que el veredicto dependiera de **con quién viajó la tarjeta en el mensaje de WhatsApp**. La misma propuesta, sola o en un lote de diez, daba distinto.
+
+**La pregunta que lo reemplaza, y explica el caso del dueño sin argumentos adicionales:**
+
+> Un proyecto nace cuando lo que llegó **construye un lugar que la app todavía no tiene**. No nace cuando **usa**, **amplía** o **renombra** un lugar que ya existe — y da igual si trae una tarea o quince.
+
+Analizar a la competencia es un **uso**: produce un documento, y el lugar donde eso se hace ya existe y se llama «Feature: Competitor Spy». Construir la tab de facturación produce una pantalla que no está en el sidebar: el lugar no existe, y por eso se abre aunque venga con una sola tarjeta.
+
+Las cinco formas verificables de «el lugar ya existe» viven en `lib/plan-proyecto-necesidad.ts`. Lo que hay que saber antes de tocarlas:
+
+- **El umbral de C2 (`esTemaQueAtraviesa`) está MEDIDO, no intuido, y el número razonable era el equivocado.** Con 2 destinos, corrido contra el catálogo real, rechaza cuatro tabs que existen: `Feature: CRM` (por «Agente: CRM automático»), `WhatsApp` (por «WhatsApp de MaKo»), `Email` (por «Sales Email») e `Instagram` (por «Vender MaKo: Orgánico Instagram»). Un proyecto padre conviviendo con uno derivado es el patrón de nombres de la casa. Con 3 el catálogo queda limpio y «landing» sigue cayendo. **El margen se achica solo a medida que crece el catálogo**, y el test «el catálogo real no se auto-rechaza» es el que avisa cuando se acabó.
+- **C4 (`mirarNoFunda`) corre SOLO sobre nombres con prefijo `Feature:`/`Agente:`.** Esa línea es lo que salva a «Legal y fiscal»: un área del negocio se releva, se evalúa y se audita, y sigue faltando. No es una casualidad del vocabulario, es una condición explícita — y su ausencia ya costó los Términos de Servicio en «Landing y VSL» y la LLC en «Cobros y planes».
+- **C4 pide UNANIMIDAD, no mayoría.** Un lote mixto sí funda: «Feature: YouTube Analyst» —uno de los dos únicos que el Perro abrió con aval en todo el tablero— trae 3 tareas de investigar y 2 de construir.
+- **`tokensDeNombre` compone DOS normalizadores y los dos hacen falta.** `nucleo()` saca el prefijo pero deja la puntuación; `normTitulo()` saca la puntuación pero no sabe de prefijos. Con uno solo, «Feature: Ads-Manager» tokeniza distinto que «Feature: Ads Manager» y esquiva el control.
+- **`presuponeElLugar` excluye «de» y «del» a propósito.** «Construir la tab **de** Facturación» es la forma normal de pedir algo que NO existe; meterlas mata el único ejemplo del «SÍ» que tiene el prompt.
+
+**Y NO se agregó ningún campo nuevo al contrato del modelo, que es el resultado más fuerte de las refutaciones.** Se evaluaron cinco (`despues`, `hoyCaeriaEn`, `entregable`, `sobreQueExiste`, `descartados[3]`) y todos fallan por la misma razón de fondo: **validan la FORMA del argumento y nunca su VERDAD.** El peor es el de los tres destinos refutados: le sube la credibilidad a la mentira que sobreviva — hoy un proyecto malo nace con un `porQue` flojo de una línea, y con tres refutaciones nominales nacería con pinta de fundamentado, dándole al dueño más texto que leer y menos motivos para dudar.
+
+**Lo que queda sin cubrir, y es lo más probable que falle próximo:** el **duplicado por SINÓNIMO**. Los cinco chequeos miran caracteres, ninguno mira significado. «Feature: Notificaciones Push» con tres tareas de construir pasa los cinco y duplica el transversal «Avisos y reportes», cuya descripción dice «notificaciones». ⚠️ Y lo que **ya se probó y NO sirve** para taparlo: la cobertura léxica con un piso numérico. Medida contra el catálogo real, `feature`, `mako` y `agente` son tokens de decenas de destinos, un destino con descripción vacía gana el ranking por tener el denominador más corto, y una tarea de atribución puntúa 0,27 contra «Vender MaKo: Landing y VSL» porque su descripción dice «atribución» — o sea reproduce el reparto por palabra suelta con un número que lo bendice.
+
+**Otras tres puertas conocidas:** sacar el prefijo apaga C4 (un «Funnel de Venta» sin `Feature:` escapa); «Feature: Deepseek» no cae por nada, aunque «Migrar a Deepseek» sí; y **la permanencia no tiene segunda capa** — «esto va a seguir recibiendo trabajo» no se puede validar contra ninguna base, así que vive solo en el prompt, que además es editable con override.
+
+**Vive en:** lib/plan-proyecto-necesidad.ts · lib/mako-guardian.ts (el filtro de `nuevos` y `RUTEAR_SYSTEM_TEMPLATE`) · tests/plan-proyecto-necesidad.test.ts · *2026-08-12*
+
 ### Una FAMILIA del sidebar nunca puede ser un proyecto
 
 Salió del mismo barrido. «Feature: Content Machine» nació el 11/8 y es un proyecto que se solapa con Ideas, Reels, Carousels, Stories, Thumbnails y YouTube Writer **a la vez**: es la caja que los agrupa, no un lugar donde alguien vaya a buscar una tarea. Lo mismo valdría para «Operate», «Analyze» y «Sales Machine».

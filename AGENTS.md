@@ -223,6 +223,31 @@ vacío y `B` gana.** Las dos reglas que quedan:
 2. **El fallback es más débil que el camino feliz, nunca más fuerte.** Si el camino
    normal exige aval y el degradado no, el degradado es la política real del sistema.
 
+# Un umbral es un proxy, y el proxy hay que MEDIRLO contra los datos reales
+
+Un número en una condición (`>= 3 tareas`, `>= 2 destinos`, `>= 15 caracteres`) casi
+nunca es la regla: es un proxy barato de la regla, elegido porque suena razonable. El
+problema es que después nadie vuelve a mirar si mide lo que se creía.
+
+Dos casos del mismo día, y en los dos el número razonable estaba al revés:
+
+**«Un proyecto necesita al menos 3 tareas».** Suena obvio. Medido contra el tablero: de
+73 proyectos, 9 tienen CERO tareas y 14 tienen una sola, y casi todos son legítimos —
+mientras que el peor proyecto que se abrió en agosto era el que **más** tareas traía. El
+proxy estaba anticorrelacionado con lo que quería medir. Peor: hacía que el veredicto
+dependiera de con quién viajó la tarjeta en el mensaje de WhatsApp.
+
+**«Una palabra que ya vive en 2 proyectos es un tema, no un lugar».** También suena
+obvio. Corrido contra el catálogo real, rechaza cuatro tabs que existen y son legítimas,
+porque un proyecto padre conviviendo con uno derivado (`CRM` / `CRM automático`) es el
+patrón de nombres de la casa. Con 3 queda limpio.
+
+**La regla: antes de shippear un umbral, corrélo contra los datos que ya tenés y contá
+los falsos positivos.** Son diez minutos y un script que se tira. Y dejá el test que
+falla cuando el margen se acaba: el catálogo crece, y el número que hoy tiene aire
+mañana no. Un umbral sin esa red envejece en silencio, que es la peor forma de
+envejecer.
+
 # Un default que cobra es un cobro silencioso
 
 El `def` de una feature en `lib/model-catalogo.ts` no es «lo que usa hoy el código»: es

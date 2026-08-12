@@ -287,6 +287,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     ];
     const ruteo: Record<number, string> = {}; // índice de tarea → NOMBRE del proyecto destino
     const propuestosPorElPerro = new Map<string, { nombre: string; que: string; porQue: string }>();
+    const noSeAbrio: (string | undefined)[] = validos.map(() => undefined); // índice → por qué NO nació su proyecto
     if (destinos.length) {
       const r = await asignarTareasAProyectos(
         // El DETALLE va: sin él el ruteador ve una lista de títulos sueltos y manda
@@ -294,8 +295,18 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
         validos.map((it) => ({ titulo: it.titulo.trim(), grupo: it.proyecto?.trim(), detalle: it.detalle })),
         destinos,
         'Rutear tareas nuevas a proyectos',
-      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string }>, nuevos: [] as Array<{ nombre: string; que: string; porQue: string; tareas: number[] }> }; });
+      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string }>, nuevos: [] as Array<{ nombre: string; que: string; porQue: string; tareas: number[] }>, rechazos: [] as Array<{ nombre: string; motivo: string; tareas: number[] }> }; });
       for (const a of r.asign) ruteo[a.i] = a.destino;
+      // EL RECHAZO SE CUENTA. Cuando el Perro decide no abrir un proyecto, la tarea igual
+      // aterriza en algún lado y esa decisión desaparecía: el motivo iba a un
+      // `console.warn` y nada más. Ya sabemos cuánto vale eso — el warn estaba puesto y
+      // los cinco proyectos del 11-12/8 nacieron igual. Ahora va al historial de cada
+      // tarjeta afectada, que es donde el dueño lo puede leer y discutir.
+      for (const x of (r.rechazos ?? [])) {
+        for (const i of (x.tareas ?? [])) {
+          if (i >= 0 && i < noSeAbrio.length) noSeAbrio[i] = `MaKo no abrió «${x.nombre}»: ${x.motivo}`;
+        }
+      }
       // Los índices que vinieron con el proyecto nuevo MANDAN sobre `asign`: si el
       // modelo propuso «Mindset» para las tareas 0,1,2 pero en `asign` las mandó a tres
       // lugares distintos, el proyecto nacía vacío y las tareas se desparramaban igual.
@@ -397,10 +408,13 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
         id: genId('t'), num: start + i, emoji: '📌', title: it.titulo.trim().slice(0, 200),
         detalle: it.detalle?.slice(0, 6000) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
         deadline: it.deadline || '', labels: projId ? [projId] : [], checklist: [],
-        // El motivo de quedarse sin proyecto va en el historial DE LA TARJETA, que es
-        // donde el dueño lo va a ver. En un log de Vercel no lo ve nadie.
+        // Las decisiones de ruteo que NO se ven en el resultado van en el historial DE LA
+        // TARJETA, que es donde el dueño las va a leer. En un log de Vercel no las ve
+        // nadie: `noSeAbrio` es el proyecto que el Perro decidió no abrir y por qué,
+        // `motivoSin` es la tarea que quedó sin proyecto porque nadie avaló el nombre.
         historial: [
           { id: genId('h'), ts: ahora, actor, text: `Creó la tarjeta — ${desde}` },
+          ...(noSeAbrio[i] ? [{ id: genId('h'), ts: ahora, actor, text: noSeAbrio[i]!.slice(0, 300) }] : []),
           ...(motivoSin[i] ? [{ id: genId('h'), ts: ahora, actor, text: motivoSin[i]!.slice(0, 300) }] : []),
         ],
         origen: actor, fuente: it.fuente ?? fu, enPrioridad: false,

@@ -26,6 +26,7 @@ import { capacidad, capacidadesParaPrompt } from './mako-capacidades';
 // WhatsApp y la skill de Claude Code (ver «Una cosa, un lugar» en AGENTS.md).
 import { REGLA_NOMBRE_PROYECTO, puedeSerProyectoNuevo } from './plan-proyectos-catalogo';
 import { huerfanasDeRuteo, remapearRepesca } from './ruteo-repesca';
+import { haceFaltaUnProyecto } from './plan-proyecto-necesidad';
 
 export type GuardProjIn = { id: string; nombre: string };
 export type GuardTaskIn = { id: string; titulo: string; detalle?: string; proyecto?: string; deadline?: string; avance?: number; origen?: string; scoreActual?: number };
@@ -455,7 +456,7 @@ export async function cruzarCandidatas(
 export const RUTEAR_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
 {
   "asign": [ { "i": <índice de la tarea, 0-based>, "destino": "<el NOMBRE EXACTO, tal cual, de un proyecto DE LA LISTA>", "razon": "<3-6 palabras>" } ],
-  "nuevos": [ { "nombre": "<1 a 3 palabras>", "que": "<una frase: qué entra y qué NO>", "porQue": "<por qué NINGUNO de los de la lista sirve>", "tareas": [<índices>] } ]
+  "nuevos": [ { "nombre": "<1 a 4 palabras>", "que": "<una frase: qué entra y qué NO>", "porQue": "<por qué NINGUNO de los de la lista sirve>", "tareas": [<índices, AL MENOS UNO>] } ]
 }
 Una entrada de "asign" por CADA tarea. "nuevos" casi siempre va VACÍO ([]).
 
@@ -469,11 +470,26 @@ POR QUÉ: cuando esto decidía "ante la duda, creá uno nuevo", el tablero termi
 
 PERO TAMPOCO METAS A LA FUERZA. Cerrar la lista del todo tuvo su propio costo: cuatro tareas legales y fiscales se repartieron por palabra suelta —los Términos de Servicio cayeron en "Landing y VSL", la apertura de la LLC en "Cobros y planes", el marco de responsabilidad en "Seguridad"— y ninguna de las tres pantallas tiene nada que ver: eso no se programa, se firma y se paga. Una tarea en el proyecto equivocado es peor que un proyecto de más: ensucia el avance del proyecto que la recibió Y esconde la que llegó.
 
-CUÁNDO SÍ PROPONER UNO NUEVO (en "nuevos"). Las CUATRO condiciones, juntas:
-  1. Al menos TRES tareas de este mismo lote comparten el tema (o TODAS, si el lote es de menos de tres).
-  2. NINGÚN proyecto de la lista lo cubre — no "no es el ideal": no lo cubre. Antes de decidirlo, releé la descripción de los tres que más se le parecen.
-  3. Es un LUGAR PERMANENTE donde va a seguir cayendo trabajo. Dos cosas califican: un área del negocio ("Legal y fiscal", "Soporte") y **una FUNCIONALIDAD NUEVA del producto** — una tab, un módulo, un agente que todavía no existe. Lo que NO califica es un proyecto puntual que se termina: "Migrar a Deepseek" no es un lugar, es una tarea (va a Infraestructura).
-  4. EL NOMBRE:
+CUÁNDO SÍ PROPONER UNO NUEVO (en "nuevos"). NO CUENTES TAREAS. Una sola tarea puede abrir un proyecto y quince pueden no abrir ninguno: en este tablero hay nueve proyectos reales con CERO tareas y ninguno sobra, y el peor proyecto que se abrió en agosto era el que más tareas traía. La pregunta es UNA:
+
+**¿ESTO CONSTRUYE UN LUGAR QUE LA APP TODAVÍA NO TIENE?**
+
+Un proyecto es un LUGAR donde alguien va a ir a buscar su trabajo. No hace falta que dure para siempre —hay proyectos con inicio y fin y está bien—, pero sí tiene que ser un lugar y no un pedazo de otro.
+
+HAY TRES FORMAS DE QUE LA RESPUESTA SEA NO. Con una sola alcanza, y las tres se verifican en código:
+
+  1. LO USÁS, no lo construís. Si las tareas son de MIRAR —analizar, investigar, evaluar, revisar, relevar, recopilar, auditar, replicar, comparar—, lo que queda cuando terminan es un DOCUMENTO, y un documento no necesita una tab: se guarda en la pantalla que lo va a usar. Por eso analizar a la competencia NO abre una feature: el lugar donde eso se hace ya existe y se llama "Feature: Competitor Spy". "Analizar el SaaS de un competidor para sacar insights de producto/funnel" es análisis de competencia; no es un módulo de funnel. De 579 tareas del tablero, 69 arrancan con un verbo de investigar y 68 fueron a un proyecto que ya existía.
+     LA EXCEPCIÓN, que es real: un ÁREA DEL NEGOCIO que no es una pantalla. Los Términos de Servicio, la apertura de la LLC y los impuestos se relevan, se firman y se pagan; no se resuelven en ninguna tab. Ahí el lugar falta de verdad y va SIN prefijo: "Legal y fiscal".
+
+  2. SE CONSTRUYE ADENTRO DE ALGO QUE YA EXISTE. "Agregar un módulo de capacidad operativa EN el Focus Tracker" no funda "Focus Tracker": la tarea ya lo está dando por existente. Si la tarea dice "en X", X no es tu proyecto nuevo — X es el destino de la tarea. Buscalo en la lista con el nombre que tenga.
+
+  3. EL NOMBRE ES UN LUGAR QUE YA EXISTE CON OTRO RECORTE. "Mejoras del Ads Manager" es "Feature: Ads Manager" con un adjetivo adelante: tres tareas sobre un filtro, el orden de las columnas y un botón se van a buscar ahí. Y una palabra que ya vive adentro de varios nombres de la lista —"Landing" está en Landing Analyst, en Landing Generator y en Vender MaKo: Landing y VSL— es un TEMA: no se abre, se reparte.
+
+CUÁNDO ES QUE SÍ, y alcanza con UNA tarea: cuando lo que llega CONSTRUYE una pantalla, un módulo, un agente o un área del negocio que no está en la lista, y ninguno de los de la lista lo contiene. Antes de decidirlo releé la descripción de los tres que más se le parecen: "no es el ideal" no es "no lo cubre".
+
+CÓMO SE ARGUMENTA EN "porQue". Los dos únicos proyectos que se aprobaron en todo el tablero lo hicieron igual, y ninguno por cantidad: "ningún proyecto de la lista contempla el módulo o tab de perfil psicológico", "ningún analista existente (Ads, VSL, Market) cubre esto". Nombrá la CATEGORÍA del lugar que falta y nombrá los candidatos que descartaste.
+
+Y EL NOMBRE:
 {{reglaNombre}}
 
 DOS EJEMPLOS REALES, uno de cada lado:
@@ -514,7 +530,15 @@ export type RuteoNuevo = { nombre: string; que: string; porQue: string;
    *  proyecto pero se olvida de repetir el nombre en `asign`, el proyecto nacía vacío
    *  y las tareas se desparramaban igual. */
   tareas: number[] };
-export type RuteoOut = { asign: RuteoItem[]; nuevos?: RuteoNuevo[]; usage?: UsageInfo };
+/**
+ * Un proyecto que el Perro NO abrió, con el motivo. Viaja hasta el historial de cada
+ * tarjeta afectada, y esa es toda su razón de ser: el motivo ya se logueaba antes y los
+ * cinco proyectos del 11-12/8 nacieron igual, porque los logs de Vercel no los lee nadie
+ * y a los 60 minutos no existen. Si el que se tiene que enterar es el dueño, el aviso va
+ * donde él mira.
+ */
+export type RuteoRechazo = { nombre: string; motivo: string; tareas: number[] };
+export type RuteoOut = { asign: RuteoItem[]; nuevos?: RuteoNuevo[]; rechazos?: RuteoRechazo[]; usage?: UsageInfo };
 
 /**
  * A qué proyecto va cada tarea nueva. La lista de destinos es CERRADA: el catálogo
@@ -560,7 +584,7 @@ export async function asignarTareasAProyectos(
   if (recuperadas.length < huerfanas.length) {
     console.warn(`[mako-guardian] la repesca recuperó ${recuperadas.length}/${huerfanas.length}: el resto entra SIN proyecto`);
   }
-  return { asign: [...r.asign, ...recuperadas], nuevos: r.nuevos, usage: r.usage };
+  return { asign: [...r.asign, ...recuperadas], nuevos: r.nuevos, rechazos: r.rechazos, usage: r.usage };
 }
 
 /**
@@ -611,53 +635,43 @@ async function unaPasadaDeRuteo(
   // Los proyectos NUEVOS, con las condiciones aplicadas EN CÓDIGO y no solo pedidas en
   // el prompt: un prompt es una intención, esto es el contrato. Sin las tres barreras
   // volvemos al tablero de 64 proyectos con uno por tarea.
-  const nuevos: RuteoNuevo[] = (soloLista || !Array.isArray(obj.nuevos) ? [] : (obj.nuevos as Record<string, unknown>[]))
-    .map((n) => {
-      const idx = (Array.isArray(n.tareas) ? n.tareas : [])
-        .map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < tareas.length);
-      return {
-        nombre: String(n.nombre ?? '').trim().slice(0, 40),
-        que: String(n.que ?? '').trim().slice(0, 300),
-        porQue: String(n.porQue ?? '').trim().slice(0, 300),
-        tareas: idx,
-        cuantas: idx.length,
-      };
-    })
-    .filter((n) => {
-      // Ya existe (con otra tilde o mayúscula): no es nuevo, es el mismo.
-      if (canon.has(normNombre(n.nombre))) return false;
-      // La FORMA del nombre (de tab y no de tarea, y nunca una familia del sidebar) la
-      // decide el catálogo, que es de donde sale la regla que se le muestra al modelo.
-      // Escrita acá era una segunda copia de la misma regla, y por eso se quedó corta:
-      // no sabía que «Content Machine» es una familia del sidebar y la dejó pasar.
-      if (!puedeSerProyectoNuevo(n.nombre).ok) return false;
-      // Un área permanente arrastra varias tareas. Una sola tarea nunca justifica un
-      // proyecto: entra en el mejor de la lista y si el tema crece, ya se verá.
-      // ≥3 del mismo tema… salvo que el lote sea más chico que 3: un lote de 2 tareas
-      // de una feature nueva no puede cumplir un umbral de 3 nunca, y así el camino de
-      // WhatsApp (que manda lotes de 1 y 2) quedaba estructuralmente incapaz de abrir
-      // un proyecto. Con una sola tarea de un lote grande sigue siendo imposible, que es
-      // el abuso que había que frenar.
-      if (n.cuantas < Math.min(3, tareas.length)) return false;
-      // Sin el porqué no se puede discutir la decisión, así que no se toma.
-      return n.porQue.length >= 15;
-    })
-    .slice(0, 2)  // como mucho DOS por lote: si "faltan" cinco áreas, el problema es otro
-    .map(({ nombre, que, porQue, tareas: idx }) => ({ nombre, que, porQue, tareas: idx }));
-  // QUÉ SE DESCARTÓ Y POR QUÉ. El filtro era 100% silencioso: si el modelo proponía
-  // bien y el nombre tenía cinco palabras, no quedaba rastro de nada.
-  for (const n of (Array.isArray(obj.nuevos) ? (obj.nuevos as Record<string, unknown>[]) : [])) {
-    const nom = String(n.nombre ?? '').trim();
-    if (!nom || nuevos.some((x) => normNombre(x.nombre) === normNombre(nom))) continue;
-    const cuantas = (Array.isArray(n.tareas) ? n.tareas : []).length;
-    const forma = puedeSerProyectoNuevo(nom);
-    const motivo = canon.has(normNombre(nom)) ? 'ya existe'
-      : !forma.ok ? forma.motivo
-      : cuantas < Math.min(3, tareas.length) ? `solo ${cuantas} tarea(s)`
-      : String(n.porQue ?? '').trim().length < 15 ? 'sin porqué' : 'otro';
-    console.warn(`[mako-guardian] proyecto nuevo DESCARTADO «${nom}»: ${motivo}`);
+  const crudos = (soloLista || !Array.isArray(obj.nuevos) ? [] : (obj.nuevos as Record<string, unknown>[]))
+    .map((n) => ({
+      nombre: String(n.nombre ?? '').trim().slice(0, 40),
+      que: String(n.que ?? '').trim().slice(0, 300),
+      porQue: String(n.porQue ?? '').trim().slice(0, 300),
+      tareas: (Array.isArray(n.tareas) ? n.tareas : [])
+        .map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < tareas.length),
+    }));
+
+  // CADA PROPUESTA SE JUZGA UNA SOLA VEZ y el veredicto se guarda. Antes eran dos loops:
+  // uno filtraba y el otro RECALCULABA el motivo para loguearlo, copiando la misma cadena
+  // de condiciones — y esa copia ya se había quedado vieja. Ahora el motivo sale del mismo
+  // lugar que la decisión, que además es lo que permite mandárselo al dueño.
+  const nuevos: RuteoNuevo[] = [];
+  const rechazos: RuteoRechazo[] = [];
+  for (const n of crudos) {
+    if (!n.nombre) continue;
+    const motivo = (() => {
+      // 1. Ya existe (con otra tilde o mayúscula): no es nuevo, es el mismo.
+      if (canon.has(normNombre(n.nombre))) return 'ya existe en la lista de destinos';
+      // 2. La FORMA del nombre: de tab y no de tarea, y nunca una familia del sidebar.
+      const forma = puedeSerProyectoNuevo(n.nombre);
+      if (!forma.ok) return forma.motivo;
+      // 3. ¿HACE FALTA? La pregunta difícil, y la que reemplazó al conteo de tareas
+      //    (lib/plan-proyecto-necesidad.ts tiene el porqué entero).
+      const nec = haceFaltaUnProyecto(n, n.tareas.map((i) => tareas[i]), destinos);
+      if (!nec.ok) return nec.motivo;
+      // 4. Sin el porqué no se puede discutir la decisión, así que no se toma.
+      if (n.porQue.length < 15) return 'no dice por qué ninguno de la lista sirve';
+      // 5. Como mucho DOS por lote: si «faltan» cinco áreas, el problema es otro.
+      if (nuevos.length >= 2) return 'ya se aprobaron dos proyectos nuevos en este lote';
+      return null;
+    })();
+    if (motivo === null) { nuevos.push(n); canon.set(normNombre(n.nombre), n.nombre); continue; }
+    rechazos.push({ nombre: n.nombre, motivo, tareas: n.tareas });
+    console.warn(`[mako-guardian] proyecto nuevo DESCARTADO «${n.nombre}»: ${motivo}`);
   }
-  for (const n of nuevos) canon.set(normNombre(n.nombre), n.nombre);
   if (nuevos.length) console.log(`[mako-guardian] proyecto(s) nuevo(s) propuestos: ${nuevos.map((n) => `«${n.nombre}» (${n.porQue})`).join(' · ')}`);
 
   const asign = Array.isArray(obj.asign)
@@ -665,7 +679,7 @@ async function unaPasadaDeRuteo(
         .map((a) => ({ i: Number(a.i), destino: canon.get(normNombre(String(a.destino ?? ''))) ?? '', razon: String(a.razon ?? '').trim() }))
         .filter((a): a is RuteoItem => Number.isInteger(a.i) && a.i >= 0 && a.i < tareas.length && !!a.destino)
     : [];
-  return { asign, nuevos, usage };
+  return { asign, nuevos, rechazos, usage };
 }
 
 const normNombre = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
