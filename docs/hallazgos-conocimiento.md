@@ -565,6 +565,35 @@ el archivo y el motivo, uno por línea.
 
 **Vive en:** `scripts/curso-audio.mjs` (el bloque de `descartes`)
 
+### ⚠️ Copiar un directorio que otro proceso escribe deja basura PERMANENTE en el destino
+
+**Síntoma.** En la carpeta del curso en Drive aparecieron 3 archivos de más, 500 MB en
+total, con nombres tipo `193 - M1 - Cap 1.fhls-fastly_skyfire-1278.mp4` **al lado** del
+`193 - M1 - Cap 1.mp4` correcto. Son intermedios de yt-dlp: tienen solo la pista de
+**video**, sin audio.
+
+**Causa, dos capas.** La copia incremental (`--solo-copiar`, que corre en paralelo con
+la descarga a propósito) capturó archivos **transitorios** del descargador. Después
+yt-dlp los mergeó y los borró **en local** — pero las copias del destino
+**sobrevivieron**. El origen se limpia solo; el destino no.
+
+Y lo que decidió *cuál* se copiaba: `readdirSync(...).filter(f => f.startsWith(c.archivo))`
+tomando `cand[0]`. Alfabéticamente `.fhls-…mp4` **gana** a `.mp4`, así que para esas
+tres clases se subió el intermedio *además* del bueno.
+
+**El mismo desajuste de nombre, otra vez.** `startsWith(c.archivo)` también **falló** con
+las clases 212 y 215, cuyo archivo real quedó `… hacer $$` contra el `… hacer $$$` del
+plan: no se copiaron a Drive durante toda la corrida, en silencio. Es el mismo bug que
+ya había salteado su audio — **la misma causa raíz, en dos scripts distintos**.
+
+**Regla.** El archivo de una clase se busca **por número** (`^(\d{1,3}) - `) y
+excluyendo intermedios (`\.f[^.]*\.(mp4|…)$`). Y el filtro tiene que estar en **los dos**
+scripts que leen `video/` — `curso-audio.mjs` y `curso-a-drive.mjs`. Ponerlo en uno solo
+fue exactamente lo que pasó, y el segundo tardó mucho más en aparecer porque su síntoma
+vive en Drive y no en disco.
+
+**Vive en:** `scripts/curso-a-drive.mjs` (`videoDeClase`) · `scripts/curso-audio.mjs`
+
 ### ⚠️ Un m4a interrumpido queda con nombre final y es ILEGIBLE: el `moov atom` va al final
 
 **Síntoma.** La clase 196 tenía su `.m4a` de 2,8 MB, con el nombre correcto, y ScreenApp

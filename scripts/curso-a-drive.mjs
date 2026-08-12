@@ -57,6 +57,22 @@ const limpio = (s) => String(s).normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u00
   .replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 120);
 const mb = (b) => (b / 1048576).toFixed(1);
 
+// ⚠️ El archivo de una clase se busca por NÚMERO y excluyendo los intermedios de
+// yt-dlp. Antes era `f.startsWith(c.archivo)` con `cand[0]`, y alfabéticamente
+// «.fhls-…mp4» gana al «.mp4» limpio: se subieron a Drive TRES intermedios (500 MB)
+// que tienen solo la pista de VIDEO, sin audio.
+//
+// Y el mecanismo de fondo, que es lo que hay que recordar: la copia incremental corre
+// MIENTRAS el descargador escribe, así que captura sus archivos transitorios — y
+// cuando yt-dlp los mergea y los borra en local, las copias del destino SOBREVIVEN.
+// Copiar un directorio que otro proceso está escribiendo deja basura permanente aguas
+// abajo. El mismo filtro vive en curso-audio.mjs, por lo mismo.
+const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f);
+const nDeArchivo = (f) => { const m = /^(\d{1,3})\s*-\s*/.exec(f); return m ? Number(m[1]) : null; };
+const videoDeClase = (dirVideo, c) => existsSync(dirVideo)
+  ? readdirSync(dirVideo).filter((f) => /\.(mp4|mkv|webm|m4v)$/i.test(f) && !esIntermedio(f) && nDeArchivo(f) === c.n)
+  : [];
+
 // ── El lector de la metadata de Drive ────────────────────────────────────────
 const dbDeDrive = () => {
   if (!existsSync(DFS)) return null;
@@ -127,10 +143,7 @@ if (!tiene('solo-ids')) {
   let copiados = 0, ya = 0, sinArchivo = 0;
 
   for (const c of plan.clases) {
-    // El archivo puede tener cualquier extensión según lo que mergeó yt-dlp.
-    const cand = existsSync(dirVideo)
-      ? readdirSync(dirVideo).filter((f) => f.startsWith(c.archivo) && /\.(mp4|mkv|webm|m4v)$/i.test(f))
-      : [];
+    const cand = videoDeClase(dirVideo, c);
     if (!cand.length) { console.log(`  ⚠ ${c.archivo} — no está bajado todavía`); sinArchivo++; continue; }
 
     const src = join(dirVideo, cand[0]);
@@ -176,7 +189,7 @@ if (!tiene('solo-ids')) {
 } else {
   for (const c of plan.clases) {
     const dirVideo = join(base, 'video');
-    const cand = existsSync(dirVideo) ? readdirSync(dirVideo).filter((f) => f.startsWith(c.archivo)) : [];
+    const cand = videoDeClase(dirVideo, c);
     if (!cand.length) continue;
     const mod = limpio(c.modulo ?? 'Sin módulo').replace(/^(\d+)\.\s*/, (_, n) => `${String(n).padStart(2, '0')} `);
     esperados.push({ nombre: cand[0], clase: c, src: join(dirVideo, cand[0]), dst: join(dirCurso, mod, cand[0]) });
