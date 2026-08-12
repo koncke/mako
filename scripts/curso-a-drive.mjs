@@ -171,7 +171,11 @@ if (!tiene('solo-ids')) {
   }
 
   // PDFs y texto, si están.
-  for (const [sub, etiqueta] of [['pdfs', 'PDFs'], ['texto', 'texto']]) {
+  // `recursos/` estaba FUERA de esta lista, así que los 71 archivos de un curso de
+  // /vip/ se bajaban, se contaban como completos… y nunca subían a Drive. El síntoma
+  // aparecía dos pasos después: 0/71 recursos con id, y la sección «Recursos» del
+  // portal vacía. Los tres directorios de material van acá.
+  for (const [sub, etiqueta] of [['pdfs', 'PDFs'], ['recursos', 'Recursos'], ['texto', 'texto']]) {
     const d = join(base, sub);
     if (!existsSync(d)) continue;
     const dst = join(dirCurso, etiqueta);
@@ -253,8 +257,40 @@ const clases = esperados
     };
   });
 
+// ── Los RECURSOS también necesitan su id de Drive ────────────────────────────
+// Sin esto el portal no puede mostrarlos: `Recurso.driveId` es lo que abre el visor,
+// y el array `recursos` vacío hace que la sección entera no exista (CursoPortal
+// dibuja «Recursos» solo si `curso.recursos.length > 0`). Los PDFs se bajaban, se
+// subían a Drive… y no aparecían en ningún lado.
+//
+// Dos orígenes con naming distinto, y la diferencia importa:
+//   pdfs/     → los produce curso-pdfs.mjs y el número es la CLASE
+//   recursos/ → los produce curso-recursos-vip.mjs y el número es el MÓDULO
+const recursosLocales = [];
+for (const [sub, nivel] of [['pdfs', 'clase'], ['recursos', 'modulo']]) {
+  const d = join(base, sub);
+  if (!existsSync(d)) continue;
+  for (const f of readdirSync(d, { withFileTypes: true }).filter((e) => e.isFile())) {
+    recursosLocales.push({ archivo: f.name, sub, nivel });
+  }
+}
+
+const recursos = [];
+if (recursosLocales.length) {
+  console.log(`\n  Resolviendo id de ${recursosLocales.length} recurso(s)…`);
+  const r = idsDeDrive(recursosLocales.map((x) => x.archivo));
+  if (!r.error) {
+    for (const x of recursosLocales) {
+      const info = r.ids.get(x.archivo);
+      if (info?.id) recursos.push({ archivo: x.archivo, nivel: x.nivel, driveId: info.id });
+    }
+  }
+  const sin = recursosLocales.length - recursos.length;
+  console.log(`  ${recursos.length}/${recursosLocales.length} con id${sin ? ` · ⚠ ${sin} sin id (Drive sigue subiendo)` : ''}`);
+}
+
 const salida = join(base, 'drive.json');
-writeFileSync(salida, JSON.stringify({ curso: plan.curso, carpeta: dirCurso, clases }, null, 2), 'utf8');
+writeFileSync(salida, JSON.stringify({ curso: plan.curso, carpeta: dirCurso, clases, recursos }, null, 2), 'utf8');
 
 // ── 4. Liberar espacio local, SOLO con la subida confirmada ──────────────────
 // La guarda va en POSITIVO (AGENTS.md): se borra únicamente el archivo que cumple

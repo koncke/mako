@@ -21,7 +21,9 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
   titulo: 'Aumenta tu valor y ATV ADVANTAGE',
   subtitulo: '249 clases, 13 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '249 clases',
-  recursos: [],
+  recursos: [
+
+  ],
   clases: [
     {
       n: 1,

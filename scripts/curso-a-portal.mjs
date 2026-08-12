@@ -80,6 +80,41 @@ const leerMd = (ruta) => {
 };
 
 const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+
+// ── Los recursos del portal (PDFs, planillas, links) ─────────────────────────
+// `CursoPortal` dibuja la sección «Recursos» solo si `curso.recursos.length > 0`, y
+// el detalle de una clase muestra los suyos por `recursoSlugs`. Con los dos vacíos,
+// 20 PDFs bajados y subidos a Drive no aparecían en ninguna parte.
+//
+// El `driveId` sale de drive.json (lo resuelve curso-a-drive.mjs). Un recurso SIN id
+// no se emite: una tarjeta que abre un visor vacío es peor que no tener la tarjeta.
+const TIPO_POR_EXT = { pdf: 'pdf', xlsx: 'pdf', docx: 'pdf', link: 'notion' };
+const slugRecurso = (nombre) => nombre.replace(/\.[^.]+$/, '')
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 60);
+
+const construirRecursos = (drive, clases) => {
+  const recursos = [];
+  const porClase = new Map();
+  for (const r of drive.recursos ?? []) {
+    const ext = (r.archivo.match(/\.([^.]+)$/)?.[1] ?? 'pdf').toLowerCase();
+    const tipo = TIPO_POR_EXT[ext] ?? 'pdf';
+    const slug = slugRecurso(r.archivo);
+    if (recursos.some((x) => x.slug === slug)) continue; // slug único, sin pisar
+    // Solo los de pdfs/ traen número de CLASE; los de recursos/ traen el de MÓDULO
+    // y no se cuelgan de una clase (colgarlos de la clase N sería inventar el dato).
+    const n = r.nivel === 'clase' ? Number(/^(\d{1,3})\s*-\s*/.exec(r.archivo)?.[1]) : NaN;
+    const deClase = Number.isFinite(n) && clases.some((c) => c.n === n) ? n : null;
+    recursos.push({
+      slug, tipo, driveId: r.driveId,
+      label: r.archivo.replace(/\.[^.]+$/, ''),
+      cardDesc: deClase ? `Material de la clase ${deClase}` : 'Material del curso',
+      clases: deClase ? [deClase] : undefined,
+    });
+    if (deClase) porClase.set(deClase, [...(porClase.get(deClase) ?? []), slug]);
+  }
+  return { recursos, porClase };
+};
 const slugDe = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
 
@@ -147,6 +182,8 @@ const slug = (plan.slug ?? slugDe(plan.curso)).replace(/^curso-(de-)?/, '');
 const constante = `CURSO_${slug.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`;
 const salida = join(REPO, 'app', 'conocimientos', `curso-${slug}.ts`);
 
+const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, clases);
+
 const cuerpo = `// =============================================================================
 // ${plan.curso} — portal /conocimientos
 // =============================================================================
@@ -170,7 +207,15 @@ export const ${constante}: Curso = {
   titulo: '${esc(plan.curso)}',
   subtitulo: '${esc(`${plan.clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
   volumen: '${plan.clases.length} clases',
-  recursos: [],
+  recursos: [
+${recursosPortal.map((r) => `    {
+      slug: '${r.slug}',
+      label: '${esc(r.label)}',
+      cardDesc: '${esc(r.cardDesc)}',
+      tipo: '${r.tipo}',
+      driveId: '${r.driveId}',${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
+    },`).join('\n')}
+  ],
   clases: [
 ${clases.map((c) => `    {
       n: ${c.n},${c.vn ? `\n      vn: ${c.vn},` : ''}${c.grupo ? `\n      grupo: '${esc(c.grupo)}',` : ''}${c.modulo ? `\n      modulo: ${c.modulo},` : ''}
@@ -179,7 +224,7 @@ ${clases.map((c) => `    {
       videoId: ${c.videoId ? `'${c.videoId}'` : 'null'},
       resumen: ${c.resumen ? `\`${esc(c.resumen)}\`` : `''`},
       transcripcion: [],${c.hasTx ? '\n      hasTx: true,' : ''}
-      recursoSlugs: [],
+      recursoSlugs: [${(slugsPorClase.get(c.n) ?? []).map((s) => `'${s}'`).join(', ')}],
       herramientas: [],
     },`).join('\n')}
   ],
