@@ -184,6 +184,34 @@ const salida = join(REPO, 'app', 'conocimientos', `curso-${slug}.ts`);
 
 const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, clases);
 
+// ⚠️ GUARDA: si hay material en disco y NO termina en la ficha, se corta acá.
+//
+// Esto ya pasó dos veces y las dos fueron silenciosas: el curso de Claude salió con
+// `recursos: []` teniendo 20 PDFs subidos, y el de ATV con los 71 sin id porque
+// `recursos/` no se copiaba a Drive. En los dos casos el generador dijo «listo», el
+// portal no mostró la sección (la dibuja solo si `recursos.length > 0`) y el dueño lo
+// encontró antes que nosotros.
+//
+// El chequeo se hace contra el DISCO, que es la fuente, no contra lo que se emitió.
+const localRecursos = ['pdfs', 'recursos']
+  .flatMap((sub) => existsSync(join(base, sub))
+    ? readdirSync(join(base, sub), { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name)
+    : []);
+
+if (localRecursos.length && recursosPortal.length < localRecursos.length) {
+  const faltan = localRecursos.length - recursosPortal.length;
+  console.error(`\n  ✖ NO emito la ficha: hay ${localRecursos.length} recurso(s) en disco y solo ${recursosPortal.length} con id de Drive.`);
+  console.error(`    Faltan ${faltan}. Sin id no se pueden mostrar, y emitir la ficha así la deja`);
+  console.error(`    sin la sección «Recursos» sin que nada avise — que es exactamente el bug`);
+  console.error(`    que esta guarda existe para no repetir.\n`);
+  console.error(`    Qué hacer:`);
+  console.error(`      1. node scripts/curso-a-drive.mjs --plan "${PLAN}" --solo-copiar`);
+  console.error(`      2. esperar a que Drive termine de subir`);
+  console.error(`      3. node scripts/curso-a-drive.mjs --plan "${PLAN}" --solo-ids`);
+  console.error(`      4. volver a correr esto\n`);
+  process.exit(4);
+}
+
 const cuerpo = `// =============================================================================
 // ${plan.curso} — portal /conocimientos
 // =============================================================================
