@@ -53,14 +53,14 @@ const TIPO: Record<Campo['tipo'], string> = {
   eleccion: 'Elegir una', checks: 'Marcar varias', tabla: 'Tabla',
 };
 
-export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, moduloEnUrl, videoEnUrl }: {
+export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, moduloEnUrl, claseEnUrl }: {
   modulos: Modulo[];
   totales: { clases: number; campos: number; enWhop: number; videos: number };
   whopConectado: boolean;
   tabInicial?: string;
-  /** `?m=` y `?v=` — qué módulo y qué video están abiertos. Ver `Grabar`. */
+  /** `?m=` y `?c=` — qué módulo y qué clase están abiertos. Ver `Grabar`. */
   moduloEnUrl?: string;
-  videoEnUrl?: string;
+  claseEnUrl?: string;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<string>(() =>
@@ -122,7 +122,7 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, modul
       ) : null}
 
       {enClases ? (
-        <Grabar modulos={modulos} totales={totales} moduloAbierto={moduloEnUrl} videoAbierto={videoEnUrl} />
+        <Grabar modulos={modulos} totales={totales} moduloAbierto={moduloEnUrl} claseAbiertaEnUrl={claseEnUrl} />
       ) : !modulo ? (
         <ul className="pg-grid">
           {modulos.map((m) => <li key={m.id}><CardModulo m={m} onAbrir={() => abrirModulo(m.id)} /></li>)}
@@ -187,11 +187,11 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, modul
  *
  * Lista con filete, no pila de cajas: son 25 cosas del mismo tipo.
  */
-function Grabar({ modulos, totales, moduloAbierto, videoAbierto }: {
+function Grabar({ modulos, totales, moduloAbierto, claseAbiertaEnUrl }: {
   modulos: Modulo[];
   totales: { clases: number; videos: number };
   moduloAbierto?: string;
-  videoAbierto?: string;
+  claseAbiertaEnUrl?: string;
 }) {
   // ⚠️ QUÉ MÓDULO ESTÁ ABIERTO VIAJA EN LA URL (`?m=m9`), NO EN UN useState.
   // Tres razones, y la tercera es la que decidió:
@@ -201,45 +201,49 @@ function Grabar({ modulos, totales, moduloAbierto, videoAbierto }: {
   //     con estado no se pudo probar en el navegador de esta sesión y no había
   //     forma de saber si andaba.
   // Es la misma regla que ya gobierna `?tab=` (ver AGENTS.md → tabs).
-  const porId = new Map(modulos.flatMap(m => m.clases.map(c => [c.id, c] as const)));
   const modulo = modulos.find(m => m.id === moduloAbierto) ?? null;
   const ahorro = totales.clases - totales.videos;
 
-  // NIVEL 3 · un video. Acá vive la indicación de qué grabar.
-  const video = modulo?.videos.find(ids => ids[0] === videoAbierto) ?? null;
-  if (modulo && video) {
-    const clases = video.map(id => porId.get(id)!).filter(Boolean);
-    const i = modulo.videos.indexOf(video);
-    const sig = modulo.videos[i + 1] ?? null;
-    const sigClases = sig?.map(id => porId.get(id)!).filter(Boolean) ?? [];
+  // NIVEL 3 · UNA clase. Acá vive la indicación de qué grabar.
+  const iClase = modulo ? modulo.clases.findIndex(c => c.id === claseAbiertaEnUrl) : -1;
+  if (modulo && iClase >= 0) {
+    const c = modulo.clases[iClase];
+    const sig = modulo.clases[iClase + 1] ?? null;
+    // Con quién comparte grabación, si la comparte. Es lo único que queda del
+    // agrupado en esta vista: la unidad de la pantalla es la CLASE.
+    const grupo = modulo.videos.find(ids => ids.includes(c.id)) ?? [c.id];
+    const compañeras = grupo
+      .filter(id => id !== c.id)
+      .map(id => modulo.clases.findIndex(x => x.id === id) + 1)
+      .filter(n => n > 0);
+
     return (
       <div className="gr-det">
         <Link className="gr-volver" href={`/customer-success/programa?m=${modulo.id}`}>
           ← Módulo {modulo.numero} · {modulo.titulo}
         </Link>
-        <p className="migas">{clases.map(c => c.rotulo).join(' + ')}</p>
-        <h2 className="tit">{clases[0].titulo}</h2>
-        <p className="sub">
-          Un video · {clases.length} {clases.length === 1 ? 'clase' : 'clases'}
-        </p>
+        <p className="migas">Clase {iClase + 1} de {modulo.clases.length}</p>
+        <h2 className="tit">{c.titulo}</h2>
+        <p className="sub">{c.rotulo} · Módulo {modulo.numero}</p>
         <div className="tags">
-          {clases.some(c => c.destraba) && <Status tono="mako">De los que destraban</Status>}
-          {clases.some(c => !c.enWhop) && <Status tono="warn">Falta en Whop</Status>}
-          {modulo.porArea && <Status tono="neutral">Se graba una vez, se contesta por área</Status>}
+          {c.destraba && <Status tono="mako">De las que destraban</Status>}
+          {!c.enWhop && <Status tono="warn">Falta en Whop</Status>}
+          {modulo.porArea && <Status tono="neutral">Se contesta una vez por área</Status>}
+          {modulo.quien !== 'dueño' && <Status tono="info">La contesta el líder del área</Status>}
         </div>
 
-        <QueGrabar clases={clases} />
+        <QueGrabar clase={c} compañeras={compañeras} />
 
         {sig && (
-          <Link className="gr-sig" href={`/customer-success/programa?m=${modulo.id}&v=${sig[0]}`}>
-            {sigClases.map(c => c.rotulo).join(' + ')} · {sigClases[0]?.titulo} →
+          <Link className="gr-sig" href={`/customer-success/programa?m=${modulo.id}&c=${sig.id}`}>
+            Clase {iClase + 2} · {sig.titulo} →
           </Link>
         )}
       </div>
     );
   }
 
-  // NIVEL 2 · un módulo: sus videos, en la misma card que los módulos.
+  // NIVEL 2 · un módulo: sus CLASES, en la misma card que los módulos.
   if (modulo) {
     const i = modulos.indexOf(modulo);
     const sig = modulos[i + 1] ?? null;
@@ -249,14 +253,14 @@ function Grabar({ modulos, totales, moduloAbierto, videoAbierto }: {
         <p className="migas">Módulo {modulo.numero} · {FASE[modulo.fase] ?? modulo.fase}</p>
         <h2 className="tit">{modulo.titulo}</h2>
         <p className="sub">
-          {modulo.videos.length} {modulo.videos.length === 1 ? 'video' : 'videos'} · {modulo.clases.length} {modulo.clases.length === 1 ? 'clase' : 'clases'}
+          {modulo.clases.length} {modulo.clases.length === 1 ? 'clase' : 'clases'} · {modulo.videos.length} {modulo.videos.length === 1 ? 'grabación' : 'grabaciones'}
         </p>
         <div className="tags">
           {modulo.porArea && <Status tono="neutral">Se graba una vez, se contesta por área</Status>}
           {modulo.quien !== 'dueño' && <Status tono="info">La tarea la contesta el líder del área</Status>}
         </div>
 
-        <Videos moduloId={modulo.id} ids={modulo.videos} porId={porId} />
+        <Clases modulo={modulo} />
 
         {sig && (
           <Link className="gr-sig" href={`/customer-success/programa?m=${sig.id}`}>
@@ -355,51 +359,52 @@ function CardGrabar({ m }: { m: Modulo }) {
       </>}
     >
       <span className="cifra">
-        <b>{m.videos.length}</b>
-        <span>{m.videos.length === 1 ? 'video' : 'videos'}</span>
+        <b>{m.clases.length}</b>
+        <span>{m.clases.length === 1 ? 'clase' : 'clases'}</span>
       </span>
       <span className="pie">
-        {m.clases.length} {m.clases.length === 1 ? 'clase' : 'clases'}
-        {juntadas > 0 && <em> · {juntadas === 1 ? 'una comparte' : `${juntadas} comparten`} grabación</em>}
+        {m.videos.length} {m.videos.length === 1 ? 'grabación' : 'grabaciones'}
+        {juntadas > 0 && <em> · {juntadas === 1 ? 'una comparte' : `${juntadas} comparten`} video</em>}
       </span>
     </CardPrograma>
   );
 }
 
 /**
- * Los videos de un módulo: LA MISMA card que los módulos, y navega igual — cada
- * una lleva a su propia ruta (`?m=…&v=…`), donde está la indicación de qué
- * grabar. Tres niveles con la misma mecánica: módulos → videos → qué grabar.
+ * Las CLASES de un módulo: una card por clase, en la misma card que los módulos
+ * y con el mismo click. Tres niveles con la misma mecánica:
+ * módulos → clases → qué grabar.
+ *
+ * ⚠️ UNA CARD ES UNA CLASE. Que dos clases compartan grabación se dice en una
+ * línea adentro de la card, no juntándolas en una: agrupar las cards obligaba a
+ * leer «7.1 + 7.2» como si fuera una sola cosa, y son dos tareas distintas que
+ * el cliente contesta por separado.
  */
-function Videos({ moduloId, ids, porId }: {
-  moduloId: string; ids: string[][]; porId: Map<string, Clase>;
-}) {
+function Clases({ modulo }: { modulo: Modulo }) {
+  const numDe = (id: string) => modulo.clases.findIndex(c => c.id === id) + 1;
+
   return (
     <ul className="gr-grid">
-      {ids.map((grupo) => {
-        const clases = grupo.map(id => porId.get(id)!).filter(Boolean);
-        if (!clases.length) return null;
-        const destraba = clases.some(c => c.destraba);
-        const enWhop = clases.filter(c => c.enWhop).length;
+      {modulo.clases.map((c, i) => {
+        const grupo = modulo.videos.find(ids => ids.includes(c.id)) ?? [c.id];
+        const otras = grupo.filter(id => id !== c.id).map(numDe).filter(n => n > 0);
         return (
-          <li key={grupo[0]}>
+          <li key={c.id}>
             <CardPrograma
-              href={`/customer-success/programa?m=${moduloId}&v=${grupo[0]}`}
-              filo={enWhop / clases.length}
-              rotulo={clases.map(c => c.rotulo).join(' + ')}
-              titulo={clases[0].titulo}
-              destaca={destraba}
+              href={`/customer-success/programa?m=${modulo.id}&c=${c.id}`}
+              filo={c.enWhop ? 1 : 0}
+              rotulo={`Clase ${i + 1}`}
+              titulo={c.titulo}
+              destaca={c.destraba}
               tags={<>
-                {destraba && <Status tono="mako">Destraba</Status>}
-                {enWhop < clases.length && <Status tono="warn">Falta en Whop</Status>}
+                {c.destraba && <Status tono="mako">Destraba</Status>}
+                {!c.enWhop && <Status tono="warn">Falta en Whop</Status>}
               </>}
             >
-              <span className="cifra">
-                <b>{clases.length}</b>
-                <span>{clases.length === 1 ? 'clase' : 'clases'}</span>
-              </span>
               <span className="pie">
-                {clases.length === 1 ? 'Una sola tarea' : 'Una grabación, una tarea por clase'}
+                {otras.length === 0
+                  ? 'Grabación propia'
+                  : `Se graba junto con ${otras.length === 1 ? 'la clase' : 'las clases'} ${otras.join(' y ')}`}
               </span>
             </CardPrograma>
           </li>
@@ -409,22 +414,23 @@ function Videos({ moduloId, ids, porId }: {
   );
 }
 
-/** La indicación de qué grabar: un bullet por clase, con el atoro donde lo hay.
- *  Es CONTEXTO, no un guion — Mauricio sabe su material. */
-function QueGrabar({ clases }: { clases: Clase[] }) {
+/** La indicación de qué grabar, con el atoro donde lo hay. Es CONTEXTO, no un
+ *  guion: Mauricio sabe su material. */
+function QueGrabar({ clase, compañeras }: { clase: Clase; compañeras: number[] }) {
   return (
     <section className="qg">
-      <h3>Qué va en este video</h3>
-      <ol>
-        {clases.map((c) => (
-          <li key={c.id}>
-            <p className="r">{c.rotulo} · {c.titulo}</p>
-            <p className="g">{c.graba}</p>
-            {c.atoro && <p className="ojo"><b>Ojo con esto.</b> {c.atoro}</p>}
-            <p className="tarea"><b>La tarea que deja el cliente:</b> {c.pregunta}</p>
-          </li>
-        ))}
-      </ol>
+      <h3>Qué grabar</h3>
+      <p className="g">{clase.graba}</p>
+      {clase.atoro && <p className="ojo"><b>Ojo con esto.</b> {clase.atoro}</p>}
+      {compañeras.length > 0 && (
+        <p className="junto">
+          Se graba en el mismo video que {compañeras.length === 1 ? 'la clase' : 'las clases'}{' '}
+          {compañeras.join(' y ')}: son partes de una misma explicación. La tarea, en cambio, es
+          propia de cada clase.
+        </p>
+      )}
+      <h3 className="dos">La tarea que deja el cliente</h3>
+      <p className="tarea">{clase.pregunta}</p>
     </section>
   );
 }
@@ -576,17 +582,14 @@ a.grc:hover{ border-color:var(--border-strong); }
 /* NIVEL 3 · qué grabar. Acá el ancho es de LECTURA: es prosa, no una ficha. */
 .qg{ margin:26px 0 0; }
 .qg h3{ font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--faint);
-  font-weight:600; margin:0 0 4px; }
-.qg ol{ list-style:none; margin:0; padding:0; }
-.qg > ol > li{ padding:18px 0 20px; border-top:1px solid var(--border); }
-.qg .r{ font-family:${MONO}; font-size:11.5px; color:var(--faint); margin:0 0 8px;
-  font-variant-numeric:tabular-nums; }
+  font-weight:600; margin:0 0 10px; padding-top:20px; border-top:1px solid var(--border); }
+.qg h3.dos{ margin-top:30px; }
 .qg .g{ font-size:16px; line-height:1.65; color:var(--ink); margin:0; max-width:68ch; }
-.qg .ojo{ font-size:14px; line-height:1.6; color:var(--dim); margin:14px 0 0;
+.qg .ojo{ font-size:14px; line-height:1.6; color:var(--dim); margin:16px 0 0;
   border-left:2px solid var(--mako); padding-left:14px; max-width:68ch; }
 .qg .ojo b{ color:var(--ink); }
-.qg .tarea{ font-size:13.5px; line-height:1.6; color:var(--faint); margin:14px 0 0; max-width:68ch; }
-.qg .tarea b{ color:var(--dim); font-weight:600; }
+.qg .junto{ font-size:13.5px; line-height:1.6; color:var(--faint); margin:16px 0 0; max-width:68ch; }
+.qg .tarea{ font-size:15px; line-height:1.6; color:var(--dim); margin:0; max-width:68ch; }
 
 /* ── La tab Clases: los videos de un módulo ───────────────────────────────── */
 .gr-det{ padding:0 0 40px; }
