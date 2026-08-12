@@ -656,6 +656,46 @@ script imprimió las 247 líneas con el motivo exacto. La versión que solo cont
 
 **Vive en:** `scripts/curso-audio.mjs` · el layout: `scripts/curso-organizar.mjs`
 
+### Un recurso de tipo `link` no es un archivo: bajarlo te da el HTML de la landing
+
+**Síntoma.** Entre los 71 recursos de un curso de `/vip/` había 16 «archivos» `.link`
+de 98 KB cada uno, y uno de **1,1 MB**. Todos con nombres como `Miro`, `YouTube`,
+`Loom`.
+
+**Causa.** La plataforma marca esos recursos con `file_type: 'link'`, y su `file_url`
+**es la URL de destino**, no un archivo firmado. El descargador la trataba igual que a
+un PDF: le hacía `fetch` y guardaba **el HTML de la página de Miro** como si fuera el
+recurso. El de 1,1 MB era el HTML de YouTube.
+
+**Regla.** Si `file_type === 'link'`, lo que se guarda es la **URL** — no se descarga
+nada. Y en el portal se emite como `tipo: 'bank'` con un `item`, que es el único tipo
+que renderiza un link **externo** clickeable: `notion` pondría un botón «Ver en Notion»
+sobre un tablero de Miro, y `pdf` abriría un visor de Drive que para un link no existe.
+
+⚠️ Y el conteo: los enlaces **no son archivos**, así que se descuentan del total
+esperado en disco. Sin eso el verificador dice «faltan 16» sobre un curso completo —
+un falso negativo que hace desconfiar de todo el resto.
+
+**Vive en:** `scripts/curso-recursos-vip.mjs` · `scripts/curso-a-portal.mjs`
+
+### El vínculo recurso ↔ clase existe, pero pasa por el MÓDULO
+
+**Síntoma.** Los recursos aparecían en la sección del curso y no en ninguna clase.
+
+**Causa.** La plataforma asocia cada recurso a un **módulo** (`vip_module_id`), nunca a
+una lección. El pipeline no arrastraba ese dato: `recursos.json` guardaba el título del
+módulo raíz y se perdía ahí.
+
+**Regla.** Se arrastra el módulo **hoja** además del raíz, y el recurso se cuelga de
+**todas las clases de su módulo**, prefiriendo la hoja: el material de «1. Setting» va
+a sus 25 clases, no a las 38 del raíz «6. SALES». Medido: 64 de 71 recursos quedaron
+colgados, y 91 clases con material propio.
+
+Lo que **no** se hace es adivinar *una* clase dentro del módulo. El dato no existe, y
+un recurso puesto en la clase equivocada es peor que uno a nivel de módulo.
+
+**Vive en:** `scripts/curso-a-portal.mjs` (`construirRecursos`)
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato

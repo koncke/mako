@@ -266,14 +266,35 @@ const clases = esperados
 // Dos orígenes con naming distinto, y la diferencia importa:
 //   pdfs/     → los produce curso-pdfs.mjs y el número es la CLASE
 //   recursos/ → los produce curso-recursos-vip.mjs y el número es el MÓDULO
+// recursos.json (lo escribe curso-recursos-vip.mjs) trae el módulo de cada archivo.
+// Sin arrastrarlo hasta acá, el portal no puede colgar el recurso de SUS clases.
+const idxRecursos = existsSync(join(base, 'recursos.json'))
+  ? new Map((JSON.parse(readFileSync(join(base, 'recursos.json'), 'utf8').replace(/^﻿/, '')).items ?? [])
+      .map((i) => [i.nombre, i]))
+  : new Map();
+
 const recursosLocales = [];
 for (const [sub, nivel] of [['pdfs', 'clase'], ['recursos', 'modulo']]) {
   const d = join(base, sub);
   if (!existsSync(d)) continue;
   for (const f of readdirSync(d, { withFileTypes: true }).filter((e) => e.isFile())) {
-    recursosLocales.push({ archivo: f.name, sub, nivel });
+    const meta = idxRecursos.get(f.name);
+    recursosLocales.push({
+      archivo: f.name, sub, nivel,
+      modulo: meta?.modulo ?? null,
+      submodulo: meta?.submodulo ?? null,
+    });
   }
 }
+
+// Los recursos de tipo LINK no son archivos: no se copian ni tienen id de Drive, pero
+// sí van a la ficha. Salen de recursos.json y se pasan derecho, con su URL.
+const enlaces = [...idxRecursos.values()]
+  .filter((i) => i.tipo === 'link' && i.url)
+  .map((i) => ({
+    archivo: i.nombre, nivel: 'modulo', tipo: 'link', url: i.url,
+    modulo: i.modulo ?? null, submodulo: i.submodulo ?? null,
+  }));
 
 const recursos = [];
 if (recursosLocales.length) {
@@ -282,15 +303,23 @@ if (recursosLocales.length) {
   if (!r.error) {
     for (const x of recursosLocales) {
       const info = r.ids.get(x.archivo);
-      if (info?.id) recursos.push({ archivo: x.archivo, nivel: x.nivel, driveId: info.id });
+      if (info?.id) recursos.push({
+        archivo: x.archivo, nivel: x.nivel, driveId: info.id,
+        modulo: x.modulo, submodulo: x.submodulo,
+      });
     }
   }
   const sin = recursosLocales.length - recursos.length;
   console.log(`  ${recursos.length}/${recursosLocales.length} con id${sin ? ` · ⚠ ${sin} sin id (Drive sigue subiendo)` : ''}`);
 }
 
+if (enlaces.length) console.log(`  + ${enlaces.length} enlace(s) (no son archivos: van sin id de Drive)`);
+
 const salida = join(base, 'drive.json');
-writeFileSync(salida, JSON.stringify({ curso: plan.curso, carpeta: dirCurso, clases, recursos }, null, 2), 'utf8');
+writeFileSync(salida, JSON.stringify({
+  curso: plan.curso, carpeta: dirCurso, clases,
+  recursos: [...recursos, ...enlaces],
+}, null, 2), 'utf8');
 
 // ── 4. Liberar espacio local, SOLO con la subida confirmada ──────────────────
 // La guarda va en POSITIVO (AGENTS.md): se borra únicamente el archivo que cumple

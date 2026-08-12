@@ -16,7 +16,7 @@
 //
 //   node <abs>\scripts\curso-recursos-vip.mjs --plan C:\cursos\<slug>\plan.json
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
 const arg = (n, d) => {
@@ -130,7 +130,7 @@ const main = async () => {
   mkdirSync(destino, { recursive: true });
   console.log(`  Recursos: ${meta.length} · con URL firmada: ${urls.size}\n`);
 
-  let ok = 0, ya = 0, sinUrl = 0;
+  let ok = 0, ya = 0, sinUrl = 0, enlaces = 0;
   const fallos = [];
   const indice = [];
 
@@ -159,13 +159,40 @@ const main = async () => {
     const ext = String(r.file_type ?? 'bin').replace(/^\./, '').toLowerCase();
     const nombre = nombreUnico(r, pref, ext);
     const salida = join(destino, nombre);
-    indice.push({ nombre, modulo: raiz?.title ?? null, bytes: r.file_size ?? null });
+    // Se guarda el módulo HOJA además del raíz: es lo que después permite colgar el
+    // recurso de SUS clases y no de las 38 del módulo raíz. La plataforma asocia por
+    // módulo (`vip_module_id`), nunca por lección, así que la hoja es lo más fino que
+    // el dato permite — bajar de ahí sería inventarlo.
+    const hoja = mods.get(r.vip_module_id);
+    indice.push({
+      nombre,
+      modulo: raiz?.title ?? null,
+      submodulo: hoja && hoja.id !== raiz?.id ? hoja.title : null,
+      moduloId: r.vip_module_id ?? null,
+      bytes: r.file_size ?? null,
+    });
+
+    const url = urls.get(r.id);
+
+    // ⚠️ Un recurso de tipo `link` NO es un archivo: es una URL (Miro, YouTube, Loom).
+    // Bajarlo produce el HTML de la landing — 16 de los 71 de este curso quedaron así,
+    // uno con 1,1 MB de HTML de YouTube. Lo que hay que guardar es la URL, y el portal
+    // la muestra como link externo, no como visor de archivo.
+    if (String(r.file_type ?? '').toLowerCase() === 'link') {
+      if (!url) { console.log(`  ⚠ ${nombre} — link sin URL`); sinUrl++; continue; }
+      indice[indice.length - 1].tipo = 'link';
+      indice[indice.length - 1].url = url;
+      // Si quedó el blob de una corrida vieja, se borra: es HTML, no el recurso.
+      if (existsSync(salida)) { try { unlinkSync(salida); console.log(`  ↻ ${nombre} — era un blob de HTML, lo reemplazo por la URL`); } catch {} }
+      else console.log(`  ↗ ${nombre.replace(/\.link$/, '')} → ${url.slice(0, 70)}`);
+      enlaces++;
+      continue;
+    }
 
     if (existsSync(salida) && Number(r.file_size) && statSync(salida).size === Number(r.file_size)) {
       console.log(`  = ${nombre}`);
       ya++; continue;
     }
-    const url = urls.get(r.id);
     if (!url) { console.log(`  ⚠ ${nombre} — sin URL firmada`); sinUrl++; continue; }
 
     try {
@@ -190,12 +217,15 @@ const main = async () => {
 
   // El conteo se verifica contra el DISCO, no contra el bucle: la versión anterior
   // decía «71 bajado(s)» con 64 archivos, porque contaba intentos y no resultados.
+  // El conteo se verifica contra el DISCO, no contra el bucle. Los enlaces NO son
+  // archivos, así que se descuentan del total esperado: si no, «faltan 16».
   const enDisco = readdirSync(destino).length;
+  const esperadosEnDisco = meta.length - enlaces - sinUrl - fallos.length;
   console.log('\n' + '─'.repeat(70));
-  console.log(`  ${ok} bajado(s) · ${ya} ya estaban · ${sinUrl} sin URL · ${fallos.length} con error`);
-  console.log(`  archivos en disco: ${enDisco} / ${meta.length} recursos del curso`);
-  if (enDisco < meta.length - sinUrl - fallos.length) {
-    console.log(`  ⚠ FALTAN ${meta.length - sinUrl - fallos.length - enDisco}: hay nombres que se pisaron.`);
+  console.log(`  ${ok} bajado(s) · ${ya} ya estaban · ${enlaces} enlace(s) · ${sinUrl} sin URL · ${fallos.length} con error`);
+  console.log(`  archivos en disco: ${enDisco} / ${esperadosEnDisco} esperados  (${meta.length} recursos, ${enlaces} son links)`);
+  if (enDisco < esperadosEnDisco) {
+    console.log(`  ⚠ FALTAN ${esperadosEnDisco - enDisco}: hay nombres que se pisaron.`);
   }
   console.log(`  → ${destino}`);
   console.log('─'.repeat(70) + '\n');

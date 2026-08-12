@@ -93,25 +93,63 @@ const slugRecurso = (nombre) => nombre.replace(/\.[^.]+$/, '')
   .normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 60);
 
-const construirRecursos = (drive, clases) => {
+// Cómo se cuelga cada recurso de sus clases, y por qué así:
+//
+//   pdfs/     → el origen (curso-pdfs.mjs) lo asoció a UNA clase: va a esa.
+//   recursos/ → la plataforma los asocia a un MÓDULO, nunca a una lección. Así que
+//               se cuelgan de todas las clases de su módulo, prefiriendo el
+//               SUBMÓDULO cuando lo hay: el recurso de «1. Setting» va a sus 25
+//               clases, no a las 38 del módulo raíz «6. SALES».
+//
+// Bajar de ahí —adivinar UNA clase dentro del módulo— sería inventar el dato, y es
+// justamente lo que no se hace.
+const construirRecursos = (drive, planClases) => {
   const recursos = [];
   const porClase = new Map();
+  const colgar = (n, slug) => porClase.set(n, [...(porClase.get(n) ?? []), slug]);
+  const sinNumero = (s) => String(s ?? '').replace(/^\d+\.\s*/, '').trim();
+
   for (const r of drive.recursos ?? []) {
+    const esEnlace = r.tipo === 'link' && r.url;
     const ext = (r.archivo.match(/\.([^.]+)$/)?.[1] ?? 'pdf').toLowerCase();
-    const tipo = TIPO_POR_EXT[ext] ?? 'pdf';
+    // Un enlace se emite como `bank` con un item: es el único tipo del portal que
+    // renderiza un link EXTERNO clickeable. `notion` pondría un botón que dice «Ver en
+    // Notion» sobre un tablero de Miro, que sería mentira; y `pdf` abre un visor de
+    // Drive, que para un link no existe.
+    const tipo = esEnlace ? 'bank' : (TIPO_POR_EXT[ext] ?? 'pdf');
     const slug = slugRecurso(r.archivo);
     if (recursos.some((x) => x.slug === slug)) continue; // slug único, sin pisar
-    // Solo los de pdfs/ traen número de CLASE; los de recursos/ traen el de MÓDULO
-    // y no se cuelgan de una clase (colgarlos de la clase N sería inventar el dato).
-    const n = r.nivel === 'clase' ? Number(/^(\d{1,3})\s*-\s*/.exec(r.archivo)?.[1]) : NaN;
-    const deClase = Number.isFinite(n) && clases.some((c) => c.n === n) ? n : null;
+    // Un recurso de archivo SIN id de Drive no se emite (tarjeta que abre nada);
+    // un enlace no necesita id, así que esa regla no le aplica.
+    if (!esEnlace && !r.driveId) continue;
+
+    let deClases = [];
+    let desc = 'Material del curso';
+
+    if (r.nivel === 'clase') {
+      const n = Number(/^(\d{1,3})\s*-\s*/.exec(r.archivo)?.[1]);
+      if (Number.isFinite(n) && planClases.some((c) => c.n === n)) {
+        deClases = [n];
+        desc = `Material de la clase ${n}`;
+      }
+    } else if (r.submodulo) {
+      deClases = planClases.filter((c) => sinNumero(c.submodulo) === sinNumero(r.submodulo)).map((c) => c.n);
+      desc = `Material de «${r.submodulo}»`;
+    } else if (r.modulo) {
+      deClases = planClases.filter((c) => sinNumero(c.modulo) === sinNumero(r.modulo)).map((c) => c.n);
+      desc = `Material de «${r.modulo}»`;
+    }
+
+    const label = r.archivo.replace(/\.[^.]+$/, '');
     recursos.push({
-      slug, tipo, driveId: r.driveId,
-      label: r.archivo.replace(/\.[^.]+$/, ''),
-      cardDesc: deClase ? `Material de la clase ${deClase}` : 'Material del curso',
-      clases: deClase ? [deClase] : undefined,
+      slug, tipo,
+      driveId: esEnlace ? null : r.driveId,
+      items: esEnlace ? [{ label: `Abrir ${label}`, url: r.url }] : null,
+      label,
+      cardDesc: esEnlace ? `Enlace · ${desc.replace(/^Material de /, '')}` : desc,
+      clases: deClases.length ? deClases : undefined,
     });
-    if (deClase) porClase.set(deClase, [...(porClase.get(deClase) ?? []), slug]);
+    for (const n of deClases) colgar(n, slug);
   }
   return { recursos, porClase };
 };
@@ -182,7 +220,9 @@ const slug = (plan.slug ?? slugDe(plan.curso)).replace(/^curso-(de-)?/, '');
 const constante = `CURSO_${slug.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`;
 const salida = join(REPO, 'app', 'conocimientos', `curso-${slug}.ts`);
 
-const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, clases);
+// Contra las clases del PLAN, no contra las ya construidas: el plan es el que tiene
+// `modulo` y `submodulo` como texto, que es la clave del vínculo con los recursos.
+const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, plan.clases);
 
 // ⚠️ GUARDA: si hay material en disco y NO termina en la ficha, se corta acá.
 //
@@ -240,8 +280,7 @@ ${recursosPortal.map((r) => `    {
       slug: '${r.slug}',
       label: '${esc(r.label)}',
       cardDesc: '${esc(r.cardDesc)}',
-      tipo: '${r.tipo}',
-      driveId: '${r.driveId}',${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
+      tipo: '${r.tipo}',${r.driveId ? `\n      driveId: '${r.driveId}',` : ''}${r.items ? `\n      items: [${r.items.map((i) => `{ label: '${esc(i.label)}', url: '${esc(i.url)}' }`).join(', ')}],` : ''}${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
     },`).join('\n')}
   ],
   clases: [
