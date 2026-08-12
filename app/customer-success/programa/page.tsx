@@ -11,6 +11,8 @@ import { PROGRAMA, TOTAL_CLASES, CLASES_QUE_DESTRABAN } from '@/lib/programa-cat
 import { CAMPOS, TOTAL_CAMPOS } from '@/lib/programa-campos';
 import { getMapaLecciones } from '@/lib/cs-avance';
 import { whopConfigurado } from '@/lib/whop';
+import { esWorkspaceDueno } from '@/lib/workspace';
+import { ComingSoon } from '@/app/_components/ComingSoon';
 import { ProgramaApp } from './ProgramaApp';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +21,10 @@ export const revalidate = 0;
 export const metadata = { title: 'Program · Customer Success' };
 
 export default async function ProgramaPage() {
+  // Mismo guard que la cartera, y por el mismo motivo: acá se ve el temario
+  // COMPLETO de Mauricio. Ver el comentario largo en ../page.tsx.
+  if (!(await esWorkspaceDueno())) return <ComingSoon title="Customer Success" icon="cs" />;
+
   const [mapa, whop] = await Promise.all([
     getMapaLecciones().catch(() => ({})),
     whopConfigurado().catch(() => false),

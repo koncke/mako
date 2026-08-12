@@ -123,6 +123,14 @@ export type ResultadoSync =
 
 export async function sincronizarWhopAction(): Promise<ResultadoSync> {
   const ws = await wsActual();
+  // ⚠️ Esta es la única acción de CS que escribe AFUERA, y lo que escribe es el
+  // temario de Mauricio. Las otras se defienden solas porque validan el lead
+  // contra la cartera del workspace; ésta no tiene lead que validar.
+  //
+  // Sin el guard, un cliente con su propio Whop conectado que llegue a la acción
+  // se lleva las 44 clases del sistema de Mauricio a SU cuenta. Esconder el botón
+  // no alcanza: el que decide es el server.
+  if (ws !== OWNER_WS) return { ok: false, error: 'El programa todavía se sincroniza solo desde el workspace principal.' };
   try {
     const { sincronizarPrograma } = await import('@/lib/cs-sync-whop');
     const r = await sincronizarPrograma(ws);
