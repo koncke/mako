@@ -42,24 +42,38 @@ test('EL CASO REAL: los cinco nombres del 11 y 12/8, uno por uno', () => {
   // alcanza. «Funnel de Venta» tiene forma perfecta de tab: lo que lo frena es la otra
   // mitad —una sola tarea no justifica un proyecto— y después la compuerta de
   // plan-board, que ya no crea sin aval. Los dos controles son necesarios.
-  assert.equal(puedeSerProyectoNuevo('Feature: Content Machine').ok, false, 'es una FAMILIA del sidebar');
+  assert.equal(puedeSerProyectoNuevo('Feature: Content Machine').ok, false, 'el 11/8 era una familia del sidebar; hoy está en el catálogo, y por las dos razones no es «nuevo»');
   assert.equal(puedeSerProyectoNuevo('Feature: Historia del Usuario').ok, true, 'la forma está bien: lo frena el umbral de tareas');
   assert.equal(puedeSerProyectoNuevo('Feature: Funnel de Venta').ok, true, 'la forma está bien: lo frena el umbral de tareas');
   assert.equal(puedeSerProyectoNuevo('Feature: Focus Tracker').ok, true, 'la forma está bien: lo frena el umbral de tareas');
   assert.equal(puedeSerProyectoNuevo('Feature: Landing').ok, true, 'la forma está bien: lo frena el umbral de tareas');
 });
 
-test('una FAMILIA del sidebar no puede ser un proyecto, con prefijo o sin él', () => {
-  // «Feature: Content Machine» se solapa con Ideas, Reels, Carousels, Stories,
-  // Thumbnails y YouTube Writer al mismo tiempo: es la caja que los agrupa. Un proyecto
-  // así es un lugar donde nadie va a buscar nada.
+test('el MODELO no puede inventar un proyecto con el nombre de una familia del sidebar', () => {
+  // Una familia agrupa diez proyectos: un proyecto con ese nombre se solapa con seis tabs
+  // a la vez. Se excluye «Content Machine», que el dueño decidió sumar al catálogo el
+  // 12/8 — ver el test de abajo, que cubre justamente esa asimetría.
   for (const f of FAMILIAS_SIDEBAR) {
+    if (delCatalogo(f)) continue;
     for (const n of [f, `${PREFIJO_FEATURE}${f}`, `${PREFIJO_AGENTE}${f}`, f.toUpperCase()]) {
       const v = puedeSerProyectoNuevo(n);
       assert.equal(v.ok, false, `«${n}» pasó y es una familia del sidebar`);
       assert.match(v.ok === false ? v.motivo : '', /familia del sidebar/i);
     }
   }
+});
+
+test('el catálogo se consulta ANTES que las familias: prohibido inventarla, no que exista', () => {
+  // El orden de los dos chequeos ES la regla. «Content Machine» lo inventó el modelo el
+  // 11/8 y estaba mal; el 12/8 el dueño decidió que la capa de estrategia sí hacía falta y
+  // la sumó al catálogo. Las dos cosas son ciertas: cambia QUIÉN lo decide.
+  const cm = puedeSerProyectoNuevo('Feature: Content Machine');
+  assert.equal(cm.ok, false, 'sigue sin ser «nuevo»: ya está en el catálogo');
+  assert.match(cm.ok === false ? cm.motivo : '', /catálogo/,
+    'si cayera por «familia del sidebar», agregar una familia al catálogo no serviría de nada');
+  // Y es un destino de verdad, con su prefijo puesto y su descripción.
+  assert.equal(canonNombre('Content Machine'), 'Feature: Content Machine');
+  assert.ok((delCatalogo('Content Machine')?.que ?? '').length > 80);
 });
 
 test('la lista de familias sigue siendo la de nav.ts', () => {

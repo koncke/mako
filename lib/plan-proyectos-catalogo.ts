@@ -104,6 +104,19 @@ const CRUDO: ProyectoCatalogo[] = [
   // Los formatos de la Content Machine van SEPARADOS, uno por tab. Estuvieron juntos en
   // un «Contenido orgánico» y el dueño lo cortó: son seis destinos distintos del sidebar
   // y el trabajo de cada uno no se parece al del otro.
+  //
+  // Pero ARRIBA de los seis formatos falta una capa, y su ausencia se notó: la ESTRATEGIA
+  // de contenidos —la escalera, los pilares, la materia prima con la que se escribe
+  // cualquiera de los seis— no es de ninguno en particular. «Ideas» no la cubre y lo dice
+  // con todas las letras («NO es un repositorio ni un tablero de temas»), así que
+  // «Definir la escalera de contenidos» terminaba cayendo en Reels por parecido de palabra.
+  // Es el hermano orgánico de «Fábrica de creativos», que es exactamente esta capa para ads.
+  //
+  // ⚠️ Se llama igual que la FAMILIA del sidebar y eso es a propósito, decidido por el
+  // dueño (12/8/2026). Que esté acá es lo que lo hace legítimo: un nombre de familia en el
+  // catálogo es una decisión nuestra; lo que sigue prohibido es que el modelo lo invente
+  // (ver `puedeSerProyectoNuevo`, donde el catálogo se consulta ANTES que las familias).
+  { nombre: 'Content Machine', emoji: '🗺️', familia: 'producto', que: 'La ESTRATEGIA del contenido orgánico, arriba de los formatos: la escalera de contenidos y los pilares, el banco de historias y la materia prima con la que se escribe, el calendario y qué se publica dónde. NO es ninguno de los formatos —Reels, Carousels, Stories, Thumbnails, YouTube Writer son tabs propias— ni el copiloto de idea→guion (eso es «Feature: Ideas»). Acá va lo que decide QUÉ contar; ahí va CÓMO se cuenta.' },
   { nombre: 'Ideas', emoji: '💡', familia: 'producto', que: 'El copiloto que convierte una idea suelta en un guion. Le tirás lo que sea —una frase, un audio, una imagen, un link de referencia— y te va guiando y organizando hasta que hay una pieza. NO es un repositorio ni un tablero de temas: es la conversación que te lleva de la ocurrencia al guion.' },
   { nombre: 'Mindset', emoji: '🧠', familia: 'producto', que: 'La tab de diagnóstico psicológico del dueño: tests (LOT-R y otros), cómo ese perfil afecta a SU negocio en concreto, y las metodologías para trabajarlo. Diagnosticar → relacionar con el negocio → practicar.' },
   { nombre: 'Reels', emoji: '🎬', familia: 'producto', que: 'El formato Reel para el cliente: guion corto, gancho y estructura para Instagram.' },
@@ -251,10 +264,16 @@ EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUT
 ⚠️ Y la confusión que más se repite: **la pantalla y el agente que vive adentro NO son el mismo proyecto.** El tablero es «${PREFIJO_FEATURE}Plan»; el cerebro que puntúa es «${PREFIJO_AGENTE}Perro Guardián». Mejorar la vista Kanban va a la primera; cambiar cómo decide una prioridad va al segundo.`;
 
 /**
- * Las FAMILIAS del sidebar (`FAMILIAS` en app/_components/nav.ts). NO son proyectos:
- * son la CAJA que agrupa a diez de ellos. «Feature: Content Machine» nació así el
- * 11/8/2026 y es un proyecto que se solapa con Ideas, Reels, Carousels, Stories,
- * Thumbnails y YouTube Writer a la vez — o sea, un lugar donde nadie va a buscar nada.
+ * Las FAMILIAS del sidebar (`FAMILIAS` en app/_components/nav.ts). **El modelo no puede
+ * inventar un proyecto con uno de estos nombres**: son la CAJA que agrupa a diez de
+ * ellos, y un proyecto así se solapa con seis tabs a la vez.
+ *
+ * ⚠️ Lo que se prohíbe es INVENTARLO, no que exista. `puedeSerProyectoNuevo` consulta el
+ * catálogo ANTES que esta lista, y ese orden es la regla entera: si nosotros decidimos
+ * que una familia además merece su proyecto, se agrega al catálogo y pasa a ser un
+ * destino legítimo. Ya pasó con «Content Machine» (12/8/2026): el modelo lo había
+ * inventado y estaba mal, y después el dueño decidió que la capa de estrategia sí hacía
+ * falta. Las dos cosas son ciertas y no se contradicen — cambia quién lo decide.
  *
  * Están escritas acá y no importadas de nav.ts a propósito: `lib/` no importa de
  * `app/`. El test `plan-proyectos-catalogo.test.ts` verifica que la lista siga siendo
