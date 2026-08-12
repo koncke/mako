@@ -141,7 +141,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm1c6', titulo: 'Lo que no sabés todavía',
         pregunta: 'La lista de datos que no existen, con quién los consigue y para cuándo.',
-        graba: 'La clase que da permiso a no tener el dato. Lo importante es dejar claro que «no lo tengo, lo consigue Fulano el 12» es una respuesta COMPLETA, y que el hueco con dueño y fecha vale más que una cifra inventada.',
+        graba: 'La clase que da permiso a no tener el dato. Conviene grabarla en tono de alivio y no de reproche: es la que evita que el programa se frene esperando un número que nadie tiene.',
         atoro: 'El dato base no existe: le pasó a los cuatro clientes. TEXX vivió 19 días con la MCI abierta esperando una cifra de margen. Contestar «no lo tengo, lo consigue Fulano el 12» es una respuesta válida.',
       },
     ],
@@ -242,7 +242,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm5c4', titulo: 'Cómo se lo contás al equipo',
         pregunta: 'Quién lo dice, en qué foro, con qué ritual y cómo se ancla en la junta semanal.',
-        graba: 'Éste sí va solo, porque acá se atora: el enunciado sale y la bajada no ocurre sola. Foro, ritual y anclaje en la semanal. Y la advertencia del vocabulario, que es concreta y se entiende con el ejemplo.',
+        graba: 'Va solo, y es el único del módulo que necesita video propio. Tres cosas concretas: quién lo dice, en qué foro, y cómo queda anclado en la junta semanal para que no sea un anuncio de una sola vez.',
         atoro: 'Acá se atora la bajada, no la redacción: el enunciado sale bien en los cuatro clientes, comunicarlo no ocurre solo. Y el vocabulario traiciona: en Baja Teriyaki «honrar» se cambió a «consentirse» porque sonaba demasiado formal para hablarle al equipo.',
       },
     ],
@@ -253,7 +253,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm6c1', titulo: 'Para qué existe esta área',
         pregunta: 'A cuál de las dos MCIs sirve, y qué número movería si hiciera todo perfecto un trimestre.',
-        graba: 'El primer video del tramo que se repite por área. Lo que destraba no es el formulario, es dar el contexto: el líder tiene que entender para qué existe su rol DENTRO del sistema antes de que le pidan números.',
+        graba: 'El primer video del tramo que se repite por área, y el primero que le habla al LÍDER y no al dueño. Sirve para ubicarlo: dónde encaja su área en las dos MCIs, antes de pedirle un solo número.',
         atoro: 'Lo que destraba no es el formulario, es el contexto. Un director de HMO llegó solo con sus tres números puestos cuando su rol ya tenía una razón de existir dentro del sistema.',
       },
       {
@@ -271,7 +271,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm6c5', titulo: 'El número del área, con su base y su fuente',
         pregunta: 'El indicador consecuencia del área: su base real hoy, la meta, cada cuánto se cierra y si el área ya lo calcula.',
-        graba: 'El indicador consecuencia y la misma pregunta que decide todo: si hay que inventar un reporte para calcularlo, no entra en este ciclo.',
+        graba: 'El indicador consecuencia del área: qué mide, cuál es su base real de hoy y cada cuánto se cierra. La última pregunta del formulario es la que decide si entra o no en este ciclo.',
         atoro: 'Si hay que inventar un reporte para calcularlo, no entra en este ciclo. El tablero recibe cifras que el área YA cierra.',
       },
       {
@@ -288,7 +288,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm7c1', titulo: 'Qué prueba que se hizo',
         pregunta: 'Por cada palanca: foto, checklist, formulario, lectura, registro en sistema o entregable.',
-        graba: 'El bloqueo número uno de todo el programa, así que éste es el video para tomarse el tiempo. Las seis formas de evidencia, con un ejemplo de cada una en un rubro distinto: el cliente sabe qué quiere que pase, no sabe cómo probar que pasó.',
+        graba: 'El video para tomarse el tiempo. Las seis formas de evidencia —foto, checklist, formulario, lectura, registro en sistema y entregable— con un ejemplo de cada una en un rubro distinto.',
         atoro: 'Es el bloqueo número uno de todo el programa. Baja Teriyaki estuvo tres semanas detenida en esta sola pregunta. «El cliente sabe qué quiere que pase. No sabe cómo probar que pasó.»',
       },
       {
@@ -301,7 +301,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm7c3', titulo: 'Quién sube y quién valida',
         pregunta: 'Cuántas capturas por día, en qué momentos, y cuánto tarda la persona en subirla.',
-        graba: 'Va solo porque es una regla operativa con número propio: si subir la evidencia pasa de dos minutos, no se va a hacer. Y la consecuencia dura, que conviene decir de frente: sin evidencia subida es rojo, aunque el trabajo se haya hecho.',
+        graba: 'La logística de la captura: cuántas veces al día, en qué momentos y quién valida. Va solo porque es una regla operativa con número propio, no una idea.',
         atoro: 'Si subir la evidencia pasa de dos minutos, no se va a hacer. Y sin evidencia subida, rojo, aunque el trabajo se haya hecho.',
       },
     ],
@@ -312,7 +312,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm8c1', titulo: 'Qué ya lograste alguna vez',
         pregunta: 'Ese número es el piso de lo posible, no la meta.',
-        graba: 'Un solo video para los tres umbrales: verde, amarillo y rojo son un ejercicio, no tres. Éste es el arranque y es el que destraba — se pregunta qué ya se logró alguna vez, nunca «cuál sería una buena meta», porque ante esa pregunta el dueño no contesta.',
+        graba: 'Un solo video para los tres umbrales: son un ejercicio, no tres. Arranca por el piso —lo que ya se logró alguna vez—, que es el único ancla que el líder tiene para calibrar todo lo demás.',
         atoro: 'El dueño no tiene referencia de qué es exigente pero posible, y ante la duda no contesta: Patricia no devolvió el archivo. Por eso la pregunta que sí funciona es esta, y no «¿cuál sería una buena meta?».',
       },
       {
@@ -324,7 +324,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm8c3', titulo: 'Cuándo se cae',
         pregunta: 'Qué tendría que pasar para que esto salga mal. Esa es la definición del rojo.',
-        graba: 'El rojo, y las dos reglas que cierran el video: rangos sin traslape entre los tres —es el error más común— y nada de 100% salvo donde incumplir sea inadmisible por seguridad, legal o pérdida de cliente.',
+        graba: 'El rojo se define al revés que los otros dos: no es «cuánto menos», es qué tendría que pasar para que esto salga mal. Cerrá mostrando los tres rangos juntos, ya escritos, que es cuando se ve si encajan.',
         atoro: 'Rangos sin traslape entre verde, amarillo y rojo: es el error más común. Y nada de 100% salvo donde el incumplimiento sea inadmisible por seguridad, legal o pérdida de cliente.',
         mismoVideoQue: 'm8c1',
       },
@@ -336,7 +336,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm9c1', titulo: 'Qué puede decidir sin consultarte',
         pregunta: 'El límite explícito: hasta cuánto de gasto, qué tipo de decisión, en qué situaciones.',
-        graba: 'La carta entera es UN video: son cuatro secciones de un mismo documento y una sola explicación. Ésta es la crítica de todo el programa —si queda vacía, el tablero puede estar perfecto y el líder sigue escalando— así que conviene abrir por acá y ser concreto con montos.',
+        graba: 'La carta entera es UN video: son cuatro secciones de un mismo documento y una sola explicación. Abrí por ésta y sé concreto con montos — un límite sin número no es un límite.',
         atoro: 'Es la sección crítica de todo el programa. Si queda vacía, el tablero puede estar perfecto y el líder va a seguir escalando: la junta semanal sigue siendo el dueño resolviendo.',
       },
       {
@@ -375,7 +375,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm10c3', titulo: 'La única métrica que importa',
         pregunta: 'Cómo vas a medir que hablás menos del 20% del tiempo en la junta semanal.',
-        graba: 'El cierre del mismo video, y es la prueba de si el sistema funciona: si el dueño habla más del 20%, la junta está reforzando la dependencia en vez de disolverla. Conviene sugerir cómo se mide sin que sea incómodo.',
+        graba: 'El cierre del mismo video: cómo se mide que el dueño hable menos del 20% del tiempo. Vale sugerir la forma práctica —alguien que cronometre, una grabación— para que no quede como una buena intención.',
         atoro: 'Si el dueño habla más, la junta está reforzando la dependencia en vez de disolverla.',
         mismoVideoQue: 'm10c2',
       },
@@ -387,7 +387,7 @@ export const PROGRAMA: Modulo[] = [
       {
         id: 'm11c1', titulo: 'Los catálogos que faltan',
         pregunta: 'Lo que no existe (productos por margen, inventario, descripciones de puesto, rangos operativos), con responsable y fecha.',
-        graba: 'Por qué esto aparece al final y no al principio: son los catálogos que recién se descubren cuando cada palanca ya tiene nombre. No es trabajo de tablero, es trabajo previo, y cada uno bloquea una palanca concreta.',
+        graba: 'Por qué esto aparece recién al final: lo que falta solo se ve cuando cada palanca ya tiene nombre y hay que ir a buscar su dato. Se piden con responsable y fecha, como cualquier otro compromiso.',
         atoro: 'En TEXX se detectaron trece catálogos faltantes, cada uno bloqueando una palanca. No es trabajo de tablero: es trabajo previo que aparece al final.',
       },
       {

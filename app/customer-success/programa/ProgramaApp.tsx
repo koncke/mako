@@ -53,13 +53,14 @@ const TIPO: Record<Campo['tipo'], string> = {
   eleccion: 'Elegir una', checks: 'Marcar varias', tabla: 'Tabla',
 };
 
-export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, moduloEnUrl }: {
+export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, moduloEnUrl, videoEnUrl }: {
   modulos: Modulo[];
   totales: { clases: number; campos: number; enWhop: number; videos: number };
   whopConectado: boolean;
   tabInicial?: string;
-  /** `?m=` — qué módulo de la tab Clases está abierto. Ver el comentario en `Grabar`. */
+  /** `?m=` y `?v=` — qué módulo y qué video están abiertos. Ver `Grabar`. */
   moduloEnUrl?: string;
+  videoEnUrl?: string;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<string>(() =>
@@ -121,7 +122,7 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, modul
       ) : null}
 
       {enClases ? (
-        <Grabar modulos={modulos} totales={totales} moduloAbierto={moduloEnUrl} />
+        <Grabar modulos={modulos} totales={totales} moduloAbierto={moduloEnUrl} videoAbierto={videoEnUrl} />
       ) : !modulo ? (
         <ul className="pg-grid">
           {modulos.map((m) => <li key={m.id}><CardModulo m={m} onAbrir={() => abrirModulo(m.id)} /></li>)}
@@ -186,10 +187,11 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, modul
  *
  * Lista con filete, no pila de cajas: son 25 cosas del mismo tipo.
  */
-function Grabar({ modulos, totales, moduloAbierto }: {
+function Grabar({ modulos, totales, moduloAbierto, videoAbierto }: {
   modulos: Modulo[];
   totales: { clases: number; videos: number };
   moduloAbierto?: string;
+  videoAbierto?: string;
 }) {
   // ⚠️ QUÉ MÓDULO ESTÁ ABIERTO VIAJA EN LA URL (`?m=m9`), NO EN UN useState.
   // Tres razones, y la tercera es la que decidió:
@@ -203,6 +205,41 @@ function Grabar({ modulos, totales, moduloAbierto }: {
   const modulo = modulos.find(m => m.id === moduloAbierto) ?? null;
   const ahorro = totales.clases - totales.videos;
 
+  // NIVEL 3 · un video. Acá vive la indicación de qué grabar.
+  const video = modulo?.videos.find(ids => ids[0] === videoAbierto) ?? null;
+  if (modulo && video) {
+    const clases = video.map(id => porId.get(id)!).filter(Boolean);
+    const i = modulo.videos.indexOf(video);
+    const sig = modulo.videos[i + 1] ?? null;
+    const sigClases = sig?.map(id => porId.get(id)!).filter(Boolean) ?? [];
+    return (
+      <div className="gr-det">
+        <Link className="gr-volver" href={`/customer-success/programa?m=${modulo.id}`}>
+          ← Módulo {modulo.numero} · {modulo.titulo}
+        </Link>
+        <p className="migas">{clases.map(c => c.rotulo).join(' + ')}</p>
+        <h2 className="tit">{clases[0].titulo}</h2>
+        <p className="sub">
+          Un video · {clases.length} {clases.length === 1 ? 'clase' : 'clases'}
+        </p>
+        <div className="tags">
+          {clases.some(c => c.destraba) && <Status tono="mako">De los que destraban</Status>}
+          {clases.some(c => !c.enWhop) && <Status tono="warn">Falta en Whop</Status>}
+          {modulo.porArea && <Status tono="neutral">Se graba una vez, se contesta por área</Status>}
+        </div>
+
+        <QueGrabar clases={clases} />
+
+        {sig && (
+          <Link className="gr-sig" href={`/customer-success/programa?m=${modulo.id}&v=${sig[0]}`}>
+            {sigClases.map(c => c.rotulo).join(' + ')} · {sigClases[0]?.titulo} →
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  // NIVEL 2 · un módulo: sus videos, en la misma card que los módulos.
   if (modulo) {
     const i = modulos.indexOf(modulo);
     const sig = modulos[i + 1] ?? null;
@@ -219,7 +256,7 @@ function Grabar({ modulos, totales, moduloAbierto }: {
           {modulo.quien !== 'dueño' && <Status tono="info">La tarea la contesta el líder del área</Status>}
         </div>
 
-        <Videos ids={modulo.videos} porId={porId} />
+        <Videos moduloId={modulo.id} ids={modulo.videos} porId={porId} />
 
         {sig && (
           <Link className="gr-sig" href={`/customer-success/programa?m=${sig.id}`}>
@@ -329,11 +366,16 @@ function CardGrabar({ m }: { m: Modulo }) {
   );
 }
 
-/** Los videos de un módulo, en la MISMA card. Lo que va adentro es la
- *  indicación de qué grabar: un bullet por clase, y el atoro donde lo hay. */
-function Videos({ ids, porId }: { ids: string[][]; porId: Map<string, Clase> }) {
+/**
+ * Los videos de un módulo: LA MISMA card que los módulos, y navega igual — cada
+ * una lleva a su propia ruta (`?m=…&v=…`), donde está la indicación de qué
+ * grabar. Tres niveles con la misma mecánica: módulos → videos → qué grabar.
+ */
+function Videos({ moduloId, ids, porId }: {
+  moduloId: string; ids: string[][]; porId: Map<string, Clase>;
+}) {
   return (
-    <ul className="gr-grid ancha">
+    <ul className="gr-grid">
       {ids.map((grupo) => {
         const clases = grupo.map(id => porId.get(id)!).filter(Boolean);
         if (!clases.length) return null;
@@ -342,6 +384,7 @@ function Videos({ ids, porId }: { ids: string[][]; porId: Map<string, Clase> }) 
         return (
           <li key={grupo[0]}>
             <CardPrograma
+              href={`/customer-success/programa?m=${moduloId}&v=${grupo[0]}`}
               filo={enWhop / clases.length}
               rotulo={clases.map(c => c.rotulo).join(' + ')}
               titulo={clases[0].titulo}
@@ -351,26 +394,38 @@ function Videos({ ids, porId }: { ids: string[][]; porId: Map<string, Clase> }) 
                 {enWhop < clases.length && <Status tono="warn">Falta en Whop</Status>}
               </>}
             >
-              {/* La indicación de qué grabar. El título de la PRIMERA clase no
-                  se repite: ya es el de la card, y verlo dos veces seguidas se
-                  lee como un error. */}
-              <span className="partes">
-                {clases.map((c, i) => (
-                  <span key={c.id} className="parte">
-                    {clases.length > 1 && <span className="r">{c.rotulo}</span>}
-                    <span className="in">
-                      {clases.length > 1 && i > 0 && <span className="t">{c.titulo}</span>}
-                      <span className="g">{c.graba}</span>
-                      {c.atoro && <span className="ojo"><b>Ojo.</b> {c.atoro}</span>}
-                    </span>
-                  </span>
-                ))}
+              <span className="cifra">
+                <b>{clases.length}</b>
+                <span>{clases.length === 1 ? 'clase' : 'clases'}</span>
+              </span>
+              <span className="pie">
+                {clases.length === 1 ? 'Una sola tarea' : 'Una grabación, una tarea por clase'}
               </span>
             </CardPrograma>
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/** La indicación de qué grabar: un bullet por clase, con el atoro donde lo hay.
+ *  Es CONTEXTO, no un guion — Mauricio sabe su material. */
+function QueGrabar({ clases }: { clases: Clase[] }) {
+  return (
+    <section className="qg">
+      <h3>Qué va en este video</h3>
+      <ol>
+        {clases.map((c) => (
+          <li key={c.id}>
+            <p className="r">{c.rotulo} · {c.titulo}</p>
+            <p className="g">{c.graba}</p>
+            {c.atoro && <p className="ojo"><b>Ojo con esto.</b> {c.atoro}</p>}
+            <p className="tarea"><b>La tarea que deja el cliente:</b> {c.pregunta}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -484,8 +539,8 @@ const CSS = `
 .gr-grid{ list-style:none; margin:0; padding:0; display:grid; gap:14px;
   grid-template-columns:repeat(auto-fill, minmax(268px, 1fr)); align-items:start; }
 .gr-grid > li{ display:flex; }
-.gr-grid.ancha{ grid-template-columns:1fr; }
-@media(min-width:1200px){ .gr-grid.ancha{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+
+
 
 /* LA card de esta tab: la misma para un módulo y para un video. */
 .grc{ position:relative; display:flex; flex-direction:column; width:100%;
@@ -518,19 +573,20 @@ a.grc:hover{ border-color:var(--border-strong); }
 .grc .pie em{ font-style:normal; color:var(--mako-ink); }
 .grc .tags{ display:flex; gap:5px; flex-wrap:wrap; margin-top:auto; padding-top:14px; }
 
-/* Lo propio de la card de VIDEO: la indicación de qué grabar. */
-.grc .partes{ display:block; margin:13px 0 0; }
-.grc .parte{ display:flex; gap:10px; padding:9px 0 0; }
-.grc .parte + .parte{ margin-top:3px; border-top:1px solid var(--border); padding-top:11px; }
-.grc.destaca .parte + .parte{ border-top-color:var(--mako-border); }
-.grc .parte .r{ flex:none; width:28px; font-family:${MONO}; font-size:10.5px; color:var(--faint);
-  padding-top:3px; font-variant-numeric:tabular-nums; }
-.grc .parte .in{ flex:1; min-width:0; display:block; }
-.grc .parte .t{ display:block; font-size:13.5px; font-weight:600; margin-bottom:3px; }
-.grc .parte .g{ display:block; font-size:14.5px; line-height:1.6; color:var(--dim); }
-.grc .parte .ojo{ display:block; font-size:13.5px; line-height:1.55; color:var(--dim);
-  margin-top:8px; border-left:2px solid var(--mako); padding-left:11px; }
-.grc .parte .ojo b{ color:var(--ink); }
+/* NIVEL 3 · qué grabar. Acá el ancho es de LECTURA: es prosa, no una ficha. */
+.qg{ margin:26px 0 0; }
+.qg h3{ font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--faint);
+  font-weight:600; margin:0 0 4px; }
+.qg ol{ list-style:none; margin:0; padding:0; }
+.qg > ol > li{ padding:18px 0 20px; border-top:1px solid var(--border); }
+.qg .r{ font-family:${MONO}; font-size:11.5px; color:var(--faint); margin:0 0 8px;
+  font-variant-numeric:tabular-nums; }
+.qg .g{ font-size:16px; line-height:1.65; color:var(--ink); margin:0; max-width:68ch; }
+.qg .ojo{ font-size:14px; line-height:1.6; color:var(--dim); margin:14px 0 0;
+  border-left:2px solid var(--mako); padding-left:14px; max-width:68ch; }
+.qg .ojo b{ color:var(--ink); }
+.qg .tarea{ font-size:13.5px; line-height:1.6; color:var(--faint); margin:14px 0 0; max-width:68ch; }
+.qg .tarea b{ color:var(--dim); font-weight:600; }
 
 /* ── La tab Clases: los videos de un módulo ───────────────────────────────── */
 .gr-det{ padding:0 0 40px; }

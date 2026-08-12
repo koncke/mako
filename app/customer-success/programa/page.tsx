@@ -24,14 +24,14 @@ export const revalidate = 0;
 
 export const metadata = { title: 'Program · Customer Success' };
 
-export default async function ProgramaPage({ searchParams }: { searchParams: Promise<{ tab?: string; m?: string }> }) {
+export default async function ProgramaPage({ searchParams }: { searchParams: Promise<{ tab?: string; m?: string; v?: string }> }) {
   // Mismo guard que la cartera, y por el mismo motivo: acá se ve el temario
   // COMPLETO de Mauricio. Ver el comentario largo en ../page.tsx.
   if (!(await esWorkspaceDueno())) return <ComingSoon title="Customer Success" icon="cs" />;
 
   // La sub-tab se lee ACÁ y no con useSearchParams: ese hook hace que el
   // boundary se saltee el render del servidor y la primera pintura salga vacía.
-  const [{ tab, m: moduloEnUrl }, mapa, whop] = await Promise.all([
+  const [{ tab, m: moduloEnUrl, v: videoEnUrl }, mapa, whop] = await Promise.all([
     searchParams,
     getMapaLecciones().catch(() => ({})),
     whopConfigurado().catch(() => false),
@@ -46,6 +46,7 @@ export default async function ProgramaPage({ searchParams }: { searchParams: Pro
     <ProgramaApp
       tabInicial={tab}
       moduloEnUrl={moduloEnUrl}
+      videoEnUrl={videoEnUrl}
       modulos={PROGRAMA.map(m => ({
         id: m.id, numero: m.numero, titulo: m.titulo, fase: m.fase,
         quien: m.quien, porArea: Boolean(m.porArea),
