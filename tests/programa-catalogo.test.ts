@@ -163,6 +163,38 @@ test('si el texto dice «en el mismo video», el dato lo dice también', () => {
   }
 });
 
+test('toda clase trae los puntos de su grabación, y son un esqueleto y no un guion', () => {
+  // `puntos` es lo único que Mauricio lee antes de sentarse a grabar. Una clase
+  // sin puntos es una clase que no se puede grabar sin volver al cuestionario.
+  for (const { clase } of CLASES) {
+    const p = clase.puntos ?? [];
+    assert.ok(p.length >= 4 && p.length <= 7, `${clase.id}: ${p.length} puntos (van de 4 a 7)`);
+    for (const [i, punto] of p.entries()) {
+      // El piso de largo es lo que separa un punto de un título. Los cortos
+      // fueron el primer intento y no alcanzaban para grabar con ellos.
+      assert.ok(punto.length >= 160, `${clase.id}#${i}: demasiado corto para grabar con él`);
+      // Un guion palabra por palabra se lee leído. Se dice QUÉ cubrir, no con
+      // qué palabras: estas tres formas son las que de hecho se colaron.
+      assert.doesNotMatch(punto, /\bdec[íi]:|\bdecir:|tal cual:/i, `${clase.id}#${i}: parece un guion`);
+    }
+  }
+});
+
+test('dentro de UNA grabación, dos clases no cierran con la misma muletilla', () => {
+  // Las clases que comparten video se dicen seguidas, en la misma sesión de
+  // cámara. Cuatro «Cerrar con…» en un mismo video se escucha como una plantilla
+  // — pasó, con los cuatro cierres del módulo 5.
+  for (const g of GRABACIONES) {
+    if (g.clases.length < 2) continue;
+    const arranques = g.clases.map(c => {
+      const p = c.puntos ?? [];
+      return (p[p.length - 1] ?? '').split(' ').slice(0, 2).join(' ').toLowerCase();
+    });
+    assert.equal(new Set(arranques).size, arranques.length,
+      `la grabación ${g.id} repite el arranque del cierre: ${arranques.join(' / ')}`);
+  }
+});
+
 test('grabar es MENOS trabajo que el temario, que es el punto de agrupar', () => {
   assert.ok(TOTAL_GRABACIONES < TOTAL_CLASES);
   assert.equal(TOTAL_GRABACIONES, GRABACIONES.length);
