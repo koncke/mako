@@ -17,18 +17,12 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { CURSOS, type Curso } from './curso';
-import { CURSO_VSL } from './curso-vsl';
-import { CURSO_PRODUCTO_APP } from './curso-producto-app';
-import { CURSO_CLAUDE_AI_RODRIGO_ROJO } from './curso-claude-ai-rodrigo-rojo';
-import AnalisisNegocio, { CURSO_ANALISIS } from './AnalisisNegocio';
-import BrandingMaKo, { CURSO_BRANDING } from './BrandingMaKo';
+import { type Curso } from './curso';
+import { CURSOS_TODOS as TODOS, buscarCurso, VISTA_PROPIA } from './catalogo';
+import AnalisisNegocio from './AnalisisNegocio';
+import BrandingMaKo from './BrandingMaKo';
 import Compartir from './Compartir';
 import CursoPortal, { Card, PortalShell } from './CursoPortal';
-
-// curso.ts es AUTO-GENERADO desde transcripciones: los módulos escritos a mano
-// viven en su propio archivo y se suman acá.
-const TODOS: Curso[] = [...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP, CURSO_CLAUDE_AI_RODRIGO_ROJO];
 
 // ── Selector de cursos (landing) ─────────────────────────────────────────────
 function Selector({ enter }: { enter: (slug: string) => void }) {
@@ -65,7 +59,7 @@ export default function Conocimientos() {
   const cursoSlug = params.get('curso');
   const claseN = params.get('clase');
   const rSlug = params.get('r');
-  const curso = cursoSlug ? TODOS.find((c) => c.slug === cursoSlug) : undefined;
+  const curso = buscarCurso(cursoSlug);
 
   const viewKey = params.toString();
   const scrollKey = (k: string) => 'cono-scroll:' + k;
@@ -92,10 +86,10 @@ export default function Conocimientos() {
   if (!curso) body = <Selector enter={(slug) => nav({ curso: slug })} />;
   // "Análisis de Negocio" es una vista INTERACTIVA (form + modales de fases), no
   // un curso de texto: se renderiza aparte del portal genérico.
-  else if (curso.slug === 'analisis-negocio') body = <AnalisisNegocio back={() => nav({})} />;
+  else if (curso.slug === VISTA_PROPIA.analisis) body = <AnalisisNegocio back={() => nav({})} />;
   // "Branding MaKo" es una GALERÍA de archivos (no un curso de texto): el
   // material vive en Storage y se pide por API, así que también va aparte.
-  else if (curso.slug === 'branding-mako') body = <BrandingMaKo back={() => nav({})} />;
+  else if (curso.slug === VISTA_PROPIA.branding) body = <BrandingMaKo back={() => nav({})} />;
   else body = (
     <CursoPortal
       curso={curso}

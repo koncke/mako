@@ -32,6 +32,10 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 9. **El pre-push verde no significa que un script corra**: `tsx` compila a CJS y el
    `await` de nivel superior falla recién al ejecutar.
    [→](#npx-tsx-compila-a-cjs-un-await-de-nivel-superior-explota-en-ejecución)
+10. **⚠️ Un link compartido que da 404 con `0 visitas` NO es el token: es el catálogo.** El
+    portal y el link compartido tenían dos listas de cursos distintas, y cada curso nuevo
+    nacía con el link roto sin ningún síntoma del lado del admin.
+    [→](#️-el-link-compartido-de-un-curso-daba-404-porque-el-catálogo-estaba-escrito-dos-veces)
 
 ---
 
@@ -51,8 +55,8 @@ abrir la clase para no meter 1,6 MB en el bundle.
 Y el catálogo es un archivo **auto-generado de 1,6 MB**: `app/conocimientos/curso.ts`
 exporta `CURSOS: Curso[]`, con `videoId: string | null`, `hasTx?: boolean` (que gatea el
 fetch a `/cono-tx`) y un `transcripcion: string[]` que va **vacío a propósito**. Los
-módulos escritos a mano viven aparte y se suman en `Conocimientos.tsx`:
-`[...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP]`.
+módulos escritos a mano viven aparte y se suman en `app/conocimientos/catalogo.ts`, que es
+la fuente única de la lista (ver la entrada de abajo sobre el link compartido).
 
 **Regla.** Para sumar material al portal, lo que se produce es una **transcripción con el
 nombre del `videoId`**, no un archivo de video. Y no se edita `curso.ts` a mano: está
@@ -61,6 +65,41 @@ cualquier cambio de forma se ve en dos lugares.
 
 **Vive en:** `app/conocimientos/curso.ts` · `app/conocimientos/CursoPortal.tsx:171,203` ·
 `public/cono-tx/`
+
+### ⚠️ El link compartido de un curso daba 404 porque el catálogo estaba escrito DOS veces
+
+**Síntoma.** Se comparte un curso desde `/conocimientos` con «Cualquiera con el enlace», el
+modal dice «Listo» y muestra el link, la fila del share queda viva y con `0 visitas` — y el
+link abre un **404 de Next**. Desde el lado del admin no hay ningún síntoma: nada falla,
+nada se loguea.
+
+El diagnóstico obvio es el equivocado tres veces seguidas. El 404 **no** era un token mal
+copiado, **no** era el share revocado o vencido, y **no** era el gate de `proxy.ts`: era el
+`notFound()` del final de la búsqueda del curso, adentro de una página que ya había
+resuelto el token bien. Y el contador de visitas lo confirma sin ambigüedad —
+`registrarVisita()` corre **después** de encontrar el curso, así que **`0 visitas` + 404
+significa que el token resolvió y lo que no se encontró fue el material**. Con `resolverToken`
+fallando no habría fila que mirar.
+
+**Causa.** El catálogo de cursos estaba armado en dos lugares con dos listas distintas:
+`Conocimientos.tsx` juntaba seis fuentes, y `app/compartido/[token]/page.tsx` armaba la suya,
+`[...CURSOS, CURSO_VSL]`. Los cursos que viven en archivo propio —«Curso de Claude AI -
+Rodrigo Rojo» y «Construir la app»— aparecían en el portal, se podían compartir desde la UI,
+y su link no resolvía. **Cada curso nuevo nacía con el link roto**, porque el archivo que
+había que tocar no era ninguno de los dos que se tocan al agregarlo.
+
+**Regla.** Es «Una cosa, un lugar» (AGENTS.md) con el agravante de que el segundo lugar es
+**invisible desde donde se agrega el dato**. La lista vive en `app/conocimientos/catalogo.ts`
+y la importan los dos lados; los slugs de los dos cursos con vista propia —el Análisis de
+Negocio, que es un formulario, y Branding, que se comparte por su propio `recurso='branding'`—
+se nombran ahí y no sueltos en cada `if`.
+
+Y la que sirve para cualquier feature con dos caras: **una pantalla pública que refleja una
+privada no se verifica mirando la privada.** El portal del admin funcionó perfecto todo el
+tiempo. Lo que hay que abrir es el link, como invitado.
+
+**Vive en:** `app/conocimientos/catalogo.ts` · `app/compartido/[token]/page.tsx:40` ·
+`app/conocimientos/Conocimientos.tsx` (corrida del 2026-08-12)
 
 ### La puerta de entrada a la ingesta YA existe — no hay que escribir pipeline nuevo
 

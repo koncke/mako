@@ -17,9 +17,7 @@ import TareaCliente from './TareaCliente';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
 import AnalisisCompartido from './AnalisisCompartido';
-import { CURSOS } from '@/app/conocimientos/curso';
-import { CURSO_VSL } from '@/app/conocimientos/curso-vsl';
-import { CURSO_ANALISIS } from '@/app/conocimientos/AnalisisNegocio';
+import { buscarCurso, VISTA_PROPIA } from '@/app/conocimientos/catalogo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,15 +35,20 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
   // ── Un curso compartido: el MISMO portal de /conocimientos ──
   // Mismo componente que ve el admin (videos, recursos, prompts, transcripción),
   // sin el chrome de la app ni el botón de Compartir.
+  // El catálogo es el MISMO que lista /conocimientos (ver catalogo.ts): si acá
+  // se armara una lista aparte, cada curso nuevo nacería con el link roto.
   if (acceso.share.recurso === 'curso') {
     const slug = acceso.share.recurso_id;
     // El Análisis de Negocio es un curso INTERACTIVO (no clases de video): tiene
     // su propia vista compartida, con el mismo contenido que ve el admin.
-    if (slug === CURSO_ANALISIS.slug) {
+    if (slug === VISTA_PROPIA.analisis) {
       await registrarVisita(acceso);
       return <AnalisisCompartido invitado={acceso.invitado?.email ?? null} />;
     }
-    const curso = [...CURSOS, CURSO_VSL].find((c) => c.slug === slug);
+    // Branding se comparte por su propio recurso ('branding' → Galeria), que es
+    // el que sabe de secciones y piezas sueltas. Como curso no se sirve.
+    if (slug === VISTA_PROPIA.branding) notFound();
+    const curso = buscarCurso(slug);
     if (!curso) notFound();
     await registrarVisita(acceso);
     return <CursoCompartido curso={curso} invitado={acceso.invitado?.email ?? null} />;
