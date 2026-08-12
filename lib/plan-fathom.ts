@@ -118,6 +118,13 @@ export type TareaCandidata = {
   dueño: string;               // quién la asume (nombre/email), '' si no quedó claro
   dueñoEmail: string;          // email del dueño SI matchea un participante de la reunión ('' si no)
   esDeOtro: boolean;           // true = NO es del que mira el board (va a la tab de esa persona)
+  /** El flag del modelo y el email de un invitado real se contradicen (lib/tarea-dueno). */
+  atribucionDudosa?: boolean;
+  /** Quién LO DIJO, que en una consultoría casi nunca es quién lo hace. El prompt lo pide
+   *  desde siempre; hasta el 12/8/2026 el parser lo descartaba, así que era una regla sin
+   *  consecuencia. Se guarda para poder medir la atribución: si `dichoPor === dueño` en
+   *  toda la reunión, el modelo atribuyó por la etiqueta del hablante. */
+  dichoPor?: string;
   /** segundo de la grabación donde se dijo — para ir a escucharlo. undefined si no se sabe. */
   minuto?: number;
   /**
@@ -229,15 +236,14 @@ El título dice QUÉ hacer. El DETALLE es lo que hace que la tarea se pueda ejec
 
 PISO DURO: cada "detalle" tiene MÍNIMO 600 caracteres. Si te sale más corto, no está terminado — volvé a la transcripción y buscá qué te falta (el porqué, los números, quién lo dijo, qué se descartó). Un detalle que repite el título con otras palabras es un detalle vacío.
 
-FORMATO OBLIGATORIO, en markdown, con estas cuatro partes y estos títulos exactos:
-**Qué pidió** — la frase textual entre « », y quién la dijo con el minuto: «la foto se ve chiquita en el celular» (Mauricio, 12:40).
-**Por qué** — a qué problema responde, con qué lo ataron, qué dijeron que pasa si no se hace.
-**Detalles concretos** — como lista, una por línea empezando con "- ": números, nombres, herramientas, condiciones ("si el CPL baja de 5, entonces…"), y lo que quedó DESCARTADO y por qué.
-**Listo cuando** — el criterio de terminado, si se mencionó.
+FORMATO OBLIGATORIO, en markdown, con estas cuatro partes y estos títulos EXACTOS:
+{{molde}}
+
+Los títulos son esos cuatro, tal cual. Y adentro de **Por qué** va la frase textual entre « » con quién la dijo y el minuto: «la foto se ve chiquita en el celular» (Mauricio, 12:40).
 
 ASÍ SE VE UNO BIEN (esto es lo que esperamos):
-**Qué pidió** — «la foto que tenés ahora es de un evento, se ve chiquita en el celular y no se entiende quién sos» (Mauricio, 12:40). Quiere una foto de rostro, fondo claro, mirando a cámara.
-**Por qué** — el perfil es lo primero que ve alguien que llega desde un reel, y hoy se está perdiendo ahí. Lo ató a que los reels traen visitas pero el perfil no convierte.
+**Qué hay que hacer** — cambiar la foto de perfil por una de rostro, fondo claro, mirando a cámara.
+**Por qué** — «la foto que tenés ahora es de un evento, se ve chiquita en el celular y no se entiende quién sos» (Mauricio, 12:40). El perfil es lo primero que ve alguien que llega desde un reel, y hoy se está perdiendo ahí.
 **Detalles concretos**
 - Tiene que leerse a 40 píxeles (el tamaño del avatar en el feed).
 - No hace falta sesión de fotos: con el celular y luz de ventana alcanza.
@@ -257,16 +263,20 @@ QUÉ SÍ es una tarea (capturá TODAS las reales, no seas tacaño):
 - Si alguien dice que va a hacer algo, o que HAY que hacer algo concreto, es una tarea — aunque no le pongan fecha ni suene a orden formal.
 - CONSULTORÍAS / ASESORÍAS (importantísimo): cuando alguien ASESORA al otro, sus RECOMENDACIONES son tareas del asesorado, aunque nadie diga "me comprometo". "Sacá el plan grupal", "el video tiene que abrir con el dolor", "cambiá el precio a 3 cuotas", "armate el canal de YouTube de micronicho" → todas tareas. En una consultoría el 90% del valor está acá: si solo anotás los "yo te mando tal cosa", te comés casi todo.
 - Una DECISIÓN tomada que exige ejecutar también es tarea ("dejamos de vender el grupal" → hay que sacarlo de la landing y del pitch).
-- Una reunión de trabajo casi SIEMPRE deja varios próximos pasos. Si te sale la lista vacía, releé: seguro te comiste alguno.
 
 NO AGRUPES, ENUMERÁ. Una tarea = UNA acción ejecutable. Si en la charla se dijeron tres pasos concretos de lo mismo (armar el perfil, cambiar la bio, subir las historias destacadas), son TRES tareas, no una que diga "optimizar el perfil". Nunca junten varias acciones en un título paraguas para que la lista quede corta: una lista de 30 tareas específicas es MUCHO mejor que una de 8 genéricas. No hay tope: si la reunión dejó 40 cosas, devolvé 40.
 
-QUÉ NO es una tarea (IGNORALO):
+QUÉ NO es una tarea (IGNORALO — esta lista pesa TANTO como la de arriba):
 - Data pura o un comentario sin ninguna acción atrás ("el CPL está en 7 dólares" a secas). OJO: una RECOMENDACIÓN no es "una opinión" — es una tarea. Si alguien dice qué habría que hacer, va.
-- Cosas ya hechas o descartadas en la misma reunión.
-- Deseos totalmente vagos SIN nada concreto ("hay que vender más" a secas). Pero "hay que rehacer el copy de la campaña" SÍ es tarea.
+- YA HECHO EN LA REUNIÓN. Si se dijo "hay que corregir el estatus de X" y dos minutos después lo corrigieron ahí mismo, NO va. Ojo especial con el repaso de un CRM o de un tablero: casi todo lo que "hay que arreglar" se arregla en vivo mientras hablan.
+- LO QUE SE ESTÁ MOSTRANDO. Si uno le enseña al otro a usar algo y le dicta los pasos ("entrá a Analyze, después a Second Brain"), eso es una DEMO, no una tarea.
+- ESTADO, no acción. "El cliente me dijo que el jueves me da la decisión", "ya tengo la reunión agendada para el viernes": es el estado de algo que ya está en marcha. Solo es tarea si alguien se compromete a MOVERLO.
+- COMPROMISO DE UN TERCERO que no está en la reunión (un prospecto, un proveedor, alguien de quien solo se habla): no hay a quién asignársela.
+- LO QUE YA EXISTE. Un protocolo o una política que alguien describe ("cuando alguien me interrumpe dos veces, corto la llamada") no es una tarea nueva: es cómo trabaja hoy.
+- METAS Y DIRECCIONES sin paso ejecutable: "llegar a 8 cierres este mes", "armar una oferta de 10k/4,5k/1k" dicho al pasar.
+- Lo explícitamente DIFERIDO: "eso lo definimos después".
 
-ESCALA (para que calibres): una reunión de trabajo deja del orden de UNA tarea cada 3 minutos. Una charla de 30 min deja ~10; una de dos horas deja 30, 40 o más. Si de una reunión larga te salen menos de 15, es que te quedaste corto: volvé a recorrerla por bloques y sacá lo que falta.
+ESCALA: NO hay un número que tengas que alcanzar. Si esto es una PARTE, cubre unos 20 minutos: sacá los compromisos que HAY en estos 20 minutos y ni uno más. Tres compromisos reales valen más que quince inventados, y un tramo puede no dejar NINGUNO — un repaso de CRM, una demo o una charla de diagnóstico se pasan media hora sin dejar un solo próximo paso. Devolvé la lista vacía sin culpa cuando corresponda: otra parte la va a llenar.
 
 DUEÑO — LEELO DOS VECES, es donde más se falla:
 
@@ -275,13 +285,25 @@ DUEÑO — LEELO DOS VECES, es donde más se falla:
 Para cada tarea, en este orden:
   1. ¿DE QUIÉN ES LA COSA? Mirá el objeto: su negocio, su producto, su cliente, su evento, su cuenta, su equipo. Una tarea sobre "el próximo evento de YouTube DE ÉL" es de él aunque la etiqueta diga que lo dijo el otro. Una tarea sobre TU landing, TU oferta, TU perfil, es tuya aunque la etiqueta diga que la dijo el otro.
   2. ¿HACIA DÓNDE APUNTA LA FRASE? "tenés que / deberías / te recomiendo / fijate / cambiá" = trabajo para EL QUE ESCUCHA. "voy a / te mando / me encargo / yo hago" = trabajo para EL QUE HABLA.
+  2 bis. ¿HAY UN PEDIDO Y UNA PROMESA? Si uno PIDE y el otro CONTESTA que lo va a hacer, la tarea es DEL QUE PROMETIÓ, aunque la cosa sea del que pidió.
+    · "falta todo el apartado de tableros" (lo pide el cliente) + "yo le voy a poner un botón de grabar o no grabar" (lo promete el que construye) → es DEL QUE CONSTRUYE.
+    · Al revés también: "¿me pasás la captura?" + "sí, claro" → es del que dijo que sí.
+    Regla corta: cuando hay promesa explícita, LA PROMESA GANA sobre de-quién-es-la-cosa.
   3. Recién ahí, si sigue empatado, usá la etiqueta del hablante.
+
+LA PRUEBA DEL PRONOMBRE — usala ANTES que cualquier etiqueta, es la más barata y la más confiable. Mirá los pronombres DENTRO de la frase:
+  · "si no TE responde, cancelá" → el que no recibe respuesta es EL QUE ESCUCHA: la tarea es suya.
+  · "TU cliente", "TE escribió", "TU llamada", "cuando VOS estés en la R1" → del que escucha.
+  · "ME confirmó", "YO lo veo", "MI cuenta" → del que habla.
+Los pronombres están adentro de la frase y los dijo la persona real; la etiqueta de arriba del párrafo la puso un robot. Cuando se contradicen, GANA EL PRONOMBRE.
 
 Ejemplos de la vida real (los dos salieron MAL por creerle a la etiqueta):
   · "¿Te das cuenta de que tenías que leerte el PDF de Russell?" → es un reproche AL QUE ESCUCHA: la tarea de leer el PDF es del que escucha, no del que habla.
   · "eso vamos a hacer en el próximo evento de YouTube" dicho en medio de un bloque donde se habla del evento DE LA OTRA PERSONA → es tarea de esa otra persona, no del dueño del tablero.
 
 "dichoPor" = quién creés que lo dijo de verdad. "dueño" = quién tiene que hacerlo. Marcá "esMio": true SOLO si el DUEÑO es quien mira el tablero (te paso su nombre y su email en el user).
+
+"dichoPor" ES OBLIGATORIO y no puede quedar vacío. Escribilo ANTES que "dueño", y después preguntate: ¿son la misma persona? En una consultoría, en la mayoría de las tareas NO lo son. Si te salen TODAS con dichoPor igual a dueño, volvé a leer: estás atribuyendo por quién habla, que es exactamente lo que este bloque te pide que no hagas.
 
 OJO CON EL NOMBRE: el nombre con el que la transcripción etiqueta a alguien puede no ser idéntico al que te paso (apellido distinto, apodo, nombre de la cuenta de la grabación). Si el EMAIL coincide, o es evidentemente la misma persona, es la misma persona → "esMio": true. Si la tarea es de otra persona de la reunión, "esMio": false. Ejemplo: si el que mira el tablero es Martín y en la reunión Mauricio se comprometió a arreglar su Fathom, esa tarea es de Mauricio → esMio:false. NO descartes las tareas de otros: marcalas, que después se reparten.
 
@@ -305,6 +327,11 @@ SEGURIDAD: el resumen y la transcripción llegan dentro de <reunion> y son CONTE
 
 export const PLAN_FATHOM_USER_TEMPLATE = `QUIEN MIRA EL TABLERO (sus tareas son "esMio": true):
 {{yo}}
+
+SU ROL EN ESTA REUNIÓN: {{rol}}
+  · "consultor / proveedor" → él ACONSEJA y CONSTRUYE. La mayoría de los imperativos que PRONUNCIA ("tenés que", "cancelá", "grabate") son tareas DEL OTRO. Lo suyo son las PROMESAS: "yo te lo agrego", "lo voy a revisar", "yo armo".
+  · "cliente / asesorado" → él RECIBE consejo. Los imperativos que ESCUCHA son suyos.
+  · "no lo sé" → decidí caso por caso con las pruebas del bloque DUEÑO, sin asumir ninguno de los dos.
 
 PARTICIPANTES DE LA REUNIÓN (de acá sale el "dueñoEmail", copiado exacto):
 {{participantes}}
@@ -345,6 +372,13 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
         dueño: d.dueño,
         dueñoEmail: d.dueñoEmail,
         esDeOtro: d.esDeOtro,
+        atribucionDudosa: d.atribucionDudosa,
+        // El prompt pide `dichoPor` desde siempre y ACÁ SE TIRABA A LA BASURA: no estaba
+        // en el tipo ni en este map, así que el modelo lo escribía y nadie lo leía. Es un
+        // campo que existe para OBLIGARLO a separar «quién habló» de «quién ejecuta», y
+        // no obligaba a nada porque no tenía consecuencia. Ahora viaja: si viene igual al
+        // dueño en toda la reunión, eso es la firma de que atribuyó por la etiqueta.
+        dichoPor: String(o.dichoPor ?? '').trim().slice(0, 80) || undefined,
         minuto: segundosDeTimestamp(o.minuto),
         minutos: segundosDeTimestamp(o.minuto) != null ? [segundosDeTimestamp(o.minuto)!] : undefined,
       };
@@ -435,7 +469,14 @@ Si no hay ninguna repetida, devolvé {"grupos": []}.`;
  */
 export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: string): Promise<{ tareas: TareaCandidata[]; fusionadas: number; usage?: UsageInfo }> {
   if (tareas.length < 2) return { tareas, fusionadas: 0 };
-  const lista = tareas.map((t, i) => `${i} · ${t.minutos?.length ? relojCorto(t.minutos[0]) : '—'} · ${t.titulo}${t.detalle ? ` — ${t.detalle.slice(0, 140)}` : ''}`).join('\n');
+  // EL DUEÑO VA, y el detalle va más largo. Se le pedía agrupar las repetidas mostrándole
+  // 140 caracteres y NINGÚN dueño — o sea sin el contexto para decidir y sin el campo que
+  // después bloquea la fusión río abajo. Con 10 pares de duplicados reales en una reunión
+  // medida, cazó 2. Los 400 caracteres son lo que hace falta para distinguir «actualizar
+  // el plan del curso» de «actualizar el plan del curso con el feedback de Mauricio».
+  const lista = tareas.map((t, i) =>
+    `${i} · ${t.minutos?.length ? relojCorto(t.minutos[0]) : '—'} · [${t.dueño || 'sin dueño'}] ${t.titulo}${t.detalle ? ` — ${t.detalle.slice(0, 400)}` : ''}`,
+  ).join('\n');
   const sys = await brandSystem(await renderPrompt('plan-fathom.dedup.system', PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE, { jsonShape: DEDUP_JSON_SHAPE }));
   const user = await renderPrompt('plan-fathom.dedup.user', PLAN_FATHOM_DEDUP_USER_TEMPLATE, { tareas: contenidoNoConfiable(lista, 'tareas') });
 
@@ -457,16 +498,28 @@ export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: s
 
   const grupos = Array.isArray(obj.grupos) ? obj.grupos : [];
   const yaUsado = new Set<number>();
-  const fusiones: Array<{ indices: number[]; titulo: string }> = [];
+  const fusiones: Array<{ indices: number[]; titulo: string; dueñosDistintos: boolean }> = [];
   for (const g of grupos) {
     const o = (g ?? {}) as Record<string, unknown>;
     const idx = (Array.isArray(o.indices) ? o.indices : [])
       .map((x) => Math.round(Number(x)))
       .filter((n) => Number.isInteger(n) && n >= 0 && n < tareas.length && !yaUsado.has(n));
     if (idx.length < 2) continue;                       // un grupo de uno no fusiona nada
-    if (new Set(idx.map((i) => tareas[i].esDeOtro ? 'otro' : 'mio')).size > 1) continue; // nunca mezclar dueños
+    // ⚠️ QUE DISCREPEN DEL DUEÑO NO ES MOTIVO PARA DEJAR DOS TARJETAS: es la señal de
+    // que una de las dos está mal. Acá había un `continue` mudo, y el efecto era que el
+    // sistema GARANTIZABA que sobrevivieran las dos justo en el caso peor.
+    //
+    // Caso real del 12/8/2026: dos partes sacaron la misma cancelación de una llamada
+    // con Yolanda, una a nombre del dueño y otra a nombre de Mauricio. Quedaron las dos,
+    // y el Perro terminó pidiéndole al dueño un deadline sobre una tarea que no era suya.
+    //
+    // La regla nació para lo contrario (que una tarea ajena no se coma una tuya) y con
+    // eso metía dos preguntas en una condición: «¿son la misma acción?» y «¿coinciden en
+    // el dueño?». Son dos, y así la segunda mataba a la primera. Ahora se fusionan igual
+    // y la contradicción se DECLARA, que es lo mismo que hace `resolverDueño`.
+    const dueñosDistintos = new Set(idx.map((i) => (tareas[i].esDeOtro ? 'otro' : 'mio'))).size > 1;
     idx.forEach((n) => yaUsado.add(n));
-    fusiones.push({ indices: idx, titulo: String(o.titulo ?? '').trim() });
+    fusiones.push({ indices: idx, titulo: String(o.titulo ?? '').trim(), dueñosDistintos });
   }
   if (!fusiones.length) return { tareas, fusionadas: 0, usage };
 
@@ -480,7 +533,18 @@ export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: s
       ? f.titulo
       : items.reduce((a, b) => (b.titulo.length > a.titulo.length ? b : a)).titulo;
     const minutos = [...new Set(items.flatMap((t) => t.minutos ?? (t.minuto != null ? [t.minuto] : [])))].sort((a, b) => a - b);
-    fusionadaDe.set(f.indices[0], { ...base, titulo, minutos, minuto: minutos[0] });
+    // ⚠️ EL DESEMPATE DEL DUEÑO ES PEOR QUE UN EMPATE: `base` es la versión que escribió
+    // MÁS CARACTERES DE DETALLE, así que cuando las dos partes discrepan de quién es la
+    // tarea, gana la que se explayó más. No es un criterio, es un accidente. Por eso la
+    // fusionada sale MARCADA: la pantalla la muestra y el dueño decide con un click, que
+    // es infinitamente mejor que elegir a ciegas y callarse.
+    fusionadaDe.set(f.indices[0], {
+      ...base, titulo, minutos, minuto: minutos[0],
+      atribucionDudosa: f.dueñosDistintos || base.atribucionDudosa,
+    });
+    if (f.dueñosDistintos) {
+      console.warn(`[plan-fathom] fusión con dueños distintos, queda marcada: «${titulo.slice(0, 60)}» (${items.map((t) => t.dueño || '?').join(' vs ')})`);
+    }
   }
   const quitar = new Set(fusiones.flatMap((f) => f.indices.slice(1)));
   const out = tareas.map((t, i) => fusionadaDe.get(i) ?? t).filter((_, i) => !quitar.has(i));
@@ -587,8 +651,28 @@ function relojCorto(seg?: number): string {
   const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s = seg % 60;
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
 }
+/** Los tres valores que entiende el prompt. Escritos como constantes para que un typo
+ *  no los apague en silencio (el prompt explica los tres por nombre). */
+export const ROL_CONSULTOR = 'consultor / proveedor';
+export const ROL_ASESORADO = 'cliente / asesorado';
+export const ROL_DESCONOCIDO = 'no lo sé';
+
 export type ExtractOpts = {
   glosario?: string; usoMotivo?: string; participantes?: Participante[];
+  /**
+   * Qué papel juega el dueño del tablero en ESTA reunión.
+   *
+   * Sin esto el prompt asumía siempre que era el ASESORADO —«las recomendaciones son
+   * tareas del asesorado», y sus dos ejemplos son consejos recibidos con `esMio: true`—
+   * y en una reunión donde él es el consultor esa es la regla más fuerte del prompt
+   * empujando para el lado equivocado. Medido el 12/8: 2h35 de Martín hablando en
+   * imperativo sobre acciones de Mauricio, y 6 tareas atribuidas al revés.
+   *
+   * Por default va `ROL_DESCONOCIDO`: es mejor que el modelo decida caso por caso con
+   * las pruebas del prompt que darle una etiqueta inventada. Solo se afirma cuando la
+   * reunión resolvió a un cliente del workspace, que es la única señal dura que hay.
+   */
+  rolDelDueno?: string;
   /**
    * Contexto que se repite en TODAS las partes del troceado: el resumen de Fathom y
    * sus action items con dueño. Iba pegado al principio del texto, así que solo entraba
@@ -676,7 +760,7 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     ? participantes.map((p) => `- ${p.nombre || '(sin nombre)'} <${p.email}>`).join('\n')
     : '(no tengo la lista de invitados — dejá "dueñoEmail" siempre en "")';
 
-  const sys = await brandSystem(await renderPrompt('plan-fathom.extraer.system', PLAN_FATHOM_SYSTEM_TEMPLATE, { jsonShape: PLAN_FATHOM_JSON_SHAPE }));
+  const sys = await brandSystem(await renderPrompt('plan-fathom.extraer.system', PLAN_FATHOM_SYSTEM_TEMPLATE, { jsonShape: PLAN_FATHOM_JSON_SHAPE, molde: MOLDE_DETALLE }));
   const partes = trocear(texto);
   const glosario = opts.glosario?.trim() || '(sin glosario cargado todavía)';
   const yoTxt = `${yo.nombre || 'el usuario'}${yo.email ? ` (${yo.email})` : ''}`;
@@ -694,6 +778,7 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
       : contexto;
     const user = await renderPrompt('plan-fathom.extraer.user', PLAN_FATHOM_USER_TEMPLATE, {
       yo: yoTxt,
+      rol: opts.rolDelDueno || ROL_DESCONOCIDO,
       participantes: listaParticipantes,
       glosario,
       proyectos: listaProyectos,

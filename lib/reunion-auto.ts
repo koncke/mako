@@ -27,7 +27,7 @@ import 'server-only';
 // negocio lee SU Fathom con SU key y escribe en SU tablero.
 // =============================================================================
 
-import { listReunionesRecientes, extraerTareasDeReunion, preguntasDeContexto, cacheKeyReunion, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
+import { listReunionesRecientes, extraerTareasDeReunion, preguntasDeContexto, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
 import { crearPropuesta, existePropuestaRef, type PropuestaTarea } from './plan-propuesta';
 import { glosarioTexto } from './glosario';
 import { getSetting, setSetting } from './settings';
@@ -79,10 +79,19 @@ function textoAviso(hechas: ReunionHecha[], tz: string): string {
   const tuyas = `*${totalMias} ${totalMias === 1 ? 'tarea tuya' : 'tareas tuyas'}*`;
   const deOtros = totalOtras > 0 ? ` (y ${totalOtras} de los demás, para repartir)` : '';
 
+  // `partesFallidas` viajaba hasta acá dentro de `ReunionHecha` y NO SE USABA: el aviso
+  // decía «saqué N tareas tuyas» con el mismo tono hubiera leído la reunión entera o la
+  // mitad. Un aviso que no distingue las dos cosas es peor que no avisar, porque el dueño
+  // la da por cerrada. Ahora lo dice, y dice qué va a pasar.
+  const cojas = hechas.filter((h) => (h.partesFallidas ?? 0) > 0);
+  const aviso = cojas.length
+    ? `\n\n⚠️ ${cojas.length === 1 ? 'Una parte de la reunión no la pude leer' : `No pude leer algunos tramos de ${cojas.length} reuniones`} — puede faltar contenido. La dejo abierta y lo reintento solo.`
+    : '';
+
   if (hechas.length === 1) {
     const h = hechas[0];
     const cuando = fechaHoraEnTz(h.fecha, tz);
-    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${link}\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`;
+    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${link}${aviso}\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`;
   }
 
   const filas = hechas.slice(0, 4).map((h) => {
@@ -90,7 +99,7 @@ function textoAviso(hechas: ReunionHecha[], tz: string): string {
     return `• *${h.titulo || 'Reunión'}*${cuando ? ` — ${cuando}` : ''}\n   ${h.mias} ${h.mias === 1 ? 'tarea tuya' : 'tuyas'}${h.otras ? ` · ${h.otras} de otros` : ''}`;
   });
   const resto = hechas.length > 4 ? `\n…y ${hechas.length - 4} ${hechas.length - 4 === 1 ? 'reunión más' : 'reuniones más'}.` : '';
-  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n')}${resto}\n\nEn total ${tuyas}${deOtros}, todas esperándote en la misma pantalla:\n${link}\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`;
+  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n')}${resto}\n\nEn total ${tuyas}${deOtros}, todas esperándote en la misma pantalla:\n${link}${aviso}\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`;
 }
 
 export type ResultadoReunionesAuto = {
@@ -189,8 +198,19 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     procesadas += 1;
     try {
       const yo = await resolverYo(r, ws);
+      // ¿QUÉ PAPEL JUEGA EL DUEÑO EN ESTA REUNIÓN? Sin decírselo, el prompt asume que es
+      // el ASESORADO —«las recomendaciones son tareas del asesorado» es su regla más
+      // fuerte— y en una reunión donde él es el consultor eso empuja para el lado
+      // equivocado: 2h35 hablando en imperativo sobre acciones del otro, 6 tareas al
+      // revés. La única señal DURA es que la reunión resuelva a un cliente del workspace:
+      // si el otro es cliente suyo, él es el proveedor. Cuando no se sabe se manda «no lo
+      // sé» y el modelo decide caso por caso, que es mejor que una etiqueta inventada.
+      const clienteDeLaReunion = await resolverClienteDeReunion({
+        titulo: r.titulo, participantes: r.participantes, emails: [r.host?.email ?? ''].filter(Boolean),
+      }).catch(() => null);
       const { tareas, partesFallidas = 0, cabecera = '' } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
         glosario, participantes: r.participantes, usoMotivo: 'Reunión nueva → tareas al plan (automático)',
+        rolDelDueno: clienteDeLaReunion ? ROL_CONSULTOR : ROL_DESCONOCIDO,
       });
       // Lectura PARCIAL: se leyó parte del transcript y otra parte se perdió.
       const parcial = partesFallidas > 0;
@@ -198,7 +218,14 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // reunión (/api/plan-reunion), y evita que re-abrirla en la app vuelva a cobrar.
       // SOLO si hubo tareas: cachear un resultado vacío le serviría ese vacío al botón
       // manual ("MaKo no encontró nada") escondiendo que fue una corrida fallida.
-      if (tareas.length) {
+      //
+      // ⚠️ Y SOLO SI SE LEYÓ ENTERA. Un `if (tareas.length)` a secas cachea la lectura
+      // MUTILADA: con 2 de 7 tramos caídos el resultado parcial queda guardado y el modal
+      // después lo sirve para siempre por la rama `cached:true`, sin que nada diga que
+      // faltan dos tramos. El comentario de app/api/plan-fathom/route.ts dice textual
+      // «mismo criterio que el cron» y era falso: la ruta sí exigía `!partesFallidas` y
+      // acá no se miraba. Ahora sí, y son el mismo criterio de verdad.
+      if (tareas.length && !parcial) {
         await setSetting(cacheKeyReunion(r.recordingId), JSON.stringify({ tareas, participantes: r.participantes, ts: Date.now() })).catch(() => {});
       }
 
@@ -325,8 +352,16 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // un error de base o un corte del serverless dejaba la reunión marcada como
       // procesada y SIN borrador: las tareas se perdían para siempre, sin reintento
       // ni aviso. El candado tiene que escribirse después del efecto que protege.
-      await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
-      if (parcial) console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: borrador creado con ${partesFallidas} tramo(s) SIN leer — puede faltar contenido`);
+      // ⚠️ Y NO SE CIERRA SI SE LEYÓ A MEDIAS. Esto era incondicional, con un
+      // `console.warn` al lado — y ya sabemos cuánto vale un warn: la reunión quedaba
+      // marcada como vista PARA SIEMPRE con dos tramos sin leer, sin reintento y sin que
+      // nadie se enterara. El borrador parcial igual se crea (lo que se leyó sirve), pero
+      // la reunión sigue abierta y el próximo cron completa lo que falta.
+      if (!parcial) {
+        await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+      } else {
+        console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${partesFallidas} tramo(s) SIN leer — borrador parcial, NO se cachea ni se cierra: el próximo cron reintenta`);
+      }
       out.conTareas += 1;
       out.tareas += propuestas.length;
       hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias, partesFallidas });

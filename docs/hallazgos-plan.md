@@ -507,6 +507,40 @@ Del mismo hilo: **nada de jerga interna ni tecnicismos** en lo que ve el cliente
 
 ## De la reunión a la tarea (Fathom)
 
+### ⚠️ El prompt no toleraba las tareas inventadas: las PEDÍA
+
+Medido contra la transcripción real (2h35, **28 compromisos** leídos a mano): MaKo devolvió 37 tarjetas = 17 aciertos + 8 repeticiones + **12 invenciones**, diez concentradas en la primera hora — el tramo donde repasan un CRM en vivo y casi todo lo que «hay que arreglar» se arregla mientras hablan.
+
+**El pedido estaba escrito, en dos lugares:** *«si de una reunión larga te salen menos de 15, es que te quedaste corto»* y *«si te sale la lista vacía, releé: seguro te comiste alguno»*. Con la transcripción troceada en **siete** partes, eso son siete órdenes de llegar a un número — y el modelo las cumple.
+
+Sacar la presión no alcanza: hay que **autorizar el cero**, porque un tramo de demo o de diagnóstico legítimamente no deja ningún próximo paso. Y la lista de «qué NO es una tarea» tenía tres viñetas y **ninguna** cubría lo que inventó: lo ya hecho en la reunión, la demo dictada paso a paso, el estado de algo en marcha, la meta sin paso ejecutable.
+
+⚠️ **Y el molde del detalle estaba escrito DOS veces en el mismo archivo, contradiciéndose:** el JSON shape inyectaba `MOLDE_DETALLE` («Qué hay que hacer») y el bloque del detalle escribía a mano otro («Qué pidió»). Resultado: ws1 salió 100% «Qué pidió» y ws9 30 de 37 «Qué hay que hacer». El formato del detalle era una moneda al aire. Es «Una cosa, un lugar» roto **adentro de un solo archivo** — el lugar donde menos se busca.
+
+**La atribución tenía tres agujeros**, los tres del mismo caso («si no **te** responde, cancelá la llamada con Yolanda», que MaKo le puso al dueño porque él la pronunció):
+
+- **El rol nunca se declaraba.** Todo el bloque asume que el dueño es el ASESORADO —«las recomendaciones son tareas del asesorado» es su regla más fuerte— y en una reunión donde él es el consultor eso empuja para el lado equivocado durante 2h35. Ahora se declara, y **por default va «no lo sé»**: inventar una etiqueta es peor que no darla. Solo se afirma con la única señal dura que hay — que la reunión resuelva a un cliente del workspace.
+- **Faltaba el pedido + promesa**, que es el patrón dominante de una reunión producto↔cliente: cuando uno pide y el otro promete, la tarea es **del que prometió**, aunque la cosa sea del que pidió.
+- **Faltaba la prueba del pronombre**, que es la más barata y la más confiable: los pronombres están adentro de la frase y los dijo la persona real; la etiqueta del hablante la puso un robot. Ante contradicción, gana el pronombre.
+
+⚠️ **Y `dichoPor` era una regla sin consecuencia.** El prompt lo pedía desde siempre —existe justamente para obligar a separar «quién habló» de «quién ejecuta»— y `coerceCandidatas` lo descartaba: no estaba en el tipo ni en el map. Un campo que nadie lee no obliga a nada. Ahora viaja, y sirve para medir: si `dichoPor === dueño` en toda la reunión, el modelo atribuyó por la etiqueta.
+
+**La fusión tenía PROHIBIDO tocar justo el caso que importaba:** un `continue` mudo cuando dos tramos sacaban la misma acción con dueños distintos. O sea el sistema *garantizaba* que sobrevivieran las dos — la cancelación de Yolanda salió dos veces, una a nombre de cada uno, y el Perro terminó pidiéndole al dueño un deadline sobre la que no era suya. La regla nació para lo contrario y metía dos preguntas en una condición: «¿son la misma acción?» y «¿coinciden en el dueño?». Ahora se fusionan y la contradicción se declara. ⚠️ Ojo con el desempate: la base de la fusión es **la versión que escribió más caracteres de detalle** — no es un criterio, es un accidente, y por eso la fusionada sale marcada en pantalla.
+
+**Y el dedup decidía a ciegas:** se le pedía agrupar repetidas mostrándole 140 caracteres y **ningún dueño**. Con 10 pares reales, cazó 2.
+
+**Vive en:** lib/plan-fathom.ts (prompt, `coerceCandidatas`, `fusionarDuplicadas`, el dedup) · lib/reunion-auto.ts (el rol) · tests/plan-fathom-prompt.test.ts · *2026-08-12*
+
+### ⚠️ Una lectura a medias se cacheaba, se cerraba y se anunciaba como entera
+
+Tres candados incondicionales, con un `console.warn` al lado de cada uno. Con 2 de 7 tramos caídos: el resultado mutilado quedaba en el caché **para siempre** (y el modal lo sirve por la rama `cached:true`), la reunión se marcaba como vista y no se reintentaba nunca, y el WhatsApp decía «saqué N tareas tuyas» con el mismo tono que si la hubiera leído entera.
+
+`partesFallidas` **ya viajaba** hasta el texto del aviso dentro de `ReunionHecha` y no se usaba. Y el comentario de `app/api/plan-fathom/route.ts` decía textual *«mismo criterio que el cron»* mientras la ruta sí exigía `!partesFallidas` y el cron no: un comentario que afirma una simetría que no existe es peor que ninguno.
+
+No pasó en la reunión del 12/8 (`partesFallidas = 0`, verificado). Es la bomba de al lado, y la concurrencia de 7 llamadas simultáneas la estaba cebando.
+
+**Vive en:** lib/reunion-auto.ts (el caché, `KEY_VISTA`, `textoAviso`) · *2026-08-12*
+
 ### ⚠️⚠️ La extracción no corrió en Gemini, y por eso «funcionaba tan mal»
 
 **12/8/2026.** El dueño: *«en el otro chat de Customer Success me dice que extrajo 25 tareas de la misma transcripción, mientras que dentro de MaKo solo tengo 3… NO entiendo por qué está funcionando tan mal»*.
