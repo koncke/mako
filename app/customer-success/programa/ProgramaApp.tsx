@@ -22,18 +22,26 @@
 //     «volver», se clickea otra fila del árbol y listo.
 
 import { useState } from 'react';
-import { Pagina, PageHeader, Status, Banner, Button, useToast, Toast, MONO } from '@/app/_ui';
+import { Pagina, PageHeader, Status, Banner, Button, Tabs, useToast, Toast, MONO } from '@/app/_ui';
+import { useRouter } from '@/app/_ui/Link';
 import { sincronizarWhopAction } from '../actions';
 import type { Campo } from '@/lib/programa-campos';
 
 type Clase = {
-  id: string; rotulo: string; titulo: string; pregunta: string;
+  id: string; rotulo: string; titulo: string; pregunta: string; graba: string;
   atoro: string | null; campos: Campo[]; enWhop: boolean; destraba: boolean;
 };
 type Modulo = {
   id: string; numero: number; titulo: string; fase: string;
   quien: string; porArea: boolean; clases: Clase[];
+  /** Los videos del módulo: cada uno, los ids de clase que cubre. */
+  videos: string[][];
 };
+
+const TABS = [
+  { id: 'clases', label: 'Clases' },
+  { id: 'tareas', label: 'Tareas' },
+] as const;
 
 const FASE: Record<string, string> = {
   arranque: 'Arranque', norte: 'Norte Estratégico', pas: 'PAS',
@@ -45,16 +53,27 @@ const TIPO: Record<Campo['tipo'], string> = {
   eleccion: 'Elegir una', checks: 'Marcar varias', tabla: 'Tabla',
 };
 
-export function ProgramaApp({ modulos, totales, whopConectado }: {
+export function ProgramaApp({ modulos, totales, whopConectado, tabInicial }: {
   modulos: Modulo[];
-  totales: { clases: number; campos: number; enWhop: number };
+  totales: { clases: number; campos: number; enWhop: number; videos: number };
   whopConectado: boolean;
+  tabInicial?: string;
 }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<string>(() =>
+    TABS.some(t => t.id === tabInicial) ? tabInicial! : 'clases');
   // null = la grilla de módulos. Con un módulo elegido, el rail + el documento.
   const [moduloAbierto, setModuloAbierto] = useState<string | null>(null);
   const [claseAbierta, setClaseAbierta] = useState<string | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const { toast, show, clear } = useToast();
+
+  // La tab viaja en la URL para que el link que copiás sea la tab que estás
+  // viendo. `scroll: false` porque cambiar de tab no es navegar a otra página.
+  const irA = (id: string) => {
+    setTab(id);
+    router.replace(id === 'clases' ? '/customer-success/programa' : `/customer-success/programa?tab=${id}`, { scroll: false });
+  };
 
   async function sincronizar() {
     setSincronizando(true);
@@ -75,11 +94,15 @@ export function ProgramaApp({ modulos, totales, whopConectado }: {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
   };
 
+  const enClases = tab === 'clases';
+
   return (
-    <Pagina ancho={modulo ? 'completo' : 'medida'}>
+    <Pagina ancho={enClases ? 'medida' : modulo ? 'completo' : 'medida'}>
       <PageHeader
         titulo="Program"
-        proposito={`${modulos.length} módulos · ${totales.clases} clases · ${totales.campos} preguntas`}
+        proposito={enClases
+          ? `${totales.videos} videos por grabar · ${modulos.length} módulos · ${totales.clases} clases`
+          : `${modulos.length} módulos · ${totales.clases} clases · ${totales.campos} preguntas`}
         acciones={whopConectado ? (
           <Button variant="secondary" disabled={sincronizando} onClick={() => void sincronizar()}>
             {sincronizando ? 'Sincronizando…' : 'Sincronizar a Whop'}
@@ -87,13 +110,17 @@ export function ProgramaApp({ modulos, totales, whopConectado }: {
         ) : undefined}
       />
 
+      <Tabs tabs={TABS as unknown as { id: string; label: string }[]} activa={tab} onCambio={irA} />
+
       {!whopConectado ? (
         <Banner tono="warn">Whop no está conectado, así que no se puede saber qué clases están cargadas.</Banner>
       ) : faltanEnWhop > 0 ? (
         <Banner tono="warn">{faltanEnWhop} de {totales.clases} clases todavía no están en Whop.</Banner>
       ) : null}
 
-      {!modulo ? (
+      {enClases ? (
+        <Grabar modulos={modulos} totales={totales} />
+      ) : !modulo ? (
         <ul className="pg-grid">
           {modulos.map((m) => <li key={m.id}><CardModulo m={m} onAbrir={() => abrirModulo(m.id)} /></li>)}
         </ul>
@@ -141,6 +168,89 @@ export function ProgramaApp({ modulos, totales, whopConectado }: {
       <Toast state={toast} onClose={clear} />
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </Pagina>
+  );
+}
+
+/**
+ * La tab CLASES: la lista de grabación.
+ *
+ * Es lo único que Mauricio necesita para sentarse a grabar, así que no lleva
+ * nada más: ni cuántas preguntas tiene la tarea, ni de qué bloque del
+ * cuestionario sale. Eso vive en la tab Tareas, que contesta la otra pregunta.
+ *
+ * ⚠️ LA UNIDAD DE ESTA VISTA ES EL VIDEO, NO LA CLASE. Un video puede cubrir
+ * varias clases, y ver eso es el punto: son 44 clases y 25 grabaciones, y sin
+ * esta vista la única lectura posible era «44 videos».
+ *
+ * Lista con filete, no pila de cajas: son 25 cosas del mismo tipo.
+ */
+function Grabar({ modulos, totales }: { modulos: Modulo[]; totales: { clases: number; videos: number } }) {
+  const porId = new Map(modulos.flatMap(m => m.clases.map(c => [c.id, c] as const)));
+  const ahorro = totales.clases - totales.videos;
+
+  return (
+    <div className="gr">
+      <p className="gr-intro">
+        Las {totales.clases} clases se graban en <b>{totales.videos} videos</b>: hay {ahorro} donde
+        varias clases comparten una sola grabación, porque son partes de una misma explicación y
+        cortarlas obliga a repetir la introducción. Cada clase sigue teniendo su propia tarea.
+      </p>
+
+      {modulos.map((m) => {
+        const faltan = m.clases.filter(c => !c.enWhop).length;
+        return (
+          <section key={m.id} className="gr-mod">
+            <header>
+              <span className="n">{String(m.numero).padStart(2, '0')}</span>
+              <h2>{m.titulo}</h2>
+              <span className="meta">
+                {m.videos.length} {m.videos.length === 1 ? 'video' : 'videos'}
+                {m.clases.length !== m.videos.length && ` · ${m.clases.length} clases`}
+              </span>
+              <span className="tags">
+                {m.porArea && <Status tono="neutral">Se repite por área</Status>}
+                {m.quien !== 'dueño' && <Status tono="info">Lo contesta el líder</Status>}
+                {faltan === 0 && <Status tono="good">En Whop</Status>}
+              </span>
+            </header>
+
+            <ol className="gr-vids">
+              {m.videos.map((ids) => {
+                const clases = ids.map(id => porId.get(id)!).filter(Boolean);
+                if (!clases.length) return null;
+                const destraba = clases.some(c => c.destraba);
+                return (
+                  <li key={ids[0]} className={destraba ? 'destraba' : undefined}>
+                    <div className="cab">
+                      <span className="rots">{clases.map(c => c.rotulo).join(' + ')}</span>
+                      <h3>{clases[0].titulo}</h3>
+                      {destraba && <Status tono="mako">Destraba</Status>}
+                      {clases.every(c => c.enWhop) ? null : <Status tono="warn">Falta en Whop</Status>}
+                    </div>
+
+                    {/* El bullet de cada clase: de qué va ESA parte del video.
+                        El título de la PRIMERA no se repite: ya es el del video
+                        arriba, y verlo dos veces seguidas se lee como un error. */}
+                    <ul className="partes">
+                      {clases.map((c, i) => (
+                        <li key={c.id}>
+                          {clases.length > 1 && <span className="r">{c.rotulo}</span>}
+                          <div>
+                            {clases.length > 1 && i > 0 && <p className="t">{c.titulo}</p>}
+                            <p className="g">{c.graba}</p>
+                            {c.atoro && <p className="ojo"><b>Ojo.</b> {c.atoro}</p>}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
@@ -242,6 +352,40 @@ function Documento({ modulo, clase }: { modulo: Modulo; clase: Clase }) {
 }
 
 const CSS = `
+/* ── La tab Clases: la lista de grabación ─────────────────────────────────── */
+.gr-intro{ font-size:14.5px; line-height:1.6; color:var(--dim); margin:0 0 30px;
+  padding-bottom:22px; border-bottom:1px solid var(--border); }
+.gr-intro b{ color:var(--ink); }
+
+.gr-mod{ margin:0 0 40px; }
+.gr-mod > header{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin:0 0 4px; }
+.gr-mod > header .n{ font-family:${MONO}; font-size:12px; color:var(--faint);
+  font-variant-numeric:tabular-nums; }
+.gr-mod > header h2{ font-size:19px; font-weight:650; letter-spacing:-.02em; margin:0; }
+.gr-mod > header .meta{ font-size:12.5px; color:var(--faint); font-variant-numeric:tabular-nums; }
+.gr-mod > header .tags{ display:flex; gap:5px; flex-wrap:wrap; margin-left:auto; }
+
+.gr-vids{ list-style:none; margin:0; padding:0; }
+/* Filete, no caja: son 25 cosas del mismo tipo. */
+.gr-vids > li{ padding:18px 0 20px; border-top:1px solid var(--border); }
+.gr-vids > li.destraba{ border-top-color:var(--mako); }
+.gr-vids .cab{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin:0 0 8px; }
+.gr-vids .cab .rots{ font-family:${MONO}; font-size:11.5px; color:var(--faint);
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+.gr-vids .cab h3{ font-size:16px; font-weight:600; letter-spacing:-.015em; margin:0; flex:1;
+  min-width:180px; }
+
+.partes{ list-style:none; margin:0; padding:0; }
+.partes > li{ display:flex; gap:11px; padding:7px 0 0; }
+.partes > li .r{ flex:none; width:30px; font-family:${MONO}; font-size:10.5px; color:var(--faint);
+  padding-top:3px; font-variant-numeric:tabular-nums; }
+.partes > li > div{ flex:1; min-width:0; }
+.partes .t{ font-size:13.5px; font-weight:600; margin:0 0 2px; }
+.partes .g{ font-size:14.5px; line-height:1.6; color:var(--dim); margin:0; }
+.partes .ojo{ font-size:13.5px; line-height:1.55; color:var(--dim); margin:7px 0 0;
+  border-left:2px solid var(--mako); padding-left:12px; }
+.partes .ojo b{ color:var(--ink); }
+
 /* ── La grilla de módulos ─────────────────────────────────────────────────── */
 .pg-grid{ list-style:none; margin:18px 0 0; padding:0; display:grid; gap:14px;
   grid-template-columns:repeat(auto-fill, minmax(268px, 1fr)); }

@@ -41,11 +41,17 @@ el arranque.
 | 1.3 · Venta y resultado de 24 meses | Los números mes a mes, por línea de negocio y por unidad, con la fuente de cada cifra |
 | 1.4 · Qué te hace perder plata | Los tres costos que más pesan, el punto de equilibrio, y qué unidades venden bien sin ser rentables |
 | 1.5 · Tu paradoja en una frase | Los dos números tuyos que se contradicen |
-| 1.6 · Lo que no sabés todavía | La lista de datos que no existen, con quién los consigue y para cuándo |
+| 1.6 · Quién te compite de verdad | En qué frente pega cada competidor, si perdiste venta medible, y qué hace que un cliente te prefiera |
+| 1.7 · Lo que no sabés todavía | La lista de datos que no existen, con quién los consigue y para cuándo |
 
 > **Acá se atora el 100% de los clientes: el dato base no existe.** TEXX vivió 19 días con la
-> MCI 1 abierta esperando una cifra de margen. Por eso 1.6 es una clase y no un pie de página:
+> MCI 1 abierta esperando una cifra de margen. Por eso 1.7 es una clase y no un pie de página:
 > el entregable de este módulo puede ser legítimamente «no lo tengo, lo consigue Fulano el 12».
+>
+> ⚠️ **Esta clase se llamaba 1.6 hasta que se agregó «Quién te compite de verdad».** El rótulo
+> sale de la POSICIÓN en el módulo, así que insertar una clase renumera a las de abajo — y ese
+> rótulo es el que viaja a Whop y a los mensajes de WhatsApp del cliente. Su id (`m1c6`) no
+> cambió, que es lo que protege las respuestas ya guardadas.
 
 ---
 
@@ -115,7 +121,8 @@ el arranque.
 | 6.1 · Para qué existe esta área | A cuál de las dos MCIs sirve, y qué número movería si hiciera todo perfecto un trimestre |
 | 6.2 · Qué te está pidiendo el frente | Lo que el área comercial u operativa le pide a esta área y no está recibiendo |
 | 6.3 · Elegir las palancas | Máximo tres por objetivo, cada una pasando el filtro de cuatro: predice, lo controla el equipo, se mide semanal, y es un cuello real hoy |
-| 6.4 · La ficha de nueve campos | Nombre con verbo y objeto, cómo se mide con numerador y denominador, frecuencia, hora de corte, unidad, verde, amarillo, rojo y un responsable con nombre |
+| 6.4 · El número del área, con su base y su fuente | El indicador consecuencia del área: su base real hoy, la meta, cada cuánto se cierra y si el área ya lo calcula |
+| 6.5 · La ficha de nueve campos | Nombre con verbo y objeto, cómo se mide con numerador y denominador, frecuencia, hora de corte, unidad, verde, amarillo, rojo y un responsable con nombre |
 
 > El 6.3 tiene una trampa que conviene decir en el video: si la respuesta a la cuarta es «ya
 > lo hacen bien», eso no es una palanca, es un estándar que ya opera. Se anota y se saca del
@@ -206,9 +213,24 @@ responder por ellos.*
 
 ## Lo que este temario decide, y conviene discutir con él
 
-- **42 clases son 42 videos.** Es mucho para grabar de una. Si hay que priorizar, los que
-  destraban de verdad son **1.6, 4.2, 7.1, 7.2 y 8.1**: son los cinco atoros medidos en sus
-  cuatro clientes. Con esos cinco grabados, el resto se puede sostener en sesión un ciclo más.
+- **44 clases NO son 44 videos: son 25.** Esa era la lectura vieja de este documento y estaba
+  mal por un motivo concreto: el temario se cortó donde se cortaba el CUESTIONARIO, no donde se
+  corta una clase. Las cuatro secciones de la carta de expectativas son cuatro respuestas y una
+  sola explicación; grabar cuatro videos de eso es grabar cuatro veces la misma introducción.
+  Las clases que comparten grabación están marcadas con `mismoVideoQue` en
+  `lib/programa-catalogo.ts`, y **la lista de qué grabar se mira en la app**: Customer Success →
+  Program → tab **Clases**. Cada clase sigue teniendo su tarea propia: lo que se juntó es el
+  video, no el bloque.
+- **Si hay que priorizar, los que destraban de verdad son 1.7, 4.2, 7.1, 7.2 y 8.1**: son los
+  cinco atoros medidos en sus cuatro clientes. Como 7.1 y 7.2 comparten grabación, son **cuatro
+  videos**. Con esos grabados, el resto se puede sostener en sesión un ciclo más.
+- ⚠️ **4.3 y 6.4 son casi la misma clase, y hay que decidir qué hacer con eso.** «El objetivo de
+  cada área» y «El número del área, con su base y su fuente» piden lo mismo —el número, su base
+  de hoy, su fuente, y si el área ya lo calcula— y traen **el mismo atoro escrito dos veces**:
+  «si hay que inventar un reporte, no entra en este ciclo». La diferencia real es de grano: 4.3
+  se contesta una vez para todas las áreas y 6.4 una vez POR área. Explicarlo dos veces en video
+  no tiene sentido; lo detectaron 4 de 5 revisiones independientes del temario. Es una decisión
+  de contenido de Mauricio, así que quedó sin tocar.
 - **El módulo 8 lo mira el líder del área, no el dueño.** Eso obliga a que la plataforma
   distinga dos audiencias dentro del mismo cliente, o que esas tres clases se manden aparte.
 - **Los módulos 6 a 9 se repiten por área.** Un cliente con tres áreas hace ese tramo tres

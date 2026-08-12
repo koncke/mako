@@ -39,6 +39,8 @@
 //      destrabar el bloqueo número uno del programa: definir la evidencia.
 // =============================================================================
 
+import { TOTAL_MODULOS, TOTAL_CLASES } from '@/lib/programa-catalogo';
+
 export type EstadoPaso = 'hecha' | 'sigue' | 'bloqueada' | 'cola';
 
 export type Paso = {
@@ -88,7 +90,10 @@ export const URGENTE: Grupo[] = [
       },
       {
         titulo: 'Cargar el programa de Mauricio en Whop, por bloques', quien: 'Los dos', estado: 'sigue',
-        que: '12 módulos y 42 clases, cargadas en su cuenta real. El curso está OCULTO hasta que haya videos.',
+        // El conteo sale del catálogo. Estaba escrito «42 clases» a mano y ya era
+        // falso: el catálogo tiene 44. Un número hardcodeado en un copy es una
+        // mentira con fecha de vencimiento.
+        que: `${TOTAL_MODULOS} módulos y ${TOTAL_CLASES} clases, cargadas en su cuenta real. El curso está OCULTO hasta que haya videos.`,
         plan: 'Montar el programa de Mauricio en Whop, por bloques',
         yaEsta: [
           'El temario como DATO en `lib/programa-catalogo.ts`, que leen el cargador, el formulario y el prompt de reescritura.',

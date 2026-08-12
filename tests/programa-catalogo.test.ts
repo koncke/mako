@@ -1,16 +1,22 @@
 // =============================================================================
 // El id de una clase es la clave de una respuesta guardada
 // =============================================================================
-// `lib/programa-catalogo.ts` es la fuente única del temario, y lo leen tres
-// cosas: el cargador de Whop, el formulario que contesta el cliente y el prompt
-// que reescribe la respuesta después de la junta. La respuesta del cliente se
-// guarda contra el `id` de la clase.
+// `lib/programa-catalogo.ts` es la fuente única del temario, y lo leen cuatro
+// cosas: el cargador de Whop, el formulario que contesta el cliente, el prompt
+// que reescribe la respuesta después de la junta y la tab Program. La respuesta
+// del cliente se guarda contra el `id` de la clase.
 //
 // Por eso el id NO es decoración: si dos clases comparten id, la respuesta de
 // una pisa la de la otra y el cliente pierde trabajo escrito a mano. Y si un id
 // se renumera porque se insertó una clase en el medio, todas las respuestas
 // guardadas apuntan a la clase equivocada — en silencio, porque nada valida que
 // un id viejo siga existiendo.
+//
+// La segunda mitad del archivo cuida el REPARTO EN VIDEOS (`mismoVideoQue` y
+// `GRABACIONES`). Es un id escrito a mano adentro de un objeto: escribirlo mal
+// no rompe nada visible, la clase se sale de su grupo y encabeza un video
+// propio, y el síntoma —«hay un video de más»— es indistinguible de una
+// decisión de diseño.
 //
 // Estos tests son la segunda capa de esa regla. La primera es el comentario del
 // catálogo; sin esto, es una expresión de deseo (AGENTS.md → «Una regla en un
@@ -20,8 +26,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROGRAMA, CLASES, TOTAL_CLASES, TOTAL_MODULOS,
-  CLASES_QUE_DESTRABAN, MODULOS_POR_AREA, claseDe, rotuloDe,
+  PROGRAMA, CLASES, GRABACIONES, TOTAL_CLASES, TOTAL_MODULOS, TOTAL_GRABACIONES,
+  CLASES_QUE_DESTRABAN, MODULOS_POR_AREA, claseDe, rotuloDe, grabacionesDe,
 } from '../lib/programa-catalogo';
 
 test('ningún id de clase se repite: una colisión pisa la respuesta del cliente', () => {
@@ -80,9 +86,97 @@ test('rotuloDe devuelve el id cuando no existe, en vez de romper', () => {
   assert.equal(rotuloDe('no-existe'), 'no-existe');
 });
 
+test('dos clases nunca comparten rótulo', () => {
+  // El rótulo es lo que el cliente ve en Whop y lo que viaja en sus mensajes de
+  // WhatsApp (lib/cs-mensajes.ts). Dos «1.6» distintos son dos tareas que el
+  // cliente no puede distinguir.
+  const todos = CLASES.map(c => rotuloDe(c.clase.id));
+  assert.equal(new Set(todos).size, todos.length, 'dos clases comparten rótulo');
+});
+
 test('el conteo que se comunica es el real', () => {
   // docs/programa-mauricio.md dice 12 módulos y 44 clases, y de ahí sale cuántos
   // videos hay que grabar. Un número mal contado es un presupuesto mal hecho.
   assert.equal(TOTAL_MODULOS, 12);
   assert.equal(TOTAL_CLASES, 44);
+});
+
+// ── El reparto en videos ────────────────────────────────────────────────────
+
+test('cada clase está en exactamente una grabación', () => {
+  // Si una se cae del reparto, Mauricio graba un curso al que le falta una clase
+  // y se entera cuando un cliente abre la lección vacía.
+  const vistas = GRABACIONES.flatMap(g => g.clases.map(c => c.id));
+  assert.equal(vistas.length, TOTAL_CLASES, 'faltan o sobran clases en el reparto');
+  assert.equal(new Set(vistas).size, TOTAL_CLASES, 'hay una clase en dos grabaciones');
+  for (const { clase } of CLASES) {
+    assert.ok(vistas.includes(clase.id), `${clase.id} no quedó en ninguna grabación`);
+  }
+});
+
+test('mismoVideoQue apunta a una clase REAL del MISMO módulo', () => {
+  for (const modulo of PROGRAMA) {
+    const propias = new Set(modulo.clases.map(c => c.id));
+    for (const clase of modulo.clases) {
+      if (!clase.mismoVideoQue) continue;
+      assert.ok(
+        propias.has(clase.mismoVideoQue),
+        `${clase.id} comparte video con ${clase.mismoVideoQue}, que no está en el módulo ${modulo.id}`,
+      );
+      assert.notEqual(clase.mismoVideoQue, clase.id, `${clase.id} se apunta a sí misma`);
+    }
+  }
+});
+
+test('la que encabeza un video no comparte a su vez con otra (sin cadenas)', () => {
+  // Una cadena A→B→C agruparía mal: B queda de jefe de A y a la vez sigue a C.
+  const jefes = new Set(GRABACIONES.map(g => g.id));
+  for (const { clase } of CLASES) {
+    if (!clase.mismoVideoQue) continue;
+    assert.ok(
+      jefes.has(clase.mismoVideoQue),
+      `${clase.id} apunta a ${clase.mismoVideoQue}, que no encabeza ningún video`,
+    );
+  }
+});
+
+test('toda clase dice de qué va su video, y no repite el enunciado de la tarea', () => {
+  // `graba` es contexto para grabar; `pregunta` es lo que contesta el cliente.
+  // Copiar una en la otra deja a Mauricio sin la mitad que necesita.
+  for (const { clase } of CLASES) {
+    assert.ok(clase.graba && clase.graba.trim().length > 30, `${clase.id} no dice de qué va`);
+    assert.notEqual(clase.graba.trim(), clase.pregunta.trim(), `${clase.id} copia la tarea en vez de dar contexto`);
+  }
+});
+
+test('si el texto dice «en el mismo video», el dato lo dice también', () => {
+  // Heurística sobre la frase que de hecho usamos, y existe porque el bug ya
+  // ocurrió: 11.2 decía «el cierre del programa, en el mismo video» y NO tenía
+  // `mismoVideoQue`, así que se contaba como una grabación aparte. El texto y el
+  // dato discrepaban y ninguna pantalla lo podía notar.
+  for (const { clase } of CLASES) {
+    if (!/\ben el mismo video\b/i.test(clase.graba)) continue;
+    assert.ok(
+      clase.mismoVideoQue,
+      `${clase.id} dice «en el mismo video» pero no comparte grabación con nadie`,
+    );
+  }
+});
+
+test('grabar es MENOS trabajo que el temario, que es el punto de agrupar', () => {
+  assert.ok(TOTAL_GRABACIONES < TOTAL_CLASES);
+  assert.equal(TOTAL_GRABACIONES, GRABACIONES.length);
+  for (const modulo of PROGRAMA) {
+    assert.ok(grabacionesDe(modulo.id).length > 0, `el módulo ${modulo.id} no tiene grabaciones`);
+  }
+});
+
+test('agrupar NO reordena el temario', () => {
+  // El rótulo sale de la POSICIÓN de la clase en su módulo, así que mover una
+  // clase de lugar para juntar videos le renumera el temario al cliente. Las
+  // grabaciones respetan el orden del catálogo, no al revés.
+  for (const g of GRABACIONES) {
+    const pos = g.clases.map(c => g.modulo.clases.indexOf(c));
+    assert.deepEqual(pos, [...pos].sort((a, b) => a - b), `la grabación ${g.id} desordena sus clases`);
+  }
 });
