@@ -251,6 +251,56 @@ EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUT
 ⚠️ Y la confusión que más se repite: **la pantalla y el agente que vive adentro NO son el mismo proyecto.** El tablero es «${PREFIJO_FEATURE}Plan»; el cerebro que puntúa es «${PREFIJO_AGENTE}Perro Guardián». Mejorar la vista Kanban va a la primera; cambiar cómo decide una prioridad va al segundo.`;
 
 /**
+ * Las FAMILIAS del sidebar (`FAMILIAS` en app/_components/nav.ts). NO son proyectos:
+ * son la CAJA que agrupa a diez de ellos. «Feature: Content Machine» nació así el
+ * 11/8/2026 y es un proyecto que se solapa con Ideas, Reels, Carousels, Stories,
+ * Thumbnails y YouTube Writer a la vez — o sea, un lugar donde nadie va a buscar nada.
+ *
+ * Están escritas acá y no importadas de nav.ts a propósito: `lib/` no importa de
+ * `app/`. El test `plan-proyectos-catalogo.test.ts` verifica que la lista siga siendo
+ * exactamente la de nav.ts, así que el día que se agregue una quinta familia, falla.
+ */
+export const FAMILIAS_SIDEBAR = ['Operate', 'Analyze', 'Sales Machine', 'Content Machine'] as const;
+
+/** Un verbo de hacer al principio = es el título de una TAREA, no el nombre de una tab. */
+const VERBO_DE_TAREA =
+  /^(implementar|crear|armar|hacer|definir|revisar|migrar|configurar|montar|desarrollar|evaluar|investigar|redactar|dise[ñn]ar|analizar|mejorar|agregar|sumar|integrar|conectar|probar|testear|documentar|optimizar|refactorizar|actualizar|corregir|arreglar|validar|lanzar|publicar|replicar|recopilar|auditar)\b/;
+
+/**
+ * ¿Este nombre puede ser un proyecto NUEVO del tablero?
+ *
+ * La versión ejecutable de `REGLA_NOMBRE_PROYECTO`. Existe porque la regla escrita ya
+ * estaba en tres prompts y aun así el 11 y 12 de agosto nacieron cinco proyectos que la
+ * violaban — AGENTS.md → «una regla en un prompt no es una regla».
+ *
+ * Se mide sobre el NÚCLEO (sin prefijo): «Feature: Investigar competencia» tiene que
+ * caer por el verbo igual que «Investigar competencia», o el prefijo se vuelve la forma
+ * de esquivar el control.
+ *
+ * ⚠️ Esto dice si el nombre TIENE FORMA de proyecto. NO dice si hace falta uno — eso lo
+ * decide el Perro (¿lo cubre alguno de la lista? ¿arrastra varias tareas?) y se aplica
+ * en `asignarTareasAProyectos`. Las dos preguntas son distintas y las dos tienen que
+ * dar que sí antes de crear nada.
+ */
+export function puedeSerProyectoNuevo(nombre: string): { ok: true } | { ok: false; motivo: string } {
+  const n = (nombre ?? '').trim();
+  if (n.length < 4) return { ok: false, motivo: 'el nombre tiene menos de 4 caracteres' };
+  if (delCatalogo(n)) return { ok: false, motivo: 'ya está en el catálogo: no es nuevo' };
+  const nuc = nucleo(n);
+  if (FAMILIAS_SIDEBAR.some((f) => nucleo(f) === nuc)) {
+    return { ok: false, motivo: `«${n}» es una FAMILIA del sidebar (la caja que agrupa proyectos), no un proyecto` };
+  }
+  const palabras = nuc.split(/\s+/).filter(Boolean);
+  if (palabras.length > 4) {
+    return { ok: false, motivo: `${palabras.length} palabras: un proyecto se nombra en 1 a 4, como una tab` };
+  }
+  if (VERBO_DE_TAREA.test(nuc)) {
+    return { ok: false, motivo: 'arranca con un verbo de hacer: eso es el título de una TAREA, no de un proyecto' };
+  }
+  return { ok: true };
+}
+
+/**
  * El catálogo como se lo pasamos a un modelo: nombre + qué entra. Va SIEMPRE con las
  * dos cosas — pasarle solo los nombres es lo que hacía que rutear fuera adivinar.
  */

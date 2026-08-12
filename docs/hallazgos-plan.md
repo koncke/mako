@@ -507,6 +507,16 @@ Del mismo hilo: **nada de jerga interna ni tecnicismos** en lo que ve el cliente
 
 ## De la reunión a la tarea (Fathom)
 
+### Un comentario que dice el orden no ordena nada
+
+El modal «MaKo leyó tu reunión» tiene cuatro bloques y su orden es la funcionalidad, no maquetado: arriba lo que HAY QUE DECIDIR, abajo lo que ya está resuelto. Estaba acordado con el dueño y **estaba escrito en los comentarios de los bloques** —«sección propia, abajo de las nuevas», «VA ABAJO: arriba tiene que estar lo que falta hacer»— y el JSX pintaba `yaEnPlan` ANTES que `mias`. Resultado: el dueño abría el modal de una reunión de 37 compromisos y lo primero que leía era «Ya están en tu plan (16)», dieciséis tarjetas que no requieren ninguna decisión suya, con las nuevas enterradas debajo.
+
+El comentario correcto al lado del código incorrecto es peor que ningún comentario: se lee como verdad y hace que nadie mire el orden real. Ahora la nota vive **arriba del fragmento entero**, enumerando los cuatro bloques en orden, que es donde se puede contrastar de un vistazo con lo que sigue.
+
+Orden bueno: `faltantes` (el borrador las dio por cargadas y no están) → `mias` (las nuevas) → `yaEnPlan` (ya tienen tarjeta, solo se les suma contexto) → `enElBoard` (ya las cargaste en esta sesión).
+
+**Vive en:** app/plan/board/ReunionTareas.tsx (el fragmento de `tab === 'mias'`) · *2026-08-12*
+
 ### ⚠️ Después de cambiar el prompt de extracción NO se re-extrae nada: medir el fix sin forzar es medir la salida vieja
 
 Síntoma: se arregló el prompt de extracción de reuniones y «no movió la aguja», así que se salió a buscar la causa a otro lado (se acusó al preámbulo de marca por pedir brevedad). El verificador refutó esa hipótesis mostrando que la evidencia no significaba nada: hay TRES candados encadenados que sirven la salida pre-fix — el cache `mako.fathom.cache.<recordingId>` salvo `reanalizar:true`, `crearPropuesta` que es idempotente por `ref='fathom:<id>'` y devuelve la fila vieja sin reescribirla, y el cron que saltea la reunión si ya hay propuesta o quedó vista. El 100% de las reuniones ya leídas devuelve texto viejo. Regla: para medir un cambio de prompt de reuniones hay que apretar «Volver a analizar (gasta tokens)» Y borrar el borrador con esa `ref`; y antes de tocar código hay que descartar las dos configuraciones que le ganan al default: el override de `mako.prompt-overrides` (lib/prompt-render.ts) y el de modelo en `mako.modelos` (un pin a Groq/Gemini degrada la extracción muchísimo más que cualquier prompt).
@@ -613,9 +623,48 @@ Lo que se dijo en una reunión puede ser impreciso; para dar por terminado un de
 
 ## Ruteo a proyectos
 
+### ⚠️⚠️ El «no» del Perro entraba por la puerta de atrás convertido en «sí»
+
+**Cerrado el 12/8/2026.** El hallazgo de abajo («puerta trasera en su propio catch») tenía razón y se quedaba corto: el agujero no necesitaba que el ruteo fallara. Se abría en el camino NORMAL, y cada vez que el Perro decía que no.
+
+Síntoma: el dueño mandó dos links por WhatsApp para investigar competencia. Mensajes gemelos, mismo borrador, mismo lote. Uno cayó en «Feature: Competitor Spy», que es donde iban; el otro abrió «Feature: Funnel de Venta» con una sola tarea adentro.
+
+**El diagnóstico obvio —«el modelo clasificó mal»— es el equivocado, y la prueba es que los dos venían del mismo lote y del mismo modelo.** La cadena real, cinco eslabones:
+
+1. MaKo, en la tool de WhatsApp, propone `proyecto: "Feature: Funnel de Venta"`. Es una PROPUESTA, y está bien que la haga.
+2. El Perro rutea el lote: propone ese proyecto en `nuevos` y pone **ese mismo nombre** en `asign` — el contrato viejo (`RUTEAR_JSON_SHAPE`) lo autorizaba con todas las letras.
+3. Las cuatro barreras rechazan la propuesta. Casi siempre por la misma: `n.cuantas < Math.min(3, tareas.length)`, o sea «una sola tarea no justifica un proyecto».
+4. **Y ahí se cae el `asign` también**, porque el nombre que nombraba ya no está en `canon` y el filtro de destinos válidos lo descarta. La tarea queda sin NINGÚN destino, en silencio.
+5. `plan-board` hace `ruteo[i] || it.proyecto?.trim()` y crea… exactamente el proyecto que se acababa de rechazar.
+
+**Cómo reconocerlo en los datos, sin logs:** los proyectos nacidos así tienen el renglón `Creó el proyecto — <origen>` en su `historial`. Esa es la tercera rama de `porQueNacio`, la que corre cuando no hay ni catálogo ni aval del Perro — la firma del agujero. Los cinco del 11 y 12 de agosto la tienen igual: «Feature: Landing» (0 tareas), «Feature: Content Machine» (2), «Feature: Historia del Usuario» (1), «Feature: Focus Tracker» (1), «Feature: Funnel de Venta» (1).
+
+**La lección que se paga cara: había un `console.warn` justo en esa rama, y los cinco nacieron igual.** Un aviso que solo va a los logs de Vercel no es un control — nadie los lee, y a los 60 minutos no existen. Si el que tiene que enterarse es el dueño, el aviso va donde él mira: el historial de la tarjeta.
+
+Se cerró en tres lugares, porque el agujero tenía tres bordes:
+
+- **La compuerta** (`plan-board.ts`): un proyecto se crea desde DOS fuentes y ninguna más — el catálogo, o el Perro habiéndolo avalado. El nombre crudo del modelo puede RESOLVER a un proyecto existente, nunca crear uno. Si no hay ninguna de las dos, la tarea entra sin proyecto y el motivo queda en su historial. Un huérfano visible se arregla en diez segundos; un proyecto de más ensucia el tablero para siempre.
+- **La repesca** (`mako-guardian.ts`): rechazar deja una deuda. Las tareas que quedan sin destino van a una segunda pasada, solo ellas, con `nuevos` prohibido — la única respuesta válida es un nombre de la lista. ⚠️ Los índices de esa pasada son LOCALES al sub-lote: remapearlos mal manda la tarea equivocada al proyecto equivocado sin romper nada. Por eso la aritmética vive en `lib/ruteo-repesca.ts`, aparte y sin `server-only`, con test.
+- **El contrato** (`RUTEAR_JSON_SHAPE`): `asign` va SIEMPRE con un nombre de la lista, aunque se proponga uno nuevo para esa misma tarea. `nuevos` pisa a `asign` si se aprueba; `asign` es lo que queda si no.
+
+**Vive en:** lib/plan-board.ts (la compuerta, en el `if (!cat && !delPerro)`) · lib/mako-guardian.ts (`asignarTareasAProyectos` + `unaPasadaDeRuteo`) · lib/ruteo-repesca.ts · lib/plan-proyectos-catalogo.ts (`puedeSerProyectoNuevo`) · *2026-08-12*
+
+### Una FAMILIA del sidebar nunca puede ser un proyecto
+
+Salió del mismo barrido. «Feature: Content Machine» nació el 11/8 y es un proyecto que se solapa con Ideas, Reels, Carousels, Stories, Thumbnails y YouTube Writer **a la vez**: es la caja que los agrupa, no un lugar donde alguien vaya a buscar una tarea. Lo mismo valdría para «Operate», «Analyze» y «Sales Machine».
+
+La regla ya estaba escrita en `REGLA_NOMBRE_PROYECTO` («el nombre de una tab») y no alcanzó, porque una familia del sidebar **también** se lee como el nombre de una tab. Ahora es ejecutable: `puedeSerProyectoNuevo()` en el catálogo, con la lista de familias copiada de `nav.ts` (`lib/` no importa de `app/`) y un test que verifica que las dos listas sigan siendo la misma.
+
+Dos detalles del control que importan:
+
+- **Se mide sobre el NÚCLEO, no sobre el nombre crudo.** Si se midiera sobre el crudo, «Feature: Investigar competencia» pasaría el filtro del verbo —arranca con «Feature»— y el prefijo se volvería la forma de esquivar el control.
+- **Dice si el nombre TIENE FORMA de proyecto, no si HACE FALTA uno.** Son dos preguntas distintas: «Funnel de Venta» tiene forma perfecta y aun así no debía nacer. Las dos tienen que dar que sí.
+
+**Vive en:** lib/plan-proyectos-catalogo.ts (`puedeSerProyectoNuevo`, `FAMILIAS_SIDEBAR`) · tests/plan-proyectos-catalogo.test.ts · *2026-08-12*
+
 ### ⚠️ El catálogo cerrado de proyectos tiene una puerta trasera en su propio catch
 
-La regla escrita dice que el ruteo ya no puede inventar proyectos porque asignarTareasAProyectos elige contra una lista cerrada. Pero el `.catch()` de esa llamada devuelve `{ asign: [] }` y la línea siguiente hace `ruteo[i] || it.proyecto?.trim()` — o sea, si el ruteo falla se vuelve al nombre que inventó el modelo y nace un proyecto nuevo igual (verificado en lib/plan-board.ts:287 y :306). Es la misma forma del incidente medido: la ráfaga del 05/08 dejó 19 proyectos, entre ellos tres de Instagram y dos de «Ads Content Machine». Matiza la regla ya escrita: el catálogo cierra el camino feliz, no el degradado.
+*(Cerrado el 12/8/2026 — ver el hallazgo de arriba, que resultó ser más ancho que esto.)* La regla escrita dice que el ruteo ya no puede inventar proyectos porque asignarTareasAProyectos elige contra una lista cerrada. Pero el `.catch()` de esa llamada devuelve `{ asign: [] }` y la línea siguiente hace `ruteo[i] || it.proyecto?.trim()` — o sea, si el ruteo falla se vuelve al nombre que inventó el modelo y nace un proyecto nuevo igual (verificado en lib/plan-board.ts:287 y :306). Es la misma forma del incidente medido: la ráfaga del 05/08 dejó 19 proyectos, entre ellos tres de Instagram y dos de «Ads Content Machine». Matiza la regla ya escrita: el catálogo cierra el camino feliz, no el degradado.
 
 **Vive en:** lib/plan-board.ts:287 y :306 (asignarTareasAProyectos + fallback) · *2026-08-05 · ~fathom-preguntas-lote-whatsapp-forense*
 

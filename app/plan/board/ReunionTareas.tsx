@@ -369,6 +369,19 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
       )}
 
       {tab === 'mias' ? (
+        // ⚠️ EL ORDEN DE ESTOS CUATRO BLOQUES ES LA FUNCIONALIDAD, no maquetado.
+        // Arriba lo que HAY QUE DECIDIR, abajo lo que ya está resuelto:
+        //   1. faltantes  — el borrador las dio por cargadas y no están
+        //   2. mias       — LAS NUEVAS: las candidatas que se van a crear
+        //   3. yaEnPlan   — ya tienen tarjeta; solo se les suma contexto
+        //   4. enElBoard  — ya las cargaste en esta misma sesión
+        //
+        // Ya se había acordado y se rompió igual: los comentarios de los bloques 3 y 4
+        // decían «abajo de las nuevas» y «VA ABAJO», pero el JSX pintaba `yaEnPlan`
+        // ANTES que `mias`. El dueño abría el modal y lo primero que leía era «Ya están
+        // en tu plan (16)» — dieciséis tarjetas que no requieren ninguna decisión suya —
+        // con las nuevas enterradas debajo. Un comentario que dice el orden no ordena
+        // nada: el orden es este, el de los bloques.
         <>
           {cabecera && mias.length > 0 && <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cabecera}</div>}
           {/* LAS QUE NO ESTÁN, arriba de todo. El borrador las da por cargadas pero en el
@@ -387,6 +400,26 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
               ))}
             </div>
           )}
+          {mias.length === 0
+            ? (yaCargadas.length === 0 && <div style={{ padding: '26px 12px', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, lineHeight: 1.5 }}>
+                De {miasPorReunion.length > 1 ? 'estas reuniones' : 'esta reunión'} no salió ninguna tarea tuya: todas quedaron del lado de las otras personas.
+              </div>)
+            : miasPorReunion.map((g, gi) => (
+                <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* Encabezado por reunión: solo si hay más de una en la pantalla. */}
+                  {variasReuniones && (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginTop: gi ? 6 : 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{g.r.titulo || 'Reunión'}</span>
+                      {cuandoFue(g.r.fecha) && <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{cuandoFue(g.r.fecha)}</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>· {g.items.length}</span>
+                      <LinkGrabacion url={g.r.url} />
+                    </div>
+                  )}
+                  {g.items.map(({ f, i }) => (
+                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} personas={personasTodas} onAbrirTarea={onAbrirTarea} />
+                  ))}
+                </div>
+              ))}
           {/* YA ESTÁ EN EL PLAN: sección propia, abajo de las nuevas. Cada una muestra
               la TARJETA REAL del tablero —la misma que el dueño ya conoce del kanban—
               con el contexto que se le va a sumar arriba. Antes era una fila igual a las
@@ -444,26 +477,6 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
               </div>
             </div>
           )}
-          {mias.length === 0
-            ? (yaCargadas.length === 0 && <div style={{ padding: '26px 12px', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, lineHeight: 1.5 }}>
-                De {miasPorReunion.length > 1 ? 'estas reuniones' : 'esta reunión'} no salió ninguna tarea tuya: todas quedaron del lado de las otras personas.
-              </div>)
-            : miasPorReunion.map((g, gi) => (
-                <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {/* Encabezado por reunión: solo si hay más de una en la pantalla. */}
-                  {variasReuniones && (
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginTop: gi ? 6 : 0 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{g.r.titulo || 'Reunión'}</span>
-                      {cuandoFue(g.r.fecha) && <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{cuandoFue(g.r.fecha)}</span>}
-                      <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>· {g.items.length}</span>
-                      <LinkGrabacion url={g.r.url} />
-                    </div>
-                  )}
-                  {g.items.map(({ f, i }) => (
-                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} personas={personasTodas} onAbrirTarea={onAbrirTarea} />
-                  ))}
-                </div>
-              ))}
         </>
       ) : activo ? (
         <PanelPersona

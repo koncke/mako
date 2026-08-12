@@ -198,6 +198,31 @@ hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con 
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
 
+# Un `console.warn` no es un control, y un «no» tiene que sobrevivir al fallback
+
+Dos mitades del mismo error, medidas el 12/8/2026 sobre cinco proyectos que el Perro
+había RECHAZADO y nacieron igual.
+
+**Un aviso que solo va a los logs no frena nada.** En la rama que creaba esos proyectos
+había un `console.warn` que decía exactamente lo que estaba mal — «proyecto FUERA del
+catálogo y sin justificar»— y los cinco nacieron con el warn puesto. Los logs de Vercel
+no los lee nadie y a los 60 minutos no existen. **Si el que se tiene que enterar es el
+dueño, el aviso va donde él mira**: el historial de la tarjeta, un chip, la pantalla. El
+`console.warn` sirve para depurar después, no para evitar antes.
+
+**Y un rechazo que deja un hueco es un rechazo que se va a rellenar con lo rechazado.**
+El Perro descartaba el proyecto propuesto, y al descartarlo la tarea perdía su
+asignación; río abajo, un `ruteo[i] || it.proyecto` la mandaba a crear justo el nombre
+que se acababa de tirar. Cada `A || B` donde `A` es «lo que decidió el control» y `B` es
+«lo que pidió el modelo» es esa misma trampa: **cuando el control dice que no, `A` queda
+vacío y `B` gana.** Las dos reglas que quedan:
+
+1. **Rechazar deja una deuda.** Si el control invalida la respuesta, alguien tiene que
+   producir la buena — un reintento acotado, un default explícito — y no el fallback que
+   estaba pensado para otra cosa.
+2. **El fallback es más débil que el camino feliz, nunca más fuerte.** Si el camino
+   normal exige aval y el degradado no, el degradado es la política real del sistema.
+
 # Un default que cobra es un cobro silencioso
 
 El `def` de una feature en `lib/model-catalogo.ts` no es «lo que usa hoy el código»: es

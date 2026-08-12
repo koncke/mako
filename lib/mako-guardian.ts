@@ -24,7 +24,8 @@ import type { UsageInfo } from './anthropic-usage';
 import { capacidad, capacidadesParaPrompt } from './mako-capacidades';
 // La regla del nombre vive en el catálogo, no acá: la comparten el ruteo, la tool de
 // WhatsApp y la skill de Claude Code (ver «Una cosa, un lugar» en AGENTS.md).
-import { REGLA_NOMBRE_PROYECTO } from './plan-proyectos-catalogo';
+import { REGLA_NOMBRE_PROYECTO, puedeSerProyectoNuevo } from './plan-proyectos-catalogo';
+import { huerfanasDeRuteo, remapearRepesca } from './ruteo-repesca';
 
 export type GuardProjIn = { id: string; nombre: string };
 export type GuardTaskIn = { id: string; titulo: string; detalle?: string; proyecto?: string; deadline?: string; avance?: number; origen?: string; scoreActual?: number };
@@ -453,10 +454,12 @@ export async function cruzarCandidatas(
 // dejar "nuevo" que meter la tarea en un proyecto sólo parecido).
 export const RUTEAR_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
 {
-  "asign": [ { "i": <índice de la tarea, 0-based>, "destino": "<el NOMBRE EXACTO, tal cual, de un proyecto de la lista — o el nombre de un proyecto que hayas propuesto en "nuevos">", "razon": "<3-6 palabras>" } ],
+  "asign": [ { "i": <índice de la tarea, 0-based>, "destino": "<el NOMBRE EXACTO, tal cual, de un proyecto DE LA LISTA>", "razon": "<3-6 palabras>" } ],
   "nuevos": [ { "nombre": "<1 a 3 palabras>", "que": "<una frase: qué entra y qué NO>", "porQue": "<por qué NINGUNO de los de la lista sirve>", "tareas": [<índices>] } ]
 }
-Una entrada de "asign" por CADA tarea. "nuevos" casi siempre va VACÍO ([]).`;
+Una entrada de "asign" por CADA tarea. "nuevos" casi siempre va VACÍO ([]).
+
+⛔ EN "asign" VA SIEMPRE UN NOMBRE DE LA LISTA, aunque hayas propuesto uno nuevo para esa misma tarea. Las dos cosas conviven: "nuevos" es la propuesta y PISA a "asign" si se aprueba; "asign" es lo que queda si no. Poner ahí el nombre del proyecto nuevo deja a la tarea SIN NINGÚN destino cuando la propuesta se rechaza — y así nacieron cinco proyectos de una tarea cada uno.`;
 
 export const RUTEAR_SYSTEM_TEMPLATE = `Sos MaKo, el perro guardián del plan. Te paso TAREAS NUEVAS y LA LISTA CERRADA DE PROYECTOS. Por CADA tarea elegí a cuál de esos proyectos va.
 
@@ -527,6 +530,51 @@ export async function asignarTareasAProyectos(
   usoMotivo?: string,
 ): Promise<RuteoOut> {
   if (!tareas.length || !destinos.length) return { asign: [] };
+  const r = await unaPasadaDeRuteo(tareas, destinos, usoMotivo, false);
+
+  // ─── LA REPESCA ──────────────────────────────────────────────────────────────
+  // Una tarea puede salir de la primera pasada SIN NINGÚN destino, y ese hueco es el
+  // que costó cinco proyectos inventados entre el 11 y el 12/8/2026.
+  //
+  // Cómo pasa: el modelo propone un proyecto nuevo y pone ESE nombre en `asign`. Las
+  // cuatro barreras de acá arriba rechazan la propuesta (casi siempre por «una sola
+  // tarea no justifica un proyecto»), y entonces el `asign` que la acompañaba tampoco
+  // resuelve — el nombre no está en `canon` — y se cae en el filtro de más abajo. La
+  // tarea queda sin destino y el que la recibe, `plan-board`, tenía como último recurso
+  // el nombre CRUDO que había escrito MaKo… que era justo el que acabábamos de
+  // rechazar. El «no» del Perro entraba por la puerta de atrás convertido en «sí».
+  //
+  // Se arregla en los dos lados: `plan-board` ya no crea nada sin aval (esa es la
+  // compuerta dura), y acá se completa el trabajo — si rechazamos el proyecto nuevo,
+  // le debemos a esa tarea un lugar de la lista. Una sola pasada más, solo con las
+  // huérfanas y con `nuevos` PROHIBIDO, así no puede volver a proponer lo mismo.
+  const huerfanas = huerfanasDeRuteo(tareas.length, r);
+  if (!huerfanas.length) return r;
+
+  console.warn(`[mako-guardian] REPESCA: ${huerfanas.length} de ${tareas.length} tarea(s) quedaron sin destino — ${huerfanas.map((i) => `«${tareas[i].titulo.slice(0, 40)}»`).join(', ')}`);
+  const r2 = await unaPasadaDeRuteo(huerfanas.map((i) => tareas[i]), destinos, `${usoMotivo || 'Rutear tareas nuevas a proyectos'} (repesca)`, true)
+    .catch((e) => { console.error('[mako-guardian] repesca:', e instanceof Error ? e.message : String(e)); return { asign: [] as RuteoItem[] }; });
+  // Los índices de la repesca son LOCALES al sub-lote: hay que devolverlos al global o
+  // la asignación cae sobre la tarea equivocada, que es peor que no asignar nada.
+  const recuperadas = remapearRepesca(r2.asign, huerfanas);
+  if (recuperadas.length < huerfanas.length) {
+    console.warn(`[mako-guardian] la repesca recuperó ${recuperadas.length}/${huerfanas.length}: el resto entra SIN proyecto`);
+  }
+  return { asign: [...r.asign, ...recuperadas], nuevos: r.nuevos, usage: r.usage };
+}
+
+/**
+ * Una pasada del ruteador. Con `soloLista` el modelo no puede proponer proyectos
+ * nuevos: es el modo de la repesca, donde la única respuesta válida es un nombre de
+ * la lista.
+ */
+async function unaPasadaDeRuteo(
+  tareas: Array<{ titulo: string; grupo?: string; detalle?: string }>,
+  destinos: Array<{ nombre: string; que?: string; n?: number }>,
+  usoMotivo: string | undefined,
+  soloLista: boolean,
+): Promise<RuteoOut> {
+  if (!tareas.length || !destinos.length) return { asign: [] };
   // EL DETALLE VA. Antes el prompt eran CINCO LÍNEAS de títulos sueltos, y con eso
   // «Diseñar módulo de Diagnóstico de Mindset» suena a Onboarding y «repositorio de
   // ideas de contenido» suena a Instagram. El modelo no fallaba: no tenía con qué.
@@ -540,7 +588,13 @@ export async function asignarTareasAProyectos(
   // adivinara qué significa "Cerebro & Analítica", y adivinando es como duplicaba.
   const plan = destinos.map((o) => `· ${o.nombre}${o.que ? ` — ${o.que}` : ''}${o.n ? ` (${o.n} tareas)` : ''}`).join('\n');
   const sys = await brandSystem(await renderPrompt('guardian.rutear.system', RUTEAR_SYSTEM_TEMPLATE, { jsonShape: RUTEAR_JSON_SHAPE, reglaNombre: REGLA_NOMBRE_PROYECTO }));
-  const user = await renderPrompt('guardian.rutear.user', RUTEAR_USER_TEMPLATE, { tareas: contenidoNoConfiable(tareasStr, 'tareas'), plan });
+  const base = await renderPrompt('guardian.rutear.user', RUTEAR_USER_TEMPLATE, { tareas: contenidoNoConfiable(tareasStr, 'tareas'), plan });
+  // La instrucción de la repesca va pegada al final del mensaje del usuario y NO en el
+  // prompt editable: es una condición de ESTA llamada, no una regla del ruteo. Metida
+  // en la plantilla la vería también la primera pasada, que sí puede proponer nuevos.
+  const user = soloLista
+    ? `${base}\n\n⛔ SEGUNDA VUELTA. Estas tareas ya pasaron una vez y quedaron sin destino porque el proyecto nuevo que se propuso para ellas fue RECHAZADO. Acá "nuevos" va VACÍO SIEMPRE ([]) y no se negocia: elegí para cada una el MEJOR proyecto DE LA LISTA. Ninguno va a ser perfecto —por eso se propuso uno nuevo— y aun así hay que elegir: una tarea sin proyecto no la encuentra nadie.`
+    : base;
   let usage: UsageInfo | undefined;
   // effort:'medium' + maxTokens generoso: es clasificación (no debate), y con poco
   // presupuesto el thinking se comía el JSON y salía vacío → no ruteaba (el bug).
@@ -557,7 +611,7 @@ export async function asignarTareasAProyectos(
   // Los proyectos NUEVOS, con las condiciones aplicadas EN CÓDIGO y no solo pedidas en
   // el prompt: un prompt es una intención, esto es el contrato. Sin las tres barreras
   // volvemos al tablero de 64 proyectos con uno por tarea.
-  const nuevos: RuteoNuevo[] = (Array.isArray(obj.nuevos) ? (obj.nuevos as Record<string, unknown>[]) : [])
+  const nuevos: RuteoNuevo[] = (soloLista || !Array.isArray(obj.nuevos) ? [] : (obj.nuevos as Record<string, unknown>[]))
     .map((n) => {
       const idx = (Array.isArray(n.tareas) ? n.tareas : [])
         .map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < tareas.length);
@@ -570,13 +624,13 @@ export async function asignarTareasAProyectos(
       };
     })
     .filter((n) => {
-      if (!n.nombre || n.nombre.length < 4) return false;
       // Ya existe (con otra tilde o mayúscula): no es nuevo, es el mismo.
       if (canon.has(normNombre(n.nombre))) return false;
-      // Nombre de TAB, no de tarea: 1 a 4 palabras y sin arrancar con un verbo de hacer.
-      const palabras = n.nombre.split(/\s+/).filter(Boolean);
-      if (palabras.length > 4) return false;
-      if (/^(implementar|crear|armar|hacer|definir|revisar|migrar|configurar|montar|desarrollar|evaluar|investigar|redactar|diseñar)/i.test(n.nombre)) return false;
+      // La FORMA del nombre (de tab y no de tarea, y nunca una familia del sidebar) la
+      // decide el catálogo, que es de donde sale la regla que se le muestra al modelo.
+      // Escrita acá era una segunda copia de la misma regla, y por eso se quedó corta:
+      // no sabía que «Content Machine» es una familia del sidebar y la dejó pasar.
+      if (!puedeSerProyectoNuevo(n.nombre).ok) return false;
       // Un área permanente arrastra varias tareas. Una sola tarea nunca justifica un
       // proyecto: entra en el mejor de la lista y si el tema crece, ya se verá.
       // ≥3 del mismo tema… salvo que el lote sea más chico que 3: un lote de 2 tareas
@@ -596,8 +650,9 @@ export async function asignarTareasAProyectos(
     const nom = String(n.nombre ?? '').trim();
     if (!nom || nuevos.some((x) => normNombre(x.nombre) === normNombre(nom))) continue;
     const cuantas = (Array.isArray(n.tareas) ? n.tareas : []).length;
+    const forma = puedeSerProyectoNuevo(nom);
     const motivo = canon.has(normNombre(nom)) ? 'ya existe'
-      : nom.split(/\s+/).filter(Boolean).length > 4 ? 'más de 4 palabras'
+      : !forma.ok ? forma.motivo
       : cuantas < Math.min(3, tareas.length) ? `solo ${cuantas} tarea(s)`
       : String(n.porQue ?? '').trim().length < 15 ? 'sin porqué' : 'otro';
     console.warn(`[mako-guardian] proyecto nuevo DESCARTADO «${nom}»: ${motivo}`);

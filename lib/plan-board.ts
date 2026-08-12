@@ -311,7 +311,9 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     // tablero se crea UNA vez, con el emoji y la descripción del catálogo.
     const nuevosProy: Label[] = [];
     const ruteadasA = new Map<string, string[]>(); // id de proyecto existente → títulos ruteados
+    const sinProyecto: string[] = []; // índice → por qué se quedó sin proyecto (va al historial)
     let siguientePid = maxPid(proyectos) + 1; // P# estable para cada proyecto nuevo
+    const motivoSin: (string | undefined)[] = validos.map(() => undefined);
     const projDeTarea: (string | undefined)[] = validos.map((it, i) => {
       const nombre = (ruteo[i] || it.proyecto?.trim() || '').trim();
       if (!nombre) return undefined;
@@ -325,26 +327,51 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
       if (!nid) {
         const cat = delCatalogo(nombre);
         const delPerro = propuestosPorElPerro.get(k);
+        // ⛔ LA COMPUERTA. Un proyecto se crea desde DOS fuentes y ninguna más: el
+        // catálogo, o el Perro habiéndolo propuesto y pasado sus cuatro barreras.
+        //
+        // Lo que se cierra acá (11-12/8/2026, cinco proyectos en dos días: «Feature:
+        // Landing», «Feature: Content Machine», «Feature: Historia del Usuario»,
+        // «Feature: Focus Tracker», «Feature: Funnel de Venta», con UNA tarea cada uno):
+        // `nombre` sale de `ruteo[i] || it.proyecto`, y esa segunda mitad es el nombre
+        // CRUDO que escribió MaKo en la tool de WhatsApp. Cuando el Perro rechazaba la
+        // propuesta, la tarea perdía su `ruteo[i]`… y el fallback la mandaba a crear
+        // EXACTAMENTE el proyecto recién rechazado. Los cinco tienen el mismo renglón en
+        // su historial —«Creó el proyecto — WhatsApp»—, que es la rama de acá abajo
+        // donde no hay ni catálogo ni aval: la firma del agujero.
+        //
+        // Un `console.warn` no alcanzaba y la prueba está en la fecha: el warn ya estaba
+        // y los cinco nacieron igual, porque nadie lee los logs de Vercel. Ahora la
+        // tarea entra SIN proyecto y con el motivo en su historial, que se ve en la app.
+        // Un huérfano visible se arregla en diez segundos; un proyecto de más ensucia el
+        // tablero para siempre y nadie se entera de que nació mal.
+        if (!cat && !delPerro) {
+          const porQue = `No se creó el proyecto «${nombre.slice(0, 60)}»: no está en el catálogo y el Perro no lo avaló. La tarea entra sin proyecto — asignala a mano.`;
+          motivoSin[i] = porQue;
+          sinProyecto.push(`«${it.titulo.trim().slice(0, 40)}» → pedía «${nombre.slice(0, 40)}»`);
+          return undefined;
+        }
         nid = genId('p');
         byName.set(k, nid);
         // El historial dice de dónde salió el proyecto, y en el caso más delicado —el
         // que abrió el Perro— dice ADEMÁS por qué ninguno de los que había servía. Sin
         // ese renglón, un proyecto nuevo es una decisión que nadie puede discutir.
         const porQueNacio = cat ? `Creó el proyecto (está en el catálogo) — ${desde}`
-          : delPerro ? `MaKo abrió este proyecto: ${delPerro.porQue} — ${desde}`
-            : `Creó el proyecto — ${desde}`;
+          : `MaKo abrió este proyecto: ${delPerro!.porQue} — ${desde}`;
         nuevosProy.push({
           // El nombre que se GUARDA es el canónico del catálogo: si el modelo dijo
           // «CRM», el proyecto se llama «Feature: CRM». El prefijo no depende de que
           // el modelo se acuerde de escribirlo.
-          id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? (delPerro ? '🗂' : '📁'), name: canonNombre(nombre).slice(0, 120),
+          id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? '🗂', name: canonNombre(nombre).slice(0, 120),
           color: '#2F6FED', score: 50, detalle: cat?.que ?? delPerro?.que ?? '', fuente: fu,
           historial: [{ id: genId('h'), ts: ahora, actor, text: porQueNacio.slice(0, 300) }],
         });
-        if (!cat && !delPerro) console.warn(`[plan-board] proyecto FUERA del catálogo y sin justificar: «${nombre}» — ${desde}`);
       }
       return nid;
     });
+    if (sinProyecto.length) {
+      console.warn(`[plan-board] ${sinProyecto.length} tarea(s) entran SIN proyecto (nombre inventado, sin catálogo ni aval del Perro) — ${desde}: ${sinProyecto.join(' · ')}`);
+    }
     if (nuevosProy.length) {
       const base = proyectos.length;
       const { error } = await db.from('plan_proyectos').insert(nuevosProy.map((l, i) => labelToRow(l, base + i)));
@@ -370,7 +397,12 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
         id: genId('t'), num: start + i, emoji: '📌', title: it.titulo.trim().slice(0, 200),
         detalle: it.detalle?.slice(0, 6000) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
         deadline: it.deadline || '', labels: projId ? [projId] : [], checklist: [],
-        historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó la tarjeta — ${desde}` }],
+        // El motivo de quedarse sin proyecto va en el historial DE LA TARJETA, que es
+        // donde el dueño lo va a ver. En un log de Vercel no lo ve nadie.
+        historial: [
+          { id: genId('h'), ts: ahora, actor, text: `Creó la tarjeta — ${desde}` },
+          ...(motivoSin[i] ? [{ id: genId('h'), ts: ahora, actor, text: motivoSin[i]!.slice(0, 300) }] : []),
+        ],
         origen: actor, fuente: it.fuente ?? fu, enPrioridad: false,
       };
     });
