@@ -56,6 +56,7 @@ export default async function ProgramaPage({ searchParams }: { searchParams: Pro
           titulo: c.titulo,
           pregunta: c.pregunta,
           graba: c.graba,
+          puntos: c.puntos ?? null,
           atoro: c.atoro ?? null,
           campos: CAMPOS[c.id] ?? [],
           enWhop: enWhop.has(c.id),

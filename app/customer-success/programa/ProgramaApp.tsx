@@ -29,6 +29,7 @@ import type { Campo } from '@/lib/programa-campos';
 
 type Clase = {
   id: string; rotulo: string; titulo: string; pregunta: string; graba: string;
+  puntos: string[] | null;
   atoro: string | null; campos: Campo[]; enWhop: boolean; destraba: boolean;
 };
 type Modulo = {
@@ -422,6 +423,13 @@ function QueGrabar({ clase, compañeras }: { clase: Clase; compañeras: number[]
     <section className="qg">
       <h3>Qué grabar</h3>
       <p className="g">{clase.graba}</p>
+      {clase.puntos && clase.puntos.length > 0 && (
+        <ol className="puntos">
+          {clase.puntos.map((p, i) => (
+            <li key={i}><span className="n">{i + 1}</span><span>{p}</span></li>
+          ))}
+        </ol>
+      )}
       {clase.atoro && <p className="ojo"><b>Ojo con esto.</b> {clase.atoro}</p>}
       {compañeras.length > 0 && (
         <p className="junto">
@@ -593,6 +601,16 @@ a.grc:hover{ border-color:var(--border-strong); }
   font-weight:600; margin:0 0 10px; padding-top:20px; border-top:1px solid var(--border); }
 .qg h3.dos{ margin-top:30px; }
 .qg .g{ font-size:16px; line-height:1.65; color:var(--ink); margin:0; max-width:68ch; }
+/* Los puntos de la grabación: numerados porque el ORDEN es parte del dato — es
+   el esqueleto del video, no una bolsa de ideas sueltas. */
+.qg .puntos{ list-style:none; margin:20px 0 0; padding:0; max-width:74ch; }
+.qg .puntos > li{ display:flex; gap:13px; padding:13px 0; border-top:1px solid var(--border); }
+.qg .puntos > li:first-child{ border-top:0; padding-top:4px; }
+.qg .puntos .n{ flex:none; width:23px; height:23px; border-radius:50%; display:flex;
+  align-items:center; justify-content:center; background:var(--surface-2); color:var(--dim);
+  font-family:${MONO}; font-size:11px; font-variant-numeric:tabular-nums; margin-top:1px; }
+.qg .puntos > li > span:last-child{ flex:1; min-width:0; font-size:15px; line-height:1.6;
+  color:var(--ink); }
 .qg .ojo{ font-size:14px; line-height:1.6; color:var(--dim); margin:16px 0 0;
   border-left:2px solid var(--mako); padding-left:14px; max-width:68ch; }
 .qg .ojo b{ color:var(--ink); }

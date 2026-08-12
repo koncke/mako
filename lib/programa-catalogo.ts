@@ -53,6 +53,20 @@ export type Clase = {
    * grabación y por qué existe. Nunca «decí esto»; siempre «acá va esto».
    */
   graba: string;
+  /**
+   * Los puntos a cubrir en el video, EN ORDEN. Es el esqueleto de la grabación:
+   * cada uno dice qué dejar claro, nunca con qué palabras — Mauricio sabe su
+   * material y un guion palabra por palabra se lee como leído.
+   *
+   * El criterio para escribirlos: el video existe para que el cliente pueda
+   * contestar la tarea. Así que salen de los CAMPOS reales de esa clase
+   * (`lib/programa-campos.ts`), no de una idea general del tema: si un campo
+   * pide «marca cuáles son dato duro y cuáles estimación», el video tiene que
+   * haber explicado por qué se pregunta eso.
+   *
+   * Opcional mientras se escriben módulo por módulo.
+   */
+  puntos?: string[];
   /** El atoro medido, cuando lo hay. Va en el video, no en la letra chica. */
   atoro?: string;
   /**
@@ -109,39 +123,87 @@ export const PROGRAMA: Modulo[] = [
         id: 'm1c1', titulo: 'La unidad que se repite',
         pregunta: 'Si tu negocio se juega en puntos de operación, en oportunidades comerciales o en proyectos, y cuántos tenés.',
         graba: 'Cómo se elige la unidad que se repite —sucursal, oportunidad o proyecto— y por qué todo lo que viene después se cuelga de esa elección.',
+        puntos: [
+          'Por qué esta pregunta va primera: todo lo que se mide después se cuelga de la unidad que elijan acá. Elegida mal, se mide tres meses lo que no mueve el resultado.',
+          'Las tres opciones con un ejemplo de rubro cada una: punto de operación (sucursales, rutas, consultorios), oportunidad comercial (deals que avanzan por etapas) y proyecto (obra con inicio, fin y presupuesto comprometido).',
+          'Cómo se reconoce la propia: es lo que se REPITE muchas veces y determina el resultado. Si algo cambia el resultado pero pasa una vez al año, no es la unidad.',
+          'Que hay que dar el número de hoy, y qué contar en cada caso: cuántos puntos abiertos, cuántas oportunidades abiertas al mes en promedio, cuántos proyectos simultáneos.',
+          'El caso mixto: tener dos de las tres conviviendo es común y no es un problema, pero cada línea se mide distinto. Pedir que digan qué línea se comporta como cada una.',
+        ],
       },
       {
         id: 'm1c2', titulo: 'Tus áreas y quién responde',
         pregunta: 'Qué áreas existen hoy y quién rinde cuentas de cada una, con nombre y apellido.',
         graba: 'La otra mitad del mismo mapa: las áreas y el nombre y apellido de quien responde por cada una. Sin apellido no hay accountability, hay un organigrama.',
+        puntos: [
+          'Que se listen las áreas COMO SON HOY, no como deberían ser. Si una persona cubre tres, se ponen las tres con el mismo nombre al lado.',
+          'Nombre y apellido, no el puesto. «Operaciones» no rinde cuentas de nada; Fulano sí. Es la diferencia entre un organigrama y un responsable.',
+          'Qué hacer con un área sin dueño claro: se escribe igual y se deja el responsable vacío. Ese hueco es la mitad del valor del ejercicio, no un error.',
+          'Cerrar diciendo para qué se usa: de acá salen los objetivos por área del módulo 4. Inventar un área que no existe se paga tres módulos después.',
+        ],
         mismoVideoQue: 'm1c1',
       },
       {
         id: 'm1c3', titulo: 'Venta y resultado de 24 meses',
         pregunta: 'Los números mes a mes, por línea de negocio y por unidad, con la fuente de cada cifra.',
         graba: 'Qué números se piden y por qué 24 meses y no 12: con un solo ciclo no se distingue una tendencia de una estacionalidad. Y que cada cifra viaja con su fuente, porque después hay que poder discutirla.',
+        puntos: [
+          'Por qué 24 meses y no 12: con un solo ciclo no se distingue una tendencia de una estacionalidad, y media MCI se escribe mal por eso.',
+          'Los tres cortes que se piden y para qué sirve cada uno: mes a mes es la curva, por línea de negocio es dónde está el margen, y por unidad agrupada es la dispersión.',
+          'Las salidas permitidas, dichas de frente para que nadie se frene: si no hay mes a mes, trimestre a trimestre; si no tienen resultado neto, el bruto y que lo aclaren.',
+          'El agrupado cuando hay muchas unidades: no hace falta una fila por sucursal. Tres bloques —las buenas, las medias y las que pierden—, cuántas hay en cada uno y el rango.',
+          'La cuarta tabla, que es la que nadie espera: por CADA cifra, de dónde sale, quién la calcula y si es dato duro o estimación. Explicar el porqué — dos meses después alguien discute un número y sin la fuente no hay forma de cerrar la discusión.',
+        ],
       },
       {
         id: 'm1c4', titulo: 'Qué te hace perder plata',
         pregunta: 'Los tres costos que más pesan, el punto de equilibrio, y qué unidades venden bien sin ser rentables.',
         graba: 'La cara del costo: los tres que más pesan, el punto de equilibrio, y el caso incómodo de la unidad que vende bien y no deja nada.',
+        puntos: [
+          'Los tres costos que más pesan van en PORCENTAJE sobre la venta, no en pesos: es lo único que se puede comparar entre unidades de tamaños distintos.',
+          'El punto de equilibrio, y la pregunta que casi nadie tiene contestada: si es el mismo para todas las unidades o cambia por tamaño.',
+          'La lista de causas para las que no llegan —ubicación, renta, nómina, tamaño, competencia, precio— y que se puede marcar más de una. Casi siempre son dos.',
+          'El caso incómodo y el que más sirve: la unidad que vende bien y aun así no deja nada. Insistir en el «por qué», no solo en cuál — el nombre solo no sirve para nada.',
+        ],
       },
       {
         id: 'm1c5', titulo: 'Tu paradoja en una frase',
         pregunta: 'Los dos números tuyos que se contradicen.',
         graba: 'En el mismo video, el cierre: los dos números propios que se contradicen. Sale de lo que acaba de cargar, así que conviene armarla en vivo con un ejemplo.',
+        puntos: [
+          'Aclarar de entrada que esta clase NO pide datos nuevos: se contesta con lo que ya cargaron en las dos anteriores.',
+          'La cifra que no cuadra, con las cuatro varas contra las que puede no cuadrar: el tamaño del mercado, el margen que reportan, el punto de equilibrio, o simplemente la intuición del dueño.',
+          'Separar lo que cambió en los últimos doce meses en interno (precios, personal, estructura) y externo (competencia, regulación, mercado). Importa porque la MCI se va a escribir sobre lo interno.',
+          'Armar una paradoja EN VIVO con un ejemplo: «crecimos 40% y ganamos menos», «vendemos más que nunca y estoy más atrapado que nunca». Verla armarse es lo que hace que el ejercicio se entienda.',
+          'La regla de la frase: lleva DOS NÚMEROS. Sin números es una queja, y una queja no se puede convertir en MCI.',
+        ],
         mismoVideoQue: 'm1c4',
       },
       {
         id: 'm1c7', titulo: 'Quién te compite de verdad',
         pregunta: 'En qué frente pega cada competidor, si perdiste venta medible, y qué hace que un cliente te prefiera.',
         graba: 'Cómo se separa el competidor que duele del que molesta, y la diferencia entre una pérdida percibida y una medible.',
+        puntos: [
+          'La tabla de competidores va por FRENTE —precio, servicio, ubicación, plazo— y en qué unidades o líneas se siente. Una lista de nombres no sirve.',
+          'La distinción que decide todo el módulo: ¿perdieron venta MEDIBLE o es percepción? Si es medible, cuánto y desde cuándo.',
+          'Por qué importa tanto: la MCI se escribe sobre lo que se puede medir. Si la amenaza es percepción, el trimestre se ataca por otro lado.',
+          'Dar vuelta la pregunta: qué hace que un cliente los prefiera, y qué les dicen los clientes cuando los escuchan de verdad.',
+          'La unidad, el vendedor o el proyecto que salió notablemente mejor que el resto: ésa es la escuela del sistema. Si saben por qué, ya tienen media palanca escrita.',
+          'Cerrar con lo que sí funcionó y quieren conservar, para que el ejercicio no quede solo en lo que falta.',
+        ],
         atoro: 'Casi siempre es percepción y no dato. Distinguirlo cambia la MCI: se ataca lo que se puede medir.',
       },
       {
         id: 'm1c6', titulo: 'Lo que no sabés todavía',
         pregunta: 'La lista de datos que no existen, con quién los consigue y para cuándo.',
         graba: 'La clase que da permiso a no tener el dato. Conviene grabarla en tono de alivio y no de reproche: es la que evita que el programa se frene esperando un número que nadie tiene.',
+        puntos: [
+          'Abrir dando permiso, y decirlo con todas las letras: esta clase se contesta con lo que NO tienen, y eso es una respuesta completa.',
+          'Pedir que revisen hacia atrás todo el módulo: de cada cifra que se pidió, cuál no existe o nadie calcula hoy.',
+          'Las tres columnas y por qué las tres: el dato que falta, quién debería generarlo, para cuándo. Sin nombre y sin fecha es una lista de deseos.',
+          'Contar el caso de TEXX —19 días con la MCI abierta esperando una cifra de margen— para que se entienda que declarar el hueco ahorra semanas, no las cuesta.',
+          'Cerrar con la regla: un hueco identificado vale más que una cifra inventada. La inventada rompe el tablero tres meses después, y para entonces nadie se acuerda de dónde salió.',
+        ],
         atoro: 'El dato base no existe: le pasó a los cuatro clientes. TEXX vivió 19 días con la MCI abierta esperando una cifra de margen. Contestar «no lo tengo, lo consigue Fulano el 12» es una respuesta válida.',
       },
     ],
