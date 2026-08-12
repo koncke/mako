@@ -128,9 +128,14 @@ export const HISTORICO: CasoHistorico[] = [
     fuente: 'Cómo se construye el sistema §7',
   },
 
-  // ── El arranque (m11c1) ──────────────────────────────────────────────────
+  // ── Los catálogos que faltan, ahora colgados de las palancas ─────────────
+  // ⚠️ Este caso vivía en m11c1 («Los catálogos que faltan»), que Mau sacó del
+  // programa el 12/08: «esto es un retraso, se supone que ya me los mandaron».
+  // La EVIDENCIA no se tira con la clase — el hallazgo es real y sigue valiendo,
+  // así que se recuelga de donde el faltante se manifiesta: al elegir la palanca,
+  // que es el momento en que alguien va a buscar el dato y no está.
   {
-    cliente: 'TEXX Supertiendas', claseId: 'm11c1', tipo: 'atoro',
+    cliente: 'TEXX Supertiendas', claseId: 'm6c3', tipo: 'atoro',
     que: 'Se detectaron trece catálogos faltantes, cada uno bloqueando una palanca.',
     leccion: 'Aparecen al final y no son trabajo de tablero: se listan con responsable y fecha antes del build, no después.',
     fuente: 'docs/programa-mauricio.md (derivado del material de Mauricio)',

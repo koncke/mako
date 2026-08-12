@@ -391,60 +391,96 @@ export const PROGRAMA: Modulo[] = [
     ],
   },
   {
+    // ⚠️ REESCRITO CON EL FEEDBACK DE MAU (reunión «Mau <> Martin: CUSTOMER
+    // SUCCESS», 12/08/2026). Él dictó la secuencia clase por clase, y el cambio
+    // de fondo es que su propósito NO se organiza por «adversario» sino por
+    // STAKEHOLDER: «yo no hablo tanto de adversario, sino de cada stakeholder,
+    // cómo va a cumplir su propósito». Por eso «Quién es el adversario» salió y
+    // entraron tres clases, una por stakeholder.
+    //
+    // ⚠️ LAS CLASES NUEVAS NO TIENEN CAMPOS TODAVÍA. Las preguntas del
+    // formulario salen de su Cuestionario Maestro y él las manda en el PDF de
+    // feedback: inventarlas sería exactamente lo que este programa no hace. La
+    // pantalla ya dice «este bloque todavía no tiene formulario».
     id: 'm5', numero: 5, titulo: 'El propósito, en la voz de tu gente', fase: 'pas', quien: 'dueño',
     clases: [
       {
-        id: 'm5c1', titulo: 'Por qué seguirían',
-        pregunta: 'Si el dinero estuviera resuelto, por qué seguirían con esto, y qué construyeron que antes no existía en su zona.',
-        graba: 'Las tres piezas del propósito van en UN video, porque la redacción sale bien en los cuatro clientes y no es donde se traba. Ésta es la primera: la pregunta del dinero resuelto, que es la que saca la respuesta honesta.',
+        id: 'm5c1', titulo: 'El origen',
+        pregunta: 'De dónde viene el negocio: qué inquietud del fundador lo empezó y qué se quería resolver.',
+        graba: 'La historia de origen, y corta: no es la biografía del dueño, es qué lo motivó a fundar esto. Puede venir de una persona o de una necesidad de contribuir con algo, y las dos versiones sirven.',
         puntos: [
-          'Por qué el propósito viene DESPUÉS de los números y no antes. El cliente acaba de pasar cuatro módulos midiendo, y ahora se le pide el único bloque del programa sin una sola cifra: conviene decirlo de frente para que no lo lea como el relleno blando entre dos partes serias. Lo que se junta acá es la materia prima con la que después se le habla al equipo, y por eso las ocho respuestas se escriben en párrafo y no en una línea.',
-          'La primera pregunta lleva una condición que no es un adorno: si el dinero YA estuviera resuelto, por qué seguirían con esto. Sin esa cláusula la respuesta es «para ganar dinero» y el ejercicio se termina ahí mismo. Vale la pena aclarar que se contesta como se piensa, no como se redactaría una misión y visión para colgar en la recepción.',
-          'Las dos que van juntas: qué construyeron acá que antes no existía en su zona o en su industria, y de qué se sienten orgullosos que un competidor grande no podría hacer ni con todo su dinero. Son la misma búsqueda desde dos lados —lo propio y lo no comprable— y conviene decirlo, porque si no el cliente cree que se le pregunta dos veces lo mismo y contesta una sola vez. La segunda es la que ordena: lo que el grande sí puede comprar, no entra.',
-          'El trío del cliente, que es donde el módulo se pone concreto. Primero qué le resuelve más allá de la compra o del servicio; después un cliente REAL, con nombre; y por último qué perdería ese cliente si la empresa no existiera. El nombre no es un capricho: sin él la respuesta sale en genérico. Y la tercera verifica a la primera — si lo que perdería no se parece a lo que se dijo que resuelve, una de las dos está escrita de adorno.',
-          'Las dos que miran hacia adentro y que nadie espera en un cuestionario de negocio: en qué se convierte una persona que trabaja ahí y qué se lleva aunque un día se vaya, y qué les devuelve el negocio a ellos como socios o como familia, más allá de la utilidad. Están porque el propósito tiene que sostenerse ante el equipo y ante los dueños, no solo ante el cliente. Si únicamente hay respuesta para el cliente, lo que se tiene es una promesa comercial.',
-          'El cierre, que ahorra el trabajo doble: nada de esto es todavía el texto final. Son respuestas crudas y largas, y cuanto más se parezcan a cómo se habla adentro de la empresa, menos hay que corregir después. Conviene anticipar que la clase 5.4 las va a poner a prueba leyéndolas en voz alta delante del equipo imaginado.',
+          'Abrir por qué el origen va primero y no el propósito: la gente intenta escribir el propósito de arriba hacia abajo y sale un enunciado de agencia. El origen es lo único que YA ocurrió, así que es lo único que no se puede inventar, y de ahí sale todo lo demás con la voz correcta.',
+          'Qué se busca exactamente, para que no se vayan a la autobiografía: qué inquietud, qué necesidad o qué molestia hizo que esto arrancara. Vale nombrar que no siempre viene de una persona — a veces es la necesidad de contribuir con algo que no existía en su zona.',
+          'Dar un ejemplo del rubro del propio cliente y no uno abstracto. El que funciona en su material es el del que estaba cansado de las agencias que le dicen al cliente lo que quiere oír: el origen es la molestia, no la misión.',
+          'Cerrar con la prueba de que está bien escrito: si se lo leen a alguien del equipo que estuvo desde el principio, esa persona lo reconoce. Si suena a folleto, todavía es el enunciado y no el origen.',
         ],
       },
       {
-        id: 'm5c2', titulo: 'Quién es el adversario',
-        pregunta: 'Concreto y medible, no abstracto, y cómo se siente eso en el piso.',
-        graba: 'La segunda pieza: el adversario tiene que ser algo que se pueda señalar en el piso. «La mediocridad» no sirve; «que el cliente espere 20 minutos», sí.',
+        id: 'm5c2', titulo: 'El PAS y la narrativa',
+        pregunta: 'El Propósito Altamente Significativo y el contexto en el que quieren crear algo distinto.',
+        graba: 'El PAS —Propósito Altamente Significativo— es un concepto propio de Mauricio y hay que definirlo antes de pedirlo. Va junto con la narrativa porque, en sus palabras, «en realidad todo esto es narrativa».',
         puntos: [
-          'Qué es un adversario y por qué un propósito lo necesita. No es el competidor de la esquina: es aquello contra lo que el equipo pelea todos los días y que, si desapareciera, dejaría el trabajo sin pulso. Conviene advertir de entrada el error de poner ahí el nombre de un competidor, porque eso ata el propósito de la casa a que otro siga existiendo.',
-          'El filtro que decide si la respuesta sirve, y es uno solo: que se pueda señalar en el piso. «La mediocridad» o «la falta de compromiso» no pasan porque nadie puede decir si hoy ocurrieron; «que el cliente espere veinte minutos» pasa porque alguien lo puede contar esta tarde. Vale la pena tomar un adversario abstracto en vivo e irlo bajando hasta que quede algo que se cuente con un número.',
-          'La segunda pregunta pide la escena, no el adjetivo: cómo se siente eso en el piso, en el día a día de la gente. Se contesta describiendo un momento de la operación —quién está, qué pasa, qué cara pone el cliente—, porque de ahí sale la frase que después el equipo reconoce como propia. Si el dueño no puede describir la escena, lo más probable es que haya elegido el adversario en el escritorio.',
-          'La tercera da vuelta el mismo eje: cuál es la solución que solo este equipo puede dar. Se apoya en lo que ya salió sobre lo que un competidor grande no podría hacer, así que conviene pedir que relean esa respuesta antes de contestar esta. Lo que hay que sacar es un «solo nosotros» concreto, no un «servicio de calidad» que podría firmar cualquiera del rubro.',
-          'Las tres respuestas tienen un destino concreto y conviene decirlo antes de pasar a los valores: el adversario y la solución son lo que se dice en voz alta cuando el propósito se le presenta al equipo. Por eso se escriben para ser dichas y no para ser leídas. Una frase que hay que explicar dos veces ya perdió, y eso se descubre recién en la clase de la bajada si no se avisa acá.',
+          'Definir el PAS antes de pedirlo, porque es vocabulario propio y nadie llega sabiendo qué es: el propósito grandote, el que dice dónde se va a crear valor y qué se quiere ver distinto en el mundo. Está más cerca de una visión que de una misión.',
+          'Marcar la relación con el origen de la clase anterior: el PAS es hacia dónde va lo que ya empezó. Si no se puede trazar la línea entre uno y otro, el que está mal escrito casi siempre es el PAS.',
+          'La narrativa en el mismo video, porque es la otra cara: el contexto contra el que ese propósito se recorta. El ejemplo que él usa es el de la agencia que existe porque está cansada de las que venden humo — el contexto es lo que hace que el propósito signifique algo.',
+          'Advertir contra el enunciado genérico, que es el modo de fallar de esta clase: «ser los mejores del sector» no es un PAS porque no dice qué se ve distinto ni para quién. La prueba es si un competidor podría firmar la misma frase.',
         ],
-        mismoVideoQue: 'm5c1',
       },
       {
-        id: 'm5c3', titulo: 'Los valores como conducta',
+        id: 'm5c3', titulo: 'La promesa a los colaboradores',
+        pregunta: 'Qué gana el que trabaja acá, más allá del sueldo.',
+        graba: 'La primera de las tres promesas por stakeholder. La regla que gobierna a las tres: si el propósito no funciona para los tres, está mal escrito, porque tiene que ser una narrativa donde los tres ganen.',
+        puntos: [
+          'Explicar primero por qué son tres clases y no una: el propósito se prueba stakeholder por stakeholder, y si no funciona para los tres no está bien. Es la regla que le da sentido a las dos siguientes, así que va acá y después no se repite.',
+          'Qué se pide en ésta: qué gana el colaborador por estar acá, más allá del sueldo. La respuesta útil es concreta, no un valor. El ejemplo de su material es «somos la universidad que te paga» — estando acá vas a aprender más que en ningún otro lado, y además cobrás.',
+          'La trampa a nombrar: esta promesa suele salir escrita como un beneficio de recursos humanos. Si se puede reemplazar por «buen clima laboral» sin que cambie nada, todavía no es la promesa.',
+          'Cerrar con el efecto que se busca, que él nombra explícitamente: que el colaborador no lea al accionista como su enemigo. Las tres promesas juntas arman un ecosistema donde la única forma de ganar es que ganen los tres.',
+        ],
+      },
+      {
+        id: 'm5c4', titulo: 'La promesa a los clientes',
+        pregunta: 'Con qué se compromete el negocio frente a su cliente, en concreto.',
+        graba: 'La segunda promesa. Acá el riesgo es el eslogan: lo que se busca es un compromiso que se PUEDA incumplir, porque una promesa que no se puede incumplir no es una promesa.',
+        puntos: [
+          'Qué se pide: con qué se compromete el negocio ante el cliente, dicho de forma que se pueda comprobar. El ejemplo del material es «no te voy a decir lo que querés escuchar, me voy a comprometer con tu resultado» — eso se puede incumplir, y por eso vale.',
+          'El contraste que aclara todo: un eslogan de servicio («calidad y atención personalizada») no se puede incumplir porque no dice nada. Pedir que la escriban de modo que, si dejaran de cumplirla, alguien del equipo pudiera señalarlo.',
+          'Traer el ejemplo del restaurante que él usa, porque baja el concepto a un rubro cualquiera: toda la narrativa gira alrededor de ayudar a que el cliente se consienta, porque está gastando dinero en comer fuera de casa. La promesa sale del lugar del cliente, no del catálogo del negocio.',
+          'Cerrar señalando que ésta es la promesa que después aparece en el material de venta, así que conviene escribirla con las palabras del negocio y no con las de una plantilla.',
+        ],
+      },
+      {
+        id: 'm5c5', titulo: 'La promesa a los accionistas',
+        pregunta: 'Qué gana el que puso el capital, además del retorno.',
+        graba: 'La tercera promesa, y la que más se saltea. Casi siempre se contesta «rentabilidad» y ahí se termina: lo que se busca es qué MÁS, porque el retorno solo no explica por qué alguien sostiene una empresa distinta.',
+        puntos: [
+          'Anticipar la respuesta corta, porque va a aparecer: «que gane dinero». Es cierta y es insuficiente. Si el retorno fuera todo, cualquier negocio del mismo margen serviría igual, y no es lo que están construyendo.',
+          'Qué se busca además del retorno, con el ejemplo de su material: el orgullo de marca, el sentido de estar contribuyendo con una empresa que hace las cosas distinto en su industria.',
+          'Nombrar el caso del dueño que es a la vez accionista y director, que es la mayoría de sus clientes: aun así conviene contestarla con el sombrero de accionista puesto, porque es la única forma de ver si el negocio le devuelve algo más que trabajo.',
+          'Cerrar leyendo las tres promesas juntas, que es exactamente la revisión que se hace en la sesión. Si una se contradice con otra —al colaborador se le promete autonomía y al accionista control— el propósito todavía no cierra, y conviene que eso salga acá y no en la junta donde se lo cuentan al equipo.',
+        ],
+      },
+      {
+        id: 'm5c6', titulo: 'Los valores en acción',
         pregunta: 'Qué hace alguien de la casa que otro no haría, exactamente.',
-        graba: 'La tercera: el valor escrito como conducta observable. Si no se puede describir qué hace la persona, no es un valor, es un cartel.',
+        graba: 'Se llaman «valores en acción», que es como los nombra Mauricio, y no «valores como conducta». Un valor escrito como sustantivo no sirve: lo que se pide es la conducta observable.',
         puntos: [
-          'Conviene abrir esta parte con el contraejemplo, porque despeja el 90% de las dudas: «integridad» no es una respuesta, ya que nadie sabe qué hacer con eso el lunes a las nueve. Un valor se escribe igual que un criterio —qué hace la persona, exactamente— y cuando no se puede describir la conducta, lo que hay es una palabra para la pared.',
-          'La primera pregunta trae la cláusula que la vuelve verdadera: qué no aceptarían nunca, aunque les costara ventas o aunque les pagaran por ello. Sin ese costo enfrente, cualquier cosa parece un valor. Conviene pedir el caso real en el que ya costó algo, porque un valor que nunca costó nada todavía no se probó.',
-          'La segunda pide las dos mitades juntas: la conducta que exigen Y que reconocen todos los días. Separadas no sirven — lo que se exige y no se reconoce es un reglamento, y lo que se reconoce sin exigirse es una anécdota que pasó una vez. El «todos los días» es un filtro más: lo que ocurre una vez al año es una política, no un valor.',
-          'La tercera es comparativa y es la que peor se contesta si el video no la explica: qué hace exactamente alguien de la casa que otro no haría con la misma tarea enfrente. Lo que se busca es un gesto o una acción con verbo —qué dice, qué revisa, a quién avisa—, nunca un adjetivo. Vale la pena resolver una en vivo, porque el primer intento casi siempre vuelve con «lo hace con más dedicación».',
-          'Queda una prueba final para que la lista no salga intercambiable: si lo que se escribió podría estar colgado en la pared de cualquier otro negocio del rubro, no es lo que se pidió. Lo que sirve es lo que un empleado nuevo no adivinaría solo y alguien de la casa hace sin pensarlo.',
+          'Usar el nombre correcto desde el título y decir por qué: «valores en acción» obliga a escribir un verbo. Un valor en sustantivo —integridad, excelencia— se cuelga en la pared y no cambia nada de lo que pasa el lunes.',
+          'La prueba concreta que se pide: qué hace alguien de la casa que otro, en el mismo puesto y en otra empresa, no haría. Si no se puede describir la escena, todavía no es un valor en acción.',
+          'Traer los ejemplos de su propio material, que están escritos en negativo y funcionan: no repetir lo que el cliente quiere oír, no ejecutar cuando el rumbo está mal, no confundir actividad con resultados, no aceptar proyectos que desgastan al equipo. Lo que NO se hace define mejor que lo que se dice.',
+          'Cerrar con la prueba de la lista: si los valores escritos podrían pertenecer a cualquier otra empresa del rubro, todavía es una lista intercambiable y hay que volver a la conducta.',
         ],
-        mismoVideoQue: 'm5c1',
       },
       {
-        id: 'm5c4', titulo: 'Cómo se lo contás al equipo',
+        id: 'm5c7', titulo: 'Cómo se lo contás al equipo',
         pregunta: 'Quién lo dice, en qué foro, con qué ritual y cómo se ancla en la junta semanal.',
-        graba: 'Va solo, y es el único del módulo que necesita video propio. Tres cosas concretas: quién lo dice, en qué foro, y cómo queda anclado en la junta semanal para que no sea un anuncio de una sola vez.',
-        puntos: [
-          'Por qué esta clase tiene su propio video, dicho con el dato que lo respalda: el enunciado del propósito sale bien en los cuatro clientes, y lo que no ocurre solo es la bajada. Acá ya no se pule la redacción — se arma el plan de cómo eso llega a la gente, que es exactamente donde se atora el módulo.',
-          'La primera tarea es una prueba física, no una reflexión: leer las respuestas en voz alta imaginando al equipo enfrente. La mitad útil es la segunda parte —qué porción no le creerían—, y es ahí donde salta el vocabulario: en Baja Teriyaki «honrar» se cambió a «consentirse» porque la primera palabra sonaba demasiado formal para hablarle al equipo. La palabra que no sobrevive a decirse en voz alta tampoco sobrevive en el piso.',
-          'La segunda prueba es de crecimiento: si todo lo escrito sigue siendo verdad cuando mañana abran otra plaza, otra línea u otro formato. Está acá y no en la clase donde se redactó porque recién con el texto terminado se ve cuánto de él dependía de la operación de hoy. Un propósito que hay que reescribir en la primera apertura se lleva puesta la credibilidad del primero.',
-          'La tercera pregunta pide tres cosas concretas y ninguna admite un genérico: un nombre —no «la dirección»—, un foro con ocasión y fecha, y un ritual que lo repita. Conviene marcar que un correo o un comunicado interno no cuentan como foro: lo que se pregunta es quién lo dice con la boca y delante de quiénes.',
-          'La cuarta es la que evita que todo esto termine siendo un anuncio de una sola vez: dónde queda anclado en la junta semanal. Se contesta con un lugar en el orden del día, no con una intención — en qué momento de la junta aparece, quién lo trae y qué se dice ahí. Vale la pena nombrar que ésa es la junta del módulo 10, para que el cliente sepa que va a volver sobre esto.',
-          'Antes de terminar conviene decir qué cuenta como tarea contestada en esta clase: un plan con nombre, foro y fecha. «Lo vamos a comunicar pronto» no es una respuesta, y es la forma exacta que toma el atoro cuando aparece — nadie discute el propósito, simplemente nunca llega a decirse.',
-        ],
+        graba: 'Va al final y es el único de este módulo que se atora: el enunciado sale bien en los cuatro clientes, la bajada no ocurre sola. Es una estrategia de comunicación, no un anuncio.',
         atoro: 'Acá se atora la bajada, no la redacción: el enunciado sale bien en los cuatro clientes, comunicarlo no ocurre solo. Y el vocabulario traiciona: en Baja Teriyaki «honrar» se cambió a «consentirse» porque sonaba demasiado formal para hablarle al equipo.',
+        puntos: [
+          'Decir de entrada que esta clase no es sobre QUÉ comunicar sino sobre CÓMO, y que va al final a propósito: recién ahora existen el origen, el PAS, las tres promesas y los valores, o sea que hay algo que contar.',
+          'Las cuatro cosas concretas que se piden: quién lo dice, en qué foro, con qué ritual, y cómo queda anclado en la junta semanal. La última es la que convierte un anuncio en algo que se sostiene.',
+          'La advertencia del vocabulario, con el caso: en Baja Teriyaki «honrar» se cambió por «consentirse» porque la primera sonaba demasiado formal para ese equipo. El propósito se escribe con las palabras que su gente usa, no con las del documento.',
+          'Antes de terminar, decir qué cuenta como tarea contestada acá: un plan con nombre, foro y fecha. «Lo voy a comunicar en la próxima junta» no es un plan, es una intención.',
+        ],
       },
     ],
   },
@@ -574,49 +610,25 @@ export const PROGRAMA: Modulo[] = [
     ],
   },
   {
+    // ⚠️ UNA SOLA CLASE, no tres (Mau, reunión del 12/08/2026): «no las pondría
+    // separadas, aquí literalmente sería una sola». Verde, amarillo y rojo son
+    // un mismo ejercicio y se contestan de una sentada, así que antes
+    // compartían VIDEO y ahora comparten también el bloque y la tarea.
     id: 'm8', numero: 8, titulo: 'Los umbrales', fase: 'palancas', quien: 'líder de área', porArea: true,
     clases: [
       {
-        id: 'm8c1', titulo: 'Qué ya lograste alguna vez',
-        pregunta: 'Ese número es el piso de lo posible, no la meta.',
-        graba: 'Un solo video para los tres umbrales: son un ejercicio, no tres. Arranca por el piso —lo que ya se logró alguna vez—, que es el único ancla que el líder tiene para calibrar todo lo demás.',
+        id: 'm8c1', titulo: 'Los umbrales de cada objetivo',
+        pregunta: 'Por cada objetivo: el piso ya logrado, la meta exigente pero alcanzable, y qué tendría que pasar para que se caiga.',
+        graba: 'Los tres umbrales en un solo bloque: se ponen juntos porque los rangos tienen que encajar entre sí, y separados nunca encajan. Le habla al LÍDER del área, que es el único tramo del programa que no contesta el dueño.',
+        atoro: 'El dueño no tiene referencia de qué es exigente pero posible, y ante la duda no contesta: Patricia no devolvió el archivo. Por eso la pregunta que sí funciona es «qué ya lograste alguna vez», y no «cuál sería una buena meta». Y los rangos van SIN TRASLAPE entre verde, amarillo y rojo, que es el error más común.',
         puntos: [
-          'Lo primero es quién contesta: los tres umbrales los pone el LÍDER del área, y es el único módulo cuya tarea sale entera de su mano y no de la del dueño. La razón conviene darla y no darla por obvia — el umbral lo pone quien va a responder por él en la junta semanal, y un número puesto por otro no compromete a nadie. Si el dueño termina llenando los tres, el módulo se cumplió en el papel y no pasó nada en el equipo.',
-          'Ubicar el ejercicio antes de la primera pregunta: los tres bloques son una sola sesión de trabajo sobre UNA palanca, y se repiten por cada área. El líder no está eligiendo qué medir, eso ya quedó decidido en el módulo 6; está poniendo los cortes del semáforo del número que su ficha ya tiene.',
-          'La pregunta del piso pide un hecho, no una opinión: qué nivel se alcanzó ALGUNA VEZ. Vale la pena pedir que venga con su circunstancia —qué mes, qué turno, qué sucursal—, porque un número sin fecha es una impresión y porque el piso se usa después para discutir si el verde es realista.',
-          'Traer el atoro acá, que es lo que justifica la forma de la pregunta. Preguntado como «¿cuál sería una buena meta?», el que contesta no tiene contra qué calibrar, y ante la duda no contesta nada: Patricia directamente no devolvió el archivo. Lo ya logrado, en cambio, siempre existe y se puede recordar.',
-          'Qué hacer cuando ese número nunca se midió, que es la mitad de los casos: sirve el mejor caso conocido —el mejor mes, el mejor turno, la unidad que salió mejor— dicho como lo que es, una estimación. Dejarlo en blanco frena las dos preguntas que siguen, porque sin piso el verde se pone a ojo.',
-          'Cerrar diciendo para qué va a servir ese número en los dos bloques siguientes: es el ancla contra la que se calibran el verde y el rojo. Es lo único empírico que el líder tiene sobre la mesa, así que si sale mal medido, los otros dos umbrales salen mal detrás de él.',
+          'Lo primero es quién contesta: los umbrales los pone el LÍDER del área, no el dueño, porque es quien va a responder por ellos. Si los pone el dueño, el equipo no se compromete con el número — y ése es todo el punto del ejercicio.',
+          'Arrancar por el piso y no por la meta, que es lo que destraba: se pregunta qué nivel YA se logró alguna vez, nunca «cuál sería una buena meta». Ante esa segunda pregunta el dueño no contesta y el archivo no vuelve; el piso, en cambio, es un dato que ya existe.',
+          'El verde, con la restricción que lo hace honesto: exigente pero alcanzable CON LA GENTE Y EL PRESUPUESTO DE HOY. Sin esa cláusula la meta se convierte en un pedido de recursos disfrazado de objetivo.',
+          'El rojo se define al revés que los otros dos: no es «cuánto menos», es qué tendría que pasar para que esto salga mal. Preguntarlo así saca una respuesta concreta en vez de un número redondeado hacia abajo.',
+          'Cerrar mostrando los tres rangos juntos y ya escritos, que es cuando se ve si encajan: sin traslape entre verde, amarillo y rojo — el error más común — y nada de 100% salvo donde incumplir sea inadmisible por seguridad, legal o pérdida de cliente.',
+          'Avisar de dónde sale el amarillo, porque en este bloque no se pregunta: baja de la ficha de nueve campos de la palanca, que contesta el dueño. Al armar los rangos hay que traerlo de ahí o los tres números se fijan en dos conversaciones distintas.',
         ],
-        atoro: 'El dueño no tiene referencia de qué es exigente pero posible, y ante la duda no contesta: Patricia no devolvió el archivo. Por eso la pregunta que sí funciona es esta, y no «¿cuál sería una buena meta?».',
-      },
-      {
-        id: 'm8c2', titulo: 'Qué es exigente pero alcanzable',
-        pregunta: 'Con lo que tenés hoy: sin gente nueva y sin presupuesto nuevo.',
-        graba: 'El verde, con la restricción que lo hace honesto: con la gente y el presupuesto de hoy. Sin esa cláusula la meta se convierte en un pedido de recursos.',
-        puntos: [
-          'El verde es el nivel que el área se compromete a sostener, y la cláusula que lo hace honesto es la mitad de la pregunta: con la gente y el presupuesto de HOY. Sin ella la respuesta se convierte en un pedido de recursos —«llego a eso si me dan dos personas más»— y un umbral condicionado no se puede pintar en un tablero.',
-          'Cómo se calibra contra el piso que acaban de escribir: el verde va arriba de lo que ya se logró alguna vez, nunca abajo. Si queda por debajo del piso, el área se está poniendo una meta que ya superó; si queda muy por encima sin nada que lo respalde, el tablero va a estar en rojo todas las semanas y el rojo deja de significar algo.',
-          'Que el verde se escriba en la MISMA unidad y con la misma frecuencia que la ficha de la palanca: si el número se mide como porcentaje semanal por punto, el umbral va en porcentaje semanal por punto. Un umbral escrito en otra unidad no se puede comparar con el dato que llega, y eso se descubre recién cuando el tablero ya está andando.',
-          'Las dos formas de errarle, que conviene nombrar porque son las que aparecen: poner de verde lo que el área ya hace todas las semanas, que no exige nada, o poner el número que le gustaría al dueño, que no lo sostiene nadie. Exigente pero alcanzable es exactamente el punto entre esas dos.',
-          'Antes de pasar al rojo vale decir adónde va este número: se copia a la ficha de la palanca y se pinta cada semana en la junta, donde el líder va a tener que explicarlo. Un verde que no se puede defender en voz alta delante del equipo todavía no está listo para escribirse, y el momento de bajarlo es ahora, no la semana en que se ponga rojo.',
-        ],
-        mismoVideoQue: 'm8c1',
-      },
-      {
-        id: 'm8c3', titulo: 'Cuándo se cae',
-        pregunta: 'Qué tendría que pasar para que esto salga mal. Esa es la definición del rojo.',
-        graba: 'El rojo se define al revés que los otros dos: no es «cuánto menos», es qué tendría que pasar para que esto salga mal. Cerrá mostrando los tres rangos juntos, ya escritos, que es cuando se ve si encajan.',
-        puntos: [
-          'El rojo se define al revés que los otros dos y conviene decirlo de frente: no se pregunta cuánto menos, se pregunta qué tendría que PASAR para que esto salga mal. Pedido como número sale uno arbitrario; pedido como escena aparecen las causas reales —faltó gente un turno, se cayó el sistema, no llegó el insumo— y el número sale solo de ahí.',
-          'Que la respuesta puede ser una descripción y no una cifra, porque el campo pide justamente eso. Lo que hay que sacar de esa escena antes de cerrar es el valor a partir del cual el área ya no llegó: ése, y no la anécdota, es el borde del rojo.',
-          'La pregunta del caso inadmisible, que es la única puerta al 100%: dónde el incumplimiento no admite rango por seguridad, por obligación legal o porque se pierde un cliente. Fuera de ahí, nada de 100% — un umbral perfecto convierte cualquier desvío normal en rojo y el equipo aprende a ignorar el color. Y si en esa área no hay ningún caso así, decir que no hay es una respuesta completa.',
-          'El hueco que hay que avisar, porque nadie lo pregunta y después falta: este módulo pide el piso, el verde y el rojo, pero el AMARILLO no se pregunta en ninguna de las tres clases. Vive en la ficha de nueve campos de 6.5, que ya contestó el dueño, así que al armar los rangos hay que ir a buscarlo ahí. Si nadie lo trae, entre el verde y el rojo queda un tramo sin color.',
-          'El error más común, y solo se ve cuando los tres están escritos juntos: rangos que se pisan o que dejan huecos entre uno y otro. Conviene mostrarlos en pantalla, uno debajo del otro, y verificar que cualquier valor posible caiga en un color y en uno solo.',
-          'Cerrar con la prueba que termina el ejercicio: que el líder mire el número de su área de esta semana y diga de qué color está, sin dudar. Si tiene que pensarlo, los cortes todavía no están bien puestos, y corregirlos ahora es mucho más barato que hacerlo después de dos semanas de captura real.',
-        ],
-        atoro: 'Rangos sin traslape entre verde, amarillo y rojo: es el error más común. Y nada de 100% salvo donde el incumplimiento sea inadmisible por seguridad, legal o pérdida de cliente.',
-        mismoVideoQue: 'm8c1',
       },
     ],
   },
@@ -679,49 +691,45 @@ export const PROGRAMA: Modulo[] = [
     ],
   },
   {
-    id: 'm10', numero: 10, titulo: 'La cadencia', fase: 'build', quien: 'dueño',
+    // ⚠️ RENOMBRADO Y DESGLOSADO (Mau, 12/08/2026): «no pondría cadencia, sino
+    // diseñando las juntas — la diaria, la semanal y la uno a uno». Y tiene una
+    // hoja con ocho principios ya validados para organizarlas, que va a subir
+    // como archivo adjunto de este módulo.
+    id: 'm10', numero: 10, titulo: 'Diseñando las juntas', fase: 'build', quien: 'dueño',
     clases: [
       {
-        id: 'm10c1', titulo: 'Las tres juntas',
-        pregunta: 'Día, hora y participantes de la diaria de sincronización, la semanal de accountability y la mensual de rentabilidad.',
-        graba: 'Las tres juntas y para qué sirve cada una. Lo que hay que dejar claro es que son tres cosas distintas y que mezclarlas es lo que convierte a la semanal en una reunión de operación.',
+        id: 'm10c1', titulo: 'Diseñando la junta diaria',
+        pregunta: 'Día, hora, duración y quiénes participan en la diaria de sincronización.',
+        graba: 'La más corta de las tres y la que más se abandona. Lo que hay que dejar claro es para qué existe: sincronizar, no resolver — en el momento en que alguien empieza a resolver, la diaria se convierte en una junta operativa y se muere sola.',
         puntos: [
-          'Dónde cae este módulo, porque el cliente llega acá con todo construido y todavía sin usar: las palancas tienen ficha, la evidencia tiene reglas, los umbrales tienen rangos y la carta está escrita. La cadencia es lo único que hace que eso se mire una vez por semana. Sin un lugar fijo en el calendario, el tablero es un archivo que alguien abre en marzo.',
-          'Las tres juntas con su propósito propio, que es lo que las hace irreemplazables entre sí: la diaria sincroniza y destraba el día, la semanal es donde se rinden cuentas del marcador, y la mensual mira la rentabilidad. Conviene decir también para qué NO sirve cada una: la diaria no decide, la semanal no resuelve, la mensual no hace seguimiento de tareas.',
-          'La trampa hay que nombrarla con su síntoma, no con la teoría: cuando lo que corresponde a la diaria se cuela en la semanal, la semanal deja de ser accountability y pasa a ser operación, y nadie lo nota porque la reunión se siente productiva. La señal es simple y vale darla: si al terminar hay tareas repartidas y ningún número revisado, se corrió la junta equivocada.',
-          'Que el formulario pide únicamente la SEMANAL, y una por área, conviene aclararlo antes de mandarlos a contestar. Las otras dos se explican para que la semanal no termine convirtiéndose en ellas, no porque haya que agendarlas acá. Decirlo de entrada ahorra la pregunta más repetida del módulo.',
-          'El día y la hora van fijos y no movibles, y vale insistir en el nivel de detalle que se espera: día de la semana y hora concreta, no «los lunes por la mañana». Una junta que se mueve una vez se mueve siempre, y la que se movió dos veces ya no existe aunque siga puesta en el calendario.',
-          'Quién asiste tiene una regla dura: solo quienes rinden cuentas de esos números. Cada persona de más es alguien que escucha en vez de responder, y es lo que estira la junta y la vuelve informativa. Conviene decir de frente que quedar afuera no es un castigo — a quien no le toca rendir cuentas se le comparte el resultado después.',
-          'La duración se pide como número y trae su propia lectura diagnóstica: entre veinte y cuarenta minutos por área, y pasarse no significa que falte tiempo, significa que se está resolviendo operación en vez de rendir cuentas. Pedir que escriban el número que van a comprometer, no el que hoy duran las reuniones que ya tienen.',
+          'Para qué existe la diaria y para qué no: es de sincronización. Cada uno dice en qué está y qué lo traba, y lo que aparece como problema se agenda aparte. Si se resuelve ahí, se estira, y una diaria que se estira deja de ocurrir en dos semanas.',
+          'Lo concreto que se pide: día, hora fija, duración y quiénes están. La hora fija importa más de lo que parece: una diaria «cuando podamos» deja de ocurrir en dos semanas, porque siempre hay algo más urgente que sincronizar. Vale pedir que la agenden como cita recurrente antes de contestar.',
+          'La duración como restricción de diseño, no como deseo: si dura más de quince minutos, algo se está resolviendo ahí que no corresponde. Vale decirlo como criterio de revisión y no como regla arbitraria.',
+          'Cerrar con la pregunta que prueba de quién es la junta: quién la conduce cuando el dueño no está. Si la respuesta es «no se hace», entonces no es una rutina del sistema, es una reunión del dueño con su gente — y eso es justo lo que el programa viene a desarmar.',
         ],
       },
       {
-        id: 'm10c2', titulo: 'El guion de la semanal',
-        pregunta: 'Rendir cuentas del compromiso, solo rojos y amarillos, despejar obstáculos, y un compromiso concreto con fecha.',
-        graba: 'Los cuatro pasos de la semanal, en su propio video porque es la junta que sostiene todo el sistema. El paso que más se saltea es el último: sin compromiso con fecha, la junta fue un informe.',
+        id: 'm10c2', titulo: 'Diseñando la junta semanal',
+        pregunta: 'El guion de la semanal: rendir cuentas del compromiso, solo rojos y amarillos, despejar obstáculos y un compromiso concreto con fecha.',
+        graba: 'La junta que sostiene todo el sistema, así que es la que más detalle merece. Cuatro pasos, en orden, y el que más se saltea es el último.',
         puntos: [
-          'Por qué esta junta se graba aparte: es la que sostiene el sistema entero. Todo lo que se construyó en los módulos anteriores se mira acá una vez por semana o no se mira en ningún lado. Y por eso tiene guion fijo, con los cuatro pasos siempre en el mismo orden: una junta que se improvisa termina siempre en operación.',
-          'El primer paso es rendir cuentas del compromiso de la semana pasada, y la regla que lo hace funcionar es que ahí se cumplió o no se cumplió, sin explicaciones. Vale anticipar que la primera vez alguien va a querer explicarse; no es dureza, es que el porqué tiene su lugar en el tercer paso y mezclarlos disuelve el compromiso.',
-          'El segundo es el marcador, y solo los rojos y los amarillos: los verdes se mencionan en una línea y se sigue. Conviene dar el porqué, porque suena injusto — repasar lo que ya funciona es exactamente lo que estira la junta a hora y media y deja los problemas para el final, cuando ya nadie tiene cabeza.',
-          'El tercero es despejar obstáculos, y es donde se define quién hace qué: el líder pide, y el dueño da criterio, no soluciones. Es el paso donde el dueño recae sin darse cuenta, porque es el que más rápido resuelve. La señal para reconocerlo vale decirla en voz alta: si el dueño sale de la junta con tareas propias, el paso se corrió al revés.',
-          'El cuarto es comprometer UNA acción, concreta y con fecha, y es el que más se saltea. Sin eso la junta fue un informe: se habló del marcador y no cambió nada. Además es el que cierra el bucle, porque ese compromiso es exactamente lo que se rinde en el primer paso de la semana que viene.',
-          'Cerrar diciendo qué significa marcar los cuatro en el formulario, porque no es un quiz de comprensión: es comprometerse a correrla así. Si hay un paso que ya saben que no van a hacer, conviene que lo digan antes de marcarlo — se debate en la sesión, que es donde ese tipo de resistencia se resuelve y no en la primera junta real.',
+          'Los cuatro pasos en orden, y que el orden no es negociable: se rinde cuentas del compromiso de la semana pasada, se miran SOLO rojos y amarillos, se despejan obstáculos, y se cierra con un compromiso concreto con fecha.',
+          'Por qué solo rojos y amarillos: repasar los verdes es lo que convierte una junta de accountability en un informe. Lo que está bien no necesita junta, necesita seguir así.',
+          'El paso que más se saltea es el último, y sin él la junta fue una reunión informativa: cada quien se va con UN compromiso, concreto y con fecha, que es exactamente lo que se va a revisar al principio de la próxima.',
+          'Nombrar la regla que la separa de la diaria: acá tampoco se resuelve el problema en la mesa. Se identifica el obstáculo y se define quién lo destraba y para cuándo.',
         ],
       },
       {
-        id: 'm10c3', titulo: 'La única métrica que importa',
-        pregunta: 'Cómo vas a medir que hablás menos del 20% del tiempo en la junta semanal.',
-        graba: 'El cierre del mismo video: cómo se mide que el dueño hable menos del 20% del tiempo. Vale sugerir la forma práctica —alguien que cronometre, una grabación— para que no quede como una buena intención.',
+        id: 'm10c3', titulo: 'Diseñando la junta uno a uno',
+        pregunta: 'Con quién, cada cuánto, y qué se revisa en la uno a uno que no se revisa en la semanal.',
+        graba: 'La tercera junta, que es donde se conversa lo que no entra en grupo: el desempeño de la persona, no el número del área. Y acá vive la métrica que prueba si todo el sistema funciona.',
+        atoro: 'Si el dueño habla más del 20% del tiempo, la junta está reforzando la dependencia en vez de disolverla.',
         puntos: [
-          'El cambio de registro que abre el cierre del mismo video: hasta acá se explicó cómo se corre la junta, y esto es cómo se sabe si está funcionando. La métrica no mira los números del tablero ni el cumplimiento de las palancas: mira quién habla.',
-          'La regla, con el número traducido a la duración que acaban de comprometer en la clase anterior: el dueño hablando menos del veinte por ciento del tiempo. En una junta de treinta minutos son seis. Vale decir de frente que es contraintuitivo, porque el dueño suele ser el que más sabe del negocio y el que más rápido llega a la respuesta.',
-          'Por qué esta métrica y no otra, que es el atoro medido: si el dueño habla más, la junta está reforzando la dependencia en vez de disolverla. Todo el programa apunta a que el criterio viva en el equipo, y una junta donde el dueño explica, resuelve y decide es la prueba de que sigue viviendo en él. Es el examen final del sistema, no un consejo de facilitación.',
-          'Que la pregunta del formulario no se contesta con un sí: lo que pide es CÓMO lo va a medir. Una respuesta completa trae el método y quién lo toma, porque una métrica que nadie mide en concreto es una intención y a la tercera semana ya nadie se acuerda.',
-          'Las formas prácticas dichas en voz alta, para que nadie tenga que inventarlas: alguien del equipo con un cronómetro, grabar la junta y revisarla después, o una marca por turno de palabra en una hoja. Cualquiera sirve mientras deje un número que se pueda comparar con el de la semana siguiente.',
-          'Qué hacer cuando la primera medición da mal, que es lo normal y conviene avisarlo: no se toca la métrica, se corrige el tercer paso del guion. Preguntar en vez de contestar y devolverle la pregunta al líder que rinde cuentas es lo que baja el porcentaje, y solo baja si el dueño se aguanta el silencio.',
+          'Qué se conversa en la uno a uno y qué no: es sobre la persona —cómo está, qué necesita, qué le está costando—, no sobre el número del área, que ya se revisó en la semanal. Mezclarlas hace que ninguna de las dos sirva.',
+          'Lo concreto que se pide: con quién, cada cuánto, y de cuánto tiempo. Vale ser explícito en que no hace falta que sea con todos ni todas las semanas: es mejor una uno a uno mensual que ocurre, que una semanal que se cancela. Lo que no puede pasar es que no exista con quien rinde cuentas de un área.',
+          'La métrica que atraviesa las tres juntas y que conviene dejar para el final: cómo se mide que el dueño hable menos del 20% del tiempo. Sugerir la forma práctica —alguien que cronometre, una grabación— para que no quede como una buena intención.',
+          'Cerrar con la lectura de ese número, que es la prueba del programa entero: si el dueño habla más, la junta está reforzando la dependencia en vez de disolverla, y el tablero puede estar perfecto igual.',
         ],
-        atoro: 'Si el dueño habla más, la junta está reforzando la dependencia en vez de disolverla.',
-        mismoVideoQue: 'm10c2',
       },
     ],
   },
@@ -729,23 +737,9 @@ export const PROGRAMA: Modulo[] = [
     id: 'm11', numero: 11, titulo: 'Arranque', fase: 'build', quien: 'dueño',
     clases: [
       {
-        id: 'm11c1', titulo: 'Los catálogos que faltan',
-        pregunta: 'Lo que no existe (productos por margen, inventario, descripciones de puesto, rangos operativos), con responsable y fecha.',
-        graba: 'Por qué esto aparece recién al final: lo que falta solo se ve cuando cada palanca ya tiene nombre y hay que ir a buscar su dato. Se piden con responsable y fecha, como cualquier otro compromiso.',
-        puntos: [
-          'Cómo se encuentran, que es lo que decide si esta clase se contesta de una sentada o queda a medias: la ficha de nueve campos del módulo 6 cierra con un renglón que pregunta qué catálogo o formato hace falta para que esa palanca funcione. Conviene mandar a releer esas fichas ANTES de abrir la lista de opciones, porque ahí ya está escrita la mitad de la respuesta, palanca por palanca y con nombre propio.',
-          'Separar esto de la clase 1.7 antes de que lo pregunten, porque el cliente ya contestó una lista de faltantes y si le parece la misma pregunta dos veces abandona el formulario. Allá faltaba la CIFRA —el margen que nadie calcula—; acá falta la estructura que la produce, el catálogo de productos con su margen. Una es el número que hoy no existe, la otra es de dónde va a salir todos los meses de ahora en adelante.',
-          'Las nueve opciones conviene agruparlas al decirlas, porque leídas de corrido suenan a checklist de auditoría y el dueño no se reconoce en ninguna. Tres son de producto y activo —productos por margen, inventario de equipos críticos, mapeo de unidades con su clasificación—, dos son de formato —el estándar de promoción o cotización y el calendario de cierre contable— y tres son de gente —descripciones de puesto, reglas de autoridad y tabulador de sueldos—. La que queda sola es la de estándar operativo, rangos como temperaturas o tiempos de respuesta: es la que más se saltea porque suena a manual, y es justo la que hace medible media operación.',
-          'El caso de TEXX va acá y conviene contarlo sin dramatismo: trece catálogos faltantes, cada uno bloqueando una palanca ya escrita. Trece no es el diagnóstico de un negocio desordenado, es lo esperable en uno que creció rápido, y aparecen recién ahora porque hasta ahora nadie había necesitado ese dato para medir algo todas las semanas. Dicho así, la lista larga deja de sentirse como un reproche y se contesta completa.',
-          'Que la lista de nueve es un disparador y no un inventario cerrado: no tiene casilla de «otro», así que lo que falte y no esté ahí se escribe igual en la primera columna de la tabla, que es texto libre. Vale decirlo de frente, porque si no el cliente asume que lo que no está listado no cuenta, y lo que se pierde es justo el catálogo propio de su rubro, que suele ser el que más bloquea.',
-          'Las tres columnas de la tabla y el criterio que hace útil la fecha: no es «cuando se pueda», es antes de que la palanca que depende de ese catálogo empiece a medirse, porque si no el tablero arranca con un indicador que nadie puede calcular. Y quien lo genera casi nunca es el líder que rinde cuentas del número: conviene pedir el nombre de quien tiene el dato, aunque sea de otra área, porque esto es trabajo previo y no trabajo de tablero.',
-        ],
-        atoro: 'En TEXX se detectaron trece catálogos faltantes, cada uno bloqueando una palanca. No es trabajo de tablero: es trabajo previo que aparece al final.',
-      },
-      {
         id: 'm11c2', titulo: 'Las dos primeras semanas',
         pregunta: 'Qué mirar cuando el tablero empieza a recibir captura real, y qué corregir.',
-        graba: 'El cierre del programa, en el mismo video que 11.1: qué mirar cuando entra la primera captura real. Y la regla de alcance, que conviene aplicar desde el arranque y no como rescate — con Patricia funcionó bajar de ocho áreas a tres; con Esquer, enfocarse en CEDIS.',
+        graba: 'El cierre del programa, qué mirar cuando entra la primera captura real. Y la regla de alcance, que conviene aplicar desde el arranque y no como rescate — con Patricia funcionó bajar de ocho áreas a tres; con Esquer, enfocarse en CEDIS.',
         puntos: [
           'Abrir diciendo qué es esta pasada, porque no se parece a nada de lo anterior: no se produce nada nuevo, se lee hacia atrás la matriz completa —las dos MCIs, las áreas, los objetivos, las palancas y los responsables— y se marca cada una de las seis fallas que aparezca. Marcar una casilla es declarar «esto me está pasando», no reprobar un examen: encontrarla acá cuesta una tarde, encontrarla con el tablero andando cuesta el ciclo entero.',
           'Las tres primeras verificaciones miran que todo cuelgue de algún lado. Un área sin ningún objetivo vinculado a una MCI está trabajando para algo que el negocio nunca declaró importante. Una MCI sin ninguna área que la sirva no tiene quién la mueva, y es la que se cae sola sin que nadie sea el culpable. Y un objetivo con más de tres palancas rompe el máximo del módulo 6, que no es un capricho: con cinco palancas el equipo no corre ninguna.',
@@ -755,7 +749,6 @@ export const PROGRAMA: Modulo[] = [
           'El alcance, con los dos casos y el criterio para elegir: bajar de ocho áreas a tres funcionó con Patricia y enfocarse en CEDIS funcionó con Esquer, pero en los dos llegó tarde, como rescate. Se arranca por donde YA hay dato y hay alguien con autoridad para mover el número, no por las áreas más importantes. Y las que quedan afuera no se cancelan, entran en el ciclo siguiente: decirlo así es lo que evita que el recorte se lea como que esa área no importa.',
           'El programa cierra por donde arrancó, contra el inventario que se prometió en el bloque 0: lo que quedó instalado no es el tablero, es que cada número tenga dueño, tenga evidencia y tenga una junta donde se rinden cuentas de él. Y conviene dejar dicha cuál es la señal de que está andando, porque no es la que el cliente espera. Si a las dos semanas hay amarillos pero la junta ocurrió las dos veces y salió con un compromiso concreto con fecha, el sistema funciona y el color se acomoda solo.',
         ],
-        mismoVideoQue: 'm11c1',
       },
     ],
   },

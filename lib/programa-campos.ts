@@ -162,27 +162,38 @@ export const CAMPOS: Record<string, Campo[]> = {
     { id: "objetivo-por-area", label: "Por cada área que listaste en A5, llena esta tabla:", tipo: "tabla", ayuda: "La última columna importa. Si el área no lo calcula hoy, no se puede exigir la semana que entra.", columnas: ["Área", "Qué sostiene para que el negocio gane", "Su número", "Base real hoy", "Fuente", "Quién rinde cuentas", "¿El área ya lo calcula hoy?"], obligatorio: true, origen: "G6" },
     { id: "area-que-tumba-el-frente", label: "¿Qué área, aunque no venda, puede hacer que el resultado del frente se caiga?", tipo: "texto", ayuda: "Esas también necesitan número propio.", origen: "G7" },
   ],
+  // El origen — de dónde viene el negocio.
   m5c1: [
     { id: "por-que-seguirian", label: "Si el dinero ya estuviera resuelto, ¿por qué seguirían con esto?", tipo: "texto", origen: "I1" },
     { id: "que-construyeron-aqui", label: "¿Qué construyeron aquí que antes no existía en su zona o en su industria?", tipo: "texto", origen: "I2" },
+  ],
+  // El PAS y la narrativa — el propósito grandote y el contexto contra el que se recorta.
+  m5c2: [
     { id: "orgullo-que-el-grande-no-puede", label: "¿De qué se sienten orgullosos que un competidor grande no podría hacer, ni con todo su dinero?", tipo: "texto", origen: "I3" },
+    { id: "solucion-que-solo-este-equipo-da", label: "¿Cuál es la solución que solo este equipo puede dar?", tipo: "texto", origen: "I14" },
+  ],
+  // La promesa a los colaboradores.
+  m5c3: [
+    { id: "en-que-se-convierte-quien-trabaja-aqui", label: "¿En qué se convierte una persona que trabaja aquí? ¿Qué se lleva aunque un día se vaya?", tipo: "texto", origen: "I7" },
+  ],
+  // La promesa a los clientes.
+  m5c4: [
     { id: "que-le-resuelve-al-cliente", label: "Cuando un cliente los elige en vez del competidor, ¿qué le resuelve más allá de la compra o del servicio?", tipo: "texto", origen: "I4" },
     { id: "cliente-que-enorgullece", label: "Descríbeme un cliente real que te enorgullece atender. Con nombre.", tipo: "texto", origen: "I5" },
     { id: "que-perderia-ese-cliente", label: "Si ustedes no existieran, ¿qué perdería ese cliente?", tipo: "texto", origen: "I6" },
-    { id: "en-que-se-convierte-quien-trabaja-aqui", label: "¿En qué se convierte una persona que trabaja aquí? ¿Qué se lleva aunque un día se vaya?", tipo: "texto", origen: "I7" },
+  ],
+  // La promesa a los accionistas.
+  m5c5: [
     { id: "que-les-devuelve-el-negocio", label: "Más allá de la utilidad, ¿qué les devuelve este negocio a ustedes como socios o como familia?", tipo: "texto", origen: "I8" },
   ],
-  m5c2: [
-    { id: "quien-es-el-adversario", label: "¿Quién es el adversario? Que sea concreto y medible, no abstracto.", tipo: "texto", origen: "I12" },
-    { id: "como-se-siente-en-el-piso", label: "¿Cómo se siente eso en el piso, en el día a día de la gente?", tipo: "texto", origen: "I13" },
-    { id: "solucion-que-solo-este-equipo-da", label: "¿Cuál es la solución que solo este equipo puede dar?", tipo: "texto", origen: "I14" },
-  ],
-  m5c3: [
+  // Los valores EN ACCIÓN (así los llama Mauricio, no «como conducta»).
+  m5c6: [
     { id: "lo-que-no-aceptarian-nunca", label: "¿Qué no aceptarían nunca, aunque les costara ventas o aunque les pagaran por ello?", tipo: "texto", origen: "I9" },
     { id: "conducta-que-exigen-y-reconocen", label: "¿Qué conducta exigen y reconocen todos los días?", tipo: "texto", origen: "I10" },
     { id: "al-estilo-de-la-casa", label: "Cuando alguien hace las cosas bien hechas al estilo de la casa, ¿qué hace exactamente que otro no haría?", tipo: "texto", origen: "I11" },
   ],
-  m5c4: [
+  // Cómo se lo contás al equipo — la bajada, que es donde se atora.
+  m5c7: [
     { id: "te-las-creerian", label: "Lee tus respuestas en voz alta imaginando a tu equipo enfrente. ¿Te las creerían? ¿Qué parte no?", tipo: "texto", origen: "I15" },
     { id: "sigue-siendo-verdad-si-crecen", label: "¿Todo lo que escribiste sigue siendo verdad si mañana abren otra plaza, otra línea u otro formato?", tipo: "texto", origen: "I16" },
     { id: "quien-lo-dice-y-en-que-foro", label: "¿Quién lo dice, en qué foro y con qué ritual?", tipo: "texto", origen: "NUEVO (sin pregunta en ninguno de los dos cuestionarios)" },
@@ -233,15 +244,12 @@ export const CAMPOS: Record<string, Campo[]> = {
     { id: "conservacion-de-la-evidencia", label: "¿Cuánto tiempo se conserva la evidencia?", tipo: "linea", ayuda: "Sugerido: cuatro semanas, con el semáforo ya guardado.", obligatorio: true, origen: "6.5" },
     { id: "cuanto-tarda-en-subirlo", label: "¿Cuánto tiempo le toma a la persona subir esto?", tipo: "linea", ayuda: "Si pasa de dos minutos, hay que simplificarlo o no lo va a hacer.", obligatorio: true, origen: "6.7" },
   ],
+  // Los tres umbrales en UN bloque (Mau, 12/08): «aquí literalmente sería una sola».
   m8c1: [
-    { id: "nivel-ya-logrado", label: "¿Qué nivel ya lograste alguna vez?", tipo: "linea", ayuda: "Ese es el piso de lo posible, no la meta.", obligatorio: true, origen: "5.1" },
-  ],
-  m8c2: [
-    { id: "nivel-exigente-alcanzable", label: "¿Qué nivel te parece exigente pero alcanzable con lo que tienes hoy, sin gente nueva y sin presupuesto nuevo?", tipo: "linea", obligatorio: true, origen: "5.2" },
-  ],
-  m8c3: [
-    { id: "que-tendria-que-pasar-para-que-se-caiga", label: "¿Qué tendría que pasar para que esto se caiga?", tipo: "texto", ayuda: "Esa es la definición del rojo.", obligatorio: true, origen: "5.3" },
-    { id: "incumplimiento-inadmisible", label: "¿Hay algún caso donde el incumplimiento sea inadmisible, por seguridad, legal o pérdida de cliente?", tipo: "texto", ayuda: "Solo ahí aplica el 100%.", obligatorio: true, origen: "5.4" },
+    { id: "nivel-ya-logrado", label: "¿Qué nivel ya lograste alguna vez?", tipo: "linea", origen: "5.1" },
+    { id: "nivel-exigente-alcanzable", label: "¿Qué nivel te parece exigente pero alcanzable con lo que tienes hoy, sin gente nueva y sin presupuesto nuevo?", tipo: "linea", origen: "5.2" },
+    { id: "que-tendria-que-pasar-para-caerse", label: "¿Qué tendría que pasar para que esto se caiga?", tipo: "texto", origen: "5.3" },
+    { id: "incumplimiento-inadmisible", label: "¿Hay algún caso donde el incumplimiento sea inadmisible, por seguridad, legal o pérdida de cliente?", tipo: "texto", origen: "5.4" },
   ],
   m9c1: [
     { id: "gasto", label: "Hasta cuánto de gasto", tipo: "numero", ayuda: "Si esta sección queda vacía, nada de lo anterior va a funcionar, porque el líder seguirá escalando.", obligatorio: true, origen: "B7.4" },
@@ -267,10 +275,6 @@ export const CAMPOS: Record<string, Campo[]> = {
   ],
   m10c3: [
     { id: "dueno-menos-del-veinte", label: "¿El dueño está hablando menos del veinte por ciento del tiempo?", tipo: "texto", ayuda: "Es la única métrica de la junta que importa. Si habla más, la junta está reforzando la dependencia en vez de disolverla.", obligatorio: true, origen: "B8.4" },
-  ],
-  m11c1: [
-    { id: "catalogos-y-definiciones", label: "Catálogos y definiciones que no existen", tipo: "checks", ayuda: "Revisa esta lista y marca los que te falten.", opciones: ["Lista de productos o servicios por margen", "Inventario de equipos críticos", "Mapeo de unidades con su clasificación", "Formato estándar de promoción o cotización", "Descripciones de puesto", "Reglas de autoridad", "Rangos operativos como temperaturas o tiempos de respuesta", "Tabulador de sueldos", "Calendario de cierre contable"], obligatorio: true, origen: "H2" },
-    { id: "responsable-y-fecha", label: "Por cada uno: quién debería generarlo y para cuándo", tipo: "tabla", columnas: ["Catálogo o formato que hace falta", "Quién debería generarlo", "Para cuándo"], origen: "H2" },
   ],
   m11c2: [
     { id: "auditoria-de-vinculacion", label: "Seis verificaciones sobre la matriz completa", tipo: "checks", ayuda: "Se corren antes de programar nada.", opciones: ["Área sin ningún objetivo vinculado a una MCI.", "MCI sin ninguna área que la sirva.", "Objetivo con más de tres palancas.", "Palanca repetida en dos áreas con distinto nombre.", "Responsable que no tiene autoridad para mover lo que se le está midiendo.", "Área habilitadora crítica sin objetivo propio."], origen: "Auditoría de vinculación" },
