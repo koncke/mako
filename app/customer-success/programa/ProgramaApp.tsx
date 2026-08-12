@@ -23,7 +23,7 @@
 
 import { useState } from 'react';
 import { Pagina, PageHeader, Status, Banner, Button, Tabs, useToast, Toast, MONO } from '@/app/_ui';
-import { useRouter } from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { sincronizarWhopAction } from '../actions';
 import type { Campo } from '@/lib/programa-campos';
 
@@ -53,11 +53,13 @@ const TIPO: Record<Campo['tipo'], string> = {
   eleccion: 'Elegir una', checks: 'Marcar varias', tabla: 'Tabla',
 };
 
-export function ProgramaApp({ modulos, totales, whopConectado, tabInicial }: {
+export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, moduloEnUrl }: {
   modulos: Modulo[];
   totales: { clases: number; campos: number; enWhop: number; videos: number };
   whopConectado: boolean;
   tabInicial?: string;
+  /** `?m=` — qué módulo de la tab Clases está abierto. Ver el comentario en `Grabar`. */
+  moduloEnUrl?: string;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<string>(() =>
@@ -119,7 +121,7 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial }: {
       ) : null}
 
       {enClases ? (
-        <Grabar modulos={modulos} totales={totales} />
+        <Grabar modulos={modulos} totales={totales} moduloAbierto={moduloEnUrl} />
       ) : !modulo ? (
         <ul className="pg-grid">
           {modulos.map((m) => <li key={m.id}><CardModulo m={m} onAbrir={() => abrirModulo(m.id)} /></li>)}
@@ -184,73 +186,138 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial }: {
  *
  * Lista con filete, no pila de cajas: son 25 cosas del mismo tipo.
  */
-function Grabar({ modulos, totales }: { modulos: Modulo[]; totales: { clases: number; videos: number } }) {
+function Grabar({ modulos, totales, moduloAbierto }: {
+  modulos: Modulo[];
+  totales: { clases: number; videos: number };
+  moduloAbierto?: string;
+}) {
+  // ⚠️ QUÉ MÓDULO ESTÁ ABIERTO VIAJA EN LA URL (`?m=m9`), NO EN UN useState.
+  // Tres razones, y la tercera es la que decidió:
+  //   · el link que Mauricio copia es el módulo que está mirando;
+  //   · vuelve con el botón de atrás del navegador, que es lo que uno espera;
+  //   · y se puede VERIFICAR sin depender de que el bundle hidrate. La versión
+  //     con estado no se pudo probar en el navegador de esta sesión y no había
+  //     forma de saber si andaba.
+  // Es la misma regla que ya gobierna `?tab=` (ver AGENTS.md → tabs).
   const porId = new Map(modulos.flatMap(m => m.clases.map(c => [c.id, c] as const)));
+  const modulo = modulos.find(m => m.id === moduloAbierto) ?? null;
   const ahorro = totales.clases - totales.videos;
 
+  if (modulo) {
+    const i = modulos.indexOf(modulo);
+    const sig = modulos[i + 1] ?? null;
+    return (
+      <div className="gr-det">
+        <Link className="gr-volver" href="/customer-success/programa">← Todos los módulos</Link>
+        <p className="migas">Módulo {modulo.numero} · {FASE[modulo.fase] ?? modulo.fase}</p>
+        <h2 className="tit">{modulo.titulo}</h2>
+        <p className="sub">
+          {modulo.videos.length} {modulo.videos.length === 1 ? 'video' : 'videos'} · {modulo.clases.length} {modulo.clases.length === 1 ? 'clase' : 'clases'}
+        </p>
+        <div className="tags">
+          {modulo.porArea && <Status tono="neutral">Se graba una vez, se contesta por área</Status>}
+          {modulo.quien !== 'dueño' && <Status tono="info">La tarea la contesta el líder del área</Status>}
+        </div>
+
+        <Videos ids={modulo.videos} porId={porId} />
+
+        {sig && (
+          <Link className="gr-sig" href={`/customer-success/programa?m=${sig.id}`}>
+            Módulo {sig.numero} · {sig.titulo} →
+          </Link>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="gr">
+    <>
       <p className="gr-intro">
-        Las {totales.clases} clases se graban en <b>{totales.videos} videos</b>: hay {ahorro} donde
-        varias clases comparten una sola grabación, porque son partes de una misma explicación y
+        Las {totales.clases} clases se graban en <b>{totales.videos} videos</b>: en {ahorro} de ellas,
+        varias clases comparten una sola grabación porque son partes de una misma explicación y
         cortarlas obliga a repetir la introducción. Cada clase sigue teniendo su propia tarea.
       </p>
+      <ul className="gr-grid">
+        {modulos.map((m) => <li key={m.id}><CardGrabar m={m} /></li>)}
+      </ul>
+    </>
+  );
+}
 
-      {modulos.map((m) => {
-        const faltan = m.clases.filter(c => !c.enWhop).length;
+/**
+ * La card de un módulo en la tab Clases.
+ *
+ * El héroe es EL NÚMERO DE VIDEOS, no el de clases: la pregunta que trae a
+ * Mauricio a esta pantalla es cuánto le falta grabar. Debajo, chiquito, cuántas
+ * clases cubren — que es lo que explica por qué el número es más bajo de lo que
+ * esperaba.
+ */
+function CardGrabar({ m }: { m: Modulo }) {
+  const enWhop = m.clases.filter(c => c.enWhop).length;
+  const destraban = m.videos.filter(ids => ids.some(id => m.clases.find(c => c.id === id)?.destraba)).length;
+  const juntadas = m.clases.length - m.videos.length;
+
+  return (
+    <Link className="grc" href={`/customer-success/programa?m=${m.id}`}>
+      <span className="filo" aria-hidden><span style={{ width: `${(enWhop / Math.max(1, m.clases.length)) * 100}%` }} /></span>
+      <span className="cab">
+        <span className="num">{String(m.numero).padStart(2, '0')}</span>
+        <span className="fase">{FASE[m.fase] ?? m.fase}</span>
+      </span>
+      <span className="tit">{m.titulo}</span>
+      <span className="cifra">
+        <b>{m.videos.length}</b>
+        <span>{m.videos.length === 1 ? 'video' : 'videos'}</span>
+      </span>
+      <span className="pie">
+        {m.clases.length} {m.clases.length === 1 ? 'clase' : 'clases'}
+        {juntadas > 0 && <em> · {juntadas === 1 ? 'una comparte' : `${juntadas} comparten`} grabación</em>}
+      </span>
+      <span className="tags">
+        {destraban > 0 && <Status tono="mako">{destraban} {destraban === 1 ? 'destraba' : 'destraban'}</Status>}
+        {m.porArea && <Status tono="neutral">Por área</Status>}
+        {m.quien !== 'dueño' && <Status tono="info">La contesta el líder</Status>}
+      </span>
+    </Link>
+  );
+}
+
+/** La lista de videos de un módulo. Lista con filete: son cosas del mismo tipo. */
+function Videos({ ids, porId }: { ids: string[][]; porId: Map<string, Clase> }) {
+  return (
+    <ol className="gr-vids">
+      {ids.map((grupo) => {
+        const clases = grupo.map(id => porId.get(id)!).filter(Boolean);
+        if (!clases.length) return null;
+        const destraba = clases.some(c => c.destraba);
         return (
-          <section key={m.id} className="gr-mod">
-            <header>
-              <span className="n">{String(m.numero).padStart(2, '0')}</span>
-              <h2>{m.titulo}</h2>
-              <span className="meta">
-                {m.videos.length} {m.videos.length === 1 ? 'video' : 'videos'}
-                {m.clases.length !== m.videos.length && ` · ${m.clases.length} clases`}
-              </span>
-              <span className="tags">
-                {m.porArea && <Status tono="neutral">Se repite por área</Status>}
-                {m.quien !== 'dueño' && <Status tono="info">Lo contesta el líder</Status>}
-                {faltan === 0 && <Status tono="good">En Whop</Status>}
-              </span>
-            </header>
+          <li key={grupo[0]} className={destraba ? 'destraba' : undefined}>
+            <div className="cab">
+              <span className="rots">{clases.map(c => c.rotulo).join(' + ')}</span>
+              <h3>{clases[0].titulo}</h3>
+              {destraba && <Status tono="mako">Destraba</Status>}
+              {clases.every(c => c.enWhop) ? null : <Status tono="warn">Falta en Whop</Status>}
+            </div>
 
-            <ol className="gr-vids">
-              {m.videos.map((ids) => {
-                const clases = ids.map(id => porId.get(id)!).filter(Boolean);
-                if (!clases.length) return null;
-                const destraba = clases.some(c => c.destraba);
-                return (
-                  <li key={ids[0]} className={destraba ? 'destraba' : undefined}>
-                    <div className="cab">
-                      <span className="rots">{clases.map(c => c.rotulo).join(' + ')}</span>
-                      <h3>{clases[0].titulo}</h3>
-                      {destraba && <Status tono="mako">Destraba</Status>}
-                      {clases.every(c => c.enWhop) ? null : <Status tono="warn">Falta en Whop</Status>}
-                    </div>
-
-                    {/* El bullet de cada clase: de qué va ESA parte del video.
-                        El título de la PRIMERA no se repite: ya es el del video
-                        arriba, y verlo dos veces seguidas se lee como un error. */}
-                    <ul className="partes">
-                      {clases.map((c, i) => (
-                        <li key={c.id}>
-                          {clases.length > 1 && <span className="r">{c.rotulo}</span>}
-                          <div>
-                            {clases.length > 1 && i > 0 && <p className="t">{c.titulo}</p>}
-                            <p className="g">{c.graba}</p>
-                            {c.atoro && <p className="ojo"><b>Ojo.</b> {c.atoro}</p>}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
+            {/* El bullet de cada clase: de qué va ESA parte del video.
+                El título de la PRIMERA no se repite: ya es el del video
+                arriba, y verlo dos veces seguidas se lee como un error. */}
+            <ul className="partes">
+              {clases.map((c, i) => (
+                <li key={c.id}>
+                  {clases.length > 1 && <span className="r">{c.rotulo}</span>}
+                  <div>
+                    {clases.length > 1 && i > 0 && <p className="t">{c.titulo}</p>}
+                    <p className="g">{c.graba}</p>
+                    {c.atoro && <p className="ojo"><b>Ojo.</b> {c.atoro}</p>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }
 
@@ -352,18 +419,52 @@ function Documento({ modulo, clase }: { modulo: Modulo; clase: Clase }) {
 }
 
 const CSS = `
-/* ── La tab Clases: la lista de grabación ─────────────────────────────────── */
-.gr-intro{ font-size:14.5px; line-height:1.6; color:var(--dim); margin:0 0 30px;
-  padding-bottom:22px; border-bottom:1px solid var(--border); }
+/* ── La tab Clases: la grilla de módulos ──────────────────────────────────── */
+.gr-intro{ font-size:14.5px; line-height:1.6; color:var(--dim); margin:0 0 22px; }
 .gr-intro b{ color:var(--ink); }
 
-.gr-mod{ margin:0 0 40px; }
-.gr-mod > header{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin:0 0 4px; }
-.gr-mod > header .n{ font-family:${MONO}; font-size:12px; color:var(--faint);
+.gr-grid{ list-style:none; margin:0; padding:0; display:grid; gap:14px;
+  grid-template-columns:repeat(auto-fill, minmax(268px, 1fr)); }
+.gr-grid > li{ display:flex; }
+
+.grc{ position:relative; display:flex; flex-direction:column; width:100%;
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:20px 18px 16px; text-align:left; font:inherit; color:inherit; cursor:pointer;
+  overflow:hidden; transition:border-color .15s; }
+.grc:hover{ border-color:var(--border-strong); }
+.grc .filo{ position:absolute; inset:0 0 auto 0; height:3px; background:var(--border); }
+.grc .filo span{ display:block; height:100%; background:var(--good); }
+.grc .cab{ display:flex; align-items:baseline; gap:9px; }
+.grc .num{ font-family:${MONO}; font-size:12px; color:var(--faint); font-variant-numeric:tabular-nums; }
+.grc .fase{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); }
+.grc .tit{ display:block; margin:9px 0 0; font-size:16.5px; font-weight:650; letter-spacing:-.018em;
+  line-height:1.25; }
+/* El número de videos es el héroe: es la pregunta que trae a esta pantalla. */
+.grc .cifra{ display:flex; align-items:baseline; gap:7px; margin:16px 0 0; }
+.grc .cifra b{ font-size:30px; font-weight:700; letter-spacing:-.03em; line-height:1;
   font-variant-numeric:tabular-nums; }
-.gr-mod > header h2{ font-size:19px; font-weight:650; letter-spacing:-.02em; margin:0; }
-.gr-mod > header .meta{ font-size:12.5px; color:var(--faint); font-variant-numeric:tabular-nums; }
-.gr-mod > header .tags{ display:flex; gap:5px; flex-wrap:wrap; margin-left:auto; }
+.grc .cifra span{ font-size:13px; color:var(--dim); }
+.grc .pie{ display:block; margin:5px 0 0; font-size:12.5px; color:var(--faint);
+  font-variant-numeric:tabular-nums; }
+.grc .pie em{ font-style:normal; color:var(--mako-ink); }
+.grc .tags{ display:flex; gap:5px; flex-wrap:wrap; margin-top:auto; padding-top:14px; }
+
+/* ── La tab Clases: los videos de un módulo ───────────────────────────────── */
+.gr-det{ padding:0 0 40px; }
+.gr-volver{ background:none; border:0; padding:0 0 18px; font:inherit; font-size:12.5px;
+  color:var(--dim); cursor:pointer; }
+.gr-volver:hover{ color:var(--ink); }
+.gr-det .migas{ font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint);
+  margin:0 0 10px; }
+.gr-det .tit{ font-size:clamp(22px,3.4vw,28px); font-weight:700; letter-spacing:-.03em;
+  line-height:1.15; margin:0 0 8px; }
+.gr-det .sub{ font-size:14.5px; color:var(--dim); margin:0; font-variant-numeric:tabular-nums; }
+.gr-det .tags{ display:flex; gap:5px; flex-wrap:wrap; margin:12px 0 0; }
+.gr-det .gr-vids{ margin-top:26px; }
+.gr-sig{ display:block; width:100%; margin:24px 0 0; padding:15px 18px; text-align:left;
+  background:var(--surface); border:1px solid var(--border); border-radius:11px;
+  font:inherit; font-size:14px; color:var(--dim); cursor:pointer; transition:border-color .15s; }
+.gr-sig:hover{ border-color:var(--border-strong); color:var(--ink); }
 
 .gr-vids{ list-style:none; margin:0; padding:0; }
 /* Filete, no caja: son 25 cosas del mismo tipo. */
