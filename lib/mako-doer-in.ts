@@ -21,6 +21,7 @@ import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
+import { clasificarIntencion, CONTRATO, avisoDeDuda, type Intencion } from '@/lib/mako-intencion';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
@@ -282,11 +283,18 @@ async function wsDeGrupoJid(jid: string): Promise<number | null> {
  * DATOS y la memoria se scopean al workspace DUEÑO DEL GRUPO (aislamiento).
  */
 // Subset de tools por ruta (costo). Los turnos claros usan pocas; el resto, todas.
-function toolsParaRuta<T extends { name: string }>(motivo: string, todas: T[]): T[] {
-  const solo = (nombres: string[]) => todas.filter((t) => nombres.includes(t.name));
-  if (motivo.includes('(plan)')) return solo(['ver_plan', 'proponer_tareas_plan', 'listar_pendientes']);
-  if (motivo.includes('(confirmación)')) return solo(['listar_pendientes', 'confirmar_accion', 'cancelar_accion']);
-  return todas; // dato/acción/default/opus → todas (flexibilidad)
+/**
+ * Qué tools ve el modelo en este turno. LO DECIDE LA INTENCIÓN, no el tier.
+ *
+ * Antes lo decidía el `motivo` del router, que contesta otra pregunta (cuánto
+ * gastar). El resultado: todo lo que no caía en `(plan)` o `(confirmación)`
+ * recibía las veinte tools y ninguna obligación — y el mismo mensaje terminaba
+ * en un borrador o en un ensayo según el día. Ver lib/mako-intencion.ts.
+ */
+function toolsParaIntencion<T extends { name: string }>(intencion: Intencion, todas: T[]): T[] {
+  const permitidas = CONTRATO[intencion].tools;
+  if (permitidas === null) return todas;
+  return todas.filter((t) => permitidas.includes(t.name));
 }
 
 export async function manejarEntranteDoer(instance: string, data: MsgIn): Promise<ResultadoDoer> {
@@ -673,7 +681,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // razonamiento/copy/media (Opus) → contexto completo; el resto (cargar tareas, leer
     // un dato, confirmar, charla) → LEAN (las tools traen el dato). Recorta el INPUT, que
     // es el grueso del gasto del doer (feedback jul-19).
-    const ruta = rutearDoer(texto, { hayMedia: !!mediaBlocks, hayPendientes: vigentes.length > 0 });
+    const rutaBase = rutearDoer(texto, { hayMedia: !!mediaBlocks, hayPendientes: vigentes.length > 0 });
+    // DOS PREGUNTAS DISTINTAS, dos módulos. `rutearDoer` contesta CUÁNTO gastar
+    // (qué modelo, qué esfuerzo). `clasificarIntencion` contesta QUÉ HACER, y es
+    // la que manda sobre las tools, sobre si la tool es obligatoria y sobre qué
+    // se valida al salir. Confundirlas es lo que hizo que «Investigar
+    // competencia: <links>» devolviera un ensayo en vez de un borrador.
+    const intencion = clasificarIntencion(texto, { hayMedia: !!mediaBlocks, hayPendientes: vigentes.length > 0 });
+    // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
+    // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
+    const ruta = { ...rutaBase, motivo: `${rutaBase.motivo} → ${intencion.intencion}` };
+    console.log(`[doer] ws=${wsData} intencion=${intencion.intencion}${intencion.dudosa ? ' (dudosa)' : ''} — ${intencion.porque}`);
     // OJO (jul-19): probamos LEAN para el tier sonnet pero Sonnet perdía fiabilidad en el
     // flujo proponer→confirmar (describía "confirmá con sí" SIN llamar la tool → el "sí"
     // no creaba nada). Volvemos al contexto completo: la baja de costo real la dan el
@@ -695,7 +713,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // tokens de INPUT en CADA llamada. Los turnos claros (cargar tareas, confirmar) usan
     // un subset chico → mucho más barato en Claude (y entran mejor en Groq). Los turnos
     // abiertos (dato/acción/razonamiento) mandan todas, para no quedarse sin una tool.
-    const tools = toolsParaRuta(ruta.motivo, [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS]);
+    const tools = toolsParaIntencion(intencion.intencion, [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS]);
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
     // dueño es "sí, dale" (ver pareceConfirmacion en mako-doer-acciones).
@@ -727,7 +745,26 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // Si hay imagen/PDF, el último turno del usuario va con bloques (media + texto);
     // si no, texto plano. La memoria guarda siempre el placeholder de texto.
     const userContent: RichMsg['content'] = mediaBlocks ?? texto;
-    const msgs: RichMsg[] = [...saneaHistorial(historial), { role: 'user', content: userContent }];
+    // ⚠️ EL HISTORIAL ES CONTEXTO, NO MATERIAL — y hasta acá no había forma de
+    // distinguirlos. Los 12 turnos anteriores entraban como mensajes `user`
+    // idénticos al de ahora, así que para el modelo TODO era el pedido. Por eso
+    // «Investigar competencia: <2 links>» devolvió un análisis del branding de
+    // un dashboard mandado 33 h antes y de una idea de contenidos de 25 h antes:
+    // no las inventó de la nada, las leyó de la ventana de 48 h y las trató como
+    // parte del encargo.
+    //
+    // La marca va en el ÚLTIMO turno de usuario y no en cada uno del historial:
+    // una etiqueta por turno se diluye, y `saneaHistorial` fusiona roles
+    // repetidos (la etiqueta quedaría en el medio de un bloque pegado).
+    const historialMarcado = saneaHistorial(historial);
+    if (historialMarcado.length) {
+      historialMarcado.unshift({
+        role: 'user',
+        content: '[CONTEXTO — los mensajes que siguen hasta el último son la charla PREVIA de este grupo. Sirven para entender de qué se viene hablando. NO son el pedido de ahora y NO se responden: lo único que hay que atender es el ÚLTIMO mensaje.]',
+      });
+      historialMarcado.push({ role: 'assistant', content: '(entendido: lo de arriba es contexto; atiendo solo el próximo mensaje)' });
+    }
+    const msgs: RichMsg[] = [...historialMarcado, { role: 'user', content: userContent }];
     // Guardar el turno del usuario ANTES de la IA (así queda aunque falle).
     await guardarTurno(wsData, jid, 'user', texto, msgId);
 
@@ -788,7 +825,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // se forzó nada y el modelo escribió un link de borrador inventado. Con
             // `esCargaDePlan` mirando el texto por su cuenta, hace falta que fallen las
             // dos para quedar sin red.
-            const forzarTool = esRutaPlan(ruta.motivo) || esCargaDePlan(texto);
+            // La obligación sale del CONTRATO de la intención. `esCargaDePlan` se
+            // mantiene como red: cubre el «anotá esto» explícito aunque el
+            // clasificador cambie.
+            const forzarTool = CONTRATO[intencion.intencion].forzarTool || esCargaDePlan(texto);
             const cands = [pin.provider, 'groq', 'cerebras', 'mistral', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;

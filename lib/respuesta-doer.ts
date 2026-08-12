@@ -133,4 +133,12 @@ export function validarRespuestaDoer(
 /** El `motivo` del router llega como «mistral router:sonnet (plan)». La ruta va entre
  *  paréntesis; se busca así y no por `includes('plan')` a secas para no matchear la
  *  palabra «plan» del recorte del mensaje del usuario, que va en el mismo string. */
-export const esRutaPlan = (motivoRuta: string): boolean => /\(plan\)/.test(motivoRuta ?? '');
+/**
+ * ⚠️ Ahora reconoce DOS marcas y las dos tienen que quedar: `(plan)` es la del
+ * router (elige el modelo) y `→ capturar` la de la intención
+ * (lib/mako-intencion.ts), que es la que de verdad decide. Mientras el router
+ * siga existiendo, un turno puede traer una sola de las dos: quedarse con una
+ * apagaría la validación justo en los turnos que la necesitan.
+ */
+export const esRutaPlan = (motivoRuta: string): boolean =>
+  /\(plan\)/.test(motivoRuta ?? '') || /→\s*capturar\b/.test(motivoRuta ?? '');

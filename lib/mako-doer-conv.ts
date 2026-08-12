@@ -25,7 +25,13 @@ export async function guardarTurno(ws: number, grupoJid: string, role: 'user' | 
 // contestó "sí cargalo" a una pregunta de esa tarde y MaKo confirmó una charla del 26
 // de julio, duplicando dos tareas que ya estaban en el board. Una conversación de
 // WhatsApp de hace dos días no es contexto: es ruido.
-const HORAS_CONTEXTO = 48;
+// Bajado de 48 a 14 el 12/8. El propio comentario de arriba ya decía que una
+// charla de hace dos días es ruido, y la ventana seguía en dos días: MaKo
+// contestó un pedido nuevo con material de 33 h antes (ver lib/mako-intencion.ts).
+// 14 h cubre lo que importa —la charla de hoy, y la de anoche a la mañana
+// siguiente— sin arrastrar anteayer. La marca de CONTEXTO en mako-doer-in.ts es
+// la otra mitad: acota QUÉ ES el historial; esto acota CUÁNTO.
+const HORAS_CONTEXTO = 14;
 
 /** Historial reciente de un grupo (los últimos `limite` turnos, en orden cronológico). */
 export async function historialGrupo(ws: number, grupoJid: string, limite = 24): Promise<TurnoConv[]> {
