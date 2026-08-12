@@ -36,10 +36,12 @@ Reglas para cualquier agente que trabaje acá:
 - **Cada push cuesta ~US$0.09** en build. Agrupá commits y pusheá cuando haya algo que
   probar, no después de cada paso interno.
 
-⚠️ El hook hace TRES chequeos: los tipos, que las skills tengan el contrato del `detalle`
-al día (`node scripts/sync-contrato-detalle.mjs --check`) y que `plugin/` —la copia
+⚠️ El hook hace CUATRO chequeos: los tipos, que las skills tengan el contrato del
+`detalle` al día (`node scripts/sync-contrato-detalle.mjs --check`), que el manual de
+marca tenga la gramática de MaKo al día
+(`node --import tsx scripts/sync-gramatica-doc.mjs --check`) y que `plugin/` —la copia
 PÚBLICA de la skill de Claude— esté generada de la versión viva
-(`node --import tsx scripts/generar-plugin.mjs --check`). Si lo recreás, poné los tres.
+(`node --import tsx scripts/generar-plugin.mjs --check`). Si lo recreás, poné los cuatro.
 
 ⚠️ **Lo que el hook NO hace es correr los tests** (`npm test`), y por eso hay que acordarse
 a mano. Un renombre pasa el typecheck perfecto y rompe una aserción sin que nada avise: al
@@ -113,7 +115,7 @@ Los que hoy son fuente única:
 | Cómo se funden dos descripciones | `lib/detalle-fusion.ts` | el board del dueño y el del cliente |
 | Cómo se llama y se ve cada estado de la IA, y el Semáforo | `lib/mako-gramatica.ts` | la primitive `<Mako>`, `meta-health-ui`, `avisos-catalogo` |
 | Qué cliente mira ESTA pestaña (`?ws=`) | `lib/ws-tab.ts` + la validación en `proxy.ts` | `getWorkspaceActual`, el `<Link>` de `app/_ui`, el parche de fetch |
-| Cómo se escribe **MaKo** (`corregirMarca`, `REGLA_MARCA`) | `lib/mako-gramatica.ts` | `transcribirAudio` (STT), `limpiarTarea`, `MAKO_NUCLEO` |
+| Cómo se escribe **MaKo** (`corregirMarca`, `REGLA_MARCA`) | `lib/mako-gramatica.ts` | `transcribirAudio` (STT), `limpiarTarea`, `MAKO_NUCLEO`, `docs/branding-mako.md` (generado) |
 | Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | `plan-propuesta`, `plan-fathom`, `mako-doer-acciones`, `PreguntaCampo` |
 
 ⚠️ **El rótulo de un estado de MaKo no es un prop.** Sale de `GRAMATICA` y no se puede
@@ -137,6 +139,15 @@ script y **el pre-push falla si quedaron viejas** — esa guarda es lo único qu
 el problema vuelva. `scripts/sync-contrato-detalle.mjs` copia hoy DOS cosas (el molde del
 `detalle` y la regla del nombre de un proyecto), cada una entre sus marcadores. Si agregás
 una skill que repite una de estas reglas, sumala a `DESTINOS` en vez de copiar el texto.
+
+Lo mismo vale para **cualquier `.md` del repo que documente un catálogo**, no solo las
+skills. `docs/branding-mako.md` trae la gramática de los nueve estados y la regla del
+nombre, y las dos las escribe `scripts/sync-gramatica-doc.mjs` desde
+`lib/mako-gramatica.ts`. No tardó ni una hora en probarse: el documento se escribió a
+mano el 2026-08-11 y **en la misma sesión** ya decía «el impacto» donde el código dice
+«el impacto esperado». Ahí el módulo SÍ se puede importar —su única dependencia es un
+`import type`, que tsx borra en runtime—, así que se importa: parsear objetos anidados
+con regex es cómo se cuelan los desfases que el script viene a evitar.
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 

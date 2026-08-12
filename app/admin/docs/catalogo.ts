@@ -98,6 +98,10 @@ export const CATALOGO: Record<string, FichaDoc> = {
   },
 
   // --- referencia puntual ---
+  'branding-mako': {
+    grupo: 'Referencia', tabs: ['/admin/ui', '/conocimientos'],
+    hace: ['El manual de marca entero, para llevar afuera', 'Color, tipografía, logo y las dos voces', 'La gramática de los nueve estados (generada del código)'],
+  },
   'lovable-tracking': {
     grupo: 'Referencia', tabs: ['/integraciones'],
     hace: ['El snippet del beacon en la landing del cliente'],

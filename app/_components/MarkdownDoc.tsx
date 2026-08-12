@@ -122,6 +122,20 @@ export function MarkdownDoc({ texto, hrefDoc: onDoc }: Props) {
     const linea = lineas[i];
     const t = linea.trim();
 
+    // --- comentario HTML: se saltea, como en cualquier renderer de markdown.
+    // No es cosmética. Los documentos generados llevan marcadores `<!-- X:INICIO -->`
+    // para que un script sepa qué bloque reescribir (docs/branding-mako.md trae dos,
+    // de scripts/sync-gramatica-doc.mjs). Sin esto, /admin/docs los imprime como
+    // texto: el lector ve «generado por scripts/…, NO editar a mano» en el medio de
+    // la prosa, que es una instrucción para el que edita el .md y ruido para todos
+    // los demás. Solo la línea entera: un `<!--` en medio de un párrafo es prosa.
+    if (t.startsWith('<!--') && t.endsWith('-->')) { i++; continue; }
+    if (t.startsWith('<!--')) {
+      while (i < lineas.length && !lineas[i].includes('-->')) i++;
+      i++; // la línea del cierre
+      continue;
+    }
+
     // --- bloque de código: se toma CRUDO, sin pasarle el inline por encima.
     // AGENTS.md trae un ```sh con el hook de pre-push lleno de $, ! y comillas.
     if (t.startsWith('```')) {

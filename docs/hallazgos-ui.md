@@ -113,10 +113,25 @@ familias. O sea: la tab que documenta la barra mostraría otra barra.
 vive en el bucket privado `branding` de Storage, con el catálogo en la tabla
 `branding_assets` (migraciones 0098 y 0100). Cero líneas sobre color, tipografía o voz.
 
-**Dónde están de verdad:** el dorado y los neutros en `app/globals.css`; el logo y el
-wordmark en `app/_components/MakoBrand.tsx`; la voz de la IA en `lib/mako-persona.ts` +
-`lib/mako-prompts.ts`; las reglas de copy de la UI en `docs/mapa-del-proyecto.md`; cómo
-firma la IA en `lib/pipeline.ts` (`MAKO_SETTER`) y `lib/etapa-historial.ts`.
+**Dónde están de verdad:** el dorado y los neutros en `app/globals.css`; las medidas en
+`app/_ui/tokens.ts`; el logo y el wordmark en `app/_components/MakoBrand.tsx`; la voz de la
+IA en `lib/mako-persona.ts` + `lib/mako-prompts.ts`; las reglas de copy de la UI en
+`docs/mapa-del-proyecto.md`; cómo firma la IA en `lib/pipeline.ts` (`MAKO_SETTER`) y
+`lib/etapa-historial.ts`.
+
+**Desde el 2026-08-11 los cinco lugares están juntos en `docs/branding-mako.md`**, que es la
+versión que se puede llevar afuera (`/admin/ui` → Marca sigue siendo la que tiene los logos
+a la vista). Ese documento es DERIVADO: la gramática de los nueve estados y la regla del
+nombre las escribe `scripts/sync-gramatica-doc.mjs` desde `lib/mako-gramatica.ts`, con el
+pre-push como guarda. No editar esos dos bloques a mano.
+
+⚠️ **Y hay una SEGUNDA fuente de marca viva que contradice a la primera.**
+`app/conocimientos/curso-vsl.ts:72` manda que la marca de agua del video lleve «estrella
+dorada (#F6D365→#EF9F27)» — los mismos dos dorados que `globals.css:106-116` declara
+eliminados. Es el único lugar de Conocimientos con reglas de marca ESCRITAS (color, Geist
+bold, voz impersonal, «dinero» y no «plata», todo en «tú»), así que no alcanza con
+corregir el hex: hay que decidir si es fuente de verdad o si sus reglas se mudan al manual.
+La galería pública ya usa el nuevo (`app/compartido/[token]/Galeria.tsx:31`, `#F2B01E`).
 
 **Lo que quedó SIN hacer** (está listado en `/admin/ui` → Marca → «Lo que todavía no cierra»):
 
@@ -136,8 +151,23 @@ firma la IA en `lib/pipeline.ts` (`MAKO_SETTER`) y `lib/etapa-historial.ts`.
   base64 adentro. El logo vivo es SVG en línea en `MakoBrand.tsx`.
 - Los archivos originales del material de marca **no están versionados**: los scripts los
   leían del escritorio. Storage es la única copia durable.
+- **No existe ningún token de letter-spacing.** Cero en `app/_ui` y en `globals.css`,
+  contra **564 `letterSpacing` escritos a mano** en `app/**/*.tsx`. Si hace falta una regla
+  de tracking, hoy no está escrita en ninguna parte — y con 564 usos sueltos, escribirla
+  después es caro.
+- **La paleta del portal `/conocimientos` no es la de la app** (lima sobre papel, no
+  dorado sobre gris azulado), y su fallback hardcodeado no coincide con su propio token:
+  `var(--al-accent, #C8F169)` contra `--lime: #CDF13B`.
+- La fórmula **«Sos MaKo, …»** abre ~40 prompts de features y **no está declarada como
+  regla en ningún módulo**: es un patrón observado, no un contrato. Un prompt nuevo que la
+  omita no rompe nada y nadie se entera.
+- `app/conocimientos/BrandingMaKo.tsx:24` — el «179 piezas» está escrito a mano, no
+  contado, y quedó viejo cuando el script de limpieza borró gráficos y sumó 13 piezas de
+  marca. Los contadores de cada tab sí se calculan.
 
-**Vive en:** app/admin/ui/Marca.tsx · *2026-08-07 ~ui-tab-siete-puntos*
+**Vive en:** app/admin/ui/Marca.tsx · docs/branding-mako.md ·
+scripts/sync-gramatica-doc.mjs · app/conocimientos/curso-vsl.ts ·
+*2026-08-07 ~ui-tab-siete-puntos · ampliado 2026-08-11 ~branding-mako-fuentes (5 agentes)*
 
 ### ⚠️ `.mk-scroll-x` recorta en los DOS ejes: ningún popover `absolute` puede vivir adentro
 
