@@ -443,7 +443,14 @@ usar, medido sobre los 13 clientes reales:
 | Sesiones grabadas | `closing_analyses` | 109 filas |
 | Cuotas | `pagos` + `getCuotasPendientes` | 33 filas |
 
-**Dos decisiones que salen de ahí.** El reloj del programa es una **constante** (26
+⚠️ **La primera de estas dos decisiones ya no vale y quedó escrita para que nadie la
+copie.** El reloj se sacaba de una constante de 26 semanas que era INVENTADA: los
+contratos firmados dicen 16 semanas y 3 meses. Hoy sale de `lib/cs-contrato.ts`, que lee
+el contrato primero, la ficha después, y devuelve `null` antes que inventar — la card
+muestra las semanas transcurridas sin denominador. La regla que queda: **un dato que no
+está no se reemplaza por un promedio; se muestra el hueco.**
+
+**Dos decisiones que salen de ahí.** El reloj del programa era una **constante** (26
 semanas) y no `duracion_meses`: derivarlo del dato dejaría a once clientes sin reloj. Y
 la semana se calcula con la fecha **más reciente** entre inicio de servicio y cierre —
 hay una ficha que arranca cuatro meses ANTES de la venta, y eso es un dato mal cargado,
@@ -455,5 +462,114 @@ calculó. Las plataformas de CS lo usan porque miran 3.000 cuentas.
 
 ---
 
+## El temario se cortó donde se cortaba el CUESTIONARIO, no donde se corta una clase
+
+**Síntoma:** «44 clases son 44 videos. Es mucho para grabar de una» — escrito en
+`docs/programa-mauricio.md` como una limitación del programa, no como un error.
+
+**Causa:** el corte en clases se heredó de cómo estaban tabulados los dos Cuestionarios
+Maestros. Las cuatro secciones de la carta de expectativas (9.1 a 9.4) son cuatro campos
+consecutivos del cuestionario y **una sola explicación**; los tres umbrales del módulo 8
+son verde, amarillo y rojo de un mismo ejercicio. Grabar un video por campo es grabar la
+misma introducción cuatro veces.
+
+**La regla, y es la parte que importa: FUSIONAR EL VIDEO NO ES FUSIONAR EL BLOQUE.** Son
+dos ejes independientes y confundirlos rompe cosas distintas:
+
+| | Qué cuesta | Qué pasa si se fusiona |
+|---|---|---|
+| **El video** | tiempo de Mauricio frente a la cámara | nada: el cliente ve una explicación completa en vez de cuatro cortadas |
+| **El bloque** | nada | se rompe el bucle: el bloque ES el gate de la sesión, la unidad de la reescritura de la IA y el estado de aprobación |
+
+Por eso `mismoVideoQue` (en `lib/programa-catalogo.ts`) junta **solo la grabación**. Las
+44 tareas, sus 118 preguntas y sus 44 estados siguen intactos; lo que baja a 25 es lo que
+hay que grabar. Cinco revisiones adversariales del temario, cada una atacando por un lado
+distinto, llegaron por su cuenta al mismo salvavidas: *«fusionar el VIDEO, no el BLOQUE»*.
+
+⚠️ **Y agrupar no reordena.** El rótulo («0.3 · Cómo funciona cada bloque») sale de la
+POSICIÓN de la clase en su módulo y es lo que ve el cliente en Whop y en sus mensajes de
+WhatsApp. Mover una clase de lugar para dejar juntas las que comparten video le renumera
+el temario a alguien que ya lo tiene abierto. El agrupador usa un Map para no necesitar
+que estén pegadas, y hay un test que lo fija.
+
+**Vive en:** lib/programa-catalogo.ts (`mismoVideoQue`, `GRABACIONES`) ·
+tests/programa-catalogo.test.ts · app/customer-success/programa/ProgramaApp.tsx (tab
+Clases) · *2026-08-11 ~programa-mauricio-recorte*
+
+---
+
+## El módulo de los umbrales nunca pregunta el amarillo
+
+**Síntoma:** ninguno. El programa corre y nadie lo nota.
+
+**El hecho, verificado contra `lib/programa-campos.ts`:** el módulo 8 —el único que
+contesta **el líder del área**, porque los umbrales los pone quien va a responder por
+ellos— tiene cuatro preguntas: el piso ya logrado (5.1), el verde (5.2), el rojo (5.3) y
+el caso inadmisible (5.4). **El amarillo no se pregunta ni una vez.** El único lugar del
+programa donde existe es la ficha de nueve campos de 6.5, que la contesta **el dueño**.
+
+**Por qué importa:** el `atoro` medido de esa misma clase dice que el error más común son
+los *«rangos sin traslape entre verde, amarillo y rojo»*. No se puede chequear el traslape
+de tres rangos cuando uno de los tres lo fija otra persona en otro módulo. La verificación
+es inherentemente cross-módulo y hoy no la hace nadie.
+
+**Lo que queda sin hacer:** es una decisión de contenido de Mauricio —agregar el amarillo
+al módulo 8, o aceptar que baja de la ficha—, así que quedó anotada y sin tocar.
+
+**Vive en:** lib/programa-campos.ts (`CAMPOS.m8c1..m8c3` vs `CAMPOS.m6c4`) ·
+lib/programa-catalogo.ts (m8, `quien: 'líder de área'`) · *2026-08-11 ~programa-mauricio-recorte*
+
+---
+
+## 4.3 y 6.4 traen el mismo atoro escrito dos veces
+
+«El objetivo de cada área» (4.3) y «El número del área, con su base y su fuente» (6.4)
+piden lo mismo: el número, su base de hoy, su fuente, y si el área ya lo calcula. Y sus
+`atoro` son la misma frase con las palabras cambiadas de orden — *«si hay que inventar un
+reporte, no entra en este ciclo»*.
+
+La diferencia real es de **grano**: 4.3 se contesta una vez para todas las áreas (es una
+tabla) y 6.4 una vez POR área (el módulo 6 es `porArea`). Eso justifica dos tareas, pero
+no dos explicaciones en video. Lo marcaron 4 de 5 revisiones independientes, con
+confianza alta, y es la única fusión propuesta que **cruza módulos** — que hoy
+`mismoVideoQue` no admite a propósito, porque un video de un módulo `porArea` compartido
+con uno que no lo es no tiene dónde vivir.
+
+**Lo que queda sin hacer:** decidir si se unifican, y si la respuesta es sí, si
+`mismoVideoQue` tiene que poder cruzar módulos.
+
+**Vive en:** lib/programa-catalogo.ts (m4c3, m6c5) · *2026-08-11 ~programa-mauricio-recorte*
+
+---
+
+## Implementar mientras corre la corrida envenena la verificación
+
+**Síntoma:** 24 de 24 escépticos refutaron la propuesta que estaban juzgando. Leído por
+encima: «el plan entero está mal».
+
+**Causa:** los escépticos leen el código de AHORA. Las fusiones se habían implementado
+mientras ellos corrían, así que refutaron con *«esta fusión ya está en el código, no
+ahorra ningún video»* — que es cierto y no tiene nada que ver con la pregunta que se les
+hizo, que era si la fusión pierde algo.
+
+Es exactamente la trampa que `AGENTS.md` ya documenta («un agente no distingue *nunca
+estuvo roto* de *se arregló hace una hora*»), con la vuelta de tuerca de que acá el que
+movió el código fue **el mismo que lanzó la corrida**.
+
+**La regla que queda: mientras una corrida esté juzgando un cambio, no se aplica ese
+cambio.** Si hay que avanzar igual, se trabaja en lo que la corrida no mira — acá fueron
+el guard de workspace y la pantalla— y las fusiones se aplican cuando vuelve el veredicto.
+
+**Y lo que sí se rescató:** la parte del razonamiento que no dependía del estado del árbol
+—la distinción entre fusionar el VIDEO y fusionar el BLOQUE— apareció en 5 de los 24
+veredictos y es la que gobierna el diseño final. Un resultado contaminado no es un
+resultado vacío: hay que separar qué parte dependía de la premisa falsa.
+
+**Vive en:** AGENTS.md → «Un agente no distingue nunca estuvo roto de se arregló hace una
+hora» · *2026-08-11 ~programa-mauricio-recorte*
+
+---
+
 *Corrida del 2026-08-11: 16 agentes mapeando el código para el bucle de entrega, más la
-verificación en vivo contra la cuenta real de Whop.*
+verificación en vivo contra la cuenta real de Whop. Ampliado el 2026-08-11 con
+~programa-mauricio-recorte: 5 lentes sobre el temario + 24 escépticos.*
