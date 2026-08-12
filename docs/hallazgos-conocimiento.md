@@ -534,6 +534,52 @@ apuntes. Lo único que destraba esas dos es que la plataforma re-suba el video.
 recuperó reintentando (33:39, resuelve m3u8 y MPD). Duración cero = muerta;
 duración real que falla = transitoria. La metadata distingue los dos casos.
 
+### La guarda que protegía de leer a medio bajar salteaba 3 clases terminadas, en silencio
+
+**Síntoma.** 247 videos en disco y solo 244 audios. Nada falló, nada se reportó. La
+única pista era una línea del propio script: «salteo 3 archivo/s».
+
+**Dos causas distintas, y las dos son de la guarda, no de los datos:**
+
+**1. Un temporal viejo bloquea un archivo terminado para siempre.** Del primer intento
+fallido de la clase 193 quedó un `193 - … .fhls-fastly_skyfire-1278.mp4.part-Frag293.part`
+de 170 KB. La guarda derivaba de ahí el prefijo de la clase y descartaba su `.mp4`
+**completo, de 265 MB**, como «sigue bajando». El `.part` era basura de un intento
+anterior, no una descarga en curso — y esa distinción no existía en el código.
+
+**2. La allowlist por NOMBRE COMPLETO era un salteo silencioso.** Comparar el nombre
+entero contra el `archivo` del plan parecía lo más estricto. Pero el descargador no
+siempre produce exactamente ese nombre: el plan decía
+`212 - 1. No pares de hacer $$$` y en disco quedó `… hacer $$` — **un `$` menos**. Las
+clases 212 y 215 se descartaron sin una línea de aviso.
+
+**Regla.** La clave es el **número de clase** (`^(\d{1,3}) - `), que es lo que usa todo
+el pipeline aguas abajo, no el nombre completo. Y «en curso» se define contra las
+clases que **no** tienen todavía su archivo final: si el final existe, cualquier
+temporal de esa clase es basura y se ignora.
+
+**Y la regla general, que es la que más ahorra:** una guarda que descarta **dice qué
+descartó y por qué**. Las tres versiones anteriores contaban los salteos en un número
+—«salteo 3 archivo/s»— y ese número no alcanza para notar que está mal. Ahora imprime
+el archivo y el motivo, uno por línea.
+
+**Vive en:** `scripts/curso-audio.mjs` (el bloque de `descartes`)
+
+### ScreenApp puede aceptar un archivo y no transcribirlo nunca, sin error
+
+**Síntoma.** La clase 196 tenía audio y `fileId`, y `GET /files/{id}` devolvía **HTTP
+200** — con `transcript` ausente y `jobs` **vacío**. Ni error, ni estado «procesando».
+
+**Regla.** El `fileId` persistido en `sa-fileids.json` es lo que hace reanudable la
+transcripción, pero también **fija un upload que quedó colgado**: mientras el id esté
+ahí, el script poletea para siempre un archivo que nunca va a tener transcripción. Se
+destraba borrando esa entrada del mapa para forzar un upload nuevo.
+
+Lo que falta y conviene: si un `fileId` lleva más de N minutos con `jobs` vacío,
+tratarlo como colgado y re-subir solo, en vez de esperar a que alguien lo note.
+
+**Vive en:** `scripts/curso-transcribir-sa.mjs` (`esperar`) · el mapa: `sa-fileids.json`
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato

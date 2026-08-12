@@ -71,27 +71,48 @@ const correr = (args) => {
 //   2. Siempre: se descartan los intermedios «.f<formato>.<ext>» y todo lo que
 //      tenga un hermano .part / .ytdl (= sigue bajando).
 const PLAN = arg('plan', '');
+// ⚠️ La allowlist va por NÚMERO DE CLASE, no por nombre completo. Comparar el nombre
+// entero parecía más estricto y era un salteo silencioso: el descargador no siempre
+// produce exactamente el `archivo` del plan. Medido — el plan decía
+// «212 - 1. No pares de hacer $$$» y en disco quedó «… hacer $$»: un `$` menos, y
+// las clases 212 y 215 se descartaron sin una línea de aviso. El número de 3 dígitos
+// es la clave real y es la que usa TODO el pipeline aguas abajo.
+const nDe = (f) => { const m = /^(\d{1,3})\s*-\s*/.exec(f); return m ? Number(m[1]) : null; };
 const esperados = PLAN && existsSync(PLAN)
   // El replace del BOM: PowerShell 5.1 lo mete al editar el plan y JSON.parse muere.
-  ? new Set(JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, '')).clases.map((c) => c.archivo))
+  ? new Set(JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, '')).clases.map((c) => c.n))
   : null;
 
-const enVuelo = new Set(
-  readdirSync(DE).filter((f) => /\.(part|ytdl)$|\.part-Frag\d+$/i.test(f))
-    .map((f) => f.replace(/\.f[^.]*\.(mp4|mkv|webm|m4v).*$/i, '').replace(/\.(part|ytdl).*$/i, '').replace(/\.[^.]*$/, '')),
-);
+const todosVideo = readdirSync(DE).filter((f) => VIDEO.has(extname(f).toLowerCase()));
+const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f);
+// Clases que YA tienen su archivo final. Un temporal de una de ellas es basura de un
+// intento anterior, no una descarga en curso: quedó un «.part-Frag293.part» de la
+// clase 193 y su .mp4 completo de 265 MB se salteó para siempre. Un temporal viejo NO
+// puede bloquear un archivo terminado.
+const terminadas = new Set(todosVideo.filter((f) => !esIntermedio(f)).map(nDe).filter(Boolean));
 
-const entradas = readdirSync(DE).filter((f) => {
-  if (!VIDEO.has(extname(f).toLowerCase())) return false;
-  if (/\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f)) return false;          // intermedio de yt-dlp
-  const nombre = basename(f, extname(f));
-  if (esperados && !esperados.has(nombre)) return false;                // allowlist del plan
-  if ([...enVuelo].some((p) => p && nombre.startsWith(p))) return false; // sigue bajando
+const temporales = readdirSync(DE).filter((f) => /\.(part|ytdl)$|\.part-Frag\d+/i.test(f));
+const enVuelo = new Set(temporales.map(nDe).filter((n) => n && !terminadas.has(n)));
+const basura = temporales.filter((f) => { const n = nDe(f); return n && terminadas.has(n); });
+
+const descartes = [];
+const entradas = todosVideo.filter((f) => {
+  if (esIntermedio(f)) { descartes.push(`${f} (intermedio de yt-dlp)`); return false; }
+  const n = nDe(f);
+  if (n == null) { descartes.push(`${f} (sin número de clase al principio)`); return false; }
+  if (esperados && !esperados.has(n)) { descartes.push(`${f} (la clase ${n} no está en el plan)`); return false; }
+  if (enVuelo.has(n)) { descartes.push(`${f} (la clase ${n} sigue bajando)`); return false; }
   return true;
 }).sort();
 
-const saltadosEnVuelo = readdirSync(DE).filter((f) => VIDEO.has(extname(f).toLowerCase())).length - entradas.length;
-if (saltadosEnVuelo > 0) console.log(`  (salteo ${saltadosEnVuelo} archivo/s: intermedios de yt-dlp o descargas en curso)`);
+// Los descartes se DICEN, con el motivo. Un salteo silencioso fue exactamente el bug.
+if (descartes.length) {
+  console.log(`  (salteo ${descartes.length} archivo/s:)`);
+  for (const d of descartes.slice(0, 8)) console.log(`     · ${d}`);
+}
+if (basura.length) {
+  console.log(`  (${basura.length} temporal/es de intentos viejos, ignorados — su clase ya está completa)`);
+}
 if (!entradas.length) { console.error(`\n  ✖ No hay videos TERMINADOS en ${DE}\n`); process.exit(1); }
 
 console.log(`\n  ${entradas.length} video(s) · ${KBPS} kbps mono 16 kHz · objetivo ${MB_OBJETIVO} MB (parte a los ${Math.floor(SEG_MAX / 60)} min)\n`);
