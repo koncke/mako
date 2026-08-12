@@ -111,10 +111,19 @@ async function main() {
       console.log(`    resumen: ${resumen}`);
       if (!APLICAR) return;
       const db = await getTenantDb();
-      // `cruzado_at: null` a propósito: el cruce anti-duplicados se rehace al abrir el
-      // modal, pero ahora sobre las candidatas TUYAS y no sobre las 37.
+      // ⛔ NO SE TOCA `cruzado_at`. La primera versión lo ponía en null «para que el
+      // cruce se rehiciera sobre las candidatas tuyas y no sobre las 37» — y eso, visto
+      // desde el dueño, es otra cosa: volvió a entrar a la reunión, MaKo se puso a
+      // comparar de nuevo contra su plan, pagó la llamada otra vez y le pisó las
+      // decisiones que ya había tomado sobre ese borrador. Sus palabras: «avanzamos 1
+      // paso y retrocedemos 3».
+      //
+      // La regla: un script de reparación arregla EL DATO QUE ESTÁ MAL y no invalida
+      // trabajo humano que estaba bien. Los cruces que hayan quedado flojos se corrigen
+      // aparte, con `scripts/reparar-cruce-flojo.ts`, que los degrada en su lugar sin
+      // volver a llamar a nadie.
       const { error } = await db.from('plan_propuestas')
-        .update({ tareas: nuevas, resumen, cruzado_at: null })
+        .update({ tareas: nuevas, resumen })
         .eq('id', p.id).eq('estado', 'pendiente');
       console.log(error ? `    ✗ ${error.message}` : `    ✓ reparada`);
     });

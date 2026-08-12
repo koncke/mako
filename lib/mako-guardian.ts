@@ -26,6 +26,7 @@ import { capacidad, capacidadesParaPrompt } from './mako-capacidades';
 // WhatsApp y la skill de Claude Code (ver «Una cosa, un lugar» en AGENTS.md).
 import { REGLA_NOMBRE_PROYECTO, puedeSerProyectoNuevo } from './plan-proyectos-catalogo';
 import { huerfanasDeRuteo, remapearRepesca } from './ruteo-repesca';
+import { degradarConfianza } from './cruce-confianza';
 import { haceFaltaUnProyecto } from './plan-proyecto-necesidad';
 
 export type GuardProjIn = { id: string; nombre: string };
@@ -441,7 +442,16 @@ export async function cruzarCandidatas(
         }))
         .filter((c) => Number.isInteger(c.i) && c.i >= 0 && c.i < candidatas.length && c.accion === 'enriquece' && c.idExistente)
     : [];
-  return { cruces, usage };
+  // ⚠️ LA CONFIANZA DEL MODELO NO ES LA CONFIANZA. «alta» destilda la tarea sola, y
+  // medido sobre una reunión real las 8 que llegaron así eran las 8 falsas (cinco sin
+  // compartir UNA palabra con la tarjeta). El detalle y las tres degradaciones están en
+  // lib/cruce-confianza.ts. No se descarta ningún cruce: se les quita el poder de
+  // esconder trabajo, que es otra cosa.
+  const { cruces: sanos, degradados } = degradarConfianza(cruces, candidatas, existentes);
+  for (const d of degradados) {
+    console.warn(`[mako-guardian] cruce degradado a «media» — «${candidatas[d.i]?.titulo?.slice(0, 50)}»: ${d.porQue}`);
+  }
+  return { cruces: sanos, usage };
 }
 
 // ── Gate del Perro: rutea cada TAREA nueva a su proyecto existente ────────────

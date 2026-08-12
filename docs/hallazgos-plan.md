@@ -507,6 +507,34 @@ Del mismo hilo: **nada de jerga interna ni tecnicismos** en lo que ve el cliente
 
 ## De la reunión a la tarea (Fathom)
 
+### ⚠️⚠️ La confianza del modelo no es la confianza: «alta» escondía 8 de cada 11 tareas
+
+**12/8/2026.** El botón del modal decía **«Agregar 3 al plan»** sobre una reunión de la que salían once cosas del dueño. Las otras 8 llegaron destildadas porque el cruce anti-duplicados dijo «ya está en tu plan» con confianza «alta», y **las ocho eran falsas.**
+
+No falsas por poco. Midiendo el Jaccard de palabras clave contra la tarjeta con la que las cruzó:
+
+| candidata | «ya está en tu plan como…» | j |
+|---|---|---|
+| Conectar el Second Brain con el Cloud Code | Tab SuperAdmin: modelo de IA por tarea | **0.00** |
+| Agregar infinitos guiones en el Ads Writer | Escritor de VSL + escritor de DMs | **0.00** |
+| Desactivar el bot de ManyChat de Instagram | Cerrar el canal no oficial | **0.00** |
+| Editar/crear avatares en Ads Writer | Escritor de VSL + escritor de DMs | **0.00** |
+| Actualizar el plan del curso de CS | Configurar Fathom e IA | 0.09 |
+
+**Cinco de ocho no comparten una sola palabra.** Y dos tarjetas absorbieron dos candidatas cada una. En la reunión anterior fue peor: 16 de 16, con **una tarjeta llevándose cuatro** candidatas distintas.
+
+**Un falso «alta» no molesta: esconde un pedido real de una reunión, en silencio.** La asimetría es total —un «media» de más cuesta un click— y por eso `confianza` dejó de ser lo que dice el modelo. Tres degradaciones en `lib/cruce-confianza.ts`, y ninguna es un umbral fino a propósito:
+
+1. **Dos candidatas no pueden ser la misma tarjeta.** Lógica, no heurística: a lo sumo una tiene razón y no sabemos cuál, así que bajan todas.
+2. **Cero palabras en común no es «la misma dicha de otro modo».** No es un umbral calibrado: es el piso de lo que significa hablar de lo mismo. ⚠️ Y el corte es «al menos UNA palabra» y no un porcentaje justamente para no matar el caso que justifica el cruce con IA — «mensaje de WhatsApp después de agendar» contra «follow-up post-llamada» comparten ~15% y ahí el léxico solo no alcanza.
+3. **Si ≥70% de un lote de 4+ es «alta», el modelo no discriminó.** Solo sobre los cruces contra el TABLERO: cuando la misma llamada se graba dos veces, que todo matchee contra el borrador hermano es lo correcto.
+
+**Nunca se descarta un cruce**, solo se le quita el poder de destildar: la tarea sigue con el cartel verde y su razón, y entra tildada. El cruce avisa; no decide.
+
+⚠️ **Y una lección de reparación que costó una vuelta:** poner `cruzado_at = null` para «recalcular» **no es recalcular**. Visto desde el dueño es: volver a entrar a la reunión, verlo comparar de nuevo, pagar la llamada otra vez y que le pisen las decisiones que ya había tomado. Sus palabras: *«avanzamos 1 paso y retrocedemos 3»*. Un script de reparación arregla el dato que está mal y no invalida trabajo humano que estaba bien — por eso `scripts/reparar-cruce-flojo.ts` degrada en su lugar, sin llamar a nadie.
+
+**Vive en:** lib/cruce-confianza.ts · lib/mako-guardian.ts (`cruzarCandidatas`) · scripts/reparar-cruce-flojo.ts · *2026-08-12*
+
 ### ⚠️⚠️ «Ni siquiera existe la tab de Mau»: clasificar y poder mandar son dos preguntas
 
 **12/8/2026.** El dueño: *«como la funcionalidad de extraer las tareas falló completamente… me está poniendo tareas a mí que deberían ser de Mau, ni siquiera existe la tab de Mau»*.
