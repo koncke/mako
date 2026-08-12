@@ -149,6 +149,16 @@ if (!tiene('solo-ids')) {
   }
 
   console.log(`\n  ${copiados} copiado(s) · ${ya} ya estaban${sinArchivo ? ` · ${sinArchivo} sin bajar` : ''}`);
+
+  // --solo-copiar: para correr EN PARALELO con la descarga. Copiar a G: es
+  // instantáneo (Drive sube después, en su propio background), pero resolver los
+  // ids exige esperar a que la subida TERMINE del lado del servidor — y eso puede
+  // ser media hora. Se separan: copiar cada ronda, resolver ids una sola vez al
+  // final con --solo-ids.
+  if (tiene('solo-copiar')) {
+    console.log(`  (--solo-copiar: no espero los ids. Al final: --solo-ids)\n`);
+    process.exit(0);
+  }
 } else {
   for (const c of plan.clases) {
     const dirVideo = join(base, 'video');

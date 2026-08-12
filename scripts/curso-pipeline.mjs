@@ -26,6 +26,7 @@ const PARALELO = arg('paralelo', '3');
 const TOPE_H = Number(arg('tope-horas', 12));
 const PAUSA_S = Number(arg('pausa', 90));
 const SIN_PROGRESO_MAX = Number(arg('rondas-secas', 8)); // 8 × 90s = 12 min quieto
+const DRIVE = process.argv.includes('--drive');           // copiar a Drive cada ronda
 
 if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json>\n'); process.exit(1); }
 const base = dirname(PLAN);
@@ -68,10 +69,16 @@ while (Date.now() < hasta) {
   const t = audios() > textos()
     ? correr('curso-transcribir-sa.mjs', ['--plan', PLAN, '--paralelo', PARALELO])
     : { code: 0, resumen: ['(nada nuevo para transcribir)'] };
+  // --drive: ir copiando a Drive en cada ronda, sin esperar los ids. Aprovecha que
+  // subida y descarga usan capacidades distintas en una conexión asimétrica, así
+  // que no se pelean. Los ids se resuelven al final, en una sola pasada.
+  const g = DRIVE
+    ? correr('curso-a-drive.mjs', ['--plan', PLAN, '--solo-copiar'])
+    : { code: 0, resumen: [] };
 
   const ahora = textos();
   console.log(`  [${hora()}] ronda ${ronda}: video ${bajados()}/${total} · audio ${audios()} · texto ${ahora}/${total}`);
-  for (const l of [...a.resumen, ...t.resumen]) if (l) console.log(`             ${l}`);
+  for (const l of [...a.resumen, ...t.resumen, ...g.resumen]) if (l) console.log(`             ${l}`);
 
   if (ahora >= total) { console.log(`\n  ✓ COMPLETO: ${ahora}/${total} clases transcriptas.\n`); process.exit(0); }
 
