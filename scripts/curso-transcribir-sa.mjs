@@ -40,7 +40,8 @@ const BASE = 'https://api.screenapp.io/v2';
 
 if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json>\n'); process.exit(1); }
 const base = dirname(PLAN);
-const plan = JSON.parse(readFileSync(PLAN, 'utf8'));
+// Ver la nota del BOM en curso-bajar.mjs: PowerShell 5.1 lo mete y JSON.parse muere.
+const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
 const dirAudio = arg('de', join(base, 'audio'));
 const dirTexto = arg('a', join(base, 'texto'));
 

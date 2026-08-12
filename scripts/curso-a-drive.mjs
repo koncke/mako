@@ -47,7 +47,10 @@ const LIBERAR = tiene('liberar');           // borrar el local una vez CONFIRMAD
 const MIN_LIBRE = Number(arg('min-libre-gb', 25)); // solo libera si queda menos que esto
 
 if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json>\n'); process.exit(1); }
-const plan = JSON.parse(readFileSync(PLAN, 'utf8'));
+// .replace del BOM: en PowerShell 5.1 «Set-Content -Encoding utf8» escribe UTF-8
+// CON BOM, y JSON.parse de Node revienta con «Unexpected token '﻿'». Cualquier
+// edición del plan desde PowerShell lo reintroduce, así que se limpia al leer.
+const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
 const base = dirname(PLAN);
 
 const limpio = (s) => String(s).normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
@@ -98,7 +101,18 @@ const idsDeDrive = (nombres) => {
 };
 
 // ── 1. Copiar (= subir) ──────────────────────────────────────────────────────
-const dirCurso = join(DRIVE, limpio(plan.curso));
+// La convención de la carpeta en Drive es «<Curso> - <Autor>», y la cumplen 36 de
+// las 39 carpetas de CURSOS. El autor sale del plan (--autor en curso-plan-vip),
+// porque la API de la plataforma no lo trae. Separador: guión normal, que es el que
+// usan 33 de las 36 (las otras 3 tienen guión largo, que no se replica a propósito).
+const nombreCurso = plan.autor?.trim()
+  ? `${limpio(plan.curso)} - ${limpio(plan.autor)}`
+  : limpio(plan.curso);
+const dirCurso = join(DRIVE, nombreCurso);
+if (!plan.autor?.trim()) {
+  console.log(`\n  ⚠ El plan no trae autor, así que la carpeta va a quedar «${nombreCurso}»`);
+  console.log(`    y sin el « - Autor» que usan las otras 36. Agregá "autor" al plan.json.`);
+}
 const esperados = []; // { nombre, clase }
 
 if (!tiene('solo-ids')) {

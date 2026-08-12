@@ -35,7 +35,8 @@ const EYEBROW = arg('eyebrow', 'Curso externo');
 
 if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json>\n'); process.exit(1); }
 const base = dirname(PLAN);
-const plan = JSON.parse(readFileSync(PLAN, 'utf8'));
+// Ver la nota del BOM en curso-bajar.mjs: PowerShell 5.1 lo mete y JSON.parse muere.
+const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
 
 const driveJson = join(base, 'drive.json');
 if (!existsSync(driveJson)) {
@@ -43,7 +44,7 @@ if (!existsSync(driveJson)) {
   console.error('    de Drive el portal pinta un iframe muerto.\n');
   process.exit(1);
 }
-const drive = JSON.parse(readFileSync(driveJson, 'utf8'));
+const drive = JSON.parse(readFileSync(driveJson, 'utf8').replace(/^﻿/, ''));
 const idPorN = new Map(drive.clases.map((c) => [c.n, c.videoId]));
 
 const dirTexto = join(base, 'texto');

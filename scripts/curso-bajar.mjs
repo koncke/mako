@@ -42,7 +42,9 @@ if (!PLAN || !existsSync(PLAN)) {
   process.exit(1);
 }
 
-const plan = JSON.parse(readFileSync(PLAN, 'utf8'));
+// Sin el replace del BOM, un plan.json editado desde PowerShell 5.1 revienta:
+// «Set-Content -Encoding utf8» escribe UTF-8 CON BOM y JSON.parse no lo tolera.
+const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
 const base = dirname(PLAN);
 const dirVideo = join(base, 'video');
 

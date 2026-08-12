@@ -72,7 +72,8 @@ const correr = (args) => {
 //      tenga un hermano .part / .ytdl (= sigue bajando).
 const PLAN = arg('plan', '');
 const esperados = PLAN && existsSync(PLAN)
-  ? new Set(JSON.parse(readFileSync(PLAN, 'utf8')).clases.map((c) => c.archivo))
+  // El replace del BOM: PowerShell 5.1 lo mete al editar el plan y JSON.parse muere.
+  ? new Set(JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, '')).clases.map((c) => c.archivo))
   : null;
 
 const enVuelo = new Set(

@@ -27,6 +27,11 @@ const arg = (n, d) => {
 const PORT = Number(arg('port', 9333));
 const SEGUNDOS = Number(arg('segundos', 20));
 const RAIZ = arg('raiz', 'C:\\cursos');
+// El autor NO viene en la API (vip_courses trae id, title, slug, description y
+// nada más), pero SÍ es parte del nombre de la carpeta en Drive: la convención del
+// dueño es «<Curso> - <Autor>», y la cumplen 36 de 39 carpetas. Sin esto la carpeta
+// queda sin autor y desentona con todo el resto, así que si falta se avisa fuerte.
+const AUTOR = arg('autor', '');
 
 const slugDe = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 80);
@@ -193,6 +198,7 @@ const main = async () => {
 
   writeFileSync(salida, JSON.stringify({
     curso: limpio(cursoTitulo),
+    autor: AUTOR.trim(),
     slug,
     pagina: t.url,
     userAgent: ua,
@@ -210,6 +216,12 @@ const main = async () => {
   if (salida !== destino) console.log(`\n  ⚠ Ya había un plan.json: lo dejé como plan.nuevo.json.`);
 
   console.log(`  UA      : ${ua ? ua.slice(0, 60) + '…' : '⚠ vacío (revisá antes de bajar)'}`);
+  if (AUTOR.trim()) console.log(`  Autor   : ${AUTOR.trim()}  →  carpeta «${limpio(cursoTitulo)} - ${AUTOR.trim()}»`);
+  else {
+    console.log(`\n  ⚠ SIN AUTOR. La convención en Drive es «<Curso> - <Autor>» (36 de 39`);
+    console.log(`    carpetas la cumplen). Volvé a correr con --autor "Nombre Apellido"`);
+    console.log(`    o la carpeta va a quedar sin autor y desentonando con el resto.`);
+  }
   console.log('');
   process.exit(sinVideo.length ? 3 : 0);
 };

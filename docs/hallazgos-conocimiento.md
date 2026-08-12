@@ -397,6 +397,46 @@ algo sigue vivo se mira el **proceso**, no el último timestamp del log.
 
 **Vive en:** `scripts/curso-pipeline.mjs`
 
+### El nombre de la carpeta en Drive lleva el AUTOR, y la API no lo trae
+
+**Síntoma.** La carpeta del curso quedó `Aumenta tu valor y ATV ADVANTAGE`, y
+desentonaba con todas las demás. El dueño lo marcó.
+
+**Causa.** La convención de `MARKETING KONCEPT\CURSOS` es **`<Curso> - <Autor>`**, y la
+cumplen **36 de 39** carpetas (33 con guión normal, 3 con guión largo; las 3 sin
+separador son dos históricas y la que generamos nosotros). Pero el RPC
+`get_vip_lessons_secure` **no trae el autor**: `vip_courses` tiene `id`, `title`,
+`slug` y `description` (vacío). El autor solo aparece en la tarjeta del catálogo.
+
+**Regla.** El autor entra por `--autor` en `curso-plan-vip.mjs` y viaja en el
+`plan.json`; `curso-a-drive.mjs` arma `<Curso> - <Autor>`. Y si falta, **los dos
+scripts avisan fuerte** en vez de generar la carpeta a medias en silencio — que es
+exactamente lo que pasó. Separador: guión normal, el de los 33.
+
+Renombrar la carpeta ya subida es seguro y **no re-sube nada**: Drive lo trata como
+cambio de metadata, y `curso-a-drive.mjs` reconoció los 194 archivos ya presentes en
+la carpeta nueva (medido).
+
+**Vive en:** `scripts/curso-plan-vip.mjs` (`--autor`) · `scripts/curso-a-drive.mjs`
+
+### `Set-Content -Encoding utf8` de PowerShell 5.1 escribe BOM, y Node no lo tolera
+
+**Síntoma.** Después de agregar un campo al `plan.json` desde PowerShell, todos los
+scripts murieron con `SyntaxError: Unexpected token '﻿', "﻿{ "c"... is not valid JSON`.
+
+**Causa.** En **PowerShell 5.1**, `-Encoding utf8` significa UTF-8 **con BOM**. El
+`JSON.parse` de Node no acepta el BOM. Dos archivos quedaron rotos de una sola
+edición aparentemente inocua. Ya está avisado en las notas del entorno
+(«`Set-Content`/`Add-Content` defaultean al codepage ANSI, pasá `-Encoding utf8`
+explícito») — el detalle que faltaba es que ese `utf8` explícito **agrega BOM**.
+
+**Regla.** Para escribir JSON que Node va a leer, **escribilo con Node**
+(`JSON.stringify` + `writeFileSync`), no con PowerShell. Y los lectores se defienden
+igual: los nueve `JSON.parse(readFileSync(...))` de `scripts/curso-*` llevan
+`.replace(/^﻿/, '')`, porque el BOM va a volver.
+
+**Vive en:** los nueve `JSON.parse` de `scripts/curso-*.mjs`
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato
