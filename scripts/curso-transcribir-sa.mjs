@@ -181,7 +181,32 @@ const parrafos = (tx) => {
 };
 
 // ── Trabajar las clases, con paralelismo acotado ─────────────────────────────
-const pendientes = [...grupos.entries()].sort().filter(([clave]) => !existsSync(join(dirTexto, `${clave}.md`)));
+// texto/ puede estar plano u organizado en «<NN Módulo>/» (ver curso-organizar.mjs).
+// El .md existente se busca EN LOS DOS layouts: si solo se mirara la raíz, un curso ya
+// organizado se re-transcribiría entero (247 clases) creyendo que falta todo.
+const listarUnNivel = (dir) => !existsSync(dir) ? [] : readdirSync(dir, { withFileTypes: true })
+  .flatMap((e) => e.isDirectory()
+    ? readdirSync(join(dir, e.name)).map((f) => join(e.name, f))
+    : [e.name]);
+const mdExistente = new Map(
+  listarUnNivel(dirTexto).filter((r) => basename(r).endsWith('.md') && basename(r) !== '_indice.md')
+    .map((r) => [basename(r, '.md'), r]),
+);
+// Y el nuevo se ESCRIBE en la carpeta de su módulo, para no desarmar lo organizado.
+const nDeClave = (s) => { const m = /^(\d{1,3})\s*-\s*/.exec(s); return m ? Number(m[1]) : null; };
+const limpioMod = (s) => String(s).normalize('NFC').replace(/[<>:"/\\|?* -]/g, '')
+  .replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 120);
+const carpetaDeClase = new Map(plan.clases.map((c) => [c.n,
+  limpioMod(c.modulo ?? '').replace(/^(\d+)\.\s*/, (_, n) => `${String(n).padStart(2, '0')} `)]));
+// Solo se usa subcarpeta si el curso YA está organizado; si está plano, se respeta plano.
+const organizado = listarUnNivel(dirTexto).some((r) => r.includes('\\')) ||
+  listarUnNivel(join(base, 'video')).some((r) => r.includes('\\'));
+const destinoMd = (clave) => {
+  const carpeta = organizado ? (carpetaDeClase.get(nDeClave(clave)) || '') : '';
+  return carpeta ? join(dirTexto, carpeta, `${clave}.md`) : join(dirTexto, `${clave}.md`);
+};
+
+const pendientes = [...grupos.entries()].sort().filter(([clave]) => !mdExistente.has(clave));
 const yaEstaban = grupos.size - pendientes.length;
 if (yaEstaban) console.log(`  (${yaEstaban} ya tenían .md, se saltean)\n`);
 
@@ -222,7 +247,9 @@ const unaClase = async ([clave, piezas]) => {
     '>', '> Tus apuntes van acá arriba. Lo de abajo es materia prima para leer, no para',
     '> mandar al RAG tal cual.', '', '## Apuntes', '', '', '## Transcripción', '',
   ].join('\n');
-  writeFileSync(join(dirTexto, `${clave}.md`), cabecera + trozos.join('\n\n') + '\n', 'utf8');
+  const salidaMd = destinoMd(clave);
+  mkdirSync(dirname(salidaMd), { recursive: true });
+  writeFileSync(salidaMd, cabecera + trozos.join('\n\n') + '\n', 'utf8');
   hechas++;
 };
 
@@ -231,8 +258,11 @@ await Promise.all(Array.from({ length: PARALELO }, async () => {
   while (cola.length) await unaClase(cola.shift());
 }));
 
-const md = readdirSync(dirTexto).filter((f) => f.endsWith('.md') && f !== '_indice.md').sort();
-writeFileSync(join(dirTexto, '_indice.md'), `# Clases transcriptas\n\n${md.map((f) => `- [${basename(f, '.md')}](${f})`).join('\n')}\n`, 'utf8');
+// El índice se arma con las rutas RELATIVAS, así los links funcionan igual esté el
+// curso plano u organizado por módulo.
+const md = listarUnNivel(dirTexto).filter((r) => basename(r).endsWith('.md') && basename(r) !== '_indice.md').sort();
+writeFileSync(join(dirTexto, '_indice.md'),
+  `# Clases transcriptas\n\n${md.map((r) => `- [${basename(r, '.md')}](${r.split('\\').map(encodeURIComponent).join('/')})`).join('\n')}\n`, 'utf8');
 
 console.log(`\n  ${hechas} transcripta(s) · ${yaEstaban} ya estaban · ${fallidas} fallada(s)`);
 console.log(`  Índice: ${join(dirTexto, '_indice.md')}`);

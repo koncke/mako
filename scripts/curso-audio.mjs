@@ -92,21 +92,34 @@ const PLAN = arg('plan', '');
 // «212 - 1. No pares de hacer $$$» y en disco quedó «… hacer $$»: un `$` menos, y
 // las clases 212 y 215 se descartaron sin una línea de aviso. El número de 3 dígitos
 // es la clave real y es la que usa TODO el pipeline aguas abajo.
-const nDe = (f) => { const m = /^(\d{1,3})\s*-\s*/.exec(f); return m ? Number(m[1]) : null; };
+// Sobre el BASENAME siempre: con el curso organizado la ruta relativa empieza con la
+// carpeta del módulo y el número de clase deja de estar al principio.
+const nDe = (f) => { const m = /^(\d{1,3})\s*-\s*/.exec(basename(f)); return m ? Number(m[1]) : null; };
 const esperados = PLAN && existsSync(PLAN)
   // El replace del BOM: PowerShell 5.1 lo mete al editar el plan y JSON.parse muere.
   ? new Set(JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, '')).clases.map((c) => c.n))
   : null;
 
-const todosVideo = readdirSync(DE).filter((f) => VIDEO.has(extname(f).toLowerCase()));
-const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f);
+// video/ puede estar PLANO o organizado en «<NN Módulo>/» (ver curso-organizar.mjs),
+// así que se camina un nivel de subcarpetas. Devuelve rutas relativas a DE.
+const listar = (dir) => !existsSync(dir) ? [] : readdirSync(dir, { withFileTypes: true })
+  .flatMap((e) => e.isDirectory()
+    ? readdirSync(join(dir, e.name)).map((f) => join(e.name, f))
+    : [e.name]);
+
+// ⚠️ `listar` devuelve rutas RELATIVAS, que con el curso organizado vienen con la
+// carpeta del módulo adelante («01 1. START HERE\001 - ….mp4»). Todo lo que mire el
+// nombre tiene que hacerlo sobre el basename: aplicar el regex del número a la ruta
+// completa descartó los 247 videos con «sin número de clase al principio».
+const todosVideo = listar(DE).filter((f) => VIDEO.has(extname(f).toLowerCase()));
+const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(basename(f));
 // Clases que YA tienen su archivo final. Un temporal de una de ellas es basura de un
 // intento anterior, no una descarga en curso: quedó un «.part-Frag293.part» de la
 // clase 193 y su .mp4 completo de 265 MB se salteó para siempre. Un temporal viejo NO
 // puede bloquear un archivo terminado.
 const terminadas = new Set(todosVideo.filter((f) => !esIntermedio(f)).map(nDe).filter(Boolean));
 
-const temporales = readdirSync(DE).filter((f) => /\.(part|ytdl)$|\.part-Frag\d+/i.test(f));
+const temporales = listar(DE).filter((f) => /\.(part|ytdl)$|\.part-Frag\d+/i.test(f));
 const enVuelo = new Set(temporales.map(nDe).filter((n) => n && !terminadas.has(n)));
 const basura = temporales.filter((f) => { const n = nDe(f); return n && terminadas.has(n); });
 
@@ -136,6 +149,7 @@ let hechos = 0, saltados = 0, fallados = 0, partidos = 0;
 
 for (const f of entradas) {
   const src = join(DE, f);
+  // `f` puede venir con subcarpeta de módulo; el audio SIEMPRE sale plano en A.
   const nombre = basename(f, extname(f));
   const dest = join(A, `${nombre}.m4a`);
 

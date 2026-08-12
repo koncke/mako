@@ -21,7 +21,7 @@
 //   node <abs>\scripts\curso-a-portal.mjs --plan … --categoria "IA aplicada"
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -84,13 +84,18 @@ const slugDe = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
 
 // ── Recorrer las clases ──────────────────────────────────────────────────────
+// texto/ puede estar plano u organizado en «<NN Módulo>/» (ver curso-organizar.mjs),
+// así que se camina un nivel de subcarpetas.
 const mdPorN = new Map();
-if (existsSync(dirTexto)) {
-  for (const f of readdirSync(dirTexto)) {
-    if (!f.endsWith('.md') || f === '_indice.md') continue;
-    const m = /^(\d{1,3})\s*-\s*/.exec(f);
-    if (m) mdPorN.set(Number(m[1]), join(dirTexto, f));
-  }
+const listarUnNivel = (dir) => !existsSync(dir) ? [] : readdirSync(dir, { withFileTypes: true })
+  .flatMap((e) => e.isDirectory()
+    ? readdirSync(join(dir, e.name)).map((f) => join(e.name, f))
+    : [e.name]);
+for (const rel of listarUnNivel(dirTexto)) {
+  const f = basename(rel);
+  if (!f.endsWith('.md') || f === '_indice.md') continue;
+  const m = /^(\d{1,3})\s*-\s*/.exec(f);
+  if (m) mdPorN.set(Number(m[1]), join(dirTexto, rel));
 }
 
 const modulos = [...new Set(plan.clases.map((c) => c.modulo).filter(Boolean))];

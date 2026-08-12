@@ -635,6 +635,27 @@ tratarlo como colgado y re-subir solo, en vez de esperar a que alguien lo note.
 
 **Vive en:** `scripts/curso-transcribir-sa.mjs` (`esperar`) · el mapa: `sa-fileids.json`
 
+### Al pasar a subcarpetas, todo lo que mira el NOMBRE tiene que mirar el basename
+
+**Síntoma.** Se organizó el curso local en `video/<NN Módulo>/` y el paso de audio
+descartó **los 247 videos**, uno por uno, con «sin número de clase al principio».
+
+**Causa.** El listado pasó a devolver rutas **relativas**
+(`01 1. START HERE\001 - ….mp4`), y el regex de la clave (`^(\d{1,3}) - `) se seguía
+aplicando a la ruta completa: el número dejó de estar al principio. Lo mismo valía para
+la detección de intermedios.
+
+**Regla.** Cuando un listado devuelve rutas relativas, **la ruta sirve para abrir el
+archivo y el `basename` para decidir sobre él**. Todo predicado sobre el nombre —clave,
+extensión, intermedio— va sobre `basename(f)`.
+
+**Lo que hizo que apareciera en un segundo, y es el punto:** la regla de la entrada
+anterior («una guarda que descarta dice qué descartó y por qué») estaba puesta. El
+script imprimió las 247 líneas con el motivo exacto. La versión que solo contaba
+—«salteo 247 archivo/s»— habría mandado a buscar el problema a los datos.
+
+**Vive en:** `scripts/curso-audio.mjs` · el layout: `scripts/curso-organizar.mjs`
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato

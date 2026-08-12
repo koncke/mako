@@ -69,9 +69,14 @@ const mb = (b) => (b / 1048576).toFixed(1);
 // abajo. El mismo filtro vive en curso-audio.mjs, por lo mismo.
 const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f);
 const nDeArchivo = (f) => { const m = /^(\d{1,3})\s*-\s*/.exec(f); return m ? Number(m[1]) : null; };
-const videoDeClase = (dirVideo, c) => existsSync(dirVideo)
-  ? readdirSync(dirVideo).filter((f) => /\.(mp4|mkv|webm|m4v)$/i.test(f) && !esIntermedio(f) && nDeArchivo(f) === c.n)
-  : [];
+// video/ puede estar plano u organizado en «<NN Módulo>/» (ver curso-organizar.mjs),
+// así que se camina un nivel. Devuelve rutas relativas a dirVideo.
+const listarUnNivel = (dir) => !existsSync(dir) ? [] : readdirSync(dir, { withFileTypes: true })
+  .flatMap((e) => e.isDirectory()
+    ? readdirSync(join(dir, e.name)).map((f) => join(e.name, f))
+    : [e.name]);
+const videoDeClase = (dirVideo, c) => listarUnNivel(dirVideo)
+  .filter((f) => /\.(mp4|mkv|webm|m4v)$/i.test(f) && !esIntermedio(basename(f)) && nDeArchivo(basename(f)) === c.n);
 
 // ── El lector de la metadata de Drive ────────────────────────────────────────
 const dbDeDrive = () => {
@@ -146,15 +151,20 @@ if (!tiene('solo-ids')) {
     const cand = videoDeClase(dirVideo, c);
     if (!cand.length) { console.log(`  ⚠ ${c.archivo} — no está bajado todavía`); sinArchivo++; continue; }
 
+    // `cand[0]` puede venir con su subcarpeta de módulo si el local está organizado.
+    // El NOMBRE pelado es lo que va al destino y lo que se busca en la metadata de
+    // Drive: dejar la subcarpeta adentro anidaría «módulo/módulo/archivo» y la
+    // búsqueda del id por `local_title` no encontraría nada.
     const src = join(dirVideo, cand[0]);
+    const archivo = basename(cand[0]);
     const mod = limpio(c.modulo ?? 'Sin módulo').replace(/^(\d+)\.\s*/, (_, n) => `${String(n).padStart(2, '0')} `);
     const dstDir = join(dirCurso, mod);
     mkdirSync(dstDir, { recursive: true });
-    const dst = join(dstDir, cand[0]);
-    esperados.push({ nombre: cand[0], clase: c, src, dst });
+    const dst = join(dstDir, archivo);
+    esperados.push({ nombre: archivo, clase: c, src, dst });
 
-    if (existsSync(dst) && statSync(dst).size === statSync(src).size) { console.log(`  = ${mod}\\${cand[0]}`); ya++; continue; }
-    process.stdout.write(`  ↑ ${mod}\\${cand[0]} (${mb(statSync(src).size)} MB) … `);
+    if (existsSync(dst) && statSync(dst).size === statSync(src).size) { console.log(`  = ${mod}\\${archivo}`); ya++; continue; }
+    process.stdout.write(`  ↑ ${mod}\\${archivo} (${mb(statSync(src).size)} MB) … `);
     copyFileSync(src, dst);
     console.log('copiado');
     copiados++;
@@ -192,7 +202,8 @@ if (!tiene('solo-ids')) {
     const cand = videoDeClase(dirVideo, c);
     if (!cand.length) continue;
     const mod = limpio(c.modulo ?? 'Sin módulo').replace(/^(\d+)\.\s*/, (_, n) => `${String(n).padStart(2, '0')} `);
-    esperados.push({ nombre: cand[0], clase: c, src: join(dirVideo, cand[0]), dst: join(dirCurso, mod, cand[0]) });
+    const archivo = basename(cand[0]);
+    esperados.push({ nombre: archivo, clase: c, src: join(dirVideo, cand[0]), dst: join(dirCurso, mod, archivo) });
   }
 }
 
