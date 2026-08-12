@@ -16,6 +16,7 @@
 // cae a NEXT_PUBLIC_APP_URL, que Next inlinea en el build. Se usa para escribir
 // la URL real en los pasos que la piden (ver ayudaDeCampo).
 import { APP_BASE_URL } from './app-url';
+import { claveBaseDe, clavesDe, slotDe } from './ia-keys';
 
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
@@ -37,6 +38,11 @@ export type CampoCredencial = {
    *  y solo deja editarlo a mano detrás de "cargar a mano". Meta es el caso: de
    *  sus 6 credenciales, 5 salen del access token (ver lib/meta-descubrir.ts). */
   auto?: boolean;
+  /** Nº de CUENTA de una API key que admite varias (ver lib/ia-keys.ts). 1 = la de
+   *  siempre; 2 y 3 son cuentas extra del mismo proveedor para rotar cuando la
+   *  primera se queda sin cuota. La UI las muestra plegadas: si aparecieran los
+   *  tres inputs de entrada, conectar Gemini pasaría de un campo a tres. */
+  slot?: number;
 };
 
 /**
@@ -94,6 +100,26 @@ export type ServicioMetodo = {
    */
   soloPlataforma?: boolean;
 };
+
+/**
+ * Las cuentas EXTRA de un proveedor gratis, como campos opcionales.
+ *
+ * El free tier se agota por CUENTA, no por proveedor: con dos cuentas de Gemini
+ * tenés el doble de cuota gratis. La cascada ya rotaba entre proveedores; esto le
+ * da el otro eje. Son `opcional: true` a propósito — el servicio sigue estando
+ * "conectado" con la primera sola, así que agregar estos campos no cambia ningún
+ * semáforo ya pintado (ver `integracionConectada`, que solo mira los requeridos).
+ */
+const keysExtra = (prov: string, placeholder: string): CampoCredencial[] =>
+  clavesDe(prov).slice(1).map((env) => ({
+    env,
+    label: `API key ${slotDe(env)}`,
+    secreto: true,
+    opcional: true,
+    slot: slotDe(env),
+    placeholder,
+    nota: 'De OTRA cuenta del mismo proveedor. Cuando la anterior se queda sin cuota, MaKo sigue con esta sin que tengas que hacer nada.',
+  }));
 
 export const SERVICIOS_METODO: ServicioMetodo[] = [
   {
@@ -217,6 +243,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'IA rápida y gratis para tareas simples (clasificar, extraer, titular) y transcripción de notas de voz (Whisper). MaKo la prefiere sobre OpenAI cuando hay key: se limita por tokens/día, no por saldo.',
     campos: [
       { env: 'GROQ_API_KEY', label: 'API key', secreto: true, placeholder: 'gsk_…' },
+      ...keysExtra('groq', 'gsk_…'),
     ],
     tutorial: {
       url: 'https://console.groq.com/keys',
@@ -235,6 +262,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'IA de Google con 1M de contexto y function-calling. El plan gratis no cobra, pero Google usa tus datos para mejorar sus productos (con revisión humana). Para datos de clientes usá una key PAGA (activá facturación en el proyecto): esa NO entrena.',
     campos: [
       { env: 'GEMINI_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…' },
+      ...keysExtra('gemini', 'AIza…'),
     ],
     tutorial: {
       url: 'https://aistudio.google.com/apikey',
@@ -255,6 +283,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'IA gratis y MUY rápida (corre Llama en su propio chip). Con function-calling. Ideal para rotar cuando Gemini se queda sin cuota, sin gastar.',
     campos: [
       { env: 'CEREBRAS_API_KEY', label: 'API key', secreto: true, placeholder: 'csk-…' },
+      ...keysExtra('cerebras', 'csk-…'),
     ],
     tutorial: {
       url: 'https://cloud.cerebras.ai',
@@ -274,6 +303,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'IA europea con free tier (La Plateforme) y function-calling. Otra IA gratis para rotar sin caer en gasto.',
     campos: [
       { env: 'MISTRAL_API_KEY', label: 'API key', secreto: true, placeholder: '…' },
+      ...keysExtra('mistral', '…'),
     ],
     tutorial: {
       url: 'https://console.mistral.ai/api-keys',
@@ -293,6 +323,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'Agregador: UNA key para decenas de modelos, varios GRATIS (Llama y otros con sufijo ":free"). Sirve para rotar y probar modelos sin múltiples cuentas.',
     campos: [
       { env: 'OPENROUTER_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-or-…' },
+      ...keysExtra('openrouter', 'sk-or-…'),
     ],
     tutorial: {
       url: 'https://openrouter.ai/keys',
@@ -876,7 +907,11 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
  * salir del literal, una mudanza de dominio ya no deja el instructivo mintiendo.
  */
 export function ayudaDeCampo(env: string): { pasos: string[]; url?: string; urlLabel?: string } | null {
-  const a = AYUDA_CAMPO[env];
+  // Una cuenta EXTRA (`GEMINI_API_KEY_2`) se consigue igual que la primera: el
+  // tutorial es el de su clave base. Sin esto, el "?" de la segunda key no abre
+  // nada — y es justo donde el usuario más lo necesita (tiene que crear una
+  // cuenta nueva en el proveedor, no repetir la que ya tiene).
+  const a = AYUDA_CAMPO[env] ?? AYUDA_CAMPO[claveBaseDe(env)];
   if (!a) return null;
   return { ...a, pasos: a.pasos.map(conUrlReal) };
 }

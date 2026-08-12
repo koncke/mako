@@ -11,6 +11,14 @@
 // Para ESCUCHAR audio el orden es otro (CASCADA_STT): Gemini → Groq → OpenAI. Gemini
 // va primero porque es la key gratis que carga cada cliente y escucha el audio nativo;
 // OpenAI queda último por ser el único que cobra.
+//
+// LA ROTACIÓN TIENE DOS EJES, y hasta el 12/8/2026 solo existía uno:
+//   · entre PROVEEDORES (Gemini → Groq → Cerebras → …), que es lo que hace la cascada;
+//   · entre CUENTAS del mismo proveedor (GEMINI_API_KEY, _2, _3 — ver lib/ia-keys.ts).
+// El segundo importa porque el free tier se agota POR CUENTA: con la key 1 de Gemini
+// en 429, la respuesta correcta es la key 2 de Gemini (mismo modelo, 1M de contexto) y
+// no el Llama de 70b que quedaba río abajo. Todo el que resuelve un proveedor pasa por
+// `provsDe`, que devuelve UNA instancia por cuenta cargada.
 // Modelos e IDs por env (rotan seguido, no hardcodear). Claude sigue para el
 // razonamiento fino y el copywriting con voz de marca (lib/anthropic.ts).
 
@@ -19,57 +27,86 @@ import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { credWs } from '@/lib/credenciales';
 import { ordenarPorCuota } from '@/lib/ia-cuotas';
+import { clavesDe } from '@/lib/ia-keys';
 import { corregirMarca } from '@/lib/mako-gramatica';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
-type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: ProvName };
+/** `clave` = de QUÉ credencial salió esta key. Con varias cuentas del mismo
+ *  proveedor (GEMINI_API_KEY, _2, _3) es lo único que las distingue: sin ese dato,
+ *  un reintento «del mismo proveedor» volvía a pegarle a la cuenta ya agotada. */
+type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: ProvName; clave: string };
+
+// Cada proveedor, sin la key: endpoint y modelos. Los `process.env` se leen al
+// llamar (los ids rotan seguido y se pisan por entorno), así que va como función.
+function cfgDe(nombre: ProvName): Omit<Prov, 'key' | 'clave'> {
+  switch (nombre) {
+    case 'groq':
+      return { nombre, base: (process.env.CHEAP_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/$/, ''), chatModel: process.env.CHEAP_MODEL || 'openai/gpt-oss-20b', sttModel: process.env.STT_MODEL || 'whisper-large-v3-turbo' };
+    case 'gemini':
+      // Endpoint OpenAI-compatible de Gemini (chat + function-calling). Para AUDIO no
+      // sirve —no tiene /audio/transcriptions— pero Gemini igual escucha: lo hace por su
+      // API nativa (ver sttGemini), y por eso encabeza la cascada de STT. 1M de contexto.
+      // `gemini-flash-latest` = alias oficial al Flash GA vigente (no 404ea como los ids
+      // pineados que se van retirando). Pisable con GEMINI_MODEL.
+      return { nombre, base: 'https://generativelanguage.googleapis.com/v1beta/openai', chatModel: process.env.GEMINI_MODEL || 'gemini-flash-latest', sttModel: '' };
+    // ── IA GRATIS extra para rotar (todas OpenAI-compatibles) ─────────────────
+    case 'cerebras': // gratis y MUY rápida (Llama en su chip). Soporta tools.
+      return { nombre, base: 'https://api.cerebras.ai/v1', chatModel: process.env.CEREBRAS_MODEL || 'llama-3.3-70b', sttModel: '' };
+    case 'mistral': // free tier de La Plateforme. Soporta tools.
+      return { nombre, base: 'https://api.mistral.ai/v1', chatModel: process.env.MISTRAL_MODEL || 'mistral-small-latest', sttModel: '' };
+    case 'openrouter': // agregador con modelos ":free" (Llama, Gemini exp, etc.).
+      return { nombre, base: 'https://openrouter.ai/api/v1', chatModel: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free', sttModel: '' };
+    default:
+      return { nombre: 'openai', base: 'https://api.openai.com/v1', chatModel: process.env.CHEAP_MODEL || 'gpt-4o-mini', sttModel: process.env.STT_MODEL || 'whisper-1' };
+  }
+}
+
+/** Las claves de un proveedor EN ORDEN. Los gratis admiten varias cuentas
+ *  (lib/ia-keys.ts); OpenAI y Anthropic, una sola: cobran, y rotar entre cuentas
+ *  pagas no suma cuota, suma facturas. */
+const clavesProv = (nombre: ProvName): string[] => {
+  const c = clavesDe(nombre);
+  return c.length ? c : [nombre === 'openai' ? 'OPENAI_API_KEY' : `${nombre.toUpperCase()}_API_KEY`];
+};
 
 // La key sale POR WORKSPACE (credWs): la fila cifrada del cliente primero, y para
 // el DUEÑO el env queda de respaldo. Así cada cliente usa SU propia key (BYOK real)
 // y su gasto corre contra SU cuenta; un cliente sin fila propia → null, nunca la
 // del dueño (aislamiento). Antes se leía process.env directo → pagaba la agencia.
-async function provDe(nombre: ProvName): Promise<Prov | null> {
-  if (nombre === 'groq') {
-    const key = await credWs('GROQ_API_KEY');
-    if (!key) return null;
-    return { nombre: 'groq', base: (process.env.CHEAP_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/$/, ''), key, chatModel: process.env.CHEAP_MODEL || 'openai/gpt-oss-20b', sttModel: process.env.STT_MODEL || 'whisper-large-v3-turbo' };
-  }
-  if (nombre === 'gemini') {
-    const key = await credWs('GEMINI_API_KEY');
-    if (!key) return null;
-    // Endpoint OpenAI-compatible de Gemini (chat + function-calling). Para AUDIO no
-    // sirve —no tiene /audio/transcriptions— pero Gemini igual escucha: lo hace por su
-    // API nativa (ver sttGemini), y por eso encabeza la cascada de STT. 1M de contexto.
-    // `gemini-flash-latest` = alias oficial al Flash GA vigente (no 404ea como los ids
-    // pineados que se van retirando). Pisable con GEMINI_MODEL.
-    return { nombre: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', key, chatModel: process.env.GEMINI_MODEL || 'gemini-flash-latest', sttModel: '' };
-  }
-  // ── IA GRATIS extra para rotar (todas OpenAI-compatibles) ────────────────────
-  if (nombre === 'cerebras') { // gratis y MUY rápida (Llama en su chip). Soporta tools.
-    const key = await credWs('CEREBRAS_API_KEY');
-    if (!key) return null;
-    return { nombre: 'cerebras', base: 'https://api.cerebras.ai/v1', key, chatModel: process.env.CEREBRAS_MODEL || 'llama-3.3-70b', sttModel: '' };
-  }
-  if (nombre === 'mistral') { // free tier de La Plateforme. Soporta tools.
-    const key = await credWs('MISTRAL_API_KEY');
-    if (!key) return null;
-    return { nombre: 'mistral', base: 'https://api.mistral.ai/v1', key, chatModel: process.env.MISTRAL_MODEL || 'mistral-small-latest', sttModel: '' };
-  }
-  if (nombre === 'openrouter') { // agregador con modelos ":free" (Llama, Gemini exp, etc.).
-    const key = await credWs('OPENROUTER_API_KEY');
-    if (!key) return null;
-    return { nombre: 'openrouter', base: 'https://openrouter.ai/api/v1', key, chatModel: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free', sttModel: '' };
-  }
-  const key = await credWs('OPENAI_API_KEY');
+async function provDe(nombre: ProvName, clave?: string): Promise<Prov | null> {
+  const cl = clave ?? clavesProv(nombre)[0];
+  const key = await credWs(cl);
   if (!key) return null;
-  return { nombre: 'openai', base: 'https://api.openai.com/v1', key, chatModel: process.env.CHEAP_MODEL || 'gpt-4o-mini', sttModel: process.env.STT_MODEL || 'whisper-1' };
+  return { ...cfgDe(nombre), key, clave: cl };
 }
+
+/**
+ * TODAS las cuentas cargadas de un proveedor, en orden (la de siempre primero).
+ * Vacío si no hay ninguna. Es el eje de rotación que faltaba: el free tier se agota
+ * por CUENTA, así que quien cargó tres keys de Gemini tiene tres veces la cuota —
+ * y hasta acá la cascada saltaba de proveedor con la segunda cuenta sin tocar.
+ */
+async function provsDe(nombre: ProvName): Promise<Prov[]> {
+  const out: Prov[] = [];
+  for (const cl of clavesProv(nombre)) {
+    const p = await provDe(nombre, cl);
+    if (p) out.push(p);
+  }
+  return out;
+}
+
+/** Cómo se nombra un proveedor en logs y errores. Con varias cuentas, «gemini» a
+ *  secas no dice nada: hay que poder leer CUÁL de las tres se quedó sin cuota. */
+const rotulo = (p: Prov): string => {
+  const i = clavesProv(p.nombre).indexOf(p.clave);
+  return i > 0 ? `${p.nombre} · cuenta ${i + 1}` : p.nombre;
+};
 
 /** Proveedor barato para CHAT. `pref` (del registro de modelos) fuerza uno; si no
  *  está, cae a groq→openai. Gemini SOLO sale si lo pide `pref` explícito: necesita
  *  la key del cliente y no entra en el fallback por default. null si ninguno. */
-async function proveedor(pref?: ProvName): Promise<Prov | null> {
-  if (pref) { const p = await provDe(pref); if (p) return p; }
+async function proveedor(pref?: ProvName, clave?: string): Promise<Prov | null> {
+  if (pref) { const p = await provDe(pref, clave); if (p) return p; }
   return (await provDe('groq')) ?? (await provDe('openai'));
 }
 
@@ -82,7 +119,7 @@ export const CASCADA_STT: ProvName[] = ['gemini', 'groq', 'openai'];
 export async function cheapDisponible(): Promise<boolean> { return (await proveedor()) !== null; }
 /** ¿Hay alguna IA que pueda escuchar un audio en este workspace? */
 export async function sttDisponible(): Promise<boolean> {
-  for (const p of CASCADA_STT) { if (await provDe(p)) return true; }
+  for (const p of CASCADA_STT) { if ((await provsDe(p)).length) return true; }
   return false;
 }
 
@@ -105,7 +142,7 @@ export const MODELO_DOCS: Partial<Record<ProvName, string>> = {
 };
 /** ¿Hay alguna IA para leer documentos (Gemini/Groq/OpenAI/…) en este workspace? */
 export async function docsIADisponible(): Promise<boolean> {
-  for (const p of CASCADA_DOCS) { if (await provDe(p)) return true; }
+  for (const p of CASCADA_DOCS) { if ((await provsDe(p)).length) return true; }
   return false;
 }
 
@@ -141,8 +178,10 @@ async function modelosDisponibles(p: Prov): Promise<string> {
  */
 export type EsfuerzoBarato = 'minimal' | 'low' | 'medium' | 'high';
 
-export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; timeoutMs?: number; esfuerzo?: EsfuerzoBarato }): Promise<string> {
-  const p = await proveedor(opts.provider);
+export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; clave?: string; timeoutMs?: number; esfuerzo?: EsfuerzoBarato }): Promise<string> {
+  // `clave` elige CUÁL cuenta del proveedor (GEMINI_API_KEY vs _2 vs _3). La pone la
+  // cascada al rotar; un caller suelto no la pasa y usa la de siempre.
+  const p = await proveedor(opts.provider, opts.clave);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
   // Timeout configurable: 30s alcanza para tareas simples, pero una llamada grande
@@ -178,7 +217,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) {
     const extra = p.nombre === 'gemini' && res.status === 404 ? await modelosDisponibles(p) : '';
-    throw new Error(`chatCheap(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
+    throw new Error(`chatCheap(${rotulo(p)}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
   }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
   void recordUsage(opts.feature || 'ia-barata', model, data.usage, opts.motivo, p.nombre);
@@ -255,32 +294,46 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
   const orden = await ordenarPorCuota(candidatos.map(String)).catch(() => candidatos.map(String));
   for (const prov of orden as ProvName[]) {
-    // El ESFUERZO viaja por toda la cascada. Sin esto, una feature con effort alto
-    // ruteada a la IA barata corría en 'minimal' apenas cambiaba de proveedor.
-    const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs, esfuerzo: opts.esfuerzo };
-    // Un reintento del MISMO proveedor si el fallo parece transitorio (429/5xx/timeout):
-    // clave para un workspace con UN solo proveedor (ej. Gemini), donde no hay a quién caer.
-    for (let intento = 0; intento <= 1; intento++) {
-      try {
-        let t = await chatCheap({ ...base, json: opts.json });
-        // La capa OpenAI-compat de Gemini a veces devuelve contenido VACÍO con
-        // response_format json_object (el modelo native anda; el /chat/completions no).
-        // Reintentamos el MISMO proveedor SIN el flag: `validar`/parseJsonLoose de los
-        // callers tolera fences/markdown igual, así que no perdemos nada.
-        if (!t.trim() && opts.json) t = await chatCheap({ ...base, json: false });
-        // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
-        // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
-        if (t.trim() && (!opts.validar || opts.validar(t))) return t;
-        break; // respondió (o vacío en ambos modos) pero no sirve → próximo proveedor
-      } catch (e) {
-        const m = e instanceof Error ? e.message : String(e);
-        console.warn(`[ai-cheap] cascade ${prov} falló${intento ? ' (reintento)' : ''}: ${m}`);
-        opts.erroresOut?.push(`${prov}: ${m}`);
-        if (intento === 0 && /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET/i.test(m)) {
-          await new Promise((r) => setTimeout(r, 1500));
-          continue; // reintentar el mismo proveedor una vez
+    // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
+    // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,
+    // así que un 429 de la primera key de Gemini lo contesta la segunda key de
+    // Gemini —mismo modelo, mismo contexto de 1M— y no un Llama de 70b que era lo
+    // mejor que quedaba río abajo. Sin key cargada, `instancias` es vacío y no
+    // cuesta ni un request.
+    const instancias = await provsDe(prov);
+    for (const inst of instancias) {
+      // El ESFUERZO viaja por toda la cascada. Sin esto, una feature con effort alto
+      // ruteada a la IA barata corría en 'minimal' apenas cambiaba de proveedor.
+      const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${rotulo(inst)}`, provider: prov, clave: inst.clave, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs, esfuerzo: opts.esfuerzo };
+      // Un reintento de la MISMA cuenta si el fallo parece transitorio (5xx/timeout):
+      // clave para un workspace con UN solo proveedor y una sola key, donde no hay a
+      // quién caer. Un 429 NO se reintenta si hay otra cuenta esperando: esperar
+      // 1,5 s para volver a pegarle a la cuota que se acabó es tiempo tirado.
+      const otraCuenta = inst !== instancias[instancias.length - 1];
+      for (let intento = 0; intento <= 1; intento++) {
+        try {
+          let t = await chatCheap({ ...base, json: opts.json });
+          // La capa OpenAI-compat de Gemini a veces devuelve contenido VACÍO con
+          // response_format json_object (el modelo native anda; el /chat/completions no).
+          // Reintentamos la MISMA cuenta SIN el flag: `validar`/parseJsonLoose de los
+          // callers tolera fences/markdown igual, así que no perdemos nada.
+          if (!t.trim() && opts.json) t = await chatCheap({ ...base, json: false });
+          // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
+          // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
+          if (t.trim() && (!opts.validar || opts.validar(t))) return t;
+          break; // respondió (o vacío en ambos modos) pero no sirve → próxima cuenta
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          console.warn(`[ai-cheap] cascade ${rotulo(inst)} falló${intento ? ' (reintento)' : ''}: ${m}`);
+          opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
+          const esCuota = /\b429\b|quota|rate.?limit|resource_exhausted/i.test(m);
+          const transitorio = /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET/i.test(m);
+          if (intento === 0 && transitorio && !(esCuota && otraCuenta)) {
+            await new Promise((r) => setTimeout(r, 1500));
+            continue; // reintentar la misma cuenta una vez
+          }
+          break; // fallo no transitorio (o hay otra cuenta con cuota) → seguir rotando
         }
-        break; // fallo no transitorio → próximo proveedor
       }
     }
   }
@@ -326,14 +379,18 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   const errores: string[] = [];
   const sinKey: ProvName[] = [];
   for (const prov of VISION_CASCADE) {
-    const key = await credWs(prov === 'gemini' ? 'GEMINI_API_KEY' : 'OPENAI_API_KEY');
-    if (!key) { sinKey.push(prov); continue; }
-    try {
-      const text = prov === 'gemini' ? await leerConGemini(key, opts) : await leerConOpenAI(key, opts);
-      if (text.trim()) return { text, provider: prov };
-      errores.push(`${prov}: respuesta vacía`);
-    } catch (e) {
-      errores.push(`${prov}: ${e instanceof Error ? e.message : String(e)}`);
+    // Todas las CUENTAS del proveedor: leer un contrato con la key 1 agotada y
+    // rendirse teniendo la key 2 cargada era perder el documento por nada.
+    const instancias = await provsDe(prov);
+    if (!instancias.length) { sinKey.push(prov); continue; }
+    for (const inst of instancias) {
+      try {
+        const text = prov === 'gemini' ? await leerConGemini(inst.key, opts) : await leerConOpenAI(inst.key, opts);
+        if (text.trim()) return { text, provider: prov };
+        errores.push(`${rotulo(inst)}: respuesta vacía`);
+      } catch (e) {
+        errores.push(`${rotulo(inst)}: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
   }
   if (errores.length) throw new Error(`No se pudo leer el documento con ninguna IA. ${errores.join(' · ')}`);
@@ -430,6 +487,8 @@ export async function chatCheapTools(
   opts: {
     maxSteps?: number; maxTokens?: number; feature?: string; motivo?: string;
     provider?: ProvName; model?: string;
+    /** Cuál CUENTA del proveedor (GEMINI_API_KEY vs _2). La pone quien rota. */
+    clave?: string;
     /**
      * `'required'` obliga al modelo a llamar UNA herramienta en el primer paso.
      * Se libera solo (paso 1 en adelante vuelve a 'auto'), porque forzarlo en todos
@@ -444,7 +503,7 @@ export async function chatCheapTools(
     toolChoicePrimerPaso?: 'required';
   } = {},
 ): Promise<CheapToolsResult> {
-  const p = await proveedor(opts.provider);
+  const p = await proveedor(opts.provider, opts.clave);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
   const esGemini = p.nombre === 'gemini';
@@ -477,7 +536,7 @@ export async function chatCheapTools(
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.error) {
       const extra = p.nombre === 'gemini' && res.status === 404 ? await modelosDisponibles(p) : '';
-      throw new Error(`chatCheapTools(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
+      throw new Error(`chatCheapTools(${rotulo(p)}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
     }
     void recordUsage(opts.feature || 'ia-barata-tools', model, data.usage, opts.motivo, p.nombre);
     const msg = data.choices?.[0]?.message as { content?: string; tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }> } | undefined;
@@ -496,6 +555,63 @@ export async function chatCheapTools(
     }
   }
   return { text: '(se alcanzó el máximo de pasos)', steps: maxSteps, stopReason: 'max_steps', toolsUsados };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La cascada del TOOL-USE — el agujero por donde se pagaba Claude a la primera
+// ─────────────────────────────────────────────────────────────────────────────
+// `chatCheapCascade` recorría los seis proveedores gratis antes de pagar, pero el
+// camino con herramientas no tenía nada de eso: `chatClaudeTools` probaba UN
+// proveedor y, ante cualquier fallo, se iba a Claude Sonnet. O sea el mismo bug que
+// AGENTS.md documenta como cerrado —«Claude es el ÚLTIMO recurso, no el segundo»—
+// vivo en la otra mitad del sistema, y con el error más común de todos: el 429 de
+// Gemini. Todos estos proveedores hacen function-calling.
+export const CASCADA_TOOLS: ProvName[] = ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'openai'];
+
+/**
+ * Corre el loop de herramientas por la cascada gratis: cada CUENTA de cada
+ * proveedor, en orden de cuota. `null` = ninguno pudo (el caller decide si paga
+ * Claude o avisa que falló).
+ *
+ * ⚠️ REGLA DURA: si el proveedor que falló YA EJECUTÓ una herramienta, la cascada se
+ * corta y el error se relanza. Las tools del doer ESCRIBEN (crean un borrador, mandan
+ * un mensaje): reintentar con otro modelo después de una acción a medias es duplicarla,
+ * y un duplicado silencioso es peor que un error visible. Rotar es seguro solo mientras
+ * no se tocó nada — que es donde caen los 429, en el primer request.
+ */
+export async function chatCheapToolsCascade(
+  system: string,
+  messages: RichMsg[],
+  tools: ToolDef[],
+  runTool: ToolRunner,
+  opts: {
+    maxSteps?: number; maxTokens?: number; feature?: string; motivo?: string;
+    provs?: ProvName[]; modelos?: Partial<Record<ProvName, string>>;
+    toolChoicePrimerPaso?: 'required'; erroresOut?: string[];
+  } = {},
+): Promise<CheapToolsResult | null> {
+  const pedidos = opts.provs ?? CASCADA_TOOLS;
+  const orden = await ordenarPorCuota(pedidos.map(String)).catch(() => pedidos.map(String));
+  for (const prov of orden as ProvName[]) {
+    for (const inst of await provsDe(prov)) {
+      let ejecutó = false;
+      const runMarcado: ToolRunner = async (nombre, input) => { ejecutó = true; return runTool(nombre, input); };
+      try {
+        return await chatCheapTools(system, messages, tools, runMarcado, {
+          maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature,
+          motivo: `${opts.motivo ?? ''} · ${rotulo(inst)}`,
+          provider: prov, clave: inst.clave, model: opts.modelos?.[prov],
+          toolChoicePrimerPaso: opts.toolChoicePrimerPaso,
+        });
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
+        console.warn(`[ai-cheap] tools ${rotulo(inst)} falló: ${m}`);
+        if (ejecutó) throw e; // ya tocó datos: no se reintenta con otro (ver arriba)
+      }
+    }
+  }
+  return null;
 }
 
 /** Igual que chatCheap pero parsea el JSON (json:true forzado). Lanza si no parsea. */
@@ -600,28 +716,31 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const errores: string[] = [];
   let alguienEscuchó = false; // respondió OK pero sin texto → el audio está vacío, no falló nada
   for (const nombre of orden as ProvName[]) {
-    const p = await provDe(nombre);
-    if (!p) continue;
-    if (nombre !== 'gemini' && !p.sttModel) continue; // proveedor de chat sin Whisper
-    for (let intento = 0; intento <= 1; intento++) {
-      try {
-        const texto = nombre === 'gemini'
-          ? await sttGemini(p, base64, buf, mime, o)
-          : await sttWhisper(p, buf, mime, o);
-        alguienEscuchó = true;
-        // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper
-        // escucha "MaKo" y escribe «Maco», esa cadena termina siendo el TÍTULO de una
-        // tarea y desde ahí el Perro la repite en su razón y en el deadline. Corregirlo
-        // después es perseguir el texto por diez lugares; en la puerta de entrada es
-        // una línea. Ver `corregirMarca` en lib/mako-gramatica.ts.
-        if (texto) return corregirMarca(texto);
-        break; // respondió vacío: no insistas con el mismo, probá el próximo
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        errores.push(`${nombre}: ${msg}`);
-        console.error(`[stt] ${nombre} falló: ${msg}`);
-        if (intento === 0 && esTransitorio(msg)) continue; // un reintento y listo
-        break;
+    // Igual que el chat: todas las CUENTAS de este proveedor antes de saltar al
+    // siguiente. Una nota de voz que rebota por cuota en la key 1 de Gemini la
+    // escucha la key 2, en vez de irse a Whisper (o de perderse).
+    for (const p of await provsDe(nombre)) {
+      if (nombre !== 'gemini' && !p.sttModel) continue; // proveedor de chat sin Whisper
+      for (let intento = 0; intento <= 1; intento++) {
+        try {
+          const texto = nombre === 'gemini'
+            ? await sttGemini(p, base64, buf, mime, o)
+            : await sttWhisper(p, buf, mime, o);
+          alguienEscuchó = true;
+          // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper
+          // escucha "MaKo" y escribe «Maco», esa cadena termina siendo el TÍTULO de una
+          // tarea y desde ahí el Perro la repite en su razón y en el deadline. Corregirlo
+          // después es perseguir el texto por diez lugares; en la puerta de entrada es
+          // una línea. Ver `corregirMarca` en lib/mako-gramatica.ts.
+          if (texto) return corregirMarca(texto);
+          break; // respondió vacío: no insistas con el mismo, probá el próximo
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          errores.push(`${rotulo(p)}: ${msg}`);
+          console.error(`[stt] ${rotulo(p)} falló: ${msg}`);
+          if (intento === 0 && esTransitorio(msg)) continue; // un reintento y listo
+          break;
+        }
       }
     }
   }

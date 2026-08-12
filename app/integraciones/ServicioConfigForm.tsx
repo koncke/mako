@@ -52,6 +52,9 @@ type Campo = {
   host: boolean;
   /** La app lo completa sola: no se pide, se muestra como resultado. */
   auto?: boolean;
+  /** Nº de CUENTA de esta API key (1 = la de siempre). Las de la 2 en adelante
+   *  llegan plegadas: se muestran si ya están cargadas o si pedís agregar otra. */
+  slot?: number;
   configurado: boolean;
   origen: OrigenCampo;
   mask: string;
@@ -257,9 +260,18 @@ function AvisoSeguridad({ abierto, onToggle }: { abierto: boolean; onToggle: () 
   );
 }
 
-export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
+export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onGuardado }: {
   servicioKey: string;
   onEstado?: (conectada: boolean) => void;
+  /**
+   * Se guardó una credencial de este servicio, sea la que sea.
+   *
+   * No alcanza con `onEstado`: ese avisa solo cuando CAMBIA el conectado/no
+   * conectado, así que sumar una segunda cuenta a un proveedor ya conectado —
+   * justo lo que se hace cuando el primero se quedó sin cuota— no avisaba nada
+   * y el cuadro de error quedaba pintado como si no hubiera pasado nada.
+   */
+  onGuardado?: () => void;
   /**
    * Los datos reales que devolvió el ping al probar. Los usa el aside negro
    * (PanelMarketing) para cambiar el carrusel de marketing por la prueba de que
@@ -306,6 +318,11 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
   // la app. Cerrado por default — si estuviera abierto, volveríamos a la pantalla
   // de seis inputs que este rediseño vino a sacar.
   const [manual, setManual] = useState(false);
+  // Cuentas EXTRA del mismo proveedor que el usuario pidió agregar en esta sesión.
+  // Las ya cargadas se muestran siempre; las vacías, solo cuando las pide — si no,
+  // conectar Gemini pasaba de un campo a tres y el segundo y el tercero no le
+  // sirven a la enorme mayoría, que tiene una sola cuenta.
+  const [extrasAbiertas, setExtrasAbiertas] = useState<string[]>([]);
 
   const hayQueElegir = opciones.cuentas.length > 0 || opciones.paginas.length > 0 || opciones.pixeles.length > 0;
 
@@ -516,6 +533,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
       }).then((r) => r.json());
       if (j.ok && j.servicio) {
         aplicar(j.servicio as Servicio, n);
+        onGuardado?.();
         setValores((val) => { const nv = { ...val }; delete nv[env]; return nv; });
         // El token de Meta es el único campo que el cliente pega: apenas queda
         // guardado, la app sale a buscar cuenta, página, token de página y píxel.
@@ -633,7 +651,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
           editar a mano si el cliente abre "cargarlos a mano". Pedir seis tokens
           cuando cinco se descubren solos era la fricción entera del paso. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {servicio.campos.filter((c) => !c.auto || manual).map((c) => {
+        {servicio.campos.filter((c) => (!c.auto || manual) && ((c.slot ?? 1) === 1 || c.configurado || extrasAbiertas.includes(c.env))).map((c) => {
           const tipeado = !!(valores[c.env] ?? '').trim();
           const sem = semaforo(c, tipeado);
           const cerrada = estaCerrada(c);
@@ -737,6 +755,37 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
             </div>
           );
         })}
+
+        {/* ── Otra cuenta del mismo proveedor ────────────────────────────────
+            El free tier se agota por CUENTA, no por proveedor: con dos keys de
+            Gemini tenés el doble de cuota gratis, y MaKo pasa de una a la otra
+            sola cuando la primera se queda sin nafta. Aparece SOLO con la
+            primera ya guardada — ofrecer la segunda antes que la primera es
+            pedir dos cosas para que funcione una. */}
+        {(() => {
+          const primera = servicio.campos.find((c) => (c.slot ?? 1) === 1);
+          if (!primera?.configurado) return null;
+          const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !extrasAbiertas.includes(c.env));
+          const cargadas = servicio.campos.filter((c) => (c.slot ?? 1) > 1 && c.configurado).length + 1;
+          if (!proxima) {
+            return (
+              <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45 }}>
+                {cargadas} cuentas conectadas — MaKo rota entre ellas cuando una se queda sin cuota.
+              </div>
+            );
+          }
+          return (
+            <button type="button" onClick={() => setExtrasAbiertas((a) => [...a, proxima.env])}
+              style={{
+                alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)',
+                background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+              }}>
+              <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+              Agregar otra cuenta de {servicio.nombre}
+            </button>
+          );
+        })()}
       </div>
 
       {/* ── El paso que va al revés ──────────────────────────────────────────

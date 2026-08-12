@@ -10,6 +10,7 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
+import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 
 type Valores = Record<string, string>;
@@ -413,6 +414,15 @@ export async function verificarServicio(
     if (usoEnviado && campo.host) hostDelRequest = true;
     if (!usoEnviado && campo.secreto && v) secretoDeStorage = true;
   }
+  // ── Probar una cuenta EXTRA prueba ESA cuenta, no la primera ───────────────
+  // Los pings leen la clave BASE (`v.GEMINI_API_KEY`). Sin esto, pegar la segunda
+  // key y apretar el tilde pingueaba la PRIMERA —la que ya estaba guardada— y
+  // devolvía "Key válida": una key rota entraba pintada de verde, que es el mismo
+  // antipatrón de la credencial que se ve conectada y no se usa. La extra tipeada
+  // pisa a la base SOLO para este ping; lo que se guarda sigue siendo su propia fila.
+  const extra = servicio.campos.find((c) => (c.slot ?? 1) > 1 && typeof enviados[c.env] === 'string' && (enviados[c.env] as string).trim());
+  if (extra) valores[claveBaseDe(extra.env)] = (enviados[extra.env] as string).trim();
+
   if (hostDelRequest && secretoDeStorage) {
     return { ok: false, error: 'Para probar con una URL nueva, completá también las credenciales secretas de este servicio.' };
   }

@@ -411,6 +411,98 @@ que dejar un «Maco» suelto.
 
 ---
 
+### La rotación tenía UN eje y hacen falta DOS: proveedor y CUENTA
+
+**Síntoma:** «se quedó sin cuota» con la key de Gemini puesta, y la única salida que ofrecía
+la pantalla era pegar de nuevo la key de Gemini — la misma que estaba agotada.
+
+**Causa:** el free tier se agota **por cuenta**, no por proveedor, y la app solo sabía guardar
+UNA key por proveedor: `credenciales` es una fila por `(workspace, clave)` y la clave era
+`GEMINI_API_KEY` a secas. O sea que la respuesta natural del usuario —«tengo otra cuenta de
+Google»— no tenía dónde entrar. La cascada rotaba entre proveedores y eso tapaba a medias el
+problema: ante un 429 de Gemini contestaba un Llama de 70b, cuando lo correcto era la segunda
+cuenta de Gemini (mismo modelo, mismo millón de contexto).
+
+**Cómo quedó:** claves derivadas `GEMINI_API_KEY_2` / `_3` (`lib/ia-keys.ts`, sin `server-only`
+para que se pueda testear), hasta 3 por proveedor gratis. Sin migración y sin tabla nueva: para
+`credenciales` son filas más, con el mismo cifrado y la misma auditoría. `provsDe(prov)` devuelve
+una instancia por cuenta cargada y **todos** los caminos iteran sobre eso: chat, tools, STT y
+visión.
+
+**Dos cosas que NO son obvias:**
+
+- **El gauge mide el conjunto, no el reparto.** `anthropic_usage.provider` guarda `gemini`, no
+  cuál de las tres keys, así que el % de cuota es del proveedor entero y el tope se multiplica
+  por la cantidad de cuentas. Sirve para lo que decide (a quién probar PRIMERO); el salto real
+  entre cuentas lo hace la cascada **por error** (429 → próxima cuenta), que no depende de ese
+  número.
+- **Un 429 no se reintenta si hay otra cuenta esperando.** Esperar 1,5 s para volver a pegarle a
+  la cuota que se acabó es tiempo tirado; el reintento del mismo proveedor queda solo para la
+  última cuenta, que es donde no hay a quién caer.
+
+**Y de paso se cerró el colapso a Groq** que documenta el hallazgo de arriba: la cascada ahora
+pide `provsDe(prov)` y **saltea** al proveedor sin key, en vez de dejar que `proveedor(pref)`
+lo colapse en el default y le pegue cuatro veces al mismo Groq.
+
+**Vive en:** lib/ia-keys.ts · lib/ai-cheap.ts (`provsDe`, `chatCheapCascade`, `transcribirAudio`,
+`leerDocumentoIA`) · lib/ia-cuotas.ts (`cuentasDe`, `limitesEfectivos`) · *2026-08-12
+rotación multi-cuenta*
+
+### El tilde probaba la key VIEJA y pintaba verde la nueva
+
+**Síntoma:** ninguno — ese es el punto. Se pega la segunda API key, el tilde dice «Guardada y
+probada — funciona», y la key podría estar rota.
+
+**Causa:** los pings de `lib/metodo-verificar.ts` leen la clave BASE (`v.GEMINI_API_KEY`). Al
+mandar `GEMINI_API_KEY_2`, el valor efectivo de la base seguía saliendo de `credWs` —la key 1,
+que ya estaba guardada y andaba— así que el ping daba OK **sin haber tocado la key nueva**. Es
+el mismo antipatrón de la credencial que se pinta conectada y no se usa, pero al revés: se
+pinta probada y no se probó.
+
+**Regla:** cuando un formulario admite N valores para lo que el verificador conoce como uno
+solo, el valor tipeado tiene que **pisar** al guardado antes del ping. Si el chequeo no puede
+distinguir cuál de los N está probando, el verde no significa nada.
+
+**Vive en:** lib/metodo-verificar.ts (`verificarServicio`, el bloque `extra`) · *2026-08-12
+rotación multi-cuenta*
+
+### Claude era el último recurso en el chat y el SEGUNDO en tool-use
+
+**Síntoma:** ninguno visible; se paga y listo.
+
+**Causa:** `chatClaude` ya recorría la cascada gratis entera antes de pagar (la regla de
+AGENTS.md, «Claude es el ÚLTIMO recurso»), pero **`chatClaudeTools` no**: probaba UN proveedor
+y ante cualquier fallo se iba a Sonnet. O sea la misma regla, cerrada en una mitad del sistema
+y abierta en la otra, justo en el camino donde corre el doer y con el error más previsible de
+todos (429 de Gemini en tandas).
+
+**Cómo quedó:** `chatCheapToolsCascade` recorre todas las cuentas de los seis proveedores con
+function-calling, ordenadas por cuota, y recién después se paga.
+
+**La restricción que tiene y no se puede sacar:** si el proveedor que falló **ya ejecutó una
+herramienta**, la cascada se corta y el error se relanza. Las tools del doer ESCRIBEN (crean un
+borrador, mandan un mensaje): reintentar con otro modelo después de una acción a medias la
+duplica, y un duplicado silencioso es peor que un error visible. Rotar es seguro solo mientras
+no se tocó nada — que es exactamente donde caen los 429, en el primer request.
+
+**Vive en:** lib/ai-cheap.ts (`chatCheapToolsCascade`) · lib/anthropic.ts (`chatClaudeTools`)
+· *2026-08-12 rotación multi-cuenta*
+
+### Los cinco `chatCheap` sueltos no rotaban nada
+
+`chatCheap` habla con UN proveedor: si tira 429, el caller se queda sin nada aunque haya otras
+cuatro IA gratis cargadas. Quedaban cinco call-sites así — dos títulos de chat (que además
+caían a **Claude** por no poder titular), las sugerencias del Chat Agent (que devolvían 500) y
+la calificación del simulador. Migrados a `chatCheapCascade`.
+
+**Regla:** `chatCheap` directo es para cuando de verdad querés UN proveedor concreto. Si lo que
+querés es «que salga», es `chatCheapCascade`. El que queda sin cascada hoy es el turno de charla
+de `mako-doer-in`, que tiene su propio bucle sobre varios proveedores (lib/mako-doer-in.ts:840).
+
+**Vive en:** app/api/chart-insights/route.ts · app/api/mako-doer/route.ts ·
+app/api/chat-agent/secuencias/route.ts · lib/setting-simulador.ts · *2026-08-12 rotación
+multi-cuenta*
+
 ## Comprar modelos: revendedores, mercados y precios de terceros
 
 Nada de esto está implementado todavía. Es lo que hay que saber **antes** de meter un

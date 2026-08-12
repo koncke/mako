@@ -11,6 +11,8 @@ import 'server-only';
 
 import { getSupabaseServer } from '@/lib/supabase';
 import { getSaldo } from '@/lib/anthropic-usage';
+import { credWs } from '@/lib/credenciales';
+import { clavesDe } from '@/lib/ia-keys';
 import { OWNER_WS, getWorkspaceActual } from '@/lib/workspace';
 
 export type LimiteProv = { label: string; rpd?: number; tokensDia?: number; nota?: string };
@@ -27,11 +29,51 @@ export const LIMITES_PROVEEDOR: Record<string, LimiteProv> = {
 const GEMINI_PAGO: LimiteProv = { label: 'Gemini', rpd: 30_000, tokensDia: 4_000_000, nota: 'créditos cargados (tier pago)' };
 const UMBRAL = 0.9; // a partir de este % de cuota lo tratamos como "sin cuota" (saltar antes del 429)
 
-/** Límites EFECTIVOS de hoy: Gemini sube a tier pago si detectamos créditos cargados
- *  (= tiene saldo registrado). El resto es fijo. Es lo que hace "cambiar sus límites". */
+/**
+ * Cuántas CUENTAS (API keys) tiene cargadas este workspace de un proveedor.
+ *
+ * Vive acá y no en `ai-cheap` a propósito: `ai-cheap` ya importa este módulo
+ * (`ordenarPorCuota`), y ponerlo del otro lado cerraba un ciclo de imports.
+ */
+export async function cuentasDe(prov: string, ws?: number): Promise<number> {
+  const claves = clavesDe(prov);
+  if (!claves.length) return 1; // proveedor sin multi-key (openai/anthropic)
+  let n = 0;
+  for (const c of claves) if (await credWs(c, ws)) n++;
+  return n;
+}
+
+/**
+ * Límites EFECTIVOS de hoy. Dos cosas los mueven:
+ *   · Gemini sube a tier pago si detectamos créditos cargados (= tiene saldo).
+ *   · El tope se MULTIPLICA por la cantidad de cuentas cargadas: el free tier se
+ *     agota por cuenta, así que tres keys de Gemini son tres veces la cuota. Sin
+ *     esto, el gauge marcaba "sin cuota" con dos cuentas enteras sin tocar y la
+ *     rotación proactiva mandaba al final a un proveedor que tenía lugar de sobra.
+ *
+ * ⚠️ Honestidad sobre lo que esto mide: el uso se cuenta por PROVEEDOR, no por
+ * cuenta (`anthropic_usage.provider` no guarda cuál key se usó). O sea que el gauge
+ * mide el conjunto, no el reparto: si la cuenta 1 se agotó y las otras dos están
+ * intactas, el % total recién llega al tope cuando se agotaron las tres. Eso está
+ * bien para lo que este número decide —a quién probar PRIMERO—, y el salto real
+ * entre cuentas lo hace la cascada por ERROR (429 → próxima cuenta), que no depende
+ * de esta cuenta.
+ */
 async function limitesEfectivos(): Promise<Record<string, LimiteProv>> {
   const geminiConCredito = !!(await getSaldo('gemini').catch(() => null));
-  return geminiConCredito ? { ...LIMITES_PROVEEDOR, gemini: GEMINI_PAGO } : LIMITES_PROVEEDOR;
+  const base = geminiConCredito ? { ...LIMITES_PROVEEDOR, gemini: GEMINI_PAGO } : LIMITES_PROVEEDOR;
+  const out: Record<string, LimiteProv> = {};
+  for (const [prov, lim] of Object.entries(base)) {
+    const n = await cuentasDe(prov).catch(() => 1);
+    const mult = Math.max(1, n);
+    out[prov] = mult === 1 ? lim : {
+      ...lim,
+      rpd: lim.rpd ? lim.rpd * mult : undefined,
+      tokensDia: lim.tokensDia ? lim.tokensDia * mult : undefined,
+      nota: `${lim.nota ?? ''}${lim.nota ? ' · ' : ''}${mult} cuentas conectadas`,
+    };
+  }
+  return out;
 }
 
 export type UsoProv = { requests: number; tokens: number };

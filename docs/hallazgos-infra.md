@@ -1366,6 +1366,67 @@ con el mismo nombre compilan para siempre.
 | **tsx NO resuelve el alias `@/`** | ídem | Los tests usan imports relativos |
 | **El typecheck no corre en el build** | `.git/hooks/pre-push` | Ver [Build, deploy y entrega](#build-deploy-y-entrega) |
 
+### ⚠️ El dev server puede quedarse mostrando un error de sintaxis que YA NO EXISTE
+
+**Síntoma:** toda la app tira 500 y el mensaje es un `Expected '}', got '<eof>'` en
+`lib/ai-cheap.ts:686` — pero el archivo tiene 750 líneas y la 686 está en el medio de una
+función sana. Todas las rutas de `/api` contestan 404. El typecheck local pasa **en verde**.
+
+**Causa:** Turbopack cachea el error de parseo **en disco** (`.next/`) desde el momento en que
+alcanzó a leer el archivo a mitad de una edición. Después no vuelve a intentar, así que el
+error sobrevive a todo lo que uno prueba:
+
+- guardar el archivo arreglado **no** lo despierta;
+- tocar el `mtime` (`(Get-Item x).LastWriteTime = Get-Date`) tampoco — el hash es del
+  **contenido**, no de la fecha;
+- **reiniciar el server tampoco**, porque el server nuevo hereda el mismo `.next`.
+
+**Lo único que lo arregla:** borrar `.next` y levantar de nuevo. Cuesta una primera compilación
+lenta y nada más.
+
+**Y el diagnóstico obvio es el equivocado dos veces.** Primero: el número de línea invita a
+buscar el bug en el archivo, y el archivo está bien — la pista real es que la línea citada **no
+se corresponde** con lo que hay ahí (chequealo con `node -e` antes de leer nada). Segundo:
+parece un problema de la otra sesión (era su server), y no lo es — es caché en disco, compartido
+por las dos.
+
+**El corolario, para las dos cuentas:** no se puede levantar un segundo `next dev` sobre este
+clon. Next detecta el otro y se apaga solo; `preview_start` contesta «Server started
+successfully» y el `serverId` deja de existir un segundo después (ver también
+[Sesiones paralelas](#sesiones-paralelas-y-las-dos-cuentas)). O sea que con el server ajeno
+envenenado **no hay forma de verificar nada** hasta limpiar el caché: no es un rodeo, es el
+único camino.
+
+**Vive en:** `.next/` · .claude/launch.json · *2026-08-12 rotación multi-cuenta*
+
+### El panel del navegador que no se muestra NO hidrata
+
+**Síntoma:** la página carga (el título es correcto, `document.body.textContent` trae 114k
+caracteres, los chunks de `_next/static` dan 200, la consola no tiene un solo error) pero
+**ningún click hace nada**: abrir un modal por `ref` o por `.click()` no abre nada, y no hay un
+solo `<input>` en el DOM.
+
+**La pista que lo distingue de un bundle roto:** `Object.keys(el).filter(k =>
+k.startsWith('__react'))` da **vacío** en cualquier elemento, y `document.body.innerText` da
+`''` mientras `textContent` trae todo — o sea que no hay layout. Es el mismo síntoma que
+AGENTS.md atribuye a un `export` a medias en un client component, y **no es eso**: es que el
+panel no está a la vista, así que la pestaña está en background y la hidratación (que cuelga de
+un idle callback) nunca corre. El `screenshot` lo dice con todas las letras — *«the Browser pane
+is not displayed, so the page is not compositing frames»*— pero recién cuando se le pide una
+captura, no cuando se le pide un click.
+
+**Qué sí se puede verificar sin hidratación:** el HTML del server y **las APIs**, con `curl -c`
+contra `/api/auth/dev-login` (ver [verificar-en-navegador]). Un endpoint nuevo se prueba entero
+así. Lo que queda afuera es todo lo que sea click, modal o estado de React.
+
+**Y ojo con el otro camino:** `localhost:3000` en el Chrome real de esta máquina **no es MaKo**
+— hay un service worker de otro proyecto («Optimum») registrado en ese origen que sirve su
+propia app, con un formulario de login y credenciales autocompletadas. Los service workers son
+por origen y sobreviven a que el proyecto ya no exista. Si vas por ese camino, verificá que lo
+que ves sea la app que creés.
+
+**Vive en:** herramientas `mcp__Claude_Browser__*` · *2026-08-12 rotación multi-cuenta*
+
 ### Un test que nunca viste fallar no sabés si sirve: verificalo por MUTACIÓN
 
 **Síntoma:** una guarda escrita, corrida, **en verde** — y completamente inútil. La que iba

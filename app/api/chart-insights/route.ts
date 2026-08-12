@@ -8,7 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { chatClaude, type ClaudeMsg } from '@/lib/anthropic';
-import { chatCheap } from '@/lib/ai-cheap';
+import { chatCheapCascade } from '@/lib/ai-cheap';
 import {
   createSession, getSession, listSessions, listAllSessions, getSessionMessages, appendMessage,
   renameSession, setPinned, setArchived, deleteSession, type ChartMsg,
@@ -39,8 +39,10 @@ async function generarTitulo(seed: string): Promise<string | null> {
     const sys = await getPromptText('chart_insights.titulo_generation', CHART_TITULO_DEFAULT);
     const user = seed.slice(0, 1500);
     let t: string;
-    try { t = await chatCheap({ system: sys, user, maxTokens: 30, feature: 'Título de chat', motivo: 'Generar título de sesión' }); }
-    catch { t = await chatClaude(sys, [{ role: 'user', content: user }], { thinking: false, maxTokens: 30, feature: 'mako-chat' }); }
+    // Cascada: titular es lo más barato que hace la app, y caer a Claude porque un
+    // proveedor tiró 429 es pagar Opus por escribir siete palabras.
+    t = await chatCheapCascade({ system: sys, user, maxTokens: 30, feature: 'Título de chat', motivo: 'Generar título de sesión' });
+    if (!t.trim()) t = await chatClaude(sys, [{ role: 'user', content: user }], { thinking: false, maxTokens: 30, feature: 'mako-chat' });
     const clean = t.replace(/^["'`]+|["'`.]+$/g, '').trim();
     return clean ? clean.slice(0, 70) : null;
   } catch { return null; }

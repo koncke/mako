@@ -60,8 +60,10 @@ export async function evaluarCalificacion(secuenciaId: number, historial: TurnoS
     return { califica: null, razon: 'la secuencia de mensajes todavía no tiene criterio de calificación' };
   }
   const charla = historial.slice(-14).map((t) => `${t.de === 'lead' ? 'LEAD' : 'NEGOCIO'}: ${t.texto}`).join('\n');
-  const { chatCheap } = await import('./ai-cheap');
-  const raw = await chatCheap({
+  // Cascada, no `chatCheap`: con un solo proveedor, un 429 tiraba el error para
+  // arriba y la calificación no se hacía teniendo otras cuatro IA gratis cargadas.
+  const { chatCheapCascade } = await import('./ai-cheap');
+  const raw = await chatCheapCascade({
     system: 'Clasificás si un lead califica según un criterio. Devolvés EXCLUSIVAMENTE un objeto JSON {"califica":"si"|"no"|"no_se","razon":"..."} sin markdown. Ante la duda, "no_se".',
     user: `CRITERIO DEL NEGOCIO
 Califica si: ${est.criterio.califica.join(' · ') || '(sin reglas)'}

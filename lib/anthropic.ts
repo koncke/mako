@@ -204,21 +204,33 @@ export async function chatClaudeTools(
       const { modeloDeFeature } = await import('@/lib/model-registry');
       const ref = await modeloDeFeature(opts.feature);
       if (ref && ref.provider !== 'anthropic') {
+        // ⚠️ ACÁ TAMBIÉN CLAUDE ES EL ÚLTIMO RECURSO. Este camino probaba UN proveedor
+        // y ante cualquier fallo se iba a Claude Sonnet — el mismo agujero que
+        // `chatClaude` ya tenía cerrado, vivo en la mitad con herramientas, y con el
+        // error más previsible de todos (el 429 de Gemini). Ahora se recorre la cascada
+        // de tools entera (todas las cuentas de cada proveedor gratis) y recién si
+        // NINGUNA contesta se paga. La cascada se corta sola si un proveedor ya ejecutó
+        // una herramienta: reintentar después de una escritura la duplicaría.
+        const errores: string[] = [];
         try {
-          const { chatCheapTools } = await import('@/lib/ai-cheap');
-          const r = await chatCheapTools(system, messages, tools, runTool, {
-            maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model,
+          const { chatCheapToolsCascade, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
+          const provs = [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
+          const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
+            maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
+            provs, modelos: { [ref.provider as ProvName]: ref.model }, erroresOut: errores,
           });
-          return { text: r.text, steps: r.steps, stopReason: r.stopReason };
+          if (r) return { text: r.text, steps: r.steps, stopReason: r.stopReason };
+          if (opts.sinFallbackClaude) throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'sin proveedor gratis disponible'})`);
         } catch (e) {
           // El caller pidió NO caer a Claude (ej. el doer): re-lanzamos para que avise
           // "falló Gemini" en vez de gastar Claude en silencio.
           if (opts.sinFallbackClaude) throw e;
-          // Si no, caemos a Claude pero a SONNET por default (el fallbackModel del router
-          // si vino), NUNCA a Opus: un fallo de Gemini no debe disparar el modelo más caro.
-          model = opts.fallbackModel ?? 'claude-sonnet-5';
-          console.warn(`[anthropic] tools ${opts.feature}→${ref.provider} falló, uso Claude ${model}: ${e instanceof Error ? e.message : String(e)}`);
+          errores.push(e instanceof Error ? e.message : String(e));
         }
+        // Toda la cascada gratis falló: recién ACÁ se paga, con SONNET por default (el
+        // fallbackModel del router si vino), NUNCA Opus.
+        model = opts.fallbackModel ?? 'claude-sonnet-5';
+        console.warn(`[anthropic] tools ${opts.feature}: la cascada gratis no contestó, pago Claude ${model} — ${errores.join(' · ')}`);
       } else if (ref) {
         model = ref.model;
       }

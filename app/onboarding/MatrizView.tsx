@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { formatoPorId, type Medio } from '@/lib/angulos-data';
 import { SeccionCard, parsearSecciones, type Seccion } from '../components/SeccionCard';
-import ServicioConfigForm from '../integraciones/ServicioConfigForm';
+import ConectarIA from '../_components/ConectarIA';
 import { fechaGuion, type GuionItem, type EstadoGuion } from './guion-ui';
 import { EstadoChip } from './EstadoChip';
 
@@ -386,8 +386,13 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
                         paso — y pasó en vivo con una clienta. */}
                     {esErrorDeIA(err) && (
                       <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '13px 15px' }}>
-                        <div style={{ ...eyebrow, marginBottom: 9 }}>Conectá otra API key y volvé a intentar</div>
-                        <ServicioConfigForm servicioKey="gemini" onEstado={(ok) => { if (ok) setErr(null); }} />
+                        <div style={{ ...eyebrow, marginBottom: 9 }}>Conectá otra IA gratis y volvé a intentar</div>
+                        {/* Antes acá vivía un `ServicioConfigForm servicioKey="gemini"`
+                            fijo: le ofrecía pegar la key de Gemini a alguien cuya key
+                            de Gemini ya estaba pegada y sin cuota. ConectarIA muestra
+                            las cinco IA gratis con su estado real y deja sumar otra
+                            cuenta del mismo proveedor, que es la otra salida. */}
+                        <ConectarIA onConectada={() => setErr(null)} />
                       </div>
                     )}
                   </div>

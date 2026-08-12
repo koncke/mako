@@ -290,11 +290,15 @@ export function errorDeIA(errores: string[]): string {
   const motivo = motivoDeErroresCascada(errores);
   // La salida tiene que coincidir con el motivo: a una key vencida no la arregla
   // esperar, y a una cuota agotada no la arregla reintentar al toque.
-  if (motivo?.startsWith('Se quedó sin cuota')) return `${motivo} Esperá a que se reinicie (Gemini gratis reinicia cada día) o conectá otra API key acá abajo.`;
+  // Las salidas que ofrece el cuadro de abajo son TRES y el texto las nombra a las
+  // tres: esperar, sumar otra cuenta del mismo proveedor (el free tier se agota por
+  // cuenta) o conectar otra IA gratis. Decir solo "pegá tu key de Gemini" mandaba a
+  // pegar de nuevo la key que ya estaba puesta y agotada.
+  if (motivo?.startsWith('Se quedó sin cuota')) return `${motivo} Esperá a que se reinicie (el free de Gemini reinicia cada día), sumá otra cuenta del mismo proveedor o conectá otra IA gratis acá abajo.`;
   if (motivo?.startsWith('La API key')) return `${motivo} Pegá una nueva acá abajo.`;
   if (motivo) return `${motivo} Probá de nuevo en un momento.`;
-  if (errores.length) return 'La IA no respondió esta vez. Probá de nuevo, o conectá otra API key acá abajo.';
-  return 'No hay ninguna IA conectada. Pegá tu API key de Gemini (es gratis) acá abajo.';
+  if (errores.length) return 'La IA no respondió esta vez. Probá de nuevo, o conectá otra IA gratis acá abajo.';
+  return 'No hay ninguna IA conectada. Conectá una IA gratis acá abajo — con Gemini alcanza para empezar.';
 }
 
 // ── Sugerencia de guion: MaKo elige TODO (la IA facilita, no interroga) ──────

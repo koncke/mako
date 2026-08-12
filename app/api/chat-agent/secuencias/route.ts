@@ -18,7 +18,7 @@ import {
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
-import { chatCheap } from '@/lib/ai-cheap';
+import { chatCheapCascade } from '@/lib/ai-cheap';
 import { chatClaude } from '@/lib/anthropic';
 import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
@@ -72,7 +72,9 @@ async function sugerir(template: string, key: string, objetivo: string, etapa: s
   const user = await renderPrompt(key, template, {
     objetivo: objetivo || '(sin objetivo)', etapa: etapa || '(sin etapa)', perfil: perfil || '(sin perfil cargado)',
   });
-  const raw = await chatCheap({
+  // Cascada y no `chatCheap`: un 429 del único proveedor dejaba la pantalla sin
+  // sugerencias (y tiraba 500) con otras cuatro IA gratis conectadas sin usar.
+  const raw = await chatCheapCascade({
     system: 'Sos MaKo. Devolvé EXCLUSIVAMENTE un objeto JSON {"sugerencias": [...strings]} en el español neutro del negocio. Sin markdown ni texto alrededor.',
     user, json: true, feature: 'setting-sugerencias', maxTokens: 600,
   });

@@ -6,6 +6,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "//": "Segundo puerto: hay DOS sesiones de Claude sobre este mismo clon (ver AGENTS.md). Cuando la otra ya tiene el 3000 tomado —y su compilación puede estar vieja—, esta levanta la propia sin matarle la suya.",
+      "name": "dashboard-3100",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "-p", "3100"],
+      "port": 3100
     }
   ]
 }
