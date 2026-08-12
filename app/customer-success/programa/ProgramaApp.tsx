@@ -292,11 +292,16 @@ function Videos({ ids, porId }: { ids: string[][]; porId: Map<string, Clase> }) 
         const destraba = clases.some(c => c.destraba);
         return (
           <li key={grupo[0]} className={destraba ? 'destraba' : undefined}>
+            {/* Los rótulos y los estados en una fila; el título abajo, con su
+                propio renglón. Al revés, un título largo empujaba los badges a
+                una tercera línea y quedaban colgando solos. */}
             <div className="cab">
-              <span className="rots">{clases.map(c => c.rotulo).join(' + ')}</span>
+              <span className="fila">
+                <span className="rots">{clases.map(c => c.rotulo).join(' + ')}</span>
+                {destraba && <Status tono="mako">Destraba</Status>}
+                {clases.every(c => c.enWhop) ? null : <Status tono="warn">Falta en Whop</Status>}
+              </span>
               <h3>{clases[0].titulo}</h3>
-              {destraba && <Status tono="mako">Destraba</Status>}
-              {clases.every(c => c.enWhop) ? null : <Status tono="warn">Falta en Whop</Status>}
             </div>
 
             {/* El bullet de cada clase: de qué va ESA parte del video.
@@ -466,25 +471,46 @@ const CSS = `
   font:inherit; font-size:14px; color:var(--dim); cursor:pointer; transition:border-color .15s; }
 .gr-sig:hover{ border-color:var(--border-strong); color:var(--ink); }
 
-.gr-vids{ list-style:none; margin:0; padding:0; }
-/* Filete, no caja: son 25 cosas del mismo tipo. */
-.gr-vids > li{ padding:18px 0 20px; border-top:1px solid var(--border); }
-.gr-vids > li.destraba{ border-top-color:var(--mako); }
-.gr-vids .cab{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin:0 0 8px; }
+/* Cada VIDEO es una card, igual que cada módulo un nivel más arriba: la unidad
+   de esta pantalla es el video, y verlo encerrado es lo que hace evidente que
+   cuatro clases caen adentro de UNA sola grabación.
+   Dos columnas como máximo —el contenido es prosa y a tres se vuelve ilegible—
+   y recién a partir de 1200px de VIEWPORT, no de 900: el <main> comparte el
+   ancho con la barra lateral, así que a 1000px de viewport las dos columnas
+   caerían en ~330px cada una y el bullet se leería en tiras de cuatro palabras.
+   El align-items:start es para que una card corta no se estire hasta la alta.
+   (Sin backticks en este comentario: vive adentro de un template literal.) */
+.gr-vids{ list-style:none; margin:0; padding:0; display:grid; gap:14px;
+  grid-template-columns:1fr; align-items:start; }
+@media(min-width:1200px){ .gr-vids{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+
+.gr-vids > li{ background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:18px 18px 20px; }
+/* El que destraba se marca con el borde dorado, NO con fondo dorado: sobre
+   --mako-bg el chip «Destraba» queda con el mismo fondo que la card y deja de
+   leerse como chip. Y el borde solo no alcanzaría —el color nunca es el único
+   portador—, por eso el chip sigue estando. */
+.gr-vids > li.destraba{ border-color:var(--mako); }
+
+.gr-vids .cab{ margin:0 0 12px; }
+.gr-vids .cab .fila{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
 .gr-vids .cab .rots{ font-family:${MONO}; font-size:11.5px; color:var(--faint);
-  font-variant-numeric:tabular-nums; white-space:nowrap; }
-.gr-vids .cab h3{ font-size:16px; font-weight:600; letter-spacing:-.015em; margin:0; flex:1;
-  min-width:180px; }
+  font-variant-numeric:tabular-nums; }
+.gr-vids > li.destraba .cab .rots{ color:var(--mako-ink); }
+.gr-vids .cab h3{ font-size:16px; font-weight:650; letter-spacing:-.015em; margin:0;
+  line-height:1.3; }
 
 .partes{ list-style:none; margin:0; padding:0; }
-.partes > li{ display:flex; gap:11px; padding:7px 0 0; }
-.partes > li .r{ flex:none; width:30px; font-family:${MONO}; font-size:10.5px; color:var(--faint);
+.partes > li{ display:flex; gap:10px; padding:9px 0 0; }
+.partes > li + li{ margin-top:2px; border-top:1px solid var(--border); padding-top:11px; }
+.gr-vids > li.destraba .partes > li + li{ border-top-color:var(--mako-border); }
+.partes > li .r{ flex:none; width:28px; font-family:${MONO}; font-size:10.5px; color:var(--faint);
   padding-top:3px; font-variant-numeric:tabular-nums; }
 .partes > li > div{ flex:1; min-width:0; }
-.partes .t{ font-size:13.5px; font-weight:600; margin:0 0 2px; }
+.partes .t{ font-size:13.5px; font-weight:600; margin:0 0 3px; }
 .partes .g{ font-size:14.5px; line-height:1.6; color:var(--dim); margin:0; }
-.partes .ojo{ font-size:13.5px; line-height:1.55; color:var(--dim); margin:7px 0 0;
-  border-left:2px solid var(--mako); padding-left:12px; }
+.partes .ojo{ font-size:13.5px; line-height:1.55; color:var(--dim); margin:8px 0 0;
+  border-left:2px solid var(--mako); padding-left:11px; }
 .partes .ojo b{ color:var(--ink); }
 
 /* ── La grilla de módulos ─────────────────────────────────────────────────── */
