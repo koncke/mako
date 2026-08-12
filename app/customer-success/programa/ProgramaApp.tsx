@@ -306,7 +306,7 @@ function Grabar({ modulos, totales, moduloAbierto, claseAbiertaEnUrl }: {
  * Es `Link` cuando lleva a algún lado y `div` cuando no: un card que no navega
  * no puede quedar enfocable con el teclado ni pintar el hover de un link.
  */
-function CardPrograma({ href, filo, rotulo, chips, titulo, tags, destaca, children }: {
+function CardPrograma({ href, filo, rotulo, chips, titulo, tags, destaca, grande, children }: {
   href?: string;
   /** 0 a 1. Es el filo de arriba: la proporción cargada en Whop. */
   filo: number;
@@ -316,6 +316,8 @@ function CardPrograma({ href, filo, rotulo, chips, titulo, tags, destaca, childr
   tags?: ReactNode;
   /** Le pone el borde dorado: acá vive un atoro medido. */
   destaca?: boolean;
+  /** El título manda. Lo usa la card de MÓDULO, que es el nivel de arriba. */
+  grande?: boolean;
   children?: ReactNode;
 }) {
   const dentro = (
@@ -330,7 +332,7 @@ function CardPrograma({ href, filo, rotulo, chips, titulo, tags, destaca, childr
       {tags && <span className="tags">{tags}</span>}
     </>
   );
-  const clase = `grc${destaca ? ' destaca' : ''}`;
+  const clase = `grc${destaca ? ' destaca' : ''}${grande ? ' grande' : ''}`;
   return href
     ? <Link className={clase} href={href}>{dentro}</Link>
     : <div className={clase}>{dentro}</div>;
@@ -349,21 +351,18 @@ function CardGrabar({ m }: { m: Modulo }) {
     <CardPrograma
       href={`/customer-success/programa?m=${m.id}`}
       filo={enWhop / Math.max(1, m.clases.length)}
-      rotulo={String(m.numero).padStart(2, '0')}
+      rotulo={`MÓDULO ${m.numero}`}
       chips={<span className="fase">{FASE[m.fase] ?? m.fase}</span>}
       titulo={m.titulo}
+      grande
       tags={<>
         {destraban > 0 && <Status tono="mako">{destraban} {destraban === 1 ? 'destraba' : 'destraban'}</Status>}
         {m.porArea && <Status tono="neutral">Por área</Status>}
         {m.quien !== 'dueño' && <Status tono="info">La contesta el líder</Status>}
       </>}
     >
-      <span className="cifra">
-        <b>{m.clases.length}</b>
-        <span>{m.clases.length === 1 ? 'clase' : 'clases'}</span>
-      </span>
-      <span className="pie">
-        {m.videos.length} {m.videos.length === 1 ? 'grabación' : 'grabaciones'}
+      <span className="pie alto">
+        {m.clases.length} {m.clases.length === 1 ? 'clase' : 'clases'} · {m.videos.length} {m.videos.length === 1 ? 'grabación' : 'grabaciones'}
         {juntadas > 0 && <em> · {juntadas === 1 ? 'una comparte' : `${juntadas} comparten`} video</em>}
       </span>
     </CardPrograma>
@@ -563,11 +562,18 @@ a.grc:hover{ border-color:var(--border-strong); }
 .grc .filo{ position:absolute; inset:0 0 auto 0; height:3px; background:var(--border); }
 .grc .filo span{ display:block; height:100%; background:var(--good); }
 .grc .cab{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
-.grc .rot{ font-family:${MONO}; font-size:12px; color:var(--faint); font-variant-numeric:tabular-nums; }
+/* «MÓDULO 1» en versalitas: es el nombre del capítulo, no un número de índice. */
+.grc .rot{ font-family:${MONO}; font-size:10.5px; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--faint); font-variant-numeric:tabular-nums; }
 .grc.destaca .rot{ color:var(--mako-ink); }
 .grc .fase{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); }
 .grc .tit{ display:block; margin:9px 0 0; font-size:16.5px; font-weight:650; letter-spacing:-.018em;
   line-height:1.25; }
+/* En la card de MÓDULO el título es el protagonista: es lo que se reconoce de un
+   vistazo, no el conteo. Por eso ahí no hay número grande. */
+.grc.grande .tit{ margin-top:7px; font-size:23px; font-weight:700; letter-spacing:-.028em;
+  line-height:1.18; }
+.grc .pie.alto{ margin-top:14px; }
 /* El número de videos es el héroe de la card de MÓDULO: es la pregunta que
    trae a esta pantalla. */
 .grc .cifra{ display:flex; align-items:baseline; gap:7px; margin:16px 0 0; }
