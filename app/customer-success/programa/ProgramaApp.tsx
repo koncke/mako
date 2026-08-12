@@ -21,7 +21,7 @@
 //   · la clase como CAMBIO DE FOCO, no como página nueva: no hay «entrar» y
 //     «volver», se clickea otra fila del árbol y listo.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pagina, PageHeader, Status, Banner, Button, Tabs, useToast, Toast, MONO } from '@/app/_ui';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { sincronizarWhopAction } from '../actions';
@@ -245,26 +245,78 @@ function Grabar({ modulos, totales, moduloAbierto }: {
 }
 
 /**
- * La card de un módulo en la tab Clases.
+ * LA card de la tab Clases. Una sola, con dos configuraciones: el módulo en la
+ * grilla y el video adentro del módulo.
  *
- * El héroe es EL NÚMERO DE VIDEOS, no el de clases: la pregunta que trae a
- * Mauricio a esta pantalla es cuánto le falta grabar. Debajo, chiquito, cuántas
- * clases cubren — que es lo que explica por qué el número es más bajo de lo que
- * esperaba.
+ * ⚠️ Eran DOS piezas distintas —`.grc` y el `li` de `.gr-vids`— con la misma
+ * anatomía y tres números diferentes, que es exactamente lo que AGENTS.md
+ * prohíbe: «si comparten esqueleto, es una pieza con dos configuraciones, y
+ * mantenerlas separadas garantiza que diverjan». Ya habían divergido en el
+ * padding, en el peso del título y en cómo marcaban lo que destraba.
+ *
+ * El esqueleto, de arriba abajo:
+ *   filo     · cuánto de esto ya está cargado en Whop
+ *   cab      · el rótulo mono + los estados (módulo: «04 · NORTE»; video: «4.1 + 4.2»)
+ *   tit      · el título
+ *   children · lo propio de cada una: el conteo en el módulo, la indicación de
+ *              qué grabar en el video
+ *   tags     · los estados que no entran arriba
+ *
+ * Es `Link` cuando lleva a algún lado y `div` cuando no: un card que no navega
+ * no puede quedar enfocable con el teclado ni pintar el hover de un link.
  */
+function CardPrograma({ href, filo, rotulo, chips, titulo, tags, destaca, children }: {
+  href?: string;
+  /** 0 a 1. Es el filo de arriba: la proporción cargada en Whop. */
+  filo: number;
+  rotulo: ReactNode;
+  chips?: ReactNode;
+  titulo: string;
+  tags?: ReactNode;
+  /** Le pone el borde dorado: acá vive un atoro medido. */
+  destaca?: boolean;
+  children?: ReactNode;
+}) {
+  const dentro = (
+    <>
+      <span className="filo" aria-hidden><span style={{ width: `${Math.min(100, Math.max(0, filo * 100))}%` }} /></span>
+      <span className="cab">
+        <span className="rot">{rotulo}</span>
+        {chips}
+      </span>
+      <span className="tit">{titulo}</span>
+      {children}
+      {tags && <span className="tags">{tags}</span>}
+    </>
+  );
+  const clase = `grc${destaca ? ' destaca' : ''}`;
+  return href
+    ? <Link className={clase} href={href}>{dentro}</Link>
+    : <div className={clase}>{dentro}</div>;
+}
+
+/** La card de un MÓDULO. El héroe es el número de VIDEOS: la pregunta que trae
+ *  a Mauricio a esta pantalla es cuánto le falta grabar. Debajo, chiquito, las
+ *  clases que cubren — que es lo que explica por qué el número es más bajo de
+ *  lo que esperaba. */
 function CardGrabar({ m }: { m: Modulo }) {
   const enWhop = m.clases.filter(c => c.enWhop).length;
   const destraban = m.videos.filter(ids => ids.some(id => m.clases.find(c => c.id === id)?.destraba)).length;
   const juntadas = m.clases.length - m.videos.length;
 
   return (
-    <Link className="grc" href={`/customer-success/programa?m=${m.id}`}>
-      <span className="filo" aria-hidden><span style={{ width: `${(enWhop / Math.max(1, m.clases.length)) * 100}%` }} /></span>
-      <span className="cab">
-        <span className="num">{String(m.numero).padStart(2, '0')}</span>
-        <span className="fase">{FASE[m.fase] ?? m.fase}</span>
-      </span>
-      <span className="tit">{m.titulo}</span>
+    <CardPrograma
+      href={`/customer-success/programa?m=${m.id}`}
+      filo={enWhop / Math.max(1, m.clases.length)}
+      rotulo={String(m.numero).padStart(2, '0')}
+      chips={<span className="fase">{FASE[m.fase] ?? m.fase}</span>}
+      titulo={m.titulo}
+      tags={<>
+        {destraban > 0 && <Status tono="mako">{destraban} {destraban === 1 ? 'destraba' : 'destraban'}</Status>}
+        {m.porArea && <Status tono="neutral">Por área</Status>}
+        {m.quien !== 'dueño' && <Status tono="info">La contesta el líder</Status>}
+      </>}
+    >
       <span className="cifra">
         <b>{m.videos.length}</b>
         <span>{m.videos.length === 1 ? 'video' : 'videos'}</span>
@@ -273,56 +325,52 @@ function CardGrabar({ m }: { m: Modulo }) {
         {m.clases.length} {m.clases.length === 1 ? 'clase' : 'clases'}
         {juntadas > 0 && <em> · {juntadas === 1 ? 'una comparte' : `${juntadas} comparten`} grabación</em>}
       </span>
-      <span className="tags">
-        {destraban > 0 && <Status tono="mako">{destraban} {destraban === 1 ? 'destraba' : 'destraban'}</Status>}
-        {m.porArea && <Status tono="neutral">Por área</Status>}
-        {m.quien !== 'dueño' && <Status tono="info">La contesta el líder</Status>}
-      </span>
-    </Link>
+    </CardPrograma>
   );
 }
 
-/** La lista de videos de un módulo. Lista con filete: son cosas del mismo tipo. */
+/** Los videos de un módulo, en la MISMA card. Lo que va adentro es la
+ *  indicación de qué grabar: un bullet por clase, y el atoro donde lo hay. */
 function Videos({ ids, porId }: { ids: string[][]; porId: Map<string, Clase> }) {
   return (
-    <ol className="gr-vids">
+    <ul className="gr-grid ancha">
       {ids.map((grupo) => {
         const clases = grupo.map(id => porId.get(id)!).filter(Boolean);
         if (!clases.length) return null;
         const destraba = clases.some(c => c.destraba);
+        const enWhop = clases.filter(c => c.enWhop).length;
         return (
-          <li key={grupo[0]} className={destraba ? 'destraba' : undefined}>
-            {/* Los rótulos y los estados en una fila; el título abajo, con su
-                propio renglón. Al revés, un título largo empujaba los badges a
-                una tercera línea y quedaban colgando solos. */}
-            <div className="cab">
-              <span className="fila">
-                <span className="rots">{clases.map(c => c.rotulo).join(' + ')}</span>
+          <li key={grupo[0]}>
+            <CardPrograma
+              filo={enWhop / clases.length}
+              rotulo={clases.map(c => c.rotulo).join(' + ')}
+              titulo={clases[0].titulo}
+              destaca={destraba}
+              tags={<>
                 {destraba && <Status tono="mako">Destraba</Status>}
-                {clases.every(c => c.enWhop) ? null : <Status tono="warn">Falta en Whop</Status>}
+                {enWhop < clases.length && <Status tono="warn">Falta en Whop</Status>}
+              </>}
+            >
+              {/* La indicación de qué grabar. El título de la PRIMERA clase no
+                  se repite: ya es el de la card, y verlo dos veces seguidas se
+                  lee como un error. */}
+              <span className="partes">
+                {clases.map((c, i) => (
+                  <span key={c.id} className="parte">
+                    {clases.length > 1 && <span className="r">{c.rotulo}</span>}
+                    <span className="in">
+                      {clases.length > 1 && i > 0 && <span className="t">{c.titulo}</span>}
+                      <span className="g">{c.graba}</span>
+                      {c.atoro && <span className="ojo"><b>Ojo.</b> {c.atoro}</span>}
+                    </span>
+                  </span>
+                ))}
               </span>
-              <h3>{clases[0].titulo}</h3>
-            </div>
-
-            {/* El bullet de cada clase: de qué va ESA parte del video.
-                El título de la PRIMERA no se repite: ya es el del video
-                arriba, y verlo dos veces seguidas se lee como un error. */}
-            <ul className="partes">
-              {clases.map((c, i) => (
-                <li key={c.id}>
-                  {clases.length > 1 && <span className="r">{c.rotulo}</span>}
-                  <div>
-                    {clases.length > 1 && i > 0 && <p className="t">{c.titulo}</p>}
-                    <p className="g">{c.graba}</p>
-                    {c.atoro && <p className="ojo"><b>Ojo.</b> {c.atoro}</p>}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            </CardPrograma>
           </li>
         );
       })}
-    </ol>
+    </ul>
   );
 }
 
@@ -428,23 +476,39 @@ const CSS = `
 .gr-intro{ font-size:14.5px; line-height:1.6; color:var(--dim); margin:0 0 22px; }
 .gr-intro b{ color:var(--ink); }
 
+/* UNA sola grilla, en dos anchos. Los módulos son fichas cortas y entran de a
+   cuatro; los videos llevan prosa adentro, así que como mucho van de a dos y
+   recién desde 1200px de VIEWPORT: el <main> comparte el ancho con la barra
+   lateral, y a 1000px las dos columnas caerían en ~330px cada una, donde el
+   bullet se lee en tiras de cuatro palabras. */
 .gr-grid{ list-style:none; margin:0; padding:0; display:grid; gap:14px;
-  grid-template-columns:repeat(auto-fill, minmax(268px, 1fr)); }
+  grid-template-columns:repeat(auto-fill, minmax(268px, 1fr)); align-items:start; }
 .gr-grid > li{ display:flex; }
+.gr-grid.ancha{ grid-template-columns:1fr; }
+@media(min-width:1200px){ .gr-grid.ancha{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
 
+/* LA card de esta tab: la misma para un módulo y para un video. */
 .grc{ position:relative; display:flex; flex-direction:column; width:100%;
   background:var(--surface); border:1px solid var(--border); border-radius:14px;
-  padding:20px 18px 16px; text-align:left; font:inherit; color:inherit; cursor:pointer;
+  padding:20px 18px 16px; text-align:left; font:inherit; color:inherit;
   overflow:hidden; transition:border-color .15s; }
-.grc:hover{ border-color:var(--border-strong); }
+a.grc{ cursor:pointer; text-decoration:none; }
+a.grc:hover{ border-color:var(--border-strong); }
+/* Acá vive un atoro medido. Borde dorado y NO fondo dorado: sobre --mako-bg el
+   chip «Destraba» queda con el mismo fondo que la card y deja de leerse como
+   chip. El borde solo tampoco alcanza —el color nunca es el único portador—,
+   por eso el chip sigue estando. */
+.grc.destaca{ border-color:var(--mako); }
 .grc .filo{ position:absolute; inset:0 0 auto 0; height:3px; background:var(--border); }
 .grc .filo span{ display:block; height:100%; background:var(--good); }
-.grc .cab{ display:flex; align-items:baseline; gap:9px; }
-.grc .num{ font-family:${MONO}; font-size:12px; color:var(--faint); font-variant-numeric:tabular-nums; }
+.grc .cab{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
+.grc .rot{ font-family:${MONO}; font-size:12px; color:var(--faint); font-variant-numeric:tabular-nums; }
+.grc.destaca .rot{ color:var(--mako-ink); }
 .grc .fase{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); }
 .grc .tit{ display:block; margin:9px 0 0; font-size:16.5px; font-weight:650; letter-spacing:-.018em;
   line-height:1.25; }
-/* El número de videos es el héroe: es la pregunta que trae a esta pantalla. */
+/* El número de videos es el héroe de la card de MÓDULO: es la pregunta que
+   trae a esta pantalla. */
 .grc .cifra{ display:flex; align-items:baseline; gap:7px; margin:16px 0 0; }
 .grc .cifra b{ font-size:30px; font-weight:700; letter-spacing:-.03em; line-height:1;
   font-variant-numeric:tabular-nums; }
@@ -453,6 +517,20 @@ const CSS = `
   font-variant-numeric:tabular-nums; }
 .grc .pie em{ font-style:normal; color:var(--mako-ink); }
 .grc .tags{ display:flex; gap:5px; flex-wrap:wrap; margin-top:auto; padding-top:14px; }
+
+/* Lo propio de la card de VIDEO: la indicación de qué grabar. */
+.grc .partes{ display:block; margin:13px 0 0; }
+.grc .parte{ display:flex; gap:10px; padding:9px 0 0; }
+.grc .parte + .parte{ margin-top:3px; border-top:1px solid var(--border); padding-top:11px; }
+.grc.destaca .parte + .parte{ border-top-color:var(--mako-border); }
+.grc .parte .r{ flex:none; width:28px; font-family:${MONO}; font-size:10.5px; color:var(--faint);
+  padding-top:3px; font-variant-numeric:tabular-nums; }
+.grc .parte .in{ flex:1; min-width:0; display:block; }
+.grc .parte .t{ display:block; font-size:13.5px; font-weight:600; margin-bottom:3px; }
+.grc .parte .g{ display:block; font-size:14.5px; line-height:1.6; color:var(--dim); }
+.grc .parte .ojo{ display:block; font-size:13.5px; line-height:1.55; color:var(--dim);
+  margin-top:8px; border-left:2px solid var(--mako); padding-left:11px; }
+.grc .parte .ojo b{ color:var(--ink); }
 
 /* ── La tab Clases: los videos de un módulo ───────────────────────────────── */
 .gr-det{ padding:0 0 40px; }
@@ -465,53 +543,12 @@ const CSS = `
   line-height:1.15; margin:0 0 8px; }
 .gr-det .sub{ font-size:14.5px; color:var(--dim); margin:0; font-variant-numeric:tabular-nums; }
 .gr-det .tags{ display:flex; gap:5px; flex-wrap:wrap; margin:12px 0 0; }
-.gr-det .gr-vids{ margin-top:26px; }
+.gr-det .gr-grid{ margin-top:26px; }
 .gr-sig{ display:block; width:100%; margin:24px 0 0; padding:15px 18px; text-align:left;
   background:var(--surface); border:1px solid var(--border); border-radius:11px;
-  font:inherit; font-size:14px; color:var(--dim); cursor:pointer; transition:border-color .15s; }
+  font:inherit; font-size:14px; color:var(--dim); text-decoration:none;
+  cursor:pointer; transition:border-color .15s; }
 .gr-sig:hover{ border-color:var(--border-strong); color:var(--ink); }
-
-/* Cada VIDEO es una card, igual que cada módulo un nivel más arriba: la unidad
-   de esta pantalla es el video, y verlo encerrado es lo que hace evidente que
-   cuatro clases caen adentro de UNA sola grabación.
-   Dos columnas como máximo —el contenido es prosa y a tres se vuelve ilegible—
-   y recién a partir de 1200px de VIEWPORT, no de 900: el <main> comparte el
-   ancho con la barra lateral, así que a 1000px de viewport las dos columnas
-   caerían en ~330px cada una y el bullet se leería en tiras de cuatro palabras.
-   El align-items:start es para que una card corta no se estire hasta la alta.
-   (Sin backticks en este comentario: vive adentro de un template literal.) */
-.gr-vids{ list-style:none; margin:0; padding:0; display:grid; gap:14px;
-  grid-template-columns:1fr; align-items:start; }
-@media(min-width:1200px){ .gr-vids{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
-
-.gr-vids > li{ background:var(--surface); border:1px solid var(--border); border-radius:14px;
-  padding:18px 18px 20px; }
-/* El que destraba se marca con el borde dorado, NO con fondo dorado: sobre
-   --mako-bg el chip «Destraba» queda con el mismo fondo que la card y deja de
-   leerse como chip. Y el borde solo no alcanzaría —el color nunca es el único
-   portador—, por eso el chip sigue estando. */
-.gr-vids > li.destraba{ border-color:var(--mako); }
-
-.gr-vids .cab{ margin:0 0 12px; }
-.gr-vids .cab .fila{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
-.gr-vids .cab .rots{ font-family:${MONO}; font-size:11.5px; color:var(--faint);
-  font-variant-numeric:tabular-nums; }
-.gr-vids > li.destraba .cab .rots{ color:var(--mako-ink); }
-.gr-vids .cab h3{ font-size:16px; font-weight:650; letter-spacing:-.015em; margin:0;
-  line-height:1.3; }
-
-.partes{ list-style:none; margin:0; padding:0; }
-.partes > li{ display:flex; gap:10px; padding:9px 0 0; }
-.partes > li + li{ margin-top:2px; border-top:1px solid var(--border); padding-top:11px; }
-.gr-vids > li.destraba .partes > li + li{ border-top-color:var(--mako-border); }
-.partes > li .r{ flex:none; width:28px; font-family:${MONO}; font-size:10.5px; color:var(--faint);
-  padding-top:3px; font-variant-numeric:tabular-nums; }
-.partes > li > div{ flex:1; min-width:0; }
-.partes .t{ font-size:13.5px; font-weight:600; margin:0 0 3px; }
-.partes .g{ font-size:14.5px; line-height:1.6; color:var(--dim); margin:0; }
-.partes .ojo{ font-size:13.5px; line-height:1.55; color:var(--dim); margin:8px 0 0;
-  border-left:2px solid var(--mako); padding-left:11px; }
-.partes .ojo b{ color:var(--ink); }
 
 /* ── La grilla de módulos ─────────────────────────────────────────────────── */
 .pg-grid{ list-style:none; margin:18px 0 0; padding:0; display:grid; gap:14px;
