@@ -651,7 +651,7 @@ export const PROGRAMA: Modulo[] = [
         mismoVideoQue: 'm9c1',
       },
       {
-        id: 'm9c3', titulo: 'Qué le vas a dar vos',
+        id: 'm9c3', titulo: 'Qué vas a poner de tu lado',
         pregunta: 'Presupuesto, gente, capacitación y decisiones que dependen de vos, con fecha.',
         graba: 'La parte que convierte la carta en un acuerdo y no en una lista de exigencias: lo que el dueño se compromete a poner, con fecha.',
         puntos: [

@@ -245,3 +245,128 @@ responder por ellos.*
 preguntas salen de los dos Cuestionarios Maestros, el análisis de fases y el contexto del
 sistema; los atoros citados vienen de sus cuatro clientes reales (TEXX, HMO, Baja Teriyaki,
 Grupo Esquer).*
+
+---
+
+# Lo que cambia con el feedback de Mau · reunión del 2026-08-12
+
+*«Mau <> Martin: CUSTOMER SUCCESS», 12/08/2026. Revisó la tab Program en vivo,
+módulo por módulo. Esto es lo que dictó.*
+
+⚠️ **NADA DE ESTO ESTÁ APLICADO AL CATÁLOGO TODAVÍA, Y HAY UN MOTIVO.** Se intentó
+y los tests lo frenaron: las clases nuevas no tienen preguntas —salen de su
+Cuestionario Maestro, no se inventan— y las que reusan un id existente quedarían
+con **las preguntas viejas pegadas al contenido nuevo**. Medido: siete clases en
+esa situación, entre ellas «El origen» preguntando por el adversario. Un error
+silencioso, del tipo que descubre el cliente y nadie más. Se aplica cuando llegue
+el PDF de feedback maestro, que Mau se comprometió a mandar el **domingo 17/08**
+con las preguntas incluidas.
+
+## Módulo 5 · El propósito — reescrito entero
+
+El cambio de fondo: **su propósito NO se organiza por «adversario», se organiza por
+STAKEHOLDER.** Textual: *«yo no hablo tanto de adversario, sino de cada stakeholder,
+cómo va a cumplir su propósito»*. La secuencia que dictó, clase por clase:
+
+| # | Clase | Qué es |
+|---|---|---|
+| 1 | **El origen** | De dónde viene el dueño o la inquietud del fundador. No la biografía: qué lo motivó |
+| 2 | **El PAS y la narrativa** | «Propósito Altamente Significativo», concepto propio suyo, junto con el contexto. Confirmó que van en UNA clase: *«en realidad todo esto es narrativa»* |
+| 3 | **Colaboradores** | La promesa a ese stakeholder. Su ejemplo: «somos la universidad que te paga» |
+| 4 | **Clientes** | «No te voy a decir lo que querés escuchar, me voy a comprometer con tu resultado» |
+| 5 | **Accionistas** | El orgullo de marca, el sentido de construir algo distinto en la industria |
+| 6 | **Los valores en acción** | Él los llama «en acción», no «como conducta» |
+| 7 | **Cómo se lo contás al equipo** | La estrategia de comunicación. Va al final |
+
+**Sale «Quién es el adversario».** Y la regla que gobierna las tres promesas, que
+dijo explícita: *si el propósito no funciona para los tres, está mal, porque tiene
+que ser una narrativa donde los tres ganen*.
+
+## Módulo 8 · Los umbrales — las tres clases se funden en UNA
+
+Textual: *«no las pondría separadas, aquí literalmente sería una sola»*. Verde,
+amarillo y rojo se contestan de una sentada. Hoy comparten VIDEO; tienen que
+compartir también el bloque y la tarea. Pidió además que la clase traiga ejemplos
+de cuándo es verde, cuándo amarillo y cuándo rojo.
+
+## Módulo 10 · «La cadencia» → «Diseñando las juntas»
+
+Textual: *«no pondría cadencia, sino diseñando las juntas — diseñando la junta
+diaria, la semanal y la uno a uno»*. Tres clases, una por junta, en vez de las tres
+actuales (las tres juntas / el guion / la métrica).
+
+**Y tiene una hoja con OCHO PRINCIPIOS ya validados** para organizar juntas, que va
+a subir como archivo de este módulo.
+
+## Módulo 4 · Las dos MCIs — insuficiente
+
+Textual: *«aquí no está mal, pero siento que es insuficiente»*. Falta el árbol
+completo de su metodología, que explicó en la llamada:
+
+> **MCI → objetivos por área → medidas de predicción (lead measures).** «Es la
+> manera en que funciona el árbol.» Son OKRs, dijo, con un ajuste propio.
+
+Qué agregar: **separar los objetivos alineados a la MCI 1 de los alineados a la
+MCI 2**, y antes determinar las áreas y de UNO A TRES objetivos por área. Su
+aclaración: en la MCI 1 «siempre le pega a todas las áreas» — nadie se salva de
+ponerle objetivos; lo único que cambia es el ángulo.
+
+## Módulo 6 · Las palancas — falta el puente
+
+El problema que nombró: *«los objetivos son el puente que no existe para las
+palancas… las palancas no tienen sentido si no las mezclo con los objetivos. Ahí es
+donde está roto»*. Una palanca suelta no significa nada; la pregunta real es **qué
+palancas tiene ESTE objetivo**.
+
+Lo acordado: la **primera clase del módulo vuelve a tomar los objetivos** —para
+replantearlos o validarlos ahora que ya hubo sesión— y **la segunda ya trabaja las
+palancas** colgando de cada objetivo.
+
+## Módulo 11 · «Los catálogos que faltan» — se saca
+
+Textual: *«esto yo no lo pondría porque esto es un retraso, me lo están mandando
+todavía. Aquí se supone que estos catálogos ya me los mandaron»*. No es una clase
+del programa: es material que el cliente debía haber entregado antes.
+
+## FALTA UN MÓDULO ENTERO · Los tableros
+
+*«Y falta todo el apartado de tableros.»* Va **después de los umbrales**. Lo
+describió completo:
+
+> Es un video invitando a que **naveguen los tableros**: que revisen, que
+> registren, que no tengan miedo a registrar, que anoten todo lo que no funciona,
+> lo que es difícil, lo que no era como se lo imaginaban. Y que pongan a alguien de
+> confianza a navegar y hacer lo mismo. Con ese feedback se hace **la segunda
+> vuelta de mejora de los tableros**.
+
+El paralelo que él mismo usó: *«es como cuando tú me dices, andá y navegá MaKo para
+que me hagas feedback»*.
+
+## Orden y forma
+
+- **Los umbrales van ANTES que la evidencia** (8 antes que 7). *«En mi lógica
+  normalmente yo he hecho primero los umbrales y luego la evidencia.»*
+- **El propósito quizá vaya después de los umbrales**, pasando antes por 6, 7 y 8.
+  Lo dijo con dudas («tal vez»), así que queda a confirmar en el PDF.
+- **Clases cortas, muchas: CONFIRMADO.** Se le preguntó si prefería una clase larga
+  por módulo y contestó *«no, hombre, me parece mejor así — la gente pierde la
+  atención bien rápido y así es más al punto»*.
+- **Una clase no tiene por qué ser un video.** Si es muy chica puede ser una lámina
+  con una instrucción de texto.
+- **Módulo 0 «Cómo se juega»: en duda.** Lo tiene muy claro pero lo quiere hacer EN
+  VIVO; no está seguro de que valga la pena grabarlo.
+- **Voseo.** «Qué le vas a dar vos» le sonó *«muy argentino»*. Ya corregido a «Qué
+  vas a poner de tu lado», pero **hay que barrer el resto del catálogo**: el cliente
+  es mexicano y las `pregunta` están escritas en voseo.
+
+## Qué se graba primero
+
+Eligió grabar solo lo que ya tiene estandarizado: **el Norte Estratégico (módulos 1
+a 4), palancas + evidencia + umbrales, el propósito, y la cadencia de juntas. Lo
+demás no, por ahora.** El módulo 0 queda en duda.
+
+Su criterio, textual: *«lo más importante no es hacer todo, sino empezar a hacer
+algo del proceso que me ayude, y eso nos va a dar el aprendizaje para ir
+mejorando»*. Y la contraparte que quedó anotada: si algo que se decide no grabar
+resulta necesario para habilitar el modelo de tres ofertas, hay que ponerle fecha
+igual.
