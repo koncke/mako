@@ -507,6 +507,39 @@ Del mismo hilo: **nada de jerga interna ni tecnicismos** en lo que ve el cliente
 
 ## De la reunión a la tarea (Fathom)
 
+### ⚠️⚠️ «Ni siquiera existe la tab de Mau»: clasificar y poder mandar son dos preguntas
+
+**12/8/2026.** El dueño: *«como la funcionalidad de extraer las tareas falló completamente… me está poniendo tareas a mí que deberían ser de Mau, ni siquiera existe la tab de Mau»*.
+
+**LA EXTRACCIÓN NO FALLÓ, y ese es el hallazgo.** El diagnóstico obvio —«el modelo atribuyó mal»— era el equivocado, y el mío también: yo dije que el modelo había mandado `esMio: true` en las 37. Lo desmintió el propio sistema. Cada corrida guarda su resultado crudo en `app_settings` bajo `mako.fathom.cache.<recordingId>`, **escrito 13 segundos antes del borrador**, y ahí las 26 tareas de Mauricio están con `esDeOtro: true` y con su email real. El modelo acertó y `resolverDueño` acertó.
+
+Lo que las borró fue un gate río abajo, en `reunion-auto.ts`:
+
+```ts
+duenoEmail: repartible(t.dueñoEmail) ? t.dueñoEmail : undefined,
+esDeOtro:   t.esDeOtro && repartible(t.dueñoEmail) ? true : undefined,   // ⛔
+```
+
+**`esDeOtro` no es el reparto: es la clasificación.** Y el comentario que estaba justo arriba de esas dos líneas decía exactamente lo correcto —«el nombre se conserva SIEMPRE (es información de la reunión); lo que se corta es el reparto»— mientras la segunda línea cortaba las dos cosas. Es la misma enfermedad que el orden del modal de reunión: el comentario correcto al lado del código incorrecto.
+
+**La ironía completa: Mauricio SÍ es usuario de la app.** El gate preguntaba «¿este email está en MI workspace?» (él vive en el 1, el borrador se armó en el 9). La pregunta para clasificar es *de quién es esto*; la pregunta para repartir es *sé a dónde escribirle*. Son tres, no una: `esDeOtro`, `duenoEmail`, `repartible`.
+
+Sin `esDeOtro`, `ReunionTareas.tsx:232` mete las 37 en «Mías» y `:273` nunca crea un grupo: **la tab de Mau no está rota, no se crea.** Y el daño sigue río abajo — el cruce anti-duplicados corrió después sobre las 37 creyéndolas propias y destildó 16.
+
+**No era un caso aislado: 6 borradores en 4 workspaces**, incluido el de una clienta donde 5 de 5 tareas eran de *su* clienta.
+
+Tres cosas que dejó esto escritas:
+
+- **`esDeOtro` lo escribe SOLO `resolverDueño`.** Ningún consumidor río abajo lo vuelve a escribir. Un control que necesita decir «no le puedo mandar esto» usa un campo APARTE.
+- **`lib/reunion-auto.ts` no tiene un solo test**, y esta lógica vivía inline adentro de una función de 200 líneas marcada `server-only`. Por eso no la cazó nadie. Es la lección de julio —extraer `tarea-dueno.ts` para poder probarlo— sin aplicar al eslabón siguiente. Ahora vive en `lib/reunion-reparto.ts`, puro y con tests.
+- **El aviso confirmaba el bug en vez de delatarlo:** decía «sacó 37 compromisos tuyos» porque `mias` se contaba DESPUÉS del borrado. El resumen ahora sale del mismo cálculo que la clasificación.
+
+**Y una bomba que estaba al lado, desarmada de paso:** `resolverDueño` hacía `o.esMio === true ? false` sin ningún «salvo», cortando antes de mirar la evidencia — aunque su propio comentario prometiera lo contrario. No causó esto, pero el día que el modelo mandara el flag entraban 26 tareas ajenas en silencio. Ahora el email de un invitado real le gana, y cuando las dos señales se contradicen queda `atribucionDudosa` en la fila en vez de resolverse callado.
+
+⚠️ **Para reparar datos viejos hay que normalizar la marca en los DOS lados.** El script de reparación matchea por título contra el cache, y el título del borrador ya pasó por `corregirMarca` («Maco» → «MaKo») mientras el del cache no: tres tareas no matcheaban y una era de Mauricio. Y si el cache fue pisado por un «volver a analizar», los títulos son otros: ahí **no se empareja por parecido**, se saltea — ponerle a una tarea el dueño de otra es peor que el bug original.
+
+**Vive en:** lib/reunion-reparto.ts · lib/reunion-auto.ts · lib/tarea-dueno.ts · scripts/reparar-reparto-reunion.ts · *2026-08-12*
+
 ### Un comentario que dice el orden no ordena nada
 
 El modal «MaKo leyó tu reunión» tiene cuatro bloques y su orden es la funcionalidad, no maquetado: arriba lo que HAY QUE DECIDIR, abajo lo que ya está resuelto. Estaba acordado con el dueño y **estaba escrito en los comentarios de los bloques** —«sección propia, abajo de las nuevas», «VA ABAJO: arriba tiene que estar lo que falta hacer»— y el JSX pintaba `yaEnPlan` ANTES que `mias`. Resultado: el dueño abría el modal de una reunión de 37 compromisos y lo primero que leía era «Ya están en tu plan (16)», dieciséis tarjetas que no requieren ninguna decisión suya, con las nuevas enterradas debajo.

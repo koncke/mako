@@ -33,6 +33,7 @@ import { glosarioTexto } from './glosario';
 import { getSetting, setSetting } from './settings';
 import { emitirDelCatalogo } from './avisos';
 import { listarUsuarios } from './usuarios';
+import { emailsConCuenta, repartoDeTarea, cuantasSonMias, resumenDelReparto } from './reunion-reparto';
 import { getWorkspace } from './workspace';
 import { tzDeWorkspace } from './timezone';
 import { fechaHoraEnTz } from './date-utils';
@@ -274,19 +275,12 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // workspace, así que el problema no existía y aparece justo ahora, al empezar a
       // procesar las de entrega.
       //
-      // La regla: se reparte SOLO a gente del workspace. Lo demás queda como tarea
-      // propia con el nombre adentro del detalle, que es donde ya vive el contexto.
-      // `listarUsuarios()` es cross-workspace (los admins tienen workspace_id null),
-      // así que se filtra a mano: cuentan los de ESTE workspace y los admins, que
-      // cruzan a propósito. Un email que no está en ninguno de los dos es de afuera.
-      const delEquipo = new Set(
-        (await listarUsuarios().catch(() => []))
-          .filter((u) => u.workspace_id === ws || u.rol === 'admin')
-          .map((u) => (u.email ?? '').trim().toLowerCase())
-          .filter(Boolean),
-      );
-      const repartible = (email: string | undefined | null): boolean =>
-        Boolean(email && delEquipo.has(email.trim().toLowerCase()));
+      // A quién se le puede MANDAR algo: cualquiera con cuenta en la app. El criterio y
+      // el porqué de que sean TRES preguntas distintas —de quién es, a dónde le escribo,
+      // y si le puedo mandar— viven en lib/reunion-reparto.ts, que además se puede
+      // testear. Acá vivía inline, adentro de esta función de 200 líneas sin un solo
+      // test, y por eso el bug del 12/8 no lo cazó nadie.
+      const conCuenta = emailsConCuenta(await listarUsuarios().catch(() => []));
 
       const propuestas: PropuestaTarea[] = tareas.map((t) => ({
         titulo: t.titulo,
@@ -298,11 +292,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // Con cliente detectado MANDA el cliente: lo que haya elegido el modelo se
         // ignora (es justo lo que repartía una misma llamada en proyectos temáticos).
         proyecto: proyCliente || (t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined)),
-        // El nombre se conserva SIEMPRE (es información de la reunión); lo que se
-        // corta es el reparto a alguien que no está en el workspace.
-        dueno: t.dueño || undefined,
-        duenoEmail: repartible(t.dueñoEmail) ? t.dueñoEmail : undefined,
-        esDeOtro: t.esDeOtro && repartible(t.dueñoEmail) ? true : undefined,
+        ...repartoDeTarea(t, conCuenta),
         // El MINUTO en que se dijo. Se perdía acá: la extracción lo trae, el borrador
         // lo declara y aplicarPropuestas lo usa para armar el link a la grabación
         // parada en ese segundo — pero este map no lo copiaba, así que toda tarea que
@@ -310,7 +300,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         minuto: t.minuto,
         minutos: t.minutos,
       }));
-      const mias = propuestas.filter((t) => !t.esDeOtro).length;
+      const mias = cuantasSonMias(propuestas);
       const conQuien = r.participantes
         .filter((p) => p.email !== (r.host?.email ?? ''))
         .map((p) => p.nombre || p.email.split('@')[0])
@@ -325,7 +315,10 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // El número que se promete es el de TUS compromisos, no el total: las de otras
         // personas no se crean acá (viajan a su tablero), así que anunciar 34 y crear 13
         // hace que la pantalla y el resultado no coincidan.
-        resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${mias} ${mias === 1 ? 'compromiso tuyo' : 'compromisos tuyos'}${propuestas.length > mias ? ` (y ${propuestas.length - mias} de otras personas, para repartir)` : ''}.`,
+        // El resumen sale del MISMO cálculo que la clasificación. Escrito aparte decía
+        // «sacó 37 compromisos tuyos» sobre una reunión donde 26 eran de Mau: el aviso
+        // confirmaba el bug en vez de delatarlo.
+        resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${resumenDelReparto(propuestas)}.`,
       });
       // RECIÉN ACÁ se cierra la reunión: el borrador ya está guardado. Antes esto
       // corría ANTES de crearPropuesta (con otra llamada de IA en el medio), así que

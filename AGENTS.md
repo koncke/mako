@@ -223,6 +223,37 @@ vacío y `B` gana.** Las dos reglas que quedan:
 2. **El fallback es más débil que el camino feliz, nunca más fuerte.** Si el camino
    normal exige aval y el degradado no, el degradado es la política real del sistema.
 
+# «No puedo hacer X con este dato» no es «este dato es falso»
+
+Un control que descubre que no puede ACTUAR sobre algo tiene una sola salida honesta:
+apagar la acción. Nunca borrar el hecho.
+
+El caso, del 12/8/2026. La extracción de una reunión clasificó bien las 37 tareas: 26
+eran de Mauricio, con su email. Después un gate preguntó «¿le puedo repartir a este
+email?», la respuesta fue no, y borró **dos** campos:
+
+    duenoEmail: repartible(t.dueñoEmail) ? t.dueñoEmail : undefined,
+    esDeOtro:   t.esDeOtro && repartible(t.dueñoEmail) ? true : undefined,   // ⛔
+
+El primero está bien: sin cuenta no hay a dónde escribirle. El segundo borró **de quién
+es la tarea**, que no tiene nada que ver con si le podemos escribir. Las 26 entraron al
+tablero del dueño y la pantalla de esa persona no llegó a existir.
+
+**La prueba de que son cosas distintas: el comentario que estaba justo arriba lo decía
+bien** —«el nombre se conserva SIEMPRE; lo que se corta es el reparto»— y la línea de
+abajo hacía otra cosa. Quien lo escribió tenía la distinción en la cabeza y la perdió en
+una sola expresión booleana.
+
+**La regla: cada pregunta, su campo.** «¿De quién es?» (clasificación), «¿a dónde le
+escribo?» (dato de contacto) y «¿le puedo mandar?» (capacidad) son tres, y meterlas en
+una sola variable hace que la más débil se lleve puestas a las otras dos. Cuando veas un
+`&&` que junta un hecho con un permiso, ahí hay un dato a punto de desaparecer.
+
+**Y el corolario del default:** si la comprobación de capacidad falla (la consulta de
+usuarios se cayó, la lista vino vacía), se pierde la ACCIÓN y nunca el HECHO. Degradar
+hacia «entonces todo es mío» es exactamente el modo de falla de arriba, servido por el
+camino de error.
+
 # Un umbral es un proxy, y el proxy hay que MEDIRLO contra los datos reales
 
 Un número en una condición (`>= 3 tareas`, `>= 2 destinos`, `>= 15 caracteres`) casi

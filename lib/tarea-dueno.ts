@@ -13,6 +13,13 @@
 //
 // El orden de confianza es: EMAIL (dato duro) → nombre completo → primer nombre, y este
 // último solo si ningún otro participante lo comparte.
+//
+// TERCERA ROTURA, 12/8/2026 — y lo importante es que NO fue acá. El dueño reportó «me
+// pone tareas a mí que deberían ser de Mau» y esta función había resuelto BIEN las 37:
+// el cache de esa corrida tiene las 26 de Mauricio con `esDeOtro: true` y su email. Lo
+// que las borró fue un gate río abajo que confundía «no le puedo mandar esto» con «no es
+// de él» (ver lib/reunion-reparto.ts). Lo que SÍ se arregló acá es la bomba que estaba
+// al lado: `esMio: true` le ganaba al email de un invitado real.
 // =============================================================================
 
 /** Quién mira el tablero. */
@@ -23,7 +30,14 @@ export type ParticipanteRef = { nombre: string; email: string };
 /** Lo que dijo el modelo sobre el dueño de una tarea. */
 export type DueñoCrudo = { dueño?: unknown; dueñoEmail?: unknown; esMio?: unknown };
 
-export type DueñoResuelto = { dueño: string; dueñoEmail: string; esDeOtro: boolean };
+export type DueñoResuelto = {
+  dueño: string; dueñoEmail: string; esDeOtro: boolean;
+  /** El modelo dijo «es mía» y el email de un invitado REAL dice que es de otro. No hay
+   *  regla determinista que separe «nombró al ejecutor» de «nombró al que habló» —esa
+   *  fue la rotura nº2 del header, la consultoría—, así que la contradicción se DECLARA
+   *  y viaja hasta la fila, en vez de resolverse en silencio. */
+  atribucionDudosa?: boolean;
+};
 
 /** minúsculas, sin acentos, sin espacios de más. */
 export function normNombre(s: string): string {
@@ -59,14 +73,34 @@ export function resolverDueño(o: DueñoCrudo, yo: Yo, participantes: Participan
     || (!!dn && !!yoNombre && (dn === yoNombre || dn.includes(yoNombre) || yoNombre.includes(dn)))
     || (!!dn && !!yoNombre && primerNombre(dueñoDicho) === yoNombre.split(' ')[0] && !otroConMiPrimerNombre);
 
-  const esDeOtro = o.esMio === true ? false
-    : o.esMio === false ? !pareceMio
-      : (!!dn && !pareceMio);
+  // ── EL FLAG YA NO LE GANA AL EMAIL ────────────────────────────────────────────────
+  // Antes esto era `o.esMio === true ? false`, sin ningún «salvo»: cortaba ANTES de
+  // consultar `pareceMio`. El comentario de arriba prometía que la evidencia podía
+  // contradecir al modelo y para ese valor no podía — la confianza era asimétrica justo
+  // en la dirección peligrosa, que es reclamar una tarea ajena.
+  //
+  // No es lo que rompió la reunión del 12/8 (eso fue el gate de `reunion-auto`, ver
+  // lib/reunion-reparto.ts), pero es la misma falla esperando: el día que el modelo
+  // mande `esMio: true` sobre una tarea con el email de otro, entran 26 tareas ajenas al
+  // tablero del dueño sin que nada avise.
+  //
+  // `esMio` es un token que el modelo tira sin pensar; el email de un invitado REAL de
+  // la reunión es lo más caro de producir que hay acá. AGENTS.md ya tiene la regla:
+  // «cuando el saneo tenga que elegir entre dos señales que se contradicen, gana la más
+  // cara de producir». Se exige `!pareceMio` para no pisar nada cuando el nombre TAMBIÉN
+  // apunta a mí — que es el caso del apellido de la cuenta de Fathom.
+  const otroPorEmail = !pareceMio && !!emailReal && emailReal !== yoEmail;
+
+  const esDeOtro = otroPorEmail ? true
+    : o.esMio === true ? false
+      : o.esMio === false ? !pareceMio
+        : (!!dn && !pareceMio);
 
   return {
     dueño: dueñoDicho || (emailReal ? porEmail.get(emailReal)?.nombre ?? '' : ''),
     // El email de quien mira el tablero jamás cuenta como "de otro".
     dueñoEmail: emailReal === yoEmail ? '' : emailReal,
     esDeOtro,
+    atribucionDudosa: otroPorEmail && o.esMio === true ? true : undefined,
   };
 }
