@@ -565,6 +565,32 @@ el archivo y el motivo, uno por línea.
 
 **Vive en:** `scripts/curso-audio.mjs` (el bloque de `descartes`)
 
+### ⚠️ Un m4a interrumpido queda con nombre final y es ILEGIBLE: el `moov atom` va al final
+
+**Síntoma.** La clase 196 tenía su `.m4a` de 2,8 MB, con el nombre correcto, y ScreenApp
+lo aceptaba con HTTP 200 — pero la transcripción **nunca llegaba**. Re-subirla no
+cambió nada.
+
+**Causa.** El archivo estaba **corrupto**: `ffprobe` dice `moov atom not found` ·
+`Invalid data found`. En un MP4/M4A el `moov atom` (el índice) se escribe **al final**,
+así que un ffmpeg muerto a mitad deja un archivo de tamaño creíble, con el nombre
+definitivo, y sin nada decodificable. Acá lo mató el corte del loop con `TaskStop`.
+
+**Por qué sobrevivió tanto:** el script salteaba «lo que ya existe», y el archivo
+existía. ScreenApp no da error porque recibe bytes válidos *como archivo*. Los dos
+extremos daban verde y en el medio no había audio.
+
+**Regla, y aplica a cualquier salida de un proceso externo:** se escribe a un
+**`.parcial`**, se **verifica que decodifique** (`ffmpeg -v error -i x -f null -`), y
+recién entonces se renombra al nombre final. Un corte deja un `.parcial` que el filtro
+de entrada no mira, en vez de un `.m4a` mentiroso.
+
+Y la otra mitad, para lo que ya está en disco: **«existe» no es «está bien»**. Al
+saltear un archivo previo se valida; si no decodifica, se rehace. Sin eso, un archivo
+envenenado de una corrida vieja no se arregla nunca solo.
+
+**Vive en:** `scripts/curso-audio.mjs` (`valido`, `PARCIAL`)
+
 ### ScreenApp puede aceptar un archivo y no transcribirlo nunca, sin error
 
 **Síntoma.** La clase 196 tenía audio y `fileId`, y `GET /files/{id}` devolvía **HTTP

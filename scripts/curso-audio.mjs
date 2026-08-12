@@ -13,7 +13,7 @@
 //
 //   node scripts/curso-audio.mjs --de C:\cursos\video --a C:\cursos\audio
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -57,6 +57,21 @@ const duracion = (f) => {
 const correr = (args) => {
   const p = spawnSync(FFMPEG, args, { encoding: 'utf8' });
   if (p.status !== 0) throw new Error((`${p.stderr}`.trim().split('\n').slice(-4).join('\n')) || 'ffmpeg falló');
+};
+
+// ⚠️ Un m4a escribe su `moov atom` AL FINAL. Si el proceso muere a mitad —y acá murió,
+// porque el loop se cortó con el ffmpeg corriendo— queda un archivo de tamaño
+// razonable, con nombre final, y COMPLETAMENTE ilegible: «moov atom not found». El
+// script lo daba por hecho (saltea lo que ya existe) y ScreenApp lo aceptaba sin
+// error porque son bytes; la transcripción simplemente nunca llegaba.
+//
+// Por eso se escribe a un archivo PARCIAL y se renombra al final. Un corte deja un
+// .parcial —que el filtro de entrada no mira— en vez de un .m4a mentiroso.
+const PARCIAL = '.parcial';
+const valido = (f) => {
+  const p = spawnSync(FFMPEG, ['-v', 'error', '-i', f, '-f', 'null', '-'], { encoding: 'utf8' });
+  // ffmpeg con -f null decodifica de verdad: un moov faltante o datos truncados salen acá.
+  return p.status === 0 && !/moov atom not found|Invalid data found|error/i.test(`${p.stderr}`);
 };
 
 // ⚠️ Esta carpeta la puede estar ESCRIBIENDO el descargador ahora mismo, y los
@@ -125,8 +140,14 @@ for (const f of entradas) {
   const dest = join(A, `${nombre}.m4a`);
 
   // Reanudable: si ya existe la pieza (entera o la primera parte), no se rehace.
-  if (existsSync(dest) || existsSync(join(A, `${nombre}.parte00.m4a`))) {
-    console.log(`  = ${nombre}  (ya estaba)`);
+  // Pero «existe» no alcanza: un .m4a truncado de una corrida interrumpida existe y
+  // es ilegible. Se valida el que ya estaba y, si no decodifica, se regenera.
+  if (existsSync(dest)) {
+    if (valido(dest)) { console.log(`  = ${nombre}  (ya estaba)`); saltados++; continue; }
+    console.log(`  ↻ ${nombre}  (el que estaba no decodifica — lo rehago)`);
+    unlinkSync(dest);
+  } else if (existsSync(join(A, `${nombre}.parte00.m4a`))) {
+    console.log(`  = ${nombre}  (ya estaba, en partes)`);
     saltados++;
     continue;
   }
@@ -142,7 +163,13 @@ for (const f of entradas) {
       console.log(`  ✓ ${nombre}  →  ${piezas.length} partes, ${mb(total)} MB  (${Math.round(dur / 60)} min)`);
       partidos++;
     } else {
-      correr([...base, dest]);
+      // Atómico: se escribe al .parcial, se VERIFICA que decodifique, y solo
+      // entonces pasa a .m4a. Un corte deja un .parcial, no un .m4a mentiroso.
+      const tmp = join(A, `${nombre}${PARCIAL}`);
+      if (existsSync(tmp)) unlinkSync(tmp);
+      correr([...base, '-f', 'mp4', tmp]);
+      if (!valido(tmp)) { unlinkSync(tmp); throw new Error('el audio salió ilegible (no decodifica)'); }
+      renameSync(tmp, dest);
       const t = statSync(dest).size;
       // Red de seguridad: si igual se paso del tope real, avisar en vez de que
       // la transcripcion devuelva 413 mas tarde y parezca otro problema.
