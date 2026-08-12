@@ -312,6 +312,36 @@ Y para saber qué modelo corre **de verdad** una feature, el catálogo solo no a
 es `override del ws1 ?? def del catálogo`. Los overrides están en `app_settings` con
 `key='mako.modelos'`, siempre del workspace 1.
 
+# Y un fallback que NO cobra es una degradación silenciosa
+
+El espejo de la regla de arriba, y peor: **el cobro al menos deja rastro en la factura;
+esto no deja nada.**
+
+Medido el 12/8/2026. La MISMA llamada de Fathom, leída por dos workspaces con 65 segundos
+de diferencia: uno corrió sus 7 partes en `gemini-flash` y el otro las suyas en
+`mistral-small`, porque el 429 de la cuota compartida lo mandó cascada abajo. Mismo
+prompt, mismo transcript, misma versión del código. Resultado: **74% de precisión contra
+46%, y 2 tareas inventadas contra 12.** La tab decía «Gemini» y decía la verdad sobre la
+configuración — lo que corrió fue otra cosa, y no había forma de enterarse.
+
+La cascada barata está bien y hay que dejarla. Lo que faltaba es **decir dónde NO se puede
+degradar**, y el criterio no es «esta feature es importante»: es **qué forma tiene su
+error**.
+
+- Si un modelo peor **rompe** —JSON inválido, una tool que no se llama—, degradar es
+  gratis: se ve al toque y se reintenta.
+- Si un modelo peor **contesta mal** —un juicio, una clasificación, una extracción—, la
+  respuesta floja se ve exactamente igual que la buena. Nadie la revisa, no hay pantalla
+  que lo diga, y el daño aparece semanas después como «esto funciona mal y no sé por qué».
+
+Para las segundas va `fallback: []` en `lib/model-catalogo.ts`: antes que degradar el
+modelo, se paga Claude con la nota `⚠ fallback pago` visible. Es más caro y es honesto.
+
+**Y el corolario operativo, que es la causa real:** N llamadas grandes en paralelo contra
+UNA sola key son un 429 garantizado, y un 429 en la cascada no se reintenta — se degrada
+de proveedor. Si troceás un input y mandás las partes con `Promise.all`, estás eligiendo
+el modelo peor sin saberlo. Limitá la concurrencia; en un cron el tiempo no lo paga nadie.
+
 # El precio de un proveedor no es un dato hasta que lo verificás vos
 
 Antes de meter un modelo o un proveedor nuevo en `lib/model-catalogo.ts`, tres chequeos.

@@ -19,6 +19,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { CATALOGO_MODELOS, PROVEEDORES_PAGOS } from '../lib/model-catalogo';
 
 const pagos = () => CATALOGO_MODELOS.filter((f) => PROVEEDORES_PAGOS.includes(f.def.provider));
@@ -72,5 +75,51 @@ test('cada feature tiene feature, label y grupo — la UI los pinta', () => {
     assert.ok(f.def.provider && f.def.model, `${f.feature} sin modelo por default`);
     assert.ok(!vistos.has(f.feature), `feature duplicada: ${f.feature}`);
     vistos.add(f.feature);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Un fallback que no cobra es una degradación silenciosa
+// ---------------------------------------------------------------------------
+// 12/8/2026. La MISMA llamada de Fathom, leída por dos workspaces con 65 segundos de
+// diferencia: ws1 corrió sus 7 partes en `gemini-flash` y ws9 las suyas en
+// `mistral-small`, porque el 429 de la cuota compartida lo mandó cascada abajo. Mismo
+// prompt, mismo transcript: 74% de precisión contra 46%, 2 tareas inventadas contra 12.
+// La tab decía «Gemini» y decía la verdad sobre la config — lo que corrió fue otra cosa.
+//
+// El cobro silencioso al menos deja rastro en la factura. Este no deja nada.
+
+test('las features cuyo error ESCONDE trabajo no se pueden degradar de modelo', () => {
+  // Extraer los compromisos de una reunión y decidir si dos tareas son la misma son
+  // JUICIOS que después nadie revisa: un modelo peor no rompe, contesta mal, y una
+  // respuesta mal hecha se ve igual que una bien hecha. Antes que degradar, se paga.
+  for (const f of ['plan-fathom', 'mako-guardian']) {
+    const fila = CATALOGO_MODELOS.find((x) => x.feature === f);
+    assert.ok(fila, `desapareció la feature ${f}`);
+    assert.deepEqual(fila!.fallback, [], `${f} volvió a poder caerse a cualquier proveedor`);
+  }
+});
+
+test('la lista de proveedores de la cascada es la misma que la de ai-cheap', () => {
+  // `ProvCascada` está copiada en el catálogo porque `lib/ai-cheap.ts` es `server-only` y
+  // este archivo lo lee el test. Copiada sin guarda, el día que se agregue un proveedor
+  // esta lista se queda vieja y un `fallback` podría nombrar a alguien que ya no existe.
+  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'ai-cheap.ts'), 'utf8');
+  const m = src.match(/export type ProvName\s*=\s*([^;]+);/);
+  assert.ok(m, 'no pude leer ProvName de lib/ai-cheap.ts');
+  const deAllá = [...m![1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]).sort();
+  const src2 = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'model-catalogo.ts'), 'utf8');
+  const m2 = src2.match(/export type ProvCascada\s*=\s*([^;]+);/);
+  assert.ok(m2, 'no pude leer ProvCascada de lib/model-catalogo.ts');
+  const deAcá = [...m2![1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]).sort();
+  assert.deepEqual(deAcá, deAllá);
+});
+
+test('un `fallback` declarado solo nombra proveedores que existen', () => {
+  const validos = new Set(['groq', 'openai', 'gemini', 'cerebras', 'mistral', 'openrouter']);
+  for (const f of CATALOGO_MODELOS) {
+    for (const p of f.fallback ?? []) {
+      assert.ok(validos.has(p), `${f.feature}: «${p}» no es un proveedor de la cascada`);
+    }
   }
 });

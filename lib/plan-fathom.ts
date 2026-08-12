@@ -738,7 +738,20 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
       return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined, fallo: true };
     });
   };
-  const salidas = await Promise.all(partes.map((p, i) => conReintento(p, i)));
+  // ⚠️ DE A DOS, NO TODAS JUNTAS. Siete llamadas de ~19k tokens simultáneas contra UNA
+  // sola key de Gemini son un 429 garantizado — y un 429 en la cascada barata no se
+  // reintenta si hay otro proveedor esperando: se degrada de modelo. El 12/8/2026 eso
+  // mandó una reunión entera a `mistral-small` mientras el workspace de al lado, con la
+  // MISMA llamada 65 segundos antes, corría en `gemini-flash`: 46% de precisión contra
+  // 74%, 12 tareas inventadas contra 2, y la tab diciendo «Gemini».
+  //
+  // El costo es tiempo y no lo paga nadie: una reunión de 2h35 pasa de ~20 s a ~70 s, y
+  // esto corre en un cron de madrugada.
+  const CONCURRENCIA = 2;
+  const salidas: Array<Awaited<ReturnType<typeof conReintento>>> = [];
+  for (let i = 0; i < partes.length; i += CONCURRENCIA) {
+    salidas.push(...await Promise.all(partes.slice(i, i + CONCURRENCIA).map((p, j) => conReintento(p, i + j))));
+  }
   // Cuántos tramos se perdieron DE VERDAD: el caller decide si el resultado es
   // confiable (el cron NO cierra una reunión leída a medias).
   const partesFallidas = salidas.filter((s) => s.fallo).length;

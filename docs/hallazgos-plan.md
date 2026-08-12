@@ -507,6 +507,29 @@ Del mismo hilo: **nada de jerga interna ni tecnicismos** en lo que ve el cliente
 
 ## De la reunión a la tarea (Fathom)
 
+### ⚠️⚠️ La extracción no corrió en Gemini, y por eso «funcionaba tan mal»
+
+**12/8/2026.** El dueño: *«en el otro chat de Customer Success me dice que extrajo 25 tareas de la misma transcripción, mientras que dentro de MaKo solo tengo 3… NO entiendo por qué está funcionando tan mal»*.
+
+**La misma llamada la leyeron DOS workspaces con 65 segundos de diferencia, y salió distinta.** El registro de gasto lo dice sin ambigüedad:
+
+| | modelo | precisión | recall | inventadas |
+|---|---|---|---|---|
+| ws1 (7 partes) | `gemini-flash-latest` | **74%** | 64% | **2** |
+| ws9 (7 partes) | `mistral-small-latest` | **46%** | 61% | **12** |
+
+Mismo prompt, mismo transcript, misma versión del código. **La diferencia es el modelo**, y nadie la eligió: el 429 de la cuota compartida de Gemini mandó al segundo cascada abajo. La tab `/modelos-ia` decía «Gemini» y decía la verdad sobre la *configuración* — lo que corrió fue otra cosa.
+
+Y no fue solo la extracción. En esa misma ventana, `mako-guardian` del ws9 corrió sus 6 llamadas en `mistral-small` también: **es el mismo hecho que explica los 16 de 16 cruces falsos** del hallazgo de abajo. Un solo 429 degradó la lectura de la reunión Y el cruce que decide qué se esconde.
+
+**El disparador es una línea:** `Promise.all(partes.map(...))` mandaba las 7 partes de ~19k tokens simultáneas contra UNA key. Un 429 así es inevitable — y un 429 en la cascada barata **no se reintenta**: se degrada de proveedor. Trocear un input y mandarlo todo junto es elegir el modelo peor sin saberlo. Ahora van de a dos: la reunión tarda ~70 s en vez de ~20 s, en un cron de madrugada.
+
+**Y el criterio que queda, que no es «esta feature es importante»:** lo que decide si se puede degradar es **qué forma tiene el error**. Si el modelo peor *rompe* (JSON inválido, tool que no se llama), degradar es gratis — se ve y se reintenta. Si *contesta mal* (un juicio, una extracción), la respuesta floja se ve igual que la buena, nadie la revisa, y el daño aparece semanas después como «esto funciona mal y no sé por qué». Para esas va `fallback: []`.
+
+⚠️ **La cuenta que hay que tener a mano cuando alguien dice «MaKo sacó menos tareas de las que hay»:** de 28 compromisos reales, MaKo encontró 17 (61%). De los 13-14 que eran del dueño, **se perdieron 6 — la mitad — y no hay ninguna pantalla que lo diga.** Los números que él veía (3, 25, 37) medían tres cosas distintas: 3 era lo tildado después del cruce, 25 los compromisos de los DOS, 37 las tarjetas con sus 8 repeticiones y 12 invenciones adentro.
+
+**Vive en:** lib/model-catalogo.ts (`fallback`) · lib/model-registry.ts (`fallbackDeFeature`) · lib/anthropic.ts (la cascada) · lib/plan-fathom.ts (la concurrencia) · *2026-08-12*
+
 ### ⚠️⚠️ La confianza del modelo no es la confianza: «alta» escondía 8 de cada 11 tareas
 
 **12/8/2026.** El botón del modal decía **«Agregar 3 al plan»** sobre una reunión de la que salían once cosas del dueño. Las otras 8 llegaron destildadas porque el cruce anti-duplicados dijo «ya está en tu plan» con confianza «alta», y **las ocho eran falsas.**

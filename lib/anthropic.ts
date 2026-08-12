@@ -37,7 +37,7 @@ export async function chatClaude(
   let fallbackNota = ''; // si caímos de la IA barata a Claude, lo dejamos VISIBLE en el historial
   if (!opts.model && opts.feature) {
     try {
-      const { modeloDeFeature } = await import('@/lib/model-registry');
+      const { modeloDeFeature, fallbackDeFeature } = await import('@/lib/model-registry');
       const ref = await modeloDeFeature(opts.feature);
       if (ref && ref.provider !== 'anthropic') {
         // ⚠️ CLAUDE ES EL ÚLTIMO RECURSO, NO EL SEGUNDO.
@@ -65,7 +65,18 @@ export async function chatClaude(
           : opts.effort === 'medium' ? 'low' : 'minimal';
         // El del registro va PRIMERO y el resto detrás, sin repetir. CASCADA_DOCS es la
         // lista larga (la que incluye Gemini) porque estas llamadas son las grandes.
-        const provs = [ref.provider as ProvName, ...CASCADA_DOCS.filter((p) => p !== ref.provider)];
+        //
+        // ⚠️ SALVO QUE LA FEATURE DIGA QUE NO SE DEGRADA. Un fallback que no cobra no
+        // dispara ninguna alarma y por eso nadie lo mira: el 12/8/2026 la MISMA reunión,
+        // leída por dos workspaces con 65 segundos de diferencia, corrió en gemini-flash
+        // en uno y en mistral-small en el otro —el 429 de la cuota compartida— y salió
+        // 74% de precisión contra 46%, con 2 invenciones contra 12. La tab decía
+        // «Gemini» y decía la verdad sobre la config. Con `fallback: []` la cascada se
+        // queda en un solo proveedor y, si no contesta, cae al pago de abajo con la nota
+        // visible: es más caro y es honesto. El detalle en lib/model-catalogo.ts.
+        const permitidos = await fallbackDeFeature(opts.feature);
+        const resto = (permitidos ?? CASCADA_DOCS) as ProvName[];
+        const provs = [ref.provider as ProvName, ...resto.filter((p) => p !== ref.provider)];
         const errores: string[] = [];
         const salida = await chatCheapCascade({
           system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,

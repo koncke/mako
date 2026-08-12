@@ -41,6 +41,20 @@ export async function modeloDeFeature(feature?: string): Promise<ModeloRef | nul
   return CATALOGO_MODELOS.find((f) => f.feature === feature)?.def ?? null;
 }
 
+/**
+ * A qué proveedores se puede caer esta feature si su modelo no contesta.
+ * `null` = sin restricción (la cascada entera, que es lo de siempre).
+ * `[]` = a ninguno: antes que degradar el modelo, se paga.
+ *
+ * Sale del CATÁLOGO y no de los overrides a propósito: el dueño elige QUÉ modelo corre
+ * cada feature, pero «esta feature no se puede degradar» es una propiedad del trabajo,
+ * no una preferencia. Ver el comentario de `fallback` en lib/model-catalogo.ts.
+ */
+export async function fallbackDeFeature(feature?: string): Promise<string[] | null> {
+  if (!feature) return null;
+  return CATALOGO_MODELOS.find((f) => f.feature === feature)?.fallback ?? null;
+}
+
 /** Solo el override MANUAL del dueño (null si está usando el default del catálogo).
  *  El router lo respeta como pin: si el dueño fijó un modelo, no lo pisa. */
 export async function overrideDeFeature(feature?: string): Promise<ModeloRef | null> {

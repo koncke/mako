@@ -28,7 +28,33 @@ export type FeatureModelo = {
    * plata, en una frase. Lo exige un test — ver la regla debajo.
    */
   pagoPorque?: string;
+  /**
+   * A qué proveedores se puede caer si `def` no contesta. Omitido = la cascada entera
+   * (lo de siempre). `[]` = A NINGUNO: antes que degradar el modelo, pagar Claude.
+   *
+   * ⚠️ UN FALLBACK QUE NO COBRA ES UNA DEGRADACIÓN SILENCIOSA — el espejo exacto de la
+   * regla de acá abajo, y peor, porque el cobro al menos deja rastro en la factura.
+   *
+   * Medido el 12/8/2026 sobre la MISMA llamada de Fathom, leída por dos workspaces con
+   * 65 segundos de diferencia: ws1 corrió sus 7 partes en `gemini-flash` y ws9 las suyas
+   * en `mistral-small`, porque el 429 de la cuota compartida mandó al segundo cascada
+   * abajo. Mismo prompt, mismo transcript, resultados distintos: precisión 74% contra
+   * 46%, 2 invenciones contra 12. La tab decía «Gemini» y decía la verdad sobre la
+   * config — lo que corrió fue otra cosa, y no había forma de enterarse.
+   *
+   * Se pone `[]` donde el resultado es un JUICIO que después nadie revisa: extraer los
+   * compromisos de una reunión, decidir si dos tareas son la misma. Ahí un modelo peor
+   * no falla, contesta mal — y una respuesta mal hecha se ve igual que una bien hecha.
+   *
+   * El tipo se escribe acá y no se importa de `lib/ai-cheap.ts` (`ProvName`) porque aquel
+   * es `server-only` y este catálogo lo lee también el test, que además verifica que las
+   * dos listas sigan siendo la misma.
+   */
+  fallback?: ProvCascada[];
 };
+
+/** Los proveedores de la cascada barata. Espejo de `ProvName` en lib/ai-cheap.ts. */
+export type ProvCascada = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 
 /**
  * ⚠️ UN DEFAULT QUE COBRA ES UN COBRO SILENCIOSO.
@@ -83,7 +109,12 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // un lote son 40 tareas — así que era el que más gastaba, y su trabajo es
   // clasificar contra una rúbrica escrita, no razonar sobre datos de clientes.
   // Además NO lleva PII: ve títulos y detalles de tareas del propio negocio.
-  { feature: 'mako-guardian', label: 'Perro Guardián — cerebro de priorización (/plan)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), nota: 'Puntúa, rutea a proyectos y detecta duplicados. Clasificación contra rúbrica, sin datos de clientes → Gemini Flash. Si alguna vez afloja el criterio, se vuelve a Sonnet desde acá sin tocar código.' },
+  // `fallback: []` por lo mismo que plan-fathom, y con su propia medición: el 12/8 sus 6
+  // llamadas del workspace 9 corrieron en mistral-small, y el cruce anti-duplicados de
+  // esa corrida marcó 16 de 16 falsos positivos con confianza «alta» — o sea escondió 8
+  // tareas reales de una reunión. Un juicio flojo no falla: contesta mal, y una respuesta
+  // mal hecha se ve igual que una bien hecha.
+  { feature: 'mako-guardian', label: 'Perro Guardián — cerebro de priorización (/plan)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), fallback: [], nota: 'Puntúa, rutea a proyectos y detecta duplicados. Clasificación contra rúbrica, sin datos de clientes → Gemini Flash. NO se degrada de modelo: sus errores esconden tareas en vez de romper.' },
   { feature: 'checklist-coach', label: 'MaKo te ayuda (tareas y proyectos)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe la descripción y la checklist de cada tarea nueva. Es la llamada más voluminosa del Perro (una por lote, con todas las tareas adentro) → Gemini Flash.' },
 
   // ── Análisis pesado sobre datos reales → OPUS (los únicos que se quedan) ─────
@@ -110,7 +141,11 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // Es exactamente el perfil de gasto silencioso de `plan-fathom` (US$37 en 30
   // días por caer en su default sin que nadie lo mirara), pero multiplicado.
   { feature: 'cs-reescritura', label: 'Mejorar la tarea del cliente con lo hablado en la junta', grupo: 'Análisis', def: GEMINI(), nota: 'Reescribe la respuesta de un bloque con el resumen de la sesión. Es reescritura sobre material dado, no juicio: no hace falta pagar. Y corre en tanda, así que sale por la cascada gratis y no por un fallback que cobre al primer 429.' },
-  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: GEMINI(), nota: 'El problema NUNCA fue el modelo sino que se cortaba el transcript (14k→completo): con la reunión entera cualquier modelo con contexto saca los 16 action items. 1 vez por reunión (cacheada).' },
+  // `fallback: []` — «cualquier modelo con contexto saca los action items» resultó FALSO,
+  // medido el 12/8 sobre la misma llamada leída por dos workspaces con 65 s de
+  // diferencia: gemini-flash 74% de precisión y 2 invenciones, mistral-small 46% y 12.
+  // Antes que degradar el modelo se paga Sonnet, con la nota «⚠ fallback pago» visible.
+  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: GEMINI(), fallback: [], nota: 'Lo que se lee mal acá no se nota: una tarea que no se extrajo no aparece en ninguna pantalla. Por eso NO se degrada de modelo — si Gemini no contesta, paga Sonnet. 1 vez por reunión (cacheada).' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: GEMINI(), nota: 'Estrategia + voz de marca. Sonnet.' },
