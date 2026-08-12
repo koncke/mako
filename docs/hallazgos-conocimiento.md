@@ -476,6 +476,64 @@ igual: los nueve `JSON.parse(readFileSync(...))` de `scripts/curso-*` llevan
 
 **Vive en:** los nueve `JSON.parse` de `scripts/curso-*.mjs`
 
+### Los cursos de `/vip/` tienen 71 recursos que el plan no bajaba, y nada lo avisaba
+
+**Síntoma.** El curso quedó «completo» con 247 videos y **cero PDFs**. Ninguna señal.
+
+**Causa.** `curso-plan-vip.mjs` saca las lecciones del RPC `get_vip_lessons_secure` y
+deja `pdfs: []`. Pero el material de apoyo vive en otros dos endpoints, y hacen falta
+los **dos**: `vip_course_resources` (título, módulo, `file_type`, `file_size`) y
+`rpc/get_vip_resource_urls` (la URL **firmada** de cada archivo). Se juntan por `id`.
+En ATV Advantage son **71 archivos** (47 pdf, 9 link, 6 xlsx, 2 docx).
+
+**Regla.** `scripts/curso-recursos-vip.mjs`. Las URLs firmadas no piden sesión pero
+**caducan**, así que se capturan y se usan en la misma corrida.
+
+### ⚠️ Tercera vez que un contador miente: 71 «bajados» y 64 archivos en disco
+
+**Síntoma.** `71 bajado(s) · 0 con error`. En disco había **64**.
+
+**Causa.** Los títulos de los recursos **no son únicos**: 7 recursos distintos se
+llaman «Miro» dentro del mismo módulo. El nombre de archivo se armaba con
+`<módulo> - <título>.<ext>`, así que los 7 escribieron sobre el mismo archivo. El
+contador sumaba **intentos**, no resultados, y el error se presentó como éxito.
+
+**Regla, y ya van tres del mismo molde** (el id placeholder de Drive, el «20/20 OK»
+sin archivos arriba, y este): **un contador que suma dentro del bucle no es una
+verificación.** El resumen se calcula contra el destino real —`readdirSync` del
+directorio— y si no coincide con lo esperado, se dice en el propio resumen.
+
+Y la mitad que hace falta igual: el nombre se hace único de forma **determinista**
+(`sort_order` y, si aún choca, los 6 primeros del `id`), no con un contador de
+iteración. Si no, la segunda corrida genera otros nombres y el «ya estaba» deja de
+funcionar: se re-baja todo y se duplica.
+
+**Vive en:** `scripts/curso-recursos-vip.mjs` (`nombreUnico`, y el conteo contra disco)
+
+### Las 2 clases que faltan de ATV no se pueden bajar, y la fuente lo dice de tres formas
+
+**Pregunta que aparece sola:** ¿quedó el curso incompleto por culpa del método?
+
+**No.** Las clases 78 y 125 (de 249) apuntan a videos de Vimeo que **no existen**, y
+la propia plataforma lo declara:
+
+1. `duration: "00:00"` en su base — su ingesta nunca tuvo un video con duración.
+2. `player.vimeo.com/video/<id>` → **HTTP 404**, que es la MISMA URL que embebe su
+   iframe. No es un problema de nuestra ruta.
+3. Un 404 **no** es un fallo de permisos: los otros 247 dieron 200 con el mismo
+   Referer y sin cookies. Si fuera acceso, serían 401/403.
+
+Los registros son estructuralmente idénticos a los sanos (mismo curso, módulo válido,
+`is_free: false`): es una **referencia rota en la base de la plataforma**.
+
+**Regla.** No se reintenta lo que la fuente declara vacío, y la clase igual entra al
+portal: `Clase.videoId` acepta `null`, así que queda con su título y el espacio de
+apuntes. Lo único que destraba esas dos es que la plataforma re-suba el video.
+
+⚠️ Y el contraste que importa: la clase **193** falló en la misma corrida y **sí** se
+recuperó reintentando (33:39, resuelve m3u8 y MPD). Duración cero = muerta;
+duración real que falla = transitoria. La metadata distingue los dos casos.
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato
