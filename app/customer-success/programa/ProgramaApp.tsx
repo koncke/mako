@@ -351,9 +351,11 @@ function CardGrabar({ m }: { m: Modulo }) {
     <CardPrograma
       href={`/customer-success/programa?m=${m.id}`}
       filo={enWhop / Math.max(1, m.clases.length)}
-      rotulo={`MÓDULO ${m.numero}`}
-      chips={<span className="fase">{FASE[m.fase] ?? m.fase}</span>}
-      titulo={m.titulo}
+      // El número va DENTRO del título, no arriba en chiquito: «Módulo 1» y el
+      // nombre son una sola cosa, y partirlos en dos renglones le quitaba el
+      // protagonismo justo a la mitad que se reconoce de un vistazo.
+      rotulo={FASE[m.fase] ?? m.fase}
+      titulo={`Módulo ${m.numero}: ${m.titulo}`}
       grande
       tags={<>
         {destraban > 0 && <Status tono="mako">{destraban} {destraban === 1 ? 'destraba' : 'destraban'}</Status>}
