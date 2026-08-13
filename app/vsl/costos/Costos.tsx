@@ -393,6 +393,11 @@ export default function Costos() {
                 <td className="n">$39/mes</td>
                 <td className="w">Es costo de servicio, no desperdicio. Vale confirmar que cada cliente lo cubra.</td>
               </tr>
+              <tr>
+                <td className="w"><strong>⚠️ Hay cuentas de IA sin saldo</strong></td>
+                <td className="n">Urgente</td>
+                <td className="w">Tres cuentas quedaron sin crédito y su análisis de llamadas viene fallando. No cuesta plata (la llamada se rechaza antes de cobrar), pero esas reuniones no se analizan. Ver el detalle abajo.</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -667,6 +672,22 @@ export default function Costos() {
                 su análisis de llamadas y nadie se entera</strong>. El costo hoy está controlado por
                 una falla, no por un diseño. Y arreglarlo <em>sube</em> la factura, porque recién ahí
                 se entrega el servicio completo.
+              </p>
+            </div>
+            <div className="note warn">
+              <span className="tag">⚠️ Encontrado el 13 de agosto, y está pasando ahora</span>
+              <p>
+                Revisando el sistema aparecieron <strong>37 análisis de llamadas fallando porque la
+                cuenta de inteligencia artificial se quedó sin saldo</strong>, y otros 20 que
+                fallaron en su momento porque faltaba cargar la clave. El último es de hoy.
+              </p>
+              <p>
+                <strong>No cuesta plata</strong> —la llamada se rechaza antes de cobrar— pero esas
+                reuniones no se analizan y nadie se entera: el sistema las reintenta todos los días
+                y vuelven a fallar. Hay que <strong>cargarle saldo a esas cuentas</strong>. El
+                arreglo del lado del código ya está: ahora un fallo así no consume el cupo de
+                análisis del día y corta después de tres seguidos, en vez de gastar la corrida
+                entera reintentando.
               </p>
             </div>
             <p>Junto a esto hay otras dos cosas que hay que resolver antes de sumar clientes:</p>
