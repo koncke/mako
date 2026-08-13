@@ -31,6 +31,11 @@ export async function GET(request: NextRequest) {
 
   const t0 = Date.now();
   try {
+    // Compartido entre las iteraciones: dos workspaces pueden apuntar a la MISMA
+    // cuenta de Meta (le pasa al Cliente de Prueba, que tiene copia de las
+    // credenciales del dueño). Una cuenta suspendida es UN problema y se avisa
+    // UNA vez. Ver la nota en lib/alerta-critica.ts.
+    const cuentasYaAvisadas = new Set<string>();
     const workspaces = await correrPorWorkspace('meta', async (ws) => {
       // Refrescar el estado. Si Meta no contesta NO se corta: los incidentes ya
       // abiertos tienen que seguir persiguiendo igual — que la API esté caída no
@@ -40,7 +45,7 @@ export async function GET(request: NextRequest) {
       } catch (e) {
         console.error(`[cron:alerta-critica] ws=${ws} no se pudo leer Meta: ${e instanceof Error ? e.message : String(e)}`);
       }
-      const res = await insistirAlertasCriticas(ws);
+      const res = await insistirAlertasCriticas(ws, { cuentasYaAvisadas });
       // Se logea solo cuando hay algo: este cron corre 144 veces por día y una
       // línea por corrida vacía tapa la que importa.
       if (res.criticos || res.resueltos || res.errores) {

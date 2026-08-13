@@ -170,7 +170,7 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     // El `ejemplo` de acá es la PRIMERA vez; las siguientes son más cortas.
     // Editar este texto no cambia el de la insistencia (un mensaje de emergencia
     // no se reescribe cada quince minutos) — se toca en alerta-critica.ts.
-    disparador: 'Cron alerta-critica (cada 10 min): hay un incidente ABIERTO en service_incidents con entrega frenada o severidad roja. Se repite hasta que se resuelva; al resolverse sale meta-cuenta-recuperada.',
+    disparador: 'Cron alerta-critica: revisa cada 10 min y AVISA cada 1 hora mientras haya un incidente ABIERTO en service_incidents con entrega frenada o severidad roja (detectar rápido e insistir seguido son dos cosas distintas). Se repite hasta que se resuelva; al resolverse sale meta-cuenta-recuperada. Si dos workspaces comparten la misma cuenta publicitaria, avisa UNA vez.',
     ejemplo: `━━ 📣 ANUNCIOS ━━
 🚨🚨🚨 *PARÁ TODO* 🚨🚨🚨
 

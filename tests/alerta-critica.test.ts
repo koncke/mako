@@ -67,13 +67,36 @@ test('La entrega frenada INSISTE, y la insistencia no se apoya en el dedup', () 
   assert.ok(src.includes('emitirAviso('),
     'dejó de emitir por el choke point');
 
-  // La cadencia nunca puede aflojar más allá de la media hora: el pedido del
-  // dueño fue «frecuencia MUY alta hasta que se solucione».
-  const cadencias = [...src.matchAll(/cadaMin:\s*(\d+)/g)].map((m) => Number(m[1]));
-  assert.ok(cadencias.length >= 2, 'se perdió la tabla de cadencia');
-  assert.ok(Math.max(...cadencias) <= 30,
-    `la insistencia bajó a cada ${Math.max(...cadencias)} min: con la entrega frenada eso es silencio`);
-  assert.ok(Math.min(...cadencias) <= 10, 'la primera hora dejó de ser agresiva');
+  // Una hora, fija. El dueño la bajó de 10 min a 60 el 12/8 después de verla
+  // andando: seis mensajes por hora del mismo tema entierran el resto de los
+  // avisos de MaKo en el mismo grupo. Lo que hace que funcione no es la
+  // frecuencia, es que NO SE DETIENE — por eso el techo se testea igual.
+  const cadencia = Number(/CADENCIA_MIN = (\d+)/.exec(src)?.[1] ?? '0');
+  assert.ok(cadencia > 0, 'se perdió la cadencia');
+  assert.ok(cadencia <= 60,
+    `la insistencia bajó a cada ${cadencia} min: con la cuenta suspendida eso ya es silencio`);
+});
+
+test('Una cuenta publicitaria compartida se avisa UNA vez, no una por workspace', () => {
+  const src = sinComentarios(leer('../lib/alerta-critica.ts'));
+  // Al dueño le llegó dos veces en dos grupos: `Cliente de Prueba` tiene su
+  // propia copia de las credenciales de Meta y apunta a la MISMA cuenta. Una
+  // cuenta suspendida es UN problema.
+  assert.ok(src.includes("credWs('META_AD_ACCOUNT_ID'"),
+    'dejó de mirar de qué cuenta publicitaria se trata: vuelve a avisar una vez por workspace');
+  assert.ok(/cuentasYaAvisadas/.test(src), 'se perdió el registro de cuentas ya avisadas de la corrida');
+
+  // ⚠️ Y NO se resuelve excluyendo el workspace de prueba: un guard negativo se
+  // queda viejo con el próximo cliente al que se le copien credenciales.
+  assert.ok(!/!==\s*3\b|ws\s*===\s*3\b|OWNER_WS\s*!==/.test(src),
+    'apareció un guard por número de workspace: el criterio es la cuenta, no quién es el cliente');
+
+  // El corte va DESPUÉS de cerrar los resueltos: si no, un workspace que ya
+  // venía insistiendo nunca podría decir «ya está» y quedaría colgado.
+  const iCierre = src.indexOf("'meta-cuenta-recuperada'");
+  const iCorte = src.indexOf('cuentaTomada');
+  assert.ok(iCierre > 0 && iCorte > iCierre,
+    'el corte por cuenta compartida quedó antes del cierre: la insistencia de ese workspace no se apaga nunca');
 });
 
 test('Insistir sin saber parar es peor: al resolverse, avisa y limpia', () => {

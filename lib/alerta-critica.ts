@@ -40,27 +40,26 @@ import 'server-only';
 
 import { getTenantDb } from './workspace';
 import { getSetting, setSetting } from './settings';
+import { credWs } from './credenciales';
 import { emitirAviso, emitirDelCatalogo } from './avisos';
 import { encabezadoAviso } from './avisos-catalogo';
 import { APP_BASE_URL } from './app-url';
 import { textoAlerta, textoRecuperada, causaDe } from './alerta-critica-texto';
 
 /**
- * CADA CUÁNTO VUELVE A AVISAR, según hace cuánto que el problema está abierto.
+ * CADA CUÁNTO VUELVE A AVISAR mientras el problema siga abierto.
  *
- * No baja de 15 minutos ni siquiera después de un día. Es a propósito y va en
- * contra de lo que hace todo el mundo (bajar la frecuencia para no molestar):
- * mientras la entrega está frenada, cada hora de silencio es un día de leads
- * perdido. Si molesta, se resuelve — que es el punto.
+ * UNA HORA, sin escalones. Lo bajó el dueño el 12/8 después de verlo andando:
+ * la primera versión arrancaba cada 10 minutos y en la práctica eso no es
+ * insistir, es tapar el grupo — con el resto de los avisos de MaKo compitiendo
+ * ahí adentro, seis mensajes por hora del mismo tema entierran todo lo demás.
+ *
+ * Lo que hace que funcione no es la frecuencia: es que NO SE DETIENE. Cada hora,
+ * sin aflojar nunca, hasta que se resuelva.
  */
-const CADENCIA: ReadonlyArray<{ hastaMin: number; cadaMin: number }> = [
-  { hastaMin: 60, cadaMin: 10 },        // la 1ª hora: cada 10 minutos
-  { hastaMin: 6 * 60, cadaMin: 15 },    // hasta 6 h: cada 15
-  { hastaMin: Infinity, cadaMin: 20 },  // de ahí en más: cada 20, para siempre
-];
+const CADENCIA_MIN = 60;
 
-const cadaCuanto = (minAbierto: number): number =>
-  (CADENCIA.find((c) => minAbierto < c.hastaMin) ?? CADENCIA[CADENCIA.length - 1]).cadaMin;
+const cadaCuanto = (_minAbierto: number): number => CADENCIA_MIN;
 
 /** Estado de la insistencia de UN incidente. Vive en settings, por workspace. */
 const keyInsistencia = (incidenteId: number) => `mako.alerta.insistencia.${incidenteId}`;
@@ -96,7 +95,10 @@ export type ResultadoAlertas = {
  * Persigue los incidentes críticos abiertos de ESTE workspace y avisa los que
  * toca. Corre dentro de runWithWorkspace (lo llama el cron).
  */
-export async function insistirAlertasCriticas(ws: number): Promise<ResultadoAlertas> {
+export async function insistirAlertasCriticas(
+  ws: number,
+  opts: { cuentasYaAvisadas?: Set<string> } = {},
+): Promise<ResultadoAlertas> {
   const out: ResultadoAlertas = { abiertos: 0, criticos: 0, avisados: 0, resueltos: 0, errores: 0 };
   const db = await getTenantDb();
 
@@ -145,10 +147,38 @@ ${textoRecuperada()}`,
     console.error(`[alerta-critica] ws=${ws} cierre: ${e instanceof Error ? e.message : String(e)}`);
   }
 
+  // ⚠️ LA ALERTA ES SOBRE UNA CUENTA PUBLICITARIA, NO SOBRE UN WORKSPACE.
+  //
+  // El dueño lo vio a los minutos de desplegar: le llegaba DOS VECES, en dos
+  // grupos. No era un bug de ruteo — cada mensaje fue al grupo correcto de su
+  // workspace. Lo que pasa es que dos workspaces apuntan a la MISMA cuenta de
+  // Meta: `Cliente de Prueba` (ws3) tiene su propia copia de las credenciales
+  // (`credenciales`, clave META_AD_ACCOUNT_ID), que es justamente lo que lo
+  // hace útil como cliente de prueba. Una cuenta suspendida es UN problema; que
+  // dos workspaces la miren no lo convierte en dos.
+  //
+  // Se dedupea por el ID de la cuenta y no excluyendo el workspace de prueba, y
+  // eso NO es un detalle: un guard negativo («todos menos ws3») se queda viejo
+  // con el próximo cliente al que se le copien credenciales, y encima se queda
+  // viejo en silencio (AGENTS.md — «un guard se escribe en POSITIVO»).
+  //
+  // Gana el PRIMER workspace de la iteración, que es el de menor id: el dueño.
+  // Los demás igual registran su incidente —la pantalla de cada uno tiene que
+  // decir la verdad— pero no vuelven a avisar por WhatsApp.
+  // Va DESPUÉS del cierre de los resueltos, a propósito: si este workspace ya
+  // venía insistiendo, tiene que poder decir «ya está» y limpiar su marca. Un
+  // corte más arriba lo dejaría con la insistencia colgada para siempre.
+  const cuentaId = (await credWs('META_AD_ACCOUNT_ID', ws).catch(() => null))?.trim() || null;
+  const yaAvisadas = opts.cuentasYaAvisadas;
+  const cuentaTomada = Boolean(cuentaId && yaAvisadas?.has(cuentaId));
+  if (cuentaTomada) console.log(`[alerta-critica] ws=${ws} comparte la cuenta ${cuentaId} con otro workspace ya avisado — no repito`);
+
+
   // ── Los que siguen abiertos: perseguir ────────────────────────────────────
   for (const inc of abiertos) {
     if (!esCritico(inc)) continue;
     out.criticos += 1;
+    if (cuentaTomada) continue;
     try {
       const key = keyInsistencia(inc.id);
       const raw = await getSetting(key).catch(() => null);
@@ -189,6 +219,11 @@ ${textoRecuperada()}`,
       // que él silenció.
       if (res.wa || res.apagado) {
         await setSetting(key, JSON.stringify({ ultimaIso: new Date().toISOString(), veces: veces + 1 } satisfies Insistencia)).catch(() => {});
+        // La cuenta queda tomada por ESTA corrida: el próximo workspace que
+        // apunte a la misma no vuelve a avisar. Se marca también cuando el aviso
+        // está apagado — si el dueño lo silenció, que otro workspace lo grite
+        // por la misma cuenta es exactamente lo que él apagó.
+        if (cuentaId) yaAvisadas?.add(cuentaId);
         if (res.wa) out.avisados += 1;
       } else {
         out.errores += 1;
