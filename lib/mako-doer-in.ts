@@ -16,7 +16,7 @@
 import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
-import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE } from '@/lib/respuesta-doer';
+import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, mensajeLeadPropuesto, EJEMPLO_LEAD } from '@/lib/respuesta-doer';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
@@ -227,8 +227,8 @@ CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, agendar una reunión, act
 
 CUANDO TE PIDEN CARGAR UNA PERSONA AL CRM ("agregá este lead", "cargá a fulano", "me sumás a este contacto"):
 - Si te COMPARTIERON UNA TARJETA DE CONTACTO, los datos ya te llegaron en el mensaje: usalos, NO los pidas de nuevo.
-- Con el nombre alcanza para proponer. Llamá 'proponer_lead' y pasale al dueño el LINK que te devuelve, tal cual. NO pidas confirmación por el chat: se revisa y se confirma en esa pantalla, que además es editable.
-- ⛔ NUNCA digas "lo ingreso directo al CRM" ni "ya lo cargué": vos PROPONÉS, la persona confirma. Prometer lo que no hacés es peor que no poder hacerlo.
+- Con el nombre alcanza para proponer. Llamá 'proponer_lead' y TERMINÁ AHÍ: el mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_LEAD}"), y reemplaza lo que vos contestes en ese turno. No lo escribas vos y NO copies el link.
+- ⛔ NUNCA digas "anotado", "listo", "lo ingresé al CRM" ni "ya lo cargué". El lead NO EXISTE hasta que la persona confirma en esa pantalla. Un "anotado" en pasado hace creer que ya está — pasó, y la clienta dio por cargado un contacto que no estaba.
 - ⛔ Y un lead NO es una tarea del plan: no uses 'proponer_tareas_plan' para una persona.
 - Si de verdad no te llegó ningún dato, pedí nombre y teléfono. Pero si te mandaron algo que no pudiste leer, DECÍ QUÉ LLEGÓ ("me llegó una tarjeta de contacto y no la pude abrir") en vez de afirmar que no llegó nada.
 
@@ -744,6 +744,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // —peor— uno que resolvía a un borrador real pero equivocado.
     // Ver lib/link-borrador.ts.
     let linkBorrador: string | null = null;
+    // Lo mismo que `linkBorrador` pero para el alta de un lead: el mensaje lo
+    // escribe el CÓDIGO. Ver mensajeLeadPropuesto en lib/respuesta-doer.ts.
+    let linkLead: string | null = null;
+    let nombreLead = '';
     let tareasCreadas = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       const out = await (NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input));
@@ -756,6 +760,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           const dadas = (input as { tareas?: unknown }).tareas;
           if (Array.isArray(dadas)) tareasCreadas = dadas.length;
         } catch { /* no era JSON: el link se corrige igual si aparece en el texto */ }
+      }
+      if (typeof out === 'string' && out.includes('/crm/revisar/')) {
+        try {
+          const j = JSON.parse(out) as { url?: unknown };
+          if (typeof j.url === 'string' && j.url.includes('/crm/revisar/')) {
+            linkLead = j.url;
+            // El nombre sale del INPUT de la tool, no de lo que el modelo escriba
+            // después: es el dato que se propuso, no el que recuerda.
+            nombreLead = String((input as { nombre?: unknown }).nombre ?? '').trim();
+          }
+        } catch { /* no era JSON */ }
       }
       return out;
     };
@@ -966,6 +981,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         console.warn(`[mako-doer-in] respuesta del modelo reemplazada por el mensaje canónico (${respuesta.length} chars)`);
       }
       respuesta = mensajeBorrador(linkBorrador);
+    }
+
+    // Y lo mismo con el lead. El caso que lo trajo: la propuesta se creó bien y
+    // el modelo la anunció como «Anotado los datos de Enrique Duarte» — pasado,
+    // suena a hecho, y la clienta entendió que el contacto ya estaba en el CRM.
+    // El estado de un dato no puede depender de cómo le salió la frase al modelo.
+    if (linkLead) {
+      if (respuesta && respuesta !== mensajeLeadPropuesto(linkLead, nombreLead)) {
+        console.warn(`[mako-doer-in] respuesta reemplazada por el mensaje canónico de lead (${respuesta.length} chars)`);
+      }
+      respuesta = mensajeLeadPropuesto(linkLead, nombreLead);
     }
 
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan

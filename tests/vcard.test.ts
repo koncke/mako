@@ -101,6 +101,35 @@ test('CABLEADO: el doer lee la tarjeta y NO la manda al plan', () => {
     'compartir un contacto no tiene intención propia: cae en el default («capturar») y el lead termina de tarea en el plan');
 });
 
+test('El mensaje del lead dice que TODAVÍA NO está cargado', async () => {
+  const { mensajeLeadPropuesto } = await import('../lib/respuesta-doer');
+  const m = mensajeLeadPropuesto('https://x/crm/revisar/abc', 'Enrique Duarte');
+
+  // El caso: el modelo escribió «Anotado los datos de Enrique Duarte. Revisalo y
+  // sumalo directo al CRM desde acá» y la clienta entendió que ya estaba cargado.
+  assert.match(m, /Todavía no está cargado/i, 'el mensaje dejó de decir que el lead NO está en el CRM');
+  assert.match(m, /Enrique Duarte/, 'no nombra a quién preparó: no se puede verificar que entendió bien');
+  assert.match(m, /confirm/i, 'no dice qué falta para que entre');
+
+  // Nada en pasado que suene a hecho.
+  for (const p of [/^anotado/i, /\bya (lo )?(cargu|ingres|sum)/i, /\blisto\b/i]) {
+    assert.ok(!p.test(m), `el mensaje volvió a sonar a hecho (${p})`);
+  }
+});
+
+test('CABLEADO: el mensaje del lead lo escribe el CÓDIGO, no el modelo', () => {
+  const doer = leer('../lib/mako-doer-in.ts');
+  // Mismo tratamiento que el borrador del plan: el trabajo del modelo termina
+  // cuando llama la tool. Dejarle redactar el estado de un dato es cómo «propuse»
+  // se convirtió en «anotado».
+  assert.ok(doer.includes('mensajeLeadPropuesto('),
+    'la respuesta del lead volvió a ser la que redacta el modelo');
+  assert.ok(/linkLead/.test(doer), 'no se captura el link que devolvió la tool');
+  // El nombre sale del INPUT de la tool, no de lo que el modelo recuerde después.
+  assert.ok(/nombreLead = String\(\(input as/.test(doer),
+    'el nombre del lead dejó de salir del input de la tool');
+});
+
 test('CABLEADO: existe la tool para cargar el lead, y PROPONE', () => {
   const acciones = leer('../lib/mako-doer-acciones.ts');
   assert.ok(acciones.includes("name: 'proponer_lead'"),

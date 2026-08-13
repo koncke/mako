@@ -66,6 +66,42 @@ export const mensajeBorrador = (link: string) =>
 export const EJEMPLO_BORRADOR = mensajeBorrador('<link>').replace(/\n/g, ' ');
 
 /**
+ * La respuesta cuando se propuso un LEAD. Es la misma jugada que
+ * `mensajeBorrador` y existe aparte por una razón concreta.
+ *
+ * EL CASO (2026-08-13, Leila). El alta funcionó bien —MaKo propuso en vez de
+ * escribir— y aun así ella entendió que el contacto YA estaba cargado, porque el
+ * modelo redactó: «Anotado los datos de Enrique Duarte. Revisalo y sumalo
+ * directo al CRM desde acá.»
+ *
+ * «Anotado» es pasado y suena a hecho. «Sumalo directo al CRM» suena a atajo, no
+ * a requisito. Las dos frases son razonables sueltas y juntas dicen lo contrario
+ * de lo que pasó: el lead NO existe hasta que ella confirme.
+ *
+ * ⚠️ Por eso el texto no se le pide al modelo en el prompt: se le SACA. Que el
+ * estado de un dato dependa de cómo le salió la frase a un LLM es la misma
+ * trampa que el link de 17 caracteres — y acá el costo es que alguien crea que
+ * un lead está en el CRM cuando no está, y lo dé por seguido.
+ *
+ * Las tres cosas que el mensaje tiene que dejar en claro, en este orden:
+ *   1. de quién estamos hablando (para que se vea que MaKo entendió bien);
+ *   2. que TODAVÍA NO está en el CRM;
+ *   3. qué falta para que lo esté.
+ */
+export const mensajeLeadPropuesto = (link: string, nombre?: string | null) => {
+  const quien = (nombre ?? '').trim();
+  return [
+    `Preparé la ficha${quien ? ` de *${quien}*` : ''} para el CRM.`,
+    '',
+    '⚠️ *Todavía no está cargado.* Revisá los datos y confirmá acá para que entre 👇',
+    link,
+  ].join('\n');
+};
+
+/** El mismo, en una línea, para mostrarlo como ejemplo adentro de un prompt. */
+export const EJEMPLO_LEAD = mensajeLeadPropuesto('<link>', '<nombre>').replace(/\n+/g, ' ');
+
+/**
  * ¿Esta respuesta se puede mandar por WhatsApp?
  *
  * Dos señales, con severidades distintas a propósito:
