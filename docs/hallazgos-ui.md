@@ -14,6 +14,10 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ## Lo que más muerde acá
 
+- **El dorado no significa «MaKo», significa «destacado»**: en ~25 superficies marca la tab
+  activa, un KPI, un avatar sin foto y hasta la burbuja del **humano** en el chat. Por eso
+  la marca se siente a IA — si el color no distingue, la chispa queda sola haciendo todo el
+  trabajo → [Primitives y sistema visual](#primitives-y-sistema-visual).
 - Un overlay que elige su propio `zIndex` queda **debajo** del backdrop: confirmás y la
   pantalla no se mueve, sin error ni spinner → [Modales y capas](#modales-y-capas).
 - `.mk-scroll-x` clipea en los **dos** ejes: cualquier popover `absolute` adentro es
@@ -168,6 +172,127 @@ La galería pública ya usa el nuevo (`app/compartido/[token]/Galeria.tsx:31`, `
 **Vive en:** app/admin/ui/Marca.tsx · docs/branding-mako.md ·
 scripts/sync-gramatica-doc.mjs · app/conocimientos/curso-vsl.ts ·
 *2026-08-07 ~ui-tab-siete-puntos · ampliado 2026-08-11 ~branding-mako-fuentes (5 agentes)*
+
+### ⚠️ El dorado no significa «MaKo»: significa «destacado». Y por eso la marca se siente a IA
+
+**El diagnóstico obvio era el equivocado — y es el hallazgo más caro de esta área.** El
+dueño dijo «la marca se siente muy IA» y todo apuntaba al mismo sospechoso: la chispa de
+cuatro puntas, el ícono que usa media industria. La conclusión natural era cambiar el
+símbolo, o el dorado, o los dos.
+
+El inventario de **148 superficies verificadas una por una** (13 agentes, cada afirmación
+con archivo:línea reabierto) dice otra cosa. El dorado aparece en 79 superficies y la
+chispa en 84, pero **en ~25 de ellas el dorado no marca a MaKo**: marca la tab activa
+(`ConfigTabs.tsx:41`), el ícono de encabezado de casi toda pantalla —el uso más repetido de
+la app— (`AdminView.tsx:110`), el avatar de una persona sin foto (`AdminView.tsx:58`), el
+número grande de un KPI (`comercial/page.tsx:404`), un link de texto
+(`MarkdownDoc.tsx:316`), el ON de un toggle (`NotificacionesPanel.tsx:55`), el paso MEDIO
+de un semáforo (`crm/lead-view/ComportamientoCard.tsx:15`), la barra destacada de un
+gráfico (`pricing/Piezas.tsx:72`), chips de rol y pertenencia (`AdminView.tsx:311`), el
+borde de «esta card es tuya» (`ClientesApp.tsx:307`), un spinner genérico de fetch
+(`PlantillasView.tsx:83`) y «tu Norte» (`Grafo.tsx:500`, `general/page.tsx:291`).
+
+**La rotura más cara:** en `MakoChat.tsx:192`, la pantalla donde MaKo habla, el dorado
+pinta la burbuja del **humano**. Y en `/funnel` las «Automatizaciones de MaKo» se pintan de
+**azul**, que en `globals.css:33` es el color declarado de «vos actuás». La marca está
+invertida en las dos superficies donde más se nota.
+
+**Causa:** `globals.css:116` declara `--accent` y `--accent-soft` como el mismo dorado con
+otro nombre y **sin la restricción semántica**. El comentario de `:122-124` dice «no
+agregues usos nuevos», pero `var(--accent)` es hoy el token dorado más usado de la app. Un
+alias sin regla es una puerta abierta: nadie que escribe `var(--accent)` está pensando en
+MaKo, está pensando «resaltá esto».
+
+**Consecuencia en cadena, y es la que explica el síntoma.** Si el color no distingue a
+MaKo, la única señal que queda es la chispa. Una chispa sola, repetida en cada superficie,
+sin un color que signifique algo — eso *es* el aspecto de IA genérica. **El problema no era
+que MaKo se anunciara demasiado: era que se anunciaba con una sola señal porque la otra ya
+no servía.**
+
+**La marca está copiada de oído, no importada.** Contados en el inventario:
+
+- **21 hexes dorados/ámbar distintos** vivos en el repo. `globals.css:106-116` declara
+  eliminados a `#F6D365`, `#EF9F27`, `#F0C60A` y `#C8870C` — y los cuatro siguen escritos a
+  mano en `experimentos/ui.tsx:19` (tres copias de la chispa), `lib/mako-grupo.ts:53` (SVG
+  generado en el servidor, no puede usar `var()`), `ServicioVisual.tsx:83` (gradiente
+  `mkGold`), `NotificacionesPanel.tsx:55` y `general/page.tsx:291` (seis apariciones).
+  `ScriptsBrowser.tsx:71` inventa un `#A8770F` para decir «Media».
+- **6 glifos de estrella distintos**: la chispa vectorial de `MakoBrand.tsx:25`, el carácter
+  `✦` (`AvisoFlotante.tsx:50`, `BuscadorTareas`), el emoji `✨` (`EmailApp.tsx:405`,
+  `VozGuia`, `WhatsAppAdvisor`), `★` (`CrearTareaModal.tsx:863`), `🌟` (el primer mensaje
+  de bienvenida por WhatsApp) y una de **cinco puntas dibujada a mano**
+  (`CrearTareaModal.tsx:182`). Y en `BoardShell.tsx:1703` la chispa está pintada de azul,
+  conviviendo en la misma pantalla con la dorada de `:984`.
+- **`app/compartido/[token]/TareaCliente.tsx:437` redeclara el dorado como `--oro`** porque
+  la pantalla se scopea bajo `.cd` para no heredar el chrome. Es la pantalla que ve el
+  cliente, y si `--mako` cambia, no se entera.
+
+**Regla que queda:** un color de marca necesita un **alias único y con restricción**, o se
+diluye solo. Antes de tocar un hex de marca hay que arreglar `--accent`, o el rebranding
+repinta 21 hexes y a los tres meses hay 22. Y la señal de una IA no puede depender de un
+símbolo solo: si el color no distingue, el símbolo tiene que hacer todo el trabajo y ahí es
+donde empieza a verse genérico.
+
+**Vive en:** app/globals.css:106-126 · app/_components/MakoBrand.tsx ·
+app/_components/MakoChat.tsx:164,192 · app/_components/ServicioVisual.tsx:83 ·
+app/experimentos/ui.tsx:19 · lib/mako-grupo.ts:53 · app/compartido/[token]/TareaCliente.tsx:437 ·
+*2026-08-13 ~inventario-superficies-mako (13 agentes, 148 superficies verificadas)*
+
+### ⚠️ `<Mako>` tiene UN call-site de producción, y ese incumple el contrato de su propio estado
+
+**Síntoma:** la primitive `app/_ui/Mako.tsx` y su gramática de nueve estados
+(`lib/mako-gramatica.ts`) parecen el sistema vivo de la marca. Tienen catálogo
+(`/admin/ui?tab=mako`), documento derivado con guarda de pre-push, y tres rondas de
+rediseño encima.
+
+**Causa:** en producción se usa **una sola vez**, en
+`app/crm/[id]/resumen/AnalizarLlamada.tsx:79`. Todo el resto de las apariciones son el
+catálogo (`Gramatica.tsx`). Y ese único call-site pasa `estado`, `titulo`, `fuente` y
+`datos` pero **no pasa `progreso`** — que `Mako.tsx:178` declara obligatorio para
+`analizando`. Verificado en el código: sin `progreso`, `Mako.tsx:333` deja el riel en null y
+`Mako.tsx:383` no renderiza la barra. O sea que la única vez que un cliente ve el estado
+«Revisando», lo ve **sin progreso real** — exactamente el spinner eterno que
+`mako-gramatica.ts:174` prohíbe con la palabra «progreso real». Dispara el `console.warn` de
+`Mako.tsx:235` y nadie lo lee.
+
+**Regla:** un primitive sin call-sites no está terminado, está propuesto. Antes de
+rediseñarlo otra vez hay que enchufarlo — si no, cada ronda de diseño se valida contra el
+catálogo, que es la única pantalla donde se cumplen todos los contratos.
+
+**Vive en:** app/_ui/Mako.tsx:178,235,333,383 · lib/mako-gramatica.ts:174 ·
+app/crm/[id]/resumen/AnalizarLlamada.tsx:79 ·
+*2026-08-13 ~inventario-superficies-mako*
+
+### ⚠️ Los avisos de MaKo salen por CINCO pop-ups en cuatro esquinas, y cada uno se marca distinto
+
+**Síntoma:** «los avisos de MaKo salen con un pop-up abajo al costado» describe bien lo que
+se ve y mal lo que hay. Son cinco piezas independientes, en cuatro posiciones de pantalla,
+con cinco criterios distintos de cómo se marca la autoría:
+
+| Pieza | Dónde | Cómo se marca que es MaKo |
+|---|---|---|
+| `IaUsageToast.tsx:134` | abajo a la **derecha** | señal triple: chispa + dorado + la palabra |
+| `AvisoFlotante.tsx:36` | abajo a la **izquierda** | el carácter `✦` en `--accent-soft` — **no** es la chispa de marca |
+| `Toast.tsx:43` | abajo al **centro** | ninguna |
+| `NotificationsProvider.tsx:515` y `:539` | arriba a la **derecha** | ninguna, a propósito (son de WhatsApp) |
+| `MakoConfirmGate.tsx:113` | modal bloqueante | un badge con las letras «MaKo», sin chispa |
+
+**Causa:** cada una se escribió para su caso y ninguna se escribió contra las otras. No hay
+un choke point de presentación equivalente al que sí existe para el texto
+(`lib/avisos.ts:73` → `emitirAviso`, con 53 mensajes en `lib/avisos-catalogo.ts`).
+
+**Y el motor no tiene pantalla.** `emitirAviso` escribe la fila y **ninguna vista la lee**:
+el badge del sidebar (`Sidebar.tsx:54-64`) cuenta otra cosa. Ya está anotado abajo en «El
+feed de notificaciones existe en la base y no lo muestra nadie».
+
+**Regla:** la autoría de MaKo se decide en **un** lugar, como el texto. Mientras haya cinco
+componentes decidiendo por su cuenta si ponen chispa, cualquier cambio de marca toca cinco
+archivos y se olvida de uno.
+
+**Vive en:** app/_components/IaUsageToast.tsx:134 · app/_components/AvisoFlotante.tsx:36 ·
+app/_ui/Toast.tsx:43 · app/_components/NotificationsProvider.tsx:515,539 ·
+app/_components/MakoConfirmGate.tsx:113 · lib/avisos.ts:73 · lib/avisos-catalogo.ts:136 ·
+*2026-08-13 ~inventario-superficies-mako*
 
 ### ⚠️ `.mk-scroll-x` recorta en los DOS ejes: ningún popover `absolute` puede vivir adentro
 
