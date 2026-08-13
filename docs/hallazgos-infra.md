@@ -1888,8 +1888,100 @@ orden de valor:
 
 La tercera es la que importa: es la única que reproducía el fallo antes.
 
+⚠️ **El pin bajó la frecuencia pero NO cerró el caso** — volvió el 13/8 con el registro
+intacto. Ver la entrada siguiente antes de dar esto por resuelto.
+
 **Vive en:** `%APPDATA%\Claude\logs\main.log` (buscar `GPU process gone`) ·
 `HKCU:\SOFTWARE\Microsoft\DirectX\UserGpuPreferences` · *2026-08-09*
+
+### ⚠️ El pin a la integrada aguantó 4 días y volvió: «verificado» no es «cerrado»
+
+**Síntoma:** el 13/8 a las 01:19:30 la app se cerró sola otra vez. Mismo
+`exitCode: 101457950`, misma firma. **Y el arreglo seguía puesto**: el registro decía
+`GpuPreference=1;` — nadie lo revirtió, ni un driver ni una actualización.
+
+Entre el 9/8 y el 12/8 hubo **cero** crashes. O sea que el pin hizo algo real; lo que no
+hizo fue eliminar la causa. Las tres pruebas de reproducción del 9/8 pasaron limpias
+porque **la ventana de reproducción era de minutos y la condición que falta tarda días**:
+el crash llegó al cuarto día de uptime de Windows, y el equipo llevaba 4 días sin
+reiniciar. Esa es la hipótesis a medir ahora, no una conclusión.
+
+**Lo que más costó, y es lo que se repite:** el 9/8 quedó escrito un monitor
+(`C:\Users\marti\diagnostico-gpu.ps1`) justamente para cazar el próximo crash con la
+térmica del momento. Cuando el crash llegó, **`crashes-gpu.csv` tenía solo el
+encabezado**. El monitor había corrido tres horas la madrugada del 9/8 y nunca más.
+
+> **Un monitor que hay que acordarse de arrancar no mide: mide una vez.** Si el evento
+> que querés cazar aparece cada varios días, el monitor va como tarea programada al
+> inicio de sesión — no como una ventana abierta, que además se cierra por accidente.
+
+Tres defectos del monitor v1, todos del mismo tipo (funcionaba en la sesión en que se
+escribió y no en la que hacía falta):
+
+1. **Releía el `main.log` entero cada 20 segundos.** Ese archivo pesa 3 MB y rota
+   recién a los ~27 MB: el monitor cargaba el equipo que venía a medir.
+2. **Miraba solo `main.log`, y el log rota justo en el crash.** El 13/8 la rotación a
+   `main1.log` pasó en el **mismo segundo** (01:19:30) que el evento. Un seguidor de un
+   solo archivo se pierde exactamente lo que vino a cazar. La marca de agua ahora es el
+   **timestamp** del último evento visto, no un offset de bytes: sobrevive a la rotación
+   sin lógica extra, y se leen los dos archivos con dedup por `(timestamp, evento)`.
+3. **Solo registraba `GPU process gone`.** Pero lo que se siente como «se cerró solo» es
+   *la app desapareciendo*, que también pasa sin crash de GPU. Un cierre súbito no dejaba
+   ninguna fila, así que el CSV no podía contestar «¿cuántas veces se me cerró hoy?». La
+   v2 registra cuatro eventos —`GPU_CRASH`, `MUERTE_SUBITA`, `CIERRE_LIMPIO`, `ARRANQUE`—
+   y distingue el cierre querido del súbito por si hubo `beforeQuit: handler fired` en el
+   log en los 90 s previos. `CIERRE_LIMPIO` se anota igual, a propósito: sin esa fila no
+   hay forma de descartar un falso positivo al leer el CSV.
+
+Y un cuarto que corrompió los datos que sí se juntaron: **el script escribía el
+encabezado solo si el archivo no existía**, así que al cambiar de formato las filas nuevas
+quedaron bajo el encabezado viejo. En `termica.csv` del 9/8 conviven filas de 8 y de 9
+columnas — dos ventanas del monitor corriendo a la vez, una de cada versión. Ahora el
+encabezado se compara y el archivo viejo se aparta a `.viejo-<fecha>`, y un mutex global
+impide la segunda instancia.
+
+**Vive en:** `C:\Users\marti\diagnostico-gpu.ps1` (v2) ·
+`C:\Users\marti\instalar-monitor.ps1` (la tarea programada) ·
+`~\crashes-gpu.csv` + `~\termica.csv` · *2026-08-13*
+
+### ⚠️ Un sensor congelado es peor que un sensor ausente, y el que exigía admin era el malo
+
+El monitor medía la temperatura del CPU con `MSAcpi_ThermalZoneTemperature` (`root/wmi`),
+que **exige elevación** — tanto que la v1 se negaba a arrancar sin admin y la tarea
+programada se instaló elevada por eso. Medido sobre los datos que dejó: **398 lecturas
+consecutivas a lo largo de 3 horas, las 398 exactamente `51,1 °C`**, con la carga del CPU
+variando entre 4% y 72%. En el arranque siguiente se quedó pegada en `59,1`. Cambia de
+valor entre sesiones y **nunca dentro de una**.
+
+La fuente que sirve es `Win32_PerfFormattedData_Counters_ThermalZoneInformation`: varía de
+verdad (60,9 → 59,9 en tres segundos), **no exige admin**, y encima trae `ThrottleReasons`
+— el sistema *diciendo* que limitó, en vez de nosotros infiriéndolo de un umbral elegido a
+ojo.
+
+**Lo que lo hace caro no es que faltara el dato: es que el dato malo se parecía al bueno.**
+51,1 °C y 59,1 °C son temperaturas perfectamente creíbles para un CPU en reposo. El
+veredicto «NO fue térmico: el CPU nunca pasó de 80 °C» iba a salir con total seguridad de
+un número que no medía nada — y encima con la autoridad de haber pedido permisos de
+administrador para conseguirlo. Un valor ausente se nota; uno congelado se cita.
+
+**Las reglas que quedan:**
+
+- **Un sensor se valida por su VARIANZA antes de creerle un valor.** Si no se movió un
+  décimo en diez minutos mientras la carga cambiaba, no está midiendo. El script ahora lo
+  detecta y dice «temperatura NO CONFIABLE» en vez de emitir un veredicto.
+- **Que una fuente exija privilegios no la hace mejor.** Es fácil leer «Access denied» como
+  «este dato es el bueno, está protegido», y buscar la elevación en vez de una segunda
+  fuente.
+- **Si el sistema publica el hecho, no lo infieras de un umbral.** `ThrottleReasons > 0` es
+  un dato; `pico >= 90 °C` es una hipótesis nuestra sobre cuándo empieza el throttling.
+
+El mismo día y el mismo archivo dieron el caso gemelo, más fácil de ver porque el número
+era absurdo: **`nvidia-smi` informa `power.draw = 590,01 W` sobre un `power.max_limit` de
+45 W** cuando la dedicada está en reposo profundo — y lo imprime así, no es un error de
+parseo. Se estuvo escribiendo en `termica.csv` como si fuera real. Ahora la lectura se
+descarta contra el tope: si no es físicamente posible, va vacío, nunca un número inventado.
+
+**Vive en:** `C:\Users\marti\diagnostico-gpu.ps1` → `TempCpu` y `Leer` · *2026-08-13*
 
 ### Regla: antes de culpar a la app, mirá SU log — está en el disco y dice la causa
 
