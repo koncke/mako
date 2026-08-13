@@ -47,6 +47,14 @@ const PRICING: Record<string, { in: number; out: number }> = {
   // (y de ahí cuelga el baseline de US$93,50 y el «margen del Pro» que sale en
   // /admin/dev/pricing), y si no se toca, el 1/9 el número se vuelve correcto
   // solo para lo nuevo y el histórico queda mal para siempre, sin que nada avise.
+  //
+  // ✅ HISTÓRICO YA RE-VALUADO (2026-08-13): `cost_usd` se congela al insertar, así
+  // que las 513 filas de sonnet-5 escritas antes del cambio de esta tabla quedaron
+  // a 3/15 y se corrigieron con un UPDATE a 2/10 (julio 10,96→5,92 · agosto
+  // 65,05→48,94). Ese 48,94 cierra contra los US$51,97 que muestra el dashboard de
+  // Anthropic; lo que falta son los módulos que gastan SIN registrar (embeddings,
+  // transcribe, analyze-creatives — ver docs/hallazgos-ia.md).
+  // NO volver a correr ese UPDATE: hoy la tabla y las filas coinciden.
   'claude-sonnet-5': { in: 2, out: 10 },   // ← volver a { in: 3, out: 15 } el 2026-09-01
   'claude-haiku-4-5': { in: 1, out: 5 },
   'claude-fable-5': { in: 10, out: 50 },
