@@ -22,6 +22,10 @@ const arg = (n, d) => {
 const PORT = Number(arg('port', 9333));
 const ESPERA = Number(arg('espera', 9)) * 1000; // tope para que cambie el iframe
 const RAIZ = arg('raiz', 'C:\\cursos');
+// El autor NO está en la página del curso, pero SÍ es parte del nombre de la carpeta
+// («<Curso> - <Autor>», que cumplen 36 de 39) y del título en el portal. Lo mismo que
+// en curso-plan-vip.mjs: si falta se avisa fuerte en vez de generar a medias.
+const AUTOR = arg('autor', '');
 
 const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 80);
@@ -263,7 +267,7 @@ const main = async () => {
   // Si ya existe un plan, no se pisa a ciegas: se guarda al lado.
   const salida = existsSync(destino) ? join(dir, 'plan.nuevo.json') : destino;
   writeFileSync(salida, JSON.stringify({
-    curso, slug: slug(curso), pagina: obj.url, userAgent: ua,
+    curso, autor: AUTOR.trim(), slug: slug(curso), pagina: obj.url, userAgent: ua,
     referer: new URL(obj.url).origin + '/',
     clases: plan, pdfs: pdfs ?? [],
   }, null, 2), 'utf8');
@@ -274,7 +278,13 @@ const main = async () => {
   console.log(`  ${(pdfs ?? []).length} PDF(s) de resumen`);
   console.log(`  Plataforma: ${[...new Set(plan.map((p) => p.plataforma))].join(', ') || '—'}`);
   console.log(`  → ${salida}`);
+  if (AUTOR.trim()) console.log(`  Autor     : ${AUTOR.trim()}  →  «${limpio(curso)} - ${AUTOR.trim()}»`);
   console.log('─'.repeat(70));
+  if (!AUTOR.trim()) {
+    console.log(`\n  ⚠ SIN AUTOR. La carpeta en Drive es «<Curso> - <Autor>» (la cumplen 36 de`);
+    console.log(`    39) y el título del portal también lo lleva. Volvé a correr con`);
+    console.log(`    --autor "Nombre Apellido" o quedan los dos a medias.`);
+  }
   if (salida !== destino) console.log(`\n  ⚠ Ya había un plan.json: lo dejé como plan.nuevo.json para que compares.`);
   console.log(`\n  Siguiente:  node <abs>\\scripts\\curso-bajar.mjs --plan "${destino}"\n`);
   ws.close();
