@@ -43,6 +43,7 @@ import { getSetting, setSetting } from './settings';
 import { emitirAviso, emitirDelCatalogo } from './avisos';
 import { encabezadoAviso } from './avisos-catalogo';
 import { APP_BASE_URL } from './app-url';
+import { textoAlerta, textoRecuperada, causaDe } from './alerta-critica-texto';
 
 /**
  * CADA CUÁNTO VUELVE A AVISAR, según hace cuánto que el problema está abierto.
@@ -86,61 +87,6 @@ type IncidenteAbierto = {
  * peor resultado posible.
  */
 const esCritico = (i: IncidenteAbierto): boolean => i.entrega_frenada || i.severidad === 'rojo';
-
-const horasYMinutos = (min: number): string => {
-  if (min < 60) return `${min} min`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m ? `${h} h ${m} min` : `${h} h`;
-};
-
-/**
- * El mensaje. Sube de tono con el tiempo, y NUNCA repite el mismo texto: un
- * mensaje idéntico cada 15 minutos se vuelve papel tapiz y se deja de leer.
- *
- * La primera vez explica qué pasó y qué hacer. De ahí en adelante lo que crece
- * es el COSTO ACUMULADO —cuánto hace que está frenado, cuántas veces se avisó—,
- * que es el dato que empuja a resolverlo.
- */
-function textoAlerta(i: IncidenteAbierto, minAbierto: number, veces: number): string {
-  const cuanto = horasYMinutos(minAbierto);
-  const link = `${APP_BASE_URL}/integraciones`;
-  const que = i.entrega_frenada
-    ? 'tu cuenta de Meta *dejó de entregar*: no hay un solo anuncio corriendo'
-    : `tu cuenta de Meta está en rojo (${i.status_label || 'sin detalle'})`;
-  const porque = i.disable_reason ? `\nMotivo: *${i.disable_reason}*.` : '';
-
-  if (veces === 0) {
-    return [
-      `🔴🔴 *PARÁ TODO.*`,
-      '',
-      `Hace ${cuanto} que ${que}.${porque}`,
-      '',
-      'Mientras esto siga así no entra *ningún* lead nuevo, y la plata del día no se recupera.',
-      '',
-      '👉 Resolvelo acá:',
-      link,
-      '',
-      'Te voy a seguir avisando hasta que esté arreglado. — MaKo',
-    ].join('\n');
-  }
-
-  // A partir de la segunda, corto y con el contador arriba. En el celular lo que
-  // se lee sin abrir es la primera línea: ahí va el tiempo perdido.
-  const insistencia = veces === 1
-    ? 'Te lo recuerdo porque sigue igual.'
-    : `Es la *${veces + 1}ª vez* que te aviso y sigue igual.`;
-  return [
-    `🔴 *${cuanto} sin entregar.*`,
-    '',
-    `${que.charAt(0).toUpperCase()}${que.slice(1)}.${porque}`,
-    insistencia,
-    '',
-    '👉 ' + link,
-    '',
-    '— MaKo',
-  ].join('\n');
-}
 
 export type ResultadoAlertas = {
   abiertos: number; criticos: number; avisados: number; resueltos: number; errores: number;
@@ -189,7 +135,8 @@ export async function insistirAlertasCriticas(ws: number): Promise<ResultadoAler
       if (c.service === 'meta') {
         await emitirDelCatalogo('meta-cuenta-recuperada', {
           ws,
-          texto: `━━ 📣 ANUNCIOS ━━\n🟢 *Listo, ya está entregando de nuevo.*\n\nTu cuenta de Meta volvió a la normalidad. Dejo de insistir. — MaKo`,
+          texto: `${encabezadoAviso('meta-cuenta-recuperada')}
+${textoRecuperada()}`,
         });
       }
       out.resueltos += 1;
@@ -223,8 +170,15 @@ export async function insistirAlertasCriticas(ws: number): Promise<ResultadoAler
       const res = await emitirAviso({
         ws,
         tipo: 'meta-cuenta-frenada',
-        titulo: inc.entrega_frenada ? 'Meta dejó de entregar' : 'Cuenta de Meta en rojo',
-        texto: `${encabezadoAviso('meta-cuenta-frenada')}\n${textoAlerta(inc, minAbierto, veces)}`,
+        // El título del feed in-app dice la CAUSA, no el síntoma: es la misma
+        // corrección que en el WhatsApp («suspendida por falta de pago» le dice
+        // al dueño qué hacer; «dejó de entregar», no).
+        titulo: causaDe({ statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada })
+          .titular.replace(/\*/g, ''),
+        texto: `${encabezadoAviso('meta-cuenta-frenada')}\n${textoAlerta(
+          { statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada },
+          minAbierto, veces, `${APP_BASE_URL}/integraciones`,
+        )}`,
         categoria: 'aviso',
         semaforo: 'rojo',
         link: '/integraciones',

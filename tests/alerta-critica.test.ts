@@ -90,6 +90,40 @@ test('Solo insiste lo que cuesta plata AHORA', () => {
     'el filtro de qué es crítico cambió: si todo insiste, la insistencia deja de significar algo');
 });
 
+test('El mensaje dice la CAUSA, no el síntoma', async () => {
+  const { textoAlerta } = await import('../lib/alerta-critica-texto');
+  // Pedido del dueño: «que diga "tu cuenta publicitaria está SUSPENDIDA por
+  // falta de pago", no simplemente que está frenada». No es estilo: con el
+  // síntoma no se sabe qué hacer, con la causa sí.
+  const real = { statusLabel: 'Saldo impago', disableReason: 'Saldo impago', entregaFrenada: true };
+  const t = textoAlerta(real, 35, 0, 'https://x/integraciones');
+  assert.match(t, /SUSPENDIDA POR FALTA DE PAGO/, 'el titular volvió a describir el síntoma');
+  assert.match(t, /QUÉ HACER:[\s\S]*Business Manager/, 'el mensaje urge sin decir qué hacer, que es solo ansiedad');
+  // Y el motivo no se repite cuando es igual al estado.
+  assert.ok(!/Motivo de Meta: \*Saldo impago\*/.test(t), 'repite el mismo dato dos veces');
+});
+
+test('El catálogo de causas no se puede quedar viejo', async () => {
+  // Las claves de CAUSA son valores de ACCOUNT_STATUS (lib/meta-health.ts). Si
+  // allá renombran un estado, acá el titular cae al genérico SIN dejar rastro —
+  // y un titular genérico que suena exacto es peor que uno que se ve genérico.
+  const { ESTADOS_CON_CAUSA } = await import('../lib/alerta-critica-texto');
+  const health = leer('../lib/meta-health.ts');
+  const bloque = health.slice(health.indexOf('const ACCOUNT_STATUS'), health.indexOf('export function accountStatusLabel'));
+  const estados = [...bloque.matchAll(/^\s*\d+:\s*'([^']+)'/gm)].map((m) => m[1]);
+  assert.ok(estados.length > 5, `no se pudo leer ACCOUNT_STATUS (${estados.length})`);
+
+  const huerfanos = ESTADOS_CON_CAUSA.filter((e) => !estados.includes(e));
+  assert.deepEqual(huerfanos, [],
+    `estos estados ya no existen en ACCOUNT_STATUS y su titular nunca se va a usar: ${huerfanos.join(', ')}`);
+
+  // Los estados que NO son «Activa» y no tienen causa: se avisan sin decir qué
+  // hacer. No es un error —el default es honesto— pero tiene que verse.
+  const sinCausa = estados.filter((e) => !/^Activa/.test(e) && !ESTADOS_CON_CAUSA.includes(e));
+  assert.deepEqual(sinCausa, ['Cerrada (cualquiera)'],
+    `cambió la lista de estados sin explicación: ${sinCausa.join(', ')}. Sumalos a CAUSA o actualizá este test a sabiendas.`);
+});
+
 test('El cron mira seguido, no una vez por hora', () => {
   const vercel = JSON.parse(leer('../vercel.json')) as { crons: Array<{ path: string; schedule: string }> };
   const cron = vercel.crons.find((c) => c.path === '/api/cron/alerta-critica');

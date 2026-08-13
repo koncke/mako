@@ -171,7 +171,22 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     // Editar este texto no cambia el de la insistencia (un mensaje de emergencia
     // no se reescribe cada quince minutos) — se toca en alerta-critica.ts.
     disparador: 'Cron alerta-critica (cada 10 min): hay un incidente ABIERTO en service_incidents con entrega frenada o severidad roja. Se repite hasta que se resuelva; al resolverse sale meta-cuenta-recuperada.',
-    ejemplo: `🔴 *Pará un segundo.* Tu cuenta de Meta quedó *deshabilitada por saldo impago* y dejó de entregar. Ningún anuncio está corriendo ahora.\n\nRegularizá el pago en el Business Manager y avisame cuando esté para verificar. — MaKo`,
+    ejemplo: `━━ 📣 ANUNCIOS ━━
+🚨🚨🚨 *PARÁ TODO* 🚨🚨🚨
+
+⛔ Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*.
+🛑 Hace *35 min* que no corre un solo anuncio.
+
+💸 *Cada minuto que pasa es plata tirada:*
+❌ No entra *ningún* lead nuevo.
+❌ El día perdido no se recupera.
+
+✅ *QUÉ HACER:* Pagá el saldo que debés en el Business Manager de Meta.
+
+👉 *RESOLVELO YA:*
+https://hola-mako.com/integraciones
+
+🔁 Te voy a seguir avisando hasta que esté arreglado. — MaKo`,
   },
   {
     id: 'meta-cuenta-riesgo', titulo: 'Cuenta Meta en revisión de riesgo (ámbar)', categoria: 'aviso',
@@ -187,9 +202,12 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     // avisar porque se resolvió o porque el aviso se rompió.
     disparador: 'Cron alerta-critica: el incidente que se venía persiguiendo pasó a resuelto.',
     ejemplo: `━━ 📣 ANUNCIOS ━━
-🟢 *Listo, ya está entregando de nuevo.*
+✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅
 
-Tu cuenta de Meta volvió a la normalidad. Dejo de insistir. — MaKo`,
+🟢 Tu cuenta publicitaria volvió a la normalidad.
+🔕 Dejo de insistir.
+
+— MaKo`,
   },
   {
     id: 'meta-saldo-agotarse', titulo: 'Saldo por agotarse / problema de pago', categoria: 'aviso',
