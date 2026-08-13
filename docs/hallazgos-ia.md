@@ -1515,6 +1515,72 @@ debajo del real.
 
 **Vive en:** lib/anthropic.ts:135 (`system` como string plano, 54 call-sites) · lib/anthropic-usage.ts:79 · *2026-08-13 optimizar-gasto-ia-mako*
 
+### Transcribir NO cuesta nada: lo caro es analizar (y la confusión desvía toda la optimización)
+
+**Síntoma:** «se consume muchísimo en transcribir reuniones, ¿no hay forma de que sea más
+barato?». Con esa premisa se busca abaratar el transcriptor — que no existe.
+
+**Causa:** Fathom graba, transcribe y **entrega el texto ya hecho**; MaKo solo lo descarga
+(`lib/fathom-api.ts:173-176` — es un GET, no hay modelo en el medio). Medido sobre toda la
+historia del sistema, transcribir costó **US$0,0018**. Lo que cuesta es **leer ese texto**:
+en agosto, sacar las tareas de cada reunión US$23,44, analizar llamadas de venta US$14,35,
+priorizar el plan US$7,21. **Analizar salió ~13.000 veces más caro que transcribir.**
+
+**Regla:** antes de optimizar «lo que cuesta X», mirá qué renglón de la tabla de gastos
+lleva ese nombre. Acá el nombre de la feature (`plan-fathom`) se confunde con el proveedor
+del transcript, y el que paga es el modelo que lo lee.
+
+**Y el número unitario, que es el que tranquiliza:** una reunión larga se trocea en ~8
+partes de 25.000 chars; una pasada completa cuesta **US$1,50**. Los US$19 de una sola
+reunión salieron de **repetirla 13 veces** (una por hora), no de que leerla sea caro.
+
+**Vive en:** lib/fathom-api.ts:173-176 · lib/plan-fathom.ts (CHUNK_CHARS=25000) · *2026-08-13 railway-y-transcripcion*
+
+### El 69% de lo que paga `closing` son juntas de ENTREGA, y el resultado se tira
+
+**Síntoma:** se planifica Customer Success como un costo NUEVO («vamos a transcribir y
+analizar todas las reuniones con clientes, ¿cuánto va a salir?»).
+
+**Causa:** ya se está pagando. `lib/closing.ts:156-157` manda a Opus cualquier reunión con
+un invitado externo, y **51 de las 74 llamadas pagas de agosto (US$9,89) eran juntas de
+entrega con clientes** — el modelo las lee enteras, las clasifica como «no es una venta» y
+**se descarta el análisis**. Histórico: 177 de 283.
+
+**Regla:** antes de presupuestar una feature nueva sobre un input, fijate si ese input ya
+está pasando por un modelo pago y se está tirando. El costo marginal de Customer Success no
+es analizar esas reuniones — es **guardar lo que ya se analiza**. La cartera completa (13
+clientes, ~30 juntas/mes) sale entre **US$0 y US$6/mes**.
+
+⚠️ **El único escenario caro es un error de configuración:** si la feature de CS nace con un
+`def` pago en `lib/model-catalogo.ts`, se repite la historia de los US$23 en cuatro días
+multiplicada por 13 clientes. Darla de alta en GRATIS **antes** de escribirla es lo que
+activa la red del test de `model-registry`.
+
+**Palanca sin usar:** el **Batch API** de Anthropic cobra la mitad en trabajo asincrónico
+que nadie está esperando — que es exactamente el cron nocturno de closing. −50% sin cambiar
+de modelo ni tocar el prompt.
+
+**Vive en:** lib/closing.ts:156-157 · lib/model-catalogo.ts:129 (el pagoPorque de closing) · app/cs-analyst (todavía «próximamente») · *2026-08-13 railway-y-transcripcion*
+
+### GOTCHA: un subagente afirmó un precio «verificado» que era falso, y era el más caro de creer
+
+**Síntoma:** un agente devolvió, con la fórmula «verificado hoy en fathom.ai/pricing», que la
+API pública de Fathom **solo existe del plan Team (US$19/usuario, mínimo 2) para arriba** y
+que bajar a gratuito dejaría a MaKo sin leer reuniones. Eso invalidaba una recomendación de
+US$18/mes ya entregada al dueño.
+
+**Causa:** era falso. La misma página, leída de nuevo, lista **«Public API & MCP»**
+disponible en **Free, Premium, Team y Business**. El agente citó la URL correcta y concluyó
+lo contrario de lo que dice.
+
+**Regla:** cuando un subagente contradice una afirmación **que ya se le entregó al dueño**,
+la verificación no se delega: se abre la fuente y se lee. Un agente que cita una URL no
+prueba que la leyó bien — y el costo de equivocarse acá era romperle la lectura de reuniones
+al producto para ahorrar US$18. Corolario del repo, ya escrito para los revendedores de
+modelos: **el precio de un proveedor no es un dato hasta que lo verificás vos**.
+
+*2026-08-13 railway-y-transcripcion*
+
 ### ⚠️ Nada en `lib/` corta una llamada por gasto: `ia-cuotas` reordena, nunca bloquea
 
 **Síntoma:** se asume que el sistema de cuotas ya frena algo. No frena nada.

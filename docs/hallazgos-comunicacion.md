@@ -89,6 +89,45 @@ la misma.
 
 ## WhatsApp no oficial (Evolution)
 
+### El costo del WhatsApp escala con NÚMEROS CONECTADOS, no con mensajes enviados
+
+**Síntoma:** al presupuestar «prendemos el chatbot y le escribimos a los 1.251 leads» se
+asume que la factura del servidor se dispara, y al presupuestar «entran 10 clientes» se
+asume que no cambia. **Es exactamente al revés.**
+
+**Causa:** Evolution mantiene **una sesión de WhatsApp Web abierta y prendida las 24 h por
+cada número vinculado** — la RAM se paga por estar despierta, no por mensaje. Y Railway
+cobra por memoria y CPU prendidos (US$0,0139 por GB-hora) más tráfico (US$0,05 por GB), no
+por request. Medido: escribirle a los 1.251 leads y recibir respuestas mueve ~45 MB =
+**entre US$0,01 y US$0,05**. Cada cliente nuevo que escanea su QR, en cambio, deja una
+sesión prendida para siempre y baja su historial (Leila conectó el 3/8 y metió 50.125
+mensajes en 10 días): **US$1-3 por cliente por mes**.
+
+**Regla:** para presupuestar el WhatsApp, contá **sesiones**, no mensajes. Y el techo real
+de mandar mil mensajes no es la plata del servidor: es el **baneo del número** — mil
+mensajes fríos seguidos desde WhatsApp Web es el patrón que Meta caza. Por eso el tope de
+40 envíos/día por cliente existe y no se sube «para terminar antes»: eso no lo paga
+Railway, lo paga el teléfono.
+
+⚠️ **Dos cosas medidas en vivo que conviene saber:** (1) hay **un teléfono conectado dos
+veces** — `mako_superadmin` y `mako_ws3` corren la MISMA cuenta de WhatsApp en dos
+sesiones simultáneas, que además de pagar RAM de más es de los patrones que más rápido
+gatillan un baneo; (2) **el motor de nutrición nunca mandó un mensaje**: la tabla de envíos
+tiene cero filas en toda su historia y no hay ninguna secuencia activa de verdad (las que
+figuran «activa» están archivadas, y el código exige las dos cosas). «Prender el chatbot»
+no es un botón: es decidir qué secuencia y a qué grupo.
+
+**Y sobre a quién pertenece esto:** Evolution y Chatwoot son software abierto que corre en
+cualquier lado — **no hay dependencia de Railway**, hay una dirección en una línea de
+config (`lib/evolution.ts:24`). Lo que sí ata es lo que ese servidor **guarda**: las
+sesiones vinculadas. Mudarlo sin migrar eso obliga a **todos los clientes a re-escanear el
+QR**. No conviene que cada cliente ponga el suyo: ya funciona compartido (un servidor, N
+sesiones, el cliente solo escanea), no está en el catálogo de integraciones del cliente, y
+el mínimo de Chatwoot son 4 GB ≈ US$41/mes **por cliente** para reemplazar algo que hoy
+cuesta US$2.
+
+**Vive en:** lib/evolution.ts:24 (EVOLUTION_BASE_URL) · lib/nutricion.ts:99 (tope 40/día) y :123-131 (secuencia activa) · *2026-08-13 railway-y-transcripcion*
+
 ### ⚠️ Evolution no trae nombres ni fotos de contacto, y desconectar no desconecta
 
 **Síntoma:** el inbox no oficial muestra «Voce» o el nombre del propio dueño en vez del
