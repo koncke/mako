@@ -126,7 +126,11 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'checklist-coach', label: 'MaKo te ayuda (tareas y proyectos)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe la descripción y la checklist de cada tarea nueva. Es la llamada más voluminosa del Perro (una por lote, con todas las tareas adentro) → Gemini Flash.' },
 
   // ── Análisis pesado sobre datos reales → OPUS (los únicos que se quedan) ─────
-  { feature: 'closing', label: 'Análisis de llamadas de venta', grupo: 'Análisis', def: CLAUDE(), pii: true, recomendado: CLAUDE(), pagoPorque: 'Transcript completo de una llamada de venta + juicio comercial sobre PII. Es el análisis insignia y lo que el cliente compra: la diferencia de criterio se nota y se paga a propósito.', nota: 'Transcript + decisión comercial sobre PII. El análisis insignia: Opus.' },
+  // Decisión del dueño (2026-08-13): baja de Opus a Sonnet. Sigue siendo PAGO a
+  // propósito —acá no se degrada a un modelo gratis— pero al precio de Sonnet, que
+  // es ~60% menos. Si alguna vez el criterio de los análisis se nota más flojo, la
+  // vuelta es cambiar este `def` a CLAUDE(): no hay nada más que tocar.
+  { feature: 'closing', label: 'Análisis de llamadas de venta', grupo: 'Análisis', def: SONNET, pii: true, recomendado: SONNET, pagoPorque: 'Transcript completo de una llamada de venta + juicio comercial sobre PII. Es el análisis insignia y lo que el cliente compra: por eso se paga, aunque desde 8/2026 con Sonnet en vez de Opus.', nota: 'Transcript + decisión comercial sobre PII. Pago a propósito: Sonnet.' },
   { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: CLAUDE(), pii: true, recomendado: CLAUDE(), pagoPorque: 'Síntesis multi-fuente sobre datos personales del lead (chat, llamadas, CRM). El razonamiento cruzado es el producto; un modelo flojo acá inventa relaciones que no están.', nota: 'Síntesis multi-fuente sobre PII. Opus.' },
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: CLAUDE(), recomendado: CLAUDE(), pagoPorque: 'El análisis más pesado del producto: lee el negocio entero y propone qué probar. Corre pocas veces y su salida gobierna decisiones de plata.', nota: 'El análisis más pesado del producto. Opus.' },
   { feature: 'ads-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: GEMINI(), nota: 'Lectura estructural creativa sobre un guion público. Si Gemini falla, la cascada gratis sigue antes de pagar.' },

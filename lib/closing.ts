@@ -210,7 +210,11 @@ function primaryInviteeEmail(m: FathomMeeting, lead: LeadMatch | null): string |
 // Análisis con Claude
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ANALYSIS_MODEL = 'claude-opus-4-8';
+// Solo el RESPALDO para cuando no se pudo leer el modelo real de la llamada (ver
+// AnalyzeResult.model). El modelo que corre lo decide el catálogo + el override de
+// /modelos-ia, NO esta constante: hardcodearla acá era lo que hacía que la tabla
+// dijera Opus para siempre aunque corriera otra cosa.
+const ANALYSIS_MODEL = 'claude-sonnet-5';
 
 export const SYSTEM_ANALISIS = `Sos MaKo, analista de cierres de Mauricio Bustos (consultoría/coaching ejecutivo que vende un programa de mentoría a dueños de negocio). Analizás grabaciones de reuniones para evaluar el desempeño del closer.
 
@@ -394,22 +398,32 @@ async function buildUserPrompt(m: FathomMeeting, lead: LeadMatch | null, feedbac
 }
 
 export type AnalyzeResult =
-  | { ok: true; analysis: ClaudeAnalysis }
+  // `model` es el modelo que corrió DE VERDAD, no el que dice el catálogo: sale del
+  // callback de uso de la llamada. Antes la fila guardaba una constante hardcodeada
+  // ('claude-opus-4-8'), así que si el override de /modelos-ia ruteaba la feature a
+  // otro modelo —o la cascada la degradaba— la tabla seguía diciendo Opus y la
+  // degradación quedaba INDETECTABLE. El costo se registra aparte (anthropic_usage);
+  // esto es para poder mirar una fila vieja y saber quién la escribió.
+  | { ok: true; analysis: ClaudeAnalysis; model: string }
   | { ok: false; error: string };
 
 /** Corre Claude sobre una meeting con contenido. PURA: nunca tira, devuelve {ok}. */
 export async function analyzeMeeting(m: FathomMeeting, lead: LeadMatch | null, feedback?: string): Promise<AnalyzeResult> {
   try {
     const system = await getPromptText('closing.analyze.system', SYSTEM_ANALISIS);
+    // Qué modelo corrió DE VERDAD. `onUsage` es el único que lo sabe: chatClaude
+    // resuelve override → catálogo → cascada por dentro y devuelve solo el texto.
+    let modelUsado = '';
     const text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(m, lead, feedback) }], {
       // Sin model hardcodeado: el override de /modelos-ia (feature 'closing') manda.
       thinking: true,
       effort: 'high',
       maxTokens: 8000,
       feature: 'closing',
+      onUsage: (u) => { modelUsado = u.model; },
     });
     const raw = parseJsonObject(text) as ClaudeAnalysis;
-    return { ok: true, analysis: raw };
+    return { ok: true, analysis: raw, model: modelUsado || ANALYSIS_MODEL };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -491,7 +505,7 @@ function descartadaRow(m: FathomMeeting, lead: LeadMatch | null, category: Closi
 }
 
 /** Fila a partir del análisis de Claude (v2). */
-function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis): ClosingAnalysisRow {
+function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis, model = ANALYSIS_MODEL): ClosingAnalysisRow {
   const base = baseFields(m, lead);
   const hasTr = a.has_transcript !== false && base.has_transcript !== false;
   const esVenta = a.es_venta === true && a.categoria === 'venta';
@@ -547,7 +561,7 @@ function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis
     edit_history: null,
     status: esVenta ? (hasTr ? 'analizada' : 'pendiente') : 'descartada',
     error: null,
-    model: ANALYSIS_MODEL,
+    model,
     analyzed_at: new Date().toISOString(),
   };
 }
@@ -589,7 +603,7 @@ export async function processCandidate(
     await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
     return { status: 'error', category: 'sin_clasificar' };
   }
-  const row = analyzedRow(m, lead, res.analysis);
+  const row = analyzedRow(m, lead, res.analysis, res.model);
   await upsertRow(row);
   return { status: row.status, category: row.category };
 }
@@ -680,7 +694,7 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
     let m: FathomMeeting = meta;
     try { m = await fetchMeetingContent(meta); } catch { /* seguimos con la metadata */ }
     const res = await analyzeMeeting(m, lead);
-    if (res.ok) { await upsertRow(analyzedRow(m, lead, res.analysis)); analizadas++; }
+    if (res.ok) { await upsertRow(analyzedRow(m, lead, res.analysis, res.model)); analizadas++; }
     else {
       await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
       fallidas++;
@@ -935,7 +949,7 @@ export async function reviseWithMako(recordingId: number, note: string, autor?: 
   const m = await fetchMeetingContent(meta);
   const res = await analyzeMeeting(m, lead, note);
   if (!res.ok) throw new Error(`MaKo no pudo re-evaluar: ${res.error}`);
-  const row = analyzedRow(m, lead, res.analysis);
+  const row = analyzedRow(m, lead, res.analysis, res.model);
 
   const { edit_history: _eh, recording_id: _rid, ...analysisFields } = row;
   void _eh; void _rid;
