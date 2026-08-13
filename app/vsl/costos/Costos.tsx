@@ -372,6 +372,11 @@ export default function Costos() {
                 <td className="w">Está en −$0,39 y cortada. Hay 50 análisis de llamadas de venta esperando. Cargale saldo: es lo único de esta lista que hay que hacer hoy.</td>
               </tr>
               <tr>
+                <td className="w"><strong>⚠️ Cargar más cuentas gratuitas de IA</strong></td>
+                <td className="n down">−$10 a −$25/mes</td>
+                <td className="w">Tenés una sola cuenta y se te agota todos los días. Cargar dos o tres más es gratis y toma 5 minutos. Es la acción con mejor relación esfuerzo/ahorro de toda la lista.</td>
+              </tr>
+              <tr>
                 <td className="w"><strong>Railway lo paga Leandro</strong></td>
                 <td className="n">$21/mes</td>
                 <td className="w">Pasalo a tu cuenta. Si él da de baja la tarjeta, se cae el WhatsApp de todos los clientes conectados, no solo el tuyo.</td>
@@ -530,16 +535,55 @@ export default function Costos() {
               hacerlo 13 veces. Ya no pasa, y además esa función pasó a un modelo gratuito.
             </p>
 
-            <div className="note warn">
-              <span className="tag">El precio de que sea gratis</span>
+            <h3>Lo más importante que podés hacer vos: cargar más cuentas de IA</h3>
+            <p>
+              Esto es simple y vale plata, así que va explicado en detalle.
+            </p>
+            <p>
+              Las inteligencias artificiales gratuitas <strong>no son infinitas: cada cuenta tiene
+              un tope diario</strong>. Es como un tanque de nafta que se llena solo cada mañana.
+              MaKo usa esa cuenta gratuita para casi todo, y mientras haya nafta, no se paga nada.
+            </p>
+            <p>
+              <strong>El problema es que hoy tenés una sola cuenta y tu tanque se vacía todos los
+              días.</strong> Cuando eso pasa, MaKo tiene que elegir entre dos cosas malas: usar una
+              IA paga, o hacer el trabajo con una peor y después rehacerlo. Las dos cuestan.
+            </p>
+            <div className="scroll">
+              <table>
+                <thead><tr><th>Día</th><th className="n">Veces que se quedó sin nafta</th></tr></thead>
+                <tbody>
+                  <tr><td>7 de agosto</td><td className="n">2</td></tr>
+                  <tr><td>11 de agosto</td><td className="n">89</td></tr>
+                  <tr><td>12 de agosto</td><td className="n up">110</td></tr>
+                  <tr><td>13 de agosto</td><td className="n">86</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="note good">
+              <span className="tag">La solución: 5 minutos y no cuesta nada</span>
               <p>
-                Los modelos gratuitos tienen un tope diario. Cuando se agota,{' '}
-                <strong>la reunión no se lee y se reintenta más tarde</strong> — no se degrada la
-                calidad, simplemente se pospone. Esta semana pasó 51 veces. Con más volumen se
-                resuelve sumando una segunda cuenta gratuita, o pasando a la versión paga de ese
-                modelo, que para todo el volumen de agosto habría costado <strong>$7,97</strong>.
+                <strong>Se pueden tener varias cuentas gratuitas a la vez, y MaKo va cambiando de
+                una a otra solo</strong> cuando una se queda sin nafta. Tres cuentas son tres
+                tanques.
+              </p>
+              <p>
+                Se crean gratis en <strong>aistudio.google.com</strong> con cualquier cuenta de
+                Google —una de la agencia, una personal, la que sea— y se pegan en{' '}
+                <strong>Integraciones</strong>, igual que cualquier otra clave. No hay que instalar
+                nada ni poner tarjeta.
+              </p>
+              <p>
+                Con eso <strong>desaparecen casi todos esos cortes</strong>, y con ellos el trabajo
+                que hoy se paga o se rehace. <strong>Es la acción con mejor relación
+                esfuerzo/resultado de todo este informe.</strong>
               </p>
             </div>
+            <p>
+              Si aun así llegara a quedarse corto —puede pasar cuando crezca el volumen—, la salida
+              es pasar esa IA a su versión paga: todo el volumen de agosto habría costado{' '}
+              <strong>$7,97</strong>.
+            </p>
           </div>
         </details>
 
