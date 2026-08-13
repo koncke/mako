@@ -35,6 +35,10 @@ export async function chatClaude(
   // falla (no romper una tarea por un override mal puesto).
   let modeloOverride: string | undefined;
   let fallbackNota = ''; // si caímos de la IA barata a Claude, lo dejamos VISIBLE en el historial
+  // El motivo por el que esta feature NO puede seguir. Se guarda en vez de lanzarse
+  // adentro del try, porque ese catch existe para «no hay registro → usá el default» y
+  // se comería el corte: la llamada terminaría en Opus, que es peor que Sonnet.
+  let noSePuedeSeguir = '';
   if (!opts.model && opts.feature) {
     try {
       const { modeloDeFeature, fallbackDeFeature } = await import('@/lib/model-registry');
@@ -72,8 +76,8 @@ export async function chatClaude(
         // en uno y en mistral-small en el otro —el 429 de la cuota compartida— y salió
         // 74% de precisión contra 46%, con 2 invenciones contra 12. La tab decía
         // «Gemini» y decía la verdad sobre la config. Con `fallback: []` la cascada se
-        // queda en un solo proveedor y, si no contesta, cae al pago de abajo con la nota
-        // visible: es más caro y es honesto. El detalle en lib/model-catalogo.ts.
+        // queda en UN solo proveedor y, si no contesta, la llamada FALLA: no se degrada
+        // ni se paga — un 429 se espera, no se compra. El detalle en lib/model-catalogo.ts.
         const permitidos = await fallbackDeFeature(opts.feature);
         const resto = (permitidos ?? CASCADA_DOCS) as ProvName[];
         const provs = [ref.provider as ProvName, ...resto.filter((p) => p !== ref.provider)];
@@ -83,17 +87,38 @@ export async function chatClaude(
           provs, modelos: { [ref.provider as ProvName]: ref.model }, timeoutMs, esfuerzo, erroresOut: errores,
         });
         if (salida.trim()) return salida;
-        // Toda la cascada gratis falló: recién ACÁ se paga, con Sonnet (no Opus) y
-        // dejando VISIBLE por qué. Sin esta nota la tab decía "Gemini" y el historial
-        // mostraba "Claude" sin explicación (el reclamo original de Martín).
-        modeloOverride = 'claude-sonnet-5';
-        fallbackNota = ` · ⚠ fallback pago: fallaron los ${provs.length} proveedores gratis (${errores.join(' · ').slice(0, 160) || 'sin respuesta'})`;
-        console.warn(`[anthropic] ${opts.feature}: la cascada barata (${provs.join(', ')}) no contestó, pago Claude Sonnet — ${errores.join(' · ')}`);
+        // ⛔ `fallback: []` SIGNIFICA «NO DEGRADES», NO «PAGÁ CLAUDE».
+        //
+        // La primera versión de esto caía a Sonnet y estaba mal por donde se la mire.
+        // El error que dispara la cascada es casi siempre un 429 —la cuota del minuto,
+        // el error más transitorio que existe— y la respuesta correcta a un 429 no es
+        // cambiar de modelo NI abrir la billetera: es esperar. Corrido en el momento
+        // equivocado, «no degrades» se convirtió en una tanda de llamadas pagas que
+        // encima fallaron por saldo. El dueño, textual: «No utilices Claude, eso ya lo
+        // habíamos hablado». Tiene razón y es la regla de la casa desde hace rato.
+        //
+        // Ahora falla, y fallar acá es BARATO porque el camino de reintento ya existe:
+        // la parte se marca como no leída (`partesFallidas`), el borrador no se cachea,
+        // la reunión NO se cierra y el próximo cron la lee de nuevo — con la cuota
+        // repuesta. Cero degradación, cero pesos, y el trabajo se hace igual, más tarde.
+        if (permitidos && permitidos.length === 0) {
+          noSePuedeSeguir = `${opts.feature}: ${ref.provider} no contestó y esta feature no se degrada ni se paga (${errores.join(' · ').slice(0, 200) || 'sin respuesta'}). Se reintenta en la próxima corrida.`;
+          console.warn(`[anthropic] ${noSePuedeSeguir}`);
+        } else {
+          // Para el resto: toda la cascada gratis falló y recién ACÁ se paga, con Sonnet
+          // (no Opus) y dejando VISIBLE por qué. Sin esta nota la tab decía "Gemini" y el
+          // historial mostraba "Claude" sin explicación (el reclamo original de Martín).
+          modeloOverride = 'claude-sonnet-5';
+          fallbackNota = ` · ⚠ fallback pago: fallaron los ${provs.length} proveedores gratis (${errores.join(' · ').slice(0, 160) || 'sin respuesta'})`;
+          console.warn(`[anthropic] ${opts.feature}: la cascada barata (${provs.join(', ')}) no contestó, pago Claude Sonnet — ${errores.join(' · ')}`);
+        }
       } else if (ref) {
         modeloOverride = ref.model;
       }
     } catch { /* sin registro → default */ }
   }
+  // Acá afuera del catch, para que el corte no se lo coma el «usá el default».
+  if (noSePuedeSeguir) throw new Error(noSePuedeSeguir);
 
   // La key de Claude sale POR WORKSPACE (BYOK): fila cifrada del cliente > env del
   // dueño. Antes leía process.env directo → un cliente con su key pega no la usaba.

@@ -30,7 +30,15 @@ export type FeatureModelo = {
   pagoPorque?: string;
   /**
    * A qué proveedores se puede caer si `def` no contesta. Omitido = la cascada entera
-   * (lo de siempre). `[]` = A NINGUNO: antes que degradar el modelo, pagar Claude.
+   * (lo de siempre). `[]` = A NINGUNO Y TAMPOCO A CLAUDE: la llamada FALLA.
+   *
+   * ⚠️ «No degrades» NO es «pagá». La primera versión de esto caía a Sonnet y estaba mal:
+   * el error que dispara la cascada es casi siempre un 429 —la cuota del minuto, el más
+   * transitorio que existe— y la respuesta correcta a un 429 no es cambiar de modelo ni
+   * abrir la billetera, es ESPERAR. Corrido en plena tanda de 429, «no degrades» se
+   * convirtió en llamadas pagas que encima fallaron por saldo. Fallar es barato porque el
+   * camino de reintento ya existe: la parte queda sin leer, el borrador no se cachea, la
+   * reunión no se cierra y el próximo cron la lee con la cuota repuesta.
    *
    * ⚠️ UN FALLBACK QUE NO COBRA ES UNA DEGRADACIÓN SILENCIOSA — el espejo exacto de la
    * regla de acá abajo, y peor, porque el cobro al menos deja rastro en la factura.
@@ -144,8 +152,8 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // `fallback: []` — «cualquier modelo con contexto saca los action items» resultó FALSO,
   // medido el 12/8 sobre la misma llamada leída por dos workspaces con 65 s de
   // diferencia: gemini-flash 74% de precisión y 2 invenciones, mistral-small 46% y 12.
-  // Antes que degradar el modelo se paga Sonnet, con la nota «⚠ fallback pago» visible.
-  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: GEMINI(), fallback: [], nota: 'Lo que se lee mal acá no se nota: una tarea que no se extrajo no aparece en ninguna pantalla. Por eso NO se degrada de modelo — si Gemini no contesta, paga Sonnet. 1 vez por reunión (cacheada).' },
+  // Antes que degradar el modelo, la llamada FALLA y el cron reintenta con la cuota repuesta: ni se degrada ni se paga.
+  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: GEMINI(), fallback: [], nota: 'Lo que se lee mal acá no se nota: una tarea que no se extrajo no aparece en ninguna pantalla. Por eso NO se degrada de modelo: si Gemini no contesta, la lectura falla y se reintenta sola. 1 vez por reunión (cacheada).' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: GEMINI(), nota: 'Estrategia + voz de marca. Sonnet.' },
