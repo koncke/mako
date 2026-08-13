@@ -705,8 +705,8 @@ export type SyncResult = {
   otras: number;        // interna / sin_clasificar resueltas por Claude
   errores: number;
   restantes: number;
-  /** por qué paró: drenó la cola · tope de llamadas · no entraba otra llamada entera. */
-  corto_por: 'cola' | 'max' | 'tiempo';
+  /** por qué paró: drenó la cola · tope de llamadas · no entraba otra llamada entera · N fallos seguidos. */
+  corto_por: 'cola' | 'max' | 'tiempo' | 'errores';
   ms: number;
 };
 
@@ -816,21 +816,36 @@ export async function syncClosingCalls(opts: { max?: number; deadline?: number; 
   // llamada y no su fin, así que una que arrancaba justo antes del límite igual se
   // pasaba: se pagaba el análisis y se perdía sin escribir la fila.
   const entraOtraLlamada = () => Date.now() + RESERVA_LLAMADA_MS <= deadline;
+  // Cortafuegos para los fallos que NO consumen una llamada al modelo. Medido en
+  // producción el 13/8: 37 filas fallando con «Your credit balance is too low» y 20
+  // con «ANTHROPIC_API_KEY no configurada» — las dos rechazan ANTES de facturar, y
+  // como status='error' es reintentable el cron las vuelve a levantar en CADA
+  // corrida. Contarlas como si fueran análisis gastaba el cupo de llamadas que nunca
+  // ocurrieron; no contarlas dejaría que un cluster determinístico se coma la corrida
+  // entera. Por eso: no gastan cupo, pero tres seguidas cortan.
+  let erroresSeguidos = 0;
+  const MAX_ERRORES_SEGUIDOS = 3;
+  let intentadas = 0;
   for (const m of candidatas) {
     if (analizadasEnCorrida >= max) { result.corto_por = 'max'; break; }
     if (!entraOtraLlamada()) { result.corto_por = 'tiempo'; break; }
-    analizadasEnCorrida++;
+    intentadas++;
     const { status, category } = await processCandidate(m, leadsByEmail);
-    if (status === 'error') result.errores++;
-    else {
-      result.analizadas++;
-      if (category === 'venta') result.ventas++;
-      else if (category === 'entrega_servicio') result.servicio++;
-      else result.otras++;
+    if (status === 'error') {
+      result.errores++;
+      erroresSeguidos++;
+      if (erroresSeguidos >= MAX_ERRORES_SEGUIDOS) { result.corto_por = 'errores'; break; }
+      continue;
     }
+    erroresSeguidos = 0;
+    analizadasEnCorrida++;
+    result.analizadas++;
+    if (category === 'venta') result.ventas++;
+    else if (category === 'entrega_servicio') result.servicio++;
+    else result.otras++;
   }
 
-  result.restantes = candidatas.length - analizadasEnCorrida;
+  result.restantes = candidatas.length - intentadas;
   result.ms = Date.now() - tStart;
   return result;
 }
