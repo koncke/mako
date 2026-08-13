@@ -1266,13 +1266,63 @@ se puede medir desde la base.
 compute» sobre una instancia que ya está en el piso — y a no buscar el gasto donde realmente está,
 que es en los **proyectos que nadie abre**.
 
-⚠️ **Pendiente, y es lo único que falta:** listar los proyectos de la organización. Requiere un
-**Personal Access Token** (`sbp_…`) de https://supabase.com/dashboard/account/tokens → `GET
-https://api.supabase.com/v1/projects`. **Las claves del proyecto no sirven**: probadas las cuatro
-(anon, service_role, publishable, secret) contra `api.supabase.com` → **401** («JWT could not be
-decoded» / «JWT failed verification»). Son claves de datos (PostgREST), no de gestión.
+**RESUELTO con el Personal Access Token (misma fecha).** Los ~US$55 eran, en efecto, **otros
+proyectos**. Hay **10 proyectos Supabase repartidos en 4 organizaciones**, y **solo una paga**:
 
-**Vive en:** medido con `DATABASE_URL` + el paquete `postgres` (ya está en el repo) · *2026-08-13 infra-costos-alternativas*
+| Organización | Plan | Qué paga |
+|---|---|---|
+| **Mauricio Bustos Business** (7 proyectos) | **Pro** | US$25 + 5 computes Micro (US$49,06) − US$10 de crédito = **US$64,06** |
+| CRM-LEADS · VIRAL-RADAR · GB-LOGISTICS (1 c/u) | Free | US$0 |
+
+Los 5 computes pagos, con su actividad real de 7 días: **MaKo 1.134.762** requests REST ·
+esquer-accountability 30.211 · baja-teriyaki 28.798 · texx-accountability 19.902 ·
+**aspro-tableros 957** (137/día, el único candidato a pausar). Dos proyectos más de esa org no
+pagan compute (`dental-ramos-crm` con 4.676 requests y `mbustos@elevate.com.mx's Project` con
+**0**, vacío).
+
+**O sea: de los US$64, US$9,81 son MaKo y US$39 son tableros de clientes.** Eso no es desperdicio
+de infraestructura, es costo de servicio — la pregunta pasa a ser comercial (si cada cliente cubre
+sus US$10/mes), no técnica. Y **Micro es el compute más chico que se puede pagar** (le sigue Small
+a US$15,04): no hay nada que bajar en ninguno.
+
+**Cómo se leen estos datos, que es lo que cuesta encontrar:**
+- Hace falta un **PAT `sbp_…`** de https://supabase.com/dashboard/account/tokens. **Las claves del
+  proyecto NO sirven**: probadas las cuatro (anon, service_role, publishable, secret) contra
+  `api.supabase.com` → **401**. Son claves de datos (PostgREST), no de gestión.
+- **`/v1/organizations/{slug}/billing/subscription` NO existe** (404). El endpoint real es
+  **`GET /v1/projects/{ref}/billing/addons`**, y es **por proyecto**: devuelve `selected_addons`
+  (lo que se paga hoy) y `available_addons` (el catálogo con precios). El precio viene como
+  `{amount, interval:'hourly'}` → **hay que multiplicar por 730** para el mes.
+- El plan de la org sale de `GET /v1/organizations/{slug}` (campo `plan`), y el spec completo de la
+  API (115 endpoints) de **https://api.supabase.com/api/v1-json**.
+- ⚠️ **`usage.api-counts` devuelve campos que NO se llaman `count`**: son `total_rest_requests`,
+  `total_storage_requests`, `total_auth_requests`, `total_realtime_requests`. Un sumador que filtre
+  por `'count' in clave` devuelve **0 para todos los proyectos** y parece que están todos muertos —
+  incluido el que tiene 1,1 millón de requests. El `interval` además es un enum cerrado
+  (`15min,30min,1hr,3hr,1day,3day,7day`); cualquier otro valor da 400.
+
+**Vive en:** medido con `DATABASE_URL` + el paquete `postgres` (ya está en el repo) y con `SUPABASE_ACCESS_TOKEN` en `.env.local` · *2026-08-13 infra-costos-alternativas*
+
+### Los roles de Vercel no son los tres que documenta la web, y el gratis se llama `VIEWER_FOR_PLUS`
+
+Para sacar el asiento extra (US$18,5/mes) hay que degradar a un OWNER. La doc pública habla de
+«Owner / Member / Viewer», pero **la API rechaza `VIEWER`**: el error enumera los roles reales —
+**`MEMBER, OWNER, VIEWER_FOR_PLUS, DEVELOPER, BILLING`**. El gratuito del plan Pro es
+**`VIEWER_FOR_PLUS`** (el «Viewer Pro»). `DEVELOPER` y `BILLING` existen pero **su precio no está
+verificado**: elegir mal cuesta US$20/mes sin avisar.
+
+```
+PATCH https://api.vercel.com/v1/teams/{teamId}/members/{uid}   {"role":"VIEWER_FOR_PLUS"}
+```
+
+El `uid` sale de `GET /v2/teams/{teamId}/members`. Y ojo con el orden: **un Viewer no puede
+escribir por API**, así que si el token que usás es del usuario que estás degradando, te quedás
+sin poder administrar. Se reemplaza el token PRIMERO (por uno de un OWNER que siga siéndolo) y se
+degrada DESPUÉS. Hoy `VERCEL_API_TOKEN` en `.env.local` es de **mbustos@elevate.com.mx**, no de
+koncke, justamente por esto. Los deploys por `git push` **no dependen del rol**: los dispara la
+integración de GitHub del proyecto.
+
+**Vive en:** `.env.local` (VERCEL_API_TOKEN) · Vercel Team Settings → Members · *2026-08-13 infra-costos-alternativas*
 
 ### El 78 % de la base es el TOAST de `wa_mensajes`, y ahí adentro hay filas de 4,3 MB
 
