@@ -165,7 +165,10 @@ export function Selector({ cursos, enter, compartir }: {
 // ── Hub del curso ────────────────────────────────────────────────────────────
 // `compartir` es el botón de Compartir del admin, inyectado desde afuera: la
 // vista pública no lo pasa y así ese código no llega al invitado.
-export function Hub({ curso, goClase, goRecurso, compartir }: { curso: Curso; goClase: (n: number) => void; goRecurso: (slug: string) => void; compartir?: ReactNode }) {
+// `back` es el MISMO de ClaseDetail y RecursoDetail, no uno nuevo: ya venía cableado
+// desde los dos lados (el portal del admin y el link compartido) y el hub era la única
+// vista de las tres que no lo dibujaba — se entraba a un curso y no había salida.
+export function Hub({ curso, goClase, goRecurso, compartir, back }: { curso: Curso; goClase: (n: number) => void; goRecurso: (slug: string) => void; compartir?: ReactNode; back?: () => void }) {
   // DOS niveles: módulo (`grupo`) → sección (`subgrupo`). Antes se agrupaba solo por
   // módulo y las 24 clases de uno caían en una lista plana, aunque la plataforma sí
   // las divide en secciones. El orden se toma del ORDEN DE LAS CLASES, no de un sort
@@ -193,6 +196,7 @@ export function Hub({ curso, goClase, goRecurso, compartir }: { curso: Curso; go
   );
   return (
     <>
+      {back && <button type="button" className="al-back" onClick={back}>← Volver</button>}
       <section className="al-hero">
         <div className="al-hero-top">
           <span className="al-eyebrow"><span className="d" /> {curso.eyebrow}</span>
@@ -529,7 +533,7 @@ export default function CursoPortal({ curso, vista, nav, back, compartir }: {
 
   if (clase) return <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ r: s })} back={back} />;
   if (recurso) return <RecursoDetail r={recurso} back={back} />;
-  return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} />;
+  return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} back={back} />;
 }
 
 export const CSS = `
