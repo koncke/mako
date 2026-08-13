@@ -1233,23 +1233,64 @@ una cadencia rota: la re-tarifa.**
 
 **Vive en:** proxy.ts · vercel.json (cron `doer-flush`) · los 748 `.from()` de lib/ y app/ · *2026-08-13 infra-costos-alternativas*
 
-### La palanca de Supabase es el add-on de compute, no el plan
+### ⚠️ El compute de Supabase NO es la palanca: la base ya está en el tamaño más chico, y el 69 % de la factura no está en este proyecto
 
-US$80/mes de Supabase se lee como «el plan Pro es caro». Pro son **US$25** e incluyen US$10 de
-crédito de compute. Los ~US$55 restantes son un **add-on de compute** que alguien eligió una vez y
-nadie volvió a mirar: Micro US$10, Small US$15, **Medium US$60**, Large US$110. El plan no se puede
-bajar; el add-on sí, con un restart de ~2 minutos y reversible en un click.
+**La hipótesis que se cayó.** Ante US$80/mes se dedujo «Pro US$25 + un add-on de compute Medium de
+US$60 que alguien eligió y nadie volvió a mirar». **Falso.** Medido contra la base
+(`pg_settings` por conexión directa con `DATABASE_URL`):
 
-**Regla:** en Supabase, antes de discutir el plan, leé el tamaño de la instancia y **30 días de
-CPU/RAM** en Reports → Database. Y verificá dos toggles que duplican la factura solos: **PITR**
-(US$100/mes por 7 días de retención) y el **spend cap** (viene ON, pero si alguien lo apagó, el
-egress a US$0,09/GB pasados los 250 GB salta sin aviso — y ahí viven creativos, contratos, recibos,
-avatares y audios de WhatsApp).
+| Indicador | Valor real | Qué implica |
+|---|---|---|
+| `shared_buffers` | **256 MB** | Supabase asigna ~25 % de la RAM → **~1 GB** |
+| `max_connections` | **60** | Micro=60 · Small=90 · Medium=120 · Large=160 |
+| `max_worker_processes` / `max_parallel_workers` | 6 / 2 | perfil de la instancia más chica |
 
-⚠️ **Sin verificar:** el desglose real de esos US$80 no se pudo leer (no hay token de la Management
-API en el repo). Los US$25 + Medium − crédito son una reconstrucción que cierra, no un dato leído.
+Dos indicadores independientes dan **Micro**, no Medium. Y Micro cuesta US$10 con **US$10 de
+crédito de compute incluido en Pro**: el compute de este proyecto sale **US$0 netos**. No hay
+US$45 que bajar — no se puede bajar más.
 
-**Vive en:** Supabase Dashboard → Settings → Compute and Disk · *2026-08-13 infra-costos-alternativas*
+**Y la base está sobradísima**, así que tampoco hay que subirlo: *cache hit ratio de **100,000 %***
+(232 lecturas de disco contra 170 millones de cache), **9 conexiones de 60**, sin bloat, sin
+`n_dead_tup`. El resto también da cero: base de **374 MB** (Pro incluye 8 GB), Storage de
+**1,07 GB** en 6 buckets (Pro incluye 100 GB), **`auth.users` = 0** (confirma que no se usa
+Supabase Auth: cero MAU), **0 réplicas**, 0 slots de replicación, WAL de 112 MB.
+
+**O sea que este proyecto explica US$25 de los US$80.** Los otros ~US$55 **no están acá**, y solo
+quedan tres lugares posibles: (1) **otros proyectos Supabase en la misma organización** — cada uno
+paga su compute mínimo y el crédito de US$10 es **uno por organización**, no por proyecto, así que
+5-6 proyectos dormidos son US$50-60; (2) más de una organización con plan Pro; (3) egress, que no
+se puede medir desde la base.
+
+**La regla:** el tamaño de una instancia **se lee, no se deduce de la factura**. `shared_buffers` y
+`max_connections` lo dicen en una consulta, y son gratis. Deducirlo del monto invita a «bajá el
+compute» sobre una instancia que ya está en el piso — y a no buscar el gasto donde realmente está,
+que es en los **proyectos que nadie abre**.
+
+⚠️ **Pendiente, y es lo único que falta:** listar los proyectos de la organización. Requiere un
+**Personal Access Token** (`sbp_…`) de https://supabase.com/dashboard/account/tokens → `GET
+https://api.supabase.com/v1/projects`. **Las claves del proyecto no sirven**: probadas las cuatro
+(anon, service_role, publishable, secret) contra `api.supabase.com` → **401** («JWT could not be
+decoded» / «JWT failed verification»). Son claves de datos (PostgREST), no de gestión.
+
+**Vive en:** medido con `DATABASE_URL` + el paquete `postgres` (ya está en el repo) · *2026-08-13 infra-costos-alternativas*
+
+### El 78 % de la base es el TOAST de `wa_mensajes`, y ahí adentro hay filas de 4,3 MB
+
+De los 374 MB de la base, **292 MB son el TOAST de `wa_mensajes`** — contra 26 MB de datos y 5 MB
+de índices. La tabla tiene 24.584 filas que pesan 303 MB: **12,6 KB de promedio por mensaje**, con
+la más grande en **4,3 MB**. El sospechoso es la columna `raw jsonb`, que guarda el payload crudo
+del webhook de WhatsApp entero.
+
+Crece ~3.935 filas por semana (~560/día) ≈ **200 MB/mes**. Hoy no cuesta un peso (Pro incluye 8 GB
+y van 374 MB), pero es la única curva de crecimiento real que tiene la base, y **el disco de
+Supabase se aprovisiona y no baja solo**: cuando se pase, el cargo queda aunque después se borren
+las filas.
+
+**Regla:** guardar el `raw` completo de un webhook es gratis hasta que deja de serlo. Si alguna vez
+hay que recortar, el candidato es el `raw` de los mensajes viejos (no la fila entera: el histórico
+de la conversación se usa), y conviene mirarlo **antes** de que fuerce un upgrade de disco.
+
+**Vive en:** `wa_mensajes.raw` (columna jsonb) · supabase/migrations · *2026-08-13 infra-costos-alternativas*
 
 ### Cómo se entrega acá: las reglas del dueño
 
