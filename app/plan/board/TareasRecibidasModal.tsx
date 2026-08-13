@@ -223,6 +223,12 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   }, [preguntasTodas, filas]);
 
   const [guardando, setGuardando] = useState<'' | 'aplicar' | 'descartar'>('');
+  // En qué tab está parado el usuario: null = «Mías». Cambia el pie entero.
+  const [personaActiva, setPersonaActiva] = useState<string | null>(null);
+  // El nodo del pie donde `PanelPersona` portalea sus tres botones. Va como STATE y no
+  // como `useRef`: un ref no dispara render, así que el portal se pintaba un ciclo
+  // tarde — o sea nunca, porque el nodo aparece y desaparece con la tab.
+  const [pieSlot, setPieSlot] = useState<HTMLDivElement | null>(null);
   const [err, setErr] = useState('');
   const nombreProyecto = (id: string | null) => labels.find((l) => l.id === id)?.name;
   const nIncluidas = filas.filter((f) => f.incluir && !f.esDeOtro).length;
@@ -672,6 +678,8 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             // Para «es otra tarea»: solo las ABIERTAS, que son a las que tiene sentido
             // sumarles contexto (a una cerrada no se le amplía nada).
             delTablero={(existentes ?? []).filter((t) => !t.hecha).map((t) => ({ id: t.id, titulo: t.titulo }))}
+            pieAcciones={pieSlot}
+            onPersonaActiva={setPersonaActiva}
           />}
         </div>
 
@@ -684,7 +692,20 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               compromisos de otras personas, este botón los tiraba a la basura sin
               repartirlos — y encima se llamaba «Descartar lo que queda», como si fuera
               tu resto. Lo que corresponde ahí es mandárselos desde la tabla, no borrarlos. */}
-          {cerrado ? (
+          {/* PARADO EN LA TAB DE OTRA PERSONA, EL PIE ES DE ESA PERSONA.
+              «Agregar N al plan» carga LO TUYO, y en esa tab no hay nada tuyo: el botón
+              prometía una acción que no correspondía a lo que estabas mirando. Los tres
+              botones de ella (descargar / enviar / cargar en su plan) estaban abajo de
+              las tarjetas, o sea al final de una lista de 24 — donde no los veía nadie.
+              Se portalean acá desde `PanelPersona`, que es quien tiene el estado. */}
+          {personaActiva ? (
+            <>
+              <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>
+                Lo de <b style={{ color: 'var(--ink)' }}>{personaActiva}</b> no entra a tu plan:
+              </span>
+              <div ref={setPieSlot} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} />
+            </>
+          ) : cerrado ? (
             <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>
               {descartadoConCargas
                 ? 'Lo que se cargó al plan está arriba; el resto lo descartaste. Para volver a trabajar esta reunión, extraela de nuevo desde la lista.'
@@ -696,7 +717,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               {guardando === 'descartar' ? 'Descartando…' : varias ? 'Descartar todo' : 'Descartar'}
             </button>
           ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mandáselo desde la lista.</span>}
-          {hayMias && !cerrado && (
+          {hayMias && !cerrado && !personaActiva && (
             <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando || cruzando}
               style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
               {guardando === 'aplicar' ? 'Cargando…' : pensando ? 'MaKo está mirando lo que elegiste…' : nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}

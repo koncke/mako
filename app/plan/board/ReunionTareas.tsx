@@ -15,7 +15,8 @@
 // de un borrador pendiente (TareasRecibidasModal), así el reparto es el mismo venga
 // de donde venga.
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { type Label, type Prio } from './types';
 import { DetalleDoc } from './DetalleDoc';
@@ -202,7 +203,7 @@ function descargarMd(nombre: string, filas: FilaTarea[], reunion: ReunionRefUI) 
 /** Una tarea de esta reunión que YA está en el plan (se cargó en una pasada anterior). */
 export type TareaYaCargada = { titulo: string; tareaId: string; minutos?: number[]; url?: string | null };
 
-export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard, delTablero }: {
+export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard, delTablero, pieAcciones, onPersonaActiva }: {
   filas: FilaTarea[];
   labels: Label[];
   /** reunión por defecto, para cuando las filas no traen la suya (extracción manual). */
@@ -226,6 +227,22 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
    *  que es un duplicado pero erró la tarjeta, se re-apunta a la correcta en vez de
    *  crear una nueva (que es el duplicado que todo esto viene a evitar). */
   delTablero?: Array<{ id: string; titulo: string }>;
+  /**
+   * El nodo del PIE del modal donde van los botones de acción cuando estás parado en la
+   * tab de otra persona (descargar / enviar / cargar en su plan).
+   *
+   * Va por PORTAL y no subiendo la lógica al modal porque esos tres botones dependen de
+   * todo el estado de `PanelPersona` —el destinatario resuelto, el email escrito a mano,
+   * el teléfono, «enviando», «cargando», el link ya creado—. Subir eso serían ocho props
+   * atadas en dos lados; mover el DOM son cuatro líneas y la lógica no se entera.
+   *
+   * Si no viene, los botones se dibujan donde estaban: la extracción manual usa este
+   * mismo componente y no tiene pie.
+   */
+  pieAcciones?: HTMLElement | null;
+  /** Avisa qué tab está abierta: null = «Mías». El modal lo usa para sacar su botón
+   *  «Agregar N al plan», que parado en la tab de otro no significa nada. */
+  onPersonaActiva?: (nombre: string | null) => void;
 }) {
   // Índices originales, para que el patch vuelva a la fila correcta del padre.
   const conIdx = useMemo(() => filas.map((f, i) => ({ f, i, r: f.reunion ?? reunion })), [filas, reunion]);
@@ -290,6 +307,14 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
   const [tabSel, setTab] = useState<string>('mias');
   const activo = tabSel === 'mias' ? null : grupos.find((g) => g.clave === tabSel) ?? null;
   const tab = tabSel === 'mias' || activo ? tabSel : 'mias';
+
+  // El pie del modal necesita saber en qué tab estás para cambiar sus botones. Se avisa
+  // por efecto y con el NOMBRE (no la clave) porque el pie lo escribe en pantalla.
+  // `activo` se deriva del render, así que esto no puede entrar en bucle.
+  useEffect(() => { onPersonaActiva?.(activo?.nombre ?? null); }, [activo?.nombre, onPersonaActiva]);
+  // Y al desmontar el modal vuelve a su pie normal: sin esto, cerrar la pantalla parado
+  // en la tab de alguien la dejaba «pegada» y el próximo modal abría sin su botón.
+  useEffect(() => () => onPersonaActiva?.(null), [onPersonaActiva]);
 
   // Quién es cada uno en la app (para saber si podemos mandarle o cargarle el plan).
   // Indexado por REUNIÓN: los participantes se validan por grabación, así que cada una
@@ -490,6 +515,11 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
           reunion={activo.r}
           onFila={onFila}
           personas={personasTodas}
+          slot={pieAcciones}
+          // El slot llega un render TARDE (el div del pie recién existe después de que
+          // el modal sepa que cambiaste de tab). Sin este aviso, ese primer frame
+          // dibujaba los botones abajo de las tarjetas y se los veía saltar al pie.
+          conPie={!!onPersonaActiva}
         />
       ) : null}
     </div>
@@ -763,13 +793,18 @@ export function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: F
 }
 
 /** Tab de una persona: sus tareas (solo lectura) + qué hacer con ellas. */
-function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels, reunion, onFila, personas }: {
+function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels, reunion, onFila, personas, slot, conPie }: {
   nombre: string; dest?: Destinatario; cargandoDest: boolean;
   /** por qué NO se le puede mandar nada (lo redacta el server). '' = se puede. */
   motivoSinDest?: string;
   items: Array<{ f: FilaTarea; i: number }>; labels: Label[]; reunion: ReunionRefUI;
   onFila: (i: number, patch: Partial<FilaTarea>) => void;
   personas: PersonaRef[];
+  /** El pie del modal. Si viene, los tres botones se dibujan AHÍ y no abajo de las
+   *  tarjetas: parado en la tab de otro, la acción del pie es «mandarle lo suyo». */
+  slot?: HTMLElement | null;
+  /** El modal TIENE pie, aunque el nodo todavía no exista (llega un render tarde). */
+  conPie?: boolean;
 }) {
   const [reasignando, setReasignando] = useState<number | null>(null);
   const [editando, setEditando] = useState<number | null>(null);
@@ -790,6 +825,8 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
   const [nota, setNota] = useState('');
   const [err, setErr] = useState('');
   const [linkPlan, setLinkPlan] = useState('');
+  const envioRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (abrirEnvio) envioRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [abrirEnvio]);
 
   const proyectoNombre = (id: string | null) => labels.find((l) => l.id === id)?.name;
   // Si el proyecto todavía no existe, viaja el NOMBRE propuesto: el server crea la
@@ -833,8 +870,40 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
     } else setErr(String(j.error ?? 'No pude cargárselas.'));
   };
 
+  // LOS TRES BOTONES, en una constante: van al PIE del modal si hay dónde, y si no —la
+  // extracción manual, que usa este mismo componente sin pie— donde estaban siempre.
+  // Parado en la tab de otra persona, la acción del pie no puede ser «Agregar N al plan»:
+  // eso carga LO TUYO, y acá no hay nada tuyo. La acción es mandarle lo suyo a él.
+  const acciones = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingTop: slot ? 0 : 2 }}>
+      <button type="button" onClick={() => descargarMd(nombre, filas, reunion)} style={ghost}>⬇ Descargar (.md)</button>
+      <button type="button" onClick={() => { setAbrirEnvio(true); setErr(''); setNota(''); }} disabled={!puedeMandar || abrirEnvio}
+        title={puedeMandar ? 'Mandarle sus tareas por WhatsApp y mail' : 'No tengo el mail de esta persona en la reunión'}
+        style={{ ...ghost, opacity: puedeMandar && !abrirEnvio ? 1 : 0.5, cursor: puedeMandar && !abrirEnvio ? 'pointer' : 'default' }}>
+        ✉ Enviar
+      </button>
+      {cargandoDest && <span style={{ fontSize: 12, color: 'var(--faint)', alignSelf: 'center' }}>Buscando su cuenta…</span>}
+      {/* SIN destinatario: se DICE por qué. Antes el botón «Cargar en el plan de X»
+          simplemente no aparecía y no había forma de saber si era porque la persona
+          no tiene cuenta, porque la reunión no trajo invitados o porque falló algo. */}
+      {!cargandoDest && !dest && (
+        <span style={{ fontSize: 12, color: 'var(--dim)', alignSelf: 'center', lineHeight: 1.45, maxWidth: 340 }}>
+          {motivoSinDest || `No encontré la cuenta de ${nombre.split(' ')[0]} en MaKo: puedo mandarle las tareas, pero no dejárselas en su plan.`}
+        </span>
+      )}
+      {dest?.puedeCargarPlan && (
+        <button type="button" onClick={() => void cargarEnSuPlan()} disabled={cargando || !!linkPlan}
+          title={dest.esVos ? 'Te las dejo como borrador en TU plan para que las confirmes' : 'Le dejo estas tareas en su plan para que las confirme'}
+          style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: linkPlan ? 'var(--border)' : 'var(--ink)', color: linkPlan ? 'var(--faint)' : 'var(--surface)', fontSize: 13.5, fontWeight: 700, cursor: cargando || linkPlan ? 'default' : 'pointer', fontFamily: SANS }}>
+          {cargando ? 'Cargando…' : linkPlan ? (dest.esVos ? '✓ En tu plan' : '✓ En su plan') : dest.esVos ? 'Cargar en MI plan' : `Cargar en el plan de ${nombre.split(' ')[0]}`}
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {slot && createPortal(acciones, slot)}
       <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
         Esto quedó del lado de <b style={{ color: 'var(--ink)' }}>{nombre}</b>{dest?.email ? ` (${dest.email})` : ''}
         {reunion.titulo ? <> en <b style={{ color: 'var(--ink)' }}>{reunion.titulo}</b></> : null}
@@ -891,9 +960,12 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
       {nota && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)', background: 'var(--surface-2)', border: '1px solid var(--good)', borderRadius: 9, padding: '9px 12px' }}>✓ {nota}</div>}
       {err && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--bad)' }}>{err}</div>}
 
-      {/* confirmación de envío: se ve EXACTAMENTE a dónde va antes de mandar */}
+      {/* confirmación de envío: se ve EXACTAMENTE a dónde va antes de mandar.
+          ⚠️ Se trae a la vista sola. Con el botón «Enviar» en el PIE del modal y este
+          formulario al final de una lista de 24 tarjetas, tocarlo no mostraba nada:
+          el panel se abría fuera de pantalla y parecía que el botón no hacía nada. */}
       {abrirEnvio && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '12px 13px', borderRadius: 12, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)' }}>
+        <div ref={envioRef} style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '12px 13px', borderRadius: 12, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>¿Se las mando a {nombre}?</div>
           <Check on={mail} set={setMail} label={emailDest ? `Mail a ${emailDest}` : 'Mail'} />
           {mail && !dest?.email && (
@@ -915,30 +987,8 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 2 }}>
-        <button type="button" onClick={() => descargarMd(nombre, filas, reunion)} style={ghost}>⬇ Descargar (.md)</button>
-        <button type="button" onClick={() => { setAbrirEnvio(true); setErr(''); setNota(''); }} disabled={!puedeMandar || abrirEnvio}
-          title={puedeMandar ? 'Mandarle sus tareas por WhatsApp y mail' : 'No tengo el mail de esta persona en la reunión'}
-          style={{ ...ghost, opacity: puedeMandar && !abrirEnvio ? 1 : 0.5, cursor: puedeMandar && !abrirEnvio ? 'pointer' : 'default' }}>
-          ✉ Enviar
-        </button>
-        {cargandoDest && <span style={{ fontSize: 12, color: 'var(--faint)', alignSelf: 'center' }}>Buscando su cuenta…</span>}
-        {/* SIN destinatario: se DICE por qué. Antes el botón «Cargar en el plan de X»
-            simplemente no aparecía y no había forma de saber si era porque la persona
-            no tiene cuenta, porque la reunión no trajo invitados o porque falló algo. */}
-        {!cargandoDest && !dest && (
-          <span style={{ fontSize: 12, color: 'var(--dim)', alignSelf: 'center', lineHeight: 1.45 }}>
-            {motivoSinDest || `No encontré la cuenta de ${nombre.split(' ')[0]} en MaKo: puedo mandarle las tareas, pero no dejárselas en su plan.`}
-          </span>
-        )}
-        {dest?.puedeCargarPlan && (
-          <button type="button" onClick={() => void cargarEnSuPlan()} disabled={cargando || !!linkPlan}
-            title={dest.esVos ? 'Te las dejo como borrador en TU plan para que las confirmes' : 'Le dejo estas tareas en su plan para que las confirme'}
-            style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: linkPlan ? 'var(--border)' : 'var(--ink)', color: linkPlan ? 'var(--faint)' : 'var(--surface)', fontSize: 13.5, fontWeight: 700, cursor: cargando || linkPlan ? 'default' : 'pointer', fontFamily: SANS }}>
-            {cargando ? 'Cargando…' : linkPlan ? (dest.esVos ? '✓ En tu plan' : '✓ En su plan') : dest.esVos ? 'Cargar en MI plan' : `Cargar en el plan de ${nombre.split(' ')[0]}`}
-          </button>
-        )}
-      </div>
+      {/* Los tres botones NO van acá cuando el modal tiene pie: van portaleados. */}
+      {!conPie && acciones}
     </div>
   );
 }
