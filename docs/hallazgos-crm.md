@@ -182,6 +182,42 @@ nada de configuración manual en ninguna feature (30/06).
 
 ## Leads: mover de etapa, validar y escribir
 
+### El worklist no bajaba la columna, así que el arreglo del día anterior era inerte
+
+**Síntoma (13/08/2026, reportado por Leila en producción):** marca los datos que le
+faltaban a un lead, el wizard contesta **«Datos actualizados»**, y el pendiente sigue ahí
+diciendo *«Faltan: Monto de cierre · Plan de pagos»*. Marcarlo de nuevo no cambia nada.
+
+**Y el diagnóstico obvio era el equivocado, dos veces.** Primero parecía un problema de
+refresco —el modal dice que guardó y la lista no se entera—, pero `onDone` ya llama a
+`router.refresh()` y la action ya hace `bust(TAG.leads)` + `revalidatePath`. Después
+parecía que el guardado fallaba: tampoco. Contra la base, el lead 1885 estaba **perfecto**
+(`estado_lead='ganado'`, `venta_tipo='suscripcion'`, `suscripcion_monto_usd=40`,
+`monto_cierre_usd=null` — que es lo correcto para una recurrencia indefinida).
+
+**Causa: quien leía.** `PENDIENTES_COLS` (`lib/queries.ts`) enumera A MANO las columnas
+que baja el worklist, y no tenía `venta_tipo` ni `suscripcion_monto_usd`. `faltantesDeLead`
+las recibía como `undefined`, concluía «esto es un pago único sin monto» y volvía a pedir
+las dos cosas — **dejando inerte la corrección de suscripciones commiteada el día
+anterior**, que solo se veía en la ficha porque la ficha usa otra proyección.
+
+**La regla: una proyección de columnas escrita a mano y un motor que lee campos de esa fila
+son dos listas que nadie ata, y cuando se separan no falla nada.** La columna ausente llega
+`undefined` y el motor decide con el dato en blanco: mismo tipo, misma forma, conclusión
+distinta. No hay excepción, no hay log, no hay nada.
+
+⚠️ Y el fallback que parecía cubrirlo **no cubre este caso**: `leerLeadsDePendientes`
+reintenta con `'*'` cuando una columna listada **no existe en la base** (migración
+pendiente), no cuando **falta en la lista**. Las dos fallas se parecen y solo una tiene red.
+
+La red nueva es `tests/pendientes-columnas.test.ts`: lee el cuerpo de `faltantesDeLead` y de
+`deriveStageKey`, extrae cada `lead.<campo>` y falla si alguno no está en `PENDIENTES_COLS`.
+Verificado en los dos sentidos — sacando las columnas, el test rompe con el nombre exacto
+del campo que falta.
+
+**Vive en:** `lib/queries.ts` (`PENDIENTES_COLS`) · `lib/leads.ts` (`faltantesDeLead`) ·
+`tests/pendientes-columnas.test.ts`
+
 ### El dato estaba cargado, pero en OTRA columna: el cierre por suscripción no se podía mover
 
 **Síntoma (10/08):** el wizard de "Mover a Miembro activo" mostraba en su propio resumen

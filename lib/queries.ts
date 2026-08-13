@@ -2058,6 +2058,11 @@ const PENDIENTES_COLS =
   'fecha_agenda, fecha_junta_1, fecha_junta_2, junta_1_at, junta_2_at, asistio_j1, asistio_j2, calificado, ' +
   // Datos comerciales que el motor de requisitos exige
   'telefono, empresa, setter, closer, fathom_links, monto_cierre_usd, motivo_perdida, ' +
+  // Venta recurrente: el importe de una suscripción vive en `suscripcion_monto_usd`
+  // y `monto_cierre_usd` queda null a propósito. Sin estas tres, `faltantesDeLead`
+  // ve `venta_tipo === undefined`, trata la venta como pago único y le vuelve a
+  // pedir «Monto de cierre» y «Plan de pagos» a un cierre que YA está completo.
+  'venta_tipo, suscripcion_monto_usd, suscripcion_meses, ' +
   // Deal Details (solo se evalúan en la etapa de cierre)
   'deal_servicio, deal_promesa, deal_fiscal, deal_obligaciones, ' +
   // Excepciones y omisiones declaradas: eximen requisitos de forma persistente
