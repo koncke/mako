@@ -143,16 +143,33 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
     setSumando(false);
   }
 
-  // "Copiame el link otra vez". Del token viejo solo hay un hash: no se puede
-  // releer, así que se EMITE OTRO y el anterior deja de servir. Por eso siempre
-  // se avisa antes — es irreversible para quien ya tenga el link.
+  // "Copiame el link otra vez" — COPIAR, no rotar.
   //
-  // Sirve para las dos cosas que tienen link propio: el enlace público del share
-  // y el personal de cada invitado. Un solo camino, porque son el mismo gesto.
-  async function reemitir(key: string, query: string, aviso: string) {
-    // Si ya lo emitimos en esta sesión, se re-copia el MISMO. Sin esto, dos
-    // clicks seguidos rotaban el token y mataban el link que acabás de pasar.
+  // Desde la mig 0131 el token se guarda además cifrado, así que el link se
+  // puede volver a mostrar tal cual: se copia y listo, sin preguntar nada. Rotar
+  // era la única salida cuando lo único guardado era el hash, y preguntar por
+  // algo que el usuario no pidió («estoy queriendo copiarlo, no rotar el link»).
+  //
+  // La rotación sobrevive para UN caso: las filas anteriores a la migración, de
+  // las que no hay token que recuperar. Ahí sí se pregunta, porque mata el link
+  // que ya está repartido.
+  async function copiarLink(key: string, id: number, esInvitado: boolean, quien: string) {
+    // Si ya lo tenemos a la vista, se re-copia sin volver a pedirlo.
     if (linkEmitido?.key === key) { copiar(linkEmitido.enlace, key); return; }
+    setError(null);
+    try {
+      const q = esInvitado ? `copiarInvitado=${id}` : `copiar=${id}`;
+      const r = await fetch(`/api/compartir?${q}`);
+      const j = await r.json();
+      if (j.ok && j.enlace) { setLinkEmitido({ key, enlace: j.enlace }); copiar(j.enlace, key); return; }
+      // `ok` con `enlace: null` = fila vieja. No es un error: es que hay que rotar.
+      if (j.ok) { await reemitir(key, esInvitado ? `invitado=${id}` : `id=${id}`, avisoViejo(quien)); return; }
+      setError(j.error || 'no se pudo copiar el link');
+    } catch { setError('no se pudo copiar el link'); }
+  }
+
+  /** Emite un token NUEVO. Mata el anterior, así que siempre pregunta. */
+  async function reemitir(key: string, query: string, aviso: string) {
     if (!confirm(aviso)) return;
     setError(null);
     try {
@@ -167,13 +184,11 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
 
   const visitasTxt = (n: number) => `${n} ${n === 1 ? 'visita' : 'visitas'}`;
 
-  /** El aviso del enlace PÚBLICO. Se avisa siempre, aunque tenga 0 visitas: que
-   *  nadie haya entrado todavía no quiere decir que el link no esté ya pegado en
-   *  un chat. */
-  const avisoShare = (visitas: number) =>
-    'Se emite un enlace NUEVO y el anterior deja de funcionar.\n\n'
-    + (visitas > 0 ? `El actual ya tuvo ${visitasTxt(visitas)}: quien lo tenga se queda afuera.\n\n` : '')
-    + 'El actual no se puede volver a mostrar — de él solo guardamos un hash.\n\n¿Emitir uno nuevo?';
+  /** El aviso de una fila vieja: no hay token que copiar, solo se puede emitir
+   *  otro. Dice el porqué, porque si no parece un capricho. */
+  const avisoViejo = (quien: string) =>
+    `${quien} es de antes de que se pudiera volver a copiar el link, así que de éste solo queda un hash: no hay forma de mostrarlo.\n\n`
+    + 'Lo único posible es emitir uno NUEVO, y el que ya esté repartido deja de funcionar.\n\n¿Emitir uno nuevo?';
 
   async function revocar(id: number, invitadoId?: number) {
     await fetch(`/api/compartir?${invitadoId ? `invitado=${invitadoId}` : `id=${id}`}`, { method: 'DELETE' }).catch(() => {});
@@ -241,10 +256,9 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
               <div className="cmp-nuevo">
                 {nuevo.enlace && (
                   <>
-                    {/* Antes decía "se muestra una sola vez" a secas, y era verdad a
-                        medias: el link no se puede releer, pero SÍ se puede reemitir con
-                        «Copiar link» de la lista de abajo. Dicho así asustaba de más. */}
-                    <p className="cmp-nuevo-t">Listo — <b>copialo ahora</b>. Después se puede emitir otro, pero éste deja de servir:</p>
+                    {/* Decía "se muestra una sola vez". Desde la mig 0131 es falso: el
+                        link se guarda cifrado y «Copiar link» de la lista lo devuelve. */}
+                    <p className="cmp-nuevo-t">Listo. Podés volver a copiarlo cuando quieras desde <b>Copiar link</b>, acá abajo:</p>
                     <div className="cmp-linkrow">
                       <input className="cmp-link" readOnly value={nuevo.enlace} onFocus={(e) => e.currentTarget.select()} />
                       <button type="button" className="cmp-copy" onClick={() => copiar(nuevo.enlace!, 'nuevo')}>{copiado === 'nuevo' ? '✓' : 'Copiar'}</button>
@@ -287,8 +301,8 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
                             a revocar y crear otro — lo mismo, con más pasos y perdiendo las visitas. */}
                         {s.modo === 'link' && (
                           <button type="button" className="cmp-link-btn"
-                            onClick={() => reemitir(`s:${s.id}`, `id=${s.id}`, avisoShare(s.visitas))}
-                            title="Emitir un enlace nuevo y copiarlo (el anterior deja de funcionar)">
+                            onClick={() => copiarLink(`s:${s.id}`, s.id, false, 'Este enlace')}
+                            title="Copiar el enlace">
                             {copiado === `s:${s.id}` ? '✓ copiado' : 'Copiar link'}
                           </button>
                         )}
@@ -323,12 +337,8 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
                                   </span>
                                 </div>
                                 <button type="button" className="cmp-link-btn"
-                                  onClick={() => reemitir(`p:${i.id}`, `invitado=${i.id}`,
-                                    (i.enviado_at || i.visitas > 0
-                                      ? `${nombreDe(i)} ya tiene un enlace en uso.\n\n`
-                                      : `Se emite el enlace personal de ${nombreDe(i)}.\n\n`)
-                                    + 'Si generás uno nuevo, el anterior deja de funcionar. ¿Seguir?')}
-                                  title={`Emitir y copiar el enlace personal de ${i.email}`}>
+                                  onClick={() => copiarLink(`p:${i.id}`, i.id, true, `El enlace de ${nombreDe(i)}`)}
+                                  title={`Copiar el enlace personal de ${i.email}`}>
                                   {copiado === `p:${i.id}` ? '✓ copiado' : 'Copiar link'}
                                 </button>
                                 <button type="button" className="cmp-rev chico" onClick={() => revocar(s.id, i.id)}

@@ -16,6 +16,7 @@ import { sendEmail, getEmailFrom, remitenteEsSandbox, resendConfigurado } from '
 import {
   crearShare, listarShares, revocarShare, agregarInvitado, listarInvitados,
   revocarInvitado, marcarEnviado, getShare, parseDestinatarios, regenerarTokenInvitado, regenerarTokenShare,
+  leerTokenShare, leerTokenInvitado,
   type ShareAlcance, type ShareModo, type Destinatario,
 } from '@/lib/shares';
 
@@ -40,6 +41,20 @@ const gravatarDe = (email: string) => createHash('sha256').update(email.trim().t
 export async function GET(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   try {
+    // ── "Copiame el link otra vez", SIN rotarlo (mig 0131) ──────────────────
+    // Va en GET y no en PATCH porque no cambia nada: lee el token cifrado y lo
+    // descifra. `enlace: null` con 200 es la respuesta correcta para una fila
+    // anterior a la migración —no hay qué copiar, pero la fila existe— y es lo
+    // que hace que la UI ofrezca reemitir en vez de decir «error».
+    const copiar = req.nextUrl.searchParams.get('copiar');
+    const copiarInv = req.nextUrl.searchParams.get('copiarInvitado');
+    if (copiar || copiarInv) {
+      const token = copiarInv
+        ? await leerTokenInvitado(WS, Number(copiarInv))
+        : await leerTokenShare(WS, Number(copiar));
+      return NextResponse.json({ ok: true, enlace: token ? `${base(req)}/compartido/${token}` : null });
+    }
+
     const recurso = req.nextUrl.searchParams.get('recurso') || 'curso';
     const recursoId = req.nextUrl.searchParams.get('recursoId');
     if (!RECURSOS.includes(recurso)) return NextResponse.json({ ok: false, error: 'recurso inválido' }, { status: 400 });

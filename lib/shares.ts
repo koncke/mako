@@ -11,8 +11,11 @@
 //                 personales que recibió cada invitado por mail.
 //
 // REGLAS DE SEGURIDAD (las 5 que sostienen todo esto):
-//  1. Del token se guarda SOLO el sha256. Un dump de la base no entrega los
-//     links vivos, y por eso el link se muestra una única vez.
+//  1. Lo que RESUELVE un token entrante es su sha256, y nada más. Al lado se
+//     guarda el token cifrado (mig 0131) para poder volver a mostrárselo a un
+//     admin logueado; un dump de la base sigue sin entregar links vivos, porque
+//     sin CREDENCIALES_SECRET ese criptograma no abre. Lo que NUNCA vuelve es el
+//     token de una fila anterior a esa migración: ésas solo se reemiten.
 //  2. Cada request revalida contra la FILA VIVA (revocado_at / expira_at). Sin
 //     caché: revocar tiene que cortar el acceso al instante.
 //  3. Fail-closed: cualquier duda devuelve null, y el que llama responde 404.
@@ -27,6 +30,7 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
+import { cifrar, descifrar } from './cripto-credenciales';
 
 export type ShareAlcance = 'todo' | 'seccion' | 'grupo' | 'item';
 export type ShareModo = 'link' | 'invitados';
@@ -56,6 +60,34 @@ export type Invitado = {
 export type Acceso = { share: Share; invitado: Invitado | null };
 
 const hash = (t: string) => createHash('sha256').update(t).digest('hex');
+
+// ── Poder VOLVER A MOSTRAR un link (mig 0131) ───────────────────────────────
+// El `token_hash` no se toca: sigue siendo el único camino de resolución. Al
+// lado se guarda el token CIFRADO, que sirve solo para mostrárselo de nuevo a un
+// admin logueado. Sin esto, perder la única vez que se mostró el link obligaba a
+// emitir otro — y matar el que ya estaba repartido.
+//
+// La `clave` entra en la derivación HKDF y en el AAD, así que el criptograma de
+// una fila NO abre en otra: copiar el blob del share 7 a la fila 9 no da nada.
+const CLAVE_SHARE = (id: number) => `share:${id}`;
+const CLAVE_INVITADO = (id: number) => `invitado:${id}`;
+
+/** Cifra para re-mostrar. Si no hay `CREDENCIALES_SECRET`, devuelve null y la
+ *  fila queda como las anteriores a la mig 0131: reemitible, no copiable. Nunca
+ *  rompe la creación de un share — el link se emitió igual y lo importante es
+ *  entregarlo. */
+function cifrarToken(token: string, ws: number, clave: string): string | null {
+  try { return cifrar(token, ws, clave); } catch { return null; }
+}
+
+/** Escribe el criptograma al lado de la fila. Best-effort: no poder re-mostrar
+ *  el link no puede tumbar la operación que lo emitió. */
+async function guardarCifrado(
+  sb: ReturnType<typeof getSupabaseServer>, tabla: 'shares' | 'share_invitados', id: number, cifrado: string | null,
+): Promise<void> {
+  if (!cifrado) return;
+  await sb.from(tabla).update({ token_cifrado: cifrado }).eq('id', id).then(() => {}, () => {});
+}
 /** 256 bits de aleatoriedad real. NUNCA derivado/determinista: eso no se puede
  *  revocar de a uno sin romper todos los links a la vez. */
 export function nuevoToken(): string { return randomBytes(32).toString('base64url'); }
@@ -172,13 +204,19 @@ export async function crearShare(input: {
     throw new Error('Un share que edita tiene que apuntar a un item concreto (alcance "item" + recursoId).');
   }
   const token = nuevoToken();
-  const { data, error } = await getSupabaseServer().from('shares').insert({
+  const sb = getSupabaseServer();
+  const { data, error } = await sb.from('shares').insert({
     workspace_id: input.ws, recurso: input.recurso, alcance: input.alcance, recurso_id: input.recursoId,
     modo: input.modo, permiso, etiqueta: input.etiqueta ?? null, expira_at: input.expiraAt ?? null,
     token_hash: hash(token), token_prefijo: prefijoDe(token), creado_por: input.creadoPor ?? null,
   }).select('id').single();
   if (error) throw new Error(error.message);
-  return { id: data.id as number, token };            // el token se devuelve UNA sola vez
+  const id = data.id as number;
+  // Segunda escritura, y no se puede evitar: el AAD lleva el id de la fila, que
+  // recién existe después del insert. Best-effort — si falla, la fila queda como
+  // las viejas (reemitible, no copiable) y el link ya está emitido igual.
+  await guardarCifrado(sb, 'shares', id, cifrarToken(token, input.ws, CLAVE_SHARE(id)));
+  return { id, token };
 }
 
 /** Un share PROPIO del workspace, o null. Lo usa todo lo que recibe un id por
@@ -259,14 +297,21 @@ export async function agregarInvitado(shareId: number, email: string, nombre?: s
   const limpio = email.trim().toLowerCase();
   if (!emailValido(limpio)) throw new Error('email inválido');
   const token = nuevoToken();
-  const { data, error } = await getSupabaseServer().from('share_invitados').insert({
+  const sb = getSupabaseServer();
+  const { data, error } = await sb.from('share_invitados').insert({
     share_id: shareId, email: limpio, nombre: nombre?.trim() || null,
     token_hash: hash(token), token_prefijo: prefijoDe(token),
   }).select('id').single();
   // El índice único (share_id, lower(email)) hace que reinvitar sea un error de
   // base y no un duplicado silencioso. Lo traducimos a algo legible.
   if (error) throw new Error(/duplicate key|unique/i.test(error.message) ? 'ya está invitado a este enlace' : error.message);
-  return { id: data.id as number, token };
+  const id = data.id as number;
+  // El ws sale del share padre, no de un parámetro: es el mismo que va a usar
+  // `leerTokenInvitado` para abrirlo, y tiene que ser EL MISMO o el AAD no valida.
+  const { data: padre } = await sb.from('shares').select('workspace_id').eq('id', shareId).maybeSingle();
+  const ws = (padre?.workspace_id as number) ?? 0;
+  await guardarCifrado(sb, 'share_invitados', id, ws ? cifrarToken(token, ws, CLAVE_INVITADO(id)) : null);
+  return { id, token };
 }
 
 export async function listarInvitados(shareId: number): Promise<Invitado[]> {
@@ -278,11 +323,9 @@ export async function listarInvitados(shareId: number): Promise<Invitado[]> {
 }
 
 /** Le da a un invitado un token NUEVO y devuelve el link, o null si no es de
- *  este workspace. Es la única forma de recuperar el acceso de alguien: del
- *  token viejo solo hay un sha256, así que "mostrámelo de nuevo" no existe —
- *  se emite otro. Efecto buscado: el link anterior deja de servir en el acto.
- *  Sirve para dos cosas: pasar el link a mano cuando el mail no sale, y rotarlo
- *  si se filtró. */
+ *  este workspace. Efecto buscado: el link anterior deja de servir en el acto,
+ *  así que es lo que se usa cuando el link SE FILTRÓ — no para copiarlo. Para
+ *  eso está `leerTokenInvitado`, que no rota nada. */
 export async function regenerarTokenInvitado(ws: number, id: number): Promise<string | null> {
   const sb = getSupabaseServer();
   const { data } = await sb.from('share_invitados').select('id,share_id,revocado_at').eq('id', id).maybeSingle();
@@ -291,7 +334,8 @@ export async function regenerarTokenInvitado(ws: number, id: number): Promise<st
   if (!share || !vigente(share)) return null;
   const token = nuevoToken();
   const { error } = await sb.from('share_invitados')
-    .update({ token_hash: hash(token), token_prefijo: prefijoDe(token) }).eq('id', id);
+    .update({ token_hash: hash(token), token_prefijo: prefijoDe(token), token_cifrado: cifrarToken(token, ws, CLAVE_INVITADO(id)) })
+    .eq('id', id);
   if (error) throw new Error(error.message);
   return token;
 }
@@ -300,19 +344,48 @@ export async function regenerarTokenInvitado(ws: number, id: number): Promise<st
  *  de este workspace, está vencido o es de invitados (ése no tiene link propio:
  *  el link es de cada persona, y para eso está `regenerarTokenInvitado`).
  *
- *  Es la contracara de la regla 1 de arriba: del token solo hay un sha256, así
- *  que «mostrámelo de nuevo» **no existe** — se emite otro. Sin esto, perder la
- *  única vez que se mostró el link obligaba a revocar y crear uno nuevo, que es
- *  lo mismo con más pasos y sin conservar las visitas. */
+ *  ⚠️ ROTA: el link anterior muere. Es para cuando se filtró, o para las filas
+ *  viejas que no se pueden copiar. Para copiar está `leerTokenShare`. */
 export async function regenerarTokenShare(ws: number, id: number): Promise<string | null> {
   const share = await getShare(ws, id);
   if (!share || !vigente(share) || share.modo !== 'link') return null;
   const token = nuevoToken();
   const { error } = await getSupabaseServer().from('shares')
-    .update({ token_hash: hash(token), token_prefijo: prefijoDe(token) })
+    .update({ token_hash: hash(token), token_prefijo: prefijoDe(token), token_cifrado: cifrarToken(token, ws, CLAVE_SHARE(id)) })
     .eq('workspace_id', ws).eq('id', id);      // el ws otra vez: getShare ya lo validó, pero el update no se escribe sin filtro
   if (error) throw new Error(error.message);
   return token;
+}
+
+/**
+ * El link VIGENTE de un share, sin rotarlo. null si la fila no es de este
+ * workspace, está vencida/revocada, es de invitados (ahí el link es de cada
+ * persona) o **es anterior a la mig 0131** — de ésas no hay más que el hash, y
+ * lo único que se puede ofrecer es reemitir.
+ *
+ * Que devuelva null no es un error: es «esto no se puede copiar, se puede
+ * reemitir». Quien llama tiene que distinguir las dos cosas, porque reemitir
+ * MATA el link que ya está repartido.
+ */
+export async function leerTokenShare(ws: number, id: number): Promise<string | null> {
+  const { data } = await getSupabaseServer().from('shares')
+    .select('modo,expira_at,revocado_at,token_cifrado')
+    .eq('workspace_id', ws).eq('id', id).maybeSingle();
+  if (!data || !vigente(data) || data.modo !== 'link' || !data.token_cifrado) return null;
+  return descifrar(data.token_cifrado as string, ws, CLAVE_SHARE(id));
+}
+
+/** Ídem para el link personal de un invitado. El workspace sale de SU share:
+ *  pedirlo por parámetro invitaría a que alguien pase el suyo y abra la fila de
+ *  otro inquilino. */
+export async function leerTokenInvitado(ws: number, id: number): Promise<string | null> {
+  const sb = getSupabaseServer();
+  const { data } = await sb.from('share_invitados')
+    .select('share_id,revocado_at,token_cifrado').eq('id', id).maybeSingle();
+  if (!data || data.revocado_at || !data.token_cifrado) return null;
+  const share = await getShare(ws, data.share_id as number);
+  if (!share || !vigente(share)) return null;
+  return descifrar(data.token_cifrado as string, ws, CLAVE_INVITADO(id));
 }
 
 /** Revoca un invitado, verificando ANTES que su share sea de este workspace.

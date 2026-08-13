@@ -37,17 +37,29 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
   const back = () => setPila((s) => (s.length > 1 ? s.slice(0, -1) : s));
   /** Volver al hub del curso actual: lo que hace el rótulo de arriba. */
   const alHub = () => setPila((s) => (curso ? [...s, { curso: curso.slug }] : s));
+  /** Volver a TODOS los cursos. Es la marca de arriba, igual que en el admin.
+   *  Sin esto, entrar a un curso era un viaje de ida: el hub no tiene «Volver»
+   *  (en un share de UN curso no habría a dónde ir) y el rótulo lleva al mismo
+   *  hub. Compartida la tab entera, el selector SÍ es un destino. */
+  const aTodos = () => setPila([{}]);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, [pila.length]);
 
   return (
     <PortalShell
-      marca={
+      marca={curso ? (
+        <button type="button" className="al-brand-btn" onClick={aTodos} aria-label="Ir a todos los cursos">
+          <span className="al-brand">
+            <span className="b">Cono<span>cimientos</span></span>
+            <span className="sub">MaKo · formación</span>
+          </span>
+        </button>
+      ) : (
         <span className="al-brand">
           <span className="b">Cono<span>cimientos</span></span>
           <span className="sub">MaKo · formación</span>
         </span>
-      }
+      )}
       tag={curso
         ? <button type="button" className="al-toptag al-toptag-btn" onClick={alHub}>{curso.titulo}</button>
         : undefined}
@@ -59,11 +71,15 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
         // video: se dibuja aparte, sin Compartir y con su propio Volver.
         <AnalisisNegocio back={back} compartible={false} />
       ) : (
+        // `backLabel`: el hub ya tenía un «← Volver» y el dueño igual leyó la
+        // pantalla como sin salida. El botón no faltaba: faltaba que dijera a
+        // dónde iba. Un segundo botón habría sido dos salidas al mismo lugar.
         <CursoPortal
           curso={curso}
           vista={{ clase: paso.clase, r: paso.r }}
           nav={(v) => nav({ curso: curso.slug, ...v })}
           back={back}
+          backLabel="Todos los cursos"
         />
       )}
       <p className="al-shared-ft">

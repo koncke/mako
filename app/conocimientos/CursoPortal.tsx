@@ -253,7 +253,11 @@ export function Selector({ cursos, enter, compartir }: {
 // `back` es el MISMO de ClaseDetail y RecursoDetail, no uno nuevo: ya venía cableado
 // desde los dos lados (el portal del admin y el link compartido) y el hub era la única
 // vista de las tres que no lo dibujaba — se entraba a un curso y no había salida.
-export function Hub({ curso, goClase, goRecurso, compartir, back }: { curso: Curso; goClase: (n: number) => void; goRecurso: (slug: string) => void; compartir?: ReactNode; back?: () => void }) {
+// `backLabel`: a dónde vuelve, cuando no es obvio. En el admin el destino es la
+// pantalla anterior y «← Volver» alcanza; en un link que comparte la TAB entera
+// el destino es el listado de cursos, y un «Volver» pelado no lo dice — el dueño
+// leyó la pantalla como que no había salida, con el botón puesto.
+export function Hub({ curso, goClase, goRecurso, compartir, back, backLabel }: { curso: Curso; goClase: (n: number) => void; goRecurso: (slug: string) => void; compartir?: ReactNode; back?: () => void; backLabel?: string }) {
   // DOS niveles: módulo (`grupo`) → sección (`subgrupo`). Antes se agrupaba solo por
   // módulo y las 24 clases de uno caían en una lista plana, aunque la plataforma sí
   // las divide en secciones. El orden se toma del ORDEN DE LAS CLASES, no de un sort
@@ -281,7 +285,7 @@ export function Hub({ curso, goClase, goRecurso, compartir, back }: { curso: Cur
   );
   return (
     <>
-      {back && <button type="button" className="al-back" onClick={back}>← Volver</button>}
+      {back && <button type="button" className="al-back" onClick={back}>← {backLabel ?? 'Volver'}</button>}
       <section className="al-hero">
         <div className="al-hero-top">
           <span className="al-eyebrow"><span className="d" /> {curso.eyebrow}</span>
@@ -606,11 +610,14 @@ export function PortalShell({ marca, tag, children }: { marca: ReactNode; tag?: 
 // ── El portal de un curso: elige qué vista mostrar ───────────────────────────
 export type Vista = { clase?: number | null; r?: string | null };
 
-export default function CursoPortal({ curso, vista, nav, back, compartir }: {
+export default function CursoPortal({ curso, vista, nav, back, backLabel, compartir }: {
   curso: Curso;
   vista: Vista;
   nav: (v: Vista) => void;
   back: () => void;
+  /** Solo para el HUB: a dónde vuelve, cuando el destino no es obvio. Adentro de
+   *  una clase o un recurso el «Volver» siempre sube un nivel y se entiende. */
+  backLabel?: string;
   compartir?: ReactNode;
 }) {
   const clase = vista.clase != null ? curso.clases.find((c) => c.n === vista.clase) : undefined;
@@ -618,7 +625,7 @@ export default function CursoPortal({ curso, vista, nav, back, compartir }: {
 
   if (clase) return <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ r: s })} back={back} />;
   if (recurso) return <RecursoDetail r={recurso} back={back} />;
-  return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} back={back} />;
+  return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} back={back} backLabel={backLabel} />;
 }
 
 export const CSS = `
