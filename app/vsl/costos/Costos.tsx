@@ -143,11 +143,12 @@ const CSS = `
 .costos .sum-note { font-weight: 400; color: var(--muted); font-size: .87rem; margin-left: auto;
   text-align: right; white-space: nowrap; }
 
-/* el enlace sutil a la explicación de cada sección */
+/* el enlace a la explicación de cada sección: en el azul de acento, para que se
+   lea como lo que es (algo en lo que se hace click) y no como una nota al pie */
 .costos .ver { display: inline-block; margin: -.4rem 0 1.6rem; font-size: .87rem;
-  color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line);
-  padding-bottom: 1px; transition: color .15s, border-color .15s; }
-.costos .ver:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  color: var(--accent); text-decoration: none; border-bottom: 1px solid currentColor;
+  padding-bottom: 1px; transition: opacity .15s; }
+.costos .ver:hover { opacity: .7; }
 .costos .ver:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 1px; }
 .costos details { scroll-margin-top: 1rem; }
 @media (prefers-reduced-motion: reduce) { .costos { scroll-behavior: auto; } }
