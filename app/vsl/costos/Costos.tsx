@@ -143,6 +143,15 @@ const CSS = `
 .costos .sum-note { font-weight: 400; color: var(--muted); font-size: .87rem; margin-left: auto;
   text-align: right; white-space: nowrap; }
 
+/* el enlace sutil a la explicación de cada sección */
+.costos .ver { display: inline-block; margin: -.4rem 0 1.6rem; font-size: .87rem;
+  color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line);
+  padding-bottom: 1px; transition: color .15s, border-color .15s; }
+.costos .ver:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.costos .ver:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 1px; }
+.costos details { scroll-margin-top: 1rem; }
+@media (prefers-reduced-motion: reduce) { .costos { scroll-behavior: auto; } }
+
 .costos footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
   font-size: .85rem; color: var(--muted); }
 @media (max-width: 640px) {
@@ -152,6 +161,30 @@ const CSS = `
   .costos .rails { display: none; }
 }
 `;
+
+/**
+ * «Ver explicación» — lleva al desplegable que sostiene los números de esta sección,
+ * lo ABRE y lo deja arriba de la pantalla. Sin esto los <details> de abajo son un
+ * anexo que nadie relaciona con la tabla que acaba de leer.
+ */
+function Ver({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <a
+      className="ver"
+      href={`#${id}`}
+      onClick={(e) => {
+        const el = document.getElementById(id);
+        if (!(el instanceof HTMLDetailsElement)) return; // sin JS/elemento, el href salta igual
+        e.preventDefault();
+        el.open = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }}
+    >
+      {children}
+      <span aria-hidden="true"> ↓</span>
+    </a>
+  );
+}
 
 /** Una fila de la comparativa. Escala fija a $160 (el renglón más grande que cambió). */
 function Comp({ nombre, detalle, antes, ahora }: { nombre: string; detalle: string; antes: number; ahora: number }) {
@@ -225,12 +258,12 @@ export default function Costos() {
                 <td className="w">La herramienta con la que se programa MaKo. Es el costo de <em>construirlo</em>, no de operarlo.</td>
               </tr>
               <tr>
-                <td>Servidores de la app</td><td className="n">$20</td>
+                <td>Vercel</td><td className="n">$20</td>
                 <td className="w">Donde vive MaKo y se sirve a todos los clientes.</td>
               </tr>
               <tr>
-                <td>Base de datos de MaKo</td><td className="n">$25</td>
-                <td className="w">Una sola base para todos los clientes de MaKo. Un cliente nuevo <strong>no suma nada acá</strong>.</td>
+                <td>Supabase</td><td className="n">$25</td>
+                <td className="w">La base de datos. Una sola para todos los clientes de MaKo: un cliente nuevo <strong>no suma nada acá</strong>.</td>
               </tr>
               <tr>
                 <td>IA de MaKo</td><td className="n">$22</td>
@@ -240,7 +273,7 @@ export default function Costos() {
 
               <tr className="sub"><td colSpan={3}>Tu operación con tus clientes</td></tr>
               <tr>
-                <td>Tableros de clientes</td><td className="n">$39</td>
+                <td>Supabase para tus clientes</td><td className="n">$39</td>
                 <td className="w">Una base por cada tablero que le armaste a un cliente tuyo: esquer, texx, baja-teriyaki y aspro. $9,81 cada uno.</td>
               </tr>
               <tr>
@@ -262,6 +295,8 @@ export default function Costos() {
           </table>
         </div>
 
+        <Ver id="d-supabase">Ver por qué se pagan 5 bases de Supabase</Ver>
+
         <div className="note good">
           <span className="tag">El titular</span>
           <p>
@@ -280,11 +315,12 @@ export default function Costos() {
             <span><span className="sw" style={{ background: 'var(--spend)' }} />Arriba: lo que costaba</span>
             <span><span className="sw" style={{ background: 'var(--save)' }} />Abajo: lo que cuesta ahora</span>
           </div>
-          <Comp nombre="Servidores" detalle="Donde vive la app" antes={160} ahora={20} />
+          <Comp nombre="Vercel" detalle="Donde vive la app" antes={160} ahora={20} />
           <Comp nombre="IA de MaKo" detalle="La inteligencia artificial del producto" antes={85} ahora={22} />
-          <Comp nombre="Base de datos" detalle="MaKo + tableros de clientes" antes={80} ahora={64} />
+          <Comp nombre="Supabase" detalle="MaKo + los tableros de tus clientes" antes={80} ahora={64} />
           <Comp nombre="Fathom" detalle="Graba tus reuniones" antes={18} ahora={0} />
         </div>
+        <Ver id="d-vercel">Ver de dónde salió cada número</Ver>
 
         <h2>Qué esperar cada mes</h2>
         <p>Casi todo es fijo. Lo único que se mueve con el uso es la IA.</p>
@@ -296,23 +332,24 @@ export default function Costos() {
             </thead>
             <tbody>
               <tr><td>Claude</td><td className="n">$200</td><td className="n">$200</td><td className="n">$200</td><td className="w">No se mueve.</td></tr>
-              <tr><td>Base de datos</td><td className="n">$64</td><td className="n">$64</td><td className="n">$74</td><td className="w">$10 por cada tablero nuevo que le armes a un cliente tuyo.</td></tr>
+              <tr><td>Supabase</td><td className="n">$64</td><td className="n">$64</td><td className="n">$74</td><td className="w">$10 por cada tablero nuevo que le armes a un cliente tuyo.</td></tr>
               <tr><td>IA de MaKo</td><td className="n">$12</td><td className="n">$22</td><td className="n">$45</td><td className="w">Cuántas llamadas de venta se analizan.</td></tr>
-              <tr><td>Railway</td><td className="n">$18</td><td className="n">$21</td><td className="n">$30</td><td className="w">Cuántos números de WhatsApp hay conectados.</td></tr>
-              <tr><td>Servidores</td><td className="n">$20</td><td className="n">$20</td><td className="n">$25</td><td className="w">Fijo salvo un pico de tráfico grande.</td></tr>
+              <tr><td>Railway</td><td className="n">$21</td><td className="n">$21</td><td className="n">$21</td><td className="w">Tu WhatsApp. No se mueve con el volumen de mensajes.</td></tr>
+              <tr><td>Vercel</td><td className="n">$20</td><td className="n">$20</td><td className="n">$25</td><td className="w">Fijo salvo un pico de tráfico grande.</td></tr>
               <tr><td>Calendly</td><td className="n">$12</td><td className="n">$12</td><td className="n">$12</td><td className="w">No se mueve.</td></tr>
-              <tr className="total"><td>Total mensual</td><td className="n">$326</td><td className="n">$339</td><td className="n">$386</td><td className="w"></td></tr>
+              <tr className="total"><td>Total mensual</td><td className="n">$329</td><td className="n">$339</td><td className="n">$377</td><td className="w"></td></tr>
             </tbody>
           </table>
         </div>
 
+        <Ver id="d-ia">Ver qué mueve el gasto de la IA de MaKo</Ver>
+
         <div className="note">
           <span className="tag">Y esto es lo importante para vender MaKo</span>
           <p>
-            <strong>Un cliente nuevo de MaKo no te agrega costo.</strong> La base de datos es una
-            sola para todos, los servidores ya están pagos, y <strong>cada cliente conecta su
-            propia cuenta de inteligencia artificial</strong>, así que su consumo lo paga él. Lo
-            único que crece es el WhatsApp: entre $1 y $3 por mes por cada número conectado.
+            <strong>Un cliente nuevo de MaKo no te agrega costo.</strong> Supabase es una sola base
+            para todos, Vercel ya está pago, y <strong>cada cliente conecta su propia cuenta de
+            inteligencia artificial</strong>, así que su consumo lo paga él.
           </p>
           <p>
             Lo que sí te suma costo es un cliente nuevo <strong>de tu agencia</strong> al que le
@@ -357,11 +394,13 @@ export default function Costos() {
           </table>
         </div>
 
+        <Ver id="d-railway">Ver el detalle de Railway y el WhatsApp</Ver>
+
         <h2>La explicación de cada punto</h2>
         <p>Todo lo de arriba, con el detalle de dónde salen los números.</p>
 
-        <details>
-          <summary>Servidores: pagábamos por actualizar la app, no por usarla <span className="sum-note">$160 → $20</span></summary>
+        <details id="d-vercel">
+          <summary>Vercel: pagábamos por actualizar la app, no por usarla <span className="sum-note">$160 → $20</span></summary>
           <div className="body">
             <p>
               Este era el gasto más grande y no tenía nada que ver con los clientes. El número que
@@ -395,8 +434,8 @@ export default function Costos() {
           </div>
         </details>
 
-        <details>
-          <summary>Base de datos: pagás 5, MaKo usa 1 <span className="sum-note">$80 → $64</span></summary>
+        <details id="d-supabase">
+          <summary>Supabase: pagás 5 bases, MaKo usa 1 <span className="sum-note">$80 → $64</span></summary>
           <div className="body">
             <p>
               La base de MaKo está en el tamaño más chico que se puede pagar y le sobra capacidad:
@@ -426,7 +465,7 @@ export default function Costos() {
           </div>
         </details>
 
-        <details>
+        <details id="d-ia">
           <summary>La IA de MaKo: qué cuesta y qué no <span className="sum-note">$85 → $22</span></summary>
           <div className="body">
             <div className="note good">
@@ -503,7 +542,7 @@ export default function Costos() {
           </div>
         </details>
 
-        <details>
+        <details id="d-llamadas">
           <summary>Análisis de llamadas de venta: el techo de dos clientes por día <span className="sum-note">Lo que falta</span></summary>
           <div className="body">
             <p>
@@ -541,7 +580,7 @@ export default function Costos() {
           </div>
         </details>
 
-        <details>
+        <details id="d-railway">
           <summary>Railway: tu WhatsApp, y hoy lo paga Leandro <span className="sum-note">$21</span></summary>
           <div className="body">
             <p>En Railway corren las dos piezas de tu WhatsApp:</p>
@@ -554,6 +593,14 @@ export default function Costos() {
               <strong>No hay razón para que lo pague Leandro</strong>, y hay una razón fuerte para
               que no: si él da de baja la tarjeta, se cae el WhatsApp de <em>todos</em> los números
               conectados de golpe, no solo el tuyo. Hoy hay tres.
+            </p>
+
+            <h3>Cómo se pasa a tu cuenta</h3>
+            <p>
+              Es una transferencia del proyecto dentro de Railway. El único paso operativo es que{' '}
+              <strong>cada número conectado tiene que volver a escanear el QR</strong> una vez —
+              son dos minutos por número, y hoy son tres. Cuanto antes se haga, menos gente hay que
+              coordinar.
             </p>
 
             <h3>Si activamos el chatbot y le escribimos a todos los leads, ¿sube?</h3>
@@ -570,25 +617,16 @@ export default function Costos() {
                 Meta banea. Por eso el sistema tiene un tope de 40 envíos por día por cliente, y
                 conviene dejarlo. Subirlo para terminar antes no lo paga Railway: lo paga tu número.
               </p>
+              <p>
+                Antes de prender el chatbot hay algo para corregir: <strong>hay un teléfono
+                conectado dos veces</strong>, en dos sesiones simultáneas. Es de los patrones que
+                más rápido hacen que Meta banee un número, y desconectar una de las dos es gratis.
+              </p>
             </div>
-
-            <h3>¿Y cuando MaKo tenga clientes propios?</h3>
-            <p>
-              Sube, pero por <strong>número conectado</strong>, no por mensajes: entre{' '}
-              <strong>$1 y $3 por mes por cliente</strong>. Con 10 clientes de MaKo, Railway pasaría
-              de $21 a unos $31–51.
-            </p>
-            <p>
-              <strong>Y no, no conviene que cada cliente ponga el suyo</strong>, por tres razones: ya
-              funciona compartido (un solo servidor atiende varios números, cada cliente solo escanea
-              su QR); pedirle a un cliente que despliegue un servidor es pedirle algo que no va a
-              hacer; y le saldría <strong>$41 por mes a cada uno</strong> para reemplazar algo que
-              hoy cuesta $2. Compartido es más barato y más simple para todos.
-            </p>
           </div>
         </details>
 
-        <details>
+        <details id="d-otros">
           <summary>Fathom y Calendly <span className="sum-note">$0 y $12</span></summary>
           <div className="body">
             <h3>Fathom — pasa a gratuito</h3>
