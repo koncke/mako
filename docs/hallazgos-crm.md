@@ -931,6 +931,69 @@ en Datos sin marcar"*.
 
 ## Agenda: horarios, Calendly y Fathom
 
+### Fathom mandaba a No Show llamadas de 64 minutos: un campo de su heurística leído como un hecho
+
+**Síntoma (12/08/2026, lead 1696).** MaKo avisa por WhatsApp *«Terminó la R1 con
+contacto@prosesamed.com (64 min)»* y linkea el resumen. En esa misma pantalla:
+«¿Asistió a la R1? **No se presentó**», etapa **Nutrición No Show R1** y «Todavía no
+hablaron — Sin llamadas analizadas para este lead». La app se contradecía a sí misma en
+dos renglones. El dueño: *«Y eso que la reunión ya pasó y SÍ está en el Fathom»*.
+
+**Y el diagnóstico obvio era el equivocado.** Todo apuntaba al cron T1 (`lib/crm-auto.ts`),
+que es el que mueve a No Show cuando *«no apareció ninguna grabación en Fathom»*. No fue
+él: `lead_audit` decía **autor `Fathom`** — el webhook, que en la MISMA escritura agregó el
+link de la grabación y marcó «no vino». El cron nunca tuvo esa falla: su regla es «hay
+grabación → asistió, si no → no sé», que es la correcta.
+
+**Causa.** `inviteeSpoke` (`lib/fathom.ts`) contestaba `false` cuando ningún hablante del
+transcript traía `speaker.matched_calendar_invitee_email` igual al email del invitado. Pero
+ese campo **no es un hecho sobre la asistencia**: es la heurística de Fathom, que matchea el
+*nombre* del invitado del calendario contra el *display name* de quien habla. El payload
+real de esa llamada:
+
+```
+invitee externo: name = "contacto@prosesamed.com"  (el name ES el email: un buzón genérico)
+transcript (540 turnos):
+  Mauricio Bustos Eguia :: mbustos@elevate.com.mx → 322
+  Fernando              :: NULL                   → 218   ← habló 218 veces
+```
+
+Un buzón (`contacto@`, `info@`, `recursos.humanos@`) no matchea NUNCA contra una persona.
+Medido sobre las 4 llamadas que el webhook marcó «no vino» en ws1: **en las 4 el prospecto
+habló** (36–64 min, 100–218 turnos) y en las 4 el campo vino `NULL`. Dos de los display
+names eran **nombres de teléfono** — `iPhone`, `motorola edge 70` — que es lo que muestra
+Zoom/Meet cuando alguien entra desde el celular. No era un caso raro: era el caso típico.
+
+Sobrevivió meses porque el daño se reparaba a mano y en silencio: en 2 de los 4 un humano
+corrigió la asistencia al día siguiente (`CRM | Asistió R1: No -> Sí`) y nadie subió el
+reporte.
+
+**Y el segundo efecto, el que no se ve.** El webhook saltea el Closing Analyst cuando
+`attended === false` (*«si el lead no asistió, no hay charla que seguir»*). O sea: la
+llamada mal clasificada no solo mandaba al prospecto a la nutrición de no-show — también
+apagaba el análisis y el borrador de follow-up. Por eso la pantalla decía «Sin llamadas
+analizadas» sobre una charla de una hora que estaba entera en Fathom.
+
+**La regla.** Un campo que un proveedor llena con SU heurística solo prueba lo que afirma,
+nunca lo que niega: `matched = X` es evidencia de que X estuvo; `matched = null` es «no
+pude», no «no vino». Ahora la ausencia solo se afirma cuando el transcript la prueba —
+todos los hablantes matcheados y todos de casa (el host o un invitado interno)—; alcanza
+**un** hablante sin identificar para devolver `null`, y `applyFathomRecording` trata el
+null como «asistió» porque hubo grabación. La asimetría es deliberada: equivocarse hacia
+«asistió» lo corrige una persona en un click, y equivocarse hacia «no vino» manda un lead
+caliente a la secuencia de no-show, apaga el análisis y no avisa.
+
+**Reparado:** leads 753 y 1696 (los otros 2 ya los había corregido un humano).
+
+**Vive en:** `lib/fathom.ts` (`inviteeSpoke`) · `app/api/webhooks/fathom/route.ts`
+(el gate `attended !== false` del `after()`) · `lib/leads.ts` (`applyFathomRecording`:
+`attended ?? true`) · `tests/fathom-asistencia.test.ts`
+
+**Lo que quedó SIN hacer:** `applyFathomRecording` no pisa una asistencia ya marcada
+—«nunca pisa una decisión humana»— pero no distingue quién la marcó, así que **tampoco
+corrige lo que escribió mal el propio Fathom**. Si el webhook redelivera sobre un lead ya
+mal marcado, no lo arregla. Vive en `lib/leads.ts:747`.
+
 ### ⚠️ El selector de hora sigue sin desplegable y con las horas limitadas
 
 **Síntoma:** en el formulario "¿Qué hacer ahora?" no aparece el desplegable de horas y el rango
