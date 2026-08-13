@@ -490,6 +490,45 @@ el caso era el mensaje, no la rotación.
 lib/anthropic-usage.ts (`cuenta`) · supabase/migrations/0132_uso_por_cuenta.sql ·
 app/integraciones/IntegracionesBoard.tsx · *2026-08-12 reporte de Leila*
 
+### «0 operaciones recientes» no era un panel vacío: era un 403 pintado como cero
+
+**Síntoma:** la misma clienta, con 24 llamadas hechas ese día, ve **«0 operaciones
+recientes», $0.0000 y ningún historial**. El gauge de arriba —en la misma pantalla— sí
+mostraba sus 240,6k tokens.
+
+**Causa:** `/api/anthropic-usage` estaba gateada por un guard llamado `soloDueno`: super
+admin de agencia, o admin del workspace **dueño**. Cualquier cliente recibía **403**, y el
+board hace `if (j?.ok) setUsage(...)` — o sea que el rechazo dejaba `usage` en `null` y la
+UI lo pintaba como ceros. **Un permiso denegado y un dato en cero se ven exactamente
+igual**, y por eso nadie lo vio antes: la pantalla no estaba rota, estaba mintiendo en
+silencio.
+
+El guard no estaba mal cuando se escribió: la IA era UNA cuenta de la agencia y el gasto
+era de la agencia. Con BYOK cada cliente pone su key, la gasta y la paga — el nombre
+`soloDueno` describía un mundo que ya no existía. **Es el mismo desfase que este documento
+ya registra dos veces**: el gauge que sumaba cuotas ajenas y el mensaje que pedía una key
+al que ya tenía tres. Los tres son la misma deuda: lecturas escritas antes de BYOK que
+siguen suponiendo «IA = agencia».
+
+**Y abrir el guard, solo, habría abierto una fuga.** `getUsageSummary` mezclaba las filas
+de Claude de OWNER_WS en TODOS los resúmenes (Claude era compartido). Con el panel
+solo-dueño no se notaba; al abrirlo, un cliente habría visto el `motivo` de las
+operaciones de la agencia — texto libre con nombres de otros clientes. Ahora es **una sola
+lectura del workspace del request**, que para el dueño da lo mismo que antes y para un
+cliente arregla las dos cosas a la vez.
+
+**El corolario que faltaba:** `wsDeProveedor` mandaba el gasto de Claude SIEMPRE a
+OWNER_WS. Con BYOK, un cliente con su propia `ANTHROPIC_API_KEY` paga él y ese gasto se le
+sumaba a Mauricio, invisible para su dueño real. Ahora la pregunta correcta no es «qué
+proveedor es» sino **de quién es la key que lo pagó**.
+
+**Regla:** cuando una lectura devuelve 403 y la UI la trata como «sin datos», el bug es
+invisible por diseño. Si un fetch puede fallar por PERMISO, el estado «no pude leer» no
+puede colapsar en el estado «no hay nada».
+
+**Vive en:** app/api/anthropic-usage/route.ts (`soloAdmin`) · lib/anthropic-usage.ts
+(`getUsageSummary`, `wsDeProveedor`) · *2026-08-12 reporte de Leila*
+
 ### El mensaje de error se corrigió en 2 de 4 lugares, y el que faltaba era el que ella usa
 
 **Síntoma:** «No hay IA para generar las razones. Conecta tu API key de Gemini (gratis) en

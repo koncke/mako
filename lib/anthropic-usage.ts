@@ -13,15 +13,28 @@ import 'server-only';
 import { OWNER_WS, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 
-// A QUÉ workspace pertenece el saldo/gasto de un proveedor.
-//  · anthropic (Claude): key ÚNICA de la agencia, compartida → SIEMPRE OWNER_WS.
-//    (Es lo único que ws1/Mauricio comparte con el super-admin, junto con Panda.)
+// A QUÉ workspace pertenece el saldo/gasto de un proveedor. La regla real no es
+// "qué proveedor es" sino **de quién es la key que lo pagó**:
 //  · el resto (gemini/openai/groq/…): BYOK por cliente → el workspace del request.
 //    Así el saldo que Martín carga en Gemini vive en SU ws (9), no se cuela en ws1.
+//  · anthropic (Claude): la key de la agencia es compartida → OWNER_WS. PERO un
+//    cliente con SU PROPIA fila de ANTHROPIC_API_KEY paga él, así que su gasto es
+//    suyo. Antes esto decía "SIEMPRE OWNER_WS" y era verdad cuando se escribió;
+//    desde BYOK, el gasto de un cliente se le sumaba a Mauricio y el cliente no lo
+//    veía en ningún lado. Sin key propia `chatClaude` ni siquiera puede correr, así
+//    que el fallback a OWNER_WS queda para los crons sin contexto.
 // Best-effort: sin contexto de workspace (algún cron suelto) cae a OWNER_WS.
 async function wsDeProveedor(provider?: string | null): Promise<number> {
-  if (!provider || provider === 'anthropic') return OWNER_WS;
-  try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; }
+  let ws: number | null = null;
+  try { ws = await getWorkspaceActual(); } catch { ws = null; }
+  if (ws == null) return OWNER_WS;
+  if (provider && provider !== 'anthropic') return ws;
+  if (ws === OWNER_WS) return OWNER_WS;
+  // Claude en el workspace de un cliente: es suyo solo si la key es suya.
+  try {
+    const { credWs } = await import('./credenciales');
+    return (await credWs('ANTHROPIC_API_KEY', ws)) ? ws : OWNER_WS;
+  } catch { return OWNER_WS; }
 }
 
 export type UsageInfo = {
@@ -235,21 +248,30 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const setAts = [sAnthropic, sOpenai, sGroq, sGemini].filter(Boolean).map((s) => (s as Saldo).setAt);
   const desde = setAts.length ? [monthStart, ...setAts].sort()[0] : monthStart;
 
-  // Dos lecturas: Claude es compartido (SIEMPRE OWNER_WS); el resto (BYOK) es del
-  // workspace del request. Así en ws1 (Mauricio) NO aparece el Gemini de Martín (ws9).
+  // ── Qué filas ve cada uno ──────────────────────────────────────────────────
+  // Claude corre contra la key COMPARTIDA de la agencia y su gasto vive en OWNER_WS
+  // (ver `wsDeProveedor`). Eso se le suma al dueño, y SOLO al dueño.
+  //
+  // ⚠️ Un cliente NO puede ver esas filas. No es una cuestión de plata: `motivo`
+  // trae texto libre del trabajo de la agencia («Analizar la llamada de …»), o sea
+  // datos de OTROS clientes. Mientras el panel de gasto era solo-dueño esto no se
+  // notaba; al abrirlo al admin de cada workspace —que es lo que había que hacer,
+  // porque el gasto es SUYO— la mezcla se vuelve una fuga cross-tenant. La condición
+  // va en POSITIVO, como manda AGENTS.md: «las de la agencia SOLO si sos la agencia».
+  // Una sola lectura: TODO lo del workspace del request, y nada más. Para el dueño
+  // es lo mismo que antes (Claude ya se registraba en su ws); para un cliente es lo
+  // que arregla las dos cosas a la vez — ve su gasto y no ve el de la agencia.
   const wsActual = await (async () => { try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; } })();
   const cols = 'created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens';
   let rows: Row[] = [];
   try {
-    const supa = getSupabaseServer();
-    const [rShared, rOwn] = await Promise.all([
-      // Claude + filas legacy sin provider (se tratan como anthropic): compartido.
-      supa.from('anthropic_usage').select(cols).eq('workspace_id', OWNER_WS).or('provider.eq.anthropic,provider.is.null').gte('created_at', desde).order('created_at', { ascending: false }).limit(20000),
-      // Gemini/OpenAI/gratis: solo del workspace actual (si es OWNER_WS, son las de ws1).
-      supa.from('anthropic_usage').select(cols).eq('workspace_id', wsActual).neq('provider', 'anthropic').gte('created_at', desde).order('created_at', { ascending: false }).limit(20000),
-    ]);
-    rows = ([...(rShared.data ?? []), ...(rOwn.data ?? [])] as Row[])
-      .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+    const { data } = await getSupabaseServer()
+      .from('anthropic_usage').select(cols)
+      .eq('workspace_id', wsActual)
+      .gte('created_at', desde)
+      .order('created_at', { ascending: false })
+      .limit(20000);
+    rows = ((data ?? []) as Row[]).sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
   } catch (e) {
     console.warn(`[anthropic-usage] no se pudo leer el resumen: ${e instanceof Error ? e.message : String(e)}`);
   }

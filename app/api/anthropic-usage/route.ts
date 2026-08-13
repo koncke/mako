@@ -8,24 +8,35 @@
 
 import type { NextRequest } from 'next/server';
 import { getUsageSummary, setSaldo, agregarCarga } from '@/lib/anthropic-usage';
-import { esWorkspaceDueno, getRolWsEfectivo } from '@/lib/workspace';
+import { getRolWsEfectivo } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// El gasto/saldo de IA es de las cuentas de IA de la AGENCIA (globales). Lo ven el
-// DUEÑO (workspace principal) Y el ADMIN de la agencia (que también consume esas
-// keys). Un cliente closer/setter NO debe leer el gasto de toda la agencia — OJO:
-// un closer/setter del PROPIO workspace dueño (ws1) también pasa esWorkspaceDueno,
-// así que además exigimos rol_ws 'admin' cuando el gate se apoya en el workspace.
-async function soloDueno(): Promise<Response | null> {
+/**
+ * Quién puede ver el gasto de IA: el super-admin de agencia, y **el admin de CADA
+ * workspace para el suyo**.
+ *
+ * ⚠️ Este guard decía `soloDueno` y ese nombre describía un mundo que ya no existe.
+ * Se escribió cuando la IA era una sola cuenta de la agencia; hoy es BYOK — cada
+ * cliente pone SU key, la gasta él y la paga él. El resultado era que una clienta
+ * con tres cuentas de Gemini y 24 llamadas hechas veía **«0 operaciones recientes»,
+ * $0.0000 y ningún historial**: no era un panel vacío, era un 403 que la UI pintaba
+ * como cero. Un permiso denegado y un dato en cero se ven igual, y ese es
+ * exactamente el motivo por el que nadie lo detectó antes.
+ *
+ * El aislamiento no lo pone este guard sino `getUsageSummary()`, que lee SOLO el
+ * workspace del request (ver ahí el porqué de que ya no mezcle las filas del dueño).
+ * Un closer/setter sigue afuera: el gasto no es asunto suyo.
+ */
+async function soloAdmin(): Promise<Response | null> {
   if (await getSesionAdmin()) return null; // admin de agencia (aunque no impersone)
-  if ((await esWorkspaceDueno()) && (await getRolWsEfectivo()) === 'admin') return null;
+  if ((await getRolWsEfectivo()) === 'admin') return null; // admin de SU workspace
   return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
 }
 
 export async function GET() {
-  const no = await soloDueno();
+  const no = await soloAdmin();
   if (no) return no;
   try {
     return Response.json({ ok: true, ...(await getUsageSummary()) });
@@ -35,7 +46,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const no = await soloDueno();
+  const no = await soloAdmin();
   if (no) return no;
   let body: { saldoUsd?: unknown; cargaUsd?: unknown; provider?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }

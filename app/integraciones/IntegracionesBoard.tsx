@@ -545,14 +545,19 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
             {cuota?.cuentas && cuota.cuentas.length > 1 && (
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {cuota.cuentas.map((k) => {
-                  const pct = Math.min(100, Math.max(2, Math.round(k.pct * 100)));
+                  // El REAL para el texto; el de la barra lleva un mínimo visible.
+                  // No es lo mismo: con el mínimo metido en los dos, una cuenta sin
+                  // usar decía «2%» — un número inventado, en el panel que acabamos
+                  // de arreglar justamente por decir números que no eran.
+                  const real = Math.min(100, Math.round(k.pct * 100));
+                  const ancho = Math.max(real, k.pct > 0 ? 2 : 0);
                   return (
                     <div key={k.cuenta} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)', flex: 'none' }}>cuenta {k.cuenta}</span>
                       <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
-                        <div style={{ height: 3, width: `${pct}%`, background: k.agotado ? 'var(--warn-fill)' : '#F55036' }} />
+                        <div style={{ height: 3, width: `${ancho}%`, background: k.agotado ? 'var(--warn-fill)' : '#F55036' }} />
                       </div>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: k.agotado ? 'var(--warn)' : 'var(--faint)', flex: 'none' }}>{k.agotado ? 'sin cuota' : `${pct}%`}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: k.agotado ? 'var(--warn)' : 'var(--faint)', flex: 'none' }}>{k.agotado ? 'sin cuota' : `${real}%`}</span>
                     </div>
                   );
                 })}
