@@ -203,6 +203,9 @@ for (const c of plan.clases) {
     n: c.n,
     vn: vn || undefined,
     grupo: c.modulo ? c.modulo.replace(/^\d+\.\s*/, '') : undefined,
+    // 2º nivel del hub: la SECCIÓN dentro del módulo. La plataforma la muestra y el
+    // portal la tiraba, así que las 24 clases de un módulo salían en una lista plana.
+    subgrupo: c.submodulo ? String(c.submodulo).replace(/^\d+\.\s*/, '') : undefined,
     modulo: c.modulo ? modulos.indexOf(c.modulo) + 1 : undefined,
     titulo: c.titulo,
     // Dato factual, no una descripción inventada: duración y módulo.
@@ -223,6 +226,15 @@ const salida = join(REPO, 'app', 'conocimientos', `curso-${slug}.ts`);
 // Contra las clases del PLAN, no contra las ya construidas: el plan es el que tiene
 // `modulo` y `submodulo` como texto, que es la clave del vínculo con los recursos.
 const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, plan.clases);
+
+// La portada se declara SOLO si el archivo existe: un `portada` apuntando a un 404
+// pinta una tarjeta con la imagen rota, que es peor que una tarjeta sin imagen.
+const dirPortadas = join(REPO, 'public', 'cono-portadas');
+const portada = existsSync(dirPortadas)
+  ? (readdirSync(dirPortadas).find((f) => f.replace(/\.[^.]+$/, '') === slug)
+      ? `/cono-portadas/${readdirSync(dirPortadas).find((f) => f.replace(/\.[^.]+$/, '') === slug)}`
+      : null)
+  : null;
 
 // ⚠️ GUARDA: si hay material en disco y NO termina en la ficha, se corta acá.
 //
@@ -274,7 +286,7 @@ export const ${constante}: Curso = {
   eyebrow: '${esc(EYEBROW)}',
   titulo: '${esc(plan.curso)}',
   subtitulo: '${esc(`${plan.clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
-  volumen: '${plan.clases.length} clases',
+  volumen: '${plan.clases.length} clases',${portada ? `\n  portada: '${portada}',` : ''}
   recursos: [
 ${recursosPortal.map((r) => `    {
       slug: '${r.slug}',
@@ -285,7 +297,7 @@ ${recursosPortal.map((r) => `    {
   ],
   clases: [
 ${clases.map((c) => `    {
-      n: ${c.n},${c.vn ? `\n      vn: ${c.vn},` : ''}${c.grupo ? `\n      grupo: '${esc(c.grupo)}',` : ''}${c.modulo ? `\n      modulo: ${c.modulo},` : ''}
+      n: ${c.n},${c.vn ? `\n      vn: ${c.vn},` : ''}${c.grupo ? `\n      grupo: '${esc(c.grupo)}',` : ''}${c.subgrupo ? `\n      subgrupo: '${esc(c.subgrupo)}',` : ''}${c.modulo ? `\n      modulo: ${c.modulo},` : ''}
       titulo: '${esc(c.titulo)}',
       cardDesc: '${esc(c.cardDesc)}',
       videoId: ${c.videoId ? `'${c.videoId}'` : 'null'},

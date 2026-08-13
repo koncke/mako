@@ -90,9 +90,18 @@ export function DocContent({ text }: { text: string }) {
   return <div className="al-doc">{out}</div>;
 }
 
-export function Card({ badge, nota, titulo, desc, onClick, ariaLabel }: { badge: string; nota?: string; titulo: string; desc: string; onClick: () => void; ariaLabel: string }) {
+// `img` es opcional a propósito: la tarjeta de un curso con portada la muestra, y la
+// de una clase o un recurso sigue siendo la misma tarjeta sin imagen. Un componente
+// por caso los haría divergir en tres números, que es lo que ya pasó con `.mk-fila`.
+export function Card({ badge, nota, titulo, desc, onClick, ariaLabel, img }: { badge: string; nota?: string; titulo: string; desc: string; onClick: () => void; ariaLabel: string; img?: string }) {
   return (
-    <button type="button" className="al-rescard" onClick={onClick} aria-label={ariaLabel}>
+    <button type="button" className={img ? 'al-rescard al-rescard-img' : 'al-rescard'} onClick={onClick} aria-label={ariaLabel}>
+      {img && (
+        <span className="al-rescard-thumb">
+          {/* eslint-disable-next-line @next/next/no-img-element -- estática en public/, sin optimizar */}
+          <img src={img} alt="" loading="lazy" />
+        </span>
+      )}
       <span className="al-rescard-top">
         <span className="al-rescard-badge">{badge}</span>
         {nota && <span className="al-rescard-nota">{nota}</span>}
@@ -134,7 +143,7 @@ export function Selector({ cursos, enter, compartir }: {
           <div className="al-seclabel"><span>{cat}</span><span className="al-vol">{list.length} curso{list.length > 1 ? 's' : ''}</span></div>
           <div className="al-grid">
             {list.map((c) => (
-              <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc}
+              <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc} img={c.portada}
                 ariaLabel={`Entrar a ${c.titulo}`} onClick={() => enter(c.slug)} />
             ))}
           </div>
@@ -148,11 +157,25 @@ export function Selector({ cursos, enter, compartir }: {
 // `compartir` es el botón de Compartir del admin, inyectado desde afuera: la
 // vista pública no lo pasa y así ese código no llega al invitado.
 export function Hub({ curso, goClase, goRecurso, compartir }: { curso: Curso; goClase: (n: number) => void; goRecurso: (slug: string) => void; compartir?: ReactNode }) {
-  // Cursos con módulos (grupo) se agrupan por sub-título; los planos van en grilla.
-  const grupos = useMemo(() => {
-    const m = new Map<string, Clase[]>();
-    for (const c of curso.clases) { const g = c.grupo || ''; if (!m.has(g)) m.set(g, []); m.get(g)!.push(c); }
-    return [...m.entries()];
+  // DOS niveles: módulo (`grupo`) → sección (`subgrupo`). Antes se agrupaba solo por
+  // módulo y las 24 clases de uno caían en una lista plana, aunque la plataforma sí
+  // las divide en secciones. El orden se toma del ORDEN DE LAS CLASES, no de un sort
+  // alfabético: el módulo 10 tiene que ir después del 9, y «10» < «9» en texto.
+  const modulos = useMemo(() => {
+    const m = new Map<string, Map<string, Clase[]>>();
+    for (const c of curso.clases) {
+      const g = c.grupo || '';
+      const s = c.subgrupo || '';
+      if (!m.has(g)) m.set(g, new Map());
+      const sub = m.get(g)!;
+      if (!sub.has(s)) sub.set(s, []);
+      sub.get(s)!.push(c);
+    }
+    return [...m.entries()].map(([g, sub]) => ({
+      grupo: g,
+      total: [...sub.values()].reduce((a, x) => a + x.length, 0),
+      secciones: [...sub.entries()].map(([s, cs]) => ({ nombre: s, clases: cs })),
+    }));
   }, [curso]);
   const conModulos = curso.clases.some((c) => c.grupo);
   const claseCard = (c: Clase) => (
@@ -163,21 +186,50 @@ export function Hub({ curso, goClase, goRecurso, compartir }: { curso: Curso; go
     <>
       <section className="al-hero">
         <div className="al-hero-top">
-          <span className="al-eyebrow"><span className="d" /> {curso.eyebrow} · {curso.titulo}</span>
+          <span className="al-eyebrow"><span className="d" /> {curso.eyebrow}</span>
           {compartir}
         </div>
-        <h1 className="al-h1">Tus recursos</h1>
+        {/* La portada arriba de todo, antes del título: es la identidad del curso. */}
+        {curso.portada && (
+          <div className="al-portada">
+            {/* eslint-disable-next-line @next/next/no-img-element -- estática en public/ */}
+            <img src={curso.portada} alt={`Portada de ${curso.titulo}`} />
+          </div>
+        )}
+        {/* El título del CURSO, no un rótulo genérico: «Tus recursos» estaba hardcodeado
+            acá y salía igual en los ocho cursos. */}
+        <h1 className="al-h1">{curso.titulo}</h1>
         <p className="al-sub">{curso.subtitulo}</p>
       </section>
       <section className="al-sec">
         <div className="al-seclabel"><span>El curso</span><span className="al-vol">{curso.clases.length} clases · {curso.volumen}</span></div>
         {conModulos ? (
           <div className="al-modstack">
-            {grupos.map(([g, cs]) => (
-              <div key={g} className="al-modgroup">
-                <h3 className="al-modtitle">{g}</h3>
-                <div className="al-grid">{cs.map(claseCard)}</div>
-              </div>
+            {modulos.map((mod, i) => (
+              // <details> nativo: plegable sin estado propio, y el navegador se
+              // encarga del teclado y del foco. `open` en el primero para que el hub
+              // no arranque como una lista de títulos cerrados.
+              <details key={mod.grupo} className="al-modgroup" open={i === 0}>
+                <summary className="al-modtitle">
+                  <span className="al-modtitle-t">{mod.grupo}</span>
+                  <span className="al-modtitle-n">{mod.total} clase{mod.total === 1 ? '' : 's'}</span>
+                </summary>
+                {/* Si el módulo NO tiene secciones (una sola, sin nombre), no se
+                    inventa un segundo nivel: va la grilla directa. */}
+                {mod.secciones.length === 1 && !mod.secciones[0].nombre ? (
+                  <div className="al-grid">{mod.secciones[0].clases.map(claseCard)}</div>
+                ) : (
+                  mod.secciones.map((sec, j) => (
+                    <details key={sec.nombre || j} className="al-subgroup" open={j === 0}>
+                      <summary className="al-subtitle">
+                        <span className="al-subtitle-t">{sec.nombre || 'Sin sección'}</span>
+                        <span className="al-modtitle-n">{sec.clases.length}</span>
+                      </summary>
+                      <div className="al-grid">{sec.clases.map(claseCard)}</div>
+                    </details>
+                  ))
+                )}
+              </details>
             ))}
           </div>
         ) : (
@@ -516,9 +568,35 @@ export const CSS = `
 .cono .al-seclabel{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); padding-bottom:12px; border-bottom:1.5px solid var(--ink-15); margin-bottom:18px; }
 .cono .al-vol{ color:var(--ink-40); font-size:11px; }
 
-/* Cursos con módulos: cada grupo con su sub-título */
-.cono .al-modstack{ display:flex; flex-direction:column; gap:30px; }
-.cono .al-modtitle{ font-family:var(--disp); font-weight:800; font-size:17px; letter-spacing:-.01em; color:var(--ink); margin:0 0 14px; padding-left:12px; border-left:4px solid var(--lime); line-height:1.2; }
+/* Cursos con módulos: DOS niveles plegables (módulo → sección), con <details>.
+   El marcador nativo se saca con ::marker y list-style para poder poner el chevron
+   propio; sin las DOS reglas, Safari y Firefox siguen dibujando su triangulito. */
+.cono .al-modstack{ display:flex; flex-direction:column; gap:18px; }
+.cono .al-modgroup > summary::-webkit-details-marker{ display:none; }
+.cono .al-modgroup > summary, .cono .al-subgroup > summary{ list-style:none; cursor:pointer; }
+.cono .al-modgroup > summary::marker, .cono .al-subgroup > summary::marker{ content:''; }
+
+.cono .al-modtitle{ display:flex; align-items:center; gap:10px; font-family:var(--disp); font-weight:800; font-size:17px; letter-spacing:-.01em; color:var(--ink); margin:0; padding:8px 0 8px 12px; border-left:4px solid var(--lime); line-height:1.2; }
+.cono .al-modtitle:hover{ background:var(--ink-05, rgba(0,0,0,.035)); }
+/* El chevron gira con el estado abierto: es la única pista de que esto se plega. */
+.cono .al-modtitle::before{ content:'›'; display:inline-block; font-size:20px; line-height:1; color:var(--ink-40); transition:transform .15s ease; }
+.cono .al-modgroup[open] > .al-modtitle::before{ transform:rotate(90deg); }
+.cono .al-modtitle-t{ flex:1; }
+.cono .al-modtitle-n{ font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-40); white-space:nowrap; }
+.cono .al-modgroup > .al-grid, .cono .al-modgroup > .al-subgroup{ margin-top:14px; }
+
+.cono .al-subgroup{ margin-left:14px; border-left:1.5px solid var(--ink-15); padding-left:14px; }
+.cono .al-subtitle{ display:flex; align-items:center; gap:9px; font-family:var(--disp); font-weight:700; font-size:14.5px; color:var(--ink-60); margin:0; padding:6px 0; line-height:1.25; }
+.cono .al-subtitle:hover{ color:var(--ink); }
+.cono .al-subtitle::before{ content:'›'; display:inline-block; font-size:16px; line-height:1; color:var(--ink-40); transition:transform .15s ease; }
+.cono .al-subgroup[open] > .al-subtitle::before{ transform:rotate(90deg); }
+.cono .al-subtitle-t{ flex:1; }
+.cono .al-subgroup > .al-grid{ margin:10px 0 16px; }
+
+/* Portada del curso: arriba de todo, antes del título. Alto acotado por el
+   VIEWPORT y no por el ancho, o en un monitor grande se come la pantalla entera. */
+.cono .al-portada{ margin:0 0 22px; border:1.5px solid var(--ink); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card); }
+.cono .al-portada img{ display:block; width:100%; max-height:clamp(160px, 34svh, 340px); object-fit:cover; }
 
 /* Grilla de tarjetas */
 .cono .al-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; }
@@ -529,6 +607,14 @@ export const CSS = `
 .cono .al-rescard-nota{ font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-60); border:1.5px solid var(--ink-15); border-radius:6px; padding:3px 8px; white-space:nowrap; }
 .cono .al-rescard-title{ font-family:var(--disp); font-weight:800; font-size:20px; letter-spacing:-.02em; color:var(--ink); line-height:1.1; }
 .cono .al-rescard-desc{ font-size:14px; line-height:1.5; color:var(--ink-60); }
+/* Tarjeta con miniatura: la imagen va al ras del borde, así que el padding se mueve
+   del botón a los hijos — con padding en el botón queda un marco blanco alrededor. */
+.cono .al-rescard-img{ padding:0; overflow:hidden; }
+.cono .al-rescard-img > .al-rescard-top{ padding:14px 18px 0; }
+.cono .al-rescard-img > .al-rescard-title, .cono .al-rescard-img > .al-rescard-desc{ padding:0 18px; }
+.cono .al-rescard-img > .al-rescard-go{ padding:0 18px 16px; }
+.cono .al-rescard-thumb{ display:block; width:100%; border-bottom:1.5px solid var(--ink); background:var(--ink-05, rgba(0,0,0,.04)); }
+.cono .al-rescard-thumb img{ display:block; width:100%; aspect-ratio:16/9; object-fit:cover; }
 .cono .al-rescard-go{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--lime-ink); display:inline-flex; align-items:center; gap:6px; margin-top:4px; }
 .cono .al-rescard:hover .al-arr{ transform:translateX(3px); }
 .cono .al-arr{ transition:transform .14s ease; }

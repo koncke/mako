@@ -25,7 +25,11 @@ export type Herramienta = { nombre: string; url: string; nota?: string };
 export type Clase = {
   n: number;
   vn?: number;             // nº de clase dentro de su grupo (para el badge)
-  grupo?: string;          // módulo/submódulo al que pertenece (agrupa en el hub)
+  grupo?: string;          // módulo RAÍZ al que pertenece (1er nivel del hub)
+  // Sección dentro del módulo (2º nivel del hub). Las plataformas dividen sus
+  // módulos en secciones y sin esto las 24 clases de un módulo caen en una sola
+  // lista plana, que es justo lo que el hub venía haciendo.
+  subgrupo?: string;
   modulo?: number;
   titulo: string;
   cardDesc: string;
@@ -40,6 +44,11 @@ export type Clase = {
 export type Curso = {
   slug: string; categoria: string; cardDesc: string;
   eyebrow: string; titulo: string; subtitulo: string; volumen: string;
+  // Miniatura del curso, servida estática desde `public/cono-portadas/<slug>.<ext>`.
+  // Va como ruta y no como id de Drive porque se muestra en la grilla de TODOS los
+  // cursos: una miniatura de Drive por tarjeta son N requests a un dominio externo
+  // que además exige que cada archivo esté compartido.
+  portada?: string;
   clases: Clase[]; recursos: Recurso[];
 };
 

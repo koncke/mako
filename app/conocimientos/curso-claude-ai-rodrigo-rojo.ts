@@ -21,6 +21,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
   titulo: 'Curso de Claude AI - Rodrigo Rojo',
   subtitulo: '20 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '20 clases',
+  portada: '/cono-portadas/claude-ai-rodrigo-rojo.png',
   recursos: [
     {
       slug: '01-conoce-claude-ai-1-1-resumen-pdf',
