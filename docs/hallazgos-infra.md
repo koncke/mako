@@ -641,6 +641,89 @@ corre sobre un perfil único. Verificado el 7/8/2026.
 
 **Vive en:** app/api/cron/reporte-semanal/route.ts:23 · app/api/cron/reporte-diario/route.ts · app/api/cron/reporte-horario/route.ts · lib/cron-workspaces.ts:28 y :43-46 · app/api/cron/nutricion/route.ts:38-62 · *2026-07-17 retro-mapa · 2026-07-26 copy-semaforo (confirmado en 2026-08-06 senales-de-avance)*
 
+### ⚠️ Un cron que itera N workspaces dentro de UN `maxDuration` sirve a los primeros y nada más
+
+**Síntoma:** con clientes conectados, la factura de `closing` no subía. Se leyó como «los
+clientes casi no consumen todavía». **Era al revés: no recibían el servicio.**
+
+**Causa, tres piezas que solas parecen inofensivas:** `maxDuration = 300` en la ruta ·
+`correrPorWorkspace` recorría los workspaces **secuencialmente, sin presupuesto y sin rotación**
+(el orden lo daba `listarWorkspaces()`, que ordena por id) · y cada `syncClosingCalls()` reservaba
+`DEFAULT_TIME_BUDGET_MS = 150_000` **para sí mismo**. 150 + 150 = 300: **entraban DOS workspaces
+por corrida, y siempre los mismos dos.** Del tercero en adelante nadie recibía análisis, nunca.
+
+**Y lo que lo hacía invisible:** el cron devolvía un array `{ws, ok}` que **solo incluía a los que
+corrieron**. Un cliente sin servicio era indistinguible de un cliente que no existe. No había nada
+que mirar ni nada que contar.
+
+**El presupuesto relativo es la otra mitad del bug.** `timeBudgetMs` se medía contra el `tStart`
+de **cada invocación**: el 2.º workspace ponía su reloj en cero a los 150 s de la función, medía
+bien SUS 150 s y arrancaba una llamada a Opus a los 290. La plataforma la mataba a los 300 —
+**después de que Claude cobró y antes del `upsertRow`**. Es el mismo hallazgo de «un presupuesto
+chequeado al arranque de la iteración acota el INICIO, no el fin», un nivel más arriba.
+
+**Las reglas que quedan:**
+1. **El presupuesto de tiempo se pasa como FECHA LÍMITE ABSOLUTA, no como duración.** El que sabe
+   cuánto queda es el que llama, no la función llamada. Y el guard va en positivo: `deadline`
+   tiene que estar en el futuro, o se tira — así el typecheck y el runtime encuentran a quien
+   todavía pase un relativo (fue exactamente como apareció el último call-site vivo en
+   `lib/onboarding-extract.ts`, que el `grep` no veía porque el archivo es CRLF).
+2. **Se arranca una unidad de trabajo solo si entra ENTERA** (`ahora + reservaDeUnaLlamada <=
+   deadline`), y la reserva es el **peor caso de una llamada**, no el promedio.
+3. **El orden ROTA** con un cursor persistido, o la inanición cae siempre sobre los mismos.
+4. **El resultado declara a quién NO le tocó** (`sinTurno`). Un contador que no distingue «no
+   había» de «no llegué» es la misma trampa que una API que devuelve vacío en vez de error.
+5. **Y «sin turno» NO es un error:** si contara como fallo, el cron viviría en 500 desde el tercer
+   cliente y la alarma nacería sonando — que es justo la señal que esto vino a recuperar.
+
+**Aplicado en:** `lib/cron-ronda.ts` (nuevo, **sin `server-only`** para que el test importe la
+condición) · `correrRonda` en `lib/cron-workspaces.ts` (`correrPorWorkspace` quedó como wrapper: los
+otros 9 crons no cambian) · `lib/closing.ts` (`RESERVA_LLAMADA_MS`, `corto_por`) ·
+`app/api/cron/closing-sync/route.ts` · `vercel.json` (de 1 a 10 corridas/día: **es lo único que crea
+tiempo**; sin eso los otros tres arreglos solo reparten mejor los 2 análisis diarios que había).
+
+⚠️ **`fathom-plan` tiene el MISMO bug y es el techo más grande:** 13 corridas/día sobre el mismo
+servicio `'fathom'`, **sin presupuesto de ninguna clase**, y sobre un pipeline que parte transcripts
+en cuatro. El helper le queda listo (`correrRonda` con `techoMs` y `rotacion: 'fathom-plan'` —
+**clave distinta o se pisan el cursor**), pero no se enchufó. Los siguientes son ése y
+`ads-analyst-sync`, que tiene su propio `DEFAULT_TIME_BUDGET_MS = 150_000`.
+
+⚠️ **Pendiente: el aviso al dueño.** Que «se quedaron sin análisis» sigue viviendo en el log y en el
+JSON de la respuesta — o sea, un `console.warn` con otra ropa. **No se emitió a propósito:**
+`crearNotificacion` no acepta `workspace_id` (la tabla `notificaciones` no lo tiene, mig 0048) y el
+feed es **global**, así que avisarlo ahí le mostraría los conteos de clientes a todos los clientes.
+Resolver la visibilidad creando una fuga entre inquilinos no es un arreglo. Lo que lo destraba es la
+migración que le ponga `workspace_id` a `notificaciones` (y sumarla a `TENANT_TABLES` **y** a
+`TABLAS_RESET` en la misma migración).
+
+**Vive en:** lib/cron-ronda.ts · lib/cron-workspaces.ts (correrRonda) · lib/closing.ts · app/api/cron/closing-sync/route.ts · tests/cron-ronda.test.ts · *2026-08-13 arreglar-techos-antes-de-clientes*
+
+### ⚠️ Un cron que llama a IA por workspace necesita preflight de credencial, o falla en loop para siempre
+
+**Síntoma:** ninguno todavía — y ese es el punto. Se iba a manifestar el día que la rotación de
+arriba le diera turno al tercer cliente.
+
+**Causa:** `chatClaude` resuelve la key con `await credWs('ANTHROPIC_API_KEY')` y `credWs` cae al
+env **solo si `w === OWNER_WS`**. Un workspace sin fila propia recibe `null` y **cada llamada tira**.
+La fila queda en `status='error'`, que en `lib/closing.ts` es **reintentable**, así que el cron la
+vuelve a levantar en la corrida siguiente y vuelve a fallar. Para siempre, y el único rastro es un
+`console.error`. Nadie lo vio nunca porque el cron servía siempre a los mismos dos workspaces, y los
+dos tienen key.
+
+**Regla:** antes de gastarle el turno a un workspace, chequear **en positivo** que tiene con qué
+(`if (!(await credWs('ANTHROPIC_API_KEY', ws))) return { sin_ia: true }`). Cuesta una lectura de
+`credenciales` (~50 ms) y no le saca capacidad a nadie: el que no tiene key sale al instante y el
+siguiente entra igual. Y se cuenta **aparte** de los que fallaron: «no tiene key cargada» y «se
+rompió» son dos cosas distintas y se arreglan distinto.
+
+⚠️ **Y la decisión de producto que esto destapa y nadie tomó:** el catálogo marca `closing` con
+`pagoPorque` («análisis pesado que el cliente paga a sabiendas») pero **no dice quién pone la key**.
+Si la agencia paga el análisis insignia, la línea pasa a `credWs(...) ?? envCred(...)` y el guard
+queda como red para el día que se corte. Las dos opciones necesitan el guard; lo que cambia es una
+línea.
+
+**Vive en:** app/api/cron/closing-sync/route.ts · lib/anthropic.ts (credWs) · lib/credenciales.ts (el env es solo de OWNER_WS) · *2026-08-13 arreglar-techos-antes-de-clientes*
+
 ### ⚠️ Un cron de vigilancia se excluye a sí mismo justo del workspace roto
 
 `correrPorWorkspace('landing', …)` itera solo los workspaces con la integración conectada, y
