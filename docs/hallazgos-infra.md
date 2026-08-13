@@ -1315,12 +1315,39 @@ verificado**: elegir mal cuesta US$20/mes sin avisar.
 PATCH https://api.vercel.com/v1/teams/{teamId}/members/{uid}   {"role":"VIEWER_FOR_PLUS"}
 ```
 
-El `uid` sale de `GET /v2/teams/{teamId}/members`. Y ojo con el orden: **un Viewer no puede
-escribir por API**, así que si el token que usás es del usuario que estás degradando, te quedás
-sin poder administrar. Se reemplaza el token PRIMERO (por uno de un OWNER que siga siéndolo) y se
-degrada DESPUÉS. Hoy `VERCEL_API_TOKEN` en `.env.local` es de **mbustos@elevate.com.mx**, no de
-koncke, justamente por esto. Los deploys por `git push` **no dependen del rol**: los dispara la
-integración de GitHub del proyecto.
+El `uid` sale de `GET /v2/teams/{teamId}/members`.
+
+### ⚠️ Un `VIEWER_FOR_PLUS` NO despliega por `git push`, y el push sale verde igual
+
+**Esto se creyó al revés y se probó en producción.** El razonamiento parecía sólido: «los deploys
+los dispara la integración de GitHub del proyecto, no el usuario, así que el rol no importa».
+**Falso, y medido:** con Martín en `VIEWER_FOR_PLUS`, el commit `a4628543` se pusheó **con éxito**
+(el remoto lo tenía, `git ls-remote` lo confirmaba, el pre-push pasó los cuatro chequeos y git
+imprimió el rango de siempre) y **Vercel nunca creó el deployment**. Cuatro minutos después el
+último deploy seguía siendo el commit anterior.
+
+**Por qué duele:** el push no falla. No hay error, no hay 403, no hay nada que mirar. Es
+exactamente el modo de falla de «[pushear no es desplegar](#-pushear-no-es-desplegar-el-build-falla-y-produccion-sigue-sirviendo-la-version-vieja)»
+pero un escalón más arriba — ahí el build fallaba y al menos quedaba registro; acá **el build ni
+se encola**. Producción se queda en la versión vieja indefinidamente y el único síntoma es que
+«el cambio no aparece».
+
+**La salida, verificada:** el rol **`DEVELOPER`** sí dispara los deploys — se probó con un commit
+vacío y el build arrancó al instante. Es el rol que hay que usar para alguien que pushea pero no
+administra. ⚠️ **Lo que NO está verificado es si `DEVELOPER` consume asiento pago:** la doc dice
+«Additional paid seats (Owner or Member roles) for $20/month each», lo que sugiere que no, pero
+eso se confirma **leyendo el renglón `Additional Team Seats` de la factura al día siguiente**, no
+la doc.
+
+**Y el orden importa:** un Viewer tampoco puede **escribir por API**, así que si el token que usás
+es del usuario que vas a degradar, te quedás sin poder administrar ni revertir. Se reemplaza el
+token PRIMERO (por uno de un OWNER que siga siéndolo) y se degrada DESPUÉS. Hoy `VERCEL_API_TOKEN`
+en `.env.local` es de **mbustos@elevate.com.mx**, no de koncke, justamente por esto — y fue lo
+único que permitió deshacer el cambio.
+
+**La regla:** después de tocar roles, permisos o integraciones, **el push de prueba no alcanza:
+hay que verificar que apareció el DEPLOYMENT**. Un `git push` exitoso solo prueba que GitHub
+recibió el commit.
 
 **Vive en:** `.env.local` (VERCEL_API_TOKEN) · Vercel Team Settings → Members · *2026-08-13 infra-costos-alternativas*
 
