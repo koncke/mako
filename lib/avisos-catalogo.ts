@@ -163,8 +163,14 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   // ── CUENTA / SALUD DE META (semáforo) ──────────────────────────────────────
   {
     id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso',
-    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'parcial',
-    disparador: 'computeAccountHealth() pasa a rojo (diff contra meta_health_history).',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ ESTE AVISO INSISTE. No lo manda `emitirDelCatalogo` una vez: lo repite
+    // `lib/alerta-critica.ts` cada 10-20 minutos MIENTRAS la entrega siga
+    // frenada, con el texto subiendo de tono y el contador de tiempo perdido.
+    // El `ejemplo` de acá es la PRIMERA vez; las siguientes son más cortas.
+    // Editar este texto no cambia el de la insistencia (un mensaje de emergencia
+    // no se reescribe cada quince minutos) — se toca en alerta-critica.ts.
+    disparador: 'Cron alerta-critica (cada 10 min): hay un incidente ABIERTO en service_incidents con entrega frenada o severidad roja. Se repite hasta que se resuelva; al resolverse sale meta-cuenta-recuperada.',
     ejemplo: `🔴 *Pará un segundo.* Tu cuenta de Meta quedó *deshabilitada por saldo impago* y dejó de entregar. Ningún anuncio está corriendo ahora.\n\nRegularizá el pago en el Business Manager y avisame cuando esté para verificar. — MaKo`,
   },
   {
@@ -175,9 +181,15 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   },
   {
     id: 'meta-cuenta-recuperada', titulo: 'Cuenta Meta recuperada (volvió a verde)', categoria: 'aviso',
-    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'no',
-    disparador: 'Severidad pasa de rojo/ámbar a verde (transición).',
-    ejemplo: `🟢 Listo, tu cuenta de Meta volvió a *activa* y ya está entregando de nuevo. Se resolvió el tema del pago. Todo en orden. — MaKo`,
+    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
+    // Es la contracara de la insistencia y por eso NO es opcional: si MaKo
+    // persiguió veinte veces y después se calla, el dueño no sabe si dejó de
+    // avisar porque se resolvió o porque el aviso se rompió.
+    disparador: 'Cron alerta-critica: el incidente que se venía persiguiendo pasó a resuelto.',
+    ejemplo: `━━ 📣 ANUNCIOS ━━
+🟢 *Listo, ya está entregando de nuevo.*
+
+Tu cuenta de Meta volvió a la normalidad. Dejo de insistir. — MaKo`,
   },
   {
     id: 'meta-saldo-agotarse', titulo: 'Saldo por agotarse / problema de pago', categoria: 'aviso',
