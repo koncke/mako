@@ -1902,9 +1902,15 @@ intacto. Ver la entrada siguiente antes de dar esto por resuelto.
 
 Entre el 9/8 y el 12/8 hubo **cero** crashes. O sea que el pin hizo algo real; lo que no
 hizo fue eliminar la causa. Las tres pruebas de reproducción del 9/8 pasaron limpias
-porque **la ventana de reproducción era de minutos y la condición que falta tarda días**:
-el crash llegó al cuarto día de uptime de Windows, y el equipo llevaba 4 días sin
-reiniciar. Esa es la hipótesis a medir ahora, no una conclusión.
+porque **la ventana de reproducción era de minutos** y la condición que falta no se dio en
+ellas.
+
+⚠️ **La hipótesis del uptime quedó REFUTADA el mismo día.** Se planteó acá que la
+condición «tardaba días» porque el crash llegó al cuarto día sin reiniciar; el crash
+siguiente llegó a **1 h 08 min** de un reinicio limpio. Lo que faltaba no era tiempo
+acumulado sino un disparador — ver «Lo que mata a Claude es el NAVEGADOR EMBEBIDO» más
+abajo. Se deja escrita la hipótesis equivocada a propósito: era razonable con los datos
+que había, y el error fue tratar una correlación de UN caso como dirección de búsqueda.
 
 **Lo que más costó, y es lo que se repite:** el 9/8 quedó escrito un monitor
 (`C:\Users\marti\diagnostico-gpu.ps1`) justamente para cazar el próximo crash con la
@@ -1982,6 +1988,84 @@ parseo. Se estuvo escribiendo en `termica.csv` como si fuera real. Ahora la lect
 descarta contra el tope: si no es físicamente posible, va vacío, nunca un número inventado.
 
 **Vive en:** `C:\Users\marti\diagnostico-gpu.ps1` → `TempCpu` y `Leer` · *2026-08-13*
+
+### ⚠️ Lo que mata a Claude es el NAVEGADOR EMBEBIDO, no el calor ni la carga (7 de 7)
+
+Con el monitor midiendo, el crash del 13/8 a las 11:40 quedó registrado con su contexto, y
+el disparador aparece en el log a **14 segundos**:
+
+```
+11:39:57 [Preview] Created browser preview { serverId: 'browser-preview-…' }
+11:40:11 GPU process gone: { reason: 'crashed', exitCode: 101457950 }
+```
+
+Cruzado contra **todos** los crashes de los logs, el patrón es el mismo: **7 de los 7 que
+tienen la ventana previa completa ocurren dentro de los 41 segundos de crear un contexto
+de navegador embebido** (`Created browser preview` / `Warming up session preview` /
+`Launch: Updating active servers store`), y cinco de los siete dentro de 15 segundos. El
+octavo (13/8 01:19:30) es el único sin evidencia, y es justo aquel en que el log rotó en el
+mismo segundo: su ventana previa quedó en el archivo viejo.
+
+Lo que el monitor descarta **con dato propio**, no por descarte lógico:
+
+| Sospecha | Medición en el crash |
+|---|---|
+| Térmico | 56,9 °C, pico de 10 min 59,9 °C, `ThrottleReasons = 0` — y el mismo sensor marcó 84,9 °C en el arranque, así que tiene rango |
+| Memoria | 2,2 GB libres justo antes; nunca llegó a cero |
+| Uptime acumulado | **1 h 08 min** desde el reinicio. La hipótesis de «se degrada a los días» quedó refutada |
+
+Esto **confirma la sospecha original de la entrada del 9/8** —«pega más con varios
+contextos de navegador a la vez»— y explica por qué el pin a la integrada bajó la
+frecuencia sin cerrar el caso: no ataca al disparador, sólo achica la superficie.
+
+**El estado del equipo justo antes:** 4 sesiones locales calentando en paralelo, 2
+workflows arrancados, procesos de Claude subiendo de 16 a 19 y la RAM libre cayendo de 4,2
+a 2,2 GB en 90 segundos. El preview llega arriba de eso.
+
+**Las palancas, y hay que ser honesto sobre cuál es cuál:**
+
+1. **Mitigación real e inmediata: para trabajo de navegador, el Chrome externo**
+   (`mcp__claude-in-chrome__*`), no el pane embebido (`mcp__Claude_Browser__*`). El
+   contexto GPU pasa a vivir en el proceso de Chrome: si revienta, se lleva a Chrome y no
+   a la app con todas las sesiones adentro. No arregla la causa, saca a Claude del radio
+   de explosión. ⚠️ Contradice en parte a [[verificar-en-navegador]], que empuja al
+   preview embebido; cuando las dos sirven, gana la externa **en este equipo**.
+2. **Menos previews simultáneos.** El crash llegó con cuatro sesiones calentando su preview
+   a la vez. `epitaxy-transcript-links-in-preview: false` en
+   `%APPDATA%\Claude\claude_desktop_config.json` evita que además cada link del transcript
+   abra uno.
+3. **Lo único que podría ser arreglo de raíz: el driver de la Intel.** Desde el pin, TODO
+   el render pasa por la integrada, así que el driver que importa es el suyo —
+   `32.0.101.7088`, del **16/6/2026**. La actualización del 8/8 se hizo cuando el render lo
+   manejaba la NVIDIA, o sea contra la placa equivocada.
+4. **No hay palanca de «desactivar la aceleración por hardware».** La app está instalada
+   como MSIX (`Claude_…_x64__pzs8sxrjxfjjc` en `WindowsApps`), que no toma flags de
+   Chromium por acceso directo, y no hay opción en `config.json`. Verificado, no asumido.
+
+**Vive en:** `%APPDATA%\Claude\logs\main.log` (cruzar `Created browser preview` con
+`GPU process gone`) · `~\crashes-gpu.csv` · *2026-08-13*
+
+### ⚠️ La fila del crash miente sin equivocarse en un solo número
+
+El monitor anotó el crash de las 11:40 así: **carga de CPU 2%, RAM libre 5,3 GB, 0
+procesos**. Se lee como «crasheó estando en reposo», y sobre esa lectura escribí un
+diagnóstico equivocado antes de mirar la línea de tiempo.
+
+Los tres números son correctos. El problema es *cuándo* se tomaron: el monitor detecta el
+crash en su siguiente tick, hasta 20 segundos después, y para entonces la app ya no existe
+— el equipo está vacío **porque** se murió. La lectura anterior decía carga **80%**, RAM
+**2,2 GB**, **18 procesos**.
+
+**La regla: en un evento que MATA al proceso, el estado que lo describe es el del tick
+ANTERIOR, no el del tick que lo detecta.** Vale para cualquier monitoreo por muestreo — lo
+mismo pasa con «uso de disco al fallar el backup» o «conexiones al caerse el server». El
+que detecta llega tarde por construcción.
+
+Y el corolario, del mismo arreglo: **la hora del evento es la del log, no la de la
+detección.** Eran 14 segundos, justo la ventana donde estaba el `Created browser preview`
+que explicaba todo.
+
+**Vive en:** `C:\Users\marti\diagnostico-gpu.ps1` → `Anotar` · *2026-08-13*
 
 ### Regla: antes de culpar a la app, mirá SU log — está en el disco y dice la causa
 
