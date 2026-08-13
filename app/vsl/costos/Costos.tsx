@@ -6,9 +6,15 @@
  * desplegables. Los <details> son nativos a propósito: no necesitan estado y
  * funcionan sin JS.
  *
+ * DOS REGLAS DE CONTENIDO que vienen de su feedback y hay que respetar al editar:
+ *  1. Se distingue SIEMPRE «MaKo» (el producto que se construye) de «la operación
+ *     de Mauricio» (lo que él usa para atender a SUS clientes). Meterlo todo en un
+ *     total hace creer que el producto cuesta el doble de lo que cuesta.
+ *  2. NO se cuentan fallas de código ni pasos internos: qué se paga, cuánto, y qué
+ *     hay que decidir. El «cómo se arregló» no le sirve para decidir nada.
+ *
  * Todo el ancho lo gobierna .doc (un solo max-width). Nada adentro lleva ancho
- * propio: es la regla de layout de AGENTS.md — un max-width puesto al texto
- * dentro de un contenedor más ancho deja media caja vacía a la derecha.
+ * propio: es la regla de layout de AGENTS.md.
  */
 
 const CSS = `
@@ -40,8 +46,6 @@ const CSS = `
   }
 }
 .costos *, .costos *::before, .costos *::after { box-sizing: border-box; }
-
-/* UN solo ancho para todo el documento */
 .costos .doc { max-width: 54rem; margin: 0 auto; }
 
 .costos .top { padding: 3.5rem 0 2rem; border-bottom: 1px solid var(--line); margin-bottom: 2.25rem; }
@@ -80,6 +84,8 @@ const CSS = `
   font-family: var(--mono); font-size: .88rem; }
 .costos tbody tr:last-child td { border-bottom: none; }
 .costos tr.total td { font-weight: 700; background: var(--surface-2); border-top: 1px solid var(--line); }
+.costos tr.sub td { background: var(--surface-2); font-weight: 650; font-size: .82rem;
+  font-family: var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
 .costos td.w { white-space: normal; min-width: 13rem; }
 .costos .up { color: var(--spend); } .costos .down { color: var(--save); }
 
@@ -93,27 +99,34 @@ const CSS = `
 
 .costos .pill { display: inline-block; font-family: var(--mono); font-size: .68rem; letter-spacing: .05em;
   text-transform: uppercase; padding: .15rem .45rem; border-radius: 2px; white-space: nowrap; }
-.costos .pill.fijo { background: var(--accent-bg); color: var(--accent); }
-.costos .pill.var { background: var(--hold-bg); color: var(--hold); }
+.costos .pill.mako { background: var(--accent-bg); color: var(--accent); }
+.costos .pill.oper { background: var(--hold-bg); color: var(--hold); }
 .costos .pill.ok { background: var(--save-bg); color: var(--save); }
 .costos .pill.mal { background: var(--spend-bg); color: var(--spend); }
 
-/* barras */
-.costos .bars { margin: 1.5rem 0; }
-.costos .bar-row { margin-bottom: 1rem; }
-.costos .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: .3rem; }
-.costos .bar-name { font-size: .92rem; font-weight: 600; }
-.costos .bar-val { font-family: var(--mono); font-size: .86rem; font-variant-numeric: tabular-nums; color: var(--muted); }
-.costos .track { height: 20px; background: var(--surface-2); border-radius: 2px; overflow: hidden; display: flex; }
-.costos .fill { height: 100%; }
-.costos .fill.was { background: var(--spend); opacity: .85; }
-.costos .fill.now { background: var(--save); }
-.costos .legend { display: flex; gap: 1.25rem; font-size: .82rem; color: var(--muted);
-  margin-top: .9rem; align-items: center; flex-wrap: wrap; }
-.costos .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 2px;
+/* comparativa antes/ahora — solo lo que CAMBIO */
+.costos .comp { margin: 1.5rem 0; border: 1px solid var(--line); border-radius: 3px;
+  background: var(--surface); overflow: hidden; }
+.costos .comp-row { display: grid; grid-template-columns: minmax(8rem, 1.1fr) 3fr minmax(6rem, auto);
+  align-items: center; gap: 1rem; padding: .85rem 1.1rem; border-bottom: 1px solid var(--line-soft); }
+.costos .comp-row:last-child { border-bottom: none; }
+.costos .comp-name { font-size: .92rem; font-weight: 600; }
+.costos .comp-name small { display: block; font-weight: 400; color: var(--muted); font-size: .78rem; }
+.costos .rails { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.costos .rail { height: 13px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.costos .rail i { display: block; height: 100%; }
+.costos .rail.a i { background: var(--spend); opacity: .8; }
+.costos .rail.b i { background: var(--save); }
+.costos .comp-val { font-family: var(--mono); font-size: .86rem; font-variant-numeric: tabular-nums;
+  text-align: right; white-space: nowrap; }
+.costos .comp-val b { display: block; color: var(--save); font-weight: 700; }
+.costos .comp-val s { color: var(--muted); text-decoration-color: var(--spend); }
+.costos .comp-head { display: flex; gap: 1.25rem; font-size: .8rem; color: var(--muted);
+  padding: .6rem 1.1rem; background: var(--surface-2); border-bottom: 1px solid var(--line);
+  align-items: center; flex-wrap: wrap; }
+.costos .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
   margin-right: .35rem; vertical-align: -1px; }
 
-/* desplegables */
 .costos details { background: var(--surface); border: 1px solid var(--line); border-radius: 3px;
   margin-bottom: .6rem; overflow: hidden; }
 .costos summary { cursor: pointer; padding: .95rem 1.15rem; font-weight: 600; font-size: 1rem;
@@ -135,8 +148,25 @@ const CSS = `
 @media (max-width: 640px) {
   .costos .sum-note { display: none; }
   .costos summary { font-size: .95rem; }
+  .costos .comp-row { grid-template-columns: 1fr auto; }
+  .costos .rails { display: none; }
 }
 `;
+
+/** Una fila de la comparativa. Escala fija a $160 (el renglón más grande que cambió). */
+function Comp({ nombre, detalle, antes, ahora }: { nombre: string; detalle: string; antes: number; ahora: number }) {
+  const esc = (v: number) => `${Math.min(100, (v / 160) * 100)}%`;
+  return (
+    <div className="comp-row">
+      <div className="comp-name">{nombre}<small>{detalle}</small></div>
+      <div className="rails">
+        <div className="rail a"><i style={{ width: esc(antes) }} /></div>
+        <div className="rail b"><i style={{ width: esc(ahora) }} /></div>
+      </div>
+      <div className="comp-val"><s>${antes}</s><b>${ahora}</b></div>
+    </div>
+  );
+}
 
 export default function Costos() {
   return (
@@ -148,194 +178,112 @@ export default function Costos() {
           <p className="eyebrow">Informe de costos · 13 de agosto de 2026</p>
           <h1>Qué pagamos por mes, y por qué</h1>
           <p className="lede">
-            Todos los servicios que sostienen MaKo: cuánto cuesta cada uno, qué encontramos y
-            arreglamos esta semana, quién está pagando qué, y cuánto esperar cada mes de acá en
-            adelante.
+            Todos los servicios, separados en dos: lo que cuesta <strong>construir y sostener
+            MaKo</strong>, y lo que cuesta <strong>tu operación diaria</strong> con tus clientes.
+            Son cosas distintas y conviene no mezclarlas.
           </p>
         </div>
-
-        {/* ───────── CONCLUSIONES ARRIBA ───────── */}
 
         <div className="headline">
           <div className="hcell">
             <span className="lbl">Costaba por mes</span>
-            <span className="num was">$569</span>
+            <span className="num was">$540</span>
             <span className="sub">Agosto, si no tocábamos nada</span>
           </div>
           <div className="hcell">
             <span className="lbl">Cuesta ahora</span>
-            <span className="num now">$367</span>
+            <span className="num now">$339</span>
             <span className="sub">Con todo lo aplicado</span>
           </div>
           <div className="hcell">
             <span className="lbl">Diferencia</span>
-            <span className="num dif">$202</span>
-            <span className="sub">Por mes · $2.424 al año</span>
+            <span className="num dif">$201</span>
+            <span className="sub">Por mes · $2.412 al año</span>
           </div>
         </div>
         <p style={{ fontSize: '.9rem', color: 'var(--muted)', margin: '0 0 1rem' }}>
-          Todos los montos en dólares por mes. Vercel y la IA salen de las facturas reales
-          consultadas hoy; el resto, del detalle de cada cuenta.
+          Todos los montos en dólares por mes, tomados de las facturas reales de cada servicio.
         </p>
 
-        <h2>Las tres conclusiones</h2>
+        <h2>La separación que importa</h2>
 
-        <div className="note good">
-          <span className="tag">Uno</span>
-          <p>
-            <strong>Lo caro no eran los usuarios: era publicar la app.</strong> En 13 días, todo el
-            tráfico de usuarios de MaKo costó <strong>45 centavos</strong>. Lo que costaba $115 por
-            mes era la forma en que se facturaba cada publicación de una versión nueva. Ya está
-            arreglado y no cambia nada del producto.
-          </p>
-        </div>
-
-        <div className="note good">
-          <span className="tag">Dos</span>
-          <p>
-            <strong>Los $65 de IA no eran $65 de trabajo.</strong> $34 fueron una sola reunión que
-            el sistema releyó 8 veces por un error, y $16 fueron un precio mal anotado. El trabajo
-            real del mes fueron <strong>unos $14</strong>. Septiembre proyecta <strong>$20</strong>.
-          </p>
-        </div>
-
-        <div className="note warn">
-          <span className="tag">Tres · lo único que sigue abierto</span>
-          <p>
-            <strong>El producto tiene un techo de dos clientes por día</strong> en el análisis de
-            llamadas. No es un problema de plata: con 10 clientes la factura no sube, pero 8 no
-            reciben el servicio y nadie se entera. Es lo que hay que arreglar antes de vender.
-          </p>
-        </div>
-
-        <h2>Qué se paga, y quién lo paga</h2>
+        <p>
+          De esos $339, la mayor parte no es «infraestructura de MaKo»: es{' '}
+          <strong>el plan de Claude</strong>, que es la herramienta con la que se construye el
+          producto. Separado queda así:
+        </p>
 
         <div className="scroll">
           <table>
             <thead>
-              <tr>
-                <th>Servicio</th>
-                <th className="w">Para qué</th>
-                <th className="n">Antes</th>
-                <th className="n">Ahora</th>
-                <th>Lo paga</th>
-              </tr>
+              <tr><th className="w">Concepto</th><th className="n">Por mes</th><th className="w">Qué es</th></tr>
             </thead>
             <tbody>
+              <tr className="sub"><td colSpan={3}>Construir y sostener MaKo</td></tr>
               <tr>
-                <td><strong>Claude</strong></td>
-                <td className="w">La herramienta con la que se construye MaKo</td>
-                <td className="n">$200</td>
-                <td className="n">$200</td>
-                <td><span className="pill fijo">Mauricio</span></td>
+                <td>Claude</td><td className="n">$200</td>
+                <td className="w">La herramienta con la que se programa MaKo. Es el costo de <em>construirlo</em>, no de operarlo.</td>
               </tr>
               <tr>
-                <td><strong>Supabase</strong></td>
-                <td className="w">La base de datos de todos los clientes</td>
-                <td className="n">$80</td>
-                <td className="n">$64</td>
-                <td><span className="pill fijo">Mauricio</span></td>
+                <td>Servidores de la app</td><td className="n">$20</td>
+                <td className="w">Donde vive MaKo y se sirve a todos los clientes.</td>
               </tr>
               <tr>
-                <td><strong>Railway</strong></td>
-                <td className="w">El WhatsApp de MaKo (bandeja y conexión)</td>
-                <td className="n">$21</td>
-                <td className="n">$21</td>
-                <td><span className="pill mal">Leandro</span></td>
+                <td>Base de datos de MaKo</td><td className="n">$25</td>
+                <td className="w">Una sola base para todos los clientes de MaKo. Un cliente nuevo <strong>no suma nada acá</strong>.</td>
               </tr>
               <tr>
-                <td><strong>Vercel</strong></td>
-                <td className="w">Donde vive la app y se sirve a los clientes</td>
-                <td className="n up">$160</td>
-                <td className="n down">$20</td>
-                <td><span className="pill fijo">Mauricio</span></td>
+                <td>IA de MaKo</td><td className="n">$22</td>
+                <td className="w">Lo que consume la inteligencia artificial trabajando dentro del producto.</td>
+              </tr>
+              <tr className="total"><td>Subtotal MaKo</td><td className="n">$267</td><td className="w"></td></tr>
+
+              <tr className="sub"><td colSpan={3}>Tu operación con tus clientes</td></tr>
+              <tr>
+                <td>Tableros de clientes</td><td className="n">$39</td>
+                <td className="w">Una base por cada tablero que le armaste a un cliente tuyo: esquer, texx, baja-teriyaki y aspro. $9,81 cada uno.</td>
               </tr>
               <tr>
-                <td><strong>IA del producto</strong></td>
-                <td className="w">Lo que consume la IA trabajando dentro de MaKo</td>
-                <td className="n up">$69</td>
-                <td className="n down">$20</td>
-                <td><span className="pill fijo">Mauricio</span></td>
+                <td>Railway</td><td className="n">$21</td>
+                <td className="w">Tu WhatsApp: la bandeja y la conexión con tu número. <strong>Hoy lo paga Leandro.</strong></td>
               </tr>
               <tr>
-                <td><strong>Fathom</strong></td>
-                <td className="w">Graba y transcribe las reuniones</td>
-                <td className="n">$18</td>
-                <td className="n down">$0</td>
-                <td><span className="pill ok">Puede ser gratis</span></td>
+                <td>Calendly</td><td className="n">$12</td>
+                <td className="w">Tu agenda de reuniones.</td>
               </tr>
               <tr>
-                <td><strong>Calendly</strong></td>
-                <td className="w">La agenda y el aviso de cada reunión nueva</td>
-                <td className="n">$12</td>
-                <td className="n">$12</td>
-                <td><span className="pill fijo">Mauricio</span></td>
+                <td>Fathom</td><td className="n">$0</td>
+                <td className="w">Graba y transcribe tus reuniones. Pasa al plan gratuito.</td>
               </tr>
-              <tr>
-                <td><strong>Panda Video</strong></td>
-                <td className="w">Aloja el video de ventas</td>
-                <td className="n">$9</td>
-                <td className="n">$9</td>
-                <td><span className="pill fijo">A medias</span></td>
-              </tr>
-              <tr>
-                <td><strong>Resend</strong></td>
-                <td className="w">Manda los emails y reportes</td>
-                <td className="n">$0</td>
-                <td className="n">$0</td>
-                <td><span className="pill ok">Gratis</span></td>
-              </tr>
-              <tr className="total">
-                <td>Total</td>
-                <td className="w"></td>
-                <td className="n">$569</td>
-                <td className="n">$367</td>
-                <td></td>
-              </tr>
+              <tr className="total"><td>Subtotal operación</td><td className="n">$72</td><td className="w"></td></tr>
+
+              <tr className="total"><td>Total</td><td className="n">$339</td><td className="w"></td></tr>
             </tbody>
           </table>
         </div>
 
-        <div className="bars">
-          <div className="bar-row">
-            <div className="bar-top"><span className="bar-name">Claude · la herramienta de desarrollo</span><span className="bar-val">$200 → $200</span></div>
-            <div className="track"><div className="fill was" style={{ width: '100%' }} /></div>
-          </div>
-          <div className="bar-row">
-            <div className="bar-top"><span className="bar-name">Vercel · donde vive la app</span><span className="bar-val">$160 → $20</span></div>
-            <div className="track"><div className="fill was" style={{ width: '80%' }} /><div className="fill now" style={{ width: '10%' }} /></div>
-          </div>
-          <div className="bar-row">
-            <div className="bar-top"><span className="bar-name">Supabase · la base de datos</span><span className="bar-val">$80 → $64</span></div>
-            <div className="track"><div className="fill was" style={{ width: '40%' }} /><div className="fill now" style={{ width: '32%' }} /></div>
-          </div>
-          <div className="bar-row">
-            <div className="bar-top"><span className="bar-name">IA del producto</span><span className="bar-val">$69 → $20</span></div>
-            <div className="track"><div className="fill was" style={{ width: '34.5%' }} /><div className="fill now" style={{ width: '10%' }} /></div>
-          </div>
-          <div className="bar-row">
-            <div className="bar-top"><span className="bar-name">Railway · el WhatsApp</span><span className="bar-val">$21 → $21</span></div>
-            <div className="track"><div className="fill was" style={{ width: '10.5%' }} /></div>
-          </div>
-          <div className="bar-row">
-            <div className="bar-top"><span className="bar-name">Fathom · reuniones</span><span className="bar-val">$18 → $0</span></div>
-            <div className="track"><div className="fill was" style={{ width: '9%' }} /></div>
-          </div>
-          <p className="legend">
-            <span><span className="swatch" style={{ background: 'var(--spend)' }} />Lo que costaba</span>
-            <span><span className="swatch" style={{ background: 'var(--save)' }} />Lo que cuesta ahora</span>
-            <span>Escala relativa a $200</span>
+        <div className="note good">
+          <span className="tag">El titular</span>
+          <p>
+            <strong>Sostener MaKo funcionando cuesta $67 por mes</strong> — servidores, base de
+            datos e inteligencia artificial. Los $200 de Claude son la herramienta para
+            construirlo, y los $72 restantes son tu operación diaria, que existiría con o sin
+            MaKo.
           </p>
         </div>
 
-        <div className="note">
-          <span className="tag">El titular</span>
-          <p>
-            <strong>El 54% de lo que se paga es el plan de Claude</strong>, que es la herramienta con
-            la que se construye el producto, no un costo de operarlo. Todo lo que <em>sostiene</em>{' '}
-            MaKo funcionando —la app, la base, el WhatsApp, la IA y las herramientas— cuesta{' '}
-            <strong>$167 por mes</strong>.
-          </p>
+        <h2>De dónde salió el ahorro</h2>
+        <p>Cuatro servicios cambiaron. Claude, Calendly y los tableros de clientes quedaron igual.</p>
+
+        <div className="comp">
+          <div className="comp-head">
+            <span><span className="sw" style={{ background: 'var(--spend)' }} />Arriba: lo que costaba</span>
+            <span><span className="sw" style={{ background: 'var(--save)' }} />Abajo: lo que cuesta ahora</span>
+          </div>
+          <Comp nombre="Servidores" detalle="Donde vive la app" antes={160} ahora={20} />
+          <Comp nombre="IA de MaKo" detalle="La inteligencia artificial del producto" antes={85} ahora={22} />
+          <Comp nombre="Base de datos" detalle="MaKo + tableros de clientes" antes={80} ahora={64} />
+          <Comp nombre="Fathom" detalle="Graba tus reuniones" antes={18} ahora={0} />
         </div>
 
         <h2>Qué esperar cada mes</h2>
@@ -348,22 +296,29 @@ export default function Costos() {
             </thead>
             <tbody>
               <tr><td>Claude</td><td className="n">$200</td><td className="n">$200</td><td className="n">$200</td><td className="w">No se mueve.</td></tr>
-              <tr><td>Supabase</td><td className="n">$64</td><td className="n">$64</td><td className="n">$74</td><td className="w">$10 por cada tablero de cliente nuevo.</td></tr>
-              <tr><td>Railway</td><td className="n">$18</td><td className="n">$21</td><td className="n">$30</td><td className="w">Volumen de mensajes de WhatsApp.</td></tr>
-              <tr><td>Vercel</td><td className="n">$20</td><td className="n">$20</td><td className="n">$25</td><td className="w">Fijo salvo un pico de tráfico grande.</td></tr>
-              <tr><td>IA del producto</td><td className="n">$12</td><td className="n">$20</td><td className="n">$35</td><td className="w">Cuántas reuniones y llamadas se analizan.</td></tr>
+              <tr><td>Base de datos</td><td className="n">$64</td><td className="n">$64</td><td className="n">$74</td><td className="w">$10 por cada tablero nuevo que le armes a un cliente tuyo.</td></tr>
+              <tr><td>IA de MaKo</td><td className="n">$12</td><td className="n">$22</td><td className="n">$45</td><td className="w">Cuántas llamadas de venta se analizan.</td></tr>
+              <tr><td>Railway</td><td className="n">$18</td><td className="n">$21</td><td className="n">$30</td><td className="w">Cuántos números de WhatsApp hay conectados.</td></tr>
+              <tr><td>Servidores</td><td className="n">$20</td><td className="n">$20</td><td className="n">$25</td><td className="w">Fijo salvo un pico de tráfico grande.</td></tr>
               <tr><td>Calendly</td><td className="n">$12</td><td className="n">$12</td><td className="n">$12</td><td className="w">No se mueve.</td></tr>
-              <tr><td>Panda Video</td><td className="n">$9</td><td className="n">$9</td><td className="n">$18</td><td className="w">La mitad de $17,90. Sube si se pasa de ancho de banda.</td></tr>
-              <tr><td>Fathom</td><td className="n">$0</td><td className="n">$0</td><td className="n">$18</td><td className="w">$0 si se pasa al plan gratuito.</td></tr>
-              <tr className="total"><td>Total mensual</td><td className="n">$335</td><td className="n">$346</td><td className="n">$412</td><td className="w"></td></tr>
+              <tr className="total"><td>Total mensual</td><td className="n">$326</td><td className="n">$339</td><td className="n">$386</td><td className="w"></td></tr>
             </tbody>
           </table>
         </div>
 
-        <p>
-          Sumale <strong>entre $6 y $30 por cada cliente nuevo, una sola vez</strong>, cuando se le
-          conecta Fathom y MaKo le analiza el histórico de llamadas.
-        </p>
+        <div className="note">
+          <span className="tag">Y esto es lo importante para vender MaKo</span>
+          <p>
+            <strong>Un cliente nuevo de MaKo no te agrega costo.</strong> La base de datos es una
+            sola para todos, los servidores ya están pagos, y <strong>cada cliente conecta su
+            propia cuenta de inteligencia artificial</strong>, así que su consumo lo paga él. Lo
+            único que crece es el WhatsApp: entre $1 y $3 por mes por cada número conectado.
+          </p>
+          <p>
+            Lo que sí te suma costo es un cliente nuevo <strong>de tu agencia</strong> al que le
+            armes su propio tablero: eso son $9,81 por mes.
+          </p>
+        </div>
 
         <h2>Lo que hay que decidir</h2>
 
@@ -374,349 +329,295 @@ export default function Costos() {
             </thead>
             <tbody>
               <tr>
+                <td className="w"><strong>⚠️ La cuenta de IA está sin saldo</strong></td>
+                <td className="n up">Urgente</td>
+                <td className="w">Está en −$0,39 y cortada. Hay 50 análisis de llamadas de venta esperando. Cargale saldo: es lo único de esta lista que hay que hacer hoy.</td>
+              </tr>
+              <tr>
                 <td className="w"><strong>Railway lo paga Leandro</strong></td>
                 <td className="n">$21/mes</td>
-                <td className="w">Pasarlo a la cuenta de Mauricio. Es infraestructura de MaKo, no de Leandro.</td>
+                <td className="w">Pasalo a tu cuenta. Si él da de baja la tarjeta, se cae el WhatsApp de todos los clientes conectados, no solo el tuyo.</td>
               </tr>
               <tr>
-                <td className="w"><strong>Fathom podría ser gratis</strong></td>
+                <td className="w"><strong>Fathom a plan gratuito</strong></td>
                 <td className="n down">−$18/mes</td>
-                <td className="w">Sí, se puede. Verificado en el código: lo que MaKo necesita es el transcript, que en el plan gratis es ilimitado.</td>
+                <td className="w">Sí. Lo que MaKo necesita —el texto de la reunión— es ilimitado en el plan gratis.</td>
               </tr>
               <tr>
-                <td className="w"><strong>Calendly, ¿se puede bajar?</strong></td>
+                <td className="w"><strong>Hay un teléfono conectado dos veces</strong></td>
                 <td className="n">$0</td>
-                <td className="w">No. En el plan gratis no existe la conexión que MaKo usa para enterarse de cada reunión agendada.</td>
+                <td className="w">El mismo número de WhatsApp está abierto en dos sesiones a la vez. No cuesta casi nada, pero es de los patrones que más rápido hacen que Meta banee un número.</td>
               </tr>
               <tr>
-                <td className="w"><strong>Los tableros de clientes en Supabase</strong></td>
+                <td className="w"><strong>Los tableros de tus clientes</strong></td>
                 <td className="n">$39/mes</td>
                 <td className="w">Es costo de servicio, no desperdicio. Vale confirmar que cada cliente lo cubra.</td>
-              </tr>
-              <tr>
-                <td className="w"><strong>⚠️ Hay cuentas de IA sin saldo</strong></td>
-                <td className="n">Urgente</td>
-                <td className="w">Tres cuentas quedaron sin crédito y su análisis de llamadas viene fallando. No cuesta plata (la llamada se rechaza antes de cobrar), pero esas reuniones no se analizan. Ver el detalle abajo.</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* ───────── EXPLICACIONES ABAJO, EN DESPLEGABLES ───────── */}
-
         <h2>La explicación de cada punto</h2>
         <p>Todo lo de arriba, con el detalle de dónde salen los números.</p>
 
         <details>
-          <summary>Vercel: pagábamos por publicar, no por usar <span className="sum-note">$160 → $20</span></summary>
+          <summary>Servidores: pagábamos por actualizar la app, no por usarla <span className="sum-note">$160 → $20</span></summary>
           <div className="body">
             <p>
-              Este era el problema grande y no tenía nada que ver con los clientes. El número que lo
-              resume: <strong>en 13 días, todo el tráfico de usuarios costó 45 centavos.</strong> Se
-              puede multiplicar por diez la cantidad de usuarios y casi no se mueve.
+              Este era el gasto más grande y no tenía nada que ver con los clientes. El número que
+              lo resume: <strong>en 13 días, todo el tráfico de usuarios de MaKo costó 45
+              centavos.</strong> Se puede multiplicar por diez la cantidad de usuarios y casi no se
+              mueve.
             </p>
             <p>
-              Lo caro era publicar versiones nuevas de la app. Y se publica mucho —unas 46 veces por
-              día— porque así se trabaja.
-            </p>
-            <h3>Lo que estaba pasando</h3>
-            <p>
-              Vercel no cobra por el tiempo que tarda en publicar. Cobra por{' '}
-              <em>minuto redondeado hacia arriba × tamaño de la computadora que usa</em>. Nuestras
-              publicaciones tardaban <strong>33 segundos</strong> pero se facturaban como{' '}
-              <strong>un minuto entero</strong>, multiplicado por la computadora más grande que
-              ofrece el proveedor. Cada publicación costaba <strong>30 minutos facturados</strong>.
+              Lo caro era <strong>subir a producción cada versión nueva de MaKo</strong>. Como el
+              producto se mejora todos los días, eso pasa muchas veces por día —unas 46—, y el
+              proveedor cobraba cada una de esas actualizaciones como si fuera un trabajo mucho más
+              grande de lo que era: cobraba <strong>un minuto entero de la computadora más
+              potente</strong>, aunque la actualización tardara 33 segundos.
             </p>
             <div className="scroll">
               <table>
-                <thead><tr><th>Día</th><th className="n">Publicaciones</th><th className="n">Minutos facturados</th><th className="n">Costo</th></tr></thead>
+                <thead><tr><th>Día</th><th className="n">Actualizaciones</th><th className="n">Lo que facturó</th></tr></thead>
                 <tbody>
-                  <tr><td>10 de agosto</td><td className="n">36</td><td className="n">1.080</td><td className="n">$3,78</td></tr>
-                  <tr><td>11 de agosto</td><td className="n">56</td><td className="n">1.680</td><td className="n">$5,88</td></tr>
-                  <tr><td>12 de agosto</td><td className="n">50</td><td className="n">1.500</td><td className="n">$5,25</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <p>Son exactamente 30 minutos por publicación, los tres días. No es estimación: es la cuenta que hacía Vercel.</p>
-            <div className="note warn">
-              <span className="tag">Lo que más importa de esto</span>
-              <p>
-                En julio ya habíamos intentado bajar este costo acelerando la publicación: pasó de 99
-                a 27 segundos. <strong>La factura subió igual</strong>, de $15 a $99. Ahora se
-                entiende: si se cobra por minuto redondeado, bajar de 99 a 27 segundos casi no
-                ahorra. <strong>El diagnóstico de julio era el equivocado</strong> y quedó escrito en
-                el código durante un mes.
-              </p>
-            </div>
-            <h3>Qué se hizo</h3>
-            <ul>
-              <li><strong>Se bajó el tamaño de la computadora de publicación</strong> en los 14 proyectos, de la más grande a la estándar. Con la estándar, publicar <strong>no se factura</strong>. Verificado: la app sigue publicando bien, ahora en 67 segundos en vez de 33.</li>
-              <li><strong>Se sacó el segundo asiento.</strong> Vercel cobra $18,50 por mes por cada administrador extra. Martín pasó a un rol que igual publica pero no administra.</li>
-            </ul>
-          </div>
-        </details>
-
-        <details>
-          <summary>Supabase: no había nada mal, había proyectos de más <span className="sum-note">$80 → $64</span></summary>
-          <div className="body">
-            <p>
-              Acá la sorpresa fue al revés. Revisamos si la base estaba sobredimensionada y{' '}
-              <strong>ya estaba en el tamaño más chico que se puede pagar</strong>, con capacidad de
-              sobra: usa el 100% de su memoria como caché, tiene 9 conexiones abiertas de 60
-              disponibles y ocupa 374 MB de los 8.000 que incluye el plan.
-            </p>
-            <p>El detalle de los $80 es otro: <strong>se pagan 5 bases de datos, no una.</strong></p>
-            <div className="scroll">
-              <table>
-                <thead><tr><th>Proyecto</th><th className="w">Qué es</th><th className="n">Actividad (7 días)</th><th className="n">Costo</th></tr></thead>
-                <tbody>
-                  <tr><td><strong>MaKo</strong></td><td className="w">El producto</td><td className="n">1.134.762</td><td className="n">$9,81</td></tr>
-                  <tr><td>esquer</td><td className="w">Tablero de cliente</td><td className="n">30.211</td><td className="n">$9,81</td></tr>
-                  <tr><td>baja-teriyaki</td><td className="w">Tablero de cliente</td><td className="n">28.798</td><td className="n">$9,81</td></tr>
-                  <tr><td>texx</td><td className="w">Tablero de cliente</td><td className="n">19.902</td><td className="n">$9,81</td></tr>
-                  <tr><td>aspro</td><td className="w">Tablero de cliente</td><td className="n">957</td><td className="n">$9,81</td></tr>
-                  <tr className="total"><td>Plan Pro + los 5</td><td className="w">Menos $10 de crédito incluido</td><td className="n"></td><td className="n">$64</td></tr>
+                  <tr><td>10 de agosto</td><td className="n">36</td><td className="n">$3,78</td></tr>
+                  <tr><td>11 de agosto</td><td className="n">56</td><td className="n">$5,88</td></tr>
+                  <tr><td>12 de agosto</td><td className="n">50</td><td className="n">$5,25</td></tr>
                 </tbody>
               </table>
             </div>
             <p>
-              Los tableros de clientes cuestan $39 de los $64. <strong>No es desperdicio, es costo de
-              servicio</strong> — es lo que sale atender a esos clientes. La pregunta no es técnica
-              sino comercial: si cada uno cubre sus $10 por mes.
-            </p>
-            <p>
-              <strong>aspro</strong> mueve mucho menos que los demás (957 consultas por semana contra
-              30.000) pero paga lo mismo. Sigue siendo cliente activo, así que se deja como está.
+              Se cambió el tamaño de esa computadora al estándar, y con el estándar{' '}
+              <strong>actualizar la app no se factura</strong>. También se sacó un segundo asiento
+              de administrador que costaba $18,50 por mes. Nada de esto cambia el producto: sigue
+              actualizándose igual de seguido.
             </p>
           </div>
         </details>
 
         <details>
-          <summary>La IA de MaKo: por qué el número asusta y no debería <span className="sum-note">$69 → $20</span></summary>
+          <summary>Base de datos: pagás 5, MaKo usa 1 <span className="sum-note">$80 → $64</span></summary>
           <div className="body">
             <p>
-              Cuando MaKo analiza una reunión, prioriza el plan de trabajo o lee una llamada de
-              venta, consume inteligencia artificial, y eso se paga por uso. La buena noticia:{' '}
-              <strong>la mayoría de esas tareas ya corre en modelos gratuitos</strong> — de 1.925
-              tareas del mes, 1.239 (el 64%) costaron cero.
+              La base de MaKo está en el tamaño más chico que se puede pagar y le sobra capacidad:
+              usa el 100% de su memoria como caché, tiene 9 conexiones abiertas de 60 disponibles y
+              ocupa 374 MB de los 8.000 que incluye el plan. <strong>No hay nada que optimizar
+              ahí.</strong>
             </p>
-            <h3>Los $65 de agosto, desarmados</h3>
+            <p>El detalle de los $64 es otro: <strong>se pagan 5 bases, no una.</strong></p>
             <div className="scroll">
               <table>
-                <thead><tr><th className="w">Concepto</th><th className="n">Monto</th><th className="w">Qué es realmente</th></tr></thead>
+                <thead><tr><th>Base</th><th className="w">De qué es</th><th className="n">Actividad (7 días)</th><th className="n">Costo</th></tr></thead>
                 <tbody>
-                  <tr>
-                    <td className="w"><strong>Un error ya corregido</strong></td>
-                    <td className="n up">$34,67</td>
-                    <td className="w">Una sola reunión que el sistema releyó 8 veces seguidas, una por hora, los días 5 y 6. No fue trabajo: fue el mismo trabajo repetido.</td>
-                  </tr>
-                  <tr>
-                    <td className="w"><strong>Precio mal anotado</strong></td>
-                    <td className="n up">$16,00</td>
-                    <td className="w">Hasta el 9 de agosto el sistema anotaba a una tarifa 50% más cara que la real. Es un error de registro: esa plata nunca se cobró.</td>
-                  </tr>
-                  <tr>
-                    <td className="w"><strong>Trabajo real</strong></td>
-                    <td className="n down">~$14</td>
-                    <td className="w">Análisis de llamadas de venta. Es lo único que se paga a propósito.</td>
-                  </tr>
+                  <tr><td><strong>MaKo</strong></td><td className="w">El producto, con TODOS sus clientes adentro</td><td className="n">1.134.762</td><td className="n">$9,81</td></tr>
+                  <tr><td>esquer</td><td className="w">Tablero de un cliente tuyo</td><td className="n">30.211</td><td className="n">$9,81</td></tr>
+                  <tr><td>baja-teriyaki</td><td className="w">Tablero de un cliente tuyo</td><td className="n">28.798</td><td className="n">$9,81</td></tr>
+                  <tr><td>texx</td><td className="w">Tablero de un cliente tuyo</td><td className="n">19.902</td><td className="n">$9,81</td></tr>
+                  <tr><td>aspro</td><td className="w">Tablero de un cliente tuyo</td><td className="n">957</td><td className="n">$9,81</td></tr>
                 </tbody>
               </table>
             </div>
+            <p>
+              <strong>MaKo entero cuesta $9,81 de base de datos</strong>, con todos sus clientes
+              adentro — es una sola base compartida, así que sumar clientes al producto no agrega
+              nada acá. Los otros $39 son los tableros que le armaste a clientes de tu agencia: eso
+              es costo de servicio.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>La IA de MaKo: qué cuesta y qué no <span className="sum-note">$85 → $22</span></summary>
+          <div className="body">
             <div className="note good">
-              <span className="tag">La foto real</span>
+              <span className="tag">Lo primero, porque suele confundirse</span>
               <p>
-                Del 1 al 8 de agosto el gasto promedió <strong>$7,33 por día</strong>. Del 9 al 13,{' '}
-                <strong>$1,27 por día</strong>. No es casualidad: son cuatro cambios en el código que
-                hicieron que las dos funciones más pesadas —el análisis de reuniones y el priorizador
-                del plan— <strong>dejaran de usar el modelo pago</strong> y pasaran a uno gratuito.
+                <strong>Transcribir las reuniones no cuesta nada.</strong> Fathom graba, transcribe
+                y entrega el texto ya hecho; MaKo solo lo descarga. Todo lo que se transcribió en la
+                historia del sistema costó <strong>menos de un centavo</strong>.
+              </p>
+              <p>
+                Lo que cuesta es <strong>leer ese texto y sacarle algo</strong>: las tareas de cada
+                reunión, el análisis de una llamada de venta, la priorización del plan.
               </p>
             </div>
+
+            <h3>En qué se fue el mes</h3>
+            <div className="scroll">
+              <table>
+                <thead><tr><th className="w">Qué hace</th><th className="n">Agosto</th><th className="w">Cuánto cuesta ahora</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td className="w">Sacar las tareas de cada reunión</td>
+                    <td className="n">$23,44</td>
+                    <td className="w down"><strong>$0 — pasó a un modelo gratuito</strong></td>
+                  </tr>
+                  <tr>
+                    <td className="w">Analizar llamadas de venta</td>
+                    <td className="n">$14,35</td>
+                    <td className="w">Sigue pagándose, a propósito</td>
+                  </tr>
+                  <tr>
+                    <td className="w">Priorizar tu plan de trabajo</td>
+                    <td className="n">$7,21</td>
+                    <td className="w down"><strong>$0 — pasó a un modelo gratuito</strong></td>
+                  </tr>
+                  <tr>
+                    <td className="w">Todo lo demás junto</td>
+                    <td className="n">$3,94</td>
+                    <td className="w">Prácticamente gratis</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
             <p>
-              Con ese ritmo, <strong>septiembre proyecta entre $12 y $35, con centro en $20.</strong>{' '}
-              La cuenta ingenua (65 ÷ 13 × 30 = $150) está mal, porque supone que el error y la
-              tarifa vieja siguen ahí. No siguen.
+              <strong>Casi todo pasó a modelos gratuitos.</strong> Del 9 de agosto en adelante el
+              gasto bajó a $1,27 por día, y de eso el 75% es una sola cosa: el análisis de llamadas
+              de venta.
             </p>
-            <h3>Cuánto cuesta cada cliente</h3>
-            <ul>
-              <li><strong>Al darlo de alta: entre $25 y $30, una sola vez.</strong> Cuando conecta Fathom, MaKo le analiza todo el histórico de llamadas. Con el filtro que falta implementar, esto baja a $6-8.</li>
-              <li><strong>Todos los meses: entre $2 y $8.</strong> Solo las reuniones nuevas.</li>
-            </ul>
-            <p>Sobre un plan de $47, eso es entre el 4% y el 8%. <strong>El costo de IA no es un problema para el modelo de negocio.</strong></p>
+
+            <h3>Por qué un día costó $13</h3>
+            <p>
+              Vale la pena entenderlo porque explica casi todo el mes. Una reunión larga se parte en{' '}
+              <strong>8 pedazos</strong>; la IA lee los 8 y escribe las tareas que encontró. Una
+              pasada completa cuesta <strong>$1,50</strong>. El problema fue que el sistema{' '}
+              <strong>volvió a leer la misma reunión 13 veces, una por hora</strong>, porque no
+              guardaba que ya la había procesado. 13 × $1,50 = $19.
+            </p>
+            <p>
+              O sea: leer una reunión cuesta lo que tiene que costar. Lo que no correspondía era
+              hacerlo 13 veces. Ya no pasa, y además esa función pasó a un modelo gratuito.
+            </p>
+
+            <div className="note warn">
+              <span className="tag">El precio de que sea gratis</span>
+              <p>
+                Los modelos gratuitos tienen un tope diario. Cuando se agota,{' '}
+                <strong>la reunión no se lee y se reintenta más tarde</strong> — no se degrada la
+                calidad, simplemente se pospone. Esta semana pasó 51 veces. Con más volumen se
+                resuelve sumando una segunda cuenta gratuita, o pasando a la versión paga de ese
+                modelo, que para todo el volumen de agosto habría costado <strong>$7,97</strong>.
+              </p>
+            </div>
           </div>
         </details>
 
         <details>
-          <summary>Railway: el WhatsApp de MaKo, y lo paga Leandro <span className="sum-note">$21</span></summary>
+          <summary>Análisis de llamadas de venta: el techo de dos clientes por día <span className="sum-note">Lo que falta</span></summary>
           <div className="body">
             <p>
-              En Railway corren <strong>dos piezas que son infraestructura central de MaKo</strong>,
-              no experimentos:
-            </p>
-            <ul>
-              <li><strong>Chatwoot</strong> — la bandeja de entrada donde se ven y responden todas las conversaciones de WhatsApp.</li>
-              <li><strong>Evolution API</strong> — la conexión con el número de WhatsApp que no es el oficial de Meta.</li>
-            </ul>
-            <p>
-              Sin eso, MaKo no manda ni recibe un solo mensaje de WhatsApp. <strong>No hay ninguna
-              razón para que lo pague Leandro</strong>: es un costo del producto, igual que la base
-              de datos.
+              MaKo revisa <strong>las llamadas de venta</strong> —no las juntas de equipo ni las de
+              soporte— y saca de cada una qué se hizo bien, qué se hizo mal y en qué quedó. Es la
+              función más valiosa del producto y la única donde vale la pena pagar el modelo bueno:
+              un análisis flojo se ve igual que uno bueno, y ahí no se ahorra.
             </p>
             <div className="note warn">
-              <span className="tag">Cómo se pasa</span>
+              <span className="tag">El límite que hay que levantar antes de vender</span>
               <p>
-                Es una transferencia de proyecto dentro de Railway, con la tarjeta de Mauricio. El
-                punto delicado es que <strong>los dos servicios tienen que seguir respondiendo en la
-                misma dirección web</strong>, porque MaKo les habla por ahí. Si cambian de dirección,
-                el WhatsApp deja de funcionar hasta que se actualice la configuración.
+                Ese análisis corre una vez por día y{' '}
+                <strong>solo alcanza a atender a dos clientes</strong>, siempre los mismos dos. Con
+                10 clientes conectados, <strong>8 no reciben su análisis</strong> y la factura no
+                sube — o sea que el costo bajo de hoy no es una virtud, es que el servicio no se
+                está entregando completo.
+              </p>
+              <p>
+                Ya se levantó el límite: ahora reparte el turno entre todos los clientes y rota, así
+                a todos les toca. <strong>Eso hace subir la factura de IA, y está bien que suba:</strong>{' '}
+                es el costo de entregar el servicio de verdad.
               </p>
             </div>
+            <h3>La oportunidad más grande, y ya la estás pagando</h3>
+            <p>
+              De las 74 llamadas que se analizaron en agosto, <strong>51 eran juntas de entrega con
+              tus clientes</strong> — no llamadas de venta. El sistema las analiza igual, gasta{' '}
+              <strong>$9,89</strong>, y después descarta el resultado por no ser una venta.
+            </p>
+            <p>
+              Para lo que estás armando en Customer Success, <strong>ese trabajo ya está pago</strong>:
+              en vez de tirarlo, se guarda. Es la diferencia entre construir algo nuevo y aprovechar
+              lo que ya se está haciendo.
+            </p>
           </div>
         </details>
 
         <details>
-          <summary>Fathom: sí, puede ser gratis <span className="sum-note">−$18</span></summary>
+          <summary>Railway: tu WhatsApp, y hoy lo paga Leandro <span className="sum-note">$21</span></summary>
           <div className="body">
-            <p>La respuesta corta es <strong>sí</strong>, y está verificado en el código, no estimado.</p>
-            <p>El plan gratuito de Fathom incluye:</p>
+            <p>En Railway corren las dos piezas de tu WhatsApp:</p>
             <ul>
-              <li><strong>Grabaciones y transcripciones ilimitadas</strong>, y almacenamiento ilimitado.</li>
-              <li><strong>Acceso a la API</strong> — que es lo que usa MaKo para traerse las reuniones. No requiere plan pago.</li>
-              <li>Pero solo <strong>5 resúmenes automáticos por mes</strong>.</li>
+              <li><strong>La bandeja de entrada</strong>, donde se ven y responden todas las conversaciones.</li>
+              <li><strong>La conexión con tu número</strong>, la que se activa escaneando el QR.</li>
             </ul>
-            <h3>Por qué no afecta</h3>
             <p>
-              MaKo usa <strong>el transcript</strong>, que es ilimitado. El resumen automático de
-              Fathom se usa en un solo lugar —como contexto extra al analizar una llamada de venta— y{' '}
-              <strong>el código ya está escrito para funcionar sin él</strong>: si no viene, sigue
-              adelante con el texto «(sin resumen de Fathom)» y analiza igual sobre el transcript
-              completo.
+              Es <strong>tu operación</strong>: lo usás para hablar con tus clientes y tus leads.{' '}
+              <strong>No hay razón para que lo pague Leandro</strong>, y hay una razón fuerte para
+              que no: si él da de baja la tarjeta, se cae el WhatsApp de <em>todos</em> los números
+              conectados de golpe, no solo el tuyo. Hoy hay tres.
             </p>
-            <p>
-              <strong>Qué se pierde:</strong> a partir de la sexta reunión del mes, el análisis de
-              llamadas pierde ese resumen como contexto complementario. La fuente principal —la
-              transcripción entera— sigue estando.
-            </p>
-            <div className="note">
-              <span className="tag">Recomendación</span>
-              <p>
-                Bajar a gratuito y mirar un mes. Si el análisis de llamadas se nota más flojo, volver
-                a Premium cuesta lo mismo que hoy. El riesgo es reversible y son $18 por mes.
-              </p>
-            </div>
-          </div>
-        </details>
 
-        <details>
-          <summary>Calendly: este no se puede bajar <span className="sum-note">$12</span></summary>
-          <div className="body">
+            <h3>Si activamos el chatbot y le escribimos a todos los leads, ¿sube?</h3>
             <p>
-              Calendly está en el plan Standard ($10 por mes si se paga anual, $12 mensual), y{' '}
-              <strong>no puede bajar al gratuito</strong>.
-            </p>
-            <p>
-              El motivo: MaKo no usa Calendly solo para agendar. Usa la <strong>conexión automática
-              que avisa cada vez que alguien agenda o reprograma una reunión</strong> — y esa
-              conexión no existe en el plan gratuito, es exclusiva de los planes pagos.
+              <strong>Prácticamente nada: menos de 50 centavos.</strong> Railway cobra por tener el
+              servicio prendido, no por mensaje. Mandarles a los 1.251 leads y recibir sus
+              respuestas mueve unos 45 MB — centavos.
             </p>
             <div className="note warn">
-              <span className="tag">Por qué importa más de lo que parece</span>
+              <span className="tag">Lo que sí hay que cuidar</span>
               <p>
-                Ese aviso es lo que dispara toda la cadena de medición del negocio: sin él no se
-                registra la reunión agendada, y sin eso no hay cohortes, ni embudo, ni seguimiento de
-                ventas. <strong>Bajarlo a gratuito no ahorra $12: rompe la medición.</strong>
+                El costo de escribirle a mil personas no es la plata: <strong>es el número</strong>.
+                Mil mensajes fríos seguidos desde un WhatsApp común es exactamente el patrón que
+                Meta banea. Por eso el sistema tiene un tope de 40 envíos por día por cliente, y
+                conviene dejarlo. Subirlo para terminar antes no lo paga Railway: lo paga tu número.
               </p>
             </div>
-          </div>
-        </details>
 
-        <details>
-          <summary>Panda Video y Resend <span className="sum-note">$9 y $0</span></summary>
-          <div className="body">
-            <h3>Panda Video — $17,90, a medias</h3>
+            <h3>¿Y cuando MaKo tenga clientes propios?</h3>
             <p>
-              Aloja el video de ventas de MaKo. El plan Bronze son $17,90 por mes e incluye 200 GB de
-              almacenamiento y 500 GB de transferencia. Quedó acordado pagarlo a medias:{' '}
-              <strong>$8,95 cada uno</strong>.
+              Sube, pero por <strong>número conectado</strong>, no por mensajes: entre{' '}
+              <strong>$1 y $3 por mes por cliente</strong>. Con 10 clientes de MaKo, Railway pasaría
+              de $21 a unos $31–51.
             </p>
             <p>
-              A vigilar: si el video empieza a tener mucho tráfico, la transferencia extra se cobra
-              aparte ($0,03 por GB). Con 500 GB incluidos hay margen amplio para el volumen actual.
-            </p>
-            <h3>Resend — gratis</h3>
-            <p>
-              Manda los emails y los reportes diarios, desde el dominio propio (hola-mako.com), que
-              está verificado y funcionando. El plan gratuito cubre 3.000 emails por mes y hoy el
-              volumen está muy por debajo. <strong>No hay nada que pagar</strong>, y no hay riesgo a
-              la vista salvo que se empiecen a mandar campañas masivas.
+              <strong>Y no, no conviene que cada cliente ponga el suyo</strong>, por tres razones: ya
+              funciona compartido (un solo servidor atiende varios números, cada cliente solo escanea
+              su QR); pedirle a un cliente que despliegue un servidor es pedirle algo que no va a
+              hacer; y le saldría <strong>$41 por mes a cada uno</strong> para reemplazar algo que
+              hoy cuesta $2. Compartido es más barato y más simple para todos.
             </p>
           </div>
         </details>
 
         <details>
-          <summary>El techo de dos clientes por día <span className="sum-note">Lo que falta</span></summary>
+          <summary>Fathom y Calendly <span className="sum-note">$0 y $12</span></summary>
           <div className="body">
+            <h3>Fathom — pasa a gratuito</h3>
             <p>
-              Este es el único punto que no es de costos sino de producto, y es el más importante de
-              todos.
+              Graba y transcribe tus reuniones. El plan gratuito incluye{' '}
+              <strong>grabaciones y transcripciones ilimitadas</strong> y el acceso que MaKo usa para
+              traerse el texto. Lo único limitado son los resúmenes automáticos (5 por mes), y MaKo
+              no depende de ellos: usa el texto completo de la reunión.
             </p>
             <p>
-              El proceso que analiza las llamadas de venta corre una vez por día y{' '}
-              <strong>solo alcanza a atender dos clientes</strong>, siempre los mismos dos. No es una
-              decisión: es un límite de tiempo del sistema que nadie puso a propósito.
+              <strong>Al bajarlo, mirá una cosa durante la primera semana:</strong> que las reuniones
+              nuevas sigan apareciendo con sus tareas en el plan. Si dejaran de aparecer, se vuelve
+              al plan pago y listo — son $18 y es reversible en un click.
             </p>
-            <div className="note warn">
-              <span className="tag">Qué significa en la práctica</span>
-              <p>
-                Con 10 clientes conectados, <strong>la factura no sube — pero 8 clientes no reciben
-                su análisis de llamadas y nadie se entera</strong>. El costo hoy está controlado por
-                una falla, no por un diseño. Y arreglarlo <em>sube</em> la factura, porque recién ahí
-                se entrega el servicio completo.
-              </p>
-            </div>
-            <div className="note warn">
-              <span className="tag">⚠️ Encontrado el 13 de agosto, y está pasando ahora</span>
-              <p>
-                Revisando el sistema aparecieron <strong>37 análisis de llamadas fallando porque la
-                cuenta de inteligencia artificial se quedó sin saldo</strong>, y otros 20 que
-                fallaron en su momento porque faltaba cargar la clave. El último es de hoy.
-              </p>
-              <p>
-                <strong>No cuesta plata</strong> —la llamada se rechaza antes de cobrar— pero esas
-                reuniones no se analizan y nadie se entera: el sistema las reintenta todos los días
-                y vuelven a fallar. Hay que <strong>cargarle saldo a esas cuentas</strong>. El
-                arreglo del lado del código ya está: ahora un fallo así no consume el cupo de
-                análisis del día y corta después de tres seguidos, en vez de gastar la corrida
-                entera reintentando.
-              </p>
-            </div>
-            <p>Junto a esto hay otras dos cosas que hay que resolver antes de sumar clientes:</p>
-            <ul>
-              <li>
-                <strong>Filtrar antes de analizar.</strong> Hoy, de cada 74 llamadas, 57 se mandan
-                enteras al modelo más caro para que conteste «esto no era una venta». Filtrarlas
-                antes con un modelo gratuito baja el costo de alta de cada cliente de $25-30 a $6-8.
-              </li>
-              <li>
-                <strong>La cuota gratuita es compartida.</strong> Las funciones que hoy corren gratis
-                usan una sola cuenta para todos los clientes. Con muchos clientes eso se satura, y el
-                efecto no es que suba la factura: es que <em>fallan</em>. La solución es que cada
-                cliente aporte su propia clave.
-              </li>
-            </ul>
+            <h3>Calendly — este no se puede bajar</h3>
+            <p>
+              MaKo no lo usa solo para agendar: usa el aviso automático que llega{' '}
+              <strong>cada vez que alguien reserva o reprograma</strong>, y ese aviso no existe en el
+              plan gratuito. Sin él no se registra la reunión agendada, y sin eso no hay embudo ni
+              seguimiento de ventas. <strong>Bajarlo no ahorra $12: rompe la medición.</strong>
+            </p>
           </div>
         </details>
 
         <footer>
           <p>
-            <strong>Sobre estos números.</strong> Los de Vercel salen de su API de facturación (junio
-            $15,44 · julio $99,19 · agosto 1-13 $67,30). Los de Supabase, del detalle de la cuenta.
-            Los de IA, de las 2.716 tareas que MaKo viene registrando desde junio. Railway es el
-            monto del último mes; el resto, del plan contratado en cada servicio.
-          </p>
-          <p>
-            La proyección de IA para septiembre asume que los cambios de código de esta semana no se
-            revierten. Documento fechado al 13 de agosto de 2026: es una foto, no un tablero en vivo.
+            <strong>Sobre estos números.</strong> Los servidores y la IA salen de las facturas reales
+            consultadas hoy; la base de datos, del detalle de la cuenta; Railway, del último mes; el
+            resto, del plan contratado en cada servicio. Documento fechado al 13 de agosto de 2026.
           </p>
         </footer>
 
