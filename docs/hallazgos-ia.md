@@ -1274,6 +1274,174 @@ foto de usuario ni «vos» *(2026-07-14)*.
 
 ## Gasto y saldo
 
+### ⚠️ Un precio guardado en código parte el mes en dos monedas, y una «optimización» aparece sola
+
+**Síntoma:** el gasto diario de agosto cae de US$5,63 (8/8) a US$0,87 (9/8). Parece una mejora de
+6× y se festeja el arreglo.
+
+**Causa:** el commit `14912639` (9/8 11:25) bajó `claude-sonnet-5` de `{in:3, out:15}` a
+`{in:2, out:10}` en `lib/anthropic-usage.ts:50` — su propio mensaje lo dice: «todo el histórico
+medido queda sobrevaluado 50%». Y `cost_usd` es una columna **congelada al insertar**
+(`recordUsage` llama a `costFor` y guarda el número, `:112,:115`; `getUsageSummary` devuelve lo
+almacenado tal cual, `:261`). O sea: las filas del 1 al 8 están tarifadas a 3/15 y las del 9 al 13
+a 2/10 **para el mismo modelo**. La caída real fue de 3,8×, no de 5,8×, y **~US$16 de los US$65 de
+agosto son contabilidad, no plata**. La prueba aritmética: las 5 filas de `out=32.000` dan
+62.896×3 + 32.000×15 = US$0,6687 exacto — solo cierra a 3/15.
+
+**Regla:** antes de festejar (o de diagnosticar) una caída de gasto, `git log -S` sobre la tabla de
+precios. Toda comparación que cruce la fecha de un cambio de precio compara **unidades**, no
+comportamiento. Y si el precio va a cambiar otra vez con fecha conocida (sonnet-5 vuelve a 3/15 el
+2026-09-01, verificado), el histórico ya escrito queda en otra moneda **para siempre**: o se guarda
+la versión del precio junto a la fila, o se documenta qué baseline cuelga de ahí — hoy cuelga el de
+`/admin/dev/pricing`.
+
+**Vive en:** lib/anthropic-usage.ts:50 (tabla), :112-115 (congelado), :261 · *2026-08-13 optimizar-gasto-ia-mako*
+
+### ⚠️ El panel de gasto por workspace NO puede decir la verdad sobre Claude
+
+**Síntoma:** «el 99,9% del gasto de IA es del workspace del dueño; los clientes casi no consumen».
+Se planifica el pricing sobre esa premisa.
+
+**Causa:** `wsDeProveedor` (`lib/anthropic-usage.ts:22-25`) manda **toda** llamada con
+`provider='anthropic'` a `OWNER_WS` **a propósito**, porque va contra la key compartida de la
+agencia; el resto (gemini/openai/groq) es BYOK y sí se registra en el workspace del request.
+Cruzando los US$14,35 de `closing` de agosto contra el workspace **dueño de cada análisis** (tabla
+`closing_analyses`, no `anthropic_usage`): ws9 US$9,24 · ws1 US$2,24 · ws11 US$1,87 · ws3 US$1,00.
+**El 84% del gasto de closing ya era trabajo de clientes.**
+
+**Regla:** cuando el costo se atribuye por **proveedor** y no por consumidor, ninguna cifra «por
+workspace» de ese proveedor sirve para decidir pricing. Para saber a quién le costó hay que cruzar
+contra la tabla del dominio. Si eso importa para el negocio, el registro necesita **dos** campos:
+quién **paga** (la key) y para quién se **trabajó**.
+
+**Vive en:** lib/anthropic-usage.ts:22-25 · cruce contra closing_analyses · *2026-08-13 optimizar-gasto-ia-mako*
+
+### ⚠️ El 77% de lo que se le pagó a Opus fue para que dijera «esto no es una venta»
+
+**Síntoma:** `closing` es el análisis insignia y su costo parece proporcional al valor entregado.
+
+**Causa:** `lib/closing.ts:156-157` hace `if (externals.length > 0) return null` con el comentario
+«Claude decide venta/servicio»: cualquier reunión con **un** invitado externo entra a Opus con el
+transcript completo (60.000 chars, `:305` y `:359`). De las 74 llamadas de agosto, **57 (77%)
+terminaron en `descartada`** — weeklies, mentorías, juntas de equipo, coaching de 60 a 125 minutos.
+US$9,56 de los US$14,35.
+
+**Y los dos umbrales deterministas obvios FALLAN, medidos contra los datos:** «el lead ya tiene
+`fecha_cierre` anterior» caza 2 de 57 (55 de esas reuniones no tienen lead en el CRM), y «sin lead
+en el CRM no se analiza» se lleva puestas **7 de las 17 ventas reales**.
+
+**Regla:** antes de mandarle a un modelo caro un input caro, preguntá cuánto de ese input termina
+en «no aplica». Si es más de la mitad, el filtro va **antes** y va **gratis** — y no como umbral
+determinista sino como **clasificador barato sobre los metadatos** (título + resumen +
+participantes), porque los umbrales obvios se prueban contra los datos y fallan. ⚠️ El modo de falla
+es caro y silencioso: una venta mal clasificada **nunca se analiza y no aparece en ninguna
+pantalla**. Va con la fila en `status='error'` (reintentable, `:741`), midiendo el clasificador
+contra el histórico **antes** de encenderlo, y con la regla «ante la duda, VENTA».
+
+**Vive en:** lib/closing.ts:156-157 · :305 · :359 · :571-595 · *2026-08-13 optimizar-gasto-ia-mako*
+
+### ⚠️ El cron por workspace tiene un techo silencioso de DOS clientes
+
+**Síntoma:** con clientes conectados, la factura de `closing` no sube. Se lee como «los clientes
+casi no consumen».
+
+**Causa:** `app/api/cron/closing-sync/route.ts:15` declara `maxDuration = 300`.
+`lib/cron-workspaces.ts:48-57` recorre los workspaces **secuencialmente**, sin presupuesto propio y
+**sin rotación** (el orden lo da `listarWorkspaces()`). Y cada `syncClosingCalls()` reserva
+`DEFAULT_TIME_BUDGET_MS = 150_000` para sí mismo (`lib/closing.ts:716`). 150 + 150 = 300:
+**alcanzan DOS workspaces por corrida, y siempre los mismos dos.** Del tercero en adelante nadie
+recibe análisis y no hay ningún aviso — el resultado del cron es un array de `{ws, ok}` que solo
+incluye a los que corrieron.
+
+**Por qué importa más que el ahorro:** con 10 clientes la factura NO sube, pero 8 no reciben el
+servicio. **El costo está capado por un bug, no por una decisión**, y el síntoma es que el producto
+no se entrega.
+
+**Regla:** un cron que itera N workspaces adentro de un `maxDuration` reparte el presupuesto
+(`maxDuration ÷ workspaces conectados`) o se queda en los primeros, y el orden **rota** con un
+cursor persistido para que la inanición no caiga siempre sobre los mismos. Y el resultado declara
+cuántos quedaron **sin correr**: un contador que no distingue «no había» de «no llegué» es la misma
+trampa que una API que devuelve vacío en vez de error.
+
+**Vive en:** app/api/cron/closing-sync/route.ts:15 · lib/cron-workspaces.ts:48-57 · lib/closing.ts:716 · *2026-08-13 optimizar-gasto-ia-mako*
+
+### GOTCHA: la «fuga» del Perro no era un 429 — el override apuntaba a Sonnet
+
+**Síntoma:** `mako-guardian` tiene override a `gemini-flash-latest` y sin embargo 144 de sus 331
+llamadas corrieron en `claude-sonnet-5` y costaron US$10,81. **El diagnóstico obvio** —N llamadas
+en paralelo contra una key dan 429 y la cascada degrada— **era el equivocado**, y llevaba a tocar
+la cascada, que no tenía nada que ver.
+
+**Causa:** de las 147 llamadas pagas, **120 (US$9,60 = 89%) no tienen nota de fallback**. El commit
+`a6bc9b44` (5/8 10:05) lo dice textual: «el override que estaba guardado en /modelos-ia lo pineaba
+a claude-sonnet-5 y ganaba». El override **no apuntaba a Gemini: apuntaba a Sonnet**, igual que el
+`def`. El 429 explica solo US$1,22. El minuto exacto está en los datos: el 5/8 a las 12:51:58 la
+fila «Probe: rutear con Gemini» corrió en `claude-sonnet-5` y a las 12:53:20 la **misma** prueba
+corrió en `gemini-flash-latest`.
+
+**Regla:** toda auditoría de gasto de IA lee `app_settings['mako.modelos']` del ws1, **no** el
+catálogo: el modelo que corre de verdad es `override ?? def`, y **el override es global para todos
+los workspaces** (tocar un modelo «para probar» cambia el de todos los clientes). Corolario
+temporal: un hallazgo sin fecha se lee contra el código de hoy — el diagnóstico del 9/8 concluía «el
+Perro no tenía nada que ver», cierto al escribirlo (el arreglo había entrado 4 días antes) y falso
+para la ventana que estaba analizando.
+
+**Vive en:** app_settings key `mako.modelos` (ws1) · lib/model-catalogo.ts · *2026-08-13 optimizar-gasto-ia-mako*
+
+### GOTCHA: un output en un número redondo es un CORTE, y subir el tope lo encarece
+
+**Síntoma:** las 5 llamadas más caras del mes tienen output **exactamente 32.000**. Huele a
+`maxTokens` tocando techo y el arreglo obvio es subirlo.
+
+**Causa, en dos capas.** El techo existe (`lib/mako-guardian.ts:738`) y sí trunca: el JSON llega
+mocho, `parseJsonObject` falla en `:740` y `:744` devuelve `{proyectos:[], tareas:[]}` — **se paga
+el máximo Y la salida sale cortada**. Pero lo caro es otra cosa: **cuatro de esas cinco llamadas
+son idénticas** (in=62.896, out=32.000, «Re-priorización del plan») y corrieron a las 01:53, 01:54,
+01:56 y 01:57 del 2/8. El mismo trabajo cuatro veces en cuatro minutos: US$2,68 por un job que
+valía US$0,67.
+
+**Y el arreglo histórico ya había sido el equivocado:** el comentario de `:733-737` documenta «13
+corridas seguidas pagadas (US$2,74) sin una sola prioridad aplicada» con el techo viejo de 8.000, y
+la respuesta fue **subirlo a 32.000** — multiplicar por 4 el costo de cada corte en vez de trocear.
+El corte volvió igual, a US$0,669 en vez de US$0,219. El patrón es grande: de 297 llamadas pagas de
+`mako-guardian` + `checklist-coach` en julio+agosto, **58 terminaron con el output exactamente en
+su tope = US$9,31 de US$18,79 (el 50%)**.
+
+**Regla:** un output que cae en un valor redondo y exacto es un corte, no un resultado. **Si el JSON
+no entra, se PARTE el lote** — subir el tope solo encarece el corte. Y el corte tiene que ser un
+**hecho en la fila** (propagar `stop_reason`), no un `console.warn`: hoy «se cortó por tope» y
+«devolvió JSON inválido» caen en el mismo `fallo: true`, y la primera se reintenta partiendo el
+chunk mientras la segunda no.
+
+⚠️ **Y el molde que uno copiaría no existe:** `puntuarNuevas` **no trocea nada**. Solo dimensiona el
+techo (`topeSalidaPerro = Math.min(24000, 6000 + n*400)`, `lib/mako-guardian.ts:948`) y con n ≥ 45
+satura y trunca igual; su red es el reintento de `:991-998`, no el troceo. Escalar un techo con el
+tamaño del lote **no es trocear**: solo mueve el punto donde se rompe, y el `Math.min` marca el n
+exacto a partir del cual vuelve el bug.
+
+**Vive en:** lib/mako-guardian.ts:738-744 · :733-737 (el comentario) · :948 · *2026-08-13 optimizar-gasto-ia-mako*
+
+### El prompt caching acá es un error de redondeo: US$0,27 al mes
+
+**Síntoma:** `cache_creation_tokens` y `cache_read_tokens` suman **cero** contra 16,4 millones de
+tokens de input. Parece la palanca obvia y grande. **No lo es**, y se midió antes de invertir.
+
+**Causa, en orden de peso:** (1) de los 16,4M de input, solo ~6,85M pasaron por Claude — el resto
+corre en proveedores gratis, donde cachear no ahorra un peso; (2) la feature más cara,
+`plan-fathom`, gastó el **71% en OUTPUT** (in 3,41M / out 1,67M) y el caching solo toca el input;
+(3) la única input-dominada, `closing`, tiene un input **único** por llamada (el transcript): lo
+único estable es `SYSTEM_ANALISIS`, 3.942 caracteres ≈ 1.100 tokens contra 29.820 de input medio =
+**3,7%**.
+
+**Regla:** antes de invertir en caching, partí el costo en **input** y **output** y descontá lo que
+corre en proveedores gratis. El caching solo toca input **pago y repetido**. Dos trampas si igual se
+hace: el mínimo cacheable de opus-4-8 y sonnet-5 son **1.024 tokens** y por debajo cachea cero **en
+silencio**; y la escritura con TTL de 1 h cuesta **2× el input**, no 1,25× como asume
+`lib/anthropic-usage.ts:79` — deployarlo sin tocar esa línea deja el gasto registrado 37% por
+debajo del real.
+
+**Vive en:** lib/anthropic.ts:135 (`system` como string plano, 54 call-sites) · lib/anthropic-usage.ts:79 · *2026-08-13 optimizar-gasto-ia-mako*
+
 ### ⚠️ Nada en `lib/` corta una llamada por gasto: `ia-cuotas` reordena, nunca bloquea
 
 **Síntoma:** se asume que el sistema de cuotas ya frena algo. No frena nada.
