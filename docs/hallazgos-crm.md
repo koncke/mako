@@ -1050,6 +1050,61 @@ proveedor adentro; el `status` de la tab sigue en verde.
 una llamada ya analizada (porque salió mal) sigue sin camino desde el resumen — existe en
 la tab Insights de la ficha. Vive en `app/crm/[id]/resumen/page.tsx`.
 
+### «Buscar automáticamente» no mira Fathom: mira una tabla que casi siempre está vacía
+
+**Síntoma, dicho por el dueño del negocio en la llamada del 29/07 (01:22:32):** *«yo no estoy
+usando el CRM puesto que, pues, está muy complejo, o no me es ágil»*. Y treinta segundos
+después, en vivo: aprieta **«Buscar automáticamente»** en el wizard y Martin lee la
+respuesta — *«supuestamente no encontró»*. La reunión ESTABA en Fathom. Terminó tipeando la
+fecha de la R2 a mano.
+
+**Causa.** `buscarReunionesAutomatico` no le pregunta a Fathom. Lee
+`closing_analyses` con `.eq('lead_id', lead.id)` y se queda solo con
+`category === 'venta'`. O sea: encuentra la grabación **únicamente si antes corrió el
+Closing Analyst, si esa fila quedó enganchada a ESE lead, y si Claude la clasificó como
+venta.** Tres condiciones, y las tres fallan calladas:
+
+1. **El análisis nunca corrió** — el más común. Medido el 13/08: la cuenta de Anthropic
+   estaba sin saldo, así que toda llamada nueva quedaba con `status='error'` y la búsqueda
+   automática de ESOS leads devolvía vacío. Ver «El botón que analiza la llamada».
+2. **Corrió pero quedó en otro lead (o en ninguno).** Lo cubre el Paso 0 de
+   `analizarLlamadasDeLead`, pero solo si alguien lo dispara.
+3. **Se clasificó `entrega_servicio` o `interna`.** Mau da coaching por Zoom con los mismos
+   contactos, así que la clasificación errónea es esperable, no rara.
+
+**Y el usuario no puede distinguir ninguna de las tres.** Las tres se ven igual: «no
+encontré nada» y un formulario vacío. Es el mismo antipatrón que la fila de
+`closing_analyses` sin `fallidas`: un vacío que puede ser «no hay» o «no pude», y que manda
+a revisar Calendly cuando el problema estaba en otro lado.
+
+**La regla.** Una búsqueda automática que se apoya en una tabla DERIVADA hereda todas las
+formas de fallar de lo que la llena, y las convierte en el mismo silencio. O consulta la
+fuente (la API de Fathom, que ya sabe buscar por email), o dice **por qué** vino vacía.
+
+**Vive en:** `lib/auto-reuniones.ts:66-108` (`buscarReunionesAutomatico`) ·
+`lib/closing.ts` (`analizarLlamadasDeLead`) · el wizard en `app/crm/StageMoveDialog.tsx`
+
+### Lo que el dueño del negocio pidió del CRM, textual (llamadas 29/07 y 06/08)
+
+No es una lista de bugs: es por qué **no usa** la herramienta. Ordenado por lo que más le
+cuesta, con la cita y el archivo donde vive.
+
+| Qué le pasa | Textual | Dónde vive |
+|---|---|---|
+| Cerrar un lead ganado no se descubre solo | *«no sé cómo decirle que ya lo cerré y me lo llevo para acá»* | arrastrar en `app/crm/CrmBoard.tsx` es el único camino |
+| Marcar No Show tampoco | *«es como muy difícil decirle no show… o a lo mejor vas a arrastrarlo»* | ídem |
+| Agendar la R2 **durante** la reunión | *«yo estoy con el cliente en la junta y meterme a Maco para agendarlo me genera una fricción… si no lo pongo rápido se me juntan dos»* | el wizard exige salir a Calendly |
+| El celular | *«la mayoría andamos en el tema del celular o la tablet»* | solo `/crm/[id]/resumen` está pensado para móvil |
+| Lentitud, dicha tres veces | *«se está tardando»*, *«aquí ya me tardé mucho»* | — |
+| Un aviso que llega pero se pierde | *«sí te avisó, pero estaba muy escondido entre los otros mensajes»* / *«me llegan un chorro»* | `lib/avisos.ts` — el volumen de MaKo tapa a MaKo |
+| Subir el contrato | *«no me deja subir más que PDFs»* (tenía un Word) | el `accept` sale de `lib/formatos-archivo.ts` |
+| Una subida que falló y no dejó rastro | *«yo lo había subido… me salió $7,500.01 dólares y por eso no me dejó»* | el archivo no quedó y nadie avisó |
+
+**El patrón que las une: todo lo que el CRM sabe hacer, hay que descubrirlo arrastrando.**
+Cerrar, marcar no-show y avanzar de etapa son la misma acción física —un drag— y ninguna
+tiene un botón en la ficha. Quien no lo descubrió, no usa el CRM; que es exactamente lo que
+pasó.
+
 ### ⚠️ El selector de hora sigue sin desplegable y con las horas limitadas
 
 **Síntoma:** en el formulario "¿Qué hacer ahora?" no aparece el desplegable de horas y el rango
