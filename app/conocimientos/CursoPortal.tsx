@@ -104,6 +104,46 @@ export function Card({ badge, nota, titulo, desc, onClick, ariaLabel }: { badge:
   );
 }
 
+// ── Selector de cursos (la portada de la tab) ────────────────────────────────
+// Vive acá por la MISMA razón que el hub: lo usan el admin (`/conocimientos`) y
+// el link compartido de la tab entera (`/compartido/<token>`). La lista llega
+// por prop porque no es la misma en los dos lados — Branding no se puede servir
+// sin login (ver `CURSOS_COMPARTIBLES` en catalogo.ts).
+export function Selector({ cursos, enter, compartir }: {
+  cursos: Curso[];
+  enter: (slug: string) => void;
+  compartir?: ReactNode;
+}) {
+  const cats = useMemo(() => {
+    const m: Record<string, Curso[]> = {};
+    for (const c of cursos) (m[c.categoria] = m[c.categoria] || []).push(c);
+    return m;
+  }, [cursos]);
+  return (
+    <>
+      <section className="al-hero">
+        <div className="al-hero-top">
+          <span className="al-eyebrow"><span className="d" /> Conocimientos · MaKo</span>
+          {compartir}
+        </div>
+        <h1 className="al-h1">Cursos</h1>
+        <p className="al-sub">Formación interna. Elegí un curso para entrar. Cada categoría junta los cursos del mismo tema.</p>
+      </section>
+      {Object.entries(cats).map(([cat, list]) => (
+        <section className="al-sec" key={cat}>
+          <div className="al-seclabel"><span>{cat}</span><span className="al-vol">{list.length} curso{list.length > 1 ? 's' : ''}</span></div>
+          <div className="al-grid">
+            {list.map((c) => (
+              <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc}
+                ariaLabel={`Entrar a ${c.titulo}`} onClick={() => enter(c.slug)} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </>
+  );
+}
+
 // ── Hub del curso ────────────────────────────────────────────────────────────
 // `compartir` es el botón de Compartir del admin, inyectado desde afuera: la
 // vista pública no lo pasa y así ese código no llega al invitado.

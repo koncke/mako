@@ -50,3 +50,18 @@ export const VISTA_PROPIA = {
   analisis: CURSO_ANALISIS.slug,
   branding: CURSO_BRANDING.slug,
 } as const;
+
+/**
+ * Los cursos que puede ver alguien SIN LOGIN cuando se comparte la tab entera.
+ *
+ * Es `CURSOS_TODOS` menos Branding, y la razón es que **no se puede servir**: su
+ * material son bytes en un bucket privado que se piden a `/api/branding`, que
+ * exige sesión de admin. Un invitado vería la galería vacía sin entender por
+ * qué. Branding ya tiene su propio share (`recurso='branding'`), que además
+ * comparte por sección o por pieza suelta — más fino que "todo".
+ *
+ * Se calcula sobre `CURSOS_TODOS`, así que un curso nuevo entra solo: la
+ * exclusión se declara por slug, nunca la inclusión por lista (una lista de
+ * incluidos deja afuera en silencio a todo lo que nadie se acordó de sumar).
+ */
+export const CURSOS_COMPARTIBLES: Curso[] = CURSOS_TODOS.filter((c) => c.slug !== VISTA_PROPIA.branding);

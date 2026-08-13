@@ -17,6 +17,7 @@ import TareaCliente from './TareaCliente';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
 import AnalisisCompartido from './AnalisisCompartido';
+import PortalCompartido from './PortalCompartido';
 import { buscarCurso, VISTA_PROPIA } from '@/app/conocimientos/catalogo';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,14 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
   const { token } = await params;
   const acceso = await resolverToken(token);
   if (!acceso) notFound();
+
+  // ── La TAB ENTERA de Conocimientos: el selector con todos los cursos ──
+  // No lleva `recurso_id`: el alcance es "todo" y la lista se resuelve en cada
+  // carga, así que un curso que se suma después aparece en los links ya dados.
+  if (acceso.share.recurso === 'conocimientos') {
+    await registrarVisita(acceso);
+    return <PortalCompartido invitado={acceso.invitado?.email ?? null} />;
+  }
 
   // ── Un curso compartido: el MISMO portal de /conocimientos ──
   // Mismo componente que ve el admin (videos, recursos, prompts, transcripción),

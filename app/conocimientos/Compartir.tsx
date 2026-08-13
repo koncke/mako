@@ -72,7 +72,19 @@ function Avatar({ inv }: { inv: { nombre: string | null; email: string; gravatar
   );
 }
 
-export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: string; recursoId: string; etiqueta: string }) {
+/**
+ * `recursoId` es opcional porque hay recursos que NO apuntan a una cosa: la tab
+ * entera de Conocimientos (`recurso='conocimientos'`) tiene alcance 'todo' y no
+ * lleva id. Sin id, la lista de "quién tiene acceso" trae todos los enlaces de
+ * ese recurso, que es exactamente lo que corresponde.
+ *
+ * `nota` es la letra chica de QUÉ entra en el link. Va solo donde el alcance no
+ * se puede leer del título: "Compartir «Curso X»" se explica solo, "Compartir
+ * «Conocimientos»" no dice cuántos cursos son ni qué queda afuera.
+ */
+export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
+  recurso: string; recursoId?: string; etiqueta: string; nota?: string;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [modo, setModo] = useState<'link' | 'invitados'>('link');
   const [emails, setEmails] = useState('');
@@ -185,6 +197,7 @@ export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: s
         <div className="cmp-ov" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setAbierto(false); }}>
           <div className="cmp-box">
             <h3 className="cmp-h">Compartir «{etiqueta}»</h3>
+            {nota && <p className="cmp-nota">{nota}</p>}
 
             <label className={`cmp-modo${modo === 'link' ? ' on' : ''}`}>
               <input type="radio" name="cmp-modo" checked={modo === 'link'} onChange={() => setModo('link')} />
@@ -341,6 +354,7 @@ export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: s
         .cmp-box { width: min(560px, 100%); max-height: 88vh; overflow: auto; background: var(--card, #fffdf7);
           color: var(--ink, #1a1a1a); border: 1.5px solid var(--ink, #1a1a1a); border-radius: 14px; padding: 22px; box-shadow: 6px 6px 0 rgba(24,26,22,.16); }
         .cmp-h { margin: 0 0 15px; font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+        .cmp-nota { margin: -9px 0 14px; font-size: 12.5px; line-height: 1.5; opacity: .66; }
         .cmp-modo { display: flex; gap: 10px; align-items: flex-start; padding: 12px; margin-bottom: 8px; border-radius: 10px;
           border: 1.5px solid rgba(24,26,22,.18); cursor: pointer; font-size: 13.5px; line-height: 1.45; }
         .cmp-modo.on { border-color: var(--ink, #1a1a1a); background: rgba(200,241,105,.22); }

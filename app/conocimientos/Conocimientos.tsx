@@ -9,49 +9,26 @@
 //
 // Vistas: selector de cursos → hub del curso → detalle de clase / de recurso.
 //
-// El portal de un curso (hub/clase/recurso + todo el diseño) vive en
-// ./CursoPortal porque lo comparte con /compartido/<token>: el invitado ve
+// El portal de un curso (hub/clase/recurso + todo el diseño) y el SELECTOR viven
+// en ./CursoPortal porque los comparte con /compartido/<token>: el invitado ve
 // EXACTAMENTE esta pantalla, no un resumen. Acá queda lo que es solo del admin:
-// el selector, la navegación por URL y los dos cursos que no son de texto.
+// la navegación por URL, los dos cursos que no son de texto, y los botones de
+// Compartir (que se inyectan por prop, así ese código no llega al invitado).
 
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { type Curso } from './curso';
-import { CURSOS_TODOS as TODOS, buscarCurso, VISTA_PROPIA } from './catalogo';
+import { CURSOS_TODOS as TODOS, CURSOS_COMPARTIBLES, buscarCurso, VISTA_PROPIA } from './catalogo';
 import AnalisisNegocio from './AnalisisNegocio';
 import BrandingMaKo from './BrandingMaKo';
 import Compartir from './Compartir';
-import CursoPortal, { Card, PortalShell } from './CursoPortal';
+import CursoPortal, { PortalShell, Selector } from './CursoPortal';
 
-// ── Selector de cursos (landing) ─────────────────────────────────────────────
-function Selector({ enter }: { enter: (slug: string) => void }) {
-  const cats = useMemo(() => {
-    const m: Record<string, Curso[]> = {};
-    for (const c of TODOS) (m[c.categoria] = m[c.categoria] || []).push(c);
-    return m;
-  }, []);
-  return (
-    <>
-      <section className="al-hero">
-        <span className="al-eyebrow"><span className="d" /> Conocimientos · MaKo</span>
-        <h1 className="al-h1">Cursos</h1>
-        <p className="al-sub">Formación interna. Elegí un curso para entrar. Cada categoría junta los cursos del mismo tema.</p>
-      </section>
-      {Object.entries(cats).map(([cat, list]) => (
-        <section className="al-sec" key={cat}>
-          <div className="al-seclabel"><span>{cat}</span><span className="al-vol">{list.length} curso{list.length > 1 ? 's' : ''}</span></div>
-          <div className="al-grid">
-            {list.map((c) => (
-              <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc}
-                ariaLabel={`Entrar a ${c.titulo}`} onClick={() => enter(c.slug)} />
-            ))}
-          </div>
-        </section>
-      ))}
-    </>
-  );
-}
+// La letra chica del link de la TAB: cuántos cursos entran y qué queda afuera.
+// «Compartir "Conocimientos"» no dice ninguna de las dos cosas, y sin decirlas
+// el que comparte no sabe qué está repartiendo.
+const NOTA_TAB = `El link abre el portal completo: ${CURSOS_COMPARTIBLES.length} cursos con sus clases, videos y recursos. `
+  + 'Los cursos que se sumen después también aparecen. Branding MaKo no entra — se comparte desde adentro, por sección o pieza.';
 
 export default function Conocimientos() {
   const router = useRouter();
@@ -83,7 +60,13 @@ export default function Conocimientos() {
   }, [viewKey]);
 
   let body: ReactNode;
-  if (!curso) body = <Selector enter={(slug) => nav({ curso: slug })} />;
+  if (!curso) body = (
+    <Selector
+      cursos={TODOS}
+      enter={(slug) => nav({ curso: slug })}
+      compartir={<Compartir recurso="conocimientos" etiqueta="Conocimientos — todos los cursos" nota={NOTA_TAB} />}
+    />
+  );
   // "Análisis de Negocio" es una vista INTERACTIVA (form + modales de fases), no
   // un curso de texto: se renderiza aparte del portal genérico.
   else if (curso.slug === VISTA_PROPIA.analisis) body = <AnalisisNegocio back={() => nav({})} />;

@@ -23,7 +23,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const WS = 1;
-const RECURSOS = ['curso', 'branding'];
+// 'conocimientos' es la TAB entera (alcance 'todo', sin recurso_id): el que lo
+// recibe entra al portal completo y navega a cualquier curso.
+const RECURSOS = ['curso', 'branding', 'conocimientos'];
 const ALCANCES: ShareAlcance[] = ['todo', 'seccion', 'grupo', 'item'];
 const MODOS: ShareModo[] = ['link', 'invitados'];
 
@@ -154,9 +156,12 @@ export async function POST(req: NextRequest) {
     const recurso = String(body.recurso || 'curso');
     const recursoId = body.recursoId ? String(body.recursoId) : null;
     const modo = String(body.modo || 'link') as ShareModo;
-    // Compartir un curso es siempre "esta cosa entera"; el material de marca
-    // admite además sección y grupo.
-    const alcance = (body.alcance ? String(body.alcance) : (recurso === 'curso' ? 'item' : 'grupo')) as ShareAlcance;
+    // Compartir un curso es siempre "esta cosa entera" ('item' = ese slug); la
+    // tab entera no apunta a nada ('todo'); el material de marca admite además
+    // sección y grupo.
+    const alcanceDefault: ShareAlcance =
+      recurso === 'conocimientos' ? 'todo' : recurso === 'curso' ? 'item' : 'grupo';
+    const alcance = (body.alcance ? String(body.alcance) : alcanceDefault) as ShareAlcance;
 
     if (!RECURSOS.includes(recurso)) return NextResponse.json({ ok: false, error: 'recurso inválido' }, { status: 400 });
     if (!ALCANCES.includes(alcance)) return NextResponse.json({ ok: false, error: 'alcance inválido' }, { status: 400 });
