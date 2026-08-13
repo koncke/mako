@@ -1840,7 +1840,13 @@ subiendo de verdad.
 
 ## El equipo: cuando se cierra Claude Code y no es Claude Code
 
-### ⚠️ «Se cierra solo» = crash del proceso GPU por la gráfica híbrida, no un bug de la app
+### ⚠️ «Se cierra solo» = crash del proceso GPU ~~por la gráfica híbrida, no un bug de la app~~
+
+> 🔴 **EL TÍTULO DE ESTA ENTRADA ESTÁ AL REVÉS, y se deja escrito para que se vea el error.**
+> **SÍ es un bug de la app**, con ~10 issues abiertos y el mismo `exitCode 101457950`, y **no
+> es la gráfica híbrida**: el mismo crash ocurre en una RTX 2080 de escritorio sin iGPU y en
+> un ARM64 con GPU Adreno. Todo lo de abajo sobre *cómo* se investigó sigue valiendo; la
+> conclusión sobre la CAUSA no. Ver «El diagnóstico correcto» al final de la sección.
 
 **Síntoma:** la sesión de Claude Code desaparece cada 4 a 46 minutos, siempre alrededor de
 lanzar un workflow. La PC **sigue andando**: el dueño vuelve al rato y la app ya no está.
@@ -2044,6 +2050,64 @@ a 2,2 GB en 90 segundos. El preview llega arriba de eso.
 
 **Vive en:** `%APPDATA%\Claude\logs\main.log` (cruzar `Created browser preview` con
 `GPU process gone`) · `~\crashes-gpu.csv` · *2026-08-13*
+
+### 🔴 El diagnóstico correcto: es un BUG CONOCIDO de la app, y el hardware no tenía nada que ver
+
+Cuatro días de investigación sobre el hardware, y la respuesta estaba en el bug tracker de
+la app. **El `exitCode 101457950` es `0x060C201E`, y tiene ~10 issues abiertos en
+`anthropics/claude-code`**, todos con la misma firma y el mismo disparador:
+
+| Issue | Hardware del reportante | Por qué importa |
+|---|---|---|
+| [#80444](https://github.com/anthropics/claude-code/issues/80444) | **RTX 2080 de escritorio, sin iGPU Intel**, reproducido con **dos** drivers NVIDIA distintos | **Falsa la hipótesis de la gráfica híbrida y la del driver, de una sola vez** |
+| [#68049](https://github.com/anthropics/claude-code/issues/68049) | **ARM64 con GPU Adreno** (ni Intel ni NVIDIA) | Falsa que sea de una marca de GPU |
+| [#82967](https://github.com/anthropics/claude-code/issues/82967), [#81159](https://github.com/anthropics/claude-code/issues/81159), [#83478](https://github.com/anthropics/claude-code/issues/83478), [#81698](https://github.com/anthropics/claude-code/issues/81698), [#81664](https://github.com/anthropics/claude-code/issues/81664) | variado | Mismo código, mismo disparador |
+
+**La causa real:** la página cargada en el Browser embebido corre una batería de sondeo de
+capacidades WebGL/WebGPU (el fingerprinting normal de cualquier sitio), y eso mata al
+proceso GPU **15 a 36 segundos** después de abrir la pestaña. Nuestra medición local dio
+6-41 s: el mismo fenómeno. Es una **regresión de la app** introducida en `1.24012.1` el
+22/07/2026 — antes de esa versión, cero crashes.
+
+**Lo que esto le hace a las conclusiones anteriores:**
+
+- **El pin a la integrada nunca fue la cura.** Los cuatro días limpios del 9 al 12 no los
+  produjo el registro: los produjo no haber abierto el navegador embebido. Se atribuyó la
+  mejora al cambio que se había hecho, sin controlar la variable que de verdad decidía.
+- **El driver no era la palanca.** Además de estar falsado por #80444, no había nada que
+  instalar: `32.0.101.7088` **es la última** de la rama «Intel 11th-14th Gen Processor
+  Graphics», que Intel pasó a **legacy** el 19/09/2025. Los drivers más nuevos por fecha
+  (`101.8860`, `101.8864`) son de la rama Arc/Core Ultra y no soportan gen 11-14 — no
+  instalarían. Y el último fix de Intel del lado WebGL ya está incluido en la 7088.
+
+**El arreglo, en orden de contundencia:**
+
+1. **Apagar el navegador embebido:** `Ajustes → Claude Code → Browser`. Es el workaround que
+   los propios reportantes confirman efectivo. Cuesta la feature de preview embebido.
+2. **Lanzar la app sin GPU** — y acá va una corrección: *sí* se le pueden pasar flags de
+   Chromium a un MSIX, contra lo que se afirmó antes en esta sesión. La vía es
+   `Invoke-CommandInDesktopPackage`, que preserva la identidad del paquete:
+   ```powershell
+   Invoke-CommandInDesktopPackage -PackageFamilyName Claude_pzs8sxrjxfjjc -AppId Claude -Command 'app\Claude.exe' -Args '--disable-gpu'
+   ```
+   Microsoft lo documenta como herramienta de depuración, así que es experimento, no fix.
+3. **Lo que NO funciona** (probado por otros y reportado en #82967): parar los servicios de
+   NVIDIA, apagar la planificación de GPU acelerada por hardware, desactivar HVCI, y DDU.
+
+⚠️ **Y el efecto secundario que nos podría tocar:** tras el crash, Windows marca el paquete
+como `appxState=2` (Modified) y la app **no vuelve a abrir** hasta `Configuración → Aplicaciones
+→ Claude → Opciones avanzadas → Reparar`, matando antes `cowork-svc.exe`. Acá todavía no pasó,
+pero conviene saberlo antes de creer que se rompió la instalación.
+
+**La lección que vale para la próxima, y es la cara:** se investigó el equipo durante días
+—térmica, drivers, energía, uptime, un monitor a medida— y la pregunta que lo resolvía era
+**«¿alguien más tiene este error?»**. Un `exitCode` es una cadena de búsqueda: pegarlo en el
+bug tracker del fabricante cuesta dos minutos y va ANTES de instrumentar el hardware. El
+instrumental no se desperdició (probó el disparador y descartó térmica y RAM con dato
+propio), pero llegó segundo.
+
+**Vive en:** `%APPDATA%\Claude\logs\main.log` · issues del repo `anthropics/claude-code` ·
+*2026-08-13*
 
 ### ⚠️ La fila del crash miente sin equivocarse en un solo número
 
