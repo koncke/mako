@@ -50,12 +50,27 @@ function cfgDe(nombre: ProvName): Omit<Prov, 'key' | 'clave'> {
       // pineados que se van retirando). Pisable con GEMINI_MODEL.
       return { nombre, base: 'https://generativelanguage.googleapis.com/v1beta/openai', chatModel: process.env.GEMINI_MODEL || 'gemini-flash-latest', sttModel: '' };
     // ── IA GRATIS extra para rotar (todas OpenAI-compatibles) ─────────────────
-    case 'cerebras': // gratis y MUY rápida (Llama en su chip). Soporta tools.
-      return { nombre, base: 'https://api.cerebras.ai/v1', chatModel: process.env.CEREBRAS_MODEL || 'llama-3.3-70b', sttModel: '' };
+    // ⚠️ LOS IDS DE MODELO CADUCAN, Y CUANDO CADUCAN LA KEY QUEDA MUERTA EN SILENCIO.
+    // Medido el 12/8/2026 pegándole a cada cuenta cargada: las SEIS keys de Cerebras y
+    // OpenRouter devolvían error —404 «no existe ese modelo» y «este modelo ya no es
+    // gratis»— con los ids que estaban acá. El dueño había cargado tres cuentas de cada
+    // uno pensando que sumaba cuota y no sumaba nada: dos proveedores enteros muertos.
+    // Los de abajo salieron de pedirle a cada API su lista real de modelos.
+    case 'cerebras': // gratis y MUY rápida (su propio chip). Soporta tools.
+      // Su catálogo son TRES modelos y ninguno es Llama: gemma-4-31b, gpt-oss-120b y
+      // zai-glm-4.7. ⚠️ OJO: probado el 12/8, las tres cuentas cargadas devuelven 402 en
+      // los TRES — no es el id, es que esas cuentas no tienen tier gratis. El id queda
+      // correcto para el día que alguna lo tenga; hasta entonces Cerebras no suma nada.
+      return { nombre, base: 'https://api.cerebras.ai/v1', chatModel: process.env.CEREBRAS_MODEL || 'gpt-oss-120b', sttModel: '' };
     case 'mistral': // free tier de La Plateforme. Soporta tools.
       return { nombre, base: 'https://api.mistral.ai/v1', chatModel: process.env.MISTRAL_MODEL || 'mistral-small-latest', sttModel: '' };
-    case 'openrouter': // agregador con modelos ":free" (Llama, Gemini exp, etc.).
-      return { nombre, base: 'https://openrouter.ai/api/v1', chatModel: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free', sttModel: '' };
+    case 'openrouter': // agregador con modelos ":free".
+      // De 410 modelos quedan 19 gratis, y ninguno es el Llama 3.3 que estaba acá.
+      // Se eligió por LATENCIA MEDIDA, no por tamaño: el Nemotron de 120b tarda 25 s en
+      // devolver UN token —o sea se come el timeout de cualquier llamada real— y este
+      // nano de 30b tarda 1,3 s. En una cascada de respaldo, el que tarda 25 s no es un
+      // respaldo: es otra forma de fallar, más lenta.
+      return { nombre, base: 'https://openrouter.ai/api/v1', chatModel: process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-nano-30b-a3b:free', sttModel: '' };
     default:
       return { nombre: 'openai', base: 'https://api.openai.com/v1', chatModel: process.env.CHEAP_MODEL || 'gpt-4o-mini', sttModel: process.env.STT_MODEL || 'whisper-1' };
   }
@@ -136,8 +151,8 @@ export const MODELO_DOCS: Partial<Record<ProvName, string>> = {
   groq: process.env.DOCS_MODEL_GROQ || 'llama-3.3-70b-versatile',
   gemini: process.env.GEMINI_MODEL || 'gemini-flash-latest',
   openai: 'gpt-4o-mini',
-  cerebras: 'llama-3.3-70b',
-  openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+  cerebras: 'gpt-oss-120b',
+  openrouter: 'nvidia/nemotron-3-nano-30b-a3b:free',
   mistral: 'mistral-small-latest',
 };
 /** ¿Hay alguna IA para leer documentos (Gemini/Groq/OpenAI/…) en este workspace? */
