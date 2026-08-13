@@ -696,6 +696,34 @@ un recurso puesto en la clase equivocada es peor que uno a nivel de módulo.
 
 **Vive en:** `scripts/curso-a-portal.mjs` (`construirRecursos`)
 
+### `slice(-2,-1)` sobre una URL: funcionó de casualidad y puso la portada de otro curso
+
+**Síntoma.** La tarjeta del curso de Claude mostraba la portada de «Hackeando la
+Edición — Guille Collado». Dos intentos seguidos con la portada equivocada.
+
+**Causa.** El slug de la plataforma se sacaba con
+`pagina.split('/').filter(Boolean).slice(-2,-1)[0]` — el **penúltimo** segmento. Para
+el patrón VIP `/vip/course/<slug>/watch` eso da el slug y funcionaba; para
+`/curso/<slug>` da literalmente **`curso`**, que aparece en el href de **todas** las
+tarjetas del catálogo. El emparejamiento por `href.includes('curso')` matcheaba las
+152 y la heurística de frecuencia elegía cualquiera.
+
+**Lo que lo hizo durar dos intentos:** el script instalaba y reportaba «✓ 25 KB · jpg»
+sin comprobar **de qué** era la imagen. Un tamaño y una extensión no dicen nada sobre
+el contenido, y una portada equivocada no se nota hasta que alguien la mira.
+
+**Regla, dos capas.** El slug sale del **último** segmento útil, filtrando `curso`,
+`course`, `vip`, `watch` y el host — no de una posición fija, que es una suposición
+sobre la forma de la URL. Y antes de instalar se **verifica**: el texto de la tarjeta
+elegida tiene que mencionar palabras del título del curso, o no se instala nada.
+
+**Y la que vale para cualquier archivo que se baje «del que corresponde»:** emparejar
+por URL y no comprobar el contenido es confiar en la parte del sistema que justo se
+está tocando. Acá alcanzaba con **mirar la imagen** — que es lo que finalmente la
+confirmó (`Read` sobre el archivo), y lo que no se hizo las dos primeras veces.
+
+**Vive en:** `scripts/curso-portada.mjs`
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato

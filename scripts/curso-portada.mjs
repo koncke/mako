@@ -37,8 +37,14 @@ if (PLAN && existsSync(PLAN)) {
   // El slug del PORTAL (el que usa curso-a-portal para nombrar el archivo del curso),
   // no el de la carpeta: si no coinciden, la portada queda huérfana y no se muestra.
   slugPortal = (plan.slug ?? '').replace(/^curso-(de-)?/, '');
-  // El slug de la PLATAFORMA, para encontrar la tarjeta en el catálogo.
-  slugPlataforma = String(plan.pagina ?? '').split('/').filter(Boolean).slice(-2, -1)[0] ?? plan.slug;
+  // ⚠️ El slug de la PLATAFORMA sale del ÚLTIMO segmento útil, no del penúltimo.
+  // Con `slice(-2,-1)` funcionaba de casualidad para `/vip/course/<slug>/watch` y
+  // devolvía literalmente «curso» para `/curso/<slug>` — que matchea TODAS las
+  // tarjetas del catálogo. Resultado: la portada del curso de Claude terminó siendo
+  // la de otro curso cualquiera.
+  const segmentos = String(plan.pagina ?? '').replace(/[?#].*$/, '').split('/').filter(Boolean);
+  const utiles = segmentos.filter((s) => !/^(https?:|watch|www\.|[^.]+\.[a-z]{2,})$/i.test(s) && !/^(curso|course|vip)$/i.test(s));
+  slugPlataforma = utiles[utiles.length - 1] ?? plan.slug;
   nombreCurso = plan.curso;
 } else if (BUSCAR && SLUG) {
   slugPortal = SLUG;
@@ -145,6 +151,20 @@ const main = async () => {
 
     mias.sort((a, b) => (veces.get(a.src) - veces.get(b.src)) || (b.area - a.area));
     const elegida = mias[0];
+
+    // ⚠️ VERIFICACIÓN, y existe porque acá se instaló la portada de OTRO curso: el
+    // texto de la tarjeta elegida tiene que contener palabras del título del curso.
+    // Emparejar por href y no comprobar nada más deja pasar cualquier bug del slug en
+    // silencio, y una portada equivocada no se nota hasta que alguien la mira.
+    const distintivas = norm(nombreCurso).split(/\s+/)
+      .filter((t) => t.length > 3 && !['curso','clase','online','vivo','para','como','todo'].includes(t));
+    const textoTarjeta = norm(`${elegida.texto ?? ''} ${elegida.href}`);
+    const aciertos = distintivas.filter((t) => textoTarjeta.includes(t));
+    if (distintivas.length && aciertos.length === 0) {
+      console.log(`no coincide: la tarjeta no menciona nada de «${nombreCurso}»`);
+      console.log(`      texto de la tarjeta: ${(elegida.texto ?? '').slice(0, 80)}`);
+      continue;
+    }
     // Si la menos repetida IGUAL aparece en varias tarjetas, es chrome del sitio:
     // mejor no poner portada que poner el logo en todos los cursos.
     if (veces.get(elegida.src) > 1) {

@@ -60,21 +60,23 @@ const CATEGORIA: Record<string, string> = {
  * así que el dato se pierde si se escribe ahí. Los cursos del pipeline sí la declaran
  * solos (`curso-a-portal.mjs` la emite cuando el archivo existe).
  *
- * De dónde salió cada una:
- *   · `bluehacker` — la tapa real, del catálogo de la plataforma.
- *   · las `.svg` — GENERADAS con la marca de la casa
- *     (`scripts/curso-portada-generada.mjs`), porque su tapa no existe en ningún lado:
- *     no está en el catálogo ni en la carpeta de Drive del curso. Se generan en vez de
- *     buscarlas en un buscador: una imagen que no se puede verificar como la tapa real
- *     dice algo falso sobre el curso.
+ * Las cuatro son las tapas REALES, que las pasó el dueño. Antes de eso hubo dos
+ * intentos peores y conviene que quede escrito: la del catálogo de la plataforma
+ * traía el logo del sitio en vez de la tapa, y para las que no existían en ningún
+ * lado se generó una tipográfica con la marca de la casa — mejor que buscar en un
+ * buscador una imagen que no se puede verificar, pero peor que la de verdad.
+ *
+ * ⚠️ La extensión importa y no es libre: sale de los BYTES del archivo, no del
+ * nombre. `Bluehackers.webp` era webp de verdad, pero `AvatarHype.jpg` podría no
+ * haberlo sido — un `.jpg` que en realidad es webp no lo pinta bien ningún navegador.
  *
  * Los cursos de la sección MaKo van a propósito SIN miniatura.
  */
 const PORTADA: Record<string, string> = {
-  bluehacker: '/cono-portadas/bluehacker.png',
-  masteryhaus: '/cono-portadas/masteryhaus.svg',
-  'anuncio-ganador': '/cono-portadas/anuncio-ganador.svg',
-  avatarhype: '/cono-portadas/avatarhype.svg',
+  bluehacker: '/cono-portadas/bluehacker.webp',
+  masteryhaus: '/cono-portadas/masteryhaus.jpg',
+  'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
+  avatarhype: '/cono-portadas/avatarhype.jpg',
 };
 
 // curso.ts es AUTO-GENERADO desde transcripciones: los cursos escritos a mano
