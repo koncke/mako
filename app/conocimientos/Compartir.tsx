@@ -99,9 +99,10 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
   const [sumaTexto, setSumaTexto] = useState('');
   const [sumando, setSumando] = useState(false);
   const [sumaResultado, setSumaResultado] = useState<{ shareId: number; invitados: ResultadoInv[] } | null>(null);
-  // Estado del correo del workspace y link recién emitido para una persona.
+  // Estado del correo del workspace, y el último link reemitido (de un enlace
+  // público `s:<id>` o del de una persona `p:<id>`) para poder re-copiarlo.
   const [correo, setCorreo] = useState<{ listo: boolean; remitente: string } | null>(null);
-  const [linkPersona, setLinkPersona] = useState<{ id: number; enlace: string } | null>(null);
+  const [linkEmitido, setLinkEmitido] = useState<{ key: string; enlace: string } | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -142,25 +143,37 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
     setSumando(false);
   }
 
-  // "Copiame el link de esta persona". Del token viejo solo hay hash: no se
-  // puede releer, se emite otro. Por eso avisamos cuando había uno vivo.
-  async function linkDe(inv: Invitado) {
+  // "Copiame el link otra vez". Del token viejo solo hay un hash: no se puede
+  // releer, así que se EMITE OTRO y el anterior deja de servir. Por eso siempre
+  // se avisa antes — es irreversible para quien ya tenga el link.
+  //
+  // Sirve para las dos cosas que tienen link propio: el enlace público del share
+  // y el personal de cada invitado. Un solo camino, porque son el mismo gesto.
+  async function reemitir(key: string, query: string, aviso: string) {
     // Si ya lo emitimos en esta sesión, se re-copia el MISMO. Sin esto, dos
     // clicks seguidos rotaban el token y mataban el link que acabás de pasar.
-    if (linkPersona?.id === inv.id) { copiar(linkPersona.enlace, `p:${inv.id}`); return; }
-    // Rotar solo duele si ya hay alguien usando el link anterior.
-    const enUso = !!inv.enviado_at || inv.visitas > 0;
-    if (enUso && !confirm(`${nombreDe(inv)} ya tiene un enlace en uso.\n\nSi generás uno nuevo, el anterior deja de funcionar. ¿Seguir?`)) return;
+    if (linkEmitido?.key === key) { copiar(linkEmitido.enlace, key); return; }
+    if (!confirm(aviso)) return;
     setError(null);
     try {
-      const r = await fetch(`/api/compartir?invitado=${inv.id}`, { method: 'PATCH' });
+      const r = await fetch(`/api/compartir?${query}`, { method: 'PATCH' });
       const j = await r.json();
       if (!j.ok) { setError(j.error || 'no se pudo generar el link'); return; }
-      setLinkPersona({ id: inv.id, enlace: j.enlace });
-      copiar(j.enlace, `p:${inv.id}`);
+      setLinkEmitido({ key, enlace: j.enlace });
+      copiar(j.enlace, key);
       cargar();
     } catch { setError('no se pudo generar el link'); }
   }
+
+  const visitasTxt = (n: number) => `${n} ${n === 1 ? 'visita' : 'visitas'}`;
+
+  /** El aviso del enlace PÚBLICO. Se avisa siempre, aunque tenga 0 visitas: que
+   *  nadie haya entrado todavía no quiere decir que el link no esté ya pegado en
+   *  un chat. */
+  const avisoShare = (visitas: number) =>
+    'Se emite un enlace NUEVO y el anterior deja de funcionar.\n\n'
+    + (visitas > 0 ? `El actual ya tuvo ${visitasTxt(visitas)}: quien lo tenga se queda afuera.\n\n` : '')
+    + 'El actual no se puede volver a mostrar — de él solo guardamos un hash.\n\n¿Emitir uno nuevo?';
 
   async function revocar(id: number, invitadoId?: number) {
     await fetch(`/api/compartir?${invitadoId ? `invitado=${invitadoId}` : `id=${id}`}`, { method: 'DELETE' }).catch(() => {});
@@ -228,7 +241,10 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
               <div className="cmp-nuevo">
                 {nuevo.enlace && (
                   <>
-                    <p className="cmp-nuevo-t">Listo — <b>copialo ahora, se muestra una sola vez</b>:</p>
+                    {/* Antes decía "se muestra una sola vez" a secas, y era verdad a
+                        medias: el link no se puede releer, pero SÍ se puede reemitir con
+                        «Copiar link» de la lista de abajo. Dicho así asustaba de más. */}
+                    <p className="cmp-nuevo-t">Listo — <b>copialo ahora</b>. Después se puede emitir otro, pero éste deja de servir:</p>
                     <div className="cmp-linkrow">
                       <input className="cmp-link" readOnly value={nuevo.enlace} onFocus={(e) => e.currentTarget.select()} />
                       <button type="button" className="cmp-copy" onClick={() => copiar(nuevo.enlace!, 'nuevo')}>{copiado === 'nuevo' ? '✓' : 'Copiar'}</button>
@@ -265,12 +281,29 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
                             {s.modo === 'link' ? 'Cualquiera con el enlace' : `${gente.length} ${gente.length === 1 ? 'persona invitada' : 'personas invitadas'}`}
                             <span className="cmp-pref"> · {s.token_prefijo}…</span>
                           </span>
-                          <span className="cmp-item-m">{s.visitas} {s.visitas === 1 ? 'visita' : 'visitas'}</span>
+                          <span className="cmp-item-m">{visitasTxt(s.visitas)}</span>
                         </div>
+                        {/* Recuperar el link de un enlace público: sin esto, perderlo obligaba
+                            a revocar y crear otro — lo mismo, con más pasos y perdiendo las visitas. */}
+                        {s.modo === 'link' && (
+                          <button type="button" className="cmp-link-btn"
+                            onClick={() => reemitir(`s:${s.id}`, `id=${s.id}`, avisoShare(s.visitas))}
+                            title="Emitir un enlace nuevo y copiarlo (el anterior deja de funcionar)">
+                            {copiado === `s:${s.id}` ? '✓ copiado' : 'Copiar link'}
+                          </button>
+                        )}
                         <button type="button" className="cmp-rev" onClick={() => revocar(s.id)}>
                           {s.modo === 'link' ? 'Revocar' : 'Revocar a todos'}
                         </button>
                       </div>
+                      {linkEmitido?.key === `s:${s.id}` && (
+                        <div className="cmp-linkrow mini">
+                          <input className="cmp-link" readOnly value={linkEmitido.enlace} onFocus={(e) => e.currentTarget.select()} />
+                          <button type="button" className="cmp-copy" onClick={() => copiar(linkEmitido.enlace, `s:${s.id}`)}>
+                            {copiado === `s:${s.id}` ? '✓' : 'Copiar'}
+                          </button>
+                        </div>
+                      )}
 
                       {s.modo === 'invitados' && (
                         <>
@@ -289,17 +322,22 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
                                         : 'invitado, todavía no entró'}
                                   </span>
                                 </div>
-                                <button type="button" className="cmp-link-btn" onClick={() => linkDe(i)}
-                                  title={`Generar y copiar el enlace personal de ${i.email}`}>
+                                <button type="button" className="cmp-link-btn"
+                                  onClick={() => reemitir(`p:${i.id}`, `invitado=${i.id}`,
+                                    (i.enviado_at || i.visitas > 0
+                                      ? `${nombreDe(i)} ya tiene un enlace en uso.\n\n`
+                                      : `Se emite el enlace personal de ${nombreDe(i)}.\n\n`)
+                                    + 'Si generás uno nuevo, el anterior deja de funcionar. ¿Seguir?')}
+                                  title={`Emitir y copiar el enlace personal de ${i.email}`}>
                                   {copiado === `p:${i.id}` ? '✓ copiado' : 'Copiar link'}
                                 </button>
                                 <button type="button" className="cmp-rev chico" onClick={() => revocar(s.id, i.id)}
                                   title={`Quitarle el acceso a ${i.email}`}>Quitar</button>
                               </div>
-                              {linkPersona?.id === i.id && (
+                              {linkEmitido?.key === `p:${i.id}` && (
                                 <div className="cmp-linkrow mini">
-                                  <input className="cmp-link" readOnly value={linkPersona.enlace} onFocus={(e) => e.currentTarget.select()} />
-                                  <button type="button" className="cmp-copy" onClick={() => copiar(linkPersona.enlace, `p:${i.id}`)}>
+                                  <input className="cmp-link" readOnly value={linkEmitido.enlace} onFocus={(e) => e.currentTarget.select()} />
+                                  <button type="button" className="cmp-copy" onClick={() => copiar(linkEmitido.enlace, `p:${i.id}`)}>
                                     {copiado === `p:${i.id}` ? '✓' : 'Copiar'}
                                   </button>
                                 </div>

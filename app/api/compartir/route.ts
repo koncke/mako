@@ -15,7 +15,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { sendEmail, getEmailFrom, remitenteEsSandbox, resendConfigurado } from '@/lib/resend';
 import {
   crearShare, listarShares, revocarShare, agregarInvitado, listarInvitados,
-  revocarInvitado, marcarEnviado, getShare, parseDestinatarios, regenerarTokenInvitado,
+  revocarInvitado, marcarEnviado, getShare, parseDestinatarios, regenerarTokenInvitado, regenerarTokenShare,
   type ShareAlcance, type ShareModo, type Destinatario,
 } from '@/lib/shares';
 
@@ -61,15 +61,21 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PATCH ?invitado=<id> → le emite un token NUEVO y devuelve su link.
-// Es "copiame el link de esta persona": el viejo no se puede leer (solo hay
-// hash), así que se rota. La UI avisa que el anterior deja de servir.
+// PATCH → emite un token NUEVO y devuelve el link. Dos objetivos:
+//   ?invitado=<id> → el link personal de esa persona
+//   ?id=<id>       → el link público de un share de modo 'link'
+//
+// Es "copiame el link otra vez": el viejo NO se puede leer (en base solo hay su
+// sha256), así que se rota. La UI avisa que el anterior deja de servir.
 export async function PATCH(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   try {
     const invitadoId = Number(req.nextUrl.searchParams.get('invitado') || 0);
-    if (!invitadoId) return NextResponse.json({ ok: false, error: 'falta invitado' }, { status: 400 });
-    const token = await regenerarTokenInvitado(WS, invitadoId);
+    const shareId = Number(req.nextUrl.searchParams.get('id') || 0);
+    if (!invitadoId && !shareId) return NextResponse.json({ ok: false, error: 'falta a quién' }, { status: 400 });
+    const token = invitadoId
+      ? await regenerarTokenInvitado(WS, invitadoId)
+      : await regenerarTokenShare(WS, shareId);
     if (!token) return NextResponse.json({ ok: false, error: 'no encontrado' }, { status: 404 });
     return NextResponse.json({ ok: true, enlace: `${base(req)}/compartido/${token}` });
   } catch (e) {

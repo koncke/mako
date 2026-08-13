@@ -296,6 +296,25 @@ export async function regenerarTokenInvitado(ws: number, id: number): Promise<st
   return token;
 }
 
+/** Le da a un share de modo 'link' un token NUEVO y lo devuelve, o null si no es
+ *  de este workspace, está vencido o es de invitados (ése no tiene link propio:
+ *  el link es de cada persona, y para eso está `regenerarTokenInvitado`).
+ *
+ *  Es la contracara de la regla 1 de arriba: del token solo hay un sha256, así
+ *  que «mostrámelo de nuevo» **no existe** — se emite otro. Sin esto, perder la
+ *  única vez que se mostró el link obligaba a revocar y crear uno nuevo, que es
+ *  lo mismo con más pasos y sin conservar las visitas. */
+export async function regenerarTokenShare(ws: number, id: number): Promise<string | null> {
+  const share = await getShare(ws, id);
+  if (!share || !vigente(share) || share.modo !== 'link') return null;
+  const token = nuevoToken();
+  const { error } = await getSupabaseServer().from('shares')
+    .update({ token_hash: hash(token), token_prefijo: prefijoDe(token) })
+    .eq('workspace_id', ws).eq('id', id);      // el ws otra vez: getShare ya lo validó, pero el update no se escribe sin filtro
+  if (error) throw new Error(error.message);
+  return token;
+}
+
 /** Revoca un invitado, verificando ANTES que su share sea de este workspace.
  *  Sin el join contra `shares` alcanzaría con adivinar un id para cortarle el
  *  acceso a alguien de otro inquilino. */
