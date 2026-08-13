@@ -17,6 +17,7 @@ habilita a darle mejores prompts al otro Claude».
 - Hay features **terminadas, con migración y API propias, que ninguna página monta**: compilan y no existen → [Código construido que ninguna página monta](#código-construido-que-ninguna-página-monta).
 - Si Claude Code «se cierra solo» y la PC sigue andando, es el **proceso GPU** muriendo por la gráfica híbrida — y los tres diagnósticos obvios (memoria, energía, drivers) estaban los tres equivocados → [El equipo](#el-equipo-cuando-se-cierra-claude-code-y-no-es-claude-code).
 - El repo es **CRLF**: un reemplazo por bloque buscó `'\n];\n'`, no matcheó, se fue 700 líneas más abajo y **borró 76 KB con exit 0** → [Editar este repo](#editar-este-repo-archivos-grandes-saltos-de-línea-y-nombres).
+- Verificar contra **`127.0.0.1` en vez de `localhost`** deja la página entera y sin hidratar, sin un solo error en el navegador — y las dos explicaciones que uno tiene a mano («rompí yo», «lo rompió la otra sesión») parecen confirmarse → [Tests y entorno local](#️-127001-no-es-localhost-para-el-dev-server-la-página-se-ve-entera-y-no-hidrata).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -1365,6 +1366,50 @@ con el mismo nombre compilan para siempre.
 | **`node --test` corre cada archivo en su propio proceso** | ídem | Se aprovecha a favor: para un ciclo de imports, un test importa A primero y otro importa B primero, y así quedan cubiertos los dos órdenes de carga |
 | **tsx NO resuelve el alias `@/`** | ídem | Los tests usan imports relativos |
 | **El typecheck no corre en el build** | `.git/hooks/pre-push` | Ver [Build, deploy y entrega](#build-deploy-y-entrega) |
+
+### ⚠️ `127.0.0.1` NO es `localhost` para el dev server: la página se ve entera y no hidrata
+
+**Síntoma.** Se abre una pantalla contra `http://127.0.0.1:3111/…` con un navegador
+automatizado y **todo parece bien**: HTTP 200, el HTML completo, las 10 tarjetas en el DOM,
+la consola sin un solo error, todas las requests en 200 y ninguna falla de red. Pero
+**ningún click hace nada**. `Object.keys(el)` no tiene ninguna clave `__react*` y
+`window.__next_f` está **vacío** aunque el payload de RSC viaja adentro del HTML.
+
+**El diagnóstico obvio es el equivocado, y hay dos.** El primero es «rompí la hidratación
+con mi cambio». El segundo, que es el que este repo tiene escrito en `AGENTS.md` y por eso
+convence más, es «la otra sesión dejó un `export` a medias y rompió el bundle entero».
+Probar otra ruta **refuerza** la conclusión falsa: `/vsl` tampoco hidrata, y un curso
+compartido que anda perfecto en producción **tampoco**. Todo apunta a un bundle roto.
+
+**Causa.** Next 16 bloquea el acceso *cross-origin* a los recursos de desarrollo. El server
+se anuncia en `localhost`; pedirle desde `127.0.0.1` es **otro origen**, así que los chunks
+del cliente se sirven pero el arranque se corta. La única evidencia está en el **stdout del
+dev server**, no en el navegador:
+
+```
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+To allow this host in development, add it to "allowedDevOrigins"…
+```
+
+**Regla.** Para verificar en el navegador, la URL es **`localhost`**, siempre — no
+`127.0.0.1`, aunque `Test-NetConnection` y `curl` funcionen igual con las dos (lo que se
+rompe es la hidratación, no la conexión). Y la que generaliza: **cuando la página se ve
+pero no reacciona, el primer lugar donde mirar es el stdout del dev server**, no la consola
+del navegador — este error no llega al cliente.
+
+Los otros dos motivos por los que una página no hidrata están en
+[[verificar-en-navegador]]: el panel del navegador que no está a la vista, y el `export` a
+medias de la otra sesión. Los tres dan **exactamente el mismo síntoma**, así que hay que
+descartarlos por causa, no por parecido.
+
+**Cómo se manejó sin panel.** Con Playwright, que no está en `node_modules` del repo pero
+sí en la caché de npx (`~/AppData/Local/npm-cache/_npx/*/node_modules/playwright`, con los
+navegadores en `~/AppData/Local/ms-playwright`): se importa por ruta absoluta desde un
+`.mjs` del scratchpad y se corre con el sandbox apagado (el sandbox no llega a localhost).
+Eso permitió verificar clicks, navegación y estado de React sin depender del panel.
+
+**Vive en:** cualquier verificación con `mcp__Claude_Browser__*` o Playwright contra
+`next dev` (corrida del 2026-08-12)
 
 ### ⚠️ El dev server puede quedarse mostrando un error de sintaxis que YA NO EXISTE
 
