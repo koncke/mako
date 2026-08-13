@@ -55,8 +55,8 @@ const CATEGORIA: Record<string, string> = {
   'aumenta-tu-valor-y-atv-advantage': 'Negocios digitales',
   'sell-your-knowledge': 'Negocios digitales',
   // IA y generación de piezas
-  avatarhype: 'IA & Generación de Imágenes y Vídeo',
-  'claude-ai-rodrigo-rojo': 'IA & Generación de Imágenes y Vídeo',
+  avatarhype: 'Inteligencia Artificial',
+  'claude-ai-rodrigo-rojo': 'Inteligencia Artificial',
   // Publicidad paga
   'anuncio-ganador': 'Anuncios',
   // Alcance sin pauta
@@ -95,6 +95,33 @@ const PORTADA: Record<string, string> = {
   avatarhype: '/cono-portadas/avatarhype.jpg',
 };
 
+/**
+ * Quién dicta cada curso, para los que NO lo declaran en su título.
+ *
+ * Vive acá por la misma razón que los dos mapas de arriba: estos cursos están en
+ * `curso.ts`, que es auto-generado, y lo que se escriba ahí se pierde en la próxima
+ * regeneración.
+ *
+ * ⚠️ La forma «Curso - Autor» NO se inventa acá: es la misma que produce el pipeline
+ * en `curso-a-portal.mjs` (`tituloConAutor`), y por eso también repite su regla de no
+ * duplicar cuando el título YA nombra al autor. Si las dos formas divergieran, la
+ * grilla mostraría dos convenciones distintas según de dónde vino cada curso — que es
+ * exactamente lo que este archivo existe para evitar.
+ *
+ * Los de la sección propia van sin autor: son de la casa.
+ */
+const AUTOR: Record<string, string> = {
+  masteryhaus: 'Sofía Contreras',
+  bluehacker: 'Marcos Razzetti',
+  'anuncio-ganador': 'Jan Schroeder',
+};
+
+// Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
+// «Sofía». Comparar en crudo daría un «X - Autor» duplicado y nadie lo miraría dos veces.
+const sinAcentos = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const conAutor = (titulo: string, autor?: string) =>
+  autor && !sinAcentos(titulo).includes(sinAcentos(autor)) ? `${titulo} - ${autor}` : titulo;
+
 // curso.ts es AUTO-GENERADO desde transcripciones: los cursos escritos a mano
 // viven en su propio archivo y se suman acá.
 export const CURSOS_TODOS: Curso[] = [
@@ -105,6 +132,7 @@ export const CURSOS_TODOS: Curso[] = [
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
   portada: c.portada ?? PORTADA[c.slug],
+  titulo: conAutor(c.titulo, AUTOR[c.slug]),
 }));
 
 export const buscarCurso = (slug: string | null | undefined): Curso | undefined =>

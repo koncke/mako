@@ -42,6 +42,14 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 12. **⚠️ Quedarse con «la respuesta más grande» costó DOS diagnósticos equivocados.** La
     llamada anónima traía 92 filas inservibles y la buena 41 útiles. Tamaño ≠ corrección.
     [→](#️-quedarse-con-la-respuesta-más-grande-dos-diagnósticos-equivocados)
+13. **⚠️ Un curso de 116 clases se enumeró como CERO**, y el mensaje de error señalaba el
+    lugar equivocado. La misma heurística rota servía para dos cosas distintas.
+    [→](#️-no-encontré-ninguna-clase-en-un-curso-de-116-la-duración-no-puede-ser-el-requisito)
+14. **La página publica cuántas lecciones tiene** (`0/11` en cada módulo): ese número es
+    ajeno a nuestra heurística y por eso sirve de patrón. Ahora se aborta si no da.
+    [→](#la-página-publica-cuántas-lecciones-tiene-úsalo-como-patrón)
+15. **⚠️ `.al-chip` estaba escrito dos veces en la misma hoja** y el segundo pisaba al
+    primero sin ningún aviso. [→](#️-al-chip-estaba-definido-dos-veces-y-el-segundo-ganaba-en-silencio)
 
 ---
 
@@ -833,6 +841,93 @@ creador lo colgó de la lección 5. Se comprobó leyendo el DOM, no razonando so
 **La regla:** antes de «arreglar» una asociación que se ve rara, mirar la fuente. El
 pipeline replica lo que hay; inventar una corrección lo desincroniza del original y nadie
 se entera hasta que el dueño abre las dos pantallas al lado.
+
+## Enumerar las clases de un curso
+
+### ⚠️ «No encontré ninguna clase» en un curso de 116: la duración no puede ser el requisito
+
+**2026-08-13, «M5 -95» (Juan ADS).** El enumerador cortó con *«ronda 1: 0 → 0 clases
+visibles (18 cabeceras, 0 abierta/s)»* y el mensaje *«Abrí la página del curso (no el
+catálogo)»* — estando en la página del curso, con los 18 módulos bien detectados.
+
+La causa: `curso-plan.mjs` reconocía una clase por tener una duración `mm:ss`. Este curso
+no la muestra: sus lecciones se rotulan **`02 1. Introducción Preparación`** y nada más.
+Cero clases detectadas, y el mensaje de error apuntaba al lugar equivocado.
+
+Y había un segundo efecto, peor, porque el mismo detector roto se usaba para otra cosa:
+**la señal de «este click ABRIÓ el acordeón» era “¿crecieron las clases visibles?”**. Con
+el detector en cero, abrir los 18 módulos se leía como no haber abierto ninguno. Un bug
+tapando al otro.
+
+Los tres arreglos, y por qué cada uno:
+
+| Qué | Antes | Ahora |
+|---|---|---|
+| Señal de abrir/cerrar | contaba *clases* (depende del formato) | cuenta **botones** (no depende de nada) |
+| Reconocer una clase | exigía duración | duración **o** número de orden |
+| Duración ausente | — | se emite `''`, no `'00:00'` |
+
+**La regla que queda:** cuando una heurística sirve para dos cosas, su falla se propaga a
+las dos y el síntoma aparece en la que menos se parece a la causa. La señal mecánica
+(«¿cambió el DOM?») tiene que ser independiente de la señal semántica («¿esto es una
+clase?»).
+
+### La página publica cuántas lecciones tiene: úsalo como patrón
+
+Cada cabecera de módulo muestra su progreso, `0/11`. **Ese denominador es la cuenta de la
+plataforma, ajena a nuestra heurística**, y sumarlo da el total real del curso. Ahora
+`curso-plan.mjs` compara lo enumerado contra esa suma y **aborta si queda corto por más
+del 10%**, en vez de escribir un plan a medias.
+
+Es la misma lección que ya costó cara con Julián (41 de 92) y con los recursos de ATV:
+**un contador que se suma a sí mismo no verifica nada.** Hay que medir contra algo que
+venga de afuera — el disco, Drive, o como acá, el número que la propia fuente publica.
+
+### GOTCHA: `| head` mata el script a mitad y el resumen final miente
+
+Corrí `node scripts/curso-plan.mjs … | head -30` para no llenar la consola. Se vieron las
+primeras clases resolviéndose bien… y `plan.json` **nunca se escribió**. `head` cierra el
+pipe al llegar a su límite, el productor recibe SIGPIPE y muere — pero lo que quedó en
+pantalla parecía una corrida sana.
+
+**Nunca canalizar a `head` un script que produce un archivo.** Redirigir a un `.log` y
+leer el archivo después, o correrlo en background.
+
+### Los títulos de módulo vienen CORTADOS de origen (y no hay nada mejor que sacar)
+
+En «M5 -95», 4 de los 18 módulos llegan truncados a ~31 caracteres: *«Módulo 3 ¿Estratega
+o Creador de»*, *«Modulo 9 FAST 5-95 Gana tus prim»*. Se verificó que **no es culpa de
+`innerText`**: `textContent` —que ignora el CSS— devuelve exactamente lo mismo, así que el
+corte está en el markup de la plataforma.
+
+Se dejan como están. Completar el título adivinando el final produciría un nombre de
+carpeta en Drive que no existe en ningún lado; el nombre cortado, al menos, es fiel y
+sigue siendo único. Si algún día hace falta el título entero, sale del RPC de módulos, no
+del DOM.
+
+## El portal
+
+### ⚠️ `.al-chip` estaba definido DOS veces y el segundo ganaba en silencio
+
+Los chips del filtro de categorías declaraban `border-radius:999px`, tipografía monoespaciada
+y borde tenue. **Nunca se vieron así.** Más abajo en la misma hoja, la sección «Chips»
+define otro `.cono .al-chip` —el de las herramientas de un recurso— con la misma
+especificidad y posterior en el archivo, así que ganaba él: radio 9px, sin mono, borde
+sólido.
+
+Dos usos distintos con el mismo nombre de clase en una hoja de 300 líneas. No hay error, no
+hay warning, y leer el bloque de arriba te convence de que el estilo es el que dice.
+**Antes de dar por buena una regla CSS, buscá el selector en TODO el archivo.**
+
+(El filtro pasó a ser un desplegable, así que ese bloque ya no existe. Queda el aviso donde
+estaba.)
+
+### El CSS del portal es un template literal: un backtick lo parte al medio
+
+`export const CSS = \`…\`` son ~300 líneas dentro de un template literal. Un comentario que
+citaba un nombre de clase con backticks cerró la cadena y produjo cuatro errores de tipos
+crípticos (`Property 'al' does not exist on type '"\n.cono.ahc {…'`) que no mencionan la
+causa por ningún lado. En ese bloque, los nombres de clase van sin backticks.
 
 ## Decisiones
 

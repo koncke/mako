@@ -17,6 +17,11 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import type { Curso, Clase, Recurso } from './curso';
+// El desplegable de la casa, y no uno propio: ya resuelve portal (para que no lo
+// recorte ningún overflow), click afuera, Escape, cierre al scrollear y foco. Sus
+// tokens viven en `:root` de globals.css, que carga el layout raíz — o sea que
+// también funciona en /compartido/<token>, que va sin login.
+import { Dropdown } from '../components/Dropdown';
 
 export const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${id}/preview`;
 export const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}/view`;
@@ -164,6 +169,10 @@ export function Selector({ cursos, enter, compartir, sinMarca }: {
     return m;
   }, [cursos, terminos]);
 
+  // Cuántos quedan ignorando la categoría: es lo que promete «Todas», así que sale
+  // de la misma cuenta que los contadores de cada una y no de `filtrados`.
+  const totalFiltrado = useMemo(() => [...porCategoria.values()].reduce((a, b) => a + b, 0), [porCategoria]);
+
   const filtrados = useMemo(
     () => cursos.filter((c) => (!cat || c.categoria === cat) && coincide(c, terminos)),
     [cursos, cat, terminos],
@@ -202,27 +211,39 @@ export function Selector({ cursos, enter, compartir, sinMarca }: {
           />
           {q && <button type="button" className="al-buscar-x" onClick={() => setQ('')} aria-label="Borrar la búsqueda">×</button>}
         </div>
-        {/* Chips que ENVUELVEN, nunca scroll lateral: esconder una categoría detrás de
-            un gesto es esconderla (regla de navegación de AGENTS.md). */}
-        <div className="al-chips">
-          <button type="button" className={`al-chip${cat === null ? ' es' : ''}`} onClick={() => setCat(null)}>
-            Todas <span className="al-chip-n">{[...porCategoria.values()].reduce((a, b) => a + b, 0)}</span>
-          </button>
-          {[...new Set(cursos.map((c) => c.categoria))].map((k) => {
-            const n = porCategoria.get(k) ?? 0;
-            return (
-              <button
-                key={k}
-                type="button"
-                className={`al-chip${cat === k ? ' es' : ''}${n === 0 ? ' vacio' : ''}`}
-                onClick={() => setCat(cat === k ? null : k)}
-                aria-pressed={cat === k}
-              >
-                {k} <span className="al-chip-n">{n}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* El filtro va PEGADO al buscador y no como una fila de chips sueltos: son el
+            mismo gesto —acotar la lista— y separarlos hacía leer dos controles. */}
+        <Dropdown
+          value={cat ?? ''}
+          onChange={(v) => setCat(v || null)}
+          ariaLabel="Filtrar por categoría"
+          align="right"
+          // Sin `icono`: el Dropdown ya dibuja su propio caret a la derecha y sumar
+          // otro deja el botón con DOS flechitas («⏷ Todas las categorías ▾»).
+          // El rótulo ya dice qué es esto.
+          // El contador va en el SUBTÍTULO y no pegado al nombre: con el número al
+          // lado, «Anuncios 1» se lee como si la categoría se llamara así.
+          options={[
+            { value: '', label: 'Todas las categorías', sub: `${totalFiltrado} curso${totalFiltrado === 1 ? '' : 's'}` },
+            ...[...new Set(cursos.map((c) => c.categoria))].map((k) => {
+              const n = porCategoria.get(k) ?? 0;
+              return {
+                value: k,
+                label: k,
+                sub: n === 0 ? 'Sin resultados' : `${n} curso${n === 1 ? '' : 's'}`,
+                // Una categoría vacía se DESHABILITA pero no se esconde: si desaparece,
+                // el menú se reordena debajo del cursor mientras se escribe.
+                disabled: n === 0,
+              };
+            }),
+          ]}
+          buttonStyle={{
+            fontFamily: 'var(--disp)', fontSize: 15.5, fontWeight: 500,
+            border: '1.5px solid var(--ink)', borderRadius: 11, padding: '12px 14px',
+            background: cat ? 'var(--lime)' : 'var(--card)', color: 'var(--ink)',
+            boxShadow: 'var(--shadow-paste)', whiteSpace: 'nowrap',
+          }}
+        />
       </section>
 
       {filtrando && filtrados.length === 0 && (
@@ -694,9 +715,12 @@ export const CSS = `
 .cono .al-sub{ font-size:clamp(15px,2vw,18px); line-height:1.6; color:var(--ink-80); max-width:56ch; margin:16px 0 0; }
 .cono .al-sub-sm{ font-size:15px; margin-top:6px; }
 
-/* Buscador + chips de categoría, arriba de todas las secciones */
-.cono .al-filtros{ display:flex; flex-direction:column; gap:12px; margin-top:26px; }
-.cono .al-buscar{ display:flex; align-items:center; gap:9px; background:var(--card); border:1.5px solid var(--ink); border-radius:11px; padding:0 12px; box-shadow:var(--shadow-paste); }
+/* Buscador + desplegable de categoría, arriba de todas las secciones.
+   Una sola FILA: el buscador crece y el filtro queda al final, pegado. En pantalla
+   angosta envuelve y el filtro pasa a ocupar el ancho, en vez de espicharse hasta
+   que su rótulo deje de leerse. */
+.cono .al-filtros{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:26px; }
+.cono .al-buscar{ flex:1 1 260px; display:flex; align-items:center; gap:9px; background:var(--card); border:1.5px solid var(--ink); border-radius:11px; padding:0 12px; box-shadow:var(--shadow-paste); }
 .cono .al-buscar:focus-within{ box-shadow:var(--shadow-stamp); }
 .cono .al-buscar-ico{ font-size:17px; color:var(--ink-40); line-height:1; }
 .cono .al-buscar-in{ flex:1; min-width:0; border:0; outline:0; background:transparent; font-family:var(--disp); font-size:15.5px; color:var(--ink); padding:12px 0; }
@@ -707,17 +731,13 @@ export const CSS = `
 .cono .al-buscar-x{ border:0; background:transparent; cursor:pointer; font-size:19px; line-height:1; color:var(--ink-40); padding:4px; }
 .cono .al-buscar-x:hover{ color:var(--ink); }
 
-/* flex-wrap, NUNCA scroll lateral: una categoría escondida detrás de un gesto es una
-   categoría que no existe (regla de navegación de AGENTS.md). */
-.cono .al-chips{ display:flex; flex-wrap:wrap; gap:8px; }
-.cono .al-chip{ display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink); background:var(--card); border:1.5px solid var(--ink-15); border-radius:999px; padding:7px 13px; cursor:pointer; transition:background .12s ease, border-color .12s ease; }
-.cono .al-chip:hover{ border-color:var(--ink); }
-.cono .al-chip.es{ background:var(--lime); border-color:var(--ink); }
-/* Una categoría sin resultados se atenúa pero NO se esconde: si desaparece, el mapa
-   de secciones cambia debajo del cursor mientras se escribe. */
-.cono .al-chip.vacio{ opacity:.4; }
-.cono .al-chip-n{ font-size:10px; color:var(--ink-60); }
-.cono .al-chip.es .al-chip-n{ color:var(--ink); }
+/* ⚠️ Acá vivían los chips del filtro y NUNCA se vieron como decían: más abajo
+   (sección «Chips») hay OTRA regla .al-chip —la de las herramientas de un recurso—
+   con la misma especificidad y posterior, así que ganaba ella y pisaba el radio, la
+   tipografía y el borde de estos. Dos usos distintos con el mismo nombre de clase en
+   la misma hoja: el segundo siempre gana y nada avisa. Ojo con los backticks en este
+   bloque: todo el CSS es un template literal y un backtick lo corta al medio.
+   Si hace falta un chip nuevo acá, que lleve nombre propio. */
 .cono .al-linkbtn{ border:0; background:transparent; padding:0; cursor:pointer; font:inherit; color:var(--lime-ink); text-decoration:underline; }
 
 /* Secciones */

@@ -118,6 +118,15 @@ const main = async () => {
   // Y no se puede confiar en aria-expanded: acá no existe. Así que se mide el
   // efecto de cada click y, si CERRÓ en vez de abrir, se vuelve a clickear. Se
   // repite en rondas porque un módulo abierto puede revelar submódulos cerrados.
+  // ⚠️ La señal de «este click ABRIÓ» no puede ser «cuántas clases se ven», porque
+  // reconocer una clase depende del formato del curso. «M5 -95» (Juan ADS) no
+  // muestra duración en sus lecciones —dicen «02 1. Introducción» y nada más—, así
+  // que el contador viejo daba 0 en todas las rondas y el script cortó con «no
+  // encontré ninguna clase» habiendo abierto los 18 módulos correctamente.
+  //
+  // Se cuenta el TOTAL de botones: abrir un acordeón agrega nodos y cerrarlo los
+  // saca, en cualquier curso y sin depender de cómo se rotule una lección.
+  const contarBotones = `document.querySelectorAll('button').length`;
   const contarClases = `[...document.querySelectorAll('button')].filter(b => { const t=(b.innerText||'').replace(/\\s+/g,' ').trim(); return /\\b\\d{1,2}:\\d{2}\\b/.test(t) && !/\\d+\\s*\\/\\s*\\d+/.test(t); }).length`;
   const antes = await ev(contarClases);
 
@@ -133,24 +142,39 @@ const main = async () => {
   })()`;
 
   for (let ronda = 1; ronda <= 8; ronda++) {
-    const previo = await ev(contarClases);
+    const previo = await ev(contarBotones);
     const cabeceras = await ev(marcar);
     let abiertos = 0;
     for (let i = 0; i < (cabeceras ?? 0); i++) {
-      const c0 = await ev(contarClases);
+      const c0 = await ev(contarBotones);
       const hizo = await ev(`(() => { const b = document.querySelector('button[data-cxh="${i}"]'); if (!b) return false; b.click(); return true; })()`);
       if (!hizo) continue;
       await new Promise((r) => setTimeout(r, 130));
-      const c1 = await ev(contarClases);
+      const c1 = await ev(contarBotones);
       // Si cerró en vez de abrir, se revierte: no hay aria-expanded que consultar.
       if (c1 < c0) await ev(`(() => { const b = document.querySelector('button[data-cxh="${i}"]'); if (b) b.click(); return true; })()`);
       else if (c1 > c0) abiertos++;
     }
     await new Promise((r) => setTimeout(r, 400));
-    const ahora = await ev(contarClases);
-    console.log(`  ronda ${ronda}: ${previo} → ${ahora} clases visibles (${cabeceras} cabeceras, ${abiertos} abierta/s)`);
+    const ahora = await ev(contarBotones);
+    console.log(`  ronda ${ronda}: ${previo} → ${ahora} botones (${cabeceras} cabeceras, ${abiertos} abierta/s)`);
     if (ahora === previo) break;
   }
+
+  // Cuántas clases DEBERÍA haber, según la propia página: cada cabecera publica su
+  // progreso «0/11», y el denominador es el total de lecciones de ese módulo. Es la
+  // única cifra de la pantalla que no depende de nuestra heurística, así que sirve
+  // de patrón contra el cual medirse — y más abajo se compara de verdad.
+  const esperadas = await ev(`(() => {
+    let n = 0;
+    for (const b of document.querySelectorAll('button')) {
+      const t = (b.innerText || '').replace(/\\s+/g, ' ').trim();
+      if (t.length >= 120 || /\\b\\d{1,2}:\\d{2}\\b/.test(t)) continue;
+      const m = /(\\d+)\\s*\\/\\s*(\\d+)/.exec(t);
+      if (m) n += Number(m[2]);
+    }
+    return n;
+  })()`);
   const despues = await ev(contarClases);
   if (despues !== antes) console.log(`  (acordeones: ${antes} → ${despues} clases)\n`);
 
@@ -158,27 +182,39 @@ const main = async () => {
   //    cambian con cualquier build): un <button> cuyo texto tiene duración mm:ss.
   //    Se les pone un data-attr para poder volver a agarrar el MISMO botón después
   //    de cada click, porque React reordena y re-renderiza los nodos.
+  // ⚠️ La duración NO puede ser el requisito para reconocer una clase. Lo era, y
+  // por eso «M5 -95» (116 lecciones) se enumeró como CERO: sus lecciones se
+  // rotulan «02 1. Introducción Preparación», sin un mm:ss por ningún lado.
+  //
+  // Ahora se acepta por CUALQUIERA de las dos señales —duración, o el número de
+  // orden con el que la plataforma numera cada lección— y se descarta lo que
+  // lleva progreso «0/11», que es la marca de una cabecera de módulo. El chrome
+  // de la página (el menú de usuario, los botones del player) no cumple ninguna
+  // de las dos, así que queda afuera solo.
   const clases = await ev(`(() => {
     const dur = /\\b(\\d{1,2}:\\d{2})\\b/;
+    const numerada = /^\\s*\\d{1,3}\\s*[.)]?\\s+\\S/;
     const vistos = new Set();
     const out = [];
     let i = 0;
     for (const b of document.querySelectorAll('button')) {
       const txt = (b.innerText || '').replace(/\\s+/g, ' ').trim();
       if (!txt || txt.length > 200) continue;
-      const m = dur.exec(txt);
-      if (!m) continue;
       // Cabecera de módulo: lleva progreso (0/2) en CUALQUIER posición, no solo
       // al final — hay cabeceras como «1. ONBOARDING 0/2 1».
       if (/\\d+\\s*\\/\\s*\\d+/.test(txt)) continue;
+      const m = dur.exec(txt);
+      if (!m && !numerada.test(txt)) continue;
       if (vistos.has(txt)) continue;
       vistos.add(txt);
       b.setAttribute('data-cx', String(i));
       out.push({
         idx: i,
         crudo: txt,
-        duracion: m[1],
-        titulo: txt.replace(/^\\s*\\d{1,3}\\s+/, '').replace(dur, '').replace(/^\\s*\\d{1,3}[.)]\\s*/, '').trim(),
+        // Sin duración se emite vacío en vez de inventar «00:00»: un cero es un
+        // dato, y acá el dato es que la plataforma no lo publica.
+        duracion: m ? m[1] : '',
+        titulo: txt.replace(dur, '').replace(/^\\s*\\d{1,3}\\s+/, '').replace(/^\\s*\\d{1,3}[.)]\\s*/, '').trim(),
       });
       i++;
     }
@@ -189,7 +225,24 @@ const main = async () => {
     console.error('  ✖ No encontré ninguna clase. Abrí la página del curso (no el catálogo).\n');
     process.exit(1);
   }
-  console.log(`  ${clases.length} clases detectadas.\n`);
+
+  // Contra qué se mide: NO contra sí mismo. Los contadores «0/11» de las cabeceras
+  // son la cuenta de la plataforma, ajena a nuestra heurística, y sumarlos da el
+  // total real. Comparar contra eso es lo que convierte un enumerado corto —el
+  // fallo silencioso de siempre: bajás 41 de 92 y nada avisa— en un error visible.
+  if (esperadas > 0 && clases.length !== esperadas) {
+    const falta = esperadas - clases.length;
+    console.log(`  ⚠ La página dice ${esperadas} lecciones y detecté ${clases.length}` +
+      (falta > 0 ? ` — faltan ${falta}.` : ` — hay ${-falta} de más.`));
+    if (falta > 0 && clases.length < esperadas * 0.9) {
+      console.error(`\n  ✖ Corto por más del 10%. NO escribo un plan incompleto:`);
+      console.error(`    un curso a medias se baja entero y el faltante recién aparece al final.`);
+      console.error(`    Probá con --espera más alto (a este le hicieron falta 20s) y si sigue,`);
+      console.error(`    revisá cómo rotula las lecciones: puede ser un formato nuevo.\n`);
+      process.exit(3);
+    }
+  }
+  console.log(`  ${clases.length} clases detectadas${esperadas ? ` (la página dice ${esperadas})` : ''}.\n`);
 
   // 3. Módulos: para saber a qué módulo pertenece cada clase, se lee el orden
   //    del documento — la cabecera de módulo precede a sus clases.
