@@ -20,7 +20,7 @@
 //   node <abs>\scripts\curso-organizar.mjs --plan C:\cursos\<slug>\plan.json
 //   node <abs>\scripts\curso-organizar.mjs --plan … --aplicar
 
-import { readFileSync, existsSync, readdirSync, mkdirSync, renameSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, mkdirSync, renameSync, rmdirSync, statSync } from 'node:fs';
 import { join, dirname, basename, extname } from 'node:path';
 
 const arg = (n, d) => {
@@ -56,9 +56,24 @@ if (basename(base) !== nombreDestino) {
   console.log(`  Raíz: «${basename(base)}»  →  «${nombreDestino}»`);
   if (APLICAR) {
     if (existsSync(raizNueva)) { console.error(`  ✖ Ya existe ${raizNueva}. No piso nada.\n`); process.exit(1); }
-    renameSync(base, raizNueva);
+    try {
+      renameSync(base, raizNueva);
+      console.log(`  ✓ renombrada`);
+    } catch (e) {
+      // ⚠️ En Windows un handle abierto sobre el DIRECTORIO hace fallar el rename con
+      // EPERM aunque ningún proceso lo tenga como cwd: lo agarran Drive for Desktop,
+      // el indexador o el antivirus, y no se puede esperar a que suelten.
+      // Mover los HIJOS sí funciona: el lock es del handle del directorio, no de su
+      // contenido. Se crea el destino, se mueve cada entrada y se borra el cascarón.
+      if (e.code !== 'EPERM' && e.code !== 'EBUSY' && e.code !== 'EACCES') throw e;
+      console.log(`  (rename directo falló con ${e.code} — muevo el contenido)`);
+      mkdirSync(raizNueva, { recursive: true });
+      for (const entrada of readdirSync(base)) renameSync(join(base, entrada), join(raizNueva, entrada));
+      try { rmdirSync(base); console.log(`  ✓ movida`); }
+      catch { console.log(`  ✓ movida (quedó la carpeta vieja VACÍA: ${base} — borrala cuando el handle se suelte)`); }
+    }
     base = raizNueva;
-    console.log(`  ✓ renombrada\n`);
+    console.log('');
   } else { console.log(`  (simulación: no la toco)\n`); }
 } else {
   console.log(`  Raíz: ya se llama «${nombreDestino}»\n`);

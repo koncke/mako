@@ -181,8 +181,23 @@ if (!tiene('solo-ids')) {
     const dst = join(dirCurso, etiqueta);
     mkdirSync(dst, { recursive: true });
     let n = 0;
-    for (const f of readdirSync(d)) {
-      const a = join(d, f), b = join(dst, f);
+    // ⚠️ `texto/` puede estar organizado en subcarpetas de módulo (curso-organizar.mjs),
+    // así que hay entradas que son DIRECTORIOS. Tratar todo como archivo revienta con
+    // EPERM al hacer copyFileSync sobre una carpeta — y el error no dice «es un
+    // directorio», dice «operation not permitted», que manda a buscar permisos.
+    // Se camina un nivel y se replica la estructura.
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.isDirectory()) {
+        const sd = join(d, e.name), sdst = join(dst, e.name);
+        mkdirSync(sdst, { recursive: true });
+        for (const f of readdirSync(sd, { withFileTypes: true }).filter((x) => x.isFile())) {
+          const a = join(sd, f.name), b = join(sdst, f.name);
+          if (existsSync(b) && statSync(b).size === statSync(a).size) continue;
+          copyFileSync(a, b); n++;
+        }
+        continue;
+      }
+      const a = join(d, e.name), b = join(dst, e.name);
       if (existsSync(b) && statSync(b).size === statSync(a).size) continue;
       copyFileSync(a, b); n++;
     }

@@ -724,6 +724,34 @@ confirmó (`Read` sobre el archivo), y lo que no se hizo las dos primeras veces.
 
 **Vive en:** `scripts/curso-portada.mjs`
 
+### Dos trampas de Windows al reorganizar en carpetas, y las dos dicen «EPERM»
+
+Aparecieron juntas al organizar el segundo curso, y el mensaje de error apunta al
+lugar equivocado en las dos.
+
+**1. Renombrar el DIRECTORIO falla aunque nada lo tenga como cwd.** `renameSync` sobre
+la raíz del curso daba `EPERM: operation not permitted`, con cero procesos de node o
+python referenciándola. Lo agarran **Drive for Desktop**, el indexador o el antivirus,
+y no hay a quién esperar.
+
+**La salida:** mover los **hijos**. El lock es del handle del directorio, no de su
+contenido — se crea el destino, se mueve cada entrada y se borra el cascarón. Y si el
+cascarón tampoco se puede borrar, se avisa en vez de fallar: queda una carpeta vacía,
+que es inofensivo.
+
+**2. `copyFileSync` sobre una carpeta también dice `EPERM`.** El copiado de material a
+Drive trataba cada entrada de `texto/` como archivo, y después de organizar hay
+**subcarpetas de módulo**. El error no dice «es un directorio»: dice «operation not
+permitted», que manda a revisar permisos de Drive durante un rato.
+
+**Regla.** Cualquier bucle que copie el contenido de un directorio usa
+`readdirSync(d, { withFileTypes: true })` y decide por `isDirectory()`. Y ante un
+`EPERM` en una operación de archivos, **la primera pregunta es «¿esto es un
+directorio?»**, no «¿tengo permisos?».
+
+**Vive en:** `scripts/curso-organizar.mjs` (el fallback del rename) ·
+`scripts/curso-a-drive.mjs` (el copiado de material)
+
 ## Decisiones
 
 ### La FUENTE del material entra en el criterio, no solo el formato
