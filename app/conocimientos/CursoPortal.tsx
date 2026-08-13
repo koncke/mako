@@ -127,10 +127,14 @@ export function Card({ badge, nota, titulo, desc, onClick, ariaLabel, img }: { b
 // el link compartido de la tab entera (`/compartido/<token>`). La lista llega
 // por prop porque no es la misma en los dos lados — Branding no se puede servir
 // sin login (ver `CURSOS_COMPARTIBLES` en catalogo.ts).
-export function Selector({ cursos, enter, compartir }: {
+export function Selector({ cursos, enter, compartir, sinMarca }: {
   cursos: Curso[];
   enter: (slug: string) => void;
   compartir?: ReactNode;
+  /** Un link repartido afuera no lleva el nombre de la casa. Es un booleano y no
+   *  el texto del rótulo a propósito: así los dos rótulos viven en ESTE archivo y
+   *  no se puede escribir un tercero desde otra pantalla. */
+  sinMarca?: boolean;
 }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string | null>(null);
@@ -178,7 +182,7 @@ export function Selector({ cursos, enter, compartir }: {
     <>
       <section className="al-hero">
         <div className="al-hero-top">
-          <span className="al-eyebrow"><span className="d" /> Conocimientos · MaKo</span>
+          <span className="al-eyebrow"><span className="d" /> {sinMarca ? 'Conocimientos' : 'Conocimientos · MaKo'}</span>
           {compartir}
         </div>
         <h1 className="al-h1">Cursos</h1>

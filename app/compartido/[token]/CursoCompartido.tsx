@@ -33,14 +33,14 @@ export default function CursoCompartido({ curso, invitado }: { curso: Curso; inv
       marca={
         <span className="al-brand">
           <span className="b">Cono<span>cimientos</span></span>
-          <span className="sub">MaKo · formación</span>
+          <span className="sub">Formación</span>
         </span>
       }
       tag={<span className="al-toptag">{curso.titulo}</span>}
     >
       <CursoPortal curso={curso} vista={vista} nav={nav} back={back} />
       <p className="al-shared-ft">
-        Material de MaKo · enlace privado{invitado ? ` · compartido con ${invitado}` : ''}
+        Enlace privado{invitado ? ` · compartido con ${invitado}` : ''}
       </p>
     </PortalShell>
   );

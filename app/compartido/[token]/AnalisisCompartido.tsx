@@ -16,14 +16,14 @@ export default function AnalisisCompartido({ invitado }: { invitado: string | nu
       marca={
         <span className="al-brand">
           <span className="b">Cono<span>cimientos</span></span>
-          <span className="sub">MaKo · formación</span>
+          <span className="sub">Formación</span>
         </span>
       }
       tag={<span className="al-toptag">Análisis de Negocio — Las 5 Fases</span>}
     >
       <AnalisisNegocio back={null} compartible={false} />
       <p className="al-shared-ft">
-        Material de MaKo · enlace privado{invitado ? ` · compartido con ${invitado}` : ''}
+        Enlace privado{invitado ? ` · compartido con ${invitado}` : ''}
       </p>
     </PortalShell>
   );

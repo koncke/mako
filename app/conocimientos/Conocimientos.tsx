@@ -18,7 +18,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { CURSOS_TODOS as TODOS, CURSOS_COMPARTIBLES, buscarCurso, VISTA_PROPIA } from './catalogo';
+import { CURSOS_TODOS as TODOS, CURSOS_COMPARTIBLES, CATEGORIA_PROPIA, buscarCurso, VISTA_PROPIA } from './catalogo';
 import AnalisisNegocio from './AnalisisNegocio';
 import BrandingMaKo from './BrandingMaKo';
 import Compartir from './Compartir';
@@ -27,8 +27,9 @@ import CursoPortal, { PortalShell, Selector } from './CursoPortal';
 // La letra chica del link de la TAB: cuántos cursos entran y qué queda afuera.
 // «Compartir "Conocimientos"» no dice ninguna de las dos cosas, y sin decirlas
 // el que comparte no sabe qué está repartiendo.
-const NOTA_TAB = `El link abre el portal completo: ${CURSOS_COMPARTIBLES.length} cursos con sus clases, videos y recursos. `
-  + 'Los cursos que se sumen después también aparecen. Branding MaKo no entra — se comparte desde adentro, por sección o pieza.';
+const NOTA_TAB = `El link abre el portal con ${CURSOS_COMPARTIBLES.length} cursos —sus clases, videos y recursos— y sin la marca de la casa. `
+  + `Los cursos que se sumen después también aparecen. La sección «${CATEGORIA_PROPIA}» NO entra: `
+  + 'para compartir uno de ésos, se comparte ese curso desde adentro.';
 
 export default function Conocimientos() {
   const router = useRouter();

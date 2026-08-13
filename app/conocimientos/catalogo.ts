@@ -128,16 +128,29 @@ export const VISTA_PROPIA = {
 } as const;
 
 /**
- * Los cursos que puede ver alguien SIN LOGIN cuando se comparte la tab entera.
+ * Los cursos que puede ver alguien SIN LOGIN cuando se comparte la TAB ENTERA.
  *
- * Es `CURSOS_TODOS` menos Branding, y la razón es que **no se puede servir**: su
- * material son bytes en un bucket privado que se piden a `/api/branding`, que
- * exige sesión de admin. Un invitado vería la galería vacía sin entender por
- * qué. Branding ya tiene su propio share (`recurso='branding'`), que además
- * comparte por sección o por pieza suelta — más fino que "todo".
+ * Se queda afuera **toda la sección `CATEGORIA_PROPIA`** — el método, la marca y
+ * los criterios de la casa. Es lo que pidió el dueño el 13/8/2026: un link
+ * repartido a un tercero muestra la formación, no lo nuestro. Eso ya cubre a
+ * Branding, que además no se podría servir aunque quisiéramos: su material son
+ * bytes en un bucket privado que se piden a `/api/branding`, admin-only, así que
+ * un invitado vería la galería vacía sin entender por qué. Branding tiene su
+ * propio share (`recurso='branding'`), más fino: por sección o por pieza.
+ *
+ * ⚠️ Esto NO gobierna el share de UN curso suelto. Compartir un curso de esta
+ * sección a propósito sigue funcionando —es un acto explícito, y su link ya está
+ * repartido— y se corta revocándolo desde el modal. Lo que se filtra acá es qué
+ * entra en el «compartí la tab», que es lo que nadie eligió curso por curso.
  *
  * Se calcula sobre `CURSOS_TODOS`, así que un curso nuevo entra solo: la
- * exclusión se declara por slug, nunca la inclusión por lista (una lista de
+ * exclusión se declara por sección, nunca la inclusión por lista (una lista de
  * incluidos deja afuera en silencio a todo lo que nadie se acordó de sumar).
  */
-export const CURSOS_COMPARTIBLES: Curso[] = CURSOS_TODOS.filter((c) => c.slug !== VISTA_PROPIA.branding);
+export const CURSOS_COMPARTIBLES: Curso[] = CURSOS_TODOS.filter(
+  // Dos condiciones y no una, porque son dos razones distintas: la sección es
+  // una decisión de producto (puede cambiar), y Branding es una imposibilidad
+  // técnica (no cambia). Si alguien saca Branding del mapa de secciones, la
+  // primera deja de cubrirlo y la segunda lo sigue tapando.
+  (c) => c.categoria !== CATEGORIA_PROPIA && c.slug !== VISTA_PROPIA.branding,
+);

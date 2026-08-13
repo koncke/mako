@@ -23,8 +23,10 @@ import { buscarCurso, VISTA_PROPIA } from '@/app/conocimientos/catalogo';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// Sin nombre de la casa: el título de la pestaña es lo primero que ve —y lo que
+// copia al reenviar— quien recibe el link.
 export const metadata: Metadata = {
-  title: 'Material compartido · MaKo',
+  title: 'Material compartido',
   robots: { index: false, follow: false },
 };
 

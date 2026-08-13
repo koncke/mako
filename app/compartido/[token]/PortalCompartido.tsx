@@ -11,8 +11,13 @@
 //   • no hay botón de Compartir (no se re-comparte lo que te compartieron);
 //   • la navegación es por ESTADO, no por URL — el token va en la ruta y no
 //     queremos que la clase abierta quede pegada en el link que se reenvía;
-//   • la lista de cursos es `CURSOS_COMPARTIBLES`, no `CURSOS_TODOS` (Branding
-//     no se puede servir sin sesión; el porqué está en catalogo.ts).
+//   • la lista de cursos es `CURSOS_COMPARTIBLES`, no `CURSOS_TODOS`: queda
+//     afuera la sección de lo propio (método, marca, criterios de la casa). El
+//     porqué de cada exclusión está en catalogo.ts.
+//
+// Y no lleva marca: un link que se reparte afuera muestra la formación, no de
+// quién es la app. Por eso el rótulo dice «Conocimientos · Formación» y el pie
+// «Enlace privado», sin nombre de la casa.
 //
 // ⚠️ La lista se resuelve EN CADA CARGA, no se congela al crear el link: un
 // curso que se suma al portal aparece en los links ya repartidos. Es lo que se
@@ -51,13 +56,13 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
         <button type="button" className="al-brand-btn" onClick={aTodos} aria-label="Ir a todos los cursos">
           <span className="al-brand">
             <span className="b">Cono<span>cimientos</span></span>
-            <span className="sub">MaKo · formación</span>
+            <span className="sub">Formación</span>
           </span>
         </button>
       ) : (
         <span className="al-brand">
           <span className="b">Cono<span>cimientos</span></span>
-          <span className="sub">MaKo · formación</span>
+          <span className="sub">Formación</span>
         </span>
       )}
       tag={curso
@@ -65,10 +70,15 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
         : undefined}
     >
       {!curso ? (
-        <Selector cursos={CURSOS_COMPARTIBLES} enter={(slug) => nav({ curso: slug })} />
+        <Selector cursos={CURSOS_COMPARTIBLES} enter={(slug) => nav({ curso: slug })} sinMarca />
       ) : curso.slug === VISTA_PROPIA.analisis ? (
         // El Análisis de Negocio es un formulario interactivo, no clases de
         // video: se dibuja aparte, sin Compartir y con su propio Volver.
+        //
+        // Hoy esta rama no se alcanza —el Análisis está en la sección propia y
+        // por eso no entra en `CURSOS_COMPARTIBLES`— y se deja igual a propósito:
+        // el día que salga de esa sección, sin esto se dibujaría con el portal
+        // genérico y aparecería un curso de CERO clases, sin ningún error.
         <AnalisisNegocio back={back} compartible={false} />
       ) : (
         // `backLabel`: el hub ya tenía un «← Volver» y el dueño igual leyó la
@@ -83,7 +93,7 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
         />
       )}
       <p className="al-shared-ft">
-        Material de MaKo · enlace privado{invitado ? ` · compartido con ${invitado}` : ''}
+        Enlace privado{invitado ? ` · compartido con ${invitado}` : ''}
       </p>
     </PortalShell>
   );

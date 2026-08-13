@@ -25,14 +25,9 @@ export default function Galeria({ token, etiqueta, invitado, assets }: {
   return (
     <main className="cs-root">
       <header className="cs-hd">
-        <div className="cs-brand">
-          <span className="cs-mark">
-            <svg width="19" height="19" viewBox="-12 -12 24 24" aria-hidden="true">
-              <path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" />
-            </svg>
-          </span>
-          <span className="cs-word">MaKo</span>
-        </div>
+        {/* Sin logo ni nombre de la casa: un link que se reparte afuera muestra
+            el material, no de quién es la app. La estrella dorada y el wordmark
+            estaban acá arriba y eran lo primero que se veía. */}
         <h1 className="cs-h1">{etiqueta || 'Material de marca'}</h1>
         <p className="cs-sub">
           {assets.length} {assets.length === 1 ? 'pieza' : 'piezas'} · cada una se descarga
@@ -72,7 +67,7 @@ export default function Galeria({ token, etiqueta, invitado, assets }: {
         ))}
       </div>
 
-      <footer className="cs-ft">Material de marca de MaKo · enlace privado</footer>
+      <footer className="cs-ft">Enlace privado</footer>
 
       <style jsx>{`
         .cs-root { min-height: 100vh; background: #fafbfd; color: #171A21; padding: 40px 24px 60px;
