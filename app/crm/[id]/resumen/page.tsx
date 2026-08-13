@@ -25,6 +25,8 @@ import Link from '@/app/_ui/Link';
 import { Pagina, PermissionState } from '@/app/_ui';
 import { requireCapa } from '@/lib/tab-access';
 import { getResumenLead, type LlamadaResumen } from '@/lib/lead-resumen';
+import { estadoDelAnalisis } from '@/lib/closing-job';
+import { AnalizarLlamada } from './AnalizarLlamada';
 import { getPipelineStages, workspaceDeLeadParaAdmin } from '@/lib/leads';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { deriveStageKey, stageMetaOpt, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
@@ -213,6 +215,25 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
   // lo primero es qué pasó; sin ella, lo primero es con quién te vas a sentar.
   const yaHablaron = Boolean(ultima);
 
+  // ¿Ya hubo algo que analizar? Ofrecer «Analizar la llamada» sobre una reunión
+  // que todavía no pasó promete algo que no existe, y barre Fathom para nada.
+  // Alcanza con cualquiera de las tres, porque cada una falla por su lado: la
+  // grabación puede estar cargada a mano sin fecha, la hora puede haber pasado
+  // sin que nadie marque nada, y la asistencia puede estar marcada (incluso en
+  // «no vino») sin que el análisis haya corrido — que es justo el caso que
+  // destapó esto.
+  const inicioReunion = lead.junta_2_at ?? lead.junta_1_at;
+  const inicioMs = inicioReunion ? Date.parse(inicioReunion) : NaN;
+  const reunionPaso = grabaciones.length > 0
+    || (Number.isFinite(inicioMs) && inicioMs <= Date.now())
+    || lead.asistio_j1 != null
+    || lead.asistio_j2 != null;
+
+  // El estado del análisis on-demand: es lo que decide entre ofrecer el botón y
+  // mostrar que ya está corriendo. Vive en la base justamente para que cerrar la
+  // pantalla no lo pierda.
+  const job = !yaHablaron && reunionPaso ? await estadoDelAnalisis(idNum).catch(() => null) : null;
+
   const tel = (lead.telefono ?? '').replace(/\D/g, '');
 
   const quienEs = (
@@ -280,9 +301,20 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
         )}
 
         {quienEs}
+        {/* Sin análisis, la pantalla dejó de ser un cartel y pasó a ser el lugar
+            donde se resuelve: el botón lo dispara acá mismo. Existe porque una
+            reunión puede haber ocurrido igual —la analiza sola el webhook, pero
+            si eso falló no había ninguna forma de pedirlo desde el teléfono. */}
         {!yaHablaron && (
-          <Seccion titulo="Todavía no hablaron" nota="Cuando termine la reunión, acá abajo aparece el resumen de la charla, las objeciones y el próximo paso.">
-            <div style={{ fontSize: 15, color: 'var(--dim)' }}>Sin llamadas analizadas para este lead.</div>
+          <Seccion
+            titulo={reunionPaso ? 'Todavía no analicé la llamada' : 'Todavía no hablaron'}
+            nota={reunionPaso
+              ? 'La reunión ya pasó. Puedo escuchar la grabación y dejarte acá el resumen, las objeciones y el próximo paso.'
+              : 'Cuando termine la reunión, acá abajo aparece el resumen de la charla, las objeciones y el próximo paso.'}
+          >
+            {reunionPaso
+              ? <AnalizarLlamada leadId={idNum} job={job} hayGrabacion={grabaciones.length > 0} />
+              : <div style={{ fontSize: 15, color: 'var(--dim)' }}>Sin llamadas analizadas para este lead.</div>}
           </Seccion>
         )}
 

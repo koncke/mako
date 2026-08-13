@@ -994,6 +994,62 @@ caliente a la secuencia de no-show, apaga el análisis y no avisa.
 corrige lo que escribió mal el propio Fathom**. Si el webhook redelivera sobre un lead ya
 mal marcado, no lo arregla. Vive en `lib/leads.ts:747`.
 
+### El botón que analiza la llamada: por qué el estado vive en la base y no en el componente
+
+**El pedido (13/08).** *«Debería dejar un botón ahí para correr el análisis. Y CLARO que
+haya un loader. Y que por más que me salga de la página o lo que sea, se siga analizando.»*
+La pantalla del resumen se abre EN EL CELULAR, así que "me salgo de la página" no es un
+caso raro: es lo que pasa siempre.
+
+**Las dos mitades, que se resuelven en lugares distintos.**
+
+1. *Que el trabajo siga* → `after()` en `app/api/closing/analizar-lead/route.ts`: la ruta
+   responde 202 al toque y el análisis corre después de mandada la respuesta, con el
+   `maxDuration` de la ruta (300 s) como techo. Es el mismo patrón del webhook de Fathom.
+   Una server action atada al click no sirve: si el navegador corta, se corta.
+2. *Que el loader siga* → la tabla `closing_jobs` (mig 0130). Con el estado en un
+   `useState`, cerrar la pestaña lo pierde y al volver la pantalla ofrece arrancar otra
+   corrida sobre algo que ya está corriendo — y cada corrida le paga a Claude por
+   grabación. **La fila es a la vez lo que se pinta y el candado.**
+
+**El candado necesita vencimiento, siempre.** Si la función se cae —timeout, un deploy en
+el medio, un throw fuera del `try`— la fila queda en `corriendo` para siempre: la pantalla
+muestra «Revisando» eternamente sobre un trabajo que ya nadie hace, y no hay ningún botón
+para salir. Por eso `VENCE_MS` (15 min) y por eso un `corriendo` vencido se PINTA como
+error con el motivo dicho: de las tres opciones, seguir mintiendo «Revisando» es la única
+que no deja nada para hacer.
+
+**Y el error tiene TRES desenlaces, no dos.** Acá el diagnóstico obvio volvió a ser el
+equivocado, esta vez contra nosotros mismos: la primera versión contaba
+`analizadas + relinkeadas + yaEstaban === 0` y de ahí concluía «no encontré esa llamada en
+Fathom, revisá el link». Corrido de verdad contra el lead 1696 devolvió
+`{ encontradas: 1, analizadas: 0 }` — la grabación estaba, con sus 540 turnos, y lo que
+faltaba era **saldo en la API de Anthropic**. Cuatro contadores en cero se ven idénticos
+para «no había nada» y para «no pude», y mandan a la persona a dos lugares distintos.
+`analizarLlamadasDeLead` ahora devuelve `fallidas` + `error`, y el error del proveedor
+viaja **textual**: resumirlo a «falló el análisis» obliga a buscarlo en los logs de Vercel,
+que a los 60 minutos no existen.
+
+**Dónde vive cada decisión.** `lib/closing-job.ts` lleva `server-only` (toca la base), así
+que la decisión —qué se pinta, cuándo se puede reintentar, cómo se cuenta el desenlace—
+vive en `lib/closing-job-estado.ts`, **sin** `server-only`, por la misma razón que
+`exigirClienteDePrueba`: un módulo con `server-only` no lo puede importar ningún test, y
+el candado es justo lo que no puede quedarse sin red.
+
+**Vive en:** `supabase/migrations/0130_closing_jobs.sql` · `lib/closing-job-estado.ts` ·
+`lib/closing-job.ts` · `app/api/closing/analizar-lead/route.ts` ·
+`app/crm/[id]/resumen/AnalizarLlamada.tsx` · `lib/closing.ts` (`analizarLlamadasDeLead`) ·
+`tests/closing-job-estado.test.ts`
+
+**Trampa del entorno, verificada el 13/08:** la cuenta de Anthropic estaba **sin saldo**, y
+eso NO se ve en ningún lado hasta que algo lo intenta — la API no expone el saldo prepago.
+El síntoma que llega es una fila `closing_analyses` con `status='error'` y el mensaje del
+proveedor adentro; el `status` de la tab sigue en verde.
+
+**Lo que quedó SIN hacer:** el botón solo aparece cuando NO hay ningún análisis. Re-analizar
+una llamada ya analizada (porque salió mal) sigue sin camino desde el resumen — existe en
+la tab Insights de la ficha. Vive en `app/crm/[id]/resumen/page.tsx`.
+
 ### ⚠️ El selector de hora sigue sin desplegable y con las horas limitadas
 
 **Síntoma:** en el formulario "¿Qué hacer ahora?" no aparece el desplegable de horas y el rango

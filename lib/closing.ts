@@ -601,7 +601,7 @@ export async function processCandidate(
  * FIJADO (así aparecen en getLeadInsights). Salta las que ya están analizadas
  * para ese lead. Liviano: barre metadata y solo baja transcript de las del lead.
  */
-export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontradas: number; analizadas: number; relinkeadas: number; yaEstaban: number }> {
+export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontradas: number; analizadas: number; relinkeadas: number; yaEstaban: number; fallidas: number; error: string | null }> {
   const supabase = (await getTenantDb());
   const { data: lr, error } = await supabase
     .from('leads')
@@ -656,6 +656,14 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
 
   let analizadas = 0;
   let yaEstaban = 0;
+  // Las que se encontraron y NO se pudieron analizar, con el motivo. Antes el
+  // fallo solo quedaba en la fila (`status:'error'`) y el caller recibía cuatro
+  // ceros indistinguibles de "no encontré nada" — así que la pantalla mandaba a
+  // revisar Fathom cuando el problema real era que la API de Claude no tenía
+  // saldo. Un contador que no distingue "no había" de "no pude" es la misma
+  // trampa que una API que devuelve vacío en vez de error.
+  let fallidas = 0;
+  let ultimoError: string | null = null;
   for (const meta of mias) {
     const prev = doneByRec.get(meta.recording_id);
     const resuelta = prev && prev.status !== 'error' && prev.status !== 'pendiente';
@@ -673,9 +681,13 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
     try { m = await fetchMeetingContent(meta); } catch { /* seguimos con la metadata */ }
     const res = await analyzeMeeting(m, lead);
     if (res.ok) { await upsertRow(analyzedRow(m, lead, res.analysis)); analizadas++; }
-    else await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
+    else {
+      await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
+      fallidas++;
+      ultimoError = res.error ?? null;
+    }
   }
-  return { encontradas: mias.length, analizadas, relinkeadas, yaEstaban };
+  return { encontradas: mias.length, analizadas, relinkeadas, yaEstaban, fallidas, error: ultimoError };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
