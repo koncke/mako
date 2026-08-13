@@ -132,11 +132,48 @@ export function Selector({ cursos, enter, compartir }: {
   enter: (slug: string) => void;
   compartir?: ReactNode;
 }) {
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState<string | null>(null);
+
+  // Sin acentos y sin mayúsculas: buscar «organico» tiene que encontrar «Orgánico»,
+  // y «generacion» a «IA & Generación de Imágenes y Vídeo». Un buscador que exige
+  // tildes es un buscador que no se usa.
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+  // Cada término por separado, todos tienen que estar: «claude rodrigo» encuentra el
+  // curso aunque las dos palabras vivan en campos distintos.
+  const coincide = (c: Curso, terminos: string[]) => {
+    const heno = norm(`${c.titulo} ${c.cardDesc} ${c.categoria} ${c.subtitulo}`);
+    return terminos.every((t) => heno.includes(t));
+  };
+
+  const terminos = useMemo(() => norm(q).split(/\s+/).filter(Boolean), [q]);
+
+  // Los contadores de los chips salen del TEXTO buscado pero ignoran la categoría
+  // elegida: si no, al filtrar por una, las demás muestran 0 y no se puede saltar.
+  const porCategoria = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of cursos) {
+      if (!coincide(c, terminos)) continue;
+      m.set(c.categoria, (m.get(c.categoria) ?? 0) + 1);
+    }
+    return m;
+  }, [cursos, terminos]);
+
+  const filtrados = useMemo(
+    () => cursos.filter((c) => (!cat || c.categoria === cat) && coincide(c, terminos)),
+    [cursos, cat, terminos],
+  );
+
   const cats = useMemo(() => {
     const m: Record<string, Curso[]> = {};
-    for (const c of cursos) (m[c.categoria] = m[c.categoria] || []).push(c);
+    for (const c of filtrados) (m[c.categoria] = m[c.categoria] || []).push(c);
     return m;
-  }, [cursos]);
+  }, [filtrados]);
+
+  const filtrando = Boolean(q.trim() || cat);
+  const limpiar = () => { setQ(''); setCat(null); };
+
   return (
     <>
       <section className="al-hero">
@@ -147,9 +184,57 @@ export function Selector({ cursos, enter, compartir }: {
         <h1 className="al-h1">Cursos</h1>
         <p className="al-sub">Formación interna. Elegí un curso para entrar. Cada categoría junta los cursos del mismo tema.</p>
       </section>
-      {Object.entries(cats).map(([cat, list]) => (
-        <section className="al-sec" key={cat}>
-          <div className="al-seclabel"><span>{cat}</span><span className="al-vol">{list.length} curso{list.length > 1 ? 's' : ''}</span></div>
+
+      <section className="al-filtros">
+        <div className="al-buscar">
+          <span className="al-buscar-ico" aria-hidden>⌕</span>
+          <input
+            type="search"
+            className="al-buscar-in"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar por curso, autor o tema…"
+            aria-label="Buscar cursos"
+          />
+          {q && <button type="button" className="al-buscar-x" onClick={() => setQ('')} aria-label="Borrar la búsqueda">×</button>}
+        </div>
+        {/* Chips que ENVUELVEN, nunca scroll lateral: esconder una categoría detrás de
+            un gesto es esconderla (regla de navegación de AGENTS.md). */}
+        <div className="al-chips">
+          <button type="button" className={`al-chip${cat === null ? ' es' : ''}`} onClick={() => setCat(null)}>
+            Todas <span className="al-chip-n">{[...porCategoria.values()].reduce((a, b) => a + b, 0)}</span>
+          </button>
+          {[...new Set(cursos.map((c) => c.categoria))].map((k) => {
+            const n = porCategoria.get(k) ?? 0;
+            return (
+              <button
+                key={k}
+                type="button"
+                className={`al-chip${cat === k ? ' es' : ''}${n === 0 ? ' vacio' : ''}`}
+                onClick={() => setCat(cat === k ? null : k)}
+                aria-pressed={cat === k}
+              >
+                {k} <span className="al-chip-n">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {filtrando && filtrados.length === 0 && (
+        <section className="al-sec">
+          <p className="al-sub">
+            Ningún curso coincide{q.trim() ? ` con «${q.trim()}»` : ''}{cat ? ` en ${cat}` : ''}.{' '}
+            <button type="button" className="al-linkbtn" onClick={limpiar}>Ver todos</button>
+          </p>
+        </section>
+      )}
+
+      {/* `nombreCat`, no `cat`: el estado del filtro se llama `cat` y una variable del
+          map con el mismo nombre lo tapa adentro de la sección. */}
+      {Object.entries(cats).map(([nombreCat, list]) => (
+        <section className="al-sec" key={nombreCat}>
+          <div className="al-seclabel"><span>{nombreCat}</span><span className="al-vol">{list.length} curso{list.length > 1 ? 's' : ''}</span></div>
           <div className="al-grid">
             {list.map((c) => (
               <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc} img={c.portada}
@@ -581,6 +666,32 @@ export const CSS = `
 .cono .al-h1-sm{ font-size:clamp(30px,5vw,44px); }
 .cono .al-sub{ font-size:clamp(15px,2vw,18px); line-height:1.6; color:var(--ink-80); max-width:56ch; margin:16px 0 0; }
 .cono .al-sub-sm{ font-size:15px; margin-top:6px; }
+
+/* Buscador + chips de categoría, arriba de todas las secciones */
+.cono .al-filtros{ display:flex; flex-direction:column; gap:12px; margin-top:26px; }
+.cono .al-buscar{ display:flex; align-items:center; gap:9px; background:var(--card); border:1.5px solid var(--ink); border-radius:11px; padding:0 12px; box-shadow:var(--shadow-paste); }
+.cono .al-buscar:focus-within{ box-shadow:var(--shadow-stamp); }
+.cono .al-buscar-ico{ font-size:17px; color:var(--ink-40); line-height:1; }
+.cono .al-buscar-in{ flex:1; min-width:0; border:0; outline:0; background:transparent; font-family:var(--disp); font-size:15.5px; color:var(--ink); padding:12px 0; }
+.cono .al-buscar-in::placeholder{ color:var(--ink-40); }
+/* El aspa nativa del type=search cambia de forma en cada navegador y no se puede
+   estilar: se saca y se pone la propia, que además queda del mismo lado siempre. */
+.cono .al-buscar-in::-webkit-search-cancel-button{ appearance:none; }
+.cono .al-buscar-x{ border:0; background:transparent; cursor:pointer; font-size:19px; line-height:1; color:var(--ink-40); padding:4px; }
+.cono .al-buscar-x:hover{ color:var(--ink); }
+
+/* flex-wrap, NUNCA scroll lateral: una categoría escondida detrás de un gesto es una
+   categoría que no existe (regla de navegación de AGENTS.md). */
+.cono .al-chips{ display:flex; flex-wrap:wrap; gap:8px; }
+.cono .al-chip{ display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink); background:var(--card); border:1.5px solid var(--ink-15); border-radius:999px; padding:7px 13px; cursor:pointer; transition:background .12s ease, border-color .12s ease; }
+.cono .al-chip:hover{ border-color:var(--ink); }
+.cono .al-chip.es{ background:var(--lime); border-color:var(--ink); }
+/* Una categoría sin resultados se atenúa pero NO se esconde: si desaparece, el mapa
+   de secciones cambia debajo del cursor mientras se escribe. */
+.cono .al-chip.vacio{ opacity:.4; }
+.cono .al-chip-n{ font-size:10px; color:var(--ink-60); }
+.cono .al-chip.es .al-chip-n{ color:var(--ink); }
+.cono .al-linkbtn{ border:0; background:transparent; padding:0; cursor:pointer; font:inherit; color:var(--lime-ink); text-decoration:underline; }
 
 /* Secciones */
 .cono .al-sec{ margin-top:44px; }

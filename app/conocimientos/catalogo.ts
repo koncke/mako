@@ -46,6 +46,10 @@ const CATEGORIA: Record<string, string> = {
   // IA y generación de piezas
   avatarhype: 'IA & Generación de Imágenes y Vídeo',
   'claude-ai-rodrigo-rojo': 'IA & Generación de Imágenes y Vídeo',
+  // Publicidad paga
+  'anuncio-ganador': 'Anuncios',
+  // Alcance sin pauta
+  'inteligencia-viral-2026': 'Orgánico',
   // Lo propio: método, marca y criterios de la casa
   '100ads-analisis': 'MaKo',
   'vsl-landing': 'MaKo',
