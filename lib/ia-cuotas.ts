@@ -44,64 +44,81 @@ export async function cuentasDe(prov: string, ws?: number): Promise<number> {
 }
 
 /**
- * Límites EFECTIVOS de hoy. Dos cosas los mueven:
- *   · Gemini sube a tier pago si detectamos créditos cargados (= tiene saldo).
- *   · El tope se MULTIPLICA por la cantidad de cuentas cargadas: el free tier se
- *     agota por cuenta, así que tres keys de Gemini son tres veces la cuota. Sin
- *     esto, el gauge marcaba "sin cuota" con dos cuentas enteras sin tocar y la
- *     rotación proactiva mandaba al final a un proveedor que tenía lugar de sobra.
+ * Límite de UNA cuenta. Lo único que lo mueve es que Gemini pase a tier pago (= hay
+ * créditos cargados).
  *
- * ⚠️ Honestidad sobre lo que esto mide: el uso se cuenta por PROVEEDOR, no por
- * cuenta (`anthropic_usage.provider` no guarda cuál key se usó). O sea que el gauge
- * mide el conjunto, no el reparto: si la cuenta 1 se agotó y las otras dos están
- * intactas, el % total recién llega al tope cuando se agotaron las tres. Eso está
- * bien para lo que este número decide —a quién probar PRIMERO—, y el salto real
- * entre cuentas lo hace la cascada por ERROR (429 → próxima cuenta), que no depende
- * de esta cuenta.
+ * ⚠️ NO se multiplica por la cantidad de cuentas. La versión anterior lo hacía —tres
+ * keys, tope × 3— y eso es justo lo que hacía mentir al panel: el tope de tres cuentas
+ * NO es un tanque de 750k, son tres tanques de 250k que no se trasvasan. Con el uso
+ * apilado en la cuenta 1 el gauge marcaba 32% mientras esa cuenta estaba al 96%.
+ * El tope sigue siendo por cuenta; el reparto lo muestra `cuotasProveedores`.
  */
 async function limitesEfectivos(): Promise<Record<string, LimiteProv>> {
   const geminiConCredito = !!(await getSaldo('gemini').catch(() => null));
-  const base = geminiConCredito ? { ...LIMITES_PROVEEDOR, gemini: GEMINI_PAGO } : LIMITES_PROVEEDOR;
-  const out: Record<string, LimiteProv> = {};
-  for (const [prov, lim] of Object.entries(base)) {
-    const n = await cuentasDe(prov).catch(() => 1);
-    const mult = Math.max(1, n);
-    out[prov] = mult === 1 ? lim : {
-      ...lim,
-      rpd: lim.rpd ? lim.rpd * mult : undefined,
-      tokensDia: lim.tokensDia ? lim.tokensDia * mult : undefined,
-      nota: `${lim.nota ?? ''}${lim.nota ? ' · ' : ''}${mult} cuentas conectadas`,
-    };
-  }
-  return out;
+  return geminiConCredito ? { ...LIMITES_PROVEEDOR, gemini: GEMINI_PAGO } : LIMITES_PROVEEDOR;
 }
 
 export type UsoProv = { requests: number; tokens: number };
-export type CuotaProv = { provider: string; requests: number; tokens: number; rpd?: number; tokensDia?: number; pct: number; agotado: boolean; label: string; nota?: string };
+export type CuotaCuenta = { cuenta: number; requests: number; tokens: number; pct: number; agotado: boolean };
+export type CuotaProv = {
+  provider: string; requests: number; tokens: number; rpd?: number; tokensDia?: number;
+  pct: number; agotado: boolean; label: string; nota?: string;
+  /** Una fila por CUENTA conectada. El total de arriba es la suma, y la suma sola
+   *  miente: ver el comentario de `usoHoyPorCuenta`. */
+  cuentas?: CuotaCuenta[];
+};
 
-/** Uso de HOY por proveedor (pedidos + tokens), de anthropic_usage. Estas IA son todas
- *  BYOK (gratis por-cliente), así que el uso se cuenta SOLO en el workspace del request:
- *  el gauge "cuánto queda hoy" de Mauricio (ws1) no debe incluir el Gemini de Martín (ws9). */
-export async function usoHoyProveedores(): Promise<Record<string, UsoProv>> {
+/** La clave con la que se indexa el uso: `gemini` o `gemini#2`. */
+export const claveCuenta = (provider: string, cuenta = 1): string => (cuenta > 1 ? `${provider}#${cuenta}` : provider);
+
+/**
+ * Uso de HOY por PROVEEDOR y CUENTA, de anthropic_usage.
+ *
+ * ⚠️ POR QUÉ POR CUENTA, y no solo por proveedor. El free tier se agota por cuenta:
+ * tres keys de Gemini son tres cuotas de 250k que NO se trasvasan. Sumarlas da un
+ * número que es cierto y una conclusión que es falsa — el panel de una clienta decía
+ * «240,6k / 750,0k» (o sea "te sobra") mientras la cuenta 1, que era la que atendía
+ * TODAS las llamadas, estaba al 96% de SUS 250k. Ninguna de las dos cifras estaba
+ * mal; lo que estaba mal era sumar cuotas que no se pueden mover de lugar.
+ *
+ * Estas IA son todas BYOK (gratis por-cliente), así que el uso se cuenta SOLO en el
+ * workspace del request: el gauge de Mauricio (ws1) no incluye el Gemini de Martín (ws9).
+ */
+export async function usoHoyPorCuenta(): Promise<Record<string, UsoProv>> {
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const ws = await (async () => { try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; } })();
   const out: Record<string, UsoProv> = {};
   try {
     const { data } = await getSupabaseServer()
       .from('anthropic_usage')
-      .select('provider, input_tokens, output_tokens')
+      .select('provider, cuenta, input_tokens, output_tokens')
       .eq('workspace_id', ws)
       .gte('created_at', dayStart.toISOString())
       .limit(20000);
-    for (const r of (data ?? []) as Array<{ provider: string | null; input_tokens: number | null; output_tokens: number | null }>) {
+    for (const r of (data ?? []) as Array<{ provider: string | null; cuenta: number | null; input_tokens: number | null; output_tokens: number | null }>) {
       const p = r.provider ?? 'anthropic';
-      const u = out[p] ?? { requests: 0, tokens: 0 };
-      u.requests += 1;
-      u.tokens += (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
-      out[p] = u;
+      // `cuenta` es NULL en las filas anteriores a la mig 0132: se leen como 1, que
+      // es la verdad histórica (antes de multi-key había una sola key por proveedor).
+      const k = claveCuenta(p, Number(r.cuenta) || 1);
+      const tok = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
+      const u = out[k] ?? { requests: 0, tokens: 0 };
+      u.requests += 1; u.tokens += tok;
+      out[k] = u;
+      // El agregado por proveedor se mantiene: lo consumen el panel de costo y los
+      // reportes, que sí quieren "cuánto gastó Gemini en total".
+      if (k !== p) {
+        const t = out[p] ?? { requests: 0, tokens: 0 };
+        t.requests += 1; t.tokens += tok;
+        out[p] = t;
+      }
     }
   } catch (e) { console.warn(`[ia-cuotas] uso: ${e instanceof Error ? e.message : String(e)}`); }
   return out;
+}
+
+/** Compat: el uso agregado por proveedor (lo que había antes de la mig 0132). */
+export async function usoHoyProveedores(): Promise<Record<string, UsoProv>> {
+  return usoHoyPorCuenta();
 }
 
 /** % de cuota consumida (el MAYOR entre pedidos/día y tokens/día). 0 = libre, 1 = tope. */
@@ -111,25 +128,86 @@ function pctDe(uso: UsoProv, lim: LimiteProv): number {
   return Math.min(1, Math.max(pr, pt));
 }
 
-/** Cuota de cada proveedor gratis (para el gauge de /integraciones). */
+/**
+ * Cuota de cada proveedor gratis (para el gauge de /integraciones), CON el detalle
+ * por cuenta.
+ *
+ * El total de arriba sigue siendo la suma —es lo que responde "cuánto consumí hoy"—
+ * pero `agotado` ya NO sale de ese total: un proveedor está sin cuota solo cuando
+ * TODAS sus cuentas lo están. Es la diferencia entre "te queda el 68%" y "la cuenta
+ * que atiende todas tus llamadas está al 96%", que era exactamente lo que el panel
+ * no sabía decir.
+ */
 export async function cuotasProveedores(uso?: Record<string, UsoProv>): Promise<CuotaProv[]> {
-  const u = uso ?? (await usoHoyProveedores());
+  const u = uso ?? (await usoHoyPorCuenta());
   const limites = await limitesEfectivos();
-  return Object.entries(limites).map(([provider, lim]) => {
+  const out: CuotaProv[] = [];
+  for (const [provider, lim] of Object.entries(limites)) {
+    const n = Math.max(1, await cuentasDe(provider).catch(() => 1));
+    const cuentas: CuotaCuenta[] = Array.from({ length: n }, (_, i) => {
+      const usoC = u[claveCuenta(provider, i + 1)] ?? { requests: 0, tokens: 0 };
+      const pct = pctDe(usoC, lim);
+      return { cuenta: i + 1, requests: usoC.requests, tokens: usoC.tokens, pct, agotado: pct >= UMBRAL };
+    });
     const usoP = u[provider] ?? { requests: 0, tokens: 0 };
-    const pct = pctDe(usoP, lim);
-    return { provider, requests: usoP.requests, tokens: usoP.tokens, rpd: lim.rpd, tokensDia: lim.tokensDia, pct, agotado: pct >= UMBRAL, label: lim.label, nota: lim.nota };
-  });
+    out.push({
+      provider, requests: usoP.requests, tokens: usoP.tokens,
+      // El tope que se muestra al lado del total es el de TODAS las cuentas juntas,
+      // porque el total también es de todas. El de una sola vive en cada fila.
+      rpd: lim.rpd ? lim.rpd * n : undefined,
+      tokensDia: lim.tokensDia ? lim.tokensDia * n : undefined,
+      pct: pctDe(usoP, { ...lim, rpd: lim.rpd ? lim.rpd * n : undefined, tokensDia: lim.tokensDia ? lim.tokensDia * n : undefined }),
+      agotado: cuentas.every((c) => c.agotado),
+      label: lim.label, nota: lim.nota, cuentas,
+    });
+  }
+  return out;
 }
 
 /** Reordena una lista de proveedores para la rotación PROACTIVA: primero los que todavía
  *  tienen cuota, después los que están al tope (por si todo lo demás falla). Nunca los saca:
- *  solo los manda al final. Un proveedor sin límite conocido (ej. openai pago) va como "con cuota". */
+ *  solo los manda al final. Un proveedor sin límite conocido (ej. openai pago) va como "con cuota".
+ *
+ *  Un proveedor está agotado solo si TODAS sus cuentas lo están: mandar Gemini al final
+ *  porque su cuenta 1 se acabó, teniendo dos cuentas intactas, es tirar la mejor opción. */
 export async function ordenarPorCuota(orden: string[]): Promise<string[]> {
   const [uso, limites] = await Promise.all([
-    usoHoyProveedores().catch(() => ({} as Record<string, UsoProv>)),
+    usoHoyPorCuenta().catch(() => ({} as Record<string, UsoProv>)),
     limitesEfectivos().catch(() => LIMITES_PROVEEDOR),
   ]);
-  const agotado = (p: string): boolean => { const lim = limites[p]; return lim ? pctDe(uso[p] ?? { requests: 0, tokens: 0 }, lim) >= UMBRAL : false; };
+  const agotado = (p: string): boolean => {
+    const lim = limites[p];
+    if (!lim) return false;
+    const n = Math.max(1, clavesDe(p).length || 1);
+    // Sin dato de una cuenta, cuenta como libre. La duda favorece intentar.
+    for (let i = 1; i <= n; i++) {
+      if (pctDe(uso[claveCuenta(p, i)] ?? { requests: 0, tokens: 0 }, lim) < UMBRAL) return false;
+    }
+    return true;
+  };
   return [...orden.filter((p) => !agotado(p)), ...orden.filter((p) => agotado(p))];
+}
+
+/**
+ * Ordena las CUENTAS de un proveedor por cuota disponible: la que tiene nafta va
+ * primero. Es la mitad proactiva de la rotación — sin esto la cascada siempre
+ * empieza por la cuenta 1, y si esa está al tope cada llamada paga un 429 de peaje
+ * antes de llegar a la 2. Devuelve las claves en el orden en que hay que probarlas.
+ */
+export async function ordenarCuentas(provider: string, claves: string[]): Promise<string[]> {
+  if (claves.length < 2) return claves;
+  const [uso, limites] = await Promise.all([
+    usoHoyPorCuenta().catch(() => ({} as Record<string, UsoProv>)),
+    limitesEfectivos().catch(() => LIMITES_PROVEEDOR),
+  ]);
+  const lim = limites[provider];
+  if (!lim) return claves;
+  const todas = clavesDe(provider);
+  const pctDeClave = (c: string): number => {
+    const i = todas.indexOf(c);
+    return pctDe(uso[claveCuenta(provider, i + 1)] ?? { requests: 0, tokens: 0 }, lim);
+  };
+  // Estable y por % consumido: la menos gastada primero. `sort` de V8 es estable,
+  // así que con todo en 0 el orden queda igual al de siempre (cuenta 1 primero).
+  return [...claves].sort((a, b) => pctDeClave(a) - pctDeClave(b));
 }

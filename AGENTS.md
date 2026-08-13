@@ -287,6 +287,28 @@ falla cuando el margen se acaba: el catálogo crece, y el número que hoy tiene 
 mañana no. Un umbral sin esa red envejece en silencio, que es la peor forma de
 envejecer.
 
+# Un total solo se puede sumar si el recurso se puede MOVER DE LUGAR
+
+Una clienta con tres cuentas de Gemini vio «240,6k / 750,0k» —le sobra el 68% del día— al
+lado de un error que decía que no tenía IA. Las dos cifras eran ciertas. Medido:
+
+    cuenta 1: 241k tok → 96%  ⛔ sin cuota      cuenta 2: 0%      cuenta 3: 0%
+
+El free tier se agota **por cuenta**: no era un tanque de 750k, eran tres tanques de 250k
+que no se trasvasan. Y como la cascada arranca siempre por la primera y solo salta cuando
+la anterior FALLA, todo el uso se apila en una sola.
+
+**La regla: antes de sumar N cosas en un indicador, preguntá si lo de una le sirve a la
+otra.** Plata en dos cuentas del mismo dueño, sí. Cuota diaria de dos API keys, horas de
+dos personas distintas, espacio en dos discos que no están en RAID: **no**. Cuando no se
+puede mover, el total sirve para «cuánto consumí» y **nunca** para «cuánto me queda»; el
+estado (`agotado`, el semáforo, lo que gobierna una decisión) sale del PEOR de los
+componentes, y el reparto se muestra.
+
+Y el corolario que se paga aparte: **rotar solo por error es pagar un peaje por llamada.**
+Si hay tres cuentas y la primera está muerta, cada llamada gasta un 429 antes de llegar a
+la que tiene nafta. Si el sistema puede saber cuál está gastada, empezá por la que no.
+
 # Un default que cobra es un cobro silencioso
 
 El `def` de una feature en `lib/model-catalogo.ts` no es «lo que usa hoy el código»: es

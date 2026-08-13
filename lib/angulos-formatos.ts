@@ -19,7 +19,7 @@ import { getSetting, setSetting } from './settings';
 import { getRazones, setRazones } from './razones';
 import { getAvatares } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada } from './ai-cheap';
 import { BIBLIOTECA_ANGULOS, formatoPorId, type Medio, type FormatoAngulo } from './angulos-data';
 
 // La biblioteca (data pura) vive en ./angulos-data para poder usarla también en la
@@ -114,12 +114,13 @@ export async function recomendarFormatos(): Promise<GenResult> {
       gancho: entregables.length ? `\nENTREGABLE TANGIBLE:\n${entregablesTexto(entregables)}\n` : '',
       razones: razonesTexto,
     });
+    const errores: string[] = [];
     const text = await chatCheapCascade({
       system: sys, user, json: true, maxTokens: 2200,
       feature: 'angulos-formatos', motivo: 'Elegir formatos de creativo de la biblioteca',
-      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneRecom,
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneRecom, erroresOut: errores,
     });
-    if (!text) return { ok: false, error: 'No hay IA para elegir los formatos. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+    if (!text) return { ok: false, error: await errorDeCascada(errores, 'elegir los formatos') };
     const recomendaciones = parseRecomendaciones(text);
     if (!recomendaciones.length) return { ok: false, error: 'MaKo no devolvió recomendaciones. Reintenta en un momento.' };
     return { ok: true, recomendaciones, uso: null };

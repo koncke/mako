@@ -100,6 +100,13 @@ function cuotaVista(c: CuotaProv): { usados: string; limite: string; pct: number
 }
 
 
+/** Cuántas cuentas de un proveedor están sin cuota, cuando NO son todas. 0 = ninguna
+ *  o todas (ese caso ya lo dice `agotado`). Es el dato que el total escondía. */
+function cuentasSinCuota(c: CuotaProv | null): number {
+  if (!c?.cuentas || c.cuentas.length < 2 || c.agotado) return 0;
+  return c.cuentas.filter((k) => k.agotado).length;
+}
+
 const Spark = ({ size = 15 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="-12 -12 24 24" style={{ overflow: 'visible', flex: 'none' }}>
     <path d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z" fill="url(#mkGold)" />
@@ -522,10 +529,35 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
           // Gratis: se mide por CUOTA de hoy (Groq por tokens/día, el resto por pedidos/día).
           <>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginBottom: 7 }}>
-              <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cv?.agotado ? 'sin cuota hoy' : 'cuánto queda hoy'}</span>
+              {/* El rótulo dice el estado que MANDA. Con varias cuentas, el total no
+                  alcanza: «te queda el 68%» y «la cuenta que atiende todo está al
+                  96%» son la misma cifra y consejos opuestos. */}
+              <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>
+                {cv?.agotado ? 'sin cuota hoy'
+                  : cuentasSinCuota(cuota) ? `${cuentasSinCuota(cuota)} de ${cuota!.cuentas!.length} cuentas sin cuota`
+                  : 'cuánto queda hoy'}
+              </span>
               <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{cv ? <>{cv.usados}<span style={{ color: 'var(--faint)' }}> / {cv.limite} {cv.unidad}</span></> : <>{fmtTok(p.tokensHoy)}<span style={{ color: 'var(--faint)' }}> tok</span></>}</span>
             </div>
-            {cv && <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${cv.pct}%`, borderRadius: 5, background: cv.agotado ? 'var(--warn-fill)' : '#F55036' }} /></div>}
+            {cv && <div style={{ height: 7, borderRadius: 5, background: 'var(--border)', overflow: 'hidden' }}><div style={{ height: 7, width: `${cv.pct}%`, borderRadius: 5, background: cv.agotado ? 'var(--warn-fill)' : '#F55036' }} /></div>}
+            {/* El REPARTO, que es lo que el total esconde. Una fila por cuenta, con
+                su propio tope: son tanques separados, no un tanque grande. */}
+            {cuota?.cuentas && cuota.cuentas.length > 1 && (
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {cuota.cuentas.map((k) => {
+                  const pct = Math.min(100, Math.max(2, Math.round(k.pct * 100)));
+                  return (
+                    <div key={k.cuenta} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)', flex: 'none' }}>cuenta {k.cuenta}</span>
+                      <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
+                        <div style={{ height: 3, width: `${pct}%`, background: k.agotado ? 'var(--warn-fill)' : '#F55036' }} />
+                      </div>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: k.agotado ? 'var(--warn)' : 'var(--faint)', flex: 'none' }}>{k.agotado ? 'sin cuota' : `${pct}%`}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>{lim.cap}</div>
           </>
         ) : (

@@ -27,7 +27,7 @@ import { getEstructurasGuion } from './guion-estructuras-store';
 import { getSetting, setSetting } from './settings';
 import { getAvatares, avataresTexto, type Avatar } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, motivoDeErroresCascada } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada } from './ai-cheap';
 
 // El shape del guion y su pipeline de producción viven en lib/guion-estado.ts
 // (sin 'server-only'): los componentes de cliente los necesitan igual, y una
@@ -180,12 +180,18 @@ export async function generarRazones(): Promise<GenResult> {
       entregable: entregables.length ? `\nENTREGABLE TANGIBLE (úsalo en el copy si aplica):\n${entregablesTexto(entregables)}\n` : '',
       fase: fase ? `\nFASE DEL NEGOCIO:\n${fase}\n` : '',
     });
+    // `erroresOut` NO es opcional en la práctica: sin él, este `if (!text)` no puede
+    // distinguir "no hay ninguna IA" de "las tres cuentas contestaron 503", y le pide
+    // una key de Gemini a alguien que ya tiene tres. Pasó, y fue el reporte que obligó
+    // a centralizar el mensaje (ver lib/ia-mensajes.ts).
+    const errores: string[] = [];
     const text = await chatCheapCascade({
       system: sys, user, json: true, maxTokens: 4000,
       feature: 'razones', motivo: 'Matriz de motivaciones de compra por avatar',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parseRazones(t, avatares).length > 0,
+      erroresOut: errores,
     });
-    if (!text) return { ok: false, error: 'No hay IA para generar las razones. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+    if (!text) return { ok: false, error: await errorDeCascada(errores, 'generar las razones') };
     const razones = parseRazones(text, avatares);
     if (!razones.length) return { ok: false, error: 'MaKo no devolvió razones. Reintenta en un momento.' };
     return { ok: true, razones, uso: null };
@@ -280,26 +286,11 @@ export async function siguientePasoOpciones(): Promise<string[]> {
   return base.filter((o, i) => o && base.indexOf(o) === i);
 }
 
-/**
- * El mensaje de "no salió por la IA", con el motivo REAL. Si la cascada dejó
- * errores, es que SÍ había keys y fallaron (cuota, key vencida, timeout) — decirle
- * "conectá tu API key" a alguien que ya la tiene lo manda a buscar un problema que
- * no existe. Si no hay errores, es que no había ningún proveedor configurado.
- */
-export function errorDeIA(errores: string[]): string {
-  const motivo = motivoDeErroresCascada(errores);
-  // La salida tiene que coincidir con el motivo: a una key vencida no la arregla
-  // esperar, y a una cuota agotada no la arregla reintentar al toque.
-  // Las salidas que ofrece el cuadro de abajo son TRES y el texto las nombra a las
-  // tres: esperar, sumar otra cuenta del mismo proveedor (el free tier se agota por
-  // cuenta) o conectar otra IA gratis. Decir solo "pegá tu key de Gemini" mandaba a
-  // pegar de nuevo la key que ya estaba puesta y agotada.
-  if (motivo?.startsWith('Se quedó sin cuota')) return `${motivo} Esperá a que se reinicie (el free de Gemini reinicia cada día), sumá otra cuenta del mismo proveedor o conectá otra IA gratis acá abajo.`;
-  if (motivo?.startsWith('La API key')) return `${motivo} Pegá una nueva acá abajo.`;
-  if (motivo) return `${motivo} Probá de nuevo en un momento.`;
-  if (errores.length) return 'La IA no respondió esta vez. Probá de nuevo, o conectá otra IA gratis acá abajo.';
-  return 'No hay ninguna IA conectada. Conectá una IA gratis acá abajo — con Gemini alcanza para empezar.';
-}
+// El mensaje de "no salió por la IA" ya no vive acá: lo arma `errorDeCascada`
+// (lib/ai-cheap.ts → lib/ia-mensajes.ts), que es el único que sabe distinguir «no hay
+// ninguna IA» de «hay tres cuentas y las tres fallaron». Había TRES copias de esta
+// frase en el repo y la de `generarRazones`, cien líneas más arriba en este mismo
+// archivo, decía lo contrario que las otras dos.
 
 // ── Sugerencia de guion: MaKo elige TODO (la IA facilita, no interroga) ──────
 // Pedido explícito del dueño: crear un guion se volvió "super complejo, me pide
@@ -407,7 +398,7 @@ Devolvé solo el JSON.`;
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsear(t) !== null,
       erroresOut: errores,
     });
-    if (!text) return { ok: false, error: errorDeIA(errores) };
+    if (!text) return { ok: false, error: await errorDeCascada(errores, 'preparar el guion') };
     const sugerencia = parsear(text);
     if (!sugerencia) return { ok: false, error: 'MaKo no pudo armar la sugerencia. Reintenta en un momento.' };
     return { ok: true, sugerencia };
@@ -494,7 +485,7 @@ Escribí el guion del video con el ángulo "${angulo.nombre}" y la estructura "$
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => t.trim().length > 40,
       erroresOut: errores,
     });
-    if (!texto.trim()) return { ok: false, error: errorDeIA(errores) };
+    if (!texto.trim()) return { ok: false, error: await errorDeCascada(errores, 'escribir el guion') };
     const item: GuionItem = {
       id: randomUUID(), anguloId: angulo.id, anguloNombre: angulo.nombre, texto: texto.trim(),
       creadoEn: Date.now(), estado: 'borrador',

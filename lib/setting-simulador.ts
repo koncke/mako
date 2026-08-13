@@ -166,14 +166,18 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
   const transcripcion = turnos
     .map((t) => `${t.role === 'user' ? 'LEAD' : 'NEGOCIO'}: ${t.content}`)
     .join('\n');
-  const { chatCheapCascade, CASCADA_GRATIS } = await import('./ai-cheap');
+  const { chatCheapCascade, CASCADA_GRATIS, errorDeCascada } = await import('./ai-cheap');
+  const errores: string[] = [];
   const respuesta = await chatCheapCascade({
     system,
     user: `${transcripcion}\n\nEscribe la respuesta del NEGOCIO al último mensaje del lead. Solo el texto del mensaje, nada más.`,
     maxTokens: 500, feature: 'setting-simulador', motivo: 'Respuesta del setter',
-    provs: CASCADA_GRATIS,
+    provs: CASCADA_GRATIS, erroresOut: errores,
   });
-  if (!respuesta || !respuesta.trim()) return { ok: false, error: 'MaKo no respondió. Vuelve a intentarlo.' };
+  // «MaKo no respondió. Vuelve a intentarlo.» era verdad y no servía para nada: si lo
+  // que pasó es que se acabó la cuota, reintentar no arregla nada y el usuario lo
+  // descubre reintentando diez veces.
+  if (!respuesta || !respuesta.trim()) return { ok: false, error: await errorDeCascada(errores, 'contestar en el ensayo') };
   const marca = respuesta.match(MARCA_FIN);
   const limpio = respuesta.replace(MARCA_FIN, '').trim();
   if (!limpio) return { ok: false, error: 'MaKo no respondió. Vuelve a intentarlo.' };

@@ -48,7 +48,7 @@ const ICONO_GUION: Record<string, string> = {
 const reconstruirGuion = (secciones: Seccion[]) => secciones.map((s) => `${s.titulo}\n${s.texto}`).join('\n\n');
 
 /** ¿El error viene de la IA (falta key, cuota, key vencida) y no de otra cosa?
- *  Los textos los arma errorDeIA() en lib/razones.ts. */
+ *  Los textos los arma errorDeCascada() (lib/ai-cheap.ts → lib/ia-mensajes.ts). */
 const esErrorDeIA = (e: string) => /API key|IA (no|conectada)|cuota|límite de uso|no respondió/i.test(e);
 
 function Edit({ valor, onSave, multiline, style }: { valor: string; onSave: (v: string) => void; multiline?: boolean; style?: CSSProperties }) {

@@ -448,6 +448,79 @@ lo colapse en el default y le pegue cuatro veces al mismo Groq.
 `leerDocumentoIA`) · lib/ia-cuotas.ts (`cuentasDe`, `limitesEfectivos`) · *2026-08-12
 rotación multi-cuenta*
 
+### Sumar tres cuotas que no se pueden trasvasar: el panel decía «te sobra» y no había
+
+**Síntoma:** una clienta con TRES cuentas de Gemini conectadas ve «No hay IA para generar
+las razones. Conecta tu API key de Gemini (gratis) en Integraciones.», y el panel de al lado
+le dice **240,6k / 750,0k** — o sea que le sobra el 68% de la cuota del día.
+
+**Medido contra sus datos** (12/8/2026, ws 11):
+
+```
+gemini (3 cuentas): total 241k tok · 32% del conjunto
+    cuenta 1: 24 pedidos · 241k tok → 96%  ⛔ SIN CUOTA
+    cuenta 2:  0 pedidos ·   0k tok →  0%
+    cuenta 3:  0 pedidos ·   0k tok →  0%
+```
+
+**Causa:** las dos cifras eran ciertas y la conclusión falsa. El free tier se agota **por
+cuenta**: tres keys no son un tanque de 750k, son **tres tanques de 250k que no se
+trasvasan**. Todo el uso estaba apilado en la cuenta 1 —porque la cascada empieza siempre
+por la primera y solo salta cuando la anterior FALLA— así que esa cuenta estaba al 96% y
+el panel promediaba con dos cuentas intactas que no la podían ayudar hasta que llegara el
+429.
+
+**La regla: un total solo se puede sumar si el recurso se puede mover de lugar.** Cuota
+diaria de cuentas distintas, no. El total sigue estando (responde «cuánto consumí hoy»),
+pero el `agotado` ya no sale de él —un proveedor está sin cuota cuando lo están TODAS sus
+cuentas— y el panel muestra el reparto, una fila por cuenta.
+
+**Y la mitad que faltaba era proactiva.** Rotar solo por ERROR significa que cada llamada
+le paga un 429 de peaje a la cuenta muerta antes de llegar a la que tiene nafta; con tres
+cuentas, tres peajes. Ahora `provsDe` ordena las cuentas por cuota disponible (`ordenarCuentas`),
+así que con la cuenta 1 al 96% la próxima llamada arranca en la 2.
+
+**Lo que esto NO explica, y conviene no confundir:** que la generación fallara. Las tres
+keys son distintas y contestan (probadas una por una: 200, 503 transitorio de Google, 200).
+El diagnóstico obvio —«las 3 keys son del mismo proyecto de Google y comparten cuota»— era
+el equivocado, y se descartó pingueando cada una por separado. Lo que hacía indiagnosticable
+el caso era el mensaje, no la rotación.
+
+**Vive en:** lib/ia-cuotas.ts (`usoHoyPorCuenta`, `cuotasProveedores`, `ordenarCuentas`) ·
+lib/anthropic-usage.ts (`cuenta`) · supabase/migrations/0132_uso_por_cuenta.sql ·
+app/integraciones/IntegracionesBoard.tsx · *2026-08-12 reporte de Leila*
+
+### El mensaje de error se corrigió en 2 de 4 lugares, y el que faltaba era el que ella usa
+
+**Síntoma:** «No hay IA para generar las razones. Conecta tu API key de Gemini (gratis) en
+Integraciones» a alguien que tenía tres keys de Gemini cargadas y funcionando.
+
+**Causa:** el problema estaba diagnosticado y resuelto — `avatares.ts` y `entregable.ts`
+distinguían «no hay ninguna key» de «hay key y la cascada falló», con el comentario
+explicándolo. Pero la corrección se aplicó **a mano, call-site por call-site**, y quedaron
+afuera `generarRazones` (la Matriz, o sea la pantalla del reporte) y `angulos-formatos`.
+Tres textos para el mismo problema, uno diciendo lo contrario que los otros dos.
+
+**El detalle que lo hacía indiagnosticable:** ninguno de los tres decía QUÉ había contestado
+cada proveedor. Ese dato existía —`chatCheapCascade` lo empuja a `erroresOut`, y hay
+`console.warn` con el error crudo— pero los `console.warn` viven en los logs de Vercel, que
+nadie lee y que a los 60 minutos no existen. La captura del reporte no tenía una sola pista.
+
+**La regla (ya estaba en AGENTS.md, aplicada a medias):** si el que se tiene que enterar es
+el usuario, el aviso va donde él mira. Ahora el mensaje incluye qué contestó cada cuenta —
+`gemini · cuenta 1: HTTP 429 quota · gemini · cuenta 2: HTTP 503` — que es la diferencia
+entre un reporte y una captura muda.
+
+**Y la guarda, porque una frase copiada se vuelve a copiar:** el texto vive SOLO en
+`lib/ia-mensajes.ts`, y `tests/ia-mensajes.test.ts` falla si (a) el literal «Conecta tu API
+key de Gemini» aparece en el código de cualquier otro archivo, o (b) alguien lee el `''` de
+la cascada y arma un `error:` sin haber pedido `erroresOut`. La segunda encontró un
+call-site más que nadie estaba mirando (`setting-simulador`, que decía «MaKo no respondió.
+Vuelve a intentarlo.» ante una cuota agotada — reintentar no arregla una cuota).
+
+**Vive en:** lib/ia-mensajes.ts · lib/ai-cheap.ts (`errorDeCascada`) · tests/ia-mensajes.test.ts
+· *2026-08-12 reporte de Leila*
+
 ### El tilde probaba la key VIEJA y pintaba verde la nueva
 
 **Síntoma:** ninguno — ese es el punto. Se pega la segunda API key, el tilde dice «Guardada y

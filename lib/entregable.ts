@@ -19,7 +19,7 @@ import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { getPanorama } from './archivero';
 import { getSetting, setSetting } from './settings';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible, motivoDeErroresCascada } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible, errorDeCascada } from './ai-cheap';
 
 // Un entregable tangible:
 //  · tipo  = qué clase de elemento es (Dashboard, Excel, Documento, Metodología…).
@@ -222,16 +222,8 @@ export async function generarEntregables(respuestas?: Array<{ pregunta: string; 
       feature: 'entregable', motivo: 'Detectar el entregable tangible de la oferta',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneEntregables, erroresOut: errores,
     });
-    if (!text) {
-      // Distinguir "no hay ninguna key cargada" de "hay key pero la cascada falló
-      // igual" (cuota, rate-limit, corte momentáneo) — antes ambos casos mostraban
-      // el mismo "conectá tu API key" aunque el dueño YA la había conectado.
-      const hayIA = await docsIADisponible();
-      const motivo = motivoDeErroresCascada(errores);
-      return { ok: false, error: hayIA
-        ? `Tu IA está conectada pero no pudo responder ahora mismo${motivo ? `: ${motivo}` : ' (puede ser un límite de uso momentáneo). Probá de nuevo en un momento.'}`
-        : 'No hay IA para detectar el lead magnet. Conecta tu API key de Gemini (gratis) en Integraciones.' };
-    }
+    // El mensaje lo arma `errorDeCascada` (lib/ia-mensajes.ts): uno solo para todos.
+    if (!text) return { ok: false, error: await errorDeCascada(errores, 'detectar el lead magnet') };
     const entregables = parseEntregables(text);
     if (!entregables.length) return { ok: false, error: 'MaKo no devolvió lead magnets. Reintenta en un momento.' };
     return { ok: true, entregables, uso: null };

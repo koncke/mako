@@ -105,7 +105,7 @@ async function insertUsage(row: Record<string, unknown>): Promise<void> {
  * descuenta del saldo) del resto. rawUsage tolera el shape de Anthropic
  * (input_tokens/output_tokens) o el de OpenAI-compat (prompt_tokens/completion_tokens).
  */
-export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string, provider = 'anthropic'): Promise<UsageInfo> {
+export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string, provider = 'anthropic', cuenta?: number): Promise<UsageInfo> {
   const u = (rawUsage && typeof rawUsage === 'object' ? rawUsage : {}) as Record<string, unknown>;
   const input = Number(u.input_tokens ?? u.prompt_tokens ?? 0) || 0;
   const outputVisible = Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
@@ -120,17 +120,21 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
   const costUsd = costFor(model, { input, output, cacheCreation, cacheRead }, provider);
   await insertUsage({
     feature: feature || 'otros', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
+    // CUÁL de las keys del proveedor atendió (mig 0132). Sin esto la cuota solo se
+    // puede medir sumada, y esa suma miente cuando el uso se apila en una cuenta.
+    cuenta: cuenta && cuenta > 1 ? cuenta : 1,
     input_tokens: input, output_tokens: output, cache_creation_tokens: cacheCreation, cache_read_tokens: cacheRead, cost_usd: costUsd,
   });
   return { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model };
 }
 
 /** Registra una transcripción (STT): cobra por SEGUNDOS de audio, no por tokens. */
-export async function recordSttUsage(feature: string, model: string, segundos: number, motivo?: string, provider = 'openai'): Promise<void> {
+export async function recordSttUsage(feature: string, model: string, segundos: number, motivo?: string, provider = 'openai', cuenta?: number): Promise<void> {
   const seg = Math.max(0, Number(segundos) || 0);
   const costUsd = PROVEEDORES_GRATIS.includes(provider) ? 0 : (STT_PRICE_SEG[model] ?? STT_PRICE_SEG['whisper-1']) * seg;
   await insertUsage({
     feature: feature || 'stt', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
+    cuenta: cuenta && cuenta > 1 ? cuenta : 1,
     input_tokens: 0, output_tokens: 0, cache_creation_tokens: 0, cache_read_tokens: 0, cost_usd: costUsd,
   });
 }

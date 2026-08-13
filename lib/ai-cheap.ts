@@ -26,8 +26,9 @@ import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { credWs } from '@/lib/credenciales';
-import { ordenarPorCuota } from '@/lib/ia-cuotas';
+import { ordenarCuentas, ordenarPorCuota } from '@/lib/ia-cuotas';
 import { clavesDe } from '@/lib/ia-keys';
+import { mensajeIAFallo } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
@@ -107,15 +108,24 @@ async function provsDe(nombre: ProvName): Promise<Prov[]> {
     const p = await provDe(nombre, cl);
     if (p) out.push(p);
   }
-  return out;
+  // PROACTIVO: la cuenta con más cuota disponible primero. Sin esto la cascada
+  // arranca siempre por la 1, y si esa está al tope cada llamada paga un 429 de
+  // peaje antes de llegar a la 2 — con tres cuentas, tres peajes por llamada.
+  if (out.length < 2) return out;
+  const orden = await ordenarCuentas(nombre, out.map((p) => p.clave)).catch(() => out.map((p) => p.clave));
+  return orden.map((c) => out.find((p) => p.clave === c)).filter((p): p is Prov => !!p);
 }
 
 /** Cómo se nombra un proveedor en logs y errores. Con varias cuentas, «gemini» a
  *  secas no dice nada: hay que poder leer CUÁL de las tres se quedó sin cuota. */
 const rotulo = (p: Prov): string => {
-  const i = clavesProv(p.nombre).indexOf(p.clave);
-  return i > 0 ? `${p.nombre} · cuenta ${i + 1}` : p.nombre;
+  const n = nroCuenta(p);
+  return n > 1 ? `${p.nombre} · cuenta ${n}` : p.nombre;
 };
+
+/** Nº de cuenta (1..3) de una instancia. Es lo que se guarda en `anthropic_usage.cuenta`
+ *  (mig 0132) para poder medir la cuota POR CUENTA y no sumada por proveedor. */
+const nroCuenta = (p: Prov): number => Math.max(1, clavesProv(p.nombre).indexOf(p.clave) + 1);
 
 /** Proveedor barato para CHAT. `pref` (del registro de modelos) fuerza uno; si no
  *  está, cae a groq→openai. Gemini SOLO sale si lo pide `pref` explícito: necesita
@@ -235,7 +245,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     throw new Error(`chatCheap(${rotulo(p)}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
   }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
-  void recordUsage(opts.feature || 'ia-barata', model, data.usage, opts.motivo, p.nombre);
+  void recordUsage(opts.feature || 'ia-barata', model, data.usage, opts.motivo, p.nombre, nroCuenta(p));
   // Si la respuesta se CORTÓ por llegar al tope, decilo. Era el punto ciego que hacía
   // indistinguible "la reunión no dejaba más tareas" de "se quedó sin lugar para
   // escribirlas": el JSON llega mocho, el parse falla y quedan cero tareas sin motivo.
@@ -359,6 +369,19 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
  *  motivo legible — el caso más confuso es "hay key conectada pero igual no
  *  respondió": sin esto, el usuario ve el mismo mensaje genérico que si nunca
  *  hubiera conectado nada. null si no hay ninguna pista clara (falla genérica). */
+/**
+ * El mensaje para el usuario cuando `chatCheapCascade` devolvió ''. ÚSALO SIEMPRE:
+ * es el único que sabe distinguir «no hay ninguna IA» de «hay IA y falló», y el
+ * único que le muestra QUÉ contestó cada cuenta. Escribir la frase a mano en el
+ * call-site es exactamente el bug que se pagó (ver lib/ia-mensajes.ts).
+ *
+ * `tema` va adentro de la frase: 'generar las razones', 'elegir los formatos'…
+ */
+export async function errorDeCascada(errores: string[], tema: string): Promise<string> {
+  const hayIA = await docsIADisponible().catch(() => false);
+  return mensajeIAFallo({ hayIA, motivo: motivoDeErroresCascada(errores), errores, tema });
+}
+
 export function motivoDeErroresCascada(errores: string[]): string | null {
   if (!errores.length) return null;
   const todo = errores.join(' | ').toLowerCase();
@@ -400,7 +423,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
     if (!instancias.length) { sinKey.push(prov); continue; }
     for (const inst of instancias) {
       try {
-        const text = prov === 'gemini' ? await leerConGemini(inst.key, opts) : await leerConOpenAI(inst.key, opts);
+        const text = prov === 'gemini' ? await leerConGemini(inst.key, opts, nroCuenta(inst)) : await leerConOpenAI(inst.key, opts, nroCuenta(inst));
         if (text.trim()) return { text, provider: prov };
         errores.push(`${rotulo(inst)}: respuesta vacía`);
       } catch (e) {
@@ -413,7 +436,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   throw new Error(`No hay ninguna IA con visión configurada. Cargá una API key de ${nombres || 'Gemini u OpenAI'} en Integraciones.`);
 }
 
-async function leerConOpenAI(key: string, o: DocOpts): Promise<string> {
+async function leerConOpenAI(key: string, o: DocOpts, cuenta = 1): Promise<string> {
   const model = process.env.OPENAI_VISION_MODEL || 'gpt-4o';
   const imagenes = o.dataUrls && o.dataUrls.length ? o.dataUrls : [o.dataUrl];
   const content = o.isPdf
@@ -428,11 +451,11 @@ async function leerConOpenAI(key: string, o: DocOpts): Promise<string> {
   });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || j.error) throw new Error(j?.error?.message || `HTTP ${res.status}`);
-  void recordUsage(o.feature || 'leer-documento', model, j.usage, o.motivo, 'openai');
+  void recordUsage(o.feature || 'leer-documento', model, j.usage, o.motivo, 'openai', cuenta);
   return j.choices?.[0]?.message?.content ?? '';
 }
 
-async function leerConGemini(key: string, o: DocOpts): Promise<string> {
+async function leerConGemini(key: string, o: DocOpts, cuenta = 1): Promise<string> {
   // Endpoint NATIVO (no el OpenAI-compat): maneja PDF e imágenes vía inline_data.
   const model = process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
   const imagenes = o.dataUrls && o.dataUrls.length ? o.dataUrls : [o.dataUrl];
@@ -454,7 +477,7 @@ async function leerConGemini(key: string, o: DocOpts): Promise<string> {
   if (!res.ok || j.error) throw new Error(j?.error?.message || `HTTP ${res.status}`);
   const text = (j.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('').trim();
   const um = j.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
-  void recordUsage(o.feature || 'leer-documento', model, um ? { prompt_tokens: um.promptTokenCount, completion_tokens: um.candidatesTokenCount, total_tokens: um.totalTokenCount } : undefined, o.motivo, 'gemini');
+  void recordUsage(o.feature || 'leer-documento', model, um ? { prompt_tokens: um.promptTokenCount, completion_tokens: um.candidatesTokenCount, total_tokens: um.totalTokenCount } : undefined, o.motivo, 'gemini', cuenta);
   return text;
 }
 
@@ -553,7 +576,7 @@ export async function chatCheapTools(
       const extra = p.nombre === 'gemini' && res.status === 404 ? await modelosDisponibles(p) : '';
       throw new Error(`chatCheapTools(${rotulo(p)}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
     }
-    void recordUsage(opts.feature || 'ia-barata-tools', model, data.usage, opts.motivo, p.nombre);
+    void recordUsage(opts.feature || 'ia-barata-tools', model, data.usage, opts.motivo, p.nombre, nroCuenta(p));
     const msg = data.choices?.[0]?.message as { content?: string; tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }> } | undefined;
     if (!msg) break;
     msgs.push(msg as Record<string, unknown>);
@@ -666,7 +689,7 @@ async function sttWhisper(p: Prov, buf: Buffer, mime: string, opts: SttOpts): Pr
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${data?.error?.message || 'sin detalle'}`);
-  void recordSttUsage(opts.feature || 'stt-nota-voz', p.sttModel, Number(data.duration ?? 0), opts.motivo, p.nombre);
+  void recordSttUsage(opts.feature || 'stt-nota-voz', p.sttModel, Number(data.duration ?? 0), opts.motivo, p.nombre, nroCuenta(p));
   return (data.text ?? '').trim();
 }
 
@@ -705,7 +728,7 @@ async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opt
   const u = data.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
   void recordUsage(opts.feature || 'stt-nota-voz', model,
     { prompt_tokens: u?.promptTokenCount ?? 0, completion_tokens: u?.candidatesTokenCount ?? 0, total_tokens: u?.totalTokenCount ?? 0 },
-    opts.motivo, 'gemini');
+    opts.motivo, 'gemini', nroCuenta(p));
   return texto === '(vacío)' ? '' : texto;
 }
 

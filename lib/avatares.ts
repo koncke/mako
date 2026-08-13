@@ -23,7 +23,7 @@ import { perfilNegocioTexto } from './onboarding';
 import { faseNegocioTexto } from './fase-store';
 import { getPanorama } from './archivero';
 import { getSetting, setSetting } from './settings';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible, motivoDeErroresCascada } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible, errorDeCascada } from './ai-cheap';
 
 // Segmento de cliente SEGMENTABLE (no un retrato emocional):
 //  · segmento    = quién es en firmografía: industria/vertical + tamaño + rol + geografía.
@@ -149,16 +149,10 @@ export async function generarAvatares(): Promise<GenResult> {
       feature: 'avatares', motivo: 'Definir 3 avatares segmentables del negocio',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneAvatares, erroresOut: errores,
     });
-    if (!text) {
-      // Distinguir "no hay ninguna key cargada" de "hay key pero la cascada falló
-      // igual" (cuota, rate-limit, corte momentáneo) — antes ambos casos mostraban
-      // el mismo "conectá tu API key" aunque el dueño YA la había conectado.
-      const hayIA = await docsIADisponible();
-      const motivo = motivoDeErroresCascada(errores);
-      return { ok: false, error: hayIA
-        ? `Tu IA está conectada pero no pudo responder ahora mismo${motivo ? `: ${motivo}` : ' (puede ser un límite de uso momentáneo). Probá de nuevo en un momento.'}`
-        : 'No hay IA para generar los avatares. Conecta tu API key de Gemini (gratis) en Integraciones.' };
-    }
+    // El mensaje lo arma `errorDeCascada` (lib/ia-mensajes.ts). Acá vivía una copia
+    // que hacía lo mismo, y esa duplicación es lo que dejó a `razones` diciendo lo
+    // contrario durante semanas: dos textos para un solo problema.
+    if (!text) return { ok: false, error: await errorDeCascada(errores, 'generar los avatares') };
     const avatares = parseAvatares(text);
     if (!avatares.length) return { ok: false, error: 'MaKo no devolvió avatares. Reintenta en un momento.' };
     return { ok: true, avatares, uso: null };
