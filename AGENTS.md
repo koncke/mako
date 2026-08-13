@@ -7,9 +7,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
 `next build` tiene `typescript.ignoreBuildErrors: true` (ver next.config.ts). **No es
-descuido**: ese paso eran ~65 de los ~99 segundos de cada compilación, y en Vercel se
-factura como Build CPU — 109 horas en una sola semana, el 95% del gasto variable de la
-cuenta. El mismo chequeo corre local en ~7 segundos y gratis.
+descuido**: ese paso eran ~65 de los ~99 segundos de cada compilación. El mismo chequeo
+corre local en ~7 segundos y gratis.
+
+⚠️ **El porqué original de este cambio era el diagnóstico equivocado.** Se hizo para bajar
+la factura de Build CPU, y no podía: Vercel factura **`ceil(minutos) × vCPU`**, así que
+bajar de 99 s a 27 s solo mueve de `ceil(2 min)` a `ceil(1 min)` — un 2x como techo. Lo que
+gobierna la factura es el **tamaño de la máquina de build**, no la duración. El detalle
+está en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «La factura de builds no mide
+TIEMPO».
 
 La red de seguridad se movió a **`.git/hooks/pre-push`**: corre `npm run typecheck` y
 **bloquea el push** si falla. Vive en `.git`, así que aplica a cualquier sesión que
@@ -33,8 +39,10 @@ Reglas para cualquier agente que trabaje acá:
 - **Nunca** uses `git push --no-verify` (saltea el único chequeo de tipos que queda).
 - Antes de pushear, si tocaste rutas nuevas, corré `npm run build` una vez: el hook usa
   `tsc --noEmit`, que solo valida los tipos generados de rutas si `.next/types` está fresco.
-- **Cada push cuesta ~US$0.09** en build. Agrupá commits y pusheá cuando haya algo que
-  probar, no después de cada paso interno.
+- **Un push cuesta lo mismo dure lo que dure el build** (~US$0,105 con la máquina en
+  `turbo`; **US$0** con Standard y on-demand concurrency apagado). Agrupá commits y pusheá
+  cuando haya algo que probar, no después de cada paso interno — lo que se ahorra es el
+  deploy entero, nunca segundos.
 
 ⚠️ El hook hace CUATRO chequeos: los tipos, que las skills tengan el contrato del
 `detalle` al día (`node scripts/sync-contrato-detalle.mjs --check`), que el manual de

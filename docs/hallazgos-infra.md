@@ -13,6 +13,7 @@ habilita a darle mejores prompts al otro Claude».
 - «Se guarda cifrada, se pinta verde y el route lee `process.env`»: la credencial del cliente no se usa nunca → [Credenciales e integraciones](#credenciales-e-integraciones-byok).
 - Un `200` en un webhook es un **acuse de recibo**: el proveedor no reintenta y el evento se pierde para siempre → [Webhooks](#webhooks-recibir-sin-perder-eventos).
 - Un push no es una entrega: el build de Vercel falla, **producción sigue sirviendo la versión vieja** y nadie avisa → [Build, deploy y entrega](#build-deploy-y-entrega).
+- La factura de builds no mide tiempo: mide `ceil(minutos) × vCPU`. Acortar el build **no ahorró nada**, y el comentario que decía lo contrario vivió un mes en el código → [Build, deploy y entrega](#build-deploy-y-entrega).
 - La tabla `notificaciones` **no existe en producción** desde siempre y el escritor se traga el error → [Migraciones](#migraciones).
 - Hay features **terminadas, con migración y API propias, que ninguna página monta**: compilan y no existen → [Código construido que ninguna página monta](#código-construido-que-ninguna-página-monta).
 - Si Claude Code «se cierra solo» y la PC sigue andando, es el **proceso GPU** muriendo por la gráfica híbrida — y los tres diagnósticos obvios (memoria, energía, drivers) estaban los tres equivocados → [El equipo](#el-equipo-cuando-se-cierra-claude-code-y-no-es-claude-code).
@@ -1063,12 +1064,66 @@ el código estaba mal o se había perdido en un merge. Estaba bien y estaba push
 volver a escribir una feature que "no aparece", **comprobá que lo que el usuario mira es lo que
 vos escribiste**.
 
+### ⚠️ La factura de builds no mide TIEMPO: mide `ceil(minutos) × vCPU`, y por eso acortar el build no ahorró nada
+
+**Síntoma.** Agosto 2026: US$48,41 de Build CPU en 13 días (72 % de la factura), con 13.830
+CPU-minutos facturados contra ~25 minutos de reloj de build por día. Un factor **40x** sin
+explicación. Se buscó doble build, cola facturada y proyectos duplicados: ninguna de las tres.
+
+**Causa.** La fórmula de Vercel, textual: *«Build usage is priced at $0.0035 per CPU Minute. The
+duration of the build is rounded up to the nearest minute and then multiplied by the number of
+CPUs on the machine type»* (https://vercel.com/docs/pricing). Los builds duran **33 s** → se
+facturan **1 minuto entero**, multiplicado por los vCPU de la máquina. Y la máquina estaba en
+`turbo` **con elastic encendido, en los 14 proyectos del equipo** (verificado con
+`GET /v9/projects` → `resourceConfig.buildMachineType`), o sea ~30 vCPU. Medido: **30 CPU-min
+planos por deploy, sin importar cuánto dure el build.**
+
+**El diagnóstico obvio era el equivocado, y quedó escrito en el código.** En julio se sacó el
+typecheck del build para ahorrar: 99 s → 27 s, un éxito medido en segundos. Pero con redondeo al
+minuto eso solo mueve de `ceil(2 min)` a `ceil(1 min)` — **un 2x como techo absoluto**, mientras
+el comentario de `next.config.ts` afirmaba que el typecheck era «el 95 % del gasto variable de la
+cuenta». La factura subió igual de US$15 (junio) a US$99 (julio): Vercel había cambiado los
+defaults de máquina de build, y nadie mira un default que cambia solo.
+
+**La regla:** antes de optimizar un costo, **leé cómo se metrea**. Si la unidad es CPU-minuto con
+redondeo hacia arriba, acortar el build por debajo del piso de redondeo ahorra **cero** — la única
+palanca es el **tamaño de la máquina**. Y cuando un fix medido en la unidad técnica (segundos) no
+mueve la unidad económica (dólares), la unidad económica no era la que pensabas.
+
+**El corolario que vale la factura entera:** *«Builds on Standard build machines are only billed
+when on-demand concurrency is enabled or Elastic build machines are selected»*. Standard + on-demand
+apagado = **US$0 de build**, sin importar cuántos deploys se hagan. El precio es bajar de 500 a 3
+builds concurrentes — que con push directo a main es una ventaja, no un costo: la cola por rama
+**colapsa** los builds viejos y despliega solo el último commit.
+
+⚠️ **Se fija a nivel EQUIPO, no proyecto:** un proyecto nuevo nace con el default del momento, y
+Vercel ya lo cambió dos veces en 2026. Revisarlo cada vez que se crea uno.
+
+**Vive en:** Vercel Team Settings → Build and Deployment → Build Machines · `resourceConfig` de cada
+proyecto (`GET /v9/projects?teamId=…`) · el comentario corregido en `next.config.ts` · *2026-08-13 infra-costos-alternativas*
+
+### No hay proyecto duplicado en Vercel: `dashboard-marketing` es el nombre VIEJO del mismo proyecto
+
+Los deployments traen 7 con `name: "dashboard-marketing"` y 80 con `name: "mako"`, lo que parece un
+segundo proyecto construyendo el mismo repo al pedo. **No lo es:** los dos comparten
+`projectId: prj_9EBSJzJLTtaTzfEbNynMk7zOirzM`. Al renombrar un proyecto, los deployments viejos
+conservan el nombre viejo; y `mako.link.repo` sigue siendo `dashboard-marketing` porque ese es el
+nombre del **repo de GitHub**, no del proyecto.
+
+**Regla:** antes de contar proyectos por el `name` de un deployment, agrupá por `projectId`. Y si
+alguna vez hay que apagar un proyecto de verdad, se le **desconecta el Git** — un Ignored Build Step
+no sirve: *«Canceled builds are counted as full deployments… will still count towards your
+deployment quotas and concurrent build slots»*.
+
+**Vive en:** `GET /v6/deployments` (campo `name` vs `projectId`) · *2026-08-13 infra-costos-alternativas*
+
 ### ⚠️ El typecheck NO corre en el build: lo sostiene un hook que no se versiona
 
 `next build` tiene `typescript.ignoreBuildErrors: true` (`next.config.ts`). **No es descuido:**
-ese paso eran ~65 de los ~99 segundos de cada compilación, y en Vercel se factura como Build CPU
-— 109 horas en una sola semana, el 95 % del gasto variable de la cuenta. El mismo chequeo corre
-local en ~7 segundos y gratis.
+ese paso eran ~65 de los ~99 segundos de cada compilación. Pero ojo con el porqué: se hizo para
+ahorrar Build CPU y **el ahorro real fue mucho menor de lo que dice el comentario original** — ver
+la entrada de arriba sobre `ceil(minutos) × vCPU`. Sigue valiendo la pena por otro motivo: el mismo
+chequeo corre local en ~7 segundos y gratis, y el build es más rápido de esperar.
 
 La red de seguridad se movió a `.git/hooks/pre-push`, que corre `npm run typecheck` **y** el
 contrato del `detalle` de las skills (`node scripts/sync-contrato-detalle.mjs --check`), y bloquea
@@ -1078,7 +1133,12 @@ recrearlo (con los **dos** chequeos) está en `AGENTS.md`.
 
 Reglas: nunca `git push --no-verify`; si tocaste rutas nuevas, corré `npm run build` una vez antes
 de pushear (el hook usa `tsc --noEmit`, que solo valida los tipos generados de rutas si
-`.next/types` está fresco); y **cada push cuesta ~US$0,09** en build — agrupá commits.
+`.next/types` está fresco).
+
+⚠️ **«Cada push cuesta ~US$0,09» era cierto y ya no lo es** — mientras la máquina de build siga en
+`turbo`, cuesta ~US$0,105 (30 CPU-min × US$0,0035) **sin importar cuánto dure el build**, así que
+agrupar commits ahorra por deploy evitado, no por segundo. Con la máquina en Standard y on-demand
+apagado, cuesta **US$0**. Verificá en qué estado está antes de repetir el número.
 
 ### El pre-push corre el typecheck y NADA más: un chequeo sobre `.next/` ahí da falso verde
 
@@ -1145,6 +1205,51 @@ endpoint para leerlo ni escribirlo—, pero tiene su propio webhook que dispara 
 webhooks de cuenta es de uso o gasto.
 
 **Vive en:** pendiente: /api/cron/vercel-usage + tarjeta en /integraciones · *2026-07-23 vercel-costo-auditoria*
+
+### Migrar de plataforma: lo que se evaluó y por qué NO (para no volver a investigarlo)
+
+Corrida de 16 agentes sobre «alternativas más baratas a Vercel y Supabase» (agosto 2026). El
+resultado fue **no migrar nada**, y estas son las razones concretas, para que nadie repita la
+investigación:
+
+| Alternativa | Veredicto | El porqué que cuesta descubrir |
+|---|---|---|
+| **Cloudflare Workers + OpenNext** | **No compila** | En Next 16 el middleware se renombró a `proxy.ts` y corre siempre en runtime Node; el adaptador devuelve *«Node.js middleware is not currently supported»*. El gate de auth vive **entero** ahí. Segundo asesino aunque se destrabe: todo Next va en UN Worker con techo de 10 MiB comprimido, y 215 rutas + 111 páginas + jszip/mammoth/unpdf/lamejs es el perfil que lo revienta |
+| **VPS propio (Hetzner + Coolify/Dokploy)** | Ahorra ~US$0-10/mes **contra la factura ya arreglada**, y cuesta 35-50 h de setup | Las 215 rutas pasan a compartir UN event loop: lamejs, unpdf, mammoth y jszip **bloquean a todas las demás** mientras corren (en serverless cada invocación era su propio aislado). Y a 46 deploys/día de imágenes de ~1-1,5 GB, 160 GB de disco se llenan en tres días sin un `docker system prune` en cron |
+| **Neon / Postgres con scale-to-zero** | Descartado por el propio repo | Hay un cron **cada minuto** (`doer-flush` en `vercel.json`): la base nunca duerme, así que el modelo que hace barato a Neon no aplica |
+| **Otro Postgres gestionado** | Reescritura enorme | PostgREST es la **única** forma en que la app habla con la base: **748 call-sites `.from()`** en 115 archivos sobre 79 tablas. Salir de Supabase a Postgres pelado es reescribir todo eso a SQL. Supabase self-hosted no requiere tocar nada, pero ahí el ahorro no paga el trabajo |
+| **`vercel deploy --prebuilt`** | **NO VERIFICADO** | Ninguna página de pricing de Vercel dice si un deploy prebuilt evita el cargo de Build CPU. Solo lo afirman terceros. La única forma de saberlo es hacer un deploy y mirar la factura del día siguiente |
+
+⚠️ **El riesgo que subestima cualquier plan de migración acá:** `AUTH_COOKIE_VALUE` es la llave del
+cifrado BYOK y la migración a v2 está a mitad de camino. Re-cargar variables de entorno en otra
+plataforma tiene un modo de falla **silencioso**: errarle no tira error, **descifra basura** y los
+clientes pierden sus credenciales sin un solo stack trace.
+
+**Y la causa raíz que ninguna plataforma arregla:** se hacen 46 deploys/día porque `next dev` no
+arranca en esa carpeta y verificar obliga a desplegar. Hoy eso puede costar US$0 en Vercel, pero es
+la variable que **todas** las alternativas facturan explícitamente — Netlify cobra por deploy de
+producción, Render y Fly en build minutes, GitHub Actions en minutos de runner. **Migrar no arregla
+una cadencia rota: la re-tarifa.**
+
+**Vive en:** proxy.ts · vercel.json (cron `doer-flush`) · los 748 `.from()` de lib/ y app/ · *2026-08-13 infra-costos-alternativas*
+
+### La palanca de Supabase es el add-on de compute, no el plan
+
+US$80/mes de Supabase se lee como «el plan Pro es caro». Pro son **US$25** e incluyen US$10 de
+crédito de compute. Los ~US$55 restantes son un **add-on de compute** que alguien eligió una vez y
+nadie volvió a mirar: Micro US$10, Small US$15, **Medium US$60**, Large US$110. El plan no se puede
+bajar; el add-on sí, con un restart de ~2 minutos y reversible en un click.
+
+**Regla:** en Supabase, antes de discutir el plan, leé el tamaño de la instancia y **30 días de
+CPU/RAM** en Reports → Database. Y verificá dos toggles que duplican la factura solos: **PITR**
+(US$100/mes por 7 días de retención) y el **spend cap** (viene ON, pero si alguien lo apagó, el
+egress a US$0,09/GB pasados los 250 GB salta sin aviso — y ahí viven creativos, contratos, recibos,
+avatares y audios de WhatsApp).
+
+⚠️ **Sin verificar:** el desglose real de esos US$80 no se pudo leer (no hay token de la Management
+API en el repo). Los US$25 + Medium − crédito son una reconstrucción que cierra, no un dato leído.
+
+**Vive en:** Supabase Dashboard → Settings → Compute and Disk · *2026-08-13 infra-costos-alternativas*
 
 ### Cómo se entrega acá: las reglas del dueño
 
