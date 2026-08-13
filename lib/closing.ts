@@ -705,15 +705,23 @@ export type SyncResult = {
   otras: number;        // interna / sin_clasificar resueltas por Claude
   errores: number;
   restantes: number;
+  /** por qué paró: drenó la cola · tope de llamadas · no entraba otra llamada entera. */
+  corto_por: 'cola' | 'max' | 'tiempo';
   ms: number;
 };
 
 const DEFAULT_MAX = 6;
-// "Dejar de empezar llamadas nuevas" después de este punto. El maxDuration de las
-// rutas es 300s; reservamos ~150s para que la ÚLTIMA llamada a Claude (Opus high)
-// termine antes del corte de la plataforma, en vez de chequear el budget solo al
-// principio del loop y arrancar una llamada que se pasa de los 300s.
-const DEFAULT_TIME_BUDGET_MS = 150_000;
+/**
+ * Lo que se reserva ANTES de empezar otra llamada: el peor caso de UNA llamada a
+ * Opus high sobre 60.000 chars (90-120 s medidos, ver docs/hallazgos-infra.md) más
+ * bajar el transcript y escribir la fila.
+ *
+ * Se EXPORTA para que el cron reparta con la MISMA unidad: una cuota que no llega a
+ * esto no sirve para nada — paga el barrido de Fathom para no analizar ni una.
+ */
+export const RESERVA_LLAMADA_MS = 135_000;
+/** Default de la corrida MANUAL (POST /api/closing/sync, maxDuration 300): 300 − 15 de salida. */
+const DEFAULT_DEADLINE_MS = 285_000;
 
 /**
  * Sincroniza llamadas de Fathom → closing_analyses.
@@ -722,10 +730,23 @@ const DEFAULT_TIME_BUDGET_MS = 150_000;
  *  3. Las descartables por heurística se guardan al instante (sin Claude).
  *  4. Las candidatas a venta se analizan con Claude hasta agotar el presupuesto.
  */
-export async function syncClosingCalls(opts: { max?: number; timeBudgetMs?: number; force?: boolean } = {}): Promise<SyncResult> {
+export async function syncClosingCalls(opts: { max?: number; deadline?: number; force?: boolean } = {}): Promise<SyncResult> {
   const tStart = Date.now();
   const max = opts.max ?? DEFAULT_MAX;
-  const timeBudget = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
+  // ABSOLUTO (epoch ms), NO un presupuesto relativo. El `timeBudgetMs` viejo se medía
+  // contra el tStart de ESTA invocación: el 2º workspace de la ronda ponía su reloj en
+  // cero a los 150 s de la función, medía bien SUS 150 s y arrancaba una llamada a Opus
+  // a los 290 — la plataforma la mataba a los 300, DESPUÉS de que Claude cobró y ANTES
+  // del upsertRow. El que sabe cuánto queda de verdad es el que llama, no esta función.
+  const deadline = opts.deadline ?? tStart + DEFAULT_DEADLINE_MS;
+  // Guard EN POSITIVO: un deadline válido está en el FUTURO. Sin esto, alguien que pase
+  // el valor viejo por costumbre (150000) manda una fecha de 1970 y el loop no analiza
+  // NADA — en silencio y con ok:true, que es el modo de falla más caro de este archivo.
+  if (deadline <= tStart) {
+    throw new Error(
+      `closing: deadline ${deadline} no está en el futuro — ¿pasaste un presupuesto relativo en vez de una fecha absoluta (Date.now() + ms)?`,
+    );
+  }
 
   const supabase = (await getTenantDb());
   const [meetings, leadsByEmail, doneRows] = await Promise.all([
@@ -757,6 +778,7 @@ export async function syncClosingCalls(opts: { max?: number; timeBudgetMs?: numb
     otras: 0,
     errores: 0,
     restantes: 0,
+    corto_por: 'cola',
     ms: 0,
   };
 
@@ -789,8 +811,14 @@ export async function syncClosingCalls(opts: { max?: number; timeBudgetMs?: numb
 
   // Paso 4: análisis con Claude, con presupuesto.
   let analizadasEnCorrida = 0;
+  // EN POSITIVO: se arranca una llamada SOLO si entra ENTERA antes del corte. El
+  // chequeo viejo (`Date.now() - tStart > timeBudget`) acotaba el INICIO de la
+  // llamada y no su fin, así que una que arrancaba justo antes del límite igual se
+  // pasaba: se pagaba el análisis y se perdía sin escribir la fila.
+  const entraOtraLlamada = () => Date.now() + RESERVA_LLAMADA_MS <= deadline;
   for (const m of candidatas) {
-    if (analizadasEnCorrida >= max || Date.now() - tStart > timeBudget) break;
+    if (analizadasEnCorrida >= max) { result.corto_por = 'max'; break; }
+    if (!entraOtraLlamada()) { result.corto_por = 'tiempo'; break; }
     analizadasEnCorrida++;
     const { status, category } = await processCandidate(m, leadsByEmail);
     if (status === 'error') result.errores++;

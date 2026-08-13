@@ -28,7 +28,7 @@ import { pollMetaLeads } from './meta-leads';
 import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from './transcribe';
 import { getPromptText } from './prompt-render';
 import { syncScriptAnalyses } from './ads-analyst';
-import { syncClosingCalls } from './closing';
+import { syncClosingCalls, RESERVA_LLAMADA_MS } from './closing';
 import { fetchYouTubeAnalyticsDaily } from './youtube-analytics';
 import { fetchPandaRangeStats } from './panda';
 import { getTenantDb } from './workspace';
@@ -385,8 +385,14 @@ async function jobFathom(deadline: number, marcar: Marcar): Promise<boolean> {
   let prevRestantes = -1;
   for (;;) {
     const restanteMs = deadline - Date.now();
-    if (restanteMs < 60_000) return false;
-    const r = await syncClosingCalls({ max: 6, timeBudgetMs: Math.min(restanteMs - 20_000, 150_000) });
+    // Se corta cuando no entra UNA llamada entera (+ el barrido de Fathom que la
+    // precede). Antes el piso era 60 s: alcanzaba para pagar el barrido y no analizar
+    // ni una, o para arrancar una llamada que el job mataba a mitad.
+    if (restanteMs < RESERVA_LLAMADA_MS + 25_000) return false;
+    // `deadline` ABSOLUTO, no un presupuesto relativo: syncClosingCalls ya reserva
+    // adentro el peor caso de una llamada a Opus, así que le pasamos el corte real
+    // del job menos el margen de salida.
+    const r = await syncClosingCalls({ max: 6, deadline: deadline - 20_000 });
     await marcar((j) => { j.detail = `${r.analizadas + r.ya_procesadas} llamadas procesadas · ${r.restantes} restantes`; });
     if (r.restantes <= 0) return true;
     if (r.analizadas === 0 && r.restantes === prevRestantes) {

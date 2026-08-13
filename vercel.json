@@ -35,7 +35,7 @@
     },
     {
       "path": "/api/cron/closing-sync",
-      "schedule": "30 14 * * *"
+      "schedule": "30 14-23 * * *"
     },
     {
       "path": "/api/cron/fathom-plan",
