@@ -313,6 +313,31 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
     input_schema: { type: 'object', properties: {} },
   },
   {
+    // ⚠️ NO escribe el lead: deja una PROPUESTA y devuelve el link a la pantalla
+    // donde se revisa y se confirma (AGENTS.md — «un canal PROPONE; una persona
+    // confirma»). Es la misma tabla y la misma pantalla que ya usa el agente de
+    // Claude (`/api/agente/lead` → /crm/revisar/<id>), no un segundo camino.
+    //
+    // El motivo es concreto y ya está pagado en este repo: un teléfono con un
+    // dígito cambiado entra al CRM, no matchea su chat de WhatsApp ni su
+    // Calendly, y nadie se entera hasta que falta una conversación. La
+    // confirmación es el único momento en que un humano ve el dato antes de que
+    // valga.
+    name: 'proponer_lead',
+    description: 'PROPONE dar de alta un lead en el CRM (deja una propuesta y devuelve un LINK para revisarla y confirmarla; NO lo crea). Usala cuando te pidan agregar/cargar a alguien al CRM. Si te compartieron una tarjeta de contacto, los datos vienen en el mensaje. Necesitás al menos el nombre; el teléfono es lo que después permite cruzarlo con su WhatsApp. La tool te devuelve el link: pasáselo tal cual y NO pidas confirmación por el chat.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        nombre: { type: 'string', description: 'nombre y apellido de la persona, como lo diría un humano.' },
+        telefono: { type: 'string', description: 'teléfono, solo dígitos con código de país si lo tenés.' },
+        email: { type: 'string', description: 'email, si lo tenés.' },
+        empresa: { type: 'string', description: 'nombre del negocio, si lo dijeron.' },
+        nota: { type: 'string', description: 'el contexto que dio el dueño en sus palabras (ej. «asistió a la primera sesión»). Va a la ficha: es lo que después explica de dónde salió este lead.' },
+      },
+      required: ['nombre'],
+    },
+  },
+  {
     // Es una tool de LECTURA (no propone ni escribe nada), y está acá porque es
     // el paso obligatorio antes de `proponer_agendar_reunion`: los horarios que
     // devuelve son los ÚNICOS que Calendly va a aceptar. Sin esto el modelo
@@ -558,6 +583,38 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         });
         if (!campanas.length) return 'No tengo campañas de Meta sincronizadas todavía.';
         return JSON.stringify(campanas);
+      }
+
+      case 'proponer_lead': {
+        const nombre = str(input, 'nombre');
+        if (!nombre) return JSON.stringify({ ok: false, error: 'Falta el nombre. Pedíselo antes de proponer nada.' });
+        const telefono = str(input, 'telefono').replace(/\D/g, '');
+        const email = str(input, 'email');
+        const empresa = str(input, 'empresa');
+        const nota = str(input, 'nota');
+        try {
+          const { crearPropuesta } = await import('@/lib/propuestas');
+          // `ref` = idempotencia. Sin esto, el buffer de WhatsApp (que junta los
+          // mensajes que llegan seguidos) o un reintento del webhook dejan DOS
+          // tarjetas del mismo lead, y el dueño confirma un duplicado creyendo
+          // que son dos personas. La llave es lo que identifica a la persona,
+          // no el momento: teléfono si hay, si no el nombre.
+          const ref = `wa:lead:${telefono || nombre.toLowerCase().replace(/\s+/g, '-')}`;
+          const { id, nueva } = await crearPropuesta({
+            ws, tipo: 'lead', origen: 'whatsapp', ref,
+            datos: { nombre, telefono: telefono || null, email: email || null, empresa: empresa || null, nota: nota || null },
+            resumen: `${nombre}${empresa ? ` (${empresa})` : ''}${telefono ? ` · ${telefono}` : ''}`,
+          });
+          const url = `${APP_URL}/crm/revisar/${id}`;
+          return JSON.stringify({
+            ok: true, url, nueva,
+            instruccion: nueva
+              ? 'Pasale el link TAL CUAL para que lo revise y confirme. No pidas confirmación por el chat ni repitas los datos.'
+              : 'Ya había una propuesta pendiente para esta persona: es el MISMO link, no se creó otra. Decíselo así y pasáselo.',
+          });
+        } catch (e) {
+          return JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) });
+        }
       }
 
       case 'listar_horarios_reunion': {

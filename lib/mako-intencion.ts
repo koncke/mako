@@ -179,10 +179,21 @@ const INTERROGATIVO = /\b(cu[aá]nt[oa]s?|qu[eé]|cu[aá]l(es)?|qui[eé]n(es)?|c
  */
 export function clasificarIntencion(
   texto: string,
-  ctx: { hayPendientes?: boolean; hayMedia?: boolean } = {},
+  ctx: { hayPendientes?: boolean; hayMedia?: boolean; hayContacto?: boolean } = {},
 ): VeredictoIntencion {
   const t = (texto || '').trim();
   const n = norm(t);
+
+  // 0) COMPARTIÓ UN CONTACTO. Va antes que todo porque no admite lectura: nadie
+  //    comparte una tarjeta de contacto para que quede anotada como una idea.
+  //    Es una persona, y una persona va al CRM.
+  //
+  //    Sin esta rama caía en el default («no hay señal clara → capturar») y el
+  //    contacto de un lead terminaba de tarea en el plan — que es peor que el bug
+  //    original, porque encima parecería que funcionó.
+  if (ctx.hayContacto) {
+    return { intencion: 'actuar', dudosa: false, porque: 'compartió una tarjeta de contacto: es un lead, no una nota' };
+  }
 
   // 1) Un «sí» pelado con algo esperando. Va PRIMERO: es el turno más corto y el
   //    más fácil de confundir con un saludo.

@@ -22,6 +22,7 @@ import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/ma
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
 import { clasificarIntencion, CONTRATO, avisoDeDuda, type Intencion } from '@/lib/mako-intencion';
+import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
@@ -118,6 +119,12 @@ function textoDe(m: MsgIn): string {
   if (ext && typeof ext.text === 'string') return ext.text;
   const img = msg.imageMessage as { caption?: string } | undefined;
   if (img?.caption) return img.caption;
+  // TARJETA DE CONTACTO. Es la forma natural de pasar un lead por WhatsApp —
+  // nadie tipea un teléfono que ya tiene en la agenda— y era justo la única que
+  // no se leía: entraba, no daba ni texto ni adjunto, y MaKo respondía «no me
+  // llegó ningún dato», que es lo contrario de lo que había pasado. Ver lib/vcard.ts.
+  const contactos = contactosDelMensaje(msg);
+  if (contactos.length) return textoDeContactos(contactos);
   return '';
 }
 
@@ -217,6 +224,13 @@ const DOER_WA_PREAMBLE = `CONTEXTO: estás en un grupo de WhatsApp con el dueño
 HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento, estado_experimentos, ver_funnel, listar_secuencias_nutricion, listar_campanas_meta, listar_horarios_reunion. Usalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BUSCALO con las tools antes de decir que no lo tenés.
 
 CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, agendar una reunión, activar/pausar una nutrición, renombrar/pausar/ajustar el presupuesto de una campaña de Meta): NO ejecutás directo. Usás la tool 'proponer_*' correspondiente —que deja la acción PENDIENTE— y en tu respuesta explicás en una línea qué vas a hacer y pedís que confirmen con un "sí". Conseguí primero los ids con las tools de lectura.
+
+CUANDO TE PIDEN CARGAR UNA PERSONA AL CRM ("agregá este lead", "cargá a fulano", "me sumás a este contacto"):
+- Si te COMPARTIERON UNA TARJETA DE CONTACTO, los datos ya te llegaron en el mensaje: usalos, NO los pidas de nuevo.
+- Con el nombre alcanza para proponer. Llamá 'proponer_lead' y pasale al dueño el LINK que te devuelve, tal cual. NO pidas confirmación por el chat: se revisa y se confirma en esa pantalla, que además es editable.
+- ⛔ NUNCA digas "lo ingreso directo al CRM" ni "ya lo cargué": vos PROPONÉS, la persona confirma. Prometer lo que no hacés es peor que no poder hacerlo.
+- ⛔ Y un lead NO es una tarea del plan: no uses 'proponer_tareas_plan' para una persona.
+- Si de verdad no te llegó ningún dato, pedí nombre y teléfono. Pero si te mandaron algo que no pudiste leer, DECÍ QUÉ LLEGÓ ("me llegó una tarjeta de contacto y no la pude abrir") en vez de afirmar que no llegó nada.
 
 CUANDO TE PIDEN AGENDAR O REAGENDAR UNA REUNIÓN ("agendale la R2 a Carlos", "el lead confirmó, ponele fecha", "reagendá con Ana"), el caso típico es que están saliendo de una llamada y el lead dijo que sí. Tres pasos, sin saltear ninguno:
 1. 'buscar_leads' para el leadId. Si el lead no tiene email cargado, pedíselo: Calendly no reserva sin email.
@@ -687,7 +701,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // la que manda sobre las tools, sobre si la tool es obligatoria y sobre qué
     // se valida al salir. Confundirlas es lo que hizo que «Investigar
     // competencia: <links>» devolviera un ensayo en vez de un borrador.
-    const intencion = clasificarIntencion(texto, { hayMedia: !!mediaBlocks, hayPendientes: vigentes.length > 0 });
+    const intencion = clasificarIntencion(texto, {
+      hayMedia: !!mediaBlocks,
+      hayPendientes: vigentes.length > 0,
+      hayContacto: contactosDelMensaje(data.message).length > 0,
+    });
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
     const ruta = { ...rutaBase, motivo: `${rutaBase.motivo} → ${intencion.intencion}` };
