@@ -182,6 +182,62 @@ nada de configuración manual en ninguna feature (30/06).
 
 ## Leads: mover de etapa, validar y escribir
 
+### 🔴 El CRM de una clienta abría la agenda de Calendly de OTRO cliente
+
+**Síntoma (13/08/2026, visto en producción por el dueño):** en el CRM del workspace 11
+(Leila), el botón «Agendarla por Calendly» abría el embed de **Mauricio Bustos** —su firma,
+su foto y su oferta «Calificación para Programa Directivo»— dentro de la app de ella.
+
+**Causa.** `app/crm/calendly-widget.ts` es un módulo `'use client'` y tenía adentro:
+
+```ts
+const CAL_URLS: Record<string, string> = {
+  agenda:   'https://calendly.com/mauriciobustoseguia/60min',
+  agendaj2: 'https://calendly.com/mauriciobustoseguia/calificacion-…',
+};
+```
+
+Un módulo de cliente **viaja en el bundle y no tiene noción de workspace**: eso se le
+servía igual a todos. `calendlyUrlFor(stageKey)` tomaba solo la etapa como parámetro — la
+firma ya decía que no podía estar bien, porque la respuesta depende de QUIÉN mira.
+
+**Qué rompía, y es más que la vista.** El prospecto de ella reservaba en el calendario de
+él. Y ella no se enteraba nunca: la reserva entra por el event type de él, así que
+`wsPorIdentificador('calendly', …)` la rutea al workspace de él y en el de ella la fecha no
+aparece jamás. El lead queda «agendado» sin fecha, cae en «Datos sin marcar», y el motivo
+real es invisible desde la pantalla. Sumado: se le muestra a un cliente el nombre, la cara y
+la oferta de otro.
+
+**La regla: un módulo `'use client'` no puede decidir nada que dependa de quién está
+mirando.** Ni una URL, ni un teléfono, ni un email, ni un id. Si el dato cambia por
+workspace, lo resuelve el server — y si no está configurado, se DICE; nunca se cae al del
+dueño. Eso último es el mismo criterio que `credWs`, que hace bien la mitad difícil: el
+fallback a `process.env` corre **solo** si `w === OWNER_WS`.
+
+**Cómo quedó.** `openCalendlyEn(url, …)` recibe la URL como parámetro **obligatorio** (sin
+default, ningún call-site puede volver a abrir «la agenda de alguien» sin decir de quién);
+`linkDeAgendaAction` la resuelve en el server contra la cuenta del workspace; y
+`app/crm/page.tsx` decide qué etapas se agendan por Calendly mirando si ESE cliente tiene
+cargado su event type. Sin config, la opción no se ofrece y el aviso dice qué falta.
+
+La red es `tests/sin-datos-del-dueno-en-bundle.test.ts`: recorre todo `app/`, y en cada
+módulo `'use client'` falla si encuentra una agenda personal de Calendly hardcodeada
+(ignorando el CDN, la API y la documentación). La única excepción está listada **por ruta
+exacta** y con su porqué: `/vsl` es la landing pública donde MaKo se vende a sí mismo, no
+vive adentro del workspace de nadie.
+
+**Lo que quedó SIN hacer, del mismo barrido:** `lib/closing.ts:117-121` tiene la identidad
+del dueño hardcodeada para TODOS los workspaces —
+`INTERNAL_EMAILS = {martinkoncke@…, tejadomartin@…}` y `INTERNAL_DOMAINS = {elevate.com.mx}`.
+No filtra datos, pero clasifica mal: a otro cliente, una llamada con alguien de
+`elevate.com.mx` se le descarta como «interna», y su propio dominio NO se excluye nunca —
+así que sus reuniones de equipo entran como candidatas a venta y se pagan a Claude. El
+arreglo real es que «mi equipo» sea un dato del workspace, y eso es materia del onboarding.
+
+**Vive en:** `app/crm/calendly-widget.ts` · `app/crm/actions.ts` (`linkDeAgendaAction`) ·
+`app/crm/page.tsx` (`calendlyStages`) · `app/crm/CrmBoard.tsx` ·
+`tests/sin-datos-del-dueno-en-bundle.test.ts` · pendiente: `lib/closing.ts:117-121`
+
 ### El worklist no bajaba la columna, así que el arreglo del día anterior era inerte
 
 **Síntoma (13/08/2026, reportado por Leila en producción):** marca los datos que le

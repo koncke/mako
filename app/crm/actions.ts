@@ -59,6 +59,7 @@ import {
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
   type CampoFechaLeads, type FiltrosLeads, type OrdenLeads,
 } from './leads-exportar';
+import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, filasDesdeCsv, type FilaImport } from './leads-importar';
 import { marcarExistentes } from './importar-server';
@@ -1821,3 +1822,28 @@ export async function declararEntradasAction(entradas: string[], evento: unknown
   return { ok: true };
 }
 
+
+/**
+ * El link de Calendly para agendar la R1/R2 de ESTE workspace.
+ *
+ * Existe porque hasta el 13/08/2026 esa URL era una constante en un módulo de
+ * cliente (`app/crm/calendly-widget.ts`) con la agenda DEL DUEÑO adentro: el CRM
+ * de cualquier clienta abría la página de Calendly de otra persona, y su
+ * prospecto reservaba en el calendario ajeno. Un dato que depende de quién está
+ * mirando no puede vivir en el bundle.
+ *
+ * Resuelve contra la cuenta de Calendly del workspace actual (`credWs` adentro de
+ * `eventTypeDeReunion`), así que un workspace sin Calendly cargado recibe `null`
+ * y el motivo — nunca la agenda de otro.
+ */
+export async function linkDeAgendaAction(which: 'agenda' | 'agendaj2'): Promise<{ url: string | null; motivo: string | null }> {
+  try {
+    const et = await eventTypeDeReunion(which === 'agenda' ? 'R1' : 'R2');
+    const url = et.schedulingUrl?.trim() || null;
+    return url
+      ? { url, motivo: null }
+      : { url: null, motivo: 'Ese event type de Calendly no tiene página pública de agenda.' };
+  } catch (e) {
+    return { url: null, motivo: e instanceof Error ? e.message : String(e) };
+  }
+}

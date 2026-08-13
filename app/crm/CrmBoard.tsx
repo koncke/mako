@@ -50,6 +50,7 @@ import {
   duracionReunionAction,
   requisitosDeEtapaAction,
   resolverQueHacerAction,
+  linkDeAgendaAction,
 } from './actions';
 import type { ReagendarResultado, StageMoveData } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
@@ -72,7 +73,7 @@ import { sectionForStage } from './edit-logic';
 import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
-import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
+import { openCalendlyEn } from './calendly-widget';
 import { Icon } from '../_components/icons';
 import {
   AccionesHeader,
@@ -237,6 +238,7 @@ export function CrmBoard({
   errorMsg,
   hoy,
   equipo = [],
+  calendlyStages = [],
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -249,6 +251,14 @@ export function CrmBoard({
   errorMsg: string | null;
   hoy: string;
   equipo?: MiembroEquipo[];
+  /**
+   * Qué etapas se agendan por Calendly EN ESTE workspace. Lo decide el SERVER
+   * (app/crm/page.tsx) mirando la config de Calendly del cliente. Antes era una
+   * constante del bundle con la agenda del dueño adentro, servida a todos: un
+   * módulo de cliente no puede decidir nada que dependa de quién está mirando.
+   * Vacío = este negocio no agenda por Calendly, y la opción no se ofrece.
+   */
+  calendlyStages?: string[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -544,12 +554,21 @@ export function CrmBoard({
   // Abre Calendly (prefill nombre/email); la fecha la setea el webhook al reservar
   // y el lead avanza solo. NO persistimos acá.
   const doOpenCalendly = (lead: CrmLead, key: string) => {
-    void openCalendlyFor(key, {
-      name: lead.name,
-      email: lead.email,
-      onScheduled: () => { setTimeout(() => router.refresh(), 2500); },
-    });
+    // La URL la resuelve el SERVER contra la cuenta de Calendly de este
+    // workspace. Si no está configurada, se dice — nunca se cae a la de otro.
+    void (async () => {
+      const { url, motivo } = await linkDeAgendaAction(key === 'agenda' ? 'agenda' : 'agendaj2');
+      if (!url) { setAvisoAgenda(motivo ?? 'No pude abrir Calendly.'); return; }
+      await openCalendlyEn(url, {
+        name: lead.name,
+        email: lead.email,
+        onScheduled: () => { setTimeout(() => router.refresh(), 2500); },
+      });
+    })();
   };
+
+  /** ¿Esta etapa se agenda por Calendly en ESTE workspace? */
+  const esEtapaCalendly = (stageKey: string) => calendlyStages.includes(stageKey);
 
   // Antes de tocar Calendly preguntamos: ¿la reunión ya ocurrió (marcar a mano) o
   // se va a agendar? Único punto de intercepción (worklist, ficha, drag y chips).
@@ -564,7 +583,7 @@ export function CrmBoard({
     const lead = leads.find((l) => l.id === id);
     if (!lead || effStage(lead) === stageKey) return;
     if (stageKey === 'manual') { openManualNutri(id); return; }
-    if (calendlyUrlFor(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
+    if (esEtapaCalendly(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
     if (needsFicha(lead, stageKey)) { openStageMove(lead, { to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 }); return; }
@@ -680,7 +699,7 @@ export function CrmBoard({
   const qhDestino = qhOpcion === 'noshow' ? (qhEtapaNoShow ?? qhEtapa) : qhEtapa;
 
   /** El destino es una etapa de agenda: la reunión se AGENDA, no se "mueve". */
-  const qhVaACalendly = qhOpcion === 'avanza' && !!qhDestino && !!calendlyUrlFor(qhDestino);
+  const qhVaACalendly = qhOpcion === 'avanza' && !!qhDestino && esEtapaCalendly(qhDestino);
 
   // ¿El destino saca al lead del juego? Se pregunta SIEMPRE el motivo, aunque el
   // lead ya tenga uno viejo: `stepsForStage` devuelve [] cuando `motivo_perdida`
@@ -1033,7 +1052,7 @@ export function CrmBoard({
     // que ya pasó, y volvía al worklist como pendiente en el render siguiente.
     // Solo en esta rama: en las de reunión el usuario acaba de declarar una
     // asistencia y mandarlo a Calendly perdería ese hecho.
-    if (qhOpcion === 'avanza' && calendlyUrlFor(destino)) {
+    if (qhOpcion === 'avanza' && esEtapaCalendly(destino)) {
       cerrarQueHacer();
       scheduleViaCalendly(l, destino);
       return;
@@ -1133,6 +1152,10 @@ export function CrmBoard({
   const [exportar, setExportar] = useState(false);
   const [importar, setImportar] = useState(false);
   const [flashCsv, setFlashCsv] = useState<string | null>(null);
+  // Por qué no se pudo abrir Calendly (este negocio no lo tiene configurado, el
+  // event type no coincide…). Se DICE: antes, cuando no había config, el botón
+  // caía a la agenda del dueño y el usuario ni se enteraba de que faltaba algo.
+  const [avisoAgenda, setAvisoAgenda] = useState<string | null>(null);
 
   // Una columna del Kanban (reutilizada por cada banda).
   const renderColumn = (c: Stage) => {
@@ -1219,6 +1242,14 @@ export function CrmBoard({
         <button type="button" onClick={() => setFlashCsv(null)}
           style={{ display: 'block', width: '100%', textAlign: 'left', background: 'var(--good-bg)', border: '1px solid var(--good)', borderRadius: 13, padding: '13px 18px', marginBottom: 14, color: 'var(--good)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
           {flashCsv}
+        </button>
+      )}
+
+      {/* No se pudo abrir la agenda: el motivo, con el lugar donde se arregla. */}
+      {avisoAgenda && (
+        <button type="button" onClick={() => setAvisoAgenda(null)}
+          style={{ display: 'block', width: '100%', textAlign: 'left', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 13, padding: '13px 18px', marginBottom: 14, color: 'var(--bad)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+          {avisoAgenda}
         </button>
       )}
 

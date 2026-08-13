@@ -16,6 +16,7 @@ import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { integracionConectada } from '@/lib/credenciales';
 import { PanelActivacion } from '../_components/PanelActivacion';
 import { tabActivacion } from '@/lib/tab-activacion';
+import { credWs } from '@/lib/credenciales';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
 import { mapToCrmLead } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
@@ -121,8 +122,23 @@ export default async function LeadsPage() {
 
   const equipo = await getEquipoAction().catch(() => [] as MiembroEquipo[]);
 
+  // Qué etapas se agendan por Calendly EN ESTE workspace. Se decide acá y no en
+  // el bundle: hasta el 13/08/2026 la lista era una constante de cliente con la
+  // agenda del dueño adentro, así que el CRM de cualquier clienta ofrecía
+  // reservar en el calendario de otra persona. Se mira si el cliente tiene
+  // cargado el event type de esa reunión (lectura barata, sin pegarle a
+  // Calendly); la URL real la resuelve `linkDeAgendaAction` al hacer click.
+  const calendlyStages: string[] = (
+    await Promise.all(
+      [['agenda', 'CALENDLY_EVENT_TYPE_J1'], ['agendaj2', 'CALENDLY_EVENT_TYPE_J2']].map(
+        async ([stage, clave]) => ((await credWs(clave).catch(() => null))?.trim() ? stage : null),
+      ),
+    )
+  ).filter((s): s is string => Boolean(s));
+
   return (
     <CrmBoard
+      calendlyStages={calendlyStages}
       leads={crmLeads}
       stages={stages}
       juntas={juntas}
