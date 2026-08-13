@@ -1206,6 +1206,38 @@ webhooks de cuenta es de uso o gasto.
 
 **Vive en:** pendiente: /api/cron/vercel-usage + tarjeta en /integraciones · *2026-07-23 vercel-costo-auditoria*
 
+### ⚠️ NINGUNA página de MaKo llega con HTML: un `<Suspense fallback={null}>` envuelve la app entera
+
+**Síntoma:** `curl https://hola-mako.com/vsl/costos` devuelve **200 con 17 KB y sin una palabra del
+contenido** — solo
+`<template data-dgst="BAILOUT_TO_CLIENT_SIDE_RENDERING">`. Lo mismo con `/vsl`, `/vsl/estrategia` y
+cualquier otra ruta. Verificado también en el build local: `.next/server/app/vsl/costos.html` pesa
+13 KB y no contiene ni «Railway» ni ninguno de sus textos, mientras que **sí están en los chunks de
+`/_next/static`**. O sea: la página funciona perfecto en el navegador y no existe para nada que no
+ejecute JS.
+
+**Causa:** `WsProvider` (`app/_ui/Link.tsx:42`) llama a `useSearchParams()` — es el mecanismo que
+propaga el `?ws=` para no sacarte del cliente que estás mirando, y está bien que exista. El problema
+es **dónde quedó el boundary**: en `app/layout.tsx:75-76` el `<Suspense fallback={null}>` envuelve a
+`WsProvider` **y con él a todo el árbol, `{children}` incluido**. En el prerender `useSearchParams()`
+suspende, el fallback es `null`, y el HTML del servidor sale vacío **para toda la aplicación**.
+
+**Qué rompe y qué no.** No rompe la app (el navegador la pinta) ni los previews de links (el
+`metadata` se genera en el server y viaja igual). Sí implica que **la primera pintura de cualquier
+pantalla depende de que baje y corra el JS**, y que cualquier lector sin JS —un scraper, un preview
+que lea el body, un test de humo con `curl`— ve una página en blanco.
+
+⚠️ **Y la trampa de diagnóstico:** verificar una página nueva con `curl` y no encontrar su texto
+**parece** que la página está rota o que el deploy no salió. No lo está. La comprobación correcta es
+grepear el contenido en `.next/static/chunks` (o abrirla en el navegador), no en el HTML.
+
+**Cómo se arreglaría** (no se hizo: toca el layout raíz y con él las 111 páginas, hay que medirlo
+aparte): bajar el `<Suspense>` para que envuelva **solo** al consumidor de `useSearchParams`, no al
+árbol entero. El comentario de `Link.tsx:39` ya dice que `WsProvider` «es el único que llama a
+useSearchParams» — la intención estaba bien, el boundary quedó demasiado arriba.
+
+**Vive en:** app/layout.tsx:75-76 · app/_ui/Link.tsx:42 · *2026-08-13 informe-costos-mauricio*
+
 ### Migrar de plataforma: lo que se evaluó y por qué NO (para no volver a investigarlo)
 
 Corrida de 16 agentes sobre «alternativas más baratas a Vercel y Supabase» (agosto 2026). El
