@@ -36,6 +36,12 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
     portal y el link compartido tenían dos listas de cursos distintas, y cada curso nuevo
     nacía con el link roto sin ningún síntoma del lado del admin.
     [→](#️-el-link-compartido-de-un-curso-daba-404-porque-el-catálogo-estaba-escrito-dos-veces)
+11. **⚠️ «No apareció ningún PDF» era un ZIP que SÍ estaba pasando por la red.** Tres
+    suposiciones de formato cableadas en el script, cada una descartando en silencio.
+    [→](#️-no-apareció-ningún-pdf-era-un-zip-el-formato-es-un-hecho-del-archivo-no-una-suposición-del-script)
+12. **⚠️ Quedarse con «la respuesta más grande» costó DOS diagnósticos equivocados.** La
+    llamada anónima traía 92 filas inservibles y la buena 41 útiles. Tamaño ≠ corrección.
+    [→](#️-quedarse-con-la-respuesta-más-grande-dos-diagnósticos-equivocados)
 
 ---
 
@@ -751,6 +757,82 @@ directorio?»**, no «¿tengo permisos?».
 
 **Vive en:** `scripts/curso-organizar.mjs` (el fallback del rename) ·
 `scripts/curso-a-drive.mjs` (el copiado de material)
+
+## Los descargables de una clase
+
+### ⚠️ «No apareció ningún PDF» era un ZIP: el formato es un HECHO del archivo, no una suposición del script
+
+**2026-08-13, «Inteligencia Viral 2026».** `curso-pdfs.mjs` informó `0/3 PDF(s)` con el
+mensaje «no apareció ningún PDF en 25s». Los tres archivos **estaban pasando por la red**
+en ese mismo momento: eran `application/zip` servidos desde un bucket R2. El curso habría
+quedado publicado con `recursos: []` y nada lo habría avisado.
+
+El script cableaba PDF en **tres lugares distintos**, y cada uno descartaba en silencio:
+
+| Dónde | Qué asumía |
+|---|---|
+| El filtro de red | `application/pdf\|octet-stream` |
+| El nombre del archivo | `.pdf`, puesto **antes** de saber qué llegaba |
+| La validación | primeros bytes `=== '%PDF-'` |
+
+**La regla que queda:** la extensión sale del `Content-Disposition` → mime → URL, **en ese
+orden y recién cuando el archivo llegó** (la URL es lo menos confiable: las de R2 terminan
+en un id sin extensión). Se valida por FAMILIA (`PK` para zip/docx/xlsx, `%PDF-` para pdf,
+y para lo desconocido solo se rechaza HTML disfrazado de 200). Y el nombre se arma sin
+extensión hasta que hay un hecho que la determine.
+
+**Y lo que hace la diferencia entre perder una hora y perder tres:** un descarte silencioso
+es indistinguible de «no había nada». Ahora imprime **qué** vio y **por qué** lo tiró
+(`descartado: application/zip 0B → no valida como .zip`) — ese renglón fue el que señaló el
+problema siguiente en un minuto.
+
+### CDP devuelve el cuerpo VACÍO para lo que Chrome trata como descarga, y no falla
+
+Con el filtro ya arreglado, los tres seguían sin bajar: `Network.getResponseBody` devolvía
+**0 bytes sin error**. Es la limitación de siempre — el renderer no retiene en el buffer lo
+que va a disco como descarga.
+
+La salida no es pelearse con CDP: **la sesión hacía falta para AVERIGUAR la URL, no para
+leerla.** El bucket (`pub-*.r2.dev`) es público, así que con la URL ya resuelta alcanza un
+`fetch` pelado. Quedan los dos caminos, en orden: cuerpo por CDP y, si viene vacío,
+descarga directa de la URL con el `referer` y el `user-agent` del plan. Mismo patrón que ya
+había ganado con Vimeo: **lo que autentica es el Referer, no la cookie.**
+
+### ⚠️ Quedarse con la respuesta MÁS GRANDE: dos diagnósticos equivocados
+
+La página llama al mismo endpoint **más de una vez** —antes y después de resolver la
+sesión— y las respuestas no son equivalentes. En este curso, la llamada anónima devolvía
+**92 filas sin `video_id`** y la buena **41 con**. El capturador se quedaba con las 92 «por
+ser más completas» y el plan salía con 1/41 clases resolubles.
+
+Eso disparó dos diagnósticos que la evidencia después desmintió: «el curso está bloqueado»
+(`membership: monthly/active`, `check_course_access: true`) y «hay una sola sesión activa»
+(`deviceSessionId === active_session_id`). No era ninguno de los dos: era el capturador
+eligiendo mal, más un `--espera` demasiado corto (con 20 s: 41/41).
+
+**La regla:** se puntúa por **utilidad** —cuántas filas traen el campo sin el cual el
+pipeline no puede hacer nada (`video_id`, `file_url`)— y el tamaño **solo desempata**.
+Está en `CAMPO_UTIL` de `curso-plan-vip.mjs` y `curso-recursos-vip.mjs`, y ahora avisa
+cuando se queda con un lote parcial. **Tamaño ≠ corrección.**
+
+### Drive no previsualiza un ZIP, y el default era mentir
+
+`Recurso.tipo` distingue ahora `pdf` (lo que Drive **sabe** dibujar en un iframe: pdf, doc,
+docx, xls, xlsx) de `file` (todo lo demás → tarjeta de descarga a `DRIVE_VIEW`). El bug de
+fondo no era el ZIP sino el **default**: `TIPO_POR_EXT[ext] ?? 'pdf'` hacía que **cualquier
+extensión desconocida** se declarara PDF y el portal dibujara un visor con «sin vista
+previa». El default ahora es `file`, que es el que no miente cuando no se sabe.
+
+### Un recurso colgado de la clase «equivocada» puede ser fiel a la fuente
+
+El ZIP llamado `Leccion_4_descargable_Composicion_de_Motion_Graphics_basica` quedó en la
+clase 34 («Lección 5 … Avanzada»), no en la 33 («Lección 4 … Básica»). Parecía un
+off-by-one del recorrido por orden de documento. **No lo era:** en la plataforma el propio
+creador lo colgó de la lección 5. Se comprobó leyendo el DOM, no razonando sobre el nombre.
+
+**La regla:** antes de «arreglar» una asociación que se ve rara, mirar la fuente. El
+pipeline replica lo que hay; inventar una corrección lo desincroniza del original y nadie
+se entera hasta que el dueño abre las dos pantallas al lado.
 
 ## Decisiones
 

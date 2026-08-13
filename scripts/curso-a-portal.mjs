@@ -88,7 +88,11 @@ const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace
 //
 // El `driveId` sale de drive.json (lo resuelve curso-a-drive.mjs). Un recurso SIN id
 // no se emite: una tarjeta que abre un visor vacío es peor que no tener la tarjeta.
-const TIPO_POR_EXT = { pdf: 'pdf', xlsx: 'pdf', docx: 'pdf', link: 'notion' };
+// `pdf` = lo que Drive previsualiza en un iframe. Todo lo demás es `file` (una
+// descarga), y ese es el DEFAULT: la versión anterior caía a 'pdf' para cualquier
+// extensión desconocida, así que los tres ZIP de «Inteligencia Viral 2026» salían
+// como visor de PDF y el portal dibujaba un iframe con «sin vista previa».
+const TIPO_POR_EXT = { pdf: 'pdf', xlsx: 'pdf', docx: 'pdf', doc: 'pdf', xls: 'pdf', link: 'notion' };
 const slugRecurso = (nombre) => nombre.replace(/\.[^.]+$/, '')
   .normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 60);
@@ -116,7 +120,7 @@ const construirRecursos = (drive, planClases) => {
     // renderiza un link EXTERNO clickeable. `notion` pondría un botón que dice «Ver en
     // Notion» sobre un tablero de Miro, que sería mentira; y `pdf` abre un visor de
     // Drive, que para un link no existe.
-    const tipo = esEnlace ? 'bank' : (TIPO_POR_EXT[ext] ?? 'pdf');
+    const tipo = esEnlace ? 'bank' : (TIPO_POR_EXT[ext] ?? 'file');
     const slug = slugRecurso(r.archivo);
     if (recursos.some((x) => x.slug === slug)) continue; // slug único, sin pisar
     // Un recurso de archivo SIN id de Drive no se emite (tarjeta que abre nada);
@@ -126,11 +130,21 @@ const construirRecursos = (drive, planClases) => {
     let deClases = [];
     let desc = 'Material del curso';
 
+    // El nombre del archivo trae «NN - <título de la clase> - <nombre real>» porque
+    // en Drive tiene que poder leerse suelto. En el portal, en cambio, el recurso
+    // YA cuelga de su clase y muestra el chip «Clase 32»: repetirlo produce
+    // «32 - Leccion 3 Subtitulaje Avanzado - Leccion_3_descargable__Subtitulaje…».
+    // Se saca el prefijo EXACTO (número + título de esa clase del plan), no por
+    // heurística de guiones — hay títulos que llevan « - » adentro.
+    let claseDelPrefijo = null;
+
     if (r.nivel === 'clase') {
       const n = Number(/^(\d{1,3})\s*-\s*/.exec(r.archivo)?.[1]);
-      if (Number.isFinite(n) && planClases.some((c) => c.n === n)) {
+      const clase = planClases.find((c) => c.n === n);
+      if (Number.isFinite(n) && clase) {
         deClases = [n];
         desc = `Material de la clase ${n}`;
+        claseDelPrefijo = clase;
       }
     } else if (r.submodulo) {
       deClases = planClases.filter((c) => sinNumero(c.submodulo) === sinNumero(r.submodulo)).map((c) => c.n);
@@ -140,9 +154,18 @@ const construirRecursos = (drive, planClases) => {
       desc = `Material de «${r.modulo}»`;
     }
 
-    const label = r.archivo.replace(/\.[^.]+$/, '');
+    let label = r.archivo.replace(/\.[^.]+$/, '');
+    if (claseDelPrefijo) {
+      const pref = `${String(claseDelPrefijo.n).padStart(2, '0')} - ${claseDelPrefijo.titulo} - `;
+      // Solo si queda algo: hay recursos cuyo nombre ES el de la clase, y dejarlos
+      // sin label sería peor que dejarlos repetidos.
+      if (label.startsWith(pref) && label.length > pref.length) label = label.slice(pref.length);
+    }
+    // Los descargables vienen del sistema de archivos del creador: guiones bajos
+    // y dobles espacios. Se leen como nombre, no como ruta.
+    label = label.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
     recursos.push({
-      slug, tipo,
+      slug, tipo, ext: esEnlace ? null : ext,
       driveId: esEnlace ? null : r.driveId,
       items: esEnlace ? [{ label: `Abrir ${label}`, url: r.url }] : null,
       label,
@@ -302,7 +325,7 @@ ${recursosPortal.map((r) => `    {
       slug: '${r.slug}',
       label: '${esc(r.label)}',
       cardDesc: '${esc(r.cardDesc)}',
-      tipo: '${r.tipo}',${r.driveId ? `\n      driveId: '${r.driveId}',` : ''}${r.items ? `\n      items: [${r.items.map((i) => `{ label: '${esc(i.label)}', url: '${esc(i.url)}' }`).join(', ')}],` : ''}${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
+      tipo: '${r.tipo}',${r.tipo === 'file' && r.ext ? `\n      ext: '${esc(r.ext)}',` : ''}${r.driveId ? `\n      driveId: '${r.driveId}',` : ''}${r.items ? `\n      items: [${r.items.map((i) => `{ label: '${esc(i.label)}', url: '${esc(i.url)}' }`).join(', ')}],` : ''}${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
     },`).join('\n')}
   ],
   clases: [

@@ -22,8 +22,19 @@ import { CURSO_PRODUCTO_APP } from './curso-producto-app';
 import { CURSO_CLAUDE_AI_RODRIGO_ROJO } from './curso-claude-ai-rodrigo-rojo';
 import { CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE } from './curso-aumenta-tu-valor-y-atv-advantage';
 import { CURSO_SELL_YOUR_KNOWLEDGE } from './curso-sell-your-knowledge';
+import { CURSO_INTELIGENCIA_VIRAL_2026 } from './curso-inteligencia-viral-2026';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
+
+/**
+ * La sección de lo PROPIO: método, marca y criterios de la casa.
+ *
+ * Tiene nombre porque se usa en dos lugares —el mapa de abajo y el filtro de lo
+ * compartible— y un literal repetido en los dos se desincroniza el día que
+ * alguien renombre la sección: el mapa quedaría bien y el filtro dejaría de
+ * excluir nada, sin que nada avise.
+ */
+export const CATEGORIA_PROPIA = 'MaKo';
 
 /**
  * Cómo se agrupan los cursos en el selector, por slug.
@@ -51,11 +62,11 @@ const CATEGORIA: Record<string, string> = {
   // Alcance sin pauta
   'inteligencia-viral-2026': 'Orgánico',
   // Lo propio: método, marca y criterios de la casa
-  '100ads-analisis': 'MaKo',
-  'vsl-landing': 'MaKo',
-  'analisis-negocio': 'MaKo',
-  'branding-mako': 'MaKo',
-  'construir-app': 'MaKo',
+  '100ads-analisis': CATEGORIA_PROPIA,
+  'vsl-landing': CATEGORIA_PROPIA,
+  'analisis-negocio': CATEGORIA_PROPIA,
+  'branding-mako': CATEGORIA_PROPIA,
+  'construir-app': CATEGORIA_PROPIA,
 };
 
 /**
@@ -89,7 +100,7 @@ const PORTADA: Record<string, string> = {
 export const CURSOS_TODOS: Curso[] = [
   ...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP,
   CURSO_CLAUDE_AI_RODRIGO_ROJO, CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE,
-  CURSO_SELL_YOUR_KNOWLEDGE,
+  CURSO_SELL_YOUR_KNOWLEDGE, CURSO_INTELIGENCIA_VIRAL_2026,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

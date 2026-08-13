@@ -97,16 +97,34 @@ const main = async () => {
   await cdp.enviar('Page.reload', { ignoreCache: true });
   await new Promise((r) => setTimeout(r, SEGUNDOS * 1000));
 
+  // ⚠️ Misma trampa que en curso-plan-vip.mjs: la página llama al mismo endpoint
+  // antes y después de resolver la sesión, y quedarse con «la respuesta más
+  // grande» se queda justo con la anónima —llena de filas, vacía de lo que hace
+  // falta—. Se puntúa por UTILIDAD (filas que traen el campo clave) y el tamaño
+  // solo desempata. Tamaño ≠ corrección.
+  const CAMPO_UTIL = { urls: 'file_url', meta: 'title' };
+  const utiles = (j, clave) => {
+    if (!Array.isArray(j)) return j ? 1 : 0;
+    const campo = CAMPO_UTIL[clave];
+    return campo ? j.filter((x) => x?.[campo]).length : j.length;
+  };
   const datos = {};
+  const puntaje = {};
   for (const [rid, clave] of cap) {
     try {
       const { body } = await cdp.enviar('Network.getResponseBody', { requestId: rid });
       const j = JSON.parse(body);
+      const u = utiles(j, clave);
       const n = Array.isArray(j) ? j.length : 1;
-      if (!datos[clave] || n > (Array.isArray(datos[clave]) ? datos[clave].length : 1)) datos[clave] = j;
+      const prev = puntaje[clave];
+      if (!prev || u > prev.u || (u === prev.u && n > prev.n)) { datos[clave] = j; puntaje[clave] = { u, n }; }
     } catch { /* el body pudo salir del buffer */ }
   }
   ws.close();
+
+  for (const [clave, p] of Object.entries(puntaje)) {
+    if (p.u < p.n) console.log(`  ⚠ ${clave}: me quedé con ${p.u}/${p.n} fila(s) útiles (${CAMPO_UTIL[clave] ?? 'sin campo clave'}).`);
+  }
 
   const meta = Array.isArray(datos.meta) ? datos.meta : [];
   const urls = new Map((Array.isArray(datos.urls) ? datos.urls : []).map((r) => [r.id, r.file_url]));

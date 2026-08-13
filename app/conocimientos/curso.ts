@@ -9,11 +9,16 @@ export type Recurso = {
   slug: string;
   label: string;
   cardDesc: string;
-  tipo: 'gpt' | 'notion' | 'pdf' | 'bank';
+  // `pdf` es todo lo que Drive SABE previsualizar en un iframe (pdf, docx, xlsx).
+  // `file` es lo que NO: un .zip en un /preview de Drive muestra un cartel de «sin
+  // vista previa», así que se dibuja como descarga y no como visor. La diferencia
+  // no es cosmética — los descargables de «Inteligencia Viral 2026» son los tres ZIP.
+  tipo: 'gpt' | 'notion' | 'pdf' | 'bank' | 'file';
   intro?: string;          // explicación self-contained (qué es, para qué, cómo se usa)
   clases?: number[];       // clases a las que pertenece (chip en el hub)
   texto?: string;          // gpt | notion (contenido copiable, formateado)
-  driveId?: string;        // pdf (visor /preview)
+  driveId?: string;        // pdf (visor /preview) | file (link de descarga)
+  ext?: string;            // file (zip, rar…) — para el badge y el peso visual
   capturasDriveId?: string;// notion (screenshots con los ejemplos visuales)
   notionUrl?: string;      // notion (link a la página pública)
   imagenes?: string[];     // notion (imágenes reales, sueltas)

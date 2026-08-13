@@ -22,7 +22,7 @@ export const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${
 export const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}/view`;
 export const DRIVE_THUMB = (id: string) => `https://drive.google.com/thumbnail?id=${id}&sz=w480`;
 export const nn = (n: number) => String(n).padStart(2, '0');
-export const TIPO_BADGE: Record<Recurso['tipo'], string> = { gpt: 'Agente', notion: 'Prompts', pdf: 'Catálogo', bank: 'Recursos' };
+export const TIPO_BADGE: Record<Recurso['tipo'], string> = { gpt: 'Agente', notion: 'Prompts', pdf: 'Catálogo', bank: 'Recursos', file: 'Descarga' };
 // ⚠️ Con pocos números se listan; pasando de 3 se CUENTAN. Listarlos siempre rompía
 // la tarjeta: un recurso de un módulo de 12 clases producía
 // «CLASES 10·11·12·13·14·15·16·17·18·19·20·21» y desbordaba el ancho. El dato útil
@@ -568,6 +568,22 @@ export function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
         </div>
       )}
 
+      {/* Descargable que Drive no previsualiza (zip, rar…). Se dibuja como lo que
+          es —un archivo para bajar— en vez de un iframe con «sin vista previa». */}
+      {r.tipo === 'file' && r.driveId && (
+        <div className="al-block">
+          <span className="al-block-l">Archivo del curso</span>
+          <a href={DRIVE_VIEW(r.driveId)} target="_blank" rel="noopener noreferrer" className="al-file">
+            <span className="al-file-ext">{(r.ext ?? 'zip').toUpperCase()}</span>
+            <span className="al-file-t">
+              <span className="al-file-n">{r.label}</span>
+              <span className="al-file-d">Se abre en Drive para descargar</span>
+            </span>
+            <span className="al-arr">↗</span>
+          </a>
+        </div>
+      )}
+
       {r.tipo === 'bank' && r.items && (
         <div className="al-list">
           {r.items.map((it, i) => (
@@ -877,6 +893,18 @@ export const CSS = `
 .cono .al-list-item:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
 .cono .al-list-r{ display:inline-flex; align-items:center; gap:9px; flex:none; }
 .cono .al-list-item .al-arr{ color:var(--lime-ink); }
+
+/* Descargable sin vista previa (zip, rar…) */
+.cono .al-file{ display:flex; align-items:center; gap:14px; margin-top:12px; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:10px; padding:14px 16px; box-shadow:var(--shadow-paste); transition:.14s; }
+.cono .al-file:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
+.cono .al-file-ext{ flex:none; font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.08em; color:var(--lime-ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:7px; padding:7px 9px; }
+.cono .al-file-t{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+/* El nombre puede ser larguísimo (viene del archivo original) y no se corta: se
+   deja envolver. Un ellipsis acá esconde justo la parte que distingue un
+   descargable de otro. */
+.cono .al-file-n{ font-size:15px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+.cono .al-file-d{ font-family:var(--mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-40); }
+.cono .al-file .al-arr{ flex:none; color:var(--lime-ink); }
 
 /* Pie del material compartido (solo en /compartido) */
 .cono .al-shared-ft{ margin-top:56px; padding-top:18px; border-top:1.5px solid var(--ink-15); font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-40); text-align:center; }

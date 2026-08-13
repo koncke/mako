@@ -92,6 +92,9 @@ const main = async () => {
     [/vip_modules/, 'modules'],
     [/vip_courses\?/, 'course'],
   ];
+  // El campo SIN EL CUAL la respuesta no sirve para nada. Es lo que separa la
+  // llamada buena de la anónima cuando las dos vuelven 200 con un array lleno.
+  const CAMPO_UTIL = { lessons: 'video_id' };
   cdp.oye.push((m) => {
     if (m.method !== 'Network.responseReceived') return;
     const url = m.params.response.url;
@@ -114,17 +117,37 @@ const main = async () => {
     ua = result?.value ?? '';
   } catch { /* seguimos sin UA; abajo se avisa */ }
 
+  // ⚠️ La página llama al MISMO endpoint más de una vez —antes y después de
+  // resolver la sesión— y las respuestas no son equivalentes. Elegir «la más
+  // grande» costó dos diagnósticos equivocados en «Inteligencia Viral 2026»: la
+  // llamada anónima devolvía 92 filas SIN `video_id` y la buena 41 CON, así que
+  // el capturador se quedaba con las 92 inservibles y el plan salía con 1/41
+  // clases resolubles. Parecía un curso bloqueado; era esto.
+  //
+  // La regla que queda: se puntúa por UTILIDAD (cuántas filas traen el campo que
+  // el pipeline necesita) y el tamaño solo desempata. Tamaño ≠ corrección.
+  const utiles = (j, clave) => {
+    if (!Array.isArray(j)) return j ? 1 : 0;
+    const campo = CAMPO_UTIL[clave];
+    return campo ? j.filter((x) => x?.[campo]).length : j.length;
+  };
   const datos = {};
+  const puntaje = {};
   for (const [rid, clave] of capturado) {
     try {
       const { body } = await cdp.enviar('Network.getResponseBody', { requestId: rid });
       const j = JSON.parse(body);
-      // Puede haber varias respuestas del mismo tipo: gana la más completa.
+      const u = utiles(j, clave);
       const n = Array.isArray(j) ? j.length : 1;
-      if (!datos[clave] || n > (Array.isArray(datos[clave]) ? datos[clave].length : 1)) datos[clave] = j;
+      const prev = puntaje[clave];
+      if (!prev || u > prev.u || (u === prev.u && n > prev.n)) { datos[clave] = j; puntaje[clave] = { u, n }; }
     } catch { /* el body puede no estar más en el buffer */ }
   }
   ws.close();
+
+  for (const [clave, p] of Object.entries(puntaje)) {
+    if (p.u < p.n) console.log(`  ⚠ ${clave}: me quedé con ${p.u}/${p.n} fila(s) útiles (${CAMPO_UTIL[clave] ?? 'sin campo clave'}).`);
+  }
 
   const L = Array.isArray(datos.lessons) ? datos.lessons : [];
   if (!L.length) {
