@@ -23,7 +23,16 @@ export const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}
 export const DRIVE_THUMB = (id: string) => `https://drive.google.com/thumbnail?id=${id}&sz=w480`;
 export const nn = (n: number) => String(n).padStart(2, '0');
 export const TIPO_BADGE: Record<Recurso['tipo'], string> = { gpt: 'Agente', notion: 'Prompts', pdf: 'Catálogo', bank: 'Recursos' };
-export const claseTag = (clases?: number[]) => !clases || !clases.length ? undefined : (clases.length === 1 ? `Clase ${clases[0]}` : `Clases ${clases.join('·')}`);
+// ⚠️ Con pocos números se listan; pasando de 3 se CUENTAN. Listarlos siempre rompía
+// la tarjeta: un recurso de un módulo de 12 clases producía
+// «CLASES 10·11·12·13·14·15·16·17·18·19·20·21» y desbordaba el ancho. El dato útil
+// ahí es «a cuántas pertenece», y el detalle ya está adentro del recurso.
+export const claseTag = (clases?: number[]) => {
+  if (!clases || !clases.length) return undefined;
+  if (clases.length === 1) return `Clase ${clases[0]}`;
+  if (clases.length <= 3) return `Clases ${clases.join('·')}`;
+  return `${clases.length} clases`;
+};
 
 const EXT_MSG = 'Alojado por un TERCERO (Notion del creador / Drive de otra cuenta), no en tu dominio. Si su dueño lo elimina, se pierde. Conviene respaldarlo.';
 // Marca de advertencia: dato de un tercero (fuera de tu control).
@@ -237,15 +246,21 @@ export function Hub({ curso, goClase, goRecurso, compartir }: { curso: Curso; go
         )}
       </section>
       {curso.recursos.length > 0 && (
-        <section className="al-sec">
-          <div className="al-seclabel"><span>Recursos</span><span className="al-vol">Agentes · prompts · catálogos</span></div>
+        // Plegable igual que los módulos. Arranca CERRADO cuando son muchos: 71
+        // tarjetas de recursos empujan las clases fuera de la pantalla y el hub deja
+        // de servir para lo que es. Con pocos, abierto — esconderlos sería peor.
+        <details className="al-sec al-secfold" open={curso.recursos.length <= 12}>
+          <summary className="al-seclabel al-seclabel-fold">
+            <span>Recursos</span>
+            <span className="al-vol">{curso.recursos.length} archivo{curso.recursos.length === 1 ? '' : 's'} y enlace{curso.recursos.length === 1 ? '' : 's'}</span>
+          </summary>
           <div className="al-grid">
             {curso.recursos.map((r) => (
               <Card key={r.slug} badge={TIPO_BADGE[r.tipo]} nota={claseTag(r.clases)} titulo={r.label} desc={r.cardDesc}
                 ariaLabel={`Abrir ${r.label}`} onClick={() => goRecurso(r.slug)} />
             ))}
           </div>
-        </section>
+        </details>
       )}
     </>
   );
@@ -566,6 +581,15 @@ export const CSS = `
 /* Secciones */
 .cono .al-sec{ margin-top:44px; }
 .cono .al-seclabel{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); padding-bottom:12px; border-bottom:1.5px solid var(--ink-15); margin-bottom:18px; }
+/* Sección plegable: el mismo rótulo, pero como <summary>. Hacen falten las DOS
+   reglas del marcador nativo (::marker y list-style) o queda el triángulo del
+   navegador al lado del chevron propio. */
+.cono .al-secfold > summary{ list-style:none; cursor:pointer; }
+.cono .al-secfold > summary::-webkit-details-marker{ display:none; }
+.cono .al-secfold > summary::marker{ content:''; }
+.cono .al-seclabel-fold::before{ content:'›'; display:inline-block; font-size:17px; line-height:1; color:var(--ink-40); transition:transform .15s ease; margin-right:2px; }
+.cono .al-secfold[open] > .al-seclabel-fold::before{ transform:rotate(90deg); }
+.cono .al-seclabel-fold:hover{ color:var(--ink); }
 .cono .al-vol{ color:var(--ink-40); font-size:11px; }
 
 /* Cursos con módulos: DOS niveles plegables (módulo → sección), con <details>.

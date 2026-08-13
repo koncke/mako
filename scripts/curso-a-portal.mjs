@@ -227,6 +227,16 @@ const salida = join(REPO, 'app', 'conocimientos', `curso-${slug}.ts`);
 // `modulo` y `submodulo` como texto, que es la clave del vínculo con los recursos.
 const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, plan.clases);
 
+// El título lleva el AUTOR, igual que la carpeta de Drive: «<Curso> - <Autor>». Si el
+// título de la plataforma ya lo trae —«Curso de Claude AI - Rodrigo Rojo»— no se
+// duplica. La comparación es sin acentos y sin mayúsculas: «Rodrigo Rojo» y «rodrigo
+// rojo» son el mismo autor, y un duplicado en el título se ve feo en las 9 tarjetas.
+const sinAcentos = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const autor = String(plan.autor ?? '').trim();
+const tituloConAutor = autor && !sinAcentos(plan.curso).includes(sinAcentos(autor))
+  ? `${plan.curso} - ${autor}`
+  : plan.curso;
+
 // La portada se declara SOLO si el archivo existe: un `portada` apuntando a un 404
 // pinta una tarjeta con la imagen rota, que es peor que una tarjeta sin imagen.
 const dirPortadas = join(REPO, 'public', 'cono-portadas');
@@ -284,7 +294,7 @@ export const ${constante}: Curso = {
   categoria: '${esc(CATEGORIA || 'Cursos externos')}',
   cardDesc: '${esc(`${plan.clases.length} clases en ${modulos.length} módulos.`)}',
   eyebrow: '${esc(EYEBROW)}',
-  titulo: '${esc(plan.curso)}',
+  titulo: '${esc(tituloConAutor)}',
   subtitulo: '${esc(`${plan.clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
   volumen: '${plan.clases.length} clases',${portada ? `\n  portada: '${portada}',` : ''}
   recursos: [

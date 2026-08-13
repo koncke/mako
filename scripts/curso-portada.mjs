@@ -24,14 +24,30 @@ const REPO = arg('repo', 'C:\\Users\\marti\\OneDrive\\Escritorio\\dashboard-mark
 const ORIGEN = arg('origen', 'https://cursoselite.com.mx');
 const CATALOGOS = (arg('catalogos', '/Catalog,/vip/') || '').split(',').filter(Boolean);
 
-if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json>\n'); process.exit(1); }
-const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
+// Dos modos:
+//   --plan <plan.json>            para un curso del pipeline (saca slug y URL del plan)
+//   --buscar "<texto>" --slug <s> para uno que NO tiene plan: los cursos viejos del
+//                                 portal, que igual necesitan su miniatura.
+const BUSCAR = arg('buscar', '');
+const SLUG = arg('slug', '');
 
-// El slug del PORTAL (el que usa curso-a-portal para nombrar el archivo del curso),
-// no el de la carpeta: si no coinciden, la portada queda huérfana y no se muestra.
-const slugPortal = (plan.slug ?? '').replace(/^curso-(de-)?/, '');
-// El slug de la PLATAFORMA, para encontrar la tarjeta en el catálogo.
-const slugPlataforma = String(plan.pagina ?? '').split('/').filter(Boolean).slice(-2, -1)[0] ?? plan.slug;
+let slugPortal, slugPlataforma, nombreCurso;
+if (PLAN && existsSync(PLAN)) {
+  const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
+  // El slug del PORTAL (el que usa curso-a-portal para nombrar el archivo del curso),
+  // no el de la carpeta: si no coinciden, la portada queda huérfana y no se muestra.
+  slugPortal = (plan.slug ?? '').replace(/^curso-(de-)?/, '');
+  // El slug de la PLATAFORMA, para encontrar la tarjeta en el catálogo.
+  slugPlataforma = String(plan.pagina ?? '').split('/').filter(Boolean).slice(-2, -1)[0] ?? plan.slug;
+  nombreCurso = plan.curso;
+} else if (BUSCAR && SLUG) {
+  slugPortal = SLUG;
+  slugPlataforma = null; // se busca por TEXTO de la tarjeta, no por href
+  nombreCurso = BUSCAR;
+} else {
+  console.error('\n  ✖ Falta --plan <plan.json>, o --buscar "<nombre>" --slug <slug-del-portal>\n');
+  process.exit(1);
+}
 
 class Cdp {
   constructor(ws) {
@@ -71,34 +87,72 @@ const main = async () => {
   await cdp.enviar('Page.enable');
   const ev = async (expr) => (await cdp.enviar('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })).result?.value;
 
-  console.log(`\n  Curso     : ${plan.curso}`);
+  console.log(`\n  Curso     : ${nombreCurso}`);
   console.log(`  Plataforma: ${slugPlataforma}`);
   console.log(`  Portal    : ${slugPortal}`);
+
+  // ⚠️ Elegir «la primera imagen de la tarjeta» trae el LOGO del sitio: la primera
+  // versión bajó la corona de Cursos Élite como portada del curso de Claude.
+  //
+  // La señal que los distingue es la FRECUENCIA: un logo, un ícono o un placeholder
+  // aparecen en todas las tarjetas del catálogo; la portada aparece solo en la suya.
+  // Así que se juntan las imágenes de TODAS las tarjetas, se cuenta cada src, y de la
+  // tarjeta objetivo se toma la menos repetida — con desempate por área, porque una
+  // portada es grande y un ícono no.
+  const BUSCAR_IMGS = `(() => {
+    const out = [];
+    for (const a of document.querySelectorAll('a[href]')) {
+      if (!/\\/(curso|course)\\//i.test(a.href)) continue;
+      const cont = a.closest('article,li,div') || a;
+      const imgs = [...new Set([...a.querySelectorAll('img'), ...cont.querySelectorAll('img')])];
+      for (const im of imgs) {
+        const src = im.currentSrc || im.src;
+        if (!src || src.startsWith('data:')) continue;
+        out.push({
+          href: a.href, src,
+          texto: ((cont.innerText || a.innerText || '') + ' ' + (im.alt || '')).replace(/\\s+/g, ' ').slice(0, 200),
+          area: (im.naturalWidth || im.width || 0) * (im.naturalHeight || im.height || 0),
+        });
+      }
+    }
+    return out;
+  })()`;
 
   let url = null;
   for (const ruta of CATALOGOS) {
     if (url) break;
     process.stdout.write(`  buscando en ${ORIGEN}${ruta} … `);
     await cdp.enviar('Page.navigate', { url: ORIGEN + ruta });
-    for (let i = 0; i < 30 && !url; i++) {
+    let todas = [];
+    for (let i = 0; i < 35; i++) {
       await new Promise((r) => setTimeout(r, 400));
-      url = await ev(`(() => {
-        const a = [...document.querySelectorAll('a[href]')].find(x => x.href.includes(${JSON.stringify(slugPlataforma)}));
-        if (!a) return null;
-        // La imagen puede estar en el <a> o en la tarjeta que lo contiene.
-        const cont = a.closest('article,li,div') || a;
-        const img = a.querySelector('img') || cont.querySelector('img');
-        if (img?.currentSrc || img?.src) return img.currentSrc || img.src;
-        // Algunas tarjetas la ponen como background-image.
-        for (const el of [a, cont, ...cont.querySelectorAll('*')].slice(0, 40)) {
-          const bg = getComputedStyle(el).backgroundImage;
-          const m = bg && bg.match(/url\\(["']?(https?:[^"')]+)["']?\\)/);
-          if (m) return m[1];
-        }
-        return null;
-      })()`);
+      todas = (await ev(BUSCAR_IMGS)) ?? [];
+      // Se espera a que el catálogo esté cargado de verdad: con 3 tarjetas la
+      // frecuencia todavía no distingue un logo de una portada.
+      if (todas.length > 12) break;
     }
-    console.log(url ? 'encontrada' : 'no está acá');
+    if (!todas.length) { console.log('sin tarjetas'); continue; }
+
+    const veces = new Map();
+    for (const x of todas) veces.set(x.src, (veces.get(x.src) ?? 0) + 1);
+    // Con plan se matchea por href (exacto); sin plan, por el TEXTO de la tarjeta.
+    const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const terminos = norm(nombreCurso).split(/\s+/).filter((t) => t.length > 2);
+    const mias = slugPlataforma
+      ? todas.filter((x) => x.href.includes(slugPlataforma))
+      : todas.filter((x) => terminos.every((t) => norm(`${x.texto ?? ''} ${x.href}`).includes(t)));
+    if (!mias.length) { console.log(`${todas.length} imágenes, ninguna de este curso`); continue; }
+
+    mias.sort((a, b) => (veces.get(a.src) - veces.get(b.src)) || (b.area - a.area));
+    const elegida = mias[0];
+    // Si la menos repetida IGUAL aparece en varias tarjetas, es chrome del sitio:
+    // mejor no poner portada que poner el logo en todos los cursos.
+    if (veces.get(elegida.src) > 1) {
+      console.log(`solo encontré imágenes compartidas (×${veces.get(elegida.src)}): es chrome, no portada`);
+      continue;
+    }
+    url = elegida.src;
+    console.log(`encontrada (única entre ${todas.length} imágenes)`);
   }
   ws.close();
 

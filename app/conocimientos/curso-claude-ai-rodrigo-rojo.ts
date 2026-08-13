@@ -15,13 +15,13 @@ import type { Curso } from './curso';
 
 export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
   slug: 'claude-ai-rodrigo-rojo',
-  categoria: 'IA aplicada',
+  categoria: 'IA & Generación de Imágenes y Vídeo',
   cardDesc: '20 clases en 6 módulos.',
   eyebrow: 'Curso externo',
   titulo: 'Curso de Claude AI - Rodrigo Rojo',
   subtitulo: '20 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '20 clases',
-  portada: '/cono-portadas/claude-ai-rodrigo-rojo.png',
+  portada: '/cono-portadas/claude-ai-rodrigo-rojo.jpg',
   recursos: [
     {
       slug: '01-conoce-claude-ai-1-1-resumen-pdf',
