@@ -227,6 +227,23 @@ const main = async () => {
     return A[0] - B[0] || A[1] - B[1] || A[2] - B[2];
   });
 
+  // ¿La duración de este curso sirve como señal? Se MIDE contra los datos que ya
+  // están, no se asume (regla de AGENTS.md sobre umbrales).
+  //
+  // El caso que lo obliga: «100M money Models» publica duración en 33 de 35 clases,
+  // y las 2 que traen «00:00» dieron HTTP 404 en Vimeo — o sea que el cero era el
+  // aviso correcto. Pero «Vender Por FB E IG ADS» publica duración en 32 de 242: ahí
+  // el cero no significa nada y aplicarlo marcaba 210 clases sanas como rotas.
+  //
+  // Con el 60% de corte, el primero entra (94%) y el segundo no (13%). El costo de
+  // equivocarse es asimétrico —saltear una clase sana es peor que gastar reintentos
+  // en una muerta—, así que el umbral se pone alto a propósito.
+  const conDuracion = ordenadas.filter((l) => seg(l.duration) > 0).length;
+  const duracionEsSeñal = ordenadas.length > 0 && conDuracion / ordenadas.length >= 0.6;
+  if (!duracionEsSeñal && conDuracion < ordenadas.length) {
+    console.log(`  (duración publicada en ${conDuracion}/${ordenadas.length}: no se usa para descartar)`);
+  }
+
   const ancho = String(ordenadas.length).length; // 249 → 3 dígitos
   const clases = ordenadas.map((l, i) => {
     const n = i + 1;
@@ -243,14 +260,10 @@ const main = async () => {
       submodulo: hoja && hoja.id !== r?.id ? hoja.title : null,
       plataforma: 'vimeo',
       videoId: vid || null,
-      // ⚠️ La falta de DURACIÓN no alcanza para declarar que un video no existe.
-      // Era `s === 0 || sin id`, y en este curso la plataforma publica la duración
-      // de solo 32 de 242: con esa regla, 210 clases sanas quedaban marcadas como
-      // rotas y el descargador las salteaba. Lo único que prueba que no hay fuente
-      // es no tener id. Lo de la duración en cero se conserva —2 clases de 249
-      // daban 404 en Vimeo y ahorraba 10 reintentos × ~300 fragmentos— pero SOLO
-      // cuando el curso publica duraciones; si casi ninguna las trae, no dice nada.
-      sinFuente: !vid,
+      // ⚠️ La duración en cero SÍ delata un video muerto, pero solo cuando el curso
+      // publica duraciones. Ver `duracionEsSeñal` arriba: el umbral no es un gusto,
+      // es la diferencia entre saltear 2 clases muertas y saltear 210 sanas.
+      sinFuente: !vid || (duracionEsSeñal && s === 0),
       // player.vimeo.com + Referer es lo que autentica un embed restringido por
       // dominio. La URL pública vimeo.com/<id> da 403.
       url: `https://player.vimeo.com/video/${vid}`,

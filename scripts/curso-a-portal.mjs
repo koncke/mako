@@ -198,8 +198,18 @@ const modulos = [...new Set(plan.clases.map((c) => c.modulo).filter(Boolean))];
 const clases = [];
 let conTx = 0, sinTx = 0, conApuntes = 0;
 
+// ⚠️ Una clase SIN id de Drive no entra a la ficha. Antes se emitía igual con
+// `videoId: null` y en el portal quedaba una lección que no reproduce nada — que es
+// justo lo que el dueño reporta como «clases rotas». Pasó con «100M money Models»:
+// dos entradas del catálogo de la plataforma apuntan a videos que dan HTTP 404 en
+// Vimeo, así que nunca se bajaron ni tuvieron id, y aun así salían en la ficha.
+//
+// No es lo mismo que «todavía no subió»: para eso está el guard de los recursos, que
+// aborta. Acá el material NO EXISTE del otro lado, y lo honesto es no listarlo.
+const muertas = [];
 for (const c of plan.clases) {
   const videoId = idPorN.get(c.n) ?? null;
+  if (!videoId) { muertas.push(c); continue; }
   const md = mdPorN.get(c.n);
   let hasTx = false;
   let apuntes = '';
@@ -347,6 +357,10 @@ writeFileSync(salida, cuerpo, 'utf8');
 
 console.log(`\n  Curso : ${plan.curso}`);
 console.log(`  Clases: ${clases.length} · ${conTx} con transcripción · ${conApuntes} con apuntes tuyos`);
+if (muertas.length) {
+  console.log(`  ⚠ ${muertas.length} clase(s) del plan NO entran: sin id de Drive (el video no existe del otro lado).`);
+  for (const c of muertas.slice(0, 5)) console.log(`      n=${c.n}  ${c.titulo.slice(0, 58)}`);
+}
 if (sinTx) console.log(`  ⚠ ${sinTx} sin transcripción todavía (volvé a correr esto cuando terminen)`);
 console.log(`\n  → ${salida}`);
 console.log(`  → ${dirTx}\\<videoId>.json  (${conTx} archivo/s)`);

@@ -12,7 +12,7 @@
 //   node <abs>\scripts\curso-pipeline.mjs --plan C:\cursos\<slug>\plan.json
 //   node <abs>\scripts\curso-pipeline.mjs --plan … --paralelo 4 --tope-horas 14
 
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -41,6 +41,19 @@ const cuenta = (sub, filtro) => {
   return readdirSync(d).filter(filtro).length;
 };
 const bajados = () => cuenta('video', (f) => /\.mp4$/i.test(f) && !/\.f[^.]*\.mp4$/i.test(f));
+// ⚠️ Los BYTES de video/, intermedios incluidos. Es la única señal honesta de que el
+// descargador sigue vivo: contar archivos TERMINADOS no sirve porque una sola clase
+// grande puede tardar más que toda la ventana de vigilancia. Pasó con «100M money
+// Models»: la clase 34 son 2429 fragmentos, el contador no se movió en 16 rondas y el
+// pipeline se cortó solo anunciando «probablemente el descargador murió» — con el
+// descargador escribiendo a pleno. Un `.part` que engorda es un proceso sano.
+const bytesVideo = () => {
+  const d = join(base, 'video');
+  if (!existsSync(d)) return 0;
+  let t = 0;
+  for (const f of readdirSync(d)) { try { t += statSync(join(d, f)).size; } catch { /* se lo llevaron entre el listado y el stat */ } }
+  return t;
+};
 const audios = () => cuenta('audio', (f) => /\.m4a$/i.test(f));
 const textos = () => cuenta('texto', (f) => f.endsWith('.md') && f !== '_indice.md');
 
@@ -53,7 +66,7 @@ const correr = (script, args) => {
 };
 
 const hasta = Date.now() + TOPE_H * 3600000;
-let secas = 0, ronda = 0;
+let secas = 0, ronda = 0, bytesPrevios = 0;
 // Hora LOCAL, no UTC. Con toISOString() el log marcaba 3 h menos que todo lo demás
 // que se mira (procesos, archivos), y un hueco por la máquina dormida se leyó como
 // «la descarga se colgó». Ver docs/hallazgos-conocimiento.md.
@@ -90,10 +103,21 @@ while (Date.now() < hasta) {
     process.exit(3);
   }
   if (secas >= SIN_PROGRESO_MAX * 2) {
-    console.log(`\n  ⚠ Sin progreso ${secas} rondas y la descarga sigue en ${bajados()}/${total}.`);
-    console.log(`    Probablemente el descargador murió. Reanudalo con curso-bajar.mjs.\n`);
-    process.exit(3);
+    // Antes de declararlo muerto: ¿engordó video/ desde la ronda anterior? Si sí,
+    // está bajando una clase larga y hay que esperarla, no cortar.
+    const bytesAhora = bytesVideo();
+    if (bytesAhora > bytesPrevios) {
+      console.log(`             (descargador VIVO: video/ creció ${((bytesAhora - bytesPrevios) / 1048576).toFixed(0)} MB — sigo esperando)`);
+      bytesPrevios = bytesAhora;
+      secas = SIN_PROGRESO_MAX; // se le devuelve margen, no se reinicia del todo
+    } else {
+      console.log(`\n  ⚠ Sin progreso ${secas} rondas, la descarga sigue en ${bajados()}/${total}`);
+      console.log(`    y video/ no creció ni un byte. Ahí sí el descargador murió.`);
+      console.log(`    Reanudalo con curso-bajar.mjs (el registro es reanudable).\n`);
+      process.exit(3);
+    }
   }
+  bytesPrevios = bytesVideo();
 
   await new Promise((r) => setTimeout(r, PAUSA_S * 1000));
 }
