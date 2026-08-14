@@ -352,6 +352,101 @@ afuera se quedan porque sirven sin abrir el menú. Dos cosas que no son opcional
 **Vive en:** `app/components/Dropdown.tsx` (`renderOption`, `DropdownAccion`) ·
 `app/integraciones/ProbarTracking.tsx` (`accionesDe`)
 
+### ⚠️⚠️ Ocho leads reales entraron bien y nadie los vio nunca
+
+*2026-08-14 · forense de 8 agentes + consulta a producción*
+
+**El diagnóstico obvio era el equivocado, y por partida doble.** Reportado como «envié el
+formulario y no se registró, eso es gravísimo» y «me marca con un check que todo está bien,
+eso está muy mal». Consultada la base de producción **antes** de tocar nada:
+
+```
+propkektebfllgc2 | landing:3764673479 | «Prueba MaKo»    | 17:16:32 | pendiente
+propx8gq58em17vu | landing:9984920076 | «Magdiel Cortes» | 15:36:50 | pendiente
+propxnjgz6dj5mhk | landing:998136...  | «Marina Olvera»  | 15:12:15 | pendiente
+… OCHO propuestas de lead en `pendiente` en el ws11, cuatro de gente REAL.
+```
+
+El opt-in funcionaba. La captura funcionaba. **El check verde decía la verdad.** Lo que no
+existía era ningún camino desde un opt-in hasta un humano, y eran **tres huecos encadenados**:
+
+1. **`propuestasPendientes()` tenía CERO call-sites.** Vivía en `lib/propuestas.ts` desde el
+   día uno. No había bandeja: la única pantalla era `/crm/revisar/<id>`, que exige el id.
+2. **Ese id solo se devolvía en la respuesta HTTP al navegador del visitante anónimo**, y el
+   snippet la tira (`.catch(function(){})`, sin `.then`). Los otros canales que escriben en la
+   misma tabla **sí** devuelven el link para pasárselo a la persona; la landing es el único que
+   no puede — quien completa el formulario ve la página de gracias del cliente.
+3. **El feed de eventos del panel se arma solo con `vsl_events` y `landing_visits`**, así que un
+   opt-in perfecto no produce ni un renglón ahí. «No se registró nada» estaba garantizado.
+
+**La regla, y es general:** si un canal deja algo para revisar y **no puede devolver el link
+por donde entró**, el link sale por un aviso — y además tiene que existir una **lista**. Un
+aviso es un EVENTO; una bandeja es un ESTADO. Lo que se pierde siempre es lo que solo era un
+evento: un aviso que no se manda, no llega, o se lee y se olvida no deja nada atrás.
+
+**El corolario del chequeo verde, que es lo más sutil de todo esto:** el check decía «llegó al
+menos un formulario ✓» y era **cierto**. Mentía por **omisión** — le faltaba el segundo verbo.
+Llegó ¿y **entró**? Una propuesta sin confirmar no es un lead: es una persona que dejó su
+teléfono y a la que nadie escribió. Un indicador que afirma la mitad verdadera de un proceso
+de dos pasos es más peligroso que uno roto, porque nadie lo va a auditar.
+
+**Y el error que casi repito arreglándolo:** la primera versión del fix hacía que el chequeo
+linkeara a la propuesta **más reciente**. A las otras siete no se llegaba por ningún lado — o
+sea, el arreglo reproducía el problema que venía a cerrar, en chiquito.
+
+**Vive en:** `app/crm/revisar/page.tsx` (la bandeja, nueva) · `app/api/track/optin/route.ts`
+(el aviso) · `lib/avisos-catalogo.ts` (`lead-de-landing`) · `lib/landing-token.ts` (el chequeo)
+
+### La llave de idempotencia era el teléfono tal como se tipeó
+
+`ref = landing:${telefono}` usaba el valor **crudo** del input. «998 136 1529» y «9981361529»
+son dos llaves distintas, así que la misma persona creaba dos propuestas — justo lo que la
+idempotencia venía a evitar. Ahora la llave son los dígitos, últimos 10: el mismo número con y
+sin código de país es el mismo número.
+
+**Pendiente, del mismo forense:** `crearPropuesta` matchea la `ref` **sin mirar el estado**, así
+que una propuesta ya **descartada** bloquea a esa persona para siempre. Si alguien descarta por
+error, ese contacto no puede volver a entrar nunca por la landing.
+
+**Vive en:** `app/api/track/optin/route.ts` (`clave`) · el pendiente en `lib/propuestas.ts`
+(`crearPropuesta`)
+
+### Los clicks no se medían, y para esta landing el click ES el embudo
+
+El snippet emitía `pageview`, `play`, `pNN`, `sNN` y `exit`. Nunca un click. En una landing
+cuyo CTA es un ancla (`#registro`) y cuyo cierre es un link de WhatsApp, eso deja **cero puntos
+intermedios** entre «visitó» y «dejó sus datos»: una página que convierte mal no se distingue
+de una que nadie mira.
+
+Resuelto en la v6 del snippet (mig 0133, columna `detalle`). Decisiones que conviene no
+revertir:
+
+- **Columna propia, no reusar `vsl_titulo`.** «Cómo se llama el video» y «qué se clickeó» son
+  dos preguntas; meterlas en un campo pierde una de las dos.
+- **Sin `default` en la columna.** Un evento que no es click no tiene detalle, y NULL dice eso.
+  Un default inventaría un dato — el mismo error que dejó las filas `tipo_evento = 'desconocido'`.
+- **Nunca `preventDefault`.** Lo que la persona quería hacer tiene que pasar igual aunque el
+  envío falle.
+- **Tope de 40 por carga**, o un carrusel manda cientos y el ruido tapa lo que importa.
+- **El destino manda sobre el texto**: dos botones distintos pueden ir al mismo lado, y lo que
+  se cuenta es adónde va la gente.
+- Y hubo que **sumar `'click'` a la lista blanca del beacon**: sin eso cada click habría entrado
+  como `'desconocido'`.
+
+**Vive en:** `lib/landing-token.ts` (el listener) · `app/api/track/vsl/route.ts` ·
+`supabase/migrations/0133_vsl_events_detalle.sql`
+
+### Lo que NO era un bug (verificado en la base, no deducido)
+
+- **Los «Visitó la landing» repetidos son visitas reales.** `landing_visits` no tiene columna de
+  tipo: cada fila **es** una visita. Los `visitor_id` son distintos salvo `6d860227`, que
+  recargó cinco veces. Ojo con dos filas cuyo `landing_url` es
+  `file:///C:/Users/leilu/…`: la clienta abre el HTML local y eso también mide.
+- **Los timestamps no están corridos.** El panel pinta con la zona del navegador (UTC-3) y la
+  clienta está en UTC-5, así que los cinco pageviews que se ven a las 12:19–12:29 son las filas
+  de las 15:19–15:29 UTC. La lista está bien ordenada; lo que falta es que la hora use la zona
+  del workspace, como el resto de la app (`useTzWorkspace`).
+
 ### Lo que sigue pendiente sobre videos
 
 - **`curvaRetencion`, `avancePorPersona` e `histogramaAbandono` aceptan un `videoId` desde hace
