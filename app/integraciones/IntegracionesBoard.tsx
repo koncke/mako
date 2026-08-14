@@ -911,6 +911,11 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
             nadie lee el snippet, lo que hace es copiarlo y pegarlo. */}
         <IconBtn name={copiado ? 'check' : 'copy'} title={copiado ? '¡Copiado!' : 'Copiar el código'} tone={copiado ? 'good' : 'dim'} onClick={copiar} />
         <IconBtn name="plug" title={verificando ? 'Verificando…' : 'Verificar que esté funcionando'} disabled={verificando} onClick={verificar} />
+        {/* La ayuda es el CUARTO botón de la barra, no una fila aparte debajo:
+            en la barra de una credencial el «?» vive adentro, al lado de su
+            campo, y despliega los pasos abajo. Es el mismo gesto —pedir ayuda
+            sobre esto que tengo acá— y tiene que estar en el mismo lugar. */}
+        <IconBtn name="help" title={abierto ? 'Ocultar la ayuda' : '¿Dónde lo pego?'} tone={abierto ? 'primary' : 'dim'} onClick={() => setAbierto((o) => !o)} />
       </div>
       {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — abrilo con el chevron, seleccionalo y copialo a mano.</span>}
 
@@ -920,25 +925,13 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
         </div>
       )}
 
-      {/* ¿Dónde lo pego? — mismo desplegable que "¿Cómo consigo esto?" del wizard */}
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        <button type="button" onClick={() => setAbierto((o) => !o)}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, color: 'var(--ink)', textAlign: 'left' }}>
-          {/* El «?» es el mismo ícono con el que el wizard de credenciales abre
-              su «¿Cómo consigo esta key?»: es el mismo gesto —pedir ayuda sobre
-              el campo de al lado— y tiene que verse igual. Y el chevron sale del
-              catálogo en vez de dos triángulos de texto, que no escalan ni con el
-              tamaño de letra ni con el color. */}
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <span style={{ flex: 'none', color: 'var(--dim)', display: 'inline-flex' }}><Icon name="help" size={15} /></span>
-            ¿Dónde lo pego?
-          </span>
-          <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', display: 'inline-flex', transform: abierto ? 'rotate(180deg)' : undefined, transition: 'transform .15s ease' }}>
-            <Icon name="chevron" size={15} />
-          </span>
-        </button>
-        {abierto && (
-          <div style={{ padding: '2px 14px 14px' }}>
+      {/* Los pasos, cuando se aprieta el «?» de la barra. Mismo tratamiento que
+          el «¿Cómo consigo esta key?» de una credencial: azul suave, debajo de
+          su propia barra, y sin cabecera propia — el rótulo ya lo dio el botón
+          que lo abrió. */}
+      {abierto && (
+        <div style={{ background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', borderRadius: 12, overflow: 'hidden', animation: 'mkFade .18s ease' }}>
+          <div style={{ padding: '13px 14px' }}>
             <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
               {DONDE_PEGAR.map((p, n) => (
                 <li key={n} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
@@ -959,8 +952,8 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
               ))}
             </ol>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -583,6 +583,12 @@ textarea.mako-field {
   overflow: hidden;
   text-overflow: ellipsis;
   user-select: all;
+  /* ⚠️ EL `max-height` ES LO QUE PLIEGA. Sin él, `overflow: hidden` no recorta
+     nada: un <pre> con 200 líneas crece hasta ocupar las 200 líneas y la barra
+     crece con él. Se veía DESPLEGADO siempre, y de yapa los botones quedaban
+     centrados contra un bloque altísimo — dos síntomas, una sola causa.
+     1.65em = exactamente un renglón, el mismo line-height de arriba. */
+  max-height: 1.65em;
 }
 .mk-key-row--code.is-abierta .mk-key-code {
   max-height: 260px;

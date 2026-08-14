@@ -266,8 +266,25 @@ test('los íconos salen del catálogo, no son SVG sueltos', () => {
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
   // `lastIndexOf`: el texto aparece dos veces — en el comentario que explica el
   // bloque y en el JSX. El primero no tiene íconos, obviamente.
-  const j = board.lastIndexOf('¿Dónde lo pego?');
-  const ayuda = board.slice(j - 1200, j + 600);
-  assert.ok(/Icon name="help"/.test(ayuda), 'el «¿Dónde lo pego?» lleva el mismo «?» que la ayuda de una credencial');
-  assert.ok(!/'▲' : '▼'/.test(ayuda), 'los triángulos de texto no escalan con el tamaño ni con el color: va el chevron del catálogo');
+  assert.ok(!/'▲' : '▼'/.test(board), 'los triángulos de texto no escalan con el tamaño ni con el color: va el chevron del catálogo');
+});
+
+test('la barra del código arranca PLEGADA y la ayuda es su cuarto botón', () => {
+  // Los dos síntomas que reportó el dueño salían de la MISMA causa: sin un
+  // max-height, `overflow: hidden` no recorta nada — un <pre> de 200 líneas
+  // crece hasta 200 líneas y la barra crece con él. Se veía desplegado siempre,
+  // y de yapa los botones quedaban centrados contra un bloque altísimo.
+  const css = leer('../app/globals.css');
+  const i = css.indexOf('.mk-key-code {');
+  const cerrada = css.slice(i, css.indexOf('}', i));
+  assert.ok(/max-height:\s*1\.65em/.test(cerrada), 'sin max-height en el estado CERRADO la barra no pliega nada');
+  assert.ok(/is-abierta \.mk-key-code \{[^}]*max-height: 260px/.test(css.replace(/\n/g, '')), 'falta el estado abierto');
+  assert.ok(/--code\.is-abierta \{[^}]*align-items: flex-start/.test(css.replace(/\n/g, '')), 'abierta, los íconos van ARRIBA y no centrados contra el bloque');
+
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  const j = board.indexOf('mk-key-row mk-key-row--code');
+  const barra = board.slice(j, board.indexOf('{errorCopia', j));
+  const botones = barra.match(/<IconBtn/g) ?? [];
+  assert.equal(botones.length, 4, `la barra tiene que tener 4 botones y tiene ${botones.length}`);
+  assert.ok(/name="help"/.test(barra), 'el «?» va DENTRO de la barra, no en una fila aparte debajo');
 });
