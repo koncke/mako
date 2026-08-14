@@ -41,7 +41,13 @@ export function isPublicLandingPath(pathname: string | null | undefined): boolea
  */
 export function esVistaSinChrome(pathname: string | null | undefined): boolean {
   const p = pathname ?? '';
-  return isPublicLandingPath(p) || /^\/crm\/\d+\/resumen\/?$/.test(p);
+  return isPublicLandingPath(p)
+    || /^\/crm\/\d+\/resumen\/?$/.test(p)
+    // La ventana de prueba que se abre ENCIMA de la landing mientras se prueba el
+    // tracking. Mide 440 px: el riel del sidebar es fijo y se come un cuarto del
+    // ancho para navegar a lugares a los que nadie va a ir desde acá — lo único
+    // que se hace en esta ventana es mirar entrar eventos y cerrarla.
+    || /^\/integraciones\/escuchando\/?$/.test(p);
 }
 
 /** Renderiza a sus hijos SOLO en las pantallas que sí llevan el chrome de la app. */

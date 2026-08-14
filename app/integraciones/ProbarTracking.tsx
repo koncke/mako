@@ -69,7 +69,7 @@ const NUEVA = '__nueva__';
 
 /**
  * @param pruebaInicial  Marcador de una prueba YA arrancada. Con esto el panel
- *   entra directo a «escuchando» — es lo que renderiza la ventanita flotante que
+ *   entra directo a «escuchando» — es lo que renderiza la ventana de prueba que
  *   se abre encima de la landing. Se reusa el MISMO componente a propósito: una
  *   segunda copia del panel es una copia que se queda vieja, y este ya tiene el
  *   poll, los chequeos y la traducción de cada evento.
@@ -86,10 +86,6 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
   // panel traía las últimas 24 h enteras y aparecían horarios de la mañana entre
   // los de recién: no había forma de saber cuáles eran los propios.
   const [prueba, setPrueba] = useState<string | null>(pruebaInicial ?? null);
-  // La prueba está corriendo en la ventanita flotante. Acá abajo se muestra un
-  // resumen y NO se poll-ea: dos paneles consultando lo mismo cada 3 s es el
-  // doble de requests para pintar la misma lista dos veces.
-  const [enVentana, setEnVentana] = useState(false);
   // La verificación de LA PÁGINA elegida. El botón vivía al lado del código y
   // contestaba por el workspace entero: «¿llegó algún evento alguna vez?». Al lado
   // del desplegable la pregunta es otra y es la útil — «¿la página que estoy por
@@ -97,6 +93,13 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
   // publicadas tenía una sola respuesta para las dos.
   const [verif, setVerif] = useState<{ url: string; instalada: boolean; vieja: boolean; texto: string } | null>(null);
   const [verificando, setVerificando] = useState(false);
+  // ⚠️ EL PASO. «¿Qué es cada video?» ya no vive siempre a la vista: es una
+  // pregunta que solo hace falta cuando falta la respuesta. Colgada del panel
+  // permanentemente era una tarea abierta que nadie iba a cerrar —está ahí desde
+  // que entrás, y nada dice para qué sirve contestarla— mientras que preguntada
+  // JUSTO ANTES de la prueba tiene contexto: lo que estás por hacer es mirar los
+  // eventos de esos videos.
+  const [paso, setPaso] = useState<'inicio' | 'videos'>('inicio');
   const [eligiendoNueva, setEligiendoNueva] = useState(false); // eligió "Otra página…"
   const [paginas, setPaginas] = useState<string[]>([]);        // las GUARDADAS del workspace
   const [ocultas, setOcultas] = useState<string[]>([]);        // las que sacó de la lista a mano
@@ -121,6 +124,14 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
   // no veía un solo botón y la función entera era invisible. Una página
   // detectada SÍ es suya: la diferencia es cómo nos enteramos, no de quién es.
   const hayElegida = !!url.trim() && !eligiendoNueva;
+
+  // Los videos que el sistema vio y que todavía nadie nombró. Es lo que decide si
+  // la prueba pregunta primero — «no le he cargado de qué se trata» y «se
+  // agregaron nuevos» son el mismo estado: hay un video sin respuesta.
+  const detectadosVideo = previo?.videosDetectados ?? [];
+  const videosGuardados = previo?.videos ?? [];
+  const sinNombre = detectadosVideo.filter((d) => !videosGuardados.some((v) => v.id === d.id));
+  const hayVideos = detectadosVideo.length > 0 || videosGuardados.length > 0;
 
   const aplicar = (r: { paginas: string[]; ocultas: string[] }) => { setPaginas(r.paginas); setOcultas(r.ocultas); };
 
@@ -212,12 +223,11 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
     // `setInterval(traer, 3000)` a secas, el primer argumento que recibe `traer`
     // es el contador del timer —no un marcador— y el filtro se perdía en cada
     // refresco: la lista arrancaba limpia y a los 3 segundos volvían las 24 h.
-    if (enVentana) return;   // la ventanita ya está consultando lo mismo
     const consultar = () => { void traer(undefined, prueba); };
     consultar();
     timer.current = setInterval(consultar, 3000);
     return () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
-  }, [activo, traer, prueba, enVentana]);
+  }, [activo, traer, prueba]);
 
   const box: CSSProperties = { border: '1px solid var(--border)', borderRadius: 13, background: 'var(--surface-2)', padding: 16, fontFamily: SANS };
 
@@ -245,6 +255,11 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
     setOcupado(false);
     if (viejo) { setBloqueo(true); return; }
 
+    // Si hay videos sin nombre, esa es la primera pantalla — no los pasos de la
+    // prueba. Se pregunta UNA vez por corrida: `paso` ya en 'videos' significa
+    // que la persona vino de ahí y apretó Siguiente, con o sin contestar.
+    if (paso !== 'videos' && sinNombre.length > 0) { setPaso('videos'); return; }
+
     const u = url.trim();
     // Probar una página la GUARDA. Si no, la próxima vez hay que volver a
     // elegirla de las detectadas o a escribirla — y el desplegable dice
@@ -263,17 +278,21 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
     const [base, hash] = u.split('#');
     window.open(`${base}${sep}mko_test=${id}${hash ? `#${hash}` : ''}`, '_blank', 'noopener');
 
-    // Y ENCIMA, la ventanita de MaKo. Para verificar que un click se registra hay
-    // que hacerlo EN la landing y mirar el resultado EN MaKo: con dos pestañas eso
-    // es alternar a ciegas — apretás, cambiás de pestaña, y para cuando mirás ya
-    // no sabés si lo que ves es de ese click o del anterior.
+    // Y ENCIMA, una ventana de prueba de MaKo. Para verificar que un click se
+    // registra hay que hacerlo EN la landing y mirar el resultado EN MaKo: con dos
+    // pestañas eso es alternar a ciegas — apretás, cambiás de pestaña, y para
+    // cuando mirás ya no sabés si lo que ves es de ese click o del anterior.
+    //
+    // La pestaña de atrás NO cambia: sigue mostrando la misma prueba. Un panel que
+    // se reemplaza por «esto está corriendo en otro lado» obliga a volver para
+    // enterarse de que no hay nada que ver acá.
     //
     // ⚠️ Se abre DESPUÉS de la landing, a propósito: la última ventana que se abre
     // queda arriba, y la que tiene que quedar arriba es esta.
     //
     // Sin `noopener`: acá se necesita la referencia para saber si el navegador la
     // bloqueó. Y se le da nombre para que dos pruebas seguidas REUSEN la misma
-    // ventana en vez de sembrar la pantalla de ventanitas huérfanas.
+    // ventana en vez de sembrar la pantalla de ventana de pruebas huérfanas.
     const alto = Math.min(760, Math.max(420, window.screen.availHeight - 120));
     const chico = window.open(
       `/integraciones/escuchando?p=${id}`,
@@ -282,7 +301,7 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
     );
     // Si el navegador la bloqueó, el panel de acá abajo sigue funcionando igual:
     // la prueba no puede depender de un permiso que no controlamos.
-    setEnVentana(!!chico);
+    setPaso('inicio');
     try { chico?.focus(); } catch { /* algunos navegadores no lo permiten */ }
     setActivo(true);
   };
@@ -381,43 +400,48 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
 
         {avisoViejo}
 
-        {/* Qué es cada video. Vive acá abajo y no en su propio panel porque
-            contesta la misma pregunta que la prueba —«¿esto está midiendo lo que
-            creo?»— y porque los videos que ofrece salen de los MISMOS eventos que
-            los chequeos: separarlos en dos tarjetas obligaría a dos consultas y a
-            explicar dos veces de dónde sale la lista. */}
-        <NombrarVideos
-          detectados={previo?.videosDetectados ?? []}
-          videos={previo?.videos ?? []}
-          onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}
-        />
+        {/* La salida para corregirse, y nada más que eso: un renglón que NOMBRA lo
+            que ya está declarado y ofrece cambiarlo. No es el formulario abierto
+            —eso vuelve a ser la tarea colgada que se acaba de sacar— sino la
+            respuesta actual a la vista, que es lo único que permite darse cuenta
+            de que uno se equivocó. */}
+        {hayVideos && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ minWidth: 0, flex: 1, fontSize: 12.5, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {videosGuardados.length > 0
+                ? <>Tus videos: {videosGuardados.map((v) => v.nombre).join(' · ')}</>
+                : <>{detectadosVideo.length} {detectadosVideo.length === 1 ? 'video sin nombre' : 'videos sin nombre'} en tu página</>}
+            </span>
+            <IconBtn name="pen" title="Cambiar qué es cada video" onClick={() => setPaso('videos')} />
+          </div>
+        )}
       </div>
     );
   }
 
-  // La prueba corre en la ventanita: acá NO se repite el panel entero. Dos copias
-  // del mismo panel obligan a mirar dos lugares para saber una cosa, y la que
-  // está encima de la landing es la que se está usando.
-  if (enVentana) {
+  // ── PASO: ¿qué es cada video? ─────────────────────────────────────────────
+  // Aparece ANTES de los pasos de la prueba cuando hay algún video sin nombre, y
+  // también a pedido desde el renglón de abajo. «Siguiente» NO exige contestar:
+  // un paso que bloquea sobre algo opcional convierte la prueba en un trámite, y
+  // la pregunta vuelve sola la próxima vez porque el dato sigue faltando.
+  if (paso === 'videos') {
     return (
       <div style={box}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
-          <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--good)', animation: 'pt-latido 1.4s infinite', flex: 'none' }} />
-          <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>La prueba está corriendo en la ventanita</span>
-        </div>
-        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 12 }}>
-          Está apoyada sobre tu landing, arriba a la derecha. Probá ahí y mirá los eventos entrar sin cambiar de pestaña.
-        </div>
-        <style>{'@keyframes pt-latido{0%,100%{opacity:1}50%{opacity:.25}}'}</style>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {/* Reabrir con el MISMO nombre de ventana la trae al frente si sigue
-              viva, y la vuelve a abrir si la cerraron sin querer. */}
-          <Button variant="secondary" size="sm" onClick={() => {
-            const w = window.open(`/integraciones/escuchando?p=${prueba}`, 'mako_prueba');
-            try { w?.focus(); } catch { /* algunos navegadores no lo permiten */ }
-          }}>Traerla al frente</Button>
-          <Button variant="secondary" size="sm" onClick={() => { setEnVentana(false); }}>Verla acá</Button>
-          <Button variant="secondary" size="sm" onClick={() => { setActivo(false); setPrueba(null); setEnVentana(false); }}>Terminar</Button>
+        <NombrarVideos
+          detectados={detectadosVideo}
+          videos={videosGuardados}
+          onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
+          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado}>
+            Siguiente: probar
+          </Button>
+          <Button variant="secondary" onClick={() => setPaso('inicio')}>Volver</Button>
+          {sinNombre.length > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--faint)' }}>
+              Podés dejarlo para después: la retención se mide igual, solo que sin saber de cuál es.
+            </span>
+          )}
         </div>
       </div>
     );
@@ -431,9 +455,9 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
           <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Escuchando… {diag ? `· ${diag.veredicto}` : ''}</span>
         </div>
         <Button variant="secondary" size="sm" onClick={() => {
-          // En la ventanita flotante, «Terminar» CIERRA la ventana: volver al
-          // desplegable de páginas adentro de un popup de 420 px no lleva a
-          // ningún lado, y dejarla abierta y muda es peor que cerrarla.
+          // En la ventana de prueba, «Terminar» la CIERRA: volver al desplegable
+          // de páginas dentro de una ventana de 440 px no lleva a ningún lado, y
+          // dejarla abierta y muda es peor que cerrarla.
           if (pruebaInicial) { window.close(); return; }
           setActivo(false); setPrueba(null);
         }}>Terminar</Button>

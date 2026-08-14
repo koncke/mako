@@ -1,5 +1,5 @@
 // =============================================================================
-// /integraciones/escuchando — la ventanita que se abre ENCIMA de la landing
+// /integraciones/escuchando — la ventana de prueba, encima de la landing
 // =============================================================================
 // El pedido: «cuando le doy a Probar debería abrirme la tab de esa landing, pero
 // también una ventana de MaKo que se superponga… así no tengo que estar volviendo

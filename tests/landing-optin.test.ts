@@ -696,27 +696,75 @@ test('verificar pregunta por LA PÁGINA elegida, no por el workspace', () => {
   assert.ok(/setEditando\(null\); setVerif\(null\)/.test(panel), 'la verificación vieja tiene que limpiarse al cambiar de página');
 });
 
-test('la prueba abre una ventanita de MaKo ENCIMA de la landing', () => {
+test('la prueba abre una ventana de prueba de MaKo ENCIMA de la landing', () => {
   // Para verificar que un click se registra hay que hacerlo EN la landing y mirar
   // el resultado EN MaKo: con dos pestañas eso es alternar a ciegas.
   const panel = leer('../app/integraciones/ProbarTracking.tsx');
-  assert.ok(/\/integraciones\/escuchando\?p=\$\{id\}/.test(panel), 'falta la ventanita');
+  assert.ok(/\/integraciones\/escuchando\?p=\$\{id\}/.test(panel), 'falta la ventana de prueba');
   assert.ok(/'mako_prueba'/.test(panel), 'con nombre, dos pruebas seguidas reusan la ventana en vez de sembrar huérfanas');
   // ⚠️ Se abre DESPUÉS de la landing: la última que se abre queda arriba, y la
   // que tiene que quedar arriba es esta.
   const iLanding = panel.indexOf('mko_test=${id}');
   const iVentana = panel.indexOf('/integraciones/escuchando?p=');
-  assert.ok(iLanding > 0 && iVentana > iLanding, 'la ventanita se abre después, para quedar encima');
+  assert.ok(iLanding > 0 && iVentana > iLanding, 'la ventana de prueba se abre después, para quedar encima');
   // Si el navegador la bloquea, el panel de la tab sigue funcionando: la prueba
   // no puede depender de un permiso que no controlamos.
-  assert.ok(/setEnVentana\(!!chico\)/.test(panel), 'una ventana bloqueada tiene que caer al panel de siempre');
+  // La pestaña de atrás NO cambia: sigue mostrando la misma prueba. Un panel que
+  // se reemplaza por «esto corre en otro lado» obliga a volver para enterarse de
+  // que no hay nada que ver ahí.
+  assert.ok(!/enVentana/.test(panel), 'la pestaña no puede cambiar porque se abrió la ventana de prueba');
   // Y no se poll-ea dos veces lo mismo.
-  assert.ok(/if \(enVentana\) return;/.test(panel), 'dos paneles consultando lo mismo cada 3 s es el doble de requests');
 
-  // La ventanita reusa el MISMO componente: una segunda copia del panel es una
+  // La ventana de prueba reusa el MISMO componente: una segunda copia del panel es una
   // copia que se queda vieja.
   const pag = leer('../app/integraciones/escuchando/page.tsx');
-  assert.ok(/<ProbarTracking pruebaInicial=\{p\} \/>/.test(pag), 'la ventanita tiene que reusar el panel, no copiarlo');
+  assert.ok(/<ProbarTracking pruebaInicial=\{p\} \/>/.test(pag), 'la ventana de prueba tiene que reusar el panel, no copiarlo');
   assert.ok(/requireRolWs\(\[\], \{ nav: 'integraciones' \}\)/.test(pag), 'una ventana sin chrome sigue siendo la misma pantalla: el permiso no se relaja');
   assert.ok(/if \(!p\) redirect/.test(pag), 'sin marcador no hay nada que escuchar');
+});
+
+test('«qué es cada video» es un PASO de la prueba, no un formulario colgado', () => {
+  // Colgado del panel permanentemente era una tarea abierta que nadie iba a
+  // cerrar: está ahí desde que entrás y nada dice para qué sirve contestarla.
+  // Preguntada justo antes de la prueba tiene contexto — lo que estás por hacer
+  // es mirar los eventos de esos videos.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/useState<'inicio' \| 'videos'>\('inicio'\)/.test(panel), 'la prueba necesita el paso previo');
+  // «no le he cargado de qué se trata» y «se agregaron nuevos» son EL MISMO
+  // estado: hay un video detectado sin respuesta guardada.
+  assert.ok(/const sinNombre = detectadosVideo\.filter/.test(panel), 'falta detectar los videos sin nombre');
+  assert.ok(/if \(paso !== 'videos' && sinNombre\.length > 0\) \{ setPaso\('videos'\); return; \}/.test(panel),
+    'con videos sin nombre, «Probar» tiene que preguntar ANTES de los pasos');
+  // ⚠️ Y «Siguiente» NO exige contestar: un paso que bloquea sobre algo opcional
+  // convierte la prueba en un trámite. La pregunta vuelve sola la próxima vez,
+  // porque el dato sigue faltando.
+  const i = panel.indexOf("if (paso === 'videos')");
+  const bloque = panel.slice(i, panel.indexOf('// La prueba corre en la ventana de prueba', i));
+  assert.ok(/Siguiente: probar/.test(bloque), 'falta el botón que sigue a la prueba');
+  assert.ok(!/disabled=\{sinNombre/.test(bloque), 'nombrar los videos no puede ser obligatorio para probar');
+  // La salida para corregirse existe, y NO es el formulario abierto de vuelta:
+  // es la respuesta actual a la vista, que es lo único que permite darse cuenta
+  // de que uno se equivocó.
+  assert.ok(/Tus videos: \{videosGuardados\.map/.test(panel), 'falta el renglón que nombra lo declarado');
+  assert.ok(/title="Cambiar qué es cada video"/.test(panel), 'falta la forma de corregirlo');
+});
+
+test('la ventana de prueba se dibuja SOLA, sin el sidebar', () => {
+  // Mide 440 px: el riel del sidebar es fijo y se come un cuarto del ancho para
+  // navegar a lugares a los que nadie va a ir desde acá — lo único que se hace en
+  // esa ventana es mirar entrar eventos y cerrarla.
+  const gate = leer('../app/_components/PublicRouteGate.tsx');
+  // Se busca dentro de `esVistaSinChrome` y no en el archivo entero: la ruta
+  // podría estar nombrada en un comentario y el test daría verde sobre un gate
+  // que no la cubre.
+  const j = gate.indexOf('export function esVistaSinChrome');
+  const cuerpo = gate.slice(j, gate.indexOf('\n}', j));
+  assert.ok(cuerpo.includes('escuchando'), 'la ventana de prueba sigue heredando el chrome de la app');
+  // Se suma al predicado que YA existía para esto, no a un mecanismo nuevo: son
+  // dos preguntas distintas —«¿la puede ver alguien de afuera?» y «¿se dibuja
+  // sola?»— y esta ventana exige sesión pero va limpia, igual que el resumen del
+  // lead que se abre en el celular.
+  assert.ok(/export function esVistaSinChrome/.test(gate), 'el predicado tiene que seguir siendo uno solo');
+  const i = gate.indexOf('export function esVistaSinChrome');
+  assert.ok(/isPublicLandingPath\(p\)/.test(gate.slice(i, i + 700)), 'sin-chrome no puede dejar de cubrir las públicas');
 });
