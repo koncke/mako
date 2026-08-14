@@ -325,7 +325,10 @@ test('el código usa LA MISMA barra que una credencial, no una pieza propia', ()
   // credencial, exportado en vez de copiado.
   assert.ok(/<IconBtn/.test(bloque), 'las acciones son IconBtn, no botones propios');
   assert.ok(/name="chevron"/.test(bloque), 'falta el chevron para expandir');
-  assert.ok(/name="plug"/.test(bloque), 'verificar usa el mismo ícono que «probar conexión» de una credencial');
+  // ⚠️ El «plug» YA NO vive acá: se mudó al lado del desplegable de páginas. Un
+  // botón junto al código pregunta por el código; junto a la página, pregunta por
+  // la página — y esa es la respuesta que sirve. Ver el test de verificarPagina.
+  assert.ok(!/name="plug"/.test(bloque), 'el botón de verificar tiene que estar al lado del desplegable, no del código');
   assert.ok(/copiado \? 'check' : 'copy'/.test(bloque), 'copiar tiene que mostrar el tilde al copiar');
 });
 
@@ -372,7 +375,9 @@ test('la barra del código arranca PLEGADA y la ayuda es su cuarto botón', () =
   const j = board.indexOf('mk-key-row mk-key-row--code');
   const barra = board.slice(j, board.indexOf('{errorCopia', j));
   const botones = barra.match(/<IconBtn/g) ?? [];
-  assert.equal(botones.length, 4, `la barra tiene que tener 4 botones y tiene ${botones.length}`);
+  // TRES desde que verificar se mudó al desplegable: chevron, copiar y ayuda.
+  // La ayuda sigue siendo el ÚLTIMO botón de la barra y no una fila aparte.
+  assert.equal(botones.length, 3, `la barra tiene que tener 3 botones y tiene ${botones.length}`);
   assert.ok(/name="help"/.test(barra), 'el «?» va DENTRO de la barra, no en una fila aparte debajo');
 });
 
@@ -658,4 +663,60 @@ test('el marcador de prueba NO ensucia la lista de páginas', () => {
   assert.ok(/PARAMS_DE_MEDICION/.test(lib), 'faltan los parámetros que no identifican una página');
   assert.ok(/'mko_test'/.test(lib), 'el marcador propio es el primero que hay que sacar');
   assert.ok(/for \(const p of PARAMS_DE_MEDICION\) u\.searchParams\.delete\(p\)/.test(lib), 'no se están sacando al normalizar');
+});
+
+test('verificar pregunta por LA PÁGINA elegida, no por el workspace', () => {
+  // El botón vivía al lado del código y contestaba «¿llegó algún evento alguna
+  // vez?». Un cliente con dos landings publicadas —la vieja y la nueva— tenía UNA
+  // sola respuesta para las dos, y era la del que hubiera mandado el último
+  // evento. Al lado del desplegable la pregunta cambia y se vuelve la útil.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/export async function verificarPagina/.test(lib), 'falta la verificación por página');
+  // ⚠️ Se compara NORMALIZADO en las dos puntas. En la base conviven la URL con
+  // barra final, con hash y con los parámetros de cada campaña: un `eq` sobre el
+  // texto crudo diría «no está instalada» sobre una página que mide hace meses.
+  assert.ok(/normalizarUrl\(r\.landing_url \?\? ''\) === url/.test(lib), 'comparar el texto crudo daría un falso «no instalada»');
+  // La versión sale de la visita MÁS RECIENTE que la traiga: si repegaron el
+  // código hace una hora, eso manda sobre 300 visitas viejas.
+  assert.ok(/filas\.find\(\(r\) => r\.sv != null\)/.test(lib), 'la versión tiene que salir de la visita más reciente');
+  assert.ok(/version < SNIPPET_VERSION/.test(lib), 'sin comparar contra la actual no puede decir «vieja»');
+
+  const beacon = leer('../app/api/track/vsl/route.ts');
+  assert.ok(/sv: Number\.isFinite/.test(beacon), 'sin guardar sv por visita no hay versión por página');
+
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/verificarEsta/.test(panel), 'el panel no puede verificar la página elegida');
+  assert.ok(/name="plug"/.test(panel), 'el botón de verificar tiene que estar al lado del desplegable');
+  // Y se fue de la barra del código: dos botones que preguntan cosas distintas
+  // con el mismo ícono es peor que uno solo en el lugar correcto.
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  assert.ok(!/<IconBtn name="plug"/.test(board), 'el botón viejo sigue en la barra del código');
+  // Cambiar de página invalida la verificación anterior: dejarla pintada haría
+  // creer que el resultado es de la página que ahora está elegida.
+  assert.ok(/setEditando\(null\); setVerif\(null\)/.test(panel), 'la verificación vieja tiene que limpiarse al cambiar de página');
+});
+
+test('la prueba abre una ventanita de MaKo ENCIMA de la landing', () => {
+  // Para verificar que un click se registra hay que hacerlo EN la landing y mirar
+  // el resultado EN MaKo: con dos pestañas eso es alternar a ciegas.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/\/integraciones\/escuchando\?p=\$\{id\}/.test(panel), 'falta la ventanita');
+  assert.ok(/'mako_prueba'/.test(panel), 'con nombre, dos pruebas seguidas reusan la ventana en vez de sembrar huérfanas');
+  // ⚠️ Se abre DESPUÉS de la landing: la última que se abre queda arriba, y la
+  // que tiene que quedar arriba es esta.
+  const iLanding = panel.indexOf('mko_test=${id}');
+  const iVentana = panel.indexOf('/integraciones/escuchando?p=');
+  assert.ok(iLanding > 0 && iVentana > iLanding, 'la ventanita se abre después, para quedar encima');
+  // Si el navegador la bloquea, el panel de la tab sigue funcionando: la prueba
+  // no puede depender de un permiso que no controlamos.
+  assert.ok(/setEnVentana\(!!chico\)/.test(panel), 'una ventana bloqueada tiene que caer al panel de siempre');
+  // Y no se poll-ea dos veces lo mismo.
+  assert.ok(/if \(enVentana\) return;/.test(panel), 'dos paneles consultando lo mismo cada 3 s es el doble de requests');
+
+  // La ventanita reusa el MISMO componente: una segunda copia del panel es una
+  // copia que se queda vieja.
+  const pag = leer('../app/integraciones/escuchando/page.tsx');
+  assert.ok(/<ProbarTracking pruebaInicial=\{p\} \/>/.test(pag), 'la ventanita tiene que reusar el panel, no copiarlo');
+  assert.ok(/requireRolWs\(\[\], \{ nav: 'integraciones' \}\)/.test(pag), 'una ventana sin chrome sigue siendo la misma pantalla: el permiso no se relaja');
+  assert.ok(/if \(!p\) redirect/.test(pag), 'sin marcador no hay nada que escuchar');
 });

@@ -240,6 +240,11 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
         landing_url: texto(payload.landing_url, 500),
         referrer: texto(payload.referrer, 500),
         prueba: texto(payload.prueba, 40),
+        // La versión POR PÁGINA (mig 0135). El setting `landing.snippet_version`
+        // guarda una sola por workspace —la del último evento, venga de donde
+        // venga—, y con dos landings publicadas eso no puede contestar «¿cuál de
+        // las dos quedó vieja?».
+        sv: Number.isFinite(Number(payload.sv)) ? Math.trunc(Number(payload.sv)) : null,
       });
       if (error) console.error(`[track:vsl] landing_visits insert falló: ${error.message}`);
     } catch (err) {

@@ -67,8 +67,15 @@ const URL_KEY = 'mako.landing.url_prueba';
 /** Valor centinela de la última opción del desplegable. */
 const NUEVA = '__nueva__';
 
-export function ProbarTracking() {
-  const [activo, setActivo] = useState(false);
+/**
+ * @param pruebaInicial  Marcador de una prueba YA arrancada. Con esto el panel
+ *   entra directo a «escuchando» — es lo que renderiza la ventanita flotante que
+ *   se abre encima de la landing. Se reusa el MISMO componente a propósito: una
+ *   segunda copia del panel es una copia que se queda vieja, y este ya tiene el
+ *   poll, los chequeos y la traducción de cada evento.
+ */
+export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {}) {
+  const [activo, setActivo] = useState(!!pruebaInicial);
   const [diag, setDiag] = useState<Diag | null>(null);
   const [cargando, setCargando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -78,7 +85,18 @@ export function ProbarTracking() {
   // ⚠️ El marcador de ESTA prueba, como el `test_event_code` de Meta. Sin él, el
   // panel traía las últimas 24 h enteras y aparecían horarios de la mañana entre
   // los de recién: no había forma de saber cuáles eran los propios.
-  const [prueba, setPrueba] = useState<string | null>(null);
+  const [prueba, setPrueba] = useState<string | null>(pruebaInicial ?? null);
+  // La prueba está corriendo en la ventanita flotante. Acá abajo se muestra un
+  // resumen y NO se poll-ea: dos paneles consultando lo mismo cada 3 s es el
+  // doble de requests para pintar la misma lista dos veces.
+  const [enVentana, setEnVentana] = useState(false);
+  // La verificación de LA PÁGINA elegida. El botón vivía al lado del código y
+  // contestaba por el workspace entero: «¿llegó algún evento alguna vez?». Al lado
+  // del desplegable la pregunta es otra y es la útil — «¿la página que estoy por
+  // probar está midiendo, y con qué versión?». Un cliente con dos landings
+  // publicadas tenía una sola respuesta para las dos.
+  const [verif, setVerif] = useState<{ url: string; instalada: boolean; vieja: boolean; texto: string } | null>(null);
+  const [verificando, setVerificando] = useState(false);
   const [eligiendoNueva, setEligiendoNueva] = useState(false); // eligió "Otra página…"
   const [paginas, setPaginas] = useState<string[]>([]);        // las GUARDADAS del workspace
   const [ocultas, setOcultas] = useState<string[]>([]);        // las que sacó de la lista a mano
@@ -105,6 +123,18 @@ export function ProbarTracking() {
   const hayElegida = !!url.trim() && !eligiendoNueva;
 
   const aplicar = (r: { paginas: string[]; ocultas: string[] }) => { setPaginas(r.paginas); setOcultas(r.ocultas); };
+
+  const verificarEsta = async () => {
+    const u = url.trim();
+    if (!u) return;
+    setVerificando(true); setVerif(null);
+    try {
+      const r = await fetch(`/api/integraciones/landing/estado?verificar=${encodeURIComponent(u)}`, { cache: 'no-store' }).then((x) => x.json());
+      if (r?.ok && r.verificacion) setVerif(r.verificacion);
+      else setErrPagina(r?.error ?? 'No se pudo verificar');
+    } catch { setErrPagina('No se pudo verificar'); }
+    finally { setVerificando(false); }
+  };
 
   const guardar = async () => {
     setOcupado(true); setErrPagina(null);
@@ -182,11 +212,12 @@ export function ProbarTracking() {
     // `setInterval(traer, 3000)` a secas, el primer argumento que recibe `traer`
     // es el contador del timer —no un marcador— y el filtro se perdía en cada
     // refresco: la lista arrancaba limpia y a los 3 segundos volvían las 24 h.
+    if (enVentana) return;   // la ventanita ya está consultando lo mismo
     const consultar = () => { void traer(undefined, prueba); };
     consultar();
     timer.current = setInterval(consultar, 3000);
     return () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
-  }, [activo, traer, prueba]);
+  }, [activo, traer, prueba, enVentana]);
 
   const box: CSSProperties = { border: '1px solid var(--border)', borderRadius: 13, background: 'var(--surface-2)', padding: 16, fontFamily: SANS };
 
@@ -231,6 +262,28 @@ export function ProbarTracking() {
     // parámetro adentro del hash y `location.search` no lo ve nunca.
     const [base, hash] = u.split('#');
     window.open(`${base}${sep}mko_test=${id}${hash ? `#${hash}` : ''}`, '_blank', 'noopener');
+
+    // Y ENCIMA, la ventanita de MaKo. Para verificar que un click se registra hay
+    // que hacerlo EN la landing y mirar el resultado EN MaKo: con dos pestañas eso
+    // es alternar a ciegas — apretás, cambiás de pestaña, y para cuando mirás ya
+    // no sabés si lo que ves es de ese click o del anterior.
+    //
+    // ⚠️ Se abre DESPUÉS de la landing, a propósito: la última ventana que se abre
+    // queda arriba, y la que tiene que quedar arriba es esta.
+    //
+    // Sin `noopener`: acá se necesita la referencia para saber si el navegador la
+    // bloqueó. Y se le da nombre para que dos pruebas seguidas REUSEN la misma
+    // ventana en vez de sembrar la pantalla de ventanitas huérfanas.
+    const alto = Math.min(760, Math.max(420, window.screen.availHeight - 120));
+    const chico = window.open(
+      `/integraciones/escuchando?p=${id}`,
+      'mako_prueba',
+      `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`,
+    );
+    // Si el navegador la bloqueó, el panel de acá abajo sigue funcionando igual:
+    // la prueba no puede depender de un permiso que no controlamos.
+    setEnVentana(!!chico);
+    try { chico?.focus(); } catch { /* algunos navegadores no lo permiten */ }
     setActivo(true);
   };
 
@@ -270,7 +323,7 @@ export function ProbarTracking() {
               <Select
                 ariaLabel="Página a probar"
                 value={eligiendoNueva ? NUEVA : url}
-                onChange={(v) => { setUrl(v === NUEVA ? '' : v); setEligiendoNueva(v === NUEVA); setEditando(null); }}
+                onChange={(v) => { setUrl(v === NUEVA ? '' : v); setEligiendoNueva(v === NUEVA); setEditando(null); setVerif(null); }}
                 placeholder="Elegí una página…"
                 options={[
                   ...paginas.map((u) => ({ value: u, label: u, acciones: accionesDe(u) })),
@@ -288,6 +341,10 @@ export function ProbarTracking() {
                 buscara algo que no está. */}
             {hayElegida && (
               <>
+                {/* Verificar ESTA página. Vive acá y no al lado del código porque
+                    la respuesta depende de cuál elegiste: es la misma distancia
+                    física, pero la pregunta que contesta es otra. */}
+                <IconBtn name="plug" title="Verificar si está instalado en esta página" disabled={verificando} onClick={() => void verificarEsta()} />
                 <IconBtn name="pen" title="Corregir esta dirección" onClick={() => { setEditando(guardadaElegida ? url : null); setEligiendoNueva(true); }} />
                 <IconBtn name="trash" title="Quitarla de la lista" tone="bad" disabled={ocupado} onClick={() => void borrar()} />
               </>
@@ -304,6 +361,13 @@ export function ProbarTracking() {
                   onKeyDown={(e) => { if (e.key === 'Enter' && urlValida) void guardar(); }} />
               </div>
               <IconBtn name="check" title={editando ? 'Guardar el cambio' : 'Guardar esta página'} tone="good" disabled={!urlValida || ocupado} onClick={() => void guardar()} />
+            </div>
+          )}
+          {verif && (
+            <div style={{ marginTop: 9, padding: '11px 13px', borderRadius: 10, lineHeight: 1.5, fontSize: 12.5,
+              border: `1px solid ${verif.instalada && !verif.vieja ? 'var(--good)' : 'var(--warn)'}`,
+              background: verif.instalada && !verif.vieja ? 'var(--good-bg)' : 'var(--warn-bg)', color: 'var(--ink)' }}>
+              {verif.texto}
             </div>
           )}
           {errPagina && <div style={{ marginTop: 7, fontSize: 12.5, color: 'var(--bad)' }}>{errPagina}</div>}
@@ -331,6 +395,34 @@ export function ProbarTracking() {
     );
   }
 
+  // La prueba corre en la ventanita: acá NO se repite el panel entero. Dos copias
+  // del mismo panel obligan a mirar dos lugares para saber una cosa, y la que
+  // está encima de la landing es la que se está usando.
+  if (enVentana) {
+    return (
+      <div style={box}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+          <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--good)', animation: 'pt-latido 1.4s infinite', flex: 'none' }} />
+          <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>La prueba está corriendo en la ventanita</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 12 }}>
+          Está apoyada sobre tu landing, arriba a la derecha. Probá ahí y mirá los eventos entrar sin cambiar de pestaña.
+        </div>
+        <style>{'@keyframes pt-latido{0%,100%{opacity:1}50%{opacity:.25}}'}</style>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {/* Reabrir con el MISMO nombre de ventana la trae al frente si sigue
+              viva, y la vuelve a abrir si la cerraron sin querer. */}
+          <Button variant="secondary" size="sm" onClick={() => {
+            const w = window.open(`/integraciones/escuchando?p=${prueba}`, 'mako_prueba');
+            try { w?.focus(); } catch { /* algunos navegadores no lo permiten */ }
+          }}>Traerla al frente</Button>
+          <Button variant="secondary" size="sm" onClick={() => { setEnVentana(false); }}>Verla acá</Button>
+          <Button variant="secondary" size="sm" onClick={() => { setActivo(false); setPrueba(null); setEnVentana(false); }}>Terminar</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={box}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -338,7 +430,13 @@ export function ProbarTracking() {
           <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--good)', animation: 'pt-latido 1.4s infinite', flex: 'none' }} />
           <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Escuchando… {diag ? `· ${diag.veredicto}` : ''}</span>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => { setActivo(false); setPrueba(null); }}>Terminar</Button>
+        <Button variant="secondary" size="sm" onClick={() => {
+          // En la ventanita flotante, «Terminar» CIERRA la ventana: volver al
+          // desplegable de páginas adentro de un popup de 420 px no lleva a
+          // ningún lado, y dejarla abierta y muda es peor que cerrarla.
+          if (pruebaInicial) { window.close(); return; }
+          setActivo(false); setPrueba(null);
+        }}>Terminar</Button>
       </div>
       <style>{'@keyframes pt-latido{0%,100%{opacity:1}50%{opacity:.25}}'}</style>
 

@@ -19,7 +19,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, runWithWorkspace } from '@/lib/workspace';
-import { landingUltimoEvento, landingDiagnostico, videosDetectados, getVideosLanding } from '@/lib/landing-token';
+import { landingUltimoEvento, landingDiagnostico, videosDetectados, getVideosLanding, verificarPagina } from '@/lib/landing-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +58,15 @@ export async function GET(req: NextRequest) {
   // ?diag=1 → el probador en vivo (últimos eventos + los 4 chequeos). El GET pelado
   // sigue devolviendo el semáforo de siempre, que usa el board.
   const diag = req.nextUrl.searchParams.get('diag') === '1';
+  // ?verificar=<url> → «¿ESTA página está midiendo, y con qué versión?». Es la
+  // pregunta del botón que vive al lado del desplegable, y es distinta de la del
+  // semáforo: esa mira el workspace entero.
+  const verificar = req.nextUrl.searchParams.get('verificar');
   try {
+    if (verificar) {
+      const v = await runWithWorkspace(ctx.ws, () => verificarPagina(verificar));
+      return NextResponse.json({ ok: true, verificacion: v });
+    }
     if (diag) {
       // Los videos viajan con el diagnóstico y no en su propia ruta: la pantalla
       // los necesita JUNTOS —los detectados salen de los mismos eventos que los

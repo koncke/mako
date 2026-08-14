@@ -914,7 +914,14 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
         {/* Copiar funciona PLEGADO: la acción no depende de ver el contenido —
             nadie lee el snippet, lo que hace es copiarlo y pegarlo. */}
         <IconBtn name={copiado ? 'check' : 'copy'} title={copiado ? '¡Copiado!' : 'Copiar el código'} tone={copiado ? 'good' : 'dim'} onClick={copiar} />
-        <IconBtn name="plug" title={verificando ? 'Verificando…' : 'Verificar que esté funcionando'} disabled={verificando} onClick={verificar} />
+        {/* ⚠️ EL BOTÓN DE VERIFICAR SE FUE DE ACÁ, al lado del desplegable de
+            páginas. Es la misma distancia física y una pregunta distinta: acá
+            contestaba por el workspace entero —«¿llegó algún evento alguna
+            vez?»— y allá contesta por LA PÁGINA elegida, que es la que se está
+            por probar. Un cliente con dos landings publicadas tenía una sola
+            respuesta para las dos, y la respuesta era del que hubiera mandado el
+            último evento. Un botón junto al código pregunta por el código;
+            junto a la página, pregunta por la página. */}
         {/* La ayuda es el CUARTO botón de la barra, no una fila aparte debajo:
             en la barra de una credencial el «?» vive adentro, al lado de su
             campo, y despliega los pasos abajo. Es el mismo gesto —pedir ayuda

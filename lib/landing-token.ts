@@ -288,6 +288,73 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
   }
 }
 
+/**
+ * ¿ESTA página tiene el código puesto, y al día?
+ *
+ * El botón de verificar vivía al lado del CÓDIGO y contestaba por el workspace
+ * entero. Al lado del desplegable la pregunta cambia y se vuelve la útil: no
+ * «¿algún evento llegó alguna vez?» sino «¿la página que estoy por probar está
+ * midiendo?». Un cliente con dos landings publicadas —la vieja y la nueva— tenía
+ * una sola respuesta para las dos.
+ *
+ * La versión sale de `landing_visits.sv` (mig 0135), que es la que mandó ESTA
+ * página, no la del último evento del workspace.
+ */
+export type VerificacionPagina = {
+  url: string;
+  /** Nunca llegó un evento de esta página. */
+  instalada: boolean;
+  version: number | null;
+  vieja: boolean;
+  ultima: string | null;
+  /** Cuántas visitas en los últimos 30 días, para distinguir «anda» de «andaba». */
+  visitas: number;
+  texto: string;
+};
+
+export async function verificarPagina(urlCruda: string): Promise<VerificacionPagina> {
+  const url = normalizarUrl(urlCruda);
+  if (!url) return { url: urlCruda, instalada: false, version: null, vieja: false, ultima: null, visitas: 0, texto: 'Esa dirección no parece una página web.' };
+  const desde = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  try {
+    const db = await getTenantDb();
+    // ⚠️ Se compara NORMALIZADO en las dos puntas, no con un `eq` sobre el texto
+    // crudo: en la base conviven la URL con barra final, con hash y con los
+    // parámetros de cada campaña. Un `eq` diría «no está instalada» sobre una
+    // página que manda eventos hace meses.
+    const { data } = await db
+      .from('landing_visits')
+      .select('created_at, landing_url, sv')
+      .gte('created_at', desde)
+      .order('created_at', { ascending: false })
+      .limit(400);
+    const filas = ((data ?? []) as Array<{ created_at: string; landing_url: string | null; sv: number | null }>)
+      .filter((r) => normalizarUrl(r.landing_url ?? '') === url);
+    if (!filas.length) {
+      return { url, instalada: false, version: null, vieja: false, ultima: null, visitas: 0,
+        texto: 'No llegó ninguna visita de esta página en 30 días. O el código no está pegado ahí, o esa página todavía no se publicó.' };
+    }
+    // La versión de la visita MÁS RECIENTE: si repegaron el código hace una hora,
+    // lo que importa es eso y no las 300 visitas viejas de antes.
+    const conSv = filas.find((r) => r.sv != null);
+    const version = conSv?.sv ?? null;
+    const vieja = version != null && version < SNIPPET_VERSION;
+    return {
+      url, instalada: true, version, vieja, ultima: filas[0].created_at, visitas: filas.length,
+      texto: version == null
+        // Llegan visitas pero ninguna dice su versión: son de antes de que el
+        // snippet la mandara, o sea de las más viejas que hay.
+        ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el código es tan viejo que ni siquiera dice su versión. Copiá el de arriba y reemplazalo.`
+        : vieja
+          ? `Está midiendo, pero con la versión ${version} y la actual es la ${SNIPPET_VERSION}. Te estás perdiendo ${novedadesDesde(version)}. Copiá el código de arriba y reemplazalo EN ESTA PÁGINA.`
+          : `Todo bien: está midiendo con la última versión (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`,
+    };
+  } catch (e) {
+    console.error('[verificarPagina] falló:', e instanceof Error ? e.message : e);
+    return { url, instalada: false, version: null, vieja: false, ultima: null, visitas: 0, texto: 'No se pudo consultar. Probá de nuevo en un momento.' };
+  }
+}
+
 export async function landingUltimoEvento(): Promise<LandingEstado> {
   try {
     const supabase = await getTenantDb(); // scopea landing_visits por workspace
