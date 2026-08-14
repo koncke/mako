@@ -563,6 +563,61 @@ negación de lo que acaba de hacer.
 
 **Vive en:** `lib/landing-token.ts` (el array `chequeos`, `enPrueba`)
 
+### Un botón junto al código pregunta por el código, no por la página
+
+*2026-08-14*
+
+«Verificar que esté funcionando» vivía en la barra del snippet y contestaba por el **workspace
+entero**: ¿llegó algún evento alguna vez? Movido al lado del desplegable de páginas, la
+pregunta cambia sola y se vuelve la útil: **¿la página que estoy por probar está midiendo, y
+con qué versión?**
+
+No es solo mudar un botón. Para poder contestarlo hizo falta un dato que no existía:
+`landing_visits.sv` (mig 0135). El setting `landing.snippet_version` guarda **una sola versión
+por workspace** —la del último evento, venga de donde venga— así que un cliente con dos
+landings publicadas tenía una única respuesta para las dos, y era la del que hubiera mandado el
+último pageview. El `sv` ya viajaba en cada evento; solo faltaba guardarlo por fila.
+
+**Regla:** cuando muevas un control, preguntá qué contesta **desde su lugar nuevo**. Si la
+respuesta correcta necesita un dato que no tenés, moverlo sin más deja un botón que responde la
+pregunta vieja en el lugar de la nueva — que es peor que dejarlo donde estaba.
+
+**⚠️ Y la comparación va normalizada en las dos puntas.** En la base conviven la URL con barra
+final, con hash y con los parámetros de cada campaña. Un `eq` sobre el texto crudo diría «no
+está instalada» sobre una página que mide hace meses.
+
+La respuesta distingue **cuatro** casos, no dos: no llega nada · llegan visitas pero ninguna
+dice su versión (código anterior al versionado) · llega con versión vieja, diciendo cuál y qué
+se pierde · todo bien.
+
+**Vive en:** `lib/landing-token.ts` (`verificarPagina`) ·
+`supabase/migrations/0135_landing_visits_sv.sql` · `app/integraciones/ProbarTracking.tsx`
+
+### Probar algo en otra pestaña es alternar a ciegas
+
+Para verificar que un click se registra hay que hacerlo **en** la landing y mirar el resultado
+**en** MaKo. Con dos pestañas eso es: apretás, cambiás de pestaña, y para cuando mirás ya no
+sabés si lo que ves es de ese click o del anterior. El probador era correcto y **no se podía
+usar**.
+
+«Probar» ahora abre la landing **y** una ventana de MaKo de 440 px apoyada encima. Cuatro
+decisiones que conviene no revertir:
+
+- **Se abre DESPUÉS de la landing.** La última ventana que se abre queda arriba, y la que tiene
+  que quedar arriba es esta.
+- **Con nombre de ventana** (`mako_prueba`): dos pruebas seguidas reusan la misma en vez de
+  sembrar la pantalla de ventanitas huérfanas. Es también lo que hace que «Traerla al frente»
+  funcione con un `window.open` del mismo nombre.
+- **Si el navegador la bloquea, el panel de la pestaña sigue funcionando.** Una prueba no puede
+  depender de un permiso que no controlamos.
+- **Reusa el MISMO componente** (`ProbarTracking` con `pruebaInicial`). Una segunda copia del
+  panel es una copia que se queda vieja. Y la pestaña **deja de consultar** mientras la
+  ventanita vive: dos paneles pidiendo lo mismo cada 3 s es el doble de requests para pintar la
+  misma lista dos veces.
+
+**Vive en:** `app/integraciones/escuchando/page.tsx` · `app/integraciones/ProbarTracking.tsx`
+(`arrancar`, `enVentana`)
+
 ### Lo que NO era un bug (verificado en la base, no deducido)
 
 - **Los «Visitó la landing» repetidos son visitas reales.** `landing_visits` no tiene columna de
