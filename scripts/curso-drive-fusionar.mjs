@@ -289,6 +289,11 @@ for (const c of plan.clases) {
   clases.push({
     n: c.n, titulo: c.titulo, duracion: c.duracion, modulo: c.modulo, submodulo: c.submodulo,
     videoId: id, preview: `https://drive.google.com/file/d/${id}/preview`, archivo: nombre,
+    // La RUTA relativa dentro de la carpeta del curso, no solo el nombre. Hace falta
+    // para poder volver al archivo después —p.ej. sacarle el audio y transcribirlo
+    // sin re-bajarlo de la plataforma— y el nombre suelto no alcanza porque se
+    // repite: hay cuatro «1. Presentación» en carpetas distintas.
+    rel: relDir,
   });
 }
 

@@ -286,7 +286,16 @@ const main = async () => {
   if (salida !== destino) console.log(`\n  ⚠ Ya había un plan.json: lo dejé como plan.nuevo.json.`);
 
   console.log(`  UA      : ${ua ? ua.slice(0, 60) + '…' : '⚠ vacío (revisá antes de bajar)'}`);
-  if (AUTOR.trim()) console.log(`  Autor   : ${AUTOR.trim()}  →  carpeta «${limpio(cursoTitulo)} - ${AUTOR.trim()}»`);
+  // El mensaje replica la MISMA regla que usa curso-a-drive.mjs para nombrar la
+  // carpeta: si el título ya nombra al autor, no se repite. Anunciar una carpeta
+  // que después no se crea así es peor que no anunciar nada.
+  if (AUTOR.trim()) {
+    const sinTildes = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const carpeta = sinTildes(cursoTitulo).includes(sinTildes(AUTOR.trim()))
+      ? limpio(cursoTitulo)
+      : `${limpio(cursoTitulo)} - ${AUTOR.trim()}`;
+    console.log(`  Autor   : ${AUTOR.trim()}  →  carpeta «${carpeta}»`);
+  }
   else {
     console.log(`\n  ⚠ SIN AUTOR. La convención en Drive es «<Curso> - <Autor>» (36 de 39`);
     console.log(`    carpetas la cumplen). Volvé a correr con --autor "Nombre Apellido"`);

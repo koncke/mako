@@ -1047,12 +1047,39 @@ hay warning, y leer el bloque de arriba te convence de que el estilo es el que d
 (El filtro pasó a ser un desplegable, así que ese bloque ya no existe. Queda el aviso donde
 estaba.)
 
+### ⚠️ Las portadas se muestran ENTERAS, nunca recortadas
+
+**2026-08-14.** El banner de un curso tenía ancho 100%, tope de alto 340px y
+`object-fit: cover`. **9 de las 11 tapas son 16:9**, así que en una columna de ~1040px
+necesitaban 585px de alto y el recorte se comía el **40%** — justo donde está la cara de
+quien dicta el curso. El dueño lo vio antes que nosotros: «hay muchas portadas que las
+recortas mal y se corta el rostro».
+
+El arreglo: la caja toma la proporción **16:9** y el tope pasa a ser de **ANCHO** (620px),
+no de alto. Así el banner sigue compacto y no se pierde un pixel. `object-fit: contain` en
+los dos lugares (banner y tarjeta de la grilla) cubre a las dos tapas cuadradas que hay:
+quedan con aire a los lados en vez de decapitadas.
+
+**Cómo verificarlo sin ojo clínico:** comparar la proporción NATURAL del `<img>` contra la
+PINTADA. Si difieren y el fit es `cover`, se está recortando. Medido después del arreglo:
+1.781 contra 1.782.
+
 ### El CSS del portal es un template literal: un backtick lo parte al medio
 
 `export const CSS = \`…\`` son ~300 líneas dentro de un template literal. Un comentario que
 citaba un nombre de clase con backticks cerró la cadena y produjo cuatro errores de tipos
 crípticos (`Property 'al' does not exist on type '"\n.cono.ahc {…'`) que no mencionan la
 causa por ningún lado. En ese bloque, los nombres de clase van sin backticks.
+
+**⚠️ Volvió a pasar el mismo día, en el mismo archivo, con el aviso ya escrito arriba** —
+esta vez citando `width:100%` y `object-fit:cover` en un comentario. Escribir la nota no
+alcanza; lo que lo agarra es el chequeo:
+
+- **`npm run typecheck` inmediatamente después de tocar ese bloque**, antes de seguir con
+  otra cosa. Lo detecta en segundos y con el número de línea correcto.
+- Y un detalle que no es obvio: **rompe el dev server de la OTRA sesión**. Toda la app
+  empieza a tirar 500 con un mensaje que apunta a la línea del comentario. Si aparece un
+  500 global de la nada, mirá si alguien acaba de tocar un template literal grande.
 
 ## Decisiones
 

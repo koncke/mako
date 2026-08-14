@@ -126,8 +126,15 @@ const idsDeDrive = (nombres) => {
 // las 39 carpetas de CURSOS. El autor sale del plan (--autor en curso-plan-vip),
 // porque la API de la plataforma no lo trae. Separador: guión normal, que es el que
 // usan 33 de las 36 (las otras 3 tienen guión largo, que no se replica a propósito).
-const nombreCurso = plan.autor?.trim()
-  ? `${limpio(plan.curso)} - ${limpio(plan.autor)}`
+// ⚠️ Y NO se suma el autor si el título ya lo nombra. Sin esto, «Jaque Blue -
+// Creacion de Contenido» de Jaque Blue producía la carpeta «Jaque Blue - Creacion de
+// Contenido - Jaque Blue». Es la misma regla que aplica curso-a-portal.mjs
+// (`tituloConAutor`) y el mapa AUTOR de app/conocimientos/catalogo.ts: si las tres
+// divergen, el mismo curso se llama distinto en Drive y en el portal.
+const sinAcentos = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const autorPlan = plan.autor?.trim() ?? '';
+const nombreCurso = autorPlan && !sinAcentos(plan.curso).includes(sinAcentos(autorPlan))
+  ? `${limpio(plan.curso)} - ${limpio(autorPlan)}`
   : limpio(plan.curso);
 const dirCurso = join(DRIVE, nombreCurso);
 if (!plan.autor?.trim()) {

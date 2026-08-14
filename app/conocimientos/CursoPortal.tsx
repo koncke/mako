@@ -781,8 +781,16 @@ export const CSS = `
 
 /* Portada del curso: arriba de todo, antes del título. Alto acotado por el
    VIEWPORT y no por el ancho, o en un monitor grande se come la pantalla entera. */
-.cono .al-portada{ margin:0 0 22px; border:1.5px solid var(--ink); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card); }
-.cono .al-portada img{ display:block; width:100%; max-height:clamp(160px, 34svh, 340px); object-fit:cover; }
+/* ⚠️ La portada se muestra ENTERA, nunca recortada. Antes tenía ancho 100% con tope
+   de alto 340px y object-fit cover: como 9 de las 11 tapas son 16:9, en una columna
+   de ~1040px necesitaban 585px de alto y el recorte se comía el 40% — que en estas
+   tapas es justo donde está la cara de quien dicta el curso. El dueño lo vio antes
+   que nosotros.
+   Ahora la caja toma la proporción 16:9 y el tope es de ANCHO, no de alto, así el
+   banner sigue compacto sin cortar nada. El contain cubre a las dos tapas cuadradas
+   que hay: quedan con aire a los lados en vez de decapitadas. */
+.cono .al-portada{ margin:0 0 22px; max-width:min(100%, 620px); aspect-ratio:16/9; border:1.5px solid var(--ink); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card); }
+.cono .al-portada img{ display:block; width:100%; height:100%; object-fit:contain; }
 
 /* Grilla de tarjetas */
 .cono .al-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; }
@@ -800,7 +808,10 @@ export const CSS = `
 .cono .al-rescard-img > .al-rescard-title, .cono .al-rescard-img > .al-rescard-desc{ padding:0 18px; }
 .cono .al-rescard-img > .al-rescard-go{ padding:0 18px 16px; }
 .cono .al-rescard-thumb{ display:block; width:100%; border-bottom:1.5px solid var(--ink); background:var(--ink-05, rgba(0,0,0,.04)); }
-.cono .al-rescard-thumb img{ display:block; width:100%; aspect-ratio:16/9; object-fit:cover; }
+/* Misma regla que el banner: entera, no recortada. Para las 9 tapas de 16:9 esto no
+   cambia nada (cover y contain coinciden); a las 2 cuadradas les evita perder la
+   mitad de la imagen en una tarjeta de 200px. */
+.cono .al-rescard-thumb img{ display:block; width:100%; aspect-ratio:16/9; object-fit:contain; }
 .cono .al-rescard-go{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--lime-ink); display:inline-flex; align-items:center; gap:6px; margin-top:4px; }
 .cono .al-rescard:hover .al-arr{ transform:translateX(3px); }
 .cono .al-arr{ transition:transform .14s ease; }
