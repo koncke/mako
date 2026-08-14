@@ -10,9 +10,10 @@
 import { revalidatePath } from 'next/cache';
 import { getSetting, setSetting } from '@/lib/settings';
 import { requireRolWs } from '@/lib/tab-access';
-import { PAGINAS_KEY, conPagina, parsearPaginas, sinPagina } from '@/lib/landing-paginas';
+import { OCULTAS_KEY, PAGINAS_KEY, conOculta, conPagina, parsearOcultas, parsearPaginas, sinPagina } from '@/lib/landing-paginas';
 
-export type PaginasResult = { ok: true; paginas: string[] } | { ok: false; error: string };
+export type Listas = { paginas: string[]; ocultas: string[] };
+export type PaginasResult = { ok: true; paginas: string[]; ocultas: string[] } | { ok: false; error: string };
 
 /**
  * Todas las acciones pasan por el mismo gate de la pantalla. `getSetting` ya
@@ -20,35 +21,47 @@ export type PaginasResult = { ok: true; paginas: string[] } | { ok: false; error
  * permiso de la TAB se pide igual: leer o escribir la config de un cliente no es
  * algo que deba poder hacer cualquiera que tenga sesión.
  */
-async function leer(): Promise<string[]> {
+async function leer(): Promise<Listas> {
   await requireRolWs([], { nav: 'integraciones' });
-  return parsearPaginas(await getSetting(PAGINAS_KEY));
+  const [p, o] = await Promise.all([getSetting(PAGINAS_KEY), getSetting(OCULTAS_KEY)]);
+  return { paginas: parsearPaginas(p), ocultas: parsearOcultas(o) };
 }
 
-export async function getPaginasAction(): Promise<string[]> {
-  return leer().catch(() => []);
+export async function getPaginasAction(): Promise<Listas> {
+  return leer().catch(() => ({ paginas: [], ocultas: [] }));
 }
 
 /** Agrega una página, o REEMPLAZA `anterior` si viene (eso es «editar»). */
 export async function guardarPaginaAction(url: string, anterior?: string | null): Promise<PaginasResult> {
   try {
-    const actuales = await leer();
-    const nuevas = conPagina(actuales, url, anterior);
+    const { paginas, ocultas } = await leer();
+    const nuevas = conPagina(paginas, url, anterior);
     if (!nuevas) return { ok: false, error: 'Esa dirección no parece una página web.' };
     await setSetting(PAGINAS_KEY, JSON.stringify(nuevas));
     revalidatePath('/integraciones');
-    return { ok: true, paginas: nuevas };
+    return { ok: true, paginas: nuevas, ocultas };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
   }
 }
 
+/**
+ * Sacar una página de la lista. Son DOS cosas según de dónde salga, y por eso se
+ * hacen las dos: si estaba guardada se borra, y en todos los casos se anota como
+ * escondida — porque una guardada puede además estar llegando por los eventos, y
+ * borrarla sola la haría reaparecer al toque como «detectada».
+ */
 export async function borrarPaginaAction(url: string): Promise<PaginasResult> {
   try {
-    const nuevas = sinPagina(await leer(), url);
-    await setSetting(PAGINAS_KEY, JSON.stringify(nuevas));
+    const { paginas, ocultas } = await leer();
+    const nuevas = sinPagina(paginas, url);
+    const nuevasOcultas = conOculta(ocultas, url);
+    await Promise.all([
+      setSetting(PAGINAS_KEY, JSON.stringify(nuevas)),
+      setSetting(OCULTAS_KEY, JSON.stringify(nuevasOcultas)),
+    ]);
     revalidatePath('/integraciones');
-    return { ok: true, paginas: nuevas };
+    return { ok: true, paginas: nuevas, ocultas: nuevasOcultas };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo borrar.' };
   }

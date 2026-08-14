@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
+import { mismaPagina } from '@/lib/landing-paginas';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
 
 const SANS = "'Geist', sans-serif";
@@ -56,27 +57,42 @@ export function ProbarTracking() {
   const [bloqueo, setBloqueo] = useState(false); // apretó "probar" con el código viejo
   const [eligiendoNueva, setEligiendoNueva] = useState(false); // eligió "Otra página…"
   const [paginas, setPaginas] = useState<string[]>([]);        // las GUARDADAS del workspace
+  const [ocultas, setOcultas] = useState<string[]>([]);        // las que sacó de la lista a mano
   const [editando, setEditando] = useState<string | null>(null); // la que se está corrigiendo
   const [errPagina, setErrPagina] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   // Sin esquema también vale: «tu-pagina.com» es lo que la gente escribe, y el
   // server lo normaliza. Acá solo se pide que tenga un punto.
   const urlValida = /^(https?:\/\/)?[^\s.]+\.[^\s]{2,}/i.test(url.trim());
-  const guardadaElegida = !!url && paginas.includes(url);
-  // Detectadas por los eventos y todavía no guardadas: se ofrecen aparte porque
-  // no son lo mismo (ver el comentario del desplegable).
-  const detectadas = (previo?.urls ?? []).filter((u) => !paginas.includes(u));
+  // ⚠️ NORMALIZADO en las dos puntas. Comparar los strings crudos hacía
+  // desaparecer los botones justo después de guardar: la lista queda con
+  // «https://x.com» y el estado con lo que se tipeó, «x.com».
+  const guardadaElegida = paginas.some((p) => mismaPagina(p, url));
+  // Detectadas por los eventos: ni guardadas ni escondidas a mano.
+  const detectadas = (previo?.urls ?? []).filter(
+    (u) => !paginas.some((p) => mismaPagina(p, u)) && !ocultas.some((o) => mismaPagina(o, u)),
+  );
+  // ⚠️ Los botones van sobre CUALQUIER página elegida, no solo sobre una
+  // guardada. La versión anterior los gateaba en `guardadaElegida` con el
+  // argumento de que una detectada «todavía no es de nadie» — y el resultado fue
+  // que quien nunca guardó una a mano (todas detectadas, que es el caso normal)
+  // no veía un solo botón y la función entera era invisible. Una página
+  // detectada SÍ es suya: la diferencia es cómo nos enteramos, no de quién es.
+  const hayElegida = !!url.trim() && !eligiendoNueva;
+
+  const aplicar = (r: { paginas: string[]; ocultas: string[] }) => { setPaginas(r.paginas); setOcultas(r.ocultas); };
 
   const guardar = async () => {
     setOcupado(true); setErrPagina(null);
     const r = await guardarPaginaAction(url, editando);
     setOcupado(false);
     if (!r.ok) { setErrPagina(r.error); return; }
-    setPaginas(r.paginas);
+    aplicar(r);
     // Se queda seleccionada la que se acaba de guardar: si el desplegable
-    // volviera a vacío, guardar se sentiría como que no pasó nada.
-    const guardada = r.paginas.find((u) => u.includes(url.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, ''))) ?? url.trim();
-    setUrl(guardada);
+    // volviera a vacío, guardar se sentiría como que no pasó nada. Se busca por
+    // comparación normalizada, no por `includes` de substring —que hacía match
+    // con cualquier URL que contuviera a esta como prefijo.
+    setUrl(r.paginas.find((u) => mismaPagina(u, url)) ?? url.trim());
     setEligiendoNueva(false);
     setEditando(null);
   };
@@ -86,7 +102,7 @@ export function ProbarTracking() {
     const r = await borrarPaginaAction(url);
     setOcupado(false);
     if (!r.ok) { setErrPagina(r.error); return; }
-    setPaginas(r.paginas);
+    aplicar(r);
     setUrl('');
   };
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -112,7 +128,7 @@ export function ProbarTracking() {
     // Las guardadas viven en el WORKSPACE, no en este navegador: si vivieran en
     // localStorage, cambiar de máquina o de sesión las perdería, y no serían
     // «mis páginas» sino «las páginas de esta compu».
-    getPaginasAction().then(setPaginas).catch(() => { /* sin lista, se puede agregar */ });
+    getPaginasAction().then(aplicar).catch(() => { /* sin lista, se puede agregar */ });
     try { setUrl(localStorage.getItem(URL_KEY) ?? ''); } catch { /* sin storage */ }
   }, [activo, traer]);
 
@@ -156,7 +172,7 @@ export function ProbarTracking() {
     // Probar una página la GUARDA. Si no, la próxima vez hay que volver a
     // elegirla de las detectadas o a escribirla — y el desplegable dice
     // «se guarda al probarla», así que tiene que cumplirlo.
-    if (!paginas.includes(u)) void guardarPaginaAction(u).then((r) => { if (r.ok) setPaginas(r.paginas); });
+    if (!guardadaElegida) void guardarPaginaAction(u).then((r) => { if (r.ok) aplicar(r); });
     try { localStorage.setItem(URL_KEY, u); } catch { /* sin storage */ }
     window.open(u, '_blank', 'noopener');
     setActivo(true);
@@ -207,13 +223,17 @@ export function ProbarTracking() {
                 ]}
               />
             </div>
-            {/* Editar y borrar solo sobre una GUARDADA: una detectada todavía no
-                es de nadie, y ofrecer «borrar» sobre algo que va a volver a
-                aparecer con la próxima visita es prometer algo que no se cumple. */}
-            {guardadaElegida && !eligiendoNueva && (
+            {/* Corregir y quitar, sobre la que esté elegida sea guardada o
+                detectada. Al corregir una detectada, guardarla la ADOPTA — que
+                es justo lo que hace falta cuando lo que llegó por los eventos es
+                una URL de preview con un hash adelante y no la página real.
+                `editando` solo viaja si estaba guardada: para una detectada no
+                hay entrada previa que reemplazar, y mandarla haría que el server
+                buscara algo que no está. */}
+            {hayElegida && (
               <>
-                <IconBtn name="pen" title="Corregir esta dirección" onClick={() => { setEditando(url); setEligiendoNueva(true); }} />
-                <IconBtn name="trash" title="Quitarla de la lista" tone="bad" disabled={ocupado} onClick={borrar} />
+                <IconBtn name="pen" title="Corregir esta dirección" onClick={() => { setEditando(guardadaElegida ? url : null); setEligiendoNueva(true); }} />
+                <IconBtn name="trash" title="Quitarla de la lista" tone="bad" disabled={ocupado} onClick={() => void borrar()} />
               </>
             )}
           </div>

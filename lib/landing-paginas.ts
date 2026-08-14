@@ -47,8 +47,22 @@ export function normalizarUrl(crudo: string): string | null {
   }
 }
 
-/** Las páginas guardadas, saneadas y sin repetidos. Tolera un JSON roto. */
-export function parsearPaginas(crudo: string | null): string[] {
+/**
+ * Las páginas que la persona ESCONDIÓ de la lista.
+ *
+ * Existe porque «borrar» una página detectada era una promesa que no se podía
+ * cumplir: las detectadas salen de los eventos, así que la próxima visita la
+ * vuelve a traer y el botón queda como si no hubiera hecho nada. O se guarda que
+ * la escondieron, o no se ofrece borrarlas — y no ofrecerlas dejaba la lista de
+ * Leila SIN un solo botón, porque todas sus páginas eran detectadas.
+ *
+ * El tope es más alto que el de guardadas: cada deploy preview de Netlify es una
+ * URL nueva, y son justo las que uno quiere sacar de encima.
+ */
+export const OCULTAS_KEY = 'landing.paginas_ocultas';
+export const MAX_OCULTAS = 60;
+
+function parsearLista(crudo: string | null, max: number): string[] {
   if (!crudo?.trim()) return [];
   let lista: unknown;
   try { lista = JSON.parse(crudo); } catch { return []; }
@@ -58,7 +72,38 @@ export function parsearPaginas(crudo: string | null): string[] {
     const u = typeof x === 'string' ? normalizarUrl(x) : null;
     if (u && !out.includes(u)) out.push(u);
   }
-  return out.slice(0, MAX_PAGINAS);
+  return out.slice(0, max);
+}
+
+/** Las páginas guardadas, saneadas y sin repetidos. Tolera un JSON roto. */
+export function parsearPaginas(crudo: string | null): string[] {
+  return parsearLista(crudo, MAX_PAGINAS);
+}
+
+export function parsearOcultas(crudo: string | null): string[] {
+  return parsearLista(crudo, MAX_OCULTAS);
+}
+
+/** Agrega una a las escondidas. Las más nuevas primero: si se llena el tope, lo
+ *  que se pierde es lo más viejo, que es lo que menos probable que vuelva. */
+export function conOculta(actuales: string[], url: string): string[] {
+  const u = normalizarUrl(url);
+  if (!u) return actuales;
+  return [u, ...actuales.filter((x) => x !== u)].slice(0, MAX_OCULTAS);
+}
+
+/**
+ * ¿Son la misma página? Compara NORMALIZADO.
+ *
+ * Comparar los strings crudos parecía alcanzar y no alcanzaba: la lista guardada
+ * está normalizada y lo que la persona tipeó, no. Al guardar «tu-pagina.com» la
+ * lista pasaba a tener «https://tu-pagina.com» y el `includes` daba false, así
+ * que los botones de editar y borrar DESAPARECÍAN justo después de guardar.
+ */
+export function mismaPagina(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = a ? normalizarUrl(a) : null;
+  const y = b ? normalizarUrl(b) : null;
+  return !!x && !!y && x === y;
 }
 
 /**

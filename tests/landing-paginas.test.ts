@@ -12,7 +12,7 @@
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conPagina, MAX_PAGINAS, normalizarUrl, parsearPaginas, sinPagina } from '../lib/landing-paginas';
+import { conOculta, conPagina, MAX_OCULTAS, MAX_PAGINAS, mismaPagina, normalizarUrl, parsearOcultas, parsearPaginas, sinPagina } from '../lib/landing-paginas';
 
 test('la misma página escrita distinto es UNA sola', () => {
   const canon = 'https://lidermente.com/clase';
@@ -67,4 +67,38 @@ test('la lista tiene tope: un desplegable con 50 páginas no es un desplegable',
   let l: string[] = [];
   for (let i = 0; i < MAX_PAGINAS + 5; i++) l = conPagina(l, `https://p${i}.com`) ?? l;
   assert.equal(l.length, MAX_PAGINAS);
+});
+
+// ⚠️ EL BUG QUE ESTE TEST CUIDA: los botones de editar y borrar se gateaban con
+// `paginas.includes(url)` — string crudo contra lista normalizada. Al guardar
+// «tu-pagina.com» la lista pasaba a tener «https://tu-pagina.com», el includes
+// daba false y los botones DESAPARECÍAN justo después de guardar.
+test('mismaPagina compara normalizado, que es como se guardan', () => {
+  assert.ok(mismaPagina('tu-pagina.com', 'https://tu-pagina.com'), 'sin esquema es la misma');
+  assert.ok(mismaPagina('https://A.com/', 'https://a.com'), 'ni la barra final ni las mayúsculas la cambian');
+  assert.ok(mismaPagina('https://a.com/#registro', 'https://a.com'), 'el hash tampoco');
+  assert.ok(!mismaPagina('https://a.com', 'https://b.com'));
+  // Sin esto, un `includes` de substring daba por iguales una página y otra que
+  // la contiene como prefijo — que es EXACTAMENTE la forma de los previews de
+  // Netlify: «6a7f2b--que-es-lidermente.netlify.app» contiene a la real.
+  assert.ok(!mismaPagina('https://que-es-lidermente.netlify.app', 'https://6a7f2b--que-es-lidermente.netlify.app'));
+  for (const v of [null, undefined, '', 'hola']) assert.ok(!mismaPagina(v, 'https://a.com'), `«${v}» no es nadie`);
+});
+
+test('esconder una detectada la saca de la lista y no la repite', () => {
+  const o = conOculta(conOculta([], 'https://a.com'), 'https://A.com/');
+  assert.deepEqual(o, ['https://a.com'], 'la misma dos veces sigue siendo una');
+  // La más nueva primero: si se llena el tope, lo que se pierde es lo más viejo.
+  assert.deepEqual(conOculta(['https://a.com'], 'https://b.com'), ['https://b.com', 'https://a.com']);
+  assert.deepEqual(conOculta([], 'hola'), [], 'una URL inválida no ensucia la lista');
+});
+
+test('las escondidas toleran un JSON roto y tienen su propio tope', () => {
+  assert.deepEqual(parsearOcultas('no es json'), []);
+  let l: string[] = [];
+  for (let i = 0; i < MAX_OCULTAS + 5; i++) l = conOculta(l, `https://p${i}.com`);
+  assert.equal(l.length, MAX_OCULTAS);
+  // Más alto que el de guardadas a propósito: cada deploy preview es una URL
+  // nueva, y son justo las que uno quiere sacar de encima.
+  assert.ok(MAX_OCULTAS > MAX_PAGINAS);
 });
