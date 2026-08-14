@@ -781,16 +781,17 @@ export const CSS = `
 
 /* Portada del curso: arriba de todo, antes del título. Alto acotado por el
    VIEWPORT y no por el ancho, o en un monitor grande se come la pantalla entera. */
-/* ⚠️ La portada se muestra ENTERA, nunca recortada. Antes tenía ancho 100% con tope
-   de alto 340px y object-fit cover: como 9 de las 11 tapas son 16:9, en una columna
-   de ~1040px necesitaban 585px de alto y el recorte se comía el 40% — que en estas
-   tapas es justo donde está la cara de quien dicta el curso. El dueño lo vio antes
-   que nosotros.
-   Ahora la caja toma la proporción 16:9 y el tope es de ANCHO, no de alto, así el
-   banner sigue compacto sin cortar nada. El contain cubre a las dos tapas cuadradas
-   que hay: quedan con aire a los lados en vez de decapitadas. */
-.cono .al-portada{ margin:0 0 22px; max-width:min(100%, 620px); aspect-ratio:16/9; border:1.5px solid var(--ink); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card); }
-.cono .al-portada img{ display:block; width:100%; height:100%; object-fit:contain; }
+/* Portada en formato BANNER: ancho completo y alto acotado, que es como la quiere el
+   dueño. El recorte es inevitable con 9 de 11 tapas en 16:9, así que lo que importa
+   es DESDE DÓNDE se recorta.
+   ⚠️ Antes recortaba desde el centro y le comía la cara al creador. En una tapa de
+   curso la persona está arriba —o arriba a la derecha— y lo prescindible son los
+   íconos y el logo del pie, así que el ancla va en 28%: conserva el rostro completo
+   y sacrifica la franja de abajo, que es la que sobra.
+   No se usa el valor "top" a secas porque muchas tapas tienen un badge o un margen
+   superior que quedaría pegado al borde. */
+.cono .al-portada{ margin:0 0 22px; border:1.5px solid var(--ink); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card); }
+.cono .al-portada img{ display:block; width:100%; max-height:clamp(160px, 34svh, 340px); object-fit:cover; object-position:center 28%; }
 
 /* Grilla de tarjetas */
 .cono .al-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; }

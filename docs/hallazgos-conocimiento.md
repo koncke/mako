@@ -1055,14 +1055,24 @@ necesitaban 585px de alto y el recorte se comía el **40%** — justo donde est�
 quien dicta el curso. El dueño lo vio antes que nosotros: «hay muchas portadas que las
 recortas mal y se corta el rostro».
 
-El arreglo: la caja toma la proporción **16:9** y el tope pasa a ser de **ANCHO** (620px),
-no de alto. Así el banner sigue compacto y no se pierde un pixel. `object-fit: contain` en
-los dos lugares (banner y tarjeta de la grilla) cubre a las dos tapas cuadradas que hay:
-quedan con aire a los lados en vez de decapitadas.
+**El primer arreglo fue el equivocado, y conviene que quede escrito por qué.** Se pasó a
+mostrar la tapa ENTERA (caja 16:9, tope de ancho, `object-fit: contain`). Técnicamente no
+perdía un pixel… y el dueño lo rechazó: *«me gustaba como estaba antes, más largas. Solo
+quería que ajustes las imágenes a la cara del creador»*. El formato banner es una decisión
+de diseño, no un accidente; el problema nunca fue que recortara sino **desde dónde**.
 
-**Cómo verificarlo sin ojo clínico:** comparar la proporción NATURAL del `<img>` contra la
-PINTADA. Si difieren y el fit es `cover`, se está recortando. Medido después del arreglo:
-1.781 contra 1.782.
+**El arreglo que quedó:** banner igual que antes (ancho completo, alto acotado, `cover`)
+con **`object-position: center 28%`**. En una tapa de curso la persona está arriba —o
+arriba a la derecha— y lo prescindible son los íconos y el logo del pie. Verificado sobre
+cuatro tapas de composición distinta: en las cuatro el rostro entra completo y lo que se
+pierde es la franja de abajo.
+
+No se usa el valor `top` a secas porque varias tapas tienen un badge («LIVE», «CURSO
+COMPLETO») pegado al margen superior que quedaría contra el borde.
+
+**La lección que sirve para la próxima:** «no se pierde información» no es lo mismo que
+«se ve bien». Antes de reemplazar un tratamiento visual, preguntarse si es un defecto o
+una decisión.
 
 ### El CSS del portal es un template literal: un backtick lo parte al medio
 
