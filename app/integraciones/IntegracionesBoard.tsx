@@ -896,11 +896,15 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
           las acciones adentro al final, y el mismo alto cerrada que cualquier
           otra fila. */}
       <div className={`mk-key-row mk-key-row--code${codigoAbierto ? ' is-abierta' : ''}`}>
-        <pre className="mk-key-code">
-          <code style={{ fontFamily: MONO }}>
-            {tokens.map((tk, n) => <span key={n} style={{ color: tk.c }}>{tk.t}</span>)}
-          </code>
-        </pre>
+        {/* El wrapper existe para colgarle el «…» del plegado: adentro del <pre>
+            (que tiene overflow) un pseudo-elemento absoluto se recorta. */}
+        <div className="mk-key-codewrap">
+          <pre className="mk-key-code">
+            <code style={{ fontFamily: MONO }}>
+              {tokens.map((tk, n) => <span key={n} style={{ color: tk.c }}>{tk.t}</span>)}
+            </code>
+          </pre>
+        </div>
         <IconBtn
           name="chevron"
           title={codigoAbierto ? 'Plegar el código' : 'Ver el código entero'}

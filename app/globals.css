@@ -559,11 +559,38 @@ textarea.mako-field {
 
    Abierta crece: `align-items` pasa a flex-start para que los íconos queden
    arriba y no centrados contra 200 líneas de JavaScript. */
+/* El botón de acción de una barra. El fondo y el borde viven ACÁ y no inline
+   justamente para que la variante oscura los pueda repintar. */
+.mk-icon-btn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.mk-icon-btn:hover:not(:disabled) { background: var(--surface-2); }
+
 .mk-key-row--code {
   background: #0F1115;
   border-color: #232833;
   padding: 0 8px 0 13px;
   overflow: hidden;
+}
+/* ⚠️ La barra oscura NO se aclara al enfocarse. `.mk-key-row:focus-within` pinta
+   `background: var(--surface)` —blanco— porque ahí adentro hay un input y el
+   foco tiene que verse. Acá adentro no hay ningún campo: lo que hay es código y
+   botones, así que al tocar cualquiera de ellos la barra se ponía blanca de
+   golpe con el código encima. El anillo azul sí se queda: sigue diciendo dónde
+   está el foco, sin cambiar el fondo. */
+.mk-key-row--code:focus-within {
+  background: #0F1115;
+  border-color: var(--primary);
 }
 .mk-key-row--code.is-abierta {
   align-items: flex-start;
@@ -587,22 +614,51 @@ textarea.mako-field {
      nada: un <pre> con 200 líneas crece hasta ocupar las 200 líneas y la barra
      crece con él. Se veía DESPLEGADO siempre, y de yapa los botones quedaban
      centrados contra un bloque altísimo — dos síntomas, una sola causa.
-     1.65em = exactamente un renglón, el mismo line-height de arriba. */
-  max-height: 1.65em;
+
+     Cuatro renglones y no uno: con uno solo se leía «<script>» y nada más, que
+     no alcanza para reconocer que es TU código —el que tiene tu token— ni para
+     distinguirlo del de otra integración. */
+  max-height: 6.6em;
 }
 .mk-key-row--code.is-abierta .mk-key-code {
   max-height: 260px;
   overflow: auto;
   text-overflow: clip;
 }
-/* Los botones de acción sobre fondo oscuro: el borde y el fondo claros de
-   `IconBtn` desaparecerían contra el negro. */
+/* El «…» de que hay más, con el degradado que lo apoya. Va en el WRAPPER y no en
+   el <pre>: adentro de un contenedor con overflow, un pseudo-elemento absoluto
+   se recorta o scrollea con el contenido. Solo existe plegado. */
+.mk-key-codewrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.mk-key-row--code:not(.is-abierta) .mk-key-codewrap::after {
+  content: '…';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.9em;
+  display: flex;
+  align-items: flex-end;
+  padding-left: 2px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11.5px;
+  color: #6B7486;
+  background: linear-gradient(to bottom, rgba(15, 17, 21, 0) 0%, #0F1115 62%);
+  pointer-events: none;
+}
+/* Los botones sobre fondo oscuro: el borde y el fondo claros desaparecerían
+   contra el negro, y el blanco pleno partía la barra al medio. */
 .mk-key-row--code .mk-icon-btn {
   border-color: #2C3240;
   background: #171B22;
+  color: #9AA3B2;
 }
 .mk-key-row--code .mk-icon-btn:hover:not(:disabled) {
-  background: #202632;
+  background: #232A36;
+  border-color: #3A4252;
 }
 
 /* Campo compacto del modal de detalle del lead: misma identidad de foco que

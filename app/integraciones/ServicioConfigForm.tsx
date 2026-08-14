@@ -129,13 +129,14 @@ export function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
   name: string; title: string; onClick: () => void; disabled?: boolean; tone?: 'dim' | 'bad' | 'primary' | 'good';
 }) {
   const color = tone === 'bad' ? 'var(--bad)' : tone === 'primary' ? 'var(--primary)' : tone === 'good' ? 'var(--good)' : 'var(--dim)';
+  // ⚠️ El fondo y el borde NO van inline: viven en `.mk-icon-btn` (globals.css).
+  // Un estilo inline le gana a cualquier clase, así que mientras estuvieron acá,
+  // la variante OSCURA de la barra no podía repintarlos — los botones salían
+  // blancos sobre negro, con un contraste que partía la barra al medio.
+  // Lo único que sigue inline es el `color`, que depende del `tone`.
   return (
     <button type="button" className="mk-icon-btn" title={title} aria-label={title} onClick={onClick} disabled={disabled}
-      style={{
-        flex: 'none', width: 34, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color,
-        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, padding: 0,
-      }}>
+      style={{ color, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
       <Icon name={name} size={15} />
     </button>
   );

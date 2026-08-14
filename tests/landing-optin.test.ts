@@ -277,7 +277,16 @@ test('la barra del código arranca PLEGADA y la ayuda es su cuarto botón', () =
   const css = leer('../app/globals.css');
   const i = css.indexOf('.mk-key-code {');
   const cerrada = css.slice(i, css.indexOf('}', i));
-  assert.ok(/max-height:\s*1\.65em/.test(cerrada), 'sin max-height en el estado CERRADO la barra no pliega nada');
+  // Se exige que EXISTA, no un número: cuántos renglones se ven plegado es una
+  // decisión de diseño que va a cambiar (empezó en 1, hoy son 4). Lo que no
+  // puede cambiar es que haya un tope.
+  assert.ok(/max-height:\s*[\d.]+em/.test(cerrada), 'sin max-height en el estado CERRADO la barra no pliega nada');
+  // Y el «…» que avisa que hay más: sin eso, plegado parece que el código
+  // termina ahí.
+  assert.ok(/mk-key-codewrap::after/.test(css) && /content: '…'/.test(css), 'falta el «…» del plegado');
+  // La barra oscura no puede aclararse al enfocarse: adentro no hay ningún
+  // campo, así que el fondo blanco del :focus-within no aplica.
+  assert.ok(/--code:focus-within \{[^}]*background: #0F1115/.test(css.replace(/\n/g, '')), 'la barra oscura se pone blanca al tocar un botón');
   assert.ok(/is-abierta \.mk-key-code \{[^}]*max-height: 260px/.test(css.replace(/\n/g, '')), 'falta el estado abierto');
   assert.ok(/--code\.is-abierta \{[^}]*align-items: flex-start/.test(css.replace(/\n/g, '')), 'abierta, los íconos van ARRIBA y no centrados contra el bloque');
 
@@ -287,4 +296,25 @@ test('la barra del código arranca PLEGADA y la ayuda es su cuarto botón', () =
   const botones = barra.match(/<IconBtn/g) ?? [];
   assert.equal(botones.length, 4, `la barra tiene que tener 4 botones y tiene ${botones.length}`);
   assert.ok(/name="help"/.test(barra), 'el «?» va DENTRO de la barra, no en una fila aparte debajo');
+});
+
+test('el fondo y el borde del botón de barra NO van inline', () => {
+  // Un estilo inline le gana a cualquier clase. Mientras el fondo blanco estuvo
+  // inline en IconBtn, la variante oscura de la barra no podía repintarlo: los
+  // botones salían blancos sobre negro y partían la barra al medio.
+  const form = leer('../app/integraciones/ServicioConfigForm.tsx');
+  const i = form.indexOf('export function IconBtn');
+  // La ventana se corta en el `</button>` del propio componente. Ni `\n}` (la
+  // firma ya cierra con `\n}) {`, así que dejaba afuera todo el cuerpo) ni un
+  // largo fijo (se comía el componente de al lado, que sí tiene un borde inline
+  // legítimo). Las dos versiones anteriores de este corte miraban el archivo
+  // equivocado y el test decía cualquier cosa.
+  const cuerpo = form.slice(i, form.indexOf('</button>', i));
+  assert.ok(!/background:\s*'var\(--surface\)'/.test(cuerpo), 'volvió el fondo inline: la barra oscura no lo va a poder repintar');
+  assert.ok(!/border:\s*'1px solid/.test(cuerpo), 'volvió el borde inline');
+  assert.ok(/className="mk-icon-btn"/.test(cuerpo), 'el botón necesita su clase para que la variante oscura lo alcance');
+
+  const css = leer('../app/globals.css');
+  assert.ok(/\.mk-icon-btn \{[^}]*background: var\(--surface\)/.test(css.replace(/\n/g, '')), 'el fondo tiene que vivir en la clase');
+  assert.ok(/--code \.mk-icon-btn \{[^}]*background: #171B22/.test(css.replace(/\n/g, '')), 'falta la variante oscura del botón');
 });
