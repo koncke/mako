@@ -23,7 +23,12 @@ export default function CursoCompartido({ curso, invitado }: { curso: Curso; inv
   const [pila, setPila] = useState<Vista[]>([{}]);
   const vista = pila[pila.length - 1];
 
-  const nav = (v: Vista) => setPila((p) => [...p, v]);
+  // `reemplazar` pisa la vista de arriba en vez de apilar: es lo que hace que saltar
+  // de clase a clase con Anterior/Siguiente NO llene la pila, y que «Volver» suba al
+  // hub en vez de desandar una por una. Clase → recurso sigue apilando, así que
+  // «Volver» desde un recurso devuelve a su clase, que es lo que uno espera.
+  const nav = (v: Vista, o?: { reemplazar?: boolean }) =>
+    setPila((p) => (o?.reemplazar && p.length > 1 ? [...p.slice(0, -1), v] : [...p, v]));
   const back = () => setPila((p) => (p.length > 1 ? p.slice(0, -1) : p));
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, [pila.length]);

@@ -42,11 +42,17 @@ export default function Conocimientos() {
   const viewKey = params.toString();
   const scrollKey = (k: string) => 'cono-scroll:' + k;
 
-  const nav = (q: Record<string, string>) => {
+  // `reemplazar` usa replace en vez de push: la entrada del historial se PISA. Es lo
+  // que hace que saltar de clase a clase con Anterior/Siguiente no llene el historial
+  // y que «Volver» suba al hub en vez de desandar clase por clase. Entrar a un recurso
+  // (o a una clase desde el hub) sí apila, así que «Volver» devuelve a la clase.
+  const nav = (q: Record<string, string>, o?: { reemplazar?: boolean }) => {
     // Guardo el scroll de la vista actual para poder restaurarlo si vuelvo acá.
     try { sessionStorage.setItem(scrollKey(viewKey), String(window.scrollY)); } catch { /* noop */ }
     const qs = new URLSearchParams(q).toString();
-    router.push('/conocimientos' + (qs ? '?' + qs : ''), { scroll: false });
+    const destino = '/conocimientos' + (qs ? '?' + qs : '');
+    if (o?.reemplazar) router.replace(destino, { scroll: false });
+    else router.push(destino, { scroll: false });
   };
   const back = () => router.back();
 

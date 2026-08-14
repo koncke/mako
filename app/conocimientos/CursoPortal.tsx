@@ -407,6 +407,11 @@ const IcoCopiar = () => (
     <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
   </svg>
 );
+const IcoOk = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
 const IcoBajar = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
@@ -453,22 +458,32 @@ function TranscriptLazy({ videoId, titulo }: { videoId: string; titulo: string }
 
   return (
     <details className="al-det" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) load(); }}>
-      <summary>Ver transcripción</summary>
+      <summary>
+        <span className="al-det-t">Ver transcripción</span>
+        {/* Las acciones viven EN la línea del rótulo, a la derecha. Aparecen solo con el
+            texto ya cargado: un botón de copiar que copia una cadena vacía es peor que
+            no tener botón.
+            ⚠️ Van adentro del <summary>, así que cada click tiene que frenarse o abre y
+            cierra el desplegable — `preventDefault` corta el toggle nativo y
+            `stopPropagation` evita que el evento llegue al details. */}
+        {paras && paras.length > 0 && (
+          <span className="al-tx-acc">
+            <button type="button" className="al-tx-btn" title={copiado ? 'Copiado' : 'Copiar la transcripción'}
+              aria-label={copiado ? 'Copiado' : 'Copiar la transcripción'}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); copiar(); }}>
+              {copiado ? <IcoOk /> : <IcoCopiar />}
+            </button>
+            <button type="button" className="al-tx-btn" title="Descargar la transcripción (.txt)"
+              aria-label="Descargar la transcripción en .txt"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); bajar(); }}>
+              <IcoBajar />
+            </button>
+          </span>
+        )}
+      </summary>
       <div className="al-transcript">
         {state === 'loading' && <p>Cargando transcripción…</p>}
         {state === 'error' && <p>No se pudo cargar la transcripción.</p>}
-        {/* Las acciones aparecen SOLO con el texto ya cargado: un botón de copiar que
-            copia una cadena vacía es peor que no tener botón. */}
-        {paras && paras.length > 0 && (
-          <div className="al-tx-acc">
-            <button type="button" className="al-tx-btn" onClick={copiar} aria-label="Copiar la transcripción">
-              <IcoCopiar />{copiado ? 'Copiado' : 'Copiar'}
-            </button>
-            <button type="button" className="al-tx-btn" onClick={bajar} aria-label="Descargar la transcripción en .txt">
-              <IcoBajar />Descargar
-            </button>
-          </div>
-        )}
         {paras && paras.map((p, i) => <p key={i}>{p}</p>)}
       </div>
     </details>
@@ -506,6 +521,28 @@ export function ClaseDetail({ curso, c, goRecurso, goClase, back }: {
         <div className="al-video al-video-x"><span>Video no disponible</span></div>
       ) : null}
 
+      {/* Anterior / Siguiente, PEGADOS al video: es donde uno termina de mirar y decide
+          seguir. Abajo de todo quedaban después del resumen, la transcripción y los
+          recursos — o sea, invisibles en una clase larga.
+          Si no hay anterior (o no hay siguiente) el botón NO se dibuja, ni siquiera
+          deshabilitado: uno apagado ocupa lugar y hace dudar de si está roto. */}
+      {goClase && (prev || next) && (
+        <nav className="al-nav" aria-label="Navegación entre clases">
+          {prev ? (
+            <button type="button" className="al-nav-b al-nav-prev" onClick={() => goClase(prev.n)}>
+              <span className="al-nav-l">← Anterior</span>
+              <span className="al-nav-t">{prev.titulo}</span>
+            </button>
+          ) : <span />}
+          {next && (
+            <button type="button" className="al-nav-b al-nav-next" onClick={() => goClase(next.n)}>
+              <span className="al-nav-l">Siguiente →</span>
+              <span className="al-nav-t">{next.titulo}</span>
+            </button>
+          )}
+        </nav>
+      )}
+
       {c.resumen && (
         <div className="al-block">
           <span className="al-block-l">Resumen</span>
@@ -541,27 +578,6 @@ export function ClaseDetail({ curso, c, goRecurso, goClase, back }: {
         </div>
       )}
 
-      {/* Anterior / Siguiente. Van ABAJO porque es donde uno termina de leer, y cada
-          botón dice el TÍTULO de la clase a la que lleva: «Siguiente →» a secas obliga
-          a hacer clic para saber a dónde va.
-          Si no hay anterior (o no hay siguiente) el botón NO se dibuja — ni deshabilitado:
-          un botón apagado ocupa lugar y hace dudar de si está roto. */}
-      {goClase && (prev || next) && (
-        <nav className="al-nav" aria-label="Navegación entre clases">
-          {prev ? (
-            <button type="button" className="al-nav-b al-nav-prev" onClick={() => goClase(prev.n)}>
-              <span className="al-nav-l">← Anterior</span>
-              <span className="al-nav-t">{prev.titulo}</span>
-            </button>
-          ) : <span />}
-          {next && (
-            <button type="button" className="al-nav-b al-nav-next" onClick={() => goClase(next.n)}>
-              <span className="al-nav-l">Siguiente →</span>
-              <span className="al-nav-t">{next.titulo}</span>
-            </button>
-          )}
-        </nav>
-      )}
     </div>
   );
 }
@@ -748,11 +764,14 @@ export function PortalShell({ marca, tag, children }: { marca: ReactNode; tag?: 
 
 // ── El portal de un curso: elige qué vista mostrar ───────────────────────────
 export type Vista = { clase?: number | null; r?: string | null };
+/** `reemplazar`: pisa la vista actual en vez de apilarla. Lo usa Anterior/Siguiente,
+ *  para que «Volver» suba un nivel y no desande clase por clase. */
+export type NavOpts = { reemplazar?: boolean };
 
 export default function CursoPortal({ curso, vista, nav, back, backLabel, compartir }: {
   curso: Curso;
   vista: Vista;
-  nav: (v: Vista) => void;
+  nav: (v: Vista, o?: NavOpts) => void;
   back: () => void;
   /** Solo para el HUB: a dónde vuelve, cuando el destino no es obvio. Adentro de
    *  una clase o un recurso el «Volver» siempre sube un nivel y se entiende. */
@@ -762,8 +781,10 @@ export default function CursoPortal({ curso, vista, nav, back, backLabel, compar
   const clase = vista.clase != null ? curso.clases.find((c) => c.n === vista.clase) : undefined;
   const recurso = vista.r ? curso.recursos.find((r) => r.slug === vista.r) : undefined;
 
-  if (clase) return <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ r: s })} goClase={(n) => nav({ clase: n })} back={back} />;
+  if (clase) return <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ r: s })} goClase={(n) => nav({ clase: n }, { reemplazar: true })} back={back} />;
   if (recurso) return <RecursoDetail r={recurso} back={back} />;
+  // Desde el HUB se APILA: entrar a una clase tiene que dejar el hub atrás para que
+  // «Volver» regrese a él. Lo que no apila es saltar de clase a clase (ver ClaseDetail).
   return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} back={back} backLabel={backLabel} />;
 }
 
@@ -1044,21 +1065,24 @@ export const CSS = `
 .cono .al-file-d{ font-family:var(--mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-40); }
 .cono .al-file .al-arr{ flex:none; color:var(--lime-ink); }
 
-/* Copiar y descargar la transcripción. Pegados arriba del texto: es donde uno está
-   mirando cuando decide llevárselo. */
-.cono .al-tx-acc{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
-.cono .al-tx-btn{ display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:8px; padding:7px 11px; cursor:pointer; transition:.14s; }
+/* Copiar y descargar: SOLO el ícono, en la misma línea del rótulo y a la derecha.
+   El rótulo empuja y las acciones quedan pegadas al borde. */
+.cono .al-det summary{ display:flex; align-items:center; gap:10px; }
+.cono .al-det-t{ flex:1; min-width:0; }
+.cono .al-tx-acc{ display:inline-flex; align-items:center; gap:6px; flex:none; }
+.cono .al-tx-btn{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:8px; padding:0; cursor:pointer; transition:.14s; }
 .cono .al-tx-btn:hover{ background:var(--lime); box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); }
 .cono .al-tx-btn svg{ flex:none; }
 
-/* Anterior / Siguiente entre clases */
-.cono .al-nav{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:34px; padding-top:22px; border-top:1.5px solid var(--ink-15); }
-/* Con una sola salida ocupa la mitad y se alinea a su lado: «Siguiente» a la derecha
-   aunque no haya «Anterior», que es donde el ojo lo busca. */
-.cono .al-nav-b{ display:flex; flex-direction:column; gap:4px; text-align:left; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:11px; padding:13px 15px; cursor:pointer; box-shadow:var(--shadow-paste); transition:.14s; min-width:0; }
-.cono .al-nav-b:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
+/* Anterior / Siguiente entre clases, PEGADOS al video (no al pie de la página).
+   En lima, como el badge de la clase: es navegación del curso, no una acción suelta. */
+.cono .al-nav{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 0 22px; }
+.cono .al-nav-b{ display:flex; flex-direction:column; gap:4px; text-align:left; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:11px; padding:13px 15px; cursor:pointer; box-shadow:var(--shadow-paste); transition:.14s; min-width:0; }
+.cono .al-nav-b:hover{ background:var(--lime-d); box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
+/* Con una sola salida se alinea a SU lado: «Siguiente» a la derecha aunque no haya
+   «Anterior», que es donde el ojo lo busca. */
 .cono .al-nav-next{ text-align:right; grid-column:2; }
-.cono .al-nav-l{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--lime-ink); }
+.cono .al-nav-l{ font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-80); }
 /* Dos líneas y corta: un título largo no puede empujar el alto de la fila. */
 .cono .al-nav-t{ font-size:14.5px; font-weight:600; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 @media (max-width:560px){
