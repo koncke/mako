@@ -148,7 +148,13 @@ test('el estado del player es POR VIDEO: una landing puede tener más de uno', (
   // Y el exit, que es el dato del que sale el punto de abandono, tiene que salir
   // uno por video reproducido: con el exit único, de dos videos mirados quedaba
   // solo el del último que hubiera hablado.
-  const salida = lib.slice(j - 900, j);
+  // ⚠️ La ventana se ancla a la FUNCIÓN, no a un tamaño fijo. La versión anterior
+  // cortaba 900 caracteres para atrás desde 'pagehide' y se rompió sola en cuanto
+  // se agregó código antes: el test falló sobre una función que no había cambiado.
+  // Un límite arbitrario en un test que lee fuente es una falla programada.
+  const ini = lib.indexOf('function alSalir()');
+  assert.ok(ini > 0 && ini < j, 'no se encontró alSalir()');
+  const salida = lib.slice(ini, j);
   assert.ok(/for \(var k in V\)/.test(salida), 'el exit tiene que recorrer todos los videos, no mandar uno solo');
   assert.ok(/if \(!e\.play\) continue/.test(salida), 'un video que nadie reprodujo no tiene punto de abandono que contar');
 });
@@ -455,4 +461,41 @@ test('un evento que no se pudo clasificar se explica, no se muestra crudo', () =
   assert.ok(/e\.tipo === 'desconocido'/.test(panel), 'el evento sin clasificar necesita su traducción');
   const beacon = leer('../app/api/track/vsl/route.ts');
   assert.ok(/tipoEvento = 'desconocido'/.test(beacon), 'el beacon sigue guardándolo en vez de coercionarlo a play');
+});
+
+test('los CLICKS se miden: el CTA y el link de WhatsApp son el embudo', () => {
+  // Reportado el 14/08/2026: «le apreté a varios botones de CTA que scrollean al
+  // opt-in y eso no se registró» y «le di click al enlace de WhatsApp y no se
+  // registró». Era cierto — el snippet solo emitía pageview, play, pNN, sNN y
+  // exit. Para una landing cuyo CTA es un ancla (#registro), entre «visitó» y
+  // «dejó sus datos» no había NINGÚN punto intermedio: una página que convierte
+  // mal no se distinguía de una que nadie mira.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/addEventListener\('click'/.test(lib), 'el snippet no registra clicks');
+  assert.ok(/tipo_evento: 'click'/.test(lib), 'el click necesita su propio tipo de evento');
+  // NUNCA se frena el click: lo que la persona quería hacer tiene que pasar igual.
+  const i = lib.indexOf("addEventListener('click'");
+  assert.ok(!/preventDefault/.test(lib.slice(i, i + 1800)), 'un click frenado rompe la landing del cliente para medirla');
+  // Tope por carga: sin esto un carrusel o un doble click manda cientos y el
+  // ruido tapa lo que importa.
+  assert.ok(/CLICKS >= 40/.test(lib), 'falta el tope de clicks por carga');
+  // El DESTINO manda sobre el texto: dos botones distintos pueden ir al mismo
+  // lado, y lo que se quiere contar es adónde va la gente.
+  assert.ok(/el\.getAttribute\('href'\)/.test(lib), 'el destino del link es el dato, no solo el texto');
+
+  // El beacon tiene que ACEPTARLO: había una lista blanca que lo habría guardado
+  // como 'desconocido'.
+  const beacon = leer('../app/api/track/vsl/route.ts');
+  assert.ok(/tipoEvento !== 'click'/.test(beacon), "sin sumarlo a la lista blanca, el click entra como 'desconocido'");
+  assert.ok(/detalle: texto\(payload\.detalle, 300\)/.test(beacon), 'el destino del click tiene que persistirse');
+  // ⚠️ Columna propia, no reusar `vsl_titulo`: «cómo se llama el video» y «qué se
+  // clickeó» son dos preguntas, y meterlas en un campo pierde una de las dos.
+  const mig = leer('../supabase/migrations/0133_vsl_events_detalle.sql');
+  assert.ok(/add column if not exists detalle text/.test(mig), 'falta la columna');
+  assert.ok(!/default/i.test(mig.replace(/--[^\n]*/g, '')), 'un default inventaría un dato en los eventos que no son clicks');
+
+  // Y se tiene que LEER en pantalla diciendo en QUÉ se hizo click.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/e\.tipo === 'click'/.test(panel), 'el click no se traduce en la lista de eventos');
+  assert.ok(/r\.detalle \?\? r\.vsl_titulo/.test(lib), 'el detalle del click no llega a la pantalla');
 });

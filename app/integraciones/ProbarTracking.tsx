@@ -47,6 +47,9 @@ function legible(e: Evento): { texto: string; color: string } {
   // un tipo que no sabe clasificar (código viejo o modificado). Mostrarlo crudo
   // hacía aparecer la palabra «desconocido» en la lista, que se lee como que algo
   // se rompió — cuando lo que dice es que ese evento no se pudo interpretar.
+  // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
+  // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.
+  if (e.tipo === 'click') return { texto: e.detalle ? `Hizo click: ${e.detalle}` : 'Hizo click', color: 'var(--primary)' };
   if (e.tipo === 'desconocido') return { texto: 'Evento que no reconozco (código viejo o modificado)', color: 'var(--warn)' };
   return { texto: e.tipo, color: 'var(--dim)' };
 }

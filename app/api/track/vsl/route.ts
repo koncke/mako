@@ -144,7 +144,9 @@ type Payload = {
   porcentaje?: unknown;  // % del video; puede faltar (el player no siempre da la duración)
   segundos?: unknown;    // currentTime del player: el dato CRUDO del que se deriva el % (mig 0121)
   video_id?: unknown;    // id del video de Panda (pruebas A/B de VSL)
-  vsl_titulo?: unknown;  // título del video de Panda, si la landing lo puede leer
+  vsl_titulo?: unknown;
+  /** Solo en tipo_evento='click': el destino o el texto del botón (mig 0133). */
+  detalle?: unknown;  // título del video de Panda, si la landing lo puede leer
   landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
   referrer?: unknown;
   event?: unknown;       // legacy
@@ -252,7 +254,7 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   // server-side. 'exit' = punto EXACTO de abandono.
   const milestoneMatch = /^p(\d{1,3})$/.exec(tipoEvento);
   const segundoMatch = /^s(\d{1,5})$/.exec(tipoEvento);
-  if (tipoEvento !== 'play' && tipoEvento !== 'exit' && !milestoneMatch && !segundoMatch) {
+  if (tipoEvento !== 'play' && tipoEvento !== 'exit' && tipoEvento !== 'click' && !milestoneMatch && !segundoMatch) {
     // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
     // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un
     // contrato que cambia del lado de la landing tiene que ser VISIBLE.
@@ -299,6 +301,9 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       // lo puede leer. Antes video_id llegaba en el payload y se descartaba.
       video_id: texto(payload.video_id, 120),
       vsl_titulo: texto(payload.vsl_titulo, 200),
+      // Qué se clickeó (mig 0133). Solo viaja en tipo_evento='click'; en el resto
+      // queda NULL, que es la verdad — un default inventaría un dato.
+      detalle: texto(payload.detalle, 300),
     });
     if (error) {
       console.error(`[track:vsl] insert falló: ${error.message}`);

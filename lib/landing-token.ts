@@ -61,8 +61,11 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *   5 — el estado del player pasa a ser POR VIDEO. Era uno global para toda la
  *       página, así que una landing con dos videos no medía dos curvas mezcladas:
  *       medía mal la segunda. Ver el comentario de `est()` en el snippet.
+ *   6 — se miden los CLICKS en botones y links (14/08/2026). Para una landing
+ *       cuyo CTA es un ancla (#registro) o un link de WhatsApp, el click ES el
+ *       embudo: sin eso, entre «visitó» y «dejó sus datos» no hay nada.
  */
-export const SNIPPET_VERSION = 5;
+export const SNIPPET_VERSION = 6;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -96,6 +99,7 @@ const NOVEDADES: Record<number, string> = {
   3: 'un arreglo del código: la versión anterior salió sin identificador y dejó de medir y de capturar',
   4: 'la medición de videos CORTOS: antes, uno de menos de 15 segundos no registraba ningún avance',
   5: 'la medición de TODOS los videos de la página por separado: antes, si tenías más de uno, el segundo casi no medía y su avance se calculaba con la duración del primero',
+  6: 'la medición de los CLICKS: qué botón aprietan y qué links abren (el de WhatsApp, los que llevan al formulario). Antes, entre «visitó» y «dejó sus datos» no había ningún punto intermedio',
 };
 
 export function novedadesDesde(instalada: number): string {
@@ -344,13 +348,15 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
   const db = await getTenantDb();
   const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const [vsl, visitas] = await Promise.all([
-    db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo').gte('created_at', desde).order('created_at', { ascending: false }).limit(40),
+    db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle').gte('created_at', desde).order('created_at', { ascending: false }).limit(40),
     db.from('landing_visits').select('created_at, landing_url').gte('created_at', desde).order('created_at', { ascending: false }).limit(20),
   ]);
 
   const eventos: EventoDiag[] = [
-    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null }>)
-      .map((r) => ({ ts: r.created_at, tipo: r.tipo_evento ?? 'evento', porcentaje: r.porcentaje, segundos: r.segundos, detalle: r.vsl_titulo })),
+    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null }>)
+      .map((r) => ({ ts: r.created_at, tipo: r.tipo_evento ?? 'evento', porcentaje: r.porcentaje, segundos: r.segundos, // Para un click el detalle ES el destino; para un evento de video, el título.
+      // Sin este `??`, el click llegaba a la pantalla sin decir en qué se hizo.
+      detalle: r.detalle ?? r.vsl_titulo })),
     ...((visitas.data ?? []) as Array<{ created_at: string; landing_url: string | null }>)
       .map((r) => ({ ts: r.created_at, tipo: 'pageview', porcentaje: null, segundos: null, detalle: r.landing_url })),
   ].sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 25);
@@ -635,6 +641,40 @@ export function landingSnippet(token: string): string {
       enviar({ tipo_evento: 'exit', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: k === '_' ? null : k, vsl_titulo: e.tit });
     }
   }
+  // ── CLICKS ────────────────────────────────────────────────────────────────
+  // Para una landing cuyo CTA es un ancla (#registro) o un link de WhatsApp, el
+  // click ES el embudo: entre «visitó» y «dejó sus datos» no había NINGÚN punto
+  // intermedio, así que una página que convierte mal no se distinguía de una que
+  // nadie mira. Va en captura y NUNCA frena el click: lo que la persona quería
+  // hacer tiene que pasar igual, aunque el envío falle.
+  var CLICKS = 0;
+  document.addEventListener('click', function (ev) {
+    try {
+      // Tope por carga. Sin esto, un click accidental repetido —o una página con
+      // un carrusel— manda cientos de eventos, y el ruido tapa lo que importa.
+      if (CLICKS >= 40) return;
+      var el = ev.target;
+      // Se sube hasta el elemento accionable: el click casi siempre cae en el
+      // <span> de adentro del botón, no en el botón.
+      for (var i = 0; el && i < 5; i++) {
+        var t = (el.tagName || '').toUpperCase();
+        if (t === 'A' || t === 'BUTTON' || el.getAttribute && el.getAttribute('role') === 'button') break;
+        el = el.parentElement;
+      }
+      if (!el || !el.tagName) return;
+      var tag = el.tagName.toUpperCase();
+      if (tag !== 'A' && tag !== 'BUTTON' && el.getAttribute('role') !== 'button') return;
+      var href = el.getAttribute ? (el.getAttribute('href') || '') : '';
+      // El DESTINO manda sobre el texto: «Confirmar por WhatsApp» y «Escribinos»
+      // pueden ser el mismo link, y lo que se quiere contar es adónde va la gente.
+      var texto = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      var detalle = href ? (href.indexOf('#') === 0 ? 'ancla ' + href : href) : ('boton: ' + texto);
+      if (!detalle) return;
+      CLICKS++;
+      enviar({ tipo_evento: 'click', detalle: detalle.slice(0, 300) + (texto && href ? ' — ' + texto : '') });
+    } catch (e) {}
+  }, true);
+
   window.addEventListener('pagehide', alSalir);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') alSalir();
