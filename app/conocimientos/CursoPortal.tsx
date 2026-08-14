@@ -781,7 +781,24 @@ export default function CursoPortal({ curso, vista, nav, back, backLabel, compar
   const clase = vista.clase != null ? curso.clases.find((c) => c.n === vista.clase) : undefined;
   const recurso = vista.r ? curso.recursos.find((r) => r.slug === vista.r) : undefined;
 
-  if (clase) return <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ r: s })} goClase={(n) => nav({ clase: n }, { reemplazar: true })} back={back} />;
+  // ⚠️ El «Volver» de una CLASE navega al índice del curso EXPLÍCITAMENTE, no con el
+  // Atrás del navegador. Hacerlo con `back()` dependía de que Anterior/Siguiente no
+  // dejaran entradas en el historial, y aun usando `replace` seguía devolviendo a la
+  // clase anterior — así que el arreglo correcto es no depender del historial: desde
+  // una clase, «Volver» significa «al índice», siempre y sin ambigüedad.
+  //
+  // El de un RECURSO sigue con `back()`, a propósito: ahí «volver» sí depende de
+  // dónde entraste (desde una clase o desde el índice) y el historial lo sabe.
+  if (clase) {
+    return (
+      <ClaseDetail
+        curso={curso} c={clase}
+        goRecurso={(s) => nav({ r: s })}
+        goClase={(n) => nav({ clase: n }, { reemplazar: true })}
+        back={() => nav({}, { reemplazar: true })}
+      />
+    );
+  }
   if (recurso) return <RecursoDetail r={recurso} back={back} />;
   // Desde el HUB se APILA: entrar a una clase tiene que dejar el hub atrás para que
   // «Volver» regrese a él. Lo que no apila es saltar de clase a clase (ver ClaseDetail).
@@ -1076,15 +1093,16 @@ export const CSS = `
 
 /* Anterior / Siguiente entre clases, PEGADOS al video (no al pie de la página).
    En lima, como el badge de la clase: es navegación del curso, no una acción suelta. */
-.cono .al-nav{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 0 22px; }
-.cono .al-nav-b{ display:flex; flex-direction:column; gap:4px; text-align:left; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:11px; padding:13px 15px; cursor:pointer; box-shadow:var(--shadow-paste); transition:.14s; min-width:0; }
+.cono .al-nav{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:18px 0 24px; }
+.cono .al-nav-b{ display:flex; flex-direction:column; gap:2px; text-align:left; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:9px; padding:8px 12px; cursor:pointer; box-shadow:var(--shadow-paste); transition:.14s; min-width:0; }
 .cono .al-nav-b:hover{ background:var(--lime-d); box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
 /* Con una sola salida se alinea a SU lado: «Siguiente» a la derecha aunque no haya
    «Anterior», que es donde el ojo lo busca. */
 .cono .al-nav-next{ text-align:right; grid-column:2; }
-.cono .al-nav-l{ font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-80); }
-/* Dos líneas y corta: un título largo no puede empujar el alto de la fila. */
-.cono .al-nav-t{ font-size:14.5px; font-weight:600; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.cono .al-nav-l{ font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-80); }
+/* UNA línea y corta con puntos suspensivos: el botón es una salida, no una tarjeta.
+   Con dos líneas, un título largo duplicaba el alto de la fila entera. */
+.cono .al-nav-t{ font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 @media (max-width:560px){
   .cono .al-nav{ grid-template-columns:1fr; }
   .cono .al-nav-next{ grid-column:1; text-align:left; }

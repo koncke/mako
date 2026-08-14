@@ -98,7 +98,7 @@ const CATEGORIA: Record<string, string> = {
  */
 const PORTADA: Record<string, string> = {
   bluehacker: '/cono-portadas/bluehacker.webp',
-  masteryhaus: '/cono-portadas/masteryhaus.jpg',
+  masteryhaus: '/cono-portadas/masteryhaus.png',
   'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
   avatarhype: '/cono-portadas/avatarhype.jpg',
 };
