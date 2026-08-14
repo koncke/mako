@@ -54,8 +54,13 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       identifica el workspace y el beacon lo descarta fail-closed. Quien haya
  *       copiado durante esas horas tiene una landing que no mide ni captura
  *       nada. Se sube la versión para poder avisarle.
+ *   4 — la escalera de avance arranca a los 3 s: con el primer escalón en 15, un
+ *       video de 10 segundos no registraba UN solo avance (14/08/2026).
+ *   5 — el estado del player pasa a ser POR VIDEO. Era uno global para toda la
+ *       página, así que una landing con dos videos no medía dos curvas mezcladas:
+ *       medía mal la segunda. Ver el comentario de `est()` en el snippet.
  */
-export const SNIPPET_VERSION = 4;
+export const SNIPPET_VERSION = 5;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -88,6 +93,7 @@ const NOVEDADES: Record<number, string> = {
   2: 'la captura automática del formulario de tu landing (quien lo completa te entra al CRM)',
   3: 'un arreglo del código: la versión anterior salió sin identificador y dejó de medir y de capturar',
   4: 'la medición de videos CORTOS: antes, uno de menos de 15 segundos no registraba ningún avance',
+  5: 'la medición de TODOS los videos de la página por separado: antes, si tenías más de uno, el segundo casi no medía y su avance se calculaba con la duración del primero',
 };
 
 export function novedadesDesde(instalada: number): string {
@@ -442,7 +448,30 @@ export function landingSnippet(token: string): string {
   // pause, currentTime, volume, speed, colors y fullscreen — ninguno de
   // lectura). Por eso acá se mandan SIEMPRE los segundos absolutos y el % se
   // deriva en el servidor con la duración que ya da la API de Panda.
-  var yaPlay = false, hitos = {}, seg = {}, pct = 0, dur = 0, segs = 0, vid = null, tit = null;
+  // ⚠️ EL ESTADO ES POR VIDEO, no uno global. Hasta la v4 había UNA sola tanda de
+  // variables (\`yaPlay\`, \`hitos\`, \`dur\`, \`segs\`) para toda la página, y con dos
+  // videos eso no «mezclaba las curvas»: rompía la segunda entera. \`yaPlay\` global
+  // hacía que solo el PRIMER video mandara un play; \`hitos\` compartido suprimía el
+  // 25% del segundo porque el primero ya lo había mandado; y \`dur\` lo pisaba el
+  // último que reportara duración, así que el % de un video se calculaba con la
+  // duración de otro. Una landing con un VSL y un testimonio medía el testimonio
+  // como si durara lo que el VSL.
+  var V = {};
+  function est(id) {
+    var k = id || '_';
+    if (!V[k]) V[k] = { play: false, hitos: {}, seg: {}, pct: 0, dur: 0, segs: 0, tit: null };
+    return V[k];
+  }
+  // Qué video mandó ESTE mensaje. Panda lo dice en \`video\`, pero si algún día no
+  // viniera, el iframe que originó el postMessage lo identifica igual — y sin eso
+  // dos players anónimos volverían a compartir un solo estado, que es el bug de
+  // arriba servido de nuevo.
+  function quien(d, src) {
+    if (d.video || d.videoId) return d.video || d.videoId;
+    var f = document.querySelectorAll('iframe');
+    for (var i = 0; i < f.length; i++) if (f[i].contentWindow === src) return 'iframe' + i;
+    return null;
+  }
   // Escalera de segundos: la red de seguridad cuando no se conoce la duración.
   // Doce puntos hasta los 40 minutos — alcanza para reconstruir la curva
   // server-side sin inundar el endpoint.
@@ -459,46 +488,55 @@ export function landingSnippet(token: string): string {
   window.addEventListener('message', function (ev) {
     var d = ev.data;
     if (!d || typeof d !== 'object' || String(d.message || '').indexOf('panda_') !== 0) return;
-    if (d.video || d.videoId) { vid = d.video || d.videoId; tit = tituloVsl(vid) || tit; }
+    var vid = quien(d, ev.source);
+    var e = est(vid);
+    if (!e.tit) e.tit = tituloVsl(vid);
     // Único mensaje que trae la duración. El guard > 0 es obligatorio: el player
     // la emite una vez con duration 0 antes de tener metadata, y pisarla con 0
     // reintroduce el bug entero.
     if (d.message === 'panda_allData' && d.playerData && d.playerData.duration > 0) {
-      dur = d.playerData.duration;
+      e.dur = d.playerData.duration;
     }
-    if (d.message === 'panda_play' && !yaPlay) {
-      yaPlay = true;
-      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: tit });
+    if (d.message === 'panda_play' && !e.play) {
+      e.play = true;
+      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: e.tit });
     }
     if (d.message === 'panda_timeupdate' && d.currentTime != null) {
-      segs = d.currentTime;
-      if (dur > 0) {
-        pct = Math.min(100, Math.round((segs / dur) * 100));
-        var h = Math.floor(pct / 5) * 5; // hito de retención cada 5%
-        if (h >= 5 && !hitos[h]) {
-          hitos[h] = true;
-          enviar({ tipo_evento: 'p' + h, porcentaje: pct, segundos: segs, video_id: vid, vsl_titulo: tit });
+      e.segs = d.currentTime;
+      if (e.dur > 0) {
+        e.pct = Math.min(100, Math.round((e.segs / e.dur) * 100));
+        var h = Math.floor(e.pct / 5) * 5; // hito de retención cada 5%
+        if (h >= 5 && !e.hitos[h]) {
+          e.hitos[h] = true;
+          enviar({ tipo_evento: 'p' + h, porcentaje: e.pct, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
         }
         return;
       }
       // Sin duración: se marca por TIEMPO. El servidor lo convierte a % después.
       for (var i = 0; i < ESCALERA.length; i++) {
         var s = ESCALERA[i];
-        if (segs >= s && !seg[s]) {
-          seg[s] = true;
-          enviar({ tipo_evento: 's' + s, segundos: segs, video_id: vid, vsl_titulo: tit });
+        if (e.segs >= s && !e.seg[s]) {
+          e.seg[s] = true;
+          enviar({ tipo_evento: 's' + s, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
         }
       }
     }
   });
 
   // Punto exacto de abandono
+  // Un exit POR VIDEO que se haya reproducido. Con el exit único, de dos videos
+  // mirados solo quedaba el punto de abandono del último que hubiera hablado.
   var exitEnviado = false;
   function alSalir() {
-    if (exitEnviado || !yaPlay) return;
+    if (exitEnviado) return;
     exitEnviado = true;
-    // Los segundos van SIEMPRE; el % solo si se pudo calcular.
-    enviar({ tipo_evento: 'exit', porcentaje: dur > 0 ? pct : null, segundos: segs, video_id: vid, vsl_titulo: tit });
+    for (var k in V) {
+      if (!Object.prototype.hasOwnProperty.call(V, k)) continue;
+      var e = V[k];
+      if (!e.play) continue;
+      // Los segundos van SIEMPRE; el % solo si se pudo calcular.
+      enviar({ tipo_evento: 'exit', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: k === '_' ? null : k, vsl_titulo: e.tit });
+    }
   }
   window.addEventListener('pagehide', alSalir);
   document.addEventListener('visibilitychange', function () {

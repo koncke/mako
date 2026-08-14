@@ -111,6 +111,46 @@ test('el snippet lleva versión, y algo la mira cuando se queda vieja', () => {
   // El aviso dice QUÉ se pierde: «actualizá» a secas es una tarea sin motivo, y
   // menos todavía cuando lo que tiene puesto funciona.
   assert.ok(/novedadesDesde\(instalada\)/.test(cron), 'el aviso tiene que decir qué se está perdiendo, no solo que actualice');
+
+  // Cada versión nueva tiene que traer su renglón de novedades, o el aviso sale
+  // diciendo «mejoras de medición» —el fallback— que no le dice nada a nadie.
+  const ver = Number(/export const SNIPPET_VERSION = (\d+)/.exec(lib)?.[1]);
+  assert.ok(new RegExp(`^\\s{2}${ver}: '`, 'm').test(lib), `falta la novedad de la v${ver} en NOVEDADES`);
+});
+
+test('el estado del player es POR VIDEO: una landing puede tener más de uno', () => {
+  // ⚠️ EL BUG QUE ESTE TEST CUIDA. Hasta la v4 el snippet tenía UNA tanda de
+  // variables para toda la página (`yaPlay`, `hitos`, `dur`, `segs`). Con dos
+  // videos eso no mezclaba dos curvas — rompía la segunda:
+  //   · `yaPlay` global → solo el PRIMER video mandaba un play.
+  //   · `hitos` compartido → el 25% del segundo se suprimía porque ya lo había
+  //     mandado el primero.
+  //   · `dur` lo pisaba el último que reportara duración → el % de un video se
+  //     calculaba con la duración de otro.
+  // Y el síntoma en pantalla era «la retención da raro», que no apunta a nada.
+  const lib = leer('../lib/landing-token.ts');
+  const i = lib.indexOf('window.addEventListener(\'message\'');
+  const j = lib.indexOf('window.addEventListener(\'pagehide\'');
+  assert.ok(i > 0 && j > i, 'no se encontró el handler del player en el snippet');
+  const bloque = lib.slice(i, j);
+
+  // Lo que se afirma es que TODO lo mutable del player cuelga de un estado por
+  // video, no que existan tales o cuales nombres de variable.
+  for (const v of ['play', 'hitos', 'seg', 'dur', 'segs', 'pct']) {
+    assert.ok(
+      new RegExp(`e\\.${v}\\b`).test(bloque),
+      `«${v}» tiene que vivir en el estado del video (e.${v}), no en una variable de la página`,
+    );
+  }
+  assert.ok(/var e = est\(vid\)/.test(bloque), 'cada mensaje tiene que resolver a QUÉ video pertenece antes de tocar nada');
+  assert.ok(/function quien\(/.test(lib), 'sin identificar el emisor, dos players anónimos vuelven a compartir un estado');
+
+  // Y el exit, que es el dato del que sale el punto de abandono, tiene que salir
+  // uno por video reproducido: con el exit único, de dos videos mirados quedaba
+  // solo el del último que hubiera hablado.
+  const salida = lib.slice(j - 900, j);
+  assert.ok(/for \(var k in V\)/.test(salida), 'el exit tiene que recorrer todos los videos, no mandar uno solo');
+  assert.ok(/if \(!e\.play\) continue/.test(salida), 'un video que nadie reprodujo no tiene punto de abandono que contar');
 });
 
 test('el aviso de código viejo: rótulo propio, texto determinista y link que abre el lugar', () => {
