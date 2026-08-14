@@ -60,3 +60,19 @@ test('la ruta es pública de verdad (vive bajo un prefijo de PUBLICOS)', () => {
   const publicas = leer('../lib/rutas-publicas.ts');
   assert.ok(/'\/api\/track'/.test(publicas), '/api/track tiene que seguir en PUBLICOS');
 });
+
+test('el snippet que la app le entrega ya captura el formulario', () => {
+  // El pedido que lo trajo: «yo no le debo pasar nada, Leila lo tiene que hacer
+  // todo sola desde la app». Si el opt-in vive en un snippet aparte que hay que
+  // mandar por chat, la feature no existe para quien no lo recibió.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/\/api\/track\/optin/.test(lib), 'el snippet de /integraciones tiene que postear el opt-in');
+  assert.ok(/addEventListener\('submit'/.test(lib), 'se cuelga del submit del formulario del cliente');
+  assert.ok(/keepalive: true/.test(lib), 'sin keepalive el envío muere cuando el formulario navega');
+  // Se busca la LLAMADA, no la palabra: el comentario del snippet explica
+  // justamente por qué no se frena, y esa memoria no puede hacer fallar el test.
+  assert.ok(
+    !/\.preventDefault\s*\(/.test(lib),
+    'NUNCA se frena el submit: el formulario del cliente tiene que seguir haciendo lo suyo',
+  );
+});

@@ -739,6 +739,11 @@ const DONDE_PEGAR: PasoPegar[] = [
     ],
   },
   { paso: 'Publicá los cambios y entrá a tu landing una vez. En cuanto llegue la primera visita, esta integración se pone en verde.' },
+  {
+    // El mismo script hace las dos cosas: sin esto, quien tiene formulario cree
+    // que le falta pegar algo más — y no hay nada más que pegar.
+    paso: 'Si tu página tiene un formulario, el mismo código ya lo captura: quien lo complete te llega al CRM para que lo revises y lo confirmes. Para que entren, marcá «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads.',
+  },
 ];
 
 // ── Resaltador de código mínimo, propio (sin dependencias) ───────────────────

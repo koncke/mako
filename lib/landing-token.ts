@@ -373,6 +373,60 @@ export function landingSnippet(token: string): string {
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') alSalir();
   });
+
+  // ── Opt-in: el formulario de la página entra al CRM ──────────────────────
+  // Va en ESTE script y no en uno aparte a propósito. El snippet queda CONGELADO
+  // en el HTML del cliente (ver el aviso de arriba: así se perdieron 18 días de
+  // medición), así que un segundo script para pegar después es un segundo script
+  // que la mitad no va a pegar. Uno solo: mide y captura.
+  //
+  // Que el opt-in ENTRE o no al CRM lo decide el SERVER, mirando si ese negocio
+  // declaró la landing como entrada de leads (/funnel). Por eso este bloque se le
+  // puede dar a todos los clientes sin que a nadie se le llene el CRM de algo que
+  // no esperaba: el código pegado en la página no decide nada.
+  var OPTIN = '${APP_BASE_URL}/api/track/optin';
+
+  // Qué campo es cuál. Se mira el type, el name, el id, el autocomplete y el
+  // placeholder: los constructores (Lovable, Framer, WordPress) nombran distinto
+  // y el dueño de la página no tiene por qué renombrar nada para que ande.
+  function campo(form, pats, types) {
+    var els = form.querySelectorAll('input, textarea, select');
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (!el.value || !String(el.value).trim()) continue;
+      if (types && types.indexOf(el.type) !== -1) return String(el.value).trim();
+      var pistas = [el.name, el.id, el.getAttribute('autocomplete'), el.placeholder, el.getAttribute('aria-label')].join(' ').toLowerCase();
+      for (var j = 0; j < pats.length; j++) if (pistas.indexOf(pats[j]) !== -1) return String(el.value).trim();
+    }
+    return null;
+  }
+
+  // En captura y sin preventDefault: el formulario del cliente sigue haciendo lo
+  // que hacía (redirigir, mostrar su gracias, mandar a su herramienta). Esto se
+  // cuelga al lado. keepalive para que el envío sobreviva a la navegación.
+  document.addEventListener('submit', function (ev) {
+    try {
+      var form = ev.target;
+      if (!form || form.tagName !== 'FORM') return;
+      var email = campo(form, ['email', 'correo', 'mail'], ['email']);
+      var telefono = campo(form, ['tel', 'phone', 'whats', 'celular', 'movil', 'móvil'], ['tel']);
+      if (!email && !telefono) return; // no es un formulario de contacto
+      fetch(OPTIN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: TOKEN,
+          visitor_id: visitorId,
+          nombre: campo(form, ['nombre', 'name', 'first', 'apellido']),
+          email: email,
+          telefono: telefono,
+          empresa: campo(form, ['empresa', 'company', 'negocio']),
+          pagina: location.href
+        }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) { /* nunca romper el formulario del cliente */ }
+  }, true);
 })();
 </script>`;
 }
