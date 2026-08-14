@@ -22,7 +22,10 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual } from './workspace';
+import { getSupabaseServer } from './supabase';
+import { credWs } from './credenciales';
+import { esInterno, internosDe, SIN_INTERNOS, type Internos } from './closing-internos';
 import { chatClaude } from './anthropic';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import { isoToFechaTijuana } from './calendly';
@@ -114,11 +117,18 @@ type LeadMatch = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Emails / dominios del propio equipo: sus reuniones son internas, no de venta.
-const INTERNAL_EMAILS = new Set([
-  'martinkoncke@gmail.com',
-  'tejadomartin@gmail.com',
-]);
-const INTERNAL_DOMAINS = new Set(['elevate.com.mx']);
+// ⚠️ ACÁ VIVÍA LA IDENTIDAD DEL DUEÑO, HARDCODEADA PARA TODOS LOS WORKSPACES:
+//
+//     const INTERNAL_EMAILS  = new Set(['martinkoncke@gmail.com', 'tejadomartin@gmail.com']);
+//     const INTERNAL_DOMAINS = new Set(['elevate.com.mx']);
+//
+// A otra clienta eso le descartaba como «interna» cualquier llamada con alguien
+// de `elevate.com.mx` —en silencio, sin error y sin fila que mirar— y su propio
+// dominio no se excluía nunca, así que sus juntas de equipo entraban como
+// candidatas a venta y se le pagaba el modelo.
+//
+// Ahora se resuelve por workspace (`internosDelWorkspace`) y la decisión vive en
+// `lib/closing-internos.ts`, sin `server-only`, para poder testearla.
 
 const RE_TEST = /\b(test call|fathom demo|prueba)\b|^test\b|impromptu (google meet|zoom) meeting/i;
 // Marcadores INEQUÍVOCOS de entrega de servicio / coaching que el propio usuario
@@ -130,21 +140,44 @@ const RE_SERVICIO_EXPLICITO = /^\s*servicio:|^\s*coaching:|paddock\s*&\s*pit|pro
 // claramente son de venta (calificación, diagnóstico, propuesta, primera junta).
 const RE_VENTA_FUERTE = /\bpropuesta\b|diagn[oó]stico|calificaci[oó]n|primera\s+(junta|sesi[oó]n|llamada|reuni[oó]n)|junta\s*[12]\b|reuni[oó]n\s*[12]\b/i;
 
-function isInternalEmail(email: string): boolean {
-  const e = email.trim().toLowerCase();
-  if (INTERNAL_EMAILS.has(e)) return true;
-  const dom = e.split('@')[1] ?? '';
-  return INTERNAL_DOMAINS.has(dom);
+/**
+ * Quién es «de casa» EN ESTE workspace: la cuenta que graba en Fathom más las
+ * cuentas de la gente del workspace.
+ *
+ * `FATHOM_HOST_EMAIL` es la mejor señal y es gratis: es credencial obligatoria
+ * para conectar Fathom, así que si este módulo está corriendo para un workspace,
+ * ese dato existe por construcción. Se le suman los usuarios de la fila (consulta
+ * explícita: `usuarios` NO es tabla tenant, así que el scope se pone a mano).
+ *
+ * ⚠️ Si algo falla se devuelve NADIE (`SIN_INTERNOS`), nunca la identidad del
+ * dueño: con la lista vacía a lo sumo se analiza de más —se ve y cuesta plata—,
+ * mientras que heredar la identidad de otro cliente descarta llamadas de venta
+ * en silencio, que es exactamente el bug que esto vino a cerrar.
+ */
+async function internosDelWorkspace(): Promise<Internos> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return SIN_INTERNOS; // sin workspace resuelto no se adivina
+    const [host, { data }] = await Promise.all([
+      credWs('FATHOM_HOST_EMAIL', ws).catch(() => null),
+      getSupabaseServer().from('usuarios').select('email').eq('workspace_id', ws),
+    ]);
+    const delEquipo = ((data ?? []) as Array<{ email: string | null }>).map((u) => u.email);
+    return internosDe([host, ...delEquipo]);
+  } catch (e) {
+    console.error(`[closing] no pude resolver quién es de casa: ${e instanceof Error ? e.message : String(e)}`);
+    return SIN_INTERNOS;
+  }
 }
 
 /**
  * Pre-clasificación barata. Devuelve la categoría si se puede decidir sin
  * Claude, o null si la llamada es CANDIDATA a venta y necesita análisis.
  */
-export function preClassify(m: FathomMeeting): ClosingCategory | null {
+export function preClassify(m: FathomMeeting, internos: Internos = SIN_INTERNOS): ClosingCategory | null {
   const title = meetingTitle(m);
   const dur = meetingDurationMin(m);
-  const externals = externalInviteeEmails(m).filter((e) => !isInternalEmail(e));
+  const externals = externalInviteeEmails(m).filter((e) => !esInterno(e, internos));
 
   // Test / demo / grabaciones basura.
   if (RE_TEST.test(title)) return 'test';
@@ -197,13 +230,13 @@ function deriveCloser(m: FathomMeeting, lead: LeadMatch | null): string | null {
 }
 
 /** Email del invitado externo matcheado (o el primero externo no-interno). */
-function primaryInviteeEmail(m: FathomMeeting, lead: LeadMatch | null): string | null {
+function primaryInviteeEmail(m: FathomMeeting, lead: LeadMatch | null, internos: Internos = SIN_INTERNOS): string | null {
   const externals = externalInviteeEmails(m);
   if (lead?.email) {
     const e = lead.email.trim().toLowerCase();
     if (externals.includes(e)) return e;
   }
-  return externals.find((e) => !isInternalEmail(e)) ?? externals[0] ?? null;
+  return externals.find((e) => !esInterno(e, internos)) ?? externals[0] ?? null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -798,11 +831,16 @@ export async function syncClosingCalls(opts: { max?: number; deadline?: number; 
 
   const candidatas: FathomMeeting[] = [];
 
+  // Quién es «de casa» EN ESTE workspace. Se resuelve UNA vez por corrida y se
+  // pasa: si cada llamada a preClassify lo leyera solo, serían N consultas para
+  // un dato que no cambia en el medio del barrido.
+  const internos = await internosDelWorkspace();
+
   // Paso 1+2+3: triage barato.
   for (const m of meetings) {
     if (!m.recording_id) continue;
     if (done.has(m.recording_id)) { result.ya_procesadas++; continue; }
-    const cat = preClassify(m);
+    const cat = preClassify(m, internos);
     if (cat !== null) {
       // Descartable sin Claude.
       const lead = matchMeetingToLead(m, leadsByEmail);
