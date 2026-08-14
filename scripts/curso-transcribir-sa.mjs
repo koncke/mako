@@ -227,7 +227,21 @@ const unaClase = async ([clave, piezas]) => {
         mapa.files[f] = fid;
         writeFileSync(mapaPath, JSON.stringify(mapa, null, 2), 'utf8');
       }
-      const tx = await esperar(fid);
+      let tx;
+      try { tx = await esperar(fid); }
+      catch (e) {
+        // ⚠️ Si venció la espera, el fileId persistido queda INSERVIBLE y hay que
+        // soltarlo. ScreenApp puede aceptar un archivo y no transcribirlo NUNCA:
+        // la clase 191 de «Vender Por FB E IG ADS» quedó allá con su nombre y su
+        // duración exactas, sin campo `transcript`, sin campo de estado y sin
+        // error. Como el id seguía en el mapa, cada reintento poleteaba el MISMO
+        // trabajo muerto — o sea que el reintento no podía funcionar nunca, y el
+        // síntoma era idéntico a «tarda mucho». Soltándolo, el próximo intento
+        // sube una copia nueva, que es lo único que puede destrabarlo.
+        delete mapa.files[f];
+        writeFileSync(mapaPath, JSON.stringify(mapa, null, 2), 'utf8');
+        throw e;
+      }
       trozos.push(...parrafos(tx));
       segundos += Number(tx.duration) || 0;
       idioma ??= tx.language ?? null;

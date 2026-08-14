@@ -59,6 +59,9 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 18. **Antes de bajar un curso, fijate si ya está en Drive.** Éste estaba: 211 de 242.
     Y al cruzar, no uses un `Set` — los títulos se repiten.
     [→](#antes-de-bajar-un-curso-fijate-si-ya-está-en-drive)
+19. **⚠️ Un reintento que consulta un id PERSISTIDO no es un reintento.** ScreenApp aceptó
+    un archivo y no lo transcribió nunca; los reintentos poleteaban el mismo trabajo
+    muerto. [→](#️-un-reintento-que-consulta-un-id-persistido-no-es-un-reintento)
 
 ---
 
@@ -1046,6 +1049,32 @@ hay warning, y leer el bloque de arriba te convence de que el estilo es el que d
 
 (El filtro pasó a ser un desplegable, así que ese bloque ya no existe. Queda el aviso donde
 estaba.)
+
+### ⚠️ Un reintento que consulta un id PERSISTIDO no es un reintento
+
+**2026-08-14.** Una clase de 242 se resistió a transcribirse. Dos intentos, mismo
+resultado exacto: *«no llegó la transcripción en 25 min»*. Se leía como lentitud.
+
+Preguntándole a ScreenApp por ese `fileId`: **HTTP 200**, el archivo estaba allá con su
+nombre y su duración al milisegundo… y **sin campo `transcript`, sin campo de estado y sin
+error**. Aceptó el archivo y no lo transcribió nunca. El audio estaba sano (9m25s, aac
+16 kHz mono) y en el mismo curso hay clases mucho más largas que pasaron bien.
+
+**El bug era nuestro, y es el que importa.** El `fileId` se persiste en `sa-fileids.json`
+para que una corrida cortada poletee en vez de re-subir — correcto para ese caso. Pero
+cuando el trabajo del otro lado está muerto, **cada reintento vuelve a consultar el mismo
+cadáver**: no podía funcionar nunca, y el síntoma era idéntico al de «tarda mucho».
+
+El arreglo: si vence la espera, se SUELTA el id persistido. El próximo intento sube una
+copia nueva. Soltándolo, la clase salió **a la primera** — que es la prueba de que el
+diagnóstico era ése y no el archivo.
+
+**La regla, que vale para cualquier trabajo asíncrono con id guardado:** un identificador
+persistido es una optimización para reanudar, **no** un hecho permanente. Si la espera
+vence, el id es sospechoso y hay que soltarlo, o los reintentos son teatro. Y el corolario
+de siempre: un proveedor que devuelve **200 con el recurso a medias** es peor que uno que
+falla — no hay error que loguear y el único síntoma es un timeout, que apunta al lado
+equivocado.
 
 ### ⚠️ Las portadas se muestran ENTERAS, nunca recortadas
 
