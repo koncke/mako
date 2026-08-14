@@ -28,6 +28,7 @@ import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic'
 import { credWs } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota } from '@/lib/ia-cuotas';
 import { clavesDe } from '@/lib/ia-keys';
+import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { mensajeIAFallo } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
 
@@ -104,7 +105,14 @@ async function provDe(nombre: ProvName, clave?: string): Promise<Prov | null> {
  */
 async function provsDe(nombre: ProvName): Promise<Prov[]> {
   const out: Prov[] = [];
-  for (const cl of clavesProv(nombre)) {
+  // Solo las que ESTE workspace tiene cargadas (una query, cacheada por request) en
+  // vez de preguntar por las MAX_KEYS del catálogo: con el tope en 10 eso eran 10
+  // SELECT por proveedor —hasta 50 por generación— casi todos para descubrir que la
+  // key no existe. Si la lectura falla, `clavesCargadas` devuelve el catálogo entero
+  // y esto se comporta como antes.
+  // OJO: `nroCuenta` sigue usando `clavesProv` (la lista COMPLETA) a propósito — el
+  // número de cuenta tiene que salir del nombre, no de la posición entre las cargadas.
+  for (const cl of await clavesCargadas(nombre)) {
     const p = await provDe(nombre, cl);
     if (p) out.push(p);
   }

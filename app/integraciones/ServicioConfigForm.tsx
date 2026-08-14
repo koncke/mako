@@ -671,7 +671,10 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
 
                 {cerrada && !verValor ? (
                   <span style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    ••••{c.mask}
+                    {/* Un campo NO secreto (el email de la cuenta) se muestra entero:
+                        enmascarado se vería «••••.com», que es justo lo contrario de
+                        para lo que existe — distinguir de un vistazo diez cuentas. */}
+                    {c.secreto ? `••••${c.mask}` : c.mask}
                   </span>
                 ) : verValor ? (
                   // Revelada: NO se edita, se copia. Va como botón y no como input

@@ -19,8 +19,20 @@ test('la primera clave es la de siempre (no se le renombra a nadie su key)', () 
 });
 
 test('las extra son <BASE>_2 … _N y son exactamente MAX_KEYS', () => {
-  assert.deepEqual(clavesDe('gemini'), ['GEMINI_API_KEY', 'GEMINI_API_KEY_2', 'GEMINI_API_KEY_3']);
+  assert.equal(clavesDe('gemini')[0], 'GEMINI_API_KEY');
+  assert.equal(clavesDe('gemini')[1], 'GEMINI_API_KEY_2');
+  assert.equal(clavesDe('gemini').at(-1), `GEMINI_API_KEY_${MAX_KEYS}`);
   assert.equal(clavesDe('gemini').length, MAX_KEYS);
+  // Sin huecos ni repetidas: esta lista ES la whitelist del API. Una repetida sería
+  // una key que la UI ofrece dos veces; un hueco, una que ofrece y el server rechaza.
+  assert.equal(new Set(clavesDe('gemini')).size, MAX_KEYS);
+});
+
+test('el tope alcanza para lo que se consume hoy', () => {
+  // 250k tokens/día por cuenta (LIMITES_PROVEEDOR.gemini en lib/ia-cuotas.ts) contra
+  // ~860k/día medidos en el ws1 (agosto 2026). Si alguien baja MAX_KEYS, este test
+  // dice por qué no se puede — el número no es estético, cubre un consumo real.
+  assert.ok(MAX_KEYS * 250_000 > 860_000, 'MAX_KEYS no cubre el consumo diario medido del ws1');
 });
 
 test('un proveedor sin multi-key no inventa claves', () => {

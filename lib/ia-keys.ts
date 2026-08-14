@@ -32,11 +32,28 @@ export const ENV_BASE: Record<ProvMultiKey, string> = {
 };
 
 /**
- * Cuántas cuentas por proveedor. Tres no es un número mágico: es el techo de lo que
- * una persona sostiene sin perder de vista cuál es cuál. Si alguna vez sube, sube
- * ACÁ y la UI, la whitelist del API y la cascada se enteran solas.
+ * Cuántas cuentas por proveedor.
+ *
+ * ⚠️ ES UN TOPE DE NOMBRES, NO DE PRODUCTO — y esa distinción es lo único que
+ * mantiene CERRADA la whitelist del API. La cadena es: `MAX_KEYS` → `clavesDe` →
+ * `CLAVES_EXTRA` → `keysExtra` (lib/metodo-catalogo.ts) → `ENVS_METODO` → los
+ * guards de guardar / borrar / revelar de app/api/integraciones/credencial.
+ * Subir el número es gratis y seguro: la lista sigue siendo una lista.
+ *
+ * ⛔ LO QUE NO SE PUEDE HACER es reemplazar la lista por un patrón tipo
+ * `/_API_KEY(_\d+)?$/` «para que no tenga tope». `guardarCredencial` termina en
+ * `process.env[clave] = valor` cuando el workspace es el dueño, y `cfgDe()` relee
+ * `process.env.CHEAP_BASE_URL` en CADA llamada: un patrón que acepte una clave de
+ * más es **todo el tráfico de IA de todos los inquilinos saliendo hacia otro host
+ * con los Bearer adentro**. La distancia entre «acepta una de más» y eso es de una
+ * línea, así que el tope se sube cambiando este número y nada más.
+ *
+ * POR QUÉ 10: el free tier de Gemini son 250k tokens/día POR CUENTA
+ * (`LIMITES_PROVEEDOR` en lib/ia-cuotas.ts) y el ws1 consume ~860k/día medidos.
+ * Diez cuentas son 2,5M: casi 3× lo que se gasta. Si alguna vez no alcanza, se
+ * sube ACÁ y la UI, la whitelist y la cascada se enteran solas.
  */
-export const MAX_KEYS = 3;
+export const MAX_KEYS = 10;
 
 const esProvMultiKey = (p: string): p is ProvMultiKey => (PROVS_MULTIKEY as readonly string[]).includes(p);
 
@@ -66,3 +83,27 @@ export function slotDe(clave: string): number {
   const m = clave.match(/^(.+)_(\d+)$/);
   return m && CLAVES_EXTRA.includes(clave) ? Number(m[2]) : 1;
 }
+
+/**
+ * Sufijo del campo que dice DE QUÉ CUENTA es una key: `GEMINI_API_KEY_2_ACCOUNT`.
+ *
+ * ⚠️ El email NO se puede sacar de la API de ningún proveedor. Verificado el
+ * 2026-08-13 en los cinco: una key de Gemini cuelga de un PROYECTO de Google, no de
+ * una persona («Standard keys don't identify a caller», ai.google.dev), y el
+ * `GET /api/v1/key` de OpenRouter devuelve label/límites/uso pero ningún mail. Groq,
+ * Cerebras y Mistral no documentan endpoint de cuenta. Así que **lo escribe la
+ * persona**: lo que se automatiza es no volver a preguntarlo y mostrarlo siempre.
+ *
+ * Vive acá, con los nombres de clave, por «una cosa, un lugar»: el que deriva
+ * `GEMINI_API_KEY_2` es el mismo que deriva su acompañante.
+ */
+export const SUFIJO_CUENTA = '_ACCOUNT';
+
+/** El campo «de qué cuenta es» de una key. `GEMINI_API_KEY` → `GEMINI_API_KEY_ACCOUNT`. */
+export const claveCuentaDe = (clave: string): string => `${clave}${SUFIJO_CUENTA}`;
+
+/** true si la clave es un rótulo de cuenta y no un secreto (para no enmascararla). */
+export const esClaveDeCuenta = (clave: string): boolean => clave.endsWith(SUFIJO_CUENTA);
+
+/** Todos los rótulos de cuenta del catálogo: van a la whitelist junto con las keys. */
+export const CLAVES_CUENTA: string[] = PROVS_MULTIKEY.flatMap((p) => clavesDe(p).map(claveCuentaDe));

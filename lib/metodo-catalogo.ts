@@ -16,7 +16,7 @@
 // cae a NEXT_PUBLIC_APP_URL, que Next inlinea en el build. Se usa para escribir
 // la URL real en los pasos que la piden (ver ayudaDeCampo).
 import { APP_BASE_URL } from './app-url';
-import { claveBaseDe, clavesDe, slotDe } from './ia-keys';
+import { claveBaseDe, claveCuentaDe, clavesDe, slotDe } from './ia-keys';
 
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
@@ -111,15 +111,35 @@ export type ServicioMetodo = {
  * semáforo ya pintado (ver `integracionConectada`, que solo mira los requeridos).
  */
 const keysExtra = (prov: string, placeholder: string): CampoCredencial[] =>
-  clavesDe(prov).slice(1).map((env) => ({
-    env,
-    label: `API key ${slotDe(env)}`,
-    secreto: true,
-    opcional: true,
-    slot: slotDe(env),
-    placeholder,
-    nota: 'De OTRA cuenta del mismo proveedor. Cuando la anterior se queda sin cuota, MaKo sigue con esta sin que tengas que hacer nada.',
-  }));
+  clavesDe(prov).slice(1).flatMap((env) => [
+    {
+      env,
+      label: `API key ${slotDe(env)}`,
+      secreto: true,
+      opcional: true,
+      slot: slotDe(env),
+      placeholder,
+      nota: 'De OTRA cuenta del mismo proveedor. Cuando la anterior se queda sin cuota, MaKo sigue con esta sin que tengas que hacer nada.',
+    },
+    cuentaDe(env),
+  ]);
+
+/**
+ * El campo «de qué cuenta es esta key». NO es un secreto: se muestra entero, al lado
+ * de la key enmascarada, para poder distinguir diez cuentas de un vistazo.
+ *
+ * No se autocompleta porque NO SE PUEDE: ningún proveedor expone el dueño de una key
+ * (ver SUFIJO_CUENTA en lib/ia-keys.ts). Lo escribe la persona una vez.
+ */
+const cuentaDe = (envKey: string): CampoCredencial => ({
+  env: claveCuentaDe(envKey),
+  label: `Email de la cuenta ${slotDe(envKey)}`,
+  secreto: false,
+  opcional: true,
+  slot: slotDe(envKey),
+  placeholder: 'mimail@gmail.com',
+  nota: 'Para saber de un vistazo a qué cuenta pertenece esta key. No se comparte con nadie ni se usa para nada más.',
+});
 
 export const SERVICIOS_METODO: ServicioMetodo[] = [
   {
@@ -243,6 +263,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'IA rápida y gratis para tareas simples (clasificar, extraer, titular) y transcripción de notas de voz (Whisper). MaKo la prefiere sobre OpenAI cuando hay key: se limita por tokens/día, no por saldo.',
     campos: [
       { env: 'GROQ_API_KEY', label: 'API key', secreto: true, placeholder: 'gsk_…' },
+      cuentaDe('GROQ_API_KEY'),
       ...keysExtra('groq', 'gsk_…'),
     ],
     tutorial: {
@@ -262,6 +283,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'IA de Google con 1M de contexto y function-calling. El plan gratis no cobra, pero Google usa tus datos para mejorar sus productos (con revisión humana). Para datos de clientes usá una key PAGA (activá facturación en el proyecto): esa NO entrena.',
     campos: [
       { env: 'GEMINI_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…' },
+      cuentaDe('GEMINI_API_KEY'),
       ...keysExtra('gemini', 'AIza…'),
     ],
     tutorial: {
@@ -283,6 +305,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'IA gratis y MUY rápida (corre Llama en su propio chip). Con function-calling. Ideal para rotar cuando Gemini se queda sin cuota, sin gastar.',
     campos: [
       { env: 'CEREBRAS_API_KEY', label: 'API key', secreto: true, placeholder: 'csk-…' },
+      cuentaDe('CEREBRAS_API_KEY'),
       ...keysExtra('cerebras', 'csk-…'),
     ],
     tutorial: {
@@ -303,6 +326,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'IA europea con free tier (La Plateforme) y function-calling. Otra IA gratis para rotar sin caer en gasto.',
     campos: [
       { env: 'MISTRAL_API_KEY', label: 'API key', secreto: true, placeholder: '…' },
+      cuentaDe('MISTRAL_API_KEY'),
       ...keysExtra('mistral', '…'),
     ],
     tutorial: {
@@ -323,6 +347,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'Agregador: UNA key para decenas de modelos, varios GRATIS (Llama y otros con sufijo ":free"). Sirve para rotar y probar modelos sin múltiples cuentas.',
     campos: [
       { env: 'OPENROUTER_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-or-…' },
+      cuentaDe('OPENROUTER_API_KEY'),
       ...keysExtra('openrouter', 'sk-or-…'),
     ],
     tutorial: {

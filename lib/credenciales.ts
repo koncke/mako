@@ -26,6 +26,7 @@ import { getWorkspaceActual } from './workspace';
 import { OWNER_WS } from './auth-session';
 import { ENVS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
 import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs } from './webhook-routing';
+import { esClaveDeCuenta } from './ia-keys';
 
 export type CredencialMeta = {
   clave: string;
@@ -215,12 +216,16 @@ export async function integracionConectada(servicioKey: string, ws?: number): Pr
  */
 export async function estadoCampo(clave: string, ws?: number): Promise<EstadoCampo> {
   const w = await wsDefault(ws);
+  // Los rótulos de cuenta (`…_ACCOUNT`) NO son secretos: son el email que dice de
+  // qué cuenta es cada API key. Van enteros, porque enmascarados se verían
+  // `••••.com` — que es exactamente lo contrario de para lo que existen.
+  const visible = esClaveDeCuenta(clave);
   if (supabaseConfigurado()) {
     const { data } = await getSupabaseServer()
       .from('credenciales').select('valor_enc').eq('workspace_id', w).eq('clave', clave).maybeSingle();
     if (data) {
       const v = descifrar(data.valor_enc as string, w, clave);
-      if (esValorReal(v)) return { configurado: true, origen: 'panel', mask: v!.slice(-4), ilegible: false };
+      if (esValorReal(v)) return { configurado: true, origen: 'panel', mask: visible ? v! : v!.slice(-4), ilegible: false };
       // Guardada pero ilegible (rotó el secret) → re-pegar, aunque el dueño siga
       // andando con el respaldo del entorno.
       return { configurado: false, origen: null, mask: '', ilegible: true };
@@ -230,7 +235,7 @@ export async function estadoCampo(clave: string, ws?: number): Promise<EstadoCam
   // entorno (hueco entre el deploy y la migración del boot).
   const env = process.env[clave];
   if (w === OWNER_WS && esValorReal(env)) {
-    return { configurado: true, origen: 'servidor', mask: env.slice(-4), ilegible: false };
+    return { configurado: true, origen: 'servidor', mask: visible ? env : env.slice(-4), ilegible: false };
   }
   return { configurado: false, origen: null, mask: '', ilegible: false };
 }

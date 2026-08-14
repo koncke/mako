@@ -13,6 +13,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { getSaldo } from '@/lib/anthropic-usage';
 import { credWs } from '@/lib/credenciales';
 import { clavesDe } from '@/lib/ia-keys';
+import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { OWNER_WS, getWorkspaceActual } from '@/lib/workspace';
 
 export type LimiteProv = { label: string; rpd?: number; tokensDia?: number; nota?: string };
@@ -36,8 +37,14 @@ const UMBRAL = 0.9; // a partir de este % de cuota lo tratamos como "sin cuota" 
  * (`ordenarPorCuota`), y ponerlo del otro lado cerraba un ciclo de imports.
  */
 export async function cuentasDe(prov: string, ws?: number): Promise<number> {
-  const claves = clavesDe(prov);
-  if (!claves.length) return 1; // proveedor sin multi-key (openai/anthropic)
+  // Ojo con el orden de las dos preguntas, que dan lo mismo y significan distinto:
+  // «este proveedor no admite varias cuentas» (openai/anthropic) lo contesta
+  // `clavesDe` y vale 1; «no tiene ninguna cargada» lo contesta `clavesCargadas`
+  // y vale 0.
+  if (!clavesDe(prov).length) return 1; // proveedor sin multi-key (openai/anthropic)
+  // Las cargadas, no las MAX_KEYS del catálogo: con el tope en 10 esto eran 10
+  // SELECT por proveedor en CADA pintada del gauge (50 con los 5 proveedores).
+  const claves = await clavesCargadas(prov, ws);
   let n = 0;
   for (const c of claves) if (await credWs(c, ws)) n++;
   return n;
