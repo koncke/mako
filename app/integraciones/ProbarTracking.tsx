@@ -43,13 +43,18 @@ function legible(e: Evento): { texto: string; color: string } {
   if (m) return { texto: `Llegó al ${m[1]}% del VSL`, color: 'var(--good)' };
   const s = /^s(\d+)$/.exec(e.tipo);
   if (s) return { texto: `Vio ${s[1]} segundos`, color: 'var(--good)' };
+  // Un opt-in NO es un evento de tracking: vive en `propuestas`. Aparece igual en
+  // esta lista porque la instrucción dice «completá tu propio formulario», y sin
+  // esto ese formulario entraba perfecto sin producir un solo renglón — que es
+  // exactamente cómo se lee «el formulario no se registró».
+  if (e.tipo === 'optin') return { texto: e.detalle ? `Dejó sus datos: ${e.detalle}` : 'Dejó sus datos en el formulario', color: 'var(--good)' };
+  // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
+  // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.
+  if (e.tipo === 'click') return { texto: e.detalle ? `Hizo click: ${e.detalle}` : 'Hizo click', color: 'var(--primary)' };
   // ⚠️ «desconocido» NO es un evento: es lo que el beacon escribe cuando le llega
   // un tipo que no sabe clasificar (código viejo o modificado). Mostrarlo crudo
   // hacía aparecer la palabra «desconocido» en la lista, que se lee como que algo
   // se rompió — cuando lo que dice es que ese evento no se pudo interpretar.
-  // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
-  // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.
-  if (e.tipo === 'click') return { texto: e.detalle ? `Hizo click: ${e.detalle}` : 'Hizo click', color: 'var(--primary)' };
   if (e.tipo === 'desconocido') return { texto: 'Evento que no reconozco (código viejo o modificado)', color: 'var(--warn)' };
   return { texto: e.tipo, color: 'var(--dim)' };
 }
@@ -70,6 +75,10 @@ export function ProbarTracking() {
   const [url, setUrl] = useState('');
   const [previo, setPrevio] = useState<Diag | null>(null); // estado ANTES de arrancar
   const [bloqueo, setBloqueo] = useState(false); // apretó "probar" con el código viejo
+  // ⚠️ El marcador de ESTA prueba, como el `test_event_code` de Meta. Sin él, el
+  // panel traía las últimas 24 h enteras y aparecían horarios de la mañana entre
+  // los de recién: no había forma de saber cuáles eran los propios.
+  const [prueba, setPrueba] = useState<string | null>(null);
   const [eligiendoNueva, setEligiendoNueva] = useState(false); // eligió "Otra página…"
   const [paginas, setPaginas] = useState<string[]>([]);        // las GUARDADAS del workspace
   const [ocultas, setOcultas] = useState<string[]>([]);        // las que sacó de la lista a mano
@@ -139,9 +148,9 @@ export function ProbarTracking() {
   ];
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const traer = useCallback(async (guardarEn?: (d: Diag) => void) => {
+  const traer = useCallback(async (guardarEn?: (d: Diag) => void, pr?: string | null) => {
     try {
-      const r = await fetch('/api/integraciones/landing/estado?diag=1', { cache: 'no-store' }).then((x) => x.json());
+      const r = await fetch(`/api/integraciones/landing/estado?diag=1${pr ? `&prueba=${encodeURIComponent(pr)}` : ''}`, { cache: 'no-store' }).then((x) => x.json());
       if (r?.ok) {
         const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null, videosDetectados: r.videosDetectados ?? [], videos: r.videos ?? [] };
         (guardarEn ?? setDiag)(d);
@@ -169,10 +178,15 @@ export function ProbarTracking() {
   useEffect(() => {
     if (!activo) { if (timer.current) { clearInterval(timer.current); timer.current = null; } return; }
     setCargando(true);
-    traer();
-    timer.current = setInterval(traer, 3000);
+    // ⚠️ El marcador viaja en CADA consulta, incluida la del intervalo. Con
+    // `setInterval(traer, 3000)` a secas, el primer argumento que recibe `traer`
+    // es el contador del timer —no un marcador— y el filtro se perdía en cada
+    // refresco: la lista arrancaba limpia y a los 3 segundos volvían las 24 h.
+    const consultar = () => { void traer(undefined, prueba); };
+    consultar();
+    timer.current = setInterval(consultar, 3000);
     return () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
-  }, [activo, traer]);
+  }, [activo, traer, prueba]);
 
   const box: CSSProperties = { border: '1px solid var(--border)', borderRadius: 13, background: 'var(--surface-2)', padding: 16, fontFamily: SANS };
 
@@ -206,7 +220,17 @@ export function ProbarTracking() {
     // «se guarda al probarla», así que tiene que cumplirlo.
     if (!guardadaElegida) void guardarPaginaAction(u).then((r) => { if (r.ok) aplicar(r); });
     try { localStorage.setItem(URL_KEY, u); } catch { /* sin storage */ }
-    window.open(u, '_blank', 'noopener');
+    // El marcador de ESTA prueba, pegado a la URL que se abre. El snippet lo
+    // guarda en sessionStorage de esa pestaña y lo devuelve en cada evento, así
+    // que lo que se ve acá es lo que hiciste vos — no las visitas del día ni las
+    // de otra gente que esté en la página en este momento.
+    const id = `p${Math.random().toString(36).slice(2, 10)}`;
+    setPrueba(id);
+    const sep = u.includes('?') ? '&' : '?';
+    // El hash va SIEMPRE al final: `pagina.com/#registro?mko_test=x` deja el
+    // parámetro adentro del hash y `location.search` no lo ve nunca.
+    const [base, hash] = u.split('#');
+    window.open(`${base}${sep}mko_test=${id}${hash ? `#${hash}` : ''}`, '_blank', 'noopener');
     setActivo(true);
   };
 
@@ -314,7 +338,7 @@ export function ProbarTracking() {
           <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--good)', animation: 'pt-latido 1.4s infinite', flex: 'none' }} />
           <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Escuchando… {diag ? `· ${diag.veredicto}` : ''}</span>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => setActivo(false)}>Terminar</Button>
+        <Button variant="secondary" size="sm" onClick={() => { setActivo(false); setPrueba(null); }}>Terminar</Button>
       </div>
       <style>{'@keyframes pt-latido{0%,100%{opacity:1}50%{opacity:.25}}'}</style>
 
@@ -322,8 +346,10 @@ export function ProbarTracking() {
           hablaba del video, y para un negocio cuya landing es un formulario —el
           caso que destapó esto— la prueba entera parecía no ser para él. */}
       <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 12 }}>
-        Abrí tu landing en otra pestaña y probá lo que uses: <b>reproducí el video</b> más de 15 segundos,
-        y <b>completá tu propio formulario</b> con tu email. Los eventos aparecen acá en unos segundos.
+        Ya te abrimos tu landing en otra pestaña. Probá ahí lo que uses: <b>reproducí el video</b> unos
+        segundos, <b>apretá tus botones</b> y <b>completá tu propio formulario</b>. Los eventos aparecen
+        acá en unos segundos, y <b>solo se muestran los de esta prueba</b> — no las visitas del día ni
+        las de otra gente que esté en tu página ahora.
       </div>
 
       {/* Los chequeos: qué anda y qué no, en criollo. El total lo dice el server
@@ -354,7 +380,7 @@ export function ProbarTracking() {
         {cargando && !diag && <div style={{ padding: 16, fontSize: 13, color: 'var(--faint)' }}>Conectando…</div>}
         {diag && diag.eventos.length === 0 && (
           <div style={{ padding: 18, fontSize: 13, color: 'var(--faint)', lineHeight: 1.55 }}>
-            Todavía no llegó nada en las últimas 24 h. Si ya abriste tu landing y no aparece nada, el código no está pegado o no se publicó.
+            Todavía no llegó nada de esta prueba. Movete un poco por la pestaña que te abrimos: si no aparece nada, el código no está pegado o esa página no se publicó.
           </div>
         )}
         {diag?.eventos.map((e, i) => {

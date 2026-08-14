@@ -128,6 +128,10 @@ export async function POST(req: NextRequest) {
         origen: 'landing',
         pagina: txt(body.pagina) ?? txt(body.url) ?? req.headers.get('referer'),
       }],
+      // Marcador de la sesión de prueba, si vino. Va en `datos` y no en una
+      // columna propia: `propuestas` es una tabla genérica de todos los canales, y
+      // una columna que solo usa uno la vuelve la tabla de ese canal.
+      prueba: txt(body.prueba),
     },
   });
 

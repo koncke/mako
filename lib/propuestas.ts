@@ -78,9 +78,40 @@ export async function crearPropuesta(input: {
     const db = await getTenantDb();
     const ref = input.ref?.trim().slice(0, 200) || null;
 
+    // ⚠️ EL ESTADO SE MIRA. Antes se leía (`select('id, estado')`) y no se usaba
+    // para nada: cualquier fila con esa `ref` bloqueaba, incluida una DESCARTADA.
+    //
+    // Y descartar no significa «esta persona no existe»: significa «esto no era
+    // un lead» o «me equivoqué». Si mañana la misma persona vuelve a completar el
+    // formulario, eso es intención NUEVA y tiene que poder revisarse — con el
+    // código viejo no volvía a entrar nunca más, en silencio y para siempre.
+    //
+    // Las otras dos sí bloquean, y por razones distintas:
+    //   · 'pendiente' → ya está esperando; proponerla de nuevo duplica la fila.
+    //   · 'aplicada'  → el lead YA está en el CRM; re-proponerlo lo duplicaría.
+    let refFinal = ref;
     if (ref) {
       const { data } = await db.from('propuestas').select('id, estado').eq('ref', ref).maybeSingle();
-      if (data) return { id: str((data as Record<string, unknown>).id), nueva: false };
+      const estado = data ? str((data as Record<string, unknown>).estado) : null;
+      if (data && estado !== 'descartada') return { id: str((data as Record<string, unknown>).id), nueva: false };
+      // Descartada: entra de nuevo, con una `ref` propia para no chocar con la
+      // vieja. El día en la llave mantiene la idempotencia donde hace falta —dos
+      // submits seguidos siguen siendo uno— sin encadenar a esa persona a una
+      // decisión que se tomó hace un mes.
+      if (data) {
+        refFinal = `${ref}:${new Date().toISOString().slice(0, 10)}`.slice(0, 200);
+        // Y la llave del día también se consulta, o el SEGUNDO submit del mismo
+        // día chocaría contra el unique de `ref` — la idempotencia se rompería
+        // justo en el caso que esta rama vino a habilitar.
+        const { data: hoy } = await db.from('propuestas').select('id, estado').eq('ref', refFinal).maybeSingle();
+        if (hoy && str((hoy as Record<string, unknown>).estado) !== 'descartada') {
+          return { id: str((hoy as Record<string, unknown>).id), nueva: false };
+        }
+        // Descartada OTRA VEZ hoy: se deja entrar sin llave. Perder la
+        // idempotencia de un caso tan raro es mucho más barato que volver a
+        // encadenar a esa persona, que es el bug que se está arreglando.
+        if (hoy) refFinal = null;
+      }
     }
 
     const id = nuevoId();
@@ -91,7 +122,7 @@ export async function crearPropuesta(input: {
       origen: input.origen?.slice(0, 60) ?? null,
       resumen: (input.resumen ?? '').slice(0, 300),
       datos: input.datos,
-      ref,
+      ref: refFinal,
     });
     if (error) throw new Error(`crearPropuesta: ${error.message}`);
     return { id, nueva: true };

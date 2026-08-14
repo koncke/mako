@@ -146,7 +146,9 @@ type Payload = {
   video_id?: unknown;    // id del video de Panda (pruebas A/B de VSL)
   vsl_titulo?: unknown;
   /** Solo en tipo_evento='click': el destino o el texto del botón (mig 0133). */
-  detalle?: unknown;  // título del video de Panda, si la landing lo puede leer
+  detalle?: unknown;
+  /** Marcador de sesión de prueba (?mko_test=). NULL en el tráfico real. */
+  prueba?: unknown;  // título del video de Panda, si la landing lo puede leer
   landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
   referrer?: unknown;
   event?: unknown;       // legacy
@@ -237,6 +239,7 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
         // URL exacta de la landing (multi-landing / pruebas A/B) + referrer.
         landing_url: texto(payload.landing_url, 500),
         referrer: texto(payload.referrer, 500),
+        prueba: texto(payload.prueba, 40),
       });
       if (error) console.error(`[track:vsl] landing_visits insert falló: ${error.message}`);
     } catch (err) {
@@ -304,6 +307,7 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       // Qué se clickeó (mig 0133). Solo viaja en tipo_evento='click'; en el resto
       // queda NULL, que es la verdad — un default inventaría un dato.
       detalle: texto(payload.detalle, 300),
+      prueba: texto(payload.prueba, 40),
     });
     if (error) {
       console.error(`[track:vsl] insert falló: ${error.message}`);

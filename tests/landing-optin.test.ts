@@ -250,7 +250,10 @@ test('con el código viejo no se deja probar, y «Verificar» lo dice', () => {
 test('la prueba se corre sobre una landing ELEGIDA, no sobre «abrila vos»', () => {
   const probar = leer('../app/integraciones/ProbarTracking.tsx');
   assert.ok(/previo\?\.urls/.test(probar), 'las landings que ya mandaron eventos se ofrecen: pedir que tipee una URL que ya tenemos es trabajo inventado');
-  assert.ok(/window\.open\(u, '_blank'/.test(probar), 'la prueba abre la página, como el Test Events de Meta');
+  // Ya no se abre `u` pelada: lleva pegado el marcador de la prueba. Lo que hay
+  // que afirmar es que se abre en OTRA pestaña, no la forma exacta de la URL.
+  assert.ok(/window\.open\(`\$\{base\}\$\{sep\}mko_test=/.test(probar), 'la prueba abre la página, como el Test Events de Meta');
+  assert.ok(/'_blank', 'noopener'/.test(probar), 'siempre en otra pestaña');
   assert.ok(/localStorage\.setItem\(URL_KEY/.test(probar), 'la URL se recuerda: se elige una vez, no en cada prueba');
 
   const lib = leer('../lib/landing-token.ts');
@@ -282,7 +285,7 @@ test('el panel usa las piezas de la casa, no HTML crudo', () => {
   const idle = probar.slice(probar.indexOf('if (!activo)'), probar.indexOf('{avisoViejo}'));
   const botones = idle.match(/<Button\b/g) ?? [];
   assert.equal(botones.length, 1, `el arranque de la prueba tiene que tener UN botón y tiene ${botones.length}`);
-  assert.ok(/window\.open\(u, '_blank'/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
+  assert.ok(/window\.open\(`/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
 });
 
 test('el código usa LA MISMA barra que una credencial, no una pieza propia', () => {
@@ -529,4 +532,57 @@ test('la llave de idempotencia del opt-in se normaliza', () => {
   assert.ok(/replace\(\/\\D\/g, ''\)/.test(ruta), 'el teléfono se reduce a sus dígitos antes de ser la llave');
   assert.ok(ruta.includes('.slice(-10)'), 'el mismo número con y sin código de país es el mismo número');
   assert.ok(/const clave = email \?\?/.test(ruta), 'el email manda sobre el teléfono como identidad');
+});
+
+test('el probador muestra SOLO los eventos de esta prueba', () => {
+  // Reportado el 14/08/2026: «al darle probar te trae TODOS los eventos pasados y
+  // eso confunde, lo supe porque vi diferentes horarios». Era cierto: la ventana
+  // era de 24 h. Es el mismo mecanismo que el `test_event_code` de Meta.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/mko_test=\$\{id\}/.test(panel), 'la landing se abre sin el marcador de la prueba');
+  // ⚠️ El hash va SIEMPRE al final: `pagina.com/#registro?mko_test=x` deja el
+  // parámetro DENTRO del hash y `location.search` no lo ve nunca — y esa landing
+  // es justamente la que se prueba con `#registro`.
+  assert.ok(/const \[base, hash\] = u\.split\('#'\)/.test(panel), 'con un ancla en la URL el parámetro quedaría adentro del hash');
+  // Y el marcador viaja en CADA consulta, incluida la del intervalo: pasar
+  // `traer` directo a setInterval le entrega el contador del timer como primer
+  // argumento, y el filtro se perdía a los 3 segundos.
+  assert.ok(/const consultar = \(\) => \{ void traer\(undefined, prueba\); \}/.test(panel), 'el poll pierde el marcador');
+
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/landingDiagnostico\(prueba\?: string \| null\)/.test(lib), 'el diagnóstico tiene que poder filtrar por prueba');
+  assert.ok(/prueba \? qVsl\.eq\('prueba', prueba\) : qVsl\.gte/.test(lib), 'con marcador se filtra por marcador, sin él por ventana de tiempo');
+  // El snippet lo devuelve, y sobrevive a navegar dentro de la pestaña.
+  assert.ok(/sessionStorage\.setItem\('mko_test', prueba\)/.test(lib), 'el marcador tiene que sobrevivir a un CTA que va a otra página');
+  assert.ok(/if \(prueba\) data\.prueba = prueba/.test(lib), 'el marcador tiene que viajar en cada evento');
+  // sessionStorage y NO una cookie: una cookie contaminaría el tráfico real
+  // durante un año, marcando como «prueba» visitas que no lo son.
+  assert.ok(!/mko_test[^\n]*max-age/.test(lib), 'el marcador NO puede vivir en una cookie');
+});
+
+test('un opt-in APARECE en el feed del probador', () => {
+  // El feed se armaba solo con vsl_events y landing_visits, así que un formulario
+  // que entraba PERFECTO no producía un solo renglón — y la instrucción decía
+  // «completá tu propio formulario, los eventos aparecen acá». Una promesa que la
+  // pantalla no podía cumplir, y se leyó como «el formulario no se registró».
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/tipo: 'optin'/.test(lib), 'el opt-in no llega al feed de eventos');
+  assert.ok(/from\('propuestas'\)[^\n]*eq\('origen', 'landing'\)/.test(lib), 'el opt-in vive en propuestas, no en una tabla de eventos');
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/e\.tipo === 'optin'/.test(panel), 'el opt-in no se traduce en la lista');
+});
+
+test('descartar una propuesta NO encadena a esa persona para siempre', () => {
+  // `crearPropuesta` hacía `select('id, estado')` y NO miraba el estado: cualquier
+  // fila con esa ref bloqueaba, incluida una DESCARTADA. Descartar no significa
+  // «esta persona no existe»: significa «esto no era un lead» o «me equivoqué».
+  // Si mañana vuelve a completar el formulario, eso es intención NUEVA.
+  const p = leer('../lib/propuestas.ts');
+  assert.ok(/estado !== 'descartada'/.test(p), 'una propuesta descartada no puede bloquear a esa persona');
+  // Las otras dos SÍ bloquean, y por razones distintas: 'pendiente' ya está
+  // esperando, y 'aplicada' significa que el lead YA está en el CRM.
+  assert.ok(/refFinal = `\$\{ref\}:\$\{new Date\(\)\.toISOString\(\)\.slice\(0, 10\)\}`/.test(p), 'la ref nueva necesita ser distinta de la vieja');
+  // Y la llave del día se consulta también, o el segundo submit del mismo día
+  // choca contra el unique de `ref`.
+  assert.ok(/eq\('ref', refFinal\)/.test(p), 'sin esto el segundo submit del día rompe la idempotencia que esta rama habilita');
 });

@@ -61,9 +61,12 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *   5 — el estado del player pasa a ser POR VIDEO. Era uno global para toda la
  *       página, así que una landing con dos videos no medía dos curvas mezcladas:
  *       medía mal la segunda. Ver el comentario de `est()` en el snippet.
- *   6 — se miden los CLICKS en botones y links (14/08/2026). Para una landing
- *       cuyo CTA es un ancla (#registro) o un link de WhatsApp, el click ES el
- *       embudo: sin eso, entre «visitó» y «dejó sus datos» no hay nada.
+ *   6 — se miden los CLICKS en botones y links, y cada evento puede viajar con un
+ *       MARCADOR DE PRUEBA (14/08/2026). Para una landing cuyo CTA es un ancla
+ *       (#registro) o un link de WhatsApp, el click ES el embudo: sin eso, entre
+ *       «visitó» y «dejó sus datos» no hay nada. El marcador entra en la MISMA
+ *       versión a propósito: no estaba anunciada todavía, así que quien repega el
+ *       código lo hace UNA vez y se lleva las dos cosas.
  */
 export const SNIPPET_VERSION = 6;
 
@@ -99,7 +102,7 @@ const NOVEDADES: Record<number, string> = {
   3: 'un arreglo del código: la versión anterior salió sin identificador y dejó de medir y de capturar',
   4: 'la medición de videos CORTOS: antes, uno de menos de 15 segundos no registraba ningún avance',
   5: 'la medición de TODOS los videos de la página por separado: antes, si tenías más de uno, el segundo casi no medía y su avance se calculaba con la duración del primero',
-  6: 'la medición de los CLICKS: qué botón aprietan y qué links abren (el de WhatsApp, los que llevan al formulario). Antes, entre «visitó» y «dejó sus datos» no había ningún punto intermedio',
+  6: 'la medición de los CLICKS: qué botón aprietan y qué links abren (el de WhatsApp, los que llevan al formulario). Antes, entre «visitó» y «dejó sus datos» no había ningún punto intermedio · y el probador de «¿funciona mi código?» ahora te muestra SOLO los eventos de tu prueba, en vez de mezclarlos con las visitas del día',
 };
 
 export function novedadesDesde(instalada: number): string {
@@ -344,12 +347,37 @@ export type LandingDiagnostico = {
  * Últimos eventos + los 4 chequeos que importan. La ventana es corta a propósito
  * (24 h): "¿anda AHORA?" no se contesta con lo que llegó el mes pasado.
  */
-export async function landingDiagnostico(): Promise<LandingDiagnostico> {
+export async function landingDiagnostico(prueba?: string | null): Promise<LandingDiagnostico> {
   const db = await getTenantDb();
   const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const [vsl, visitas] = await Promise.all([
-    db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle').gte('created_at', desde).order('created_at', { ascending: false }).limit(40),
-    db.from('landing_visits').select('created_at, landing_url').gte('created_at', desde).order('created_at', { ascending: false }).limit(20),
+  // ⚠️ CON MARCADOR, SOLO LOS DE ESA PRUEBA. Sin él, apretar «Probar» mostraba las
+  // últimas 24 h enteras y aparecían horarios de la mañana entre los de recién:
+  // no había forma de saber cuáles eran los propios. Es el `test_event_code` de
+  // Meta — la app abre la landing con `?mko_test=<id>` y el snippet lo devuelve.
+  //
+  // Filtrar por HORA no alcanzaba: dejaría afuera los viejos pero NO los de otra
+  // gente visitando la página en ese momento, y esta landing tiene tráfico real.
+  // Un probador que te muestra la visita de un desconocido como si fuera tuya es
+  // peor que uno que muestra de más: te hace creer que tu código anda cuando lo
+  // que anda es el de la visita ajena.
+  // Se escribe el ternario en cada query en vez de un helper genérico: el
+  // encadenado de PostgREST está tipado con genéricos que se vuelven infinitos al
+  // pasarlos por una función propia, y pelear con eso no vale un renglón menos.
+  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle');
+  const qVis = db.from('landing_visits').select('created_at, landing_url');
+
+  const [vsl, visitas, optinsFeed] = await Promise.all([
+    (prueba ? qVsl.eq('prueba', prueba) : qVsl.gte('created_at', desde)).order('created_at', { ascending: false }).limit(40),
+    (prueba ? qVis.eq('prueba', prueba) : qVis.gte('created_at', desde)).order('created_at', { ascending: false }).limit(20),
+    // ⚠️ EL OPT-IN, QUE NO PODÍA APARECER NUNCA. El feed se armaba solo con
+    // `vsl_events` y `landing_visits`, así que un formulario que entraba PERFECTO
+    // no producía un solo renglón — y la instrucción de arriba dice «completá tu
+    // propio formulario, los eventos aparecen acá». Era una promesa que la
+    // pantalla no podía cumplir, y se leyó como «el formulario no se registró».
+    // Vive en `propuestas` porque un opt-in no es un evento: es algo para revisar.
+    prueba
+      ? db.from('propuestas').select('created_at, resumen').eq('origen', 'landing').eq('datos->>prueba', prueba).order('created_at', { ascending: false }).limit(10)
+      : db.from('propuestas').select('created_at, resumen').eq('origen', 'landing').gte('created_at', desde).order('created_at', { ascending: false }).limit(10),
   ]);
 
   const eventos: EventoDiag[] = [
@@ -359,6 +387,8 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
       detalle: r.detalle ?? r.vsl_titulo })),
     ...((visitas.data ?? []) as Array<{ created_at: string; landing_url: string | null }>)
       .map((r) => ({ ts: r.created_at, tipo: 'pageview', porcentaje: null, segundos: null, detalle: r.landing_url })),
+    ...((optinsFeed.data ?? []) as Array<{ created_at: string; resumen: string | null }>)
+      .map((r) => ({ ts: r.created_at, tipo: 'optin', porcentaje: null, segundos: null, detalle: r.resumen })),
   ].sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 25);
 
   const hayPageview = eventos.some((e) => e.tipo === 'pageview');
@@ -520,10 +550,25 @@ export function landingSnippet(token: string): string {
   }
   var leadToken = new URLSearchParams(location.search).get('l') || null;
 
+  // MARCADOR DE PRUEBA (como el test_event_code de Meta). La app abre la landing
+  // con ?mko_test=<id> y desde ahí cada evento de ESTA pestaña viaja marcado, así
+  // el probador muestra lo que hiciste vos y no las últimas 24 h de todo el mundo.
+  //
+  // En sessionStorage y no en una variable: el marcador tiene que sobrevivir a
+  // navegar dentro de la pestaña (que es lo que hace un CTA que va a otra página),
+  // y morir al cerrarla. En una cookie contaminaría el tráfico real durante un año.
+  var prueba = null;
+  try {
+    prueba = new URLSearchParams(location.search).get('mko_test');
+    if (prueba) sessionStorage.setItem('mko_test', prueba);
+    else prueba = sessionStorage.getItem('mko_test');
+  } catch (e) {}
+
   function enviar(data) {
     data.t = TOKEN;
     data.sv = SV;
     data.visitor_id = visitorId;
+    if (prueba) data.prueba = prueba;
     if (leadToken) data.l = leadToken;
     try {
       fetch(ENDPOINT, {
@@ -730,7 +775,8 @@ export function landingSnippet(token: string): string {
           email: email,
           telefono: telefono,
           empresa: campo(form, ['empresa', 'company', 'negocio']),
-          pagina: location.href
+          pagina: location.href,
+          prueba: prueba
         }),
         keepalive: true
       }).catch(function () {});

@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       // chequeos— y dos requests para un panel es una condición de carrera que
       // se ve como «a veces aparece la lista vacía».
       const [d, detectados, guardados] = await runWithWorkspace(ctx.ws, () =>
-        Promise.all([landingDiagnostico(), videosDetectados(), getVideosLanding()]),
+        Promise.all([landingDiagnostico(req.nextUrl.searchParams.get('prueba')), videosDetectados(), getVideosLanding()]),
       );
       return NextResponse.json({ ok: true, ...d, videosDetectados: detectados, videos: guardados });
     }
