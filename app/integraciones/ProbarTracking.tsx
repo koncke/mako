@@ -13,6 +13,7 @@
 // pega una vez y queda congelado ahí para siempre).
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Button, Input, Select } from '@/app/_ui';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -40,6 +41,8 @@ const COLOR: Record<string, string> = { ok: 'var(--good)', falta: 'var(--faint)'
 
 /** La landing elegida para probar. Se recuerda para no volver a tipearla. */
 const URL_KEY = 'mako.landing.url_prueba';
+/** Valor centinela de la última opción del desplegable. */
+const NUEVA = '__nueva__';
 
 export function ProbarTracking() {
   const [activo, setActivo] = useState(false);
@@ -49,6 +52,8 @@ export function ProbarTracking() {
   const [url, setUrl] = useState('');
   const [previo, setPrevio] = useState<Diag | null>(null); // estado ANTES de arrancar
   const [bloqueo, setBloqueo] = useState(false); // apretó "probar" con el código viejo
+  const [eligiendoNueva, setEligiendoNueva] = useState(false); // eligió "Otra página…"
+  const urlValida = /^https?:\/\/.+/i.test(url.trim());
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const traer = useCallback(async (guardarEn?: (d: Diag) => void) => {
@@ -95,6 +100,9 @@ export function ProbarTracking() {
   // probar; lo que corresponde es dejarla intentar y decirle ahí por qué todavía no.
   const arrancar = () => {
     if (previo?.codigoViejo) { setBloqueo(true); return; }
+    const u = url.trim();
+    try { localStorage.setItem(URL_KEY, u); } catch { /* sin storage */ }
+    window.open(u, '_blank', 'noopener');
     setActivo(true);
   };
 
@@ -117,39 +125,38 @@ export function ProbarTracking() {
           Elegí cuál de tus páginas querés probar. La abrimos en otra pestaña y acá ves llegar los eventos en vivo.
         </div>
 
-        {/* Elegir en vez de tipear: las landings que YA mandaron eventos las
-            conoce el sistema, y pedirle a alguien que copie una URL que ya
-            tenemos es trabajo inventado. El campo libre queda para la primera
-            vez, cuando todavía no llegó nada de ninguna. */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-          {(previo?.urls ?? []).length > 0 && (
-            <select value={(previo?.urls ?? []).includes(url) ? url : ''} onChange={(e) => setUrl(e.target.value)}
-              style={{ flex: '1 1 240px', minWidth: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontFamily: SANS }}>
-              <option value="">Elegí una de tus páginas…</option>
-              {(previo?.urls ?? []).map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
+        {/* UN desplegable, no un desplegable AL LADO de un input. Las páginas que
+            ya mandaron eventos las conoce el sistema; la última opción es la
+            salida para una nueva, y recién ahí aparece dónde escribirla. Dos
+            campos que hacen lo mismo obligan a elegir cuál usar antes de poder
+            contestar la pregunta.
+            Y es el `Select` de la casa: el <select> nativo está prohibido —no se
+            puede estilar igual en todos los navegadores— y además este se
+            renderiza en portal, así que el scroll del modal no lo recorta. */}
+        <div style={{ marginTop: 14 }}>
+          <Select
+            ariaLabel="Página a probar"
+            value={eligiendoNueva ? NUEVA : url}
+            onChange={(v) => { setUrl(v === NUEVA ? '' : v); setEligiendoNueva(v === NUEVA); }}
+            placeholder="Elegí una página…"
+            options={[
+              ...(previo?.urls ?? []).map((u) => ({ value: u, label: u })),
+              { value: NUEVA, label: 'Otra página…', sub: 'escribí la dirección' },
+            ]}
+          />
+          {/* Solo cuando hace falta: un campo vacío al lado del desplegable es
+              una pregunta de más en el 90% de los casos. */}
+          {eligiendoNueva && (
+            <div style={{ marginTop: 9 }}>
+              <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-pagina.com" inputMode="url" autoFocus />
+            </div>
           )}
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-pagina.com" inputMode="url"
-            style={{ flex: '1 1 240px', minWidth: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontFamily: SANS }} />
         </div>
 
-        <div style={{ display: 'flex', gap: 9, marginTop: 12, flexWrap: 'wrap' }}>
-          <button type="button"
-            disabled={!/^https?:\/\/.+/i.test(url.trim())}
-            onClick={() => {
-              if (previo?.codigoViejo) { setBloqueo(true); return; }
-              const u = url.trim();
-              try { localStorage.setItem(URL_KEY, u); } catch { /* sin storage */ }
-              window.open(u, '_blank', 'noopener');
-              setActivo(true);
-            }}
-            style={{ flex: 'none', padding: '11px 20px', borderRadius: 11, border: 'none', background: /^https?:\/\/.+/i.test(url.trim()) ? 'var(--primary)' : 'var(--border)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: /^https?:\/\/.+/i.test(url.trim()) ? 'pointer' : 'not-allowed', fontFamily: SANS }}>
-            Abrir mi página y empezar
-          </button>
-          <button type="button" onClick={arrancar}
-            style={{ flex: 'none', padding: '11px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-            Ya la tengo abierta
-          </button>
+        {/* UN solo botón. Siempre abre la página en otra pestaña: si la prueba
+            depende de que la persona se acuerde de abrirla, la prueba no arranca. */}
+        <div style={{ marginTop: 14 }}>
+          <Button variant="primary" onClick={arrancar} disabled={!urlValida}>Probar</Button>
         </div>
 
         {avisoViejo}
@@ -164,10 +171,7 @@ export function ProbarTracking() {
           <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--good)', animation: 'pt-latido 1.4s infinite', flex: 'none' }} />
           <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Escuchando… {diag ? `· ${diag.veredicto}` : ''}</span>
         </div>
-        <button type="button" onClick={() => setActivo(false)}
-          style={{ flex: 'none', padding: '8px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-          Terminar
-        </button>
+        <Button variant="secondary" size="sm" onClick={() => setActivo(false)}>Terminar</Button>
       </div>
       <style>{'@keyframes pt-latido{0%,100%{opacity:1}50%{opacity:.25}}'}</style>
 

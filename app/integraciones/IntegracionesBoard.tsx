@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
+import { Button } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { Carrusel, EnlaceMaKo } from '../_components/PanelMarketing';
@@ -886,23 +887,27 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
         Pegá este código en tu landing
       </h4>
 
-      <pre style={{ margin: 0, minWidth: 0, background: CODE.bg, border: `1px solid ${CODE.bd}`, borderRadius: 12, padding: '13px 15px', maxHeight: 210, overflow: 'auto', fontFamily: MONO, fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre', userSelect: 'all' }}>
-        <code style={{ fontFamily: MONO }}>
-          {tokens.map((tk, n) => <span key={n} style={{ color: tk.c }}>{tk.t}</span>)}
-        </code>
-      </pre>
-
+      {/* Las acciones ANTES del código. Lo que hay que hacer es copiar y pegar:
+          nadie lee el snippet. Tenerlo desplegado empujaba los dos botones abajo
+          de 200 px de JavaScript, y encima el bloque compite por atención con lo
+          único accionable de la sección. Se pliega, y copiar sigue andando
+          plegado: la acción no depende de ver el contenido. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-        <button type="button" onClick={copiar}
-          style={{ padding: '9px 15px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          {copiado ? '¡Copiado!' : 'Copiar código'}
-        </button>
-        <button type="button" onClick={verificar} disabled={verificando}
-          style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: verificando ? 'default' : 'pointer', opacity: verificando ? 0.6 : 1 }}>
-          {verificando ? 'Verificando…' : 'Verificar'}
-        </button>
-        {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — seleccionalo y copialo a mano.</span>}
+        <Button variant="primary" onClick={copiar} ok={copiado} okLabel="¡Copiado!">Copiar código</Button>
+        <Button variant="secondary" onClick={verificar} loading={verificando}>Verificar</Button>
       </div>
+      {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — abrilo, seleccionalo y copialo a mano.</span>}
+
+      <details style={{ minWidth: 0 }}>
+        <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--dim)', padding: '9px 0', listStyle: 'revert' }}>
+          Ver el código
+        </summary>
+        <pre style={{ margin: '4px 0 0', minWidth: 0, background: CODE.bg, border: `1px solid ${CODE.bd}`, borderRadius: 12, padding: '13px 15px', maxHeight: 210, overflow: 'auto', fontFamily: MONO, fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre', userSelect: 'all' }}>
+          <code style={{ fontFamily: MONO }}>
+            {tokens.map((tk, n) => <span key={n} style={{ color: tk.c }}>{tk.t}</span>)}
+          </code>
+        </pre>
+      </details>
 
       {estado && (
         <div style={{ fontSize: 12.5, fontWeight: 500, color: estado.ok ? 'var(--good)' : 'var(--bad)', lineHeight: 1.45 }}>

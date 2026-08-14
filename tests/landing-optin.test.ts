@@ -207,3 +207,42 @@ test('la prueba se corre sobre una landing ELEGIDA, no sobre «abrila vos»', ()
   const lib = leer('../lib/landing-token.ts');
   assert.ok(/urls,/.test(lib) && /landing_url/.test(lib), 'el server tiene que devolver las URLs conocidas');
 });
+
+test('el panel usa las piezas de la casa, no HTML crudo', () => {
+  // Sin comentarios: el comentario del componente explica POR QUÉ el <select>
+  // nativo está prohibido, y esa memoria no puede hacer fallar el test. Es la
+  // tercera vez que este mismo detalle muerde — por eso queda escrito acá.
+  const probar = leer('../app/integraciones/ProbarTracking.tsx')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  // El <select> nativo está PROHIBIDO por el propio componente de la casa: no se
+  // puede estilar igual en todos los navegadores. Y el Select propio se renderiza
+  // en portal, así que el scroll del modal no le recorta el menú.
+  assert.ok(!/<select/.test(probar), 'volvió el <select> nativo');
+  assert.ok(!/<input /.test(probar), 'volvió el <input> crudo: hay Input en app/_ui');
+  assert.ok(/<Select\b/.test(probar) && /<Input\b/.test(probar) && /<Button\b/.test(probar), 'tiene que usar Select/Input/Button de app/_ui');
+
+  // UN desplegable, no un desplegable AL LADO de un input: dos campos que hacen
+  // lo mismo obligan a elegir cuál usar antes de poder contestar la pregunta.
+  assert.ok(/value: NUEVA, label: 'Otra página…'/.test(probar), 'la salida para una página nueva es la última OPCIÓN del desplegable');
+  assert.ok(/eligiendoNueva && \(/.test(probar), 'el campo libre aparece solo cuando se elige «Otra página…»');
+
+  // UN solo botón, y siempre abre la pestaña: si la prueba depende de que la
+  // persona se acuerde de abrir su página, la prueba no arranca.
+  // Se cuenta en el panel de ARRANQUE (hasta que la prueba está corriendo): el
+  // «Terminar» de la sesión activa no compite con nada.
+  const idle = probar.slice(probar.indexOf('if (!activo)'), probar.indexOf('{avisoViejo}'));
+  const botones = idle.match(/<Button\b/g) ?? [];
+  assert.equal(botones.length, 1, `el arranque de la prueba tiene que tener UN botón y tiene ${botones.length}`);
+  assert.ok(/window\.open\(u, '_blank'/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
+});
+
+test('el código se pliega, pero copiar sigue andando plegado', () => {
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  const i = board.indexOf('Pegá este código en tu landing');
+  const bloque = board.slice(i, i + 2200);
+  assert.ok(/<details/.test(bloque), 'el bloque de código tiene que poder plegarse: nadie lo lee, y empuja las acciones fuera de la vista');
+  // Las acciones ANTES del <details>: lo accionable no puede quedar debajo de
+  // 200 px de JavaScript.
+  assert.ok(bloque.indexOf('Copiar código') < bloque.indexOf('<details'), 'los botones van ARRIBA del código plegado');
+  assert.ok(!/<button type="button" onClick=\{copiar\}/.test(bloque), 'volvió el <button> crudo: hay Button en app/_ui');
+});
