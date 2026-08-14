@@ -1,16 +1,19 @@
 'use server';
 
 // =============================================================================
-// Las páginas guardadas del workspace — leer, guardar, editar y borrar
+// Lo que el workspace declara sobre su landing — páginas y videos
 // =============================================================================
-// La decisión (normalizar, deduplicar, reemplazar al editar) vive en
-// `lib/landing-paginas.ts`, sin `server-only`, para poder testearla. Acá queda
+// Dos listas que la persona mantiene a mano: qué páginas son suyas y cómo se
+// llama cada video. Las decisiones (normalizar, deduplicar, reemplazar al
+// editar, dejar un solo VSL) viven en `lib/landing-paginas.ts` y
+// `lib/landing-videos.ts`, sin `server-only`, para poder testearlas. Acá queda
 // solo el acceso al setting y el `revalidatePath`.
 
 import { revalidatePath } from 'next/cache';
 import { getSetting, setSetting } from '@/lib/settings';
 import { requireRolWs } from '@/lib/tab-access';
 import { OCULTAS_KEY, PAGINAS_KEY, conOculta, conPagina, parsearOcultas, parsearPaginas, sinPagina } from '@/lib/landing-paginas';
+import { VIDEOS_KEY, conVideo, parsearVideos, sinVideo, type VideoLanding } from '@/lib/landing-videos';
 
 export type Listas = { paginas: string[]; ocultas: string[] };
 export type PaginasResult = { ok: true; paginas: string[]; ocultas: string[] } | { ok: false; error: string };
@@ -62,6 +65,62 @@ export async function borrarPaginaAction(url: string): Promise<PaginasResult> {
     ]);
     revalidatePath('/integraciones');
     return { ok: true, paginas: nuevas, ocultas: nuevasOcultas };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo borrar.' };
+  }
+}
+
+// =============================================================================
+// Los videos: cómo se llama cada uno y cuál es el VSL
+// =============================================================================
+// El sistema DETECTA los videos (cada evento trae su `video_id`); lo que no
+// puede saber es cuál es cuál. Eso solo lo sabe quien armó la página, así que se
+// le pide que NOMBRE lo que ya está a la vista — no que descubra nada.
+
+export type VideosResult = { ok: true; videos: VideoLanding[] } | { ok: false; error: string };
+
+async function leerVideos(): Promise<VideoLanding[]> {
+  await requireRolWs([], { nav: 'integraciones' });
+  return parsearVideos(await getSetting(VIDEOS_KEY));
+}
+
+export async function getVideosAction(): Promise<VideoLanding[]> {
+  return leerVideos().catch(() => []);
+}
+
+/**
+ * Nombra un video (o lo renombra), y opcionalmente lo marca como EL VSL.
+ *
+ * Marcar uno desmarca al anterior — es una elección, no una etiqueta que se
+ * acumula. Esa regla vive en `conVideo`, con su test: si dos quedaran marcados,
+ * cada pantalla que pregunta «cuál es el VSL» elegiría uno distinto según cómo
+ * ordene, y los números dejarían de cerrar entre sí.
+ */
+export async function guardarVideoAction(video: VideoLanding): Promise<VideosResult> {
+  try {
+    const nuevos = conVideo(await leerVideos(), video);
+    if (!nuevos) return { ok: false, error: 'Ponele un nombre al video para poder distinguirlo.' };
+    await setSetting(VIDEOS_KEY, JSON.stringify(nuevos));
+    revalidatePath('/integraciones');
+    revalidatePath('/crm');
+    return { ok: true, videos: nuevos };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
+  }
+}
+
+/**
+ * Olvida el nombre de un video. NO borra sus eventos: la retención que ya se
+ * midió sigue estando —el dato es un hecho— y lo único que se pierde es el
+ * rótulo, así que vuelve a aparecer como detectado sin nombre.
+ */
+export async function borrarVideoAction(id: string): Promise<VideosResult> {
+  try {
+    const nuevos = sinVideo(await leerVideos(), id);
+    await setSetting(VIDEOS_KEY, JSON.stringify(nuevos));
+    revalidatePath('/integraciones');
+    revalidatePath('/crm');
+    return { ok: true, videos: nuevos };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo borrar.' };
   }

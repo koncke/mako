@@ -19,7 +19,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, runWithWorkspace } from '@/lib/workspace';
-import { landingUltimoEvento, landingDiagnostico } from '@/lib/landing-token';
+import { landingUltimoEvento, landingDiagnostico, videosDetectados, getVideosLanding } from '@/lib/landing-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,8 +60,14 @@ export async function GET(req: NextRequest) {
   const diag = req.nextUrl.searchParams.get('diag') === '1';
   try {
     if (diag) {
-      const d = await runWithWorkspace(ctx.ws, () => landingDiagnostico());
-      return NextResponse.json({ ok: true, ...d });
+      // Los videos viajan con el diagnóstico y no en su propia ruta: la pantalla
+      // los necesita JUNTOS —los detectados salen de los mismos eventos que los
+      // chequeos— y dos requests para un panel es una condición de carrera que
+      // se ve como «a veces aparece la lista vacía».
+      const [d, detectados, guardados] = await runWithWorkspace(ctx.ws, () =>
+        Promise.all([landingDiagnostico(), videosDetectados(), getVideosLanding()]),
+      );
+      return NextResponse.json({ ok: true, ...d, videosDetectados: detectados, videos: guardados });
     }
     const estado = await runWithWorkspace(ctx.ws, () => landingUltimoEvento());
     return NextResponse.json({ ok: true, ...estado });

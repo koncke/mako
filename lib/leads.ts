@@ -1235,7 +1235,15 @@ export async function contarVslPlays(visitorId: string | null): Promise<number> 
  *   - sin_datos: true si el visitor_id es null (no afirmar que no vio).
  * @returns { plays:0, max_pct:null, sin_datos:true } si visitorId es null.
  */
-export type VslEngagement = { plays: number; max_pct: number | null; sin_datos: boolean };
+export type VslEngagement = {
+  plays: number;
+  /** El mayor avance sobre CUALQUIER video. Sirve para ordenar y filtrar la
+   *  lista; para la ficha del lead lo que vale es `porVideo`, porque «vio el
+   *  80%» sin decir de QUÉ no significa nada cuando hay más de uno. */
+  max_pct: number | null;
+  sin_datos: boolean;
+  porVideo: VideoEngagement[];
+};
 
 /**
  * Duración de cada VSL en segundos, según lo que el cron de Panda ya guarda en
@@ -1267,35 +1275,100 @@ export async function getDuracionesVsl(): Promise<Map<string, number>> {
   return out;
 }
 
-/** Duración a usar para un evento: la de SU video, o la única conocida si hay una sola. */
-function durDe(videoId: string | null | undefined, durs: Map<string, number>): number | null {
-  const v = videoId?.trim();
-  if (v && durs.has(v)) return durs.get(v)!;
-  return durs.size === 1 ? [...durs.values()][0] : null;
+/**
+ * Cómo se resuelve la duración de cada evento, sabiendo QUÉ VIDEOS hay en juego.
+ *
+ * ⚠️ El respaldo de «la única duración conocida» era incondicional:
+ *
+ *     return durs.size === 1 ? [...durs.values()][0] : null;
+ *
+ * Con un solo video eso es correcto y resuelve un caso real (el `video_id` de
+ * `vsl_events` no siempre coincide con el que reporta el cron de Panda). Con dos,
+ * es un porcentaje INVENTADO: al testimonio de 40 s se le aplica la duración del
+ * VSL de 20 minutos y su avance sale ~0% para siempre. Y se ve exactamente igual
+ * que uno correcto — nadie lo revisa, ninguna pantalla lo dice.
+ *
+ * La regla: un respaldo que asume «hay uno solo» tiene que CHEQUEAR que haya uno
+ * solo. Si no se sabe de qué video es la duración, se devuelve null y la pantalla
+ * muestra «—», que es la verdad.
+ */
+function resolverDuracion(videosEnJuego: Set<string>, durs: Map<string, number>): (videoId: string | null | undefined) => number | null {
+  const unica = durs.size === 1 ? [...durs.values()][0] : null;
+  const hayUnoSolo = videosEnJuego.size <= 1;
+  return (videoId) => {
+    const v = videoId?.trim();
+    if (v && durs.has(v)) return durs.get(v)!;
+    return hayUnoSolo ? unica : null;
+  };
 }
 
+/** Los video_id distintos que aparecen en un lote de eventos (ignora los vacíos). */
+function videosDe(rows: Array<{ video_id: string | null }>): Set<string> {
+  const s = new Set<string>();
+  for (const r of rows) { const v = r.video_id?.trim(); if (v) s.add(v); }
+  return s;
+}
+
+/** Lo que se midió de UN video, para poder mostrarlo aparte de los otros. */
+export type VideoEngagement = {
+  /** null = eventos que no se pudieron atribuir a ningún video (datos viejos). */
+  videoId: string | null;
+  /** El título que reportó el player, si lo había. El nombre que puso la persona
+   *  lo resuelve la pantalla contra el catálogo `landing.videos`. */
+  titulo: string | null;
+  plays: number;
+  maxPct: number | null;
+};
+
 export async function getVslEngagement(visitorId: string | null): Promise<VslEngagement> {
-  if (!visitorId) return { plays: 0, max_pct: null, sin_datos: true };
+  if (!visitorId) return { plays: 0, max_pct: null, sin_datos: true, porVideo: [] };
   const supabase = (await getTenantDb());
   const [{ data, error }, durs] = await Promise.all([
-    supabase.from('vsl_events').select('tipo_evento, porcentaje, event, segundos, video_id').eq('visitor_id', visitorId),
+    supabase.from('vsl_events').select('tipo_evento, porcentaje, event, segundos, video_id, vsl_titulo').eq('visitor_id', visitorId),
     getDuracionesVsl(),
   ]);
   if (error) {
     console.error(`[getVslEngagement] falló: ${error.message}`);
-    return { plays: 0, max_pct: null, sin_datos: true };
+    return { plays: 0, max_pct: null, sin_datos: true, porVideo: [] };
   }
-  const rows = (data ?? []) as Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null }>;
-  const plays = rows.filter((r) => r.tipo_evento === 'play' || r.event === 'vsl_play').length;
-  // El avance sale de avanceDe(): usa el % si vino positivo y, si no, DERIVA el %
-  // con los segundos + la duración de Panda (mig 0121). El 'play' se excluye: su
-  // porcentaje 0 / segundos 0 es el centinela de "arrancó", no una medición.
-  const avances = rows
-    .filter((r) => r.tipo_evento !== 'play' && r.event !== 'vsl_play')
-    .map((r) => avanceDe({ visitor_id: visitorId, tipo_evento: r.tipo_evento, porcentaje: r.porcentaje, segundos: r.segundos, video_id: r.video_id }, durDe(r.video_id, durs)))
-    .filter((p): p is number => typeof p === 'number' && p > 0);
-  const max_pct = avances.length > 0 ? Math.max(...avances) : null;
-  return { plays, max_pct, sin_datos: false };
+  const rows = (data ?? []) as Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null; vsl_titulo: string | null }>;
+  const dur = resolverDuracion(videosDe(rows), durs);
+  const esPlay = (r: { tipo_evento: string | null; event: string | null }) => r.tipo_evento === 'play' || r.event === 'vsl_play';
+
+  // Un acumulador POR VIDEO. La clave es el id, con un balde aparte para lo que no
+  // se pudo atribuir: esos eventos NO se tiran —son mediciones reales, de datos
+  // anteriores a la v5 del snippet— pero tampoco se le suman a un video concreto,
+  // que es como se contamina una curva sin que se note.
+  const porVideo = new Map<string, VideoEngagement>();
+  const balde = (r: { video_id: string | null; vsl_titulo: string | null }): VideoEngagement => {
+    const id = r.video_id?.trim() || null;
+    const k = id ?? '';
+    let e = porVideo.get(k);
+    if (!e) { e = { videoId: id, titulo: null, plays: 0, maxPct: null }; porVideo.set(k, e); }
+    // El título del player puede venir en unos eventos y no en otros: se queda el
+    // primero que llegue, en vez de pisarlo con null a mitad de camino.
+    if (!e.titulo && r.vsl_titulo?.trim()) e.titulo = r.vsl_titulo.trim();
+    return e;
+  };
+
+  for (const r of rows) {
+    const e = balde(r);
+    if (esPlay(r)) { e.plays++; continue; }
+    // El avance sale de avanceDe(): usa el % si vino positivo y, si no, DERIVA el %
+    // con los segundos + la duración de Panda (mig 0121). El 'play' se excluye: su
+    // porcentaje 0 / segundos 0 es el centinela de "arrancó", no una medición.
+    const p = avanceDe({ visitor_id: visitorId, tipo_evento: r.tipo_evento, porcentaje: r.porcentaje, segundos: r.segundos, video_id: r.video_id }, dur(r.video_id));
+    if (typeof p === 'number' && p > 0) e.maxPct = Math.max(e.maxPct ?? 0, p);
+  }
+
+  const lista = [...porVideo.values()]
+    // Los que tienen algo medido primero; entre esos, el que más se vio. Un video
+    // que nadie reprodujo no puede encabezar la lista de lo que esta persona vio.
+    .sort((a, b) => (b.maxPct ?? -1) - (a.maxPct ?? -1) || b.plays - a.plays);
+
+  const plays = lista.reduce((n, e) => n + e.plays, 0);
+  const avances = lista.map((e) => e.maxPct).filter((p): p is number => typeof p === 'number');
+  return { plays, max_pct: avances.length > 0 ? Math.max(...avances) : null, sin_datos: false, porVideo: lista };
 }
 
 /**
@@ -1325,15 +1398,22 @@ export async function getVslEngagementMap(
     arr.push(r);
     porVisitor.set(r.visitor_id, arr);
   }
+  // ⚠️ Los videos en juego se cuentan sobre el LOTE ENTERO, no sobre las filas de
+  // cada visitor. Es la mejor señal que hay acá de cuántos videos tiene este
+  // negocio: si un visitor miró uno solo pero el workspace tiene dos, aplicarle
+  // «la única duración conocida» sigue siendo inventar un porcentaje.
+  const dur = resolverDuracion(videosDe((data ?? []) as Array<{ video_id: string | null }>), durs);
   for (const [vid, rows] of porVisitor) {
     const plays = rows.filter((r) => r.tipo_evento === 'play' || r.event === 'vsl_play').length;
     // Igual que getVslEngagement: % directo si vino positivo, o derivado de los
     // segundos con la duración de Panda. El play y el exit-en-0 no son medición.
+    // Acá NO se desglosa por video: esta función alimenta la lista de leads, donde
+    // la columna es un número por fila. El desglose vive en la ficha.
     const avances = rows
       .filter((r) => r.tipo_evento !== 'play' && r.event !== 'vsl_play')
-      .map((r) => avanceDe({ visitor_id: vid, tipo_evento: r.tipo_evento, porcentaje: r.porcentaje, segundos: r.segundos, video_id: r.video_id }, durDe(r.video_id, durs)))
+      .map((r) => avanceDe({ visitor_id: vid, tipo_evento: r.tipo_evento, porcentaje: r.porcentaje, segundos: r.segundos, video_id: r.video_id }, dur(r.video_id)))
       .filter((p): p is number => typeof p === 'number' && p > 0);
-    map.set(vid, { plays, max_pct: avances.length > 0 ? Math.max(...avances) : null, sin_datos: false });
+    map.set(vid, { plays, max_pct: avances.length > 0 ? Math.max(...avances) : null, sin_datos: false, porVideo: [] });
   }
   return map;
 }

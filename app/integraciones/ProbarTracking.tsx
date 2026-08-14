@@ -16,6 +16,8 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
 import { mismaPagina } from '@/lib/landing-paginas';
+import type { VideoLanding } from '@/lib/landing-videos';
+import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
 
 const SANS = "'Geist', sans-serif";
@@ -23,7 +25,11 @@ const MONO = "'Geist Mono', monospace";
 
 type Evento = { ts: string; tipo: string; porcentaje: number | null; segundos: number | null; detalle: string | null };
 type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo'; detalle: string };
-type Diag = { eventos: Evento[]; chequeos: Chequeo[]; veredicto: string; urls: string[]; codigoViejo: boolean; ultima: string | null };
+type Diag = {
+  eventos: Evento[]; chequeos: Chequeo[]; veredicto: string; urls: string[]; codigoViejo: boolean; ultima: string | null;
+  /** Los videos que el sistema VIO en los eventos, y los que el negocio nombró. */
+  videosDetectados: VideoDetectado[]; videos: VideoLanding[];
+};
 
 const hora = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '--:--:--' : d.toLocaleTimeString('es-MX', { hour12: false }); };
 
@@ -111,7 +117,7 @@ export function ProbarTracking() {
     try {
       const r = await fetch('/api/integraciones/landing/estado?diag=1', { cache: 'no-store' }).then((x) => x.json());
       if (r?.ok) {
-        const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null };
+        const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null, videosDetectados: r.videosDetectados ?? [], videos: r.videos ?? [] };
         (guardarEn ?? setDiag)(d);
         setErr(null);
       } else setErr(r?.error ?? 'No se pudo consultar');
@@ -260,6 +266,17 @@ export function ProbarTracking() {
         </div>
 
         {avisoViejo}
+
+        {/* Qué es cada video. Vive acá abajo y no en su propio panel porque
+            contesta la misma pregunta que la prueba —«¿esto está midiendo lo que
+            creo?»— y porque los videos que ofrece salen de los MISMOS eventos que
+            los chequeos: separarlos en dos tarjetas obligaría a dos consultas y a
+            explicar dos veces de dónde sale la lista. */}
+        <NombrarVideos
+          detectados={previo?.videosDetectados ?? []}
+          videos={previo?.videos ?? []}
+          onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}
+        />
       </div>
     );
   }

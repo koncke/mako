@@ -29,6 +29,7 @@ import { getSetting, setSetting } from './settings';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
+import { VIDEOS_KEY, parsearVideos, type VideoLanding } from './landing-videos';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
@@ -214,6 +215,65 @@ export type LandingEstado = { recibio: boolean; ultima: string | null; codigoVie
  * Va aparte porque ordena (ORDER BY created_at DESC LIMIT 1) y esto se pide a
  * demanda —cuando el usuario toca el botón—, no en cada render del board.
  */
+/**
+ * El catálogo de videos que declaró el negocio: qué es cada `video_id`.
+ *
+ * Lo consume el CRM para rotular la retención de cada video. Degrada a lista
+ * vacía porque un catálogo caído NO puede tapar la medición: sin nombres, las
+ * curvas se muestran igual rotuladas con el id, que es feo pero verdadero.
+ */
+export async function getVideosLanding(): Promise<VideoLanding[]> {
+  try {
+    return parsearVideos(await getSetting(VIDEOS_KEY));
+  } catch (e) {
+    console.error('[getVideosLanding] falló:', e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+/**
+ * Los videos que se VIERON en los eventos, para poder ofrecerlos y nombrarlos.
+ *
+ * El catálogo de arriba es lo que la persona declaró; esto es lo que el sistema
+ * observó. Son cosas distintas y la pantalla las ofrece por separado, igual que
+ * con las páginas: una detectada es una observación, y nombrarla la adopta.
+ *
+ * ⚠️ El `video_id` no siempre es un id de Panda. Cuando el player no se
+ * identifica, el snippet cae a `iframe0`/`iframe1` por posición, y el `exit` de
+ * un video anónimo llega con null. Los null se descartan acá —no se pueden
+ * nombrar, porque el nombre no tendría a qué pegarse— pero sus eventos siguen
+ * contándose en el CRM bajo «Video sin identificar».
+ */
+export async function videosDetectados(dias = 90): Promise<Array<{ id: string; titulo: string | null; eventos: number }>> {
+  const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
+  try {
+    const db = await getTenantDb();
+    const { data } = await db
+      .from('vsl_events')
+      .select('video_id, vsl_titulo')
+      .not('video_id', 'is', null)
+      .gte('created_at', desde)
+      .limit(2000);
+    const out = new Map<string, { id: string; titulo: string | null; eventos: number }>();
+    for (const r of (data ?? []) as Array<{ video_id: string | null; vsl_titulo: string | null }>) {
+      const id = r.video_id?.trim();
+      if (!id) continue;
+      const e = out.get(id) ?? { id, titulo: null, eventos: 0 };
+      e.eventos++;
+      // El título del player viene en unos eventos y no en otros: gana el primero
+      // que llegue en vez de pisarse con null a mitad de camino.
+      if (!e.titulo && r.vsl_titulo?.trim()) e.titulo = r.vsl_titulo.trim();
+      out.set(id, e);
+    }
+    // El más visto primero: es el que más probablemente sea el VSL, así que es el
+    // que conviene tener arriba cuando hay que elegir.
+    return [...out.values()].sort((a, b) => b.eventos - a.eventos);
+  } catch (e) {
+    console.error('[videosDetectados] falló:', e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
 export async function landingUltimoEvento(): Promise<LandingEstado> {
   try {
     const supabase = await getTenantDb(); // scopea landing_visits por workspace

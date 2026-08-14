@@ -7,6 +7,8 @@
 // y revalidan las páginas relevantes.
 // =============================================================================
 
+import { getVideosLanding } from '@/lib/landing-token';
+import type { VideoLanding } from '@/lib/landing-videos';
 import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { TAG } from '@/lib/cache';
@@ -136,6 +138,8 @@ export type LeadFullData = {
   stages: Stage[];
   pagos: Pago[];
   vslEng: VslEngagement;
+  /** El catálogo `landing.videos`: cómo llama el negocio a cada video. */
+  videos: VideoLanding[];
   campana: { texto: string | null; tooltip: string | null };
   adNombre: string | null;
   /** ad_id resuelto (meta_ad_id, utm_content numérico o por nombre) para el deep-link. */
@@ -160,8 +164,8 @@ export type LeadFullData = {
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking] = await Promise.all([
-    getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true }) as VslEngagement),
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos] = await Promise.all([
+    getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true, porVideo: [] }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
     getAdNameMap().catch(() => ({}) as Record<string, string>),
@@ -169,6 +173,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
+    getVideosLanding(),
   ]);
   const [respuestas, insightGen, equipo, grabable] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable()]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
@@ -183,7 +188,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
+  return { lead, stages, pagos, vslEng, videos, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

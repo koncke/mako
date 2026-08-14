@@ -1,0 +1,151 @@
+'use client';
+
+// =============================================================================
+// NombrarVideos — qué es cada video de la landing
+// =============================================================================
+// El sistema DETECTA los videos: cada evento del snippet trae su `video_id`. Lo
+// que no puede saber es cuál es el VSL y cuál el testimonio — eso solo lo sabe
+// quien armó la página. Así que no se le pide que descubra nada: se le pide que
+// NOMBRE lo que ya está a la vista.
+//
+// UNA sola pregunta por fila, no dos. La alternativa era un desplegable para el
+// nombre y aparte un control «marcar como VSL»; el segundo se queda sin
+// contestar porque no se entiende qué agrega. Acá el nombre ES la respuesta:
+// quien elige «VSL» ya dijo cuál es, y la fila lo muestra al instante.
+
+import { useState } from 'react';
+import { Input, Select } from '@/app/_ui';
+import { IconBtn } from './ServicioConfigForm';
+import { TIPOS_VIDEO, esTipoVsl, rotuloDe, type VideoLanding } from '@/lib/landing-videos';
+import { borrarVideoAction, guardarVideoAction } from './landing-actions';
+
+const MONO = "'Geist Mono', monospace";
+/** Valor centinela de la última opción del desplegable. */
+const OTRO = '__otro__';
+
+export type VideoDetectado = { id: string; titulo: string | null; eventos: number };
+
+export function NombrarVideos({
+  detectados, videos, onCambio,
+}: {
+  detectados: VideoDetectado[];
+  videos: VideoLanding[];
+  onCambio: (v: VideoLanding[]) => void;
+}) {
+  const [escribiendo, setEscribiendo] = useState<string | null>(null); // el id que está en «Otro tipo…»
+  const [texto, setTexto] = useState('');
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Todo lo que el sistema vio, más lo que se nombró alguna vez aunque hoy no
+  // esté mandando eventos: un video que se pausó por un mes no tiene por qué
+  // perder su nombre.
+  const filas: VideoDetectado[] = [
+    ...detectados,
+    ...videos.filter((v) => !detectados.some((d) => d.id === v.id)).map((v) => ({ id: v.id, titulo: null, eventos: 0 })),
+  ];
+  if (!filas.length) return null;
+
+  // Los nombres propios que ya usó este negocio se ofrecen igual que los de
+  // fábrica: si llamó a uno «Testimonio de Ana», el segundo testimonio se elige
+  // en un click en vez de volver a escribirlo.
+  const propios = [...new Set(videos.map((v) => v.nombre))].filter((n) => !TIPOS_VIDEO.some((t) => t === n));
+
+  const guardar = async (id: string, nombre: string) => {
+    setOcupado(id); setErr(null);
+    // ⚠️ `esVsl` va SIEMPRE explícito, true o false — nunca undefined. Acá se está
+    // contestando justamente esa pregunta, así que omitirla dejaría al video
+    // anterior marcado y el cambio de nombre no se reflejaría en quién es el VSL.
+    const r = await guardarVideoAction({ id, nombre, esVsl: esTipoVsl(nombre) });
+    setOcupado(null);
+    if (!r.ok) { setErr(r.error); return; }
+    onCambio(r.videos);
+    setEscribiendo(null);
+    setTexto('');
+  };
+
+  const borrar = async (id: string) => {
+    setOcupado(id); setErr(null);
+    const r = await borrarVideoAction(id);
+    setOcupado(null);
+    if (!r.ok) { setErr(r.error); return; }
+    onCambio(r.videos);
+  };
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Qué es cada video</div>
+      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
+        Medimos todos los videos de tu página por separado. Deciles cómo se llaman para saber de
+        cuál es cada retención en la ficha del lead — el que marques como <b>VSL</b> es el que
+        manda en el resto de la app.
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        {filas.map((d) => {
+          const guardado = videos.find((v) => v.id === d.id);
+          const r = rotuloDe(videos, d.id, d.titulo);
+          const editando = escribiendo === d.id;
+          return (
+            <div key={d.id} style={{ borderTop: '1px solid var(--border)', padding: '11px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 7 }}>
+                <span style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  {/* El id crudo, en monoespaciada y cortado: es la única forma de
+                      distinguir dos videos que todavía no tienen nombre. */}
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.id}</span>
+                  {r.esVsl && <span style={{ flex: 'none', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', color: 'var(--mako-ink)', fontWeight: 700 }}>VSL</span>}
+                </span>
+                <span style={{ flex: 'none', fontSize: 11.5, color: 'var(--faint)' }}>
+                  {d.eventos > 0 ? `${d.eventos} ${d.eventos === 1 ? 'evento' : 'eventos'}` : 'sin actividad reciente'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {editando ? (
+                    <Input
+                      value={texto}
+                      onChange={(e) => setTexto(e.target.value)}
+                      placeholder="Ej: Testimonio de Ana"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === 'Enter' && texto.trim()) void guardar(d.id, texto); }}
+                    />
+                  ) : (
+                    // El `Select` de la casa: el <select> nativo está prohibido y
+                    // además este se renderiza en portal, así que el scroll del
+                    // modal no lo recorta.
+                    <Select
+                      ariaLabel={`Qué es el video ${d.id}`}
+                      value={guardado?.nombre ?? ''}
+                      onChange={(v) => {
+                        if (v === OTRO) { setEscribiendo(d.id); setTexto(guardado?.nombre ?? ''); return; }
+                        void guardar(d.id, v);
+                      }}
+                      placeholder={r.propio ? r.texto : `Sin nombre${d.titulo ? ` — el player dice «${d.titulo}»` : ''}`}
+                      options={[
+                        ...TIPOS_VIDEO.map((t) => ({ value: t, label: t, ...(esTipoVsl(t) ? { sub: 'el video de ventas — solo uno puede serlo' } : {}) })),
+                        ...propios.map((n) => ({ value: n, label: n, sub: 'ya lo usaste' })),
+                        { value: OTRO, label: 'Otro tipo de video…', sub: 'escribí el nombre' },
+                      ]}
+                    />
+                  )}
+                </div>
+                {editando ? (
+                  <IconBtn name="check" title="Guardar el nombre" tone="good" disabled={!texto.trim() || ocupado === d.id} onClick={() => void guardar(d.id, texto)} />
+                ) : guardado ? (
+                  <>
+                    <IconBtn name="pen" title="Escribir otro nombre" onClick={() => { setEscribiendo(d.id); setTexto(guardado.nombre); }} />
+                    {/* Olvidar el nombre NO borra la medición: los eventos son un
+                        hecho y siguen ahí. Lo único que se pierde es el rótulo. */}
+                    <IconBtn name="trash" title="Olvidar el nombre (no borra la medición)" tone="bad" disabled={ocupado === d.id} onClick={() => void borrar(d.id)} />
+                  </>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {err && <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}
+    </div>
+  );
+}
