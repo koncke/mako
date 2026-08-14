@@ -25,6 +25,8 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { emitirDelCatalogo } from '@/lib/avisos';
+import { APP_BASE_URL } from '@/lib/app-url';
 import { crearPropuesta } from '@/lib/propuestas';
 import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
@@ -123,6 +125,36 @@ export async function POST(req: NextRequest) {
       }],
     },
   });
+
+  // ⚠️ EL AVISO NO ES UN EXTRA: es lo que hace que la propuesta EXISTA para
+  // alguien. La pantalla de revisión es /crm/revisar/<id> —por id, sin lista—, y
+  // un formulario de landing no tiene canal de vuelta: quien lo completa ve la
+  // página de gracias del cliente y el dueño no se entera de nada. Sin esto, la
+  // propuesta queda en 'pendiente' para siempre. Medido el 14/08/2026 en el ws11:
+  // OCHO leads reales, con nombre y teléfono, que nadie vio nunca.
+  //
+  // Solo si es NUEVA: un reintento del mismo formulario no puede volver a sonar.
+  //
+  // Y el LINK LO ARMA EL CÓDIGO, nunca el modelo. Por eso se pasa `texto` (que es
+  // determinista) y no `contexto`: un id de 16 caracteres al azar transportado por
+  // un LLM ya falló en este repo de las dos formas, y la silenciosa —un link que
+  // resuelve a una propuesta REAL pero equivocada— es la peor.
+  if (nueva) {
+    const quien = nombre ?? email ?? telefono;
+    const contacto = [telefono && `tel ${telefono}`, email].filter(Boolean).join(' · ');
+    await runWithWorkspace(ws, () =>
+      emitirDelCatalogo('lead-de-landing', {
+        ws,
+        texto: `*${quien}* dejó sus datos en tu landing${contacto ? ` — ${contacto}` : ''}. Todavía NO está en el CRM: lo confirmás vos, así revisás el dato antes de que valga. Abrilo acá 👉 ${APP_BASE_URL}/crm/revisar/${id}`,
+        // Sin dedup por tiempo: cada persona que deja sus datos es un aviso
+        // propio. Agrupar dos leads distintos en uno es perder el segundo.
+      }),
+    ).catch((e) => {
+      // Un aviso caído NO puede tumbar la ingesta: el lead ya está guardado y eso
+      // es el hecho. Lo que se pierde es la notificación, no la persona.
+      console.error('[track:optin] el lead se guardó pero el aviso falló:', e instanceof Error ? e.message : e);
+    });
+  }
 
   console.log(`[track:optin] ws=${ws} propuesta=${id} ${nueva ? 'nueva' : 'ya existía'}`);
   return ok({ propuesta: id, nueva });

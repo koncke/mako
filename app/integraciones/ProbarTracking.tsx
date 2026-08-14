@@ -25,7 +25,7 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type Evento = { ts: string; tipo: string; porcentaje: number | null; segundos: number | null; detalle: string | null };
-type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo'; detalle: string };
+type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo'; detalle: string; accion?: { texto: string; href: string } };
 type Diag = {
   eventos: Evento[]; chequeos: Chequeo[]; veredicto: string; urls: string[]; codigoViejo: boolean; ultima: string | null;
   /** Los videos que el sistema VIO en los eventos, y los que el negocio nombró. */
@@ -43,6 +43,11 @@ function legible(e: Evento): { texto: string; color: string } {
   if (m) return { texto: `Llegó al ${m[1]}% del VSL`, color: 'var(--good)' };
   const s = /^s(\d+)$/.exec(e.tipo);
   if (s) return { texto: `Vio ${s[1]} segundos`, color: 'var(--good)' };
+  // ⚠️ «desconocido» NO es un evento: es lo que el beacon escribe cuando le llega
+  // un tipo que no sabe clasificar (código viejo o modificado). Mostrarlo crudo
+  // hacía aparecer la palabra «desconocido» en la lista, que se lee como que algo
+  // se rompió — cuando lo que dice es que ese evento no se pudo interpretar.
+  if (e.tipo === 'desconocido') return { texto: 'Evento que no reconozco (código viejo o modificado)', color: 'var(--warn)' };
   return { texto: e.tipo, color: 'var(--dim)' };
 }
 
@@ -329,6 +334,12 @@ export function ProbarTracking() {
               <span style={{ minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: c.estado === 'ok' ? 'var(--ink)' : 'var(--dim)' }}>{c.label}</span>
                 <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 1, lineHeight: 1.45 }}>{c.detalle}</span>
+                {/* El href lo arma el SERVER con el id real de la propuesta. Un
+                    chequeo que dice «tenés 8 sin revisar» y no lleva a ningún
+                    lado deja la misma tarea sin hacer que no decir nada. */}
+                {c.accion && (
+                  <a href={c.accion.href} style={{ display: 'inline-block', marginTop: 4, fontSize: 12.5, fontWeight: 650, color: 'var(--primary)' }}>{c.accion.texto} →</a>
+                )}
               </span>
             </div>
           ))}

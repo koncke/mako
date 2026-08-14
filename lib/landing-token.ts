@@ -319,6 +319,9 @@ export type ChequeoDiag = {
   label: string;
   estado: 'ok' | 'falta' | 'viejo';
   detalle: string;
+  /** Adónde ir a resolverlo. El href lo arma el server con el id real: un
+   *  chequeo que dice «tenés 8 sin revisar» sin decir dónde no es accionable. */
+  accion?: { texto: string; href: string };
 };
 
 export type LandingDiagnostico = {
@@ -380,6 +383,22 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
     : { data: null };
   const hayOptin = (optins?.length ?? 0) > 0;
 
+  // ⚠️ Y CUÁNTOS ESTÁN SIN REVISAR, que es la pregunta que el chequeo no hacía.
+  //
+  // Decía «llegó al menos un formulario ✓» y con eso se leía «esto funciona,
+  // seguí». Los dos verbos que le faltaban son los que importan: llegó ¿y ENTRÓ?
+  // Un opt-in crea una PROPUESTA, y una propuesta sin confirmar no es un lead: es
+  // una persona que dejó su teléfono y a la que nadie escribió. El 14/08/2026 el
+  // ws11 tenía OCHO en ese estado mientras el chequeo estaba en verde.
+  //
+  // Sin ventana de tiempo, a propósito: una propuesta de hace tres días sin
+  // revisar es MÁS urgente que la de hoy, no menos.
+  const { data: pend } = declarado
+    ? await db.from('propuestas').select('id').eq('origen', 'landing').eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(50)
+    : { data: null };
+  const pendientes = (pend as Array<{ id: string }> | null)?.length ?? 0;
+  const primerPendiente = (pend as Array<{ id: string }> | null)?.[0]?.id ?? null;
+
   // ── ¿Qué versión del código tiene puesta? ─────────────────────────────────
   // Antes esto se INFERÍA de la ausencia de `segundos` en los eventos del VSL, y
   // esa heurística mentía en el caso más común: una landing SIN video nunca manda
@@ -397,12 +416,22 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
       detalle: instalada === 0 || !hayPageview ? 'Todavía no llegó ningún evento para saber qué versión tenés puesta.'
         : codigoViejo ? `Tenés la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Te estás perdiendo ${novedadesDesde(instalada)}. Copiá el código de arriba y reemplazalo.`
         : 'Es la última versión.' },
+    // ⚠️ «Llegó» y «entró» son DOS cosas, y el chequeo solo miraba la primera.
+    // Con gente esperando sin revisar, el estado es de ACCIÓN, no de éxito: un ✓
+    // verde ahí se lee «esto anda, seguí» sobre ocho personas que dejaron su
+    // teléfono y a las que nadie escribió.
     { id: 'optin', label: 'El formulario entra al CRM',
-      estado: !declarado ? 'viejo' : hayOptin ? 'ok' : 'falta',
+      estado: !declarado ? 'viejo' : pendientes > 0 ? 'viejo' : hayOptin ? 'ok' : 'falta',
       detalle: !declarado
         ? 'Está apagado: marcá «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads. Hasta entonces, lo que completen no entra.'
-        : hayOptin ? 'Llegó al menos un formulario en las últimas 24 h. Entra como propuesta para que lo revises antes de crear el lead.'
-        : 'Todavía no llegó ninguno. Para probarlo, completá tu propio formulario con tu email — aparece acá y en el CRM para revisar.' },
+        : pendientes > 0
+          ? `Llegaron y están esperándote: ${pendientes} ${pendientes === 1 ? 'persona dejó sus datos' : 'personas dejaron sus datos'} y ${pendientes === 1 ? 'todavía NO está' : 'todavía NO están'} en el CRM. Los confirmás vos, para revisar el dato antes de que valga.`
+          : hayOptin ? 'Llegó al menos un formulario en las últimas 24 h, y ya los revisaste todos.'
+          : 'Todavía no llegó ninguno. Para probarlo, completá tu propio formulario — aparece acá y te aviso por WhatsApp con el link para revisarlo.',
+      // El link lo arma el CÓDIGO con el id real. Es lo único que convierte «tenés
+      // 8 sin revisar» en algo que se puede hacer: la pantalla de revisión es por
+      // id y no hay lista, así que sin esto la información no lleva a ningún lado.
+      accion: primerPendiente ? { texto: pendientes === 1 ? 'Revisarlo' : `Revisar el más reciente`, href: `/crm/revisar/${primerPendiente}` } : undefined },
     { id: 'play', label: 'Se detecta el play del VSL',
       estado: hayPlay ? 'ok' : 'falta',
       detalle: hayPlay ? 'El reproductor está enganchado.' : 'Nadie reprodujo el video en 24 h (o el player no es el que el código escucha). Si tu página no tiene video, ignoralo.' },

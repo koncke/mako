@@ -399,3 +399,60 @@ test('los previews de deploy no llenan el desplegable con la misma página', () 
   assert.ok(/\.map\(\(v\) => normalizarUrl\(v\.landing_url \?\? ''\)\)/.test(lib), 'las urls detectadas se deduplican normalizadas, no por su texto');
   assert.ok(!/\.map\(\(v\) => \(v\.landing_url \?\? ''\)\.trim\(\)\)/.test(lib), 'volvió la deduplicación por texto crudo');
 });
+
+test('un lead de landing AVISA, o la propuesta no existe para nadie', () => {
+  // ⚠️ EL DEFECTO QUE ESTE TEST CUIDA, medido en producción el 14/08/2026: el
+  // ws11 tenía OCHO propuestas de lead en `pendiente`, con nombre y teléfono, que
+  // nadie vio nunca. El sistema funcionaba exactamente como estaba escrito.
+  //
+  // La pantalla de revisión es /crm/revisar/<id> — POR ID, sin lista. Para los
+  // otros canales el link vuelve por la misma conversación (WhatsApp, Claude), así
+  // que nadie lo pensó dos veces. Un formulario de landing NO TIENE CANAL DE
+  // VUELTA: quien lo completa ve la página de gracias del cliente. Si el link no
+  // sale por un aviso, no sale por ningún lado.
+  const ruta = RUTA();
+  assert.ok(/emitirDelCatalogo\('lead-de-landing'/.test(ruta), 'sin aviso, la propuesta queda en pendiente para siempre');
+  assert.ok(/if \(nueva\)/.test(ruta), 'un reintento del mismo formulario no puede volver a sonar');
+  // El LINK lo arma el código. Un id de 16 caracteres al azar transportado por un
+  // LLM ya falló en este repo, y la forma silenciosa —un link que resuelve a una
+  // propuesta REAL pero equivocada— es la peor.
+  assert.ok(/texto: `/.test(ruta), 'el mensaje va determinista (texto), no escrito por el modelo (contexto)');
+  assert.ok(/\$\{APP_BASE_URL\}\/crm\/revisar\/\$\{id\}/.test(ruta), 'falta el link absoluto a la propuesta real');
+  // Y el aviso NO puede tumbar la ingesta: el lead ya está guardado, y eso es el
+  // hecho. Lo que se pierde si el aviso falla es la notificación, no la persona.
+  assert.ok(/\.catch\(\(e\) => \{/.test(ruta.slice(ruta.indexOf("emitirDelCatalogo('lead-de-landing'"))), 'un aviso caído no puede perder el lead');
+
+  const cat = leer('../lib/avisos-catalogo.ts');
+  assert.ok(/'lead-de-landing': 'landing'/.test(cat), 'el aviso necesita su área en AREA_POR_AVISO');
+  assert.ok(/id: 'lead-de-landing'/.test(cat), 'falta la ficha del aviso en el catálogo');
+});
+
+test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron', () => {
+  // «Llegó al menos un formulario ✓» se lee como «esto funciona, seguí» — y era
+  // cierto. Lo que faltaba es el segundo verbo: llegó ¿y ENTRÓ? Una propuesta sin
+  // confirmar no es un lead: es una persona que dejó su teléfono y a la que nadie
+  // escribió. Con gente esperando, el estado es de ACCIÓN, no de éxito.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/\.eq\('estado', 'pendiente'\)/.test(lib), 'el chequeo tiene que contar las que esperan');
+  assert.ok(/pendientes > 0 \? 'viejo'/.test(lib), 'con gente esperando el chequeo no puede estar en verde');
+  // Sin ventana de tiempo a propósito: una de hace tres días sin revisar es MÁS
+  // urgente que la de hoy, no menos.
+  const i = lib.indexOf("eq('estado', 'pendiente')");
+  assert.ok(!/gte\('created_at', desde\)/.test(lib.slice(i - 200, i + 100)), 'las pendientes NO se filtran por ventana de tiempo');
+  // Y tiene que LLEVAR a algún lado: la pantalla de revisión es por id.
+  assert.ok(/accion\?: \{ texto: string; href: string \}/.test(lib), 'el chequeo necesita poder llevar a resolverlo');
+  assert.ok(/href: `\/crm\/revisar\/\$\{primerPendiente\}`/.test(lib), 'el href lo arma el server con el id real');
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/c\.accion && \(/.test(panel), 'la pantalla no pinta el link del chequeo');
+});
+
+test('un evento que no se pudo clasificar se explica, no se muestra crudo', () => {
+  // El beacon guarda 'desconocido' cuando le llega un tipo que no sabe clasificar
+  // (código viejo o modificado) — y está bien guardarlo, porque es evidencia. Lo
+  // que estaba mal era pintarlo tal cual: la palabra «desconocido» sola en la
+  // lista se lee como que algo se rompió recién.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/e\.tipo === 'desconocido'/.test(panel), 'el evento sin clasificar necesita su traducción');
+  const beacon = leer('../app/api/track/vsl/route.ts');
+  assert.ok(/tipoEvento = 'desconocido'/.test(beacon), 'el beacon sigue guardándolo en vez de coercionarlo a play');
+});

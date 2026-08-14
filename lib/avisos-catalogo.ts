@@ -119,7 +119,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'pago-recibido': 'plata', 'cierre-venta': 'plata',
   'objetivo-en-riesgo': 'plata', 'meta-alcanzada': 'plata',
 
-  'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'wa-desconectado': 'sistema',
+  'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'lead-de-landing': 'landing',
+  'wa-desconectado': 'sistema',
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
@@ -293,6 +294,29 @@ https://hola-mako.com/integraciones
     // receptor responde 200 aunque descarte. Este cron es la ÚNICA señal.
     disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
     ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el código de la landing quedó apuntando a una dirección vieja. — MaKo`,
+  },
+  {
+    id: 'lead-de-landing', titulo: 'Alguien dejó sus datos en tu landing', categoria: 'aviso',
+    prioridad: 'alta', semaforo: 'verde', requiereRespuesta: true, yaImplementado: 'si',
+    // ⚠️ EL AVISO QUE FALTABA, y su ausencia costó ocho leads reales.
+    //
+    // El opt-in de la landing crea una PROPUESTA —un canal propone, una persona
+    // confirma— y la pantalla para revisarla es /crm/revisar/<id>: por ID, sin
+    // lista. Para los otros canales el link vuelve en la misma conversación
+    // (WhatsApp, Claude), así que nadie lo pensó dos veces. Pero un formulario de
+    // una landing NO TIENE CANAL DE VUELTA: quien lo completa ve la página de
+    // gracias del cliente, y el dueño no recibe nada.
+    //
+    // Resultado medido el 14/08/2026 en el workspace 11: ocho propuestas de lead
+    // en `pendiente`, con nombre y teléfono, ninguna vista por nadie. El sistema
+    // funcionaba exactamente como estaba escrito. El dueño lo reportó como «envié
+    // el formulario y no se registró» — y sí se había registrado.
+    //
+    // La regla que queda: si un canal deja una propuesta y NO puede devolver el
+    // link por donde entró, el link sale por un aviso. Una propuesta que nadie
+    // sabe que existe es peor que no haberla creado: ocupa el lugar del lead.
+    disparador: 'Al instante: entra un opt-in desde la landing y se crea la propuesta de lead.',
+    ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tenés que confirmar vos, así revisás el teléfono antes de que valga. Abrila acá 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
   },
   {
     id: 'tracking-desactualizado', titulo: 'El código de la landing quedó viejo', categoria: 'aviso',
