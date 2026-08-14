@@ -1620,7 +1620,23 @@ modelos: **el precio de un proveedor no es un dato hasta que lo verificás vos**
 
 *2026-08-13 railway-y-transcripcion*
 
-### 🚨 Google bloquea las API keys «Standard» de Gemini en SEPTIEMBRE de 2026
+### Google bloquea las keys «Standard» de Gemini en septiembre — ✅ MaKo ya está migrado
+
+> ✅ **VERIFICADO EL 2026-08-14: no hay nada que hacer.** Las **9** keys de Gemini cargadas
+> (ws1, ws3, ws9 ×3, ws10, ws11 ×3) empiezan con **`AQ.A…` y miden 53 caracteres**, que es el
+> formato **auth**. Las Standard son `AIza…` de 39. Se leyó el prefijo de cada una
+> descifrándolas y mirando solo los primeros 4 caracteres.
+>
+> Se deja escrito igual porque **la trampa sigue viva para lo que venga**: cualquier key de
+> Gemini que alguien cargue de un backup viejo, de un `.env` de otro proyecto o de una cuenta
+> creada antes de 2026 puede ser Standard, y **muere en septiembre sin aviso**. El chequeo es
+> mirar el prefijo.
+
+**Qué es esto, en una línea:** Google no cambió el precio ni pide rotar nada — cambió el
+**tipo de credencial** por seguridad. La Standard identifica un *proyecto* y no un llamador,
+así que no admite control de acceso; la auth queda atada a una service account. **Sigue siendo
+un string en un header, sin OAuth y sin tocar código**: se genera una key nueva en AI Studio
+(las nuevas ya nacen auth) y se pega.
 
 **Esto no es un hallazgo de costo: es una fecha de corte del servicio.** Verificado el
 2026-08-13 en la doc oficial (https://ai.google.dev/gemini-api/docs/api-key), textual:
@@ -1647,9 +1663,10 @@ comprar el problema.
 deprecaciones**, no solo la de precios. Un free tier no se rompe subiendo el precio: se rompe
 cambiando el formato de la credencial, y eso no aparece en ninguna comparativa de costos.
 
-⚠️ **Lo que hay que hacer, y tiene fecha:** revisar en AI Studio si cada key cargada es auth o
-standard, y migrar las standard **antes del 1/9/2026**. Si un día las llamadas gratis empiezan
-a fallar en masa con 400/403 «API key not valid» —y no con 429— es esto, no la cuota.
+**Cómo se chequea sin entrar a AI Studio** (y sin exponer el secreto): el **prefijo** lo dice
+todo — `AQ.A…` de 53 caracteres es auth, `AIza…` de 39 es Standard. Se descifra la fila y se
+miran los primeros 4 caracteres. Si un día las llamadas gratis empiezan a fallar en masa con
+**400/403 «API key not valid»** —y no con 429— es esto y no la cuota.
 
 **Cómo se distingue en 10 segundos** (los dos casos hoy caen en el mismo `console.warn` de
 `lib/ai-cheap.ts`, así que hay que preguntarle al proveedor):
