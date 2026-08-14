@@ -15,7 +15,7 @@ import type { Curso } from './curso';
 
 export const CURSO_SOCIAL_FUNNEL: Curso = {
   slug: 'social-funnel',
-  categoria: 'Orgánico',
+  categoria: 'Negocios digitales',
   cardDesc: '11 clases en 1 módulos.',
   eyebrow: 'Curso externo',
   titulo: 'Social Funnel - Emilio Puigrredón',
