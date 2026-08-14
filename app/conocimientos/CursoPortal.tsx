@@ -400,9 +400,27 @@ export function Hub({ curso, goClase, goRecurso, compartir, back, backLabel }: {
 // Transcripción diferida: puede ser enorme (+130k chars), así que NO viaja en el
 // bundle. Se sirve estática en /cono-tx/<videoId>.json y se baja al abrir el
 // <details>, una sola vez. Es un archivo público: funciona igual sin sesión.
-function TranscriptLazy({ videoId }: { videoId: string }) {
+// Íconos de línea, inline y sin dependencias: son dos, y una librería de íconos por
+// dos glifos es peso que viaja en el bundle público de /compartido.
+const IcoCopiar = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+const IcoBajar = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
+// Nombre de archivo seguro en Windows y macOS, que es donde se van a guardar.
+const archivoSeguro = (s: string) => String(s)
+  .replace(/[<>:"/\\|?*]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'transcripcion';
+
+function TranscriptLazy({ videoId, titulo }: { videoId: string; titulo: string }) {
   const [paras, setParas] = useState<string[] | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [copiado, setCopiado] = useState(false);
   const load = () => {
     if (paras || state === 'loading') return;
     setState('loading');
@@ -411,12 +429,46 @@ function TranscriptLazy({ videoId }: { videoId: string }) {
       .then((d: string[]) => { setParas(d); setState('idle'); })
       .catch(() => setState('error'));
   };
+
+  // El texto se arma UNA vez y lo usan copiar y descargar. Con el título arriba,
+  // porque una transcripción suelta en la carpeta de descargas no dice de qué clase es.
+  const texto = () => `${titulo}\n\n${(paras ?? []).join('\n\n')}\n`;
+
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(texto()); setCopiado(true); setTimeout(() => setCopiado(false), 1600); }
+    catch { /* sin permiso de portapapeles: queda el texto a la vista para seleccionar */ }
+  };
+  const bajar = () => {
+    const url = URL.createObjectURL(new Blob([texto()], { type: 'text/plain;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${archivoSeguro(titulo)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Sin esto el Blob queda en memoria toda la sesión; una transcripción larga son
+    // cientos de KB y el portal se navega clase por clase.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
   return (
     <details className="al-det" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) load(); }}>
       <summary>Ver transcripción</summary>
       <div className="al-transcript">
         {state === 'loading' && <p>Cargando transcripción…</p>}
         {state === 'error' && <p>No se pudo cargar la transcripción.</p>}
+        {/* Las acciones aparecen SOLO con el texto ya cargado: un botón de copiar que
+            copia una cadena vacía es peor que no tener botón. */}
+        {paras && paras.length > 0 && (
+          <div className="al-tx-acc">
+            <button type="button" className="al-tx-btn" onClick={copiar} aria-label="Copiar la transcripción">
+              <IcoCopiar />{copiado ? 'Copiado' : 'Copiar'}
+            </button>
+            <button type="button" className="al-tx-btn" onClick={bajar} aria-label="Descargar la transcripción en .txt">
+              <IcoBajar />Descargar
+            </button>
+          </div>
+        )}
         {paras && paras.map((p, i) => <p key={i}>{p}</p>)}
       </div>
     </details>
@@ -424,8 +476,19 @@ function TranscriptLazy({ videoId }: { videoId: string }) {
 }
 
 // ── Detalle de clase ─────────────────────────────────────────────────────────
-export function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; goRecurso: (slug: string) => void; back: () => void }) {
+export function ClaseDetail({ curso, c, goRecurso, goClase, back }: {
+  curso: Curso; c: Clase; goRecurso: (slug: string) => void;
+  /** Ir a otra clase. Opcional: el link compartido puede no querer navegación. */
+  goClase?: (n: number) => void;
+  back: () => void;
+}) {
   const bySlug = useMemo(() => Object.fromEntries(curso.recursos.map((r) => [r.slug, r])), [curso]);
+  // ⚠️ Anterior/siguiente salen de la POSICIÓN en el array, no de `n ± 1`. El `n` es
+  // el número de la clase y puede no ser contiguo; el orden real del curso es el del
+  // array, que ya viene ordenado por módulo y por orden dentro del módulo.
+  const idx = curso.clases.findIndex((x) => x.n === c.n);
+  const prev = idx > 0 ? curso.clases[idx - 1] : null;
+  const next = idx >= 0 && idx < curso.clases.length - 1 ? curso.clases[idx + 1] : null;
   return (
     <div className="al-detail">
       <button type="button" className="al-back" onClick={back}>← Volver</button>
@@ -451,7 +514,7 @@ export function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Cl
       )}
 
       {c.hasTx && c.videoId ? (
-        <TranscriptLazy videoId={c.videoId} />
+        <TranscriptLazy videoId={c.videoId} titulo={c.titulo} />
       ) : c.transcripcionNota ? <div className="al-nota">{c.transcripcionNota}</div> : null}
 
       {c.recursoSlugs.length > 0 && (
@@ -476,6 +539,28 @@ export function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Cl
             ))}
           </div>
         </div>
+      )}
+
+      {/* Anterior / Siguiente. Van ABAJO porque es donde uno termina de leer, y cada
+          botón dice el TÍTULO de la clase a la que lleva: «Siguiente →» a secas obliga
+          a hacer clic para saber a dónde va.
+          Si no hay anterior (o no hay siguiente) el botón NO se dibuja — ni deshabilitado:
+          un botón apagado ocupa lugar y hace dudar de si está roto. */}
+      {goClase && (prev || next) && (
+        <nav className="al-nav" aria-label="Navegación entre clases">
+          {prev ? (
+            <button type="button" className="al-nav-b al-nav-prev" onClick={() => goClase(prev.n)}>
+              <span className="al-nav-l">← Anterior</span>
+              <span className="al-nav-t">{prev.titulo}</span>
+            </button>
+          ) : <span />}
+          {next && (
+            <button type="button" className="al-nav-b al-nav-next" onClick={() => goClase(next.n)}>
+              <span className="al-nav-l">Siguiente →</span>
+              <span className="al-nav-t">{next.titulo}</span>
+            </button>
+          )}
+        </nav>
       )}
     </div>
   );
@@ -677,7 +762,7 @@ export default function CursoPortal({ curso, vista, nav, back, backLabel, compar
   const clase = vista.clase != null ? curso.clases.find((c) => c.n === vista.clase) : undefined;
   const recurso = vista.r ? curso.recursos.find((r) => r.slug === vista.r) : undefined;
 
-  if (clase) return <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ r: s })} back={back} />;
+  if (clase) return <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ r: s })} goClase={(n) => nav({ clase: n })} back={back} />;
   if (recurso) return <RecursoDetail r={recurso} back={back} />;
   return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} back={back} backLabel={backLabel} />;
 }
@@ -958,6 +1043,28 @@ export const CSS = `
 .cono .al-file-n{ font-size:15px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
 .cono .al-file-d{ font-family:var(--mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-40); }
 .cono .al-file .al-arr{ flex:none; color:var(--lime-ink); }
+
+/* Copiar y descargar la transcripción. Pegados arriba del texto: es donde uno está
+   mirando cuando decide llevárselo. */
+.cono .al-tx-acc{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.cono .al-tx-btn{ display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:8px; padding:7px 11px; cursor:pointer; transition:.14s; }
+.cono .al-tx-btn:hover{ background:var(--lime); box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); }
+.cono .al-tx-btn svg{ flex:none; }
+
+/* Anterior / Siguiente entre clases */
+.cono .al-nav{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:34px; padding-top:22px; border-top:1.5px solid var(--ink-15); }
+/* Con una sola salida ocupa la mitad y se alinea a su lado: «Siguiente» a la derecha
+   aunque no haya «Anterior», que es donde el ojo lo busca. */
+.cono .al-nav-b{ display:flex; flex-direction:column; gap:4px; text-align:left; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:11px; padding:13px 15px; cursor:pointer; box-shadow:var(--shadow-paste); transition:.14s; min-width:0; }
+.cono .al-nav-b:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
+.cono .al-nav-next{ text-align:right; grid-column:2; }
+.cono .al-nav-l{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--lime-ink); }
+/* Dos líneas y corta: un título largo no puede empujar el alto de la fila. */
+.cono .al-nav-t{ font-size:14.5px; font-weight:600; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+@media (max-width:560px){
+  .cono .al-nav{ grid-template-columns:1fr; }
+  .cono .al-nav-next{ grid-column:1; text-align:left; }
+}
 
 /* Pie del material compartido (solo en /compartido) */
 .cono .al-shared-ft{ margin-top:56px; padding-top:18px; border-top:1.5px solid var(--ink-15); font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-40); text-align:center; }
