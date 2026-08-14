@@ -46,7 +46,7 @@ test('solo ingesta si el negocio declaró la landing como entrada', () => {
 test('es idempotente: dos submits del mismo formulario no son dos leads', () => {
   const src = RUTA();
   assert.ok(/ref:\s*ref|ref,/.test(src), 'falta la ref de idempotencia');
-  assert.ok(/`landing:\$\{email \?\? telefono\}`/.test(src), 'sin ref del emisor, la identidad es el contacto');
+  assert.ok(/`landing:\$\{clave\}`/.test(src), 'sin ref del emisor, la identidad es el contacto');
 });
 
 test('sin forma de contacto se rechaza en la puerta, no en la revisión', () => {
@@ -447,7 +447,10 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   assert.ok(!/gte\('created_at', desde\)/.test(lib.slice(i - 200, i + 100)), 'las pendientes NO se filtran por ventana de tiempo');
   // Y tiene que LLEVAR a algún lado: la pantalla de revisión es por id.
   assert.ok(/accion\?: \{ texto: string; href: string \}/.test(lib), 'el chequeo necesita poder llevar a resolverlo');
-  assert.ok(/href: `\/crm\/revisar\/\$\{primerPendiente\}`/.test(lib), 'el href lo arma el server con el id real');
+  // ⚠️ A LA BANDEJA, no a uno suelto. La primera versión de este arreglo linkeaba
+  // al más reciente, y a los otros siete no se llegaba por ningún lado — que es
+  // exactamente el agujero que el chequeo venía a cerrar.
+  assert.ok(/href: '\/crm\/revisar'/.test(lib), 'el chequeo tiene que llevar a la lista, no a una sola propuesta');
   const panel = leer('../app/integraciones/ProbarTracking.tsx');
   assert.ok(/c\.accion && \(/.test(panel), 'la pantalla no pinta el link del chequeo');
 });
@@ -498,4 +501,32 @@ test('los CLICKS se miden: el CTA y el link de WhatsApp son el embudo', () => {
   const panel = leer('../app/integraciones/ProbarTracking.tsx');
   assert.ok(/e\.tipo === 'click'/.test(panel), 'el click no se traduce en la lista de eventos');
   assert.ok(/r\.detalle \?\? r\.vsl_titulo/.test(lib), 'el detalle del click no llega a la pantalla');
+});
+
+
+test('existe la BANDEJA: un aviso es un evento, una lista es un estado', () => {
+  // `propuestasPendientes()` vivía en lib/propuestas.ts desde el día uno con CERO
+  // call-sites. La única forma de llegar a una propuesta era su link directo, y
+  // para la landing ese link no se mandaba a ningún lado. El aviso nuevo cubre lo
+  // que entra de acá en adelante; la bandeja rescata lo que ya estaba, y es la
+  // red para cuando un aviso no se manda, no llega, o se lee y se olvida.
+  const pag = leer('../app/crm/revisar/page.tsx');
+  assert.ok(/propuestasPendientes\('lead'\)/.test(pag), 'la bandeja tiene que usar el lector que ya existía');
+  assert.ok(/\.catch\(\(\) => \[\] as Propuesta\[\]\)/.test(pag), 'una bandeja caída no puede tumbar la navegación del CRM');
+  assert.ok(/from '@\/app\/_ui\/Link'/.test(pag), 'el Link de la casa preserva el ?ws= del cliente que se está mirando');
+  assert.ok(/getUsuarioActual\(\)/.test(pag) && /redirect\('\/inicio'\)/.test(pag), 'la bandeja no puede quedar abierta');
+});
+
+test('la llave de idempotencia del opt-in se normaliza', () => {
+  // Era el teléfono CRUDO del input, así que la MISMA persona escribiendo
+  // «998 136 1529» y «9981361529» creaba dos propuestas — justo lo que la
+  // idempotencia venía a evitar.
+  const ruta = RUTA();
+  // ⚠️ Se afirma sin escribir la barra invertida. En una cadena de JS `"\D"` es
+  // una secuencia de escape que no existe y se colapsa a `"D"`, así que la
+  // aserción literal buscaba `/D/g` y fallaba sobre el código correcto. Cuando lo
+  // que hay que afirmar contiene barras, se afirman las PARTES inequívocas.
+  assert.ok(/replace\(\/\\D\/g, ''\)/.test(ruta), 'el teléfono se reduce a sus dígitos antes de ser la llave');
+  assert.ok(ruta.includes('.slice(-10)'), 'el mismo número con y sin código de país es el mismo número');
+  assert.ok(/const clave = email \?\?/.test(ruta), 'el email manda sobre el teléfono como identidad');
 });

@@ -100,7 +100,12 @@ export async function POST(req: NextRequest) {
   // Idempotencia por `ref`. Un formulario dispara dos veces con mala conexión y
   // un submit se reintenta; sin esto quedan dos tarjetas de la misma persona y
   // quien revisa confirma un duplicado creyendo que son dos.
-  const ref = txt(body.ref) ?? `landing:${email ?? telefono}`;
+  // ⚠️ LA LLAVE SE NORMALIZA. Era el teléfono CRUDO del input, así que la MISMA
+  // persona escribiendo «998 136 1529» y «9981361529» creaba dos propuestas —
+  // justo lo que la idempotencia venía a evitar. Se queda con los dígitos y con
+  // los últimos 10: el mismo número con y sin código de país es el mismo número.
+  const clave = email ?? (telefono ? telefono.replace(/\D/g, '').slice(-10) : null);
+  const ref = txt(body.ref) ?? `landing:${clave}`;
 
   const { id, nueva } = await crearPropuesta({
     ws,

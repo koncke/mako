@@ -403,7 +403,7 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
     ? await db.from('propuestas').select('id').eq('origen', 'landing').eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(50)
     : { data: null };
   const pendientes = (pend as Array<{ id: string }> | null)?.length ?? 0;
-  const primerPendiente = (pend as Array<{ id: string }> | null)?.[0]?.id ?? null;
+
 
   // ── ¿Qué versión del código tiene puesta? ─────────────────────────────────
   // Antes esto se INFERÍA de la ausencia de `segundos` en los eventos del VSL, y
@@ -437,7 +437,10 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
       // El link lo arma el CÓDIGO con el id real. Es lo único que convierte «tenés
       // 8 sin revisar» en algo que se puede hacer: la pantalla de revisión es por
       // id y no hay lista, así que sin esto la información no lleva a ningún lado.
-      accion: primerPendiente ? { texto: pendientes === 1 ? 'Revisarlo' : `Revisar el más reciente`, href: `/crm/revisar/${primerPendiente}` } : undefined },
+      // ⚠️ A LA BANDEJA, no a uno suelto. La primera versión linkeaba al más
+      // reciente — y a los otros siete no se llegaba por ningún lado, que es
+      // exactamente el problema que este chequeo vino a resolver.
+      accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Revisarlo' : `Ver los ${pendientes}`, href: '/crm/revisar' } : undefined },
     { id: 'play', label: 'Se detecta el play del VSL',
       estado: hayPlay ? 'ok' : 'falta',
       detalle: hayPlay ? 'El reproductor está enganchado.' : 'Nadie reprodujo el video en 24 h (o el player no es el que el código escucha). Si tu página no tiene video, ignoralo.' },
