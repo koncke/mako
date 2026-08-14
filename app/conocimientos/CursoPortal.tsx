@@ -39,6 +39,19 @@ export const claseTag = (clases?: number[]) => {
   return `${clases.length} clases`;
 };
 
+// ⚠️ El badge NO lleva número cuando el título ya trae el suyo. Muchos creadores
+// numeran sus lecciones («5.3 ROBA COMO ARTISTA», «11. Temazos») y esa numeración no
+// tiene por qué coincidir con la posición real: en «Jaque Blue» la plataforma no
+// tiene las lecciones 9, 12, 13 y 14, así que la 5.3 del autor es la 9ª del curso y
+// la tarjeta decía «CLASE 09 · 5.3 ROBA COMO ARTISTA». Dos números distintos para la
+// misma clase se leen como un error, y el que manda es el del autor: es el que él
+// menciona hablando y el que está en sus materiales.
+//
+// Se mira el TÍTULO, no el curso entero: en un mismo curso conviven clases numeradas
+// y sin numerar, y a las segundas el número sí les sirve.
+export const seNumeraSola = (titulo: string) => /^\s*\d{1,3}(?:[.\-)]|\s|$)/.test(String(titulo ?? ''));
+export const badgeClase = (c: Clase) => (seNumeraSola(c.titulo) ? 'Clase' : `Clase ${nn(c.vn ?? c.n)}`);
+
 const EXT_MSG = 'Alojado por un TERCERO (Notion del creador / Drive de otra cuenta), no en tu dominio. Si su dueño lo elimina, se pierde. Conviene respaldarlo.';
 // Marca de advertencia: dato de un tercero (fuera de tu control).
 function Ext({ badge }: { badge?: boolean }) {
@@ -305,7 +318,7 @@ export function Hub({ curso, goClase, goRecurso, compartir, back, backLabel }: {
   }, [curso]);
   const conModulos = curso.clases.some((c) => c.grupo);
   const claseCard = (c: Clase) => (
-    <Card key={c.n} badge={`Clase ${nn(c.vn ?? c.n)}`} titulo={c.titulo} desc={c.cardDesc}
+    <Card key={c.n} badge={badgeClase(c)} titulo={c.titulo} desc={c.cardDesc}
       ariaLabel={`Abrir ${c.titulo}`} onClick={() => goClase(c.n)} />
   );
   return (
@@ -417,7 +430,7 @@ export function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Cl
     <div className="al-detail">
       <button type="button" className="al-back" onClick={back}>← Volver</button>
       <div className="al-detail-hd">
-        <span className="al-rescard-badge">Clase {nn(c.n)}</span>
+        <span className="al-rescard-badge">{badgeClase(c)}</span>
         <h1 className="al-h1 al-h1-sm">{c.titulo}</h1>
       </div>
 
@@ -809,10 +822,14 @@ export const CSS = `
 .cono .al-rescard-img > .al-rescard-title, .cono .al-rescard-img > .al-rescard-desc{ padding:0 18px; }
 .cono .al-rescard-img > .al-rescard-go{ padding:0 18px 16px; }
 .cono .al-rescard-thumb{ display:block; width:100%; border-bottom:1.5px solid var(--ink); background:var(--ink-05, rgba(0,0,0,.04)); }
-/* Misma regla que el banner: entera, no recortada. Para las 9 tapas de 16:9 esto no
-   cambia nada (cover y contain coinciden); a las 2 cuadradas les evita perder la
-   mitad de la imagen en una tarjeta de 200px. */
-.cono .al-rescard-thumb img{ display:block; width:100%; aspect-ratio:16/9; object-fit:contain; }
+/* La miniatura LLENA la tarjeta. Para las 9 tapas de 16:9 no hay recorte —la caja ya
+   es 16:9—; a las 2 cuadradas (AvatarHype, MasteryHaus) las recorta arriba y abajo,
+   que es lo correcto: son logos centrados, y con contain quedaban flotando en el
+   medio con dos franjas vacías a los lados. El dueño pidió expresamente que ocupen
+   el ancho completo.
+   Va sin object-position a propósito: el centro es lo que conserva un logo, y en las
+   16:9 no cambia nada porque no hay nada que recortar. */
+.cono .al-rescard-thumb img{ display:block; width:100%; aspect-ratio:16/9; object-fit:cover; }
 .cono .al-rescard-go{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--lime-ink); display:inline-flex; align-items:center; gap:6px; margin-top:4px; }
 .cono .al-rescard:hover .al-arr{ transform:translateX(3px); }
 .cono .al-arr{ transition:transform .14s ease; }

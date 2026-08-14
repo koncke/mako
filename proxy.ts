@@ -269,6 +269,20 @@ function denegarRol(req: NextRequest, pathname: string) {
 }
 
 // Corre en todo menos assets estáticos.
+//
+// ⚠️ `cono-tx` va excluido POR RUTA y no por extensión, y es lo único así. Son las
+// transcripciones de /conocimientos, estáticas en `public/cono-tx/<videoId>.json`.
+// La lista de extensiones de acá no incluye `.json` —y no conviene que lo haga, hay
+// endpoints que sí tienen que estar gateados—, así que esos archivos entraban al
+// middleware y sin sesión se iban a /inicio con un 307.
+//
+// El síntoma era engañoso: en /conocimientos (con sesión de admin) las transcripciones
+// se veían perfectas, y fallaban SOLO en /compartido/<token>, que va sin login. O sea
+// que cada link repartido llevaba meses mostrando «No se pudo cargar la transcripción»
+// mientras del lado del admin todo estaba bien. Lo vio el dueño en un link compartido.
+//
+// Es un asset público de verdad: no lleva ningún dato de sesión y el que tiene el
+// videoId ya tiene el video.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|cono-tx/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?)$).*)'],
 };

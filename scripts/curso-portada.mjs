@@ -118,6 +118,11 @@ const main = async () => {
           href: a.href, src,
           texto: ((cont.innerText || a.innerText || '') + ' ' + (im.alt || '')).replace(/\\s+/g, ' ').slice(0, 200),
           area: (im.naturalWidth || im.width || 0) * (im.naturalHeight || im.height || 0),
+          // La PROPORCIÓN, para distinguir la tapa del avatar del autor. Ver el
+          // criterio de orden más abajo.
+          ratio: (im.naturalHeight || im.height || 0) > 0
+            ? (im.naturalWidth || im.width || 0) / (im.naturalHeight || im.height || 0)
+            : 0,
         });
       }
     }
@@ -149,7 +154,19 @@ const main = async () => {
       : todas.filter((x) => terminos.every((t) => norm(`${x.texto ?? ''} ${x.href}`).includes(t)));
     if (!mias.length) { console.log(`${todas.length} imágenes, ninguna de este curso`); continue; }
 
-    mias.sort((a, b) => (veces.get(a.src) - veces.get(b.src)) || (b.area - a.area));
+    // ⚠️ El orden NO puede ser por área. La tarjeta de un curso trae DOS imágenes: la
+    // tapa (16:9) y el avatar del autor (cuadrado), y el avatar suele ganar por área
+    // — el de Alex Hormozi es 450×450 = 202.500 px contra 456×256 = 116.736 de la
+    // tapa. Así se instaló su foto de perfil como portada del curso.
+    //
+    // Una tapa de curso es APAISADA y un avatar es cuadrado o vertical, así que la
+    // proporción separa las dos cosas mucho mejor que el tamaño. El área queda de
+    // último desempate, entre imágenes que ya son apaisadas.
+    const apaisada = (x) => (x.ratio ?? 0) >= 1.4;
+    mias.sort((a, b) =>
+      (veces.get(a.src) - veces.get(b.src))
+      || (Number(apaisada(b)) - Number(apaisada(a)))
+      || (b.area - a.area));
     const elegida = mias[0];
 
     // ⚠️ VERIFICACIÓN, y existe porque acá se instaló la portada de OTRO curso: el

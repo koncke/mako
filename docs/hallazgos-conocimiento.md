@@ -65,6 +65,12 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 20. **⚠️ La plataforma puede tener el curso cargado DOS VECES**, y ni los ids únicos ni
     los títulos únicos lo ven: la señal es la duración idéntica.
     [→](#️-la-plataforma-puede-tener-el-curso-cargado-dos-veces-y-ningún-chequeo-de-unicidad-lo-ve)
+21. **⚠️ Las transcripciones estaban rotas en TODO link compartido** y del lado del admin
+    se veían bien: el `matcher` del middleware excluye assets por extensión y `.json` no
+    estaba. [→](#️-las-transcripciones-estaban-rotas-en-todo-link-compartido-y-del-lado-del-admin-se-veían-bien)
+22. **⚠️ La portada no es la imagen más GRANDE de la tarjeta**: el avatar del autor gana
+    por área. La proporción es la que separa una tapa de una foto de perfil.
+    [→](#️-la-portada-del-curso-no-es-la-imagen-más-grande-de-la-tarjeta)
 
 ---
 
@@ -1052,6 +1058,54 @@ hay warning, y leer el bloque de arriba te convence de que el estilo es el que d
 
 (El filtro pasó a ser un desplegable, así que ese bloque ya no existe. Queda el aviso donde
 estaba.)
+
+### ⚠️ Las transcripciones estaban ROTAS en todo link compartido, y del lado del admin se veían bien
+
+**2026-08-14.** El dueño abre un `/compartido/<token>` y una clase dice **«No se pudo
+cargar la transcripción»**. El archivo existía en disco, estaba commiteado y estaba
+desplegado.
+
+Pidiéndolo directo a producción: **HTTP 307**. Las transcripciones son estáticos en
+`public/cono-tx/<videoId>.json`, y el `matcher` del middleware excluye assets **por
+extensión** — `png|jpe?g|svg|webp|gif|ico|css|js|woff2?` — y **`.json` no está en esa
+lista**. Así que cada pedido de transcripción entraba a la puerta de auth y, sin sesión,
+se iba a `/inicio`.
+
+**Por qué sobrevivió tanto:** en `/conocimientos`, con sesión de admin, las
+transcripciones se ven perfectas. Fallaban SOLO en el link compartido, que es justo el
+que uno no mira. Es el mismo patrón que AGENTS.md ya documenta para las rutas con auth
+propia: *«en local esto NO se ve»* — acá la variante es «con sesión esto no se ve».
+
+Se excluye **por RUTA** (`cono-tx/`) y no agregando `json` a la lista de extensiones:
+hay endpoints que sí tienen que estar gateados, y abrir todos los `.json` para arreglar
+un directorio de assets es más de lo que hace falta.
+
+**La regla:** un asset estático nuevo con una extensión que no está en el `matcher` es
+invisible en local y con sesión. Al agregar un tipo de archivo a `public/`, probalo
+**sin cookies** — `curl` pelado contra producción — antes de darlo por servido.
+
+### ⚠️ La portada del curso no es la imagen más GRANDE de la tarjeta
+
+El seleccionador de portadas ordenaba por área y se trajo la **foto de perfil de Alex
+Hormozi** en vez de la tapa del curso. No fue un bug del slug: la tarjeta trae las dos
+imágenes y el avatar **gana por área** — 450×450 = 202.500 px contra 456×256 = 116.736
+de la tapa.
+
+Una tapa de curso es **apaisada** y un avatar es cuadrado o vertical, así que la
+proporción las separa mucho mejor que el tamaño. Ahora ordena por `ratio >= 1.4` y el
+área queda de último desempate, entre imágenes que ya son apaisadas.
+
+### El badge de la clase no puede pelear con la numeración del autor
+
+La tarjeta decía **«CLASE 09 · 5.3 ROBA COMO ARTISTA»**: dos números distintos para la
+misma lección. El badge mostraba la posición real y el título la numeración del creador,
+que no coinciden porque a «Jaque Blue» le faltan las lecciones 9, 12, 13 y 14 en el
+origen.
+
+Gana el del autor: es el que él menciona hablando y el que está en sus materiales. Si el
+título ya empieza con su número, el badge dice solo «Clase». Se decide **por título**, no
+por curso: hay cursos donde conviven clases numeradas y sin numerar (en «Vender Por FB E
+IG ADS», 240 de 242 se numeran solas), y a las segundas el número sí les sirve.
 
 ### ⚠️ La plataforma puede tener el curso cargado DOS VECES, y ningún chequeo de unicidad lo ve
 

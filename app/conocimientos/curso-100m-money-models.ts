@@ -21,7 +21,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
   titulo: '100M money Models - Alex Hormozi',
   subtitulo: '35 clases, 2 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '35 clases',
-  portada: '/cono-portadas/100m-money-models.jpg',
+  portada: '/cono-portadas/100m-money-models.png',
   recursos: [
 
   ],
