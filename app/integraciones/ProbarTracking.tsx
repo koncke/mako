@@ -48,6 +48,7 @@ export function ProbarTracking() {
   const [err, setErr] = useState<string | null>(null);
   const [url, setUrl] = useState('');
   const [previo, setPrevio] = useState<Diag | null>(null); // estado ANTES de arrancar
+  const [bloqueo, setBloqueo] = useState(false); // apretó "probar" con el código viejo
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const traer = useCallback(async (guardarEn?: (d: Diag) => void) => {
@@ -83,24 +84,32 @@ export function ProbarTracking() {
 
   const box: CSSProperties = { border: '1px solid var(--border)', borderRadius: 13, background: 'var(--surface-2)', padding: 16, fontFamily: SANS };
 
+  // ⚠️ CON EL CÓDIGO VIEJO NO SE PRUEBA. Probar sobre un snippet desactualizado
+  // da un resultado que no significa nada: los chequeos nuevos van a fallar
+  // SIEMPRE —el código que está pegado no manda esos eventos— y la persona sale
+  // creyendo que su landing está rota cuando lo único que pasa es que hay que
+  // volver a pegar el código.
+  //
+  // El aviso aparece al APRETAR, no en lugar del panel: esconder el botón deja la
+  // sección sin su acción y sin explicar qué la reemplazó. La persona viene a
+  // probar; lo que corresponde es dejarla intentar y decirle ahí por qué todavía no.
+  const arrancar = () => {
+    if (previo?.codigoViejo) { setBloqueo(true); return; }
+    setActivo(true);
+  };
+
+  const avisoViejo = bloqueo && (
+    <div style={{ marginTop: 12, padding: '13px 15px', borderRadius: 11, border: '1px solid var(--warn)', background: 'var(--warn-bg)' }}>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Primero actualizá el código</div>
+      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4, lineHeight: 1.55 }}>
+        El que tenés pegado es de una versión anterior, así que probarlo no te va a decir nada útil:
+        los chequeos nuevos van a fallar porque ese código todavía no los manda.
+        <b> Copiá el código de arriba, reemplazalo en tu página y volvé acá.</b>
+      </div>
+    </div>
+  );
+
   if (!activo) {
-    // ⚠️ CON EL CÓDIGO VIEJO NO SE PRUEBA. Probar sobre un snippet desactualizado
-    // da un resultado que no significa nada: los chequeos nuevos van a fallar
-    // SIEMPRE —el código que está pegado no manda esos eventos— y la persona
-    // sale creyendo que su landing está rota cuando lo único que pasa es que hay
-    // que volver a pegar el código. Primero se actualiza; después se prueba.
-    if (previo?.codigoViejo) {
-      return (
-        <div style={{ ...box, borderColor: 'var(--warn)' }}>
-          <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Primero actualizá el código</div>
-          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.55 }}>
-            El que tenés pegado es de una versión anterior, así que probarlo no te va a decir nada útil:
-            los chequeos nuevos van a fallar porque ese código todavía no los manda.
-            <b> Copiá el código de arriba, reemplazalo en tu página y volvé acá.</b>
-          </div>
-        </div>
-      );
-    }
     return (
       <div style={box}>
         <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Probar que el código funciona</div>
@@ -128,6 +137,7 @@ export function ProbarTracking() {
           <button type="button"
             disabled={!/^https?:\/\/.+/i.test(url.trim())}
             onClick={() => {
+              if (previo?.codigoViejo) { setBloqueo(true); return; }
               const u = url.trim();
               try { localStorage.setItem(URL_KEY, u); } catch { /* sin storage */ }
               window.open(u, '_blank', 'noopener');
@@ -136,11 +146,13 @@ export function ProbarTracking() {
             style={{ flex: 'none', padding: '11px 20px', borderRadius: 11, border: 'none', background: /^https?:\/\/.+/i.test(url.trim()) ? 'var(--primary)' : 'var(--border)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: /^https?:\/\/.+/i.test(url.trim()) ? 'pointer' : 'not-allowed', fontFamily: SANS }}>
             Abrir mi página y empezar
           </button>
-          <button type="button" onClick={() => setActivo(true)}
+          <button type="button" onClick={arrancar}
             style={{ flex: 'none', padding: '11px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
             Ya la tengo abierta
           </button>
         </div>
+
+        {avisoViejo}
       </div>
     );
   }

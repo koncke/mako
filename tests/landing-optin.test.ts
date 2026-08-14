@@ -188,6 +188,10 @@ test('con el código viejo no se deja probar, y «Verificar» lo dice', () => {
   const probar = leer('../app/integraciones/ProbarTracking.tsx');
   assert.ok(/previo\?\.codigoViejo/.test(probar), 'la prueba tiene que bloquearse con el código viejo');
   assert.ok(/Primero actualizá el código/.test(probar), 'y decir qué hacer antes de probar');
+  // El botón NO se esconde: esconderlo deja la sección sin su acción y sin decir
+  // qué la reemplazó. Se deja intentar, y ahí se explica por qué todavía no.
+  assert.ok(/const arrancar = \(\) => \{/.test(probar), 'el botón de probar tiene que seguir existiendo');
+  assert.ok(/setBloqueo\(true\); return;/.test(probar), 'el aviso aparece al APRETAR, no en lugar del panel');
 
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
   assert.ok(/j\.codigoViejo/.test(board), '«Verificar» tiene que mirar la versión');
