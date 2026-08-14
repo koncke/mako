@@ -242,7 +242,7 @@ export type EventoDiag = {
 };
 
 export type ChequeoDiag = {
-  id: 'pageview' | 'play' | 'segundos' | 'profundidad';
+  id: 'pageview' | 'version' | 'optin' | 'play' | 'profundidad';
   label: string;
   estado: 'ok' | 'falta' | 'viejo';
   detalle: string;
@@ -277,22 +277,58 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
 
   const hayPageview = eventos.some((e) => e.tipo === 'pageview');
   const hayPlay = eventos.some((e) => e.tipo === 'play');
-  const conSegundos = eventos.filter((e) => e.tipo !== 'pageview' && e.segundos != null).length;
+  // (Ya no se cuentan los eventos «con segundos»: la versión del código se
+  // pregunta, no se infiere. Ver el chequeo 'version'.)
   const soloVsl = eventos.filter((e) => e.tipo !== 'pageview').length;
   const hayProfundidad = eventos.some((e) => /^[ps]\d+$/.test(e.tipo));
+
+  // ── ¿El formulario entra al CRM? ──────────────────────────────────────────
+  // El chequeo que faltaba. El snippet captura el opt-in, pero eso pasa en el
+  // server y en silencio: sin esta fila, la única forma de saber si anda era
+  // llenar el formulario y después ir a buscar el lead a otra pantalla.
+  //
+  // Son TRES estados distintos y separarlos importa, porque mandan a lugares
+  // distintos: «no lo declaraste» se arregla en /funnel, «todavía no probaste» se
+  // arregla llenando tu propio formulario, y «llegó» ya está.
+  // Import dinámico: `lib/leads.ts` es enorme y trae medio CRM atrás; a nivel de
+  // módulo esto sería un ciclo. Es el mismo recurso que usa `emitirAviso` con
+  // `plantillas`. La puerta se lee de donde el cliente la configura (/funnel), no
+  // de una copia — si acá se leyera `funnel_config` a mano, sería el segundo lugar
+  // que decide lo mismo y el que se queda viejo.
+  const { getFunnel } = await import('./leads');
+  const { entradas } = await getFunnel().catch(() => ({ entradas: [] as string[] }));
+  const declarado = (entradas as string[]).includes('landing');
+  const { data: optins } = declarado
+    ? await db.from('propuestas').select('created_at').eq('origen', 'landing').gte('created_at', desde).limit(1)
+    : { data: null };
+  const hayOptin = (optins?.length ?? 0) > 0;
+
+  // ── ¿Qué versión del código tiene puesta? ─────────────────────────────────
+  // Antes esto se INFERÍA de la ausencia de `segundos` en los eventos del VSL, y
+  // esa heurística mentía en el caso más común: una landing SIN video nunca manda
+  // segundos, así que le decía «tenés el código viejo» para siempre a alguien que
+  // lo tenía al día. Ahora la versión viaja de verdad en cada evento (`sv`), y el
+  // proxy sobra: se pregunta por el dato.
+  const { viejo: codigoViejo, instalada } = await snippetDesactualizado();
 
   const chequeos: ChequeoDiag[] = [
     { id: 'pageview', label: 'Llegan las visitas a la landing',
       estado: hayPageview ? 'ok' : 'falta',
       detalle: hayPageview ? 'El código está pegado y el ruteo funciona.' : 'No llegó ninguna visita en 24 h. Revisá que el código esté pegado y publicado.' },
+    { id: 'version', label: 'El código es la versión nueva',
+      estado: instalada === 0 || !hayPageview ? 'falta' : codigoViejo ? 'viejo' : 'ok',
+      detalle: instalada === 0 || !hayPageview ? 'Todavía no llegó ningún evento para saber qué versión tenés puesta.'
+        : codigoViejo ? `Tenés la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Te estás perdiendo ${novedadesDesde(instalada)}. Copiá el código de arriba y reemplazalo.`
+        : 'Es la última versión.' },
+    { id: 'optin', label: 'El formulario entra al CRM',
+      estado: !declarado ? 'viejo' : hayOptin ? 'ok' : 'falta',
+      detalle: !declarado
+        ? 'Está apagado: marcá «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads. Hasta entonces, lo que completen no entra.'
+        : hayOptin ? 'Llegó al menos un formulario en las últimas 24 h. Entra como propuesta para que lo revises antes de crear el lead.'
+        : 'Todavía no llegó ninguno. Para probarlo, completá tu propio formulario con tu email — aparece acá y en el CRM para revisar.' },
     { id: 'play', label: 'Se detecta el play del VSL',
       estado: hayPlay ? 'ok' : 'falta',
-      detalle: hayPlay ? 'El reproductor está enganchado.' : 'Nadie reprodujo el video en 24 h (o el player no es el que el código escucha).' },
-    { id: 'segundos', label: 'El código es la versión nueva',
-      estado: soloVsl === 0 ? 'falta' : conSegundos > 0 ? 'ok' : 'viejo',
-      detalle: soloVsl === 0 ? 'Todavía no hay eventos del VSL para saberlo.'
-        : conSegundos > 0 ? 'Manda los segundos vistos: con eso se calcula el % aunque el player no diga la duración.'
-        : 'Los eventos llegan SIN segundos: la landing tiene el código viejo. Copiá el de arriba y reemplazalo.' },
+      detalle: hayPlay ? 'El reproductor está enganchado.' : 'Nadie reprodujo el video en 24 h (o el player no es el que el código escucha). Si tu página no tiene video, ignoralo.' },
     { id: 'profundidad', label: 'Se mide cuánto del VSL ven',
       estado: hayProfundidad ? 'ok' : soloVsl > 0 ? 'viejo' : 'falta',
       detalle: hayProfundidad ? 'Llegan los hitos de avance: la retención por lead se puede calcular.'

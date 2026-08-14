@@ -148,3 +148,25 @@ test('la pantalla también lo dice (no solo el WhatsApp)', () => {
   const page = leer('../app/integraciones/page.tsx');
   assert.ok(/snippetDesactualizado\(\)/.test(page), 'el dato ya existía y nadie lo leía en la pantalla');
 });
+
+test('la prueba del código chequea el formulario, y la versión NO se adivina', () => {
+  const lib = leer('../lib/landing-token.ts');
+  const i = lib.indexOf('const chequeos: ChequeoDiag[]');
+  const bloque = lib.slice(i, i + 2600);
+
+  // El chequeo que faltaba: el snippet captura el opt-in en el server y en
+  // silencio, así que sin esta fila la única forma de saber si andaba era llenar
+  // el formulario y después ir a buscar el lead a otra pantalla.
+  assert.ok(/id: 'optin'/.test(bloque), 'la prueba no verifica que el formulario entre al CRM');
+  assert.ok(/!declarado/.test(bloque), 'tiene que distinguir «no lo declaraste en /funnel» de «todavía no probaste»: se arreglan en lugares distintos');
+  assert.ok(/completá tu propio formulario/.test(bloque), 'una prueba tiene que decir QUÉ hacer para probarla');
+
+  // La versión se PREGUNTA, no se infiere. La heurística vieja (ausencia de
+  // `segundos` en los eventos del VSL) mentía en el caso más común: una landing
+  // sin video nunca manda segundos, así que le decía «tenés el código viejo»
+  // para siempre a alguien que lo tenía al día.
+  assert.ok(/id: 'version'/.test(bloque), 'falta el chequeo de versión');
+  assert.ok(/snippetDesactualizado\(\)/.test(lib), 'la versión sale del dato que viaja en el evento, no de un proxy');
+  assert.ok(!/id: 'segundos'/.test(bloque), 'volvió la heurística: una landing sin video daría «código viejo» para siempre');
+  assert.ok(!/conSegundos > 0 \? 'ok'/.test(bloque), 'volvió a decidir la versión por la presencia de segundos');
+});

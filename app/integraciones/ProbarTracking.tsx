@@ -97,8 +97,12 @@ export function ProbarTracking() {
       </div>
       <style>{'@keyframes pt-latido{0%,100%{opacity:1}50%{opacity:.25}}'}</style>
 
+      {/* La instrucción cubre las DOS cosas que el código hace. Hasta el 14/08 solo
+          hablaba del video, y para un negocio cuya landing es un formulario —el
+          caso que destapó esto— la prueba entera parecía no ser para él. */}
       <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 12 }}>
-        Abrí tu landing en otra pestaña, <b>reproducí el video</b> y mirá más de 15 segundos. Los eventos aparecen acá en unos segundos.
+        Abrí tu landing en otra pestaña y probá lo que uses: <b>reproducí el video</b> más de 15 segundos,
+        y <b>completá tu propio formulario</b> con tu email. Los eventos aparecen acá en unos segundos.
       </div>
 
       {/* Los 4 chequeos: qué anda y qué no, en criollo. */}
