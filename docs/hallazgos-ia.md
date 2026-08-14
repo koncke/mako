@@ -1620,6 +1620,105 @@ modelos: **el precio de un proveedor no es un dato hasta que lo verificás vos**
 
 *2026-08-13 railway-y-transcripcion*
 
+### 🚨 Google bloquea las API keys «Standard» de Gemini en SEPTIEMBRE de 2026
+
+**Esto no es un hallazgo de costo: es una fecha de corte del servicio.** Verificado el
+2026-08-13 en la doc oficial (https://ai.google.dev/gemini-api/docs/api-key), textual:
+
+> «On September 2026: the Gemini API will reject requests from **Standard keys**. You must
+> migrate to auth keys before this date to avoid service interruption.»
+> «The Gemini API rejects requests from **unrestricted** standard keys. Standard API keys
+> that have explicit restrictions applied continue to work.»
+> «Starting May 7, 2026, the Gemini API blocks unrestricted API keys that have been dormant
+> for an extended period.» (quedan con el cartel «Blocked» en AI Studio)
+
+**Por qué importa acá y no en cualquier repo:** Gemini es el proveedor que sostiene **casi
+toda la IA gratis de MaKo** — `plan-fathom`, `mako-guardian` y `checklist-coach` corren ahí
+con `fallback: []`, o sea que **fallan en vez de comprar Claude**. El día que las keys dejen
+de andar, el síntoma no va a ser una factura alta: va a ser que **las reuniones no dejan
+tareas**, en todos los workspaces a la vez.
+
+**Lo verificado hoy, que es la buena noticia:** la key del ws1 responde **HTTP 200**, así
+que hoy funciona — o tiene restricciones aplicadas, o ya es auth key. Y **las keys nuevas
+creadas en AI Studio ya nacen auth**, así que cargar cuentas nuevas ahora suma cuota sin
+comprar el problema.
+
+**Regla:** antes de apoyar una feature en el free tier de un proveedor, **buscá su página de
+deprecaciones**, no solo la de precios. Un free tier no se rompe subiendo el precio: se rompe
+cambiando el formato de la credencial, y eso no aparece en ninguna comparativa de costos.
+
+⚠️ **Lo que hay que hacer, y tiene fecha:** revisar en AI Studio si cada key cargada es auth o
+standard, y migrar las standard **antes del 1/9/2026**. Si un día las llamadas gratis empiezan
+a fallar en masa con 400/403 «API key not valid» —y no con 429— es esto, no la cuota.
+
+**Cómo se distingue en 10 segundos** (los dos casos hoy caen en el mismo `console.warn` de
+`lib/ai-cheap.ts`, así que hay que preguntarle al proveedor):
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' \
+  -H "Authorization: Bearer $GEMINI_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"model":"gemini-flash-latest","messages":[{"role":"user","content":"ping"}],"max_tokens":5}'
+```
+**429** → es cuota, se resuelve con más cuentas. **400/403** → la key está bloqueada, y sumar
+cuentas no arregla nada.
+
+**Vive en:** las filas `GEMINI_API_KEY*` de `credenciales` · lib/ai-cheap.ts (la cascada) · lib/model-catalogo.ts (los `fallback: []`) · *2026-08-13 cuentas-ia-sin-limite*
+
+### El tope de cuentas por proveedor ES la whitelist: no se puede volver «sin límite»
+
+**Síntoma:** el pedido razonable «sacá el límite de 3 cuentas, que no tenga tope» parece un
+cambio de una constante.
+
+**Causa:** `MAX_KEYS` no es un tope de producto, es un **tope de nombres**, y de él cuelga la
+lista de claves que el API acepta guardar: `MAX_KEYS` → `clavesDe` → `CLAVES_EXTRA` →
+`ENVS_METODO` → los guards de guardar / borrar / revelar. Reemplazar esa lista por un patrón
+(`/_API_KEY(_\d+)?$/`) para que sea infinita **abre un agujero grave**: `guardarCredencial`
+termina en `process.env[clave] = valor` cuando el workspace es el dueño, y `cfgDe()` de
+`lib/ai-cheap.ts` relee `process.env.CHEAP_BASE_URL` en **cada** llamada. Una clave de más
+aceptada es **todo el tráfico de IA de todos los inquilinos saliendo hacia otro host con los
+Bearer adentro**.
+
+**Regla:** cuando una constante sostiene una whitelist, «sacar el límite» no es cambiarla por
+infinito: es cambiar una lista por un parser, y ese parser pasa a ser el borde de seguridad de
+la app. Subir el número (3 → 10) es gratis y seguro; sacarlo no. Y al usuario se le dice
+**«son 10»**, no «no tiene límite» — 10 cubre 3× el consumo medido y subirlo es una línea.
+
+**El corolario que se paga aparte:** subir el tope multiplica las lecturas. `provsDe` y
+`cuentasDe` resolvían las cuentas con un `credWs` **por slot**: 3 SELECT pasaban a 10 por
+proveedor (hasta 50 por generación y otros 50 por pintada del gauge), casi todos para
+descubrir que la key no existe. Por eso nace `lib/ia-keys-ws.ts`: una query por workspace,
+cacheada con `cache()` de React (**dedupe por request**) y nunca con `unstable_cache`, que es
+cross-request — cachear qué credenciales tiene cada inquilino es una fuga esperando a pasar.
+
+**Vive en:** lib/ia-keys.ts (MAX_KEYS y el comentario que explica por qué no se saca) · lib/ia-keys-ws.ts · lib/ai-cheap.ts (provsDe) · lib/ia-cuotas.ts (cuentasDe) · *2026-08-13 cuentas-ia-sin-limite*
+
+### Ningún proveedor de IA dice de qué cuenta es una API key
+
+**Síntoma:** con varias cuentas del mismo proveedor cargadas, no hay forma de saber cuál es
+cuál. La idea obvia es autocompletar el email preguntándole al proveedor.
+
+**Causa: no se puede, y son cinco de cinco.** Verificado el 2026-08-13:
+
+| Proveedor | ¿Devuelve el email? |
+|---|---|
+| **Gemini** | **NO**, y está escrito: *«Standard keys don't identify a caller»*. La key cuelga de un **proyecto** de Google Cloud, no de una persona |
+| **OpenRouter** | **NO.** `GET /api/v1/key` devuelve `label`, `creator_user_id`, `limit`, `usage`, `rate_limit` — ningún campo de email (`creator_user_id` es un id) |
+| **Groq** | No documenta endpoint de cuenta; además las keys son de la **organización** |
+| **Cerebras / Mistral** | Sin endpoint de cuenta documentado |
+
+**Regla:** una API key identifica un **proyecto o una organización**, casi nunca a una
+persona — así que «de quién es esta key» es un dato que solo tiene el que la pegó. Se pide una
+vez y se muestra siempre; prometer un autocompletado que no existe es peor que pedirlo.
+
+⚠️ **Y el gotcha que lo habría dejado inservible:** el form de /integraciones pinta
+`••••{mask}` en cuanto la credencial está guardada **sin mirar `c.secreto`**. Un email
+guardado se veía **`••••.com`** — lo contrario de para lo que existe. Todo campo no secreto
+que se guarde por este camino necesita que `estadoCampo` devuelva el valor entero **y** que el
+form lo pinte completo: son dos lugares, y el DTO copia props a mano entre ellos.
+
+**Vive en:** lib/ia-keys.ts (SUFIJO_CUENTA) · lib/metodo-catalogo.ts (cuentaDe) · lib/credenciales.ts (estadoCampo) · app/integraciones/ServicioConfigForm.tsx · *2026-08-13 cuentas-ia-sin-limite*
+
 ### ⚠️ Nada en `lib/` corta una llamada por gasto: `ia-cuotas` reordena, nunca bloquea
 
 **Síntoma:** se asume que el sistema de cuotas ya frena algo. No frena nada.
