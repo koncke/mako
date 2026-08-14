@@ -28,7 +28,8 @@ import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { TutorialAgente, CODE } from '../_components/TutorialAgente';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
-import ServicioConfigForm from './ServicioConfigForm';
+import ServicioConfigForm, { IconBtn } from './ServicioConfigForm';
+import { Icon } from '../_components/icons';
 import { getGoogleCalendarStatusAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import { ProbarTracking } from './ProbarTracking';
@@ -831,6 +832,7 @@ function resaltar(code: string): Array<{ t: string; c: string }> {
 
 function CodigoLanding({ snippet }: { snippet: string | null }) {
   const [copiado, setCopiado] = useState(false);
+  const [codigoAbierto, setCodigoAbierto] = useState(false);
   const [errorCopia, setErrorCopia] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [verificando, setVerificando] = useState(false);
@@ -887,27 +889,30 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
         Pegá este código en tu landing
       </h4>
 
-      {/* Las acciones ANTES del código. Lo que hay que hacer es copiar y pegar:
-          nadie lee el snippet. Tenerlo desplegado empujaba los dos botones abajo
-          de 200 px de JavaScript, y encima el bloque compite por atención con lo
-          único accionable de la sección. Se pliega, y copiar sigue andando
-          plegado: la acción no depende de ver el contenido. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-        <Button variant="primary" onClick={copiar} ok={copiado} okLabel="¡Copiado!">Copiar código</Button>
-        <Button variant="secondary" onClick={verificar} loading={verificando}>Verificar</Button>
-      </div>
-      {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — abrilo, seleccionalo y copialo a mano.</span>}
-
-      <details style={{ minWidth: 0 }}>
-        <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--dim)', padding: '9px 0', listStyle: 'revert' }}>
-          Ver el código
-        </summary>
-        <pre style={{ margin: '4px 0 0', minWidth: 0, background: CODE.bg, border: `1px solid ${CODE.bd}`, borderRadius: 12, padding: '13px 15px', maxHeight: 210, overflow: 'auto', fontFamily: MONO, fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre', userSelect: 'all' }}>
+      {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.
+          Antes eran tres piezas sueltas —un bloque de código, dos botones y un
+          «Ver el código»— que no se parecían a nada del resto de la pantalla.
+          Acá el esqueleto es el de `.mk-key-row`: el contenido a la izquierda,
+          las acciones adentro al final, y el mismo alto cerrada que cualquier
+          otra fila. */}
+      <div className={`mk-key-row mk-key-row--code${codigoAbierto ? ' is-abierta' : ''}`}>
+        <pre className="mk-key-code">
           <code style={{ fontFamily: MONO }}>
             {tokens.map((tk, n) => <span key={n} style={{ color: tk.c }}>{tk.t}</span>)}
           </code>
         </pre>
-      </details>
+        <IconBtn
+          name="chevron"
+          title={codigoAbierto ? 'Plegar el código' : 'Ver el código entero'}
+          tone={codigoAbierto ? 'primary' : 'dim'}
+          onClick={() => setCodigoAbierto((o) => !o)}
+        />
+        {/* Copiar funciona PLEGADO: la acción no depende de ver el contenido —
+            nadie lee el snippet, lo que hace es copiarlo y pegarlo. */}
+        <IconBtn name={copiado ? 'check' : 'copy'} title={copiado ? '¡Copiado!' : 'Copiar el código'} tone={copiado ? 'good' : 'dim'} onClick={copiar} />
+        <IconBtn name="plug" title={verificando ? 'Verificando…' : 'Verificar que esté funcionando'} disabled={verificando} onClick={verificar} />
+      </div>
+      {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — abrilo con el chevron, seleccionalo y copialo a mano.</span>}
 
       {estado && (
         <div style={{ fontSize: 12.5, fontWeight: 500, color: estado.ok ? 'var(--good)' : 'var(--bad)', lineHeight: 1.45 }}>
@@ -919,8 +924,18 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
       <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
         <button type="button" onClick={() => setAbierto((o) => !o)}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, color: 'var(--ink)', textAlign: 'left' }}>
-          ¿Dónde lo pego?
-          <span style={{ color: 'var(--faint)', fontSize: 11 }}>{abierto ? '▲' : '▼'}</span>
+          {/* El «?» es el mismo ícono con el que el wizard de credenciales abre
+              su «¿Cómo consigo esta key?»: es el mismo gesto —pedir ayuda sobre
+              el campo de al lado— y tiene que verse igual. Y el chevron sale del
+              catálogo en vez de dos triángulos de texto, que no escalan ni con el
+              tamaño de letra ni con el color. */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{ flex: 'none', color: 'var(--dim)', display: 'inline-flex' }}><Icon name="help" size={15} /></span>
+            ¿Dónde lo pego?
+          </span>
+          <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', display: 'inline-flex', transform: abierto ? 'rotate(180deg)' : undefined, transition: 'transform .15s ease' }}>
+            <Icon name="chevron" size={15} />
+          </span>
         </button>
         {abierto && (
           <div style={{ padding: '2px 14px 14px' }}>

@@ -114,13 +114,23 @@ function semaforo(c: Campo, tipeado: boolean): { color: string; texto: string; p
   return { color: 'var(--warn-fill)', texto: 'pendiente', placeholder: 'Pendiente' };
 }
 
-// Acción de fila: ícono + tooltip. Sin texto — el `title` explica qué hace.
-function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
+/**
+ * Acción de fila: ícono + tooltip. Sin texto — el `title` explica qué hace.
+ *
+ * Se EXPORTA porque la barra del código de la landing usa exactamente la misma
+ * acción adentro de la misma barra: copiarla sería garantizar que en dos meses
+ * los botones de una barra se vean distintos de los de la otra.
+ *
+ * El `mk-icon-btn` no es decorativo: es el gancho con el que la variante oscura
+ * de la barra (`.mk-key-row--code`) redefine el borde y el fondo, que sobre
+ * negro desaparecerían.
+ */
+export function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
   name: string; title: string; onClick: () => void; disabled?: boolean; tone?: 'dim' | 'bad' | 'primary' | 'good';
 }) {
   const color = tone === 'bad' ? 'var(--bad)' : tone === 'primary' ? 'var(--primary)' : tone === 'good' ? 'var(--good)' : 'var(--dim)';
   return (
-    <button type="button" title={title} aria-label={title} onClick={onClick} disabled={disabled}
+    <button type="button" className="mk-icon-btn" title={title} aria-label={title} onClick={onClick} disabled={disabled}
       style={{
         flex: 'none', width: 34, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color,

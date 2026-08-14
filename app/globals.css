@@ -550,6 +550,55 @@ textarea.mako-field {
   cursor: default;
 }
 
+/* ── La MISMA barra, pero para un bloque de código ────────────────────────────
+   Es `.mk-key-row` con el fondo oscuro del código: mismo alto cerrada, mismo
+   radio, mismos botones adentro al final. Se hizo como MODIFICADOR y no como una
+   pieza nueva porque comparten el esqueleto entero — y la regla de la casa dice
+   que dos cosas con la misma anatomía son una pieza con dos configuraciones;
+   mantenerlas separadas garantiza que diverjan.
+
+   Abierta crece: `align-items` pasa a flex-start para que los íconos queden
+   arriba y no centrados contra 200 líneas de JavaScript. */
+.mk-key-row--code {
+  background: #0F1115;
+  border-color: #232833;
+  padding: 0 8px 0 13px;
+  overflow: hidden;
+}
+.mk-key-row--code.is-abierta {
+  align-items: flex-start;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+/* El código adentro de la barra. Cerrada = UNA línea que no envuelve; abierta =
+   el bloque entero, con su propio scroll y sin empujar el ancho del modal. */
+.mk-key-code {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11.5px;
+  line-height: 1.65;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+}
+.mk-key-row--code.is-abierta .mk-key-code {
+  max-height: 260px;
+  overflow: auto;
+  text-overflow: clip;
+}
+/* Los botones de acción sobre fondo oscuro: el borde y el fondo claros de
+   `IconBtn` desaparecerían contra el negro. */
+.mk-key-row--code .mk-icon-btn {
+  border-color: #2C3240;
+  background: #171B22;
+}
+.mk-key-row--code .mk-icon-btn:hover:not(:disabled) {
+  background: #202632;
+}
+
 /* Campo compacto del modal de detalle del lead: misma identidad de foco que
    .mako-field pero con densidad chica (no rompe el layout de la ficha). */
 .lead-field {

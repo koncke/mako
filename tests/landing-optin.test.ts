@@ -236,13 +236,38 @@ test('el panel usa las piezas de la casa, no HTML crudo', () => {
   assert.ok(/window\.open\(u, '_blank'/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
 });
 
-test('el código se pliega, pero copiar sigue andando plegado', () => {
+test('el código usa LA MISMA barra que una credencial, no una pieza propia', () => {
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
   const i = board.indexOf('Pegá este código en tu landing');
-  const bloque = board.slice(i, i + 2200);
-  assert.ok(/<details/.test(bloque), 'el bloque de código tiene que poder plegarse: nadie lo lee, y empuja las acciones fuera de la vista');
-  // Las acciones ANTES del <details>: lo accionable no puede quedar debajo de
-  // 200 px de JavaScript.
-  assert.ok(bloque.indexOf('Copiar código') < bloque.indexOf('<details'), 'los botones van ARRIBA del código plegado');
-  assert.ok(!/<button type="button" onClick=\{copiar\}/.test(bloque), 'volvió el <button> crudo: hay Button en app/_ui');
+  const bloque = board.slice(i, i + 2600);
+
+  // Mismo esqueleto que `.mk-key-row`: contenido a la izquierda, acciones
+  // adentro al final. Dos cosas con la misma anatomía son UNA pieza con dos
+  // configuraciones — mantenerlas separadas garantiza que diverjan.
+  assert.ok(/mk-key-row mk-key-row--code/.test(bloque), 'el bloque de código tiene que ser la MISMA barra que una credencial, en oscuro');
+  assert.ok(!/<details/.test(bloque), 'el «Ver el código» suelto se reemplazó por el chevron DENTRO de la barra');
+  assert.ok(!/<Button\b/.test(bloque), 'los botones van DENTRO de la barra, como IconBtn');
+
+  // Y son los IconBtn de la casa: el mismo componente que usa la barra de una
+  // credencial, exportado en vez de copiado.
+  assert.ok(/<IconBtn/.test(bloque), 'las acciones son IconBtn, no botones propios');
+  assert.ok(/name="chevron"/.test(bloque), 'falta el chevron para expandir');
+  assert.ok(/name="plug"/.test(bloque), 'verificar usa el mismo ícono que «probar conexión» de una credencial');
+  assert.ok(/copiado \? 'check' : 'copy'/.test(bloque), 'copiar tiene que mostrar el tilde al copiar');
+});
+
+test('los íconos salen del catálogo, no son SVG sueltos', () => {
+  // Si a un catálogo le falta algo, se le agrega AL catálogo — no se inventa un
+  // SVG en la pantalla que lo necesitó.
+  const icons = leer('../app/_components/icons.tsx');
+  for (const n of ['copy', 'chevron', 'help', 'check', 'plug']) {
+    assert.ok(new RegExp(`^  ${n}: `, 'm').test(icons), `falta el ícono ${n} en el catálogo`);
+  }
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  // `lastIndexOf`: el texto aparece dos veces — en el comentario que explica el
+  // bloque y en el JSX. El primero no tiene íconos, obviamente.
+  const j = board.lastIndexOf('¿Dónde lo pego?');
+  const ayuda = board.slice(j - 1200, j + 600);
+  assert.ok(/Icon name="help"/.test(ayuda), 'el «¿Dónde lo pego?» lleva el mismo «?» que la ayuda de una credencial');
+  assert.ok(!/'▲' : '▼'/.test(ayuda), 'los triángulos de texto no escalan con el tamaño ni con el color: va el chevron del catálogo');
 });
