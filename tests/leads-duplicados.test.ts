@@ -1,0 +1,125 @@
+// =============================================================================
+// Anti-duplicado de leads: comparar bien, avisar siempre, no decidir por nadie
+// =============================================================================
+// Tres reglas del pedido, y el repo no cumplía ninguna pareja: `createLead()` no
+// chequeaba nada, los webhooks mergeaban en silencio, el importador descartaba
+// el duplicado AUNQUE lo tildaras, y nadie comparaba por nombre.
+// Correr: npm test
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  buscarDuplicados, emailComparable, esLeadDuplicado, LeadDuplicadoError,
+  nombreComparable, telefonoComparable, textoDuplicado, type LeadExistente,
+} from '../lib/leads-duplicados';
+
+const L = (id: number, nombre: string | null, email: string | null, tel: string | null): LeadExistente =>
+  ({ id, nombre, email, telefono_normalizado: tel });
+
+test('el mismo número escrito distinto es el mismo número', () => {
+  // La forma más común de que un duplicado se cuele: uno lo carga desde WhatsApp
+  // con código de país y el otro lo tipea sin él.
+  for (const v of ['+52 998 136 1529', '9981361529', '52-998-136-1529', '(998) 136 1529']) {
+    assert.equal(telefonoComparable(v), '9981361529', `«${v}» tendría que comparar igual`);
+  }
+  assert.equal(telefonoComparable('123'), null, 'demasiado corto para ser un teléfono');
+  assert.equal(telefonoComparable(null), null);
+});
+
+test('el nombre compara sin acentos y SIN IMPORTAR EL ORDEN', () => {
+  // «Hurtado Gabriela» y «Gabriela Hurtado» son la misma persona, y así es como
+  // llega el mismo contacto desde un formulario y desde una agenda.
+  assert.equal(nombreComparable('Gabriela Hurtado'), nombreComparable('Hurtado Gabriela'));
+  assert.equal(nombreComparable('José Pérez'), nombreComparable('jose perez'));
+  assert.equal(nombreComparable('Ana  María   López'), nombreComparable('lopez ana maria'));
+  // Las partículas aparecen y desaparecen según quién escriba.
+  assert.equal(nombreComparable('Juan de la Cruz'), nombreComparable('Juan Cruz'));
+  assert.equal(nombreComparable('  '), null);
+  assert.notEqual(nombreComparable('Ana López'), nombreComparable('Ana Pérez'));
+});
+
+test('el email compara en minúsculas, y el +alias NO se toca', () => {
+  assert.equal(emailComparable('  Hola@Mail.COM '), 'hola@mail.com');
+  assert.equal(emailComparable('no-es-un-email'), null, 'sin arroba no es un email');
+  // Para Gmail `a+x@` y `a@` son la misma casilla, pero para otros proveedores NO
+  // lo son. Fundirlos uniría dos personas distintas, que es el error caro.
+  assert.notEqual(emailComparable('a+uno@dominio.com'), emailComparable('a@dominio.com'));
+});
+
+test('encuentra por email, por teléfono y por nombre', () => {
+  const base = [L(1, 'Ana López', 'ana@x.com', '9981361529'), L(2, 'Otro', 'otro@x.com', '1112223333')];
+  assert.equal(buscarDuplicados({ email: 'ANA@x.com' }, base)[0]?.motivo, 'email');
+  assert.equal(buscarDuplicados({ telefono: '+52 998 136 1529' }, base)[0]?.motivo, 'telefono');
+  assert.equal(buscarDuplicados({ nombre: 'lopez ana' }, base)[0]?.motivo, 'nombre');
+  assert.deepEqual(buscarDuplicados({ email: 'nadie@x.com', telefono: '5550000000' }, base), []);
+});
+
+// ⚠️ LA REGLA QUE MÁS FALSOS POSITIVOS EVITA. Dos «Juan Pérez» son dos personas
+// distintas mucho más seguido que dos veces el mismo teléfono. Si hay un dato
+// fuerte, ese manda; el nombre solo entra cuando no hay con qué comparar mejor.
+test('el nombre solo cuenta si NO hay email ni teléfono', () => {
+  const base = [L(1, 'Juan Pérez', 'juan1@x.com', '1111111111')];
+  // Con teléfono propio y distinto: es OTRO Juan Pérez, y no se avisa.
+  assert.deepEqual(buscarDuplicados({ nombre: 'Juan Perez', telefono: '9999999999' }, base), []);
+  assert.deepEqual(buscarDuplicados({ nombre: 'Juan Perez', email: 'juan2@x.com' }, base), []);
+  // Sin ningún dato fuerte, el nombre es lo único que hay.
+  assert.equal(buscarDuplicados({ nombre: 'Juan Perez' }, base).length, 1);
+});
+
+test('devuelve TODAS las coincidencias, no la primera', () => {
+  // Con dos parecidos, decir «hay uno» y mostrar uno hace que la persona confirme
+  // creyendo que revisó todo.
+  const base = [L(1, 'Ana', 'ana@x.com', '1111111111'), L(2, 'Ana B', 'ana@x.com', '2222222222')];
+  assert.equal(buscarDuplicados({ email: 'ana@x.com' }, base).length, 2);
+  // Y un mismo lead no se cuenta dos veces aunque coincida por email Y teléfono.
+  const uno = [L(1, 'Ana', 'ana@x.com', '1111111111')];
+  assert.equal(buscarDuplicados({ email: 'ana@x.com', telefono: '1111111111' }, uno).length, 1);
+});
+
+test('el aviso lo escribe el CÓDIGO y nombra a quién ya tenés', () => {
+  // Acá viajan un nombre y un teléfono exactos; un dato exacto que pasa por un
+  // modelo deja de serlo.
+  const cs = buscarDuplicados({ email: 'ana@x.com' }, [L(1, 'Ana López', 'ana@x.com', null)]);
+  assert.match(textoDuplicado(cs), /Ana López/);
+  assert.match(textoDuplicado(cs), /email/);
+  assert.equal(textoDuplicado([]), '', 'sin coincidencias no hay nada que decir');
+  const dos = buscarDuplicados({ email: 'a@x.com' }, [L(1, 'A', 'a@x.com', null), L(2, 'B', 'a@x.com', null)]);
+  assert.match(textoDuplicado(dos), /y 1 más/);
+});
+
+test('el error lleva las coincidencias, no solo un mensaje', () => {
+  // Sin los ids, la pantalla no puede ofrecer «abrí el que ya tenés», que es lo
+  // primero que uno quiere hacer.
+  const cs = buscarDuplicados({ email: 'ana@x.com' }, [L(7, 'Ana', 'ana@x.com', null)]);
+  const e = new LeadDuplicadoError(cs);
+  assert.ok(esLeadDuplicado(e));
+  assert.equal(e.coincidencias[0].lead.id, 7);
+  assert.match(e.message, /Ana/);
+  assert.ok(!esLeadDuplicado(new Error('otra cosa')));
+});
+
+// =============================================================================
+// CABLEADO — que el chequeo exista no es que alguien lo llame
+// =============================================================================
+import { readFileSync } from 'node:fs';
+const leer = (p: string) => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+
+test('CABLEADO: createLead avisa en vez de insertar a ciegas', () => {
+  // Era el agujero más grande del mapa: `createLead()` no chequeaba NADA, y por
+  // ahí pasan el alta manual de /crm/new, el alta desde una conversación de
+  // WhatsApp, la importación de archivos y la confirmación de propuestas.
+  const leads = leer('../lib/leads.ts');
+  assert.ok(/if \(!input\.permitirDuplicado\)/.test(leads), 'el alta tiene que poder frenarse ante un duplicado');
+  assert.ok(/throw new LeadDuplicadoError\(dup\)/.test(leads), 'tiene que AVISAR con las coincidencias, no devolver un booleano');
+  assert.ok(/export async function duplicadosDeLead/.test(leads), 'falta el buscador contra la base');
+  // ⚠️ Si no se puede comprobar, NO se bloquea el alta. Degradar hacia «no dejo
+  // entrar a nadie» por una consulta caída pierde clientes reales — es el
+  // fallback más fuerte que el camino feliz, que este repo ya pagó una vez.
+  const i = leads.indexOf('export async function duplicadosDeLead');
+  assert.ok(/catch \(e\) \{[\s\S]{0,400}return \[\]/.test(leads.slice(i, i + 2200)), 'una consulta caída no puede bloquear el alta');
+
+  // Y tildar un duplicado en el importador ahora SIRVE: antes se descartaba
+  // igual, o sea que la pantalla ofrecía un tilde que no hacía nada.
+  const acciones = leer('../app/crm/actions.ts');
+  assert.ok(/permitirDuplicado: duplicado/.test(acciones), 'el tilde de la persona es la autorización');
+  assert.ok(!/if \(!f\.incluir \|\| f\.motivo \|\| chocaAcá\)/.test(acciones), 'volvió el descarte del duplicado tildado');
+});

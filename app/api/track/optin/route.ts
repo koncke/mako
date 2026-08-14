@@ -30,7 +30,8 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { crearPropuesta } from '@/lib/propuestas';
 import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
-import { getFunnel } from '@/lib/leads';
+import { createLead, duplicadosDeLead, getFunnel } from '@/lib/leads';
+import { textoDuplicado } from '@/lib/leads-duplicados';
 import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -107,6 +108,47 @@ export async function POST(req: NextRequest) {
   const clave = email ?? (telefono ? telefono.replace(/\D/g, '').slice(-10) : null);
   const ref = txt(body.ref) ?? `landing:${clave}`;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ENTRA SOLO, salvo que parezca un duplicado.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // El pedido: «no tiene sentido que le hagamos Revisar 1 por 1 a los leads que
+  // entran desde la landing, eso se debería cargar solo siempre». Tiene razón —
+  // una automatización que exige confirmar cada caso no automatiza nada, y la
+  // prueba está en que ocho leads reales se quedaron sin ver esperando ese click.
+  //
+  // ⚠️ Y la regla de la casa —«un canal propone, una persona confirma»— NO se
+  // rompe: se acota a donde sirve. El riesgo que esa regla cubre es un dato que
+  // llega mal y ensucia el CRM. Un formulario que la propia persona completó es
+  // el dato MÁS confiable que hay, mucho más que uno transcripto por un modelo.
+  // Lo que sí necesita ojo humano es el CHOQUE: dos contactos que parecen el
+  // mismo. Ahí la máquina no puede decidir sin perder información — fundir es
+  // irreversible y duplicar ensucia — así que ahí, y solo ahí, queda la propuesta.
+  const dup = await runWithWorkspace(ws, () => duplicadosDeLead({ nombre, email, telefono })).catch(() => []);
+
+  if (!dup.length) {
+    try {
+      const lead = await runWithWorkspace(ws, () => createLead({
+        nombre: nombre ?? email ?? telefono ?? 'Sin nombre',
+        email, telefono,
+        empresa: txt(body.empresa) ?? txt(body.company),
+        origen_lead: 'landing',
+      }));
+      await runWithWorkspace(ws, () =>
+        emitirDelCatalogo('lead-de-landing', {
+          ws,
+          texto: `*${nombre ?? email ?? telefono}* dejó sus datos en tu landing${telefono ? ` — tel ${telefono}` : ''}. Ya está en tu CRM 👉 ${APP_BASE_URL}/crm/${lead.id}`,
+        }),
+      ).catch((e) => console.error('[track:optin] el lead entró pero el aviso falló:', e instanceof Error ? e.message : e));
+      console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo`);
+      return ok({ lead: lead.id, creado: true });
+    } catch (e) {
+      // ⚠️ Si el alta falla, NO se pierde la persona: cae a propuesta, que es
+      // exactamente para lo que existe. Un error del CRM no puede convertirse en
+      // un lead que no llegó nunca.
+      console.error('[track:optin] alta directa falló, queda como propuesta:', e instanceof Error ? e.message : e);
+    }
+  }
+
   const { id, nueva } = await crearPropuesta({
     ws,
     tipo: 'lead',
@@ -154,7 +196,9 @@ export async function POST(req: NextRequest) {
     await runWithWorkspace(ws, () =>
       emitirDelCatalogo('lead-de-landing', {
         ws,
-        texto: `*${quien}* dejó sus datos en tu landing${contacto ? ` — ${contacto}` : ''}. Todavía NO está en el CRM: lo confirmás vos, así revisás el dato antes de que valga. Abrilo acá 👉 ${APP_BASE_URL}/crm/revisar/${id}`,
+        // Se dice POR QUÉ quedó esperando. «Confirmalo» a secas, sobre algo que
+        // el resto de las veces entra solo, se lee como que el sistema falló.
+        texto: `*${quien}* dejó sus datos en tu landing${contacto ? ` — ${contacto}` : ''}. ${textoDuplicado(dup) || 'Necesito que lo mires'} Por eso NO lo cargué solo: fundir dos contactos no se puede deshacer. Decidís vos acá 👉 ${APP_BASE_URL}/crm/revisar/${id}`,
         // Sin dedup por tiempo: cada persona que deja sus datos es un aviso
         // propio. Agrupar dos leads distintos en uno es perder el segundo.
       }),

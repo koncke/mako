@@ -14,13 +14,28 @@ import { readFileSync } from 'node:fs';
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const RUTA = () => leer('../app/api/track/optin/route.ts');
 
-test('NO escribe en leads: deja una propuesta', () => {
+// ⚠️ ESTE TEST CAMBIÓ DE SENTIDO A PROPÓSITO, 14/08/2026. Antes exigía que el
+// opt-in NO creara el lead. La regla «un canal propone, una persona confirma» no
+// se abandona: se acota a donde sirve. El riesgo que cubre es un dato que llega
+// mal; un formulario que la propia persona completó es el dato más confiable que
+// hay. Lo que sí necesita ojo humano es el CHOQUE con alguien que ya está —
+// fundir es irreversible y duplicar ensucia—, y ahí sigue la propuesta.
+//
+// El costo de la versión anterior está medido: ocho leads reales esperando un
+// click que nadie sabía que había que dar.
+test('entra SOLO, y solo un duplicado queda para revisar', () => {
   const src = RUTA();
-  assert.ok(/crearPropuesta\(/.test(src), 'el opt-in tiene que dejar una propuesta');
-  assert.ok(
-    !/from\(['"]leads['"]\)|insertLead|createLead/.test(src),
-    'un endpoint abierto que escribe directo en leads mete basura de un bot adentro del CRM',
-  );
+  assert.ok(/createLead\(\{/.test(src), 'un lead limpio tiene que entrar solo: si hay que confirmarlo, no automatiza nada');
+  assert.ok(/duplicadosDeLead\(/.test(src), 'sin chequeo de duplicados, el alta automática ensucia el CRM');
+  assert.ok(/if \(!dup\.length\)/.test(src), 'el alta directa es SOLO cuando no hay con quién chocar');
+  assert.ok(/crearPropuesta\(/.test(src), 'con duplicado tiene que quedar la propuesta, no descartarse');
+  // Si el alta falla, la persona NO se pierde: cae a propuesta. Un error del CRM
+  // no puede convertirse en un lead que no llegó nunca.
+  const i = src.indexOf('createLead({');
+  assert.ok(/catch \(e\)/.test(src.slice(i, src.indexOf('crearPropuesta({'))), 'un alta que falla tiene que caer a propuesta');
+  // Y el aviso dice POR QUÉ quedó esperando: «confirmalo» a secas, sobre algo que
+  // el resto de las veces entra solo, se lee como que el sistema falló.
+  assert.ok(/textoDuplicado\(dup\)/.test(src), 'el aviso tiene que decir con quién choca');
 });
 
 test('el ruteo del workspace es fail-closed', () => {

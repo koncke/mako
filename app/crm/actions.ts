@@ -1181,13 +1181,26 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[]): Promise
     // Además del motivo, se chequea contra lo insertado EN ESTA MISMA corrida:
     // marcarExistentes miró la base antes de empezar y no ve lo que vamos creando.
     const chocaAcá = (!!email && emailsNuevos.has(email)) || (!!tel && telsNuevos.has(tel));
-    if (!f.incluir || f.motivo || chocaAcá) { omitidos++; continue; }
+    // ⚠️ TILDAR UN DUPLICADO AHORA SIRVE. Antes la condición era
+    // `!f.incluir || f.motivo || chocaAcá`, así que una fila marcada como
+    // duplicada se salteaba AUNQUE la persona la hubiera tildado a propósito:
+    // era imposible duplicar a sabiendas, y la pantalla ofrecía un tilde que no
+    // hacía nada. Lo que se pidió es lo contrario — avisar y dejar decidir.
+    //
+    // `chocaAcá` sí sigue frenando, y es otra cosa: son dos filas del MISMO
+    // archivo que se pisan entre sí. Ahí no hay decisión que respetar, hay un
+    // archivo con la misma persona dos veces.
+    const duplicado = !!f.motivo;
+    if (!f.incluir || chocaAcá) { omitidos++; continue; }
     try {
       await createLead({
         nombre: f.nombre,
         email: f.email || null,
         telefono: f.telefono || null,
         empresa: f.empresa || null,
+        // La persona lo vio marcado como duplicado y lo tildó igual: eso ES la
+        // autorización. Sin esto, `createLead` lo volvería a frenar.
+        permitirDuplicado: duplicado,
       });
       creados++;
       if (email) emailsNuevos.add(email);

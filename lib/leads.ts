@@ -6,6 +6,10 @@
 // =============================================================================
 
 import 'server-only';
+import {
+  buscarDuplicados, emailComparable, LeadDuplicadoError, nombreComparable, telefonoComparable,
+  type CandidatoLead, type Coincidencia, type LeadExistente,
+} from './leads-duplicados';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
@@ -323,11 +327,66 @@ export async function vendedorUnicoDelWorkspace(): Promise<string | null> {
 }
 
 /**
- * Crea un lead nuevo. Solo requiere nombre.
+ * Busca leads que parezcan el mismo que el candidato, en ESTE workspace.
+ *
+ * La comparación vive en `lib/leads-duplicados.ts` (sin `server-only`, para poder
+ * testearla); acá queda solo traer con qué comparar. Se acota a lo que puede
+ * matchear —email, teléfono o, si no hay ninguno, nombre— en vez de bajar la
+ * tabla entera: un CRM con 20.000 leads no entra en memoria por cada alta.
  */
-export async function createLead(input: LeadCreateInput): Promise<Lead> {
+export async function duplicadosDeLead(cand: CandidatoLead): Promise<Coincidencia[]> {
+  const email = emailComparable(cand.email);
+  const tel = telefonoComparable(cand.telefonoNormalizado ?? cand.telefono);
+  const nombre = nombreComparable(cand.nombre);
+  if (!email && !tel && !nombre) return [];
+  try {
+    const db = await getTenantDb();
+    const cols = 'id, nombre, email, telefono_normalizado';
+    const [porEmail, porTel, porNombre] = await Promise.all([
+      email ? db.from('leads').select(cols).ilike('email', email).limit(20) : { data: [] },
+      tel ? db.from('leads').select(cols).ilike('telefono_normalizado', `%${tel}`).limit(20) : { data: [] },
+      // El nombre solo se consulta cuando NO hay dato fuerte, igual que la regla
+      // de `buscarDuplicados`: pedirlo siempre sería una query por cada alta para
+      // un criterio que en ese caso ni se mira.
+      !email && !tel && nombre ? db.from('leads').select(cols).limit(500) : { data: [] },
+    ]);
+    const todos = [...(porEmail.data ?? []), ...(porTel.data ?? []), ...(porNombre.data ?? [])] as LeadExistente[];
+    const unicos = new Map<number, LeadExistente>();
+    for (const l of todos) unicos.set(l.id, l);
+    return buscarDuplicados(cand, [...unicos.values()]);
+  } catch (e) {
+    // ⚠️ Si no se puede comprobar, NO se bloquea el alta: el lead es el hecho y
+    // el chequeo es una comodidad. Degradar hacia «no dejo entrar a nadie» por
+    // una consulta caída pierde clientes reales.
+    console.error('[duplicadosDeLead] falló:', e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+/**
+ * Crea un lead nuevo. Solo requiere nombre.
+ *
+ * ⚠️ AVISA SI YA LO TENÉS, y no decide por nadie. El pedido, textual: «avisar al
+ * usuario que es duplicado. Si el usuario lo quiere duplicar bueno, que lo pueda
+ * hacer, pero no cargarlo automáticamente. Y tampoco rechazarlo sin avisar.»
+ *
+ * Son tres cosas distintas y el repo no cumplía ninguna pareja: esta función no
+ * chequeaba NADA (el alta manual y la de WhatsApp insertaban a ciegas), los
+ * webhooks de Meta y Calendly matchean pero hacen merge en SILENCIO, y el
+ * importador descarta la fila duplicada aunque la persona la tilde.
+ *
+ * Acá se tira `LeadDuplicadoError` con las coincidencias adentro. Quien llama
+ * decide: mostrarlas y ofrecer `permitirDuplicado: true`, o dejar la propuesta
+ * para que una persona mire. Lo que NO puede pasar es que se cree en silencio ni
+ * que se descarte en silencio.
+ */
+export async function createLead(input: LeadCreateInput & { permitirDuplicado?: boolean }): Promise<Lead> {
   if (!input.nombre || !input.nombre.trim()) {
     throw new Error('Nombre es requerido');
+  }
+  if (!input.permitirDuplicado) {
+    const dup = await duplicadosDeLead(input);
+    if (dup.length) throw new LeadDuplicadoError(dup);
   }
   const supabase = (await getTenantDb());
   const solo = await vendedorUnicoDelWorkspace(); // #2: auto-asignar si hay 1 vendedor
