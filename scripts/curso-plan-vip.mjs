@@ -258,6 +258,61 @@ const main = async () => {
     };
   });
 
+  // ── Clases DUPLICADAS en el origen ──────────────────────────────────────────
+  // ⚠️ Una plataforma puede tener el curso entero cargado DOS VECES. «Jaque Blue -
+  // Creacion de Contenido» publica 40 lecciones que en realidad son 20: cada una
+  // aparece con su nombre y otra vez con el sufijo « (1)» del archivo re-subido.
+  // Cada copia tiene su propio `video_id`, así que ni los ids únicos ni los títulos
+  // únicos lo detectan — el pipeline las bajó, las subió a Drive y las transcribió
+  // todas, y el duplicado apareció recién en el portal, que es donde lo vio el dueño.
+  //
+  // La señal fuerte es la DURACIÓN idéntica sobre el mismo título base: dos videos
+  // distintos no duran lo mismo al décimo de segundo. Sin duración no se descarta
+  // nada —solo se avisa—, porque un curso puede tener legítimamente una «Parte (1)».
+  const base = (t) => String(t ?? '').replace(/\s*\(\d+\)\s*$/, '').trim().toLowerCase();
+  const porBase = new Map();
+  for (const c of clases) {
+    const k = base(c.titulo);
+    if (!porBase.has(k)) porBase.set(k, []);
+    porBase.get(k).push(c);
+  }
+  const duplicadas = [];
+  for (const [, grupo] of porBase) {
+    if (grupo.length < 2) continue;
+    // Se conserva la de título más limpio (la que NO tiene el sufijo), y de ahí la
+    // más corta; el resto se marca solo si comparte duración con la conservada.
+    const orden = [...grupo].sort((a, b) => a.titulo.length - b.titulo.length);
+    const queda = orden[0];
+    for (const otra of orden.slice(1)) {
+      const mismaDur = queda.segundos > 0 && otra.segundos === queda.segundos;
+      duplicadas.push({ queda, otra, seguro: mismaDur });
+    }
+  }
+  const aTirar = new Set(duplicadas.filter((d) => d.seguro).map((d) => d.otra.n));
+  const dudosas = duplicadas.filter((d) => !d.seguro);
+
+  if (duplicadas.length) {
+    console.log(`\n  ⚠ ${duplicadas.length} lección(es) parecen DUPLICADAS en el origen:`);
+    for (const d of duplicadas.slice(0, 6)) {
+      console.log(`     «${d.otra.titulo.slice(0, 48)}» = «${d.queda.titulo.slice(0, 48)}»` +
+        (d.seguro ? `  (misma duración ${d.queda.duracion || d.queda.segundos + 's'}) → se descarta` : '  (duración distinta) → SE CONSERVA, revisala'));
+    }
+    if (aTirar.size) console.log(`     ${aTirar.size} descartada(s) · ${clases.length - aTirar.size} clases reales`);
+    if (dudosas.length) console.log(`     ⚠ ${dudosas.length} sin confirmar por duración: quedan las dos.`);
+  }
+
+  if (aTirar.size) {
+    // Se renumera: `n` es el orden de la clase en el curso y tiene que quedar
+    // contiguo, o el nombre de archivo miente sobre cuántas clases hay.
+    const anchoN = String(clases.length - aTirar.size).length;
+    const limpias = clases.filter((c) => !aTirar.has(c.n)).map((c, i) => ({
+      ...c, n: i + 1,
+      archivo: `${String(i + 1).padStart(anchoN, '0')} - ${limpio(c.titulo)}`,
+    }));
+    clases.length = 0;
+    clases.push(...limpias);
+  }
+
   const sinVideo = clases.filter((c) => c.sinFuente);
   const totalSeg = clases.reduce((a, c) => a + c.segundos, 0);
   const slug = slugDe(cursoTitulo);

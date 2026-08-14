@@ -179,6 +179,11 @@ for (const c of plan.clases) {
     // El título EXACTO, números incluidos, es la señal más fuerte que hay.
     if (normEstricto(nombreSinExt) === normEstricto(c.titulo)) p += 8;
     if (norm(nombreSinExt) === norm(c.titulo)) p += 4;
+    // Entre dos copias del MISMO video, gana la que no lleva el « (1)» de archivo
+    // re-subido. Pasa cuando la plataforma publicó el curso dos veces (ver
+    // «Jaque Blue»): las dos sirven —misma duración al décimo de segundo— pero
+    // «la primera del array» no es un criterio, y el original tiene el nombre limpio.
+    if (!/\(\d+\)\s*$/.test(nombreSinExt)) p += 1;
     if (partes[0] && encaja(partes[0], sinPrefijoMod(c.modulo))) p += 2;
     if (c.submodulo && partes[1] && encaja(partes[1], c.submodulo)) p += 1;
     return { x, p };

@@ -62,6 +62,9 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 19. **⚠️ Un reintento que consulta un id PERSISTIDO no es un reintento.** ScreenApp aceptó
     un archivo y no lo transcribió nunca; los reintentos poleteaban el mismo trabajo
     muerto. [→](#️-un-reintento-que-consulta-un-id-persistido-no-es-un-reintento)
+20. **⚠️ La plataforma puede tener el curso cargado DOS VECES**, y ni los ids únicos ni
+    los títulos únicos lo ven: la señal es la duración idéntica.
+    [→](#️-la-plataforma-puede-tener-el-curso-cargado-dos-veces-y-ningún-chequeo-de-unicidad-lo-ve)
 
 ---
 
@@ -1049,6 +1052,31 @@ hay warning, y leer el bloque de arriba te convence de que el estilo es el que d
 
 (El filtro pasó a ser un desplegable, así que ese bloque ya no existe. Queda el aviso donde
 estaba.)
+
+### ⚠️ La plataforma puede tener el curso cargado DOS VECES, y ningún chequeo de unicidad lo ve
+
+**2026-08-14.** «Jaque Blue - Creacion de Contenido» publica **40 lecciones que en
+realidad son 20**: cada una aparece con su nombre y otra vez con el sufijo ` (1)` del
+archivo re-subido. El pipeline las bajó, las subió a Drive y las transcribió todas. El
+duplicado apareció recién en el portal y lo vio el dueño.
+
+**Por qué no lo agarró ninguna guarda.** Se chequeaban ids únicos y títulos únicos, y las
+dos cosas daban bien: cada copia es una subida distinta a Vimeo (otro `video_id`) y el
+` (1)` hace que el título difiera. **Las dos comprobaciones eran correctas y las dos eran
+irrelevantes.**
+
+La señal que sí sirve es la **DURACIÓN idéntica sobre el mismo título base**: dos videos
+distintos no duran lo mismo al décimo de segundo. Medido en los 20 pares: misma duración
+exacta, y tamaños iguales o con pocos KB de diferencia (jitter de dos subidas del mismo
+material).
+
+Ahora `curso-plan-vip.mjs` lo detecta y descarta la copia, renumerando. **Sin duración no
+descarta nada: solo avisa** — un curso puede tener legítimamente una «Parte (1)».
+
+Costo de no haberlo visto antes: 1,06 GB bajados de más, 20 archivos de más en Drive y 20
+transcripciones gastadas al pepe. Y el corolario para el resto del pipeline: **la
+aritmética delata.** El curso reportaba 8,9 h y quedó en 4,5 — exactamente la mitad. Un
+total que se parte al medio al deduplicar es la confirmación más barata que hay.
 
 ### ⚠️ Un reintento que consulta un id PERSISTIDO no es un reintento
 
