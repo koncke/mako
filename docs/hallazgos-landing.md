@@ -502,6 +502,67 @@ tendría que estar decidiendo con él».
 
 **Vive en:** `lib/propuestas.ts` (`crearPropuesta`)
 
+### ⚠️⚠️ El video de la clienta NUNCA se pudo medir: es un `<video>`, no un Panda
+
+*2026-08-14 · verificado bajando el HTML de la landing, no deducido*
+
+El único `pandavideo` de `que-es-lidermente.netlify.app` es **nuestro propio snippet**. Su
+video es un `<video controls>` común, y el snippet escuchaba **solo** mensajes `panda_*` de un
+iframe. No era un bug intermitente: era **imposible** que registrara algo.
+
+Un solo hueco, **tres síntomas que no se parecen entre sí** y que se reportaron por separado:
+
+1. «le di PLAY y no me apareció en la prueba».
+2. «Nadie reprodujo el video en 24 h» — una afirmación que iba a ser cierta **para siempre**.
+3. «nunca me dejó configurar si ese video es un VSL o un testimonio» — la pantalla para
+   nombrarlos solo aparece si hay videos **detectados**, y se detectan por sus eventos.
+
+**Regla:** antes de dar por bueno «el player está enganchado», verificá **qué player usa el
+cliente**. Un integrador que soporta una sola tecnología y no lo dice se ve idéntico a uno roto
+— y peor, el mensaje de error («nadie reprodujo») culpa al usuario de algo que el código no
+podía hacer.
+
+Ahora el `<video>` nativo se mide igual que Panda, reusando el **mismo** estado por video: dos
+clases de player alimentando dos modelos distintos es cómo se llega a dos curvas que no se
+pueden comparar. Con un `<video>` además se conoce la duración desde el DOM, así que se miden
+hitos de 5% de verdad y no solo la escalera de segundos.
+
+Tres decisiones que conviene no revertir: el id sale del `id` o del `src` del elemento y la
+**posición es el último recurso** (reordenar la página cambiaría de qué video habla cada
+curva); un `MutationObserver` engancha los que aparecen después (un builder monta el player al
+hacer scroll, y enganchar solo al cargar deja sin medir justo al de más abajo); y la marca
+`__mko` lo hace idempotente.
+
+**Vive en:** `lib/landing-token.ts` (`engancharNativos`, `idDeVideo`, `SNIPPET_VERSION = 7`)
+
+### El propio probador generaba los duplicados de landing
+
+Cada corrida abre `?mko_test=<id>` distinto, y eso entraba en la lista de páginas como una
+página nueva. Los UTM y los click-ids son el mismo caso.
+
+**Regla:** un parámetro que habla de la **visita** (de dónde vino, quién la trajo, si es una
+prueba) no identifica una **página**, y se saca antes de comparar. Lo que NO va en esa lista es
+un parámetro que cambia el CONTENIDO (`?plan=pro`, `?v=2`): ese sí hace que sean dos páginas
+distintas, y borrarlo las fundiría.
+
+**Vive en:** `lib/landing-paginas.ts` (`PARAMS_DE_MEDICION`)
+
+### Los chequeos iban en el orden en que se escribieron, no en el del embudo
+
+Empezaba por «llegan las visitas» y metía el formulario **antes** del video. La persona lee de
+arriba a abajo esperando el recorrido de su visitante: llegar → ver → clickear → dejar datos.
+
+Y la **versión va primera de todo**, aunque no sea un paso del embudo: si el código está viejo,
+todos los demás chequeos miden otra cosa y sus resultados no significan nada. Un diagnóstico
+que no empieza por «¿estás mirando el código correcto?» manda a investigar síntomas de una
+versión que ya no existe.
+
+**Y en una PRUEBA los textos hablan de la prueba, no de las últimas 24 h.** Quien acaba de
+apretar play no quiere que le contesten con una estadística del día — eso se lee como una
+negación de lo que acaba de hacer.
+
+**Vive en:** `lib/landing-token.ts` (el array `chequeos`, `enPrueba`)
+
 ### Lo que NO era un bug (verificado en la base, no deducido)
 
 - **Los «Visitó la landing» repetidos son visitas reales.** `landing_visits` no tiene columna de

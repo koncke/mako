@@ -1899,3 +1899,65 @@ con el árbol estable.**
 Y sobre este documento: se escribe para que **lo lea el dueño**, no solo otro agente — depurado,
 con títulos, ordenado y visible en `/admin/docs`. *"si yo lo puedo entender fácil eso me habilita
 a darle mejores prompts al otro claude"* (07/08).
+
+## Alta de leads y duplicados
+
+### ⚠️ No hay un choke point de alta: hay tres inserts y cuatro dedups que no se hablan
+
+*2026-08-14 · mapeo de 6 agentes sobre todos los caminos de alta*
+
+Medido, no supuesto. Insertan en `leads`:
+
+| Camino | Dónde | Qué hacía con un duplicado |
+|---|---|---|
+| `createLead()` — alta manual, WhatsApp, importación, confirmar propuesta | `lib/leads.ts` | **nada**: insertaba a ciegas |
+| `upsertLeadFromMeta()` | `lib/leads.ts` | matchea y **mergea en silencio** |
+| `upsertLeadFromCalendly()` | `lib/leads.ts` | matchea y **mergea en silencio** |
+| el importador (`marcarExistentes`) | `app/crm/actions.ts` | **descartaba** la fila aunque la persona la tildara |
+
+Cuatro comportamientos distintos para la misma pregunta, y **ninguno** comparaba por nombre.
+Las dos familias —`createLead` y los webhooks— no se llaman entre sí.
+
+Lo que quedó: `lib/leads-duplicados.ts` (sin `server-only`) con la comparación, y `createLead`
+tirando `LeadDuplicadoError` **con las coincidencias adentro** — sin los ids, la pantalla no
+puede ofrecer «abrí el que ya tenés», que es lo primero que uno quiere hacer.
+
+Tres reglas de comparación que valen más que el código:
+
+- **El teléfono compara por sus últimos 10 dígitos.** La forma más común de que un duplicado se
+  cuele es cargarlo desde WhatsApp con `+52` y tipearlo sin él.
+- **El nombre compara sin acentos y sin importar el orden.** «Hurtado Gabriela» y «Gabriela
+  Hurtado» son la misma persona, y así llega el mismo contacto desde un formulario y desde una
+  agenda.
+- **⚠️ Pero el nombre solo cuenta si NO hay email ni teléfono.** Dos «Juan Pérez» son dos
+  personas distintas mucho más seguido que dos veces el mismo teléfono; con un dato fuerte
+  presente, el nombre solo agrega falsos positivos.
+
+**Y el fallback:** si la consulta de duplicados falla, **no** se bloquea el alta. Degradar hacia
+«no dejo entrar a nadie» por una consulta caída pierde clientes reales — sería el fallback más
+fuerte que el camino feliz.
+
+**PENDIENTE:** los webhooks de Meta y Calendly siguen mergeando en silencio. Es el mismo
+problema y no pasaron por acá.
+
+**Vive en:** `lib/leads-duplicados.ts` · `lib/leads.ts` (`createLead`, `duplicadosDeLead`) ·
+`app/crm/actions.ts` (el bucle de importación) · pendiente en `lib/leads.ts`
+(`upsertLeadFromMeta`, `upsertLeadFromCalendly`)
+
+### «Un canal propone» se acota, no se abandona
+
+El lead de landing ahora entra **solo**. Una automatización que exige confirmar cada caso no
+automatiza nada, y el costo está medido: ocho leads reales esperando un click que nadie sabía
+que había que dar.
+
+La regla de AGENTS.md no se rompe — **se acota a donde sirve**. El riesgo que cubre es un dato
+que llega mal y ensucia el CRM; un formulario que la propia persona completó es el dato **más
+confiable** que hay, mucho más que uno transcripto por un modelo. Lo que sí necesita ojo humano
+es el **choque**: dos contactos que parecen el mismo. Ahí la máquina no puede decidir sin perder
+información —fundir es irreversible y duplicar ensucia— así que ahí, y solo ahí, queda la
+propuesta.
+
+**Y el aviso dice con quién choca.** «Confirmalo» a secas, sobre algo que el resto de las veces
+entra solo, se lee como que el sistema falló.
+
+**Vive en:** `app/api/track/optin/route.ts`
