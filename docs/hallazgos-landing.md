@@ -295,6 +295,63 @@ buscar JSX. Lo que se busca es lo que se ejecuta, no lo que está escrito al lad
 
 **Vive en:** `tests/landing-videos.test.ts` (`sinComentarios`)
 
+### ⚠️ Siete renglones de la misma landing: los previews de deploy de Netlify
+
+*2026-08-14*
+
+Reportado como **«pareciera que se están auto-guardando un montón de URLs iguales con números
+enfrente, no entiendo eso»** — y el diagnóstico obvio (el guardado) era el equivocado dos veces:
+no se estaba guardando ninguna (todas decían «detectada») y las URLs no eran iguales.
+
+Netlify le da a **cada deploy** una URL inmutable con el id del deploy adelante:
+
+```
+6a7f350eb436ad1a599d0dcb--que-es-lidermente.netlify.app
+6a7f2bbe8653f3b1e806517f--que-es-lidermente.netlify.app
+6a7e28766cf06853a0246d16--que-es-lidermente.netlify.app
+```
+
+El snippet mide en todas. Publicando varias veces por día eso llena el desplegable con la misma
+página — y, mucho peor que el ruido visual, **reparte la medición entre todas**: la retención de
+esa landing quedaba dividida en siete pedazos sin que nada lo dijera.
+
+La causa estaba en `landingDiagnostico`, que deduplicaba sobre el texto **crudo** de
+`landing_url`. Ahora normaliza antes, y `normalizarUrl` colapsa esos hosts.
+
+**El colapso es deliberadamente angosto:** solo cuando el prefijo es inconfundiblemente un id de
+deploy — 20+ caracteres hexadecimales (los de Netlify tienen 24). Los deploys **por rama**
+(`staging--sitio`, `preview--sitio`) quedan intactos: son entornos distintos y fundirlos
+mezclaría producción con pruebas. Vercel arma sus previews con guiones simples y sin separador
+propio, así que ahí un preview no se distingue de un proyecto que se llama así — y adivinar
+sería peor que dejarlos separados.
+
+**Regla:** una lista de «lo que observamos» se deduplica por la **identidad canónica**, nunca
+por el string. Cualquier hosting moderno emite una URL por deploy, así que un `new Set` sobre
+texto crudo va a mostrar N copias de todo lo que se publique seguido.
+
+**Vive en:** `lib/landing-token.ts` (`landingDiagnostico`, el `urls`) · `lib/landing-paginas.ts`
+(`hostCanonico`)
+
+### Una colección que se ELIGE también hay que MANTENERLA
+
+Los botones de corregir y quitar vivían afuera del desplegable y actuaban sobre la página
+seleccionada. Con siete renglones de la misma landing, sacar el que sobra obligaba a
+**seleccionarlo primero** — o sea, a elegir justo lo que se quiere que desaparezca.
+
+Ahora cada renglón trae los suyos (`DropdownAccion` en `app/components/Dropdown.tsx`), y los de
+afuera se quedan porque sirven sin abrir el menú. Dos cosas que no son opcionales al hacerlo:
+
+- **Con acciones, el renglón deja de ser un `<button>`.** Un `<button>` adentro de otro es
+  marcado inválido *y* el click del de afuera se dispara igual: «borrar» además seleccionaría
+  lo que se acaba de borrar. Van como hermanos en una fila.
+- **`stopPropagation` + `preventDefault`.** El menú se cierra por un listener de click en el
+  documento; sin frenarlo, la acción corre, el panel desaparece y se lee como que no pasó nada.
+- Y sin acciones el renglón sigue siendo **exactamente** el de antes: lo usan decenas de
+  pantallas y no tienen por qué cambiar de marcado por una variante nueva.
+
+**Vive en:** `app/components/Dropdown.tsx` (`renderOption`, `DropdownAccion`) ·
+`app/integraciones/ProbarTracking.tsx` (`accionesDe`)
+
 ### Lo que sigue pendiente sobre videos
 
 - **`curvaRetencion`, `avancePorPersona` e `histogramaAbandono` aceptan un `videoId` desde hace
