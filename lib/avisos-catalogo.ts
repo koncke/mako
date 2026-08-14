@@ -67,7 +67,7 @@ export const EMOJI_CATEGORIA: Record<CategoriaAviso, string> = {
 // Se pinta en el choke point (`emitirAviso`), no en los call-sites: así lo toma
 // TODO mensaje, incluidos los que nadie tocó y los que se creen mañana.
 
-export type AreaAviso = 'reunion' | 'lead' | 'anuncios' | 'plata' | 'plan' | 'sistema' | 'reporte';
+export type AreaAviso = 'reunion' | 'lead' | 'anuncios' | 'plata' | 'plan' | 'sistema' | 'reporte' | 'landing';
 
 /** Cómo se ve el rótulo de cada área. El emoji es el ancla visual; el texto, el desempate. */
 export const ROTULO_AREA: Record<AreaAviso, { emoji: string; texto: string }> = {
@@ -78,6 +78,11 @@ export const ROTULO_AREA: Record<AreaAviso, { emoji: string; texto: string }> = 
   plan:     { emoji: '📋', texto: 'PLAN' },
   sistema:  { emoji: '🔧', texto: 'SISTEMA' },
   reporte:  { emoji: '📊', texto: 'REPORTE' },
+  // El código pegado en la página del cliente. Tiene área propia y no cae en
+  // 'sistema' porque «🔧 SISTEMA» no le dice a nadie de qué le están hablando: la
+  // acción es ir a la landing y volver a pegar algo, y el rótulo tiene que
+  // anunciarlo desde la primera línea.
+  landing:  { emoji: '🌐', texto: 'TU LANDING' },
 };
 
 /**
@@ -114,7 +119,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'pago-recibido': 'plata', 'cierre-venta': 'plata',
   'objetivo-en-riesgo': 'plata', 'meta-alcanzada': 'plata',
 
-  'tracking-apagado': 'sistema', 'tracking-desactualizado': 'sistema', 'wa-desconectado': 'sistema',
+  'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'wa-desconectado': 'sistema',
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',

@@ -49,11 +49,50 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  * Historial:
  *   1 — medición de landing + VSL (pageview, play, hitos, exit).
  *   2 — se suma la captura del formulario de opt-in (13/08/2026).
+ *   3 — ⚠️ la v2 salió MUDA: al insertar la línea de la versión se perdió la
+ *       interpolación del token (`var TOKEN = ''`), así que ese snippet no
+ *       identifica el workspace y el beacon lo descarta fail-closed. Quien haya
+ *       copiado durante esas horas tiene una landing que no mide ni captura
+ *       nada. Se sube la versión para poder avisarle.
  */
-export const SNIPPET_VERSION = 2;
+export const SNIPPET_VERSION = 3;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
+
+/**
+ * ¿El código pegado en la landing de este workspace se quedó atrás?
+ *
+ * Lee lo que anotó el beacon. Un workspace del que nunca se anotó nada se trata
+ * como v1: es el caso de todos los que pegaron el código antes de que existiera
+ * el versionado, y son exactamente a quienes hay que avisarles.
+ *
+ * `false` si no hay token acuñado: sin código pegado no hay nada que actualizar,
+ * y decirle a alguien que actualice algo que nunca instaló es ruido.
+ */
+export async function snippetDesactualizado(): Promise<{ viejo: boolean; instalada: number }> {
+  const token = (await getSetting(LANDING_TOKEN_KEY))?.trim();
+  if (!token) return { viejo: false, instalada: 0 };
+  const instalada = Number(await getSetting(SNIPPET_VERSION_KEY)) || 1;
+  return { viejo: instalada < SNIPPET_VERSION, instalada };
+}
+
+/**
+ * Qué se pierde quien quedó en una versión vieja, para poder DECÍRSELO.
+ *
+ * Un aviso que solo dice «actualizá» es una tarea sin motivo, y una tarea sin
+ * motivo no la hace nadie — menos todavía cuando lo que tiene puesto parece
+ * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
+ */
+const NOVEDADES: Record<number, string> = {
+  2: 'la captura automática del formulario de tu landing (quien lo completa te entra al CRM)',
+  3: 'un arreglo del código: la versión anterior salió sin identificador y dejó de medir y de capturar',
+};
+
+export function novedadesDesde(instalada: number): string {
+  const l = Object.entries(NOVEDADES).filter(([v]) => Number(v) > instalada).map(([, t]) => t);
+  return l.join(' · ') || 'mejoras de medición';
+}
 
 /** Servicio bajo el que se indexa el token en webhook_routing. */
 export const LANDING_SERVICIO = 'landing';
@@ -292,7 +331,7 @@ export function landingSnippet(token: string): string {
   return `<script>
 (function () {
   var ENDPOINT = '${APP_BASE_URL}/api/track/vsl';
-  var TOKEN = '';
+  var TOKEN = '${token}';
   // Versión del snippet: viaja en cada evento para que MaKo sepa quién quedó
   // con el código viejo y le avise. Ver SNIPPET_VERSION.
   var SV = ${SNIPPET_VERSION};

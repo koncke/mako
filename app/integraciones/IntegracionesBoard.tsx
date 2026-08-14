@@ -143,13 +143,15 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cuotas = [], agenteToken, appUrl }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, cuotas = [], agenteToken, appUrl }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
   incidentes: Incidente[];
   /** <script> con el token del workspace, listo para copiar. null = admin sin impersonar. */
   snippetLanding?: string | null;
+  /** El código pegado en su página es de una versión vieja (lo sabe el beacon). */
+  landingVieja?: boolean;
   /** Cuota gratis consumida hoy por cada IA barata (gauge "cuánto queda"). */
   cuotas?: CuotaProv[];
   /** Token del agente externo (Claude Code). null = todavía no acuñó ninguno. */
@@ -166,6 +168,32 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     try { const j = await (await fetch('/api/anthropic-usage')).json(); if (j?.ok) setUsage(j as Resumen); } catch { /* offline */ }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  // ── Deep-link: ?abrir=<servicio> ──────────────────────────────────────────
+  // Un aviso de WhatsApp que manda a /integraciones deja a la persona frente a
+  // veinte tarjetas con la instrucción implícita de «buscá la tuya». El destino
+  // de un aviso es el LUGAR donde se resuelve, así que el link abre el modal del
+  // servicio y scrollea hasta su tarjeta.
+  //
+  // Se limpia el parámetro después (router.replace, sin scroll): si queda pegado,
+  // un F5 o el botón de atrás vuelven a abrir el modal que la persona ya cerró.
+  // Va con el router de app/_ui/Link para no perder el ?ws= del super admin.
+  const abrir = searchParams.get('abrir');
+  const yaAbierto = useRef(false);
+  useEffect(() => {
+    if (!abrir || yaAbierto.current) return;
+    if (!integraciones.some((i) => i.key === abrir) && !SYNTHETIC[abrir]) return;
+    yaAbierto.current = true;
+    setModal({ t: 'svc', key: abrir });
+    // El scroll va detrás del render del modal: la tarjeta tiene que existir en
+    // el DOM para que scrollIntoView tenga a dónde ir.
+    requestAnimationFrame(() => {
+      document.getElementById(`svc-${abrir}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    const q = new URLSearchParams(searchParams.toString());
+    q.delete('abrir');
+    router.replace(`/integraciones${q.size ? `?${q}` : ''}`, { scroll: false });
+  }, [abrir, integraciones, router, searchParams]);
 
   // ── Google Calendar: "hay token" NO es "está conectado" ────────────────────
   // El server solo sabe que existe un refresh_token. Si ese token es de los VIEJOS
@@ -247,6 +275,12 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // así el contador "N/M conectados", el medidor y el punto del tile dicen lo
     // mismo que el modal, en vez de dejarlo en una nota al pie que nadie abre.
     if (i.key === 'google' && gcalIncompleta) return 'warn';
+    // Mismo criterio para la landing: el código pegado en su página es de una
+    // versión vieja. El tracking anda —los eventos llegan— pero hay algo que
+    // hacer, y el verde no sabe decir eso. Degradar a ámbar es el precedente de
+    // Google, y se elige por lo mismo: que el contador, el medidor, el punto y el
+    // chip digan todos lo mismo, en vez de esconderlo en una nota que nadie abre.
+    if (i.key === 'landing' && landingVieja) return 'warn';
     return i.estado === 'conectada' ? 'good' : 'warn';
   };
   const dotColor = (s: 'good' | 'warn' | 'bad') => (s === 'good' ? 'var(--good)' : s === 'warn' ? 'var(--warn-fill)' : 'var(--bad)');
@@ -365,7 +399,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
         </div>
         {porCategoria.map((g) => {
           const svcBtn = (i: Integracion) => (
-            <button key={i.key} type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ display: 'flex', alignItems: 'center', gap: 11, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '11px 13px' }}>
+            <button key={i.key} id={`svc-${i.key}`} type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ display: 'flex', alignItems: 'center', gap: 11, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '11px 13px' }}>
               <SvcIcon k={i.key} />
               <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.nombre}</span>
               <span style={{ width: 8, height: 8, flex: 'none', borderRadius: '50%', background: dotColor(sevOf(i)) }} />
@@ -410,7 +444,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           // El chip repite la palabra del estado. Con permiso incompleto, "Por
           // configurar" (lo que diría el ámbar por defecto) manda al usuario a
           // buscar una credencial que no existe: acá lo que falta es un permiso.
-          chipWord={modal.key === 'google' && gcalIncompleta ? 'Falta permiso' : undefined}
+          chipWord={modal.key === 'google' && gcalIncompleta ? 'Falta permiso'
+            : modal.key === 'landing' && landingVieja ? 'Actualizá el código'
+            : undefined}
           gcal={gcal}
           health={health} metaError={metaError} usage={usage}
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}

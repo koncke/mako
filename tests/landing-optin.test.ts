@@ -86,13 +86,65 @@ test('el snippet lleva versión, y algo la mira cuando se queda vieja', () => {
   assert.ok(/var SV = \$\{SNIPPET_VERSION\}/.test(lib), 'la versión tiene que VIAJAR en el snippet, no solo existir en el server');
   assert.ok(/data\.sv = SV/.test(lib), 'la versión tiene que ir en cada evento');
 
+  // ⚠️ LA ASERCIÓN ESPEJO, y la que faltaba. Este test se escribió en el MISMO
+  // commit (562f8962) que dejó `var TOKEN = ''` —la interpolación se perdió al
+  // insertar la línea de la versión— y pasó en verde, porque exigía que viajara
+  // la versión y nunca que viajara el token. Sin token, el beacon muere en el
+  // fail-closed y el opt-in se rechaza con 400: el snippet queda MUDO y la
+  // pantalla lo muestra igual de lindo. Si agregás algo nuevo al snippet, sumá
+  // acá su aserción: lo que no se afirma es lo próximo que se va a romper.
+  assert.ok(
+    /var TOKEN = '\$\{token\}'/.test(lib),
+    'el TOKEN dejó de interpolarse: el snippet sale sin identificar el workspace y no mide ni captura nada',
+  );
+
   const beacon = leer('../app/api/track/vsl/route.ts');
   assert.ok(/anotarVersionSnippet/.test(beacon), 'el beacon es el único lugar donde se puede saber qué versión tiene puesta el cliente');
 
+  // La comparación vive en `snippetDesactualizado()` — sin server-only alrededor
+  // del dato, y con UN solo lugar que decide «esto quedó viejo»: lo consumen el
+  // cron (para el WhatsApp) y la pantalla (para el chip). Dos copias divergirían.
+  assert.ok(/instalada < SNIPPET_VERSION/.test(lib), 'nadie compara la instalada contra la actual: la versión sola no avisa nada');
   const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
-  assert.ok(/instalada < SNIPPET_VERSION/.test(cron), 'nadie compara la instalada contra la actual: la versión sola no avisa nada');
+  assert.ok(/snippetDesactualizado\(\)/.test(cron), 'el cron tiene que preguntar por el mismo lugar que la pantalla');
   assert.ok(/tracking-desactualizado/.test(cron), 'falta el aviso por WhatsApp');
   // El aviso dice QUÉ se pierde: «actualizá» a secas es una tarea sin motivo, y
   // menos todavía cuando lo que tiene puesto funciona.
-  assert.ok(/NOVEDADES_DESDE\(instalada\)/.test(cron), 'el aviso tiene que decir qué se está perdiendo, no solo que actualice');
+  assert.ok(/novedadesDesde\(instalada\)/.test(cron), 'el aviso tiene que decir qué se está perdiendo, no solo que actualice');
+});
+
+test('el aviso de código viejo: rótulo propio, texto determinista y link que abre el lugar', () => {
+  const cat = leer('../lib/avisos-catalogo.ts');
+  // Rótulo propio: «🔧 SISTEMA» no le dice a nadie de qué le están hablando.
+  assert.ok(/landing:\s*\{ emoji: '🌐', texto: 'TU LANDING' \}/.test(cat), 'la landing necesita su propia área de aviso');
+  assert.ok(/'tracking-desactualizado': 'landing'/.test(cat), 'el aviso tiene que salir con el rótulo de landing, no con el de sistema');
+
+  const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
+  // ⚠️ `texto` y NO `contexto`: con contexto lo redacta el modelo, y acá viaja un
+  // LINK exacto. Regla de la casa: un dato exacto no lo transporta un LLM.
+  const i = cron.indexOf("emitirDelCatalogo('tracking-desactualizado'");
+  // Se corta en el cierre de ESA llamada: el `tracking-apagado` de más abajo sí
+  // usa `contexto` (su texto lo puede redactar el modelo, no lleva link), y con
+  // una ventana fija el test lo leía como si fuera de este aviso.
+  const bloque = cron.slice(i, cron.indexOf('});', i));
+  assert.ok(/texto:/.test(bloque), 'el mensaje tiene que ser determinista: el link no lo puede escribir el modelo');
+  assert.ok(!/contexto:/.test(bloque), 'volvió el contexto: el modelo puede reescribir mal la URL');
+  assert.ok(/LINK_LANDING/.test(bloque), 'el aviso tiene que llevar el link exacto');
+  assert.ok(/\/integraciones\?abrir=landing/.test(cron), 'el link tiene que abrir el LUGAR donde se resuelve, no la pantalla entera');
+  assert.ok(/APP_BASE_URL/.test(cron), 'en un WhatsApp un path no es clicable: el link va absoluto');
+});
+
+test('la pantalla también lo dice (no solo el WhatsApp)', () => {
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  assert.ok(/i\.key === 'landing' && landingVieja\) return 'warn'/.test(board), 'con el código viejo la integración no puede seguir en verde');
+  assert.ok(/'Actualizá el código'/.test(board), 'el chip tiene que decir qué hacer');
+  // El deep-link: abre el modal, scrollea, y limpia el parámetro para que un F5
+  // no reabra lo que la persona ya cerró.
+  assert.ok(/searchParams\.get\('abrir'\)/.test(board), 'falta leer el parámetro del deep-link');
+  assert.ok(/scrollIntoView/.test(board), 'el link tiene que scrollear a la tarjeta');
+  assert.ok(/id=\{`svc-\$\{i\.key\}`\}/.test(board), 'sin ancla en la tarjeta, el scroll no tiene a dónde ir');
+  assert.ok(/q\.delete\('abrir'\)/.test(board), 'el parámetro se limpia: si queda, un F5 reabre el modal cerrado');
+
+  const page = leer('../app/integraciones/page.tsx');
+  assert.ok(/snippetDesactualizado\(\)/.test(page), 'el dato ya existía y nadie lo leía en la pantalla');
 });

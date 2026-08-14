@@ -8,7 +8,7 @@ import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { getIntegraciones } from '@/lib/integraciones';
 import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
-import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
+import { getOrCreateLandingToken, landingSnippet, snippetDesactualizado } from '@/lib/landing-token';
 import { getAgenteToken } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { cuotasProveedores } from '@/lib/ia-cuotas';
@@ -53,6 +53,13 @@ export default async function IntegracionesPage() {
   const ws = await getWorkspaceActual();
   const snippetLanding = ws == null ? null : landingSnippet(await getOrCreateLandingToken(ws));
 
+  // ¿El código pegado en su página se quedó atrás? El dato ya existía (lo anota el
+  // beacon) pero solo lo leía el cron: el aviso salía por WhatsApp y la pantalla
+  // seguía diciendo «Conectada», que es la mitad que la persona mira. Un semáforo
+  // que no puede expresar «anda, pero hay algo que hacer» obliga a que el aviso
+  // sea el único canal, y un aviso se archiva.
+  const landingVieja = ws == null ? false : (await snippetDesactualizado().catch(() => ({ viejo: false }))).viejo;
+
   // Cuota GRATIS consumida hoy por cada IA barata (para el gauge "cuánto queda"
   // de cada proveedor y para el aviso proactivo de rotación). Nunca rompe la página.
   const cuotas = await cuotasProveedores().catch(() => []);
@@ -69,6 +76,7 @@ export default async function IntegracionesPage() {
       metaError={metaError}
       incidentes={incidentes}
       snippetLanding={snippetLanding}
+      landingVieja={landingVieja}
       cuotas={cuotas}
       agenteToken={agenteToken}
       appUrl={APP_URL}

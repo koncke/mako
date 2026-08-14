@@ -22,7 +22,8 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { listarWorkspaces, runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { getSetting } from '@/lib/settings';
-import { LANDING_TOKEN_KEY, SNIPPET_VERSION, SNIPPET_VERSION_KEY } from '@/lib/landing-token';
+import { LANDING_TOKEN_KEY, novedadesDesde, snippetDesactualizado } from '@/lib/landing-token';
+import { APP_BASE_URL } from '@/lib/app-url';
 import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
@@ -40,22 +41,14 @@ const DEDUP_MIN = 60 * 24 * 3;
 type Estado = { ws: number; ultima: string | null; horas: number | null; aviso: boolean; snippet?: number };
 
 /**
- * Qué se pierde quien quedó con una versión vieja del snippet.
+ * El link EXACTO que abre la pantalla, scrollea a la tarjeta y abre su modal.
  *
- * Un aviso que solo dice «actualizá» es una tarea sin motivo, y una tarea sin
- * motivo no la hace nadie — menos todavía si lo que tiene puesto FUNCIONA. Acá se
- * le dice qué está dejando de recibir, que es lo único que la vuelve urgente.
- *
- * Al subir `SNIPPET_VERSION`, sumá su renglón. Sin renglón el aviso sale genérico.
+ * `?abrir=landing` no es decorativo: sin eso, el mensaje deja a la persona en una
+ * pantalla con veinte tarjetas y la instrucción «buscá la de landing». El destino
+ * de un aviso es el LUGAR donde se resuelve, no la sección que lo contiene.
+ * Absoluto porque va adentro de un WhatsApp, donde un path no es clicable.
  */
-const NOVEDADES: Record<number, string> = {
-  2: 'la captura automática del formulario de tu landing (quien lo completa te entra al CRM)',
-};
-const NOVEDADES_DESDE = (desde: number): string =>
-  Object.entries(NOVEDADES)
-    .filter(([v]) => Number(v) > desde)
-    .map(([, t]) => t)
-    .join(' · ') || 'mejoras de medición';
+const LINK_LANDING = `${APP_BASE_URL}/integraciones?abrir=landing`;
 
 export async function GET(req: NextRequest) {
   const denied = checkCronAuth(req);
@@ -100,12 +93,26 @@ export async function GET(req: NextRequest) {
           // congelado en el HTML del cliente el día que lo copió, así que una
           // mejora nuestra no le llega nunca — y no hay ningún síntoma, porque los
           // eventos del código viejo llegan igual y la integración sigue en verde.
-          const instalada = Number(await getSetting(SNIPPET_VERSION_KEY)) || 1;
-          if (instalada < SNIPPET_VERSION) {
+          const { viejo, instalada } = await snippetDesactualizado();
+          if (viejo) {
+            // ⚠️ Va `texto` y NO `contexto`: con `contexto` el mensaje lo REDACTA
+            // el modelo, y acá viaja un LINK exacto. La regla de la casa es
+            // textual: «un DATO EXACTO que pasa por las manos de un LLM deja de
+            // ser exacto… si un id, un número o una URL tienen que llegar
+            // intactos, no los transporta el modelo». Además el mensaje es
+            // siempre el mismo, así que pagarle a Claude para reescribirlo es
+            // gastar por una variación que nadie pidió.
             await emitirDelCatalogo('tracking-desactualizado', {
               ws: w.id,
               dedupTtlMin: DEDUP_MIN,
-              contexto: `El snippet instalado es la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Lo que se está perdiendo: ${NOVEDADES_DESDE(instalada)}. Se arregla copiando el código de nuevo en Integraciones → Landing y volviéndolo a pegar.`,
+              texto: [
+                'El código que tenés pegado en tu página es de una versión vieja.',
+                '',
+                `*Qué te estás perdiendo:* ${novedadesDesde(instalada)}.`,
+                '',
+                `*Cómo se arregla* (2 minutos): entrá acá, copiá el código y volvé a pegarlo en tu página, en el mismo lugar donde estaba.`,
+                LINK_LANDING,
+              ].join('\n'),
             });
           }
           return { ws: w.id, ultima, horas, aviso: false, snippet: instalada };
