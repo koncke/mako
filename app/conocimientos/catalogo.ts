@@ -30,6 +30,7 @@ import { CURSO_JAQUE_BLUE_CREACION_DE_CONTENIDO } from './curso-jaque-blue-creac
 import { CURSO_100M_MONEY_MODELS } from './curso-100m-money-models';
 import { CURSO_MATEO_MAFFIA_BYF } from './curso-mateo-maffia-byf';
 import { CURSO_MASTER_MARCA_PERSONAL_5_0 } from './curso-master-marca-personal-5-0';
+import { CURSO_SOCIAL_FUNNEL } from './curso-social-funnel';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
 
@@ -137,7 +138,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_SELL_YOUR_KNOWLEDGE, CURSO_INTELIGENCIA_VIRAL_2026, CURSO_M5_95,
   CURSO_VENDER_POR_FB_E_IG_ADS, CURSO_MANYCHAT_MASTER_INSTAGRAM,
   CURSO_JAQUE_BLUE_CREACION_DE_CONTENIDO, CURSO_100M_MONEY_MODELS,
-  CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0,
+  CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
