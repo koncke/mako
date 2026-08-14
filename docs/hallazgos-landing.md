@@ -110,6 +110,111 @@ había dos columnas y un tipo de evento guardándose para nadie.
 
 **Vive en:** `app/api/track/vsl/route.ts:152-186`
 
+### ⚠️ El snippet medía UN video por página, y el segundo salía mal — no «mezclado»
+
+*2026-08-14*
+
+La pregunta que abrió esto era de producto: «una landing puede tener muchos videos, ¿cómo
+sabemos cuál es el VSL?». **El diagnóstico obvio era el equivocado**: no era un problema de
+etiquetado sobre datos correctos. Todo el estado del player vivía en variables de la PÁGINA,
+no del video:
+
+```js
+var yaPlay = false, hitos = {}, seg = {}, pct = 0, dur = 0, segs = 0, vid = null, tit = null;
+```
+
+Con dos videos, eso no promedia dos mediciones. Rompe la segunda, de cuatro formas que se
+tapan entre sí:
+
+| Variable | Qué pasa con dos videos |
+|---|---|
+| `yaPlay` | Solo el **primer** video manda un `play`. El segundo no existe para el sistema aunque lo miren entero. |
+| `hitos` | El `p25` del segundo se suprime porque el primero ya lo mandó. |
+| `dur` | La pisa el último que reporte duración → el % de un video se calcula con la duración de **otro**. |
+| `exit` | Uno solo: de dos videos mirados queda el punto de abandono del último que habló. |
+
+Un VSL de 20 min conviviendo con un testimonio de 40 s medía el testimonio como si durara
+veinte minutos. Y como `vid` viajaba en cada evento, la base guardaba un `video_id` que hacía
+ver el dato como atribuido: **la columna correcta al lado del número equivocado.**
+
+**Por qué sobrevivió tanto:** el síntoma es «la retención da raro», que no apunta a ningún
+archivo. Nada falla, nada queda vacío, ningún chequeo se pone en rojo. Y el caso solo aparece
+en landings con más de un video, que no es lo que uno prueba.
+
+**Regla:** cuando un script de terceros emite eventos de varias instancias al mismo listener,
+el estado va **indexado por emisor** desde el primer día, aunque hoy haya una sola instancia.
+Un estado global es correcto exactamente mientras N=1, y el día que pasa a 2 no falla: miente.
+El emisor se resuelve por el id que manda el propio evento, con respaldo en el iframe que
+originó el `postMessage` (`ev.source`) — sin ese respaldo, dos players que no se identifiquen
+vuelven a compartir un estado.
+
+**Y el corolario del test:** afirmá la ESTRUCTURA, no un caso. `tests/landing-optin.test.ts`
+verifica que nada mutable del player viva fuera del estado por video. Un contraejemplo pedía
+una landing real con dos players, y para cuando se arma, el dato ya salió mal.
+
+**Vive en:** `lib/landing-token.ts` (`est()`, `quien()`, `alSalir()`, `SNIPPET_VERSION = 5`)
+
+### El código pegado en la landing del cliente no se actualiza solo — ni el aviso alcanza
+
+Corolario operativo del anterior: arreglar el snippet **no arregla a nadie**. El código queda
+congelado en el HTML del cliente y los eventos del código viejo siguen llegando, así que la
+integración se ve en verde. Por eso existe `SNIPPET_VERSION`, que viaja como `sv` en cada
+evento, lo persiste el beacon en `landing.snippet_version` y lo compara el cron
+`tracking-vigilante`.
+
+**Lo que faltaba, y el test ahora lo exige:** cada versión nueva tiene que traer su renglón en
+`NOVEDADES`. Sin eso, el aviso de WhatsApp sale con el fallback «mejoras de medición» — y el
+mecanismo entero existe para que el cliente sepa **qué gana** al volver a pegar el código. Un
+«actualizá» a secas es una tarea sin motivo, y menos todavía cuando lo que tiene puesto parece
+andar.
+
+**Vive en:** `lib/landing-token.ts` (`NOVEDADES`, `novedadesDesde`) ·
+`app/api/cron/tracking-vigilante/route.ts`
+
+### ⚠️ Los botones de editar y borrar se gateaban en «está guardada», y nadie tenía guardadas
+
+*2026-08-14*
+
+El desplegable de páginas ofrece dos clases: las **guardadas** (las escribió la persona) y las
+**detectadas** (salieron de los eventos). El lápiz y la basura se mostraban solo sobre una
+guardada, con un argumento correcto — ofrecer «borrar» sobre una detectada es prometer algo
+que no se cumple, porque la próxima visita la vuelve a traer.
+
+El argumento era correcto y la conclusión no. Quien nunca guardó una a mano ve **todas** sus
+páginas como detectadas, así que no veía un solo botón y la función entera era invisible. Que
+es el caso normal, no el raro.
+
+**Regla:** cuando una condición esconde una acción, contá cuántos usuarios reales caen del lado
+que la esconde. Si la mayoría cae ahí, la condición no está protegiendo un caso raro: está
+apagando la función. La salida no es sacar el guard sino **pagar lo que el guard estaba
+señalando** — acá, una lista de escondidas (`landing.paginas_ocultas`) para que borrar cumpla
+también sobre una detectada.
+
+**Y el bug de comparación que lo habría roto igual:** el gate era `paginas.includes(url)`,
+string crudo contra lista **normalizada**. Al guardar `tu-pagina.com` la lista pasa a tener
+`https://tu-pagina.com`, el `includes` da false y los botones desaparecían justo después de
+guardar. Toda comparación de URLs pasa por `mismaPagina()`. En el mismo archivo había un
+`includes` de **substring** buscando la recién guardada: daba por iguales una página y otra que
+la contiene como prefijo, que es exactamente la forma de los previews de Netlify
+(`6a7f2b--que-es-lidermente.netlify.app` contiene a `que-es-lidermente.netlify.app`).
+
+**Vive en:** `lib/landing-paginas.ts` (`mismaPagina`, `conOculta`) ·
+`app/integraciones/ProbarTracking.tsx` (`hayElegida`) · `app/integraciones/landing-actions.ts`
+
+### Pendiente: ponerle nombre a cada video y separar la retención en el CRM
+
+El modelo está escrito y **sin cablear**: `lib/landing-videos.ts` (sin `server-only`) guarda
+`{id, nombre, esVsl}` en `landing.videos`, con la invariante de que hay **un solo** VSL —
+porque las pantallas que hablan de «el VSL» en singular tienen que poder preguntar cuál es y
+recibir una respuesta, no una lista.
+
+Falta: las server actions, el desplegable para nombrarlos (mismo patrón que las páginas
+guardadas, con «Otro tipo de video…» de última opción) y que el detalle del lead en el CRM
+muestre **una curva por video** en vez de fundirlas en una. Con la v5 el dato ya llega
+separado; lo que falta es mostrarlo.
+
+**Vive en:** `lib/landing-videos.ts` · el consumo pendiente en `app/crm/[id]/`
+
 ## Landing Analyst
 
 ### ⚠️ Un tercero elige qué páginas baja y analiza el Analyst, con solo mirar el HTML de la landing
