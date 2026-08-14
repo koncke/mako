@@ -197,7 +197,7 @@ export async function landingRecibioEventos(): Promise<boolean> {
 }
 
 /** Resultado del "Verificar" de la landing: si llegó algo y cuándo fue lo último. */
-export type LandingEstado = { recibio: boolean; ultima: string | null };
+export type LandingEstado = { recibio: boolean; ultima: string | null; codigoViejo?: boolean };
 
 /**
  * Igual que landingRecibioEventos pero devolviendo la fecha del ÚLTIMO evento,
@@ -217,13 +217,18 @@ export async function landingUltimoEvento(): Promise<LandingEstado> {
       .limit(1);
     if (error) {
       console.error(`[landing-token] último evento falló: ${error.message}`);
-      return { recibio: false, ultima: null };
+      return { recibio: false, ultima: null, codigoViejo: false };
     }
     const ultima = (data?.[0] as { created_at?: string } | undefined)?.created_at ?? null;
-    return { recibio: ultima != null, ultima };
+    // «Verificar» decía «✓ Recibiendo eventos» y se quedaba ahí, aunque el código
+    // pegado fuera de una versión anterior: el botón que la persona aprieta para
+    // saber si está todo bien contestaba que sí sobre un snippet que le está
+    // faltando la mitad. La versión viaja en cada evento, así que se dice.
+    const { viejo } = await snippetDesactualizado();
+    return { recibio: ultima != null, ultima, codigoViejo: viejo };
   } catch (err) {
     console.error(`[landing-token] último evento error: ${err instanceof Error ? err.message : String(err)}`);
-    return { recibio: false, ultima: null };
+    return { recibio: false, ultima: null, codigoViejo: false };
   }
 }
 
@@ -253,6 +258,10 @@ export type LandingDiagnostico = {
   chequeos: ChequeoDiag[];
   /** Resumen en una línea para el encabezado del panel. */
   veredicto: string;
+  /** Las landings que ya mandaron eventos: para elegir en vez de tipear. */
+  urls: string[];
+  /** El código pegado es de una versión anterior: la prueba no puede empezar. */
+  codigoViejo: boolean;
   ultima: string | null;
 };
 
@@ -336,12 +345,24 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
         : 'Todavía sin datos.' },
   ];
 
+  // El total sale de la LISTA, no de un número escrito al lado. Estuvo en «de 4»
+  // mientras los chequeos ya eran cinco: un contador que se mantiene a mano queda
+  // viejo en el mismo commit que agrega la fila, y encima es lo primero que se
+  // lee del panel.
   const okCount = chequeos.filter((c) => c.estado === 'ok').length;
-  const veredicto = okCount === 4 ? 'Todo funcionando'
+  const veredicto = okCount === chequeos.length ? 'Todo funcionando'
     : okCount === 0 ? 'No está llegando nada'
-    : `${okCount} de 4 chequeos OK`;
+    : `${okCount} de ${chequeos.length} chequeos OK`;
 
-  return { eventos, chequeos, veredicto, ultima: eventos[0]?.ts ?? null };
+  // Las landings que YA mandaron eventos: es lo que permite ofrecerle elegir en
+  // vez de pedirle que tipee una URL que el sistema ya conoce.
+  const urls = [...new Set(
+    ((visitas.data ?? []) as Array<{ landing_url: string | null }>)
+      .map((v) => (v.landing_url ?? '').trim())
+      .filter((u) => /^https?:\/\//i.test(u)),
+  )].slice(0, 8);
+
+  return { eventos, chequeos, veredicto, urls, codigoViejo, ultima: eventos[0]?.ts ?? null };
 }
 
 /**

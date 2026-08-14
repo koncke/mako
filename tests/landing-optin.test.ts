@@ -170,3 +170,36 @@ test('la prueba del código chequea el formulario, y la versión NO se adivina',
   assert.ok(!/id: 'segundos'/.test(bloque), 'volvió la heurística: una landing sin video daría «código viejo» para siempre');
   assert.ok(!/conSegundos > 0 \? 'ok'/.test(bloque), 'volvió a decidir la versión por la presencia de segundos');
 });
+
+test('el contador de chequeos sale de la LISTA, no de un número escrito al lado', () => {
+  // Estuvo diciendo «1 de 4 chequeos OK» cuando ya eran cinco: un total que se
+  // mantiene a mano queda viejo en el MISMO commit que agrega la fila, y encima
+  // es lo primero que se lee del panel.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/okCount === chequeos\.length/.test(lib), 'el «todo funcionando» se compara contra un número fijo');
+  assert.ok(/de \$\{chequeos\.length\} chequeos OK/.test(lib), 'el total del veredicto está hardcodeado');
+  assert.ok(!/de 4 chequeos/.test(lib), 'volvió el 4 escrito a mano');
+});
+
+test('con el código viejo no se deja probar, y «Verificar» lo dice', () => {
+  // Probar sobre un snippet desactualizado da un resultado que no significa nada:
+  // los chequeos nuevos fallan SIEMPRE porque ese código no manda esos eventos, y
+  // la persona sale creyendo que su landing está rota.
+  const probar = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/previo\?\.codigoViejo/.test(probar), 'la prueba tiene que bloquearse con el código viejo');
+  assert.ok(/Primero actualizá el código/.test(probar), 'y decir qué hacer antes de probar');
+
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  assert.ok(/j\.codigoViejo/.test(board), '«Verificar» tiene que mirar la versión');
+  assert.ok(/es de una versión anterior/.test(board), '«Verificar» no puede contestar que sí sobre un código al que le falta la mitad');
+});
+
+test('la prueba se corre sobre una landing ELEGIDA, no sobre «abrila vos»', () => {
+  const probar = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/previo\?\.urls/.test(probar), 'las landings que ya mandaron eventos se ofrecen: pedir que tipee una URL que ya tenemos es trabajo inventado');
+  assert.ok(/window\.open\(u, '_blank'/.test(probar), 'la prueba abre la página, como el Test Events de Meta');
+  assert.ok(/localStorage\.setItem\(URL_KEY/.test(probar), 'la URL se recuerda: se elige una vez, no en cada prueba');
+
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/urls,/.test(lib) && /landing_url/.test(lib), 'el server tiene que devolver las URLs conocidas');
+});

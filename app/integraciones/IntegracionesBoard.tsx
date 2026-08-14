@@ -844,7 +844,13 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
       const j = await (await fetch('/api/integraciones/landing/estado')).json();
       if (j?.ok) {
         setEstado(j.recibio
-          ? { ok: true, text: `Recibiendo eventos${j.ultima ? ` (última hace ${fmtDuracion(j.ultima, new Date().toISOString())})` : ''}.` }
+          // Con el código viejo NO se contesta que sí. «Recibiendo eventos» era
+          // verdad y era engañoso a la vez: el botón que la persona aprieta para
+          // saber si está todo bien decía que sí sobre un snippet al que le falta
+          // la mitad. Se responde lo que hay que hacer, no lo que llega.
+          ? j.codigoViejo
+            ? { ok: false, text: 'Llegan eventos, pero el código pegado es de una versión anterior. Copiá el de arriba y reemplazalo en tu página.' }
+            : { ok: true, text: `Recibiendo eventos${j.ultima ? ` (última hace ${fmtDuracion(j.ultima, new Date().toISOString())})` : ''}.` }
           : { ok: false, text: 'Todavía no llegó ningún evento — pegá el código en tu landing y recargala.' });
       } else {
         setEstado({ ok: false, text: j?.error === 'solo admin' ? 'Necesitás ser admin para verificar esta integración.' : (j?.error ?? 'No se pudo verificar.') });
