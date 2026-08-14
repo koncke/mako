@@ -76,3 +76,23 @@ test('el snippet que la app le entrega ya captura el formulario', () => {
     'NUNCA se frena el submit: el formulario del cliente tiene que seguir haciendo lo suyo',
   );
 });
+
+test('el snippet lleva versión, y algo la mira cuando se queda vieja', () => {
+  // El snippet queda CONGELADO en el HTML del cliente: una mejora nuestra no le
+  // llega nunca y no hay síntoma, porque los eventos del código viejo llegan
+  // igual y la integración sigue en verde. La versión es la ÚNICA forma de saberlo.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/export const SNIPPET_VERSION = \d+/.test(lib), 'falta la versión del snippet');
+  assert.ok(/var SV = \$\{SNIPPET_VERSION\}/.test(lib), 'la versión tiene que VIAJAR en el snippet, no solo existir en el server');
+  assert.ok(/data\.sv = SV/.test(lib), 'la versión tiene que ir en cada evento');
+
+  const beacon = leer('../app/api/track/vsl/route.ts');
+  assert.ok(/anotarVersionSnippet/.test(beacon), 'el beacon es el único lugar donde se puede saber qué versión tiene puesta el cliente');
+
+  const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
+  assert.ok(/instalada < SNIPPET_VERSION/.test(cron), 'nadie compara la instalada contra la actual: la versión sola no avisa nada');
+  assert.ok(/tracking-desactualizado/.test(cron), 'falta el aviso por WhatsApp');
+  // El aviso dice QUÉ se pierde: «actualizá» a secas es una tarea sin motivo, y
+  // menos todavía cuando lo que tiene puesto funciona.
+  assert.ok(/NOVEDADES_DESDE\(instalada\)/.test(cron), 'el aviso tiene que decir qué se está perdiendo, no solo que actualice');
+});

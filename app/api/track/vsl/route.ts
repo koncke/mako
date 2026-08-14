@@ -43,7 +43,8 @@
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
-import { LANDING_SERVICIO } from '@/lib/landing-token';
+import { LANDING_SERVICIO, SNIPPET_VERSION_KEY } from '@/lib/landing-token';
+import { getSetting, setSetting } from '@/lib/settings';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -112,8 +113,31 @@ async function stampVisitorOnLead(token: string, visitorId: string): Promise<voi
   }
 }
 
+/**
+ * Deja anotado qué VERSIÓN del snippet tiene puesta este cliente.
+ *
+ * Es el único lugar del sistema donde se puede saber: el código vive en una
+ * página de un tercero y no hay forma de leerlo desde acá. Sin esto, un snippet
+ * viejo se ve idéntico a uno al día —los eventos siguen llegando y la integración
+ * queda en verde— y una mejora nunca le llega a quien ya lo tenía pegado.
+ *
+ * Solo escribe cuando el número CAMBIA: el beacon corre en cada visita y un
+ * setSetting por evento sería escribir miles de veces lo mismo.
+ *
+ * Un snippet sin `sv` es de la v1 (anterior al versionado). Se anota como 1 y no
+ * como «desconocido»: es exactamente el que hay que avisarle que actualice.
+ */
+async function anotarVersionSnippet(sv: unknown): Promise<void> {
+  const n = Number(sv);
+  const version = Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+  const guardada = Number(await getSetting(SNIPPET_VERSION_KEY));
+  if (guardada === version) return;
+  await setSetting(SNIPPET_VERSION_KEY, String(version));
+}
+
 type Payload = {
   t?: unknown;           // token público de landing (mko_…) → workspace
+  sv?: unknown;          // versión del snippet instalado (ver SNIPPET_VERSION)
   ws_token?: unknown;    // alias de `t`
   visitor_id?: unknown;
   tipo_evento?: unknown;
@@ -169,7 +193,16 @@ export async function POST(request: NextRequest) {
   }
 
   // Desde acá, TODA escritura cae en el workspace dueño de la landing.
-  return runWithWorkspace(ws, () => procesar(payload, visitorId, ip));
+  return runWithWorkspace(ws, async () => {
+    // Qué VERSIÓN del snippet tiene puesta este cliente. Es el único lugar del
+    // sistema donde se puede saber: el código vive en una página de un tercero y
+    // no hay forma de leerlo. Sin esto, un snippet viejo se ve idéntico a uno al
+    // día —los eventos llegan igual y la integración queda en verde— y una mejora
+    // no le llega nunca a quien ya lo tenía pegado. Best-effort: nunca rompe el
+    // beacon, que es lo que de verdad importa.
+    void anotarVersionSnippet(payload.sv).catch(() => {});
+    return procesar(payload, visitorId, ip);
+  });
 }
 
 // Todo lo que escribe. Corre SIEMPRE dentro de runWithWorkspace.

@@ -114,7 +114,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'pago-recibido': 'plata', 'cierre-venta': 'plata',
   'objetivo-en-riesgo': 'plata', 'meta-alcanzada': 'plata',
 
-  'tracking-apagado': 'sistema', 'wa-desconectado': 'sistema',
+  'tracking-apagado': 'sistema', 'tracking-desactualizado': 'sistema', 'wa-desconectado': 'sistema',
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
@@ -288,6 +288,19 @@ https://hola-mako.com/integraciones
     // receptor responde 200 aunque descarte. Este cron es la ÚNICA señal.
     disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
     ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el código de la landing quedó apuntando a una dirección vieja. — MaKo`,
+  },
+  {
+    id: 'tracking-desactualizado', titulo: 'El código de la landing quedó viejo', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    // El hermano silencioso de 'tracking-apagado', y MÁS difícil de ver: acá el
+    // tracking NO está muerto. Los eventos llegan, la integración está en verde y
+    // todo parece bien — pero el snippet quedó CONGELADO en el HTML del cliente el
+    // día que lo copió, así que cada mejora que sale (medición nueva, la captura
+    // del formulario de opt-in) no le llega nunca y nadie tiene forma de notarlo.
+    // Por eso el aviso dice QUÉ se está perdiendo y no solo «actualizá»: sin eso
+    // es una tarea sin motivo, y una tarea sin motivo no la hace nadie.
+    disparador: 'Cron diario: el beacon reporta una versión de snippet anterior a la actual (SNIPPET_VERSION).',
+    ejemplo: `🟡 El código que tenés pegado en tu landing es de una versión vieja, así que te estás perdiendo lo nuevo: *ahora captura solo el formulario* y te manda a esa gente al CRM. Copiá el código de nuevo en Integraciones → Landing y volvé a pegarlo. Son dos minutos. — MaKo`,
   },
   {
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',

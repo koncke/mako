@@ -22,7 +22,7 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { listarWorkspaces, runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { getSetting } from '@/lib/settings';
-import { LANDING_TOKEN_KEY } from '@/lib/landing-token';
+import { LANDING_TOKEN_KEY, SNIPPET_VERSION, SNIPPET_VERSION_KEY } from '@/lib/landing-token';
 import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +37,25 @@ const HORAS_APAGADO = 48;
 /** Que no repita el mismo aviso todos los días mientras dura el apagón. */
 const DEDUP_MIN = 60 * 24 * 3;
 
-type Estado = { ws: number; ultima: string | null; horas: number | null; aviso: boolean };
+type Estado = { ws: number; ultima: string | null; horas: number | null; aviso: boolean; snippet?: number };
+
+/**
+ * Qué se pierde quien quedó con una versión vieja del snippet.
+ *
+ * Un aviso que solo dice «actualizá» es una tarea sin motivo, y una tarea sin
+ * motivo no la hace nadie — menos todavía si lo que tiene puesto FUNCIONA. Acá se
+ * le dice qué está dejando de recibir, que es lo único que la vuelve urgente.
+ *
+ * Al subir `SNIPPET_VERSION`, sumá su renglón. Sin renglón el aviso sale genérico.
+ */
+const NOVEDADES: Record<number, string> = {
+  2: 'la captura automática del formulario de tu landing (quien lo completa te entra al CRM)',
+};
+const NOVEDADES_DESDE = (desde: number): string =>
+  Object.entries(NOVEDADES)
+    .filter(([v]) => Number(v) > desde)
+    .map(([, t]) => t)
+    .join(' · ') || 'mejoras de medición';
 
 export async function GET(req: NextRequest) {
   const denied = checkCronAuth(req);
@@ -76,7 +94,22 @@ export async function GET(req: NextRequest) {
         if (!ultima) return { ws: w.id, ultima: null, horas: null, aviso: false };
 
         const horas = (Date.now() - new Date(ultima).getTime()) / 3_600_000;
-        if (horas < HORAS_APAGADO) return { ws: w.id, ultima, horas, aviso: false };
+        if (horas < HORAS_APAGADO) {
+          // El tracking está VIVO. Falta la otra pregunta, que es la que nadie
+          // puede ver: ¿el código que tiene pegado es el ACTUAL? El snippet queda
+          // congelado en el HTML del cliente el día que lo copió, así que una
+          // mejora nuestra no le llega nunca — y no hay ningún síntoma, porque los
+          // eventos del código viejo llegan igual y la integración sigue en verde.
+          const instalada = Number(await getSetting(SNIPPET_VERSION_KEY)) || 1;
+          if (instalada < SNIPPET_VERSION) {
+            await emitirDelCatalogo('tracking-desactualizado', {
+              ws: w.id,
+              dedupTtlMin: DEDUP_MIN,
+              contexto: `El snippet instalado es la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Lo que se está perdiendo: ${NOVEDADES_DESDE(instalada)}. Se arregla copiando el código de nuevo en Integraciones → Landing y volviéndolo a pegar.`,
+            });
+          }
+          return { ws: w.id, ultima, horas, aviso: false, snippet: instalada };
+        }
 
         const dias = Math.floor(horas / 24);
         await emitirDelCatalogo('tracking-apagado', {

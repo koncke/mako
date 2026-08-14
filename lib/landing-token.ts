@@ -33,6 +33,28 @@ import { APP_BASE_URL } from './app-url';
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
 
+/**
+ * VERSIÓN DEL SNIPPET. Subila cada vez que cambie `landingSnippet()`.
+ *
+ * ⚠️ El snippet queda CONGELADO en el HTML del cliente el día que lo copia, así
+ * que un cambio acá NO llega solo: hay que avisarle y que lo vuelva a pegar. Sin
+ * una versión, no hay forma de saber quién quedó viejo — y la integración sigue
+ * en VERDE, porque los eventos del código viejo llegan igual. Eso ya costó 18
+ * días de medición muerta (15/jul → 3/ago 2026) y nadie se enteró.
+ *
+ * El número viaja en cada evento (`sv`), el beacon lo guarda en
+ * `landing.snippet_version`, y el cron `tracking-vigilante` avisa por WhatsApp
+ * cuando el instalado se quedó atrás.
+ *
+ * Historial:
+ *   1 — medición de landing + VSL (pageview, play, hitos, exit).
+ *   2 — se suma la captura del formulario de opt-in (13/08/2026).
+ */
+export const SNIPPET_VERSION = 2;
+
+/** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
+export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
+
 /** Servicio bajo el que se indexa el token en webhook_routing. */
 export const LANDING_SERVICIO = 'landing';
 
@@ -270,7 +292,10 @@ export function landingSnippet(token: string): string {
   return `<script>
 (function () {
   var ENDPOINT = '${APP_BASE_URL}/api/track/vsl';
-  var TOKEN = '${token}';
+  var TOKEN = '';
+  // Versión del snippet: viaja en cada evento para que MaKo sepa quién quedó
+  // con el código viejo y le avise. Ver SNIPPET_VERSION.
+  var SV = ${SNIPPET_VERSION};
 
   // visitor_id anónimo, persistente (cookie de 1 año)
   function getCookie(n) {
@@ -288,6 +313,7 @@ export function landingSnippet(token: string): string {
 
   function enviar(data) {
     data.t = TOKEN;
+    data.sv = SV;
     data.visitor_id = visitorId;
     if (leadToken) data.l = leadToken;
     try {
