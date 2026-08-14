@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
+import { Icon } from '@/app/_components/icons';
 import { mismaPagina } from '@/lib/landing-paginas';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
@@ -103,14 +104,31 @@ export function ProbarTracking() {
     setEditando(null);
   };
 
-  const borrar = async () => {
+  const borrar = async (cual?: string) => {
+    const u = cual ?? url;
     setOcupado(true); setErrPagina(null);
-    const r = await borrarPaginaAction(url);
+    const r = await borrarPaginaAction(u);
     setOcupado(false);
     if (!r.ok) { setErrPagina(r.error); return; }
     aplicar(r);
-    setUrl('');
+    // Solo se deselecciona si se borró LA elegida: quitar otra de la lista no
+    // tiene por qué hacerte perder la que estabas por probar.
+    if (mismaPagina(u, url)) setUrl('');
   };
+
+  /**
+   * Corregir y quitar, DENTRO de cada renglón del desplegable.
+   *
+   * Los mismos dos botones están afuera y actúan sobre la elegida; estos actúan
+   * sobre el renglón. No es redundancia: hacerlo solo desde afuera obliga a
+   * SELECCIONAR una página para poder sacarla — o sea, a elegir justo lo que
+   * querés que desaparezca. Con siete renglones de la misma landing, eso es el
+   * caso normal, no el raro.
+   */
+  const accionesDe = (u: string) => [
+    { icono: <Icon name="pen" size={14} />, title: 'Corregir esta dirección', onClick: () => { setUrl(u); setEditando(paginas.some((p) => mismaPagina(p, u)) ? u : null); setEligiendoNueva(true); } },
+    { icono: <Icon name="trash" size={14} />, title: 'Quitarla de la lista', tone: 'bad' as const, onClick: () => { void borrar(u); } },
+  ];
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const traer = useCallback(async (guardarEn?: (d: Diag) => void) => {
@@ -223,8 +241,8 @@ export function ProbarTracking() {
                 onChange={(v) => { setUrl(v === NUEVA ? '' : v); setEligiendoNueva(v === NUEVA); setEditando(null); }}
                 placeholder="Elegí una página…"
                 options={[
-                  ...paginas.map((u) => ({ value: u, label: u })),
-                  ...detectadas.map((u) => ({ value: u, label: u, sub: 'detectada — se guarda al probarla' })),
+                  ...paginas.map((u) => ({ value: u, label: u, acciones: accionesDe(u) })),
+                  ...detectadas.map((u) => ({ value: u, label: u, sub: 'detectada — se guarda al probarla', acciones: accionesDe(u) })),
                   { value: NUEVA, label: 'Otra página…', sub: 'escribí la dirección' },
                 ]}
               />

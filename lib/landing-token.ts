@@ -30,6 +30,7 @@ import { getTenantDb, runWithWorkspace } from './workspace';
 import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
 import { VIDEOS_KEY, parsearVideos, type VideoLanding } from './landing-videos';
+import { normalizarUrl } from './landing-paginas';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
@@ -423,10 +424,17 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
 
   // Las landings que YA mandaron eventos: es lo que permite ofrecerle elegir en
   // vez de pedirle que tipee una URL que el sistema ya conoce.
+  //
+  // ⚠️ SE DEDUPLICA NORMALIZADO, no por el texto crudo. Deduplicar strings parecía
+  // alcanzar y no alcanzaba: cada deploy de Netlify emite una URL inmutable con
+  // el id adelante (`6a7f350e…--sitio.netlify.app`) y el snippet mide en todas, así
+  // que una clienta que publicaba varias veces por día veía SIETE renglones de la
+  // misma página — y su retención repartida entre los siete sin que nada lo dijera.
+  // `normalizarUrl` colapsa esos hosts; acá solo hay que llamarla.
   const urls = [...new Set(
     ((visitas.data ?? []) as Array<{ landing_url: string | null }>)
-      .map((v) => (v.landing_url ?? '').trim())
-      .filter((u) => /^https?:\/\//i.test(u)),
+      .map((v) => normalizarUrl(v.landing_url ?? ''))
+      .filter((u): u is string => !!u),
   )].slice(0, 8);
 
   return { eventos, chequeos, veredicto, urls, codigoViejo, ultima: eventos[0]?.ts ?? null };

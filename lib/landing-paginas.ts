@@ -30,6 +30,30 @@ export const MAX_PAGINAS = 12;
  * host a minúsculas (el path NO: hay servidores que distinguen) y se tira el
  * hash, que nunca identifica una página distinta para lo que hacemos acá.
  */
+/**
+ * Colapsa el host de un PREVIEW DE DEPLOY al de la página de verdad.
+ *
+ * ⚠️ EL CASO QUE LO OBLIGÓ. Netlify le da a cada deploy una URL inmutable con el
+ * id del deploy adelante — `6a7f350eb436ad1a599d0dcb--que-es-lidermente.netlify.app`
+ * — y el snippet mide en todas. Una clienta que publicaba varias veces por día
+ * terminó con SIETE renglones en el desplegable, todos la misma página, y con la
+ * medición repartida entre ellos: la retención de su landing quedaba dividida en
+ * siete pedazos sin que nada lo dijera.
+ *
+ * Se colapsa solo cuando el prefijo es inconfundiblemente un id de deploy: 20+
+ * caracteres hexadecimales (los de Netlify son 24). Eso deja intactos los deploys
+ * por rama —`staging--sitio.netlify.app`, `preview--sitio.netlify.app`— que SÍ son
+ * lugares distintos y no hay que fundir. Vercel también arma previews con hash
+ * pero los pega con guiones simples, sin separador propio: ahí no se puede
+ * distinguir un preview de un proyecto que se llama así, y adivinar sería peor
+ * que dejarlos separados.
+ */
+function hostCanonico(hostname: string): string {
+  const h = hostname.toLowerCase();
+  const m = /^([0-9a-f]{20,})--(.+)$/.exec(h);
+  return m ? m[2] : h;
+}
+
 export function normalizarUrl(crudo: string): string | null {
   const s = (crudo ?? '').trim();
   if (!s) return null;
@@ -41,7 +65,7 @@ export function normalizarUrl(crudo: string): string | null {
     if (!u.hostname.includes('.')) return null;
     u.hash = '';
     const path = u.pathname.replace(/\/+$/, '');
-    return `${u.protocol}//${u.hostname.toLowerCase()}${u.port ? `:${u.port}` : ''}${path}${u.search}`;
+    return `${u.protocol}//${hostCanonico(u.hostname)}${u.port ? `:${u.port}` : ''}${path}${u.search}`;
   } catch {
     return null;
   }

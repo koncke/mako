@@ -102,3 +102,48 @@ test('las escondidas toleran un JSON roto y tienen su propio tope', () => {
   // nueva, y son justo las que uno quiere sacar de encima.
   assert.ok(MAX_OCULTAS > MAX_PAGINAS);
 });
+
+// =============================================================================
+// PREVIEWS DE DEPLOY — siete renglones de la misma página
+// =============================================================================
+// El caso real: Netlify le da a CADA deploy una URL inmutable con el id adelante,
+// y el snippet mide en todas. Una clienta que publicaba varias veces por día veía
+// siete renglones idénticos en el desplegable, y su retención repartida entre los
+// siete sin que nada lo dijera. El síntoma («se guardan un montón de URLs iguales
+// con números adelante») no apuntaba a la deduplicación, que era donde estaba.
+
+test('un preview de deploy de Netlify es la MISMA página', () => {
+  const real = 'https://que-es-lidermente.netlify.app';
+  for (const id of ['6a7f350eb436ad1a599d0dcb', '6a7f2bbe8653f3b1e806517f', '6a7e28766cf06853a0246d16']) {
+    assert.equal(normalizarUrl(`https://${id}--que-es-lidermente.netlify.app/`), real, `el deploy ${id} es la misma página`);
+  }
+  // Y por lo tanto colapsan a UNA sola entrada, que es el punto.
+  const todas = ['6a7f350eb436ad1a599d0dcb', '6a7f2bbe8653f3b1e806517f', '6a7e28766cf06853a0246d16']
+    .map((id) => normalizarUrl(`https://${id}--que-es-lidermente.netlify.app`));
+  assert.equal(new Set(todas).size, 1);
+  assert.deepEqual(parsearPaginas(JSON.stringify([...todas, real])), [real], 'la lista guardada tampoco los repite');
+});
+
+test('un deploy POR RAMA no se colapsa: es otro lugar', () => {
+  // `staging--sitio` y `preview--sitio` son entornos distintos y fundirlos
+  // mezclaría la medición de producción con la de pruebas. Solo se colapsa lo
+  // que es inconfundiblemente un id de deploy: 20+ caracteres hexadecimales.
+  for (const rama of ['staging', 'preview', 'main', 'feature-nueva', 'deadbeef']) {
+    assert.equal(
+      normalizarUrl(`https://${rama}--sitio.netlify.app`),
+      `https://${rama}--sitio.netlify.app`,
+      `«${rama}» no es un id de deploy`,
+    );
+  }
+  // 19 hex: por debajo del umbral, no se toca. El de Netlify tiene 24.
+  assert.ok(normalizarUrl('https://0123456789abcdef012--sitio.com')?.includes('0123456789abcdef012--'));
+  assert.ok(!normalizarUrl('https://0123456789abcdef0123--sitio.com')?.includes('--'));
+});
+
+test('lo que NO es un preview sigue intacto', () => {
+  // La regla no puede volverse glotona: un dominio propio no tiene por qué
+  // perder nada por parecerse de lejos.
+  assert.equal(normalizarUrl('https://hola-mako.com/vsl'), 'https://hola-mako.com/vsl');
+  assert.equal(normalizarUrl('https://sitio.netlify.app/gracias'), 'https://sitio.netlify.app/gracias');
+  assert.equal(normalizarUrl('https://mi--sitio.com'), 'https://mi--sitio.com', 'dos guiones no son un preview');
+});

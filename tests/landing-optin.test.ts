@@ -371,3 +371,31 @@ test('el fondo y el borde del botón de barra NO van inline', () => {
   // y anchas sobre negro son el «tipo HTML» que el resto de la app evita.
   assert.ok(/scrollbar-color:/.test(css) && /::-webkit-scrollbar-thumb/.test(css), 'faltan las barras de scroll oscuras');
 });
+
+test('editar y borrar están DENTRO de cada renglón del desplegable', () => {
+  // Tenerlos solo afuera alcanza para la página SELECCIONADA. Con siete
+  // renglones de la misma landing —los previews de deploy—, sacar el que sobra
+  // obligaba a seleccionarlo primero: a elegir justo lo que querés que
+  // desaparezca. Ahora cada renglón trae los suyos.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/acciones: accionesDe\(u\)/.test(panel), 'los renglones del desplegable no traen sus acciones');
+  assert.ok(/const accionesDe = \(u: string\)/.test(panel), 'falta el par corregir/quitar por renglón');
+  // Y borrar OTRA no puede hacerte perder la que estabas por probar.
+  assert.ok(/if \(mismaPagina\(u, url\)\) setUrl\(''\)/.test(panel), 'solo se deselecciona si se borró la elegida');
+
+  // La capacidad se le agrega AL Dropdown de la casa, no a un segundo desplegable.
+  const dd = leer('../app/components/Dropdown.tsx');
+  assert.ok(/export type DropdownAccion/.test(dd), 'la acción por renglón tiene que ser del sistema, no de esta pantalla');
+  // ⚠️ Un <button> adentro de otro es marcado inválido Y el click del de afuera
+  // se dispara igual: «borrar» además seleccionaría lo que se acaba de borrar.
+  assert.ok(/if \(!o\.acciones\?\.length\)/.test(dd), 'sin acciones el renglón tiene que seguir siendo UN solo button, como en las demás pantallas');
+  assert.ok(/e\.stopPropagation\(\); e\.preventDefault\(\)/.test(dd), 'sin frenar el click, el menú se cierra y la acción se lee como que no pasó nada');
+});
+
+test('los previews de deploy no llenan el desplegable con la misma página', () => {
+  // El síntoma era «se guardan un montón de URLs iguales con números adelante».
+  // La causa estaba en la deduplicación, que comparaba el texto CRUDO.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/\.map\(\(v\) => normalizarUrl\(v\.landing_url \?\? ''\)\)/.test(lib), 'las urls detectadas se deduplican normalizadas, no por su texto');
+  assert.ok(!/\.map\(\(v\) => \(v\.landing_url \?\? ''\)\.trim\(\)\)/.test(lib), 'volvió la deduplicación por texto crudo');
+});

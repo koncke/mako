@@ -39,12 +39,8 @@ function renderOption(
   enColumna: boolean,
 ) {
   const on = !resetAfterSelect && o.value === value;
-  return (
-    <button key={o.value} type="button" disabled={o.disabled}
-      onClick={() => { if (!o.disabled) { onChange(o.value); close(); } }}
-      onMouseEnter={(e) => { if (!o.disabled && !on) e.currentTarget.style.background = 'var(--surface-2)'; }}
-      onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent'; }}
-      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 11px', borderRadius: 8, border: 'none', cursor: o.disabled ? 'default' : 'pointer', background: on ? 'var(--surface-2)' : 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, opacity: o.disabled ? 0.45 : 1 }}>
+  const cuerpo = (
+    <>
       {o.avatar !== undefined && <OptAvatar url={o.avatar} name={o.label} size={22} cuadrado={o.avatarCuadrado} />}
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
       <span style={{ minWidth: 0, flex: 1 }}>
@@ -52,11 +48,63 @@ function renderOption(
         {!enColumna && o.sub && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1, lineHeight: 1.3 }}>{o.sub}</span>}
       </span>
       {on && <span style={{ flex: 'none', color: 'var(--primary)', fontSize: 13 }}>✓</span>}
-    </button>
+    </>
+  );
+  const estilo: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 11px', borderRadius: 8, border: 'none', cursor: o.disabled ? 'default' : 'pointer', background: on ? 'var(--surface-2)' : 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, opacity: o.disabled ? 0.45 : 1 };
+  const elegir = () => { if (!o.disabled) { onChange(o.value); close(); } };
+
+  // Sin acciones, el renglón es EXACTAMENTE el de siempre: un solo <button>. Se
+  // deja intacto a propósito — este componente lo usan decenas de pantallas y la
+  // variante nueva no tiene por qué tocarles el marcado.
+  if (!o.acciones?.length) {
+    return (
+      <button key={o.value} type="button" disabled={o.disabled} onClick={elegir}
+        onMouseEnter={(e) => { if (!o.disabled && !on) e.currentTarget.style.background = 'var(--surface-2)'; }}
+        onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent'; }}
+        style={estilo}>
+        {cuerpo}
+      </button>
+    );
+  }
+
+  // ⚠️ CON ACCIONES, el renglón NO puede ser un botón: un <button> adentro de otro
+  // es marcado inválido y el click del de afuera se dispara igual, así que
+  // «borrar» además seleccionaría lo que se acaba de borrar. Van como hermanos
+  // dentro de una fila, y el hover lo maneja la fila.
+  return (
+    <div key={o.value} data-fila-opcion
+      onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = 'var(--surface-2)'; }}
+      onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent'; }}
+      style={{ display: 'flex', alignItems: 'center', gap: 2, borderRadius: 8, paddingRight: 5, background: on ? 'var(--surface-2)' : 'transparent' }}>
+      <button type="button" disabled={o.disabled} onClick={elegir} style={{ ...estilo, background: 'transparent', minWidth: 0, flex: 1 }}>
+        {cuerpo}
+      </button>
+      {o.acciones.map((a) => (
+        <button key={a.title} type="button" title={a.title} aria-label={a.title}
+          // stopPropagation Y preventDefault: el menú se cierra por un listener de
+          // click en el documento, así que sin esto la acción corre y el panel
+          // desaparece — que se lee como que no pasó nada.
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); a.onClick(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{ flex: 'none', width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', color: a.tone === 'bad' ? 'var(--bad)' : 'var(--dim)' }}>
+          {a.icono}
+        </button>
+      ))}
+    </div>
   );
 }
 
-export type DropdownOption = { value: string; label: string; sub?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean };
+/**
+ * Un botón de acción DENTRO de un renglón del menú (corregir, quitar…).
+ *
+ * Existe porque una colección que se elige de un desplegable es también una
+ * colección que hay que mantener, y hacerlo desde afuera solo alcanza para la
+ * que está seleccionada: con 40 renglones, «quitá el que sobra» obligaba a
+ * seleccionarlo primero — o sea, a elegir lo que se quiere sacar.
+ */
+export type DropdownAccion = { icono: ReactNode; title: string; tone?: 'bad'; onClick: () => void };
+
+export type DropdownOption = { value: string; label: string; sub?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[] };
 /** Grupo con título para menús en columnas (ver prop `columns`). */
 export type DropdownGroup = { title: string; options: DropdownOption[] };
 
