@@ -213,7 +213,38 @@ if (yaEstaban) console.log(`  (${yaEstaban} ya tenían .md, se saltean)\n`);
 let hechas = 0, fallidas = 0;
 const errores = [];
 
+// ⚠️ Un clip demasiado corto NO se manda a transcribir: ScreenApp lo acepta y no
+// devuelve nada NUNCA, y cada intento cuesta 25 minutos de espera más una subida.
+// Medido en «Master Marca Personal 5.0»: la clase «2. Así funciona la formación» dura
+// 6 segundos —la plataforma misma publica 00:06— y falló cuatro veces seguidas, cada
+// una con su re-subida. Las clases sanas del mismo curso van de 80 a 170 segundos.
+//
+// El piso mira el TAMAÑO del audio y no su duración, para no depender de ffprobe acá:
+// a 32 kbps mono, 8 KB son ~2 segundos de audio. Es un piso deliberadamente bajo —
+// solo descarta lo que no puede tener contenido, no lo que es corto.
+// Y la segunda forma de «nada que transcribir», que el tamaño solo NO ve: una clase
+// de duración normal con el audio en SILENCIO. «7. Introducción a Calendly» dura 4:55
+// y su audio pesa 38 KB — 129 bytes por segundo, contra ~4.100 de una clase hablada.
+// Es una grabación de pantalla sin narración. Pasa el piso absoluto y falla igual.
+//
+// La señal es la TASA, no el peso. El umbral está al 10% de lo normal: no descarta una
+// clase de audio flojo, solo una que no tiene voz. La duración sale del plan.
+const MINIMO_BYTES = Number(arg('min-bytes', 8192));
+const MINIMO_BPS = Number(arg('min-bytes-seg', 400));
+const segundosDeClase = new Map(plan.clases.map((c) => [c.archivo, Number(c.segundos) || 0]));
+const saltadas = [];
+
 const unaClase = async ([clave, piezas]) => {
+  const total = piezas.reduce((t, f) => { try { return t + statSync(join(dirAudio, f)).size; } catch { return t; } }, 0);
+  const dur = segundosDeClase.get(clave) ?? 0;
+  const motivo = total > 0 && total < MINIMO_BYTES ? `${(total / 1024).toFixed(1)} KB: clip demasiado corto`
+    : (total > 0 && dur > 30 && total / dur < MINIMO_BPS) ? `${Math.round(total / dur)} B/s en ${dur}s: audio sin voz`
+      : null;
+  if (motivo) {
+    saltadas.push({ clave, motivo });
+    console.log(`  – ${clave} — ${motivo}, la salteo`);
+    return;
+  }
   const trozos = [];
   let segundos = 0, idioma = null;
   for (const [i, f] of piezas.entries()) {
@@ -278,7 +309,8 @@ const md = listarUnNivel(dirTexto).filter((r) => basename(r).endsWith('.md') && 
 writeFileSync(join(dirTexto, '_indice.md'),
   `# Clases transcriptas\n\n${md.map((r) => `- [${basename(r, '.md')}](${r.split('\\').map(encodeURIComponent).join('/')})`).join('\n')}\n`, 'utf8');
 
-console.log(`\n  ${hechas} transcripta(s) · ${yaEstaban} ya estaban · ${fallidas} fallada(s)`);
+console.log(`\n  ${hechas} transcripta(s) · ${yaEstaban} ya estaban · ${fallidas} fallada(s)` +
+  (saltadas.length ? ` · ${saltadas.length} salteada(s) por muy corta(s)` : ''));
 console.log(`  Índice: ${join(dirTexto, '_indice.md')}`);
 if (errores.length) {
   console.log(`\n  Fallaron (volver a correr reintenta; lo subido NO se re-sube):`);
