@@ -50,6 +50,15 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
     [→](#la-página-publica-cuántas-lecciones-tiene-úsalo-como-patrón)
 15. **⚠️ `.al-chip` estaba escrito dos veces en la misma hoja** y el segundo pisaba al
     primero sin ningún aviso. [→](#️-al-chip-estaba-definido-dos-veces-y-el-segundo-ganaba-en-silencio)
+16. **⚠️ Un curso con SUBMÓDULOS no se enumera por el DOM.** Cinco hipótesis, cuatro
+    refutadas con evidencia; la salida fue cambiar de fuente, no insistir.
+    [→](#️-un-curso-con-submódulos-no-se-puede-enumerar-por-el-dom-cinco-hipótesis-cuatro-refutadas)
+17. **Los tres desajustes entre `/vip/` y `/curso/` fallan TODOS en silencio**: otro nombre
+    de campo, el id adentro de la URL, y una duración ausente que marcaba 210 clases sanas
+    como rotas. [→](#los-tres-desajustes-entre-vip-y-curso-que-fallan-todos-en-silencio)
+18. **Antes de bajar un curso, fijate si ya está en Drive.** Éste estaba: 211 de 242.
+    Y al cruzar, no uses un `Set` — los títulos se repiten.
+    [→](#antes-de-bajar-un-curso-fijate-si-ya-está-en-drive)
 
 ---
 
@@ -892,6 +901,122 @@ pantalla parecía una corrida sana.
 
 **Nunca canalizar a `head` un script que produce un archivo.** Redirigir a un `.log` y
 leer el archivo después, o correrlo en background.
+
+### ⚠️ Un curso con SUBMÓDULOS no se puede enumerar por el DOM. Cinco hipótesis, cuatro refutadas
+
+**2026-08-13, «Vender Por FB E IG ADS» (Felipe Vergara, 242 lecciones).** El DOM rinde
+**154** y las otras **88 no aparecen por ningún camino**. El guard de la sección anterior
+lo frenó antes de bajar un curso a medias — hizo exactamente su trabajo.
+
+Lo que se probó y **quedó descartado con evidencia**, para que nadie lo repita:
+
+| Hipótesis | Cómo se refutó |
+|---|---|
+| El acordeón tarda más de 130 ms en renderizar | Con 600 ms: idéntico |
+| Faltaba clickear los módulos padre (sin contador `0/N`) | Se incluyeron: siguen sin abrir |
+| La lista está virtualizada | Se scrollearon los 9.700 px de página: las mismas 154 |
+| El bucle corta antes de tiempo | 5 rondas seguidas: siempre 220 botones |
+| El `.click()` sintético no dispara el handler | **No se pudo testear**: el elemento no entra al viewport |
+
+La causa real es estructural: este curso tiene **52 módulos en dos niveles**
+(módulo → submódulo → clase) y 40 de sus cabeceras simplemente no responden al click
+programático.
+
+**La salida no fue insistir con el DOM, fue cambiar de fuente.** La página pide la lista
+completa a `get_course_lessons_secure` en UNA llamada. Se lee con
+`Network.getResponseBody` — **no se le pega a la API**: es el cuerpo que el navegador ya
+descargó al abrir el curso, o sea cero requests extra contra la plataforma.
+
+`curso-plan-vip.mjs` (cuyo `-vip` ahora **miente por historia**) sirve para las dos áreas:
+sus `PATRONES` aceptan los endpoints con y sin el prefijo `vip_`.
+
+**La señal para cambiar de script:** `curso-plan.mjs` aborta diciendo cuántas lecciones
+publica la página y cuántas detectó. Si la brecha es grande, es este caso.
+
+### Los tres desajustes entre /vip/ y /curso/, que fallan TODOS en silencio
+
+Al reusar el script para el área pública, cada dato salió vacío sin un solo error:
+
+1. **`vip_module_id` vs `module_id`.** Las 242 clases salieron con `modulo: null` — o sea
+   sin carpetas por módulo en Drive.
+2. **`video_id` viene NULL en las 242, y el id está dentro de `video_url`**
+   (`https://vimeo.com/1192759004`). Mirando solo `video_id`, el plan concluía que
+   *ninguna* clase tenía video. Peor: el puntaje de «filas útiles» —el que existe para
+   elegir la respuesta correcta— daba **0/242** en la respuesta perfecta. Por eso ahora
+   `CAMPO_UTIL` es una FUNCIÓN y no un nombre de campo.
+3. **`sinFuente: segundos === 0`** marcaba como rotas 210 clases sanas. Este curso publica
+   la duración de solo **32 de 242**, así que «sin duración» no prueba nada acá. Lo único
+   que prueba que no hay fuente es no tener id.
+
+**La regla:** el mismo dato con dos nombres se resuelve en UN lugar (`modIdDe`,
+`videoIdDe`, `ordenDe`), no con un `??` repetido en cinco líneas. Y un heurístico que
+funciona en un área es una suposición en la otra hasta que se mide.
+
+### La mejor forma de verificar «este curso no tiene recursos» es el campo `resources` del RPC
+
+Verificar los descargables rastreando links en el DOM funciona, pero es frágil: depende de
+que todos los módulos estén ABIERTOS y de reconocer el patrón del link. En M5 -95 hubo que
+abrir los 18 módulos y buscar por tres vías distintas para poder afirmar «0 recursos».
+
+`get_course_lessons_secure` trae un campo **`resources` por lección**. Una sola lectura
+contesta la pregunta para el curso entero, sin abrir nada y sin heurísticas:
+
+```
+lecciones: 242 · CON recursos: 0
+```
+
+Es la fuente, no una inferencia sobre lo que la fuente dibujó. **Cuando el plan salga por
+esta vía, ese es el chequeo de recursos que vale.**
+
+### Antes de bajar un curso, fijate si ya está en Drive
+
+«Vender Por FB E IG ADS» **ya estaba**: 211 archivos, 9,0 GB. Bajar las 242 habría
+duplicado ~210 videos contra los ~370 GB libres que son el cuello real
+(ver docs/hallazgos-infra y la memoria de Drive vs Panda).
+
+Cruzando el plan de 242 contra el disco: **210 ya estaban y faltaban 32**, todas
+contiguas (n=211..242) — el módulo de IA que agregaron después, más el examen final.
+
+Dos cosas del cruce que valen para la próxima:
+
+- **Matchear por TÍTULO, no por número.** La numeración de las carpetas de Drive no tiene
+  por qué coincidir con el orden global de la plataforma.
+- **⚠️ No usar un `Set`.** Los títulos se repiten: hay nueve «Introducción al Módulo» y
+  cuatro «Presentación». Con un Set, nueve clases distintas se tapan con una sola. Hay que
+  contar copias e irlas consumiendo.
+- Que las faltantes salgan **contiguas** es la señal de que el cruce anduvo: un error de
+  matcheo produce faltantes dispersos, no un bloque perfecto al final.
+
+Lo hace `scripts/curso-drive-fusionar.mjs`: copia solo lo que falta respetando la
+nomenclatura de la carpeta que ya existe, y resuelve el id de Drive de TODAS las clases.
+
+### ⚠️ Emparejar por título: las tres formas de colgar el video EQUIVOCADO de una clase
+
+El riesgo de este cruce no es no encontrar un archivo — es encontrar el que no era. Eso
+sale al portal como una lección que reproduce otra cosa, y nadie lo ve hasta que la abre.
+Las tres, en el mismo curso, y cada una redujo las ambigüedades del paso anterior:
+
+| # | Síntoma | Causa | Arreglo |
+|---|---|---|---|
+| 1 | 32 clases sin desempate | El módulo se comparaba por **igualdad**, y los títulos del plan vienen truncados a ~31 chars mientras la carpeta de Drive tiene el nombre entero | Comparar por **prefijo** |
+| 2 | «Paso #2»…«Paso #6» colapsaban en uno (6 candidatos) | La clave usa las **primeras 7 palabras** y el `#N` que los distingue queda afuera del corte | Título completo como desempate |
+| 3 | «6. 4. Ascensión» vs «7. 4. Ascensión», mismo submódulo | El normalizador **borra el número inicial** —dos veces, por nombres tipo «02 1. Título»— y los dejaba idénticos | Un normalizador **estricto** que conserva los números, con el puntaje más alto |
+
+De 32 ambigüedades a 7, de 7 a 1, y de 1 a cero.
+
+**Y la guarda que queda por si algo se escapa:** antes de escribir `drive.json` se chequea
+que ningún id de Drive aparezca en dos clases. Si pasa, **no se escribe nada** — dos
+lecciones apuntando al mismo video es peor que una lección sin video.
+
+### GOTCHA: Drive for Desktop tira `ECANCELED` y una excepción suelta mata la fusión
+
+Copiando a `G:` Drive devolvió `ECANCELED` en un archivo (su filesystem virtual cancela
+mientras sincroniza). Sin manejo, el script murió con **12 de 31 copiadas y cero ids
+resueltos** — y el error no dice nada sobre reintentar.
+
+Ahora reintenta tres veces con espera creciente y, lo que igual falle, lo **reporta al
+final** en vez de abortar. Volver a correr retoma donde quedó, así que un fallo cuesta un
+reintento y no la corrida entera.
 
 ### Los títulos de módulo vienen CORTADOS de origen (y no hay nada mejor que sacar)
 

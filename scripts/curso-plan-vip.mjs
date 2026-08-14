@@ -1,9 +1,22 @@
-// Plan de un curso cuando el listado viene por API (área /vip/ de Cursos Élite).
+// Plan de un curso leyendo la respuesta que la página YA pidió, en vez de clickear.
 //
-// Por qué existe, además de curso-plan.mjs: en /vip/ el sidebar está VIRTUALIZADO.
-// Un curso de 249 clases tiene ~11 en el DOM, y cada click re-renderiza la lista,
-// así que los nodos marcados se pierden a mitad del recorrido. Enumerar clickeando
-// es imposible ahí — no es lento, es incorrecto.
+// ⚠️ El «-vip» del nombre miente por historia: sirve para las DOS áreas, /vip/ y
+// /curso/. Los endpoints son los mismos con y sin prefijo, y están contemplados
+// abajo en PATRONES.
+//
+// Por qué existe, además de curso-plan.mjs — dos motivos, uno por área:
+//
+//   · En /vip/ el sidebar está VIRTUALIZADO. Un curso de 249 clases tiene ~11 en el
+//     DOM y cada click re-renderiza la lista, así que los nodos marcados se pierden
+//     a mitad del recorrido. Enumerar clickeando no es lento: es incorrecto.
+//
+//   · En /curso/ hay cursos con SUBMÓDULOS (módulo → submódulo → clase). Ahí el DOM
+//     rinde una parte y el resto no aparece por ningún camino: en «Vender Por FB E
+//     IG ADS» (242 lecciones, 52 módulos en dos niveles) se leían 154, y las otras
+//     88 no salieron ni clickeando con eventos reales, ni esperando 600 ms, ni
+//     scrolleando los 9.700 px de la página, ni repitiendo rondas. La señal para
+//     usar ESTE script y no el otro: `curso-plan.mjs` aborta diciendo cuántas
+//     lecciones publica la página y cuántas detectó.
 //
 // La salida: la app pide la lista completa a un RPC de Supabase
 // (`get_vip_lessons_secure`) en UNA llamada, con título, duración, orden, módulo y
@@ -87,14 +100,28 @@ const main = async () => {
   const cdp = new Cdp(ws);
 
   const capturado = new Map();
+  // ⚠️ Las DOS áreas, no solo /vip/. El área pública usa los mismos endpoints sin
+  // el prefijo (`get_course_lessons_secure`, `modules`, `courses`), y hasta que se
+  // contemplaron acá, un curso de /curso/ con submódulos no había forma de leerlo:
+  // «Vender Por FB E IG ADS» (242 lecciones, 52 módulos en dos niveles) rendía 154
+  // por el DOM y las otras 88 no aparecían ni clickeando, ni esperando, ni
+  // scrolleando. Por la respuesta que la página YA pidió, salen las 242 de una.
   const PATRONES = [
-    [/get_vip_lessons_secure/, 'lessons'],
-    [/vip_modules/, 'modules'],
-    [/vip_courses\?/, 'course'],
+    [/get_(?:vip_)?(?:course_)?lessons_secure/, 'lessons'],
+    [/\/(?:vip_)?modules\?/, 'modules'],
+    [/\/(?:vip_)?courses\?/, 'course'],
   ];
-  // El campo SIN EL CUAL la respuesta no sirve para nada. Es lo que separa la
-  // llamada buena de la anónima cuando las dos vuelven 200 con un array lleno.
-  const CAMPO_UTIL = { lessons: 'video_id' };
+  // Qué hace ÚTIL a una fila: es lo que separa la llamada buena de la anónima
+  // cuando las dos vuelven 200 con un array lleno.
+  //
+  // Es una función y no un nombre de campo porque «tiene video» no vive siempre en
+  // el mismo lugar: hay cursos con `video_id` y otros donde ese campo viene null en
+  // el 100% de las filas y el id está dentro de `video_url`. Con el nombre fijo,
+  // una respuesta perfecta puntuaba 0/242 y el aviso decía justo lo contrario de
+  // lo que pasaba.
+  const CAMPO_UTIL = {
+    lessons: (x) => Boolean(String(x?.video_id ?? '').trim() || /\d{6,}/.test(String(x?.video_url ?? ''))),
+  };
   cdp.oye.push((m) => {
     if (m.method !== 'Network.responseReceived') return;
     const url = m.params.response.url;
@@ -128,8 +155,8 @@ const main = async () => {
   // el pipeline necesita) y el tamaño solo desempata. Tamaño ≠ corrección.
   const utiles = (j, clave) => {
     if (!Array.isArray(j)) return j ? 1 : 0;
-    const campo = CAMPO_UTIL[clave];
-    return campo ? j.filter((x) => x?.[campo]).length : j.length;
+    const sirve = CAMPO_UTIL[clave];
+    return sirve ? j.filter((x) => sirve(x)).length : j.length;
   };
   const datos = {};
   const puntaje = {};
@@ -173,11 +200,27 @@ const main = async () => {
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const ordenRaiz = new Map(raices.map((m, i) => [m.id, i + 1]));
 
+  // Las dos áreas nombran distinto los MISMOS datos, y leer solo la variante /vip/
+  // deja todo en null sin ningún error: en «Vender Por FB E IG ADS» las 242 clases
+  // salieron sin módulo y sin video por esto. Cada dato se busca por sus dos
+  // nombres posibles, en un solo lugar, para no repetir el `??` en cinco líneas.
+  const modIdDe = (l) => l.vip_module_id ?? l.module_id ?? null;
+  const ordenDe = (x) => x?.sort_order ?? x?.order ?? 0;
+  // El id de Vimeo puede venir en su propio campo o SOLO dentro de la URL. Este
+  // curso trae `video_id: null` en las 242 y `video_url: https://vimeo.com/<id>`,
+  // así que mirar únicamente `video_id` concluía «ninguna clase tiene video».
+  const videoIdDe = (l) => {
+    const directo = String(l.video_id ?? '').trim();
+    if (directo) return directo;
+    const m = /(?:vimeo\.com|video)\/(\d{6,})/.exec(String(l.video_url ?? ''));
+    return m ? m[1] : '';
+  };
+
   // ── Orden global: módulo raíz → módulo hoja → orden de la clase ─────────────
   const clavesOrden = (l) => {
-    const r = raizDe(l.vip_module_id);
-    const hoja = mods.get(l.vip_module_id);
-    return [ordenRaiz.get(r?.id) ?? 999, hoja?.sort_order ?? 0, l.sort_order ?? 0];
+    const r = raizDe(modIdDe(l));
+    const hoja = mods.get(modIdDe(l));
+    return [ordenRaiz.get(r?.id) ?? 999, ordenDe(hoja), ordenDe(l)];
   };
   const ordenadas = [...L].sort((a, b) => {
     const A = clavesOrden(a), B = clavesOrden(b);
@@ -187,9 +230,10 @@ const main = async () => {
   const ancho = String(ordenadas.length).length; // 249 → 3 dígitos
   const clases = ordenadas.map((l, i) => {
     const n = i + 1;
-    const r = raizDe(l.vip_module_id);
-    const hoja = mods.get(l.vip_module_id);
+    const r = raizDe(modIdDe(l));
+    const hoja = mods.get(modIdDe(l));
     const s = seg(l.duration);
+    const vid = videoIdDe(l);
     return {
       n,
       titulo: String(l.title ?? `Clase ${n}`).trim(),
@@ -198,15 +242,18 @@ const main = async () => {
       modulo: r?.title ? `${ordenRaiz.get(r.id)}. ${r.title}` : null,
       submodulo: hoja && hoja.id !== r?.id ? hoja.title : null,
       plataforma: 'vimeo',
-      videoId: String(l.video_id ?? '').trim() || null,
-      // duration '00:00' es la señal de que el video NO EXISTE del otro lado.
-      // Medido: las 2 clases de 249 con duración cero daban HTTP 404 en Vimeo, y
-      // sin esta marca el descargador gasta 10 reintentos × ~300 fragmentos en
-      // cada una (461 líneas de ERROR en el log) antes de rendirse.
-      sinFuente: s === 0 || !String(l.video_id ?? '').trim(),
+      videoId: vid || null,
+      // ⚠️ La falta de DURACIÓN no alcanza para declarar que un video no existe.
+      // Era `s === 0 || sin id`, y en este curso la plataforma publica la duración
+      // de solo 32 de 242: con esa regla, 210 clases sanas quedaban marcadas como
+      // rotas y el descargador las salteaba. Lo único que prueba que no hay fuente
+      // es no tener id. Lo de la duración en cero se conserva —2 clases de 249
+      // daban 404 en Vimeo y ahorraba 10 reintentos × ~300 fragmentos— pero SOLO
+      // cuando el curso publica duraciones; si casi ninguna las trae, no dice nada.
+      sinFuente: !vid,
       // player.vimeo.com + Referer es lo que autentica un embed restringido por
       // dominio. La URL pública vimeo.com/<id> da 403.
-      url: `https://player.vimeo.com/video/${String(l.video_id ?? '').trim()}`,
+      url: `https://player.vimeo.com/video/${vid}`,
       archivo: `${String(n).padStart(ancho, '0')} - ${limpio(l.title)}`,
     };
   });
