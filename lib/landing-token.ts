@@ -55,7 +55,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       copiado durante esas horas tiene una landing que no mide ni captura
  *       nada. Se sube la versión para poder avisarle.
  */
-export const SNIPPET_VERSION = 3;
+export const SNIPPET_VERSION = 4;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -87,6 +87,7 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
 const NOVEDADES: Record<number, string> = {
   2: 'la captura automática del formulario de tu landing (quien lo completa te entra al CRM)',
   3: 'un arreglo del código: la versión anterior salió sin identificador y dejó de medir y de capturar',
+  4: 'la medición de videos CORTOS: antes, uno de menos de 15 segundos no registraba ningún avance',
 };
 
 export function novedadesDesde(instalada: number): string {
@@ -341,7 +342,7 @@ export async function landingDiagnostico(): Promise<LandingDiagnostico> {
     { id: 'profundidad', label: 'Se mide cuánto del VSL ven',
       estado: hayProfundidad ? 'ok' : soloVsl > 0 ? 'viejo' : 'falta',
       detalle: hayProfundidad ? 'Llegan los hitos de avance: la retención por lead se puede calcular.'
-        : soloVsl > 0 ? 'Solo llega el arranque, no el avance. Con el código nuevo aparece al mirar más de 15 segundos.'
+        : soloVsl > 0 ? 'Solo llega el arranque, no el avance. Con el código nuevo aparece a los pocos segundos de reproducción, aunque el video sea corto.'
         : 'Todavía sin datos.' },
   ];
 
@@ -445,7 +446,15 @@ export function landingSnippet(token: string): string {
   // Escalera de segundos: la red de seguridad cuando no se conoce la duración.
   // Doce puntos hasta los 40 minutos — alcanza para reconstruir la curva
   // server-side sin inundar el endpoint.
-  var ESCALERA = [15, 30, 60, 120, 180, 300, 420, 600, 900, 1200, 1800, 2400];
+  // ⚠️ ARRANCA EN 3 SEGUNDOS, no en 15. El primer escalón era 15 s, y con eso un
+  // video de 10 —los hay, y son justo los que más se miran enteros— no marcaba
+  // NUNCA un avance: la pantalla decía «solo llega el arranque» sobre un video
+  // que la gente terminaba. Un umbral pensado para un VSL de 20 minutos aplicado
+  // a uno de 10 segundos mide exactamente cero.
+  // Sigue siendo una escalera y no un tick por segundo: un evento por segundo son
+  // 1.200 requests por cada persona que mira un VSL largo, para reconstruir una
+  // curva que con estos puntos ya queda igual de bien.
+  var ESCALERA = [3, 5, 8, 12, 15, 20, 30, 45, 60, 90, 120, 180, 300, 420, 600, 900, 1200, 1800, 2400];
 
   window.addEventListener('message', function (ev) {
     var d = ev.data;

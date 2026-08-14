@@ -612,53 +612,74 @@ textarea.mako-field {
   user-select: all;
   /* ⚠️ EL `max-height` ES LO QUE PLIEGA. Sin él, `overflow: hidden` no recorta
      nada: un <pre> con 200 líneas crece hasta ocupar las 200 líneas y la barra
-     crece con él. Se veía DESPLEGADO siempre, y de yapa los botones quedaban
-     centrados contra un bloque altísimo — dos síntomas, una sola causa.
+     crece con él.
 
-     Cuatro renglones y no uno: con uno solo se leía «<script>» y nada más, que
-     no alcanza para reconocer que es TU código —el que tiene tu token— ni para
-     distinguirlo del de otra integración. */
-  max-height: 6.6em;
+     UN renglón, no cuatro: la barra plegada tiene que medir lo mismo que
+     cualquier otra fila de la pantalla. Con cuatro crecía de alto y el cuarto
+     quedaba cortado por la mitad, que se lee como un error de render.
+     El truco para que ese renglón muestre CÓDIGO y no solo «<script>» es
+     `nowrap` —abajo—: colapsa los saltos de línea a espacios, así que entra
+     todo el snippet en una línea y `text-overflow` le pone el «…» al final. */
+  max-height: 1.65em;
+  /* `nowrap` y no `pre` cuando está plegado: `pre` respeta los saltos de línea,
+     y con eso el primer renglón es «<script>» solo. Colapsando los saltos entra
+     el principio de verdad del código, que es lo que permite reconocerlo. */
+  white-space: nowrap;
+}
+.mk-key-row--code.is-abierta .mk-key-code {
+  white-space: pre;
 }
 .mk-key-row--code.is-abierta .mk-key-code {
   max-height: 260px;
   overflow: auto;
   text-overflow: clip;
 }
-/* El «…» de que hay más, con el degradado que lo apoya. Va en el WRAPPER y no en
-   el <pre>: adentro de un contenedor con overflow, un pseudo-elemento absoluto
-   se recorta o scrollea con el contenido. Solo existe plegado. */
+/* El wrapper existía para colgarle un degradado al plegado. Ya no hace falta:
+   con una sola línea el «…» lo pone `text-overflow`, que es el mismo puntito
+   suspensivo de siempre y no un pseudo-elemento que hay que mantener alineado. */
 .mk-key-codewrap {
-  position: relative;
   flex: 1;
   min-width: 0;
 }
-.mk-key-row--code:not(.is-abierta) .mk-key-codewrap::after {
-  content: '…';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1.9em;
-  display: flex;
-  align-items: flex-end;
-  padding-left: 2px;
-  font-family: 'Geist Mono', monospace;
-  font-size: 11.5px;
-  color: #6B7486;
-  background: linear-gradient(to bottom, rgba(15, 17, 21, 0) 0%, #0F1115 62%);
-  pointer-events: none;
-}
-/* Los botones sobre fondo oscuro: el borde y el fondo claros desaparecerían
-   contra el negro, y el blanco pleno partía la barra al medio. */
+
+/* Los botones sobre fondo oscuro. El primer intento los dejó casi del color del
+   fondo (#171B22 sobre #0F1115): técnicamente distintos, invisibles en la
+   práctica. Suben a un gris que se despega, con el ícono casi blanco. */
 .mk-key-row--code .mk-icon-btn {
-  border-color: #2C3240;
-  background: #171B22;
-  color: #9AA3B2;
+  border-color: #3A4356;
+  background: #262D3B;
+  color: #C7CEDB;
 }
 .mk-key-row--code .mk-icon-btn:hover:not(:disabled) {
-  background: #232A36;
-  border-color: #3A4252;
+  background: #333C4D;
+  border-color: #4C566B;
+}
+
+/* Las barras de scroll del código, desplegado. Sin esto el navegador pinta las
+   suyas —blancas, anchas, con las flechitas— encima del fondo negro, que es
+   exactamente el «tipo HTML» que el resto de la app evita. Es la misma receta
+   que `.mk-scroll-oscuro`, aplicada acá porque el que scrollea es el <pre>. */
+.mk-key-row--code .mk-key-code {
+  scrollbar-width: thin;
+  scrollbar-color: #3A4356 transparent;
+}
+.mk-key-row--code .mk-key-code::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.mk-key-row--code .mk-key-code::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mk-key-row--code .mk-key-code::-webkit-scrollbar-thumb {
+  background: #3A4356;
+  border-radius: 999px;
+  border: 2px solid #0F1115;
+}
+.mk-key-row--code .mk-key-code::-webkit-scrollbar-thumb:hover {
+  background: #4C566B;
+}
+.mk-key-row--code .mk-key-code::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Campo compacto del modal de detalle del lead: misma identidad de foco que

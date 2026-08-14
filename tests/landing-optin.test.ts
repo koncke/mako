@@ -190,7 +190,10 @@ test('con el código viejo no se deja probar, y «Verificar» lo dice', () => {
   assert.ok(/Primero actualizá el código/.test(probar), 'y decir qué hacer antes de probar');
   // El botón NO se esconde: esconderlo deja la sección sin su acción y sin decir
   // qué la reemplazó. Se deja intentar, y ahí se explica por qué todavía no.
-  assert.ok(/const arrancar = \(\) => \{/.test(probar), 'el botón de probar tiene que seguir existiendo');
+  // `async`: arrancar RELEE el estado antes de bloquear, en vez de creerle a lo
+  // que se leyó al abrir el modal. Ver el comentario del componente.
+  assert.ok(/const arrancar = async \(\) => \{/.test(probar), 'el botón de probar tiene que seguir existiendo');
+  assert.ok(/setPrevio\(\(p\) =>/.test(probar), 'al apretar Probar hay que RELEER: si no, se bloquea con un dato viejo');
   assert.ok(/setBloqueo\(true\); return;/.test(probar), 'el aviso aparece al APRETAR, no en lugar del panel');
 
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
@@ -283,7 +286,12 @@ test('la barra del código arranca PLEGADA y la ayuda es su cuarto botón', () =
   assert.ok(/max-height:\s*[\d.]+em/.test(cerrada), 'sin max-height en el estado CERRADO la barra no pliega nada');
   // Y el «…» que avisa que hay más: sin eso, plegado parece que el código
   // termina ahí.
-  assert.ok(/mk-key-codewrap::after/.test(css) && /content: '…'/.test(css), 'falta el «…» del plegado');
+  // El «…» lo pone `text-overflow` sobre UNA sola línea: con `nowrap` los saltos
+  // se colapsan a espacios, así que entra el principio real del código y no solo
+  // «<script>». La versión de cuatro renglones cortaba el último por la mitad,
+  // que se lee como un error de render.
+  assert.ok(/white-space: nowrap/.test(cerrada), 'plegado tiene que ser UNA línea, si no el «…» de text-overflow no aplica');
+  assert.ok(/text-overflow: ellipsis/.test(cerrada), 'falta el «…» del plegado');
   // La barra oscura no puede aclararse al enfocarse: adentro no hay ningún
   // campo, así que el fondo blanco del :focus-within no aplica.
   assert.ok(/--code:focus-within \{[^}]*background: #0F1115/.test(css.replace(/\n/g, '')), 'la barra oscura se pone blanca al tocar un botón');
@@ -316,5 +324,10 @@ test('el fondo y el borde del botón de barra NO van inline', () => {
 
   const css = leer('../app/globals.css');
   assert.ok(/\.mk-icon-btn \{[^}]*background: var\(--surface\)/.test(css.replace(/\n/g, '')), 'el fondo tiene que vivir en la clase');
-  assert.ok(/--code \.mk-icon-btn \{[^}]*background: #171B22/.test(css.replace(/\n/g, '')), 'falta la variante oscura del botón');
+  // Se exige que EXISTA la variante oscura, no un hex: el color se va a seguir
+  // ajustando (el primero quedó casi del color del fondo y era invisible).
+  assert.ok(/--code \.mk-icon-btn \{[^}]*background: #[0-9A-Fa-f]{6}/.test(css.replace(/\n/g, '')), 'falta la variante oscura del botón');
+  // Y las barras de scroll del código no pueden ser las del navegador: blancas
+  // y anchas sobre negro son el «tipo HTML» que el resto de la app evita.
+  assert.ok(/scrollbar-color:/.test(css) && /::-webkit-scrollbar-thumb/.test(css), 'faltan las barras de scroll oscuras');
 });

@@ -137,8 +137,21 @@ export function ProbarTracking() {
   // El aviso aparece al APRETAR, no en lugar del panel: esconder el botón deja la
   // sección sin su acción y sin explicar qué la reemplazó. La persona viene a
   // probar; lo que corresponde es dejarla intentar y decirle ahí por qué todavía no.
-  const arrancar = () => {
-    if (previo?.codigoViejo) { setBloqueo(true); return; }
+  const arrancar = async () => {
+    // ⚠️ SE VUELVE A PREGUNTAR, no se le cree a lo que se leyó al abrir el modal.
+    // El caso real: la persona actualiza el código, recarga su landing y aprieta
+    // «Probar» — pero el `previo` es de cuando abrió la pantalla, así que le
+    // seguía diciendo «tenés el código viejo» sobre algo que ya había arreglado.
+    // Un estado que gobierna un bloqueo se relee en el momento de bloquear.
+    setOcupado(true);
+    let viejo = previo?.codigoViejo ?? false;
+    try {
+      const r = await fetch('/api/integraciones/landing/estado?diag=1', { cache: 'no-store' }).then((x) => x.json());
+      if (r?.ok) { viejo = !!r.codigoViejo; setPrevio((p) => (p ? { ...p, codigoViejo: viejo, urls: r.urls ?? p.urls } : p)); }
+    } catch { /* sin respuesta, vale lo último que sabíamos */ }
+    setOcupado(false);
+    if (viejo) { setBloqueo(true); return; }
+
     const u = url.trim();
     // Probar una página la GUARDA. Si no, la próxima vez hay que volver a
     // elegirla de las detectadas o a escribirla — y el desplegable dice
@@ -223,7 +236,7 @@ export function ProbarTracking() {
         {/* UN solo botón. Siempre abre la página en otra pestaña: si la prueba
             depende de que la persona se acuerde de abrirla, la prueba no arranca. */}
         <div style={{ marginTop: 14 }}>
-          <Button variant="primary" onClick={arrancar} disabled={!urlValida}>Probar</Button>
+          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado} disabled={!urlValida}>Probar</Button>
         </div>
 
         {avisoViejo}
