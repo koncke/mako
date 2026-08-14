@@ -14,6 +14,8 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button, Input, Select } from '@/app/_ui';
+import { IconBtn } from './ServicioConfigForm';
+import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -53,7 +55,40 @@ export function ProbarTracking() {
   const [previo, setPrevio] = useState<Diag | null>(null); // estado ANTES de arrancar
   const [bloqueo, setBloqueo] = useState(false); // apretó "probar" con el código viejo
   const [eligiendoNueva, setEligiendoNueva] = useState(false); // eligió "Otra página…"
-  const urlValida = /^https?:\/\/.+/i.test(url.trim());
+  const [paginas, setPaginas] = useState<string[]>([]);        // las GUARDADAS del workspace
+  const [editando, setEditando] = useState<string | null>(null); // la que se está corrigiendo
+  const [errPagina, setErrPagina] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  // Sin esquema también vale: «tu-pagina.com» es lo que la gente escribe, y el
+  // server lo normaliza. Acá solo se pide que tenga un punto.
+  const urlValida = /^(https?:\/\/)?[^\s.]+\.[^\s]{2,}/i.test(url.trim());
+  const guardadaElegida = !!url && paginas.includes(url);
+  // Detectadas por los eventos y todavía no guardadas: se ofrecen aparte porque
+  // no son lo mismo (ver el comentario del desplegable).
+  const detectadas = (previo?.urls ?? []).filter((u) => !paginas.includes(u));
+
+  const guardar = async () => {
+    setOcupado(true); setErrPagina(null);
+    const r = await guardarPaginaAction(url, editando);
+    setOcupado(false);
+    if (!r.ok) { setErrPagina(r.error); return; }
+    setPaginas(r.paginas);
+    // Se queda seleccionada la que se acaba de guardar: si el desplegable
+    // volviera a vacío, guardar se sentiría como que no pasó nada.
+    const guardada = r.paginas.find((u) => u.includes(url.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, ''))) ?? url.trim();
+    setUrl(guardada);
+    setEligiendoNueva(false);
+    setEditando(null);
+  };
+
+  const borrar = async () => {
+    setOcupado(true); setErrPagina(null);
+    const r = await borrarPaginaAction(url);
+    setOcupado(false);
+    if (!r.ok) { setErrPagina(r.error); return; }
+    setPaginas(r.paginas);
+    setUrl('');
+  };
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const traer = useCallback(async (guardarEn?: (d: Diag) => void) => {
@@ -74,6 +109,10 @@ export function ProbarTracking() {
   useEffect(() => {
     if (activo) return;
     traer(setPrevio);
+    // Las guardadas viven en el WORKSPACE, no en este navegador: si vivieran en
+    // localStorage, cambiar de máquina o de sesión las perdería, y no serían
+    // «mis páginas» sino «las páginas de esta compu».
+    getPaginasAction().then(setPaginas).catch(() => { /* sin lista, se puede agregar */ });
     try { setUrl(localStorage.getItem(URL_KEY) ?? ''); } catch { /* sin storage */ }
   }, [activo, traer]);
 
@@ -101,6 +140,10 @@ export function ProbarTracking() {
   const arrancar = () => {
     if (previo?.codigoViejo) { setBloqueo(true); return; }
     const u = url.trim();
+    // Probar una página la GUARDA. Si no, la próxima vez hay que volver a
+    // elegirla de las detectadas o a escribirla — y el desplegable dice
+    // «se guarda al probarla», así que tiene que cumplirlo.
+    if (!paginas.includes(u)) void guardarPaginaAction(u).then((r) => { if (r.ok) setPaginas(r.paginas); });
     try { localStorage.setItem(URL_KEY, u); } catch { /* sin storage */ }
     window.open(u, '_blank', 'noopener');
     setActivo(true);
@@ -134,23 +177,47 @@ export function ProbarTracking() {
             puede estilar igual en todos los navegadores— y además este se
             renderiza en portal, así que el scroll del modal no lo recorta. */}
         <div style={{ marginTop: 14 }}>
-          <Select
-            ariaLabel="Página a probar"
-            value={eligiendoNueva ? NUEVA : url}
-            onChange={(v) => { setUrl(v === NUEVA ? '' : v); setEligiendoNueva(v === NUEVA); }}
-            placeholder="Elegí una página…"
-            options={[
-              ...(previo?.urls ?? []).map((u) => ({ value: u, label: u })),
-              { value: NUEVA, label: 'Otra página…', sub: 'escribí la dirección' },
-            ]}
-          />
-          {/* Solo cuando hace falta: un campo vacío al lado del desplegable es
+          {/* Las GUARDADAS primero, después las que se detectaron solas por los
+              eventos. La distinción importa: una guardada se puede corregir y
+              borrar; una detectada es una observación, y elegirla la adopta. */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Select
+                ariaLabel="Página a probar"
+                value={eligiendoNueva ? NUEVA : url}
+                onChange={(v) => { setUrl(v === NUEVA ? '' : v); setEligiendoNueva(v === NUEVA); setEditando(null); }}
+                placeholder="Elegí una página…"
+                options={[
+                  ...paginas.map((u) => ({ value: u, label: u })),
+                  ...detectadas.map((u) => ({ value: u, label: u, sub: 'detectada — se guarda al probarla' })),
+                  { value: NUEVA, label: 'Otra página…', sub: 'escribí la dirección' },
+                ]}
+              />
+            </div>
+            {/* Editar y borrar solo sobre una GUARDADA: una detectada todavía no
+                es de nadie, y ofrecer «borrar» sobre algo que va a volver a
+                aparecer con la próxima visita es prometer algo que no se cumple. */}
+            {guardadaElegida && !eligiendoNueva && (
+              <>
+                <IconBtn name="pen" title="Corregir esta dirección" onClick={() => { setEditando(url); setEligiendoNueva(true); }} />
+                <IconBtn name="trash" title="Quitarla de la lista" tone="bad" disabled={ocupado} onClick={borrar} />
+              </>
+            )}
+          </div>
+
+          {/* El campo aparece solo cuando hace falta: escribir una nueva o
+              corregir una que ya está. Un campo vacío al lado del desplegable es
               una pregunta de más en el 90% de los casos. */}
           {eligiendoNueva && (
-            <div style={{ marginTop: 9 }}>
-              <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-pagina.com" inputMode="url" autoFocus />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 9 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-pagina.com" inputMode="url" autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter' && urlValida) void guardar(); }} />
+              </div>
+              <IconBtn name="check" title={editando ? 'Guardar el cambio' : 'Guardar esta página'} tone="good" disabled={!urlValida || ocupado} onClick={() => void guardar()} />
             </div>
           )}
+          {errPagina && <div style={{ marginTop: 7, fontSize: 12.5, color: 'var(--bad)' }}>{errPagina}</div>}
         </div>
 
         {/* UN solo botón. Siempre abre la página en otra pestaña: si la prueba
