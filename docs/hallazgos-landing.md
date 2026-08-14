@@ -201,19 +201,116 @@ la contiene como prefijo, que es exactamente la forma de los previews de Netlify
 **Vive en:** `lib/landing-paginas.ts` (`mismaPagina`, `conOculta`) ·
 `app/integraciones/ProbarTracking.tsx` (`hayElegida`) · `app/integraciones/landing-actions.ts`
 
-### Pendiente: ponerle nombre a cada video y separar la retención en el CRM
+### ⚠️ «La única duración conocida» se le aplicaba a CUALQUIER video
 
-El modelo está escrito y **sin cablear**: `lib/landing-videos.ts` (sin `server-only`) guarda
-`{id, nombre, esVsl}` en `landing.videos`, con la invariante de que hay **un solo** VSL —
-porque las pantallas que hablan de «el VSL» en singular tienen que poder preguntar cuál es y
-recibir una respuesta, no una lista.
+*2026-08-14*
 
-Falta: las server actions, el desplegable para nombrarlos (mismo patrón que las páginas
-guardadas, con «Otro tipo de video…» de última opción) y que el detalle del lead en el CRM
-muestre **una curva por video** en vez de fundirlas en una. Con la v5 el dato ya llega
-separado; lo que falta es mostrarlo.
+Encontrado mapeando el CRM para otra cosa. `durDe` en `lib/leads.ts` resolvía la duración de
+un video así:
 
-**Vive en:** `lib/landing-videos.ts` · el consumo pendiente en `app/crm/[id]/`
+```ts
+if (v && durs.has(v)) return durs.get(v)!;
+return durs.size === 1 ? [...durs.values()][0] : null;   // ⛔
+```
+
+El respaldo existe por una razón real: el `video_id` de `vsl_events` no siempre coincide con
+el que reporta el cron de Panda, y sin él la ficha mostraba «—» para todos. Con **un** video
+es correcto. Con dos es un porcentaje **inventado**: al testimonio de 40 s se le aplica la
+duración del VSL de 20 minutos y su avance da ~0% para siempre.
+
+Y no falla — contesta mal, que es el modo caro: se ve exactamente igual que un porcentaje
+correcto, nadie lo revisa y ninguna pantalla lo dice.
+
+**Regla:** un respaldo que asume «hay uno solo» tiene que **chequear** que haya uno solo. Si
+no se sabe de qué video es la duración, va `null` y la pantalla muestra «—», que es la verdad.
+`resolverDuracion(videosEnJuego, durs)` cuenta los `video_id` distintos antes de asumir nada.
+En el camino del lote (`getVslEngagementMap`) se cuentan sobre el **lote entero**, no sobre las
+filas de cada visitor: si un visitor miró uno solo pero el negocio tiene dos, el respaldo
+sigue siendo una invención.
+
+**Y el corolario de los eventos huérfanos:** los que no se pueden atribuir a ningún video
+(datos anteriores a la v5, o el `exit` de un player anónimo) no se tiran **ni** se le suman a
+un video concreto. Van a su propio balde, «Video sin identificar». Descartarlos perdería
+mediciones reales; fundirlos contamina una curva sin que se note.
+
+**Vive en:** `lib/leads.ts` (`resolverDuracion`, `videosDe`, `getVslEngagement`,
+`getVslEngagementMap`) · `app/crm/lead-view/ComportamientoCard.tsx`
+
+### El número correcto mal ATRIBUIDO es peor que ningún número
+
+La ficha del lead pintaba «Retención del VSL: 80%», y ese 80 era el máximo sobre **todos** los
+videos de la página. Con un testimonio de 40 s al lado del VSL, el 80% del testimonio se leía
+como que la persona casi terminó la oferta — y es la lectura sobre la que un closer decide
+cómo encarar la llamada.
+
+El cálculo nunca estuvo mal. Lo que estaba mal era el **rótulo**, y por eso no había forma de
+detectarlo mirando el número.
+
+**Regla de pantalla:** un rótulo en singular («el VSL», «la campaña», «el pago») es una
+afirmación de que hay uno solo. Si el modelo de datos permite varios, o el rótulo se hace
+plural o la pantalla desglosa — pero el número agregado bajo el nombre de uno de los
+componentes es siempre una mentira que se ve creíble.
+
+Cómo quedó, siguiendo las reglas de la casa: con **varios** videos el minicard único no se
+pinta y abajo va una lista con filete, un renglón por video, con la barra de avance como
+**borde** de la fila (2 px, ancho completo) y el número al lado del color. Con **uno solo** la
+pantalla es exactamente la de antes — partir en una lista de un renglón le agrega ruido al 95%
+de los casos para resolver el 5%.
+
+**Vive en:** `app/crm/lead-view/ComportamientoCard.tsx` (`FilaVideo`, `varios`)
+
+### Una pregunta, no dos: el nombre del video ES la respuesta a «cuál es el VSL»
+
+El primer diseño tenía un desplegable para el nombre y aparte un control «marcar como VSL».
+Dos controles para una decisión, y el segundo se queda sin contestar porque no se entiende qué
+agrega — con lo cual `esVsl` queda vacío y todo lo que depende de él no funciona.
+
+Quedó uno solo: los tipos de fábrica (`TIPOS_VIDEO`), los nombres que ya usó ese negocio, y
+«Otro tipo de video…» de última opción. Elegir «VSL» marca. Es una heurística sobre texto que
+escribe una persona (`esTipoVsl`, palabra suelta), y por eso la fila muestra el distintivo
+**VSL al instante**: la consecuencia se ve antes de guardar, que es lo único que vuelve
+corregible una heurística.
+
+**Y el bug que encontró el test, no la pantalla:** `conVideo` reconstruía el objeto con solo
+`{id, nombre}`, así que **renombrar el VSL lo degradaba en silencio** — la pantalla de
+renombrar no manda ese flag porque no está preguntando eso. Ahora `esVsl` tiene **tres**
+valores: `true` marca, `false` desmarca y **`undefined` significa «no lo toques»**. Es «cada
+pregunta, su campo»: contestar «cómo se llama» no puede contestar «cuál es el VSL» por
+omisión.
+
+**Vive en:** `lib/landing-videos.ts` (`conVideo`, `esTipoVsl`, `TIPOS_VIDEO`, `rotuloDe`) ·
+`app/integraciones/NombrarVideos.tsx`
+
+### Un test que lee el fuente hace match con el comentario que explica la regla
+
+Cuarta vez en este repo, y esta vez con un agravante nuevo. La aserción era
+`!/<select/i.test(fuente)` y falló sobre código que cumple la regla, por dos motivos a la vez:
+
+1. El comentario de al lado dice, textual, «el `<select>` nativo está prohibido».
+2. **El flag `/i` prohibía el `<Select>` de la casa que la aserción venía a exigir.** En JSX la
+   mayúscula ES la diferencia entre el elemento del DOM y el componente de React.
+
+**Regla:** un test que lee fuente saca los comentarios primero, y **nunca** usa `/i` para
+buscar JSX. Lo que se busca es lo que se ejecuta, no lo que está escrito al lado.
+
+**Vive en:** `tests/landing-videos.test.ts` (`sinComentarios`)
+
+### Lo que sigue pendiente sobre videos
+
+- **`curvaRetencion`, `avancePorPersona` e `histogramaAbandono` aceptan un `videoId` desde hace
+  meses y nadie se lo pasa.** La capacidad de filtrar por video está implementada y sin usar; lo
+  que hoy se muestra en la ficha es el máximo por video, no la curva. Y ojo con la condición de
+  `lib/vsl-retencion.ts:115` y `:212`: `if (videoId && ev.video_id && ev.video_id !== videoId)`
+  exige que `ev.video_id` sea truthy, así que **un evento sin `video_id` no se descarta nunca y
+  entra en la curva de CUALQUIER video**. Es el mismo error que `durDe`, en otro archivo.
+- **`TrackingTimelineCard` deduplica rachas de retención sin mirar `video_id`**
+  (`app/crm/lead-view/TrackingTimelineCard.tsx:46-52`), así que mezcla rachas de videos
+  distintos en una sola.
+- El `video_id` no siempre es un id de Panda: cuando el player no se identifica, el snippet cae
+  a `iframe0`/`iframe1` **por posición** — que cambia si se reordena la página.
+
+**Vive en:** `lib/vsl-retencion.ts` · `app/crm/lead-view/TrackingTimelineCard.tsx` ·
+`lib/landing-token.ts` (`quien`)
 
 ## Landing Analyst
 
