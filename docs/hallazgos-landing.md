@@ -436,6 +436,72 @@ revertir:
 **Vive en:** `lib/landing-token.ts` (el listener) · `app/api/track/vsl/route.ts` ·
 `supabase/migrations/0133_vsl_events_detalle.sql`
 
+### El probador mostraba las últimas 24 h, no tu prueba
+
+*2026-08-14*
+
+Reportado como **«al darle probar te trae TODOS los eventos pasados… lo supe porque vi
+diferentes horarios»**. La ventana era de 24 h, así que aparecían visitas de la mañana entre
+las de recién y no había forma de saber cuáles eran propias.
+
+Resuelto con el mismo mecanismo que el `test_event_code` de Meta: «Probar» genera un id, abre
+la landing con `?mko_test=<id>`, el snippet lo guarda en `sessionStorage` de esa pestaña y lo
+devuelve en cada evento; el panel filtra por ese id.
+
+**⚠️ Filtrar por HORA no alcanzaba, y es la parte que importa.** Arrancar la ventana cuando
+empieza la prueba deja afuera los eventos viejos pero **no** los de otra gente visitando la
+página en ese momento — y esta landing tiene tráfico real, entran leads cada pocos minutos. Un
+probador que te muestra la visita de un desconocido como si fuera tuya es **peor** que uno que
+muestra de más: te hace creer que tu código anda cuando lo que anda es el de la visita ajena.
+
+Tres decisiones que conviene no revertir:
+
+- **`sessionStorage`, no cookie.** El marcador tiene que sobrevivir a navegar dentro de la
+  pestaña (un CTA que va a otra página) y morir al cerrarla. En una cookie contaminaría el
+  tráfico real durante un año, marcando como «prueba» visitas que no lo son.
+- **El hash va SIEMPRE al final al armar la URL.** `pagina.com/#registro?mko_test=x` deja el
+  parámetro **adentro del hash** y `location.search` no lo ve nunca — y esa landing se prueba
+  justamente con `#registro`.
+- **El marcador viaja en cada consulta, incluida la del intervalo.** Pasar `traer` directo a
+  `setInterval` le entrega el contador del timer como primer argumento: la lista arrancaba
+  limpia y a los 3 segundos volvían las 24 h.
+
+**Vive en:** `app/integraciones/ProbarTracking.tsx` · `lib/landing-token.ts`
+(`landingDiagnostico(prueba?)`, el bloque `mko_test` del snippet) ·
+`supabase/migrations/0134_marcador_de_prueba.sql`
+
+### Un opt-in no podía aparecer en el feed del probador, nunca
+
+El feed se armaba con `vsl_events` y `landing_visits` y nada más. Un opt-in vive en
+`propuestas` —porque no es un evento: es algo para revisar— así que un formulario que entraba
+**perfecto** no producía un solo renglón. Y la instrucción de la pantalla decía, textual,
+«completá tu propio formulario, los eventos aparecen acá».
+
+**Regla:** cuando una pantalla instruye «hacé X y vas a ver Y», hay que verificar que el
+camino de datos de Y **exista**. Una promesa que la pantalla no puede cumplir no se lee como
+un bug de la pantalla: se lee como que lo que hiciste falló.
+
+**Vive en:** `lib/landing-token.ts` (la tercera query de `landingDiagnostico`)
+
+### Descartar una propuesta encadenaba a esa persona para siempre
+
+`crearPropuesta` hacía `select('id, estado')` y **no miraba el estado**: cualquier fila con esa
+`ref` bloqueaba, incluida una `descartada`. Descartar no significa «esta persona no existe»:
+significa «esto no era un lead» o «me equivoqué». Si mañana vuelve a completar el formulario,
+eso es intención nueva y tiene que poder revisarse — con el código viejo no volvía a entrar
+nunca más, en silencio.
+
+Las otras dos **sí** bloquean, y por razones distintas: `pendiente` ya está esperando (volver a
+proponerla duplica la fila) y `aplicada` significa que el lead **ya** está en el CRM
+(re-proponerlo lo duplicaría). La `ref` de la que vuelve a entrar lleva el día, para no chocar
+con la vieja sin perder la idempotencia del doble submit.
+
+**Regla general:** un `select` que trae un campo y no lo usa es una decisión que alguien pensó
+y no terminó de escribir. Cuando veas uno, la pregunta no es «sobra este campo» sino «qué
+tendría que estar decidiendo con él».
+
+**Vive en:** `lib/propuestas.ts` (`crearPropuesta`)
+
 ### Lo que NO era un bug (verificado en la base, no deducido)
 
 - **Los «Visitó la landing» repetidos son visitas reales.** `landing_visits` no tiene columna de
