@@ -197,8 +197,14 @@ test('la pantalla también lo dice (no solo el WhatsApp)', () => {
 
 test('la prueba del código chequea el formulario, y la versión NO se adivina', () => {
   const lib = leer('../lib/landing-token.ts');
+  // ⚠️ La ventana se corta en el CIERRE del array, no a los N caracteres. Con un
+  // tope fijo, agregar un chequeo empuja al último fuera de la ventana y el test
+  // falla sobre código correcto — ya pasó dos veces en este archivo. Un límite
+  // arbitrario en un test que lee fuente es una falla programada.
   const i = lib.indexOf('const chequeos: ChequeoDiag[]');
-  const bloque = lib.slice(i, i + 2600);
+  const fin = lib.indexOf('\n  ];', i);
+  assert.ok(i > 0 && fin > i, 'no se encontró el array de chequeos');
+  const bloque = lib.slice(i, fin);
 
   // El chequeo que faltaba: el snippet captura el opt-in en el server y en
   // silencio, así que sin esta fila la única forma de saber si andaba era llenar
@@ -585,4 +591,56 @@ test('descartar una propuesta NO encadena a esa persona para siempre', () => {
   // Y la llave del día se consulta también, o el segundo submit del mismo día
   // choca contra el unique de `ref`.
   assert.ok(/eq\('ref', refFinal\)/.test(p), 'sin esto el segundo submit del día rompe la idempotencia que esta rama habilita');
+});
+
+test('un <video> NATIVO también se mide, no solo los iframes de Panda', () => {
+  // ⚠️ EL AGUJERO QUE ESTE TEST CUIDA, y era el caso de la PRIMERA clienta que lo
+  // usó: su landing tiene un `<video controls>` común, no un iframe de Panda. El
+  // snippet escuchaba solo mensajes `panda_*`, así que apretaba play y no se
+  // registraba nada. Peor: el panel decía «nadie reprodujo el video en 24 h» —una
+  // afirmación que iba a ser cierta para siempre, porque nunca iba a llegar un
+  // evento— y como no se detectaba ningún video, tampoco aparecía la pantalla
+  // para decir cuál es el VSL. Un solo hueco, tres síntomas que no se parecen.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/document\.querySelectorAll\('video'\)/.test(lib), 'el snippet no busca videos nativos');
+  assert.ok(/el\.addEventListener\('play'/.test(lib), 'un <video> emite eventos del DOM, no postMessage');
+  assert.ok(/el\.addEventListener\('timeupdate'/.test(lib), 'sin timeupdate no hay retención, solo el play');
+  // Reusa el MISMO estado por video que Panda: dos clases de player alimentando
+  // dos modelos distintos es cómo se llega a dos curvas que no se pueden comparar.
+  assert.ok(/var e = est\(id\)/.test(lib), 'el video nativo tiene que usar el mismo estado por video');
+  // Idempotente: el observer vuelve a pasar sobre los mismos elementos.
+  assert.ok(/if \(el\.__mko\) continue/.test(lib), 'sin marca, cada pasada del observer engancha el mismo video otra vez');
+  // Los videos que aparecen DESPUÉS: un builder monta el player al hacer scroll.
+  assert.ok(/new MutationObserver\(engancharNativos\)/.test(lib), 'enganchar solo al cargar deja sin medir el video de más abajo');
+  // El id sale de lo que IDENTIFICA al video; la posición es el último recurso,
+  // porque reordenar la página cambiaría de qué video habla cada curva.
+  assert.ok(/if \(el\.id\) return 'v:' \+ el\.id/.test(lib), 'el id del elemento manda sobre la posición');
+});
+
+test('los chequeos van en el orden del EMBUDO, y la versión primero', () => {
+  const lib = leer('../lib/landing-token.ts');
+  const i = lib.indexOf('const chequeos: ChequeoDiag[]');
+  const fin = lib.indexOf('\n  ];', i);
+  const ids = [...lib.slice(i, fin).matchAll(/id: '([a-z]+)'/g)].map((m) => m[1]);
+  // La VERSIÓN va primera aunque no sea un paso del embudo: si el código está
+  // viejo, todos los demás chequeos miden otra cosa y sus resultados no
+  // significan nada. Después, el recorrido de la persona que visita.
+  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin']);
+
+  // Y en una PRUEBA los textos hablan de la prueba, no de las últimas 24 h: quien
+  // acaba de apretar play no quiere que le contesten con una estadística del día.
+  const bloque = lib.slice(i, fin);
+  assert.ok(/enPrueba \? 'Todavía no llegó\. Apretá play/.test(bloque), 'en una prueba no se dice «nadie reprodujo en 24 h»');
+  assert.ok(/const enPrueba = !!prueba/.test(lib), 'los chequeos tienen que saber si están dentro de una prueba');
+});
+
+test('el marcador de prueba NO ensucia la lista de páginas', () => {
+  // El propio probador llenaba la lista con copias de la misma landing: cada
+  // corrida abre `?mko_test=<id>` distinto, y eso entraba como una página nueva.
+  // Los UTM y los click-ids son el mismo caso: dicen de dónde vino esta VISITA,
+  // no qué página es.
+  const lib = leer('../lib/landing-paginas.ts');
+  assert.ok(/PARAMS_DE_MEDICION/.test(lib), 'faltan los parámetros que no identifican una página');
+  assert.ok(/'mko_test'/.test(lib), 'el marcador propio es el primero que hay que sacar');
+  assert.ok(/for \(const p of PARAMS_DE_MEDICION\) u\.searchParams\.delete\(p\)/.test(lib), 'no se están sacando al normalizar');
 });

@@ -67,8 +67,13 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       «visitó» y «dejó sus datos» no hay nada. El marcador entra en la MISMA
  *       versión a propósito: no estaba anunciada todavía, así que quien repega el
  *       código lo hace UNA vez y se lleva las dos cosas.
+ *   7 — ⚠️ se mide el <video> NATIVO, no solo los iframes de Panda (14/08/2026).
+ *       Faltaba entero, y era el caso de la primera clienta que lo usó: su landing
+ *       tiene un `<video controls>` común, así que apretaba play y no se
+ *       registraba NADA — el panel decía «nadie reprodujo el video en 24 h» para
+ *       siempre, porque nunca iba a llegar un evento.
  */
-export const SNIPPET_VERSION = 6;
+export const SNIPPET_VERSION = 7;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -103,6 +108,7 @@ const NOVEDADES: Record<number, string> = {
   4: 'la medición de videos CORTOS: antes, uno de menos de 15 segundos no registraba ningún avance',
   5: 'la medición de TODOS los videos de la página por separado: antes, si tenías más de uno, el segundo casi no medía y su avance se calculaba con la duración del primero',
   6: 'la medición de los CLICKS: qué botón aprietan y qué links abren (el de WhatsApp, los que llevan al formulario). Antes, entre «visitó» y «dejó sus datos» no había ningún punto intermedio · y el probador de «¿funciona mi código?» ahora te muestra SOLO los eventos de tu prueba, en vez de mezclarlos con las visitas del día',
+  7: 'la medición de tu video cuando NO es de Panda: si tu página usa un reproductor común, hasta ahora no se registraba ni un play',
 };
 
 export function novedadesDesde(instalada: number): string {
@@ -322,7 +328,7 @@ export type EventoDiag = {
 };
 
 export type ChequeoDiag = {
-  id: 'pageview' | 'version' | 'optin' | 'play' | 'profundidad';
+  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin';
   label: string;
   estado: 'ok' | 'falta' | 'viejo';
   detalle: string;
@@ -391,8 +397,12 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
       .map((r) => ({ ts: r.created_at, tipo: 'optin', porcentaje: null, segundos: null, detalle: r.resumen })),
   ].sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 25);
 
+  // Durante una prueba, los textos de «todavía no llegó» hablan de LA PRUEBA, no
+  // de las últimas 24 h: quien acaba de apretar play no quiere una estadística.
+  const enPrueba = !!prueba;
   const hayPageview = eventos.some((e) => e.tipo === 'pageview');
   const hayPlay = eventos.some((e) => e.tipo === 'play');
+  const hayClick = eventos.some((e) => e.tipo === 'click');
   // (Ya no se cuentan los eventos «con segundos»: la versión del código se
   // pregunta, no se infiere. Ver el chequeo 'version'.)
   const soloVsl = eventos.filter((e) => e.tipo !== 'pageview').length;
@@ -443,42 +453,62 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
   // proxy sobra: se pregunta por el dato.
   const { viejo: codigoViejo, instalada } = await snippetDesactualizado();
 
+  // ⚠️ EL ORDEN ES EL DEL EMBUDO, no el de cuándo se escribió cada chequeo.
+  // Antes empezaba por «llegan las visitas» y metía el formulario ANTES del video:
+  // la persona lee de arriba a abajo esperando el recorrido de SU visitante, y ese
+  // recorrido es llegar → ver → clickear → dejar los datos.
+  //
+  // Y la VERSIÓN va primera de todo, aunque no sea un paso del embudo: si el
+  // código está viejo, todos los demás chequeos miden otra cosa y sus resultados
+  // no significan nada. Un diagnóstico que no empieza por «¿estás mirando el
+  // código correcto?» manda a investigar síntomas de una versión que ya no existe.
   const chequeos: ChequeoDiag[] = [
-    { id: 'pageview', label: 'Llegan las visitas a la landing',
-      estado: hayPageview ? 'ok' : 'falta',
-      detalle: hayPageview ? 'El código está pegado y el ruteo funciona.' : 'No llegó ninguna visita en 24 h. Revisá que el código esté pegado y publicado.' },
-    { id: 'version', label: 'El código es la versión nueva',
+    { id: 'version', label: 'Tenés el código al día',
       estado: instalada === 0 || !hayPageview ? 'falta' : codigoViejo ? 'viejo' : 'ok',
       detalle: instalada === 0 || !hayPageview ? 'Todavía no llegó ningún evento para saber qué versión tenés puesta.'
         : codigoViejo ? `Tenés la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Te estás perdiendo ${novedadesDesde(instalada)}. Copiá el código de arriba y reemplazalo.`
         : 'Es la última versión.' },
-    // ⚠️ «Llegó» y «entró» son DOS cosas, y el chequeo solo miraba la primera.
-    // Con gente esperando sin revisar, el estado es de ACCIÓN, no de éxito: un ✓
-    // verde ahí se lee «esto anda, seguí» sobre ocho personas que dejaron su
-    // teléfono y a las que nadie escribió.
-    { id: 'optin', label: 'El formulario entra al CRM',
+    { id: 'pageview', label: '1. Llega a tu página',
+      estado: hayPageview ? 'ok' : 'falta',
+      detalle: hayPageview ? 'El código está pegado y el ruteo funciona.'
+        : enPrueba ? 'Todavía no llegó la visita. Recargá la pestaña que te abrimos.'
+        : 'No llegó ninguna visita en 24 h. Revisá que el código esté pegado y publicado.' },
+    { id: 'play', label: '2. Reproduce tu video',
+      estado: hayPlay ? 'ok' : 'falta',
+      detalle: hayPlay ? 'El reproductor está enganchado.'
+        // ⚠️ EN UNA PRUEBA NO SE DICE «nadie en 24 h». La persona ACABA de apretar
+        // play; contestarle con una estadística del día es contestarle otra cosa.
+        : enPrueba ? 'Todavía no llegó. Apretá play en tu video, en la pestaña que te abrimos.'
+        : 'Nadie reprodujo el video en 24 h. Si tu página no tiene video, ignoralo.' },
+    { id: 'profundidad', label: '3. Se mide cuánto ve',
+      estado: hayProfundidad ? 'ok' : soloVsl > 0 ? 'viejo' : 'falta',
+      detalle: hayProfundidad ? 'Llegan los hitos de avance: la retención por lead se puede calcular.'
+        : soloVsl > 0 ? 'Solo llega el arranque, no el avance. Con el código nuevo aparece a los pocos segundos de reproducción, aunque el video sea corto.'
+        : enPrueba ? 'Dejá el video corriendo unos segundos y aparece.'
+        : 'Todavía sin datos.' },
+    // El click FALTABA, y para una landing cuyo CTA es un ancla (#registro) es el
+    // único punto entre «vio» y «dejó sus datos». Sin él no se puede distinguir
+    // una página que no convence de una que nadie mira.
+    { id: 'click', label: '4. Aprieta tus botones',
+      estado: hayClick ? 'ok' : 'falta',
+      detalle: hayClick ? 'Se registran los clicks: sabés qué botón aprietan y qué links abren.'
+        : enPrueba ? 'Todavía no llegó ninguno. Apretá un botón o un link en la pestaña que te abrimos.'
+        : 'Todavía no llegó ningún click. Con el código al día se registran solos.' },
+    // ⚠️ EL TEXTO SIGUE DICIENDO «los confirmás vos» PORQUE TODAVÍA ES ASÍ. El
+    // alta automática está pedida y sin construir; adelantar el copy haría que la
+    // pantalla prometa un automatismo que no existe, que es exactamente el error
+    // que dejó ocho leads sin ver. Cuando el alta sea automática, este renglón y
+    // su `accion` se van juntos.
+    { id: 'optin', label: '5. Deja sus datos',
       estado: !declarado ? 'viejo' : pendientes > 0 ? 'viejo' : hayOptin ? 'ok' : 'falta',
       detalle: !declarado
         ? 'Está apagado: marcá «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads. Hasta entonces, lo que completen no entra.'
         : pendientes > 0
           ? `Llegaron y están esperándote: ${pendientes} ${pendientes === 1 ? 'persona dejó sus datos' : 'personas dejaron sus datos'} y ${pendientes === 1 ? 'todavía NO está' : 'todavía NO están'} en el CRM. Los confirmás vos, para revisar el dato antes de que valga.`
-          : hayOptin ? 'Llegó al menos un formulario en las últimas 24 h, y ya los revisaste todos.'
-          : 'Todavía no llegó ninguno. Para probarlo, completá tu propio formulario — aparece acá y te aviso por WhatsApp con el link para revisarlo.',
-      // El link lo arma el CÓDIGO con el id real. Es lo único que convierte «tenés
-      // 8 sin revisar» en algo que se puede hacer: la pantalla de revisión es por
-      // id y no hay lista, así que sin esto la información no lleva a ningún lado.
-      // ⚠️ A LA BANDEJA, no a uno suelto. La primera versión linkeaba al más
-      // reciente — y a los otros siete no se llegaba por ningún lado, que es
-      // exactamente el problema que este chequeo vino a resolver.
+          : hayOptin ? 'Llegó el formulario y ya lo revisaste.'
+          : enPrueba ? 'Todavía no llegó. Completá tu propio formulario en la pestaña que te abrimos.'
+          : 'Todavía no llegó ninguno. Para probarlo, completá tu propio formulario con tus datos.',
       accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Revisarlo' : `Ver los ${pendientes}`, href: '/crm/revisar' } : undefined },
-    { id: 'play', label: 'Se detecta el play del VSL',
-      estado: hayPlay ? 'ok' : 'falta',
-      detalle: hayPlay ? 'El reproductor está enganchado.' : 'Nadie reprodujo el video en 24 h (o el player no es el que el código escucha). Si tu página no tiene video, ignoralo.' },
-    { id: 'profundidad', label: 'Se mide cuánto del VSL ven',
-      estado: hayProfundidad ? 'ok' : soloVsl > 0 ? 'viejo' : 'falta',
-      detalle: hayProfundidad ? 'Llegan los hitos de avance: la retención por lead se puede calcular.'
-        : soloVsl > 0 ? 'Solo llega el arranque, no el avance. Con el código nuevo aparece a los pocos segundos de reproducción, aunque el video sea corto.'
-        : 'Todavía sin datos.' },
   ];
 
   // El total sale de la LISTA, no de un número escrito al lado. Estuvo en «de 4»
@@ -635,6 +665,76 @@ export function landingSnippet(token: string): string {
   // 1.200 requests por cada persona que mira un VSL largo, para reconstruir una
   // curva que con estos puntos ya queda igual de bien.
   var ESCALERA = [3, 5, 8, 12, 15, 20, 30, 45, 60, 90, 120, 180, 300, 420, 600, 900, 1200, 1800, 2400];
+
+  // ── VIDEO NATIVO (<video>) ────────────────────────────────────────────────
+  // ⚠️ ESTO FALTABA ENTERO, y era el caso de la primera clienta que lo usó. El
+  // snippet escuchaba SOLO mensajes \`panda_*\` de un iframe; su landing tiene un
+  // \`<video controls>\` común. Resultado: apretaba play y no se registraba nada,
+  // el panel decía «nadie reprodujo el video en 24 h» —para siempre, porque nunca
+  // iba a llegar un evento— y como no se detectaba ningún video, tampoco aparecía
+  // la pantalla para decir cuál es el VSL.
+  //
+  // Un <video> no manda postMessage: emite eventos del DOM. La medición es la
+  // misma (play, hitos de 5%, escalera de segundos, exit) reusando \`est()\`, así
+  // que las dos clases de player alimentan el mismo modelo por video.
+  //
+  // El id: un <video> no tiene uno propio, así que se arma con lo que lo
+  // identifica de verdad —su \`id\`, su \`src\`— y recién si no hay nada, la
+  // posición. La posición sola cambiaría de video al reordenar la página.
+  function idDeVideo(el, i) {
+    var src = el.currentSrc || el.getAttribute('src') || '';
+    if (!src) { var f = el.querySelector && el.querySelector('source'); if (f) src = f.getAttribute('src') || ''; }
+    if (el.id) return 'v:' + el.id;
+    if (src) return 'v:' + src.split('/').pop().split('?')[0].slice(0, 80);
+    return 'v:pos' + i;
+  }
+  function engancharNativos() {
+    var vs = document.querySelectorAll('video');
+    for (var i = 0; i < vs.length; i++) {
+      var el = vs[i];
+      if (el.__mko) continue;   // idempotente: se vuelve a llamar si el DOM cambia
+      el.__mko = true;
+      (function (el, i) {
+        var id = idDeVideo(el, i);
+        var e = est(id);
+        e.tit = e.tit || el.getAttribute('title') || el.getAttribute('aria-label') || null;
+        el.addEventListener('play', function () {
+          if (e.play) return;
+          e.play = true;
+          enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit });
+        });
+        el.addEventListener('timeupdate', function () {
+          e.segs = el.currentTime || 0;
+          // Acá SÍ se conoce la duración (el DOM la da), así que se miden hitos de
+          // 5% igual que con Panda. El guard > 0 evita el NaN de un stream en vivo.
+          if (el.duration > 0 && isFinite(el.duration)) {
+            e.dur = el.duration;
+            e.pct = Math.min(100, Math.round((e.segs / e.dur) * 100));
+            var h = Math.floor(e.pct / 5) * 5;
+            if (h >= 5 && !e.hitos[h]) {
+              e.hitos[h] = true;
+              enviar({ tipo_evento: 'p' + h, porcentaje: e.pct, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+            }
+            return;
+          }
+          for (var k = 0; k < ESCALERA.length; k++) {
+            var s = ESCALERA[k];
+            if (e.segs >= s && !e.seg[s]) {
+              e.seg[s] = true;
+              enviar({ tipo_evento: 's' + s, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+            }
+          }
+        });
+      })(el, i);
+    }
+  }
+  engancharNativos();
+  // Los videos que aparecen DESPUÉS: una landing armada con un builder monta el
+  // reproductor cuando el bloque entra en pantalla, así que enganchar una sola vez
+  // al cargar deja sin medir justo al que está más abajo.
+  try {
+    new MutationObserver(engancharNativos).observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) {}
 
   window.addEventListener('message', function (ev) {
     var d = ev.data;

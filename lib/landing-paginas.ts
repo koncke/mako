@@ -48,6 +48,24 @@ export const MAX_PAGINAS = 12;
  * distinguir un preview de un proyecto que se llama así, y adivinar sería peor
  * que dejarlos separados.
  */
+/**
+ * Parámetros que hablan de la VISITA, no de la página.
+ *
+ * Se sacan antes de comparar dos URLs. Sin esto, la misma landing aparece una vez
+ * por cada campaña que le manda tráfico — y una vez por cada prueba nuestra, que
+ * fue como se descubrió: `mko_test` cambia en cada corrida del probador.
+ *
+ * Lo que NO va acá: un parámetro que cambia el CONTENIDO (`?plan=pro`, `?v=2`).
+ * Ese sí hace que sean dos páginas distintas, y borrarlo las fundiría.
+ */
+const PARAMS_DE_MEDICION = [
+  'mko_test',                                        // el nuestro, el del probador
+  'l',                                               // el token de lead del snippet
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
+  'gclid', 'fbclid', 'msclkid', 'ttclid', 'twclid',  // click-ids de las plataformas
+  'gad_source', 'gbraid', 'wbraid', 'igshid', 'mc_cid', 'mc_eid', 'ref', '_ga',
+];
+
 function hostCanonico(hostname: string): string {
   const h = hostname.toLowerCase();
   const m = /^([0-9a-f]{20,})--(.+)$/.exec(h);
@@ -64,6 +82,13 @@ export function normalizarUrl(crudo: string): string | null {
     const u = new URL(conEsquema);
     if (!u.hostname.includes('.')) return null;
     u.hash = '';
+    // ⚠️ LOS PARÁMETROS DE MEDICIÓN NO IDENTIFICAN UNA PÁGINA. El primero de la
+    // lista es NUESTRO: cada prueba abre la landing con `?mko_test=<id>` distinto,
+    // así que el propio probador llenaba la lista de páginas con copias de la
+    // misma — «se están creando duplicados por el tema de pruebas de MaKo». Los
+    // UTM y los click-ids de las plataformas son el mismo caso: dicen de dónde
+    // vino esta VISITA, no qué página es.
+    for (const p of PARAMS_DE_MEDICION) u.searchParams.delete(p);
     const path = u.pathname.replace(/\/+$/, '');
     return `${u.protocol}//${hostCanonico(u.hostname)}${u.port ? `:${u.port}` : ''}${path}${u.search}`;
   } catch {
