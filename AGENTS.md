@@ -610,9 +610,29 @@ Cómo se cumple, y son cuatro piezas:
    con mala conexión) y `.eq('estado','pendiente')` al aplicar (dos pestañas, un doble
    click). Sin las dos, el dueño confirma un duplicado creyendo que son dos personas.
 
+5. **Y tiene que existir una BANDEJA**, no solo el link. El link alcanza cuando el canal
+   puede contestar por donde entró (WhatsApp, Claude). Un formulario de landing **no tiene
+   canal de vuelta**: quien lo completa ve la página de gracias del cliente, así que si el
+   link no sale por un aviso no sale por ningún lado. Y un aviso solo tampoco basta: **un
+   aviso es un EVENTO, una bandeja es un ESTADO**, y lo que se pierde siempre es lo que solo
+   era un evento — uno que no se manda, no llega, o se lee y se olvida no deja nada atrás.
+
+   No es hipotético. `propuestasPendientes()` vivió desde el día uno con **cero call-sites**;
+   la única pantalla era `/crm/revisar/<id>`, por id. El 14/08/2026 había **ocho** propuestas
+   de lead en `pendiente` en el workspace de una clienta, cuatro de gente real con nombre y
+   teléfono, que nadie vio nunca. El sistema funcionaba exactamente como estaba escrito. La
+   bandeja es `/crm/revisar`.
+
 ⚠️ **La excepción no es «el dato viene de un sistema, no de un modelo».** Un lead de un
 formulario es un dato real, pero si el que lo transporta es un modelo, el modelo lo puede
 transcribir mal. Lo que decide es **quién escribe la request**, no de dónde salió el dato.
+
+⚠️ **Y un indicador que afirma la mitad verdadera de un proceso de dos pasos es peor que uno
+roto**, porque nadie lo va a auditar. El chequeo de la landing decía «llegó al menos un
+formulario ✓» y era **cierto** — le faltaba el segundo verbo: llegó ¿y **entró**? Se leyó como
+«esto anda, seguí» durante los días en que esos ocho leads se enfriaban. Cuando midas un
+proceso que tiene un paso humano en el medio, el estado sale del paso que **falta**, no del
+que se cumplió.
 
 # Una barra de gráfico se recorta al 100%, siempre
 
