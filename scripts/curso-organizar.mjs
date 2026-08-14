@@ -47,8 +47,16 @@ console.log(`\n  Curso : ${plan.curso}${plan.autor ? ` — ${plan.autor}` : ''}`
 console.log(`  Modo  : ${APLICAR ? 'APLICAR (mueve de verdad)' : 'simulación'}\n`);
 
 // ── 1. El nombre de la carpeta raíz ──────────────────────────────────────────
-const nombreDestino = plan.autor?.trim()
-  ? `${limpio(plan.curso)} - ${limpio(plan.autor)}`
+// ⚠️ NO se agrega el autor si el título ya lo nombra: «Jaque Blue - Creacion de
+// Contenido» de Jaque Blue daba «… - Jaque Blue - Jaque Blue». Es la MISMA regla que
+// aplican curso-a-drive.mjs, curso-a-portal.mjs y el mapa AUTOR de catalogo.ts — el
+// punto es que la carpeta local y la de Drive se llamen igual, y si cada script
+// decide por su cuenta terminan divergiendo (acá se arregló último, y por unas horas
+// la local decía una cosa y la de Drive otra).
+const sinAcentos = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const autorPlan = plan.autor?.trim() ?? '';
+const nombreDestino = autorPlan && !sinAcentos(plan.curso).includes(sinAcentos(autorPlan))
+  ? `${limpio(plan.curso)} - ${limpio(autorPlan)}`
   : limpio(plan.curso);
 const raizNueva = join(dirname(base), nombreDestino);
 

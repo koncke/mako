@@ -26,6 +26,7 @@ import { CURSO_INTELIGENCIA_VIRAL_2026 } from './curso-inteligencia-viral-2026';
 import { CURSO_M5_95 } from './curso-m5-95';
 import { CURSO_VENDER_POR_FB_E_IG_ADS } from './curso-vender-por-fb-e-ig-ads';
 import { CURSO_MANYCHAT_MASTER_INSTAGRAM } from './curso-manychat-master-instagram';
+import { CURSO_JAQUE_BLUE_CREACION_DE_CONTENIDO } from './curso-jaque-blue-creacion-de-contenido';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
 
@@ -132,6 +133,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_CLAUDE_AI_RODRIGO_ROJO, CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE,
   CURSO_SELL_YOUR_KNOWLEDGE, CURSO_INTELIGENCIA_VIRAL_2026, CURSO_M5_95,
   CURSO_VENDER_POR_FB_E_IG_ADS, CURSO_MANYCHAT_MASTER_INSTAGRAM,
+  CURSO_JAQUE_BLUE_CREACION_DE_CONTENIDO,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
