@@ -75,7 +75,10 @@ export type ClienteReunion = { nombre: string; empresa: string | null; proyecto:
 /** Lo que se ofrece cuando el server NO tuvo certeza (pregunta cerrada, una sola). */
 type OpcionCliente = { nombre: string; sub: string };
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; borradorId?: string; usage?: unknown; error?: string; estado?: string; resumen?: string; n?: number; yaEstaba?: boolean }> {
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; borradorId?: string; usage?: unknown; error?: string; estado?: string; resumen?: string; n?: number; yaEstaba?: boolean;
+  /** `estado-borrador`: la revisión YA guardada, con el resultado del cruce adentro.
+   *  `cruzadoAt` es lo que dice si hay que volver a comparar con el plan o no. */
+  cruzadoAt?: string; guardadas?: Array<Pick<FilaTarea, 'titulo' | 'enriquece' | 'incluir' | 'ampliar'>> }> {
   return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -185,6 +188,43 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   }, [q, reuniones]);
 
   const [freno, setFreno] = useState<FrenoScope>(null);   // aviso del Perro por tipo (punto 8)
+  // Parado en la tab de otra persona, el pie pasa a ser de ESA persona: sus tres botones
+  // se portalean acá desde `PanelPersona`. Este modal SÍ tiene pie —yo había asumido que
+  // no— y por eso los botones seguían apareciendo al final de la lista.
+  const [personaActiva, setPersonaActiva] = useState<string | null>(null);
+  // State y no ref: un ref no dispara render y el portal se pintaba un ciclo tarde.
+  const [pieSlot, setPieSlot] = useState<HTMLDivElement | null>(null);
+
+  /** Título → clave de comparación. Se usa para casar lo guardado con lo extraído. */
+  const normTit = (t: string): string =>
+    (t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  /**
+   * Guarda el borrador. `cruzado` sella `cruzado_at` (mig 0123) y es lo que hace que la
+   * próxima apertura NO vuelva a comparar con el plan.
+   *
+   * Se llama a mano después del cruce y NO se deja al autosave: aquel es un debounce de
+   * 900 ms que muere con el componente, así que cerrar el modal antes se llevaba el
+   * resultado de una llamada de IA. Para las ediciones a mano da igual —volvés y
+   * reescribís—; esto no se puede perder.
+   */
+  const guardarBorrador = async (id: string, fs: Fila[], cruzado?: boolean) => {
+    await fetch('/api/plan-propuesta', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'guardar', id, cruzado,
+        tareas: fs.map((f) => ({
+          titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
+          proyecto: labels.find((l) => l.id === f.proyectoId)?.name ?? f.proyectoNombre,
+          dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
+          minuto: f.minuto, minutos: f.minutos,
+          // LA REVISIÓN. `enriquece` y `ampliar` se caían del autosave, así que el
+          // resultado del cruce no sobrevivía a cerrar el modal ni una vez.
+          incluir: f.incluir, enriquece: f.enriquece, ampliar: f.ampliar,
+        })),
+      }),
+    }).catch(() => {});
+  };
   // El borrador que el server acaba de crear/encontrar para esta reunión. Con esto (a)
   // la lista queda marcada como leída sin recargar y (b) las correcciones del usuario
   // se van guardando contra esa fila, así que salir del modal ya no las tira.
@@ -211,18 +251,49 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     return fs.map((f) => ({ ...f, proyectoId: ya?.id ?? null, proyectoNombre: ya ? undefined : proyecto }));
   };
 
-  const procesar = async (tareas: Candidata[], dudasIn: Duda[], cliente?: ClienteReunion | null, opciones?: OpcionCliente[]) => {
+  const procesar = async (tareas: Candidata[], dudasIn: Duda[], cliente?: ClienteReunion | null, opciones?: OpcionCliente[], borrador?: string) => {
     // Lo resolvió el server contra el CRM (por el email del invitado o por el nombre en
     // el título), no el modelo leyendo títulos de tareas.
-    const filasNuevas: Fila[] = aProyecto(tareas.map((t) => ({ ...t, incluir: !t.esDeOtro })), cliente?.proyecto ?? '');
+    let filasNuevas: Fila[] = aProyecto(tareas.map((t) => ({ ...t, incluir: !t.esDeOtro })), cliente?.proyecto ?? '');
     setCliente(cliente ?? null);
-    // Dedup contra el plan (best-effort: apiFathom nunca lanza; si el server falla, ok:false).
-    const jc = await apiFathom({ action: 'cruzar', candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle })), existentes, uso: 'Cruzar con el plan' });
-    if (jc.ok && Array.isArray(jc.cruces)) {
-      // `ampliar: true` es el default de una repetida: no se puede volver a cargar, se
-      // le suma el contexto a la tarjeta que ya está. Sin esto la fila solo nacía
-      // destildada y alcanzaba con tildarla para dejar la misma tarea dos veces.
-      for (const c of jc.cruces) if (filasNuevas[c.i]) filasNuevas[c.i] = { ...filasNuevas[c.i], enriquece: { id: c.idExistente!, razon: c.razon }, incluir: false, ampliar: !!c.idExistente };
+
+    // ⛔ EL CRUCE CORRE UNA VEZ POR REUNIÓN, NO UNA VEZ POR APERTURA.
+    //
+    // Acá se llamaba a `cruzar` SIEMPRE, y esa es una llamada de IA con su espera. El
+    // dueño lo reportó dos veces: «le doy al botón de Regresar a todas las reuniones y
+    // cuando entro otra vez, volvió a analizar todo y cruzarlo con mi plan, cuando ya
+    // habíamos dicho muchas veces que debe quedar como borrador». Y lo peor no es el
+    // gasto: el cruce nuevo PISA lo que él ya había destildado o corregido.
+    //
+    // El borrador ya guardaba ese resultado —`cruzado_at`, mig 0123— pero por el otro
+    // modal, no por este. Ahora se pregunta primero: si ya está cruzado, se hidrata de lo
+    // guardado y no se llama a nadie.
+    const yaCruzado = borrador
+      ? await apiFathom({ action: 'estado-borrador', id: borrador }).catch(() => ({ ok: false } as never))
+      : { ok: false } as never;
+    const guardadas = yaCruzado.ok && yaCruzado.cruzadoAt ? (yaCruzado.guardadas ?? []) : [];
+    if (guardadas.length) {
+      // Se casa por TÍTULO y no por índice: la extracción cacheada y el borrador guardado
+      // son la misma lista, pero atarse al orden es apostar a que nadie la reordene nunca.
+      const porTitulo = new Map(guardadas.map((g) => [normTit(g.titulo ?? ''), g]));
+      filasNuevas = filasNuevas.map((f) => {
+        const g = porTitulo.get(normTit(f.titulo));
+        return g ? { ...f, enriquece: g.enriquece, incluir: g.incluir ?? f.incluir, ampliar: g.ampliar } : f;
+      });
+      console.info('[reunion-extract] el borrador ya estaba cruzado: no se vuelve a comparar con el plan');
+    } else {
+      // Dedup contra el plan (best-effort: apiFathom nunca lanza; si el server falla, ok:false).
+      const jc = await apiFathom({ action: 'cruzar', candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle })), existentes, uso: 'Cruzar con el plan' });
+      if (jc.ok && Array.isArray(jc.cruces)) {
+        // `ampliar: true` es el default de una repetida: no se puede volver a cargar, se
+        // le suma el contexto a la tarjeta que ya está. Sin esto la fila solo nacía
+        // destildada y alcanzaba con tildarla para dejar la misma tarea dos veces.
+        for (const c of jc.cruces) if (filasNuevas[c.i]) filasNuevas[c.i] = { ...filasNuevas[c.i], enriquece: { id: c.idExistente!, razon: c.razon }, incluir: false, ampliar: !!c.idExistente };
+      }
+      // Se SELLA aunque no haya encontrado nada: «ya se cruzó» y «no encontró nada» son
+      // lo mismo para la próxima apertura. Si la llamada falló NO se sella, para poder
+      // reintentar entrando de nuevo.
+      if (borrador && jc.ok) void guardarBorrador(borrador, filasNuevas, true);
     }
     setFilas(filasNuevas); setDudas(dudasIn); setDefs({});
     // SIN CERTEZA → se pregunta, una sola vez y cerrada. Es el paso que faltaba: sin él
@@ -268,7 +339,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
         const mias = j.tareas.filter((t) => !t.esDeOtro).length;
         setBorradores((b) => ({ ...b, [r.recordingId]: { id: j.borradorId!, estado: 'pendiente', creadas: 0, pendientesMias: mias, pendientesOtros: j.tareas!.length - mias } }));
       }
-      await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? []);
+      await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? [], j.borradorId ?? '');
     } else { setErr(j.error || 'MaKo no pudo leer la reunión.'); setFase('lista'); setElegida(null); }
   };
 
@@ -354,20 +425,10 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   // no escribir en cada tecla.
   useEffect(() => {
     if (!borradorId || fase !== 'revisar' || !filas.length) return;
-    const t = setTimeout(() => {
-      void fetch('/api/plan-propuesta', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'guardar', id: borradorId,
-          tareas: filas.map((f) => ({
-            titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
-            proyecto: labels.find((l) => l.id === f.proyectoId)?.name ?? f.proyectoNombre,
-            dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
-            minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
-          })),
-        }),
-      }).catch(() => {});
-    }, 900);
+    // Una sola forma de escribir el borrador (`guardarBorrador`): acá había una copia
+    // que se olvidaba de `enriquece` y `ampliar`, o sea que el autosave GUARDABA menos
+    // de lo que el modal mostraba y la revisión se perdía al cerrar.
+    const t = setTimeout(() => { void guardarBorrador(borradorId, filas); }, 900);
     return () => clearTimeout(t);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [filas, borradorId, fase]);
@@ -743,6 +804,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                     onFila={setFila}
                     reunion={{ recordingId: elegida?.recordingId, titulo: elegida?.titulo ?? archivoNombre, fecha: elegida?.fecha ?? null, url: elegida?.url ?? null }}
                     cabecera="Elegí cuáles agregar a TU plan. El perro les pone la prioridad final."
+                    pieAcciones={pieSlot}
+                    onPersonaActiva={setPersonaActiva}
                   />
                 </div>
           )}
@@ -766,6 +829,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                 viejas o para re-analizar. Por eso acá no hay ningún opt-in que activar. */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <button type="button" onClick={volverALista} style={ghostBtn}>← Otra reunión</button>
+              {/* PARADO EN LA TAB DE OTRA PERSONA el pie es de esa persona: «Agregar N al
+                  plan» carga LO TUYO y ahí no hay nada tuyo. Los tres botones de ella se
+                  portalean acá, alineados a la derecha igual que el botón que reemplazan. */}
+              {personaActiva ? (
+                <div ref={setPieSlot} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto' }} />
+              ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {/* Si NADA de la reunión es tuyo, el botón de cargar no tiene sentido:
                     lo único que queda es mandarle a cada uno lo suyo desde su tab. */}
@@ -784,6 +853,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                       Listo
                     </button>}
               </div>
+              )}
             </div>
           </div>
         )}

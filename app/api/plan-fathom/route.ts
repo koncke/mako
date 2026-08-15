@@ -179,12 +179,25 @@ export async function POST(req: NextRequest) {
       const est = await estadoDePropuesta(String(body.id ?? ''));
       if (!est) return Response.json({ ok: false, error: 'Ese borrador no existe.' }, { status: 404 });
       // Las tareas viajan con la forma que espera el modal (proyectoNombre, no proyecto).
+      //
+      // ⚠️ VAN TAMBIÉN `enriquece`, `incluir` y `ampliar`, que antes se caían acá. Son LA
+      // REVISIÓN: el resultado del cruce contra el plan y lo que el dueño decidió sobre
+      // cada fila. Sin ellos, volver a abrir la reunión devolvía las tareas «vírgenes» y
+      // el modal la comparaba con el plan otra vez —una llamada de IA y su espera— y
+      // encima pisaba lo que él ya había destildado. Y `minuto`/`minutos` con ellos: sin
+      // esos, la tarjeta pierde el link al momento de la grabación.
       const tareas = est.tareas.map((t) => ({
         titulo: t.titulo, detalle: t.detalle ?? '', prioridad: t.prioridad ?? 'media',
         proyectoId: null, proyectoNombre: t.proyecto ?? '',
         dueño: t.dueno ?? '', dueñoEmail: t.duenoEmail ?? '', esDeOtro: !!t.esDeOtro,
+        enriquece: t.enriquece, incluir: t.incluir, ampliar: t.ampliar,
+        minuto: t.minuto, minutos: t.minutos,
       }));
-      return Response.json({ ok: true, estado: est.estado, n: est.n, resumen: est.resumen, tareas });
+            // `guardadas` es el MISMO array con otro nombre: `tareas` ya lo consume el modal de
+      // sondeo con la forma de candidata, y meterle la revisión adentro lo rompía. Dos
+      // nombres, dos consumidores, cero sorpresas.
+      const guardadas = est.tareas.map((t) => ({ titulo: t.titulo, enriquece: t.enriquece, incluir: t.incluir, ampliar: t.ampliar }));
+      return Response.json({ ok: true, estado: est.estado, n: est.n, resumen: est.resumen, tareas, guardadas, cruzadoAt: est.cruzadoAt });
     }
     // Guardar un término del glosario (punto 7): la respuesta del usuario a "¿qué es X?".
     if (body.action === 'glosario-guardar') {

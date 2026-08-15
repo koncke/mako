@@ -30,6 +30,11 @@ export type CandidataTarea = {
    *  mandarle las tareas a otra persona el nombre se perdía y le llegaban sueltas. */
   proyectoNombre?: string;
   dueño?: string; dueñoEmail?: string; esDeOtro?: boolean;
+  /** «no le sumes nada a la tarjeta»: el dueño destildó una AMPLIACIÓN. Es un campo
+   *  aparte de `incluir` a propósito — `incluir: false` en una fila cruzada ya significa
+   *  «no la crees», que es el estado NORMAL de una ampliación. Meterlos en la misma
+   *  variable hacía que toda ampliación naciera apagada. */
+  omitir?: boolean;
   /** segundo de la grabación donde se dijo — para ir a escuchar ese momento. */
   minuto?: number;
   /** todos los momentos en que se habló de esto (la misma tarea vuelve en la charla). */
@@ -590,8 +595,26 @@ function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard, delTablero
     <div style={{ borderRadius: 12, border: '1px solid var(--ok, #1E9E57)', background: 'var(--surface)', overflow: 'hidden' }}>
       {/* Lo que trajo la reunión: el título y el contexto que se va a sumar. */}
       <div style={{ padding: '11px 13px', borderBottom: '1px dashed var(--border)' }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 4 }}>
-          De la reunión
+        {/* EL CHECK DECIDE SI SE AMPLÍA. Antes esta fila no tenía ninguno: si el cruce
+            acertaba la tarjeta pero el contexto no sumaba nada, no había forma de decir
+            «dejala como está» — las tres salidas eran ampliar, crearla nueva o
+            re-apuntarla a otra. Destildar acá es la cuarta y la más obvia: no hacer nada.
+            Con `incluir: false` la fila deja de contar en «ampliar N» del pie. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}>
+            <button type="button" role="checkbox" aria-checked={!f.omitir}
+              onClick={(e) => { e.stopPropagation(); onFila({ omitir: !f.omitir }); }}
+              title={f.omitir ? 'No se le suma nada a la tarjeta' : 'Se le suma este contexto a la tarjeta de abajo'}
+              style={{ width: 17, height: 17, flex: 'none', borderRadius: 5, border: `1.5px solid ${f.omitir ? 'var(--border-strong)' : 'var(--ok, #1E9E57)'}`, background: f.omitir ? 'transparent' : 'var(--ok, #1E9E57)', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {f.omitir ? '' : '✓'}
+            </button>
+            <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>
+              De la reunión
+            </span>
+          </label>
+          {f.omitir && (
+            <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>no se va a tocar</span>
+          )}
         </div>
         {editando ? (
           <>

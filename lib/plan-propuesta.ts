@@ -57,6 +57,10 @@ export type PropuestaTarea = {
   enriquece?: { id: string; razon: string; confianza?: 'alta' | 'media' };
   /** `false` = el dueño dijo «no es la misma»: se crea igual, aunque el cruce la marcó. */
   ampliar?: boolean;
+  /** `true` = el dueño destildó la AMPLIACIÓN: no se le suma nada a la tarjeta. Es un
+   *  campo aparte de `incluir` porque una ampliación tiene `incluir: false` por
+   *  definición —no se crea— y meterlos juntos apagaba todas de entrada. */
+  omitir?: boolean;
 };
 /**
  * Los títulos de las tareas ABIERTAS del tablero del workspace actual, para no volver
@@ -172,6 +176,7 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
       return { id: str(e.id).trim().slice(0, 80), razon, confianza: e.confianza === 'alta' ? 'alta' as const : 'media' as const };
     })(),
     ampliar: o.ampliar === false ? false : undefined,
+    omitir: o.omitir === true ? true : undefined,
   };
 }
 function limpiarEliminar(e: unknown): PropuestaEliminar | null {
@@ -735,7 +740,17 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       const aAmpliar: Array<{ id: string; titulo: string; detalle: string }> = [];
       let ignoradas = 0;
       for (const t of baseSinRepetir) {
-        const ya = abiertas.find((x) => mismaTarea(x.titulo, t.titulo));
+        // ⚠️ SI EL CRUCE YA DIJO CUÁL ES, SE USA ESE ID. Acá se re-adivinaba por título
+        // con `mismaTarea`, que es léxico y corta en 0.7 — o sea que una tarea que el
+        // Perro había casado bien («mensaje de WhatsApp después de agendar» con
+        // «follow-up post-llamada») no matcheaba, caía en `base` y se CREABA duplicada.
+        // Es la misma decisión tomada dos veces con dos criterios distintos, y ganaba el
+        // peor. El `enriquece.id` salió de la comparación cara y encima el dueño lo pudo
+        // corregir a mano con «es otra tarea»: es el dato más confiable que hay.
+        const porCruce = t.enriquece?.id && t.ampliar !== false
+          ? abiertas.find((x) => x.id === t.enriquece!.id)
+          : undefined;
+        const ya = porCruce ?? abiertas.find((x) => mismaTarea(x.titulo, t.titulo));
         if (!ya) { base.push(t); continue; }
         const texto = (t.detalle ?? '').trim();
         if (texto) aAmpliar.push({ id: ya.id, titulo: t.titulo, detalle: texto });
@@ -976,14 +991,25 @@ export async function marcarFallado(id: string, motivo: string): Promise<void> {
 /** El estado de un borrador, para que el modal pueda esperar sin bloquear nada.
  *  Devuelve las tareas también: cuando la lectura en segundo plano termina, el modal
  *  tiene que poder mostrarlas sin una segunda vuelta. */
-export async function estadoDePropuesta(id: string): Promise<{ estado: string; n: number; resumen: string; tareas: PropuestaTarea[] } | null> {
+/**
+ * ⚠️ `cruzadoAt` VA EN LA RESPUESTA, y no es un detalle: es lo único que distingue «este
+ * borrador todavía no se comparó con el plan» de «ya se comparó y no encontró nada». Sin
+ * él, quien abre el borrador no puede saberlo y vuelve a pagar la comparación cada vez —
+ * que es exactamente lo que pasaba en la extracción manual (13/8/2026): entrar, salir y
+ * volver a entrar disparaba el cruce de nuevo, con su llamada de IA y pisando lo que el
+ * dueño ya había decidido.
+ */
+export async function estadoDePropuesta(id: string): Promise<{ estado: string; n: number; resumen: string; tareas: PropuestaTarea[]; cruzadoAt?: string } | null> {
   return enWs(async () => {
     const db = await getTenantDb();
-    const { data } = await db.from('plan_propuestas').select('estado, tareas, resumen').eq('id', id).limit(1);
+    const { data } = await db.from('plan_propuestas').select('estado, tareas, resumen, cruzado_at').eq('id', id).limit(1);
     const fila = (data ?? [])[0] as Row | undefined;
     if (!fila) return null;
     const tareas = asArr<unknown>(fila.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
-    return { estado: str(fila.estado, 'pendiente'), n: tareas.length, resumen: str(fila.resumen), tareas };
+    return {
+      estado: str(fila.estado, 'pendiente'), n: tareas.length, resumen: str(fila.resumen), tareas,
+      cruzadoAt: fila.cruzado_at ? str(fila.cruzado_at) : undefined,
+    };
   });
 }
 

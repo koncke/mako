@@ -33,7 +33,9 @@ const MONO = "'Geist Mono', monospace";
 
 type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number; minutos?: number[]; incluir?: boolean;
   /** el cruce anti-duplicados YA guardado (mig 0123): no se vuelve a correr. */
-  enriquece?: { id: string; razon: string; confianza?: 'alta' | 'media' }; ampliar?: boolean };
+  enriquece?: { id: string; razon: string; confianza?: 'alta' | 'media' }; ampliar?: boolean;
+  /** el dueño destildó la AMPLIACIÓN: no se le suma nada a la tarjeta. */
+  omitir?: boolean };
 // El `tipo` es el del contrato, NO un `string` suelto: mientras fue string, el
 // compilador no podía avisar que esta pantalla y la de /plan/revisar dibujaban cosas
 // distintas para el mismo valor (y de hecho lo hacían).
@@ -193,7 +195,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       // El cruce GUARDADO manda sobre el léxico: si el borrador ya trae el resultado del
       // Perro, ése es el bueno (y con él viene la decisión que tomó el dueño en `ampliar`).
       ...(t.enriquece
-        ? { enriquece: t.enriquece, ampliar: t.ampliar }
+        ? { enriquece: t.enriquece, ampliar: t.ampliar, omitir: t.omitir }
         : yaEnPlan(t.titulo) ? { enriquece: yaEnPlan(t.titulo)! } : {}),
       // La fecha de la REUNIÓN. Si el borrador no la trae (lo dejó una versión vieja
       // del cron), va SIN fecha: caer a createdAt mostraba la hora a la que corrió el
@@ -232,6 +234,20 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   const [err, setErr] = useState('');
   const nombreProyecto = (id: string | null) => labels.find((l) => l.id === id)?.name;
   const nIncluidas = filas.filter((f) => f.incluir && !f.esDeOtro).length;
+  /**
+   * Las que NO se crean pero SÍ se tocan: el cruce dijo que ya están en el plan y lo que
+   * se hace es sumarles el contexto de la reunión a la tarjeta que ya existe.
+   *
+   * ⚠️ EL BOTÓN NO LAS CONTABA, y eso lo hacía mentir sobre lo que iba a hacer: decía
+   * «Agregar 15 al plan» sobre una reunión donde además ampliaba 5 tarjetas. El dueño lo
+   * vio: «solo me aparece agregar, cuando SÍ había cosas para ampliar». El otro modal
+   * (la extracción manual) ya decía las dos cosas; este se había quedado con la mitad.
+   *
+   * `ampliar === false` es «no es la misma»: esa vuelve arriba como candidata nueva y la
+   * cuenta `nIncluidas`. `incluir === false` puesto a mano acá es «no le sumes nada».
+   */
+  const esAmpliar = (f: FilaTarea): boolean => !!f.enriquece?.id && f.ampliar !== false && !f.esDeOtro && !f.omitir;
+  const nAmpliar = filas.filter(esAmpliar).length;
   const hayMias = filas.some((f) => !f.esDeOtro);
   const nOtras = filas.filter((f) => f.esDeOtro).length;
   // Las que ya entraron al plan en una pasada anterior (el borrador quedó abierto por
@@ -305,7 +321,11 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     const lotes = props.map((p) => ({
       id: p.id,
       contexto: [contextoDe(p), dichasDe(p.id)].filter(Boolean).join(' '),
-      tareas: filas.filter((f) => f.propId === p.id && f.incluir && !f.esDeOtro)
+      // ⚠️ LAS AMPLIACIONES VIAJAN TAMBIÉN. Este filtro pedía `f.incluir`, y una
+      // ampliación tiene `incluir: false` por definición (no se crea, se le suma el
+      // contexto a la tarjeta que ya está). O sea que la pantalla decía «se le suma a
+      // esta tarea» y NO se le sumaba nada: la fila no llegaba nunca al server.
+      tareas: filas.filter((f) => f.propId === p.id && !f.esDeOtro && (f.incluir || esAmpliar(f)))
         // Si no matcheó ningún proyecto existente, viaja el NOMBRE propuesto: el server
         // crea la categoría si no la encuentra (lib/plan-propuesta.ts). Antes acá se
         // mandaba undefined y la tarea nacía suelta.
@@ -313,7 +333,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         // server las reconoce y le suma el contexto a la tarjeta que ya está en vez de
         // duplicarla. `forzar` se borró — era la única vía por la que una decisión
         // humana podía dejar la misma tarea escrita dos veces.
-        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined), minuto: f.minuto, minutos: f.minutos })),
+        // `enriquece` y `ampliar` van: con el id del cruce el server AMPLÍA esa tarjeta
+        // en vez de re-adivinar por título (que es léxico y crea duplicados).
+        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined), minuto: f.minuto, minutos: f.minutos, enriquece: f.enriquece, ampliar: f.ampliar })),
       // Lo que queda del lado de otras personas (con las reasignaciones que hiciste
       // recién): el borrador NO se cierra mientras haya algo para repartir.
       restantes: filas.filter((f) => f.propId === p.id && f.esDeOtro)
@@ -363,7 +385,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
     minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
     // El resultado del cruce viaja con la tarea: es lo que evita rehacerlo.
-    enriquece: f.enriquece, ampliar: f.ampliar,
+    enriquece: f.enriquece, ampliar: f.ampliar, omitir: f.omitir,
   });
   const primeraRef = useRef(true);
   useEffect(() => {
@@ -495,7 +517,10 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   /** Terminó de elegir: MaKo mira SOLO lo elegido y arma las preguntas de eso. */
   const irAPreguntas = async () => {
     const elegidas = filas.filter((f) => f.incluir && !f.esDeOtro);
-    if (!elegidas.length) return;
+    // Solo ampliaciones: no hay tarea nueva sobre la que preguntar nada, así que se
+    // aplica derecho. Con el `return` de antes el botón quedaba muerto — se veía
+    // habilitado y no pasaba nada al tocarlo.
+    if (!elegidas.length) { if (nAmpliar) void aplicar(); return; }
     setPensando(true);
     const j = await api({
       action: 'preguntar', id: props[0]?.id ?? '',
@@ -703,7 +728,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>
                 Lo de <b style={{ color: 'var(--ink)' }}>{personaActiva}</b> no entra a tu plan:
               </span>
-              <div ref={setPieSlot} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} />
+              {/* A la derecha, en el mismo lugar donde estaba «Agregar N al plan»: es el
+                  botón que reemplaza, así que la mano va al mismo lado. */}
+              <div ref={setPieSlot} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto' }} />
             </>
           ) : cerrado ? (
             <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>
@@ -718,9 +745,16 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             </button>
           ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mandáselo desde la lista.</span>}
           {hayMias && !cerrado && !personaActiva && (
-            <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas === 0 || !!guardando || pensando || cruzando}
-              style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
-              {guardando === 'aplicar' ? 'Cargando…' : pensando ? 'MaKo está mirando lo que elegiste…' : nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
+            <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas + nAmpliar === 0 || !!guardando || pensando || cruzando}
+              style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas + nAmpliar ? 'var(--primary)' : 'var(--border)', color: nIncluidas + nAmpliar ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas + nAmpliar && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
+              {/* El botón dice las DOS cosas que va a hacer. Con solo `nIncluidas` mentía
+                  por omisión: «Agregar 15» sobre una reunión que además ampliaba 5. */}
+              {guardando === 'aplicar' ? 'Cargando…'
+                : pensando ? 'MaKo está mirando lo que elegiste…'
+                  : nIncluidas && nAmpliar ? `Agregar ${nIncluidas} y ampliar ${nAmpliar} →`
+                    : nIncluidas ? `Agregar ${nIncluidas} al plan →`
+                      : nAmpliar ? `Ampliar ${nAmpliar} que ya ${nAmpliar === 1 ? 'está' : 'están'} →`
+                        : 'Elegí al menos una'}
             </button>
           )}
         </div>
