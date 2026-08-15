@@ -1961,3 +1961,56 @@ propuesta.
 entra solo, se lee como que el sistema falló.
 
 **Vive en:** `app/api/track/optin/route.ts`
+
+### ⚠️ `createLead()` descartaba el `visitor_id`, así que el tracking no se podía leer
+
+*2026-08-14*
+
+`visitor_id` estaba declarado en `LeadCreateInput` y **nunca llegaba al insert**. También se
+iban `origen_lead` y los UTM. Un lead creado desde la landing nacía sin el identificador de la
+visita, y la tab **Tracking** de su ficha —que se busca **por** `visitor_id`— quedaba vacía.
+
+La visita, el play, los clicks y el formulario estaban **todos** medidos en la base. Lo único
+que faltaba era el hilo que los ata a la persona, que es exactamente lo que el tracking existe
+para hacer. Reportado como «¿de qué sirve entonces?».
+
+**Regla:** un campo declarado en el tipo de entrada y ausente en el `insert` no da error, no
+rompe ningún test y no se ve hasta que alguien busca el dato río abajo. Cuando agregues un
+campo a un `…CreateInput`, el mismo cambio tiene que tocar el insert — y si no lo toca, el
+campo es decorativo.
+
+**Ojo con lo ya creado:** los leads que entraron antes de este arreglo no tienen `visitor_id` y
+**no se pueden reparar** — el dato no quedó guardado en ningún lado desde donde recuperarlo. Su
+tab Tracking va a seguir vacía; los nuevos sí funcionan.
+
+**Vive en:** `lib/leads.ts` (`createLead`) · `app/api/track/optin/route.ts`
+
+### Los webhooks fusionaban dos contactos sin decirlo
+
+Meta y Calendly matchean por teléfono o email y hacen `update` sobre el lead que ya estaba. Eso
+está **bien** —es la misma persona volviendo, y crear una tarjeta nueva partiría su historial en
+dos— pero pasaba en absoluto silencio.
+
+Y un match por teléfono **puede equivocarse**: dos personas de la misma empresa cargadas con el
+número de la recepción, o un número que la operadora recicló. Ahí el segundo se escribe encima
+del primero y no queda rastro de que hubo dos.
+
+**No se frena la fusión.** Frenarla convertiría un webhook —que corre sin nadie mirando— en una
+cola de decisiones, y el resultado sería el de los ocho leads esperando. Se hace, y se cuenta:
+aviso `lead-fusionado` con el link al lead resultante, con dedup de 60 min porque diez avisos
+por el mismo patrón se leen como ruido y se silencian.
+
+**Vive en:** `lib/leads.ts` (`avisarFusion`, `upsertLeadFromMeta`, `upsertLeadFromCalendly`)
+
+### Un bloque de render puesto después del primer `return` es código muerto silencioso
+
+El lápiz de «Tus videos» cambiaba el estado y la pantalla no cambiaba: el bloque del paso estaba
+**después** del `if (!activo) return (…)`, que se dispara siempre. Un botón muerto, sin un solo
+error que lo delatara.
+
+**Y el test que contaba botones tampoco lo agarró**, porque su `slice` arrancaba en el primer
+`if (!activo)` del archivo — que es el del `useEffect`, no el del render. Anclar a la primera
+aparición de un patrón que existe dos veces es cómo un test mira el bloque equivocado y da
+verde.
+
+**Vive en:** `app/integraciones/ProbarTracking.tsx` · `tests/landing-optin.test.ts`
