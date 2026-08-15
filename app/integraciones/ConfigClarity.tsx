@@ -53,7 +53,7 @@ export function ConfigClarity({ conectado, onListo }: { conectado: boolean; onLi
             <p style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 12, maxWidth: '68ch' }}>
               Usamos <b>Microsoft Clarity</b>: es gratis y sin límite de visitas. Crea tu cuenta en{' '}
               <a href="https://clarity.microsoft.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>clarity.microsoft.com</a>,
-              crea un proyecto con la dirección de tu página y pega aquí abajo las claves. Se suman
+              crea un proyecto con la dirección de tu página y pega aquí abajo las dos claves. Se suman
               solas al código del paso 2.
             </p>
           )}

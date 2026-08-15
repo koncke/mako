@@ -493,7 +493,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // El token sí lo es: da lectura a las métricas del proyecto. Y es OPCIONAL
       // a propósito — sin él funcionan las grabaciones y los mapas, que son el
       // 90% del valor; solo se pierde el resumen de números dentro de MaKo.
-      { env: 'CLARITY_API_TOKEN', label: 'Token de Data Export', secreto: true, opcional: true, placeholder: 'eyJhbGciOi…', nota: 'Opcional. Sin él las grabaciones funcionan igual; solo se pierde el resumen de números dentro de MaKo.' },
+      // ⚠️ OBLIGATORIO, y lo era desde el principio: sin token no hay resumen, y
+      // sin resumen MaKo no sabe cuántas sesiones hubo ni cuándo se vencen las
+      // grabaciones — o sea que el aviso de «esto se borra en 5 días» no puede
+      // existir. Marcarlo opcional dejaba conectar a medias una integración que a
+      // medias no sirve, y el que la conectaba así no se enteraba nunca.
+      { env: 'CLARITY_API_TOKEN', label: 'Token de Data Export', secreto: true, placeholder: 'eyJhbGciOi…', nota: 'Settings → Data Export → Generate new API token.' },
     ],
     tutorial: {
       url: 'https://clarity.microsoft.com',

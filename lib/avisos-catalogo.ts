@@ -123,6 +123,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'objetivo-en-riesgo': 'plata', 'meta-alcanzada': 'plata',
 
   'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'lead-de-landing': 'landing',
+  'clarity-grabacion-por-vencer': 'landing',
   'wa-desconectado': 'sistema',
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
@@ -310,6 +311,23 @@ https://hola-mako.com/integraciones
     // el segundo se escribe ENCIMA del primero y no queda rastro.
     disparador: 'Al instante: un webhook de Meta o Calendly encuentra un lead existente y lo actualiza en vez de crear uno nuevo.',
     ejemplo: `🟡 Entró un contacto por *Calendly* y lo sumé a *Marina Olvera*, que ya tenías (mismo teléfono). Si no era la misma persona, avisame y lo separo 👉 https://hola-mako.com/crm/1842 — MaKo`,
+  },
+  {
+    id: 'clarity-grabacion-por-vencer', titulo: 'Una grabación está por borrarse', categoria: 'accion',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ Clarity guarda las grabaciones 30 días y después las tira. Las marcadas
+    // como FAVORITAS sobreviven 13 meses — pero marcarlas es una acción manual en
+    // su panel: no hay endpoint, así que el sistema no lo puede hacer solo.
+    //
+    // Este aviso es lo único que convierte 30 días en 13 meses para lo que
+    // importa. Y avisa SOLO por leads: las grabaciones anónimas son miles y
+    // ninguna importa; la de alguien que dejó sus datos es la que alguien va a
+    // querer ver dentro de tres meses, justo antes de una llamada.
+    //
+    // Cinco días de margen, no uno: un aviso el día 29 llega cuando ya no hay
+    // tiempo de hacer nada, y el aviso existe para que se haga algo.
+    disparador: 'Cron diario: un lead con grabación en Clarity cumple 25 días (de los 30 que dura).',
+    ejemplo: `🟡 La grabación de *Marina Olvera* se borra en 4 días. Si te sirve para después, entra y márcala como favorita: así se guarda 13 meses en vez de 30 días 👉 https://clarity.microsoft.com/projects/view/abc123/impressions?CustomUserId=… — MaKo`,
   },
   {
     id: 'lead-de-landing', titulo: 'Alguien dejó sus datos en tu landing', categoria: 'aviso',

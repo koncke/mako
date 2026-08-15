@@ -81,10 +81,51 @@ test('Clarity está en el catálogo del MÉTODO, o la barra dice «servicio inv�
   const met = leer('../lib/metodo-catalogo.ts');
   assert.ok(/key: 'clarity'/.test(met), 'sin esto la barra de credenciales no sabe qué pedir');
   assert.ok(/env: 'CLARITY_PROJECT_ID'/.test(met), 'falta el campo del id del proyecto');
-  assert.ok(/env: 'CLARITY_API_TOKEN'[^\n]*secreto: true[^\n]*opcional: true/.test(met),
-    'el token es secreto Y opcional: sin él andan las grabaciones, que son el 90% del valor');
+  // ⚠️ EL TOKEN ES OBLIGATORIO. Estuvo marcado opcional con el argumento de que
+  // sin él «andan las grabaciones igual» — y es cierto, pero sin él no hay
+  // resumen, y sin resumen MaKo no sabe cuándo se vencen esas grabaciones: el
+  // aviso de «esto se borra en 4 días» no puede existir. Conectar a medias una
+  // integración que a medias no sirve es peor que no conectarla.
+  assert.ok(/env: 'CLARITY_API_TOKEN'[^\n]*secreto: true/.test(met), 'el token es un secreto');
+  assert.ok(!/env: 'CLARITY_API_TOKEN'[^\n]*opcional: true/.test(met), 'sin token no hay aviso de vencimiento: no puede ser opcional');
   // El id del proyecto NO es secreto: viaja en el HTML como cualquier pixel, y
   // enmascararlo escondería justo lo que distingue un proyecto de otro.
   assert.ok(!/env: 'CLARITY_PROJECT_ID'[^\n]*secreto: true/.test(met), 'el id del proyecto no es un secreto');
   assert.ok(/clarity\.microsoft\.com/.test(met), 'el «?» tiene que llevar a donde se sacan las claves');
+});
+
+test('el cron avisa ANTES de que Clarity borre la grabación', () => {
+  // Clarity guarda las grabaciones 30 días; las marcadas como favoritas, 13
+  // meses. Marcarlas es MANUAL (no hay endpoint), así que lo único que el sistema
+  // puede hacer —y lo que convierte 30 días en 13 meses para lo que importa— es
+  // avisar a tiempo con el link a la grabación de esa persona.
+  const cron = leer('../app/api/cron/clarity-vigilante/route.ts');
+  assert.ok(/const DIAS_RETENCION = 30/.test(cron), 'los 30 días son el dato de Microsoft, no un número elegido');
+  // ⚠️ Cinco días de margen, no uno: un aviso el día 29 llega cuando ya no hay
+  // tiempo de hacer nada, y el aviso existe para que se haga algo.
+  assert.ok(/AVISAR_DESDE = DIAS_RETENCION - 5/.test(cron), 'el margen tiene que dejar tiempo de reaccionar');
+  // Solo por LEADS: las grabaciones anónimas son miles y ninguna importa.
+  assert.ok(/\.not\('visitor_id', 'is', null\)/.test(cron), 'no se avisa por sesiones anónimas');
+
+  // ⚠️ UN SOLO AVISO CON LA LISTA. El dedup de emitirDelCatalogo es por TIPO, así
+  // que un aviso por lead habría sonado solo para el primero de la tanda y los
+  // demás se habrían perdido en silencio.
+  assert.ok(/const porVencer/.test(cron), 'los leads se juntan antes de avisar');
+  assert.ok(/porVencer\.sort\(\(a, b\) => a\.dias - b\.dias\)/.test(cron), 'el más urgente primero: es el que decide si hay que entrar hoy');
+  assert.ok(/dedupTtlMin: 60 \* 20/.test(cron), 'la ventana dura 5 días: sin dedup el mismo lead suena cinco veces');
+  const i = cron.indexOf('const porVencer');
+  assert.equal((cron.slice(i).match(/emitirDelCatalogo\(/g) ?? []).length, 1, 'un aviso por tanda, no uno por lead');
+});
+
+test('el resumen lo cachea el CRON, no la pantalla', () => {
+  // La cuota es de 10 requests por proyecto por día: si lo consultara la
+  // pantalla, tres personas abriendo la tab dos veces la agotan antes del
+  // mediodía y queda en blanco sin que nada lo explique.
+  const cron = leer('../app/api/cron/clarity-vigilante/route.ts');
+  assert.ok(/setSetting\(CLARITY_RESUMEN_KEY/.test(cron), 'el resumen tiene que quedar cacheado');
+  // ⚠️ Un error de Clarity NO borra el caché: lo de ayer sigue siendo cierto y es
+  // mejor que una pantalla vacía.
+  assert.ok(/if \(res\.ok\) \{/.test(cron), 'un fallo de Clarity no puede pisar el caché con nada');
+  const vercel = leer('../vercel.json');
+  assert.ok(/clarity-vigilante/.test(vercel), 'el cron tiene que estar agendado o no corre nunca');
 });
