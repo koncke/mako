@@ -45,6 +45,12 @@ const RAIZ = arg('raiz', 'C:\\cursos');
 // dueño es «<Curso> - <Autor>», y la cumplen 36 de 39 carpetas. Sin esto la carpeta
 // queda sin autor y desentona con todo el resto, así que si falta se avisa fuerte.
 const AUTOR = arg('autor', '');
+// Vuelca la respuesta CRUDA de la RPC antes de tocarla. Existe porque «Instituto de
+// Comunicación» devolvió 316 filas para 160 lecciones y no había forma de mirar la
+// fuente: para cuando el plan está escrito, lo que sobraba ya se descartó. Con esto
+// se contesta en un minuto la única pregunta que importa —¿son la MISMA fila repetida
+// o filas distintas?— en vez de deducirla del resultado.
+const CRUDO = arg('crudo', '');
 
 const slugDe = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 80);
@@ -177,6 +183,11 @@ const main = async () => {
   }
 
   const L = Array.isArray(datos.lessons) ? datos.lessons : [];
+  if (CRUDO && L.length) {
+    mkdirSync(CRUDO.replace(/[\\/][^\\/]*$/, ''), { recursive: true });
+    writeFileSync(CRUDO, JSON.stringify({ lessons: datos.lessons, modules: datos.modules ?? null }, null, 1), 'utf8');
+    console.log(`  crudo → ${CRUDO}  (${L.length} fila(s) de lección)`);
+  }
   if (!L.length) {
     console.error('\n  ✖ No capturé la lista de lecciones.');
     console.error('    Suele ser que la respuesta salió de caché y no se volvió a pedir.');
@@ -216,13 +227,41 @@ const main = async () => {
     return m ? m[1] : '';
   };
 
+  // ── Lecciones HUÉRFANAS: cuelgan de un módulo que la API no devuelve ─────────
+  //
+  // «Instituto de Comunicación» devolvió 316 filas con 316 ids DISTINTOS para un curso
+  // que la plataforma muestra con 158 lecciones. No era un JOIN duplicando ni la misma
+  // fila repetida: son 158 filas que apuntan al MISMO video que otras 158 y cuelgan de
+  // nueve `module_id` que no están en `modules` — una copia fantasma de la estructura
+  // que la UI filtra al hacer el join y la API no. Confirmado por los contadores de la
+  // propia página, que suman exactamente 158.
+  //
+  // ⚠️ El dedup por título+duración de más abajo ya daba 158, y ese es justamente el
+  // problema: acertaba el número por una señal que NO es la causa. Un curso con dos
+  // lecciones legítimamente homónimas y de igual duración habría perdido una, y un
+  // curso fantasma con títulos distintos habría pasado entero. La causa es que la
+  // lección no pertenece a ningún módulo vivo, y eso es lo que hay que mirar.
+  //
+  // El filtro va en POSITIVO —se queda con las que SÍ cuelgan de un módulo vivo— y
+  // solo se aplica cuando hay módulos y cuando dejaría algo en pie: un curso sin
+  // módulos, o uno donde ninguna lección matchea, se procesa entero como siempre.
+  const vivas = mods.size ? L.filter((l) => { const m = modIdDe(l); return m != null && mods.has(m); }) : L;
+  const huerfanas = L.length - vivas.length;
+  if (huerfanas > 0 && vivas.length > 0) {
+    console.log(`  ⚠ ${huerfanas} lección(es) cuelgan de un módulo que la API no devuelve: no se ven en la plataforma y quedan afuera.`);
+    console.log(`     ${vivas.length} lección(es) en los ${mods.size} módulos vivos.`);
+  } else if (huerfanas > 0) {
+    console.log(`  ⚠ NINGUNA lección matchea un módulo devuelto: no filtro, proceso las ${L.length}.`);
+  }
+  const Lvivas = vivas.length > 0 ? vivas : L;
+
   // ── Orden global: módulo raíz → módulo hoja → orden de la clase ─────────────
   const clavesOrden = (l) => {
     const r = raizDe(modIdDe(l));
     const hoja = mods.get(modIdDe(l));
     return [ordenRaiz.get(r?.id) ?? 999, ordenDe(hoja), ordenDe(l)];
   };
-  const ordenadas = [...L].sort((a, b) => {
+  const ordenadas = [...Lvivas].sort((a, b) => {
     const A = clavesOrden(a), B = clavesOrden(b);
     return A[0] - B[0] || A[1] - B[1] || A[2] - B[2];
   });

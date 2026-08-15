@@ -1080,6 +1080,56 @@ carpeta en Drive que no existe en ningún lado; el nombre cortado, al menos, es 
 sigue siendo único. Si algún día hace falta el título entero, sale del RPC de módulos, no
 del DOM.
 
+### ⚠️ 316 filas para un curso de 158, y el guard acertaba el número por el motivo equivocado
+
+**2026-08-15, «Instituto de Comunicación» (Adria Sola Pastor).** El catálogo anuncia **316
+lecciones**; la RPC devuelve 316 filas; el deduplicador por título+duración marcó **158**
+como repetidas y dejó 158. El número final era **correcto**. La causa que le atribuía, no —
+y esa es toda la entrada.
+
+**Las dos explicaciones obvias, las dos falsas:**
+
+1. *«Mi captura mezcló dos respuestas de la misma RPC.»* No: el capturador se queda con
+   UNA respuesta, nunca fusiona.
+2. *«Es un JOIN devolviendo la misma fila dos veces.»* No: las 316 filas tienen **316 `id`
+   distintos**, cero repetidos, cero pares idénticos byte a byte.
+
+**La causa real:** las 316 filas son 158 pares que **apuntan al mismo `video_url`**, y los
+158 sobrantes cuelgan de nueve `module_id` que **la API no devuelve en `modules`** (18 ids
+de módulo en uso, 9 módulos vivos). Es una copia fantasma de la estructura del curso: la UI
+la filtra al hacer el join contra los módulos visibles, y la API no.
+
+**Lo que hay que ver, y es lo caro:** un guard que llega al número correcto por una señal
+que no es la causa es **peor que uno que falla**, porque nadie lo vuelve a mirar. El dedup
+por título+duración habría (a) perdido una lección en un curso con dos clases legítimamente
+homónimas y de igual duración —cosa que existe: «Misión 1» aparece en más de una fase— y
+(b) dejado pasar el curso fantasma entero si sus títulos hubieran diferido en un carácter.
+Acertó por correlación.
+
+**El filtro correcto es estructural:** se queda con las lecciones que cuelgan de un módulo
+**vivo**. Va en POSITIVO (la regla de `AGENTS.md`) y solo se aplica cuando hay módulos y
+cuando dejaría algo en pie — un curso sin módulos, o uno donde ninguna lección matchea, se
+procesa entero. Con el filtro puesto, el aviso de duplicados **desaparece**: los 158 eran
+exactamente las huérfanas, y dos métodos independientes dan el mismo 158.
+
+**Y la verificación que lo cerró son los contadores de la PROPIA plataforma.** Los nueve
+`N/M` que la página dibuja por módulo suman `4+10+22+20+12+13+31+14+32 = 158`, exacto. Es
+la única fuente que no comparte el bug con el extractor: el catálogo dice 316 (cuenta
+filas), la API dice 316, y solo el contador de la UI dice la verdad.
+
+⚠️ **Contar duraciones en `innerText` NO es contar lecciones.** El primer intento midió
+«160 filas con duración» con un `\d{1,3}:\d{2}` sobre el texto y se llevó dos duraciones de
+encabezado. Dos de más sobre 158 alcanzaron para inventar un hueco que no existía — la misma
+trampa que ya costó cuatro diagnósticos en este documento: **el dato estaba bien y el
+instrumento mal.** Los contadores del sitio son un dato; una regex sobre el texto es una
+estimación.
+
+**Herramienta que quedó:** `--crudo <archivo>` en `curso-plan-vip.mjs` vuelca la respuesta
+de la RPC **antes** de tocarla. Sin eso la pregunta «¿son la misma fila o filas distintas?»
+no se puede contestar: para cuando el plan está escrito, lo que sobraba ya se descartó.
+
+**Vive en:** `scripts/curso-plan-vip.mjs` (el filtro de huérfanas y `--crudo`)
+
 ## El portal
 
 ### ⚠️ `.al-chip` estaba definido DOS veces y el segundo ganaba en silencio
