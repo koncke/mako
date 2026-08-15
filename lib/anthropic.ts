@@ -7,11 +7,16 @@
 import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs } from './credenciales';
+import { permisoDeGasto, type PermisoClaude } from './veto-claude';
 import type { ProvName } from './ai-cheap';
 
-// Opus 4.8: el modelo más pensante disponible.
-const MODEL = 'claude-opus-4-8';
-const ENDPOINT = 'https://api.anthropic.com/v1/messages';
+// ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
+//
+// Mientras `MODEL` fue 'claude-opus-4-8', olvidarse de registrar una feature costaba el
+// modelo MÁS CARO — y el camino a ese olvido se leía perfecto en el diff. Ahora no hay
+// default: si no se puede resolver el modelo, la salida honesta es FALLAR, no elegir. Y la
+// URL sale de `permiso.endpoint`, así que no queda ningún string suelto al que se le pueda
+// pegar un `fetch` por accidente. El porqué entero está en lib/veto-claude.ts.
 
 // Niveles de esfuerzo válidos en Opus 4.8 (output_config.effort).
 type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
@@ -19,6 +24,34 @@ type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 const DEFAULT_EFFORT: Effort = 'high';
 
 export type ClaudeMsg = { role: 'user' | 'assistant'; content: string };
+
+/**
+ * EL INTERRUPTOR DE PÁNICO. Apaga TODO, incluido lo que está en la lista blanca, sin
+ * deploy. Va en UNA sola dirección a propósito: puede apagar, nunca encender.
+ *
+ * Si la fila no existe, si el valor está roto o si Supabase se cae, el resultado es «no
+ * pausado» — y eso NO abre nada, porque lo que autoriza es la lista de CÓDIGO. Un store
+ * que puede fallar solo tiene permitido hacer las cosas MÁS restrictivas, nunca menos.
+ */
+async function claudePausado(): Promise<boolean> {
+  try {
+    const { getSetting } = await import('@/lib/settings');
+    const { runWithWorkspace, OWNER_WS } = await import('@/lib/workspace');
+    return (await runWithWorkspace(OWNER_WS, () => getSetting('mako.claude.pausa'))) === '1';
+  } catch { return false; }
+}
+
+/**
+ * EL BLOQUEO SE REGISTRA, NO SE LOGUEA. «Un console.warn no es un control» (AGENTS.md, y
+ * está medido). Esta fila cuesta US$0, tiene 0 tokens y aparece en el MISMO gráfico que el
+ * dueño mira, con el motivo escrito. Sin esto, un veto que funciona y un veto que nadie
+ * disparó se ven exactamente iguales.
+ */
+async function registrarBloqueo(e: unknown, feature: string | undefined, model: string): Promise<void> {
+  const razon = e instanceof Error ? e.message : String(e);
+  console.error(`[veto-claude] ${razon}`);
+  await recordUsage(feature?.trim() || 'sin-feature', `vetado:${model || '-'}`, {}, razon).catch(() => {});
+}
 
 export async function chatClaude(
   system: string,
@@ -120,6 +153,18 @@ export async function chatClaude(
   // Acá afuera del catch, para que el corte no se lo coma el «usá el default».
   if (noSePuedeSeguir) throw new Error(noSePuedeSeguir);
 
+  // ── EL VETO ──────────────────────────────────────────────────────────────────────
+  // Todo lo de arriba fue ELEGIR un modelo. Acá se decide si se puede COMPRAR, y es el
+  // único punto por el que pasan las cinco puertas a Anthropic.
+  const modeloPedido = opts.model ?? modeloOverride ?? '';
+  let permiso: PermisoClaude;
+  try {
+    permiso = permisoDeGasto({ feature: opts.feature, model: modeloPedido, pausa: await claudePausado() });
+  } catch (e) {
+    await registrarBloqueo(e, opts.feature, modeloPedido);
+    throw e;
+  }
+
   // La key de Claude sale POR WORKSPACE (BYOK): fila cifrada del cliente > env del
   // dueño. Antes leía process.env directo → un cliente con su key pega no la usaba.
   const key = await credWs('ANTHROPIC_API_KEY');
@@ -129,7 +174,7 @@ export async function chatClaude(
   const thinkingOn = opts.thinking ?? true;
   const effort: Effort = thinkingOn ? (opts.effort ?? DEFAULT_EFFORT) : 'low';
   const payload: Record<string, unknown> = {
-    model: opts.model ?? modeloOverride ?? MODEL,
+    model: permiso.model,
     // Con thinking adaptativo el razonamiento entra en max_tokens: damos aire.
     max_tokens: opts.maxTokens ?? (thinkingOn ? 16000 : 512),
     system,
@@ -141,7 +186,7 @@ export async function chatClaude(
   // El antiguo { type: 'enabled', budget_tokens } ya no existe en este modelo.
   if (thinkingOn) payload.thinking = { type: 'adaptive' };
 
-  const res = await fetch(ENDPOINT, {
+  const res = await fetch(permiso.endpoint, {
     method: 'POST',
     headers: {
       'x-api-key': key,
@@ -158,7 +203,7 @@ export async function chatClaude(
   }
   // Registrar tokens/costo de esta llamada (best-effort) y avisar al caller.
   // Si hubo fallback desde la IA barata, el motivo lo dice → el historial no miente.
-  const usage = await recordUsage(opts.feature ?? 'otros', String(payload.model), body.usage, (opts.motivo ?? '') + fallbackNota);
+  const usage = await recordUsage(permiso.feature, String(payload.model), body.usage, (opts.motivo ?? '') + fallbackNota);
   opts.onUsage?.(usage);
   // Corte por tope de salida: el JSON llega mocho, el parse falla y el caller ve cero
   // resultados sin saber por qué. Pasó de verdad (una extracción con out=4500 exacto
@@ -234,7 +279,7 @@ export async function chatClaudeTools(
   // modelo de Claude, lo usamos (antes chatClaudeTools ignoraba el registro y todo
   // corría en Opus). El doer de WhatsApp pasa `model` explícito (router) → salta
   // esto y sigue en Claude; su ruteo a barato va por su propio camino (DOER_GROQ_TOOLS).
-  let model = opts.model ?? MODEL;
+  let model = opts.model ?? '';   // sin default: el `?? MODEL` era la quinta puerta
   if (!opts.model && opts.feature) {
     try {
       const { modeloDeFeature } = await import('@/lib/model-registry');
@@ -270,8 +315,22 @@ export async function chatClaudeTools(
       } else if (ref) {
         model = ref.model;
       }
-    } catch { /* sin registro → default */ }
+    } catch { /* sin registro → el veto corta abajo; ya no hay «usá el default» */ }
   }
+
+  // ── EL VETO, la MISMA puerta que chatClaude ──────────────────────────────────────
+  // Este camino nunca consultó `fallbackDeFeature`, así que ni siquiera `fallback: []` lo
+  // frenaba: era la tercera de las cinco puertas. Ahora no hace falta que lo consulte —
+  // la puerta es una sola y está acá. Se evalúa UNA vez, antes del loop: dentro del loop
+  // sería el mismo permiso N veces y N filas de bloqueo.
+  let permiso: PermisoClaude;
+  try {
+    permiso = permisoDeGasto({ feature: opts.feature, model, pausa: await claudePausado() });
+  } catch (e) {
+    await registrarBloqueo(e, opts.feature, model);
+    throw e;
+  }
+  model = permiso.model;
 
   // La key de Claude sale POR WORKSPACE (BYOK): fila cifrada del cliente > env del dueño.
   const key = await credWs('ANTHROPIC_API_KEY');
@@ -292,7 +351,7 @@ export async function chatClaudeTools(
     };
     if (opts.toolChoice) payload.tool_choice = { type: opts.toolChoice };
 
-    const res = await fetch(ENDPOINT, {
+    const res = await fetch(permiso.endpoint, {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify(payload),
@@ -301,7 +360,7 @@ export async function chatClaudeTools(
     const body = await res.json();
     if (!res.ok || body.error) throw new Error(body?.error?.message ?? `Anthropic ${res.status}`);
 
-    const usage = await recordUsage(opts.feature ?? 'tools', String(model), body.usage, opts.motivo);
+    const usage = await recordUsage(permiso.feature, String(model), body.usage, opts.motivo);
     opts.onUsage?.(usage);
 
     const content: Block[] = Array.isArray(body.content) ? (body.content as Block[]) : [];

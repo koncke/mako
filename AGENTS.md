@@ -309,6 +309,40 @@ Y el corolario que se paga aparte: **rotar solo por error es pagar un peaje por 
 Si hay tres cuentas y la primera está muerta, cada llamada gasta un 429 antes de llegar a
 la que tiene nafta. Si el sistema puede saber cuál está gastada, empezá por la que no.
 
+# Claude está VETADO salvo excepción escrita, y el veto vive en el `fetch`
+
+`lib/veto-claude.ts` es la única puerta a `api.anthropic.com/v1/messages`. Una feature
+nueva **ya está vetada el día que se escribe**: si querés que pague, va una fila en
+`CLAUDE_PERMITIDO` con modelo, fecha de vencimiento y quién lo pidió.
+
+**Por qué en el `fetch` y no en el registro de modelos:** había CINCO caminos a Anthropic
+—el `def` del catálogo, el fallback pago de `chatClaude`, el de `chatClaudeTools` (que ni
+consultaba la lista), un `opts.model` explícito, y el `MODEL` del módulo cuando la feature
+no estaba registrada— y **cerrar cuatro deja la quinta**. Pasó: `fallback: []` tapó dos y
+las otras tres siguieron cobrando US$12,79. Los cinco terminan en el mismo `fetch`; ahí va
+el control y en ningún otro lado.
+
+`lib/anthropic.ts` ya no tiene `MODEL` ni `ENDPOINT`. La URL sale de `permiso.endpoint`,
+así que **un `fetch` a Claude escrito por fuera del veto no tipa**. Y no hay modelo por
+default: mientras `MODEL` fue `claude-opus-4-8`, olvidarse de registrar una feature costaba
+el modelo más caro que existe — el camino de MENOS esfuerzo era el MÁS caro.
+
+**Tres cosas que hacen que el veto no se apague solo:**
+
+1. **La lista blanca vive en CÓDIGO, no en `app_settings`.** La asimetría es el diseño:
+   bloquear es instantáneo, desbloquear necesita commit, pre-push y deploy. Un veto que se
+   apaga con la misma palanca que gobierna se apaga solo.
+2. **Los permisos VENCEN.** Sin fecha, una excepción de hoy es una excepción para siempre y
+   nadie la vuelve a mirar — la misma forma del cobro silencioso.
+3. **El bloqueo se REGISTRA, no se loguea.** Una fila de US$0 y 0 tokens en el mismo
+   gráfico que el dueño mira, con el motivo escrito. Sin eso, un veto que funciona y un
+   veto que nadie disparó se ven iguales.
+
+**Y el interruptor de pánico (`mako.claude.pausa`) va en UNA sola dirección:** puede
+apagar, nunca encender. Si la base se cae, el resultado es «no pausado» — y eso no abre
+nada, porque lo que autoriza es la lista de código. Un store que puede fallar solo tiene
+permitido hacer las cosas MÁS restrictivas.
+
 # Un default que cobra es un cobro silencioso
 
 El `def` de una feature en `lib/model-catalogo.ts` no es «lo que usa hoy el código»: es

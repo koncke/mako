@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CATALOGO_MODELOS, PROVEEDORES_PAGOS } from '../lib/model-catalogo';
+import { evaluarPermiso, CLAUDE_PERMITIDO } from '../lib/veto-claude';
 
 const pagos = () => CATALOGO_MODELOS.filter((f) => PROVEEDORES_PAGOS.includes(f.def.provider));
 
@@ -46,10 +47,31 @@ test('la justificación es una frase de verdad, no un placeholder', () => {
   }
 });
 
-test('las tres que sí valen la plata siguen siendo esas tres', () => {
-  // Si esta lista crece, que sea a propósito y que se vea en el diff. Son los
-  // análisis pesados sobre datos reales, lo único que el cliente paga a sabiendas.
-  assert.deepEqual(pagos().map((f) => f.feature).sort(), ['closing', 'experimentos', 'lead_insights']);
+test('la ÚNICA que vale la plata es closing, y ahora además tiene que estar autorizada', () => {
+  // Eran tres. Al aplicar el veto (13/8/2026) quedó una, y el motivo no fue que el
+  // `pagoPorque` de las otras dos fuera falso: NINGUNA DE LAS DOS CORRÍA.
+  // `lead_insights` gastó US$0,88 el 16/7 y `experimentos` US$0 desde el 5/7. Una
+  // autorización de gasto que nadie usa es una que nadie revisa — el día que alguien la
+  // prende, paga Opus sin que nadie lo haya decidido. Las dos bajaron a Gemini.
+  assert.deepEqual(pagos().map((f) => f.feature).sort(), ['closing']);
+});
+
+test('EL VETO Y EL CATÁLOGO NO SE PUEDEN CONTRADECIR', () => {
+  // Dos listas sobre lo mismo (quién le paga a Anthropic) y en dos archivos. Si el
+  // catálogo dice que una feature cobra y el veto no la autoriza, esa feature está rota:
+  // se apaga la primera vez que corra, y en producción, no acá.
+  for (const f of pagos()) {
+    const ok = evaluarPermiso({ feature: f.feature, model: f.def.model, hoy: new Date('2026-08-14') });
+    assert.equal(ok.ok, true, `«${f.feature}» tiene un \`def\` que cobra y el veto lo rechaza: ${ok.ok === false ? ok.razon : ''}`);
+  }
+  // Y al revés: un permiso para una feature que ya no cobra es letra muerta que engaña
+  // al que lo lee.
+  for (const p of CLAUDE_PERMITIDO) {
+    const fila = CATALOGO_MODELOS.find((f) => f.feature === p.feature);
+    assert.ok(fila, `el veto autoriza «${p.feature}», que no está en el catálogo`);
+    assert.ok(p.modelos.includes(fila!.def.model),
+      `el veto autoriza «${p.feature}» para ${p.modelos.join(', ')} pero su \`def\` es «${fila!.def.model}»: se apagaría sola`);
+  }
 });
 
 test('el Perro y su coach NUNCA vuelven a un modelo pago por default', () => {

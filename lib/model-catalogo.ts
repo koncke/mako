@@ -131,8 +131,14 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // es ~60% menos. Si alguna vez el criterio de los análisis se nota más flojo, la
   // vuelta es cambiar este `def` a CLAUDE(): no hay nada más que tocar.
   { feature: 'closing', label: 'Análisis de llamadas de venta', grupo: 'Análisis', def: SONNET, pii: true, recomendado: SONNET, pagoPorque: 'Transcript completo de una llamada de venta + juicio comercial sobre PII. Es el análisis insignia y lo que el cliente compra: por eso se paga, aunque desde 8/2026 con Sonnet en vez de Opus.', nota: 'Transcript + decisión comercial sobre PII. Pago a propósito: Sonnet.' },
-  { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: CLAUDE(), pii: true, recomendado: CLAUDE(), pagoPorque: 'Síntesis multi-fuente sobre datos personales del lead (chat, llamadas, CRM). El razonamiento cruzado es el producto; un modelo flojo acá inventa relaciones que no están.', nota: 'Síntesis multi-fuente sobre PII. Opus.' },
-  { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: CLAUDE(), recomendado: CLAUDE(), pagoPorque: 'El análisis más pesado del producto: lee el negocio entero y propone qué probar. Corre pocas veces y su salida gobierna decisiones de plata.', nota: 'El análisis más pesado del producto. Opus.' },
+  // ⚠️ LAS DOS BAJARON DE OPUS A GEMINI AL APLICAR EL VETO (13/8/2026), y el motivo no
+  // es que su `pagoPorque` fuera falso: es que NINGUNA DE LAS DOS CORRE. lead_insights
+  // gastó US$0,88 el 16/7 y experimentos US$0 desde el 5/7. Una autorización de gasto que
+  // nadie usa es una que nadie revisa, y es la forma exacta del «default que cobra en
+  // silencio»: el día que alguien las prenda, pagan Opus sin que nadie lo haya decidido.
+  // Para devolverlas a Claude hace falta una fila en CLAUDE_PERMITIDO con su fecha.
+  { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: GEMINI(), pii: true, recomendado: GEMINI(), nota: 'Síntesis multi-fuente sobre PII. Bajó a Gemini con el veto: no corría desde julio y su permiso pago no lo revisaba nadie.' },
+  { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El análisis más pesado del producto. Bajó a Gemini con el veto: sin corridas desde el 5/7. Si vuelve a hacer falta Opus, va con fila y fecha en lib/veto-claude.ts.' },
   { feature: 'ads-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: GEMINI(), nota: 'Lectura estructural creativa sobre un guion público. Si Gemini falla, la cascada gratis sigue antes de pagar.' },
   { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: GEMINI() },
   { feature: 'landing-analyst', label: 'Diagnosticar una landing', grupo: 'Análisis', def: GEMINI(), nota: 'Lee el copy de la página y lo cruza con el comportamiento medido (visitas, retención, agendas). Sin PII: la landing es pública y las métricas van agregadas.' },
