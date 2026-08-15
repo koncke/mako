@@ -1,0 +1,178 @@
+// =============================================================================
+// Microsoft Clarity — mapas de calor y grabaciones, atados al lead del CRM
+// =============================================================================
+// Clarity es gratis y sin límite de tráfico ni de sitios (verificado en la
+// documentación de Microsoft, 2026-06-30). Lo que NO se puede es traer sus
+// heatmaps ni sus grabaciones a nuestra pantalla: su Data Export API permite
+// **10 requests por proyecto por día**, devuelve solo promedios de los últimos
+// 1-3 días y no tiene endpoint de grabaciones.
+//
+// Por eso este módulo hace DOS cosas y ninguna más:
+//
+//   1. ARMA EL LINK a las grabaciones de UNA persona. El snippet le pasa a
+//      Clarity nuestro `visitor_id` con `clarity("identify", …)`, y acá se
+//      construye la URL del panel de Microsoft ya filtrada por ese id. Es un
+//      link, no un iframe — Clarity no permite embeber el reproductor, y un
+//      botón honesto que abre su panel es mejor que un marco vacío.
+//
+//   2. TRAE EL RESUMEN de la Data Export API para pintarlo en /marketing:
+//      sesiones, rage clicks, dead clicks, scroll promedio. Con una cuota de 10
+//      por día, esto NO se consulta desde una pantalla: lo cachea un cron.
+//
+// ⚠️ BYOK, y por dos razones distintas. El PROJECT_ID no es secreto (viaja en el
+// HTML de la página, como cualquier pixel) pero es de la cuenta del cliente; el
+// TOKEN de la Data Export API sí lo es, porque da lectura a las métricas de ese
+// proyecto. Los dos van por `credWs`, cifrados y por workspace: si vivieran en
+// una env de la plataforma, todos los clientes escribirían en el proyecto de
+// Clarity del dueño y nadie podría ver el suyo.
+// =============================================================================
+
+import 'server-only';
+import { credWs } from './credenciales';
+
+const PANEL = 'https://clarity.microsoft.com/projects/view';
+const API = 'https://www.clarity.ms/export-data/api/v1/project-live-insights';
+
+/** El id del proyecto de Clarity de ESTE workspace, o null si no lo conectó. */
+export async function clarityProjectId(ws?: number): Promise<string | null> {
+  const v = (await credWs('CLARITY_PROJECT_ID', ws))?.trim();
+  // `PENDING` es el centinela que deja el alta de credenciales cuando el campo
+  // se creó pero todavía no se completó. Tratarlo como un id daría un link roto.
+  return v && !v.startsWith('PENDING') ? v : null;
+}
+
+async function token(ws?: number): Promise<string | null> {
+  const v = (await credWs('CLARITY_API_TOKEN', ws))?.trim();
+  return v && !v.startsWith('PENDING') ? v : null;
+}
+
+/**
+ * El link a las grabaciones de UNA persona, ya filtrado por nuestro id.
+ *
+ * ⚠️ Es lo único que ata Clarity al CRM, y es la mitad del valor de todo esto:
+ * sin el filtro, el botón lleva a una lista de miles de sesiones anónimas y no
+ * sirve para nada. Con él, lleva a lo que hizo Marina Olvera.
+ *
+ * El `visitor_id` es el mismo que el Pixel guarda en la cookie `nqe_visitor_id` y
+ * que se une al lead cuando la persona deja sus datos — o sea que el puente ya
+ * existía; lo único que faltaba era decírselo a Clarity.
+ *
+ * Devuelve null si falta cualquiera de las dos piezas. Un botón que no puede
+ * abrir nada es peor que ninguno: promete y falla.
+ */
+export async function urlSesionesDeLead(visitorId: string | null | undefined, ws?: number): Promise<string | null> {
+  const vid = visitorId?.trim();
+  if (!vid) return null;
+  const pid = await clarityProjectId(ws);
+  if (!pid) return null;
+  // El filtro de Clarity viaja en el hash, como una lista de condiciones. Se
+  // arma con `encodeURIComponent` porque un visitor_id es un UUID y no necesita
+  // escape, pero el día que cambie de forma esto no se rompe en silencio.
+  return `${PANEL}/${encodeURIComponent(pid)}/impressions?CustomUserId=${encodeURIComponent(vid)}`;
+}
+
+/** El link al panel del proyecto, sin filtrar. Para el botón «ver los mapas». */
+export async function urlPanel(ws?: number, seccion: 'dashboard' | 'heatmaps' | 'impressions' = 'dashboard'): Promise<string | null> {
+  const pid = await clarityProjectId(ws);
+  return pid ? `${PANEL}/${encodeURIComponent(pid)}/${seccion}` : null;
+}
+
+export type ResumenClarity = {
+  sesiones: number | null;
+  bots: number | null;
+  rageClicks: number | null;
+  deadClicks: number | null;
+  scrollPromedio: number | null;
+  /** Qué días cubre. La API solo acepta 1, 2 o 3 días hacia atrás. */
+  dias: number;
+  ok: boolean;
+  error: string | null;
+};
+
+const VACIO: ResumenClarity = { sesiones: null, bots: null, rageClicks: null, deadClicks: null, scrollPromedio: null, dias: 0, ok: false, error: null };
+
+/**
+ * El resumen de los últimos N días desde la Data Export API.
+ *
+ * ⚠️ NO LO LLAMES DESDE UNA PANTALLA. La cuota es de **10 requests por proyecto
+ * por día** (documentación de Microsoft): tres personas abriendo la tab dos veces
+ * cada una la agotan antes del mediodía, y a partir de ahí la pantalla queda en
+ * blanco sin que nada explique por qué. Lo consulta el cron y lo cachea.
+ *
+ * `dias` solo puede ser 1, 2 o 3: la API rechaza cualquier otra cosa.
+ */
+export async function resumenClarity(dias: 1 | 2 | 3 = 3, ws?: number): Promise<ResumenClarity> {
+  const t = await token(ws);
+  if (!t) return { ...VACIO, error: 'Sin token de Clarity' };
+  try {
+    const r = await fetch(`${API}?numOfDays=${dias}`, {
+      headers: { Authorization: `Bearer ${t}` },
+      cache: 'no-store',
+    });
+    if (!r.ok) {
+      // El 402 es el de la cuota agotada, y merece un mensaje propio: «falló» a
+      // secas manda a revisar el token, que es justo lo que no está mal.
+      const porQue = r.status === 402
+        ? 'Se agotaron las 10 consultas diarias que permite Clarity. Vuelve mañana.'
+        : r.status === 401 ? 'El token de Clarity no es válido o venció.'
+        : `Clarity respondió ${r.status}.`;
+      return { ...VACIO, error: porQue };
+    }
+    const filas = (await r.json()) as Array<{ metricName?: string; information?: Array<Record<string, unknown>> }>;
+    const num = (v: unknown): number | null => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const metrica = (nombre: string, campo: string): number | null => {
+      const f = filas.find((x) => x.metricName === nombre);
+      return f?.information?.[0] ? num(f.information[0][campo]) : null;
+    };
+    return {
+      sesiones: metrica('Traffic', 'totalSessionCount'),
+      bots: metrica('Traffic', 'totalBotSessionCount'),
+      rageClicks: metrica('RageClickCount', 'sessionsWithMetricPercentage'),
+      deadClicks: metrica('DeadClickCount', 'sessionsWithMetricPercentage'),
+      scrollPromedio: metrica('ScrollDepth', 'averageScrollDepth'),
+      dias, ok: true, error: null,
+    };
+  } catch (e) {
+    return { ...VACIO, error: e instanceof Error ? e.message : 'No se pudo consultar Clarity' };
+  }
+}
+
+/**
+ * El bloque de Clarity que se INYECTA en el snippet del Pixel.
+ *
+ * Va dentro del mismo `<script>` y no como una etiqueta aparte, por la razón que
+ * gobierna todo este producto: el cliente pega UNA cosa. Pedirle que pegue un
+ * segundo script es garantizar que la mitad no lo haga y que después nadie sepa
+ * cuál de los dos falta.
+ *
+ * Devuelve '' si el workspace no conectó Clarity — y eso es importante: el Pixel
+ * tiene que seguir funcionando igual sin él. Clarity es opcional; la medición
+ * propia no.
+ */
+export function bloqueClarity(projectId: string | null): string {
+  if (!projectId) return '';
+  const pid = projectId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 40);
+  if (!pid) return '';
+  return `
+  // ── Microsoft Clarity (opcional, con la cuenta del cliente) ───────────────
+  // Se carga después del Pixel y NUNCA lo bloquea: si Clarity está caído o el id
+  // es inválido, la medición propia sigue andando igual.
+  try {
+    (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "${pid}");
+    // ⚠️ ESTO ES LO QUE ATA LA GRABACIÓN AL LEAD. Sin el identify, el panel de
+    // Clarity muestra miles de sesiones anónimas y no hay forma de encontrar la
+    // de una persona. Con él, la ficha del lead puede linkear directo a la suya.
+    window.clarity("identify", visitorId);
+    // Etiquetas para poder segmentar en Clarity sin salir de su panel.
+    window.clarity("set", "mko_pixel", String(SV));
+    if (prueba) window.clarity("set", "mko_prueba", prueba);
+  } catch (e) {}
+`;
+}

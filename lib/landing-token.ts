@@ -31,6 +31,7 @@ import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
 import { VIDEOS_KEY, parsearVideos, type VideoLanding } from './landing-videos';
 import { normalizarUrl } from './landing-paginas';
+import { bloqueClarity } from './clarity';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
@@ -634,7 +635,7 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
  * del día en que se copió: un arreglo acá NO llega solo a producción, hay que
  * volver a pegarlo. Así se perdieron 18 días de medición (15/jul → 3/ago 2026).
  */
-export function landingSnippet(token: string): string {
+export function landingSnippet(token: string, clarityProjectId: string | null = null): string {
   return `<script>
 (function () {
   var ENDPOINT = '${APP_BASE_URL}/api/track/vsl';
@@ -910,6 +911,7 @@ export function landingSnippet(token: string): string {
     } catch (e) {}
   }, true);
 
+${bloqueClarity(clarityProjectId)}
   window.addEventListener('pagehide', alSalir);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') alSalir();

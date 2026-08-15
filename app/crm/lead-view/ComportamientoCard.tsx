@@ -66,13 +66,17 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
 }
 
 export function ComportamientoCard({
-  visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [],
+  visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], urlClarity = null,
 }: {
   visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean;
   /** Uno por video medido. Con 0 o 1 la tarjeta se pinta como siempre. */
   porVideo?: VideoEngagement[];
   /** El catálogo `landing.videos`: cómo llama el negocio a cada uno. */
   videos?: VideoLanding[];
+  /** Link a las grabaciones de ESTA persona en Clarity, ya filtrado por su
+   *  visitor_id. null si el workspace no conectó Clarity o el lead no tiene
+   *  identificador — un botón que no puede abrir nada es peor que ninguno. */
+  urlClarity?: string | null;
 }) {
   const pctColor = colorDe(maxPct);
   const varios = porVideo.length > 1;
@@ -138,6 +142,18 @@ export function ComportamientoCard({
         )}
       </div>
 
+      {/* ⚠️ SE LINKEA, NO SE EMBEBE. Clarity no permite meter su reproductor en un
+          iframe, así que el botón honesto abre SU panel — ya filtrado por esta
+          persona, que es la mitad del valor: sin el filtro lleva a una lista de
+          miles de sesiones anónimas y no sirve para nada.
+          Solo aparece si hay link: el workspace conectó Clarity Y este lead tiene
+          identificador de visita. */}
+      {urlClarity && (
+        <a href={urlClarity} target="_blank" rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 14, fontSize: 12.5, fontWeight: 650, color: 'var(--primary)', textDecoration: 'none' }}>
+          Ver sus grabaciones en Clarity →
+        </a>
+      )}
       {/* Un grupo de cosas del mismo tipo es una LISTA con filete, no una pila de
           cajas: tres tarjetas iguales apiladas son el contenedor perezoso. */}
       {varios && (

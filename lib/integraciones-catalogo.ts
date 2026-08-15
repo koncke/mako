@@ -57,6 +57,18 @@ export const DEFS: Def[] = [
   // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver
   // estadoLanding). El usuario no pega credenciales: copia un <script> con su
   // token y lo pega donde tenga la landing (Lovable, Framer, Webflow, WP…).
+  // Clarity va SEPARADO del Pixel a propósito, aunque los dos vivan en el mismo
+  // <script>. Son dos preguntas distintas: el Pixel siempre está (es nuestro y no
+  // se puede apagar) y Clarity es OPCIONAL y con la cuenta del cliente. Fundirlos
+  // haría que apagar uno apague el otro, y que el semáforo de la medición propia
+  // dependa de una credencial ajena.
+  //
+  // El PROJECT_ID no es un secreto: viaja en el HTML de la página del cliente,
+  // como cualquier pixel. El TOKEN de la Data Export API sí lo es —da acceso de
+  // lectura a las métricas de ese proyecto— y por eso va por guardarCredencial(),
+  // cifrado y por workspace. Nunca en el código ni en una env de la plataforma:
+  // cada cliente trae el suyo.
+  { key: 'clarity', nombre: 'Microsoft Clarity', categoria: 'Datos', descripcion: 'Mapas de calor y grabaciones de sesión de tu página, atados a cada lead.', envs: ['CLARITY_PROJECT_ID', 'CLARITY_API_TOKEN'] },
   { key: 'landing', nombre: 'Pixel de MaKo', categoria: 'Datos', descripcion: 'Mide las visitas, los videos y los clics de tu página, esté donde esté.', envs: [] },
   // Claude: como la landing, no se configura con una API key — se instala una skill del
   // lado del usuario y se conecta con un token. Su estado se mide por señal REAL (¿generó

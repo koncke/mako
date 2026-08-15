@@ -5,6 +5,7 @@
 // historial de estados negativos + el Saldo de IA.
 
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
+import { clarityProjectId } from '@/lib/clarity';
 import { getIntegraciones } from '@/lib/integraciones';
 import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
@@ -51,7 +52,11 @@ export default async function IntegracionesPage() {
   // se resuelve acá y baja como prop. Idempotente: se genera la primera vez.
   // Sin workspace (admin de agencia sin impersonar) no hay landing que medir.
   const ws = await getWorkspaceActual();
-  const snippetLanding = ws == null ? null : landingSnippet(await getOrCreateLandingToken(ws));
+  // El snippet lleva Clarity ADENTRO si este workspace lo conectó. Un solo
+  // <script> para pegar: pedirle al cliente que pegue dos es garantizar que la
+  // mitad pegue uno solo y que después nadie sepa cuál falta.
+  const snippetLanding = ws == null ? null
+    : landingSnippet(await getOrCreateLandingToken(ws), await clarityProjectId(ws).catch(() => null));
 
   // ¿El código pegado en su página se quedó atrás? El dato ya existía (lo anota el
   // beacon) pero solo lo leía el cron: el aviso salía por WhatsApp y la pantalla

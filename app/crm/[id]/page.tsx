@@ -5,6 +5,7 @@
 // en la tab Editar; el modal del CRM es solo preview y linkea acá con ?tab=.
 
 import { getVideosLanding } from '@/lib/landing-token';
+import { urlSesionesDeLead } from '@/lib/clarity';
 import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import {
@@ -57,7 +58,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, trackingEventos, videosLanding] = await Promise.all([
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, trackingEventos, videosLanding, urlClarityLead] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
@@ -67,6 +68,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     getLeadInsights(idNum),
     getTrackingEvents(lead.visitor_id),
     getVideosLanding(),
+    urlSesionesDeLead(lead.visitor_id).catch(() => null),
   ]);
   const [respuestas, insightGen, equipo] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction()]);
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
@@ -164,7 +166,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               content: (
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
-                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} />
+                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarityLead} />
                   <TrackingTimelineCard eventos={trackingEventos} />
                 </>
               ),
