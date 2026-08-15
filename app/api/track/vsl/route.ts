@@ -262,7 +262,10 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   // server-side. 'exit' = punto EXACTO de abandono.
   const milestoneMatch = /^p(\d{1,3})$/.exec(tipoEvento);
   const segundoMatch = /^s(\d{1,5})$/.exec(tipoEvento);
-  if (tipoEvento !== 'play' && tipoEvento !== 'exit' && tipoEvento !== 'click' && !milestoneMatch && !segundoMatch) {
+  // Los tipos que el snippet puede emitir. Sumar uno acá es obligatorio: sin
+  // esto entra como 'desconocido' y se pierde con un nombre que no dice nada.
+  const CONOCIDOS = ['play', 'exit', 'click', 'pausa', 'retoma', 'fin', 'agendo'];
+  if (!CONOCIDOS.includes(tipoEvento) && !milestoneMatch && !segundoMatch) {
     // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
     // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un
     // contrato que cambia del lado de la landing tiene que ser VISIBLE.

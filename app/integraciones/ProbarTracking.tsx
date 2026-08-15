@@ -47,6 +47,13 @@ function legible(e: Evento): { texto: string; color: string } {
   // esta lista porque la instrucción dice «completá tu propio formulario», y sin
   // esto ese formulario entraba perfecto sin producir un solo renglón — que es
   // exactamente cómo se lee «el formulario no se registró».
+  // ⚠️ AGENDÓ es el evento más importante de una landing que vende por llamada, y
+  // por eso va en verde y con el peso visual de una conversión: es el final del
+  // embudo, no un paso más.
+  if (e.tipo === 'agendo') return { texto: 'Agendó una llamada', color: 'var(--good)' };
+  if (e.tipo === 'pausa') return { texto: e.segundos != null ? `Pausó a los ${Math.round(e.segundos)}s` : 'Pausó el video', color: 'var(--warn)' };
+  if (e.tipo === 'retoma') return { texto: 'Retomó el video', color: 'var(--primary)' };
+  if (e.tipo === 'fin') return { texto: 'Terminó el video', color: 'var(--good)' };
   if (e.tipo === 'optin') return { texto: e.detalle ? `Completó el formulario: ${e.detalle}` : 'Completó el formulario', color: 'var(--good)' };
   // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
   // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.

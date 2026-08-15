@@ -550,7 +550,9 @@ test('los CLICKS se miden: el CTA y el link de WhatsApp son el embudo', () => {
   // El beacon tiene que ACEPTARLO: había una lista blanca que lo habría guardado
   // como 'desconocido'.
   const beacon = leer('../app/api/track/vsl/route.ts');
-  assert.ok(/tipoEvento !== 'click'/.test(beacon), "sin sumarlo a la lista blanca, el click entra como 'desconocido'");
+  // La lista blanca pasó a ser un array: sumar un tipo nuevo es obligatorio, o
+  // entra como 'desconocido' y se pierde con un nombre que no dice nada.
+  assert.ok(/CONOCIDOS = \['play', 'exit', 'click'/.test(beacon), "sin la lista blanca, el click entra como 'desconocido'");
   assert.ok(/detalle: texto\(payload\.detalle, 300\)/.test(beacon), 'el destino del click tiene que persistirse');
   // ⚠️ Columna propia, no reusar `vsl_titulo`: «cómo se llama el video» y «qué se
   // clickeó» son dos preguntas, y meterlas en un campo pierde una de las dos.
@@ -887,4 +889,38 @@ test('el aviso de Pixel viejo dice CUÁL página', () => {
   // de la tab, que solo existe dentro de una request de usuario).
   assert.ok(/async function paginasDelWorkspace/.test(cron), 'el cron necesita su propio lector');
   assert.ok(!/getLandingsAction/.test(cron), 'la action pide un permiso que el cron no tiene');
+});
+
+test('AGENDÓ: el evento que cierra el embudo de quien vende por llamada', () => {
+  // ⚠️ Lo que pasa dentro del iframe de Calendly es de otro dominio y no se puede
+  // espiar — pero Calendly AVISA al padre por postMessage cuando alguien agenda.
+  // Sin esto, el embudo de una landing cuyo CTA es una agenda embebida terminaba
+  // en «vio el video» y nada más.
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/calendly\.event_scheduled/.test(lib), 'falta escuchar la reserva de Calendly');
+  assert.ok(/tipo_evento: 'agendo'/.test(lib), 'la reserva necesita su propio tipo de evento');
+  // Solo la reserva CONFIRMADA: Calendly emite varios eventos del ciclo, y
+  // contarlos todos convertiría «agendó» en «miró el calendario».
+  assert.ok(/if \(e !== 'calendly\.event_scheduled'\) return/.test(lib), 'abrir el calendario no es agendar');
+
+  const beacon = leer('../app/api/track/vsl/route.ts');
+  assert.ok(/'agendo'/.test(beacon), "sin sumarlo a la lista blanca entra como 'desconocido'");
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/Agendó una llamada/.test(panel), 'el evento más importante no puede mostrarse crudo');
+});
+
+test('el ciclo de vida del video: pausa, retoma y fin', () => {
+  // «Vio 3 minutos» podía ser alguien que dejó el video corriendo mientras hacía
+  // otra cosa. Una pausa a los 40 segundos y un retomar a los 3 minutos es una
+  // señal de interés MUY distinta, y las dos se veían exactamente igual.
+  const lib = leer('../lib/landing-token.ts');
+  for (const [ev, tipo] of [['pause', 'pausa'], ['ended', 'fin']] as const) {
+    assert.ok(new RegExp(`addEventListener\\('${ev}'`).test(lib), `falta escuchar ${ev}`);
+    assert.ok(new RegExp(`tipo_evento: '${tipo}'`).test(lib), `falta emitir ${tipo}`);
+  }
+  // El evento pause también dispara al TERMINAR: eso no es una pausa.
+  assert.ok(/if \(el\.ended \|\| !e\.play\) return/.test(lib), 'el final de un video no es una pausa');
+  // ⚠️ Y el segundo play es RETOMAR, no otra reproducción: contarlo como play
+  // inflaría el conteo y haría ver dos personas donde hay una.
+  assert.ok(/tipo_evento: 'retoma'/.test(lib), 'el segundo play tiene que distinguirse del primero');
 });

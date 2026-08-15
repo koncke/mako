@@ -81,8 +81,12 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       un video de 23 minutos el primer hito de 5% cae a los 71 segundos: hasta
  *       entonces no llegaba un solo avance, y quien miraba 40 segundos y se iba
  *       se registraba como si no hubiera visto nada (15/08/2026).
+ *  10 — se miden AGENDÓ (Calendly avisa al padre por postMessage) y el ciclo de
+ *       vida del video: pausa, retoma y fin. Sin lo primero, el embudo de quien
+ *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
+ *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 9;
+export const SNIPPET_VERSION = 10;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -117,6 +121,7 @@ const NOVEDADES: Record<number, string> = {
   4: 'la medición de videos cortos: antes, uno de menos de 15 segundos no registraba ningún avance',
   5: 'la medición de todos los videos por separado: antes, con más de uno, el segundo casi no se medía y su avance se calculaba con la duración del primero',
   6: 'la medición de los clics: qué botones y enlaces usan tus visitantes, incluido el de WhatsApp · y la prueba del código ahora muestra solo tus propios eventos, sin mezclarlos con las visitas del día',
+  10: 'dos eventos que faltaban: cuando alguien AGENDA en tu Calendly embebido —que para vender por llamada es el evento más importante— y las pausas del video, que distinguen a quien lo mira de quien lo dejó corriendo',
   9: 'la medición de los primeros segundos de un video largo: hasta ahora, en un video de 20 minutos no se registraba ningún avance durante el primer minuto — y ahí es donde se pierde a la mayoría',
   8: 'poder ver cada video desde la app al momento de identificarlo: antes solo aparecía un código y había que adivinar',
   7: 'la medición de tu video cuando no usas Panda: con un reproductor común no se registraba ni una reproducción',
@@ -813,8 +818,27 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
         var id = idDeVideo(el, i);
         var e = est(id);
         e.tit = e.tit || el.getAttribute('title') || el.getAttribute('aria-label') || null;
+        // ⚠️ PAUSA Y REANUDAR. Sin esto, «vio 3 minutos» podía ser alguien que
+        // dejó el video corriendo mientras hacía otra cosa. Una pausa a los 40
+        // segundos y un retomar a los 3 minutos es una señal de interés MUY
+        // distinta de una reproducción corrida, y hasta ahora las dos se veían
+        // exactamente igual.
+        el.addEventListener('pause', function () {
+          // El evento pause también dispara al terminar el video: eso no es una pausa.
+          if (el.ended || !e.play) return;
+          enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+        });
+        el.addEventListener('ended', function () {
+          enviar({ tipo_evento: 'fin', porcentaje: 100, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+        });
         el.addEventListener('play', function () {
-          if (e.play) return;
+          if (e.play) {
+            // Ya había arrancado: esto es RETOMAR después de una pausa, y es un
+            // evento propio. Tratarlo como «otro play» inflaría el conteo de
+            // reproducciones y haría ver dos personas donde hay una.
+            enviar({ tipo_evento: 'retoma', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+            return;
+          }
           e.play = true;
           // La URL del archivo. Es lo que después deja abrir el video desde la app
           // para saber CUÁL es el que estás nombrando: un id como «v:que-se-vive.mp4»
@@ -960,6 +984,26 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
   }, true);
 
 ${bloqueClarity(clarityProjectId)}
+  // ── AGENDÓ ────────────────────────────────────────────────────────────────
+  // ⚠️ EL EVENTO QUE FALTABA, y para un negocio que vende por llamada es EL
+  // evento: la reserva. Lo que pasa adentro del iframe de Calendly es de otro
+  // dominio y no se puede espiar — pero Calendly AVISA al padre por postMessage
+  // cuando alguien agenda, y eso sí lo podemos escuchar. Es la única forma de
+  // cerrar el embudo de una landing cuyo llamado a la acción es una agenda
+  // embebida, que hasta hoy terminaba en «vio el video» y nada más.
+  window.addEventListener('message', function (ev) {
+    try {
+      var d = ev.data;
+      var e = d && (typeof d === 'string' ? d : d.event);
+      if (typeof e !== 'string' || e.indexOf('calendly.') !== 0) return;
+      // Solo la reserva confirmada. Calendly emite varios eventos del ciclo
+      // (abrió, eligió fecha…) y contarlos todos convertiría «agendó» en «miró
+      // el calendario», que es justo la diferencia que importa.
+      if (e !== 'calendly.event_scheduled') return;
+      enviar({ tipo_evento: 'agendo', detalle: 'calendly' });
+    } catch (err) {}
+  });
+
   window.addEventListener('pagehide', alSalir);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') alSalir();
