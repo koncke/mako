@@ -75,11 +75,11 @@ export function NombrarVideos({
 
   return (
     <div style={{ marginTop: 14 }}>
-      <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Qué es cada video</div>
+      <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Identifica tus videos</div>
       <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
-        Medimos todos los videos de tu página por separado. Deciles cómo se llaman para saber de
-        cuál es cada retención en la ficha del lead — el que marques como <b>VSL</b> es el que
-        manda en el resto de la app.
+        Medimos cada video de tu página por separado. Ponles un nombre para saber a cuál corresponde
+        cada retención en la ficha del lead. El que marques como <b>VSL</b> es el que se usa en el
+        resto de la app.
       </div>
 
       <div style={{ marginTop: 12 }}>
@@ -120,7 +120,7 @@ export function NombrarVideos({
                     // accionable: la URL viaja desde la v8, así que un video con
                     // eventos y sin URL es uno cuyo código todavía es anterior.
                     <span title="La dirección del video llega con la versión nueva del código" style={{ flex: 'none', fontSize: 11, color: 'var(--faint)', fontStyle: 'italic' }}>
-                      {d.eventos > 0 ? 'para verlo, repegá el código' : ''}
+                      {d.eventos > 0 ? 'para verlo, actualiza el código' : ''}
                     </span>
                   )}
                 </span>
@@ -132,7 +132,7 @@ export function NombrarVideos({
                     <Input
                       value={texto}
                       onChange={(e) => setTexto(e.target.value)}
-                      placeholder="Ej: Testimonio de Ana"
+                      placeholder="Ej.: Testimonio de Ana"
                       autoFocus
                       onKeyDown={(e) => { if (e.key === 'Enter' && texto.trim()) void guardar(d.id, texto); }}
                     />
@@ -147,11 +147,11 @@ export function NombrarVideos({
                         if (v === OTRO) { setEscribiendo(d.id); setTexto(guardado?.nombre ?? ''); return; }
                         void guardar(d.id, v);
                       }}
-                      placeholder={r.propio ? r.texto : `Sin nombre${d.titulo ? ` — el player dice «${d.titulo}»` : ''}`}
+                      placeholder={r.propio ? r.texto : `Sin identificar${d.titulo ? ` — el reproductor dice «${d.titulo}»` : ''}`}
                       options={[
-                        ...TIPOS_VIDEO.map((t) => ({ value: t, label: t, ...(esTipoVsl(t) ? { sub: 'el video de ventas — solo uno puede serlo' } : {}) })),
-                        ...propios.map((n) => ({ value: n, label: n, sub: 'ya lo usaste' })),
-                        { value: OTRO, label: 'Otro tipo de video…', sub: 'escribí el nombre' },
+                        ...TIPOS_VIDEO.map((t) => ({ value: t, label: t, ...(esTipoVsl(t) ? { sub: 'tu video de ventas: solo puede haber uno' } : {}) })),
+                        ...propios.map((n) => ({ value: n, label: n, sub: 'ya lo usaste antes' })),
+                        { value: OTRO, label: 'Otro tipo de video…', sub: 'escribe el nombre' },
                       ]}
                     />
                   )}
@@ -163,7 +163,7 @@ export function NombrarVideos({
                     <IconBtn name="pen" title="Escribir otro nombre" onClick={() => { setEscribiendo(d.id); setTexto(guardado.nombre); }} />
                     {/* Olvidar el nombre NO borra la medición: los eventos son un
                         hecho y siguen ahí. Lo único que se pierde es el rótulo. */}
-                    <IconBtn name="trash" title="Olvidar el nombre (no borra la medición)" tone="bad" disabled={ocupado === d.id} onClick={() => void borrar(d.id)} />
+                    <IconBtn name="trash" title="Quitar el nombre (no borra la medición)" tone="bad" disabled={ocupado === d.id} onClick={() => void borrar(d.id)} />
                   </>
                 ) : null}
               </div>

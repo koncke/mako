@@ -69,15 +69,15 @@ export default async function BandejaPropuestasPage() {
     <Pagina>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Contactos para revisar</h1>
       <p style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.55, maxWidth: '70ch' }}>
-        Los leads de tu landing entran solos. Acá quedan los que <b>parecen ser alguien que ya tenés</b>:
-        juntarlos no se puede deshacer y duplicarlos ensucia, así que esa la decidís vos.
+        Los leads de tu página ingresan solos. Aquí quedan los que <b>coinciden con un contacto que ya
+        tienes</b>: unirlos no se puede deshacer y duplicarlos ensucia el CRM, así que esa decisión es tuya.
       </p>
 
       {pendientes.length === 0 ? (
         <div style={{ marginTop: 22, border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface-2)', padding: '22px 24px' }}>
-          <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>No hay nada esperando</div>
+          <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>No hay nada pendiente</div>
           <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4, lineHeight: 1.55 }}>
-            Los que completan tu formulario entran directo al CRM. Acá solo aparece alguien si choca con un contacto que ya tenés.
+            Quienes completan tu formulario ingresan directo al CRM. Aquí solo aparece un contacto si coincide con otro que ya tienes.
           </div>
         </div>
       ) : (

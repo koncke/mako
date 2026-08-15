@@ -36,26 +36,26 @@ const hora = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.g
 
 /** Cómo se lee cada evento crudo. Los tipos técnicos no se muestran pelados. */
 function legible(e: Evento): { texto: string; color: string } {
-  if (e.tipo === 'pageview') return { texto: 'Visitó la landing', color: 'var(--dim)' };
-  if (e.tipo === 'play') return { texto: 'Arrancó el VSL', color: 'var(--primary)' };
-  if (e.tipo === 'exit') return { texto: e.porcentaje != null ? `Salió en el ${e.porcentaje}%` : 'Salió del VSL', color: 'var(--bad)' };
+  if (e.tipo === 'pageview') return { texto: 'Visitó tu página', color: 'var(--dim)' };
+  if (e.tipo === 'play') return { texto: 'Reprodujo el video', color: 'var(--primary)' };
+  if (e.tipo === 'exit') return { texto: e.porcentaje != null ? `Salió en el ${e.porcentaje}%` : 'Salió del video', color: 'var(--bad)' };
   const m = /^p(\d+)$/.exec(e.tipo);
-  if (m) return { texto: `Llegó al ${m[1]}% del VSL`, color: 'var(--good)' };
+  if (m) return { texto: `Llegó al ${m[1]}% del video`, color: 'var(--good)' };
   const s = /^s(\d+)$/.exec(e.tipo);
   if (s) return { texto: `Vio ${s[1]} segundos`, color: 'var(--good)' };
   // Un opt-in NO es un evento de tracking: vive en `propuestas`. Aparece igual en
   // esta lista porque la instrucción dice «completá tu propio formulario», y sin
   // esto ese formulario entraba perfecto sin producir un solo renglón — que es
   // exactamente cómo se lee «el formulario no se registró».
-  if (e.tipo === 'optin') return { texto: e.detalle ? `Dejó sus datos: ${e.detalle}` : 'Dejó sus datos en el formulario', color: 'var(--good)' };
+  if (e.tipo === 'optin') return { texto: e.detalle ? `Completó el formulario: ${e.detalle}` : 'Completó el formulario', color: 'var(--good)' };
   // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
   // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.
-  if (e.tipo === 'click') return { texto: e.detalle ? `Hizo click: ${e.detalle}` : 'Hizo click', color: 'var(--primary)' };
+  if (e.tipo === 'click') return { texto: e.detalle ? `Hizo clic en: ${e.detalle}` : 'Hizo clic', color: 'var(--primary)' };
   // ⚠️ «desconocido» NO es un evento: es lo que el beacon escribe cuando le llega
   // un tipo que no sabe clasificar (código viejo o modificado). Mostrarlo crudo
   // hacía aparecer la palabra «desconocido» en la lista, que se lee como que algo
   // se rompió — cuando lo que dice es que ese evento no se pudo interpretar.
-  if (e.tipo === 'desconocido') return { texto: 'Evento que no reconozco (código viejo o modificado)', color: 'var(--warn)' };
+  if (e.tipo === 'desconocido') return { texto: 'Evento no reconocido (código desactualizado o modificado)', color: 'var(--warn)' };
   return { texto: e.tipo, color: 'var(--dim)' };
 }
 
@@ -309,11 +309,11 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
 
   const avisoViejo = bloqueo && (
     <div style={{ marginTop: 12, padding: '13px 15px', borderRadius: 11, border: '1px solid var(--warn)', background: 'var(--warn-bg)' }}>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Primero actualizá el código</div>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Primero actualiza el código</div>
       <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4, lineHeight: 1.55 }}>
-        El que tenés pegado es de una versión anterior, así que probarlo no te va a decir nada útil:
-        los chequeos nuevos van a fallar porque ese código todavía no los manda.
-        <b> Copiá el código de arriba, reemplazalo en tu página y volvé acá.</b>
+        El que tienes instalado es de una versión anterior, así que la prueba no diría nada útil:
+        las verificaciones nuevas fallarían porque ese código todavía no las envía.
+        <b> Copia el código de arriba, reemplázalo en tu página y vuelve aquí.</b>
       </div>
     </div>
   );
@@ -343,7 +343,7 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
           <Button variant="secondary" onClick={() => setPaso('inicio')}>Volver</Button>
           {sinNombre.length > 0 && (
             <span style={{ fontSize: 12, color: 'var(--faint)' }}>
-              Podés dejarlo para después: la retención se mide igual, solo que sin saber de cuál es.
+              Puedes dejarlo para después: la retención se mide igual, pero sin saber a qué video corresponde.
             </span>
           )}
         </div>
@@ -356,7 +356,7 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
       <div style={box}>
         <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Probar que el código funciona</div>
         <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
-          Elegí cuál de tus páginas querés probar. La abrimos en otra pestaña y acá ves llegar los eventos en vivo.
+          Elige la página que quieres probar. La abrimos en otra pestaña y aquí ves llegar los eventos en vivo.
         </div>
 
         {/* UN desplegable, no un desplegable AL LADO de un input. Las páginas que
@@ -377,11 +377,11 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
                 ariaLabel="Página a probar"
                 value={eligiendoNueva ? NUEVA : url}
                 onChange={(v) => { setUrl(v === NUEVA ? '' : v); setEligiendoNueva(v === NUEVA); setEditando(null); setVerif(null); }}
-                placeholder="Elegí una página…"
+                placeholder="Elige una página…"
                 options={[
                   ...paginas.map((u) => ({ value: u, label: u, acciones: accionesDe(u) })),
                   ...detectadas.map((u) => ({ value: u, label: u, sub: 'detectada — se guarda al probarla', acciones: accionesDe(u) })),
-                  { value: NUEVA, label: 'Otra página…', sub: 'escribí la dirección' },
+                  { value: NUEVA, label: 'Otra página…', sub: 'escribe la dirección' },
                 ]}
               />
             </div>
@@ -397,9 +397,9 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
                 {/* Verificar ESTA página. Vive acá y no al lado del código porque
                     la respuesta depende de cuál elegiste: es la misma distancia
                     física, pero la pregunta que contesta es otra. */}
-                <IconBtn name="plug" title="Verificar si está instalado en esta página" disabled={verificando} onClick={() => void verificarEsta()} />
+                <IconBtn name="plug" title="Verificar si el código está instalado en esta página" disabled={verificando} onClick={() => void verificarEsta()} />
                 <IconBtn name="pen" title="Corregir esta dirección" onClick={() => { setEditando(guardadaElegida ? url : null); setEligiendoNueva(true); }} />
-                <IconBtn name="trash" title="Quitarla de la lista" tone="bad" disabled={ocupado} onClick={() => void borrar()} />
+                <IconBtn name="trash" title="Quitar de la lista" tone="bad" disabled={ocupado} onClick={() => void borrar()} />
               </>
             )}
           </div>
@@ -444,9 +444,9 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
             <span style={{ minWidth: 0, flex: 1, fontSize: 12.5, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {videosGuardados.length > 0
                 ? <>Tus videos: {videosGuardados.map((v) => v.nombre).join(' · ')}</>
-                : <>{detectadosVideo.length} {detectadosVideo.length === 1 ? 'video sin nombre' : 'videos sin nombre'} en tu página</>}
+                : <>{detectadosVideo.length} {detectadosVideo.length === 1 ? 'video sin identificar' : 'videos sin identificar'} en tu página</>}
             </span>
-            <IconBtn name="pen" title="Cambiar qué es cada video" onClick={() => setPaso('videos')} />
+            <IconBtn name="pen" title="Cambiar la identificación de cada video" onClick={() => setPaso('videos')} />
           </div>
         )}
       </div>
@@ -475,10 +475,10 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
           hablaba del video, y para un negocio cuya landing es un formulario —el
           caso que destapó esto— la prueba entera parecía no ser para él. */}
       <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 12 }}>
-        Ya te abrimos tu landing en otra pestaña. Probá ahí lo que uses: <b>reproducí el video</b> unos
-        segundos, <b>apretá tus botones</b> y <b>completá tu propio formulario</b>. Los eventos aparecen
-        acá en unos segundos, y <b>solo se muestran los de esta prueba</b> — no las visitas del día ni
-        las de otra gente que esté en tu página ahora.
+        Abrimos tu página en otra pestaña. Prueba allí lo que uses: <b>reproduce el video</b> unos
+        segundos, <b>haz clic en tus botones</b> y <b>completa tu formulario</b>. Los eventos aparecen
+        aquí en unos segundos, y <b>solo se muestran los de esta prueba</b>: no las visitas del día ni
+        las de otras personas que estén en tu página ahora.
       </div>
 
       {/* Los chequeos: qué anda y qué no, en criollo. El total lo dice el server
@@ -509,7 +509,7 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
         {cargando && !diag && <div style={{ padding: 16, fontSize: 13, color: 'var(--faint)' }}>Conectando…</div>}
         {diag && diag.eventos.length === 0 && (
           <div style={{ padding: 18, fontSize: 13, color: 'var(--faint)', lineHeight: 1.55 }}>
-            Todavía no llegó nada de esta prueba. Movete un poco por la pestaña que te abrimos: si no aparece nada, el código no está pegado o esa página no se publicó.
+            Aún no llega nada de esta prueba. Navega un poco por la pestaña que abrimos: si no aparece nada, el código no está instalado o esa página no se publicó.
           </div>
         )}
         {diag?.eventos.map((e, i) => {

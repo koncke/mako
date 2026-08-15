@@ -52,7 +52,7 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
       <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>
         {v.plays > 0 ? `${v.plays} ${v.plays === 1 ? 'reproducción' : 'reproducciones'}` : 'sin reproducir'}
         {/* «Reprodujo pero no llegó ningún hito» NO es 0%: es sin dato. */}
-        {v.maxPct == null && v.plays > 0 ? ' · sin dato de avance' : ''}
+        {v.maxPct == null && v.plays > 0 ? ' · sin datos de avance' : ''}
       </div>
       {v.maxPct != null && (
         // ⚠️ Recortada al 100% SIEMPRE: un ancho en % adentro de un carril no
@@ -89,12 +89,12 @@ export function ComportamientoCard({
           // "no vio": lo más común es que la landing no haya pasado bien su
           // visitor_id (o que haya visto el VSL desde otro dispositivo/sesión).
           <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>
-            Este lead tiene identificador, pero no cruzó con ningún evento de la landing ni del VSL. <b>No quiere decir que no lo haya visto</b>: casi siempre es que la landing no pasó bien su identificador al agendar, o que lo miró desde otro dispositivo. No se puede confirmar la retención.
+            Este lead tiene identificador, pero no coincide con ningún evento de tu página ni del video. <b>No significa que no lo haya visto</b>: lo más común es que tu página no haya pasado bien el identificador al agendar, o que lo viera desde otro dispositivo. No se puede confirmar la retención.
           </p>
         ) : (
           // Sin visitor_id: entró a mano o por instant form sin pasar por la landing.
           <p style={{ fontSize: 14, color: 'var(--faint)', lineHeight: 1.5 }}>
-            Sin tracking para este lead: entró antes de que existiera el tracking del VSL, o llegó por instant form sin pasar por la landing. No hay forma de reconstruirlo.
+            Sin seguimiento para este lead: ingresó antes de que existiera la medición del video, o llegó por un formulario de Meta sin pasar por tu página. No hay forma de reconstruirlo.
           </p>
         )}
       </section>
@@ -105,14 +105,14 @@ export function ComportamientoCard({
       <div style={{ ...sectLabel, marginBottom: 14 }}>Comportamiento</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 12 }}>
         <div style={miniCard}>
-          <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Visitó la landing</div>
+          <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Visitó tu página</div>
           <div style={{ fontSize: 22, color: visitas ? 'var(--ink)' : 'var(--faint)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
             {visitas || '—'}{visitas ? <span style={{ fontSize: 13, color: 'var(--faint)', fontWeight: 500 }}> {visitas === 1 ? 'vez' : 'veces'}</span> : null}
           </div>
           {visitas > 0 && <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>{dias} {dias === 1 ? 'día distinto' : 'días distintos'}</div>}
         </div>
         <div style={miniCard}>
-          <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>{varios ? 'Reprodujo' : 'VSL reproducido'}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>{varios ? 'Reprodujo' : 'Reprodujo el VSL'}</div>
           <div style={{ fontSize: 22, color: plays ? 'var(--ink)' : 'var(--faint)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
             {plays || '—'}{plays ? <span style={{ fontSize: 13, color: 'var(--faint)', fontWeight: 500 }}> {plays === 1 ? 'vez' : 'veces'}</span> : null}
           </div>
@@ -132,7 +132,7 @@ export function ComportamientoCard({
               </div>
             ) : plays > 0 ? (
               // Reprodujo pero no llegó ningún hito de avance: NO es "0%", es "sin dato".
-              <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4, lineHeight: 1.35 }}>Reprodujo, sin dato de avance</div>
+              <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4, lineHeight: 1.35 }}>Reprodujo, sin datos de avance</div>
             ) : null}
           </div>
         )}
@@ -148,7 +148,7 @@ export function ComportamientoCard({
               linkea en vez de dibujar un formulario que no es de esta tarjeta. */}
           {faltanNombres && (
             <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 10, lineHeight: 1.5 }}>
-              Hay videos sin nombre. <Link href="/integraciones?abrir=landing" style={{ color: 'var(--primary)', fontWeight: 600 }}>Ponéles uno</Link> para saber de un vistazo cuál es cuál.
+              Hay videos sin identificar. <Link href="/integraciones?abrir=landing" style={{ color: 'var(--primary)', fontWeight: 600 }}>Ponles un nombre</Link> para reconocerlos de un vistazo.
             </p>
           )}
         </div>

@@ -106,13 +106,13 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
  * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
  */
 const NOVEDADES: Record<number, string> = {
-  2: 'la captura automática del formulario de tu landing (quien lo completa te entra al CRM)',
-  3: 'un arreglo del código: la versión anterior salió sin identificador y dejó de medir y de capturar',
-  4: 'la medición de videos CORTOS: antes, uno de menos de 15 segundos no registraba ningún avance',
-  5: 'la medición de TODOS los videos de la página por separado: antes, si tenías más de uno, el segundo casi no medía y su avance se calculaba con la duración del primero',
-  6: 'la medición de los CLICKS: qué botón aprietan y qué links abren (el de WhatsApp, los que llevan al formulario). Antes, entre «visitó» y «dejó sus datos» no había ningún punto intermedio · y el probador de «¿funciona mi código?» ahora te muestra SOLO los eventos de tu prueba, en vez de mezclarlos con las visitas del día',
-  8: 'poder VER cada video desde la app cuando te pregunto cuál es cuál — antes solo veías un identificador y había que adivinar',
-  7: 'la medición de tu video cuando NO es de Panda: si tu página usa un reproductor común, hasta ahora no se registraba ni un play',
+  2: 'la captura automática del formulario de tu página: quien lo completa ingresa solo al CRM',
+  3: 'una corrección importante: la versión anterior salió sin identificador y dejó de medir y de capturar',
+  4: 'la medición de videos cortos: antes, uno de menos de 15 segundos no registraba ningún avance',
+  5: 'la medición de todos los videos por separado: antes, con más de uno, el segundo casi no se medía y su avance se calculaba con la duración del primero',
+  6: 'la medición de los clics: qué botones y enlaces usan tus visitantes, incluido el de WhatsApp · y la prueba del código ahora muestra solo tus propios eventos, sin mezclarlos con las visitas del día',
+  8: 'poder ver cada video desde la app al momento de identificarlo: antes solo aparecía un código y había que adivinar',
+  7: 'la medición de tu video cuando no usas Panda: con un reproductor común no se registraba ni una reproducción',
 };
 
 export function novedadesDesde(instalada: number): string {
@@ -339,7 +339,7 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
       .filter((r) => normalizarUrl(r.landing_url ?? '') === url);
     if (!filas.length) {
       return { url, instalada: false, version: null, vieja: false, ultima: null, visitas: 0,
-        texto: 'No llegó ninguna visita de esta página en 30 días. O el código no está pegado ahí, o esa página todavía no se publicó.' };
+        texto: 'No llega ninguna visita de esta página desde hace 30 días. El código no está instalado ahí, o esa página aún no se publica.' };
     }
     // La versión de la visita MÁS RECIENTE: si repegaron el código hace una hora,
     // lo que importa es eso y no las 300 visitas viejas de antes.
@@ -351,14 +351,14 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
       texto: version == null
         // Llegan visitas pero ninguna dice su versión: son de antes de que el
         // snippet la mandara, o sea de las más viejas que hay.
-        ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el código es tan viejo que ni siquiera dice su versión. Copiá el de arriba y reemplazalo.`
+        ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el código es tan antiguo que no informa su versión. Copia el de arriba y reemplázalo.`
         : vieja
-          ? `Está midiendo, pero con la versión ${version} y la actual es la ${SNIPPET_VERSION}. Te estás perdiendo ${novedadesDesde(version)}. Copiá el código de arriba y reemplazalo EN ESTA PÁGINA.`
-          : `Todo bien: está midiendo con la última versión (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`,
+          ? `Está midiendo con la versión ${version}, y la actual es la ${SNIPPET_VERSION}. Copia el código de arriba y reemplázalo EN ESTA PÁGINA para sumar: ${novedadesDesde(version)}.`
+          : `Todo correcto: está midiendo con la última versión (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`,
     };
   } catch (e) {
     console.error('[verificarPagina] falló:', e instanceof Error ? e.message : e);
-    return { url, instalada: false, version: null, vieja: false, ultima: null, visitas: 0, texto: 'No se pudo consultar. Probá de nuevo en un momento.' };
+    return { url, instalada: false, version: null, vieja: false, ultima: null, visitas: 0, texto: 'No se pudo consultar. Inténtalo de nuevo en un momento.' };
   }
 }
 
@@ -537,37 +537,37 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
   // no significan nada. Un diagnóstico que no empieza por «¿estás mirando el
   // código correcto?» manda a investigar síntomas de una versión que ya no existe.
   const chequeos: ChequeoDiag[] = [
-    { id: 'version', label: 'Tenés el código al día',
+    { id: 'version', label: 'Código actualizado',
       estado: instalada === 0 || !hayPageview ? 'falta' : codigoViejo ? 'viejo' : 'ok',
-      detalle: instalada === 0 || !hayPageview ? 'Todavía no llegó ningún evento para saber qué versión tenés puesta.'
-        : codigoViejo ? `Tenés la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Te estás perdiendo ${novedadesDesde(instalada)}. Copiá el código de arriba y reemplazalo.`
+      detalle: instalada === 0 || !hayPageview ? 'Aún no llega ningún evento para saber qué versión tienes instalada.'
+        : codigoViejo ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Copia el código de arriba y reemplázalo para sumar: ${novedadesDesde(instalada)}.`
         : 'Es la última versión.' },
     { id: 'pageview', label: '1. Llega a tu página',
       estado: hayPageview ? 'ok' : 'falta',
-      detalle: hayPageview ? 'El código está pegado y el ruteo funciona.'
-        : enPrueba ? 'Todavía no llegó la visita. Recargá la pestaña que te abrimos.'
-        : 'No llegó ninguna visita en 24 h. Revisá que el código esté pegado y publicado.' },
+      detalle: hayPageview ? 'El código está instalado y funciona.'
+        : enPrueba ? 'Aún no llega la visita. Recarga la pestaña que abrimos.'
+        : 'No llega ninguna visita desde hace 24 h. Revisa que el código esté instalado y publicado.' },
     { id: 'play', label: '2. Reproduce tu video',
       estado: hayPlay ? 'ok' : 'falta',
-      detalle: hayPlay ? 'El reproductor está enganchado.'
+      detalle: hayPlay ? 'Detectamos tu reproductor de video.'
         // ⚠️ EN UNA PRUEBA NO SE DICE «nadie en 24 h». La persona ACABA de apretar
         // play; contestarle con una estadística del día es contestarle otra cosa.
-        : enPrueba ? 'Todavía no llegó. Apretá play en tu video, en la pestaña que te abrimos.'
-        : 'Nadie reprodujo el video en 24 h. Si tu página no tiene video, ignoralo.' },
-    { id: 'profundidad', label: '3. Se mide cuánto ve',
+        : enPrueba ? 'Aún no llega. Reproduce tu video en la pestaña que abrimos.'
+        : 'Nadie reprodujo el video en las últimas 24 h. Si tu página no tiene video, ignora este punto.' },
+    { id: 'profundidad', label: '3. Se mide el tiempo de retención',
       estado: hayProfundidad ? 'ok' : soloVsl > 0 ? 'viejo' : 'falta',
-      detalle: hayProfundidad ? 'Llegan los hitos de avance: la retención por lead se puede calcular.'
-        : soloVsl > 0 ? 'Solo llega el arranque, no el avance. Con el código nuevo aparece a los pocos segundos de reproducción, aunque el video sea corto.'
-        : enPrueba ? 'Dejá el video corriendo unos segundos y aparece.'
-        : 'Todavía sin datos.' },
+      detalle: hayProfundidad ? 'Llegan los avances: ya se puede calcular la retención de cada lead.'
+        : soloVsl > 0 ? 'Solo llega el inicio, no el avance. Con el código actualizado aparece a los pocos segundos, aunque el video sea corto.'
+        : enPrueba ? 'Deja el video reproduciéndose unos segundos.'
+        : 'Aún sin datos.' },
     // El click FALTABA, y para una landing cuyo CTA es un ancla (#registro) es el
     // único punto entre «vio» y «dejó sus datos». Sin él no se puede distinguir
     // una página que no convence de una que nadie mira.
-    { id: 'click', label: '4. Aprieta tus botones',
+    { id: 'click', label: '4. Hace clic en tus botones',
       estado: hayClick ? 'ok' : 'falta',
-      detalle: hayClick ? 'Se registran los clicks: sabés qué botón aprietan y qué links abren.'
-        : enPrueba ? 'Todavía no llegó ninguno. Apretá un botón o un link en la pestaña que te abrimos.'
-        : 'Todavía no llegó ningún click. Con el código al día se registran solos.' },
+      detalle: hayClick ? 'Se registran los clics: sabes qué botones y enlaces usa cada visitante.'
+        : enPrueba ? 'Aún no llega ninguno. Haz clic en un botón o enlace en la pestaña que abrimos.'
+        : 'Aún no llega ningún clic. Con el código actualizado se registran solos.' },
     // ⚠️ EL CHEQUEO YA NO PIDE CONFIRMAR: los leads entran solos. Lo único que
     // queda esperando es un CHOQUE —alguien que parece estar ya en el CRM—, y eso
     // no es una tarea pendiente del sistema sino una decisión que solo puede
@@ -578,14 +578,14 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
     { id: 'optin', label: '5. Deja sus datos',
       estado: !declarado ? 'viejo' : hayOptin ? 'ok' : 'falta',
       detalle: !declarado
-        ? 'Está apagado: marcá «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads. Hasta entonces, lo que completen no entra.'
+        ? 'Está desactivado. Actívalo en Funnel → De dónde entran tus leads, opción «Llenan un formulario en tu página». Hasta entonces, lo que completen no ingresa.'
         : hayOptin
-          ? `Llegó el formulario y la persona entró sola al CRM.${pendientes > 0 ? ` Aparte, ${pendientes} ${pendientes === 1 ? 'quedó' : 'quedaron'} esperándote: ${pendientes === 1 ? 'parece' : 'parecen'} ser alguien que ya tenés y esa la decidís vos.` : ''}`
-          : enPrueba ? 'Todavía no llegó. Completá tu propio formulario en la pestaña que te abrimos y va a entrar solo al CRM.'
-          : 'Todavía no llegó ninguno. Para probarlo, completá tu propio formulario: entra solo al CRM.',
+          ? `El formulario llega y la persona ingresa sola al CRM.${pendientes > 0 ? ` Hay ${pendientes} pendiente${pendientes === 1 ? '' : 's'}: ${pendientes === 1 ? 'coincide' : 'coinciden'} con un contacto que ya tienes, así que esa decisión es tuya.` : ''}`
+          : enPrueba ? 'Aún no llega. Completa tu formulario en la pestaña que abrimos: ingresará solo al CRM.'
+          : 'Aún no llega ninguno. Para probarlo, completa tu propio formulario: ingresa solo al CRM.',
       // El link solo si hay algo que decidir. Un botón permanente al lado de algo
       // que funciona lo convierte en una tarea que nunca se termina.
-      accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Decidir esa' : `Decidir las ${pendientes}`, href: '/crm/revisar' } : undefined },
+      accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' } : undefined },
   ];
 
   // El total sale de la LISTA, no de un número escrito al lado. Estuvo en «de 4»

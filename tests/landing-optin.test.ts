@@ -226,7 +226,7 @@ test('la prueba del código chequea el formulario, y la versión NO se adivina',
   // el formulario y después ir a buscar el lead a otra pantalla.
   assert.ok(/id: 'optin'/.test(bloque), 'la prueba no verifica que el formulario entre al CRM');
   assert.ok(/!declarado/.test(bloque), 'tiene que distinguir «no lo declaraste en /funnel» de «todavía no probaste»: se arreglan en lugares distintos');
-  assert.ok(/completá tu propio formulario/.test(bloque), 'una prueba tiene que decir QUÉ hacer para probarla');
+  assert.ok(/completa tu propio formulario/.test(bloque), 'una prueba tiene que decir QUÉ hacer para probarla');
 
   // La versión se PREGUNTA, no se infiere. La heurística vieja (ausencia de
   // `segundos` en los eventos del VSL) mentía en el caso más común: una landing
@@ -254,7 +254,7 @@ test('con el código viejo no se deja probar, y «Verificar» lo dice', () => {
   // la persona sale creyendo que su landing está rota.
   const probar = leer('../app/integraciones/ProbarTracking.tsx');
   assert.ok(/previo\?\.codigoViejo/.test(probar), 'la prueba tiene que bloquearse con el código viejo');
-  assert.ok(/Primero actualizá el código/.test(probar), 'y decir qué hacer antes de probar');
+  assert.ok(/Primero actualiza el código/.test(probar), 'y decir qué hacer antes de probar');
   // El botón NO se esconde: esconderlo deja la sección sin su acción y sin decir
   // qué la reemplazó. Se deja intentar, y ahí se explica por qué todavía no.
   // `async`: arrancar RELEE el estado antes de bloquear, en vez de creerle a lo
@@ -480,8 +480,11 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   // texto para no volver a teñir de amarillo algo que funciona.
   assert.ok(/estado: !declarado \? 'viejo' : hayOptin \? 'ok' : 'falta'/.test(lib),
     'el chequeo mide si el formulario entra, no si quedó alguien por decidir');
-  assert.ok(/Aparte, \$\{pendientes\}/.test(lib), 'los que chocan se mencionan, no se esconden');
-  assert.ok(/texto: pendientes === 1 \? 'Decidir esa'/.test(lib), 'el botón pide DECIDIR, no revisar: ya no hay nada que confirmar');
+  assert.ok(lib.includes('Hay ${pendientes} pendiente'), 'los que coinciden se mencionan, no se esconden');
+  // «Ver el pendiente», no «Revisar»: revisar sugiere que hay que aprobar cada
+  // lead, y los leads entran solos. Lo único que espera es una decisión sobre un
+  // contacto que coincide con otro.
+  assert.ok(lib.includes("'Ver el pendiente'"), 'el botón no puede sugerir que hay que aprobar cada lead');
   // Sin ventana de tiempo a propósito: una de hace tres días sin revisar es MÁS
   // urgente que la de hoy, no menos.
   const i = lib.indexOf("eq('estado', 'pendiente')");
@@ -662,7 +665,7 @@ test('los chequeos van en el orden del EMBUDO, y la versión primero', () => {
   // Y en una PRUEBA los textos hablan de la prueba, no de las últimas 24 h: quien
   // acaba de apretar play no quiere que le contesten con una estadística del día.
   const bloque = lib.slice(i, fin);
-  assert.ok(/enPrueba \? 'Todavía no llegó\. Apretá play/.test(bloque), 'en una prueba no se dice «nadie reprodujo en 24 h»');
+  assert.ok(/enPrueba \? 'Aún no llega\. Reproduce tu video/.test(bloque), 'en una prueba no se dice «nadie reprodujo en 24 h»');
   assert.ok(/const enPrueba = !!prueba/.test(lib), 'los chequeos tienen que saber si están dentro de una prueba');
 });
 
@@ -758,7 +761,7 @@ test('«qué es cada video» es un PASO de la prueba, no un formulario colgado',
   // es la respuesta actual a la vista, que es lo único que permite darse cuenta
   // de que uno se equivocó.
   assert.ok(/Tus videos: \{videosGuardados\.map/.test(panel), 'falta el renglón que nombra lo declarado');
-  assert.ok(/title="Cambiar qué es cada video"/.test(panel), 'falta la forma de corregirlo');
+  assert.ok(/title="Cambiar la identificación de cada video"/.test(panel), 'falta la forma de corregirlo');
 });
 
 test('la ventana de prueba se dibuja SOLA, sin el sidebar', () => {
@@ -804,5 +807,5 @@ test('cada video se puede VER desde la pantalla que te pide nombrarlo', () => {
   // deja a la persona buscando un botón que le dijimos que existía. La razón es
   // accionable: la URL viaja desde la v8, así que un video con eventos y sin URL
   // es uno cuyo código todavía es anterior.
-  assert.ok(/para verlo, repegá el código/.test(ui), 'un botón que falta sin decir por qué se lee como una pantalla rota');
+  assert.ok(/para verlo, actualiza el código/.test(ui), 'un botón que falta sin decir por qué se lee como una pantalla rota');
 });
