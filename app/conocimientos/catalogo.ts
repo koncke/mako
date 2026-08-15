@@ -33,6 +33,7 @@ import { CURSO_MASTER_MARCA_PERSONAL_5_0 } from './curso-master-marca-personal-5
 import { CURSO_SOCIAL_FUNNEL } from './curso-social-funnel';
 import { CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT } from './curso-ugc-sim-academy-de-mindshft';
 import { CURSO_HACKEANDO_LA_EDICION } from './curso-hackeando-la-edicion';
+import { CURSO_PROGRAMA_RAIO } from './curso-programa-raio';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
 
@@ -71,6 +72,10 @@ const CATEGORIA: Record<string, string> = {
   'anuncio-ganador': 'Anuncios',
   // Alcance sin pauta
   'inteligencia-viral-2026': 'Orgánico',
+  // Idiomas. Sección propia y no «Cursos externos» (el default que emite el pipeline):
+  // un curso de inglés no comparte criterio de búsqueda con ninguna otra sección, y el
+  // cajón «externos» agrupa por PROCEDENCIA, que no es lo que nadie viene a buscar.
+  'programa-raio': 'Idiomas',
   // Lo propio: método, marca y criterios de la casa
   '100ads-analisis': CATEGORIA_PROPIA,
   'vsl-landing': CATEGORIA_PROPIA,
@@ -142,6 +147,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_JAQUE_BLUE_CREACION_DE_CONTENIDO, CURSO_100M_MONEY_MODELS,
   CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
+  CURSO_PROGRAMA_RAIO,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
