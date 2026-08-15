@@ -618,6 +618,45 @@ decisiones que conviene no revertir:
 **Vive en:** `app/integraciones/escuchando/page.tsx` · `app/integraciones/ProbarTracking.tsx`
 (`arrancar`, `enVentana`)
 
+### Heatmaps: por qué NO integramos ninguno (y qué sí)
+
+*2026-08-15 · investigación de 26 agentes, precios verificados uno por uno contra el fabricante*
+
+La decisión completa, con la tabla de precios y el plan, en
+[heatmaps-decision.md](heatmaps-decision.md). Lo que hay que saber antes de volver a abrir el tema:
+
+- **Microsoft Clarity es gratis de verdad** —sitios y proyectos ilimitados, sin tope de tráfico,
+  confirmado dos veces en la documentación de Microsoft— y aun así **no sirve dentro del
+  producto**, por cuatro límites que ninguna cantidad de plata arregla:
+  su API permite **10 requests por proyecto por día**, devuelve solo promedios de los últimos
+  1-3 días y **no puede bajar un heatmap ni una grabación**; **no captura nada dentro de un
+  iframe de terceros**, o sea que el reproductor de Panda —el corazón de estas landings— es un
+  agujero negro; las grabaciones **duran 30 días**; y el enganche con el lead existe
+  (`clarity("identify", …)`) pero el filtro vive **solo en la interfaz de Microsoft**.
+- **El precio que se paga no es plata: es el dato.** El texto de privacidad que Microsoft manda
+  pegar en la landing del cliente dice que los datos se usan **para publicidad**, y Clarity es
+  GDPR-compliant **como controlador**, no como procesador. No es nuestro proveedor bajo nuestras
+  reglas: es un tercero que recibe los datos de los visitantes de nuestros clientes bajo las suyas.
+- **Cualquier herramienta que cobre POR SITIO está muerta antes de empezar.** Plerdy («one
+  package equates to one site») se come el 45% de un plan de US$47. Heatmap.com arranca en
+  US$199 por sitio: cuatro planes enteros.
+- **Dos competidores murieron durante la investigación**: Smartlook cerró ventas el 31/05/2026 y
+  Howuku directamente ya no opera. Un comparador de blog los seguiría listando.
+- **Lo que el Pixel ya mide se solapa más de lo que parece.** El «click map» es el dato que ya
+  tenemos con la posición encima; el «conversion map» lo hacemos **mejor**, porque decimos
+  *quién*. Lo realmente nuevo son tres cosas: profundidad de scroll, rage/dead clicks y grabación
+  de sesión. Las dos primeras son 4-6 días dentro del Pixel; la tercera no la podemos hacer barato.
+
+**⚠️ Y la trampa que decide el alcance:** el mapa de calor *bonito* —la mancha roja sobre la
+página— necesita una **captura de la landing** para pintar encima, y los hosts tipo Framer,
+Webflow y WordPress bloquean que se la meta en un marco. Ese es el cuello de botella real, no la
+medición. Por eso lo que se entrega es **ranking por elemento + curva de scroll**: contesta la
+misma pregunta de negocio, no necesita la foto, y se puede **filtrar por lead** — que es
+exactamente lo que ninguna herramienta de la tabla puede hacer.
+
+**Vive en:** [heatmaps-decision.md](heatmaps-decision.md) · lo que falta construir, en
+`lib/landing-token.ts` (los 4 campos del evento de clic y los 2 detectores)
+
 ### Lo que NO era un bug (verificado en la base, no deducido)
 
 - **Los «Visitó la landing» repetidos son visitas reales.** `landing_visits` no tiene columna de
