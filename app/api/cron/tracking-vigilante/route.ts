@@ -22,7 +22,23 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { listarWorkspaces, runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { getSetting } from '@/lib/settings';
-import { LANDING_TOKEN_KEY, novedadesDesde, snippetDesactualizado } from '@/lib/landing-token';
+import { LANDING_TOKEN_KEY, novedadesDesde, snippetDesactualizado, verificarPagina } from '@/lib/landing-token';
+import { CONFIG_KEY, parsearConfig, urlsDe } from '@/lib/landing-config';
+import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
+
+/**
+ * Las páginas declaradas por este workspace, en cualquiera de los dos formatos.
+ *
+ * Se lee acá y no por la action porque el cron corre sin sesión: la action pide
+ * el permiso de la tab, que no existe fuera de una request de usuario.
+ */
+const NL = String.fromCharCode(10);
+
+async function paginasDelWorkspace(): Promise<string[]> {
+  const nuevo = urlsDe(parsearConfig(await getSetting(CONFIG_KEY)));
+  if (nuevo.length) return nuevo;
+  return parsearPaginas(await getSetting(PAGINAS_KEY));
+}
 import { APP_BASE_URL } from '@/lib/app-url';
 import { emitirDelCatalogo } from '@/lib/avisos';
 
@@ -95,6 +111,27 @@ export async function GET(req: NextRequest) {
           // eventos del código viejo llegan igual y la integración sigue en verde.
           const { viejo, instalada } = await snippetDesactualizado();
           if (viejo) {
+            // ⚠️ QUÉ PÁGINA. `snippetDesactualizado()` mira el setting del
+            // WORKSPACE —una sola versión, la del último evento venga de donde
+            // venga— así que con dos landings publicadas el aviso decía «tu
+            // página» sin poder decir cuál. Y son distintas: el código puede
+            // estar al día en la de ventas y viejo en la de webinar.
+            //
+            // Acá se pregunta por CADA una (la versión sale de landing_visits.sv,
+            // por página) y se nombran solo las que de verdad quedaron atrás.
+            // Si ninguna se puede evaluar, el mensaje sigue siendo el genérico:
+            // callarse porque no se sabe cuál sería perder el aviso entero.
+            const suyas = await paginasDelWorkspace();
+            const atrasadas: string[] = [];
+            for (const u of suyas.slice(0, 8)) {
+              const v = await verificarPagina(u).catch(() => null);
+              if (v?.instalada && v.vieja) atrasadas.push(v.url);
+            }
+            const cuales = atrasadas.length === 1
+              ? `Tu página *${atrasadas[0]}* tiene una versión vieja del Pixel.`
+              : atrasadas.length > 1
+                ? `Estas páginas tienen una versión vieja del Pixel:${NL}${atrasadas.map((u) => `• ${u}`).join(NL)}`
+                : 'El código que tienes instalado es de una versión vieja.';
             // ⚠️ Va `texto` y NO `contexto`: con `contexto` el mensaje lo REDACTA
             // el modelo, y acá viaja un LINK exacto. La regla de la casa es
             // textual: «un DATO EXACTO que pasa por las manos de un LLM deja de
@@ -106,11 +143,11 @@ export async function GET(req: NextRequest) {
               ws: w.id,
               dedupTtlMin: DEDUP_MIN,
               texto: [
-                'El código que tenés pegado en tu página es de una versión vieja.',
+                cuales,
                 '',
                 `*Qué te estás perdiendo:* ${novedadesDesde(instalada)}.`,
                 '',
-                `*Cómo se arregla* (2 minutos): entrá acá, copiá el código y volvé a pegarlo en tu página, en el mismo lugar donde estaba.`,
+                `*Cómo se arregla* (2 minutos): entra aquí, elige ${atrasadas.length > 1 ? 'cada página' : 'esa página'}, copia el código y vuelve a pegarlo donde estaba.`,
                 LINK_LANDING,
               ].join('\n'),
             });

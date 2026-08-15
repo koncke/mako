@@ -869,3 +869,22 @@ test('el producto se llama IGUAL en todas las pantallas', () => {
   assert.ok(/titulo: 'El Pixel de MaKo dejó de mandar datos'/.test(avisos), 'el aviso de tracking apagado quedó con el nombre viejo');
   assert.ok(/titulo: 'El Pixel de MaKo quedó viejo'/.test(avisos), 'el aviso de versión vieja quedó con el nombre viejo');
 });
+
+test('el aviso de Pixel viejo dice CUÁL página', () => {
+  // ⚠️ `snippetDesactualizado()` mira el setting del WORKSPACE — una sola versión,
+  // la del último evento venga de donde venga. Con dos landings publicadas el
+  // aviso decía «tu página» sin poder decir cuál, y son distintas: el código
+  // puede estar al día en la de ventas y viejo en la de webinar.
+  const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
+  assert.ok(/verificarPagina\(u\)/.test(cron), 'hay que preguntar por CADA página, no por el workspace');
+  assert.ok(/v\?\.instalada && v\.vieja/.test(cron), 'solo se nombran las que de verdad quedaron atrás');
+  assert.ok(/Tu página \*\$\{atrasadas\[0\]\}\*/.test(cron), 'con una, se la nombra');
+  assert.ok(/Estas páginas tienen una versión vieja/.test(cron), 'con varias, se listan');
+  // Si ninguna se puede evaluar, el mensaje sigue siendo el genérico: callarse
+  // porque no se sabe cuál sería perder el aviso entero.
+  assert.ok(/'El código que tienes instalado es de una versión vieja\.'/.test(cron), 'sin poder evaluar, el aviso igual sale');
+  // El cron corre SIN sesión, así que no puede usar la action (pide el permiso
+  // de la tab, que solo existe dentro de una request de usuario).
+  assert.ok(/async function paginasDelWorkspace/.test(cron), 'el cron necesita su propio lector');
+  assert.ok(!/getLandingsAction/.test(cron), 'la action pide un permiso que el cron no tiene');
+});
