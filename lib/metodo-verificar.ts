@@ -9,6 +9,7 @@
 // de onboarding (/api/onboarding, admin-cliente) — el GUARD lo pone cada ruta.
 
 import 'server-only';
+import { normalizarProjectId } from './clarity';
 import { credWs } from './credenciales';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
@@ -346,14 +347,15 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   // faltando el verificador no se puede guardar nada — y el mensaje culpa al
   // servicio, no al verificador que falta.
   async clarity(v) {
-    const pid = (v.CLARITY_PROJECT_ID ?? '').trim();
-    if (!pid) return { ok: false, error: 'Falta el ID del proyecto.' };
-    // El id es alfanumérico y corto (10 caracteres en los proyectos actuales).
-    // Se valida la FORMA y no la existencia: Clarity no tiene un endpoint que
-    // diga «este proyecto existe», y pegar la URL entera en vez del id es el
-    // error real que comete la gente.
-    if (!/^[a-z0-9]{6,20}$/i.test(pid)) {
-      return { ok: false, error: 'Eso no parece un ID de proyecto. Es el código corto de Settings → Overview, no la dirección completa.' };
+    // ⚠️ SE ACEPTA LA URL ENTERA. El lugar donde todo el mundo tiene el id a mano
+    // es la barra de direcciones del panel, no Settings → Overview — y antes eso
+    // rebotaba con «eso no parece un ID». Un formulario que entiende lo que la
+    // persona tenía a mano vale más que uno que exige el formato correcto.
+    const pid = normalizarProjectId(v.CLARITY_PROJECT_ID);
+    if (!pid) {
+      return { ok: false, error: (v.CLARITY_PROJECT_ID ?? '').trim()
+        ? 'No reconozco ese ID. Pegá el código corto o la dirección completa del panel de Clarity.'
+        : 'Falta el ID del proyecto.' };
     }
     const token = (v.CLARITY_API_TOKEN ?? '').trim();
     // Sin token todavía, el ID igual se guarda: el token se pega en el campo de

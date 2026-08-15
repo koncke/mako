@@ -33,12 +33,45 @@ import { credWs } from './credenciales';
 const PANEL = 'https://clarity.microsoft.com/projects/view';
 const API = 'https://www.clarity.ms/export-data/api/v1/project-live-insights';
 
+
+/**
+ * Saca el ID del proyecto de lo que sea que la persona haya pegado.
+ *
+ * ⚠️ EL ID NO SE PUEDE DEDUCIR DEL TOKEN, y se verificó: el `sub` del JWT es
+ * 3460892749304374 y el proyecto es `y2vjnv3kr3`, que en base36 da
+ * 3461152837449423. Están en el mismo espacio de numeración —los dos empiezan con
+ * «y2»— pero NO son el mismo identificador: el `sub` es de la cuenta, no del
+ * proyecto. Y la Data Export API tiene un solo endpoint, que no lista proyectos.
+ *
+ * Así que el id hay que pedirlo. Lo que SÍ se puede es dejar de pedirlo mal: el
+ * lugar donde todo el mundo lo tiene a mano es la barra de direcciones del panel
+ * de Clarity, no Settings → Overview. Antes eso rebotaba con «eso no parece un
+ * ID»; ahora se acepta la URL entera y se extrae el id.
+ *
+ * Es la diferencia entre un formulario que exige el formato correcto y uno que
+ * entiende lo que la persona tenía a mano.
+ */
+export function normalizarProjectId(crudo: string | null | undefined): string | null {
+  const s = (crudo ?? '').trim();
+  if (!s) return null;
+  // Una URL de Clarity: .../projects/view/<id>/... — el id es el segmento que
+  // sigue a «view». Se acepta con o sin esquema, con o sin cola.
+  const m = /clarity\.microsoft\.com\/projects\/view\/([a-z0-9]+)/i.exec(s);
+  if (m) return m[1].toLowerCase();
+  // Pegado pelado. Se acepta tal cual si tiene forma de id.
+  return /^[a-z0-9]{6,20}$/i.test(s) ? s.toLowerCase() : null;
+}
+
 /** El id del proyecto de Clarity de ESTE workspace, o null si no lo conectó. */
 export async function clarityProjectId(ws?: number): Promise<string | null> {
   const v = (await credWs('CLARITY_PROJECT_ID', ws))?.trim();
   // `PENDING` es el centinela que deja el alta de credenciales cuando el campo
   // se creó pero todavía no se completó. Tratarlo como un id daría un link roto.
-  return v && !v.startsWith('PENDING') ? v : null;
+  if (!v || v.startsWith('PENDING')) return null;
+  // Se normaliza también al LEER, no solo al guardar: puede haber valores
+  // cargados antes de que existiera la normalización, o pegados a mano en la
+  // base. Un id con forma de URL acá rompe el snippet Y el link del lead.
+  return normalizarProjectId(v);
 }
 
 async function token(ws?: number): Promise<string | null> {

@@ -149,14 +149,42 @@ test('los TRES registros: sin el verificador, la barra dice «servicio inválido
   }
 
   const ver = leer('../lib/metodo-verificar.ts');
-  // Se valida la FORMA del id, no su existencia: Clarity no tiene endpoint de
-  // «este proyecto existe», y pegar la URL entera en vez del id corto es el error
-  // que la gente comete de verdad.
-  assert.ok(/\^\[a-z0-9\]\{6,20\}\$/i.test(ver), 'un id con forma de URL tiene que rebotar con un mensaje que lo explique');
+  // ⚠️ CAMBIÓ: antes se RECHAZABA la URL del panel con «eso no parece un ID». Es
+  // justo donde la gente lo tiene a mano, así que ahora se acepta y se extrae —
+  // un formulario que entiende lo que la persona tenía vale más que uno que
+  // exige el formato correcto. La forma se valida dentro de `normalizarProjectId`.
+  assert.ok(/normalizarProjectId\(v\.CLARITY_PROJECT_ID\)/.test(ver), 'el id tiene que normalizarse, no rechazarse');
   // Sin token todavía, el ID igual se guarda: frenar acá obligaría a cargarlos en
   // un orden que nadie adivina.
   assert.ok(/if \(!token\) return \{ ok: true/.test(ver), 'el id tiene que poder guardarse antes que el token');
   // ⚠️ El 402 es la CUOTA agotada, no un token malo. Sin distinguirlo, el mensaje
   // manda a regenerar un token que está perfecto.
   assert.ok(/status === 402/.test(ver), 'la cuota agotada no puede leerse como token inválido');
+});
+
+test('el ID del proyecto NO se puede sacar del token, y se verificó', () => {
+  // La pregunta era buena: si tenemos el token, ¿para qué pedir el id? Medido
+  // contra el JWT real: `sub` = 3460892749304374 y el proyecto es `y2vjnv3kr3`,
+  // que en base36 da 3461152837449423. Están en el mismo espacio de numeración
+  // —los dos empiezan con «y2»— pero NO son el mismo identificador: el `sub` es
+  // de la cuenta. Y la Data Export API tiene un solo endpoint, que no lista
+  // proyectos. Queda escrito con los dos números para que nadie lo reintente.
+  const s = LIB();
+  assert.ok(/3460892749304374/.test(s) && /3461152837449423/.test(s), 'la comprobación tiene que quedar con sus números');
+
+  // Lo que SÍ se puede: dejar de pedirlo mal. El lugar donde la gente tiene el id
+  // a mano es la barra de direcciones del panel, no Settings → Overview.
+  assert.ok(/export function normalizarProjectId/.test(s), 'falta aceptar la URL del panel');
+  // Se busca el texto, no una regex: lo que hay en el fuente ES una regex con
+  // barras escapadas, y escaparla otra vez acá es cómo se llega a un test que
+  // falla sobre código correcto.
+  assert.ok(s.includes('clarity') && s.includes('projects') && s.includes('view'), 'la URL del panel es de donde se extrae el id');
+
+  // ⚠️ Y se guarda NORMALIZADO. Verificar una cosa y guardar otra es cómo se
+  // llega a una credencial que pasó la prueba y no funciona: el id pelado es lo
+  // que va en el <script> del cliente y en el link del lead.
+  const ruta = leer('../app/api/integraciones/credencial/route.ts');
+  assert.ok(/if \(env === 'CLARITY_PROJECT_ID'\)/.test(ruta), 'el id tiene que guardarse normalizado, no como se pegó');
+  // Y también al leer: puede haber valores viejos cargados a mano en la base.
+  assert.ok(/return normalizarProjectId\(v\);/.test(s), 'un id con forma de URL en la base rompería el snippet');
 });

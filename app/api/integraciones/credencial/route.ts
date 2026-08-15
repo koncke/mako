@@ -25,6 +25,7 @@ import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
+import { normalizarProjectId } from '@/lib/clarity';
 
 export const dynamic = 'force-dynamic';
 
@@ -170,8 +171,19 @@ export async function POST(req: NextRequest) {
       let guardadas = 0;
       for (const [env, valor] of Object.entries(valores)) {
         if (!envsDelServicio.has(env)) continue; // whitelist estricta: ignora envs ajenas
-        const v = typeof valor === 'string' ? valor.trim() : '';
+        let v = typeof valor === 'string' ? valor.trim() : '';
         if (!v) continue; // input vacío nunca pisa una guardada
+        // ⚠️ El id de Clarity se guarda NORMALIZADO. La verificación acepta que
+        // pegues la dirección entera del panel —que es donde todo el mundo lo
+        // tiene a mano— pero lo que se guarda tiene que ser el id pelado: es lo
+        // que va en el <script> de la página del cliente y en el link del lead.
+        // Verificar una cosa y guardar otra es cómo se llega a una credencial que
+        // pasó la prueba y no funciona.
+        if (env === 'CLARITY_PROJECT_ID') {
+          const pid = normalizarProjectId(v);
+          if (!pid) continue;
+          v = pid;
+        }
         // Sin excepciones para el dueño: guardar SIEMPRE escribe en la base, y la
         // base manda (lib/credenciales.ts). Todo se configura desde la app.
         try {
