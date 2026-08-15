@@ -646,13 +646,19 @@ textarea.mako-field {
    fondo (#171B22 sobre #0F1115): técnicamente distintos, invisibles en la
    práctica. Suben a un gris que se despega, con el ícono casi blanco. */
 .mk-key-row--code .mk-icon-btn {
-  border-color: #3A4356;
-  background: #262D3B;
-  color: #C7CEDB;
+  border-color: #4A5568;
+  background: #2B3342;
+  /* ⚠️ CASI BLANCO, no un gris apenas más claro que el fondo. El primer intento
+     puso #171B22 sobre #0F1115 —técnicamente distintos, invisibles— y el segundo
+     #C7CEDB, que ya se veía pero seguía siendo un ícono apagado sobre una barra
+     oscura. Estos tres botones son la ÚNICA acción de esa barra: si hay que
+     buscarlos, la barra parece decorativa. */
+  color: #EDF1F7;
 }
 .mk-key-row--code .mk-icon-btn:hover:not(:disabled) {
-  background: #333C4D;
-  border-color: #4C566B;
+  background: #3A4456;
+  border-color: #64708A;
+  color: #FFFFFF;
 }
 
 /* Las barras de scroll del código, desplegado. Sin esto el navegador pinta las
