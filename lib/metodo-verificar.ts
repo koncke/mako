@@ -12,6 +12,7 @@ import 'server-only';
 import { credWs } from './credenciales';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
+import { esCanalWhatsapp } from './chatwoot-canales';
 
 type Valores = Record<string, string>;
 
@@ -138,7 +139,11 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     if (status >= 400) return { ok: false, error: `Chatwoot respondió ${status}.` };
     const inboxes = (body.payload as Array<{ name?: string; channel_type?: string; phone_number?: string }> | undefined) ?? [];
     // El de WhatsApp es el que importa: es el que va a espejar los chats.
-    const wa = inboxes.find((i) => (i.channel_type ?? '').includes('whatsapp')) ?? inboxes[0];
+    // Chatwoot devuelve el nombre de la clase Ruby — 'Channel::Whatsapp', con W
+    // mayúscula—, así que el `.includes('whatsapp')` que había acá NUNCA matcheaba
+    // y se caía a `inboxes[0]`: con un solo inbox eso da la respuesta correcta por
+    // casualidad, y con dos rotula «tu bandeja de WhatsApp» sobre la de Instagram.
+    const wa = inboxes.find((i) => esCanalWhatsapp(i.channel_type)) ?? inboxes[0];
     const facts: Fact[] = [{ k: 'Bandejas', v: String(inboxes.length) }];
     if (wa?.name) facts.unshift({ k: 'Tu bandeja de WhatsApp', v: wa.name });
     if (wa?.phone_number) facts.push({ k: 'Número conectado', v: wa.phone_number });

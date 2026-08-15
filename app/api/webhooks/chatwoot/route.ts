@@ -18,6 +18,7 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 import { credWs } from '@/lib/credenciales';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { esCanalWhatsapp } from '@/lib/chatwoot-canales';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,14 @@ type ChatwootHook = {
   event?: string;
   message_type?: string | number;
   content?: string;
-  conversation?: { id?: number; inbox_id?: number; meta?: { sender?: { name?: string; phone_number?: string } } };
+  conversation?: {
+    id?: number;
+    inbox_id?: number;
+    // De qué BANDEJA salió: 'Channel::Whatsapp', 'Channel::Instagram', 'Channel::Email'…
+    // El canal viaja acá y no en `inbox`, que trae solo {id, name}.
+    channel?: string;
+    meta?: { sender?: { name?: string; phone_number?: string } };
+  };
   conversation_id?: number;
   sender?: { name?: string; phone_number?: string };
   // Identificadores de ruteo: el account_id de Chatwoot mapea al workspace
@@ -102,6 +110,24 @@ export async function POST(req: NextRequest) {
   const esEntrante = body.message_type === 'incoming' || body.message_type === 0;
   if (body.event !== 'message_created' || !esEntrante) {
     return Response.json({ ok: true, ignored: true });
+  }
+
+  // Esta ruta es SOLO WhatsApp, pero el webhook de Chatwoot es uno para toda la
+  // cuenta: el día que se agregue un inbox de Instagram, de email o de webchat,
+  // sus mensajes entrantes caen acá igual. Sin este filtro el teléfono viene
+  // vacío, `buscarLeadPorTelefono('')` da null, los bloques de lead se saltean en
+  // silencio — y el aviso, que es INCONDICIONAL, le llega al dueño rotulado como
+  // WhatsApp. Filtro en POSITIVO (ver lib/chatwoot-canales.ts): la lista de lo
+  // que NO es WhatsApp deja pasar cada canal nuevo sin avisar.
+  //
+  // Un payload SIN canal se procesa: `conversation.channel` lo manda Chatwoot
+  // desde hace varias versiones, pero rechazar por ausencia apagaría los avisos
+  // de un self-hosted viejo sin ningún síntoma que apunte acá. El caso que este
+  // guard viene a cerrar SÍ trae canal, así que la tolerancia no lo debilita.
+  const canal = body.conversation?.channel ?? null;
+  if (canal && !esCanalWhatsapp(canal)) {
+    console.warn(`[webhook:chatwoot] canal ${canal} — ignorado (esta ruta procesa solo WhatsApp)`);
+    return Response.json({ ok: true, ignored: 'otro canal', canal });
   }
 
   const sender = body.sender ?? body.conversation?.meta?.sender ?? {};

@@ -17,6 +17,10 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 - **Un `200` del intermediario no es una entrega.** Chatwoot, Meta y Resend contestan OK y
   rechazan después, asincrónico: el contador dice «enviado» y el lead nunca recibió nada.
   Ver [WhatsApp oficial](#whatsapp-oficial-chatwoot-y-meta) y [Email](#email-resend).
+- **Un link armado con `+` en un template literal no es un link, y nadie lo mira**: el aviso
+  de cada mensaje entrante sale con `${acc}` y `${convId}` literales por unas barras
+  invertidas. Vivo en producción. Ver
+  [Instagram](#instagram-lo-que-hay-que-saber-antes-de-abrir-el-canal).
 - **MaKo se queda mudo y nadie se entera:** toda su voz sale por UNA instancia de
   Evolution sin fallback, y los mensajes descartados no dejan traza. Estuvo dos semanas
   sin contestarle a ningún cliente. Ver [La voz de MaKo](#la-voz-de-mako-el-grupo-y-el-doer).
@@ -1888,3 +1892,313 @@ que le faltaba a `saveFunnelAction`; y el gate de Fathom por conexión viva.
 - `generateFunnel` siembra «Reunión excepcional» y «No Show R3» en todo funnel con etapa
   `kind:'pago'` (`lib/pipeline.ts:429-439`), y **no** genera Reactivación salvo que haya
   reunión (`:451`) — que es justo la que más le sirve a quien prospecta en frío.
+
+---
+
+## Instagram: lo que hay que saber antes de abrir el canal
+
+De la corrida de 21 agentes del 14/08/2026 (evaluación de factibilidad: DM directo vs
+ManyChat vs Chatwoot, + publicación de contenido). **12 afirmaciones se mandaron a
+verificación adversarial y 9 volvieron refutadas o matizadas** — el research de una sola
+pasada sobre APIs de Meta no es confiable, y las tres correcciones más caras están abajo.
+
+⚠️ **Y lo que NO se mandó a verificar salió peor.** De los dos bugs de código que la corrida
+reportó acá como vivos en producción, **uno no existía**: era una línea mal transcripta por
+la herramienta de búsqueda, «confirmada» ejecutando la transcripción en vez del archivo. La
+autopsia es la primera entrada de abajo y vale más que el hallazgo que reemplaza.
+
+### ~~El link del aviso de WhatsApp entrante nunca se generó~~ — el bug NO EXISTÍA
+
+**Vive en:** `app/api/webhooks/chatwoot/route.ts:175` · `tests/chatwoot-canal-aviso.test.ts`
+
+**El diagnóstico obvio era el equivocado, y el «obvio» era una alucinación de la
+herramienta.** La corrida del 14/08/2026 reportó acá que el link del aviso se armaba con
+barras invertidas (`` `${base}\app\accounts\${acc}\…` ``), que eso cancelaba la
+interpolación y que el dueño venía recibiendo un link roto en **cada** mensaje entrante.
+Se escribió como bug VIVO en producción. **Era falso.** El archivo siempre tuvo barras
+normales:
+
+```js
+const link = convId && base ? `${base}/app/accounts/${acc}/conversations/${convId}` : '';
+```
+
+`git log -L 175,175:app/api/webhooks/chatwoot/route.ts` lo prueba: la línea nació así en
+`f8c636fe` y solo la tocó `5117160f` para meterle `credWs`. Nunca hubo una versión con `\`.
+Y no es el caso de «se arregló hace una hora» que ya tiene su regla en AGENTS.md: acá
+**nunca estuvo roto**.
+
+**La causa real: la herramienta de búsqueda del agente reescribe `/` como `\` en el
+contenido que devuelve.** No en el path del resultado — en la LÍNEA del archivo. Medido el
+mismo día, sobre archivos de este repo:
+
+| El archivo dice | El `Grep` del agente devuelve |
+|---|---|
+| `` `${base}/app/accounts/${acc}/conversations/${convId}` `` | `` `${base}\app\accounts\${acc}\conversations\${convId}` `` |
+| `// Habla de un CONTACTO, no del sistema:` (`lib/avisos-catalogo.ts:106`) | `\ Habla de un CONTACTO, no del sistema:` |
+| `// El `ws` va EXPLÍCITO.` (`lib/nutricion.ts:1370`) | `\ El `ws` va EXPLÍCITO.` |
+
+Un `//` que vuelve como `\` es la firma: **eso no es código que exista en ningún lado**, es
+normalización de rutas de Windows aplicada al renglón entero. Solo pasa en los resultados
+cuyo path viene ACORTADO a relativo; los que traen el path absoluto completo vuelven
+intactos, y por eso en un mismo bloque de resultados hay líneas sanas y líneas mangleadas.
+`Read` y `cat -A` devuelven la verdad.
+
+**Y la trampa que convirtió el error en un hallazgo publicado: «verificado ejecutándolo».**
+El agente pegó en node el string que había leído del `Grep` y node le devolvió, con toda
+razón, `"https://mauricio.up.railway.appappaccounts…"`. Ejecutar **confirma la
+transcripción, no el archivo**. Una verificación que no vuelve a la fuente no verifica nada.
+
+**Las reglas que quedan** (la operativa está en AGENTS.md → «lo que devuelve la búsqueda no
+es el archivo»):
+
+1. Antes de reportar un bug de un CARÁCTER —una barra, una comilla, un escape— releer esa
+   línea con `Read` o `sed -n 'Np' | cat -A`. `Grep` sirve para ENCONTRAR, no para citar.
+2. Antes de escribir «bug vivo en producción», `git log -L <línea>,<línea>:<archivo>`. Si la
+   línea nunca tuvo la forma que reportás, el bug es del diagnóstico.
+3. Un test que evalúa la expresión del archivo cierra las dos puntas de una vez, porque
+   `readFileSync` no miente. Existe: `tests/chatwoot-canal-aviso.test.ts` arma el link con
+   la línea REAL del route y compara la URL resultante — era cierto que ningún test miraba
+   el texto de un aviso, y esa parte del hallazgo sí valía.
+
+### El webhook de Chatwoot no miraba de qué canal viene el mensaje — CERRADO 14/08/2026
+
+**Vive en:** `lib/chatwoot-canales.ts` · `app/api/webhooks/chatwoot/route.ts` ·
+`lib/metodo-verificar.ts` · `tests/chatwoot-canal-aviso.test.ts`
+
+El tipo `ChatwootHook` declara `inbox?: { id?: number }` con el comentario «por si más
+adelante se rutea a nivel de inbox» — y **nunca se lee**. No hay campo `channel` en el
+tipo. El único filtro es `event === 'message_created'` + entrante.
+
+Hoy no muerde porque la cuenta 3 tiene un solo inbox. **El día que alguien agregue un
+inbox de Instagram, de email o de webchat a esa misma cuenta de Chatwoot**, cada mensaje
+entrante cae acá: `sender.phone_number` viene vacío, `buscarLeadPorTelefono('')` devuelve
+`null`, los cuatro bloques de lead se saltean en silencio — y `emitirDelCatalogo(
+'wa-mensaje-entrante')` de la línea 176 **es incondicional**, así que el dueño recibe un
+aviso rotulado como WhatsApp por un DM de Instagram, sin teléfono y con el link roto de
+arriba. Es el patrón de «el default que inventa un dato», acá en forma de canal.
+
+**Al filtrar, aceptar los DOS valores.** El canal viaja en `conversation.channel` (el
+objeto `inbox` del payload trae solo `{id, name}` — confirmado en la doc y en
+`Conversations::EventDataPresenter#webhook_data`). Pero los inboxes de Instagram creados
+por el flujo legacy «Instagram via Facebook Login» emiten `Channel::FacebookPage`, no
+`Channel::Instagram`: el propio Chatwoot los desambigua con
+`instagram? = (facebook? || instagram_direct?) && channel.instagram_id.present?`, y ese
+`instagram_id` **no viaja en el webhook**. Matchear solo `Channel::Instagram` pierde los
+DMs de todo inbox legacy.
+
+**Cómo quedó.** `lib/chatwoot-canales.ts` (sin `server-only`, para que los tests lo puedan
+importar) es la fuente única de qué canal es qué, y el webhook filtra **en positivo** por
+`esCanalWhatsapp`: enumerar lo que NO es WhatsApp deja pasar cada canal nuevo de Chatwoot
+sin avisar. Los dos valores de Instagram viven ahí escritos en `CANALES_INSTAGRAM` — el
+webhook de WhatsApp no los necesita, pero el receptor de Instagram sí, y es donde la
+omisión cuesta.
+
+Dos decisiones que conviene no revisar a ciegas:
+
+- **Un payload SIN `channel` se procesa igual.** Chatwoot lo manda desde hace varias
+  versiones, pero rechazar por ausencia apagaría los avisos de un self-hosted viejo sin
+  ningún síntoma que apunte al webhook. El caso que el guard cierra —un inbox de otro
+  canal— SÍ trae `channel`, así que la tolerancia no lo debilita. El canal descartado se
+  loguea con su nombre, que es lo que después dice qué falta en la lista.
+- **La lista blanca tiene UN solo valor** (`Channel::Whatsapp`). El WhatsApp no oficial va
+  por Evolution, que tiene su propio webhook. Si alguna vez un cliente conecta WhatsApp por
+  Twilio (`Channel::TwilioSms`), se agrega a mano.
+
+**Y el mismo error, vivo, en otro lado.** `lib/metodo-verificar.ts` buscaba el inbox de
+WhatsApp con `(i.channel_type ?? '').includes('whatsapp')` — en minúsculas, contra el nombre
+de la clase Ruby, que es `Channel::Whatsapp` con W mayúscula. **Nunca matcheaba**, y se caía
+a `inboxes[0]`. Con un solo inbox eso da la respuesta correcta por casualidad, y por eso
+nadie lo vio; el día que haya dos, «Probar conexión» le rotula al cliente «Tu bandeja de
+WhatsApp» sobre la bandeja equivocada. Es el patrón de AGENTS.md → «un fallback que no cobra
+es una degradación silenciosa», acá en forma de `?? inboxes[0]`. Ahora usa el mismo
+`esCanalWhatsapp`.
+
+### Son TRES trámites de Meta, no dos — y el tercero es el que nadie planifica
+
+**El diagnóstico obvio era el equivocado.** El research de primera pasada concluyó
+«Business Verification + App Review para Advanced Access, y listo». La verificación lo
+refutó: falta **Access Verification / Tech Provider**, y la doc de Meta es taxativa —
+*«access verification is independent of App Review and permission access levels»*.
+
+- No es exclusivo de WhatsApp (ahí estaba el error de razonamiento): está documentado a
+  nivel plataforma desde jun-2022 y la lista de permisos que lo disparan incluye
+  `instagram_business_basic` — que es **obligatorio** para mandar un solo DM.
+- El modo de falla no es «más lento»: sin Tech Provider *«other businesses»* no pueden
+  usar la app. Tenés el código andando y **cero clientes conectables**, con error 100
+  («Object with ID … does not exist, cannot be loaded due to missing permissions»).
+- Por qué se pasa por alto: la página índice de *Release* de Meta lista App Review y
+  Business Verification como pasos de go-live y **no lista** Access Verification, aunque
+  la subpágina existe y es terminante.
+
+Lo que sí se confirmó: el App Review es **una sola vez, a nivel app**, por set de
+permisos. Ningún cliente final necesita review ni verificación propia — solo autoriza por
+OAuth.
+
+⚠️ **Esto rompe el atajo que MaKo usa hoy en Ads.** Hoy cada cliente genera su token en SU
+Business Manager con SU app, y por eso no hay App Review (ver memoria
+`meta-un-solo-token`). Con DMs no se puede repetir: los webhooks de mensajes se suscriben
+**a nivel de app**, no de token.
+
+### Los scopes de Private Replies: la doc de Meta miente por omisión
+
+La página de Private Replies (comentario→DM, que es la razón comercial nº1 por la que
+alguien compra automatización de Instagram) lista para Instagram Login **solo**
+`instagram_business_basic` + `instagram_business_manage_comments`. Es una lista
+incompleta: la private reply se manda por `POST /<IG_ID>/messages`, cuya guía pide
+`instagram_business_manage_messages`, y el follow-up dentro de las 24 h lo necesita por
+partida doble (para recibir el webhook `messages` y para enviar).
+
+**Pedir los TRES scopes en el OAuth y mandar los tres a App Review.** Diseñar con dos deja
+un comment→DM que no puede continuar la conversación y probablemente ni manda el primer
+mensaje (error 200 / subcódigo 2534066). Los webhooks `comments`/`live_comments` exigen
+Advanced Access explícitamente.
+
+### El tag `HUMAN_AGENT` en Instagram Login no está documentado en ningún lado
+
+Para contestar fuera de la ventana de 24 h (hasta 7 días) hace falta el tag. Tres trampas
+verificadas:
+
+- El valor es **`HUMAN_AGENT` en MAYÚSCULAS**. El `human_agent` en minúscula que aparece
+  en el Instagram Platform Overview es el nombre de la **feature de App Review**, no el
+  valor del enum. Los enums de Graph son case-sensitive: mandarlo en minúscula es error 100.
+- El campo `tag` está documentado **solo** para `POST /<PAGE_ID>/messages` en
+  `graph.facebook.com`. La doc de Instagram Login lista únicamente `recipient` y `message`,
+  y el link «reference» del endpoint va a un índice sin nodo `/messages`. Que `tag` ande en
+  `graph.instagram.com` es **inferencia por analogía, no un hecho documentado**.
+- Ninguna doc vigente muestra hoy un ejemplo con `messaging_type` + `tag` juntos: la vieja
+  página de message-tags devuelve 404. Hay que probarlo contra la API real: primero
+  `{recipient, message, tag:"HUMAN_AGENT"}`, y si falla
+  `{… messaging_type:"MESSAGE_TAG", tag:"HUMAN_AGENT"}`.
+
+Desde el 27/04/2026 `CONFIRMED_EVENT_UPDATE`, `ACCOUNT_UPDATE` y `POST_PURCHASE_UPDATE`
+dan error 100. Para Instagram el único tag que queda es `HUMAN_AGENT`.
+
+### La política de bots de Meta choca de frente con «un canal PROPONE, una persona confirma»
+
+No es un bug: es una contradicción entre el producto y la plataforma, y hay que resolverla
+**antes** de escribir el Chat Agent de Instagram.
+
+MaKo nunca le contesta solo a un lead — todo va a `wa_borradores` y lo manda un humano con
+un clic (regla de AGENTS.md, y regla de riesgo del canal no oficial). La política de Meta
+exige que el bot responda a **todo** input del usuario en **≤30 segundos**, que se divulgue
+que es automatizado, y castiga con aviso en el Page Support Inbox, 7 días para corregir y
+después **restricción de envío a nivel app — para todos los clientes a la vez**. Encima
+Meta **prohíbe explícitamente** usar `HUMAN_AGENT` para mensajes automatizados y dice que
+detecta el abuso.
+
+Un borrador que espera aprobación humana no responde en 30 segundos.
+
+**En Instagram el default se invierte:** auto-envío inmediato para los escenarios que
+`clasificarEscenario` marca como cubiertos (+ disclosure al inicio del hilo), hand-off a
+humano solo para el resto, y **cero** envíos fuera de la ventana desde un cron. Y la
+ventana de 24 h deja de ser prosa en un prompt para ser un guard determinista en el sender.
+
+### `normalizarTelefono` acepta un IGSID sin chistar
+
+**Vive en:** `lib/leads.ts` (`normalizarTelefono = tel.replace(/\D/g,'')`) y los cuatro
+matchers (`buscarLeadPorTelefono`, `matchLeadPorTelefono`, `resolverLeadIdsPorTelefono`,
+`buscarLeadsComoPlaceholders`).
+
+Un IGSID es **numérico y de 17 dígitos**: pasa el normalizador sin error, y el matcheo por
+`ilike '%últimos 10 dígitos'` puede engancharlo con el teléfono de un lead **real**. Sin
+excepción, sin log, sin aviso: dos conversaciones de personas distintas fusionadas en una
+ficha. No rompe una feature — corrompe datos, y lo ve el cliente antes que vos.
+
+Cualquier canal cuya identidad no sea un teléfono necesita `lead_identidades(ws, canal,
+external_id)` **antes** que el transporte, con un guard que rechace escribir un
+identificador no telefónico por el camino del teléfono. Hermano silencioso:
+`asistirRespuesta` solo deja borrador `if (sugerida && lead?.telefono)` — sin teléfono,
+MaKo redacta, gasta la llamada de IA y **tira la respuesta sin log**.
+
+### El Chatwoot de MaKo es self-hosted, y eso mata el único atajo que existía
+
+`CHATWOOT_BASE_URL=https://mauricio.up.railway.app` (verificado en `.env.local`, 14/08/2026)
+— Railway, y encima en la infra personal de Mauricio, mismo patrón que la app de Meta.
+
+Con Chatwoot **Cloud** se usa la app de Meta de Chatwoot y `human_agent` ya viene
+habilitado: cero App Review para MaKo y cero para el cliente. Con **self-hosted** el atajo
+se evapora y el App Review vuelve, pero ahora con un tercero en el medio:
+
+- Chatwoot pinnea **Graph v22.0 con `locked:true`** — expira el **20/05/2027** (issue
+  #13846, sin respuesta desde marzo). La fecha de vencimiento del canal la fija un tercero.
+- Solo se suscribe a `messages`, `message_reactions`, `messaging_seen`: **no hay comentarios
+  ni private replies**. El comment→DM es imposible por Chatwoot.
+- Contactos como `Unknown (IG: <igsid>)`, y el bug abierto #14584 (DMs que llegan de algunos
+  usuarios y de otros no).
+- En self-hosted las claves de Instagram **no se prenden por env var**: la fila ya existe en
+  `installation_configs` con `value` nil/false sembrada por `ConfigLoader`, y
+  `first_or_create` devuelve la fila existente sin pisarla. Van por
+  `{url}/super_admin/app_config?config=instagram` + el feature flag de cuenta
+  `channel_instagram`. Corolario feo: el Super Admin guarda el valor **crudo** del form, así
+  que un `"false"` string es truthy para `GlobalConfigService.load` (ventana de 7 días en la
+  UI) y `false` para `GlobalConfig.get` (request **sin** el tag) — la UI habilita responder
+  y el envío falla.
+
+### ManyChat no es una arquitectura, es una demo
+
+*«Only one business account can be linked to each channel at a time within the same
+Manychat account»* + *«you will need to create a separate Manychat account for each»*. El
+«unlimited channel connections» de los planes significa un canal **de cada tipo**, no varios
+Instagram. 30 clientes = 30 suscripciones (~$870/mes anual en Pro), 30 API keys a mano, sin
+descuento por volumen, sin white-label, sin OAuth.
+
+Y el timeout de External Request / Dynamic Block es *«limited to 10 seconds. It cannot be
+changed»* — no alcanza para un LLM con tool-use, obliga al patrón asíncrono (ack <10 s +
+push por `/fb/sending/sendContent`). El rumor de la excepción para `openai.com` sale de un
+moderador de foro que dice «I think, not 100% sure»; lo que sí tiene 120 s es el bloque
+**nativo** de ChatGPT, que no es tu endpoint. Sumale que no expone historial de
+conversación: MaKo pondría el cerebro y ManyChat se quedaría con el dato y con el contacto.
+
+### Publicación de contenido: los cinco detalles que muerden
+
+**Vive en (lo reusable):** `lib/meta-ads-create.ts` (`uploadAdVideoByUrl` ya publica por
+URL firmada en producción), `app/api/creative-upload`.
+
+- **El cupo diario no se hardcodea.** La doc de Meta se contradice consigo misma: 100 en
+  «Rate Limit», 50 en las limitaciones de carrusel, `quota_total: 50` «currently» en la
+  referencia del endpoint, y no hay changelog que diga cuál quedó viejo. Leer
+  `GET /{ig-id}/content_publishing_limit` por cuenta y tratar ese número como la verdad.
+  (El 25/día que circula en blogs no figura en ninguna página vigente.)
+- **El container expira a las 24 h**: se crea en el momento de publicar, no cuando el
+  usuario programa el post. La signed URL se firma al publicar (hoy son 3600 s).
+- **No hace falta CDN propio ni bucket público.** Meta hace cURL del archivo: *«it must be on
+  a public server»* significa alcanzable en ese instante — una signed URL de Supabase
+  alcanza. El resumable upload (`rupload.facebook.com`) sí es exclusivo de Facebook Login for
+  Business, pero el flujo por URL funciona en **ambas** configuraciones: construir ese. Lo
+  único que se pierde sin rupload es el reintento por offset en archivos grandes.
+- **Solo JPEG** en imágenes. `creative-upload` acepta PNG porque Meta Ads lo toma; en IG
+  orgánico rebota.
+- `getInstagramActorId()` cachea en un `let` module-level: **en un cron multi-tenant
+  devuelve el IG del primer workspace a todos los demás.** Mismo patrón que el global
+  mutable de `buildPatterns` (ver `hallazgos-ads.md`).
+
+### GOTCHA de investigación: no se puede leer la doc de Meta con WebFetch a secas
+
+`developers.facebook.com` se sirve **geolocalizada en español** y con el contenido dentro
+del payload JS. WebFetch resume la traducción y devuelve enums inventados (apareció
+`TAGGED_MESSAGE`, que no existe; el enum real es `{RESPONSE, UPDATE, MESSAGE_TAG, UTILITY}`).
+
+**Agregar `.md` a la URL devuelve el markdown fuente en inglés, limpio**
+(`…/docs/business-messaging/messenger-platform/send-messages.md`). No funciona en las
+páginas de reference autogeneradas: esas hay que bajarlas en HTML y grepear.
+
+### Lo que quedó SIN hacer
+
+- **El link roto de `route.ts:175` sigue en producción** — fix de una línea, no se aplicó en
+  esta corrida (era una evaluación de factibilidad, no una implementación).
+- **El filtro por canal del webhook tampoco** (`route.ts:102`), con la aceptación de
+  `Channel::FacebookPage` legacy.
+- **Los dos catálogos declaran envs distintos hoy**: `integraciones-catalogo.ts` lista 3 y
+  `metodo-catalogo.ts` lista 4 para Chatwoot. Es exactamente el desfase que produce un
+  `credWs` null en silencio; al sumar Instagram hay que tocar los dos con la misma lista.
+- **`CHATWOOT_WA_INBOX_ID` tiene default `3`** (el inbox de Mauricio) y
+  `Number(inboxRaw ?? '3')` no aplica el `??` sobre un valor no numérico → NaN silencioso.
+  Al parametrizar `cfg(inboxKey)` hay que **matar** ese default, no replicarlo.
+- **`meta-write.ts` no tiene el candado `assertCuentaDelDueno`** que sí tiene
+  `meta-ads-create.ts`, y lee `process.env.META_ACCESS_TOKEN` directo: siempre la cuenta de
+  Mauricio, sin error ruidoso.
+- **Verificar contra la API real** (no hay forma de saberlo por doc): el formato del body con
+  `tag` en `graph.instagram.com`, y el `quota_total` de una cuenta viva.
+
+*Corrida del 14/08/2026 — 21 agentes, 12 verificaciones adversariales (9 refutadas o
+matizadas). Evaluación de factibilidad; no se tocó código.*

@@ -743,6 +743,36 @@ se lee.
 Vive en `app/admin/dev/pricing/Piezas.tsx` → `DosMonedas`: un renglón por ítem, dos
 carriles con su propia escala y su propio tope, y el orden lo fija quien llama.
 
+# Lo que devuelve la búsqueda NO es el archivo
+
+La herramienta de búsqueda de este entorno **reescribe `/` como `\` en el contenido que
+devuelve** — no en el path del resultado, en la LÍNEA del archivo. Medido el 14/08/2026:
+
+| El archivo dice | El `Grep` devuelve |
+|---|---|
+| `` `${base}/app/accounts/${acc}/conversations/${convId}` `` | `` `${base}\app\accounts\${acc}\conversations\${convId}` `` |
+| `// Habla de un CONTACTO` (`lib/avisos-catalogo.ts:106`) | `\ Habla de un CONTACTO` |
+
+**Un `//` que vuelve como `\` es la firma.** Eso no es código que exista en ningún lado. Solo
+pasa en los resultados cuyo path viene acortado a relativo, así que en un mismo bloque hay
+líneas sanas y líneas mangleadas — no se puede confiar en «las otras se ven bien». `Read`,
+`sed | cat -A` y `readFileSync` devuelven la verdad.
+
+Costó un hallazgo publicado como **bug vivo en producción** sobre una línea que nunca estuvo
+rota, con autopsia completa en [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md).
+Tres reglas:
+
+1. **`Grep` sirve para ENCONTRAR, no para CITAR.** Antes de reportar un bug que depende de un
+   CARÁCTER —una barra, una comilla, un escape, un operador— releé esa línea con `Read`.
+2. **«Lo verifiqué ejecutándolo» no verifica nada si lo que ejecutás es tu transcripción.**
+   El agente pegó en node el string que le había devuelto el `Grep`; node confirmó, con toda
+   razón, la cadena mangleada. Una verificación que no vuelve a la FUENTE es una tautología.
+   Vale igual para un subagente: lo que devuelve es prosa, no evidencia.
+3. **Antes de escribir «bug vivo en producción», `git log -L <n>,<n>:<archivo>`.** Si la línea
+   nunca tuvo la forma que reportás, el bug es del diagnóstico. Es la otra mitad de la regla
+   de abajo: un agente no distingue «nunca estuvo roto» de «se arregló hace una hora», y
+   **tampoco distingue «está roto» de «lo leí mal»**.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que
