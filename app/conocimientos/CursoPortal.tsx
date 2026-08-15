@@ -763,46 +763,55 @@ export function PortalShell({ marca, tag, children }: { marca: ReactNode; tag?: 
 }
 
 // ── El portal de un curso: elige qué vista mostrar ───────────────────────────
-export type Vista = { clase?: number | null; r?: string | null };
+/** `de`: la clase desde la que se abrió un recurso. Es lo que hace que «Volver»
+ *  devuelva a ESA clase y no al índice — ver el porqué abajo, en CursoPortal. */
+export type Vista = { clase?: number | null; r?: string | null; de?: number | null };
 /** `reemplazar`: pisa la vista actual en vez de apilarla. Lo usa Anterior/Siguiente,
- *  para que «Volver» suba un nivel y no desande clase por clase. */
+ *  para que el historial no se llene de una entrada por clase leída. */
 export type NavOpts = { reemplazar?: boolean };
 
-export default function CursoPortal({ curso, vista, nav, back, backLabel, compartir }: {
+export default function CursoPortal({ curso, vista, nav, salir, backLabel, compartir }: {
   curso: Curso;
   vista: Vista;
   nav: (v: Vista, o?: NavOpts) => void;
-  back: () => void;
-  /** Solo para el HUB: a dónde vuelve, cuando el destino no es obvio. Adentro de
-   *  una clase o un recurso el «Volver» siempre sube un nivel y se entiende. */
+  /** Salir del curso: el nivel de arriba del hub. Opcional porque no siempre existe
+   *  —en un share de UN curso no hay «todos los cursos»— y ahí el hub va sin Volver:
+   *  un botón que no lleva a ningún lado es peor que no tenerlo. */
+  salir?: () => void;
+  /** Solo para el HUB: a dónde vuelve, cuando el destino no es obvio. */
   backLabel?: string;
   compartir?: ReactNode;
 }) {
   const clase = vista.clase != null ? curso.clases.find((c) => c.n === vista.clase) : undefined;
   const recurso = vista.r ? curso.recursos.find((r) => r.slug === vista.r) : undefined;
 
-  // ⚠️ El «Volver» de una CLASE navega al índice del curso EXPLÍCITAMENTE, no con el
-  // Atrás del navegador. Hacerlo con `back()` dependía de que Anterior/Siguiente no
-  // dejaran entradas en el historial, y aun usando `replace` seguía devolviendo a la
-  // clase anterior — así que el arreglo correcto es no depender del historial: desde
-  // una clase, «Volver» significa «al índice», siempre y sin ambigüedad.
+  // ⚠️ NINGÚN «Volver» de este portal usa el Atrás del navegador. Los tres navegan
+  // EXPLÍCITAMENTE al nivel de arriba, y no es purismo: cada intento de apoyarse en el
+  // historial se rompió por un camino distinto. Primero Anterior/Siguiente apilaba una
+  // entrada por clase (se arregló con `replace`, y el Volver de la clase SEGUÍA
+  // devolviendo a la anterior); después, ya con la clase explícita, el rótulo del curso
+  // de arriba —que apila un hub encima de la clase— hacía que el Volver del HUB
+  // devolviera a la clase, que es exactamente lo que el usuario reportó.
   //
-  // El de un RECURSO sigue con `back()`, a propósito: ahí «volver» sí depende de
-  // dónde entraste (desde una clase o desde el índice) y el historial lo sabe.
+  // La regla que queda: **el destino de «Volver» es una propiedad de la PANTALLA, no
+  // del camino que hiciste para llegar.** Desde una clase es el índice; desde el hub,
+  // los cursos. El único que sí depende de dónde veniste es el RECURSO —se abre desde
+  // el índice o desde una clase—, y por eso el origen viaja en la vista (`de`) en vez
+  // de deducirse del historial: así sobrevive a un reload y a un link copiado.
   if (clase) {
     return (
       <ClaseDetail
         curso={curso} c={clase}
-        goRecurso={(s) => nav({ r: s })}
+        goRecurso={(s) => nav({ r: s, de: clase.n })}
         goClase={(n) => nav({ clase: n }, { reemplazar: true })}
         back={() => nav({}, { reemplazar: true })}
       />
     );
   }
-  if (recurso) return <RecursoDetail r={recurso} back={back} />;
-  // Desde el HUB se APILA: entrar a una clase tiene que dejar el hub atrás para que
-  // «Volver» regrese a él. Lo que no apila es saltar de clase a clase (ver ClaseDetail).
-  return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} back={back} backLabel={backLabel} />;
+  if (recurso) {
+    return <RecursoDetail r={recurso} back={() => nav(vista.de != null ? { clase: vista.de } : {}, { reemplazar: true })} />;
+  }
+  return <Hub curso={curso} goClase={(n) => nav({ clase: n })} goRecurso={(s) => nav({ r: s })} compartir={compartir} back={salir} backLabel={backLabel} />;
 }
 
 export const CSS = `

@@ -86,9 +86,9 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
         // dónde iba. Un segundo botón habría sido dos salidas al mismo lugar.
         <CursoPortal
           curso={curso}
-          vista={{ clase: paso.clase, r: paso.r }}
+          vista={{ clase: paso.clase, r: paso.r, de: paso.de }}
           nav={(v) => nav({ curso: curso.slug, ...v })}
-          back={back}
+          salir={aTodos}
           backLabel="Todos los cursos"
         />
       )}

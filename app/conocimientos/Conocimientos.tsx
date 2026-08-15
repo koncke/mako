@@ -37,15 +37,18 @@ export default function Conocimientos() {
   const cursoSlug = params.get('curso');
   const claseN = params.get('clase');
   const rSlug = params.get('r');
+  // De qué clase se abrió el recurso: viaja en la URL para que «Volver» devuelva ahí
+  // aunque la pestaña se recargue o el link se copie. Ver el comentario de CursoPortal.
+  const deN = params.get('de');
   const curso = buscarCurso(cursoSlug);
 
   const viewKey = params.toString();
   const scrollKey = (k: string) => 'cono-scroll:' + k;
 
-  // `reemplazar` usa replace en vez de push: la entrada del historial se PISA. Es lo
-  // que hace que saltar de clase a clase con Anterior/Siguiente no llene el historial
-  // y que «Volver» suba al hub en vez de desandar clase por clase. Entrar a un recurso
-  // (o a una clase desde el hub) sí apila, así que «Volver» devuelve a la clase.
+  // `reemplazar` usa replace en vez de push: la entrada del historial se PISA. Sirve
+  // para que leer 40 clases seguidas no deje 40 entradas y el Atrás del navegador siga
+  // siendo útil. Los botones «Volver» NO dependen de esto: navegan explícitamente al
+  // nivel de arriba (ver el comentario largo en CursoPortal).
   const nav = (q: Record<string, string>, o?: { reemplazar?: boolean }) => {
     // Guardo el scroll de la vista actual para poder restaurarlo si vuelvo acá.
     try { sessionStorage.setItem(scrollKey(viewKey), String(window.scrollY)); } catch { /* noop */ }
@@ -54,7 +57,6 @@ export default function Conocimientos() {
     if (o?.reemplazar) router.replace(destino, { scroll: false });
     else router.push(destino, { scroll: false });
   };
-  const back = () => router.back();
 
   // Al cambiar de vista (incluye Atrás del navegador y "Volver"): restaurar el
   // scroll guardado de esa vista, o ir arriba si es una vista nueva.
@@ -83,9 +85,14 @@ export default function Conocimientos() {
   else body = (
     <CursoPortal
       curso={curso}
-      vista={{ clase: claseN ? Number(claseN) : null, r: rSlug }}
-      nav={(v) => nav(v.clase != null ? { curso: curso.slug, clase: String(v.clase) } : v.r ? { curso: curso.slug, r: v.r } : { curso: curso.slug })}
-      back={back}
+      vista={{ clase: claseN ? Number(claseN) : null, r: rSlug, de: deN ? Number(deN) : null }}
+      nav={(v, o) => nav(
+        v.clase != null ? { curso: curso.slug, clase: String(v.clase) }
+          : v.r ? { curso: curso.slug, r: v.r, ...(v.de != null ? { de: String(v.de) } : {}) }
+            : { curso: curso.slug },
+        o,
+      )}
+      salir={() => nav({})}
       compartir={<Compartir recurso="curso" recursoId={curso.slug} etiqueta={curso.titulo} />}
     />
   );

@@ -18,18 +18,15 @@ import type { Curso } from '@/app/conocimientos/curso';
 import CursoPortal, { PortalShell, type Vista } from '@/app/conocimientos/CursoPortal';
 
 export default function CursoCompartido({ curso, invitado }: { curso: Curso; invitado: string | null }) {
-  // Pila de vistas para que "Volver" devuelva a donde estabas (hub → clase →
-  // recurso → clase), igual que el Atrás del navegador en el admin.
+  // Pila de vistas, solo para no perder de dónde venís. Los «Volver» ya no la
+  // consultan: cada uno navega explícitamente a su nivel de arriba (ver CursoPortal).
+  // Acá el hub NO lleva Volver, a propósito: en un share de UN curso no hay «todos
+  // los cursos» a dónde subir, y por eso `salir` va sin pasar.
   const [pila, setPila] = useState<Vista[]>([{}]);
   const vista = pila[pila.length - 1];
 
-  // `reemplazar` pisa la vista de arriba en vez de apilar: es lo que hace que saltar
-  // de clase a clase con Anterior/Siguiente NO llene la pila, y que «Volver» suba al
-  // hub en vez de desandar una por una. Clase → recurso sigue apilando, así que
-  // «Volver» desde un recurso devuelve a su clase, que es lo que uno espera.
   const nav = (v: Vista, o?: { reemplazar?: boolean }) =>
     setPila((p) => (o?.reemplazar && p.length > 1 ? [...p.slice(0, -1), v] : [...p, v]));
-  const back = () => setPila((p) => (p.length > 1 ? p.slice(0, -1) : p));
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, [pila.length]);
 
@@ -43,7 +40,7 @@ export default function CursoCompartido({ curso, invitado }: { curso: Curso; inv
       }
       tag={<span className="al-toptag">{curso.titulo}</span>}
     >
-      <CursoPortal curso={curso} vista={vista} nav={nav} back={back} />
+      <CursoPortal curso={curso} vista={vista} nav={nav} />
       <p className="al-shared-ft">
         Enlace privado{invitado ? ` · compartido con ${invitado}` : ''}
       </p>
