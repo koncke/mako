@@ -522,6 +522,29 @@ link que copiás no es la tab que estás viendo. El molde completo es `app/admin
 El resto del sistema, en [app/_ui/LEEME.md](app/_ui/LEEME.md); el catálogo vivo, en
 `/admin/ui`, que además lleva el historial de por qué cada cosa quedó así.
 
+# El destino de «Volver» es una propiedad de la PANTALLA, no del camino
+
+`router.back()` (o un `pop` de una pila de vistas) contesta «de dónde viniste», y eso **no
+es** lo que un botón «Volver» promete: promete el nivel de arriba. Mientras haya un solo
+camino a la pantalla las dos cosas coinciden, y ahí es donde envejece — cada camino nuevo
+(un rótulo clicable, un botón de marca, un deep-link, el Atrás del navegador) las separa,
+semanas después y sin nada que lo explique.
+
+El mismo botón de `/conocimientos` se reportó roto **tres veces**, con tres causas
+distintas, y los dos primeros arreglos eran correctos: fallaron por compartir la premisa.
+
+La regla: **cada nivel declara su destino y se navega explícitamente.** Recurso → clase,
+clase → índice, índice → cursos. Si el nivel de arriba no existe (un share de UN curso), el
+botón **no se dibuja**: uno que no lleva a ningún lado es peor que no tenerlo.
+
+Y cuando el destino depende de verdad del contexto —un recurso se abre desde el índice o
+desde una clase—, **el contexto se hace DATO, no se deduce del historial**: viaja en la
+vista (`?…&de=N`), así sobrevive a un reload y a un link copiado, que es justo lo que el
+historial no hace.
+
+El detalle, con los tres síntomas y los gotchas de verificarlo con Playwright, en
+[docs/hallazgos-conocimiento.md](docs/hallazgos-conocimiento.md).
+
 # Una pantalla oscura se hace redefiniendo TOKENS, no reglas
 
 La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). No hay

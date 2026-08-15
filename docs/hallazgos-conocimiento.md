@@ -787,6 +787,44 @@ directorio?»**, no «¿tengo permisos?».
 **Vive en:** `scripts/curso-organizar.mjs` (el fallback del rename) ·
 `scripts/curso-a-drive.mjs` (el copiado de material)
 
+### ⚠️ `G:` no reporta la cuota de Drive: reporta el disco físico
+
+**2026-08-14.** Antes de bajar PROGRAMA RAIO (201 clases, 54,4 h) se midió el espacio y
+`Get-PSDrive G` dijo **22,2 GB libres**. Leído como cuota de Google Drive, la conclusión
+era «no entra, hay que comprar más almacenamiento» — una decisión de plata, tomada sobre
+un dato que no era el que parecía.
+
+**La pista que lo desarma: `C:` y `G:` reportaban el MISMO total, 454,1 GB.** `G:` es un
+montaje virtual de Drive for Desktop y espeja las cifras del volumen que lo hospeda, así
+que su «libre» es el libre de `C:` y **la cuota real de Drive no se puede leer desde acá**.
+Dos números idénticos en dos unidades que no tienen por qué parecerse es la señal.
+
+Es el caso de [AGENTS.md → «Un total solo se puede sumar si el recurso se puede MOVER DE
+LUGAR»](../AGENTS.md) visto del otro lado: ahí el error era sumar tanques que no se
+trasvasan; acá es **contar dos veces el mismo tanque** porque dos etiquetas distintas lo
+nombran. La regla común: antes de leer un total, preguntá **de qué es**.
+
+**La regla que queda:** el espacio que gobierna la descarga es el de `C:` —ahí se baja, se
+mergea y se extrae el audio—, y se mide con `C:`. Para la cuota de Drive no hay lectura
+local: se mira en `drive.google.com/settings/storage`.
+
+**Y el corolario que resolvió el freno:** `C:\cursos\<curso>\video\` es material
+**intermedio**. La copia que vale —y la que reproduce el portal— es la de Drive. Al medir,
+114 GB locales tenían **108,4 GB ya subidos**, y liberarlos dejó el disco en 131,8 GB sin
+tocar nada del pipeline (`plan.json`, `audio/` y `texto/` se conservan). Conviene hacerlo
+al cerrar cada curso en vez de acumular.
+
+⚠️ **La verificación es por TAMAÑO EXACTO archivo por archivo, nunca por conteo.** Es la
+misma trampa que ya costó cuatro diagnósticos en este documento: `ls | wc -l` contaba
+`.part` como clases. Y la carpeta local **no siempre se llama igual** que la de Drive
+(`vender-por-fb-e-ig-ads` → `ADS - Felipe Vergara`), así que el matcheo elige la carpeta
+de Drive que más archivos cubre y **exige cubrirlos todos**: si falta uno, ese curso se
+saltea entero y se reporta. Se borra permanente y no a la papelera a propósito — la
+papelera no libera el disco, que es lo único que hacía falta.
+
+**Vive en:** `scripts/curso-bajar.mjs` (el destino) · `scripts/curso-a-drive.mjs` (la
+copia buena)
+
 ## Los descargables de una clase
 
 ### ⚠️ «No apareció ningún PDF» era un ZIP: el formato es un HECHO del archivo, no una suposición del script
@@ -1201,6 +1239,51 @@ alcanza; lo que lo agarra es el chequeo:
 - Y un detalle que no es obvio: **rompe el dev server de la OTRA sesión**. Toda la app
   empieza a tirar 500 con un mensaje que apunta a la línea del comentario. Si aparece un
   500 global de la nada, mirá si alguien acaba de tocar un template literal grande.
+
+### ⚠️ «Volver» se arregló tres veces porque las tres se apoyó en el historial
+
+**2026-08-13/14.** El mismo botón, reportado roto por el dueño tres veces, con un síntoma
+distinto cada vez:
+
+1. Desde una **clase**, «Volver» devolvía a la clase ANTERIOR. Causa: Anterior/Siguiente
+   apilaban una entrada por clase leída. Se arregló pasándolos a `replace`.
+2. **Seguía devolviendo a la clase anterior.** Se hizo explícito el «Volver» de la clase
+   (navega al índice, sin `back()`).
+3. Desde el **hub** —la vista de módulos— devolvía a la clase. Causa: el rótulo del curso
+   de arriba a la derecha hace `push` de una entrada de hub **encima** de la clase, así que
+   el `router.back()` del hub tenía la clase justo debajo.
+
+**Lo que hay que ver:** los arreglos 1 y 2 eran correctos y no alcanzaron, porque los tres
+compartían la premisa equivocada — que el historial sabe a dónde volver. El historial sabe
+de dónde VINISTE, que es otra cosa. Cada camino nuevo a la misma pantalla (un botón de
+marca, un rótulo, un deep-link, el Atrás del navegador) es una forma más de que no
+coincidan, y aparece semanas después como «el botón anda mal» sin nada que lo explique.
+
+**La regla que queda: el destino de «Volver» es una propiedad de la PANTALLA, no del camino
+que hiciste para llegar.** Se declara por nivel —recurso → clase → índice → cursos— y se
+navega explícitamente. `router.back()` no se usa más en el portal.
+
+**La excepción, y cómo se trata:** el RECURSO sí depende de dónde veniste, porque se abre
+desde el índice o desde adentro de una clase. Eso **no** justifica volver al historial: el
+origen viaja en la vista (`?curso=…&r=…&de=N`), así que sobrevive a un reload y a un link
+copiado, que es justo lo que el historial no hace. Cuando el destino de verdad depende del
+contexto, el contexto se hace **dato**, no se deduce.
+
+⚠️ **Y el «Volver» del hub es OPCIONAL** (`salir`): en un share de UN curso no existe el
+nivel de arriba, y ahí el botón no se dibuja. Un botón que no lleva a ningún lado es peor
+que no tenerlo.
+
+**Cómo se verificó, que es la parte que faltó las dos veces anteriores:** Playwright contra
+el dev server, recorriendo los cuatro caminos —incluido el del rótulo, que es el que lo
+rompía— y comparando la URL resultante. Dos gotchas del test, los dos capaces de dar un
+verde falso: `waitUntil:'networkidle'` **nunca resuelve** en una clase (el iframe de Drive
+no queda ocioso), y las tarjetas de un `<details>` cerrado existen en el DOM pero no se
+pueden clickear. Y esperar con `waitForTimeout` en vez de esperar el cambio de URL hizo que
+la primera corrida midiera la pantalla equivocada y reportara un fallo que no existía.
+
+**Vive en:** `app/conocimientos/CursoPortal.tsx` (los tres destinos y el porqué) ·
+`app/conocimientos/Conocimientos.tsx` (`de` en la URL) ·
+`app/compartido/[token]/PortalCompartido.tsx` y `CursoCompartido.tsx` (`salir`)
 
 ## Decisiones
 
