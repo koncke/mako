@@ -142,7 +142,7 @@ export const FAMILIAS: NavFamilia[] = [
       [
         { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
-        { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },
+        { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', match: starts('/instagram') },
       ],
     ],
     grupos: [

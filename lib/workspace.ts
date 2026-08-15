@@ -71,6 +71,11 @@ const TENANT_TABLES = new Set<string>([
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_propuestas', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros', 'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
+  // Canal Instagram vía Zernio (mig 0136). zernio_workspace es el mapeo
+  // ws→profile: lib/zernio.ts lo lee con el cliente crudo y ws EXPLÍCITO (corre
+  // en webhooks/crons), pero va acá igual para que cualquier lectura por
+  // getTenantDb quede scopeada.
+  'contenido_posts', 'ig_conversaciones', 'ig_mensajes', 'zernio_workspace',
   // Vistas de cohortes: getTenantDb NO scopea vistas por sí solo, pero estas
   // exponen workspace_id (mig 0084) y solo se LEEN (select) → el proxy inyecta
   // .eq('workspace_id', ws) y corta el leak del agregado global. OJO: scripts de

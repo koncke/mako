@@ -2202,3 +2202,106 @@ páginas de reference autogeneradas: esas hay que bajarlas en HTML y grepear.
 
 *Corrida del 14/08/2026 — 21 agentes, 12 verificaciones adversariales (9 refutadas o
 matizadas). Evaluación de factibilidad; no se tocó código.*
+
+---
+
+## Zernio: el canal Instagram implementado (y sus trampas)
+
+De la corrida de implementación del 15/08/2026 (7 agentes). Lo construido está en el
+commit; acá va solo lo que NO se deduce del código. El canal quedó: webhook →
+`lib/ig-chatbot.ts` (borrador del Chat Agent, flag `ig_auto_respuesta` apagado de
+nacimiento) → envío con un clic; publicaciones vía `POST /v1/posts` con programación
+nativa de Zernio (sin cron propio); tab `/instagram` con onboarding de 3 etapas.
+
+### El spec real de Zernio NO es el del repo GitHub que se llama "openapi-specs"
+
+**El diagnóstico obvio era el equivocado.** `github.com/zernio-dev/openapi-specs` parece
+la fuente canónica y es una trampa de nombre: `instagram.yaml` ahí es el spec de la
+**Graph API de Meta** (server `graph.instagram.com`, paths `/{user-id}/media`) — el repo
+documenta las APIs que Zernio *envuelve*, no la de Zernio. Codear contra eso es codear
+contra Meta con otro nombre. Las fuentes reales:
+
+- `https://docs.zernio.com/api/openapi` — OpenAPI 3.1 de la API de Zernio (es YAML aunque
+  no tenga extensión), **con la sección `webhooks` y el schema formal de los 49 eventos**.
+- `https://docs.zernio.com/llms-full.txt` — la doc completa en un solo archivo (4,1 MB).
+
+### Dos mecanismos de idempotencia DISTINTOS según el endpoint
+
+- Inbox y profiles: header **`Idempotency-Key`** (replay del response original con
+  `Idempotent-Replayed: true`; mismo key con body distinto ⇒ 422; en vuelo ⇒ 409; 24 h).
+- Posts: header **`x-request-id`**, y el replay devuelve `200 {existingPost}` — un shape
+  DISTINTO del `201` tipado, y solo descrito en prosa. Verificar antes de apoyarse.
+
+El envío de borradores usa `Idempotency-Key: ig_borrador_<id>` — un reintento replay-ea
+en Zernio en vez de duplicar el DM.
+
+### IG/FB «replayan» hasta 500 conversaciones de ANTES de conectar la cuenta
+
+Al conectar una cuenta, el inbox de Zernio trae hasta 500 conversaciones / 500 mensajes
+de historia pre-conexión — sin webhooks y ya leídas. Un sync histórico que las trate como
+nuevas dispararía 500 borradores del chatbot y 500 avisos al dueño. El webhook no las ve
+(solo llegan por `GET /v1/inbox/conversations`), así que hoy no muerde; muerde el día que
+se agregue un poll de backfill.
+
+### `attachments[].url` de Instagram EXPIRA; lo persistible es `refreshUrl`
+
+La `url` de un adjunto IG/FB es CDN de Meta firmada con vencimiento — guardarla es
+guardar un link muerto. `refreshUrl` (solo IG/FB) re-mintea la URL y es lo único seguro
+de persistir. Corolario en la otra dirección: la URL firmada de la media de un post
+programado tiene que sobrevivir **hasta `programado_at`**, no 3600 s — acá se firma con
++7 días de margen sobre la fecha programada.
+
+### Los 2 fixes que dejó la auditoría (el patrón vale para cualquier webhook)
+
+**Vive en:** `app/api/webhooks/zernio/route.ts`
+
+1. **En un evento SALIENTE, el `sender` es el NEGOCIO, no el lead.** El upsert de
+   conversación tomaba `message.sender` para igsid/username también en `message.sent` —
+   pisaba la identidad del participante con la de la propia cuenta del cliente (y el
+   aviso diría «@su_propia_cuenta escribió»). El participante de un saliente sale de
+   `conversation.participant*`; y los campos de identidad solo se escriben cuando HAY
+   valor, para que un payload parcial no borre con `null` lo ya sabido.
+2. **`'x' in OBJETO` matchea la cadena de prototipos** (`'toString' in {}` es `true`): un
+   evento basura firmado caía al procesador de posts con `estado = Function`. Para mapas
+   literales usados como catálogo: `Object.hasOwn`.
+
+### ESTRUCTURAL — BYOK sin webhook: la key propia deja el canal a medias
+
+El endpoint del webhook valida SOLO el secret de PLATAFORMA. Un cliente con su propia
+cuenta de Zernio (BYOK) firma sus eventos con SU secret → 401 → **sus DMs entrantes y
+estados de post nunca entran**. No es fuga: es canal muerto para BYOK. Hoy el BYOK de
+Zernio sirve para lo SALIENTE (publicar, enviar) y el tiempo real solo funciona con la
+key de plataforma. Resolver exige o `credWs('ZERNIO_WEBHOOK_SECRET', ws)` con resolución
+de ws PREVIA a la verificación (delicado: hoy la firma se verifica antes de mirar el
+payload, que es lo correcto) o documentar que BYOK opera por polling.
+
+**Y el gemelo del secret:** si un cliente pega LA MISMA key de plataforma como "propia",
+se lo trata como BYOK y usaría el profile Default de la AGENCIA (mezcla de datos).
+Falta validar en el guardado que la key del ws ≠ la key de plataforma.
+
+### Lo que quedó SIN hacer
+
+- **Vincular lead ↔ conversación IG no existe** (ni UI ni backend). Cuando se haga: por
+  `lead_identidades(ws, canal, external_id)`, NUNCA por el camino telefónico (el IGSID
+  de 17 dígitos pasa `normalizarTelefono` y matchea leads reales — ver arriba).
+- **Adjuntos entrantes se listan como texto** en el inbox (`refreshUrl` necesita un proxy
+  autenticado para servirse al navegador); `previewMediaAction`/`firmarPreview` quedaron
+  exportadas sin call-site: usar o podar.
+- El aviso al dueño reusa la clave **`wa-mensaje-entrante`** (2 call-sites en
+  `lib/ig-chatbot.ts`) — cambiar cuando el catálogo de avisos gane clave de Instagram.
+- `ENSAYO_SYSTEM` hardcodeado en `app/instagram/actions.ts` con TODO «mover a
+  prompt-registry» (archivo tomado por sesión paralela el 15/08).
+- Las keys restringidas de Zernio (`zrk_`) sin el resource group `messages` dan **403 en
+  todo el inbox** — la prueba de vida del onboarding valida con `GET /v1/profiles`, que
+  no lo detecta.
+- `descartarBorradorDmAction` BORRA la fila; si se quiere rastro, va migración que sume
+  `'descartado'` al CHECK de `ig_mensajes`.
+- `message.sent` puede traer un id distinto al `messageId` del send → posible fila
+  saliente duplicada (hoy se mitiga matcheando por texto exacto); verificar con payloads
+  reales.
+- Señal de conexión real para crons: `integracionConectada('zernio')` solo da true con
+  key propia; falta un `estadoZernio` que mire `zernio_workspace` + cuenta IG conectada.
+
+*Corrida del 15/08/2026 — 7 agentes (2 recon, 3 build, integrador, auditoría).
+Typecheck limpio, build OK, 915/915 tests. La migración 0136 y el alta del webhook las
+hizo el orquestador al cierre.*

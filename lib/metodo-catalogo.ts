@@ -196,6 +196,33 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
+    key: 'zernio',
+    nombre: 'Instagram (Zernio)',
+    categoria: 'Mensajería',
+    paraQue: 'DMs de Instagram, publicaciones programadas y automatizaciones de comentarios (comentario → DM).',
+    campos: [
+      // BYOK con respaldo de plataforma: `opcional` a propósito — sin key propia,
+      // lib/zernio.ts usa la cuenta de Zernio de la agencia (env ZERNIO_API_KEY,
+      // excepción documentada estilo Resend Opción A) y el aislamiento lo da el
+      // PROFILE por workspace que crea ensureProfile(). OJO: eso hace que
+      // integracionConectada('zernio') solo dé true con key PROPIA; el estado
+      // real del canal (¿hay cuenta de IG conectada?) se mide por señal real
+      // (fila en zernio_workspace + cuenta conectada), como la landing.
+      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true, opcional: true, nota: 'Opcional: sin key propia, MaKo usa la cuenta de la plataforma. Con tu propia key, el consumo corre por tu cuenta de Zernio.' },
+    ],
+    tutorial: {
+      url: 'https://zernio.com',
+      urlLabel: 'Zernio',
+      pasos: [
+        'Crea una cuenta en zernio.com (o entra a la tuya).',
+        'Ve a Settings → API Keys.',
+        'Haz clic en "Create API Key".',
+        'Copia la key en ese momento: se muestra una sola vez.',
+        'Pégala aquí. Después vas a poder conectar tu cuenta de Instagram desde la app.',
+      ],
+    },
+  },
+  {
     key: 'email',
     nombre: 'Email (Resend)',
     categoria: 'Mensajería',

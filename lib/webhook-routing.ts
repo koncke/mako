@@ -35,6 +35,11 @@ export const ROUTING_CREDS: Record<string, string> = {
   CALENDLY_EVENT_TYPE_J1: 'calendly',
   CALENDLY_EVENT_TYPE_J2: 'calendly',
   META_PAGE_ID: 'meta',
+  // 'zernio' NO va acá a propósito: su única credencial es la API key (secreta —
+  // un secreto jamás se espeja en claro a webhook_routing) y el identificador de
+  // ruteo es el profileId, que ACUÑA EL SERVER. Lo reclama ensureProfile() en
+  // lib/zernio.ts vía upsertRouting('zernio', profileId, ws) — el mismo camino
+  // que landing_token en setSetting (identificador acuñado por el server).
 };
 
 /**

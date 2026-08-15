@@ -112,6 +112,24 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     href: '/chatbot',
   },
 
+  // ── Instagram: conectar la cuenta, revisar el contexto y ensayar ──
+  // ORDEN: acá lo aburrido (el OAuth) va PRIMERO porque bloquea de verdad — sin
+  // cuenta conectada el inbox y el compositor no tienen nada que mostrar (la
+  // excepción prevista por la regla de la skill). La prueba de vida del paso de
+  // conexión son los facts reales de la cuenta (username devuelto por Zernio),
+  // no la credencial guardada. El contexto no pide nada nuevo: muestra lo que la
+  // app ya sabe del negocio. El ensayo previsualiza el borrador del chatbot con
+  // un DM simulado.
+  instagram: {
+    key: 'instagram',
+    titulo: 'Configuración de Instagram',
+    pasos: [
+      { key: 'conectar', label: 'Tu cuenta de Instagram' },
+      { key: 'contexto', label: 'Contexto del negocio' },
+      { key: 'ensayo', label: 'Ensayo de respuesta' },
+    ],
+  },
+
   // ── Landing Analyst: la única tab que se configura USÁNDOLA ──
   // No hay credencial que pedir ni contexto que redactar: el funnel y el perfil
   // ya están cargados, y el "ensayo" ES el primer análisis. Por eso el paso que
