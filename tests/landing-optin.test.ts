@@ -780,3 +780,24 @@ test('la ventana de prueba se dibuja SOLA, sin el sidebar', () => {
   const i = gate.indexOf('export function esVistaSinChrome');
   assert.ok(/isPublicLandingPath\(p\)/.test(gate.slice(i, i + 700)), 'sin-chrome no puede dejar de cubrir las públicas');
 });
+
+test('cada video se puede VER desde la pantalla que te pide nombrarlo', () => {
+  // Un id como «v:que-se-vive.mp4» alcanza para atribuir eventos y no para
+  // RECONOCERLO: con dos videos en la página había que adivinar cuál se estaba
+  // nombrando. La pregunta era incontestable sin salir de la app.
+  const lib = leer('../lib/landing-token.ts');
+  // El dato viaja en el 'play' de las dos clases de player, o la mitad de los
+  // clientes tendría el botón y la otra mitad no.
+  assert.ok(/detalle: \(el\.currentSrc \|\| el\.getAttribute\('src'\) \|\| ''\)/.test(lib), 'el <video> nativo no manda su URL');
+  assert.ok(/enviar\(\{ tipo_evento: 'play'[^\n]*detalle: src\.slice\(0, 300\)/.test(lib), 'el player de Panda no manda su URL');
+  // La URL viene SOLO en el play: pisarla con el null de los demás eventos la
+  // perdería, igual que pasaba con el título.
+  assert.ok(/if \(!e\.url && r\.detalle\?\.trim\(\)\.startsWith\('http'\)\)/.test(lib), 'la URL se pierde entre los eventos que no la traen');
+
+  const ui = leer('../app/integraciones/NombrarVideos.tsx');
+  assert.ok(/title="Ver este video"/.test(ui), 'falta el botón de ver');
+  assert.ok(/target="_blank" rel="noopener noreferrer"/.test(ui), 'abrir el video no puede sacarte de la app');
+  // Solo si sabemos dónde está: un botón que no puede abrir nada es peor que
+  // ninguno — promete y falla, y quien lo aprieta no sabe si el roto es el video.
+  assert.ok(/\{d\.url && \(/.test(ui), 'el botón no puede aparecer sin URL');
+});

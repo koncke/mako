@@ -16,6 +16,7 @@
 import { useState } from 'react';
 import { Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
+import { Icon } from '@/app/_components/icons';
 import { TIPOS_VIDEO, esTipoVsl, rotuloDe, type VideoLanding } from '@/lib/landing-videos';
 import { borrarVideoAction, guardarVideoAction } from './landing-actions';
 
@@ -23,7 +24,7 @@ const MONO = "'Geist Mono', monospace";
 /** Valor centinela de la última opción del desplegable. */
 const OTRO = '__otro__';
 
-export type VideoDetectado = { id: string; titulo: string | null; eventos: number };
+export type VideoDetectado = { id: string; titulo: string | null; eventos: number; url: string | null };
 
 export function NombrarVideos({
   detectados, videos, onCambio,
@@ -42,7 +43,7 @@ export function NombrarVideos({
   // perder su nombre.
   const filas: VideoDetectado[] = [
     ...detectados,
-    ...videos.filter((v) => !detectados.some((d) => d.id === v.id)).map((v) => ({ id: v.id, titulo: null, eventos: 0 })),
+    ...videos.filter((v) => !detectados.some((d) => d.id === v.id)).map((v) => ({ id: v.id, titulo: null, eventos: 0, url: null })),
   ];
   if (!filas.length) return null;
 
@@ -95,8 +96,23 @@ export function NombrarVideos({
                   <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.id}</span>
                   {r.esVsl && <span style={{ flex: 'none', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', color: 'var(--mako-ink)', fontWeight: 700 }}>VSL</span>}
                 </span>
-                <span style={{ flex: 'none', fontSize: 11.5, color: 'var(--faint)' }}>
-                  {d.eventos > 0 ? `${d.eventos} ${d.eventos === 1 ? 'evento' : 'eventos'}` : 'sin actividad reciente'}
+                <span style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>
+                    {d.eventos > 0 ? `${d.eventos} ${d.eventos === 1 ? 'evento' : 'eventos'}` : 'sin actividad reciente'}
+                  </span>
+                  {/* ⚠️ VER EL VIDEO es lo que vuelve contestable la pregunta. Un id
+                      como «v:que-se-vive.mp4» alcanza para atribuir eventos y no
+                      para RECONOCERLO: con dos videos en la página había que
+                      adivinar cuál se estaba nombrando. Solo aparece si sabemos
+                      dónde está — un botón que no puede abrir nada es peor que
+                      ninguno. */}
+                  {d.url && (
+                    <a href={d.url} target="_blank" rel="noopener noreferrer" title="Ver este video"
+                      style={{ flex: 'none', width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)' }}>
+                      <Icon name="video" size={14} />
+                    </a>
+                  )}
                 </span>
               </div>
 

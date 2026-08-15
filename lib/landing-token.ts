@@ -72,8 +72,11 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       tiene un `<video controls>` común, así que apretaba play y no se
  *       registraba NADA — el panel decía «nadie reprodujo el video en 24 h» para
  *       siempre, porque nunca iba a llegar un evento.
+ *   8 — el 'play' manda la URL del video. Un id como «v:que-se-vive.mp4» alcanza
+ *       para atribuir eventos y no para RECONOCERLO: sin la URL, la pantalla que
+ *       te pide nombrar cada video no te deja ver cuál es el que estás nombrando.
  */
-export const SNIPPET_VERSION = 7;
+export const SNIPPET_VERSION = 8;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -108,6 +111,7 @@ const NOVEDADES: Record<number, string> = {
   4: 'la medición de videos CORTOS: antes, uno de menos de 15 segundos no registraba ningún avance',
   5: 'la medición de TODOS los videos de la página por separado: antes, si tenías más de uno, el segundo casi no medía y su avance se calculaba con la duración del primero',
   6: 'la medición de los CLICKS: qué botón aprietan y qué links abren (el de WhatsApp, los que llevan al formulario). Antes, entre «visitó» y «dejó sus datos» no había ningún punto intermedio · y el probador de «¿funciona mi código?» ahora te muestra SOLO los eventos de tu prueba, en vez de mezclarlos con las visitas del día',
+  8: 'poder VER cada video desde la app cuando te pregunto cuál es cuál — antes solo veías un identificador y había que adivinar',
   7: 'la medición de tu video cuando NO es de Panda: si tu página usa un reproductor común, hasta ahora no se registraba ni un play',
 };
 
@@ -258,21 +262,24 @@ export async function getVideosLanding(): Promise<VideoLanding[]> {
  * nombrar, porque el nombre no tendría a qué pegarse— pero sus eventos siguen
  * contándose en el CRM bajo «Video sin identificar».
  */
-export async function videosDetectados(dias = 90): Promise<Array<{ id: string; titulo: string | null; eventos: number }>> {
+export async function videosDetectados(dias = 90): Promise<Array<{ id: string; titulo: string | null; eventos: number; url: string | null }>> {
   const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
   try {
     const db = await getTenantDb();
     const { data } = await db
       .from('vsl_events')
-      .select('video_id, vsl_titulo')
+      .select('video_id, vsl_titulo, detalle')
       .not('video_id', 'is', null)
       .gte('created_at', desde)
       .limit(2000);
-    const out = new Map<string, { id: string; titulo: string | null; eventos: number }>();
-    for (const r of (data ?? []) as Array<{ video_id: string | null; vsl_titulo: string | null }>) {
+    const out = new Map<string, { id: string; titulo: string | null; eventos: number; url: string | null }>();
+    for (const r of (data ?? []) as Array<{ video_id: string | null; vsl_titulo: string | null; detalle: string | null }>) {
       const id = r.video_id?.trim();
       if (!id) continue;
-      const e = out.get(id) ?? { id, titulo: null, eventos: 0 };
+      const e = out.get(id) ?? { id, titulo: null, eventos: 0, url: null };
+      // La URL viene solo en el 'play'. Se queda la primera que llegue, igual que
+      // el título: pisarla con el null de los demás eventos la perdería.
+      if (!e.url && r.detalle?.trim().startsWith('http')) e.url = r.detalle.trim();
       e.eventos++;
       // El título del player viene en unos eventos y no en otros: gana el primero
       // que llegue en vez de pisarse con null a mitad de camino.
@@ -771,7 +778,10 @@ export function landingSnippet(token: string): string {
         el.addEventListener('play', function () {
           if (e.play) return;
           e.play = true;
-          enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit });
+          // La URL del archivo. Es lo que después deja abrir el video desde la app
+          // para saber CUÁL es el que estás nombrando: un id como «v:que-se-vive.mp4»
+          // alcanza para atribuir eventos y no para reconocerlo de un vistazo.
+          enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit, detalle: (el.currentSrc || el.getAttribute('src') || '').slice(0, 300) });
         });
         el.addEventListener('timeupdate', function () {
           e.segs = el.currentTime || 0;
@@ -820,7 +830,14 @@ export function landingSnippet(token: string): string {
     }
     if (d.message === 'panda_play' && !e.play) {
       e.play = true;
-      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: e.tit });
+      // Igual que con el <video> nativo: el src del iframe es lo que permite
+      // abrirlo después y reconocerlo. Se busca el que contenga este id.
+      var src = '';
+      try {
+        var ifr = document.querySelectorAll('iframe');
+        for (var q = 0; q < ifr.length; q++) if (vid && (ifr[q].src || '').indexOf(vid) !== -1) { src = ifr[q].src; break; }
+      } catch (err) {}
+      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: e.tit, detalle: src.slice(0, 300) });
     }
     if (d.message === 'panda_timeupdate' && d.currentTime != null) {
       e.segs = d.currentTime;

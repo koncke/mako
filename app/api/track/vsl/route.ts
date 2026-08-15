@@ -145,7 +145,7 @@ type Payload = {
   segundos?: unknown;    // currentTime del player: el dato CRUDO del que se deriva el % (mig 0121)
   video_id?: unknown;    // id del video de Panda (pruebas A/B de VSL)
   vsl_titulo?: unknown;
-  /** Solo en tipo_evento='click': el destino o el texto del botón (mig 0133). */
+  /** A qué apunta el evento: el destino de un click, o la URL de un video. */
   detalle?: unknown;
   /** Marcador de sesión de prueba (?mko_test=). NULL en el tráfico real. */
   prueba?: unknown;  // título del video de Panda, si la landing lo puede leer
@@ -309,8 +309,11 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       // lo puede leer. Antes video_id llegaba en el payload y se descartaba.
       video_id: texto(payload.video_id, 120),
       vsl_titulo: texto(payload.vsl_titulo, 200),
-      // Qué se clickeó (mig 0133). Solo viaja en tipo_evento='click'; en el resto
-      // queda NULL, que es la verdad — un default inventaría un dato.
+      // A QUÉ APUNTA este evento (mig 0133). En un 'click', el destino o el texto
+      // del botón; en un 'play', la URL del video. No son dos usos de un mismo
+      // campo: es una sola pregunta —«¿a qué se refiere esto?»— contestada por
+      // cada tipo de evento con lo suyo. En los demás queda NULL, que es la
+      // verdad: un default inventaría un dato.
       detalle: texto(payload.detalle, 300),
       prueba: texto(payload.prueba, 40),
     });
