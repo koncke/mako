@@ -863,10 +863,13 @@ function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string;
   );
 }
 
-function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string | null; clarityConectado?: boolean }) {
+function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }: {
+  snippet: string | null; clarityConectado?: boolean;
+  /** La landing elegida vive en el MODAL, no acá: el paso 4 se renderiza fuera
+   *  de este componente y necesita la misma respuesta. */
+  elegida: string | null; onElegir: (u: string | null) => void;
+}) {
   const routerLanding = useRouter();
-  // La landing que se está configurando. Gobierna los pasos 2, 3 y 4.
-  const [landingElegida, setLandingElegida] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [codigoAbierto, setCodigoAbierto] = useState(false);
   const [errorCopia, setErrorCopia] = useState(false);
@@ -938,14 +941,21 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
           afirmaba cosas sobre «tu página» sin saber cuál — y con dos publicadas,
           la mitad de esas afirmaciones eran falsas. */}
       <Paso n={1} titulo="¿Cuál de tus páginas?" sep={false}>
-        <SelectorLanding elegida={landingElegida} onElegir={setLandingElegida} />
+        <SelectorLanding elegida={elegida} onElegir={onElegir} />
       </Paso>
 
       {/* Los pasos que dependen de la elección no se dibujan hasta que hay una.
           Mostrar un código que todavía no sabe de qué página es sería ofrecer
-          para copiar algo que puede estar mal. */}
-      {landingElegida && (
-      <>
+          para copiar algo que puede estar mal.
+
+          ⚠️ Y van con `key={elegida}`: al cambiar de landing los pasos se MONTAN
+          DE NUEVO en vez de conservar su estado. Sin eso quedaban a la vista las
+          claves de Clarity de la anterior —el formulario recuerda lo que tenía—
+          y la persona las leía como si fueran de la página que acaba de elegir.
+          Un loader habría tapado el síntoma; lo que hacía falta es tirar el
+          estado viejo, que además es instantáneo. */}
+      {elegida && (
+      <div key={elegida}>
       <Paso n={2}>
         {/* Clarity va ANTES del código y el orden no es estético: su bloque se
             arma cuando se GENERA el snippet, así que conectarlo después deja al
@@ -1032,7 +1042,7 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
         </div>
       )}
       </Paso>
-      </>
+      </div>
       )}
     </div>
   );
@@ -1128,6 +1138,8 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
   gcal: GoogleCalendarStatus | null;
   health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; clarityConectado?: boolean; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
+  // La landing que gobierna los pasos 2, 3 y 4 del Pixel.
+  const [landingModal, setLandingModal] = useState<string | null>(null);
   const base = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
     : { bg: 'var(--bad-bg)', fg: 'var(--bad)', word: 'Requiere atención' };
@@ -1264,8 +1276,18 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
             <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
             <>
-              <CodigoLanding snippet={snippetLanding ?? null} clarityConectado={clarityConectado} />
-              <Paso n={4} titulo="Comprueba que está funcionando"><ProbarTracking /></Paso>
+              <CodigoLanding snippet={snippetLanding ?? null} clarityConectado={clarityConectado}
+                elegida={landingModal} onElegir={setLandingModal} />
+              {/* ⚠️ EL PASO 4 NO EXISTE HASTA QUE HAY LANDING ELEGIDA. Mientras
+                  el estado vivía adentro de CodigoLanding —y el paso 4 se
+                  renderiza afuera— no había forma de pasárselo, así que volvía a
+                  preguntar cuál probar: la misma pregunta dos veces, y con dos
+                  respuestas que podían diferir. */}
+              {landingModal && (
+                <Paso n={4} key={landingModal} titulo="Comprueba que está funcionando">
+                  <ProbarTracking landingFija={landingModal} />
+                </Paso>
+              )}
             </>
           ) : mostrarForm ? (
             // onEstado avisa cuando el servicio pasó a conectado (o dejó de estarlo):
