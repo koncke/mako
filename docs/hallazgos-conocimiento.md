@@ -825,6 +825,36 @@ papelera no libera el disco, que es lo único que hacía falta.
 **Vive en:** `scripts/curso-bajar.mjs` (el destino) · `scripts/curso-a-drive.mjs` (la
 copia buena)
 
+#### ⚠️ Un curso se proyecta por HORAS, nunca por cantidad de clases
+
+Con «Instituto de Comunicación» a 9 de 158 clases bajadas, las dos proyecciones posibles
+sobre los MISMOS bytes daban:
+
+| método | proyección | error |
+|---|---|---|
+| GB ÷ clases × 158 | **26 GB** | ×6,6 corto |
+| GB ÷ horas × 206,5 h | **173 GB** | la buena |
+
+Las 9 primeras son las intros de la Fase 0 (12 min de promedio) y el curso entero promedia
+**78 min** por clase, porque más de la mitad son directos de dos y tres horas. Un promedio
+por ítem sobre una población que va de 1 minuto a 3h49 no proyecta nada.
+
+**Y lo que hace peligroso a este error es de qué lado cae:** el método malo daba el número
+TRANQUILIZADOR — 26 GB entran cómodos en 115 libres, así que nadie mira dos veces y el
+disco se llena a mitad de la descarga, con la mitad de las clases sin subir. Cuando dos
+métodos de estimación difieran, el sospechoso es el que te deja seguir sin hacer nada.
+
+**La regla:** proyectar sobre la magnitud que EXPLICA el costo (acá, la duración, que es lo
+que el bitrate multiplica), no sobre la que es más fácil de contar. Y si la muestra no está
+mezclada —las primeras N de un curso ordenado por módulo nunca lo están—, decirlo.
+
+**El plan que salió de eso, y ya estaba escrito en la herramienta:** `curso-a-drive.mjs`
+tiene `--min-libre-gb`, que sube y libera por tandas con cuatro condiciones en positivo —
+dentro de `video/`, id real de Drive, copia en `G:` idéntica en bytes, y **Drive reportando
+ese mismo tamaño**. Esa última es la que importa: un archivo copiado a `G:` todavía no está
+subido, y borrarlo ahí lo pierde. El umbral de disparo va más alto que el de liberado, para
+empezar con margen: copiar a `G:` es instantáneo y la subida real tarda.
+
 ## Los descargables de una clase
 
 ### ⚠️ «No apareció ningún PDF» era un ZIP: el formato es un HECHO del archivo, no una suposición del script
