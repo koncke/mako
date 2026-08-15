@@ -248,8 +248,33 @@ export class IdentificadorOcupadoError extends Error {
   }
 }
 
+/** Un cliente intentó guardar como BYOK la key de la PLATAFORMA. */
+export class KeyDePlataformaError extends Error {
+  constructor(public clave: string) {
+    super('Esa es la key de la plataforma, no la de tu cuenta. Crea tu propia cuenta del servicio y pega la API key de esa cuenta.');
+    this.name = 'KeyDePlataformaError';
+  }
+}
+
+/**
+ * Claves BYOK cuyo valor NUNCA puede coincidir con el de la plataforma. Para
+ * estas, «key propia» activa un modo distinto (lib/zernio.ts: byok=true saltea
+ * el aislamiento por profile y usa el Default de LA CUENTA), así que un cliente
+ * pegando la key de la agencia se colgaría de los datos de otros workspaces.
+ * El guard vive ACÁ —el choke point por el que pasan TODOS los caminos de
+ * guardado (/integraciones, /metodo, onboarding, datos-mau, actions)— y no en
+ * cada UI: cerrar cuatro caminos deja el quinto (regla del veto en el fetch).
+ */
+const BYOK_NUNCA_PLATAFORMA: ReadonlySet<string> = new Set(['ZERNIO_API_KEY']);
+
 /** Guarda cifrado en el workspace. Solo el dueño refleja el cambio a process.env. */
 export async function guardarCredencial(ws: number, clave: string, valor: string, servicio: string, updatedBy: string | null): Promise<void> {
+  // Guard en POSITIVO contra la key de plataforma pegada como propia. Aplica a
+  // todo workspace que no sea el dueño (para el dueño ese valor ES su cuenta).
+  if (ws !== OWNER_WS && BYOK_NUNCA_PLATAFORMA.has(clave)) {
+    const plataforma = await envCred(clave);
+    if (plataforma && valor === plataforma) throw new KeyDePlataformaError(clave);
+  }
   // Si esta clave identifica webhooks entrantes, RECLAMAR PRIMERO. El orden no es
   // capricho: guardar y espejar después dejaba la credencial escrita aunque el
   // identificador fuera de otro, o sea una credencial que no rutea a ningún lado.
@@ -350,6 +375,18 @@ export async function hidratarCredenciales(): Promise<void> {
  * No hay bucle con `hidratarCredenciales()`: lo hidratado SALE de la base, así
  * que ya tiene fila y esta función lo saltea.
  */
+/**
+ * Claves que son de PLATAFORMA PURA (la cuenta es de MaKo, no del dueño) y por
+ * eso NUNCA se migran del entorno a la fila de un workspace. La de Zernio es de
+ * Martín: migrada al ws1 quedaba disfrazada de conexión BYOK de Mauricio
+ * (integracionConectada('zernio', ws1) daba true) — el mismo problema, invertido,
+ * que la app de Meta colgando de la cuenta personal de Mauricio. Y sin esta
+ * exclusión, borrarla de la base no alcanza: el próximo boot la re-siembra
+ * («migrarEnvACredenciales rellena huecos», la trampa anotada en .env.local).
+ * En el catálogo la clave sigue: un CLIENTE sí puede pegar la suya (BYOK).
+ */
+const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set(['ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET']);
+
 export async function migrarEnvACredenciales(ws: number = OWNER_WS): Promise<number> {
   if (!supabaseConfigurado()) return 0;
   try {
@@ -363,6 +400,7 @@ export async function migrarEnvACredenciales(ws: number = OWNER_WS): Promise<num
     const yaEnBase = new Set((data ?? []).map((r) => r.clave as string));
     let migradas = 0;
     for (const clave of ENVS_METODO) {
+      if (NO_MIGRAR_A_WS.has(clave)) continue; // plataforma pura: nunca a la fila de un ws
       if (yaEnBase.has(clave)) continue; // la base manda: nunca la pisamos
       const valor = process.env[clave];
       if (!esValorReal(valor)) continue;

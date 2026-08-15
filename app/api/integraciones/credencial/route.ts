@@ -19,7 +19,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError } from '@/lib/credenciales';
+import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError } from '@/lib/credenciales';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
@@ -182,6 +182,13 @@ export async function POST(req: NextRequest) {
           // motivo y queda auditado.
           if (e instanceof IdentificadorOcupadoError) {
             await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor, { permitido: false, motivo: 'identificador ya reclamado por otro workspace' });
+            return NextResponse.json({ ok: false, error: e.message }, { status: 409 });
+          }
+          // La key de PLATAFORMA pegada como BYOK: rechazada en el choke point
+          // (lib/credenciales.ts). Mismo trato que el identificador ocupado:
+          // se audita el intento y se contesta con el motivo.
+          if (e instanceof KeyDePlataformaError) {
+            await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor, { permitido: false, motivo: 'pegó la key de plataforma como BYOK' });
             return NextResponse.json({ ok: false, error: e.message }, { status: 409 });
           }
           throw e;

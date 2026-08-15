@@ -305,6 +305,30 @@ decir que el equipo de MaKo puede ver las credenciales del cliente** — «¿Có
 que sea BYOK?» (2026-07-16). Si el modelo lo permite, se resuelve como BYOK real, no con
 un texto que lo justifique.
 
+### Un guard BYOK que vive en UNA action no cubre la credencial: hay cinco caminos de guardado
+
+El guard «la key de plataforma pegada como propia se rechaza» estaba bien escrito en el
+server (`guardarZernioKeyAction`, app/instagram/actions.ts) — y era **bypasseable igual**,
+porque `ZERNIO_API_KEY` también se guarda por la card de Zernio en /integraciones
+(`/api/integraciones/credencial` `action:'guardar'`), por /metodo, por el onboarding y por
+el copiador de datos-mau, y ninguno de esos caminos comparaba contra la key de plataforma.
+El impacto no es solo cosmético: en lib/zernio.ts `cfg()` marca `byok: true` para
+cualquier ws ≠ dueño con key «propia», y BYOK **saltea el aislamiento por profile** — 
+`ensureProfile` guarda `profile_id NULL` y `profileIdEfectivo` resuelve el profile
+**Default de la cuenta** → con la key de la agencia, eso son las cuentas y conversaciones
+del profile Default de la plataforma servidas a un cliente.
+
+Arreglado (corrida 2026-08-15) moviendo el guard al choke point:
+`guardarCredencial()` en lib/credenciales.ts tira `KeyDePlataformaError` si un ws ≠ dueño
+guarda una clave del set `BYOK_NUNCA_PLATAFORMA` con el valor exacto de la plataforma.
+El route de /integraciones lo audita (`permitido:false`) y contesta 409; los demás caminos
+lo surfean por sus catch. Es la misma regla del veto de Claude: **cerrar cuatro caminos
+deja el quinto — el control va donde pasan todos**. Si aparece otra credencial con
+semántica «key propia = modo distinto», va al set, no a su UI.
+
+**Vive en:** lib/credenciales.ts (`BYOK_NUNCA_PLATAFORMA`, `KeyDePlataformaError`) ·
+app/api/integraciones/credencial/route.ts · *corrida 2026-08-15 (auditoría tabs IG)*
+
 ### ⚠️ El super admin no puede ver una credencial propia
 
 Sale «Solo el admin de este espacio puede ver una credencial» cuando la credencial es

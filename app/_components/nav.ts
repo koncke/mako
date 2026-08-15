@@ -259,9 +259,9 @@ export const FAMILIAS: NavFamilia[] = [
       {
         key: 'ig-formatos', label: 'Instagram', icon: 'instagram',
         items: [
-          { key: 'reels', label: 'Reels', href: '/reels', icon: 'videogen', comingSoon: true, match: starts('/reels') },
-          { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', comingSoon: true, match: starts('/carousels') },
-          { key: 'stories', label: 'Stories', href: '/stories', icon: 'stories', comingSoon: true, match: starts('/stories') },
+          { key: 'reels', label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
+          { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
+          { key: 'stories', label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
         ],
       },
       {

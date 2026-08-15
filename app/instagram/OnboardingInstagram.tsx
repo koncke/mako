@@ -1,31 +1,40 @@
 'use client';
 
 // =============================================================================
-// OnboardingInstagram — las 3 etapas de la tab (Conectar → Contexto → Ensayo)
+// OnboardingInstagram — las etapas de la tab (Zernio → Conectar → Contexto → Ensayo)
 // =============================================================================
 // Con el WizardShell embebido (misma pieza que el onboarding global, pero SIN
 // tapar el sidebar: de una tab siempre se puede salir a otra). El estado vive en
 // app_settings vía lib/tab-onboarding-state.ts ('instagram').
 //
 // El orden Conectar-primero es la excepción prevista de la skill tab-onboarding:
-// el OAuth acá BLOQUEA de verdad — sin cuenta conectada el inbox y el compositor
-// no tienen nada que mostrar. La prueba de vida del paso son los facts reales de
-// la cuenta (el username que devuelve Zernio), no la credencial guardada.
+// lo de acá BLOQUEA de verdad — sin la decisión de Zernio tomada no hay API con
+// la que hablar, y sin cuenta conectada el inbox y el compositor no tienen nada
+// que mostrar. Los dos primeros pasos se derivan de señales REALES (estado vivo,
+// no recordado): `zernio` de la key BYOK o de la fila en zernio_workspace,
+// `conectar` de los facts de la cuenta (el username que devuelve Zernio), nunca
+// de una credencial guardada ni de un flag.
 
 import { useCallback, useEffect, useState } from 'react';
 import { WizardShell } from '../_components/WizardShell';
 import { Button, Spinner } from '@/app/_ui';
 import { Icon } from '../_components/icons';
+import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { InstagramApp } from './InstagramApp';
 import type { EstadoConexionIg } from './ig-datos';
 import {
-  conectarInstagramAction, ensayoDmAction, estadoConexionAction, marcarPasoIgAction,
+  conectarInstagramAction, ensayoDmAction, estadoConexionAction, guardarZernioKeyAction,
+  marcarPasoIgAction, usarCuentaPlataformaAction,
 } from './actions';
 
 const MONO = "'Geist Mono', monospace";
 
-const PASOS = ['conectar', 'contexto', 'ensayo'] as const;
+const PASOS = ['zernio', 'conectar', 'contexto', 'ensayo'] as const;
 type Paso = (typeof PASOS)[number];
+
+// El tutorial de «cómo consigo mi API key» sale del catálogo (una cosa, un
+// lugar): el mismo que muestra la card de Zernio en /integraciones.
+const TUTORIAL_ZERNIO = servicioMetodo('zernio')?.tutorial ?? null;
 
 /** Caja de contexto del paso (molde de la skill: surface-2 + eyebrow mono). */
 function Contexto({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
@@ -45,11 +54,39 @@ export function OnboardingInstagram({ conexionInicial }: { conexionInicial: Esta
   // que llevar a la tab de verdad (mismo porqué que OnboardingCanalWhatsApp).
   const [salir, setSalir] = useState(false);
 
-  const [paso, setPaso] = useState<Paso>('conectar');
+  // Retomar donde quedó: con la decisión de Zernio ya tomada se arranca en
+  // Conectar; sin ella, el primer paso es elegir la cuenta de Zernio.
+  const [paso, setPaso] = useState<Paso>(conexionInicial.zernio?.resuelto ? 'conectar' : 'zernio');
   const [error, setError] = useState<string | null>(null);
 
-  // ── Conectar ──
+  // ── Zernio ──
   const [conexion, setConexion] = useState<EstadoConexionIg>(conexionInicial);
+  const [busyPlataforma, setBusyPlataforma] = useState(false);
+  const [busyKey, setBusyKey] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+
+  const elegirPlataforma = useCallback(async () => {
+    setBusyPlataforma(true);
+    setError(null);
+    const r = await usarCuentaPlataformaAction();
+    setBusyPlataforma(false);
+    if (!r.ok) { setError(r.error); return; }
+    setConexion(r.estado);
+    setPaso('conectar');
+  }, []);
+
+  const guardarKey = useCallback(async () => {
+    setBusyKey(true);
+    setError(null);
+    const r = await guardarZernioKeyAction(apiKey);
+    setBusyKey(false);
+    if (!r.ok) { setError(r.error); return; }
+    setApiKey('');
+    setConexion(r.estado);
+    setPaso('conectar');
+  }, [apiKey]);
+
+  // ── Conectar ──
   const [busyConectar, setBusyConectar] = useState(false);
   const [busyVerificar, setBusyVerificar] = useState(false);
 
@@ -98,10 +135,16 @@ export function OnboardingInstagram({ conexionInicial }: { conexionInicial: Esta
   if (salir) return <InstagramApp conexionInicial={conexion} />;
 
   const idx = PASOS.indexOf(paso);
-  const puedeAvanzar = paso === 'conectar' ? Boolean(conexion.cuenta) : paso === 'ensayo' ? Boolean(borrador) : true;
+  const zernioResuelto = Boolean(conexion.zernio?.resuelto);
+  const puedeAvanzar =
+    paso === 'zernio' ? zernioResuelto
+    : paso === 'conectar' ? Boolean(conexion.cuenta)
+    : paso === 'ensayo' ? Boolean(borrador)
+    : true;
 
   const avanzar = async () => {
     setError(null);
+    if (paso === 'zernio') { setPaso('conectar'); return; }
     if (paso === 'conectar') { setPaso('contexto'); return; }
     if (paso === 'contexto') {
       setBusyPaso(true);
@@ -121,17 +164,21 @@ export function OnboardingInstagram({ conexionInicial }: { conexionInicial: Esta
     setSalir(true);
   };
 
-  const pregunta = paso === 'conectar'
-    ? 'Tu cuenta de Instagram'
-    : paso === 'contexto'
-      ? 'Contexto del negocio'
-      : 'Ensayo de respuesta';
+  const pregunta = paso === 'zernio'
+    ? 'Conexión con Zernio'
+    : paso === 'conectar'
+      ? 'Tu cuenta de Instagram'
+      : paso === 'contexto'
+        ? 'Contexto del negocio'
+        : 'Ensayo de respuesta';
 
-  const sub = paso === 'conectar'
-    ? 'Conecta la cuenta desde la que publicas y respondes mensajes.'
-    : paso === 'contexto'
-      ? undefined
-      : 'Escribe un mensaje como si fueras un cliente y mira el borrador que MaKo redactaría.';
+  const sub = paso === 'zernio'
+    ? 'Elige la cuenta de Zernio con la que MaKo publica y responde en Instagram.'
+    : paso === 'conectar'
+      ? 'Conecta la cuenta desde la que publicas y respondes mensajes.'
+      : paso === 'contexto'
+        ? undefined
+        : 'Escribe un mensaje como si fueras un cliente y mira el borrador que MaKo redactaría.';
 
   return (
     <WizardShell
@@ -161,6 +208,98 @@ export function OnboardingInstagram({ conexionInicial }: { conexionInicial: Esta
         </button>
       }
     >
+      {paso === 'zernio' && (
+        <>
+          {zernioResuelto ? (
+            // La recompensa es el estado real, no un tilde suelto.
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
+              <Icon name="check" />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>
+                  {conexion.zernio?.resuelto === 'propia' ? 'Tu cuenta de Zernio' : 'Cuenta de Zernio de la plataforma'}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>Conexión resuelta — continúa con tu cuenta de Instagram.</div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Camino 1: la cuenta de la plataforma. El botón solo se habilita si
+                  la plataforma TIENE la key (señal viva del server) — deshabilitado
+                  con el estado honesto, nunca un botón que explota al clic. El que
+                  decide es el server (la action re-chequea igual). */}
+              <Button
+                variant="primary"
+                onClick={() => void elegirPlataforma()}
+                loading={busyPlataforma}
+                disabled={!conexion.zernio?.plataformaDisponible}
+                style={{ alignSelf: 'center' }}
+              >
+                Usar la cuenta de la plataforma
+              </Button>
+              {!conexion.zernio?.plataformaDisponible && (
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center' }}>
+                  La plataforma no tiene cuenta de Zernio configurada — conecta tu propia cuenta aquí abajo.
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--faint)', fontSize: 12 }}>
+                <span aria-hidden style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                o conecta tu propia cuenta
+                <span aria-hidden style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+
+              {/* Camino 2: BYOK. Se guarda por el sistema de credenciales (misma
+                  fila que la card de Zernio en /integraciones). El guard contra la
+                  key de plataforma vive en el server (guardarZernioKeyAction). */}
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && apiKey.trim() && !busyKey) void guardarKey(); }}
+                placeholder="API key de tu cuenta de Zernio"
+                autoComplete="off"
+                spellCheck={false}
+                aria-label="API key de tu cuenta de Zernio"
+                style={{ width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+              />
+              <Button
+                variant="secondary"
+                onClick={() => void guardarKey()}
+                loading={busyKey}
+                disabled={!apiKey.trim()}
+                style={{ alignSelf: 'center' }}
+              >
+                Guardar API key de Zernio
+              </Button>
+            </>
+          )}
+          <Contexto eyebrow="Por qué este paso">
+            Zernio es la plataforma con la que MaKo publica en Instagram y lee tus mensajes.
+            Puedes usar la cuenta que ya tiene la plataforma (un clic, sin costo extra para
+            ti) o conectar tu propia cuenta de Zernio pegando su API key — con key propia,
+            el consumo corre por tu cuenta. Sin este paso resuelto, el siguiente («Tu
+            cuenta de Instagram») queda bloqueado: no hay API con la que conectarla.
+            {!zernioResuelto && TUTORIAL_ZERNIO && (
+              <>
+                <ol style={{ margin: '9px 0 0', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {TUTORIAL_ZERNIO.pasos.map((p, i) => <li key={i}>{p}</li>)}
+                </ol>
+                {TUTORIAL_ZERNIO.url && (
+                  <a
+                    href={TUTORIAL_ZERNIO.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-block', marginTop: 8, fontWeight: 600, color: 'var(--primary-strong)', textDecoration: 'none' }}
+                  >
+                    Abrir {TUTORIAL_ZERNIO.urlLabel ?? 'Zernio'} ↗
+                  </a>
+                )}
+              </>
+            )}
+          </Contexto>
+        </>
+      )}
+
       {paso === 'conectar' && (
         <>
           {conexion.cuenta ? (
@@ -173,6 +312,13 @@ export function OnboardingInstagram({ conexionInicial }: { conexionInicial: Esta
                   {conexion.cuenta.displayName ? `${conexion.cuenta.displayName} · ` : ''}Cuenta conectada
                 </div>
               </div>
+            </div>
+          ) : !zernioResuelto ? (
+            // Bloqueado con la razón VISIBLE: sin la decisión de Zernio tomada no
+            // hay API con la que conectar (el server lo rechaza igual — esto solo
+            // evita ofrecer un botón que explota al clic).
+            <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+              Este paso está bloqueado: primero completa <b style={{ color: 'var(--ink)' }}>Conexión con Zernio</b> (el paso anterior).
             </div>
           ) : (
             <>
@@ -196,10 +342,10 @@ export function OnboardingInstagram({ conexionInicial }: { conexionInicial: Esta
             publicar y leer mensajes). Autorizas la cuenta y vuelves aquí solo. El paso se
             cierra cuando la cuenta responde con sus datos reales — no alcanza con guardar
             una credencial.
-            {!conexion.configurado && (
+            {!conexion.configurado && zernioResuelto && (
               <>
-                {' '}Si el botón devuelve un error de configuración, falta la API key de
-                Zernio: se carga en la pestaña de integraciones.
+                {' '}Si el botón devuelve un error de configuración, la cuenta de Zernio
+                del paso anterior dejó de estar disponible: vuelve atrás y resuélvelo.
               </>
             )}
           </Contexto>

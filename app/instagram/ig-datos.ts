@@ -10,8 +10,9 @@
 // Las llamadas a Zernio van por lib/zernio.ts, que ya aísla por profile.
 
 import 'server-only';
-import { getTenantDb } from '@/lib/workspace';
+import { getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
+import { credWs, envCred } from '@/lib/credenciales';
 import { listAccounts, zernioConfigurado, type ZernioAccount } from '@/lib/zernio';
 
 export const BUCKET_IG = 'ig-media';
@@ -64,6 +65,17 @@ export type MensajeIg = {
   createdAt: string;
 };
 
+export type EstadoZernioIg = {
+  /** Cómo quedó tomada la decisión del paso «Conexión con Zernio»:
+   *  'propia' = el ws tiene SU API key BYOK · 'plataforma' = la elección de usar
+   *  la cuenta de la plataforma quedó materializada (fila en zernio_workspace,
+   *  la crea ensureProfile) · null = sin resolver, el paso se muestra. */
+  resuelto: 'propia' | 'plataforma' | null;
+  /** La plataforma tiene ZERNIO_API_KEY de verdad (señal viva del server, no un
+   *  flag): gobierna si el botón «Usar la cuenta de la plataforma» se habilita. */
+  plataformaDisponible: boolean;
+};
+
 export type EstadoConexionIg = {
   /** Hay key de Zernio utilizable (propia o de plataforma). */
   configurado: boolean;
@@ -71,16 +83,49 @@ export type EstadoConexionIg = {
   cuenta: { id: string; username: string; displayName?: string } | null;
   /** Error legible si la consulta a Zernio falló (no se traga en silencio). */
   error: string | null;
+  /** Estado del paso Zernio. Opcional en el TIPO solo por el fallback literal de
+   *  la page (agencia sin impersonar) — estadoConexionIg siempre lo devuelve. */
+  zernio?: EstadoZernioIg;
 };
 
 // ── Conexión ─────────────────────────────────────────────────────────────────
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/**
+ * Estado del paso «Conexión con Zernio» del ws, derivado de señales REALES
+ * (regla «estado vivo, no recordado» — nada de flags guardados):
+ *   (a) key propia (BYOK): credWs devuelve valor de SU fila. Para el dueño la
+ *       caída a env NO cuenta como propia — ese env ES la cuenta de plataforma
+ *       (mismo criterio que el `byok` de lib/zernio.ts).
+ *   (b) elección de plataforma materializada: fila en zernio_workspace.
+ * Lanza si la base falla: un error de infra NO es «sin resolver» — el caller no
+ * debe reabrir el paso por una consulta caída.
+ */
+export async function estadoZernioIg(ws: number): Promise<EstadoZernioIg> {
+  const plataformaDisponible = Boolean(await envCred('ZERNIO_API_KEY'));
+  const propia = await credWs('ZERNIO_API_KEY', ws);
+  if (propia && ws !== OWNER_WS) return { resuelto: 'propia', plataformaDisponible };
+  // zernio_workspace se lee con el cliente crudo + .eq explícito a propósito
+  // (mismo patrón que lib/zernio.ts: el ws viene EXPLÍCITO, no de la sesión).
+  const { data, error } = await getSupabaseServer()
+    .from('zernio_workspace')
+    .select('workspace_id')
+    .eq('workspace_id', ws)
+    .maybeSingle();
+  if (error) throw new Error(`zernio_workspace: ${error.message}`);
+  return { resuelto: data ? 'plataforma' : null, plataformaDisponible };
+}
+
 /** Estado de conexión del canal para el workspace `ws` (sin tirar). */
 export async function estadoConexionIg(ws: number): Promise<EstadoConexionIg> {
+  const zernio = await estadoZernioIg(ws);
   const configurado = await zernioConfigurado(ws);
-  if (!configurado) return { configurado: false, cuenta: null, error: null };
+  // Sin la decisión de Zernio tomada NO se toca la API: listAccounts pasa por
+  // ensureProfile, que MATERIALIZA la elección de plataforma (crea el profile y
+  // la fila) — exactamente lo que el paso del onboarding existe para preguntar
+  // ANTES. Consultar acá resolvería la decisión por el cliente, en silencio.
+  if (!zernio.resuelto || !configurado) return { configurado, cuenta: null, error: null, zernio };
   try {
     const cuentas: ZernioAccount[] = await listAccounts(ws, { platform: 'instagram' });
     const viva = cuentas.find((c) => c.isActive !== false) ?? cuentas[0] ?? null;
@@ -88,9 +133,10 @@ export async function estadoConexionIg(ws: number): Promise<EstadoConexionIg> {
       configurado: true,
       cuenta: viva ? { id: viva._id, username: viva.username, displayName: viva.displayName } : null,
       error: null,
+      zernio,
     };
   } catch (e) {
-    return { configurado: true, cuenta: null, error: msg(e) };
+    return { configurado: true, cuenta: null, error: msg(e), zernio };
   }
 }
 

@@ -2277,7 +2277,43 @@ payload, que es lo correcto) o documentar que BYOK opera por polling.
 
 **Y el gemelo del secret:** si un cliente pega LA MISMA key de plataforma como "propia",
 se lo trata como BYOK y usaría el profile Default de la AGENCIA (mezcla de datos).
-Falta validar en el guardado que la key del ws ≠ la key de plataforma.
+CERRADO A MEDIAS 15/08/2026: `guardarZernioKeyAction` (app/instagram/actions.ts) rechaza
+la igualdad exacta con `envCred('ZERNIO_API_KEY')` + auditoría + prueba de vida con
+rollback. Pero el MISMO guard falta en `app/api/integraciones/credencial/route.ts`: desde
+la card de Zernio en /integraciones la key de la agencia todavía entra sin chistar.
+
+### ensureProfile MATERIALIZABA la elección de cuenta con solo ABRIR la tab
+
+**Vive en:** `app/instagram/ig-datos.ts` (`estadoZernioIg`), `app/instagram/actions.ts`, `lib/zernio.ts`
+
+**Síntoma:** el cliente veía «Conectar Instagram» directo, sin que nadie le preguntara si
+operaba con la cuenta de la plataforma o con la suya (BYOK). **Causa:** la CONSULTA de
+estado escribía: `estadoConexionIg → listAccounts → profileIdEfectivo → ensureProfile`
+creaba el profile `mako_ws_<ws>` y la fila en `zernio_workspace` — o sea, tomaba la
+decisión de plataforma en silencio, con solo montar la page. `getConnectUrl` tiene el
+mismo camino. **Regla:** una lectura de estado no puede pasar por un camino que ESCRIBE;
+si la decisión no está resuelta (key BYOK propia o fila en `zernio_workspace`, señales
+VIVAS de `estadoZernioIg`), no se toca la API de Zernio y `cuenta` vuelve `null`. El que
+rechaza es el SERVER (`conectarInstagramAction`), no el botón escondido. Detalle fino:
+para `OWNER_WS` la caída de `credWs` a env NO cuenta como key propia — ese env ES la
+cuenta de plataforma. Y `estadoZernioIg` LANZA en error de base: un fallo de infra no se
+lee como «sin resolver» ni reabre pasos.
+
+### KEY_PASOS_COMPARTIDOS comparte pasos que NO son la misma configuración
+
+**Vive en:** `lib/tab-onboarding-state.ts`
+
+El registro compartido hace que un paso con la misma key en dos tabs se marque en las dos
+a la vez. Está bien cuando ES la misma cosa (`conectar` = la misma cuenta de Instagram en
+/instagram, /reels y /stories). Pero los `contexto`/`ensayo` PELADOS de la tab instagram
+colisionan con «Tu forma de escribir» y «Ensayo de conversación» del Chat Agent (setting):
+terminar el ensayo de una marca el de la otra sin ser la misma configuración. **Regla:
+un paso comparte key SOLO si es la MISMA configuración; todo lo demás va namespaced por
+tab** (`reels_*`, `carousels_*`, `stories_*`, como hicieron las tres tabs nuevas).
+Pendiente: renombrar los pelados de instagram/setting con migración del estado guardado.
+Y quedaron DOS criterios conviviendo para el mismo paso: reels/stories comparten
+`conectar` (se refleja solo, la tab nunca lo marca) y carousels creó `carousels_instagram`
+namespaced que nunca se marca — vale unificar en la compartida.
 
 ### Lo que quedó SIN hacer
 
@@ -2301,7 +2337,99 @@ Falta validar en el guardado que la key del ws ≠ la key de plataforma.
   reales.
 - Señal de conexión real para crons: `integracionConectada('zernio')` solo da true con
   key propia; falta un `estadoZernio` que mire `zernio_workspace` + cuenta IG conectada.
+  (Para la TAB ya existe `estadoZernioIg` en `app/instagram/ig-datos.ts`, 15/08.)
+- El guard anti key-de-plataforma vive SOLO en `guardarZernioKeyAction`: falta replicarlo
+  en `app/api/integraciones/credencial/route.ts` (la card de Zernio en /integraciones
+  todavía acepta la key de la agencia como BYOK).
+- No hay ping de Zernio en `lib/metodo-verificar.ts` (PINGS): el tilde de la card de
+  /integraciones guarda la key SIN probarla (`verificarServicio('zernio')` devuelve
+  «servicio inválido»). Va un `GET /v1/profiles`.
 
 *Corrida del 15/08/2026 — 7 agentes (2 recon, 3 build, integrador, auditoría).
 Typecheck limpio, build OK, 915/915 tests. La migración 0136 y el alta del webhook las
 hizo el orquestador al cierre.*
+
+## Los writers de contenido IG (Reels / Carousels / Stories)
+
+Corrida del 15/08/2026 (fix del onboarding de /instagram + base + 3 tabs + integrador).
+El motor es `lib/ig-writer.ts` (`generarPieza`, saneo por formato) sobre
+`lib/ig-formatos.ts` (límites técnicos + metodología de los cursos) y el puente a
+`contenido_posts` es `lib/ig-contenido.ts` (`crearBorradorPublicacion`, camino borrador
+sin tocar Zernio).
+
+### La doctrina de caption y hashtags es NEGATIVA, y eso también es un dato
+
+**Vive en:** `lib/ig-formatos.ts` (`METODOLOGIA_TRANSVERSAL`)
+
+Ningún curso de la casa enseña caption ni hashtags como palanca: la palanca es el gancho.
+La «regla de los 125 caracteres» es el corte de UI de Instagram (dónde trunca el feed),
+no doctrina. El módulo lo dice honesto en vez de inventar metodología, y las UIs de las
+tabs lo repiten (sin hashtags a propósito, con el porqué en pantalla). Si alguien pide
+«mejorar los hashtags», la respuesta correcta es que no hay doctrina positiva que aplicar.
+
+### Historial de un writer sin tabla genérica: app_settings con tope chico, nunca la tabla de otro feature
+
+**Vive en:** `app/reels/reels-datos.ts` (`reels.historial`), `app/carousels/CarouselsApp.tsx`, `app/stories/StoriesApp.tsx`
+
+No existe tabla genérica de piezas generadas (`landing_drafts` es del Landing Generator;
+`contenido_posts` guarda solo lo enviado a publicación). Reels persiste en `app_settings`
+(tope 10, read-modify-write sin lock, anotado); carousels y stories viven en memoria de
+la sesión de página y lo DICEN en pantalla. Si el producto quiere historial durable o
+cross-formato, es UNA tabla con migración coordinada entre corridas — no subir topes ni
+colonizar la tabla de otro.
+
+### Las notas de producción viajan ANEXADAS a la caption, y el total puede superar 2.200
+
+**Vive en:** `lib/ig-contenido.ts`
+
+`contenido_posts` (mig 0136) no tiene columna para el guion/notas del writer: aceptarlas y
+tirarlas era pérdida silenciosa, así que van anexadas a la caption con rótulo visible
+(«NOTAS DE PRODUCCIÓN — borra este bloque antes de publicar»). Consecuencia asumida: el
+borrador puede superar los 2.200; el tope lo aplica Instagram/Zernio al publicar en
+/instagram, no la base. Y `crearBorradorPublicacion` NO es idempotente (doble click = dos
+borradores); reels lo mitiga guardando `borradorId` por entrada del historial, las otras
+dos tabs solo deshabilitan el botón.
+
+### El objetivo del día viaja DENTRO del pedido no confiable, porque el motor no tiene canal de instrucciones
+
+**Vive en:** `app/stories/objetivos.ts`, `lib/ig-writer.ts`
+
+`generarPieza(ws, formato, pedido)` no tiene parámetro de directivas: todo lo que no es
+el system entra como contenido no confiable (anti-inyección), incluido el objetivo del
+día de stories. La verificación va en las dos capas: el texto lo pide y
+`generarSecuenciaAction` lo valida determinista (venta/interacción sin CTA ni palabra
+clave → rechazo con motivo, nunca un frame inventado). Si aparece un tercer caso así,
+vale agregarle `directivas` al motor en vez de seguir coloreando el pedido. Ojo además:
+`generarPieza` corta el pedido a 4.000 caracteres EN SILENCIO — los composers de las tabs
+topean por campo por eso (`app/reels/reel-pedido.ts`).
+
+### Decisión de capas: las tres tabs las ve solo 'completo'
+
+**Vive en:** `lib/capas.ts`, `app/_components/nav.ts`
+
+Las keys `reels`/`carousels`/`stories` de nav.ts no están en ningún `navKeys`: las ve la
+capa `completo` (navKeys null = ve todo), que es la de Content Machine y la default de
+los clientes. `pm` no las compró y `superadmin` no corre contenido de cliente — a
+propósito, no hizo falta tocar `lib/capas.ts`. Si mañana se venden sueltas, es agregar
+las 3 keys a los navKeys de la capa que corresponda.
+
+### Lo que quedó SIN hacer
+
+- Los prompts del writer son constantes locales en `lib/ig-writer.ts` con TODO «mover a
+  prompt-registry» (archivo tomado por sesión paralela 15/08): hoy NO son editables desde
+  /configuraciones. Migrarlos con la skill `add-editable-prompt` al liberarse.
+- Unificar el criterio del paso «cuenta de Instagram» en `lib/tab-onboarding-state.ts`:
+  reels/stories comparten `conectar` (se refleja solo), carousels creó
+  `carousels_instagram` que nunca se marca — que las tres usen la compartida.
+- Renombrar los `contexto`/`ensayo` PELADOS de instagram y setting a keys namespaced,
+  con migración del estado guardado (la colisión de KEY_PASOS_COMPARTIDOS, ver arriba).
+- El clamp de duración del reel recorta la CIFRA a 90 s en silencio (el guion queda
+  entero): la UI debería decir que se recortó.
+- El saneo de story no topea frames; `enviarSecuenciaAction` corta en 50 borradores EN
+  SILENCIO (el aviso de parciales solo aparece si un insert FALLA).
+- Deep-link de vuelta: los borradores mandan a /instagram entero, sin ancla por post
+  (`?post=`); `enviarSecuenciaAction` ya devuelve href, es un cambio de una línea cuando
+  la tab Instagram sume el ancla.
+
+*Corrida del 15/08/2026 — fix onboarding + base (formatos/writer/contenido) + 3 tabs +
+integrador. Typecheck 0 errores, build OK (las 3 rutas), 915/915 tests.*

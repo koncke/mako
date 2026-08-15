@@ -15,20 +15,24 @@
 //     es ig_mensajes.id del borrador). Esta capa solo lista y descarta.
 
 import { randomUUID } from 'node:crypto';
-import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { getRolWsEfectivo, getTenantDb, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getSetting, setSetting } from '@/lib/settings';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { chatCheapCascade, errorDeCascada } from '@/lib/ai-cheap';
+import { getUsuarioActual } from '@/lib/auth';
 import {
-  createPost, deletePost, getConnectUrl, getPost, ZernioError,
+  auditarCredencial, credWs, eliminarCredencial, envCred, guardarCredencial,
+} from '@/lib/credenciales';
+import {
+  createPost, deletePost, ensureProfile, getConnectUrl, getPost, listProfiles, ZernioError,
   type ZernioMediaItem, type ZernioPost,
 } from '@/lib/zernio';
 import { APP_BASE_URL } from '@/lib/app-url';
 import {
-  BUCKET_IG, KEY_IG_AUTO_RESPUESTA, estadoConexionIg, firmarMedia, firmarPreview, listarConversaciones,
-  listarMensajes, listarPublicaciones, pathDelWorkspace,
+  BUCKET_IG, KEY_IG_AUTO_RESPUESTA, estadoConexionIg, estadoZernioIg, firmarMedia, firmarPreview,
+  listarConversaciones, listarMensajes, listarPublicaciones, pathDelWorkspace,
   type ConversacionIg, type EstadoConexionIg, type MediaLocal, type MensajeIg, type PublicacionIg,
 } from './ig-datos';
 
@@ -49,6 +53,93 @@ async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error
   return { ok: true, ws };
 }
 
+/** Autor para la auditoría de credenciales. Mismo criterio que el ctx de
+ *  /api/integraciones/credencial: la sesión legacy trae un email de cookie no
+ *  firmada (editable) → se usa el sub. */
+async function autorActual(): Promise<string | null> {
+  const s = await getUsuarioActual();
+  if (!s) return null;
+  return s.legacy ? s.sub : (s.email || s.sub);
+}
+
+// ── Zernio (onboarding · paso PREVIO a conectar Instagram) ───────────────────
+// El paso se considera resuelto por señal REAL (estadoZernioIg): key BYOK propia
+// o fila en zernio_workspace. Estas dos actions son los únicos caminos que la
+// materializan a pedido del cliente.
+
+/**
+ * Camino 1: operar con la cuenta de Zernio de LA PLATAFORMA.
+ * Guard en positivo + señal viva: solo si la plataforma TIENE ZERNIO_API_KEY
+ * (envCred, no un flag) — si falta, error honesto en vez de un ensureProfile
+ * que explota. ensureProfile materializa la elección: crea el profile
+ * `mako_ws_<ws>` y la fila en zernio_workspace, que es la señal por la que el
+ * paso queda hecho.
+ */
+export async function usarCuentaPlataformaAction(): Promise<{ ok: true; estado: EstadoConexionIg } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+  try {
+    if (!(await envCred('ZERNIO_API_KEY'))) {
+      return { ok: false, error: 'La plataforma no tiene cuenta de Zernio configurada. Conecta tu propia cuenta con su API key.' };
+    }
+    await ensureProfile(ctx.ws);
+    const tab = await getEstadoTab('instagram');
+    if (!tab.steps.zernio?.done) await marcarPasoTab('instagram', 'zernio');
+    return { ok: true, estado: await estadoConexionIg(ctx.ws) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/**
+ * Camino 2 (BYOK): guardar la API key de Zernio del PROPIO cliente.
+ *
+ * GUARD OBLIGATORIO (hallazgo de la auditoría anterior), en el server y no solo
+ * en la UI: si el valor pegado coincide EXACTO con la key de plataforma, se
+ * rechaza. Un cliente pegando la key de la agencia se colgaría del profile
+ * Default de la cuenta de la plataforma y mezclaría datos de otros workspaces.
+ *
+ * Después de guardar se hace una prueba de vida (listProfiles resuelve la key
+ * recién guardada vía credWs); si Zernio la rechaza, se restaura lo anterior:
+ * una key rota no queda guardada pintada de verde.
+ */
+export async function guardarZernioKeyAction(key: string): Promise<{ ok: true; estado: EstadoConexionIg } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+  const valor = (key ?? '').trim();
+  if (!valor) return { ok: false, error: 'Pega la API key de tu cuenta de Zernio primero.' };
+  const autor = await autorActual();
+  try {
+    const plataforma = await envCred('ZERNIO_API_KEY');
+    if (plataforma && valor === plataforma) {
+      await auditarCredencial(ctx.ws, 'ZERNIO_API_KEY', 'guardar', autor, { permitido: false, motivo: 'pegó la key de plataforma como BYOK' });
+      return { ok: false, error: 'Esa es la key de la plataforma, no la de tu cuenta. Crea tu cuenta en zernio.com y pega la API key de esa cuenta.' };
+    }
+    // La key previa, para restaurarla si la nueva no funciona. El dueño no tiene
+    // fila propia (su env ES la plataforma, ver NO_MIGRAR_A_WS en credenciales):
+    // para él, credWs caería al env y «restaurar» escribiría la key de
+    // plataforma a la base — justo lo que esa exclusión evita.
+    const previa = ctx.ws === OWNER_WS ? null : await credWs('ZERNIO_API_KEY', ctx.ws);
+    await guardarCredencial(ctx.ws, 'ZERNIO_API_KEY', valor, 'zernio', autor);
+    await auditarCredencial(ctx.ws, 'ZERNIO_API_KEY', 'guardar', autor);
+    try {
+      await listProfiles(ctx.ws); // prueba de vida: la key guardada tiene que responder
+    } catch (e) {
+      if (previa) await guardarCredencial(ctx.ws, 'ZERNIO_API_KEY', previa, 'zernio', autor);
+      else await eliminarCredencial(ctx.ws, 'ZERNIO_API_KEY');
+      const detalle = e instanceof ZernioError && (e.status === 401 || e.type === 'authentication_error')
+        ? 'Zernio rechazó la API key. Revisa que esté copiada completa.'
+        : msg(e);
+      return { ok: false, error: `No se guardó: ${detalle}` };
+    }
+    const tab = await getEstadoTab('instagram');
+    if (!tab.steps.zernio?.done) await marcarPasoTab('instagram', 'zernio');
+    return { ok: true, estado: await estadoConexionIg(ctx.ws) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
 // ── Conexión (onboarding · etapa Conectar) ───────────────────────────────────
 
 /**
@@ -61,6 +152,13 @@ export async function conectarInstagramAction(): Promise<{ ok: true; authUrl: st
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
   try {
+    // El ORDEN del onboarding se decide en el SERVER, no escondiendo el botón:
+    // sin la decisión de Zernio tomada, getConnectUrl pasaría por ensureProfile
+    // y materializaría la elección de plataforma sin que nadie la eligiera (el
+    // bug reportado: un cliente veía «Conectar Instagram» directo).
+    if (!(await estadoZernioIg(ctx.ws)).resuelto) {
+      return { ok: false, error: 'Antes de conectar Instagram, completa el paso «Conexión con Zernio».' };
+    }
     const r = await getConnectUrl(ctx.ws, 'instagram', `${APP_BASE_URL}/instagram?conectado=1`);
     return { ok: true, authUrl: r.authUrl };
   } catch (e) {
@@ -72,19 +170,29 @@ export async function conectarInstagramAction(): Promise<{ ok: true; authUrl: st
 }
 
 /**
- * Estado de conexión. Si detecta la cuenta conectada, cierra el paso `conectar`
- * del onboarding: la prueba de vida son los facts reales de la cuenta (el
- * username que devuelve Zernio), no la credencial guardada.
+ * Estado de conexión. Refleja las señales REALES en los pasos del onboarding
+ * (estado vivo, no recordado):
+ *   · `zernio` se cierra cuando la decisión está tomada (key BYOK o fila en
+ *     zernio_workspace) y se REABRE si la señal desaparece (borró su key) —
+ *     junto con `conectar`, que depende de él.
+ *   · `conectar` se cierra con la prueba de vida: los facts reales de la cuenta
+ *     (el username que devuelve Zernio), no la credencial guardada.
  */
 export async function estadoConexionAction(): Promise<{ ok: true; estado: EstadoConexionIg } | { ok: false; error: string }> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
   try {
     const estado = await estadoConexionIg(ctx.ws);
-    if (estado.cuenta) {
-      const tab = await getEstadoTab('instagram');
-      if (!tab.steps.conectar?.done) await marcarPasoTab('instagram', 'conectar');
+    const tab = await getEstadoTab('instagram');
+    if (estado.zernio?.resuelto) {
+      if (!tab.steps.zernio?.done) await marcarPasoTab('instagram', 'zernio');
+    } else if (tab.steps.zernio?.done) {
+      await marcarPasoTab('instagram', 'zernio', false);
+      if (tab.steps.conectar?.done) await marcarPasoTab('instagram', 'conectar', false);
     }
+    // Sin Zernio resuelto, `cuenta` es siempre null (ver estadoConexionIg): esto
+    // nunca marca `conectar` por delante de `zernio`.
+    if (estado.cuenta && !tab.steps.conectar?.done) await marcarPasoTab('instagram', 'conectar');
     return { ok: true, estado };
   } catch (e) {
     return { ok: false, error: msg(e) };
@@ -93,8 +201,8 @@ export async function estadoConexionAction(): Promise<{ ok: true; estado: Estado
 
 // ── Onboarding de la tab ─────────────────────────────────────────────────────
 
-/** Marca un paso del onboarding (contexto / ensayo). `conectar` se marca solo
- *  al detectar la cuenta — no se puede cerrar a mano sin prueba de vida. */
+/** Marca un paso del onboarding (contexto / ensayo). `zernio` y `conectar` se
+ *  marcan solos al detectar su señal real — no se cierran a mano sin prueba. */
 export async function marcarPasoIgAction(paso: 'contexto' | 'ensayo'): Promise<{ ok: boolean; error?: string }> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
