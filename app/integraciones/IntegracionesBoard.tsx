@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { ConfigClarity } from './ConfigClarity';
+import { snippetDeLandingAction } from './landing-config-actions';
 import { SelectorLanding } from './SelectorLanding';
 import { Button } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
@@ -876,7 +877,24 @@ function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }:
   const [abierto, setAbierto] = useState(false);
   const [verificando, setVerificando] = useState(false);
   const [estado, setEstado] = useState<{ ok: boolean; text: string } | null>(null);
-  const tokens = useMemo(() => (snippet ? resaltar(snippet) : []), [snippet]);
+  // ⚠️ EL CÓDIGO ES DE LA PÁGINA, NO DEL WORKSPACE. El que baja del server es el
+  // genérico —se arma antes de que exista una elección—; en cuanto hay una, se
+  // pide el suyo, que puede traer OTRO proyecto de Clarity. Con dos landings, el
+  // código genérico manda las grabaciones de las dos al mismo proyecto y quedan
+  // mezcladas en una lista donde ya no se distingue cuál es cuál.
+  const [snippetLanding, setSnippetLanding] = useState<string | null>(null);
+  useEffect(() => {
+    if (!elegida) { setSnippetLanding(null); return; }
+    let vivo = true;
+    snippetDeLandingAction(elegida)
+      .then((c) => { if (vivo) setSnippetLanding(c); })
+      // Si falla, se queda el genérico: es el mismo token y el mismo tracking —
+      // lo único que puede faltar es el bloque de Clarity de ESA página.
+      .catch(() => { if (vivo) setSnippetLanding(null); });
+    return () => { vivo = false; };
+  }, [elegida]);
+  const codigo = snippetLanding ?? snippet;
+  const tokens = useMemo(() => (codigo ? resaltar(codigo) : []), [codigo]);
 
   // "Verificar" = el "Probar conexión" de la landing. No hay API ajena contra la
   // cual probar: la única prueba honesta es que ya hayan llegado eventos.
@@ -902,9 +920,9 @@ function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }:
   };
 
   const copiar = async () => {
-    if (!snippet) return;
+    if (!codigo) return;
     try {
-      await navigator.clipboard.writeText(snippet);
+      await navigator.clipboard.writeText(codigo);
       setErrorCopia(false);
       setCopiado(true);
       setTimeout(() => setCopiado(false), 1800);

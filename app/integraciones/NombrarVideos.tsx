@@ -120,7 +120,14 @@ export function NombrarVideos({
                     // accionable: la URL viaja desde la v8, así que un video con
                     // eventos y sin URL es uno cuyo código todavía es anterior.
                     <span title="La dirección del video llega con la versión nueva del Pixel" style={{ flex: 'none', fontSize: 11, color: 'var(--faint)', fontStyle: 'italic' }}>
-                      {d.eventos > 0 ? 'para verlo, actualiza el Pixel' : ''}
+                      {/* ⚠️ NO dice «actualiza el Pixel»: se contradecía con el
+                          chequeo de arriba, que decía «Pixel actualizado ✓». Los
+                          dos tenían razón — el chequeo mira la VERSIÓN instalada
+                          y esto mira EVENTOS VIEJOS, de antes de que el Pixel
+                          mandara la dirección del video. Mandar a actualizar algo
+                          que ya está al día es la peor clase de aviso: hace
+                          desconfiar del resto. */}
+                      {d.eventos > 0 ? 'se verá la próxima vez que alguien lo reproduzca' : ''}
                     </span>
                   )}
                 </span>

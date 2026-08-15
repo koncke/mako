@@ -216,7 +216,12 @@ test('la prueba del código chequea el formulario, y la versión NO se adivina',
   // tope fijo, agregar un chequeo empuja al último fuera de la ventana y el test
   // falla sobre código correcto — ya pasó dos veces en este archivo. Un límite
   // arbitrario en un test que lee fuente es una falla programada.
-  const i = lib.indexOf('const chequeos: ChequeoDiag[]');
+  //
+  // Y ARRANCA EN `paso5`, no en el array: el chequeo 5 se arma arriba porque
+  // tiene dos identidades (formulario / agenda) según cómo venda el negocio.
+  // Empezar la ventana en el array lo dejaba afuera y el test fallaba sobre
+  // código correcto — la misma falla programada, por el otro extremo.
+  const i = lib.indexOf('const paso5: Omit<ChequeoDiag');
   const fin = lib.indexOf('\n  ];', i);
   assert.ok(i > 0 && fin > i, 'no se encontró el array de chequeos');
   const bloque = lib.slice(i, fin);
@@ -610,7 +615,10 @@ test('el probador muestra SOLO los eventos de esta prueba', () => {
   assert.ok(/const consultar = \(\) => \{ void traer\(undefined, prueba\); \}/.test(panel), 'el poll pierde el marcador');
 
   const lib = leer('../lib/landing-token.ts');
-  assert.ok(/landingDiagnostico\(prueba\?: string \| null\)/.test(lib), 'el diagnóstico tiene que poder filtrar por prueba');
+  // La firma creció: además del marcador, el diagnóstico recibe QUÉ landing se
+  // está probando y qué piezas tiene. Sin eso contestaba por el workspace entero
+  // —con dos landings, la mitad de los chequeos hablaban de la otra página—.
+  assert.ok(/landingDiagnostico\([\s\S]{0,600}?prueba\?: string \| null,[\s\S]{0,600}?urlLanding\?: string \| null,/.test(lib), 'el diagnóstico tiene que poder filtrar por prueba y por landing');
   assert.ok(/prueba \? qVsl\.eq\('prueba', prueba\) : qVsl\.gte/.test(lib), 'con marcador se filtra por marcador, sin él por ventana de tiempo');
   // El snippet lo devuelve, y sobrevive a navegar dentro de la pestaña.
   assert.ok(/sessionStorage\.setItem\('mko_test', prueba\)/.test(lib), 'el marcador tiene que sobrevivir a un CTA que va a otra página');
@@ -823,10 +831,18 @@ test('cada video se puede VER desde la pantalla que te pide nombrarlo', () => {
   // ninguno — promete y falla, y quien lo aprieta no sabe si el roto es el video.
   assert.ok(/\{d\.url \? \(/.test(ui), 'el botón no puede aparecer sin URL');
   // ⚠️ Y LA AUSENCIA SE EXPLICA. Esconderlo es correcto; esconderlo EN SILENCIO
-  // deja a la persona buscando un botón que le dijimos que existía. La razón es
-  // accionable: la URL viaja desde la v8, así que un video con eventos y sin URL
-  // es uno cuyo código todavía es anterior.
-  assert.ok(/para verlo, actualiza el Pixel/.test(ui), 'un botón que falta sin decir por qué se lee como una pantalla rota');
+  // deja a la persona buscando un botón que le dijimos que existía.
+  //
+  // ⚠️ PERO NO MANDA A ACTUALIZAR EL PIXEL, y ese texto estuvo mal desde el
+  // primer día: se contradecía de frente con el chequeo de arriba, que sobre la
+  // MISMA página decía «Pixel actualizado ✓». Los dos tenían razón y medían cosas
+  // distintas — el chequeo mira la versión INSTALADA, esto mira eventos VIEJOS,
+  // grabados antes de que el Pixel mandara la dirección del video. Reportado el
+  // 15/08/2026: «me dice que tengo la última versión pero al intentar reproducir
+  // el vídeo, me dice que tengo que actualizarlo». Mandar a hacer algo que ya
+  // está hecho es la peor clase de aviso: hace desconfiar del resto de la lista.
+  assert.ok(/se verá la próxima vez que alguien lo reproduzca/.test(ui), 'un botón que falta sin decir por qué se lee como una pantalla rota');
+  assert.ok(!/para verlo, actualiza el Pixel/.test(ui), 'no se puede mandar a actualizar un Pixel que el chequeo de arriba da por actualizado');
 });
 
 
@@ -923,4 +939,81 @@ test('el ciclo de vida del video: pausa, retoma y fin', () => {
   // ⚠️ Y el segundo play es RETOMAR, no otra reproducción: contarlo como play
   // inflaría el conteo y haría ver dos personas donde hay una.
   assert.ok(/tipo_evento: 'retoma'/.test(lib), 'el segundo play tiene que distinguirse del primero');
+});
+
+test('un play AUTOMÁTICO no cuenta como que alguien reprodujo', () => {
+  // Reportado el 15/08/2026: «no tiene mucho sentido como se está midiendo la
+  // reproducción del VSL, porque Panda tiene reproducción automática». El chequeo
+  // «2. Reproduce tu video» daba verde con solo abrir la página — afirmaba que se
+  // medía la INTENCIÓN de ver cuando lo único medido era que la página cargó. Y
+  // el mismo dato alimenta la retención: cada visita entraba como espectador.
+  const lib = leer('../lib/landing-token.ts');
+  // La señal es la INTERACCIÓN previa, no una propiedad del player: `autoplay` en
+  // el HTML no dice si esta reproducción en particular la pidió alguien, y con
+  // Panda el player vive en un iframe de otro dominio que no se puede inspeccionar.
+  assert.ok(/huboInteraccion = false/.test(lib), 'falta la marca de que alguien tocó la página');
+  assert.ok(/\['pointerdown', 'keydown', 'touchstart', 'wheel'\]/.test(lib), 'la interacción se detecta con muy pocas señales');
+  // Los DOS players lo mandan, o la mitad de los clientes mediría distinto que la otra.
+  assert.equal((lib.match(/auto: !huboInteraccion/g) ?? []).length, 2, 'los dos players tienen que marcar el autoplay');
+  // Y el chequeo se parte en dos: uno detecta el player (mitad técnica), el otro
+  // pregunta si alguien quiso ver. Solo el segundo pinta verde.
+  assert.ok(/const hayPlayManual = eventos\.some\(\(e\) => e\.tipo === 'play' && !e\.auto\)/.test(lib), 'el chequeo no distingue el play a mano');
+  assert.ok(/estado: hayPlayManual \? 'ok'/.test(lib), 'un autoplay no puede pintar el chequeo en verde');
+  assert.ok(/hayPlayAuto \? 'Tu video arranca solo/.test(lib), 'si arranca solo hay que decirlo, no dejarlo en rojo sin explicación');
+
+  // Y en la lista de eventos se NOMBRA distinto: con Panda arrancando solo, la
+  // lista se llenaba de «Reprodujo el video» sin que nadie tocara nada.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/El video arrancó solo \(autoplay\)/.test(panel), 'el feed no distingue el play automático');
+});
+
+test('el código que se copia es de LA PÁGINA, no del workspace', () => {
+  // Un proyecto de Clarity es por SITIO. Con un solo código para las dos landings
+  // del mismo cliente, las grabaciones de ambas caen en la misma lista y ahí ya no
+  // se sabe cuál es cuál — que es exactamente lo que el paso 1 vino a evitar.
+  const acciones = leer('../app/integraciones/landing-config-actions.ts');
+  assert.ok(/export async function snippetDeLandingAction/.test(acciones), 'no hay forma de pedir el código de una landing');
+  // El id propio GANA sobre el del workspace, y sin id propio HEREDA: el caso
+  // normal es una sola página, y ahí pedir que se configure dos veces lo mismo es
+  // pedir el error.
+  assert.ok(/propio \?\? \(await clarityProjectId\(ws\)/.test(acciones), 'el id de la landing tiene que ganarle al del workspace');
+
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  assert.ok(/snippetDeLandingAction\(elegida\)/.test(board), 'la pantalla no pide el código de la landing elegida');
+  // ⚠️ Y lo que se COPIA es lo mismo que se MUESTRA. Copiar `snippet` mientras la
+  // pantalla pinta otro es la peor variante: se ve bien y se pega lo que no es.
+  assert.ok(/await navigator\.clipboard\.writeText\(codigo\)/.test(board), 'se copia una cosa y se muestra otra');
+  assert.ok(/const codigo = snippetLanding \?\? snippet/.test(board), 'sin el de la landing tiene que quedar el genérico, no un vacío');
+});
+
+test('la grabación de la prueba se avisa cuando Clarity terminó de procesarla', () => {
+  // El link es correcto desde el primer segundo y no sirve para nada durante la
+  // primera media hora: Clarity procesa en lote y no tiene webhook. Quien prueba
+  // abre el link, no encuentra nada, y concluye que esto no funciona.
+  const clarity = leer('../lib/clarity.ts');
+  assert.ok(/export async function urlSesionesDePrueba/.test(clarity), 'no hay link a las sesiones de una prueba');
+
+  const cron = leer('../app/api/cron/prueba-grabacion/route.ts');
+  // ⚠️ Se espera ANTES de prometer. El costo de los dos errores no es el mismo:
+  // avisar tarde cuesta media hora; avisar temprano manda a alguien a una lista
+  // vacía, que es el problema que este cron viene a resolver.
+  assert.ok(/const PROCESADO_MIN = \d+/.test(cron), 'no se espera a que Clarity procese');
+  // Un solo aviso con la lista: el dedup de emitirDelCatalogo es por TIPO, así que
+  // dos pruebas seguidas mandarían la primera y perderían la segunda en silencio.
+  assert.equal((cron.match(/emitirDelCatalogo\(/g) ?? []).length, 1, 'un aviso por prueba pierde todas menos la primera');
+  // Y no se repite cada 15 minutos durante 12 horas.
+  assert.ok(/setSetting\(AVISADAS_KEY/.test(cron), 'sin memoria, el mismo aviso sale 48 veces');
+
+  // El cron TIENE QUE ESTAR REGISTRADO o no corre nunca, y nada lo dice: la ruta
+  // existe, el código está bien, y el aviso no sale jamás.
+  const vercel = leer('../vercel.json');
+  assert.ok(/"\/api\/cron\/prueba-grabacion"/.test(vercel), 'el cron no está registrado en vercel.json');
+  // Cada 15 minutos y no una vez por día: una prueba de las 15:00 avisada al día
+  // siguiente es un aviso que no sirve.
+  assert.ok(/"\*\/15 \* \* \* \*"/.test(vercel), 'una prueba avisada al día siguiente ya no le importa a nadie');
+
+  // Y el aviso vive en el catálogo, que es lo que gobierna la voz y la plantilla.
+  const cat = leer('../lib/avisos-catalogo.ts');
+  assert.ok(/id: 'prueba-grabada'/.test(cat), 'el aviso no está en el catálogo');
+  assert.ok(/'prueba-grabada': 'landing'/.test(cat), 'el aviso no tiene área');
 });

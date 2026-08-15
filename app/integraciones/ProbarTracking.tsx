@@ -20,16 +20,19 @@ import { mismaPagina } from '@/lib/landing-paginas';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
+import { analizarLandingAction } from './landing-config-actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-type Evento = { ts: string; tipo: string; porcentaje: number | null; segundos: number | null; detalle: string | null };
+type Evento = { ts: string; tipo: string; porcentaje: number | null; segundos: number | null; detalle: string | null; auto?: boolean };
 type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo' | 'na'; detalle: string; accion?: { texto: string; href: string } };
 type Diag = {
   eventos: Evento[]; chequeos: Chequeo[]; veredicto: string; urls: string[]; codigoViejo: boolean; ultima: string | null;
   /** Los videos que el sistema VIO en los eventos, y los que el negocio nombró. */
   videosDetectados: VideoDetectado[]; videos: VideoLanding[];
+  /** Link a las grabaciones de ESTA prueba en Clarity, o null. */
+  urlPrueba?: string | null;
 };
 
 const hora = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '--:--:--' : d.toLocaleTimeString('es-MX', { hour12: false }); };
@@ -37,7 +40,12 @@ const hora = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.g
 /** Cómo se lee cada evento crudo. Los tipos técnicos no se muestran pelados. */
 function legible(e: Evento): { texto: string; color: string } {
   if (e.tipo === 'pageview') return { texto: 'Visitó tu página', color: 'var(--dim)' };
-  if (e.tipo === 'play') return { texto: 'Reprodujo el video', color: 'var(--primary)' };
+  // ⚠️ El play automático se NOMBRA distinto. Los dos son plays y uno vale mucho
+  // menos: con Panda arrancando solo, la lista se llenaba de «Reprodujo el video»
+  // sin que nadie hubiera tocado nada, y eso hace dudar del resto de la lista.
+  if (e.tipo === 'play') return e.auto
+    ? { texto: 'El video arrancó solo (autoplay)', color: 'var(--dim)' }
+    : { texto: 'Reprodujo el video', color: 'var(--primary)' };
   if (e.tipo === 'exit') return { texto: e.porcentaje != null ? `Salió en el ${e.porcentaje}%` : 'Salió del video', color: 'var(--bad)' };
   const m = /^p(\d+)$/.exec(e.tipo);
   if (m) return { texto: `Llegó al ${m[1]}% del video`, color: 'var(--good)' };
@@ -111,6 +119,10 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // JUSTO ANTES de la prueba tiene contexto: lo que estás por hacer es mirar los
   // eventos de esos videos.
   const [paso, setPaso] = useState<'inicio' | 'videos'>('inicio');
+  // Qué piezas tiene ESTA landing. Se analiza una vez y se reenvía en cada
+  // consulta: bajar el HTML del cliente en cada refresco del poll sería una
+  // request a su página cada 3 segundos.
+  const [piezas, setPiezas] = useState<string[]>([]);
   const [eligiendoNueva, setEligiendoNueva] = useState(false); // eligió "Otra página…"
   const [paginas, setPaginas] = useState<string[]>([]);        // las GUARDADAS del workspace
   const [ocultas, setOcultas] = useState<string[]>([]);        // las que sacó de la lista a mano
@@ -202,15 +214,15 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
 
   const traer = useCallback(async (guardarEn?: (d: Diag) => void, pr?: string | null) => {
     try {
-      const r = await fetch(`/api/integraciones/landing/estado?diag=1${pr ? `&prueba=${encodeURIComponent(pr)}` : ''}`, { cache: 'no-store' }).then((x) => x.json());
+      const r = await fetch(`/api/integraciones/landing/estado?diag=1${pr ? `&prueba=${encodeURIComponent(pr)}` : ''}${landingFija ? `&landing=${encodeURIComponent(landingFija)}` : ''}${piezas.length ? `&piezas=${encodeURIComponent(piezas.join(','))}` : ''}`, { cache: 'no-store' }).then((x) => x.json());
       if (r?.ok) {
-        const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null, videosDetectados: r.videosDetectados ?? [], videos: r.videos ?? [] };
+        const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null, videosDetectados: r.videosDetectados ?? [], videos: r.videos ?? [], urlPrueba: r.urlPrueba ?? null };
         (guardarEn ?? setDiag)(d);
         setErr(null);
       } else setErr(r?.error ?? 'No se pudo consultar');
     } catch { setErr('No se pudo consultar'); }
     finally { setCargando(false); }
-  }, []);
+  }, [landingFija, piezas]);
 
   // Antes de arrancar se consulta UNA vez: hace falta saber si el código está
   // viejo (para no dejar probar) y qué landings ya mandaron eventos (para poder
@@ -224,6 +236,24 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     getPaginasAction().then(aplicar).catch(() => { /* sin lista, se puede agregar */ });
     try { setUrl(localStorage.getItem(URL_KEY) ?? ''); } catch { /* sin storage */ }
   }, [activo, traer]);
+
+  // ⚠️ EL ANÁLISIS VA SOLO, y depende ÚNICAMENTE de la landing. Colgado del
+  // efecto de arriba se relanzaba a sí mismo para siempre: `piezas` es una
+  // dependencia de `traer`, `traer` lo es del efecto, y el efecto escribe
+  // `piezas` — un array nuevo en cada vuelta, así que la comparación por
+  // referencia nunca corta. Se veía como la página del cliente pidiéndose sola
+  // varias veces por segundo.
+  useEffect(() => {
+    if (!landingFija) { setPiezas([]); return; }
+    let vivo = true;
+    // Falla hacia «no sé» —lista vacía— y entonces se ofrecen TODOS los pasos:
+    // esconder un chequeo porque no se pudo leer el HTML es peor que mostrarlo
+    // de más, porque el que falta no deja rastro de que faltó.
+    analizarLandingAction(landingFija)
+      .then((a) => { if (vivo) setPiezas(a.piezas); })
+      .catch(() => { if (vivo) setPiezas([]); });
+    return () => { vivo = false; };
+  }, [landingFija]);
 
   // Mientras la prueba está prendida, consulta cada 3s. Se apaga sola al cerrar
   // el modal (cleanup) para no dejar un poll corriendo de fondo.
@@ -359,16 +389,17 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
             Es el mismo error que dejó muerto el lápiz de «Tus videos»: cambiar un
             estado que se renderiza en una rama que no se está mostrando. */}
         {avisoViejo}
-        {/* El botón principal ocupa el ancho: es la acción de la pantalla, y
-            achicado contra el margen izquierdo competía de igual a igual con
-            «Volver», que es la salida. */}
-        <div style={{ marginTop: 16 }}>
-          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado} style={{ width: '100%' }}>
+        {/* ⚠️ LOS DOS EN LA MISMA FILA Y DEL MISMO ALTO. «Volver» colgaba abajo,
+            centrado y en `size="sm"`: tres diferencias para decir una sola cosa
+            —que es la salida y no la acción— y el resultado era un botón más
+            chico, en otro renglón, que se leía como de otra pieza. La jerarquía
+            ya la dice la variante (primario contra secundario) y el ancho: el
+            principal se estira, la salida ocupa lo que mide su palabra. */}
+        <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'stretch' }}>
+          <Button variant="secondary" onClick={() => setPaso('inicio')} style={{ flex: 'none' }}>Volver</Button>
+          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado} style={{ flex: 1 }}>
             Probar
           </Button>
-          <div style={{ marginTop: 8, textAlign: 'center' }}>
-            <Button variant="secondary" size="sm" onClick={() => setPaso('inicio')}>Volver</Button>
-          </div>
         </div>
       </div>
     );
@@ -559,6 +590,22 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
         })}
       </div>
 
+      {/* ⚠️ LA GRABACIÓN DE ESTA PRUEBA. El marcador ya viaja a Clarity como
+          etiqueta, así que su panel puede filtrar por él igual que por el lead.
+          Sin esto había que buscar la propia sesión entre las de todo el mundo — y
+          a los 40 minutos, que es lo que Clarity tarda en procesarla, ya nadie se
+          acuerda de cuál era. */}
+      {diag?.urlPrueba && (
+        <a href={diag.urlPrueba} target="_blank" rel="noopener noreferrer"
+          style={{ display: 'inline-block', marginTop: 12, fontSize: 12.5, fontWeight: 650, color: 'var(--primary)' }}>
+          Ver la grabación de esta prueba en Clarity →
+        </a>
+      )}
+      {diag?.urlPrueba && (
+        <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 4, lineHeight: 1.5 }}>
+          Clarity tarda entre 30 minutos y 2 horas en procesarla. Te aviso por WhatsApp cuando esté lista.
+        </div>
+      )}
       {err && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}
     </div>
   );

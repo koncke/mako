@@ -123,7 +123,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'objetivo-en-riesgo': 'plata', 'meta-alcanzada': 'plata',
 
   'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'lead-de-landing': 'landing',
-  'clarity-grabacion-por-vencer': 'landing',
+  'clarity-grabacion-por-vencer': 'landing', 'prueba-grabada': 'landing',
   'wa-desconectado': 'sistema',
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
@@ -328,6 +328,23 @@ https://hola-mako.com/integraciones
     // tiempo de hacer nada, y el aviso existe para que se haga algo.
     disparador: 'Cron diario: un lead con grabación en Clarity cumple 25 días (de los 30 que dura).',
     ejemplo: `🟡 La grabación de *Marina Olvera* se borra en 4 días. Si te sirve para después, entra y márcala como favorita: así se guarda 13 meses en vez de 30 días 👉 https://clarity.microsoft.com/projects/view/abc123/impressions?CustomUserId=… — MaKo`,
+  },
+  {
+    id: 'prueba-grabada', titulo: 'La grabación de tu prueba ya está lista', categoria: 'aviso',
+    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ EL AVISO EXISTE PORQUE LA ESPERA NO SE PUEDE MOSTRAR EN PANTALLA.
+    //
+    // Al terminar una prueba del Pixel, la grabación de esa sesión tarda entre 30
+    // minutos y 2 horas en aparecer en Clarity: el procesamiento es de ellos y no
+    // hay webhook. Con solo el link en la pantalla, el que prueba abre Clarity al
+    // toque, no encuentra nada, y saca la conclusión más razonable —«esto no
+    // funciona»— sobre algo que sí funciona y todavía no llegó.
+    //
+    // Y volver más tarde no es una opción realista: para entonces la pantalla se
+    // cerró, el marcador de la prueba no se lo aprendió nadie de memoria, y su
+    // grabación queda mezclada con las de todo el tráfico real de ese día.
+    disparador: 'Cron cada 15 minutos: terminó una prueba del Pixel y ya pasó el tiempo de procesamiento de Clarity.',
+    ejemplo: `🟢 Ya está la grabación de la prueba que hiciste en *tupagina.com*: puedes ver el video de lo que hiciste y el mapa de calor 👉 https://clarity.microsoft.com/projects/view/abc123/impressions?mko_prueba=… — MaKo`,
   },
   {
     id: 'lead-de-landing', titulo: 'Alguien dejó sus datos en tu landing', categoria: 'aviso',

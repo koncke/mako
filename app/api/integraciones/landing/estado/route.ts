@@ -20,6 +20,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, runWithWorkspace } from '@/lib/workspace';
 import { landingUltimoEvento, landingDiagnostico, videosDetectados, getVideosLanding, verificarPagina } from '@/lib/landing-token';
+import { urlSesionesDePrueba } from '@/lib/clarity';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,9 +74,22 @@ export async function GET(req: NextRequest) {
       // chequeos— y dos requests para un panel es una condición de carrera que
       // se ve como «a veces aparece la lista vacía».
       const [d, detectados, guardados] = await runWithWorkspace(ctx.ws, () =>
-        Promise.all([landingDiagnostico(req.nextUrl.searchParams.get('prueba')), videosDetectados(), getVideosLanding()]),
+        Promise.all([
+          landingDiagnostico(
+            req.nextUrl.searchParams.get('prueba'),
+            req.nextUrl.searchParams.get('landing'),
+            // Las piezas vienen del analizador, que ya corrió en el cliente: se
+            // reenvían en vez de volver a bajar el HTML. Bajarlo de nuevo por
+            // cada refresco del poll sería una request a la página del cliente
+            // cada 3 segundos.
+            req.nextUrl.searchParams.get('piezas')?.split(',').filter(Boolean) ?? null,
+          ),
+          videosDetectados(),
+          getVideosLanding(),
+        ]),
       );
-      return NextResponse.json({ ok: true, ...d, videosDetectados: detectados, videos: guardados });
+      const urlPrueba = await runWithWorkspace(ctx.ws, () => urlSesionesDePrueba(req.nextUrl.searchParams.get('prueba'))).catch(() => null);
+      return NextResponse.json({ ok: true, ...d, videosDetectados: detectados, videos: guardados, urlPrueba });
     }
     const estado = await runWithWorkspace(ctx.ws, () => landingUltimoEvento());
     return NextResponse.json({ ok: true, ...estado });

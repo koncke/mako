@@ -86,7 +86,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 10;
+export const SNIPPET_VERSION = 11;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -121,6 +121,7 @@ const NOVEDADES: Record<number, string> = {
   4: 'la medición de videos cortos: antes, uno de menos de 15 segundos no registraba ningún avance',
   5: 'la medición de todos los videos por separado: antes, con más de uno, el segundo casi no se medía y su avance se calculaba con la duración del primero',
   6: 'la medición de los clics: qué botones y enlaces usan tus visitantes, incluido el de WhatsApp · y la prueba del código ahora muestra solo tus propios eventos, sin mezclarlos con las visitas del día',
+  11: 'distinguir el video que ARRANCA SOLO del que alguien reproduce: con autoplay, hasta ahora contaba como si la persona hubiera querido verlo',
   10: 'dos eventos que faltaban: cuando alguien AGENDA en tu Calendly embebido —que para vender por llamada es el evento más importante— y las pausas del video, que distinguen a quien lo mira de quien lo dejó corriendo',
   9: 'la medición de los primeros segundos de un video largo: hasta ahora, en un video de 20 minutos no se registraba ningún avance durante el primer minuto — y ahí es donde se pierde a la mayoría',
   8: 'poder ver cada video desde la app al momento de identificarlo: antes solo aparecía un código y había que adivinar',
@@ -411,6 +412,8 @@ export type EventoDiag = {
   porcentaje: number | null;
   segundos: number | null;
   detalle: string | null; // url de la landing o título del video
+  /** El play arrancó SOLO (autoplay), sin que nadie hubiera tocado la página. */
+  auto: boolean;
 };
 
 export type ChequeoDiag = {
@@ -439,7 +442,15 @@ export type LandingDiagnostico = {
  * Últimos eventos + los 4 chequeos que importan. La ventana es corta a propósito
  * (24 h): "¿anda AHORA?" no se contesta con lo que llegó el mes pasado.
  */
-export async function landingDiagnostico(prueba?: string | null): Promise<LandingDiagnostico> {
+export async function landingDiagnostico(
+  prueba?: string | null,
+  /** La landing elegida en el paso 1. Con ella, los eventos y los chequeos se
+   *  acotan a ESA página: sin esto, «tu Pixel está al día» hablaba del workspace
+   *  y con dos landings era verdad para una y mentira para la otra. */
+  urlLanding?: string | null,
+  /** Qué piezas tiene esa página (del analizador). Lo que no tiene, no se pide. */
+  piezas?: string[] | null,
+): Promise<LandingDiagnostico> {
   const db = await getTenantDb();
   const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   // ⚠️ CON MARCADOR, SOLO LOS DE ESA PRUEBA. Sin él, apretar «Probar» mostraba las
@@ -455,7 +466,7 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
   // Se escribe el ternario en cada query en vez de un helper genérico: el
   // encadenado de PostgREST está tipado con genéricos que se vuelven infinitos al
   // pasarlos por una función propia, y pelear con eso no vale un renglón menos.
-  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle');
+  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle, auto');
   const qVis = db.from('landing_visits').select('created_at, landing_url');
 
   const [vsl, visitas, optinsFeed] = await Promise.all([
@@ -472,22 +483,38 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
       : db.from('propuestas').select('created_at, resumen').eq('origen', 'landing').gte('created_at', desde).order('created_at', { ascending: false }).limit(10),
   ]);
 
+  // ⚠️ Los eventos de OTRAS páginas no cuentan. Con dos landings, «llegan las
+  // visitas» daba verde por la que sí funciona mientras la elegida no mandaba
+  // nada — que es exactamente el caso que este rediseño vino a cerrar.
+  const deEstaLanding = (u: string | null | undefined) =>
+    !urlLanding || !u || normalizarUrl(u) === normalizarUrl(urlLanding);
+
   const eventos: EventoDiag[] = [
-    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null }>)
-      .map((r) => ({ ts: r.created_at, tipo: r.tipo_evento ?? 'evento', porcentaje: r.porcentaje, segundos: r.segundos, // Para un click el detalle ES el destino; para un evento de video, el título.
+    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null; auto: boolean | null }>)
+      .map((r) => ({ ts: r.created_at, tipo: r.tipo_evento ?? 'evento', porcentaje: r.porcentaje, segundos: r.segundos, auto: r.auto === true, // Para un click el detalle ES el destino; para un evento de video, el título.
       // Sin este `??`, el click llegaba a la pantalla sin decir en qué se hizo.
       detalle: r.detalle ?? r.vsl_titulo })),
     ...((visitas.data ?? []) as Array<{ created_at: string; landing_url: string | null }>)
-      .map((r) => ({ ts: r.created_at, tipo: 'pageview', porcentaje: null, segundos: null, detalle: r.landing_url })),
+      .filter((r) => deEstaLanding(r.landing_url))
+      .map((r) => ({ ts: r.created_at, tipo: 'pageview', porcentaje: null, segundos: null, auto: false, detalle: r.landing_url })),
     ...((optinsFeed.data ?? []) as Array<{ created_at: string; resumen: string | null }>)
-      .map((r) => ({ ts: r.created_at, tipo: 'optin', porcentaje: null, segundos: null, detalle: r.resumen })),
+      .map((r) => ({ ts: r.created_at, tipo: 'optin', porcentaje: null, segundos: null, auto: false, detalle: r.resumen })),
   ].sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 25);
 
   // Durante una prueba, los textos de «todavía no llegó» hablan de LA PRUEBA, no
   // de las últimas 24 h: quien acaba de apretar play no quiere una estadística.
   const enPrueba = !!prueba;
   const hayPageview = eventos.some((e) => e.tipo === 'pageview');
-  const hayPlay = eventos.some((e) => e.tipo === 'play');
+  // ⚠️ UN PLAY AUTOMÁTICO NO ES UNA REPRODUCCIÓN. Panda arranca solo: el chequeo
+  // «reproduce tu video» daba verde con solo abrir la página, sin que nadie
+  // tocara nada — o sea, afirmaba que el player medía la INTENCIÓN de ver cuando
+  // lo único que había medido era que la página cargó. Peor: el mismo dato
+  // alimenta la retención, así que cada visita entraba al embudo como un
+  // espectador. El snippet v11 marca `auto` cuando el play llegó sin que hubiera
+  // una sola interacción previa (click, tecla, scroll o toque).
+  const hayPlayManual = eventos.some((e) => e.tipo === 'play' && !e.auto);
+  const hayPlayAuto = eventos.some((e) => e.tipo === 'play' && e.auto);
+  const hayPlay = hayPlayManual || hayPlayAuto;
   const hayClick = eventos.some((e) => e.tipo === 'click');
   // ⚠️ LOS CHEQUEOS SE ADAPTAN A LA LANDING. No todas tienen video, ni botones
   // propios, ni formulario: la de un cliente es un Calendly embebido y nada más.
@@ -499,6 +526,13 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
   // tiene video que midamos y el punto no aplica. No es esconder un problema: es
   // no inventar uno.
   const clarityPid = await clarityProjectId().catch(() => null);
+  // ⚠️ Lo que la página NO tiene no se pide. El analizador ya sabe si hay botones
+  // propios: sin esta línea, a una landing cuyo CTA es un Calendly embebido se le
+  // pedía «hace clic en tus botones» para siempre.
+  const tieneBotones = !piezas || piezas.includes('botones') || piezas.includes('link-whatsapp');
+  const tieneFormPropio = !piezas || piezas.includes('formulario');
+  const tieneAgenda = !!piezas?.includes('embed-agenda');
+  const hayAgendo = eventos.some((e) => e.tipo === 'agendo');
   // (Ya no se cuentan los eventos «con segundos»: la versión del código se
   // pregunta, no se infiere. Ver el chequeo 'version'.)
   const soloVsl = eventos.filter((e) => e.tipo !== 'pageview').length;
@@ -559,6 +593,50 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
   // código está viejo, todos los demás chequeos miden otra cosa y sus resultados
   // no significan nada. Un diagnóstico que no empieza por «¿estás mirando el
   // código correcto?» manda a investigar síntomas de una versión que ya no existe.
+  // ⚠️ EL PASO 5 ES UNO SOLO Y CAMBIA DE IDENTIDAD SEGÚN CÓMO VENDE EL NEGOCIO.
+  //
+  // Si su llamado a la acción es una agenda embebida, el final del embudo no es
+  // «deja sus datos»: es «agenda una llamada». Pedirle un formulario a quien
+  // vende por Calendly es pedirle algo que su página no tiene — y ese renglón se
+  // quedaba en gris para siempre sobre el paso MÁS importante de su embudo.
+  //
+  // Va armado ACÁ y no como dos elementos condicionales adentro del array: dos
+  // ramas que producen el mismo `id` son dos chequeos para el que lee el código
+  // y uno solo para el que lo corre. Un test que cuenta los ids sobre la fuente
+  // veía siete pasos donde hay seis, y esa clase de desfase entre lo que el
+  // código dice y lo que hace es justo lo que el test venía a cuidar.
+  //
+  // ⚠️ Y EL DE FORMULARIO YA NO PIDE CONFIRMAR: los leads entran solos. Lo único
+  // que queda esperando es un CHOQUE —alguien que parece estar ya en el CRM—, y
+  // eso no es una tarea pendiente del sistema sino una decisión que solo puede
+  // tomar una persona. Por eso el estado es 'ok' aunque haya pendientes: el
+  // formulario ESTÁ entrando, que es lo que este renglón mide.
+  const paso5: Omit<ChequeoDiag, 'id'> = tieneAgenda && !tieneFormPropio
+    ? {
+        label: '5. Agenda una llamada',
+        estado: hayAgendo ? 'ok' : 'falta',
+        detalle: hayAgendo
+          ? 'Se registra cuando alguien reserva en tu calendario: es el final de tu embudo.'
+          : enPrueba ? 'Aún no llega. Reserva un horario en tu propio calendario para probarlo.'
+          : 'Aún no llega ninguna reserva. Se registra sola cuando alguien agenda.',
+      }
+    : {
+        label: '5. Deja sus datos',
+        // ⚠️ 'na', no ámbar. Que este negocio no reciba leads por formulario NO es
+        // un problema por resolver: es cómo vende. El ámbar queda para lo que SÍ
+        // hay que hacer; un aviso permanente entrena a ignorar la lista entera.
+        estado: !declarado ? 'na' : hayOptin ? 'ok' : 'falta',
+        detalle: !declarado
+          ? 'No aplica: este negocio no recibe leads por un formulario en la página. Si quieres activarlo, márcalo en Funnel → De dónde entran tus leads.'
+          : hayOptin
+            ? `El formulario llega y la persona ingresa sola al CRM.${pendientes > 0 ? ` Hay ${pendientes} pendiente${pendientes === 1 ? '' : 's'}: ${pendientes === 1 ? 'coincide' : 'coinciden'} con un contacto que ya tienes, así que esa decisión es tuya.` : ''}`
+            : enPrueba ? 'Aún no llega. Completa tu formulario en la pestaña que abrimos: ingresará solo al CRM.'
+            : 'Aún no llega ninguno. Para probarlo, completa tu propio formulario: ingresa solo al CRM.',
+        // El link solo si hay algo que decidir. Un botón permanente al lado de algo
+        // que funciona lo convierte en una tarea que nunca se termina.
+        accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' } : undefined,
+      };
+
   const chequeos: ChequeoDiag[] = [
     { id: 'version', label: 'Pixel actualizado',
       estado: instalada === 0 || !hayPageview ? 'falta' : codigoViejo ? 'viejo' : 'ok',
@@ -571,8 +649,13 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
         : enPrueba ? 'Aún no llega la visita. Recarga la pestaña que abrimos.'
         : 'No llega ninguna visita desde hace 24 h. Revisa que el Pixel esté instalado y que la página esté publicada.' },
     { id: 'play', label: '2. Reproduce tu video',
-      estado: hayPlay ? 'ok' : enPrueba ? 'falta' : tuvoVideoAlgunaVez ? 'falta' : 'na',
-      detalle: hayPlay ? 'Detectamos tu reproductor de video.'
+      // Con SOLO plays automáticos el chequeo no está ni bien ni mal: el player
+      // se detectó (que es la mitad técnica) pero nadie eligió ver el video, que
+      // es lo que este punto pregunta. Va como 'falta' con el motivo escrito, no
+      // como 'ok': un verde acá se lee «esto ya está» y cierra la pregunta.
+      estado: hayPlayManual ? 'ok' : enPrueba || tuvoVideoAlgunaVez ? 'falta' : 'na',
+      detalle: hayPlayManual ? 'Detectamos tu reproductor de video.'
+        : hayPlayAuto ? 'Tu video arranca solo, así que el reproductor ya se detectó. Dale play a mano para comprobar que también medimos cuando alguien decide verlo.'
         // ⚠️ EN UNA PRUEBA NO SE DICE «nadie en 24 h». La persona ACABA de apretar
         // play; contestarle con una estadística del día es contestarle otra cosa.
         : enPrueba ? 'Aún no llega. Reproduce tu video en la pestaña que abrimos.'
@@ -587,7 +670,7 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
     // único punto entre «vio» y «dejó sus datos». Sin él no se puede distinguir
     // una página que no convence de una que nadie mira.
     { id: 'click', label: '4. Hace clic en tus botones',
-      estado: hayClick ? 'ok' : 'falta',
+      estado: hayClick ? 'ok' : !tieneBotones ? 'na' : 'falta',
       detalle: hayClick ? 'Se registran los clics: sabes qué botones y enlaces usa cada visitante.'
         // ⚠️ Se avisa del caso que NO podemos medir, en vez de dejarlo en rojo sin
         // explicación: si el CTA de la página es un formulario embebido (Calendly,
@@ -596,28 +679,8 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
         // tarde buscando por qué no llega.
         : enPrueba ? 'Aún no llega ninguno. Haz clic en un botón o enlace de tu página. Si tu llamado a la acción es un formulario embebido (Calendly, Typeform), lo que pase dentro de él no se puede medir: es de otro dominio.'
         : 'Aún no llega ningún clic. Si tu página no tiene botones propios —por ejemplo, si es un Calendly embebido— es normal.' },
-    // ⚠️ EL CHEQUEO YA NO PIDE CONFIRMAR: los leads entran solos. Lo único que
-    // queda esperando es un CHOQUE —alguien que parece estar ya en el CRM—, y eso
-    // no es una tarea pendiente del sistema sino una decisión que solo puede
-    // tomar una persona. Por eso el estado es 'ok' aunque haya pendientes: el
-    // formulario ESTÁ entrando, que es lo que este renglón mide. El aparte va
-    // aparte, en su propio renglón, para no volver a teñir de amarillo algo que
-    // funciona.
-    { id: 'optin', label: '5. Deja sus datos',
-      // ⚠️ 'na', no ámbar. Que este negocio no reciba leads por formulario NO es
-      // un problema por resolver: es cómo vende. El de Mauricio entra por una
-      // agenda embebida, y pintarle un aviso permanente es entrenarlo a ignorar
-      // la lista. El ámbar queda para lo que SÍ hay que hacer.
-      estado: !declarado ? 'na' : hayOptin ? 'ok' : 'falta',
-      detalle: !declarado
-        ? 'No aplica: este negocio no recibe leads por un formulario en la página. Si quieres activarlo, márcalo en Funnel → De dónde entran tus leads.'
-        : hayOptin
-          ? `El formulario llega y la persona ingresa sola al CRM.${pendientes > 0 ? ` Hay ${pendientes} pendiente${pendientes === 1 ? '' : 's'}: ${pendientes === 1 ? 'coincide' : 'coinciden'} con un contacto que ya tienes, así que esa decisión es tuya.` : ''}`
-          : enPrueba ? 'Aún no llega. Completa tu formulario en la pestaña que abrimos: ingresará solo al CRM.'
-          : 'Aún no llega ninguno. Para probarlo, completa tu propio formulario: ingresa solo al CRM.',
-      // El link solo si hay algo que decidir. Un botón permanente al lado de algo
-      // que funciona lo convierte en una tarea que nunca se termina.
-      accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' } : undefined },
+    // El paso 5 se arma arriba: es UNO solo con dos identidades.
+    { id: 'optin', ...paso5 },
     // Clarity es opcional, así que sin conectar va 'na' y no 'falta': un punto en
     // rojo por algo que se eligió no usar es ruido.
     { id: 'clarity', label: 'Grabaciones y mapas de calor',
@@ -757,6 +820,16 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
   // último que reportara duración, así que el % de un video se calculaba con la
   // duración de otro. Una landing con un VSL y un testimonio medía el testimonio
   // como si durara lo que el VSL.
+  // ⚠️ ¿HUBO UNA PERSONA? Panda y muchos players arrancan solos, así que un
+  // «play» no prueba que alguien haya querido ver el video — y el chequeo pasaba
+  // en verde sin que nadie tocara nada. Se marca si hubo CUALQUIER interacción
+  // antes: un click, una tecla, un toque, un scroll. Sin eso, el play es
+  // automático y se manda como tal.
+  var huboInteraccion = false;
+  ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(function (n) {
+    try { window.addEventListener(n, function () { huboInteraccion = true; }, { once: true, passive: true, capture: true }); } catch (e) {}
+  });
+
   var V = {};
   function est(id) {
     var k = id || '_';
@@ -843,7 +916,7 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
           // La URL del archivo. Es lo que después deja abrir el video desde la app
           // para saber CUÁL es el que estás nombrando: un id como «v:que-se-vive.mp4»
           // alcanza para atribuir eventos y no para reconocerlo de un vistazo.
-          enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit, detalle: (el.currentSrc || el.getAttribute('src') || '').slice(0, 300) });
+          enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit, auto: !huboInteraccion, detalle: (el.currentSrc || el.getAttribute('src') || '').slice(0, 300) });
         });
         el.addEventListener('timeupdate', function () {
           e.segs = el.currentTime || 0;
@@ -899,7 +972,7 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
         var ifr = document.querySelectorAll('iframe');
         for (var q = 0; q < ifr.length; q++) if (vid && (ifr[q].src || '').indexOf(vid) !== -1) { src = ifr[q].src; break; }
       } catch (err) {}
-      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: e.tit, detalle: src.slice(0, 300) });
+      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: e.tit, auto: !huboInteraccion, detalle: src.slice(0, 300) });
     }
     if (d.message === 'panda_timeupdate' && d.currentTime != null) {
       e.segs = d.currentTime;

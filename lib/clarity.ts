@@ -104,6 +104,23 @@ export async function urlSesionesDeLead(visitorId: string | null | undefined, ws
   return `${PANEL}/${encodeURIComponent(pid)}/impressions?CustomUserId=${encodeURIComponent(vid)}`;
 }
 
+/**
+ * El link a las grabaciones de UNA PRUEBA.
+ *
+ * El snippet ya le manda a Clarity el marcador con `clarity("set","mko_prueba",…)`,
+ * así que su panel puede filtrar por él igual que por el visitor_id. Sin esto,
+ * después de una prueba había que buscar la propia sesión entre las de todo el
+ * mundo — y a los 40 minutos, que es lo que Clarity tarda en procesarla, ya nadie
+ * se acuerda de cuál era.
+ */
+export async function urlSesionesDePrueba(prueba: string | null | undefined, ws?: number): Promise<string | null> {
+  const p = prueba?.trim();
+  if (!p) return null;
+  const pid = await clarityProjectId(ws);
+  if (!pid) return null;
+  return `${PANEL}/${encodeURIComponent(pid)}/impressions?mko_prueba=${encodeURIComponent(p)}`;
+}
+
 /** El link al panel del proyecto, sin filtrar. Para el botón «ver los mapas». */
 export async function urlPanel(ws?: number, seccion: 'dashboard' | 'heatmaps' | 'impressions' = 'dashboard'): Promise<string | null> {
   const pid = await clarityProjectId(ws);

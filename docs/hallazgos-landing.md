@@ -58,6 +58,104 @@ orden único explícito. Ver [hallazgos-infra.md](hallazgos-infra.md) §1.
 
 **Vive en:** `lib/supabase-paginado.ts` · las lecturas de `lib/landing-analyst.ts` y `lib/leads.ts`
 
+### Un `play` no es una intención cuando el player arranca solo
+
+Síntoma: el chequeo «2. Reproduce tu video» del probador daba **verde con solo abrir la
+página**, sin que nadie tocara nada. Reportado el 15/08/2026: *«no tiene mucho sentido como se
+está midiendo la reproducción del VSL, porque Panda tiene reproducción automática»*.
+
+Causa: el evento `play` se emitía igual lo hubiera pedido alguien o no. El chequeo lo leía como
+«el visitante quiso ver el video» cuando lo único que decía era «la página cargó». Y el mismo
+dato alimenta la retención, así que **cada visita entraba al embudo como un espectador**.
+
+El diagnóstico obvio —«hay que leer el atributo `autoplay` del player»— no sirve: con Panda el
+reproductor vive en un iframe de otro dominio que no se puede inspeccionar, y `autoplay` en el
+HTML tampoco dice si ESTA reproducción la pidió alguien. Lo que sí se puede saber es si hubo
+**una interacción cualquiera antes** (`pointerdown`, `keydown`, `touchstart`, `wheel`, con
+`{once, capture, passive}`). El snippet v11 manda `auto: !huboInteraccion` desde los dos
+players, y el chequeo se parte en dos preguntas que antes eran una: «¿se detectó el player?»
+(mitad técnica, la contesta cualquier play) y «¿alguien quiso verlo?» (solo la contesta el
+manual). Solo la segunda pinta verde.
+
+**La regla, que vale para cualquier métrica de intención:** antes de contar un evento como una
+decisión del usuario, preguntá si el sistema lo puede emitir solo. Si puede, el evento necesita
+un campo que diga cuál de las dos cosas fue — y la métrica se queda con la mitad cara.
+
+**Vive en:** `lib/landing-token.ts` (`huboInteraccion`, `hayPlayManual`) · mig `0136`
+
+### Un `useEffect` que escribe una dependencia de su propia dependencia no termina nunca
+
+El análisis de la landing se colgó del efecto que ya existía. `piezas` es dependencia de
+`traer`, `traer` es dependencia del efecto, y el efecto escribía `piezas`: array nuevo cada
+vuelta, comparación por referencia que nunca corta. El síntoma habría sido **la página del
+cliente pidiéndose sola varias veces por segundo** — desde el navegador de quien configura, así
+que ni siquiera aparece en nuestros logs.
+
+**La regla:** un efecto que ESCRIBE un estado no puede depender —ni transitivamente, vía un
+`useCallback`— de ese estado. Si el trabajo depende de una sola cosa (acá, la landing elegida),
+va en su propio efecto con esa sola dependencia. El `let vivo = true` del cleanup es aparte: es
+contra la respuesta que llega después de cambiar de landing.
+
+**Vive en:** `app/integraciones/ProbarTracking.tsx`
+
+### Dos ramas que producen el mismo `id` son un chequeo para quien lo corre y dos para quien lo lee
+
+El paso 5 del probador cambia de identidad según cómo venda el negocio: «Deja sus datos» si
+tiene formulario, «Agenda una llamada» si su CTA es un Calendly embebido. Se escribió como dos
+spreads condicionales dentro del array (`...(cond ? [A] : [])`, `...(cond ? [] : [B])`), que en
+ejecución da exactamente un elemento — y en la FUENTE deja dos `id: 'optin'`.
+
+El test que cuenta los ids leyendo el archivo contó siete pasos donde hay seis, y falló sobre
+código correcto. No es culpa del test: la fuente decía otra cosa que el runtime.
+
+**La regla:** cuando una entrada de una lista tiene dos variantes, la variante se arma **arriba**
+(un `const` con las dos formas) y en la lista va **una sola** entrada que la spreadea. Vale
+igual sin tests de por medio: dos ramas gemelas divergen, y el día que una gane un campo la otra
+no lo tiene.
+
+**Vive en:** `lib/landing-token.ts` (`paso5`)
+
+### El link a la grabación de una prueba está bien y no sirve durante 45 minutos
+
+Clarity procesa las sesiones en lote —entre 30 minutos y 2 horas— y **no tiene webhook**. La
+pantalla ofrecía el link apenas terminaba la prueba: quien lo abre no encuentra nada y concluye
+lo razonable, que esto no funciona. Volver más tarde tampoco es realista, porque el marcador de
+la prueba es una cadena al azar que nadie se aprende y su sesión queda mezclada con el tráfico
+real del día.
+
+Por eso el aviso por WhatsApp (`prueba-grabada`), que es el único canal que llega con la
+pantalla cerrada, y por eso el cron corre **cada 15 minutos**: los otros vigilantes de landing
+contestan preguntas de días, este una de minutos.
+
+Dos decisiones que se pagan si se copian mal:
+
+- **`PROCESADO_MIN = 45`, el piso alto.** El costo de los dos errores no es simétrico: avisar
+  tarde cuesta media hora de espera, avisar temprano manda a alguien a una lista vacía — que es
+  justo el problema que el aviso viene a resolver, y esa persona no vuelve a intentar.
+- **Se marca «avisada» pase lo que pase con el envío.** Reintentar cada 15 minutos durante 12
+  horas son 48 intentos por la misma prueba: cuando el canal vuelva, llega una ráfaga sobre algo
+  que ya no le importa a nadie. Es correcto para un aviso de conveniencia y sería incorrecto
+  para uno que no se puede perder.
+
+**Vive en:** `app/api/cron/prueba-grabacion/route.ts` · `lib/clarity.ts` (`urlSesionesDePrueba`)
+
+### Un proyecto de Clarity es por SITIO, así que el código que se copia es de la PÁGINA
+
+El snippet se generaba una vez por workspace, en el server. Con dos landings del mismo cliente,
+las dos emiten el mismo id de Clarity y sus grabaciones caen en una sola lista donde ya no se
+distingue cuál es cuál — el mismo problema que el paso 1 (elegir la landing) vino a cerrar, por
+otra puerta.
+
+El id propio de la landing gana sobre el del workspace y, sin id propio, **hereda**: el caso
+normal es una sola página, y ahí pedir que se configure dos veces lo mismo es pedir el error.
+
+⚠️ El detalle que casi entra: **lo que se copia tiene que ser lo mismo que se muestra**. El
+botón de copiar seguía leyendo la prop del server mientras la pantalla ya pintaba el de la
+landing. Se ve bien y se pega lo que no es, que es la peor variante posible de este bug.
+
+**Vive en:** `app/integraciones/landing-config-actions.ts` (`snippetDeLandingAction`) ·
+`app/integraciones/IntegracionesBoard.tsx`
+
 ## Retención del VSL
 
 ### ⚠️ Capturar el % de retención por lead sigue sin funcionar, y es el pedido más repetido

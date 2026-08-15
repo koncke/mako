@@ -13,6 +13,9 @@ import { requireRolWs } from '@/lib/tab-access';
 import { CONFIG_KEY, conLanding, landingDe, parsearConfig, sinLanding, type LandingConfig } from '@/lib/landing-config';
 import { analizarLanding, type AnalisisLanding } from '@/lib/landing-analisis';
 import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
+import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
+import { clarityProjectId } from '@/lib/clarity';
+import { getWorkspaceActual } from '@/lib/workspace';
 
 export type LandingsResult = { ok: true; landings: LandingConfig[] } | { ok: false; error: string };
 
@@ -90,4 +93,25 @@ export async function analizarLandingAction(url: string): Promise<AnalisisResult
     clarityProjectId: a.clarityProjectId,
     clarityGuardado: landingDe(guardadas, url)?.clarityProjectId ?? null,
   };
+}
+
+/**
+ * El código a copiar para UNA landing.
+ *
+ * ⚠️ El snippet NO es del workspace: es de la página. Lo que cambia es el bloque
+ * de Clarity, y cambia porque un proyecto de Clarity es por SITIO — dos landings
+ * del mismo cliente son dos proyectos, y emitir el mismo id en las dos mezcla las
+ * grabaciones de ambas en una sola lista donde ya no se sabe cuál es cuál.
+ *
+ * El id de la landing gana sobre el del workspace; sin id propio, hereda. La
+ * herencia es a propósito: el caso normal es una sola página, y ahí pedir que se
+ * configure dos veces lo mismo es pedir el error.
+ */
+export async function snippetDeLandingAction(url: string | null): Promise<string | null> {
+  await requireRolWs([], { nav: 'integraciones' });
+  const ws = await getWorkspaceActual();
+  if (ws == null) return null;
+  const propio = url ? (await leer().catch(() => [] as LandingConfig[]).then((l) => landingDe(l, url)?.clarityProjectId ?? null)) : null;
+  const pid = propio ?? (await clarityProjectId(ws).catch(() => null));
+  return landingSnippet(await getOrCreateLandingToken(ws), pid);
 }

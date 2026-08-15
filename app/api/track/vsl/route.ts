@@ -147,6 +147,8 @@ type Payload = {
   vsl_titulo?: unknown;
   /** A qué apunta el evento: el destino de un click, o la URL de un video. */
   detalle?: unknown;
+  /** true = el video arrancó SOLO (autoplay), sin que nadie lo pidiera. */
+  auto?: unknown;
   /** Marcador de sesión de prueba (?mko_test=). NULL en el tráfico real. */
   prueba?: unknown;  // título del video de Panda, si la landing lo puede leer
   landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
@@ -240,6 +242,10 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
         landing_url: texto(payload.landing_url, 500),
         referrer: texto(payload.referrer, 500),
         prueba: texto(payload.prueba, 40),
+      // ⚠️ Un play automático NO es una reproducción. Se guarda como tal para que
+      // el chequeo y la retención puedan descartarlo: con autoplay, contar todo
+      // play como intención infla el embudo desde el primer escalón.
+      auto: payload.auto === true ? true : null,
         // La versión POR PÁGINA (mig 0135). El setting `landing.snippet_version`
         // guarda una sola por workspace —la del último evento, venga de donde
         // venga—, y con dos landings publicadas eso no puede contestar «¿cuál de
