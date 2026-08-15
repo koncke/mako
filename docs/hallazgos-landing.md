@@ -657,6 +657,50 @@ exactamente lo que ninguna herramienta de la tabla puede hacer.
 **Vive en:** [heatmaps-decision.md](heatmaps-decision.md) · lo que falta construir, en
 `lib/landing-token.ts` (los 4 campos del evento de clic y los 2 detectores)
 
+### ⚠️ Todo el estado de la landing vivía a nivel WORKSPACE, y con dos páginas eso miente
+
+*2026-08-15*
+
+Un cliente con dos landings publicadas —la de ventas y la de webinar— tenía **una sola**
+versión del Pixel guardada (`landing.snippet_version`, la del último evento venga de donde
+venga), **un solo** `CLARITY_PROJECT_ID` y **un** semáforo. Todo lo que la pantalla afirmaba
+sobre «tu página» era verdad para una y falso para la otra, sin nada que lo dijera.
+
+El caso que lo destapó: el aviso «tu Pixel está desactualizado» podía mandar a repegar el
+código **en la página que ya estaba al día**.
+
+**Regla:** cuando una entidad puede existir más de una vez por cliente, su estado va **en
+ella**, no en el workspace. El costo de asumir «hay una sola» no es un bug: es un conjunto de
+afirmaciones que son verdad la mitad de las veces, que es mucho más caro de detectar.
+
+Lo que quedó:
+
+- `lib/landing-config.ts` — la landing es la entidad y lleva su `clarityProjectId`. Un proyecto
+  de Clarity es de **un** sitio: guardarlo por workspace hacía que la segunda landing escribiera
+  en el proyecto de la primera, mezclando grabaciones de dos negocios en un panel.
+- **Migración perezosa**, en dos lugares: el lector acepta la lista de strings vieja y la de
+  objetos. Una migración que exija convertir la base primero deja a alguien sin sus páginas el
+  día del despliegue.
+- `lib/landing-analisis.ts` — lee el HTML **antes** de probar para saber qué piezas tiene esa
+  página. Antes se adivinaba por los eventos que habían llegado, o sea *después* de la prueba.
+- La pantalla pasa a cuatro pasos, con elegir la landing como el primero, y los demás no se
+  dibujan hasta que hay una elegida.
+- El aviso nombra la página, o las lista.
+
+**Dos trampas que costaron una vuelta cada una:**
+
+- **Un `Set` no sobrevive a un server action** — se serializa como `{}`. En desarrollo no se ve;
+  en producción la lista de piezas llega vacía sin ningún error.
+- **El cron no puede usar las server actions**: corren detrás del permiso de la tab, que solo
+  existe dentro de una request de usuario. Necesita su propio lector del setting.
+
+**PENDIENTE:** el paso 1 hoy gobierna la navegación, pero el **código** que se copia y los
+**chequeos** siguen saliendo del workspace. Falta que el snippet lleve el `clarityProjectId` de
+la landing elegida y que `landingDiagnostico` filtre por su URL.
+
+**Vive en:** `lib/landing-config.ts` · `lib/landing-analisis.ts` ·
+`app/integraciones/SelectorLanding.tsx` · `app/api/cron/tracking-vigilante/route.ts`
+
 ### Lo que NO era un bug (verificado en la base, no deducido)
 
 - **Los «Visitó la landing» repetidos son visitas reales.** `landing_visits` no tiene columna de
