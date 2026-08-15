@@ -106,12 +106,22 @@ export function NombrarVideos({
                       adivinar cuál se estaba nombrando. Solo aparece si sabemos
                       dónde está — un botón que no puede abrir nada es peor que
                       ninguno. */}
-                  {d.url && (
+                  {d.url ? (
                     <a href={d.url} target="_blank" rel="noopener noreferrer" title="Ver este video"
                       style={{ flex: 'none', width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)' }}>
                       <Icon name="video" size={14} />
                     </a>
+                  ) : (
+                    // ⚠️ LA AUSENCIA SE EXPLICA. Esconder el botón cuando no sabemos
+                    // dónde está el video es correcto —uno que no puede abrir nada
+                    // promete y falla— pero esconderlo EN SILENCIO deja a la persona
+                    // buscando un botón que le dijimos que existía. Y la razón es
+                    // accionable: la URL viaja desde la v8, así que un video con
+                    // eventos y sin URL es uno cuyo código todavía es anterior.
+                    <span title="La dirección del video llega con la versión nueva del código" style={{ flex: 'none', fontSize: 11, color: 'var(--faint)', fontStyle: 'italic' }}>
+                      {d.eventos > 0 ? 'para verlo, repegá el código' : ''}
+                    </span>
                   )}
                 </span>
               </div>

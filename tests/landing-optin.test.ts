@@ -799,5 +799,10 @@ test('cada video se puede VER desde la pantalla que te pide nombrarlo', () => {
   assert.ok(/target="_blank" rel="noopener noreferrer"/.test(ui), 'abrir el video no puede sacarte de la app');
   // Solo si sabemos dónde está: un botón que no puede abrir nada es peor que
   // ninguno — promete y falla, y quien lo aprieta no sabe si el roto es el video.
-  assert.ok(/\{d\.url && \(/.test(ui), 'el botón no puede aparecer sin URL');
+  assert.ok(/\{d\.url \? \(/.test(ui), 'el botón no puede aparecer sin URL');
+  // ⚠️ Y LA AUSENCIA SE EXPLICA. Esconderlo es correcto; esconderlo EN SILENCIO
+  // deja a la persona buscando un botón que le dijimos que existía. La razón es
+  // accionable: la URL viaja desde la v8, así que un video con eventos y sin URL
+  // es uno cuyo código todavía es anterior.
+  assert.ok(/para verlo, repegá el código/.test(ui), 'un botón que falta sin decir por qué se lee como una pantalla rota');
 });
