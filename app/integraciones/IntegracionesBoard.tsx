@@ -834,6 +834,34 @@ function resaltar(code: string): Array<{ t: string; c: string }> {
 // Guardián puntúa al aplicar (mismo camino que MaKo por WhatsApp).
 
 
+
+/**
+ * Un paso de la instalación del Pixel. El número NO es decoración: es lo que
+ * dice que hay un orden y que este es el que corresponde.
+ *
+ * Antes eran tres bloques uno abajo del otro sin nada que los separara, y el
+ * primero —que es OPCIONAL— se leía como parte del segundo. La línea de arriba y
+ * el aire son lo que hace que se vea que el anterior terminó.
+ */
+function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string; sep?: boolean; children: React.ReactNode }) {
+  return (
+    <section style={{ paddingTop: sep ? 20 : 0, marginTop: sep ? 4 : 0, borderTop: sep ? '1px solid var(--border)' : 'none' }}>
+      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+        <span aria-hidden style={{
+          flex: 'none', width: 24, height: 24, borderRadius: 999, marginTop: 1,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--surface-2)', border: '1px solid var(--border-strong)',
+          fontSize: 12, fontWeight: 700, color: 'var(--dim)',
+        }}>{n}</span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          {titulo && <div style={{ fontSize: 15, fontWeight: 650, color: 'var(--ink)', marginBottom: 10 }}>{titulo}</div>}
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string | null; clarityConectado?: boolean }) {
   const routerLanding = useRouter();
   const [copiado, setCopiado] = useState(false);
@@ -894,11 +922,20 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
         Instala el Pixel de MaKo en tu página
       </h4>
 
-      {/* ⚠️ CLARITY VA ANTES DEL CÓDIGO, y el orden no es estético: su bloque se
-          arma cuando se GENERA el snippet. Conectarlo después de pegarlo deja al
-          cliente con un código que no lo trae, sin nada que se lo diga. Acá se
-          pega una sola vez. */}
-      <ConfigClarity conectado={clarityConectado} onListo={() => routerLanding.refresh()} />
+      {/* ⚠️ TRES PASOS, SEPARADOS DE VERDAD. Antes eran tres bloques uno abajo del
+          otro sin nada que dijera que eran pasos distintos, y el primero —que es
+          OPCIONAL— se leía como parte del segundo. Cada uno lleva su número, una
+          línea que lo separa del anterior y aire suficiente para que se vea que
+          terminó. El número no es decoración: es lo que dice que hay un orden y
+          que este es el que corresponde. */}
+      <Paso n={1} sep={false}>
+        {/* Clarity va ANTES del código y el orden no es estético: su bloque se
+            arma cuando se GENERA el snippet, así que conectarlo después deja al
+            cliente con un código que no lo trae y nada que se lo diga. */}
+        <ConfigClarity conectado={clarityConectado} onListo={() => routerLanding.refresh()} />
+      </Paso>
+
+      <Paso n={2} titulo="Copiá el código y pegalo en tu página">
 
       {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.
           Antes eran tres piezas sueltas —un bloque de código, dos botones y un
@@ -976,6 +1013,7 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
           </div>
         </div>
       )}
+      </Paso>
     </div>
   );
 }
@@ -1205,7 +1243,10 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
           {esAgente ? (
             <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
-            <><CodigoLanding snippet={snippetLanding ?? null} clarityConectado={clarityConectado} /><div style={{ marginTop: 14 }}><ProbarTracking /></div></>
+            <>
+              <CodigoLanding snippet={snippetLanding ?? null} clarityConectado={clarityConectado} />
+              <Paso n={3} titulo="Comprobá que está funcionando"><ProbarTracking /></Paso>
+            </>
           ) : mostrarForm ? (
             // onEstado avisa cuando el servicio pasó a conectado (o dejó de estarlo):
             // sin esto el chip de acá arriba, el tile y el contador se quedaban en
