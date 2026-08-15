@@ -825,28 +825,43 @@ papelera no libera el disco, que es lo único que hacía falta.
 **Vive en:** `scripts/curso-bajar.mjs` (el destino) · `scripts/curso-a-drive.mjs` (la
 copia buena)
 
-#### ⚠️ Un curso se proyecta por HORAS, nunca por cantidad de clases
+#### ⚠️ Proyectar el peso de un curso: la métrica importa, y la MUESTRA importa más
 
-Con «Instituto de Comunicación» a 9 de 158 clases bajadas, las dos proyecciones posibles
-sobre los MISMOS bytes daban:
+«Instituto de Comunicación», 158 clases y 206,5 h. Tres proyecciones del mismo curso, en
+orden cronológico:
 
-| método | proyección | error |
+| momento | método | proyección |
 |---|---|---|
-| GB ÷ clases × 158 | **26 GB** | ×6,6 corto |
-| GB ÷ horas × 206,5 h | **173 GB** | la buena |
+| 9 clases bajadas | GB ÷ clases × 158 | **26 GB** |
+| 9 clases bajadas | GB ÷ horas × 206,5 | **173 GB** |
+| 98 clases bajadas | GB ÷ horas × 206,5 | **97 GB** ← el real |
 
-Las 9 primeras son las intros de la Fase 0 (12 min de promedio) y el curso entero promedia
-**78 min** por clase, porque más de la mitad son directos de dos y tres horas. Un promedio
-por ítem sobre una población que va de 1 minuto a 3h49 no proyecta nada.
+**Las dos primeras están mal, y por razones distintas.** Vale la pena separarlas porque la
+segunda se escribió acá como «la buena» y no lo era.
 
-**Y lo que hace peligroso a este error es de qué lado cae:** el método malo daba el número
-TRANQUILIZADOR — 26 GB entran cómodos en 115 libres, así que nadie mira dos veces y el
-disco se llena a mitad de la descarga, con la mitad de las clases sin subir. Cuando dos
-métodos de estimación difieran, el sospechoso es el que te deja seguir sin hacer nada.
+**1. La métrica.** Un promedio por ítem sobre una población que va de 1 minuto a 3h49 no
+proyecta nada: las 9 primeras son intros de la Fase 0 (12 min) y el curso entero promedia
+78 min, porque más de la mitad son directos. Hay que proyectar sobre la magnitud que
+EXPLICA el costo —la duración, que es lo que el bitrate multiplica—, no sobre la que es más
+fácil de contar. Eso llevó de 26 GB a 173.
 
-**La regla:** proyectar sobre la magnitud que EXPLICA el costo (acá, la duración, que es lo
-que el bitrate multiplica), no sobre la que es más fácil de contar. Y si la muestra no está
-mezclada —las primeras N de un curso ordenado por módulo nunca lo están—, decirlo.
+**2. La muestra.** Pero 173 también erró, ×1,8 de más, porque midió `0,836 GB/h` sobre esas
+mismas 9 intros. Con 98 clases la tasa real es **`0,469 GB/h`**: un directo de cámara fija
+pesa por hora la mitad que una lección producida con cortes y gráfica. **Arreglar la
+métrica no arregla la muestra** — las primeras N de un curso ordenado por módulo nunca son
+representativas, ni en duración ni en bitrate.
+
+**La regla, entonces, es de dos partes:** proyectar por la magnitud que explica el costo, y
+**volver a medir cuando la muestra crece**. Una proyección hecha con el 6% del curso es una
+hipótesis; con el 62%, un dato. Re-medir cuesta un script de diez líneas y acá cambió la
+decisión: con 173 GB había que subir y liberar por tandas contra reloj, con 97 GB entraba
+entero en el disco y no hacía falta tocar nada.
+
+**Y el corolario sobre el sesgo, que es lo que engaña:** de las dos primeras, la que da el
+número TRANQUILIZADOR era la peor (26 GB entran cómodos en 115 libres). Cuando dos métodos
+difieran, el sospechoso es el que te deja seguir sin hacer nada — pero eso no convierte al
+alarmista en correcto, que es exactamente el error que se cometió acá al escribir 173 como
+verdad. **Ninguno de los dos es un dato hasta que la muestra lo sostiene.**
 
 **El plan que salió de eso, y ya estaba escrito en la herramienta:** `curso-a-drive.mjs`
 tiene `--min-libre-gb`, que sube y libera por tandas con cuatro condiciones en positivo —
