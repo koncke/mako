@@ -68,3 +68,23 @@ test('la cuota de 10 por día no se consulta desde una pantalla', () => {
   assert.ok(/r\.status === 401/.test(s), 'un token vencido tiene que decirse como tal');
   assert.ok(/numOfDays=\$\{dias\}/.test(s), 'la API solo acepta 1, 2 o 3 días');
 });
+
+test('Clarity está en el catálogo del MÉTODO, o la barra dice «servicio inválido»', () => {
+  // ⚠️ EL BUG QUE ESTE TEST CUIDA. Clarity estaba en el catálogo de integraciones
+  // (marcado `oculto`, porque no lleva tarjeta propia) pero NO en el catálogo del
+  // método, que es de donde la barra de credenciales saca sus campos y sus pasos.
+  // Resultado: el formulario se dibujaba y respondía «servicio inválido».
+  //
+  // Son DOS catálogos con dos preguntas distintas —«¿qué tarjetas existen?» y
+  // «¿qué campos pide este servicio?»— y una integración que se configura dentro
+  // de otra necesita estar en los dos.
+  const met = leer('../lib/metodo-catalogo.ts');
+  assert.ok(/key: 'clarity'/.test(met), 'sin esto la barra de credenciales no sabe qué pedir');
+  assert.ok(/env: 'CLARITY_PROJECT_ID'/.test(met), 'falta el campo del id del proyecto');
+  assert.ok(/env: 'CLARITY_API_TOKEN'[^\n]*secreto: true[^\n]*opcional: true/.test(met),
+    'el token es secreto Y opcional: sin él andan las grabaciones, que son el 90% del valor');
+  // El id del proyecto NO es secreto: viaja en el HTML como cualquier pixel, y
+  // enmascararlo escondería justo lo que distingue un proyecto de otro.
+  assert.ok(!/env: 'CLARITY_PROJECT_ID'[^\n]*secreto: true/.test(met), 'el id del proyecto no es un secreto');
+  assert.ok(/clarity\.microsoft\.com/.test(met), 'el «?» tiene que llevar a donde se sacan las claves');
+});

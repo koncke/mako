@@ -37,7 +37,7 @@ export function ConfigClarity({ conectado, onListo }: { conectado: boolean; onLi
       {/* Corto y en términos de lo que se LLEVA. El detalle —qué es Clarity, que
           es gratis, dónde están las claves— vive detrás del botón y del «?». */}
       <p style={{ fontSize: 13, color: 'var(--dim)', marginTop: 5, lineHeight: 1.55, maxWidth: '62ch' }}>
-        Mirá el video de lo que hizo cada lead en tu página, y dónde hacen clic todos los demás.
+        Mira el video de lo que hizo cada lead en tu página, y dónde hace clic todo el resto.
       </p>
 
       {!abierto ? (
@@ -51,10 +51,10 @@ export function ConfigClarity({ conectado, onListo }: { conectado: boolean; onLi
           {/* El texto largo, recién ahora: ya decidió que le interesa. */}
           {!conectado && (
             <p style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 12, maxWidth: '68ch' }}>
-              Usamos <b>Microsoft Clarity</b>, que es gratis y sin límite de visitas. Creá tu cuenta en{' '}
+              Usamos <b>Microsoft Clarity</b>: es gratis y sin límite de visitas. Crea tu cuenta en{' '}
               <a href="https://clarity.microsoft.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>clarity.microsoft.com</a>,
-              creá un proyecto con la dirección de tu página, y pegá acá abajo las dos claves. Se suman
-              solas al código que copiás más abajo.
+              crea un proyecto con la dirección de tu página y pega aquí abajo las claves. Se suman
+              solas al código del paso 2.
             </p>
           )}
           {/* La MISMA pieza que el resto de las integraciones. Guarda con el tilde

@@ -885,7 +885,7 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
           // saber si está todo bien decía que sí sobre un snippet al que le falta
           // la mitad. Se responde lo que hay que hacer, no lo que llega.
           ? j.codigoViejo
-            ? { ok: false, text: 'Llegan eventos, pero el código pegado es de una versión anterior. Copiá el de arriba y reemplazalo en tu página.' }
+            ? { ok: false, text: 'Llegan eventos, pero el código instalado es de una versión anterior. Copia el de arriba y reemplázalo en tu página.' }
             : { ok: true, text: `Recibiendo eventos${j.ultima ? ` (última hace ${fmtDuracion(j.ultima, new Date().toISOString())})` : ''}.` }
           : { ok: false, text: 'Aún no llega ningún evento. Instala el Pixel de MaKo en tu página y recárgala.' });
       } else {
@@ -935,7 +935,7 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
         <ConfigClarity conectado={clarityConectado} onListo={() => routerLanding.refresh()} />
       </Paso>
 
-      <Paso n={2} titulo="Copiá el código y pegalo en tu página">
+      <Paso n={2} titulo="Copia el código y pégalo en tu página">
 
       {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.
           Antes eran tres piezas sueltas —un bloque de código, dos botones y un
@@ -976,7 +976,7 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
             sobre esto que tengo acá— y tiene que estar en el mismo lugar. */}
         <IconBtn name="help" title={abierto ? 'Ocultar la ayuda' : '¿Dónde lo pego?'} tone={abierto ? 'primary' : 'dim'} onClick={() => setAbierto((o) => !o)} />
       </div>
-      {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — abrilo con el chevron, seleccionalo y copialo a mano.</span>}
+      {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — ábrelo con la flecha, selecciónalo y cópialo a mano.</span>}
 
       {estado && (
         <div style={{ fontSize: 12.5, fontWeight: 500, color: estado.ok ? 'var(--good)' : 'var(--bad)', lineHeight: 1.45 }}>
@@ -1245,7 +1245,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
           ) : esLanding ? (
             <>
               <CodigoLanding snippet={snippetLanding ?? null} clarityConectado={clarityConectado} />
-              <Paso n={3} titulo="Comprobá que está funcionando"><ProbarTracking /></Paso>
+              <Paso n={3} titulo="Comprueba que está funcionando"><ProbarTracking /></Paso>
             </>
           ) : mostrarForm ? (
             // onEstado avisa cuando el servicio pasó a conectado (o dejó de estarlo):

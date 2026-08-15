@@ -476,6 +476,37 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
+    // ⚠️ Clarity NO tiene tarjeta propia en /integraciones (va oculta en el
+    // catálogo de integraciones) pero SÍ tiene que estar acá: este es el catálogo
+    // que le dice a la barra de credenciales qué campos pedir y qué pasos mostrar
+    // en el «?». Faltando esto, la pantalla respondía «servicio inválido» — el
+    // formulario existía y no tenía de dónde sacar sus campos.
+    key: 'clarity',
+    nombre: 'Microsoft Clarity',
+    categoria: 'Datos',
+    paraQue: 'Mapas de calor y grabaciones de sesión de tu página, atados a cada lead.',
+    campos: [
+      // El ID del proyecto NO es secreto: viaja en el HTML de la página, como
+      // cualquier pixel. Mostrarlo enmascarado escondería justo el dato que
+      // permite distinguir de un vistazo un proyecto de otro.
+      { env: 'CLARITY_PROJECT_ID', label: 'ID del proyecto', placeholder: 'abcd1234ef' },
+      // El token sí lo es: da lectura a las métricas del proyecto. Y es OPCIONAL
+      // a propósito — sin él funcionan las grabaciones y los mapas, que son el
+      // 90% del valor; solo se pierde el resumen de números dentro de MaKo.
+      { env: 'CLARITY_API_TOKEN', label: 'Token de Data Export', secreto: true, opcional: true, placeholder: 'eyJhbGciOi…', nota: 'Opcional. Sin él las grabaciones funcionan igual; solo se pierde el resumen de números dentro de MaKo.' },
+    ],
+    tutorial: {
+      url: 'https://clarity.microsoft.com',
+      urlLabel: 'Microsoft Clarity',
+      pasos: [
+        'Entra a clarity.microsoft.com e inicia sesión con tu cuenta de Microsoft, Google o Facebook.',
+        'Crea un proyecto nuevo con la dirección de tu página. Es gratis y sin límite de visitas.',
+        'El ID del proyecto está en Settings → Overview, o en la dirección del navegador después de /projects/view/.',
+        'El token está en Settings → Data Export → Generate new API token. Este paso es opcional.',
+      ],
+    },
+  },
+  {
     key: 'panda',
     nombre: 'Panda Video',
     categoria: 'Datos',
