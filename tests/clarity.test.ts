@@ -129,3 +129,34 @@ test('el resumen lo cachea el CRON, no la pantalla', () => {
   const vercel = leer('../vercel.json');
   assert.ok(/clarity-vigilante/.test(vercel), 'el cron tiene que estar agendado o no corre nunca');
 });
+
+test('los TRES registros: sin el verificador, la barra dice «servicio inválido»', () => {
+  // ⚠️ Una integración necesita estar en TRES lugares, y esto costó dos vueltas:
+  //   1. integraciones-catalogo → qué tarjetas existen (Clarity va `oculto`)
+  //   2. metodo-catalogo        → qué campos pide y qué dice el «?»
+  //   3. metodo-verificar       → cómo se comprueba
+  //
+  // El tilde PRUEBA antes de guardar, así que faltando el verificador no se puede
+  // guardar nada — y el mensaje dice «servicio inválido», que culpa al servicio y
+  // no al verificador que falta. Por eso el primer arreglo (agregarlo al catálogo
+  // del método) pareció suficiente y no lo era.
+  for (const [archivo, patron] of [
+    ['../lib/integraciones-catalogo.ts', "key: 'clarity'"],
+    ['../lib/metodo-catalogo.ts', "key: 'clarity'"],
+    ['../lib/metodo-verificar.ts', 'async clarity('],
+  ] as const) {
+    assert.ok(leer(archivo).includes(patron), `${archivo} no registra Clarity`);
+  }
+
+  const ver = leer('../lib/metodo-verificar.ts');
+  // Se valida la FORMA del id, no su existencia: Clarity no tiene endpoint de
+  // «este proyecto existe», y pegar la URL entera en vez del id corto es el error
+  // que la gente comete de verdad.
+  assert.ok(/\^\[a-z0-9\]\{6,20\}\$/i.test(ver), 'un id con forma de URL tiene que rebotar con un mensaje que lo explique');
+  // Sin token todavía, el ID igual se guarda: frenar acá obligaría a cargarlos en
+  // un orden que nadie adivina.
+  assert.ok(/if \(!token\) return \{ ok: true/.test(ver), 'el id tiene que poder guardarse antes que el token');
+  // ⚠️ El 402 es la CUOTA agotada, no un token malo. Sin distinguirlo, el mensaje
+  // manda a regenerar un token que está perfecto.
+  assert.ok(/status === 402/.test(ver), 'la cuota agotada no puede leerse como token inválido');
+});

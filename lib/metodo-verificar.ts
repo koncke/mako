@@ -340,6 +340,46 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida — Whop accesible.', facts };
   },
 
+  // ⚠️ SIN ESTO LA BARRA DICE «servicio inválido». Es el TERCER registro que
+  // necesita una integración: el catálogo de tarjetas, el del método (qué campos
+  // pide) y este (cómo se comprueba). El tilde prueba ANTES de guardar, así que
+  // faltando el verificador no se puede guardar nada — y el mensaje culpa al
+  // servicio, no al verificador que falta.
+  async clarity(v) {
+    const pid = (v.CLARITY_PROJECT_ID ?? '').trim();
+    if (!pid) return { ok: false, error: 'Falta el ID del proyecto.' };
+    // El id es alfanumérico y corto (10 caracteres en los proyectos actuales).
+    // Se valida la FORMA y no la existencia: Clarity no tiene un endpoint que
+    // diga «este proyecto existe», y pegar la URL entera en vez del id es el
+    // error real que comete la gente.
+    if (!/^[a-z0-9]{6,20}$/i.test(pid)) {
+      return { ok: false, error: 'Eso no parece un ID de proyecto. Es el código corto de Settings → Overview, no la dirección completa.' };
+    }
+    const token = (v.CLARITY_API_TOKEN ?? '').trim();
+    // Sin token todavía, el ID igual se guarda: el token se pega en el campo de
+    // abajo y frenar acá obligaría a cargarlos en un orden que nadie adivina.
+    if (!token) return { ok: true, detalle: 'ID válido. Falta el token para traer el resumen.' };
+
+    const { status, body } = await fetchJson('https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=1', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (status === 401) return { ok: false, error: 'El token no es válido o venció.' };
+    // ⚠️ El 402 es la CUOTA agotada (10 consultas por día), no un token malo. Sin
+    // distinguirlo, el mensaje manda a regenerar un token que está perfecto.
+    if (status === 402) return { ok: true, detalle: 'Guardado. Hoy ya se usaron las 10 consultas diarias de Clarity, así que el resumen llega mañana.' };
+    if (status >= 400) return { ok: false, error: `Clarity respondió ${status}.` };
+    const filas = Array.isArray(body) ? body : [];
+    const traf = filas.find((x: Record<string, unknown>) => x.metricName === 'Traffic') as { information?: Array<Record<string, unknown>> } | undefined;
+    const ses = Number(traf?.information?.[0]?.totalSessionCount);
+    return {
+      ok: true,
+      detalle: 'Conectado.',
+      facts: Number.isFinite(ses)
+        ? [{ k: 'Sesiones ayer', v: String(ses), c: ses > 0 ? 'var(--good)' : 'var(--warn)' }]
+        : undefined,
+    };
+  },
+
   async panda(v) {
     // OJO: Panda lleva la key PELADA en Authorization, sin "Bearer".
     const { status, body } = await fetchJson('https://api-v2.pandavideo.com/videos?limit=1', {
