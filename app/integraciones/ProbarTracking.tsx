@@ -55,7 +55,7 @@ function legible(e: Evento): { texto: string; color: string } {
   // un tipo que no sabe clasificar (código viejo o modificado). Mostrarlo crudo
   // hacía aparecer la palabra «desconocido» en la lista, que se lee como que algo
   // se rompió — cuando lo que dice es que ese evento no se pudo interpretar.
-  if (e.tipo === 'desconocido') return { texto: 'Evento no reconocido (código desactualizado o modificado)', color: 'var(--warn)' };
+  if (e.tipo === 'desconocido') return { texto: 'Evento no reconocido (Pixel desactualizado o modificado)', color: 'var(--warn)' };
   return { texto: e.tipo, color: 'var(--dim)' };
 }
 
@@ -309,10 +309,10 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
 
   const avisoViejo = bloqueo && (
     <div style={{ marginTop: 12, padding: '13px 15px', borderRadius: 11, border: '1px solid var(--warn)', background: 'var(--warn-bg)' }}>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Primero actualiza el código</div>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Primero actualiza el Pixel</div>
       <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4, lineHeight: 1.55 }}>
         El que tienes instalado es de una versión anterior, así que la prueba no diría nada útil:
-        las verificaciones nuevas fallarían porque ese código todavía no las envía.
+        las verificaciones nuevas fallarían porque ese Pixel todavía no las envía.
         <b> Copia el código de arriba, reemplázalo en tu página y vuelve aquí.</b>
       </div>
     </div>
@@ -366,7 +366,7 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
   if (!activo) {
     return (
       <div style={box}>
-        <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Probar que el código funciona</div>
+        <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Probar que el Pixel de MaKo funcione</div>
         <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
           Elige la página que quieres probar. La abrimos en otra pestaña y aquí ves llegar los eventos en vivo.
         </div>
@@ -409,7 +409,7 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
                 {/* Verificar ESTA página. Vive acá y no al lado del código porque
                     la respuesta depende de cuál elegiste: es la misma distancia
                     física, pero la pregunta que contesta es otra. */}
-                <IconBtn name="plug" title="Verificar si el código está instalado en esta página" disabled={verificando} onClick={() => void verificarEsta()} />
+                <IconBtn name="plug" title="Verificar si el Pixel está instalado en esta página" disabled={verificando} onClick={() => void verificarEsta()} />
                 <IconBtn name="pen" title="Corregir esta dirección" onClick={() => { setEditando(guardadaElegida ? url : null); setEligiendoNueva(true); }} />
                 <IconBtn name="trash" title="Quitar de la lista" tone="bad" disabled={ocupado} onClick={() => void borrar()} />
               </>

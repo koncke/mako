@@ -103,9 +103,9 @@ export const SLIDES: Record<string, Slide[]> = {
   ],
   landing: [
     // app/api/webhooks/calendly: utm_term transporta el UUID anónimo (nqe_visitor_id)
-    { t: 'El anónimo se vuelve lead', d: 'La landing le pone un ID a cada visita. Cuando esa persona agenda, MaKo ata la reserva con todo lo que hizo antes.' },
+    { t: 'El anónimo se vuelve lead', d: 'El Pixel le pone un identificador a cada visita. Cuando esa persona agenda, MaKo une la reserva con todo lo que hizo antes.' },
     // lib/integraciones.ts: la única integración cuyo estado son eventos REALES
-    { t: 'La única que se prueba de verdad', d: 'Las demás se ven "conectadas" porque hay credencial. Esta se pone en verde solo cuando llega un evento real.' },
+    { t: 'La única que se comprueba de verdad', d: 'Las demás se ven «conectadas» porque hay una credencial cargada. Esta se pone en verde solo cuando llega un evento real.' },
   ],
   // Claude enchufado a MaKo. Sin API key: se instala una skill del lado del usuario y
   // habla por /api/agente/* con un token.

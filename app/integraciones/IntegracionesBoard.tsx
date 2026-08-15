@@ -765,22 +765,22 @@ const closeBtn: CSSProperties = { flex: 'none', width: 30, height: 30, border: '
 // línea por plataforma, no una oración corrida con todas adentro).
 type PasoPegar = { paso: string; plataformas?: Array<[string, string]> };
 const DONDE_PEGAR: PasoPegar[] = [
-  { paso: 'Copiá el código de acá arriba.' },
+  { paso: 'Copia el código de aquí arriba.' },
   {
-    paso: 'Abrí tu landing y pegalo justo antes de </body>, en todas las páginas que quieras medir.',
+    paso: 'Abre tu página y pégalo justo antes de </body>, en todas las páginas que quieras medir.',
     plataformas: [
-      ['Lovable, Claude Code, o cualquier editor web por prompt', 'pedile "pegá este script antes del </body>".'],
+      ['Lovable, Claude Code, o cualquier editor web por prompt', 'pídele "pega este script antes del </body>".'],
       ['Framer', 'Settings → Custom Code → End of <body>.'],
       ['Webflow', 'Project Settings → Custom Code → Footer Code.'],
       ['WordPress', 'un plugin de "insert headers and footers" (footer).'],
       ['HTML plano', 'antes del </body>.'],
     ],
   },
-  { paso: 'Publicá los cambios y entrá a tu landing una vez. En cuanto llegue la primera visita, esta integración se pone en verde.' },
+  { paso: 'Publica los cambios y entra a tu página una vez. En cuanto llegue la primera visita, esta integración se pone en verde.' },
   {
     // El mismo script hace las dos cosas: sin esto, quien tiene formulario cree
     // que le falta pegar algo más — y no hay nada más que pegar.
-    paso: 'Si tu página tiene un formulario, el mismo código ya lo captura: quien lo complete te llega al CRM para que lo revises y lo confirmes. Para que entren, marcá «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads.',
+    paso: 'Si tu página tiene un formulario, el mismo Pixel ya lo captura: quien lo complete ingresa solo a tu CRM. Para activarlo, marca «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads.',
   },
 ];
 

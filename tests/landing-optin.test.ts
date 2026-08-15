@@ -254,7 +254,7 @@ test('con el código viejo no se deja probar, y «Verificar» lo dice', () => {
   // la persona sale creyendo que su landing está rota.
   const probar = leer('../app/integraciones/ProbarTracking.tsx');
   assert.ok(/previo\?\.codigoViejo/.test(probar), 'la prueba tiene que bloquearse con el código viejo');
-  assert.ok(/Primero actualiza el código/.test(probar), 'y decir qué hacer antes de probar');
+  assert.ok(/Primero actualiza el Pixel/.test(probar), 'y decir qué hacer antes de probar');
   // El botón NO se esconde: esconderlo deja la sección sin su acción y sin decir
   // qué la reemplazó. Se deja intentar, y ahí se explica por qué todavía no.
   // `async`: arrancar RELEE el estado antes de bloquear, en vez de creerle a lo
@@ -827,4 +827,31 @@ test('el aviso de Pixel viejo se pinta en LOS DOS pasos', () => {
   assert.ok(panel.slice(iPaso, finPaso).includes('{avisoViejo}'), 'el paso de los videos no puede tragarse el aviso');
   // Y sigue estando en el de inicio: no se movió, se sumó.
   assert.ok(panel.slice(finPaso).includes('{avisoViejo}'), 'el panel de inicio perdió el aviso');
+});
+
+test('el producto se llama IGUAL en todas las pantallas', () => {
+  // «Landing / VSL» describía DÓNDE se pega, no QUÉ es, así que cada pantalla lo
+  // llamaba distinto —«el código», «el snippet», «la landing»— y no había forma
+  // de saber que hablaban de lo mismo. Un test lo cuida porque el nombre viejo
+  // sobrevive en comentarios y rutas, y es fácil renombrar la mitad.
+  const vivos = [
+    '../lib/integraciones-catalogo.ts',
+    '../app/integraciones/IntegracionesBoard.tsx',
+    '../app/integraciones/ProbarTracking.tsx',
+    '../app/integraciones/NombrarVideos.tsx',
+    '../lib/servicio-slides.ts',
+  ];
+  for (const f of vivos) {
+    // Solo el TEXTO que ve el cliente: se sacan los comentarios, porque ahí el
+    // nombre viejo es historia y borrarlo perdería el porqué de cada decisión.
+    const codigo = leer(f).replace(/\/\*[\s\S]*?\*\/|^\s*\/\/[^\n]*$/gm, '');
+    assert.ok(!/Landing \/ VSL/.test(codigo), `${f} todavía dice «Landing / VSL»`);
+  }
+  const cat = leer('../lib/integraciones-catalogo.ts');
+  assert.ok(/nombre: 'Pixel de MaKo'/.test(cat), 'el catálogo es el que nombra la integración en todas las pantallas');
+  // Y los dos avisos de WhatsApp, que son la otra punta: si ahí se llama distinto
+  // son dos productos.
+  const avisos = leer('../lib/avisos-catalogo.ts');
+  assert.ok(/titulo: 'El Pixel de MaKo dejó de mandar datos'/.test(avisos), 'el aviso de tracking apagado quedó con el nombre viejo');
+  assert.ok(/titulo: 'El Pixel de MaKo quedó viejo'/.test(avisos), 'el aviso de versión vieja quedó con el nombre viejo');
 });
