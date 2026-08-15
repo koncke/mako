@@ -229,3 +229,47 @@ Lo pongo entero, sin esconder nada:
 9. **Si los heatmaps de Matomo se pueden leer por su API** para renderizarlos en nuestra pantalla. Esto es lo que decidiría si Matomo es una alternativa real o si queda encerrado en su propio panel igual que Clarity.
 10. **El impacto real de sumar un segundo script en las landings de los clientes.** Clarity pesa 25 KB comprimidos y carga de forma asíncrona; Microsoft afirma que no afecta el rendimiento, pero es su afirmación, no una medición nuestra.
 11. **Mi cuenta de costos de PostHog y las estimaciones de días de trabajo, almacenamiento y campos faltantes de la sección 6** son estimaciones mías, no datos de fabricante. Los precios unitarios de PostHog sí están verificados; la aritmética y el supuesto de 2.000 visitas por cliente son míos.
+
+---
+
+## Anexo · Lo que la API de Clarity devuelve DE VERDAD
+
+*2026-08-15 · llamado con un token real contra `project-live-insights`*
+
+La pregunta era: si el cliente nos da su token, ¿podemos sacar el ID del proyecto y evitar
+pedírselo? Se probó, no se dedujo.
+
+**No. La API no devuelve el ID del proyecto en ninguna forma.** Su única respuesta es una lista
+de métricas agregadas:
+
+```
+DeadClickCount · ExcessiveScroll · RageClickCount · QuickbackClick · ScriptErrorCount
+ErrorClickCount · ScrollDepth · Traffic · EngagementTime
+```
+
+Cada una con `sessionsCount`, `sessionsWithMetricPercentage`, `pagesViews` y `subTotal`. Nada
+más. No hay endpoint de proyectos, ni el id aparece como campo.
+
+**Tampoco sale del token.** El `sub` del JWT es `3460892749304374`; el proyecto es `y2vjnv3kr3`,
+que en base36 da `3461152837449423`. Mismo espacio de numeración, identificadores distintos: el
+`sub` es de la cuenta.
+
+**Y hay una razón de fondo por la que nunca va a salir de ahí:** el ID del proyecto no es un
+dato de la API. Es lo que va en el `<script src="clarity.ms/tag/…">` de la página del cliente y
+en la URL de su panel — dos cosas que existen fuera de Clarity.
+
+### Lo que SÍ se puede hacer con la API, y sirve para el caso multi-landing
+
+`?dimension1=URL` agrupa las métricas **por página**. Con tráfico, eso permite contestar dos
+preguntas que hoy no se pueden:
+
+- **¿Este token corresponde a un proyecto que mide ESTA landing?** Si las URLs que devuelve no
+  incluyen el dominio que el cliente cargó, el token es de otro proyecto — un error real cuando
+  alguien tiene varios.
+- **¿Cuál de mis landings tiene tráfico y cuál no?**
+
+Dos límites que hay que respetar al usarlo: sin tráfico devuelve **arrays vacíos** (probado: el
+proyecto recién creado devolvió `information: []` en todas las métricas), y **cada llamada gasta
+una de las 10 diarias** — así que va en el cron, nunca en una pantalla.
+
+**Vive en:** `lib/clarity.ts` (`resumenClarity`, `normalizarProjectId`)
