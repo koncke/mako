@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
         await emitirDelCatalogo('tracking-apagado', {
           ws: w.id,
           dedupTtlMin: DEDUP_MIN,
-          contexto: `La landing no registra visitas desde hace ${dias} día(s) (última: ${ultima}). Los anuncios pueden seguir corriendo: lo que se pierde es la atribución. Causa típica: el snippet de la landing quedó apuntando a una dirección vieja — se copia con la URL congelada y no se entera de un cambio de dominio.`,
+          contexto: `La landing no registra visitas desde hace ${dias} día(s) (última: ${ultima}). Los anuncios pueden seguir corriendo: lo que se pierde es la atribución. Causa típica: el Pixel de MaKo quedó apuntando a una dirección vieja — se copia con la URL congelada y no se entera de un cambio de dominio.`,
         });
         return { ws: w.id, ultima, horas, aviso: true };
       });

@@ -339,7 +339,7 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
       .filter((r) => normalizarUrl(r.landing_url ?? '') === url);
     if (!filas.length) {
       return { url, instalada: false, version: null, vieja: false, ultima: null, visitas: 0,
-        texto: 'No llega ninguna visita de esta página desde hace 30 días. El código no está instalado ahí, o esa página aún no se publica.' };
+        texto: 'No llega ninguna visita de esta página desde hace 30 días. El Pixel no está instalado ahí, o esa página aún no se publica.' };
     }
     // La versión de la visita MÁS RECIENTE: si repegaron el código hace una hora,
     // lo que importa es eso y no las 300 visitas viejas de antes.
@@ -351,7 +351,7 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
       texto: version == null
         // Llegan visitas pero ninguna dice su versión: son de antes de que el
         // snippet la mandara, o sea de las más viejas que hay.
-        ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el código es tan antiguo que no informa su versión. Copia el de arriba y reemplázalo.`
+        ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el Pixel es tan antiguo que no informa su versión. Copia el código de arriba y reemplázalo.`
         : vieja
           ? `Está midiendo con la versión ${version}, y la actual es la ${SNIPPET_VERSION}. Copia el código de arriba y reemplázalo EN ESTA PÁGINA para sumar: ${novedadesDesde(version)}.`
           : `Todo correcto: está midiendo con la última versión (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`,
@@ -537,16 +537,16 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
   // no significan nada. Un diagnóstico que no empieza por «¿estás mirando el
   // código correcto?» manda a investigar síntomas de una versión que ya no existe.
   const chequeos: ChequeoDiag[] = [
-    { id: 'version', label: 'Código actualizado',
+    { id: 'version', label: 'Pixel actualizado',
       estado: instalada === 0 || !hayPageview ? 'falta' : codigoViejo ? 'viejo' : 'ok',
-      detalle: instalada === 0 || !hayPageview ? 'Aún no llega ningún evento para saber qué versión tienes instalada.'
+      detalle: instalada === 0 || !hayPageview ? 'Aún no llega ningún evento para saber qué versión del Pixel tienes instalada.'
         : codigoViejo ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Copia el código de arriba y reemplázalo para sumar: ${novedadesDesde(instalada)}.`
         : 'Es la última versión.' },
     { id: 'pageview', label: '1. Llega a tu página',
       estado: hayPageview ? 'ok' : 'falta',
-      detalle: hayPageview ? 'El código está instalado y funciona.'
+      detalle: hayPageview ? 'El Pixel está instalado y funciona.'
         : enPrueba ? 'Aún no llega la visita. Recarga la pestaña que abrimos.'
-        : 'No llega ninguna visita desde hace 24 h. Revisa que el código esté instalado y publicado.' },
+        : 'No llega ninguna visita desde hace 24 h. Revisa que el Pixel esté instalado y que la página esté publicada.' },
     { id: 'play', label: '2. Reproduce tu video',
       estado: hayPlay ? 'ok' : 'falta',
       detalle: hayPlay ? 'Detectamos tu reproductor de video.'
@@ -557,7 +557,7 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
     { id: 'profundidad', label: '3. Se mide el tiempo de retención',
       estado: hayProfundidad ? 'ok' : soloVsl > 0 ? 'viejo' : 'falta',
       detalle: hayProfundidad ? 'Llegan los avances: ya se puede calcular la retención de cada lead.'
-        : soloVsl > 0 ? 'Solo llega el inicio, no el avance. Con el código actualizado aparece a los pocos segundos, aunque el video sea corto.'
+        : soloVsl > 0 ? 'Solo llega el inicio, no el avance. Con el Pixel actualizado aparece a los pocos segundos, aunque el video sea corto.'
         : enPrueba ? 'Deja el video reproduciéndose unos segundos.'
         : 'Aún sin datos.' },
     // El click FALTABA, y para una landing cuyo CTA es un ancla (#registro) es el
@@ -567,7 +567,7 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
       estado: hayClick ? 'ok' : 'falta',
       detalle: hayClick ? 'Se registran los clics: sabes qué botones y enlaces usa cada visitante.'
         : enPrueba ? 'Aún no llega ninguno. Haz clic en un botón o enlace en la pestaña que abrimos.'
-        : 'Aún no llega ningún clic. Con el código actualizado se registran solos.' },
+        : 'Aún no llega ningún clic. Con el Pixel actualizado se registran solos.' },
     // ⚠️ EL CHEQUEO YA NO PIDE CONFIRMAR: los leads entran solos. Lo único que
     // queda esperando es un CHOQUE —alguien que parece estar ya en el CRM—, y eso
     // no es una tarea pendiente del sistema sino una decisión que solo puede

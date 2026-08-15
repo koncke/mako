@@ -119,8 +119,8 @@ export function NombrarVideos({
                     // buscando un botón que le dijimos que existía. Y la razón es
                     // accionable: la URL viaja desde la v8, así que un video con
                     // eventos y sin URL es uno cuyo código todavía es anterior.
-                    <span title="La dirección del video llega con la versión nueva del código" style={{ flex: 'none', fontSize: 11, color: 'var(--faint)', fontStyle: 'italic' }}>
-                      {d.eventos > 0 ? 'para verlo, actualiza el código' : ''}
+                    <span title="La dirección del video llega con la versión nueva del Pixel" style={{ flex: 'none', fontSize: 11, color: 'var(--faint)', fontStyle: 'italic' }}>
+                      {d.eventos > 0 ? 'para verlo, actualiza el Pixel' : ''}
                     </span>
                   )}
                 </span>

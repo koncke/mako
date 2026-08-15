@@ -53,7 +53,7 @@ export const DEFS: Def[] = [
   // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver
   // estadoLanding). El usuario no pega credenciales: copia un <script> con su
   // token y lo pega donde tenga la landing (Lovable, Framer, Webflow, WP…).
-  { key: 'landing', nombre: 'Landing / VSL', categoria: 'Datos', descripcion: 'Mide visitas y retención del VSL desde tu landing, esté donde esté.', envs: [] },
+  { key: 'landing', nombre: 'Pixel de MaKo', categoria: 'Datos', descripcion: 'Mide las visitas, los videos y los clics de tu página, esté donde esté.', envs: [] },
   // Claude: como la landing, no se configura con una API key — se instala una skill del
   // lado del usuario y se conecta con un token. Su estado se mide por señal REAL (¿generó
   // el token?), no por env (ver estadoAgente).

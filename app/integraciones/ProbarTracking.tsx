@@ -336,16 +336,28 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
           videos={videosGuardados}
           onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}
         />
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
-          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado}>
-            Siguiente: probar
+        {sinNombre.length > 0 && (
+          <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 14, lineHeight: 1.5 }}>
+            Puedes dejarlo para después: la retención se mide igual, pero sin saber a qué video corresponde.
+          </p>
+        )}
+        {/* ⚠️ EL AVISO DEL PIXEL VIEJO TAMBIÉN VA ACÁ. `arrancar()` prende
+            `bloqueo` y el aviso solo se pintaba en el panel de inicio: apretar
+            «Probar» desde este paso cambiaba el estado y la pantalla no decía
+            NADA — quedaba quieta, como si el botón estuviera roto.
+            Es el mismo error que dejó muerto el lápiz de «Tus videos»: cambiar un
+            estado que se renderiza en una rama que no se está mostrando. */}
+        {avisoViejo}
+        {/* El botón principal ocupa el ancho: es la acción de la pantalla, y
+            achicado contra el margen izquierdo competía de igual a igual con
+            «Volver», que es la salida. */}
+        <div style={{ marginTop: 16 }}>
+          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado} style={{ width: '100%' }}>
+            Probar
           </Button>
-          <Button variant="secondary" onClick={() => setPaso('inicio')}>Volver</Button>
-          {sinNombre.length > 0 && (
-            <span style={{ fontSize: 12, color: 'var(--faint)' }}>
-              Puedes dejarlo para después: la retención se mide igual, pero sin saber a qué video corresponde.
-            </span>
-          )}
+          <div style={{ marginTop: 8, textAlign: 'center' }}>
+            <Button variant="secondary" size="sm" onClick={() => setPaso('inicio')}>Volver</Button>
+          </div>
         </div>
       </div>
     );
@@ -429,7 +441,7 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
         {/* UN solo botón. Siempre abre la página en otra pestaña: si la prueba
             depende de que la persona se acuerde de abrirla, la prueba no arranca. */}
         <div style={{ marginTop: 14 }}>
-          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado} disabled={!urlValida}>Probar</Button>
+          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado} disabled={!urlValida} style={{ width: '100%' }}>Probar</Button>
         </div>
 
         {avisoViejo}
@@ -509,7 +521,7 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
         {cargando && !diag && <div style={{ padding: 16, fontSize: 13, color: 'var(--faint)' }}>Conectando…</div>}
         {diag && diag.eventos.length === 0 && (
           <div style={{ padding: 18, fontSize: 13, color: 'var(--faint)', lineHeight: 1.55 }}>
-            Aún no llega nada de esta prueba. Navega un poco por la pestaña que abrimos: si no aparece nada, el código no está instalado o esa página no se publicó.
+            Aún no llega nada de esta prueba. Navega un poco por la pestaña que abrimos: si no aparece nada, el Pixel no está instalado o esa página no se publicó.
           </div>
         )}
         {diag?.eventos.map((e, i) => {

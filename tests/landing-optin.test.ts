@@ -198,7 +198,7 @@ test('el aviso de código viejo: rótulo propio, texto determinista y link que a
 test('la pantalla también lo dice (no solo el WhatsApp)', () => {
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
   assert.ok(/i\.key === 'landing' && landingVieja\) return 'warn'/.test(board), 'con el código viejo la integración no puede seguir en verde');
-  assert.ok(/'Actualizá el código'/.test(board), 'el chip tiene que decir qué hacer');
+  assert.ok(/'Actualiza el Pixel'/.test(board), 'el chip tiene que decir qué hacer');
   // El deep-link: abre el modal, scrollea, y limpia el parámetro para que un F5
   // no reabra lo que la persona ya cerró.
   assert.ok(/searchParams\.get\('abrir'\)/.test(board), 'falta leer el parámetro del deep-link');
@@ -306,7 +306,10 @@ test('el panel usa las piezas de la casa, no HTML crudo', () => {
   // ⚠️ Se ancla al `if (!activo)` DEL RENDER (el que sigue con `return (`), no al
   // primero que aparezca: hay otro adentro del useEffect, y el paso de «¿qué es
   // cada video?» vive en el medio con sus propios botones.
-  const idle = probar.slice(probar.indexOf('if (!activo) {\n    return ('), probar.indexOf('{avisoViejo}'));
+  // ⚠️ `lastIndexOf`: el aviso de Pixel viejo se pinta en DOS ramas, y la del paso
+  // de los videos viene antes — con `indexOf` el recorte quedaba vacío y el test
+  // contaba cero botones sobre un panel que sí los tiene.
+  const idle = probar.slice(probar.indexOf('if (!activo) {\n    return ('), probar.lastIndexOf('{avisoViejo}'));
   const botones = idle.match(/<Button\b/g) ?? [];
   assert.equal(botones.length, 1, `el arranque de la prueba tiene que tener UN botón y tiene ${botones.length}`);
   assert.ok(/window\.open\(`/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
@@ -314,7 +317,7 @@ test('el panel usa las piezas de la casa, no HTML crudo', () => {
 
 test('el código usa LA MISMA barra que una credencial, no una pieza propia', () => {
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
-  const i = board.indexOf('Pegá este código en tu landing');
+  const i = board.indexOf('mk-key-row mk-key-row--code');
   const bloque = board.slice(i, i + 2600);
 
   // Mismo esqueleto que `.mk-key-row`: contenido a la izquierda, acciones
@@ -755,7 +758,7 @@ test('«qué es cada video» es un PASO de la prueba, no un formulario colgado',
   // porque el dato sigue faltando.
   const i = panel.indexOf("if (paso === 'videos')");
   const bloque = panel.slice(i, panel.indexOf('// La prueba corre en la ventana de prueba', i));
-  assert.ok(/Siguiente: probar/.test(bloque), 'falta el botón que sigue a la prueba');
+  assert.ok(/>\s*Probar\s*</.test(bloque), 'falta el botón que sigue a la prueba');
   assert.ok(!/disabled=\{sinNombre/.test(bloque), 'nombrar los videos no puede ser obligatorio para probar');
   // La salida para corregirse existe, y NO es el formulario abierto de vuelta:
   // es la respuesta actual a la vista, que es lo único que permite darse cuenta
@@ -807,5 +810,21 @@ test('cada video se puede VER desde la pantalla que te pide nombrarlo', () => {
   // deja a la persona buscando un botón que le dijimos que existía. La razón es
   // accionable: la URL viaja desde la v8, así que un video con eventos y sin URL
   // es uno cuyo código todavía es anterior.
-  assert.ok(/para verlo, actualiza el código/.test(ui), 'un botón que falta sin decir por qué se lee como una pantalla rota');
+  assert.ok(/para verlo, actualiza el Pixel/.test(ui), 'un botón que falta sin decir por qué se lee como una pantalla rota');
+});
+
+
+test('el aviso de Pixel viejo se pinta en LOS DOS pasos', () => {
+  // ⚠️ EL ERROR QUE SE REPITE, y este es el tercero de la misma familia:
+  // cambiar un estado que se renderiza en una rama que NO se está mostrando.
+  // `arrancar()` prende `bloqueo`, y el aviso solo vivía en el panel de inicio:
+  // apretar «Probar» desde el paso de los videos cambiaba el estado y la pantalla
+  // quedaba quieta, como si el botón estuviera roto.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  const iPaso = panel.indexOf("if (paso === 'videos')");
+  const finPaso = panel.indexOf('if (!activo) {\n    return (');
+  assert.ok(iPaso > 0 && finPaso > iPaso, 'no se encontró el paso de los videos');
+  assert.ok(panel.slice(iPaso, finPaso).includes('{avisoViejo}'), 'el paso de los videos no puede tragarse el aviso');
+  // Y sigue estando en el de inicio: no se movió, se sumó.
+  assert.ok(panel.slice(finPaso).includes('{avisoViejo}'), 'el panel de inicio perdió el aviso');
 });

@@ -447,7 +447,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           // configurar" (lo que diría el ámbar por defecto) manda al usuario a
           // buscar una credencial que no existe: acá lo que falta es un permiso.
           chipWord={modal.key === 'google' && gcalIncompleta ? 'Falta permiso'
-            : modal.key === 'landing' && landingVieja ? 'Actualizá el código'
+            : modal.key === 'landing' && landingVieja ? 'Actualiza el Pixel'
             : undefined}
           gcal={gcal}
           health={health} metaError={metaError} usage={usage}
@@ -854,7 +854,7 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
           ? j.codigoViejo
             ? { ok: false, text: 'Llegan eventos, pero el código pegado es de una versión anterior. Copiá el de arriba y reemplazalo en tu página.' }
             : { ok: true, text: `Recibiendo eventos${j.ultima ? ` (última hace ${fmtDuracion(j.ultima, new Date().toISOString())})` : ''}.` }
-          : { ok: false, text: 'Todavía no llegó ningún evento — pegá el código en tu landing y recargala.' });
+          : { ok: false, text: 'Aún no llega ningún evento. Instala el Pixel de MaKo en tu página y recárgala.' });
       } else {
         setEstado({ ok: false, text: j?.error === 'solo admin' ? 'Necesitás ser admin para verificar esta integración.' : (j?.error ?? 'No se pudo verificar.') });
       }
@@ -878,7 +878,7 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
   if (!snippet) {
     return (
       <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
-        Entrá a un cliente para ver su código de landing.
+        Entra a un cliente para ver su Pixel de MaKo.
       </div>
     );
   }
@@ -886,7 +886,7 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
       <h4 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', lineHeight: 1.3, margin: 0 }}>
-        Pegá este código en tu landing
+        Instala el Pixel de MaKo en tu página
       </h4>
 
       {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.

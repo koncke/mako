@@ -287,7 +287,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🔴 Che, tu cuenta está verde pero *no tenés ningún anuncio entregando* — todo está en pausa. Si no fue a propósito, estás perdiendo el día entero de leads. ¿Reactivo algo? — MaKo`,
   },
   {
-    id: 'tracking-apagado', titulo: 'La landing dejó de mandar datos', categoria: 'aviso',
+    id: 'tracking-apagado', titulo: 'El Pixel de MaKo dejó de mandar datos', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // Nace de un caso real: el tracking del VSL estuvo MUERTO 18 días
     // (2026-07-15 → 08-03) con anuncios corriendo y 235 leads entrando a ritmo
@@ -296,7 +296,7 @@ https://hola-mako.com/integraciones
     // Falla en silencio por diseño ajeno: el beacon hace fetch().catch(){} y el
     // receptor responde 200 aunque descarte. Este cron es la ÚNICA señal.
     disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
-    ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el código de la landing quedó apuntando a una dirección vieja. — MaKo`,
+    ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel quedó apuntando a una dirección vieja. — MaKo`,
   },
   {
     id: 'lead-fusionado', titulo: 'Junté un contacto con uno que ya tenías', categoria: 'aviso',
@@ -335,7 +335,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tenés que confirmar vos, así revisás el teléfono antes de que valga. Abrila acá 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
   },
   {
-    id: 'tracking-desactualizado', titulo: 'El código de la landing quedó viejo', categoria: 'aviso',
+    id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     // El hermano silencioso de 'tracking-apagado', y MÁS difícil de ver: acá el
     // tracking NO está muerto. Los eventos llegan, la integración está en verde y
@@ -345,7 +345,7 @@ https://hola-mako.com/integraciones
     // Por eso el aviso dice QUÉ se está perdiendo y no solo «actualizá»: sin eso
     // es una tarea sin motivo, y una tarea sin motivo no la hace nadie.
     disparador: 'Cron diario: el beacon reporta una versión de snippet anterior a la actual (SNIPPET_VERSION).',
-    ejemplo: `🟡 El código que tenés pegado en tu landing es de una versión vieja, así que te estás perdiendo lo nuevo: *ahora captura solo el formulario* y te manda a esa gente al CRM. Copiá el código de nuevo en Integraciones → Landing y volvé a pegarlo. Son dos minutos. — MaKo`,
+    ejemplo: `🟡 El Pixel que tenés instalado en tu página es de una versión vieja, así que te estás perdiendo lo nuevo: *ahora captura solo el formulario* y te manda a esa gente al CRM. Copiá el código de nuevo en Integraciones → Landing y volvé a pegarlo. Son dos minutos. — MaKo`,
   },
   {
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',
