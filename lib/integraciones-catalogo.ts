@@ -15,7 +15,7 @@
  *  negocio del cliente). Solo la ve el super-admin. Ver el mismo flag en
  *  lib/metodo-catalogo.ts: los DOS catálogos tienen que declarar lo mismo o la UI de uno
  *  la esconde y la del otro la muestra. */
-export type Def = { key: string; nombre: string; categoria: string; descripcion: string; envs: string[]; tieneDetalle?: boolean; global?: boolean; soloPlataforma?: boolean };
+export type Def = { key: string; nombre: string; categoria: string; descripcion: string; envs: string[]; tieneDetalle?: boolean; global?: boolean; soloPlataforma?: boolean; /** No se dibuja como tarjeta: se configura dentro de otra. */ oculto?: boolean };
 
 export const DEFS: Def[] = [
   { key: 'meta', nombre: 'Meta Ads', categoria: 'Publicidad', descripcion: 'Campañas, insights y estado de la cuenta publicitaria.', envs: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'], tieneDetalle: true },
@@ -68,7 +68,12 @@ export const DEFS: Def[] = [
   // lectura a las métricas de ese proyecto— y por eso va por guardarCredencial(),
   // cifrado y por workspace. Nunca en el código ni en una env de la plataforma:
   // cada cliente trae el suyo.
-  { key: 'clarity', nombre: 'Microsoft Clarity', categoria: 'Datos', descripcion: 'Mapas de calor y grabaciones de sesión de tu página, atados a cada lead.', envs: ['CLARITY_PROJECT_ID', 'CLARITY_API_TOKEN'] },
+  // ⚠️ `oculto`: Clarity NO tiene tarjeta propia en la grilla. Su configuración
+  // vive DENTRO del modal del Pixel, como primer paso opcional — es el mismo
+  // <script>, así que una tarjeta aparte obligaría a instalar dos veces y a
+  // entender que son dos cosas. Sigue en el catálogo porque es lo que le dice a
+  // la ruta de credenciales qué campos acepta.
+  { key: 'clarity', nombre: 'Microsoft Clarity', categoria: 'Datos', descripcion: 'Mapas de calor y grabaciones de sesión de tu página, atados a cada lead.', envs: ['CLARITY_PROJECT_ID', 'CLARITY_API_TOKEN'], oculto: true },
   { key: 'landing', nombre: 'Pixel de MaKo', categoria: 'Datos', descripcion: 'Mide las visitas, los videos y los clics de tu página, esté donde esté.', envs: [] },
   // Claude: como la landing, no se configura con una API key — se instala una skill del
   // lado del usuario y se conecta con un token. Su estado se mide por señal REAL (¿generó
@@ -102,7 +107,11 @@ export function defsVisibles(defs: Def[], o: { cats: string[] | null; ocultas: S
   return [
     ...(o.esSuper ? dePlataforma : []),
     ...(o.cats == null ? delNegocio : delNegocio.filter((d) => o.cats!.includes(d.categoria))),
-  ].filter((d) => !o.ocultas.has(d.key));
+    // `oculto` NO es lo mismo que `ocultas`: aquello es una preferencia del
+    // workspace (qué tarjetas no quiere ver) y esto es una propiedad de la
+    // integración — Clarity no tiene tarjeta porque se configura DENTRO del
+    // modal del Pixel, y ningún workspace puede hacerla aparecer.
+  ].filter((d) => !d.oculto && !o.ocultas.has(d.key));
 }
 
 /** Solo para los tests: el catálogo tal cual. */

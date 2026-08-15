@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
+import { ConfigClarity } from './ConfigClarity';
 import { Button } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
@@ -145,7 +146,7 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, cuotas = [], agenteToken, appUrl }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, clarityConectado = false, cuotas = [], agenteToken, appUrl }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
@@ -154,6 +155,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   snippetLanding?: string | null;
   /** El código pegado en su página es de una versión vieja (lo sabe el beacon). */
   landingVieja?: boolean;
+  /** Si este workspace ya conectó Clarity. Lo resuelve el server: la credencial
+   *  no puede viajar al cliente, solo el hecho de que existe. */
+  clarityConectado?: boolean;
   /** Cuota gratis consumida hoy por cada IA barata (gauge "cuánto queda"). */
   cuotas?: CuotaProv[];
   /** Token del agente externo (Claude Code). null = todavía no acuñó ninguno. */
@@ -452,7 +456,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           gcal={gcal}
           health={health} metaError={metaError} usage={usage}
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
-          snippetLanding={snippetLanding}
+          snippetLanding={snippetLanding} clarityConectado={clarityConectado}
           agenteToken={agenteToken ?? null}
           appUrl={appUrl ?? ''}
           onClose={() => setModal(null)}
@@ -830,7 +834,8 @@ function resaltar(code: string): Array<{ t: string; c: string }> {
 // Guardián puntúa al aplicar (mismo camino que MaKo por WhatsApp).
 
 
-function CodigoLanding({ snippet }: { snippet: string | null }) {
+function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string | null; clarityConectado?: boolean }) {
+  const routerLanding = useRouter();
   const [copiado, setCopiado] = useState(false);
   const [codigoAbierto, setCodigoAbierto] = useState(false);
   const [errorCopia, setErrorCopia] = useState(false);
@@ -888,6 +893,12 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
       <h4 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', lineHeight: 1.3, margin: 0 }}>
         Instala el Pixel de MaKo en tu página
       </h4>
+
+      {/* ⚠️ CLARITY VA ANTES DEL CÓDIGO, y el orden no es estético: su bloque se
+          arma cuando se GENERA el snippet. Conectarlo después de pegarlo deja al
+          cliente con un código que no lo trae, sin nada que se lo diga. Acá se
+          pega una sola vez. */}
+      <ConfigClarity conectado={clarityConectado} onListo={() => routerLanding.refresh()} />
 
       {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.
           Antes eran tres piezas sueltas —un bloque de código, dos botones y un
@@ -1051,13 +1062,13 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   );
 }
 
-function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
+function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, clarityConectado = false, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
   i: Integracion; sev: 'good' | 'warn' | 'bad';
   /** Reemplaza la palabra del chip cuando el estado tiene un nombre propio ("Falta permiso"). */
   chipWord?: string;
   /** Permiso real de la agenda de Google (lo pide el board una vez, ver arriba). */
   gcal: GoogleCalendarStatus | null;
-  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
+  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; clarityConectado?: boolean; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
   const base = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
@@ -1194,7 +1205,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
           {esAgente ? (
             <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
-            <><CodigoLanding snippet={snippetLanding ?? null} /><div style={{ marginTop: 14 }}><ProbarTracking /></div></>
+            <><CodigoLanding snippet={snippetLanding ?? null} clarityConectado={clarityConectado} /><div style={{ marginTop: 14 }}><ProbarTracking /></div></>
           ) : mostrarForm ? (
             // onEstado avisa cuando el servicio pasó a conectado (o dejó de estarlo):
             // sin esto el chip de acá arriba, el tile y el contador se quedaban en
