@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { ConfigClarity } from './ConfigClarity';
+import { SelectorLanding } from './SelectorLanding';
 import { Button } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
@@ -864,6 +865,8 @@ function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string;
 
 function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string | null; clarityConectado?: boolean }) {
   const routerLanding = useRouter();
+  // La landing que se está configurando. Gobierna los pasos 2, 3 y 4.
+  const [landingElegida, setLandingElegida] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [codigoAbierto, setCodigoAbierto] = useState(false);
   const [errorCopia, setErrorCopia] = useState(false);
@@ -928,14 +931,29 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
           línea que lo separa del anterior y aire suficiente para que se vea que
           terminó. El número no es decoración: es lo que dice que hay un orden y
           que este es el que corresponde. */}
-      <Paso n={1} sep={false}>
+      {/* ⚠️ ELEGIR LA LANDING ES EL PASO 1, y no es un reordenamiento cosmético:
+          gobierna todo lo que viene después. El código que se copia, si Clarity
+          está conectado, si el Pixel está al día y qué pasos tiene la prueba son
+          DISTINTOS en cada página. Mientras se elegía al final, la pantalla
+          afirmaba cosas sobre «tu página» sin saber cuál — y con dos publicadas,
+          la mitad de esas afirmaciones eran falsas. */}
+      <Paso n={1} titulo="¿Cuál de tus páginas?" sep={false}>
+        <SelectorLanding elegida={landingElegida} onElegir={setLandingElegida} />
+      </Paso>
+
+      {/* Los pasos que dependen de la elección no se dibujan hasta que hay una.
+          Mostrar un código que todavía no sabe de qué página es sería ofrecer
+          para copiar algo que puede estar mal. */}
+      {landingElegida && (
+      <>
+      <Paso n={2}>
         {/* Clarity va ANTES del código y el orden no es estético: su bloque se
             arma cuando se GENERA el snippet, así que conectarlo después deja al
             cliente con un código que no lo trae y nada que se lo diga. */}
         <ConfigClarity conectado={clarityConectado} onListo={() => routerLanding.refresh()} />
       </Paso>
 
-      <Paso n={2} titulo="Copia el código y pégalo en tu página">
+      <Paso n={3} titulo="Copia el código y pégalo en tu página">
 
       {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.
           Antes eran tres piezas sueltas —un bloque de código, dos botones y un
@@ -1014,6 +1032,8 @@ function CodigoLanding({ snippet, clarityConectado = false }: { snippet: string 
         </div>
       )}
       </Paso>
+      </>
+      )}
     </div>
   );
 }
@@ -1245,7 +1265,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
           ) : esLanding ? (
             <>
               <CodigoLanding snippet={snippetLanding ?? null} clarityConectado={clarityConectado} />
-              <Paso n={3} titulo="Comprueba que está funcionando"><ProbarTracking /></Paso>
+              <Paso n={4} titulo="Comprueba que está funcionando"><ProbarTracking /></Paso>
             </>
           ) : mostrarForm ? (
             // onEstado avisa cuando el servicio pasó a conectado (o dejó de estarlo):

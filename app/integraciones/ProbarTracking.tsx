@@ -78,12 +78,12 @@ const NUEVA = '__nueva__';
  *   segunda copia del panel es una copia que se queda vieja, y este ya tiene el
  *   poll, los chequeos y la traducción de cada evento.
  */
-export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {}) {
+export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?: string; landingFija?: string | null } = {}) {
   const [activo, setActivo] = useState(!!pruebaInicial);
   const [diag, setDiag] = useState<Diag | null>(null);
   const [cargando, setCargando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState(landingFija ?? '');
   const [previo, setPrevio] = useState<Diag | null>(null); // estado ANTES de arrancar
   const [bloqueo, setBloqueo] = useState(false); // apretó "probar" con el código viejo
   // ⚠️ El marcador de ESTA prueba, como el `test_event_code` de Meta. Sin él, el
@@ -372,9 +372,18 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
       <div style={box}>
         <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>Probar que el Pixel de MaKo funcione</div>
         <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
-          Elige la página que quieres probar. La abrimos en otra pestaña y aquí ves llegar los eventos en vivo.
+          {landingFija
+            ? <>Probamos <b>{landingFija}</b>. La abrimos en otra pestaña y aquí ves llegar los eventos en vivo.</>
+            : <>Elige la página que quieres probar. La abrimos en otra pestaña y aquí ves llegar los eventos en vivo.</>}
         </div>
 
+        {/* ⚠️ EL SELECTOR SOLO APARECE SI NADIE ELIGIÓ ANTES. Desde que elegir la
+            landing es el PASO 1, preguntarlo otra vez acá es preguntar dos veces
+            lo mismo — y peor: deja que las dos respuestas difieran, así que el
+            código de arriba sería de una página y la prueba de otra.
+            El desplegable sigue existiendo para cuando este panel se usa suelto. */}
+        {!landingFija && (
+        <>
         {/* UN desplegable, no un desplegable AL LADO de un input. Las páginas que
             ya mandaron eventos las conoce el sistema; la última opción es la
             salida para una nueva, y recién ahí aparece dónde escribirla. Dos
@@ -441,6 +450,9 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
           )}
           {errPagina && <div style={{ marginTop: 7, fontSize: 12.5, color: 'var(--bad)' }}>{errPagina}</div>}
         </div>
+
+        </>
+        )}
 
         {/* UN solo botón. Siempre abre la página en otra pestaña: si la prueba
             depende de que la persona se acuerde de abrirla, la prueba no arranca. */}

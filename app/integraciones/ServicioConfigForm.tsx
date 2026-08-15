@@ -782,6 +782,14 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
         {(() => {
           const primera = servicio.campos.find((c) => (c.slot ?? 1) === 1);
           if (!primera?.configurado) return null;
+          // ⚠️ ESTO ES SOLO DE LAS CLAVES DE IA. El bloque de «cuentas
+          // conectadas» y la rotación por cuota existen porque de un proveedor de
+          // IA se cargan varias claves. Se colaba en CUALQUIER servicio sin
+          // slots: en Clarity decía «1 cuentas conectadas — MaKo rota entre ellas
+          // cuando una se queda sin cuota», que no significa nada ahí y siembra
+          // la duda de si falta cargar algo más.
+          const tieneSlots = servicio.campos.some((c) => (c.slot ?? 1) > 1);
+          if (!tieneSlots) return null;
           const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !extrasAbiertas.includes(c.env));
           const cargadas = servicio.campos.filter((c) => (c.slot ?? 1) > 1 && c.configurado).length + 1;
           if (!proxima) {
