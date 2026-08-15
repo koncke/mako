@@ -91,3 +91,31 @@ test('lo que se guarda vuelve a leerse igual', () => {
   const orig = conLanding(conLanding([], 'https://a.com', { clarityProjectId: 'aaa111' }) ?? [], 'https://b.com') ?? [];
   assert.deepEqual(parsearConfig(JSON.stringify(orig)), orig);
 });
+
+// =============================================================================
+// CABLEADO
+// =============================================================================
+import { readFileSync } from 'node:fs';
+const leer = (p: string) => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+
+test('CABLEADO: la migración es PEREZOSA, nadie se queda sin sus páginas', () => {
+  // Mientras nadie haya guardado en el formato nuevo, se leen las viejas. Así el
+  // despliegue no deja la lista vacía, y la primera vez que se toque algo queda
+  // migrado — sin un script que haya que acordarse de correr, que es como se
+  // migran a medias las cosas.
+  const acc = leer('../app/integraciones/landing-config-actions.ts');
+  assert.ok(/parsearPaginas\(await getSetting\(PAGINAS_KEY\)\)/.test(acc), 'sin el respaldo al formato viejo, el despliegue vacía la lista');
+  assert.ok(/requireRolWs\(\[\], \{ nav: 'integraciones' \}\)/.test(acc), 'las landings son config del cliente: van detrás del gate de la tab');
+});
+
+test('CABLEADO: el análisis viaja como ARRAY, no como Set', () => {
+  // ⚠️ Un `Set` no sobrevive a un server action: se serializa como `{}`. Es el
+  // tipo de detalle que en desarrollo no se ve y en producción deja la lista de
+  // piezas vacía sin ningún error.
+  const acc = leer('../app/integraciones/landing-config-actions.ts');
+  assert.ok(/piezas: \[\.\.\.a\.piezas\]/.test(acc), 'el Set se pierde al cruzar al cliente');
+  // Y devuelve lo que la landing DECLARA y lo que MaKo tiene guardado, para poder
+  // compararlos: «esta página tiene el Clarity de otro proyecto» solo se puede
+  // decir teniendo los dos.
+  assert.ok(/clarityGuardado/.test(acc), 'sin el guardado no se puede detectar un id que no corresponde');
+});
