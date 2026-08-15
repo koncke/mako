@@ -25,7 +25,7 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type Evento = { ts: string; tipo: string; porcentaje: number | null; segundos: number | null; detalle: string | null };
-type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo'; detalle: string; accion?: { texto: string; href: string } };
+type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo' | 'na'; detalle: string; accion?: { texto: string; href: string } };
 type Diag = {
   eventos: Evento[]; chequeos: Chequeo[]; veredicto: string; urls: string[]; codigoViejo: boolean; ultima: string | null;
   /** Los videos que el sistema VIO en los eventos, y los que el negocio nombró. */
@@ -59,8 +59,12 @@ function legible(e: Evento): { texto: string; color: string } {
   return { texto: e.tipo, color: 'var(--dim)' };
 }
 
-const ICONO: Record<string, string> = { ok: '✓', falta: '○', viejo: '!' };
-const COLOR: Record<string, string> = { ok: 'var(--good)', falta: 'var(--faint)', viejo: 'var(--warn)' };
+// 'na' = no aplica a ESTA página. No es un problema por resolver: es que ese
+// paso no existe en este negocio (una landing sin video, un CTA que es un
+// Calendly embebido). Se pinta apagado y con un guion, no con el círculo de
+// «todavía no» — que se lee como algo pendiente.
+const ICONO: Record<string, string> = { ok: '✓', falta: '○', viejo: '!', na: '–' };
+const COLOR: Record<string, string> = { ok: 'var(--good)', falta: 'var(--faint)', viejo: 'var(--warn)', na: 'var(--border-strong)' };
 
 /** La landing elegida para probar. Se recuerda para no volver a tipearla. */
 const URL_KEY = 'mako.landing.url_prueba';

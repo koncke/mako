@@ -243,8 +243,11 @@ test('el contador de chequeos sale de la LISTA, no de un número escrito al lado
   // mantiene a mano queda viejo en el MISMO commit que agrega la fila, y encima
   // es lo primero que se lee del panel.
   const lib = leer('../lib/landing-token.ts');
-  assert.ok(/okCount === chequeos\.length/.test(lib), 'el «todo funcionando» se compara contra un número fijo');
-  assert.ok(/de \$\{chequeos\.length\} chequeos OK/.test(lib), 'el total del veredicto está hardcodeado');
+  assert.ok(/okCount === aplicables\.length/.test(lib), 'el «todo funcionando» se compara contra un número fijo');
+  // ⚠️ El total sale de los APLICABLES: «3 de 6» sobre una página que solo puede
+  // cumplir cuatro se lee como que faltan dos, y nunca van a llegar.
+  assert.ok(/de \$\{aplicables\.length\} chequeos OK/.test(lib), 'el total del veredicto está hardcodeado');
+  assert.ok(/c\.estado !== 'na'/.test(lib), 'los chequeos que no aplican a esta página no pueden contar');
   assert.ok(!/de 4 chequeos/.test(lib), 'volvió el 4 escrito a mano');
 });
 
@@ -490,7 +493,9 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   // estar ya en el CRM. Eso no es una tarea pendiente del sistema sino una
   // decisión que solo puede tomar una persona, y va como un aparte en el mismo
   // texto para no volver a teñir de amarillo algo que funciona.
-  assert.ok(/estado: !declarado \? 'viejo' : hayOptin \? 'ok' : 'falta'/.test(lib),
+  // Y si el negocio no entra por formulario, es 'na': no es un problema por
+  // resolver, es cómo vende. El ámbar queda para lo que SÍ hay que hacer.
+  assert.ok(/estado: !declarado \? 'na' : hayOptin \? 'ok' : 'falta'/.test(lib),
     'el chequeo mide si el formulario entra, no si quedó alguien por decidir');
   assert.ok(lib.includes('Hay ${pendientes} pendiente'), 'los que coinciden se mencionan, no se esconden');
   // «Ver el pendiente», no «Revisar»: revisar sugiere que hay que aprobar cada
@@ -672,7 +677,7 @@ test('los chequeos van en el orden del EMBUDO, y la versión primero', () => {
   // La VERSIÓN va primera aunque no sea un paso del embudo: si el código está
   // viejo, todos los demás chequeos miden otra cosa y sus resultados no
   // significan nada. Después, el recorrido de la persona que visita.
-  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin']);
+  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin', 'clarity']);
 
   // Y en una PRUEBA los textos hablan de la prueba, no de las últimas 24 h: quien
   // acaba de apretar play no quiere que le contesten con una estadística del día.

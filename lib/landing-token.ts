@@ -31,6 +31,7 @@ import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
 import { VIDEOS_KEY, parsearVideos, type VideoLanding } from './landing-videos';
 import { normalizarUrl } from './landing-paginas';
+import { clarityProjectId } from './clarity';
 import { bloqueClarity } from './clarity';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
@@ -76,8 +77,12 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *   8 — el 'play' manda la URL del video. Un id como «v:que-se-vive.mp4» alcanza
  *       para atribuir eventos y no para RECONOCERLO: sin la URL, la pantalla que
  *       te pide nombrar cada video no te deja ver cuál es el que estás nombrando.
+ *   9 — la escalera de segundos corre TAMBIÉN cuando se conoce la duración. Con
+ *       un video de 23 minutos el primer hito de 5% cae a los 71 segundos: hasta
+ *       entonces no llegaba un solo avance, y quien miraba 40 segundos y se iba
+ *       se registraba como si no hubiera visto nada (15/08/2026).
  */
-export const SNIPPET_VERSION = 8;
+export const SNIPPET_VERSION = 9;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -112,6 +117,7 @@ const NOVEDADES: Record<number, string> = {
   4: 'la medición de videos cortos: antes, uno de menos de 15 segundos no registraba ningún avance',
   5: 'la medición de todos los videos por separado: antes, con más de uno, el segundo casi no se medía y su avance se calculaba con la duración del primero',
   6: 'la medición de los clics: qué botones y enlaces usan tus visitantes, incluido el de WhatsApp · y la prueba del código ahora muestra solo tus propios eventos, sin mezclarlos con las visitas del día',
+  9: 'la medición de los primeros segundos de un video largo: hasta ahora, en un video de 20 minutos no se registraba ningún avance durante el primer minuto — y ahí es donde se pierde a la mayoría',
   8: 'poder ver cada video desde la app al momento de identificarlo: antes solo aparecía un código y había que adivinar',
   7: 'la medición de tu video cuando no usas Panda: con un reproductor común no se registraba ni una reproducción',
 };
@@ -403,9 +409,9 @@ export type EventoDiag = {
 };
 
 export type ChequeoDiag = {
-  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin';
+  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin' | 'clarity';
   label: string;
-  estado: 'ok' | 'falta' | 'viejo';
+  estado: 'ok' | 'falta' | 'viejo' | 'na';
   detalle: string;
   /** Adónde ir a resolverlo. El href lo arma el server con el id real: un
    *  chequeo que dice «tenés 8 sin revisar» sin decir dónde no es accionable. */
@@ -478,9 +484,20 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
   const hayPageview = eventos.some((e) => e.tipo === 'pageview');
   const hayPlay = eventos.some((e) => e.tipo === 'play');
   const hayClick = eventos.some((e) => e.tipo === 'click');
+  // ⚠️ LOS CHEQUEOS SE ADAPTAN A LA LANDING. No todas tienen video, ni botones
+  // propios, ni formulario: la de un cliente es un Calendly embebido y nada más.
+  // Un chequeo que en ESA página no puede pasar nunca se pinta rojo para siempre
+  // y entrena a ignorar la lista entera — que es exactamente lo que pasó con
+  // «nadie reprodujo el video» sobre una página cuyo player nunca íbamos a ver.
+  //
+  // La señal es lo que la página YA mandó: si nunca llegó un play, esa página no
+  // tiene video que midamos y el punto no aplica. No es esconder un problema: es
+  // no inventar uno.
+  const clarityPid = await clarityProjectId().catch(() => null);
   // (Ya no se cuentan los eventos «con segundos»: la versión del código se
   // pregunta, no se infiere. Ver el chequeo 'version'.)
   const soloVsl = eventos.filter((e) => e.tipo !== 'pageview').length;
+  const tuvoVideoAlgunaVez = hayPlay || soloVsl > 0;
   const hayProfundidad = eventos.some((e) => /^[ps]\d+$/.test(e.tipo));
 
   // ── ¿El formulario entra al CRM? ──────────────────────────────────────────
@@ -549,14 +566,14 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
         : enPrueba ? 'Aún no llega la visita. Recarga la pestaña que abrimos.'
         : 'No llega ninguna visita desde hace 24 h. Revisa que el Pixel esté instalado y que la página esté publicada.' },
     { id: 'play', label: '2. Reproduce tu video',
-      estado: hayPlay ? 'ok' : 'falta',
+      estado: hayPlay ? 'ok' : enPrueba ? 'falta' : tuvoVideoAlgunaVez ? 'falta' : 'na',
       detalle: hayPlay ? 'Detectamos tu reproductor de video.'
         // ⚠️ EN UNA PRUEBA NO SE DICE «nadie en 24 h». La persona ACABA de apretar
         // play; contestarle con una estadística del día es contestarle otra cosa.
         : enPrueba ? 'Aún no llega. Reproduce tu video en la pestaña que abrimos.'
         : 'Nadie reprodujo el video en las últimas 24 h. Si tu página no tiene video, ignora este punto.' },
     { id: 'profundidad', label: '3. Se mide el tiempo de retención',
-      estado: hayProfundidad ? 'ok' : soloVsl > 0 ? 'viejo' : 'falta',
+      estado: hayProfundidad ? 'ok' : !tuvoVideoAlgunaVez && !enPrueba ? 'na' : soloVsl > 0 ? 'viejo' : 'falta',
       detalle: hayProfundidad ? 'Llegan los avances: ya se puede calcular la retención de cada lead.'
         : soloVsl > 0 ? 'Solo llega el inicio, no el avance. Con el Pixel actualizado aparece a los pocos segundos, aunque el video sea corto.'
         : enPrueba ? 'Deja el video reproduciéndose unos segundos.'
@@ -567,8 +584,13 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
     { id: 'click', label: '4. Hace clic en tus botones',
       estado: hayClick ? 'ok' : 'falta',
       detalle: hayClick ? 'Se registran los clics: sabes qué botones y enlaces usa cada visitante.'
-        : enPrueba ? 'Aún no llega ninguno. Haz clic en un botón o enlace en la pestaña que abrimos.'
-        : 'Aún no llega ningún clic. Con el Pixel actualizado se registran solos.' },
+        // ⚠️ Se avisa del caso que NO podemos medir, en vez de dejarlo en rojo sin
+        // explicación: si el CTA de la página es un formulario embebido (Calendly,
+        // Typeform), lo que la persona hace ahí adentro es de otro dominio y
+        // ningún pixel del mundo lo ve. Decirlo evita que alguien pierda una
+        // tarde buscando por qué no llega.
+        : enPrueba ? 'Aún no llega ninguno. Haz clic en un botón o enlace de tu página. Si tu llamado a la acción es un formulario embebido (Calendly, Typeform), lo que pase dentro de él no se puede medir: es de otro dominio.'
+        : 'Aún no llega ningún clic. Si tu página no tiene botones propios —por ejemplo, si es un Calendly embebido— es normal.' },
     // ⚠️ EL CHEQUEO YA NO PIDE CONFIRMAR: los leads entran solos. Lo único que
     // queda esperando es un CHOQUE —alguien que parece estar ya en el CRM—, y eso
     // no es una tarea pendiente del sistema sino una decisión que solo puede
@@ -577,9 +599,13 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
     // aparte, en su propio renglón, para no volver a teñir de amarillo algo que
     // funciona.
     { id: 'optin', label: '5. Deja sus datos',
-      estado: !declarado ? 'viejo' : hayOptin ? 'ok' : 'falta',
+      // ⚠️ 'na', no ámbar. Que este negocio no reciba leads por formulario NO es
+      // un problema por resolver: es cómo vende. El de Mauricio entra por una
+      // agenda embebida, y pintarle un aviso permanente es entrenarlo a ignorar
+      // la lista. El ámbar queda para lo que SÍ hay que hacer.
+      estado: !declarado ? 'na' : hayOptin ? 'ok' : 'falta',
       detalle: !declarado
-        ? 'Está desactivado. Actívalo en Funnel → De dónde entran tus leads, opción «Llenan un formulario en tu página». Hasta entonces, lo que completen no ingresa.'
+        ? 'No aplica: este negocio no recibe leads por un formulario en la página. Si quieres activarlo, márcalo en Funnel → De dónde entran tus leads.'
         : hayOptin
           ? `El formulario llega y la persona ingresa sola al CRM.${pendientes > 0 ? ` Hay ${pendientes} pendiente${pendientes === 1 ? '' : 's'}: ${pendientes === 1 ? 'coincide' : 'coinciden'} con un contacto que ya tienes, así que esa decisión es tuya.` : ''}`
           : enPrueba ? 'Aún no llega. Completa tu formulario en la pestaña que abrimos: ingresará solo al CRM.'
@@ -587,16 +613,27 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
       // El link solo si hay algo que decidir. Un botón permanente al lado de algo
       // que funciona lo convierte en una tarea que nunca se termina.
       accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' } : undefined },
+    // Clarity es opcional, así que sin conectar va 'na' y no 'falta': un punto en
+    // rojo por algo que se eligió no usar es ruido.
+    { id: 'clarity', label: 'Grabaciones y mapas de calor',
+      estado: !clarityPid ? 'na' : 'ok',
+      detalle: !clarityPid
+        ? 'No lo activaste. Si lo activas en el paso 1, cada lead va a tener el video de lo que hizo en tu página.'
+        : 'Activo. En la ficha de cada lead vas a ver el botón para abrir su grabación. Clarity tarda entre 30 minutos y 2 horas en mostrarla.' },
   ];
 
   // El total sale de la LISTA, no de un número escrito al lado. Estuvo en «de 4»
   // mientras los chequeos ya eran cinco: un contador que se mantiene a mano queda
   // viejo en el mismo commit que agrega la fila, y encima es lo primero que se
   // lee del panel.
-  const okCount = chequeos.filter((c) => c.estado === 'ok').length;
-  const veredicto = okCount === chequeos.length ? 'Todo funcionando'
+  // ⚠️ El total NO cuenta los que no aplican. «3 de 6» sobre una página que solo
+  // puede cumplir cuatro se lee como que faltan dos, y nunca van a llegar: el
+  // veredicto quedaría a mitad de camino para siempre.
+  const aplicables = chequeos.filter((c) => c.estado !== 'na');
+  const okCount = aplicables.filter((c) => c.estado === 'ok').length;
+  const veredicto = okCount === aplicables.length ? 'Todo funcionando'
     : okCount === 0 ? 'No está llegando nada'
-    : `${okCount} de ${chequeos.length} chequeos OK`;
+    : `${okCount} de ${aplicables.length} chequeos OK`;
 
   // Las landings que YA mandaron eventos: es lo que permite ofrecerle elegir en
   // vez de pedirle que tipee una URL que el sistema ya conoce.
@@ -849,9 +886,20 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
           e.hitos[h] = true;
           enviar({ tipo_evento: 'p' + h, porcentaje: e.pct, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
         }
-        return;
+        // ⚠️ NO se sale acá. La escalera de segundos corre TAMBIÉN cuando se
+        // conoce la duración, y no es redundante: con un video de 23 minutos el
+        // primer hito de 5% cae a los 71 SEGUNDOS, así que hasta entonces no
+        // llega un solo avance y la pantalla dice «solo llega el arranque» sobre
+        // algo que está midiendo perfecto. Lo mismo le pasa a un visitante real
+        // que mira 40 segundos y se va: se registraba como si no hubiera visto
+        // nada.
+        //
+        // El costo es un puñado de eventos más por visita —la escalera es
+        // dispersa, no un tick por segundo— y a cambio los primeros segundos, que
+        // son donde se pierde a la mayoría, dejan de ser un agujero.
       }
-      // Sin duración: se marca por TIEMPO. El servidor lo convierte a % después.
+      // Por TIEMPO. Sin duración es la única señal; con duración, la que llega
+      // antes del primer 5%.
       for (var i = 0; i < ESCALERA.length; i++) {
         var s = ESCALERA[i];
         if (e.segs >= s && !e.seg[s]) {
