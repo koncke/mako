@@ -561,21 +561,24 @@ export async function landingDiagnostico(prueba?: string | null): Promise<Landin
       detalle: hayClick ? 'Se registran los clicks: sabés qué botón aprietan y qué links abren.'
         : enPrueba ? 'Todavía no llegó ninguno. Apretá un botón o un link en la pestaña que te abrimos.'
         : 'Todavía no llegó ningún click. Con el código al día se registran solos.' },
-    // ⚠️ EL TEXTO SIGUE DICIENDO «los confirmás vos» PORQUE TODAVÍA ES ASÍ. El
-    // alta automática está pedida y sin construir; adelantar el copy haría que la
-    // pantalla prometa un automatismo que no existe, que es exactamente el error
-    // que dejó ocho leads sin ver. Cuando el alta sea automática, este renglón y
-    // su `accion` se van juntos.
+    // ⚠️ EL CHEQUEO YA NO PIDE CONFIRMAR: los leads entran solos. Lo único que
+    // queda esperando es un CHOQUE —alguien que parece estar ya en el CRM—, y eso
+    // no es una tarea pendiente del sistema sino una decisión que solo puede
+    // tomar una persona. Por eso el estado es 'ok' aunque haya pendientes: el
+    // formulario ESTÁ entrando, que es lo que este renglón mide. El aparte va
+    // aparte, en su propio renglón, para no volver a teñir de amarillo algo que
+    // funciona.
     { id: 'optin', label: '5. Deja sus datos',
-      estado: !declarado ? 'viejo' : pendientes > 0 ? 'viejo' : hayOptin ? 'ok' : 'falta',
+      estado: !declarado ? 'viejo' : hayOptin ? 'ok' : 'falta',
       detalle: !declarado
         ? 'Está apagado: marcá «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads. Hasta entonces, lo que completen no entra.'
-        : pendientes > 0
-          ? `Llegaron y están esperándote: ${pendientes} ${pendientes === 1 ? 'persona dejó sus datos' : 'personas dejaron sus datos'} y ${pendientes === 1 ? 'todavía NO está' : 'todavía NO están'} en el CRM. Los confirmás vos, para revisar el dato antes de que valga.`
-          : hayOptin ? 'Llegó el formulario y ya lo revisaste.'
-          : enPrueba ? 'Todavía no llegó. Completá tu propio formulario en la pestaña que te abrimos.'
-          : 'Todavía no llegó ninguno. Para probarlo, completá tu propio formulario con tus datos.',
-      accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Revisarlo' : `Ver los ${pendientes}`, href: '/crm/revisar' } : undefined },
+        : hayOptin
+          ? `Llegó el formulario y la persona entró sola al CRM.${pendientes > 0 ? ` Aparte, ${pendientes} ${pendientes === 1 ? 'quedó' : 'quedaron'} esperándote: ${pendientes === 1 ? 'parece' : 'parecen'} ser alguien que ya tenés y esa la decidís vos.` : ''}`
+          : enPrueba ? 'Todavía no llegó. Completá tu propio formulario en la pestaña que te abrimos y va a entrar solo al CRM.'
+          : 'Todavía no llegó ninguno. Para probarlo, completá tu propio formulario: entra solo al CRM.',
+      // El link solo si hay algo que decidir. Un botón permanente al lado de algo
+      // que funciona lo convierte en una tarea que nunca se termina.
+      accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Decidir esa' : `Decidir las ${pendientes}`, href: '/crm/revisar' } : undefined },
   ];
 
   // El total sale de la LISTA, no de un número escrito al lado. Estuvo en «de 4»

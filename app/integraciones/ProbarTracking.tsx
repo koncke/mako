@@ -217,7 +217,8 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
   // Mientras la prueba está prendida, consulta cada 3s. Se apaga sola al cerrar
   // el modal (cleanup) para no dejar un poll corriendo de fondo.
   useEffect(() => {
-    if (!activo) { if (timer.current) { clearInterval(timer.current); timer.current = null; } return; }
+  
+  if (!activo) { if (timer.current) { clearInterval(timer.current); timer.current = null; } return; }
     setCargando(true);
     // ⚠️ El marcador viaja en CADA consulta, incluida la del intervalo. Con
     // `setInterval(traer, 3000)` a secas, el primer argumento que recibe `traer`
@@ -316,6 +317,39 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
       </div>
     </div>
   );
+
+  // ── PASO: ¿qué es cada video? ─────────────────────────────────────────────
+  // ⚠️ VA ANTES DEL `if (!activo)`, y no es un detalle de orden: puesto después
+  // era código INALCANZABLE. El primer `return` se disparaba siempre y el lápiz
+  // de «Tus videos» cambiaba el estado sin que la pantalla cambiara — un botón
+  // que no hacía nada, sin ningún error que lo delatara.
+  //
+  // Aparece antes de los pasos de la prueba cuando hay algún video sin nombre, y
+  // también a pedido desde el renglón de abajo. «Siguiente» NO exige contestar:
+  // un paso que bloquea sobre algo opcional convierte la prueba en un trámite, y
+  // la pregunta vuelve sola la próxima vez porque el dato sigue faltando.
+  if (paso === 'videos') {
+    return (
+      <div style={box}>
+        <NombrarVideos
+          detectados={detectadosVideo}
+          videos={videosGuardados}
+          onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
+          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado}>
+            Siguiente: probar
+          </Button>
+          <Button variant="secondary" onClick={() => setPaso('inicio')}>Volver</Button>
+          {sinNombre.length > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--faint)' }}>
+              Podés dejarlo para después: la retención se mide igual, solo que sin saber de cuál es.
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!activo) {
     return (
@@ -419,33 +453,6 @@ export function ProbarTracking({ pruebaInicial }: { pruebaInicial?: string } = {
     );
   }
 
-  // ── PASO: ¿qué es cada video? ─────────────────────────────────────────────
-  // Aparece ANTES de los pasos de la prueba cuando hay algún video sin nombre, y
-  // también a pedido desde el renglón de abajo. «Siguiente» NO exige contestar:
-  // un paso que bloquea sobre algo opcional convierte la prueba en un trámite, y
-  // la pregunta vuelve sola la próxima vez porque el dato sigue faltando.
-  if (paso === 'videos') {
-    return (
-      <div style={box}>
-        <NombrarVideos
-          detectados={detectadosVideo}
-          videos={videosGuardados}
-          onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}
-        />
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
-          <Button variant="primary" onClick={() => void arrancar()} loading={ocupado}>
-            Siguiente: probar
-          </Button>
-          <Button variant="secondary" onClick={() => setPaso('inicio')}>Volver</Button>
-          {sinNombre.length > 0 && (
-            <span style={{ fontSize: 12, color: 'var(--faint)' }}>
-              Podés dejarlo para después: la retención se mide igual, solo que sin saber de cuál es.
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={box}>

@@ -380,6 +380,41 @@ export async function duplicadosDeLead(cand: CandidatoLead): Promise<Coincidenci
  * para que una persona mire. Lo que NO puede pasar es que se cree en silencio ni
  * que se descarte en silencio.
  */
+/**
+ * Un webhook FUNDIÓ dos contactos. Que se sepa.
+ *
+ * ⚠️ Meta y Calendly matchean por teléfono o email y hacen `update` sobre el lead
+ * que ya estaba. Eso está BIEN —es la misma persona volviendo, y crear una
+ * tarjeta nueva partiría su historial en dos— pero hasta ahora pasaba en absoluto
+ * SILENCIO: no había forma de enterarse de que dos entradas se juntaron, ni de
+ * revisar si el match fue correcto.
+ *
+ * Y un match por teléfono puede equivocarse: dos personas de la misma empresa
+ * cargadas con el número de la recepción, o un número reciclado por la operadora.
+ * Cuando eso pasa, el segundo lead se escribe ENCIMA del primero y no queda
+ * rastro. Este aviso es lo único que lo hace visible.
+ *
+ * No se frena la fusión: frenarla convertiría un webhook —que corre sin nadie
+ * mirando— en una cola de decisiones, y el resultado sería el de los ocho leads
+ * esperando. Se hace, y se cuenta.
+ */
+async function avisarFusion(canal: 'Meta' | 'Calendly', lead: Lead, porQue: string): Promise<void> {
+  try {
+    const { emitirDelCatalogo } = await import('./avisos');
+    const { APP_BASE_URL } = await import('./app-url');
+    await emitirDelCatalogo('lead-fusionado', {
+      texto: `Entró un contacto por *${canal}* y lo sumé a *${lead.nombre}*, que ya tenías (${porQue}). Si no era la misma persona, avisame y lo separo 👉 ${APP_BASE_URL}/crm/${lead.id}`,
+      // Una fusión por hora del mismo canal no son diez avisos: es un patrón, y
+      // diez mensajes por el mismo patrón se leen como ruido y se silencian.
+      dedupTtlMin: 60,
+    });
+  } catch (e) {
+    // El aviso no puede tumbar la ingesta: el lead ya se actualizó y eso es el
+    // hecho. Lo que se pierde es la notificación, no el dato.
+    console.error('[avisarFusion] falló:', e instanceof Error ? e.message : e);
+  }
+}
+
 export async function createLead(input: LeadCreateInput & { permitirDuplicado?: boolean }): Promise<Lead> {
   if (!input.nombre || !input.nombre.trim()) {
     throw new Error('Nombre es requerido');
@@ -402,6 +437,20 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       empresa: input.empresa?.trim() || null,
       fecha_agenda: input.fecha_agenda || null,
       fecha_junta_1: input.fecha_junta_1 || null,
+      // ⚠️ EL visitor_id NO SE TIRA. Estaba en `LeadCreateInput` y no llegaba
+      // nunca al insert, así que un lead creado desde la landing nacía sin el
+      // identificador de la visita — y la tab Tracking de su ficha, que se busca
+      // POR visitor_id, quedaba vacía. Toda la medición (visitas, video, clicks)
+      // existía en la base y no se podía atar a la persona: exactamente lo que el
+      // tracking existe para hacer.
+      visitor_id: input.visitor_id?.trim() || null,
+      // Lo mismo con de dónde vino: sin esto, un lead de landing es
+      // indistinguible de uno cargado a mano.
+      origen_lead: input.origen_lead?.trim() || null,
+      utm_source: input.utm_source?.trim() || null,
+      utm_medium: input.utm_medium?.trim() || null,
+      utm_campaign: input.utm_campaign?.trim() || null,
+      utm_content: input.utm_content?.trim() || null,
       ...(solo ? { setter: solo, closer: solo } : {}),
     })
     .select('*')
@@ -703,6 +752,7 @@ export async function upsertLeadFromMeta(input: {
       .select('*')
       .single();
     if (error) throw new Error(`Error actualizando lead ${existing.id} desde Meta: ${error.message}`);
+    await avisarFusion('Meta', data as Lead, existing.email ? 'mismo email' : 'mismo teléfono');
     return { created: false, lead: data as Lead };
   }
 
@@ -1163,6 +1213,7 @@ export async function upsertLeadFromCalendly(
       .select('*')
       .single();
     if (error) throw new Error(`Error actualizando lead ${existing.id}: ${error.message}`);
+    await avisarFusion('Calendly', data as Lead, 'coincide el contacto');
     return { created: false, lead: data as Lead };
   }
 

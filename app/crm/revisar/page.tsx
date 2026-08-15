@@ -69,15 +69,15 @@ export default async function BandejaPropuestasPage() {
     <Pagina>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Contactos para revisar</h1>
       <p style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.55, maxWidth: '70ch' }}>
-        Gente que dejó sus datos por tu landing, por WhatsApp o por MaKo. <b>Todavía no están en el CRM</b>:
-        los confirmás vos, así revisás el teléfono y el nombre antes de que valgan.
+        Los leads de tu landing entran solos. Acá quedan los que <b>parecen ser alguien que ya tenés</b>:
+        juntarlos no se puede deshacer y duplicarlos ensucia, así que esa la decidís vos.
       </p>
 
       {pendientes.length === 0 ? (
         <div style={{ marginTop: 22, border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface-2)', padding: '22px 24px' }}>
           <div style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--ink)' }}>No hay nada esperando</div>
           <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4, lineHeight: 1.55 }}>
-            Cuando alguien complete el formulario de tu landing va a aparecer acá, y te aviso por WhatsApp con el link.
+            Los que completan tu formulario entran directo al CRM. Acá solo aparece alguien si choca con un contacto que ya tenés.
           </div>
         </div>
       ) : (

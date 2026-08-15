@@ -132,6 +132,14 @@ export async function POST(req: NextRequest) {
         email, telefono,
         empresa: txt(body.empresa) ?? txt(body.company),
         origen_lead: 'landing',
+        // El identificador de la visita anónima. Es LO QUE ATA todo lo que esa
+        // persona hizo antes —la visita, el video, los clicks— con el lead que
+        // acaba de nacer. Sin esto el tracking se mide y no se puede leer.
+        visitor_id: txt(body.visitor_id),
+        utm_source: txt(body.utm_source),
+        utm_medium: txt(body.utm_medium),
+        utm_campaign: txt(body.utm_campaign),
+        utm_content: txt(body.utm_content),
       }));
       await runWithWorkspace(ws, () =>
         emitirDelCatalogo('lead-de-landing', {
@@ -168,6 +176,7 @@ export async function POST(req: NextRequest) {
         // De dónde salió, textual. Es lo que después distingue «llenó el
         // formulario de la landing» de «lo cargó alguien a mano».
         origen: 'landing',
+        visitor_id: txt(body.visitor_id),
         pagina: txt(body.pagina) ?? txt(body.url) ?? req.headers.get('referer'),
       }],
       // Marcador de la sesión de prueba, si vino. Va en `datos` y no en una

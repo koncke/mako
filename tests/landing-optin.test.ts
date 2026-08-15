@@ -303,7 +303,10 @@ test('el panel usa las piezas de la casa, no HTML crudo', () => {
   // persona se acuerde de abrir su página, la prueba no arranca.
   // Se cuenta en el panel de ARRANQUE (hasta que la prueba está corriendo): el
   // «Terminar» de la sesión activa no compite con nada.
-  const idle = probar.slice(probar.indexOf('if (!activo)'), probar.indexOf('{avisoViejo}'));
+  // ⚠️ Se ancla al `if (!activo)` DEL RENDER (el que sigue con `return (`), no al
+  // primero que aparezca: hay otro adentro del useEffect, y el paso de «¿qué es
+  // cada video?» vive en el medio con sus propios botones.
+  const idle = probar.slice(probar.indexOf('if (!activo) {\n    return ('), probar.indexOf('{avisoViejo}'));
   const botones = idle.match(/<Button\b/g) ?? [];
   assert.equal(botones.length, 1, `el arranque de la prueba tiene que tener UN botón y tiene ${botones.length}`);
   assert.ok(/window\.open\(`/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
@@ -469,7 +472,16 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   // escribió. Con gente esperando, el estado es de ACCIÓN, no de éxito.
   const lib = leer('../lib/landing-token.ts');
   assert.ok(/\.eq\('estado', 'pendiente'\)/.test(lib), 'el chequeo tiene que contar las que esperan');
-  assert.ok(/pendientes > 0 \? 'viejo'/.test(lib), 'con gente esperando el chequeo no puede estar en verde');
+  // ⚠️ CAMBIÓ A PROPÓSITO: ahora el chequeo va en VERDE aunque haya pendientes.
+  // Los leads entran solos, así que el formulario ESTÁ entrando — que es lo que
+  // este renglón mide. Lo que queda esperando es un CHOQUE: alguien que parece
+  // estar ya en el CRM. Eso no es una tarea pendiente del sistema sino una
+  // decisión que solo puede tomar una persona, y va como un aparte en el mismo
+  // texto para no volver a teñir de amarillo algo que funciona.
+  assert.ok(/estado: !declarado \? 'viejo' : hayOptin \? 'ok' : 'falta'/.test(lib),
+    'el chequeo mide si el formulario entra, no si quedó alguien por decidir');
+  assert.ok(/Aparte, \$\{pendientes\}/.test(lib), 'los que chocan se mencionan, no se esconden');
+  assert.ok(/texto: pendientes === 1 \? 'Decidir esa'/.test(lib), 'el botón pide DECIDIR, no revisar: ya no hay nada que confirmar');
   // Sin ventana de tiempo a propósito: una de hace tres días sin revisar es MÁS
   // urgente que la de hoy, no menos.
   const i = lib.indexOf("eq('estado', 'pendiente')");

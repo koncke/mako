@@ -103,6 +103,9 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'lead-formulario-meta': 'lead', 'wa-mensaje-entrante': 'lead',
   'wa-sin-responder': 'lead', 'nutricion-agotada': 'lead',
   'closing-objecion': 'lead',
+  // Habla de un CONTACTO, no del sistema: el rótulo tiene que decirle al dueño
+  // de qué le están hablando desde la primera línea, y esto es «👤 LEAD».
+  'lead-fusionado': 'lead',
 
   'meta-cuenta-frenada': 'anuncios', 'meta-cuenta-riesgo': 'anuncios',
   'meta-cuenta-recuperada': 'anuncios', 'meta-saldo-agotarse': 'anuncios',
@@ -294,6 +297,19 @@ https://hola-mako.com/integraciones
     // receptor responde 200 aunque descarte. Este cron es la ÚNICA señal.
     disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
     ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el código de la landing quedó apuntando a una dirección vieja. — MaKo`,
+  },
+  {
+    id: 'lead-fusionado', titulo: 'Junté un contacto con uno que ya tenías', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ Meta y Calendly matchean por teléfono o email y hacen update sobre el
+    // lead que ya estaba. Eso está bien —es la misma persona volviendo— pero
+    // pasaba en absoluto SILENCIO: no había forma de enterarse de que dos
+    // entradas se juntaron, ni de revisar si el match fue correcto. Y un match
+    // por teléfono puede equivocarse: dos personas de la misma empresa cargadas
+    // con el número de la recepción, o un número que la operadora recicló. Ahí
+    // el segundo se escribe ENCIMA del primero y no queda rastro.
+    disparador: 'Al instante: un webhook de Meta o Calendly encuentra un lead existente y lo actualiza en vez de crear uno nuevo.',
+    ejemplo: `🟡 Entró un contacto por *Calendly* y lo sumé a *Marina Olvera*, que ya tenías (mismo teléfono). Si no era la misma persona, avisame y lo separo 👉 https://hola-mako.com/crm/1842 — MaKo`,
   },
   {
     id: 'lead-de-landing', titulo: 'Alguien dejó sus datos en tu landing', categoria: 'aviso',

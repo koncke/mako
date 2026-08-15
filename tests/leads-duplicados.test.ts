@@ -123,3 +123,38 @@ test('CABLEADO: createLead avisa en vez de insertar a ciegas', () => {
   assert.ok(/permitirDuplicado: duplicado/.test(acciones), 'el tilde de la persona es la autorización');
   assert.ok(!/if \(!f\.incluir \|\| f\.motivo \|\| chocaAcá\)/.test(acciones), 'volvió el descarte del duplicado tildado');
 });
+
+test('CABLEADO: un webhook que FUSIONA dos contactos lo avisa', () => {
+  // ⚠️ Meta y Calendly matchean por teléfono o email y hacen `update` sobre el
+  // lead que ya estaba. Eso está BIEN —es la misma persona volviendo, y crear una
+  // tarjeta nueva partiría su historial en dos— pero pasaba en absoluto SILENCIO.
+  // Y un match por teléfono puede equivocarse: dos personas de la misma empresa
+  // con el número de la recepción, o un número que la operadora recicló. Ahí el
+  // segundo se escribe ENCIMA del primero y no queda rastro.
+  const leads = leer('../lib/leads.ts');
+  assert.ok(/async function avisarFusion/.test(leads), 'una fusión silenciosa no se puede revisar');
+  assert.ok(/avisarFusion\('Meta'/.test(leads), 'el webhook de Meta fusiona sin avisar');
+  assert.ok(/avisarFusion\('Calendly'/.test(leads), 'el webhook de Calendly fusiona sin avisar');
+  // NO se frena la fusión: frenarla convertiría un webhook —que corre sin nadie
+  // mirando— en una cola de decisiones, y el resultado sería el de los ocho leads
+  // esperando. Se hace, y se cuenta.
+  assert.ok(/dedupTtlMin: 60/.test(leads), 'diez avisos por el mismo patrón se leen como ruido y se silencian');
+  const i = leads.indexOf('async function avisarFusion');
+  assert.ok(/catch \(e\)/.test(leads.slice(i, i + 1800)), 'el aviso no puede tumbar la ingesta');
+  const cat = leer('../lib/avisos-catalogo.ts');
+  assert.ok(/id: 'lead-fusionado'/.test(cat), 'falta la ficha del aviso');
+  assert.ok(/'lead-fusionado': 'lead'/.test(cat), 'habla de un contacto, no del sistema');
+});
+
+test('CABLEADO: el lead de landing nace ATADO a su visita', () => {
+  // ⚠️ `visitor_id` estaba en `LeadCreateInput` y NO llegaba al insert. Un lead
+  // creado desde la landing nacía sin el identificador de la visita, así que la
+  // tab Tracking de su ficha —que se busca POR visitor_id— quedaba vacía: toda la
+  // medición existía en la base y no se podía atar a la persona, que es
+  // exactamente lo que el tracking existe para hacer.
+  const leads = leer('../lib/leads.ts');
+  assert.ok(/visitor_id: input\.visitor_id\?\.trim\(\) \|\| null/.test(leads), 'createLead vuelve a tirar el visitor_id');
+  assert.ok(/origen_lead: input\.origen_lead\?\.trim\(\) \|\| null/.test(leads), 'sin origen, un lead de landing es indistinguible de uno manual');
+  const optin = leer('../app/api/track/optin/route.ts');
+  assert.ok(/visitor_id: txt\(body\.visitor_id\)/.test(optin), 'el opt-in tiene el visitor_id y no lo pasa');
+});
