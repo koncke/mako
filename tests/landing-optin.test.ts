@@ -401,13 +401,22 @@ test('el fondo y el borde del botón de barra NO van inline', () => {
   const cuerpo = form.slice(i, form.indexOf('</button>', i));
   assert.ok(!/background:\s*'var\(--surface\)'/.test(cuerpo), 'volvió el fondo inline: la barra oscura no lo va a poder repintar');
   assert.ok(!/border:\s*'1px solid/.test(cuerpo), 'volvió el borde inline');
-  assert.ok(/className="mk-icon-btn"/.test(cuerpo), 'el botón necesita su clase para que la variante oscura lo alcance');
+  assert.ok(/className="mk-icon-btn" data-tone=\{tone\}/.test(cuerpo), 'el botón necesita su clase y su tono para que la variante oscura lo alcance');
+  // ⚠️ EL COLOR TAMPOCO. Quedó inline «porque depende del tone», y por eso el
+  // TERCER intento de subirle el contraste a esos íconos no cambió nada en
+  // pantalla: la regla CSS existía, se aplicaba, y el inline la pisaba. El tono
+  // viaja como `data-tone` y lo pinta el CSS.
+  assert.ok(!/style=\{\{ color/.test(cuerpo), 'volvió el color inline: ninguna barra va a poder repintarlo');
+  const hoja = leer('../app/globals.css');
+  assert.ok(/\.mk-icon-btn\[data-tone='dim'\]/.test(hoja), 'falta el tono por atributo en el CSS');
 
   const css = leer('../app/globals.css');
   assert.ok(/\.mk-icon-btn \{[^}]*background: var\(--surface\)/.test(css.replace(/\n/g, '')), 'el fondo tiene que vivir en la clase');
   // Se exige que EXISTA la variante oscura, no un hex: el color se va a seguir
   // ajustando (el primero quedó casi del color del fondo y era invisible).
-  assert.ok(/--code \.mk-icon-btn \{[^}]*background: #[0-9A-Fa-f]{6}/.test(css.replace(/\n/g, '')), 'falta la variante oscura del botón');
+  // El selector ahora es doble (`.mk-icon-btn` y `.mk-icon-btn[data-tone]`) para
+  // ganarle al tono por atributo, así que no se exige que la llave venga pegada.
+  assert.ok(/--code \.mk-icon-btn[^{]*\{[^}]*background: #[0-9A-Fa-f]{6}/.test(css.replace(/\n/g, '')), 'falta la variante oscura del botón');
   // Y las barras de scroll del código no pueden ser las del navegador: blancas
   // y anchas sobre negro son el «tipo HTML» que el resto de la app evita.
   assert.ok(/scrollbar-color:/.test(css) && /::-webkit-scrollbar-thumb/.test(css), 'faltan las barras de scroll oscuras');

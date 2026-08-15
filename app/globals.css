@@ -645,7 +645,16 @@ textarea.mako-field {
 /* Los botones sobre fondo oscuro. El primer intento los dejó casi del color del
    fondo (#171B22 sobre #0F1115): técnicamente distintos, invisibles en la
    práctica. Suben a un gris que se despega, con el ícono casi blanco. */
-.mk-key-row--code .mk-icon-btn {
+/* El tono del ícono, por atributo y no inline: así la barra oscura de abajo puede
+   repintarlo. Ver el comentario de `IconBtn` — mientras el color estuvo inline,
+   ninguna de estas reglas tenía efecto. */
+.mk-icon-btn[data-tone='dim'] { color: var(--dim); }
+.mk-icon-btn[data-tone='bad'] { color: var(--bad); }
+.mk-icon-btn[data-tone='good'] { color: var(--good); }
+.mk-icon-btn[data-tone='primary'] { color: var(--primary); }
+
+.mk-key-row--code .mk-icon-btn,
+.mk-key-row--code .mk-icon-btn[data-tone] {
   border-color: #4A5568;
   background: #2B3342;
   /* ⚠️ CASI BLANCO, no un gris apenas más claro que el fondo. El primer intento
@@ -655,7 +664,8 @@ textarea.mako-field {
      buscarlos, la barra parece decorativa. */
   color: #EDF1F7;
 }
-.mk-key-row--code .mk-icon-btn:hover:not(:disabled) {
+.mk-key-row--code .mk-icon-btn:hover:not(:disabled),
+.mk-key-row--code .mk-icon-btn[data-tone]:hover:not(:disabled) {
   background: #3A4456;
   border-color: #64708A;
   color: #FFFFFF;

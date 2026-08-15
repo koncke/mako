@@ -128,15 +128,18 @@ function semaforo(c: Campo, tipeado: boolean): { color: string; texto: string; p
 export function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
   name: string; title: string; onClick: () => void; disabled?: boolean; tone?: 'dim' | 'bad' | 'primary' | 'good';
 }) {
-  const color = tone === 'bad' ? 'var(--bad)' : tone === 'primary' ? 'var(--primary)' : tone === 'good' ? 'var(--good)' : 'var(--dim)';
-  // ⚠️ El fondo y el borde NO van inline: viven en `.mk-icon-btn` (globals.css).
-  // Un estilo inline le gana a cualquier clase, así que mientras estuvieron acá,
-  // la variante OSCURA de la barra no podía repintarlos — los botones salían
-  // blancos sobre negro, con un contraste que partía la barra al medio.
-  // Lo único que sigue inline es el `color`, que depende del `tone`.
+  // ⚠️ NADA DE COLOR VA INLINE — ni el fondo, ni el borde, ni el texto. Un estilo
+  // inline le gana a cualquier clase, así que la variante OSCURA de la barra del
+  // código no podía repintarlos. Con el fondo y el borde ya pasó y se arregló;
+  // el `color` quedó acá «porque depende del tone», y por eso el tercer intento
+  // de subirle el contraste a esos íconos no cambió NADA en pantalla: la regla
+  // CSS existía, se aplicaba, y el inline la pisaba.
+  //
+  // El tono viaja como `data-tone` y lo pinta el CSS. Así una barra puede
+  // redefinirlo por especificidad, que es justo lo que hacía falta.
   return (
-    <button type="button" className="mk-icon-btn" title={title} aria-label={title} onClick={onClick} disabled={disabled}
-      style={{ color, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
+    <button type="button" className="mk-icon-btn" data-tone={tone} title={title} aria-label={title} onClick={onClick} disabled={disabled}
+      style={{ cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
       <Icon name={name} size={15} />
     </button>
   );
