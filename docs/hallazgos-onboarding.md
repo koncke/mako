@@ -605,3 +605,48 @@ Los dos titulares, para no tener que abrirlo:
 - **La promesa NO lleva un número inventado.** Los «6+ años» de Opal necesitan 99,5 años de
   vida para cerrar con su propia aritmética. Con cuatro clientes y dos completados no hay
   cohorte: el número tiene que salir de un `count` de sus propias respuestas.
+
+## El video de la bienvenida: la cláusula que decide no es la de «uso comercial»
+
+**Vive en:** `app/onboarding/Bienvenida.tsx` (`IntroCerebro`, prop `videoIntro`)
+
+Buscando un clip de ojo→cerebro con licencia libre (17 agentes, cada candidato verificado
+por un escéptico aparte), lo que decide no resultó ser lo obvio.
+
+**Los dos que pasaron, medidos con HTTP HEAD contra el CDN y no con la ficha:**
+
+| Qué | Sitio | Licencia | Peso real |
+|---|---|---|---|
+| Ojo macro castaño, iris llenando el cuadro | Pexels | Pexels License | 1080p60, 4 s, **1,78 MB** |
+| Neuronas 3D sobre fondo casi negro | Pixabay | Pixabay Content License | 1080p30, 6 s, **3,15 MB** |
+
+**LA TRAMPA ESTÁ EN PIXABAY, NO EN EL «USO COMERCIAL».** Las dos licencias permiten uso
+comercial y ninguna exige atribución — hasta ahí las dos parecen iguales. La diferencia es
+la cláusula *standalone* de Pixabay, textual:
+
+> «You cannot sell or distribute Content on a Standalone basis. Standalone means where no
+> creative effort has been applied to the Content and it remains in substantially the same
+> form as it exists on our website.»
+
+Y Pixabay **define** que un filtro, un cambio de color, un resize o un crop **siguen siendo
+standalone**. O sea que oscurecer el clip con un `filter: brightness()` para que pegue con
+`#14161B` NO alcanza: servir ese mp4 desde nuestro CDN es, en la lectura conservadora,
+distribuirlo. Pexels no tiene esa cláusula; la suya que sí aplica es otra —**el clip no
+puede pasar a ser parte de la marca**—, o sea que ese ojo puede ser fondo de pantalla pero
+nunca isotipo de MaKo.
+
+**La regla que queda: leer la cláusula de OBRA DERIVADA, no la de uso comercial.** «Permite
+uso comercial» es la que todo el mundo chequea y la que casi nunca es el problema.
+
+**Y el hallazgo que ahorra la próxima búsqueda: el asset no existe.** Ningún clip gratis
+hace ojo → zoom → neuronas → flash. Hay que encadenar dos y programar el zoom y el flash
+igual — y una vez que estás programando esa mitad, la parte de las neuronas conviene en
+código: 2-3 KB contra 3,15 MB, cero cláusula, y los colores salen de los tokens `--grafo-*`
+en vez de un `hue-rotate` sobre el naranja de otro.
+
+**Lo que NO se verificó, y hay que decirlo:** ningún clip trae *model release* —ni Pexels ni
+Pixabay lo garantizan, las dos trasladan esa responsabilidad a quien lo usa—; de los clips
+de Pexels se vio el frame de portada, no el video corriendo; y dos candidatos de Pixabay
+están marcados por el propio sitio como generados o modificados con IA.
+
+*Corrida del 16/08/2026 — 17 agentes, cada candidato verificado leyendo su página de licencia.*
