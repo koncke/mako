@@ -583,6 +583,13 @@ textarea.mako-field {
    misma barra ya pagó ese error con el color de los íconos. */
 .mk-fila-video .mk-icon-btn { width: var(--touch); height: var(--touch); }
 
+/* El latido de un esqueleto de carga. Suave a propósito: lo que tiene que decir
+   es «esto viene», no llamar la atención sobre sí mismo. */
+@keyframes mkPulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 .mk-key-row--code {
   background: #0F1115;
   border-color: #232833;

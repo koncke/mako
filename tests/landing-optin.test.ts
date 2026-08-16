@@ -1339,3 +1339,30 @@ test('pausa, retoma y fin también en el reproductor de Panda', () => {
   assert.ok(/d\.message === 'panda_play' && e\.play && e\.pausado/.test(lib), 'un retomar no puede contarse como un play nuevo');
   assert.ok(/e\.fin = true;/.test(lib), 'el fin tiene que ser idempotente');
 });
+
+test('mientras se resuelve la landing, debajo hay un esqueleto y no la nada', () => {
+  // ⚠️ Reportado por el dueño: «pareciera un bug». Y lo parecía. Con una sola
+  // landing guardada, la elección la hace el propio selector en cuanto le llega
+  // la lista, así que entre que el modal abre y eso pasa, TODO lo que va debajo
+  // del paso 1 no existe: un título, un desplegable vacío y nada más.
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  assert.ok(/function PasosCargando/.test(board), 'falta el esqueleto');
+  assert.ok(/\{!elegida && eligiendo && <PasosCargando \/>\}/.test(board),
+    'el esqueleto solo mientras no hay elección: con elección, el contenido real entra derecho');
+
+  // El selector tiene que avisar cuándo terminó, y avisar SIEMPRE — también si
+  // falló: un esqueleto que no termina nunca es peor que la pantalla vacía que
+  // vino a tapar.
+  const sel = leer('../app/integraciones/SelectorLanding.tsx');
+  assert.ok(/onCargando\?\.\(true\)/.test(sel), 'no avisa que arrancó');
+  assert.ok(/\.finally\(\(\) => onCargando\?\.\(false\)\)/.test(sel), 'un esqueleto sin apagado es una pantalla colgada');
+  assert.ok(/onCargando=\{setEligiendo\}/.test(board), 'el paso 1 no está escuchando');
+
+  // Misma anatomía que `Paso` —número, aire, ancho— o al llegar el contenido
+  // salta todo de lugar, que es el otro modo de verse roto.
+  const i = board.indexOf('function PasosCargando');
+  const bloque = board.slice(i, board.indexOf('\nfunction CodigoLanding', i));
+  assert.ok(/paddingTop: 26, marginTop: 30/.test(bloque), 'el esqueleto tiene que ocupar lo mismo que el paso real');
+  const css = leer('../app/globals.css');
+  assert.ok(/@keyframes mkPulso/.test(css), 'sin la animación el esqueleto se lee como contenido vacío, no como carga');
+});

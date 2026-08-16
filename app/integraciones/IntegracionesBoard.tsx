@@ -876,6 +876,45 @@ function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string;
   );
 }
 
+/**
+ * El hueco mientras se resuelve cuál es la página.
+ *
+ * ⚠️ NO ES DECORACIÓN. Con una sola landing guardada, la elección la hace el
+ * propio selector en cuanto le llega la lista — así que entre que el modal abre y
+ * eso pasa, todo lo que va debajo del paso 1 no existe. La pantalla queda con un
+ * título, un desplegable vacío y nada más, que es exactamente como se ve algo
+ * roto. El esqueleto dice «esto viene», que es la verdad.
+ *
+ * Tiene la MISMA anatomía que `Paso` —el número, el aire, el ancho— para que
+ * cuando llegue el contenido no salte nada de lugar.
+ */
+function PasosCargando() {
+  const barra = (w: string, h = 13): CSSProperties => ({
+    width: w, height: h, borderRadius: 6, background: 'var(--surface-2)',
+    border: '1px solid var(--border)', animation: 'mkPulso 1.2s ease-in-out infinite',
+  });
+  return (
+    <div aria-hidden style={{ opacity: 0.85 }}>
+      {[2, 3].map((n) => (
+        <section key={n} style={{ paddingTop: 26, marginTop: 30, borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <span style={{
+              flex: 'none', width: 26, height: 26, borderRadius: 999,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--surface-2)', border: '1px solid var(--border-strong)',
+              fontSize: 12.5, fontWeight: 700, color: 'var(--faint)',
+            }}>{n}</span>
+            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={barra('42%', 15)} />
+              <div style={barra('100%', n === 3 ? 46 : 30)} />
+            </div>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }: {
   snippet: string | null; clarityConectado?: boolean;
   /** La landing elegida vive en el MODAL, no acá: el paso 4 se renderiza fuera
@@ -895,6 +934,9 @@ function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }:
   // código genérico manda las grabaciones de las dos al mismo proyecto y quedan
   // mezcladas en una lista donde ya no se distingue cuál es cuál.
   const [snippetLanding, setSnippetLanding] = useState<string | null>(null);
+  // Mientras el selector resuelve cuál es la página, lo de abajo todavía no puede
+  // existir: qué código se copia y qué se chequea dependen de esa respuesta.
+  const [eligiendo, setEligiendo] = useState(true);
   useEffect(() => {
     if (!elegida) { setSnippetLanding(null); return; }
     let vivo = true;
@@ -971,7 +1013,7 @@ function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }:
           afirmaba cosas sobre «tu página» sin saber cuál — y con dos publicadas,
           la mitad de esas afirmaciones eran falsas. */}
       <Paso n={1} titulo="¿Cuál de tus páginas?" sep={false}>
-        <SelectorLanding elegida={elegida} onElegir={onElegir} />
+        <SelectorLanding elegida={elegida} onElegir={onElegir} onCargando={setEligiendo} />
       </Paso>
 
       {/* Los pasos que dependen de la elección no se dibujan hasta que hay una.
@@ -984,6 +1026,10 @@ function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }:
           y la persona las leía como si fueran de la página que acaba de elegir.
           Un loader habría tapado el síntoma; lo que hacía falta es tirar el
           estado viejo, que además es instantáneo. */}
+      {/* Primero el esqueleto, y solo si TODAVÍA no hay elección: cuando la hay, el
+          contenido real entra derecho y no se ve un parpadeo de dos estados. */}
+      {!elegida && eligiendo && <PasosCargando />}
+
       {elegida && (
       <div key={elegida}>
       <Paso n={2}>

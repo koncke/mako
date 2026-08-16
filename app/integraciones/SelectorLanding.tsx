@@ -21,14 +21,31 @@ import { borrarLandingAction, getLandingsAction, guardarLandingAction } from './
 
 const NUEVA = '__nueva__';
 
-export function SelectorLanding({ elegida, onElegir }: { elegida: string | null; onElegir: (url: string | null) => void }) {
+export function SelectorLanding({ elegida, onElegir, onCargando }: {
+  elegida: string | null;
+  onElegir: (url: string | null) => void;
+  /** Avisa mientras se está resolviendo cuál es la página. Lo necesita el paso 1
+   *  para que lo de abajo muestre un esqueleto en vez de la nada: con una sola
+   *  landing guardada, la elección la hace este componente solo, y entre que el
+   *  modal abre y la lista llega hay un rato en que la pantalla está vacía y
+   *  parece rota. */
+  onCargando?: (b: boolean) => void;
+}) {
   const [landings, setLandings] = useState<LandingConfig[]>([]);
   const [nueva, setNueva] = useState(false);
   const [texto, setTexto] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => { getLandingsAction().then(setLandings).catch(() => { /* sin lista, se agrega */ }); }, []);
+  useEffect(() => {
+    onCargando?.(true);
+    getLandingsAction()
+      .then(setLandings)
+      .catch(() => { /* sin lista, se agrega */ })
+      // Se apaga SIEMPRE, también si falló: un esqueleto que no termina nunca es
+      // peor que la pantalla vacía que vino a tapar.
+      .finally(() => onCargando?.(false));
+  }, [onCargando]);
 
   // Con UNA sola landing no hay nada que elegir: se selecciona sola. Un
   // desplegable de un elemento es un paso que solo existe para ser confirmado.
