@@ -1615,3 +1615,61 @@ AES-128 estándar, que no es DRM) es otra cosa.
 *Producido por la corrida `wf_9a9e9993-6c6` (5 agentes, 2026-08-11), más la relectura de
 `docs/chats/chat-conocimientos-cursos-e8ba820e.md`, que era el único lugar donde vivía la
 mitad de este documento.*
+
+## AvatarHype: lo descubierto, y por dónde seguir
+
+**2026-08-16.** El portal tiene AvatarHype con **6 clases y 13 recursos**. La academia viva
+tiene **27 lecciones en 3 cursos**. Está muy desactualizado y falta un curso entero.
+
+### La plataforma
+
+`app.avatarhype.online` es una **tercera plataforma**, distinta de cursoselite y de Hotmart:
+un **Next.js con RSC**. No expone una API de contenido — se verificó: en los 167 KB del HTML
+de `/academy` no hay `lessons`, ni `slug`, ni `m3u8`, ni `videoUrl`. El contenido se arma en
+el cliente, así que hay que recorrer las rutas.
+
+**Las rutas, sacadas de los prefetch `?_rsc=` que la propia app dispara:**
+
+```
+/academy/ugc              Creativos UGC Realistas   25 lecciones · 4 recursos
+/academy/animados         Creativos Animados         2 lecciones · 2 recursos   ← NO está en el portal
+/academy/clonacion-voz    Clonación y control de voz (extensión, 7 US$)
+/academy/<curso>/<slug>   una lección, p. ej. /academy/ugc/ugc-sin-producto
+```
+
+⚠️ **Hay que traer la pestaña al frente (`Page.bringToFront`) o la app NO RENDERIZA.**
+Con la pestaña en segundo plano la pantalla se queda en «Cargando…» para siempre, y los
+botones resuelven en `(0,0)` — que es la firma de esto. Costó tres intentos y dos
+diagnósticos equivocados («no cargó la ruta», «el click no llega»). Es el mismo gotcha que
+ya había aparecido clickeando en Hotmart.
+
+### Estructura de «Creativos UGC Realistas» (25 lecciones)
+
+| # | módulo | lecciones |
+|---|---|---|
+| 1 | Onboarding | 11 · 18 min |
+| 2 | Catálogo de modelos IA | tabla (recurso, no lecciones) |
+| 3 | Fundamentos del método | 5 · 28 min |
+| 4 | Formatos | 9 · 71 min · **1 «próximamente»** |
+| 5 | Definir voz y clonación | **extensión aparte, 7 US$** |
+
+11 + 5 + 9 = 25, que cuadra con el «15/25» del panel. **Hoy son 24 bajables**: una de
+Formatos todavía no existe. Y el módulo 5 puede estar bloqueado si no está comprado — se
+detecta al enumerar y se saltea avisando, nunca se inventa.
+
+### Lo que falta (bloque 2 en adelante)
+
+1. Enumerar los slugs de las 25 lecciones y de los 4 recursos, entrando por
+   `/academy/ugc` con la pestaña al frente.
+2. Entrar a UNA lección y descubrir cómo sirve el video: si es HLS en claro (como
+   Hotmart) o algo protegido. **Si aparece `.mpd` + license server, se frena y se avisa.**
+3. Escribir `scripts/avatarhype-plan.mjs` y `avatarhype-bajar.mjs` con el molde de
+   `hotmart-plan.mjs` / `hotmart-bajar.mjs`, que ya resuelven el patrón «plataforma propia
+   con video restringido por Referer».
+4. Repetir para `/academy/animados` (2 lecciones, curso nuevo).
+
+**El molde a copiar de Hotmart, que aplica igual acá:** el plan guarda el SLUG de cada
+lección y nunca una URL firmada (nacen vencidas), y se resuelve el manifiesto de a una
+clase y se baja en el momento.
+
+**Vive en:** `scripts/hotmart-plan.mjs` y `scripts/hotmart-bajar.mjs` (el molde)
