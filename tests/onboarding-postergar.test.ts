@@ -123,3 +123,43 @@ test('resolverlo de verdad (done) gana sobre el flag de postergado', () => {
   const s = conPasos(['integraciones'], ['integraciones']);
   assert.deepEqual(pendientesDeOnboarding(s, pasos, () => true), []);
 });
+
+// =============================================================================
+// «Seguir sin Meta» tiene que LIBERAR, no posponer el mismo muro tres pantallas
+// =============================================================================
+// Reportado en vivo: «el paso de "Seguir sin Meta" no funcionó, luego igualmente le
+// pide sí o sí». El botón hacía su trabajo —marcaba el paso postergado y saltaba la
+// sección— pero la pantalla de la primera Retro declaraba `servicio: 'meta'` para
+// heredar los slides de Meta y con eso heredó también el BLOQUEO: le dibujaba adentro
+// el formulario del token y no la dejaba avanzar. Y esa pantalla no es postergable, así
+// que ahí no había salida ninguna.
+//
+// Un botón que ofrece una salida y después no la da es peor que no ofrecerla: la
+// próxima vez el cliente no le cree.
+import { readFileSync as leerArchivo } from 'node:fs';
+import { resolve as resolverRuta } from 'node:path';
+
+const WIZARD = leerArchivo(resolverRuta(import.meta.dirname, '../app/onboarding/OnboardingWizard.tsx'), 'utf8');
+
+test('lo COSMÉTICO y lo que EXIGE conectar son dos campos distintos', () => {
+  // `servicio` = ícono, slides y eyebrow. `exige` = lo único que bloquea.
+  assert.ok(/\bexige\?: string;/.test(WIZARD), 'desapareció el campo que separa exigir de decorar');
+  // El gate sale de `exige`, NUNCA de `servicio`: ahí estaba el bug.
+  assert.ok(!/servicioReq\s*=\s*[^;]*p\.servicio/.test(WIZARD), 'el bloqueo volvió a salir del campo cosmético');
+  assert.ok(/esPantallaDeConexion\s*=\s*Boolean\(p\.exige/.test(WIZARD), 'el form dejó de derivar de `exige`');
+});
+
+test('un servicio POSTERGADO no puede volver a bloquear río abajo', () => {
+  // Es la mitad que faltaba: si `integraciones` quedó postergado, ninguna pantalla
+  // posterior puede exigir esa conexión como condición para avanzar.
+  assert.ok(/servicioReq = esPantallaDeConexion && !pasoPostergado\('integraciones'\)/.test(WIZARD),
+    'el bloqueo dejó de mirar si el cliente ya había postergado');
+});
+
+test('postergar NO esconde el formulario: se puede volver a conectar', () => {
+  // El error inverso, y es igual de caro: si al postergar desaparece el form, el
+  // cliente se queda sin forma de terminar lo que dejó pendiente cuando vuelva.
+  assert.ok(/\{p\.exige && esPantallaDeConexion && \(/.test(WIZARD),
+    'el formulario volvió a colgar del gate en vez de la pantalla');
+  assert.ok(/La dejaste para después/.test(WIZARD), 'perdió el aviso de que puede seguir');
+});

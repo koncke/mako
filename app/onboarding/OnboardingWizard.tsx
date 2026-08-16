@@ -137,8 +137,21 @@ type Pantalla = {
   sub?: string;
   /** Slides del aside negro mientras no haya dato real. */
   slides: Slide[];
-  /** Servicio (para el ícono del enlace MaKo⇄X y el nombre del eyebrow). */
+  /**
+   * Servicio, SOLO para lo cosmético: el ícono del enlace MaKo⇄X, los slides del aside
+   * y el nombre del eyebrow.
+   *
+   * ⚠️ NO GATEA. Ese es el bug que costó este campo: la pantalla de la primera Retro
+   * declaraba `servicio: 'meta'` para heredar los slides de Meta, y con eso heredó
+   * también el bloqueo — le dibujaba adentro el formulario del token y no la dejaba
+   * avanzar. O sea que «Seguir sin Meta» posponía la sección de integraciones y tres
+   * pantallas después Meta volvía a pedirse, esta vez SIN salida. Es «cada pregunta, su
+   * campo»: «¿de qué servicio hablo?» y «¿qué servicio EXIJO?» son dos, y meterlas en
+   * una hizo que la cosmética arrastrara un bloqueo.
+   */
   servicio?: string;
+  /** El servicio que esta pantalla EXIGE conectar. Solo las pantallas `int:*`. */
+  exige?: string;
   nombre?: string;
   eyebrow?: string;
   /** Diagnóstico de fase: índice de pregunta (0-5), o -1 = pantalla de resultado. */
@@ -325,7 +338,8 @@ export function OnboardingWizard() {
         const s = data.servicios.find((x) => x.key === key);
         if (!s) continue;
         pantallas.push({
-          key: `int:${key}`, paso, servicio: key, nombre: s.nombre,
+          // `exige` es lo que bloquea. Solo acá: estas SON las pantallas de conectar.
+          key: `int:${key}`, paso, servicio: key, exige: key, nombre: s.nombre,
           pregunta: `Conectá ${s.nombre}`,
           slides: SLIDES[key] ?? SLIDES_MAKO,
         });
@@ -524,13 +538,34 @@ export function OnboardingWizard() {
   const nombreServicio = (key: string) => data.servicios.find((s) => s.key === key)?.nombre ?? key;
 
   const campoBrief = p.key.startsWith('brief:') ? data.brief.find((c) => c.key === p.key.slice(6)) : null;
-  const servicioReq = p.servicio && data.requeridos.includes(p.servicio);
+  /**
+   * ¿Esta pantalla exige conectar un servicio? Dos condiciones, y la segunda es la que
+   * faltaba: que el cliente no lo haya POSTERGADO ya.
+   *
+   * ⚠️ SIN LA SEGUNDA, «Seguir sin Meta» ES UNA MENTIRA. Posterga la sección de
+   * integraciones, avanza, y tres pantallas más adelante otra que necesita Meta lo
+   * vuelve a exigir — y esa no es postergable, así que no hay salida. El cliente hizo
+   * exactamente lo que la app le ofreció y terminó igual de trabado, que es peor que no
+   * haberle ofrecido nada: la próxima vez no va a confiar en el botón.
+   *
+   * Es la regla de la casa: postergar tiene que LIBERAR de verdad. Si algo se pospuso,
+   * nada río abajo lo puede volver a pedir como condición.
+   */
+  const pasoPostergado = (key: string) => Boolean(data.estado.steps[key as Paso]?.postergado);
+  /** Esta pantalla ES la de conectar ese servicio → dibuja el formulario. */
+  const esPantallaDeConexion = Boolean(p.exige && data.requeridos.includes(p.exige));
+  /**
+   * …y además BLOQUEA. Se separa del de arriba a propósito: si el cliente postergó y
+   * después vuelve atrás para conectar, el formulario tiene que seguir estando. Sacarlo
+   * sería quitarle la forma de terminar lo que dejó pendiente — el mismo error al revés.
+   */
+  const servicioReq = esPantallaDeConexion && !pasoPostergado('integraciones');
   const esFaseQuiz = p.faseQ != null && p.faseQ >= 0 && p.key !== 'fase:canal';
   // NINGUNA excepción para el super-admin: el onboarding se recorre igual que
   // un cliente real, si no lo que se prueba no es lo que va a ver el cliente. Su
   // único privilegio es traer los datos de Mauricio desde la barra de agencia,
   // que llena el paso de verdad — no lo saltea.
-  const puedeAvanzar = servicioReq ? Boolean(conectadas[p.servicio!])
+  const puedeAvanzar = servicioReq ? Boolean(conectadas[p.exige!])
     : esFaseQuiz ? faseResp[p.faseQ!] >= 0
     // Gemini NO tiene excepción de admin (a diferencia de los demás): sin una key que
     // ande de verdad, Entregable/Avatares/Persona/Ángulos van a fallar con "no hay IA"
@@ -697,18 +732,25 @@ export function OnboardingWizard() {
         }
       >
         {/* ── Servicio: el mismo form de /integraciones, sin reinventar nada ── */}
-        {p.servicio && servicioReq && (
+        {/* `esPantallaDeConexion`, NO `servicioReq`: si el cliente postergó y vuelve
+            atrás a conectar, el formulario tiene que seguir acá. Lo que cambia con el
+            postergado es solo si FRENA. */}
+        {p.exige && esPantallaDeConexion && (
           <div style={{ textAlign: 'left' }}>
             <ServicioConfigForm
-              servicioKey={p.servicio}
-              onFacts={(f) => setFacts((x) => ({ ...x, [p.servicio!]: f }))}
+              servicioKey={p.exige}
+              onFacts={(f) => setFacts((x) => ({ ...x, [p.exige!]: f }))}
               onEstado={(ok) => {
-                setConectadas((c) => ({ ...c, [p.servicio!]: ok }));
-                if (ok && p.servicio === 'meta') arrancarExtraccion();
+                setConectadas((c) => ({ ...c, [p.exige!]: ok }));
+                if (ok && p.exige === 'meta') arrancarExtraccion();
               }}
             />
-            {!conectadas[p.servicio] && (
-              <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 12 }}>Conectala para seguir.</div>
+            {!conectadas[p.exige] && (
+              servicioReq
+                ? <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 12 }}>Conectala para seguir.</div>
+                // Ya dijo «seguir sin esto». Repetirle que la conecte sería desdecirse;
+                // lo que corresponde es confirmarle que puede seguir y que queda anotado.
+                : <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 12 }}>La dejaste para después — podés seguir. Te queda pendiente en tu panel.</div>
             )}
           </div>
         )}
