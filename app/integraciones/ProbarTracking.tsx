@@ -164,7 +164,15 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // agregaron nuevos» son el mismo estado: hay un video sin respuesta.
   const detectadosVideo = previo?.videosDetectados ?? [];
   const videosGuardados = previo?.videos ?? [];
-  const sinNombre = detectadosVideo.filter((d) => !videosGuardados.some((v) => v.id === d.id));
+  // ⚠️ UN VIDEO OCULTO NO CUENTA COMO «sin nombre». Si no, el paso que pide
+  // identificarlos vuelve a saltar cada vez que se arranca una prueba por un video
+  // que el negocio ya dijo que no es suyo — y la única forma de callarlo sería
+  // ponerle un nombre, o sea reconocerlo como propio para poder ignorarlo.
+  // Ocultar tiene que ser una respuesta tan válida como nombrar.
+  const ocultosVideo = previo?.videosOcultos ?? [];
+  const sinNombre = detectadosVideo.filter(
+    (d) => !videosGuardados.some((v) => v.id === d.id) && !ocultosVideo.includes(d.id),
+  );
   const hayVideos = detectadosVideo.length > 0 || videosGuardados.length > 0;
 
   const aplicar = (r: { paginas: string[]; ocultas: string[] }) => { setPaginas(r.paginas); setOcultas(r.ocultas); };

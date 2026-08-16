@@ -1443,3 +1443,20 @@ test('salir de la página, volver y cerrar son TRES eventos distintos', () => {
   const ver = /export const SNIPPET_VERSION = (\d+);/.exec(lib);
   assert.ok(ver && Number(ver[1]) >= 14, 'la mejora no llega si nadie se entera de que hay que repegar');
 });
+
+test('un video oculto no vuelve a pedir que lo identifiques', () => {
+  // ⚠️ Reportado: «aún me sigue saltando el paso de verificar los videos cuando ya
+  // eliminé el de Martín… si ya lo oculté no debería saltar ese paso». Y tenía
+  // razón: el paso se dispara cuando hay videos DETECTADOS sin nombre, y un video
+  // oculto seguía contando. La única forma de callarlo habría sido ponerle un
+  // nombre — o sea, reconocerlo como propio para poder ignorarlo.
+  //
+  // Ocultar tiene que ser una respuesta tan válida como nombrar: las dos cierran
+  // la pregunta «¿qué es este video?».
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/const ocultosVideo = previo\?\.videosOcultos \?\? \[\];/.test(panel), 'el panel no sabe cuáles están ocultos');
+  assert.ok(/!ocultosVideo\.includes\(d\.id\)/.test(panel), 'un video oculto no puede contar como «sin nombre»');
+  // Y es lo que gobierna el salto al paso: si esto se rompe, la prueba vuelve a
+  // frenarse en una pregunta ya contestada.
+  assert.ok(/if \(paso !== 'videos' && sinNombre\.length > 0\)/.test(panel), 'el paso se dispara por los que faltan identificar');
+});
