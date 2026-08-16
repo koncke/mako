@@ -66,7 +66,7 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
 }
 
 export function ComportamientoCard({
-  visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], urlClarity = null, urlMapaCalor = null,
+  visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], urlClarity = null, urlMapaCalor = null, visitorId = null,
 }: {
   visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean;
   /** Uno por video medido. Con 0 o 1 la tarjeta se pinta como siempre. */
@@ -82,6 +82,10 @@ export function ComportamientoCard({
    *  Va igual acá porque es la pregunta que sigue —«¿y el resto qué hace?»— y
    *  buscarla obligaba a salir de la ficha y navegar el panel de Clarity a mano. */
   urlMapaCalor?: string | null;
+  /** El `visitor_id`, que es lo que la landing le manda a Clarity con
+   *  `clarity("identify", …)`. Es la llave para encontrar a ESTA persona entre
+   *  miles de sesiones anónimas. */
+  visitorId?: string | null;
 }) {
   const pctColor = colorDe(maxPct);
   const varios = porVideo.length > 1;
@@ -180,6 +184,27 @@ export function ComportamientoCard({
               Mapa de calor de la página →
             </a>
           )}
+        </div>
+      )}
+      {/* ⚠️ EL ID, A MANO Y COPIABLE. El link abre el panel de Clarity pero NO
+          llega filtrado por esta persona: Clarity descarta los parámetros de
+          filtro que no reconoce y muestra la lista entera —35 sesiones, ninguna
+          identificable—, así que el botón prometía «lo que hizo ÉL» y entregaba
+          «lo que hizo todo el mundo».
+          Hasta que el link filtre solo, esto es lo que lo vuelve utilizable: en
+          Clarity, Filtros → Filtros personalizados → ID de usuario personalizado,
+          y se pega esto. Clarity hashea lo que se pega y lo cruza contra sus
+          datos, así que el id crudo es exactamente lo que hay que darle. */}
+      {urlClarity && visitorId && (
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Su ID para el filtro de Clarity:</span>
+          <code
+            title="Clic para copiar. En Clarity: Filtros → Filtros personalizados → ID de usuario personalizado"
+            onClick={() => { void navigator.clipboard?.writeText(visitorId).catch(() => {}); }}
+            style={{ fontFamily: MONO, fontSize: 11.5, padding: '3px 8px', borderRadius: 7, cursor: 'pointer',
+              border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)' }}>
+            {visitorId}
+          </code>
         </div>
       )}
       {urlClarity && (

@@ -169,7 +169,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               content: (
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
-                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarityLead} urlMapaCalor={urlMapaCalorProyecto} />
+                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarityLead} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} />
                   <TrackingTimelineCard eventos={trackingEventos} />
                 </>
               ),

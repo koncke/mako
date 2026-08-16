@@ -1230,6 +1230,13 @@ test('la ficha del lead lleva a su grabación Y al mapa de calor', () => {
   assert.ok(/no de este lead/.test(card), 'hay que decir que el mapa no es de esta persona');
   // Y se avisa del retraso ANTES de que el click falle: Clarity tarda hasta 2 h.
   assert.ok(/tarda hasta 2 horas en aparecer y se borra a los 30 días/.test(card), 'sin esto, quien no la encuentra concluye que la medición no anda');
+  // ⚠️ Y EL ID, COPIABLE. Reportado el 2026-08-16: el link abre Clarity pero NO
+  // llega filtrado —Clarity descarta los parámetros de filtro que no reconoce y
+  // muestra las 35 sesiones del proyecto—, así que el botón prometía «lo que hizo
+  // ÉL» y entregaba «lo que hizo todo el mundo». Hasta que el link filtre solo,
+  // el id a mano es lo que vuelve utilizable la pantalla.
+  assert.ok(/Su ID para el filtro de Clarity/.test(card), 'sin el id, el link lleva a una lista donde no se puede encontrar a nadie');
+  assert.ok(/navigator\.clipboard\?\.writeText\(visitorId\)/.test(card), 'el id tiene que ser copiable: se pega en el filtro de Clarity');
   // El dato tiene que llegar por los DOS caminos que arman la ficha.
   assert.ok(/urlPanel\(undefined, 'heatmaps'\)/.test(leer('../app/crm/actions.ts')), 'el mapa no llega por el camino del sheet');
   assert.ok(/urlPanel\(undefined, 'heatmaps'\)/.test(leer('../app/crm/[id]/page.tsx')), 'el mapa no llega por el camino de la página');

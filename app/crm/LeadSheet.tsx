@@ -219,7 +219,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             tabs={[
               { key: 'resumen', label: 'Overview', content: tabResumen },
               { key: 'notas', label: 'Notas', content: <NotasCard leadId={lead.id} /> },
-              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} /><TrackingTimelineCard eventos={tracking} /></> },
+              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} /><TrackingTimelineCard eventos={tracking} /></> },
               { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
               { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
               {
