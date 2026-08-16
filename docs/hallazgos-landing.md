@@ -27,6 +27,48 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## La landing y el sistema de diseño
+
+### ⚠️ La landing no comparte NI UN token con la app: un rebrand no la toca
+
+**Síntoma:** se aplicó un tema candidato del rebrand a toda la app y `/vsl` quedó
+prácticamente igual. Medido con un diff de píxeles contra la misma página sin tema: las
+pantallas internas cambian entre **92,0% y 99,8%**; `/vsl` cambia el **7,7%**, y eso es
+casi todo el botón «Agenda tu llamada».
+
+**Causa, contada:**
+
+| Archivo | `var(--` | hexes a mano | `data-tema` |
+|---|---|---|---|
+| `app/vsl/landing-html.ts` | **0** | **617** | 0 |
+| `app/vsl/Landing.tsx` | **0** | 29 | 0 |
+| `app/page.tsx` | 0 | 0 | 0 |
+
+**646 hexes escritos a mano y cero tokens.** No es que la landing tenga su propia paleta
+scopeada —eso sería una decisión—: es que nunca leyó la de la app. Y cero `data-tema`
+significa que **no tiene modo oscuro ni puede tenerlo** sin tokenizarla primero.
+
+**Por qué se llegó acá y no es descuido:** la landing se sirve como un string de HTML
+(`landing-html.ts`) para que sea autocontenida y no dependa del chrome de la app —
+`HideOnPublicLanding` justamente le apaga el sidebar. Un string no puede usar `var()` de
+una hoja que no controla, así que cada color se escribió a mano. La decisión de
+aislamiento era correcta; lo que no se previó es que dejaba a la landing afuera de
+cualquier cambio de sistema.
+
+**Regla:** un rebrand tiene **dos** presupuestos, no uno. Cambiar la app es cambiar
+tokens; cambiar la landing es reescribir 646 valores a mano, uno por uno, sin red — no
+hay ningún test ni guarda que avise si uno queda con el color viejo. Antes de prometer
+«la marca nueva», decir explícitamente si la landing entra o no.
+
+**Lo que quedaría por hacer si entra:** tokenizar `landing-html.ts` contra los tokens de
+`app/globals.css` es el paso 1 y el más caro; recién después el tema la alcanza sola y el
+modo oscuro se vuelve posible.
+
+**Vive en:** app/vsl/landing-html.ts · app/vsl/Landing.tsx · app/_components/PublicRouteGate.tsx ·
+app/globals.css · *2026-08-16 ~tab-temas (medido con Playwright sobre el build de producción)*
+
+---
+
 ## Tracking y beacon
 
 ### ⚠️ El semáforo pregunta «¿hubo alguna vez?», así que nunca se pone en rojo

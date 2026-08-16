@@ -294,6 +294,60 @@ app/_ui/Toast.tsx:43 · app/_components/NotificationsProvider.tsx:515,539 ·
 app/_components/MakoConfirmGate.tsx:113 · lib/avisos.ts:73 · lib/avisos-catalogo.ts:136 ·
 *2026-08-13 ~inventario-superficies-mako*
 
+### ⚠️ Un `transition` sobre una custom property no se ve, y por eso el cambio de tema salta
+
+**Síntoma:** se prende un tema candidato en `/admin/ui?tab=temas` y el cambio de color
+tenía que ser gradual (400 ms, como el de nordtheme.com). Con la transición declarada en
+`:root` sobre `--bg`, `--surface` y compañía, el cambio es **instantáneo**. No hay error:
+simplemente salta.
+
+**Causa:** una custom property no pinta nada por sí misma. Lo que se ve es el
+`background-color` de CADA elemento que la consume, y ese es el que hay que animar. Una
+transición sobre la variable anima un valor que nadie mira.
+
+**Regla:** la transición va en los **elementos**, no en la variable:
+
+```css
+[data-tema-candidato] *,
+[data-tema-candidato] *::before,
+[data-tema-candidato] *::after {
+  transition: background-color 400ms ease-in-out, border-color 400ms ease-in-out,
+              color 400ms ease-in-out, fill 400ms ease-in-out, stroke 400ms ease-in-out;
+}
+```
+
+Es exactamente lo que hace el sitio de Nord —lo declara componente por componente— y se
+verificó leyendo el CSS que sirve. **Cómo se comprueba sin ojímetro:** clickear, esperar
+200 ms y leer `getComputedStyle(...).backgroundColor`. Si devuelve un valor **intermedio**
+(medido: `rgb(160,165,175)` entre `#3B4252` y `#ECEFF4`), la transición corre. Si devuelve
+uno de los dos extremos, saltó.
+
+**Vive en:** app/globals.css (bloque «Temas candidatos») · app/_components/TemaCandidato.tsx ·
+*2026-08-16 ~tab-temas*
+
+### ⚠️ Un preview global que se apaga a medias deja la app de un color que nadie eligió
+
+**Síntoma:** se sale del preview de temas y la app queda en **modo oscuro** (`--bg`
+`#22262E`), sin tema candidato y sin ningún control a la vista para volver.
+
+**Causa:** el preview maneja DOS atributos en `<html>` —`data-tema-candidato` para el tema
+y `data-tema` para el modo— y al limpiar solo se sacaba el primero. La rama estaba escrita
+`else if (id) raiz.removeAttribute('data-tema')`, o sea que **con `id === null` no corría
+ninguna de las dos ramas**.
+
+**Regla, y vale para cualquier modo de prueba global:** el que prende dos cosas apaga dos
+cosas, y el apagado se prueba explícitamente — no alcanza con ver que prender funciona. El
+test de aceptación es que después de salir, los tokens vuelvan a los valores de fábrica
+(`#F4F6F9` / `#8F6709`), no simplemente que «se vea normal».
+
+**Y el corolario que ya está aplicado:** mientras el preview está puesto, un chip fijo lo
+dice y ofrece la salida desde **cualquier** pantalla. Si el único lugar donde se apaga
+fuera la tab que lo prende, quien se lo olvide puesto ve la app de otro color en todas las
+pantallas sin saber por qué — la misma regla de AGENTS.md sobre la salida que vive adentro
+de una pantalla condicional.
+
+**Vive en:** app/_components/TemaCandidato.tsx · *2026-08-16 ~tab-temas*
+
 ### ⚠️ `.mk-scroll-x` recorta en los DOS ejes: ningún popover `absolute` puede vivir adentro
 
 **Síntoma:** en /ads-writer, tab «Guiones», tocás «Filtrar» y no aparece nada (a lo sumo
