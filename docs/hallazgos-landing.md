@@ -113,8 +113,30 @@ pago, en la landing con la campaña corriendo.
 | `/video-redirect` · `/redirects` · `/videoRedirect/{id}` | `403` de API Gateway — no existen |
 | `GET /profile/{id}` (el player) | 200, y **no** menciona `redirect`: no vive ahí |
 
-El `PUT` documentado acepta cuatro campos y ninguno es `config`. Se quita a mano en el
-panel.
+El `PUT` documentado acepta cuatro campos y ninguno es `config`.
+
+⚠️ **Y tampoco se quita desde el panel, porque el redirect quedó HUÉRFANO.** Medido el
+2026-08-16: las secciones **Playlists** y **Funnel** del panel están las dos **vacías** —la
+playlist y el funnel que crearon la regla se borraron hace meses— pero el campo siguió
+pegado al video. No hay UI que lo muestre porque la pieza que lo creó ya no existe.
+
+Se intentó por el único endpoint que dice tocar el config del video, y **fusiona en vez de
+reemplazar**:
+
+```
+POST /profile?type=set-videos  {videos:[id], profile: <el mismo que ya tenía>}
+  → 200 {"message":"Video config updated"}   ... y el videoRedirect sigue
+POST … + videoRedirect: null | {} | false    → 200, y sigue
+POST … + config anidado | sin profile        → 400 «profile is a required field»
+```
+
+O sea: el endpoint ignora todo lo que no sea `profile`. **No lo repitas.** El estado del
+video queda idéntico (el profile intacto), así que probarlo no cuesta nada más que el
+tiempo.
+
+Lo que queda: **volver a crear un funnel con ese video** —el panel entonces lee el
+`videoRedirect` que ya está y lo muestra como su regla «Após o fim do vídeo», que ahí sí se
+puede poner en «Não fazer nada»— o soporte de Panda.
 
 **La regla que queda:** cuando una plataforma tiene una configuración que cambia lo que ve
 el visitante y **no** deja rastro en la página ni en los eventos, lo único que el sistema
