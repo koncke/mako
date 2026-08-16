@@ -18,10 +18,31 @@ export const ESTADO_GUION_LABEL: Record<EstadoGuion, string> = {
   borrador: 'Borrador', aprobado: 'Aprobado', grabado: 'Grabado', publicado: 'Publicado',
 };
 
-/** Color del chip por estado. Gris = todavía es texto; verde = ya hay pauta. */
-export const COLOR_ESTADO_GUION: Record<EstadoGuion, string> = {
-  borrador: 'var(--faint)', aprobado: 'var(--accent)', grabado: 'var(--warn)', publicado: 'var(--good)',
+/**
+ * El TONO semántico de cada estado (los seis de app/_ui/tokens.ts). Es lo que
+ * consume `<Status>`, así que el estado de un guion se ve igual que cualquier
+ * otro estado de la app.
+ *
+ * Ojo con el dorado: `aprobado` era `var(--accent)` y eso está mal según la
+ * regla de color de globals.css — el dorado significa «acá intervino MaKo», no
+ * «esto avanzó». Aprobar es un acto del dueño, así que va en azul (`info`).
+ */
+export const TONO_ESTADO_GUION: Record<EstadoGuion, 'neutral' | 'info' | 'warn' | 'good'> = {
+  borrador: 'neutral', aprobado: 'info', grabado: 'warn', publicado: 'good',
 };
+
+/** El color crudo del punto, para donde no llega `<Status>`. Derivado del tono. */
+export const COLOR_ESTADO_GUION: Record<EstadoGuion, string> = {
+  borrador: 'var(--faint)', aprobado: 'var(--primary)', grabado: 'var(--warn)', publicado: 'var(--good)',
+};
+
+/** El estado más avanzado de un conjunto — «¿cómo viene este anuncio?» de un
+ *  vistazo. Sin guiones no hay estado: devuelve null y la UI muestra el vacío. */
+export function estadoMasAvanzado(estados: EstadoGuion[]): EstadoGuion | null {
+  let mejor = -1;
+  for (const e of estados) mejor = Math.max(mejor, ESTADOS_GUION.indexOf(e));
+  return mejor < 0 ? null : ESTADOS_GUION[mejor];
+}
 
 export const esEstadoGuion = (v: unknown): v is EstadoGuion => (ESTADOS_GUION as readonly unknown[]).includes(v);
 
