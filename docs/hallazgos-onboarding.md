@@ -447,3 +447,93 @@ Relacionado: [hallazgos-ui.md](hallazgos-ui.md) (el `WizardShell` y la pila de m
 [hallazgos-ia.md](hallazgos-ia.md) (la cascada barata y los topes de salida) ·
 [hallazgos-plan.md](hallazgos-plan.md) (#164, la Retro que miente con solo Meta conectado, que
 es prerrequisito de cualquier cierre con números).
+
+## Hay un cliente parado hace nueve días, y no es un bug de Meta
+
+**Vive en:** `lib/onboarding-state.ts:127-137` (`onboardingPendiente`) · `app/api/onboarding/route.ts:173,353` · `app/onboarding/OnboardingWizard.tsx`
+
+De cuatro clientes reales, **los dos que no terminaron el onboarding murieron en un paso de
+CONEXIÓN, no de contenido**. Leandro llenó nueve pantallas de negocio sin quejarse y quedó
+trabado en el paso de Meta — que ocurre **adentro de la consola de Meta**, no de MaKo:
+usuario de sistema, tres activos, ocho permisos, expiración «Nunca».
+
+**El wizard bloqueante no causó el tropiezo. Convirtió un tropiezo en un abandono.** Como
+no hay salida, tampoco puede entrar a hacer otra cosa mientras lo resuelve.
+
+**Y el «saltear» está modelado y no libera nada** — las tres capas fallan por separado:
+
+1. `action: 'skip'` es un flag del body que **no usa nadie en la UI**: cero ocurrencias de
+   `skip: true` en `app/`.
+2. Aunque se usara, `onboardingPendiente()` devuelve `s.status !== 'done'`, así que
+   `'skipped'` **también rebota al wizard**.
+3. El slot para ofrecerlo ya existe y está sin usar: `extraFooter` de `WizardShell`.
+
+O sea: el estado existe, el endpoint lo acepta, la UI no lo manda y el guard no lo respeta.
+Tres piezas que por separado parecen completas.
+
+**La regla:** un estado que el modelo contempla pero ningún guard respeta **no existe**.
+Antes de dar por hecho que algo es «opcional», seguí el valor hasta el `if` que decide —
+si ningún `if` lo mira, la opción es decorativa. Y el guard va en POSITIVO: la lista dice
+CUÁLES pasos se pueden saltear, nunca «todos menos», porque la negativa se queda vieja
+sola con cada paso nuevo.
+
+## Una credencial guardada no es una credencial que funciona
+
+**Vive en:** `lib/credenciales.ts:217-228` (`estadoCampo`) · el paso `gemini` del wizard
+
+Al recargar el onboarding, `geminiConectada` sale de `data.geminiConfig.configurado`, y
+`estadoCampo` devuelve `configurado: true` **con solo tener un valor descifrable guardado**.
+
+Una llave que dejó de funcionar —el caso exacto del free tier de Gemini agotado— **pasa el
+gate de `puedeAvanzar`**. El cliente avanza y la IA se muere tres pantallas después, en un
+lugar que no tiene nada que ver con la causa.
+
+**La regla:** «hay algo guardado» y «anda» son dos preguntas distintas. Donde el paso
+siguiente depende de que la credencial FUNCIONE, se re-verifica contra el proveedor; el
+estado guardado solo sirve para no volver a pedirla.
+
+## El movimiento que no transporta un dato es el antipatrón, y hoy está en producción
+
+**Vive en:** `app/onboarding/OnboardingWizard.tsx:822-881` (`FaseLoopAnimado`)
+
+La columna del escenario corre un loop autónomo que recorre las cinco fases cada 2.800 ms.
+Es bonito y no dice nada del cliente que lo está mirando.
+
+Sirve como definición operativa del antipatrón del §12, que es más útil que la lista de
+estilos prohibidos: **un gradiente morado no es feo por morado, es feo porque no informa.**
+El test que queda, y se puede correr en un review: *por cada cosa que se mueve, nombrá el
+dato del cliente que transporta.* Si no hay ninguno, no se mueve.
+
+⚠️ **Y ningún loop de rAF de la casa tiene guarda de visibilidad** — ni
+`IntersectionObserver` ni `document.visibilityState`. Es el mismo antipatrón que el polling
+global de `docs/hallazgos-infra.md`, que hacía 1.020 req/h con la pestaña minimizada.
+
+## El trabajo pesado corre en el peor momento posible
+
+**Vive en:** `app/api/onboarding/plan-arranque/` (`maxDuration = 120`)
+
+El plan de arranque se genera **al final**, cuando el cliente ya terminó las 19 pantallas y
+lo único que quiere es salir. Tarda decenas de segundos y el botón dice «MaKo está armando
+tu plan…».
+
+Disparándolo al entrar al Archivero (pantalla 11) en background, la espera pasa a cero sin
+optimizar una línea del endpoint. **La mejora de rendimiento más barata de este flujo no
+está en el endpoint: está en cuándo se llama.**
+
+## El plan del onboarding nuevo
+
+La propuesta completa —metáfora, promesa, las 20 pantallas, la pieza interactiva del
+cierre y el plan por fases— vive en [onboarding-nuevo.md](onboarding-nuevo.md). Sale de una
+corrida de 9 agentes (4 frentes + 4 críticos + síntesis) que investigó Opal, ~20 apps con
+buen onboarding, el flujo actual y las opciones técnicas.
+
+Los dos titulares, para no tener que abrirlo:
+
+- **No hay gema 3D.** No por el peso (three son 182 KB gzip) sino porque la opción 3D
+  **obliga a construir igual el fallback 2D** para reduced-motion y para el ~5% de máquinas
+  sin WebGL decente: no ahorra trabajo, lo duplica. La metáfora sale del producto — el mapa
+  del segundo cerebro, que ya tiene modelada la autoría `pendiente`, o sea que «el hueco
+  que se llena» ya está en el tipo de datos.
+- **La promesa NO lleva un número inventado.** Los «6+ años» de Opal necesitan 99,5 años de
+  vida para cerrar con su propia aritmética. Con cuatro clientes y dos completados no hay
+  cohorte: el número tiene que salir de un `count` de sus propias respuestas.
