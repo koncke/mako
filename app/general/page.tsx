@@ -116,7 +116,21 @@ export default async function GeneralPage() {
   // Que aparezca es la mitad que faltaba de la salida del wizard. La otra mitad es que
   // DESAPARECE solo: `pendientesOnboarding` cruza el flag con la conexión real de hoy,
   // así que conectar Meta desde /integraciones lo apaga sin tocar nada más.
-  for (const pend of await pendientesOnboarding().catch(() => [])) {
+  // ⚠️ El catch NO se traga el error en silencio. En el resto de esta pantalla degradar
+  // callado está bien —el número que falta se ve en otra tab—, pero este recordatorio no
+  // existe en ningún otro lado: si la lectura falla y devolvemos una lista vacía, el
+  // cliente ve «no te falta nada» y eso es afirmar lo contrario de lo que sabemos. El
+  // aviso va donde el dueño mira, no a un log que nadie lee.
+  const pendArranque = await pendientesOnboarding().then((r) => ({ ok: true as const, r }), () => ({ ok: false as const, r: [] }));
+  if (!pendArranque.ok) {
+    alertas.push({
+      nivel: 'ambar',
+      titulo: 'No pude chequear qué te quedó pendiente del arranque',
+      detalle: 'Puede que tengas una conexión sin terminar y no lo esté viendo. Revisá Integraciones.',
+      href: '/integraciones', hrefLabel: 'Integraciones',
+    });
+  }
+  for (const pend of pendArranque.r) {
     alertas.push({
       nivel: 'ambar',
       titulo: `Te quedó pendiente: ${pend.que.toLowerCase()}`,

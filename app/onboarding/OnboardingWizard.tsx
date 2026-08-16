@@ -45,6 +45,7 @@ import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-
 import { Dropdown } from '../components/Dropdown';
 import { PAISES, PAIS_DEFAULT, flagUrl } from '@/lib/paises';
 import { esPostergable, type PasoOnboarding } from '@/lib/capas';
+import type { OnboardingStatus, PasoState } from '@/lib/onboarding-contrato';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -58,9 +59,15 @@ type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<
 // paso `productos`.
 type Paso = PasoOnboarding;
 type BriefCampo = { key: string; label: string; type: 'text' | 'number' | 'textarea'; placeholder?: string; grupo: string };
+// El estado de cada paso sale del CONTRATO, no se recopia acá. Ya se pagó una vez que
+// esta forma viviera en cuatro lugares (el paso `productos` nació roto por eso), y esta
+// copia se acababa de desfasar otra vez: `postergado` existía en el server, en la base
+// y en el endpoint, y acá el paso seguía siendo `{ done: boolean }` — o sea, la
+// pantalla que tiene que reaccionar al dato era la única que no sabía que existía.
+// `onboarding-contrato.ts` no lleva 'server-only' justamente para poder importarse acá.
 type Estado = {
-  status: 'pending' | 'in_progress' | 'skipped' | 'done';
-  steps: Record<Paso, { done: boolean }>;
+  status: OnboardingStatus;
+  steps: Record<Paso, PasoState>;
   extraction: Extraction;
 };
 type WizardData = {
@@ -222,26 +229,6 @@ export function OnboardingWizard() {
     }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
-
-  // Retomar donde quedó: si el cliente ya cerró unos pasos (conectó Meta, cargó
-  // el brief) y vuelve a entrar, arranca en el primer paso incompleto, no desde
-  // cero. Corre una sola vez, cuando llegan los datos.
-  useEffect(() => {
-    if (!data || retomado.current) return;
-    retomado.current = true;
-    const cuenta = (paso: Paso): number =>
-      paso === 'integraciones' ? data.requeridos.length
-      : paso === 'tabs' ? 1
-      : paso === 'negocio' ? data.brief.length
-      : paso === 'fase' ? data.fasePreguntas.length + 1
-      : 1;
-    let acc = 0;
-    for (const paso of data.pasos) {
-      if (!data.estado.steps[paso]?.done) break;
-      acc += cuenta(paso);
-    }
-    if (acc > 0) setIdx(acc);
-  }, [data]);
 
   // ── Extracción: arranca al verificar Meta y sigue en background ────────────
   const loopTicks = useCallback(async () => {
@@ -447,6 +434,38 @@ export function OnboardingWizard() {
     } finally { setPending(false); }
   };
 
+  // ── Retomar donde quedó ───────────────────────────────────────────────────
+  // Si el cliente ya cerró unos pasos y vuelve a entrar, arranca en el primero que le
+  // falta, no desde cero.
+  //
+  // ⚠️ SE BUSCA EN `pantallas`, no se CUENTA. La versión vieja tenía una función
+  // `cuenta(paso)` que repetía cuántas pantallas produce cada paso — la misma lista de
+  // arriba, escrita de nuevo y a mano. Se desfasó exactamente como avisa AGENTS.md: el
+  // paso `fase` produce una pantalla extra (la del canal) que `cuenta` no sabía, así
+  // que TODO cliente que retomaba aterrizaba una pantalla antes de donde había quedado.
+  // Medido acá: con todos los pasos cerrados menos el teléfono, caía en la matriz de
+  // anuncios. Preguntándole a la lista de verdad no hay forma de que vuelva a pasar.
+  //
+  // Un paso POSTERGADO cuenta como cerrado, igual que uno hecho: si no, quien dejó
+  // pendiente el teléfono y cerró el navegador vuelve a aterrizar justo en la pantalla
+  // que acaba de declinar, y la única salida que encuentra es volver a declinarla.
+  if (!retomado.current && pantallas.length > 0) {
+    retomado.current = true;
+    const falta = pantallas.findIndex((x) => {
+      const st = data.estado.steps[x.paso];
+      return !st?.done && !st?.postergado;
+    });
+    // `-1` = no falta ninguno → la ÚLTIMA pantalla. (`p` además clampea con un
+    // `Math.min`, así que un índice pasado de rango no rompía; pero apuntar al último
+    // acá deja dicho lo que se quiere, en vez de depender de que otro lo corrija.)
+    const inicial = falta < 0 ? pantallas.length - 1 : falta;
+    if (inicial > 0) setIdx(inicial);
+  }
+
+  /** El nombre comercial de un servicio, del catálogo. `p.nombre` solo lo traen las
+   *  pantallas de conexión; el resto lo declara por key y se quedaba en `undefined`. */
+  const nombreServicio = (key: string) => data.servicios.find((s) => s.key === key)?.nombre ?? key;
+
   const campoBrief = p.key.startsWith('brief:') ? data.brief.find((c) => c.key === p.key.slice(6)) : null;
   const servicioReq = p.servicio && data.requeridos.includes(p.servicio);
   const esFaseQuiz = p.faseQ != null && p.faseQ >= 0 && p.key !== 'fase:canal';
@@ -642,7 +661,11 @@ export function OnboardingWizard() {
               nombre={p.nombre ?? 'MaKo'}
               slides={p.slides}
               facts={factsDePantalla()}
-              eyebrow={p.eyebrow ?? (p.servicio ? `✦ Con ${p.nombre} conectado` : '✦ Así trabaja MaKo')}
+              // `nombre` solo lo traen las pantallas `int:*`; la de Retro declara
+              // `servicio: 'meta'` sin nombre, así que esto pintaba «✦ CON UNDEFINED
+              // CONECTADO» en pantalla, en mayúsculas y arriba de todo. El nombre sale
+              // del catálogo de servicios, que es donde vive de verdad.
+              eyebrow={p.eyebrow ?? (p.servicio ? `✦ Con ${nombreServicio(p.servicio)} conectado` : '✦ Así trabaja MaKo')}
             />
           )
         }
