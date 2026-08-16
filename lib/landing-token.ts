@@ -280,12 +280,22 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
   const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
   try {
     const db = await getTenantDb();
+    // ⚠️ LOS MÁS NUEVOS PRIMERO, y el `order` no es un lujo: es lo único que hace
+    // que esta consulta conteste. Sin él, PostgREST devuelve las filas en el
+    // orden que le da Postgres —el físico, o sea las más VIEJAS— y el servidor
+    // corta en 1000 aunque acá se pidan 2000 (`db-max-rows`, que no avisa: la
+    // respuesta es un 200 con menos filas). La URL del video viaja en `detalle`
+    // solo desde la v8, así que en esas 1000 filas viejas no había una sola que
+    // la trajera y el botón «Ver este video» no aparecía NUNCA en una página con
+    // historial. El síntoma engañaba doble: el texto decía «llega con la versión
+    // nueva del Pixel» sobre una página que ya tenía la versión nueva.
     const { data } = await db
       .from('vsl_events')
       .select('video_id, vsl_titulo, detalle')
       .not('video_id', 'is', null)
       .gte('created_at', desde)
-      .limit(2000);
+      .order('created_at', { ascending: false })
+      .limit(1000);
     const out = new Map<string, { id: string; titulo: string | null; eventos: number; url: string | null }>();
     for (const r of (data ?? []) as Array<{ video_id: string | null; vsl_titulo: string | null; detalle: string | null }>) {
       const id = r.video_id?.trim();
@@ -299,6 +309,19 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
       // que llegue en vez de pisarse con null a mitad de camino.
       if (!e.titulo && r.vsl_titulo?.trim()) e.titulo = r.vsl_titulo.trim();
       out.set(id, e);
+    }
+    // ⚠️ EL CONTEO EXACTO SE PREGUNTA, no se cuenta sobre lo que vino. Contar las
+    // filas de la consulta daba «1000 eventos» —el tope del servidor— sobre un
+    // video con 6446, y un número redondo al lado de un video se lee como un dato
+    // real. Son pocos videos por página, así que es una consulta por video y
+    // ninguna trae filas (`head: true`).
+    for (const v of out.values()) {
+      const { count } = await db
+        .from('vsl_events')
+        .select('*', { count: 'exact', head: true })
+        .eq('video_id', v.id)
+        .gte('created_at', desde);
+      if (typeof count === 'number') v.eventos = count;
     }
     // El más visto primero: es el que más probablemente sea el VSL, así que es el
     // que conviene tener arriba cuando hay que elegir.

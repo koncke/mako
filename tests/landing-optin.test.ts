@@ -1097,3 +1097,31 @@ test('cada evento dice en CUÁL página pasó, no solo la visita', () => {
   const mig = leer('../supabase/migrations/0137_vsl_events_landing_url.sql');
   assert.ok(/alter table public\.vsl_events\s+add column if not exists landing_url text;/.test(mig), 'falta la columna');
 });
+
+test('la lista de videos se lee de lo NUEVO, y el conteo se pregunta', () => {
+  // ⚠️ REPORTADO DOS VECES POR EL DUEÑO: «aún no me muestra el video». El botón
+  // «Ver este video» no aparecía nunca en una página con historial, y el texto de
+  // al lado decía «la dirección llega con la versión nueva del Pixel» sobre una
+  // página que YA tenía la versión nueva — o sea que además mandaba a arreglar
+  // algo que estaba bien.
+  //
+  // La causa no estaba en el botón ni en el texto: la consulta no tenía `order`.
+  // Sin ORDER BY, PostgREST devuelve las filas en el orden que le da Postgres —el
+  // físico, las más VIEJAS— y el servidor corta en 1000 aunque se pidan 2000
+  // (`db-max-rows`, que responde 200 con menos filas y no avisa). La URL del
+  // video viaja en `detalle` solo desde la v8, así que en esas 1000 filas viejas
+  // no había una sola que la trajera. Medido: 6489 eventos reales, 1000 leídos.
+  const lib = leer('../lib/landing-token.ts');
+  const i = lib.indexOf('export async function videosDetectados');
+  const fin = lib.indexOf('\n}', lib.indexOf('return [...out.values()]', i));
+  const bloque = lib.slice(i, fin);
+  assert.ok(/\.order\('created_at', \{ ascending: false \}\)/.test(bloque),
+    'sin ORDER BY se leen las filas más viejas, que son las que no tienen la URL');
+
+  // Y el conteo se PREGUNTA. Contar las filas que vinieron daba «1000 eventos»
+  // —el tope del servidor— al lado de un video con 6489, y un número redondo se
+  // lee como un dato real.
+  assert.ok(/\.select\('\*', \{ count: 'exact', head: true \}\)/.test(bloque),
+    'contar las filas devueltas reporta el tope del servidor, no los eventos');
+  assert.ok(!/\.limit\(2000\)/.test(bloque), 'pedir más del tope no sube el tope: lo esconde');
+});

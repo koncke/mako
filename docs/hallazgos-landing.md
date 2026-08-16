@@ -83,6 +83,47 @@ un campo que diga cuál de las dos cosas fue — y la métrica se queda con la m
 
 **Vive en:** `lib/landing-token.ts` (`huboInteraccion`, `hayPlayManual`) · mig `0136`
 
+### Un `.limit(2000)` que devuelve 1000 filas, y las 1000 equivocadas
+
+Síntoma, reportado dos veces: *«aún no me muestra el video»*. El botón «Ver este video» de
+la pantalla que te pide nombrarlos no aparecía nunca, y al lado decía «la dirección del
+video llega con la versión nueva del Pixel» sobre una página que **ya tenía** la versión
+nueva — o sea que además mandaba a arreglar algo que estaba bien.
+
+El diagnóstico obvio —el botón, el texto, la condición `d.url ? …`— era el equivocado. Las
+tres piezas estaban bien. Lo roto era la consulta que llena `videosDetectados()`:
+
+```ts
+.select('video_id, vsl_titulo, detalle').not('video_id','is',null).limit(2000)   // sin order
+```
+
+**Dos trampas encadenadas, y ninguna avisa:**
+
+1. **Sin `ORDER BY`, PostgREST devuelve las filas en el orden que le da Postgres** — el
+   físico, o sea las más viejas primero. No es aleatorio, es peor: es determinísticamente
+   lo contrario de lo que servía.
+2. **El servidor corta en 1000 filas aunque se pidan 2000** (`db-max-rows` de PostgREST).
+   La respuesta es un **200 con menos filas**: no hay error, no hay flag, no hay nada que
+   distinga «esto es todo» de «esto es lo que te dejo ver».
+
+La URL del video viaja en `detalle` solo desde la v8. Con 6489 eventos en 90 días, las
+1000 filas más viejas son todas anteriores a esa versión, así que **ninguna** traía la
+URL. Y el mismo tope mentía en la pantalla por otro lado: el conteo se calculaba sobre las
+filas recibidas, así que decía «1000 eventos» —un número redondo, que se lee como un dato
+real— al lado de un video con 6489.
+
+**Las dos reglas:**
+
+- **Toda consulta con `.limit()` necesita `.order()`.** Un límite sin orden no es «los
+  primeros N»: es «N cualesquiera», y el día que la tabla crece pasa a ser «los N más
+  viejos» para siempre. Vale aunque parezca que el orden da igual — acá daba igual para el
+  conteo y era todo para la URL.
+- **Un conteo se PREGUNTA (`count: 'exact', head: true`), nunca se deriva de las filas que
+  vinieron.** Contar lo recibido reporta el tope del transporte disfrazado de dato del
+  negocio.
+
+**Vive en:** `lib/landing-token.ts` → `videosDetectados()`
+
 ### Un `useEffect` que escribe una dependencia de su propia dependencia no termina nunca
 
 El análisis de la landing se colgó del efecto que ya existía. `piezas` es dependencia de
