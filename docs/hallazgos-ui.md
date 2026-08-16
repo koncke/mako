@@ -294,6 +294,40 @@ app/_ui/Toast.tsx:43 · app/_components/NotificationsProvider.tsx:515,539 ·
 app/_components/MakoConfirmGate.tsx:113 · lib/avisos.ts:73 · lib/avisos-catalogo.ts:136 ·
 *2026-08-13 ~inventario-superficies-mako*
 
+### ⚠️ Una lista blanca de UNO se lee como regla; de DOS, se lee como excepción
+
+**El contexto:** `exigirClienteDePrueba` protegía un solo workspace (`WS_PRUEBA = 3`) y ya
+había fallado una vez en su versión negativa (`ws !== OWNER_WS`, que dejaba el botón de
+vaciar dentro de **todos** los clientes reales). Al sumar el Cliente de Diseño hubo que
+pasar de un número a una lista.
+
+**Por qué es el momento peligroso, aunque el cambio sea correcto:** con un solo id, la
+igualdad estricta se defiende sola — cualquiera que la lea entiende que enumerar es el
+punto. Con dos, aparece la tentación de «esto se está volviendo incómodo, mejor pregunto
+si NO es un cliente real», que es literalmente el bug anterior reescrito. El riesgo no
+está en pasar de 1 a 2: está en pasar de 2 a 3.
+
+**La regla, y cómo se hace cumplir:** la lista se enumera (`WS_PRUEBAS`) y **un test fija
+su largo**. No es ceremonia — es lo que obliga a que un tercer workspace pase por el test
+y se justifique en vez de colarse en un `push`:
+
+```ts
+assert.deepEqual([...WS_PRUEBAS].sort(), [WS_PRUEBA, WS_DISENO].sort());
+assert.equal(WS_PRUEBAS.length, 2);
+```
+
+Y el test que importa de verdad no es el que prueba que el de prueba pasa: es el que
+prueba que **los clientes reales siguen sin pasar**, con varios ids a la vez para que no
+alcance con excluir uno a mano.
+
+**Cómo se verifica en la pantalla, que es donde se ve el agujero:** entrar a un cliente
+REAL y contar los botones peligrosos. Si aparece uno, el guard del server puede estar bien
+y la UI ya está ofreciendo lo que no debe. Medido acá sobre ws 5: cero temas, cero «Datos
+de Mauricio», cero Reset.
+
+**Vive en:** lib/auth-session.ts · tests/reset-workspace.test.ts · app/api/datos-mau/route.ts ·
+app/_components/PanelAgencia.tsx · *2026-08-16 ~cliente-diseno*
+
 ### ⚠️ Un `transition` sobre una custom property no se ve, y por eso el cambio de tema salta
 
 **Síntoma:** se prende un tema candidato en `/admin/ui?tab=temas` y el cambio de color
