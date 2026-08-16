@@ -834,19 +834,33 @@ test('cada video se puede VER desde la pantalla que te pide nombrarlo', () => {
   // Solo si sabemos dónde está: un botón que no puede abrir nada es peor que
   // ninguno — promete y falla, y quien lo aprieta no sabe si el roto es el video.
   assert.ok(/\{d\.url \? \(/.test(ui), 'el botón no puede aparecer sin URL');
-  // ⚠️ Y LA AUSENCIA SE EXPLICA. Esconderlo es correcto; esconderlo EN SILENCIO
-  // deja a la persona buscando un botón que le dijimos que existía.
-  //
-  // ⚠️ PERO NO MANDA A ACTUALIZAR EL PIXEL, y ese texto estuvo mal desde el
-  // primer día: se contradecía de frente con el chequeo de arriba, que sobre la
-  // MISMA página decía «Pixel actualizado ✓». Los dos tenían razón y medían cosas
-  // distintas — el chequeo mira la versión INSTALADA, esto mira eventos VIEJOS,
-  // grabados antes de que el Pixel mandara la dirección del video. Reportado el
-  // 15/08/2026: «me dice que tengo la última versión pero al intentar reproducir
-  // el vídeo, me dice que tengo que actualizarlo». Mandar a hacer algo que ya
-  // está hecho es la peor clase de aviso: hace desconfiar del resto de la lista.
-  assert.ok(/se verá la próxima vez que alguien lo reproduzca/.test(ui), 'un botón que falta sin decir por qué se lee como una pantalla rota');
-  assert.ok(!/para verlo, actualiza el Pixel/.test(ui), 'no se puede mandar a actualizar un Pixel que el chequeo de arriba da por actualizado');
+  // ⚠️ VER VA ANTES QUE EDITAR, y en la MISMA fila. Estaba arriba, suelto al lado
+  // del conteo de eventos, mientras editar y borrar vivían abajo: tres acciones
+  // sobre la misma cosa en dos renglones y con dos tamaños.
+  assert.ok(ui.indexOf('title="Ver este video"') < ui.indexOf('title="Escribir otro nombre"'),
+    'el botón de ver tiene que ir antes que el de editar');
+  const css = leer('../app/globals.css');
+  assert.ok(/\.mk-fila-video \.mk-icon-btn \{ width: var\(--touch\); height: var\(--touch\); \}/.test(css),
+    'los botones de la fila tienen que medir lo mismo que el desplegable');
+  // ⚠️ Y VER UN VIDEO YA NO DEPENDE DE QUE ALGUIEN LO REPRODUZCA. Reportado por el
+  // dueño: «¿por qué es necesario que alguien lo reproduzca para poder verlo? Es
+  // contraintuitivo». Tenía razón y era peor de lo que parecía: la pantalla pide
+  // NOMBRAR cada video, y para poder contestarla había que conseguir primero que
+  // alguien lo mirara. Panda tiene la URL y el título desde que el video se subió.
+  const lib2 = leer('../lib/panda.ts');
+  assert.ok(/export async function catalogoPanda/.test(lib2), 'sin catálogo, la URL sigue dependiendo de un play');
+  assert.ok(/video_player/.test(lib2), 'el embed lo publica Panda: no se arma a mano');
+  // Nunca puede apagar la lista: sin Panda configurado devuelve un mapa vacío.
+  assert.ok(/catch \(e\) \{[\s\S]{0,200}?return map;/.test(lib2), 'un catálogo que no se pudo leer no puede romper la pantalla');
+  const lt = leer('../lib/landing-token.ts');
+  assert.ok(/const panda = await catalogoPanda\(\)\.catch/.test(lt), 'la lista de videos no consulta el catálogo');
+  // El título de Panda le gana al del iframe: el del iframe es de la PÁGINA, así
+  // que los dos videos de esta landing se llamaban igual.
+  assert.ok(/v\.titulo = p\.titulo;/.test(lt), 'el título de Panda tiene que ganarle al del iframe');
+  // Y el texto viejo no puede volver: prometía que el botón aparecía «la próxima
+  // vez que alguien lo reproduzca», que es justo lo que se vino a eliminar.
+  assert.ok(!/se verá la próxima vez que alguien lo reproduzca/.test(ui),
+    'ver un video no puede depender de que alguien lo reproduzca');
 });
 
 

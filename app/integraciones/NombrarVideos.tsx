@@ -24,7 +24,16 @@ const MONO = "'Geist Mono', monospace";
 /** Valor centinela de la última opción del desplegable. */
 const OTRO = '__otro__';
 
-export type VideoDetectado = { id: string; titulo: string | null; eventos: number; url: string | null };
+export type VideoDetectado = {
+  id: string;
+  /** El titulo REAL, de Panda. El del iframe es de la pagina, no del video. */
+  titulo: string | null;
+  eventos: number;
+  /** El video en si. */
+  url: string | null;
+  /** Donde vive, si no sabemos su URL directa. Plan B para poder mirarlo. */
+  pagina: string | null;
+};
 
 export function NombrarVideos({
   detectados, videos, onCambio,
@@ -43,7 +52,7 @@ export function NombrarVideos({
   // perder su nombre.
   const filas: VideoDetectado[] = [
     ...detectados,
-    ...videos.filter((v) => !detectados.some((d) => d.id === v.id)).map((v) => ({ id: v.id, titulo: null, eventos: 0, url: null })),
+    ...videos.filter((v) => !detectados.some((d) => d.id === v.id)).map((v) => ({ id: v.id, titulo: null, eventos: 0, url: null, pagina: null })),
   ];
   if (!filas.length) return null;
 
@@ -88,51 +97,34 @@ export function NombrarVideos({
           const r = rotuloDe(videos, d.id, d.titulo);
           const editando = escribiendo === d.id;
           return (
-            <div key={d.id} style={{ borderTop: '1px solid var(--border)', padding: '11px 0' }}>
+            <div key={d.id} className="mk-fila-video" style={{ borderTop: '1px solid var(--border)', padding: '11px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 7 }}>
                 <span style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  {/* El id crudo, en monoespaciada y cortado: es la única forma de
-                      distinguir dos videos que todavía no tienen nombre. */}
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.id}</span>
+                  {/* ⚠️ EL TÍTULO, NO EL ID. Un id como
+                      «1b9db76c-6bbb-4837-8274-96896c3d8b47» no le dice nada a
+                      nadie, y era lo único que se mostraba: para contestar «¿qué
+                      es este video?» había que adivinar. El título sale de Panda,
+                      que lo tiene desde que el video se subió. El id queda en el
+                      `title` del elemento, para cuando de verdad haga falta. */}
+                  <span title={d.id} style={d.titulo
+                    ? { fontSize: 13, color: 'var(--ink)', fontWeight: 550, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+                    : { fontFamily: MONO, fontSize: 11, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {d.titulo ?? d.id}
+                  </span>
                   {r.esVsl && <span style={{ flex: 'none', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', color: 'var(--mako-ink)', fontWeight: 700 }}>VSL</span>}
                 </span>
-                <span style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>
-                    {d.eventos > 0 ? `${d.eventos} ${d.eventos === 1 ? 'evento' : 'eventos'}` : 'sin actividad reciente'}
-                  </span>
-                  {/* ⚠️ VER EL VIDEO es lo que vuelve contestable la pregunta. Un id
-                      como «v:que-se-vive.mp4» alcanza para atribuir eventos y no
-                      para RECONOCERLO: con dos videos en la página había que
-                      adivinar cuál se estaba nombrando. Solo aparece si sabemos
-                      dónde está — un botón que no puede abrir nada es peor que
-                      ninguno. */}
-                  {d.url ? (
-                    <a href={d.url} target="_blank" rel="noopener noreferrer" title="Ver este video"
-                      style={{ flex: 'none', width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)' }}>
-                      <Icon name="video" size={14} />
-                    </a>
-                  ) : (
-                    // ⚠️ LA AUSENCIA SE EXPLICA. Esconder el botón cuando no sabemos
-                    // dónde está el video es correcto —uno que no puede abrir nada
-                    // promete y falla— pero esconderlo EN SILENCIO deja a la persona
-                    // buscando un botón que le dijimos que existía. Y la razón es
-                    // accionable: la URL viaja desde la v8, así que un video con
-                    // eventos y sin URL es uno cuyo código todavía es anterior.
-                    <span title="La dirección del video llega con la versión nueva del Pixel" style={{ flex: 'none', fontSize: 11, color: 'var(--faint)', fontStyle: 'italic' }}>
-                      {/* ⚠️ NO dice «actualiza el Pixel»: se contradecía con el
-                          chequeo de arriba, que decía «Pixel actualizado ✓». Los
-                          dos tenían razón — el chequeo mira la VERSIÓN instalada
-                          y esto mira EVENTOS VIEJOS, de antes de que el Pixel
-                          mandara la dirección del video. Mandar a actualizar algo
-                          que ya está al día es la peor clase de aviso: hace
-                          desconfiar del resto. */}
-                      {d.eventos > 0 ? 'se verá la próxima vez que alguien lo reproduzca' : ''}
-                    </span>
-                  )}
+                <span style={{ flex: 'none', fontSize: 11.5, color: 'var(--faint)' }}>
+                  {d.eventos > 0 ? `${d.eventos} ${d.eventos === 1 ? 'evento' : 'eventos'}` : 'sin actividad reciente'}
                 </span>
               </div>
 
+              {/* ⚠️ TODO EN UNA FILA Y DEL MISMO ALTO. «Ver el video» vivía arriba,
+                  suelto al lado del conteo de eventos, y los de editar y borrar
+                  abajo: tres acciones sobre la misma cosa repartidas en dos
+                  renglones y con dos tamaños distintos. El alto lo iguala
+                  `.mk-fila-video .mk-icon-btn` en globals.css — no va inline,
+                  porque un inline le gana al CSS y deja la barra sin poder
+                  repintarse. */}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {editando ? (
@@ -148,13 +140,13 @@ export function NombrarVideos({
                     // además este se renderiza en portal, así que el scroll del
                     // modal no lo recorta.
                     <Select
-                      ariaLabel={`Qué es el video ${d.id}`}
+                      ariaLabel={`Qué es el video ${d.titulo ?? d.id}`}
                       value={guardado?.nombre ?? ''}
                       onChange={(v) => {
                         if (v === OTRO) { setEscribiendo(d.id); setTexto(guardado?.nombre ?? ''); return; }
                         void guardar(d.id, v);
                       }}
-                      placeholder={r.propio ? r.texto : `Sin identificar${d.titulo ? ` — el reproductor dice «${d.titulo}»` : ''}`}
+                      placeholder={r.propio ? r.texto : 'Sin identificar'}
                       options={[
                         ...TIPOS_VIDEO.map((t) => ({ value: t, label: t, ...(esTipoVsl(t) ? { sub: 'tu video de ventas: solo puede haber uno' } : {}) })),
                         ...propios.map((n) => ({ value: n, label: n, sub: 'ya lo usaste antes' })),
@@ -163,6 +155,36 @@ export function NombrarVideos({
                     />
                   )}
                 </div>
+
+                {/* VER va PRIMERO: es lo que permite contestar la pregunta que la
+                    fila hace. Editar y borrar actúan sobre la respuesta, así que
+                    van después.
+
+                    ⚠️ Ya no depende de que alguien haya reproducido el video. La
+                    URL sale del catálogo de Panda, que la tiene desde que el video
+                    se subió. Si el video no está en Panda —un <video> nativo— el
+                    plan B es abrir la PÁGINA donde se vio: no es lo mismo, pero
+                    también contesta «¿cuál de todos es este?». */}
+                {d.url ? (
+                  <a className="mk-icon-btn" data-tone="dim" href={d.url} target="_blank" rel="noopener noreferrer" title="Ver este video">
+                    <Icon name="video" size={15} />
+                  </a>
+                ) : d.pagina ? (
+                  <a className="mk-icon-btn" data-tone="dim" href={d.pagina} target="_blank" rel="noopener noreferrer" title="Abrir la página donde está este video">
+                    <Icon name="video" size={15} />
+                  </a>
+                ) : (
+                  // ⚠️ Y CUANDO NO HAY NINGUNO DE LOS DOS, se dice por qué. Es un
+                  // video que no está en Panda —un <video> puesto a mano en la
+                  // página— del que solo tenemos eventos viejos, anteriores a la
+                  // versión del Pixel que manda la dirección de la página. En
+                  // cuanto entre una visita nueva aparece el botón solo.
+                  <span title="Este video no está en Panda y sus eventos son anteriores a la versión actual del Pixel"
+                    style={{ flex: 'none', width: 'var(--touch)', height: 'var(--touch)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: 'var(--border-strong)' }}>
+                    –
+                  </span>
+                )}
+
                 {editando ? (
                   <IconBtn name="check" title="Guardar el nombre" tone="good" disabled={!texto.trim() || ocupado === d.id} onClick={() => void guardar(d.id, texto)} />
                 ) : guardado ? (

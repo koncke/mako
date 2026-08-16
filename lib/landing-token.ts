@@ -32,6 +32,7 @@ import { APP_BASE_URL } from './app-url';
 import { VIDEOS_KEY, parsearVideos, type VideoLanding } from './landing-videos';
 import { esPreviewDeEditor, normalizarUrl } from './landing-paginas';
 import { clarityProjectId } from './clarity';
+import { catalogoPanda } from './panda';
 import { bloqueClarity } from './clarity';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
@@ -276,7 +277,7 @@ export async function getVideosLanding(): Promise<VideoLanding[]> {
  * nombrar, porque el nombre no tendría a qué pegarse— pero sus eventos siguen
  * contándose en el CRM bajo «Video sin identificar».
  */
-export async function videosDetectados(dias = 90): Promise<Array<{ id: string; titulo: string | null; eventos: number; url: string | null }>> {
+export async function videosDetectados(dias = 90): Promise<Array<{ id: string; titulo: string | null; eventos: number; url: string | null; pagina: string | null }>> {
   const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
   try {
     const db = await getTenantDb();
@@ -291,16 +292,20 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
     // nueva del Pixel» sobre una página que ya tenía la versión nueva.
     const { data } = await db
       .from('vsl_events')
-      .select('video_id, vsl_titulo, detalle')
+      .select('video_id, vsl_titulo, detalle, landing_url')
       .not('video_id', 'is', null)
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
       .limit(1000);
-    const out = new Map<string, { id: string; titulo: string | null; eventos: number; url: string | null }>();
-    for (const r of (data ?? []) as Array<{ video_id: string | null; vsl_titulo: string | null; detalle: string | null }>) {
+    const out = new Map<string, { id: string; titulo: string | null; eventos: number; url: string | null; pagina: string | null }>();
+    for (const r of (data ?? []) as Array<{ video_id: string | null; vsl_titulo: string | null; detalle: string | null; landing_url: string | null }>) {
       const id = r.video_id?.trim();
       if (!id) continue;
-      const e = out.get(id) ?? { id, titulo: null, eventos: 0, url: null };
+      const e = out.get(id) ?? { id, titulo: null, eventos: 0, url: null, pagina: null };
+      // En QUÉ página se vio. Es el plan B para verlo: un <video> nativo no está
+      // en ningún catálogo, así que si no sabemos su URL igual sabemos dónde
+      // abrirlo. Llega desde la v12.
+      if (!e.pagina && r.landing_url?.trim().startsWith('http')) e.pagina = r.landing_url.trim();
       // La URL viene solo en el 'play'. Se queda la primera que llegue, igual que
       // el título: pisarla con el null de los demás eventos la perdería.
       if (!e.url && r.detalle?.trim().startsWith('http')) e.url = r.detalle.trim();
@@ -310,6 +315,24 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
       if (!e.titulo && r.vsl_titulo?.trim()) e.titulo = r.vsl_titulo.trim();
       out.set(id, e);
     }
+    // ⚠️ LO QUE PANDA YA SABE NO SE ESPERA A QUE ALGUIEN LO REPRODUZCA. La URL y
+    // el título del video viajaban SOLO en el evento `play`, así que para poder
+    // nombrar un video había que conseguir primero que alguien lo mirara — la
+    // pantalla al revés. Panda tiene las dos cosas desde que el video se subió.
+    //
+    // Y el título de Panda le GANA al del iframe: el `title` del iframe es de la
+    // PÁGINA, no del video, así que en esta landing los dos videos se llamaban
+    // igual («VSL Principal - Negocio que Escala») y el rótulo no distinguía nada.
+    // Nunca rompe: sin Panda configurado devuelve un mapa vacío y todo queda como
+    // antes.
+    const panda = await catalogoPanda().catch(() => new Map<string, { titulo: string; player: string }>());
+    for (const v of out.values()) {
+      const p = panda.get(v.id);
+      if (!p) continue;
+      v.url = p.player;
+      v.titulo = p.titulo;
+    }
+
     // ⚠️ EL CONTEO EXACTO SE PREGUNTA, no se cuenta sobre lo que vino. Contar las
     // filas de la consulta daba «1000 eventos» —el tope del servidor— sobre un
     // video con 6446, y un número redondo al lado de un video se lee como un dato

@@ -217,3 +217,73 @@ export async function fetchPandaRangeStats(
     .map(([fecha, v]) => ({ fecha, plays: v.plays, unique_viewers: v.unique }))
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Catálogo: qué ES cada video (título de verdad y dónde verlo)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type VideoPanda = {
+  /** El título que el negocio le puso en Panda. */
+  titulo: string;
+  /** El embed, tal cual lo publica Panda. NO se arma a mano. */
+  player: string;
+  /** Fotograma de portada. Sirve para reconocerlo sin abrirlo. */
+  thumbnail: string | null;
+};
+
+const _catalogoCache = new Map<number, { map: Map<string, VideoPanda>; ts: number }>();
+
+/**
+ * Todo lo que Panda sabe de los videos de este workspace, por `video_external_id`
+ * — que es el id que viaja en cada evento del Pixel y el que va en la URL del
+ * player (`?v=…`).
+ *
+ * ⚠️ EXISTE PARA QUE VER UN VIDEO NO DEPENDA DE QUE ALGUIEN LO REPRODUZCA. Antes,
+ * la única forma de saber dónde estaba un video era esperar a que llegara un
+ * `play`, porque su URL viajaba en ese evento y en ningún otro lado. Eso ponía la
+ * pantalla al revés: para poder NOMBRAR un video —que es lo que se pide ahí—
+ * había que primero conseguir que alguien lo mirara. Panda ya tiene el dato desde
+ * el día que se subió el video.
+ *
+ * Y de paso trae el TÍTULO, que es la otra mitad. Lo que se mostraba salía del
+ * atributo `title` del iframe, que en esta landing es el MISMO para los dos
+ * videos («VSL Principal - Negocio que Escala»): un rótulo que no distingue no
+ * sirve para elegir. Panda dice «Video VSL 2026.mp4» y «Mentoría 1a1 con Martín
+ * Koncke», que sí.
+ *
+ * Nunca lanza: sin Panda configurado —o si su API se cae— devuelve un mapa vacío
+ * y la pantalla cae al comportamiento de antes. Un catálogo que no se pudo leer
+ * no puede apagar la lista de videos.
+ */
+export async function catalogoPanda(): Promise<Map<string, VideoPanda>> {
+  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const cached = _catalogoCache.get(ws);
+  // El mismo TTL que el resto del módulo: la pantalla del probador consulta cada
+  // 3 segundos, y sin caché serían 20 llamadas por minuto a Panda por persona.
+  if (cached && Date.now() - cached.ts < VIDEO_CACHE_TTL_MS) return cached.map;
+  const map = new Map<string, VideoPanda>();
+  try {
+    let url: string | null = `${API_V2}/videos?limit=100`;
+    let pages = 0;
+    while (url && pages++ < 20) {
+      const page: {
+        videos?: Array<{ video_external_id?: string; title?: string; video_player?: string; thumbnail?: string }>;
+        pagination?: { next?: string };
+      } = await pandaGet(url);
+      for (const v of page.videos ?? []) {
+        if (!v.video_external_id || !v.video_player) continue;
+        map.set(v.video_external_id, {
+          titulo: (v.title ?? '').trim() || v.video_external_id,
+          player: v.video_player,
+          thumbnail: v.thumbnail ?? null,
+        });
+      }
+      url = page.pagination?.next ?? null;
+    }
+  } catch (e) {
+    console.warn('[catalogoPanda] no se pudo leer:', e instanceof Error ? e.message : e);
+    return map;
+  }
+  _catalogoCache.set(ws, { map, ts: Date.now() });
+  return map;
+}
