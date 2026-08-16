@@ -1144,12 +1144,81 @@ confuso» (2026-08-06). En la misma línea: antes de construir de cero, buscar u
 source que ya lo tenga y copiarle diseño y features («podemos COPIAR codigo de proyectos open
 source como este: https://github.com/TryGhost/Ghost», 2026-08-06).
 
+### ⚠️ Dar de alta a alguien creaba su cuenta y NO le avisaba: la app no mandaba un solo mail de acceso
+
+**Síntoma:** un cliente nuevo (o el closer que suma el cliente desde `/equipo`) nunca se entera de
+que tiene cuenta. No hay error, no hay log, no hay pantalla rota: la persona simplemente no existe
+para sí misma hasta que alguien se acuerda de escribirle por WhatsApp.
+
+**Causa real:** los TRES puntos que crean personas —`app/api/admin/workspaces/route.ts` (cliente
+nuevo), `app/api/admin/usuarios/route.ts` (usuario suelto) y `app/api/equipo/route.ts`— llamaban a
+`crearUsuario()` y ahí terminaban. La fila en `usuarios` **es** la invitación (el callback de Google
+la busca por email y la pasa de `invitado` a `activo` sola), así que el sistema funcionaba
+exactamente como estaba escrito. Lo que faltaba era el mensaje.
+
+**Y la pantalla afirmaba que sí se había avisado.** `/admin` decía, en verde: *«Cliente creado.
+Cuando su admin entre con Google usando ese email, la cuenta se activa sola»*. Cada palabra es
+cierta y el mensaje entero es falso — da por hecho que el cliente va a entrar por su cuenta a una
+URL que nadie le pasó. Es la forma de mentira más cara que hay y ya está tipificada en AGENTS.md:
+**afirmar la mitad verdadera de un proceso de dos pasos**. Peor en `/equipo`, donde la acción del
+API se llama literalmente `'invitar'` y el botón dice «Invitar»: el nombre prometía lo que el
+código no hacía, así que el cliente no tenía *cómo* saber que faltaba avisarle.
+
+**El indicador tampoco lo distinguía.** El chip decía «invitado — nunca entró», que es verdad y no
+sirve para actuar: no separa «le llegó el mail y no entró» de «nunca supo que existía la cuenta», y
+son dos problemas con dos arreglos distintos (a uno se le reenvía, al otro se lo llama). Por eso el
+fix trae columna propia (`invitacion_enviada_at`, mig 0138) y no se deduce del estado.
+
+**Vive en:** lib/invitaciones.ts (el envío) · lib/invitacion-aviso.ts (el texto en pantalla, **sin
+`server-only`** para que lo importen las pantallas y los tests) · los 3 call-sites de arriba ·
+tests/invitaciones.test.ts
+
+### ⚠️ `OWNER_WS` para un mail de la PLATAFORMA: el remitente salía de la config de un cliente
+
+La trampa más cara de esta corrida, y **no daba ningún síntoma porque funciona de casualidad**.
+
+Un mail que manda MaKo (no un cliente) necesita contexto de workspace para resolver la key y el
+remitente, y el reflejo es `runWithWorkspace(OWNER_WS, …)`. Pero **`OWNER_WS` vale 1 y el 1 es
+Mauricio, un CLIENTE** — `lib/workspace.ts:288` ya lo advierte, y el nombre igual engaña. Medido
+contra la base: el único `resend_from` configurado en TODO el sistema es el de ws1, y hoy dice
+`MaKo <equipo@hola-mako.com>`. O sea que salía bien por coincidencia.
+
+Lo que se rompe después, sin avisar:
+
+- El día que ese cliente cambie su remitente a su propio negocio, **todos los clientes nuevos de
+  MaKo reciben su acceso firmado por otro cliente**. Sale un mail válido, con un remitente válido.
+- Si carga su propia `RESEND_API_KEY` (`resendKey()` prefiere la credencial del ws sobre el env),
+  los mails de la plataforma salen por **su** cuenta de Resend.
+
+**La regla:** la identidad de la plataforma vive en el código, no en un `app_settings` de un
+inquilino — es «una cosa, un lugar» aplicada a quién firma. En concreto: constante
+`REMITENTE_MAKO` (overridable por `MAKO_EMAIL_FROM`), `from` **explícito** en `sendEmail` (sin él
+resuelve el del workspace en curso), el preflight de sandbox mirando **esa** constante y no
+`remitenteEsSandbox()` —que contesta por el workspace actual, o sea por otra cosa—, y el envío
+corriendo en `wsSuperAdmin()`, que no tiene credencial propia y por eso cae en la key del env.
+
+**El olfato que sirve para la próxima:** cuando algo de la plataforma pida un workspace, preguntá
+*de quién es ese workspace*, no si el código compila. Y si el sistema tiene UN solo valor
+configurado, no se puede saber si lo estás leyendo del lugar correcto — probalo mentalmente con dos.
+
+**Vive en:** lib/invitaciones.ts (`REMITENTE_MAKO`) · lib/resend.ts:34-48 (`resendKey` /
+`getEmailFrom`) · lib/workspace.ts:285-295 (`wsSuperAdmin`, resuelto por capa y no por número)
+
 ### Lo que sigue sin hacer
 
+- **El mail de acceso nunca se entregó de verdad.** Se verificó el camino entero interceptando la
+  llamada a `api.resend.com` (remitente, cuerpo y los dos roles), pero **falta un envío real** a una
+  casilla. Es lo único que prueba DNS y reputación del dominio.
+- **`MAKO_EMAIL_FROM` no está en Vercel.** Hoy no hace falta —la constante trae el default correcto
+  en código— pero mientras no exista, cambiar el remitente de la plataforma es un deploy.
+- **Nada reencola un mail que falló.** Si Resend rechaza, queda el botón «Reenviar acceso» y una
+  persona que se acuerde. No hay cola ni reintento.
 - **Bandeja tipo Gmail dentro de MaKo:** recibir todos los mails ahí, escribir, y elegir con qué
   email se envía — en lugar de crear una casilla nueva (2026-08-06).
 - **Definir a qué email van las notificaciones.** No quiere que lleguen a su correo personal y
   preguntó si abrir uno nuevo. **Quedó sin respuesta** (2026-08-06).
+
+*Alta → mail de acceso, 16/08/2026. Typecheck 0 errores, 1004/1004 tests, mig 0138 aplicada.*
 
 ---
 

@@ -19,6 +19,7 @@ import { SERVICIOS_METODO } from '@/lib/metodo-catalogo';
 import { getAnswers, getSchema } from '@/lib/onboarding';
 import { listarWorkspaces, OWNER_WS } from '@/lib/workspace';
 import type { Rol, RolWorkspace } from '@/lib/auth-session';
+import { invitarPorEmail } from '@/lib/invitaciones';
 
 const ROLES_WS: RolWorkspace[] = ['admin', 'closer', 'setter'];
 
@@ -129,7 +130,10 @@ export async function POST(req: NextRequest) {
           ? null
           : (body.rol_ws && ROLES_WS.includes(body.rol_ws) ? body.rol_ws : 'admin');
         const nuevo = await crearUsuario({ email, nombre: body.nombre, rol, invitado_por: invitadoPor, workspace_id: rol === 'admin' ? null : wsId, rol_ws: rolWs });
-        return NextResponse.json({ ok: true, usuario: nuevo });
+        // Mismo criterio que el alta de un cliente: crear la fila sin avisarle a nadie
+        // deja a una persona con cuenta y sin forma de enterarse de que la tiene.
+        const invitacion = await invitarPorEmail({ email, nombre: body.nombre, rolWs, invitadoPor });
+        return NextResponse.json({ ok: true, usuario: nuevo, invitacion });
       }
 
       case 'workspace': {
@@ -163,6 +167,21 @@ export async function POST(req: NextRequest) {
       case 'nombre': {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { nombre: (body.nombre ?? '').trim() }) });
+      }
+
+      // Volver a mandarle el acceso. Hace falta aunque el envío sea automático: el mail
+      // se pierde, cae en spam, o el alta se hizo el día que el remitente no estaba
+      // configurado. Sin este botón la única salida es borrar la cuenta y recrearla.
+      case 'reinvitar': {
+        if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
+        const ws = objetivo.workspace_id != null
+          ? (await listarWorkspaces()).find((w) => w.id === objetivo.workspace_id)?.nombre
+          : undefined;
+        const invitacion = await invitarPorEmail({
+          email: objetivo.email, nombre: objetivo.nombre, workspace: ws,
+          rolWs: objetivo.rol_ws, invitadoPor: objetivo.invitado_por,
+        });
+        return NextResponse.json({ ok: true, invitacion });
       }
 
       case 'rol': {

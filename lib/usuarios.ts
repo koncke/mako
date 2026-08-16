@@ -27,6 +27,14 @@ export type Usuario = {
   /** rol dentro del negocio del cliente ('admin'|'closer'|'setter'); null = admin de agencia. */
   rol_ws: RolWorkspace | null;
   /**
+   * Cuándo se le mandó el mail de acceso. NULL = nunca se le avisó que tenía cuenta.
+   *
+   * No es lo mismo que `estado: 'invitado'`, que solo dice «nunca entró»: sin esto no se
+   * distingue «le llegó y no entró» de «nunca supo que existía», que son dos problemas
+   * con dos arreglos distintos. Ver lib/invitaciones.ts (mig 0138).
+   */
+  invitacion_enviada_at: string | null;
+  /**
    * Todo lo demás de la persona (teléfono, cargo, bio, sus preferencias de
    * notificaciones dentro de la app…). Ver lib/perfil.ts.
    *
@@ -37,7 +45,7 @@ export type Usuario = {
   perfil?: Record<string, unknown> | null;
 };
 
-const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id, rol_ws, perfil';
+const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id, rol_ws, perfil, invitacion_enviada_at';
 
 export async function listarUsuarios(): Promise<Usuario[]> {
   const { data, error } = await getSupabaseServer()

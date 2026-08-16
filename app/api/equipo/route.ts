@@ -17,6 +17,7 @@ import {
   listarUsuarios, type EstadoUsuario, type Usuario,
 } from '@/lib/usuarios';
 import type { RolWorkspace } from '@/lib/auth-session';
+import { invitarPorEmail } from '@/lib/invitaciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,7 +77,11 @@ export async function POST(req: NextRequest) {
         }
         const quien = (await getUsuarioActual())?.email || 'admin-cliente';
         const nuevo = await crearUsuario({ email, nombre: body.nombre, rol: 'usuario', rol_ws: rolWs, workspace_id: ws, invitado_por: quien });
-        return NextResponse.json({ ok: true, usuario: nuevo });
+        // ⚠️ ESTA ACCIÓN SE LLAMA 'invitar' Y NO INVITABA A NADIE: creaba la fila y ahí
+        // terminaba. El cliente sumaba a su closer, el closer nunca se enteraba, y el
+        // cliente no tenía cómo saber que faltaba avisarle — el botón decía «Invitar».
+        const invitacion = await invitarPorEmail({ email, nombre: body.nombre, rolWs, invitadoPor: quien });
+        return NextResponse.json({ ok: true, usuario: nuevo, invitacion });
       }
 
       case 'rolws': {
@@ -87,6 +92,18 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: 'Sos el único admin del cliente — nombrá otro admin antes.' }, { status: 400 });
         }
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { rol_ws: rolWs }) });
+      }
+
+      // Reenviar el acceso. `objetivo` sale de `equipoDe(ws)`, así que un cliente solo
+      // puede reenviarle a SU propia gente: el scope es el mismo que el del resto de la
+      // ruta y no hace falta un guard aparte.
+      case 'reinvitar': {
+        if (!objetivo) return NextResponse.json({ ok: false, error: 'Falta el miembro.' }, { status: 400 });
+        const invitacion = await invitarPorEmail({
+          email: objetivo.email, nombre: objetivo.nombre,
+          rolWs: objetivo.rol_ws, invitadoPor: (await getUsuarioActual())?.email || objetivo.invitado_por,
+        });
+        return NextResponse.json({ ok: true, invitacion });
       }
 
       case 'estado': {

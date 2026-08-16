@@ -6,10 +6,26 @@
 // Consume /api/equipo (scopeado al workspace del request). El alta invita por
 // email: cuando la persona entra con Google usando ese email, su cuenta se
 // activa sola con el rol asignado.
+//
+// ⚠️ EL BOTÓN DECÍA «INVITAR» Y NO INVITABA A NADIE. Creaba la fila y ahí terminaba; el
+// closer nunca se enteraba de que tenía cuenta, y el cliente no tenía cómo saber que
+// faltaba avisarle — el botón ya le había dicho que la invitación estaba hecha. Ahora
+// el mail sale solo (lib/invitaciones.ts) y la pantalla dice si salió o no.
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
+import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
+
+type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null };
+
+function Aviso({ aviso }: { aviso: AvisoInvitacion }) {
+  return (
+    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 12, lineHeight: 1.5, color: aviso.tono === 'ok' ? 'var(--good)' : 'var(--warn)' }}>
+      {aviso.texto}
+    </div>
+  );
+}
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -17,6 +33,8 @@ const SANS = "'Geist', sans-serif";
 type Miembro = {
   id: number; email: string; nombre: string; foto_url: string | null;
   estado: 'invitado' | 'activo' | 'suspendido'; rol_ws: 'admin' | 'closer' | 'setter' | null; ultimo_login: string | null;
+  /** null = nunca se le mandó el acceso. No es lo mismo que «no entró». */
+  invitacion_enviada_at: string | null;
 };
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 };
@@ -42,9 +60,11 @@ const inicialesTxt = (base: string) => {
   return (p.length >= 2 ? `${p[0][0]}${p[1][0]}` : (base || '?').slice(0, 1)).toUpperCase();
 };
 
-function ChipEstado({ estado }: { estado: Miembro['estado'] }) {
-  if (estado === 'activo') return <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>;
-  if (estado === 'suspendido') return <span style={chip('var(--bad-bg)', 'var(--bad)')}>suspendido</span>;
+function ChipEstado({ u }: { u: Miembro }) {
+  if (u.estado === 'activo') return <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>;
+  if (u.estado === 'suspendido') return <span style={chip('var(--bad-bg)', 'var(--bad)')}>suspendido</span>;
+  // «Invitado» a secas afirmaba algo que no había pasado. Si no se le avisó, lo dice.
+  if (!u.invitacion_enviada_at) return <span style={chip('var(--bad-bg)', 'var(--bad)')}>sin avisar</span>;
   return <span style={chip('var(--warn-bg)', 'var(--warn)')}>invitado</span>;
 }
 
@@ -57,11 +77,12 @@ export function EquipoView() {
   const [rol, setRol] = useState('setter');
   const [creando, setCreando] = useState(false);
   const [errCrear, setErrCrear] = useState<string | null>(null);
-  const [hintCrear, setHintCrear] = useState<string | null>(null);
+  const [hintCrear, setHintCrear] = useState<AvisoInvitacion | null>(null);
 
   const [errAccion, setErrAccion] = useState<string | null>(null);
   const [accionando, setAccionando] = useState(false);
   const [aEliminar, setAEliminar] = useState<Miembro | null>(null);
+  const [avisoReenvio, setAvisoReenvio] = useState<{ id: number; aviso: AvisoInvitacion } | null>(null);
 
   const cargar = async () => {
     setErrCarga(null);
@@ -73,7 +94,7 @@ export function EquipoView() {
   };
   useEffect(() => { cargar(); }, []);
 
-  const post = async (body: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
+  const post = async (body: Record<string, unknown>): Promise<Respuesta> => {
     try { return await (await fetch('/api/equipo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); }
     catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
   };
@@ -82,12 +103,24 @@ export function EquipoView() {
     if (creando) return;
     setErrCrear(null); setHintCrear(null); setCreando(true);
     try {
-      const j = await post({ action: 'invitar', email: email.trim(), nombre: nombre.trim(), rol_ws: rol });
+      const destino = email.trim();
+      const j = await post({ action: 'invitar', email: destino, nombre: nombre.trim(), rol_ws: rol });
       if (!j.ok) { setErrCrear(j.error ?? 'No se pudo invitar.'); return; }
       setNombre(''); setEmail(''); setRol('setter');
-      setHintCrear('Invitado. Cuando entre con Google usando ese email, su cuenta se activa sola.');
+      setHintCrear(avisoInvitacion(j.invitacion, destino));
       await cargar();
     } finally { setCreando(false); }
+  };
+
+  const reenviar = async (u: Miembro) => {
+    if (accionando) return;
+    setAvisoReenvio(null); setErrAccion(null); setAccionando(true);
+    try {
+      const j = await post({ action: 'reinvitar', id: u.id });
+      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo reenviar el acceso.'); return; }
+      setAvisoReenvio({ id: u.id, aviso: avisoInvitacion(j.invitacion, u.email) });
+      await cargar();
+    } finally { setAccionando(false); }
   };
 
   const accion = async (body: Record<string, unknown>) => {
@@ -115,7 +148,7 @@ export function EquipoView() {
           <button style={{ ...btnDark, opacity: creando || !email.trim() ? 0.5 : 1 }} disabled={creando || !email.trim()} onClick={invitar}>{creando ? 'Invitando…' : 'Invitar'}</button>
         </div>
         {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
-        {hintCrear && <div style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600, marginTop: 12 }}>{hintCrear}</div>}
+        {hintCrear && <Aviso aviso={hintCrear} />}
       </div>
 
       {errAccion && <div style={bannerError}>{errAccion}</div>}
@@ -127,7 +160,8 @@ export function EquipoView() {
       ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {equipo.map((u, i) => (
-            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+            <div key={u.id} style={{ padding: '0 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
               <div style={{ width: 36, height: 36, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: '#171511', overflow: 'hidden' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {u.foto_url ? <img src={u.foto_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : inicialesTxt(u.nombre || u.email)}
@@ -136,7 +170,7 @@ export function EquipoView() {
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
               </div>
-              <ChipEstado estado={u.estado} />
+              <ChipEstado u={u} />
               <div style={{ flex: 'none', width: 140 }} title="Rol en el negocio">
                 <Dropdown
                   value={u.rol_ws ?? 'admin'} options={ROL_OPTS}
@@ -151,14 +185,18 @@ export function EquipoView() {
                 ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
                 buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
                 options={[
+                  { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
                   { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
                   { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
                 ]}
                 onChange={(v) => {
-                  if (v === 'estado') accion({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
+                  if (v === 'reinvitar') reenviar(u);
+                  else if (v === 'estado') accion({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
                   else if (v === 'eliminar') setAEliminar(u);
                 }}
               />
+            </div>
+            {avisoReenvio?.id === u.id && <div style={{ paddingBottom: 12 }}><Aviso aviso={avisoReenvio.aviso} /></div>}
             </div>
           ))}
         </div>

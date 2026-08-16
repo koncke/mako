@@ -14,6 +14,7 @@ import { estadoInicial, setEstadoOnboarding } from '@/lib/onboarding-state';
 import { hoyEnTijuana } from '@/lib/date-utils';
             // Un cliente nuevo ya NO arranca con secuencias sembradas.
 import { CAPA_DEFAULT, capaDef, esCapaValida } from '@/lib/capas';
+import { invitarPorEmail, type ResultadoInvitacion } from '@/lib/invitaciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,16 +78,29 @@ export async function POST(req: NextRequest) {
         }
         // Crear el usuario admin-del-cliente en el mismo paso. Si falla, revertir
         // el workspace para no dejar basura.
+        let invitacion: ResultadoInvitacion | null = null;
         if (adminEmail) {
+          const invitadoPor = admin.legacy ? 'admin' : (admin.email || 'admin');
           try {
-            const invitadoPor = admin.legacy ? 'admin' : (admin.email || 'admin');
             await crearUsuario({ email: adminEmail, nombre: body.adminNombre, rol: 'usuario', rol_ws: 'admin', workspace_id: ws.id, invitado_por: invitadoPor });
           } catch (e) {
             await getSupabaseServer().from('workspaces').delete().eq('id', ws.id);
             return NextResponse.json({ ok: false, error: `No se pudo crear el admin del cliente: ${e instanceof Error ? e.message : e}` }, { status: 500 });
           }
+          // ⚠️ EL MAIL VA DESPUÉS DEL ALTA Y NO LA PUEDE DESHACER. Si Resend falla, el
+          // cliente YA existe y su fila YA lo autoriza a entrar: revertir un alta buena
+          // por un mail que no salió es peor que el mail que no salió. Lo que sí tiene
+          // que pasar es que quien lo dio de alta se entere EN LA PANTALLA y pueda pasar
+          // el link a mano — un aviso que solo va a los logs no frena nada.
+          invitacion = await invitarPorEmail({
+            email: adminEmail,
+            nombre: body.adminNombre,
+            workspace: ws.nombre,
+            rolWs: 'admin',
+            invitadoPor,
+          });
         }
-        return NextResponse.json({ ok: true, workspace: ws });
+        return NextResponse.json({ ok: true, workspace: ws, invitacion });
       }
       case 'nombre': {
         if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });

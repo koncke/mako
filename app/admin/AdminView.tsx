@@ -20,6 +20,19 @@ import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { Dropdown } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, capaDef, type CapaId } from '@/lib/capas';
 import type { Usuario } from '@/lib/usuarios';
+import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
+
+/** Lo que contestan /api/admin/workspaces y /api/admin/usuarios. */
+type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null };
+
+/** El aviso de un alta o un reenvío. Verde si terminó, ámbar si falta un paso a mano. */
+function Aviso({ aviso }: { aviso: AvisoInvitacion }) {
+  return (
+    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 12, lineHeight: 1.5, color: aviso.tono === 'ok' ? 'var(--good)' : 'var(--warn)' }}>
+      {aviso.texto}
+    </div>
+  );
+}
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -62,9 +75,14 @@ function Cuadro({ texto, foto, size = 36 }: { texto: string; foto?: string | nul
   );
 }
 
-function ChipEstadoUsuario({ estado }: { estado: Usuario['estado'] }) {
-  if (estado === 'activo') return <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>;
-  if (estado === 'suspendido') return <span style={chip('var(--bad-bg)', 'var(--bad)')}>suspendido</span>;
+function ChipEstadoUsuario({ u }: { u: Usuario }) {
+  if (u.estado === 'activo') return <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>;
+  if (u.estado === 'suspendido') return <span style={chip('var(--bad-bg)', 'var(--bad)')}>suspendido</span>;
+  // ⚠️ SON DOS ESTADOS, NO UNO. «Nunca entró» a secas se lee como «no le interesó», y
+  // durante meses la mitad de las veces significaba lo contrario: nunca se le avisó que
+  // la cuenta existía. Cada uno se arregla distinto —a uno se le reenvía, al otro se lo
+  // llama— así que se dicen distinto.
+  if (!u.invitacion_enviada_at) return <span style={chip('var(--bad-bg)', 'var(--bad)')}>nunca se le avisó</span>;
   return <span style={chip('var(--warn-bg)', 'var(--warn)')}>invitado — nunca entró</span>;
 }
 
@@ -178,7 +196,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
   const [adminNombre, setAdminNombre] = useState('');
   const [creando, setCreando] = useState(false);
   const [errCrear, setErrCrear] = useState<string | null>(null);
-  const [hintCrear, setHintCrear] = useState<string | null>(null);
+  const [hintCrear, setHintCrear] = useState<AvisoInvitacion | null>(null);
 
   const [errAccion, setErrAccion] = useState<string | null>(null);
   const [accionando, setAccionando] = useState(false);
@@ -186,14 +204,27 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
   const [renombrando, setRenombrando] = useState<Workspace | null>(null);
   const [nombreEdit, setNombreEdit] = useState('');
   const [aEliminar, setAEliminar] = useState<Usuario | null>(null);
+  /** El resultado del último reenvío, pegado a la fila de esa persona. */
+  const [avisoReenvio, setAvisoReenvio] = useState<{ id: number; aviso: AvisoInvitacion } | null>(null);
 
-  const postWs = async (body: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
+  const postWs = async (body: Record<string, unknown>): Promise<Respuesta> => {
     try { return await (await fetch('/api/admin/workspaces', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); }
     catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
   };
-  const postUser = async (body: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
+  const postUser = async (body: Record<string, unknown>): Promise<Respuesta> => {
     try { return await (await fetch('/api/admin/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); }
     catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+  };
+
+  const reenviar = async (u: Usuario) => {
+    if (accionando) return;
+    setAvisoReenvio(null); setErrAccion(null); setAccionando(true);
+    try {
+      const j = await postUser({ action: 'reinvitar', id: u.id });
+      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo reenviar el acceso.'); return; }
+      setAvisoReenvio({ id: u.id, aviso: avisoInvitacion(j.invitacion, u.email) });
+      await recargar();
+    } finally { setAccionando(false); }
   };
 
   const crear = async () => {
@@ -202,10 +233,12 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
     try {
       const j = await postWs({ action: 'crear', nombre: nombre.trim(), capa, adminEmail: adminEmail.trim(), adminNombre: adminNombre.trim() });
       if (!j.ok) { setErrCrear(j.error ?? 'No se pudo crear el cliente.'); return; }
+      const email = adminEmail.trim();
       setNombre(''); setAdminEmail(''); setAdminNombre('');
-      setHintCrear(adminEmail.trim()
-        ? 'Cliente creado. Cuando su admin entre con Google usando ese email, la cuenta se activa sola y arma su equipo.'
-        : 'Cliente creado. Entrá como el cliente para configurarlo, o asignale un admin más tarde.');
+      // El texto sale de `avisoInvitacion`, que es el mismo que usa /equipo. Antes acá
+      // decía en verde «cuando su admin entre con Google, la cuenta se activa sola» —
+      // cierto, y falso como mensaje: nadie le había pasado la URL.
+      setHintCrear(email ? avisoInvitacion(j.invitacion, email) : { tono: 'ok', texto: 'Cliente creado. Entrá como el cliente para configurarlo, o asignale un admin más tarde.' });
       await recargar();
     } finally { setCreando(false); }
   };
@@ -283,7 +316,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 10, lineHeight: 1.5 }}>{capaDef(capa).descripcion}</div>
         {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
-        {hintCrear && <div style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600, marginTop: 12 }}>{hintCrear}</div>}
+        {hintCrear && <Aviso aviso={hintCrear} />}
       </div>
 
       {/* ── Lista de clientes ────────────────────────────────────────────────── */}
@@ -362,13 +395,14 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {equipo.map((u) => (
-                          <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                          <div key={u.id}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                             <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} size={32} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
                               <div style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
                             </div>
-                            <ChipEstadoUsuario estado={u.estado} />
+                            <ChipEstadoUsuario u={u} />
                             <div style={{ flex: 'none', width: 130 }} title="Rol en el negocio">
                               <Dropdown
                                 value={u.rol_ws ?? 'admin'}
@@ -386,14 +420,20 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                               ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
                               buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
                               options={[
+                                { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
                                 { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
                                 { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
                               ]}
                               onChange={(v) => {
-                                if (v === 'estado') accionUser({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
+                                if (v === 'reinvitar') reenviar(u);
+                                else if (v === 'estado') accionUser({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
                                 else if (v === 'eliminar') setAEliminar(u);
                               }}
                             />
+                          </div>
+                          {/* Pegado a SU fila, no arriba de todo: con diez miembros, un
+                              aviso global no dice a cuál de los diez se le mandó. */}
+                          {avisoReenvio?.id === u.id && <Aviso aviso={avisoReenvio.aviso} />}
                           </div>
                         ))}
                       </div>
@@ -417,13 +457,14 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
             <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 14 }}>Cuentas que no pertenecen a ningún cliente: no ven datos hasta que las asignes.</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {huerfanos.map((u) => (
-                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div key={u.id}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} size={32} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
                     <div style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
                   </div>
-                  <ChipEstadoUsuario estado={u.estado} />
+                  <ChipEstadoUsuario u={u} />
                   <div style={{ flex: 'none', width: 180 }}>
                     <Dropdown
                       value="" options={wsOpts}
@@ -438,9 +479,17 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                     value="" resetAfterSelect align="right" placeholder="⋯"
                     ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
                     buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
-                    options={[{ value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' }]}
-                    onChange={(v) => { if (v === 'eliminar') setAEliminar(u); }}
+                    options={[
+                      { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
+                      { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
+                    ]}
+                    onChange={(v) => {
+                      if (v === 'reinvitar') reenviar(u);
+                      else if (v === 'eliminar') setAEliminar(u);
+                    }}
                   />
+                </div>
+                {avisoReenvio?.id === u.id && <Aviso aviso={avisoReenvio.aviso} />}
                 </div>
               ))}
             </div>
@@ -499,15 +548,16 @@ function TabSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; s
   const [email, setEmail] = useState('');
   const [creando, setCreando] = useState(false);
   const [errCrear, setErrCrear] = useState<string | null>(null);
-  const [hintCrear, setHintCrear] = useState<string | null>(null);
+  const [hintCrear, setHintCrear] = useState<AvisoInvitacion | null>(null);
 
   const [errAccion, setErrAccion] = useState<string | null>(null);
   const [accionando, setAccionando] = useState(false);
   const [aEliminar, setAEliminar] = useState<Usuario | null>(null);
+  const [avisoReenvio, setAvisoReenvio] = useState<{ id: number; aviso: AvisoInvitacion } | null>(null);
 
   const admins = usuarios.filter((u) => u.rol === 'admin');
 
-  const post = async (body: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
+  const post = async (body: Record<string, unknown>): Promise<Respuesta> => {
     try { return await (await fetch('/api/admin/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); }
     catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
   };
@@ -516,12 +566,24 @@ function TabSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; s
     if (creando) return;
     setErrCrear(null); setHintCrear(null); setCreando(true);
     try {
-      const j = await post({ action: 'crear', email: email.trim(), nombre: nombre.trim(), rol: 'admin' });
+      const destino = email.trim();
+      const j = await post({ action: 'crear', email: destino, nombre: nombre.trim(), rol: 'admin' });
       if (!j.ok) { setErrCrear(j.error ?? 'No se pudo crear el admin.'); return; }
       setNombre(''); setEmail('');
-      setHintCrear('Listo. Cuando entre con Google usando ese email, la cuenta se activa sola.');
+      setHintCrear(avisoInvitacion(j.invitacion, destino));
       await recargar();
     } finally { setCreando(false); }
+  };
+
+  const reenviar = async (u: Usuario) => {
+    if (accionando) return;
+    setAvisoReenvio(null); setErrAccion(null); setAccionando(true);
+    try {
+      const j = await post({ action: 'reinvitar', id: u.id });
+      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo reenviar el acceso.'); return; }
+      setAvisoReenvio({ id: u.id, aviso: avisoInvitacion(j.invitacion, u.email) });
+      await recargar();
+    } finally { setAccionando(false); }
   };
 
   const accion = async (body: Record<string, unknown>) => {
@@ -545,7 +607,7 @@ function TabSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; s
           <button style={{ ...btnDark, opacity: creando || !email.trim() ? 0.5 : 1 }} disabled={creando || !email.trim()} onClick={crear}>{creando ? 'Agregando…' : 'Agregar'}</button>
         </div>
         {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
-        {hintCrear && <div style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600, marginTop: 12 }}>{hintCrear}</div>}
+        {hintCrear && <Aviso aviso={hintCrear} />}
       </div>
 
       {errAccion && <div style={bannerError}>{errAccion}</div>}
@@ -555,28 +617,33 @@ function TabSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; s
       ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {admins.map((u, i) => (
-            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+            <div key={u.id} style={{ padding: '0 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
               <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
               </div>
               <span style={chip('var(--primary-bg)', 'var(--primary)')}>super admin</span>
-              <ChipEstadoUsuario estado={u.estado} />
+              <ChipEstadoUsuario u={u} />
               <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', flex: 'none', width: 118, textAlign: 'right' }} title="Último login">{fmtLogin(u.ultimo_login)}</span>
               <Dropdown
                 value="" resetAfterSelect align="right" placeholder="Acciones"
                 ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
                 buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
                 options={[
+                  { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
                   { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
                   { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
                 ]}
                 onChange={(v) => {
-                  if (v === 'estado') accion({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
+                  if (v === 'reinvitar') reenviar(u);
+                  else if (v === 'estado') accion({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
                   else if (v === 'eliminar') setAEliminar(u);
                 }}
               />
+            </div>
+            {avisoReenvio?.id === u.id && <div style={{ paddingBottom: 12 }}><Aviso aviso={avisoReenvio.aviso} /></div>}
             </div>
           ))}
         </div>

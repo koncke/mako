@@ -223,6 +223,33 @@ Y donde haya un guard así, dos cosas más:
 - **Esconder el botón no protege nada.** El que decide es el server; la UI solo pinta lo
   que él contesta.
 
+# `OWNER_WS` NO es la plataforma: es un cliente. Lo de MaKo va en `wsSuperAdmin()`
+
+`OWNER_WS` vale 1 y el 1 es **Mauricio, un cliente**. El nombre engaña y ya se llevó
+puestas varias cosas. Cuando algo que manda **MaKo** —un mail de acceso, una credencial
+de plataforma, el catálogo del producto— necesita contexto de workspace, va en
+`wsSuperAdmin()` (capa `superadmin`, resuelto por capa y no por número).
+
+La forma en que falla no se parece a un bug: **funciona**. El mail de acceso de un cliente
+nuevo salía desde `runWithWorkspace(OWNER_WS, …)` y el remitente resultante era
+`MaKo <equipo@hola-mako.com>`, correcto — porque ese es el `resend_from` que ese cliente
+tiene puesto hoy. El día que lo cambie a su negocio, todos los clientes nuevos reciben su
+acceso firmado por otro cliente; si carga su propia `RESEND_API_KEY`, los mails de la
+plataforma salen por **su** cuenta. Sale un mail válido las dos veces.
+
+Tres corolarios que valen para cualquier recurso compartido:
+
+1. **La identidad de la plataforma vive en el código, no en un `app_settings` de un
+   inquilino.** Un `from`, un nombre, un logo que firma en nombre de MaKo es «una cosa, un
+   lugar» aplicada a quién firma. Y va **explícito** en la llamada: `sendEmail` sin `from`
+   resuelve el del workspace en curso, así que omitirlo vuelve a atar el mail al inquilino.
+2. **El preflight tiene que mirar LO QUE SE VA A USAR.** `remitenteEsSandbox()` contesta
+   por el workspace actual; si el envío usa una constante, chequear esa función es
+   verificar otra cosa y creerte cubierto.
+3. **Con UN solo valor configurado no se puede saber si lo leés del lugar correcto.**
+   Probalo mentalmente con dos: si la respuesta cambia según de quién sea el segundo, el
+   lugar está mal aunque hoy dé bien.
+
 # Una regla en un prompt no es una regla
 
 Si una regla sólo vive en la prosa de un prompt, **no se cumple**: se cumple casi
