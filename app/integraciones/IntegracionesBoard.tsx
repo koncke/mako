@@ -845,18 +845,30 @@ function resaltar(code: string): Array<{ t: string; c: string }> {
  * primero —que es OPCIONAL— se leía como parte del segundo. La línea de arriba y
  * el aire son lo que hace que se vea que el anterior terminó.
  */
+// ⚠️ EL AIRE ENTRE PASOS ES LO QUE LOS HACE PASOS. Reportado dos veces por el
+// dueño («separa muy bien los 3 pasos», y después «siguen muy juntos, sobre todo
+// el del código»). Con 20 px de separación y una línea al ras, cuatro secciones
+// se leían como una sola lista larga: el número perdía sentido, porque nada decía
+// dónde terminaba uno y empezaba el siguiente.
+//
+// Lo que cambió, y son tres cosas a la vez porque una sola no alcanzaba:
+//   · el doble de aire ARRIBA de la línea que abajo — el espacio pertenece al
+//     paso que termina, no al que arranca, y esa asimetría es lo que agrupa;
+//   · el número en un círculo lleno y no en uno hueco, que se lee como rótulo de
+//     sección y no como viñeta de lista;
+//   · el título del paso más grande que el contenido, con su propio aire.
 function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string; sep?: boolean; children: React.ReactNode }) {
   return (
-    <section style={{ paddingTop: sep ? 20 : 0, marginTop: sep ? 4 : 0, borderTop: sep ? '1px solid var(--border)' : 'none' }}>
-      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+    <section style={{ paddingTop: sep ? 26 : 0, marginTop: sep ? 30 : 0, borderTop: sep ? '1px solid var(--border)' : 'none' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <span aria-hidden style={{
-          flex: 'none', width: 24, height: 24, borderRadius: 999, marginTop: 1,
+          flex: 'none', width: 26, height: 26, borderRadius: 999, marginTop: 0,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--surface-2)', border: '1px solid var(--border-strong)',
-          fontSize: 12, fontWeight: 700, color: 'var(--dim)',
+          background: 'var(--ink)', border: '1px solid var(--ink)',
+          fontSize: 12.5, fontWeight: 700, color: 'var(--surface)',
         }}>{n}</span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          {titulo && <div style={{ fontSize: 15, fontWeight: 650, color: 'var(--ink)', marginBottom: 10 }}>{titulo}</div>}
+          {titulo && <div style={{ fontSize: 16, fontWeight: 650, color: 'var(--ink)', marginBottom: 13, lineHeight: 1.35, paddingTop: 2 }}>{titulo}</div>}
           {children}
         </div>
       </div>

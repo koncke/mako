@@ -229,6 +229,21 @@ export type VideoPanda = {
   player: string;
   /** Fotograma de portada. Sirve para reconocerlo sin abrirlo. */
   thumbnail: string | null;
+  /**
+   * A qué OTRO video manda Panda cuando este termina, si es que manda a alguno.
+   *
+   * ⚠️ ES UNA FUGA DE EMBUDO Y NO SE VE DESDE NINGÚN LADO. Medido el 2026-08-16:
+   * el VSL de un cliente tenía `config.videoRedirect` apuntando a un video viejo
+   * de otra persona —resto de una playlist de prueba borrada meses antes— así que
+   * cada visitante que terminaba de ver la oferta pasaba solo a un video que no
+   * tenía nada que ver. No aparece en la página, no aparece en el panel del
+   * cliente, y nadie lo mira hasta que alguien reporta «me confunden los leads».
+   *
+   * La API pública NO permite borrarlo (`PUT /videos/{id}` responde textual
+   * «must NOT have additional properties: config»), así que lo único que el
+   * sistema puede hacer es DECIRLO. Se quita a mano en el panel de Panda.
+   */
+  redirigeA: { id: string; titulo: string } | null;
 };
 
 const _catalogoCache = new Map<number, { map: Map<string, VideoPanda>; ts: number }>();
@@ -262,12 +277,14 @@ export async function catalogoPanda(): Promise<Map<string, VideoPanda>> {
   // 3 segundos, y sin caché serían 20 llamadas por minuto a Panda por persona.
   if (cached && Date.now() - cached.ts < VIDEO_CACHE_TTL_MS) return cached.map;
   const map = new Map<string, VideoPanda>();
+  /** external_id → id interno. El redirect solo se lee por el id interno. */
+  const internos = new Map<string, string>();
   try {
     let url: string | null = `${API_V2}/videos?limit=100`;
     let pages = 0;
     while (url && pages++ < 20) {
       const page: {
-        videos?: Array<{ video_external_id?: string; title?: string; video_player?: string; thumbnail?: string }>;
+        videos?: Array<{ id?: string; video_external_id?: string; title?: string; video_player?: string; thumbnail?: string }>;
         pagination?: { next?: string };
       } = await pandaGet(url);
       for (const v of page.videos ?? []) {
@@ -276,9 +293,31 @@ export async function catalogoPanda(): Promise<Map<string, VideoPanda>> {
           titulo: (v.title ?? '').trim() || v.video_external_id,
           player: v.video_player,
           thumbnail: v.thumbnail ?? null,
+          redirigeA: null,
         });
+        if (v.id) internos.set(v.video_external_id, v.id);
       }
       url = page.pagination?.next ?? null;
+    }
+    // ⚠️ EL REDIRECT SOLO ESTÁ EN EL DETALLE, uno por video. El listado no lo
+    // trae. Son pocos videos por cuenta y el resultado se cachea 5 minutos, así
+    // que el costo es una tanda cada 5 minutos y no una llamada por pantalla.
+    // De a uno y no en paralelo a propósito: N llamadas simultáneas contra una
+    // sola API key es cómo se compra un 429.
+    for (const [externo, interno] of internos) {
+      try {
+        const det: { config?: { videoRedirect?: { externalId?: string; title?: string } } } =
+          await pandaGet(`${API_V2}/videos/${interno}`);
+        const r = det.config?.videoRedirect;
+        const entrada = map.get(externo);
+        if (r?.externalId && entrada) {
+          entrada.redirigeA = { id: r.externalId, titulo: (r.title ?? '').trim() || r.externalId };
+        }
+      } catch {
+        // Un detalle que no se pudo leer deja el redirect en null, que es «no sé»
+        // y no «no tiene». El chequeo trata el null como que no hay nada que
+        // avisar: es preferible callarse a inventar una fuga que no existe.
+      }
     }
   } catch (e) {
     console.warn('[catalogoPanda] no se pudo leer:', e instanceof Error ? e.message : e);

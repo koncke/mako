@@ -123,6 +123,9 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // consulta: bajar el HTML del cliente en cada refresco del poll sería una
   // request a su página cada 3 segundos.
   const [piezas, setPiezas] = useState<string[]>([]);
+  // Los videos que la PÁGINA tiene, con su URL. Salen del mismo análisis y son lo
+  // que permite mostrar un video que todavía nadie reprodujo.
+  const [videosPagina, setVideosPagina] = useState<Array<{ id: string; url: string }>>([]);
   const [eligiendoNueva, setEligiendoNueva] = useState(false); // eligió "Otra página…"
   const [paginas, setPaginas] = useState<string[]>([]);        // las GUARDADAS del workspace
   const [ocultas, setOcultas] = useState<string[]>([]);        // las que sacó de la lista a mano
@@ -244,14 +247,14 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // referencia nunca corta. Se veía como la página del cliente pidiéndose sola
   // varias veces por segundo.
   useEffect(() => {
-    if (!landingFija) { setPiezas([]); return; }
+    if (!landingFija) { setPiezas([]); setVideosPagina([]); return; }
     let vivo = true;
     // Falla hacia «no sé» —lista vacía— y entonces se ofrecen TODOS los pasos:
     // esconder un chequeo porque no se pudo leer el HTML es peor que mostrarlo
     // de más, porque el que falta no deja rastro de que faltó.
     analizarLandingAction(landingFija)
-      .then((a) => { if (vivo) setPiezas(a.piezas); })
-      .catch(() => { if (vivo) setPiezas([]); });
+      .then((a) => { if (vivo) { setPiezas(a.piezas); setVideosPagina(a.videos ?? []); } })
+      .catch(() => { if (vivo) { setPiezas([]); setVideosPagina([]); } });
     return () => { vivo = false; };
   }, [landingFija]);
 
@@ -373,6 +376,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     return (
       <div style={box}>
         <NombrarVideos
+          enLaPagina={videosPagina}
           detectados={detectadosVideo}
           videos={videosGuardados}
           onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}

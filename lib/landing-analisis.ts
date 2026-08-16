@@ -21,9 +21,29 @@ export type PiezaLanding =
   | 'video-nativo' | 'video-panda' | 'video-youtube' | 'video-vimeo'
   | 'formulario' | 'embed-agenda' | 'link-whatsapp' | 'botones' | 'pixel';
 
+/**
+ * Un video que está EN la página, con dónde verlo.
+ *
+ * ⚠️ EXISTE PARA QUE VER UN VIDEO NO DEPENDA DE QUE ALGUIEN LO REPRODUZCA. La URL
+ * de un video llegaba en el evento `play` y en ningún otro lado, así que la
+ * pantalla que pide NOMBRAR los videos no podía mostrarlos hasta que un visitante
+ * mirara uno — la pregunta al revés. Panda resolvió su caso por API; esto resuelve
+ * el resto (un <video> puesto a mano, un YouTube, un Vimeo), que no tienen API ni
+ * la necesitan: el dato está en el HTML de la página.
+ */
+export type VideoEnPagina = {
+  /** El MISMO id que manda el snippet, para poder casarlos. Ver `idNativo`. */
+  id: string;
+  /** Dónde se mira. Absoluta. */
+  url: string;
+  tipo: 'nativo' | 'panda' | 'youtube' | 'vimeo';
+};
+
 export type AnalisisLanding = {
   url: string;
   piezas: Set<PiezaLanding>;
+  /** Los videos que la página TIENE, con su URL. Independiente de los eventos. */
+  videos: VideoEnPagina[];
   /** El token del Pixel que trae la página, si lo trae. Es lo que permite decir
    *  «esta landing tiene el código de OTRO workspace», que pasa al copiar y pegar
    *  entre clientes y es invisible de cualquier otra forma. */
@@ -37,7 +57,78 @@ export type AnalisisLanding = {
 };
 
 const VACIO = (url: string, error: string | null): AnalisisLanding =>
-  ({ url, piezas: new Set(), tokenPixel: null, versionPixel: null, clarityProjectId: null, ok: false, error });
+  ({ url, piezas: new Set(), videos: [], tokenPixel: null, versionPixel: null, clarityProjectId: null, ok: false, error });
+
+/**
+ * El id que el snippet le pone a un <video> nativo.
+ *
+ * ⚠️ ESTA REGLA VIVE DOS VECES y no se puede evitar: acá en TypeScript, y adentro
+ * del snippet, que es un string de JavaScript que corre en la página del cliente y
+ * por lo tanto no puede importar nada de este módulo. Si las dos se separan, los
+ * videos de la página dejan de casar con los eventos EN SILENCIO — la lista queda
+ * con dos filas para el mismo video y ninguna con URL. Lo único que lo impide es
+ * el test que corre las dos derivaciones sobre los mismos casos.
+ *
+ * La regla, textual: el `id` del elemento si lo tiene; si no, el nombre del
+ * archivo del `src` (sin query, hasta 80 caracteres).
+ */
+export function idNativo(idAttr: string | null, src: string | null): string | null {
+  const i = idAttr?.trim();
+  if (i) return `v:${i}`;
+  const s = src?.trim();
+  if (!s) return null;
+  return `v:${(s.split('/').pop() ?? '').split('?')[0].slice(0, 80)}`;
+}
+
+const atrib = (tag: string, nombre: string): string | null => {
+  const m = new RegExp(`${nombre}\\s*=\\s*["']([^"']+)["']`, 'i').exec(tag);
+  return m ? m[1] : null;
+};
+
+/** Relativa → absoluta. Un `src="/videos/x.mp4"` no se puede abrir por sí solo. */
+function absoluta(base: string, u: string): string | null {
+  try { return new URL(u, base).toString(); } catch { return null; }
+}
+
+/**
+ * Los videos que hay en el HTML, con su URL, sin ejecutar la página.
+ *
+ * Mismo límite honesto que el resto del analizador: una landing que monta el video
+ * por JavaScript puede no traerlo en el HTML inicial. Devolver de menos es correcto
+ * —el botón simplemente no aparece—; devolver mal sería peor.
+ */
+export function videosDeHtml(base: string, html: string): VideoEnPagina[] {
+  const out: VideoEnPagina[] = [];
+  const visto = new Set<string>();
+  const push = (v: VideoEnPagina) => { if (!visto.has(v.id)) { visto.add(v.id); out.push(v); } };
+
+  // ── <video> nativo ─────────────────────────────────────────────────────────
+  for (const m of html.matchAll(/<video\b([^>]*)>([\s\S]{0,600}?)<\/video>|<video\b([^>]*)\/?>/gi)) {
+    const attrs = m[1] ?? m[3] ?? '';
+    const dentro = m[2] ?? '';
+    const src = atrib(attrs, 'src') ?? atrib(dentro.match(/<source\b[^>]*>/i)?.[0] ?? '', 'src');
+    const id = idNativo(atrib(attrs, 'id'), src);
+    const url = src ? absoluta(base, src) : null;
+    // Sin URL no sirve de nada: el punto entero es poder abrirlo.
+    if (id && url) push({ id, url, tipo: 'nativo' });
+  }
+
+  // ── Panda ──────────────────────────────────────────────────────────────────
+  // El id que manda el snippet es el `v=` del embed, así que casan directo.
+  for (const m of html.matchAll(/https?:\/\/[^"'\s]*player-vz-[^"'\s]*[?&]v=([0-9a-fA-F-]{36})/g)) {
+    push({ id: m[1], url: m[0].replace(/&amp;/g, '&'), tipo: 'panda' });
+  }
+
+  // ── YouTube y Vimeo ────────────────────────────────────────────────────────
+  for (const m of html.matchAll(/https?:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,20})/g)) {
+    push({ id: m[1], url: `https://www.youtube.com/watch?v=${m[1]}`, tipo: 'youtube' });
+  }
+  for (const m of html.matchAll(/https?:\/\/player\.vimeo\.com\/video\/(\d{6,12})/g)) {
+    push({ id: m[1], url: `https://vimeo.com/${m[1]}`, tipo: 'vimeo' });
+  }
+
+  return out;
+}
 
 /**
  * Qué hay en este HTML.
@@ -56,6 +147,7 @@ export function analizarHtml(url: string, html: string): AnalisisLanding {
   const add = (p: PiezaLanding) => a.piezas.add(p);
 
   // ── Video ──────────────────────────────────────────────────────────────────
+  a.videos = videosDeHtml(url, h);
   if (/<video[\s>]/i.test(h)) add('video-nativo');
   if (/pandavideo|player-vz-/i.test(bajo)) add('video-panda');
   if (/youtube\.com\/embed|youtu\.be\//i.test(bajo)) add('video-youtube');

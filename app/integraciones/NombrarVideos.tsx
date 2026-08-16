@@ -36,11 +36,14 @@ export type VideoDetectado = {
 };
 
 export function NombrarVideos({
-  detectados, videos, onCambio,
+  detectados, videos, onCambio, enLaPagina = [],
 }: {
   detectados: VideoDetectado[];
   videos: VideoLanding[];
   onCambio: (v: VideoLanding[]) => void;
+  /** Lo que el analizador encontró EN la página. Es lo que hace que un video se
+   *  pueda ver sin que nadie lo haya reproducido, venga de donde venga. */
+  enLaPagina?: Array<{ id: string; url: string }>;
 }) {
   const [escribiendo, setEscribiendo] = useState<string | null>(null); // el id que está en «Otro tipo…»
   const [texto, setTexto] = useState('');
@@ -50,9 +53,20 @@ export function NombrarVideos({
   // Todo lo que el sistema vio, más lo que se nombró alguna vez aunque hoy no
   // esté mandando eventos: un video que se pausó por un mes no tiene por qué
   // perder su nombre.
+  // ⚠️ LA URL SALE DE LA PÁGINA CUANDO EL EVENTO NO LA TRAE. Panda la da por API,
+  // pero un <video> puesto a mano, un YouTube o un Vimeo no tienen API — y no la
+  // necesitan: están escritos en el HTML. Sin esto, ver un video seguía dependiendo
+  // de que alguien lo reprodujera, que es exactamente lo que se vino a eliminar.
+  const urlDe = (d: VideoDetectado) => d.url ?? enLaPagina.find((v) => v.id === d.id)?.url ?? null;
+
   const filas: VideoDetectado[] = [
     ...detectados,
     ...videos.filter((v) => !detectados.some((d) => d.id === v.id)).map((v) => ({ id: v.id, titulo: null, eventos: 0, url: null, pagina: null })),
+    // Y los que la página TIENE pero todavía no mandaron un solo evento: son los
+    // que más falta hace poder mirar, porque son los que nadie reprodujo nunca.
+    ...enLaPagina
+      .filter((v) => !detectados.some((d) => d.id === v.id) && !videos.some((g) => g.id === v.id))
+      .map((v) => ({ id: v.id, titulo: null, eventos: 0, url: v.url, pagina: null })),
   ];
   if (!filas.length) return null;
 
@@ -165,8 +179,8 @@ export function NombrarVideos({
                     se subió. Si el video no está en Panda —un <video> nativo— el
                     plan B es abrir la PÁGINA donde se vio: no es lo mismo, pero
                     también contesta «¿cuál de todos es este?». */}
-                {d.url ? (
-                  <a className="mk-icon-btn" data-tone="dim" href={d.url} target="_blank" rel="noopener noreferrer" title="Ver este video">
+                {urlDe(d) ? (
+                  <a className="mk-icon-btn" data-tone="dim" href={urlDe(d)!} target="_blank" rel="noopener noreferrer" title="Ver este video">
                     <Icon name="video" size={15} />
                   </a>
                 ) : d.pagina ? (

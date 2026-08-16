@@ -71,6 +71,9 @@ export type AnalisisResult = {
   clarityProjectId: string | null;
   /** El proyecto que ESTA landing tiene declarado en MaKo, para poder comparar. */
   clarityGuardado: string | null;
+  /** Los videos que la PÁGINA tiene, con su URL. Es lo que permite verlos sin
+   *  esperar a que un visitante reproduzca uno. */
+  videos: Array<{ id: string; url: string; tipo: string }>;
 };
 
 /**
@@ -92,6 +95,7 @@ export async function analizarLandingAction(url: string): Promise<AnalisisResult
     versionPixel: a.versionPixel,
     clarityProjectId: a.clarityProjectId,
     clarityGuardado: landingDe(guardadas, url)?.clarityProjectId ?? null,
+    videos: a.videos.map((v) => ({ id: v.id, url: v.url, tipo: v.tipo })),
   };
 }
 

@@ -66,7 +66,7 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
 }
 
 export function ComportamientoCard({
-  visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], urlClarity = null,
+  visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], urlClarity = null, urlMapaCalor = null,
 }: {
   visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean;
   /** Uno por video medido. Con 0 o 1 la tarjeta se pinta como siempre. */
@@ -77,6 +77,11 @@ export function ComportamientoCard({
    *  visitor_id. null si el workspace no conectó Clarity o el lead no tiene
    *  identificador — un botón que no puede abrir nada es peor que ninguno. */
   urlClarity?: string | null;
+  /** El mapa de calor de la PÁGINA. Es de todos los visitantes, no de este lead:
+   *  Clarity agrega los clics de todo el mundo y no se puede filtrar por persona.
+   *  Va igual acá porque es la pregunta que sigue —«¿y el resto qué hace?»— y
+   *  buscarla obligaba a salir de la ficha y navegar el panel de Clarity a mano. */
+  urlMapaCalor?: string | null;
 }) {
   const pctColor = colorDe(maxPct);
   const varios = porVideo.length > 1;
@@ -148,11 +153,42 @@ export function ComportamientoCard({
           miles de sesiones anónimas y no sirve para nada.
           Solo aparece si hay link: el workspace conectó Clarity Y este lead tiene
           identificador de visita. */}
+      {/* ⚠️ DOS ACCESOS Y DICEN QUÉ SON. Eran un solo link de texto chico al final
+          de la tarjeta, y contestaban una sola de las dos preguntas que alguien se
+          hace antes de llamar a este lead: «¿qué hizo ÉL?» (su grabación) y «¿qué
+          hace el resto en esta página?» (el mapa de calor). La segunda existía en
+          Clarity desde siempre y había que salir de la ficha e ir a buscarla a
+          mano, así que en la práctica no la miraba nadie.
+          Y se nombra la diferencia en el propio rótulo: el mapa de calor NO es de
+          esta persona —Clarity agrega los clics de todos y no se puede filtrar por
+          alguien—, y un botón al lado de su grabación se leería como que sí. */}
+      {(urlClarity || urlMapaCalor) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+          {urlClarity && (
+            <a href={urlClarity} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 13px', borderRadius: 10,
+                border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)',
+                fontSize: 12.5, fontWeight: 650, color: 'var(--primary)', textDecoration: 'none' }}>
+              Ver el video de lo que hizo →
+            </a>
+          )}
+          {urlMapaCalor && (
+            <a href={urlMapaCalor} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 13px', borderRadius: 10,
+                border: '1px solid var(--border-strong)', background: 'var(--surface)',
+                fontSize: 12.5, fontWeight: 650, color: 'var(--dim)', textDecoration: 'none' }}>
+              Mapa de calor de la página →
+            </a>
+          )}
+        </div>
+      )}
       {urlClarity && (
-        <a href={urlClarity} target="_blank" rel="noopener noreferrer"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 14, fontSize: 12.5, fontWeight: 650, color: 'var(--primary)', textDecoration: 'none' }}>
-          Ver sus grabaciones en Clarity →
-        </a>
+        <p style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7, lineHeight: 1.5 }}>
+          {/* Se dice ANTES de que el click falle. Clarity guarda 30 días y tarda
+              hasta 2 horas en procesar: sin esto, quien no encuentra la sesión
+              concluye que la medición no anda. */}
+          Se abren en Clarity. Una grabación tarda hasta 2 horas en aparecer y se borra a los 30 días.
+        </p>
       )}
       {/* Un grupo de cosas del mismo tipo es una LISTA con filete, no una pila de
           cajas: tres tarjetas iguales apiladas son el contenedor perezoso. */}

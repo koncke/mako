@@ -277,7 +277,7 @@ export async function getVideosLanding(): Promise<VideoLanding[]> {
  * nombrar, porque el nombre no tendría a qué pegarse— pero sus eventos siguen
  * contándose en el CRM bajo «Video sin identificar».
  */
-export async function videosDetectados(dias = 90): Promise<Array<{ id: string; titulo: string | null; eventos: number; url: string | null; pagina: string | null }>> {
+export async function videosDetectados(dias = 90): Promise<Array<{ id: string; titulo: string | null; eventos: number; url: string | null; pagina: string | null; redirigeA: string | null }>> {
   const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
   try {
     const db = await getTenantDb();
@@ -297,11 +297,11 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
       .limit(1000);
-    const out = new Map<string, { id: string; titulo: string | null; eventos: number; url: string | null; pagina: string | null }>();
+    const out = new Map<string, { id: string; titulo: string | null; eventos: number; url: string | null; pagina: string | null; redirigeA: string | null }>();
     for (const r of (data ?? []) as Array<{ video_id: string | null; vsl_titulo: string | null; detalle: string | null; landing_url: string | null }>) {
       const id = r.video_id?.trim();
       if (!id) continue;
-      const e = out.get(id) ?? { id, titulo: null, eventos: 0, url: null, pagina: null };
+      const e = out.get(id) ?? { id, titulo: null, eventos: 0, url: null, pagina: null, redirigeA: null };
       // En QUÉ página se vio. Es el plan B para verlo: un <video> nativo no está
       // en ningún catálogo, así que si no sabemos su URL igual sabemos dónde
       // abrirlo. Llega desde la v12.
@@ -325,12 +325,13 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
     // igual («VSL Principal - Negocio que Escala») y el rótulo no distinguía nada.
     // Nunca rompe: sin Panda configurado devuelve un mapa vacío y todo queda como
     // antes.
-    const panda = await catalogoPanda().catch(() => new Map<string, { titulo: string; player: string }>());
+    const panda = await catalogoPanda().catch(() => new Map<string, { titulo: string; player: string; redirigeA: { titulo: string } | null }>());
     for (const v of out.values()) {
       const p = panda.get(v.id);
       if (!p) continue;
       v.url = p.player;
       v.titulo = p.titulo;
+      v.redirigeA = p.redirigeA?.titulo ?? null;
     }
 
     // ⚠️ EL CONTEO EXACTO SE PREGUNTA, no se cuenta sobre lo que vino. Contar las
@@ -464,7 +465,7 @@ export type EventoDiag = {
 };
 
 export type ChequeoDiag = {
-  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin' | 'clarity';
+  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin' | 'redirect' | 'clarity';
   label: string;
   estado: 'ok' | 'falta' | 'viejo' | 'na';
   detalle: string;
@@ -513,7 +514,7 @@ export async function landingDiagnostico(
   // Se escribe el ternario en cada query en vez de un helper genérico: el
   // encadenado de PostgREST está tipado con genéricos que se vuelven infinitos al
   // pasarlos por una función propia, y pelear con eso no vale un renglón menos.
-  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle, auto, landing_url');
+  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle, auto, landing_url, video_id');
   const qVis = db.from('landing_visits').select('created_at, landing_url');
 
   const [vsl, visitas, optinsFeed] = await Promise.all([
@@ -537,7 +538,7 @@ export async function landingDiagnostico(
     !urlLanding || !u || normalizarUrl(u) === normalizarUrl(urlLanding);
 
   const eventos: EventoDiag[] = [
-    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null; auto: boolean | null; landing_url: string | null }>)
+    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null; auto: boolean | null; landing_url: string | null; video_id: string | null }>)
       // Desde la v12 los eventos de video también dicen de qué página vinieron.
       // Los de antes traen NULL y `deEstaLanding` los DEJA PASAR a propósito: no
       // se puede atribuir lo que no se sabe, y descartarlos pintaría en rojo el
@@ -647,6 +648,27 @@ export async function landingDiagnostico(
   // código está viejo, todos los demás chequeos miden otra cosa y sus resultados
   // no significan nada. Un diagnóstico que no empieza por «¿estás mirando el
   // código correcto?» manda a investigar síntomas de una versión que ya no existe.
+  // Los videos que, al terminar, mandan solos a otro video. Sale del catálogo de
+  // Panda —es configuración, no comportamiento— cruzado con los videos que ESTA
+  // página realmente usó.
+  //
+  // ⚠️ NO se llama a `videosDetectados()` acá, aunque tenga el dato masticado:
+  // esa función hace una consulta de conteo POR VIDEO, y esto corre dentro del
+  // poll del probador, que consulta cada 3 segundos. Serían N consultas extra
+  // cada 3 segundos por cada persona con el panel abierto, para contestar algo
+  // que ya está en memoria. El catálogo de Panda está cacheado 5 minutos y los
+  // `video_id` vienen en la misma consulta de eventos que ya se hizo.
+  const idsEnJuego = new Set(
+    ((vsl.data ?? []) as Array<{ video_id: string | null }>).map((r) => r.video_id?.trim()).filter(Boolean) as string[],
+  );
+  const catalogo = idsEnJuego.size
+    ? await catalogoPanda().catch(() => new Map<string, { titulo: string; redirigeA: { titulo: string } | null }>())
+    : new Map<string, { titulo: string; redirigeA: { titulo: string } | null }>();
+  const redirectores = [...idsEnJuego]
+    .map((id) => ({ id, v: catalogo.get(id) }))
+    .filter((x) => x.v?.redirigeA)
+    .map((x) => ({ de: x.v!.titulo, a: x.v!.redirigeA!.titulo }));
+
   // ⚠️ EL PASO 5 ES UNO SOLO Y CAMBIA DE IDENTIDAD SEGÚN CÓMO VENDE EL NEGOCIO.
   //
   // Si su llamado a la acción es una agenda embebida, el final del embudo no es
@@ -735,6 +757,25 @@ export async function landingDiagnostico(
         : 'Aún no llega ningún clic. Si tu página no tiene botones propios —por ejemplo, si es un Calendly embebido— es normal.' },
     // El paso 5 se arma arriba: es UNO solo con dos identidades.
     { id: 'optin', ...paso5 },
+    // ⚠️ EL VIDEO QUE SIGUE AL VIDEO. Panda deja configurar un «redirect» que, al
+    // terminar un video, manda solo al espectador a OTRO. Es invisible: no está en
+    // la página, no está en nuestros eventos, y el cliente no lo ve hasta que le
+    // reportan que sus leads terminan confundidos. Medido el 2026-08-16 en el VSL
+    // de un cliente: apuntaba a un video viejo de otra persona, resto de una
+    // playlist de prueba borrada meses antes.
+    //
+    // Va como chequeo y no como aviso suelto porque es exactamente la pregunta que
+    // esta lista contesta: «¿tu página mide y hace lo que creés?». Y el estado es
+    // 'viejo' (ámbar) y no rojo: no está roto, está mal configurado, y se arregla
+    // en el panel de Panda — nuestra API no puede tocarlo.
+    ...(redirectores.length ? [{
+      id: 'redirect' as const,
+      label: 'Al terminar, tu video no manda a otro',
+      estado: 'viejo' as ChequeoDiag['estado'],
+      detalle: redirectores.length === 1
+        ? `Cuando termina «${redirectores[0].de}», Panda lleva solo al espectador a «${redirectores[0].a}». Quítalo en Panda → ese video → Redireccionamiento.`
+        : `${redirectores.length} de tus videos llevan solo a otro video al terminar. Quítalo en Panda, en cada uno: ${redirectores.map((r) => `«${r.de}» → «${r.a}»`).join('; ')}.`,
+    }] : []),
     // Clarity es opcional, así que sin conectar va 'na' y no 'falta': un punto en
     // rojo por algo que se eligió no usar es ruido.
     { id: 'clarity', label: 'Grabaciones y mapas de calor',

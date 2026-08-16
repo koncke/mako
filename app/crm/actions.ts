@@ -8,7 +8,7 @@
 // =============================================================================
 
 import { getVideosLanding } from '@/lib/landing-token';
-import { urlSesionesDeLead } from '@/lib/clarity';
+import { urlSesionesDeLead, urlPanel } from '@/lib/clarity';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -144,6 +144,8 @@ export type LeadFullData = {
   /** Link a las grabaciones de ESTA persona en Clarity, o null. Se resuelve en el
    *  server porque necesita la credencial del workspace, que el cliente no ve. */
   urlClarity: string | null;
+  /** El mapa de calor de la página, que es del PROYECTO y no de este lead. */
+  urlMapaCalor: string | null;
   campana: { texto: string | null; tooltip: string | null };
   adNombre: string | null;
   /** ad_id resuelto (meta_ad_id, utm_content numérico o por nombre) para el deep-link. */
@@ -168,7 +170,7 @@ export type LeadFullData = {
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, urlClarity] = await Promise.all([
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, urlClarity, urlMapaCalor] = await Promise.all([
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true, porVideo: [] }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
@@ -179,6 +181,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getTrackingEvents(lead.visitor_id),
     getVideosLanding(),
     urlSesionesDeLead(lead.visitor_id).catch(() => null),
+    // Del PROYECTO: Clarity agrega los clics de todos y no se filtra por persona.
+    urlPanel(undefined, 'heatmaps').catch(() => null),
   ]);
   const [respuestas, insightGen, equipo, grabable] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable()]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
@@ -193,7 +197,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, videos, urlClarity, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
+  return { lead, stages, pagos, vslEng, videos, urlClarity, urlMapaCalor, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

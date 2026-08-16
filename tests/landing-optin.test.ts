@@ -10,6 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { videosDeHtml, idNativo } from '../lib/landing-analisis';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const RUTA = () => leer('../app/api/track/optin/route.ts');
@@ -691,7 +692,10 @@ test('los chequeos van en el orden del EMBUDO, y la versión primero', () => {
   // La VERSIÓN va primera aunque no sea un paso del embudo: si el código está
   // viejo, todos los demás chequeos miden otra cosa y sus resultados no
   // significan nada. Después, el recorrido de la persona que visita.
-  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin', 'clarity']);
+  // 'redirect' solo aparece cuando Panda dice que ese video manda a otro, pero su
+  // literal vive en el array igual: va entre el embudo y Clarity, que es donde se
+  // lee — «tu página mide bien, PERO al terminar te manda a otro lado».
+  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin', 'redirect', 'clarity']);
 
   // Y en una PRUEBA los textos hablan de la prueba, no de las últimas 24 h: quien
   // acaba de apretar play no quiere que le contesten con una estadística del día.
@@ -833,7 +837,10 @@ test('cada video se puede VER desde la pantalla que te pide nombrarlo', () => {
   assert.ok(/target="_blank" rel="noopener noreferrer"/.test(ui), 'abrir el video no puede sacarte de la app');
   // Solo si sabemos dónde está: un botón que no puede abrir nada es peor que
   // ninguno — promete y falla, y quien lo aprieta no sabe si el roto es el video.
-  assert.ok(/\{d\.url \? \(/.test(ui), 'el botón no puede aparecer sin URL');
+  // Ya no es `d.url` pelado: la URL puede venir del evento, de Panda o del HTML
+  // de la página. Lo que no cambia es que sin ninguna de las tres no hay botón.
+  assert.ok(/\{urlDe\(d\) \? \(/.test(ui), 'el botón no puede aparecer sin URL');
+  assert.ok(/const urlDe = \(d: VideoDetectado\) => d\.url \?\? enLaPagina\.find/.test(ui), 'la URL de la página tiene que poder suplir a la del evento');
   // ⚠️ VER VA ANTES QUE EDITAR, y en la MISMA fila. Estaba arriba, suelto al lado
   // del conteo de eventos, mientras editar y borrar vivían abajo: tres acciones
   // sobre la misma cosa en dos renglones y con dos tamaños.
@@ -1138,4 +1145,108 @@ test('la lista de videos se lee de lo NUEVO, y el conteo se pregunta', () => {
   assert.ok(/\.select\('\*', \{ count: 'exact', head: true \}\)/.test(bloque),
     'contar las filas devueltas reporta el tope del servidor, no los eventos');
   assert.ok(!/\.limit\(2000\)/.test(bloque), 'pedir más del tope no sube el tope: lo esconde');
+});
+
+
+test('los videos de la pagina salen del HTML, sin esperar a que alguien reproduzca', () => {
+  // Reportado por el dueño: «no debería depender nunca de que un visitante lo
+  // tenga que reproducir primero». Panda resolvió su caso por API; el resto —un
+  // <video> puesto a mano, un YouTube, un Vimeo— no tiene API y no la necesita:
+  // el dato está escrito en el HTML de la página.
+  const base = 'https://ejemplo.com/landing';
+
+  // <video> con src directo → el id es el nombre del archivo, igual que el snippet
+  const nativo = videosDeHtml(base, '<video src="/media/que-se-vive.mp4" controls></video>');
+  assert.equal(nativo.length, 1);
+  assert.equal(nativo[0].id, 'v:que-se-vive.mp4');
+  assert.equal(nativo[0].url, 'https://ejemplo.com/media/que-se-vive.mp4', 'una relativa no se puede abrir sola');
+
+  // <video><source> → mismo id
+  const conSource = videosDeHtml(base, '<video poster="x.jpg"><source src="https://cdn.io/a/b.mp4" type="video/mp4"></video>');
+  assert.equal(conSource[0]?.id, 'v:b.mp4');
+
+  // el `id` del elemento GANA sobre el archivo, igual que en el snippet
+  assert.equal(videosDeHtml(base, '<video id="vsl" src="/x.mp4"></video>')[0]?.id, 'v:vsl');
+
+  // Panda: el id es el `v=` del embed, que es el mismo que manda el snippet
+  const panda = videosDeHtml(base, '<iframe src="https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=1b9db76c-6bbb-4837-8274-96896c3d8b47"></iframe>');
+  assert.equal(panda[0]?.id, '1b9db76c-6bbb-4837-8274-96896c3d8b47');
+  assert.equal(panda[0]?.tipo, 'panda');
+
+  // YouTube y Vimeo: se convierte el embed en el link que un humano puede abrir
+  assert.equal(videosDeHtml(base, '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>')[0]?.url, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  assert.equal(videosDeHtml(base, '<iframe src="https://player.vimeo.com/video/123456789"></iframe>')[0]?.url, 'https://vimeo.com/123456789');
+
+  // Un <video> sin src no se inventa: sin URL el botón no puede abrir nada.
+  assert.equal(videosDeHtml(base, '<video id="x"></video>').length, 0);
+
+  // ⚠️ LA REGLA DEL ID VIVE DOS VECES y no se puede evitar: acá en TypeScript y
+  // adentro del snippet, que es un string de JS que corre en la página del
+  // cliente y no puede importar nada. Si se separan, los videos de la página
+  // dejan de casar con los eventos EN SILENCIO. Esto es lo único que lo impide.
+  const snippet = leer('../lib/landing-token.ts');
+  assert.ok(/if \(el\.id\) return 'v:' \+ el\.id;/.test(snippet), 'el snippet cambió la regla del id');
+  assert.ok(/return 'v:' \+ src\.split\('\/'\)\.pop\(\)\.split\('\?'\)\[0\]\.slice\(0, 80\)/.test(snippet), 'el snippet cambió cómo saca el nombre del archivo');
+  assert.equal(idNativo('vsl', '/x.mp4'), 'v:vsl');
+  assert.equal(idNativo(null, '/a/b/que-se-vive.mp4?v=2'), 'v:que-se-vive.mp4');
+});
+
+test('un video que al terminar manda a OTRO video se avisa', () => {
+  // Medido el 2026-08-16: el VSL de un cliente tenía `config.videoRedirect`
+  // apuntando a un video viejo de otra persona —resto de una playlist de prueba
+  // borrada meses antes—, así que cada visitante que terminaba de ver la oferta
+  // pasaba solo a un video que no tenía nada que ver. No se ve en la página, no
+  // se ve en los eventos, y nadie lo mira hasta que los leads llegan confundidos.
+  const panda = leer('../lib/panda.ts');
+  assert.ok(/redirigeA: \{ id: string; titulo: string \} \| null;/.test(panda), 'el catálogo no trae el redirect');
+  assert.ok(/config\?\.videoRedirect/.test(panda), 'el redirect vive en el detalle del video, no en el listado');
+  // De a uno y no en paralelo: N llamadas contra una sola API key es un 429.
+  assert.ok(/for \(const \[externo, interno\] of internos\)/.test(panda), 'las llamadas al detalle no pueden ir en paralelo');
+
+  const lib = leer('../lib/landing-token.ts');
+  assert.ok(/id: 'redirect' as const/.test(lib), 'falta el chequeo');
+  // Ámbar y no rojo: no está roto, está mal configurado — y NUESTRA API no lo
+  // puede arreglar (`PUT /videos/{id}` responde «must NOT have additional
+  // properties: config»), así que el texto tiene que decir dónde se toca.
+  assert.ok(/estado: 'viejo' as ChequeoDiag\['estado'\]/.test(lib), 'no está roto: está mal configurado');
+  assert.ok(/Quítalo en Panda/.test(lib), 'un aviso que no dice dónde se arregla no es accionable');
+
+  // ⚠️ Y NO puede colgarse de `videosDetectados()`: esa hace una consulta de
+  // conteo POR VIDEO y esto corre dentro del poll del probador, que consulta cada
+  // 3 segundos. El catálogo ya está cacheado y los video_id vienen en la misma
+  // consulta de eventos que ya se hizo.
+  const bloque = lib.slice(lib.indexOf('const idsEnJuego'), lib.indexOf('const paso5'));
+  assert.ok(!/videosDetectados\(\)/.test(bloque), 'N consultas extra cada 3 segundos para algo que ya está en memoria');
+  assert.ok(/catalogoPanda\(\)\.catch/.test(bloque), 'el catálogo cacheado es la fuente');
+});
+
+test('la ficha del lead lleva a su grabación Y al mapa de calor', () => {
+  const card = leer('../app/crm/lead-view/ComportamientoCard.tsx');
+  assert.ok(/Ver el video de lo que hizo/.test(card), 'falta el acceso a su grabación');
+  assert.ok(/Mapa de calor de la página/.test(card), 'falta el mapa de calor');
+  // ⚠️ El rótulo distingue de quién es cada cosa: el mapa de calor es de TODOS los
+  // visitantes —Clarity agrega y no se puede filtrar por persona— y un botón al
+  // lado de «su grabación» se leería como que también es de él.
+  assert.ok(/no de este lead/.test(card), 'hay que decir que el mapa no es de esta persona');
+  // Y se avisa del retraso ANTES de que el click falle: Clarity tarda hasta 2 h.
+  assert.ok(/tarda hasta 2 horas en aparecer y se borra a los 30 días/.test(card), 'sin esto, quien no la encuentra concluye que la medición no anda');
+  // El dato tiene que llegar por los DOS caminos que arman la ficha.
+  assert.ok(/urlPanel\(undefined, 'heatmaps'\)/.test(leer('../app/crm/actions.ts')), 'el mapa no llega por el camino del sheet');
+  assert.ok(/urlPanel\(undefined, 'heatmaps'\)/.test(leer('../app/crm/[id]/page.tsx')), 'el mapa no llega por el camino de la página');
+});
+
+test('los pasos del Pixel se separan de verdad', () => {
+  // Reportado DOS veces: «separa muy bien los 3 pasos» y después «siguen muy
+  // juntos, sobre todo el del código». Con poca separación, cuatro secciones se
+  // leen como una lista larga y el número deja de significar nada.
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  const i = board.indexOf('function Paso({');
+  const bloque = board.slice(i, board.indexOf('\n}', i));
+  // El aire ARRIBA de la línea es mayor que abajo: el espacio pertenece al paso
+  // que termina, y esa asimetría es lo que agrupa.
+  const mt = /marginTop: sep \? (\d+)/.exec(bloque);
+  const pt = /paddingTop: sep \? (\d+)/.exec(bloque);
+  assert.ok(mt && pt, 'no se encontró la separación');
+  assert.ok(Number(mt![1]) > Number(pt![1]), 'el aire de arriba tiene que ser mayor que el de abajo');
+  assert.ok(Number(mt![1]) >= 28, 'con menos de eso los pasos se siguen leyendo pegados');
 });
