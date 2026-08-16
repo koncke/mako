@@ -257,6 +257,31 @@ export type LandingEstado = { recibio: boolean; ultima: string | null; codigoVie
  * vacía porque un catálogo caído NO puede tapar la medición: sin nombres, las
  * curvas se muestran igual rotuladas con el id, que es feo pero verdadero.
  */
+/**
+ * Cuántos eventos dejó una prueba y en qué página fue.
+ *
+ * Lo usa el aviso de cierre: un conteo concreto —«23 eventos»— es lo que hace
+ * que el mensaje diga «quedó registrado» en vez de solo «terminó».
+ */
+export async function contarEventosDePrueba(prueba: string): Promise<{ eventos: number; pagina: string | null }> {
+  try {
+    const db = await getTenantDb();
+    const [ev, vi] = await Promise.all([
+      db.from('vsl_events').select('*', { count: 'exact', head: true }).eq('prueba', prueba),
+      db.from('landing_visits').select('landing_url').eq('prueba', prueba).limit(1),
+    ]);
+    const url = (vi.data?.[0] as { landing_url?: string } | undefined)?.landing_url ?? null;
+    let host: string | null = null;
+    try { host = url ? new URL(url).hostname.replace(/^www\./, '') : null; } catch { host = null; }
+    // La visita cuenta como evento: para quien probó, entrar a la página ES algo
+    // que pasó, y decir «0 eventos» sobre una prueba donde se registró la visita
+    // sería contradecir el panel que acaba de ver.
+    return { eventos: (ev.count ?? 0) + (vi.data?.length ?? 0), pagina: host };
+  } catch {
+    return { eventos: 0, pagina: null };
+  }
+}
+
 /** Los videos que el negocio marcó como «no son de mi página». */
 export async function getVideosOcultos(): Promise<string[]> {
   return parsearOcultos(await getSetting(VIDEOS_OCULTOS_KEY).catch(() => null));
@@ -521,8 +546,8 @@ export async function landingDiagnostico(
   // Se escribe el ternario en cada query en vez de un helper genérico: el
   // encadenado de PostgREST está tipado con genéricos que se vuelven infinitos al
   // pasarlos por una función propia, y pelear con eso no vale un renglón menos.
-  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle, auto, landing_url, video_id');
-  const qVis = db.from('landing_visits').select('created_at, landing_url');
+  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle, auto, landing_url, video_id, visitor_id');
+  const qVis = db.from('landing_visits').select('created_at, landing_url, visitor_id');
 
   const [vsl, visitas, optinsFeed] = await Promise.all([
     (prueba ? qVsl.eq('prueba', prueba) : qVsl.gte('created_at', desde)).order('created_at', { ascending: false }).limit(40),
@@ -538,6 +563,33 @@ export async function landingDiagnostico(
       : db.from('propuestas').select('created_at, resumen').eq('origen', 'landing').gte('created_at', desde).order('created_at', { ascending: false }).limit(10),
   ]);
 
+  // ⚠️ UN OPT-IN QUE FUNCIONA NO DEJA UNA PROPUESTA: DEJA UN LEAD.
+  //
+  // Este chequeo miraba solo `propuestas`, y una propuesta se crea **únicamente
+  // cuando el contacto choca con uno que ya existe** — el camino normal escribe
+  // el lead directo. O sea que el renglón «5. Deja sus datos» solo podía ponerse
+  // verde si el lead era DUPLICADO: un formulario que anda perfecto lo dejaba en
+  // rojo para siempre.
+  //
+  // Reportado el 2026-08-16 —«envié el form de la landing y la prueba NO lo
+  // detectó»— y comprobado mandando un opt-in de prueba con el token real: el
+  // server contestó `{ok:true, lead:2246, creado:true}`. El formulario nunca
+  // estuvo roto; lo que estaba roto era dónde miraba el chequeo.
+  //
+  // Se cruza por `visitor_id` y no por el marcador de la prueba porque un lead no
+  // guarda ese marcador: lo que sí guarda es el identificador de la visita
+  // anónima, que es justamente lo que ata todo lo que esa persona hizo antes.
+  const visitantes = [...new Set([
+    ...((vsl.data ?? []) as Array<{ visitor_id: string | null }>).map((r) => r.visitor_id),
+    ...((visitas.data ?? []) as Array<{ visitor_id: string | null }>).map((r) => r.visitor_id),
+  ].filter((x): x is string => !!x))];
+  const qLeads = db.from('leads').select('id, created_at, nombre').eq('origen_lead', 'landing');
+  const leadsOptin = visitantes.length
+    ? await (prueba ? qLeads.in('visitor_id', visitantes) : qLeads.gte('created_at', desde)).limit(10)
+    : { data: [] as Array<{ id: number; created_at: string; nombre: string | null }> };
+
+  const leadsFeed = leadsOptin.data ?? [];
+
   // ⚠️ Los eventos de OTRAS páginas no cuentan. Con dos landings, «llegan las
   // visitas» daba verde por la que sí funciona mientras la elegida no mandaba
   // nada — que es exactamente el caso que este rediseño vino a cerrar.
@@ -545,7 +597,7 @@ export async function landingDiagnostico(
     !urlLanding || !u || normalizarUrl(u) === normalizarUrl(urlLanding);
 
   const eventos: EventoDiag[] = [
-    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null; auto: boolean | null; landing_url: string | null; video_id: string | null }>)
+    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null; auto: boolean | null; landing_url: string | null; video_id: string | null; visitor_id: string | null }>)
       // Desde la v12 los eventos de video también dicen de qué página vinieron.
       // Los de antes traen NULL y `deEstaLanding` los DEJA PASAR a propósito: no
       // se puede atribuir lo que no se sabe, y descartarlos pintaría en rojo el
@@ -556,11 +608,17 @@ export async function landingDiagnostico(
       .map((r) => ({ ts: r.created_at, tipo: r.tipo_evento ?? 'evento', porcentaje: r.porcentaje, segundos: r.segundos, auto: r.auto === true, // Para un click el detalle ES el destino; para un evento de video, el título.
       // Sin este `??`, el click llegaba a la pantalla sin decir en qué se hizo.
       detalle: r.detalle ?? r.vsl_titulo })),
-    ...((visitas.data ?? []) as Array<{ created_at: string; landing_url: string | null }>)
+    ...((visitas.data ?? []) as Array<{ created_at: string; landing_url: string | null; visitor_id: string | null }>)
       .filter((r) => deEstaLanding(r.landing_url))
       .map((r) => ({ ts: r.created_at, tipo: 'pageview', porcentaje: null, segundos: null, auto: false, detalle: r.landing_url })),
     ...((optinsFeed.data ?? []) as Array<{ created_at: string; resumen: string | null }>)
       .map((r) => ({ ts: r.created_at, tipo: 'optin', porcentaje: null, segundos: null, auto: false, detalle: r.resumen })),
+    // Un lead creado por el formulario es un opt-in que FUNCIONÓ. Sin esto la
+    // lista se quedaba muda justo en el evento más importante del embudo, y la
+    // instrucción de arriba dice «completá tu formulario, los eventos aparecen
+    // acá»: era una promesa que la pantalla no podía cumplir.
+    ...((leadsFeed ?? []) as Array<{ created_at: string; nombre: string | null }>)
+      .map((r) => ({ ts: r.created_at, tipo: 'optin', porcentaje: null, segundos: null, auto: false, detalle: r.nombre })),
   ].sort((a, b) => (a.ts < b.ts ? 1 : -1));
 
   // ⚠️ LOS CHEQUEOS MIRAN TODO; LA LISTA QUE SE MUESTRA, LAS 25 MÁS NUEVAS.
@@ -638,7 +696,7 @@ export async function landingDiagnostico(
   const { data: optins } = declarado
     ? await db.from('propuestas').select('created_at').eq('origen', 'landing').gte('created_at', desde).limit(1)
     : { data: null };
-  const hayOptin = (optins?.length ?? 0) > 0;
+  const hayOptin = (optins?.length ?? 0) > 0 || ((leadsOptin.data?.length ?? 0) > 0);
 
   // ⚠️ Y CUÁNTOS ESTÁN SIN REVISAR, que es la pregunta que el chequeo no hacía.
   //

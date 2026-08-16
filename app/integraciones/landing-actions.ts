@@ -12,6 +12,9 @@
 import { revalidatePath } from 'next/cache';
 import { getSetting, setSetting } from '@/lib/settings';
 import { requireRolWs } from '@/lib/tab-access';
+import { emitirDelCatalogo } from '@/lib/avisos';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { contarEventosDePrueba } from '@/lib/landing-token';
 import { OCULTAS_KEY, PAGINAS_KEY, conOculta, conPagina, parsearOcultas, parsearPaginas, sinPagina } from '@/lib/landing-paginas';
 import { VIDEOS_KEY, conVideo, parsearVideos, sinVideo, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos, conOculto, sinOculto } from '@/lib/landing-videos';
 
@@ -127,6 +130,53 @@ export async function guardarVideoAction(video: VideoLanding): Promise<VideosRes
  * listando con razón — y no había forma de decirle que ese video no es del
  * negocio.
  */
+/** Dónde se anota qué pruebas ya se cerraron, para no avisar dos veces. */
+const CERRADAS_KEY = 'landing.pruebas_cerradas';
+
+/**
+ * Se terminó una prueba: avisar que quedó registrada y que la grabación viene.
+ *
+ * ⚠️ ESTE MENSAJE VA AL TERMINAR, no cuando la grabación está lista — de eso se
+ * ocupa el cron `prueba-grabacion`, que manda el link 45 minutos después. Este
+ * cierra el bucle EN EL MOMENTO: quien termina de probar cierra la ventana y se
+ * queda sin ninguna señal de que lo que hizo quedó registrado, y 45 minutos de
+ * silencio con la pantalla ya cerrada se parecen mucho a que no pasó nada.
+ *
+ * ⚠️ IDEMPOTENTE POR MARCADOR, y hace falta: la prueba puede terminar por dos
+ * caminos a la vez —cerrar la ventana y apretar «Terminar»— y los dos llaman acá.
+ */
+export async function finPruebaAction(prueba: string): Promise<{ ok: boolean }> {
+  try {
+    await requireRolWs([], { nav: 'integraciones' });
+    const p = prueba?.trim();
+    if (!p) return { ok: false };
+
+    let cerradas: string[] = [];
+    try {
+      const v: unknown = JSON.parse((await getSetting(CERRADAS_KEY)) ?? '[]');
+      cerradas = Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    } catch { cerradas = []; }
+    if (cerradas.includes(p)) return { ok: true };
+    await setSetting(CERRADAS_KEY, JSON.stringify([p, ...cerradas].slice(0, 40)));
+
+    const { eventos, pagina } = await contarEventosDePrueba(p);
+    // Una prueba sin un solo evento no merece un mensaje: no hay nada que contar
+    // y el aviso se leería como ruido justo cuando la persona ya está frustrada.
+    if (!eventos) return { ok: true };
+
+    const ws = (await getWorkspaceActual()) ?? undefined;
+    await emitirDelCatalogo('prueba-recibida', {
+      ws,
+      // El texto lo arma el CÓDIGO: acá viaja un conteo exacto y un dominio.
+      texto: `Listo, recibí tu prueba del Pixel${pagina ? ` en *${pagina}*` : ''}: ${eventos} ${eventos === 1 ? 'evento' : 'eventos'}. La grabación de Clarity se está procesando y te mando el link apenas esté (suele tardar entre 30 minutos y 2 horas).`,
+    });
+    return { ok: true };
+  } catch {
+    // Que el aviso falle no puede romper el cierre de la prueba.
+    return { ok: false };
+  }
+}
+
 export async function ocultarVideoAction(id: string, ocultar = true): Promise<{ ok: true; ocultos: string[] } | { ok: false; error: string }> {
   try {
     await requireRolWs([], { nav: 'integraciones' });

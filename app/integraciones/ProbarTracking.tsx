@@ -21,6 +21,7 @@ import type { VideoLanding } from '@/lib/landing-videos';
 import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
 import { analizarLandingAction } from './landing-config-actions';
+import { finPruebaAction } from './landing-actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -109,6 +110,11 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   const [url, setUrl] = useState(landingFija ?? '');
   const [previo, setPrevio] = useState<Diag | null>(null); // estado ANTES de arrancar
   const [bloqueo, setBloqueo] = useState(false); // apretó "probar" con el código viejo
+  // El navegador bloqueó la ventana de la prueba. No es un detalle: sin ella no
+  // hay dónde mirar los eventos mientras se usa la landing.
+  const [sinPermiso, setSinPermiso] = useState(false);
+  // La ventana de la prueba, para saber cuándo la cierran.
+  const ventana = useRef<Window | null>(null);
   // ⚠️ El marcador de ESTA prueba, como el `test_event_code` de Meta. Sin él, el
   // panel traía las últimas 24 h enteras y aparecían horarios de la mañana entre
   // los de recién: no había forma de saber cuáles eran los propios.
@@ -274,6 +280,33 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     return () => { vivo = false; };
   }, [landingFija]);
 
+  // ⚠️ CERRAR LA VENTANA DE LA PRUEBA ES TERMINARLA. Antes quedaba corriendo: el
+  // marcador seguía vivo, el panel de atrás seguía poleando, y el aviso de cierre
+  // —el que dice «recibí tu prueba, la grabación viene»— no salía nunca. Cerrar
+  // una ventana ES una forma de decir «terminé», y la más común.
+  //
+  // Cerrar la pestaña de MaKo también termina, y eso lo cubre `pagehide`.
+  //
+  // ⚠️ NO cuenta cerrar la pestaña de la LANDING: eso es parte de la prueba —
+  // justamente el evento «cerró la página» que se agregó en la v14—, así que
+  // tomarlo como fin apagaría la prueba en el momento en que más está midiendo.
+  const cerrar = useCallback((p: string | null) => {
+    if (p) void finPruebaAction(p);
+    setActivo(false);
+    setPrueba(null);
+    ventana.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (!activo || !prueba) return;
+    const t = setInterval(() => {
+      if (ventana.current && ventana.current.closed) { clearInterval(t); cerrar(prueba); }
+    }, 1000);
+    const alSalir = () => { void finPruebaAction(prueba); };
+    window.addEventListener('pagehide', alSalir);
+    return () => { clearInterval(t); window.removeEventListener('pagehide', alSalir); };
+  }, [activo, prueba, cerrar]);
+
   // Mientras la prueba está prendida, consulta cada 3s. Se apaga sola al cerrar
   // el modal (cleanup) para no dejar un poll corriendo de fondo.
   useEffect(() => {
@@ -337,6 +370,31 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // El hash va SIEMPRE al final: `pagina.com/#registro?mko_test=x` deja el
     // parámetro adentro del hash y `location.search` no lo ve nunca.
     const [base, hash] = u.split('#');
+    // ⚠️ LA VENTANA DE MaKo SE ABRE PRIMERO, Y SI NO ABRE NO HAY PRUEBA.
+    //
+    // Antes se abría la landing y después esta, y si el navegador bloqueaba las
+    // emergentes la prueba arrancaba igual: la landing quedaba abierta midiendo y
+    // la persona sin ningún lado donde ver los eventos. Terminaba mirando el panel
+    // de atrás, que es justo lo que la ventana vino a evitar —apretar en una
+    // pestaña y mirar en otra es alternar a ciegas—.
+    //
+    // Se abre primero para poder DETECTAR el bloqueo: la landing va con
+    // `noopener`, que devuelve `null` siempre, así que con ella no se puede saber.
+    // Y como el foco se le devuelve al final, sigue quedando arriba.
+    const alto = Math.min(760, Math.max(420, window.screen.availHeight - 120));
+    const chico = window.open(
+      `/integraciones/escuchando?p=${id}`,
+      'mako_prueba',
+      `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`,
+    );
+    if (!chico) {
+      // No se abre la landing: dejarla abierta midiendo una prueba que nadie
+      // puede mirar es peor que no empezar.
+      setSinPermiso(true);
+      setPrueba(null);
+      return;
+    }
+    ventana.current = chico;
     window.open(`${base}${sep}mko_test=${id}${hash ? `#${hash}` : ''}`, '_blank', 'noopener');
 
     // Y ENCIMA, una ventana de prueba de MaKo. Para verificar que un click se
@@ -354,18 +412,24 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // Sin `noopener`: acá se necesita la referencia para saber si el navegador la
     // bloqueó. Y se le da nombre para que dos pruebas seguidas REUSEN la misma
     // ventana en vez de sembrar la pantalla de ventana de pruebas huérfanas.
-    const alto = Math.min(760, Math.max(420, window.screen.availHeight - 120));
-    const chico = window.open(
-      `/integraciones/escuchando?p=${id}`,
-      'mako_prueba',
-      `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`,
-    );
-    // Si el navegador la bloqueó, el panel de acá abajo sigue funcionando igual:
-    // la prueba no puede depender de un permiso que no controlamos.
     setPaso('inicio');
     try { chico?.focus(); } catch { /* algunos navegadores no lo permiten */ }
     setActivo(true);
   };
+
+  const avisoPermiso = sinPermiso && (
+    <div style={{ marginTop: 12, padding: '13px 15px', borderRadius: 11, border: '1px solid var(--warn)', background: 'var(--warn-bg)' }}>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Permite las ventanas emergentes</div>
+      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4, lineHeight: 1.55 }}>
+        Tu navegador bloqueó la ventana de la prueba, y sin ella no hay dónde ver los eventos
+        mientras usas tu página. <b>No empezamos la prueba</b> para no dejarte una pestaña abierta
+        midiendo algo que no puedes mirar.
+        <br />
+        En Chrome: el ícono con la ventanita tachada, a la derecha de la barra de direcciones →
+        <b> Permitir siempre</b> → vuelve aquí y aprieta Probar.
+      </div>
+    </div>
+  );
 
   const avisoViejo = bloqueo && (
     <div style={{ marginTop: 12, padding: '13px 15px', borderRadius: 11, border: '1px solid var(--warn)', background: 'var(--warn-bg)' }}>
@@ -411,6 +475,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
             Es el mismo error que dejó muerto el lápiz de «Tus videos»: cambiar un
             estado que se renderiza en una rama que no se está mostrando. */}
         {avisoViejo}
+        {avisoPermiso}
         {/* ⚠️ LOS DOS EN LA MISMA FILA Y DEL MISMO ALTO. «Volver» colgaba abajo,
             centrado y en `size="sm"`: tres diferencias para decir una sola cosa
             —que es la salida y no la acción— y el resultado era un botón más
@@ -521,6 +586,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
         </div>
 
         {avisoViejo}
+        {avisoPermiso}
 
         {/* La salida para corregirse, y nada más que eso: un renglón que NOMBRA lo
             que ya está declarado y ofrece cambiarlo. No es el formulario abierto
@@ -554,7 +620,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
           // de páginas dentro de una ventana de 440 px no lleva a ningún lado, y
           // dejarla abierta y muda es peor que cerrarla.
           if (pruebaInicial) { window.close(); return; }
-          setActivo(false); setPrueba(null);
+          cerrar(prueba);
         }}>Terminar</Button>
       </div>
       <style>{'@keyframes pt-latido{0%,100%{opacity:1}50%{opacity:.25}}'}</style>

@@ -124,6 +124,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
 
   'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'lead-de-landing': 'landing',
   'clarity-grabacion-por-vencer': 'landing', 'prueba-grabada': 'landing',
+  'prueba-recibida': 'landing',
   'wa-desconectado': 'sistema',
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
@@ -328,6 +329,19 @@ https://hola-mako.com/integraciones
     // tiempo de hacer nada, y el aviso existe para que se haga algo.
     disparador: 'Cron diario: un lead con grabación en Clarity cumple 25 días (de los 30 que dura).',
     ejemplo: `🟡 La grabación de *Marina Olvera* se borra en 4 días. Si te sirve para después, entra y márcala como favorita: así se guarda 13 meses en vez de 30 días 👉 https://clarity.microsoft.com/projects/view/abc123/impressions?CustomUserId=… — MaKo`,
+  },
+  {
+    id: 'prueba-recibida', titulo: 'Recibimos tu prueba del Pixel', categoria: 'aviso',
+    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ VA AL TERMINAR, no cuando la grabación está lista — para eso está
+    // `prueba-grabada`, que llega 45 minutos después con el link. Este cierra el
+    // bucle EN EL MOMENTO: quien termina de probar cierra la ventana y se queda
+    // sin ninguna señal de que lo que hizo quedó registrado, y 45 minutos de
+    // silencio con la pantalla ya cerrada se parecen mucho a que no pasó nada.
+    //
+    // Es la diferencia entre esperar y dudar, y cuesta un mensaje.
+    disparador: 'Al terminar una prueba del Pixel: se cierra la ventana de la prueba o se aprieta «Terminar».',
+    ejemplo: `🟢 Listo, recibí tu prueba del Pixel en *tupagina.com*: 23 eventos. La grabación de Clarity se está procesando y te mando el link apenas esté (suele tardar entre 30 minutos y 2 horas) — MaKo`,
   },
   {
     id: 'prueba-grabada', titulo: 'La grabación de tu prueba ya está lista', categoria: 'aviso',

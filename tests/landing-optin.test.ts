@@ -759,13 +759,20 @@ test('la prueba abre una ventana de prueba de MaKo ENCIMA de la landing', () => 
   const panel = leer('../app/integraciones/ProbarTracking.tsx');
   assert.ok(/\/integraciones\/escuchando\?p=\$\{id\}/.test(panel), 'falta la ventana de prueba');
   assert.ok(/'mako_prueba'/.test(panel), 'con nombre, dos pruebas seguidas reusan la ventana en vez de sembrar huérfanas');
-  // ⚠️ Se abre DESPUÉS de la landing: la última que se abre queda arriba, y la
-  // que tiene que quedar arriba es esta.
+  // ⚠️ CAMBIÓ EL ORDEN, Y POR UN MOTIVO MÁS FUERTE QUE EL ANTERIOR. Antes se
+  // abría la landing primero para que la ventana de MaKo quedara arriba. Ahora la
+  // ventana va PRIMERO, porque es la única de las dos cuyo bloqueo se puede
+  // detectar: la landing se abre con `noopener`, que devuelve `null` siempre.
+  // Y quedar arriba se resuelve igual, con el `focus()` del final.
+  //
+  // Sin esto, con las emergentes bloqueadas la prueba arrancaba lo mismo: la
+  // landing quedaba abierta midiendo y la persona sin ningún lado donde mirar.
   const iLanding = panel.indexOf('mko_test=${id}');
   const iVentana = panel.indexOf('/integraciones/escuchando?p=');
-  assert.ok(iLanding > 0 && iVentana > iLanding, 'la ventana de prueba se abre después, para quedar encima');
-  // Si el navegador la bloquea, el panel de la tab sigue funcionando: la prueba
-  // no puede depender de un permiso que no controlamos.
+  assert.ok(iVentana > 0 && iLanding > iVentana, 'la ventana de MaKo se abre primero: es la única cuyo bloqueo se puede detectar');
+  assert.ok(/if \(!chico\) \{/.test(panel), 'si el navegador la bloquea, la prueba NO puede arrancar');
+  assert.ok(/Permite las ventanas emergentes/.test(panel), 'y hay que decir cómo se arregla');
+  assert.ok(/chico\?\.focus\(\)|chico\.focus\(\)/.test(panel), 'sin el focus, la ventana queda debajo de la landing');
   // La pestaña de atrás NO cambia: sigue mostrando la misma prueba. Un panel que
   // se reemplaza por «esto corre en otro lado» obliga a volver para enterarse de
   // que no hay nada que ver ahí.
@@ -1459,4 +1466,37 @@ test('un video oculto no vuelve a pedir que lo identifiques', () => {
   // Y es lo que gobierna el salto al paso: si esto se rompe, la prueba vuelve a
   // frenarse en una pregunta ya contestada.
   assert.ok(/if \(paso !== 'videos' && sinNombre\.length > 0\)/.test(panel), 'el paso se dispara por los que faltan identificar');
+});
+
+test('cerrar la ventana de la prueba la TERMINA, y avisa', () => {
+  // Pedido del dueño: «si el usuario cierra la ventana emergente de MaKo se
+  // debería tomar como que se finalizó la prueba. Lo mismo si cierra la pestaña
+  // de MaKo. NO en el caso de que cierre la tab de la landing, ya que eso es
+  // parte de la prueba».
+  //
+  // ⚠️ Y esa última mitad es la que importa: cerrar la landing es justamente el
+  // evento `cierre` que mide la v14. Tomarlo como fin de prueba apagaría la
+  // medición en el momento en que más está midiendo.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/ventana\.current && ventana\.current\.closed/.test(panel), 'no detecta que cerraron la ventana');
+  assert.ok(/window\.addEventListener\('pagehide', alSalir\)/.test(panel), 'cerrar la pestaña de MaKo también termina');
+  assert.ok(/void finPruebaAction\(p\)/.test(panel), 'terminar tiene que avisar');
+  // El botón «Terminar» pasa por el MISMO camino, o cerrar y apretar el botón
+  // hacen cosas distintas.
+  assert.ok(/cerrar\(prueba\);\s*\}\}>Terminar<\/Button>/.test(panel), 'el botón no puede tener su propio camino');
+
+  const act = leer('../app/integraciones/landing-actions.ts');
+  assert.ok(/export async function finPruebaAction/.test(act), 'falta la acción');
+  // ⚠️ Idempotente por marcador: la prueba puede terminar por dos caminos a la
+  // vez —cerrar la ventana y apretar Terminar— y los dos llaman acá.
+  assert.ok(/if \(cerradas\.includes\(p\)\) return \{ ok: true \};/.test(act), 'sin esto salen dos mensajes por una prueba');
+  // Y una prueba sin un solo evento no merece mensaje: sería ruido justo cuando
+  // la persona ya está frustrada.
+  assert.ok(/if \(!eventos\) return \{ ok: true \};/.test(act), 'una prueba vacía no se avisa');
+
+  const cat = leer('../lib/avisos-catalogo.ts');
+  assert.ok(/id: 'prueba-recibida'/.test(cat), 'el aviso no está en el catálogo');
+  // Son DOS avisos distintos y en dos momentos: este al terminar, y
+  // `prueba-grabada` 45 minutos después con el link.
+  assert.ok(/id: 'prueba-grabada'/.test(cat), 'el de la grabación lista sigue existiendo');
 });
