@@ -1057,3 +1057,43 @@ test('cada campo se escribe en la tabla que TIENE esa columna', () => {
   // landing_visits): sirve de control de que el test mira los bloques correctos.
   assert.ok(/^\s*sv:/m.test(bloqueVis), 'el test está leyendo el bloque equivocado');
 });
+
+test('cada evento dice en CUÁL página pasó, no solo la visita', () => {
+  // El paso 1 del modal pregunta «¿cuál de tus páginas?» y acota todo lo de abajo
+  // a esa elección. Hasta la v11 eso valía SOLO para las visitas: `landing_visits`
+  // tiene `landing_url` (mig 0061) y `vsl_events` no tenía nada equivalente, así
+  // que el chequeo «2. Reproduce tu video» podía darse por cumplido con un play de
+  // OTRA página del mismo workspace. Una promesa cumplida a medias es peor que no
+  // hacerla, porque nadie la audita.
+  const lib = leer('../lib/landing-token.ts');
+  // Va en `enviar()`, que es el único lugar por donde pasan TODOS los eventos.
+  // Colgarlo de cada llamada garantiza que el próximo evento nuevo se olvide.
+  assert.ok(/if \(data\.landing_url == null\) data\.landing_url = location\.href;/.test(lib),
+    'la página tiene que viajar en cada evento, no solo en el pageview');
+  const iEnviar = lib.indexOf('function enviar(data) {');
+  const iPageview = lib.indexOf("tipo_evento: 'pageview'", iEnviar);
+  assert.ok(iEnviar > 0 && iEnviar < lib.indexOf('data.landing_url = location.href') && lib.indexOf('data.landing_url = location.href') < iPageview,
+    'si no está dentro de enviar(), cada evento nuevo nace sin página');
+
+  // Y el diagnóstico ahora sí filtra los eventos de video por página.
+  assert.ok(/\.filter\(\(r\) => deEstaLanding\(r\.landing_url\)\)[\s\S]{0,400}tipo: r\.tipo_evento/.test(lib),
+    'los eventos de video siguen entrando sin filtrar por página');
+
+  // ⚠️ Y LOS VIEJOS PASAN. `deEstaLanding` devuelve true con NULL a propósito: no
+  // se puede atribuir lo que no se sabe, y descartarlos pintaría en rojo el
+  // chequeo de alguien que tiene el Pixel andando y solo lo tiene viejo.
+  assert.ok(/const deEstaLanding = \(u: string \| null \| undefined\) =>\s*!urlLanding \|\| !u \|\|/.test(lib),
+    'un evento sin página no se puede descartar: castiga a quien no hizo nada mal');
+
+  // La versión sube, o el aviso de «Pixel desactualizado» no le llega a nadie.
+  assert.ok(/export const SNIPPET_VERSION = 12;/.test(lib), 'la mejora no sirve si nadie se entera de que hay que repegar');
+  assert.ok(/^\s*12: '/m.test(lib), 'sin entrada en NOVEDADES el aviso no puede decir qué se gana');
+
+  // El beacon la guarda, y en la tabla que tiene la columna (mig 0137).
+  const ruta = leer('../app/api/track/vsl/route.ts');
+  const iVsl = ruta.indexOf("from('vsl_events').insert(");
+  assert.ok(/^\s*landing_url: texto\(payload\.landing_url, 500\),/m.test(ruta.slice(iVsl, ruta.indexOf('});', iVsl))),
+    'el beacon recibe la página y la tira');
+  const mig = leer('../supabase/migrations/0137_vsl_events_landing_url.sql');
+  assert.ok(/alter table public\.vsl_events\s+add column if not exists landing_url text;/.test(mig), 'falta la columna');
+});

@@ -86,7 +86,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 11;
+export const SNIPPET_VERSION = 12;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -122,6 +122,7 @@ const NOVEDADES: Record<number, string> = {
   5: 'la medición de todos los videos por separado: antes, con más de uno, el segundo casi no se medía y su avance se calculaba con la duración del primero',
   6: 'la medición de los clics: qué botones y enlaces usan tus visitantes, incluido el de WhatsApp · y la prueba del código ahora muestra solo tus propios eventos, sin mezclarlos con las visitas del día',
   11: 'distinguir el video que ARRANCA SOLO del que alguien reproduce: con autoplay, hasta ahora contaba como si la persona hubiera querido verlo',
+  12: 'saber en CUÁL de tus páginas pasó cada cosa: hasta ahora solo las visitas decían de dónde venían, así que con dos páginas los videos y los clics de las dos caían juntos',
   10: 'dos eventos que faltaban: cuando alguien AGENDA en tu Calendly embebido —que para vender por llamada es el evento más importante— y las pausas del video, que distinguen a quien lo mira de quien lo dejó corriendo',
   9: 'la medición de los primeros segundos de un video largo: hasta ahora, en un video de 20 minutos no se registraba ningún avance durante el primer minuto — y ahí es donde se pierde a la mayoría',
   8: 'poder ver cada video desde la app al momento de identificarlo: antes solo aparecía un código y había que adivinar',
@@ -466,7 +467,7 @@ export async function landingDiagnostico(
   // Se escribe el ternario en cada query en vez de un helper genérico: el
   // encadenado de PostgREST está tipado con genéricos que se vuelven infinitos al
   // pasarlos por una función propia, y pelear con eso no vale un renglón menos.
-  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle, auto');
+  const qVsl = db.from('vsl_events').select('created_at, tipo_evento, porcentaje, segundos, vsl_titulo, detalle, auto, landing_url');
   const qVis = db.from('landing_visits').select('created_at, landing_url');
 
   const [vsl, visitas, optinsFeed] = await Promise.all([
@@ -490,7 +491,14 @@ export async function landingDiagnostico(
     !urlLanding || !u || normalizarUrl(u) === normalizarUrl(urlLanding);
 
   const eventos: EventoDiag[] = [
-    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null; auto: boolean | null }>)
+    ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null; auto: boolean | null; landing_url: string | null }>)
+      // Desde la v12 los eventos de video también dicen de qué página vinieron.
+      // Los de antes traen NULL y `deEstaLanding` los DEJA PASAR a propósito: no
+      // se puede atribuir lo que no se sabe, y descartarlos pintaría en rojo el
+      // chequeo de alguien que tiene el Pixel andando y solo lo tiene viejo —
+      // castigarlo por algo que no hizo mal. Se mezclan hasta que repegue el
+      // código, que es lo que el aviso de «Pixel desactualizado» le pide.
+      .filter((r) => deEstaLanding(r.landing_url))
       .map((r) => ({ ts: r.created_at, tipo: r.tipo_evento ?? 'evento', porcentaje: r.porcentaje, segundos: r.segundos, auto: r.auto === true, // Para un click el detalle ES el destino; para un evento de video, el título.
       // Sin este `??`, el click llegaba a la pantalla sin decir en qué se hizo.
       detalle: r.detalle ?? r.vsl_titulo })),
@@ -786,6 +794,12 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
     data.t = TOKEN;
     data.sv = SV;
     data.visitor_id = visitorId;
+    // ⚠️ LA PÁGINA VIAJA EN CADA EVENTO, no solo en la visita. Hasta la v11 solo
+    // el pageview decía de dónde venía, así que un negocio con dos landings tenía
+    // los plays, los clics y los AGENDÓ de las dos en la misma bolsa: se podía
+    // saber quién ENTRÓ a cada página y no qué HIZO en cada una. Va acá adentro y
+    // no en cada llamada porque este es el único lugar por donde pasan todos.
+    if (data.landing_url == null) data.landing_url = location.href;
     if (prueba) data.prueba = prueba;
     if (leadToken) data.l = leadToken;
     try {

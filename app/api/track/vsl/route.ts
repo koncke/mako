@@ -328,6 +328,11 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       // verdad: un default inventaría un dato.
       detalle: texto(payload.detalle, 300),
       prueba: texto(payload.prueba, 40),
+      // De qué página vino ESTE evento (mig 0137, snippet v12). Antes solo lo
+      // decían las visitas, así que con dos landings los videos y los clics de
+      // las dos caían en la misma bolsa. NULL en los eventos de un Pixel anterior
+      // a la v12: no se sabe, y no se inventa.
+      landing_url: texto(payload.landing_url, 500),
       // ⚠️ Un play automático NO es una reproducción (mig 0136). Se guarda como
       // tal para que el chequeo y la retención puedan descartarlo: con autoplay,
       // contar todo play como intención infla el embudo desde el primer escalón.
