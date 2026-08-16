@@ -832,7 +832,7 @@ Pasó el 16/08/2026 buscando `extraFooter` en `app/_components/WizardShell.tsx`:
 y hubo que leerlo con un script aparte. Eran cinco archivos, todos con el byte crudo donde el
 código quería el escape (`pasos.join('<NUL>')`, un centinela, dos clases de regex).
 
-- **Si escribís un carácter de control, escribilo como escape** (` `, ``), nunca
+- **Si escribís un carácter de control, escribilo como escape** (`\u0000`, ``), nunca
   como byte. Significa lo mismo en una string, en una clase de regex y en un comentario.
 - **Si una búsqueda contesta vacío en un archivo donde jurabas que estaba, mirá si es
   binario** (`file <ruta>` dice `data`) antes de concluir que no está.
