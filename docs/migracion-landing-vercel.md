@@ -101,6 +101,46 @@ y no toca la producción de hoy. El paso 3 del plan se lee con esta corrección.
 Falta de la Fase A: **arreglar la `og:image`** (paso 6), que es independiente de la
 migración.
 
+## Estado: la Fase B, la parte que no necesita a nadie (2026-08-16)
+
+Se compiló el repo y se desplegó el resultado en Vercel para PROBARLO, sin dominio y sin
+tocar producción. El proyecto de prueba se borró después (410 en su URL).
+
+**Lo que quedó verificado, con evidencia:**
+
+| Pregunta | Respuesta |
+|---|---|
+| ¿El repo compila solo? | Sí. `npm install` + `vite build` con Node 24.17: **48 s**, sin tocar nada. |
+| ¿`lovable-tagger` rompe el build de producción? | No. El import es estático pero el plugin solo corre en `mode === "development"`. |
+| ¿Funciona el rewrite de SPA? | Sí. `/privacidad`, `/politica-de-privacidad` y una ruta inventada devuelven **200** con el index. Sin `vercel.json` serían el 404 de Vercel. |
+| ¿Salen los tres headers? | Sí, con los valores exactos: HSTS `max-age=31536000; includeSubDomains`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`. |
+| ¿El caché de assets? | `public, max-age=31536000, immutable`, con el content-type correcto. |
+| ¿Es la misma página? | Sí: mismo `<title>`, el guard del Meta Pixel, el Pixel de MaKo `SV = 12`, su token y el id de Clarity. |
+
+**Y se cerró la duda de los ~9,5 KB de diferencia** que abrió esta migración. Producción
+sirve 37.815 bytes y el build 28.311. La sospecha era que Lovable inyectaba el `og:image` al
+publicar — **es falsa, medida línea por línea**: `og:image`, `twitter:image`, `og:title` y
+`og:description` son **idénticos** en los dos. Los 9,5 KB son el **badge de Lovable** (su
+`<style>`, su fuente de `cdn.gpteng.co`) y `/~flock.js`: 35 apariciones en producción, 0 en
+el build. Migrar no pierde nada de eso — lo gana.
+
+⚠️ **La verificación se hizo con `curl` a propósito, y no abriendo la página.** `curl` no
+ejecuta JavaScript, así que no dispara ni el Meta Pixel ni el de MaKo. Abrir un preview en
+un navegador SÍ los dispara: el guard de dominio (commit `629d1989`) tapa el de Meta, pero el
+de MaKo rutea por token y escribiría eventos reales en el workspace con `landing_url` de
+`*.vercel.app`. Si hay que mirarlo con los ojos, se abre con `?mko_test=<algo>` para poder
+borrarlo después con precisión.
+
+**Lo que falta de la Fase B necesita credenciales que no están acá:**
+
+1. **Conectar Vercel con la cuenta `mauriciobustoseguia`** — hay que instalar la GitHub App
+   de Vercel en ESA cuenta. Es un flujo de OAuth en el navegador; el PAT no alcanza.
+2. **Paso 9-A: bajar el TTL a 600** en GoDaddy, en `@` y en `www`. Es aditivo y no mueve
+   tráfico, y es lo que define la ventana de rollback. Confirmar contra ns53 **y** ns54 que
+   ya devuelven 600 antes de empezar a contar la hora.
+3. **Paso 9-B: pre-generar el certificado** con `vercel certs issue … --challenge-only` y
+   cargar los dos TXT `_acme-challenge` en GoDaddy. También aditivo.
+
 ## 3. El plan, en orden
 
 **Regla de oro: el DNS se toca en el PASO 9, y ni un minuto antes.** Todo lo de arriba es reversible y no toca producción.
@@ -209,6 +249,13 @@ Aclaración honesta: el TTL acota a los resolvers que lo respetan. La cola real 
 ---
 
 ## 5. Qué no mejora (o directamente empeora)
+
+⚠️ **CORRECCIÓN del 2026-08-16, y cambia la mitad de este punto.** Lo de abajo asumía que
+Lovable publica solo en cada push — era una de las seis cosas que la auditoría marcó como
+sin verificar. Se midió: un push a `main` estuvo **~35 minutos sin salir**, y salió cuando el
+dueño apretó Publicar a mano. Si publicar es siempre manual, migrar **sí** elimina un paso
+real del día. Lo que sigue siendo cierto es la otra mitad: el botón no desaparece, se mueve —
+y hay que elegir a dónde (paso 14).
 
 **No elimina el paso de publicar. Elimina el control.** Esto hay que decirlo claro porque es la queja que originó todo. Hoy hay un freno: push a `main` y publicación son cosas distintas — durante la auditoría, `main` tenía `SV = 12` mientras producción servía `SV = 11`. Con Vercel enganchado a `main`, cada merge es un deploy a producción sobre los anuncios. Eso no es "sacar un paso": es sacar la única revisión humana entre el editor y el tráfico pago. Y si le ponés freno (paso 14), el botón no desaparece — **se mueve**. La pregunta real no es "¿migro para no apretar Publicar?" sino "¿dónde quiero que viva ese botón?".
 
