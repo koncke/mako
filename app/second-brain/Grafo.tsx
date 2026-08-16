@@ -584,18 +584,31 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
     });
   }, [aristas, porId, radioMundo, nodos, posiciones, ordenEntrada]);
 
+  // ⚠️ `pintar` VA POR REF Y NO POR DEPENDENCIA, y no es una optimización: es un bug.
+  // `pintar` depende de `ordenEntrada`, que depende de `montados` — o sea de QUÉ SE VE.
+  // Con `pintar` en las deps del efecto de abajo, cada cambio de lo visible lo volvía a
+  // correr, y ahí adentro está `t0.current = performance.now()`: el reloj de la entrada
+  // se reiniciaba y TODOS los nodos volvían a nacer desplazados 260-480 unidades hacia
+  // afuera. O sea que filtrar disparaba el mapa entero y lo rearmaba.
+  //
+  // Pasa HOY en /second-brain con cada cambio de filtro; se descubrió construyendo el
+  // revelado progresivo de la bienvenida, que hace eso mismo tres veces seguidas. Es el
+  // mismo patrón de ref que el archivo ya usa para `onVerse` y para `ajustar`.
+  const pintarRef = useRef(pintar);
+  pintarRef.current = pintar;
+
   // El bucle. Corre siempre salvo que el usuario pida movimiento reducido, en cuyo caso
   // se pinta UNA vez en las posiciones finales y no se enciende nada.
   useEffect(() => {
     baseRef.current = new Map(Object.entries(posiciones));
     const reduce = typeof window !== 'undefined'
       && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) { pintar(99_999); return; }
+    if (reduce) { pintarRef.current(99_999); return; }
     t0.current = performance.now();
-    const latir = () => { pintar(performance.now() - t0.current); animRef.current = requestAnimationFrame(latir); };
+    const latir = () => { pintarRef.current(performance.now() - t0.current); animRef.current = requestAnimationFrame(latir); };
     animRef.current = requestAnimationFrame(latir);
     return () => { if (animRef.current != null) cancelAnimationFrame(animRef.current); animRef.current = null; };
-  }, [posiciones, pintar]);
+  }, [posiciones]);
 
   useEffect(() => () => { simRef.current?.destruir(); simRef.current = null; }, []);
   useEffect(() => cortarVuelo, [cortarVuelo]);

@@ -1,62 +1,63 @@
 'use client';
 
 // =============================================================================
-// La bienvenida — el cerebro se arma con las manos del usuario
+// La bienvenida — el cerebro REAL, armándose con las manos del usuario
 // =============================================================================
-// Cuatro tiempos, y los tres primeros los dispara EL USUARIO con un click:
+// Tres tiempos, y los dos primeros los dispara un click:
 //
-//   0. UN nodo solo, centrado, gigante: «Tus anuncios». Nada más en pantalla.
-//      Si pasan unos segundos sin tocar, aparece una pista discreta.
-//   1. (click) Salen las cinco piezas de las que sale un anuncio: tu oferta, tu
-//      avatar, tu funnel, tu mensaje, tu negocio.
-//   2. (click) Cada pieza se abre en las once áreas reales del Second Brain.
-//   3. (click) Aparece TODO — el cerebro entero.
-//   4. El mapa sube y recién ahí entran los textos.
+//   0. La raíz sola, centrada y enorme: el negocio del cliente.
+//   1. (click) Las áreas — lo que MaKo va a saber de él, huecos incluidos.
+//   2. (click) Todo: el cerebro entero.
+//   3. El mapa sube, se achica, y recién ahí entra el texto.
 //
-// ⚠️ POR QUÉ NO SE MONTA `Grafo.tsx` ACÁ, aunque sea el mapa de verdad y aunque la
-// versión anterior lo hiciera. Tres cosas que el componente real no puede dar y que son
-// EL pedido:
-//   · No sabe arrancar en UN nodo centrado. Su encuadre es «todo lo que hay».
-//   · Los rótulos de los dos primeros niveles son narrativos y en segunda persona
-//     —«Tus anuncios», «Tu Oferta»—, no los del catálogo («El funnel», «La oferta»).
-//   · El revelado por niveles no existe en su filtro, que corta por área y por autoría.
-// Así que esto es una pieza propia. Lo que SÍ sale del catálogo real
-// (`lib/cerebro-modelo.ts`) es el nivel 2: las once áreas, con sus nombres y sus colores
-// `--grafo-*`. El día que se agregue un área, esta pantalla la muestra sola.
+// ⚠️ ES EL `Grafo` DE VERDAD, el mismo de /second-brain. La versión anterior dibujaba un
+// SVG propio y el dueño la bajó dos veces: «el grafo no lo inventes, utiliza el real, que
+// sea interactivo, desde el primer nodo».
 //
-// LA IDEA, que es lo que la hace funcionar: **el cerebro no se muestra, se construye, y
-// lo construye el que mira**. Un mapa completo de entrada es un diagrama que hay que
-// estudiar; el mismo mapa apareciendo bajo tu dedo es una demostración. Por eso el orden
-// arranca en «Tus anuncios» y no en «Tu negocio»: se empieza por lo que el cliente
-// quiere y se va hacia atrás mostrando de qué está hecho.
+// CÓMO SE HACE EL REVELADO SIN TOCAR EL GRAFO. No hace falta ninguna prop nueva: se le
+// pasa un `cerebro` que CRECE. `Grafo` calcula su `bbox` sobre los nodos que recibe
+// (Grafo.tsx:893) y `ajustar()` centra y escala contra ese bbox (Grafo.tsx:908) — así que
+// un subconjunto se encuadra y se centra SOLO, y con un nodo único queda gigante en el
+// medio. Las aristas se descartan solas cuando les falta una punta, y los nodos que
+// llegan hacen su animación de entrada porque su `<g>` monta.
+//
+// ⚠️ ESTO DESTAPÓ UN BUG VIVO DE /second-brain, arreglado en el mismo commit: el efecto
+// del bucle tenía `pintar` en las dependencias, y `pintar` cambia cuando cambia lo
+// visible. Cada cambio reiniciaba `t0` y TODOS los nodos volvían a nacer desplazados. O
+// sea que filtrar disparaba el mapa entero. Ver el comentario en Grafo.tsx.
+//
+// ⚠️ Y TRES CAPAS, NO CUATRO, porque eso es lo que hay. Medido contra un workspace recién
+// reseteado: 25 nodos — 1 raíz, 11 áreas (10 de ellas huecos con nombre) y 13 etapas del
+// funnel. Los nodos de nivel 1 NO EXISTEN para un cliente nuevo: `cerebro-grafo.ts:900`
+// solo los crea si una carpeta tiene dos hijas con contenido. Inventar un cuarto paso
+// sería partir las áreas al medio por un número.
 // =============================================================================
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/app/_ui';
-import { AREAS } from '@/lib/cerebro-modelo';
+import { Grafo } from '@/app/second-brain/Grafo';
+import { TemaOscuro } from '@/app/_components/TemaOscuro';
+import { filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
+import type { Cerebro } from '@/lib/cerebro-modelo';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 /** Cuánto se espera antes de sugerir el click. Suficiente para leer el nodo y dudar. */
 const MS_PISTA = 3200;
-/** Lo que tarda el último nivel en terminar de aparecer, antes de subir el mapa. */
-const MS_CIERRE = 1900;
+/** Lo que tarda el último paso en asentarse antes de subir el mapa. */
+const MS_CIERRE = 2100;
 
 /**
- * Lo que rota al final de la frase. NO son adjetivos: son las cinco cosas que MaKo hace
- * de verdad —los anuncios, las llamadas, la agenda, las respuestas—, así el efecto de
- * tipeo hace doble trabajo y es también la lista de features. Si mañana MaKo deja de
- * hacer alguna, esta lista miente, y es el único lugar donde hay que acordarse.
+ * Lo que rota al final de la frase. NO son adjetivos: son las cinco cosas que MaKo hace de
+ * verdad, así el efecto de tipeo hace doble trabajo y es también la lista de features. Si
+ * mañana MaKo deja de hacer alguna, esta lista miente — y es el único lugar donde hay que
+ * acordarse.
  *
- * La primera es la que eligió el dueño y la que se pinta en el server: el orden importa
- * porque esa es la que ve alguien con el movimiento reducido, y la que evita un salto de
- * hidratación.
+ * El punto va ADENTRO: así se tipea y se borra con la frase, que es como se escribe de
+ * verdad. Puesto afuera, la línea se leía «…para escalar tus anun.» durante todo el tipeo.
  */
 const FINALES = [
-  // El punto va ADENTRO de la frase, no suelto al final del párrafo: así se tipea y se
-  // borra con ella, que es como se escribe de verdad. Puesto afuera, la línea se leía
-  // «…qué hacer para escalar tus anun.» durante todo el tipeo.
   'crecer tu negocio.',
   'escalar tus anuncios.',
   'cerrar más llamadas.',
@@ -65,135 +66,59 @@ const FINALES = [
 ];
 
 /**
- * Velocidades del tipeo. Están calibradas para que se lea como UNA PERSONA escribiendo,
- * no como una máquina: a 58 ms por letra el texto aparecía de un saque y no se leía como
- * nada. 165 ms son unas 55 palabras por minuto, que es lo que teclea alguien normal.
+ * Velocidades del tipeo, calibradas para que se lea como UNA PERSONA escribiendo: 165 ms
+ * son unas 55 palabras por minuto. Y no es constante — el jitter le suma hasta 70 ms al
+ * azar por letra, porque un intervalo PERFECTO es la firma de que lo escribe una máquina y
+ * el ojo lo detecta aunque no sepa decir por qué.
  *
- * Y no es constante: `jitter` le suma hasta 70 ms al azar por letra. Un intervalo
- * PERFECTO es la firma de que lo escribe una computadora — el ojo lo detecta aunque no
- * sepa decir por qué. La irregularidad es lo que lo vuelve humano.
- *
- * Borrar va más rápido que escribir porque en la vida real uno borra de un saque.
+ * Borrar va más rápido porque en la vida real uno borra de un saque.
  */
 const MS_LETRA = 165;
 const MS_BORRAR = 62;
 const MS_JITTER = 70;
-/** Cuánto se queda quieta la frase entera. Tiene que alcanzar para LEERLA sin apuro. */
 const MS_QUIETA = 2600;
 
-const CX = 500;
-const CY = 340;
-
-const rad = (g: number) => ((g - 90) * Math.PI) / 180;
-const px = (r: number, g: number) => CX + r * Math.cos(rad(g));
-const py = (r: number, g: number) => CY + r * Math.sin(rad(g));
-
 /**
- * Las cinco piezas de un anuncio, en segunda persona. Son las mismas cinco carpetas del
- * Second Brain (`NIVEL1`), dichas como se las diría el cliente: acá manda que se entienda
- * antes que el nombre interno.
+ * Un cuadrado alrededor de los nodos que se ven. El grafo encuadra contra el CENTRO de
+ * este cuadro, así que tiene que seguir a lo que está montado o el recorte queda
+ * descentrado. Con un solo nodo se usa un lado mínimo: un cuadrado del tamaño del punto
+ * daría un zoom absurdo.
  */
-const PIEZAS = [
-  { id: 'oferta', et: 'Tu Oferta', color: 'var(--grafo-oferta)', padre: 'oferta' },
-  { id: 'avatar', et: 'Tu Avatar', color: 'var(--grafo-cliente)', padre: 'mercado' },
-  { id: 'mensaje', et: 'Tu Mensaje', color: 'var(--grafo-razones)', padre: 'mensaje' },
-  { id: 'funnel', et: 'Tu Funnel', color: 'var(--grafo-funnel)', padre: 'funnel' },
-  { id: 'negocio', et: 'Tu Negocio', color: 'var(--grafo-norte)', padre: 'negocio' },
-] as const;
-
-type Nodo = {
-  id: string; x: number; y: number; r: number; color: string;
-  et?: string; nivel: 1 | 2 | 3; demora: number;
-  /** de dónde cuelga, para dibujar la línea */
-  de?: { x: number; y: number };
-};
-
-// ── La geometría, calculada una vez y sin azar ──────────────────────────────
-// `Math.random` acá sería un mismatch de hidratación garantizado: el server pinta un
-// layout y el cliente otro.
-const nodos: Nodo[] = [];
-{
-  const paso = 360 / PIEZAS.length;
-  PIEZAS.forEach((p, i) => {
-    const ang = i * paso;
-    const x = px(150, ang);
-    const y = py(150, ang);
-    nodos.push({ id: p.id, x, y, r: 15, color: p.color, et: p.et, nivel: 1, demora: i * 0.11, de: { x: CX, y: CY } });
-
-    const suyas = AREAS.filter((a) => a.padre === p.padre);
-    const abanico = Math.min(34, 15 * suyas.length);
-    suyas.forEach((a, j) => {
-      const off = suyas.length === 1 ? 0 : -abanico + (2 * abanico * j) / (suyas.length - 1);
-      const aAng = ang + off;
-      const ax = px(268, aAng);
-      const ay = py(268, aAng);
-      nodos.push({ id: a.id, x: ax, y: ay, r: 9, color: a.color, et: a.nombre, nivel: 2, demora: nodos.filter((n) => n.nivel === 2).length * 0.07, de: { x, y } });
-
-      // El nivel 3 es el polvo: los datos concretos que cuelgan de cada área. Es lo que
-      // hace que el final se lea como «lleno de cosas mías» y no como un diagrama.
-      for (let k = 0; k < 6; k++) {
-        const dAng = aAng + (k - 2.5) * 4.6;
-        const dR = 268 + 46 + ((k * 11 + j * 17) % 44);
-        nodos.push({
-          id: `${a.id}-${k}`, x: px(dR, dAng), y: py(dR, dAng),
-          r: 3.2 + ((k + j) % 3) * 0.8, color: a.color, nivel: 3,
-          demora: nodos.filter((n) => n.nivel === 3).length * 0.012,
-          de: { x: ax, y: ay },
-        });
-      }
-    });
-  });
+function encuadreDe(
+  nodos: Cerebro['nodos'],
+  posiciones: Cerebro['posiciones'],
+  original: Cerebro['encuadre'],
+): Cerebro['encuadre'] {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of nodos) {
+    const p = posiciones[n.id];
+    if (!p) continue;
+    x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y);
+    x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
+  }
+  if (!Number.isFinite(x0)) return original;
+  const lado = Math.max(x1 - x0, y1 - y0, original.lado * 0.14) * 1.25;
+  return { x: (x0 + x1) / 2 - lado / 2, y: (y0 + y1) / 2 - lado / 2, lado };
 }
 
-/**
- * El final de la frase, escribiéndose y borrándose.
- *
- * ⚠️ ARRANCA CON LA PRIMERA FRASE COMPLETA, no vacía. Es lo que hace que el HTML del
- * server y el del cliente coincidan: si empezara vacía y se llenara en un efecto, el
- * primer pintado diría «…qué hacer para .» y después saltaría. Y de paso es el orden
- * natural — se lee la frase, después se borra.
- */
-function Maquina({ activo }: { activo: boolean }) {
-  const [i, setI] = useState(0);
-  const [largo, setLargo] = useState(FINALES[0].length);
-  const [borrando, setBorrando] = useState(false);
-  const [quieto, setQuieto] = useState(false);
-
-  useEffect(() => {
-    // `quieto` corta el ciclo entero: con movimiento reducido la frase se queda en la
-    // primera y no parpadea nada. Un texto que se escribe solo es exactamente lo que esa
-    // preferencia pide evitar.
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) setQuieto(true);
-  }, []);
-
-  useEffect(() => {
-    if (!activo || quieto) return;
-    const frase = FINALES[i];
-    // Los tres estados del ciclo, cada uno con su espera.
-    if (!borrando && largo === frase.length) {
-      const t = setTimeout(() => setBorrando(true), MS_QUIETA);
-      return () => clearTimeout(t);
-    }
-    if (borrando && largo === 0) {
-      const t = setTimeout(() => { setBorrando(false); setI((x) => (x + 1) % FINALES.length); }, 320);
-      return () => clearTimeout(t);
-    }
-    // El azar va DENTRO del efecto y no en el render: acá no rompe la hidratación
-    // —el server nunca ejecuta esto— y es lo que saca el ritmo de metrónomo.
-    const base = borrando ? MS_BORRAR : MS_LETRA;
-    const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), base + Math.random() * MS_JITTER);
-    return () => clearTimeout(t);
-  }, [activo, quieto, i, largo, borrando]);
-
-  return (
-    <span className="bv-maq">
-      {FINALES[i].slice(0, largo)}
-      {!quieto && <span className="bv-cursor" aria-hidden />}
-    </span>
-  );
+/** Los tres pasos del revelado, y qué ids entra cada uno. */
+function idsDelPaso(cerebro: Cerebro, paso: number): Set<string> {
+  const todos = cerebro.nodos.map((n) => n.id);
+  if (paso >= 2) return new Set(todos);
+  const raiz = todos.filter((id) => id === 'raiz' || !id.includes(':'));
+  // La raíz es el único nodo sin prefijo; el resto lleva `area:`, `falta:`, `n1:` o el id
+  // del dato. Si algún día la raíz cambia de nombre, esto muestra de más, nunca de menos.
+  const soloRaiz = new Set(todos.filter((id) => id === 'raiz'));
+  if (paso === 0) return soloRaiz.size ? soloRaiz : new Set(raiz.slice(0, 1));
+  return new Set([
+    ...soloRaiz,
+    ...todos.filter((id) => id.startsWith('area:') || id.startsWith('falta:') || id.startsWith('n1:')),
+  ]);
 }
 
-export function Bienvenida({ adminBar, onComenzar }: {
+export function Bienvenida({ cerebro, adminBar, onComenzar }: {
+  /** El mapa real del cliente. */
+  cerebro: Cerebro;
   /** La barra del modo agencia. Se DIBUJA ACÁ ADENTRO, no se tapa: es la única salida del
    *  modo agencia, y una pantalla a pantalla completa que la cubre deja al dueño sin forma
    *  de volver. Ya pasó una vez en este repo. */
@@ -203,34 +128,54 @@ export function Bienvenida({ adminBar, onComenzar }: {
   const [paso, setPaso] = useState(0);
   const [pista, setPista] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
+  const [filtro, setFiltro] = useState<EstadoFiltro>(filtroVacio);
 
-  const conTexto = paso >= 4;
+  const conTexto = paso >= 3;
 
-  // La pista aparece SOLO en el primer nivel: después el usuario ya entendió que se
-  // toca, y repetírselo tres veces sería tratarlo de tonto.
+  /**
+   * El cerebro RECORTADO al paso. Es todo el truco: `Grafo` saca su encuadre de los nodos
+   * que recibe, así que darle menos lo hace acercarse solo. Las posiciones no se tocan —
+   * las calculó el server— y por eso cada nodo aparece siempre en su lugar definitivo.
+   */
+  const cerebroPaso = useMemo(() => {
+    if (paso >= 2) return cerebro;
+    const ids = idsDelPaso(cerebro, paso);
+    const nodos = cerebro.nodos.filter((n) => ids.has(n.id));
+    return {
+      ...cerebro,
+      nodos,
+      aristas: cerebro.aristas.filter((a) => ids.has(a.de) && ids.has(a.a)),
+      // ⚠️ Y EL ENCUADRE TAMBIÉN SE RECORTA. Recortar solo los nodos no alcanza: el
+      // `encuadre` es el viewBox y su centro es contra el que `ajustar` centra la cámara
+      // (Grafo.tsx:929). Dejando el del mapa completo, el nodo único quedaba abajo a la
+      // izquierda — medido — porque se lo centraba contra el centro de OTRO cuadro.
+      // Con un cuadrado propio alrededor de lo que se ve, el paso 0 queda en el medio.
+      encuadre: encuadreDe(nodos, cerebro.posiciones, cerebro.encuadre),
+    };
+  }, [cerebro, paso]);
+
+  // La pista aparece SOLO en el primer paso: después el usuario ya entendió que se toca, y
+  // repetírselo sería tratarlo de tonto.
   useEffect(() => {
     if (paso !== 0) { setPista(false); return; }
     const t = setTimeout(() => setPista(true), MS_PISTA);
     return () => clearTimeout(t);
   }, [paso]);
 
-  // El último nivel no espera otro click: cuando termina de aparecer, el mapa sube solo
-  // y entra el texto. Pedir un cuarto click ahí sería pedirlo para nada.
+  // El último paso no espera otro click: cuando el cerebro terminó de armarse, el mapa
+  // sube solo y entra el texto. Pedir un click más ahí sería pedirlo para nada.
   useEffect(() => {
-    if (paso !== 3) return;
-    const t = setTimeout(() => setPaso(4), MS_CIERRE);
+    if (paso !== 2) return;
+    const t = setTimeout(() => setPaso(3), MS_CIERRE);
     return () => clearTimeout(t);
   }, [paso]);
 
-  // Quien pidió menos movimiento entra al RESULTADO, no al camino: el cerebro entero y
-  // el texto puesto. Sin esto el CSS le mostraba todo pero el botón quedaba deshabilitado
-  // —porque el estado seguía en el paso 0— y la pantalla era un callejón sin salida.
+  // Quien pidió menos movimiento entra al RESULTADO, no al camino.
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setPaso(4);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setPaso(3);
   }, []);
 
-  const avanzar = useCallback(() => setPaso((p) => (p < 3 ? p + 1 : p)), []);
-
+  const avanzar = useCallback(() => setPaso((p) => (p < 2 ? p + 1 : p)), []);
   const arrancar = useCallback(() => {
     setSaliendo((s) => { if (!s) onComenzar(); return true; });
   }, [onComenzar]);
@@ -245,20 +190,19 @@ export function Bienvenida({ adminBar, onComenzar }: {
   }, [conTexto, avanzar, arrancar]);
 
   return (
-    <div
-      className={`bv bv-p${paso}${saliendo ? ' bv-fuera' : ''}`}
-      onClick={() => { if (!conTexto) avanzar(); }}
-    >
+    <div className={`bv bv-p${paso}${saliendo ? ' bv-fuera' : ''}`}>
       <style>{ESTILOS}</style>
 
-      {/* ⚠️ ARRIBA Y EN FLUJO, no debajo. La barra es sticky con z-index 100 y esta
-          pantalla era fixed con 60: perdía por z-index y quedaba tapada la franja de
-          arriba, que es justo donde el mapa se centra. Redibujarla acá adentro, como
-          primer hijo de una columna flex, resuelve las dos cosas de una: no la tapa Y el
-          alto no hay que descontarlo con un número — la barra crece si el nombre del
-          cliente envuelve, así que cualquier top de 47px se rompe solo.
-          El stopPropagation tampoco es opcional: sin él, tocar Salir de la vista burbujea
-          al lienzo y avanza el revelado. */}
+      {/* Sin esto los títulos del mapa se dibujan con el --ink del tema CLARO: negro sobre
+          negro. Están en el DOM, tienen su caja, y no se ven. */}
+      <TemaOscuro />
+
+      {/* ⚠️ ARRIBA Y EN FLUJO. La barra es sticky con z-index 100 y esta pantalla era fixed
+          con 60: le perdía y tapaba la franja de arriba, que es donde el mapa se centra.
+          Dibujarla acá adentro resuelve las dos cosas — no la tapa Y el alto lo resuelve el
+          layout, sin descontar un número que se rompe cuando la barra envuelve.
+          El stopPropagation no es opcional: sin él, tocar «Salir de la vista» avanza el
+          revelado. */}
       {adminBar && (
         <div style={{ flex: 'none', position: 'relative', zIndex: 6 }}
              onPointerUp={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
@@ -266,66 +210,77 @@ export function Bienvenida({ adminBar, onComenzar }: {
         </div>
       )}
 
-      <div className="bv-lienzo">
-      <div className="bv-velo" />
+      <div className="bv-lienzo" onClick={() => { if (!conTexto) avanzar(); }}>
+        <div className="bv-velo" />
 
-      <div className="bv-mapa">
-        <svg viewBox="0 0 1000 680" className="bv-svg" aria-hidden>
-          {nodos.map((n) => (
-            n.de ? (
-              <line
-                key={`l-${n.id}`}
-                x1={n.de.x} y1={n.de.y} x2={n.x} y2={n.y}
-                stroke={n.color}
-                className={`bv-linea bv-n${n.nivel}`}
-                style={{ animationDelay: `${n.demora}s` }}
-              />
-            ) : null
-          ))}
+        {/* El mapa queda VIVO: se puede arrastrar y tocar un nodo desde el primer instante,
+            que es lo que el dueño pidió. Lo que no se ve es su chrome — el filtro, el
+            tirador y el navegador lateral son la interfaz de /second-brain, no la de una
+            portada. Se apaga con CSS acotado y lo cuida tests/bienvenida.test.ts. */}
+        <div className="bv-mapa">
+          <Grafo cerebro={cerebroPaso} filtro={filtro} onFiltro={setFiltro} />
+        </div>
 
-          {nodos.map((n) => (
-            <g key={n.id} className={`bv-nodo bv-n${n.nivel}`} style={{ animationDelay: `${n.demora}s`, transformOrigin: `${n.x}px ${n.y}px` }}>
-              <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} />
-              {n.et && (
-                <text x={n.x} y={n.y + n.r + 19} textAnchor="middle" className={`bv-et bv-et${n.nivel}`}>
-                  {n.et}
-                </text>
-              )}
-            </g>
-          ))}
-
-          {/* El centro. Es el único que existe desde el primer instante, y arranca
-              GRANDE y solo: es lo que el cliente vino a buscar. */}
-          <g className="bv-centro">
-            <circle cx={CX} cy={CY} r={30} fill="var(--mako)" />
-            <circle cx={CX} cy={CY} r={30} fill="none" stroke="var(--mako)" className="bv-pulso" />
-            <text x={CX} y={CY + 62} textAnchor="middle" className="bv-et bv-et0">Tus anuncios</text>
-          </g>
-        </svg>
-      </div>
-
-      {/* La pista. Va abajo, chica y en mono: tiene que ayudar sin robarle la pantalla
-          al nodo, que es lo único que hay para mirar. */}
-      <div className={`bv-pista${pista && paso === 0 ? ' bv-pista-on' : ''}`} aria-live="polite">
-        Toca en cualquier lugar
+        <div className={`bv-pista${pista && paso === 0 ? ' bv-pista-on' : ''}`} aria-live="polite">
+          Toca en cualquier lugar
+        </div>
       </div>
 
       <div className="bv-pie">
         <h1 className="bv-titulo">Bienvenido a MaKo</h1>
         <p className="bv-golpe">
-          Nunca más vas a tener que adivinar qué hacer para
-          <Maquina activo={paso >= 4} />
+          Nunca más vas a tener que adivinar qué hacer para <Maquina activo={conTexto} />
         </p>
-        {/* El botón del SISTEMA, no uno propio. El dorado que tenía es el color de
-            «pedirle algo a MaKo» —la regla vive en app/_ui/Button.tsx— y esto es navegar.
-            El ancho completo que pidió el dueño ya es una prop del sistema (full), así
-            que deja de ser una excepción y pasa a ser una configuración. */}
-        <Button variant="primary" size="lg" full className="bv-boton" onClick={(e) => { e.stopPropagation(); arrancar(); }} disabled={!conTexto}>
-          Comenzar
-        </Button>
-      </div>
+        <div className="bv-accion">
+          <Button variant="primary" size="lg" full className="bv-boton" onClick={arrancar} disabled={!conTexto}>
+            Comenzar
+          </Button>
+        </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * El final de la frase, escribiéndose y borrándose.
+ *
+ * ⚠️ ARRANCA CON LA PRIMERA FRASE COMPLETA, no vacía: así el HTML del server y el del
+ * cliente coinciden. Si empezara vacía, el primer pintado diría «…para .» y después
+ * saltaría. Y de paso es el orden natural — se lee, después se borra.
+ */
+function Maquina({ activo }: { activo: boolean }) {
+  const [i, setI] = useState(0);
+  const [largo, setLargo] = useState(FINALES[0].length);
+  const [borrando, setBorrando] = useState(false);
+  const [quieto, setQuieto] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setQuieto(true);
+  }, []);
+
+  useEffect(() => {
+    if (!activo || quieto) return;
+    const frase = FINALES[i];
+    if (!borrando && largo === frase.length) {
+      const t = setTimeout(() => setBorrando(true), MS_QUIETA);
+      return () => clearTimeout(t);
+    }
+    if (borrando && largo === 0) {
+      const t = setTimeout(() => { setBorrando(false); setI((x) => (x + 1) % FINALES.length); }, 320);
+      return () => clearTimeout(t);
+    }
+    // El azar va DENTRO del efecto y no en el render: acá no rompe la hidratación —el
+    // server nunca lo ejecuta— y es lo que saca el ritmo de metrónomo.
+    const base = borrando ? MS_BORRAR : MS_LETRA;
+    const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), base + Math.random() * MS_JITTER);
+    return () => clearTimeout(t);
+  }, [activo, quieto, i, largo, borrando]);
+
+  return (
+    <span className="bv-maq">
+      {FINALES[i].slice(0, largo)}
+      {!quieto && <span className="bv-cursor" aria-hidden />}
+    </span>
   );
 }
 
@@ -334,86 +289,42 @@ export function Bienvenida({ adminBar, onComenzar }: {
 const ESTILOS = `
 .bv {
   position: fixed; inset: 0;
-  /* 100 para empatarle a la barra de agencia (sticky, z-index 100) y ganarle por orden de
-     DOM. Sigue por debajo de los modales, que arrancan en 130 — eso es lo correcto. */
+  /* 100 para empatarle a la barra de agencia (sticky, 100) y ganarle por orden de DOM.
+     Sigue por debajo de los modales, que arrancan en 130. */
   z-index: 100;
   display: flex; flex-direction: column;
-  background: #14161B; overflow: hidden; cursor: pointer;
+  background: #14161B; overflow: hidden;
   animation: bv-in 420ms ease both;
 }
-/* Lo que sobra después de la barra. El inset 0 del mapa pasa a referirse A ESTO y no al
-   viewport, que es la mitad del reclamo del dueño: el mapa se centra donde de verdad se ve. */
-.bv-lienzo { flex: 1; min-height: 0; position: relative; }
 .bv-fuera { animation: bv-out 420ms ease both; pointer-events: none; }
 @keyframes bv-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes bv-out { from { opacity: 1 } to { opacity: 0 } }
 
-/* ── El mapa ─────────────────────────────────────────────────────────────── */
-/* Sube cuando entra el texto, y NO antes: mientras el usuario está armando el cerebro,
-   el cerebro es el centro de la pantalla. */
-.bv-mapa {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  transition: transform 900ms cubic-bezier(.2,.7,.3,1);
-}
-.bv-p4 .bv-mapa { transform: translateY(-21%) scale(.82); }
+/* Lo que sobra después de la barra. El mapa se centra ACÁ y no contra el viewport, que era
+   la mitad del reclamo: con la barra puesta, el centro real no es el centro de la pantalla. */
+.bv-lienzo { flex: 1; min-height: 0; position: relative; cursor: pointer; }
 
-/* El velo. Sin esto el título aterriza ENCIMA de los nodos de abajo: medido, «Bienvenido
-   a MaKo» caía justo sobre «Voz y cara». Subir el mapa solo no alcanza — abajo siempre
-   queda algo, porque el cerebro es redondo. */
+.bv-mapa { position: absolute; inset: 0; transition: transform 900ms cubic-bezier(.2,.7,.3,1); }
+.bv-mapa > * { height: 100% }
+/* Al entrar el texto el mapa sube Y SE ACHICA: el título pasa a ser lo más grande de la
+   pantalla, y un mapa del mismo tamaño se lo comería. */
+.bv-p3 .bv-mapa { transform: translateY(-9%) scale(.72); }
+
+/* El chrome del grafo es la interfaz de /second-brain, no la de una portada. */
+.bv-mapa .cbg { --cbg-col: 0px !important; }
+.bv-mapa .cbg-barra,
+.bv-mapa .cbg-tirador,
+.bv-mapa .cbg-detalle { display: none !important; }
+
 .bv-velo {
-  position: absolute; inset: auto 0 0 0; height: 46%;
-  background: linear-gradient(to bottom, rgba(20,22,27,0) 0%, rgba(20,22,27,.9) 42%, #14161B 72%);
-  opacity: 0; transition: opacity 800ms ease; pointer-events: none; z-index: 2;
+  position: absolute; inset: auto 0 0 0; height: 42%; z-index: 2;
+  background: linear-gradient(to bottom, rgba(20,22,27,0) 0%, rgba(20,22,27,.92) 44%, #14161B 74%);
+  opacity: 0; transition: opacity 800ms ease; pointer-events: none;
 }
-.bv-p4 .bv-velo { opacity: 1 }
+.bv-p3 .bv-velo { opacity: 1 }
 
-.bv-svg { width: min(94vw, 1000px); height: auto; overflow: visible; }
-
-/* Todo lo que no es el centro nace apagado y aparece cuando su nivel llega. */
-.bv-nodo, .bv-linea { opacity: 0; }
-
-.bv-p1 .bv-n1, .bv-p2 .bv-n1, .bv-p3 .bv-n1, .bv-p4 .bv-n1,
-.bv-p2 .bv-n2, .bv-p3 .bv-n2, .bv-p4 .bv-n2,
-.bv-p3 .bv-n3, .bv-p4 .bv-n3 { animation-fill-mode: both; }
-
-.bv-p1 .bv-nodo.bv-n1, .bv-p2 .bv-nodo.bv-n1, .bv-p3 .bv-nodo.bv-n1, .bv-p4 .bv-nodo.bv-n1,
-.bv-p2 .bv-nodo.bv-n2, .bv-p3 .bv-nodo.bv-n2, .bv-p4 .bv-nodo.bv-n2,
-.bv-p3 .bv-nodo.bv-n3, .bv-p4 .bv-nodo.bv-n3 { animation: bv-pop 520ms cubic-bezier(.34,1.4,.5,1) both; }
-
-.bv-p1 .bv-linea.bv-n1, .bv-p2 .bv-linea.bv-n1, .bv-p3 .bv-linea.bv-n1, .bv-p4 .bv-linea.bv-n1,
-.bv-p2 .bv-linea.bv-n2, .bv-p3 .bv-linea.bv-n2, .bv-p4 .bv-linea.bv-n2,
-.bv-p3 .bv-linea.bv-n3, .bv-p4 .bv-linea.bv-n3 { animation: bv-traza 560ms cubic-bezier(.4,0,.2,1) both; }
-
-@keyframes bv-pop { from { opacity: 0; transform: scale(.15) } to { opacity: 1; transform: scale(1) } }
-
-/* Las líneas se DIBUJAN, no aparecen: una línea que se traza dice «esto se está
-   construyendo»; una que hace fade dice «esto ya estaba y no lo veías». */
-.bv-linea {
-  stroke-width: 1.4;
-  stroke-dasharray: 420; stroke-dashoffset: 420;
-}
-@keyframes bv-traza { to { opacity: .38; stroke-dashoffset: 0 } }
-
-.bv-centro { animation: bv-centro 900ms cubic-bezier(.34,1.3,.5,1) both; }
-@keyframes bv-centro { from { opacity: 0; transform: scale(.4) } to { opacity: 1; transform: none } }
-.bv-pulso { stroke-width: 2; transform-origin: 500px 340px; animation: bv-pulso 3s ease-out infinite; }
-@keyframes bv-pulso {
-  0%   { transform: scale(1); opacity: .65 }
-  100% { transform: scale(2.4); opacity: 0 }
-}
-
-.bv-et {
-  font-family: ${SANS}; fill: #F3F0E7; text-anchor: middle;
-  paint-order: stroke; stroke: #14161B; stroke-width: 4px; stroke-linejoin: round;
-}
-.bv-et0 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em }
-.bv-et1 { font-size: 16px; font-weight: 600 }
-.bv-et2 { font-size: 12px; font-weight: 500; fill: rgba(243,240,231,.72) }
-
-/* ── La pista ────────────────────────────────────────────────────────────── */
 .bv-pista {
-  position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%);
+  position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 3;
   font-family: ${MONO}; font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
   color: rgba(243,240,231,.34);
   opacity: 0; transition: opacity 900ms ease; pointer-events: none;
@@ -422,44 +333,39 @@ const ESTILOS = `
 @keyframes bv-respira { 0%,100% { opacity: .34 } 50% { opacity: .7 } }
 
 /* ── El pie ──────────────────────────────────────────────────────────────── */
+/* Ancho grande a propósito: la frase entera tiene que entrar SIN cortarse. El botón se
+   acota aparte, que si no queda de 900 px y parece una barra. */
 .bv-pie {
   position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
-  width: min(92vw, 540px); padding: 0 0 44px;
+  width: min(96vw, 900px); padding: 0 0 46px; z-index: 5;
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  z-index: 4; cursor: default;
+  cursor: default;
 }
-/* .bv .bv-boton y no .bv-boton: el sistema pone .mk-btn:disabled con opacity .45, y con
-   dos clases le gana a una sola. El botón está deshabilitado hasta el último paso, así que
-   se habría visto al 45% durante todo el revelado — justo lo que la entrada escalonada
-   existe para evitar. */
+.bv-accion { width: min(92vw, 460px); }
+
 .bv-titulo, .bv-golpe { opacity: 0; }
 .bv .bv-boton { opacity: 0; }
+.bv-p3 .bv-titulo   { animation: bv-sube 700ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 140ms }
+.bv-p3 .bv-golpe    { animation: bv-sube 700ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 420ms }
+.bv.bv-p3 .bv-boton { animation: bv-sube 700ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 700ms }
+@keyframes bv-sube { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: none } }
 
-/* Escalonado: titulo, frase, boton. Cada uno entra donde el ojo ya esta — leer un titulo
-   y que aparezca todo lo demas de golpe obliga a re-escanear la pantalla entera. */
-.bv-p4 .bv-titulo   { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 140ms }
-.bv-p4 .bv-golpe    { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 380ms }
-.bv.bv-p4 .bv-boton { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 640ms }
-@keyframes bv-sube { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
-
+/* El protagonista. Escala con el ancho para que sea GRANDE de verdad en pantalla grande y
+   no se rompa en una chica. */
 .bv-titulo {
-  font-family: 'Geist', sans-serif; font-size: clamp(30px, 4.4vw, 42px); font-weight: 600;
-  letter-spacing: -0.03em; line-height: 1.05; margin: 0 0 14px; color: #F8F6F0;
+  font-family: ${SANS}; font-size: clamp(38px, 6.4vw, 78px); font-weight: 600;
+  letter-spacing: -0.04em; line-height: 1; margin: 0 0 18px; color: #F8F6F0;
 }
+/* ⚠️ UNA SOLA LÍNEA, y por eso nowrap + un tamaño que se adapta al ancho en vez de cortar.
+   La frase completa mide ~70 caracteres: con un cuerpo fijo se parte en dos justo cuando
+   la parte que se tipea es la más larga, y el salto ocurre A MITAD del tipeo. */
 .bv-golpe {
-  font-family: 'Geist', sans-serif; font-size: 17px; line-height: 1.5;
-  color: rgba(243,240,231,.66); margin: 0 0 32px; max-width: 42ch;
-  /* Alto fijo de dos renglones: las frases que rotan miden distinto, y sin esto el
-     parrafo cambia de alto y EMPUJA EL BOTON mientras alguien intenta apretarlo. */
-  min-height: 2.9em;
+  font-family: ${SANS}; font-size: clamp(12px, 1.55vw, 19px); line-height: 1.45;
+  color: rgba(243,240,231,.66); margin: 0 0 30px;
+  white-space: nowrap;
 }
-/* En su PROPIO renglon. Compartiendo linea con la parte fija, cada letra que entra empuja
-   el texto y la frase se re-acomoda a mitad del tipeo. En bloque, lo de arriba ni se
-   entera. Y nowrap cierra el caso del renglon que igual se pasara de largo. */
-.bv-maq {
-  display: block; margin-top: 2px;
-  color: #F3F0E7; font-weight: 500; white-space: nowrap;
-}
+/* Lo que se escribe va en tinta plena: es la parte viva de la frase. */
+.bv-maq { color: #F3F0E7; font-weight: 500; }
 .bv-cursor {
   display: inline-block; width: 1.5px; height: 1.05em; margin-left: 2px;
   background: var(--mako); vertical-align: text-bottom;
@@ -467,21 +373,22 @@ const ESTILOS = `
 }
 @keyframes bv-cursor { 0%,55% { opacity: 1 } 56%,100% { opacity: 0 } }
 
+/* Pantalla angosta: acá SÍ se deja cortar. Un nowrap a 390 px de ancho obliga a un cuerpo
+   ilegible, y entre partir la frase y no poder leerla, se parte. */
+@media (max-width: 700px) {
+  .bv-golpe { white-space: normal; font-size: 15px; max-width: 34ch; }
+  .bv-titulo { font-size: 34px }
+  .bv-p3 .bv-mapa { transform: translateY(-12%) scale(.64) }
+}
 @media (max-height: 760px) {
-  .bv-svg { width: min(78vw, 800px) }
-  .bv-titulo { font-size: 27px }
-  .bv-pie { padding-bottom: 26px }
-  .bv-p4 .bv-mapa { transform: translateY(-24%) scale(.76) }
+  .bv-titulo { font-size: clamp(30px, 4.6vw, 46px) }
+  .bv-pie { padding-bottom: 28px }
+  .bv-p3 .bv-mapa { transform: translateY(-13%) scale(.62) }
 }
 
-/* Quien pidió menos movimiento ve el resultado, no el camino: el cerebro entero, quieto,
-   con su texto. La pantalla tiene que decir lo mismo sin una sola transición. */
 @media (prefers-reduced-motion: reduce) {
-  .bv-nodo, .bv-linea, .bv-centro, .bv-titulo, .bv-frase, .bv-golpe, .bv-boton {
-    animation: none !important; opacity: 1 !important; transform: none !important;
-  }
-  .bv-linea { stroke-dashoffset: 0 !important; opacity: .38 !important; }
+  .bv-titulo, .bv-golpe, .bv-boton { animation: none !important; opacity: 1 !important; transform: none !important; }
   .bv-mapa { transition: none !important; }
-  .bv-pulso { animation: none !important; opacity: 0 !important; }
+  .bv-velo { opacity: 1 !important; transition: none !important; }
 }
 `;
