@@ -194,7 +194,7 @@ const mdExistente = new Map(
 );
 // Y el nuevo se ESCRIBE en la carpeta de su módulo, para no desarmar lo organizado.
 const nDeClave = (s) => { const m = /^(\d{1,3})\s*-\s*/.exec(s); return m ? Number(m[1]) : null; };
-const limpioMod = (s) => String(s).normalize('NFC').replace(/[<>:"/\\|?* -]/g, '')
+const limpioMod = (s) => String(s).normalize('NFC').replace(/[<>:"/\\|?*\u0000-]/g, '')
   .replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 120);
 const carpetaDeClase = new Map(plan.clases.map((c) => [c.n,
   limpioMod(c.modulo ?? '').replace(/^(\d+)\.\s*/, (_, n) => `${String(n).padStart(2, '0')} `)]));

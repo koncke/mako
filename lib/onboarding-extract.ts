@@ -284,8 +284,8 @@ async function jobMetaLeads(marcar: Marcar): Promise<boolean> {
   return true;
 }
 
-// Postgres rechaza   en text/jsonb (22P05) — Whisper puede emitirlo.
-const sinNulos = (s: string | null): string | null => (s == null ? s : s.replace(/ /g, ''));
+// Postgres rechaza \u0000 en text/jsonb (22P05) — Whisper puede emitirlo.
+const sinNulos = (s: string | null): string | null => (s == null ? s : s.replace(/\u0000/g, ''));
 
 // ── ad_transcripts: drenar TODOS los ads ingestados sin transcript ───────────
 // Reintenta también las filas con status='error' (rate limits transitorios de

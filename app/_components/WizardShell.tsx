@@ -164,7 +164,7 @@ export function WizardShell({
   // contra el render ANTERIOR: cuando el loader se apaga, la respuesta que lo
   // apagó suele traer el mapa nuevo en el mismo commit, y eso es el final del
   // armado, no una promesa rota.
-  const claveMapa = pasos ? pasos.join(' ') : '';
+  const claveMapa = pasos ? pasos.join('\u0000') : '';
   const [mapa, setMapa] = useState({ clave: claveMapa, trabado, variable: false });
   if (mapa.clave !== claveMapa || mapa.trabado !== trabado) {
     const cambioALaVista = mapa.clave !== claveMapa && !mapa.trabado && !trabado;
