@@ -242,10 +242,13 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
         landing_url: texto(payload.landing_url, 500),
         referrer: texto(payload.referrer, 500),
         prueba: texto(payload.prueba, 40),
-      // ⚠️ Un play automático NO es una reproducción. Se guarda como tal para que
-      // el chequeo y la retención puedan descartarlo: con autoplay, contar todo
-      // play como intención infla el embudo desde el primer escalón.
-      auto: payload.auto === true ? true : null,
+        // ⚠️ ACÁ NO VA `auto`. Una VISITA no se reproduce sola: el autoplay es una
+        // propiedad del play, y su columna vive en `vsl_events` (mig 0136), no en
+        // esta tabla. Escribirlo acá hizo fallar el insert entero —Postgres
+        // rechaza la fila por una columna que no existe— y los pageviews de
+        // producción dejaron de guardarse: llegaban los plays y ninguna visita.
+        // El chequeo «1. Llega a tu página» se apagó sobre una landing que estaba
+        // recibiendo tráfico pago en ese mismo momento.
         // La versión POR PÁGINA (mig 0135). El setting `landing.snippet_version`
         // guarda una sola por workspace —la del último evento, venga de donde
         // venga—, y con dos landings publicadas eso no puede contestar «¿cuál de
@@ -325,6 +328,12 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       // verdad: un default inventaría un dato.
       detalle: texto(payload.detalle, 300),
       prueba: texto(payload.prueba, 40),
+      // ⚠️ Un play automático NO es una reproducción (mig 0136). Se guarda como
+      // tal para que el chequeo y la retención puedan descartarlo: con autoplay,
+      // contar todo play como intención infla el embudo desde el primer escalón.
+      // NULL —y no `false`— cuando no viene: las filas anteriores a la v11 no
+      // saben si hubo interacción, y decir `false` afirmaría que la hubo.
+      auto: payload.auto === true ? true : null,
     });
     if (error) {
       console.error(`[track:vsl] insert falló: ${error.message}`);

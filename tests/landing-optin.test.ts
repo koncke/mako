@@ -1021,3 +1021,39 @@ test('la grabación de la prueba se avisa cuando Clarity terminó de procesarla'
   assert.ok(/id: 'prueba-grabada'/.test(cat), 'el aviso no está en el catálogo');
   assert.ok(/'prueba-grabada': 'landing'/.test(cat), 'el aviso no tiene área');
 });
+
+test('cada campo se escribe en la tabla que TIENE esa columna', () => {
+  // ⚠️ BUG VIVO EN PRODUCCIÓN el 2026-08-16, y de los caros: `auto` se agregó al
+  // insert de `landing_visits` cuando su columna vive en `vsl_events` (mig 0136).
+  // Postgres rechaza la fila entera por una columna que no existe, así que
+  // DEJARON DE GUARDARSE LOS PAGEVIEWS — sobre una landing con tráfico pago
+  // corriendo. Y la otra mitad: `auto` nunca llegaba a `vsl_events`, o sea que la
+  // feature del autoplay que motivó la v11 no medía nada.
+  //
+  // No lo agarró nada: el typecheck no conoce el esquema de Supabase, el build
+  // pasa, y el beacon loguea el error con console.error y devuelve 200 —a
+  // propósito, para no tumbar la página del cliente—, así que desde afuera se ve
+  // exactamente igual que si anduviera. El síntoma fue indirecto: plays entrando
+  // sin una sola visita.
+  const ruta = leer('../app/api/track/vsl/route.ts');
+  const iVis = ruta.indexOf("from('landing_visits').insert(");
+  const finVis = ruta.indexOf('});', iVis);
+  const iVsl = ruta.indexOf("from('vsl_events').insert(");
+  const finVsl = ruta.indexOf('});', iVsl);
+  assert.ok(iVis > 0 && iVsl > 0, 'no se encontraron los dos inserts');
+
+  const bloqueVis = ruta.slice(iVis, finVis);
+  const bloqueVsl = ruta.slice(iVsl, finVsl);
+  // El campo va donde está la columna, y en ningún otro lado.
+  assert.ok(!/^\s*auto:/m.test(bloqueVis), 'una VISITA no se reproduce sola: `auto` no es de landing_visits');
+  assert.ok(/^\s*auto: payload\.auto === true \? true : null,/m.test(bloqueVsl), 'sin esto el autoplay nunca se guarda y la v11 no mide nada');
+
+  // Y la migración tiene que respaldarlo: la columna existe en UNA tabla.
+  const mig = leer('../supabase/migrations/0136_vsl_events_auto.sql');
+  assert.ok(/alter table public\.vsl_events/.test(mig), 'la columna tiene que estar en vsl_events');
+  assert.ok(!/alter table public\.landing_visits/.test(mig), 'si algún día se agrega acá, este test deja de proteger');
+
+  // `sv` es el caso espejo y sí está en las dos (mig 0135 la agregó a
+  // landing_visits): sirve de control de que el test mira los bloques correctos.
+  assert.ok(/^\s*sv:/m.test(bloqueVis), 'el test está leyendo el bloque equivocado');
+});
