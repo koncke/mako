@@ -31,6 +31,8 @@ type Diag = {
   eventos: Evento[]; chequeos: Chequeo[]; veredicto: string; urls: string[]; codigoViejo: boolean; ultima: string | null;
   /** Los videos que el sistema VIO en los eventos, y los que el negocio nombró. */
   videosDetectados: VideoDetectado[]; videos: VideoLanding[];
+  /** Los que el negocio marcó como «no son de mi página». */
+  videosOcultos?: string[];
   /** Link a las grabaciones de ESTA prueba en Clarity, o null. */
   urlPrueba?: string | null;
 };
@@ -219,7 +221,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     try {
       const r = await fetch(`/api/integraciones/landing/estado?diag=1${pr ? `&prueba=${encodeURIComponent(pr)}` : ''}${landingFija ? `&landing=${encodeURIComponent(landingFija)}` : ''}${piezas.length ? `&piezas=${encodeURIComponent(piezas.join(','))}` : ''}`, { cache: 'no-store' }).then((x) => x.json());
       if (r?.ok) {
-        const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null, videosDetectados: r.videosDetectados ?? [], videos: r.videos ?? [], urlPrueba: r.urlPrueba ?? null };
+        const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null, videosDetectados: r.videosDetectados ?? [], videos: r.videos ?? [], videosOcultos: r.videosOcultos ?? [], urlPrueba: r.urlPrueba ?? null };
         (guardarEn ?? setDiag)(d);
         setErr(null);
       } else setErr(r?.error ?? 'No se pudo consultar');
@@ -380,6 +382,8 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
           detectados={detectadosVideo}
           videos={videosGuardados}
           onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}
+          ocultos={previo?.videosOcultos ?? []}
+          onOcultos={(ids) => setPrevio((p) => (p ? { ...p, videosOcultos: ids } : p))}
         />
         {sinNombre.length > 0 && (
           <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 14, lineHeight: 1.5 }}>

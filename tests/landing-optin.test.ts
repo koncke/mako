@@ -1373,3 +1373,34 @@ test('mientras se resuelve la landing, debajo hay un indicador que se VE', () =>
   const css = leer('../app/globals.css');
   assert.ok(/@keyframes mkGirar/.test(css) && /@keyframes mkPulso/.test(css), 'faltan las animaciones');
 });
+
+test('un video que no es de tu página se puede sacar de la lista, sin borrar la medición', () => {
+  // ⚠️ EL CASO QUE LO PIDIÓ, y es el que muestra por qué no alcanza con arreglar
+  // la causa: un «redirect al terminar» configurado en el reproductor mandaba solo
+  // al espectador a un video viejo de OTRA persona. El redirect se eliminó — pero
+  // los 11 eventos que dejó son un HECHO (ese video sí se reprodujo en esa página)
+  // y por eso el sistema lo seguía listando, con razón. Arreglar el origen no
+  // borra el pasado: hacía falta poder decir «este no es mío».
+  const lv = leer('../lib/landing-videos.ts');
+  // ⚠️ En su PROPIA lista, no como un campo de VideoLanding aunque parezca el
+  // lugar obvio: esa estructura exige nombre, deja UN solo VSL y conserva la
+  // posición al renombrar. Un video oculto no tiene nombre ni lo va a tener, y
+  // meterlo ahí obligaba a aflojar el «sin nombre no entra».
+  assert.ok(/export const VIDEOS_OCULTOS_KEY/.test(lv), 'falta la lista');
+  assert.ok(/export function conOculto/.test(lv) && /export function sinOculto/.test(lv), 'tiene que poder deshacerse');
+  assert.ok(!/oculto\?: boolean/.test(lv), 'no puede vivir dentro de VideoLanding: rompe sus invariantes');
+
+  const act = leer('../app/integraciones/landing-actions.ts');
+  assert.ok(/export async function ocultarVideoAction/.test(act), 'falta la acción');
+  // ⚠️ ESCONDER NO ES BORRAR: los eventos quedan donde están.
+  assert.ok(/ESCONDER NO ES BORRAR/.test(act), 'hay que decir que la medición no se toca');
+
+  const ui = leer('../app/integraciones/NombrarVideos.tsx');
+  assert.ok(/name="eye-off"/.test(ui), 'falta el botón');
+  assert.ok(/no borra la medición/.test(ui), 'el rótulo tiene que aclarar que no destruye nada');
+  // ⚠️ Y no desaparecen sin rastro: se dice cuántos son y se pueden recuperar.
+  // Esconder algo sin decir que está escondido es cómo se busca media hora un
+  // video que sí está midiendo.
+  assert.ok(/videos marcados como ajenos/.test(ui), 'un oculto invisible es un video perdido');
+  assert.ok(/Volver a mostrarlo en esta lista/.test(ui), 'tiene que poder deshacerse desde la pantalla');
+});

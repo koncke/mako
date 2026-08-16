@@ -24,6 +24,43 @@ export const VIDEOS_KEY = 'landing.videos';
 /** Tope: más que esto en una landing y el desplegable deja de servir. */
 export const MAX_VIDEOS = 20;
 
+/**
+ * Los videos que el negocio marcó como «este no es de mi página».
+ *
+ * ⚠️ VA EN SU PROPIA LISTA Y NO COMO UN CAMPO DE `VideoLanding`, aunque parezca
+ * el lugar obvio. `landing.videos` contesta «cómo llamo a cada video mío» y toda
+ * su lógica depende de eso: exige nombre, deja UN solo VSL, conserva la posición
+ * al renombrar. Un video oculto no tiene nombre ni lo va a tener — meterlo ahí
+ * obligaba a aflojar el «sin nombre no entra», que es justo lo que impide que la
+ * lista se llene de filas mudas.
+ *
+ * ⚠️ Y ESCONDER NO ES BORRAR. Los eventos de ese video son un hecho y quedan
+ * donde están: si un día vuelve a reproducirse, la medición sigue completa. Lo
+ * único que se guarda acá es «no me lo ofrezcas para nombrar».
+ */
+export const VIDEOS_OCULTOS_KEY = 'landing.videos_ocultos';
+
+/** Nunca lanza: una lista corrupta deja de esconder, no rompe la pantalla. */
+export function parsearOcultos(crudo: string | null): string[] {
+  if (!crudo?.trim()) return [];
+  try {
+    const v: unknown = JSON.parse(crudo);
+    if (!Array.isArray(v)) return [];
+    return [...new Set(v.filter((x): x is string => typeof x === 'string' && !!x.trim()).map((x) => x.trim().slice(0, 120)))].slice(0, MAX_VIDEOS * 2);
+  } catch { return []; }
+}
+
+export function conOculto(actuales: string[], id: string): string[] {
+  const i = id?.trim().slice(0, 120);
+  if (!i) return actuales;
+  return actuales.includes(i) ? actuales : [...actuales, i].slice(0, MAX_VIDEOS * 2);
+}
+
+export function sinOculto(actuales: string[], id: string): string[] {
+  const i = id?.trim();
+  return actuales.filter((x) => x !== i);
+}
+
 export type VideoLanding = {
   /** El id del player (Panda). Es lo que viaja en cada evento. */
   id: string;

@@ -13,7 +13,7 @@ import { revalidatePath } from 'next/cache';
 import { getSetting, setSetting } from '@/lib/settings';
 import { requireRolWs } from '@/lib/tab-access';
 import { OCULTAS_KEY, PAGINAS_KEY, conOculta, conPagina, parsearOcultas, parsearPaginas, sinPagina } from '@/lib/landing-paginas';
-import { VIDEOS_KEY, conVideo, parsearVideos, sinVideo, type VideoLanding } from '@/lib/landing-videos';
+import { VIDEOS_KEY, conVideo, parsearVideos, sinVideo, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos, conOculto, sinOculto } from '@/lib/landing-videos';
 
 export type Listas = { paginas: string[]; ocultas: string[] };
 export type PaginasResult = { ok: true; paginas: string[]; ocultas: string[] } | { ok: false; error: string };
@@ -114,6 +114,32 @@ export async function guardarVideoAction(video: VideoLanding): Promise<VideosRes
  * midió sigue estando —el dato es un hecho— y lo único que se pierde es el
  * rótulo, así que vuelve a aparecer como detectado sin nombre.
  */
+/**
+ * «Este video no es de mi página»: se deja de ofrecer para nombrar.
+ *
+ * ⚠️ ESCONDER NO ES BORRAR. Los eventos de ese video son un hecho —se reprodujo
+ * de verdad en esa página— y quedan donde están. Lo único que cambia es que deja
+ * de aparecer en la lista que pide nombrarlos.
+ *
+ * El caso que lo pidió: un «redirect al terminar» configurado en Panda mandaba
+ * solo al espectador a un video viejo de otra persona. El redirect se eliminó,
+ * pero los eventos que dejó siguen siendo ciertos, así que el sistema lo seguía
+ * listando con razón — y no había forma de decirle que ese video no es del
+ * negocio.
+ */
+export async function ocultarVideoAction(id: string, ocultar = true): Promise<{ ok: true; ocultos: string[] } | { ok: false; error: string }> {
+  try {
+    await requireRolWs([], { nav: 'integraciones' });
+    const actuales = parsearOcultos(await getSetting(VIDEOS_OCULTOS_KEY));
+    const nuevos = ocultar ? conOculto(actuales, id) : sinOculto(actuales, id);
+    await setSetting(VIDEOS_OCULTOS_KEY, JSON.stringify(nuevos));
+    revalidatePath('/integraciones');
+    return { ok: true, ocultos: nuevos };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
+  }
+}
+
 export async function borrarVideoAction(id: string): Promise<VideosResult> {
   try {
     const nuevos = sinVideo(await leerVideos(), id);

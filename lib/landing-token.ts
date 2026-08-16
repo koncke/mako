@@ -29,7 +29,7 @@ import { getSetting, setSetting } from './settings';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
-import { VIDEOS_KEY, parsearVideos, type VideoLanding } from './landing-videos';
+import { VIDEOS_KEY, parsearVideos, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos } from './landing-videos';
 import { esPreviewDeEditor, normalizarUrl } from './landing-paginas';
 import { clarityProjectId } from './clarity';
 import { catalogoPanda } from './panda';
@@ -256,6 +256,11 @@ export type LandingEstado = { recibio: boolean; ultima: string | null; codigoVie
  * vacía porque un catálogo caído NO puede tapar la medición: sin nombres, las
  * curvas se muestran igual rotuladas con el id, que es feo pero verdadero.
  */
+/** Los videos que el negocio marcó como «no son de mi página». */
+export async function getVideosOcultos(): Promise<string[]> {
+  return parsearOcultos(await getSetting(VIDEOS_OCULTOS_KEY).catch(() => null));
+}
+
 export async function getVideosLanding(): Promise<VideoLanding[]> {
   try {
     return parsearVideos(await getSetting(VIDEOS_KEY));

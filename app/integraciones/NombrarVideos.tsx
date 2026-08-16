@@ -18,7 +18,7 @@ import { Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
 import { Icon } from '@/app/_components/icons';
 import { TIPOS_VIDEO, esTipoVsl, rotuloDe, type VideoLanding } from '@/lib/landing-videos';
-import { borrarVideoAction, guardarVideoAction } from './landing-actions';
+import { borrarVideoAction, guardarVideoAction, ocultarVideoAction } from './landing-actions';
 
 const MONO = "'Geist Mono', monospace";
 /** Valor centinela de la última opción del desplegable. */
@@ -36,16 +36,20 @@ export type VideoDetectado = {
 };
 
 export function NombrarVideos({
-  detectados, videos, onCambio, enLaPagina = [],
+  detectados, videos, onCambio, enLaPagina = [], ocultos = [], onOcultos,
 }: {
   detectados: VideoDetectado[];
   videos: VideoLanding[];
   onCambio: (v: VideoLanding[]) => void;
+  /** Los que el negocio marcó como «no son de mi página». */
+  ocultos?: string[];
+  onOcultos?: (ids: string[]) => void;
   /** Lo que el analizador encontró EN la página. Es lo que hace que un video se
    *  pueda ver sin que nadie lo haya reproducido, venga de donde venga. */
   enLaPagina?: Array<{ id: string; url: string }>;
 }) {
   const [escribiendo, setEscribiendo] = useState<string | null>(null); // el id que está en «Otro tipo…»
+  const [verOcultos, setVerOcultos] = useState(false);
   const [texto, setTexto] = useState('');
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -67,8 +71,14 @@ export function NombrarVideos({
     ...enLaPagina
       .filter((v) => !detectados.some((d) => d.id === v.id) && !videos.some((g) => g.id === v.id))
       .map((v) => ({ id: v.id, titulo: null, eventos: 0, url: v.url, pagina: null })),
-  ];
-  if (!filas.length) return null;
+  ].filter((f) => verOcultos || !ocultos.includes(f.id));
+
+  // ⚠️ Los ocultos NO desaparecen sin dejar rastro: se dice cuántos son y se puede
+  // volver a verlos. Esconder algo sin decir que está escondido es la forma de que
+  // alguien busque durante media hora un video que sí está midiendo.
+  const nOcultos = [...detectados, ...videos].filter((v) => ocultos.includes(v.id)).length;
+
+  if (!filas.length && !nOcultos) return null;
 
   // Los nombres propios que ya usó este negocio se ofrecen igual que los de
   // fábrica: si llamó a uno «Testimonio de Ana», el segundo testimonio se elige
@@ -86,6 +96,14 @@ export function NombrarVideos({
     onCambio(r.videos);
     setEscribiendo(null);
     setTexto('');
+  };
+
+  const ocultar = async (id: string, ocultarlo: boolean) => {
+    setOcupado(id); setErr(null);
+    const r = await ocultarVideoAction(id, ocultarlo);
+    setOcupado(null);
+    if (!r.ok) { setErr(r.error); return; }
+    onOcultos?.(r.ocultos);
   };
 
   const borrar = async (id: string) => {
@@ -209,11 +227,34 @@ export function NombrarVideos({
                     <IconBtn name="trash" title="Quitar el nombre (no borra la medición)" tone="bad" disabled={ocupado === d.id} onClick={() => void borrar(d.id)} />
                   </>
                 ) : null}
+
+                {/* ⚠️ «ESTE NO ES MÍO». Un video puede aparecer acá sin que nadie
+                    lo haya puesto en la página: pasó con un «redirect al terminar»
+                    configurado en el reproductor, que mandaba solo al espectador a
+                    un video viejo de otra persona. Se quitó el redirect, pero los
+                    eventos que dejó son un HECHO —ese video SÍ se reprodujo ahí— y
+                    por eso el sistema lo sigue listando, con razón. Lo que faltaba
+                    era poder decirle que no lo liste más.
+                    Esconder NO borra: la medición queda intacta. */}
+                {ocultos.includes(d.id) ? (
+                  <IconBtn name="check" title="Volver a mostrarlo en esta lista" tone="good" disabled={ocupado === d.id} onClick={() => void ocultar(d.id, false)} />
+                ) : (
+                  <IconBtn name="eye-off" title="Este video no es de mi página (no borra la medición)" disabled={ocupado === d.id} onClick={() => void ocultar(d.id, true)} />
+                )}
               </div>
             </div>
           );
         })}
       </div>
+      {nOcultos > 0 && (
+        <button type="button" onClick={() => setVerOcultos((v) => !v)}
+          style={{ marginTop: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            fontSize: 12, color: 'var(--dim)', fontWeight: 600 }}>
+          {verOcultos
+            ? 'Ocultar los que marcaste como ajenos'
+            : `${nOcultos} ${nOcultos === 1 ? 'video marcado como ajeno' : 'videos marcados como ajenos'} · Ver`}
+        </button>
+      )}
       {err && <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}
     </div>
   );
