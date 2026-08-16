@@ -132,7 +132,10 @@ export async function POST(req: NextRequest) {
         const nuevo = await crearUsuario({ email, nombre: body.nombre, rol, invitado_por: invitadoPor, workspace_id: rol === 'admin' ? null : wsId, rol_ws: rolWs });
         // Mismo criterio que el alta de un cliente: crear la fila sin avisarle a nadie
         // deja a una persona con cuenta y sin forma de enterarse de que la tiene.
-        const invitacion = await invitarPorEmail({ email, nombre: body.nombre, rolWs, invitadoPor });
+        const invitacion = await invitarPorEmail({
+          email, nombre: body.nombre, rolWs,
+          workspace: wsId != null ? (await listarWorkspaces()).find((w) => w.id === wsId)?.nombre : undefined,
+        });
         return NextResponse.json({ ok: true, usuario: nuevo, invitacion });
       }
 
@@ -179,7 +182,7 @@ export async function POST(req: NextRequest) {
           : undefined;
         const invitacion = await invitarPorEmail({
           email: objetivo.email, nombre: objetivo.nombre, workspace: ws,
-          rolWs: objetivo.rol_ws, invitadoPor: objetivo.invitado_por,
+          rolWs: objetivo.rol_ws,
         });
         return NextResponse.json({ ok: true, invitacion });
       }

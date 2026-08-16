@@ -27,7 +27,7 @@
 import 'server-only';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { sendEmail, renderEmailHtml } from './resend';
-import { APP_BASE_URL } from './app-url';
+import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
 import { getSupabaseServer } from './supabase';
 import type { RolWorkspace } from './auth-session';
 import type { ResultadoInvitacion } from './invitacion-aviso';
@@ -38,10 +38,12 @@ import type { ResultadoInvitacion } from './invitacion-aviso';
 export type { ResultadoInvitacion };
 
 /**
- * Quién firma este mail. **Es la plataforma, no un inquilino**, y por eso vive en el
- * código y no en un `app_settings`.
+ * Quién firma este mail. La dirección sale de `EMAIL_MAKO` (lib/app-url.ts), que es LA
+ * dirección de MaKo: la misma que firma, la misma a la que vuelve un «Responder», y la
+ * misma que el cuerpo le da a la persona para pedir ayuda. Las tres tienen que coincidir
+ * o el mail no sirve, y la única forma de que no diverjan es que salgan de un solo lugar.
  *
- * ⚠️ ACÁ HABÍA UNA TRAMPA QUE HOY NO SE VE PORQUE FUNCIONA DE CASUALIDAD. El único
+ * ⚠️ ACÁ HABÍA UNA TRAMPA QUE NO SE VE PORQUE FUNCIONA DE CASUALIDAD. El único
  * remitente configurado en todo el sistema es el setting `resend_from` del workspace 1,
  * y `OWNER_WS` vale 1 — pero **el 1 es Mauricio, un CLIENTE**; el nombre de la constante
  * engaña y ya se llevó puestas otras cosas. Mandar desde ahí significa que el día que un
@@ -50,10 +52,15 @@ export type { ResultadoInvitacion };
  * propia RESEND_API_KEY, los mails de la plataforma salen por SU cuenta de Resend.
  *
  * Nada de eso rompe nada visible: sale un mail, con un remitente válido, y andá a saber
- * cuándo alguien lo mira. Por eso el remitente de la plataforma se resuelve solo, sin
+ * cuándo alguien lo mira. Por eso la identidad de la plataforma se resuelve sola, sin
  * preguntarle a ningún workspace.
+ *
+ * `EMAIL_MAKO` guarda la dirección PELADA y el remitente se arma acá, en vez de guardar
+ * «MaKo <…>» entero: así no hay que parsear nada para saber a dónde se le pide ayuda, y
+ * un override mal escrito no puede dejar el cuerpo del mail diciendo «escribinos a
+ * MaKo <equipo@…>». El display name es «MaKo» fijo: la marca no es configuración.
  */
-const REMITENTE_MAKO = (process.env.MAKO_EMAIL_FROM || '').trim() || 'MaKo <equipo@hola-mako.com>';
+const REMITENTE_MAKO = `MaKo <${EMAIL_MAKO}>`;
 
 /** Cómo se le dice a cada rol lo que va a encontrar. No es cosmético: a un closer que
  *  recibe «configurá tu negocio» le estás pidiendo algo que no le toca. */
@@ -76,8 +83,6 @@ export async function invitarPorEmail(u: {
   /** Nombre del workspace al que entra, para que sepa de qué cuenta le hablan. */
   workspace?: string;
   rolWs?: RolWorkspace | null;
-  /** Email de quien lo dio de alta: a quién pedirle ayuda si algo no anda. */
-  invitadoPor?: string | null;
 }): Promise<ResultadoInvitacion> {
   const enlace = `${APP_BASE_URL}/inicio`;
   const destino = (u.email ?? '').trim().toLowerCase();
@@ -91,7 +96,7 @@ export async function invitarPorEmail(u: {
   // Se mira REMITENTE_MAKO y no `remitenteEsSandbox()`, que resuelve el del workspace
   // actual: acá el remitente no depende de ningún workspace, así que preguntarle a uno
   // sería chequear una cosa distinta de la que se va a usar.
-  if (/@resend\.dev>?\s*$/i.test(REMITENTE_MAKO)) {
+  if (/@resend\.dev$/i.test(EMAIL_MAKO)) {
     return { enviado: false, error: 'el correo de MaKo todavía no está configurado (remitente de prueba)', enlace };
   }
 
@@ -123,8 +128,13 @@ export async function invitarPorEmail(u: {
       // se puede accionar si no sabe cuál era la buena.
       `Importante: entra con Google usando exactamente esta dirección: ${destino}`,
       '',
-      u.invitadoPor ? `Si algo no funciona, escríbele a ${u.invitadoPor}.` : '',
-    ].filter((l) => l !== null).join('\n');
+      // ⚠️ ACÁ DECÍA EL EMAIL DE QUIEN LO DIO DE ALTA, Y ESO MANDABA EL PROBLEMA AL LUGAR
+      // EQUIVOCADO. Lo que falla en este mail es entrar —una cuenta de Google que no
+      // matchea, un link que no abre, un dominio que rebota— y eso lo arregla MaKo, no el
+      // admin del cliente que sumó a su closer. Peor: si el que dio el alta fue un cliente,
+      // le estábamos poniendo a él la mesa de ayuda de nuestro producto.
+      `Si algo no funciona, escríbenos a ${EMAIL_MAKO}.`,
+    ].join('\n');
 
     const html = renderEmailHtml({
       subject: 'Tu acceso a MaKo',
@@ -140,6 +150,11 @@ export async function invitarPorEmail(u: {
       // `from` EXPLÍCITO: sin esto, `sendEmail` resuelve el remitente del workspace en
       // curso y el mail de la plataforma volvería a depender de la config de un cliente.
       from: REMITENTE_MAKO,
+      // Redundante HOY —responder ya va al `from`— y puesto igual: es lo que hace que el
+      // botón «Responder» y el «escríbenos a…» del cuerpo no se puedan separar nunca. El
+      // día que el remitente pase a ser un no-reply, esta línea sigue llevando la
+      // respuesta a una casilla que alguien lee.
+      replyTo: EMAIL_MAKO,
       subject: 'Tu acceso a MaKo',
       html,
       text: bodyText,

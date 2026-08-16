@@ -11,7 +11,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
+import { getWorkspaceActual, getRolWsEfectivo, getWorkspace } from '@/lib/workspace';
 import {
   actualizarUsuario, contarAdminsClienteActivos, crearUsuario, eliminarUsuario,
   listarUsuarios, type EstadoUsuario, type Usuario,
@@ -80,7 +80,14 @@ export async function POST(req: NextRequest) {
         // ⚠️ ESTA ACCIÓN SE LLAMA 'invitar' Y NO INVITABA A NADIE: creaba la fila y ahí
         // terminaba. El cliente sumaba a su closer, el closer nunca se enteraba, y el
         // cliente no tenía cómo saber que faltaba avisarle — el botón decía «Invitar».
-        const invitacion = await invitarPorEmail({ email, nombre: body.nombre, rolWs, invitadoPor: quien });
+        //
+        // El nombre del negocio va SIEMPRE: un closer recibe un mail de una marca que no
+        // conoció nunca (MaKo), sobre una cuenta que no pidió. Sin decirle de qué negocio
+        // le hablan, lo más razonable que puede hacer es tratarlo como spam.
+        const invitacion = await invitarPorEmail({
+          email, nombre: body.nombre, rolWs,
+          workspace: (await getWorkspace(ws))?.nombre,
+        });
         return NextResponse.json({ ok: true, usuario: nuevo, invitacion });
       }
 
@@ -101,7 +108,8 @@ export async function POST(req: NextRequest) {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'Falta el miembro.' }, { status: 400 });
         const invitacion = await invitarPorEmail({
           email: objetivo.email, nombre: objetivo.nombre,
-          rolWs: objetivo.rol_ws, invitadoPor: (await getUsuarioActual())?.email || objetivo.invitado_por,
+          rolWs: objetivo.rol_ws,
+          workspace: (await getWorkspace(ws))?.nombre,
         });
         return NextResponse.json({ ok: true, invitacion });
       }

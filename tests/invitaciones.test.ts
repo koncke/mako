@@ -65,6 +65,42 @@ test('el remitente es de la PLATAFORMA, no de un workspace', () => {
   assert.ok(/from: REMITENTE_MAKO/.test(inv), 'el remitente volvió a salir del workspace');
 });
 
+test('la dirección de MaKo es UNA: firma, responde y recibe la ayuda', () => {
+  // Las tres tienen que ser la misma o el mail no sirve: uno que viene de una dirección,
+  // se responde a otra y en el cuerpo manda a una tercera es un mail al que nadie
+  // contesta. La única forma de que no diverjan es que salgan de la misma constante —
+  // dos constantes «que hoy coinciden» es exactamente cómo empieza una divergencia.
+  const inv = leer('../lib/invitaciones.ts');
+  // La dirección vive en lib/app-url.ts —al lado de la URL base, que contesta la misma
+  // pregunta: por dónde nos encuentra alguien de afuera— y no se redeclara acá.
+  assert.ok(/import \{ APP_BASE_URL, EMAIL_MAKO \} from '\.\/app-url'/.test(inv), 'la dirección dejó de salir de la fuente única');
+  assert.ok(!/^const EMAIL_MAKO =/m.test(inv), 'volvió a haber una segunda declaración de la dirección');
+  assert.ok(/const REMITENTE_MAKO = `MaKo <\$\{EMAIL_MAKO\}>`/.test(inv), 'el remitente dejó de derivar de la dirección');
+  assert.ok(/replyTo: EMAIL_MAKO/.test(inv), 'responder ya no vuelve a MaKo');
+  assert.ok(/escríbenos a \$\{EMAIL_MAKO\}/.test(inv), 'el contacto de ayuda dejó de ser el de MaKo');
+  // Y NO vuelve a ser el de quien dio de alta: lo que falla acá es entrar, y eso lo
+  // arregla MaKo. Mandarlo al admin del cliente le pone a él la mesa de ayuda del
+  // producto, y encima no lo puede resolver.
+  assert.ok(!/invitadoPor/.test(inv), 'el contacto de ayuda volvió a ser quien dio el alta');
+});
+
+test('a nadie se le manda un mail sin decirle de qué negocio le hablan', () => {
+  // Un closer recibe un mail de una marca que no conoció nunca (MaKo) sobre una cuenta
+  // que no pidió. Sin el nombre del negocio, lo más razonable que puede hacer es tratarlo
+  // como spam — y el alta queda «hecha» con la persona afuera igual que antes.
+  for (const ruta of [
+    '../app/api/admin/workspaces/route.ts',
+    '../app/api/admin/usuarios/route.ts',
+    '../app/api/equipo/route.ts',
+  ]) {
+    const src = leer(ruta);
+    // Cada llamada a invitarPorEmail tiene que traer `workspace:` adentro.
+    for (const [, args] of src.matchAll(/invitarPorEmail\(\{([\s\S]*?)\}\)/g)) {
+      assert.ok(/workspace:/.test(args), `${ruta}: una invitación sale sin el nombre del negocio`);
+    }
+  }
+});
+
 test('la fecha se estampa solo si el mail SALIÓ', () => {
   // La columna contesta «¿ya se le avisó?». Marcarla en el intento la convierte en
   // «¿lo intentamos?», y el botón de reenviar quedaría diciendo que ya se mandó algo

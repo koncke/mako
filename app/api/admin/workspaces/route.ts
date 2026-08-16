@@ -97,7 +97,6 @@ export async function POST(req: NextRequest) {
             nombre: body.adminNombre,
             workspace: ws.nombre,
             rolWs: 'admin',
-            invitadoPor,
           });
         }
         return NextResponse.json({ ok: true, workspace: ws, invitacion });

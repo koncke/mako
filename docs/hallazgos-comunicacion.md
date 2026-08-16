@@ -1201,16 +1201,46 @@ corriendo en `wsSuperAdmin()`, que no tiene credencial propia y por eso cae en l
 *de quién es ese workspace*, no si el código compila. Y si el sistema tiene UN solo valor
 configurado, no se puede saber si lo estás leyendo del lugar correcto — probalo mentalmente con dos.
 
-**Vive en:** lib/invitaciones.ts (`REMITENTE_MAKO`) · lib/resend.ts:34-48 (`resendKey` /
-`getEmailFrom`) · lib/workspace.ts:285-295 (`wsSuperAdmin`, resuelto por capa y no por número)
+**Vive en:** lib/app-url.ts (`EMAIL_MAKO`) · lib/invitaciones.ts (`REMITENTE_MAKO`) ·
+lib/resend.ts:34-48 (`resendKey` / `getEmailFrom`) · lib/workspace.ts:285-295
+(`wsSuperAdmin`, resuelto por capa y no por número)
+
+### ⚠️ Que el dominio MANDE no significa que RECIBA, y son dos configuraciones distintas
+
+El mail de acceso termina con «si algo no funciona, escríbenos a `equipo@hola-mako.com`». Eso
+es una promesa: alguien lee esa casilla. Y **mandar y recibir no tienen nada que ver entre sí**:
+
+- **Mandar** lo hace Resend con el dominio verificado (DKIM + SPF). Eso ya funciona: se mandó
+  un mail real el 16/08 y Resend lo aceptó.
+- **Recibir** depende de los **MX**, que son de otro proveedor. Medido ese día:
+  `hola-mako.com MX → fwd1.porkbun.com / fwd2.porkbun.com`, o sea **reenvío de Porkbun** — que
+  funciona **solo para los alias dados de alta a mano en el panel**. Un alias que no existe
+  rebota o se descarta, y el dominio sigue mandando perfecto.
+
+En `docs/chats/chat-dominio-makodigital-app-en-mako-*.md` el circuito de vuelta quedó
+**planeado y sin confirmar**, textual: *«decime y te mando un email de prueba a
+equipo@hola-mako.com para confirmar que el circuito completo funciona»*. Nunca se cerró.
+
+Y ya hubo deriva de la dirección: durante la mudanza el remitente fue `hola@hola-mako.com` y
+hoy el configurado es `equipo@`. Con la dirección escrita en cada archivo que la necesita, la
+mitad se queda en la vieja — por eso `EMAIL_MAKO` vive en `lib/app-url.ts`, al lado de
+`APP_BASE_URL`: las dos contestan «¿por dónde nos encuentra alguien de afuera?» y las dos se
+mudan juntas. El punto 8 del checklist de mudanza de ese archivo es nuevo por esto.
+
+**La regla:** antes de poner una dirección en un lugar donde le pedís a un cliente que
+escriba, mandale un mail y verificá que llegue. Un buzón que no existe se ve exactamente
+igual que uno que nadie contestó todavía.
+
+**Vive en:** lib/app-url.ts (`EMAIL_MAKO` + el checklist de mudanza) · lib/invitaciones.ts
 
 ### Lo que sigue sin hacer
 
-- **El mail de acceso nunca se entregó de verdad.** Se verificó el camino entero interceptando la
-  llamada a `api.resend.com` (remitente, cuerpo y los dos roles), pero **falta un envío real** a una
-  casilla. Es lo único que prueba DNS y reputación del dominio.
-- **`MAKO_EMAIL_FROM` no está en Vercel.** Hoy no hace falta —la constante trae el default correcto
-  en código— pero mientras no exista, cambiar el remitente de la plataforma es un deploy.
+- **Falta confirmar que `equipo@hola-mako.com` RECIBE.** El envío real se hizo el 16/08 y Resend
+  lo aceptó; lo que no está probado es el camino de vuelta (ver la entrada de arriba). Hasta que
+  alguien responda ese mail y la respuesta aparezca en una bandeja, la última línea del mail de
+  acceso es una promesa sin verificar.
+- **`MAKO_EMAIL` no está en Vercel.** Hoy no hace falta —`lib/app-url.ts` trae el default correcto
+  en código— pero mientras no exista, cambiar la dirección de la plataforma es un deploy.
 - **Nada reencola un mail que falló.** Si Resend rechaza, queda el botón «Reenviar acceso» y una
   persona que se acuerde. No hay cola ni reintento.
 - **Bandeja tipo Gmail dentro de MaKo:** recibir todos los mails ahí, escribir, y elegir con qué
