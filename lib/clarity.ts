@@ -126,10 +126,24 @@ export async function urlSesionesDeLead(visitorId: string | null | undefined, ws
   if (!vid) return null;
   const pid = await clarityProjectId(ws);
   if (!pid) return null;
-  // El filtro de Clarity viaja en el hash, como una lista de condiciones. Se
-  // arma con `encodeURIComponent` porque un visitor_id es un UUID y no necesita
-  // escape, pero el día que cambie de forma esto no se rompe en silencio.
-  return `${PANEL}/${encodeURIComponent(pid)}/impressions?CustomUserId=${encodeURIComponent(vid)}`;
+  // ⚠️ EL FORMATO ES `campo=<operador>;<valor>`, Y EL VALOR VA ENCODEADO DOS
+  // VECES. Sin el operador, Clarity DESCARTA el parámetro entero y muestra la
+  // lista completa del proyecto — que es exactamente lo que pasó: se abría el
+  // panel con 35 sesiones de gente cualquiera y la URL volvía reescrita como
+  // `?date=Last 3 days`, sin rastro del filtro. Un link que no filtra es peor
+  // que ninguno: promete «lo que hizo ÉL» y entrega «lo que hizo todo el mundo».
+  //
+  // La forma salió de copiar una URL con el filtro ya aplicado a mano:
+  //   ?date=Last%203%20days&CustomUserId=is%3B%25231895
+  //   …que decodificado una vez es  CustomUserId=is;%231895
+  // O sea: el valor se encodea, se le pega `is;` adelante, y el conjunto se
+  // encodea de nuevo al meterlo en la URL.
+  //
+  // Y la ventana de fechas va EXPLÍCITA en 30 días: el default del panel son 3, y
+  // una grabación de hace tres semanas —que todavía existe, porque Clarity las
+  // guarda 30— quedaba fuera del filtro y se veía igual que si no existiera.
+  const filtro = `is;${encodeURIComponent(vid)}`;
+  return `${PANEL}/${encodeURIComponent(pid)}/impressions?date=Last%20${DIAS_RETENCION}%20days&CustomUserId=${encodeURIComponent(filtro)}`;
 }
 
 /**
@@ -146,7 +160,10 @@ export async function urlSesionesDePrueba(prueba: string | null | undefined, ws?
   if (!p) return null;
   const pid = await clarityProjectId(ws);
   if (!pid) return null;
-  return `${PANEL}/${encodeURIComponent(pid)}/impressions?mko_prueba=${encodeURIComponent(p)}`;
+  // Mismo contrato que el filtro de usuario: `<operador>;<valor>` y el valor
+  // encodeado dos veces. `mko_prueba` es un custom tag (`clarity("set", …)`).
+  const filtro = `is;${encodeURIComponent(p)}`;
+  return `${PANEL}/${encodeURIComponent(pid)}/impressions?date=Last%203%20days&mko_prueba=${encodeURIComponent(filtro)}`;
 }
 
 /** El link al panel del proyecto, sin filtrar. Para el botón «ver los mapas». */

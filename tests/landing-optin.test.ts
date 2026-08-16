@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { videosDeHtml, idNativo } from '../lib/landing-analisis';
+import { videosDeHtml, idNativo, analizarHtml } from '../lib/landing-analisis';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const RUTA = () => leer('../app/api/track/optin/route.ts');
@@ -692,10 +692,12 @@ test('los chequeos van en el orden del EMBUDO, y la versión primero', () => {
   // La VERSIÓN va primera aunque no sea un paso del embudo: si el código está
   // viejo, todos los demás chequeos miden otra cosa y sus resultados no
   // significan nada. Después, el recorrido de la persona que visita.
-  // 'redirect' solo aparece cuando Panda dice que ese video manda a otro, pero su
-  // literal vive en el array igual: va entre el embudo y Clarity, que es donde se
-  // lee — «tu página mide bien, PERO al terminar te manda a otro lado».
-  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin', 'redirect', 'clarity']);
+  // ⚠️ NADA DE CONFIGURACIÓN DE TERCEROS EN LOS PASOS DE LA PRUEBA. Acá vivió un
+  // chequeo sobre el redirect de Panda y estuvo mal: esta lista es el guion que
+  // ve TODO el mundo para comprobar que su Pixel mide, y ahí no entra el problema
+  // particular de un cliente — menos todavía nombrando el video de otra persona.
+  // La detección sigue existiendo; lo que se fue es su lugar en este guion.
+  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin', 'clarity']);
 
   // Y en una PRUEBA los textos hablan de la prueba, no de las últimas 24 h: quien
   // acaba de apretar play no quiere que le contesten con una estadística del día.
@@ -1107,8 +1109,15 @@ test('cada evento dice en CUÁL página pasó, no solo la visita', () => {
     'un evento sin página no se puede descartar: castiga a quien no hizo nada mal');
 
   // La versión sube, o el aviso de «Pixel desactualizado» no le llega a nadie.
-  assert.ok(/export const SNIPPET_VERSION = 12;/.test(lib), 'la mejora no sirve si nadie se entera de que hay que repegar');
-  assert.ok(/^\s*12: '/m.test(lib), 'sin entrada en NOVEDADES el aviso no puede decir qué se gana');
+  // La versión sube en CADA cambio del snippet, o el aviso de «Pixel
+  // desactualizado» no le llega a nadie. Se chequea el piso, no el número exacto:
+  // fijarlo obliga a tocar el test en cada versión y lo convierte en ruido.
+  const ver = /export const SNIPPET_VERSION = (\d+);/.exec(lib);
+  assert.ok(ver && Number(ver[1]) >= 12, 'la mejora no sirve si nadie se entera de que hay que repegar');
+  // ⚠️ Los escapes van DOBLES: esto es un template literal, así que `\n` se
+  // convierte en un salto de línea real y `\s` se come la barra antes de que el
+  // regex la vea. El test pasaba a ser una cadena literal que nunca matchea.
+  assert.ok(new RegExp(`\\n\\s*${ver![1]}: '`).test(lib), 'sin entrada en NOVEDADES el aviso no puede decir qué se gana');
 
   // El beacon la guarda, y en la tabla que tiene la columna (mig 0137).
   const ruta = leer('../app/api/track/vsl/route.ts');
@@ -1191,33 +1200,25 @@ test('los videos de la pagina salen del HTML, sin esperar a que alguien reproduz
   assert.equal(idNativo(null, '/a/b/que-se-vive.mp4?v=2'), 'v:que-se-vive.mp4');
 });
 
-test('un video que al terminar manda a OTRO video se avisa', () => {
+test('el redirect de Panda se DETECTA, pero no vive en los pasos de la prueba', () => {
   // Medido el 2026-08-16: el VSL de un cliente tenía `config.videoRedirect`
-  // apuntando a un video viejo de otra persona —resto de una playlist de prueba
-  // borrada meses antes—, así que cada visitante que terminaba de ver la oferta
-  // pasaba solo a un video que no tenía nada que ver. No se ve en la página, no
-  // se ve en los eventos, y nadie lo mira hasta que los leads llegan confundidos.
+  // apuntando a un video viejo de otra persona, y cada visitante que terminaba de
+  // ver la oferta pasaba solo a ese video. La detección tiene que existir.
   const panda = leer('../lib/panda.ts');
   assert.ok(/redirigeA: \{ id: string; titulo: string \} \| null;/.test(panda), 'el catálogo no trae el redirect');
   assert.ok(/config\?\.videoRedirect/.test(panda), 'el redirect vive en el detalle del video, no en el listado');
-  // De a uno y no en paralelo: N llamadas contra una sola API key es un 429.
-  assert.ok(/for \(const \[externo, interno\] of internos\)/.test(panda), 'las llamadas al detalle no pueden ir en paralelo');
+  assert.ok(/for \(const \[externo, interno\] of internos\)/.test(panda), 'las llamadas al detalle no pueden ir en paralelo: un 429 por cada una');
 
+  // ⚠️ PERO NO EN LOS PASOS DE LA PRUEBA, y esto es lo que se hizo mal. Esa lista
+  // es el guion que ve TODO el mundo para comprobar que su Pixel mide. Meter ahí
+  // la configuración mal puesta de un cliente —con el título del video de otra
+  // persona adentro del texto— convierte un instructivo genérico en el informe de
+  // un caso particular. El dueño lo marcó así: «eso es para todos los usuarios y
+  // pusiste un error particular, encima nombrando a alguien, en la prueba oficial».
   const lib = leer('../lib/landing-token.ts');
-  assert.ok(/id: 'redirect' as const/.test(lib), 'falta el chequeo');
-  // Ámbar y no rojo: no está roto, está mal configurado — y NUESTRA API no lo
-  // puede arreglar (`PUT /videos/{id}` responde «must NOT have additional
-  // properties: config»), así que el texto tiene que decir dónde se toca.
-  assert.ok(/estado: 'viejo' as ChequeoDiag\['estado'\]/.test(lib), 'no está roto: está mal configurado');
-  assert.ok(/Quítalo en Panda/.test(lib), 'un aviso que no dice dónde se arregla no es accionable');
-
-  // ⚠️ Y NO puede colgarse de `videosDetectados()`: esa hace una consulta de
-  // conteo POR VIDEO y esto corre dentro del poll del probador, que consulta cada
-  // 3 segundos. El catálogo ya está cacheado y los video_id vienen en la misma
-  // consulta de eventos que ya se hizo.
-  const bloque = lib.slice(lib.indexOf('const idsEnJuego'), lib.indexOf('const paso5'));
-  assert.ok(!/videosDetectados\(\)/.test(bloque), 'N consultas extra cada 3 segundos para algo que ya está en memoria');
-  assert.ok(/catalogoPanda\(\)\.catch/.test(bloque), 'el catálogo cacheado es la fuente');
+  const i = lib.indexOf('const chequeos: ChequeoDiag[]');
+  const bloque = lib.slice(i, lib.indexOf('\n  ];', i));
+  assert.ok(!/videoRedirect|redirigeA|manda a otro/.test(bloque), 'la configuración de un tercero no es un paso de la prueba');
 });
 
 test('la ficha del lead lleva a su grabación Y al mapa de calor', () => {
@@ -1282,4 +1283,59 @@ test('la grabación no se ofrece cuando Clarity ya la borró', () => {
   // no está es lo que evita que se lea como que nunca funcionó.
   const card = leer('../app/crm/lead-view/ComportamientoCard.tsx');
   assert.ok(/Su grabación ya no existe: Clarity las guarda 30 días/.test(card), 'la ausencia se explica');
+});
+
+test('el analizador no se lee a SÍ MISMO ni al chrome del hosting', () => {
+  // ⚠️ Medido el 2026-08-16 sobre una landing real: el analizador decía que tenía
+  // un <video> nativo y botones propios. No tiene ninguno de los dos. El <video>
+  // salía de los COMENTARIOS de nuestro propio snippet —que va inline y explica
+  // en castellano cómo mide un <video controls>— y el <button> era el botón de
+  // cerrar del badge del hosting.
+  //
+  // No era cosmético: con `botones` en true, el chequeo «hacé clic en tus botones»
+  // se le pedía para siempre a una página cuyo único CTA es un Calendly embebido
+  // —0 clics en 7 días, y con razón—, y un renglón en rojo permanente es lo que
+  // entrena a ignorar la lista entera.
+  const nuestroSnippet = '<script>/* mide un <video controls> y usa /pandavideo/i.test(x) */</script>';
+  const badge = '<div id="lovable-badge"><button id="lovable-badge-close">x</button></div>';
+  const a = analizarHtml('https://x.com', `<html><body><div id="root"></div>${nuestroSnippet}${badge}</body></html>`);
+  assert.ok(!a.piezas.has('video-nativo'), 'un <video> escrito en un comentario no es un video de la página');
+  assert.ok(!a.piezas.has('video-panda'), 'nuestro propio código no es el player del cliente');
+  assert.ok(!a.piezas.has('botones'), 'el botón de cerrar del hosting no es un CTA del negocio');
+
+  // Y lo de verdad SÍ se ve.
+  const real = analizarHtml('https://x.com', '<body><video src="/a.mp4"></video><a href="/x">Ir</a><form></form></body>');
+  assert.ok(real.piezas.has('video-nativo') && real.piezas.has('botones') && real.piezas.has('formulario'), 'no puede dejar de ver lo que sí está');
+});
+
+test('en una SPA las piezas se buscan en el BUNDLE, y solo las que sobreviven a minificar', () => {
+  // El HTML de una landing React es un <div id="root"> vacío: el video, el
+  // Calendly y los botones los monta el JavaScript. Analizando solo el HTML el
+  // resultado era «no encontré nada», y como «no sé» y «no tiene» se trataban
+  // igual, los chequeos salían al revés — se le ofrecía el del formulario a un
+  // negocio que vende por agenda.
+  const html = '<body><div id="root"></div><script src="/assets/index-abc.js"></script></body>';
+  const bundle = 'const u="https://calendly.com/mauriciobustoseguia/30min";createElement("button",{})';
+  const a = analizarHtml('https://x.com', html, bundle);
+  assert.ok(a.piezas.has('embed-agenda'), 'un calendly.com en el bundle es un calendly de verdad');
+  // ⚠️ Y NO `botones`: en un bundle minificado esa palabra aparece por cualquier
+  // motivo —un componente de librería que nadie renderiza, un string muerto—. Del
+  // bundle solo se leen las piezas que se identifican por un DOMINIO, que no se
+  // escribe por casualidad.
+  assert.ok(!a.piezas.has('botones'), 'lo que depende de una etiqueta no se puede leer de un bundle');
+});
+
+test('pausa, retoma y fin también en el reproductor de Panda', () => {
+  // ⚠️ La v10 los anunció y solo los cableó para el <video> nativo. Medido el
+  // 2026-08-16 sobre un workspace con 658 plays y 606 exits en 7 días: pausa,
+  // retoma y fin, CERO. No fallaban — no estaban. El dueño lo reportó probando:
+  // «le di a pausar varias veces y no lo midió».
+  const lib = leer('../lib/landing-token.ts');
+  for (const m of ['panda_pause', 'panda_ended']) {
+    assert.ok(new RegExp(`d\\.message === '${m}'`).test(lib), `el snippet no escucha ${m}`);
+  }
+  // El play de un video YA arrancado es un retomar, no una reproducción nueva:
+  // contarlo como play infla el conteo y hace ver dos personas donde hay una.
+  assert.ok(/d\.message === 'panda_play' && e\.play && e\.pausado/.test(lib), 'un retomar no puede contarse como un play nuevo');
+  assert.ok(/e\.fin = true;/.test(lib), 'el fin tiene que ser idempotente');
 });

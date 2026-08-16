@@ -30,7 +30,17 @@ test('el link va FILTRADO por la persona, o no va', () => {
   // Es la mitad del valor: sin el filtro, el botón lleva a una lista de miles de
   // sesiones anónimas. Con él, lleva a lo que hizo ese lead.
   const s = LIB();
-  assert.ok(/CustomUserId=\$\{encodeURIComponent\(vid\)\}/.test(s), 'el link tiene que filtrar por nuestro visitor_id');
+  // ⚠️ EL FORMATO ES `campo=<operador>;<valor>`, Y EL VALOR VA ENCODEADO DOS
+  // VECES. Sin el operador, Clarity DESCARTA el parámetro entero: reportado el
+  // 2026-08-16, el botón abría su panel con 35 sesiones de gente cualquiera y la
+  // URL volvía reescrita como `?date=Last 3 days`. Un link que no filtra es peor
+  // que ninguno — parece que anda, así que nadie lo audita.
+  assert.ok(/const filtro = `is;\$\{encodeURIComponent\(vid\)\}`;/.test(s), 'sin el operador `is;` Clarity ignora el filtro');
+  assert.ok(/CustomUserId=\$\{encodeURIComponent\(filtro\)\}/.test(s), 'el conjunto va encodeado de nuevo al meterlo en la URL');
+  // Y la ventana de fechas EXPLÍCITA: el default del panel son 3 días, así que una
+  // grabación de hace tres semanas —que todavía existe, porque duran 30— quedaba
+  // fuera del filtro y se veía igual que si no existiera.
+  assert.ok(/date=Last%20\$\{DIAS_RETENCION\}%20days/.test(s), 'con la ventana por defecto se pierden grabaciones que sí están');
   // Sin visitor_id o sin proyecto NO se devuelve link: un botón que no puede
   // abrir nada promete y falla, y quien lo aprieta no sabe qué está roto.
   assert.ok(/if \(!vid\) return null/.test(s), 'sin identificador no puede haber botón');

@@ -87,7 +87,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 12;
+export const SNIPPET_VERSION = 13;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -124,6 +124,7 @@ const NOVEDADES: Record<number, string> = {
   6: 'la medición de los clics: qué botones y enlaces usan tus visitantes, incluido el de WhatsApp · y la prueba del código ahora muestra solo tus propios eventos, sin mezclarlos con las visitas del día',
   11: 'distinguir el video que ARRANCA SOLO del que alguien reproduce: con autoplay, hasta ahora contaba como si la persona hubiera querido verlo',
   12: 'saber en CUÁL de tus páginas pasó cada cosa: hasta ahora solo las visitas decían de dónde venían, así que con dos páginas los videos y los clics de las dos caían juntos',
+  13: 'medir la pausa, el retomar y el final del video también en los reproductores de Panda: hasta ahora eso solo funcionaba con videos subidos directo a la página',
   10: 'dos eventos que faltaban: cuando alguien AGENDA en tu Calendly embebido —que para vender por llamada es el evento más importante— y las pausas del video, que distinguen a quien lo mira de quien lo dejó corriendo',
   9: 'la medición de los primeros segundos de un video largo: hasta ahora, en un video de 20 minutos no se registraba ningún avance durante el primer minuto — y ahí es donde se pierde a la mayoría',
   8: 'poder ver cada video desde la app al momento de identificarlo: antes solo aparecía un código y había que adivinar',
@@ -465,7 +466,7 @@ export type EventoDiag = {
 };
 
 export type ChequeoDiag = {
-  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin' | 'redirect' | 'clarity';
+  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin' | 'clarity';
   label: string;
   estado: 'ok' | 'falta' | 'viejo' | 'na';
   detalle: string;
@@ -648,27 +649,6 @@ export async function landingDiagnostico(
   // código está viejo, todos los demás chequeos miden otra cosa y sus resultados
   // no significan nada. Un diagnóstico que no empieza por «¿estás mirando el
   // código correcto?» manda a investigar síntomas de una versión que ya no existe.
-  // Los videos que, al terminar, mandan solos a otro video. Sale del catálogo de
-  // Panda —es configuración, no comportamiento— cruzado con los videos que ESTA
-  // página realmente usó.
-  //
-  // ⚠️ NO se llama a `videosDetectados()` acá, aunque tenga el dato masticado:
-  // esa función hace una consulta de conteo POR VIDEO, y esto corre dentro del
-  // poll del probador, que consulta cada 3 segundos. Serían N consultas extra
-  // cada 3 segundos por cada persona con el panel abierto, para contestar algo
-  // que ya está en memoria. El catálogo de Panda está cacheado 5 minutos y los
-  // `video_id` vienen en la misma consulta de eventos que ya se hizo.
-  const idsEnJuego = new Set(
-    ((vsl.data ?? []) as Array<{ video_id: string | null }>).map((r) => r.video_id?.trim()).filter(Boolean) as string[],
-  );
-  const catalogo = idsEnJuego.size
-    ? await catalogoPanda().catch(() => new Map<string, { titulo: string; redirigeA: { titulo: string } | null }>())
-    : new Map<string, { titulo: string; redirigeA: { titulo: string } | null }>();
-  const redirectores = [...idsEnJuego]
-    .map((id) => ({ id, v: catalogo.get(id) }))
-    .filter((x) => x.v?.redirigeA)
-    .map((x) => ({ de: x.v!.titulo, a: x.v!.redirigeA!.titulo }));
-
   // ⚠️ EL PASO 5 ES UNO SOLO Y CAMBIA DE IDENTIDAD SEGÚN CÓMO VENDE EL NEGOCIO.
   //
   // Si su llamado a la acción es una agenda embebida, el final del embudo no es
@@ -757,25 +737,6 @@ export async function landingDiagnostico(
         : 'Aún no llega ningún clic. Si tu página no tiene botones propios —por ejemplo, si es un Calendly embebido— es normal.' },
     // El paso 5 se arma arriba: es UNO solo con dos identidades.
     { id: 'optin', ...paso5 },
-    // ⚠️ EL VIDEO QUE SIGUE AL VIDEO. Panda deja configurar un «redirect» que, al
-    // terminar un video, manda solo al espectador a OTRO. Es invisible: no está en
-    // la página, no está en nuestros eventos, y el cliente no lo ve hasta que le
-    // reportan que sus leads terminan confundidos. Medido el 2026-08-16 en el VSL
-    // de un cliente: apuntaba a un video viejo de otra persona, resto de una
-    // playlist de prueba borrada meses antes.
-    //
-    // Va como chequeo y no como aviso suelto porque es exactamente la pregunta que
-    // esta lista contesta: «¿tu página mide y hace lo que creés?». Y el estado es
-    // 'viejo' (ámbar) y no rojo: no está roto, está mal configurado, y se arregla
-    // en el panel de Panda — nuestra API no puede tocarlo.
-    ...(redirectores.length ? [{
-      id: 'redirect' as const,
-      label: 'Al terminar, tu video no manda a otro',
-      estado: 'viejo' as ChequeoDiag['estado'],
-      detalle: redirectores.length === 1
-        ? `Cuando termina «${redirectores[0].de}», Panda lleva solo al espectador a «${redirectores[0].a}». Quítalo en Panda → ese video → Redireccionamiento.`
-        : `${redirectores.length} de tus videos llevan solo a otro video al terminar. Quítalo en Panda, en cada uno: ${redirectores.map((r) => `«${r.de}» → «${r.a}»`).join('; ')}.`,
-    }] : []),
     // Clarity es opcional, así que sin conectar va 'na' y no 'falta': un punto en
     // rojo por algo que se eligió no usar es ruido.
     { id: 'clarity', label: 'Grabaciones y mapas de calor',
@@ -1079,6 +1040,30 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
         for (var q = 0; q < ifr.length; q++) if (vid && (ifr[q].src || '').indexOf(vid) !== -1) { src = ifr[q].src; break; }
       } catch (err) {}
       enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: e.tit, auto: !huboInteraccion, detalle: src.slice(0, 300) });
+    }
+    // ⚠️ PAUSA, RETOMA Y FIN, QUE PARA PANDA NUNCA EXISTIERON. La v10 los anunció
+    // y solo los cableó para el <video> nativo: acá se escuchaban tres mensajes
+    // —allData, play y timeupdate— y ninguno más. Medido el 2026-08-16 sobre un
+    // workspace con 658 plays y 606 exits en 7 dias: pausa, retoma y fin,
+    // CERO. No fallaban, no estaban.
+    //
+    // El nombre de los mensajes no se adivinó: la propia landing del cliente
+    // escucha panda_ended en su propio codigo, asi que el player los emite con ese
+    // prefijo y esa forma.
+    if (d.message === 'panda_pause' && e.play) {
+      enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
+    }
+    // El play de un video YA arrancado es un retomar, no una reproduccion
+    // nueva: contarlo como play inflaría el conteo y haría ver dos personas
+    // donde hay una. Es la misma regla que ya seguía el <video> nativo.
+    if (d.message === 'panda_play' && e.play && e.pausado) {
+      e.pausado = false;
+      enviar({ tipo_evento: 'retoma', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
+    }
+    if (d.message === 'panda_pause') e.pausado = true;
+    if (d.message === 'panda_ended' && e.play && !e.fin) {
+      e.fin = true;
+      enviar({ tipo_evento: 'fin', porcentaje: 100, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
     }
     if (d.message === 'panda_timeupdate' && d.currentTime != null) {
       e.segs = d.currentTime;
