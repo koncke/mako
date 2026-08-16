@@ -282,7 +282,7 @@ export function OnboardingWizard({ cerebro = null }: {
     return (
       <Bienvenida
         cerebro={cerebro}
-        videoIntro="/onboarding/ojo.mp4"
+        videoIntro="/onboarding/ojo-neurona.mp4"
         onComenzar={() => {
           setBienvenidaVista(true);
           // Sin `await`: el wizard ya se está dibujando y este POST solo deja la marca.

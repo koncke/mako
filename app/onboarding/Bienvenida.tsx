@@ -5,8 +5,10 @@
 // =============================================================================
 // Cuatro tiempos, y cada uno espera al anterior:
 //
-//   1. EL VIDEO SOLO. Un ojo humano, sin una sola cosa encima. Dura lo que dura.
-//   2. UN FUNDIDO sutil cuando termina.
+//   1. EL VIDEO SOLO, sin una sola cosa encima: un ojo macro, la cámara ENTRA por la
+//      pupila, y a 1,45 s corta a una neurona con sus pulsos. Todo eso es del clip —
+//      filmado, no programado.
+//   2. UN FUNDIDO sutil sobre el final.
 //   3. EL GRAFO REAL, que entra MUY CERCA y se aleja hasta encuadrar. Ese alejarse es lo
 //      que empalma con el ojo: se sale de adentro de algo y aparece el mapa.
 //   4. RECIÉN AHÍ el texto y el botón, escalonados.
@@ -37,12 +39,25 @@ const SANS = "'Geist', sans-serif";
 
 /** Cuánto tarda el mapa en alejarse. Por debajo de 2 s se lee como un salto. */
 const MS_ALEJARSE = 2300;
-/** Si el video no arranca (autoplay bloqueado, red mala, códec), se sigue sin él. El clip
- *  pesa 2,9 MB: con un umbral corto la red salta SIEMPRE y el ojo no se ve nunca — la
- *  protección se come justo lo que venía a proteger. */
+/** Si el video no arranca (autoplay bloqueado, red mala, códec), se sigue sin él. Con un
+ *  umbral corto la red salta SIEMPRE y el clip no se ve nunca — la protección se come
+ *  justo lo que venía a proteger. */
 const MS_ESPERA_VIDEO = 6000;
-/** Techo del clip, por si `onEnded` no llega (se pausó, se cortó el buffer). */
-const MS_TECHO_VIDEO = 7000;
+/**
+ * DÓNDE SE CORTA EL CLIP, en segundos de su propia línea de tiempo.
+ *
+ * El clip dura 10,05 s y la parte que sirve es el principio: **el ojo y el zoom van de 0 a
+ * 1,4 s** —a 0,29 s ya salieron las pestañas del cuadro, a 0,73 s la pupila se comió la
+ * pantalla— y a **1,45 s corta a la neurona**. De ahí en adelante la neurona late con sus
+ * pulsos pero la cámara ya no se mueve, así que quedarse los 10 s es mirar un loop.
+ *
+ * Se corta por `currentTime` y no por un `setTimeout`: un temporizador mide el reloj de
+ * pared y el video mide el suyo. Si el clip se traba medio segundo, el temporizador corta
+ * igual y se lleva puesta la parte que importa. Medido en este mismo archivo, dos veces.
+ */
+const SEG_UTILES = 4.6;
+/** Techo de última instancia, por si el video nunca dispara `timeupdate`. */
+const MS_TECHO_VIDEO = 9000;
 
 type Tiempo = 'video' | 'mapa' | 'texto';
 
@@ -130,8 +145,7 @@ export function Bienvenida({ cerebro, videoIntro, onComenzar }: {
 // Sin una sola cosa dibujada encima. Es la corrección más importante de esta pantalla:
 // lo que la arruinaba era justamente lo que se le agregaba al video.
 //
-// Autor del clip: Emirhan Emiroğlu (Pexels). Los términos y las dos cosas que hay que
-// respetar están en public/onboarding/CREDITOS.md.
+// El clip y sus términos están en public/onboarding/CREDITOS.md.
 // =============================================================================
 function IntroOjo({ src, onFin }: { src: string; onFin: () => void }) {
   const fin = useRef(onFin);
@@ -170,6 +184,7 @@ function IntroOjo({ src, onFin }: { src: string; onFin: () => void }) {
         playsInline
         preload="auto"
         onPlaying={() => setCorriendo(true)}
+        onTimeUpdate={(e) => { if (e.currentTarget.currentTime >= SEG_UTILES) fin.current(); }}
         onEnded={() => fin.current()}
       />
       {/* El pase: un fundido corto sobre el final del clip. Sutil a propósito — un flash
@@ -235,7 +250,7 @@ const ESTILOS = `
 /* El fundido del pase. Arranca cuando al clip le queda alrededor de un segundo. */
 .bv-pase {
   position: absolute; inset: 0; background: #05070B; opacity: 0; pointer-events: none;
-  animation: bv-pase 1100ms ease both; animation-delay: 3300ms;
+  animation: bv-pase 900ms ease both; animation-delay: 3700ms;
 }
 @keyframes bv-pase { from { opacity: 0 } to { opacity: 1 } }
 
