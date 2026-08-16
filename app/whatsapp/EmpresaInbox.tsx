@@ -539,7 +539,7 @@ export function EmpresaInbox() {
             <div style={{ fontWeight: 600, fontSize: '17px', color: 'var(--ink)' }}>{selConv.nombre}</div>
             {selConv.telefono && <div style={{ fontSize: '13px', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{selConv.telefono}</div>}
             <div style={{ fontSize: '12.5px', color: 'var(--dim)', maxWidth: '320px', lineHeight: 1.5, marginTop: '4px' }}>Conversación oculta. Su historial no se muestra ni MaKo lo lee.</div>
-            <button onClick={() => void toggleOculto(false)} disabled={hiding} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', marginTop: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', opacity: hiding ? 0.6 : 1 }}>{hiding ? '…' : <><IconEye size={16} /> Mostrar contacto</>}</button>
+            <button onClick={() => void toggleOculto(false)} disabled={hiding} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', marginTop: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', opacity: hiding ? 0.6 : 1 }}>{hiding ? '…' : <><IconEye size={16} /> Mostrar contacto</>}</button>
           </div>
         ) : (
           <>
@@ -746,7 +746,7 @@ export function EmpresaInbox() {
             <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '16px', lineHeight: 1.5 }}>La conversación no se va a ver en el inbox ni MaKo la va a leer (para chats personales). No corta el envío. Podés mostrarla de nuevo desde «Ocultos».</div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button onClick={() => setOcultarConfirm(false)} style={{ padding: '8px 16px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={() => void toggleOculto(true)} disabled={hiding} style={{ padding: '8px 18px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: hiding ? 0.6 : 1 }}>{hiding ? 'Ocultando…' : 'Ocultar'}</button>
+              <button onClick={() => void toggleOculto(true)} disabled={hiding} style={{ padding: '8px 18px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: hiding ? 0.6 : 1 }}>{hiding ? 'Ocultando…' : 'Ocultar'}</button>
             </div>
           </div>
         </div>

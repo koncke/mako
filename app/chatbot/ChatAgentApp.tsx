@@ -53,7 +53,7 @@ const ETAPA_LABEL: Record<string, string> = {
   reunion_excepcional: 'Reunión excepcional',
 };
 
-const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
 
 // =============================================================================
 // DEEP LINK: /chatbot?stab=<whatsapp|email|dashboard>&sec=<id>
@@ -210,7 +210,7 @@ function ChatAgentInner() {
   );
   const emailSecuencia = (secuencias ?? []).find((j) => j.id === emailSecuenciaId) ?? null;
 
-  const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
+  const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-ink)' };
   const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
 
   // Mientras no sabemos si va el onboarding o la tab, NO se pinta ninguna de

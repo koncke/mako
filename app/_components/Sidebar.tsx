@@ -648,19 +648,10 @@ export function Sidebar() {
           {MAKO_NAV.filter((it) => adminShell || puedeVer(it)).map((it) => (
             <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
           ))}
-          {/* El perfil y, pegado a él, el claro/oscuro de ESTE usuario. Va acá y
-              no en el menú desplegable porque es un interruptor, no una opción:
-              se usa varias veces por día y esconderlo detrás de un click lo
-              convierte en una preferencia que nadie encuentra. Con la barra
-              plegada baja abajo del avatar, que es el único lugar donde entra
-              sin empujar nada. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: open ? 'row' : 'column' }}>
-            <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
-              style={{ ...identidadStyle(open, userOpen), flex: open ? 1 : 'none', minWidth: 0 }}>
-              <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
-            </button>
-            <InterruptorModo compacto={!open} />
-          </div>
+          <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
+            style={identidadStyle(open, userOpen)}>
+            <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
+          </button>
         </div>
       </div>
 
@@ -706,6 +697,14 @@ export function Sidebar() {
                 <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
               </>
             )}
+            {/* El claro/oscuro de ESTE usuario, arriba de sus destinos: es una
+                preferencia de la cuenta, igual que Perfil o Configuraciones, y
+                vive donde el usuario ya va a buscar lo suyo. */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 6px 4px 12px' }}>
+              <span style={{ fontSize: 13.5, color: 'var(--ink)' }}>Modo oscuro</span>
+              <InterruptorModo />
+            </div>
+            <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
             {USER_NAV.filter((it) => (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map((it) => {
               const on = it.match(pathname);
               return (

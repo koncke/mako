@@ -92,7 +92,7 @@ export function VozGuia() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
               <button onClick={() => setOpen(false)} style={btnGhost}>Cerrar</button>
-              <button onClick={() => void guardar()} disabled={busy !== null || !edit.trim() || edit.trim() === (guia ?? '')} style={{ padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', opacity: busy || !edit.trim() || edit.trim() === (guia ?? '') ? 0.5 : 1 }}>{busy === 'save' ? 'Guardando…' : 'Guardar'}</button>
+              <button onClick={() => void guardar()} disabled={busy !== null || !edit.trim() || edit.trim() === (guia ?? '')} style={{ padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', opacity: busy || !edit.trim() || edit.trim() === (guia ?? '') ? 0.5 : 1 }}>{busy === 'save' ? 'Guardando…' : 'Guardar'}</button>
             </div>
           </div>
         </div>

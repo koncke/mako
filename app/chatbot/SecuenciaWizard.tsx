@@ -33,7 +33,7 @@ import { DESENLACE_VACIO, type Desenlace, type Estrategia } from '@/lib/setting-
 import { contextoDe } from '@/lib/etapas-contexto';
 
 const MONO = "'Geist Mono', monospace";
-const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
 const btnGhost: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' };
 const btnAccent: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer' };
 const inp: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', lineHeight: 1.5, outline: 'none', boxSizing: 'border-box' };
@@ -340,8 +340,8 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
             Algunas secuencias mandan algo de valor —una guía, un video, una plantilla— para ganarse la respuesta. Otras solo conversan.
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => setUsaLm(true)} style={{ ...btnGhost, padding: '11px 18px', ...(usaLm === true ? { background: 'var(--ink)', color: 'var(--on-sidebar)', border: 'none' } : {}) }}>Sí, entrega algo</button>
-            <button onClick={() => { setUsaLm(false); setLeadMagnetId(null); }} style={{ ...btnGhost, padding: '11px 18px', ...(usaLm === false ? { background: 'var(--ink)', color: 'var(--on-sidebar)', border: 'none' } : {}) }}>No, solo conversa</button>
+            <button onClick={() => setUsaLm(true)} style={{ ...btnGhost, padding: '11px 18px', ...(usaLm === true ? { background: 'var(--ink)', color: 'var(--on-ink)', border: 'none' } : {}) }}>Sí, entrega algo</button>
+            <button onClick={() => { setUsaLm(false); setLeadMagnetId(null); }} style={{ ...btnGhost, padding: '11px 18px', ...(usaLm === false ? { background: 'var(--ink)', color: 'var(--on-ink)', border: 'none' } : {}) }}>No, solo conversa</button>
           </div>
         </div>
       )}

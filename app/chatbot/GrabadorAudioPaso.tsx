@@ -26,7 +26,7 @@ import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 const MONO = "'Geist Mono', monospace";
 
 const btn: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer' };
-const btnDark: CSSProperties = { ...btn, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)' };
+const btnDark: CSSProperties = { ...btn, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)' };
 
 export type AudioGrabado = { id: number; titulo: string; url: string | null; duracion_s: number | null };
 

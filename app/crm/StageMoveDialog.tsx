@@ -32,7 +32,7 @@ const compInput: CSSProperties = { width: '100%', padding: '12px 15px', borderRa
 
 /** Botón de opción del wizard (elegido = tinta llena). Para pasos de una elección. */
 function btnOpcion(activo: boolean): CSSProperties {
-  return { padding: '13px 18px', borderRadius: 12, fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, background: activo ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'), color: activo ? '#F3F5F8' : 'var(--ink)' };
+  return { padding: '13px 18px', borderRadius: 12, fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, background: activo ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'), color: activo ? 'var(--on-ink)' : 'var(--ink)' };
 }
 
 /** ISO (yyyy-mm-dd) + n meses, conservando el día. Para las cuotas mensuales de una suscripción a plazo fijo. */
@@ -758,7 +758,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
               <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 6 }}>¿Para cuándo quedó?</div>
               <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} autoFocus
                 style={{ ...compInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
-              <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6 }}>
+              <div style={{ fontSize: 11.5, color: 'var(--dim)', marginTop: 6 }}>
                 Se mueve la fecha de la reunión y queda pendiente de nuevo para esa fecha.
               </div>
             </div>

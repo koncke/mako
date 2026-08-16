@@ -28,7 +28,7 @@ async function jpost<T>(url: string, b: unknown): Promise<T> {
 }
 
 const btnGhost: CSSProperties = { padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' };
-const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
 const btnAccent: CSSProperties = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
 const inp: CSSProperties = { width: '100%', padding: '9px 11px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', lineHeight: 1.5, outline: 'none' };
 const chip = (bg: string, color: string): CSSProperties => ({ display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 999, background: bg, color, fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' });

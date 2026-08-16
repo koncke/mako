@@ -227,7 +227,7 @@ export function EvolutionConnect() {
                     <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>¿Traés tus conversaciones ahora?</div>
                     <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>Podés sincronizar los chats que ya tenés en este número, o empezar limpio y que se vayan sumando a medida que escribís/recibís.</div>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                      <button onClick={() => { setPedirSync(false); void sincronizar(); }} disabled={sincronizando} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? 'Sincronizando…' : <><IconRefresh size={14} /> Sí, sincronizar</>}</button>
+                      <button onClick={() => { setPedirSync(false); void sincronizar(); }} disabled={sincronizando} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? 'Sincronizando…' : <><IconRefresh size={14} /> Sí, sincronizar</>}</button>
                       <button onClick={() => setPedirSync(false)} style={{ padding: '8px 13px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>No, empezar limpio</button>
                     </div>
                   </div>
@@ -240,7 +240,7 @@ export function EvolutionConnect() {
                     <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--warn)' }}>El espejo de mensajes no está activo</div>
                     <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>{MIRROR_MSG[wh]}</div>
                     {REPARABLE.includes(wh) && (
-                      <button onClick={() => void repararMirror()} disabled={reparando} style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: reparando ? 0.6 : 1 }}>{reparando ? 'Reparando…' : <><IconWrench size={13} /> Reparar espejo</>}</button>
+                      <button onClick={() => void repararMirror()} disabled={reparando} style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: reparando ? 0.6 : 1 }}>{reparando ? 'Reparando…' : <><IconWrench size={13} /> Reparar espejo</>}</button>
                     )}
                   </div>
                 )}

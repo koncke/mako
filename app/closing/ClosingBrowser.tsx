@@ -384,7 +384,7 @@ function TrendCard({ serie }: { serie: Ag['serie'] }) {
             {pts.map((p, i) => <rect key={'h' + i} x={p[0] - (W - L - R) / (2 * Math.max(1, n - 1))} y={0} width={(W - L - R) / Math.max(1, n - 1)} height={H} fill="transparent" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} style={{ cursor: 'pointer' }} />)}
           </svg>
           {hover != null && (
-            <div style={{ position: 'absolute', left: `${(pts[hover][0] / W) * 100}%`, top: `${(pts[hover][1] / H) * 100}%`, transform: 'translate(-50%, calc(-100% - 12px))', background: 'var(--ink)', color: 'var(--on-sidebar)', borderRadius: 9, padding: '7px 10px', pointerEvents: 'none', whiteSpace: 'nowrap', boxShadow: '0 6px 18px rgba(0,0,0,.25)', zIndex: 2 }}>
+            <div style={{ position: 'absolute', left: `${(pts[hover][0] / W) * 100}%`, top: `${(pts[hover][1] / H) * 100}%`, transform: 'translate(-50%, calc(-100% - 12px))', background: 'var(--ink)', color: 'var(--on-ink)', borderRadius: 9, padding: '7px 10px', pointerEvents: 'none', whiteSpace: 'nowrap', boxShadow: '0 6px 18px rgba(0,0,0,.25)', zIndex: 2 }}>
               <div style={{ fontFamily: MONO, fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '.06em' }}>{serie[hover].label}</div>
               <div style={{ fontSize: 14, fontWeight: 600, fontFamily: MONO }}>{fmtScore(serie[hover].y)} <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 400 }}>· {serie[hover].n} {serie[hover].n === 1 ? 'llamada' : 'llamadas'}</span></div>
             </div>

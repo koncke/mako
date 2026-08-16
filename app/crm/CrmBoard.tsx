@@ -1264,7 +1264,7 @@ export function CrmBoard({
             {juntas.map((j) => (
               <div key={j.id} style={{ flex: 'none', width: 288, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'var(--ink)', color: 'var(--on-sidebar)' }}>{j.when}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'var(--ink)', color: 'var(--on-ink)' }}>{j.when}</span>
                   {j.warn && <span style={{ fontSize: 11, color: 'var(--bad)', background: 'var(--bad-bg)', padding: '3px 7px', borderRadius: 6 }}>⚠ {j.warnText}</span>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
@@ -1274,8 +1274,8 @@ export function CrmBoard({
                     style={{ flex: 'none', fontSize: 12, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', cursor: 'pointer' }}
                   >Abrir →</span>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--dim)' }}><span style={{ color: 'var(--faint)' }}>Quiere:</span> {j.goal}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>☎ {j.phone}</div>
+                <div style={{ fontSize: 12, color: 'var(--dim)' }}><span style={{ color: 'var(--dim)' }}>Quiere:</span> {j.goal}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>☎ {j.phone}</div>
               </div>
             ))}
           </div>
@@ -1487,7 +1487,7 @@ export function CrmBoard({
               {reagOut.reconectar && (
                 <button type="button" onClick={() => router.push('/integraciones')} style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--primary)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Reconectar Google Calendar</button>
               )}
-              <button type="button" onClick={cerrarQueHacer} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
+              <button type="button" onClick={cerrarQueHacer} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
             </div>
           </div>
         </div>
@@ -1640,7 +1640,7 @@ export function CrmBoard({
           width: '100%', textAlign: 'left', padding: '13px 16px', borderRadius: 12, fontFamily: SANS, cursor: 'pointer',
           background: activo ? 'var(--ink)' : 'var(--surface)',
           border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'),
-          color: activo ? '#F3F5F8' : 'var(--ink)',
+          color: activo ? 'var(--on-ink)' : 'var(--ink)',
         });
 
         /** Grilla de desenlaces con el separador "No sigue" antes de los negativos. */
@@ -1727,7 +1727,7 @@ export function CrmBoard({
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                 {([[true, 'Sí, calificado'], [false, 'No calificado']] as const).map(([v, lbl]) => (
                   <button key={lbl} type="button" onClick={() => setQhCalificado(v)}
-                    style={{ minWidth: 160, padding: '13px 22px', borderRadius: 12, fontFamily: SANS, fontSize: 14.5, fontWeight: 700, cursor: 'pointer', background: qhCalificado === v ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhCalificado === v ? 'var(--ink)' : 'var(--border-strong)'), color: qhCalificado === v ? '#F3F5F8' : 'var(--ink)' }}>
+                    style={{ minWidth: 160, padding: '13px 22px', borderRadius: 12, fontFamily: SANS, fontSize: 14.5, fontWeight: 700, cursor: 'pointer', background: qhCalificado === v ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhCalificado === v ? 'var(--ink)' : 'var(--border-strong)'), color: qhCalificado === v ? 'var(--on-ink)' : 'var(--ink)' }}>
                     {lbl}
                   </button>
                 ))}
@@ -1738,7 +1738,7 @@ export function CrmBoard({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
                 {motivosDeSalida(qhDestino).map((s) => (
                   <button key={s} type="button" onClick={() => setQhMotivoCat(s)}
-                    style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: qhMotivoCat === s ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhMotivoCat === s ? 'var(--ink)' : 'var(--border-strong)'), color: qhMotivoCat === s ? '#F3F5F8' : 'var(--ink)' }}>
+                    style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: qhMotivoCat === s ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhMotivoCat === s ? 'var(--ink)' : 'var(--border-strong)'), color: qhMotivoCat === s ? 'var(--on-ink)' : 'var(--ink)' }}>
                     {s}
                   </button>
                 ))}
@@ -1759,7 +1759,7 @@ export function CrmBoard({
                     const iso = masDiasISO(hoy, d);
                     return (
                       <button key={lbl} type="button" onClick={() => { setReagFecha(iso); setReagHora(''); }}
-                        style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: reagFecha === iso ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (reagFecha === iso ? 'var(--ink)' : 'var(--border-strong)'), color: reagFecha === iso ? '#F3F5F8' : 'var(--ink)' }}>
+                        style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: reagFecha === iso ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (reagFecha === iso ? 'var(--ink)' : 'var(--border-strong)'), color: reagFecha === iso ? 'var(--on-ink)' : 'var(--ink)' }}>
                         {lbl}
                       </button>
                     );
@@ -1800,7 +1800,7 @@ export function CrmBoard({
                     Esa hora ya pasó: el lead volvería a quedar pendiente al instante. Elegí otra hora o cambiá el día.
                   </div>
                 ) : (
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Vuelve a quedar pendiente recién a esa hora.</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Vuelve a quedar pendiente recién a esa hora.</div>
                 )}
               </div>
             )}
@@ -1812,7 +1812,7 @@ export function CrmBoard({
                     const iso = masDiasISO(hoy, d);
                     return (
                       <button key={lbl} type="button" onClick={() => setQhPlazo(iso)}
-                        style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: qhPlazo === iso ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhPlazo === iso ? 'var(--ink)' : 'var(--border-strong)'), color: qhPlazo === iso ? '#F3F5F8' : 'var(--ink)' }}>
+                        style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: qhPlazo === iso ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (qhPlazo === iso ? 'var(--ink)' : 'var(--border-strong)'), color: qhPlazo === iso ? 'var(--on-ink)' : 'var(--ink)' }}>
                         + {lbl}
                       </button>
                     );
@@ -1913,7 +1913,7 @@ export function CrmBoard({
               esPasada ? (
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                   {([['si', 'Sí, asistió'], ['no', 'No asistió'], ['', 'No sé']] as const).map(([v, lbl]) => (
-                    <button key={lbl} onClick={() => setMmAsistio(v)} style={{ minWidth: 120, padding: '12px 16px', borderRadius: 12, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? '#F3F5F8' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
+                    <button key={lbl} onClick={() => setMmAsistio(v)} style={{ minWidth: 120, padding: '12px 16px', borderRadius: 12, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? 'var(--on-ink)' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
                   ))}
                 </div>
               ) : (

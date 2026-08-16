@@ -143,7 +143,7 @@ export function ImportarLeadsModal({ onListo, onClose }: {
             <span style={{ fontSize: 16, flex: 'none' }}>📄</span>
             <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>{peso(file.size)}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--dim)', marginTop: 2 }}>{peso(file.size)}</div>
             </div>
             <button type="button" aria-label={`Sacar ${file.name}`} onClick={(e) => { e.stopPropagation(); setFile(null); setFilas([]); setErr(null); }}
               style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 3, flex: 'none' }}>×</button>

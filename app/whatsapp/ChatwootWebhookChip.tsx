@@ -130,7 +130,7 @@ export function ChatwootWebhookChip() {
                 <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--warn)' }}>La detección no está activa</div>
                 <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>{WH_MSG[salud]}</div>
                 {REPARABLE.includes(salud) && (
-                  <button onClick={() => void repararClick()} disabled={reparando} style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: reparando ? 0.6 : 1 }}>
+                  <button onClick={() => void repararClick()} disabled={reparando} style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: reparando ? 0.6 : 1 }}>
                     {reparando ? 'Activando…' : <><IconWrench size={13} /> Activar detección</>}
                   </button>
                 )}

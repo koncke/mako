@@ -14,7 +14,7 @@
 import { useState, type CSSProperties } from 'react';
 
 const MONO = "'Geist Mono', monospace";
-const btn: CSSProperties = { padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
+const btn: CSSProperties = { padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
 const inp: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, fontFamily: "'Geist', sans-serif", outline: 'none' };
 

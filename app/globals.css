@@ -892,3 +892,20 @@ details[open] > summary .chev {
 @media (prefers-reduced-motion: reduce) {
   .mk-modo-ico { transition-duration: 1ms; transition-delay: 0ms !important; }
 }
+
+
+/* ── La barra de la agencia («Estás viendo el dashboard de X») ───────────────
+   Es FIJA y de ancho completo, así que el documento tiene que reservarle su
+   altura o le pasa por encima a la sidebar y al encabezado de cada pantalla.
+   Un solo número, en un token, y lo prende el propio banner al montarse.
+
+   Ojo con la sidebar: es `sticky top:0; height:100vh`. Sin correrle el tope y
+   descontarle la altura, queda 44px más larga que la ventana y su última fila
+   —el perfil— se va abajo del borde. */
+:root { --barra-agencia: 0px; }
+[data-barra-agencia] { --barra-agencia: 50px; }
+[data-barra-agencia] body { padding-top: var(--barra-agencia); }
+[data-barra-agencia] aside {
+  top: var(--barra-agencia) !important;
+  height: calc(100vh - var(--barra-agencia)) !important;
+}

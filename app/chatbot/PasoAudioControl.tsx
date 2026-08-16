@@ -20,7 +20,7 @@ import type { AudioSetting } from './ChatAgentApp';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 
 const btn: CSSProperties = { padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer' };
-const btnOn: CSSProperties = { ...btn, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)' };
+const btnOn: CSSProperties = { ...btn, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)' };
 
 export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, onError, disabled }: {
   /** Para el título por defecto del audio nuevo. */
