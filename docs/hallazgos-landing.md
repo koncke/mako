@@ -134,9 +134,39 @@ O sea: el endpoint ignora todo lo que no sea `profile`. **No lo repitas.** El es
 video queda idéntico (el profile intacto), así que probarlo no cuesta nada más que el
 tiempo.
 
-Lo que queda: **volver a crear un funnel con ese video** —el panel entonces lee el
-`videoRedirect` que ya está y lo muestra como su regla «Após o fim do vídeo», que ahí sí se
-puede poner en «Não fazer nada»— o soporte de Panda.
+**RESUELTO el 2026-08-16, y la técnica vale para cualquier proveedor.** Recrear el funnel
+no sirvió (el panel no adopta el valor huérfano: sus dos secciones seguían vacías). Lo que
+funcionó fue preguntarle al panel mismo.
+
+**Si su API pública se niega pero su panel SÍ puede, el bundle del panel dice con qué
+endpoint lo hace.** Es JavaScript público: se baja, se busca el nombre del campo, y ahí
+está la llamada. En este caso, entre los 361 chunks de `dashboard.pandavideo.com`:
+
+```js
+await $fetch(`${base}/player/?type=video`, {
+  method: 'POST', body: { video_id: n, videoRedirect: e }, headers: u
+})
+```
+
+Un endpoint que no está en su documentación. Con la misma API key de siempre:
+
+```
+POST https://api-v2.pandavideo.com/player/?type=video
+     { "video_id": "<ID INTERNO>", "videoRedirect": null }
+  → 200 {"profile":"289794c4-…","videoRedirect":null}
+```
+
+⚠️ **Con el id EXTERNO devuelve `400 video not found`.** Es el detalle que decide si
+funciona: casi todo lo demás de esa API usa el `video_external_id`, y este endpoint no.
+
+El `profile` quedó intacto, o sea que el player no cambió de aspecto. Verificado después:
+`videoRedirect: null`, `playable: true`, `status: CONVERTED`.
+
+Lo que NO hay que repetir, porque ya se probó y falla: `PUT /videos/{id}` con `config`,
+con `videoRedirect` o con `video_redirect` al tope (`must NOT have additional properties`);
+`POST /profile?type=set-videos` con el campo en `null`, `{}` o `false` (contesta 200 y lo
+ignora); y las rutas `/videos/{id}/config`, `/redirect`, `/settings`, `/video-redirect`,
+`/redirects`, `/funnels`.
 
 **La regla que queda:** cuando una plataforma tiene una configuración que cambia lo que ve
 el visitante y **no** deja rastro en la página ni en los eventos, lo único que el sistema
