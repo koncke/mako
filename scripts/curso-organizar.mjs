@@ -22,6 +22,7 @@
 
 import { readFileSync, existsSync, readdirSync, mkdirSync, renameSync, rmdirSync, statSync } from 'node:fs';
 import { join, dirname, basename, extname } from 'node:path';
+import { esIntermedio } from './curso-comun.mjs';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -37,7 +38,7 @@ const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
 const limpio = (s) => String(s).normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
   .replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 120);
 const nDe = (f) => { const m = /^(\d{1,3})\s*-\s*/.exec(f); return m ? Number(m[1]) : null; };
-const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f);
+// esIntermedio vive en curso-comun.mjs (ver el porqué allá).
 
 // Misma regla que curso-a-drive: «<NN> Módulo», con el número al frente y pad a 2.
 const carpetaDe = (c) => limpio(c.modulo ?? 'Sin módulo').replace(/^(\d+)\.\s*/, (_, n) => `${String(n).padStart(2, '0')} `);

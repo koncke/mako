@@ -1262,6 +1262,63 @@ módulos 1 y 9), y su plan conserva las dos porque se armó antes de que el dedu
 **Vive en:** `scripts/curso-plan-vip.mjs` (`--esperado`) · `scripts/curso-abrir.mjs` (el
 `exit 3` que ya estaba bien)
 
+### ⚠️ Una bandera `i` escondió 4 clases: `.Funciones` no es un formato de yt-dlp
+
+**2026-08-16, «Bigseo Academy».** El subidor reportó cuatro veces «no está bajado todavía»
+sobre archivos que **estaban en disco, con el nombre exacto que esperaba**:
+
+```
+13 - 09.Funciones del Keyword Planner.mp4
+42 - 07.Formatos para Contenidos.mp4
+61 - 02.Funciones.mp4
+73 - 02.Funcionamiento de los datos estructurados.mp4
+```
+
+**El diagnóstico obvio era el equivocado:** «el subidor corrió mientras el descargador
+todavía escribía». Se descarta solo — al reintentar con la descarga cerrada y los 77 `.mp4`
+en disco, fallaron **los mismos cuatro**. Cuatro de setenta y siete no es una carrera.
+
+**Lo que tienen en común es la letra.** El filtro de intermedios era:
+
+```js
+const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f);
+```
+
+La bandera **`i`** hace que `\.f` matchee `.F`, así que **cualquier título que después de un
+punto empiece con «F»** se tomaba por archivo transitorio de yt-dlp. `Funciones`,
+`Formatos`, `Funcionamiento` — todos y solo los que empiezan con F.
+
+La distinción real: yt-dlp escribe `f` **minúscula** seguida de un id de formato, numérico
+(`f614`) o un protocolo (`fhls-…`, `fdash-…`). Un título humano no tiene esa forma. El
+filtro ahora es sensible a mayúsculas **y** exige la forma del id, en vez de aceptar
+cualquier cosa después de la `f`.
+
+**Por qué duele especialmente:** el falso positivo de este filtro es **mudo**. El archivo
+no llega a Drive, no se transcribe, y el único rastro es una línea entre setenta y siete.
+No hay error, no hay conteo que no cierre en el plan, y el curso se publica con menos
+clases de las que tiene. Cuando un filtro decide qué NO procesar, su falso positivo cuesta
+mucho más que su falso negativo — un intermedio que se cuela se ve (pesa 500 MB y no tiene
+audio); una clase que se pierde, no.
+
+**Alcance, medido y no supuesto:** seis clases en dos cursos. Las cuatro de Bigseo (que aún
+no estaba publicado) y dos de «M5 -95» —`068 - 1.Fast M5-95` y `113 - 4.Fórmulas
+personalizadas y secretas`—, que **se salvaron por casualidad**: ese curso se procesó antes
+de que el filtro existiera, y su `drive.json` tiene las 116. Ningún curso publicado perdió
+nada.
+
+**Y la regla que estaba rota de antes:** `esIntermedio` estaba **copiado en tres archivos**
+—`curso-a-drive.mjs`, `curso-audio.mjs`, `curso-organizar.mjs`— con el mismo bug en los
+tres. Es «una cosa, un lugar» de [AGENTS.md](../AGENTS.md): las copias no habían divergido,
+pero arreglarlo exigía acordarse de las tres, y la que se olvidara habría dejado el bug
+vivo en su camino — el de `curso-audio.mjs` es el que decide qué se transcribe. Ahora vive
+en `scripts/curso-comun.mjs`.
+
+**La red:** `tests/curso-intermedios.test.ts`, con **nombres reales** de los cursos del
+portal —los seis que se perdían y los intermedios de verdad— y un caso que aísla el bug: si
+alguien vuelve a poner la bandera `i`, falla.
+
+**Vive en:** `scripts/curso-comun.mjs` (la regla) · `tests/curso-intermedios.test.ts` (la red)
+
 ## El portal
 
 ### ⚠️ `.al-chip` estaba definido DOS veces y el segundo ganaba en silencio

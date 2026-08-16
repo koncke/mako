@@ -32,6 +32,7 @@ import { join, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
+import { esIntermedio, nDeArchivo } from './curso-comun.mjs';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -67,8 +68,8 @@ const mb = (b) => (b / 1048576).toFixed(1);
 // cuando yt-dlp los mergea y los borra en local, las copias del destino SOBREVIVEN.
 // Copiar un directorio que otro proceso está escribiendo deja basura permanente aguas
 // abajo. El mismo filtro vive en curso-audio.mjs, por lo mismo.
-const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(f);
-const nDeArchivo = (f) => { const m = /^(\d{1,3})\s*-\s*/.exec(f); return m ? Number(m[1]) : null; };
+// esIntermedio y nDeArchivo viven en curso-comun.mjs: estaban copiados acá, en
+// curso-audio.mjs y en curso-organizar.mjs, con el mismo bug en los tres.
 // video/ puede estar plano u organizado en «<NN Módulo>/» (ver curso-organizar.mjs),
 // así que se camina un nivel. Devuelve rutas relativas a dirVideo.
 const listarUnNivel = (dir) => !existsSync(dir) ? [] : readdirSync(dir, { withFileTypes: true })

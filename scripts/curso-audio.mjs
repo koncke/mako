@@ -16,6 +16,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { esIntermedio } from './curso-comun.mjs';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -112,7 +113,9 @@ const listar = (dir) => !existsSync(dir) ? [] : readdirSync(dir, { withFileTypes
 // nombre tiene que hacerlo sobre el basename: aplicar el regex del número a la ruta
 // completa descartó los 247 videos con «sin número de clase al principio».
 const todosVideo = listar(DE).filter((f) => VIDEO.has(extname(f).toLowerCase()));
-const esIntermedio = (f) => /\.f[^.]*\.(mp4|mkv|webm|m4v)$/i.test(basename(f));
+// esIntermedio vive en curso-comun.mjs (ver el porqué allá): estaba copiado en tres
+// scripts con el mismo bug, y la bandera `i` escondía toda clase cuyo título empezara
+// con «F» después de un punto.
 // Clases que YA tienen su archivo final. Un temporal de una de ellas es basura de un
 // intento anterior, no una descarga en curso: quedó un «.part-Frag293.part» de la
 // clase 193 y su .mp4 completo de 265 MB se salteó para siempre. Un temporal viejo NO
