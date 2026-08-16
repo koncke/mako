@@ -56,12 +56,50 @@ export const APP_BASE_URL = (
  * mails empiezan a pedir que les respondan a un buzón que nadie mira. Por eso vive acá,
  * al lado de la URL: son la misma pregunta.
  *
- * ⚠️ Y QUE EL DOMINIO MANDE NO SIGNIFICA QUE RECIBA. Son dos caminos distintos: mandar lo
- * hace Resend con DKIM/SPF; recibir depende de los MX y de que exista un REENVÍO para
- * ESTE alias en el registrador. Hoy los MX de hola-mako.com son `fwd1/fwd2.porkbun.com`
- * —o sea reenvío, que funciona solo para los alias dados de alta a mano— y en
- * `docs/chats/chat-dominio-makodigital-app-en-mako-*.md` el circuito de vuelta quedó
- * planeado y SIN confirmar. Antes de poner esta dirección en un lugar nuevo donde le
- * pedimos a un cliente que escriba, mandale un mail y verificá que llegue.
+ * ⚠️⚠️ Y QUE EL DOMINIO MANDE NO SIGNIFICA QUE RECIBA — Y TENER MX TAMPOCO LO PRUEBA.
+ * Mandar lo hace Resend con DKIM/SPF sobre `send.hola-mako.com`. Recibir depende de los MX
+ * del apex, que son `fwd1/fwd2.porkbun.com`: **reenvío**, que entrega ALIAS POR ALIAS y
+ * solo para los que estén dados de alta a mano en el panel. Un alias que no existe se
+ * descarta y el dominio sigue mandando perfecto.
+ *
+ * Y esto no es una hipótesis prolija: el MX **ya estaba** el 2026-08-05, y al día
+ * siguiente la sesión de la mudanza escribió, textual, *«lo que sí falta es recibir: si
+ * alguien responde uno de esos mails hoy, escribe a un buzón que no existe»*
+ * (`docs/chats/chat-dominio-makodigital-app-en-mako-*.md`). Nada escrito después dice que
+ * se haya creado, y la API de Porkbun no expone las reglas de reenvío — se ven en el panel
+ * y en ningún otro lado. **Si mirás el MX y concluís «entonces recibe», estás reproduciendo
+ * exactamente el día en que el MX estaba y el buzón no.**
+ *
+ * La regla: antes de poner esta dirección en un lugar nuevo donde le pedimos a alguien que
+ * escriba, mandá un mail A esta casilla y confirmá que aparece en una bandeja.
  */
-export const EMAIL_MAKO = (process.env.MAKO_EMAIL || '').trim() || 'equipo@hola-mako.com';
+// Las DOS variables, igual que APP_BASE_URL arriba y por el mismo motivo: esto lo lee
+// también un client component (`GCAL_MSG` en app/configuraciones/GoogleCalendarPanel.tsx),
+// y Next inlinea en el bundle SOLO las `NEXT_PUBLIC_*`. Con una sola, el día que se
+// configure el override el server usaría el nuevo y la pantalla seguiría mostrando el
+// viejo — la misma dirección diciendo dos cosas distintas, que es justo lo que esta
+// constante existe para impedir.
+export const EMAIL_MAKO = validarEmailMako(
+  (process.env.MAKO_EMAIL || process.env.NEXT_PUBLIC_MAKO_EMAIL || '').trim() || 'equipo@hola-mako.com',
+);
+
+/**
+ * ⚠️ ESTO NO ES PARANOIA DE FORMATO: es la regla de la casa de que un contrato escrito solo
+ * en un comentario no es un contrato. Acá arriba dice «la dirección va PELADA», y con un
+ * `MAKO_EMAIL='MaKo <equipo@…>'` el remitente quedaba `MaKo <MaKo <equipo@…>>` y el cuerpo
+ * del mail le pedía a la persona que le escribiera a `MaKo <equipo@…>`. Peor: el preflight
+ * de sandbox ancla con `$` contra la dirección pelada, así que un
+ * `MAKO_EMAIL='MaKo <onboarding@resend.dev>'` **pasaba el control** — el que terminaba
+ * protegiendo era Resend rechazando el `from`, o sea el proveedor en vez del preflight.
+ *
+ * Falla al ARRANCAR y no en el envío: una dirección rota no tiene degradación razonable, y
+ * enterarse en el primer alta de un cliente es enterarse tarde.
+ */
+function validarEmailMako(v: string): string {
+  if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(v)) {
+    throw new Error(
+      `MAKO_EMAIL tiene que ser una dirección pelada (ej. equipo@hola-mako.com), sin "Nombre <…>". Vino: ${JSON.stringify(v)}`,
+    );
+  }
+  return v;
+}

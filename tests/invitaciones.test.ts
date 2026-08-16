@@ -84,6 +84,47 @@ test('la dirección de MaKo es UNA: firma, responde y recibe la ayuda', () => {
   assert.ok(!/invitadoPor/.test(inv), 'el contacto de ayuda volvió a ser quien dio el alta');
 });
 
+test('una MAKO_EMAIL mal escrita revienta al arrancar, no en el primer alta', async () => {
+  // El contrato «la dirección va PELADA» vivía SOLO en un comentario, y eso ya se pagó:
+  // con `MAKO_EMAIL='MaKo <equipo@…>'` el remitente quedaba `MaKo <MaKo <equipo@…>>` y el
+  // cuerpo le pedía a la persona que le escribiera a `MaKo <equipo@…>`. Y el preflight de
+  // sandbox ancla con `$` contra la dirección pelada, así que un
+  // `MAKO_EMAIL='MaKo <onboarding@resend.dev>'` PASABA el control: el que terminaba
+  // protegiendo era Resend rechazando el `from` — el proveedor en vez del control.
+  //
+  // Se prueba el COMPORTAMIENTO (importando el módulo con el env puesto), no la presencia
+  // de la regex en el fuente: un test que mira el código no sabe si la regex anda.
+  const original = process.env.MAKO_EMAIL;
+  let n = 0;
+  const cargar = async (v: string | undefined) => {
+    if (v === undefined) delete process.env.MAKO_EMAIL; else process.env.MAKO_EMAIL = v;
+    // La query string fuerza una instancia nueva: los módulos ESM se cachean.
+    return import(`../lib/app-url.ts?caso=${n++}`);
+  };
+  try {
+    for (const malo of ['MaKo <equipo@hola-mako.com>', '<equipo@hola-mako.com>', 'equipo@hola-mako.com, otro@x.com', 'equipo arroba hola-mako.com', 'MaKo <onboarding@resend.dev>']) {
+      await assert.rejects(() => cargar(malo), /pelada/, `no rechazó ${JSON.stringify(malo)}`);
+    }
+    const buena = await cargar('soporte@otro-dominio.com');
+    assert.equal(buena.EMAIL_MAKO, 'soporte@otro-dominio.com', 'no respetó un override válido');
+    const porDefecto = await cargar(undefined);
+    assert.equal(porDefecto.EMAIL_MAKO, 'equipo@hola-mako.com', 'cambió el default');
+  } finally {
+    if (original === undefined) delete process.env.MAKO_EMAIL; else process.env.MAKO_EMAIL = original;
+  }
+});
+
+test('un admin de AGENCIA no recibe la línea del dueño de un negocio', () => {
+  // `rol_ws: null` significa «no tiene rol DENTRO de un negocio» — o sea, admin de la
+  // agencia. Escrito como `[rolWs ?? 'admin']` le mandaba «vas a poder cargar tu negocio»
+  // a alguien que no tiene negocio propio: es la regla de «cada pregunta, su campo», con
+  // dos hechos distintos colapsados en un `??`.
+  const inv = leer('../lib/invitaciones.ts');
+  assert.ok(!/QUE_VAS_A_HACER\[u\.rolWs \?\? 'admin'\]/.test(inv), 'null volvió a ser sinónimo de admin de cliente');
+  assert.ok(/QUE_VAS_A_HACER\[u\.rolWs \?\? AGENCIA\]/.test(inv), 'el caso del admin de agencia dejó de tener nombre propio');
+  assert.ok(/\[AGENCIA\]: '[^']+'/.test(inv), 'el admin de agencia no tiene su propia línea');
+});
+
 test('a nadie se le manda un mail sin decirle de qué negocio le hablan', () => {
   // Un closer recibe un mail de una marca que no conoció nunca (MaKo) sobre una cuenta
   // que no pidió. Sin el nombre del negocio, lo más razonable que puede hacer es tratarlo

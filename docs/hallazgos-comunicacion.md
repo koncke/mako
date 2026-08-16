@@ -1205,21 +1205,36 @@ configurado, no se puede saber si lo estás leyendo del lugar correcto — proba
 lib/resend.ts:34-48 (`resendKey` / `getEmailFrom`) · lib/workspace.ts:285-295
 (`wsSuperAdmin`, resuelto por capa y no por número)
 
-### ⚠️ Que el dominio MANDE no significa que RECIBA, y son dos configuraciones distintas
+### ⚠️ Tener MX NO prueba que la casilla exista — y ese es el diagnóstico obvio y equivocado
 
 El mail de acceso termina con «si algo no funciona, escríbenos a `equipo@hola-mako.com`». Eso
 es una promesa: alguien lee esa casilla. Y **mandar y recibir no tienen nada que ver entre sí**:
 
-- **Mandar** lo hace Resend con el dominio verificado (DKIM + SPF). Eso ya funciona: se mandó
-  un mail real el 16/08 y Resend lo aceptó.
-- **Recibir** depende de los **MX**, que son de otro proveedor. Medido ese día:
-  `hola-mako.com MX → fwd1.porkbun.com / fwd2.porkbun.com`, o sea **reenvío de Porkbun** — que
-  funciona **solo para los alias dados de alta a mano en el panel**. Un alias que no existe
-  rebota o se descarta, y el dominio sigue mandando perfecto.
+- **Mandar** lo hace Resend, con DKIM/SPF sobre el subdominio `send.hola-mako.com`. Funciona:
+  se mandó un mail real el 16/08 y Resend lo aceptó.
+- **Recibir** depende de los **MX del apex**, que son de otro proveedor:
+  `hola-mako.com MX → fwd1.porkbun.com / fwd2.porkbun.com`. Eso es **reenvío**, que entrega
+  **alias por alias** y solo para los que estén dados de alta **a mano en el panel**. Un alias
+  que no existe se descarta, y el dominio sigue mandando perfecto.
 
-En `docs/chats/chat-dominio-makodigital-app-en-mako-*.md` el circuito de vuelta quedó
-**planeado y sin confirmar**, textual: *«decime y te mando un email de prueba a
-equipo@hola-mako.com para confirmar que el circuito completo funciona»*. Nunca se cerró.
+**Y acá está la parte que ahorra el tiempo:** mirar el MX y concluir «entonces recibe» es
+exactamente el error, porque **el MX ya estaba el 2026-08-05** —la tabla de la mudanza lo
+registra como *«MX/SPF de mail forwarding: intactos, no los toqué»*— y **al día siguiente**, con
+ese mismo MX en su lugar, la sesión escribió textual:
+
+> *«Lo que sí falta es recibir. Si alguien responde uno de esos mails hoy, escribe a un buzón
+> que no existe. Eso son reglas de reenvío en Porkbun, y la API no las expone (404 en las tres
+> variantes) — es panel.»*
+
+O sea: el MX presente y el buzón inexistente **convivieron el mismo día**. Y como la API de
+Porkbun no expone las reglas de reenvío, **no hay forma de verificar esto desde el código**: se
+mira en el panel, o se manda un mail a la casilla y se ve si aparece. Nada escrito después dice
+que el alias se haya creado.
+
+⚠️ El repo tampoco es una segunda red: **no existe ninguna ruta de correo entrante**. El webhook
+`app/api/webhooks/resend/route.ts` es de EVENTOS (aperturas, clics, rebotes, quejas — firma
+Svix), no de correo recibido; confundirlos es fácil y lleva a creer que la app ve algo. Todo lo
+que entre a `equipo@` vive o muere en el reenvío de Porkbun, afuera del producto.
 
 Y ya hubo deriva de la dirección: durante la mudanza el remitente fue `hola@hola-mako.com` y
 hoy el configurado es `equipo@`. Con la dirección escrita en cada archivo que la necesita, la
@@ -1235,10 +1250,16 @@ igual que uno que nadie contestó todavía.
 
 ### Lo que sigue sin hacer
 
-- **Falta confirmar que `equipo@hola-mako.com` RECIBE.** El envío real se hizo el 16/08 y Resend
-  lo aceptó; lo que no está probado es el camino de vuelta (ver la entrada de arriba). Hasta que
-  alguien responda ese mail y la respuesta aparezca en una bandeja, la última línea del mail de
-  acceso es una promesa sin verificar.
+- **`equipo@hola-mako.com` probablemente NO recibe todavía**, y eso es más fuerte que «sin
+  verificar»: el 2026-08-06 quedó escrito que quien respondiera escribía a un buzón inexistente,
+  y nada posterior dice que el alias se haya creado (ver la entrada de arriba). Se arregla en el
+  panel de Porkbun —la API no lo expone— y se comprueba mandando un mail a esa casilla. **Hasta
+  entonces, la última línea del mail de acceso y los dos textos de `/configuraciones` y
+  `/email` mandan a la gente a una dirección que puede no existir.**
+- **`app/api/email/unsubscribe/route.ts:40` dice «escribinos» y NO se tocó, a propósito.** Esa
+  página la ve el LEAD de un cliente, no un usuario de MaKo: poner ahí nuestra dirección
+  mandaría los leads de otro negocio a nuestra casilla. Lo que le falta es el contacto **del
+  cliente**, que es otra tarea.
 - **`MAKO_EMAIL` no está en Vercel.** Hoy no hace falta —`lib/app-url.ts` trae el default correcto
   en código— pero mientras no exista, cambiar la dirección de la plataforma es un deploy.
 - **Nada reencola un mail que falló.** Si Resend rechaza, queda el botón «Reenviar acceso» y una

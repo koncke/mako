@@ -22,6 +22,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type GoogleCalendarStatus } from './gcal-actions';
+import { EMAIL_MAKO } from '@/lib/app-url';
 
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
@@ -39,7 +40,10 @@ export const GCAL_MSG: Record<string, { kind: 'ok' | 'err'; txt: string }> = {
   ok: { kind: 'ok', txt: 'Google Calendar conectado. Ya se usa como fuente en la búsqueda automática de reuniones y para mover reuniones al reagendarlas.' },
   csrf: { kind: 'err', txt: 'La conexión falló por seguridad (CSRF). Reintentá.' },
   'sin-refresh': { kind: 'err', txt: 'Google no devolvió el token. Reintentá (te va a pedir el consentimiento de nuevo).' },
-  config: { kind: 'err', txt: 'La conexión con Google no está disponible en este momento. Escribinos y lo resolvemos.' },
+  // «Escribinos» sin decir A DÓNDE es un callejón: el usuario ya sabía que quería
+  // escribirnos, lo que no sabe es la dirección. Sale de EMAIL_MAKO para que sea la misma
+  // que firma los mails de la plataforma y no dos direcciones que se van separando.
+  config: { kind: 'err', txt: `La conexión con Google no está disponible en este momento. Escribinos a ${EMAIL_MAKO} y lo resolvemos.` },
   exchange: { kind: 'err', txt: 'No se pudo completar la conexión. Reintentá.' },
   'no-permitido': { kind: 'err', txt: 'Solo el workspace principal puede conectar Google Calendar.' },
 };

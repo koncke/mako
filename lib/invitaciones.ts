@@ -62,12 +62,26 @@ export type { ResultadoInvitacion };
  */
 const REMITENTE_MAKO = `MaKo <${EMAIL_MAKO}>`;
 
-/** Cómo se le dice a cada rol lo que va a encontrar. No es cosmético: a un closer que
- *  recibe «configurá tu negocio» le estás pidiendo algo que no le toca. */
+/**
+ * Cómo se le dice a cada rol lo que va a encontrar. No es cosmético: a un closer que
+ * recibe «configurá tu negocio» le estás pidiendo algo que no le toca.
+ *
+ * ⚠️ EL `null` ES UN CASO PROPIO, NO UN SINÓNIMO DE 'admin'. `rol_ws: null` significa
+ * «no tiene rol DENTRO de un negocio», y eso es un admin de la AGENCIA — que gestiona
+ * todos los clientes y no tiene negocio propio que cargar. Escribirlo como
+ * `QUE_VAS_A_HACER[rolWs ?? 'admin']` mete dos hechos distintos en un `??` y le manda al
+ * super-admin la línea del dueño de un negocio: «vas a poder cargar tu negocio».
+ *
+ * Es la regla de la casa de «cada pregunta, su campo»: «¿qué rol tiene adentro del
+ * negocio?» y «¿tiene negocio?» son dos preguntas, y cuando se colapsan en un `??` la
+ * respuesta de una se lleva puesta a la otra.
+ */
+const AGENCIA = 'agencia';
 const QUE_VAS_A_HACER: Record<string, string> = {
   admin: 'Vas a poder cargar tu negocio y empezar a trabajar con MaKo.',
   closer: 'Vas a ver tus reuniones y tus leads en el CRM.',
   setter: 'Vas a ver tus leads y tus conversaciones en el CRM.',
+  [AGENCIA]: 'Vas a poder gestionar los clientes de la agencia desde MaKo.',
 };
 
 /**
@@ -108,7 +122,9 @@ export async function invitarPorEmail(u: {
   return runWithWorkspace(await wsSuperAdmin(), async () => {
     const nombre = (u.nombre ?? '').trim().split(' ')[0];
     const hola = nombre ? `Hola ${nombre},` : 'Hola,';
-    const queHace = QUE_VAS_A_HACER[u.rolWs ?? 'admin'] ?? QUE_VAS_A_HACER.admin;
+    // `rolWs === null` es el admin de agencia, no el dueño de un negocio: ver el ⚠️ de
+    // QUE_VAS_A_HACER. El `??` final es solo por si mañana aparece un rol sin línea propia.
+    const queHace = QUE_VAS_A_HACER[u.rolWs ?? AGENCIA] ?? QUE_VAS_A_HACER[AGENCIA];
     const deQuien = u.workspace ? ` para ${u.workspace}` : '';
 
     // El cuerpo va en texto plano y `renderEmailHtml` lo maqueta y convierte las URLs en
@@ -170,9 +186,15 @@ export async function invitarPorEmail(u: {
     // Y el error de guardar NO se propaga: el mail YA salió. Devolver `enviado:false`
     // porque falló el registro haría que quien mira la pantalla escriba a mano un aviso
     // que la persona ya tiene, y reenviar duplicaría el mensaje.
-    const { error } = await getSupabaseServer()
-      .from('usuarios').update({ invitacion_enviada_at: new Date().toISOString() }).eq('email', destino);
+    // `.select('id')` no es cosmético: sin él, «se estampó» y «no encontré a quién
+    // estampar» devuelven las dos `error: null` y se ven IGUAL. Y el segundo caso deja el
+    // chip diciendo «sin avisar» para siempre sobre alguien a quien SÍ le llegó el mail.
+    // (Que no pise a otra persona ya está garantizado: `usuarios_email_key` es UNIQUE.)
+    const { data, error } = await getSupabaseServer()
+      .from('usuarios').update({ invitacion_enviada_at: new Date().toISOString() })
+      .eq('email', destino).select('id');
     if (error) console.error('[invitaciones] el mail salió pero no se pudo registrar:', error.message);
+    else if (!data?.length) console.error(`[invitaciones] mail enviado a ${destino}, pero no hay fila en usuarios con ese email`);
 
     return { enviado: true, enlace };
   });

@@ -27,6 +27,7 @@ import {
   type ResendDomain,
 } from '@/lib/resend';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
+import { EMAIL_MAKO } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
       if (!dominio) return Response.json({ ok: false, error: 'Dominio inválido. Poné solo el dominio (ej: minegocio.com), sin https:// ni @.' }, { status: 400 });
       // Anti-spoofing: un dominio reclamado por otro workspace no se puede adoptar.
       if (await reclamadoPorOtroWs(dominio, g.ws)) {
-        return Response.json({ ok: false, error: 'Ese dominio ya está conectado en otro workspace. Si es tuyo, hablá con el admin de MaKo.' }, { status: 403 });
+        return Response.json({ ok: false, error: `Ese dominio ya está conectado en otro workspace. Si es tuyo, escribinos a ${EMAIL_MAKO}.` }, { status: 403 });
       }
       const r = await createResendDomain(dominio, 'sa-east-1');
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
