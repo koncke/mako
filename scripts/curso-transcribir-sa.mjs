@@ -229,8 +229,20 @@ const errores = [];
 //
 // La señal es la TASA, no el peso. El umbral está al 10% de lo normal: no descarta una
 // clase de audio flojo, solo una que no tiene voz. La duración sale del plan.
-const MINIMO_BYTES = Number(arg('min-bytes', 8192));
-const MINIMO_BPS = Number(arg('min-bytes-seg', 400));
+// ⚠️ El piso de TASA (B/s) se midió mal la primera vez y hay que dejar escrito por qué.
+// Nació con 400 B/s para atajar un clip de Heras de 4:55 con audio mudo (129 B/s contra
+// ~4100 de uno normal). En «Creator Club» rechazó DIEZ clases sanas de hasta 87 minutos:
+// son tutoriales de pantalla con voz a bitrate muy bajo, y la #16 da 104 B/s.
+//
+// O sea que la tasa **ya no separa**: el clip mudo (129 B/s) está POR ENCIMA de clases
+// perfectamente buenas. Lo que sí separa es el TAMAÑO ABSOLUTO — el mudo pesaba 38 KB y
+// éstas pesan de 126 KB a 1,4 MB. Es la regla de AGENTS.md sobre umbrales: un proxy hay
+// que medirlo contra los datos reales, y el que hoy tiene aire mañana no.
+//
+// Por eso el piso de tasa baja a 60 B/s (queda solo como red contra un archivo casi
+// vacío y largo) y el trabajo pesado lo hace el piso de bytes, que sube a 64 KB.
+const MINIMO_BYTES = Number(arg('min-bytes', 65536));
+const MINIMO_BPS = Number(arg('min-bytes-seg', 60));
 const segundosDeClase = new Map(plan.clases.map((c) => [c.archivo, Number(c.segundos) || 0]));
 const saltadas = [];
 

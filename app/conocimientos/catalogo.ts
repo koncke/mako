@@ -36,6 +36,7 @@ import { CURSO_HACKEANDO_LA_EDICION } from './curso-hackeando-la-edicion';
 import { CURSO_PROGRAMA_RAIO } from './curso-programa-raio';
 import { CURSO_BIGSEO_ACADEMY } from './curso-bigseo-academy';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
+import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
 
@@ -80,6 +81,8 @@ const CATEGORIA: Record<string, string> = {
   'bigseo-academy': 'SEO',
   // Trabajar sobre uno mismo: voz, comunicación, presencia. Decisión del dueño.
   'instituto-de-comunicacion': 'Desarrollo personal',
+  // Edición de video, junto al de Guille Collado.
+  'creator-club': 'Edición',
   // Idiomas. Sección propia y no «Cursos externos» (el default que emite el pipeline):
   // un curso de inglés no comparte criterio de búsqueda con ninguna otra sección, y el
   // cajón «externos» agrupa por PROCEDENCIA, que no es lo que nadie viene a buscar.
@@ -156,6 +159,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
   CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY, CURSO_INSTITUTO_DE_COMUNICACION,
+  CURSO_CREATOR_CLUB,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
