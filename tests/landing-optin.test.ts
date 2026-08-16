@@ -456,6 +456,10 @@ test('los previews de deploy no llenan el desplegable con la misma página', () 
   const lib = leer('../lib/landing-token.ts');
   assert.ok(/\.map\(\(v\) => normalizarUrl\(v\.landing_url \?\? ''\)\)/.test(lib), 'las urls detectadas se deduplican normalizadas, no por su texto');
   assert.ok(!/\.map\(\(v\) => \(v\.landing_url \?\? ''\)\.trim\(\)\)/.test(lib), 'volvió la deduplicación por texto crudo');
+  // ⚠️ Y el preview del EDITOR se EXCLUYE en vez de colapsarse (ver
+  // `esPreviewDeEditor`): fundirlo con producción metería las sesiones de quien
+  // está construyendo la página adentro de su tasa de conversión.
+  assert.ok(/!esPreviewDeEditor\(u\)/.test(lib), 'los previews del editor no se ofrecen como si fueran la landing');
 });
 
 test('un lead de landing AVISA, o la propuesta no existe para nadie', () => {

@@ -30,7 +30,7 @@ import { getTenantDb, runWithWorkspace } from './workspace';
 import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
 import { VIDEOS_KEY, parsearVideos, type VideoLanding } from './landing-videos';
-import { normalizarUrl } from './landing-paginas';
+import { esPreviewDeEditor, normalizarUrl } from './landing-paginas';
 import { clarityProjectId } from './clarity';
 import { bloqueClarity } from './clarity';
 
@@ -712,10 +712,15 @@ export async function landingDiagnostico(
   // que una clienta que publicaba varias veces por día veía SIETE renglones de la
   // misma página — y su retención repartida entre los siete sin que nada lo dijera.
   // `normalizarUrl` colapsa esos hosts; acá solo hay que llamarla.
+  //
+  // ⚠️ Y los previews del EDITOR se sacan en vez de colapsarse: el tráfico de
+  // `id-preview--…lovable.app` es de quien está construyendo la página, no de sus
+  // clientes, así que fundirlo con producción metería sesiones de desarrollo
+  // adentro de su tasa de conversión. El porqué completo, en `esPreviewDeEditor`.
   const urls = [...new Set(
     ((visitas.data ?? []) as Array<{ landing_url: string | null }>)
       .map((v) => normalizarUrl(v.landing_url ?? ''))
-      .filter((u): u is string => !!u),
+      .filter((u): u is string => !!u && !esPreviewDeEditor(u)),
   )].slice(0, 8);
 
   return { eventos, chequeos, veredicto, urls, codigoViejo, ultima: eventos[0]?.ts ?? null };

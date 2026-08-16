@@ -12,7 +12,7 @@
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conOculta, conPagina, MAX_OCULTAS, MAX_PAGINAS, mismaPagina, normalizarUrl, parsearOcultas, parsearPaginas, sinPagina } from '../lib/landing-paginas';
+import { conOculta, conPagina, esPreviewDeEditor, MAX_OCULTAS, MAX_PAGINAS, mismaPagina, normalizarUrl, parsearOcultas, parsearPaginas, sinPagina } from '../lib/landing-paginas';
 
 test('la misma página escrita distinto es UNA sola', () => {
   const canon = 'https://lidermente.com/clase';
@@ -146,4 +146,67 @@ test('lo que NO es un preview sigue intacto', () => {
   assert.equal(normalizarUrl('https://hola-mako.com/vsl'), 'https://hola-mako.com/vsl');
   assert.equal(normalizarUrl('https://sitio.netlify.app/gracias'), 'https://sitio.netlify.app/gracias');
   assert.equal(normalizarUrl('https://mi--sitio.com'), 'https://mi--sitio.com', 'dos guiones no son un preview');
+});
+
+// =============================================================================
+// PREVIEWS DEL EDITOR — se EXCLUYEN, no se colapsan
+// =============================================================================
+// ⚠️ LA DISTINCIÓN QUE ESTOS TESTS CUIDAN, y que no es obvia: un preview de
+// deploy de Netlify es el sitio REAL congelado en una versión, así que colapsarlo
+// suma tráfico de verdad. El preview del EDITOR de Lovable es el iframe donde el
+// dueño está construyendo la página: colapsarlo metería sus sesiones de
+// desarrollo adentro de la tasa de conversión de su landing.
+//
+// Medido el 15/08/2026 en el ws 1, en UN día y para una sola landing.
+
+test('un preview del editor de Lovable no es una landing', () => {
+  for (const u of [
+    'https://id-preview--cad30c6f-a943-4b41-82d7-a04fc884799f.lovable.app/?__lovable_sha=abc',
+    'https://id-preview-734641ee--cad30c6f-a943-4b41-82d7-a04fc884799f.lovable.app/?forceHideBadge=true',
+    'https://cad30c6f-a943-4b41-82d7-a04fc884799f.lovableproject.com/?__lovable_load_id=xyz',
+  ]) {
+    assert.ok(esPreviewDeEditor(u), `${u} es el editor, no la página publicada`);
+  }
+  // Sin esquema también: es lo que devuelve una lista guardada a mano.
+  assert.ok(esPreviewDeEditor('id-preview--abc.lovable.app'));
+});
+
+test('una landing PUBLICADA en Lovable sigue siendo una landing', () => {
+  // ⚠️ Un cliente sin dominio propio publica de verdad en `<proyecto>.lovable.app`.
+  // Excluir todo Lovable lo dejaría sin una sola página que elegir en el paso 1.
+  for (const u of [
+    'https://multiplicatusresultados.com',
+    'https://mi-proyecto.lovable.app',
+    'https://mi-proyecto.lovable.app/gracias',
+    'https://que-es-lidermente.netlify.app',
+    'https://6a7f350eb436ad1a599d0dcb--que-es-lidermente.netlify.app',
+  ]) {
+    assert.ok(!esPreviewDeEditor(u), `${u} es una página de verdad`);
+  }
+  for (const v of ['', 'hola', 'no-tiene-punto']) {
+    assert.ok(!esPreviewDeEditor(v), `«${v}» no es nadie, y eso no es un preview`);
+  }
+});
+
+test('los previews del editor NO se funden con la landing de producción', () => {
+  // El otro lado de la decisión: como no se colapsan, sus visitas quedan bajo su
+  // propio host en vez de sumarse a las del negocio. Si esto empezara a dar
+  // iguales, la conversión de la landing pasaría a incluir el tráfico de edición.
+  const real = 'https://multiplicatusresultados.com';
+  const editor = 'https://id-preview--cad30c6f-a943-4b41-82d7-a04fc884799f.lovable.app';
+  assert.notEqual(normalizarUrl(editor), normalizarUrl(real));
+  assert.ok(!mismaPagina(editor, real));
+});
+
+test('los parámetros del editor son de la VISITA, no de la página', () => {
+  // Cambian en cada recarga del editor: sin sacarlos, una tarde de trabajo deja
+  // veinte renglones que son el mismo lugar. Es el mismo caso que `mko_test`.
+  const canon = 'https://id-preview--abc.lovable.app';
+  for (const q of ['?__lovable_sha=9f2c1a', '?__lovable_load_id=6b1e', '?forceHideBadge=true', '?__lovable_sha=otro&forceHideBadge=true']) {
+    assert.equal(normalizarUrl(`${canon}/${q}`), canon, `«${q}» no identifica una página distinta`);
+  }
+  // Y en una landing publicada valen igual: el badge se puede esconder en cualquiera.
+  assert.equal(normalizarUrl('https://mi-proyecto.lovable.app/?forceHideBadge=true'), 'https://mi-proyecto.lovable.app');
+  // Lo que SÍ cambia el contenido se conserva, como siempre.
+  assert.equal(normalizarUrl('https://mi-proyecto.lovable.app/?plan=pro'), 'https://mi-proyecto.lovable.app?plan=pro');
 });

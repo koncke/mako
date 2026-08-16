@@ -26,6 +26,7 @@ import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-rend
 import { getFunnel } from './leads';
 import { perfilNegocioTexto } from './onboarding';
 import { extraerLanding, normalizarUrl, type LandingExtraida } from './landing-fetch';
+import { esPreviewDeEditor } from './landing-paginas';
 // La profundidad del VSL NO se calcula acá: se reusa el módulo que ya resolvió
 // el problema (mig 0121 — el player de Panda no le da la duración al navegador,
 // así que el dato crudo son los segundos y el % se deriva). Su regla, que este
@@ -231,6 +232,10 @@ export async function urlsDescubiertas(): Promise<Array<{ url: string; visitas: 
   const cuenta = new Map<string, number>();
   for (const v of visitas) {
     if (!v.landing_url) continue;
+    // El preview del EDITOR no es una landing para analizar: es el iframe donde
+    // se la está construyendo. Ofrecerlo gasta un análisis pago sobre una página
+    // que además cambia en cada recarga. Ver `esPreviewDeEditor`.
+    if (esPreviewDeEditor(v.landing_url)) continue;
     let u: string;
     try { u = normalizarUrl(v.landing_url); } catch { continue; }
     cuenta.set(u, (cuenta.get(u) ?? 0) + 1);

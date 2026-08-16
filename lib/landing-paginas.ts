@@ -64,12 +64,55 @@ const PARAMS_DE_MEDICION = [
   'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
   'gclid', 'fbclid', 'msclkid', 'ttclid', 'twclid',  // click-ids de las plataformas
   'gad_source', 'gbraid', 'wbraid', 'igshid', 'mc_cid', 'mc_eid', 'ref', '_ga',
+  // Los del editor de Lovable: el sha del build que estás viendo, el id de esa
+  // carga y el flag que esconde su badge. Los tres cambian en cada recarga del
+  // editor, así que sin esto una tarde de edición deja veinte renglones.
+  '__lovable_sha', '__lovable_load_id', 'forceHideBadge',
 ];
 
 function hostCanonico(hostname: string): string {
   const h = hostname.toLowerCase();
   const m = /^([0-9a-f]{20,})--(.+)$/.exec(h);
   return m ? m[2] : h;
+}
+
+/**
+ * ¿Es la vista previa del EDITOR (no del sitio publicado)?
+ *
+ * ⚠️ POR QUÉ ESTO NO SE COLAPSA COMO NETLIFY, que es la parte que no es obvia.
+ * Un preview de deploy de Netlify **es el sitio real** congelado en una versión:
+ * quien entra ahí es un visitante, así que fundirlo con producción suma tráfico
+ * de verdad. El preview del editor de Lovable no es eso — es el iframe donde el
+ * dueño está construyendo la página, recargando decenas de veces por tarde.
+ * Colapsarlo metería esas sesiones de desarrollo adentro del denominador de la
+ * tasa de conversión de su landing, y la tasa se hundiría sin que nada lo diga.
+ * Por eso se EXCLUYE de lo que se ofrece, igual que una página escondida, y sus
+ * visitas quedan bajo su propio host en vez de sumarse a las del negocio.
+ *
+ * Medido el 15/08/2026 en `landing_visits` del ws 1, en UN día, para una sola
+ * landing (`multiplicatusresultados.com`):
+ *
+ *     id-preview--<uuid>.lovable.app?__lovable_sha=…
+ *     id-preview-734641ee--<uuid>.lovable.app?forceHideBadge=true
+ *     <uuid>.lovableproject.com?__lovable_load_id=…
+ *
+ * Ninguno matchea `^[0-9a-f]{20,}--`: el primero tiene un prefijo con letras, el
+ * segundo tampoco es hexadecimal puro y el tercero ni siquiera lleva `--`.
+ *
+ * ⚠️ Y NO alcanza con «es de Lovable». Un cliente sin dominio propio publica de
+ * verdad en `<proyecto>.lovable.app`, y esa SÍ es su landing: excluirla lo
+ * dejaría sin nada que elegir. Lo que se excluye es solo lo inconfundiblemente
+ * del editor — el prefijo `id-preview`, y `lovableproject.com` entero, que es el
+ * sandbox del proyecto y nunca la dirección que se publica.
+ */
+export function esPreviewDeEditor(crudo: string): boolean {
+  const u = normalizarUrl(crudo);
+  if (!u) return false;
+  let h: string;
+  try { h = new URL(u).hostname; } catch { return false; }
+  return h === 'lovableproject.com'
+    || h.endsWith('.lovableproject.com')
+    || /^id-preview[-.].+\.lovable\.app$/.test(h);
 }
 
 export function normalizarUrl(crudo: string): string | null {

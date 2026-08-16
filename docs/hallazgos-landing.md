@@ -430,6 +430,54 @@ texto crudo va a mostrar N copias de todo lo que se publique seguido.
 **Vive en:** `lib/landing-token.ts` (`landingDiagnostico`, el `urls`) · `lib/landing-paginas.ts`
 (`hostCanonico`)
 
+#### Y el preview del EDITOR se EXCLUYE, no se colapsa (2026-08-15)
+
+El mismo síntoma volvió con Lovable, y **la respuesta correcta es la contraria**. Medido en
+`landing_visits` del ws 1 (la landing de Mauricio, `multiplicatusresultados.com`), en **un solo
+día** y para una sola página:
+
+```
+id-preview--cad30c6f-….lovable.app/?__lovable_sha=…
+id-preview-734641ee--cad30c6f-….lovable.app/?forceHideBadge=true
+cad30c6f-….lovableproject.com/?__lovable_load_id=…
+```
+
+Ninguno matchea `^[0-9a-f]{20,}--`: el primero tiene un prefijo con letras, el segundo tampoco es
+hexadecimal puro y el tercero **ni siquiera lleva `--`** — es otro dominio entero. Así que los
+tres entraban al desplegable como landings distintas.
+
+**La distinción que importa, y que no es obvia:** un preview de deploy de Netlify **es el sitio
+real** congelado en una versión — quien entra ahí es un visitante, y por eso colapsarlo suma
+tráfico de verdad. El preview del EDITOR de Lovable no es eso: es el iframe donde el dueño está
+construyendo la página, recargando decenas de veces por tarde. **Colapsarlo habría metido esas
+sesiones de desarrollo adentro del denominador de su tasa de conversión**, y la tasa se habría
+hundido sin que nada lo dijera — cambiando un problema visible (renglones de más) por uno
+invisible (un número de negocio mal). Se excluye, como una página escondida, y sus visitas quedan
+bajo su propio host.
+
+**La exclusión es angosta a propósito:** `lovableproject.com` entero (el sandbox del proyecto,
+nunca una dirección que se publique) y el prefijo `id-preview` dentro de `lovable.app`. Un cliente
+sin dominio propio **publica de verdad** en `<proyecto>.lovable.app`: excluir «todo Lovable» lo
+dejaría sin una sola página que elegir en el paso 1.
+
+Aparte, `__lovable_sha`, `__lovable_load_id` y `forceHideBadge` fueron a `PARAMS_DE_MEDICION`:
+son de la VISITA y cambian en cada recarga del editor.
+
+**Regla:** antes de fundir dos URLs, preguntá **de quién es el tráfico de cada una**, no si son la
+misma página. Dedupear es una decisión sobre los DATOS, no sobre el desplegable: el mismo colapso
+que limpia una lista contamina la métrica que la lista alimenta. Es el caso de
+[AGENTS.md](../AGENTS.md) → «Un total solo se puede sumar si el recurso se puede MOVER DE LUGAR»,
+aplicado a visitas en vez de a cuota.
+
+**Vive en:** `lib/landing-paginas.ts` (`esPreviewDeEditor`, `PARAMS_DE_MEDICION`) ·
+`lib/landing-token.ts` (`landingDiagnostico`, el filtro del `urls`) · `lib/landing-analyst.ts`
+(`urlsDescubiertas`, para no gastar un análisis pago sobre el editor)
+
+**Lo que quedó SIN hacer:** los chequeos de `landingDiagnostico` (¿llega algún evento? ¿el snippet
+está al día?) siguen contando las visitas del preview. Es deliberado —una visita del editor SÍ
+prueba que el código está puesto— pero significa que el panel puede decir «está midiendo» sobre
+una página que todavía no se publicó. Vive en `lib/landing-token.ts` (`landingDiagnostico`).
+
 ### Una colección que se ELIGE también hay que MANTENERLA
 
 Los botones de corregir y quitar vivían afuera del desplegable y actuaban sobre la página
