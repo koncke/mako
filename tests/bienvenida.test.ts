@@ -29,14 +29,31 @@ test('el mapa es ficción, pero la paleta y los nombres son los de verdad', () =
   }
 });
 
-test('la flotación se controla nodo por nodo, y no comparte elemento con la entrada', () => {
-  // Dos animaciones que tocan `transform` en el MISMO elemento se pisan y la segunda gana.
-  // Este repo ya lo pagó en /second-brain: los nodos «no flotaban», 0,03 px medidos.
-  assert.ok(/className="bv-flota"/.test(bienvenida), 'desapareció la capa de flotación');
-  assert.ok(/--dur/.test(bienvenida) && /--fase/.test(bienvenida), 'la flotación dejó de ser por nodo');
-  // Y períodos distintos por nodo: uno solo hace que el mapa lata al unísono y se vea
-  // mecánico, que es el «se comporta de forma muy extraña» que reportó el dueño.
-  assert.ok(/dur: 7 \+ az/.test(bienvenida), 'los períodos volvieron a ser todos iguales');
+test('el movimiento es el del grafo real, no uno inventado', () => {
+  // «Haz que se comporte igual que nuestro grafo, solo que CONTROLA qué sí y qué no». Los
+  // datos son ficción; el MOVIMIENTO no puede serlo, o la portada promete una cosa y el
+  // producto entrega otra. Estas constantes están portadas de Grafo.tsx y tienen que
+  // seguir coincidiendo: si allá cambian y acá no, la portada envejece sin que nadie lo
+  // note — se ve igual de bien.
+  const grafo = leer('../app/second-brain/Grafo.tsx');
+  assert.ok(/const FLOTE = 16;/.test(bienvenida) && /const FLOTE = 16;/.test(grafo), 'FLOTE dejó de coincidir con el grafo');
+  for (const periodo of ['7100', '11300']) {
+    assert.ok(bienvenida.includes(periodo), `falta el período ${periodo} de la flotación`);
+    assert.ok(grafo.includes(periodo), `el grafo real ya no usa el período ${periodo}`);
+  }
+  // La fase sale del hash del id, no de un sorteo: el nodo flota igual en cada visita.
+  assert.ok(/2166136261/.test(bienvenida) && /2166136261/.test(grafo), 'el hash FNV-1a dejó de compartirse');
+  // Y la entrada nace desplazada hacia afuera, con el mismo decaimiento.
+  assert.ok(/\(1 - u\) \*\* 3/.test(bienvenida), 'la entrada dejó de decaer como en el grafo');
+});
+
+test('el reloj de la entrada es POR NIVEL, no global', () => {
+  // Es la mitad «controla» del pedido: con un reloj único, cada click volvería a lanzar
+  // hacia afuera a los nodos que ya llegaron. Ese es literalmente el bug que /second-brain
+  // tiene al filtrar, y lo que el dueño vio como «se comporta de forma muy extraña».
+  assert.ok(/nacido\.current\[n\.nivel\]/.test(bienvenida), 'el reloj de entrada volvió a ser global');
+  // Y la flotación va en un <g> propio: dos animaciones sobre el mismo transform se pisan.
+  assert.ok(/refs\.current\.set/.test(bienvenida), 'los nodos dejaron de tener su propia capa de movimiento');
 });
 
 test('el chip del taller de diseño no se dibuja encima de la bienvenida', () => {

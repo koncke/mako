@@ -30,7 +30,7 @@
 // segundos. Acá cada nodo sabe cuándo aparece y cuánto se mueve.
 // =============================================================================
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/app/_ui';
 import { AREAS } from '@/lib/cerebro-modelo';
 
@@ -68,6 +68,35 @@ const py = (r: number, g: number) => CY + r * Math.sin(rad(g));
 const h = (n: number) => (Math.sin(n * 127.1) * 43758.5453) % 1;
 const az = (n: number) => Math.abs(h(n));
 
+/**
+ * ⚠️ EL MOVIMIENTO ES EL DEL GRAFO DE VERDAD, no uno inventado. Los datos de esta pantalla
+ * son ficción —un cliente nuevo no tiene nada que mostrar— pero el COMPORTAMIENTO tiene
+ * que ser el mismo, o la portada le promete una cosa y el producto entrega otra. Pedido
+ * textual: «haz que se comporte igual que nuestro grafo, solo que CONTROLA qué sí y qué no».
+ *
+ * Portado tal cual de app/second-brain/Grafo.tsx:
+ *   · FLOTE = 16 y DOS senoides de 7100 y 11300 ms. Los períodos no son múltiplos entre sí
+ *     a propósito: el nodo nunca repite la misma trayectoria y el conjunto no late al
+ *     unísono, que es lo que separa «vivo» de «parpadeando».
+ *   · La fase sale del hash FNV-1a del id — el MISMO que usa la semilla del layout en el
+ *     server— así el nodo flota igual en cada visita en vez de sortearlo al cargar.
+ *   · La entrada nace desplazada hacia AFUERA y el desvío decae con (1-u)³ en 900 ms.
+ *
+ * LO QUE SE CONTROLA, que es la otra mitad del pedido: el reloj de la entrada arranca
+ * cuando SE REVELA ESE NIVEL, no al montar. Así cada click tiene su propia llegada en vez
+ * de que el mapa entero se rearme —que era el «se comporta de forma muy extraña»— y la
+ * amplitud baja con el nivel, porque si el polvo se mueve como los nodos grandes el mapa
+ * hierve y deja de leerse.
+ */
+const FLOTE = 16;
+
+/** FNV-1a, el mismo de Grafo.tsx: la fase del nodo no se sortea, se deriva de su id. */
+function hashDe(id: string): number {
+  let x = 2166136261;
+  for (let i = 0; i < id.length; i++) { x ^= id.charCodeAt(i); x = Math.imul(x, 16777619); }
+  return x >>> 0;
+}
+
 /** Las cinco piezas de las que sale un anuncio, en segunda persona. */
 const PIEZAS = [
   { id: 'oferta', et: 'Tu Oferta', padre: 'oferta' },
@@ -81,24 +110,27 @@ type Nodo = {
   id: string; x: number; y: number; r: number; color: string;
   et?: string; nivel: 1 | 2 | 3; demora: number;
   de?: { x: number; y: number };
-  /** Flotación: cuánto se mueve, cuánto tarda y con qué desfase. Cada nodo el suyo. */
-  dx: number; dy: number; dur: number; fase: number;
+  /** Lo que necesita el motor de movimiento, precalculado: las dos fases de la flotación,
+   *  cuánto se aleja al nacer, y hacia dónde (el versor desde el centro). */
+  faseX: number; faseY: number; amp: number; lejos: number; ux: number; uy: number;
 };
 
 const nodos: Nodo[] = [];
 {
   let s = 0;                                   // semilla incremental, para el hash
-  const nuevo = (n: Omit<Nodo, 'dx' | 'dy' | 'dur' | 'fase'>, amplitud: number): Nodo => {
+  const nuevo = (n: Omit<Nodo, 'faseX' | 'faseY' | 'amp' | 'lejos' | 'ux' | 'uy'>, amp: number): Nodo => {
     s += 1;
+    const hh = hashDe(n.id);
+    const dx = n.x - CX;
+    const dy = n.y - CY;
+    const d = Math.hypot(dx, dy) || 1;
     return {
-      ...n,
-      // La amplitud baja con el nivel: si el polvo se mueve tanto como los nodos grandes,
-      // el mapa entero hierve y deja de leerse. Los períodos son primos entre sí para que
-      // el conjunto nunca vuelva a alinearse — un mapa que late al unísono se ve mecánico.
-      dx: (az(s) - 0.5) * amplitud,
-      dy: (az(s + 91) - 0.5) * amplitud,
-      dur: 7 + az(s + 17) * 6,
-      fase: -az(s + 43) * 9,
+      ...n, amp,
+      faseX: (hh % 6283) / 1000,
+      faseY: ((hh >>> 7) % 6283) / 1000,
+      // Nace desplazado hacia afuera, como en el grafo real. El rango es el mismo.
+      lejos: 260 + (hh % 220),
+      ux: dx / d, uy: dy / d,
     };
   };
 
@@ -109,7 +141,7 @@ const nodos: Nodo[] = [];
     const color = suyas[0]?.color ?? 'var(--grafo-norte)';
     const x = px(168, ang);
     const y = py(168, ang);
-    nodos.push(nuevo({ id: p.id, x, y, r: 15, color, et: p.et, nivel: 1, demora: i * 0.1, de: { x: CX, y: CY } }, 9));
+    nodos.push(nuevo({ id: p.id, x, y, r: 15, color, et: p.et, nivel: 1, demora: i * 0.09, de: { x: CX, y: CY } }, 1));
 
     const abanico = Math.min(30, 14 * suyas.length);
     suyas.forEach((a, j) => {
@@ -118,7 +150,7 @@ const nodos: Nodo[] = [];
       const ax = px(292, aAng);
       const ay = py(292, aAng);
       const iA = nodos.filter((n) => n.nivel === 2).length;
-      nodos.push(nuevo({ id: a.id, x: ax, y: ay, r: 9, color: a.color, et: a.nombre, nivel: 2, demora: iA * 0.06, de: { x, y } }, 6));
+      nodos.push(nuevo({ id: a.id, x: ax, y: ay, r: 9, color: a.color, et: a.nombre, nivel: 2, demora: iA * 0.05, de: { x, y } }, 0.68));
 
       // NIVEL 3: las partes de cada área y su polvo. Es lo que hace que el final se lea
       // como «lleno de cosas mías» en vez de como un diagrama de cinco cajas — el reclamo
@@ -129,7 +161,7 @@ const nodos: Nodo[] = [];
         const bx = px(bR, bAng);
         const by = py(bR, bAng);
         const iB = nodos.filter((n) => n.nivel === 3).length;
-        nodos.push(nuevo({ id: `${a.id}-${k}`, x: bx, y: by, r: 5, color: a.color, nivel: 3, demora: iB * 0.006, de: { x: ax, y: ay } }, 4));
+        nodos.push(nuevo({ id: `${a.id}-${k}`, x: bx, y: by, r: 5, color: a.color, nivel: 3, demora: iB * 0.004, de: { x: ax, y: ay } }, 0.42));
 
         for (let m = 0; m < 3; m++) {
           const cAng = bAng + (m - 1) * 3.1;
@@ -139,7 +171,7 @@ const nodos: Nodo[] = [];
             id: `${a.id}-${k}-${m}`, x: px(cR, cAng), y: py(cR, cAng),
             r: 2.6 + az(s + m) * 1.2, color: a.color, nivel: 3, demora: iC * 0.006,
             de: { x: bx, y: by },
-          }, 3));
+          }, 0.28));
         }
       }
     });
@@ -156,6 +188,54 @@ export function Bienvenida({ adminBar, onComenzar }: {
   const [pista, setPista] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
   const conTexto = paso >= 4;
+
+  // ── El motor de movimiento ────────────────────────────────────────────────
+  // Un rAF que escribe el `transform` de cada nodo, igual que Grafo.tsx. No es estado de
+  // React a propósito: 192 nodos a 60 fps serían 11.520 renders por segundo.
+  const refs = useRef(new Map<string, SVGGElement>());
+  /** Cuándo se reveló cada nivel. El reloj de la ENTRADA es por nivel y no global: si
+   *  fuera uno solo, cada click volvería a lanzar hacia afuera a los que ya llegaron —
+   *  que es exactamente el bug que tiene hoy /second-brain al filtrar. */
+  const nacido = useRef<Record<number, number>>({});
+  useEffect(() => {
+    for (let n = 1; n <= 3; n += 1) {
+      if (paso >= n && nacido.current[n] == null) nacido.current[n] = performance.now();
+    }
+  }, [paso]);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // Quieto en su lugar definitivo: una pantalla que se mueve sola es justo lo que esa
+      // preferencia pide evitar.
+      for (const n of nodos) refs.current.get(n.id)?.setAttribute('transform', 'translate(0 0)');
+      return;
+    }
+    let raf = 0;
+    const latir = () => {
+      const t = performance.now();
+      for (const n of nodos) {
+        const g = refs.current.get(n.id);
+        if (!g) continue;
+        // LA FLOTACIÓN: dos senoides de períodos que no son múltiplos entre sí, con la
+        // fase derivada del hash del id. Es la firma del movimiento del grafo real.
+        const fx = FLOTE * n.amp * Math.sin((t / 7100) * Math.PI * 2 + n.faseX);
+        const fy = FLOTE * n.amp * Math.sin((t / 11300) * Math.PI * 2 + n.faseY);
+        // LA ENTRADA: nace desplazado hacia afuera y el desvío decae. El reloj arranca
+        // cuando se reveló SU nivel, así cada click tiene su propia llegada.
+        const t0 = nacido.current[n.nivel];
+        let lejos = 0;
+        if (t0 == null) lejos = n.lejos;                       // todavía no le tocó
+        else {
+          const u = Math.min(1, Math.max(0, (t - t0 - n.demora * 1000) / 900));
+          lejos = n.lejos * (1 - u) ** 3;
+        }
+        g.setAttribute('transform', `translate(${(fx + n.ux * lejos).toFixed(2)} ${(fy + n.uy * lejos).toFixed(2)})`);
+      }
+      raf = requestAnimationFrame(latir);
+    };
+    raf = requestAnimationFrame(latir);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   useEffect(() => {
     if (paso !== 0) { setPista(false); return; }
@@ -225,10 +305,7 @@ export function Bienvenida({ adminBar, onComenzar }: {
             // /second-brain, donde los nodos «no flotaban»: 0,03 px de recorrido medido.
             <g key={n.id} className={`bv-nodo bv-n${n.nivel}`}
                style={{ animationDelay: `${n.demora}s`, transformOrigin: `${n.x}px ${n.y}px` }}>
-              <g className="bv-flota" style={{
-                ['--dx' as string]: `${n.dx}px`, ['--dy' as string]: `${n.dy}px`,
-                ['--dur' as string]: `${n.dur}s`, ['--fase' as string]: `${n.fase}s`,
-              }}>
+              <g ref={(el) => { if (el) refs.current.set(n.id, el); else refs.current.delete(n.id); }}>
                 <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} />
                 {n.et && (
                   <text x={n.x} y={n.y + n.r + 20} textAnchor="middle" className={`bv-et bv-et${n.nivel}`}>
@@ -240,10 +317,7 @@ export function Bienvenida({ adminBar, onComenzar }: {
           ))}
 
           <g className="bv-centro">
-            <g className="bv-flota" style={{
-              ['--dx' as string]: '5px', ['--dy' as string]: '-4px',
-              ['--dur' as string]: '9s', ['--fase' as string]: '0s',
-            }}>
+            <g ref={(el) => { if (el) refs.current.set('centro', el); else refs.current.delete('centro'); }}>
               <circle cx={CX} cy={CY} r={30} fill="var(--mako)" />
               <circle cx={CX} cy={CY} r={30} fill="none" stroke="var(--mako)" className="bv-pulso" />
               <text x={CX} y={CY + 62} textAnchor="middle" className="bv-et bv-et0">Tus anuncios</text>
@@ -360,15 +434,10 @@ body:has(.bv) [data-chip-tema] { display: none !important; }
 .bv-linea.bv-n3 { stroke-width: .8 }
 @keyframes bv-traza-fino { to { opacity: .18; stroke-dashoffset: 0 } }
 
-/* LA FLOTACIÓN, controlada nodo por nodo: recorrido, período y desfase propios (las tres
-   variables las escribe el JSX). Los períodos no son múltiplos entre sí, así que el mapa
-   nunca vuelve a alinearse — uno que late al unísono se ve mecánico. Y va en un <g> propio
-   porque la entrada también anima transform: en el mismo elemento, la segunda gana. */
-.bv-flota { animation: bv-flota var(--dur, 9s) ease-in-out var(--fase, 0s) infinite alternate; }
-@keyframes bv-flota {
-  from { transform: translate(0, 0) }
-  to   { transform: translate(var(--dx, 0), var(--dy, 0)) }
-}
+/* La flotación y la entrada las escribe el rAF sobre el <g> de adentro (ver el motor). Va
+   en un elemento PROPIO porque la animación de aparición también toca transform, y dos
+   animaciones sobre el mismo transform se pisan: gana la segunda. Este repo ya lo pagó en
+   /second-brain, donde los nodos «no flotaban» — 0,03 px de recorrido medidos. */
 
 .bv-centro { animation: bv-centro 900ms cubic-bezier(.34,1.3,.5,1) both; transform-origin: 500px 470px; }
 @keyframes bv-centro { from { opacity: 0; transform: scale(.4) } to { opacity: 1; transform: none } }
@@ -440,7 +509,7 @@ body:has(.bv) [data-chip-tema] { display: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bv-nodo, .bv-linea, .bv-centro, .bv-titulo, .bv-golpe, .bv-boton, .bv-flota {
+  .bv-nodo, .bv-linea, .bv-centro, .bv-titulo, .bv-golpe, .bv-boton {
     animation: none !important; opacity: 1 !important; transform: none !important;
   }
   .bv-linea { stroke-dashoffset: 0 !important; opacity: .3 !important; }
