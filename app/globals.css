@@ -96,6 +96,13 @@
   --grafo-voz: #D9CE8F;
   --sidebar-text: #949CAA;
   --on-sidebar: #F3F5F8;
+  /* Lo que se lee ENCIMA de un relleno --ink. No es lo mismo que --on-sidebar,
+     aunque hoy coincidan en el tema por defecto: aquél significa «se lee sobre
+     LA BARRA» y éste «se lee sobre LA TINTA». Se separaron el día que un tema
+     candidato puso la barra clara: el selector Kanban/Tabla usaba --on-sidebar
+     sobre un fondo --ink y quedó texto oscuro sobre fondo oscuro, ratio 1,00.
+     Un token con nombre de LUGAR no se puede usar por su VALOR. */
+  --on-ink: #F3F5F8;
 
   /* ── Acción · azul /vsl (#2F6FED) ── */
   --primary: #2F6FED;
@@ -244,6 +251,7 @@
   --border: #383D47;
   --border-strong: #4A5160;
   --ink: #F3F5F8;
+  --on-ink: #22262E;
   --dim: #A8B0BD;
   --faint: #7C8492;
 
@@ -814,6 +822,7 @@ details[open] > summary .chev {
   --border: #D8DEE9;
   --border-strong: #BEC8DA; /* derivado: entre nord4 (L88) y nord3 (L36) no hay nada */
   --ink: #2E3440;           /* nord0 */
+  --on-ink: #ECEFF4;
   --dim: #4C566A;           /* nord3 */
   --faint: #7B88A1;         /* lighten(.2, nord3) — el propio sitio de Nord lo usa */
 
@@ -855,6 +864,7 @@ details[open] > summary .chev {
   --bg: #2E3440;  --surface: #3B4252;  --surface-2: #434C5E;
   --border: #434C5E;  --border-strong: #4C566A;
   --ink: #ECEFF4;  --dim: #ABB9CF;  --faint: #7B88A1;
+  --on-ink: #2E3440;
   --sidebar: #2E3440;  --sidebar-2: #262B35;  --sidebar-line: #434C5E;
   --sidebar-text: #ABB9CF;  --on-sidebar: #ECEFF4;
   --primary: #8AB4FA;  --primary-strong: #A3C5FB;  --primary-bg: #33405A;  --primary-weak: #5F89C9;
@@ -871,77 +881,14 @@ details[open] > summary .chev {
   --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
 }
 
-/* ── Nord Hardline ──────────────────────────────────────────────────────────
-   La pregunta que lo produjo: "y si Nord tuviera que pasar AA en todo?".
-   Mismos tonos, cada paso empujado hasta que el número cierra en los dos modos. */
-[data-tema-candidato="nord-hardline"] {
-  --bg: #ECEFF4;  --surface: #FFFFFF;  --surface-2: #E5E9F0;
-  --border: #D8DEE9;  --border-strong: #7B88A1;
-  --ink: #2E3440;  --dim: #4C566A;  --faint: #5E6A82;
-  --sidebar: #2E3440;  --sidebar-2: #262B35;  --sidebar-line: #434C5E;
-  --sidebar-text: #D8DEE9;  --on-sidebar: #ECEFF4;
-  --primary: #005FFA;  --primary-strong: #0050D6;  --primary-bg: #DCE8FE;  --primary-weak: #8AB4FA;
-  --mako: #D36536;  --mako-lite: #E08C63;
-  --mako-ink: #AB4E26;  --mako-bg: #FAEFEA;  --mako-border: #EEC5B4;
-  --good: #587240;  --good-bg: #E8EDE2;
-  --warn: #846815;  --warn-bg: #F7EFD9;  --warn-fill: #B58A2A;
-  --bad: #9F3C46;   --bad-bg: #F7E5E7;
-  --wa: #587240;  --wa-bubble: #E8EDE2;
-  --auto-bubble: #FAEFEA;
-  --wa-noof: #5E81AC;  --wa-noof-bubble: #DEE5F0;
-}
-[data-tema-candidato="nord-hardline"][data-tema="oscuro"] {
-  --bg: #242933;  --surface: #2E3440;  --surface-2: #3B4252;
-  --border: #434C5E;  --border-strong: #717E98;
-  --ink: #ECEFF4;  --dim: #ABB9CF;  --faint: #97A3BA;
-  --sidebar: #2E3440;  --sidebar-2: #242933;  --sidebar-line: #434C5E;
-  --sidebar-text: #D8DEE9;  --on-sidebar: #ECEFF4;
-  --primary: #6AA1FB;  --primary-strong: #8AB4FA;  --primary-bg: #2C3A54;  --primary-weak: #4A6E9E;
-  --mako: #DD8864;  --mako-lite: #E4A286;
-  --mako-ink: #E4A286;  --mako-bg: #3E2B23;  --mako-border: #6B4A38;
-  --good: #A3BE8C;  --good-bg: #333D2F;
-  --warn: #EBCB8B;  --warn-bg: #423B29;  --warn-fill: #EBCB8B;
-  --bad: #E699A6;   --bad-bg: #472E33;
-  --wa: #A3BE8C;  --wa-bubble: #333D2F;
-  --auto-bubble: #3E2B23;
-  --wa-noof: #81A1C1;  --wa-noof-bubble: #303947;
-  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
-}
 
-/* ── Ember North ────────────────────────────────────────────────────────────
-   Los neutros se pasan a cálidos para que el azul de Meta sea lo único frío.
-   El juez de fidelidad le puso 3/10: al sacarle el sesgo azul a los 7 neutros,
-   deja de ser Nord. Está acá para poder VER esa objeción, no para ganar. */
-[data-tema-candidato="ember-north"] {
-  --bg: #F2ECE3;  --surface: #FEFDFB;  --surface-2: #EAE2D7;
-  --border: #DCD3C6;  --border-strong: #BAADA0;
-  --ink: #383029;  --dim: #64594F;  --faint: #7E7267;
-  --sidebar: #1D1916;  --sidebar-2: #171310;  --sidebar-line: #39322D;
-  --sidebar-text: #A89D92;  --on-sidebar: #E4DDD2;
-  --primary: #0059EB;  --primary-strong: #0049C4;  --primary-bg: #DEE8FC;  --primary-weak: #76A9FB;
-  --mako: #D65B2A;  --mako-lite: #E5814F;
-  --mako-ink: #A3441F;  --mako-bg: #F2D8C9;  --mako-border: #DCA986;
-  --good: #3C6534;  --good-bg: #E4EBE0;
-  --warn: #7D6108;  --warn-bg: #F5EED6;  --warn-fill: #B08B10;
-  --bad: #A12B48;   --bad-bg: #F7E1E6;
-  --wa: #3C6534;  --wa-bubble: #E4EBE0;
-  --auto-bubble: #F2D8C9;
-  --wa-noof: #4A5FA8;  --wa-noof-bubble: #E2E5F2;
-}
-[data-tema-candidato="ember-north"][data-tema="oscuro"] {
-  --bg: #28231F;  --surface: #35302C;  --surface-2: #433D38;
-  --border: #514A43;  --border-strong: #6E655E;
-  --ink: #F5F1EB;  --dim: #C7BDB3;  --faint: #9A8F84;
-  --sidebar: #1D1916;  --sidebar-2: #171310;  --sidebar-line: #39322D;
-  --sidebar-text: #A89D92;  --on-sidebar: #E4DDD2;
-  --primary: #76A9FB;  --primary-strong: #96BEFC;  --primary-bg: #2C3950;  --primary-weak: #4E7AC4;
-  --mako: #D08770;  --mako-lite: #EE9268;
-  --mako-ink: #EE9268;  --mako-bg: #563325;  --mako-border: #7A4B33;
-  --good: #82B869;  --good-bg: #313A2C;
-  --warn: #D4AD11;  --warn-bg: #3F3720;  --warn-fill: #D4AD11;
-  --bad: #E492A2;   --bad-bg: #44292F;
-  --wa: #82B869;  --wa-bubble: #313A2C;
-  --auto-bubble: #563325;
-  --wa-noof: #7E93D6;  --wa-noof-bubble: #2F3348;
-  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+
+/* La transición del ícono del interruptor de modo. Va en CSS y no en el estilo
+   en línea para poder apagarla con prefers-reduced-motion: un usuario que pidió
+   menos movimiento no quiere dos íconos deslizándose cada vez que cambia de
+   modo. La curva es la de Popmotion (easeOut cuadrático), que es la que usa
+   nordtheme.com por default. */
+.mk-modo-ico { transition: transform 400ms cubic-bezier(0, 0, .58, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .mk-modo-ico { transition-duration: 1ms; transition-delay: 0ms !important; }
 }

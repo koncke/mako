@@ -32,8 +32,13 @@ const VALOR = 'oscuro';
 
 export function TemaOscuro() {
   useEffect(() => {
+    // ⚠️ Si el usuario YA eligió modo oscuro para toda la app, esta pantalla no
+    // se lo prestó: se lo encontró puesto. Sacarlo al salir le apagaría su
+    // preferencia por haber pasado por acá — y desde /second-brain eso se ve
+    // como «la app se puso clara sola».
+    const yaEstaba = document.documentElement.getAttribute(MARCA) === VALOR;
     document.documentElement.setAttribute(MARCA, VALOR);
-    return () => { document.documentElement.removeAttribute(MARCA); };
+    return () => { if (!yaEstaba) document.documentElement.removeAttribute(MARCA); };
   }, []);
 
   return (

@@ -17,8 +17,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Section, Button, ButtonLink, Banner, Divider, Status, MONO } from '@/app/_ui';
-import { TEMAS, TOKENS_MOSTRADOS, ATTR_TEMA, LS_MODO } from '@/lib/temas-candidatos';
+import { TEMAS, TOKENS_MOSTRADOS, ATTR_TEMA } from '@/lib/temas-candidatos';
 import { aplicarTemaCandidato } from '@/app/_components/TemaCandidato';
+import { aplicarModo } from '@/app/_components/InterruptorModo';
 
 /** Las pantallas que más castigan a un tema, y por qué cada una. */
 const PRUEBAS: { href: string; label: string; porque: string }[] = [
@@ -44,13 +45,12 @@ export function LosTemas() {
       setOscuro(document.documentElement.getAttribute('data-tema') === 'oscuro');
     };
     sync();
-    try {
-      if (!document.documentElement.getAttribute(ATTR_TEMA)) {
-        setOscuro(localStorage.getItem(LS_MODO) === 'oscuro');
-      }
-    } catch { /* incógnito */ }
     window.addEventListener('mako-tema-candidato', sync);
-    return () => window.removeEventListener('mako-tema-candidato', sync);
+    window.addEventListener('mako-modo', sync);
+    return () => {
+      window.removeEventListener('mako-tema-candidato', sync);
+      window.removeEventListener('mako-modo', sync);
+    };
   }, []);
 
   // Se leen los tokens de las sondas después de pintar. Las custom properties
@@ -72,7 +72,7 @@ export function LosTemas() {
     return () => clearTimeout(t);
   }, [oscuro]);
 
-  const elegir = (id: string) => aplicarTemaCandidato(activo === id ? null : id, oscuro);
+  const elegir = (id: string) => aplicarTemaCandidato(activo === id ? null : id);
 
   const filas = useMemo(() => TOKENS_MOSTRADOS, []);
 
@@ -92,13 +92,13 @@ export function LosTemas() {
 
       <Banner tono={activo ? 'mako' : 'info'}>
         {activo
-          ? 'Hay un tema puesto. Salí a navegar la app: el chip de abajo a la izquierda te sigue a todas las pantallas, con el interruptor claro/oscuro y la salida.'
+          ? 'Hay un tema puesto. Salí a navegar la app: el chip de abajo a la izquierda te sigue a todas las pantallas con la salida. El claro/oscuro está en tu perfil, abajo en la barra.'
           : 'Elegí un tema y se aplica a TODA la app, no a una maqueta. Nada de esto es producción: es una herramienta para decidir.'}
       </Banner>
 
       <Section
-        titulo="Los tres candidatos"
-        nota="Nord + el azul de Meta. El orden es el del jurado de diseño, no el de preferencia."
+        titulo="El candidato"
+        nota="Nord —que ya traía resueltos los dos modos— con el azul de Meta. Había tres; tener tres paletas es no haber elegido."
         card
       >
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -117,9 +117,6 @@ export function LosTemas() {
                   <div className="mk-row" style={{ marginBottom: 6 }}>
                     <strong style={{ fontSize: 'var(--fs-card)' }}>{t.nombre}</strong>
                     {on && <Status tono="mako">Puesto</Status>}
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>
-                      jurado {t.puntaje.toFixed(1).replace('.', ',')}
-                    </span>
                   </div>
                   <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55, marginBottom: 8 }}>{t.idea}</p>
                   <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55 }}>
@@ -170,7 +167,7 @@ export function LosTemas() {
         titulo={`Los tokens, en modo ${oscuro ? 'oscuro' : 'claro'}`}
         nota="leídos de la hoja de estilo, no escritos acá: es lo que de verdad se aplica"
         card
-        accion={<Button variant="secondary" onClick={() => (activo ? aplicarTemaCandidato(activo, !oscuro) : setOscuro(!oscuro))}>
+        accion={<Button variant="secondary" onClick={() => aplicarModo(!oscuro)}>
           Ver en {oscuro ? 'claro' : 'oscuro'}
         </Button>}
       >

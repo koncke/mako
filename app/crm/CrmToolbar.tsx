@@ -195,7 +195,11 @@ export function VistaSelector({ vista, onVista, pendientes }: {
     border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 14,
     fontWeight: activo ? 600 : 500,
     background: activo ? 'var(--ink)' : 'transparent',
-    color: activo ? 'var(--on-sidebar)' : 'var(--dim)',
+    // `--on-ink`, no `--on-sidebar`. Coincidían en el tema por defecto, pero el
+    // segundo significa «se lee sobre LA BARRA»: con la barra clara, esto quedó
+    // tinta sobre tinta —ratio 1,00, el botón activo INVISIBLE— y se veía igual
+    // en claro y en oscuro, así que ningún vistazo lo iba a encontrar.
+    color: activo ? 'var(--on-ink)' : 'var(--dim)',
   });
   return (
     <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>

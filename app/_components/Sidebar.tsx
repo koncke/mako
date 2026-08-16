@@ -28,6 +28,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { InterruptorModo } from './InterruptorModo';
 import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_FAMILIAS, itemsDe, type NavItem, type NavGrupo } from './nav';
 import { tabEnCapa } from '@/lib/capas';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
@@ -647,10 +648,19 @@ export function Sidebar() {
           {MAKO_NAV.filter((it) => adminShell || puedeVer(it)).map((it) => (
             <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
           ))}
-          <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
-            style={identidadStyle(open, userOpen)}>
-            <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
-          </button>
+          {/* El perfil y, pegado a él, el claro/oscuro de ESTE usuario. Va acá y
+              no en el menú desplegable porque es un interruptor, no una opción:
+              se usa varias veces por día y esconderlo detrás de un click lo
+              convierte en una preferencia que nadie encuentra. Con la barra
+              plegada baja abajo del avatar, que es el único lugar donde entra
+              sin empujar nada. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: open ? 'row' : 'column' }}>
+            <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
+              style={{ ...identidadStyle(open, userOpen), flex: open ? 1 : 'none', minWidth: 0 }}>
+              <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
+            </button>
+            <InterruptorModo compacto={!open} />
+          </div>
         </div>
       </div>
 
