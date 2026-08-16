@@ -83,6 +83,86 @@ un campo que diga cuál de las dos cosas fue — y la métrica se queda con la m
 
 **Vive en:** `lib/landing-token.ts` (`huboInteraccion`, `hayPlayManual`) · mig `0136`
 
+### El video que sigue al video: una fuga de embudo que no se ve desde ningún lado
+
+Síntoma, reportado por el dueño: *«ese es mi propio VSL, uno viejo que NO debería estar
+allí… por más que ya eliminé la playlist ese video se sigue reproduciendo al final del VSL
+de Mauricio. Los clientes de Mauricio terminan confundidos»*.
+
+No era una playlist. Es un campo del propio video en Panda:
+
+```
+GET /videos/{id_interno} → config: {
+  "profile": "289794c4-…",
+  "videoRedirect": { "externalId": "d0b3e8db-…", "title": "Mentoría 1a1 con Martín Koncke" }
+}
+```
+
+Al terminar el VSL, Panda lleva **solo** al espectador a otro video. La playlist se borró
+meses antes; el `videoRedirect` quedó. Y es invisible por todos lados a la vez: no está en
+el HTML de la página, no produce ningún evento nuestro, no aparece en ninguna pantalla del
+cliente. La única forma de enterarse era que alguien mirara el video entero — sobre tráfico
+pago, en la landing con la campaña corriendo.
+
+**La API pública de Panda NO lo puede borrar, y está probado:**
+
+| Intento | Respuesta |
+|---|---|
+| `PUT /videos/{id}` con `{config:{profile}}` | `400 must NOT have additional properties: config` |
+| `GET /videos/{id}/config` · `/redirect` · `/settings` | `400` — la ruta no acepta sub-path |
+| `/video-redirect` · `/redirects` · `/videoRedirect/{id}` | `403` de API Gateway — no existen |
+| `GET /profile/{id}` (el player) | 200, y **no** menciona `redirect`: no vive ahí |
+
+El `PUT` documentado acepta cuatro campos y ninguno es `config`. Se quita a mano en el
+panel.
+
+**La regla que queda:** cuando una plataforma tiene una configuración que cambia lo que ve
+el visitante y **no** deja rastro en la página ni en los eventos, lo único que el sistema
+puede hacer es **leerla y decirla**. Está como chequeo del probador (ámbar, no rojo: no
+está roto, está mal configurado) con el nombre de los dos videos y dónde se toca.
+
+⚠️ **Y el chequeo NO se cuelga de `videosDetectados()`** aunque tenga el dato masticado: esa
+función hace una consulta de conteo **por video** y el chequeo corre dentro del poll del
+probador, que consulta **cada 3 segundos**. Serían N consultas extra cada 3 s por cada
+persona con el panel abierto para contestar algo que ya está en memoria. Cruza el catálogo
+de Panda (cacheado 5 min) con los `video_id` que ya vienen en la consulta de eventos.
+
+**Vive en:** `lib/panda.ts` → `catalogoPanda()` · `lib/landing-token.ts` → chequeo `redirect`
+
+### Para poder NOMBRAR un video había que conseguir que alguien lo mirara
+
+La pantalla que pide identificar los videos ofrecía un botón «Ver este video», y la URL del
+video viajaba **solo** en el evento `play`. O sea: la pregunta estaba al revés. Para poder
+contestar «¿cuál de estos dos es el VSL?» había que primero lograr que un visitante
+reprodujera uno. El dueño lo dijo así: *«¿por qué es necesario que alguien lo reproduzca
+para poder verlo? Es contraintuitivo»*.
+
+El dato existía desde antes de la primera visita, en dos lugares distintos:
+
+- **Panda** lo tiene por API desde que el video se subió: `video_player` (el embed exacto,
+  que no hay que armar a mano) y `title` — el título de verdad.
+- **El HTML de la página** lo tiene para todo lo demás: `<video src>`, `<source>`, los
+  iframes de YouTube y de Vimeo. No hace falta ninguna API para eso.
+
+⚠️ **La trampa del título:** el que se mostraba salía del atributo `title` del **iframe**,
+que es de la PÁGINA y no del video. En esta landing los dos videos se llamaban igual —«VSL
+Principal - Negocio que Escala»— así que el rótulo existía y no distinguía nada. Un dato
+que está pero no discrimina se ve idéntico a uno correcto.
+
+⚠️ **Y la regla del id de un `<video>` nativo vive DOS veces**, en `lib/landing-analisis.ts`
+(TypeScript) y adentro del snippet (un string de JS que corre en la página del cliente y
+por lo tanto no puede importar nada). Si se separan, los videos de la página dejan de casar
+con los eventos **en silencio**: la lista queda con dos filas para el mismo video y ninguna
+con URL. Lo único que lo impide es el test que corre las dos derivaciones sobre los mismos
+casos.
+
+**Límite honesto que queda:** una página que monta el video por JavaScript no lo trae en el
+HTML inicial. Es el caso de la landing de Mauricio (React), y ahí lo cubre Panda. Un
+YouTube montado por JS en una SPA no lo cubre nadie — y el botón, correctamente, no
+aparece.
+
+**Vive en:** `lib/landing-analisis.ts` → `videosDeHtml()` / `idNativo()` · `lib/panda.ts`
+
 ### Un `.limit(2000)` que devuelve 1000 filas, y las 1000 equivocadas
 
 Síntoma, reportado dos veces: *«aún no me muestra el video»*. El botón «Ver este video» de

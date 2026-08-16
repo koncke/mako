@@ -80,6 +80,27 @@ Corrección importante: **esto NO afecta a los anuncios**. Un anuncio pago rende
 
 ---
 
+## Estado: la Fase A está HECHA (2026-08-16)
+
+En el repo de la landing, sin tocar producción:
+
+- **`vercel.json`** (commit `c4f6a0a0`) — los rewrites de SPA, los tres headers de
+  seguridad que hoy pone el edge de Lovable, y el caché inmutable de `/assets/`. Mientras
+  el sitio se siga publicando desde Lovable, este archivo **no hace nada**.
+- **Guard de dominio en el Meta Pixel** (commit `629d1989`) — lista positiva de los dos
+  hosts reales. Sin él, cada carga de cualquier preview mandaba un PageView al pixel que
+  está optimizando la campaña, y una reserva de prueba metía dos conversiones que Meta no
+  deja borrar.
+
+⚠️ **`bun.lockb` NO se borró**, aunque el plan de abajo lo pida. El motivo apareció al
+ejecutarlo: producción todavía compila en **Lovable**, que usa bun, así que sacarle su
+lockfile no es el cambio de riesgo cero que el plan asumía. El lockfile que use Vercel se
+fija con `installCommand` cuando el proyecto de Vercel exista (Fase B) — eso es reversible
+y no toca la producción de hoy. El paso 3 del plan se lee con esta corrección.
+
+Falta de la Fase A: **arreglar la `og:image`** (paso 6), que es independiente de la
+migración.
+
 ## 3. El plan, en orden
 
 **Regla de oro: el DNS se toca en el PASO 9, y ni un minuto antes.** Todo lo de arriba es reversible y no toca producción.
