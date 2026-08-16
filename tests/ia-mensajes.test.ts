@@ -14,7 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { FRASE_PROHIBIDA, mensajeIAFallo, resumirErrores } from '../lib/ia-mensajes';
+import { FRASE_PROHIBIDA, mensajeIAFallo, resumirErrores, motivoDeErroresCascada } from '../lib/ia-mensajes';
 
 test('sin ninguna IA conectada: pedir una key es la respuesta correcta', () => {
   const m = mensajeIAFallo({ hayIA: false, motivo: null, tema: 'generar las razones' });
@@ -34,6 +34,34 @@ test('CON IA conectada NUNCA dice que no hay IA — es el bug que originó esto'
     assert.doesNotMatch(m, /No hay ninguna IA/, `dijo "no hay IA" con IA conectada: ${m}`);
     assert.doesNotMatch(m, new RegExp(FRASE_PROHIBIDA, 'i'), `mandó a pegar una key de Gemini: ${m}`);
   }
+});
+
+test('un 503 del proveedor NO se reporta como cuota agotada', () => {
+  // Caso real del 16/08, con un cliente esperando: 4 documentos, Gemini devolvió 503
+  // «This model is currently experiencing high demand», y el usuario leyó «Se quedó sin
+  // cuota / límite de uso alcanzado». Se perdió el tiempo buscando una cuota que no
+  // existía: la MISMA key contestaba 200 tres de tres minutos después.
+  //
+  // Son dos cosas opuestas y la diferencia es accionable: la cuota se arregla cargando
+  // otra key o pagando; la saturación se arregla ESPERANDO. Mandar a alguien a comprar
+  // créditos por un bache del proveedor es el peor consejo posible.
+  
+  for (const err of [
+    'gemini: HTTP 503 This model is currently experiencing high demand.',
+    'gemini · cuenta 2: 503 UNAVAILABLE',
+    'gemini: overloaded',
+    'openrouter: 502 Bad Gateway',
+  ]) {
+    const m = motivoDeErroresCascada([err]);
+    assert.ok(m, `no clasificó "${err}"`);
+    assert.doesNotMatch(m!, /sin cuota|límite de uso/i, `reportó saturación como cuota: ${err}`);
+    assert.match(m!, /saturado/i, `no dijo que el proveedor está saturado: ${err}`);
+  }
+  // Y una cuota de verdad sigue diciendo cuota.
+  assert.match(motivoDeErroresCascada(['gemini: HTTP 429 RESOURCE_EXHAUSTED'])!, /sin cuota|límite de uso/i);
+  // Cuando en la MISMA tanda hay 503 y 429, manda el 503: es lo que explica la tanda.
+  // (4 documentos seguidos contra un proveedor caído dan las dos cosas mezcladas.)
+  assert.match(motivoDeErroresCascada(['gemini: 503 high demand', 'gemini: 429 rate limit'])!, /saturado/i);
 });
 
 test('la salida propuesta coincide con la causa', () => {

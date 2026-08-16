@@ -19,6 +19,47 @@
 /** El literal prohibido: si aparece fuera de este módulo, es un mensaje que miente. */
 export const FRASE_PROHIBIDA = 'Conecta tu API key de Gemini';
 
+/**
+ * Traduce los errores CRUDOS que dejó la cascada en un motivo legible para una persona.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN `lib/ai-cheap.ts` POR UNA RAZÓN QUE YA SE PAGÓ. Es una función
+ * PURA que decide qué lee el usuario, y estaba encerrada adentro de un módulo con
+ * `server-only`: ningún test la podía importar. O sea que lo único sin red era
+ * justamente lo que le habla a la persona — la misma regla de la casa que sacó a
+ * `exigirClienteDePrueba` y a `model-catalogo` de sus módulos server-only.
+ *
+ * El precio de no tenerla testeada, cobrado el 16/08 con un cliente esperando: un 503
+ * de saturación se reportaba como «te quedaste sin cuota», y ese mensaje mandó a buscar
+ * una cuota agotada que no existía. La misma key contestaba 200 minutos después.
+ *
+ * null = ninguna pista clara; el caller cae al genérico.
+ */
+export function motivoDeErroresCascada(errores: string[]): string | null {
+  if (!errores.length) return null;
+  const todo = errores.join(' | ').toLowerCase();
+  // ⚠️ SATURACIÓN ANTES QUE CUOTA, Y ESE ORDEN ES EL ARREGLO. Un 503 «high demand» es el
+  // proveedor caído para todo el mundo: no gastaste nada, tu key está perfecta, y en dos
+  // minutos anda. Decirle a alguien «te quedaste sin cuota» lo manda a comprar créditos o
+  // a cargar otra key por un problema que no es suyo y que se arregla solo.
+  //
+  // Va PRIMERO porque un 503 y un 429 aparecen juntos en la misma tanda —cuatro
+  // documentos seguidos contra un proveedor que se está cayendo dan las dos cosas— y el
+  // que manda es el que explica la tanda, no el que aparece primero en la lista.
+  if (/\b50[234]\b|unavailable|overloaded|high demand|service_unavailable/.test(todo)) {
+    return 'El proveedor de IA está saturado en este momento (no es tu cuota ni tu key). Reintentá en un par de minutos.';
+  }
+  if (/resource_exhausted|insufficient_quota|quota|\b429\b|rate limit|rate_limit/.test(todo)) {
+    return 'Se quedó sin cuota / límite de uso alcanzado por ahora.';
+  }
+  if (/\b401\b|\b403\b|invalid.*key|api key not valid|unauthorized/.test(todo)) {
+    return 'La API key parece inválida o vencida.';
+  }
+  if (/timeout|abort|etimedout/i.test(todo)) {
+    return 'No respondió a tiempo — puede ser una falla momentánea de conexión.';
+  }
+  return null;
+}
+
 export type MotivoIA = { hayIA: boolean; motivo: string | null; errores?: string[]; tema?: string };
 
 /**

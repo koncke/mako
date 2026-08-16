@@ -29,7 +29,7 @@ import { credWs } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota } from '@/lib/ia-cuotas';
 import { clavesDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
-import { mensajeIAFallo } from '@/lib/ia-mensajes';
+import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
@@ -343,7 +343,20 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // quién caer. Un 429 NO se reintenta si hay otra cuenta esperando: esperar
       // 1,5 s para volver a pegarle a la cuota que se acabó es tiempo tirado.
       const otraCuenta = inst !== instancias[instancias.length - 1];
-      for (let intento = 0; intento <= 1; intento++) {
+      // ⚠️ CUÁNTO INSISTIR DEPENDE DE SI HAY A DÓNDE CAER, y esa es toda la diferencia.
+      // Con otra cuenta o otro proveedor esperando, un reintento alcanza: seguir
+      // golpeando al que falla es tiempo que el usuario mira una pantalla quieta.
+      // Pero cuando este es el ÚLTIMO —un workspace con un solo proveedor y una sola
+      // key, que es el caso normal de un cliente recién dado de alta— rendirse al primer
+      // reintento significa perder el documento entero por un bache de 3 segundos del
+      // proveedor.
+      //
+      // Pasó el 16/08 con un cliente esperando: Gemini devolvió 503 «high demand» y los
+      // 4 documentos se cayeron; minutos después la MISMA key contestaba 200 tres de tres.
+      // No era cuota, no era la key: era Google saturado y nadie atrás.
+      const ultimoRecurso = !otraCuenta && prov === orden[orden.length - 1];
+      const maxIntentos = ultimoRecurso ? 3 : 1;
+      for (let intento = 0; intento <= maxIntentos; intento++) {
         try {
           let t = await chatCheap({ ...base, json: opts.json });
           // La capa OpenAI-compat de Gemini a veces devuelve contenido VACÍO con
@@ -360,10 +373,12 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           console.warn(`[ai-cheap] cascade ${rotulo(inst)} falló${intento ? ' (reintento)' : ''}: ${m}`);
           opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
           const esCuota = /\b429\b|quota|rate.?limit|resource_exhausted/i.test(m);
-          const transitorio = /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET/i.test(m);
-          if (intento === 0 && transitorio && !(esCuota && otraCuenta)) {
-            await new Promise((r) => setTimeout(r, 1500));
-            continue; // reintentar la misma cuenta una vez
+          const transitorio = /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET|unavailable|overloaded|high demand/i.test(m);
+          if (intento < maxIntentos && transitorio && !(esCuota && otraCuenta)) {
+            // Espera creciente: 1,5s · 4s · 9s. Un 503 de saturación no se arregla en el
+            // mismo segundo, y volver enseguida es gastar el intento sin darle tiempo.
+            await new Promise((r) => setTimeout(r, 1500 * (intento + 1) ** 2));
+            continue;
           }
           break; // fallo no transitorio (o hay otra cuenta con cuota) → seguir rotando
         }
@@ -390,20 +405,11 @@ export async function errorDeCascada(errores: string[], tema: string): Promise<s
   return mensajeIAFallo({ hayIA, motivo: motivoDeErroresCascada(errores), errores, tema });
 }
 
-export function motivoDeErroresCascada(errores: string[]): string | null {
-  if (!errores.length) return null;
-  const todo = errores.join(' | ').toLowerCase();
-  if (/resource_exhausted|insufficient_quota|quota|\b429\b|rate limit|rate_limit/.test(todo)) {
-    return 'Se quedó sin cuota / límite de uso alcanzado por ahora.';
-  }
-  if (/\b401\b|\b403\b|invalid.*key|api key not valid|unauthorized/.test(todo)) {
-    return 'La API key parece inválida o vencida.';
-  }
-  if (/timeout|abort|etimedout/i.test(todo)) {
-    return 'No respondió a tiempo — puede ser una falla momentánea de conexión.';
-  }
-  return null;
-}
+// ⚠️ `motivoDeErroresCascada` SE MUDÓ a lib/ia-mensajes.ts, y no fue por prolijidad: es
+// una función PURA que decide qué lee el usuario y acá adentro —con `server-only`— ningún
+// test la podía importar. Lo único sin red era justo lo que le habla a la persona. Se
+// re-exporta para no tocar a los que ya la importaban de este módulo.
+export { motivoDeErroresCascada };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lectura de DOCUMENTOS / IMÁGENES (contratos, comprobantes) con IA multimodal.
