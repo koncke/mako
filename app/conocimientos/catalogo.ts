@@ -72,17 +72,14 @@ const CATEGORIA: Record<string, string> = {
   'claude-ai-rodrigo-rojo': 'Inteligencia Artificial',
   // Publicidad paga
   'anuncio-ganador': 'Anuncios',
-  // Alcance sin pauta. El SEO entra acá y no en una sección propia: es exactamente eso
-  // —tráfico que no se paga por click—, y una sección de un solo curso al lado de otra
-  // que significa lo mismo parte la búsqueda en dos sin agregar nada.
+  // Alcance sin pauta
   'inteligencia-viral-2026': 'Orgánico',
-  'bigseo-academy': 'Orgánico',
-  // «Instituto de Comunicación» va donde ya vive «Master Marca Personal 5.0»: los dos
-  // enseñan a construirse a uno mismo como el activo —voz, presencia, marca— y separarlos
-  // dejaría dos secciones que responden la misma pregunta. Si el grupo crece, la sección
-  // que pide a gritos es «Marca personal», y ahí se mudan LOS DOS: mientras sean dos, una
-  // sección nueva es un cajón con un curso.
-  'instituto-de-comunicacion': 'Orgánico',
+  // Posicionamiento en buscadores. Sección propia y no «Orgánico»: las dos son tráfico
+  // que no se paga por click, pero el que busca SEO busca SEO — la disciplina, sus
+  // herramientas y su vocabulario— y no «lo que no es pauta». Decisión del dueño.
+  'bigseo-academy': 'SEO',
+  // Trabajar sobre uno mismo: voz, comunicación, presencia. Decisión del dueño.
+  'instituto-de-comunicacion': 'Desarrollo personal',
   // Idiomas. Sección propia y no «Cursos externos» (el default que emite el pipeline):
   // un curso de inglés no comparte criterio de búsqueda con ninguna otra sección, y el
   // cajón «externos» agrupa por PROCEDENCIA, que no es lo que nadie viene a buscar.
