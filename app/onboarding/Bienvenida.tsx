@@ -42,6 +42,34 @@ const MS_PISTA = 3200;
 /** Lo que tarda el último nivel en terminar de aparecer, antes de subir el mapa. */
 const MS_CIERRE = 1900;
 
+/**
+ * Lo que rota al final de la frase. NO son adjetivos: son las cinco cosas que MaKo hace
+ * de verdad —los anuncios, las llamadas, la agenda, las respuestas—, así el efecto de
+ * tipeo hace doble trabajo y es también la lista de features. Si mañana MaKo deja de
+ * hacer alguna, esta lista miente, y es el único lugar donde hay que acordarse.
+ *
+ * La primera es la que eligió el dueño y la que se pinta en el server: el orden importa
+ * porque esa es la que ve alguien con el movimiento reducido, y la que evita un salto de
+ * hidratación.
+ */
+const FINALES = [
+  // El punto va ADENTRO de la frase, no suelto al final del párrafo: así se tipea y se
+  // borra con ella, que es como se escribe de verdad. Puesto afuera, la línea se leía
+  // «…qué hacer para escalar tus anun.» durante todo el tipeo.
+  'crecer tu negocio.',
+  'escalar tus anuncios.',
+  'cerrar más llamadas.',
+  'llenar tu agenda.',
+  'que tus leads te respondan.',
+];
+
+/** Velocidades del tipeo. Borrar va MÁS RÁPIDO que escribir: en la vida real uno borra de
+ *  un saque, y a la misma velocidad la frase se siente el doble de larga. */
+const MS_LETRA = 58;
+const MS_BORRAR = 26;
+/** Cuánto se queda quieta la frase entera. Tiene que alcanzar para LEERLA. */
+const MS_QUIETA = 1900;
+
 const CX = 500;
 const CY = 340;
 
@@ -104,6 +132,51 @@ const nodos: Nodo[] = [];
       }
     });
   });
+}
+
+/**
+ * El final de la frase, escribiéndose y borrándose.
+ *
+ * ⚠️ ARRANCA CON LA PRIMERA FRASE COMPLETA, no vacía. Es lo que hace que el HTML del
+ * server y el del cliente coincidan: si empezara vacía y se llenara en un efecto, el
+ * primer pintado diría «…qué hacer para .» y después saltaría. Y de paso es el orden
+ * natural — se lee la frase, después se borra.
+ */
+function Maquina({ activo }: { activo: boolean }) {
+  const [i, setI] = useState(0);
+  const [largo, setLargo] = useState(FINALES[0].length);
+  const [borrando, setBorrando] = useState(false);
+  const [quieto, setQuieto] = useState(false);
+
+  useEffect(() => {
+    // `quieto` corta el ciclo entero: con movimiento reducido la frase se queda en la
+    // primera y no parpadea nada. Un texto que se escribe solo es exactamente lo que esa
+    // preferencia pide evitar.
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) setQuieto(true);
+  }, []);
+
+  useEffect(() => {
+    if (!activo || quieto) return;
+    const frase = FINALES[i];
+    // Los tres estados del ciclo, cada uno con su espera.
+    if (!borrando && largo === frase.length) {
+      const t = setTimeout(() => setBorrando(true), MS_QUIETA);
+      return () => clearTimeout(t);
+    }
+    if (borrando && largo === 0) {
+      const t = setTimeout(() => { setBorrando(false); setI((x) => (x + 1) % FINALES.length); }, 320);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), borrando ? MS_BORRAR : MS_LETRA);
+    return () => clearTimeout(t);
+  }, [activo, quieto, i, largo, borrando]);
+
+  return (
+    <span className="bv-maq">
+      {FINALES[i].slice(0, largo)}
+      {!quieto && <span className="bv-cursor" aria-hidden />}
+    </span>
+  );
 }
 
 export function Bienvenida({ onComenzar }: { onComenzar: () => void }) {
@@ -207,7 +280,7 @@ export function Bienvenida({ onComenzar }: { onComenzar: () => void }) {
           Desde hoy MaKo será tu Segundo Cerebro™.
         </p>
         <p className="bv-golpe">
-          Nunca más tendrás que explicar tu negocio desde cero.
+          Nunca más vas a tener que adivinar qué hacer para <Maquina activo={paso >= 4} />
         </p>
         <button type="button" className="bv-boton" onClick={(e) => { e.stopPropagation(); arrancar(); }} disabled={!conTexto}>
           Comenzar
@@ -327,7 +400,21 @@ const ESTILOS = `
 .bv-golpe {
   font-family: ${SANS}; font-size: 15.5px; line-height: 1.5;
   color: rgba(243,240,231,.6); margin: 0 0 30px; max-width: 38ch;
+  /* ⚠️ ALTO FIJO DE DOS RENGLONES. Las frases que rotan miden distinto, así que al
+     cambiar de una a otra el párrafo cambia de alto y EMPUJA EL BOTÓN hacia abajo y
+     hacia arriba. Un botón que se mueve solo mientras alguien intenta apretarlo es la
+     peor forma de terminar esta pantalla. */
+  min-height: 2.9em;
 }
+/* Lo que se escribe va en el color pleno: es la parte viva de la frase, y en gris se
+   perdía justo lo que se quiere mirar. */
+.bv-maq { color: #F3F0E7; font-weight: 500; white-space: nowrap; }
+.bv-cursor {
+  display: inline-block; width: 1.5px; height: 1.05em; margin-left: 2px;
+  background: var(--mako); vertical-align: text-bottom;
+  animation: bv-cursor 1.1s steps(1) infinite;
+}
+@keyframes bv-cursor { 0%,55% { opacity: 1 } 56%,100% { opacity: 0 } }
 .bv-boton {
   width: 100%; padding: 18px 24px; border: none; border-radius: 999px;
   background: var(--mako); color: #14161B;
