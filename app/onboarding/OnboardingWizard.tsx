@@ -46,7 +46,6 @@ import { Dropdown } from '../components/Dropdown';
 import { PAISES, PAIS_DEFAULT, flagUrl } from '@/lib/paises';
 import { esPostergable, type PasoOnboarding } from '@/lib/capas';
 import { Bienvenida } from './Bienvenida';
-import type { Cerebro } from '@/lib/cerebro-modelo';
 import type { OnboardingStatus, PasoState } from '@/lib/onboarding-contrato';
 
 const MONO = "'Geist Mono', monospace";
@@ -147,11 +146,7 @@ type Pantalla = {
 };
 
 // =============================================================================
-export function OnboardingWizard({ cerebro = null }: {
-  /** El mapa real del cliente, para el fondo de la bienvenida. `null` = se entra sin
-   *  bienvenida: es un adorno, y nadie se queda afuera del producto por un adorno. */
-  cerebro?: Cerebro | null;
-} = {}) {
+export function OnboardingWizard() {
   const [data, setData] = useState<WizardData | null>(null);
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
@@ -276,13 +271,9 @@ export function OnboardingWizard({ cerebro = null }: {
   // Va ACÁ y no como una pantalla más del wizard, a propósito: no tiene barra de progreso,
   // ni «Atrás», ni paso que cerrar. Meterla adentro de `pantallas` habría obligado a que
   // el WizardShell sepa dibujarse a medias, y eso se filtra a todas las demás pantallas.
-  // `&& cerebro`: sin mapa no hay bienvenida. Es el fondo entero de la pantalla, y una
-  // bienvenida con un agujero negro atrás es peor que entrar derecho a la primera pregunta.
-  if (!bienvenidaVista && data.estado.status === 'pending' && cerebro) {
+  if (!bienvenidaVista && data.estado.status === 'pending') {
     return (
       <Bienvenida
-        cerebro={cerebro}
-        videoIntro="/onboarding/ojo-neurona.mp4"
         onComenzar={() => {
           setBienvenidaVista(true);
           // Sin `await`: el wizard ya se está dibujando y este POST solo deja la marca.

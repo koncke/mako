@@ -12,26 +12,28 @@ import { resolve } from 'node:path';
 
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, p), 'utf8');
 
-const grafo = leer('../app/second-brain/Grafo.tsx');
 const bienvenida = leer('../app/onboarding/Bienvenida.tsx');
 
-test('las clases del chrome que la bienvenida apaga siguen existiendo en el grafo', () => {
-  for (const clase of ['cbg-barra', 'cbg-tirador', 'cbg-detalle']) {
-    assert.ok(grafo.includes(clase), `Grafo.tsx ya no usa "${clase}"`);
-    assert.ok(bienvenida.includes(clase), `Bienvenida.tsx dejó de apagar "${clase}"`);
+test('los rótulos del segundo nivel salen del catálogo real, no copiados a mano', () => {
+  // La bienvenida ya NO monta Grafo.tsx —no sabe arrancar en un nodo solo ni revelar por
+  // niveles— pero eso no la habilita a inventar los nombres de las áreas. El nivel 2 se
+  // arma desde `AREAS` de lib/cerebro-modelo.ts, que es el mismo catálogo que dibuja
+  // /second-brain. Sin esta atadura, el día que se agregue un área esta pantalla queda
+  // mostrando un mapa que ya no existe, y nadie se entera: se ve igual de bien.
+  assert.ok(/from '@\/lib\/cerebro-modelo'/.test(bienvenida), 'dejó de importar el catálogo real');
+  assert.ok(/AREAS\.filter/.test(bienvenida), 'dejó de derivar las áreas del catálogo');
+  // Y los cinco rótulos narrativos son del pedido del dueño, en segunda persona.
+  for (const et of ['Tus anuncios', 'Tu Oferta', 'Tu Avatar', 'Tu Funnel']) {
+    assert.ok(bienvenida.includes(et), `falta el rótulo "${et}"`);
   }
-  // La variable del ancho de columna: sin ponerla en cero, el lienzo queda angosto y
-  // sobra una franja negra a la derecha donde vivía el panel.
-  assert.ok(grafo.includes('--cbg-col'), 'Grafo.tsx ya no usa --cbg-col');
-  assert.ok(bienvenida.includes('--cbg-col'), 'Bienvenida.tsx dejó de anular --cbg-col');
 });
 
-test('la bienvenida monta el grafo de verdad, no una copia', () => {
-  // Si alguien vuelve a dibujar una constelación propia acá, esto lo frena: el pedido
-  // del dueño fue textual — «no es necesario que inventes una animación si el grafo que
-  // ya hicimos actúa como animación, es interactivo y se ve más impresionante».
-  assert.ok(/from '@\/app\/second-brain\/Grafo'/.test(bienvenida), 'la bienvenida ya no importa el Grafo real');
-  assert.ok(/<Grafo\s/.test(bienvenida), 'la bienvenida ya no monta <Grafo>');
+test('el cerebro se arma con clicks, y el texto espera a que termine', () => {
+  // Es el pedido entero en una línea: cuatro pasos, los tres primeros por click.
+  assert.ok(/bv-p\$\{paso\}/.test(bienvenida), 'el paso dejó de gobernar el CSS');
+  assert.ok(/setPaso\(\(p\) => \(p < 3 \? p \+ 1 : p\)\)/.test(bienvenida), 'el avance por click cambió de forma');
+  assert.ok(/\.bv-p4 \.bv-titulo/.test(bienvenida), 'el texto dejó de esperar al último paso');
+  assert.ok(/\.bv-p4 \.bv-mapa \{ transform: translateY/.test(bienvenida), 'el mapa dejó de subir antes del texto');
 });
 
 test('el botón es la acción de la pantalla: ancho completo, no un link chico', () => {
