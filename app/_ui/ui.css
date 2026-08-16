@@ -61,6 +61,12 @@
 
 .mk-btn--primary { background: var(--primary); color: #fff; font-weight: 700; }
 .mk-btn--primary:hover:not(:disabled) { background: var(--primary-strong); }
+/* ⚠️ EN EL SCOPE OSCURO el primario cambia de tinta, y no es un gusto: ahí `--primary`
+   sube a #7FA6F8 y el blanco de arriba da 2,41:1 — falla 4,5:1 y se lee mal de verdad.
+   Con tinta oscura da 7,58:1. Va acá y no en la pantalla que lo destapó (la bienvenida
+   del onboarding) porque es del PRIMITIVE: cualquier pantalla oscura futura lo hereda.
+   Es la regla 2 de app/_ui/LEEME.md — si a un primitive le falta algo, se le agrega. */
+[data-tema="oscuro"] .mk-btn--primary { color: #12151B; }
 
 .mk-btn--secondary { background: var(--surface); color: var(--ink); border-color: var(--border-strong); }
 .mk-btn--secondary:hover:not(:disabled) { background: var(--surface-2); border-color: var(--dim); }
@@ -530,6 +536,52 @@
   .mk-row--stack > .mk-btn { width: 100%; }
 }
 
+/* ── Tarjetas de la fábrica de guiones (/content-machine) ──────────────────
+   El levante al pasar el cursor: dice «esto se abre» sin agregar un botón.
+   Vive acá y no en un style={{}} porque :hover y :focus-visible no existen en
+   los estilos en línea — que es exactamente cómo la app terminó con mil
+   botones que se ven distinto. */
+.mk-guion-card:hover,
+.mk-celda-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 1px 2px rgba(18, 21, 27, .05);
+  transform: translateY(-1px);
+}
+.mk-guion-card:focus-visible,
+.mk-celda-card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* La celda SIN guion: punteada, y al pasar el cursor se ofrece. El dorado acá
+   es correcto y es el único de la pantalla — dice «esto lo escribe MaKo». */
+.mk-celda-vacia {
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  transition: background .14s ease, border-color .14s ease, color .14s ease;
+}
+.mk-celda-vacia:hover {
+  background: var(--mako-bg);
+  border-color: var(--mako-border);
+  border-style: solid;
+  color: var(--mako-ink);
+}
+.mk-celda-vacia:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Respeta a quien pidió menos movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  .mk-guion-card:hover,
+  .mk-celda-card:hover { transform: none; }
+}
+
+/* Menú de filtros y pipeline de la galería de guiones. Van acá y no en un
+   style={{}} porque :hover y :focus-visible no existen en los estilos en línea:
+   sin esto, pasar el cursor por las filas del menú no producía ninguna reacción
+   y parecían texto muerto. */
+.mk-menu-fila:hover { background: var(--surface-2); }
+.mk-menu-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-pipe-item:hover { color: var(--ink); }
+.mk-pipe-item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ── La gramática de MaKo: UNA FILA y UNA PÍLDORA ─────────────────────────
    El catálogo de estados vive en lib/mako-gramatica.ts y la pieza en

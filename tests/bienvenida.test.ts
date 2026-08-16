@@ -36,15 +36,30 @@ test('el cerebro se arma con clicks, y el texto espera a que termine', () => {
   assert.ok(/\.bv-p4 \.bv-mapa \{ transform: translateY/.test(bienvenida), 'el mapa dejó de subir antes del texto');
 });
 
-test('el botón es la acción de la pantalla: ancho completo, no un link chico', () => {
-  // «hoy en día es mucho texto y el botón chiquito en el medio» (pedido del 16/08).
-  // ⚠️ Se busca la REGLA del botón, no la primera aparición del selector: hay una línea
-  // previa que lo agrupa con el título y la frase para dejarlos en opacity 0, y un
-  // `indexOf` la agarraba a ella. El test falló por eso y el botón estaba perfecto —
-  // un test que falla por su propia búsqueda enseña a ignorar los tests.
-  const regla = bienvenida.match(/\n\.bv-boton \{[\s\S]{0,400}/);
-  assert.ok(regla, 'no encontré la regla .bv-boton');
-  assert.ok(/width:\s*100%/.test(regla[0]), 'el botón dejó de ser de ancho completo');
+test('el botón es el del sistema, y de ancho completo', () => {
+  // «hoy en día es mucho texto y el botón chiquito en el medio» (16/08) y «el diseño del
+  // botón está muy feo» (17/08). Las dos cosas se resuelven con la MISMA pieza: el Button
+  // de app/_ui, que ya trae el ancho completo como prop.
+  //
+  // ⚠️ Y el dorado queda PROHIBIDO acá: app/_ui/Button.tsx lo dice textual — «mako es para
+  // pedirle algo a la inteligencia, nunca para navegar». Este botón navega.
+  assert.ok(/from '@\/app\/_ui'/.test(bienvenida), 'dejó de usar el sistema de diseño');
+  assert.ok(/<Button[\s\S]{0,160}variant="primary"/.test(bienvenida), 'el botón dejó de ser primary');
+  const jsx = bienvenida.slice(bienvenida.indexOf('<Button'), bienvenida.indexOf('<Button') + 200);
+  assert.ok(jsx.includes(' full '), 'el botón dejó de ser de ancho completo');
+  // El dorado no puede volver como estilo propio del botón. Se busca la regla, no el token
+  // suelto: `--mako` sigue siendo legítimo en el nodo central del mapa y en el cursor.
+  const reglaBoton = bienvenida.match(/\n\.bv[ .][^\n]*\.bv-boton[^{]*\{[^}]*\}/g) ?? [];
+  assert.ok(!reglaBoton.some((r) => r.includes('--mako')), 'volvió el dorado al botón');
+});
+
+test('la barra de agencia se DIBUJA, no se tapa', () => {
+  // La pantalla es fixed y pisa a la barra del modo agencia, que es la ÚNICA salida del
+  // super-admin. AGENTS.md: «si la única salida vive adentro de una pantalla condicional,
+  // no hay salida». Ya pasó una vez con el botón SALIR DE LA VISTA.
+  assert.ok(/adminBar/.test(bienvenida), 'la bienvenida dejó de recibir la barra');
+  assert.ok(/\{adminBar\}/.test(bienvenida), 'la recibe pero no la dibuja');
+  assert.ok(/stopPropagation/.test(bienvenida), 'sin stopPropagation, tocar la barra avanza el revelado');
 });
 
 test('el bloque de estilos no tiene comillas invertidas adentro', () => {

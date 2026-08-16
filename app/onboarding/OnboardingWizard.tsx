@@ -271,9 +271,41 @@ export function OnboardingWizard() {
   // Va ACÁ y no como una pantalla más del wizard, a propósito: no tiene barra de progreso,
   // ni «Atrás», ni paso que cerrar. Meterla adentro de `pantallas` habría obligado a que
   // el WizardShell sepa dibujarse a medias, y eso se filtra a todas las demás pantallas.
+  // ⚠️ LA BARRA DE AGENCIA SE DECLARA UNA VEZ Y LA USAN LAS DOS PANTALLAS. Es la única
+  // salida del modo agencia —lo dice su propio comentario en ImpersonationBanner— y por
+  // eso ninguna pantalla a pantalla completa puede taparla sin volver a dibujarla. La
+  // regla de AGENTS.md: «si la única salida vive adentro de una pantalla condicional, no
+  // hay salida». Ya pasó una vez con el botón SALIR DE LA VISTA.
+  const barraAgencia = data.esAdmin ? (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap',
+      padding: '9px 18px', background: '#14161B', color: '#F3F0E7',
+      borderBottom: '1px solid rgba(200,135,12,.4)', overflowX: 'auto',
+    }}>
+      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent-soft)', flex: 'none' }} />
+      <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(243,240,231,.75)', whiteSpace: 'nowrap', flex: 'none' }}>
+        Modo agencia · {data.capa.nombre}
+      </span>
+      <span style={{ flex: 1 }} />
+      <PanelAgencia
+        cliente={data.capa.nombre}
+        onCambio={() => { void cargar(); setRemonte((n) => n + 1); }}
+      />
+      <button type="button" onClick={async () => { await fetch('/api/admin/impersonate', { method: 'DELETE' }); window.location.href = '/admin'; }}
+        style={{
+          flex: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase',
+          padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(243,240,231,.3)',
+          background: 'transparent', color: '#F3F0E7', cursor: 'pointer', whiteSpace: 'nowrap',
+        }}>
+        Salir de la vista
+      </button>
+    </div>
+  ) : undefined;
+
   if (!bienvenidaVista && data.estado.status === 'pending') {
     return (
       <Bienvenida
+        adminBar={barraAgencia}
         onComenzar={() => {
           setBienvenidaVista(true);
           // Sin `await`: el wizard ya se está dibujando y este POST solo deja la marca.
@@ -645,38 +677,7 @@ export function OnboardingWizard() {
         }}
         onConfirmar={() => avanzar()}
         onClose={() => { /* bloqueante */ }}
-        adminBar={data.esAdmin ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap',
-            padding: '9px 18px', background: '#14161B', color: '#F3F0E7',
-            borderBottom: '1px solid rgba(200,135,12,.4)', overflowX: 'auto',
-          }}>
-            <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent-soft)', flex: 'none' }} />
-            <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(243,240,231,.75)', whiteSpace: 'nowrap', flex: 'none' }}>
-              Modo agencia · {data.capa.nombre}
-            </span>
-
-            <span style={{ flex: 1 }} />
-
-            {/* El MISMO panel que en el resto de la app: un solo control, y no
-                botones distintos según dónde estés parado. Al traer algo se
-                recarga la data del wizard y se remontan los pasos, para que el
-                resultado aparezca en la pantalla en vez de quedar invisible. */}
-            <PanelAgencia
-              cliente={data.capa.nombre}
-              onCambio={() => { void cargar(); setRemonte((n) => n + 1); }}
-            />
-
-            <button type="button" onClick={async () => { await fetch('/api/admin/impersonate', { method: 'DELETE' }); window.location.href = '/admin'; }}
-              style={{
-                flex: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase',
-                padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(243,240,231,.3)',
-                background: 'transparent', color: '#F3F0E7', cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>
-              Salir de la vista
-            </button>
-          </div>
-        ) : undefined}
+        adminBar={barraAgencia}
         escenario={
           p.faseQ != null ? (
             <FasePanel modo={p.faseQ >= 0 ? 'quiz' : 'result'} diag={faseDiag} />

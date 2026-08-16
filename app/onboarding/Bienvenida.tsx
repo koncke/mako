@@ -31,7 +31,8 @@
 // quiere y se va hacia atrás mostrando de qué está hecho.
 // =============================================================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Button } from '@/app/_ui';
 import { AREAS } from '@/lib/cerebro-modelo';
 
 const SANS = "'Geist', sans-serif";
@@ -63,12 +64,22 @@ const FINALES = [
   'que tus leads te respondan.',
 ];
 
-/** Velocidades del tipeo. Borrar va MÁS RÁPIDO que escribir: en la vida real uno borra de
- *  un saque, y a la misma velocidad la frase se siente el doble de larga. */
-const MS_LETRA = 58;
-const MS_BORRAR = 26;
-/** Cuánto se queda quieta la frase entera. Tiene que alcanzar para LEERLA. */
-const MS_QUIETA = 1900;
+/**
+ * Velocidades del tipeo. Están calibradas para que se lea como UNA PERSONA escribiendo,
+ * no como una máquina: a 58 ms por letra el texto aparecía de un saque y no se leía como
+ * nada. 165 ms son unas 55 palabras por minuto, que es lo que teclea alguien normal.
+ *
+ * Y no es constante: `jitter` le suma hasta 70 ms al azar por letra. Un intervalo
+ * PERFECTO es la firma de que lo escribe una computadora — el ojo lo detecta aunque no
+ * sepa decir por qué. La irregularidad es lo que lo vuelve humano.
+ *
+ * Borrar va más rápido que escribir porque en la vida real uno borra de un saque.
+ */
+const MS_LETRA = 165;
+const MS_BORRAR = 62;
+const MS_JITTER = 70;
+/** Cuánto se queda quieta la frase entera. Tiene que alcanzar para LEERLA sin apuro. */
+const MS_QUIETA = 2600;
 
 const CX = 500;
 const CY = 340;
@@ -167,7 +178,10 @@ function Maquina({ activo }: { activo: boolean }) {
       const t = setTimeout(() => { setBorrando(false); setI((x) => (x + 1) % FINALES.length); }, 320);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), borrando ? MS_BORRAR : MS_LETRA);
+    // El azar va DENTRO del efecto y no en el render: acá no rompe la hidratación
+    // —el server nunca ejecuta esto— y es lo que saca el ritmo de metrónomo.
+    const base = borrando ? MS_BORRAR : MS_LETRA;
+    const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), base + Math.random() * MS_JITTER);
     return () => clearTimeout(t);
   }, [activo, quieto, i, largo, borrando]);
 
@@ -179,7 +193,13 @@ function Maquina({ activo }: { activo: boolean }) {
   );
 }
 
-export function Bienvenida({ onComenzar }: { onComenzar: () => void }) {
+export function Bienvenida({ adminBar, onComenzar }: {
+  /** La barra del modo agencia. Se DIBUJA ACÁ ADENTRO, no se tapa: es la única salida del
+   *  modo agencia, y una pantalla a pantalla completa que la cubre deja al dueño sin forma
+   *  de volver. Ya pasó una vez en este repo. */
+  adminBar?: ReactNode;
+  onComenzar: () => void;
+}) {
   const [paso, setPaso] = useState(0);
   const [pista, setPista] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
@@ -231,6 +251,22 @@ export function Bienvenida({ onComenzar }: { onComenzar: () => void }) {
     >
       <style>{ESTILOS}</style>
 
+      {/* ⚠️ ARRIBA Y EN FLUJO, no debajo. La barra es sticky con z-index 100 y esta
+          pantalla era fixed con 60: perdía por z-index y quedaba tapada la franja de
+          arriba, que es justo donde el mapa se centra. Redibujarla acá adentro, como
+          primer hijo de una columna flex, resuelve las dos cosas de una: no la tapa Y el
+          alto no hay que descontarlo con un número — la barra crece si el nombre del
+          cliente envuelve, así que cualquier top de 47px se rompe solo.
+          El stopPropagation tampoco es opcional: sin él, tocar Salir de la vista burbujea
+          al lienzo y avanza el revelado. */}
+      {adminBar && (
+        <div style={{ flex: 'none', position: 'relative', zIndex: 6 }}
+             onPointerUp={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+          {adminBar}
+        </div>
+      )}
+
+      <div className="bv-lienzo">
       <div className="bv-velo" />
 
       <div className="bv-mapa">
@@ -276,15 +312,18 @@ export function Bienvenida({ onComenzar }: { onComenzar: () => void }) {
 
       <div className="bv-pie">
         <h1 className="bv-titulo">Bienvenido a MaKo</h1>
-        <p className="bv-frase">
-          Desde hoy MaKo será tu Segundo Cerebro™.
-        </p>
         <p className="bv-golpe">
-          Nunca más vas a tener que adivinar qué hacer para <Maquina activo={paso >= 4} />
+          Nunca más vas a tener que adivinar qué hacer para
+          <Maquina activo={paso >= 4} />
         </p>
-        <button type="button" className="bv-boton" onClick={(e) => { e.stopPropagation(); arrancar(); }} disabled={!conTexto}>
+        {/* El botón del SISTEMA, no uno propio. El dorado que tenía es el color de
+            «pedirle algo a MaKo» —la regla vive en app/_ui/Button.tsx— y esto es navegar.
+            El ancho completo que pidió el dueño ya es una prop del sistema (full), así
+            que deja de ser una excepción y pasa a ser una configuración. */}
+        <Button variant="primary" size="lg" full className="bv-boton" onClick={(e) => { e.stopPropagation(); arrancar(); }} disabled={!conTexto}>
           Comenzar
-        </button>
+        </Button>
+      </div>
       </div>
     </div>
   );
@@ -294,10 +333,17 @@ export function Bienvenida({ onComenzar }: { onComenzar: () => void }) {
 // comentario cierra el string y rompe el build entero. Lo cuida tests/bienvenida.test.ts.
 const ESTILOS = `
 .bv {
-  position: fixed; inset: 0; z-index: 60;
+  position: fixed; inset: 0;
+  /* 100 para empatarle a la barra de agencia (sticky, z-index 100) y ganarle por orden de
+     DOM. Sigue por debajo de los modales, que arrancan en 130 — eso es lo correcto. */
+  z-index: 100;
+  display: flex; flex-direction: column;
   background: #14161B; overflow: hidden; cursor: pointer;
   animation: bv-in 420ms ease both;
 }
+/* Lo que sobra después de la barra. El inset 0 del mapa pasa a referirse A ESTO y no al
+   viewport, que es la mitad del reclamo del dueño: el mapa se centra donde de verdad se ve. */
+.bv-lienzo { flex: 1; min-height: 0; position: relative; }
 .bv-fuera { animation: bv-out 420ms ease both; pointer-events: none; }
 @keyframes bv-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes bv-out { from { opacity: 1 } to { opacity: 0 } }
@@ -382,48 +428,44 @@ const ESTILOS = `
   display: flex; flex-direction: column; align-items: center; text-align: center;
   z-index: 4; cursor: default;
 }
-.bv-titulo, .bv-frase, .bv-golpe, .bv-boton { opacity: 0; }
-.bv-p4 .bv-titulo { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 260ms }
-.bv-p4 .bv-frase  { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 480ms }
-.bv-p4 .bv-golpe  { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 760ms }
-.bv-p4 .bv-boton  { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 1020ms }
+/* .bv .bv-boton y no .bv-boton: el sistema pone .mk-btn:disabled con opacity .45, y con
+   dos clases le gana a una sola. El botón está deshabilitado hasta el último paso, así que
+   se habría visto al 45% durante todo el revelado — justo lo que la entrada escalonada
+   existe para evitar. */
+.bv-titulo, .bv-golpe { opacity: 0; }
+.bv .bv-boton { opacity: 0; }
+
+/* Escalonado: titulo, frase, boton. Cada uno entra donde el ojo ya esta — leer un titulo
+   y que aparezca todo lo demas de golpe obliga a re-escanear la pantalla entera. */
+.bv-p4 .bv-titulo   { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 140ms }
+.bv-p4 .bv-golpe    { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 380ms }
+.bv.bv-p4 .bv-boton { animation: bv-sube 640ms cubic-bezier(.2,.7,.3,1) both; animation-delay: 640ms }
 @keyframes bv-sube { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
 
 .bv-titulo {
-  font-family: ${SANS}; font-size: clamp(30px, 4.4vw, 42px); font-weight: 600;
+  font-family: 'Geist', sans-serif; font-size: clamp(30px, 4.4vw, 42px); font-weight: 600;
   letter-spacing: -0.03em; line-height: 1.05; margin: 0 0 14px; color: #F8F6F0;
 }
-.bv-frase {
-  font-family: ${SANS}; font-size: 17px; line-height: 1.5; font-weight: 500;
-  color: #F3F0E7; margin: 0 0 6px;
-}
 .bv-golpe {
-  font-family: ${SANS}; font-size: 15.5px; line-height: 1.5;
-  color: rgba(243,240,231,.6); margin: 0 0 30px; max-width: 38ch;
-  /* ⚠️ ALTO FIJO DE DOS RENGLONES. Las frases que rotan miden distinto, así que al
-     cambiar de una a otra el párrafo cambia de alto y EMPUJA EL BOTÓN hacia abajo y
-     hacia arriba. Un botón que se mueve solo mientras alguien intenta apretarlo es la
-     peor forma de terminar esta pantalla. */
+  font-family: 'Geist', sans-serif; font-size: 17px; line-height: 1.5;
+  color: rgba(243,240,231,.66); margin: 0 0 32px; max-width: 42ch;
+  /* Alto fijo de dos renglones: las frases que rotan miden distinto, y sin esto el
+     parrafo cambia de alto y EMPUJA EL BOTON mientras alguien intenta apretarlo. */
   min-height: 2.9em;
 }
-/* Lo que se escribe va en el color pleno: es la parte viva de la frase, y en gris se
-   perdía justo lo que se quiere mirar. */
-.bv-maq { color: #F3F0E7; font-weight: 500; white-space: nowrap; }
+/* En su PROPIO renglon. Compartiendo linea con la parte fija, cada letra que entra empuja
+   el texto y la frase se re-acomoda a mitad del tipeo. En bloque, lo de arriba ni se
+   entera. Y nowrap cierra el caso del renglon que igual se pasara de largo. */
+.bv-maq {
+  display: block; margin-top: 2px;
+  color: #F3F0E7; font-weight: 500; white-space: nowrap;
+}
 .bv-cursor {
   display: inline-block; width: 1.5px; height: 1.05em; margin-left: 2px;
   background: var(--mako); vertical-align: text-bottom;
   animation: bv-cursor 1.1s steps(1) infinite;
 }
 @keyframes bv-cursor { 0%,55% { opacity: 1 } 56%,100% { opacity: 0 } }
-.bv-boton {
-  width: 100%; padding: 18px 24px; border: none; border-radius: 999px;
-  background: var(--mako); color: #14161B;
-  font-family: ${SANS}; font-size: 16.5px; font-weight: 700; cursor: pointer;
-  box-shadow: 0 8px 34px rgba(232,176,30,.3);
-  transition: box-shadow 150ms ease;
-}
-.bv-p4 .bv-boton:hover { box-shadow: 0 12px 42px rgba(232,176,30,.45); }
-.bv-boton:disabled { pointer-events: none; }
 
 @media (max-height: 760px) {
   .bv-svg { width: min(78vw, 800px) }
