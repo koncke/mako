@@ -33,6 +33,7 @@ import { EditarMeta } from './EditarMeta';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { Icon } from '../_components/icons';
 import { requireRolWs } from '@/lib/tab-access';
+import { pendientesOnboarding } from '@/lib/onboarding-pendientes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -106,6 +107,23 @@ export default async function GeneralPage() {
 
   // ── Semáforo: alertas accionables (compacto) ──
   const alertas: Alerta[] = [];
+
+  // Lo que dejó pendiente en el onboarding y TODAVÍA no resolvió. Va primero y va acá
+  // —no en un banner aparte— porque es exactamente lo que el Semáforo dice ser: algo
+  // que hay que hacer, con el lugar donde se hace. Y va en ÁMBAR, no en rojo: el
+  // cliente no se equivocó, eligió una salida que MaKo le ofreció.
+  //
+  // Que aparezca es la mitad que faltaba de la salida del wizard. La otra mitad es que
+  // DESAPARECE solo: `pendientesOnboarding` cruza el flag con la conexión real de hoy,
+  // así que conectar Meta desde /integraciones lo apaga sin tocar nada más.
+  for (const pend of await pendientesOnboarding().catch(() => [])) {
+    alertas.push({
+      nivel: 'ambar',
+      titulo: `Te quedó pendiente: ${pend.que.toLowerCase()}`,
+      detalle: 'Lo dejaste para después durante tu arranque. Mientras no esté, MaKo trabaja con la mitad de los datos de tu negocio.',
+      href: pend.ruta, hrefLabel: pend.donde,
+    });
+  }
   // Salud de la cuenta de Meta (live). UNSETTLED/DISABLED/saldo impago → la cuenta
   // no entrega aunque las campañas figuren ACTIVAS: urgencia roja al tope.
   if (saludMeta && saludMeta.severidad !== 'verde') {

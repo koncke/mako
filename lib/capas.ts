@@ -41,6 +41,54 @@ export function esPasoOnboarding(v: unknown): v is PasoOnboarding {
   return typeof v === 'string' && (PASOS_ONBOARDING as readonly string[]).includes(v);
 }
 
+/**
+ * Los pasos que se pueden DEJAR PENDIENTES y seguir.
+ *
+ * EL CRITERIO NO ES «cuál importa menos»: es **cuáles no se pueden terminar acá
+ * adentro**. Los dos de esta lista se cierran en un sistema de afuera —la consola de
+ * Meta, un mensaje de WhatsApp que tiene que llegar—, así que el cliente que se traba
+ * no se traba por no querer completarlos: se traba porque la pelota no la tiene él.
+ * Todos los demás son contenido de su negocio, que sabe y puede escribir ahora; ésos
+ * siguen siendo obligatorios y por eso la lista es corta.
+ *
+ * NO ES HIPOTÉTICO. De los cuatro clientes reales, los DOS que no terminaron el wizard
+ * murieron en un paso de conexión, ninguno en uno de contenido. Uno estuvo nueve días
+ * parado en Meta — y como el wizard es bloqueante, esos nueve días tampoco pudo entrar
+ * a usar el resto de MaKo, que no dependía de Meta para nada.
+ *
+ * ⚠️ `gemini` NO está y no es un olvido: seis pasos posteriores (entregable, avatares,
+ * persona, personalidad, ángulos, y la matriz) LO CONSUMEN. Postergarlo no te deja
+ * seguir: te deja seguir hasta la próxima pantalla y romper ahí, que es peor que
+ * frenar acá con el motivo escrito.
+ *
+ * ⚠️ LA REGLA GENERAL —«un paso solo es postergable si nada río abajo lo necesita»— NO
+ * TIENE VALIDACIÓN AUTOMÁTICA, y hay que decirlo en vez de suponerla. Quién depende de
+ * quién no está en ningún dato: vive en el `puedeAvanzar` de `OnboardingWizard.tsx`,
+ * como una cadena de ternarios en el cliente. Así que esta lista se sostiene con
+ * criterio humano al sumarle uno. Lo que sí queda amarrado es el resto: `POSTERGABLE_TXT`
+ * y los verificadores de `lib/onboarding-pendientes.ts` fallan a COMPILAR si un paso
+ * nuevo entra sin frase o sin forma de saber si sigue faltando, y `tests/onboarding-
+ * postergar.test.ts` clava la lista para que agrandarla sea una decisión y no un
+ * descuido.
+ */
+export const PASOS_POSTERGABLES = ['integraciones', 'tabs'] as const satisfies readonly PasoOnboarding[];
+
+/** ¿Este paso se puede dejar pendiente? Guard en positivo, igual que el de arriba. */
+export function esPostergable(v: unknown): v is PasoOnboarding {
+  return typeof v === 'string' && (PASOS_POSTERGABLES as readonly string[]).includes(v);
+}
+
+/**
+ * Qué le falta al cliente si dejó pendiente este paso, en una frase y en su idioma.
+ * Vive acá —y no en la pantalla que lo pinta— porque lo consumen el wizard (para
+ * ofrecer la salida) y `/general` (para el recordatorio), y una frase escrita dos veces
+ * es una frase que se queda vieja en una de las dos.
+ */
+export const POSTERGABLE_TXT: Record<(typeof PASOS_POSTERGABLES)[number], { que: string; donde: string; ruta: string }> = {
+  integraciones: { que: 'Conectar tus cuentas de publicidad', donde: 'Integraciones', ruta: '/integraciones' },
+  tabs: { que: 'Verificar tu teléfono para los reportes', donde: 'Perfil', ruta: '/perfil' },
+};
+
 export type CapaId = 'pm' | 'completo' | 'superadmin';
 
 export type CapaDef = {

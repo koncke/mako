@@ -9,76 +9,16 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
-import { capaDef, PASOS_ONBOARDING, type PasoOnboarding } from './capas';
+import { capaDef, type PasoOnboarding } from './capas';
+import { estadoInicial, type OnboardingState } from './onboarding-contrato';
+
+// La FORMA del estado y las reglas puras viven en `onboarding-contrato.ts`, sin
+// 'server-only', para que las pueda importar un test (lo que se decide ahí es si un
+// cliente entra a la app o vuelve al wizard). Se re-exportan desde acá para que ningún
+// call-site tenga que saber que son dos archivos.
+export * from './onboarding-contrato';
 
 export const ONBOARDING_KEY = 'onboarding.state';
-
-export type OnboardingStatus = 'pending' | 'in_progress' | 'skipped' | 'done';
-export type JobStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
-
-export type JobKey = 'meta_metrics' | 'meta_leads' | 'ad_transcripts' | 'script_analyses' | 'fathom_calls' | 'vsl_metrics';
-
-export type JobState = {
-  status: JobStatus;
-  /** cursor de reanudación (meta_metrics: fecha YYYY-MM-DD ya procesada más vieja). */
-  cursor?: string | null;
-  /** resumen corto para el panel ("día 120/365", "8 transcritos, 34 restantes"). */
-  detail?: string | null;
-  error?: string | null;
-  updatedAt?: string | null;
-};
-
-export type ExtractionState = {
-  status: 'idle' | 'running' | 'done' | 'error';
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  /** lease del runner activo (anti doble-tick entre pestañas): un tick solo
-   *  arranca si el lease está vencido; el runner vivo lo refresca al persistir. */
-  leaseAt?: string | null;
-  jobs: Record<JobKey, JobState>;
-};
-
-export type OnboardingState = {
-  version: 1;
-  status: OnboardingStatus;
-  /** paso actual del wizard (para retomar donde quedó). */
-  step: PasoOnboarding;
-  startedAt?: string | null;
-  completedAt?: string | null;
-  completedBy?: string | null;
-  /**
-   * Estado de CADA paso posible, no de los de una capa. Qué pasos se le muestran
-   * al cliente lo decide su capa (lib/capas.ts → capaDef().onboarding); acá
-   * guardamos todos para que cambiar de capa no pierda lo ya hecho: un cliente
-   * que pasa de Project Manager a Completo conserva su 'negocio' y solo le
-   * aparecen los pasos nuevos.
-   *
-   * ⚠️ Las claves SALEN de `PASOS_ONBOARDING`, no se escriben a mano. Esta lista
-   * era una de las cuatro copias paralelas que dejaron nacer roto el paso
-   * `productos`: mientras se mantengan por separado, el próximo paso nuevo repite
-   * el bug. `retroId` es el único dato extra de un paso, así que va aparte.
-   */
-  steps: Record<PasoOnboarding, { done: boolean }> & { retro: { done: boolean; retroId?: number | null } };
-  extraction: ExtractionState;
-};
-
-export const JOB_KEYS: JobKey[] = ['meta_metrics', 'meta_leads', 'ad_transcripts', 'script_analyses', 'fathom_calls', 'vsl_metrics'];
-
-export function estadoInicial(status: OnboardingStatus = 'pending'): OnboardingState {
-  const jobs = Object.fromEntries(JOB_KEYS.map((k) => [k, { status: 'pending' as JobStatus }])) as Record<JobKey, JobState>;
-  const steps = Object.fromEntries(PASOS_ONBOARDING.map((k) => [k, { done: false }])) as OnboardingState['steps'];
-  steps.retro = { done: false, retroId: null };
-  return {
-    version: 1,
-    status,
-    step: 'integraciones',
-    startedAt: null,
-    completedAt: null,
-    completedBy: null,
-    steps,
-    extraction: { status: 'idle', startedAt: null, finishedAt: null, jobs },
-  };
-}
 
 /** Estado del workspace ACTUAL. Sin fila → pending (cliente nuevo). */
 export async function getEstadoOnboarding(): Promise<OnboardingState> {
@@ -120,6 +60,10 @@ export async function patchEstadoOnboarding(fn: (s: OnboardingState) => void): P
  * status 'done' libera el dashboard. Todo lo demás (pending, in_progress, y
  * también 'skipped') vuelve al wizard — un cliente que no completó su arranque
  * NO puede entrar al dashboard bajo ningún motivo.
+ *
+ * Lo que SÍ libera es postergar un paso de conexión: no es una excepción a esta regla
+ * sino la forma de cumplirla sin encerrar a nadie, porque ese paso pasa a contar como
+ * cerrado (ver `onboardingCompleto`) y queda un recordatorio en /general.
  *
  * Aplica solo al ADMIN de cliente (o la agencia impersonando). El dueño (ws 1),
  * requests sin workspace y closer/setter → false (no hacen onboarding).

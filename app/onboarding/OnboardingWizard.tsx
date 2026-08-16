@@ -44,7 +44,7 @@ import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
 import { Dropdown } from '../components/Dropdown';
 import { PAISES, PAIS_DEFAULT, flagUrl } from '@/lib/paises';
-import type { PasoOnboarding } from '@/lib/capas';
+import { esPostergable, type PasoOnboarding } from '@/lib/capas';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -375,6 +375,27 @@ export function OnboardingWizard() {
     return undefined;
   };
 
+  /**
+   * A dónde se sale cuando un POST de 'paso' dejó el onboarding CERRADO.
+   *
+   * Está afuera de `avanzar` porque lo comparten los dos caminos de salida. Si viviera
+   * adentro, postergar el último paso de la capa cerraría el onboarding y mandaría al
+   * cliente al dashboard SIN plan — el único caso en que el plan de arranque no se
+   * escribe, y justo el del cliente que ya venía teniendo problemas.
+   */
+  const salidaTrasCerrar = async (estadoStatus?: string): Promise<string> => {
+    if (estadoStatus !== 'done') return home;
+    // TERMINÓ EL ONBOARDING → MaKo le escribe SU plan. Recién acá están guardados
+    // el diagnóstico, el archivero, los avatares, las razones y el lead magnet:
+    // es el primer momento en que se puede armar un plan que hable de su negocio
+    // y no una lista igual para todos. Si falla, no pasa nada: el cliente entra
+    // igual y la primera visita a /plan le siembra el piso de siempre.
+    setArmandoPlan(true);
+    const r = await post('/api/onboarding/plan-arranque', {}).catch(() => null) as { ok?: boolean; url?: string } | null;
+    setArmandoPlan(false);
+    return r?.ok && r.url ? r.url : home;
+  };
+
   const avanzar = async (guardar?: () => Promise<Record<string, unknown> | null>) => {
     setError(null);
     setPending(true);
@@ -395,21 +416,34 @@ export function OnboardingWizard() {
         // `estado.status`, así que un 500 dejaba el paso sin marcar y el cliente
         // volvía a aterrizar acá para siempre, sin ver un solo error.
         if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar el avance. Probá de nuevo.')); return; }
-        const cerrado = j.estado?.status === 'done';
-        if (cerrado) {
-          // TERMINÓ EL ONBOARDING → MaKo le escribe SU plan. Recién acá están guardados
-          // el diagnóstico, el archivero, los avatares, las razones y el lead magnet:
-          // es el primer momento en que se puede armar un plan que hable de su negocio
-          // y no una lista igual para todos. Si falla, no pasa nada: el cliente entra
-          // igual y la primera visita a /plan le siembra el piso de siempre.
-          setArmandoPlan(true);
-          const r = await post('/api/onboarding/plan-arranque', {}).catch(() => null) as { ok?: boolean; url?: string } | null;
-          if (r?.ok && r.url) destino = r.url;
-          setArmandoPlan(false);
-        }
+        destino = await salidaTrasCerrar(j.estado?.status);
       }
       if (enUltimo) { window.location.href = destino; return; }
       setIdx((i) => i + 1);
+    } finally { setPending(false); }
+  };
+
+  /**
+   * «Seguí sin esto»: deja el paso PENDIENTE y salta a la próxima sección.
+   *
+   * Salta la sección ENTERA, no una pantalla: si un paso tiene tres conexiones y el
+   * cliente posterga en la segunda, avanzar de a una lo deja en la tercera — o sea, le
+   * sigue pidiendo lo mismo que acaba de decir que no puede hacer ahora.
+   *
+   * Y el que decide si este paso se puede postergar es el SERVER (contra el catálogo de
+   * `PASOS_POSTERGABLES`); acá solo se dibuja el botón cuando corresponde. Si el 400
+   * llega igual, se muestra y no se avanza.
+   */
+  const postergar = async () => {
+    setError(null);
+    setPending(true);
+    try {
+      const j = await post('/api/onboarding', { action: 'paso', step: p.paso, postergar: true }) as
+        { ok?: boolean; error?: string; estado?: { status?: string } } | null;
+      if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar. Probá de nuevo.')); return; }
+      const siguiente = pantallas.findIndex((x, i) => i > idx && x.paso !== p.paso);
+      if (siguiente < 0) { window.location.href = await salidaTrasCerrar(j.estado?.status); return; }
+      setIdx(siguiente);
     } finally { setPending(false); }
   };
 
@@ -525,6 +559,27 @@ export function OnboardingWizard() {
         atrasLabel="Atrás"
         hideAtras={idx === 0}
         onAtras={() => setIdx((i) => Math.max(0, i - 1))}
+        // LA SALIDA. Solo en los pasos que se cierran en un sistema de afuera —la
+        // consola de Meta, un WhatsApp que tiene que llegar—: el cliente que se traba
+        // ahí no se traba por no querer, se traba porque la pelota no la tiene él, y
+        // el wizard es bloqueante. Un cliente real estuvo NUEVE DÍAS sin poder entrar a
+        // la app por esto, con todo lo demás ya contestado.
+        // «por ahora» no es relleno: dice que la decisión no es definitiva, que es justo
+        // lo que frena a alguien de apretar. Lo que deja pendiente le queda anotado en
+        // /general hasta que lo resuelva.
+        extraFooter={esPostergable(p.paso) ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => { if (!pending) void postergar(); }}
+            style={{
+              border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 13,
+              cursor: pending ? 'default' : 'pointer', textDecoration: 'underline', fontFamily: 'inherit',
+            }}
+          >
+            {p.servicio ? `Seguir sin ${p.nombre ?? p.servicio} por ahora` : 'Seguir sin verificar el teléfono por ahora'}
+          </button>
+        ) : undefined}
         onSiguiente={() => {
           if (campoBrief) return avanzar(() => post('/api/onboarding', { action: 'brief', brief: { [campoBrief.key]: answers[campoBrief.key] ?? '' } }));
           // Archivero: si le faltan datos, su "Siguiente" abre las preguntas (consumido)

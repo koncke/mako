@@ -12,7 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
-import { capaDef, esPasoOnboarding, type PasoOnboarding } from '@/lib/capas';
+import { capaDef, esPasoOnboarding, esPostergable, type PasoOnboarding } from '@/lib/capas';
 import { enviarCodigoVerificacion, verificarCodigoContacto, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
 import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, integracionConectada } from '@/lib/credenciales';
@@ -25,7 +25,7 @@ import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
 import { getAnswers, getSchema, saveAnswers } from '@/lib/onboarding';
 import { PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
-import { getEstadoOnboarding, pasosDeCapaActual, patchEstadoOnboarding, type OnboardingState } from '@/lib/onboarding-state';
+import { getEstadoOnboarding, onboardingCompleto, pasosDeCapaActual, patchEstadoOnboarding, type OnboardingState } from '@/lib/onboarding-state';
 
 export const dynamic = 'force-dynamic';
 
@@ -170,7 +170,16 @@ type Body = {
   step?: PasoOnboarding;
   done?: boolean;
   retroId?: number | null;
-  skip?: boolean;
+  /**
+   * «Seguí sin esto». Solo lo aceptan los pasos de `PASOS_POSTERGABLES`.
+   *
+   * Reemplaza a un `skip?: boolean` que ponía el estado entero en 'skipped' y que
+   * NINGUNA pantalla llamaba nunca. Era una mina: 'skipped' no libera el dashboard
+   * (a propósito) y no había forma de volver atrás, así que el único efecto posible
+   * de esa rama era encerrar a un cliente para siempre. Una salida de todo o nada no
+   * servía para el problema real, que es un solo paso que se resuelve afuera.
+   */
+  postergar?: boolean;
 };
 
 export async function POST(req: NextRequest) {
@@ -331,15 +340,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Avance del wizard: marcar paso, saltar todo, o completar.
+      // Avance del wizard: marcar un paso, dejarlo pendiente, o completar.
       case 'paso': {
         const quien = (await getUsuarioActual())?.email || 'admin-cliente';
-        // El onboarding se da por terminado al cerrar el ÚLTIMO paso DE SU CAPA,
-        // no al cerrar 'retro'. Clavarlo a 'retro' dejaba a cualquier capa que no
-        // termine ahí (ej. Project Manager, que cierra en 'plan') en in_progress
-        // para siempre → guardOnboarding la rebotaba al wizard en loop.
         const pasos = await pasosDeCapaActual();
-        const ultimo = pasos[pasos.length - 1];
         // El `step` llega de JSON: se valida contra el catálogo EN POSITIVO antes
         // de tocar el estado. Sin esto, un paso desconocido escribía sobre
         // `undefined` y devolvía 500 — y el wizard, que no mira `ok`, avanzaba
@@ -348,22 +352,39 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: `Paso desconocido: ${String(body.step)}` }, { status: 400 });
         }
         const paso = body.step;
+        // ⚠️ QUIÉN decide qué se puede postergar es el SERVER, contra el catálogo.
+        // Esconder el botón en la pantalla no protege nada —la regla de la casa— y
+        // acá el daño de que no se cumpla es exactamente el que este mecanismo vino
+        // a evitar: un cliente que se saltea el archivero entra a una app vacía y
+        // cree que el producto no funciona.
+        if (body.postergar && !esPostergable(paso)) {
+          return NextResponse.json(
+            { ok: false, error: `El paso "${String(paso)}" no se puede dejar pendiente: no depende de nada de afuera.` },
+            { status: 400 },
+          );
+        }
         const estado: OnboardingState = await patchEstadoOnboarding((s) => {
           if (s.status === 'pending') { s.status = 'in_progress'; s.startedAt = s.startedAt ?? new Date().toISOString(); }
-          if (body.skip) { s.status = 'skipped'; return; }
           if (paso) {
             s.step = paso;
+            // `postergado` y `done` conviven: postergar no cierra el paso, lo saca del
+            // camino. Cuando el cliente lo resuelva de verdad, se marca `done` encima.
+            if (body.postergar) s.steps[paso].postergado = true;
             if (body.done) {
               s.steps[paso].done = true;
               if (paso === 'retro') {
                 s.steps.retro.retroId = typeof body.retroId === 'number' ? body.retroId : s.steps.retro.retroId ?? null;
               }
-              if (paso === ultimo) {
-                s.status = 'done';
-                s.completedAt = new Date().toISOString();
-                s.completedBy = quien;
-              }
             }
+          }
+          // Se pregunta «¿están TODOS cerrados?», no «¿cerraste el último?». Con una
+          // salida en el medio las dos dejan de coincidir: quien postergue el último
+          // paso de su capa se quedaba `in_progress` para siempre. El detalle, en
+          // `onboardingCompleto`.
+          if (s.status !== 'done' && onboardingCompleto(s, pasos)) {
+            s.status = 'done';
+            s.completedAt = new Date().toISOString();
+            s.completedBy = quien;
           }
         });
         return NextResponse.json({ ok: true, estado });
