@@ -77,6 +77,11 @@ export function TemaCandidato() {
       {tema && (
         <div
           role="status"
+          // La marca existe para que una pantalla a pantalla completa lo pueda apagar sin
+          // saber nada de este componente: la bienvenida del onboarding lo hacía con
+          // `body:has(.bv)`. Es una herramienta del taller de diseño y no puede dibujarse
+          // encima de lo primero que ve un cliente.
+          data-chip-tema=""
           style={{
             position: 'fixed', left: 16, bottom: 16, zIndex: 5000,
             display: 'flex', alignItems: 'center', gap: 10,
