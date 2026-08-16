@@ -1,5 +1,8 @@
 'use client';
 
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
+
 // =============================================================================
 // NoEsTuyo — el link de un borrador que no es de tu cuenta
 // =============================================================================
@@ -21,7 +24,7 @@ async function irAlPlanDe(ws: number) {
   const r = await fetch('/api/admin/impersonate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ws }),
   }).then((x) => x.json()).catch(() => ({ ok: false }));
-  if (r?.ok) window.location.href = '/plan';
+  if (r?.ok) window.location.href = conWs('/plan', ws);
 }
 
 export function NoEsTuyo({ existe, deQuien, wsDestino, otros = [] }: {

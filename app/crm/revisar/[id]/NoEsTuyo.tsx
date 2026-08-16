@@ -1,5 +1,8 @@
 'use client';
 
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
+
 // =============================================================================
 // NoEsTuyo — el link de una propuesta que no es de tu cuenta
 // =============================================================================
@@ -21,7 +24,7 @@ async function irAlCrmDe(ws: number) {
   const r = await fetch('/api/admin/impersonate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ws }),
   }).then((x) => x.json()).catch(() => ({ ok: false }));
-  if (r?.ok) window.location.href = '/crm';
+  if (r?.ok) window.location.href = conWs('/crm', ws);
 }
 
 export function NoEsTuyo({ existe, deQuien, wsDestino }: {
@@ -33,6 +36,9 @@ export function NoEsTuyo({ existe, deQuien, wsDestino }: {
   wsDestino: number | null;
 }) {
   const puedeIr = existe && wsDestino != null;
+  // La pestaña que se está mirando. Sin esto, volver «a lo tuyo» te devuelve
+  // literalmente a lo TUYO aunque estuvieras revisando la cuenta de un cliente.
+  const ws = useWs();
   const btn = {
     padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)',
     background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS,
@@ -59,7 +65,7 @@ export function NoEsTuyo({ existe, deQuien, wsDestino }: {
               Ir al CRM de {deQuien}
             </button>
           )}
-          <button type="button" style={btn} onClick={() => { window.location.href = '/crm'; }}>
+          <button type="button" style={btn} onClick={() => { window.location.href = conWs('/crm', ws); }}>
             Ir a mi CRM
           </button>
         </div>

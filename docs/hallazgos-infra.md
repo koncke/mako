@@ -2696,3 +2696,39 @@ publicado sin que nadie lo vuelva a decidir.**
 
 La contrapartida es la que se buscaba: una mejora de la skill llega a todos los clientes
 con un `git push` al repo público, en vez de que cada uno la reinstale.
+
+## El bug estaba dormido desde julio y lo despertó un DATO, no un commit
+
+**Vive en:** `lib/tab-access.ts:48,86,111` · `app/inicio/page.tsx` · `app/_components/PanelAgencia.tsx:167,188` · `lib/workspace.ts` (`rutaConWs`)
+
+**Síntoma (16/08/2026).** El dueño reseteó el Cliente de Prueba y al volver a abrirlo cayó
+en `/onboarding` sin barra de agencia, sin wizard, con la sidebar de admin y su foto, y sin
+forma de volver a entrar. Lo reportó como «algo está pasando».
+
+**Causa, encadenada.** El RESET vacía `app_settings` **entero** (`lib/reset-workspace.ts`,
+sin filtro de key) y ahí adentro vivía la fila `onboarding.state`. Sin fila, el workspace
+vuelve a `pending` → por PRIMERA VEZ `onboardingPendiente()` devolvió `true` para ese
+cliente → se disparó `guardOnboarding()`, que hacía `redirect('/onboarding')` con la ruta
+pelada. Ahí se perdía el `?ws=3`, y el dueño aterrizaba en **su propio** onboarding.
+
+**Lo que más ahorra después: el diagnóstico obvio era el equivocado.** Se había pusheado a
+producción media hora antes, así que la hipótesis natural era «el commit rompió algo». La
+línea del redirect existía desde el **02/07** y estuvo dormida seis semanas porque ese
+workspace tenía `status: 'done'` y el guard nunca llegaba a evaluarse. **Lo que cambió no
+fue el código: fue el dato.** Antes de culpar al deploy, preguntá qué DATO se movió — un
+guard que nunca se cumplió no es un guard probado.
+
+**La regla:** hay cuatro formas de navegar y las cuatro llevan la pestaña (ver AGENTS.md).
+Contar tres fue el segundo error del mismo día: se barrieron los 26 `redirect()` del server
+dando la regla por cerrada, y la cuarta —`window.location.href`— quedó viva justo en
+`PanelAgencia`, el único componente que SOLO existe mientras mirás a otro cliente.
+
+**Y el corolario de UI:** un botón que hace su trabajo y después te muestra otra pantalla es
+indistinguible de un botón roto. El RESET borró 50+ tablas y el dueño lo reportó como que no
+había pasado nada, porque la navegación se llevó puesto el aviso de «Workspace vaciado».
+
+**Lo que quedó sin cerrar:** el RESET sigue sin dejar al workspace listo para usar — lo deja
+con el onboarding pendiente, o sea bloqueado. Para un workspace que existe PARA probar, eso
+es un paso manual cada vez.
+
+*Corrida del 16/08/2026 — 54 agentes, hallazgos verificados contra un escéptico por separado.*

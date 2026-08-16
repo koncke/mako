@@ -582,7 +582,9 @@ export async function createLeadAction(formData: FormData): Promise<void> {
   // (setter/closer se auto-asignan dentro de createLead si hay un único vendedor.)
   bust(TAG.leads);
   revalidatePath('/crm');
-  redirect(`/crm/${created.id}`);
+  // El barrido de redirects buscaba `redirect('/…')` con comilla simple y este se le
+  // escapó por ser un template literal. Misma regla: la navegación lleva la pestaña.
+  redirect(await rutaConWs(`/crm/${created.id}`));
 }
 
 /**

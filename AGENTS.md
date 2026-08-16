@@ -157,15 +157,26 @@ mano el 2026-08-11 y **en la misma sesión** ya decía «el impacto» donde el c
 `import type`, que tsx borra en runtime—, así que se importa: parsear objetos anidados
 con regex es cómo se cuelan los desfases que el script viene a evitar.
 
-# Un `redirect()` es navegación, y la navegación lleva el `?ws=`
+# Hay CUATRO formas de navegar, y las cuatro llevan el `?ws=`
 
-Todo `redirect()` interno del server va con **`rutaConWs`** (`lib/workspace.ts`). Sin eso
-pierde la pestaña, y **la forma en que falla no se parece a un bug: te deja mirando otra
-cuenta.**
+| Cómo | Con qué |
+|---|---|
+| Un link | `app/_ui/Link` (nunca `next/link`) |
+| Una llamada a `/api` | sale sola: el parche de `app/_components/WsFetch.tsx` |
+| Un `redirect()` del server | **`rutaConWs`** (`lib/workspace.ts`) |
+| Un `window.location.href` | **`conWs(destino, useWs())`** (`lib/ws-tab.ts`) |
 
-El repo ya tenía la regla escrita para las otras dos formas de navegar —`app/_ui/Link`
-para los links, el parche de `WsFetch` para las llamadas a `/api`— y le faltaba justo la
-tercera. Un redirect también es navegación.
+Si alguna pierde la pestaña, **la forma en que falla no se parece a un bug: te deja
+mirando otra cuenta.**
+
+⚠️ **Contar tres es el error que ya se cometió.** El 16/08 se barrieron los 26 `redirect()`
+del server dando la regla por cerrada, y la cuarta forma quedó viva **justo en el peor
+lugar**: `PanelAgencia.tsx`, el panel que SOLO se dibuja mientras mirás a otro cliente.
+Sus dos `window.location.href` pelados son las únicas navegaciones duras del repo que
+corren siempre adentro del modo agencia. Antes de dar por cerrado un barrido de
+navegación, enumerá las cuatro y buscá cada una por separado — un `grep` de `redirect('/`
+no ve un `window.location`, y tampoco ve un `redirect(\`/x/${id}\`)` con template literal
+(ése también se escapó).
 
 El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
 onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`
@@ -178,6 +189,12 @@ una cuenta distinta.
   capa y por rol, así que ese redirect se dispara desde cualquier pantalla. Ahí primero.
 - **Los alias de ruta cuentan.** `/setting → /chatbot`, `/dashboard → /marketing`,
   `/plan → /plan/agencia`: abrir un link viejo de un cliente te sacaba del cliente.
+- **Y un botón que hace su trabajo y después te muestra otra pantalla es
+  indistinguible de un botón roto.** El RESET del cliente de prueba vaciaba el workspace
+  entero —50+ tablas— y acto seguido hacía `window.location.href = '/onboarding'` sin la
+  pestaña: el dueño terminaba en SU propio onboarding, donde por supuesto no había
+  cambiado nada. Lo reportó como «le di al reset y no pasó nada». El aviso de «Workspace
+  vaciado: N registros» alcanzaba a pintarse y se lo llevaba puesto la navegación.
 - **La excepción es `/login`**, y una sola: sin sesión no hay pestaña que preservar, y
   arrastrar el id a una URL que se comparte sola sería contar a quién se estaba mirando.
 - **Ponerlo de más no cuesta nada.** `rutaConWs` devuelve el href intacto cuando no hay

@@ -21,7 +21,8 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from '@/app/_ui/Link';
+import { useRouter, useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 import { Icon } from './icons';
 import { AvisoFlotante } from './AvisoFlotante';
 
@@ -153,6 +154,11 @@ export function PanelAgencia({ cliente, onCambio }: {
   }
 
   /** Trae absolutamente todo y da el alta por terminada: derecho al dashboard. */
+  // ⚠️ Este panel SOLO se dibuja mientras mirás a otro cliente, así que sus dos
+  // navegaciones duras son las únicas del repo que corren siempre adentro del modo
+  // agencia — y son justo las que perdían la pestaña.
+  const ws = useWs();
+
   async function traerTodo() {
     setBusy('todo'); setAviso(null);
     try {
@@ -164,7 +170,11 @@ export function PanelAgencia({ cliente, onCambio }: {
       setAviso({ texto: `Cliente listo: ${j.copiado ?? 0} elementos. Entrando al dashboard…`, tono: 'info' });
       // Recarga dura y no router.refresh(): el onboarding pasó a 'done' y hay
       // que volver a pedir la ruta para que el guard sirva el dashboard.
-      window.location.href = '/inicio';
+      //
+      // ⚠️ CON `conWs`. Este panel SOLO existe mientras mirás a OTRO, así que una
+      // navegación dura sin el `?ws=` acá no es un detalle: te devuelve a tu propia
+      // cuenta justo después de cargarle los datos al cliente, y parece que no pasó nada.
+      window.location.href = conWs('/inicio', ws);
     } catch (e) {
       setAviso({ texto: e instanceof Error ? e.message : 'No se pudo completar.', tono: 'error' });
     } finally { setBusy(null); }
@@ -185,7 +195,15 @@ export function PanelAgencia({ cliente, onCambio }: {
       try { Object.keys(localStorage).filter((k) => k.toLowerCase().startsWith('mako')).forEach((k) => localStorage.removeItem(k)); } catch { /* modo privado */ }
       // Vaciado el workspace, el onboarding vuelve a estar pendiente: se va
       // derecho ahí, sin pasar por una pantalla que ya no tiene nada que mostrar.
-      window.location.href = '/onboarding';
+      //
+      // ⚠️ ESTA LÍNEA, SIN `conWs`, ERA EL BUG QUE EL DUEÑO REPORTÓ COMO «apreté RESET y
+      // no pasó nada». Pasaba: el workspace se vaciaba entero. Lo que fallaba es que
+      // acto seguido esto lo sacaba de la vista del cliente y lo depositaba en SU
+      // propio onboarding — donde, lógicamente, no había cambiado nada. El aviso de
+      // «Workspace vaciado: N registros» alcanzaba a pintarse y se lo llevaba puesto la
+      // navegación. Un botón que hace su trabajo y después te muestra otra pantalla es
+      // indistinguible de un botón roto.
+      window.location.href = conWs('/onboarding', ws);
     } catch (e) {
       setAviso({ texto: e instanceof Error ? e.message : 'No se pudo resetear.', tono: 'error' });
     } finally { setBusy(null); }

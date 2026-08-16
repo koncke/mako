@@ -1,5 +1,8 @@
 'use client';
 
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
+
 // =============================================================================
 // RevisarPropuesta — el dueño O el cliente responde el borrador de MaKo, de a 1
 // =============================================================================
@@ -158,7 +161,10 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     // (las destildó, les corrigió el texto) y un F5 no puede tirarlo.
     try { localStorage.setItem(LS_KEY, JSON.stringify({ paso, resp, dynQs, dynResp, dynFetched, extras, extrasFetched })); } catch { /* ignore */ }
   }, [LS_KEY, paso, resp, dynQs, dynResp, dynFetched, extras, extrasFetched]);
-  const irPlan = () => { window.location.href = '/plan'; };
+  // La pestaña que se está mirando. Sin esto, volver «a lo tuyo» te devuelve
+  // literalmente a lo TUYO aunque estuvieras revisando la cuenta de un cliente.
+  const ws = useWs();
+  const irPlan = () => { window.location.href = conWs('/plan', ws); };
   // Las tareas que ESTE wizard va a crear son solo las MÍAS: el server descarta las de
   // otras personas (aplicarPropuestas filtra esDeOtro), que viajan a SU tablero por su
   // propio camino. Contarlas acá hacía que el botón prometiera "Crear 3" y el server

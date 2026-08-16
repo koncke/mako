@@ -1,5 +1,8 @@
 'use client';
 
+// El Link de la casa, no un <a> crudo: preserva el ?ws= de la pestaña.
+import Link from '@/app/_ui/Link';
+
 // =============================================================================
 // OnboardingStories — las 3 etapas de la tab (Conectar → Contexto → Ensayo)
 // =============================================================================
@@ -175,7 +178,7 @@ export function OnboardingStories({
               {gruposFaltan.length > 0 && (
                 <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
                   Falta: {gruposFaltan.join(', ')}. Se completa en el{' '}
-                  <a href="/onboarding" style={{ color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>onboarding del negocio</a>
+                  <Link href="/onboarding" style={{ color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>onboarding del negocio</Link>
                   {' '}— con esos huecos, las secuencias salen más genéricas.
                 </div>
               )}
@@ -184,7 +187,7 @@ export function OnboardingStories({
             <Contexto eyebrow="Todavía no sé nada de tu negocio">
               El perfil del negocio está vacío, así que las secuencias saldrían genéricas.
               Complétalo en el{' '}
-              <a href="/onboarding" style={{ color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>onboarding del negocio</a>
+              <Link href="/onboarding" style={{ color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>onboarding del negocio</Link>
               {' '}(marca, oferta, cliente ideal) y esta tab lo toma sola. No hay nada
               nuevo que pedir aquí: lo que ya se sabe no se pregunta.
             </Contexto>
