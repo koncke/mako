@@ -25,6 +25,9 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { Icon } from './icons';
 import { AvisoFlotante } from './AvisoFlotante';
+import { WS_DISENO } from '@/lib/auth-session';
+import { TEMAS, ATTR_TEMA } from '@/lib/temas-candidatos';
+import { aplicarTemaCandidato } from './TemaCandidato';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -65,6 +68,77 @@ function BotonIcono({ icono, titulo, onClick, disabled, tono = 'neutro', cargand
   );
 }
 
+/**
+ * El cambiador de tema de la barra — solo en el cliente de diseño.
+ *
+ * Cicla entre «sin tema» y los candidatos, y el sol/luna cambia el modo. El
+ * estado real vive en <html>, así que esto se limita a leerlo y escribirlo: si
+ * el tema se cambia desde /admin/ui?tab=temas, este control se entera por el
+ * mismo evento y no hay dos verdades.
+ */
+function SelectorTema() {
+  const [tema, setTema] = useState<string | null>(null);
+  const [oscuro, setOscuro] = useState(false);
+
+  useEffect(() => {
+    const sync = () => {
+      setTema(document.documentElement.getAttribute(ATTR_TEMA));
+      setOscuro(document.documentElement.getAttribute('data-tema') === 'oscuro');
+    };
+    sync();
+    window.addEventListener('mako-tema-candidato', sync);
+    // Mientras este control existe, el chip flotante se calla: si no, quedan DOS
+    // interruptores de modo en la misma pantalla haciendo lo mismo. Lo encontró
+    // la verificación, que chocó con dos botones «Pasar a oscuro» a la vez.
+    document.documentElement.setAttribute('data-tema-en-barra', '1');
+    return () => {
+      window.removeEventListener('mako-tema-candidato', sync);
+      document.documentElement.removeAttribute('data-tema-en-barra');
+    };
+  }, []);
+
+  const nombre = TEMAS.find((t) => t.id === tema)?.nombre;
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {TEMAS.map((t) => {
+        const on = tema === t.id;
+        return (
+          <button
+            key={t.id} type="button"
+            title={`${t.nombre} — ${t.idea.slice(0, 90)}…`}
+            onClick={() => aplicarTemaCandidato(on ? null : t.id, oscuro)}
+            style={{
+              ...chip,
+              // El activo se invierte: en una barra oscura, el relleno claro es
+              // la única señal que no depende de un color de marca — que es
+              // justo lo que acá está en discusión.
+              background: on ? '#F3F0E7' : 'transparent',
+              color: on ? '#14161B' : '#F3F0E7',
+              borderColor: on ? '#F3F0E7' : 'rgba(243,240,231,.3)',
+              padding: '6px 10px',
+            }}
+          >
+            {t.nombre.replace('North', 'N.').replace('Nord N.', 'Hardline')}
+          </button>
+        );
+      })}
+      <button
+        type="button" onClick={() => tema && aplicarTemaCandidato(tema, !oscuro)}
+        disabled={!tema}
+        title={tema ? (oscuro ? 'Pasar a claro' : 'Pasar a oscuro') : 'Elegí un tema primero'}
+        aria-label={oscuro ? 'Pasar a claro' : 'Pasar a oscuro'}
+        style={{ ...chip, padding: '6px 9px', opacity: tema ? 1 : 0.4, cursor: tema ? 'pointer' : 'default' }}
+      >
+        {oscuro ? '☀' : '☾'}
+      </button>
+      <span style={{ fontSize: 11.5, color: 'rgba(243,240,231,.55)', whiteSpace: 'nowrap' }}>
+        {nombre ? `${nombre} · ${oscuro ? 'oscuro' : 'claro'}` : 'tema de la app'}
+      </span>
+    </span>
+  );
+}
+
 export function PanelAgencia({ cliente, onCambio }: {
   cliente: string;
   /** Se llama tras traer o eliminar. Sin él, refresco de ruta a secas. */
@@ -82,11 +156,16 @@ export function PanelAgencia({ cliente, onCambio }: {
   const [aviso, setAviso] = useState<{ texto: string; tono: 'info' | 'error' } | null>(null);
   const [confirmarReset, setConfirmarReset] = useState(false);
   const caja = useRef<HTMLDivElement | null>(null);
+  // El workspace lo dice el SERVER en la respuesta, no el `?ws=` de la URL: un
+  // parámetro lo escribe cualquiera. Acá solo decide qué se PINTA, pero la
+  // costumbre de no leerlo de la URL se mantiene igual.
+  const [wsPanel, setWsPanel] = useState<number | null>(null);
 
   const mirar = useCallback(async () => {
     try {
       const j = await (await fetch('/api/datos-mau', { cache: 'no-store' })).json();
       setDisponible(!!j.disponible);
+      setWsPanel(typeof j.ws === "number" ? j.ws : null);
       setAmbitos(Array.isArray(j.ambitos) ? j.ambitos : []);
       setCompletados(Array.isArray(j.completados) ? j.completados : []);
     } catch (e) {
@@ -221,6 +300,10 @@ export function PanelAgencia({ cliente, onCambio }: {
   return (
     <div ref={caja} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
       <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
+
+      {/* El cambiador de tema vive SOLO en el cliente de diseño: es el único
+          workspace donde mirar el rebrand no le cambia el color a nadie. */}
+      {wsPanel === WS_DISENO && <SelectorTema />}
 
       <button
         ref={btnRef} type="button" style={chip}

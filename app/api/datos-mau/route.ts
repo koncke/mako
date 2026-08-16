@@ -19,7 +19,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { WS_PRUEBA } from '@/lib/auth-session';
+import { esClienteDePrueba } from '@/lib/auth-session';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { AMBITOS, ambitosCompletados, completarConDatosDelDueno, eliminarDatosDelDueno, type AmbitoKey } from '@/lib/datos-mau';
 
@@ -32,9 +32,10 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 async function wsDePrueba(): Promise<number | null> {
   if (!(await getSesionAdmin())) return null;
   const ws = await getWorkspaceActual();
-  // Igualdad estricta contra UN workspace, no «distinto del dueño». La versión
-  // negativa dejaba pasar a todos los clientes reales.
-  return ws === WS_PRUEBA ? ws : null;
+  // Lista blanca explícita (hoy el cliente de prueba y el de diseño), NUNCA
+  // «distinto del dueño». La versión negativa dejaba pasar a todos los clientes
+  // reales, y sigue siendo la forma en que esto se rompe.
+  return esClienteDePrueba(ws) ? ws : null;
 }
 
 /** El catálogo, para que el panel global lo liste sin duplicar los nombres. */

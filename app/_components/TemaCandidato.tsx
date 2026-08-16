@@ -80,11 +80,26 @@ export function TemaCandidato() {
     { tema: null, oscuro: false },
   );
 
+  // Cuando el control vive en la barra de la agencia (dentro del Cliente de
+  // Diseño), el chip sobra: serían dos interruptores del mismo modo en la misma
+  // pantalla. La barra lo avisa con un atributo en <html>.
+  const [enBarra, setEnBarra] = useState(false);
+
   useEffect(() => {
-    const sincronizar = () => setEstado(leer());
+    const sincronizar = () => {
+      setEstado(leer());
+      setEnBarra(document.documentElement.hasAttribute('data-tema-en-barra'));
+    };
     sincronizar();
     window.addEventListener('mako-tema-candidato', sincronizar);
-    return () => window.removeEventListener('mako-tema-candidato', sincronizar);
+    // El atributo lo pone otro componente al montarse, que puede ser DESPUÉS que
+    // este efecto: sin observar el cambio, el chip quedaba visible igual.
+    const obs = new MutationObserver(sincronizar);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-tema-en-barra'] });
+    return () => {
+      window.removeEventListener('mako-tema-candidato', sincronizar);
+      obs.disconnect();
+    };
   }, []);
 
   const alternarModo = useCallback(() => {
@@ -102,7 +117,7 @@ export function TemaCandidato() {
     <>
       {/* eslint-disable-next-line react/no-danger */}
       <script dangerouslySetInnerHTML={{ __html: BOOT }} />
-      {tema && (
+      {tema && !enBarra && (
         <div
           role="status"
           style={{

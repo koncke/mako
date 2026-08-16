@@ -16,7 +16,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OWNER_WS, WS_PRUEBA, exigirClienteDePrueba } from '../lib/auth-session';
+import { OWNER_WS, WS_PRUEBA, WS_DISENO, WS_PRUEBAS, esClienteDePrueba, exigirClienteDePrueba } from '../lib/auth-session';
 
 test('el workspace del dueño no se vacía nunca', () => {
   assert.throws(() => exigirClienteDePrueba(OWNER_WS), /dueño/i);
@@ -38,6 +38,32 @@ test('un cliente REAL tampoco se vacía, aunque no sea el dueño', () => {
 
 test('el cliente de prueba sí pasa', () => {
   assert.doesNotThrow(() => exigirClienteDePrueba(WS_PRUEBA));
+});
+
+test('el cliente de DISEÑO también pasa, y es el único otro que puede', () => {
+  assert.doesNotThrow(() => exigirClienteDePrueba(WS_DISENO));
+  // La lista blanca tiene exactamente dos. Si mañana alguien agrega un tercero
+  // sin pensarlo, este test lo obliga a pasar por acá y a justificarlo.
+  assert.deepEqual([...WS_PRUEBAS].sort((a, b) => a - b), [WS_PRUEBA, WS_DISENO].sort((a, b) => a - b));
+  assert.equal(WS_PRUEBAS.length, 2);
+});
+
+test('el de diseño no es el del dueño ni pisa un cliente real que exista', () => {
+  assert.notEqual(WS_DISENO, OWNER_WS);
+  // 5 es un cliente REAL (Ananda) y 9/10/11 son personas del equipo: el id del
+  // cliente de diseño no puede ser ninguno de ésos, o «crearlo» sería
+  // apropiarse de un workspace ajeno.
+  for (const real of [5, 9, 10, 11]) assert.notEqual(WS_DISENO, real);
+});
+
+test('esClienteDePrueba no tira y contesta lo mismo que el guard', () => {
+  for (const ws of [WS_PRUEBA, WS_DISENO]) assert.equal(esClienteDePrueba(ws), true);
+  for (const ws of [OWNER_WS, 5, 9, 42]) assert.equal(esClienteDePrueba(ws), false);
+  // Es la versión que decide qué PINTAR, así que no puede explotar con basura.
+  for (const malo of [null, undefined, NaN, 0.5]) {
+    assert.doesNotThrow(() => esClienteDePrueba(malo as unknown as number));
+    assert.equal(esClienteDePrueba(malo as unknown as number), false);
+  }
 });
 
 test('un workspace que no es un entero se rechaza antes que nada', () => {

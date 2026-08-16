@@ -63,6 +63,39 @@ export const OWNER_WS = 1;
 export const WS_PRUEBA = 3;
 
 /**
+ * El workspace de prueba de DISEÑO — «Cliente de Diseño».
+ *
+ * Hermano del anterior, y separado a propósito: en el 3 se prueba que las cosas
+ * FUNCIONEN y en éste se prueba cómo se VEN. Compartirlos significaba que un
+ * reset a mitad de una prueba de tema te dejaba sin datos, y que un cambio de
+ * tema te ensuciaba la prueba funcional.
+ *
+ * Es el único workspace donde la barra de la agencia ofrece cambiar el tema del
+ * rebrand: así se puede mirar el rediseño sobre datos reales sin tocarle el
+ * color a ningún cliente de verdad hasta que esté decidido.
+ *
+ * El id es explícito y bajo (el 4 estaba libre y la secuencia ya pasó por ahí,
+ * así que no colisiona con un `crearWorkspace` futuro). Si algún día cambia, se
+ * cambia acá y en ningún lado más.
+ */
+export const WS_DISENO = 4;
+
+/**
+ * Los workspaces donde se puede romper. **Lista blanca, en positivo.**
+ *
+ * ⚠️ Que sean dos y no uno es exactamente el momento en que este guard se puede
+ * degradar sin que nadie lo note. La forma peligrosa sería volver a preguntar
+ * «¿no es el del dueño?»; la forma correcta sigue siendo enumerar. Un cliente
+ * nuevo NO entra acá solo, que es todo el punto.
+ */
+export const WS_PRUEBAS: readonly number[] = [WS_PRUEBA, WS_DISENO];
+
+/** ¿Este workspace es uno de los de prueba? Sin tirar, para decidir qué pintar. */
+export function esClienteDePrueba(ws: number | null | undefined): boolean {
+  return typeof ws === 'number' && WS_PRUEBAS.includes(ws);
+}
+
+/**
  * Tira si `ws` no es el cliente de prueba. La usa todo lo que borra en masa.
  *
  * Está acá, en un módulo SIN `server-only`, y no adentro de `reset-workspace.ts`,
@@ -75,8 +108,9 @@ export function exigirClienteDePrueba(ws: number): void {
   // El del dueño tiene su propio mensaje: es el error que más asusta y conviene
   // que se lea distinto del genérico.
   if (ws === OWNER_WS) throw new Error('El workspace del dueño no se resetea. Nunca.');
-  if (ws !== WS_PRUEBA) {
-    throw new Error(`Solo se puede vaciar el cliente de prueba (workspace ${WS_PRUEBA}). Este es el ${ws}, que es de un cliente real.`);
+  // Lista blanca explícita, nunca «distinto de». Ver WS_PRUEBAS.
+  if (!WS_PRUEBAS.includes(ws)) {
+    throw new Error(`Solo se puede vaciar un cliente de prueba (workspaces ${WS_PRUEBAS.join(' y ')}). Este es el ${ws}, que es de un cliente real.`);
   }
 }
 

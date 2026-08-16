@@ -144,6 +144,8 @@ export function LosTemas() {
         </div>
       </Section>
 
+      <ClienteDeDiseno />
+
       <Section titulo="Salí a probarlo donde duele" nota="una maqueta siempre se ve bien; estas pantallas no perdonan" card>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {PRUEBAS.map((p) => (
@@ -231,6 +233,90 @@ export function LosTemas() {
         </p>
       </Section>
     </>
+  );
+}
+
+/**
+ * El Cliente de Diseño: un workspace de prueba dedicado a mirar el rebrand.
+ *
+ * Existe separado del Cliente de Prueba (ws 3) por una razón práctica: en aquel
+ * se prueba que las cosas FUNCIONEN, y un reset a mitad de camino te deja sin
+ * datos justo cuando estabas mirando un tema. Acá se prueba cómo se VEN.
+ *
+ * Los datos NO los copia esta pantalla: los trae /api/datos-mau con
+ * `action:'todo'`, que es el mismo atajo del otro cliente de prueba y además
+ * cierra el onboarding. Una segunda copia de esa lógica se quedaría vieja.
+ */
+function ClienteDeDiseno() {
+  const [est, setEst] = useState<{ existe: boolean; conDatos: boolean; id: number } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const mirar = async () => {
+    try {
+      const j = await (await fetch('/api/admin/cliente-diseno', { cache: 'no-store' })).json();
+      if (j.ok) setEst({ existe: !!j.existe, conDatos: !!j.conDatos, id: j.id });
+    } catch { /* la sección simplemente no se puede usar */ }
+  };
+  useEffect(() => { void mirar(); }, []);
+
+  const crear = async () => {
+    setBusy('crear'); setError(null);
+    try {
+      const j = await (await fetch('/api/admin/cliente-diseno', { method: 'POST' })).json();
+      if (!j.ok) setError(j.error || 'No se pudo crear.');
+      await mirar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo crear.');
+    } finally { setBusy(null); }
+  };
+
+  if (!est) return null;
+  const href = `/general?ws=${est.id}`;
+
+  return (
+    <Section
+      titulo="El Cliente de Diseño"
+      nota="un workspace aparte para mirar el rebrand sin tocarle el color a ningún cliente real"
+      card
+    >
+      <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6, marginBottom: 14 }}>
+        Adentro de este cliente, la barra de la agencia trae el <strong style={{ color: 'var(--ink)' }}>cambiador de
+        temas</strong>: se salta de un candidato a otro y de claro a oscuro desde cualquier pantalla, sobre los datos
+        de Mauricio. Es la forma de decidir mirando el CRM lleno, no una maqueta.
+      </p>
+
+      {!est.existe && (
+        <div className="mk-row">
+          <Button onClick={() => void crear()} disabled={busy !== null}>
+            {busy === 'crear' ? 'Creando…' : `Crear el Cliente de Diseño (workspace ${est.id})`}
+          </Button>
+        </div>
+      )}
+
+      {est.existe && !est.conDatos && (
+        <>
+          <Banner tono="warn">
+            El workspace existe pero está vacío. Entrá y usá <strong>«Datos de Mauricio → Traer todo»</strong> en la
+            barra de arriba: copia todo y da el onboarding por cerrado de una.
+          </Banner>
+          <div className="mk-row" style={{ marginTop: 12 }}>
+            <ButtonLink href={href}>Entrar al Cliente de Diseño →</ButtonLink>
+          </div>
+        </>
+      )}
+
+      {est.existe && est.conDatos && (
+        <div className="mk-row">
+          <ButtonLink href={href}>Entrar al Cliente de Diseño →</ButtonLink>
+          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
+            Listo y con datos. El cambiador de temas está en la barra de arriba.
+          </span>
+        </div>
+      )}
+
+      {error && <Banner tono="bad">{error}</Banner>}
+    </Section>
   );
 }
 
