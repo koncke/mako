@@ -20,6 +20,37 @@
 export const FRASE_PROHIBIDA = 'Conecta tu API key de Gemini';
 
 /**
+ * ¿Este error se arregla conectando otra IA? Decide si al lado del error se dibuja la
+ * salida (`<ConectarIA>`) o si mostrarla sería ruido.
+ *
+ * ⚠️ VIVÍA COMO UN REGEX SUELTO EN UNA SOLA PANTALLA, y por eso la salida no aparecía
+ * donde hacía falta. Dos fallas encadenadas, las dos reales:
+ *
+ *  1. Solo `MatrizView` lo tenía. En el paso de la cara de marca y en el Archivero, el
+ *     cliente veía el error crudo y ninguna salida — en pleno onboarding, que es
+ *     exactamente cuando todavía no tiene una segunda IA cargada.
+ *  2. El regex viejo (`/API key|IA (no|conectada)|cuota|límite de uso|no respondió/i`)
+ *     **no matcheaba el error que de verdad tira Google**, porque llega EN INGLÉS:
+ *     «You exceeded your current quota … Quota exceeded for metric …». Buscaba «cuota»
+ *     y lo que venía era «quota». O sea que, aun copiando el componente a las otras
+ *     pantallas, no se habría dibujado nada.
+ *
+ * Por eso vive acá, en el módulo pure de los mensajes de IA, y tiene test.
+ */
+export function esErrorDeIA(e: string): boolean {
+  if (!e) return false;
+  return new RegExp([
+    'API key', 'api_key', 'apikey',
+    'IA (no|conectada|configurada)', 'ninguna IA', 'sin IA',
+    // Español y el CRUDO de los proveedores, que llega en inglés.
+    'cuota', 'quota', 'exceeded', 'límite de uso', 'rate.?limit', 'resource_exhausted',
+    'saturado', 'overloaded', 'high demand', 'unavailable',
+    'no respondió', 'no pudo analizar', 'no se pudo leer',
+    'billing', 'credits?\\b',
+  ].join('|'), 'i').test(e);
+}
+
+/**
  * Traduce los errores CRUDOS que dejó la cascada en un motivo legible para una persona.
  *
  * ⚠️ VIVE ACÁ Y NO EN `lib/ai-cheap.ts` POR UNA RAZÓN QUE YA SE PAGÓ. Es una función

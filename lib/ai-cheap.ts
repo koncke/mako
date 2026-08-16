@@ -484,12 +484,22 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
     const instancias = await provsDe(prov);
     if (!instancias.length) { sinKey.push(prov); continue; }
     for (const inst of instancias) {
-      try {
-        const text = prov === 'gemini' ? await leerConGemini(inst.key, opts, nroCuenta(inst)) : await leerConOpenAI(inst.key, opts, nroCuenta(inst));
-        if (text.trim()) return { text, provider: prov };
-        errores.push(`${rotulo(inst)}: respuesta vacía`);
-      } catch (e) {
-        errores.push(`${rotulo(inst)}: ${e instanceof Error ? e.message : String(e)}`);
+      // MISMO tercer eje que en chatCheapCascade: si el modelo está caído (503) o
+      // retirado (404), rotar cuentas no sirve — todas pegan contra el mismo modelo
+      // muerto. Acá pegó fuerte: el paso de la cara de marca es VISIÓN, y el free tier
+      // de `gemini-flash-latest` son 20 requests, que un onboarding se come solo.
+      for (const model of modelosAProbar(prov, undefined)) {
+        try {
+          const text = prov === 'gemini'
+            ? await leerConGemini(inst.key, opts, nroCuenta(inst), model)
+            : await leerConOpenAI(inst.key, opts, nroCuenta(inst));
+          if (text.trim()) return { text, provider: prov };
+          errores.push(`${rotulo(inst)}: respuesta vacía`);
+        } catch (e) {
+          errores.push(`${rotulo(inst)}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        // OpenAI no tiene lista de respaldo: no tiene sentido repetir con el mismo modelo.
+        if (prov !== 'gemini') break;
       }
     }
   }
@@ -517,9 +527,10 @@ async function leerConOpenAI(key: string, o: DocOpts, cuenta = 1): Promise<strin
   return j.choices?.[0]?.message?.content ?? '';
 }
 
-async function leerConGemini(key: string, o: DocOpts, cuenta = 1): Promise<string> {
+async function leerConGemini(key: string, o: DocOpts, cuenta = 1, modelPedido?: string): Promise<string> {
   // Endpoint NATIVO (no el OpenAI-compat): maneja PDF e imágenes vía inline_data.
-  const model = process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  // `modelPedido` lo pone la rotación de modelos de leerDocumentoIA; sin él, el de siempre.
+  const model = modelPedido || process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
   const imagenes = o.dataUrls && o.dataUrls.length ? o.dataUrls : [o.dataUrl];
   const partesImagen = imagenes.map((u) => {
     const m = u.match(/^data:([^;]+);base64,([\s\S]*)$/);

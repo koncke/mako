@@ -14,7 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { FRASE_PROHIBIDA, mensajeIAFallo, resumirErrores, motivoDeErroresCascada } from '../lib/ia-mensajes';
+import { FRASE_PROHIBIDA, mensajeIAFallo, resumirErrores, motivoDeErroresCascada, esErrorDeIA } from '../lib/ia-mensajes';
 
 test('sin ninguna IA conectada: pedir una key es la respuesta correcta', () => {
   const m = mensajeIAFallo({ hayIA: false, motivo: null, tema: 'generar las razones' });
@@ -139,4 +139,36 @@ test('GUARDA: si el vacío de la cascada se convierte en un MENSAJE, hay que ped
   }
   assert.deepEqual([...new Set(malos)], [],
     `Estos le explican al usuario por qué falló la IA sin haber pedido los errores: ${[...new Set(malos)].join(', ')}`);
+});
+
+test('el error CRUDO de Google dispara la salida (llega en INGLÉS)', () => {
+  // El regex viejo vivía suelto en MatrizView y buscaba «cuota». Lo que Google manda es
+  // «quota», así que con este error —el que vio un cliente en pleno onboarding— no
+  // aparecía ninguna salida ni aunque el componente hubiera estado puesto.
+  const crudo = 'No se pudo leer el documento con ninguna IA. gemini: You exceeded your current quota, please check your plan and billing details. * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.7-flash Please retry in 47.396659524s.';
+  assert.ok(esErrorDeIA(crudo), 'el error real de Google no dispara la salida');
+  // Y los otros que ya se vieron en producción.
+  for (const e of [
+    'Tu IA está conectada pero no pudo analizar "Documento Madre CI.docx" ahora mismo.',
+    'No pude analizar "Avatar para ADS.docx": Se quedó sin cuota / límite de uso alcanzado por ahora.',
+    'El proveedor de IA está saturado en este momento (no es tu cuota ni tu key).',
+    'gemini: 503 This model is currently experiencing high demand.',
+    'La API key parece inválida o vencida.',
+  ]) assert.ok(esErrorDeIA(e), `no dispara la salida: ${e}`);
+  // Y NO se ofrece conectar una IA por cualquier cosa: un error que no es de IA no lleva
+  // la caja. Una salida que aparece siempre es una salida que nadie lee.
+  for (const e of ['No encontré el archivo subido. Reintentá.', '"foto.bmp": formato no soportado (subí .txt, .md, .docx, .pdf o una imagen).', 'Datos de archivo inválidos.']) {
+    assert.ok(!esErrorDeIA(e), `ofrece conectar IA donde no corresponde: ${e}`);
+  }
+});
+
+test('GUARDA: el error de IA se dibuja con ErrorIA, no a mano', () => {
+  // La salida existía y estaba enchufada en UNA pantalla. Mientras cada una decida por
+  // su cuenta si la muestra, alguna no la va a mostrar — y va a ser la del onboarding,
+  // que es donde más duele. Estas tres son las que le hablan al cliente cuando la IA
+  // falla: si alguna deja de importar ErrorIA, es que volvió a quedarse sin salida.
+  for (const ruta of ['app/onboarding/PersonaView.tsx', 'app/onboarding/Archivero.tsx']) {
+    const src = readFileSync(new URL(`../${ruta}`, import.meta.url), 'utf8');
+    assert.ok(/from '\.\.\/_components\/ErrorIA'/.test(src), `${ruta} dejó de ofrecer la salida cuando la IA falla`);
+  }
 });

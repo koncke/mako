@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
+import ErrorIA from '../_components/ErrorIA';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -168,7 +169,9 @@ export function PersonaView({ onListo }: { onListo?: (listo: boolean) => void } 
           {warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: 'var(--warn)', lineHeight: 1.5 }}>· {w}</div>)}
         </div>
       )}
-      {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{err}</div>}
+      {/* El error de IA va SIEMPRE con su salida: acá el cliente veía el error crudo de
+          Google y ningún botón, en pleno onboarding. Ver app/_components/ErrorIA.tsx. */}
+      <ErrorIA error={err} onConectada={() => setErr(null)} />
     </div>
   );
 }

@@ -1,23 +1,35 @@
 'use client';
 
 // =============================================================================
-// MatrizView — la MATRIZ 3×3 (avatar × razón), con pop-up rico por celda
+// MatrizView — los anuncios en potencia (avatar × razón), en CARRILES
 // =============================================================================
-// La tabla: filas = avatares, columnas = las razones de ESE avatar. Cada celda es un
-// anuncio en potencia; al hacer clic se abre un modal (tamaño FIJO, scroll interno)
-// con tabs: Contexto (copy + avatar + razón + lead magnet, todo desplegable),
-// Guiones, Imagen y Video. Crear un guion NUNCA pide redactar nada (pedido
-// explícito: "la IA facilita"): o MaKo lo hace SOLO en un clic (elige ángulo,
-// estructura y escribe), o el dueño "elige con MaKo" — la IA sugiere el ángulo y
-// convierte sus preguntas en CERRADAS con opciones ya escritas; solo se toca un
-// botón. Lee /api/onboarding/razones.
+// Un carril por avatar; adentro, una tarjeta por razón de compra. Cada tarjeta
+// es un anuncio en potencia.
+//
+// Antes esto era una TABLA, y la tabla mentía: la grilla obligaba a que todos
+// los avatares tuvieran la misma cantidad de razones y rellenaba los faltantes
+// con «—», y las columnas se llamaban «Razón 1/2/3» — una numeración que no
+// codifica nada. En carriles cada avatar tiene las razones que tenga, la
+// tarjeta tiene lugar para decir CÓMO VIENE (estado más avanzado + cuántos
+// guiones), y la cobertura se lee sin leyenda: sólido = ya tiene guion,
+// punteado = falta escribirlo.
+//
+// La tarjeta punteada es la invitación: un clic y MaKo escribe el guion ahí
+// mismo, sin abrir el modal. Al hacer clic en una que ya tiene guion se abre el
+// pop-up (alto FIJO, scroll interno) con tabs Contexto · Guiones · Imagen ·
+// Video. Crear un guion NUNCA pide redactar nada (pedido explícito: "la IA
+// facilita"): o MaKo lo hace SOLO, o "elige con MaKo" — la IA sugiere el ángulo
+// y convierte sus preguntas en CERRADAS con opciones ya escritas.
+// Lee /api/onboarding/razones.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { formatoPorId, type Medio } from '@/lib/angulos-data';
 import { SeccionCard, parsearSecciones, type Seccion } from '../components/SeccionCard';
-import ConectarIA from '../_components/ConectarIA';
-import { fechaGuion, type GuionItem, type EstadoGuion } from './guion-ui';
+import ErrorIA from '../_components/ErrorIA';
+import { fechaGuion, estadoMasAvanzado, ESTADO_GUION_LABEL, TONO_ESTADO_GUION, type GuionItem, type EstadoGuion } from './guion-ui';
 import { EstadoChip } from './EstadoChip';
+import { useConfirm, Status } from '../_ui';
+import { MakoStar } from '../_components/MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -35,6 +47,15 @@ const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border:
 const btnMini: CSSProperties = { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 
+/** La geometría común de las tres caras de una celda (con guion, sin guion,
+ *  escribiendo): el mismo alto y el mismo radio, para que la grilla no salte
+ *  cuando una cambia de estado. */
+const celdaBase: CSSProperties = {
+  display: 'flex', flexDirection: 'column', gap: 8,
+  minHeight: 108, padding: '14px 16px',
+  borderRadius: 'var(--r-lg)', cursor: 'pointer', minWidth: 0,
+};
+
 // Ícono por sección del guion (las etiquetas salen de las estructuras del catálogo).
 const ICONO_GUION: Record<string, string> = {
   GANCHO: '🎣', HISTORIA: '📖', VALOR: '🎓', PROPUESTA: '💥', CTA: '👉',
@@ -47,9 +68,10 @@ const ICONO_GUION: Record<string, string> = {
 // independientes; el campo guardado sigue siendo un solo string con etiquetas).
 const reconstruirGuion = (secciones: Seccion[]) => secciones.map((s) => `${s.titulo}\n${s.texto}`).join('\n\n');
 
-/** ¿El error viene de la IA (falta key, cuota, key vencida) y no de otra cosa?
- *  Los textos los arma errorDeCascada() (lib/ai-cheap.ts → lib/ia-mensajes.ts). */
-const esErrorDeIA = (e: string) => /API key|IA (no|conectada)|cuota|límite de uso|no respondió/i.test(e);
+// ⚠️ ACÁ VIVÍA `esErrorDeIA`, un regex suelto, y de acá se fue por dos razones que se
+// pagaron juntas: era la única pantalla que lo tenía (las del onboarding mostraban el
+// error sin ninguna salida) y buscaba «cuota» cuando Google manda «quota» — o sea que
+// tampoco habría funcionado copiándolo. Ahora vive en lib/ia-mensajes.ts, con test.
 
 function Edit({ valor, onSave, multiline, style }: { valor: string; onSave: (v: string) => void; multiline?: boolean; style?: CSSProperties }) {
   return (
@@ -60,8 +82,12 @@ function Edit({ valor, onSave, multiline, style }: { valor: string; onSave: (v: 
   );
 }
 
-export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken }: {
+export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken, sinCabecera, onCambio }: {
   onListo?: (listo: boolean) => void;
+  /** El shell de Content Machine ya pone el título y «Rehacer la matriz», así que
+   *  ahí la cabecera propia sobra. En el hub de onboarding NO hay shell: sin
+   *  esto, la tab se quedaría sin forma de regenerar. */
+  sinCabecera?: boolean;
   /** Celda a abrir apenas se monte/cambie (la usa "↗ Anuncio" de la vista global
    *  de guiones para saltar del guion al anuncio del que salió). */
   abrirCeldaId?: string | null;
@@ -69,6 +95,11 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
   /** Cambiar este número fuerza una recarga desde la API: la vista global toca
    *  los mismos guiones, y sin esto la matriz seguiría mostrando lo de antes. */
   recargarToken?: number;
+  /** Aviso de "acabo de escribir en el servidor". Es la vuelta del `recargarToken`,
+   *  que solo iba de padre a hijo: sin esto, quien monta esta vista se queda con
+   *  una copia vieja de la matriz — y si después guarda algo con esa copia, borra
+   *  los guiones que se generaron acá. */
+  onCambio?: () => void;
 } = {}) {
   const [est, setEst] = useState<Estado | null>(null);
   const [entregables, setEntregables] = useState<Entregable[]>([]);
@@ -84,6 +115,11 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
   // CERRADAS con opciones ya escritas; el dueño solo toca botones.
   const [nuevo, setNuevo] = useState<NuevoGuion | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
+  // Qué celda está escribiendo MaKo ahora mismo. Sirve para mostrar el trabajo
+  // EN la tarjeta que corresponde: se ve DÓNDE está trabajando, no un spinner
+  // suelto en el medio de la pantalla.
+  const [autoEnCelda, setAutoEnCelda] = useState<string | null>(null);
+  const { confirm, confirmNode } = useConfirm();
 
   const cargar = useCallback(async () => {
     try {
@@ -96,6 +132,10 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargando(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar, recargarToken]);
+  /** Aplica el estado que devolvió un POST y avisa hacia afuera. Todo lo que
+   *  ESCRIBE pasa por acá: si alguna escritura se saltea este helper, quien monta
+   *  esta vista se queda con datos viejos y su próximo guardado los pisa. */
+  const aplicar = (j: Estado) => { setEst(j); onCambio?.(); };
   useEffect(() => { onListo?.(!!est && est.razones.length > 0); }, [est, onListo]);
   // Salto "guion → su anuncio": solo cuando la celda ya existe en lo cargado
   // (si no, el modal quedaría en blanco esperando datos que aún no llegaron).
@@ -111,14 +151,14 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
     setGen(true); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generar' }) })).json();
-      if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo generar la matriz.');
+      if (j.ok) aplicar(j as Estado); else setErr(j.error || 'No se pudo generar la matriz.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGen(false); }
   };
 
   const guardar = async (razones: Celda[]) => {
     setEst((e) => (e ? { ...e, razones } : e));
     const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guardar', razones }) })).json();
-    if (j.ok) setEst(j as Estado);
+    if (j.ok) aplicar(j as Estado);
   };
   const editar = (id: string, campo: keyof Celda, v: unknown) => {
     if (!est) return;
@@ -128,15 +168,22 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
     setGenGuion('manual'); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guion', id, ...params }) })).json();
-      if (j.ok) { setEst(j as Estado); setNuevo(null); } else setErr(j.error || 'No se pudo generar el guion.');
+      if (j.ok) { aplicar(j as Estado); setNuevo(null); } else setErr(j.error || 'No se pudo generar el guion.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGenGuion(false); }
   };
+  /** Escribir el guion DESDE la tarjeta de la matriz, sin abrir el modal: el
+   *  gesto entero es un clic. Marca la celda para mostrar el trabajo ahí mismo. */
+  const escribirEnCelda = async (id: string) => {
+    setAutoEnCelda(id);
+    try { await generarGuionAuto(id); } finally { setAutoEnCelda(null); }
+  };
+
   // "MaKo lo hace solo": un clic — la IA elige ángulo + estructura y escribe.
   const generarGuionAuto = async (id: string) => {
     setGenGuion('auto'); setErr(null); setNuevo(null);
     try {
       const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guion-auto', id }) })).json();
-      if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo generar el guion.');
+      if (j.ok) aplicar(j as Estado); else setErr(j.error || 'No se pudo generar el guion.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGenGuion(false); }
   };
   // "Elegir con MaKo": pide la sugerencia (ángulo + estructura + preguntas
@@ -162,7 +209,7 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
     setGenAngulo(medio); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'angulo', id, medio }) })).json();
-      if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo elegir el ángulo.');
+      if (j.ok) aplicar(j as Estado); else setErr(j.error || 'No se pudo elegir el ángulo.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGenAngulo(null); }
   };
 
@@ -179,14 +226,13 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
     URL.revokeObjectURL(url);
   };
 
-  const css = <style>{'@keyframes mtz-spin{to{transform:rotate(360deg)}}@keyframes mtz-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}.mtz-edit:hover{background:var(--surface-2)}.mtz-edit:focus{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-strong)}.mtz-cell:hover{background:var(--surface-2)!important;border-color:var(--primary)!important}.mtz-cell:hover .mtz-arrow{color:var(--primary)!important}.mtz-angulo:hover{border-color:var(--primary)!important;background:var(--primary-bg)!important}'}</style>;
+  const css = <style>{'@keyframes mtz-spin{to{transform:rotate(360deg)}}@keyframes mtz-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}.mtz-edit:hover{background:var(--surface-2)}.mtz-edit:focus{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-strong)}.mtz-angulo:hover{border-color:var(--primary)!important;background:var(--primary-bg)!important}'}</style>;
 
   if (cargando) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>Cargando tu matriz…</div>;
 
   const razones = est?.razones ?? [];
   const avatares = est?.avatares ?? [];
   const razonesDe = (avId: string) => razones.filter((r) => r.avatarId === avId);
-  const maxCols = Math.max(1, ...avatares.map((a) => razonesDe(a.id).length));
 
   if (gen) {
     return (
@@ -237,49 +283,85 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
   return (
     <div>
       {css}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ ...eyebrow }}>Tu matriz de anuncios</div>
-        <button type="button" onClick={generar} style={btnGhost}>↺ Regenerar</button>
-      </div>
+      {!sinCabecera && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ ...eyebrow }}>Tus anuncios</div>
+          <button type="button" onClick={generar} style={btnGhost}>↺ Regenerar</button>
+        </div>
+      )}
 
-      {/* La grilla entra sin scroll horizontal: columnas flexibles (minmax 0,1fr) y la
-          columna Avatar angosta. El detalle de cada anuncio vive en el pop-up. */}
-      <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `minmax(88px, 124px) repeat(${maxCols}, minmax(0, 1fr))` }}>
-          {/* Cabecera */}
-          <div style={{ ...eyebrow, padding: '11px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>Avatar</div>
-          {Array.from({ length: maxCols }, (_, i) => (
-            <div key={i} style={{ ...eyebrow, padding: '11px 12px', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)' }}>Razón {i + 1}</div>
-          ))}
+      {/* CARRILES, no tabla. La grilla anterior obligaba a que todos los avatares
+          tuvieran la MISMA cantidad de razones y rellenaba los huecos con «—»;
+          las columnas se llamaban «Razón 1/2/3», una numeración que no codifica
+          nada. Acá cada avatar tiene las razones que tenga, la tarjeta tiene lugar
+          para decir cómo viene, y la cobertura se lee de un vistazo: sólido = con
+          guion, punteado = falta escribirlo. */}
+      {avatares.map((av) => {
+        const rs = razonesDe(av.id);
+        if (!rs.length) return null;
+        const conGuion = rs.filter((r) => r.guiones.length).length;
+        return (
+          <section key={av.id} style={{ marginBottom: 26 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', paddingBottom: 9, borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 'var(--fs-card)', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25 }}>{av.nombre}</div>
+                {av.segmento && <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', marginTop: 2 }}>{av.segmento}</div>}
+              </div>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontFamily: MONO, fontSize: 'var(--fs-meta)', color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>
+                {conGuion} de {rs.length}
+              </span>
+            </div>
 
-          {avatares.map((av) => {
-            const rs = razonesDe(av.id);
-            return (
-              <div key={av.id} style={{ display: 'contents' }}>
-                <div style={{ padding: '11px 12px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 2, justifyContent: 'center', minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{av.nombre}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{av.segmento}</div>
-                </div>
-                {Array.from({ length: maxCols }, (_, i) => {
-                  const r = rs[i];
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+              {rs.map((r) => {
+                const escribiendo = autoEnCelda === r.id;
+                const top = estadoMasAvanzado(r.guiones.map((g) => g.estado));
+
+                if (escribiendo) {
                   return (
-                    <button key={i} type="button" className={r ? 'mtz-cell' : undefined} onClick={() => r && abrir(r.id)}
-                      style={{ position: 'relative', textAlign: 'left', font: 'inherit', cursor: r ? 'pointer' : 'default', padding: '11px 26px 11px 12px', borderTop: '1px solid var(--border)', borderLeft: '1px solid var(--border)', background: 'var(--surface)', transition: 'all .12s', minHeight: 52, minWidth: 0, display: 'flex', alignItems: 'center' }}>
-                      {r ? (
-                        <>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{r.nombre}</span>
-                          {/* Flechita: señal de que la celda se abre. */}
-                          <svg className="mtz-arrow" aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', top: 9, right: 9, color: 'var(--faint)', transition: 'color .12s' }}><path d="M7 17L17 7" /><path d="M7 7h10v10" /></svg>
-                        </>
-                      ) : <span style={{ fontSize: 12, color: 'var(--faint)' }}>—</span>}
+                    <div key={r.id} style={{ ...celdaBase, borderStyle: 'solid', borderColor: 'var(--mako-border)', background: 'var(--mako-bg)', justifyContent: 'center', alignItems: 'center', gap: 10, cursor: 'default' }}>
+                      <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--mako)', animation: 'mtz-spin .8s linear infinite' }} />
+                      <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--mako-ink)', fontWeight: 600, textAlign: 'center', lineHeight: 1.4 }}>MaKo está escribiendo</div>
+                      <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)', textAlign: 'center' }}>{r.nombre}</div>
+                    </div>
+                  );
+                }
+
+                // SIN guion: la invitación más linda de la pantalla. Un clic y MaKo
+                // lo escribe — sin abrir el modal ni preguntar nada.
+                if (!r.guiones.length) {
+                  return (
+                    <button key={r.id} type="button" className="mk-celda-vacia"
+                      onClick={() => escribirEnCelda(r.id)}
+                      title={`Que MaKo escriba el guion de «${r.nombre}»`}
+                      style={{ ...celdaBase, font: 'inherit', color: 'var(--dim)', textAlign: 'left' }}>
+                      <div style={{ fontSize: 'var(--fs-card)', fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.nombre}</div>
+                      <div style={{ marginTop: 'auto', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 'var(--fs-sm)', fontWeight: 600 }}>
+                        <MakoStar size={14} /> Que MaKo lo escriba
+                      </div>
                     </button>
                   );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                }
+
+                // CON guion: cómo viene y cuántos hay, sin abrir nada.
+                return (
+                  <button key={r.id} type="button" className="mk-celda-card" onClick={() => abrir(r.id)}
+                    style={{ ...celdaBase, border: '1px solid var(--border)', background: 'var(--surface)', font: 'inherit', textAlign: 'left' }}>
+                    <div style={{ fontSize: 'var(--fs-card)', fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.nombre}</div>
+                    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {top && <Status tono={TONO_ESTADO_GUION[top]}>{ESTADO_GUION_LABEL[top]}</Status>}
+                      <span style={{ fontFamily: MONO, fontSize: 'var(--fs-meta)', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>
+                        {r.guiones.length} {r.guiones.length === 1 ? 'guion' : 'guiones'}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
       {err && !celda && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 14, textAlign: 'center' }}>{err}</div>}
 
       {/* ── MODAL con tabs internas ── */}
@@ -362,6 +444,12 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
                     onEditarGuion={(guionId, texto) => editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, texto } : g)))}
                     onBorrarGuion={(guionId) => editar(celda.id, 'guiones', celda.guiones.filter((g) => g.id !== guionId))}
                     onEstado={(guionId, estado) => editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, estado } : g)))}
+                    onRetrocederEstado={async (guionId) => {
+                      const ok = await confirm('Este guion figura como publicado. Volverlo a borrador no toca el anuncio en Meta, solo cómo se ve acá.', {
+                        title: '¿Volver a borrador?', confirmLabel: 'Volver a borrador', danger: false,
+                      });
+                      if (ok) editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, estado: 'borrador' as const } : g)));
+                    }}
                     onCopiar={copiarGuion}
                     onDescargar={(g) => descargarGuion(celda, g)}
                   />
@@ -376,32 +464,18 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken 
                     onElegir={() => elegirAngulo(celda.id, 'video')}
                     nota="Cada guion de la tab Guiones sigue este formato. Con eso, acá vas a generar el video (próximamente)." />
                 )}
-                {err && (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, textAlign: 'center', lineHeight: 1.5 }}>{err}</div>
-                    {/* Si lo que falló fue la IA (sin key, cuota agotada, key
-                        vencida), el arreglo se hace ACÁ: el mismo formulario de
-                        credenciales del onboarding, embebido. Mandarlo a
-                        /integraciones en medio del onboarding le hace perder el
-                        paso — y pasó en vivo con una clienta. */}
-                    {esErrorDeIA(err) && (
-                      <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '13px 15px' }}>
-                        <div style={{ ...eyebrow, marginBottom: 9 }}>Conectá otra IA gratis y volvé a intentar</div>
-                        {/* Antes acá vivía un `ServicioConfigForm servicioKey="gemini"`
-                            fijo: le ofrecía pegar la key de Gemini a alguien cuya key
-                            de Gemini ya estaba pegada y sin cuota. ConectarIA muestra
-                            las cinco IA gratis con su estado real y deja sumar otra
-                            cuenta del mismo proveedor, que es la otra salida. */}
-                        <ConectarIA onConectada={() => setErr(null)} />
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Si lo que falló fue la IA (sin key, cuota agotada, key vencida), el
+                    arreglo se hace ACÁ, embebido: mandarlo a /integraciones en medio del
+                    onboarding le hace perder el paso — pasó en vivo con una clienta.
+                    Esta pantalla fue la PRIMERA en tenerlo y durante meses la única; hoy
+                    la caja vive en ErrorIA para que ninguna se la olvide. */}
+                <ErrorIA error={err} onConectada={() => setErr(null)} />
               </div>
             </div>
           </div>
         );
       })()}
+      {confirmNode}
     </div>
   );
 }
@@ -421,7 +495,7 @@ type NuevoGuion = {
   siguientePaso: string;
   cambiandoAngulo: boolean;
 };
-function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguientePasoOpciones, nuevo, setNuevo, genGuion, copiado, onAuto, onSugerir, onGenerar, onEditarGuion, onBorrarGuion, onEstado, onCopiar, onDescargar }: {
+function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguientePasoOpciones, nuevo, setNuevo, genGuion, copiado, onAuto, onSugerir, onGenerar, onEditarGuion, onBorrarGuion, onEstado, onRetrocederEstado, onCopiar, onDescargar }: {
   celda: Celda;
   angulos: AnguloGuionLite[];
   estructuras: EstructuraLite[];
@@ -437,6 +511,7 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguien
   onEditarGuion: (guionId: string, texto: string) => void;
   onBorrarGuion: (guionId: string) => void;
   onEstado: (guionId: string, estado: EstadoGuion) => void;
+  onRetrocederEstado: (guionId: string) => void;
   onCopiar: (g: GuionItem) => void;
   onDescargar: (g: GuionItem) => void;
 }) {
@@ -588,7 +663,11 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguien
                   <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)', flex: 'none', whiteSpace: 'nowrap' }}>{fechaGuion(g.creadoEn)}{g.estructuraNombre ? ` · ${g.estructuraNombre}` : ''}</span>
                   <span aria-hidden style={{ marginLeft: 'auto', flex: 'none', color: 'var(--faint)', fontSize: 12, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
                 </button>
-                <EstadoChip estado={g.estado} onChange={(e) => onEstado(g.id, e)} />
+                {/* `onRetroceder` es obligatorio acá: el chip ya no cicla solo, y
+                    sin esta salida un guion publicado quedaba clavado en ese
+                    estado para siempre. La confirmación vive en el padre. */}
+                <EstadoChip estado={g.estado} onChange={(e) => onEstado(g.id, e)}
+                  onRetroceder={() => onRetrocederEstado(g.id)} />
                 <button type="button" onClick={() => onCopiar(g)} style={btnMini} title="Copiar todo el guion">{copiado === g.id ? '✓ Copiado' : '📋 Copiar'}</button>
                 <button type="button" onClick={() => onDescargar(g)} style={btnMini} title="Descargar como .md">⬇ .md</button>
                 <button type="button" onClick={() => onBorrarGuion(g.id)} aria-label="Borrar guion" style={{ ...btnMini, padding: '5px 8px' }}>✕</button>

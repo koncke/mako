@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MutableRefObject, type ReactNode } from 'react';
 import { ResumenView } from './ResumenView';
+import ErrorIA from '../_components/ErrorIA';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -313,6 +314,13 @@ export function Archivero({ onEstado, onListo, registro }: {
   const cajaWarn = warnings.length > 0 && (
     <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 13px' }}>
       {warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: 'var(--warn)', lineHeight: 1.5 }}>· {w}</div>)}
+      {/* ⚠️ ACÁ NO HABÍA NINGUNA SALIDA. El cliente leía cuatro renglones de «no pude
+          analizar» y se quedaba mirando: ninguna forma de enterarse de que podía cargar
+          otra IA gratis y seguir. Y es el peor momento posible para no ofrecerla — está
+          en el onboarding, todavía con una sola key.
+          Se le pasan los warnings JUNTOS: la salida depende de si ALGUNO es de IA, no
+          de si lo es el último. */}
+      <ErrorIA soloSalida error={warnings.join(' · ')} onConectada={() => setWarnings([])} />
     </div>
   );
 
