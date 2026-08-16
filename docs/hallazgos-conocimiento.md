@@ -1175,6 +1175,49 @@ no se puede contestar: para cuando el plan está escrito, lo que sobraba ya se d
 
 **Vive en:** `scripts/curso-plan-vip.mjs` (el filtro de huérfanas y `--crudo`)
 
+### ⚠️ El dedup comparaba en TODO el curso y borró una clase real en el curso siguiente
+
+**2026-08-16, «Bigseo Academy» (Romuald Fons).** La entrada de arriba cerraba diciendo que
+el dedup por título+duración «habría perdido una lección en un curso con dos clases
+legítimamente homónimas y de igual duración». **Pasó al día siguiente, en el curso
+siguiente.** El catálogo anuncia 77 lecciones y el plan salió con **76**.
+
+Bigseo tiene una **«01. Introducción» por módulo** —doce en total, cada una su propio
+video— y dos de ellas duran `01:26` por casualidad:
+
+| módulo | video |
+|---|---|
+| `Modulo 00 - Bienvenida` | `1199300008` |
+| `Modulo 02 - Keyword Research` | `1199301577` |
+
+El dedup agrupaba por título base en **todo el curso**, las vio con la misma duración y
+tiró una. **Y no dejaba ningún rastro**: las 77 filas tenían módulo vivo, 77 ids y 77
+videos distintos; no había error, ni hueco de numeración, ni id repetido. La única señal
+era el conteo del catálogo, que en este curso resulta fiable y en otros no.
+
+**El arreglo: comparar DENTRO DE UN MISMO MÓDULO.** Un curso legítimamente repite un
+título entre módulos; lo que no hace es repetir la misma clase, con la misma duración,
+dentro del mismo módulo. Con eso Bigseo da 77/77 y el aviso de duplicados desaparece.
+
+**Por qué el módulo y no «mismo video», que parece más directo:** en «Jaque Blue» el
+archivo se **re-subió**, así que cada copia tiene su propio `video_id` y comparar videos no
+habría detectado nada — que es justamente el caso que este guard vino a resolver. Lo que sí
+comparten esas copias es el módulo. La señal correcta es la que cubre los dos casos.
+
+**Lo que hay que aprender de la secuencia, más que del bug:** el riesgo estaba
+**identificado y escrito** —con esas palabras— y aun así se shippeó. Escribir «esto podría
+romperse» no es un control; es una nota. Cuando un análisis produce la frase «habría
+perdido X si Y», Y ya es un caso de prueba: o se arregla ahí, o se busca un curso con esa
+forma antes de seguir. Es la misma regla de `AGENTS.md` sobre umbrales —correlo contra los
+datos que ya tenés— aplicada a un guard en vez de a un número.
+
+**Y el corolario sobre los conteos del catálogo:** `77 vs 76` delató esto, pero el mismo
+conteo miente en cuatro cursos (Jaque Blue 40/20, Claude AI 40/20, Inteligencia Viral
+92/41, Instituto 316/158) porque cuenta FILAS de la API, incluidas las fantasma. Sirve como
+**alarma**, nunca como veredicto: obliga a mirar el crudo, no a corregir el plan.
+
+**Vive en:** `scripts/curso-plan-vip.mjs` (la clave de agrupación del dedup)
+
 ## El portal
 
 ### ⚠️ `.al-chip` estaba definido DOS veces y el segundo ganaba en silencio

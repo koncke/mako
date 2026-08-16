@@ -321,10 +321,23 @@ const main = async () => {
   // La señal fuerte es la DURACIÓN idéntica sobre el mismo título base: dos videos
   // distintos no duran lo mismo al décimo de segundo. Sin duración no se descarta
   // nada —solo se avisa—, porque un curso puede tener legítimamente una «Parte (1)».
+  //
+  // ⚠️ Y se compara DENTRO DE UN MISMO MÓDULO, nunca a través del curso entero. Sin
+  // eso el guard borra clases reales, y no es hipotético: «Bigseo Academy» tiene una
+  // «01. Introducción» por módulo —doce en total, cada una su propio video—, y dos de
+  // ellas duran 01:26 por casualidad (Módulo 00 - Bienvenida y Módulo 02 - Keyword
+  // Research). El plan salió con 76 clases sobre 77 y la que faltaba no dejaba ningún
+  // rastro: ni error, ni hueco de numeración, ni id repetido.
+  //
+  // La razón por la que el módulo es la señal correcta, y no «mismo video»: en Jaque
+  // Blue el archivo se RE-SUBIÓ, así que cada copia tiene su propio `video_id` y
+  // comparar videos no habría detectado nada. Lo que sí comparten esas copias es el
+  // módulo. Un curso legítimamente repite un título entre módulos; lo que no hace es
+  // repetir la misma clase, con la misma duración, dentro del mismo módulo.
   const base = (t) => String(t ?? '').replace(/\s*\(\d+\)\s*$/, '').trim().toLowerCase();
   const porBase = new Map();
   for (const c of clases) {
-    const k = base(c.titulo);
+    const k = `${c.modulo ?? ''}␟${c.submodulo ?? ''}␟${base(c.titulo)}`;
     if (!porBase.has(k)) porBase.set(k, []);
     porBase.get(k).push(c);
   }
