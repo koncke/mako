@@ -13,6 +13,7 @@ import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
+import { construirCerebro } from '@/lib/cerebro-grafo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -29,7 +30,19 @@ export default async function OnboardingPage() {
   const estado = await getEstadoOnboarding();
   const pasos = await pasosDeCapaActual();
   const done = pasos.length === 0 || estado.status === 'done';
-  if (!done) return <OnboardingWizard />;
+  if (!done) {
+    // El cerebro se construye SOLO cuando hay bienvenida que mostrar (status 'pending').
+    // Es la única pantalla que lo usa, y `construirCerebro()` lee media base: cobrárselo a
+    // cada carga del wizard sería pagar veinte veces por una.
+    //
+    // ⚠️ Y NO se cae si falla. El mapa es el fondo de una pantalla de bienvenida: si no se
+    // puede armar, lo correcto es entrar sin él, nunca dejar al cliente afuera del
+    // producto que compró por un adorno.
+    const cerebro = estado.status === 'pending'
+      ? await construirCerebro().catch(() => null)
+      : null;
+    return <OnboardingWizard cerebro={cerebro} />;
+  }
 
   // Dueño / cliente ya onboardeado → el hub para cargar/editar el negocio.
   const { pipeline, suppressed } = await getFunnel();
