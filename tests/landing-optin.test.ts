@@ -1404,3 +1404,37 @@ test('un video que no es de tu página se puede sacar de la lista, sin borrar la
   assert.ok(/videos marcados como ajenos/.test(ui), 'un oculto invisible es un video perdido');
   assert.ok(/Volver a mostrarlo en esta lista/.test(ui), 'tiene que poder deshacerse desde la pantalla');
 });
+
+test('salir de la página, volver y cerrar son TRES eventos distintos', () => {
+  // Pedido del dueño: «falta medir los eventos de salió de la landing y volvió a
+  // ingresar, o el de cerró la pestaña».
+  //
+  // ⚠️ Existía `exit` y NO contesta esto: mide el punto de abandono DEL VIDEO, y
+  // se dispara igual si la persona se fue a otra pestaña o si cerró todo. Sirve
+  // para la retención y no dice nada de la PÁGINA.
+  const lib = leer('../lib/landing-token.ts');
+  for (const t of ['salio', 'volvio', 'cierre']) {
+    assert.ok(new RegExp(`tipo_evento: '${t}'`).test(lib), `falta el evento ${t}`);
+  }
+  // El dato que hace útil a `volvio` son los SEGUNDOS AFUERA: distinguen una
+  // interrupción de 20 segundos de una de media hora.
+  assert.ok(/'volvio', segundos: Math\.round\(\(Date\.now\(\) - afuera\) \/ 1000\)/.test(lib),
+    'sin los segundos afuera, «volvió» no dice si fue una interrupción o una sesión nueva');
+  // Y un tope: alguien que trabaja con muchas pestañas genera decenas por sesión,
+  // y a partir de ahí el dato no agrega nada y tapa el resto de la lista.
+  assert.ok(/if \(CAMBIOS >= 10\) return;/.test(lib), 'sin tope, una sesión con muchas pestañas inunda el feed');
+  // `cierre` una sola vez: pagehide puede dispararse más de una.
+  assert.ok(/if \(cerrado\) return;/.test(lib), 'el cierre tiene que ser idempotente');
+
+  // El beacon los acepta, o entran como 'desconocido' y se pierden.
+  const ruta = leer('../app/api/track/vsl/route.ts');
+  assert.ok(/'salio', 'volvio', 'cierre'/.test(ruta), 'sin sumarlos a CONOCIDOS se guardan como «desconocido»');
+
+  // Y se leen en castellano, en términos de lo que hizo la persona.
+  const panel = leer('../app/integraciones/ProbarTracking.tsx');
+  assert.ok(/Se fue a otra pestaña/.test(panel) && /Volvió a tu página/.test(panel) && /Cerró la página/.test(panel),
+    'un tipo técnico crudo en la lista no le dice nada a nadie');
+
+  const ver = /export const SNIPPET_VERSION = (\d+);/.exec(lib);
+  assert.ok(ver && Number(ver[1]) >= 14, 'la mejora no llega si nadie se entera de que hay que repegar');
+});

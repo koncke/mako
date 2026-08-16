@@ -273,7 +273,10 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   const segundoMatch = /^s(\d{1,5})$/.exec(tipoEvento);
   // Los tipos que el snippet puede emitir. Sumar uno acá es obligatorio: sin
   // esto entra como 'desconocido' y se pierde con un nombre que no dice nada.
-  const CONOCIDOS = ['play', 'exit', 'click', 'pausa', 'retoma', 'fin', 'agendo'];
+  // 'salio'/'volvio'/'cierre' son de la PAGINA, no del video: la pestaña dejó de
+  // estar a la vista, volvió, o se cerró. Distinto de 'exit', que es el punto de
+  // abandono DEL video.
+  const CONOCIDOS = ['play', 'exit', 'click', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre'];
   if (!CONOCIDOS.includes(tipoEvento) && !milestoneMatch && !segundoMatch) {
     // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
     // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un

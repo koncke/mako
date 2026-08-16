@@ -64,6 +64,12 @@ function legible(e: Evento): { texto: string; color: string } {
   if (e.tipo === 'pausa') return { texto: e.segundos != null ? `Pausó a los ${Math.round(e.segundos)}s` : 'Pausó el video', color: 'var(--warn)' };
   if (e.tipo === 'retoma') return { texto: 'Retomó el video', color: 'var(--primary)' };
   if (e.tipo === 'fin') return { texto: 'Terminó el video', color: 'var(--good)' };
+  // De la PÁGINA, no del video. Se nombran en términos de lo que hizo la persona
+  // —«se fue a otra pestaña»— y no del evento del navegador, que no le dice nada
+  // a nadie.
+  if (e.tipo === 'salio') return { texto: 'Se fue a otra pestaña', color: 'var(--warn)' };
+  if (e.tipo === 'volvio') return { texto: e.segundos != null ? `Volvió a tu página (estuvo ${Math.round(e.segundos)}s afuera)` : 'Volvió a tu página', color: 'var(--primary)' };
+  if (e.tipo === 'cierre') return { texto: e.segundos != null ? `Cerró la página (estuvo ${Math.round(e.segundos)}s)` : 'Cerró la página', color: 'var(--bad)' };
   if (e.tipo === 'optin') return { texto: e.detalle ? `Completó el formulario: ${e.detalle}` : 'Completó el formulario', color: 'var(--good)' };
   // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
   // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.

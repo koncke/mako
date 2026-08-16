@@ -87,7 +87,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 13;
+export const SNIPPET_VERSION = 14;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -125,6 +125,7 @@ const NOVEDADES: Record<number, string> = {
   11: 'distinguir el video que ARRANCA SOLO del que alguien reproduce: con autoplay, hasta ahora contaba como si la persona hubiera querido verlo',
   12: 'saber en CUÁL de tus páginas pasó cada cosa: hasta ahora solo las visitas decían de dónde venían, así que con dos páginas los videos y los clics de las dos caían juntos',
   13: 'medir la pausa, el retomar y el final del video también en los reproductores de Panda: hasta ahora eso solo funcionaba con videos subidos directo a la página',
+  14: 'saber cuando alguien se va de tu pagina a otra pestana y cuando vuelve, y cuando cierra: hasta ahora las tres cosas se veian igual',
   10: 'dos eventos que faltaban: cuando alguien AGENDA en tu Calendly embebido —que para vender por llamada es el evento más importante— y las pausas del video, que distinguen a quien lo mira de quien lo dejó corriendo',
   9: 'la medición de los primeros segundos de un video largo: hasta ahora, en un video de 20 minutos no se registraba ningún avance durante el primer minuto — y ahí es donde se pierde a la mayoría',
   8: 'poder ver cada video desde la app al momento de identificarlo: antes solo aparecía un código y había que adivinar',
@@ -1176,6 +1177,53 @@ ${bloqueClarity(clarityProjectId)}
   window.addEventListener('pagehide', alSalir);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') alSalir();
+  });
+
+  // ── SALIR DE LA PAGINA, VOLVER, Y CERRAR ──────────────────────────────────
+  // Tres cosas distintas que hasta ahora eran una sola. El evento exit de arriba
+  // mide el punto de abandono DEL VIDEO y se dispara igual si la persona se fue a
+  // otra pestana o si cerro todo: sirve para la retencion y no contesta nada
+  // sobre la PAGINA.
+  //
+  // Lo que se agrega, y por que cada uno importa:
+  //   salio  - la pestana dejo de estar a la vista. Cambio de pestana, minimizo,
+  //            se fue a otra app en el celular. En una landing con un VSL de 23
+  //            minutos esto es constante, y es la diferencia entre alguien que
+  //            abandono y alguien que fue a buscar la tarjeta.
+  //   volvio - regreso. Con los segundos que estuvo afuera, que es el dato que
+  //            distingue una interrupcion de 20 segundos de una de media hora.
+  //   cierre - la pagina se esta yendo de verdad.
+  //
+  // ⚠️ AL CERRAR UNA PESTANA LLEGAN LOS DOS: el navegador dispara primero
+  // visibilitychange y despues pagehide. No se puede saber de antemano cual de
+  // los dos va a pasar, asi que no se intenta adivinar — se manda lo que ocurrio
+  // y la lectura es la que ordena: un salio SIN volvio y seguido de cierre es un
+  // cierre; un salio con volvio es una interrupcion.
+  //
+  // El tope de 10 idas y vueltas no es un capricho: alguien que trabaja con
+  // muchas pestanas abiertas genera decenas por sesion, y a partir de ahi el
+  // dato no agrega nada y solo tapa el resto de la lista.
+  var CAMBIOS = 0;
+  var afuera = 0;                       // cuando se fue, para saber cuanto estuvo
+  var arranquePagina = Date.now();
+  document.addEventListener('visibilitychange', function () {
+    try {
+      if (CAMBIOS >= 10) return;
+      if (document.visibilityState === 'hidden') {
+        afuera = Date.now();
+        CAMBIOS++;
+        enviar({ tipo_evento: 'salio', segundos: Math.round((Date.now() - arranquePagina) / 1000) });
+      } else if (afuera) {
+        enviar({ tipo_evento: 'volvio', segundos: Math.round((Date.now() - afuera) / 1000) });
+        afuera = 0;
+      }
+    } catch (e) {}
+  });
+  var cerrado = false;
+  window.addEventListener('pagehide', function () {
+    if (cerrado) return;
+    cerrado = true;
+    try { enviar({ tipo_evento: 'cierre', segundos: Math.round((Date.now() - arranquePagina) / 1000) }); } catch (e) {}
   });
 
   // ── Opt-in: el formulario de la página entra al CRM ──────────────────────
