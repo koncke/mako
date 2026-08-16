@@ -1319,6 +1319,47 @@ alguien vuelve a poner la bandera `i`, falla.
 
 **Vive en:** `scripts/curso-comun.mjs` (la regla) · `tests/curso-intermedios.test.ts` (la red)
 
+### ⚠️ `drive.json` se REESCRIBE desde lo local, y liberar local lo trunca en silencio
+
+**2026-08-16, «Instituto de Comunicación».** Con las 158 clases ya subidas, correr
+`curso-a-drive.mjs` una última vez dejó un `drive.json` de **32 clases**. Las otras 126
+—que estaban perfectamente en Drive, con sus ids resueltos en corridas anteriores—
+desaparecieron del índice.
+
+**La causa es una interacción, no un bug de una pieza.** `curso-a-drive.mjs` arma su lista
+recorriendo `video/` **local**, y escribe `drive.json` completo con lo que encontró. Eso
+estaba bien mientras el local fuera la copia de trabajo. Dejó de estarlo cuando se sumó el
+liberado por tandas (`--liberar`): a esa altura sólo quedaban 32 `.mp4` en disco, y el
+script hizo exactamente lo que dice hacer.
+
+Las dos piezas son correctas por separado. Lo que nadie escribió es que **una borra la
+entrada de la otra.**
+
+**Lo que se pierde es el ÍNDICE, no el material** — los 158 archivos siguen en Drive—, pero
+`drive.json` es lo que come `curso-a-portal.mjs`: publicado así, el curso sale con 32
+clases y las otras 126 no existen para el portal. Silencioso de punta a punta: el script
+termina con «32/32 clases con videoId de Drive», que es verdad y suena a éxito.
+
+⚠️ **`--solo-ids` NO lo recupera.** Trabaja sobre lo que ya está en `drive.json`, así que
+sobre uno truncado devuelve «32/32» otra vez, confirmando el número equivocado.
+
+**La reconstrucción es `curso-drive-fusionar.mjs`**, que es la única que arma el índice
+desde la CARPETA DE DRIVE y no desde el local: cruza el plan con lo que hay allá por título
+y resuelve los ids por ruta. `--plan … --carpeta "<Curso> - <Autor>" --aplicar` → 158/158.
+
+**Las reglas que quedan:**
+
+- **Un archivo de índice que se REESCRIBE entero necesita saber si su fuente está
+  completa.** Si `curso-a-drive.mjs` encuentra menos clases locales que las que ya figuran
+  en el `drive.json` que va a pisar, eso no es una corrida normal: o fusiona, o avisa.
+- **Y la regla general: cuando una optimización borra el insumo de otro paso, el orden deja
+  de ser libre.** El liberado por tandas es correcto y hay que dejarlo; lo que hay que
+  escribir es que después de liberar, el índice se reconstruye contra Drive y nunca contra
+  el disco.
+
+**Vive en:** `scripts/curso-a-drive.mjs` (el que reescribe) · `scripts/curso-drive-fusionar.mjs`
+(el que reconstruye)
+
 ## El portal
 
 ### ⚠️ `.al-chip` estaba definido DOS veces y el segundo ganaba en silencio
