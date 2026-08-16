@@ -9,6 +9,7 @@ import { IaUsageToast } from './_components/IaUsageToast';
 import { HideOnPublicLanding } from './_components/PublicRouteGate';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
+import { TemaCandidato } from './_components/TemaCandidato';
 import { WsProvider } from './_ui/Link';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
@@ -69,6 +70,11 @@ export default function RootLayout({
             le pega el `?ws=` de la pestaña a todas las llamadas a /api. Va lo más
             arriba posible del árbol para que el chunk cargue antes que nadie. */}
         <WsFetch />
+        {/* El tema candidato del rebrand, si hay uno puesto desde
+            /admin/ui?tab=temas. Va acá arriba a propósito: su <script> tiene
+            que correr ANTES del primer pintado o la app parpadea del tema viejo
+            al nuevo en cada navegación. No pinta nada cuando no hay tema. */}
+        <TemaCandidato />
         {/* El `?ws=` de la pestaña, leído UNA vez acá adentro del Suspense y
             repartido por contexto: es lo que hace que <Link> y router.push no
             te saquen del cliente que estás mirando. */}

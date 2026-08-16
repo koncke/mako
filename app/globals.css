@@ -759,3 +759,189 @@ details > summary .chev {
 details[open] > summary .chev {
   transform: rotate(180deg);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMAS CANDIDATOS DEL REBRAND — solo /admin/ui?tab=temas los prende
+   ═══════════════════════════════════════════════════════════════════════════
+   Los tres mixes de Nord + el azul de Meta. Cada uno redefine TOKENS y nada
+   más: ni un selector de componente. Esa es la prueba que interesa — si una
+   pantalla se rompe con el tema puesto, se rompe el TEMA, no la pantalla.
+
+   POR QUÉ VIVEN ACÁ Y NO EN UN MÓDULO TS: el tema tiene que estar aplicado
+   antes del primer pintado, o la app parpadea del tema viejo al nuevo en cada
+   navegación. Un atributo en <html> puesto por un script inline + estas reglas
+   es lo único que llega a tiempo. El catálogo (nombre, idea, falla) está en
+   lib/temas-candidatos.ts, que NO repite un solo hex.
+
+   Se prenden con [data-tema-candidato="…"] y se combinan con el
+   [data-tema="oscuro"] que ya existe. El doble atributo es a propósito: el modo
+   oscuro sigue siendo el mismo interruptor de siempre, no uno paralelo.
+
+   ⚠️ NADA DE ESTO ES PRODUCCIÓN. Es una herramienta para elegir. Mientras haya
+   un tema puesto, <TemaCandidato> pinta un chip fijo con la salida — sin eso,
+   alguien compartiendo pantalla vería la app de otro color y nadie sabría por
+   qué, ni cómo volver.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* La transición copiada de nordtheme.com: 400 ms ease-in-out, y declarada en
+   los ELEMENTOS, no en :root. Un `transition` sobre la custom property no se
+   ve: el color lo pinta cada elemento, así que el cambio tiene que animarse
+   ahí. Verificado contra el CSS que sirve el propio sitio de Nord. */
+[data-tema-candidato] *,
+[data-tema-candidato] *::before,
+[data-tema-candidato] *::after {
+  transition:
+    background-color 400ms ease-in-out,
+    border-color 400ms ease-in-out,
+    color 400ms ease-in-out,
+    fill 400ms ease-in-out,
+    stroke 400ms ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-tema-candidato] *,
+  [data-tema-candidato] *::before,
+  [data-tema-candidato] *::after { transition-duration: 1ms !important; }
+}
+
+/* ── True North ─────────────────────────────────────────────────────────────
+   Los 7 grises de Nord sin tocar. Solo se derivan los acentos, que es lo que
+   Nord nunca resolvió en claro: sus Aurora dan 1,77 (verde), 1,35 (amarillo) y
+   2,47 (naranja) sobre nord6. Los tres son ilegibles como texto. */
+[data-tema-candidato="true-north"] {
+  --bg: #E5E9F0;            /* nord5 */
+  --surface: #ECEFF4;       /* nord6 */
+  --surface-2: #D8DEE9;     /* nord4 */
+  --border: #D8DEE9;
+  --border-strong: #BEC8DA; /* derivado: entre nord4 (L88) y nord3 (L36) no hay nada */
+  --ink: #2E3440;           /* nord0 */
+  --dim: #4C566A;           /* nord3 */
+  --faint: #7B88A1;         /* lighten(.2, nord3) — el propio sitio de Nord lo usa */
+
+  /* La barra pasa a Snow Storm: es el estilo "semi-light" que la doc de Nord
+     autoriza, y hace que cambiar de modo no invierta la jerarquía. */
+  --sidebar: #E5E9F0;
+  --sidebar-2: #D8DEE9;
+  --sidebar-line: #BEC8DA;
+  --sidebar-text: #4C566A;
+  --on-sidebar: #2E3440;
+
+  /* Azul = vos actuás / el dato viene de Meta. Y nada más.
+     Es el azul de Modern Minimal con L 59,8 -> 47: queda a un hex de #0866FF. */
+  --primary: #0B5EE5;
+  --primary-strong: #0A53C9;
+  --primary-bg: #DDE8FB;
+  --primary-weak: #8AB4FA;
+
+  /* Naranja = MaKo intervino. Y nada más. */
+  --mako: #D08770;          /* nord12 de fábrica, para relleno */
+  --mako-lite: #E0A18A;
+  --mako-ink: #964831;      /* nord12 con L 62,75 -> 39: 5,57 sobre nord6 */
+  --mako-bg: #F5E9E5;       /* derivado: Nord no tiene tintes de Aurora */
+  --mako-border: #E6BEB3;
+
+  --good: #50683B;  --good-bg: #E6ECDF;
+  --warn: #835F16;  --warn-bg: #F6ECD8;  --warn-fill: #B58A2A;
+  /* El rojo lleva la saturación subida a propósito: a esta luminosidad el rojo
+     de Nord (H354) y el naranja de MaKo (H14) quedan a 20 grados, y en un
+     símbolo de 14px se confunden. Un error que se lea como "MaKo intervino" es
+     el peor error posible cuando la regla es un-significado-por-color. */
+  --bad: #9B313B;   --bad-bg: #F6E2E4;
+
+  --wa: #50683B;            --wa-bubble: #E6ECDF;
+  --auto-bubble: #F5E9E5;
+  --wa-noof: #5E81AC;       --wa-noof-bubble: #DEE5F0;   /* nord10, que acá ya no es primary */
+}
+[data-tema-candidato="true-north"][data-tema="oscuro"] {
+  --bg: #2E3440;  --surface: #3B4252;  --surface-2: #434C5E;
+  --border: #434C5E;  --border-strong: #4C566A;
+  --ink: #ECEFF4;  --dim: #ABB9CF;  --faint: #7B88A1;
+  --sidebar: #2E3440;  --sidebar-2: #262B35;  --sidebar-line: #434C5E;
+  --sidebar-text: #ABB9CF;  --on-sidebar: #ECEFF4;
+  --primary: #8AB4FA;  --primary-strong: #A3C5FB;  --primary-bg: #33405A;  --primary-weak: #5F89C9;
+  --mako: #D08770;  --mako-lite: #E0A18A;
+  /* nord12 a L71 con S subida a 58: al subir L sin tocar S, el naranja se corre
+     hacia el rojo Aurora, que es justo del que tiene que distinguirse. */
+  --mako-ink: #E0A18A;  --mako-bg: #503730;  --mako-border: #6F4A3E;
+  --good: #A3BE8C;  --good-bg: #384033;
+  --warn: #EBCB8B;  --warn-bg: #453D2A;  --warn-fill: #EBCB8B;
+  --bad: #E699A6;   --bad-bg: #4A2F34;
+  --wa: #A3BE8C;  --wa-bubble: #384033;
+  --auto-bubble: #503730;
+  --wa-noof: #81A1C1;  --wa-noof-bubble: #333C4C;
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+}
+
+/* ── Nord Hardline ──────────────────────────────────────────────────────────
+   La pregunta que lo produjo: "y si Nord tuviera que pasar AA en todo?".
+   Mismos tonos, cada paso empujado hasta que el número cierra en los dos modos. */
+[data-tema-candidato="nord-hardline"] {
+  --bg: #ECEFF4;  --surface: #FFFFFF;  --surface-2: #E5E9F0;
+  --border: #D8DEE9;  --border-strong: #7B88A1;
+  --ink: #2E3440;  --dim: #4C566A;  --faint: #5E6A82;
+  --sidebar: #2E3440;  --sidebar-2: #262B35;  --sidebar-line: #434C5E;
+  --sidebar-text: #D8DEE9;  --on-sidebar: #ECEFF4;
+  --primary: #005FFA;  --primary-strong: #0050D6;  --primary-bg: #DCE8FE;  --primary-weak: #8AB4FA;
+  --mako: #D36536;  --mako-lite: #E08C63;
+  --mako-ink: #AB4E26;  --mako-bg: #FAEFEA;  --mako-border: #EEC5B4;
+  --good: #587240;  --good-bg: #E8EDE2;
+  --warn: #846815;  --warn-bg: #F7EFD9;  --warn-fill: #B58A2A;
+  --bad: #9F3C46;   --bad-bg: #F7E5E7;
+  --wa: #587240;  --wa-bubble: #E8EDE2;
+  --auto-bubble: #FAEFEA;
+  --wa-noof: #5E81AC;  --wa-noof-bubble: #DEE5F0;
+}
+[data-tema-candidato="nord-hardline"][data-tema="oscuro"] {
+  --bg: #242933;  --surface: #2E3440;  --surface-2: #3B4252;
+  --border: #434C5E;  --border-strong: #717E98;
+  --ink: #ECEFF4;  --dim: #ABB9CF;  --faint: #97A3BA;
+  --sidebar: #2E3440;  --sidebar-2: #242933;  --sidebar-line: #434C5E;
+  --sidebar-text: #D8DEE9;  --on-sidebar: #ECEFF4;
+  --primary: #6AA1FB;  --primary-strong: #8AB4FA;  --primary-bg: #2C3A54;  --primary-weak: #4A6E9E;
+  --mako: #DD8864;  --mako-lite: #E4A286;
+  --mako-ink: #E4A286;  --mako-bg: #3E2B23;  --mako-border: #6B4A38;
+  --good: #A3BE8C;  --good-bg: #333D2F;
+  --warn: #EBCB8B;  --warn-bg: #423B29;  --warn-fill: #EBCB8B;
+  --bad: #E699A6;   --bad-bg: #472E33;
+  --wa: #A3BE8C;  --wa-bubble: #333D2F;
+  --auto-bubble: #3E2B23;
+  --wa-noof: #81A1C1;  --wa-noof-bubble: #303947;
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+}
+
+/* ── Ember North ────────────────────────────────────────────────────────────
+   Los neutros se pasan a cálidos para que el azul de Meta sea lo único frío.
+   El juez de fidelidad le puso 3/10: al sacarle el sesgo azul a los 7 neutros,
+   deja de ser Nord. Está acá para poder VER esa objeción, no para ganar. */
+[data-tema-candidato="ember-north"] {
+  --bg: #F2ECE3;  --surface: #FEFDFB;  --surface-2: #EAE2D7;
+  --border: #DCD3C6;  --border-strong: #BAADA0;
+  --ink: #383029;  --dim: #64594F;  --faint: #7E7267;
+  --sidebar: #1D1916;  --sidebar-2: #171310;  --sidebar-line: #39322D;
+  --sidebar-text: #A89D92;  --on-sidebar: #E4DDD2;
+  --primary: #0059EB;  --primary-strong: #0049C4;  --primary-bg: #DEE8FC;  --primary-weak: #76A9FB;
+  --mako: #D65B2A;  --mako-lite: #E5814F;
+  --mako-ink: #A3441F;  --mako-bg: #F2D8C9;  --mako-border: #DCA986;
+  --good: #3C6534;  --good-bg: #E4EBE0;
+  --warn: #7D6108;  --warn-bg: #F5EED6;  --warn-fill: #B08B10;
+  --bad: #A12B48;   --bad-bg: #F7E1E6;
+  --wa: #3C6534;  --wa-bubble: #E4EBE0;
+  --auto-bubble: #F2D8C9;
+  --wa-noof: #4A5FA8;  --wa-noof-bubble: #E2E5F2;
+}
+[data-tema-candidato="ember-north"][data-tema="oscuro"] {
+  --bg: #28231F;  --surface: #35302C;  --surface-2: #433D38;
+  --border: #514A43;  --border-strong: #6E655E;
+  --ink: #F5F1EB;  --dim: #C7BDB3;  --faint: #9A8F84;
+  --sidebar: #1D1916;  --sidebar-2: #171310;  --sidebar-line: #39322D;
+  --sidebar-text: #A89D92;  --on-sidebar: #E4DDD2;
+  --primary: #76A9FB;  --primary-strong: #96BEFC;  --primary-bg: #2C3950;  --primary-weak: #4E7AC4;
+  --mako: #D08770;  --mako-lite: #EE9268;
+  --mako-ink: #EE9268;  --mako-bg: #563325;  --mako-border: #7A4B33;
+  --good: #82B869;  --good-bg: #313A2C;
+  --warn: #D4AD11;  --warn-bg: #3F3720;  --warn-fill: #D4AD11;
+  --bad: #E492A2;   --bad-bg: #44292F;
+  --wa: #82B869;  --wa-bubble: #313A2C;
+  --auto-bubble: #563325;
+  --wa-noof: #7E93D6;  --wa-noof-bubble: #2F3348;
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+}

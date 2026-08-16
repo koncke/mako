@@ -27,6 +27,7 @@ import { BITACORA, PARTES } from './bitacora';
 import { LaSidebar, LosIconos } from './Barra';
 import { LaMarca } from './Marca';
 import { LaGramatica } from './Gramatica';
+import { LosTemas } from './Temas';
 
 const TONOS: Tono[] = ['mako', 'info', 'good', 'warn', 'bad', 'neutral'];
 
@@ -41,6 +42,9 @@ const TABS: Tab[] = [
   { id: 'sidebar', label: 'Sidebar' },
   { id: 'iconos', label: 'Íconos' },
   { id: 'marca', label: 'Marca' },
+  // El rebrand se decide probando el tema sobre la app REAL, no sobre una
+  // maqueta: por eso es una tab y no un documento.
+  { id: 'temas', label: 'Temas' },
   { id: 'fundamentos', label: 'Fundamentos' },
   { id: 'piezas', label: 'Piezas' },
   // Los estados de PANTALLA (#519: vacío, error, sin permiso) y los estados de
@@ -112,6 +116,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
       {tab === 'sidebar' && <LaSidebar />}
       {tab === 'iconos' && <LosIconos />}
       {tab === 'marca' && <LaMarca />}
+      {tab === 'temas' && <LosTemas />}
       {tab === 'mako' && <LaGramatica />}
 
       {tab === 'fundamentos' && (<>
