@@ -844,6 +844,36 @@ un bug de la pantalla: se lee como que lo que hiciste falló.
 
 **Vive en:** `lib/landing-token.ts` (la tercera query de `landingDiagnostico`)
 
+### El probador se contradecía solo: «no llega la visita» y «ya se puede calcular la retención»
+
+*2026-08-16*
+
+Visto en una prueba real: el panel decía **«aún no llega la visita»** y dos renglones más
+abajo **«llegan los avances: ya se puede calcular la retención»**. El `pageview` estaba
+guardado en la base, con su marcador de prueba y su versión del snippet. Las dos frases eran
+lo que el código calculaba; la que mentía era la primera.
+
+**La causa es de ORDEN, no de datos.** Los chequeos (`hayPageview`, `hayPlayManual`, `hayClick`…)
+se calculaban sobre la MISMA lista que se dibuja en pantalla, que se ordena de más nueva a más
+vieja y **se corta en 25** para que el feed sea legible. El `pageview` y el `play` son los
+PRIMEROS eventos de cualquier prueba: son los primeros en caerse del corte. El bug nació el día
+que el snippet empezó a mandar más eventos por visita —clics, salió, volvió—; antes de eso 25
+alcanzaba y por eso nadie lo vio.
+
+**Regla: «que no entre en la ventana» no es «que no haya pasado».** Un chequeo que depende de
+cuántos eventos entran en una lista de pantalla mide la lista, no el negocio. Lo que viaja a la
+pantalla es la ventana corta (`eventosVisibles`); los chequeos y el `ultima` —«cuándo fue lo
+último que llegó»— salen de la lista completa.
+
+⚠️ **Lo que queda sin cerrar, y es la misma trampa un escalón más arriba:** las tres queries
+traen `limit(40)` / `limit(20)` / `limit(10)`. Con marcador de prueba sobra, porque filtra a
+esa prueba; **sin marcador** (el camino de 24 h) una landing con tráfico real puede empujar el
+`play` fuera de los 40 y el chequeo vuelve a medir el límite. El `pageview` no corre ese riesgo
+—sale de `landing_visits`, que es una query aparte—. Si se toca, el límite de `vsl_events` es
+el que importa.
+
+**Vive en:** `lib/landing-token.ts` (`landingDiagnostico`, el bloque `eventosVisibles`)
+
 ### Descartar una propuesta encadenaba a esa persona para siempre
 
 `crearPropuesta` hacía `select('id, estado')` y **no miraba el estado**: cualquier fila con esa

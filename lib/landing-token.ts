@@ -561,7 +561,25 @@ export async function landingDiagnostico(
       .map((r) => ({ ts: r.created_at, tipo: 'pageview', porcentaje: null, segundos: null, auto: false, detalle: r.landing_url })),
     ...((optinsFeed.data ?? []) as Array<{ created_at: string; resumen: string | null }>)
       .map((r) => ({ ts: r.created_at, tipo: 'optin', porcentaje: null, segundos: null, auto: false, detalle: r.resumen })),
-  ].sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 25);
+  ].sort((a, b) => (a.ts < b.ts ? 1 : -1));
+
+  // ⚠️ LOS CHEQUEOS MIRAN TODO; LA LISTA QUE SE MUESTRA, LAS 25 MÁS NUEVAS.
+  //
+  // Estaban mirando lo mismo, y por eso la pantalla se contradecía sola. Medido
+  // el 2026-08-16 en una prueba real: decía «aún no llega la visita» y dos
+  // renglones más abajo «llegan los avances: ya se puede calcular la retención»,
+  // con el pageview guardado en la base, con su marcador y su versión.
+  //
+  // La causa es de ORDEN. La lista se ordena de más nueva a más vieja y se corta
+  // en 25 para que el feed sea legible, y el `pageview` y el `play` son los
+  // PRIMEROS eventos de cualquier prueba: son los primeros en caerse del corte. El
+  // problema nació el día que el snippet empezó a mandar más eventos por visita
+  // —clics, salió, volvió—: antes de eso 25 alcanzaba, y por eso nadie lo vio.
+  //
+  // «Que no entre en la ventana» no es «que no haya pasado». Un chequeo que
+  // depende de cuántos eventos entran en una lista de pantalla mide la lista, no
+  // el negocio.
+  const eventosVisibles = eventos.slice(0, 25);
 
   // Durante una prueba, los textos de «todavía no llegó» hablan de LA PRUEBA, no
   // de las últimas 24 h: quien acaba de apretar play no quiere una estadística.
@@ -785,7 +803,10 @@ export async function landingDiagnostico(
       .filter((u): u is string => !!u && !esPreviewDeEditor(u)),
   )].slice(0, 8);
 
-  return { eventos, chequeos, veredicto, urls, codigoViejo, ultima: eventos[0]?.ts ?? null };
+  // Lo que viaja a la pantalla es la ventana corta; los chequeos ya se calcularon
+  // sobre TODO. `ultima` sale de la lista completa: es «cuándo fue lo último que
+  // llegó», y con la lista cortada contestaría «lo último que entra en pantalla».
+  return { eventos: eventosVisibles, chequeos, veredicto, urls, codigoViejo, ultima: eventos[0]?.ts ?? null };
 }
 
 /**
