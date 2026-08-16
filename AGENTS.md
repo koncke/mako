@@ -773,6 +773,27 @@ Tres reglas:
    de abajo: un agente no distingue «nunca estuvo roto» de «se arregló hace una hora», y
    **tampoco distingue «está roto» de «lo leí mal»**.
 
+## Y el otro modo: el archivo que la búsqueda declara BINARIO y no muestra
+
+Un solo byte `NUL` (0x00) en el fuente hace que ripgrep conteste **«Binary file matches»** y
+no devuelva ni una línea. En una búsqueda de un archivo se nota; en una de veinte, la línea
+se pierde entre los resultados y **el archivo se lee igual que si no tuviera lo que buscabas**.
+Es peor que la trampa del `\` de arriba, porque acá no queda ninguna firma rara que delate el
+problema: contesta vacío y el vacío parece una respuesta.
+
+Pasó el 16/08/2026 buscando `extraFooter` en `app/_components/WizardShell.tsx`: cero líneas,
+y hubo que leerlo con un script aparte. Eran cinco archivos, todos con el byte crudo donde el
+código quería el escape (`pasos.join('<NUL>')`, un centinela, dos clases de regex).
+
+- **Si escribís un carácter de control, escribilo como escape** (` `, ``), nunca
+  como byte. Significa lo mismo en una string, en una clase de regex y en un comentario.
+- **Si una búsqueda contesta vacío en un archivo donde jurabas que estaba, mirá si es
+  binario** (`file <ruta>` dice `data`) antes de concluir que no está.
+- **Sacar el NUL genera un diff de archivo entero y no se puede evitar.** Con el byte adentro
+  git guardaba el blob como binario —verbatim, sin normalizar—; al sacarlo pasa a texto y
+  `core.autocrlf` lo pasa a LF de una. El `git blame` de ese archivo queda apuntando a ese
+  commit. Vale la pena igual, pero va en un commit propio y avisado.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

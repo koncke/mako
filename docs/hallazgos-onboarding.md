@@ -477,6 +477,74 @@ si ningún `if` lo mira, la opción es decorativa. Y el guard va en POSITIVO: la
 CUÁLES pasos se pueden saltear, nunca «todos menos», porque la negativa se queda vieja
 sola con cada paso nuevo.
 
+## RESUELTO (16/08/2026) — la salida, y las tres cosas que aparecieron al verificarla
+
+**Vive en:** `lib/capas.ts` (`PASOS_POSTERGABLES`) · `lib/onboarding-contrato.ts` ·
+`lib/onboarding-pendientes.ts` · `app/onboarding/OnboardingWizard.tsx` · `app/general/page.tsx`
+
+Cierra el hallazgo de arriba. Se posterga **un paso**, no todo, y solo los que se cierran en
+un sistema de afuera: `integraciones` y `tabs` (el OTP de WhatsApp). Los de contenido siguen
+siendo obligatorios — el cliente los puede contestar ahora. El `skip?: boolean` que ponía el
+estado entero en `'skipped'` se fue: no lo llamaba nadie y su único efecto posible era
+encerrar, porque `'skipped'` no libera y no había forma de volver atrás.
+
+**El invariante general NO tiene validación automática, y hay que decirlo.** «Un paso solo es
+postergable si nada río abajo lo necesita» no se puede chequear con un dato: quién depende de
+quién vive en el `puedeAvanzar` de `OnboardingWizard.tsx`, como una cadena de ternarios en el
+cliente. Lo que sí quedó amarrado es lo de al lado — `POSTERGABLE_TXT` y los verificadores de
+`onboarding-pendientes.ts` **no compilan** si entra un paso sin frase o sin forma de saber si
+sigue faltando. Es la distinción de AGENTS.md: cuando la segunda capa no se puede escribir, se
+escribe el comentario, no se supone.
+
+### Lo que apareció verificándolo en el navegador
+
+Las tres son de la misma familia y ninguna se ve leyendo el código de a un archivo.
+
+**1. Retomar el wizard aterrizaba UNA PANTALLA ANTES.** Había una `cuenta(paso)` que repetía
+cuántas pantallas produce cada paso — la misma lista que se arma treinta líneas más arriba,
+escrita de nuevo. El paso `fase` produce una pantalla extra (la del canal) que `cuenta` no
+sabía. Medido: con todo cerrado menos el teléfono, caía en la matriz de anuncios. **Y el bug
+llevaba meses tapado por otro**: la cuenta corta evitaba que, con todo hecho, el índice se
+pasara del largo del array. Dos errores que se cancelaban. Ahora se BUSCA en `pantallas`.
+
+**2. La pantalla de Retro decía «✦ CON UNDEFINED CONECTADO»**, en mayúsculas y arriba de todo.
+Declara `servicio: 'meta'` sin `nombre`, y `nombre` solo lo traen las pantallas de conexión.
+Un cliente lo estaba viendo.
+
+**3. El estado de un paso vivía en CUATRO lugares** y la copia del cliente se acababa de
+desfasar otra vez: `postergado` existía en el server, en la base y en el endpoint, y
+`OnboardingWizard.tsx` seguía tipando `{ done: boolean }` — o sea, **la pantalla que tiene que
+reaccionar al dato era la única que no sabía que existía**. Es exactamente el bug que hizo
+nacer roto el paso `productos`, repetido. Ahora sale de `lib/onboarding-contrato.ts`.
+
+### El recordatorio se apaga solo, y por qué eso obligó a partir el módulo
+
+`pendientesOnboarding()` **no le cree al flag**: cruza `postergado` con la conexión REAL de
+hoy. Verificado contra el ws3: con Meta conectado no aparece nada, y con el teléfono sin
+verificar aparece solo ése. Un flag que hay que acordarse de bajar a mano es el que dentro de
+un mes le pide a alguien algo que ya hizo.
+
+Para poder testear todo esto hubo que sacar las reglas puras a `lib/onboarding-contrato.ts`
+**sin `server-only`**: lo que deciden es si un cliente entra a la app o vuelve al wizard, y
+metido en el módulo que lee `app_settings` ningún test lo podía importar. Es el mismo criterio
+que `exigirClienteDePrueba` y `lib/model-catalogo.ts`. La red es `tests/onboarding-postergar.test.ts`.
+
+### Lo que quedó SIN hacer
+
+- **`estado.step` se escribe y no lo lee nadie.** El tipo lo documenta como «paso actual del
+  wizard (para retomar donde quedó)» y el retomar se calcula desde `steps`. Vive en
+  `lib/onboarding-contrato.ts` y se escribe en `app/api/onboarding/route.ts` (`case 'paso'`).
+  O se usa o se borra: un campo que promete algo que no cumple manda a leer el lugar equivocado.
+- **Dos fuentes para «el teléfono está verificado».** El GET de `/api/onboarding` devolvió
+  `contacto.verificado: false` (de `getContactoReportes`) mientras
+  `getEstadoVerificacionContacto` decía `true`, para el mismo workspace y en el mismo
+  instante. La segunda es la que gobierna el gate. Vive en `lib/perfil.ts` y
+  `lib/mako-grupo.ts:282`.
+- **Postergar `gemini` sigue sin poder hacerse**, y es el paso 2 de 12. Un cliente sin key de
+  Google no pasa de ahí. Habilitarlo pide postergar en cascada los seis pasos que lo consumen.
+
+*Corrida del 16/08/2026 — implementación de la salida, verificada con Playwright contra el ws3.*
+
 ## Una credencial guardada no es una credencial que funciona
 
 **Vive en:** `lib/credenciales.ts:217-228` (`estadoCampo`) · el paso `gemini` del wizard
