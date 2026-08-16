@@ -165,6 +165,36 @@ export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'cerebras', 'openrout
 // uno (ej. Groq gpt-oss-20b) es demasiado chico: con un doc real de +10k chars
 // genera JSON malformado/truncado y devuelve 0 campos (probado: 20b falla, 70b saca
 // 11/11). La extracción de un brief es "análisis", necesita un modelo grande.
+/**
+ * Modelos de RESPALDO por proveedor, para cuando el principal no está sirviendo.
+ *
+ * ⚠️ NO ES REDUNDANCIA: es el único eje que salva a un workspace con UN proveedor.
+ * Rotar cuentas no sirve si lo que está caído es el modelo, y rotar proveedores no
+ * existe cuando hay uno solo — que es el estado normal de un cliente recién dado de
+ * alta, con su key de Gemini gratis y nada más.
+ *
+ * El respaldo de Gemini es `flash-lite` porque **está medido que responde cuando
+ * `flash-latest` no**: 16/08, misma key, mismo payload de 24k caracteres, `flash-latest`
+ * daba 503 «high demand» de forma persistente y `flash-lite-latest` contestaba 200.
+ *
+ * Es un modelo MÁS FLOJO, y eso es a propósito y aceptable acá: solo entra cuando el
+ * bueno no está, y la alternativa no es «una respuesta un poco peor» sino NINGUNA. Los
+ * callers de documentos pasan `validar`, así que una salida inservible igual se descarta.
+ *
+ * ⚠️ Y NO SE PONEN IDS CON NÚMERO DE VERSIÓN. Google los retira: `gemini-2.5-flash` ya
+ * contesta 404 «no longer available to new users», y `gemini-2.0-flash` también. Solo
+ * alias `-latest`, que es lo único que no envejece solo.
+ */
+const MODELOS_RESPALDO: Partial<Record<ProvName, string[]>> = {
+  gemini: ['gemini-flash-lite-latest'],
+};
+
+/** El modelo pedido primero, y atrás los respaldos que no sean el mismo. */
+function modelosAProbar(prov: ProvName, pedido?: string): Array<string | undefined> {
+  const respaldos = (MODELOS_RESPALDO[prov] ?? []).filter((m) => m !== pedido);
+  return [pedido, ...respaldos];
+}
+
 export const MODELO_DOCS: Partial<Record<ProvName, string>> = {
   groq: process.env.DOCS_MODEL_GROQ || 'llama-3.3-70b-versatile',
   gemini: process.env.GEMINI_MODEL || 'gemini-flash-latest',
@@ -335,9 +365,23 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     // cuesta ni un request.
     const instancias = await provsDe(prov);
     for (const inst of instancias) {
+     // ⚠️ TERCER EJE DE ROTACIÓN: EL MODELO. Los otros dos (cuenta y proveedor) no
+     // sirven de nada cuando lo que está caído es UN MODELO y el workspace tiene un
+     // solo proveedor: se prueban las N cuentas contra el mismo modelo muerto y se
+     // rinde con el resto del catálogo del proveedor intacto.
+     //
+     // Pasó el 16/08 con un cliente esperando, y el diagnóstico obvio fue el equivocado
+     // DOS veces: no era la cuota (la key era nueva) y no era la key. Medido con la key
+     // real del cliente y el mismo payload de 24k caracteres:
+     //   gemini-flash-latest      → 503 «high demand», persistente
+     //   gemini-2.5-flash         → 404 «no longer available to new users»
+     //   gemini-flash-lite-latest → 200, perfecto
+     // O sea: Google tenía caído el alias que la app fija, y al lado había un modelo
+     // sano de la MISMA cuenta. Sin este eje, el cliente no podía subir un documento.
+     for (const model of modelosAProbar(prov, opts.modelos?.[prov])) {
       // El ESFUERZO viaja por toda la cascada. Sin esto, una feature con effort alto
       // ruteada a la IA barata corría en 'minimal' apenas cambiaba de proveedor.
-      const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${rotulo(inst)}`, provider: prov, clave: inst.clave, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs, esfuerzo: opts.esfuerzo };
+      const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${rotulo(inst)}`, provider: prov, clave: inst.clave, model, timeoutMs: opts.timeoutMs, esfuerzo: opts.esfuerzo };
       // Un reintento de la MISMA cuenta si el fallo parece transitorio (5xx/timeout):
       // clave para un workspace con UN solo proveedor y una sola key, donde no hay a
       // quién caer. Un 429 NO se reintenta si hay otra cuenta esperando: esperar
@@ -374,6 +418,9 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
           const esCuota = /\b429\b|quota|rate.?limit|resource_exhausted/i.test(m);
           const transitorio = /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET|unavailable|overloaded|high demand/i.test(m);
+          // Un modelo RETIRADO (404) no se reintenta ni un segundo: no va a volver. Se
+          // pasa derecho al modelo siguiente, que es justo para lo que existe la lista.
+          if (/\b404\b|no longer available|not_found/i.test(m)) break;
           if (intento < maxIntentos && transitorio && !(esCuota && otraCuenta)) {
             // Espera creciente: 1,5s · 4s · 9s. Un 503 de saturación no se arregla en el
             // mismo segundo, y volver enseguida es gastar el intento sin darle tiempo.
@@ -383,6 +430,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           break; // fallo no transitorio (o hay otra cuenta con cuota) → seguir rotando
         }
       }
+     }
     }
   }
   return '';
