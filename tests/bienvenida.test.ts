@@ -36,8 +36,13 @@ test('la bienvenida monta el grafo de verdad, no una copia', () => {
 
 test('el botón es la acción de la pantalla: ancho completo, no un link chico', () => {
   // «hoy en día es mucho texto y el botón chiquito en el medio» (pedido del 16/08).
-  const css = bienvenida.slice(bienvenida.indexOf('.bv-boton {'));
-  assert.ok(/width:\s*100%/.test(css.slice(0, 400)), 'el botón dejó de ser de ancho completo');
+  // ⚠️ Se busca la REGLA del botón, no la primera aparición del selector: hay una línea
+  // previa que lo agrupa con el título y la frase para dejarlos en opacity 0, y un
+  // `indexOf` la agarraba a ella. El test falló por eso y el botón estaba perfecto —
+  // un test que falla por su propia búsqueda enseña a ignorar los tests.
+  const regla = bienvenida.match(/\n\.bv-boton \{[\s\S]{0,400}/);
+  assert.ok(regla, 'no encontré la regla .bv-boton');
+  assert.ok(/width:\s*100%/.test(regla[0]), 'el botón dejó de ser de ancho completo');
 });
 
 test('el bloque de estilos no tiene comillas invertidas adentro', () => {
