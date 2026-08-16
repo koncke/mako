@@ -80,7 +80,7 @@ import { DURACION_DEFECTO_MIN, instanteDeLocal } from './horarios-respuesta';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getTenantDb, getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
 
 /**
  * Autor para el historial: el email del usuario logueado (se resuelve a nombre y
@@ -648,7 +648,7 @@ export async function deleteLeadAction(id: number): Promise<void> {
   await deleteLead(id);
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
-  redirect('/crm');
+  redirect(await rutaConWs('/crm'));
 }
 
 /**

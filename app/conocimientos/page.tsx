@@ -9,6 +9,7 @@ import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import Conocimientos from './Conocimientos';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 
 export default async function ConocimientosPage() {
   const admin = await getSesionAdmin();
-  if (!admin) redirect('/inicio');
+  if (!admin) redirect(await rutaConWs('/inicio'));
   // useSearchParams (routing por URL en el client) necesita un Suspense boundary.
   return (
     <Suspense fallback={null}>

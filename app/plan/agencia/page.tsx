@@ -20,7 +20,7 @@
 
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
-import { estaImpersonando } from '@/lib/workspace';
+import { estaImpersonando, rutaConWs } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { listPlanBoard } from '@/lib/plan-board';
 import type { BoardTask, Label } from '../board/types';
@@ -31,7 +31,7 @@ export const revalidate = 0;
 
 export default async function PlanAgenciaPage() {
   const sesion = await getUsuarioActual();
-  if (sesion?.rol !== 'admin' || (await estaImpersonando())) redirect('/plan');
+  if (sesion?.rol !== 'admin' || (await estaImpersonando())) redirect(await rutaConWs('/plan'));
 
   // Nombre + foto del usuario logueado (para el change history del board).
   let user = { nombre: '', avatarUrl: '' };

@@ -19,7 +19,7 @@
 
 import 'server-only';
 import { redirect } from 'next/navigation';
-import { getCapaActual, getRolWsEfectivo } from './workspace';
+import { getCapaActual, getRolWsEfectivo, rutaConWs } from './workspace';
 import { onboardingPendiente } from './onboarding-state';
 import { capaDef, tabEnCapa, type CapaId } from './capas';
 import type { RolWorkspace } from './auth-session';
@@ -40,7 +40,12 @@ export function homeDeCapa(capa: CapaId): string {
  * requireRolWs); las demás lo heredan de requireRolWs.
  */
 export async function guardOnboarding(): Promise<void> {
-  if (await onboardingPendiente()) redirect('/onboarding');
+  // ⚠️ `rutaConWs` y no `/onboarding` pelado. Sin eso el redirect PIERDE la pestaña: el
+  // dueño que abre un cliente con el onboarding sin terminar aterriza en SU propio
+  // onboarding, con el chrome de admin y sin barra de agencia — o sea, mirando otra
+  // cuenta sin que nada se lo diga. Reproducido el 16/08/2026 con el Cliente de Prueba
+  // recién reseteado: `/crm?ws=3` terminaba en `/onboarding` a secas.
+  if (await onboardingPendiente()) redirect(await rutaConWs('/onboarding'));
 }
 
 /**
@@ -56,6 +61,9 @@ export async function guardOnboarding(): Promise<void> {
  */
 export async function requireSesion(): Promise<RolWorkspace> {
   const rol = await getRolWsEfectivo();
+  // `/login` es el ÚNICO redirect de este módulo que va sin `?ws=`, y a propósito: sin
+  // sesión no hay pestaña que preservar, y arrastrar el id de un cliente a la pantalla
+  // de login sería mostrar a quién se estaba mirando en una URL que se comparte sola.
   if (rol == null) redirect('/login');
   return rol;
 }
@@ -75,7 +83,7 @@ export async function requireSesion(): Promise<RolWorkspace> {
 export async function requireCapa(nav: string, opts?: { gateOnboarding?: boolean }): Promise<void> {
   await requireSesion();
   const capa = await getCapaActual();
-  if (!tabEnCapa(nav, capa)) redirect(homeDeCapa(capa));
+  if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
   // El onboarding se gatea ACÁ y no en cada página. Antes quedaba librado a que
   // el autor se acordara de una segunda línea, y en 2 de las 7 páginas que usan
   // este guard el `return <PanelActivacion/>` se colaba EN EL MEDIO: la tab se
@@ -100,7 +108,7 @@ export async function requireRolWs(
   opts?: { gateOnboarding?: boolean; nav?: string },
 ): Promise<void> {
   const rol = await requireSesion();
-  if (rol !== 'admin' && !permitidos.includes(rol)) redirect(homeDeCapa(await getCapaActual()));
+  if (rol !== 'admin' && !permitidos.includes(rol)) redirect(await rutaConWs(homeDeCapa(await getCapaActual())));
   if (opts?.nav) await requireCapa(opts.nav, { gateOnboarding: opts?.gateOnboarding });
   if (opts?.gateOnboarding !== false) await guardOnboarding();
 }

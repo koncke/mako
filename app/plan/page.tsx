@@ -10,7 +10,7 @@ import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/to
 import { seedTodoBoardSiVacio, autocompletarPorSenales } from '@/lib/todo-seeds';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, estaImpersonando } from '@/lib/workspace';
+import { getWorkspaceActual, estaImpersonando, rutaConWs } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
 
@@ -31,7 +31,7 @@ export default async function TodoPage() {
   // Si un admin IMPERSONA a un cliente (incl. Mauricio/ws1), cae al tablero del
   // cliente — Mauricio es un cliente más, no el dueño.
   const sesion = await getUsuarioActual();
-  if (sesion?.rol === 'admin' && !(await estaImpersonando())) redirect('/plan/agencia');
+  if (sesion?.rol === 'admin' && !(await estaImpersonando())) redirect(await rutaConWs('/plan/agencia'));
 
   // Cliente (o admin impersonando un cliente): tablero de tareas del negocio.
   await requireCapa('todo');

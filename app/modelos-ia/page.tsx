@@ -4,12 +4,13 @@
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { ModelosIA } from './ModelosIA';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ModelosIAPage() {
   const admin = await getSesionAdmin();
-  if (!admin) redirect('/inicio');
+  if (!admin) redirect(await rutaConWs('/inicio'));
   return <ModelosIA />;
 }

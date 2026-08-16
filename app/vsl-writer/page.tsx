@@ -3,7 +3,8 @@
 // lugares que no se pueden editar de golpe: tareas del plan, mensajes que MaKo
 // ya mandó, marcadores del navegador.
 import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
 
-export default function RedirectPage() {
-  redirect('/vsl-generator');
+export default async function RedirectPage() {
+  redirect(await rutaConWs('/vsl-generator'));
 }

@@ -587,7 +587,12 @@ test('existe la BANDEJA: un aviso es un evento, una lista es un estado', () => {
   assert.ok(/propuestasPendientes\('lead'\)/.test(pag), 'la bandeja tiene que usar el lector que ya existía');
   assert.ok(/\.catch\(\(\) => \[\] as Propuesta\[\]\)/.test(pag), 'una bandeja caída no puede tumbar la navegación del CRM');
   assert.ok(/from '@\/app\/_ui\/Link'/.test(pag), 'el Link de la casa preserva el ?ws= del cliente que se está mirando');
-  assert.ok(/getUsuarioActual\(\)/.test(pag) && /redirect\('\/inicio'\)/.test(pag), 'la bandeja no puede quedar abierta');
+  // El redirect va CON `rutaConWs`, no pelado, y eso ahora es parte de lo que se cuida:
+  // un `redirect('/inicio')` a secas pierde el `?ws=` de la pestaña y le cambia el
+  // cliente al super-admin sin decírselo. El 16/08/2026 esa forma dejó al dueño sin
+  // poder entrar al Cliente de Prueba. Ver lib/workspace.ts → `rutaConWs`.
+  assert.ok(/getUsuarioActual\(\)/.test(pag), 'la bandeja no puede quedar abierta');
+  assert.ok(/redirect\(await rutaConWs\('\/inicio'\)\)/.test(pag), 'el redirect tiene que preservar el ?ws= de la pestaña');
 });
 
 test('la llave de idempotencia del opt-in se normaliza', () => {

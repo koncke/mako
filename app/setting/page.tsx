@@ -6,7 +6,8 @@
 // cualquier lugar donde todavía viva la ruta anterior.
 
 import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
 
-export default function Page() {
-  redirect('/chatbot');
+export default async function Page() {
+  redirect(await rutaConWs('/chatbot'));
 }

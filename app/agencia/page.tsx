@@ -7,6 +7,7 @@
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { AgenciaTabs } from './AgenciaTabs';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -17,6 +18,6 @@ export default async function AgenciaPage({ searchParams }: { searchParams: Prom
   // (el `match` del nav ve solo el pathname, así que una tab en `?tab=` es
   // inalcanzable como destino). Los links guardados siguen llegando.
   const { tab } = await searchParams;
-  if (tab === 'plantillas') redirect('/mensajes');
+  if (tab === 'plantillas') redirect(await rutaConWs('/mensajes'));
   return <AgenciaTabs />;
 }

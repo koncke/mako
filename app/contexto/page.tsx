@@ -7,11 +7,12 @@
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { ContextoTabs } from './ContextoTabs';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ContextoPage() {
-  if (!(await getSesionAdmin())) redirect('/inicio');
+  if (!(await getSesionAdmin())) redirect(await rutaConWs('/inicio'));
   return <ContextoTabs />;
 }

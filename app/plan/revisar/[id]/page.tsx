@@ -9,7 +9,7 @@
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { getPropuesta, duenoDePropuesta, listPropuestasPendientes } from '@/lib/plan-propuesta';
-import { getCapaActual } from '@/lib/workspace';
+import { getCapaActual, rutaConWs } from '@/lib/workspace';
 import { RevisarPropuesta } from './RevisarPropuesta';
 import { NoEsTuyo } from './NoEsTuyo';
 import { guardOnboarding } from '@/lib/tab-access';
@@ -19,7 +19,7 @@ export const revalidate = 0;
 
 export default async function RevisarPage({ params }: { params: Promise<{ id: string }> }) {
   const sesion = await getUsuarioActual();
-  if (!sesion) redirect('/inicio');
+  if (!sesion) redirect(await rutaConWs('/inicio'));
   // Esta pantalla ESCRIBE (confirma tareas del plan). Llega por un link que MaKo
   // manda por WhatsApp, así que es la vía más fácil de entrar salteando el alta.
   await guardOnboarding();

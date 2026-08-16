@@ -18,11 +18,12 @@
 import { redirect } from 'next/navigation';
 import { ConocimientoView } from './ConocimientoView';
 import { getSesionAdmin } from '@/lib/auth';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ConocimientoPage() {
-  if (!(await getSesionAdmin())) redirect('/inicio');
+  if (!(await getSesionAdmin())) redirect(await rutaConWs('/inicio'));
   return <ConocimientoView />;
 }

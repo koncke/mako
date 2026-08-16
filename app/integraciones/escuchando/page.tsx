@@ -20,13 +20,14 @@ import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { requireRolWs } from '@/lib/tab-access';
 import { ProbarTracking } from '../ProbarTracking';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function EscuchandoPage({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const sesion = await getUsuarioActual();
-  if (!sesion) redirect('/inicio');
+  if (!sesion) redirect(await rutaConWs('/inicio'));
   // El mismo gate que la tab: una ventana sin chrome sigue siendo la misma
   // pantalla, y el permiso no se relaja porque el marco sea más chico.
   await requireRolWs([], { nav: 'integraciones' });
@@ -35,7 +36,7 @@ export default async function EscuchandoPage({ searchParams }: { searchParams: P
   // Sin marcador no hay nada que escuchar: esta ventana solo existe como parte de
   // una prueba que arrancó en la tab. Se manda de vuelta en vez de mostrar un
   // panel vacío que parece roto.
-  if (!p) redirect('/integraciones?abrir=landing');
+  if (!p) redirect(await rutaConWs('/integraciones?abrir=landing'));
 
   return (
     <main style={{ padding: 14, minHeight: '100vh', background: 'var(--bg)', fontFamily: "'Geist', sans-serif" }}>

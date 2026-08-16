@@ -8,12 +8,13 @@
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { MetodoWizard } from './MetodoWizard';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function MetodoPage() {
   const admin = await getSesionAdmin();
-  if (!admin) redirect('/inicio');
+  if (!admin) redirect(await rutaConWs('/inicio'));
   return <MetodoWizard />;
 }

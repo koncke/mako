@@ -157,6 +157,36 @@ mano el 2026-08-11 y **en la misma sesión** ya decía «el impacto» donde el c
 `import type`, que tsx borra en runtime—, así que se importa: parsear objetos anidados
 con regex es cómo se cuelan los desfases que el script viene a evitar.
 
+# Un `redirect()` es navegación, y la navegación lleva el `?ws=`
+
+Todo `redirect()` interno del server va con **`rutaConWs`** (`lib/workspace.ts`). Sin eso
+pierde la pestaña, y **la forma en que falla no se parece a un bug: te deja mirando otra
+cuenta.**
+
+El repo ya tenía la regla escrita para las otras dos formas de navegar —`app/_ui/Link`
+para los links, el parche de `WsFetch` para las llamadas a `/api`— y le faltaba justo la
+tercera. Un redirect también es navegación.
+
+El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
+onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`
+sin el `?ws=` → aterrizó en **su propio** onboarding, con el chrome de admin, sin barra de
+agencia y **sin ninguna forma de volver a entrar al cliente**. Lo reportó como «algo está
+pasando», que es exactamente cómo se reporta esto: no hay error, no hay pantalla rota, hay
+una cuenta distinta.
+
+- **El guard compartido es el que más pega.** `requireRolWs` / `requireCapa` rebotan por
+  capa y por rol, así que ese redirect se dispara desde cualquier pantalla. Ahí primero.
+- **Los alias de ruta cuentan.** `/setting → /chatbot`, `/dashboard → /marketing`,
+  `/plan → /plan/agencia`: abrir un link viejo de un cliente te sacaba del cliente.
+- **La excepción es `/login`**, y una sola: sin sesión no hay pestaña que preservar, y
+  arrastrar el id a una URL que se comparte sola sería contar a quién se estaba mirando.
+- **Ponerlo de más no cuesta nada.** `rutaConWs` devuelve el href intacto cuando no hay
+  pestaña, así que para un cliente normal es el mismo string de siempre.
+
+Y un corolario que vale para cualquier «vista de otro»: **si la única salida vive adentro
+de una pantalla condicional, no hay salida.** El botón SALIR DE LA VISTA vivía en la barra
+del wizard; cuando el wizard no se dibujaba, no quedaba ninguna.
+
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
 «Solo ESTE workspace», nunca «cualquiera menos aquél». La condición negativa protege una

@@ -26,7 +26,7 @@ import { getSupabaseServer } from './supabase';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CAPA_DEFAULT, capaDef, esCapaValida, type CapaId } from './capas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
-import { WS_HEADER, parseWs } from './ws-tab';
+import { WS_HEADER, conWs, parseWs } from './ws-tab';
 
 export { firmarImpersonacion, IMPERSONATE_COOKIE, OWNER_WS };
 
@@ -44,6 +44,25 @@ export { firmarImpersonacion, IMPERSONATE_COOKIE, OWNER_WS };
  */
 async function wsDePestana(): Promise<number | null> {
   return parseWs((await headers()).get(WS_HEADER));
+}
+
+/**
+ * Un destino interno CON el `?ws=` de esta pestaña. **Para todo `redirect()` del server.**
+ *
+ * ⚠️ `redirect('/loquesea')` PIERDE la pestaña, y el modo en que falla no se parece a un
+ * bug: te deja mirando OTRA cuenta. El caso que lo destapó — el dueño abrió el Cliente de
+ * Prueba, el guard del onboarding lo mandó a `redirect('/onboarding')` sin el `?ws=`, y
+ * aterrizó en SU propio onboarding, sin barra de agencia y sin forma de volver a entrar.
+ * Desde afuera se lee como «la app se rompió», no como «me cambió de cliente».
+ *
+ * El repo ya tenía la regla escrita para links y `fetch` (`app/_ui/Link`, `WsFetch`), y le
+ * faltaba justo la tercera forma de navegar. Un redirect ES navegación.
+ *
+ * Devuelve el href intacto cuando no hay pestaña, así que ponerlo de más no cuesta nada:
+ * para un cliente normal —que nunca tiene `?ws=`— es exactamente el string de antes.
+ */
+export async function rutaConWs(href: string): Promise<string> {
+  return conWs(href, await wsDePestana());
 }
 
 // Contexto de workspace por-request. Lo usa la caché (lib/cache.ts): dentro de

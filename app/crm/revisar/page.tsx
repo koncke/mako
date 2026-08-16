@@ -27,6 +27,7 @@ import Link from '@/app/_ui/Link';
 import { Pagina } from '@/app/_ui';
 import { getUsuarioActual } from '@/lib/auth';
 import { propuestasPendientes, type Propuesta } from '@/lib/propuestas';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -59,7 +60,7 @@ function contactoDe(p: Propuesta): string {
 
 export default async function BandejaPropuestasPage() {
   const sesion = await getUsuarioActual();
-  if (!sesion) redirect('/inicio');
+  if (!sesion) redirect(await rutaConWs('/inicio'));
 
   // Degrada a lista vacía en vez de romper: una bandeja caída no puede tumbar la
   // navegación del CRM. Lo que se pierde es la lista, no el acceso.

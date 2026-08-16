@@ -15,13 +15,14 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getPropuesta, duenoDePropuesta } from '@/lib/propuestas';
 import { RevisarLead } from './RevisarLead';
 import { NoEsTuyo } from './NoEsTuyo';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function RevisarLeadPage({ params }: { params: Promise<{ id: string }> }) {
   const sesion = await getUsuarioActual();
-  if (!sesion) redirect('/inicio');
+  if (!sesion) redirect(await rutaConWs('/inicio'));
 
   const { id } = await params;
   const prop = await getPropuesta(id);

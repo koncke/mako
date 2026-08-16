@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
+import { getWorkspaceActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
 import { onboardingPendiente } from '@/lib/onboarding-state';
 
 export const dynamic = 'force-dynamic';
@@ -22,8 +22,12 @@ export default async function Inicio() {
     const ws = await getWorkspaceActual(); // null si no está impersonando
     if (ws == null) redirect('/admin');
   }
+  // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
+  // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con
+  // el chrome de admin puesto — se lee como «la app se rompió», no como «me cambió de
+  // cliente». Para un usuario sin `?ws=` devuelve el mismo string de siempre.
   const rolWs = await getRolWsEfectivo();
-  if (rolWs === 'closer' || rolWs === 'setter') redirect('/crm');
-  if (await onboardingPendiente()) redirect('/onboarding');
-  redirect('/general');
+  if (rolWs === 'closer' || rolWs === 'setter') redirect(await rutaConWs('/crm'));
+  if (await onboardingPendiente()) redirect(await rutaConWs('/onboarding'));
+  redirect(await rutaConWs('/general'));
 }
