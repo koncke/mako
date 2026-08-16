@@ -45,6 +45,7 @@ import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-
 import { Dropdown } from '../components/Dropdown';
 import { PAISES, PAIS_DEFAULT, flagUrl } from '@/lib/paises';
 import { esPostergable, type PasoOnboarding } from '@/lib/capas';
+import { Bienvenida } from './Bienvenida';
 import type { OnboardingStatus, PasoState } from '@/lib/onboarding-contrato';
 
 const MONO = "'Geist Mono', monospace";
@@ -149,6 +150,12 @@ export function OnboardingWizard() {
   const [data, setData] = useState<WizardData | null>(null);
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
+  // La bienvenida se muestra UNA vez, y el que se acuerda es el server: apretar «Comenzar»
+  // postea un avance SIN paso, que es lo único que hace `patchEstadoOnboarding` cuando no
+  // le mandan `step` — pasar el estado de 'pending' a 'in_progress'. Con eso un F5 en la
+  // pregunta 3 no la vuelve a mostrar, sin inventar una clave nueva ni usar sessionStorage
+  // (que además haría diferir el HTML del server del que hidrata el cliente).
+  const [bienvenidaVista, setBienvenidaVista] = useState(false);
   const [pending, setPending] = useState(false);
   // MaKo escribiendo el plan de arranque: tarda decenas de segundos y es lo último
   // que pasa antes de entrar, así que el botón tiene que decir qué está haciendo.
@@ -259,6 +266,24 @@ export function OnboardingWizard() {
 
   if (errCarga) return <Centro><span style={{ color: 'var(--bad)', fontWeight: 600 }}>{errCarga}</span></Centro>;
   if (!data) return <Centro><span style={{ fontFamily: MONO, color: 'var(--faint)' }}>Cargando tu onboarding…</span></Centro>;
+
+  // ── Antes que nada, la bienvenida ─────────────────────────────────────────
+  // Va ACÁ y no como una pantalla más del wizard, a propósito: no tiene barra de progreso,
+  // ni «Atrás», ni paso que cerrar. Meterla adentro de `pantallas` habría obligado a que
+  // el WizardShell sepa dibujarse a medias, y eso se filtra a todas las demás pantallas.
+  if (!bienvenidaVista && data.estado.status === 'pending') {
+    return (
+      <Bienvenida
+        onComenzar={() => {
+          setBienvenidaVista(true);
+          // Sin `await`: el wizard ya se está dibujando y este POST solo deja la marca.
+          // Si falla, lo único que pasa es que la bienvenida vuelve a salir la próxima
+          // vez — molesto, nunca bloqueante.
+          void post('/api/onboarding', { action: 'paso' });
+        }}
+      />
+    );
+  }
 
   // ── Las pantallas salen de la CAPA ────────────────────────────────────────
   const pantallas: Pantalla[] = [];
