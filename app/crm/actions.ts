@@ -8,7 +8,7 @@
 // =============================================================================
 
 import { getVideosLanding } from '@/lib/landing-token';
-import { urlSesionesDeLead, urlPanel } from '@/lib/clarity';
+import { urlSesionesDeLead, urlPanel, grabacionVigente } from '@/lib/clarity';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -146,6 +146,8 @@ export type LeadFullData = {
   urlClarity: string | null;
   /** El mapa de calor de la página, que es del PROYECTO y no de este lead. */
   urlMapaCalor: string | null;
+  /** Existió pero Clarity ya la borró. Distinto de «nunca hubo». */
+  grabacionVencida: boolean;
   campana: { texto: string | null; tooltip: string | null };
   adNombre: string | null;
   /** ad_id resuelto (meta_ad_id, utm_content numérico o por nombre) para el deep-link. */
@@ -184,6 +186,18 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     // Del PROYECTO: Clarity agrega los clics de todos y no se filtra por persona.
     urlPanel(undefined, 'heatmaps').catch(() => null),
   ]);
+
+  // ⚠️ EL LINK A LA GRABACIÓN SE GATEA POR LA RETENCIÓN, no por «tiene
+  // identificador». Clarity borra a los 30 días: sobre un lead más viejo, el
+  // botón abre su panel sin nada y se lee como que la medición no funciona.
+  // Se mira la ÚLTIMA actividad —no el alta— porque alguien de marzo que volvió
+  // ayer sí tiene grabación.
+  const ultimaActividad = tracking.length
+    ? tracking.map((e) => e.ts).sort().at(-1) ?? null
+    : lead.created_at;
+  const grabacionVigente_ = grabacionVigente(ultimaActividad);
+  const urlClarityVigente = grabacionVigente_ ? urlClarity : null;
+  const grabacionVencida = !!urlClarity && !grabacionVigente_;
   const [respuestas, insightGen, equipo, grabable] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable()]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
@@ -197,7 +211,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, videos, urlClarity, urlMapaCalor, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
+  return { lead, stages, pagos, vslEng, videos, urlClarity: urlClarityVigente, urlMapaCalor, grabacionVencida, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

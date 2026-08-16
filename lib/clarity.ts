@@ -80,6 +80,34 @@ async function token(ws?: number): Promise<string | null> {
 }
 
 /**
+ * Cuántos días guarda Clarity una grabación antes de borrarla.
+ *
+ * No es un número elegido: es el que Microsoft documenta. Vale también para el
+ * cron que avisa antes de que se venzan (`clarity-vigilante`).
+ */
+export const DIAS_RETENCION = 30;
+
+/**
+ * ¿Puede existir todavía la grabación de esta persona?
+ *
+ * ⚠️ LA PREGUNTA NO ES «¿tiene identificador?» SINO «¿sigue viva su grabación?».
+ * Ofrecer el link a un lead cuya sesión fue hace tres meses es prometer algo que
+ * Clarity ya borró: se abre su panel, no hay nada, y la conclusión razonable es
+ * que la medición no funciona. Medido el 2026-08-16 en el workspace 1: de 36
+ * leads con seguimiento, **12 eran más viejos que la retención** —el más antiguo
+ * del 31/3— y a los 12 se les mostraba el botón.
+ *
+ * Se mira la ÚLTIMA actividad y no la fecha de alta: alguien que entró en marzo
+ * y volvió ayer tiene grabación de ayer.
+ */
+export function grabacionVigente(ultimaActividad: string | Date | null | undefined): boolean {
+  if (!ultimaActividad) return false;
+  const t = new Date(ultimaActividad).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < DIAS_RETENCION * 86_400_000;
+}
+
+/**
  * El link a las grabaciones de UNA persona, ya filtrado por nuestro id.
  *
  * ⚠️ Es lo único que ata Clarity al CRM, y es la mitad del valor de todo esto:

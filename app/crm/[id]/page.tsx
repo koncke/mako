@@ -5,7 +5,7 @@
 // en la tab Editar; el modal del CRM es solo preview y linkea acá con ?tab=.
 
 import { getVideosLanding } from '@/lib/landing-token';
-import { urlSesionesDeLead, urlPanel } from '@/lib/clarity';
+import { urlSesionesDeLead, urlPanel, grabacionVigente } from '@/lib/clarity';
 import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import {
@@ -73,6 +73,18 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     // todos los visitantes y no permite filtrarlo por persona.
     urlPanel(undefined, 'heatmaps').catch(() => null),
   ]);
+
+  // ⚠️ EL LINK A LA GRABACIÓN SE GATEA POR LA RETENCIÓN, no por «tiene
+  // identificador». Clarity borra a los 30 días: sobre un lead más viejo, el
+  // botón abre su panel sin nada y se lee como que la medición no funciona.
+  // Se mira la ÚLTIMA actividad —no el alta— porque alguien de marzo que volvió
+  // ayer sí tiene grabación.
+  const ultimaActividad = trackingEventos.length
+    ? trackingEventos.map((e) => e.ts).sort().at(-1) ?? null
+    : lead.created_at;
+  const grabacionVigente_ = grabacionVigente(ultimaActividad);
+  const urlClarityVigente = grabacionVigente_ ? urlClarityLead : null;
+  const grabacionVencida = !!urlClarityLead && !grabacionVigente_;
   const [respuestas, insightGen, equipo] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction()]);
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
@@ -169,7 +181,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               content: (
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
-                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarityLead} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} />
+                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} />
                   <TrackingTimelineCard eventos={trackingEventos} />
                 </>
               ),

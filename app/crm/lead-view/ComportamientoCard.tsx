@@ -66,7 +66,7 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
 }
 
 export function ComportamientoCard({
-  visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], urlClarity = null, urlMapaCalor = null, visitorId = null,
+  visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], urlClarity = null, urlMapaCalor = null, visitorId = null, grabacionVencida = false,
 }: {
   visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean;
   /** Uno por video medido. Con 0 o 1 la tarjeta se pinta como siempre. */
@@ -86,6 +86,10 @@ export function ComportamientoCard({
    *  `clarity("identify", …)`. Es la llave para encontrar a ESTA persona entre
    *  miles de sesiones anónimas. */
   visitorId?: string | null;
+  /** La grabación existió pero Clarity ya la borró (más de 30 días). Es distinto
+   *  de «no hay link»: acá SÍ hubo algo que ver, y decirlo evita que la persona
+   *  crea que la medición nunca funcionó. */
+  grabacionVencida?: boolean;
 }) {
   const pctColor = colorDe(maxPct);
   const varios = porVideo.length > 1;
@@ -166,6 +170,18 @@ export function ComportamientoCard({
           Y se nombra la diferencia en el propio rótulo: el mapa de calor NO es de
           esta persona —Clarity agrega los clics de todos y no se puede filtrar por
           alguien—, y un botón al lado de su grabación se leería como que sí. */}
+      {/* ⚠️ LA AUSENCIA SE EXPLICA. Antes el botón aparecía con solo tener
+          identificador, sin importar de cuándo era la visita — y Clarity borra
+          las grabaciones a los 30 días. Quien lo apretaba sobre un lead de hace
+          tres meses caía en su panel sin nada y concluía, razonablemente, que la
+          medición no anda. Esconderlo a secas repetiría el problema por el otro
+          lado: acá SÍ hubo algo que ver, y hay que decir por qué ya no está. */}
+      {grabacionVencida && (
+        <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 14, lineHeight: 1.55 }}>
+          Su grabación ya no existe: Clarity las guarda 30 días y esta visita es anterior.
+          Lo que sí queda es todo lo de arriba, que es nuestro y no vence.
+        </p>
+      )}
       {(urlClarity || urlMapaCalor) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
           {urlClarity && (

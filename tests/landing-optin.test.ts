@@ -1257,3 +1257,29 @@ test('los pasos del Pixel se separan de verdad', () => {
   assert.ok(Number(mt![1]) > Number(pt![1]), 'el aire de arriba tiene que ser mayor que el de abajo');
   assert.ok(Number(mt![1]) >= 28, 'con menos de eso los pasos se siguen leyendo pegados');
 });
+
+test('la grabación no se ofrece cuando Clarity ya la borró', () => {
+  // ⚠️ Reportado por el dueño y CONFIRMADO con datos: el botón aparecía con solo
+  // tener identificador, sin mirar de cuándo era la visita. Clarity borra a los
+  // 30 días. Medido el 2026-08-16 en el workspace 1: de 36 leads con seguimiento,
+  // **12 eran más viejos que la retención** (el más antiguo del 31/3), y a los 12
+  // se les ofrecía una grabación que no puede existir. Quien la abre cae en un
+  // panel sin nada y concluye, razonablemente, que la medición no funciona.
+  const cl = leer('../lib/clarity.ts');
+  assert.ok(/export const DIAS_RETENCION = 30;/.test(cl), 'la retención tiene que ser un dato con nombre, no un número suelto');
+  assert.ok(/export function grabacionVigente/.test(cl), 'falta la regla');
+  // Se mira la ÚLTIMA actividad y no el alta: alguien de marzo que volvió ayer sí
+  // tiene grabación.
+  assert.ok(/ultimaActividad: string \| Date \| null \| undefined/.test(cl), 'la fecha de alta no dice cuándo estuvo');
+
+  for (const ruta of ['../app/crm/[id]/page.tsx', '../app/crm/actions.ts']) {
+    const f = leer(ruta);
+    assert.ok(/grabacionVigente\(ultimaActividad\)/.test(f), `${ruta}: el link no está gateado por la retención`);
+    assert.ok(/\.map\(\(e\) => e\.ts\)\.sort\(\)\.at\(-1\)/.test(f), `${ruta}: hay que mirar el evento más NUEVO`);
+  }
+
+  // ⚠️ Y no se esconde en silencio: acá SÍ hubo algo que ver, y decir por qué ya
+  // no está es lo que evita que se lea como que nunca funcionó.
+  const card = leer('../app/crm/lead-view/ComportamientoCard.tsx');
+  assert.ok(/Su grabación ya no existe: Clarity las guarda 30 días/.test(card), 'la ausencia se explica');
+});
