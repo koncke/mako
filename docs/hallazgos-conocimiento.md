@@ -987,6 +987,65 @@ Es la misma lección que ya costó cara con Julián (41 de 92) y con los recurso
 **un contador que se suma a sí mismo no verifica nada.** Hay que medir contra algo que
 venga de afuera — el disco, Drive, o como acá, el número que la propia fuente publica.
 
+⚠️ **CORRECCIÓN (2026-08-16): esa suma NO es ajena a la heurística, y por eso falló.**
+Los `0/N` salen de las cabeceras **que están en el DOM**, así que con un acordeón plegado
+bajan al mismo tiempo que lo enumerado y el chequeo se compara contra sí mismo. Medido en
+«Trilogía de BRIAN TRACY»: una segunda corrida sobre la misma pestaña detectó **3 clases
+de 11** y anunció, tan tranquila, *«3 clases detectadas (la página dice 3)»*.
+El total de verdad lo publica la **ficha** del curso («11 lecciones»), arriba y fuera del
+acordeón. Ahora se toma el mayor de los dos, y **la comparación decisiva se hace AL FINAL**,
+contra `plan.length` — ver la entrada de abajo.
+
+### El curso de Brian Tracy: cuatro supuestos rotos de una vez
+
+**2026-08-16, «Trilogía de BRIAN TRACY» (11 lecciones).** Primera corrida: 4 de 11, con
+siete *«no pude re-encontrar el botón»* seguidos. Ninguna de las cuatro causas era la que
+parecía, y todas viven en `scripts/curso-plan.mjs`.
+
+**1. Los acordeones son MUTUAMENTE EXCLUYENTES: abrir «Parte 2» cierra «Parte 1».**
+Entonces **no existe ningún instante en que las 11 lecciones estén en el DOM**, y enumerar
+de una sola pasada es enumerar de menos por diseño. La enumeración pasó a ser una
+**travesía** —se recorre cabecera por cabecera y se acumula por texto— en vez de una foto.
+
+**2. La lección que el script clickeaba primero no era una lección: era la cabecera del
+módulo.** «1. BRIAN TRACY en las Ventas» no lleva progreso —lo llevan sus submódulos
+«Parte N 0/2»—, así que el filtro «numerada y sin `0/N`» la tomaba por lección. Clickearla
+**colapsaba el módulo entero**, y de ahí el bloque de siete fallos: parecía un problema de
+marcas caducadas y era haber clickeado lo que no era.
+
+⚠️ **Y el discriminador NO puede ser «cambió la cantidad de botones».** Se probó, y marcó
+como cabeceras a **cuatro clases legítimas** —dos ya resueltas con su id de Vimeo en la
+corrida anterior—, porque elegir una clase de otro módulo también pliega el anterior. El
+que sí distingue estaba a mano: **una clase carga un video y una cabecera no.** Primero se
+espera el iframe; recién si NO hubo video se mira si además se movió el árbol.
+
+**3. El click de cabecera es un TOGGLE, así que «abrir su módulo» a ciegas lo cierra la
+mitad de las veces.** El síntoma fue un zigzag perfecto: 04 ✓, 05 ✖, 06 ✓, 07 ✖. No hay
+`aria-expanded` que consultar, así que no se razona sobre el estado: se toca una cabecera,
+se **verifica** si la lección apareció, y si no, se deshace el toggle y se sigue.
+
+**4. La lección EN CURSO se rotula sin número y sin duración**, o sea que no cumple
+ninguna de las dos señales de texto y se perdía — y era la lección **1 de 11**. Tampoco
+sirve la clase CSS: la resaltada tiene otra (`bg-[#FFD43B]/10`). Lo que la identifica es la
+**estructura**: cuelga del mismo padre que sus hermanas. Medido: por padre directo entra
+ella sola; por abuelo se cuela «2.BONOS EXCLUSIVOS».
+
+**Y el que ata todo: dos errores que se tapaban entre sí daban un total correcto.** 10
+clases + 1 cabecera colada = 11, que es justo el total del curso, y el resumen imprimía
+**«10/10 clases con video»** — un pleno perfecto al que le faltaba una lección. Por eso la
+comparación final va contra la ficha y **después** de saber cuáles eran cabeceras.
+
+Dos cosas más que salieron de la misma corrida:
+
+- **`--url <parte-de-la-url>`**, nuevo. El script elegía «la primera pestaña que matchee
+  `/curso/`», y el Chrome dedicado acumula pestañas de los cursos ya bajados: el plan sale
+  completo, con las clases de OTRO curso, y no se ve hasta que alguien abre la carpeta.
+- **Se recarga la página antes de enumerar, siempre.** El recorrido clickea decenas de
+  botones y deja el árbol en cualquier estado; correr el script dos veces seguidas sobre la
+  misma pestaña enumeraba lo que había quedado a la vista.
+
+**Vive en:** `scripts/curso-plan.mjs`
+
 ### GOTCHA: `| head` mata el script a mitad y el resumen final miente
 
 Corrí `node scripts/curso-plan.mjs … | head -30` para no llenar la consola. Se vieron las
