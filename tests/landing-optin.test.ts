@@ -1340,29 +1340,36 @@ test('pausa, retoma y fin también en el reproductor de Panda', () => {
   assert.ok(/e\.fin = true;/.test(lib), 'el fin tiene que ser idempotente');
 });
 
-test('mientras se resuelve la landing, debajo hay un esqueleto y no la nada', () => {
-  // ⚠️ Reportado por el dueño: «pareciera un bug». Y lo parecía. Con una sola
-  // landing guardada, la elección la hace el propio selector en cuanto le llega
-  // la lista, así que entre que el modal abre y eso pasa, TODO lo que va debajo
-  // del paso 1 no existe: un título, un desplegable vacío y nada más.
+test('mientras se resuelve la landing, debajo hay un indicador que se VE', () => {
+  // ⚠️ Reportado TRES veces. La primera: «pareciera un bug» — sin página elegida,
+  // todo lo que va debajo del paso 1 no existe. La segunda y la tercera: «aún no
+  // aparece el loader», sobre un loader que ya estaba puesto y se renderizaba.
+  //
+  // Las dos causas del segundo reporte, y ninguna era la lógica:
+  //   · las barras usaban `--surface-2`, que sobre el fondo blanco del modal es
+  //     casi el mismo color: el esqueleto estaba y no se distinguía del vacío;
+  //   · la consulta tarda tan poco que aparecía y desaparecía sin verse.
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
-  assert.ok(/function PasosCargando/.test(board), 'falta el esqueleto');
-  assert.ok(/\{!elegida && eligiendo && <PasosCargando \/>\}/.test(board),
-    'el esqueleto solo mientras no hay elección: con elección, el contenido real entra derecho');
+  assert.ok(/function PasosCargando/.test(board), 'falta el indicador');
+  // Un indicador que no se distingue del fondo no es un indicador.
+  assert.ok(/background: 'var\(--border\)'/.test(board), 'sobre el modal blanco, --surface-2 es invisible');
+  // Y dice QUÉ está pasando: un esqueleto solo dice «algo viene».
+  assert.ok(/Buscando tus páginas…/.test(board), 'sin texto, esperar y romperse se ven igual');
 
-  // El selector tiene que avisar cuándo terminó, y avisar SIEMPRE — también si
-  // falló: un esqueleto que no termina nunca es peor que la pantalla vacía que
-  // vino a tapar.
+  // ⚠️ SOLO mientras se resuelve. Sin ninguna página cargada la pelota está del
+  // lado de la persona —tiene que completar el paso 1— y un indicador de carga
+  // ahí es una promesa falsa que además gira para siempre.
+  assert.ok(/\{!elegida && eligiendo && <PasosCargando \/>\}/.test(board),
+    'sin páginas cargadas no va indicador: ahí falta que la persona elija');
+
   const sel = leer('../app/integraciones/SelectorLanding.tsx');
   assert.ok(/onCargando\?\.\(true\)/.test(sel), 'no avisa que arrancó');
-  assert.ok(/\.finally\(\(\) => onCargando\?\.\(false\)\)/.test(sel), 'un esqueleto sin apagado es una pantalla colgada');
-  assert.ok(/onCargando=\{setEligiendo\}/.test(board), 'el paso 1 no está escuchando');
+  // ⚠️ UN PISO DE TIEMPO, al revés de lo habitual: lo normal es RETRASAR un loader
+  // para que una consulta rápida no lo haga parpadear; acá la consulta tarda tan
+  // poco que el cambio de estado no se llega a percibir.
+  assert.ok(/450 - \(Date\.now\(\) - arranque\)/.test(sel), 'sin un piso de tiempo el indicador parpadea y no se ve');
+  assert.ok(/if \(vivo\) onCargando\?\.\(false\)/.test(sel), 'un indicador sin apagado es una pantalla colgada');
 
-  // Misma anatomía que `Paso` —número, aire, ancho— o al llegar el contenido
-  // salta todo de lugar, que es el otro modo de verse roto.
-  const i = board.indexOf('function PasosCargando');
-  const bloque = board.slice(i, board.indexOf('\nfunction CodigoLanding', i));
-  assert.ok(/paddingTop: 26, marginTop: 30/.test(bloque), 'el esqueleto tiene que ocupar lo mismo que el paso real');
   const css = leer('../app/globals.css');
-  assert.ok(/@keyframes mkPulso/.test(css), 'sin la animación el esqueleto se lee como contenido vacío, no como carga');
+  assert.ok(/@keyframes mkGirar/.test(css) && /@keyframes mkPulso/.test(css), 'faltan las animaciones');
 });

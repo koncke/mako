@@ -39,12 +39,25 @@ export function SelectorLanding({ elegida, onElegir, onCargando }: {
 
   useEffect(() => {
     onCargando?.(true);
+    // ⚠️ UN PISO DE TIEMPO, y va al revés de lo habitual. Lo normal es RETRASAR
+    // un loader para que una consulta rápida no lo haga parpadear; acá el
+    // problema es el opuesto: la consulta tarda tan poco que el hueco de abajo
+    // aparece y desaparece sin que se llegue a ver, y lo que queda es la
+    // sensación de que la pantalla se dibujó mal. El dueño lo reportó dos veces
+    // seguidas —«aún no aparece el loader»— sobre un loader que sí estaba.
+    // 450 ms es el piso para que un cambio de estado se perciba como tal.
+    const arranque = Date.now();
+    let vivo = true;
     getLandingsAction()
-      .then(setLandings)
+      .then((l) => { if (vivo) setLandings(l); })
       .catch(() => { /* sin lista, se agrega */ })
-      // Se apaga SIEMPRE, también si falló: un esqueleto que no termina nunca es
-      // peor que la pantalla vacía que vino a tapar.
-      .finally(() => onCargando?.(false));
+      .finally(() => {
+        const falta = Math.max(0, 450 - (Date.now() - arranque));
+        // Se apaga SIEMPRE, también si falló: un esqueleto que no termina nunca
+        // es peor que la pantalla vacía que vino a tapar.
+        setTimeout(() => { if (vivo) onCargando?.(false); }, falta);
+      });
+    return () => { vivo = false; };
   }, [onCargando]);
 
   // Con UNA sola landing no hay nada que elegir: se selecciona sola. Un

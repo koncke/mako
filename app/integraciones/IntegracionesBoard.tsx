@@ -877,26 +877,51 @@ function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string;
 }
 
 /**
- * El hueco mientras se resuelve cuál es la página.
+ * El hueco de abajo del paso 1, que son DOS huecos distintos.
  *
- * ⚠️ NO ES DECORACIÓN. Con una sola landing guardada, la elección la hace el
- * propio selector en cuanto le llega la lista — así que entre que el modal abre y
- * eso pasa, todo lo que va debajo del paso 1 no existe. La pantalla queda con un
- * título, un desplegable vacío y nada más, que es exactamente como se ve algo
- * roto. El esqueleto dice «esto viene», que es la verdad.
+ * ⚠️ NO ES DECORACIÓN. Sin página elegida, todo lo que va debajo del paso 1 no
+ * existe: la pantalla queda con un título, un desplegable y nada más, que es
+ * exactamente como se ve algo roto. El dueño lo reportó así — «pareciera un bug».
+ *
+ * ⚠️ Y SON DOS SITUACIONES QUE NO SE PUEDEN PINTAR IGUAL, que es lo que falló en
+ * el primer intento: se puso un esqueleto solo para el rato en que se consulta la
+ * lista, y ese rato dura milisegundos y no lo ve nadie. El hueco que se ve de
+ * verdad es el otro — el desplegable esperando que ELIJAS—, y ahí no hay nada
+ * cargando: un spinner giraría para siempre, prometiendo algo que no va a llegar
+ * solo.
+ *
+ * Por eso la misma pieza con dos rótulos: mientras carga, el esqueleto pelado;
+ * cuando la pelota está del lado de la persona, el esqueleto Y la frase que dice
+ * qué falta hacer.
  *
  * Tiene la MISMA anatomía que `Paso` —el número, el aire, el ancho— para que
  * cuando llegue el contenido no salte nada de lugar.
  */
 function PasosCargando() {
+  // ⚠️ El relleno va con `--border`, NO con `--surface-2`. La primera versión usó
+  // el gris de superficie y sobre el fondo blanco del modal las barras quedaban
+  // casi invisibles: el esqueleto estaba puesto, se renderizaba, y aun así la
+  // pantalla se veía vacía. Un indicador que no se distingue del fondo no es un
+  // indicador.
   const barra = (w: string, h = 13): CSSProperties => ({
-    width: w, height: h, borderRadius: 6, background: 'var(--surface-2)',
-    border: '1px solid var(--border)', animation: 'mkPulso 1.2s ease-in-out infinite',
+    width: w, height: h, borderRadius: 6, background: 'var(--border)',
+    animation: 'mkPulso 1.2s ease-in-out infinite',
   });
   return (
-    <div aria-hidden style={{ opacity: 0.85 }}>
+    <div>
+      {/* Que se lea QUÉ está pasando. Un esqueleto solo dice «algo viene»; con la
+          frase, además dice qué — y es la diferencia entre esperar y pensar que
+          se rompió. */}
+      <p style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span aria-hidden style={{
+          width: 13, height: 13, borderRadius: 999, flex: 'none',
+          border: '2px solid var(--border-strong)', borderTopColor: 'var(--primary)',
+          animation: 'mkGirar .7s linear infinite',
+        }} />
+        Buscando tus páginas…
+      </p>
       {[2, 3].map((n) => (
-        <section key={n} style={{ paddingTop: 26, marginTop: 30, borderTop: '1px solid var(--border)' }}>
+        <section key={n} aria-hidden style={{ paddingTop: 26, marginTop: 30, borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
             <span style={{
               flex: 'none', width: 26, height: 26, borderRadius: 999,
@@ -1026,8 +1051,12 @@ function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }:
           y la persona las leía como si fueran de la página que acaba de elegir.
           Un loader habría tapado el síntoma; lo que hacía falta es tirar el
           estado viejo, que además es instantáneo. */}
-      {/* Primero el esqueleto, y solo si TODAVÍA no hay elección: cuando la hay, el
-          contenido real entra derecho y no se ve un parpadeo de dos estados. */}
+      {/* Mientras no haya página elegida, el espacio se sostiene igual. Con
+          elección, el contenido real entra derecho y no se ve un parpadeo. */}
+      {/* ⚠️ SOLO MIENTRAS SE RESUELVE, nunca cuando no hay ninguna página cargada:
+          ahí la pelota está del lado de la persona —tiene que completar el paso
+          1— y un indicador de carga sobre algo que no está cargando es una
+          promesa falsa que además gira para siempre. */}
       {!elegida && eligiendo && <PasosCargando />}
 
       {elegida && (

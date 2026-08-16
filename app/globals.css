@@ -585,6 +585,8 @@ textarea.mako-field {
 
 /* El latido de un esqueleto de carga. Suave a propósito: lo que tiene que decir
    es «esto viene», no llamar la atención sobre sí mismo. */
+@keyframes mkGirar { to { transform: rotate(360deg); } }
+
 @keyframes mkPulso {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
