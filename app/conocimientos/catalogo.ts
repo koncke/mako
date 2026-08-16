@@ -35,6 +35,7 @@ import { CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT } from './curso-ugc-sim-academy-de-mi
 import { CURSO_HACKEANDO_LA_EDICION } from './curso-hackeando-la-edicion';
 import { CURSO_PROGRAMA_RAIO } from './curso-programa-raio';
 import { CURSO_BIGSEO_ACADEMY } from './curso-bigseo-academy';
+import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
 
@@ -76,6 +77,12 @@ const CATEGORIA: Record<string, string> = {
   // que significa lo mismo parte la búsqueda en dos sin agregar nada.
   'inteligencia-viral-2026': 'Orgánico',
   'bigseo-academy': 'Orgánico',
+  // «Instituto de Comunicación» va donde ya vive «Master Marca Personal 5.0»: los dos
+  // enseñan a construirse a uno mismo como el activo —voz, presencia, marca— y separarlos
+  // dejaría dos secciones que responden la misma pregunta. Si el grupo crece, la sección
+  // que pide a gritos es «Marca personal», y ahí se mudan LOS DOS: mientras sean dos, una
+  // sección nueva es un cajón con un curso.
+  'instituto-de-comunicacion': 'Orgánico',
   // Idiomas. Sección propia y no «Cursos externos» (el default que emite el pipeline):
   // un curso de inglés no comparte criterio de búsqueda con ninguna otra sección, y el
   // cajón «externos» agrupa por PROCEDENCIA, que no es lo que nadie viene a buscar.
@@ -151,7 +158,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_JAQUE_BLUE_CREACION_DE_CONTENIDO, CURSO_100M_MONEY_MODELS,
   CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
-  CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY,
+  CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY, CURSO_INSTITUTO_DE_COMUNICACION,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
