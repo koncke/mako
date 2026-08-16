@@ -141,6 +141,20 @@ borrarlo después con precisión.
 3. **Paso 9-B: pre-generar el certificado** con `vercel certs issue … --challenge-only` y
    cargar los dos TXT `_acme-challenge` en GoDaddy. También aditivo.
 
+## Lo que quedaba «sin verificar», verificado (2026-08-16)
+
+Antes de la Fase C se cerraron con datos los puntos que la auditoría había dejado abiertos
+del lado de Vercel y del DNS:
+
+| Pregunta | Respuesta, medida |
+|---|---|
+| ¿La cuenta de Vercel ya tiene un cert para el dominio? | **No.** `GET /v5/certs` → 0 certs en la cuenta. Era el único punto sin verificar del plan: la pre-generación por DNS-01 está disponible. |
+| ¿El dominio está agregado a algún proyecto? | **No.** `GET /v5/domains` → 0 dominios. |
+| ¿TTL actual? | **3600** en apex y en www, confirmado contra `ns53`. |
+| ¿Hay residuos de un intento anterior? | **No.** `_acme-challenge`, `_acme-challenge.www` y `_vercel` no existen. |
+
+O sea: terreno limpio, y el paso 9-B se puede hacer sin sorpresas.
+
 ## 3. El plan, en orden
 
 **Regla de oro: el DNS se toca en el PASO 9, y ni un minuto antes.** Todo lo de arriba es reversible y no toca producción.
