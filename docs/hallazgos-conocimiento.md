@@ -1760,10 +1760,40 @@ Medido el 2026-08-16 sobre `1.1 Bienvenida`:
   10,45 MB, 19 fragmentos, 6 segundos. **La bajada no necesita navegador**; el navegador
   hace falta solo para RESOLVER qué video es cada lección.
 
-### Lo que falta
+### El plan, resuelto: 25 lecciones → 30 archivos de video
 
-1. **Mapear lección → `/api/video/<id>`** para las 25: es un click en el póster por
-   lección. Es el corazón de `scripts/avatarhype-plan.mjs`, que todavía no existe.
+`scripts/avatarhype-plan.mjs` recorre la cadena, clickea cada parte y escribe el
+`plan.json` con el formato de siempre. Corrida del 2026-08-16: **30 clases, las 30 con
+guid resuelto, 1,9 h** — que cuadra con los 18 + 28 + 71 min que declara la app.
+
+- **7 lecciones vienen en dos partes** (`Producción` + `Edición`), así que 25 lecciones son
+  30 archivos. Una entrada de `clases[]` por ARCHIVO, que es lo que consume el pipeline;
+  `lecciones[]` conserva la unidad pedagógica.
+- ⚠️ **Las partes comparten el id de lección pero NO el guid.** `ugc-con-producto` es
+  `id:92` en las dos partes, y sus guid son `2eda142a…` y `df27b1be…`. El guid de la parte 2
+  **no se puede deducir** del de la parte 1: hay que clickear cada chip y leer qué pide la
+  red. Los 30 guid son distintos entre sí.
+- **`musica-efectos` (1.4.3) y `agentes` (1.4.4) son de solo texto**: sin `.ugc-vcard`, sin
+  póster y sin duración. Verificado contra un control (`biblioteca-prompts` sí tiene, 5:10).
+  El script las marca `sinVideo`, que es un campo distinto de `sinFuente`: **«no tiene
+  video» y «no lo pude resolver» son dos preguntas**, y juntarlas hacía que el informe
+  pidiera revisar a mano dos lecciones que no tenían nada que revisar.
+
+Dos errores propios del script que conviene no repetir, porque los dos daban un CERO
+creíble:
+
+- **El conteo de clips daba 0** en lecciones que piden 28. La causa: `red` se vacía en cada
+  vuelta del bucle de partes, y los clips se leían DESPUÉS. Un bucket que se vacía y se lee
+  después no contesta «no había», contesta «ya no está». Se leen antes de tocar nada.
+- **La parte 2 quedaba sin guid** porque el póster **desaparece después del primer play**
+  —lo reemplaza el reproductor— y el script clickeaba un botón que ya no existía usando el
+  estado leído al entrar. El estado del DOM se vuelve a mirar en cada vuelta.
+
+Y el conteo de clips del documento (68) es un **piso, no un total**: cargan por lazy-load y
+el plan no baja la página. El script lo dice («68 o más»), porque un número sin esa
+aclaración se lee como completo.
+
+### Lo que falta
 3. **Decidir qué se hace con los 95 clips del documento.** No son clases; son ejemplos
    embebidos en el texto. Si el portal solo quiere las clases, no se bajan — pero entonces
    el documento del módulo 4 queda con agujeros, porque el texto los referencia.
@@ -1772,5 +1802,6 @@ Medido el 2026-08-16 sobre `1.1 Bienvenida`:
    falta enumerarlos bien.
 5. **Repetir para `/academy/animados`** (2 lecciones, curso que no existe en el portal).
 
-**Vive en:** `scripts/hotmart-plan.mjs` y `scripts/hotmart-bajar.mjs` (el molde) ·
+**Vive en:** `scripts/avatarhype-plan.mjs` (el plan, hecho) · `scripts/hotmart-plan.mjs` y
+`scripts/hotmart-bajar.mjs` (el molde; falta `avatarhype-bajar.mjs`) ·
 `app/conocimientos/curso.ts` (el curso en el portal, hoy con 6 clases)
