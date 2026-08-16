@@ -38,8 +38,10 @@ import type { Cerebro } from '@/lib/cerebro-modelo';
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-/** Cuánto dura la intro dibujada. Si entra un video, manda el `onEnded` del video. */
+/** La intro sin video: neuronas, zoom y flash. */
 const MS_INTRO = 3600;
+/** Con el ojo adelante: 2,4 s de video + el zoom que entra + las neuronas + el flash. */
+const MS_INTRO_VIDEO = 5200;
 
 export function Bienvenida({ cerebro, videoIntro, onComenzar }: {
   cerebro: Cerebro;
@@ -127,27 +129,54 @@ function IntroCerebro({ src, onFin }: { src?: string; onFin: () => void }) {
   const fin = useRef(onFin);
   fin.current = onFin;
 
+  /**
+   * ⚠️ LA SECUENCIA ARRANCA CUANDO EL VIDEO EMPIEZA A CORRER, no cuando monta el
+   * componente. Sin esto, el reloj del CSS y el del video son dos relojes distintos: el
+   * clip pesa 2,9 MB y tarda en llegar, así que con una conexión lenta el buceo, las
+   * neuronas y el flash ya pasaron **antes de que se viera el ojo**. Medido acá: con el
+   * video demorando ~1,6 s en arrancar, las neuronas estaban al 99% de opacidad encima
+   * de un ojo recién aparecido.
+   *
+   * Es el mismo error de siempre —dos cosas que tienen que ir juntas y cada una con su
+   * propio reloj— y solo se ve con la red lenta, o sea nunca en la máquina del que lo
+   * escribe.
+   */
+  const [corriendo, setCorriendo] = useState(!src);
+  /**
+   * ⚠️ «Arrancó» y «arrancó CON video» son dos hechos distintos, y meterlos en una sola
+   * variable fue el bug: la red de seguridad marcaba la secuencia como arrancada, pero el
+   * `src` seguía existiendo, así que se usaban los tiempos LARGOS —los que dejan lugar
+   * para el ojo— sobre una pantalla que no tenía ojo. Resultado: tres segundos de negro y
+   * después las neuronas apuradas. Cada pregunta, su campo.
+   */
+  const [conVideo, setConVideo] = useState(false);
+
+  // La red: si el video no arranca en 2,5 s —autoplay bloqueado, red mala, códec que no
+  // soporta— la secuencia sale igual sin él. Una bienvenida que depende de que un mp4
+  // baje bien es una bienvenida que se cuelga.
   useEffect(() => {
-    // Con video manda su `onEnded`; el temporizador es solo la red por si no carga.
-    const ms = src ? 9000 : MS_INTRO;
-    const t = setTimeout(() => fin.current(), ms);
+    if (!src || corriendo) return;
+    // 5 s y no 2,5: el clip pesa 2,9 MB y en una primera carga fría tarda más que eso.
+    // Con el umbral corto la red saltaba SIEMPRE y el ojo no se veía nunca — o sea que la
+    // protección se comía justo lo que venía a proteger.
+    const t = setTimeout(() => setCorriendo(true), 5000);
     return () => clearTimeout(t);
-  }, [src]);
+  }, [src, corriendo]);
+
+  useEffect(() => {
+    if (!corriendo) return;
+    // El corte lo manda el RELOJ y no el `onEnded` del video: la secuencia sigue después
+    // de que el clip termina —el zoom, las neuronas y el flash— así que atarla al final
+    // del video la cortaría por la mitad.
+    const t = setTimeout(() => fin.current(), conVideo ? MS_INTRO_VIDEO : MS_INTRO);
+    return () => clearTimeout(t);
+  }, [conVideo, corriendo]);
 
   // Quien pidió menos movimiento no ve la intro. No es una versión recortada: es que una
   // secuencia de zoom a pantalla completa es exactamente lo que esa preferencia evita.
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) fin.current();
   }, []);
-
-  if (src) {
-    return (
-      <div className="bv-intro" onClick={() => fin.current()}>
-        <video className="bv-video" src={src} autoPlay muted playsInline onEnded={() => fin.current()} />
-        <div className="bv-flash" />
-      </div>
-    );
-  }
 
   // 96 fibras: suficientes para que el iris se lea lleno y pocas para que, ampliadas, se
   // distingan una de otra. Deterministas por índice — nada de Math.random, que rompería
@@ -165,8 +194,21 @@ function IntroCerebro({ src, onFin }: { src?: string; onFin: () => void }) {
   });
 
   return (
-    <div className="bv-intro" onClick={() => fin.current()}>
-      <svg viewBox="-300 -300 600 600" className="bv-ojo" aria-hidden>
+    <div className={`bv-intro${corriendo ? ' bv-corre' : ''}${conVideo ? ' bv-con-video' : ''}`} onClick={() => fin.current()}>
+      {/* EL OJO REAL. Va primero y se ZAMBULLE: la escala crece con el origen puesto en la
+          PUPILA, que en este clip cae a 63%/45% del cuadro y no en el centro. Con el
+          origen por defecto el zoom se va contra la mejilla y la ilusión de entrar se
+          rompe — se ve como una imagen que crece, no como un túnel.
+          Autor: Emirhan Emiroğlu (Pexels). Los términos y las dos cosas que hay que
+          respetar están en public/onboarding/CREDITOS.md. */}
+      {src && (
+        <video
+          className="bv-video" src={src} autoPlay muted playsInline preload="auto"
+          onPlaying={() => { setConVideo(true); setCorriendo(true); }}
+        />
+      )}
+
+      <svg viewBox="-300 -300 600 600" className={conVideo ? 'bv-ojo bv-ojo-tarde' : 'bv-ojo'} aria-hidden>
         <defs>
           {/* Un halo que se apaga hacia afuera: sin borde duro, el campo no termina en
               ningún lado y por eso se lee como profundidad y no como un disco. */}
@@ -254,22 +296,52 @@ const ESTILOS = `
   position: absolute; inset: 0; z-index: 3; background: #000;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-  animation: bv-intro-fuera 480ms ease both;
-  animation-delay: 3120ms;
 }
+/* NADA se anima hasta que la secuencia arranca de verdad (ver el estado corriendo). Con las
+   animaciones sueltas en .bv-intro, el reloj empezaba al montar y se comía el video. */
+.bv-corre { animation: bv-intro-fuera 480ms ease both; animation-delay: 3120ms; }
 @keyframes bv-intro-fuera { to { opacity: 0; visibility: hidden } }
 
-.bv-video { width: 100%; height: 100%; object-fit: cover; }
-
-.bv-ojo {
-  width: min(150vh, 150vw); height: min(150vh, 150vw);
-  animation: bv-ojo-ent 700ms ease both;
+/* ── El ojo real, y la zambullida ─────────────────────────────────────────
+   El origen del zoom es LA PUPILA (63% / 45% del cuadro en este clip), no el centro.
+   Con el default el zoom se va contra la mejilla: se ve una imagen que crece, no un
+   túnel. Es el mismo error de encuadre que arruina cualquier transición de este tipo.
+   La escala llega a 14: a esa altura el negro de la pupila es la pantalla entera, y ahí
+   es donde entran las neuronas sin que se vea el corte. */
+.bv-video {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  transform-origin: 63% 45%;
 }
+.bv-corre .bv-video {
+  animation: bv-buceo 2600ms cubic-bezier(.5,0,.85,.3) both;
+  animation-delay: 2100ms;
+}
+@keyframes bv-buceo {
+  0%   { transform: scale(1); filter: brightness(1) }
+  60%  { transform: scale(4.5); filter: brightness(.7) }
+  100% { transform: scale(14); filter: brightness(.15); opacity: 0 }
+}
+
+/* Con video, las neuronas no arrancan de cero: aparecen cuando la pupila ya se comió la
+   pantalla, así el corte entre lo filmado y lo dibujado cae adentro del negro.
+
+   ⚠️ VA CON .bv-intro ADELANTE, y no es adorno: con la misma especificidad que .bv-ojo
+   gana el que está DESPUÉS en la hoja, y estas reglas quedaron antes. Resultado medido:
+   la demora se perdía y las neuronas se dibujaban ENCIMA del ojo, las dos cosas a la vez.
+   Un selector más específico no depende del orden en que alguien pegue el bloque. */
+.bv-corre .bv-ojo-tarde { animation: bv-ojo-ent 900ms ease both; animation-delay: 3000ms; }
+.bv-corre .bv-ojo-tarde .bv-zoom,
+.bv-corre .bv-ojo-tarde .bv-pupila,
+.bv-corre .bv-ojo-tarde .bv-anillo { animation-delay: 3200ms; }
+.bv-corre .bv-ojo-tarde .bv-fibra { animation-delay: 3000ms; }
+
+.bv-ojo { width: min(150vh, 150vw); height: min(150vh, 150vw); opacity: 0; }
+.bv-corre .bv-ojo { animation: bv-ojo-ent 700ms ease both; }
 @keyframes bv-ojo-ent { from { opacity: 0 } to { opacity: 1 } }
 
 /* El zoom: entra por la pupila. La escala es grande a propósito — a 26x las fibras del
    iris ya no se leen como iris, se leen como una red. Es la misma primitiva. */
-.bv-zoom {
+.bv-corre .bv-zoom {
   animation: bv-zoom 2600ms cubic-bezier(.55,0,.85,.35) both;
   animation-delay: 620ms;
 }
@@ -279,7 +351,7 @@ const ESTILOS = `
   100% { transform: scale(26) }
 }
 
-.bv-pupila { animation: bv-pupila 2600ms cubic-bezier(.5,0,.9,.4) both; animation-delay: 620ms; }
+.bv-corre .bv-pupila { animation: bv-pupila 2600ms cubic-bezier(.5,0,.9,.4) both; animation-delay: 620ms; }
 @keyframes bv-pupila {
   0%   { r: 66; opacity: 1 }
   55%  { r: 74; opacity: .92 }
@@ -287,17 +359,20 @@ const ESTILOS = `
 }
 
 /* Las fibras laten antes del zoom: es lo que hace que el iris se vea VIVO y no impreso. */
-.bv-fibra { animation: bv-fibra 1600ms ease-in-out infinite alternate; }
+.bv-corre .bv-fibra { animation: bv-fibra 1600ms ease-in-out infinite alternate; }
 @keyframes bv-fibra { from { opacity: .2 } to { opacity: .85 } }
 
 
-.bv-anillo { animation: bv-anillo 2600ms ease both; animation-delay: 620ms; }
+.bv-corre .bv-anillo { animation: bv-anillo 2600ms ease both; animation-delay: 620ms; }
 @keyframes bv-anillo { to { opacity: 0 } }
 
-.bv-flash {
-  position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none;
-  animation: bv-flash 620ms ease both; animation-delay: 2760ms;
-}
+.bv-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.bv-corre .bv-flash { animation: bv-flash 620ms ease both; animation-delay: 2760ms; }
+/* Con el ojo adelante todo corre: el flash cierra la secuencia, no la parte. */
+/* Clase explicita y no :has(.bv-video): el elemento existe aunque el video no haya
+   corrido nunca, asi que :has() prendia los tiempos largos en la pantalla sin ojo. */
+.bv-con-video .bv-flash { animation-delay: 4400ms; }
+.bv-con-video { animation-delay: 4760ms; }
 @keyframes bv-flash {
   0%   { opacity: 0 }
   22%  { opacity: 1 }

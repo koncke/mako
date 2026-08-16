@@ -39,3 +39,18 @@ test('el botón es la acción de la pantalla: ancho completo, no un link chico',
   const css = bienvenida.slice(bienvenida.indexOf('.bv-boton {'));
   assert.ok(/width:\s*100%/.test(css.slice(0, 400)), 'el botón dejó de ser de ancho completo');
 });
+
+test('el bloque de estilos no tiene comillas invertidas adentro', () => {
+  // ⚠️ ESTO PASÓ TRES VECES EN UNA SOLA SESIÓN. El CSS vive dentro de un template
+  // literal, así que una comilla invertida en un comentario —`.bv-ojo`, escrito como se
+  // escribe un identificador— CIERRA el string y rompe el build ENTERO. No hay síntoma
+  // parcial: la app no compila.
+  //
+  // La cabecera del archivo ya lo advertía y volvió a pasar igual, que es exactamente el
+  // caso de AGENTS.md: una regla que solo vive en prosa no se cumple, se cumple casi
+  // siempre. Esto es la otra capa, la determinista.
+  const i = bienvenida.indexOf('const ESTILOS = ');
+  assert.ok(i > 0, 'no encontré el bloque ESTILOS');
+  const backticks = (bienvenida.slice(i).match(/`/g) ?? []).length;
+  assert.equal(backticks, 2, 'hay comillas invertidas DENTRO del template de CSS: rompen el build');
+});
