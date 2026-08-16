@@ -51,6 +51,15 @@ const AUTOR = arg('autor', '');
 // se contesta en un minuto la única pregunta que importa —¿son la MISMA fila repetida
 // o filas distintas?— en vez de deducirla del resultado.
 const CRUDO = arg('crudo', '');
+// Fragmento que la URL de la pestaña TIENE que contener. Este script captura «la
+// pestaña de cursoselite que haya», sin ninguna noción de qué curso se quería: en una
+// corrida en lote eso alcanza para armar un plan entero con el curso equivocado, con
+// nombre y carpeta correctos y clases ajenas. Pasó el 2026-08-16 — `curso-abrir.mjs`
+// se negó a elegir entre dos coincidencias y salió con código 3, pero el script que lo
+// llamaba lo pasó por un pipe y se quedó con el código del `grep`, así que siguió y
+// capturó la pestaña anterior. La captura resultante era coherente consigo misma —tab,
+// curso y course_id decían todos lo mismo—, así que nada río abajo podía notarlo.
+const ESPERADO = arg('esperado', '');
 
 const slugDe = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 80);
@@ -98,6 +107,13 @@ const main = async () => {
   }
 
   console.log(`\n  Pestaña: ${t.url}\n`);
+  if (ESPERADO && !String(t.url).toLowerCase().includes(String(ESPERADO).toLowerCase())) {
+    console.error(`  ✖ La pestaña abierta NO es la esperada.`);
+    console.error(`    esperaba que la URL contuviera: ${ESPERADO}`);
+    console.error(`    y la pestaña está en:           ${t.url}`);
+    console.error(`    Abrí el curso correcto (curso-abrir.mjs --buscar … --ir <n>) y reintentá.\n`);
+    process.exit(5);
+  }
   const ws = new WebSocket(t.webSocketDebuggerUrl);
   await new Promise((ok, no) => {
     ws.addEventListener('open', ok, { once: true });
@@ -185,7 +201,7 @@ const main = async () => {
   const L = Array.isArray(datos.lessons) ? datos.lessons : [];
   if (CRUDO && L.length) {
     mkdirSync(CRUDO.replace(/[\\/][^\\/]*$/, ''), { recursive: true });
-    writeFileSync(CRUDO, JSON.stringify({ lessons: datos.lessons, modules: datos.modules ?? null }, null, 1), 'utf8');
+    writeFileSync(CRUDO, JSON.stringify({ lessons: datos.lessons, modules: datos.modules ?? null, course: datos.course ?? null, url: t.url }, null, 1), 'utf8');
     console.log(`  crudo → ${CRUDO}  (${L.length} fila(s) de lección)`);
   }
   if (!L.length) {
@@ -194,6 +210,39 @@ const main = async () => {
     console.error('    Reintentá con --segundos 30, o navegá a otra clase y volvé.\n');
     process.exit(1);
   }
+
+  // ── ¿Las lecciones son de ESTE curso? ────────────────────────────────────────
+  //
+  // ⚠️ La captura puede devolver la respuesta de OTRO curso, y sin esta guarda el plan
+  // se arma igual, con nombre y carpeta del curso correcto y las clases de otro. Medido
+  // el 2026-08-16: pedir «Hackeando la Edición» (64 clases) y «Master Marca Personal
+  // 5.0» (92) devolvió las dos veces la MISMA respuesta de 888 filas de un curso de
+  // dropshipping («Descuentos de Aliexpress», «DropiPro Registro»). Pasa cuando la
+  // página no vuelve a pedir su lista dentro de la ventana de captura —salió de caché,
+  // o la ventana era corta— y en el buffer quedó la de la navegación anterior.
+  //
+  // No hay ningún síntoma río abajo: el conteo es plausible, los ids son únicos, los
+  // videos existen y se bajan. El error aparecería recién en el portal, con un curso
+  // lleno de clases ajenas.
+  //
+  // La comparación es contra el `id` del propio endpoint de cursos, que viaja en la
+  // misma captura. Si ese dato no vino, se avisa y se sigue: una guarda que no puede
+  // decidir no debe frenar el trabajo, pero tampoco callarse.
+  const cursoId = (Array.isArray(datos.course) ? datos.course[0]?.id : datos.course?.id) ?? null;
+  if (cursoId != null) {
+    const ajenas = L.filter((l) => l.course_id != null && String(l.course_id) !== String(cursoId));
+    if (ajenas.length === L.length) {
+      console.error(`\n  ✖ Las ${L.length} lecciones capturadas son de OTRO curso.`);
+      console.error(`    El curso abierto es ${cursoId} y las filas dicen ${[...new Set(ajenas.map((x) => x.course_id))].slice(0, 3).join(', ')}.`);
+      console.error('    Quedó en el buffer la respuesta de una navegación anterior.');
+      console.error('    Recargá la pestaña a mano y reintentá con --segundos 35.\n');
+      process.exit(4);
+    }
+    if (ajenas.length) console.log(`  ⚠ ${ajenas.length}/${L.length} lección(es) son de otro course_id: quedan afuera.`);
+  } else {
+    console.log('  ⚠ La captura no trajo el curso: no puedo verificar que las lecciones sean de acá.');
+  }
+  const Lpropias = cursoId != null ? L.filter((l) => l.course_id == null || String(l.course_id) === String(cursoId)) : L;
 
   const cursoTitulo = (Array.isArray(datos.course) ? datos.course[0]?.title : datos.course?.title)
     ?? String(t.url).split('/').filter(Boolean).slice(-2, -1)[0];
@@ -245,15 +294,15 @@ const main = async () => {
   // El filtro va en POSITIVO —se queda con las que SÍ cuelgan de un módulo vivo— y
   // solo se aplica cuando hay módulos y cuando dejaría algo en pie: un curso sin
   // módulos, o uno donde ninguna lección matchea, se procesa entero como siempre.
-  const vivas = mods.size ? L.filter((l) => { const m = modIdDe(l); return m != null && mods.has(m); }) : L;
-  const huerfanas = L.length - vivas.length;
+  const vivas = mods.size ? Lpropias.filter((l) => { const m = modIdDe(l); return m != null && mods.has(m); }) : Lpropias;
+  const huerfanas = Lpropias.length - vivas.length;
   if (huerfanas > 0 && vivas.length > 0) {
     console.log(`  ⚠ ${huerfanas} lección(es) cuelgan de un módulo que la API no devuelve: no se ven en la plataforma y quedan afuera.`);
     console.log(`     ${vivas.length} lección(es) en los ${mods.size} módulos vivos.`);
   } else if (huerfanas > 0) {
-    console.log(`  ⚠ NINGUNA lección matchea un módulo devuelto: no filtro, proceso las ${L.length}.`);
+    console.log(`  ⚠ NINGUNA lección matchea un módulo devuelto: no filtro, proceso las ${Lpropias.length}.`);
   }
-  const Lvivas = vivas.length > 0 ? vivas : L;
+  const Lvivas = vivas.length > 0 ? vivas : Lpropias;
 
   // ── Orden global: módulo raíz → módulo hoja → orden de la clase ─────────────
   const clavesOrden = (l) => {

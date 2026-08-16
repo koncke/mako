@@ -1218,6 +1218,50 @@ conteo miente en cuatro cursos (Jaque Blue 40/20, Claude AI 40/20, Inteligencia 
 
 **Vive en:** `scripts/curso-plan-vip.mjs` (la clave de agrupación del dedup)
 
+### ⚠️ Un `| grep` se comió el código de salida y el lote armó planes de otro curso
+
+**2026-08-16.** Auditando los 15 cursos publicados —para ver si el dedup viejo había
+borrado clases— dos de ellos, «Hackeando la Edición» (64 clases) y «Master Marca Personal
+5.0» (92), devolvieron **los mismos 888 registros** de un curso de dropshipping que nadie
+había pedido.
+
+**El diagnóstico obvio era el equivocado, dos veces:**
+
+1. *«La captura devolvió una respuesta vieja del buffer.»* No. La captura era **coherente
+   consigo misma**: la URL de la pestaña, el objeto `course` y el `course_id` de las 888
+   filas decían todos el mismo curso ajeno. No había nada inconsistente que detectar, y la
+   guarda que se había escrito para eso —comparar lecciones contra curso— no podía saltar.
+2. *«`curso-abrir.mjs` no avisa que falló.»* Tampoco. Avisa bien **y sale con código 3**.
+
+**La causa real:** el script del lote invocaba `curso-abrir.mjs … | grep …`, y en un
+pipeline el código que sobrevive es el del **último** comando. El `grep` devolvía 0, el
+lote siguió como si hubiera navegado, y el generador capturó la pestaña que había quedado
+de la iteración anterior. La herramienta se negó a adivinar entre dos coincidencias
+—«Hackeando la Edición» y «Hackeando el Algoritmo»— exactamente como debía, y esa negativa
+se perdió en la cañería.
+
+Es la regla de [AGENTS.md](../AGENTS.md) «un `console.warn` no es un control» con una
+vuelta más: **acá el control SÍ existía y estaba bien hecho; lo que falló fue el que lo
+llamaba.** Un `exit 3` que nadie mira es tan inútil como un warn.
+
+**Las dos cosas que quedan:**
+
+- **En un lote, el código de salida se chequea explícitamente**, y nunca detrás de un pipe
+  (`cmd > log; cod=$?` y recién después el `grep` sobre el log). Un lote que ignora un
+  fallo no procesa 14 de 15: procesa 15, y dos con datos de otro.
+- **`--esperado <fragmento>` en `curso-plan-vip.mjs`.** El script captura «la pestaña de
+  cursoselite que haya», sin ninguna noción de qué curso se quería; con el flag, verifica
+  que la URL lo contenga y aborta con código 5 si no. Es la única guarda posible acá,
+  porque el dato correcto —la INTENCIÓN— no está en ningún lado de la captura.
+
+**Y el resultado de la auditoría, que era el objetivo:** de los 15 cursos publicados,
+ninguno perdió clases. El único donde las dos reglas difieren es «Aumenta tu valor y ATV
+ADVANTAGE» (la vieja habría tirado una de las dos «2. Cambiando tu ralidad», 29:54, en los
+módulos 1 y 9), y su plan conserva las dos porque se armó antes de que el dedup existiera.
+
+**Vive en:** `scripts/curso-plan-vip.mjs` (`--esperado`) · `scripts/curso-abrir.mjs` (el
+`exit 3` que ya estaba bien)
+
 ## El portal
 
 ### ⚠️ `.al-chip` estaba definido DOS veces y el segundo ganaba en silencio
