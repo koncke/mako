@@ -1637,11 +1637,37 @@ el cliente, así que hay que recorrer las rutas.
 /academy/<curso>/<slug>   una lección, p. ej. /academy/ugc/ugc-sin-producto
 ```
 
-⚠️ **Hay que traer la pestaña al frente (`Page.bringToFront`) o la app NO RENDERIZA.**
-Con la pestaña en segundo plano la pantalla se queda en «Cargando…» para siempre, y los
-botones resuelven en `(0,0)` — que es la firma de esto. Costó tres intentos y dos
-diagnósticos equivocados («no cargó la ruta», «el click no llega»). Es el mismo gotcha que
-ya había aparecido clickeando en Hotmart.
+⚠️ **La app NO RENDERIZA si `document.visibilityState` no es `visible`.** La pantalla se
+queda en «Cargando…» para siempre y los botones resuelven en `(0,0)`, que es la firma.
+Costó tres intentos y dos diagnósticos equivocados («no cargó la ruta», «el click no
+llega»). Es el mismo gotcha que ya había aparecido clickeando en Hotmart.
+
+**⚠️ Y `Page.bringToFront` NO es el arreglo — es lo que hacía que pareciera intermitente.**
+*(Corregido el 2026-08-16, sobre lo que decía este mismo documento.)* Trae la pestaña al
+frente **dentro de su ventana**: si la ventana de Chrome está minimizada o tapada, la
+pestaña queda al frente y `visibilityState` **sigue en `hidden`**. Medido: con
+`bringToFront` puesto, `document.hasFocus()` daba `true` y `visibilityState` `hidden` al
+mismo tiempo, y la pantalla no montaba nunca. Por eso «funcionaba» según dónde estuviera la
+ventana, que es la peor forma de fallar: parece un problema de tiempos.
+
+El arreglo es **`Emulation.setFocusEmulationEnabled({ enabled: true })`**. La página se cree
+visible y activa, renderiza en ~1 s, sobrevive a que la ventana esté minimizada, y **no hay
+que robarle el escritorio al usuario** durante los ~4 minutos que tarda un recorrido.
+
+```js
+await cmd('Emulation.setFocusEmulationEnabled', { enabled: true });
+if ((await ev('document.visibilityState')) !== 'visible') { /* frenar: nada va a renderizar */ }
+```
+
+⚠️ **Y el cascarón SÍ renderiza mientras el cuerpo está en «Cargando…».** Esa es la parte
+que produjo un dato falso. Con la lección sin montar hay igual **13 `<a>`** —la barra
+lateral entera, y hasta el «Siguiente →»— sobre un `body.innerText` de 264 caracteres. O
+sea: **cualquier espera del tipo «hay más de N links» da verde sobre una página que no
+cargó**. El primer recorrido esperaba así, salió con **exit 0** y reportó «25 lecciones
+recorridas · 0 con video · DRM: no» — las tres cosas falsas, y con la forma de un resultado
+bueno. Una lección que no renderiza es indistinguible de una lección sin video, así que la
+espera va contra **contenido propio de la lección** (el contador `n/25`, el código `4.1.1`)
+y la falta de render **corta el script**, nunca se anota como un cero.
 
 ### Estructura de «Creativos UGC Realistas» (25 lecciones)
 
@@ -1657,19 +1683,94 @@ ya había aparecido clickeando en Hotmart.
 Formatos todavía no existe. Y el módulo 5 puede estar bloqueado si no está comprado — se
 detecta al enumerar y se saltea avisando, nunca se inventa.
 
-### Lo que falta (bloque 2 en adelante)
+### Las 25 lecciones, en orden (2026-08-16)
 
-1. Enumerar los slugs de las 25 lecciones y de los 4 recursos, entrando por
-   `/academy/ugc` con la pestaña al frente.
-2. Entrar a UNA lección y descubrir cómo sirve el video: si es HLS en claro (como
-   Hotmart) o algo protegido. **Si aparece `.mpd` + license server, se frena y se avisa.**
-3. Escribir `scripts/avatarhype-plan.mjs` y `avatarhype-bajar.mjs` con el molde de
-   `hotmart-plan.mjs` / `hotmart-bajar.mjs`, que ya resuelven el patrón «plataforma propia
-   con video restringido por Referer».
-4. Repetir para `/academy/animados` (2 lecciones, curso nuevo).
+Se sacan recorriendo la cadena `← Anterior` / `Siguiente →`, que la propia app publica
+como dos `<a>` con href. **No se sacan del menú lateral:** ahí los módulos son plegables y
+su texto está partido en nodos («1», «Onboarding», «10/11 · 18 min»), así que engancharlo
+pide un selector frágil — y encima el `.click()` de JS no los abre. La cadena, además, ya
+trae el ORDEN, que es lo que hay que saber para numerar.
 
-**El molde a copiar de Hotmart, que aplica igual acá:** el plan guarda el SLUG de cada
-lección y nunca una URL firmada (nacen vencidas), y se resuelve el manifiesto de a una
-clase y se baja en el momento.
+| # | código | slug | # | código | slug |
+|---|---|---|---|---|---|
+| 1 | 1.1 | `bienvenida` | 14 | 3.3.1 | `las-palancas` |
+| 2 | 1.2 | `lo-basico` | 15 | 3.3.2 | `niveles-de-conciencia` |
+| 3 | 1.3.1 | `intro-herramientas` | 16 | 3.3.3 | `el-estratega` |
+| 4 | 1.3.2 | `recomendacion-actual` | 17 | 4.1.1 | `ugc-sin-producto` |
+| 5 | 1.3.3 | `apimart` | 18 | 4.1.2 | `ugc-con-producto` |
+| 6 | 1.3.4 | `kie` | 19 | 4.1.3 | `ejemplo-moda`* |
+| 7 | 1.3.5 | `edicion-capcut` | 20 | 4.1.4 | `ejemplo-app-entrenamiento`* |
+| 8 | 1.4.1 | `biblioteca-prompts` | 21 | 4.2 | `formato-podcast` |
+| 9 | 1.4.2 | `quitar-marca-de-agua` | 22 | 4.3 | `formato-voz-en-off` |
+| 10 | 1.4.3 | `musica-efectos` | 23 | 4.4 | `formato-dualcast` |
+| 11 | 1.4.4 | `agentes` | 24 | 4.5 | `trends-virales` |
+| 12 | 3.1 | `realismo-e-ia` | 25 | 4.6 | `imagenes-estaticas` |
+| 13 | 3.2 | `agente-6c-imagenes` | | | |
 
-**Vive en:** `scripts/hotmart-plan.mjs` y `scripts/hotmart-bajar.mjs` (el molde)
+El módulo 2 («Catálogo de modelos IA») **no tiene lecciones**: es una tabla. 11 + 5 + 9 =
+25, que cuadra con el contador de la app.
+
+⚠️ **El slug NO se deduce del título.** La 4.5 se llama «Formato Trends virales» y su slug
+es `trends-virales`, no `formato-trends` — mientras que la 4.2 y la 4.3 sí llevan el
+prefijo. Sobre 7 títulos con forma de patrón, 6 lo siguen y 1 no, que es la proporción
+exacta que hace que una regla inventada parezca correcta. Salen del `href`, siempre.
+
+La portada de cada lección es predecible: `/covers/ugc-v9/<código>.webp` (`1.1.webp`).
+
+### ⚠️ Hay DOS sistemas de video distintos en el mismo curso
+
+Es lo que rompe el molde de Hotmart, donde una clase = un video.
+
+| Qué | Dónde | Cómo se pide |
+|---|---|---|
+| **El video de la lección** | Bunny **Stream** (`iframe.mediadelivery.net`, librería `683445`) | `/api/video/<id>` → embed con token · el manifiesto es `https://vz-e3242c91-fe8.b-cdn.net/<guid>/playlist.m3u8` |
+| **Los clips del documento** | Bunny **Storage** (`avatarhype-audio.b-cdn.net`) | MP4 directo por `/api/doc-media/<carpeta>/<id>-<hash>.mp4` |
+
+Los del documento son muchos: **95 MP4 distintos** en las 8 lecciones del módulo 4 (de 5 a
+28 por lección), y **cero** en las otras 17. Eso no es que no tengan video: es que el video
+de la lección **no se pide hasta el play** — el `<video>` ni existe en el DOM hasta
+entonces. Contar requests al cargar dice «17 lecciones sin video», y es falso.
+
+**Cómo se resuelve el video de una lección:** apretar el póster
+(`button.ugc-vposter[aria-label="Reproducir la lección"]`) dispara `/api/video/<id>`, que
+contesta `{ url, kind: 'iframe', expiresAt, ttlSeconds: 3600 }`. Lo estable es el **id de
+lección** y el **guid** del embed; el token dura **1 hora**, así que —igual que en Hotmart—
+el plan guarda el id y el guid, **nunca la URL firmada**.
+
+⚠️ **El `.click()` de JS no despierta al reproductor.** Se hizo sobre el botón correcto y a
+los 6 s no había ni `<video>` ni una sola request. Hay que mandar un click de verdad con
+`Input.dispatchMouseEvent` (mousePressed + mouseReleased) en el centro del póster, leído
+del `getBoundingClientRect()` — nunca coordenadas fijas: el panel es redimensionable.
+
+⚠️ **Y el iframe es OTRO target de CDP.** Con `Network.enable` solo en la página no se ve
+NADA de lo que pide el reproductor, y ese vacío se lee como «no hay DRM» — la conclusión
+que no hay que sacar sin mirar. Hay que `Target.setAutoAttach({ flatten: true })` y
+habilitar la red **por sesión** en el target que se engancha.
+
+### NO hay DRM, y está verificado de punta a punta
+
+Medido el 2026-08-16 sobre `1.1 Bienvenida`:
+
+- El master trae **5 calidades hasta 1080p real** (1664×1080) y **ningún `EXT-X-KEY`**: los
+  segmentos `.ts` van en claro. Cero `.mpd`, cero license server, ni en la página ni dentro
+  del iframe.
+- La única puerta es el **Referer**: `playlist.m3u8` da **403** pelado y **200** con
+  `Referer: https://iframe.mediadelivery.net/`. Es el mismo patrón que Hotmart.
+- **Bajado de verdad:** `yt-dlp --referer "https://iframe.mediadelivery.net/" <playlist>` →
+  10,45 MB, 19 fragmentos, 6 segundos. **La bajada no necesita navegador**; el navegador
+  hace falta solo para RESOLVER qué video es cada lección.
+
+### Lo que falta
+
+1. **Mapear lección → `/api/video/<id>`** para las 25: es un click en el póster por
+   lección. Es el corazón de `scripts/avatarhype-plan.mjs`, que todavía no existe.
+3. **Decidir qué se hace con los 95 clips del documento.** No son clases; son ejemplos
+   embebidos en el texto. Si el portal solo quiere las clases, no se bajan — pero entonces
+   el documento del módulo 4 queda con agujeros, porque el texto los referencia.
+4. **Los recursos:** aparecen `/academy/resources/biblioteca-prompts` y
+   `/academy/resources/audio`. El portal dice 13 recursos y la academia declara 4 en UGC:
+   falta enumerarlos bien.
+5. **Repetir para `/academy/animados`** (2 lecciones, curso que no existe en el portal).
+
+**Vive en:** `scripts/hotmart-plan.mjs` y `scripts/hotmart-bajar.mjs` (el molde) ·
+`app/conocimientos/curso.ts` (el curso en el portal, hoy con 6 clases)
