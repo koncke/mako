@@ -39,6 +39,7 @@ import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicaci
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
 import { CURSO_CREATIVOS_UGC_REALISTAS } from './curso-creativos-ugc-realistas';
+import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
 
@@ -152,8 +153,25 @@ const conAutor = (titulo: string, autor?: string) =>
 
 // curso.ts es AUTO-GENERADO desde transcripciones: los cursos escritos a mano
 // viven en su propio archivo y se suman acá.
+/**
+ * El curso de Avatar Hype se REHIZO desde la academia el 2026-08-17 y pasó de 6
+ * clases a 30, así que el viejo (`avatarhype`, dentro del auto-generado `curso.ts`)
+ * sale de la grilla: son el mismo curso con dos cortes distintos, y dejar los dos
+ * hace que alguien abra el desactualizado creyendo que es el bueno.
+ *
+ * ⚠️ Se excluye ACÁ y no borrándolo de `curso.ts`, que es auto-generado: un borrado
+ * allá vuelve en la próxima regeneración, en silencio y sin que nadie lo note.
+ *
+ * Sus 13 recursos NO se perdieron: viven en `curso-ugc-recursos.ts` y se cuelgan del
+ * curso nuevo unas líneas más abajo. Si se saca esta exclusión, vuelven a aparecer
+ * DUPLICADOS —una vez en cada curso—, que es la razón de que estas dos decisiones
+ * estén pegadas y no en dos lugares distintos.
+ */
+const REEMPLAZADOS = new Set(['avatarhype']);
+
 export const CURSOS_TODOS: Curso[] = [
-  ...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP,
+  ...CURSOS.filter((c) => !REEMPLAZADOS.has(c.slug)),
+  CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP,
   CURSO_CLAUDE_AI_RODRIGO_ROJO, CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE,
   CURSO_SELL_YOUR_KNOWLEDGE, CURSO_INTELIGENCIA_VIRAL_2026, CURSO_M5_95,
   CURSO_VENDER_POR_FB_E_IG_ADS, CURSO_MANYCHAT_MASTER_INSTAGRAM,
@@ -161,7 +179,10 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
   CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY, CURSO_INSTITUTO_DE_COMUNICACION,
-  CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY, CURSO_CREATIVOS_UGC_REALISTAS,
+  CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
+  // Los recursos se inyectan acá porque el archivo del curso lo REESCRIBE
+  // `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la próxima.
+  { ...CURSO_CREATIVOS_UGC_REALISTAS, recursos: RECURSOS_UGC },
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
