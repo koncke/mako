@@ -28,7 +28,6 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { InterruptorModo } from './InterruptorModo';
 import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_FAMILIAS, itemsDe, type NavItem, type NavGrupo } from './nav';
 import { tabEnCapa } from '@/lib/capas';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
@@ -697,14 +696,7 @@ export function Sidebar() {
                 <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
               </>
             )}
-            {/* El claro/oscuro de ESTE usuario, arriba de sus destinos: es una
-                preferencia de la cuenta, igual que Perfil o Configuraciones, y
-                vive donde el usuario ya va a buscar lo suyo. */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 6px 4px 12px' }}>
-              <span style={{ fontSize: 13.5, color: 'var(--ink)' }}>Modo oscuro</span>
-              <InterruptorModo />
-            </div>
-            <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
+
             {USER_NAV.filter((it) => (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map((it) => {
               const on = it.match(pathname);
               return (

@@ -25,6 +25,10 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { Icon } from './icons';
 import { AvisoFlotante } from './AvisoFlotante';
+import { WS_DISENO } from '@/lib/auth-session';
+import { TEMAS, ATTR_TEMA, ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
+import { aplicarTemaCandidato } from './TemaCandidato';
+import { InterruptorModo } from './InterruptorModo';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -65,6 +69,50 @@ function BotonIcono({ icono, titulo, onClick, disabled, tono = 'neutro', cargand
   );
 }
 
+/**
+ * El tema en prueba — SOLO adentro del Cliente de Diseño.
+ *
+ * Vive acá y no en la barra lateral porque la barra la ven todos, y esto no es
+ * una feature del producto: es una herramienta de obra. Una versión anterior lo
+ * puso en el perfil de cualquier usuario y un cliente NUEVO abrió MaKo en
+ * oscuro sin haber tocado nada, con toda la cola de contraste que el rebrand
+ * todavía no cerró.
+ */
+function TemaEnPrueba() {
+  const [tema, setTema] = useState<string | null>(null);
+  useEffect(() => {
+    const sync = () => setTema(document.documentElement.getAttribute(ATTR_TEMA));
+    sync();
+    window.addEventListener('mako-tema-candidato', sync);
+    window.addEventListener('mako-modo', sync);
+    return () => {
+      window.removeEventListener('mako-tema-candidato', sync);
+      window.removeEventListener('mako-modo', sync);
+    };
+  }, []);
+  const t = TEMAS[0];
+  const on = tema === t.id;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <button
+        type="button" title={t.idea.slice(0, 100)}
+        onClick={() => aplicarTemaCandidato(on ? null : t.id)}
+        style={{
+          ...chip,
+          background: on ? '#F3F0E7' : 'transparent',
+          color: on ? '#14161B' : '#F3F0E7',
+          borderColor: on ? '#F3F0E7' : 'rgba(243,240,231,.3)',
+        }}
+      >
+        {on ? t.nombre : 'Probar tema'}
+      </button>
+      {/* El claro/oscuro solo existe MIENTRAS hay tema en prueba: sin tema no hay
+          modo, que es lo que garantiza que ningún cliente lo vea. */}
+      {on && <InterruptorModo compacto />}
+    </span>
+  );
+}
+
 export function PanelAgencia({ cliente, onCambio }: {
   cliente: string;
   /** Se llama tras traer o eliminar. Sin él, refresco de ruta a secas. */
@@ -82,11 +130,14 @@ export function PanelAgencia({ cliente, onCambio }: {
   const [aviso, setAviso] = useState<{ texto: string; tono: 'info' | 'error' } | null>(null);
   const [confirmarReset, setConfirmarReset] = useState(false);
   const caja = useRef<HTMLDivElement | null>(null);
+  // Lo dice el SERVER en la respuesta, nunca el `?ws=` de la URL.
+  const [wsPanel, setWsPanel] = useState<number | null>(null);
 
   const mirar = useCallback(async () => {
     try {
       const j = await (await fetch('/api/datos-mau', { cache: 'no-store' })).json();
       setDisponible(!!j.disponible);
+      setWsPanel(typeof j.ws === 'number' ? j.ws : null);
       setAmbitos(Array.isArray(j.ambitos) ? j.ambitos : []);
       setCompletados(Array.isArray(j.completados) ? j.completados : []);
     } catch (e) {
@@ -221,6 +272,8 @@ export function PanelAgencia({ cliente, onCambio }: {
   return (
     <div ref={caja} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
       <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
+
+      {wsPanel === WS_DISENO && <TemaEnPrueba />}
 
       <button
         ref={btnRef} type="button" style={chip}
