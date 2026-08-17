@@ -72,7 +72,17 @@ sock.onmessage = (m) => {
   if (d.id && pend.has(d.id)) { pend.get(d.id)(d.result); pend.delete(d.id); return; }
   if (d.method === 'Network.requestWillBeSent') red.push(d.params.request.url);
 };
-const cmd = (method, params = {}) => new Promise((r) => { const i = ++id; pend.set(i, r); sock.send(JSON.stringify({ id: i, method, params })); });
+// ⚠️ CON TIMEOUT, SIEMPRE. Sin él, una respuesta de CDP que no llega deja el script
+// colgado para siempre y sin imprimir una línea: parece que «tarda» y en realidad
+// murió. Pasó — quince minutos sin una sola línea de salida y la pestaña sin moverse.
+// Un comando que no contesta en 30 s no va a contestar; se devuelve null y el que
+// llama decide, que es mejor que un proceso zombi esperando a nadie.
+const cmd = (method, params = {}) => new Promise((r) => {
+  const i = ++id;
+  const reloj = setTimeout(() => { if (pend.has(i)) { pend.delete(i); console.error(`  ⚠ CDP sin respuesta: ${method}`); r(null); } }, 30000);
+  pend.set(i, (res) => { clearTimeout(reloj); r(res); });
+  sock.send(JSON.stringify({ id: i, method, params }));
+});
 const ev = async (e) => {
   const r = await cmd('Runtime.evaluate', { expression: e, returnByValue: true, awaitPromise: true });
   if (r?.exceptionDetails) return { __error: r.exceptionDetails.text ?? 'excepción' };
@@ -95,6 +105,38 @@ if ((await ev('document.visibilityState')) !== 'visible') {
   console.error('\n  ✖ La pestaña sigue en `hidden` con el override puesto: nada va a renderizar.\n');
   process.exit(1);
 }
+
+// ── Los NOMBRES de los módulos ───────────────────────────────────────────────
+// ⚠️ EL CÓDIGO DE UNA LECCIÓN NO ES EL NOMBRE DE SU MÓDULO. La primera versión de
+// este script guardaba `modulo: codigo.split('.')[0]` — o sea «1», «3», «4»— y el
+// portal los pintó tal cual: una grilla con módulos llamados «1», «3.1», «3.2». Se
+// vio recién publicado, porque un plan con «1» adentro se lee perfecto en el JSON.
+// Los nombres los publica la portada del curso («1 Onboarding», «3 Fundamentos del
+// método»…), así que se leen de ahí y se mapean por el primer segmento del código.
+const nombresDeModulo = async () => {
+  await cmd('Emulation.setFocusEmulationEnabled', { enabled: true });
+  await cmd('Page.navigate', { url: `${BASE}/academy/${CURSO}` });
+  for (let i = 0; i < 30; i++) {
+    await dormir(1000);
+    const ok = await ev(`!/Cargando…/.test((document.body.innerText||'').slice(0, 300)) && /Los m[oó]dulos/i.test(document.body.innerText || '')`);
+    if (ok === true) break;
+  }
+  const crudo = await ev(`(() => {
+    const t = (document.body.innerText || '');
+    const i = t.search(/Los m[oó]dulos/i);
+    return i > -1 ? t.slice(i, i + 1200) : null;
+  })()`);
+  if (!crudo) return new Map();
+  // Un renglón que es SOLO un número es el número del módulo; el de abajo, su nombre.
+  const lineas = String(crudo).split('\n').map((l) => l.trim());
+  const m = new Map();
+  for (let i = 0; i < lineas.length - 1; i++) {
+    if (/^\d{1,2}$/.test(lineas[i]) && lineas[i + 1] && !/^\d/.test(lineas[i + 1])) {
+      m.set(lineas[i], lineas[i + 1]);
+    }
+  }
+  return m;
+};
 
 const clickEn = async (sel) => {
   // Las coordenadas se leen del DOM en el momento: el panel es redimensionable (hay un
@@ -168,8 +210,17 @@ const abrir = async (ruta) => {
 // ── Recorrer la cadena ───────────────────────────────────────────────────────
 // Se recorre por los `<a>` de Anterior/Siguiente que publica la app: ya traen el ORDEN,
 // y el menú lateral no sirve (módulos plegables con el texto partido en nodos).
+const MODULOS = await nombresDeModulo();
 console.log(`\n  Curso  : ${CURSO}`);
-console.log(`  Arranca: ${PRIMERA}\n`);
+console.log(`  Arranca: ${PRIMERA}`);
+if (MODULOS.size) {
+  console.log(`  Módulos: ${[...MODULOS].map(([n, t]) => `${n}=${t}`).join(' · ')}\n`);
+} else {
+  console.error('\n  ✖ No pude leer los nombres de los módulos de la portada del curso.');
+  console.error('    Sin eso el portal muestra módulos llamados «1» y «3», que es lo que');
+  console.error('    este chequeo existe para evitar. Revisá que /academy/' + CURSO + ' cargue.\n');
+  process.exit(1);
+}
 
 const lecciones = []; const vistas = new Set();
 let ruta = PRIMERA;
@@ -289,8 +340,15 @@ for (const l of lecciones) {
       titulo: `${l.titulo ?? l.slug}${sufijo}`,
       duracion: p.duracion ?? '',
       segundos: p.segundos,
-      modulo: l.codigo ? l.codigo.split('.')[0] : null,
-      submodulo: l.codigo,
+      // El NOMBRE del módulo, no su número: es lo que el portal pinta como título de
+      // la sección. Si el código no mapea a ningún módulo conocido, va `null` y la
+      // clase queda sin agrupar — nunca el número pelado, que es lo que se publicó.
+      modulo: (l.codigo && MODULOS.get(l.codigo.split('.')[0])) || null,
+      // El código (`4.1.1`) NO es un submódulo: es la numeración de la lección, y
+      // usarlo como segundo nivel producía una sección por clase. La plataforma no
+      // publica nombres de submódulo, así que no hay segundo nivel y no se inventa.
+      submodulo: null,
+      codigo: l.codigo,
       plataforma: 'avatarhype',
       slug: l.slug,
       videoId: p.videoId,

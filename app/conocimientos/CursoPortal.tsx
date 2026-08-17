@@ -342,7 +342,14 @@ export function Hub({ curso, goClase, goRecurso, compartir, back, backLabel }: {
         <p className="al-sub">{curso.subtitulo}</p>
       </section>
       <section className="al-sec">
-        <div className="al-seclabel"><span>El curso</span><span className="al-vol">{curso.clases.length} clases · {curso.volumen}</span></div>
+        {/* ⚠️ El «·» va solo si hay DOS cosas que separar. `volumen` es un rótulo libre
+            («Vol. 1–3») que no todos los cursos tienen, y los del pipeline lo emitían
+            como «30 clases» — que con el conteo de al lado daba «30 CLASES · 30 CLASES».
+            Se arregló en las dos puntas: acá el separador es condicional, y el pipeline
+            dejó de emitir un volumen que repite lo que ya dice el conteo. */}
+        <div className="al-seclabel"><span>El curso</span><span className="al-vol">
+          {curso.clases.length} clases{curso.volumen ? ` · ${curso.volumen}` : ''}
+        </span></div>
         {conModulos ? (
           <div className="al-modstack">
             {modulos.map((mod, i) => (

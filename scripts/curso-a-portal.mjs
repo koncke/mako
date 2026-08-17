@@ -242,7 +242,12 @@ for (const c of plan.clases) {
     modulo: c.modulo ? modulos.indexOf(c.modulo) + 1 : undefined,
     titulo: c.titulo,
     // Dato factual, no una descripción inventada: duración y módulo.
-    cardDesc: `${c.duracion}${c.modulo ? ` · ${c.modulo.replace(/^\d+\.\s*/, '')}` : ''}`,
+    // ⚠️ Se ARMA CON LOS QUE EXISTEN, no concatenando con el separador fijo. Cuando la
+    // plataforma no publica duración —«Trilogía de BRIAN TRACY» no la muestra— el
+    // template dejaba el separador colgando y la tarjeta decía « · Parte 1», con el
+    // punto abriendo la línea. Un separador es entre DOS cosas o no va.
+    cardDesc: [c.duracion, c.modulo ? String(c.modulo).replace(/^\d+\.\s*/, '') : '']
+      .filter((x) => x && String(x).trim()).join(' · '),
     videoId,
     resumen: apuntes,
     hasTx,
@@ -307,6 +312,19 @@ if (localRecursos.length && recursosPortal.length < localRecursos.length) {
   process.exit(4);
 }
 
+// ⚠️ `volumen` es un rótulo LIBRE al lado del conteo de clases, no el conteo otra vez.
+// Emitía `${plan.clases.length} clases` y el portal pinta «N clases · <volumen>», así que
+// la pantalla decía «30 CLASES · 30 CLASES». Acá va la duración total, que es el dato que
+// falta y no repite ninguno; si el curso no publica duraciones, va vacío y el portal se
+// come el separador (ver CursoPortal.tsx).
+const segTotal = plan.clases.reduce((t, c) => {
+  const p = String(c.duracion ?? '').split(':').map(Number);
+  if (p.some((x) => !Number.isFinite(x))) return t;
+  return t + (p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p.length === 2 ? p[0] * 60 + p[1] : 0);
+}, 0);
+const volumen = segTotal >= 3600 ? `${(segTotal / 3600).toFixed(1).replace('.', ',')} h`
+  : segTotal > 0 ? `${Math.round(segTotal / 60)} min` : '';
+
 const cuerpo = `// =============================================================================
 // ${plan.curso} — portal /conocimientos
 // =============================================================================
@@ -329,7 +347,7 @@ export const ${constante}: Curso = {
   eyebrow: '${esc(EYEBROW)}',
   titulo: '${esc(tituloConAutor)}',
   subtitulo: '${esc(`${plan.clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
-  volumen: '${plan.clases.length} clases',${portada ? `\n  portada: '${portada}',` : ''}
+  volumen: '${esc(volumen)}',${portada ? `\n  portada: '${portada}',` : ''}
   recursos: [
 ${recursosPortal.map((r) => `    {
       slug: '${r.slug}',
