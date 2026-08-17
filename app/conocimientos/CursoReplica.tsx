@@ -131,7 +131,10 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
               </button>
             )}
             <nav className="ugc-nav">
-              <button type="button" className={`ugc-nav-item${!clase && !vista.recursos ? ' on' : ''}`}
+              {/* El `!q` no sobra: sin el, «Inicio del curso» seguia marcado mientras un
+                  modulo estaba filtrando, y quedaban DOS renglones en verde. Una barra que
+                  marca dos lugares a la vez no dice donde estas: dice menos que ninguno. */}
+              <button type="button" className={`ugc-nav-item${!clase && !vista.recursos && !q ? ' on' : ''}`}
                 onClick={() => { setQ(''); ir({}); }}>
                 <span className="ugc-nav-label">Inicio del curso</span>
               </button>
@@ -143,9 +146,13 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                 </button>
               )}
               <div className="ugc-nav-h">Modulos</div>
+              {/* «Estar parado en un modulo» son DOS cosas y la barra tiene que marcar las
+                  dos: verlo filtrado, y estar adentro de una de sus clases. La segunda es
+                  la que faltaba — con una leccion abierta la barra no marcaba nada, que es
+                  justo cuando mas se necesita saber de que modulo es lo que estas viendo. */}
               {modulos.map((m) => (
                 <button key={m.nombre} type="button"
-                  className={`ugc-nav-item${q === m.nombre && !clase ? ' on' : ''}`}
+                  className={`ugc-nav-item${(clase ? clase.grupo === m.nombre : q === m.nombre) ? ' on' : ''}`}
                   onClick={() => { ir({}); setQ(m.nombre); }} title={m.nombre}>
                   <span className="ugc-nav-num">{m.n}</span>
                   <span className="ugc-nav-label">{m.nombre}</span>
@@ -387,7 +394,11 @@ function Leccion({ clase, curso, ir }: { clase: Clase; curso: Curso; ir: (v: Vis
                 Copiar transcripcion
               </button>
               <button type="button" className="ugc-btn" onClick={() => {
-                const nombre = String(clase.titulo).replace(/[<>:"/\\|?* -]+/g, ' ').trim().slice(0, 90);
+                // Los caracteres de control van como ESCAPE y nunca como byte crudo: un NUL
+                // hace que la busqueda declare binario el archivo y no devuelva ni una linea.
+                // Contesta vacio, y el vacio parece una respuesta. Esta escrito en AGENTS.md.
+                const sucio = /[<>:"/\\|?*\u0000-\u001f]+/g;
+                const nombre = String(clase.titulo).replace(sucio, ' ').trim().slice(0, 90);
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(new Blob([(tx ?? []).join('\n\n')], { type: 'text/plain;charset=utf-8' }));
                 a.download = `${nombre}.txt`;
