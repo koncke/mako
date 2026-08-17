@@ -35,10 +35,16 @@ const crudo = readFileSync(ENTRADA, 'utf8');
 //    `body .algo-oculto { display:none }` quedó como `.ahdoc { display:none }` y
 //    escondió el curso entero. La pantalla salía en blanco con el DOM completo —33
 //    tarjetas montadas— porque el contenedor raíz estaba en `display:none`.
+// ⚠️ LAS CLASES `__variable_*` VAN AL CONTENEDOR, NO ADENTRO. Son las que definen
+//    `--font-bricolage`, `--font-archivo`… y en el origen viven en el MISMO div que
+//    `.ahc`. Prefijarlas («.ahdoc .__variable_a4bae9») las deja apuntando a un
+//    elemento que no existe acá, y las 440 referencias a `--font-*` se resuelven en
+//    vacío: el navegador cae a la fuente por defecto y la tipografía no se parece.
 const rescope = (sel) => sel.split(',').map((s) => {
   const t = s.trim();
   if (!t) return t;
   if (t === '.ahc' || t === ':root' || t === 'html' || t === 'body') return '.ahdoc';
+  if (/^\.__variable_\w+$/.test(t)) return '.ahdoc';
   if (t.startsWith('.ahc ')) return `.ahdoc ${t.slice(5)}`;
   const m = /^(?::root|html|body)\b(.*)$/.exec(t);
   if (m) return `.ahdoc${m[1]}`;          // «body .x» → «.ahdoc .x», no «.ahdoc»
@@ -72,11 +78,30 @@ const salida = crudo.split('\n').map((linea) => {
 }).join('\n');
 
 mkdirSync(join(REPO, 'public', 'cono-doc'), { recursive: true });
+// Las 7 familias que usa el origen. Sus `@font-face` apuntan a los archivos que Next
+// self-hostea en SU dominio, así que no sirven acá: se piden a Google, que es de donde
+// salieron. Sin esto quedan las variables definidas apuntando a fuentes que el
+// navegador no tiene, y cae a la de sistema — la pantalla «se parece» y no es.
+const FUENTES = 'https://fonts.googleapis.com/css2'
+  + '?family=Bricolage+Grotesque:opsz,wght@12..96,200..800'
+  + '&family=Hanken+Grotesk:wght@300..900'
+  + '&family=Instrument+Serif:ital@0;1'
+  + '&family=Caveat:wght@400..700'
+  + '&family=Spline+Sans+Mono:wght@300..700'
+  + '&family=Archivo:wght@100..900'
+  + '&family=JetBrains+Mono:wght@100..800'
+  + '&display=swap';
+
 const cabecera = `/* Estilos del material de las clases de Avatar Hype.
  * GENERADO por scripts/avatarhype-css.mjs desde la hoja del origen.
  * Todo va scopeado a .ahdoc: las clases del origen (.ugc-*, .ac-*) son suyas y
  * pegarlas en el CSS global las haría chocar con las nuestras en otras pantallas.
- * Se carga con un <link> al abrir el material, no en el bundle. */\n\n`;
+ * Se carga con un <link> al abrir el material, no en el bundle.
+ *
+ * ATENCION: el contenedor tiene que ser <div class="ahdoc"><div class="ugc">.
+ * 593 de las reglas estan escritas bajo .ugc y solo 5 aplican sin el; sin ese div
+ * en el medio el CSS no matchea y la pantalla queda con el contenido crudo apilado. */
+@import url('${FUENTES}');\n\n`;
 writeFileSync(SALIDA, cabecera + salida, 'utf8');
 console.log(`\n  reglas rescopeadas: ${reglas}`);
 console.log(`  → ${SALIDA}  (${Math.round((cabecera + salida).length / 1024)} KB)\n`);

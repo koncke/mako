@@ -86,8 +86,14 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
 
   const total = curso.clases.length;
 
+  // ⚠️ LOS DOS CONTENEDORES SON OBLIGATORIOS. `.ahdoc` es nuestro scope; `.ugc` es el
+  //    del origen, y **593 de las reglas están escritas bajo él** (contra 5 que aplican
+  //    sin él). Sin ese div en el medio el CSS no matchea nada y la pantalla queda con
+  //    las portadas apiladas a pantalla completa y el texto crudo — que es exactamente
+  //    como se veía antes de agregarlo.
   return (
     <div className="ahdoc">
+      <div className="ugc">
       <div className="ugc-shell">
         <aside className="ugc-side" aria-label="Navegación del curso">
           <button type="button" className="ugc-side-brand" onClick={() => setAbierta(null)} title="Inicio del curso">
@@ -148,6 +154,7 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
