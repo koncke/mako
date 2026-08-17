@@ -210,6 +210,43 @@ lo publicado tenía dos clases de menos.
 **Vive en:** `scripts/avatarhype-plan.mjs` · `scripts/curso-a-portal.mjs` ·
 `app/conocimientos/CursoPortal.tsx`
 
+### ⚠️ Bajar el MATERIAL de un curso, no solo su video: las tres trampas
+
+**2026-08-17, replicando el curso de Avatar Hype entero** (documentos, prompts,
+imágenes y links, no solo las clases). Las tres se ven igual desde afuera —«no baja»—
+y tienen causas distintas.
+
+**1. El origen sirve según el DESTINO de la request, no según la sesión.** La misma URL
+de `/api/doc-media/…` devuelve la imagen a un `<img src>` (medido: 1152×2048) y falla a
+un `fetch()` — relativo, absoluto y con `credentials:'include'`, las tres formas. Los
+107 archivos fallaron idénticos con **«TypeError: Failed to fetch»**, que no es 401 ni
+403: es la request que no llega a hacerse, así que no hay status que leer ni log que
+mirar.
+
+**La salida no es pedirlas mejor: es no pedirlas.** Se deja que la página cargue lo
+suyo y se cosechan los bytes de la capa de red con `Network.getResponseBody`. Son los
+bytes ORIGINALES — un `<canvas>` también funcionaría para imágenes, pero recodifica, y
+para un mp4 no sirve.
+
+**2. Y cosechar de la red tiene un punto ciego que va al revés de la intuición: cuantas
+más veces se corre, MENOS baja.** Lo que el navegador ya tiene cacheado no genera
+request, así que no hay nada que cosechar. Va `Network.setCacheDisabled` antes de
+navegar.
+
+**3. Lo que está detrás de una tab no existe hasta que se la clickea.** Las 5 imágenes
+que quedaron afuera de la primera corrida vivían en los paneles «Biblioteca» y
+«Recursos», que la app no monta hasta que se los abre. Recorrer la lección no alcanza:
+hay que recorrer sus TABS. Vale igual para capturar el contenido.
+
+**Y para los videos del documento la cosecha de red no sirve:** un mp4 que el navegador
+reproduce en streaming devuelve un pedazo o nada. Pero el reproductor los pide a
+`…b-cdn.net/ugc-docs/<archivo>?token=…` —la misma firma que las clases— y **esa URL sí
+se baja desde node, sin sesión**. Se anota la firmada al pasar por la red y se bajan
+aparte.
+
+**Vive en:** `scripts/avatarhype-media.mjs` (la cosecha) · `scripts/avatarhype-doc.mjs`
+(la captura del contenido) · `scripts/avatarhype-doc-portal.mjs` (el pasaje al portal)
+
 ### La pestaña del navegador se cuelga, y CDP no lo dice
 
 Un `Runtime.evaluate` que no vuelve **nunca** se ve igual que un script lento. Medido: el

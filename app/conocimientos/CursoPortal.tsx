@@ -429,6 +429,95 @@ const IcoBajar = () => (
 const archivoSeguro = (s: string) => String(s)
   .replace(/[<>:"/\\|?*]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'transcripcion';
 
+/**
+ * El MATERIAL de la clase tal como está en la plataforma de origen: el documento con
+ * sus secciones, los bloques de prompt con su etiqueta y su botón de copiar, las
+ * imágenes de referencia y los links a las herramientas.
+ *
+ * ── Por qué se carga aparte, y por qué es HTML ──────────────────────────────
+ * Son ~350 KB entre las 27 lecciones: adentro de la ficha viajarían en el bundle de
+ * TODA la grilla para leer una sola clase. Mismo motivo y mismo mecanismo que
+ * `TranscriptLazy` — un json público en `/cono-doc/<slug>.json`.
+ *
+ * Y va como HTML porque la ESTRUCTURA es contenido: qué parte de un prompt es la
+ * cámara y cuál el guion está en las clases del marcado (`.ugc-clip-part.camara`,
+ * `.guion`, `.voz`…), y eso es la mitad de lo que el curso enseña. Aplanarlo a texto
+ * lo perdería.
+ *
+ * ⚠️ El HTML se sanea al CAPTURARLO (`scripts/avatarhype-doc-portal.mjs`: fuera
+ * `<script>`, `on*=` y `javascript:`), no acá: el saneo va donde el dato entra, una
+ * sola vez, y no en cada render.
+ */
+function DocumentoLazy({ slug }: { slug: string }) {
+  const [doc, setDoc] = useState<{ tituloDocumento?: string | null; paneles: Record<string, string> } | null>(null);
+  const [estado, setEstado] = useState<'idle' | 'cargando' | 'error'>('idle');
+  const [tab, setTab] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState<string | null>(null);
+
+  const abrir = () => {
+    if (doc || estado === 'cargando') return;
+    // La hoja del origen (~75 KB) se carga acá y una sola vez para toda la app: sin
+    // ella el documento se ve como texto plano —las etiquetas de color de cada parte
+    // del prompt SON el contenido—, y en el bundle serían 75 KB para todo el que
+    // entra a la grilla y no abre ningún material.
+    if (!document.getElementById('ahdoc-css')) {
+      const l = document.createElement('link');
+      l.id = 'ahdoc-css';
+      l.rel = 'stylesheet';
+      l.href = '/cono-doc/ugc.css';
+      document.head.appendChild(l);
+    }
+    setEstado('cargando');
+    fetch(`/cono-doc/${slug}.json`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => { setDoc(d); setTab(Object.keys(d.paneles ?? {})[0] ?? null); setEstado('idle'); })
+      .catch(() => setEstado('error'));
+  };
+
+  // El botón «copiar» de cada bloque es del origen y su JS no viaja: se reimplementa
+  // por delegación. El texto sale del `.ugc-pre` del MISMO bloque —no del más cercano
+  // en el documento—, porque una lección tiene hasta 14 botones y equivocarse de
+  // bloque copia un prompt que no es el que se pidió, sin que se note.
+  const alClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const btn = (e.target as HTMLElement).closest('.ugc-copy');
+    if (!btn) return;
+    const bloque = btn.closest('.ugc-card') ?? btn.parentElement;
+    const pre = bloque?.querySelector('.ugc-pre');
+    const texto = (pre?.textContent ?? '').trim();
+    if (!texto) return;
+    navigator.clipboard.writeText(texto).then(() => {
+      setCopiado(texto.slice(0, 24));
+      setTimeout(() => setCopiado(null), 1600);
+    });
+  };
+
+  return (
+    <details className="al-secfold" onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && abrir()}>
+      <summary className="al-seclabel al-seclabel-fold">
+        <span>Material de la clase</span>
+        <span className="al-vol">{doc ? Object.keys(doc.paneles).join(' · ') : 'documento, prompts e imágenes'}</span>
+      </summary>
+      {estado === 'cargando' && <div className="al-nota">Cargando el material…</div>}
+      {estado === 'error' && <div className="al-nota">No pude cargar el material de esta clase.</div>}
+      {doc && (
+        <div className="ahdoc">
+          {Object.keys(doc.paneles).length > 1 && (
+            <div className="ahdoc-tabs" role="tablist" aria-label="Material de la clase">
+              {Object.keys(doc.paneles).map((n) => (
+                <button key={n} type="button" role="tab" aria-selected={tab === n}
+                  className={`ahdoc-tab${tab === n ? ' on' : ''}`} onClick={() => setTab(n)}>{n}</button>
+              ))}
+            </div>
+          )}
+          {copiado && <div className="ahdoc-copiado" role="status">Copiado: «{copiado}…»</div>}
+          <div className="ahdoc-cuerpo" onClick={alClick}
+            dangerouslySetInnerHTML={{ __html: (tab && doc.paneles[tab]) || '' }} />
+        </div>
+      )}
+    </details>
+  );
+}
+
 function TranscriptLazy({ videoId, titulo }: { videoId: string; titulo: string }) {
   const [paras, setParas] = useState<string[] | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -556,6 +645,8 @@ export function ClaseDetail({ curso, c, goRecurso, goClase, back }: {
           <div className="al-docbox al-docbox-tall"><DocContent text={c.resumen} /></div>
         </div>
       )}
+
+      {c.hasDoc && c.docSlug && <DocumentoLazy slug={c.docSlug} />}
 
       {c.hasTx && c.videoId ? (
         <TranscriptLazy videoId={c.videoId} titulo={c.titulo} />

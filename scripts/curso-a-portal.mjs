@@ -232,8 +232,14 @@ for (const c of plan.clases) {
   const delModulo = plan.clases.filter((x) => x.modulo === c.modulo);
   const vn = delModulo.findIndex((x) => x.n === c.n) + 1;
 
+  // El documento replicado de la lección, si se capturó. Se pregunta por el ARCHIVO,
+  // no por una bandera del plan: si el json no está, el portal dibujaría una tab vacía.
+  const docSlug = c.slug && existsSync(join(REPO, 'public', 'cono-doc', `${c.slug}.json`)) ? c.slug : null;
+
   clases.push({
     n: c.n,
+    hasDoc: docSlug ? true : undefined,
+    docSlug: docSlug ?? undefined,
     vn: vn || undefined,
     grupo: c.modulo ? c.modulo.replace(/^\d+\.\s*/, '') : undefined,
     // 2º nivel del hub: la SECCIÓN dentro del módulo. La plataforma la muestra y el
@@ -358,7 +364,7 @@ ${recursosPortal.map((r) => `    {
   ],
   clases: [
 ${clases.map((c) => `    {
-      n: ${c.n},${c.vn ? `\n      vn: ${c.vn},` : ''}${c.grupo ? `\n      grupo: '${esc(c.grupo)}',` : ''}${c.subgrupo ? `\n      subgrupo: '${esc(c.subgrupo)}',` : ''}${c.modulo ? `\n      modulo: ${c.modulo},` : ''}
+      n: ${c.n},${c.vn ? `\n      vn: ${c.vn},` : ''}${c.grupo ? `\n      grupo: '${esc(c.grupo)}',` : ''}${c.subgrupo ? `\n      subgrupo: '${esc(c.subgrupo)}',` : ''}${c.modulo ? `\n      modulo: ${c.modulo},` : ''}${c.hasDoc ? `\n      hasDoc: true,\n      docSlug: '${esc(c.docSlug)}',` : ''}
       titulo: '${esc(c.titulo)}',
       cardDesc: '${esc(c.cardDesc)}',
       videoId: ${c.videoId ? `'${c.videoId}'` : 'null'},

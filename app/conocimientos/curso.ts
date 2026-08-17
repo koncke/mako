@@ -43,6 +43,12 @@ export type Clase = {
   transcripcion: string[];       // vacío: la transcripción se carga aparte (ver hasTx)
   hasTx?: boolean;               // si true, hay transcripción en /cono-tx/<videoId>.json
   transcripcionNota?: string;
+  // El MATERIAL de la clase en la plataforma de origen —el documento, sus prompts,
+  // sus imágenes—, replicado. Viaja aparte por el mismo motivo que la transcripción:
+  // son ~350 KB entre las 27 lecciones y meterlos en la ficha los pone en el bundle
+  // de toda la grilla para leer una sola clase.
+  hasDoc?: boolean;              // si true, hay documento en /cono-doc/<docSlug>.json
+  docSlug?: string;
   recursoSlugs: string[];
   herramientas: Herramienta[];
 };
