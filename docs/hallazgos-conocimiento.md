@@ -170,6 +170,60 @@ propósito porque Gemini no lo toma.
 
 ---
 
+## Lo que sale mal se ve PUBLICADO, no en el JSON
+
+**2026-08-17.** El curso de AvatarHype se publicó con módulos llamados **«1», «3.1»,
+«3.2»** y un encabezado que decía **«30 CLASES · 30 CLASES»**. Los tres bugs habían pasado
+por typecheck, por 1022 tests y por mi propia lectura del `plan.json`, donde se leen
+perfecto: `"modulo": "1"` es un string válido y plausible.
+
+**Los tres, y el patrón que comparten:**
+
+| Se veía | Era |
+|---|---|
+| Módulos «1», «3.1» | el plan guardaba el **código de la lección** (`4.1.1`) como nombre del módulo |
+| «30 CLASES · 30 CLASES» | el portal pinta `N clases · <volumen>` y el pipeline emitía `volumen: '30 clases'` |
+| Tarjetas « · Parte 1» | `cardDesc` unía duración y módulo con un `·` fijo, y ese curso no publica duraciones |
+
+Los dos últimos **afectaban a todos los cursos del pipeline** y llevaban semanas ahí.
+
+**La regla: un dato que solo se mira en su JSON no está verificado.** Un identificador
+puesto donde va un nombre es sintácticamente perfecto, y un separador sin su segunda mitad
+no rompe nada. Lo que los delata es la pantalla. Antes de dar por publicado un curso, hay
+que **abrirlo**.
+
+**Los corolarios, que valen para cualquier generador:**
+
+- **Un separador va entre DOS cosas o no va.** Se arma con `filter(Boolean).join(' · ')`,
+  nunca concatenando con el separador escrito en el template.
+- **Un campo libre al lado de un conteo no es el conteo otra vez.** `volumen` está para lo
+  que el conteo NO dice — acá, la duración total.
+- **Y el que no tiene el dato, corta.** Si `avatarhype-plan.mjs` no puede leer los nombres
+  de los módulos, ahora sale con error en vez de escribir números: publicar «1» como nombre
+  de módulo es peor que no publicar.
+
+⚠️ **Y arreglar los nombres hizo aparecer dos clases.** Con el módulo bien resuelto, el
+recorrido llegó al módulo 5 (la extensión de clonación): el curso tiene **27 lecciones y 32
+videos**, no 25 y 30. O sea que el bug de presentación estaba tapando uno de contenido —
+lo publicado tenía dos clases de menos.
+
+**Vive en:** `scripts/avatarhype-plan.mjs` · `scripts/curso-a-portal.mjs` ·
+`app/conocimientos/CursoPortal.tsx`
+
+### La pestaña del navegador se cuelga, y CDP no lo dice
+
+Un `Runtime.evaluate` que no vuelve **nunca** se ve igual que un script lento. Medido: el
+WebSocket de CDP **abría normal** y ni `Runtime.enable` contestaba — el hilo de esa pestaña
+estaba bloqueado después de horas de navegaciones y reproducciones.
+
+- **Todo comando de CDP va con timeout.** Sin él el script espera para siempre y no imprime
+  una línea, así que no hay ni con qué diagnosticar. `curso-plan.mjs` ya lo tenía (25 s);
+  `avatarhype-plan.mjs` no, y por eso el síntoma duró veinte minutos.
+- **El arreglo es cerrar la pestaña y abrir una nueva** (`/json/close/<id>` y `/json/new`),
+  no reiniciar Chrome entero.
+- **La prueba que lo aísla en 15 segundos:** abrir el socket y pedir `Runtime.enable`. Si
+  eso no vuelve, no es tu script.
+
 ## La secuencia completa de un curso, y las tres etapas que se saltean solas
 
 **Escrito el 2026-08-16 porque me las salteé.** El pipeline tiene CINCO etapas y no
@@ -1445,6 +1499,35 @@ portal —los seis que se perdían y los intermedios de verdad— y un caso que 
 alguien vuelve a poner la bandera `i`, falla.
 
 **Vive en:** `scripts/curso-comun.mjs` (la regla) · `tests/curso-intermedios.test.ts` (la red)
+
+### ⚠️ Drive for Desktop se queda con la COLA DEL FINAL sin subir, y no avisa
+
+**2026-08-16/17, dos veces la misma noche.** Al terminar de copiar un curso, los últimos
+3-4 archivos se quedan sin subir **para siempre**: `curso-a-drive.mjs` espera sus 20
+minutos y sale con «1 sin id todavía — Drive sigue subiendo». Y no está subiendo.
+
+**Cómo se distingue de «está lento», que es lo que parece:** la fila existe en la base de
+Drive con un id `local-…` (los reales son alfanuméricos largos) y **`file_size = 0` del
+lado del servidor**. Con eso se cuentan los pendientes de toda la cuenta:
+
+```sql
+SELECT local_title FROM items WHERE id LIKE 'local-%' AND is_folder = 0 AND trashed = 0
+```
+
+Las dos veces dieron 3 y 4 filas, todas del final del lote. Y **no hay ningún error** que
+lo explique: ni cuota, ni permisos, ni el nombre con acentos —se descartaron los tres—, y
+la tabla `operations` tenía las 6 operaciones encoladas y limpias. Drive las aceptó y dejó
+de procesarlas.
+
+**Lo que lo destraba es reiniciar Drive** (`Stop-Process GoogleDriveFS` + volver a
+lanzarlo). Las dos veces subió todo en segundos. `G:` se desmonta unos segundos y vuelve.
+
+⚠️ **Y el efecto río abajo es la truncación silenciosa de siempre:** la clase sin id no
+queda en `drive.json` *sin* id — **desaparece del índice**. La primera vez quedó un
+`drive.json` de 29 entradas para 30 clases, y publicarlo habría dado un curso al que le
+falta una clase, sin una sola línea de aviso.
+
+**Vive en:** `scripts/curso-a-drive.mjs` (la espera y el índice)
 
 ### ⚠️ `drive.json` se REESCRIBE desde lo local, y liberar local lo trunca en silencio
 
