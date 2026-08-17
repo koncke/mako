@@ -1,160 +1,20 @@
 /* Estilos del material de las clases de Avatar Hype.
  * GENERADO por scripts/avatarhype-css.mjs desde la hoja del origen.
  * Todo va scopeado a .ahdoc: las clases del origen (.ugc-*, .ac-*) son suyas y
- * pegarlas en el CSS global las haría chocar con las nuestras en otras pantallas.
+ * pegarlas en el CSS global las haria chocar con las nuestras en otras pantallas.
  * Se carga con un <link> al abrir el material, no en el bundle.
  *
  * ATENCION: el contenedor tiene que ser <div class="ahdoc"><div class="ugc">.
  * 593 de las reglas estan escritas bajo .ugc y solo 5 aplican sin el; sin ese div
- * en el medio el CSS no matchea y la pantalla queda con el contenido crudo apilado. */
+ * en el medio el CSS no matchea y la pantalla queda con el contenido crudo apilado.
+ *
+ * ATENCION 2 - LO ESCRITO A MANO VA EN LA COLA, DESPUES DEL ORIGEN. Durante meses
+ * el archivo se armaba como cabecera + origen, con TODAS las reglas propias adentro
+ * de la cabecera: o sea ANTES del origen, que es lo contrario de lo que decia su
+ * propio comentario. Con la misma especificidad gana la ultima, asi que cada regla
+ * propia perdia contra la del origen y el sintoma era siempre el mismo -"le puse
+ * !important y no pasa nada"-. La cola de este archivo es COLA de verdad. */
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300..900&family=Instrument+Serif:ital@0;1&family=Caveat:wght@400..700&family=Spline+Sans+Mono:wght@300..700&family=Archivo:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap');
-
-/* ── Lo único escrito a mano, y por qué ──────────────────────────────────────
- * El origen ocupa la ventana entera; acá el curso vive DENTRO del contenedor del
- * portal, que está topeado. El shell del origen mide 1536 y su caja 984, así que se
- * desbordaba y el panel del documento quedaba CORTADO a la derecha.
- *
- * ⚠️ NO se arregla ensanchando el contenedor. Se probó con el
- * width:100vw + margin-left:calc(50% - 50vw) de siempre y quedó PEOR: la barra se
- * fue a x = -284, o sea fuera de la pantalla. El contenedor ya se salía por su
- * cuenta —heredaba reglas de body del origen— y el truco lo corrió una segunda
- * vez. Dos correcciones del mismo ancho se suman.
- *
- * Lo correcto es al revés: que el shell se ADAPTE a su caja. El layout del origen es
- * fluido (flex con una columna fija de 262 px), así que con el ancho al 100% entra
- * en cualquier contenedor sin cortar nada. */
-/* ⚠️ ESTAS VAN AL FINAL Y CON !important, y no es pereza: las reglas del origen son
- * más específicas (.ahdoc .ugc .ugc-main, tres clases) que cualquier cosa razonable
- * que se escriba acá, así que sin esto el shell sigue midiendo 1274 dentro de una caja
- * de 984 y el panel del documento queda cortado a la derecha. Medido. */
-/* ⚠️ EL DESBORDE VIENE DEL PROPIO ORIGEN, NO DE ACÁ. Su regla dice
- *   .ugc-shell { margin: -26px calc(50% - 50vw) -90px; min-height: calc(100vh - …) }
- * o sea que el shell se sale de su caja A PROPÓSITO para ocupar la ventana. Allá eso
- * funciona porque su caja ES la ventana; acá vive dentro del contenedor del portal, y
- * el resultado es que la barra se superpone y el panel del documento se corta a la
- * mitad. Se neutraliza ese margen —no se agrega otro ancho, que fue el intento que
- * mandó la barra a x = -284. */
-.ahdoc .ugc .ugc-shell { margin-left: 0 !important; margin-right: 0 !important; min-height: 0 !important; }
-/* Y las dos columnas de la lección se reparten el ancho real, sin anchos fijos. */
-.ahdoc .ugc .ugc-split { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
-.ahdoc .ugc .ugc-vcol, .ahdoc .ugc .ugc-pcol { width: auto !important; max-width: none !important; min-width: 0 !important; }
-/* ⚠️ La tarjeta de módulo mostraba SOLO la portada hasta pasarle el cursor: en el
- * origen el cuerpo aparece en hover porque la tarjeta vive en un carrusel angosto.
- * Acá el título y la duración tienen que verse siempre — una grilla de tapas mudas
- * no dice qué es cada cosa. */
-.ahdoc .ugc .ugc-modcard-body { opacity: 1 !important; visibility: visible !important; transform: none !important; max-height: none !important; }
-/* ATENCION - LA BARRA DE BUSQUEDA SE SUPERPONIA AL CONTENIDO. En el origen
- * .ugc-topbar es sticky sobre una ventana completa; aca queda flotando encima de las
- * tarjetas. Se vuelve estatica y con su propio espacio. */
-.ahdoc .ugc .ugc-topbar { position: static !important; margin: 0 0 18px !important; z-index: auto !important; }
-/* Los botones de la leccion, con aire: venian pegados uno contra otro. */
-.ahdoc .ugc .ugc-lecnav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-.ahdoc .ugc .ugc-lecnav .ugc-btn { margin: 0 !important; }
-/* LA REPLICA ES UNA APP DE 100vh: LA PAGINA NO SCROLLEA, SCROLLEA EL CONTENIDO.
- *
- * Cinco rondas de parches sobre el mismo sintoma, y el arreglo de una fue la causa de la
- * siguiente. La cadena, medida:
- *
- *  - Para matar la barra horizontal se puso overflow-x: hidden en html y body. Funciono.
- *  - Pero overflow-x: hidden con overflow-y: visible NO deja el otro eje quieto: el valor
- *    USADO de overflow-y pasa a auto y body se vuelve un contenedor de scroll. Un
- *    position: sticky se posiciona contra su ancestro que scrollea; con body hecho
- *    contenedor y sin scroll propio, la barra dejo de pegarse DEL TODO.
- *  - Sintoma: al scrollear la leccion la barra se iba con la pagina y abajo quedaba papel
- *    vacio. Medido a 1920x880 con scrollY=302: .ugc-side en y=-302, con top:0 puesto.
- *    Y por eso las verificaciones anteriores daban bien: todas median con scrollY=0, que
- *    es el unico estado en que un sticky roto se ve igual que uno sano.
- *
- * La salida no es otro parche de sticky: es que la pagina no scrollee. El shell mide
- * exactamente la ventana, la barra es un bloque normal de alto completo -sin sticky no hay
- * nada de que despegarse- y lo que scrollea es el contenido. Es como funciona la barra de
- * MaKo, que es lo que se pidio, y de paso la barra horizontal desaparece sola: sin scroll
- * de pagina no hay barra vertical, y sin barra vertical no sobra el ancho.
- */
-html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !important; }
-.cono:has(.ahdoc) { height: 100vh !important; min-height: 0 !important; overflow: hidden !important; }
-.cono:has(.ahdoc) > .paper-bg { height: 100vh !important; }
-/* El chrome del portal se saca: la replica ya trae su marca y su "Volver a los cursos" en
- * la propia barra, asi que el header de afuera era chrome DUPLICADO -y es el contenedor
- * que se reporto tres veces como "la caja que tapa el papel"-. */
-.cono-wrap:has(.ahdoc) { padding: 0 !important; max-width: none !important; width: auto !important; margin: 0 !important; height: 100vh !important; overflow: hidden !important; }
-.cono-wrap:has(.ahdoc) .al-top, .cono-wrap:has(.ahdoc) .al-shared-ft { display: none !important; }
-.ahdoc { width: auto !important; max-width: none !important; margin-inline: 0 !important; height: 100vh !important; overflow: hidden !important; }
-.ahdoc .ugc { height: 100vh !important; }
-.ahdoc .ugc .ugc-shell { height: 100vh !important; min-height: 0 !important; overflow: hidden !important; align-items: stretch !important; }
-
-/* La barra: bloque normal de alto completo. Sin sticky no hay nada que se despegue, y no
- * depende de que ningun ancestro conserve su overflow. */
-.ahdoc .ugc .ugc-side { position: static !important; top: auto !important; height: 100vh !important; min-height: 0 !important; flex: 0 0 auto !important; overflow-y: auto !important; overscroll-behavior: contain; }
-
-/* La columna de contenido: la busqueda fija arriba y el resto scrolleando debajo.
- * El min-height: 0 no sobra - sin el, un hijo de flex no se deja achicar por debajo de su
- * contenido y el scroll interno no aparece nunca. */
-.ahdoc .ugc .ugc-main { height: 100vh !important; min-width: 0 !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
-.ahdoc .ugc .ugc-topbar { position: static !important; flex: 0 0 auto !important; margin: 0 0 18px !important; z-index: auto !important; }
-.ahdoc .ugc .ugc-content { flex: 1 1 auto !important; min-height: 0 !important; padding: 0 !important; display: flex !important; flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain; }
-.ahdoc .ugc .ugc-content > * { flex: 0 0 auto !important; }
-
-/* En la leccion las dos columnas llenan el alto y scrollea cada una la suya: el video
- * queda a la vista mientras se lee el documento, que en la clase mas larga mide 8221 px. */
-.ahdoc .ugc .ugc-content > .ugc-split { flex: 1 1 auto !important; min-height: 0 !important; align-items: stretch !important; }
-.ahdoc .ugc .ugc-split > .ugc-vcol, .ahdoc .ugc .ugc-split > .ugc-pcol {
-  position: static !important; top: auto !important; min-height: 0 !important; max-height: none !important;
-  overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain;
-}
-/* Los clips embebidos del documento, con su caja: sin alto propio un iframe sale de
- * 150 px y rompe la fila. */
-.ahdoc .ugc .ugc-clip-drive, .ahdoc .ugc .ugc-media iframe { width: 100% !important; aspect-ratio: 9 / 16 !important; height: auto !important; border: 0; display: block; }
-.ahdoc .ugc .ugc-media { max-width: 220px !important; }
-/* Y el contenedor NO pinta: el papel tiene que verse. Un fondo propio encima del
- * papel es justo lo que hacia que pareciera una caja pegada arriba. */
-.ahdoc .ugc, .ahdoc .ugc .ugc-shell, .ahdoc .ugc .ugc-main, .ahdoc .ugc .ugc-content {
-  background: transparent !important; box-shadow: none !important; border: 0 !important;
-}
-.ahdoc .ugc .ugc-shell { max-width: none !important; margin: 0 !important; min-height: 100vh !important; align-items: stretch !important; }
-/* La barra, como la de MaKo: pegada al borde, de alto completo y fija al scrollear. */
-.ahdoc .ugc .ugc-side {
-  position: sticky !important; top: 0; align-self: stretch !important;
-  height: 100vh !important; max-height: 100vh !important; overflow-y: auto;
-  border-radius: 0 !important; flex: 0 0 268px !important;
-}
-/* El hero ocupaba media pantalla con un boton chico adentro. Se acota y el boton
- * deja de ser un detalle: la tarjeta entera es el click. */
-.ahdoc .ugc .ugc-hero { max-height: 260px !important; min-height: 0 !important; }
-.ahdoc .ugc .ugc-hero-img { object-fit: cover !important; }
-/* Y el contenido, con aire: venia pegado contra la barra. */
-.ahdoc .ugc .ugc-main { padding: 24px 32px 48px !important; }
-/* ATENCION - LAS CLASES VAN EN GRILLA, NO EN CARRUSEL. En el origen .ugc-rail es una
- * fila que se corre de costado, porque alla el indice muestra 5 modulos. Con 30 clases
- * eso es una fila larguisima sin barra de scroll visible: navegar se vuelve imposible.
- * Una grilla usa el alto, que es justo lo que sobra. */
-.ahdoc .ugc .ugc-rail {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
-  gap: 18px !important;
-  overflow: visible !important;
-  scroll-snap-type: none !important;
-}
-.ahdoc .ugc .ugc-rail > * { scroll-snap-align: none !important; flex: none !important; width: auto !important; }
-/* El video, con su alto real: entraba a 150 px. */
-.ahdoc .ugc .ugc-vframe { aspect-ratio: 16 / 9 !important; height: auto !important; min-height: 0 !important; }
-.ahdoc .ugc .ugc-vcard { width: 100% !important; }
-.ahdoc { overflow: visible !important; }
-.ahdoc .ugc,
-.ahdoc .ugc .ugc-shell,
-.ahdoc .ugc .ugc-main,
-.ahdoc .ugc .ugc-content { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
-/* El split del origen es de ancho fijo; acá se reparte lo que haya. */
-.ahdoc .ugc .ugc-split { display: flex !important; gap: 18px; align-items: flex-start; }
-.ahdoc .ugc .ugc-vcol,
-.ahdoc .ugc .ugc-pcol { flex: 1 1 0 !important; min-width: 0 !important; max-width: none !important; }
-/* El hero es un <button> acá (en el origen es un <a>): sin esto colapsa a 0 × 0. */
-.ahdoc .ugc .ugc-hero { display: block !important; width: 100% !important; }
-/* El fondo de papel y el grano cubren la caja del curso y van DETRÁS de todo. */
-.ahdoc > .paper-bg, .ahdoc > .grain { position: absolute; inset: 0; pointer-events: none; }
-.ahdoc { position: relative; }
-.ahdoc > .ugc { position: relative; z-index: 1; }
-
 @font-face { font-family: "Bricolage Grotesque"; font-style: normal; font-weight: 200 800; font-stretch: 100%; font-display: swap; src: url("/_next/static/media/93a6e477e1480c92-s.woff2") format("woff2"); unicode-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB; }
 @font-face { font-family: "Bricolage Grotesque"; font-style: normal; font-weight: 200 800; font-stretch: 100%; font-display: swap; src: url("/_next/static/media/c7e0cf6c760983e7-s.woff2") format("woff2"); unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 @font-face { font-family: "Bricolage Grotesque"; font-style: normal; font-weight: 200 800; font-stretch: 100%; font-display: swap; src: url("/_next/static/media/9d5a263311222317-s.p.woff2") format("woff2"); unicode-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
@@ -2529,3 +2389,132 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
 .ahdoc .ugc .ugc-update-banner { margin: 14px 22px 0px; padding: 18px 22px; background: var(--u-lime); border: 2px solid var(--u-ink,#16150f); border-radius: 12px; letter-spacing: -0.01em; text-align: center; box-shadow: rgba(0, 0, 0, 0.5) 4px 4px 0px 0px; }
 .ahdoc .ugc .ugc-update-banner-title { display: block; font-family: var(--font-archivo,inherit); font-weight: 900; font-size: 19px; letter-spacing: -0.02em; text-transform: uppercase; margin-bottom: 4px; }
 .ahdoc .ugc .ugc-update-banner-text { display: block; font-weight: 700; font-size: 15px; opacity: 0.92; }
+/* ── EL ANCHO: el shell del origen se sale de su caja a proposito ──────────────
+ * Su regla dice .ugc-shell { margin: -26px calc(50% - 50vw) -90px }, o sea que se
+ * escapa del contenedor para ocupar la ventana. Alla funciona porque su caja ES la
+ * ventana; aca vive dentro del contenedor del portal y el resultado era la barra
+ * superpuesta y el documento cortado a la mitad. Se NEUTRALIZA ese margen.
+ *
+ * ⚠️ NO se arregla ensanchando. Se probo con width:100vw + margin-left:calc(50% -
+ * 50vw) y quedo PEOR: la barra se fue a x = -284. El contenedor ya se salia solo, y
+ * el truco lo corrio una segunda vez. Dos correcciones del mismo ancho se suman. */
+
+/* ── LA REPLICA ES UNA APP DE 100vh: LA PAGINA NO SCROLLEA, SCROLLEA EL CONTENIDO ──
+ *
+ * Cinco rondas de parches sobre el mismo sintoma, y el arreglo de una fue la causa de
+ * la siguiente:
+ *
+ *  - Para matar la barra horizontal se puso overflow-x: hidden en html y body.
+ *  - Pero overflow-x: hidden con overflow-y: visible NO deja el otro eje quieto: el
+ *    valor USADO de overflow-y pasa a auto y body se vuelve contenedor de scroll. Un
+ *    position: sticky se posiciona contra su ancestro que scrollea; con body hecho
+ *    contenedor y sin scroll propio, la barra dejo de pegarse DEL TODO.
+ *  - Sintoma: al scrollear la leccion la barra se iba con la pagina y abajo quedaba
+ *    papel vacio. Medido a 1920x880 con scrollY=302: .ugc-side en y=-302 con top:0.
+ *    Y por eso las verificaciones anteriores daban bien: todas median con scrollY=0,
+ *    el unico estado en que un sticky roto se ve igual que uno sano.
+ *
+ * La salida no es otro parche de sticky: es que la pagina no scrollee. El shell mide
+ * exactamente la ventana, la barra es un bloque normal de alto completo -sin sticky no
+ * hay nada de que despegarse- y lo que scrollea es el contenido; en la leccion, cada
+ * columna la suya. Es como funciona la barra de MaKo, que es lo que se pidio, y la
+ * barra horizontal desaparece sola: sin scroll de pagina no hay barra vertical, y sin
+ * barra vertical no sobra el ancho. */
+html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !important; }
+.cono:has(.ahdoc) { height: 100vh !important; min-height: 0 !important; overflow: hidden !important; }
+.cono:has(.ahdoc) > .paper-bg { height: 100vh !important; }
+/* El chrome del portal se saca: la replica ya trae su marca y su "Volver a los cursos"
+ * en la propia barra, asi que el header de afuera era chrome DUPLICADO -y es el
+ * contenedor que se reporto tres veces como "la caja que tapa el papel"-. */
+.cono-wrap:has(.ahdoc) { padding: 0 !important; max-width: none !important; width: auto !important; margin: 0 !important; height: 100vh !important; overflow: hidden !important; }
+.cono-wrap:has(.ahdoc) .al-top, .cono-wrap:has(.ahdoc) .al-shared-ft { display: none !important; }
+
+.ahdoc { position: relative; width: auto !important; max-width: none !important; margin-inline: 0 !important; height: 100vh !important; overflow: hidden !important; }
+.ahdoc > .paper-bg, .ahdoc > .grain { position: absolute; inset: 0; pointer-events: none; }
+.ahdoc > .ugc { position: relative; z-index: 1; }
+.ahdoc .ugc { height: 100vh !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+.ahdoc .ugc .ugc-shell {
+  height: 100vh !important; min-height: 0 !important; max-width: none !important;
+  margin: 0 !important; overflow: hidden !important;
+  display: flex !important; align-items: stretch !important;
+  width: 100% !important; max-width: 100% !important;
+}
+
+/* La barra: bloque normal de alto completo. Sin sticky no hay nada que se despegue y no
+ * depende de que ningun ancestro conserve su overflow. */
+.ahdoc .ugc .ugc-side {
+  position: static !important; top: auto !important;
+  height: 100vh !important; max-height: 100vh !important; min-height: 0 !important;
+  flex: 0 0 268px !important; align-self: stretch !important;
+  border-radius: 0 !important; overflow-y: auto !important; overscroll-behavior: contain;
+}
+
+/* La columna de contenido: la busqueda fija arriba y el resto scrolleando debajo.
+ * El min-height: 0 no sobra - sin el, un hijo de flex no se deja achicar por debajo de
+ * su contenido y el scroll interno no aparece nunca. */
+.ahdoc .ugc .ugc-main {
+  height: 100vh !important; min-width: 0 !important; width: 100% !important;
+  display: flex !important; flex-direction: column !important; overflow: hidden !important;
+  padding: 24px 32px 0 !important;
+}
+/* La busqueda era sticky sobre una ventana entera; aca quedaba flotando encima de las
+ * tarjetas. Se vuelve estatica y con su propio espacio. */
+.ahdoc .ugc .ugc-topbar { position: static !important; flex: 0 0 auto !important; margin: 0 0 18px !important; z-index: auto !important; }
+.ahdoc .ugc .ugc-content {
+  flex: 1 1 auto !important; min-height: 0 !important; padding: 0 !important;
+  display: flex !important; flex-direction: column !important;
+  overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain;
+  width: 100% !important; max-width: 100% !important;
+}
+.ahdoc .ugc .ugc-content > * { flex: 0 0 auto !important; }
+
+/* En la leccion las dos columnas llenan el alto y scrollea cada una la suya: el video
+ * queda a la vista mientras se lee el documento, que en la clase mas larga mide 8221 px.
+ * El padding de abajo del origen es 118 px -alli hay un reproductor flotante que aca no
+ * existe- y era una franja muerta al pie de la pantalla. */
+.ahdoc .ugc .ugc-content > .ugc-split { flex: 1 1 auto !important; min-height: 0 !important; }
+.ahdoc .ugc .ugc-split {
+  display: flex !important; gap: 18px !important; align-items: stretch !important;
+  max-width: none !important; margin: 0 !important; padding: 0 0 24px !important;
+}
+.ahdoc .ugc .ugc-split > .ugc-vcol, .ahdoc .ugc .ugc-split > .ugc-pcol {
+  position: static !important; top: auto !important; align-self: stretch !important;
+  flex: 1 1 0 !important; min-width: 0 !important; max-width: none !important; width: auto !important;
+  min-height: 0 !important; max-height: none !important;
+  overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain;
+}
+
+/* ── Lo demas, por pieza ──────────────────────────────────────────────────────── */
+/* Y el contenedor NO pinta: el papel tiene que verse. Un fondo propio encima del papel
+ * es lo que hacia que pareciera una caja pegada arriba. */
+.ahdoc .ugc, .ahdoc .ugc .ugc-shell, .ahdoc .ugc .ugc-main, .ahdoc .ugc .ugc-content {
+  background: transparent !important; box-shadow: none !important; border: 0 !important;
+}
+/* ⚠️ La tarjeta de modulo mostraba SOLO la portada hasta pasarle el cursor: en el origen
+ * el cuerpo aparece en hover. Sin mouse -o de un vistazo- el indice era una fila de
+ * imagenes sin un solo titulo. */
+.ahdoc .ugc .ugc-modcard-body { opacity: 1 !important; visibility: visible !important; transform: none !important; max-height: none !important; }
+/* Los botones de la leccion, con aire: venian pegados uno contra otro. */
+.ahdoc .ugc .ugc-lecnav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.ahdoc .ugc .ugc-lecnav .ugc-btn { margin: 0 !important; }
+/* El hero ocupaba media pantalla con un boton chico adentro. Se acota, y como aca es un
+ * <button> y en el origen un <a>, sin el display: block colapsa a 0 x 0. */
+.ahdoc .ugc .ugc-hero { display: block !important; width: 100% !important; max-height: 260px !important; min-height: 0 !important; }
+.ahdoc .ugc .ugc-hero-img { object-fit: cover !important; }
+/* ATENCION - LAS CLASES VAN EN GRILLA, NO EN CARRUSEL. En el origen .ugc-rail es una
+ * fila que se corre de costado, porque alla el indice muestra 5 modulos. Con 30 clases
+ * eso es una fila larguisima sin barra visible: navegar se vuelve imposible. Una grilla
+ * usa el alto, que es justo lo que sobra. */
+.ahdoc .ugc .ugc-rail {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+  gap: 18px !important; overflow: visible !important; scroll-snap-type: none !important;
+}
+.ahdoc .ugc .ugc-rail > * { scroll-snap-align: none !important; flex: none !important; width: auto !important; }
+/* El video, con su alto real: entraba a 150 px. */
+.ahdoc .ugc .ugc-vframe { aspect-ratio: 16 / 9 !important; height: auto !important; min-height: 0 !important; }
+.ahdoc .ugc .ugc-vcard { width: 100% !important; }
+/* Los clips embebidos del documento, con su caja: sin alto propio un iframe sale de
+ * 150 px y rompe la fila. */
+.ahdoc .ugc .ugc-clip-drive, .ahdoc .ugc .ugc-media iframe { width: 100% !important; aspect-ratio: 9 / 16 !important; height: auto !important; border: 0; display: block; }
+.ahdoc .ugc .ugc-media { max-width: 220px !important; }
