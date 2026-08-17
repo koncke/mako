@@ -56,6 +56,21 @@ const MS_BORRAR = 62;
 const MS_JITTER = 70;
 const MS_QUIETA = 2600;
 
+/**
+ * Lo que la PRIMERA frase se queda quieta, y es más del doble que las demás a propósito.
+ *
+ * ⚠️ LA PRIMERA NO SE LEE EN EL MISMO TIEMPO QUE LAS OTRAS, aunque tarde lo mismo en
+ * pantalla. Las que siguen aparecen dentro de un ritmo que el ojo ya viene siguiendo:
+ * cuando empiezan a escribirse, el lector ya está mirando ahí. La primera llega junto con
+ * el fundido del bloque, el título y el botón — compite con todo eso, y encima no se
+ * escribe (arranca completa, para que el HTML del server coincida con el del cliente), así
+ * que no tiene el barrido de letras que le avisa al ojo dónde mirar.
+ *
+ * Reportado tal cual: «no se llega a leer eso apenas aparece porque al segundo ya se
+ * comienza a borrar». El reloj empezaba a correr en el instante en que el bloque asomaba.
+ */
+const MS_QUIETA_PRIMERA = 5600;
+
 // ── El mapa ─────────────────────────────────────────────────────────────────
 const CX = 500;
 const CY = 470;
@@ -361,6 +376,8 @@ function Maquina({ activo }: { activo: boolean }) {
   const [largo, setLargo] = useState(FINALES[0].length);
   const [borrando, setBorrando] = useState(false);
   const [quieto, setQuieto] = useState(false);
+  /** Todavía no se borró nada: la frase que está en pantalla es la de la entrada. */
+  const [primera, setPrimera] = useState(true);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setQuieto(true);
@@ -370,7 +387,8 @@ function Maquina({ activo }: { activo: boolean }) {
     if (!activo || quieto) return;
     const frase = FINALES[i];
     if (!borrando && largo === frase.length) {
-      const t = setTimeout(() => setBorrando(true), MS_QUIETA);
+      // La primera espera bastante más: llega con el fundido del bloque y sin escribirse.
+      const t = setTimeout(() => { setBorrando(true); setPrimera(false); }, primera ? MS_QUIETA_PRIMERA : MS_QUIETA);
       return () => clearTimeout(t);
     }
     if (borrando && largo === 0) {
@@ -380,7 +398,7 @@ function Maquina({ activo }: { activo: boolean }) {
     const base = borrando ? MS_BORRAR : MS_LETRA;
     const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), base + Math.random() * MS_JITTER);
     return () => clearTimeout(t);
-  }, [activo, quieto, i, largo, borrando]);
+  }, [activo, quieto, i, largo, borrando, primera]);
 
   return (
     <span className="bv-maq">
