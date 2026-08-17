@@ -38,6 +38,7 @@ import { CURSO_BIGSEO_ACADEMY } from './curso-bigseo-academy';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
+import { CURSO_CREATIVOS_UGC_REALISTAS } from './curso-creativos-ugc-realistas';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
 
@@ -160,7 +161,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
   CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY, CURSO_INSTITUTO_DE_COMUNICACION,
-  CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
+  CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY, CURSO_CREATIVOS_UGC_REALISTAS,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
