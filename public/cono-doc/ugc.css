@@ -43,6 +43,16 @@
  * Acá el título y la duración tienen que verse siempre — una grilla de tapas mudas
  * no dice qué es cada cosa. */
 .ahdoc .ugc .ugc-modcard-body { opacity: 1 !important; visibility: visible !important; transform: none !important; max-height: none !important; }
+/* ATENCION - LA BARRA DE BUSQUEDA SE SUPERPONIA AL CONTENIDO. En el origen
+ * .ugc-topbar es sticky sobre una ventana completa; aca queda flotando encima de las
+ * tarjetas. Se vuelve estatica y con su propio espacio. */
+.ahdoc .ugc .ugc-topbar { position: static !important; margin: 0 0 18px !important; z-index: auto !important; }
+/* Los botones de la leccion, con aire: venian pegados uno contra otro. */
+.ahdoc .ugc .ugc-lecnav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.ahdoc .ugc .ugc-lecnav .ugc-btn { margin: 0 !important; }
+/* El curso ocupa el alto disponible, no una franja al medio. */
+.ahdoc .ugc .ugc-shell { min-height: 70vh !important; align-items: stretch !important; }
+.ahdoc .ugc .ugc-content { padding: 0 !important; }
 .ahdoc { overflow: visible !important; }
 .ahdoc .ugc,
 .ahdoc .ugc .ugc-shell,
