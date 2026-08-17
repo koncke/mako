@@ -908,6 +908,36 @@ código quería el escape (`pasos.join('<NUL>')`, un centinela, dos clases de re
   `core.autocrlf` lo pasa a LF de una. El `git blame` de ese archivo queda apuntando a ese
   commit. Vale la pena igual, pero va en un commit propio y avisado.
 
+# Un eje en `hidden` convierte el otro en `auto`, y eso rompe todo `sticky` de adentro
+
+`overflow-x: hidden` con `overflow-y: visible` **no** deja el eje Y quieto: su valor USADO
+pasa a `auto` y el elemento se vuelve un **contenedor de scroll**. Un `position: sticky` se
+posiciona contra su ancestro que scrollea; si ese ancestro pasa a ser uno que no scrollea,
+el sticky deja de pegarse **del todo** — no se degrada, desaparece.
+
+El caso: se puso `overflow-x: hidden` en `html` y `body` para matar una barra horizontal, y
+con eso la barra lateral de una pantalla se iba con el scroll. Medido a 1920x880 con
+`scrollY = 302`: el elemento en `y = -302`, con su `top: 0` puesto y aplicando.
+
+- **Si necesitas recortar un eje, recorta en el elemento que ya scrollea**, no en el
+  documento; o usa `overflow-x: clip`, que no crea contenedor de scroll.
+- **Y verificalo SCROLLEANDO.** Con `scrollY = 0` un sticky roto se ve igual que uno sano,
+  asi que cualquier chequeo que no mueva la pagina da verde sobre algo roto. Esto se pago
+  cinco veces seguidas sobre la misma pantalla.
+- El detalle, con la cadena completa de arreglos que se causaron entre si, en
+  [docs/hallazgos-conocimiento.md](docs/hallazgos-conocimiento.md) → «Cuando la pagina deja
+  de scrollear».
+
+# En una hoja GENERADA, lo escrito a mano va al final del archivo
+
+Un generador que arma `cabecera + origen` pone tus overrides **antes** de lo que querias
+pisar. Con la misma especificidad gana la ultima regla, asi que `!important` no alcanza y
+el sintoma es «le pongo `!important` y no pasa nada». Va `cabecera + origen + COLA`.
+
+Y adentro de la cola vale lo mismo que en el codigo: **una regla, un lugar**. Tres pares de
+reglas propias se estaban contradiciendo en el mismo archivo; ganaba siempre la de mas
+abajo, y la de arriba —la que tenia el comentario explicando el porque— mentia.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

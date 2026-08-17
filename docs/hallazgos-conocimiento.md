@@ -2210,3 +2210,124 @@ regenera `public/cono-doc/ugc.css`).
 **Lo que quedó SIN hacer:** el filtro por módulo se muestra escribiendo el nombre del
 módulo en el campo de búsqueda — funciona y se entiende, pero no es lo que hace el origen.
 Vive en el `setQ(m.nombre)` de `app/conocimientos/CursoReplica.tsx`.
+
+## Cuando la pagina deja de scrollear: la cadena de arreglos que se causaban entre si
+
+**2026-08-17, segunda vuelta.** El dueño reporto «abajo de la tab aun se rompe». La causa
+no era un resto de la ronda anterior: **era el arreglo de la ronda anterior**.
+
+### 1. `overflow-x: hidden` no deja el otro eje quieto, y eso mata cualquier `sticky` de adentro
+
+Para matar la barra horizontal se puso `overflow-x: hidden` en `html` y `body`. Funciono.
+Pero **cuando un eje es `hidden` y el otro `visible`, el valor USADO del segundo pasa a
+`auto`**: `body` se convirtio en un contenedor de scroll. Un `position: sticky` se
+posiciona contra su ancestro que scrollea, y ese ancestro pasaba a ser un `body` que no
+scrollea — asi que la barra dejo de pegarse **del todo**.
+
+Medido a 1920x880 con `scrollY=302`: `.ugc-side` en `y=-302`, con su `top: 0` puesto.
+
+**Y por eso las cinco verificaciones anteriores daban verde: todas median con
+`scrollY = 0`, que es el unico estado en que un sticky roto se ve igual que uno sano.**
+Cualquier chequeo de posicion pegajosa que no scrollee no esta verificando nada.
+
+### 2. La salida fue sacar el sticky de la ecuacion, no parchearlo otra vez
+
+La replica es ahora una **app de 100vh**: el shell mide la ventana, la barra es un bloque
+normal de alto completo —sin sticky no hay nada de que despegarse— y lo que scrollea es el
+contenido; en la leccion, cada columna la suya. De paso la barra horizontal desaparece
+sola: **sin scroll de pagina no hay barra vertical, y sin barra vertical no sobra el
+ancho** — que era el problema original, con lo cual se cierran los dos con una decision.
+
+### 3. La «cola» del CSS generado iba ANTES del origen
+
+`scripts/avatarhype-css.mjs` armaba el archivo como `cabecera + origen`, con **todas** las
+reglas propias adentro de la cabecera. Su propio comentario decia, textual, «ESTAS VAN AL
+FINAL Y CON !important». Con la misma especificidad gana la ultima, asi que cada regla
+propia perdia contra la del origen, y el sintoma se repitio durante meses: *le pongo
+`!important` y no pasa nada*.
+
+Al ordenarlo aparecieron **tres pares de reglas propias peleandose entre si**, donde
+siempre ganaba la de mas abajo sin que nadie lo supiera:
+
+| Arriba decia | Abajo decia | Ganaba |
+|---|---|---|
+| `.ahdoc { overflow: hidden }` | `.ahdoc { overflow: visible !important }` | la de abajo — y con eso se caia la app de 100vh |
+| `.ugc-side { position: static !important }` | `.ugc-side { position: sticky !important }` | la de abajo — la barra volvia a despegarse |
+| `.ugc-shell { min-height: 0 !important }` | `.ugc-shell { min-height: 100vh !important }` | la de abajo |
+
+**La regla: en una hoja generada, lo escrito a mano va DESPUES de lo importado, y una
+regla vive en un solo lugar.** Si aparece dos veces, la de abajo gana en silencio y la de
+arriba miente — con el agravante de que la de arriba suele ser la que tiene el comentario
+que explica el porque.
+
+### 4. Y habia 4 segundos de curso crudo que se veian igual que una pantalla rota
+
+La hoja del origen son 333 KB y se pedian **recien al montar el componente**. Medido a
+1440x900 con la cache apagada: durante mas de 4 segundos el shell renderiza con
+`display: block` y la barra queda en `y=984` midiendo 120x984.
+
+No es solo feo: **es el mismo cuadro que el dueño reporto tres veces como «no se ve nada»
+y «se ve igual que antes»**. Una pantalla a medio vestir y una pantalla rota son
+indistinguibles desde afuera. Ahora el curso no se dibuja hasta que la hoja cargo; si
+falla, se muestra sin estilo, porque quedarse en blanco es lo unico inaceptable.
+
+### 5. Lo que aparecio DESPUES, por haber cambiado quien scrollea
+
+Cambiar el scroll de la pagina al contenido rompe cosas que dependian de que scrolleara la
+pagina, y ninguna se ve hasta que se prueba el gesto:
+
+- **Las tabs del documento se iban con el scroll** (de `y=102` a `y=-2898`): para pasar de
+  Documento a Transcripcion habia que devolver 8000 px de papel. Antes eran parte del
+  recorrido normal. **Una barra de navegacion que vive adentro de lo que navega deja de ser
+  una barra**; va `sticky` al techo de su columna, y con fondo propio o el papel pasa por
+  debajo y queda ilegible.
+- **«Volver a los cursos» devolvia al tope de la lista**, con la tarjeta del curso recien
+  cerrado en `y=1879`. En una lista de 20 cursos eso no se lee como «volvi» sino como «me
+  saco a otro lado». El destino de Volver es una propiedad de la pantalla, si — **pero el
+  indice tiene un LUGAR**, y volver sin el lugar es volver a medias.
+- **⚠️ Y el `scrollTo(0)` del padre GANA.** Los efectos del hijo corren antes que los del
+  padre, asi que el `scrollIntoView` del selector se ejecutaba y el padre lo deshacia un
+  instante despues: se veia exactamente igual que si el foco no estuviera implementado.
+- **Un `hashchange` no recarga.** Pegar el link de una clase en una pestaña donde el portal
+  YA esta abierto dispara `hashchange` y nada mas; el portal solo leia el hash al montar,
+  asi que la URL cambiaba y la pantalla se quedaba. El link parecia roto **justo cuando
+  alguien lo comparte por segunda vez**.
+
+### 6. Lo que enseño la corrida de 24 agentes
+
+Se midio la pagina desplegada en 7 combinaciones de ventana x vista x gesto, con un
+verificador adversarial por hallazgo. 10 confirmados, 52 chequeos en verde. Lo util no
+fueron solo los hallazgos:
+
+- **3 de los 10 ya estaban arreglados** en un commit posterior al deploy que midieron, y
+  **un verificador lo detecto solo**: «la causa real no es que falte el reset, es que el
+  arreglo no esta desplegado». Es la version practica de «un agente no distingue *nunca
+  estuvo roto* de *se arreglo hace una hora*»: si se lanza una corrida contra produccion,
+  hay que decirle **que commit esta sirviendo**, o parte de lo que devuelve es arqueologia.
+- **1 de los 10 no se reproduce.** Dos agentes reportaron que los rotulos de los clips
+  quedaban cortados; medidos los 58 rotulos de 5 clases en 2 ventanas, **cero cortados**.
+  Lo mas probable es que midieran durante los 4 segundos de FOUC del punto 4 — o sea que un
+  bug real de carga se disfrazo de dos bugs de layout que no existen.
+- **Una espera fija produce rojos falsos.** Mis propios scripts esperaban N segundos y
+  median pantallas a medio montar; dos veces estuve por reportar como bug del producto algo
+  que era del arnes. **Se espera a una CONDICION del DOM** —que exista la tarjeta, que el
+  documento pase de 3000 px— nunca a un reloj.
+- **Y la prueba tiene que llegar por el camino del usuario.** Un script escribia
+  `location.hash = 'clase=15'` a mano, lo que borra el `curso=`: reproducia el bug que venia
+  a verificar y lo reportaba como fallo despues de arreglado.
+
+### El estado, medido en tres ventanas
+
+A 1920x880, 1280x720 y 1024x680: sin barra horizontal, la pagina no scrollea en ningun
+eje, la barra en `y=0` con el alto exacto de la ventana, las dos columnas terminando a la
+par, el documento con su scroll propio (7300-10200 px de contenido), el modulo activo
+marcado, y F5 conservando la clase.
+
+**Vive en:** `scripts/avatarhype-css.mjs` (el generador; la COLA es donde va todo lo
+escrito a mano) · `public/cono-doc/ugc.css` (generado, no se edita) ·
+`app/conocimientos/CursoReplica.tsx` · `app/conocimientos/CursoPortal.tsx` (el `foco` del
+Selector) · `app/compartido/[token]/PortalCompartido.tsx`.
+
+**Lo que quedo SIN hacer:** en 1280x720 la columna del video gasta el 40% de su alto
+(241 de 594 px) en los botones de navegacion y el titulo antes de llegar al reproductor.
+Vive en `.ugc-lecnav` + `.ugc-ltitle`, en la COLA de `scripts/avatarhype-css.mjs`.
