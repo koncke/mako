@@ -600,6 +600,35 @@ el archivo y el motivo, uno por línea.
 
 **Vive en:** `scripts/curso-audio.mjs` (el bloque de `descartes`)
 
+### ⚠️ `.temp.mp4` es el intermedio que MÁS engaña, y faltaba en `esIntermedio`
+
+**2026-08-16, «Trilogía de BRIAN TRACY».** La clase 11 (Seminario Fénix) viene en pistas
+separadas: yt-dlp bajó **4,6 GB de video** y **955 MB de audio** y se puso a unirlos en
+`11 - … .temp.mp4`. Ese archivo **crece hasta pesar casi lo mismo que el final y tiene la
+extensión del final**, así que no se parece en nada a un temporal — a diferencia de un
+`.part` o de un `.fhls-….mp4`, que se delatan solos.
+
+`esIntermedio` no lo conocía, y el mismo agujero pegó en dos lugares a la vez:
+
+- **`curso-audio.mjs`** intentó convertir el merge a medio hacer → `✖ 11 - Seminario
+  Fénix… .temp`. Justo la guarda cuyo trabajo es «no tocar un video a medio bajar».
+- **`curso-pipeline.mjs`** lo contó como clase terminada: **11/11**, anunció *«sin
+  progreso 12 rondas y la descarga ya terminó»* y se fue — con ffmpeg escribiendo a
+  **253 MB cada 15 s**. Quedó una clase sin audio y sin transcribir.
+
+**Es la misma trampa que la de «100M money Models», por el otro lado.** Allá un contador
+QUIETO se leyó como «el descargador murió»; acá uno de MÁS se leyó como «ya terminó». Las
+dos veces la conclusión fue *abandonar*, y las dos veces el proceso estaba sano.
+
+**La regla:** qué es un intermedio lo decide **`esIntermedio` y nada más**. El contador
+del pipeline tenía su propia copia del regex (`!/\.f[^.]*\.mp4$/`) — la tercera copia de
+esta función, después de las tres que motivaron crear `curso-comun.mjs`. Ahora lo importa.
+Y el corolario: **el peso de un archivo no dice que esté terminado.** Un merge al 90% pesa
+un 90%, y con la extensión definitiva.
+
+**Vive en:** `scripts/curso-comun.mjs` (`esIntermedio`) · `scripts/curso-pipeline.mjs`
+(`bajados`)
+
 ### ⚠️ Copiar un directorio que otro proceso escribe deja basura PERMANENTE en el destino
 
 **Síntoma.** En la carpeta del curso en Drive aparecieron 3 archivos de más, 500 MB en

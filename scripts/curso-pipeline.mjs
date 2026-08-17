@@ -15,6 +15,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { esIntermedio } from './curso-comun.mjs';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -40,7 +41,16 @@ const cuenta = (sub, filtro) => {
   if (!existsSync(d)) return 0;
   return readdirSync(d).filter(filtro).length;
 };
-const bajados = () => cuenta('video', (f) => /\.mp4$/i.test(f) && !/\.f[^.]*\.mp4$/i.test(f));
+// ⚠️ QUÉ ES UN INTERMEDIO LO DECIDE `esIntermedio`, NO UN REGEX PROPIO.
+// Acá había una copia (`!/\.f[^.]*\.mp4$/`) que no conocía el `.temp.mp4` —el archivo
+// donde yt-dlp UNE video y audio cuando la calidad alta viene en pistas separadas—, así
+// que el temporal del merge se contaba como clase lista. Medido en «Trilogía de BRIAN
+// TRACY»: la clase 11 son 4,6 GB + 955 MB, y mientras ffmpeg los unía el contador dio
+// 11/11 → el pipeline anunció «la descarga ya terminó» y se fue, dejando esa clase sin
+// audio y sin transcribir, con el merge escribiendo a 253 MB cada 15 s.
+// Es la MISMA trampa que la nota de abajo, en la otra punta: allá un contador quieto se
+// leyó como «el descargador murió»; acá uno de más se leyó como «ya terminó».
+const bajados = () => cuenta('video', (f) => /\.mp4$/i.test(f) && !esIntermedio(f));
 // ⚠️ Los BYTES de video/, intermedios incluidos. Es la única señal honesta de que el
 // descargador sigue vivo: contar archivos TERMINADOS no sirve porque una sola clase
 // grande puede tardar más que toda la ventana de vigilancia. Pasó con «100M money

@@ -30,7 +30,18 @@ const EXT_VIDEO = /^(mp4|mkv|webm|m4v)$/i;
  * en vez de aceptar cualquier cosa después de la `f`.
  */
 export const esIntermedio = (ruta) => {
-  const m = /\.f([^.]*)\.([A-Za-z0-9]{2,4})$/.exec(basename(String(ruta)));
+  const b = basename(String(ruta));
+  // ⚠️ `<clase>.temp.mp4` TAMBIÉN es un intermedio, y es el que más engaña: es el
+  // archivo donde yt-dlp UNE video y audio cuando la calidad alta viene en pistas
+  // separadas, así que crece hasta pesar casi lo mismo que el final y tiene la
+  // extensión del final. Faltaba acá, y el efecto se vio en dos lados a la vez con la
+  // clase 11 de «Trilogía de BRIAN TRACY» (4,6 GB de video + 955 MB de audio):
+  // `curso-audio.mjs` intentó convertir el merge a medio hacer y falló, y el contador
+  // de `curso-pipeline.mjs` lo contó como clase terminada —11/11— y dio la descarga
+  // por cerrada con ffmpeg escribiendo a 253 MB cada 15 s.
+  const t = /\.temp\.([A-Za-z0-9]{2,4})$/.exec(b);
+  if (t && EXT_VIDEO.test(t[1])) return true;
+  const m = /\.f([^.]*)\.([A-Za-z0-9]{2,4})$/.exec(b);
   if (!m || !EXT_VIDEO.test(m[2])) return false;
   return /^(\d|hls[-_.]|dash[-_.]|http)/.test(m[1]);
 };
