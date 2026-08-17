@@ -34,15 +34,38 @@ import type { Clase, Curso, Recurso } from './curso';
 const FLECHA_IZQ = '←';
 const FLECHA_DER = '→';
 
+/**
+ * Carga la hoja del origen y avisa CUANDO ESTA. Las dos mitades importan.
+ *
+ * ⚠️ Sin esperar el `load`, hay varios segundos de contenido crudo apilado. Medido a
+ * 1440x900 con la cache apagada: durante mas de 4 s el shell renderiza con
+ * `display: block`, la barra queda en y=984 midiendo 120x984, y la pantalla se ve
+ * exactamente igual que cuando el CSS no matchea. Son 333 KB que se piden reciEn al
+ * montar el componente, asi que la ventana es larga y en una conexion lenta, mas.
+ *
+ * Y no es solo feo: es el mismo cuadro que el dueno reporto tres veces como «no se ve
+ * nada» y como «se ve igual que antes». Una pantalla a medio vestir y una pantalla rota
+ * son indistinguibles desde afuera, asi que se prefiere no mostrar nada.
+ *
+ * El `load` se engancha aunque el <link> ya exista de una visita anterior: en ese caso
+ * `sheet` ya esta y se contesta al toque, sin esperar un evento que no va a volver.
+ */
 function useCssDelOrigen() {
+  const [listo, setListo] = useState(false);
   useEffect(() => {
-    if (document.getElementById('ahdoc-css')) return;
+    const ya = document.getElementById('ahdoc-css') as HTMLLinkElement | null;
+    if (ya) { if (ya.sheet) { setListo(true); return; } ya.addEventListener('load', () => setListo(true), { once: true }); return; }
     const l = document.createElement('link');
     l.id = 'ahdoc-css';
     l.rel = 'stylesheet';
     l.href = '/cono-doc/ugc.css';
+    l.addEventListener('load', () => setListo(true), { once: true });
+    // Si la hoja no carga, mostrar el curso sin estilo es mejor que no mostrar nada:
+    // el material sigue siendo legible. Lo que no puede pasar es quedarse en blanco.
+    l.addEventListener('error', () => setListo(true), { once: true });
     document.head.appendChild(l);
   }, []);
+  return listo;
 }
 
 const minutosDe = (cs: Clase[]) => {
@@ -57,7 +80,7 @@ type Modulo = { n: number; nombre: string; clases: Clase[]; portada: string };
 type Vista = { clase?: number; recursos?: boolean };
 
 export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir?: () => void }) {
-  useCssDelOrigen();
+  const cssListo = useCssDelOrigen();
 
   /**
    * ATENCION - LA VISTA VIVE EN LA URL, NO EN EL ESTADO.
@@ -126,6 +149,16 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
   }, [q, curso.clases]);
 
   const clase = vista.clase ? curso.clases.find((c) => c.n === vista.clase) : undefined;
+
+  // Hasta que la hoja del origen este, el curso NO se dibuja: ver `useCssDelOrigen`.
+  if (!cssListo) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', gap: 10 }}>
+        <span style={{ fontWeight: 700, fontSize: 15 }}>{curso.titulo}</span>
+        <span style={{ opacity: 0.6, fontSize: 13 }}>Abriendo el curso…</span>
+      </div>
+    );
+  }
 
   return (
     <div className="ahdoc">
