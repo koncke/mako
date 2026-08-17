@@ -210,6 +210,56 @@ lo publicado tenía dos clases de menos.
 **Vive en:** `scripts/avatarhype-plan.mjs` · `scripts/curso-a-portal.mjs` ·
 `app/conocimientos/CursoPortal.tsx`
 
+### ⚠️ Replicar una PANTALLA ajena: el contenedor no es decoración
+
+**2026-08-17, replicando el curso de Avatar Hype con su propia interfaz.** Tres fallas
+seguidas, y las tres se veían igual desde el navegador: la pantalla mal. Ninguna era
+del componente.
+
+**1. Faltaba un `div`, y con él el 99% del CSS.** El origen monta
+`.ugc > .ugc-shell`; el componente montaba `.ahdoc > .ugc-shell`. Medido sobre el
+archivo generado: **593 reglas están escritas bajo `.ugc` y solo 5 aplican sin él**. El
+síntoma es traicionero porque parece que el CSS no cargó —portadas a pantalla completa
+apiladas, texto crudo— cuando en realidad cargó entero y no matchea nada.
+
+> **Antes de escribir el componente, contá cuántas reglas cuelgan de cada contenedor
+> del origen.** Un `grep` del selector padre en la hoja capturada contesta en un
+> segundo si ese div es decorativo o es la mitad del diseño.
+
+**2. Las variables de tipografía viven en el MISMO elemento que el scope.** Next.js
+emite clases `__variable_a4bae9 { --font-bricolage: … }` y las pone en el div de la
+app. Al rescopear quedaron como `.ahdoc .__variable_a4bae9`, o sea apuntando a un
+elemento que acá no existe: las **440** referencias a `--font-*` resolvieron en vacío y
+el navegador cayó a la fuente de sistema. La pantalla «se parecía» y no era.
+Y sus `@font-face` apuntan a archivos self-hosteados en el dominio del origen: no
+sirven. Las 7 familias son de Google y se piden ahí.
+
+**3. Rescopear CSS con un reemplazo global rompe lo que tiene estructura.** Dos bugs
+en la misma función:
+
+- `body .algo { display:none }` se **colapsó** a `.ahdoc { display:none }` —el prefijo
+  reemplazaba el selector entero en vez de su primer token— y escondió el curso.
+  El DOM estaba completo: 33 tarjetas montadas, CSS cargado, **cero excepciones**, y la
+  pantalla en blanco.
+- A los `@media` se les pegó el prefijo adelante (`.ahdoc @media (max-width: 1000px)`),
+  que no es CSS válido: el navegador descarta el bloque entero. Eran 15.
+
+**La regla: el CSS se procesa REGLA POR REGLA.** El `cssText` de cada regla es una
+línea; los at-rules se tratan aparte (se rescopean los selectores de adentro, nunca la
+condición).
+
+**Y el chequeo que cierra las tres, porque se hace sobre el archivo y tarda un
+segundo:**
+
+```
+grep -c '^\.ahdoc\(, *\.ahdoc\)* *{[^}]*display: *none'   → 0
+grep -c '\.ahdoc *@media'                                  → 0
+grep -c '\.ahdoc \.<contenedor> '                          → cuántas dependen del wrapper
+```
+
+**Vive en:** `scripts/avatarhype-css.mjs` (el rescopeo) ·
+`app/conocimientos/CursoReplica.tsx` (los dos contenedores)
+
 ### ⚠️ Bajar el MATERIAL de un curso, no solo su video: las tres trampas
 
 **2026-08-17, replicando el curso de Avatar Hype entero** (documentos, prompts,

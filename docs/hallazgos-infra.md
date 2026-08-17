@@ -1094,6 +1094,46 @@ rutear, así que `/admin/dev/onboarding` y `/ruta-inventada-xyz` devuelven los d
 `mbustos-4239s-projects`) · `proxy.ts` (la lista `PUBLICOS`) · *2026-08-07, sesión de la
 tab de documentación*
 
+### ⚠️ Y el otro modo: el push que NO GENERA BUILD, y el CLI que no puede forzarlo
+
+**2026-08-17.** Peor que el build que falla, porque ahí al menos hay un build que mirar.
+Tres pushes seguidos a `main` —10:53, 11:04 y un commit vacío de re-disparo— y **ningún
+deploy**: ni «Ready», ni «Error», ni siquiera «Building». Los dos commits anteriores
+(10:25 y 10:33) sí habían salido, así que la integración se cortó en esa media hora y se
+recuperó sola ~40 minutos después.
+
+**Cómo se ve desde afuera:** exactamente igual que un arreglo que no funciona. El dueño
+mira la pantalla, sigue rota, y el commit está en `origin/main` hace rato. Se pierde el
+tiempo depurando código que ya estaba bien.
+
+**Lo que lo distingue en un comando, y no es `vercel ls`:** pedirle a producción el
+archivo que cambiaste y comparar.
+
+```
+curl -s https://hola-mako.com/cono-doc/ugc.css | wc -c     # 76883 = el viejo
+git show origin/main:public/cono-doc/ugc.css | wc -c       # 339754 = lo que debería
+```
+
+`vercel ls` **no alcanza**: su primera fila decía «● Ready» todo el tiempo, porque era
+el deploy de OTRO commit. Un vigía que mire «¿el último deploy está listo?» contesta que
+sí mientras tu cambio no llegó nunca. La pregunta correcta es **«¿producción sirve MI
+byte?»**.
+
+⚠️ **Y no se puede forzar desde esta máquina.** `vercel deploy --prod` responde:
+
+```
+"You don't have permission to create a Production Deployment for this project."
+```
+
+Así que cuando la integración se corta, el único camino es el panel de Vercel: revisar
+si el proyecto tiene los deploys **pausados**, si sigue conectado en Settings → Git, o
+si se acabaron los build minutes. Un preview (`vercel deploy` sin `--prod`) sí se puede,
+y sirve para separar «¿mi arreglo funciona?» de «¿por qué no despliega?».
+
+⚠️ **Si igual hay que desplegar por CLI, va desde un CLON LIMPIO de `origin/main`**, nunca
+desde el working tree: hay dos sesiones sobre este repo y el árbol suele tener trabajo a
+medias de la otra. `git clone --depth 1` + copiar `.vercel/` y listo.
+
 ### ⚠️ Pushear no es desplegar: el build falla y producción sigue sirviendo la versión vieja
 
 **Síntoma:** el dueño abre el CRM y ve la versión vieja de una feature que se le reportó como
