@@ -29,20 +29,42 @@
 // =============================================================================
 
 
+import { useEffect } from 'react';
+import { WS_DISENO } from '@/lib/auth-session';
 import { ATTR_TEMA, ATTR_MODO, LS_TEMA, LS_MODO, esTemaValido } from '@/lib/temas-candidatos';
+
+/**
+ * ¿Esta pestaña está parada en el Cliente de Diseño?
+ *
+ * ⚠️ Sí, mira el `?ws=` de la URL, y eso está PROHIBIDO para decidir de quién
+ * son los datos (es un IDOR). Acá no se decide ningún dato: se decide un COLOR.
+ * Lo peor que puede hacer alguien escribiendo `?ws=4` a mano es pintarse su
+ * propio navegador — no ve ni un registro que no le corresponda, porque de eso
+ * sigue decidiendo el server. Y es el único dato disponible ANTES del primer
+ * pintado, que es lo que hace falta para que no haya un fogonazo.
+ */
+const enDiseno = () => {
+  try { return new URLSearchParams(location.search).get('ws') === String(WS_DISENO); }
+  catch { return false; }
+};
 
 /** Lo que corre antes del primer pintado. Se mantiene chico a propósito. */
 const BOOT = `
 try{
+  var ws=new URLSearchParams(location.search).get('ws');
   var t=localStorage.getItem('${LS_TEMA}');
-  if(t){
+  if(t && ws==='${WS_DISENO}'){
     document.documentElement.setAttribute('${ATTR_TEMA}',t);
     if(localStorage.getItem('${LS_MODO}')==='oscuro')document.documentElement.setAttribute('${ATTR_MODO}','oscuro');
   }else{
-    /* Sin tema en prueba no hay NADA que aplicar, y además se limpia lo que
-       haya quedado guardado: si no, un navegador que probó el tema seguiría
-       en oscuro para siempre. */
-    localStorage.removeItem('${LS_MODO}');
+    /* Fuera del Cliente de Diseño no se aplica NADA, aunque el navegador tenga
+       el tema guardado. La clave vive en localStorage, que es del NAVEGADOR y
+       no del workspace: sin esta condición, prenderlo una vez en el cliente de
+       diseño lo dejaba puesto en el super admin y en el otro cliente de prueba.
+       Los atributos se sacan explícitamente porque una navegación de cliente no
+       vuelve a correr este script. */
+    document.documentElement.removeAttribute('${ATTR_TEMA}');
+    document.documentElement.removeAttribute('${ATTR_MODO}');
   }
 }catch(e){}
 `.trim();
@@ -80,6 +102,16 @@ export function aplicarTemaCandidato(id: string | null) {
  * pueda quedar puesto en una pantalla donde no corresponde.
  */
 export function TemaCandidato() {
+  // El <script> solo corre cuando el navegador parsea un documento nuevo. Al
+  // navegar por links —que es como se usa la app— no vuelve a correr, así que
+  // salir del Cliente de Diseño a cualquier otra pantalla se llevaba el tema
+  // puesto. Este efecto es el que lo saca en cada cambio de ruta.
+  useEffect(() => {
+    if (enDiseno()) return;
+    document.documentElement.removeAttribute(ATTR_TEMA);
+    document.documentElement.removeAttribute(ATTR_MODO);
+  });
+
   return (
     <>
       {/* eslint-disable-next-line react/no-danger */}
