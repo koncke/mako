@@ -153,7 +153,21 @@ const cabecera = `/* Estilos del material de las clases de Avatar Hype.
  * incluye el ancho de la barra VERTICAL, asi que la pagina siempre queda unos pixeles
  * mas ancha que la ventana. Se rompe la caja solo con margenes negativos y el ancho
  * queda en auto, que para un bloque ya llena lo disponible. */
-.ahdoc { width: auto !important; margin-inline: calc(50% - 50vw) !important; max-width: none !important; }
+/* El breakout necesita 50vw si o si, y 50vw incluye la barra vertical: siempre sobran
+ * unos pixeles. La barra horizontal se mata donde SE CREA -en el documento- y no
+ * peleando con el ancho, que fue lo que no funciono las dos veces anteriores. */
+html:has(.ahdoc), body:has(.ahdoc) { overflow-x: hidden !important; }
+.ahdoc { width: auto !important; margin-inline: calc(50% - 50vw) !important; max-width: none !important; overflow-x: clip !important; }
+/* La barra ocupa TODA la altura, siempre: 100vh fijo, no "al menos". Lo que la dejaba
+ * corta era que el shell le pasaba su propio alto. */
+.ahdoc .ugc .ugc-side { height: 100vh !important; min-height: 100vh !important; }
+/* El panel del documento con su propio scroll: hay lecciones de 78 KB y sin esto la
+ * pagina entera se estira detras de un video que queda fijo arriba. */
+.ahdoc .ugc .ugc-pcol { max-height: 100vh !important; overflow-y: auto !important; position: sticky !important; top: 0; }
+/* Los clips embebidos del documento, con su caja: sin alto propio un iframe sale de
+ * 150 px y rompe la fila. */
+.ahdoc .ugc .ugc-clip-drive, .ahdoc .ugc .ugc-media iframe { width: 100% !important; aspect-ratio: 9 / 16 !important; height: auto !important; border: 0; display: block; }
+.ahdoc .ugc .ugc-media { max-width: 220px !important; }
 /* Y el contenedor NO pinta: el papel tiene que verse. Un fondo propio encima del
  * papel es justo lo que hacia que pareciera una caja pegada arriba. */
 .ahdoc .ugc, .ahdoc .ugc .ugc-shell, .ahdoc .ugc .ugc-main, .ahdoc .ugc .ugc-content {

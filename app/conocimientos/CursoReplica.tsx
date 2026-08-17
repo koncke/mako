@@ -144,7 +144,8 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
               )}
               <div className="ugc-nav-h">Modulos</div>
               {modulos.map((m) => (
-                <button key={m.nombre} type="button" className="ugc-nav-item"
+                <button key={m.nombre} type="button"
+                  className={`ugc-nav-item${q === m.nombre && !clase ? ' on' : ''}`}
                   onClick={() => { ir({}); setQ(m.nombre); }} title={m.nombre}>
                   <span className="ugc-nav-num">{m.n}</span>
                   <span className="ugc-nav-label">{m.nombre}</span>
