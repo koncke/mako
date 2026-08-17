@@ -270,19 +270,27 @@ function denegarRol(req: NextRequest, pathname: string) {
 
 // Corre en todo menos assets estáticos.
 //
-// ⚠️ `cono-tx` va excluido POR RUTA y no por extensión, y es lo único así. Son las
-// transcripciones de /conocimientos, estáticas en `public/cono-tx/<videoId>.json`.
+// ⚠️ LOS ASSETS `.json` DE /conocimientos VAN EXCLUIDOS POR RUTA, y son los únicos así:
+//   · `cono-tx/`  — las transcripciones (`public/cono-tx/<videoId>.json`)
+//   · `cono-doc/` — el material de las clases (`public/cono-doc/<slug>.json`)
+//
 // La lista de extensiones de acá no incluye `.json` —y no conviene que lo haga, hay
-// endpoints que sí tienen que estar gateados—, así que esos archivos entraban al
-// middleware y sin sesión se iban a /inicio con un 307.
+// endpoints que sí tienen que estar gateados—, así que esos archivos entran al
+// middleware y sin sesión se van a /inicio con un 307. La respuesta llega con status
+// 200 y `content-type: text/html`: el `fetch` no falla, recibe el HTML de la app y el
+// `.json()` explota. Por eso el mensaje que se ve es «no pude cargar», nunca un 401.
 //
-// El síntoma era engañoso: en /conocimientos (con sesión de admin) las transcripciones
-// se veían perfectas, y fallaban SOLO en /compartido/<token>, que va sin login. O sea
-// que cada link repartido llevaba meses mostrando «No se pudo cargar la transcripción»
-// mientras del lado del admin todo estaba bien. Lo vio el dueño en un link compartido.
+// ⚠️ Y EL SÍNTOMA ENGAÑA IGUAL LAS DOS VECES: con sesión de admin se ve perfecto, y
+// falla SOLO en /compartido/<token>, que va sin login. Con las transcripciones eso
+// duró meses —cada link repartido decía «No se pudo cargar la transcripción» mientras
+// del lado del admin estaba todo bien— y lo encontró el dueño. Con `cono-doc` pasó lo
+// mismo el día que se agregó: el material se veía en /conocimientos y no en el link.
 //
-// Es un asset público de verdad: no lleva ningún dato de sesión y el que tiene el
+// **Si agregás otro asset `.json` público bajo /conocimientos, va acá.** No hay guarda
+// que lo detecte: se ve bien en toda prueba hecha con sesión.
+//
+// Son assets públicos de verdad: no llevan ningún dato de sesión, y el que tiene el
 // videoId ya tiene el video.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|cono-tx/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|cono-tx/|cono-doc/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?)$).*)'],
 };
