@@ -29,20 +29,47 @@ const crudo = readFileSync(ENTRADA, 'utf8');
 
 // Un selector por vez: hay reglas con varios separados por coma, y prefijar la lista
 // entera («.ahdoc a, b») dejaría el segundo sin scope — que es como se escapa el CSS.
+//
+// ⚠️ `html`/`body`/`:root` SE REEMPLAZAN, NO SE COLAPSAN. La primera versión devolvía
+//    `.ahdoc` para cualquier selector que EMPEZARA con esos, tirando el resto: un
+//    `body .algo-oculto { display:none }` quedó como `.ahdoc { display:none }` y
+//    escondió el curso entero. La pantalla salía en blanco con el DOM completo —33
+//    tarjetas montadas— porque el contenedor raíz estaba en `display:none`.
 const rescope = (sel) => sel.split(',').map((s) => {
   const t = s.trim();
   if (!t) return t;
+  if (t === '.ahc' || t === ':root' || t === 'html' || t === 'body') return '.ahdoc';
   if (t.startsWith('.ahc ')) return `.ahdoc ${t.slice(5)}`;
-  if (t === '.ahc') return '.ahdoc';
-  if (/^(:root|html|body)\b/.test(t)) return '.ahdoc';
+  const m = /^(?::root|html|body)\b(.*)$/.exec(t);
+  if (m) return `.ahdoc${m[1]}`;          // «body .x» → «.ahdoc .x», no «.ahdoc»
   return `.ahdoc ${t}`;
 }).join(', ');
 
+// ⚠️ SE PROCESA REGLA POR REGLA, NO CON UN REEMPLAZO GLOBAL. El archivo capturado
+//    trae un `cssText` por línea, así que cada línea es una regla completa. La versión
+//    anterior barría el texto entero con un regex y le pegaba el prefijo al `@media`
+//    («.ahdoc @media (max-width: 1000px) {»), que no es CSS válido: el navegador tira
+//    el bloque entero y con él todo el responsive.
 let reglas = 0;
-const salida = crudo.replace(/(^|\})\s*([^{}@][^{}]*)\{/g, (todo, cierre, sel) => {
+const salida = crudo.split('\n').map((linea) => {
+  const l = linea.trim();
+  if (!l) return '';
+  // Un at-rule con bloque (@media, @supports): se rescopean los selectores de ADENTRO.
+  const at = /^(@(?:media|supports|layer|container)[^{]*)\{([\s\S]*)\}$/.exec(l);
+  if (at) {
+    const dentro = at[2].replace(/([^{}]+)\{([^{}]*)\}/g, (todo, sel, cuerpo) => {
+      reglas++;
+      return `${rescope(sel)} {${cuerpo}}`;
+    });
+    return `${at[1]}{${dentro}}`;
+  }
+  // @font-face y @keyframes no llevan selector de scope: van tal cual.
+  if (l.startsWith('@')) return l;
+  const r = /^([^{]+)\{([\s\S]*)\}$/.exec(l);
+  if (!r) return l;
   reglas++;
-  return `${cierre}\n${rescope(sel)} {`;
-});
+  return `${rescope(r[1])} {${r[2]}}`;
+}).join('\n');
 
 mkdirSync(join(REPO, 'public', 'cono-doc'), { recursive: true });
 const cabecera = `/* Estilos del material de las clases de Avatar Hype.
