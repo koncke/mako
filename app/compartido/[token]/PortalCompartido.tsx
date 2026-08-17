@@ -52,15 +52,24 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
    */
   const [leido, setLeido] = useState(false);
   useEffect(() => {
-    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-    const c = h.get('curso');
-    setLeido(true);
-    if (!c) return;
-    const n = Number(h.get('clase'));
-    const p: Paso = { curso: c };
-    if (Number.isFinite(n) && n > 0) p.clase = n;
-    if (h.get('r')) p.r = h.get('r') ?? undefined;
-    setPila([{}, p]);
+    const leer = () => {
+      const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+      const c = h.get('curso');
+      setLeido(true);
+      if (!c) return;
+      const n = Number(h.get('clase'));
+      const p: Paso = { curso: c };
+      if (Number.isFinite(n) && n > 0) p.clase = n;
+      if (h.get('r')) p.r = h.get('r') ?? undefined;
+      setPila((s) => (s[s.length - 1]?.curso === c ? s : [{}, p]));
+    };
+    leer();
+    // ⚠️ También en `hashchange`, no solo al montar. Pegar un link a una clase en una
+    // pestaña donde el portal YA está abierto no recarga la página: el navegador dispara
+    // `hashchange` y nada más. Sin esto la URL cambiaba y la pantalla se quedaba donde
+    // estaba — el link parecía roto justo cuando alguien lo comparte por segunda vez.
+    window.addEventListener('hashchange', leer);
+    return () => window.removeEventListener('hashchange', leer);
   }, []);
 
   /**
@@ -95,9 +104,23 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
    *  Sin esto, entrar a un curso era un viaje de ida: el hub no tiene «Volver»
    *  (en un share de UN curso no habría a dónde ir) y el rótulo lleva al mismo
    *  hub. Compartida la tab entera, el selector SÍ es un destino. */
-  const aTodos = () => setPila([{}]);
+  const aTodos = () => { setFoco(curso?.slug); setPila([{}]); };
+  /** De qué curso venís, para que el selector traiga esa tarjeta a la vista. */
+  const [foco, setFoco] = useState<string | undefined>();
 
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, [pila.length]);
+  /**
+   * Arriba de todo al cambiar de pantalla — SALVO cuando se vuelve a la lista de cursos,
+   * que tiene su propio lugar: ahí manda el `foco` del `Selector`.
+   *
+   * ⚠️ Sin la excepción este efecto GANA. Los efectos del hijo corren antes que los del
+   * padre, así que el `scrollIntoView` del selector se ejecutaba primero y este lo
+   * deshacía un instante después: la lista quedaba arriba igual y parecía que el foco no
+   * estaba implementado.
+   */
+  useEffect(() => {
+    if (!paso.curso && foco) return;
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [pila.length, paso.curso, foco]);
 
   return (
     <PortalShell
@@ -119,7 +142,7 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
         : undefined}
     >
       {!curso ? (
-        <Selector cursos={CURSOS_COMPARTIBLES} enter={(slug) => nav({ curso: slug })} sinMarca />
+        <Selector cursos={CURSOS_COMPARTIBLES} enter={(slug) => nav({ curso: slug })} sinMarca foco={foco} />
       ) : curso.slug === VISTA_PROPIA.analisis ? (
         // El Análisis de Negocio es un formulario interactivo, no clases de
         // video: se dibuja aparte, sin Compartir y con su propio Volver.

@@ -15,7 +15,7 @@
 //
 // Estética "área de alumnos" de AvatarHype (scope .ahc, papel + lima).
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Curso, Clase, Recurso } from './curso';
 import CursoReplica from './CursoReplica';
 // El desplegable de la casa, y no uno propio: ya resuelve portal (para que no lo
@@ -146,7 +146,7 @@ export function Card({ badge, nota, titulo, desc, onClick, ariaLabel, img }: { b
 // el link compartido de la tab entera (`/compartido/<token>`). La lista llega
 // por prop porque no es la misma en los dos lados — Branding no se puede servir
 // sin login (ver `CURSOS_COMPARTIBLES` en catalogo.ts).
-export function Selector({ cursos, enter, compartir, sinMarca }: {
+export function Selector({ cursos, enter, compartir, sinMarca, foco }: {
   cursos: Curso[];
   enter: (slug: string) => void;
   compartir?: ReactNode;
@@ -154,9 +154,31 @@ export function Selector({ cursos, enter, compartir, sinMarca }: {
    *  el texto del rótulo a propósito: así los dos rótulos viven en ESTE archivo y
    *  no se puede escribir un tercero desde otra pantalla. */
   sinMarca?: boolean;
+  /** El curso del que se acaba de VOLVER. Su tarjeta se trae a la vista.
+   *
+   *  Sin esto, salir de un curso devolvía al tope de la lista y la tarjeta de la que
+   *  venías quedaba fuera de pantalla: medido, `y = 1879` en una ventana de 720. En una
+   *  lista de 20 cursos eso no se lee como «volví»: se lee como «me sacó a otro lado», y
+   *  para retomar hay que buscar de nuevo el curso que acabás de cerrar.
+   *
+   *  Es la contracara de la regla de que el destino de «Volver» es una propiedad de la
+   *  pantalla: el destino es el índice, sí, pero el índice tiene un LUGAR. */
+  foco?: string;
 }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string | null>(null);
+
+  // La tarjeta del curso del que volvés, a la vista. Se busca por su `aria-label`, que es
+  // el que ya escribe `Card` — un `id` nuevo sería un segundo nombre para lo mismo.
+  const tituloFoco = foco ? cursos.find((c) => c.slug === foco)?.titulo : undefined;
+  useEffect(() => {
+    if (!tituloFoco) return;
+    // Se compara el atributo en JS y no se arma un selector: un título con comillas
+    // rompería el selector, y ese es justo el caso que nadie prueba.
+    const el = [...document.querySelectorAll('[aria-label^="Entrar a "]')]
+      .find((e) => e.getAttribute('aria-label') === `Entrar a ${tituloFoco}`);
+    el?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+  }, [tituloFoco]);
 
   // Sin acentos y sin mayúsculas: buscar «organico» tiene que encontrar «Orgánico»,
   // y «generacion» a «IA & Generación de Imágenes y Vídeo». Un buscador que exige

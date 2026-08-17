@@ -209,6 +209,20 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
   overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain;
 }
 
+/* Las tabs del documento se quedan arriba de SU columna. Medido antes de esto: al bajar
+ * el documento pasaban de y=102 a y=-2898, o sea que para cambiar de Documento a
+ * Transcripcion habia que devolver 8000 px de papel. No se notaba mientras scrolleaba la
+ * pagina entera -eran parte del recorrido-; con el panel scrolleando por dentro, una barra
+ * de navegacion que vive adentro de lo que navega deja de ser una barra.
+ *
+ * El fondo NO es opcional: sin el, el papel del documento pasa por debajo y las tabs
+ * quedan ilegibles sobre el texto que va corriendo. */
+.ahdoc .ugc .ugc-pcol > .ugc-tabs {
+  position: sticky !important; top: 0 !important; z-index: 3 !important;
+  background: var(--u-paper, #f4f1e8) !important;
+  padding: 2px 0 10px !important; margin: 0 0 4px !important;
+}
+
 /* ── Lo demas, por pieza ──────────────────────────────────────────────────────── */
 /* Y el contenedor NO pinta: el papel tiene que verse. Un fondo propio encima del papel
  * es lo que hacia que pareciera una caja pegada arriba. */
