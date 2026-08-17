@@ -125,6 +125,18 @@ type Nodo = {
   id: string; x: number; y: number; r: number; color: string;
   et?: string; nivel: 1 | 2 | 3; demora: number;
   de?: { x: number; y: number };
+  /**
+   * El ID del padre, no solo su coordenada.
+   *
+   * ⚠️ SIN ESTO LA LÍNEA NO PUEDE SEGUIR AL NODO, y ese fue el bug: `de` guardaba la
+   * POSICIÓN de reposo del padre, así que la `<line>` se dibujaba entre dos puntos fijos
+   * mientras los dos nodos se movían por `transform`. Los nodos flotaban y las líneas se
+   * quedaban — reportado como «se rompe la animación».
+   *
+   * Una línea tiene DOS puntas y las dos se mueven. Para seguirlas hay que poder preguntar
+   * cuánto se corrió cada una, y eso se pregunta por id.
+   */
+  padre: string;
   /** Lo que necesita el motor de movimiento, precalculado: las dos fases de la flotación,
    *  cuánto se aleja al nacer, y hacia dónde (el versor desde el centro). */
   faseX: number; faseY: number; amp: number; lejos: number; ux: number; uy: number;
@@ -165,7 +177,7 @@ const nodos: Nodo[] = [];
     //   · `refs.current` es un Map por id: el segundo nodo pisa al primero, así que uno
     //     de los dos queda sin su <g> y NO flota — el bug de movimiento que se veía
     //     como «se comporta de forma muy extraña» y que yo había atribuido al reloj.
-    nodos.push(nuevo({ id: `p-${p.id}`, x, y, r: 15, color, et: p.et, nivel: 1, demora: i * 0.09, de: { x: CX, y: CY } }, 1));
+    nodos.push(nuevo({ id: `p-${p.id}`, x, y, r: 15, color, et: p.et, nivel: 1, demora: i * 0.09, de: { x: CX, y: CY }, padre: 'centro' }, 1));
 
     const abanico = Math.min(30, 14 * suyas.length);
     suyas.forEach((a, j) => {
@@ -174,7 +186,7 @@ const nodos: Nodo[] = [];
       const ax = px(292, aAng);
       const ay = py(292, aAng);
       const iA = nodos.filter((n) => n.nivel === 2).length;
-      nodos.push(nuevo({ id: `a-${a.id}`, x: ax, y: ay, r: 9, color: a.color, et: a.nombre, nivel: 2, demora: iA * 0.05, de: { x, y } }, 0.68));
+      nodos.push(nuevo({ id: `a-${a.id}`, x: ax, y: ay, r: 9, color: a.color, et: a.nombre, nivel: 2, demora: iA * 0.05, de: { x, y }, padre: `p-${p.id}` }, 0.68));
 
       // NIVEL 3: las partes de cada área y su polvo. Es lo que hace que el final se lea
       // como «lleno de cosas mías» en vez de como un diagrama de cinco cajas — el reclamo
@@ -185,7 +197,7 @@ const nodos: Nodo[] = [];
         const bx = px(bR, bAng);
         const by = py(bR, bAng);
         const iB = nodos.filter((n) => n.nivel === 3).length;
-        nodos.push(nuevo({ id: `b-${a.id}-${k}`, x: bx, y: by, r: 5, color: a.color, nivel: 3, demora: iB * 0.004, de: { x: ax, y: ay } }, 0.42));
+        nodos.push(nuevo({ id: `b-${a.id}-${k}`, x: bx, y: by, r: 5, color: a.color, nivel: 3, demora: iB * 0.004, de: { x: ax, y: ay }, padre: `a-${a.id}` }, 0.42));
 
         for (let m = 0; m < 3; m++) {
           const cAng = bAng + (m - 1) * 3.1;
@@ -194,7 +206,7 @@ const nodos: Nodo[] = [];
           nodos.push(nuevo({
             id: `c-${a.id}-${k}-${m}`, x: px(cR, cAng), y: py(cR, cAng),
             r: 2.6 + az(s + m) * 1.2, color: a.color, nivel: 3, demora: iC * 0.006,
-            de: { x: bx, y: by },
+            de: { x: bx, y: by }, padre: `b-${a.id}-${k}`,
           }, 0.28));
         }
       }
@@ -217,6 +229,8 @@ export function Bienvenida({ adminBar, onComenzar }: {
   // Un rAF que escribe el `transform` de cada nodo, igual que Grafo.tsx. No es estado de
   // React a propósito: 192 nodos a 60 fps serían 11.520 renders por segundo.
   const refs = useRef(new Map<string, SVGGElement>());
+  /** Las líneas, por el id del nodo HIJO: cada nodo tiene a lo sumo una línea entrante. */
+  const lineas = useRef(new Map<string, SVGLineElement>());
   /** Cuándo se reveló cada nivel. El reloj de la ENTRADA es por nivel y no global: si
    *  fuera uno solo, cada click volvería a lanzar hacia afuera a los que ya llegaron —
    *  que es exactamente el bug que tiene hoy /second-brain al filtrar. */
@@ -230,16 +244,27 @@ export function Bienvenida({ adminBar, onComenzar }: {
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       // Quieto en su lugar definitivo: una pantalla que se mueve sola es justo lo que esa
-      // preferencia pide evitar.
+      // preferencia pide evitar. Las líneas ya vienen dibujadas entre las posiciones de
+      // reposo desde el HTML del server, así que acá no hay nada que corregirles.
       for (const n of nodos) refs.current.get(n.id)?.setAttribute('transform', 'translate(0 0)');
       return;
     }
     let raf = 0;
+    // Se reusa entre frames: 192 nodos × 60 fps son 11.520 objetos por segundo si se crea
+    // uno nuevo cada vez, y el recolector de basura se nota como tirones en la animación.
+    const corrido = new Map<string, { dx: number; dy: number }>();
+    corrido.set('centro', { dx: 0, dy: 0 });   // el centro no se mueve: es el ancla
+
     const latir = () => {
       const t = performance.now();
+
+      // ── PASADA 1: cuánto se corrió cada nodo ─────────────────────────────
+      // Va SEPARADA de la segunda a propósito. Una línea necesita el desplazamiento de su
+      // PADRE, y el padre puede venir después en el array (el orden es de construcción, no
+      // topológico): calculando y dibujando en la misma pasada, la mitad de las líneas
+      // usaría la posición del padre del frame ANTERIOR y quedarían un frame atrasadas —
+      // un temblor de 1/60 s que se ve como que las líneas «vibran» respecto de los nodos.
       for (const n of nodos) {
-        const g = refs.current.get(n.id);
-        if (!g) continue;
         // LA FLOTACIÓN: dos senoides de períodos que no son múltiplos entre sí, con la
         // fase derivada del hash del id. Es la firma del movimiento del grafo real.
         const fx = FLOTE * n.amp * Math.sin((t / 7100) * Math.PI * 2 + n.faseX);
@@ -253,7 +278,28 @@ export function Bienvenida({ adminBar, onComenzar }: {
           const u = Math.min(1, Math.max(0, (t - t0 - n.demora * 1000) / 900));
           lejos = n.lejos * (1 - u) ** 3;
         }
-        g.setAttribute('transform', `translate(${(fx + n.ux * lejos).toFixed(2)} ${(fy + n.uy * lejos).toFixed(2)})`);
+        const p = corrido.get(n.id);
+        const dx = fx + n.ux * lejos;
+        const dy = fy + n.uy * lejos;
+        if (p) { p.dx = dx; p.dy = dy; } else corrido.set(n.id, { dx, dy });
+      }
+
+      // ── PASADA 2: escribir el DOM ────────────────────────────────────────
+      for (const n of nodos) {
+        const d = corrido.get(n.id)!;
+        refs.current.get(n.id)?.setAttribute('transform', `translate(${d.dx.toFixed(2)} ${d.dy.toFixed(2)})`);
+
+        // La línea NO se mueve por transform: se le reescriben las cuatro coordenadas, y
+        // cada punta sigue a SU nodo. Con un transform sobre la línea entera solo se podría
+        // trasladarla rígida, y las dos puntas se mueven distinto — por eso se despegaba.
+        const l = lineas.current.get(n.id);
+        if (l && n.de) {
+          const dp = corrido.get(n.padre) ?? { dx: 0, dy: 0 };
+          l.setAttribute('x1', (n.de.x + dp.dx).toFixed(2));
+          l.setAttribute('y1', (n.de.y + dp.dy).toFixed(2));
+          l.setAttribute('x2', (n.x + d.dx).toFixed(2));
+          l.setAttribute('y2', (n.y + d.dy).toFixed(2));
+        }
       }
       raf = requestAnimationFrame(latir);
     };
@@ -280,6 +326,86 @@ export function Bienvenida({ adminBar, onComenzar }: {
   }, []);
 
   const avanzar = useCallback(() => setPaso((p) => (p < 3 ? p + 1 : p)), []);
+
+  /**
+   * ── EL ZOOM A UNA SECCIÓN ──────────────────────────────────────────────────
+   * `null` = el mapa entero. Con un id, la cámara se acerca a ese nodo y a todo lo que
+   * cuelga de él.
+   *
+   * ⚠️ SOLO SE HABILITA CUANDO YA ESTÁN TODOS (paso >= 3), y lo pidió así el dueño: «solo
+   * cuando ya estén todos, al terminar los 3 clicks que tiene que dar el usuario». Es lo
+   * correcto además de lo pedido — durante el revelado, un click en cualquier lado ES el
+   * gesto que avanza, así que un click que además hiciera zoom haría dos cosas a la vez y
+   * el usuario no sabría cuál pidió.
+   */
+  const [seccion, setSeccion] = useState<string | null>(null);
+
+  /** Los descendientes de un nodo, por el id del padre. Se calcula una vez. */
+  const hijosDe = useRef<Map<string, string[]> | null>(null);
+  if (!hijosDe.current) {
+    const m = new Map<string, string[]>();
+    for (const n of nodos) {
+      const l = m.get(n.padre) ?? [];
+      l.push(n.id);
+      m.set(n.padre, l);
+    }
+    hijosDe.current = m;
+  }
+
+  /**
+   * La transformación que trae la sección al centro del lienzo.
+   *
+   * Va como `transform` sobre un `<g>` y NO tocando el `viewBox`: el viewBox no se puede
+   * animar con una transición de CSS —hay que reescribirlo por rAF— y acá alcanza con
+   * mover una capa. De paso el resto del SVG (el velo, la pista) no se entera.
+   *
+   * El orden de las tres partes importa y se lee de derecha a izquierda: primero se corre
+   * el mapa para que el centro de la sección quede en el origen, después se escala, y
+   * recién ahí se lo lleva al centro del lienzo. Al revés, el escalado también amplifica
+   * el traslado y la sección termina fuera de pantalla.
+   */
+  const camara = (() => {
+    if (seccion == null) return undefined;
+    // El nodo y todo su subárbol, en anchura.
+    const dentro: string[] = [seccion];
+    for (let i = 0; i < dentro.length; i++) {
+      for (const h2 of hijosDe.current.get(dentro[i]) ?? []) dentro.push(h2);
+    }
+    const puntos = nodos.filter((n) => dentro.includes(n.id));
+    if (!puntos.length) return undefined;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of puntos) {
+      x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r);
+      x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r);
+    }
+    // El margen no es estético: las ETIQUETAS se dibujan 20 px por debajo del nodo y no
+    // entran en la caja de los círculos. Sin aire, el nombre de la sección que acabás de
+    // tocar queda cortado — justo el que querías leer.
+    const aire = 120;
+    const ancho = Math.max(x1 - x0 + aire, 260);
+    const alto = Math.max(y1 - y0 + aire, 260);
+    // Tope de acercamiento: 2,6x. Con una sección de un solo nodo, encuadrarla «bien»
+    // daría un zoom absurdo en el que se pierde de vista dónde estaba.
+    const k = Math.min(1000 / ancho, 940 / alto, 2.6);
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    // ⚠️ SINTAXIS DE CSS, NO DE SVG, y la diferencia no perdona. Como ATRIBUTO de SVG se
+    // escribe `translate(500 470)`: sin comas y sin unidades. Como propiedad CSS —que es
+    // lo que hace falta acá, porque es lo único que se puede animar con una transición—
+    // eso es un valor INVÁLIDO, y el navegador descarta los valores inválidos EN SILENCIO:
+    // no queda ni el atributo style. Medido: el nodo se seleccionaba (`.bv-sel` aparecía)
+    // y la cámara no se movía nunca.
+    return `translate(${CX}px, ${CY}px) scale(${k.toFixed(3)}) translate(${(-cx).toFixed(1)}px, ${(-cy).toFixed(1)}px)`;
+  })();
+
+  // ⚠️ ACÁ HABÍA UN `if (paso >= 4) setSeccion(null)` Y ERA UN ERROR SUTIL: el paso 4 llega
+  // SOLO, 2,2 s después del tercer click. O sea que si el usuario tocaba una sección apenas
+  // se completó el mapa, dos segundos después se le deshacía el zoom sin que él hubiera
+  // tocado nada. Deshacer una acción del usuario por un temporizador es peor que no tener
+  // la acción: parece que la app no lo escuchó.
+  //
+  // La cámara es una capa aparte de la que sube el mapa en el paso 4, así que las dos
+  // transformaciones se componen y no hay nada que limpiar.
   const arrancar = useCallback(() => {
     setSaliendo((s) => { if (!s) onComenzar(); return true; });
   }, [onComenzar]);
@@ -309,12 +435,24 @@ export function Bienvenida({ adminBar, onComenzar }: {
         </div>
       )}
 
-      <div className="bv-lienzo" onClick={() => { if (!conTexto) avanzar(); }}>
-        <svg viewBox="0 0 1000 940" className="bv-svg" aria-hidden>
+      {/* Un click en el LIENZO avanza el revelado; cuando ya están todos, sale de la
+          sección. Así el fondo siempre es la salida y nunca hay que adivinar cómo volver.
+          `aria-hidden` se va del svg: con los nodos clicables ya no es decoración. */}
+      {/* ⚠️ SALIR DE LA SECCIÓN VA PRIMERO, y el orden importa. Antes esto era
+          `if (!conTexto) avanzar(); else setSeccion(null)`, y en el paso 3 —después de los
+          tres clicks pero antes de que entre el texto— `conTexto` todavía es false: el
+          click iba a `avanzar()`, que ya está en el tope y no hace nada. O sea que se podía
+          entrar a una sección y quedarse ahí SIN SALIDA. Medido.
+          La regla de la casa: si la única salida vive detrás de una condición, no hay
+          salida. Con la sección abierta, el fondo SIEMPRE es la salida. */}
+      <div className="bv-lienzo" onClick={() => { if (seccion) setSeccion(null); else if (!conTexto) avanzar(); }}>
+        <svg viewBox="0 0 1000 940" className="bv-svg">
+          <g className="bv-camara" style={camara ? { transform: camara } : undefined}>
           {nodos.map((n) => (
             n.de ? (
               <line
                 key={`l-${n.id}`}
+                ref={(el) => { if (el) lineas.current.set(n.id, el); else lineas.current.delete(n.id); }}
                 x1={n.de.x} y1={n.de.y} x2={n.x} y2={n.y}
                 stroke={n.color}
                 className={`bv-linea bv-n${n.nivel}`}
@@ -327,7 +465,17 @@ export function Bienvenida({ adminBar, onComenzar }: {
             // La ENTRADA va afuera y la FLOTACIÓN adentro: las dos animan `transform`, y en
             // el mismo elemento la segunda pisa a la primera. Este repo ya lo pagó en
             // /second-brain, donde los nodos «no flotaban»: 0,03 px de recorrido medido.
-            <g key={n.id} className={`bv-nodo bv-n${n.nivel}`}
+            <g key={n.id}
+               className={`bv-nodo bv-n${n.nivel}${paso >= 3 ? ' bv-tocable' : ''}${seccion === n.id ? ' bv-sel' : ''}`}
+               // ⚠️ EL `stopPropagation` ES LO QUE HACE QUE ESTO NO SEA AMBIGUO. El lienzo
+               // usa el click para avanzar (y para salir de la sección), así que sin cortar
+               // la burbuja tocar un nodo haría zoom Y saldría en el mismo gesto.
+               // Y el gate es `paso >= 3`, no `conTexto`: el dueño lo pidió al terminar los
+               // tres clicks, no dos segundos después cuando entra el texto.
+               onClick={paso >= 3 ? (e) => {
+                 e.stopPropagation();
+                 setSeccion((s) => (s === n.id ? null : n.id));
+               } : undefined}
                style={{ animationDelay: `${n.demora}s`, transformOrigin: `${n.x}px ${n.y}px` }}>
               <g ref={(el) => { if (el) refs.current.set(n.id, el); else refs.current.delete(n.id); }}>
                 <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} />
@@ -346,6 +494,7 @@ export function Bienvenida({ adminBar, onComenzar }: {
               <circle cx={CX} cy={CY} r={30} fill="none" stroke="var(--mako)" className="bv-pulso" />
               <text x={CX} y={CY + 62} textAnchor="middle" className="bv-et bv-et0">Tus anuncios</text>
             </g>
+          </g>
           </g>
         </svg>
 
@@ -454,6 +603,27 @@ const ESTILOS = `
 }
 .bv-p4 .bv-svg { transform: scale(.82) translateY(-2%); }
 
+/* ── La cámara ─────────────────────────────────────────────────────────────
+   El acercamiento a una sección. Va en una capa PROPIA y no en .bv-svg porque esa ya
+   anima su transform al entrar el texto (paso 4), y dos animaciones sobre el mismo
+   transform se pisan: gana la segunda. Este archivo ya pagó ese bug dos veces.
+
+   El origen en 0 0 no es un detalle: el transform trae sus propios translate, y con el
+   50% 50% que el navegador pone por default se suma un corrimiento de medio lienzo. */
+.bv-camara {
+  transition: transform 780ms cubic-bezier(.22,.75,.28,1);
+  transform-origin: 0 0;
+}
+
+/* Un nodo que se puede tocar tiene que PARECER que se puede tocar — antes de tocarlo. */
+.bv-tocable { cursor: pointer; }
+.bv-tocable circle { transition: r 220ms ease, filter 220ms ease; }
+.bv-tocable:hover circle { filter: brightness(1.35); }
+/* La sección elegida se marca con luz propia, no con un borde: un stroke sobre un punto
+   de 5 px de radio lo convierte en una rosca. */
+.bv-sel circle { filter: brightness(1.6) drop-shadow(0 0 6px currentColor); }
+.bv-sel text { fill: #F8F6F0; }
+
 /* Todo lo que no es el centro nace apagado y entra cuando le toca su nivel. */
 .bv-nodo, .bv-linea { opacity: 0; }
 .bv-p1 .bv-nodo.bv-n1, .bv-p2 .bv-nodo.bv-n1, .bv-p3 .bv-nodo.bv-n1, .bv-p4 .bv-nodo.bv-n1,
@@ -549,6 +719,9 @@ const ESTILOS = `
   }
   .bv-linea { stroke-dashoffset: 0 !important; opacity: .3 !important; }
   .bv-svg { transition: none !important; }
+  /* El zoom sigue funcionando —es una acción que el usuario pidió, no movimiento
+     decorativo— pero salta en vez de deslizarse. */
+  .bv-camara { transition: none !important; }
   .bv-pulso { animation: none !important; opacity: 0 !important; }
 }
 `;

@@ -133,3 +133,47 @@ test('ningún nodo del mapa comparte id con otro', () => {
   assert.ok(prefijos.every(Boolean), `hay nodos cuyo id no arranca con un prefijo de nivel: ${cons.join(' | ')}`);
   assert.equal(new Set(prefijos).size, prefijos.length, `dos niveles comparten prefijo: ${prefijos.join(', ')}`);
 });
+
+test('la línea sigue a SUS DOS puntas, no a una', () => {
+  // ⚠️ EL BUG QUE ESTO CIERRA: la <line> se dibujaba entre dos coordenadas FIJAS —la
+  // posición de reposo del padre y la del hijo— mientras los dos nodos se movían por
+  // `transform`. Los nodos flotaban, las líneas se quedaban, y se despegaban. Reportado
+  // como «los nodos flotan, pero las líneas conectoras no, haciendo que se rompa la
+  // animación».
+  //
+  // No se arregla con un transform sobre la línea: eso la traslada RÍGIDA, y sus dos
+  // puntas se mueven distinto porque cada una sigue a un nodo con su propia fase. Hay que
+  // reescribir las cuatro coordenadas por frame.
+  assert.ok(/padre: string;/.test(bienvenida), 'el nodo dejó de saber quién es su padre');
+  for (const attr of ['x1', 'y1', 'x2', 'y2']) {
+    assert.ok(bienvenida.includes(`setAttribute('${attr}'`), `la línea no actualiza ${attr} por frame`);
+  }
+  // Y el desplazamiento del padre se busca por ID, que es lo único que permite seguirlo.
+  assert.ok(/corrido\.get\(n\.padre\)/.test(bienvenida), 'la punta de arriba dejó de seguir al padre');
+});
+
+test('el corrido se calcula en una pasada APARTE de dibujar', () => {
+  // El orden del array es de construcción, no topológico: un hijo puede venir antes que su
+  // padre. Calculando y dibujando en la misma pasada, la mitad de las líneas usaría la
+  // posición del padre del frame ANTERIOR — un temblor de 1/60 s que se ve como que las
+  // líneas vibran respecto de los nodos.
+  const i1 = bienvenida.indexOf('PASADA 1');
+  const i2 = bienvenida.indexOf('PASADA 2');
+  assert.ok(i1 > 0 && i2 > i1, 'se fusionaron las dos pasadas del motor de movimiento');
+});
+
+test('el zoom por click solo se habilita con TODO revelado', () => {
+  // «Pero esto último solo cuando ya estén todos, al terminar los 3 clicks que tiene que
+  // dar el usuario». Y además es lo correcto: durante el revelado el click ES el gesto que
+  // avanza, así que uno que también hiciera zoom haría dos cosas en el mismo gesto.
+  assert.ok(/onClick=\{paso >= 3 \?/.test(bienvenida), 'el zoom dejó de esperar a que estén todos');
+  // Sin cortar la burbuja, tocar un nodo haría zoom Y saldría de la sección a la vez.
+  assert.ok(/e\.stopPropagation\(\)/.test(bienvenida), 'el click del nodo volvió a burbujear al lienzo');
+  // La cámara va en su propia capa: .bv-svg ya anima su transform al entrar el texto, y
+  // dos animaciones sobre el mismo transform se pisan.
+  assert.ok(/className="bv-camara"/.test(bienvenida), 'desapareció la capa de cámara');
+  assert.ok(/\.bv-camara \{[^}]*transform-origin: 0 0/.test(bienvenida),
+    'la cámara sin transform-origin en 0 0 suma medio lienzo de corrimiento');
+  // Y hay tope de acercamiento: encuadrar un nodo solo daría un zoom absurdo.
+  assert.ok(/2\.6\)/.test(bienvenida), 'se fue el tope de zoom por sección');
+});
