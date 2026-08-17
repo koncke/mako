@@ -56,12 +56,21 @@ test('el reloj de la entrada es POR NIVEL, no global', () => {
   assert.ok(/refs\.current\.set/.test(bienvenida), 'los nodos dejaron de tener su propia capa de movimiento');
 });
 
-test('el chip del taller de diseño no se dibuja encima de la bienvenida', () => {
-  // «Eso NO debería saltar aquí, y mucho menos en un onboarding real». El chip vive en el
-  // layout raíz con z-index 5000, así que le gana a la pantalla por más fixed que sea.
-  assert.ok(/body:has\(\.bv\) \[data-chip-tema\]/.test(bienvenida), 'la bienvenida dejó de apagar el chip');
-  const chip = leer('../app/_components/TemaCandidato.tsx');
-  assert.ok(/data-chip-tema/.test(chip), 'el chip perdió su marca y la regla dejó de encontrarlo');
+test('el taller de temas NO se monta para un cliente, y el chip NO se esconde', () => {
+  // Dos mitades del mismo error, y la segunda la cometí yo arreglando la primera.
+  //
+  // El dueño reportó que el chip de «tema en prueba» saltaba encima de la primera
+  // pantalla de un cliente. Lo tapé con `display: none`. Pero el chip era el AVISO, no la
+  // causa: el tema se seguía aplicando, y una hora después volvió del otro lado —la app
+  // entera ilegible en la pantalla de un cliente, «no están sus tareas y están todos los
+  // botones mal»— porque una paleta clara del taller pintaba el texto del color del fondo.
+  // Con el chip tapado, ni la advertencia quedaba. Es «esconder el botón no protege nada».
+  const layout = leer('../app/layout.tsx');
+  assert.ok(/\{esAdmin && <TemaCandidato \/>\}/.test(layout), 'el taller de temas volvió a montarse para cualquiera');
+  assert.ok(/getSesionAdmin/.test(layout), 'el guard del taller dejó de mirar la sesión');
+  // Y la bienvenida ya no tapa el chip: si a Martín le queda un tema puesto, tiene que
+  // verlo y poder salir — es su única salida.
+  assert.ok(!/\[data-chip-tema\][^\n]*display:\s*none/.test(bienvenida), 'volvió a esconderse la salida del taller');
 });
 
 test('el botón es el del sistema, y de ancho completo', () => {

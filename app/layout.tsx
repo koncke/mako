@@ -10,6 +10,7 @@ import { HideOnPublicLanding } from './_components/PublicRouteGate';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
 import { TemaCandidato } from './_components/TemaCandidato';
+import { getSesionAdmin } from '@/lib/auth';
 import { WsProvider } from './_ui/Link';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
@@ -44,11 +45,28 @@ const rootStyle: CSSProperties = {
   alignItems: 'flex-start',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // ⚠️ EL TALLER DE PALETAS SOLO EXISTE PARA EL SUPER-ADMIN, y esto es un GUARD, no una
+  // preferencia. `<TemaCandidato>` mete un <script> que corre antes del primer pintado y
+  // aplica el tema guardado en el localStorage del navegador — sin preguntar quién es.
+  //
+  // Lo que eso produjo, con un cliente mirando: la app ENTERA ilegible. Los temas
+  // candidatos incluyen paletas CLARAS (`true-north` pone `--ink: #2E3440`), así que
+  // sobre el lienzo oscuro quedó todo pintado del color del fondo — tarjetas, botones y
+  // texto dibujados y borrados a la vez. Se reportó como «no están sus tareas y están
+  // todos los botones mal»: no faltaba nada, no se veía nada.
+  //
+  // Y falla EN SILENCIO por diseño: el mismo bloque CSS le pone una transición de color
+  // a todos los elementos, así que ni siquiera parpadea al aplicarse.
+  //
+  // El guard va en el SERVER y en positivo —solo admin— porque el localStorage lo
+  // escribe el navegador y no sabe de sesiones: cualquier cliente que abra la app en un
+  // browser donde alguien probó paletas se lleva el tema puesto.
+  const esAdmin = !!(await getSesionAdmin());
   return (
     <html lang="es" className="h-full antialiased">
       <body>
@@ -74,7 +92,7 @@ export default function RootLayout({
             /admin/ui?tab=temas. Va acá arriba a propósito: su <script> tiene
             que correr ANTES del primer pintado o la app parpadea del tema viejo
             al nuevo en cada navegación. No pinta nada cuando no hay tema. */}
-        <TemaCandidato />
+        {esAdmin && <TemaCandidato />}
         {/* El `?ws=` de la pestaña, leído UNA vez acá adentro del Suspense y
             repartido por contexto: es lo que hace que <Link> y router.push no
             te saquen del cliente que estás mirando. */}

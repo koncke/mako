@@ -406,12 +406,20 @@ const ESTILOS = `
 @keyframes bv-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes bv-out { from { opacity: 1 } to { opacity: 0 } }
 
-/* ⚠️ EL CHIP DE «TEMA EN PRUEBA» NO VA ACÁ. Es una herramienta del taller de diseño
-   (app/_components/TemaCandidato.tsx, z-index 5000, montada en el layout raíz) y se
-   dibujaba encima de la primera pantalla que ve un cliente. El dueño: «eso NO debería
-   saltar aquí, y mucho menos en un onboarding real». Se apaga mientras la bienvenida está
-   arriba, sin tocar el componente: cuando ésta se desmonta, el chip vuelve solo. */
-body:has(.bv) [data-chip-tema] { display: none !important; }
+/* ⚠️ ACÁ HABÍA UN display:none SOBRE EL CHIP DEL TALLER DE TEMAS, Y ERA EL ARREGLO
+   EQUIVOCADO — el mismo que AGENTS.md llama por su nombre: «esconder el botón no protege
+   nada». El dueño reportó que el chip de «tema en prueba» saltaba encima de la primera
+   pantalla de un cliente, y yo apagué el CHIP. Pero el chip no era el problema: era el
+   único AVISO de que había un tema de laboratorio aplicado, y su única salida.
+
+   El problema real era que el tema se aplicaba, y siguió aplicándose. Una hora después
+   apareció del otro lado: la app entera ilegible en la pantalla de un cliente —«no están
+   sus tareas y están todos los botones mal»— porque una paleta clara del taller pintaba
+   el texto del color del fondo. Con el chip escondido, ni la advertencia quedaba.
+
+   Ahora el guard está donde corresponde, en el layout raíz: el taller solo se monta para
+   el super-admin (ver app/layout.tsx). Un cliente no puede recibir un tema candidato, así
+   que el chip tampoco tiene por qué aparecerle — y cuando lo ve Martín, tiene que verlo. */
 
 /* El lienzo se queda con lo que sobra después de la barra, y el pie va EN FLUJO abajo. Con
    el pie flotando en absolute quedaba un colchón negro enorme entre el mapa y el título —
