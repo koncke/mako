@@ -13,6 +13,7 @@ import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
+import { cerebroBienvenida } from '@/lib/bienvenida-cerebro';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -29,7 +30,24 @@ export default async function OnboardingPage() {
   const estado = await getEstadoOnboarding();
   const pasos = await pasosDeCapaActual();
   const done = pasos.length === 0 || estado.status === 'done';
-  if (!done) return <OnboardingWizard />;
+  if (!done) {
+    // ⚠️ EL LAYOUT DEL MAPA SE CALCULA ACÁ Y NO EN LA PANTALLA, y no es una preferencia:
+    // `cerebroBienvenida()` llama a `layoutCerebro`, que trae d3-force. Bienvenida.tsx es
+    // 'use client', así que si lo importara ella se llevaría el motor de física al bundle
+    // del navegador — y el typecheck NO lo ve. Acá corre en el server y bajan 33 pares de
+    // coordenadas.
+    //
+    // Es FICCIÓN, así que no lee la base ni cuesta una query: es un cálculo puro, siempre
+    // el mismo (d3-force no usa Math.random). Y solo se arma cuando hay bienvenida que
+    // mostrar. Si algo falla se entra sin mapa: es el fondo de una portada, no una razón
+    // para dejar a alguien afuera del producto que compró.
+    let cerebro = null;
+    if (estado.status === 'pending') {
+      try { cerebro = cerebroBienvenida(); }
+      catch (e) { console.error('[onboarding] no se pudo armar el mapa de la bienvenida:', e); }
+    }
+    return <OnboardingWizard cerebro={cerebro} />;
+  }
 
   // Dueño / cliente ya onboardeado → el hub para cargar/editar el negocio.
   const { pipeline, suppressed } = await getFunnel();

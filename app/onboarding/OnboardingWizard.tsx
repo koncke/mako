@@ -46,6 +46,7 @@ import { Dropdown } from '../components/Dropdown';
 import { PAISES, PAIS_DEFAULT, flagUrl } from '@/lib/paises';
 import { esPostergable, type PasoOnboarding } from '@/lib/capas';
 import { Bienvenida } from './Bienvenida';
+import type { Cerebro } from '@/lib/cerebro-modelo';
 import type { OnboardingStatus, PasoState } from '@/lib/onboarding-contrato';
 
 const MONO = "'Geist Mono', monospace";
@@ -159,7 +160,11 @@ type Pantalla = {
 };
 
 // =============================================================================
-export function OnboardingWizard() {
+export function OnboardingWizard({ cerebro = null }: {
+  /** El mapa de la bienvenida, ya con posiciones. `null` = se entra derecho al wizard: una
+   *  portada con un agujero negro atrás es peor que la primera pregunta. */
+  cerebro?: Cerebro | null;
+} = {}) {
   const [data, setData] = useState<WizardData | null>(null);
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
@@ -315,9 +320,10 @@ export function OnboardingWizard() {
     </div>
   ) : undefined;
 
-  if (!bienvenidaVista && data.estado.status === 'pending') {
+  if (!bienvenidaVista && data.estado.status === 'pending' && cerebro) {
     return (
       <Bienvenida
+        cerebro={cerebro}
         adminBar={barraAgencia}
         onComenzar={() => {
           setBienvenidaVista(true);
