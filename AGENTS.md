@@ -1014,3 +1014,31 @@ el índice.
 
 Los mismos documentos se leen con los ojos en `/admin/docs`, que los renderiza desde el
 repo (no tiene copia propia, por la regla de arriba).
+
+# Una ruta que apunta a la nada no rompe nada, y por eso es cara
+
+Las rutas escritas a mano son el enganche de todo el sistema: el `**Vive en:**` de cada
+hallazgo, el `vive[]` de cada área de `/admin/dev`, el `archivos[]` de cada hito. Ninguna
+la mira el compilador. Cuando una queda vieja **no falla: desaparece en silencio**, y se
+lleva con ella todo lo que colgaba de ahí.
+
+Dos casos medidos, los dos de agosto de 2026:
+
+- La regla de que **la sidebar no scrollea** estaba escrita, y se violó igual. Su
+  `Vive en:` decía `lib/nav.ts`, un archivo que no existe desde el rediseño. Grepear la
+  ruta real (`app/_components/nav.ts`) —el método que manda «Y para leerlos»— no devolvía
+  nada, así que para cada sesión nueva esa regla no existía.
+- El `vive[]` del área **Conocimientos** lista cinco archivos de `app/conocimientos/` y
+  omite `public/cono-tx`, `public/cono-ugc` y los scripts del pipeline. Su panel de
+  historial ve **11 de 68 commits**, y un barrido que preguntaba «qué se trabajó y no
+  quedó anotado» declaró el área tranquila cuando era la más movida del mes.
+
+**Regla:** al mover o renombrar un archivo, grepeá su ruta vieja en `docs/`, en
+`app/admin/dev/areas.ts` y en los `bitacora.ts` antes de cerrar. Y al declarar un área, el
+`vive[]` cubre **dónde cae el trabajo de verdad** —incluidos `public/`, `scripts/` y las
+migraciones—, no solo los componentes de la pantalla.
+
+`tests/dev-areas.test.ts` ya chequea contra el disco que cada ruta de `vive[]` exista, y
+cazó 30 rutas plausibles pero inexistentes. Lo que NO puede chequear es la OMISIÓN: una
+ruta que falta no da error, da un punto ciego.
+

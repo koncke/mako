@@ -288,4 +288,58 @@ export const BITACORA: Hito[] = [
       'app/chat-agent/OnboardingChatAgent.tsx:407-418 — la guarda que se olvidó la mitad de `estado !== \'error\'`',
     ],
   },
+
+  // Cosecha retroactiva (17 ago): tandas que se trabajaron y no habian dejado
+  // hito. Salieron de cruzar el git log del area contra este mismo archivo.
+  {
+    fecha: "6 ago", hora: "18:33", chat: "Conocimientos - CURSOS", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Tres nombres en un día, y la `key` que no se puede tocar",
+    puntos: [
+      "El módulo se renombró tres veces en 24 h: /chat-agent → /chat-bot → /chatbot, y la familia pasó de «Create» a «Sales Machine», con el Chatbot en el bloque «conversar» del embudo (capturar / conversar / cerrar). Las tres rutas viejas quedan redirigiendo. La `key` interna sigue siendo 'setting' y las rutas de /api/chat-agent quedaron como estaban.",
+      "La decisión es qué NO se renombra: la `key` 'setting' está escrita en la base (capas contratadas y estado del onboarding por tab), así que cambiarla apagaría la tab en los clientes que ya la tienen — el nombre visible es cosmético, la clave es un dato. Y los tres alias quedan vivos porque el path viejo ya viajó afuera: está en tareas del board y en mensajes que MaKo ya mandó. Eso se cobró después: el 16/08 los tres redirects de esta tab (/chat-agent, /chat-bot, /setting) estaban entre los 26 que perdían el `?ws=`, o sea que abrir un link viejo de un cliente te sacaba del cliente. Un alias no es una línea muerta: es una navegación, y tiene que preservar la pestaña.",
+    ],
+    commits: [
+      { sha: "f00f9cf2", msg: "Rediseño · la barra deja de cerrarse sola, y la sección deja de ser una fila", lineas: 107, archivos: 19 },
+      { sha: "a56135f0", msg: "Rediseño · Sales Machine y los 14 íconos del set", lineas: 176, archivos: 13 },
+      { sha: "0c963246", msg: "Horarios: las 24 h completas y UN solo formato", lineas: 40, archivos: 14 },
+      { sha: "897ce26e", msg: "Un redirect es navegación: los 26 que perdían el ?ws= de la pestaña", lineas: 126, archivos: 26 },
+    ],
+  },
+  {
+    fecha: "9 ago", hora: "20:40", chat: "—", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Linkear sin ancla es dejar al usuario en la recepción",
+    puntos: [
+      "Se le pusieron anclas de deep-link a /chatbot: ?stab=<whatsapp|email|dashboard> y ?sec=<id|clave>, que abre el wizard en esa secuencia. Antes la carpeta /chatbot tenía CERO useSearchParams, así que todo link de MaKo aterrizaba en la lista completa. El vocabulario (?stab=, ?tab=, el id como parámetro) se copió del que ya usaban /whatsapp y /crm.",
+      "Es el prerrequisito de la regla «si el contenido se edita en otra pantalla, el modal no lo dibuja: lo nombra y linkea». Sin ancla, esa regla degrada a mandar al usuario a buscar cuál de todas era. Y quedaron dos decisiones que valen para las anclas que faltan: (1) se acepta el id Y la clave, porque MaKo arma el link desde mako-capacidades.ts, donde tiene el nombre de la cosa y casi nunca el id numérico — un ancla que solo entiende ids obliga a consultar antes de poder escribir el link; (2) un valor que no existe no abre NADA: se valida contra la lista real y se limpia el parámetro, porque abrir el wizard con un id de otro workspace mostraría una secuencia vacía en vez de decir que no está. Verificado contra el build de producción (next dev no hidrata en este proyecto).",
+    ],
+    commits: [
+      { sha: "ba4da613", msg: "Tres anclas: el link de MaKo aterriza en la cosa, no en la puerta", lineas: 124, archivos: 4 },
+    ],
+  },
+  {
+    fecha: "10 ago", hora: "17:02", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El chatbot leía cómo TERMINA el funnel, y lo que separa a un cliente de otro es cómo ENTRA",
+    puntos: [
+      "Corrida de 13 subagentes (`chatbot-funnel-leila`) disparada por un caso real: Leila (ws11) prospecta en frío por WhatsApp y cierra en un taller presencial, y el sistema le pidió grabar un audio que arranca «vi que dejaste tus datos en el anuncio». Sus 27 leads tienen meta_lead_id = 0 y origen_lead NULL. Se agregó el eje `funnel_config.data.entradas` (5 valores, [] = NO declarado) + evento + el canal `presencial`; audiosDe/escenariosDe pasaron a no tener default; cuatro audios y cuatro escenarios nuevos, con los tres de ws1 congelados por assert literal.",
+      "Tres cosas que se pierden si no se escriben. (1) El diagnóstico obvio era el equivocado: «MaKo no sabe el funnel del cliente» era falso — resumenFunnel() ya lo inyectaba en cuatro features. El funnel entraba como dato descriptivo arriba y el catálogo de Mauricio como imperativo quince líneas más abajo, y el imperativo gana siempre. Por eso el consumo pasó a ser determinista (guionDe) más una prohibición explícita con regex que la verifica y reintento. (2) Un funnel modelado solo por sus etapas describe el RECORRIDO, no los ACTIVOS (landing, video, formulario, agenda automática): los activos se declaran, no se infieren de la forma del pipeline. (3) Todo el chatbot fallaba ABIERTO hacia el funnel del dueño — cuatro defaults optimistas (hayReunion=true en dos lugares, getFunnel cayendo a DEFAULT_PIPELINE tanto si no hay fila como si hubo ERROR), así que un cliente sin funnel declarado o con Supabase caído recibía el embudo de Mauricio sin enterarse. Y queda escrito el ORDEN: resetear al cliente antes de arreglar el catálogo no sirve, regraba el mismo audio equivocado. Lo que quedó a mitad (sin premarcado desde evidencia, sin backfill, secuencias-audios todavía colgando de instant_form_sin_agenda, falta el objetivo 'asistir' en setting-estrategia) está en docs/hallazgos-comunicacion.md § «El Chatbot (ex Setting / Chat Agent) y el funnel del cliente».",
+    ],
+    commits: [
+      { sha: "9df4de61", msg: "funnel: el eje que faltaba — cómo ENTRA un lead, y los audios que salen de ahí", lineas: 1752, archivos: 23 },
+    ],
+  },
+  {
+    fecha: "10 ago", hora: "17:45", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El onboarding se dio por terminado sin un solo audio grabado",
+    puntos: [
+      "Pasó en vivo, con una clienta delante: la tab quedó `done` marcando `ensayo` y `aprobar` con diez segundos de diferencia (20:37:38 → 20:37:48) y sin ningún audio. Con la tab en `done`, la pantalla muestra el dashboard —vacío, sin secuencias— en vez del onboarding. Se arreglaron las dos causas y la condición de orden salió a lib/onboarding-orden.ts, sin server-only, con 7 tests.",
+      "Dos reglas que gobiernan cualquier wizard nuevo. (1) `marcarPasoTab` aceptaba cualquier clave del def, así que marcar el ÚLTIMO paso cerraba el recorrido entero; el guard va en el SERVER, porque la UI ya deshabilitaba «Siguiente» y aun así se llegó — esconder el botón no protege nada. (2) ChatAgentApp mostraba la tab normal ante cualquier respuesta que no fuera ok, y el catch hacía lo mismo: si no se pudo SABER si el onboarding está completo, mostrar el dashboard es afirmarlo. Un 403 sí es legítimo (el setter no es admin y ve la tab); el resto, no. Es el mismo patrón que en la misma corrida rompió los canales: un `null` que se pinta como afirmación es una mentira en pantalla, así que el error vive en su propio estado y no colapsado en el null del dato.",
+    ],
+    commits: [
+      { sha: "073d606b", msg: "onboarding: no se puede saltear un paso, y sin saber no se muestra el dashboard", lineas: 136, archivos: 4 },
+    ],
+  },
 ];

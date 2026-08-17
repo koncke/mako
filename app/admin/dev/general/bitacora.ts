@@ -245,4 +245,65 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ia.md:498 · docs/hallazgos-ui.md:693 · docs/hallazgos-comunicacion.md:1115 — el detalle largo de cada uno',
     ],
   },
+
+  // Cosecha retroactiva (17 ago): tandas que se trabajaron y no habian dejado
+  // hito. Salieron de cruzar el git log del area contra este mismo archivo.
+  {
+    fecha: "11 ago", hora: "18:09", chat: "Productos X Funnels", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El WhatsApp solo avisa y linkea, y cada mensaje arranca con su rótulo",
+    puntos: [
+      "Tres pedidos textuales del dueño mostrando su WhatsApp: «No quiero que en WhatsApp me diga absolutamente nada de lo que pasó en la reu o lo que quedó pendiente o nada. Solo el link.», «No me puede decir que me dejó un mensaje listo y no mandarme un link» y «Los mensajes se solapan, quiero diferenciarlos fácil». Los mensajes quedaron en qué pasó + a dónde ir, y el rótulo de ÁREA (━━ 🗓️ REUNIÓN ━━) se pegó en el choke point emitirAviso, así lo toman los ~48 avisos y los que se creen mañana. Antes, el dueño había mostrado avisos «incompletos, como el que te pregunta ¿Querés que te pase el resumen y las objeciones acá? y al final no hace nada».",
+      "Dos cosas que se pierden si no se escriben. Primero, el diagnóstico obvio era el equivocado: no faltaba cablear la respuesta al «¿te lo paso acá?» — el aviso se emitía en el INSTANTE del webhook de Fathom y el Closing Analyst corre después, adentro del after(). Cuando MaKo ofrecía el resumen, el resumen todavía no existía. El arreglo fue mover la emisión adentro del after(), no escribir código nuevo. Segundo, el rótulo es por ÁREA y NO por categoría, y el porqué está medido: al dueño le importa distinguir «esto es de una reunión» de «esto es de plata», no «aviso» de «pregunta» — con la categoría, catorce mensajes de temas distintos arrancarían igual y no se arreglaba nada. Y la regla de contenido: repetir el resumen en el chat lo CONGELA en el momento del envío y hace que abrir el link se sienta redundante justo cuando es lo único que importa. Hay un test que falla si alguien vuelve a meter el análisis en el chat y otro que exige que los 48 avisos tengan área declarada.",
+    ],
+    commits: [
+      { sha: "7bdf8993", msg: "El WhatsApp solo avisa y linkea; y cada mensaje arranca con su rótulo", lineas: 257, archivos: 7 },
+      { sha: "b4714a82", msg: "Los mensajes de MaKo dejan de preguntar al vacío: un link al resumen del lead", lineas: 1333, archivos: 16 },
+    ],
+  },
+  {
+    fecha: "13 ago", hora: "10:56", chat: "Integraciones", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La alerta que no afloja: los avisos de Meta existían y nadie los emitía",
+    puntos: [
+      "La cuenta del dueño estuvo con ENTREGA FRENADA —cero anuncios, cero leads— y por WhatsApp no llegó nada. Un grep de los cuatro tipos de aviso de Meta devolvía CERO call-sites fuera del catálogo: estaban escritos, con su `disparador` documentado, y nadie los llamaba nunca. Se DETECTABA (quedaba en service_incidents y /integraciones lo pintaba rojo) y no se avisaba; en la base había tres incidentes previos sin un solo mensaje (16/7 dos días frenado, 29/7 cuatro horas). Nace lib/alerta-critica.ts + cron propio, que INVIERTE el dedup del motor: pedido textual «tenemos que ser MUY PESADOS, no solo el mensaje DRAMÁTICO sino la frecuencia MUY alta hasta que se solucione». Después el dueño corrigió dos veces sobre producción: «que sea CLARO, que diga tu cuenta publicitaria está SUSPENDIDA por falta de pago, no simplemente que está frenada» (el titular pasó a armarse desde el account_status real, con mapa estado → causa + qué hacer, en lib/alerta-critica-texto.ts sin server-only para poder testearlo), y «cada 1 hora, no cada 10 minutos».",
+      "Es el hito más caro que falta del área, y toca la regla de fondo: un catálogo de mensajes NO es un sistema de alertas. La red que queda es un test que falla si un aviso rojo se declara implementado y no tiene quién lo llame — el grep de arriba, automatizado. Además deja tres cosas que no se pueden revertir sin volver al problema: (1) DETECTAR rápido e INSISTIR seguido son cosas distintas y ahora se ven distintas en el código (el cron sigue cada 10 min, la insistencia bajó a 1 h porque seis mensajes por hora entierran el resto de los avisos que comparten el chat — lo que hace que funcione no es la frecuencia sino que NO SE DETIENE); (2) solo insiste lo que cuesta plata AHORA, porque si todo insistiera el dueño silencia el canal entero; (3) al resolverse avisa y para. Y la trampa que nadie iba a adivinar: la alerta le llegó DOS VECES en dos grupos y no era ruteo — el Cliente de Prueba (ws3) tiene su PROPIA copia de las credenciales de Meta apuntando a la MISMA cuenta publicitaria, verificado en la base con dos incidentes abiertos del mismo «Saldo impago» a 12 minutos. La unidad de un aviso de Meta es la CUENTA, no el workspace. Nada de esto está escrito en ningún hallazgo tampoco: `grep alerta-critica docs/` no devuelve nada.",
+    ],
+    commits: [
+      { sha: "a21d7bef", msg: "Los avisos de Meta existían solo como texto: nadie los emitía nunca", lineas: 435, archivos: 5 },
+      { sha: "9a081c29", msg: "La alerta dice la CAUSA, no el síntoma — y grita", lineas: 232, archivos: 4 },
+      { sha: "5b3ad721", msg: "La alerta avisa cada 1 hora, y una vez por CUENTA (no por workspace)", lineas: 85, archivos: 4 },
+    ],
+  },
+  {
+    fecha: "13 ago", hora: "21:20", chat: "Integraciones", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Nueve avisos nuevos y tres reglas del motor que salieron de ellos",
+    puntos: [
+      "Siete commits sumaron avisos al catálogo desde afuera del área (landing/Pixel, leads de formulario, lead fusionado, Clarity, snippet viejo) y de paso fijaron reglas del MOTOR que no estaban escritas. (1) Los avisos que transportan un link exacto pasan a `texto` determinista en vez de `contexto`: con contexto lo redacta el modelo, y la regla de la casa dice que un dato exacto no lo transporta un LLM — de paso deja de pagarse una reescritura que nadie pidió. (2) El aviso de Clarity casi entra como un mensaje por lead: el dedup de emitirDelCatalogo es por TIPO, así que habría sonado solo para el primero de la tanda y los otros cuatro se habrían perdido EN SILENCIO; va UN aviso con la lista, ordenado por urgencia. (3) Área nueva `landing` con su rótulo propio (━━ 🌐 TU LANDING ━━): salía como «🔧 SISTEMA», que no le dice a nadie de qué le están hablando.",
+      "Es la tanda donde el motor de avisos se usó de verdad desde otras áreas y quedó demostrado dónde se rompe. La trampa del dedup por tipo es la que más va a volver: no falla, no loguea nada, simplemente cuatro personas no se enteran — y el que escribe el aviso nuevo no tiene por qué saber que el dedup no es por entidad. La regla de `texto` vs `contexto` es el corolario de «un dato exacto no lo transporta un LLM» aplicado al catálogo, y es la primera vez que se escribe como criterio de qué campo usar. Y queda la del caso de los ocho leads: un aviso es un EVENTO y una bandeja es un ESTADO; lo que solo era evento es lo que se pierde. Sin hito, el próximo que agregue un aviso al catálogo repite las tres.",
+    ],
+    commits: [
+      { sha: "562f8962", msg: "landing: el snippet se versiona y MaKo avisa cuando quedó viejo", lineas: 132, archivos: 5 },
+      { sha: "7b59ac95", msg: "landing: arregla el token que rompí, y el aviso pasa a ser accionable", lineas: 175, archivos: 6 },
+      { sha: "417c539d", msg: "landing: los 8 leads SI habian entrado — lo que faltaba era que alguien se enterara", lineas: 158, archivos: 5 },
+      { sha: "5d125365", msg: "leads: el visitor_id no llegaba al insert, y los webhooks ya no fusionan callados", lineas: 178, archivos: 8 },
+      { sha: "517200d1", msg: "clarity: el cron que cachea el resumen y avisa antes de que se borre la grabación", lineas: 227, archivos: 6 },
+      { sha: "2a5c338e", msg: "pixel v11: el autoplay no cuenta como play, y todo se acota a la landing elegida", lineas: 675, archivos: 14 },
+      { sha: "d2e28fff", msg: "Pixel de MaKo: se llama igual en los 8 lugares donde aparecía distinto", lineas: 67, archivos: 8 },
+    ],
+  },
+  {
+    fecha: "16 ago", hora: "09:48", chat: "CRM", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El primer pedazo del «no sé»: /general recuerda lo postergado, y su catch no se traga el error",
+    puntos: [
+      "El wizard de onboarding es bloqueante y un cliente quedó trabado NUEVE DÍAS en el paso de Meta —que se resuelve en la consola de Meta, no acá— sin poder entrar al resto de la app. Se agrega postergar UN paso (solo los que se cierran en un sistema de afuera) y /general pasa a llevar el recordatorio de lo que quedó pendiente. Dos decisiones dentro de app/general/page.tsx: el recordatorio cruza el flag con la conexión REAL de hoy (conectar Meta tres días después lo apaga solo), y el catch NO devuelve lista vacía: si la lectura falla se empuja un aviso.",
+      "Es la primera vez que la fase 6 del roadmap del área —«el cuarto estado: no sé»— aterriza en la pantalla, y con el argumento exacto que el área viene pagando desde el 6 de agosto: «degradar callado está bien donde el número se ve en otra tab; este recordatorio no existe en ningún otro lado, así que un vacío afirma no te falta nada, que es lo contrario de lo que sabemos». Es el mismo `else` que certifica «El negocio está sano», resuelto por una vez en el lugar correcto — vale escribirlo como precedente antes de aplicarlo al semáforo entero. Y el dato que justifica la prioridad: de los cuatro clientes reales, los dos que no terminaron el wizard murieron en un paso de CONEXIÓN; ninguno en uno de contenido. El grueso de la tanda es del área onboarding (que también lo tiene sin hito, va al 7 ago), pero el pedazo de /general es propio y no está en ninguna bitácora.",
+    ],
+    commits: [
+      { sha: "eb6e39fc", msg: "Dejar un paso pendiente y seguir: la salida del onboarding", lineas: 515, archivos: 8 },
+      { sha: "289ef79c", msg: "Retomar el wizard pregunta por la pantalla, no la cuenta", lineas: 61, archivos: 2 },
+    ],
+  },
 ];

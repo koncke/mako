@@ -226,4 +226,35 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['docs/hallazgos-ads.md — las trampas del área, con la ruta adentro de cada entrada para poder grepearla'],
   },
+
+  // Cosecha retroactiva (17 ago): tandas que se trabajaron y no habian dejado
+  // hito. Salieron de cruzar el git log del area contra este mismo archivo.
+  {
+    fecha: "12 ago", hora: "18:16", chat: "Customer Success", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La cuota de IA se comía la fábrica, y el error mandaba a re-pegar una key que estaba sana",
+    puntos: [
+      "Cuatro commits sobre el mismo síntoma visto desde la fábrica de creativos. 12/8: el free tier se agota por CUENTA y la app solo sabía guardar UNA key por proveedor, así que la única salida que ofrecía era pegar de nuevo la key agotada — se abrieron hasta 3 cuentas por proveedor (`lib/ia-keys.ts`) y todos los caminos (chat, tool-use, STT y visión) pasaron a iterar sobre ellas; `lib/razones.ts` y MatrizView entraron en ese barrido. 13/8: reporte de una clienta con tres cuentas de Gemini que veía «No hay IA para generar las razones. Conectá tu API key» al lado de un panel que decía 240,6k / 750,0k (le sobraba el 68% del día): eran tres tanques de 250k que no se trasvasan, y la cascada apilaba todo en la primera. 16/8, pedido textual del dueño con un cliente trabado: «no puede ser que se exceda la quota durante el onboarding, y en dicho caso debería ahí mismo saltar la opción de dejarle otra key, como ya tenemos configurado». Salió la pieza `ErrorIA` (error + salida juntos), el crudo de Google detrás de «ver detalle», `esErrorDeIA` mudado a `lib/ia-mensajes.ts` con test sobre el texto TEXTUAL que vio el cliente, y la rotación de modelo extendida al camino de VISIÓN.",
+      "Es la SEGUNDA vez que el mismo síntoma llega a la pantalla del dueño —la bitácora ya tiene el hito del 31/7, «el error del guion decía conectá tu API key a quien ya la tenía»— y esta vez trajo cuatro trampas nuevas que valen más que el changelog. (1) Dos fallas encadenadas que se tapaban entre sí: `ConectarIA` existía y estaba enchufado en UNA sola pantalla (MatrizView); en el paso de la cara de marca y en el Archivero el cliente veía el error crudo de Google y cero botones. Y aunque hubiera estado puesto, no se habría dibujado: el detector era un regex suelto en MatrizView que buscaba «cuota» y Google manda «quota». (2) El diagnóstico de fondo que reveló el error completo: `limit: 20, model: gemini-3.7-flash`. El free tier de ese modelo son VEINTE requests — un onboarding con 6 documentos y varias fotos se lo come solo. No es un cliente que usa de más: es el modelo equivocado para el trabajo, y por eso rotar el modelo esquiva el límite además del 503. (3) La corrección del mensaje se había aplicado A MANO en `avatares` y `entregable`, y quedaron afuera `generarRazones` —justo la pantalla del reporte— y `angulos-formatos`: dos de los cuatro lugares del área. (4) El 16/8 el commit rompió el BUILD EN PROD y prod quedó servido en la versión vieja sin avisar: MatrizView tenía hunks de las dos sesiones y commitear el archivo por ruta se llevó el import de la otra sin sus dos exports. Es el caso textual de AGENTS.md y ya había pasado el 10/8 con `PASO_TXT` en el mismo `lib/razones.ts`: en esta área, MatrizView y razones.ts son los dos archivos que las dos cuentas tocan a la vez.",
+    ],
+    commits: [
+      { sha: "bee24ad4", msg: "IA: rotar tambien entre CUENTAS del mismo proveedor, y cerrar los caminos sin cascada", lineas: 805, archivos: 20 },
+      { sha: "c3e583e6", msg: "IA: la cuota se mide POR CUENTA, y el error dice qué contestó cada una", lineas: 611, archivos: 16 },
+      { sha: "740bc35f", msg: "La salida para cargar otra key estaba configurada. En UNA sola pantalla", lineas: 349, archivos: 7 },
+      { sha: "582d1a6c", msg: "Completar el commit anterior: los dos exports que MatrizView ya importaba", lineas: 26, archivos: 2 },
+      { sha: "5bb28adf", msg: "funnel: la fila `presencial` de PASO_TXT, que quedó fuera del commit anterior", lineas: 4, archivos: 1 },
+    ],
+  },
+  {
+    fecha: "15 ago", hora: "10:44", chat: "Colapsar las URLs de preview de Lovable", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Las tres tabs de Instagram dejan de ser una promesa, y la metodología pasa a ser un módulo",
+    puntos: [
+      "Reels, Carousels y Stories salían del ComingSoon con backend real: `lib/ig-formatos.ts` como fuente única (límites técnicos de Zernio + la metodología destilada de las transcripciones de los cursos de /conocimientos, cada bloque citando su curso), `lib/ig-writer.ts` como motor compartido (patrón scaffold-mako-writer, brief del negocio + metodología por formato, saneo determinista por tipo de pieza, features nuevas con def gratis en model-catalogo) y `lib/ig-contenido.ts`, que manda toda pieza generada a /instagram como borrador de contenido_posts con un clic. En el mismo lote se invirtió el onboarding de /instagram por un bug que reportó el dueño: primero la decisión de Zernio (cuenta de plataforma o key propia, resuelta por señal viva y nunca por un flag), recién después el OAuth; `ensureProfile` dejó de materializar la elección con solo abrir la tab. 3.613 líneas, 29 archivos.",
+      "Son cuatro decisiones que gobiernan todo lo que se escriba después en la Content Machine y ninguna está escrita donde se la busca. (1) La metodología de los cursos vive en UN módulo importado por los writers y por la UI, no repetida en el prompt de cada tab — es «una cosa, un lugar» aplicada a la doctrina, y va sin `server-only` a propósito para que la puedan importar los tests y el cliente. (2) Los límites se verificaron contra el contrato de Zernio y NO contra la doc de Meta, que se contradice: quien vaya a tocar un límite tiene que saber cuál es la fuente. (3) Ninguna pieza se publica: muere como borrador en /instagram, que es «un canal PROPONE, una persona confirma» para contenido. (4) La trampa de seguridad, del hallazgo H de la auditoría: pegar la key de la PLATAFORMA de Zernio como key propia de un workspace mezclaba los datos del profile Default de la agencia; el rechazo quedó en el choke point (`guardarCredencial`, BYOK_NUNCA_PLATAFORMA + KeyDePlataformaError) y no en cada UI, y las claves de plataforma pura quedaron excluidas de `migrarEnvACredenciales` porque la cuenta de Zernio es de MaKo, no del ws1. Y hay un efecto colateral que ya está mintiendo: `app/admin/dev/areas.ts` sigue describiendo reels, carousels y stories como «ComingSoon sin backend» con `vive: [page.tsx, nav.ts]`, y las PARTES de esta bitácora no las mencionan. El registro que un agente lee para orientarse dice que no hay código donde hay 3.613 líneas.",
+    ],
+    commits: [
+      { sha: "a3d0ffb0", msg: "Content Machine IG (Reels/Carousels/Stories) + onboarding Zernio-first", lineas: 3613, archivos: 29 },
+    ],
+  },
 ];

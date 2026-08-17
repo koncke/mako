@@ -41,6 +41,42 @@ export const BITACORA: Hito[] = [
       'Por eso el semáforo tiene área propia: su historia no pertenece a ninguna pantalla en particular, y metida en la de otra se pierde.',
     ],
   },
+
+  // Cosecha retroactiva (17 ago): tandas que se trabajaron y no habian dejado
+  // hito. Salieron de cruzar el git log del area contra este mismo archivo.
+  {
+    fecha: "11 ago", hora: "17:39", chat: "Productos X Funnels", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El tipo deprecado ganó 12 filas: la deuda del semáforo crece sola",
+    puntos: [
+      "El primer hito dejó `SemaforoAviso` ('verde'|'amarillo'|'rojo'|'na') marcado deprecado y puso «Migrar los datos» en la cola del roadmap, sobre «las ~48 filas de CATALOGO_AVISOS». Desde entonces siete tandas independientes —los mensajes con link al resumen del lead, la alerta crítica de Meta, el snippet versionado de la landing, el visitor_id de leads, la bandeja de los 8 leads, el cron de Clarity, el pixel v11 y su probador— agregaron 12 avisos nuevos, y los 12 se escribieron con el vocabulario VIEJO: 3 'amarillo', 4 'na', 4 'verde', 1 'rojo'. El catálogo pasó de 47 a 59 filas y la deuda a migrar creció ~25% mientras la tarea estaba «en cola».",
+      "Es exactamente el modo de falla que el hito del 8 ago describió y que nadie cerró: «el síntoma era que no había síntoma». El tipo deprecado sigue exportado y sigue compilando, así que escribir 'amarillo' es el camino de MENOS esfuerzo y ninguna de las siete tandas tenía por qué saber que existía otro vocabulario — ninguna estaba trabajando el semáforo. La consecuencia práctica: cuanto más se demora la migración más cara se vuelve, y el día que se haga hay que tocar código de siete áreas distintas en vez de una. La regla que falta escribir es que un tipo deprecado sin nada que lo mire (un lint, un test que cuente filas con el vocabulario viejo y falle) no es una deprecación: es un comentario. Y el corolario para la otra parte en cola, «un solo punto de pintado»: los call-sites de colorDeSemaforo/bgDeSemaforo siguen siendo los mismos 6 de siempre (SaludBoard, los tres de ads-manager, meta-health, la propia tab dev) — o sea que esa mitad no se degradó, pero la de los datos sí, y nadie lo estaba midiendo.",
+    ],
+    commits: [
+      { sha: "b4714a82", msg: "Los mensajes de MaKo dejan de preguntar al vacío: un link al resumen del lead", lineas: 1333, archivos: 16 },
+      { sha: "a21d7bef", msg: "Los avisos de Meta existían solo como texto: nadie los emitía nunca", lineas: 435, archivos: 5 },
+      { sha: "562f8962", msg: "landing: el snippet se versiona y MaKo avisa cuando quedó viejo", lineas: 132, archivos: 5 },
+      { sha: "5d125365", msg: "leads: el visitor_id no llegaba al insert, y los webhooks ya no fusionan callados", lineas: 178, archivos: 8 },
+      { sha: "417c539d", msg: "landing: los 8 leads SI habian entrado — lo que faltaba era que alguien se enterara", lineas: 158, archivos: 5 },
+      { sha: "517200d1", msg: "clarity: el cron que cachea el resumen y avisa antes de que se borre la grabación", lineas: 227, archivos: 6 },
+      { sha: "2a5c338e", msg: "pixel v11: el autoplay no cuenta como play, y todo se acota a la landing elegida", lineas: 675, archivos: 14 },
+      { sha: "7008cf60", msg: "prueba del Pixel: los chequeos miraban una ventana de 25 eventos, y el opt-in la tabla equivocada", lineas: 247, archivos: 5 },
+    ],
+  },
+  {
+    fecha: "13 ago", hora: "10:56", chat: "Integraciones", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El rojo por fin dispara: un catálogo de mensajes no es un sistema de alertas",
+    puntos: [
+      "La cuenta de Meta del dueño estuvo con ENTREGA FRENADA —cero anuncios, cero leads— y por WhatsApp no llegó nada. Los cuatro avisos de Meta (meta-cuenta-frenada, meta-token-vencido, meta-cuenta-riesgo…) estaban escritos en CATALOGO_AVISOS con su disparador documentado y tenían CERO call-sites fuera del catálogo: se detectaba (quedaba en service_incidents, /integraciones lo pintaba en rojo) y no se avisaba nunca. Ya había pasado tres veces antes (16/7 dos días frenado, 29/7 cuatro horas). Se construyó lib/alerta-critica.ts + su cron, que INVIERTE el dedup del motor de avisos, arma el titular desde el account_status REAL de Meta con un mapa estado→titular+qué-hacer, y dedupea por META_AD_ACCOUNT_ID. Pedidos textuales del dueño, en orden: «tenemos que ser MUY PESADOS, no solo el mensaje DRAMÁTICO sino la frecuencia MUY alta hasta que se solucione», después «más dramático, usá más emojis (⚠️🚨)», después «y también que sea CLARO: que diga \"tu cuenta publicitaria está SUSPENDIDA por falta de pago\", no simplemente que está frenada», y finalmente lo corrigió él mismo viéndolo andar en prod: cada 1 hora, no cada 10 minutos.",
+      "Es la primera vez que el valor del semáforo GOBIERNA una conducta en vez de pintar un puntito, y ninguna de las cuatro trampas está escrita en ningún lado (el grep de `alerta-critica` sobre app/admin/dev y docs/ da CERO). Las cuatro: (1) un semáforo que se pone en rojo y nadie emite se ve igual que uno que nunca se puso en rojo — por eso ahora hay un test que falla si un aviso es rojo, se declara implementado y no tiene quién lo llame; (2) el semáforo dice el SÍNTOMA («frenada») y la CAUSA sale de account_status — un mensaje urgente que no dice qué hacer es solo ansiedad, y sin match no se inventa el paso a seguir; (3) el dedup del motor es correcto para el 95% de los avisos y exactamente al revés de lo que hace falta para el rojo: lo que hace que funcione no es la frecuencia sino que NO SE DETIENE, y el propio dueño bajó 6 mensajes/hora a 1 porque tapaban el resto del grupo; (4) el rojo es de una CUENTA PUBLICITARIA, no de un workspace: ws3 (Cliente de Prueba) tiene su propia copia de las credenciales apuntando a la misma cuenta y el dueño recibió todo dos veces — y NO se arregló excluyendo ws3, porque un guard negativo se queda viejo en silencio con el próximo cliente al que se le copien credenciales. Nada de esto está en la bitácora ni en ningún hallazgos-*.md.",
+    ],
+    commits: [
+      { sha: "a21d7bef", msg: "Los avisos de Meta existían solo como texto: nadie los emitía nunca", lineas: 435, archivos: 5 },
+      { sha: "9a081c29", msg: "La alerta dice la CAUSA, no el síntoma — y grita", lineas: 232, archivos: 4 },
+      { sha: "5b3ad721", msg: "La alerta avisa cada 1 hora, y una vez por CUENTA (no por workspace)", lineas: 85, archivos: 4 },
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

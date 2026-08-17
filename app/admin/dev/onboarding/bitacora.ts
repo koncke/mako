@@ -282,4 +282,96 @@ export const BITACORA: Hito[] = [
       'docs/mapa-del-proyecto.md §6 «Estado real» — qué funciona, qué está a medias y qué no existe',
     ],
   },
+
+  // Cosecha retroactiva (17 ago): tandas que se trabajaron y no habian dejado
+  // hito. Salieron de cruzar el git log del area contra este mismo archivo.
+  {
+    fecha: "9 ago", hora: "09:43", chat: "—", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El funnel dejó de ser FUNNEL_TEMPLATES[0] para todos",
+    puntos: [
+      "El wizard preguntaba cómo vende el cliente, guardaba la respuesta en onboarding.funnel_tipos y después sembraba la plantilla 0 igual para todos: un grep de esa clave daba dos resultados y los dos eran utilidades de clonado — el dato se escribía y no lo leía nadie. Ahora el funnel sale del canal declarado, se agregó plantilla para 'conversaciones' (que no tenía) y 'llamadas' arranca en `simple` por decisión del dueño. Se arregló además el gemelo: el bloque pisaba el funnel SIN CONDICIÓN en cada guardado del diagnóstico, así que un cliente que volviera atrás en el wizard se comía su propio funnel editado. Y las 13 etapas del funnel entraron al grafo del Second Brain.",
+      "Cierra de frente el ítem que la propia bitácora tiene en PARTES como 'cola' («Hoy se aplica FUNNEL_TEMPLATES[0] a todos») y el primer punto de la cosecha del 7 ago — que hoy quedó falso y nadie lo sabe leyendo el registro. La decisión que hay que no perder: lo único que se consume de una plantilla es cuántas etapas kind:'reunion' tiene, y sobre-pedir NO es el lado seguro — con dos reuniones el wizard exige fecha, asistencia y Fathom de una R2 que no existe, o sea que el cliente no puede cerrar un lead sin inventarla; sub-pedir se arregla con un click. Y la trampa que impide reparar el pasado: highticket ES DEFAULT_PIPELINE, así que un funnel sembrado por el bug y uno elegido a mano son idénticos byte a byte y no hay historial de funnel en ningún lado — no hay migración posible, solo se verificó contra prod que el pasivo era cero.",
+    ],
+    commits: [
+      { sha: "42fd13ba", msg: "El funnel sale del canal que el cliente declaró, y entra al grafo", lineas: 646, archivos: 8 },
+    ],
+  },
+  {
+    fecha: "10 ago", hora: "23:32", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El onboarding se daba por cerrado sin estarlo, en el wizard y en las tabs",
+    puntos: [
+      "Dos caras del mismo error, el mismo día. (a) El paso `productos` estaba en el tipo y en el orden de la capa pero no en OnboardingState.steps ni en el union del endpoint: cerrarlo era `undefined.done = true` → 500, y como el wizard no miraba `ok`, el cliente avanzaba igual y al volver aterrizaba SIEMPRE ahí. Las cuatro listas paralelas se colapsaron en PASOS_ONBOARDING (lib/capas.ts) como fuente única. (b) Con una clienta delante, el onboarding del Chatbot quedó `done` marcando `ensayo` y `aprobar` con diez segundos de diferencia y sin un solo audio grabado: marcarPasoTab aceptaba cualquier clave del def, así que marcar el ÚLTIMO paso cerraba el recorrido entero. De paso entró el merge campo a campo de Productos (la IA pisaba lo que el cliente había escrito a mano, porque recibía solo nombre y precio y hacía UPDATE de todas las columnas) y se cableó seedProductosDesdeOferta, que no tenía un solo call-site desde la 0117.",
+      "Es el hallazgo #1 de docs/hallazgos-onboarding.md («el paso productos revienta en silencio y el cliente queda varado ahí para siempre») dejando de estar vivo, y el registro sigue diciendo que lo está. Las dos reglas que quedan: agregar un paso al onboarding tocaba CUATRO listas paralelas mantenidas a mano —el antipatrón que garantizaba que el paso quince naciera con el mismo bug— y ahora es una sola con el tipo derivado y el endpoint validando en positivo; y el fail-closed que nadie escribe solo: ChatAgentApp mostraba el dashboard ante CUALQUIER respuesta que no fuera ok, y si no se pudo saber si el onboarding está completo, mostrar el dashboard es AFIRMAR que lo está. El guard vive en lib/onboarding-orden.ts sin server-only, para que un test lo pueda importar.",
+    ],
+    commits: [
+      { sha: "97f98ba8", msg: "El paso de Productos por fin cierra, y /email deja de escribir para Mauricio", lineas: 268, archivos: 13 },
+      { sha: "073d606b", msg: "onboarding: no se puede saltear un paso, y sin saber no se muestra el dashboard", lineas: 136, archivos: 4 },
+    ],
+  },
+  {
+    fecha: "16 ago", hora: "09:48", chat: "CRM", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Dejar un paso pendiente y seguir: el wizard bloqueante por fin tiene salida",
+    puntos: [
+      "Un cliente contestó nueve pantallas, quedó trabado en el paso de Meta —que se resuelve en la consola de Meta, no acá— y por eso NUEVE DÍAS tampoco pudo entrar a usar el resto de la app, que no dependía de Meta para nada. De los cuatro clientes reales, los dos que no terminaron el wizard murieron en un paso de conexión; ninguno en uno de contenido. Ahora se posterga UN paso, y solo los que se cierran en un sistema de afuera (PASOS_POSTERGABLES: integraciones y verificación del teléfono). Después vinieron las dos mitades que faltaban: el retomar aterrizaba una pantalla ANTES de donde el cliente había quedado (una función cuenta() que recopiaba a mano la lista de pantallas y se desfasó), un paso postergado no contaba como cerrado al retomar —así que el cliente volvía a caer justo en la pantalla que acababa de declinar—, y «Seguir sin Meta» posponía el mismo muro tres pantallas: la Retro declaraba `servicio:'meta'` para heredar los slides y ese mismo campo elegía la decoración Y bloqueaba el avance, con lo cual le dibujaba adentro el formulario del token en una pantalla que no es postergable.",
+      "Es la respuesta a los hallazgos #4 y #6 del documento del área («los clientes reales no abandonan en los pasos de contenido: abandonan en los de conexión» y «no existe el paso opcional»), y con eso cae el diseño de julio que la bitácora sostiene entero: el wizard bloqueante. Lo que había antes era peor que nada: 'skipped' existía en el endpoint, la UI nunca lo mandaba, y aunque lo hubiera mandado onboardingPendiente() rebotaba igual — tres piezas que por separado se leen completas y juntas no hacen nada. Cuatro reglas: quien decide qué se posterga es el SERVER contra el catálogo; el cierre pregunta «¿están TODOS cerrados?» y ya no «¿cerraste el último?» (con una salida en el medio dejan de coincidir, y quien postergara el último paso quedaba in_progress para siempre); un servicio postergado NO puede volver a bloquear río abajo —un botón que ofrece salida y después no la da es peor que no ofrecerla—; y postergar tampoco esconde el formulario, porque si vuelve a conectar tiene que poder. Y el gemelo de «cada pregunta, su campo»: `exige` es un campo nuevo y es lo único que bloquea. gemini NO es postergable, porque seis pasos posteriores lo consumen.",
+    ],
+    commits: [
+      { sha: "eb6e39fc", msg: "Dejar un paso pendiente y seguir: la salida del onboarding", lineas: 515, archivos: 8 },
+      { sha: "289ef79c", msg: "Retomar el wizard pregunta por la pantalla, no la cuenta", lineas: 61, archivos: 2 },
+      { sha: "7cfa876b", msg: "«Seguir sin Meta» posponía el mismo muro tres pantallas, y ahí no había salida", lineas: 93, archivos: 2 },
+    ],
+  },
+  {
+    fecha: "16 ago", hora: "11:03", chat: "CRM", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Bienvenido a MaKo»: la pantalla que se ve antes de la primera pregunta",
+    puntos: [
+      "Pedido del dueño: antes de la primera pregunta va una pantalla sola, con título, una frase y un botón de comenzar, con la forma de Opal. La frase final rota escribiéndose y borrándose letra por letra, y las cinco frases no son adjetivos: son las cinco cosas que MaKo hace de verdad. Se muestra UNA vez y el que se acuerda es el server (status 'pending' → 'in_progress'), no sessionStorage. Alrededor de eso se pagó una tanda larga de detalles que solo aparecen mirando la pantalla: el clip de intro (ojo → zoom → neuronas), el chip de «tema en prueba» que se dibujaba encima de lo primero que ve un cliente, y 444 avisos de React por carga porque los cinco pilares del mapa comparten id con las áreas del catálogo real.",
+      "La lección que gobernó toda la tanda y se pagó cuatro rondas seguidas: MEDIR UNA PROPIEDAD NO ES VER. Se midieron opacidades y clases del DOM cuatro veces, las cuatro dieron «bien», y al grabar la pantalla con screencast se vio lo que el dueño reportaba — el ojo limpio duraba UN cuadro y un abanico de fibras SVG lo tapaba cuatro segundos. Misma familia: los 25 <text> del grafo SIEMPRE estuvieron en el DOM con su caja y su posición, no se pintaban porque la pantalla no montaba <TemaOscuro> y --ink seguía siendo el del tema claro (negro sobre negro); y sondeando con CDP se reportó «0 nodos, SVG 0x0» midiendo un viewBox de 24x24 — un ícono, no el grafo. Dos trampas más que quedan escritas: dos animaciones que tocan transform en el MISMO elemento se pisan y la segunda gana (ya pagado en /second-brain con los nodos que «no flotaban», 0,03 px medidos), y el corte del video va por `currentTime` y nunca por setTimeout — el temporizador mide el reloj de pared y el video el suyo. Y la licencia: la cláusula que decide no es «uso comercial», es la standalone de Pixabay, más que no hay model release; queda en public/onboarding/CREDITOS.md con el aviso de que si algún día se usa pelado hay que volver a mirarlo.",
+    ],
+    commits: [
+      { sha: "1367e118", msg: "Bienvenido a MaKo: la pantalla que se ve antes del wizard", lineas: 359, archivos: 2 },
+      { sha: "29cb78d2", msg: "La frase que se escribe sola, rotando lo que MaKo hace de verdad", lineas: 88, archivos: 1 },
+      { sha: "9e13410a", msg: "El ojo real: video de Pexels + zoom a la pupila + neuronas + flash", lineas: 151, archivos: 5 },
+      { sha: "cc1224b2", msg: "La bienvenida, rehecha después de MIRARLA cuadro por cuadro", lineas: 159, archivos: 2 },
+      { sha: "57c26faf", msg: "El clip correcto: ojo, zoom entrando, y neuronas. Un solo archivo", lineas: 84, archivos: 6 },
+      { sha: "fde028b5", msg: "La barra de agencia se dibuja adentro, y el botón vuelve al sistema", lineas: 195, archivos: 4 },
+      { sha: "c0aa1dc2", msg: "444 errores por carga que nadie veía: dos nodos del mapa con el mismo id", lineas: 33, archivos: 2 },
+      { sha: "6ac48b05", msg: "La primera frase se borraba antes de poder leerla", lineas: 20, archivos: 1 },
+    ],
+  },
+  {
+    fecha: "16 ago", hora: "12:03", chat: "CRM", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El mapa de la bienvenida: ficción o Grafo real, cuatro idas y vueltas",
+    puntos: [
+      "El mapa que se arma bajo el dedo del cliente cambió de premisa cuatro veces, cada una con un pedido textual del dueño: «el grafo no lo inventes, utiliza el real, que sea interactivo, desde el primer nodo» → se montó el Grafo de /second-brain; «justamente esto es ficción, es un grafo sin info» → volvió a datos inventados con todo controlado nodo por nodo; «no seas extremista... haz que se comporte igual que nuestro grafo, solo que CONTROLA qué sí y qué no» → datos de ficción con el movimiento portado de Grafo.tsx con sus números exactos; y al final «mejor vuelve a la versión que estaba antes y simplemente vamos paso a paso», que revirtió la última vuelta porque resolvía tres reclamos trayendo dos viejos («avanzamos 1 paso y retrocedemos 3»).",
+      "El argumento que cierra la discusión es un DATO medido, no una preferencia: el cerebro real de un cliente recién reseteado son 25 nodos y casi todos son etapas de un funnel que él no armó — mostrarle eso es mostrarle el negocio de otro. Pero la forma y el comportamiento sí son los de verdad, y lo que sale del catálogo real (la paleta --grafo-* y los nombres de las once áreas) tiene un test que falla si alguien los copia a mano, para que el día que llegue a su Second Brain reconozca lo que vio el primer día. Tres cosas que quedan aunque el código haya vuelto atrás: montar el Grafo real destapó un bug VIVO de /second-brain (el efecto del bucle de pintado tenía `pintar` en las dependencias, así que FILTRAR reiniciaba t0 y relanzaba el mapa entero); lib/bienvenida-cerebro.ts quedó escrito, con test y con la forma MEDIDA contra los cuatro umbrales de cerebro-grafo.ts, sin usar todavía — cuando el mapa vuelva a montarse sobre el Grafo real esa mitad ya está resuelta y no hay que rediscutirla; y las aserciones en negativo de los tests miran el código SIN comentarios, porque los comentarios nombran a propósito lo que no hay que hacer y un test que se dispara con la prosa que explica el bug es un test que se aprende a ignorar.",
+    ],
+    commits: [
+      { sha: "d0f7d6f0", msg: "La bienvenida monta el grafo REAL, y el texto toma la forma de Opal", lineas: 348, archivos: 4 },
+      { sha: "47c54dd6", msg: "La bienvenida monta el Grafo REAL y lo revela por clicks", lineas: 311, archivos: 5 },
+      { sha: "da7bbec1", msg: "El mapa vuelve a ser ficción, y todo lo suyo se controla a mano", lineas: 303, archivos: 5 },
+      { sha: "e892d3cc", msg: "El cerebro se arma con las manos del usuario, no se muestra", lineas: 281, archivos: 4 },
+      { sha: "ed941238", msg: "El movimiento es el del grafo real; lo que se controla es CUÁNDO", lineas: 128, archivos: 2 },
+      { sha: "e4a8f9c3", msg: "La bienvenida monta el Grafo REAL: se arrastra, se clickea, y las líneas siguen", lineas: 324, archivos: 4 },
+      { sha: "36326492", msg: "Volver a la versión estable de la bienvenida, y hacerlo paso a paso", lineas: 417, archivos: 4 },
+      { sha: "7c2a3edb", msg: "Las líneas siguen a los nodos, y el click hace zoom a la sección", lineas: 228, archivos: 2 },
+    ],
+  },
+  {
+    fecha: "16 ago", hora: "20:14", chat: "CRM", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La cuota que encerraba al cliente: la salida existía en UNA sola pantalla",
+    puntos: [
+      "Pedido del dueño con un cliente trabado en vivo: «no puede ser que se exceda la quota durante el onboarding, y en dicho caso debería ahí mismo saltar la opción de dejarle otra key, como ya tenemos configurado». Estaba configurado: ConectarIA vivía enchufado en MatrizView y en ningún otro lado, así que en el Archivero y en la cara de marca el cliente veía el error crudo de Google y cero botones — justo cuando todavía tiene una sola key. Se creó la pieza ErrorIA (error + salida juntos), la usan las tres pantallas y hay guarda que falla si alguna deja de importarla.",
+      "Dos fallas encadenadas que se tapaban entre sí, y la segunda es la que cuesta encontrar: aunque el componente hubiera estado puesto, no se habría dibujado nunca — el detector era un regex suelto en MatrizView que buscaba «cuota» y lo que Google manda es «quota». Ahora `esErrorDeIA` vive en lib/ia-mensajes.ts (puro, testeable) con el error TEXTUAL que vio el cliente como test. Y el diagnóstico de fondo, que solo apareció al leer el error completo en vez de esconderlo: `limit: 20, model: gemini-3.7-flash` — el free tier de ese modelo son VEINTE requests, y un onboarding con 6 documentos y varias fotos se lo come solo. No es un cliente que usa de más, es el modelo equivocado para el trabajo; por eso la rotación de modelo se extendió al camino de VISIÓN (leerDocumentoIA), que es el que falló acá porque la cara de marca son fotos.",
+    ],
+    commits: [
+      { sha: "740bc35f", msg: "La salida para cargar otra key estaba configurada. En UNA sola pantalla", lineas: 349, archivos: 7 },
+    ],
+  },
 ];

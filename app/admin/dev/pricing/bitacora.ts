@@ -78,6 +78,53 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — la regla de verificar precio y términos antes de sumar un proveedor',
     ],
   },
+
+  // Cosecha retroactiva (17 ago): tandas que se trabajaron y no habian dejado
+  // hito. Salieron de cruzar el git log del area contra este mismo archivo.
+  {
+    fecha: "9 ago", hora: "21:00", chat: "—", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Los 30 del mes 1 no salen: salen 11,1, y las 19 que faltan NO se compran",
+    puntos: [
+      "El dueño puso el plan concreto sobre la mesa: 30 usuarios el mes 1, US$1.000 de pauta, prospectar sus 1.000 contactos de la agencia y vender high ticket siempre. Corrida de 12 agentes (2,36M tokens, 38 fallas auditadas, 14 cambiaban el signo) para contestarlo. Salió que los 30 no salen —salen 11,1— y que las 19 restantes no se compran: comprarlas cuesta US$4.686 de pauta y deja el cliente en US$311,60, el 171% del techo más permisivo del modelo. Se construyen: el alta pública cierra 10 de las 19 y no cuesta un dólar de medios. A 24 meses el plan cierra igual (160 clientes, US$7.823 de MRR, US$69.150 de caja, ningún mes en rojo, cero capital) pero pide 56,4 h el mes 1 y 46-55 sostenidas. En el mismo commit se corrigió código vivo: el anual del Growth de US$1.067 a US$970 (2 meses gratis, 16,7%) y nació docs/embudo-y-high-ticket.md.",
+      "Tres cosas que no están en ningún otro lado. (1) El mes 1 tira 199 de 210 interesados a la basura: el callback de Google devuelve no-autorizado salvo que el email esté cargado a mano desde /admin, así que la pauta trae gente que no tiene dónde entrar — esos 199 valen más que los US$1.000 que los trajeron. (2) El Pro cuesta US$10,90/mes de IA y no los US$2,52 proyectados, porque ese número asume un ruteo que SALVEDADES declara sin una sola línea ejecutable; arreglarlo vale US$15.018 — la corrección más cara del análisis es de ingeniería, no de marketing. (3) El límite del descuento anual está DERIVADO, no elegido: a 19,5% exacto el techo de medios toca el CAC del carrito y el único canal escalable deja de cerrar, así que a «hacelo más atractivo» se responde agregando, nunca bajando el precio. Y el bug hermano del de la barra al 1468%: `Status` es una PÍLDORA y no envuelve — 180 caracteres adentro midieron 1.893 px en una caja de 1.134 y se llevaron el scroll horizontal de toda la página.",
+    ],
+    commits: [
+      { sha: "6db42103", msg: "pricing: la parte 5 — el plan mes a mes, el programa de US$4.000 y la oferta anual", lineas: 869, archivos: 3 },
+    ],
+  },
+  {
+    fecha: "10 ago", hora: "12:31", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El CAC son dos monedas que nunca se suman, y el veredicto se dio vuelta",
+    puntos: [
+      "`cacUsd` sumaba la plata con las horas del dueño valuadas a US$100/h, y de esa suma salía «el único canal que entra es referidos» — absurdo para alguien que tiene tiempo y no tiene capital. Se partió en dos monedas sin ningún campo que las junte (un test lo impide), `entraEn` chequea cada una por separado y `horasDe` hace que terminar una feature baje las horas del canal que habilita. Al partirlas entran TRES de los cinco canales, no uno, y hubo que dar vuelta el título, el Titular y la Nota, que seguían diciendo lo del CAC mezclado. Además: el tope de clientes de high ticket pasó a ser SALIDA (el residual de 338 h después del piso de adquisición), los 1.000 contactos quedaron como evento de arranque fuera de CAC_CANALES —meterlos adentro los hacía contarse dos veces con `prospeccion`— y `FASES`/`Fase` se renombró a `FASES_TIEMPO`/`FaseTiempo`.",
+      "Cuatro trampas, todas verificadas. (1) El test nuevo encontró que la cadena de los 1.000 contactos no cerraba: 1.000 × 20% × 3,5% × 85% da 5,95 altas y la tabla declaraba 8,5 — dos corridas conviviendo en una constante, con el 2,55 del «mes 2» como doble conteo que llegó a la pantalla del dueño como titular. Lo que lo hizo invisible es una coincidencia numérica: 8,5 × 0,7 = 5,95, así que el mes 1 «cerraba» contra la cuenta correcta y nadie miraba el total. (2) Hay TRES `FASES` distintos en el repo (lib/fase-diagnostico.ts, lib/mako-fases.ts, modelo.ts) y un comentario citaba el `noHacer` del array ajeno para justificar un número: el archivo se contradecía solo. (3) Un script de reemplazo por bloque sobre modelo.ts se comió 76.309 bytes con exit 0 y mensaje de éxito, porque buscaba `'\\n];\\n'` en un archivo CRLF: un indexOf que no encuentra devuelve -1 y eso se chequea siempre, uno que encuentra el lugar EQUIVOCADO devuelve un número válido. (4) Queda vivo: las 26 h del orgánico (`CAC_CANALES.organico.horas`) siguen heredadas del modelo roto (US$2.601,60 ÷ US$100/h) y esperan una pregunta al dueño; ninguna conclusión se apoya en ese número a propósito.",
+    ],
+    commits: [
+      { sha: "f1cff74c", msg: "pricing: las 338 h del mes y los topes que salen del residual", lineas: 51, archivos: 1 },
+      { sha: "6df988ef", msg: "pricing: el CAC se parte en dos monedas que nunca se suman", lineas: 184, archivos: 3 },
+      { sha: "a3612e43", msg: "pricing: los 1.000 contactos son un evento de arranque, no un canal", lineas: 38, archivos: 2 },
+      { sha: "de01a282", msg: "pricing: el veredicto de un canal es por fase, y cada moneda va por su lado", lineas: 99, archivos: 2 },
+      { sha: "489d66d8", msg: "pricing: dos gráficos, uno por moneda, y el veredicto al derecho", lineas: 161, archivos: 3 },
+    ],
+  },
+  {
+    fecha: "10 ago", hora: "14:31", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«No se entiende» no era exceso de texto: cada gráfico se ordenaba solo",
+    puntos: [
+      "El dueño pidió revisar de a UNA parte —«con las cinco a la vista el feedback sale sobre el volumen y nunca llega al contenido»— y sacar la palabra «techo» del texto de pantalla. Salió `PARTES_VISIBLES` (el índice sigue listando las cinco y dice cuál se está leyendo), cada parte pasó a abrir diciendo qué CONCLUYE en vez de de qué habla, y la conclusión general se derivó de las cinco partes en vez de ser el veredicto de la parte 1 disfrazado de veredicto del documento. Los porcentajes de la prosa se derivan ahora de `CAC_CANALES` en vez de vivir escritos a mano, con tests que fallan si la frase contradice al dato de al lado o si dos capas resumen lo mismo palabra por palabra (guarda de 40 caracteres). Y las dos monedas pasaron de dos gráficos apilados a UNO: un renglón por canal, dos carriles con su propia escala y la línea que parte la lista donde dejan de entrar.",
+      "El diagnóstico obvio era el equivocado y ese es el valor del hito: el dueño reportó «no se entiende» y el texto estaba bien — lo roto era que cada gráfico venía ordenado por SU propio valor, así que un canal estaba en el renglón 1 arriba y en el 4 abajo, y la RELACIÓN entre plata y horas, que era todo lo que la sección tenía para decir, era justo lo único que no se podía seguir con el ojo. Corolario: small multiples sin eje de categorías compartido no son small multiples, son dos gráficos sueltos. Dos trampas más de método: un guard de texto NO puede grepear el fuente (/techo/i engancha `techoIa` y `a.techo`, que son nombres de código y no palabras en pantalla) y la mitad del texto de esta pantalla no vive en Pricing.tsx sino en strings de modelo.ts que el .tsx pinta con {X.que}. Y el gris recesivo de las barras estaba a 1,23:1 —invisible— lo que tapaba que el tono destacado estaba a 1,78:1: lo recesivo se veía MÁS que lo destacado, y la jerarquía se sostenía de casualidad. La regla del orden y el gris ya se cosecharon a AGENTS.md y hallazgos-ui.md; lo que no quedó escrito en ningún lado es el pedido del dueño y el porqué de PARTES_VISIBLES.",
+    ],
+    commits: [
+      { sha: "a31db2cd", msg: "pricing: cada parte abre diciendo qué concluye, no de qué habla", lineas: 75, archivos: 3 },
+      { sha: "cf56a8dc", msg: "pricing: sacar «techo» del texto, con un test que lo impide volver", lineas: 102, archivos: 3 },
+      { sha: "d4ce03d2", msg: "pricing: la conclusión general, derivada de las cinco partes", lineas: 132, archivos: 3 },
+      { sha: "501b542b", msg: "pricing: la parte 3 sola, y las dos monedas en un gráfico que se lee", lineas: 489, archivos: 4 },
+      { sha: "49db00eb", msg: "La regla del orden compartido, y el gris de de-énfasis que no se veía", lineas: 79, archivos: 3 },
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
