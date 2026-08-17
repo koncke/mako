@@ -221,6 +221,111 @@ decisión es la que manda: el usuario tiene que enterarse de que su proveedor no
 
 ## La capa barata
 
+### ⚠️ La rotación tenía DOS ejes y el que faltaba era el modelo: Google tenía caído el que fijamos
+
+**Síntoma (16/08, con un cliente esperando):** el cliente sube 4 documentos al Archivero y
+«No se pudo procesar nada de lo que subiste». Tres avisos genéricos («probá de nuevo en un
+momento») y uno que decía **«Se quedó sin cuota / límite de uso alcanzado»**. La API key era
+**nueva**, recién creada.
+
+**Diagnóstico obvio: la cuota. Equivocado, DOS veces.** Medido con la key real del cliente y
+el mismo payload de 24k caracteres:
+
+| modelo | resultado |
+|---|---|
+| `gemini-flash-latest` ← **el que fija `MODELO_DOCS`** | **503 «high demand»**, persistente |
+| `gemini-2.5-flash` | 404 «no longer available to new users» |
+| `gemini-flash-lite-latest` | **200, perfecto** |
+
+O sea: Google tenía caído el alias que la app fija, y **al lado, en la misma cuenta, había un
+modelo sano**. La cascada tenía dos ejes de rotación —cuenta y proveedor— y ninguno sirve
+para esto: probaba las N cuentas contra el mismo modelo muerto y se rendía con el resto del
+catálogo del proveedor intacto. Con **un solo proveedor cargado**, que es el estado normal de
+un cliente recién dado de alta, eso es quedarse sin IA teniendo IA.
+
+**La trampa de medición que casi me lo tapa:** probé la key con un `"di ok"` y dio 200 tres
+veces. Un request chico pasa; uno de 9.400 tokens no. **Medí la key cuando el que fallaba era
+el modelo.** Si vas a descartar «es la key», el request de prueba tiene que tener el TAMAÑO
+del real.
+
+**Y el mensaje mandaba a arreglar lo que no estaba roto.** `motivoDeErroresCascada` no tenía
+caso para 503: los tres primeros documentos caían al genérico y el cuarto matcheaba `\b429\b`
+por un rate-limit suelto de la misma tanda → «sin cuota». La diferencia es accionable y
+opuesta: **la cuota se arregla cargando otra key o pagando; la saturación se arregla
+esperando.** Mandar a alguien a comprar créditos por un bache del proveedor es el peor consejo
+posible. Ahora la saturación se clasifica y va ANTES que la cuota, porque en una tanda de
+varios documentos aparecen las dos mezcladas y manda la que explica la tanda.
+
+**Reglas que quedan:**
+- **Tercer eje: el modelo.** `MODELOS_RESPALDO` en `lib/ai-cheap.ts`. Un 404 no se reintenta
+  ni un segundo (un modelo retirado no vuelve): se salta derecho al siguiente.
+- **En esa lista NO van ids con número de versión.** Google los retira solos —`2.5-flash` y
+  `2.0-flash` ya dan 404— así que solo alias `-latest`.
+- **Cuánto insistir depende de si hay a dónde caer.** Con otra cuenta o proveedor esperando,
+  un reintento; cuando es el ÚLTIMO recurso, 3 con espera creciente (1,5s · 4s · 9s).
+- **Un modelo más flojo de respaldo es correcto**: solo entra cuando el bueno no está, y la
+  alternativa no es «una respuesta peor» sino NINGUNA.
+
+**Vive en:** lib/ai-cheap.ts (`MODELOS_RESPALDO`, `modelosAProbar`, la cascada de chat y
+`leerDocumentoIA`) · lib/ia-mensajes.ts (`motivoDeErroresCascada`) · tests/ia-mensajes.test.ts
+*— corrida del 16/08/2026*
+
+### ⚠️ El free tier del modelo son VEINTE requests, y un onboarding se los come solo
+
+El error completo, cuando por fin se leyó entero, traía el número:
+
+> `Quota exceeded for metric: …/generate_content_free_tier_requests, **limit: 20**, model:
+> gemini-3.7-flash. Please retry in 47.4s.`
+
+`gemini-flash-latest` resuelve a `gemini-3.7-flash`, y su free tier son **20 requests**. Un
+onboarding con 6 documentos y varias fotos de la cara de marca se lo come sin despeinarse.
+**No es un cliente que use de más: es el modelo equivocado para el trabajo.**
+
+Corolario que sirve para elegir respaldo: **cada modelo tiene su propio balde de cuota**. Así
+que rotar el modelo no solo esquiva un 503 — también esquiva el límite de 20.
+
+**Vive en:** lib/ai-cheap.ts (`MODELO_DOCS`, `VISION_CASCADE`) *— 16/08/2026*
+
+### ⚠️ La función que decide qué lee el usuario vivía encerrada en un módulo `server-only`
+
+`motivoDeErroresCascada` es **pura** y estaba adentro de `lib/ai-cheap.ts`, que lleva
+`server-only`: **ningún test la podía importar**. O sea que lo único sin red era justamente lo
+que le habla a la persona — y por eso un 503 pudo reportarse como «sin cuota» durante quién
+sabe cuánto.
+
+Peor: el test que sí existía tenía el bug **congelado** como caso esperado
+(`{ motivo: null, errores: ['HTTP 503 high demand'] }`).
+
+Se mudó a `lib/ia-mensajes.ts`, que existe exactamente para eso y no tiene `server-only`. Es
+la misma regla que ya sacó a `exigirClienteDePrueba` y a `model-catalogo` de sus módulos
+server-only: **si una condición no se puede importar desde un test, es la que va a envejecer
+mal.**
+
+**Vive en:** lib/ia-mensajes.ts · tests/ia-mensajes.test.ts *— 16/08/2026*
+
+### ⚠️ La salida para «conectá otra IA» existía… en UNA sola pantalla
+
+`ConectarIA` —que muestra las cinco IA gratis con su estado real y deja sumar otra cuenta—
+estaba enchufado en `MatrizView` y en ningún otro lado. En el paso de la cara de marca y en el
+Archivero, el cliente veía el error crudo de Google y **cero botones**, justo cuando todavía
+tiene una sola key y menos idea tiene de que puede cargar otra.
+
+**Y aunque el componente hubiera estado puesto, no se habría dibujado:** el detector era un
+regex suelto en `MatrizView` que buscaba **«cuota»**, y lo que Google manda es **«quota»**.
+Dos fallas encadenadas que se tapaban entre sí — arreglar una sola no habría cambiado nada.
+
+Quedó: `esErrorDeIA` en `lib/ia-mensajes.ts` (puro, con test, cubriendo el crudo en inglés) y
+una pieza `ErrorIA` que dibuja error **y** salida juntos, con guarda que falla si una pantalla
+deja de usarla. El error crudo del proveedor va detrás de «ver detalle»: al cliente le
+llegaron seis renglones con `generativelanguage.googleapis.com/...` y dos URLs de
+documentación de Google, que no le dicen qué hacer y **entierran el botón que sí lo resuelve**.
+
+⚠️ Lo que NO se tocó, a propósito: `app/api/email/unsubscribe/route.ts:40` también dice
+«escribinos» sin dirección, pero esa página la ve el **lead de un cliente**: poner ahí la
+dirección de MaKo mandaría los leads de otro negocio a nuestra casilla.
+
+**Vive en:** app/_components/ErrorIA.tsx · lib/ia-mensajes.ts (`esErrorDeIA`) *— 16/08/2026*
+
 ### ⚠️ La cascada no cae a otro lado: pedir un proveedor sin key devuelve Groq, y el log miente
 
 **Síntoma:** el "fallback" no rescata nada y el registro de uso dice que probó Mistral.

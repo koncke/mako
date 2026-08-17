@@ -250,6 +250,46 @@ Tres corolarios que valen para cualquier recurso compartido:
    Probalo mentalmente con dos: si la respuesta cambia según de quién sea el segundo, el
    lugar está mal aunque hoy dé bien.
 
+# Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
+
+Si algo vive en `app/layout.tsx`, se lo come **todo el mundo**. Y si además arranca desde
+`localStorage`, no sabe de sesiones: el navegador no distingue quién está logueado.
+
+El caso, del 16/08/2026: `<TemaCandidato>` —el taller para elegir la paleta del rebrand—
+aplica el tema guardado en el browser con un `<script>` que corre antes del primer
+pintado. Un cliente abrió su tablero en un navegador donde se habían probado paletas y vio
+**la app entera ilegible**: las 15 tareas cargadas (el header decía «27% · 4/15») con las
+tarjetas, las columnas y los botones pintados del color del fondo, porque los temas
+candidatos incluyen paletas CLARAS. Lo reportó como «no están sus tareas y están todos los
+botones mal». No faltaba nada: no se veía nada.
+
+- **El guard va en el SERVER y en positivo.** «Solo admin», nunca «cualquiera menos…», y
+  nunca del lado del cliente: el `localStorage` lo escribe el navegador.
+- **Esconder el aviso es peor que el bug.** Horas antes se había reportado que el chip de
+  «tema en prueba» tapaba una pantalla de cliente, y se lo apagó con `display: none`. El
+  chip no era la causa: era el único aviso de que había un tema de laboratorio aplicado, y
+  su única salida. Con el aviso tapado, el mismo problema volvió sin ninguna pista.
+- **Y una herramienta de laboratorio que falla en silencio no avisa nunca.** Ese mismo CSS
+  le pone una transición de color a todos los elementos, así que al aplicarse ni parpadea.
+
+**Cómo se ve desde afuera, para reconocerlo rápido:** cuando está *todo* lavado —texto,
+bordes y botones a la vez— no es hidratación ni son los datos. **Es una paleta.**
+
+# Cuando algo «no aparece», el orden es datos → server → navegador, y no se saltea
+
+Tres preguntas, en este orden, y cada una descarta un tercio del sistema:
+
+1. **¿Están los datos?** Una query a la tabla.
+2. **¿Los manda el server?** `curl` con la cookie y buscá un título en el HTML. Si el HTML
+   los trae, **el problema es del navegador** y todo el código de servidor queda afuera.
+3. **Recién ahí el navegador — y lo primero es la CONSOLA DE QUIEN LO ESTÁ VIENDO.**
+
+⚠️ El paso 3 se hace pidiendo, no reproduciendo. **Un bug que depende del estado del
+navegador (localStorage, una cookie, un bundle cacheado) no se puede reproducir en otra
+máquina: el estado que lo causa no viaja.** Se perdió media hora peleando con Chrome
+headless y cookies de impersonación para ver en local una pantalla cuyo problema vivía en
+el Safari del dueño.
+
 # Una regla en un prompt no es una regla
 
 Si una regla sólo vive en la prosa de un prompt, **no se cumple**: se cumple casi

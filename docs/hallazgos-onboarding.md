@@ -650,3 +650,87 @@ de Pexels se vio el frame de portada, no el video corriendo; y dos candidatos de
 están marcados por el propio sitio como generados o modificados con IA.
 
 *Corrida del 16/08/2026 — 17 agentes, cada candidato verificado leyendo su página de licencia.*
+
+---
+
+## ⚠️ «Seguir sin Meta» posponía el mismo muro tres pantallas, y ahí no había salida
+
+**Síntoma reportado:** *«el paso de Seguir sin Meta no funcionó, luego igualmente le pide sí
+o sí»*.
+
+**El botón hacía su trabajo:** marcaba el paso postergado y saltaba la sección de
+integraciones entera. Lo que estaba mal venía después: la pantalla de la primera Retro
+declaraba `servicio: 'meta'` **para heredar los slides de Meta**, y ese mismo campo hacía DOS
+cosas — elegir la decoración *y* bloquear el avance. Con lo cual la Retro le dibujaba adentro
+el formulario del token y no lo dejaba pasar. Y esa pantalla **no es postergable**: ahí no
+quedaba ninguna salida.
+
+Es «cada pregunta, su campo»: *«¿de qué servicio hablo?»* (ícono, slides, eyebrow) y *«¿qué
+servicio EXIJO?»* son dos preguntas, y meterlas en una hizo que **lo cosmético arrastrara un
+bloqueo** a una pantalla que nunca quiso bloquear.
+
+**Las tres reglas que quedan:**
+
+1. **`exige` es lo único que bloquea**, y solo lo declaran las pantallas `int:*`, que SON las
+   de conectar. `servicio` queda para lo cosmético.
+2. **Un servicio POSTERGADO no bloquea río abajo.** Era la mitad que faltaba: si el cliente ya
+   dijo «seguí sin esto», ninguna pantalla posterior puede volver a exigirlo. Un botón que
+   ofrece una salida y después no la da **es peor que no ofrecerla** — la próxima vez el
+   cliente no le cree.
+3. **Y postergar NO esconde el formulario**, que es el error inverso y sale igual de caro: si
+   vuelve atrás a conectar, tiene que poder. Lo que cambia con el postergado es solo si FRENA.
+   El texto también: en vez de «Conectala para seguir» lee «La dejaste para después — podés
+   seguir». Repetirle que la conecte es desdecirse del botón que acaba de apretar.
+
+**Vive en:** app/onboarding/OnboardingWizard.tsx (`exige`, `esPantallaDeConexion`,
+`servicioReq`, `pasoPostergado`) · tests/onboarding-postergar.test.ts *— 16/08/2026*
+
+## ⚠️ El taller de paletas se le aplicaba a los CLIENTES, y esconder el aviso lo empeoró
+
+**Síntoma:** *«aún no están sus tareas y están todos los botones mal»*. En el tablero de un
+cliente: el header decía «27% · 4/15 del plan» —las 15 tareas cargadas, las mismas que están
+en la base— y las tarjetas, las columnas y los botones estaban **dibujados del color del
+fondo**. No faltaba nada: no se veía nada.
+
+**Causa:** `<TemaCandidato>` está montado en el **layout raíz** y su `<script>` corre antes
+del primer pintado aplicando el tema guardado en el `localStorage` **del navegador**, sin
+preguntar quién es. Los temas del taller incluyen paletas **claras** (`true-north` pone
+`--ink: #2E3440`), así que sobre el lienzo oscuro queda todo del color del fondo. Alcanza con
+abrir la app en un browser donde alguien probó paletas.
+
+**Y falla en silencio por diseño:** el mismo bloque CSS le pone una transición de color a
+TODOS los elementos, así que ni siquiera parpadea al aplicarse.
+
+**⚠️ La mitad más cara fue el arreglo anterior.** Horas antes se había reportado que el chip
+de «tema en prueba» saltaba en la primera pantalla de un cliente, y se tapó **el chip** con un
+`display:none`. Pero el chip no era la causa: era el único **AVISO** de que había un tema de
+laboratorio aplicado, y su única salida. Es «esconder el botón no protege nada», y volvió del
+otro lado una hora después — esta vez sin ninguna pista de qué estaba pasando.
+
+**La regla:** una herramienta de laboratorio que puede dejar la app inutilizable se gatea
+**en el server y en positivo** (solo admin), nunca escondiendo su interfaz. El `localStorage`
+lo escribe el navegador y no sabe de sesiones.
+
+**Y la señal para la próxima:** *todo* lavado —texto, bordes, botones, a la vez— no es
+hidratación ni datos: es una **paleta**. Los datos ya estaban en el header.
+
+**Vive en:** app/layout.tsx (el guard `esAdmin`) · app/globals.css (`[data-tema-candidato]`) ·
+lib/temas-candidatos.ts · tests/bienvenida.test.ts *— 16/08/2026*
+
+## Cómo se diagnostica «la pantalla está vacía» sin perder media hora
+
+De la corrida de arriba, el orden que **sí** cierra el caso rápido — y que no seguí:
+
+1. **¿Están los datos?** Una query a la tabla. (Estaban: 15 tareas.)
+2. **¿Los manda el server?** `curl` con la cookie de sesión y buscar un título en el HTML.
+   Si el HTML los trae, **el problema es del navegador** y todo el código de servidor queda
+   descartado de una.
+3. **Recién ahí, el navegador**, y lo primero es la **consola de quien lo está viendo** — no
+   reproducirlo en local. Reproducir un problema de `localStorage` en otra máquina es
+   imposible por definición: el estado que lo causa no viaja.
+
+Lo que hice mal: entre 2 y 3 me fui a pelear con Chrome headless y cookies de impersonación
+para ver la pantalla en local, cuando el estado que causaba el bug vivía en el browser del
+dueño. **Un bug que depende del navegador se pide, no se reproduce.**
+
+*Corrida del 16/08/2026 — plan vacío de un cliente.*
