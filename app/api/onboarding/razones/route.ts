@@ -15,7 +15,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
 import { getAvatares } from '@/lib/avatares';
-import { generarRazones, getRazones, setRazones, generarGuion, sugerirGuion, siguientePasoDefault, siguientePasoOpciones, setEstadoGuion, normalizarGuion, ESTADOS_GUION, type RazonCelda, type GuionItem, type EstadoGuion } from '@/lib/razones';
+import { generarRazones, getRazones, setRazones, generarGuion, sugerirGuion, siguientePasoDefault, siguientePasoOpciones, setEstadoGuion, borrarGuionDeCelda, editarTextoGuion, normalizarGuion, ESTADOS_GUION, type RazonCelda, type GuionItem, type EstadoGuion } from '@/lib/razones';
 import { getAngulosGuion } from '@/lib/guion-angulos-store';
 import { getEstructurasGuion } from '@/lib/guion-estructuras-store';
 import { elegirAngulo, formatoPorId, type Medio } from '@/lib/angulos-formatos';
@@ -57,7 +57,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  let body: { action?: string; razones?: unknown; id?: unknown; medio?: unknown; anguloId?: unknown; estructuraId?: unknown; siguientePaso?: unknown; nota?: unknown; respuestasAngulo?: unknown; guionId?: unknown; estado?: unknown };
+  let body: { action?: string; razones?: unknown; id?: unknown; medio?: unknown; anguloId?: unknown; estructuraId?: unknown; siguientePaso?: unknown; nota?: unknown; respuestasAngulo?: unknown; guionId?: unknown; estado?: unknown; texto?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   return runWithWorkspace(ws, async () => {
@@ -123,6 +123,16 @@ export async function POST(req: NextRequest) {
         const nuevoEstado = s(body.estado) as EstadoGuion;
         if (!ESTADOS_GUION.includes(nuevoEstado)) return Response.json({ ok: false, error: 'Estado inválido.' }, { status: 400 });
         const r = await setEstadoGuion(s(body.id), s(body.guionId), nuevoEstado);
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        return Response.json({ ok: true, ...(await estado()) });
+      }
+      if (body.action === 'guion-borrar') {
+        const r = await borrarGuionDeCelda(s(body.id), s(body.guionId));
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        return Response.json({ ok: true, ...(await estado()) });
+      }
+      if (body.action === 'guion-texto') {
+        const r = await editarTextoGuion(s(body.id), s(body.guionId), s(body.texto));
         if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
         return Response.json({ ok: true, ...(await estado()) });
       }

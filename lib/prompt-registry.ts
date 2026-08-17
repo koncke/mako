@@ -69,12 +69,6 @@ import {
   CAMPAIGN_ADJUST_SYSTEM_TEMPLATE,
   CAMPAIGN_ADJUST_USER_TEMPLATE,
 } from './campaign-structurer';
-import {
-  AD_COPY_SUGGEST_SYSTEM_TEMPLATE,
-  AD_COPY_SUGGEST_USER_TEMPLATE,
-  AD_COPY_ADJUST_SYSTEM_TEMPLATE,
-  AD_COPY_ADJUST_USER_TEMPLATE,
-} from './ad-copy';
 import { NUTRI_VOZ_SYSTEM_TEMPLATE, NUTRI_VOZ_USER_TEMPLATE, NUTRI_GEN_SYSTEM_TEMPLATE, NUTRI_GEN_USER_TEMPLATE } from './nutricion-generator';
 import { POST_LLAMADA_SYSTEM_TEMPLATE, POST_LLAMADA_USER_TEMPLATE } from './post-llamada';
 import { NUTRI_PLANTILLA_SYSTEM_TEMPLATE, NUTRI_PLANTILLA_USER_TEMPLATE } from './nutricion-plantillas';
@@ -704,41 +698,6 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
-    group: 'Ads Writer (copy de anuncios)',
-    icon: '✍️',
-    blurb: 'MaKo escribe variantes de copy de anuncios de Meta aterrizadas en los datos reales del negocio (oferta, avatar, funnel, ganadores), cada una con un ángulo distinto. El copy sale en español mexicano; la voz de MaKo va solo en la nota.',
-    entries: [
-      {
-        key: 'ads_writer.suggest.system', source: 'override',
-        label: 'Escribir copy de anuncios (system)', kind: 'system', dynamic: true,
-        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
-        default: AD_COPY_SUGGEST_SYSTEM_TEMPLATE,
-        context: 'Pone a MaKo a escribir variantes de copy de anuncios de Meta a partir del pedido y el brief del negocio. Define las reglas de copy y de idioma (español mexicano en el anuncio, voz rioplatense solo en la nota). No borres el slot {{jsonShape}} ni cambies el esquema del JSON o la pantalla deja de poder mostrar las variantes.',
-      },
-      {
-        key: 'ads_writer.suggest.user', source: 'override',
-        label: 'Pedido + contexto del negocio (user)', kind: 'user', dynamic: true,
-        variables: [v('prompt', 'lo que pidió el usuario'), v('contexto', 'brief del negocio: funnel + perfil + KPIs + ganadores')], scope: 'full', sensitive: false,
-        default: AD_COPY_SUGGEST_USER_TEMPLATE,
-        context: 'Le pasa a MaKo el pedido del usuario y el contexto real del negocio. Conservá los slots {{prompt}}/{{contexto}} y el pedido final del JSON.',
-      },
-      {
-        key: 'ads_writer.adjust.system', source: 'override',
-        label: 'Ajuste de copy (system)', kind: 'system', dynamic: true,
-        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
-        default: AD_COPY_ADJUST_SYSTEM_TEMPLATE,
-        context: 'Cuando el usuario pide un cambio a variantes ya escritas, MaKo aplica SOLO lo pedido y conserva el resto, manteniendo las reglas de copy e idioma. Conservá el slot {{jsonShape}} y el esquema del JSON.',
-      },
-      {
-        key: 'ads_writer.adjust.user', source: 'override',
-        label: 'Variantes actuales + cambio pedido (user)', kind: 'user', dynamic: true,
-        variables: [v('setActual', 'las variantes actuales en JSON'), v('instruccion', 'el cambio que pide el usuario'), v('contexto', 'brief del negocio')], scope: 'full', sensitive: false,
-        default: AD_COPY_ADJUST_USER_TEMPLATE,
-        context: 'Le pasa a MaKo las variantes actuales y el cambio pedido. Mantené los slots {{setActual}}/{{instruccion}}/{{contexto}} y el pedido de devolver el JSON completo.',
-      },
-    ],
-  },
-  {
     group: 'Coach de checklist de tareas (MaKo)',
     icon: '✅',
     blurb: 'MaKo hace preguntas para entender la tarea y luego propone los ítems de la checklist en el tablero /todo.',
@@ -784,25 +743,6 @@ export const REGISTRY: Group[] = [
         variables: [v('descripcion', 'lo que el usuario describe del proyecto')], scope: 'full', sensitive: false,
         default: PROYECTO_USER_TEMPLATE,
         context: 'Le pasa la descripción del proyecto. No borres el slot {{descripcion}}.',
-      },
-    ],
-  },
-  {
-    group: 'Customer Success · MaKo mejora la tarea del cliente',
-    icon: '📝',
-    blurb: 'Después de una sesión con un cliente, MaKo reescribe lo que ese cliente había contestado antes del bloque, incorporando lo que se afinó en la junta. El cliente ve las dos versiones y aprueba.',
-    entries: [
-      {
-        key: CS_REESCRITURA_KEY, source: 'override',
-        label: 'Reescribir la tarea con lo hablado en la junta', kind: 'system', dynamic: true,
-        variables: [
-          v('pregunta', 'qué preguntaba el bloque del programa'),
-          v('respuesta', 'lo que el cliente había escrito ANTES de la sesión'),
-          v('conversacion', 'el resumen y los puntos de la sesión'),
-        ],
-        scope: 'full', sensitive: false,
-        default: CS_REESCRITURA_TEMPLATE,
-        context: 'Lo que MaKo hace después de cada sesión con un cliente de Mauricio. AMPLÍA la respuesta del cliente, nunca la pisa: la propuesta va a una columna aparte y él elige. ⚠️ No saques la regla de devolver SIN_MATERIAL: es lo único que impide que invente una mejora cuando la junta no habló de ese bloque, y el código la valida además del prompt.',
       },
     ],
   },
@@ -926,6 +866,26 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
+    group: 'Customer Success · MaKo mejora la tarea del cliente',
+    icon: '📝',
+    blurb: 'Después de una sesión con un cliente, MaKo reescribe lo que ese cliente había contestado antes del bloque, incorporando lo que se afinó en la junta. El cliente ve las dos versiones y aprueba.',
+    entries: [
+      {
+        key: CS_REESCRITURA_KEY, source: 'override',
+        label: 'Reescribir la tarea con lo hablado en la junta', kind: 'system', dynamic: true,
+        variables: [
+          v('pregunta', 'qué preguntaba el bloque del programa'),
+          v('respuesta', 'lo que el cliente había escrito ANTES de la sesión'),
+          v('conversacion', 'el resumen y los puntos de la sesión'),
+        ],
+        scope: 'full', sensitive: false,
+        default: CS_REESCRITURA_TEMPLATE,
+        context: 'Lo que MaKo hace después de cada sesión con un cliente de Mauricio. AMPLÍA la respuesta del cliente, nunca la pisa: la propuesta va a una columna aparte y él elige. ⚠️ No saques la regla de devolver SIN_MATERIAL: es lo único que impide que invente una mejora cuando la junta no habló de ese bloque, y el código la valida además del prompt.',
+      },
+    ],
+  },
+  {
+
     group: 'MaKo · Reunión → Plan (Fathom)',
     icon: '🎙️',
     blurb: 'Cómo MaKo lee una reunión de Fathom y saca los action items concretos para el plan de ejecución.',

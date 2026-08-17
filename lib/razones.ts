@@ -289,7 +289,7 @@ export async function siguientePasoOpciones(): Promise<string[]> {
 // El mensaje de "no salió por la IA" ya no vive acá: lo arma `errorDeCascada`
 // (lib/ai-cheap.ts → lib/ia-mensajes.ts), que es el único que sabe distinguir «no hay
 // ninguna IA» de «hay tres cuentas y las tres fallaron». Había TRES copias de esta
-// frase en el repo y la de `generarRazones`, cien líneas más arriba en este mismo
+// frase en el repo y la de `generarRazones`, veinte líneas más arriba en este mismo
 // archivo, decía lo contrario que las otras dos.
 
 // ── Sugerencia de guion: MaKo elige TODO (la IA facilita, no interroga) ──────
@@ -418,6 +418,41 @@ export async function setEstadoGuion(celdaId: string, guionId: string, estado: E
   if (!celda.guiones.some((g) => g.id === guionId)) return { ok: false, error: 'Guion no encontrado.' };
   await setRazones(razones.map((r) => (
     r.id === celdaId ? { ...r, guiones: r.guiones.map((g) => (g.id === guionId ? { ...g, estado } : g)) } : r
+  )));
+  return { ok: true };
+}
+
+/**
+ * Borra UN guion. Como `setEstadoGuion`, relee del servidor antes de escribir.
+ *
+ * ⚠️ Es la diferencia entre perder trabajo y no perderlo. La acción `guardar`
+ * reemplaza la matriz ENTERA con lo que le mande el cliente: si esa pantalla
+ * tenía una copia vieja (porque la otra vista escribió mientras tanto), guardar
+ * un cambio chico borra todo lo que no estaba en esa copia. Pasó exactamente
+ * así: generabas un guion en la matriz y borrar otro en la galería lo hacía
+ * desaparecer.
+ */
+export async function borrarGuionDeCelda(celdaId: string, guionId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const razones = await getRazones();
+  const celda = razones.find((r) => r.id === celdaId);
+  if (!celda) return { ok: false, error: 'Celda no encontrada.' };
+  if (!celda.guiones.some((g) => g.id === guionId)) return { ok: false, error: 'Guion no encontrado.' };
+  await setRazones(razones.map((r) => (
+    r.id === celdaId ? { ...r, guiones: r.guiones.filter((g) => g.id !== guionId) } : r
+  )));
+  return { ok: true };
+}
+
+/** Reescribe el TEXTO de un guion, sin tocar el resto de la matriz. */
+export async function editarTextoGuion(celdaId: string, guionId: string, texto: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const limpio = texto.trim();
+  if (!limpio) return { ok: false, error: 'El guion no puede quedar vacío.' };
+  const razones = await getRazones();
+  const celda = razones.find((r) => r.id === celdaId);
+  if (!celda) return { ok: false, error: 'Celda no encontrada.' };
+  if (!celda.guiones.some((g) => g.id === guionId)) return { ok: false, error: 'Guion no encontrado.' };
+  await setRazones(razones.map((r) => (
+    r.id === celdaId ? { ...r, guiones: r.guiones.map((g) => (g.id === guionId ? { ...g, texto: limpio } : g)) } : r
   )));
   return { ok: true };
 }

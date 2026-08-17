@@ -1,84 +1,100 @@
 'use client';
 
 // =============================================================================
-// GuionesGlobal — TODOS los guiones del negocio, en una sola lista
+// GuionesGlobal — la galería con TODOS los guiones del negocio
 // =============================================================================
 // La matriz muestra los guiones de UNA celda por vez; esta vista los aplana:
-// cada guion de cada celda, con el avatar y la motivación de compra a los que
-// pertenece, filtrable por fecha, estado, ángulo y avatar. Es lo que convierte
-// al guion en una pieza que se sigue (¿cuáles quedaron en borrador?, ¿qué
-// grabamos esta semana?) en vez de un texto enterrado adentro de una celda.
+// cada guion de cada celda, con el avatar y la motivación de compra de la que
+// salió. Es lo que convierte al guion en una pieza que se sigue (¿cuáles quedaron
+// en borrador?, ¿qué grabamos esta semana?) en vez de un texto enterrado.
 //
-// Lee y escribe /api/onboarding/razones (la misma fuente que la matriz): cambiar
-// el estado va por la acción 'guion-estado', que toca UN guion y no reenvía la
-// matriz entera — si no, pisaría lo que se esté editando en la otra vista.
+// La barra pasó de SIETE controles en dos filas a TRES, y el ahorro no es
+// estético: el pipeline de estados es a la vez el RESUMEN y el FILTRO, así que
+// la fila de contadores desaparece sin perder información. Los <input type="date">
+// nativos —que se ven distinto en cada navegador— se van adentro del popover.
 // =============================================================================
 
-import { useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
-import { Dropdown } from '../components/Dropdown';
-import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
-import { EstadoChip } from '../onboarding/EstadoChip';
-import { ESTADOS_GUION, ESTADO_GUION_LABEL, fechaGuion, diaGuion, type EstadoGuion, type GuionItem } from '../onboarding/guion-ui';
+import { useMemo, useState, type CSSProperties } from 'react';
+import { Input, NoResults, EmptyState, Tag, Button } from '../_ui';
+import { GuionCard, GuionCardFantasma, GUION_CARD_MIN, type GuionCardData } from './GuionCard';
+import { GuionLector } from './GuionLector';
+import {
+  ESTADOS_GUION, ESTADO_GUION_LABEL, COLOR_ESTADO_GUION,
+  fechaGuion, diaGuion, type EstadoGuion, type GuionItem,
+} from '../onboarding/guion-ui';
 
 const MONO = "'Geist Mono', monospace";
-const SANS = "'Geist', sans-serif";
+const TODOS = '';
 
 type Avatar = { id: string; nombre: string; segmento: string };
 type Celda = { id: string; avatarId: string; nombre: string; guiones: GuionItem[] };
+type AnguloLite = { id: string; nombre: string; emoji: string };
 
-/** Un guion + de dónde salió. Es la unidad de esta vista. */
-type Fila = { g: GuionItem; celdaId: string; celdaNombre: string; avatarNombre: string; avatarId: string };
+type Fila = GuionCardData & { celdaId: string; avatarId: string };
 
-const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
-const btnMini: CSSProperties = { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12, fontWeight: 500, cursor: 'pointer', flex: 'none' };
-const inputFecha: CSSProperties = { fontFamily: SANS, fontSize: 12.5, color: 'var(--ink)', padding: '7px 9px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)' };
-
-const TODOS = '';
-
-export function GuionesGlobal({ celdas, avatares, onEstado, onBorrar, onIrAMatriz }: {
+export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, onRetroceder, onBorrar, onIrAMatriz, onEditar, onEscribirPrimero }: {
   celdas: Celda[];
   avatares: Avatar[];
+  angulos: AnguloLite[];
+  cargando: boolean;
   onEstado: (celdaId: string, guionId: string, estado: EstadoGuion) => void;
-  onBorrar: (celdaId: string, guionId: string) => void;
+  /** Salida desde 'publicado', que el chip ya no hace solo. Confirma arriba. */
+  onRetroceder: (celdaId: string, guionId: string) => void;
+  /** Devuelve si el guion se borró de verdad: el lector se cierra SOLO si sí.
+   *  Antes se cerraba de una y la pregunta «¿Borrar?» quedaba flotando sobre la
+   *  galería, así que cancelar te dejaba igual afuera del guion que estabas leyendo. */
+  onBorrar: (celdaId: string, guionId: string) => Promise<boolean>;
   onIrAMatriz: (celdaId: string) => void;
+  onEditar: (celdaId: string, guionId: string, texto: string) => void;
+  onEscribirPrimero: () => void;
 }) {
   const [q, setQ] = useState('');
-  const [fEstado, setFEstado] = useState<string>(TODOS);
-  const [fAngulo, setFAngulo] = useState<string>(TODOS);
-  const [fAvatar, setFAvatar] = useState<string>(TODOS);
+  // Multi-selección: el pipeline es resumen y filtro a la vez. Vacío = todos.
+  const [estadosOn, setEstadosOn] = useState<EstadoGuion[]>([]);
+  const [fAngulo, setFAngulo] = useState(TODOS);
+  const [fAvatar, setFAvatar] = useState(TODOS);
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
-  const [orden, setOrden] = useState<'nuevos' | 'viejos'>('nuevos');
-  const [abiertoId, setAbiertoId] = useState<string | null>(null);
-  const [copiado, setCopiado] = useState<string | null>(null);
+  const [menu, setMenu] = useState<null | 'raiz' | 'angulo' | 'avatar' | 'fecha'>(null);
+  const [abierto, setAbierto] = useState<string | null>(null);
+
+  const emojiDe = useMemo(() => {
+    const m = new Map(angulos.map((a) => [a.id, a.emoji]));
+    return (g: GuionItem) => m.get(g.anguloId);
+  }, [angulos]);
 
   const filas = useMemo<Fila[]>(() => {
-    const nombreAvatar = new Map(avatares.map((a) => [a.id, a.nombre]));
+    const nombre = new Map(avatares.map((a) => [a.id, a.nombre]));
     return celdas.flatMap((c) => c.guiones.map((g) => ({
       g, celdaId: c.id, celdaNombre: c.nombre,
-      avatarId: c.avatarId, avatarNombre: nombreAvatar.get(c.avatarId) ?? 'Sin avatar',
+      avatarId: c.avatarId, avatarNombre: nombre.get(c.avatarId) ?? 'Sin avatar',
+      anguloEmoji: emojiDe(g),
     })));
-  }, [celdas, avatares]);
+  }, [celdas, avatares, emojiDe]);
 
-  // Las opciones de ángulo salen de los guiones REALES, no del catálogo: un
-  // filtro que ofrece ángulos sin ningún guion solo da resultados vacíos.
-  const angulos = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const f of filas) if (f.g.anguloNombre) m.set(f.g.anguloNombre, f.g.anguloNombre);
-    return [...m.keys()].sort((a, b) => a.localeCompare(b, 'es'));
+  // Las opciones salen de los guiones REALES: un filtro que ofrece un ángulo sin
+  // ningún guion solo entrega resultados vacíos.
+  const angulosUsados = useMemo(() => {
+    const s = new Set(filas.map((f) => f.g.anguloNombre).filter(Boolean));
+    return [...s].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [filas]);
+
+  const porEstado = useMemo(() => {
+    const m = Object.fromEntries(ESTADOS_GUION.map((e) => [e, 0])) as Record<EstadoGuion, number>;
+    for (const f of filas) m[f.g.estado] += 1;
+    return m;
   }, [filas]);
 
   const visibles = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const out = filas.filter((f) => {
-      if (fEstado && f.g.estado !== fEstado) return false;
+      if (estadosOn.length && !estadosOn.includes(f.g.estado)) return false;
       if (fAngulo && f.g.anguloNombre !== fAngulo) return false;
       if (fAvatar && f.avatarId !== fAvatar) return false;
       if (desde || hasta) {
         const dia = diaGuion(f.g.creadoEn);
-        // Un guion sin fecha (anterior al campo) NO puede afirmarse dentro de un
-        // rango: se oculta cuando hay filtro de fechas, en vez de colarse.
+        // Un guion sin fecha no puede afirmarse dentro de un rango: se oculta
+        // cuando hay filtro de fechas, en vez de colarse.
         if (!dia) return false;
         if (desde && dia < desde) return false;
         if (hasta && dia > hasta) return false;
@@ -89,21 +105,30 @@ export function GuionesGlobal({ celdas, avatares, onEstado, onBorrar, onIrAMatri
       }
       return true;
     });
-    // Los "sin fecha" (creadoEn 0) van SIEMPRE al final, en los dos órdenes: en
-    // ascendente encabezarían la lista fingiendo ser los más viejos.
+    // Los «sin fecha» van SIEMPRE al final: en ascendente encabezarían la lista
+    // fingiendo ser los más viejos.
     return out.sort((a, b) => {
       if (!a.g.creadoEn && !b.g.creadoEn) return 0;
       if (!a.g.creadoEn) return 1;
       if (!b.g.creadoEn) return -1;
-      return orden === 'nuevos' ? b.g.creadoEn - a.g.creadoEn : a.g.creadoEn - b.g.creadoEn;
+      return b.g.creadoEn - a.g.creadoEn;
     });
-  }, [filas, q, fEstado, fAngulo, fAvatar, desde, hasta, orden]);
+  }, [filas, q, estadosOn, fAngulo, fAvatar, desde, hasta]);
 
-  const hayFiltro = !!(q || fEstado || fAngulo || fAvatar || desde || hasta);
-  const limpiar = () => { setQ(''); setFEstado(TODOS); setFAngulo(TODOS); setFAvatar(TODOS); setDesde(''); setHasta(''); };
+  const nFiltros = (fAngulo ? 1 : 0) + (fAvatar ? 1 : 0) + (desde || hasta ? 1 : 0);
+  const hayFiltro = !!(q || estadosOn.length || nFiltros);
+  const limpiar = () => { setQ(''); setEstadosOn([]); setFAngulo(TODOS); setFAvatar(TODOS); setDesde(''); setHasta(''); };
 
+  const togglePipeline = (e: EstadoGuion) =>
+    setEstadosOn((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));
+
+  const filaAbierta = abierto ? filas.find((f) => f.g.id === abierto) ?? null : null;
+  const avatarNombreDe = (id: string) => avatares.find((a) => a.id === id)?.nombre;
+
+  // Devuelve si copió DE VERDAD: sin clipboard (http:// en la red local, permiso
+  // denegado) el catch se tragaba el error y el botón decía «Copiado» igual.
   const copiar = async (g: GuionItem) => {
-    try { await navigator.clipboard.writeText(g.texto); setCopiado(g.id); setTimeout(() => setCopiado(null), 1600); } catch { /* sin portapapeles */ }
+    try { await navigator.clipboard.writeText(g.texto); return true; } catch { return false; }
   };
   const descargar = (f: Fila) => {
     const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi, '-').replace(/^-|-$/g, '');
@@ -114,101 +139,247 @@ export function GuionesGlobal({ celdas, avatares, onEstado, onBorrar, onIrAMatri
     URL.revokeObjectURL(url);
   };
 
-  // Cuántos hay en cada estado: el pulso de la producción de un vistazo.
-  const porEstado = useMemo(() => {
-    const m = Object.fromEntries(ESTADOS_GUION.map((e) => [e, 0])) as Record<EstadoGuion, number>;
-    for (const f of filas) m[f.g.estado] += 1;
-    return m;
-  }, [filas]);
+  if (cargando && !filas.length) {
+    return (
+      <div style={grilla}>
+        {Array.from({ length: 6 }, (_, i) => <GuionCardFantasma key={i} />)}
+      </div>
+    );
+  }
 
   if (!filas.length) {
     return (
-      <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', padding: '56px 0' }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
-        <h2 style={{ fontSize: 23, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 10px' }}>Todavía no escribiste ningún guion</h2>
-        <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>Ve a <b>Matriz</b>, abre un anuncio y pídele a MaKo que lo escriba. Acá vas a ver todos juntos, con su estado.</div>
-      </div>
+      <EmptyState
+        titulo="Todavía no escribiste ningún guion"
+        detalle="Cada anuncio de la matriz puede tener varios guiones, uno por ángulo, para testearlos por separado. MaKo elige el ángulo y lo escribe con tu voz."
+        accion={{ label: '✦ Escribir el primero', onClick: onEscribirPrimero }}
+      />
     );
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-        <div style={eyebrow}>{visibles.length} de {filas.length} guiones</div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {ESTADOS_GUION.map((e) => (
-            <button key={e} type="button" onClick={() => setFEstado(fEstado === e ? TODOS : e)}
-              style={{ ...btnMini, background: fEstado === e ? 'var(--primary-bg)' : 'var(--surface)', borderColor: fEstado === e ? 'var(--primary)' : 'var(--border-strong)', color: fEstado === e ? 'var(--primary)' : 'var(--dim)' }}>
-              {ESTADO_GUION_LABEL[e]} · {porEstado[e]}
-            </button>
+      {/* ── La barra: tres controles ─────────────────────────────────────────
+          ⚠️ El botón «Filtrar» y su popover viven FUERA del `.mk-scroll-x`. Esa
+          clase es `overflow-x: auto`, y por la regla de CSS Overflow el eje que
+          queda en `visible` pasa a `auto`: la caja recorta en LOS DOS ejes. Con
+          el popover adentro, colgado con `top: calc(100% + 6px)` de una fila de
+          ~44px, el menú caía justo fuera del área pintable y no se veía NADA —
+          ángulo, avatar y fecha quedaban inalcanzables. El scroll de mobile lo
+          sigue teniendo el pipeline, que es lo único que se pone ancho. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <Input value={q} onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar en el texto del guion…"
+          aria-label="Buscar en el texto del guion"
+          style={{ maxWidth: 280, minWidth: 190, flex: '1 1 190px' }} />
+
+        <div className="mk-scroll-x" style={{ flex: '0 1 auto', minWidth: 0 }}>
+          {/* El pipeline: resumen Y filtro. Por eso desapareció una fila entera. */}
+          <div style={capsula} role="group" aria-label="Filtrar por estado">
+            {ESTADOS_GUION.map((e) => {
+              const on = estadosOn.includes(e);
+              return (
+                <button key={e} type="button" className="mk-pipe-item" onClick={() => togglePipeline(e)}
+                  aria-pressed={on}
+                  style={{
+                    ...capsulaItem,
+                    background: on ? 'var(--surface)' : 'transparent',
+                    boxShadow: on ? '0 1px 2px rgba(18,21,27,.05)' : undefined,
+                    color: on ? 'var(--ink)' : 'var(--dim)',
+                    fontWeight: on ? 600 : 500,
+                  }}>
+                  <span aria-hidden style={{
+                    width: 7, height: 7, borderRadius: '50%', flex: 'none',
+                    background: on ? COLOR_ESTADO_GUION[e] : 'transparent',
+                    border: on ? 'none' : '1px solid var(--border-strong)',
+                  }} />
+                  {ESTADO_GUION_LABEL[e]}
+                  <span style={{ fontFamily: MONO, fontSize: 'var(--fs-meta)', fontVariantNumeric: 'tabular-nums', opacity: .75 }}>{porEstado[e]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Un botón, un popover con drill-down: el resto de los filtros. FUERA
+            del contenedor con overflow — ver el comentario de arriba. */}
+        <div style={{ position: 'relative', flex: 'none' }}>
+          <Button variant={nFiltros ? 'secondary' : 'tertiary'}
+            aria-haspopup="menu" aria-expanded={!!menu}
+            onClick={() => setMenu(menu ? null : 'raiz')}>
+            Filtrar{nFiltros ? ` · ${nFiltros}` : ''}
+          </Button>
+          {menu && (
+            <>
+              <div onClick={() => setMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+              <div style={popover} role="menu">
+                  {menu === 'raiz' && (
+                    <>
+                      <MenuFila label="Ángulo" valor={fAngulo || 'Todos'} onClick={() => setMenu('angulo')} />
+                      <MenuFila label="Avatar" valor={fAvatar ? (avatarNombreDe(fAvatar) ?? 'Uno') : 'Todos'} onClick={() => setMenu('avatar')} />
+                      <MenuFila label="Fecha" valor={desde || hasta ? 'Acotada' : 'Toda'} onClick={() => setMenu('fecha')} />
+                    </>
+                  )}
+                  {menu === 'angulo' && (
+                    <MenuSub titulo="Ángulo" onVolver={() => setMenu('raiz')}>
+                      <MenuOpcion label="Todos los ángulos" on={!fAngulo} onClick={() => { setFAngulo(TODOS); setMenu('raiz'); }} />
+                      {angulosUsados.map((a) => (
+                        <MenuOpcion key={a} label={a} on={fAngulo === a} onClick={() => { setFAngulo(a); setMenu('raiz'); }} />
+                      ))}
+                    </MenuSub>
+                  )}
+                  {menu === 'avatar' && (
+                    <MenuSub titulo="Avatar" onVolver={() => setMenu('raiz')}>
+                      <MenuOpcion label="Todos los avatares" on={!fAvatar} onClick={() => { setFAvatar(TODOS); setMenu('raiz'); }} />
+                      {avatares.map((a) => (
+                        <MenuOpcion key={a.id} label={a.nombre} sub={a.segmento} on={fAvatar === a.id} onClick={() => { setFAvatar(a.id); setMenu('raiz'); }} />
+                      ))}
+                    </MenuSub>
+                  )}
+                  {menu === 'fecha' && (
+                    <MenuSub titulo="Fecha" onVolver={() => setMenu('raiz')}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 2px' }}>
+                        <label style={campoFecha}>Desde
+                          <Input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} />
+                        </label>
+                        <label style={campoFecha}>Hasta
+                          <Input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} />
+                        </label>
+                        {(desde || hasta) && (
+                          <Button variant="tertiary" onClick={() => { setDesde(''); setHasta(''); }}>Quitar el rango</Button>
+                        )}
+                      </div>
+                    </MenuSub>
+                  )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Conteo + chips de lo que está filtrando, uno por CATEGORÍA */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        <span style={{ fontFamily: MONO, fontSize: 'var(--fs-meta)', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>
+          {visibles.length} de {filas.length}
+        </span>
+        {fAngulo && <ChipFiltro label={`Ángulo: ${fAngulo}`} onQuitar={() => setFAngulo(TODOS)} />}
+        {fAvatar && <ChipFiltro label={`Avatar: ${avatarNombreDe(fAvatar) ?? '—'}`} onQuitar={() => setFAvatar(TODOS)} />}
+        {(desde || hasta) && <ChipFiltro label={`Fecha: ${desde || '…'} → ${hasta || '…'}`} onQuitar={() => { setDesde(''); setHasta(''); }} />}
+        {hayFiltro && <button type="button" onClick={limpiar} style={linkLimpiar}>Limpiar todo</button>}
+      </div>
+
+      {visibles.length ? (
+        <div style={grilla}>
+          {visibles.map((f) => (
+            <GuionCard key={f.g.id} data={f}
+              onAbrir={() => setAbierto(f.g.id)}
+              onEstado={(e) => onEstado(f.celdaId, f.g.id, e)}
+              onRetrocederEstado={() => onRetroceder(f.celdaId, f.g.id)} />
           ))}
         </div>
-      </div>
-
-      {/* Filtros */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 13, background: 'var(--surface-2)', marginBottom: 14 }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar en el texto del guion…"
-          style={{ ...inputFecha, flex: '1 1 220px', minWidth: 0 }} />
-        <Dropdown value={fAngulo} onChange={setFAngulo} width={168} ariaLabel="Filtrar por ángulo" placeholder="Todos los ángulos"
-          options={[{ value: TODOS, label: 'Todos los ángulos' }, ...angulos.map((a) => ({ value: a, label: a }))]} />
-        <Dropdown value={fAvatar} onChange={setFAvatar} width={168} ariaLabel="Filtrar por avatar" placeholder="Todos los avatares"
-          options={[{ value: TODOS, label: 'Todos los avatares' }, ...avatares.map((a) => ({ value: a.id, label: a.nombre, sub: a.segmento }))]} />
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: SANS, fontSize: 12, color: 'var(--dim)' }}>
-          Desde <input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} style={inputFecha} />
-        </label>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: SANS, fontSize: 12, color: 'var(--dim)' }}>
-          Hasta <input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} style={inputFecha} />
-        </label>
-        <Dropdown value={orden} onChange={(v) => setOrden(v as 'nuevos' | 'viejos')} width={148} ariaLabel="Ordenar"
-          options={[{ value: 'nuevos', label: 'Más nuevos primero' }, { value: 'viejos', label: 'Más viejos primero' }]} />
-        {hayFiltro && <button type="button" onClick={limpiar} style={btnMini}>✕ Limpiar</button>}
-      </div>
-
-      {!visibles.length && (
-        <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center', padding: '34px 0' }}>
-          Ningún guion coincide con estos filtros.
-        </div>
+      ) : (
+        <NoResults query={q || undefined} onLimpiar={limpiar} />
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {visibles.map((f) => {
-          const abierto = abiertoId === f.g.id;
-          const secciones = parsearSecciones(f.g.texto, undefined, 20);
-          return (
-            <div key={f.g.id} style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', background: 'var(--surface-2)', borderBottom: abierto ? '1px solid var(--border)' : 'none', flexWrap: 'wrap' }}>
-                <button type="button" onClick={() => setAbiertoId(abierto ? null : f.g.id)}
-                  style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', alignItems: 'center', gap: 9, background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS, padding: 0 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 10px', flex: 'none' }}>{f.g.anguloNombre}</span>
-                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{f.celdaNombre}</span>
-                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--faint)' }}>· {f.avatarNombre}</span>
-                  <span aria-hidden style={{ marginLeft: 'auto', flex: 'none', color: 'var(--faint)', fontSize: 12, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
-                </button>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)', flex: 'none', whiteSpace: 'nowrap' }}>{fechaGuion(f.g.creadoEn)}{f.g.estructuraNombre ? ` · ${f.g.estructuraNombre}` : ''}</span>
-                <EstadoChip estado={f.g.estado} onChange={(e) => onEstado(f.celdaId, f.g.id, e)} />
-                <button type="button" onClick={() => onIrAMatriz(f.celdaId)} style={btnMini} title="Abrir este anuncio en la matriz">↗ Anuncio</button>
-                <button type="button" onClick={() => copiar(f.g)} style={btnMini} title="Copiar todo el guion">{copiado === f.g.id ? '✓ Copiado' : '📋 Copiar'}</button>
-                <button type="button" onClick={() => descargar(f)} style={btnMini} title="Descargar como .md">⬇ .md</button>
-                <button type="button" onClick={() => onBorrar(f.celdaId, f.g.id)} aria-label="Borrar guion" style={{ ...btnMini, padding: '5px 8px' }}>✕</button>
-              </div>
-              {abierto && (
-                <div style={{ padding: 12 }}>
-                  {secciones.length ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {secciones.map((s, i) => (
-                        <SeccionCard key={s.titulo + i} s={s} abiertoDefault={i < 1} icono="🎬" size="sm" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>{f.g.texto}</div>
-                  )}
-                  <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5, marginTop: 10 }}>Para editarlo, ábrelo en su anuncio con <b>↗ Anuncio</b>.</div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {filaAbierta && (
+        <GuionLector
+          g={filaAbierta.g}
+          celdaNombre={filaAbierta.celdaNombre}
+          avatarNombre={filaAbierta.avatarNombre}
+          anguloEmoji={filaAbierta.anguloEmoji}
+          onCerrar={() => setAbierto(null)}
+          onEstado={(e) => onEstado(filaAbierta.celdaId, filaAbierta.g.id, e)}
+          onRetrocederEstado={() => onRetroceder(filaAbierta.celdaId, filaAbierta.g.id)}
+          onEditar={(texto) => onEditar(filaAbierta.celdaId, filaAbierta.g.id, texto)}
+          onBorrar={async () => { if (await onBorrar(filaAbierta.celdaId, filaAbierta.g.id)) setAbierto(null); }}
+          onCopiar={() => copiar(filaAbierta.g)}
+          onDescargar={() => descargar(filaAbierta)}
+          irAlAnuncio={() => { setAbierto(null); onIrAMatriz(filaAbierta.celdaId); }}
+        />
+      )}
     </div>
   );
 }
+
+// ── Piezas del popover ───────────────────────────────────────────────────────
+function MenuFila({ label, valor, onClick }: { label: string; valor: string; onClick: () => void }) {
+  return (
+    <button type="button" className="mk-menu-fila" onClick={onClick} style={menuFila}>
+      <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
+      <span style={{ marginLeft: 'auto', color: 'var(--dim)', fontSize: 'var(--fs-sm)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{valor}</span>
+      <span aria-hidden style={{ color: 'var(--faint)' }}>›</span>
+    </button>
+  );
+}
+
+function MenuSub({ titulo, onVolver, children }: { titulo: string; onVolver: () => void; children: React.ReactNode }) {
+  return (
+    <>
+      <button type="button" className="mk-menu-fila" onClick={onVolver} style={{ ...menuFila, color: 'var(--dim)' }}>
+        <span aria-hidden>‹</span> <span style={{ fontWeight: 600 }}>{titulo}</span>
+      </button>
+      <div style={{ maxHeight: 260, overflowY: 'auto' }}>{children}</div>
+    </>
+  );
+}
+
+function MenuOpcion({ label, sub, on, onClick }: { label: string; sub?: string; on: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className="mk-menu-fila" onClick={onClick} style={{ ...menuFila, background: on ? 'var(--surface-2)' : 'transparent' }}>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontWeight: on ? 600 : 500, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        {sub && <span style={{ display: 'block', fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>{sub}</span>}
+      </span>
+      {on && <span style={{ marginLeft: 'auto', color: 'var(--primary)' }}>✓</span>}
+    </button>
+  );
+}
+
+function ChipFiltro({ label, onQuitar }: { label: string; onQuitar: () => void }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <Tag>{label}</Tag>
+      <button type="button" onClick={onQuitar} aria-label={`Quitar ${label}`}
+        style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--faint)', fontSize: 12, padding: 2 }}>✕</button>
+    </span>
+  );
+}
+
+// ── Estilos ──────────────────────────────────────────────────────────────────
+const grilla: CSSProperties = {
+  display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${GUION_CARD_MIN}px, 1fr))`, gap: 14,
+};
+
+const capsula: CSSProperties = {
+  display: 'inline-flex', flex: 'none', gap: 4, padding: 4,
+  background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)',
+};
+
+const capsulaItem: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 7,
+  minHeight: 'calc(var(--touch) - 8px)', padding: '0 13px', borderRadius: 'var(--r-sm)', border: 'none',
+  fontFamily: "'Geist', sans-serif", fontSize: 'var(--fs-sm)', cursor: 'pointer',
+  whiteSpace: 'nowrap', transition: 'background .14s ease, color .14s ease',
+};
+
+const popover: CSSProperties = {
+  position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50, width: 268,
+  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)',
+  boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6,
+};
+
+const menuFila: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+  minHeight: 'var(--touch)', padding: '6px 11px', borderRadius: 'var(--r-sm)', border: 'none', background: 'transparent',
+  cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 'var(--fs-sm)', color: 'var(--ink)',
+};
+
+const campoFecha: CSSProperties = {
+  display: 'flex', flexDirection: 'column', gap: 5,
+  fontSize: 'var(--fs-meta)', color: 'var(--dim)', fontWeight: 600,
+};
+
+const linkLimpiar: CSSProperties = {
+  border: 'none', background: 'none', cursor: 'pointer', padding: 0,
+  fontFamily: "'Geist', sans-serif", fontSize: 'var(--fs-meta)', color: 'var(--primary)', fontWeight: 600,
+};

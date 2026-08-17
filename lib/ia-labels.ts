@@ -23,7 +23,10 @@ export const IA_FEATURE_LABEL: Record<string, string> = {
   'chart-insights': 'Análisis de gráficos',
   validador: 'Validar plantilla de WhatsApp',
   'template-validator': 'Validar plantilla de WhatsApp',
-  'ads-writer': 'Escribir copy de anuncios',
+  // Feature RETIRADA (el generador de copy suelto se reemplazó por la fábrica de
+  // guiones en /content-machine). La etiqueta se queda: el historial de gasto de
+  // IA tiene filas viejas con este tag y sin esto se verían como un slug crudo.
+  'ads-writer': 'Escribir copy de anuncios (retirado)',
   'wa-template': 'Redactar plantilla de WhatsApp',
   'wa-advisor-chat': 'Asesor de WhatsApp · chat',
   // Generación / escritura

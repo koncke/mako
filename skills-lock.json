@@ -14,6 +14,12 @@
       "skillPath": "skills/decision-maker/SKILL.md",
       "computedHash": "16bdaf566473a9c216e10246a42e04e7bc325fa74d7653546505e2dce0f07d02"
     },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "93f53fd1c0352d3d7ec17b8f73d7351bf76f4821e55d123c9d2abc2c53ba48e4"
+    },
     "grill-me": {
       "source": "mattpocock/skills",
       "ref": "main",
