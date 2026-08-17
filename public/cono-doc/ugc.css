@@ -11,19 +11,53 @@
 
 /* ── Lo único escrito a mano, y por qué ──────────────────────────────────────
  * El origen ocupa la ventana entera; acá el curso vive DENTRO del contenedor del
- * portal, que está topeado y centrado. Sin romper ese ancho, el shell (que mide
- * 1536) se sale de su caja (984) y el panel del documento queda CORTADO a la
- * derecha — que es exactamente el síntoma que se reportó.
- * Se rompe el ancho con el truco de siempre, sin tocar el layout del portal. */
-.ahdoc-full {
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
-  position: relative;
-}
-/* El fondo de papel y el grano son de pantalla completa y van DETRÁS de todo. */
-.ahdoc-full > .paper-bg, .ahdoc-full > .grain { position: absolute; inset: 0; pointer-events: none; }
-.ahdoc-full > .ugc { position: relative; z-index: 1; }
+ * portal, que está topeado. El shell del origen mide 1536 y su caja 984, así que se
+ * desbordaba y el panel del documento quedaba CORTADO a la derecha.
+ *
+ * ⚠️ NO se arregla ensanchando el contenedor. Se probó con el
+ * width:100vw + margin-left:calc(50% - 50vw) de siempre y quedó PEOR: la barra se
+ * fue a x = -284, o sea fuera de la pantalla. El contenedor ya se salía por su
+ * cuenta —heredaba reglas de body del origen— y el truco lo corrió una segunda
+ * vez. Dos correcciones del mismo ancho se suman.
+ *
+ * Lo correcto es al revés: que el shell se ADAPTE a su caja. El layout del origen es
+ * fluido (flex con una columna fija de 262 px), así que con el ancho al 100% entra
+ * en cualquier contenedor sin cortar nada. */
+/* ⚠️ ESTAS VAN AL FINAL Y CON !important, y no es pereza: las reglas del origen son
+ * más específicas (.ahdoc .ugc .ugc-main, tres clases) que cualquier cosa razonable
+ * que se escriba acá, así que sin esto el shell sigue midiendo 1274 dentro de una caja
+ * de 984 y el panel del documento queda cortado a la derecha. Medido. */
+/* ⚠️ EL DESBORDE VIENE DEL PROPIO ORIGEN, NO DE ACÁ. Su regla dice
+ *   .ugc-shell { margin: -26px calc(50% - 50vw) -90px; min-height: calc(100vh - …) }
+ * o sea que el shell se sale de su caja A PROPÓSITO para ocupar la ventana. Allá eso
+ * funciona porque su caja ES la ventana; acá vive dentro del contenedor del portal, y
+ * el resultado es que la barra se superpone y el panel del documento se corta a la
+ * mitad. Se neutraliza ese margen —no se agrega otro ancho, que fue el intento que
+ * mandó la barra a x = -284. */
+.ahdoc .ugc .ugc-shell { margin-left: 0 !important; margin-right: 0 !important; min-height: 0 !important; }
+/* Y las dos columnas de la lección se reparten el ancho real, sin anchos fijos. */
+.ahdoc .ugc .ugc-split { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.ahdoc .ugc .ugc-vcol, .ahdoc .ugc .ugc-pcol { width: auto !important; max-width: none !important; min-width: 0 !important; }
+/* ⚠️ La tarjeta de módulo mostraba SOLO la portada hasta pasarle el cursor: en el
+ * origen el cuerpo aparece en hover porque la tarjeta vive en un carrusel angosto.
+ * Acá el título y la duración tienen que verse siempre — una grilla de tapas mudas
+ * no dice qué es cada cosa. */
+.ahdoc .ugc .ugc-modcard-body { opacity: 1 !important; visibility: visible !important; transform: none !important; max-height: none !important; }
+.ahdoc { overflow: visible !important; }
+.ahdoc .ugc,
+.ahdoc .ugc .ugc-shell,
+.ahdoc .ugc .ugc-main,
+.ahdoc .ugc .ugc-content { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+/* El split del origen es de ancho fijo; acá se reparte lo que haya. */
+.ahdoc .ugc .ugc-split { display: flex !important; gap: 18px; align-items: flex-start; }
+.ahdoc .ugc .ugc-vcol,
+.ahdoc .ugc .ugc-pcol { flex: 1 1 0 !important; min-width: 0 !important; max-width: none !important; }
+/* El hero es un <button> acá (en el origen es un <a>): sin esto colapsa a 0 × 0. */
+.ahdoc .ugc .ugc-hero { display: block !important; width: 100% !important; }
+/* El fondo de papel y el grano cubren la caja del curso y van DETRÁS de todo. */
+.ahdoc > .paper-bg, .ahdoc > .grain { position: absolute; inset: 0; pointer-events: none; }
+.ahdoc { position: relative; }
+.ahdoc > .ugc { position: relative; z-index: 1; }
 
 @font-face { font-family: "Bricolage Grotesque"; font-style: normal; font-weight: 200 800; font-stretch: 100%; font-display: swap; src: url("/_next/static/media/93a6e477e1480c92-s.woff2") format("woff2"); unicode-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB; }
 @font-face { font-family: "Bricolage Grotesque"; font-style: normal; font-weight: 200 800; font-stretch: 100%; font-display: swap; src: url("/_next/static/media/c7e0cf6c760983e7-s.woff2") format("woff2"); unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
