@@ -170,6 +170,45 @@ propósito porque Gemini no lo toma.
 
 ---
 
+## La secuencia completa de un curso, y las tres etapas que se saltean solas
+
+**Escrito el 2026-08-16 porque me las salteé.** El pipeline tiene CINCO etapas y no
+estaban en ningún lado como *secuencia*: hay que deducirlas leyendo cinco scripts. Bajar y
+transcribir un curso **no lo publica**, y el que no lo sabe entrega la mitad creyendo que
+entregó todo. El dueño lo reportó como *«no veo aún nada de cambios en MaKo»*, que es
+exactamente cómo se ve esto.
+
+```
+1. <plataforma>-plan.mjs   → plan.json          (qué clases hay y dónde vive cada video)
+2. <plataforma>-bajar.mjs  → video/             (los archivos)
+3. curso-pipeline.mjs --drive                   (audio + transcripción + COPIA A DRIVE por ronda)
+4. curso-a-drive.mjs       → drive.json         (el videoId REAL de cada clase)
+5. curso-a-portal.mjs      → public/cono-tx/*.json + app/conocimientos/curso-<slug>.ts
+   …+ UN paso a mano: sumarlo a CURSOS_TODOS en app/conocimientos/catalogo.ts
+```
+
+Las tres que se saltean, y qué pasa con cada una:
+
+- ⚠️ **`--drive` en el paso 3.** Sin el flag, la subida a Drive no arranca hasta que
+  termina todo lo demás. **El diseño es que las cuatro cosas se solapen** —baja, convierte,
+  transcribe y sube al mismo tiempo—, y sin eso el curso tarda el doble sin que nada falle:
+  no hay error, solo lentitud, que es el modo de falla más difícil de notar.
+- ⚠️ **El paso 4 no es opcional aunque «ya esté en Drive».** `--solo-copiar` (lo que hace
+  el paso 3) copia pero **no resuelve los ids**, y `drive.json` es lo que come el paso 5.
+- ⚠️ **El paso 5 termina en `catalogo.ts`, a mano.** El script lo dice al terminar, pero es
+  un `console.log` al final de una corrida larga: si nadie lo lee, los archivos quedan
+  escritos y el curso **no existe** para el portal.
+
+**La regla que queda: «bajado» no es «entregado».** Un curso está entregado cuando se ve en
+`/conocimientos`, y entre una cosa y la otra hay tres pasos que no fallan si faltan —
+simplemente no pasan. Cuando un pipeline tiene etapas que se pueden omitir sin error,
+la secuencia se escribe entera en un lugar, que es esto.
+
+**Vive en:** `scripts/curso-pipeline.mjs` (`--drive`) · `scripts/curso-a-drive.mjs` ·
+`scripts/curso-a-portal.mjs` · `app/conocimientos/catalogo.ts` (`CURSOS_TODOS`)
+
+---
+
 ## Conseguir el material de origen: las trampas de Google Drive
 
 Todo lo que sigue se pagó en una corrida anterior y **no estaba escrito en ningún
