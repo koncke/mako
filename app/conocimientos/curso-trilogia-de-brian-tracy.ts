@@ -15,12 +15,13 @@ import type { Curso } from './curso';
 
 export const CURSO_TRILOGIA_DE_BRIAN_TRACY: Curso = {
   slug: 'trilogia-de-brian-tracy',
-  categoria: 'Ventas',
+  categoria: 'Desarrollo personal',
   cardDesc: '11 clases en 7 módulos.',
   eyebrow: 'Curso externo',
   titulo: 'Trilogía de BRIAN TRACY',
   subtitulo: '11 clases, 7 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '11 clases',
+  portada: '/cono-portadas/trilogia-de-brian-tracy.png',
   recursos: [
 
   ],
