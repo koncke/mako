@@ -1,34 +1,34 @@
-'use client';
+﻿'use client';
 
 /**
  * El curso de Avatar Hype tal como se ve EN SU PLATAFORMA, no adaptado al portal.
  *
- * ── Por qué existe una vista aparte ──────────────────────────────────────────
- * El portal (`CursoPortal`) tiene su propio lenguaje: grilla de tarjetas, módulos
- * plegables, la transcripción detrás de un `<details>`. Sirve para los 17 cursos que
- * son «video + transcripción». Éste no lo es: su valor está en el DOCUMENTO de cada
- * lección —los prompts con sus partes etiquetadas, las imágenes de referencia, los
- * clips— y en cómo está organizado, con el video a la izquierda y el papel a la
- * derecha. Metido en la grilla, ese material queda detrás de dos clicks y se pierde.
+ * â”€â”€ Por quÃ© existe una vista aparte â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * El portal (`CursoPortal`) tiene su propio lenguaje: grilla de tarjetas, mÃ³dulos
+ * plegables, la transcripciÃ³n detrÃ¡s de un `<details>`. Sirve para los 17 cursos que
+ * son Â«video + transcripciÃ³nÂ». Ã‰ste no lo es: su valor estÃ¡ en el DOCUMENTO de cada
+ * lecciÃ³n â€”los prompts con sus partes etiquetadas, las imÃ¡genes de referencia, los
+ * clipsâ€” y en cÃ³mo estÃ¡ organizado, con el video a la izquierda y el papel a la
+ * derecha. Metido en la grilla, ese material queda detrÃ¡s de dos clicks y se pierde.
  *
  * El molde es el del origen, capturado del DOM (`scripts/ah-html`), no reinventado:
  *
  *   .ugc-shell
- *     aside.ugc-side   marca · volver · Inicio · Recursos · MÓDULOS · avance
+ *     aside.ugc-side   marca Â· volver Â· Inicio Â· Recursos Â· MÃ“DULOS Â· avance
  *     .ugc-main
- *       .ugc-topbar    buscador · «Ir a…» · saludo
- *       .ugc-content   hero «Continúa aquí» · carrusel de módulos
- *                      —o, dentro de una lección— .ugc-split: video | papel
+ *       .ugc-topbar    buscador Â· Â«Ir aâ€¦Â» Â· saludo
+ *       .ugc-content   hero Â«ContinÃºa aquÃ­Â» Â· carrusel de mÃ³dulos
+ *                      â€”o, dentro de una lecciÃ³nâ€” .ugc-split: video | papel
  *
- * ⚠️ Los estilos son los del origen (`/cono-doc/ugc.css`, 550 reglas) y se cargan
+ * âš ï¸ Los estilos son los del origen (`/cono-doc/ugc.css`, 550 reglas) y se cargan
  *    junto con la vista. Todo va scopeado a `.ahdoc`: son clases suyas y en el CSS
- *    global chocarían con las nuestras en otras pantallas.
+ *    global chocarÃ­an con las nuestras en otras pantallas.
  *
- * ⚠️ QUÉ NO SE REPLICA, Y POR QUÉ. La barra del origen tiene dos capas: la del CURSO
- *    (módulos, progreso, volver) y la de SU PLATAFORMA (Comunicados, Propuestas,
+ * âš ï¸ QUÃ‰ NO SE REPLICA, Y POR QUÃ‰. La barra del origen tiene dos capas: la del CURSO
+ *    (mÃ³dulos, progreso, volver) y la de SU PLATAFORMA (Comunicados, Propuestas,
  *    Recomienda y gana, el chat de Ayuda, el Tour). La primera se replica entera. La
- *    segunda no: son features de su producto, y acá serían botones que no llevan a
- *    ningún lado — peor que no estar, porque prometen algo que no existe.
+ *    segunda no: son features de su producto, y acÃ¡ serÃ­an botones que no llevan a
+ *    ningÃºn lado â€” peor que no estar, porque prometen algo que no existe.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -48,7 +48,7 @@ function useCssDelOrigen() {
 
 const mmss = (s: string | undefined) => (s ?? '').trim();
 
-/** Los minutos de un módulo, sumando lo que cada clase declara («12:28»). */
+/** Los minutos de un mÃ³dulo, sumando lo que cada clase declara (Â«12:28Â»). */
 const minutosDe = (cs: Clase[]) => {
   const seg = cs.reduce((t, c) => {
     const m = /(\d{1,2}):(\d{2})/.exec(c.cardDesc || '');
@@ -64,18 +64,25 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
   const [abierta, setAbierta] = useState<Clase | null>(null);
   const [q, setQ] = useState('');
 
-  // Los módulos salen del `grupo` de cada clase, en el orden en que aparecen: es el
+  // Los mÃ³dulos salen del `grupo` de cada clase, en el orden en que aparecen: es el
   // mismo orden del curso y no hay que mantener una lista aparte que se desincronice.
+  // âš ï¸ EL NÃšMERO DEL MÃ“DULO SALE DEL CÃ“DIGO DE LA LECCIÃ“N, NO DE SU POSICIÃ“N.
+  //    La portada es `/cono-ugc/m<N>.webp` con el N del ORIGEN. Numerar por posiciÃ³n
+  //    (i+1) las corre: el origen tiene 5 mÃ³dulos y acÃ¡ hay 4 â€”el 2 es una tabla y no
+  //    tiene leccionesâ€”, asÃ­ que Â«Fundamentos del mÃ©todoÂ» (que allÃ¡ es el 3) salÃ­a con
+  //    la portada del 2, Â«CATÃLOGO DE MODELOS IAÂ». Se ve como un error de diseÃ±o y es
+  //    un Ã­ndice mal calculado.
   const modulos: Modulo[] = useMemo(() => {
     const m = new Map<string, Clase[]>();
     for (const c of curso.clases) {
-      const g = c.grupo || 'Sin módulo';
+      const g = c.grupo || 'Sin mÃ³dulo';
       if (!m.has(g)) m.set(g, []);
       m.get(g)!.push(c);
     }
-    return [...m.entries()].map(([nombre, clases], i) => ({
-      n: i + 1, nombre, clases, portada: `/cono-ugc/m${i + 1}.webp`,
-    }));
+    return [...m.entries()].map(([nombre, clases], i) => {
+      const n = Number((clases[0]?.codigo ?? '').split('.')[0]) || i + 1;
+      return { n, nombre, clases, portada: `/cono-ugc/m${n}.webp` };
+    });
   }, [curso.clases]);
 
   const filtradas = useMemo(() => {
@@ -86,16 +93,21 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
 
   const total = curso.clases.length;
 
-  // ⚠️ LOS DOS CONTENEDORES SON OBLIGATORIOS. `.ahdoc` es nuestro scope; `.ugc` es el
-  //    del origen, y **593 de las reglas están escritas bajo él** (contra 5 que aplican
-  //    sin él). Sin ese div en el medio el CSS no matchea nada y la pantalla queda con
-  //    las portadas apiladas a pantalla completa y el texto crudo — que es exactamente
-  //    como se veía antes de agregarlo.
+  // âš ï¸ LOS DOS CONTENEDORES SON OBLIGATORIOS. `.ahdoc` es nuestro scope; `.ugc` es el
+  //    del origen, y **593 de las reglas estÃ¡n escritas bajo Ã©l** (contra 5 que aplican
+  //    sin Ã©l). Sin ese div en el medio el CSS no matchea nada y la pantalla queda con
+  //    las portadas apiladas a pantalla completa y el texto crudo â€” que es exactamente
+  //    como se veÃ­a antes de agregarlo.
   return (
     <div className="ahdoc">
+      {/* El fondo del origen: el papel y el grano. Son dos divs vacÃ­os que en su app
+          cuelgan del contenedor raÃ­z; sin ellos el curso queda sobre el fondo liso de
+          MaKo y deja de parecerse, que fue lo primero que se notÃ³. */}
+      <div className="paper-bg" aria-hidden />
+      <div className="grain" aria-hidden />
       <div className="ugc">
       <div className="ugc-shell">
-        <aside className="ugc-side" aria-label="Navegación del curso">
+        <aside className="ugc-side" aria-label="NavegaciÃ³n del curso">
           <button type="button" className="ugc-side-brand" onClick={() => setAbierta(null)} title="Inicio del curso">
             <span>
               <span className="ugc-side-name">{curso.titulo}</span>
@@ -104,7 +116,7 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
           </button>
           {onSalir && (
             <button type="button" className="ugc-side-exit" onClick={onSalir} title="Volver a los cursos">
-              <span className="ugc-side-exit-label">← Volver a los cursos</span>
+              <span className="ugc-side-exit-label">â† Volver a los cursos</span>
             </button>
           )}
           <nav className="ugc-nav">
@@ -117,13 +129,13 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                 <span className="ugc-nav-count">{curso.recursos.length}</span>
               </button>
             )}
-            <div className="ugc-nav-h">Módulos</div>
+            <div className="ugc-nav-h">MÃ³dulos</div>
             {modulos.map((m) => (
               <button key={m.nombre} type="button" className="ugc-nav-item"
                 onClick={() => { setAbierta(null); setQ(m.nombre); }} title={m.nombre}>
                 <span className="ugc-nav-num">{m.n}</span>
                 <span className="ugc-nav-label">{m.nombre}</span>
-                <span className="ugc-nav-count">{m.clases.length} · {minutosDe(m.clases)}</span>
+                <span className="ugc-nav-count">{m.clases.length} Â· {minutosDe(m.clases)}</span>
               </button>
             ))}
           </nav>
@@ -133,7 +145,7 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
           <div className="ugc-topbar">
             <div className="ugc-search">
               <input value={q} onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar lección, modelo, formato…" aria-label="Buscar en el curso" />
+                placeholder="Buscar lecciÃ³n, modelo, formatoâ€¦" aria-label="Buscar en el curso" />
             </div>
             <span className="ugc-topbar-hi">{curso.titulo}</span>
           </div>
@@ -160,7 +172,7 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
   );
 }
 
-/** El índice: el hero de «continuá acá» y el carrusel de módulos. */
+/** El Ã­ndice: el hero de Â«continuÃ¡ acÃ¡Â» y el carrusel de mÃ³dulos. */
 function Indice({ curso, modulos, onAbrir }: { curso: Curso; modulos: Modulo[]; onAbrir: (c: Clase) => void }) {
   const primera = curso.clases[0];
   return (
@@ -170,7 +182,7 @@ function Indice({ curso, modulos, onAbrir }: { curso: Curso; modulos: Modulo[]; 
           {primera.portadaClase && <img className="ugc-hero-img" src={primera.portadaClase} alt="" aria-hidden />}
           <span className="ugc-hero-shade" aria-hidden />
           <span className="ugc-hero-body">
-            <span className="ugc-hero-eyebrow">Empezá acá{primera.codigo ? ` · ${primera.codigo}` : ''}</span>
+            <span className="ugc-hero-eyebrow">EmpezÃ¡ acÃ¡{primera.codigo ? ` Â· ${primera.codigo}` : ''}</span>
             <span className="ugc-hero-title">{primera.titulo}</span>
             <span className="ugc-hero-prog">
               <span className="ugc-prog-label">{curso.clases.length} clases</span>
@@ -180,7 +192,7 @@ function Indice({ curso, modulos, onAbrir }: { curso: Curso; modulos: Modulo[]; 
         </button>
       )}
 
-      <div className="ugc-rail-head"><h2>Los módulos</h2></div>
+      <div className="ugc-rail-head"><h2>Los mÃ³dulos</h2></div>
       <div className="ugc-rail">
         {modulos.map((m) => (
           <button key={m.nombre} type="button" className="ugc-modcard" onClick={() => onAbrir(m.clases[0])}>
@@ -191,7 +203,7 @@ function Indice({ curso, modulos, onAbrir }: { curso: Curso; modulos: Modulo[]; 
             </span>
             <span className="ugc-modcard-body">
               <span className="ugc-modcard-t">{m.nombre}</span>
-              <span className="ugc-modcard-meta">{m.clases.length} lecciones{minutosDe(m.clases) ? ` · ${minutosDe(m.clases)}` : ''}</span>
+              <span className="ugc-modcard-meta">{m.clases.length} lecciones{minutosDe(m.clases) ? ` Â· ${minutosDe(m.clases)}` : ''}</span>
             </span>
           </button>
         ))}
@@ -222,8 +234,8 @@ function TarjetaClase({ clase, onAbrir }: { clase: Clase; onAbrir: () => void })
 }
 
 /**
- * La lección: el split del origen —video a la izquierda, papel a la derecha— con la
- * navegación anterior/siguiente que la plataforma pone abajo.
+ * La lecciÃ³n: el split del origen â€”video a la izquierda, papel a la derechaâ€” con la
+ * navegaciÃ³n anterior/siguiente que la plataforma pone abajo.
  */
 function Leccion({ clase, curso, onVolver, onIr }: {
   clase: Clase; curso: Curso; onVolver: () => void; onIr: (c: Clase) => void;
@@ -247,8 +259,8 @@ function Leccion({ clase, curso, onVolver, onIr }: {
       .catch(() => setEstado('error'));
   }, [clase.docSlug, clase.hasDoc]);
 
-  // El botón «copiar» de cada bloque: su JS es del origen y no viaja. El texto sale
-  // del `.ugc-pre` del MISMO bloque, no del más cercano: una lección tiene hasta 14
+  // El botÃ³n Â«copiarÂ» de cada bloque: su JS es del origen y no viaja. El texto sale
+  // del `.ugc-pre` del MISMO bloque, no del mÃ¡s cercano: una lecciÃ³n tiene hasta 14
   // botones y equivocarse copia un prompt que no es, sin que se note.
   const alClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const btn = (e.target as HTMLElement).closest('.ugc-copy');
@@ -265,15 +277,25 @@ function Leccion({ clase, curso, onVolver, onIr }: {
   return (
     <div className="ugc-split">
       <div className="ugc-vcol">
+        <nav className="ugc-lecnav" style={{ marginBottom: 12 }}>
+          <button type="button" className="ugc-btn" onClick={onVolver}>â† Todas las clases</button>
+          {prev && <button type="button" className="ugc-btn" onClick={() => onIr(prev)}>â† Anterior</button>}
+          {next && <button type="button" className="ugc-btn" onClick={() => onIr(next)}>Siguiente â†’</button>}
+        </nav>
         <div className="ugc-ltitle">
-          <span className="ugc-pill">{curso.titulo}{clase.codigo ? ` · ${clase.codigo}` : ''}</span>
+          <span className="ugc-pill">{curso.titulo}{clase.codigo ? ` Â· ${clase.codigo}` : ''}</span>
           <h1>{clase.titulo}</h1>
         </div>
+        {/* âš ï¸ El reproductor de Drive necesita que le den ALTO. `.ugc-vframe` en el
+            origen envuelve un <video>, que trae su propia relaciÃ³n de aspecto; un
+            <iframe> no, asÃ­ que sin esto sale de 150 px â€”Â«el video chiquito y
+            cortadoÂ»â€”. Se fija 16:9, que es lo que son las clases. */}
         <div className="ugc-vcard">
-          <div className="ugc-vframe">
+          <div className="ugc-vframe" style={{ aspectRatio: '16 / 9', width: '100%' }}>
             {clase.videoId ? (
               <iframe src={`https://drive.google.com/file/d/${clase.videoId}/preview`}
-                allow="autoplay" title={clase.titulo} />
+                allow="autoplay" title={clase.titulo}
+                style={{ width: '100%', height: '100%', border: 0, display: 'block' }} />
             ) : clase.portadaClase ? (
               <img src={clase.portadaClase} alt="" aria-hidden />
             ) : null}
@@ -281,20 +303,22 @@ function Leccion({ clase, curso, onVolver, onIr }: {
           <div className="ugc-vbar"><span className="ugc-vbar-dur">{mmss(clase.cardDesc)}</span></div>
         </div>
 
+        {/* La navegaciÃ³n va ARRIBA del video ademÃ¡s de abajo: en una lecciÃ³n larga, un
+            Â«volverÂ» que vive al final del scroll es un Â«volverÂ» que no existe. */}
         <nav className="ugc-lecnav">
-          <button type="button" className="ugc-btn" onClick={onVolver}>← Todas las clases</button>
-          {prev && <button type="button" className="ugc-btn" onClick={() => onIr(prev)}>← {prev.titulo}</button>}
-          {next && <button type="button" className="ugc-btn" onClick={() => onIr(next)}>{next.titulo} →</button>}
+          <button type="button" className="ugc-btn" onClick={onVolver}>â† Todas las clases</button>
+          {prev && <button type="button" className="ugc-btn" onClick={() => onIr(prev)}>â† {prev.titulo}</button>}
+          {next && <button type="button" className="ugc-btn" onClick={() => onIr(next)}>{next.titulo} â†’</button>}
         </nav>
       </div>
 
       <div className="ugc-pcol">
-        {estado === 'cargando' && <div className="ugc-paper">Cargando el material…</div>}
+        {estado === 'cargando' && <div className="ugc-paper">Cargando el materialâ€¦</div>}
         {estado === 'error' && <div className="ugc-paper">No pude cargar el material de esta clase.</div>}
         {doc && (
           <>
             <div className="ugc-tabs">
-              <div className="ugc-tablist" role="tablist" aria-label="Contenido de la lección">
+              <div className="ugc-tablist" role="tablist" aria-label="Contenido de la lecciÃ³n">
                 {Object.keys(doc.paneles).map((n) => (
                   <button key={n} type="button" role="tab" aria-selected={tab === n}
                     className="ugc-tab" onClick={() => setTab(n)}>{n}</button>

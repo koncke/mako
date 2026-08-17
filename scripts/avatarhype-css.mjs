@@ -101,7 +101,29 @@ const cabecera = `/* Estilos del material de las clases de Avatar Hype.
  * ATENCION: el contenedor tiene que ser <div class="ahdoc"><div class="ugc">.
  * 593 de las reglas estan escritas bajo .ugc y solo 5 aplican sin el; sin ese div
  * en el medio el CSS no matchea y la pantalla queda con el contenido crudo apilado. */
-@import url('${FUENTES}');\n\n`;
+@import url('${FUENTES}');
+
+/* ── Lo único escrito a mano, y por qué ──────────────────────────────────────
+ * El origen ocupa la ventana entera; acá el curso vive DENTRO del contenedor del
+ * portal, que está topeado. El shell del origen mide 1536 y su caja 984, así que se
+ * desbordaba y el panel del documento quedaba CORTADO a la derecha.
+ *
+ * ⚠️ NO se arregla ensanchando el contenedor. Se probó con el
+ * `width:100vw; margin-left:calc(50% - 50vw)` de siempre y quedó PEOR: la barra se
+ * fue a x = -284, o sea fuera de la pantalla. El contenedor ya se salía por su
+ * cuenta —heredaba reglas de `body` del origen— y el truco lo corrió una segunda
+ * vez. Dos correcciones del mismo ancho se suman.
+ *
+ * Lo correcto es al revés: que el shell se ADAPTE a su caja. El layout del origen es
+ * fluido (flex con una columna fija de 262 px), así que con el ancho al 100% entra
+ * en cualquier contenedor sin cortar nada. */
+.ahdoc { overflow: visible; }
+.ahdoc .ugc, .ahdoc .ugc-shell, .ahdoc .ugc-main { width: 100%; max-width: 100%; min-width: 0; }
+/* El fondo de papel y el grano cubren la caja del curso y van DETRÁS de todo. */
+.ahdoc > .paper-bg, .ahdoc > .grain { position: absolute; inset: 0; pointer-events: none; }
+.ahdoc { position: relative; }
+.ahdoc > .ugc { position: relative; z-index: 1; }
+\n`;
 writeFileSync(SALIDA, cabecera + salida, 'utf8');
 console.log(`\n  reglas rescopeadas: ${reglas}`);
 console.log(`  → ${SALIDA}  (${Math.round((cabecera + salida).length / 1024)} KB)\n`);
