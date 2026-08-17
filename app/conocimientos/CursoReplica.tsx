@@ -370,6 +370,25 @@ function Leccion({ clase, curso, ir }: { clase: Clase; curso: Curso; ir: (v: Vis
         {estado === 'error' && <div className="ugc-paper">No pude cargar el material de esta clase.</div>}
         {activa === 'Transcripcion' ? (
           <div className="ugc-paper">
+            {/* Copiar y descargar, como en el resto del portal. Sin esto la
+                transcripcion es un muro de texto que no se puede llevar a ningun lado,
+                y es justamente lo que la gente usa para buscar y citar. */}
+            <div className="ugc-lecnav">
+              <button type="button" className="ugc-btn"
+                onClick={() => navigator.clipboard.writeText((tx ?? []).join('\n\n'))}>
+                Copiar transcripcion
+              </button>
+              <button type="button" className="ugc-btn" onClick={() => {
+                const nombre = String(clase.titulo).replace(/[<>:"/\\|?* -]+/g, ' ').trim().slice(0, 90);
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([(tx ?? []).join('\n\n')], { type: 'text/plain;charset=utf-8' }));
+                a.download = `${nombre}.txt`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+              }}>
+                Descargar .txt
+              </button>
+            </div>
             {tx?.map((p, k) => <p className="ugc-doc-p" key={k}>{p}</p>)}
           </div>
         ) : activa && doc?.paneles[activa] ? (

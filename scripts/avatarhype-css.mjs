@@ -147,6 +147,29 @@ const cabecera = `/* Estilos del material de las clases de Avatar Hype.
 /* El curso ocupa el alto disponible, no una franja al medio. */
 .ahdoc .ugc .ugc-shell { min-height: 70vh !important; align-items: stretch !important; }
 .ahdoc .ugc .ugc-content { padding: 0 !important; }
+/* El curso NO va en una caja: va sobre el papel, de borde a borde. El contenedor del
+ * portal lo metia en una franja centrada con margenes a los costados. */
+.ahdoc { width: 100vw !important; margin-left: calc(50% - 50vw) !important; margin-right: calc(50% - 50vw) !important; }
+.ahdoc .ugc .ugc-shell { max-width: none !important; margin: 0 !important; }
+/* La barra, pegada al borde izquierdo y de alto completo. */
+.ahdoc .ugc .ugc-side { position: sticky !important; top: 0; align-self: flex-start; height: 100vh !important; border-radius: 0 !important; flex: 0 0 268px !important; }
+/* Y el contenido, con aire: venia pegado contra la barra. */
+.ahdoc .ugc .ugc-main { padding: 24px 32px 48px !important; }
+/* ATENCION - LAS CLASES VAN EN GRILLA, NO EN CARRUSEL. En el origen .ugc-rail es una
+ * fila que se corre de costado, porque alla el indice muestra 5 modulos. Con 30 clases
+ * eso es una fila larguisima sin barra de scroll visible: navegar se vuelve imposible.
+ * Una grilla usa el alto, que es justo lo que sobra. */
+.ahdoc .ugc .ugc-rail {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+  gap: 18px !important;
+  overflow: visible !important;
+  scroll-snap-type: none !important;
+}
+.ahdoc .ugc .ugc-rail > * { scroll-snap-align: none !important; flex: none !important; width: auto !important; }
+/* El video, con su alto real: entraba a 150 px. */
+.ahdoc .ugc .ugc-vframe { aspect-ratio: 16 / 9 !important; height: auto !important; min-height: 0 !important; }
+.ahdoc .ugc .ugc-vcard { width: 100% !important; }
 .ahdoc { overflow: visible !important; }
 .ahdoc .ugc,
 .ahdoc .ugc .ugc-shell,
