@@ -2102,3 +2102,111 @@ aclaración se lee como completo.
 **Vive en:** `scripts/avatarhype-plan.mjs` (el plan, hecho) · `scripts/hotmart-plan.mjs` y
 `scripts/hotmart-bajar.mjs` (el molde; falta `avatarhype-bajar.mjs`) ·
 `app/conocimientos/curso.ts` (el curso en el portal, hoy con 6 clases)
+
+## Replicar la pantalla de OTRA plataforma: las cinco trampas que costaron cinco rondas
+
+**2026-08-17.** El curso de AvatarHype se replica con su propio CSS (2457 reglas
+re-scopeadas a `.ahdoc`) montado dentro del portal de MaKo. El dueño reportó la misma
+pantalla rota cinco veces seguidas. Ninguna de las cinco causas era la que parecía.
+
+### 1. La barra de scroll horizontal NO se arregla peleando con el ancho
+
+El CSS de origen espera ser la página entera; adentro del portal vive en un contenedor
+centrado con `max-width`. Para que se vea de borde a borde hay que romper la caja, y el
+truco estándar es `margin-inline: calc(50% - 50vw)`.
+
+**El problema: `50vw` incluye el ancho de la barra de scroll VERTICAL.** Con una página
+que scrollea, el breakout siempre sobra unos pixeles y aparece una barra horizontal. Se
+intentó corregir el ancho **dos veces** —una con `width: 100vw`, que además corrió la barra
+lateral a `x = -284`— y las dos veces la barra siguió.
+
+Se mata donde se crea, en el documento:
+
+    html:has(.ahdoc), body:has(.ahdoc) { overflow-x: hidden !important; }
+    .ahdoc { width: auto !important; overflow-x: clip !important; }
+
+**La regla:** un desborde de unos pocos pixeles producido por una unidad de viewport no se
+corrige ajustando esa unidad. Se recorta en el contenedor que scrollea.
+
+### 2. Una barra que no llega arriba puede tener el alto correcto
+
+Síntoma: «la sidebar no está a la altura TOTAL de la página», reportado dos veces. La
+barra medía **900 px de alto en una ventana de 900** — el alto estaba bien. Lo que estaba
+mal era el origen: arrancaba en **y = 84**, porque arriba vivían el header del portal
+compartido (`.al-top`, 60 px) y los 24 px de `padding-top` de `.cono-wrap`. Subirle el
+alto no podía arreglarlo nunca; había que sacar lo que la empujaba.
+
+Y el header de afuera era **chrome duplicado**: la réplica ya trae su marca y su «Volver a
+los cursos» en la propia barra. Es el mismo contenedor que se reportó tres veces como «la
+caja que tapa el papel».
+
+**La regla, para cualquier «no llega hasta el borde»: medí el ALTO y el ORIGEN por
+separado.** Son dos causas distintas y el síntoma es el mismo.
+
+### 3. Y el mismo elemento estaba bien en una pantalla y mal en la otra
+
+Después de sacar el chrome, el índice quedó en `y = 0` y la lección seguía en `y = 64`.
+Causa: `.ugc-side` es `position: sticky` con el `top: 64px` del origen, donde había un
+header de plataforma de 64 px que acá no existe.
+
+**Por qué solo se veía en una:** el índice mide justo 900 px, y **sticky sin scroll
+disponible no se despega**. La regla rota estaba en las dos pantallas desde el primer día;
+solo la que scrollea la mostraba. Si una medición sale bien, probala en una pantalla más
+alta que la ventana antes de darla por buena.
+
+### 4. El F5 volvía al índice con la URL correcta en la barra de direcciones
+
+El síntoma no se parecía al bug: la barra de direcciones decía
+`#curso=creativos-ugc-realistas&clase=15` y la pantalla mostraba el índice del curso. Las
+dos eran consistentes con su propia lectura, que es por qué no se veía.
+
+**Dos causas apiladas, las dos sobre el mismo hash compartido:**
+
+1. `CursoReplica` escribía el hash arrancando de un `URLSearchParams` vacío — o sea, lo
+   **reemplazaba**. En `/conocimientos` daba igual, pero en un link compartido ese hash lo
+   comparte con `PortalCompartido`, que guarda ahí el `curso=`. Abrir una clase lo borraba:
+   medido en producción, `#curso=creativos-ugc-realistas` pasaba a `#clase=1`.
+2. Arreglado eso, el hash sobrevivía **y la pantalla seguía mostrando el índice**. Los dos
+   efectos del padre corren en el mismo commit, y el que ESCRIBE lo hace con el `paso` del
+   render viejo —todavía vacío—, así que dejaba la URL pelada y recién en el render
+   siguiente ponía el curso y la clase. En el medio monta el hijo, y **los efectos del hijo
+   corren ANTES que los del padre**: la réplica leía el hash justo en la ventana en que
+   estaba vacío.
+
+**Las dos reglas:** el que escribe una clave de un estado compartido **parte de lo que
+hay**, nunca de vacío. Y un efecto que RESTAURA de la URL y otro que ESCRIBE a la URL
+necesitan un orden explícito — el que escribe espera a que el que lee haya pasado.
+
+### 5. Un pipe que filtra la salida filtra también el error
+
+Un commit salió verde con la mitad adentro. El bloque de reglas del generador vive dentro
+de un **template literal**, y el comentario que se agregó traía una comilla invertida: la
+cerraba, y el archivo dejaba de parsear. El generador tiraba `SyntaxError`, el
+`| Select-String "reglas"` no imprimía nada, y el `git add` del CSS no encontraba ningún
+cambio. Se detectó porque el commit dijo **«1 file changed»** donde tenían que ser dos.
+
+**La regla: después de un comando que genera un archivo, verificá el ARCHIVO, no la salida
+del comando.** Y si filtrás la salida con un pipe, el filtro tiene que dejar pasar los
+errores.
+
+### Lo que gobierna esto de acá en adelante
+
+- El typecheck y los 1025 tests pasan con la barra rota, el video colapsado y la búsqueda
+  encima del resto. **En una pantalla replicada lo único que verifica es el DOM medido**,
+  y con el número al lado: sin número no es una verificación, es una opinión.
+- **Y la verificación tiene que llegar por el camino del usuario.** El primer script de
+  prueba escribía `location.hash = 'clase=15'` a mano, lo que borraba el `curso=` — o sea,
+  la prueba reproducía el bug que venía a verificar y lo reportaba como fallo después de
+  arreglado. Navegando con clicks, dio bien.
+- Un byte `NUL` crudo se coló en la clase de saneo del nombre de archivo. Con ese byte
+  adentro la búsqueda declara binario el archivo y **no devuelve ni una línea**: contesta
+  vacío, y el vacío parece una respuesta. Está en `AGENTS.md`; acá se pagó igual.
+
+**Vive en:** `app/conocimientos/CursoReplica.tsx` (la vista) ·
+`app/compartido/[token]/PortalCompartido.tsx` (la carrera del hash) ·
+`scripts/avatarhype-css.mjs` (el bloque de cola, que es donde van las reglas nuevas;
+regenera `public/cono-doc/ugc.css`).
+
+**Lo que quedó SIN hacer:** el filtro por módulo se muestra escribiendo el nombre del
+módulo en el campo de búsqueda — funciona y se entiende, pero no es lo que hace el origen.
+Vive en el `setQ(m.nombre)` de `app/conocimientos/CursoReplica.tsx`.
