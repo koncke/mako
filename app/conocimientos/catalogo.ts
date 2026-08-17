@@ -180,9 +180,11 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
   CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY, CURSO_INSTITUTO_DE_COMUNICACION,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
-  // Los recursos se inyectan acá porque el archivo del curso lo REESCRIBE
-  // `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la próxima.
-  { ...CURSO_CREATIVOS_UGC_REALISTAS, recursos: RECURSOS_UGC },
+  // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
+  // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la
+  // próxima. `replica` hace que el curso se vea con la pantalla de su plataforma de
+  // origen en vez de con la grilla del portal — ver CursoReplica.tsx.
+  { ...CURSO_CREATIVOS_UGC_REALISTAS, recursos: RECURSOS_UGC, replica: true },
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

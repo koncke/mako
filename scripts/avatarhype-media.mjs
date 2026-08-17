@@ -42,8 +42,19 @@ mkdirSync(DESTINO, { recursive: true });
 
 const fichas = readdirSync(dirDocs).filter((f) => f.endsWith('.json'))
   .map((f) => JSON.parse(readFileSync(join(dirDocs, f), 'utf8')));
-const urls = [...new Set(fichas.flatMap((f) => [...(f.imagenes ?? []), ...(f.medios ?? [])]))]
-  .filter((u) => u.startsWith('/api/doc-media/'));
+// Las PORTADAS son parte de la pantalla, no del documento: la del hero, las de cada
+// tarjeta de módulo (`m1..m5`) y la de cada lección (por su código). No salen de las
+// fichas —el documento no las referencia— así que se listan aparte, desde el plan.
+const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
+const portadas = [
+  ...(plan.lecciones ?? []).map((l) => l.portada).filter(Boolean),
+  ...Array.from({ length: 8 }, (_, i) => `/covers/ugc-v9/m${i + 1}.webp`),
+];
+
+const urls = [...new Set([
+  ...fichas.flatMap((f) => [...(f.imagenes ?? []), ...(f.medios ?? [])]),
+  ...portadas,
+])].filter((u) => u.startsWith('/api/doc-media/') || u.startsWith('/covers/'));
 
 console.log(`\n  fichas   : ${fichas.length}`);
 console.log(`  a bajar  : ${urls.length} archivo(s)`);
@@ -128,7 +139,11 @@ await cmd('Network.setCacheDisabled', { cacheDisabled: true });
 //    «Recursos»: esos paneles no existen en el DOM hasta que se clickea su tab, así
 //    que su media nunca se pide y el informe las cuenta como «fallidas» sin decir por
 //    qué. Fueron 5 de 56, y las cinco vivían ahí.
-for (const f of fichas) {
+// El ÍNDICE del curso va primero: es la única pantalla que carga las portadas de los
+// módulos (`m1..m5`) y la del hero. Recorrer solo las lecciones las dejaba afuera.
+const rutas = [`/academy/${plan.academy?.curso ?? 'ugc'}`, ...fichas.map((f) => f.ruta)];
+for (const ruta of rutas) {
+  const f = fichas.find((x) => x.ruta === ruta) ?? { ruta };
   await cmd('Emulation.setFocusEmulationEnabled', { enabled: true });
   await cmd('Page.navigate', { url: BASE_ORIGEN + f.ruta });
   for (let k = 0; k < 25; k++) {

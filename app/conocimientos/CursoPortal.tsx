@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 // =============================================================================
 // CursoPortal — el portal de UN curso (hub + clase + recurso) y su diseño
@@ -17,6 +17,7 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import type { Curso, Clase, Recurso } from './curso';
+import CursoReplica from './CursoReplica';
 // El desplegable de la casa, y no uno propio: ya resuelve portal (para que no lo
 // recorte ningún overflow), click afuera, Escape, cierre al scrollear y foco. Sus
 // tokens viven en `:root` de globals.css, que carga el layout raíz — o sea que
@@ -882,6 +883,18 @@ export default function CursoPortal({ curso, vista, nav, salir, backLabel, compa
 }) {
   const clase = vista.clase != null ? curso.clases.find((c) => c.n === vista.clase) : undefined;
   const recurso = vista.r ? curso.recursos.find((r) => r.slug === vista.r) : undefined;
+
+  // ⚠️ UN CURSO PUEDE PEDIR SU PROPIA PANTALLA. Los 17 cursos del portal son «video +
+  // transcripción» y la grilla les queda bien. El de Avatar Hype no lo es: su valor
+  // está en el DOCUMENTO de cada lección —los prompts con sus partes etiquetadas, las
+  // imágenes, los clips— y en cómo está organizado, con el video y el papel lado a
+  // lado. Metido en la grilla, ese material queda detrás de dos clicks.
+  // Por eso `replica`: la vista reproduce la pantalla del origen. Es un atributo del
+  // CURSO y no un caso especial escrito acá — el día que haya un segundo curso así,
+  // se marca y ya está.
+  if (curso.replica) {
+    return <CursoReplica curso={curso} onSalir={salir} />;
+  }
 
   // ⚠️ NINGÚN «Volver» de este portal usa el Atrás del navegador. Los tres navegan
   // EXPLÍCITAMENTE al nivel de arriba, y no es purismo: cada intento de apoyarse en el

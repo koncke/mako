@@ -49,6 +49,10 @@ export type Clase = {
   // de toda la grilla para leer una sola clase.
   hasDoc?: boolean;              // si true, hay documento en /cono-doc/<docSlug>.json
   docSlug?: string;
+  // El código con el que la plataforma de origen numera la lección («4.1.1») y su
+  // portada replicada. Los usa la vista que reproduce el curso tal como se ve allá.
+  codigo?: string;
+  portadaClase?: string;
   recursoSlugs: string[];
   herramientas: Herramienta[];
 };
@@ -60,6 +64,12 @@ export type Curso = {
   // cursos: una miniatura de Drive por tarjeta son N requests a un dominio externo
   // que además exige que cada archivo esté compartido.
   portada?: string;
+  /**
+   * Este curso se muestra con la pantalla de SU plataforma de origen, replicada, en
+   * vez de con la grilla del portal. Se marca en `catalogo.ts` (no acá: este archivo
+   * es auto-generado). Ver `CursoReplica.tsx` para el porqué.
+   */
+  replica?: boolean;
   clases: Clase[]; recursos: Recurso[];
 };
 
