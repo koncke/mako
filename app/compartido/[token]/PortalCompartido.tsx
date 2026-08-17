@@ -50,9 +50,11 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
    *
    * Va en el HASH y no en la ruta porque la ruta la ocupa el token del share.
    */
+  const [leido, setLeido] = useState(false);
   useEffect(() => {
     const h = new URLSearchParams(location.hash.replace(/^#/, ''));
     const c = h.get('curso');
+    setLeido(true);
     if (!c) return;
     const n = Number(h.get('clase'));
     const p: Paso = { curso: c };
@@ -61,14 +63,29 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
     setPila([{}, p]);
   }, []);
 
+  /**
+   * ⚠️ EL `leido` NO SOBRA: sin el, este efecto BORRABA el hash antes de restaurarlo.
+   *
+   * En el mismo commit los dos efectos corren seguidos, y el de abajo lo hace con el
+   * `paso` del render VIEJO —todavia vacio—, asi que escribia la URL pelada. Recien en
+   * el render siguiente ponia `#curso=…&clase=15`. En el medio monta el hijo, y sus
+   * efectos corren ANTES que los del padre: la replica leia el hash justo en la ventana
+   * en que estaba vacio.
+   *
+   * El sintoma no se parecia a esto: refrescar sobre una clase dejaba el hash correcto en
+   * la barra de direcciones —el padre lo restauraba— pero la pantalla mostraba el indice
+   * del curso. La URL decia una cosa y la pantalla otra, y las dos eran consistentes con
+   * su propia lectura.
+   */
   useEffect(() => {
+    if (!leido) return;
     const h = new URLSearchParams();
     if (paso.curso) h.set('curso', paso.curso);
     if (paso.clase != null) h.set('clase', String(paso.clase));
     if (paso.r) h.set('r', paso.r);
     const s = h.toString();
     history.replaceState(null, '', s ? `#${s}` : location.pathname + location.search);
-  }, [paso.curso, paso.clase, paso.r]);
+  }, [leido, paso.curso, paso.clase, paso.r]);
 
   const nav = (p: Paso) => setPila((s) => [...s, p]);
   const back = () => setPila((s) => (s.length > 1 ? s.slice(0, -1) : s));
