@@ -78,10 +78,23 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
     window.addEventListener('hashchange', leer);
     return () => window.removeEventListener('hashchange', leer);
   }, []);
+  /**
+   * ⚠️ ESCRIBE SOLO SUS CLAVES; el resto del hash NO se toca.
+   *
+   * Arrancaba de un `URLSearchParams` vacio, o sea REEMPLAZABA el hash entero. En
+   * /conocimientos daba igual, pero en un link compartido el hash lo comparte con el
+   * portal, que guarda ahi el `curso=`: abrir una clase lo borraba, y al refrescar no
+   * quedaba de que curso era esa clase — volvias a la grilla de cursos.
+   *
+   * Medido en produccion: `#curso=creativos-ugc-realistas` pasaba a `#clase=1`.
+   *
+   * La regla, que vale para cualquier estado compartido en una misma URL: el que
+   * escribe parte de una clave PARTE DE LO QUE HAY, nunca de vacio.
+   */
   const ir = (v: Vista) => {
-    const h = new URLSearchParams();
-    if (v.clase) h.set('clase', String(v.clase));
-    if (v.recursos) h.set('v', 'recursos');
+    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+    if (v.clase) h.set('clase', String(v.clase)); else h.delete('clase');
+    if (v.recursos) h.set('v', 'recursos'); else h.delete('v');
     const s = h.toString();
     history.replaceState(null, '', s ? `#${s}` : location.pathname + location.search);
     setVista(v);

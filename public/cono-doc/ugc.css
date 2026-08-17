@@ -74,6 +74,20 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow-x: hidden !important; }
  * 150 px y rompe la fila. */
 .ahdoc .ugc .ugc-clip-drive, .ahdoc .ugc .ugc-media iframe { width: 100% !important; aspect-ratio: 9 / 16 !important; height: auto !important; border: 0; display: block; }
 .ahdoc .ugc .ugc-media { max-width: 220px !important; }
+/* LA REPLICA EMPIEZA EN y=0, y para eso hay que sacar el chrome del portal.
+ * Medido: .ahdoc arrancaba en 84 px -el header .al-top mide 60 y .cono-wrap pone 24 de
+ * padding-. La barra tenia 100vh pero empezaba 84 px abajo: sobresalia por abajo y no
+ * llegaba arriba. Subir el alto no arregla nada; hay que sacar lo que la empuja.
+ * El header no se pierde: la replica ya trae su marca y su "Volver a los cursos" en la
+ * propia barra, asi que el de afuera era chrome DUPLICADO -y es el contenedor que se
+ * reporto tres veces como "la caja que tapa el papel". */
+.cono-wrap:has(.ahdoc) { padding: 0 !important; max-width: none !important; width: auto !important; margin: 0 !important; }
+.cono-wrap:has(.ahdoc) .al-top, .cono-wrap:has(.ahdoc) .al-shared-ft { display: none !important; }
+.cono:has(.ahdoc), .cono:has(.ahdoc) > .paper-bg { min-height: 100vh !important; }
+/* Y con el wrap ya a ancho completo, el breakout deja de tener trabajo que hacer: sin
+ * esto los margenes negativos siguen corriendo la replica y vuelve a sobrar por un lado. */
+.cono-wrap:has(.ahdoc) .ahdoc { margin-inline: 0 !important; }
+
 /* Y el contenedor NO pinta: el papel tiene que verse. Un fondo propio encima del
  * papel es justo lo que hacia que pareciera una caja pegada arriba. */
 .ahdoc .ugc, .ahdoc .ugc .ugc-shell, .ahdoc .ugc .ugc-main, .ahdoc .ugc .ugc-content {
