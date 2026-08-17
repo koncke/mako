@@ -149,10 +149,27 @@ const cabecera = `/* Estilos del material de las clases de Avatar Hype.
 .ahdoc .ugc .ugc-content { padding: 0 !important; }
 /* El curso NO va en una caja: va sobre el papel, de borde a borde. El contenedor del
  * portal lo metia en una franja centrada con margenes a los costados. */
-.ahdoc { width: 100vw !important; margin-left: calc(50% - 50vw) !important; margin-right: calc(50% - 50vw) !important; }
-.ahdoc .ugc .ugc-shell { max-width: none !important; margin: 0 !important; }
-/* La barra, pegada al borde izquierdo y de alto completo. */
-.ahdoc .ugc .ugc-side { position: sticky !important; top: 0; align-self: flex-start; height: 100vh !important; border-radius: 0 !important; flex: 0 0 268px !important; }
+/* ATENCION - NADA DE 100vw. Es lo que metio la barra de scroll horizontal: 100vw
+ * incluye el ancho de la barra VERTICAL, asi que la pagina siempre queda unos pixeles
+ * mas ancha que la ventana. Se rompe la caja solo con margenes negativos y el ancho
+ * queda en auto, que para un bloque ya llena lo disponible. */
+.ahdoc { width: auto !important; margin-inline: calc(50% - 50vw) !important; max-width: none !important; }
+/* Y el contenedor NO pinta: el papel tiene que verse. Un fondo propio encima del
+ * papel es justo lo que hacia que pareciera una caja pegada arriba. */
+.ahdoc .ugc, .ahdoc .ugc .ugc-shell, .ahdoc .ugc .ugc-main, .ahdoc .ugc .ugc-content {
+  background: transparent !important; box-shadow: none !important; border: 0 !important;
+}
+.ahdoc .ugc .ugc-shell { max-width: none !important; margin: 0 !important; min-height: 100vh !important; align-items: stretch !important; }
+/* La barra, como la de MaKo: pegada al borde, de alto completo y fija al scrollear. */
+.ahdoc .ugc .ugc-side {
+  position: sticky !important; top: 0; align-self: stretch !important;
+  height: 100vh !important; max-height: 100vh !important; overflow-y: auto;
+  border-radius: 0 !important; flex: 0 0 268px !important;
+}
+/* El hero ocupaba media pantalla con un boton chico adentro. Se acota y el boton
+ * deja de ser un detalle: la tarjeta entera es el click. */
+.ahdoc .ugc .ugc-hero { max-height: 260px !important; min-height: 0 !important; }
+.ahdoc .ugc .ugc-hero-img { object-fit: cover !important; }
 /* Y el contenido, con aire: venia pegado contra la barra. */
 .ahdoc .ugc .ugc-main { padding: 24px 32px 48px !important; }
 /* ATENCION - LAS CLASES VAN EN GRILLA, NO EN CARRUSEL. En el origen .ugc-rail es una

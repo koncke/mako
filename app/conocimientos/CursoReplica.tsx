@@ -175,7 +175,8 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                   </div>
                 </>
               ) : (
-                <Indice curso={curso} modulos={modulos} onAbrir={(c) => ir({ clase: c.n })} />
+                <Indice curso={curso} modulos={modulos} onAbrir={(c) => ir({ clase: c.n })}
+                  onModulo={(m) => { ir({}); setQ(m.nombre); }} />
               )}
             </div>
           </div>
@@ -185,7 +186,17 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
   );
 }
 
-function Indice({ curso, modulos, onAbrir }: { curso: Curso; modulos: Modulo[]; onAbrir: (c: Clase) => void }) {
+/**
+ * El indice: el hero de por donde empezar y los modulos.
+ *
+ * ATENCION - NO va abajo una lista con TODAS las clases. Estaba, y contradecia a la
+ * barra: alli se ven 3 modulos y abajo aparecian las 30 clases sueltas, asi que el
+ * curso parecia tener dos organizaciones distintas al mismo tiempo. Un modulo se abre
+ * y muestra LAS SUYAS.
+ */
+function Indice({ curso, modulos, onAbrir, onModulo }: {
+  curso: Curso; modulos: Modulo[]; onAbrir: (c: Clase) => void; onModulo: (m: Modulo) => void;
+}) {
   const primera = curso.clases[0];
   return (
     <>
@@ -203,7 +214,7 @@ function Indice({ curso, modulos, onAbrir }: { curso: Curso; modulos: Modulo[]; 
       <div className="ugc-rail-head"><h2>Los modulos</h2></div>
       <div className="ugc-rail">
         {modulos.map((m) => (
-          <button key={m.nombre} type="button" className="ugc-modcard" onClick={() => onAbrir(m.clases[0])}>
+          <button key={m.nombre} type="button" className="ugc-modcard" onClick={() => onModulo(m)}>
             <span className="ugc-modcard-cover">
               <img src={m.portada} alt="" aria-hidden />
               <span className="shade" aria-hidden />
@@ -215,10 +226,6 @@ function Indice({ curso, modulos, onAbrir }: { curso: Curso; modulos: Modulo[]; 
             </span>
           </button>
         ))}
-      </div>
-      <div className="ugc-rail-head"><h2>Todas las clases</h2></div>
-      <div className="ugc-rail">
-        {curso.clases.map((c) => <TarjetaClase key={c.n} clase={c} onAbrir={() => onAbrir(c)} />)}
       </div>
     </>
   );
