@@ -38,6 +38,38 @@ export default function PortalCompartido({ invitado }: { invitado: string | null
   const paso = pila[pila.length - 1];
   const curso = paso.curso ? CURSOS_COMPARTIBLES.find((c) => c.slug === paso.curso) : undefined;
 
+  /**
+   * ⚠️ EL LUGAR SOBREVIVE AL REFRESH, y eso REVIERTE la decisión que estaba escrita
+   * arriba («la navegación es por ESTADO, no por URL»).
+   *
+   * El porqué original era razonable: que reenviar el link no mandara a una clase
+   * suelta. Lo que costaba era peor — con la navegación solo en memoria, un F5 (o
+   * volver a la pestaña más tarde) devolvía al selector de TODOS los cursos, y el
+   * invitado perdía dónde estaba en un curso de 30 clases. Decisión del dueño el
+   * 2026-08-17: que funcione igual que en el admin.
+   *
+   * Va en el HASH y no en la ruta porque la ruta la ocupa el token del share.
+   */
+  useEffect(() => {
+    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const c = h.get('curso');
+    if (!c) return;
+    const n = Number(h.get('clase'));
+    const p: Paso = { curso: c };
+    if (Number.isFinite(n) && n > 0) p.clase = n;
+    if (h.get('r')) p.r = h.get('r') ?? undefined;
+    setPila([{}, p]);
+  }, []);
+
+  useEffect(() => {
+    const h = new URLSearchParams();
+    if (paso.curso) h.set('curso', paso.curso);
+    if (paso.clase != null) h.set('clase', String(paso.clase));
+    if (paso.r) h.set('r', paso.r);
+    const s = h.toString();
+    history.replaceState(null, '', s ? `#${s}` : location.pathname + location.search);
+  }, [paso.curso, paso.clase, paso.r]);
+
   const nav = (p: Paso) => setPila((s) => [...s, p]);
   const back = () => setPila((s) => (s.length > 1 ? s.slice(0, -1) : s));
   /** Volver al hub del curso actual: lo que hace el rótulo de arriba. */
