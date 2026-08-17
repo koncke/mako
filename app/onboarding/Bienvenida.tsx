@@ -141,7 +141,16 @@ const nodos: Nodo[] = [];
     const color = suyas[0]?.color ?? 'var(--grafo-norte)';
     const x = px(168, ang);
     const y = py(168, ang);
-    nodos.push(nuevo({ id: p.id, x, y, r: 15, color, et: p.et, nivel: 1, demora: i * 0.09, de: { x: CX, y: CY } }, 1));
+    // ⚠️ EL `p-` NO ES DECORACIÓN. Los cinco pilares se llaman `oferta`, `avatar`,
+    // `mensaje`, `funnel`, `negocio` — y el catálogo REAL de áreas (nivel 2, de donde
+    // salen los nodos de abajo) trae varios con esos MISMOS ids. Sin prefijo, dos nodos
+    // distintos comparten id y eso rompe dos cosas a la vez, las dos en silencio:
+    //   · React ve dos hijos con la misma `key` y OMITE uno (lo dice él: «may cause
+    //     children to be duplicated and/or omitted»). Eran 444 avisos por carga.
+    //   · `refs.current` es un Map por id: el segundo nodo pisa al primero, así que uno
+    //     de los dos queda sin su <g> y NO flota — el bug de movimiento que se veía
+    //     como «se comporta de forma muy extraña» y que yo había atribuido al reloj.
+    nodos.push(nuevo({ id: `p-${p.id}`, x, y, r: 15, color, et: p.et, nivel: 1, demora: i * 0.09, de: { x: CX, y: CY } }, 1));
 
     const abanico = Math.min(30, 14 * suyas.length);
     suyas.forEach((a, j) => {
@@ -150,7 +159,7 @@ const nodos: Nodo[] = [];
       const ax = px(292, aAng);
       const ay = py(292, aAng);
       const iA = nodos.filter((n) => n.nivel === 2).length;
-      nodos.push(nuevo({ id: a.id, x: ax, y: ay, r: 9, color: a.color, et: a.nombre, nivel: 2, demora: iA * 0.05, de: { x, y } }, 0.68));
+      nodos.push(nuevo({ id: `a-${a.id}`, x: ax, y: ay, r: 9, color: a.color, et: a.nombre, nivel: 2, demora: iA * 0.05, de: { x, y } }, 0.68));
 
       // NIVEL 3: las partes de cada área y su polvo. Es lo que hace que el final se lea
       // como «lleno de cosas mías» en vez de como un diagrama de cinco cajas — el reclamo
@@ -161,14 +170,14 @@ const nodos: Nodo[] = [];
         const bx = px(bR, bAng);
         const by = py(bR, bAng);
         const iB = nodos.filter((n) => n.nivel === 3).length;
-        nodos.push(nuevo({ id: `${a.id}-${k}`, x: bx, y: by, r: 5, color: a.color, nivel: 3, demora: iB * 0.004, de: { x: ax, y: ay } }, 0.42));
+        nodos.push(nuevo({ id: `b-${a.id}-${k}`, x: bx, y: by, r: 5, color: a.color, nivel: 3, demora: iB * 0.004, de: { x: ax, y: ay } }, 0.42));
 
         for (let m = 0; m < 3; m++) {
           const cAng = bAng + (m - 1) * 3.1;
           const cR = bR + 48 + az(s + m * 7) * 40;
           const iC = nodos.filter((n) => n.nivel === 3).length;
           nodos.push(nuevo({
-            id: `${a.id}-${k}-${m}`, x: px(cR, cAng), y: py(cR, cAng),
+            id: `c-${a.id}-${k}-${m}`, x: px(cR, cAng), y: py(cR, cAng),
             r: 2.6 + az(s + m) * 1.2, color: a.color, nivel: 3, demora: iC * 0.006,
             de: { x: bx, y: by },
           }, 0.28));

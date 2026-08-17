@@ -104,3 +104,23 @@ test('el bloque de estilos no tiene comillas invertidas adentro', () => {
   const backticks = (bienvenida.slice(i).match(/`/g) ?? []).length;
   assert.equal(backticks, 2, 'hay comillas invertidas DENTRO del template de CSS: rompen el build');
 });
+
+test('ningún nodo del mapa comparte id con otro', () => {
+  // ⚠️ ESTO PRODUJO 444 ERRORES POR CARGA y ninguno se veía. Los cinco pilares se llaman
+  // `oferta`, `avatar`, `mensaje`, `funnel`, `negocio`, y el catálogo REAL de áreas —de
+  // donde salen los nodos del nivel 2— trae varios con esos mismos ids. Dos nodos con el
+  // mismo id rompen DOS cosas a la vez y las dos calladas:
+  //   · React ve dos hijos con la misma `key` y omite uno («may cause children to be
+  //     duplicated and/or omitted», textual de la consola).
+  //   · `refs.current` es un Map por id, así que el segundo nodo PISA al primero y uno de
+  //     los dos se queda sin su <g>: no flota. Ese era el movimiento raro que yo le había
+  //     atribuido al reloj de entrada.
+  //
+  // Se valida la forma que hace imposible la colisión —un prefijo por nivel— en vez de
+  // contar ids: el catálogo de áreas crece, y una lista que hoy no choca mañana sí.
+  const cons = bienvenida.match(/nuevo\(\{\s*id: `[^`]+`/g) ?? [];
+  assert.ok(cons.length >= 4, `esperaba 4 construcciones de nodo, encontré ${cons.length}`);
+  const prefijos = cons.map((c) => (c.match(/id: `([a-z])-/) ?? [])[1]);
+  assert.ok(prefijos.every(Boolean), `hay nodos cuyo id no arranca con un prefijo de nivel: ${cons.join(' | ')}`);
+  assert.equal(new Set(prefijos).size, prefijos.length, `dos niveles comparten prefijo: ${prefijos.join(', ')}`);
+});
