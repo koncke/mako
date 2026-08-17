@@ -161,7 +161,7 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow-x: hidden !important; }
 /* La barra ocupa TODA la altura, siempre: 100vh fijo, no "al menos". Lo que la dejaba
  * corta era que el shell le pasaba su propio alto. */
 .ahdoc .ugc .ugc-side { height: 100vh !important; min-height: 100vh !important; }
-/* Y pegada al TECHO. Es sticky con el `top: 64px` del origen, donde vivia un header de
+/* Y pegada al TECHO. Es sticky con el top:64px del origen, donde vivia un header de
  * plataforma de 64 px que aca no existe: en cualquier pantalla mas alta que la ventana la
  * barra se despegaba y dejaba una franja de papel arriba a la izquierda. En el indice no
  * se veia -mide justo 900 y sin scroll disponible sticky no se despega-, solo en la
