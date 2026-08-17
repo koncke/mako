@@ -144,51 +144,62 @@ const cabecera = `/* Estilos del material de las clases de Avatar Hype.
 /* Los botones de la leccion, con aire: venian pegados uno contra otro. */
 .ahdoc .ugc .ugc-lecnav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 .ahdoc .ugc .ugc-lecnav .ugc-btn { margin: 0 !important; }
-/* El curso ocupa el alto disponible, no una franja al medio. */
-.ahdoc .ugc .ugc-shell { min-height: 70vh !important; align-items: stretch !important; }
-.ahdoc .ugc .ugc-content { padding: 0 !important; }
-/* El curso NO va en una caja: va sobre el papel, de borde a borde. El contenedor del
- * portal lo metia en una franja centrada con margenes a los costados. */
-/* ATENCION - NADA DE 100vw. Es lo que metio la barra de scroll horizontal: 100vw
- * incluye el ancho de la barra VERTICAL, asi que la pagina siempre queda unos pixeles
- * mas ancha que la ventana. Se rompe la caja solo con margenes negativos y el ancho
- * queda en auto, que para un bloque ya llena lo disponible. */
-/* El breakout necesita 50vw si o si, y 50vw incluye la barra vertical: siempre sobran
- * unos pixeles. La barra horizontal se mata donde SE CREA -en el documento- y no
- * peleando con el ancho, que fue lo que no funciono las dos veces anteriores. */
-html:has(.ahdoc), body:has(.ahdoc) { overflow-x: hidden !important; }
-.ahdoc { width: auto !important; margin-inline: calc(50% - 50vw) !important; max-width: none !important; overflow-x: clip !important; }
-/* La barra ocupa TODA la altura, siempre: 100vh fijo, no "al menos". Lo que la dejaba
- * corta era que el shell le pasaba su propio alto. */
-.ahdoc .ugc .ugc-side { height: 100vh !important; min-height: 100vh !important; }
-/* Y pegada al TECHO. Es sticky con el top:64px del origen, donde vivia un header de
- * plataforma de 64 px que aca no existe: en cualquier pantalla mas alta que la ventana la
- * barra se despegaba y dejaba una franja de papel arriba a la izquierda. En el indice no
- * se veia -mide justo 900 y sin scroll disponible sticky no se despega-, solo en la
- * leccion. Medido: indice y=0, leccion y=64. */
-.ahdoc .ugc .ugc-side { top: 0 !important; }
+/* LA REPLICA ES UNA APP DE 100vh: LA PAGINA NO SCROLLEA, SCROLLEA EL CONTENIDO.
+ *
+ * Cinco rondas de parches sobre el mismo sintoma, y el arreglo de una fue la causa de la
+ * siguiente. La cadena, medida:
+ *
+ *  - Para matar la barra horizontal se puso overflow-x: hidden en html y body. Funciono.
+ *  - Pero overflow-x: hidden con overflow-y: visible NO deja el otro eje quieto: el valor
+ *    USADO de overflow-y pasa a auto y body se vuelve un contenedor de scroll. Un
+ *    position: sticky se posiciona contra su ancestro que scrollea; con body hecho
+ *    contenedor y sin scroll propio, la barra dejo de pegarse DEL TODO.
+ *  - Sintoma: al scrollear la leccion la barra se iba con la pagina y abajo quedaba papel
+ *    vacio. Medido a 1920x880 con scrollY=302: .ugc-side en y=-302, con top:0 puesto.
+ *    Y por eso las verificaciones anteriores daban bien: todas median con scrollY=0, que
+ *    es el unico estado en que un sticky roto se ve igual que uno sano.
+ *
+ * La salida no es otro parche de sticky: es que la pagina no scrollee. El shell mide
+ * exactamente la ventana, la barra es un bloque normal de alto completo -sin sticky no hay
+ * nada de que despegarse- y lo que scrollea es el contenido. Es como funciona la barra de
+ * MaKo, que es lo que se pidio, y de paso la barra horizontal desaparece sola: sin scroll
+ * de pagina no hay barra vertical, y sin barra vertical no sobra el ancho.
+ */
+html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !important; }
+.cono:has(.ahdoc) { height: 100vh !important; min-height: 0 !important; overflow: hidden !important; }
+.cono:has(.ahdoc) > .paper-bg { height: 100vh !important; }
+/* El chrome del portal se saca: la replica ya trae su marca y su "Volver a los cursos" en
+ * la propia barra, asi que el header de afuera era chrome DUPLICADO -y es el contenedor
+ * que se reporto tres veces como "la caja que tapa el papel"-. */
+.cono-wrap:has(.ahdoc) { padding: 0 !important; max-width: none !important; width: auto !important; margin: 0 !important; height: 100vh !important; overflow: hidden !important; }
+.cono-wrap:has(.ahdoc) .al-top, .cono-wrap:has(.ahdoc) .al-shared-ft { display: none !important; }
+.ahdoc { width: auto !important; max-width: none !important; margin-inline: 0 !important; height: 100vh !important; overflow: hidden !important; }
+.ahdoc .ugc { height: 100vh !important; }
+.ahdoc .ugc .ugc-shell { height: 100vh !important; min-height: 0 !important; overflow: hidden !important; align-items: stretch !important; }
 
-/* El panel del documento con su propio scroll: hay lecciones de 78 KB y sin esto la
- * pagina entera se estira detras de un video que queda fijo arriba. */
-.ahdoc .ugc .ugc-pcol { max-height: 100vh !important; overflow-y: auto !important; position: sticky !important; top: 0; }
+/* La barra: bloque normal de alto completo. Sin sticky no hay nada que se despegue, y no
+ * depende de que ningun ancestro conserve su overflow. */
+.ahdoc .ugc .ugc-side { position: static !important; top: auto !important; height: 100vh !important; min-height: 0 !important; flex: 0 0 auto !important; overflow-y: auto !important; overscroll-behavior: contain; }
+
+/* La columna de contenido: la busqueda fija arriba y el resto scrolleando debajo.
+ * El min-height: 0 no sobra - sin el, un hijo de flex no se deja achicar por debajo de su
+ * contenido y el scroll interno no aparece nunca. */
+.ahdoc .ugc .ugc-main { height: 100vh !important; min-width: 0 !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
+.ahdoc .ugc .ugc-topbar { position: static !important; flex: 0 0 auto !important; margin: 0 0 18px !important; z-index: auto !important; }
+.ahdoc .ugc .ugc-content { flex: 1 1 auto !important; min-height: 0 !important; padding: 0 !important; display: flex !important; flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain; }
+.ahdoc .ugc .ugc-content > * { flex: 0 0 auto !important; }
+
+/* En la leccion las dos columnas llenan el alto y scrollea cada una la suya: el video
+ * queda a la vista mientras se lee el documento, que en la clase mas larga mide 8221 px. */
+.ahdoc .ugc .ugc-content > .ugc-split { flex: 1 1 auto !important; min-height: 0 !important; align-items: stretch !important; }
+.ahdoc .ugc .ugc-split > .ugc-vcol, .ahdoc .ugc .ugc-split > .ugc-pcol {
+  position: static !important; top: auto !important; min-height: 0 !important; max-height: none !important;
+  overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain;
+}
 /* Los clips embebidos del documento, con su caja: sin alto propio un iframe sale de
  * 150 px y rompe la fila. */
 .ahdoc .ugc .ugc-clip-drive, .ahdoc .ugc .ugc-media iframe { width: 100% !important; aspect-ratio: 9 / 16 !important; height: auto !important; border: 0; display: block; }
 .ahdoc .ugc .ugc-media { max-width: 220px !important; }
-/* LA REPLICA EMPIEZA EN y=0, y para eso hay que sacar el chrome del portal.
- * Medido: .ahdoc arrancaba en 84 px -el header .al-top mide 60 y .cono-wrap pone 24 de
- * padding-. La barra tenia 100vh pero empezaba 84 px abajo: sobresalia por abajo y no
- * llegaba arriba. Subir el alto no arregla nada; hay que sacar lo que la empuja.
- * El header no se pierde: la replica ya trae su marca y su "Volver a los cursos" en la
- * propia barra, asi que el de afuera era chrome DUPLICADO -y es el contenedor que se
- * reporto tres veces como "la caja que tapa el papel". */
-.cono-wrap:has(.ahdoc) { padding: 0 !important; max-width: none !important; width: auto !important; margin: 0 !important; }
-.cono-wrap:has(.ahdoc) .al-top, .cono-wrap:has(.ahdoc) .al-shared-ft { display: none !important; }
-.cono:has(.ahdoc), .cono:has(.ahdoc) > .paper-bg { min-height: 100vh !important; }
-/* Y con el wrap ya a ancho completo, el breakout deja de tener trabajo que hacer: sin
- * esto los margenes negativos siguen corriendo la replica y vuelve a sobrar por un lado. */
-.cono-wrap:has(.ahdoc) .ahdoc { margin-inline: 0 !important; }
-
 /* Y el contenedor NO pinta: el papel tiene que verse. Un fondo propio encima del
  * papel es justo lo que hacia que pareciera una caja pegada arriba. */
 .ahdoc .ugc, .ahdoc .ugc .ugc-shell, .ahdoc .ugc .ugc-main, .ahdoc .ugc .ugc-content {
